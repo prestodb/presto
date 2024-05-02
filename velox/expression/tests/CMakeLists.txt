@@ -12,11 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_subdirectory(utils)
-
 add_executable(
   velox_expression_test
-  ArgumentTypeFuzzerTest.cpp
   ArrayViewTest.cpp
   ArrayWriterTest.cpp
   CastExprTest.cpp
@@ -88,29 +85,6 @@ target_link_libraries(
   velox_expression_verifier velox_vector_test_lib velox_vector_fuzzer
   velox_type velox_expression_test_utility)
 
-add_library(velox_expression_fuzzer ExpressionFuzzer.cpp FuzzerRunner.cpp
-                                    ExpressionFuzzerVerifier.cpp)
-
-target_link_libraries(
-  velox_expression_fuzzer
-  velox_expression_verifier
-  velox_type
-  velox_vector_fuzzer
-  velox_vector_test_lib
-  velox_function_registry
-  velox_expression_test_utility)
-
-add_executable(velox_expression_fuzzer_unit_test ExpressionFuzzerUnitTest.cpp)
-
-target_link_libraries(
-  velox_expression_fuzzer_unit_test
-  velox_expression_fuzzer
-  velox_functions_prestosql
-  velox_core
-  velox_expression
-  gtest
-  gtest_main)
-
 add_library(velox_expression_runner ExpressionRunner.cpp)
 target_link_libraries(
   velox_expression_runner velox_expression_verifier velox_functions_prestosql
@@ -150,13 +124,3 @@ target_link_libraries(
   velox_vector_test_lib
   gtest
   gtest_main)
-
-add_executable(velox_expression_fuzzer_test ExpressionFuzzerTest.cpp)
-
-target_link_libraries(velox_expression_fuzzer_test velox_expression_fuzzer
-                      velox_functions_prestosql gtest gtest_main)
-
-add_executable(spark_expression_fuzzer_test SparkExpressionFuzzerTest.cpp)
-
-target_link_libraries(spark_expression_fuzzer_test velox_expression_fuzzer
-                      velox_functions_spark gtest gtest_main)

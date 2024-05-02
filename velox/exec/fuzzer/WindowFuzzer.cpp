@@ -298,7 +298,7 @@ void WindowFuzzer::testAlternativePlans(
     const std::vector<RowVectorPtr>& input,
     bool customVerification,
     const std::shared_ptr<ResultVerifier>& customVerifier,
-    const velox::test::ResultOrError& expected) {
+    const velox::fuzzer::ResultOrError& expected) {
   std::vector<AggregationFuzzerBase::PlanWithSplits> plans;
 
   std::vector<std::string> allKeys;
@@ -393,7 +393,7 @@ bool WindowFuzzer::verifyWindow(
     persistReproInfo({{plan, {}}}, reproPersistPath_);
   }
 
-  velox::test::ResultOrError resultOrError;
+  velox::fuzzer::ResultOrError resultOrError;
   try {
     resultOrError = execute(plan);
     if (resultOrError.exceptionPtr) {

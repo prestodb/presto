@@ -23,7 +23,7 @@
 #include "velox/exec/fuzzer/ReferenceQueryRunner.h"
 #include "velox/exec/fuzzer/ResultVerifier.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
-#include "velox/expression/tests/utils/FuzzerToolkit.h"
+#include "velox/expression/fuzzer/FuzzerToolkit.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 #include "velox/vector/tests/utils/VectorMaker.h"
 
@@ -47,8 +47,8 @@ DECLARE_bool(log_signature_stats);
 
 namespace facebook::velox::exec::test {
 
-using facebook::velox::test::CallableSignature;
-using facebook::velox::test::SignatureTemplate;
+using facebook::velox::fuzzer::CallableSignature;
+using facebook::velox::fuzzer::SignatureTemplate;
 
 constexpr const std::string_view kPlanNodeFileName = "plan_nodes";
 
@@ -219,7 +219,7 @@ class AggregationFuzzerBase {
       const core::PlanNodePtr& plan,
       const std::vector<RowVectorPtr>& input);
 
-  velox::test::ResultOrError execute(
+  velox::fuzzer::ResultOrError execute(
       const core::PlanNodePtr& plan,
       const std::vector<exec::Split>& splits = {},
       bool injectSpill = false,
@@ -236,10 +236,10 @@ class AggregationFuzzerBase {
       const std::vector<RowVectorPtr>& input);
 
   void compare(
-      const velox::test::ResultOrError& actual,
+      const velox::fuzzer::ResultOrError& actual,
       bool customVerification,
       const std::vector<std::shared_ptr<ResultVerifier>>& customVerifiers,
-      const velox::test::ResultOrError& expected);
+      const velox::fuzzer::ResultOrError& expected);
 
   /// Returns false if the type or its children are unsupported.
   /// Currently returns false if type is Date,IntervalDayTime or Unknown.
@@ -258,7 +258,7 @@ class AggregationFuzzerBase {
       bool abandonPartial,
       bool customVerification,
       const std::vector<std::shared_ptr<ResultVerifier>>& customVerifiers,
-      const velox::test::ResultOrError& expected,
+      const velox::fuzzer::ResultOrError& expected,
       int32_t maxDrivers = 2);
 
   void printSignatureStats();

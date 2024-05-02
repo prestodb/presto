@@ -22,7 +22,7 @@
 #include <unordered_set>
 #include <vector>
 
-#include "velox/expression/tests/FuzzerRunner.h"
+#include "velox/expression/fuzzer/FuzzerRunner.h"
 #include "velox/functions/sparksql/Register.h"
 
 DEFINE_int64(
@@ -31,7 +31,7 @@ DEFINE_int64(
     "Initial seed for random number generator "
     "(use it to reproduce previous results).");
 
-using facebook::velox::test::FuzzerRunner;
+using facebook::velox::fuzzer::FuzzerRunner;
 
 int main(int argc, char** argv) {
   facebook::velox::functions::sparksql::registerFunctions("");

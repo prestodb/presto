@@ -58,6 +58,5 @@ add_subdirectory(signature_parser)
 
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)
-elseif(${VELOX_BUILD_TEST_UTILS})
-  add_subdirectory(tests/utils)
+  add_subdirectory(fuzzer)
 endif()

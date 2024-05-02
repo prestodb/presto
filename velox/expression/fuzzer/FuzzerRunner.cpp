@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include "velox/expression/tests/FuzzerRunner.h"
-#include "velox/expression/tests/ExpressionFuzzer.h"
+#include "velox/expression/fuzzer/FuzzerRunner.h"
+#include "velox/expression/fuzzer/ExpressionFuzzer.h"
 
 DEFINE_int32(steps, 10, "Number of expressions to generate and execute.");
 
@@ -148,7 +148,7 @@ DEFINE_string(
     "of functions at every instance. Number of tickets must be a positive "
     "integer. Example: eq=3,floor=5");
 
-namespace facebook::velox::test {
+namespace facebook::velox::fuzzer {
 
 namespace {
 VectorFuzzer::Options getVectorFuzzerOptions() {
@@ -222,4 +222,4 @@ void FuzzerRunner::runFromGtest(
       getExpressionFuzzerVerifierOptions(skipFunctions, queryConfigs))
       .go();
 }
-} // namespace facebook::velox::test
+} // namespace facebook::velox::fuzzer

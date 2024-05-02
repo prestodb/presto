@@ -264,14 +264,14 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: presto
-          path: velox/_build/debug/velox/expression/tests/velox_expression_fuzzer_test
+          path: velox/_build/debug/velox/expression/fuzzer/velox_expression_fuzzer_test
           retention-days: "${{ env.RETENTION }}"
 
       - name: Upload spark expression fuzzer
         uses: actions/upload-artifact@v4
         with:
           name: spark_expression_fuzzer
-          path: velox/_build/debug/velox/expression/tests/spark_expression_fuzzer_test
+          path: velox/_build/debug/velox/expression/fuzzer/spark_expression_fuzzer_test
           retention-days: "${{ env.RETENTION }}"
 
       - name: Upload spark aggregation fuzzer

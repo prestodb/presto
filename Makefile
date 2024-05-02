@@ -161,7 +161,7 @@ unittest: debug			#: Build with debugging and run unit tests
 # Build with debugging and run expression fuzzer test. Use a fixed seed to
 # ensure the tests are reproducible.
 fuzzertest: debug
-	$(BUILD_BASE_DIR)/debug/velox/expression/tests/velox_expression_fuzzer_test \
+	$(BUILD_BASE_DIR)/debug/velox/expression/fuzzer/velox_expression_fuzzer_test \
 			--seed $(FUZZER_SEED) \
 			--duration_sec $(FUZZER_DURATION_SEC) \
 			--repro_persist_path $(FUZZER_REPRO_PERSIST_PATH) \

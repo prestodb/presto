@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "velox/expression/tests/utils/ArgumentTypeFuzzer.h"
+#include "velox/expression/fuzzer/ArgumentTypeFuzzer.h"
 
 #include <boost/algorithm/string.hpp>
 #include <boost/random/uniform_int_distribution.hpp>
@@ -24,7 +24,7 @@
 #include "velox/type/Type.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
-namespace facebook::velox::test {
+namespace facebook::velox::fuzzer {
 
 std::string typeToBaseName(const TypePtr& type) {
   if (type->isDecimal()) {
@@ -226,4 +226,4 @@ int32_t ArgumentTypeFuzzer::rand32(int32_t min, int32_t max) {
   return boost::random::uniform_int_distribution<uint32_t>(min, max)(rng_);
 }
 
-} // namespace facebook::velox::test
+} // namespace facebook::velox::fuzzer

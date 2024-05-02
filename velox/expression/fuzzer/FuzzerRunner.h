@@ -22,10 +22,10 @@
 #include <unordered_set>
 #include <vector>
 
-#include "velox/expression/tests/ExpressionFuzzerVerifier.h"
+#include "velox/expression/fuzzer/ExpressionFuzzerVerifier.h"
 #include "velox/functions/FunctionRegistry.h"
 
-namespace facebook::velox::test {
+namespace facebook::velox::fuzzer {
 
 /// FuzzerRunner leverages ExpressionFuzzerVerifier to create a gtest unit test.
 class FuzzerRunner {
@@ -41,4 +41,4 @@ class FuzzerRunner {
       const std::unordered_map<std::string, std::string>& queryConfigs);
 };
 
-} // namespace facebook::velox::test
+} // namespace facebook::velox::fuzzer

@@ -41,7 +41,7 @@ void logRowVector(const RowVectorPtr& rowVector) {
 }
 } // namespace
 
-ResultOrError ExpressionVerifier::verify(
+fuzzer::ResultOrError ExpressionVerifier::verify(
     const std::vector<core::TypedExprPtr>& plans,
     const RowVectorPtr& rowVector,
     VectorPtr&& resultVector,
@@ -127,7 +127,7 @@ ResultOrError ExpressionVerifier::verify(
 
     if (copiedInput) {
       // Flatten the input vector as an optimization if its very deeply nested.
-      compareVectors(
+      fuzzer::compareVectors(
           copiedInput,
           BaseVector::copy(*inputRowVector),
           "Copy of original input",
@@ -162,7 +162,7 @@ ResultOrError ExpressionVerifier::verify(
     exprSetSimplified.eval(rows, evalCtxSimplified, simplifiedEvalResult);
 
     // Flatten the input vector as an optimization if its very deeply nested.
-    compareVectors(
+    fuzzer::compareVectors(
         copy,
         BaseVector::copy(*rowVector),
         "Copy of original input",
@@ -183,14 +183,14 @@ ResultOrError ExpressionVerifier::verify(
     if (exceptionCommonPtr || exceptionSimplifiedPtr) {
       // Throws in case exceptions are not compatible. If they are compatible,
       // return false to signal that the expression failed.
-      compareExceptions(exceptionCommonPtr, exceptionSimplifiedPtr);
+      fuzzer::compareExceptions(exceptionCommonPtr, exceptionSimplifiedPtr);
       return {nullptr, exceptionCommonPtr};
     } else {
       // Throws in case output is different.
       VELOX_CHECK_EQ(commonEvalResult.size(), plans.size());
       VELOX_CHECK_EQ(simplifiedEvalResult.size(), plans.size());
       for (int i = 0; i < plans.size(); ++i) {
-        compareVectors(
+        fuzzer::compareVectors(
             commonEvalResult[i],
             simplifiedEvalResult[i],
             "common path results ",

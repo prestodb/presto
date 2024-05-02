@@ -94,7 +94,7 @@ class AggregationFuzzerRunner {
       exit(1);
     }
 
-    auto filteredSignatures = velox::test::filterSignatures(
+    auto filteredSignatures = velox::fuzzer::filterSignatures(
         signatures, options.onlyFunctions, options.skipFunctions);
     if (filteredSignatures.empty()) {
       LOG(ERROR)

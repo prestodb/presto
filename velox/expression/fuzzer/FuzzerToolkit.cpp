@@ -13,9 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/expression/tests/utils/FuzzerToolkit.h"
+#include "velox/expression/fuzzer/FuzzerToolkit.h"
 
-namespace facebook::velox::test {
+namespace facebook::velox::fuzzer {
 
 std::string CallableSignature::toString() const {
   std::string buf = name;
@@ -137,4 +137,4 @@ void compareVectors(
   LOG(INFO) << "Two vectors match.";
 }
 
-} // namespace facebook::velox::test
+} // namespace facebook::velox::fuzzer

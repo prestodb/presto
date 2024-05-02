@@ -26,7 +26,7 @@
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/fuzzer/AggregationFuzzerOptions.h"
 #include "velox/exec/fuzzer/WindowFuzzer.h"
-#include "velox/expression/tests/utils/FuzzerToolkit.h"
+#include "velox/expression/fuzzer/FuzzerToolkit.h"
 #include "velox/parse/TypeResolver.h"
 #include "velox/serializers/PrestoSerializer.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
@@ -63,9 +63,9 @@ class WindowFuzzerRunner {
       exit(1);
     }
 
-    auto filteredAggregationSignatures = velox::test::filterSignatures(
+    auto filteredAggregationSignatures = velox::fuzzer::filterSignatures(
         aggregationSignatures, options.onlyFunctions, options.skipFunctions);
-    auto filteredWindowSignatures = velox::test::filterSignatures(
+    auto filteredWindowSignatures = velox::fuzzer::filterSignatures(
         windowSignatures, options.onlyFunctions, options.skipFunctions);
     if (filteredAggregationSignatures.empty() &&
         filteredWindowSignatures.empty()) {

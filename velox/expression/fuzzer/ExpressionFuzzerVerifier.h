@@ -19,16 +19,16 @@
 #include "velox/core/ITypedExpr.h"
 #include "velox/core/QueryCtx.h"
 #include "velox/expression/Expr.h"
-#include "velox/expression/tests/ExpressionFuzzer.h"
+#include "velox/expression/fuzzer/ExpressionFuzzer.h"
+#include "velox/expression/fuzzer/FuzzerToolkit.h"
 #include "velox/expression/tests/ExpressionVerifier.h"
-#include "velox/expression/tests/utils/FuzzerToolkit.h"
 #include "velox/functions/FunctionRegistry.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 #include "velox/vector/tests/utils/VectorMaker.h"
 
 DECLARE_int32(velox_fuzzer_max_level_of_nesting);
 
-namespace facebook::velox::test {
+namespace facebook::velox::fuzzer {
 
 // A tool that utilizes ExpressionFuzzer, VectorFuzzer and ExpressionVerfier to
 // generate random expressions and verify the correctness of the results. It
@@ -210,4 +210,4 @@ class ExpressionFuzzerVerifier {
   ExpressionFuzzer expressionFuzzer_;
 };
 
-} // namespace facebook::velox::test
+} // namespace facebook::velox::fuzzer

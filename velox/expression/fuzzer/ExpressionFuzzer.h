@@ -19,13 +19,13 @@
 #include "velox/core/ITypedExpr.h"
 #include "velox/core/QueryCtx.h"
 #include "velox/expression/Expr.h"
+#include "velox/expression/fuzzer/FuzzerToolkit.h"
 #include "velox/expression/tests/ExpressionVerifier.h"
-#include "velox/expression/tests/utils/FuzzerToolkit.h"
 #include "velox/functions/FunctionRegistry.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 #include "velox/vector/tests/utils/VectorMaker.h"
 
-namespace facebook::velox::test {
+namespace facebook::velox::fuzzer {
 
 // A tool that can be used to generate random expressions.
 class ExpressionFuzzer {
@@ -418,4 +418,4 @@ class ExpressionFuzzer {
   friend class ExpressionFuzzerUnitTest;
 };
 
-} // namespace facebook::velox::test
+} // namespace facebook::velox::fuzzer

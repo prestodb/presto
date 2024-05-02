@@ -26,10 +26,10 @@
 #include "velox/expression/FunctionSignature.h"
 #include "velox/expression/ReverseSignatureBinder.h"
 #include "velox/expression/SimpleFunctionRegistry.h"
-#include "velox/expression/tests/ExpressionFuzzer.h"
-#include "velox/expression/tests/utils/ArgumentTypeFuzzer.h"
+#include "velox/expression/fuzzer/ArgumentTypeFuzzer.h"
+#include "velox/expression/fuzzer/ExpressionFuzzer.h"
 
-namespace facebook::velox::test {
+namespace facebook::velox::fuzzer {
 
 namespace {
 using exec::SignatureBinder;
@@ -1384,4 +1384,4 @@ RowTypePtr ExpressionFuzzer::fuzzRowReturnType(size_t size, char prefix) {
   return ROW(std::move(names), std::move(children));
 }
 
-} // namespace facebook::velox::test
+} // namespace facebook::velox::fuzzer

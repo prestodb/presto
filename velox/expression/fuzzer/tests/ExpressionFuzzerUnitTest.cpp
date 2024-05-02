@@ -16,10 +16,10 @@
 
 #include <gtest/gtest.h>
 
-#include "velox/expression/tests/ExpressionFuzzer.h"
+#include "velox/expression/fuzzer/ExpressionFuzzer.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 
-namespace facebook::velox::test {
+namespace facebook::velox::fuzzer::test {
 class ExpressionFuzzerUnitTest : public testing::Test {
  protected:
   static void SetUpTestCase() {
@@ -199,4 +199,4 @@ TEST_F(ExpressionFuzzerUnitTest, exprBank) {
   }
 }
 
-} // namespace facebook::velox::test
+} // namespace facebook::velox::fuzzer::test

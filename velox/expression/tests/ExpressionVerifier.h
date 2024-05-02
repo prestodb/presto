@@ -18,7 +18,7 @@
 
 #include "velox/core/ITypedExpr.h"
 #include "velox/core/QueryCtx.h"
-#include "velox/expression/tests/utils/FuzzerToolkit.h"
+#include "velox/expression/fuzzer/FuzzerToolkit.h"
 #include "velox/functions/FunctionRegistry.h"
 #include "velox/type/Type.h"
 #include "velox/vector/BaseVector.h"
@@ -63,7 +63,7 @@ class ExpressionVerifier {
   //  - exception thrown by the common path if both paths failed with compatible
   //  exceptions.
   //  - throws otherwise (incompatible exceptions or different results).
-  ResultOrError verify(
+  fuzzer::ResultOrError verify(
       const std::vector<core::TypedExprPtr>& plans,
       const RowVectorPtr& rowVector,
       VectorPtr&& resultVector,

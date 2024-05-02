@@ -18,7 +18,7 @@
 #include "velox/expression/FunctionSignature.h"
 #include "velox/vector/ComplexVector.h"
 
-namespace facebook::velox::test {
+namespace facebook::velox::fuzzer {
 
 // Represents one available function signature.
 struct CallableSignature {
@@ -111,4 +111,4 @@ void compareVectors(
     const std::string& leftName = "left",
     const std::string& rightName = "right",
     const std::optional<SelectivityVector>& rows = std::nullopt);
-} // namespace facebook::velox::test
+} // namespace facebook::velox::fuzzer

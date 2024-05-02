@@ -22,7 +22,7 @@
 #include "velox/expression/SignatureBinder.h"
 #include "velox/type/Type.h"
 
-namespace facebook::velox::test {
+namespace facebook::velox::fuzzer {
 
 /// For function signatures using type variables, generates a list of
 /// arguments types. Optionally, allows to specify a desired return type. If
@@ -104,4 +104,4 @@ std::string typeToBaseName(const TypePtr& type);
 /// Return the TypeKind that corresponds to typeName.
 std::optional<TypeKind> baseNameToTypeKind(const std::string& typeName);
 
-} // namespace facebook::velox::test
+} // namespace facebook::velox::fuzzer

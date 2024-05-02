@@ -122,7 +122,7 @@ class WindowFuzzer : public AggregationFuzzerBase {
       const std::vector<RowVectorPtr>& input,
       bool customVerification,
       const std::shared_ptr<ResultVerifier>& customVerifier,
-      const velox::test::ResultOrError& expected);
+      const velox::fuzzer::ResultOrError& expected);
 
   const std::unordered_set<std::string> orderDependentFunctions_;
 

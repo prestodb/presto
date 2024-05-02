@@ -25,7 +25,7 @@
 
 #include "velox/exec/PartitionFunction.h"
 #include "velox/exec/fuzzer/AggregationFuzzerBase.h"
-#include "velox/expression/tests/utils/FuzzerToolkit.h"
+#include "velox/expression/fuzzer/FuzzerToolkit.h"
 #include "velox/vector/VectorSaver.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
@@ -39,8 +39,8 @@ DEFINE_bool(
     false,
     "When true, the results of the window aggregation are compared to reference DB results");
 
-using facebook::velox::test::CallableSignature;
-using facebook::velox::test::SignatureTemplate;
+using facebook::velox::fuzzer::CallableSignature;
+using facebook::velox::fuzzer::SignatureTemplate;
 
 namespace facebook::velox::exec::test {
 
@@ -153,7 +153,7 @@ class AggregationFuzzer : public AggregationFuzzerBase {
       const std::vector<PlanWithSplits>& plans,
       bool customVerification,
       const std::vector<std::shared_ptr<ResultVerifier>>& customVerifiers,
-      const velox::test::ResultOrError& expected,
+      const velox::fuzzer::ResultOrError& expected,
       int32_t maxDrivers = 2,
       bool testWithSpilling = true) {
     for (auto i = 0; i < plans.size(); ++i) {
@@ -1074,7 +1074,7 @@ bool AggregationFuzzer::compareEquivalentPlanResults(
           stats_.updateReferenceQueryStats(referenceResult.second);
 
           if (referenceResult.first) {
-            velox::test::ResultOrError expected;
+            velox::fuzzer::ResultOrError expected;
             expected.result =
                 mergeRowVectors(referenceResult.first.value(), pool_.get());
 

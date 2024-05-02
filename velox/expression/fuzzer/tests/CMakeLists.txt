@@ -12,8 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_library(velox_expression_test_utility ArgumentTypeFuzzer.cpp
-                                          FuzzerToolkit.cpp)
+add_executable(velox_expression_fuzzer_unit_test ArgumentTypeFuzzerTest.cpp ExpressionFuzzerUnitTest.cpp)
 
-target_link_libraries(velox_expression_test_utility velox_type
-                      velox_expression_functions gtest)
+target_link_libraries(
+  velox_expression_fuzzer_unit_test
+  velox_expression_fuzzer
+  velox_functions_prestosql
+  velox_core
+  velox_expression
+  gtest
+  gtest_main)

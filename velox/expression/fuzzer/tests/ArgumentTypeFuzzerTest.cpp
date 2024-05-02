@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-#include "velox/expression/tests/utils/ArgumentTypeFuzzer.h"
+#include "velox/expression/fuzzer/ArgumentTypeFuzzer.h"
 
 #include <gtest/gtest.h>
 
 #include "velox/expression/SignatureBinder.h"
 #include "velox/type/Type.h"
 
-namespace facebook::velox::test {
+namespace facebook::velox::fuzzer::test {
 
 namespace {
 const uint32_t kMaxVariadicArgs = 5;
@@ -649,4 +649,4 @@ TEST_F(ArgumentTypeFuzzerTest, fuzzDecimalReturnType) {
   EXPECT_EQ(DECIMAL(10, 7)->toString(), returnType->toString());
 }
 
-} // namespace facebook::velox::test
+} // namespace facebook::velox::fuzzer::test
