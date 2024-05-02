@@ -190,9 +190,10 @@ public class TestPrestoDriverAuth
     public void testFailedBadHmacSignature()
             throws Exception
     {
+        String badKey = "iPqFfWmGvClP953xU9110Q48qB4F5dcJ7QQel3O1k0xU52mlR6fT51SMa2f4KzhFRqqpwGUOud8Eo12pK9EW5H4N";
         String accessToken = Jwts.builder()
                 .setSubject("test")
-                .signWith(SignatureAlgorithm.HS512, Base64.getEncoder().encodeToString("bad-key".getBytes(US_ASCII)))
+                .signWith(SignatureAlgorithm.HS512, Base64.getEncoder().encodeToString(badKey.getBytes(US_ASCII)))
                 .compact();
 
         try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken))) {
