@@ -40,6 +40,7 @@ public class ServerConfig
     private NodePoolType poolType = DEFAULT;
     private Duration clusterStatsExpirationDuration = new Duration(0, MILLISECONDS);
     private boolean nestedDataSerializationEnabled = true;
+    private Duration clusterResourceGroupStateInfoExpirationDuration = new Duration(0, MILLISECONDS);
 
     public boolean isResourceManager()
     {
@@ -212,6 +213,18 @@ public class ServerConfig
     public ServerConfig setNestedDataSerializationEnabled(boolean nestedDataSerializationEnabled)
     {
         this.nestedDataSerializationEnabled = nestedDataSerializationEnabled;
+        return this;
+    }
+
+    public Duration getClusterResourceGroupStateInfoExpirationDuration()
+    {
+        return clusterResourceGroupStateInfoExpirationDuration;
+    }
+
+    @Config("cluster-resource-group-state-info-expiration-duration")
+    public ServerConfig setClusterResourceGroupStateInfoExpirationDuration(Duration clusterResourceGroupStateInfoExpirationDuration)
+    {
+        this.clusterResourceGroupStateInfoExpirationDuration = clusterResourceGroupStateInfoExpirationDuration;
         return this;
     }
 }
