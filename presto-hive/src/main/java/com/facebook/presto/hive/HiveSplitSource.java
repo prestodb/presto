@@ -564,7 +564,7 @@ class HiveSplitSource
                     }
                 }
                 else {
-                    resultBuilder.add(hiveSplit);
+                    resultBuilder.add(new CollatedHiveSplit(ImmutableList.of(hiveSplit)));
                 }
 
                 internalSplit.increaseStart(splitBytes);

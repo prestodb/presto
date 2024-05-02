@@ -141,18 +141,24 @@ public class HivePageSourceProvider
             List<ColumnHandle> columns,
             SplitContext splitContext)
     {
-        if (split instanceof CollatedHiveSplit) {
-            log.info("NIKHIL found collated split. return collated hive page source");
-            return new CollatedHivePageSource(this, transaction, session, (CollatedHiveSplit) split, layout, columns, splitContext);
-        }
+        log.info("NIKHIL found collated split. return collated hive page source");
+        return new CollatedHivePageSource(this, transaction, session, (CollatedHiveSplit) split, layout, columns, splitContext);
+    }
 
+    public ConnectorPageSource createPageSource(
+            ConnectorTransactionHandle transaction,
+            ConnectorSession session,
+            HiveSplit hiveSplit,
+            ConnectorTableLayoutHandle layout,
+            List<ColumnHandle> columns,
+            SplitContext splitContext)
+    {
         HiveTableLayoutHandle hiveLayout = (HiveTableLayoutHandle) layout;
 
         List<HiveColumnHandle> selectedColumns = columns.stream()
                 .map(HiveColumnHandle.class::cast)
                 .collect(toList());
 
-        HiveSplit hiveSplit = (HiveSplit) split;
         Path path = new Path(hiveSplit.getFileSplit().getPath());
 
         Configuration configuration = hdfsEnvironment.getConfiguration(

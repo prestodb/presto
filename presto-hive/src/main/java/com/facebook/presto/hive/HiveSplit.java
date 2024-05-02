@@ -15,7 +15,6 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.NodeProvider;
 import com.facebook.presto.spi.SplitWeight;
@@ -39,7 +38,6 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class HiveSplit
-        implements ConnectorSplit
 {
     private final HiveFileSplit fileSplit;
     private final Storage storage;
@@ -163,7 +161,6 @@ public class HiveSplit
         return addresses;
     }
 
-    @Override
     public List<HostAddress> getPreferredNodes(NodeProvider nodeProvider)
     {
         if (getNodeSelectionStrategy() == SOFT_AFFINITY) {
@@ -203,7 +200,6 @@ public class HiveSplit
     }
 
     @JsonProperty
-    @Override
     public NodeSelectionStrategy getNodeSelectionStrategy()
     {
         return nodeSelectionStrategy;
@@ -234,7 +230,6 @@ public class HiveSplit
     }
 
     @JsonProperty
-    @Override
     public SplitWeight getSplitWeight()
     {
         return splitWeight;
@@ -246,7 +241,6 @@ public class HiveSplit
         return rowIdPartitionComponent;
     }
 
-    @Override
     public Object getInfo()
     {
         return ImmutableMap.builder()
@@ -265,7 +259,6 @@ public class HiveSplit
                 .build();
     }
 
-    @Override
     public Map<String, String> getInfoMap()
     {
         return ImmutableMap.<String, String>builder()
@@ -286,7 +279,6 @@ public class HiveSplit
                 .build();
     }
 
-    @Override
     public Object getSplitIdentifier()
     {
         return ImmutableMap.builder()
@@ -296,7 +288,6 @@ public class HiveSplit
                 .build();
     }
 
-    @Override
     public OptionalLong getSplitSizeInBytes()
     {
         return OptionalLong.of(fileSplit.getLength());
