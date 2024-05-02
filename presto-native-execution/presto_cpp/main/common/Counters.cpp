@@ -220,6 +220,7 @@ void registerPrestoMetrics() {
       kCounterSsdCacheCheckpointsRead, facebook::velox::StatType::SUM);
   DEFINE_METRIC(
       kCounterSsdCacheCheckpointsWritten, facebook::velox::StatType::SUM);
+  DEFINE_METRIC(kCounterSsdCacheRegionsEvicted, facebook::velox::StatType::SUM);
 
   /// ================== Disk Spilling Counters =================
 

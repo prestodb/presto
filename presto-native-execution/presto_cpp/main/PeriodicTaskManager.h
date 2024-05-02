@@ -159,6 +159,7 @@ class PeriodicTaskManager {
   int64_t lastMemoryCacheAgedOuts_{0};
   int64_t lastSsdCacheCheckpointsWritten_{0};
   int64_t lastSsdCacheCheckpointsRead_{0};
+  int64_t lastSsdCacheRegionsEvicted_{0};
 
   // Operating system related stats.
   int64_t lastUserCpuTimeUs_{0};
