@@ -370,6 +370,12 @@ void PrestoServer::run() {
   registerVectorSerdes();
   registerPrestoPlanNodeSerDe();
 
+  // Initialize prestoExprEval_ after the functions are registered.
+  if (1 /*systemConfig->sidecar()*/) {
+    prestoExprEval_ = std::make_unique<eval::PrestoExprEval>(pool_);
+    prestoExprEval_->registerUris(*httpServer_);
+  }
+
   const auto numExchangeHttpClientIoThreads = std::max<size_t>(
       systemConfig->exchangeHttpClientNumIoThreadsHwMultiplier() *
           std::thread::hardware_concurrency(),

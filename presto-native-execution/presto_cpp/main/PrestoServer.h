@@ -25,6 +25,7 @@
 #include "presto_cpp/main/PeriodicHeartbeatManager.h"
 #include "presto_cpp/main/PrestoExchangeSource.h"
 #include "presto_cpp/main/PrestoServerOperations.h"
+#include "presto_cpp/main/eval/PrestoExprEval.h"
 #include "velox/common/caching/AsyncDataCache.h"
 #include "velox/common/memory/MemoryAllocator.h"
 #if __has_include("filesystem")
@@ -258,6 +259,7 @@ class PrestoServer {
   std::string address_;
   std::string nodeLocation_;
   folly::SSLContextPtr sslContext_;
+  std::unique_ptr<eval::PrestoExprEval> prestoExprEval_;
 };
 
 } // namespace facebook::presto
