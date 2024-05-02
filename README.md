@@ -72,11 +72,8 @@ Blog posts are available [here](https://velox-lib.io/blog).
 
 ### Get the Velox Source
 ```
-git clone --recursive https://github.com/facebookincubator/velox.git
+git clone https://github.com/facebookincubator/velox.git
 cd velox
-# if you are updating an existing checkout
-git submodule sync --recursive
-git submodule update --init --recursive
 ```
 Once Velox is checked out, the first step is to install the dependencies.
 Details on the dependencies and how Velox manages some of them for you
@@ -90,7 +87,7 @@ dependencies for a given platform.
 On an Intel MacOS machine you can setup and then build like so:
 
 ```shell
-$ ./scripts/setup-macos.sh 
+$ ./scripts/setup-macos.sh
 $ make
 ```
 
@@ -117,7 +114,7 @@ $ CPU_TARGET="aarch64" make
 Once you have checked out Velox, you can setup and build like so:
 
 ```shell
-$ ./scripts/setup-ubuntu.sh 
+$ ./scripts/setup-ubuntu.sh
 $ make
 ```
 
@@ -135,7 +132,7 @@ Note that,
   * f16c
 * Velox tries to use the following (or equivalent) instruction sets where available:
   * On Intel CPUs
-    * avx  
+    * avx
     * avx2
     * sse
   * On ARM
@@ -167,7 +164,7 @@ contribute to the project.
 ## Community
 
 The main communication channel with the Velox OSS community is through the
-[the Velox-OSS Slack workspace](http://velox-oss.slack.com). 
+[the Velox-OSS Slack workspace](http://velox-oss.slack.com).
 Please reach out to **velox@meta.com** to get access to Velox Slack Channel.
 
 
