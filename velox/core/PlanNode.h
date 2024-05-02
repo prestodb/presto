@@ -158,7 +158,7 @@ class PlanNode : public ISerializable {
   /// 'addContext' is not null.
   ///
   /// @param addContext Optional lambda to add context for a given plan node.
-  /// Receives plan node ID, indentation and std::stringstring where to append
+  /// Receives plan node ID, indentation and std::stringstream where to append
   /// the context. Use indentation for second and subsequent lines of a
   /// mult-line context. Do not use indentation for single-line context. Do not
   /// add trailing new-line character for the last or only line of context.
