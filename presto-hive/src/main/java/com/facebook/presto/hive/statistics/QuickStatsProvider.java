@@ -26,7 +26,6 @@ import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveDirectoryContext;
 import com.facebook.presto.hive.HiveFileInfo;
 import com.facebook.presto.hive.NamenodeStats;
-import com.facebook.presto.hive.PartitionNameWithVersion;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.Partition;
@@ -321,9 +320,8 @@ public class QuickStatsProvider
             path = new Path(resolvedTable.getStorage().getLocation());
         }
         else {
-            partition = metastore.getPartitionsByNames(metastoreContext, table.getSchemaName(), table.getTableName(),
-                    ImmutableList.of(new PartitionNameWithVersion(partitionId, Optional.empty()))).get(partitionId);
-            checkState(partition.isPresent(), "getPartitionsByNames returned no partitions for partition with name [%s]", partitionId);
+            partition = metastore.getPartition(metastoreContext, table.getSchemaName(), table.getTableName(), ImmutableList.of(partitionId));
+            checkState(partition.isPresent(), "getPartition returned no partitions for [%s] partition id", partitionId);
             path = new Path(partition.get().getStorage().getLocation());
         }
 
