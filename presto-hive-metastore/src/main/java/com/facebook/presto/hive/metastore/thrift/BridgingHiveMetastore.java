@@ -55,7 +55,6 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.hive.metastore.MetastoreUtil.getPartitionsWithEmptyVersion;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyCanDropColumn;
 import static com.facebook.presto.hive.metastore.PrestoTableType.TEMPORARY_TABLE;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiPartition;
@@ -66,7 +65,6 @@ import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toMe
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiTable;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.UnaryOperator.identity;
 
@@ -288,13 +286,13 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public List<PartitionNameWithVersion> getPartitionNamesByFilter(
+    public List<String> getPartitionNamesByFilter(
             MetastoreContext metastoreContext,
             String databaseName,
             String tableName,
             Map<Column, Domain> partitionPredicates)
     {
-        return getPartitionsWithEmptyVersion(delegate.getPartitionNamesByFilter(metastoreContext, databaseName, tableName, partitionPredicates));
+        return delegate.getPartitionNamesByFilter(metastoreContext, databaseName, tableName, partitionPredicates);
     }
 
     @Override
@@ -308,16 +306,12 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public Map<String, Optional<Partition>> getPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<PartitionNameWithVersion> partitionNamesWithVersion)
+    public Map<String, Optional<Partition>> getPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> partitionNames)
     {
-        requireNonNull(partitionNamesWithVersion, "partitionNames is null");
-        if (partitionNamesWithVersion.isEmpty()) {
+        requireNonNull(partitionNames, "partitionNames is null");
+        if (partitionNames.isEmpty()) {
             return ImmutableMap.of();
         }
-
-        List<String> partitionNames = partitionNamesWithVersion.stream()
-                .map(PartitionNameWithVersion::getPartitionName)
-                .collect(toImmutableList());
         Map<String, List<String>> partitionNameToPartitionValuesMap = partitionNames.stream()
                 .collect(Collectors.toMap(identity(), MetastoreUtil::toPartitionValues));
         Map<List<String>, Partition> partitionValuesToPartitionMap = delegate.getPartitionsByNames(metastoreContext, databaseName, tableName, partitionNames).stream()

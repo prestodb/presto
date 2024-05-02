@@ -306,7 +306,6 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.createViewPropert
 import static com.facebook.presto.hive.metastore.MetastoreUtil.extractPartitionValues;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getMetastoreHeaders;
-import static com.facebook.presto.hive.metastore.MetastoreUtil.getPartitionsWithEmptyVersion;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getProtectMode;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isDeltaLakeTable;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isIcebergTable;
@@ -772,7 +771,7 @@ public class HiveMetadata
         if (tableLayoutHandle.getPartitions().isPresent()) {
             return Optional.of(new HiveInputInfo(
                     tableLayoutHandle.getPartitions().get().stream()
-                            .map(hivePartition -> hivePartition.getPartitionId().getPartitionName())
+                            .map(HivePartition::getPartitionId)
                             .collect(toList()),
                     false));
         }
@@ -1510,7 +1509,7 @@ public class HiveMetadata
                 partitionValuesList = metastore.getPartitionNames(metastoreContext, handle.getSchemaName(), handle.getTableName())
                         .orElseThrow(() -> new TableNotFoundException(((HiveTableHandle) tableHandle).getSchemaTableName()))
                         .stream()
-                        .map(partitionNameWithVersion -> MetastoreUtil.toPartitionValues(partitionNameWithVersion.getPartitionName()))
+                        .map(MetastoreUtil::toPartitionValues)
                         .collect(toImmutableList());
             }
 
@@ -1713,7 +1712,7 @@ public class HiveMetadata
         metastore.createTable(session, table, principalPrivileges, Optional.of(writeInfo.getWritePath()), false, tableStatistics, emptyList());
 
         if (handle.getPartitionedBy().isEmpty()) {
-            return Optional.of(new HiveWrittenPartitions(ImmutableList.of(UNPARTITIONED_ID.getPartitionName())));
+            return Optional.of(new HiveWrittenPartitions(ImmutableList.of(UNPARTITIONED_ID)));
         }
 
         if (isRespectTableFormat(session)) {
@@ -2144,7 +2143,7 @@ public class HiveMetadata
         return Optional.of(new HiveWrittenPartitions(
                 partitionUpdates.stream()
                         .map(PartitionUpdate::getName)
-                        .map(name -> name.isEmpty() ? UNPARTITIONED_ID.getPartitionName() : name)
+                        .map(name -> name.isEmpty() ? UNPARTITIONED_ID : name)
                         .collect(toList())));
     }
 
@@ -2211,7 +2210,7 @@ public class HiveMetadata
 
         // try to load potentially new partitions in batches to check if any of them exist
         Lists.partition(ImmutableList.copyOf(potentiallyNewPartitions.build()), maxPartitionBatchSize).stream()
-                .flatMap(partitionNames -> metastore.getPartitionsByNames(metastoreContext, databaseName, tableName, getPartitionsWithEmptyVersion(partitionNames)).entrySet().stream()
+                .flatMap(partitionNames -> metastore.getPartitionsByNames(metastoreContext, databaseName, tableName, partitionNames).entrySet().stream()
                         .filter(entry -> entry.getValue().isPresent()))
                 .forEach(entry -> existingPartitions.put(entry.getKey(), entry.getValue()));
 
@@ -2514,7 +2513,7 @@ public class HiveMetadata
         }
         else {
             for (HivePartition hivePartition : getOrComputePartitions(layoutHandle, session, tableHandle)) {
-                metastore.dropPartition(session, handle.getSchemaName(), handle.getTableName(), table.get().getStorage().getLocation(), toPartitionValues(hivePartition.getPartitionId().getPartitionName()));
+                metastore.dropPartition(session, handle.getSchemaName(), handle.getTableName(), table.get().getStorage().getLocation(), toPartitionValues(hivePartition.getPartitionId()));
             }
         }
         // it is too expensive to determine the exact number of deleted rows

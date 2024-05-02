@@ -31,7 +31,6 @@ import com.facebook.presto.hive.HiveColumnConverterProvider;
 import com.facebook.presto.hive.HivePartition;
 import com.facebook.presto.hive.HivePartitionKey;
 import com.facebook.presto.hive.HiveType;
-import com.facebook.presto.hive.PartitionNameWithVersion;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
@@ -648,7 +647,7 @@ public final class IcebergUtil
                 Map<ColumnHandle, NullableValue> values = builder.build();
                 HivePartition newPartition = new HivePartition(
                         ((IcebergTableHandle) tableHandle).getSchemaTableName(),
-                        new PartitionNameWithVersion(partition.toString(), Optional.empty()),
+                        partition.toString(),
                         values);
 
                 boolean isIncludePartition = true;

@@ -80,7 +80,6 @@ import static com.facebook.presto.hive.PartitionUpdate.UpdateMode.APPEND;
 import static com.facebook.presto.hive.PartitionUpdate.UpdateMode.NEW;
 import static com.facebook.presto.hive.PartitionUpdate.UpdateMode.OVERWRITE;
 import static com.facebook.presto.hive.TestDwrfEncryptionInformationSource.TEST_EXTRA_METADATA;
-import static com.facebook.presto.hive.metastore.MetastoreUtil.getPartitionsWithEmptyVersion;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
@@ -297,11 +296,7 @@ public class TestHiveMetadataFileFormatEncryptionSettings
 
             metadata.commit();
 
-            Map<String, Optional<Partition>> partitions = metastore.getPartitionsByNames(
-                    METASTORE_CONTEXT,
-                    TEST_DB_NAME,
-                    tableName,
-                    getPartitionsWithEmptyVersion(ImmutableList.of("ds=2020-06-26", "ds=2020-06-27")));
+            Map<String, Optional<Partition>> partitions = metastore.getPartitionsByNames(METASTORE_CONTEXT, TEST_DB_NAME, tableName, ImmutableList.of("ds=2020-06-26", "ds=2020-06-27"));
             assertEquals(partitions.get("ds=2020-06-26").get().getParameters().get(TEST_EXTRA_METADATA), "test_algo");
             assertEquals(partitions.get("ds=2020-06-27").get().getParameters().get(TEST_EXTRA_METADATA), "test_algo");
             // Checking NEW_PARTITION_USER_SUPPLIED_PARAMETER
@@ -471,11 +466,7 @@ public class TestHiveMetadataFileFormatEncryptionSettings
                     ImmutableList.of());
             createHiveMetadata.commit();
 
-            Map<String, Optional<Partition>> partitions = metastore.getPartitionsByNames(
-                    METASTORE_CONTEXT,
-                    TEST_DB_NAME,
-                    tableName,
-                    getPartitionsWithEmptyVersion(ImmutableList.of("ds=2020-06-26", "ds=2020-06-27")));
+            Map<String, Optional<Partition>> partitions = metastore.getPartitionsByNames(METASTORE_CONTEXT, TEST_DB_NAME, tableName, ImmutableList.of("ds=2020-06-26", "ds=2020-06-27"));
             assertEquals(partitions.get("ds=2020-06-26").get().getStorage().getLocation(), "path1");
             assertEquals(partitions.get("ds=2020-06-26").get().getParameters().get(TEST_EXTRA_METADATA), "test_algo");
             assertEquals(partitions.get("ds=2020-06-27").get().getParameters().get(TEST_EXTRA_METADATA), "test_algo");
@@ -492,11 +483,7 @@ public class TestHiveMetadataFileFormatEncryptionSettings
                     ImmutableList.of());
             overrideHiveMetadata.commit();
 
-            partitions = metastore.getPartitionsByNames(
-                    METASTORE_CONTEXT,
-                    TEST_DB_NAME,
-                    tableName,
-                    getPartitionsWithEmptyVersion(ImmutableList.of("ds=2020-06-26")));
+            partitions = metastore.getPartitionsByNames(METASTORE_CONTEXT, TEST_DB_NAME, tableName, ImmutableList.of("ds=2020-06-26"));
             assertEquals(partitions.get("ds=2020-06-26").get().getStorage().getLocation(), "path3");
             assertEquals(partitions.get("ds=2020-06-26").get().getParameters().get(TEST_EXTRA_METADATA), "test_algo");
         }

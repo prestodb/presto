@@ -101,7 +101,7 @@ public interface ExtendedHiveMetastore
 
     Optional<List<String>> getPartitionNames(MetastoreContext metastoreContext, String databaseName, String tableName);
 
-    List<PartitionNameWithVersion> getPartitionNamesByFilter(
+    List<String> getPartitionNamesByFilter(
             MetastoreContext metastoreContext,
             String databaseName,
             String tableName,
@@ -113,7 +113,7 @@ public interface ExtendedHiveMetastore
             String tableName,
             Map<Column, Domain> partitionPredicates);
 
-    Map<String, Optional<Partition>> getPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<PartitionNameWithVersion> partitionNames);
+    Map<String, Optional<Partition>> getPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> partitionNames);
 
     MetastoreOperationResult addPartitions(MetastoreContext metastoreContext, String databaseName, String tableName, List<PartitionWithStatistics> partitions);
 
