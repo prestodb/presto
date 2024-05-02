@@ -239,4 +239,11 @@ TEST_F(PlanBuilderTest, windowFrame) {
           .planNode(),
       "Window frame of type RANGE PRECEDING or FOLLOWING requires single sorting key in ORDER BY");
 }
+
+TEST_F(PlanBuilderTest, missingOutputType) {
+  VELOX_ASSERT_THROW(
+      PlanBuilder().startTableScan().endTableScan(),
+      "outputType must be specified");
+}
+
 } // namespace facebook::velox::exec::test

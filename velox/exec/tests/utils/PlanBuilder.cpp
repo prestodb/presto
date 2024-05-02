@@ -135,6 +135,7 @@ PlanBuilder& PlanBuilder::tpchTableScan(
 }
 
 core::PlanNodePtr PlanBuilder::TableScanBuilder::build(core::PlanNodeId id) {
+  VELOX_CHECK_NOT_NULL(outputType_, "outputType must be specified");
   std::unordered_map<std::string, core::TypedExprPtr> typedMapping;
   bool hasAssignments = !(assignments_.empty());
   for (uint32_t i = 0; i < outputType_->size(); ++i) {

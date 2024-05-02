@@ -160,6 +160,10 @@ class PlanBuilder {
   /// Helper class to build a custom TableScanNode.
   /// Uses a planBuilder instance to get the next plan id, memory pool, and
   /// parse options.
+  ///
+  /// Uses the hive connector by default. Specify outputType, tableHandle, and
+  /// assignments for other connectors. If these three are specified, all other
+  /// builder arguments will be ignored.
   class TableScanBuilder {
    public:
     TableScanBuilder(PlanBuilder& builder) : planBuilder_(builder) {}
@@ -177,6 +181,7 @@ class PlanBuilder {
     }
 
     /// @param outputType List of column names and types to read from the table.
+    /// This property is required.
     TableScanBuilder& outputType(RowTypePtr outputType) {
       outputType_ = std::move(outputType);
       return *this;
