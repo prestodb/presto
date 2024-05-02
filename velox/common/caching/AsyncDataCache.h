@@ -716,7 +716,7 @@ class AsyncDataCache : public memory::Cache {
 
   /// Returns snapshot of the aggregated stats from all shards and the stats of
   /// SSD cache if used.
-  CacheStats refreshStats() const;
+  virtual CacheStats refreshStats() const;
 
   /// If 'details' is true, returns the stats of the backing memory allocator
   /// and ssd cache. Otherwise, only returns the cache stats.

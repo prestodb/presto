@@ -239,11 +239,6 @@ class SharedArbitrator : public memory::MemoryArbitrator {
   // the reserved capacity as specified by 'memoryPoolReservedCapacity_'.
   int64_t minGrowCapacity(const MemoryPool& pool) const;
 
-  // Updates the free capacity metrics on capacity changes.
-  //
-  // TODO: move this update to velox runtime monitoring service once available.
-  void updateFreeCapacityMetrics() const;
-
   mutable std::mutex mutex_;
   tsan_atomic<uint64_t> freeReservedCapacity_{0};
   tsan_atomic<uint64_t> freeNonReservedCapacity_{0};

@@ -48,6 +48,24 @@ void registerVeloxMetrics() {
 
   /// ================== Memory Arbitration Counters =================
 
+  // The number of arbitration requests.
+  DEFINE_METRIC(
+      kMetricArbitratorRequestsCount, facebook::velox::StatType::COUNT);
+
+  // The number of times a query level memory pool is aborted as a result of a
+  // memory arbitration process. The memory pool aborted will eventually result
+  // in a cancelling of the original query.
+  DEFINE_METRIC(
+      kMetricArbitratorAbortedCount, facebook::velox::StatType::COUNT);
+
+  // The number of times a memory arbitration request failed. This may occur
+  // either because the requester was terminated during the processing of its
+  // request, the arbitration request would surpass the maximum allowed capacity
+  // for the requester, or the arbitration process couldn't release the
+  // requested amount of memory.
+  DEFINE_METRIC(
+      kMetricArbitratorFailuresCount, facebook::velox::StatType::COUNT);
+
   // Tracks the memory reclaim count on an operator.
   DEFINE_METRIC(kMetricMemoryReclaimCount, facebook::velox::StatType::COUNT);
 
@@ -82,10 +100,6 @@ void registerVeloxMetrics() {
   DEFINE_METRIC(
       kMetricMemoryNonReclaimableCount, facebook::velox::StatType::COUNT);
 
-  // The number of arbitration requests.
-  DEFINE_METRIC(
-      kMetricArbitratorRequestsCount, facebook::velox::StatType::COUNT);
-
   // The number of arbitration that reclaims the used memory from the query
   // which initiates the memory arbitration request itself. It ensures the
   // memory arbitration request won't exceed its per-query memory capacity
@@ -102,20 +116,6 @@ void registerVeloxMetrics() {
   DEFINE_METRIC(
       kMetricArbitratorGlobalArbitrationCount,
       facebook::velox::StatType::COUNT);
-
-  // The number of times a query level memory pool is aborted as a result of a
-  // memory arbitration process. The memory pool aborted will eventually result
-  // in a cancelling the original query.
-  DEFINE_METRIC(
-      kMetricArbitratorAbortedCount, facebook::velox::StatType::COUNT);
-
-  // The number of times a memory arbitration request failed. This may occur
-  // either because the requester was terminated during the processing of its
-  // request, the arbitration request would surpass the maximum allowed capacity
-  // for the requester, or the arbitration process couldn't release the
-  // requested amount of memory.
-  DEFINE_METRIC(
-      kMetricArbitratorFailuresCount, facebook::velox::StatType::COUNT);
 
   // The distribution of the amount of time an arbitration request stays queued
   // in range of [0, 600s] with 20 buckets. It is configured to report the

@@ -150,7 +150,6 @@ SharedArbitrator::SharedArbitrator(const MemoryArbitrator::Config& config)
       freeReservedCapacity_(reservedCapacity_),
       freeNonReservedCapacity_(capacity_ - freeReservedCapacity_) {
   VELOX_CHECK_EQ(kind_, config.kind);
-  updateFreeCapacityMetrics();
 }
 
 std::string SharedArbitrator::Candidate::toString() const {
@@ -192,14 +191,6 @@ std::vector<SharedArbitrator::Candidate> SharedArbitrator::getCandidateStats(
   return candidates;
 }
 
-void SharedArbitrator::updateFreeCapacityMetrics() const {
-  RECORD_METRIC_VALUE(
-      kMetricArbitratorFreeCapacityBytes,
-      freeNonReservedCapacity_ + freeReservedCapacity_);
-  RECORD_METRIC_VALUE(
-      kMetricArbitratorFreeReservedCapacityBytes, freeReservedCapacity_);
-}
-
 int64_t SharedArbitrator::maxReclaimableCapacity(const MemoryPool& pool) const {
   return std::max<int64_t>(0, pool.capacity() - memoryPoolReservedCapacity_);
 }
@@ -226,8 +217,6 @@ int64_t SharedArbitrator::minGrowCapacity(const MemoryPool& pool) const {
 uint64_t SharedArbitrator::growCapacity(
     MemoryPool* pool,
     uint64_t targetBytes) {
-  const auto freeCapacityMetricUpdateCb =
-      folly::makeGuard([this]() { updateFreeCapacityMetrics(); });
   uint64_t reservedBytes{0};
   {
     std::lock_guard<std::mutex> l(mutex_);
@@ -276,9 +265,6 @@ uint64_t SharedArbitrator::decrementFreeCapacityLocked(
 uint64_t SharedArbitrator::shrinkCapacity(
     MemoryPool* pool,
     uint64_t targetBytes) {
-  const auto freeCapacityUpdateCb =
-      folly::makeGuard([this]() { updateFreeCapacityMetrics(); });
-
   uint64_t freedBytes{0};
   {
     std::lock_guard<std::mutex> l(mutex_);
@@ -294,9 +280,6 @@ uint64_t SharedArbitrator::shrinkCapacity(
     uint64_t targetBytes,
     bool allowSpill,
     bool allowAbort) {
-  const auto freeCapacityUpdateCb =
-      folly::makeGuard([this]() { updateFreeCapacityMetrics(); });
-
   ScopedArbitration scopedArbitration(this);
   if (targetBytes == 0) {
     targetBytes = capacity_;
@@ -345,9 +328,6 @@ bool SharedArbitrator::growCapacity(
     MemoryPool* pool,
     const std::vector<std::shared_ptr<MemoryPool>>& candidatePools,
     uint64_t targetBytes) {
-  const auto freeCapacityUpdateCb =
-      folly::makeGuard([this]() { updateFreeCapacityMetrics(); });
-
   ScopedArbitration scopedArbitration(pool, this);
   MemoryPool* requestor = pool->root();
   if (requestor->aborted()) {

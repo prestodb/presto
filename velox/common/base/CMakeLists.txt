@@ -22,6 +22,7 @@ add_library(
   BitUtil.cpp
   Counters.cpp
   Fs.cpp
+  PeriodicStatsReporter.cpp
   RandomUtil.cpp
   RawVector.cpp
   RuntimeMetrics.cpp

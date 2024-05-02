@@ -20,14 +20,11 @@
 #include <gtest/gtest.h>
 #include <cstdint>
 #include <unordered_map>
+#include <unordered_set>
+#include "velox/common/base/Counters.h"
+#include "velox/common/base/PeriodicStatsReporter.h"
 
 namespace facebook::velox {
-
-class StatsReporterTest : public testing::Test {
- protected:
-  void SetUp() override {}
-  void TearDown() override {}
-};
 
 class TestReporter : public BaseStatsReporter {
  public:
@@ -35,6 +32,12 @@ class TestReporter : public BaseStatsReporter {
   mutable std::unordered_map<std::string, StatType> statTypeMap;
   mutable std::unordered_map<std::string, std::vector<int32_t>>
       histogramPercentilesMap;
+
+  void clear() {
+    counterMap.clear();
+    statTypeMap.clear();
+    histogramPercentilesMap.clear();
+  }
 
   void registerMetricExportType(const char* key, StatType statType)
       const override {
@@ -92,22 +95,32 @@ class TestReporter : public BaseStatsReporter {
   }
 };
 
-TEST_F(StatsReporterTest, trivialReporter) {
-  auto reporter = std::dynamic_pointer_cast<TestReporter>(
-      folly::Singleton<BaseStatsReporter>::try_get());
+class StatsReporterTest : public testing::Test {
+ protected:
+  void SetUp() override {
+    reporter_ = std::dynamic_pointer_cast<TestReporter>(
+        folly::Singleton<BaseStatsReporter>::try_get());
+  }
+  void TearDown() override {
+    reporter_->clear();
+  }
 
+  std::shared_ptr<TestReporter> reporter_;
+};
+
+TEST_F(StatsReporterTest, trivialReporter) {
   DEFINE_METRIC("key1", StatType::COUNT);
   DEFINE_METRIC("key2", StatType::SUM);
   DEFINE_METRIC("key3", StatType::RATE);
   DEFINE_HISTOGRAM_METRIC("key4", 10, 0, 100, 50, 99, 100);
 
-  EXPECT_EQ(StatType::COUNT, reporter->statTypeMap["key1"]);
-  EXPECT_EQ(StatType::SUM, reporter->statTypeMap["key2"]);
-  EXPECT_EQ(StatType::RATE, reporter->statTypeMap["key3"]);
+  EXPECT_EQ(StatType::COUNT, reporter_->statTypeMap["key1"]);
+  EXPECT_EQ(StatType::SUM, reporter_->statTypeMap["key2"]);
+  EXPECT_EQ(StatType::RATE, reporter_->statTypeMap["key3"]);
   std::vector<int32_t> expected = {50, 99, 100};
-  EXPECT_EQ(expected, reporter->histogramPercentilesMap["key4"]);
+  EXPECT_EQ(expected, reporter_->histogramPercentilesMap["key4"]);
   EXPECT_TRUE(
-      reporter->statTypeMap.find("key5") == reporter->statTypeMap.end());
+      reporter_->statTypeMap.find("key5") == reporter_->statTypeMap.end());
 
   RECORD_METRIC_VALUE("key1", 10);
   RECORD_METRIC_VALUE("key1", 11);
@@ -119,11 +132,83 @@ TEST_F(StatsReporterTest, trivialReporter) {
   RECORD_HISTOGRAM_METRIC_VALUE("key4", 50);
   RECORD_HISTOGRAM_METRIC_VALUE("key4", 100);
 
-  EXPECT_EQ(36, reporter->counterMap["key1"]);
-  EXPECT_EQ(2201, reporter->counterMap["key2"]);
-  EXPECT_EQ(1101, reporter->counterMap["key3"]);
-  EXPECT_EQ(100, reporter->counterMap["key4"]);
+  EXPECT_EQ(36, reporter_->counterMap["key1"]);
+  EXPECT_EQ(2201, reporter_->counterMap["key2"]);
+  EXPECT_EQ(1101, reporter_->counterMap["key3"]);
+  EXPECT_EQ(100, reporter_->counterMap["key4"]);
 };
+
+class PeriodicStatsReportDaemonTest : public StatsReporterTest {};
+
+class TestStatsReportMemoryArbitrator : public memory::MemoryArbitrator {
+ public:
+  explicit TestStatsReportMemoryArbitrator(
+      memory::MemoryArbitrator::Stats stats)
+      : memory::MemoryArbitrator({}), stats_(stats) {}
+
+  ~TestStatsReportMemoryArbitrator() override = default;
+
+  void updateStats(memory::MemoryArbitrator::Stats stats) {
+    stats_ = stats;
+  }
+
+  std::string kind() const override {
+    return "test";
+  }
+
+  uint64_t growCapacity(memory::MemoryPool* /*unused*/, uint64_t /*unused*/)
+      override {
+    return 0;
+  }
+
+  bool growCapacity(
+      memory::MemoryPool* /*unused*/,
+      const std::vector<std::shared_ptr<memory::MemoryPool>>& /*unused*/,
+      uint64_t /*unused*/) override {
+    return false;
+  }
+
+  uint64_t shrinkCapacity(memory::MemoryPool* /*unused*/, uint64_t /*unused*/)
+      override {
+    return 0;
+  }
+
+  uint64_t shrinkCapacity(
+      const std::vector<std::shared_ptr<memory::MemoryPool>>& /*unused*/,
+      uint64_t /*unused*/,
+      bool /*unused*/,
+      bool /*unused*/) override {
+    return 0;
+  }
+
+  Stats stats() const override {
+    return stats_;
+  }
+
+  std::string toString() const override {
+    return "TestStatsReportMemoryArbitrator::toString()";
+  }
+
+ private:
+  memory::MemoryArbitrator::Stats stats_;
+};
+
+TEST_F(PeriodicStatsReportDaemonTest, basic) {
+  TestStatsReportMemoryArbitrator arbitrator({});
+  PeriodicStatsReporter::Options options;
+  options.arbitratorStatsIntervalMs = 4'000;
+  PeriodicStatsReporter reporter(&arbitrator, options);
+
+  reporter.start();
+  std::this_thread::sleep_for(std::chrono::milliseconds(2'000));
+
+  const auto& counterMap = reporter_->counterMap;
+  ASSERT_EQ(counterMap.size(), 2);
+  ASSERT_EQ(counterMap.count(kMetricArbitratorFreeCapacityBytes.str()), 1);
+  ASSERT_EQ(
+      counterMap.count(kMetricArbitratorFreeReservedCapacityBytes.str()), 1);
+  reporter.stop();
+}
 
 // Registering to folly Singleton with intended reporter type
 folly::Singleton<BaseStatsReporter> reporter([]() {
