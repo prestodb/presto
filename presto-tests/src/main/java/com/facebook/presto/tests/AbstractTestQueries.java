@@ -55,6 +55,7 @@ import static com.facebook.presto.SystemSessionProperties.ENABLE_INTERMEDIATE_AG
 import static com.facebook.presto.SystemSessionProperties.FIELD_NAMES_IN_JSON_CAST_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.GENERATE_DOMAIN_FILTERS;
 import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
+import static com.facebook.presto.SystemSessionProperties.ITERATIVE_OPTIMIZER_TIMEOUT;
 import static com.facebook.presto.SystemSessionProperties.JOIN_PREFILTER_BUILD_SIDE;
 import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_FUNCTION;
@@ -63,6 +64,7 @@ import static com.facebook.presto.SystemSessionProperties.LEGACY_UNNEST;
 import static com.facebook.presto.SystemSessionProperties.MERGE_AGGREGATIONS_WITH_AND_WITHOUT_FILTER;
 import static com.facebook.presto.SystemSessionProperties.MERGE_DUPLICATE_AGGREGATIONS;
 import static com.facebook.presto.SystemSessionProperties.OFFSET_CLAUSE_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.OPTIMIZER_USE_HISTOGRAMS;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_CASE_EXPRESSION_PREDICATE;
 import static com.facebook.presto.SystemSessionProperties.PREFILTER_FOR_GROUPBY_LIMIT;
 import static com.facebook.presto.SystemSessionProperties.PREFILTER_FOR_GROUPBY_LIMIT_TIMEOUT_MS;
@@ -1027,7 +1029,7 @@ public abstract class AbstractTestQueries
         assertQuerySucceeds(session, "SELECT DISTINCT custkey FROM orders LIMIT 10000");
 
         assertQuery(session, "" +
-                "SELECT DISTINCT x FROM (VALUES 1) t(x) JOIN (VALUES 10, 20) u(a) ON t.x < u.a LIMIT 100",
+                        "SELECT DISTINCT x FROM (VALUES 1) t(x) JOIN (VALUES 10, 20) u(a) ON t.x < u.a LIMIT 100",
                 "SELECT 1");
     }
 
@@ -1807,9 +1809,9 @@ public abstract class AbstractTestQueries
     public void testMinMaxN()
     {
         assertQuery("" +
-                "SELECT x FROM (" +
-                "SELECT min(orderkey, 3) t FROM orders" +
-                ") CROSS JOIN UNNEST(t) AS a(x)",
+                        "SELECT x FROM (" +
+                        "SELECT min(orderkey, 3) t FROM orders" +
+                        ") CROSS JOIN UNNEST(t) AS a(x)",
                 "VALUES 1, 2, 3");
 
         assertQuery(
@@ -2360,23 +2362,45 @@ public abstract class AbstractTestQueries
         String longValues = range(0, 5000)
                 .mapToObj(Integer::toString)
                 .collect(joining(", "));
-        assertQuery("SELECT orderkey FROM orders WHERE orderkey IN (" + longValues + ")");
-        assertQuery("SELECT orderkey FROM orders WHERE orderkey NOT IN (" + longValues + ")");
+        Session session = Session.builder(getSession())
+                .setSystemProperty(ITERATIVE_OPTIMIZER_TIMEOUT, "15000ms")
+                .build();
+        assertQuery(session, "SELECT orderkey FROM orders WHERE orderkey IN (" + longValues + ")");
+        assertQuery(session, "SELECT orderkey FROM orders WHERE orderkey NOT IN (" + longValues + ")");
 
-        assertQuery("SELECT orderkey FROM orders WHERE orderkey IN (mod(1000, orderkey), " + longValues + ")");
-        assertQuery("SELECT orderkey FROM orders WHERE orderkey NOT IN (mod(1000, orderkey), " + longValues + ")");
+        assertQuery(session, "SELECT orderkey FROM orders WHERE orderkey IN (mod(1000, orderkey), " + longValues + ")");
+        assertQuery(session, "SELECT orderkey FROM orders WHERE orderkey NOT IN (mod(1000, orderkey), " + longValues + ")");
 
         String varcharValues = range(0, 5000)
                 .mapToObj(i -> "'" + i + "'")
                 .collect(joining(", "));
-        assertQuery("SELECT orderkey FROM orders WHERE cast(orderkey AS VARCHAR) IN (" + varcharValues + ")");
-        assertQuery("SELECT orderkey FROM orders WHERE cast(orderkey AS VARCHAR) NOT IN (" + varcharValues + ")");
+        assertQuery(session, "SELECT orderkey FROM orders WHERE cast(orderkey AS VARCHAR) IN (" + varcharValues + ")");
+        assertQuery(session, "SELECT orderkey FROM orders WHERE cast(orderkey AS VARCHAR) NOT IN (" + varcharValues + ")");
 
         String arrayValues = range(0, 5000)
                 .mapToObj(i -> format("ARRAY[%s, %s, %s]", i, i + 1, i + 2))
                 .collect(joining(", "));
-        assertQuery("SELECT ARRAY[0, 0, 0] in (ARRAY[0, 0, 0], " + arrayValues + ")", "values true");
-        assertQuery("SELECT ARRAY[0, 0, 0] in (" + arrayValues + ")", "values false");
+        assertQuery(session, "SELECT ARRAY[0, 0, 0] in (ARRAY[0, 0, 0], " + arrayValues + ")", "values true");
+        assertQuery(session, "SELECT ARRAY[0, 0, 0] in (" + arrayValues + ")", "values false");
+    }
+
+    @Test
+    public void testLargeInWithHistograms()
+    {
+        String longValues = range(0, 10_000)
+                .mapToObj(Integer::toString)
+                .collect(joining(", "));
+        String query = "select orderpriority, sum(totalprice) from lineitem join orders on lineitem.orderkey = orders.orderkey where orders.orderkey in (" + longValues + ") group by 1";
+        Session session = Session.builder(getSession())
+                .setSystemProperty(ITERATIVE_OPTIMIZER_TIMEOUT, "30000ms")
+                .setSystemProperty(OPTIMIZER_USE_HISTOGRAMS, "true")
+                .build();
+        assertQuerySucceeds(session, query);
+        session = Session.builder(getSession())
+                .setSystemProperty(ITERATIVE_OPTIMIZER_TIMEOUT, "20000ms")
+                .setSystemProperty(OPTIMIZER_USE_HISTOGRAMS, "false")
+                .build();
+        assertQuerySucceeds(session, query);
     }
 
     @Test
