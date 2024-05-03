@@ -14,6 +14,7 @@
 
 #include "presto_cpp/main/common/Utils.h"
 #include <fmt/format.h>
+#include <sys/resource.h>
 
 namespace facebook::presto::util {
 
@@ -41,6 +42,17 @@ std::shared_ptr<folly::SSLContext> createSSLContext(
         clientCertAndKeyPath,
         ex.what());
   }
+}
+
+long getProcessCpuTimeNs() {
+  struct rusage rusageEnd;
+  getrusage(RUSAGE_SELF, &rusageEnd);
+
+  auto tvNanos = [](struct timeval tv) {
+    return tv.tv_sec * 1'000'000'000 + tv.tv_usec * 1'000;
+  };
+
+  return tvNanos(rusageEnd.ru_utime) + tvNanos(rusageEnd.ru_stime);
 }
 
 } // namespace facebook::presto::util

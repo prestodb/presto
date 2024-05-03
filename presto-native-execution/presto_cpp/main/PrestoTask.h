@@ -147,11 +147,8 @@ struct PrestoTask {
   }
 
   /// Turns the task numbers (per state) into a string.
-  static std::string taskNumbersToString(
-      const std::array<size_t, 5>& taskNumbers);
-
-  /// Returns process-wide CPU time in nanoseconds.
-  static long getProcessCpuTime();
+  static std::string taskStatesToString(
+      const std::array<size_t, 5>& taskStates);
 
   /// Invoked to update presto task status from the updated velox task stats.
   protocol::TaskStatus updateStatusLocked();
