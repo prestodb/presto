@@ -1145,7 +1145,7 @@ void TaskManager::shutdown() {
     PRESTO_SHUTDOWN_LOG(INFO)
         << "Waited (" << seconds
         << " seconds so far) for 'Running' tasks to complete. " << numTasks
-        << " tasks left: " << PrestoTask::taskNumbersToString(taskNumbers);
+        << " tasks left: " << PrestoTask::taskStatesToString(taskNumbers);
     std::this_thread::sleep_for(std::chrono::seconds(1));
     cancelAbandonedTasks();
     taskNumbers = getTaskNumbers(numTasks);
