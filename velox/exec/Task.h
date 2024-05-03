@@ -84,24 +84,6 @@ class Task : public std::enable_shared_from_this<Task> {
       ConsumerSupplier consumerSupplier,
       std::function<void(std::exception_ptr)> onError = nullptr);
 
-  /// TODO: Delete following two overloads once all callers are migrated to the
-  /// above ones
-  static std::shared_ptr<Task> create(
-      const std::string& taskId,
-      core::PlanFragment planFragment,
-      int destination,
-      std::shared_ptr<core::QueryCtx> queryCtx,
-      Consumer consumer = nullptr,
-      std::function<void(std::exception_ptr)> onError = nullptr);
-
-  static std::shared_ptr<Task> create(
-      const std::string& taskId,
-      core::PlanFragment planFragment,
-      int destination,
-      std::shared_ptr<core::QueryCtx> queryCtx,
-      ConsumerSupplier consumerSupplier,
-      std::function<void(std::exception_ptr)> onError = nullptr);
-
   ~Task();
 
   /// Specify directory to which data will be spilled if spilling is enabled and
