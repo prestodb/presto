@@ -6174,6 +6174,28 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testJoinPrefilterPartitionKeys()
+    {
+        Session prefilter = Session.builder(getSession())
+                .setSystemProperty("join_prefilter_build_side", "true")
+                .build();
+
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE join_prefilter_test " +
+                "WITH (" +
+                "partitioned_by = ARRAY[ 'orderstatus' ]" +
+                ") " +
+                "AS " +
+                "SELECT custkey, orderkey, orderstatus FROM tpch.tiny.orders";
+
+        assertUpdate(prefilter, createTable, 15000);
+        MaterializedResult result = computeActual(prefilter, "explain(type distributed) select 1 from join_prefilter_test join customer using(custkey) where orderstatus='O'");
+        // Make sure the layout of the copied table matches the original
+        String plan = (String) result.getMaterializedRows().get(0).getField(0);
+        assertNotEquals(plan.lastIndexOf(":: [[\"O\"]]"), plan.indexOf(":: [[\"O\"]]"));
+    }
+
+    @Test
     public void testAddTableConstraints()
     {
         String uniqueConstraint = "UNIQUE";

@@ -26,6 +26,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.SourceLocation;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
@@ -341,14 +342,21 @@ public class PlannerUtils
         List<VariableReferenceExpression> newOutputVariables = outputVariablesBuilder.build();
         ImmutableMap<VariableReferenceExpression, ColumnHandle> newAssignments = assignmentsBuilder.build();
 
+        TableHandle oldTableHandle = scanNode.getTable();
+        TableHandle newTableHandle = new TableHandle(
+                oldTableHandle.getConnectorId(),
+                oldTableHandle.getConnectorHandle(),
+                oldTableHandle.getTransaction(),
+                oldTableHandle.getLayout());
+
         return new TableScanNode(
                 scanNode.getSourceLocation(),
                 planNodeIdAllocator.getNextId(),
-                scanLayout.getNewTableHandle(),
+                newTableHandle,
                 newOutputVariables,
                 newAssignments,
                 scanNode.getTableConstraints(),
-                scanLayout.getPredicate(),
+                scanNode.getCurrentConstraint(),
                 scanNode.getEnforcedConstraint());
     }
 

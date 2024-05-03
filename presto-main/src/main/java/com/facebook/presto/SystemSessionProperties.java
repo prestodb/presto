@@ -345,6 +345,7 @@ public final class SystemSessionProperties
     public static final String NATIVE_EXECUTION_PROCESS_REUSE_ENABLED = "native_execution_process_reuse_enabled";
     public static final String NATIVE_DEBUG_VALIDATE_OUTPUT_FROM_OPERATORS = "native_debug_validate_output_from_operators";
     public static final String DEFAULT_VIEW_SECURITY_MODE = "default_view_security_mode";
+    public static final String JOIN_PREFILTER_BUILD_SIDE = "join_prefilter_build_side";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1925,7 +1926,12 @@ public final class SystemSessionProperties
                         featuresConfig.getDefaultViewSecurityMode(),
                         false,
                         value -> CreateView.Security.valueOf(((String) value).toUpperCase()),
-                        CreateView.Security::name));
+                        CreateView.Security::name),
+                booleanProperty(
+                        JOIN_PREFILTER_BUILD_SIDE,
+                        "Prefiltering the build/inner side of a join with keys from the other side",
+                        false,
+                        false));
     }
 
     public static boolean isSpoolingOutputBufferEnabled(Session session)
@@ -3206,5 +3212,10 @@ public final class SystemSessionProperties
     public static CreateView.Security getDefaultViewSecurityMode(Session session)
     {
         return session.getSystemProperty(DEFAULT_VIEW_SECURITY_MODE, CreateView.Security.class);
+    }
+
+    public static boolean isJoinPrefilterEnabled(Session session)
+    {
+        return session.getSystemProperty(JOIN_PREFILTER_BUILD_SIDE, Boolean.class);
     }
 }
