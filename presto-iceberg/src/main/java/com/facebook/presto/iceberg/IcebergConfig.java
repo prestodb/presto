@@ -16,7 +16,7 @@ package com.facebook.presto.iceberg;
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.presto.hive.HiveCompressionCodec;
-import com.facebook.presto.spi.statistics.ColumnStatisticType;
+import com.facebook.presto.iceberg.util.HiveStatisticsMergeStrategy;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import org.apache.iceberg.hadoop.HadoopFileIO;
@@ -26,13 +26,11 @@ import javax.validation.constraints.DecimalMin;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
-import java.util.EnumSet;
 import java.util.List;
 
 import static com.facebook.presto.hive.HiveCompressionCodec.GZIP;
 import static com.facebook.presto.iceberg.CatalogType.HIVE;
 import static com.facebook.presto.iceberg.IcebergFileFormat.PARQUET;
-import static com.facebook.presto.iceberg.util.StatisticsUtil.decodeMergeFlags;
 import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_EXPIRATION_INTERVAL_MS_DEFAULT;
 import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_MAX_CONTENT_LENGTH_DEFAULT;
 import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_MAX_TOTAL_BYTES_DEFAULT;
@@ -53,13 +51,12 @@ public class IcebergConfig
     private boolean pushdownFilterEnabled;
     private boolean deleteAsJoinRewriteEnabled = true;
 
-    private EnumSet<ColumnStatisticType> hiveStatisticsMergeFlags = EnumSet.noneOf(ColumnStatisticType.class);
+    private HiveStatisticsMergeStrategy hiveStatisticsMergeStrategy = HiveStatisticsMergeStrategy.NONE;
     private String fileIOImpl = HadoopFileIO.class.getName();
     private boolean manifestCachingEnabled;
     private long maxManifestCacheSize = IO_MANIFEST_CACHE_MAX_TOTAL_BYTES_DEFAULT;
     private long manifestCacheExpireDuration = IO_MANIFEST_CACHE_EXPIRATION_INTERVAL_MS_DEFAULT;
     private long manifestCacheMaxContentLength = IO_MANIFEST_CACHE_MAX_CONTENT_LENGTH_DEFAULT;
-
     @NotNull
     public FileFormat getFileFormat()
     {
@@ -198,16 +195,16 @@ public class IcebergConfig
     }
 
     @Config("iceberg.hive-statistics-merge-strategy")
-    @ConfigDescription("Comma separated list of statistics to use from the Hive metastore to override iceberg table statistics")
-    public IcebergConfig setHiveStatisticsMergeFlags(String mergeFlags)
+    @ConfigDescription("determines how to merge statistics that are stored in the Hive Metastore")
+    public IcebergConfig setHiveStatisticsMergeStrategy(HiveStatisticsMergeStrategy mergeStrategy)
     {
-        this.hiveStatisticsMergeFlags = decodeMergeFlags(mergeFlags);
+        this.hiveStatisticsMergeStrategy = mergeStrategy;
         return this;
     }
 
-    public EnumSet<ColumnStatisticType> getHiveStatisticsMergeFlags()
+    public HiveStatisticsMergeStrategy getHiveStatisticsMergeStrategy()
     {
-        return hiveStatisticsMergeFlags;
+        return hiveStatisticsMergeStrategy;
     }
 
     @Config("iceberg.statistic-snapshot-record-difference-weight")
