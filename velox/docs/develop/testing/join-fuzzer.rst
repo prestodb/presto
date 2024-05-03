@@ -42,7 +42,7 @@ Use velox_join_fuzzer_test binary to run join fuzzer:
 
     velox/exec/tests/velox_join_fuzzer_test
 
-By default, the fuzzer will go through 10 interations. Use --steps
+By default, the fuzzer will go through 10 iterations. Use --steps
 or --duration-sec flag to run fuzzer for longer. Use --seed to
 reproduce fuzzer failures.
 

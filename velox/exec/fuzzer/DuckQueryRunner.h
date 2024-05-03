@@ -49,6 +49,9 @@ class DuckQueryRunner : public ReferenceQueryRunner {
   std::optional<std::string> toSql(
       const std::shared_ptr<const core::ProjectNode>& projectNode);
 
+  std::optional<std::string> toSql(
+      const std::shared_ptr<const core::RowNumberNode>& rowNumberNode);
+
   std::unordered_set<std::string> aggregateFunctionNames_;
 };
 

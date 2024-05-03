@@ -207,6 +207,12 @@ add_library(velox_join_fuzzer JoinFuzzer.cpp)
 target_link_libraries(velox_join_fuzzer velox_type velox_vector_fuzzer
                       velox_exec_test_lib velox_expression_test_utility)
 
+# RowNumber Fuzzer.
+add_executable(velox_row_number_fuzzer_test RowNumberFuzzerTest.cpp)
+
+target_link_libraries(velox_row_number_fuzzer_test velox_row_number_fuzzer
+                      gtest gtest_main)
+
 add_executable(velox_join_fuzzer_test JoinFuzzerTest.cpp)
 
 target_link_libraries(velox_join_fuzzer_test velox_join_fuzzer gtest gtest_main)

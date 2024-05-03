@@ -133,19 +133,24 @@ std::optional<std::string> DuckQueryRunner::toSql(
     }
   }
 
-  if (auto projectNode =
+  if (const auto projectNode =
           std::dynamic_pointer_cast<const core::ProjectNode>(plan)) {
     return toSql(projectNode);
   }
 
-  if (auto windowNode =
+  if (const auto windowNode =
           std::dynamic_pointer_cast<const core::WindowNode>(plan)) {
     return toSql(windowNode);
   }
 
-  if (auto aggregationNode =
+  if (const auto aggregationNode =
           std::dynamic_pointer_cast<const core::AggregationNode>(plan)) {
     return toSql(aggregationNode);
+  }
+
+  if (const auto rowNumberNode =
+          std::dynamic_pointer_cast<const core::RowNumberNode>(plan)) {
+    return toSql(rowNumberNode);
   }
 
   VELOX_NYI();
@@ -294,6 +299,33 @@ std::optional<std::string> DuckQueryRunner::toSql(
   }
 
   sql << ") FROM tmp";
+
+  return sql.str();
+}
+
+std::optional<std::string> DuckQueryRunner::toSql(
+    const std::shared_ptr<const core::RowNumberNode>& rowNumberNode) {
+  std::stringstream sql;
+  sql << "SELECT ";
+
+  const auto& inputType = rowNumberNode->sources()[0]->outputType();
+  for (auto i = 0; i < inputType->size(); ++i) {
+    appendComma(i, sql);
+    sql << inputType->nameOf(i);
+  }
+
+  sql << ", row_number() OVER (";
+
+  const auto& partitionKeys = rowNumberNode->partitionKeys();
+  if (!partitionKeys.empty()) {
+    sql << "partition by ";
+    for (auto i = 0; i < partitionKeys.size(); ++i) {
+      appendComma(i, sql);
+      sql << partitionKeys[i]->name();
+    }
+  }
+
+  sql << ") as row_number FROM tmp";
 
   return sql.str();
 }
