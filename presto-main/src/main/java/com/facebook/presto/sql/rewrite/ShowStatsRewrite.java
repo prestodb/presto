@@ -265,7 +265,6 @@ public class ShowStatsRewrite
                     .add("row_count")
                     .add("low_value")
                     .add("high_value")
-                    .add("histogram")
                     .build();
         }
 
@@ -311,7 +310,6 @@ public class ShowStatsRewrite
             rowValues.add(NULL_DOUBLE);
             rowValues.add(toStringLiteral(type, columnStatistics.getRange().map(DoubleRange::getMin)));
             rowValues.add(toStringLiteral(type, columnStatistics.getRange().map(DoubleRange::getMax)));
-            rowValues.add(columnStatistics.getHistogram().map(Objects::toString).<Expression>map(StringLiteral::new).orElse(NULL_VARCHAR));
             return new Row(rowValues.build());
         }
 
@@ -325,7 +323,6 @@ public class ShowStatsRewrite
             rowValues.add(NULL_DOUBLE);
             rowValues.add(NULL_VARCHAR);
             rowValues.add(NULL_VARCHAR);
-            rowValues.add(NULL_VARCHAR);
             return new Row(rowValues.build());
         }
 
@@ -337,7 +334,6 @@ public class ShowStatsRewrite
             rowValues.add(NULL_DOUBLE);
             rowValues.add(NULL_DOUBLE);
             rowValues.add(createEstimateRepresentation(tableStatistics.getRowCount()));
-            rowValues.add(NULL_VARCHAR);
             rowValues.add(NULL_VARCHAR);
             rowValues.add(NULL_VARCHAR);
             return new Row(rowValues.build());
