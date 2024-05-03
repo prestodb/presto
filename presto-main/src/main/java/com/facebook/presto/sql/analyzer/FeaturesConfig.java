@@ -308,7 +308,6 @@ public class FeaturesConfig
     private boolean limitNumberOfGroupsForKHyperLogLogAggregations = true;
     private boolean generateDomainFilters;
     private CreateView.Security defaultViewSecurityMode = DEFINER;
-    private boolean useHistograms;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -3100,19 +3099,6 @@ public class FeaturesConfig
     public FeaturesConfig setDefaultViewSecurityMode(CreateView.Security securityMode)
     {
         this.defaultViewSecurityMode = securityMode;
-        return this;
-    }
-
-    public boolean isUseHistograms()
-    {
-        return useHistograms;
-    }
-
-    @Config("optimizer.use-histograms")
-    @ConfigDescription("Use histogram statistics in cost-based calculations in the optimizer")
-    public FeaturesConfig setUseHistograms(boolean useHistograms)
-    {
-        this.useHistograms = useHistograms;
         return this;
     }
 }
