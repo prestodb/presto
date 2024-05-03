@@ -50,12 +50,6 @@ public class TestIcebergDistributedHive
     }
 
     @Override
-    public void testPartShowStatsWithFilters()
-    {
-        // Hive doesn't support returning statistics on partitioned tables
-    }
-
-    @Override
     protected Table loadTable(String tableName)
     {
         CatalogManager catalogManager = getDistributedQueryRunner().getCoordinator().getCatalogManager();
