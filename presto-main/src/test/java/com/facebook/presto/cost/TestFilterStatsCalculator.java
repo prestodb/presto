@@ -27,7 +27,6 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static com.facebook.presto.SystemSessionProperties.OPTIMIZER_USE_HISTOGRAMS;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -37,7 +36,7 @@ import static java.lang.Double.POSITIVE_INFINITY;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
-public abstract class AbstractTestFilterStatsCalculator
+public class TestFilterStatsCalculator
 {
     private static final VarcharType MEDIUM_VARCHAR_TYPE = VarcharType.createVarcharType(100);
 
@@ -54,13 +53,6 @@ public abstract class AbstractTestFilterStatsCalculator
     private TypeProvider standardTypes;
     private Session session;
     private TestingRowExpressionTranslator translator;
-
-    public AbstractTestFilterStatsCalculator(boolean withHistograms)
-    {
-        session = testSessionBuilder()
-                .setSystemProperty(OPTIMIZER_USE_HISTOGRAMS, Boolean.toString(withHistograms))
-                .build();
-    }
 
     @BeforeClass
     public void setUp()
@@ -145,6 +137,7 @@ public abstract class AbstractTestFilterStatsCalculator
                 .add(new VariableReferenceExpression(Optional.empty(), "mediumVarchar", MEDIUM_VARCHAR_TYPE))
                 .build());
 
+        session = testSessionBuilder().build();
         MetadataManager metadata = MetadataManager.createTestMetadataManager();
         statsCalculator = new FilterStatsCalculator(metadata, new ScalarStatsCalculator(metadata), new StatsNormalizer());
         translator = new TestingRowExpressionTranslator(MetadataManager.createTestMetadataManager());
@@ -384,33 +377,6 @@ public abstract class AbstractTestFilterStatsCalculator
     }
 
     @Test
-    public void testBetweenOperatorFilterLeftOpen()
-    {
-        // Left side open, cut on open side
-        assertExpression("leftOpen BETWEEN DOUBLE '-10' AND 10e0")
-                .outputRowsCount(180.0)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "leftOpen", DOUBLE), variableStats ->
-                        variableStats.distinctValuesCount(10.0)
-                                .lowValue(-10.0)
-                                .highValue(10.0)
-                                .nullsFraction(0.0));
-    }
-
-    @Test
-    public void testBetweenOperatorFilterRightOpen()
-    {
-        // Left side open, cut on open side
-        // Right side open, cut on open side
-        assertExpression("rightOpen BETWEEN DOUBLE '-10' AND 10e0")
-                .outputRowsCount(180.0)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "rightOpen", DOUBLE), variableStats ->
-                        variableStats.distinctValuesCount(10.0)
-                                .lowValue(-10.0)
-                                .highValue(10.0)
-                                .nullsFraction(0.0));
-    }
-
-    @Test
     public void testBetweenOperatorFilter()
     {
         // Only right side cut
@@ -454,6 +420,24 @@ public abstract class AbstractTestFilterStatsCalculator
                         variableStats.distinctValuesCount(6.25)
                                 .lowValue(2.72)
                                 .highValue(3.14)
+                                .nullsFraction(0.0));
+
+        // Left side open, cut on open side
+        assertExpression("leftOpen BETWEEN DOUBLE '-10' AND 10e0")
+                .outputRowsCount(180.0)
+                .variableStats(new VariableReferenceExpression(Optional.empty(), "leftOpen", DOUBLE), variableStats ->
+                        variableStats.distinctValuesCount(10.0)
+                                .lowValue(-10.0)
+                                .highValue(10.0)
+                                .nullsFraction(0.0));
+
+        // Right side open, cut on open side
+        assertExpression("rightOpen BETWEEN DOUBLE '-10' AND 10e0")
+                .outputRowsCount(180.0)
+                .variableStats(new VariableReferenceExpression(Optional.empty(), "rightOpen", DOUBLE), variableStats ->
+                        variableStats.distinctValuesCount(10.0)
+                                .lowValue(-10.0)
+                                .highValue(10.0)
                                 .nullsFraction(0.0));
 
         // Filter all
@@ -604,7 +588,7 @@ public abstract class AbstractTestFilterStatsCalculator
                                 .nullsFraction(0.0));
     }
 
-    protected PlanNodeStatsAssertion assertExpression(String expression)
+    private PlanNodeStatsAssertion assertExpression(String expression)
     {
         return assertExpression(expression(expression));
     }

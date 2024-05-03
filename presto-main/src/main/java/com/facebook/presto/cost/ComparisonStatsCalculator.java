@@ -13,17 +13,12 @@
  */
 package com.facebook.presto.cost;
 
-import com.facebook.airlift.log.Logger;
-import com.facebook.presto.Session;
-import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 
 import java.util.Optional;
 import java.util.OptionalDouble;
 
-import static com.facebook.presto.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEFFICIENT;
 import static com.facebook.presto.cost.VariableStatsEstimate.buildFrom;
 import static com.facebook.presto.util.MoreMath.firstNonNaN;
 import static com.facebook.presto.util.MoreMath.max;
@@ -36,8 +31,6 @@ import static java.lang.Double.isNaN;
 
 public final class ComparisonStatsCalculator
 {
-    private static final Logger log = Logger.get(ComparisonStatsCalculator.class);
-
     private ComparisonStatsCalculator() {}
 
     public static PlanNodeStatsEstimate estimateExpressionToLiteralComparison(
@@ -45,22 +38,19 @@ public final class ComparisonStatsCalculator
             VariableStatsEstimate expressionStatistics,
             Optional<VariableReferenceExpression> expressionVariable,
             OptionalDouble literalValue,
-            ComparisonExpression.Operator operator,
-            Optional<Session> session)
+            ComparisonExpression.Operator operator)
     {
         switch (operator) {
             case EQUAL:
-                return estimateExpressionEqualToLiteral(inputStatistics, expressionStatistics, expressionVariable, literalValue, session);
+                return estimateExpressionEqualToLiteral(inputStatistics, expressionStatistics, expressionVariable, literalValue);
             case NOT_EQUAL:
-                return estimateExpressionNotEqualToLiteral(inputStatistics, expressionStatistics, expressionVariable, literalValue, session);
+                return estimateExpressionNotEqualToLiteral(inputStatistics, expressionStatistics, expressionVariable, literalValue);
             case LESS_THAN:
-                return estimateExpressionLessThanLiteral(inputStatistics, expressionStatistics, expressionVariable, literalValue, false, session);
             case LESS_THAN_OR_EQUAL:
-                return estimateExpressionLessThanLiteral(inputStatistics, expressionStatistics, expressionVariable, literalValue, true, session);
+                return estimateExpressionLessThanLiteral(inputStatistics, expressionStatistics, expressionVariable, literalValue);
             case GREATER_THAN:
-                return estimateExpressionGreaterThanLiteral(inputStatistics, expressionStatistics, expressionVariable, literalValue, false, session);
             case GREATER_THAN_OR_EQUAL:
-                return estimateExpressionGreaterThanLiteral(inputStatistics, expressionStatistics, expressionVariable, literalValue, true, session);
+                return estimateExpressionGreaterThanLiteral(inputStatistics, expressionStatistics, expressionVariable, literalValue);
             case IS_DISTINCT_FROM:
                 return PlanNodeStatsEstimate.unknown();
             default:
@@ -72,34 +62,35 @@ public final class ComparisonStatsCalculator
             PlanNodeStatsEstimate inputStatistics,
             VariableStatsEstimate expressionStatistics,
             Optional<VariableReferenceExpression> expressionVariable,
-            OptionalDouble literalValue,
-            Optional<Session> session)
+            OptionalDouble literalValue)
     {
         StatisticRange filterRange;
         if (literalValue.isPresent()) {
-            filterRange = new StatisticRange(literalValue.getAsDouble(), false, literalValue.getAsDouble(), false, 1);
+            filterRange = new StatisticRange(literalValue.getAsDouble(), literalValue.getAsDouble(), 1);
         }
         else {
             filterRange = new StatisticRange(NEGATIVE_INFINITY, POSITIVE_INFINITY, 1);
         }
-        return estimateFilterRange(inputStatistics, expressionStatistics, expressionVariable, filterRange, session);
+        return estimateFilterRange(inputStatistics, expressionStatistics, expressionVariable, filterRange);
     }
 
     private static PlanNodeStatsEstimate estimateExpressionNotEqualToLiteral(
             PlanNodeStatsEstimate inputStatistics,
             VariableStatsEstimate expressionStatistics,
             Optional<VariableReferenceExpression> expressionVariable,
-            OptionalDouble literalValue,
-            Optional<Session> session)
+            OptionalDouble literalValue)
     {
+        StatisticRange expressionRange = StatisticRange.from(expressionStatistics);
+
         StatisticRange filterRange;
         if (literalValue.isPresent()) {
-            filterRange = new StatisticRange(literalValue.getAsDouble(), false, literalValue.getAsDouble(), false, 1);
+            filterRange = new StatisticRange(literalValue.getAsDouble(), literalValue.getAsDouble(), 1);
         }
         else {
-            filterRange = new StatisticRange(NEGATIVE_INFINITY, true, POSITIVE_INFINITY, true, 1);
+            filterRange = new StatisticRange(NEGATIVE_INFINITY, POSITIVE_INFINITY, 1);
         }
-        double filterFactor = 1 - calculateFilterFactor(expressionStatistics, filterRange, session);
+        StatisticRange intersectRange = expressionRange.intersect(filterRange);
+        double filterFactor = 1 - expressionRange.overlapPercentWith(intersectRange);
 
         PlanNodeStatsEstimate.Builder estimate = PlanNodeStatsEstimate.buildFrom(inputStatistics);
         estimate.setOutputRowCount(filterFactor * (1 - expressionStatistics.getNullsFraction()) * inputStatistics.getOutputRowCount());
@@ -117,37 +108,33 @@ public final class ComparisonStatsCalculator
             PlanNodeStatsEstimate inputStatistics,
             VariableStatsEstimate expressionStatistics,
             Optional<VariableReferenceExpression> expressionVariable,
-            OptionalDouble literalValue,
-            boolean equals,
-            Optional<Session> session)
+            OptionalDouble literalValue)
     {
-        StatisticRange filterRange = new StatisticRange(NEGATIVE_INFINITY, true, literalValue.orElse(POSITIVE_INFINITY), !equals, NaN);
-        return estimateFilterRange(inputStatistics, expressionStatistics, expressionVariable, filterRange, session);
+        StatisticRange filterRange = new StatisticRange(NEGATIVE_INFINITY, literalValue.orElse(POSITIVE_INFINITY), NaN);
+        return estimateFilterRange(inputStatistics, expressionStatistics, expressionVariable, filterRange);
     }
 
     private static PlanNodeStatsEstimate estimateExpressionGreaterThanLiteral(
             PlanNodeStatsEstimate inputStatistics,
             VariableStatsEstimate expressionStatistics,
             Optional<VariableReferenceExpression> expressionVariable,
-            OptionalDouble literalValue,
-            boolean equals,
-            Optional<Session> session)
+            OptionalDouble literalValue)
     {
-        StatisticRange filterRange = new StatisticRange(literalValue.orElse(NEGATIVE_INFINITY), !equals, POSITIVE_INFINITY, true, NaN);
-        return estimateFilterRange(inputStatistics, expressionStatistics, expressionVariable, filterRange, session);
+        StatisticRange filterRange = new StatisticRange(literalValue.orElse(NEGATIVE_INFINITY), POSITIVE_INFINITY, NaN);
+        return estimateFilterRange(inputStatistics, expressionStatistics, expressionVariable, filterRange);
     }
 
     private static PlanNodeStatsEstimate estimateFilterRange(
             PlanNodeStatsEstimate inputStatistics,
             VariableStatsEstimate expressionStatistics,
             Optional<VariableReferenceExpression> expressionVariable,
-            StatisticRange filterRange,
-            Optional<Session> session)
+            StatisticRange filterRange)
     {
-        double filterFactor = calculateFilterFactor(expressionStatistics, filterRange, session);
-
         StatisticRange expressionRange = StatisticRange.from(expressionStatistics);
         StatisticRange intersectRange = expressionRange.intersect(filterRange);
+
+        double filterFactor = expressionRange.overlapPercentWith(intersectRange);
+
         PlanNodeStatsEstimate estimate = inputStatistics.mapOutputRowCount(rowCount -> filterFactor * (1 - expressionStatistics.getNullsFraction()) * rowCount);
         if (expressionVariable.isPresent()) {
             VariableStatsEstimate symbolNewEstimate =
@@ -155,39 +142,10 @@ public final class ComparisonStatsCalculator
                             .setAverageRowSize(expressionStatistics.getAverageRowSize())
                             .setStatisticsRange(intersectRange)
                             .setNullsFraction(0.0)
-                            .setHistogram(DisjointRangeDomainHistogram.addConjunction(expressionStatistics.getHistogram(), intersectRange))
                             .build();
             estimate = estimate.mapVariableColumnStatistics(expressionVariable.get(), oldStats -> symbolNewEstimate);
         }
         return estimate;
-    }
-
-    private static double calculateFilterFactor(VariableStatsEstimate variableStatistics, StatisticRange filterRange, Optional<Session> session)
-    {
-        StatisticRange variableRange = StatisticRange.from(variableStatistics);
-        StatisticRange intersectRange = variableRange.intersect(filterRange);
-        Estimate filterEstimate;
-        if (session.map(SystemSessionProperties::shouldOptimizerUseHistograms).orElse(false)) {
-            Estimate distinctEstimate = isNaN(variableStatistics.getDistinctValuesCount()) ? Estimate.unknown() : Estimate.of(variableRange.getDistinctValuesCount());
-            filterEstimate = HistogramCalculator.calculateFilterFactor(intersectRange, variableStatistics.getHistogram(), distinctEstimate, true);
-            if (log.isDebugEnabled()) {
-                double expressionFilter = variableRange.overlapPercentWith(intersectRange);
-                if (!Double.isNaN(expressionFilter) &&
-                        !filterEstimate.fuzzyEquals(Estimate.of(expressionFilter), .0001)) {
-                    log.debug(String.format("histogram-calculated filter factor differs from the uniformity assumption:" +
-                            "expression range: %s%n" +
-                            "intersect range: %s%n" +
-                            "overlapPercent: %s%n" +
-                            "histogram: %s%n" +
-                            "histogramFilterIntersect: %s%n", variableRange, intersectRange, expressionFilter, variableStatistics.getHistogram(), filterEstimate));
-                }
-            }
-        }
-        else {
-            filterEstimate = Estimate.estimateFromDouble(variableRange.overlapPercentWith(intersectRange));
-        }
-
-        return filterEstimate.orElse(() -> UNKNOWN_FILTER_COEFFICIENT);
     }
 
     public static PlanNodeStatsEstimate estimateExpressionToExpressionComparison(

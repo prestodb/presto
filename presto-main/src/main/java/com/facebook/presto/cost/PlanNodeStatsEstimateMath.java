@@ -13,9 +13,6 @@
  */
 package com.facebook.presto.cost;
 
-import com.facebook.presto.spi.statistics.ConnectorHistogram;
-
-import static com.facebook.presto.cost.DisjointRangeDomainHistogram.addConjunction;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Double.NaN;
 import static java.lang.Double.isNaN;
@@ -122,18 +119,16 @@ public class PlanNodeStatsEstimateMath
             // for simplicity keep the average row size the same as in the input
             // in most cases the average row size doesn't change after applying filters
             newSymbolStats.setAverageRowSize(symbolStats.getAverageRowSize());
+
             newSymbolStats.setDistinctValuesCount(min(symbolStats.getDistinctValuesCount(), capSymbolStats.getDistinctValuesCount()));
-            double newLow = max(symbolStats.getLowValue(), capSymbolStats.getLowValue());
-            double newHigh = min(symbolStats.getHighValue(), capSymbolStats.getHighValue());
-            newSymbolStats.setLowValue(newLow);
-            newSymbolStats.setHighValue(newHigh);
+            newSymbolStats.setLowValue(max(symbolStats.getLowValue(), capSymbolStats.getLowValue()));
+            newSymbolStats.setHighValue(min(symbolStats.getHighValue(), capSymbolStats.getHighValue()));
 
             double numberOfNulls = stats.getOutputRowCount() * symbolStats.getNullsFraction();
             double capNumberOfNulls = cap.getOutputRowCount() * capSymbolStats.getNullsFraction();
             double cappedNumberOfNulls = min(numberOfNulls, capNumberOfNulls);
             double cappedNullsFraction = cappedRowCount == 0 ? 1 : cappedNumberOfNulls / cappedRowCount;
             newSymbolStats.setNullsFraction(cappedNullsFraction);
-            newSymbolStats.setHistogram(addConjunction(symbolStats.getHistogram(), new StatisticRange(newLow, newHigh, 0)));
 
             result.addVariableStatistics(symbol, newSymbolStats.build());
         });
@@ -149,44 +144,25 @@ public class PlanNodeStatsEstimateMath
         return result.build();
     }
 
-    protected enum RangeAdditionStrategy
-    {
-        ADD_AND_SUM_DISTINCT(StatisticRange::addAndSumDistinctValues),
-        ADD_AND_MAX_DISTINCT(StatisticRange::addAndMaxDistinctValues),
-        ADD_AND_COLLAPSE_DISTINCT(StatisticRange::addAndCollapseDistinctValues),
-        INTERSECT(StatisticRange::intersect);
-        private final RangeAdditionFunction rangeAdditionFunction;
-
-        RangeAdditionStrategy(RangeAdditionFunction rangeAdditionFunction)
-        {
-            this.rangeAdditionFunction = rangeAdditionFunction;
-        }
-
-        public RangeAdditionFunction getRangeAdditionFunction()
-        {
-            return rangeAdditionFunction;
-        }
-    }
-
     @FunctionalInterface
-    protected interface RangeAdditionFunction
+    private interface RangeAdditionStrategy
     {
         StatisticRange add(StatisticRange leftRange, StatisticRange rightRange);
     }
 
     public static PlanNodeStatsEstimate addStatsAndSumDistinctValues(PlanNodeStatsEstimate left, PlanNodeStatsEstimate right)
     {
-        return addStats(left, right, RangeAdditionStrategy.ADD_AND_SUM_DISTINCT);
+        return addStats(left, right, StatisticRange::addAndSumDistinctValues);
     }
 
     public static PlanNodeStatsEstimate addStatsAndMaxDistinctValues(PlanNodeStatsEstimate left, PlanNodeStatsEstimate right)
     {
-        return addStats(left, right, RangeAdditionStrategy.ADD_AND_MAX_DISTINCT);
+        return addStats(left, right, StatisticRange::addAndMaxDistinctValues);
     }
 
     public static PlanNodeStatsEstimate addStatsAndCollapseDistinctValues(PlanNodeStatsEstimate left, PlanNodeStatsEstimate right)
     {
-        return addStats(left, right, RangeAdditionStrategy.ADD_AND_COLLAPSE_DISTINCT);
+        return addStats(left, right, StatisticRange::addAndCollapseDistinctValues);
     }
 
     public static PlanNodeStatsEstimate addStatsAndIntersect(PlanNodeStatsEstimate left, PlanNodeStatsEstimate right)
@@ -209,7 +185,7 @@ public class PlanNodeStatsEstimateMath
                             right.getOutputRowCount() * rstats.overlapPercentWith(lstats));
                 }).reduce(Math::min).orElse(estimatedRowCount);
 
-        buildVariableStatistics(left, right, statsBuilder, rowCount, RangeAdditionStrategy.INTERSECT);
+        buildVariableStatistics(left, right, statsBuilder, rowCount, StatisticRange::intersect);
 
         return statsBuilder.setOutputRowCount(rowCount).build();
     }
@@ -217,7 +193,7 @@ public class PlanNodeStatsEstimateMath
     private static PlanNodeStatsEstimate addStats(
             PlanNodeStatsEstimate left,
             PlanNodeStatsEstimate right,
-            RangeAdditionStrategy strategy)
+            RangeAdditionStrategy rangeAdder)
     {
         double rowCount = left.getOutputRowCount() + right.getOutputRowCount();
         double totalSize = left.getTotalSize() + right.getTotalSize();
@@ -227,7 +203,7 @@ public class PlanNodeStatsEstimateMath
         }
 
         PlanNodeStatsEstimate.Builder statsBuilder = PlanNodeStatsEstimate.builder();
-        buildVariableStatistics(left, right, statsBuilder, rowCount, strategy);
+        buildVariableStatistics(left, right, statsBuilder, rowCount, rangeAdder);
 
         return statsBuilder.setOutputRowCount(rowCount)
                 .setTotalSize(totalSize).build();
@@ -238,7 +214,7 @@ public class PlanNodeStatsEstimateMath
             PlanNodeStatsEstimate right,
             PlanNodeStatsEstimate.Builder statsBuilder,
             double estimatedRowCount,
-            RangeAdditionStrategy strategy)
+            RangeAdditionStrategy rangeAdder)
     {
         concat(left.getVariablesWithKnownStatistics().stream(), right.getVariablesWithKnownStatistics().stream())
                 .distinct()
@@ -254,7 +230,7 @@ public class PlanNodeStatsEstimateMath
                                 right.getVariableStatistics(symbol),
                                 right.getOutputRowCount(),
                                 estimatedRowCount,
-                                strategy);
+                                rangeAdder);
                     }
                     statsBuilder.addVariableStatistics(symbol, symbolStats);
                 });
@@ -273,7 +249,7 @@ public class PlanNodeStatsEstimateMath
         StatisticRange leftRange = StatisticRange.from(leftStats);
         StatisticRange rightRange = StatisticRange.from(rightStats);
 
-        StatisticRange sum = strategy.getRangeAdditionFunction().add(leftRange, rightRange);
+        StatisticRange sum = strategy.add(leftRange, rightRange);
         double nullsCountRight = rightStats.getNullsFraction() * rightRows;
         double nullsCountLeft = leftStats.getNullsFraction() * leftRows;
         double totalSizeLeft = (leftRows - nullsCountLeft) * leftStats.getAverageRowSize();
@@ -284,15 +260,10 @@ public class PlanNodeStatsEstimateMath
         // FIXME, weights to average. left and right should be equal in most cases anyway
         double newAverageRowSize = newNonNullsRowCount == 0 ? 0 : ((totalSizeLeft + totalSizeRight) / newNonNullsRowCount);
 
-        ConnectorHistogram newHistogram = RangeAdditionStrategy.INTERSECT.equals(strategy) ?
-                DisjointRangeDomainHistogram.addConjunction(leftStats.getHistogram(), rightRange) :
-                DisjointRangeDomainHistogram.addDisjunction(leftStats.getHistogram(), rightRange);
-
         return VariableStatsEstimate.builder()
                 .setStatisticsRange(sum)
                 .setAverageRowSize(newAverageRowSize)
                 .setNullsFraction(newNullsFraction)
-                .setHistogram(newHistogram)
                 .build();
     }
 }

@@ -135,11 +135,10 @@ public class FilterStatsCalculator
     public PlanNodeStatsEstimate filterStats(
             PlanNodeStatsEstimate statsEstimate,
             RowExpression predicate,
-            ConnectorSession session,
-            Optional<Session> systemSession)
+            ConnectorSession session)
     {
         RowExpression simplifiedExpression = simplifyExpression(session, predicate);
-        return new FilterRowExpressionStatsCalculatingVisitor(statsEstimate, session, metadata.getFunctionAndTypeManager(), systemSession).process(simplifiedExpression);
+        return new FilterRowExpressionStatsCalculatingVisitor(statsEstimate, session, metadata.getFunctionAndTypeManager()).process(simplifiedExpression);
     }
 
     public PlanNodeStatsEstimate filterStats(
@@ -147,7 +146,7 @@ public class FilterStatsCalculator
             RowExpression predicate,
             Session session)
     {
-        return filterStats(statsEstimate, predicate, session.toConnectorSession(), Optional.of(session));
+        return filterStats(statsEstimate, predicate, session.toConnectorSession());
     }
 
     private Expression simplifyExpression(Session session, Expression predicate, TypeProvider types)
@@ -442,13 +441,13 @@ public class FilterStatsCalculator
                     return visitBooleanLiteral(FALSE_LITERAL, null);
                 }
                 OptionalDouble literal = toStatsRepresentation(metadata, session, getType(left), literalValue);
-                return estimateExpressionToLiteralComparison(input, leftStats, leftVariable, literal, operator, Optional.of(session));
+                return estimateExpressionToLiteralComparison(input, leftStats, leftVariable, literal, operator);
             }
 
             VariableStatsEstimate rightStats = getExpressionStats(right);
             if (rightStats.isSingleValue()) {
                 OptionalDouble value = isNaN(rightStats.getLowValue()) ? OptionalDouble.empty() : OptionalDouble.of(rightStats.getLowValue());
-                return estimateExpressionToLiteralComparison(input, leftStats, leftVariable, value, operator, Optional.of(session));
+                return estimateExpressionToLiteralComparison(input, leftStats, leftVariable, value, operator);
             }
 
             Optional<VariableReferenceExpression> rightVariable = right instanceof SymbolReference ? Optional.of(toVariable(right)) : Optional.empty();
@@ -494,15 +493,13 @@ public class FilterStatsCalculator
     {
         private final PlanNodeStatsEstimate input;
         private final ConnectorSession session;
-        private final Optional<Session> systemSession;
         private final FunctionAndTypeManager functionAndTypeManager;
 
-        FilterRowExpressionStatsCalculatingVisitor(PlanNodeStatsEstimate input, ConnectorSession session, FunctionAndTypeManager functionAndTypeManager, Optional<Session> systemSession)
+        FilterRowExpressionStatsCalculatingVisitor(PlanNodeStatsEstimate input, ConnectorSession session, FunctionAndTypeManager functionAndTypeManager)
         {
             this.input = requireNonNull(input, "input is null");
             this.session = requireNonNull(session, "session is null");
             this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
-            this.systemSession = requireNonNull(systemSession, "systemSession is null");
         }
 
         @Override
@@ -589,13 +586,13 @@ public class FilterStatsCalculator
                         return visitConstant(constantNull(right.getSourceLocation(), BOOLEAN), null);
                     }
                     OptionalDouble literal = toStatsRepresentation(metadata.getFunctionAndTypeManager(), session, right.getType(), rightValue);
-                    return estimateExpressionToLiteralComparison(input, leftStats, leftVariable, literal, getComparisonOperator(operatorType), systemSession);
+                    return estimateExpressionToLiteralComparison(input, leftStats, leftVariable, literal, getComparisonOperator(operatorType));
                 }
 
                 VariableStatsEstimate rightStats = getRowExpressionStats(right);
                 if (rightStats.isSingleValue()) {
                     OptionalDouble value = isNaN(rightStats.getLowValue()) ? OptionalDouble.empty() : OptionalDouble.of(rightStats.getLowValue());
-                    return estimateExpressionToLiteralComparison(input, leftStats, leftVariable, value, getComparisonOperator(operatorType), systemSession);
+                    return estimateExpressionToLiteralComparison(input, leftStats, leftVariable, value, getComparisonOperator(operatorType));
                 }
 
                 Optional<VariableReferenceExpression> rightVariable = right instanceof VariableReferenceExpression ? Optional.of((VariableReferenceExpression) right) : Optional.empty();
@@ -679,7 +676,7 @@ public class FilterStatsCalculator
 
         private FilterRowExpressionStatsCalculatingVisitor newEstimate(PlanNodeStatsEstimate input)
         {
-            return new FilterRowExpressionStatsCalculatingVisitor(input, session, functionAndTypeManager, systemSession);
+            return new FilterRowExpressionStatsCalculatingVisitor(input, session, functionAndTypeManager);
         }
 
         private PlanNodeStatsEstimate process(RowExpression rowExpression)
