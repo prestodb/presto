@@ -279,36 +279,36 @@ public abstract class AbstractTestWriter
 
         assertQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar = 'p1')", tmpTableName),
                 "SELECT * FROM (VALUES " +
-                        "('c_boolean', null, 2.0E0, 0.5E0, null, null, null, null), " +
-                        "('c_bigint', null, 2.0E0, 0.5E0, null, '0', '1', null), " +
-                        "('c_double', null, 2.0E0, 0.5E0, null, '1.2', '2.2', null), " +
-                        "('c_timestamp', null, 2.0E0, 0.5E0, null, null, null, null), " +
-                        "('c_varchar', 16.0E0, 2.0E0, 0.5E0, null, null, null, null), " + // 8.0
-                        "('c_array', 184.0E0, null, 0.5, null, null, null, null), " + // 176
-                        "('p_varchar', 8.0E0, 1.0E0, 0.0E0, null, null, null, null), " +
-                        "(null, null, null, null, 4.0E0, null, null, null)) AS x (c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_array, p_varchar, h_varchar)");
+                        "('c_boolean', null, 2.0E0, 0.5E0, null, null, null), " +
+                        "('c_bigint', null, 2.0E0, 0.5E0, null, '0', '1'), " +
+                        "('c_double', null, 2.0E0, 0.5E0, null, '1.2', '2.2'), " +
+                        "('c_timestamp', null, 2.0E0, 0.5E0, null, null, null), " +
+                        "('c_varchar', 16.0E0, 2.0E0, 0.5E0, null, null, null), " + // 8.0
+                        "('c_array', 184.0E0, null, 0.5, null, null, null), " + // 176
+                        "('p_varchar', 8.0E0, 1.0E0, 0.0E0, null, null, null), " +
+                        "(null, null, null, null, 4.0E0, null, null)) AS x (c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_array, p_varchar)");
         assertQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar = 'p2')", tmpTableName),
                 "SELECT * FROM (VALUES " +
-                        "('c_boolean', null, 2.0E0, 0.5E0, null, null, null, null), " +
-                        "('c_bigint', null, 2.0E0, 0.5E0, null, '1', '2', null), " +
-                        "('c_double', null, 2.0E0, 0.5E0, null, '2.3', '3.3', null), " +
-                        "('c_timestamp', null, 2.0E0, 0.5E0, null, null, null, null), " +
-                        "('c_varchar', 16.0E0, 2.0E0, 0.5E0, null, null, null, null), " + // 8
-                        "('c_array', 104.0E0, null, 0.5, null, null, null, null), " + // 96
-                        "('p_varchar', 8.0E0, 1.0E0, 0.0E0, null, null, null, null), " +
-                        "(null, null, null, null, 4.0E0, null, null, null)) AS x (c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_array, p_varchar, h_varchar)");
+                        "('c_boolean', null, 2.0E0, 0.5E0, null, null, null), " +
+                        "('c_bigint', null, 2.0E0, 0.5E0, null, '1', '2'), " +
+                        "('c_double', null, 2.0E0, 0.5E0, null, '2.3', '3.3'), " +
+                        "('c_timestamp', null, 2.0E0, 0.5E0, null, null, null), " +
+                        "('c_varchar', 16.0E0, 2.0E0, 0.5E0, null, null, null), " + // 8
+                        "('c_array', 104.0E0, null, 0.5, null, null, null), " + // 96
+                        "('p_varchar', 8.0E0, 1.0E0, 0.0E0, null, null, null), " +
+                        "(null, null, null, null, 4.0E0, null, null)) AS x (c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_array, p_varchar)");
 
         // non existing partition
         assertQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar = 'p3')", tmpTableName),
                 "SELECT * FROM (VALUES " +
-                        "('c_boolean', null, 0E0, 0E0, null, null, null, null), " +
-                        "('c_bigint', null, 0E0, 0E0, null, null, null, null), " +
-                        "('c_double', null, 0E0, 0E0, null, null, null, null), " +
-                        "('c_timestamp', null, 0E0, 0E0, null, null, null, null), " +
-                        "('c_varchar', 0E0, 0E0, 0E0, null, null, null, null), " +
-                        "('c_array', null, 0E0, 0E0, null, null, null, null), " +
-                        "('p_varchar', 0E0, 0E0, 0E0, null, null, null, null), " +
-                        "(null, null, null, null, 0E0, null, null, null)) AS x (c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_array, p_varchar, h_varchar)");
+                        "('c_boolean', null, 0E0, 0E0, null, null, null), " +
+                        "('c_bigint', null, 0E0, 0E0, null, null, null), " +
+                        "('c_double', null, 0E0, 0E0, null, null, null), " +
+                        "('c_timestamp', null, 0E0, 0E0, null, null, null), " +
+                        "('c_varchar', 0E0, 0E0, 0E0, null, null, null), " +
+                        "('c_array', null, 0E0, 0E0, null, null, null), " +
+                        "('p_varchar', 0E0, 0E0, 0E0, null, null, null), " +
+                        "(null, null, null, null, 0E0, null, null)) AS x (c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_array, p_varchar)");
 
         dropTableIfExists(tmpTableName);
     }
@@ -349,36 +349,36 @@ public abstract class AbstractTestWriter
 
         assertQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar = 'p1')", tmpTableName),
                 "SELECT * FROM (VALUES " +
-                        "('c_boolean', null, 2.0E0, 0.5E0, null, null, null, null), " +
-                        "('c_bigint', null, 2.0E0, 0.5E0, null, '0', '1', null), " +
-                        "('c_double', null, 2.0E0, 0.5E0, null, '1.2', '2.2', null), " +
-                        "('c_timestamp', null, 2.0E0, 0.5E0, null, null, null, null), " +
-                        "('c_varchar', 16.0E0, 2.0E0, 0.5E0, null, null, null, null), " + // 8
-                        "('c_array', 184.0E0, null, 0.5E0, null, null, null, null), " + // 176
-                        "('p_varchar', 8.0E0, 1.0E0, 0.0E0, null, null, null, null), " +
-                        "(null, null, null, null, 4.0E0, null, null, null)) AS x (c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_array, p_varchar, p_varchar)");
+                        "('c_boolean', null, 2.0E0, 0.5E0, null, null, null), " +
+                        "('c_bigint', null, 2.0E0, 0.5E0, null, '0', '1'), " +
+                        "('c_double', null, 2.0E0, 0.5E0, null, '1.2', '2.2'), " +
+                        "('c_timestamp', null, 2.0E0, 0.5E0, null, null, null), " +
+                        "('c_varchar', 16.0E0, 2.0E0, 0.5E0, null, null, null), " + // 8
+                        "('c_array', 184.0E0, null, 0.5E0, null, null, null), " + // 176
+                        "('p_varchar', 8.0E0, 1.0E0, 0.0E0, null, null, null), " +
+                        "(null, null, null, null, 4.0E0, null, null)) AS x (c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_array, p_varchar)");
         assertQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar = 'p2')", tmpTableName),
                 "SELECT * FROM (VALUES " +
-                        "('c_boolean', null, 2.0E0, 0.5E0, null, null, null, null), " +
-                        "('c_bigint', null, 2.0E0, 0.5E0, null, '1', '2', null), " +
-                        "('c_double', null, 2.0E0, 0.5E0, null, '2.3', '3.3', null), " +
-                        "('c_timestamp', null, 2.0E0, 0.5E0, null, null, null, null), " +
-                        "('c_varchar', 16.0E0, 2.0E0, 0.5E0, null, null, null, null), " + // 8
-                        "('c_array', 104.0E0, null, 0.5, null, null, null, null), " + // 96
-                        "('p_varchar', 8.0E0, 1.0E0, 0.0E0, null, null, null, null), " +
-                        "(null, null, null, null, 4.0E0, null, null, null)) AS x (c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_array, p_varchar, p_varchar)");
+                        "('c_boolean', null, 2.0E0, 0.5E0, null, null, null), " +
+                        "('c_bigint', null, 2.0E0, 0.5E0, null, '1', '2'), " +
+                        "('c_double', null, 2.0E0, 0.5E0, null, '2.3', '3.3'), " +
+                        "('c_timestamp', null, 2.0E0, 0.5E0, null, null, null), " +
+                        "('c_varchar', 16.0E0, 2.0E0, 0.5E0, null, null, null), " + // 8
+                        "('c_array', 104.0E0, null, 0.5, null, null, null), " + // 96
+                        "('p_varchar', 8.0E0, 1.0E0, 0.0E0, null, null, null), " +
+                        "(null, null, null, null, 4.0E0, null, null)) AS x (c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_array, p_varchar)");
 
         // non existing partition
         assertQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar = 'p3')", tmpTableName),
                 "SELECT * FROM (VALUES " +
-                        "('c_boolean', null, 0E0, 0E0, null, null, null, null), " +
-                        "('c_bigint', null, 0E0, 0E0, null, null, null, null), " +
-                        "('c_double', null, 0E0, 0E0, null, null, null, null), " +
-                        "('c_timestamp', null, 0E0, 0E0, null, null, null, null), " +
-                        "('c_varchar', 0E0, 0E0, 0E0, null, null, null, null), " +
-                        "('c_array', null, 0E0, 0E0, null, null, null, null), " +
-                        "('p_varchar', 0E0, 0E0, 0E0, null, null, null, null), " +
-                        "(null, null, null, null, 0E0, null, null, null)) AS x (c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_array, p_varchar, p_varchar)");
+                        "('c_boolean', null, 0E0, 0E0, null, null, null), " +
+                        "('c_bigint', null, 0E0, 0E0, null, null, null), " +
+                        "('c_double', null, 0E0, 0E0, null, null, null), " +
+                        "('c_timestamp', null, 0E0, 0E0, null, null, null), " +
+                        "('c_varchar', 0E0, 0E0, 0E0, null, null, null), " +
+                        "('c_array', null, 0E0, 0E0, null, null, null), " +
+                        "('p_varchar', 0E0, 0E0, 0E0, null, null, null), " +
+                        "(null, null, null, null, 0E0, null, null)) AS x (c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_array, p_varchar)");
 
         dropTableIfExists(tmpTableName);
     }

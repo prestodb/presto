@@ -33,7 +33,6 @@ import java.util.Optional;
 import java.util.Queue;
 
 import static com.facebook.presto.SystemSessionProperties.getDefaultJoinSelectivityCoefficient;
-import static com.facebook.presto.cost.DisjointRangeDomainHistogram.addConjunction;
 import static com.facebook.presto.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEFFICIENT;
 import static com.facebook.presto.cost.VariableStatsEstimate.buildFrom;
 import static com.facebook.presto.expressions.LogicalRowExpressions.extractConjuncts;
@@ -247,14 +246,12 @@ public class JoinStatsRule
                 .setNullsFraction(0)
                 .setStatisticsRange(intersect)
                 .setDistinctValuesCount(retainedNdv)
-                .setHistogram(addConjunction(leftStats.getHistogram(), intersect))
                 .build();
 
         VariableStatsEstimate newRightStats = buildFrom(rightStats)
                 .setNullsFraction(0)
                 .setStatisticsRange(intersect)
                 .setDistinctValuesCount(retainedNdv)
-                .setHistogram(addConjunction(rightStats.getHistogram(), intersect))
                 .build();
 
         PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.buildFrom(stats)
