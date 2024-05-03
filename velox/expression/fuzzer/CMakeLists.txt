@@ -19,8 +19,9 @@ target_link_libraries(velox_expression_test_utility velox_type
                       velox_expression_functions gtest)
 
 add_library(
-  velox_expression_fuzzer ArgumentTypeFuzzer.cpp ExpressionFuzzer.cpp
-                          FuzzerRunner.cpp ExpressionFuzzerVerifier.cpp)
+  velox_expression_fuzzer
+  ArgumentTypeFuzzer.cpp DecimalArgGeneratorBase.cpp ExpressionFuzzer.cpp
+  FuzzerRunner.cpp ExpressionFuzzerVerifier.cpp)
 
 target_link_libraries(
   velox_expression_fuzzer

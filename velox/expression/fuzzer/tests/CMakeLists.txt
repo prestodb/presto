@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_executable(velox_expression_fuzzer_unit_test ArgumentTypeFuzzerTest.cpp ExpressionFuzzerUnitTest.cpp)
+add_executable(velox_expression_fuzzer_unit_test ArgumentTypeFuzzerTest.cpp DecimalArgGeneratorTest.cpp ExpressionFuzzerUnitTest.cpp)
 
 target_link_libraries(
   velox_expression_fuzzer_unit_test
