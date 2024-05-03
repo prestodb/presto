@@ -26,12 +26,38 @@ namespace {
   if ((counter) != 0) {                     \
     RECORD_METRIC_VALUE((name), (counter)); \
   }
+
+std::mutex& instanceMutex() {
+  static std::mutex instanceMu;
+  return instanceMu;
+}
+
+// Global instance. Must be called while holding a lock over instanceMutex().
+std::unique_ptr<PeriodicStatsReporter>& instance() {
+  static std::unique_ptr<PeriodicStatsReporter> reporter;
+  return reporter;
+}
 } // namespace
 
-PeriodicStatsReporter::PeriodicStatsReporter(
-    const velox::memory::MemoryArbitrator* arbitrator,
-    const Options& options)
-    : arbitrator_(arbitrator), options_(options) {}
+void startPeriodicStatsReporter(const PeriodicStatsReporter::Options& options) {
+  std::lock_guard<std::mutex> l(instanceMutex());
+  auto& instanceRef = instance();
+  VELOX_CHECK_NULL(
+      instanceRef, "The periodic stats reporter has already started.");
+  instanceRef = std::make_unique<PeriodicStatsReporter>(options);
+  instanceRef->start();
+}
+
+void stopPeriodicStatsReporter() {
+  std::lock_guard<std::mutex> l(instanceMutex());
+  auto& instanceRef = instance();
+  VELOX_CHECK_NOT_NULL(instanceRef, "No periodic stats reporter to stop.");
+  instanceRef->stop();
+  instanceRef.reset();
+}
+
+PeriodicStatsReporter::PeriodicStatsReporter(const Options& options)
+    : arbitrator_(options.arbitrator), options_(options) {}
 
 void PeriodicStatsReporter::start() {
   LOG(INFO) << "Starting PeriodicStatsReporter with options "

@@ -39,6 +39,8 @@ class PeriodicStatsReporter {
   struct Options {
     Options() {}
 
+    const memory::MemoryArbitrator* arbitrator{nullptr};
+
     uint64_t arbitratorStatsIntervalMs{60'000};
 
     std::string toString() const {
@@ -47,9 +49,7 @@ class PeriodicStatsReporter {
     }
   };
 
-  PeriodicStatsReporter(
-      const velox::memory::MemoryArbitrator* arbitrator,
-      const Options& options = Options());
+  PeriodicStatsReporter(const Options& options = Options());
 
   /// Invoked to start the report daemon in background.
   void start();
@@ -83,4 +83,13 @@ class PeriodicStatsReporter {
 
   folly::ThreadedRepeatingFunctionRunner scheduler_;
 };
+
+/// Initializes and starts the process-wide periodic stats reporter. Before
+/// 'stopPeriodicStatsReporter()' is called, this method can only be called once
+/// process-wide, and additional calls to this method will throw.
+void startPeriodicStatsReporter(const PeriodicStatsReporter::Options& options);
+
+/// Stops the process-wide periodic stats reporter.
+void stopPeriodicStatsReporter();
+
 } // namespace facebook::velox

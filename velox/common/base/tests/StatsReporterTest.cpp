@@ -23,6 +23,7 @@
 #include <unordered_set>
 #include "velox/common/base/Counters.h"
 #include "velox/common/base/PeriodicStatsReporter.h"
+#include "velox/common/base/tests/GTestUtils.h"
 
 namespace facebook::velox {
 
@@ -196,8 +197,9 @@ class TestStatsReportMemoryArbitrator : public memory::MemoryArbitrator {
 TEST_F(PeriodicStatsReporterTest, basic) {
   TestStatsReportMemoryArbitrator arbitrator({});
   PeriodicStatsReporter::Options options;
+  options.arbitrator = &arbitrator;
   options.arbitratorStatsIntervalMs = 4'000;
-  PeriodicStatsReporter periodicReporter(&arbitrator, options);
+  PeriodicStatsReporter periodicReporter(options);
 
   periodicReporter.start();
   std::this_thread::sleep_for(std::chrono::milliseconds(2'000));
@@ -210,6 +212,20 @@ TEST_F(PeriodicStatsReporterTest, basic) {
   ASSERT_EQ(counterMap.count(kMetricArbitratorFreeCapacityBytes.str()), 1);
   ASSERT_EQ(
       counterMap.count(kMetricArbitratorFreeReservedCapacityBytes.str()), 1);
+}
+
+TEST_F(PeriodicStatsReporterTest, globalInstance) {
+  TestStatsReportMemoryArbitrator arbitrator({});
+  PeriodicStatsReporter::Options options;
+  options.arbitrator = &arbitrator;
+  options.arbitratorStatsIntervalMs = 4'000;
+  VELOX_ASSERT_THROW(
+      stopPeriodicStatsReporter(), "No periodic stats reporter to stop.");
+  ASSERT_NO_THROW(startPeriodicStatsReporter(options));
+  VELOX_ASSERT_THROW(
+      startPeriodicStatsReporter(options),
+      "The periodic stats reporter has already started.");
+  ASSERT_NO_THROW(stopPeriodicStatsReporter());
 }
 
 // Registering to folly Singleton with intended reporter type
