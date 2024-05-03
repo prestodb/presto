@@ -141,6 +141,8 @@ tested:
     Total aggregations verified against DuckDB: 2537 (44.63%)
     Total failed aggregations: 1061 (18.67%)
 
+.. _window-fuzzer:
+
 Window Fuzzer
 -------------
 
