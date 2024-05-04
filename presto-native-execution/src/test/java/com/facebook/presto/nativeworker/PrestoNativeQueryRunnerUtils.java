@@ -367,8 +367,7 @@ public class PrestoNativeQueryRunnerUtils
                         log.info("Temp directory for Worker #%d: %s", workerIndex, tempDirectoryPath.toString());
                         int port = 1234 + workerIndex;
 
-                        // Write config files
-                        Files.write(tempDirectoryPath.resolve("velox.properties"), "".getBytes());
+                        // Write config file
                         String configProperties = format("discovery.uri=%s%n" +
                                 "presto.version=testversion%n" +
                                 "system-memory-gb=4%n" +

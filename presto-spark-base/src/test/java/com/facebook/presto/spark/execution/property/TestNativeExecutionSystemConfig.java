@@ -196,11 +196,10 @@ public class TestNativeExecutionSystemConfig
         Path directory = null;
         try {
             directory = Files.createTempDirectory("presto");
-            Path veloxPropertiesPath = Paths.get(directory.toString(), "velox.properties");
             Path configPropertiesPath = Paths.get(directory.toString(), "config.properties");
             Path nodePropertiesPath = Paths.get(directory.toString(), "node.properties");
             Path connectorPropertiesPath = Paths.get(directory.toString(), "catalog/hive.properties");
-            workerProperty.populateAllProperties(veloxPropertiesPath, configPropertiesPath, nodePropertiesPath, connectorPropertiesPath);
+            workerProperty.populateAllProperties(configPropertiesPath, nodePropertiesPath, connectorPropertiesPath);
 
             verifyProperties(workerProperty.getSystemConfig().getAllProperties(), readPropertiesFromDisk(configPropertiesPath));
             verifyProperties(workerProperty.getNodeConfig().getAllProperties(), readPropertiesFromDisk(nodePropertiesPath));
