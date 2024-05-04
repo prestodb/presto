@@ -52,6 +52,7 @@ public class IcebergConfig
     private double statisticSnapshotRecordDifferenceWeight;
     private boolean pushdownFilterEnabled;
     private boolean deleteAsJoinRewriteEnabled = true;
+    private int rowsForMetadataOptimizationThreshold = 1000;
 
     private EnumSet<ColumnStatisticType> hiveStatisticsMergeFlags = EnumSet.noneOf(ColumnStatisticType.class);
     private String fileIOImpl = HadoopFileIO.class.getName();
@@ -249,6 +250,20 @@ public class IcebergConfig
     public boolean isDeleteAsJoinRewriteEnabled()
     {
         return deleteAsJoinRewriteEnabled;
+    }
+
+    @Config("iceberg.rows-for-metadata-optimization-threshold")
+    @ConfigDescription("The max partitions number to utilize metadata optimization. 0 means skip the metadata optimization directly.")
+    public IcebergConfig setRowsForMetadataOptimizationThreshold(int rowsForMetadataOptimizationThreshold)
+    {
+        this.rowsForMetadataOptimizationThreshold = rowsForMetadataOptimizationThreshold;
+        return this;
+    }
+
+    @Min(0)
+    public int getRowsForMetadataOptimizationThreshold()
+    {
+        return rowsForMetadataOptimizationThreshold;
     }
 
     public boolean getManifestCachingEnabled()

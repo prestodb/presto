@@ -70,7 +70,9 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.getRowsForMetadataOptimizationThreshold;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -112,12 +114,14 @@ public class IcebergMetadataOptimizer
     @Override
     public PlanNode optimize(PlanNode maxSubplan, ConnectorSession session, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator)
     {
+        int rowsForMetadataOptimizationThreshold = getRowsForMetadataOptimizationThreshold(session);
         Optimizer optimizer = new Optimizer(session, idAllocator,
                 functionMetadataManager,
                 typeManager,
                 icebergTransactionManager,
                 rowExpressionService,
-                functionResolution);
+                functionResolution,
+                rowsForMetadataOptimizationThreshold);
         PlanNode rewrittenPlan = ConnectorPlanRewriter.rewriteWith(optimizer, maxSubplan, null);
         return rewrittenPlan;
     }
@@ -132,6 +136,7 @@ public class IcebergMetadataOptimizer
         private final IcebergTransactionManager icebergTransactionManager;
         private final RowExpressionService rowExpressionService;
         private final StandardFunctionResolution functionResolution;
+        private final int rowsForMetadataOptimizationThreshold;
 
         private Optimizer(ConnectorSession connectorSession,
                           PlanNodeIdAllocator idAllocator,
@@ -139,8 +144,10 @@ public class IcebergMetadataOptimizer
                           TypeManager typeManager,
                           IcebergTransactionManager icebergTransactionManager,
                           RowExpressionService rowExpressionService,
-                          StandardFunctionResolution functionResolution)
+                          StandardFunctionResolution functionResolution,
+                          int rowsForMetadataOptimizationThreshold)
         {
+            checkArgument(rowsForMetadataOptimizationThreshold >= 0, "The value of `rowsForMetadataOptimizationThreshold` should not less than 0");
             this.connectorSession = connectorSession;
             this.idAllocator = idAllocator;
             this.functionMetadataManager = functionMetadataManager;
@@ -148,6 +155,7 @@ public class IcebergMetadataOptimizer
             this.rowExpressionService = rowExpressionService;
             this.functionResolution = functionResolution;
             this.typeManager = typeManager;
+            this.rowsForMetadataOptimizationThreshold = rowsForMetadataOptimizationThreshold;
         }
 
         @Override
@@ -220,6 +228,11 @@ public class IcebergMetadataOptimizer
             if (isReducible(node, inputs)) {
                 // Fold min/max aggregations to a constant value
                 return reduce(node, inputs, columns, context, discretePredicates);
+            }
+
+            // When `rowsForMetadataOptimizationThreshold == 0`, or partitions number exceeds the threshold, skip the optimization
+            if (rowsForMetadataOptimizationThreshold == 0 || Iterables.size(discretePredicates.getPredicates()) > rowsForMetadataOptimizationThreshold) {
+                return context.defaultRewrite(node);
             }
 
             ImmutableList.Builder<List<RowExpression>> rowsBuilder = ImmutableList.builder();

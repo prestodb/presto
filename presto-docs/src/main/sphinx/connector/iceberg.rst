@@ -240,6 +240,13 @@ Property Name                                           Description             
 
 ``iceberg.pushdown-filter-enabled``                     Experimental: Enable filter pushdown for Iceberg. This is     ``false``
                                                         only supported with Native Worker.
+
+``iceberg.rows-for-metadata-optimization-threshold``    The maximum number of partitions in an Iceberg table to       ``1000``
+                                                        allow optimizing queries of that table using metadata. If
+                                                        an Iceberg table has more partitions than this threshold,
+                                                        metadata optimization is skipped.
+
+                                                        Set to ``0`` to disable metadata optimization.
 ======================================================= ============================================================= ============
 
 Table Properties
@@ -304,14 +311,17 @@ Session Properties
 
 Session properties set behavior changes for queries executed within the given session.
 
-============================================= ======================================================================
-Property Name                                 Description
-============================================= ======================================================================
-``iceberg.delete_as_join_rewrite_enabled``    Overrides the behavior of the connector property
-                                              ``iceberg.delete-as-join-rewrite-enabled`` in the current session.
-``iceberg.hive_statistics_merge_strategy``    Overrides the behavior of the connector property
-                                              ``iceberg.hive-statistics-merge-strategy`` in the current session.
-============================================= ======================================================================
+===================================================== ======================================================================
+Property Name                                         Description
+===================================================== ======================================================================
+``iceberg.delete_as_join_rewrite_enabled``            Overrides the behavior of the connector property
+                                                      ``iceberg.delete-as-join-rewrite-enabled`` in the current session.
+``iceberg.hive_statistics_merge_strategy``            Overrides the behavior of the connector property
+                                                      ``iceberg.hive-statistics-merge-strategy`` in the current session.
+``iceberg.rows_for_metadata_optimization_threshold``  Overrides the behavior of the connector property
+                                                      ``iceberg.rows-for-metadata-optimization-threshold`` in the current
+                                                      session.
+===================================================== ======================================================================
 
 Caching Support
 ----------------
