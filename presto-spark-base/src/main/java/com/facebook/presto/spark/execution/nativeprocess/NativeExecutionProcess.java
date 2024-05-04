@@ -80,7 +80,6 @@ public class NativeExecutionProcess
     private static final String NATIVE_EXECUTION_TASK_ERROR_MESSAGE = "Native process launch failed with multiple retries.";
     private static final String WORKER_CONFIG_FILE = "/config.properties";
     private static final String WORKER_NODE_CONFIG_FILE = "/node.properties";
-    private static final String WORKER_VELOX_CONFIG_FILE = "/velox.properties";
     private static final String WORKER_CONNECTOR_CONFIG_FILE = "/catalog/";
     private static final int SIGSYS = 31;
 
@@ -344,7 +343,6 @@ public class NativeExecutionProcess
         // the native execution process eventually for process initialization.
         workerProperty.getSystemConfig().setHttpServerPort(port);
         workerProperty.populateAllProperties(
-                Paths.get(configBasePath, WORKER_VELOX_CONFIG_FILE),
                 Paths.get(configBasePath, WORKER_CONFIG_FILE),
                 Paths.get(configBasePath, WORKER_NODE_CONFIG_FILE),
                 Paths.get(configBasePath, format("%s%s.properties", WORKER_CONNECTOR_CONFIG_FILE, getNativeExecutionCatalogName(session))));
