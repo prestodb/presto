@@ -37,6 +37,7 @@ import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -720,15 +721,15 @@ public class InMemoryCachingHiveMetastore
         String tableName = hiveTableName.getTableName();
 
         List<PartitionNameWithVersion> partitionsToFetch = new ArrayList<>();
+        Map<String, PartitionNameWithVersion> partitionNameToVersionMap = new HashMap<>();
         for (KeyAndContext<HivePartitionName> partitionNameKey : partitionNamesKey) {
             checkArgument(partitionNameKey.getKey().getHiveTableName().equals(hiveTableName), "Expected table name %s but got %s", hiveTableName, partitionNameKey.getKey().getHiveTableName());
             checkArgument(partitionNameKey.getContext().equals(firstPartitionKey.getContext()), "Expected context %s but got %s", firstPartitionKey.getContext(), partitionNameKey.getContext());
             partitionsToFetch.add(partitionNameKey.getKey().getPartitionNameWithVersion().get());
+            partitionNameToVersionMap.put(partitionNameKey.getKey().getPartitionNameWithVersion().get().getPartitionName(), partitionNameKey.getKey().getPartitionNameWithVersion().get());
         }
 
         ImmutableMap.Builder<KeyAndContext<HivePartitionName>, Optional<Partition>> partitions = ImmutableMap.builder();
-        ImmutableMap<String, PartitionNameWithVersion> partitionNameToVersionMap = partitionsToFetch.stream()
-                .collect(toImmutableMap(PartitionNameWithVersion::getPartitionName, Function.identity()));
         Map<String, Optional<Partition>> partitionsByNames = delegate.getPartitionsByNames(firstPartitionKey.getContext(), databaseName, tableName, partitionsToFetch);
         for (Entry<String, Optional<Partition>> entry : partitionsByNames.entrySet()) {
             partitions.put(getCachingKey(firstPartitionKey.getContext(), HivePartitionName.hivePartitionName(hiveTableName, partitionNameToVersionMap.get(entry.getKey()))), entry.getValue());
