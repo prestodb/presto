@@ -60,7 +60,8 @@ SsdCache::SsdCache(
         i,
         fileMaxRegions,
         checkpointIntervalBytes / numShards,
-        disableFileCow));
+        disableFileCow,
+        executor_));
   }
 }
 
