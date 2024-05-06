@@ -20,7 +20,6 @@ import com.google.common.io.BaseEncoding;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
-import java.util.Iterator;
 import java.util.List;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -72,7 +71,6 @@ public class TestHyperLogLogFunctions
     {
         int blockSize = 1;
         long uniqueElements = 10000 * blockSize;
-        double error = uniqueElements * 0.05;
 
         String projection = getMergeProjection(getUniqueElements(blockSize, uniqueElements));
 
@@ -135,7 +133,6 @@ public class TestHyperLogLogFunctions
     {
         int blockSize = 254;
         long uniqueElements = 10000 * blockSize;
-        double error = uniqueElements * 0.05;
 
         String projection = getMergeProjection(getUniqueElements(blockSize, uniqueElements));
 
@@ -176,8 +173,6 @@ public class TestHyperLogLogFunctions
     {
         String projection = "cardinality(merge_hll(ARRAY[";
 
-        Iterator<HyperLogLog> iterator = list.listIterator();
-
         ImmutableList.Builder<String> casts = ImmutableList.builder();
 
         for (HyperLogLog current : list) {
@@ -200,8 +195,6 @@ public class TestHyperLogLogFunctions
     private String getMergeProjection(List<HyperLogLog> list)
     {
         String projection = "merge_hll(ARRAY[";
-
-        Iterator<HyperLogLog> iterator = list.listIterator();
 
         ImmutableList.Builder<String> casts = ImmutableList.builder();
 

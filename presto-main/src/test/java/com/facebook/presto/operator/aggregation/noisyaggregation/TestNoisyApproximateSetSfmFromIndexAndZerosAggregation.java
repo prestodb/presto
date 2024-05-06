@@ -162,16 +162,6 @@ public class TestNoisyApproximateSetSfmFromIndexAndZerosAggregation
                 expected);
     }
 
-    /**
-     * Assert (approximate) cardinality match on function with signature F(value1, value2, epsilon)
-     */
-    protected void assertCardinality(Block valuesBlock1, Type valueType1, Block valuesBlock2, Type valueType2, double epsilon, Object expected, long delta)
-    {
-        assertFunction(valuesBlock1, valueType1, valuesBlock2, valueType2, epsilon,
-                (actualValue, expectedValue) -> equalCardinalityWithAbsoluteError(actualValue, expectedValue, delta),
-                expected);
-    }
-
     private void assertSketchSize(Block valuesBlock1, Type valueType1, Block valuesBlock2, Type valueType2, double epsilon, int numberOfBuckets, int precision, SqlVarbinary expected)
     {
         assertFunction(valuesBlock1, valueType1, valuesBlock2, valueType2, epsilon, numberOfBuckets, precision, this::sketchSizesMatch, expected);
@@ -180,11 +170,6 @@ public class TestNoisyApproximateSetSfmFromIndexAndZerosAggregation
     private void assertSketchSize(Block valuesBlock1, Type valueType1, Block valuesBlock2, Type valueType2, double epsilon, int numberOfBuckets, SqlVarbinary expected)
     {
         assertFunction(valuesBlock1, valueType1, valuesBlock2, valueType2, epsilon, numberOfBuckets, this::sketchSizesMatch, expected);
-    }
-
-    private void assertSketchSize(Block valuesBlock1, Type valueType1, Block valuesBlock2, Type valueType2, double epsilon, SqlVarbinary expected)
-    {
-        assertFunction(valuesBlock1, valueType1, valuesBlock2, valueType2, epsilon, this::sketchSizesMatch, expected);
     }
 
     /**

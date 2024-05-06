@@ -693,7 +693,6 @@ public class TestResourceManagerClusterStateProvider
     private void assertNonLeafResourceGroup(ResourceManagerClusterStateProvider provider, String excludingNode, String resourceGroupId, int queuedQueries, int runningQueries, int descendantQueuedQueries, int descendantRunningQueries)
             throws ResourceManagerInconsistentException
     {
-        List<ResourceGroupRuntimeInfo> resourceGroupRuntimeInfos = provider.getClusterResourceGroups(excludingNode);
         Optional<ResourceGroupRuntimeInfo> resourceGroupRuntimeInfo = provider.getClusterResourceGroups(excludingNode).stream()
                 .filter(resourceGroupInfo -> new ResourceGroupId(resourceGroupId).equals(resourceGroupInfo.getResourceGroupId()))
                 .findFirst();

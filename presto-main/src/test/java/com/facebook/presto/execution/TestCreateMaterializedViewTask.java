@@ -266,7 +266,7 @@ public class TestCreateMaterializedViewTask
                 @Override
                 public Optional<TableHandle> getTableHandle(QualifiedObjectName tableName)
                 {
-                    return getOptionalTableHandle(session, tableName);
+                    return getOptionalTableHandle(tableName);
                 }
 
                 @Override
@@ -295,7 +295,7 @@ public class TestCreateMaterializedViewTask
             };
         }
 
-        private Optional<TableHandle> getOptionalTableHandle(Session session, QualifiedObjectName tableName)
+        private Optional<TableHandle> getOptionalTableHandle(QualifiedObjectName tableName)
         {
             if (tableName.getObjectName().equals(MATERIALIZED_VIEW_A)) {
                 return Optional.empty();

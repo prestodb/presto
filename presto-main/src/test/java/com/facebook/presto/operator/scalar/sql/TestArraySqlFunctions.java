@@ -179,7 +179,6 @@ public class TestArraySqlFunctions
         assertFunction("array_dupes(array[1, 2, 1])", new ArrayType(INTEGER), ImmutableList.of(1));
 
         RowType rowType = RowType.from(ImmutableList.of(RowType.field(INTEGER), RowType.field(INTEGER)));
-        String t = rowType.toString();
         assertFunction("array_duplicates(array[array[1], array[2], array[]])", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of());
         assertFunction("array_duplicates(array[array[1], array[2], array[2]])", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of(ImmutableList.of(2)));
         assertFunction("array_duplicates(array[(1, 2), (1, 2)])", new ArrayType(rowType), ImmutableList.of(ImmutableList.of(1, 2)));

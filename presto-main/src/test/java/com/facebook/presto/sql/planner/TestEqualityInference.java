@@ -387,11 +387,6 @@ public class TestEqualityInference
         return arithmeticOperation(ADD, variable(symbol1), variable(symbol2));
     }
 
-    private static RowExpression add(RowExpression expression1, RowExpression expression2)
-    {
-        return arithmeticOperation(ADD, expression1, expression2);
-    }
-
     static RowExpression multiply(String symbol1, String symbol2)
     {
         return arithmeticOperation(MULTIPLY, variable(symbol1), variable(symbol2));

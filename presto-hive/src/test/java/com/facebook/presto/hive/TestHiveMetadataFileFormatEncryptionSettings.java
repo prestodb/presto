@@ -98,7 +98,6 @@ public class TestHiveMetadataFileFormatEncryptionSettings
             ImmutableMap.of(NEW_PARTITION_USER_SUPPLIED_PARAMETER, "{}"));
 
     private HiveMetadataFactory metadataFactory;
-    private HiveTransactionManager transactionManager;
     private ExtendedHiveMetastore metastore;
     private ExecutorService executor;
     private File baseDirectory;
@@ -109,7 +108,6 @@ public class TestHiveMetadataFileFormatEncryptionSettings
         baseDirectory = new File(Files.createTempDir(), "metastore");
         metastore = new BridgingHiveMetastore(new InMemoryHiveMetastore(baseDirectory), new HivePartitionMutator());
         executor = newCachedThreadPool(daemonThreadsNamed("hive-encryption-test-%s"));
-        transactionManager = new HiveTransactionManager();
         metadataFactory = new HiveMetadataFactory(
                 metastore,
                 HDFS_ENVIRONMENT,

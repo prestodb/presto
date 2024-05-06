@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive.metastore;
 
-import com.facebook.presto.hive.ColumnConverter;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.MockHiveMetastore;
 import com.facebook.presto.hive.PartitionMutator;
@@ -279,7 +278,6 @@ public class TestInMemoryCachingHiveMetastore
         MockHiveCluster mockHiveCluster = new MockHiveCluster(mockClient);
         ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("partition-versioning-test-%s")));
         MockHiveMetastore mockHiveMetastore = new MockHiveMetastore(mockHiveCluster);
-        ColumnConverter hiveColumnConverter = new HiveColumnConverter();
         InMemoryCachingHiveMetastore partitionCachingEnabledmetastore = new InMemoryCachingHiveMetastore(
                 new BridgingHiveMetastore(mockHiveMetastore, partitionMutator),
                 executor,
@@ -318,7 +316,6 @@ public class TestInMemoryCachingHiveMetastore
         ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("partition-versioning-test-%s")));
         MockHiveMetastore mockHiveMetastore = new MockHiveMetastore(mockHiveCluster);
         PartitionMutator mockPartitionMutator = new MockPartitionMutator(identity());
-        ColumnConverter hiveColumnConverter = new HiveColumnConverter();
         InMemoryCachingHiveMetastore partitionCacheVerificationEnabledMetastore = new InMemoryCachingHiveMetastore(
                 new BridgingHiveMetastore(mockHiveMetastore, mockPartitionMutator),
                 executor,

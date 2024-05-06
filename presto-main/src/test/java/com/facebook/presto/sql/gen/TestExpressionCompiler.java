@@ -1774,11 +1774,6 @@ public class TestExpressionCompiler
         return formatExpression(expressionPattern, first, "double", second, "double", third, "double");
     }
 
-    private List<String> generateExpression(String expressionPattern, Double first, Double second, Long third)
-    {
-        return formatExpression(expressionPattern, first, "double", second, "double", third, "bigint");
-    }
-
     private List<String> generateExpression(String expressionPattern, Double first, Double second, Integer third)
     {
         return formatExpression(expressionPattern, first, "double", second, "double", third, "integer");
