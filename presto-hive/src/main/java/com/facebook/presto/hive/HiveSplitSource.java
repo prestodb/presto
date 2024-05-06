@@ -57,6 +57,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static com.facebook.presto.hive.HiveSessionProperties.getAffinitySchedulingFileSectionSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxInitialSplitSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxSplitSize;
+import static com.facebook.presto.hive.HiveSessionProperties.getMinSplitSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getMinimumAssignedSplitWeight;
 import static com.facebook.presto.hive.HiveSessionProperties.isSizeBasedSplitWeightsEnabled;
 import static com.facebook.presto.hive.HiveSplitSource.StateKind.CLOSED;
@@ -88,6 +89,7 @@ class HiveSplitSource
     private final AtomicInteger bufferedInternalSplitCount = new AtomicInteger();
     private final long maxOutstandingSplitsBytes;
 
+    private final DataSize minSplitSize;
     private final DataSize maxSplitSize;
     private final DataSize maxInitialSplitSize;
     private final boolean useRewindableSplitSource;
@@ -127,6 +129,7 @@ class HiveSplitSource
         this.splitLoader = requireNonNull(splitLoader, "splitLoader is null");
         this.highMemorySplitSourceCounter = requireNonNull(highMemorySplitSourceCounter, "highMemorySplitSourceCounter is null");
 
+        this.minSplitSize = getMinSplitSize(session);
         this.maxSplitSize = getMaxSplitSize(session);
         this.maxInitialSplitSize = getMaxInitialSplitSize(session);
         this.useRewindableSplitSource = useRewindableSplitSource;
@@ -485,7 +488,11 @@ class HiveSplitSource
             ImmutableList.Builder<InternalHiveSplit> splitsToInsertBuilder = ImmutableList.builder();
             ImmutableList.Builder<ConnectorSplit> resultBuilder = ImmutableList.builder();
             int removedEstimatedSizeInBytes = 0;
+            long currentSplitBytes = 0;
+            int j = 0;
+            List<HiveSplit> accumulatedHiveSplits = new ArrayList<>();
             for (InternalHiveSplit internalSplit : internalSplits) {
+                long minSplitBytes = minSplitSize.toBytes();
                 long maxSplitBytes = maxSplitSize.toBytes();
                 if (remainingInitialSplits.get() > 0) {
                     if (remainingInitialSplits.getAndDecrement() > 0) {
@@ -498,7 +505,7 @@ class HiveSplitSource
                 long splitBytes;
                 if (internalSplit.isSplittable()) {
                     long remainingBlockBytes = block.getEnd() - internalSplit.getStart();
-                    if (remainingBlockBytes <= maxSplitBytes) {
+                    if (remainingBlockBytes + currentSplitBytes <= maxSplitBytes) {
                         splitBytes = remainingBlockBytes;
                     }
                     else if (maxSplitBytes * 2 >= remainingBlockBytes) {
@@ -506,7 +513,7 @@ class HiveSplitSource
                         splitBytes = remainingBlockBytes / 2;
                     }
                     else {
-                        splitBytes = maxSplitBytes;
+                        splitBytes = maxSplitBytes - currentSplitBytes;
                     }
                 }
                 else {
@@ -523,7 +530,7 @@ class HiveSplitSource
                         internalSplit.getCustomSplitInfo(),
                         internalSplit.getStart() / affinitySchedulingFileSectionSizeInBytes);
 
-                resultBuilder.add(new HiveSplit(
+                HiveSplit hiveSplit = new HiveSplit(
                         fileSplit,
                         databaseName,
                         tableName,
@@ -542,7 +549,23 @@ class HiveSplitSource
                         internalSplit.getEncryptionInformation(),
                         internalSplit.getPartitionInfo().getRedundantColumnDomains(),
                         splitWeightProvider.weightForSplitSizeInBytes((long) (splitBytes * splitScanRatio)),
-                        internalSplit.getPartitionInfo().getRowIdPartitionComponent()));
+                        internalSplit.getPartitionInfo().getRowIdPartitionComponent());
+
+                if (minSplitBytes > 0) {
+                    currentSplitBytes += splitBytes;
+                    accumulatedHiveSplits.add(hiveSplit);
+
+                    if (splitBytes + currentSplitBytes >= minSplitBytes) {
+                        log.info(format("NIKHIL added collatedhivesplit with hivesplit count=%d and totalsplitsize=%d", splitBytes + currentSplitBytes, accumulatedHiveSplits.size()));
+                        j++;
+                        resultBuilder.add(new CollatedHiveSplit(accumulatedHiveSplits));
+                        accumulatedHiveSplits = new ArrayList<>();
+                        currentSplitBytes = 0;
+                    }
+                }
+                else {
+                    resultBuilder.add(new CollatedHiveSplit(ImmutableList.of(hiveSplit)));
+                }
 
                 internalSplit.increaseStart(splitBytes);
 
@@ -558,6 +581,12 @@ class HiveSplitSource
                     splitsToInsertBuilder.add(internalSplit);
                 }
             }
+
+            if (!accumulatedHiveSplits.isEmpty()) {
+                j++;
+                resultBuilder.add(new CollatedHiveSplit(accumulatedHiveSplits));
+            }
+            log.info(format("NIKHIL originalSplitCount=%d, collatedSplitCount=%d", internalSplits.size(), j));
 
             // For rewindable split source, we keep all the splits in memory.
             if (!useRewindableSplitSource) {

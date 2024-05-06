@@ -149,6 +149,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_VIEW_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_SERDE_NOT_FOUND;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TABLE_BUCKETING_IS_IGNORED;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
+import static com.facebook.presto.hive.HiveSessionProperties.isMergeSplitsEnabled;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.checkCondition;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getMetastoreHeaders;
@@ -1300,6 +1301,7 @@ public final class HiveUtil
         session.getClientInfo().ifPresent(clientInfo -> directoryContextProperties.put(PRESTO_CLIENT_INFO, clientInfo));
         getMetastoreHeaders(session).ifPresent(metastoreHeaders -> directoryContextProperties.put(PRESTO_METASTORE_HEADER, metastoreHeaders));
         directoryContextProperties.put(PRESTO_USER_NAME, session.getUser());
+        directoryContextProperties.put("MERGE_SPLITS", String.valueOf(isMergeSplitsEnabled(session)));
         return directoryContextProperties.build();
     }
 }

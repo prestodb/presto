@@ -64,8 +64,120 @@ import static org.testng.Assert.assertEquals;
 
 public class TestHiveSplit
 {
+//    @Test
+//    public void testJsonRoundTrip()
+//            throws Exception
+//    {
+//        ImmutableList<HivePartitionKey> partitionKeys = ImmutableList.of(new HivePartitionKey("a", Optional.of("apple")), new HivePartitionKey("b", Optional.of("42")));
+//        ImmutableList<HostAddress> addresses = ImmutableList.of(HostAddress.fromParts("127.0.0.1", 44), HostAddress.fromParts("127.0.0.1", 45));
+//        Map<String, String> customSplitInfo = ImmutableMap.of("key", "value");
+//        Set<ColumnHandle> redundantColumnDomains = ImmutableSet.of(new HiveColumnHandle(
+//                "test_column",
+//                HIVE_LONG,
+//                HIVE_LONG.getTypeSignature(),
+//                5,
+//                REGULAR,
+//                Optional.empty(),
+//                ImmutableList.of(),
+//                Optional.empty()));
+//        HiveFileSplit fileSplit = new HiveFileSplit(
+//                "path",
+//                42,
+//                87,
+//                88,
+//                Instant.now().toEpochMilli(),
+//                Optional.empty(),
+//                customSplitInfo,
+//                0);
+//
+//        byte[] rowIdPartitionComponent = {(byte) 76, (byte) 58};
+//        HiveSplit expected = new HiveSplit(
+//                fileSplit,
+//                "db",
+//                "table",
+//                "partitionId",
+//                new Storage(
+//                        StorageFormat.create("serde", "input", "output"),
+//                        "location",
+//                        Optional.empty(),
+//                        false,
+//                        ImmutableMap.of(),
+//                        ImmutableMap.of()),
+//                partitionKeys,
+//                addresses,
+//                OptionalInt.empty(),
+//                OptionalInt.empty(),
+//                NO_PREFERENCE,
+//                10,
+//                TableToPartitionMapping.mapColumnsByIndex(ImmutableMap.of(1, new Column("name", HIVE_STRING, Optional.empty(), Optional.empty()))),
+//                Optional.of(new HiveSplit.BucketConversion(
+//                        32,
+//                        16,
+//                        ImmutableList.of(new HiveColumnHandle("col", HIVE_LONG, BIGINT.getTypeSignature(), 5, REGULAR, Optional.of("comment"), Optional.empty())))),
+//                false,
+//                NO_CACHE_REQUIREMENT,
+//                Optional.of(EncryptionInformation.fromEncryptionMetadata(DwrfEncryptionMetadata.forPerField(
+//                        ImmutableMap.of("field1", "test1".getBytes()),
+//                        ImmutableMap.of(),
+//                        "test_algo",
+//                        "test_provider"))),
+//                redundantColumnDomains,
+//                SplitWeight.fromProportion(2.0), // some non-standard value
+//                Optional.of(rowIdPartitionComponent));
+//
+//        JsonCodec<HiveSplit> codec = getJsonCodec();
+//        String json = codec.toJson(expected);
+//        HiveSplit actual = codec.fromJson(json);
+//
+//        assertEquals(actual.getDatabase(), expected.getDatabase());
+//        assertEquals(actual.getTable(), expected.getTable());
+//        assertEquals(actual.getPartitionName(), expected.getPartitionName());
+//        assertEquals(actual.getFileSplit(), expected.getFileSplit());
+//        assertEquals(actual.getStorage(), expected.getStorage());
+//        assertEquals(actual.getPartitionKeys(), expected.getPartitionKeys());
+//        assertEquals(actual.getAddresses(), expected.getAddresses());
+//        assertEquals(actual.getPartitionDataColumnCount(), expected.getPartitionDataColumnCount());
+//        assertEquals(actual.getTableToPartitionMapping().getPartitionSchemaDifference(), expected.getTableToPartitionMapping().getPartitionSchemaDifference());
+//        assertEquals(actual.getTableToPartitionMapping().getTableToPartitionColumns(), expected.getTableToPartitionMapping().getTableToPartitionColumns());
+//        assertEquals(actual.getBucketConversion(), expected.getBucketConversion());
+//        assertEquals(actual.getNodeSelectionStrategy(), expected.getNodeSelectionStrategy());
+//        assertEquals(actual.isS3SelectPushdownEnabled(), expected.isS3SelectPushdownEnabled());
+//        assertEquals(actual.getCacheQuotaRequirement(), expected.getCacheQuotaRequirement());
+//        assertEquals(actual.getEncryptionInformation(), expected.getEncryptionInformation());
+//        assertEquals(actual.getSplitWeight(), expected.getSplitWeight());
+//        assertEquals(actual.getRowIdPartitionComponent().get(), expected.getRowIdPartitionComponent().get());
+//    }
+
+    private JsonCodec<HiveSplit> getJsonCodec()
+            throws Exception
+    {
+        Module module = binder -> {
+            binder.install(new JsonModule());
+            binder.install(new HandleJsonModule());
+            configBinder(binder).bindConfig(FeaturesConfig.class);
+            FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
+            binder.bind(TypeManager.class).toInstance(functionAndTypeManager);
+            jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
+            newSetBinder(binder, Type.class);
+
+            binder.bind(BlockEncodingSerde.class).to(BlockEncodingManager.class).in(Scopes.SINGLETON);
+            newSetBinder(binder, BlockEncoding.class);
+            jsonBinder(binder).addSerializerBinding(Block.class).to(BlockJsonSerde.Serializer.class);
+            jsonBinder(binder).addDeserializerBinding(Block.class).to(BlockJsonSerde.Deserializer.class);
+            jsonCodecBinder(binder).bindJsonCodec(HiveSplit.class);
+        };
+        Bootstrap app = new Bootstrap(ImmutableList.of(module));
+        Injector injector = app
+                .doNotInitializeLogging()
+                .quiet()
+                .initialize();
+        HandleResolver handleResolver = injector.getInstance(HandleResolver.class);
+        handleResolver.addConnectorName("hive", new HiveHandleResolver());
+        return injector.getInstance(new Key<JsonCodec<HiveSplit>>() {});
+    }
+
     @Test
-    public void testJsonRoundTrip()
+    public void testJsonRoundTripForCollatedHiveSplit()
             throws Exception
     {
         ImmutableList<HivePartitionKey> partitionKeys = ImmutableList.of(new HivePartitionKey("a", Optional.of("apple")), new HivePartitionKey("b", Optional.of("42")));
@@ -125,9 +237,10 @@ public class TestHiveSplit
                 SplitWeight.fromProportion(2.0), // some non-standard value
                 Optional.of(rowIdPartitionComponent));
 
-        JsonCodec<HiveSplit> codec = getJsonCodec();
-        String json = codec.toJson(expected);
-        HiveSplit actual = codec.fromJson(json);
+        JsonCodec<CollatedHiveSplit> codec = getJsonCodecForCollatedHiveSplit();
+        String json = codec.toJson(new CollatedHiveSplit(ImmutableList.of(expected)));
+        CollatedHiveSplit actualCollatedSplit = codec.fromJson(json);
+        HiveSplit actual = actualCollatedSplit.getHiveSplits().get(0);
 
         assertEquals(actual.getDatabase(), expected.getDatabase());
         assertEquals(actual.getTable(), expected.getTable());
@@ -148,7 +261,7 @@ public class TestHiveSplit
         assertEquals(actual.getRowIdPartitionComponent().get(), expected.getRowIdPartitionComponent().get());
     }
 
-    private JsonCodec<HiveSplit> getJsonCodec()
+    private JsonCodec<CollatedHiveSplit> getJsonCodecForCollatedHiveSplit()
             throws Exception
     {
         Module module = binder -> {
@@ -164,7 +277,7 @@ public class TestHiveSplit
             newSetBinder(binder, BlockEncoding.class);
             jsonBinder(binder).addSerializerBinding(Block.class).to(BlockJsonSerde.Serializer.class);
             jsonBinder(binder).addDeserializerBinding(Block.class).to(BlockJsonSerde.Deserializer.class);
-            jsonCodecBinder(binder).bindJsonCodec(HiveSplit.class);
+            jsonCodecBinder(binder).bindJsonCodec(CollatedHiveSplit.class);
         };
         Bootstrap app = new Bootstrap(ImmutableList.of(module));
         Injector injector = app
@@ -173,6 +286,6 @@ public class TestHiveSplit
                 .initialize();
         HandleResolver handleResolver = injector.getInstance(HandleResolver.class);
         handleResolver.addConnectorName("hive", new HiveHandleResolver());
-        return injector.getInstance(new Key<JsonCodec<HiveSplit>>() {});
+        return injector.getInstance(new Key<JsonCodec<CollatedHiveSplit>>() {});
     }
 }

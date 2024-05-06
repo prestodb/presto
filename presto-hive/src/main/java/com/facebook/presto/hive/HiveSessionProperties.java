@@ -68,6 +68,7 @@ public final class HiveSessionProperties
     private static final String PARQUET_WRITER_PAGE_SIZE = "parquet_writer_page_size";
     private static final String PARQUET_OPTIMIZED_WRITER_ENABLED = "parquet_optimized_writer_enabled";
     private static final String PARQUET_WRITER_VERSION = "parquet_writer_version";
+    private static final String MIN_SPLIT_SIZE = "min_split_size";
     private static final String MAX_SPLIT_SIZE = "max_split_size";
     private static final String MAX_INITIAL_SPLIT_SIZE = "max_initial_split_size";
     public static final String RCFILE_OPTIMIZED_WRITER_ENABLED = "rcfile_optimized_writer_enabled";
@@ -131,6 +132,7 @@ public final class HiveSessionProperties
     public static final String QUICK_STATS_BACKGROUND_BUILD_TIMEOUT = "quick_stats_background_build_timeout";
     public static final String DYNAMIC_SPLIT_SIZES_ENABLED = "dynamic_split_sizes_enabled";
     public static final String AFFINITY_SCHEDULING_FILE_SECTION_SIZE = "affinity_scheduling_file_section_size";
+    public static final String MERGE_SPLITS = "merge_splits";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -259,6 +261,11 @@ public final class HiveSessionProperties
                         PARQUET_WRITER_PAGE_SIZE,
                         "Parquet: Writer page size",
                         parquetFileWriterConfig.getPageSize(),
+                        false),
+                dataSizeSessionProperty(
+                        MIN_SPLIT_SIZE,
+                        "Min split size",
+                        hiveClientConfig.getMinSplitSize(),
                         false),
                 dataSizeSessionProperty(
                         MAX_SPLIT_SIZE,
@@ -606,6 +613,11 @@ public final class HiveSessionProperties
                         hiveClientConfig.isParallelParsingOfPartitionValuesEnabled(),
                         false),
                 booleanProperty(
+                        MERGE_SPLITS,
+                        "If files are small, merge multiple files into a single split",
+                        false,
+                        false),
+                booleanProperty(
                         QUICK_STATS_ENABLED,
                         "Use quick stats to resolve stats",
                         hiveClientConfig.isQuickStatsEnabled(),
@@ -641,6 +653,11 @@ public final class HiveSessionProperties
     public List<PropertyMetadata<?>> getSessionProperties()
     {
         return sessionProperties;
+    }
+
+    public static boolean isMergeSplitsEnabled(ConnectorSession session)
+    {
+        return session.getProperty(MERGE_SPLITS, Boolean.class);
     }
 
     public static boolean isBucketExecutionEnabled(ConnectorSession session)
@@ -760,6 +777,11 @@ public final class HiveSessionProperties
     public static DataSize getParquetWriterPageSize(ConnectorSession session)
     {
         return session.getProperty(PARQUET_WRITER_PAGE_SIZE, DataSize.class);
+    }
+
+    public static DataSize getMinSplitSize(ConnectorSession session)
+    {
+        return session.getProperty(MIN_SPLIT_SIZE, DataSize.class);
     }
 
     public static DataSize getMaxSplitSize(ConnectorSession session)
