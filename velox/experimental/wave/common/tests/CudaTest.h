@@ -36,6 +36,10 @@ class TestStream : public Stream {
   // Queues a kernel to add 1 to numbers[0...size - 1]. The kernel repeats
   // 'repeat' times.
   void
+  incOne(int32_t* numbers, int size, int32_t repeat = 1, int32_t width = 10240);
+
+  /// Like incOne but adds idx & 31 to numbers[idx].
+  void
   addOne(int32_t* numbers, int size, int32_t repeat = 1, int32_t width = 10240);
 
   void addOneWide(
@@ -52,17 +56,28 @@ class TestStream : public Stream {
       int32_t repeat = 1,
       int32_t width = 10240);
 
+  /// Like addOne but uses registers for intermediates.
+  void addOneReg(
+      int32_t* numbers,
+      int32_t size,
+      int32_t repeat = 1,
+      int32_t width = 10240);
+
   /// Increments each of 'numbers by a deterministic pseudorandom
-  /// increment from 'lookup'.  If 'emptyWarps' is true, odd warps do
-  /// no work but still sync with the other ones with __syncthreads().
-  /// If 'emptyThreads' is true, odd lanes do no work and even lanes
-  /// do their work instead.
+  /// increment from 'lookup'. If 'numLocal is non-0, also accesses
+  /// 'numLocal' adjacent positions in 'lookup' with a stride of
+  /// 'localStride'.  If 'emptyWarps' is true, odd warps do no work
+  /// but still sync with the other ones with __syncthreads().  If
+  /// 'emptyThreads' is true, odd lanes do no work and even lanes do
+  /// their work instead.
   void addOneRandom(
       int32_t* numbers,
       const int32_t* lookup,
       int size,
       int32_t repeat = 1,
       int32_t width = 10240,
+      int32_t numLocal = 0,
+      int32_t localStride = 0,
       bool emptyWarps = false,
       bool emptyLanes = false);
 

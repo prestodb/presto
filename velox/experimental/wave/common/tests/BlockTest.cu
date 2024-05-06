@@ -25,15 +25,11 @@ namespace facebook::velox::wave {
 
 using ScanAlgorithm = cub::BlockScan<int, 256, cub::BLOCK_SCAN_RAKING>;
 
-__global__ void boolToIndices(
-    uint8_t** bools,
-    int32_t** indices,
-    int32_t* sizes,
-    int64_t* times) {
+__global__ void
+boolToIndicesKernel(uint8_t** bools, int32_t** indices, int32_t* sizes) {
   extern __shared__ char smem[];
   int32_t idx = blockIdx.x;
   // Start cycle timer
-  clock_t start = clock();
   uint8_t* blockBools = bools[idx];
   boolBlockToIndices<256>(
       [&]() { return blockBools[threadIdx.x]; },
@@ -41,35 +37,27 @@ __global__ void boolToIndices(
       indices[idx],
       smem,
       sizes[idx]);
-  clock_t stop = clock();
-  if (threadIdx.x == 0) {
-    times[idx] = (start > stop) ? start - stop : stop - start;
-  }
 }
 
 void BlockTestStream::testBoolToIndices(
     int32_t numBlocks,
     uint8_t** flags,
     int32_t** indices,
-    int32_t* sizes,
-    int64_t* times) {
+    int32_t* sizes) {
   CUDA_CHECK(cudaGetLastError());
   auto tempBytes = sizeof(typename ScanAlgorithm::TempStorage);
-  boolToIndices<<<numBlocks, 256, tempBytes, stream_->stream>>>(
-      flags, indices, sizes, times);
+  boolToIndicesKernel<<<numBlocks, 256, tempBytes, stream_->stream>>>(
+      flags, indices, sizes);
   CUDA_CHECK(cudaGetLastError());
 }
 
-__global__ void boolToIndicesNoShared(
+__global__ void boolToIndicesNoSharedKernel(
     uint8_t** bools,
     int32_t** indices,
     int32_t* sizes,
-    int64_t* times,
     void* temp) {
   int32_t idx = blockIdx.x;
 
-  // Start cycle timer
-  clock_t start = clock();
   uint8_t* blockBools = bools[idx];
   char* smem = reinterpret_cast<char*>(temp) +
       blockIdx.x * sizeof(typename ScanAlgorithm::TempStorage);
@@ -79,10 +67,6 @@ __global__ void boolToIndicesNoShared(
       indices[idx],
       smem,
       sizes[idx]);
-  clock_t stop = clock();
-  if (threadIdx.x == 0) {
-    times[idx] = (start > stop) ? start - stop : stop - start;
-  }
 }
 
 void BlockTestStream::testBoolToIndicesNoShared(
@@ -90,16 +74,72 @@ void BlockTestStream::testBoolToIndicesNoShared(
     uint8_t** flags,
     int32_t** indices,
     int32_t* sizes,
-    int64_t* times,
     void* temp) {
   CUDA_CHECK(cudaGetLastError());
-  boolToIndicesNoShared<<<numBlocks, 256, 0, stream_->stream>>>(
-      flags, indices, sizes, times, temp);
+  boolToIndicesNoSharedKernel<<<numBlocks, 256, 0, stream_->stream>>>(
+      flags, indices, sizes, temp);
   CUDA_CHECK(cudaGetLastError());
 }
 
 int32_t BlockTestStream::boolToIndicesSize() {
   return sizeof(typename ScanAlgorithm::TempStorage);
+}
+
+__global__ void
+bool256ToIndicesKernel(uint8_t** bools, int32_t** indices, int32_t* sizes) {
+  extern __shared__ char smem[];
+  int32_t idx = blockIdx.x;
+  auto* bool64 = reinterpret_cast<uint64_t*>(bools[idx]);
+  bool256ToIndices(
+      [&](int32_t index8) { return bool64[index8]; },
+      idx * 256,
+      indices[idx],
+      sizes[idx],
+      smem);
+}
+
+void BlockTestStream::testBool256ToIndices(
+    int32_t numBlocks,
+    uint8_t** flags,
+    int32_t** indices,
+    int32_t* sizes) {
+  CUDA_CHECK(cudaGetLastError());
+  auto tempBytes = bool256ToIndicesSize();
+  bool256ToIndicesKernel<<<numBlocks, 256, tempBytes, stream_->stream>>>(
+      flags, indices, sizes);
+  CUDA_CHECK(cudaGetLastError());
+}
+
+__global__ void bool256ToIndicesNoSharedKernel(
+    uint8_t** bools,
+    int32_t** indices,
+    int32_t* sizes,
+    void* temp) {
+  int32_t idx = blockIdx.x;
+  auto* bool64 = reinterpret_cast<uint64_t*>(bools[idx]);
+  char* smem = reinterpret_cast<char*>(temp) + blockIdx.x * 80;
+  bool256ToIndices(
+      [&](int32_t index8) { return bool64[index8]; },
+      idx * 256,
+      indices[idx],
+      sizes[idx],
+      smem);
+}
+
+void BlockTestStream::testBool256ToIndicesNoShared(
+    int32_t numBlocks,
+    uint8_t** flags,
+    int32_t** indices,
+    int32_t* sizes,
+    void* temp) {
+  CUDA_CHECK(cudaGetLastError());
+  bool256ToIndicesNoSharedKernel<<<numBlocks, 256, 0, stream_->stream>>>(
+      flags, indices, sizes, temp);
+  CUDA_CHECK(cudaGetLastError());
+}
+
+int32_t BlockTestStream::bool256ToIndicesSize() {
+  return 80;
 }
 
 __global__ void sum64(int64_t* numbers, int64_t* results) {
@@ -133,6 +173,28 @@ void __global__ __launch_bounds__(1024)
       smem);
 }
 
+void __global__ __launch_bounds__(1024)
+    testSortNoShared(uint16_t** keys, uint16_t** values, char* smem) {
+  auto keyBase = keys[blockIdx.x];
+  auto valueBase = values[blockIdx.x];
+  char* tbTemp = smem +
+      blockIdx.x *
+          sizeof(typename cub::BlockRadixSort<uint16_t, 256, 32, uint16_t>::
+                     TempStorage);
+
+  blockSort<256, 32>(
+      [&](auto i) { return keyBase[i]; },
+      [&](auto i) { return valueBase[i]; },
+      keys[blockIdx.x],
+      values[blockIdx.x],
+      tbTemp);
+}
+
+int32_t BlockTestStream::sort16SharedSize() {
+  return sizeof(
+      typename cub::BlockRadixSort<uint16_t, 256, 32, uint16_t>::TempStorage);
+}
+
 void BlockTestStream::testSort16(
     int32_t numBlocks,
     uint16_t** keys,
@@ -141,6 +203,14 @@ void BlockTestStream::testSort16(
       typename cub::BlockRadixSort<uint16_t, 256, 32, uint16_t>::TempStorage);
 
   testSort<<<numBlocks, 256, tempBytes, stream_->stream>>>(keys, values);
+}
+
+void BlockTestStream::testSort16NoShared(
+    int32_t numBlocks,
+    uint16_t** keys,
+    uint16_t** values,
+    char* temp) {
+  testSortNoShared<<<numBlocks, 256, 0, stream_->stream>>>(keys, values, temp);
 }
 
 /// Calls partitionRows on each thread block of 256 threads. The parameters
@@ -489,12 +559,14 @@ void BlockTestStream::updateSum1Part(TestingRow* rows, HashRun& run) {
 }
 
 REGISTER_KERNEL("testSort", testSort);
-REGISTER_KERNEL("boolToIndices", boolToIndices);
+REGISTER_KERNEL("boolToIndices", boolToIndicesKernel);
+REGISTER_KERNEL("bool256ToIndices", bool256ToIndicesKernel);
 REGISTER_KERNEL("sum64", sum64);
 REGISTER_KERNEL("partitionShorts", partitionShortsKernel);
 REGISTER_KERNEL("hashTest", hashTestKernel);
 REGISTER_KERNEL("allocatorTest", allocatorTestKernel);
 REGISTER_KERNEL("sum1atm", updateSum1AtomicKernel);
+REGISTER_KERNEL("sum1atmCoa", updateSum1AtomicCoalesceKernel);
 REGISTER_KERNEL("sum1Exch", updateSum1ExchKernel);
 REGISTER_KERNEL("sum1Part", updateSum1PartKernel);
 REGISTER_KERNEL("partSum", update1PartitionKernel);

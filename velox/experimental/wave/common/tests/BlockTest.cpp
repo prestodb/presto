@@ -48,6 +48,117 @@ class BlockTest : public testing::Test {
   void prefetch(Stream& stream, WaveBufferPtr buffer) {
     stream.prefetch(device_, buffer->as<char>(), buffer->capacity());
   }
+  void testBoolToIndices(bool use256) {
+    /// We make a set of 256 flags and corresponding 256 indices of true flags.
+    constexpr int32_t kNumBlocks = 20480;
+    constexpr int32_t kBlockSize = 256;
+    constexpr int32_t kNumFlags = kBlockSize * kNumBlocks;
+    auto flagsBuffer = arena_->allocate<uint8_t>(kNumFlags);
+    auto indicesBuffer = arena_->allocate<int32_t>(kNumFlags);
+    auto sizesBuffer = arena_->allocate<int32_t>(kNumBlocks);
+    BlockTestStream stream;
+
+    std::vector<int32_t> referenceIndices(kNumFlags);
+    std::vector<int32_t> referenceSizes(kNumBlocks);
+    uint8_t* flags = flagsBuffer->as<uint8_t>();
+    for (auto i = 0ul; i < kNumFlags; ++i) {
+      if ((i >> 8) % 17 == 0) {
+        flags[i] = 0;
+      } else if ((i >> 8) % 23 == 0) {
+        flags[i] = 1;
+      } else {
+        flags[i] = (i * 1121) % 73 > 50;
+      }
+    }
+    for (auto b = 0; b < kNumBlocks; ++b) {
+      auto start = b * kBlockSize;
+      int32_t counter = start;
+      for (auto i = 0; i < kBlockSize; ++i) {
+        if (flags[start + i]) {
+          referenceIndices[counter++] = start + i;
+        }
+      }
+      referenceSizes[b] = counter - start;
+    }
+
+    prefetch(stream, flagsBuffer);
+    prefetch(stream, indicesBuffer);
+    prefetch(stream, sizesBuffer);
+    stream.wait();
+    auto indicesPointers = arena_->allocate<void*>(kNumBlocks);
+    auto flagsPointers = arena_->allocate<void*>(kNumBlocks);
+    for (auto i = 0; i < kNumBlocks; ++i) {
+      flagsPointers->as<uint8_t*>()[i] = flags + (i * kBlockSize);
+      indicesPointers->as<int32_t*>()[i] =
+          indicesBuffer->as<int32_t>() + (i * kBlockSize);
+    }
+
+    prefetch(stream, flagsBuffer);
+    prefetch(stream, indicesBuffer);
+    prefetch(stream, sizesBuffer);
+    stream.wait();
+    auto startMicros = getCurrentTimeMicro();
+    if (use256) {
+      stream.testBool256ToIndices(
+          kNumBlocks,
+          flagsPointers->as<uint8_t*>(),
+          indicesPointers->as<int32_t*>(),
+          sizesBuffer->as<int32_t>());
+
+    } else {
+      stream.testBoolToIndices(
+          kNumBlocks,
+          flagsPointers->as<uint8_t*>(),
+          indicesPointers->as<int32_t*>(),
+          sizesBuffer->as<int32_t>());
+    }
+    stream.wait();
+    auto elapsed = getCurrentTimeMicro() - startMicros;
+    for (auto b = 0; b < kNumBlocks; ++b) {
+      auto* reference = referenceIndices.data() + b * kBlockSize;
+      auto* actual = indicesBuffer->as<int32_t>() + b * kBlockSize;
+      auto* referenceSizesData = referenceSizes.data();
+      auto* actualSizes = sizesBuffer->as<int32_t>();
+      ASSERT_EQ(
+          0, ::memcmp(reference, actual, referenceSizes[b] * sizeof(int32_t)));
+      ASSERT_EQ(referenceSizesData[b], actualSizes[b]);
+    }
+    std::cout << "Flags " << (use256 ? "256" : "") << " to indices: " << elapsed
+              << "us, " << kNumFlags / static_cast<float>(elapsed) << " Mrows/s"
+              << std::endl;
+
+    auto temp = arena_->allocate<char>(
+        BlockTestStream::boolToIndicesSize() * kNumBlocks);
+    prefetch(stream, temp);
+    prefetch(stream, flagsBuffer);
+    prefetch(stream, indicesBuffer);
+    prefetch(stream, sizesBuffer);
+    stream.wait();
+
+    startMicros = getCurrentTimeMicro();
+    if (use256) {
+      stream.testBool256ToIndicesNoShared(
+          kNumBlocks,
+          flagsPointers->as<uint8_t*>(),
+          indicesPointers->as<int32_t*>(),
+          sizesBuffer->as<int32_t>(),
+          temp->as<char>());
+    } else {
+      stream.testBoolToIndicesNoShared(
+          kNumBlocks,
+          flagsPointers->as<uint8_t*>(),
+          indicesPointers->as<int32_t*>(),
+          sizesBuffer->as<int32_t>(),
+          temp->as<char>());
+    }
+    stream.wait();
+    elapsed = getCurrentTimeMicro() - startMicros;
+    std::cout << "Flags " << (use256 ? "256" : "")
+              << " to indices: " << " to indices no smem: " << elapsed << "us, "
+              << kNumFlags / static_cast<float>(elapsed) << " Mrows/s"
+              << std::endl;
+  }
+
   void makePartitionRun(
       int32_t numRows,
       int32_t numPartitions,
@@ -108,88 +219,8 @@ class BlockTest : public testing::Test {
 };
 
 TEST_F(BlockTest, boolToIndices) {
-  /// We make a set of 256 flags and corresponding 256 indices of true flags.
-  constexpr int32_t kNumBlocks = 20480;
-  constexpr int32_t kBlockSize = 256;
-  constexpr int32_t kNumFlags = kBlockSize * kNumBlocks;
-  auto flagsBuffer = arena_->allocate<uint8_t>(kNumFlags);
-  auto indicesBuffer = arena_->allocate<int32_t>(kNumFlags);
-  auto sizesBuffer = arena_->allocate<int32_t>(kNumBlocks);
-  auto timesBuffer = arena_->allocate<int64_t>(kNumBlocks);
-  BlockTestStream stream;
-
-  std::vector<int32_t> referenceIndices(kNumFlags);
-  std::vector<int32_t> referenceSizes(kNumBlocks);
-  uint8_t* flags = flagsBuffer->as<uint8_t>();
-  for (auto i = 0ul; i < kNumFlags; ++i) {
-    if ((i >> 8) % 17 == 0) {
-      flags[i] = 0;
-    } else if ((i >> 8) % 23 == 0) {
-      flags[i] = 1;
-    } else {
-      flags[i] = (i * 1121) % 73 > 50;
-    }
-  }
-  for (auto b = 0; b < kNumBlocks; ++b) {
-    auto start = b * kBlockSize;
-    int32_t counter = start;
-    for (auto i = 0; i < kBlockSize; ++i) {
-      if (flags[start + i]) {
-        referenceIndices[counter++] = start + i;
-      }
-    }
-    referenceSizes[b] = counter - start;
-  }
-
-  prefetch(stream, flagsBuffer);
-  prefetch(stream, indicesBuffer);
-  prefetch(stream, sizesBuffer);
-
-  auto indicesPointers = arena_->allocate<void*>(kNumBlocks);
-  auto flagsPointers = arena_->allocate<void*>(kNumBlocks);
-  for (auto i = 0; i < kNumBlocks; ++i) {
-    flagsPointers->as<uint8_t*>()[i] = flags + (i * kBlockSize);
-    indicesPointers->as<int32_t*>()[i] =
-        indicesBuffer->as<int32_t>() + (i * kBlockSize);
-  }
-
-  auto startMicros = getCurrentTimeMicro();
-  stream.testBoolToIndices(
-      kNumBlocks,
-      flagsPointers->as<uint8_t*>(),
-      indicesPointers->as<int32_t*>(),
-      sizesBuffer->as<int32_t>(),
-      timesBuffer->as<int64_t>());
-  stream.wait();
-  auto elapsed = getCurrentTimeMicro() - startMicros;
-  for (auto b = 0; b < kNumBlocks; ++b) {
-    ASSERT_EQ(
-        0,
-        ::memcmp(
-            referenceIndices.data() + b * kBlockSize,
-            indicesBuffer->as<int32_t>() + b * kBlockSize,
-            referenceSizes[b] * sizeof(int32_t)));
-    ASSERT_EQ(referenceSizes[b], sizesBuffer->as<int32_t>()[b]);
-  }
-  std::cout << "Flags to indices: " << elapsed << "us, "
-            << kNumFlags / static_cast<float>(elapsed) << " Mrows/s"
-            << std::endl;
-
-  auto temp =
-      arena_->allocate<char>(BlockTestStream::boolToIndicesSize() * kNumBlocks);
-  startMicros = getCurrentTimeMicro();
-  stream.testBoolToIndicesNoShared(
-      kNumBlocks,
-      flagsPointers->as<uint8_t*>(),
-      indicesPointers->as<int32_t*>(),
-      sizesBuffer->as<int32_t>(),
-      timesBuffer->as<int64_t>(),
-      temp->as<char>());
-  stream.wait();
-  elapsed = getCurrentTimeMicro() - startMicros;
-  std::cout << "Flags to indices no smem: " << elapsed << "us, "
-            << kNumFlags / static_cast<float>(elapsed) << " Mrows/s"
-            << std::endl;
+  testBoolToIndices(false);
+  testBoolToIndices(true);
 }
 
 TEST_F(BlockTest, shortRadixSort) {
@@ -201,7 +232,6 @@ TEST_F(BlockTest, shortRadixSort) {
   constexpr int32_t kNumValues = kBlockSize * kNumBlocks * kValuesPerThread;
   auto keysBuffer = arena_->allocate<uint16_t>(kNumValues);
   auto valuesBuffer = arena_->allocate<int16_t>(kNumValues);
-  auto timesBuffer = arena_->allocate<int64_t>(kNumBlocks);
   BlockTestStream stream;
 
   std::vector<uint16_t> referenceKeys(kNumValues);
@@ -237,7 +267,9 @@ TEST_F(BlockTest, shortRadixSort) {
   }
   auto keySegments = keysPointers->as<uint16_t*>();
   auto valueSegments = valuesPointers->as<uint16_t*>();
-
+  prefetch(stream, keysPointers);
+  prefetch(stream, valuesPointers);
+  stream.wait();
   auto startMicros = getCurrentTimeMicro();
   stream.testSort16(kNumBlocks, keySegments, valueSegments);
   stream.wait();
@@ -251,6 +283,28 @@ TEST_F(BlockTest, shortRadixSort) {
             kValuesPerBlock * sizeof(uint16_t)));
   }
   std::cout << "sort16: " << elapsed << "us, "
+            << kNumValues / static_cast<float>(elapsed) << " Mrows/s"
+            << std::endl;
+
+  // Reset the test values for second test.
+  for (auto i = 0; i < kNumValues; ++i) {
+    keys[i] = i * 2017;
+    values[i] = i;
+  }
+  auto temp =
+      arena_->allocate<char>(kNumBlocks * BlockTestStream::sort16SharedSize());
+  prefetch(stream, temp);
+  prefetch(stream, valuesBuffer);
+  prefetch(stream, keysBuffer);
+  prefetch(stream, keysPointers);
+  prefetch(stream, valuesPointers);
+  stream.wait();
+  startMicros = getCurrentTimeMicro();
+  stream.testSort16NoShared(
+      kNumBlocks, keySegments, valueSegments, temp->as<char>());
+  stream.wait();
+  elapsed = getCurrentTimeMicro() - startMicros;
+  std::cout << "sort16 no shared: " << elapsed << "us, "
             << kNumValues / static_cast<float>(elapsed) << " Mrows/s"
             << std::endl;
 }

@@ -26,6 +26,9 @@
 
 namespace facebook::velox::wave {
 
+/// Converts an array of flags to an array of indices of set flags. The first
+/// index is given by 'start'. The number of indices is returned in 'size', i.e.
+/// this is 1 + the index of the last set flag.
 template <
     typename T,
     int32_t blockSize,
@@ -60,6 +63,49 @@ boolBlockToIndices(Getter getter, T start, T* indices, void* shmem, T& size) {
   }
   if (threadIdx.x == 0) {
     size = aggregate;
+  }
+  __syncthreads();
+}
+
+inline int32_t __device__ __host__ bool256ToIndicesSize() {
+  return sizeof(typename cub::WarpScan<uint16_t>::TempStorage) +
+      33 * sizeof(uint16_t);
+}
+
+/// Returns indices of set bits for 256 one byte flags. 'getter8' is
+/// invoked for 8 flags at a time, with the ordinal of the 8 byte
+/// flags word as argument, so that an index of 1 means flags
+/// 8..15. The indices start at 'start' and last index + 1 is
+/// returned in 'size'.
+template <typename T, typename Getter8>
+__device__ inline void
+bool256ToIndices(Getter8 getter8, T start, T* indices, T& size, char* smem) {
+  using Scan = cub::WarpScan<uint16_t>;
+  auto* smem16 = reinterpret_cast<uint16_t*>(smem);
+  int32_t group = threadIdx.x / 8;
+  uint64_t bits = getter8(group) & 0x0101010101010101;
+  if ((threadIdx.x & 7) == 0) {
+    smem16[group] = __popcll(bits);
+    if (threadIdx.x == blockDim.x - 8) {
+      smem16[32] = smem16[31];
+    }
+  }
+  __syncthreads();
+  if (threadIdx.x < 32) {
+    auto* temp = reinterpret_cast<typename Scan::TempStorage*>((smem + 72));
+    uint16_t data = smem16[threadIdx.x];
+    Scan(*temp).ExclusiveSum(data, data);
+    smem16[threadIdx.x] = data;
+  }
+  __syncthreads();
+  int32_t tidInGroup = threadIdx.x & 7;
+  if (bits & (1UL << (tidInGroup * 8))) {
+    int32_t base =
+        smem16[group] + __popcll(bits & lowMask<uint64_t>(tidInGroup * 8));
+    indices[base] = threadIdx.x + start;
+  }
+  if (threadIdx.x == 0) {
+    size = smem16[31] + smem16[32];
   }
   __syncthreads();
 }

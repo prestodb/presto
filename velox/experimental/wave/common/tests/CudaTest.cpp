@@ -485,16 +485,16 @@ struct RoundtripStats {
 
   std::string toString() const {
     return fmt::format(
-        "{}: rps={} gips={}  mode={} threads={} micros={} avgus={} toDev={} GB/s toHost={} GB/s",
+        "{}: rps={:.2f} gips={:.4f}  mode={} threads={} micros={} avgus={:.2f} toDev={:.2f} GB/s toHost={:.2f} GB/s",
         id,
-        (numThreads * numOps) / (micros / 1000000),
-        numAdds / (micros * 1000),
+        (numThreads * numOps) / (micros / 1000000.0),
+        numAdds / (micros * 1000.0),
         mode,
         numThreads,
         micros,
         micros / numOps,
-        toDeviceBytes / (micros * 1000),
-        toHostBytes / (micros * 1000));
+        toDeviceBytes / (micros * 1000.0),
+        toHostBytes / (micros * 1000.0));
   }
 };
 
@@ -526,8 +526,8 @@ int64_t factor(int64_t n) {
 /// stream with record event + wait event.
 class RoundtripThread {
  public:
-  // Up to 32 MB of ints.
-  static constexpr int32_t kNumKB = 32 << 10;
+  // Up to 64 MB of ints.
+  static constexpr int32_t kNumKB = 64 << 10;
   static constexpr int32_t kNumInts = kNumKB * 256;
 
   RoundtripThread(int32_t device, ArenaSet* arenas) : arenas_(arenas) {
@@ -568,11 +568,12 @@ class RoundtripThread {
     kToDevice,
     kToHost,
     kAdd,
+    kAddShared,
+    kAddReg,
     kAddRandom,
     kAddRandomEmptyWarps,
     kAddRandomEmptyThreads,
     kWideAdd,
-    kAddShared,
     kEnd,
     kSync,
     kSyncEvent
@@ -583,6 +584,8 @@ class RoundtripThread {
     int32_t param1{1};
     int32_t param2{0};
     int32_t param3{0};
+    int32_t param4{0};
+    int32_t param5{0};
   };
 
   void run(RoundtripStats& stats) {
@@ -646,6 +649,16 @@ class RoundtripThread {
             }
             stats.numAdds += op.param1 * op.param2 * 256;
             break;
+          case OpCode::kAddReg:
+            VELOX_CHECK_LE(op.param1, kNumKB);
+            if (stats.isCpu) {
+              addOneCpu(op.param1 * 256, op.param2);
+            } else {
+              stream_->addOneShared(
+                  deviceBuffer_->as<int32_t>(), op.param1 * 256, op.param2);
+            }
+            stats.numAdds += op.param1 * op.param2 * 256;
+            break;
 
           case OpCode::kWideAdd:
             VELOX_CHECK_LE(op.param1, kNumKB);
@@ -663,7 +676,7 @@ class RoundtripThread {
           case OpCode::kAddRandomEmptyThreads:
             VELOX_CHECK_LE(op.param1, kNumKB);
             if (stats.isCpu) {
-              addOneRandomCpu(op.param1 * 256, op.param2);
+              addOneRandomCpu(op.param1 * 256, op.param2, op.param4, op.param5);
             } else {
               stream_->addOneRandom(
                   deviceBuffer_->as<int32_t>(),
@@ -671,6 +684,8 @@ class RoundtripThread {
                   op.param1 * 256,
                   op.param2,
                   op.param3,
+                  op.param4,
+                  op.param5,
                   op.opCode == OpCode::kAddRandomEmptyWarps,
                   op.opCode == OpCode::kAddRandomEmptyThreads);
             }
@@ -699,7 +714,7 @@ class RoundtripThread {
     stats.endMicros = getCurrentTimeMicro();
   }
 
-  void addOneCpu(int32_t size, int32_t repeat) {
+  FOLLY_NOINLINE void addOneCpu(int32_t size, int32_t repeat) {
     int32_t* ints = hostInts_.get();
     for (auto counter = 0; counter < repeat; ++counter) {
       for (auto i = 0; i < size; ++i) {
@@ -707,13 +722,23 @@ class RoundtripThread {
       }
     }
   }
-  void addOneRandomCpu(uint32_t size, int32_t repeat) {
+  FOLLY_NOINLINE void addOneRandomCpu(
+      uint32_t size,
+      int32_t repeat,
+      int32_t numLocal,
+      int32_t localStride) {
     int32_t* ints = hostInts_.get();
     int32_t* lookup = hostLookup_.get();
     for (uint32_t counter = 0; counter < repeat; ++counter) {
       for (auto i = 0; i < size; ++i) {
         auto rnd = scale32(i * (counter + 1) * kPrime32, size);
-        ints[i] += lookup[rnd];
+        auto sum = lookup[rnd];
+        auto limit =
+            std::min<int32_t>(rnd + localStride * (1 + numLocal), size);
+        for (auto j = rnd + localStride; j < limit; j += localStride) {
+          sum += lookup[j];
+        }
+        ints[i] += sum;
       }
     }
   }
@@ -742,6 +767,13 @@ class RoundtripThread {
         case 'a':
           op.opCode = OpCode::kAdd;
           ++position;
+          if (str[position] == 's') {
+            op.opCode = OpCode::kAddShared;
+            ++position;
+          } else if (str[position] == 'r') {
+            op.opCode = OpCode::kAddReg;
+            ++position;
+          }
           op.param1 = parseInt(str, position, 1);
           op.param2 = parseInt(str, position, 1);
           return op;
@@ -769,6 +801,10 @@ class RoundtripThread {
           op.param2 = parseInt(str, position, 1);
           // target number of  threads in kernel.
           op.param3 = parseInt(str, position, 10240);
+          // Number of nearby memory accesses
+          op.param4 = parseInt(str, position, 0);
+          // Stride of nearby memory accesses
+          op.param5 = parseInt(str, position, 0);
           return op;
 
         case 's':
@@ -907,7 +943,7 @@ class CudaTest : public testing::Test {
         waitEach(streams, events);
       }
       for (auto i = 0; i < numStreams; ++i) {
-        streams[i]->addOne(ints[i], opSize);
+        streams[i]->incOne(ints[i], opSize);
         if (counter == 0 || counter >= firstNotify) {
           streams[i]->addCallback([&]() {
             auto d = getCurrentTimeMicro() - start;
@@ -1227,7 +1263,7 @@ TEST_F(CudaTest, stream) {
   stream.prefetch(nullptr, ints, opSize * sizeof(int32_t));
   stream.wait();
   for (auto i = 0; i < opSize; ++i) {
-    ASSERT_EQ(ints[i], i + 1);
+    ASSERT_EQ(ints[i], i + (i & 31));
   }
   allocator_->free(ints, sizeof(int32_t) * opSize);
 }

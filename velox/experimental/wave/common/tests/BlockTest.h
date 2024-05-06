@@ -76,24 +76,45 @@ class BlockTestStream : public Stream {
       int32_t numBlocks,
       uint8_t** flags,
       int32_t** indices,
-      int32_t* sizes,
-      int64_t* times);
+      int32_t* sizes);
   void testBoolToIndicesNoShared(
       int32_t numBlocks,
       uint8_t** flags,
       int32_t** indices,
       int32_t* sizes,
-      int64_t* times,
       void*);
 
   // Returns the smem size for block size 256 of boolToIndices().
   static int32_t boolToIndicesSize();
 
+  void testBool256ToIndices(
+      int32_t numBlocks,
+      uint8_t** flags,
+      int32_t** indices,
+      int32_t* sizes);
+
+  void testBool256ToIndicesNoShared(
+      int32_t numBlocks,
+      uint8_t** flags,
+      int32_t** indices,
+      int32_t* sizes,
+      void*);
+
+  // Returns the smem size for bool256ToIndices().
+  static int32_t bool256ToIndicesSize();
+
   // calculates the sum over blocks of 256 int64s and returns the result for
   // numbers[i * 256] ... numbers[(i + 1) * 256 - 1] inclusive  in results[i].
   void testSum64(int32_t numBlocks, int64_t* numbers, int64_t* results);
 
+  static int32_t sort16SharedSize();
+
   void testSort16(int32_t numBlocks, uint16_t** keys, uint16_t** values);
+  void testSort16NoShared(
+      int32_t numBlocks,
+      uint16_t** keys,
+      uint16_t** values,
+      char* temp);
 
   void partitionShorts(
       int32_t numBlocks,
