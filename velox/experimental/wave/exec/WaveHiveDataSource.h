@@ -46,7 +46,7 @@ class WaveHiveDataSource : public WaveDataSource {
 
   void setFromDataSource(std::shared_ptr<WaveDataSource> dataSource) override;
 
-  int32_t canAdvance() override;
+  int32_t canAdvance(WaveStream& stream) override;
 
   void schedule(WaveStream& stream, int32_t maxRows) override;
 

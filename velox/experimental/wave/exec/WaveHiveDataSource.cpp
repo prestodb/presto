@@ -94,8 +94,8 @@ void WaveHiveDataSource::addSplit(
   splitReader_->prepareSplit(metadataFilter_, runtimeStats_);
 }
 
-int32_t WaveHiveDataSource::canAdvance() {
-  return splitReader_ != nullptr ? splitReader_->canAdvance() : 0;
+int32_t WaveHiveDataSource::canAdvance(WaveStream& stream) {
+  return splitReader_ != nullptr ? splitReader_->canAdvance(stream) : 0;
 }
 
 void WaveHiveDataSource::schedule(WaveStream& stream, int32_t maxRows) {

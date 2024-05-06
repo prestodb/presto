@@ -20,11 +20,11 @@
 
 namespace facebook::velox::wave {
 
-class Values : public WaveOperator {
+class Values : public WaveSourceOperator {
  public:
   Values(CompileState& state, const core::ValuesNode& values);
 
-  int32_t canAdvance() override;
+  int32_t canAdvance(WaveStream& stream) override;
 
   bool isStreaming() const override {
     return true;

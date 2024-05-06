@@ -507,6 +507,24 @@ __device__ void makeScatterIndices(GpuDecode::MakeScatterIndices& op) {
     *op.indicesCount = indicesCount;
   }
 }
+
+template <int kBlockSize>
+__device__ void setRowCountNoFilter(GpuDecode::RowCountNoFilter& op) {
+  auto numRows = op.numRows;
+  auto* status = op.status;
+  auto numCounts = roundUp(numRows, kBlockSize) / kBlockSize;
+  for (auto base = 0; base < numCounts; base += kBlockSize) {
+    auto idx = threadIdx.x + base;
+    if (idx < numCounts) {
+      // Every thread writes a row count and errors for kBlockSize rows. All
+      // errors are cleared and all row counts except the last are kBlockSize.
+      status[idx].numRows =
+          idx < numCounts - 1 ? kBlockSize : numRows - idx * kBlockSize;
+      memset(&status[base + threadIdx.x].errors, 0, sizeof(status->errors));
+    }
+  }
+}
+
 template <int32_t kBlockSize>
 __device__ void decodeSwitch(GpuDecode& op) {
   switch (op.step) {
@@ -534,6 +552,9 @@ __device__ void decodeSwitch(GpuDecode& op) {
     case DecodeStep::kMakeScatterIndices:
       detail::makeScatterIndices<kBlockSize>(op.data.makeScatterIndices);
       break;
+    case DecodeStep::kRowCountNoFilter:
+      detail::setRowCountNoFilter<kBlockSize>(op.data.rowCountNoFilter);
+      break;
     default:
       if (threadIdx.x == 0) {
         printf("ERROR: Unsupported DecodeStep (with shared memory)\n");
@@ -554,6 +575,7 @@ int32_t sharedMemorySizeForDecode(DecodeStep step) {
     case DecodeStep::kTrivial:
     case DecodeStep::kDictionaryOnBitpack:
     case DecodeStep::kSparseBool:
+    case DecodeStep::kRowCountNoFilter:
       return 0;
       break;
 

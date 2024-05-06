@@ -24,41 +24,51 @@ WaveOperator::WaveOperator(
     CompileState& state,
     const RowTypePtr& type,
     const std::string& planNodeId)
-    : id_(state.numOperators()), planNodeId_(planNodeId), outputType_(type) {
-  definesSubfields(state, outputType_);
-}
+    : id_(state.numOperators()), planNodeId_(planNodeId), outputType_(type) {}
 
-void WaveOperator::definesSubfields(
+AbstractOperand* WaveOperator::definesSubfield(
     CompileState& state,
     const TypePtr& type,
-    const std::string& parentPath) {
+    const std::string& parentPath,
+    bool sourceNullable) {
   switch (type->kind()) {
     case TypeKind::ROW: {
       auto& row = type->as<TypeKind::ROW>();
       for (auto i = 0; i < type->size(); ++i) {
         auto& child = row.childAt(i);
         auto name = row.nameOf(i);
-        auto field = state.toSubfield(name);
-        subfields_.push_back(field);
-        types_.push_back(child);
-        auto operand = state.findCurrentValue(Value(field));
-        if (!operand) {
-          operand = state.newOperand(child, name);
-        }
-        outputIds_.add(operand->id);
-        defines_[Value(field)] = operand;
+        std::string childPath = fmt::format("{}.{}", parentPath, name);
+        definesSubfield(state, child, childPath, sourceNullable);
       }
     }
       [[fallthrough]];
       // TODO:Add cases for nested types.
     default: {
-      return;
+      auto field = state.toSubfield(parentPath);
+      subfields_.push_back(field);
+      types_.push_back(type);
+      auto operand = state.findCurrentValue(Value(field));
+      if (!operand) {
+        operand = state.newOperand(type, parentPath);
+      }
+      if (sourceNullable && !operand->notNull && !operand->conditionalNonNull) {
+        operand->sourceNullable = true;
+      }
+      defines_[Value(field)] = operand;
+
+      return operand;
     }
   }
 }
 
 folly::Synchronized<exec::OperatorStats>& WaveOperator::stats() {
   return driver_->stats();
+}
+
+std::string WaveOperator::toString() const {
+  std::stringstream out;
+  out << "Id: " << id_ << " produces " << outputIds_.toString() << std::endl;
+  return out.str();
 }
 
 } // namespace facebook::velox::wave

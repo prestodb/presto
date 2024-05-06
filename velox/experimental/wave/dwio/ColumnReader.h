@@ -31,13 +31,16 @@ class ColumnReader {
   ColumnReader(
       const TypePtr& requestedType,
       std::shared_ptr<const dwio::common::TypeWithId> fileType,
-      OperandId operand,
+      AbstractOperand* operand,
       FormatParams& params,
       velox::common::ScanSpec& scanSpec)
       : requestedType_(requestedType),
         fileType_(fileType),
         operand_(operand),
-        formatData_(params.toFormatData(fileType_, scanSpec, operand)),
+        formatData_(params.toFormatData(
+            fileType_,
+            scanSpec,
+            operand ? operand->id : kNoOperand)),
         scanSpec_(&scanSpec) {}
 
   virtual ~ColumnReader() = default;
@@ -54,7 +57,7 @@ class ColumnReader {
     return formatData_->totalRows();
   }
 
-  OperandId operand() const {
+  AbstractOperand* operand() const {
     return operand_;
   }
 
@@ -72,7 +75,7 @@ class ColumnReader {
  protected:
   TypePtr requestedType_;
   std::shared_ptr<const dwio::common::TypeWithId> fileType_;
-  const OperandId operand_;
+  AbstractOperand* const operand_;
   std::unique_ptr<FormatData> formatData_;
   // Specification of filters, value extraction, pruning etc. The
   // spec is assigned at construction and the contents may change at
@@ -95,6 +98,10 @@ class ReadStream : public Executable {
       WaveStream& waveStream,
       const OperandSet* firstColumns = nullptr);
 
+  void setNullable(const AbstractOperand& op, bool nullable) {
+    waveStream->setNullable(op, nullable);
+  }
+
   /// Runs a sequence of kernel invocations until all eagerly produced columns
   /// have their last kernel in flight. Transfers ownership of 'readStream' to
   /// its WaveStream.
@@ -115,11 +122,19 @@ class ReadStream : public Executable {
  private:
   /// Makes column dependencies.
   void makeOps();
+  void makeControl();
 
   StructColumnReader* reader_;
+  std::vector<AbstractOperand*> abstractOperands_;
+
+  // Offset from end of previous read.
   int32_t offset_;
+
+  // Row numbers to read starting after skipping 'offset_'.
   RowSet rows_;
   std::vector<ColumnOp> ops_;
+  // Cout of KBlockSize blocks in max top level rows.
+  int32_t numBlocks_{0};
   std::vector<std::unique_ptr<SplitStaging>> staging_;
   SplitStaging* currentStaging_;
 
@@ -129,6 +144,12 @@ class ReadStream : public Executable {
   ResultStaging deviceStaging_;
   // Reusable control block for launching decode kernels.
   DecodePrograms programs_;
+  // If no filters, the starting RowSet directly initializes the BlockStatus'es
+  // at the end of the ReadStream.
+  bool hasFilters_{false};
+  //  Sequence number of kernel launch.
+  int32_t nthWave_{0};
+  LaunchControl* control_{nullptr};
 };
 
 } // namespace facebook::velox::wave

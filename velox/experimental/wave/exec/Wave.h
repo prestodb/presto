@@ -28,6 +28,79 @@
 
 namespace facebook::velox::wave {
 
+/// A host side time point for measuring wait and launch prepare latency. Counts
+/// both wall microseconds and clocks.
+struct WaveTime {
+  size_t micros{0};
+  uint64_t clocks{0};
+
+  static WaveTime now() {
+    return {getCurrentTimeMicro(), folly::hardware_timestamp()};
+  }
+
+  WaveTime operator-(const WaveTime right) const {
+    return {right.micros - micros, right.clocks - clocks};
+  }
+
+  WaveTime operator+(const WaveTime right) const {
+    return {right.micros + micros, right.clocks + clocks};
+  }
+  void operator+=(const WaveTime& other) {
+    micros += other.micros;
+    clocks += other.clocks;
+  }
+  std::string toString() const;
+};
+
+class WaveTimer {
+  WaveTimer(WaveTime& accumulator)
+      : accumulator_(accumulator), start_(WaveTime::now()) {}
+  ~WaveTimer() {
+    accumulator_ = accumulator_ + (WaveTime::now() - start_);
+  }
+
+ private:
+  WaveTime& accumulator_;
+  WaveTime start_;
+};
+
+struct WaveStats {
+  /// Count of WaveStreams.
+  int64_t numWaves{1};
+
+  // Count of kernel launches.
+  int64_t numKernels{0};
+
+  // Count of thread blocks in all kernel launches.
+  int64_t numThreadBlocks{0};
+
+  /// Number of programs. One launch typically has several programs, roughly one
+  /// per output column.
+  int64_t numPrograms{0};
+
+  /// Number of starting lanes in kernel launches. This is not exactly thread
+  /// blocks because the last block per program is not full.
+  int64_t numThreads{0};
+
+  /// Data transfer from host to device.
+  int64_t bytesToDevice{0};
+
+  int64_t bytesToHost{0};
+
+  /// Number of times the host syncs with device.
+  int64_t numSync{0};
+
+  /// Time a host thread runs without activity on device, e.g. after a sync or
+  /// before first launch.
+  WaveTime hostOnlyTime;
+  /// Time a host thread runs after kernel launch preparing the next kernel.
+  WaveTime hostParallelTime;
+  /// Time a host thread waits for device.
+  WaveTime waitTime;
+
+  void add(const WaveStats& other);
+};
+
 // A value a kernel can depend on. Either a dedupped exec::Expr or a dedupped
 // subfield. Subfield between operators, Expr inside  an Expr.
 struct Value {
@@ -38,13 +111,8 @@ struct Value {
   ~Value() = default;
 
   bool operator==(const Value& other) const {
-    if (expr == other.expr && subfield == other.subfield) {
-      return true;
-    };
-    if (subfield && other.subfield && *subfield == *other.subfield) {
-      return true;
-    }
-    return false;
+    // Both exprs and subfields are deduplicated.
+    return expr == other.expr && subfield == other.subfield;
   }
 
   const exec::Expr* expr;
@@ -53,6 +121,7 @@ struct Value {
 
 struct ValueHasher {
   size_t operator()(const Value& value) const {
+    // Hash the addresses because both exprs and subfields are deduplicated.
     return folly::hasher<uint64_t>()(
                reinterpret_cast<uintptr_t>(value.subfield)) ^
         folly::hasher<uint64_t>()(reinterpret_cast<uintptr_t>(value.expr));
@@ -74,7 +143,7 @@ using DefinesMap =
 /// Translates a set of path steps to an OperandId or kNoOperand if
 /// none found. The path is not const because it is temporarily
 /// moved into a Subfield. Not thread safe for 'path'.
-OperandId pathToOperand(
+AbstractOperand* pathToOperand(
     const DefinesMap& map,
     std::vector<std::unique_ptr<common::Subfield::PathElement>>& path);
 
@@ -124,7 +193,6 @@ struct Executable {
   /// addTransfer().
   static void startTransfer(
       OperandSet outputOperands,
-      WaveBufferPtr&& operands,
       std::vector<WaveVectorPtr>&& outputVectors,
       std::vector<Transfer>&& transfers,
       WaveStream& stream);
@@ -146,8 +214,12 @@ struct Executable {
   void reuse() {
     operands = nullptr;
     stream = nullptr;
+    wraps.clear();
   }
-  // The containing WaveStream, if needed.
+
+  virtual std::string toString() const;
+
+  // The containing WaveStream.
   WaveStream* waveStream{nullptr};
 
   // The Program this is an invocationn of. nullptr if 'this' represents a data
@@ -168,9 +240,20 @@ struct Executable {
   // Operand ids for outputs.
   OperandSet outputOperands;
 
-  // Unified memory Operand structs for intermediates/outputs. These
+  // Unified memory Operand structs for intermediates/outputs/literals. These
   // are a contiguous array of Operand in LaunchControl of 'this'
   Operand* operands;
+
+  // Index of first output operand in 'operands'.
+  int32_t firstOutputOperandIdx{-1};
+
+  // Map from wrapAt in AbstractOperand to device side 'indices' with one
+  // int32_t* per thread block.
+  folly::F14FastMap<int32_t, int32_t**> wraps;
+
+  // Host side array of literals. These refer to literal data in device side
+  // ThreadBlockProgram. These are copied at the end of 'operands' at launch.
+  const std::vector<Operand>* literals;
 
   // Backing memory for intermediate Operands. Free when 'this' arrives. If
   // scheduling follow up work that is synchronized with arrival of 'this', the
@@ -178,8 +261,8 @@ struct Executable {
   // scheduling.
   std::vector<WaveVectorPtr> intermediates;
 
-  // Backing device memory   for 'output' Can be moved to intermediates or
-  // output of a dependent executables.
+  // Backing device memory   for 'output'. These are accessed by dependent
+  // executables and must not be written to until out of scope.
   std::vector<WaveVectorPtr> output;
 
   // If this represents data transfer, the ranges to transfer.
@@ -203,6 +286,11 @@ class Program : public std::enable_shared_from_this<Program> {
     instructions_.push_back(std::move(instruction));
   }
 
+  /// Specifies that Operand with 'id' is used by a dependent operation.
+  void markOutput(OperandId id) {
+    outputIds_.add(id);
+  }
+
   const std::vector<Program*>& dependsOn() const {
     return dependsOn_;
   }
@@ -215,8 +303,8 @@ class Program : public std::enable_shared_from_this<Program> {
     dependsOn_.push_back(source);
   }
 
-  // Initializes executableImage and relocation information and places for
-  // parameters.
+  // Initializes executableImage and relocation information and places
+  // the result on device.
   void prepareForDevice(GpuArena& arena);
 
   std::unique_ptr<Executable> getExecutable(
@@ -247,11 +335,31 @@ class Program : public std::enable_shared_from_this<Program> {
     return sharedMemorySize_;
   }
 
-  const folly::F14FastMap<AbstractOperand*, int32_t>& localAndOutput() const {
-    return local_;
+  const folly::F14FastMap<AbstractOperand*, int32_t>& output() const {
+    return output_;
   }
 
+  const std::string& label() const {
+    return label_;
+  }
+
+  void addLabel(const std::string& label) {
+    label_ = label_ + " " + label;
+  }
+
+  std::string toString() const;
+
  private:
+  template <TypeKind kind>
+  int32_t addLiteralTyped(AbstractOperand* op);
+  /// Returns a starting offset to a constant with 'count' elements of T,
+  /// initialized from 'value[]' The values are copied to device side
+  /// ThreadBlockProgram.
+  template <typename T>
+  int32_t addLiteral(T* value, int32_t count);
+
+  void literalToOperand(AbstractOperand* abstractOp, Operand& op);
+
   GpuArena* arena_{nullptr};
   std::vector<Program*> dependsOn_;
   DefinesMap produces_;
@@ -260,7 +368,8 @@ class Program : public std::enable_shared_from_this<Program> {
 
   // Adds 'op' to 'input' if it is not produced by one in 'local'
   void markInput(AbstractOperand* op);
-  // Adds 'op' to 'local_'
+
+  // Adds 'op' to 'local_' or 'output_'.
   void markResult(AbstractOperand* op);
   void sortSlots();
 
@@ -269,8 +378,28 @@ class Program : public std::enable_shared_from_this<Program> {
   // Input Operand  to offset in operands array.
   folly::F14FastMap<AbstractOperand*, int32_t> input_;
 
-  // Local/output Operand offset in operands array.
+  /// Set of OperandIds for outputs. These must come after intermediates in
+  /// Operands array.
+  OperandSet outputIds_;
+
+  // Local Operand offset in operands array.
   folly::F14FastMap<AbstractOperand*, int32_t> local_;
+  // Output Operand offset in operands array.
+  folly::F14FastMap<AbstractOperand*, int32_t> output_;
+
+  // OperandIdx for first literal operand.
+  int32_t firstLiteralIdx_{-1};
+
+  // Constant Operand  to offset in operands array.
+  folly::F14FastMap<AbstractOperand*, int32_t> literal_;
+
+  // Offset of first unused constant area byte from start of constant area.
+  int32_t nextLiteral_{0};
+
+  // Binary data for constants to be embedded in ThreadBlockProgram. Must be
+  // relocatable, i.e. does not contain non-relative pointers within the
+  // constant area.
+  std::string literalArea_;
 
   // Owns device side 'threadBlockProgram_'
   WaveBufferPtr deviceData_;
@@ -279,6 +408,15 @@ class Program : public std::enable_shared_from_this<Program> {
   ThreadBlockProgram* program_;
 
   int32_t sharedMemorySize_{0};
+
+  // Host side image of device side Operands that reference 'constantArea_'.
+  // These are copied at the end of the operand block created at kernel launch.
+  std::vector<Operand> literalOperands_;
+
+  std::string label_;
+
+  // Start of device side constant area.
+  char* deviceLiterals_{nullptr};
   // Serializes 'prepared_'. Access on WaveStrea, is single threaded but sharing
   // Programs across WaveDrivers makes sense, so make the preallocated resource
   // thread safe.
@@ -295,7 +433,25 @@ struct LaunchControl;
 /// Represents consecutive data dependent kernel launches.
 class WaveStream {
  public:
-  WaveStream(GpuArena& arena) : arena_(arena) {}
+  /// Describes what 'this' is doing for purposes of stats collection.
+  enum class State {
+    // Not runnable, e.g. another WaveStream is being processed by WaveDriver.
+    kNotRunning,
+    // Running on host only, e.g. preparing for first kernel launch.
+    kHost,
+    // Running on host with device side work submitted.
+    kParallel,
+    // Waiting on host thread for device results.
+    kWait
+  };
+
+  WaveStream(
+      GpuArena& arena,
+      GpuArena& hostArena,
+      const std::vector<std::unique_ptr<AbstractOperand>>* operands)
+      : arena_(arena), hostArena_(hostArena), operands_(operands) {
+    operandNullable_.resize(operands_->size(), true);
+  }
 
   ~WaveStream();
 
@@ -310,9 +466,48 @@ class WaveStream {
     return arena_;
   }
 
-  void getOutput(
+  void setNullable(const AbstractOperand& op, bool nullable) {
+    operandNullable_[op.id] = nullable;
+  }
+
+  int32_t numRows() const {
+    return numRows_;
+  }
+
+  // Sets the size of top-level vectors to be prepared for the next launch.
+  void setNumRows(int32_t numRows) {
+    numRows_ = numRows;
+  }
+
+  /// Sets 'vector' to ' a WaveVector of suitable type, size and
+  /// nullability. May reuse 'vector' if not nullptr. The size comes
+  /// from setNumRows() if not given as parameter.
+  void ensureVector(
+      const AbstractOperand& operand,
+      WaveVectorPtr& vector,
+      int32_t numRows = -1);
+
+  /// Marks 'op' as being later copied to host.  Allocates these together.
+  void markHostOutputOperand(const AbstractOperand& op);
+
+  /// Finalizes return state. setNumRows and markHostOutputOperand may not be
+  /// called after this. If 'needStatus' is false and no columns are marked for
+  /// host return there is no need for any data transfer at the end of the
+  /// stream.
+  void setReturnData(bool needStatus);
+
+  /// Enqueus copy of device side results to host.
+  void resultToHost();
+
+  /// Updates 'vectors' to reference the data in 'operands'. 'id' is the id of
+  /// the last WaveOperator. It identifies the LaunchControl with the final
+  /// BlockStatus with errors and cardinalities. Returns the number of rows
+  /// after possible selection.
+  int32_t getOutput(
+      int32_t operatorId,
+      memory::MemoryPool& pool,
       folly::Range<const OperandId*> operands,
-      WaveVectorPtr* waveVectors);
+      VectorPtr* vectors);
 
   Executable* operandExecutable(OperandId id) {
     auto it = operandToExecutable_.find(id);
@@ -385,7 +580,7 @@ class WaveStream {
       int32_t inputRows,
       folly::Range<Executable**> exes,
       int32_t blocksPerExe,
-      bool initstatus,
+      const LaunchControl* inputStatus,
       Stream* stream);
 
   const std::vector<std::unique_ptr<LaunchControl>>& launchControls(
@@ -393,7 +588,46 @@ class WaveStream {
     return launchControl_[key];
   }
 
+  void addLaunchControl(int32_t key, std::unique_ptr<LaunchControl> control) {
+    launchControl_[key].push_back(std::move(control));
+  }
+
+  const AbstractOperand* operandAt(int32_t id) {
+    VELOX_CHECK_LT(id, operands_->size());
+    return (*operands_)[id].get();
+  }
+
+  // Describes an exe in a multi-program launch.
+  struct ExeLaunchInfo {
+    int32_t numBlocks;
+    int32_t numInput{0};
+    int32_t numLocalOps{0};
+    int32_t numLocalWrap{0};
+    int32_t totalBytes{0};
+    folly::F14FastMap<int32_t, int32_t**> inputWrap;
+    folly::F14FastMap<int32_t, int32_t**> localWrap;
+  };
+
+  void
+  exeLaunchInfo(Executable& exe, int32_t blocksPerExe, ExeLaunchInfo& info);
+
+  Operand** fillOperands(Executable& exe, char* start, ExeLaunchInfo& info);
+
+  /// Sets the state for stats collection.
+  void setState(WaveStream::State state);
+
+  const WaveStats& stats() const {
+    return stats_;
+  }
+
+  WaveStats& stats() {
+    return stats_;
+  }
+
  private:
+  // true if 'op' is nullable in the context of 'this'.
+  bool isNullable(const AbstractOperand& op) const;
+
   Event* newEvent();
 
   static std::unique_ptr<Event> eventFromReserve();
@@ -408,15 +642,28 @@ class WaveStream {
   static void clearReusable();
 
   GpuArena& arena_;
+  GpuArena& hostArena_;
+  const std::vector<std::unique_ptr<AbstractOperand>>* const operands_;
+  // True at '[i]' if in this stream 'operands_[i]' should have null flags.
+  std::vector<bool> operandNullable_;
+
+  // Number of rows to allocate for top level vectors for the next kernel
+  // launch.
+  int32_t numRows_{0};
+
   folly::F14FastMap<OperandId, Executable*> operandToExecutable_;
   std::vector<std::unique_ptr<Executable>> executables_;
 
   // Currently active streams, each at the position given by its
   // stream->userData().
   std::vector<std::unique_ptr<Stream>> streams_;
+
   // The most recent event recorded on the pairwise corresponding element of
   // 'streams_'.
   std::vector<Event*> lastEvent_;
+  // If status return copy has been initiated, then this is th event to sync
+  // with before accessing the 'hostReturnData_'
+  Event* hostReturnEvent_{nullptr};
 
   // all events recorded on any stream. Events, once seen realized, are moved
   // back to reserve from here.
@@ -428,6 +675,34 @@ class WaveStream {
       launchControl_;
 
   folly::F14FastMap<int32_t, WaveBufferPtr> extraData_;
+
+  // ids of operands that need their memory to be in the host return area.
+  OperandSet hostOutputOperands_;
+
+  // Offset of the operand in 'hostReturnData_' and 'deviceReturnData_'.
+  folly::F14FastMap<OperandId, int64_t> hostReturnOffset_;
+
+  // Size of data returned at end of stream.
+  int64_t hostReturnSize_{0};
+
+  int64_t hostReturnDataUsed_{0};
+
+  // Device side data for all returnable data, like BlockStatus and Vector
+  // bodies to be copied to host.
+  WaveBufferPtr deviceReturnData_;
+
+  // Host pinned memory to which 'deviceReturnData' is copied.
+  WaveBufferPtr hostReturnData_;
+
+  // Pointer to statuses inside 'hostReturnData_'.
+  BlockStatus* hostStatus_{nullptr};
+
+  // Time when host side activity last started on 'this'.
+  WaveTime start_;
+
+  State state_{State::kNotRunning};
+
+  WaveStats stats_;
 };
 
 /// Describes all the control data for launching a kernel executing
@@ -443,25 +718,33 @@ class WaveStream {
 //// WaveVectors in each exe. Array of TB return status blocks, one
 //// per TB.
 struct LaunchControl {
-  int32_t key;
+  LaunchControl(int32_t _key, int32_t _inputRows)
+      : key(_key), inputRows(_inputRows) {}
 
-  int32_t inputRows;
+  // Id of the initiating operator.
+  const int32_t key;
 
-  /// The first thread block with the program.
-  int32_t* blockBase;
+  // Number of rows the programs get as input. Initializes the BlockStatus'es on
+  // device in prepareProgamLaunch().
+  const int32_t inputRows;
+
+  /// The first thread block with the program. Subscript is blockIdx.x.
+  int32_t* blockBase{0};
   // The ordinal of the program. All blocks with the same program have the same
-  // number here.
-  int32_t* programIdx;
+  // number here. Subscript is blockIdx.x.
+  int32_t* programIdx{nullptr};
 
-  // The TB program for each exe.
-  ThreadBlockProgram** programs;
+  // The TB program for each exe. The subscript is programIdx[blockIdx.x].
+  ThreadBlockProgram** programs{nullptr};
 
   // For each exe, the start of the array of Operand*. Instructions reference
-  // operands via offset in this array.//
-  Operand*** operands;
+  // operands via offset in this array. The subscript is
+  // programIndx[blockIdx.x].
+  Operand*** operands{nullptr};
 
-  // the status return block for each TB.
-  BlockStatus* status;
+  // the status return block for each TB. The subscript is blockIdx.x -
+  // (blockBase[blockIdx.x] / kBlockSize). Shared between all programs.
+  BlockStatus* status{nullptr};
   int32_t sharedMemorySize{0};
 
   // Storage for all the above in a contiguous unified memory piece.

@@ -27,8 +27,45 @@ __device__ inline T& flatValue(void* base, int32_t blockBase) {
   return reinterpret_cast<T*>(base)[blockBase + threadIdx.x];
 }
 
-__device__ inline bool isNull(Operand* op, int32_t blockBase) {
-  return op->nulls == nullptr || !op->nulls[blockBase + threadIdx.x];
+template <typename T>
+__device__ T& sharedMemoryOperand(char* shared, OperandIndex op) {
+  return reinterpret_cast<T*>(
+      shared + ((op & kSharedOperandMask) << 1))[blockIdx.x];
+}
+/// Returns true if operand is non null. Sets 'value' to the value of the
+/// operand.
+template <typename T>
+__device__ inline bool operandOrNull(
+    Operand** operands,
+    OperandIndex opIdx,
+    int32_t blockBase,
+    char* shared,
+    T& value) {
+  if (opIdx > kMinSharedMemIndex) {
+    uint16_t mask = opIdx & kSharedNullMask;
+    if (mask > 0 && shared[kBlockSize * (mask - 1) + blockIdx.x] == kNull) {
+      return false;
+    }
+    value = sharedMemoryOperand<T>(shared, opIdx);
+    return true;
+  }
+  auto op = operands[opIdx];
+  int32_t index = threadIdx.x;
+  if (auto indicesInOp = op->indices) {
+    auto indices = indicesInOp[blockBase / kBlockSize];
+    if (indices) {
+      index = indices[index];
+    } else {
+      index += blockBase;
+    }
+  } else {
+    index = (index + blockBase) & op->indexMask;
+  }
+  if (op->nulls && op->nulls[index] == kNull) {
+    return false;
+  }
+  value = reinterpret_cast<const T*>(op->base)[index];
+  return true;
 }
 
 template <typename T>
@@ -38,8 +75,7 @@ __device__ inline T getOperand(
     int32_t blockBase,
     char* shared) {
   if (opIdx > kMinSharedMemIndex) {
-    return reinterpret_cast<T*>(
-        shared + opIdx - kMinSharedMemIndex)[blockIdx.x];
+    return sharedMemoryOperand<T>(shared, opIdx);
   }
   auto op = operands[opIdx];
   int32_t index = (threadIdx.x + blockBase) & op->indexMask;
@@ -68,6 +104,21 @@ __device__ inline T value(Operand* op, int index) {
   return reinterpret_cast<const T*>(op->base)[index];
 }
 
+/// Sets the lane's result to null for opIdx.
+__device__ inline void resultNull(
+    Operand** operands,
+    OperandIndex opIdx,
+    int32_t blockBase,
+    char* shared) {
+  if (opIdx >= kMinSharedMemIndex) {
+    auto offset = (opIdx & kSharedNullMask) - 1;
+    shared[(kBlockSize * offset) + blockIdx.x] = kNull;
+  } else {
+    auto* op = operands[opIdx];
+    op->nulls[blockBase + threadIdx.x] = kNull;
+  }
+}
+
 template <typename T>
 __device__ inline T& flatResult(
     Operand** operands,
@@ -75,8 +126,10 @@ __device__ inline T& flatResult(
     int32_t blockBase,
     char* shared) {
   if (opIdx >= kMinSharedMemIndex) {
-    return reinterpret_cast<T*>(
-        shared + opIdx - kMinSharedMemIndex)[threadIdx.x];
+    if (auto mask = (opIdx & kSharedNullMask)) {
+      shared[(kBlockSize * (mask - 1)) + blockIdx.x] = kNotNull;
+    }
+    return sharedMemoryOperand<T>(shared, opIdx);
   }
   auto* op = operands[opIdx];
   if (op->nulls) {

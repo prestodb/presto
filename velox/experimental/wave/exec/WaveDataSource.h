@@ -42,7 +42,7 @@ class WaveDataSource {
 
   virtual void addSplit(std::shared_ptr<connector::ConnectorSplit> split) = 0;
 
-  virtual int32_t canAdvance() = 0;
+  virtual int32_t canAdvance(WaveStream& stream) = 0;
 
   virtual void schedule(WaveStream& stream, int32_t maxRows = 0) = 0;
 

@@ -34,7 +34,7 @@ class WaveTestSplitReader : public WaveSplitReader {
     return !stripe_ || stripe_->columns[0]->numValues == 0;
   }
 
-  int32_t canAdvance() override;
+  int32_t canAdvance(WaveStream& stream) override;
 
   void schedule(WaveStream& stream, int32_t maxRows = 0) override;
 

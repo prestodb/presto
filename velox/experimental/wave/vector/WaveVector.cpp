@@ -106,7 +106,6 @@ class NoReleaser {
   void addRef() const {};
   void release() const {};
 };
-} // namespace
 
 template <TypeKind kind>
 static VectorPtr toVeloxTyped(
@@ -137,6 +136,16 @@ static VectorPtr toVeloxTyped(
       std::move(valuesView),
       std::vector<BufferPtr>());
 }
+
+bool isDenselyFilled(const BlockStatus* status, int32_t numBlocks) {
+  for (int32_t i = 0; i < numBlocks - 1; ++i) {
+    if (status[i].numRows != kBlockSize) {
+      return false;
+    }
+  }
+  return true;
+}
+} // namespace
 
 int32_t statusNumRows(const BlockStatus* status, int32_t numBlocks) {
   int32_t numRows = 0;
@@ -193,32 +202,26 @@ VectorPtr WaveVector::toVelox(
         numActive,
         size_,
         "If there is no indirection in Operand, vector size must be <= BlockStatus");
-    return base;
+    // If all blocks except last are filled we return base without wrap.
+    if (isDenselyFilled(status, numBlocks)) {
+      return base;
+    }
   }
   auto indices = AlignedBuffer::allocate<vector_size_t>(numActive, pool);
   auto rawIndices = indices->asMutable<vector_size_t>();
   int32_t fill = 0;
   for (auto block = 0; block < numBlocks; ++block) {
-    auto blockIndices = operandIndices[block];
+    auto blockIndices = operandIndices ? operandIndices[block] : nullptr;
     if (!blockIndices) {
-      if (block == numBlocks - 1) {
-        VELOX_CHECK_EQ(
-            size_ - block * kBlockSize,
-            status[block].numRows,
-            "If last block has no indices, its size must be the remainder of the vector");
-      } else {
-        VELOX_CHECK_EQ(
-            kBlockSize,
-            status->numRows,
-            "A block with no indices must have all rows active");
-      }
       for (auto i = 0; i < status[block].numRows; ++i) {
         rawIndices[fill++] = block * kBlockSize + i;
       }
     } else {
-      for (auto i = 0; i < status[block].numRows; ++i) {
-        rawIndices[fill++] = blockIndices[i];
-      }
+      memcpy(
+          rawIndices + fill,
+          blockIndices,
+          status[block].numRows * sizeof(int32_t));
+      fill += status[block].numRows;
     }
   }
   return BaseVector::wrapInDictionary(

@@ -25,13 +25,16 @@
 
 namespace facebook::velox::wave {
 
-class TableScan : public WaveOperator {
+class TableScan : public WaveSourceOperator {
  public:
   TableScan(
       CompileState& state,
       int32_t operatorId,
       const core::TableScanNode& tableScanNode)
-      : WaveOperator(state, tableScanNode.outputType(), tableScanNode.id()),
+      : WaveSourceOperator(
+            state,
+            tableScanNode.outputType(),
+            tableScanNode.id()),
         tableHandle_(tableScanNode.tableHandle()),
         columnHandles_(tableScanNode.assignments()),
         driverCtx_(state.driver().driverCtx()),
@@ -47,11 +50,11 @@ class TableScan : public WaveOperator {
     connector_ = connector::getConnector(tableHandle_->connectorId());
   }
 
-  int32_t canAdvance() override {
+  int32_t canAdvance(WaveStream& stream) override {
     if (!dataSource_) {
       return 0;
     }
-    return waveDataSource_->canAdvance();
+    return waveDataSource_->canAdvance(stream);
   }
 
   void schedule(WaveStream& stream, int32_t maxRows = 0) override {

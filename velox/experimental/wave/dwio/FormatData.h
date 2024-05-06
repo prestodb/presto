@@ -64,6 +64,9 @@ class SplitStaging {
         id, reinterpret_cast<void**>(reinterpret_cast<uint64_t>(pointer)));
   }
 
+  int64_t bytesToDevice() const {
+    return fill_;
+  }
   // Starts the transfers registered with add( on 'stream').
   void transfer(WaveStream& waveStream, Stream& stream);
 

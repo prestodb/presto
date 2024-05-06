@@ -43,7 +43,7 @@ class Aggregation : public WaveOperator {
 
   void flush(bool noMoreInput) override;
 
-  int32_t canAdvance() override;
+  int32_t canAdvance(WaveStream& stream) override;
 
   void schedule(WaveStream& stream, int32_t maxRows) override;
 

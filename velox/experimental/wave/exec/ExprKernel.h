@@ -29,16 +29,6 @@
 /// be allocated dynamically at kernel invocation.
 namespace facebook::velox::wave {
 
-/// Mixed with opcode to switch between instantiations of instructions for
-/// different types.
-enum class ScalarType {
-  kInt32,
-  kInt64,
-  kReal,
-  kDouble,
-  kString,
-};
-
 /// Opcodes for common instruction set. First all instructions that
 /// do not have operand type variants, then all the ones that
 /// do. For type templated instructions, the case label is opcode *
@@ -47,6 +37,9 @@ enum class OpCode {
   // First all OpCodes that have no operand type specialization.
   kFilter = 0,
   kWrap,
+  kLiteral,
+  kNegate,
+  kReturn,
 
   // From here, only OpCodes that have variants for scalar types.
   kPlus,
@@ -61,9 +54,12 @@ enum class OpCode {
   kNE,
 
 };
+constexpr int32_t kLastScalarKind = static_cast<int32_t>(WaveTypeKind::HUGEINT);
 
-#define OP_MIX(op, t) \
-  static_cast<OpCode>(static_cast<int32_t>(t) + 8 * static_cast<int32_t>(op))
+#define OP_MIX(op, t)           \
+  static_cast<OpCode>(          \
+      static_cast<int32_t>(t) + \
+      (kLastScalarKind + 1) * static_cast<int32_t>(op))
 
 struct IBinary {
   OperandIndex left;
@@ -71,9 +67,6 @@ struct IBinary {
   OperandIndex result;
   // If set, apply operation to lanes where there is a non-zero byte in this.
   OperandIndex predicate{kEmpty};
-  // If true, inverts the meaning of 'predicate', so that the operation is
-  // perfformed on lanes with a zero byte bit. Xored with predicate[idx].
-  uint8_t invert{0};
 };
 
 struct IFilter {
@@ -84,32 +77,24 @@ struct IFilter {
 struct IWrap {
   // The indices to wrap on top of 'columns'.
   OperandIndex indices;
-
-  // Number of items in 'columns', 'targetColumns', 'nuwIndices',
-  // 'mayShareIndices'.
   int32_t numColumns;
 
   // The columns to wrap.
   OperandIndex* columns;
-  // The post wrap columns. If the original is not wrapped, these
-  // have the base of original and indices to wrap and posssibly new
-  // nulls from 'newNulls'. If the original is wrapped and
-  // newIndices[i] is non-nullptr, the combined indices from the
-  // existing wrap and 'indices are stored in
-  // 'newIndices'. 'newIndices[i]' is the indices of
-  // targetColumn[i]. If 'newIndices[i]' is nullptr, the new indices
-  // overwrite the indices in 'column[i]' and the indices are
-  // referenced from targetColunns[i]'.
-  OperandIndex* targetColumns;
-
-  OperandIndex* newIndices;
-
-  // If mayShareIndices[i]' is an index of a previous entry in 'columns' and
-  // columns[mayshareIndices[i]] shares indices of columns[i], then
-  // targetColumns[i] has indices of targetColumn[mayShareIndices[i]]. If the
-  // wrappings were not the same, indices are obtained from newIndices[i].
-  int32_t* mayShareIndices;
 };
+
+struct ILiteral {
+  OperandIndex literal;
+  OperandIndex result;
+  OperandIndex predicate;
+};
+
+struct INegate {
+  OperandIndex value;
+  OperandIndex result;
+  OperandIndex predicate;
+};
+struct IReturn {};
 
 struct Instruction {
   OpCode opCode;
@@ -117,6 +102,8 @@ struct Instruction {
     IBinary binary;
     IFilter filter;
     IWrap wrap;
+    ILiteral literal;
+    INegate negate;
   } _;
 };
 
@@ -125,9 +112,12 @@ struct ThreadBlockProgram {
   // across the ThreadBlockPrograms.
   int32_t sharedMemorySize{0};
   int32_t numInstructions;
-
-  Instruction** instructions;
+  // Array of instructions. Ends in a kReturn.
+  Instruction* instructions;
 };
+
+/// Returns the shared memory size for instruction for kBlockSize.
+int32_t instructionSharedMemory(const Instruction& instruction);
 
 /// A stream for invoking ExprKernel.
 class WaveKernelStream : public Stream {

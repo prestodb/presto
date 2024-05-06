@@ -53,7 +53,7 @@ class CompileState {
 
   Value toValue(const exec::Expr& expr);
 
-  AbstractOperand* addIdentityProjections(Value value);
+  AbstractOperand* addIdentityProjections(AbstractOperand* source);
   AbstractOperand* findCurrentValue(Value value);
   AbstractOperand* addExpr(const exec::Expr& expr);
 
@@ -82,9 +82,11 @@ class CompileState {
   bool
   addOperator(exec::Operator* op, int32_t& nodeIndex, RowTypePtr& outputType);
 
+  void addFilter(const exec::Expr& expr, const RowTypePtr& outputType);
+
   void addFilterProject(
       exec::Operator* op,
-      RowTypePtr outputType,
+      RowTypePtr& outputType,
       int32_t& nodeIndex);
 
   bool reserveMemory();
@@ -101,17 +103,26 @@ class CompileState {
       const AbstractOperand* result,
       const std::vector<Program*>& inputs);
 
+  void setConditionalNullable(AbstractBinary& binary);
+
+  void addNullableIf(
+      const AbstractOperand* op,
+      std::vector<OperandId>& nullableIf);
+
+  Program* programOf(AbstractOperand* op, bool create = true);
+
   const std::shared_ptr<aggregation::AggregateFunctionRegistry>&
   aggregateFunctionRegistry();
 
   std::unique_ptr<GpuArena> arena_;
   // The operator and output operand where the Value is first defined.
-  folly::F14FastMap<Value, AbstractOperand*, ValueHasher, ValueComparer>
-      definedBy_;
+  DefinesMap definedBy_;
 
   // The Operand where Value is available after all projections placed to date.
-  folly::F14FastMap<Value, AbstractOperand*, ValueHasher, ValueComparer>
-      projectedTo_;
+  DefinesMap projectedTo_;
+
+  // Index of WaveOperator producing the operand.
+  folly::F14FastMap<AbstractOperand*, int32_t> operandOperatorIndex_;
 
   folly::F14FastMap<AbstractOperand*, Program*> definedIn_;
 
@@ -130,8 +141,12 @@ class CompileState {
   // The program being generated.
   std::shared_ptr<Program> currentProgram_;
 
+  // Boolean to select the instruction. Set for conditionl sections.
+  AbstractOperand* predicate_{nullptr};
+
   // Sequence number for operands.
   int32_t operandCounter_{0};
+  int32_t wrapCounter_{0};
 
   std::shared_ptr<aggregation::AggregateFunctionRegistry>
       aggregateFunctionRegistry_;

@@ -43,7 +43,7 @@ WaveTestSplitReader::WaveTestSplitReader(
       true);
 }
 
-int32_t WaveTestSplitReader::canAdvance() {
+int32_t WaveTestSplitReader::canAdvance(WaveStream& stream) {
   if (!stripe_) {
     return 0;
   }

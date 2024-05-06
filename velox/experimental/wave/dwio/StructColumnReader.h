@@ -25,7 +25,7 @@ class StructColumnReader : public ColumnReader {
   StructColumnReader(
       const TypePtr& requestedType,
       std::shared_ptr<const dwio::common::TypeWithId> fileType,
-      OperandId operand,
+      AbstractOperand* operand,
       FormatParams& params,
       velox::common::ScanSpec& scanSpec,
       bool isRoot)

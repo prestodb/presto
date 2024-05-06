@@ -227,9 +227,3 @@ TEST_F(AggregationTest, tpchQ1) {
 
 } // namespace
 } // namespace facebook::velox::wave
-
-int main(int argc, char** argv) {
-  testing::InitGoogleTest(&argc, argv);
-  folly::Init follyInit(&argc, &argv);
-  return RUN_ALL_TESTS();
-}

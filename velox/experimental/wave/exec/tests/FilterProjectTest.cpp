@@ -67,6 +67,26 @@ class FilterProjectTest : public OperatorTestBase {
     auto task = assertQuery(plan, "SELECT c0, c1, c0 + c1 FROM tmp");
   }
 
+  std::shared_ptr<Task> assertFilterProject(
+      const std::string& filter,
+      const std::vector<std::string>& projections,
+      const std::vector<RowVectorPtr>& vectors) {
+    auto plan = PlanBuilder()
+                    .values(vectors)
+                    .filter(filter)
+                    .project(projections)
+                    .planNode();
+    std::stringstream sql;
+    sql << "SELECT ";
+    for (auto i = 0; i < projections.size(); ++i) {
+      sql << " " << projections[i] << (i == projections.size() - 1 ? "" : ",");
+    }
+    sql << " FROM tmp WHERE " << filter;
+
+    auto task = assertQuery(plan, sql.str());
+    return task;
+  }
+
   std::shared_ptr<const RowType> rowType_{
       ROW({"c0", "c1", "c2", "c3"},
           {BIGINT(), BIGINT(), SMALLINT(), DOUBLE()})};
@@ -95,4 +115,20 @@ TEST_F(FilterProjectTest, project) {
   createDuckDbTable(vectors);
 
   assertProject(vectors);
+}
+
+TEST_F(FilterProjectTest, filterProject) {
+  std::vector<RowVectorPtr> vectors;
+  for (int32_t i = 0; i < 1; ++i) {
+    auto vector = std::dynamic_pointer_cast<RowVector>(
+        BatchMaker::createBatch(rowType_, 100, *pool_));
+    makeNotNull(vector, 1000000000);
+    vectors.push_back(vector);
+  }
+  createDuckDbTable(vectors);
+
+  assertFilterProject(
+      "c0 < 400000000",
+      std::vector<std::string>{"c0", "c1", "c1 + c0 as s", "c2", "c3"},
+      vectors);
 }

@@ -15,7 +15,7 @@
 add_subdirectory(utils)
 
 add_executable(velox_wave_exec_test FilterProjectTest.cpp TableScanTest.cpp
-                                    Main.cpp)
+                                    AggregationTest.cpp Main.cpp)
 
 add_test(velox_wave_exec_test velox_wave_exec_test)
 

@@ -41,6 +41,9 @@ WaveDriver::WaveDriver(
       subfields_(std::move(subfields)),
       operands_(std::move(operands)) {
   VELOX_CHECK(!waveOperators.empty());
+  auto returnBatchSize = 10000 * outputType_->size() * 10;
+  hostArena_ = std::make_unique<GpuArena>(
+      returnBatchSize * 10, getHostAllocator(getDevice()));
   pipelines_.emplace_back();
   for (auto& op : waveOperators) {
     op->setDriver(this);
@@ -49,6 +52,7 @@ WaveDriver::WaveDriver(
     }
     pipelines_.back().operators.push_back(std::move(op));
   }
+  pipelines_.back().needStatus = true;
 }
 
 RowVectorPtr WaveDriver::getOutput() {
@@ -69,6 +73,7 @@ RowVectorPtr WaveDriver::getOutput() {
           ++it;
           continue;
         }
+        stream->setState(WaveStream::State::kNotRunning);
         RowVectorPtr result;
         if (i + 1 < pipelines_.size()) {
           auto waveResult = makeWaveResult(op.outputType(), *stream, lastSet);
@@ -80,6 +85,7 @@ RowVectorPtr WaveDriver::getOutput() {
           VLOG(1) << "Final output size: " << result->size();
         }
         if (streamAtEnd(*stream)) {
+          waveStats_.add(stream->stats());
           it = streams.erase(it);
         } else {
           ++it;
@@ -97,6 +103,7 @@ RowVectorPtr WaveDriver::getOutput() {
     }
     if (!running) {
       VLOG(1) << "No more output";
+      updateStats();
       finished_ = true;
       return nullptr;
     }
@@ -127,19 +134,19 @@ RowVectorPtr WaveDriver::makeResult(
     const OperandSet& lastSet) {
   auto& last = *pipelines_.back().operators.back();
   auto& rowType = last.outputType();
+  auto operatorId = last.operatorId();
   std::vector<VectorPtr> children(rowType->size());
+  int32_t numRows = stream.getOutput(
+      operatorId, *operatorCtx_->pool(), resultOrder_, children.data());
   auto result = std::make_shared<RowVector>(
       operatorCtx_->pool(),
       rowType,
       BufferPtr(nullptr),
-      last.outputSize(stream),
+      numRows,
       std::move(children));
-  int32_t nthChild = 0;
-  std::vector<WaveVectorPtr> waveVectors(resultOrder_.size());
-  stream.getOutput(resultOrder_, waveVectors.data());
-  for (auto& item : waveVectors) {
-    result->childAt(nthChild++) = item->toVelox(operatorCtx_->pool());
-  };
+  if (!numRows) {
+    return nullptr;
+  }
   return result;
 }
 
@@ -150,23 +157,30 @@ void WaveDriver::startMore() {
     if (blockingReason_ != exec::BlockingReason::kNotBlocked) {
       return;
     }
-    if (auto rows = ops[0]->canAdvance()) {
+    auto stream =
+        std::make_unique<WaveStream>(*arena_, *hostArena_, &operands());
+    stream->setState(WaveStream::State::kHost);
+
+    if (auto rows = ops[0]->canAdvance(*stream)) {
       VLOG(1) << "Advance " << rows << " rows in pipeline " << i;
-      auto stream = std::make_unique<WaveStream>(*arena_);
+      stream->setNumRows(rows);
+      if (i == pipelines_.size() - 1) {
+        for (auto i : resultOrder_) {
+          stream->markHostOutputOperand(*operands_[i]);
+        }
+      }
+      stream->setReturnData(pipelines_[i].needStatus);
       for (auto& op : ops) {
         op->schedule(*stream, rows);
       }
-      if (i == pipelines_.size() - 1) {
-        prefetchReturn(*stream);
+      if (pipelines_[i].needStatus) {
+        stream->resultToHost();
       }
+      stream->setState(WaveStream::State::kNotRunning);
       pipelines_[i].streams.push_back(std::move(stream));
       break;
     }
   }
-}
-
-void WaveDriver::prefetchReturn(WaveStream& stream) {
-  // Schedule return buffers from last op to be on host side.
 }
 
 LaunchControl* WaveDriver::inputControl(
@@ -198,6 +212,41 @@ std::string WaveDriver::toString() const {
     }
   }
   return out.str();
+}
+
+void WaveDriver::updateStats() {
+  auto lockedStats = stats_.wlock();
+  lockedStats->addRuntimeStat(
+      "wave.numWaves", RuntimeCounter(waveStats_.numWaves));
+  lockedStats->addRuntimeStat(
+      "wave.numKernels", RuntimeCounter(waveStats_.numKernels));
+  lockedStats->addRuntimeStat(
+      "wave.numThreadBlocks", RuntimeCounter(waveStats_.numThreadBlocks));
+  lockedStats->addRuntimeStat(
+      "wave.numThreads", RuntimeCounter(waveStats_.numThreads));
+  lockedStats->addRuntimeStat(
+      "wave.numPrograms", RuntimeCounter(waveStats_.numPrograms));
+  lockedStats->addRuntimeStat(
+      "wave.numSync", RuntimeCounter(waveStats_.numSync));
+  lockedStats->addRuntimeStat(
+      "wave.bytesToDevice",
+      RuntimeCounter(waveStats_.bytesToDevice, RuntimeCounter::Unit::kBytes));
+  lockedStats->addRuntimeStat(
+      "wave.bytesToHost",
+      RuntimeCounter(waveStats_.bytesToHost, RuntimeCounter::Unit::kBytes));
+  lockedStats->addRuntimeStat(
+      "wave.hostOnlyTime",
+      RuntimeCounter(
+          waveStats_.hostOnlyTime.micros * 1000, RuntimeCounter::Unit::kNanos));
+  lockedStats->addRuntimeStat(
+      "wave.hostParallelTime",
+      RuntimeCounter(
+          waveStats_.hostParallelTime.micros * 1000,
+          RuntimeCounter::Unit::kNanos));
+  lockedStats->addRuntimeStat(
+      "wave.waitTime",
+      RuntimeCounter(
+          waveStats_.waitTime.micros * 1000, RuntimeCounter::Unit::kNanos));
 }
 
 } // namespace facebook::velox::wave
