@@ -50,6 +50,7 @@ target_link_libraries(
   presto_operators
   velox_aggregates
   velox_caching
+  velox_common_base
   velox_core
   velox_dwio_common_exception
   velox_encode
