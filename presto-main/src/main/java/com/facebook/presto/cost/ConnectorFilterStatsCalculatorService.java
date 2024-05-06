@@ -57,9 +57,7 @@ public class ConnectorFilterStatsCalculatorService
         PlanNodeStatsEstimate tableStats = toPlanNodeStats(tableStatistics, columnNames, columnTypes);
         // TODO: Consider re-designing the filter calculator APIs so that a proper Session instance
         //  can be more easily populated
-        Optional<Session> filterSession = session instanceof FullConnectorSession ?
-                Optional.of(((FullConnectorSession) session).getSession()) :
-                Optional.empty();
+        Session filterSession = ((FullConnectorSession) session).getSession();
         PlanNodeStatsEstimate filteredStats = filterStatsCalculator.filterStats(tableStats, predicate, session, filterSession);
 
         if (filteredStats.isOutputRowCountUnknown()) {

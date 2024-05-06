@@ -15,6 +15,8 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.spi.statistics.ConnectorHistogram;
 
+import java.util.Optional;
+
 import static com.facebook.presto.cost.DisjointRangeDomainHistogram.addConjunction;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Double.NaN;
@@ -25,14 +27,17 @@ import static java.util.stream.Stream.concat;
 
 public class PlanNodeStatsEstimateMath
 {
-    private PlanNodeStatsEstimateMath()
-    {}
+    private final boolean shouldUseHistograms;
+    public PlanNodeStatsEstimateMath(boolean shouldUseHistograms)
+    {
+        this.shouldUseHistograms = shouldUseHistograms;
+    }
 
     /**
      * Subtracts subset stats from supersets stats.
      * It is assumed that each NDV from subset has a matching NDV in superset.
      */
-    public static PlanNodeStatsEstimate subtractSubsetStats(PlanNodeStatsEstimate superset, PlanNodeStatsEstimate subset)
+    public PlanNodeStatsEstimate subtractSubsetStats(PlanNodeStatsEstimate superset, PlanNodeStatsEstimate subset)
     {
         if (superset.isOutputRowCountUnknown() || subset.isOutputRowCountUnknown()) {
             return PlanNodeStatsEstimate.unknown();
@@ -103,7 +108,7 @@ public class PlanNodeStatsEstimateMath
         return result.build();
     }
 
-    public static PlanNodeStatsEstimate capStats(PlanNodeStatsEstimate stats, PlanNodeStatsEstimate cap)
+    public PlanNodeStatsEstimate capStats(PlanNodeStatsEstimate stats, PlanNodeStatsEstimate cap)
     {
         if (stats.isOutputRowCountUnknown() || cap.isOutputRowCountUnknown()) {
             return PlanNodeStatsEstimate.unknown();
@@ -133,7 +138,9 @@ public class PlanNodeStatsEstimateMath
             double cappedNumberOfNulls = min(numberOfNulls, capNumberOfNulls);
             double cappedNullsFraction = cappedRowCount == 0 ? 1 : cappedNumberOfNulls / cappedRowCount;
             newSymbolStats.setNullsFraction(cappedNullsFraction);
-            newSymbolStats.setHistogram(addConjunction(symbolStats.getHistogram(), new StatisticRange(newLow, newHigh, 0)));
+            if (shouldUseHistograms) {
+                newSymbolStats.setHistogram(symbolStats.getHistogram().map(symbolHistogram -> addConjunction(symbolHistogram, new StatisticRange(newLow, newHigh, 0))));
+            }
 
             result.addVariableStatistics(symbol, newSymbolStats.build());
         });
@@ -174,22 +181,22 @@ public class PlanNodeStatsEstimateMath
         StatisticRange add(StatisticRange leftRange, StatisticRange rightRange);
     }
 
-    public static PlanNodeStatsEstimate addStatsAndSumDistinctValues(PlanNodeStatsEstimate left, PlanNodeStatsEstimate right)
+    public PlanNodeStatsEstimate addStatsAndSumDistinctValues(PlanNodeStatsEstimate left, PlanNodeStatsEstimate right)
     {
         return addStats(left, right, RangeAdditionStrategy.ADD_AND_SUM_DISTINCT);
     }
 
-    public static PlanNodeStatsEstimate addStatsAndMaxDistinctValues(PlanNodeStatsEstimate left, PlanNodeStatsEstimate right)
+    public PlanNodeStatsEstimate addStatsAndMaxDistinctValues(PlanNodeStatsEstimate left, PlanNodeStatsEstimate right)
     {
         return addStats(left, right, RangeAdditionStrategy.ADD_AND_MAX_DISTINCT);
     }
 
-    public static PlanNodeStatsEstimate addStatsAndCollapseDistinctValues(PlanNodeStatsEstimate left, PlanNodeStatsEstimate right)
+    public PlanNodeStatsEstimate addStatsAndCollapseDistinctValues(PlanNodeStatsEstimate left, PlanNodeStatsEstimate right)
     {
         return addStats(left, right, RangeAdditionStrategy.ADD_AND_COLLAPSE_DISTINCT);
     }
 
-    public static PlanNodeStatsEstimate addStatsAndIntersect(PlanNodeStatsEstimate left, PlanNodeStatsEstimate right)
+    public PlanNodeStatsEstimate addStatsAndIntersect(PlanNodeStatsEstimate left, PlanNodeStatsEstimate right)
     {
         if (left.isOutputRowCountUnknown() || right.isOutputRowCountUnknown()) {
             return PlanNodeStatsEstimate.unknown();
@@ -214,7 +221,7 @@ public class PlanNodeStatsEstimateMath
         return statsBuilder.setOutputRowCount(rowCount).build();
     }
 
-    private static PlanNodeStatsEstimate addStats(
+    private PlanNodeStatsEstimate addStats(
             PlanNodeStatsEstimate left,
             PlanNodeStatsEstimate right,
             RangeAdditionStrategy strategy)
@@ -233,7 +240,7 @@ public class PlanNodeStatsEstimateMath
                 .setTotalSize(totalSize).build();
     }
 
-    private static void buildVariableStatistics(
+    private void buildVariableStatistics(
             PlanNodeStatsEstimate left,
             PlanNodeStatsEstimate right,
             PlanNodeStatsEstimate.Builder statsBuilder,
@@ -260,7 +267,7 @@ public class PlanNodeStatsEstimateMath
                 });
     }
 
-    private static VariableStatsEstimate addColumnStats(
+    private VariableStatsEstimate addColumnStats(
             VariableStatsEstimate leftStats,
             double leftRows,
             VariableStatsEstimate rightStats,
@@ -283,16 +290,17 @@ public class PlanNodeStatsEstimateMath
 
         // FIXME, weights to average. left and right should be equal in most cases anyway
         double newAverageRowSize = newNonNullsRowCount == 0 ? 0 : ((totalSizeLeft + totalSizeRight) / newNonNullsRowCount);
-
-        ConnectorHistogram newHistogram = RangeAdditionStrategy.INTERSECT == strategy ?
-                DisjointRangeDomainHistogram.addConjunction(leftStats.getHistogram(), rightRange) :
-                DisjointRangeDomainHistogram.addDisjunction(leftStats.getHistogram(), rightRange);
-
-        return VariableStatsEstimate.builder()
+        VariableStatsEstimate.Builder statistics = VariableStatsEstimate.builder()
                 .setStatisticsRange(sum)
                 .setAverageRowSize(newAverageRowSize)
-                .setNullsFraction(newNullsFraction)
-                .setHistogram(newHistogram)
-                .build();
+                .setNullsFraction(newNullsFraction);
+        if (shouldUseHistograms) {
+            Optional<ConnectorHistogram> newHistogram = RangeAdditionStrategy.INTERSECT == strategy ?
+                    leftStats.getHistogram().map(leftHistogram -> DisjointRangeDomainHistogram.addConjunction(leftHistogram, rightRange)) :
+                    leftStats.getHistogram().map(leftHistogram -> DisjointRangeDomainHistogram.addDisjunction(leftHistogram, rightRange));
+            statistics.setHistogram(newHistogram);
+        }
+
+        return statistics.build();
     }
 }

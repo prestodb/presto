@@ -14,6 +14,7 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
@@ -65,12 +66,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
 
+import static com.facebook.presto.SystemSessionProperties.shouldOptimizerUseHistograms;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.cost.ComparisonStatsCalculator.estimateExpressionToExpressionComparison;
-import static com.facebook.presto.cost.ComparisonStatsCalculator.estimateExpressionToLiteralComparison;
-import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.addStatsAndSumDistinctValues;
-import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.capStats;
-import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.subtractSubsetStats;
 import static com.facebook.presto.cost.StatsUtil.toStatsRepresentation;
 import static com.facebook.presto.expressions.DynamicFilters.isDynamicFilter;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
@@ -141,7 +138,7 @@ public class FilterStatsCalculator
             object. When the ConnectorSession API allows access to the underlying session, this
             method should be updated to just accept a ConnectorSession.
             */
-            Optional<Session> systemSession)
+            Session systemSession)
     {
         RowExpression simplifiedExpression = simplifyExpression(session, predicate);
         return new FilterRowExpressionStatsCalculatingVisitor(statsEstimate, session, metadata.getFunctionAndTypeManager(), systemSession).process(simplifiedExpression);
@@ -152,7 +149,7 @@ public class FilterStatsCalculator
             RowExpression predicate,
             Session session)
     {
-        return filterStats(statsEstimate, predicate, session.toConnectorSession(), Optional.of(session));
+        return filterStats(statsEstimate, predicate, session.toConnectorSession(), session);
     }
 
     private Expression simplifyExpression(Session session, Expression predicate, TypeProvider types)
@@ -202,12 +199,16 @@ public class FilterStatsCalculator
         private final PlanNodeStatsEstimate input;
         private final Session session;
         private final TypeProvider types;
+        private final PlanNodeStatsEstimateMath calculator;
+        private final ComparisonStatsCalculator comparisonCalculator;
 
         FilterExpressionStatsCalculatingVisitor(PlanNodeStatsEstimate input, Session session, TypeProvider types)
         {
             this.input = input;
             this.session = session;
             this.types = types;
+            this.calculator = new PlanNodeStatsEstimateMath(shouldOptimizerUseHistograms(session));
+            this.comparisonCalculator = new ComparisonStatsCalculator(session);
         }
 
         @Override
@@ -228,7 +229,7 @@ public class FilterStatsCalculator
             if (node.getValue() instanceof IsNullPredicate) {
                 return process(new IsNotNullPredicate(((IsNullPredicate) node.getValue()).getValue()));
             }
-            return subtractSubsetStats(input, process(node.getValue()));
+            return calculator.subtractSubsetStats(input, process(node.getValue()));
         }
 
         @Override
@@ -291,9 +292,9 @@ public class FilterStatsCalculator
                 return PlanNodeStatsEstimate.unknown();
             }
 
-            return capStats(
-                    subtractSubsetStats(
-                            addStatsAndSumDistinctValues(leftEstimate, rightEstimate),
+            return calculator.capStats(
+                    calculator.subtractSubsetStats(
+                            calculator.addStatsAndSumDistinctValues(leftEstimate, rightEstimate),
                             andEstimate),
                     input);
         }
@@ -390,7 +391,7 @@ public class FilterStatsCalculator
             }
 
             PlanNodeStatsEstimate inEstimate = equalityEstimates.stream()
-                    .reduce(PlanNodeStatsEstimateMath::addStatsAndSumDistinctValues)
+                    .reduce(calculator::addStatsAndSumDistinctValues)
                     .orElse(PlanNodeStatsEstimate.unknown());
 
             if (inEstimate.isOutputRowCountUnknown()) {
@@ -447,17 +448,17 @@ public class FilterStatsCalculator
                     return visitBooleanLiteral(FALSE_LITERAL, null);
                 }
                 OptionalDouble literal = toStatsRepresentation(metadata, session, getType(left), literalValue);
-                return estimateExpressionToLiteralComparison(input, leftStats, leftVariable, literal, operator, Optional.of(session));
+                return comparisonCalculator.estimateExpressionToLiteralComparison(input, leftStats, leftVariable, literal, operator);
             }
 
             VariableStatsEstimate rightStats = getExpressionStats(right);
             if (rightStats.isSingleValue()) {
                 OptionalDouble value = isNaN(rightStats.getLowValue()) ? OptionalDouble.empty() : OptionalDouble.of(rightStats.getLowValue());
-                return estimateExpressionToLiteralComparison(input, leftStats, leftVariable, value, operator, Optional.of(session));
+                return comparisonCalculator.estimateExpressionToLiteralComparison(input, leftStats, leftVariable, value, operator);
             }
 
             Optional<VariableReferenceExpression> rightVariable = right instanceof SymbolReference ? Optional.of(toVariable(right)) : Optional.empty();
-            return estimateExpressionToExpressionComparison(input, leftStats, leftVariable, rightStats, rightVariable, operator);
+            return comparisonCalculator.estimateExpressionToExpressionComparison(input, leftStats, leftVariable, rightStats, rightVariable, operator);
         }
 
         private Type getType(Expression expression)
@@ -499,15 +500,19 @@ public class FilterStatsCalculator
     {
         private final PlanNodeStatsEstimate input;
         private final ConnectorSession session;
-        private final Optional<Session> systemSession;
+        private final Session systemSession;
         private final FunctionAndTypeManager functionAndTypeManager;
+        private final PlanNodeStatsEstimateMath calculator;
+        private final ComparisonStatsCalculator comparisonCalculator;
 
-        FilterRowExpressionStatsCalculatingVisitor(PlanNodeStatsEstimate input, ConnectorSession session, FunctionAndTypeManager functionAndTypeManager, Optional<Session> systemSession)
+        FilterRowExpressionStatsCalculatingVisitor(PlanNodeStatsEstimate input, ConnectorSession session, FunctionAndTypeManager functionAndTypeManager, Session systemSession)
         {
             this.input = requireNonNull(input, "input is null");
             this.session = requireNonNull(session, "session is null");
             this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
             this.systemSession = requireNonNull(systemSession, "systemSession is null");
+            this.calculator = new PlanNodeStatsEstimateMath(SystemSessionProperties.shouldOptimizerUseHistograms(systemSession));
+            this.comparisonCalculator = new ComparisonStatsCalculator(systemSession);
         }
 
         @Override
@@ -594,17 +599,17 @@ public class FilterStatsCalculator
                         return visitConstant(constantNull(right.getSourceLocation(), BOOLEAN), null);
                     }
                     OptionalDouble literal = toStatsRepresentation(metadata.getFunctionAndTypeManager(), session, right.getType(), rightValue);
-                    return estimateExpressionToLiteralComparison(input, leftStats, leftVariable, literal, getComparisonOperator(operatorType), systemSession);
+                    return comparisonCalculator.estimateExpressionToLiteralComparison(input, leftStats, leftVariable, literal, getComparisonOperator(operatorType));
                 }
 
                 VariableStatsEstimate rightStats = getRowExpressionStats(right);
                 if (rightStats.isSingleValue()) {
                     OptionalDouble value = isNaN(rightStats.getLowValue()) ? OptionalDouble.empty() : OptionalDouble.of(rightStats.getLowValue());
-                    return estimateExpressionToLiteralComparison(input, leftStats, leftVariable, value, getComparisonOperator(operatorType), systemSession);
+                    return comparisonCalculator.estimateExpressionToLiteralComparison(input, leftStats, leftVariable, value, getComparisonOperator(operatorType));
                 }
 
                 Optional<VariableReferenceExpression> rightVariable = right instanceof VariableReferenceExpression ? Optional.of((VariableReferenceExpression) right) : Optional.empty();
-                return estimateExpressionToExpressionComparison(input, leftStats, leftVariable, rightStats, rightVariable, getComparisonOperator(operatorType));
+                return comparisonCalculator.estimateExpressionToExpressionComparison(input, leftStats, leftVariable, rightStats, rightVariable, getComparisonOperator(operatorType));
             }
 
             // NOT case
@@ -623,7 +628,7 @@ public class FilterStatsCalculator
                     }
                     return PlanNodeStatsEstimate.unknown();
                 }
-                return subtractSubsetStats(input, process(argument));
+                return calculator.subtractSubsetStats(input, process(argument));
             }
 
             // BETWEEN case
@@ -739,9 +744,9 @@ public class FilterStatsCalculator
                 return PlanNodeStatsEstimate.unknown();
             }
 
-            return capStats(
-                    subtractSubsetStats(
-                            addStatsAndSumDistinctValues(leftEstimate, rightEstimate),
+            return calculator.capStats(
+                    calculator.subtractSubsetStats(
+                            calculator.addStatsAndSumDistinctValues(leftEstimate, rightEstimate),
                             andEstimate),
                     input);
         }
@@ -757,7 +762,7 @@ public class FilterStatsCalculator
             }
 
             PlanNodeStatsEstimate inEstimate = equalityEstimates.stream()
-                    .reduce(PlanNodeStatsEstimateMath::addStatsAndSumDistinctValues)
+                    .reduce(calculator::addStatsAndSumDistinctValues)
                     .orElse(PlanNodeStatsEstimate.unknown());
 
             if (inEstimate.isOutputRowCountUnknown()) {
