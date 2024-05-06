@@ -37,6 +37,7 @@ import java.io.File;
 import java.time.ZoneId;
 import java.util.AbstractList;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -49,8 +50,10 @@ import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
+import static com.facebook.presto.hive.HiveUtil.CLIENT_TAGS_DELIMITER;
 import static com.facebook.presto.hive.HiveUtil.CUSTOM_FILE_SPLIT_CLASS_KEY;
 import static com.facebook.presto.hive.HiveUtil.PRESTO_CLIENT_INFO;
+import static com.facebook.presto.hive.HiveUtil.PRESTO_CLIENT_TAGS;
 import static com.facebook.presto.hive.HiveUtil.PRESTO_METASTORE_HEADER;
 import static com.facebook.presto.hive.HiveUtil.PRESTO_QUERY_ID;
 import static com.facebook.presto.hive.HiveUtil.PRESTO_QUERY_SOURCE;
@@ -68,6 +71,7 @@ import static com.facebook.presto.hive.util.HudiRealtimeSplitConverter.HUDI_BASE
 import static com.facebook.presto.hive.util.HudiRealtimeSplitConverter.HUDI_DELTA_FILEPATHS_KEY;
 import static com.facebook.presto.hive.util.HudiRealtimeSplitConverter.HUDI_MAX_COMMIT_TIME_KEY;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_CLASS;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_FORMAT;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
@@ -192,6 +196,7 @@ public class TestHiveUtil
         assertEquals(Optional.ofNullable(additionalProperties.get(PRESTO_CLIENT_INFO)), SESSION.getClientInfo());
         assertEquals(additionalProperties.get(PRESTO_USER_NAME), SESSION.getUser());
         assertEquals(Optional.ofNullable(additionalProperties.get(PRESTO_METASTORE_HEADER)), getMetastoreHeaders(SESSION));
+        assertEquals(Arrays.stream(additionalProperties.get(PRESTO_CLIENT_TAGS).split(CLIENT_TAGS_DELIMITER)).collect(toImmutableSet()), SESSION.getClientTags());
     }
 
     @Test
