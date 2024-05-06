@@ -27,9 +27,9 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
-import static com.facebook.presto.common.type.encoding.StringUtils.UTF_8;
 import static com.google.common.hash.Hashing.murmur3_32;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 public class ConsistentHashingNodeProvider
