@@ -66,7 +66,6 @@ public abstract class AbstractTestWriter
     @Test
     public void testCreateTableWithUnsupportedFormats()
     {
-        Session session = buildSessionForTableWrite();
         // Generate temporary table name.
         String tmpTableName = generateRandomTableName();
         String[] unsupportedTableFormats = {"ORC", "JSON"};

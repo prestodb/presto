@@ -14,7 +14,6 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.ArrayType;
@@ -26,7 +25,6 @@ import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
@@ -2050,17 +2048,6 @@ public class TestArrayOperators
         // test with ARRAY[ MAP( ARRAY[1], ARRAY[2] ) ]
         MapType mapType = mapType(INTEGER, INTEGER);
         assertArrayHashOperator("ARRAY[MAP(ARRAY[1], ARRAY[2])]", mapType, ImmutableList.of(mapBlockOf(INTEGER, INTEGER, ImmutableMap.of(1L, 2L))));
-    }
-
-    public void assertInvalidFunction(String projection, ErrorCode errorCode)
-    {
-        try {
-            assertFunction(projection, UNKNOWN, null);
-            fail("Expected error " + errorCode + " from " + projection);
-        }
-        catch (PrestoException e) {
-            assertEquals(e.getErrorCode(), errorCode);
-        }
     }
 
     private void assertArrayHashOperator(String inputArray, Type elementType, List<Object> elements)

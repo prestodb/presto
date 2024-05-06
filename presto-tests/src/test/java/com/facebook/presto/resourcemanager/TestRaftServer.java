@@ -44,7 +44,6 @@ public class TestRaftServer
     private static final String RESOURCE_GROUPS_CONFIG_FILE = "resource_groups_config_simple.json";
     private static final int COORDINATOR_COUNT = 2;
     private static final int RESOURCE_MANAGER_COUNT = 2;
-    private static final String RESOURCE_GROUP_GLOBAL = "global";
     private HttpClient client;
     private TestingPrestoServer coordinator1;
     private TestingPrestoServer coordinator2;

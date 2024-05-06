@@ -1001,12 +1001,6 @@ public class TestGeoFunctions
         assertFunction(format("ST_ASText(ST_Union(ST_GeometryFromText('%s'), ST_GeometryFromText('%s')))", rightWkt, leftWkt), VARCHAR, expectWkt);
     }
 
-    private void assertInvalidGeometryCollectionUnion(String validWkt)
-    {
-        assertInvalidFunction(format("ST_Union(ST_GeometryFromText('%s'), ST_GeometryFromText('GEOMETRYCOLLECTION (POINT(2 3))'))", validWkt), "ST_Union only applies to POINT or MULTI_POINT or LINE_STRING or MULTI_LINE_STRING or POLYGON or MULTI_POLYGON. Input type is: GEOMETRY_COLLECTION");
-        assertInvalidFunction(format("ST_Union(ST_GeometryFromText('GEOMETRYCOLLECTION (POINT(2 3))'), ST_GeometryFromText('%s'))", validWkt), "ST_Union only applies to POINT or MULTI_POINT or LINE_STRING or MULTI_LINE_STRING or POLYGON or MULTI_POLYGON. Input type is: GEOMETRY_COLLECTION");
-    }
-
     @Test
     public void testSTGeometryN()
     {

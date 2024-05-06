@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.aggregation.reservoirsample;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.ArrayType;
@@ -39,14 +38,12 @@ import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunc
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.executeAggregation;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public class TestReservoirSampleAggregation
 {
     protected FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
-    protected Session session = testSessionBuilder().build();
 
     @Test
     public void testNoInitialSample()

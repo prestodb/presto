@@ -92,11 +92,6 @@ public class TestRowExpressionVariableInliner
                                 new CallExpression("add", TEST_FUNCTION, BIGINT, ImmutableList.of(variable("lambda_argument"), variable("b")))))));
     }
 
-    private Symbol symbol(String name)
-    {
-        return new Symbol(name);
-    }
-
     private VariableReferenceExpression variable(String name)
     {
         return new VariableReferenceExpression(Optional.empty(), name, BIGINT);

@@ -106,7 +106,6 @@ import static org.testng.Assert.assertTrue;
 public class TestHivePageSink
 {
     private static final int NUM_ROWS = 1000;
-    private static final String CLIENT_ID = "client_id";
     private static final String SCHEMA_NAME = "test";
     private static final String TABLE_NAME = "test";
 
@@ -348,11 +347,6 @@ public class TestHivePageSink
                 getDefaultOrcFileWriterFactory(config, metastoreClientConfig),
                 HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
         return provider.createPageSink(transaction, getSession(config, new HiveCommonClientConfig()), handle, TEST_HIVE_PAGE_SINK_CONTEXT);
-    }
-
-    private static TestingConnectorSession getSession(HiveClientConfig config)
-    {
-        return new TestingConnectorSession(new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetFileWriterConfig(), new CacheConfig()).getSessionProperties());
     }
 
     private static TestingConnectorSession getSession(HiveClientConfig config, HiveCommonClientConfig hiveCommonClientConfig)
