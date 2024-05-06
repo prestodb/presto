@@ -165,37 +165,6 @@ constexpr folly::StringPiece kCounterMmapRawAllocBytesSmall{
 constexpr folly::StringPiece kCounterExchangeSourcePeakQueuedBytes{
     "presto_cpp.exchange_source_peak_queued_bytes"};
 
-/// ================== Memory Arbitrator Counters =================
-
-/// The number of arbitration requests.
-constexpr folly::StringPiece kCounterArbitratorNumRequests{
-    "presto_cpp.arbitrator_num_requests"};
-/// The number of aborted arbitration requests.
-constexpr folly::StringPiece kCounterArbitratorNumAborted{
-    "presto_cpp.arbitrator_num_aborted"};
-/// The number of arbitration request failures.
-constexpr folly::StringPiece kCounterArbitratorNumFailures{
-    "presto_cpp.arbitrator_num_failures"};
-/// The sum of all the arbitration request queue times in microseconds.
-constexpr folly::StringPiece kCounterArbitratorQueueTimeUs{
-    "presto_cpp.arbitrator_queue_time_us"};
-/// The sum of all the arbitration run times in microseconds.
-constexpr folly::StringPiece kCounterArbitratorArbitrationTimeUs{
-    "presto_cpp.arbitrator_arbitration_time_us"};
-/// The amount of memory bytes freed by reducing the memory pool's capacity
-/// without actually freeing memory.
-constexpr folly::StringPiece kCounterArbitratorNumShrunkBytes{
-    "presto_cpp.arbitrator_num_shrunk_bytes"};
-/// The amount of memory bytes freed by memory reclamation.
-constexpr folly::StringPiece kCounterArbitratorNumReclaimedBytes{
-    "presto_cpp.arbitrator_num_reclaimed_bytes"};
-/// The free memory capacity in bytes.
-constexpr folly::StringPiece kCounterArbitratorFreeCapacityBytes{
-    "presto_cpp.arbitrator_free_capacity_bytes"};
-/// The number of non-reclaimable operator reclaim attempts.
-constexpr folly::StringPiece kCounterArbitratorNonReclaimableAttempts{
-    "presto_cpp.arbitrator_non_reclaimable_attempts"};
-
 /// ================== Disk Spilling Counters =================
 
 /// The number of times that spilling runs on a velox operator.
