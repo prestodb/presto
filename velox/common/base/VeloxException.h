@@ -207,8 +207,8 @@ class VeloxException : public std::exception {
     return state_->context;
   }
 
-  const std::string& topLevelContext() const {
-    return state_->topLevelContext;
+  const std::string& additionalContext() const {
+    return state_->additionalContext;
   }
 
   const std::exception_ptr& wrappedException() const {
@@ -230,7 +230,7 @@ class VeloxException : public std::exception {
     // The current exception context.
     std::string context;
     // The top-level ancestor of the current exception context.
-    std::string topLevelContext;
+    std::string additionalContext;
     bool isRetriable;
     // The original std::exception.
     std::exception_ptr wrappedException;
@@ -352,6 +352,10 @@ struct ExceptionContext {
 
   /// Value to pass to `messageFunc`. Can be null.
   void* arg{nullptr};
+
+  /// If true, then the addition context in 'this' is always included when there
+  /// are hierarchical exception contexts.
+  bool isEssential{false};
 
   /// Pointer to the parent context when there are hierarchical exception
   /// contexts.

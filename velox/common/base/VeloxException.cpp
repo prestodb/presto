@@ -43,29 +43,31 @@ ExceptionContext& getExceptionContext() {
   return context;
 }
 
-// Retrieves the message of the top-level ancestor of the current exception
-// context. If the top-level context message is not empty and is the same as the
-// current one, returns a string indicating they are the same.
-std::string getTopLevelExceptionContextString(
+// Traverses the context hierarchy and appends messages from all contexts that
+// are marked as essential.
+std::string getAdditionalExceptionContextString(
     VeloxException::Type exceptionType,
     const std::string& currentMessage) {
   auto* context = &getExceptionContext();
-  if (context->parent && context->parent->parent) {
-    while (context->parent && context->parent->parent) {
-      context = context->parent;
-    }
-    auto topLevelMessage = context->message(exceptionType);
-    if (!topLevelMessage.empty() && topLevelMessage == currentMessage) {
-      return "Same as context.";
-    } else {
-      return topLevelMessage;
-    }
+  std::string additionalMessage = "";
+  if (!context->parent || !context->parent->parent) {
+    return additionalMessage;
   }
-
-  if (!currentMessage.empty()) {
-    return "Same as context.";
+  context = context->parent;
+  while (context->parent) {
+    if (context->isEssential) {
+      auto message = context->message(exceptionType);
+      if (!message.empty()) {
+        additionalMessage += message + " ";
+      }
+    }
+    context = context->parent;
   }
-  return "";
+  if (!additionalMessage.empty()) {
+    // Get rid of the extra space at the end.
+    additionalMessage.pop_back();
+  }
+  return additionalMessage;
 }
 
 VeloxException::VeloxException(
@@ -90,8 +92,8 @@ VeloxException::VeloxException(
         state.errorSource = errorSource;
         state.errorCode = errorCode;
         state.context = getExceptionContext().message(exceptionType);
-        state.topLevelContext =
-            getTopLevelExceptionContextString(exceptionType, state.context);
+        state.additionalContext =
+            getAdditionalExceptionContextString(exceptionType, state.context);
         state.isRetriable = isRetriable;
       })) {}
 
@@ -114,8 +116,8 @@ VeloxException::VeloxException(
         state.errorSource = errorSource;
         state.errorCode = errorCode;
         state.context = getExceptionContext().message(exceptionType);
-        state.topLevelContext =
-            getTopLevelExceptionContextString(exceptionType, state.context);
+        state.additionalContext =
+            getAdditionalExceptionContextString(exceptionType, state.context);
         state.isRetriable = isRetriable;
         state.wrappedException = e;
       })) {}
@@ -223,8 +225,8 @@ void VeloxException::State::finalize() const {
     elaborateMessage += "Context: " + context + "\n";
   }
 
-  if (!topLevelContext.empty()) {
-    elaborateMessage += "Top-Level Context: " + topLevelContext + "\n";
+  if (!additionalContext.empty()) {
+    elaborateMessage += "Additional Context: " + additionalContext + "\n";
   }
 
   if (function) {

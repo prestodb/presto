@@ -395,9 +395,10 @@ std::string Operator::toString() const {
   std::stringstream out;
   if (auto task = operatorCtx_->task()) {
     auto driverCtx = operatorCtx_->driverCtx();
-    out << operatorType() << "(" << operatorId() << ")<" << task->taskId()
-        << ":" << driverCtx->pipelineId << "." << driverCtx->driverId << " "
-        << this;
+    out << operatorType() << "(" << operatorId() << ")"
+        << " PlanNodeId: " << planNodeId() << " TaskId: " << task->taskId()
+        << " PipelineId: " << driverCtx->pipelineId
+        << " DriverId: " << driverCtx->driverId << " OperatorAddress: " << this;
   } else {
     out << "<Terminated, no task>";
   }

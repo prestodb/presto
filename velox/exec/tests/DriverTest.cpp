@@ -26,6 +26,7 @@
 #include "velox/exec/tests/utils/Cursor.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
+#include "velox/functions/Udf.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
@@ -1516,6 +1517,44 @@ DEBUG_ONLY_TEST_F(DriverTest, driverCpuTimeSlicingCheck) {
     } else {
       ASSERT_EQ(Driver::yieldCount(), oldYieldCount);
     }
+  }
+}
+
+namespace {
+
+template <typename T>
+struct ThrowRuntimeExceptionFunction {
+  template <typename TResult, typename TInput>
+  void call(TResult& out, const TInput& in) {
+    VELOX_CHECK(false, "Throwing exception");
+  }
+};
+} // namespace
+
+TEST_F(DriverTest, additionalContextInRuntimeException) {
+  // Ensures that exceptions thrown during execution of an operator contain the
+  // expected context. This is done by executing a plan using project filter
+  // that uses expressions which setup hierarchical contexts. Finally, we verify
+  // that all essential context are present.
+  auto vector = makeRowVector({makeFlatVector<int64_t>({1, 2, 3, 4, 5, 6})});
+  registerFunction<ThrowRuntimeExceptionFunction, int64_t, int64_t>(
+      {"throwException"});
+  auto op = PlanBuilder()
+                .values({vector})
+                .project({"c0 + throwException(c0)"})
+                .planNode();
+  try {
+    assertQuery(op, vector);
+  } catch (VeloxException& e) {
+    ASSERT_EQ(e.context(), "throwexception(c0)");
+    auto additionalContext = e.additionalContext();
+    // Remove the string following `TaskId` from the additional context since
+    // its indeterministic.
+    additionalContext.resize(additionalContext.find(" TaskId:"));
+    ASSERT_EQ(
+        additionalContext,
+        "Top-level Expression: plus(c0, throwexception(c0)) Operator: "
+        "FilterProject(1) PlanNodeId: 1");
   }
 }
 

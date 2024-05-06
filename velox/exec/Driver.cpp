@@ -110,6 +110,19 @@ inline void checkIsBlockFutureValid(
       op->operatorType());
 }
 
+// Used to generate context for exceptions that are thrown while executing an
+// operator. Eg output: 'Operator: FilterProject(1) PlanNodeId: 1 TaskId:
+// test_cursor 1 PipelineId: 0 DriverId: 0 OperatorAddress: 0x61a000003c80'
+std::string addContextOnException(
+    VeloxException::Type exceptionType,
+    void* arg) {
+  if (exceptionType != VeloxException::Type::kSystem) {
+    return "";
+  }
+  auto* op = static_cast<Operator*>(arg);
+  return fmt::format("Operator: {}", op->toString());
+}
+
 } // namespace
 
 DriverCtx::DriverCtx(
@@ -375,6 +388,8 @@ void Driver::enqueueInternal() {
     RuntimeStatWriterScopeGuard statsWriterGuard(operatorPtr);             \
     threadNumVeloxThrow() = 0;                                             \
     opCallStatus_.start(operatorId, operatorMethod);                       \
+    ExceptionContextSetter exceptionContext(                               \
+        {addContextOnException, operatorPtr, true});                       \
     auto stopGuard = folly::makeGuard([&]() { opCallStatus_.stop(); });    \
     call;                                                                  \
     recordSilentThrows(*operatorPtr);                                      \

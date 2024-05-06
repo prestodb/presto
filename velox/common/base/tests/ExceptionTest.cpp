@@ -583,11 +583,13 @@ TEST(ExceptionTest, context) {
   };
 
   {
-    // Create multi-layer contexts.
+    // Create multi-layer contexts with top level marked as essential.
     MessageFunctionArg topLevelTroubleshootingAid{
         "Top-level troubleshooting aid.", &callCount};
-    facebook::velox::ExceptionContextSetter topLevelContext(
-        {messageFunction, &topLevelTroubleshootingAid});
+    facebook::velox::ExceptionContextSetter additionalContext(
+        {.messageFunc = messageFunction,
+         .arg = &topLevelTroubleshootingAid,
+         .isEssential = true});
 
     MessageFunctionArg midLevelTroubleshootingAid{
         "Mid-level troubleshooting aid.", &callCount};
@@ -608,7 +610,7 @@ TEST(ExceptionTest, context) {
         "\nRetriable: False"
         "\nExpression: 1 == 3"
         "\nContext: System error: Inner-level troubleshooting aid."
-        "\nTop-Level Context: System error: Top-level troubleshooting aid."
+        "\nAdditional Context: System error: Top-level troubleshooting aid."
         "\nFunction: operator()"
         "\nFile: ");
 
@@ -623,11 +625,162 @@ TEST(ExceptionTest, context) {
         "\nRetriable: False"
         "\nExpression: 1 == 3"
         "\nContext: User error: Inner-level troubleshooting aid."
-        "\nTop-Level Context: User error: Top-level troubleshooting aid."
+        "\nAdditional Context: User error: Top-level troubleshooting aid."
         "\nFunction: operator()"
         "\nFile: ");
 
     EXPECT_EQ(4, callCount);
+  }
+
+  {
+    callCount = 0;
+    // Create multi-layer contexts with middle level marked as essential.
+    MessageFunctionArg topLevelTroubleshootingAid{
+        "Top-level troubleshooting aid.", &callCount};
+    facebook::velox::ExceptionContextSetter additionalContext(
+        {.messageFunc = messageFunction, .arg = &topLevelTroubleshootingAid});
+
+    MessageFunctionArg midLevelTroubleshootingAid{
+        "Mid-level troubleshooting aid.", &callCount};
+    facebook::velox::ExceptionContextSetter midLevelContext(
+        {.messageFunc = messageFunction,
+         .arg = &midLevelTroubleshootingAid,
+         .isEssential = true});
+
+    MessageFunctionArg innerLevelTroubleshootingAid{
+        "Inner-level troubleshooting aid.", &callCount};
+    facebook::velox::ExceptionContextSetter innerLevelContext(
+        {messageFunction, &innerLevelTroubleshootingAid});
+
+    verifyVeloxException(
+        [&]() { VELOX_CHECK_EQ(1, 3); },
+        "Exception: VeloxRuntimeError"
+        "\nError Source: RUNTIME"
+        "\nError Code: INVALID_STATE"
+        "\nReason: (1 vs. 3)"
+        "\nRetriable: False"
+        "\nExpression: 1 == 3"
+        "\nContext: System error: Inner-level troubleshooting aid."
+        "\nAdditional Context: System error: Mid-level troubleshooting aid."
+        "\nFunction: operator()"
+        "\nFile: ");
+
+    EXPECT_EQ(2, callCount);
+
+    verifyVeloxException(
+        [&]() { VELOX_USER_CHECK_EQ(1, 3); },
+        "Exception: VeloxUserError"
+        "\nError Source: USER"
+        "\nError Code: INVALID_ARGUMENT"
+        "\nReason: (1 vs. 3)"
+        "\nRetriable: False"
+        "\nExpression: 1 == 3"
+        "\nContext: User error: Inner-level troubleshooting aid."
+        "\nAdditional Context: User error: Mid-level troubleshooting aid."
+        "\nFunction: operator()"
+        "\nFile: ");
+
+    EXPECT_EQ(4, callCount);
+  }
+
+  {
+    callCount = 0;
+    // Create multi-layer contexts with none marked as essential.
+    MessageFunctionArg topLevelTroubleshootingAid{
+        "Top-level troubleshooting aid.", &callCount};
+    facebook::velox::ExceptionContextSetter additionalContext(
+        {.messageFunc = messageFunction, .arg = &topLevelTroubleshootingAid});
+
+    MessageFunctionArg midLevelTroubleshootingAid{
+        "Mid-level troubleshooting aid.", &callCount};
+    facebook::velox::ExceptionContextSetter midLevelContext(
+        {.messageFunc = messageFunction, .arg = &midLevelTroubleshootingAid});
+
+    MessageFunctionArg innerLevelTroubleshootingAid{
+        "Inner-level troubleshooting aid.", &callCount};
+    facebook::velox::ExceptionContextSetter innerLevelContext(
+        {messageFunction, &innerLevelTroubleshootingAid});
+
+    verifyVeloxException(
+        [&]() { VELOX_CHECK_EQ(1, 3); },
+        "Exception: VeloxRuntimeError"
+        "\nError Source: RUNTIME"
+        "\nError Code: INVALID_STATE"
+        "\nReason: (1 vs. 3)"
+        "\nRetriable: False"
+        "\nExpression: 1 == 3"
+        "\nContext: System error: Inner-level troubleshooting aid."
+        "\nFunction: operator()"
+        "\nFile: ");
+
+    EXPECT_EQ(1, callCount);
+
+    verifyVeloxException(
+        [&]() { VELOX_USER_CHECK_EQ(1, 3); },
+        "Exception: VeloxUserError"
+        "\nError Source: USER"
+        "\nError Code: INVALID_ARGUMENT"
+        "\nReason: (1 vs. 3)"
+        "\nRetriable: False"
+        "\nExpression: 1 == 3"
+        "\nContext: User error: Inner-level troubleshooting aid."
+        "\nFunction: operator()"
+        "\nFile: ");
+
+    EXPECT_EQ(2, callCount);
+  }
+
+  {
+    callCount = 0;
+    // Create multi-layer contexts with all ancestors marked as essential.
+    MessageFunctionArg topLevelTroubleshootingAid{
+        "Top-level troubleshooting aid.", &callCount};
+    facebook::velox::ExceptionContextSetter additionalContext(
+        {.messageFunc = messageFunction,
+         .arg = &topLevelTroubleshootingAid,
+         .isEssential = true});
+
+    MessageFunctionArg midLevelTroubleshootingAid{
+        "Mid-level troubleshooting aid.", &callCount};
+    facebook::velox::ExceptionContextSetter midLevelContext(
+        {.messageFunc = messageFunction,
+         .arg = &midLevelTroubleshootingAid,
+         .isEssential = true});
+
+    MessageFunctionArg innerLevelTroubleshootingAid{
+        "Inner-level troubleshooting aid.", &callCount};
+    facebook::velox::ExceptionContextSetter innerLevelContext(
+        {messageFunction, &innerLevelTroubleshootingAid});
+
+    verifyVeloxException(
+        [&]() { VELOX_CHECK_EQ(1, 3); },
+        "Exception: VeloxRuntimeError"
+        "\nError Source: RUNTIME"
+        "\nError Code: INVALID_STATE"
+        "\nReason: (1 vs. 3)"
+        "\nRetriable: False"
+        "\nExpression: 1 == 3"
+        "\nContext: System error: Inner-level troubleshooting aid."
+        "\nAdditional Context: System error: Mid-level troubleshooting aid. System error: Top-level troubleshooting aid."
+        "\nFunction: operator()"
+        "\nFile: ");
+
+    EXPECT_EQ(3, callCount);
+
+    verifyVeloxException(
+        [&]() { VELOX_USER_CHECK_EQ(1, 3); },
+        "Exception: VeloxUserError"
+        "\nError Source: USER"
+        "\nError Code: INVALID_ARGUMENT"
+        "\nReason: (1 vs. 3)"
+        "\nRetriable: False"
+        "\nExpression: 1 == 3"
+        "\nContext: User error: Inner-level troubleshooting aid."
+        "\nAdditional Context: User error: Mid-level troubleshooting aid. User error: Top-level troubleshooting aid."
+        "\nFunction: operator()"
+        "\nFile: ");
+
+    EXPECT_EQ(6, callCount);
   }
 
   // Different context.
@@ -649,7 +802,6 @@ TEST(ExceptionTest, context) {
         "\nRetriable: False"
         "\nExpression: 1 == 3"
         "\nContext: System error: Debugging info."
-        "\nTop-Level Context: Same as context."
         "\nFunction: operator()"
         "\nFile: ");
 
@@ -664,7 +816,6 @@ TEST(ExceptionTest, context) {
         "\nRetriable: False"
         "\nExpression: 1 == 3"
         "\nContext: User error: Debugging info."
-        "\nTop-Level Context: Same as context."
         "\nFunction: operator()"
         "\nFile: ");
 
@@ -709,7 +860,6 @@ TEST(ExceptionTest, context) {
         "\nRetriable: False"
         "\nExpression: 1 == 3"
         "\nContext: Failed to produce additional context."
-        "\nTop-Level Context: Same as context."
         "\nFunction: operator()"
         "\nFile: ");
 
@@ -743,7 +893,7 @@ TEST(ExceptionTest, wrappedException) {
     ASSERT_EQ(ve.message(), "This is a test.");
     ASSERT_TRUE(ve.isUserError());
     ASSERT_EQ(ve.context(), "");
-    ASSERT_EQ(ve.topLevelContext(), "");
+    ASSERT_EQ(ve.additionalContext(), "");
     ASSERT_THROW(
         std::rethrow_exception(ve.wrappedException()), std::invalid_argument);
   }
@@ -755,7 +905,7 @@ TEST(ExceptionTest, wrappedException) {
     ASSERT_EQ(ve.message(), "This is a test.");
     ASSERT_FALSE(ve.isUserError());
     ASSERT_EQ(ve.context(), "");
-    ASSERT_EQ(ve.topLevelContext(), "");
+    ASSERT_EQ(ve.additionalContext(), "");
     ASSERT_THROW(
         std::rethrow_exception(ve.wrappedException()), std::invalid_argument);
   }
@@ -784,7 +934,7 @@ TEST(ExceptionTest, wrappedExceptionWithContext) {
 
   std::string data = "lakes";
   facebook::velox::ExceptionContextSetter context(
-      {messageFunction, data.data()});
+      {messageFunction, data.data(), true});
 
   try {
     throw std::invalid_argument("This is a test.");
@@ -793,7 +943,7 @@ TEST(ExceptionTest, wrappedExceptionWithContext) {
     ASSERT_EQ(ve.message(), "This is a test.");
     ASSERT_TRUE(ve.isUserError());
     ASSERT_EQ(ve.context(), "User error: lakes");
-    ASSERT_EQ(ve.topLevelContext(), "Same as context.");
+    ASSERT_EQ(ve.additionalContext(), "");
     ASSERT_THROW(
         std::rethrow_exception(ve.wrappedException()), std::invalid_argument);
   }
@@ -805,7 +955,7 @@ TEST(ExceptionTest, wrappedExceptionWithContext) {
     ASSERT_EQ(ve.message(), "This is a test.");
     ASSERT_FALSE(ve.isUserError());
     ASSERT_EQ(ve.context(), "System error: lakes");
-    ASSERT_EQ(ve.topLevelContext(), "Same as context.");
+    ASSERT_EQ(ve.additionalContext(), "");
     ASSERT_THROW(
         std::rethrow_exception(ve.wrappedException()), std::invalid_argument);
   }
@@ -821,7 +971,7 @@ TEST(ExceptionTest, wrappedExceptionWithContext) {
     ASSERT_EQ(ve.message(), "This is a test.");
     ASSERT_TRUE(ve.isUserError());
     ASSERT_EQ(ve.context(), "User error: mountains");
-    ASSERT_EQ(ve.topLevelContext(), "User error: lakes");
+    ASSERT_EQ(ve.additionalContext(), "User error: lakes");
     ASSERT_THROW(
         std::rethrow_exception(ve.wrappedException()), std::invalid_argument);
   }
@@ -833,7 +983,7 @@ TEST(ExceptionTest, wrappedExceptionWithContext) {
     ASSERT_EQ(ve.message(), "This is a test.");
     ASSERT_FALSE(ve.isUserError());
     ASSERT_EQ(ve.context(), "System error: mountains");
-    ASSERT_EQ(ve.topLevelContext(), "System error: lakes");
+    ASSERT_EQ(ve.additionalContext(), "System error: lakes");
     ASSERT_THROW(
         std::rethrow_exception(ve.wrappedException()), std::invalid_argument);
   }

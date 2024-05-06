@@ -272,7 +272,7 @@ TEST_F(JsonFunctionsTest, jsonParse) {
     jsonParse(R"({"k1":})");
     FAIL() << "Error expected";
   } catch (const VeloxUserError& e) {
-    ASSERT_EQ(e.context(), "json_parse(c0)");
+    ASSERT_EQ(e.context(), "Top-level Expression: json_parse(c0)");
   }
 }
 
