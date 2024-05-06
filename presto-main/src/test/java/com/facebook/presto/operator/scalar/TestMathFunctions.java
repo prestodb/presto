@@ -1567,6 +1567,7 @@ public class TestMathFunctions
         assertInvalidFunction("poisson_cdf(3, -10)", "value must be a non-negative integer");
     }
 
+    @Test
     public void testInverseWeibullCdf()
     {
         assertFunction("inverse_weibull_cdf(1.0, 1.0, 0.0)", DOUBLE, 0.0);

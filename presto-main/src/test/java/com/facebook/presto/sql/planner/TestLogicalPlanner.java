@@ -1560,6 +1560,7 @@ public class TestLogicalPlanner
                 .build();
     }
 
+    @Test
     public void testRedundantLimitNodeRemoval()
     {
         String query = "SELECT count(*) FROM orders LIMIT 10";

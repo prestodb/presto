@@ -172,10 +172,6 @@ public class TestCsv
                 .collect(toImmutableList());
 
         QueryResult actual = query(format(query, tableName));
-        List<Row> actualRows = actual.rows().stream()
-                .map((columns) -> row(columns.toArray()))
-                .collect(toImmutableList());
-
         assertThat(actual)
                 .hasColumns(expected.getColumnTypes())
                 .containsOnly(expectedRows);

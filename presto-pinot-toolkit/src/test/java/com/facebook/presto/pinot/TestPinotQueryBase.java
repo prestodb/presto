@@ -279,11 +279,6 @@ public class TestPinotQueryBase
         return new PinotColumnHandle(name, BIGINT, PinotColumnHandle.PinotColumnType.REGULAR);
     }
 
-    protected static PinotColumnHandle fraction(String name)
-    {
-        return new PinotColumnHandle(name, DOUBLE, PinotColumnHandle.PinotColumnType.REGULAR);
-    }
-
     protected static PinotColumnHandle varchar(String name)
     {
         return new PinotColumnHandle(name, VARCHAR, PinotColumnHandle.PinotColumnType.REGULAR);

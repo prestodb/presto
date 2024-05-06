@@ -196,8 +196,6 @@ public class TestPrestoSparkQueryExecution
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "broadcast")
                 .setSystemProperty(SPARK_RETRY_ON_OUT_OF_MEMORY_WITH_INCREASED_MEMORY_SETTINGS_ENABLED, "false")
                 .build();
-        String sql = "select * from lineitem l join orders o on l.orderkey = o.orderkey";
-        PrestoSparkStaticQueryExecution execution = (PrestoSparkStaticQueryExecution) getPrestoSparkQueryExecution(session, sql);
         Optional<PlanNodeStatsEstimate> planNodeStatsEstimate;
 
         // Empty stats case
