@@ -24,10 +24,18 @@ namespace facebook::velox::wave {
 
 class CpuBucket {
  public:
+#if XSIMD_WITH_SSE2
   using TagVector = xsimd::batch<uint8_t, xsimd::sse2>;
+#elif XSIMD_WITH_NEON
+  using TagVector = xsimd::batch<uint8_t, xsimd::neon>;
+#endif
 
   auto loadTags() {
-    return TagVector(_mm_loadu_si128(reinterpret_cast<__m128i const*>(&tags_)));
+#if XSIMD_WITH_SSE2
+    return TagVector(_mm_loadu_si128(reinterpret_cast<__m128i const*>(tags_)));
+#elif XSIMD_WITH_NEON
+    return TagVector(vld1q_u8(tags_));
+#endif
   }
 
   void setTag(int32_t idx, uint8_t tag) {
