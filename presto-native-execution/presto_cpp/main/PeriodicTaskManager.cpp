@@ -20,6 +20,7 @@
 #include "presto_cpp/main/TaskManager.h"
 #include "presto_cpp/main/common/Counters.h"
 #include "presto_cpp/main/http/filters/HttpEndpointLatencyFilter.h"
+#include "velox/common/base/PeriodicStatsReporter.h"
 #include "velox/common/base/StatsReporter.h"
 #include "velox/common/base/SuccinctPrinter.h"
 #include "velox/common/caching/AsyncDataCache.h"
@@ -88,8 +89,6 @@ static constexpr size_t kConnectorPeriodGlobalCounters{
     60'000'000}; // 60 seconds.
 static constexpr size_t kOsPeriodGlobalCounters{2'000'000}; // 2 seconds
 static constexpr size_t kSpillStatsUpdateIntervalUs{60'000'000}; // 60 seconds
-static constexpr size_t kArbitratorStatsUpdateIntervalUs{
-    60'000'000}; // 60 seconds
 // Every 1 minute we print endpoint latency counters.
 static constexpr size_t kHttpEndpointLatencyPeriodGlobalCounters{
     60'000'000}; // 60 seconds.
@@ -114,6 +113,11 @@ PeriodicTaskManager::PeriodicTaskManager(
       server_(server) {}
 
 void PeriodicTaskManager::start() {
+  VELOX_CHECK_NOT_NULL(arbitrator_);
+  velox::PeriodicStatsReporter::Options opts;
+  opts.arbitrator = arbitrator_->kind() == "NOOP" ? nullptr : arbitrator_;
+  velox::startPeriodicStatsReporter(opts);
+
   // If executors are null, don't bother starting this task.
   if ((driverCPUExecutor_ != nullptr) || (httpExecutor_ != nullptr)) {
     addExecutorStatsTask();
@@ -146,11 +150,6 @@ void PeriodicTaskManager::start() {
     addHttpEndpointLatencyStatsTask();
   }
 
-  VELOX_CHECK_NOT_NULL(arbitrator_);
-  if (arbitrator_->kind() != "NOOP") {
-    addArbitratorStatsTask();
-  }
-
   if (server_ && server_->hasCoordinatorDiscoverer()) {
     numDriverThreads_ = server_->numDriverThreads();
     addWatchdogTask();
@@ -160,6 +159,7 @@ void PeriodicTaskManager::start() {
 }
 
 void PeriodicTaskManager::stop() {
+  velox::stopPeriodicStatsReporter();
   oneTimeRunner_.cancelAllFunctionsAndWait();
   oneTimeRunner_.shutdown();
   repeatedRunner_.stop();
@@ -608,50 +608,6 @@ void PeriodicTaskManager::addOperatingSystemStatsUpdateTask() {
       [this]() { updateOperatingSystemStats(); },
       kOsPeriodGlobalCounters,
       "os_counters");
-}
-
-void PeriodicTaskManager::addArbitratorStatsTask() {
-  addTask(
-      [this]() { updateArbitratorStatsTask(); },
-      kArbitratorStatsUpdateIntervalUs,
-      "arbitrator_stats");
-}
-
-void PeriodicTaskManager::updateArbitratorStatsTask() {
-  const auto updatedArbitratorStats = arbitrator_->stats();
-  VELOX_CHECK_GE(updatedArbitratorStats, lastArbitratorStats_);
-  const auto deltaArbitratorStats =
-      updatedArbitratorStats - lastArbitratorStats_;
-  REPORT_IF_NOT_ZERO(
-      kCounterArbitratorNumRequests, deltaArbitratorStats.numRequests);
-  REPORT_IF_NOT_ZERO(
-      kCounterArbitratorNumAborted, deltaArbitratorStats.numAborted);
-  REPORT_IF_NOT_ZERO(
-      kCounterArbitratorNumFailures, deltaArbitratorStats.numFailures);
-  REPORT_IF_NOT_ZERO(
-      kCounterArbitratorQueueTimeUs, deltaArbitratorStats.queueTimeUs);
-  REPORT_IF_NOT_ZERO(
-      kCounterArbitratorArbitrationTimeUs,
-      deltaArbitratorStats.arbitrationTimeUs);
-  REPORT_IF_NOT_ZERO(
-      kCounterArbitratorNumShrunkBytes, deltaArbitratorStats.numShrunkBytes);
-  REPORT_IF_NOT_ZERO(
-      kCounterArbitratorNumReclaimedBytes,
-      deltaArbitratorStats.numReclaimedBytes);
-  REPORT_IF_NOT_ZERO(
-      kCounterArbitratorFreeCapacityBytes,
-      deltaArbitratorStats.freeCapacityBytes);
-  REPORT_IF_NOT_ZERO(
-      kCounterArbitratorNonReclaimableAttempts,
-      deltaArbitratorStats.numNonReclaimableAttempts);
-
-  if (!deltaArbitratorStats.empty()) {
-    LOG(INFO) << "Updated memory arbitrator stats: "
-              << updatedArbitratorStats.toString();
-    LOG(INFO) << "Memory arbitrator stats change: "
-              << deltaArbitratorStats.toString();
-  }
-  lastArbitratorStats_ = updatedArbitratorStats;
 }
 
 void PeriodicTaskManager::addSpillStatsUpdateTask() {

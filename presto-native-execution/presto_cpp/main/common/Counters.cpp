@@ -244,23 +244,6 @@ void registerPrestoMetrics() {
       100);
   DEFINE_METRIC(kCounterSpillMaxLevelExceeded, facebook::velox::StatType::SUM);
 
-  /// ================== Memory Arbitrator Counters =================
-
-  DEFINE_METRIC(kCounterArbitratorNumRequests, facebook::velox::StatType::SUM);
-  DEFINE_METRIC(kCounterArbitratorNumAborted, facebook::velox::StatType::SUM);
-  DEFINE_METRIC(kCounterArbitratorNumFailures, facebook::velox::StatType::SUM);
-  DEFINE_METRIC(kCounterArbitratorQueueTimeUs, facebook::velox::StatType::SUM);
-  DEFINE_METRIC(
-      kCounterArbitratorArbitrationTimeUs, facebook::velox::StatType::SUM);
-  DEFINE_METRIC(
-      kCounterArbitratorNumShrunkBytes, facebook::velox::StatType::SUM);
-  DEFINE_METRIC(
-      kCounterArbitratorNumReclaimedBytes, facebook::velox::StatType::SUM);
-  DEFINE_METRIC(
-      kCounterArbitratorFreeCapacityBytes, facebook::velox::StatType::AVG);
-  DEFINE_METRIC(
-      kCounterArbitratorNonReclaimableAttempts, facebook::velox::StatType::SUM);
-
   // NOTE: Metrics type exporting for file handle cache counters are in
   // PeriodicTaskManager because they have dynamic names. The following counters
   // have their type exported there:

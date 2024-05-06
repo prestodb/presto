@@ -53,10 +53,6 @@ class PeriodicTaskManager {
           std::shared_ptr<velox::connector::Connector>>& connectors,
       PrestoServer* server);
 
-  ~PeriodicTaskManager() {
-    stop();
-  }
-
   /// Invoked to start all registered, and fundamental periodic tasks running at
   /// the background.
   ///
@@ -170,7 +166,6 @@ class PeriodicTaskManager {
   int64_t lastForcedContextSwitches_{0};
   // Renabled this after update velox.
   velox::common::SpillStats lastSpillStats_;
-  velox::memory::MemoryArbitrator::Stats lastArbitratorStats_;
 
   // NOTE: declare last since the threads access other members of `this`.
   folly::FunctionScheduler oneTimeRunner_;
