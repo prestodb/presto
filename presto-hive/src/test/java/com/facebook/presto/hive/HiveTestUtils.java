@@ -103,7 +103,9 @@ public final class HiveTestUtils
     public static final JsonCodec<PartitionUpdate> PARTITION_UPDATE_CODEC = jsonCodec(PartitionUpdate.class);
     public static final SmileCodec<PartitionUpdate> PARTITION_UPDATE_SMILE_CODEC = smileCodec(PartitionUpdate.class);
 
-    public static final ConnectorSession SESSION = new TestingConnectorSession(getAllSessionProperties(new HiveClientConfig(), new HiveCommonClientConfig()));
+    public static final Set<String> TEST_CLIENT_TAGS = ImmutableSet.of("TAG1", "TAG2");
+
+    public static final ConnectorSession SESSION = new TestingConnectorSession(getAllSessionProperties(new HiveClientConfig(), new HiveCommonClientConfig()), TEST_CLIENT_TAGS);
     public static final MetadataManager METADATA = MetadataManager.createTestMetadataManager();
 
     public static final FunctionAndTypeManager FUNCTION_AND_TYPE_MANAGER = METADATA.getFunctionAndTypeManager();
