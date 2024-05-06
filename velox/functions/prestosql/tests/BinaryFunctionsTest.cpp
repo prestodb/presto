@@ -425,6 +425,7 @@ TEST_F(BinaryFunctionsTest, fromBase64) {
   EXPECT_EQ(std::nullopt, fromBase64(std::nullopt));
   EXPECT_EQ("", fromBase64(""));
   EXPECT_EQ("a", fromBase64("YQ=="));
+  EXPECT_EQ("ab", fromBase64("YWI="));
   EXPECT_EQ("abc", fromBase64("YWJj"));
   EXPECT_EQ("hello world", fromBase64("aGVsbG8gd29ybGQ="));
   EXPECT_EQ(
@@ -433,6 +434,11 @@ TEST_F(BinaryFunctionsTest, fromBase64) {
 
   EXPECT_THROW(fromBase64("YQ="), VeloxUserError);
   EXPECT_THROW(fromBase64("YQ==="), VeloxUserError);
+
+  // Check encoded strings without padding
+  EXPECT_EQ("a", fromBase64("YQ"));
+  EXPECT_EQ("ab", fromBase64("YWI"));
+  EXPECT_EQ("abcd", fromBase64("YWJjZA"));
 }
 
 TEST_F(BinaryFunctionsTest, fromBase64Url) {

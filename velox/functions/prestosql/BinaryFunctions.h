@@ -284,7 +284,6 @@ struct ToBase64Function {
 template <typename T>
 struct FromBase64Function {
   VELOX_DEFINE_FUNCTION_TYPES(T);
-
   FOLLY_ALWAYS_INLINE void call(
       out_type<Varbinary>& result,
       const arg_type<Varchar>& input) {
@@ -292,7 +291,8 @@ struct FromBase64Function {
       auto inputSize = input.size();
       result.resize(
           encoding::Base64::calculateDecodedSize(input.data(), inputSize));
-      encoding::Base64::decode(input.data(), input.size(), result.data());
+      encoding::Base64::decode(
+          input.data(), inputSize, result.data(), result.size());
     } catch (const encoding::Base64Exception& e) {
       VELOX_USER_FAIL(e.what());
     }
@@ -302,19 +302,14 @@ struct FromBase64Function {
 template <typename T>
 struct FromBase64UrlFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
-
   FOLLY_ALWAYS_INLINE void call(
       out_type<Varbinary>& result,
       const arg_type<Varchar>& input) {
-    auto inputData = input.data();
     auto inputSize = input.size();
-    bool hasPad =
-        inputSize > 0 && (*(input.end() - 1) == encoding::Base64::kBase64Pad);
     result.resize(
-        encoding::Base64::calculateDecodedSize(inputData, inputSize, hasPad));
-    hasPad = false; // calculateDecodedSize() updated inputSize to exclude pad.
+        encoding::Base64::calculateDecodedSize(input.data(), inputSize));
     encoding::Base64::decodeUrl(
-        inputData, inputSize, result.data(), result.size(), hasPad);
+        input.data(), inputSize, result.data(), result.size());
   }
 };
 

@@ -57,10 +57,9 @@ class Base64 {
 
   static std::string decode(folly::StringPiece encoded);
 
-  /// Returns decoded size for the specified input. Adjusts the 'size' to
-  /// subtract the length of the padding, if exists.
-  static size_t
-  calculateDecodedSize(const char* data, size_t& size, bool withPadding = true);
+  /// Returns the actual size of the decoded data. Will also remove the padding
+  /// length from the input data 'size'.
+  static size_t calculateDecodedSize(const char* data, size_t& size);
 
   /// Decodes the specified number of characters from the 'data' and writes the
   /// result to the 'output'. The output must have enough space, e.g. as
@@ -69,7 +68,7 @@ class Base64 {
 
   static void decode(
       const std::pair<const char*, int32_t>& payload,
-      std::string& outp);
+      std::string& output);
 
   /// Encodes the specified number of characters from the 'data' and writes the
   /// result to the 'output'. The output must have enough space, e.g. as
@@ -89,19 +88,24 @@ class Base64 {
   static size_t
   decode(const char* src, size_t src_len, char* dst, size_t dst_len);
 
-  static void decodeUrl(
-      const char* src,
-      size_t src_len,
-      char* dst,
-      size_t dst_len,
-      bool pad);
+  static void
+  decodeUrl(const char* src, size_t src_len, char* dst, size_t dst_len);
 
   constexpr static char kBase64Pad = '=';
 
  private:
+  static inline bool isPadded(const char* data, size_t len) {
+    return (len > 0 && data[len - 1] == kBase64Pad);
+  }
+
   static inline size_t countPadding(const char* src, size_t len) {
-    DCHECK_GE(len, 2);
-    return src[len - 1] != kBase64Pad ? 0 : src[len - 2] != kBase64Pad ? 1 : 2;
+    size_t numPadding{0};
+    while (len > 0 && src[len - 1] == kBase64Pad) {
+      numPadding++;
+      len--;
+    }
+
+    return numPadding;
   }
 
   static uint8_t Base64ReverseLookup(char p, const ReverseIndex& table);
@@ -122,8 +126,7 @@ class Base64 {
       size_t src_len,
       char* dst,
       size_t dst_len,
-      const ReverseIndex& table,
-      bool include_pad);
+      const ReverseIndex& table);
 };
 
 } // namespace facebook::velox::encoding

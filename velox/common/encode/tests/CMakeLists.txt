@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-if(${VELOX_BUILD_TESTING})
-  add_subdirectory(tests)
-endif()
-
-add_library(velox_encode Base64.cpp)
-target_link_libraries(velox_encode PUBLIC Folly::folly)
+add_executable(velox_common_encode_test Base64Test.cpp)
+add_test(velox_common_encode_test velox_common_encode_test)
+target_link_libraries(
+  velox_common_encode_test
+  PUBLIC Folly::folly
+  PRIVATE velox_encode velox_exception gtest gtest_main)
