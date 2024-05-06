@@ -37,6 +37,7 @@ import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.connector.ConnectorTableVersion;
 import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.function.SqlFunction;
+import com.facebook.presto.spi.procedure.IProcedureRegistry;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
@@ -584,7 +585,7 @@ public abstract class DelegatingMetadataManager
     }
 
     @Override
-    public ProcedureRegistry getProcedureRegistry()
+    public IProcedureRegistry getProcedureRegistry()
     {
         return delegate.getProcedureRegistry();
     }
