@@ -15,6 +15,7 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.spi.statistics.ConnectorHistogram;
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
@@ -42,7 +43,7 @@ public class VariableStatsEstimate
     private final double nullsFraction;
     private final double averageRowSize;
     private final double distinctValuesCount;
-    private final ConnectorHistogram histogram;
+    private final Optional<ConnectorHistogram> histogram;
 
     public static VariableStatsEstimate unknown()
     {
@@ -54,14 +55,13 @@ public class VariableStatsEstimate
         return ZERO;
     }
 
-    @JsonCreator
     public VariableStatsEstimate(
-            @JsonProperty("lowValue") double lowValue,
-            @JsonProperty("highValue") double highValue,
-            @JsonProperty("nullsFraction") double nullsFraction,
-            @JsonProperty("averageRowSize") double averageRowSize,
-            @JsonProperty("distinctValuesCount") double distinctValuesCount,
-            @JsonProperty("histogram") ConnectorHistogram histogram)
+            double lowValue,
+            double highValue,
+            double nullsFraction,
+            double averageRowSize,
+            double distinctValuesCount,
+            Optional<ConnectorHistogram> histogram)
     {
         checkArgument(
                 lowValue <= highValue || (isNaN(lowValue) && isNaN(highValue)),
@@ -87,13 +87,15 @@ public class VariableStatsEstimate
         this.histogram = requireNonNull(histogram, "histogram is null");
     }
 
-    public VariableStatsEstimate(double lowValue,
-            double highValue,
-            double nullsFraction,
-            double averageRowSize,
-            double distinctValuesCount)
+    @JsonCreator
+    public VariableStatsEstimate(
+            @JsonProperty("lowValue") double lowValue,
+            @JsonProperty("highValue") double highValue,
+            @JsonProperty("nullsFraction") double nullsFraction,
+            @JsonProperty("averageRowSize") double averageRowSize,
+            @JsonProperty("distinctValuesCount") double distinctValuesCount)
     {
-        this(lowValue, highValue, nullsFraction, averageRowSize, distinctValuesCount, new UniformDistributionHistogram(lowValue, highValue));
+        this(lowValue, highValue, nullsFraction, averageRowSize, distinctValuesCount, Optional.empty());
     }
 
     @JsonProperty
@@ -114,8 +116,11 @@ public class VariableStatsEstimate
         return nullsFraction;
     }
 
-    @JsonProperty
-    public ConnectorHistogram getHistogram()
+    // We ignore the histogram during serialization because histograms can be
+    // quite large. Histograms are not used outside the coordinator, so there
+    // isn't a need to serialize them
+    @JsonIgnore
+    public Optional<ConnectorHistogram> getHistogram()
     {
         return histogram;
     }
@@ -263,16 +268,16 @@ public class VariableStatsEstimate
             return this;
         }
 
-        public Builder setHistogram(ConnectorHistogram histogram)
+        public Builder setHistogram(Optional<ConnectorHistogram> histogram)
         {
-            this.histogram = Optional.of(histogram);
+            this.histogram = histogram;
             return this;
         }
 
         public VariableStatsEstimate build()
         {
             return new VariableStatsEstimate(lowValue, highValue, nullsFraction, averageRowSize, distinctValuesCount,
-                    histogram.orElseGet(() -> new UniformDistributionHistogram(lowValue, highValue)));
+                    histogram);
         }
     }
 }
