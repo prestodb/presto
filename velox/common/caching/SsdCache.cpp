@@ -52,8 +52,9 @@ SsdCache::SsdCache(
   files_.reserve(numShards_);
   // Cache size must be a multiple of this so that each shard has the same max
   // size.
-  uint64_t sizeQuantum = numShards_ * SsdFile::kRegionSize;
-  int32_t fileMaxRegions = bits::roundUp(maxBytes, sizeQuantum) / sizeQuantum;
+  const uint64_t sizeQuantum = numShards_ * SsdFile::kRegionSize;
+  const int32_t fileMaxRegions =
+      bits::roundUp(maxBytes, sizeQuantum) / sizeQuantum;
   for (auto i = 0; i < numShards_; ++i) {
     files_.push_back(std::make_unique<SsdFile>(
         fmt::format("{}{}", filePrefix_, i),
@@ -80,11 +81,12 @@ bool SsdCache::startWrite() {
   }
   // There were writes in progress, so compensate for the increment.
   writesInProgress_.fetch_sub(numShards_);
+  VELOX_CHECK_GE(writesInProgress_, 0);
   return false;
 }
 
 void SsdCache::write(std::vector<CachePin> pins) {
-  VELOX_CHECK_LE(numShards_, writesInProgress_);
+  VELOX_CHECK_GE(numShards_, writesInProgress_);
 
   TestValue::adjust("facebook::velox::cache::SsdCache::write", this);
 
@@ -104,6 +106,7 @@ void SsdCache::write(std::vector<CachePin> pins) {
       ++numNoStore;
       continue;
     }
+
     struct PinHolder {
       std::vector<CachePin> pins;
 
@@ -111,8 +114,8 @@ void SsdCache::write(std::vector<CachePin> pins) {
           : pins(std::move(_pins)) {}
     };
 
-    // We move the mutable vector of pins to the executor. These must
-    // be wrapped in a shared struct to be passed via lambda capture.
+    // We move the mutable vector of pins to the executor. These must be wrapped
+    // in a shared struct to be passed via lambda capture.
     auto pinHolder = std::make_shared<PinHolder>(std::move(shards[i]));
     executor_->add([this, i, pinHolder, bytes, startTimeUs]() {
       try {
@@ -128,8 +131,8 @@ void SsdCache::write(std::vector<CachePin> pins) {
         // Typically occurs every few GB. Allows detecting unusually slow rates
         // from failing devices.
         VELOX_SSD_CACHE_LOG(INFO) << fmt::format(
-            "Wrote {}MB, {} MB/s",
-            bytes >> 20,
+            "Wrote {}, {} bytes/s",
+            succinctBytes(bytes),
             static_cast<float>(bytes) / (getCurrentTimeMicro() - startTimeUs));
       }
     });
@@ -175,13 +178,13 @@ void SsdCache::clear() {
 }
 
 std::string SsdCache::toString() const {
-  auto data = stats();
-  uint64_t capacity = maxBytes();
+  const auto data = stats();
+  const uint64_t capacity = maxBytes();
   std::stringstream out;
-  out << "Ssd cache IO: Write " << (data.bytesWritten >> 20) << "MB read "
-      << (data.bytesRead >> 20) << "MB Size " << (capacity >> 30)
-      << "GB Occupied " << (data.bytesCached >> 30) << "GB";
-  out << (data.entriesCached >> 10) << "K entries.";
+  out << "Ssd cache IO: Write " << succinctBytes(data.bytesWritten) << " read "
+      << succinctBytes(data.bytesRead) << " Size " << succinctBytes(capacity)
+      << " Occupied " << succinctBytes(data.bytesCached);
+  out << " " << (data.entriesCached >> 10) << "K entries.";
   out << "\nGroupStats: " << groupStats_->toString(capacity);
   return out.str();
 }

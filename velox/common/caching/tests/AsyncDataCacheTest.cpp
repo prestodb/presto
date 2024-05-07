@@ -896,7 +896,7 @@ TEST_F(AsyncDataCacheTest, cacheStats) {
       "[size 128: 0(0MB) allocated 0 mapped]\n"
       "[size 256: 0(0MB) allocated 0 mapped]\n"
       "]\n"
-      "SSD: Ssd cache IO: Write 0MB read 0MB Size 0GB Occupied 0GB0K entries.\n"
+      "SSD: Ssd cache IO: Write 0B read 0B Size 512.00MB Occupied 0B 0K entries.\n"
       "GroupStats: <dummy FileGroupStats>";
   ASSERT_EQ(cache_->toString(), expectedDetailedCacheOutput);
   ASSERT_EQ(cache_->toString(true), expectedDetailedCacheOutput);

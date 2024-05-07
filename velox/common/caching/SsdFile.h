@@ -27,9 +27,8 @@ DECLARE_bool(ssd_verify_write);
 
 namespace facebook::velox::cache {
 
-// A 64 bit word describing a SSD cache entry in an SsdFile. The low
-// 23 bits are the size, for a maximum entry size of 8MB. The high
-// bits are the offset.
+/// A 64 bit word describing a SSD cache entry in an SsdFile. The low 23 bits
+/// are the size, for a maximum entry size of 8MB. The high bits are the offset.
 class SsdRun {
  public:
   static constexpr int32_t kSizeBits = 23;
@@ -39,7 +38,8 @@ class SsdRun {
   SsdRun(uint64_t offset, uint32_t size)
       : bits_((offset << kSizeBits) | ((size - 1))) {
     VELOX_CHECK_LT(offset, 1L << (64 - kSizeBits));
-    VELOX_CHECK_LT(size - 1, 1 << kSizeBits);
+    VELOX_CHECK_NE(size, 0);
+    VELOX_CHECK_LE(size, 1 << kSizeBits);
   }
 
   SsdRun(uint64_t bits) : bits_(bits) {}
@@ -71,16 +71,16 @@ class SsdRun {
   uint64_t bits_;
 };
 
-// Represents an SsdFile entry that is planned for load or being
-// loaded. This is destroyed after load. Destruction decrements the
-// pin count of the corresponding region of 'file_'. While there are
-// pins, the region cannot be evicted.
+/// Represents an SsdFile entry that is planned for load or being loaded. This
+/// is destroyed after load. Destruction decrements the pin count of the
+/// corresponding region of 'file_'. While there are pins, the region cannot be
+/// evicted.
 class SsdPin {
  public:
   SsdPin() : file_(nullptr) {}
 
-  // Constructs a pin referencing 'run' in 'file'. The region must be
-  // pinned before constructing the pin.
+  /// Constructs a pin referencing 'run' in 'file'. The region must be pinned
+  /// before constructing the pin.
   SsdPin(SsdFile& file, SsdRun run);
 
   SsdPin(const SsdPin& other) = delete;
@@ -177,20 +177,18 @@ struct SsdCacheStats {
   tsan_atomic<uint32_t> readCheckpointErrors{0};
 };
 
-// A shard of SsdCache. Corresponds to one file on SSD.  The data
-// backed by each SsdFile is selected on a hash of the storage file
-// number of the cached data. Each file consists of an integer number
-// of 64MB regions. Each region has a pin count and an read
-// count. Cache replacement takes place region by region, preferring
-// regions with a smaller read count. Entries do not span
-// regions. Otherwise entries are consecutive byte ranges inside
-// their region.
+/// A shard of SsdCache. Corresponds to one file on SSD. The data backed by each
+/// SsdFile is selected on a hash of the storage file number of the cached data.
+/// Each file consists of an integer number of 64MB regions. Each region has a
+/// pin count and an read count. Cache replacement takes place region by region,
+/// preferring regions with a smaller read count. Entries do not span regions.
+/// Otherwise entries are consecutive byte ranges inside their region.
 class SsdFile {
  public:
   static constexpr uint64_t kRegionSize = 1 << 26; // 64MB
 
-  // Constructs a cache backed by filename. Discards any previous
-  // contents of filename.
+  /// Constructs a cache backed by filename. Discards any previous contents of
+  /// filename.
   SsdFile(
       const std::string& filename,
       int32_t shardId,
@@ -199,12 +197,12 @@ class SsdFile {
       bool disableFileCow = false,
       folly::Executor* executor = nullptr);
 
-  // Adds entries of  'pins'  to this file. 'pins' must be in read mode and
-  // those pins that are successfully added to SSD are marked as being on SSD.
-  // The file of the entries must be a file that is backed by 'this'.
+  /// Adds entries of 'pins' to this file. 'pins' must be in read mode and
+  /// those pins that are successfully added to SSD are marked as being on SSD.
+  /// The file of the entries must be a file that is backed by 'this'.
   void write(std::vector<CachePin>& pins);
 
-  // Finds an entry for 'key'. If no entry is found, the returned pin is empty.
+  /// Finds an entry for 'key'. If no entry is found, the returned pin is empty.
   SsdPin find(RawFileCacheKey key);
 
   // Erases 'key'
@@ -216,21 +214,21 @@ class SsdFile {
       const std::vector<SsdPin>& ssdPins,
       const std::vector<CachePin>& pins);
 
-  // Increments the pin count of the region of 'offset'.
+  /// Increments the pin count of the region of 'offset'.
   void pinRegion(uint64_t offset);
 
   // Decrements the pin count of the region of 'offset'. If the pin count goes
   // to zero and evict is due, starts the eviction.
   void unpinRegion(uint64_t offset);
 
-  // Asserts that the region of 'offset' is pinned. This is called by
-  // the pin holder. The pin count can be read without mutex.
+  /// Asserts that the region of 'offset' is pinned. This is called by the pin
+  /// holder. The pin count can be read without mutex.
   void checkPinned(uint64_t offset) const {
     tsan_lock_guard<std::shared_mutex> l(mutex_);
     VELOX_CHECK_GT(regionPins_[regionIndex(offset)], 0);
   }
 
-  // Returns the region number corresponding to offset.
+  /// Returns the region number corresponding to offset.
   static int32_t regionIndex(uint64_t offset) {
     return offset / kRegionSize;
   }
@@ -251,7 +249,7 @@ class SsdFile {
   // Adds 'stats_' to 'stats'.
   void updateStats(SsdCacheStats& stats) const;
 
-  // Resets this' to a post-construction empty state. See SsdCache::clear().
+  /// Resets this' to a post-construction empty state. See SsdCache::clear().
   void clear();
 
   // Deletes the backing file. Used in testing.
@@ -323,9 +321,9 @@ class SsdFile {
   // eviction log and leaves this open.
   void deleteCheckpoint(bool keepLog = false);
 
-  // Reads a checkpoint state file and sets 'this' accordingly if read
-  // is successful. Return true for successful read. A failed read
-  // deletes the checkpoint and leaves the log truncated open.
+  // Reads a checkpoint state file and sets 'this' accordingly if read is
+  // successful. Return true for successful read. A failed read deletes the
+  // checkpoint and leaves the log truncated open.
   void readCheckpoint(std::ifstream& state);
 
   // Logs an error message, deletes the checkpoint and stop making new
@@ -339,8 +337,8 @@ class SsdFile {
   // the files for making new checkpoints.
   void initializeCheckpoint();
 
-  // Synchronously logs that 'regions' are no longer valid in a possibly xisting
-  // checkpoint.
+  // Synchronously logs that 'regions' are no longer valid in a possibly
+  // existing checkpoint.
   void logEviction(const std::vector<int32_t>& regions);
 
   static constexpr const char* kLogExtension = ".log";
@@ -370,7 +368,7 @@ class SsdFile {
   bool suspended_{false};
 
   // Number of used bytes in each region. A new entry must fit between the
-  // offset and the end of the region. This is subscripted with the region
+  // offset and the end of the region. This is sub-scripted with the region
   // index. The regionIndex times kRegionSize is an offset into the file.
   std::vector<uint32_t> regionSizes_;
 
@@ -400,9 +398,8 @@ class SsdFile {
   // Counters.
   SsdCacheStats stats_;
 
-  // Checkpoint after every 'checkpointIntervalBytes_' written into
-  // this file. 0 means no checkpointing. This is set to 0 if
-  // checkpointing fails.
+  // Checkpoint after every 'checkpointIntervalBytes_' written into this file. 0
+  // means no checkpointing. This is set to 0 if checkpointing fails.
   int64_t checkpointIntervalBytes_{0};
 
   // Executor for async fsync in checkpoint.

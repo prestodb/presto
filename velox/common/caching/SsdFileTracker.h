@@ -24,9 +24,9 @@
 
 namespace facebook::velox::cache {
 
-// Tracks reads on an SsdFile. Reads are counted for fixed size regions and
-// periodically decayed. Not thread safe, synchronization is the caller's
-// responsibility.
+/// Tracks reads on an SsdFile. Reads are counted for fixed size regions and
+/// periodically decayed. Not thread safe, synchronization is the caller's
+/// responsibility.
 class SsdFileTracker {
  public:
   void resize(int32_t numRegions) {
@@ -42,9 +42,9 @@ class SsdFileTracker {
   }
 
   // Marks that a region has been filled and transits from writable to
-  // evictable. Set its score to be at least the best score +
-  // a small margin so that it gets time to live. Otherwise it has had
-  // the least time to get hits and would be the first evicted.
+  // evictable. Set its score to be at least the best score + a small margin so
+  // that it gets time to live. Otherwise, it has had the least time to get hits
+  // and would be the first evicted.
   void regionFilled(int32_t region);
 
   // Increments event count and periodically decays
@@ -52,10 +52,10 @@ class SsdFileTracker {
   // tracked file.
   void fileTouched(int32_t totalEntries);
 
-  // Returns up to 'numCandidates' least used regions. 'numRegions' is
-  // the count of existing regions. This can be less than the size of
-  // the tracker if the file cannot grow to full size. Regions with a
-  // non-zero count in 'regionPins' are not considered.
+  /// Returns up to 'numCandidates' least used regions. 'numRegions' is the
+  /// count of existing regions. This can be less than the size of the tracker
+  /// if the file cannot grow to full size. Regions with a non-zero count in
+  /// 'regionPins' are not considered.
   std::vector<int32_t> findEvictionCandidates(
       int32_t numCandidates,
       int32_t numRegions,

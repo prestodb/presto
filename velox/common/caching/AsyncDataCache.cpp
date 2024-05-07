@@ -519,9 +519,9 @@ void CacheShard::updateStats(CacheStats& stats) {
 
 void CacheShard::appendSsdSaveable(std::vector<CachePin>& pins) {
   std::lock_guard<std::mutex> l(mutex_);
-  // Do not add more than 70% of entries to a write batch.If SSD save
-  // is slower than storage read, we must not have a situation where
-  // SSD save pins everything and stops reading.
+  // Do not add more than 70% of entries to a write batch. If SSD save is slower
+  // than storage read, we must not have a situation where SSD save pins
+  // everything and stops reading.
   const int32_t limit = (entries_.size() * 100) / 70;
   VELOX_CHECK(cache_->ssdCache()->writeInProgress());
   for (auto& entry : entries_) {
