@@ -44,7 +44,7 @@ ExternalProject_Add(
     ${STEMMER_PREFIX}/src/libstemmer/${CMAKE_STATIC_LIBRARY_PREFIX}stemmer${CMAKE_STATIC_LIBRARY_SUFFIX}
 )
 
-add_library(stemmer STATIC IMPORTED)
+add_library(stemmer STATIC IMPORTED GLOBAL)
 add_library(stemmer::stemmer ALIAS stemmer)
 file(MAKE_DIRECTORY ${STEMMER_INCLUDE_PATH})
 set_target_properties(
