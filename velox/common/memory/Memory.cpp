@@ -65,6 +65,7 @@ std::unique_ptr<MemoryArbitrator> createArbitrator(
        .memoryPoolReservedCapacity = options.memoryPoolReservedCapacity,
        .memoryPoolTransferCapacity = options.memoryPoolTransferCapacity,
        .memoryReclaimWaitMs = options.memoryReclaimWaitMs,
+       .globalArbitrationEnabled = options.globalArbitrationEnabled,
        .arbitrationStateCheckCb = options.arbitrationStateCheckCb,
        .checkUsageLeak = options.checkUsageLeak});
 }

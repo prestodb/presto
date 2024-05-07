@@ -76,11 +76,20 @@ constexpr folly::StringPiece kMetricArbitratorLocalArbitrationCount{
 constexpr folly::StringPiece kMetricArbitratorGlobalArbitrationCount{
     "velox.arbitrator_global_arbitration_count"};
 
-constexpr folly::StringPiece kMetricArbitratorQueueTimeMs{
-    "velox.arbitrator_queue_time_ms"};
+constexpr folly::StringPiece kMetricArbitratorSlowGlobalArbitrationCount{
+    "velox.arbitrator_slow_global_arbitration_count"};
+
+constexpr folly::StringPiece kMetricArbitratorAbortedCount{
+    "velox.arbitrator_aborted_count"};
+
+constexpr folly::StringPiece kMetricArbitratorFailuresCount{
+    "velox.arbitrator_failures_count"};
 
 constexpr folly::StringPiece kMetricArbitratorArbitrationTimeMs{
     "velox.arbitrator_arbitration_time_ms"};
+
+constexpr folly::StringPiece kMetricArbitratorWaitTimeMs{
+    "velox.arbitrator_wait_time_ms"};
 
 constexpr folly::StringPiece kMetricArbitratorFreeCapacityBytes{
     "velox.arbitrator_free_capacity_bytes"};
@@ -122,10 +131,4 @@ constexpr folly::StringPiece kMetricFileWriterEarlyFlushedRawBytes{
 
 constexpr folly::StringPiece kMetricArbitratorRequestsCount{
     "velox.arbitrator_requests_count"};
-
-constexpr folly::StringPiece kMetricArbitratorAbortedCount{
-    "velox.arbitrator_aborted_count"};
-
-constexpr folly::StringPiece kMetricArbitratorFailuresCount{
-    "velox.arbitrator_failures_count"};
 } // namespace facebook::velox

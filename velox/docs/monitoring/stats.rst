@@ -52,6 +52,15 @@ These stats are reported by all operators.
      - The number of times a request for more memory hit the query memory
        limit and initiated a local arbitration attempt where memory is
        reclaimed from the requestor itself.
+   * - localArbitrationQueueWallNanos
+     -
+     - The time of an operator waiting in local arbitration queue.
+   * - localArbitrationLockWaitWallNanos
+     -
+     - The time of an operator waiting to acquire the local arbitration lock.
+   * - globalArbitrationLockWaitWallNanos
+     -
+     - The time of an operator waiting to acquire the global arbitration lock.
 
 HashBuild, HashAggregation
 --------------------------

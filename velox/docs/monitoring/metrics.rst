@@ -129,6 +129,9 @@ Memory Management
        initiate the memory arbitration request. This indicates the velox runtime doesn't have
        enough memory to run all the queries at their peak memory usage. We have to trigger
        spilling to let them run through completion.
+   * - arbitrator_slow_global_arbitration_count
+     - Count
+     - The number of global arbitration that reclaims used memory by slow disk spilling.
    * - arbitrator_aborted_count
      - Count
      - The number of times a query level memory pool is aborted as a result of
@@ -143,9 +146,10 @@ Memory Management
        the requested amount of memory.
    * - arbitrator_queue_time_ms
      - Histogram
-     - The distribution of the amount of time an arbitration request stays queued
-       in range of [0, 600s] with 20 buckets. It is configured to report the
-       latency at P50, P90, P99, and P100 percentiles.
+     - The distribution of the amount of time an arbitration request stays in
+       arbitration queues and waits the arbitration r/w locks in range of [0, 600s]
+       with 20 buckets. It is configured to report the latency at P50, P90, P99,
+       and P100 percentiles.
    * - arbitrator_arbitration_time_ms
      - Histogram
      - The distribution of the amount of time it take to complete a single

@@ -58,6 +58,7 @@ std::unique_ptr<memory::MemoryManager> createMemoryManager(
   options.memoryPoolTransferCapacity = memoryPoolTransferCapacity;
   options.memoryPoolReservedCapacity = 0;
   options.memoryReclaimWaitMs = maxReclaimWaitMs;
+  options.globalArbitrationEnabled = true;
   options.checkUsageLeak = true;
   options.arbitrationStateCheckCb = memoryArbitrationStateCheck;
   return std::make_unique<memory::MemoryManager>(options);

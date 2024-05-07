@@ -94,6 +94,7 @@ void OperatorTestBase::setupMemory(
   options.memoryPoolReservedCapacity = memoryPoolReservedCapacity;
   options.arbitratorKind = "SHARED";
   options.checkUsageLeak = true;
+  options.globalArbitrationEnabled = true;
   options.arbitrationStateCheckCb = memoryArbitrationStateCheck;
   memory::MemoryManager::testingSetInstance(options);
   asyncDataCache_ =

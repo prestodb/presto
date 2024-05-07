@@ -832,8 +832,8 @@ bool MemoryPoolImpl::maybeIncrementReservation(uint64_t size) {
 
     // NOTE: we allow memory pool to overuse its memory during the memory
     // arbitration process. The memory arbitration process itself needs to
-    // ensure the the memory pool usage of the memory pool is within the
-    // capacity limit after the arbitration operation completes.
+    // ensure the memory pool usage of the memory pool is within the capacity
+    // limit after the arbitration operation completes.
     if (FOLLY_UNLIKELY(
             (reservationBytes_ + size > capacity_) &&
             !underMemoryArbitration())) {
@@ -954,7 +954,11 @@ uint64_t MemoryPoolImpl::freeBytes() const {
   if (capacity_ == kMaxMemory) {
     return 0;
   }
-  VELOX_CHECK_GE(capacity_, reservationBytes_);
+  if (capacity_ < reservationBytes_) {
+    // NOTE: the memory reservation could be temporarily larger than its
+    // capacity if this memory pool is under memory arbitration processing.
+    return 0;
+  }
   return capacity_ - reservationBytes_;
 }
 

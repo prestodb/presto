@@ -177,6 +177,10 @@ struct MemoryManagerOptions {
   /// zero, then there is no timeout. The default is 5 mins.
   uint64_t memoryReclaimWaitMs{300'000};
 
+  /// If true, it allows memory arbitrator to reclaim used memory cross query
+  /// memory pools.
+  bool globalArbitrationEnabled{false};
+
   /// Provided by the query system to validate the state after a memory pool
   /// enters arbitration if not null. For instance, Prestissimo provides
   /// callback to check if a memory arbitration request is issued from a driver

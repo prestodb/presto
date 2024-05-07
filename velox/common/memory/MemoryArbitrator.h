@@ -75,6 +75,10 @@ class MemoryArbitrator {
     /// timeout.
     uint64_t memoryReclaimWaitMs{0};
 
+    /// If true, it allows memory arbitrator to reclaim used memory cross query
+    /// memory pools.
+    bool globalArbitrationEnabled{false};
+
     /// Provided by the query system to validate the state after a memory pool
     /// enters arbitration if not null. For instance, Prestissimo provides
     /// callback to check if a memory arbitration request is issued from a
@@ -253,6 +257,7 @@ class MemoryArbitrator {
         memoryPoolReservedCapacity_(config.memoryPoolReservedCapacity),
         memoryPoolTransferCapacity_(config.memoryPoolTransferCapacity),
         memoryReclaimWaitMs_(config.memoryReclaimWaitMs),
+        globalArbitrationEnabled_(config.globalArbitrationEnabled),
         arbitrationStateCheckCb_(config.arbitrationStateCheckCb),
         checkUsageLeak_(config.checkUsageLeak) {
     VELOX_CHECK_LE(reservedCapacity_, capacity_);
@@ -263,6 +268,7 @@ class MemoryArbitrator {
   const uint64_t memoryPoolReservedCapacity_;
   const uint64_t memoryPoolTransferCapacity_;
   const uint64_t memoryReclaimWaitMs_;
+  const bool globalArbitrationEnabled_;
   const MemoryArbitrationStateCheckCB arbitrationStateCheckCb_;
   const bool checkUsageLeak_;
 };

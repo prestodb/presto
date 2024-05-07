@@ -330,12 +330,11 @@ MemoryArbitrator::Stats::Stats(
 
 std::string MemoryArbitrator::Stats::toString() const {
   return fmt::format(
-      "STATS[numRequests {} numSucceeded {} numAborted {} numFailures {} "
+      "STATS[numRequests {} numAborted {} numFailures {} "
       "numNonReclaimableAttempts {} numReserves {} numReleases {} "
       "queueTime {} arbitrationTime {} reclaimTime {} shrunkMemory {} "
       "reclaimedMemory {} maxCapacity {} freeCapacity {} freeReservedCapacity {}]",
       numRequests,
-      numSucceeded,
       numAborted,
       numFailures,
       numNonReclaimableAttempts,

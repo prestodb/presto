@@ -117,11 +117,18 @@ void registerVeloxMetrics() {
       kMetricArbitratorGlobalArbitrationCount,
       facebook::velox::StatType::COUNT);
 
-  // The distribution of the amount of time an arbitration request stays queued
-  // in range of [0, 600s] with 20 buckets. It is configured to report the
-  // latency at P50, P90, P99, and P100 percentiles.
+  // The number of global arbitration that reclaims used memory by slow disk
+  // spilling.
+  DEFINE_METRIC(
+      kMetricArbitratorSlowGlobalArbitrationCount,
+      facebook::velox::StatType::COUNT);
+
+  // The distribution of the amount of time an arbitration operation stays in
+  // arbitration queues and waits the arbitration r/w locks in range of [0,
+  // 600s] with 20 buckets. It is configured to report the latency at P50, P90,
+  // P99, and P100 percentiles.
   DEFINE_HISTOGRAM_METRIC(
-      kMetricArbitratorQueueTimeMs, 30'000, 0, 600'000, 50, 90, 99, 100);
+      kMetricArbitratorWaitTimeMs, 30'000, 0, 600'000, 50, 90, 99, 100);
 
   // The distribution of the amount of time it take to complete a single
   // arbitration request stays queued in range of [0, 600s] with 20
