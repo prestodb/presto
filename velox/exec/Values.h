@@ -25,6 +25,8 @@ class Values : public SourceOperator {
       DriverCtx* driverCtx,
       std::shared_ptr<const core::ValuesNode> values);
 
+  void initialize() override;
+
   RowVectorPtr getOutput() override;
 
   BlockingReason isBlocked(ContinueFuture* /* unused */) override {
@@ -55,6 +57,7 @@ class Values : public SourceOperator {
   }
 
  private:
+  std::shared_ptr<const core::ValuesNode> valueNodes_;
   std::vector<RowVectorPtr> values_;
   int32_t current_ = 0;
   size_t roundsLeft_ = 1;

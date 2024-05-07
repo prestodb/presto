@@ -30,13 +30,19 @@ Values::Values(
           operatorId,
           values->id(),
           "Values"),
-      roundsLeft_(values->repeatTimes()) {
+      valueNodes_(std::move(values)),
+      roundsLeft_(valueNodes_->repeatTimes()) {}
+
+void Values::initialize() {
+  Operator::initialize();
+  VELOX_CHECK_NOT_NULL(valueNodes_);
+  VELOX_CHECK(values_.empty());
   // Drop empty vectors. Operator::getOutput is expected to return nullptr or a
   // non-empty vector.
-  values_.reserve(values->values().size());
-  for (auto& vector : values->values()) {
+  values_.reserve(valueNodes_->values().size());
+  for (auto& vector : valueNodes_->values()) {
     if (vector->size() > 0) {
-      if (values->isParallelizable()) {
+      if (valueNodes_->isParallelizable()) {
         // If this is parallelizable, copy the values to prevent Vectors from
         // being shared across threads.  Note that the contract in ValuesNode is
         // that this should only be enabled for testing.
@@ -47,6 +53,8 @@ Values::Values(
       }
     }
   }
+  // Drop the reference on the value nodes.
+  valueNodes_ = nullptr;
 }
 
 RowVectorPtr Values::getOutput() {
