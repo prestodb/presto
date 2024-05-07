@@ -160,7 +160,7 @@ class DwrfRowReader : public StrideIndexProvider,
 
   dwio::common::ColumnReaderStatistics columnReaderStatistics_;
 
-  bool atEnd_{false};
+  std::optional<int64_t> nextRowNumber_;
 
   std::unique_ptr<dwio::common::UnitLoader> unitLoader_;
   DwrfUnit* currentUnit_;

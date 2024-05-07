@@ -66,15 +66,6 @@ class SelectiveStringDirectColumnReader
   template <typename TVisitor>
   void readWithVisitor(RowSet rows, TVisitor visitor);
 
-  template <typename TFilter, bool isDense, typename ExtractValues>
-  void readHelper(common::Filter* filter, RowSet rows, ExtractValues values);
-
-  template <bool isDense, typename ExtractValues>
-  void processFilter(
-      common::Filter* filter,
-      RowSet rows,
-      ExtractValues extractValues);
-
   void extractCrossBuffers(
       const int32_t* lengths,
       const int32_t* starts,

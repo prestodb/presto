@@ -422,9 +422,7 @@ void SelectiveStringDirectColumnReader::readWithVisitor(
   int32_t current = visitor.start();
   constexpr bool isExtract =
       std::is_same_v<typename TVisitor::FilterType, common::AlwaysTrue> &&
-      std::is_same_v<
-          typename TVisitor::Extract,
-          dwio::common::ExtractToReader<SelectiveStringDirectColumnReader>>;
+      std::is_same_v<typename TVisitor::Extract, dwio::common::ExtractToReader>;
   auto nulls = nullsInReadRange_ ? nullsInReadRange_->as<uint64_t>() : nullptr;
 
   if (process::hasAvx2() && isExtract) {
@@ -465,73 +463,11 @@ void SelectiveStringDirectColumnReader::readWithVisitor(
   }
 }
 
-template <typename TFilter, bool isDense, typename ExtractValues>
-void SelectiveStringDirectColumnReader::readHelper(
-    common::Filter* filter,
-    RowSet rows,
-    ExtractValues extractValues) {
-  readWithVisitor(
-      rows,
-      dwio::common::
-          ColumnVisitor<folly::StringPiece, TFilter, ExtractValues, isDense>(
-              *reinterpret_cast<TFilter*>(filter), this, rows, extractValues));
-}
-
-template <bool isDense, typename ExtractValues>
-void SelectiveStringDirectColumnReader::processFilter(
-    common::Filter* filter,
-    RowSet rows,
-    ExtractValues extractValues) {
-  if (filter == nullptr) {
-    readHelper<common::AlwaysTrue, isDense>(
-        &dwio::common::alwaysTrue(), rows, extractValues);
-    return;
-  }
-
-  switch (filter->kind()) {
-    case common::FilterKind::kAlwaysTrue:
-      readHelper<common::AlwaysTrue, isDense>(filter, rows, extractValues);
-      break;
-    case common::FilterKind::kIsNull:
-      filterNulls<StringView>(
-          rows,
-          true,
-          !std::is_same_v<decltype(extractValues), dwio::common::DropValues>);
-      break;
-    case common::FilterKind::kIsNotNull:
-      if (std::is_same_v<decltype(extractValues), dwio::common::DropValues>) {
-        filterNulls<StringView>(rows, false, false);
-      } else {
-        readHelper<common::IsNotNull, isDense>(filter, rows, extractValues);
-      }
-      break;
-    case common::FilterKind::kBytesRange:
-      readHelper<common::BytesRange, isDense>(filter, rows, extractValues);
-      break;
-    case common::FilterKind::kNegatedBytesRange:
-      readHelper<common::NegatedBytesRange, isDense>(
-          filter, rows, extractValues);
-      break;
-    case common::FilterKind::kBytesValues:
-      readHelper<common::BytesValues, isDense>(filter, rows, extractValues);
-      break;
-    case common::FilterKind::kNegatedBytesValues:
-      readHelper<common::NegatedBytesValues, isDense>(
-          filter, rows, extractValues);
-      break;
-    default:
-      readHelper<common::Filter, isDense>(filter, rows, extractValues);
-      break;
-  }
-}
-
 void SelectiveStringDirectColumnReader::read(
     vector_size_t offset,
     RowSet rows,
     const uint64_t* incomingNulls) {
   prepareRead<folly::StringPiece>(offset, rows, incomingNulls);
-  bool isDense = rows.back() == rows.size() - 1;
-
   auto numRows = rows.back() + 1;
   auto numNulls = nullsInReadRange_
       ? BaseVector::countNulls(nullsInReadRange_, 0, numRows)
@@ -542,38 +478,8 @@ void SelectiveStringDirectColumnReader::read(
       lengths_->asMutable<int32_t>(), numRows - numNulls);
   rawLengths_ = lengths_->as<uint32_t>();
   lengthIndex_ = 0;
-  if (scanSpec_->keepValues()) {
-    if (scanSpec_->valueHook()) {
-      if (isDense) {
-        readHelper<common::AlwaysTrue, true>(
-            &dwio::common::alwaysTrue(),
-            rows,
-            dwio::common::ExtractToGenericHook(scanSpec_->valueHook()));
-      } else {
-        readHelper<common::AlwaysTrue, false>(
-            &dwio::common::alwaysTrue(),
-            rows,
-            dwio::common::ExtractToGenericHook(scanSpec_->valueHook()));
-      }
-    } else {
-      if (isDense) {
-        processFilter<true>(
-            scanSpec_->filter(), rows, dwio::common::ExtractToReader(this));
-      } else {
-        processFilter<false>(
-            scanSpec_->filter(), rows, dwio::common::ExtractToReader(this));
-      }
-    }
-  } else {
-    if (isDense) {
-      processFilter<true>(
-          scanSpec_->filter(), rows, dwio::common::DropValues());
-    } else {
-      processFilter<false>(
-          scanSpec_->filter(), rows, dwio::common::DropValues());
-    }
-  }
-
+  dwio::common::StringColumnReadWithVisitorHelper<true>(
+      *this, rows)([&](auto visitor) { readWithVisitor(rows, visitor); });
   readOffset_ += numRows;
 }
 

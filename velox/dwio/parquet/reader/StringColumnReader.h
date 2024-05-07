@@ -49,27 +49,6 @@ class StringColumnReader : public dwio::common::SelectiveColumnReader {
   void getValues(RowSet rows, VectorPtr* result) override;
 
   void dedictionarize() override;
-
- private:
-  template <bool hasNulls>
-  void skipInDecode(int32_t numValues, int32_t current, const uint64_t* nulls);
-
-  folly::StringPiece readValue(int32_t length);
-
-  template <bool hasNulls, typename Visitor>
-  void decode(const uint64_t* nulls, Visitor visitor);
-
-  template <typename TVisitor>
-  void readWithVisitor(RowSet rows, TVisitor visitor);
-
-  template <typename TFilter, bool isDense, typename ExtractValues>
-  void readHelper(common::Filter* filter, RowSet rows, ExtractValues values);
-
-  template <bool isDense, typename ExtractValues>
-  void processFilter(
-      common::Filter* filter,
-      RowSet rows,
-      ExtractValues extractValues);
 };
 
 } // namespace facebook::velox::parquet

@@ -34,7 +34,7 @@ class FormatData {
 
   template <typename T>
   T& as() {
-    return *reinterpret_cast<T*>(this);
+    return *static_cast<T*>(this);
   }
 
   /// Reads nulls if the format has nulls separate from the encoded

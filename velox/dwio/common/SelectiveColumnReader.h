@@ -294,9 +294,8 @@ class SelectiveColumnReader {
   template <typename T>
   inline void addNull() {
     VELOX_DCHECK_NE(valueSize_, kNoValueSize);
-    VELOX_DCHECK_LE(
-        rawResultNulls_ && rawValues_ && (numValues_ + 1) * valueSize_,
-        values_->capacity());
+    VELOX_DCHECK(rawResultNulls_ && rawValues_);
+    VELOX_DCHECK_LE((numValues_ + 1) * valueSize_, values_->capacity());
 
     anyNulls_ = true;
     bits::setNull(rawResultNulls_, numValues_);
@@ -441,12 +440,12 @@ class SelectiveColumnReader {
     isFlatMapValue_ = value;
   }
 
- protected:
   // Filters 'rows' according to 'is_null'. Only applies to cases where
   // scanSpec_->readsNullsOnly() is true.
   template <typename T>
   void filterNulls(RowSet rows, bool isNull, bool extractValues);
 
+ protected:
   template <typename T>
   void
   prepareRead(vector_size_t offset, RowSet rows, const uint64_t* incomingNulls);
@@ -669,6 +668,8 @@ inline void SelectiveColumnReader::addValue(const folly::StringPiece value) {
   }
   addStringValue(value);
 }
+
+velox::common::AlwaysTrue& alwaysTrue();
 
 } // namespace facebook::velox::dwio::common
 

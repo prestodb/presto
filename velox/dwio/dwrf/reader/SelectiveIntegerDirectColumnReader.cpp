@@ -34,7 +34,7 @@ void SelectiveIntegerDirectColumnReader::read(
       offset,
       rows,
       incomingNulls);
-  readCommon<SelectiveIntegerDirectColumnReader>(rows);
+  readCommon<SelectiveIntegerDirectColumnReader, true>(rows);
   readOffset_ += rows.back() + 1;
 }
 

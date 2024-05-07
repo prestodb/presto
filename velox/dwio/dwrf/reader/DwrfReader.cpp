@@ -316,6 +316,7 @@ uint64_t DwrfRowReader::seekToRow(uint64_t rowNumber) {
   if (isEmptyFile()) {
     return 0;
   }
+  nextRowNumber_.reset();
 
   // If we are reading only a portion of the file
   // (bounded by firstStripe_ and stripeCeiling_),
@@ -586,6 +587,9 @@ void DwrfRowReader::readWithRowNumber(
 }
 
 int64_t DwrfRowReader::nextRowNumber() {
+  if (nextRowNumber_.has_value()) {
+    return *nextRowNumber_;
+  }
   auto strideSize = getReader().getFooter().rowIndexStride();
   while (currentStripe_ < stripeCeiling_) {
     if (currentRowInStripe_ == 0) {
@@ -604,20 +608,21 @@ int64_t DwrfRowReader::nextRowNumber() {
     }
     checkSkipStrides(strideSize);
     if (currentRowInStripe_ < rowsInCurrentStripe_) {
-      return firstRowOfStripe_[currentStripe_] + currentRowInStripe_;
+      nextRowNumber_ = firstRowOfStripe_[currentStripe_] + currentRowInStripe_;
+      return *nextRowNumber_;
     }
   advanceToNextStripe:
     ++currentStripe_;
     currentRowInStripe_ = 0;
     currentUnit_ = nullptr;
   }
-  atEnd_ = true;
+  nextRowNumber_ = kAtEnd;
   return kAtEnd;
 }
 
 int64_t DwrfRowReader::nextReadSize(uint64_t size) {
   VELOX_DCHECK_GT(size, 0);
-  if (atEnd_) {
+  if (nextRowNumber() == kAtEnd) {
     return kAtEnd;
   }
   auto rowsToRead = std::min(size, rowsInCurrentStripe_ - currentRowInStripe_);
@@ -646,6 +651,7 @@ uint64_t DwrfRowReader::next(
     return 0;
   }
   auto rowsToRead = nextReadSize(size);
+  nextRowNumber_.reset();
   previousRow_ = nextRow;
   // Record strideIndex for use by the columnReader_ which may delay actual
   // reading of the data.

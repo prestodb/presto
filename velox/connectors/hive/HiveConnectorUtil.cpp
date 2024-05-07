@@ -568,7 +568,10 @@ void configureRowReaderOptions(
   } else {
     cs = std::make_shared<dwio::common::ColumnSelector>(rowType, columnNames);
   }
-  rowReaderOptions.select(cs).range(hiveSplit->start, hiveSplit->length);
+  rowReaderOptions.select(cs);
+  if (hiveSplit) {
+    rowReaderOptions.range(hiveSplit->start, hiveSplit->length);
+  }
 }
 
 namespace {

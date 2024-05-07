@@ -75,7 +75,7 @@ class IntegerColumnReader : public dwio::common::SelectiveIntegerColumnReader {
         offset,
         rows,
         nullptr);
-    readCommon<IntegerColumnReader>(rows);
+    readCommon<IntegerColumnReader, true>(rows);
     readOffset_ += rows.back() + 1;
   }
 

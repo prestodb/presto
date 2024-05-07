@@ -73,6 +73,8 @@ class TypeWithId : public velox::Tree<std::shared_ptr<const TypeWithId>> {
     return children_;
   }
 
+  std::string fullName() const;
+
  private:
   static std::unique_ptr<TypeWithId> create(
       const std::shared_ptr<const velox::Type>& type,

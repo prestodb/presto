@@ -39,7 +39,11 @@ class SelectiveByteRleColumnReader : public SelectiveColumnReader {
 
   void getValues(RowSet rows, VectorPtr* result) override;
 
-  template <typename Reader, bool isDense, typename ExtractValues>
+  template <
+      typename Reader,
+      bool isDense,
+      bool kEncodingHasNulls,
+      typename ExtractValues>
   void processFilter(
       velox::common::Filter* filter,
       ExtractValues extractValues,
@@ -58,7 +62,7 @@ class SelectiveByteRleColumnReader : public SelectiveColumnReader {
       RowSet rows,
       ExtractValues extractValues);
 
-  template <typename Reader>
+  template <typename Reader, bool kEncodingHasNulls>
   void
   readCommon(vector_size_t offset, RowSet rows, const uint64_t* incomingNulls);
 };
@@ -78,7 +82,11 @@ void SelectiveByteRleColumnReader::readHelper(
           *reinterpret_cast<TFilter*>(filter), this, rows, extractValues));
 }
 
-template <typename Reader, bool isDense, typename ExtractValues>
+template <
+    typename Reader,
+    bool isDense,
+    bool kEncodingHasNulls,
+    typename ExtractValues>
 void SelectiveByteRleColumnReader::processFilter(
     velox::common::Filter* filter,
     ExtractValues extractValues,
@@ -90,13 +98,20 @@ void SelectiveByteRleColumnReader::processFilter(
           filter, rows, extractValues);
       break;
     case FilterKind::kIsNull:
-      filterNulls<int8_t>(
-          rows,
-          true,
-          !std::is_same_v<decltype(extractValues), dwio::common::DropValues>);
+      if constexpr (kEncodingHasNulls) {
+        filterNulls<int8_t>(
+            rows,
+            true,
+            !std::is_same_v<decltype(extractValues), dwio::common::DropValues>);
+      } else {
+        readHelper<Reader, velox::common::IsNull, isDense>(
+            filter, rows, extractValues);
+      }
       break;
     case FilterKind::kIsNotNull:
-      if (std::is_same_v<decltype(extractValues), dwio::common::DropValues>) {
+      if constexpr (
+          kEncodingHasNulls &&
+          std::is_same_v<decltype(extractValues), dwio::common::DropValues>) {
         filterNulls<int8_t>(rows, false, false);
       } else {
         readHelper<Reader, velox::common::IsNotNull, isDense>(
@@ -148,7 +163,7 @@ void SelectiveByteRleColumnReader::processValueHook(
   }
 }
 
-template <typename Reader>
+template <typename Reader, bool kEncodingHasNulls>
 void SelectiveByteRleColumnReader::readCommon(
     vector_size_t offset,
     RowSet rows,
@@ -167,17 +182,19 @@ void SelectiveByteRleColumnReader::readCommon(
       return;
     }
     if (isDense) {
-      processFilter<Reader, true>(
+      processFilter<Reader, true, kEncodingHasNulls>(
           filter, dwio::common::ExtractToReader(this), rows);
     } else {
-      processFilter<Reader, false>(
+      processFilter<Reader, false, kEncodingHasNulls>(
           filter, dwio::common::ExtractToReader(this), rows);
     }
   } else {
     if (isDense) {
-      processFilter<Reader, true>(filter, dwio::common::DropValues(), rows);
+      processFilter<Reader, true, kEncodingHasNulls>(
+          filter, dwio::common::DropValues(), rows);
     } else {
-      processFilter<Reader, false>(filter, dwio::common::DropValues(), rows);
+      processFilter<Reader, false, kEncodingHasNulls>(
+          filter, dwio::common::DropValues(), rows);
     }
   }
 }

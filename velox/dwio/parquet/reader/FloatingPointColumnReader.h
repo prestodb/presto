@@ -48,7 +48,7 @@ class FloatingPointColumnReader
   void read(vector_size_t offset, RowSet rows, const uint64_t* incomingNulls)
       override {
     using T = FloatingPointColumnReader<TData, TRequested>;
-    this->template readCommon<T>(offset, rows, incomingNulls);
+    this->template readCommon<T, true>(offset, rows, incomingNulls);
     this->readOffset_ += rows.back() + 1;
   }
 

@@ -31,104 +31,15 @@ uint64_t StringColumnReader::skip(uint64_t numValues) {
   return numValues;
 }
 
-template <typename TFilter, bool isDense, typename ExtractValues>
-void StringColumnReader::readHelper(
-    common::Filter* filter,
-    RowSet rows,
-    ExtractValues extractValues) {
-  formatData_->as<ParquetData>().readWithVisitor(
-      dwio::common::
-          ColumnVisitor<folly::StringPiece, TFilter, ExtractValues, isDense>(
-              *reinterpret_cast<TFilter*>(filter), this, rows, extractValues));
-}
-
-template <bool isDense, typename ExtractValues>
-void StringColumnReader::processFilter(
-    common::Filter* filter,
-    RowSet rows,
-    ExtractValues extractValues) {
-  if (filter == nullptr) {
-    readHelper<common::AlwaysTrue, isDense>(
-        &dwio::common::alwaysTrue(), rows, extractValues);
-    return;
-  }
-
-  switch (filter->kind()) {
-    case common::FilterKind::kAlwaysTrue:
-      readHelper<common::AlwaysTrue, isDense>(filter, rows, extractValues);
-      break;
-    case common::FilterKind::kIsNull:
-      filterNulls<StringView>(
-          rows,
-          true,
-          !std::is_same<decltype(extractValues), dwio::common::DropValues>::
-              value);
-      break;
-    case common::FilterKind::kIsNotNull:
-      if (std::is_same<decltype(extractValues), dwio::common::DropValues>::
-              value) {
-        filterNulls<StringView>(rows, false, false);
-      } else {
-        readHelper<common::IsNotNull, isDense>(filter, rows, extractValues);
-      }
-      break;
-    case common::FilterKind::kBytesRange:
-      readHelper<common::BytesRange, isDense>(filter, rows, extractValues);
-      break;
-    case common::FilterKind::kNegatedBytesRange:
-      readHelper<common::NegatedBytesRange, isDense>(
-          filter, rows, extractValues);
-      break;
-    case common::FilterKind::kBytesValues:
-      readHelper<common::BytesValues, isDense>(filter, rows, extractValues);
-      break;
-    case common::FilterKind::kNegatedBytesValues:
-      readHelper<common::NegatedBytesValues, isDense>(
-          filter, rows, extractValues);
-      break;
-    default:
-      readHelper<common::Filter, isDense>(filter, rows, extractValues);
-      break;
-  }
-}
-
 void StringColumnReader::read(
     vector_size_t offset,
     RowSet rows,
     const uint64_t* incomingNulls) {
   prepareRead<folly::StringPiece>(offset, rows, incomingNulls);
-  bool isDense = rows.back() == rows.size() - 1;
-  if (scanSpec_->keepValues()) {
-    if (scanSpec_->valueHook()) {
-      if (isDense) {
-        readHelper<common::AlwaysTrue, true>(
-            &dwio::common::alwaysTrue(),
-            rows,
-            dwio::common::ExtractToGenericHook(scanSpec_->valueHook()));
-      } else {
-        readHelper<common::AlwaysTrue, false>(
-            &dwio::common::alwaysTrue(),
-            rows,
-            dwio::common::ExtractToGenericHook(scanSpec_->valueHook()));
-      }
-      return;
-    }
-    if (isDense) {
-      processFilter<true>(
-          scanSpec_->filter(), rows, dwio::common::ExtractToReader(this));
-    } else {
-      processFilter<false>(
-          scanSpec_->filter(), rows, dwio::common::ExtractToReader(this));
-    }
-  } else {
-    if (isDense) {
-      processFilter<true>(
-          scanSpec_->filter(), rows, dwio::common::DropValues());
-    } else {
-      processFilter<false>(
-          scanSpec_->filter(), rows, dwio::common::DropValues());
-    }
-  }
+  dwio::common::StringColumnReadWithVisitorHelper<true>(
+      *this, rows)([&](auto visitor) {
+    formatData_->as<ParquetData>().readWithVisitor(visitor);
+  });
   readOffset_ += rows.back() + 1;
 }
 

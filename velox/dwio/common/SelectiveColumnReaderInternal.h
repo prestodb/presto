@@ -31,8 +31,6 @@
 
 namespace facebook::velox::dwio::common {
 
-velox::common::AlwaysTrue& alwaysTrue();
-
 class Timer {
  public:
   Timer() : startClocks_{folly::hardware_timestamp()} {}

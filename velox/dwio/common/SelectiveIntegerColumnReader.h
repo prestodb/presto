@@ -41,7 +41,11 @@ class SelectiveIntegerColumnReader : public SelectiveColumnReader {
 
  protected:
   // Switches based on filter type between different readHelper instantiations.
-  template <typename Reader, bool isDense, typename ExtractValues>
+  template <
+      typename Reader,
+      bool isDense,
+      bool kEncodingHasNulls,
+      typename ExtractValues>
   void processFilter(
       velox::common::Filter* filter,
       ExtractValues extractValues,
@@ -66,7 +70,7 @@ class SelectiveIntegerColumnReader : public SelectiveColumnReader {
   // The common part of integer reading. calls the appropriate
   // instantiation of processValueHook or processFilter based on
   // possible value hook, filter and denseness.
-  template <typename Reader>
+  template <typename Reader, bool kEncodingHasNulls>
   void readCommon(RowSet rows);
 };
 
@@ -113,7 +117,11 @@ void SelectiveIntegerColumnReader::readHelper(
   }
 }
 
-template <typename Reader, bool isDense, typename ExtractValues>
+template <
+    typename Reader,
+    bool isDense,
+    bool kEncodingHasNulls,
+    typename ExtractValues>
 void SelectiveIntegerColumnReader::processFilter(
     velox::common::Filter* filter,
     ExtractValues extractValues,
@@ -130,11 +138,18 @@ void SelectiveIntegerColumnReader::processFilter(
           filter, rows, extractValues);
       break;
     case velox::common::FilterKind::kIsNull:
-      filterNulls<int64_t>(
-          rows, true, !std::is_same_v<decltype(extractValues), DropValues>);
+      if constexpr (kEncodingHasNulls) {
+        filterNulls<int64_t>(
+            rows, true, !std::is_same_v<decltype(extractValues), DropValues>);
+      } else {
+        readHelper<Reader, velox::common::IsNull, isDense>(
+            filter, rows, extractValues);
+      }
       break;
     case velox::common::FilterKind::kIsNotNull:
-      if (std::is_same_v<decltype(extractValues), DropValues>) {
+      if constexpr (
+          kEncodingHasNulls &&
+          std::is_same_v<decltype(extractValues), DropValues>) {
         filterNulls<int64_t>(rows, false, false);
       } else {
         readHelper<Reader, velox::common::IsNotNull, isDense>(
@@ -211,7 +226,7 @@ void SelectiveIntegerColumnReader::processValueHook(
   }
 }
 
-template <typename Reader>
+template <typename Reader, bool kEncodingHasNulls>
 void SelectiveIntegerColumnReader::readCommon(RowSet rows) {
   bool isDense = rows.back() == rows.size() - 1;
   velox::common::Filter* filter =
@@ -225,16 +240,20 @@ void SelectiveIntegerColumnReader::readCommon(RowSet rows) {
       }
     } else {
       if (isDense) {
-        processFilter<Reader, true>(filter, ExtractToReader(this), rows);
+        processFilter<Reader, true, kEncodingHasNulls>(
+            filter, ExtractToReader(this), rows);
       } else {
-        processFilter<Reader, false>(filter, ExtractToReader(this), rows);
+        processFilter<Reader, false, kEncodingHasNulls>(
+            filter, ExtractToReader(this), rows);
       }
     }
   } else {
     if (isDense) {
-      processFilter<Reader, true>(filter, DropValues(), rows);
+      processFilter<Reader, true, kEncodingHasNulls>(
+          filter, DropValues(), rows);
     } else {
-      processFilter<Reader, false>(filter, DropValues(), rows);
+      processFilter<Reader, false, kEncodingHasNulls>(
+          filter, DropValues(), rows);
     }
   }
 }

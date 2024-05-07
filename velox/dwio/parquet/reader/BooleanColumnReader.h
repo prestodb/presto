@@ -49,7 +49,7 @@ class BooleanColumnReader : public dwio::common::SelectiveByteRleColumnReader {
 
   void read(vector_size_t offset, RowSet rows, const uint64_t* incomingNulls)
       override {
-    readCommon<BooleanColumnReader>(offset, rows, incomingNulls);
+    readCommon<BooleanColumnReader, true>(offset, rows, incomingNulls);
     readOffset_ += rows.back() + 1;
   }
 
