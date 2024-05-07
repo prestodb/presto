@@ -303,10 +303,10 @@ public class EffectivePredicateExtractor
                         nullConjuncts.add(specialForm(IS_NULL, BOOLEAN, variable));
                     }
 
-                    resultDisjunct.add(logicalRowExpressions.and(nullConjuncts.build()));
+                    resultDisjunct.add(LogicalRowExpressions.and(nullConjuncts.build()));
                 }
 
-                return logicalRowExpressions.or(resultDisjunct.build());
+                return LogicalRowExpressions.or(resultDisjunct.build());
             };
         }
 

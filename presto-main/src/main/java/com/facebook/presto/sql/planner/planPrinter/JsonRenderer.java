@@ -39,8 +39,8 @@ import static java.util.Objects.requireNonNull;
 public class JsonRenderer
         implements Renderer<String>
 {
-    private static JsonCodec<JsonRenderedNode> codec = JsonCodec.jsonCodec(JsonRenderedNode.class);
-    private static JsonCodec<Map<PlanFragmentId, JsonPlanFragment>> planMapCodec = JsonCodec.mapJsonCodec(PlanFragmentId.class, JsonPlanFragment.class);
+    private final JsonCodec<Map<PlanFragmentId, JsonPlanFragment>> planMapCodec;
+    private final JsonCodec<JsonRenderedNode> codec;
 
     public JsonRenderer(FunctionAndTypeManager functionAndTypeManager)
     {
