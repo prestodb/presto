@@ -112,6 +112,9 @@ void PartitionIdGenerator::computeValueIds(
 
   bool rehash = false;
   for (auto& hasher : hashers_) {
+    // NOTE: for boolean column type, computeValueIds() always returns true and
+    // this might cause problem in case of multiple boolean partition columns as
+    // we might not set the multiplier properly.
     auto partitionVector = input->childAt(hasher->channel())->loadedVector();
     hasher->decode(*partitionVector, allRows_);
     if (!hasher->computeValueIds(allRows_, valueIds)) {
@@ -119,12 +122,13 @@ void PartitionIdGenerator::computeValueIds(
     }
   }
 
-  if (!rehash) {
+  if (!rehash && hasMultiplierSet_) {
     return;
   }
 
   uint64_t multiplier = 1;
   for (auto& hasher : hashers_) {
+    hasMultiplierSet_ = true;
     multiplier = hasher->typeKind() == TypeKind::BOOLEAN
         ? hasher->enableValueRange(multiplier, 50)
         : hasher->enableValueIds(multiplier, 50);

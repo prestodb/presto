@@ -20,8 +20,7 @@
 
 namespace facebook::velox::connector::hive {
 /// Generate sequential integer IDs for distinct partition values, which could
-/// be used as vector index. Only single partition key is supported at the
-/// moment.
+/// be used as vector index.
 class PartitionIdGenerator {
  public:
   /// @param inputType RowType of the input.
@@ -83,6 +82,7 @@ class PartitionIdGenerator {
   const bool partitionPathAsLowerCase_;
 
   std::vector<std::unique_ptr<exec::VectorHasher>> hashers_;
+  bool hasMultiplierSet_ = false;
 
   // A mapping from value ID produced by VectorHashers to a partition ID.
   std::unordered_map<uint64_t, uint64_t> partitionIds_;

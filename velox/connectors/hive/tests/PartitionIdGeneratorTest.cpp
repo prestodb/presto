@@ -80,6 +80,33 @@ TEST_F(PartitionIdGeneratorTest, consecutiveIdsMultipleKeys) {
       numPartitions - 1);
 }
 
+TEST_F(PartitionIdGeneratorTest, multipleBoolKeys) {
+  PartitionIdGenerator idGenerator(
+      ROW({BOOLEAN(), BOOLEAN()}), {0, 1}, 100, pool(), true);
+
+  auto input = makeRowVector({
+      makeFlatVector<bool>(
+          1'000, [](vector_size_t row) { return row < 50; }, nullEvery(7)),
+      makeFlatVector<bool>(
+          1'000,
+          [](vector_size_t row) { return (row % 2) == 0; },
+          nullEvery(3)),
+  });
+
+  raw_vector<uint64_t> ids;
+  idGenerator.run(input, ids);
+
+  // distinctIds contains 9 ids.
+  const auto numPartitions = 9;
+
+  std::unordered_set<uint64_t> distinctIds(ids.begin(), ids.end());
+  EXPECT_EQ(distinctIds.size(), numPartitions);
+  EXPECT_EQ(*std::min_element(distinctIds.begin(), distinctIds.end()), 0);
+  EXPECT_EQ(
+      *std::max_element(distinctIds.begin(), distinctIds.end()),
+      numPartitions - 1);
+}
+
 TEST_F(PartitionIdGeneratorTest, stableIdsSingleKey) {
   PartitionIdGenerator idGenerator(ROW({BIGINT()}), {0}, 100, pool(), true);
 
