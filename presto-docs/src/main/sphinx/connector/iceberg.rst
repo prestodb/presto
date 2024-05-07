@@ -912,6 +912,40 @@ procedure on the catalog's ``system`` schema::
     ``unregister_table`` only when using the Hive catalog. This is similar to
     the behavior listed above for the ``DROP TABLE`` command.
 
+Expire snapshots
+^^^^^^^^^^^^^^^^
+
+Each DML (Data Manipulation Language) action in Iceberg produces a new snapshot while keeping the old data and metadata for snapshot isolation and time travel. Use `expire_snapshots` to remove older snapshots and their files.
+
+This procedure removes old snapshots and their corresponding files, and never removes files which are required by a non-expired snapshot.
+
+The following arguments are available:
+
+===================== ========== =============== =======================================================================
+Argument Name         required   type            Description
+===================== ========== =============== =======================================================================
+``schema``            ✔️         string          Schema of the table to update
+
+``table_name``        ✔️         string          Name of the table to update
+
+``older_than``                   timestamp       Timestamp before which snapshots will be removed (Default: 5 days ago)
+
+``retain_last``                  int             Number of ancestor snapshots to preserve regardless of older_than
+                                                 (defaults to 1)
+
+``snapshot_ids``                 array of long   Array of snapshot IDs to expire
+===================== ========== =============== =======================================================================
+
+Examples:
+
+* Remove snapshots older than a specific day and time, but retain the last 10 snapshots::
+
+    CALL iceberg.system.expire_snapshots('schema_name', 'table_name', TIMESTAMP '2023-08-31 00:00:00.000', 10);
+
+* Remove snapshots with snapshot ID 10001 and 10002 (note that these snapshot IDs should not be the current snapshot)::
+
+    CALL iceberg.system.expire_snapshots(schema => 'schema_name', table_name => 'table_name', snapshot_ids => ARRAY[10001, 10002]);
+
 Schema Evolution
 -----------------
 
