@@ -834,9 +834,9 @@ TEST_F(MockSharedArbitrationTest, shrinkPools) {
         {memoryPoolInitCapacity, true, 0, memoryPoolInitCapacity, false},
         {memoryPoolInitCapacity, false, 0, memoryPoolInitCapacity, false},
         {memoryPoolInitCapacity, true, 0, memoryPoolReserveCapacity, false}},
-       14 << 20,
-       14 << 20,
-       20 << 20,
+       12 << 20,
+       12 << 20,
+       18 << 20,
        reservedMemoryCapacity,
        true,
        false},
@@ -872,9 +872,9 @@ TEST_F(MockSharedArbitrationTest, shrinkPools) {
          memoryPoolReserveCapacity,
          memoryPoolReserveCapacity,
          false}},
-       14 << 20,
-       14 << 20,
-       20 << 20,
+       12 << 20,
+       12 << 20,
+       18 << 20,
        reservedMemoryCapacity,
        true,
        false},
@@ -2204,7 +2204,8 @@ TEST_F(MockSharedArbitrationTest, arbitrateWithMemoryReclaim) {
         kReservedMemoryCapacity - reservedPoolCapacity,
         16,
         0,
-        67108864);
+        58720256,
+        8388608);
 
     verifyReclaimerStats(
         arbitrateOp->reclaimer()->stats(), 0, 1, kMemoryPoolTransferCapacity);

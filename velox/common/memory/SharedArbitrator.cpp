@@ -181,9 +181,10 @@ void SharedArbitrator::getCandidateStats(
   op->candidates.clear();
   op->candidates.reserve(op->candidatePools.size());
   for (const auto& pool : op->candidatePools) {
+    const bool selfCandidate = op->requestRoot == pool.get();
     op->candidates.push_back(
-        {freeCapacityOnly ? 0 : reclaimableUsedCapacity(*pool),
-         reclaimableFreeCapacity(*pool),
+        {freeCapacityOnly ? 0 : reclaimableUsedCapacity(*pool, selfCandidate),
+         reclaimableFreeCapacity(*pool, selfCandidate),
          pool->currentBytes(),
          pool.get()});
   }
@@ -199,26 +200,31 @@ void SharedArbitrator::updateArbitrationFailureStats() {
   ++numFailures_;
 }
 
-int64_t SharedArbitrator::maxReclaimableCapacity(const MemoryPool& pool) const {
+int64_t SharedArbitrator::maxReclaimableCapacity(
+    const MemoryPool& pool,
+    bool isSelfReclaim) const {
   // Checks if a query memory pool has finished processing or not. If it has
   // finished, then we don't have to respect the memory pool reserved capacity
   // limit check.
   // NOTE: for query system like Prestissimo, it holds a finished query
   // state in minutes for query stats fetch request from the Presto coordinator.
-  if (pool.currentBytes() == 0 && pool.peakBytes() != 0) {
+  if (isSelfReclaim || (pool.currentBytes() == 0 && pool.peakBytes() != 0)) {
     return pool.capacity();
   }
   return std::max<int64_t>(0, pool.capacity() - memoryPoolReservedCapacity_);
 }
 
 int64_t SharedArbitrator::reclaimableFreeCapacity(
-    const MemoryPool& pool) const {
-  return std::min<int64_t>(pool.freeBytes(), maxReclaimableCapacity(pool));
+    const MemoryPool& pool,
+    bool isSelfReclaim) const {
+  return std::min<int64_t>(
+      pool.freeBytes(), maxReclaimableCapacity(pool, isSelfReclaim));
 }
 
 int64_t SharedArbitrator::reclaimableUsedCapacity(
-    const MemoryPool& pool) const {
-  const auto maxReclaimableBytes = maxReclaimableCapacity(pool);
+    const MemoryPool& pool,
+    bool isSelfReclaim) const {
+  const auto maxReclaimableBytes = maxReclaimableCapacity(pool, isSelfReclaim);
   const auto reclaimableBytes = pool.reclaimableBytes();
   return std::min<int64_t>(maxReclaimableBytes, reclaimableBytes.value_or(0));
 }
@@ -656,7 +662,8 @@ uint64_t SharedArbitrator::reclaimFreeMemoryFromCandidates(
     }
     const int64_t bytesToReclaim = std::min<int64_t>(
         reclaimTargetBytes - reclaimedBytes,
-        reclaimableFreeCapacity(*candidate.pool));
+        reclaimableFreeCapacity(
+            *candidate.pool, candidate.pool == op->requestRoot));
     if (bytesToReclaim <= 0) {
       continue;
     }
@@ -725,7 +732,8 @@ uint64_t SharedArbitrator::reclaim(
     uint64_t targetBytes,
     bool isLocalArbitration) noexcept {
   int64_t bytesToReclaim = std::min<uint64_t>(
-      std::max(targetBytes, memoryPoolTransferCapacity_), pool->capacity());
+      std::max(targetBytes, memoryPoolTransferCapacity_),
+      maxReclaimableCapacity(*pool, true));
   if (bytesToReclaim == 0) {
     return 0;
   }

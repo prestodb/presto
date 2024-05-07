@@ -318,16 +318,25 @@ class SharedArbitrator : public memory::MemoryArbitrator {
   Stats statsLocked() const;
 
   // Returns the max reclaimable capacity from 'pool' which includes both used
-  // and free capacities.
-  int64_t maxReclaimableCapacity(const MemoryPool& pool) const;
+  // and free capacities. If 'isSelfReclaim' true, we reclaim memory from the
+  // request pool itself so that we can bypass the reserved free capacity
+  // reclaim restriction.
+  int64_t maxReclaimableCapacity(const MemoryPool& pool, bool isSelfReclaim)
+      const;
 
   // Returns the free memory capacity that can be reclaimed from 'pool' by
-  // shrink.
-  int64_t reclaimableFreeCapacity(const MemoryPool& pool) const;
+  // shrink. If 'isSelfReclaim' true, we reclaim memory from the request pool
+  // itself so that we can bypass the reserved free capacity reclaim
+  // restriction.
+  int64_t reclaimableFreeCapacity(const MemoryPool& pool, bool isSelfReclaim)
+      const;
 
   // Returns the used memory capacity that can be reclaimed from 'pool' by
-  // disk spill.
-  int64_t reclaimableUsedCapacity(const MemoryPool& pool) const;
+  // disk spill. If 'isSelfReclaim' true, we reclaim memory from the request
+  // pool itself so that we can bypass the reserved free capacity reclaim
+  // restriction.
+  int64_t reclaimableUsedCapacity(const MemoryPool& pool, bool isSelfReclaim)
+      const;
 
   // Returns the minimal amount of memory capacity to grow for 'pool' to have
   // the reserved capacity as specified by 'memoryPoolReservedCapacity_'.
