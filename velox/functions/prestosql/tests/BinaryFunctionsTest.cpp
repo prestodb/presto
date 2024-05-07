@@ -44,8 +44,7 @@ class BinaryFunctionsTest : public FunctionBaseTest {};
 
 TEST_F(BinaryFunctionsTest, md5) {
   const auto md5 = [&](std::optional<std::string> arg) {
-    return evaluateOnce<std::string, std::string>(
-        "md5(c0)", {arg}, {VARBINARY()});
+    return evaluateOnce<std::string>("md5(c0)", VARBINARY(), arg);
   };
 
   EXPECT_EQ(hexToDec("533f6357e0210e67d91f651bc49e1278"), md5("hashme"));
@@ -57,8 +56,7 @@ TEST_F(BinaryFunctionsTest, md5) {
 
 TEST_F(BinaryFunctionsTest, sha1) {
   const auto sha1 = [&](std::optional<std::string> arg) {
-    return evaluateOnce<std::string, std::string>(
-        "sha1(c0)", {arg}, {VARBINARY()});
+    return evaluateOnce<std::string>("sha1(c0)", VARBINARY(), arg);
   };
 
   // The result values were obtained from Presto Java sha1 function.
@@ -87,8 +85,7 @@ TEST_F(BinaryFunctionsTest, sha1) {
 
 TEST_F(BinaryFunctionsTest, sha256) {
   const auto sha256 = [&](std::optional<std::string> arg) {
-    return evaluateOnce<std::string, std::string>(
-        "sha256(c0)", {arg}, {VARBINARY()});
+    return evaluateOnce<std::string>("sha256(c0)", VARBINARY(), arg);
   };
 
   EXPECT_EQ(
@@ -109,8 +106,7 @@ TEST_F(BinaryFunctionsTest, sha256) {
 
 TEST_F(BinaryFunctionsTest, sha512) {
   const auto sha512 = [&](std::optional<std::string> arg) {
-    return evaluateOnce<std::string, std::string>(
-        "sha512(c0)", {arg}, {VARBINARY()});
+    return evaluateOnce<std::string>("sha512(c0)", VARBINARY(), arg);
   };
 
   EXPECT_EQ(
@@ -134,8 +130,7 @@ TEST_F(BinaryFunctionsTest, sha512) {
 
 TEST_F(BinaryFunctionsTest, spookyHashV232) {
   const auto spookyHashV232 = [&](std::optional<std::string> arg) {
-    return evaluateOnce<std::string, std::string>(
-        "spooky_hash_v2_32(c0)", {arg}, {VARBINARY()});
+    return evaluateOnce<std::string>("spooky_hash_v2_32(c0)", VARBINARY(), arg);
   };
 
   // The result values were obtained from Presto Java spooky_hash_v2_32
@@ -154,8 +149,7 @@ TEST_F(BinaryFunctionsTest, spookyHashV232) {
 
 TEST_F(BinaryFunctionsTest, spookyHashV264) {
   const auto spookyHashV264 = [&](std::optional<std::string> arg) {
-    return evaluateOnce<std::string, std::string>(
-        "spooky_hash_v2_64(c0)", {arg}, {VARBINARY()});
+    return evaluateOnce<std::string>("spooky_hash_v2_64(c0)", VARBINARY(), arg);
   };
 
   // The result values were obtained from Presto Java spooky_hash_v2_64
@@ -177,8 +171,8 @@ TEST_F(BinaryFunctionsTest, spookyHashV264) {
 TEST_F(BinaryFunctionsTest, HmacSha1) {
   const auto hmacSha1 = [&](std::optional<std::string> arg,
                             std::optional<std::string> key) {
-    return evaluateOnce<std::string, std::string>(
-        "hmac_sha1(c0, c1)", {arg, key}, {VARBINARY(), VARBINARY()});
+    return evaluateOnce<std::string>(
+        "hmac_sha1(c0, c1)", {VARBINARY(), VARBINARY()}, arg, key);
   };
   // Use python hmac lib results as the expected value.
   // >>> import hmac
@@ -216,8 +210,8 @@ TEST_F(BinaryFunctionsTest, HmacSha1) {
 TEST_F(BinaryFunctionsTest, HmacSha256) {
   const auto hmacSha256 = [&](std::optional<std::string> arg,
                               std::optional<std::string> key) {
-    return evaluateOnce<std::string, std::string>(
-        "hmac_sha256(c0, c1)", {arg, key}, {VARBINARY(), VARBINARY()});
+    return evaluateOnce<std::string>(
+        "hmac_sha256(c0, c1)", {VARBINARY(), VARBINARY()}, arg, key);
   };
   // Use python hmac lib results as the expected value.
   // >>> import hmac
@@ -247,8 +241,8 @@ TEST_F(BinaryFunctionsTest, HmacSha256) {
 TEST_F(BinaryFunctionsTest, HmacSha512) {
   const auto hmacSha512 = [&](std::optional<std::string> arg,
                               std::optional<std::string> key) {
-    return evaluateOnce<std::string, std::string>(
-        "hmac_sha512(c0, c1)", {arg, key}, {VARBINARY(), VARBINARY()});
+    return evaluateOnce<std::string>(
+        "hmac_sha512(c0, c1)", {VARBINARY(), VARBINARY()}, arg, key);
   };
   // Use the same expected value from TestVarbinaryFunctions of presto java
   EXPECT_EQ(
@@ -265,8 +259,8 @@ TEST_F(BinaryFunctionsTest, HmacSha512) {
 TEST_F(BinaryFunctionsTest, HmacMd5) {
   const auto hmacMd5 = [&](std::optional<std::string> arg,
                            std::optional<std::string> key) {
-    return evaluateOnce<std::string, std::string>(
-        "hmac_md5(c0, c1)", {arg, key}, {VARBINARY(), VARBINARY()});
+    return evaluateOnce<std::string>(
+        "hmac_md5(c0, c1)", {VARBINARY(), VARBINARY()}, arg, key);
   };
   // The result values were obtained from Presto Java hmac_md5 function.
   EXPECT_EQ(
@@ -280,8 +274,7 @@ TEST_F(BinaryFunctionsTest, HmacMd5) {
 
 TEST_F(BinaryFunctionsTest, crc32) {
   const auto crc32 = [&](std::optional<std::string> value) {
-    return evaluateOnce<int64_t, std::string>(
-        "crc32(c0)", {value}, {VARBINARY()});
+    return evaluateOnce<int64_t>("crc32(c0)", VARBINARY(), value);
   };
   // use python3 zlib result as the expected values,
   // >>> import zlib
@@ -300,8 +293,7 @@ TEST_F(BinaryFunctionsTest, crc32) {
 
 TEST_F(BinaryFunctionsTest, xxhash64) {
   const auto xxhash64 = [&](std::optional<std::string> value) {
-    return evaluateOnce<std::string, std::string>(
-        "xxhash64(c0)", {value}, {VARBINARY()});
+    return evaluateOnce<std::string>("xxhash64(c0)", VARBINARY(), value);
   };
 
   const auto toVarbinary = [](const int64_t input) {
@@ -470,8 +462,7 @@ TEST_F(BinaryFunctionsTest, fromBase64Url) {
 
 TEST_F(BinaryFunctionsTest, fromBigEndian32) {
   const auto fromBigEndian32 = [&](const std::optional<std::string>& arg) {
-    return evaluateOnce<int32_t, std::string>(
-        "from_big_endian_32(c0)", {arg}, {VARBINARY()});
+    return evaluateOnce<int32_t>("from_big_endian_32(c0)", VARBINARY(), arg);
   };
 
   EXPECT_EQ(std::nullopt, fromBigEndian32(std::nullopt));
@@ -498,8 +489,7 @@ TEST_F(BinaryFunctionsTest, fromBigEndian32) {
 
 TEST_F(BinaryFunctionsTest, toBigEndian32) {
   const auto toBigEndian32 = [&](const std::optional<int32_t>& arg) {
-    return evaluateOnce<std::string, int32_t>(
-        "to_big_endian_32(c0)", {arg}, {INTEGER()});
+    return evaluateOnce<std::string>("to_big_endian_32(c0)", arg);
   };
 
   EXPECT_EQ(std::nullopt, toBigEndian32(std::nullopt));
@@ -519,8 +509,7 @@ TEST_F(BinaryFunctionsTest, toBigEndian32) {
 
 TEST_F(BinaryFunctionsTest, fromBigEndian64) {
   const auto fromBigEndian64 = [&](const std::optional<std::string>& arg) {
-    return evaluateOnce<int64_t, std::string>(
-        "from_big_endian_64(c0)", {arg}, {VARBINARY()});
+    return evaluateOnce<int64_t>("from_big_endian_64(c0)", VARBINARY(), arg);
   };
 
   EXPECT_EQ(std::nullopt, fromBigEndian64(std::nullopt));
@@ -560,8 +549,7 @@ TEST_F(BinaryFunctionsTest, fromBigEndian64) {
 
 TEST_F(BinaryFunctionsTest, toBigEndian64) {
   const auto toBigEndian64 = [&](const std::optional<int64_t>& arg) {
-    return evaluateOnce<std::string, int64_t>(
-        "to_big_endian_64(c0)", {arg}, {BIGINT()});
+    return evaluateOnce<std::string>("to_big_endian_64(c0)", arg);
   };
 
   EXPECT_EQ(std::nullopt, toBigEndian64(std::nullopt));
@@ -639,12 +627,11 @@ TEST_F(BinaryFunctionsTest, toIEEE754Bits64) {
 
 TEST_F(BinaryFunctionsTest, fromIEEE754Bits64) {
   const auto fromIEEE754Bits64 = [&](const std::optional<std::string>& arg) {
-    return evaluateOnce<double, std::string>(
-        "from_ieee754_64(c0)", {arg}, {VARBINARY()});
+    return evaluateOnce<double>("from_ieee754_64(c0)", VARBINARY(), arg);
   };
 
   const auto toIEEE754Bits64 = [&](std::optional<double> arg) {
-    return evaluateOnce<std::string, double>("to_ieee754_64(c0)", arg);
+    return evaluateOnce<std::string>("to_ieee754_64(c0)", arg);
   };
 
   EXPECT_EQ(std::nullopt, fromIEEE754Bits64(std::nullopt));
@@ -707,12 +694,11 @@ TEST_F(BinaryFunctionsTest, toIEEE754Bits32) {
 
 TEST_F(BinaryFunctionsTest, fromIEEE754Bits32) {
   const auto fromIEEE754Bits32 = [&](const std::optional<std::string>& arg) {
-    return evaluateOnce<float, std::string>(
-        "from_ieee754_32(c0)", {arg}, {VARBINARY()});
+    return evaluateOnce<float>("from_ieee754_32(c0)", VARBINARY(), arg);
   };
 
   const auto toIEEE754Bits32 = [&](std::optional<float> arg) {
-    return evaluateOnce<std::string, float>("to_ieee754_32(c0)", arg);
+    return evaluateOnce<std::string>("to_ieee754_32(c0)", arg);
   };
 
   EXPECT_EQ(std::nullopt, fromIEEE754Bits32(std::nullopt));

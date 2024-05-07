@@ -291,11 +291,11 @@ class CeilFloorTest : public SparkFunctionBaseTest {
  protected:
   template <typename T>
   std::optional<int64_t> ceil(std::optional<T> a) {
-    return evaluateOnce<int64_t, T>("ceil(c0)", a);
+    return evaluateOnce<int64_t>("ceil(c0)", a);
   }
   template <typename T>
   std::optional<int64_t> floor(std::optional<T> a) {
-    return evaluateOnce<int64_t, T>("floor(c0)", a);
+    return evaluateOnce<int64_t>("floor(c0)", a);
   }
 };
 
@@ -356,7 +356,7 @@ TEST_F(ArithmeticTest, log1p) {
 class BinTest : public SparkFunctionBaseTest {
  protected:
   std::optional<std::string> bin(std::optional<std::int64_t> arg) {
-    return evaluateOnce<std::string, int64_t>("bin(c0)", {arg}, {BIGINT()});
+    return evaluateOnce<std::string>("bin(c0)", arg);
   }
 };
 
@@ -371,7 +371,7 @@ TEST_F(BinTest, bin) {
       "111111111111111111111111111111111111111111111111111111111111111");
   EXPECT_EQ(bin(0), "0");
   auto result = evaluateOnce<std::string, int64_t>(
-      "bin(row_constructor(c0).c1)", {13}, {BIGINT()});
+      "bin(row_constructor(c0).c1)", std::make_optional(13L));
   EXPECT_EQ(result, "1101");
 }
 

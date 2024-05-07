@@ -66,8 +66,7 @@ TEST_F(StringTest, bitLength) {
 
 TEST_F(StringTest, bitLengthVarbinary) {
   const auto bitLength = [&](const std::optional<std::string>& arg) {
-    return evaluateOnce<int32_t, std::string>(
-        "bit_length(c0)", {arg}, {VARBINARY()});
+    return evaluateOnce<int32_t>("bit_length(c0)", VARBINARY(), arg);
   };
 
   EXPECT_EQ(bitLength(""), 0);
@@ -282,8 +281,7 @@ TEST_F(StringTest, lengthString) {
 
 TEST_F(StringTest, lengthVarbinary) {
   const auto length = [&](const std::optional<std::string>& arg) {
-    return evaluateOnce<int32_t, std::string>(
-        "length(c0)", {arg}, {VARBINARY()});
+    return evaluateOnce<int32_t>("length(c0)", VARBINARY(), arg);
   };
   EXPECT_EQ(length(""), 0);
   EXPECT_EQ(length(std::string("\0", 1)), 1);
@@ -386,8 +384,7 @@ TEST_F(StringTest, ltrim) {
 
 TEST_F(StringTest, md5) {
   const auto md5 = [&](const std::optional<std::string>& arg) {
-    return evaluateOnce<std::string, std::string>(
-        "md5(c0)", {arg}, {VARBINARY()});
+    return evaluateOnce<std::string>("md5(c0)", VARBINARY(), arg);
   };
   EXPECT_EQ(md5(std::nullopt), std::nullopt);
   EXPECT_EQ(md5(""), "d41d8cd98f00b204e9800998ecf8427e");
@@ -570,8 +567,7 @@ TEST_F(StringTest, rtrim) {
 
 TEST_F(StringTest, sha1) {
   const auto sha1 = [&](const std::optional<std::string>& arg) {
-    return evaluateOnce<std::string, std::string>(
-        "sha1(c0)", {arg}, {VARBINARY()});
+    return evaluateOnce<std::string>("sha1(c0)", VARBINARY(), arg);
   };
 
   EXPECT_EQ(sha1(std::nullopt), std::nullopt);

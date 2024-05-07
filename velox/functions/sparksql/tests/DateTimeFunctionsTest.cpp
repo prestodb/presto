@@ -178,7 +178,7 @@ TEST_F(DateTimeFunctionsTest, year) {
 
 TEST_F(DateTimeFunctionsTest, yearDate) {
   const auto year = [&](std::optional<int32_t> date) {
-    return evaluateOnce<int32_t, int32_t>("year(c0)", {date}, {DATE()});
+    return evaluateOnce<int32_t>("year(c0)", DATE(), date);
   };
   EXPECT_EQ(std::nullopt, year(std::nullopt));
   EXPECT_EQ(1970, year(DATE()->toDays("1970-05-05")));
@@ -190,8 +190,7 @@ TEST_F(DateTimeFunctionsTest, yearDate) {
 TEST_F(DateTimeFunctionsTest, weekOfYear) {
   const auto weekOfYear = [&](const char* dateString) {
     auto date = std::make_optional(parseDate(dateString));
-    return evaluateOnce<int32_t, int32_t>("week_of_year(c0)", {date}, {DATE()})
-        .value();
+    return evaluateOnce<int32_t>("week_of_year(c0)", DATE(), date).value();
   };
 
   EXPECT_EQ(1, weekOfYear("1919-12-31"));
@@ -212,10 +211,11 @@ TEST_F(DateTimeFunctionsTest, weekOfYear) {
 
 TEST_F(DateTimeFunctionsTest, unixDate) {
   const auto unixDate = [&](std::string_view date) {
-    return evaluateOnce<int32_t, int32_t>(
+    return evaluateOnce<int32_t>(
         "unix_date(c0)",
-        {util::fromDateString(date.data(), date.length())},
-        {DATE()});
+        DATE(),
+        std::make_optional<int32_t>(
+            util::fromDateString(date.data(), date.length())));
   };
 
   EXPECT_EQ(unixDate("1970-01-01"), 0);
@@ -334,7 +334,7 @@ TEST_F(DateTimeFunctionsTest, makeDate) {
 
 TEST_F(DateTimeFunctionsTest, lastDay) {
   const auto lastDayFunc = [&](const std::optional<int32_t> date) {
-    return evaluateOnce<int32_t, int32_t>("last_day(c0)", {date}, {DATE()});
+    return evaluateOnce<int32_t>("last_day(c0)", DATE(), date);
   };
 
   const auto lastDay = [&](const std::string& dateStr) {
@@ -525,7 +525,7 @@ TEST_F(DateTimeFunctionsTest, dateSubTinyint) {
 
 TEST_F(DateTimeFunctionsTest, dayOfYear) {
   const auto day = [&](std::optional<int32_t> date) {
-    return evaluateOnce<int32_t, int32_t>("dayofyear(c0)", {date}, {DATE()});
+    return evaluateOnce<int32_t>("dayofyear(c0)", DATE(), date);
   };
   EXPECT_EQ(std::nullopt, day(std::nullopt));
   EXPECT_EQ(100, day(parseDate("2016-04-09")));
@@ -535,7 +535,7 @@ TEST_F(DateTimeFunctionsTest, dayOfYear) {
 
 TEST_F(DateTimeFunctionsTest, dayOfMonth) {
   const auto day = [&](std::optional<int32_t> date) {
-    return evaluateOnce<int32_t, int32_t>("dayofmonth(c0)", {date}, {DATE()});
+    return evaluateOnce<int32_t>("dayofmonth(c0)", DATE(), date);
   };
   EXPECT_EQ(std::nullopt, day(std::nullopt));
   EXPECT_EQ(30, day(parseDate("2009-07-30")));
@@ -544,7 +544,7 @@ TEST_F(DateTimeFunctionsTest, dayOfMonth) {
 
 TEST_F(DateTimeFunctionsTest, dayOfWeekDate) {
   const auto dayOfWeek = [&](std::optional<int32_t> date) {
-    return evaluateOnce<int32_t, int32_t>("dayofweek(c0)", {date}, {DATE()});
+    return evaluateOnce<int32_t>("dayofweek(c0)", DATE(), date);
   };
 
   EXPECT_EQ(std::nullopt, dayOfWeek(std::nullopt));
@@ -568,7 +568,7 @@ TEST_F(DateTimeFunctionsTest, dayOfWeekDate) {
 
 TEST_F(DateTimeFunctionsTest, weekdayDate) {
   const auto weekday = [&](std::optional<int32_t> value) {
-    return evaluateOnce<int32_t, int32_t>("weekday(c0)", {value}, {DATE()});
+    return evaluateOnce<int32_t>("weekday(c0)", DATE(), value);
   };
 
   EXPECT_EQ(3, weekday(0));
@@ -593,8 +593,8 @@ TEST_F(DateTimeFunctionsTest, weekdayDate) {
 TEST_F(DateTimeFunctionsTest, dateDiffDate) {
   const auto dateDiff = [&](std::optional<int32_t> endDate,
                             std::optional<int32_t> startDate) {
-    return evaluateOnce<int32_t, int32_t>(
-        "datediff(c0, c1)", {endDate, startDate}, {DATE(), DATE()});
+    return evaluateOnce<int32_t>(
+        "datediff(c0, c1)", {DATE(), DATE()}, endDate, startDate);
   };
 
   // Simple tests.
@@ -616,11 +616,13 @@ TEST_F(DateTimeFunctionsTest, dateDiffDate) {
 }
 
 TEST_F(DateTimeFunctionsTest, addMonths) {
-  const auto addMonths = [&](const std::string& dateString, int32_t value) {
-    return evaluateOnce<int32_t, int32_t>(
+  const auto addMonths = [&](const std::string& dateString,
+                             std::optional<int32_t> value) {
+    return evaluateOnce<int32_t>(
         "add_months(c0, c1)",
-        {parseDate(dateString), value},
-        {DATE(), INTEGER()});
+        {DATE(), INTEGER()},
+        std::make_optional(parseDate(dateString)),
+        value);
   };
 
   EXPECT_EQ(addMonths("2015-01-30", 1), parseDate("2015-02-28"));
@@ -646,8 +648,8 @@ TEST_F(DateTimeFunctionsTest, addMonths) {
 
 TEST_F(DateTimeFunctionsTest, monthDate) {
   const auto month = [&](const std::string& dateString) {
-    return evaluateOnce<int32_t, int32_t>(
-        "month(c0)", {parseDate(dateString)}, {DATE()});
+    return evaluateOnce<int32_t>(
+        "month(c0)", DATE(), std::make_optional(parseDate(dateString)));
   };
 
   EXPECT_EQ(4, month("2015-04-08"));
@@ -658,8 +660,8 @@ TEST_F(DateTimeFunctionsTest, monthDate) {
 
 TEST_F(DateTimeFunctionsTest, quarterDate) {
   const auto quarter = [&](const std::string& dateString) {
-    return evaluateOnce<int32_t, int32_t>(
-        "quarter(c0)", {parseDate(dateString)}, {DATE()});
+    return evaluateOnce<int32_t>(
+        "quarter(c0)", DATE(), std::make_optional(parseDate(dateString)));
   };
 
   EXPECT_EQ(2, quarter("2015-04-08"));
@@ -917,23 +919,14 @@ TEST_F(DateTimeFunctionsTest, fromUnixtime) {
 
 TEST_F(DateTimeFunctionsTest, makeYMInterval) {
   const auto fromYearAndMonth = [&](const std::optional<int32_t>& year,
-                                    const std::optional<std::int32_t>& month) {
-    auto result = evaluateOnce<int32_t, int32_t>(
-        "make_ym_interval(c0, c1)",
-        {year, month},
-        {INTEGER(), INTEGER()},
-        std::nullopt,
-        {INTERVAL_YEAR_MONTH()});
+                                    const std::optional<int32_t>& month) {
+    auto result =
+        evaluateOnce<int32_t>("make_ym_interval(c0, c1)", year, month);
     VELOX_CHECK(result.has_value());
     return INTERVAL_YEAR_MONTH()->valueToString(result.value());
   };
   const auto fromYear = [&](const std::optional<int32_t>& year) {
-    auto result = evaluateOnce<int32_t, int32_t>(
-        "make_ym_interval(c0)",
-        {year},
-        {INTEGER()},
-        std::nullopt,
-        {INTERVAL_YEAR_MONTH()});
+    auto result = evaluateOnce<int32_t>("make_ym_interval(c0)", year);
     VELOX_CHECK(result.has_value());
     return INTERVAL_YEAR_MONTH()->valueToString(result.value());
   };
@@ -972,7 +965,7 @@ TEST_F(DateTimeFunctionsTest, makeYMInterval) {
 
 TEST_F(DateTimeFunctionsTest, yearOfWeek) {
   const auto yearOfWeek = [&](std::optional<int32_t> date) {
-    return evaluateOnce<int32_t, int32_t>("year_of_week(c0)", {date}, {DATE()});
+    return evaluateOnce<int32_t>("year_of_week(c0)", DATE(), date);
   };
   EXPECT_EQ(1970, yearOfWeek(0));
   EXPECT_EQ(1970, yearOfWeek(-1));
@@ -987,8 +980,9 @@ TEST_F(DateTimeFunctionsTest, yearOfWeek) {
 
 TEST_F(DateTimeFunctionsTest, unixSeconds) {
   const auto unixSeconds = [&](const StringView time) {
-    return evaluateOnce<int64_t, Timestamp>(
-        "unix_seconds(c0)", util::fromTimestampString(time));
+    return evaluateOnce<int64_t>(
+        "unix_seconds(c0)",
+        std::make_optional(util::fromTimestampString(time)));
   };
   EXPECT_EQ(unixSeconds("1970-01-01 00:00:01"), 1);
   EXPECT_EQ(unixSeconds("1970-01-01 00:00:00.000127"), 0);
@@ -998,8 +992,8 @@ TEST_F(DateTimeFunctionsTest, unixSeconds) {
 }
 
 TEST_F(DateTimeFunctionsTest, microsToTimestamp) {
-  const auto microsToTimestamp = [&](int64_t micros) {
-    return evaluateOnce<Timestamp, int64_t>("timestamp_micros(c0)", micros);
+  const auto microsToTimestamp = [&](std::optional<int64_t> micros) {
+    return evaluateOnce<Timestamp>("timestamp_micros(c0)", micros);
   };
   EXPECT_EQ(
       microsToTimestamp(1000000),

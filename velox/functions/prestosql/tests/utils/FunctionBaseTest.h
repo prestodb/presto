@@ -16,6 +16,7 @@
 #pragma once
 
 #include <gtest/gtest.h>
+#include <utility>
 
 #include "velox/expression/Expr.h"
 #include "velox/parse/Expressions.h"
@@ -155,53 +156,124 @@ class FunctionBaseTest : public testing::Test,
     return std::dynamic_pointer_cast<T>(results[0]);
   }
 
-  // Evaluate the given expression once, returning the result as a std::optional
-  // C++ value. Arguments should be referenced using c0, c1, .. cn.  Supports
-  // integers, floats, booleans, and strings.
-  //
-  // Example:
-  //   std::optional<double> exp(std::optional<double> a) {
-  //     return evaluateOnce<double>("exp(c0)", a);
-  //   }
-  //   EXPECT_EQ(1, exp(0));
-  //   EXPECT_EQ(std::nullopt, exp(std::nullopt));
-  template <typename ReturnType, typename... Args>
-  std::optional<ReturnType> evaluateOnce(
+  /// Evaluate a given expression over a single row of input returning the
+  /// result as a std::optional C++ value. Prefer to use the `evaluateOnce()`
+  /// helper methods below when testing simple functions instead of manually
+  /// handling input and output vectors.
+  ///
+  /// Arguments should be referenced using c0, c1, .. cn.  Supports integers,
+  /// floats, booleans, strings, timestamps, and other primitive types.
+  ///
+  /// The template parameter type `TReturn` is mandatory and used to cast the
+  /// returned value. Always use the C++ type for the returned value (e.g.
+  /// `double` not `DOUBLE()`). Either StringView or std::string can be used for
+  /// VARCHAR() and VARBINARY().
+  ///
+  /// If the function returns a custom type, use the physical type that
+  /// represent the custom type (e.g. `CustomType<T>::type`). For example, use
+  /// `int64_t` to return TIMESTAMP_WITH_TIME_ZONE()
+  ///
+  /// Input and output parameters should always be wrapped in an std::optional
+  /// to allow the representation of null values.
+  ///
+  /// Example:
+  ///
+  ///   std::optional<double> exp(std::optional<double> a) {
+  ///     return evaluateOnce<double>("exp(c0)", a);
+  ///   }
+  ///   EXPECT_EQ(1, exp(0));
+  ///   EXPECT_EQ(std::nullopt, exp(std::nullopt));
+  ///
+  ///
+  /// Multiple parameters are supported:
+  ///
+  ///   std::optional<int64_t> xxhash64(
+  ///       std::optional<std::string> val,
+  ///       std::optional<int64_t> seed) {
+  ///     return evaluateOnce<int64_t>("fb_xxhash64(c0, c1)", val, seed);
+  ///   }
+  ///
+  ///
+  /// If not specified, input logical types are derived from the C++ type
+  /// provided as input using CppToType. In the example above, the `std::string`
+  /// C++ type will be translated to `VARCHAR` logical type, and `int64_t` to
+  /// `BIGINT`.
+  ///
+  /// To override the input logical type, use:
+  ///
+  ///   std::optional<int64_t> hour(std::optional<int32_t> date) {
+  ///     return evaluateOnce<int64_t>("hour(c0)", DATE(), date);
+  ///   }
+  ///
+  /// Custom types like TIMESTAMP_WITH_TIMEZONE() and HYPERLOGLOG() are also
+  /// supported. For multiple parameters, use a list of logical types:
+  ///
+  ///   return evaluateOnce<std::string>(
+  ///       "hmac_sha1(c0, c1)", {VARBINARY(), VARBINARY()}, arg, key);
+  ///
+  ///
+  /// One can also manually specify additional template parameters, in case
+  /// there are problems with template type deduction:
+  ///
+  ///   return evaluateOnce<int64_t, std::string, int64_t>(
+  ///       "fb_xxhash64(c0, c1)", val, seed);
+  ///
+  template <typename TReturn, typename... TArgs>
+  std::optional<TReturn> evaluateOnce(
       const std::string& expr,
-      const std::optional<Args>&... args) {
-    return evaluateOnce<ReturnType>(
+      const std::initializer_list<TypePtr>& types,
+      std::optional<TArgs>... args) {
+    return evaluateOnce<TReturn>(
         expr,
-        makeRowVector(std::vector<VectorPtr>{
-            makeNullableFlatVector(std::vector{args})...}));
+        makeRowVector(unpackEvaluateParams<std::optional<TArgs>...>(
+            std::vector<TypePtr>{types},
+            std::forward<std::optional<TArgs>>(std::move(args))...)));
   }
 
-  template <typename ReturnType, typename Args>
-  std::optional<ReturnType> evaluateOnce(
+  template <typename TReturn, typename... TArgs>
+  std::optional<TReturn> evaluateOnce(
       const std::string& expr,
-      const std::vector<std::optional<Args>>& args,
-      const std::vector<TypePtr>& types,
-      const std::optional<SelectivityVector>& rows = std::nullopt,
-      const TypePtr& resultType = nullptr) {
-    std::vector<VectorPtr> flatVectors;
-    for (vector_size_t i = 0; i < args.size(); ++i) {
-      flatVectors.emplace_back(makeNullableFlatVector(
-          std::vector<std::optional<Args>>{args[i]}, types[i]));
-    }
-    auto rowVectorPtr = makeRowVector(flatVectors);
-    return evaluateOnce<ReturnType>(expr, rowVectorPtr, rows, resultType);
+      std::optional<TArgs>... args) {
+    return evaluateOnce<TReturn>(
+        expr,
+        makeRowVector(unpackEvaluateParams<std::optional<TArgs>...>(
+            {}, std::forward<std::optional<TArgs>>(std::move(args))...)));
   }
 
-  template <typename ReturnType>
-  std::optional<ReturnType> evaluateOnce(
+  // Convenience version to allow API users to specify a single type for
+  // functions that take a single parameter, instead of having to wrap them in a
+  // initializer_list. For example, it allows users to do:
+  //
+  //  auto a = evaluateOnce<int64_t>("hour(c0)", DATE(), date);
+  //
+  // instead of:
+  //
+  //  auto a = evaluateOnce<int64_t>("hour(c0)", {DATE()}, date);
+  //
+  // Note that if types are specified, evaluateOnce() will throws if the number
+  // of types and parameter do not match.
+  template <typename TReturn, typename... TArgs>
+  std::optional<TReturn> evaluateOnce(
+      const std::string& expr,
+      const TypePtr& type,
+      std::optional<TArgs>... args) {
+    return evaluateOnce<TReturn>(
+        expr,
+        makeRowVector(unpackEvaluateParams<std::optional<TArgs>...>(
+            {type}, std::forward<std::optional<TArgs>>(std::move(args))...)));
+  }
+
+  template <typename TReturn>
+  std::optional<TReturn> evaluateOnce(
       const std::string& expr,
       const RowVectorPtr rowVectorPtr,
       const std::optional<SelectivityVector>& rows = std::nullopt,
       const TypePtr& resultType = nullptr) {
     auto result =
-        evaluate<SimpleVector<facebook::velox::test::EvalType<ReturnType>>>(
+        evaluate<SimpleVector<facebook::velox::test::EvalType<TReturn>>>(
             expr, rowVectorPtr, rows, resultType);
-    return result->isNullAt(0) ? std::optional<ReturnType>{}
-                               : ReturnType(result->valueAt(0));
+    return result->isNullAt(0) ? std::optional<TReturn>{}
+                               : TReturn(result->valueAt(0));
   }
 
   core::TypedExprPtr parseExpression(
@@ -301,6 +373,36 @@ class FunctionBaseTest : public testing::Test,
       const std::optional<SelectivityVector>& rows = std::nullopt) {
     ExprSet exprSet({typedExpr}, &execCtx_);
     return evaluate(exprSet, data, rows);
+  }
+
+  // Unpack parameters for evaluateOnce(). Base recursion case.
+  template <typename...>
+  std::vector<VectorPtr> unpackEvaluateParams(
+      const std::vector<TypePtr>& types) {
+    VELOX_CHECK(types.empty(), "Wrong number of types passed to evaluateOnce.");
+    return {};
+  }
+
+  // Recursively unpack input values and types into vectors.
+  template <typename T, typename... TArgs>
+  std::vector<VectorPtr> unpackEvaluateParams(
+      const std::vector<TypePtr>& types,
+      T&& value,
+      TArgs&&... args) {
+    // If there are no input types, let makeNullable figure it out.
+    auto output = std::vector<VectorPtr>{
+        types.empty()
+            ? makeNullableFlatVector(std::vector{value})
+            : makeNullableFlatVector(std::vector{value}, types.front()),
+    };
+
+    // Recurse starting from the second parameter.
+    auto result = unpackEvaluateParams<TArgs...>(
+        types.size() > 1 ? std::vector<TypePtr>{types.begin() + 1, types.end()}
+                         : std::vector<TypePtr>{},
+        std::forward<TArgs>(std::move(args))...);
+    output.insert(output.end(), result.begin(), result.end());
+    return output;
   }
 };
 

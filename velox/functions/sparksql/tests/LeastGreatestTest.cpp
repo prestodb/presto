@@ -27,8 +27,8 @@ class LeastTest : public SparkFunctionBaseTest {
       std::optional<T> arg1,
       std::optional<T> arg2,
       const TypePtr& type = CppToType<T>::create()) {
-    return evaluateOnce<T, T>(
-        "least(c0, c1, c2)", {arg0, arg1, arg2}, {type, type, type});
+    return evaluateOnce<T>(
+        "least(c0, c1, c2)", {type, type, type}, arg0, arg1, arg2);
   }
 
   template <typename T>
@@ -38,10 +38,13 @@ class LeastTest : public SparkFunctionBaseTest {
       std::optional<T> arg2,
       std::optional<T> arg3,
       const TypePtr& type = CppToType<T>::create()) {
-    return evaluateOnce<T, T>(
+    return evaluateOnce<T>(
         "least(c0, c1, c2, c3)",
-        {arg0, arg1, arg2, arg3},
-        {type, type, type, type});
+        {type, type, type, type},
+        arg0,
+        arg1,
+        arg2,
+        arg3);
   }
 
   template <typename T>
@@ -184,8 +187,8 @@ class GreatestTest : public SparkFunctionBaseTest {
       std::optional<T> arg1,
       std::optional<T> arg2,
       const TypePtr& type = CppToType<T>::create()) {
-    return evaluateOnce<T, T>(
-        "greatest(c0, c1, c2)", {arg0, arg1, arg2}, {type, type, type});
+    return evaluateOnce<T>(
+        "greatest(c0, c1, c2)", {type, type, type}, arg0, arg1, arg2);
   }
 
   template <typename T>
@@ -195,10 +198,13 @@ class GreatestTest : public SparkFunctionBaseTest {
       std::optional<T> arg2,
       std::optional<T> arg3,
       const TypePtr& type = CppToType<T>::create()) {
-    return evaluateOnce<T, T>(
+    return evaluateOnce<T>(
         "greatest(c0, c1, c2, c3)",
-        {arg0, arg1, arg2, arg3},
-        {type, type, type, type});
+        {type, type, type, type},
+        arg0,
+        arg1,
+        arg2,
+        arg3);
   }
 
   template <typename T>

@@ -71,9 +71,8 @@ TEST_F(HyperLogLogFunctionsTest, emptyApproxSetSignatures) {
 }
 
 TEST_F(HyperLogLogFunctionsTest, cardinalitySparse) {
-  const auto cardinality = [&](const std::string& input) {
-    return evaluateOnce<int64_t, StringView>(
-        "cardinality(c0)", {StringView(input)}, {HYPERLOGLOG()});
+  const auto cardinality = [&](const std::optional<std::string>& input) {
+    return evaluateOnce<int64_t>("cardinality(c0)", HYPERLOGLOG(), input);
   };
 
   SparseHll sparseHll{&allocator_};
@@ -86,9 +85,8 @@ TEST_F(HyperLogLogFunctionsTest, cardinalitySparse) {
 }
 
 TEST_F(HyperLogLogFunctionsTest, cardinalityDense) {
-  const auto cardinality = [&](const std::string& input) {
-    return evaluateOnce<int64_t, StringView>(
-        "cardinality(c0)", {StringView(input)}, {HYPERLOGLOG()});
+  const auto cardinality = [&](const std::optional<std::string>& input) {
+    return evaluateOnce<int64_t>("cardinality(c0)", HYPERLOGLOG(), input);
   };
 
   DenseHll denseHll{12, &allocator_};

@@ -23,8 +23,7 @@ namespace {
 class FromUtf8Test : public test::FunctionBaseTest {
  protected:
   std::optional<std::string> fromUtf8(std::optional<std::string> value) {
-    return evaluateOnce<std::string, std::string>(
-        "from_utf8(c0)", {value}, {VARBINARY()});
+    return evaluateOnce<std::string>("from_utf8(c0)", VARBINARY(), value);
   }
 
   std::optional<std::string> fromUtf8(

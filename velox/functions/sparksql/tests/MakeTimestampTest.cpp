@@ -115,19 +115,30 @@ TEST_F(MakeTimestampTest, errors) {
     auto result = evaluate("make_timestamp(c0, c1, c2, c3, c4, c5)", data);
     facebook::velox::test::assertEqualVectors(expected, result);
   };
+  std::optional<int32_t> one = 1;
   const auto testInvalidSeconds = [&](std::optional<int64_t> microsec) {
-    auto result = evaluateOnce<Timestamp, int64_t>(
+    auto result = evaluateOnce<Timestamp>(
         "make_timestamp(c0, c1, c2, c3, c4, c5)",
-        {1, 1, 1, 1, 1, microsec},
-        {INTEGER(), INTEGER(), INTEGER(), INTEGER(), INTEGER(), microsType});
+        {INTEGER(), INTEGER(), INTEGER(), INTEGER(), INTEGER(), microsType},
+        one,
+        one,
+        one,
+        one,
+        one,
+        microsec);
     EXPECT_EQ(result, std::nullopt);
   };
-  const auto testInvalidArguments = [&](int64_t microsec,
+  const auto testInvalidArguments = [&](std::optional<int64_t> microsec,
                                         const TypePtr& microsType) {
-    return evaluateOnce<Timestamp, int64_t>(
+    return evaluateOnce<Timestamp>(
         "make_timestamp(c0, c1, c2, c3, c4, c5)",
-        {1, 1, 1, 1, 1, microsec},
-        {INTEGER(), INTEGER(), INTEGER(), INTEGER(), INTEGER(), microsType});
+        {INTEGER(), INTEGER(), INTEGER(), INTEGER(), INTEGER(), microsType},
+        one,
+        one,
+        one,
+        one,
+        one,
+        microsec);
   };
 
   // Throw if no session time zone.
