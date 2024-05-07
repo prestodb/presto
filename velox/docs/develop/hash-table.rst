@@ -44,7 +44,7 @@ To insert a new entry we need to figure out which slot to put it in.
 A slot is identified by bucket and offset within the bucket. First, we compute a hash of the entry.
 Then, we compute a tag and a bucket number from the hash.
 
-We use 7 bits of the hash for the tag: bits 32-38 inclusive. We use N bits of the hash for the bucket
+We use 7 bits of the hash for the tag: bits 38-44 inclusive. We use N bits of the hash for the bucket
 starting from bit 8.
 
 The number of bits used for the bucket is decided based on the hash table capacity.
@@ -56,10 +56,10 @@ N = n - 4 = 16. We will use 16 bits for the bucket.
 
 Given hash number:
 
-01011011 11001010 01111100 0\ :raw-html:`<text style="background-color:orange">1101001</text>` 10110111
+01011011 11001010 011\ :raw-html:`<text style="background-color:orange">11100 01</text>`\101001 10110111
 1\ :raw-html:`<text style="background-color:#ADD8E6">0010100 11111000 1</text>`\ 1001110
 
-We compute the tag as 1\ :raw-html:`<text style="background-color:orange">1101001</text>` and bucket offset
+We compute the tag as 1\ :raw-html:`<text style="background-color:orange">1110001</text>` and bucket offset
 as 1,374,336 (00000000 00000000 00000000 00000000 00000000
 0\ :raw-html:`<text style="background-color:#ADD8E6">0010100 11111000 1</text>`\ 0000000).
 Bucket offset is the number of bytes from the start of the hash table.
