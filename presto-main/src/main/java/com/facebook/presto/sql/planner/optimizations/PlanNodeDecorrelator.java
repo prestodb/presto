@@ -132,7 +132,7 @@ public class PlanNodeDecorrelator
             }
 
             RowExpression predicate = node.getPredicate();
-            Map<Boolean, List<RowExpression>> predicates = logicalRowExpressions.extractConjuncts(predicate).stream()
+            Map<Boolean, List<RowExpression>> predicates = LogicalRowExpressions.extractConjuncts(predicate).stream()
                     .collect(Collectors.partitioningBy(PlanNodeDecorrelator.DecorrelatingVisitor.this::isCorrelated));
             List<RowExpression> correlatedPredicates = ImmutableList.copyOf(predicates.get(true));
             List<RowExpression> uncorrelatedPredicates = ImmutableList.copyOf(predicates.get(false));
