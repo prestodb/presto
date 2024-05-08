@@ -193,6 +193,20 @@ public class BasePlanTest
         });
     }
 
+    private void assertPlanDoesNotMatch(String sql, Session session, Optimizer.PlanStage stage, PlanMatchPattern pattern, List<PlanOptimizer> optimizers)
+    {
+        queryRunner.inTransaction(session, transactionSession -> {
+            Plan actualPlan = queryRunner.createPlan(
+                    transactionSession,
+                    sql,
+                    optimizers,
+                    stage,
+                    WarningCollector.NOOP);
+            PlanAssert.assertPlanDoesNotMatch(transactionSession, queryRunner.getMetadata(), queryRunner.getStatsCalculator(), actualPlan, pattern);
+            return null;
+        });
+    }
+
     protected void assertDistributedPlan(String sql, PlanMatchPattern pattern)
     {
         assertDistributedPlan(sql, getQueryRunner().getDefaultSession(), pattern);
@@ -216,6 +230,21 @@ public class BasePlanTest
                         ImmutableSet.of(new RemoveRedundantIdentityProjections())));
 
         assertPlan(sql, queryRunner.getDefaultSession(), Optimizer.PlanStage.OPTIMIZED, pattern, optimizers);
+    }
+
+    protected void assertMinimallyOptimizedPlanDoesNotMatch(@Language("SQL") String sql, PlanMatchPattern pattern)
+    {
+        List<PlanOptimizer> optimizers = ImmutableList.of(
+                new UnaliasSymbolReferences(queryRunner.getMetadata().getFunctionAndTypeManager()),
+                new PruneUnreferencedOutputs(),
+                new IterativeOptimizer(
+                        getMetadata(),
+                        new RuleStatsRecorder(),
+                        queryRunner.getStatsCalculator(),
+                        queryRunner.getCostCalculator(),
+                        ImmutableSet.of(new RemoveRedundantIdentityProjections())));
+
+        assertPlanDoesNotMatch(sql, queryRunner.getDefaultSession(), Optimizer.PlanStage.OPTIMIZED, pattern, optimizers);
     }
 
     protected void assertPlanWithSession(@Language("SQL") String sql, Session session, boolean forceSingleNode, PlanMatchPattern pattern)
