@@ -312,6 +312,10 @@ class AlwaysFalse final : public Filter {
     return false;
   }
 
+  bool testNull() const final {
+    return false;
+  }
+
   bool testInt64(int64_t /* unused */) const final {
     return false;
   }
@@ -321,7 +325,16 @@ class AlwaysFalse final : public Filter {
     return false;
   }
 
+  bool testInt128(int128_t /* unused */) const final {
+    return false;
+  }
+
   bool testDouble(double /* unused */) const final {
+    return false;
+  }
+
+  bool testDoubleRange(double /*min*/, double /*max*/, bool /*hasNull*/)
+      const final {
     return false;
   }
 
