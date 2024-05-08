@@ -541,8 +541,9 @@ void ArrayVectorBase::copyRangesImpl(
 
   auto sourceArray = leafSource->asUnchecked<ArrayVectorBase>();
   auto setNotNulls = mayHaveNulls() || source->mayHaveNulls();
-  auto* mutableOffsets = offsets_->asMutable<vector_size_t>();
-  auto* mutableSizes = sizes_->asMutable<vector_size_t>();
+  auto* mutableOffsets =
+      this->mutableOffsets(length_)->asMutable<vector_size_t>();
+  auto* mutableSizes = this->mutableSizes(length_)->asMutable<vector_size_t>();
   vector_size_t childSize = targetValues->get()->size();
   if (ranges.size() == 1 && ranges.back().count == 1) {
     auto& range = ranges.back();

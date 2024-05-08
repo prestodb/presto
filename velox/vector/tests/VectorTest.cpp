@@ -3773,5 +3773,17 @@ TEST_F(VectorTest, mapUpdateMultipleUpdates) {
   }
 }
 
+TEST_F(VectorTest, arrayCopyTargetNullOffsets) {
+  auto target = BaseVector::create(ARRAY(BIGINT()), 11, pool());
+  auto offsetsRef = target->asUnchecked<ArrayVector>()->offsets();
+  ASSERT_TRUE(offsetsRef);
+  BaseVector::prepareForReuse(target, target->size());
+  ASSERT_FALSE(target->asUnchecked<ArrayVector>()->offsets());
+  auto source = makeArrayVector<int64_t>(
+      11, [](auto) { return 1; }, [](auto i, auto) { return i; });
+  target->copy(source.get(), 0, 0, source->size());
+  test::assertEqualVectors(source, target);
+}
+
 } // namespace
 } // namespace facebook::velox
