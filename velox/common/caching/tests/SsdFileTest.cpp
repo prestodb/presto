@@ -333,6 +333,32 @@ TEST_F(SsdFileTest, checkpoint) {
   EXPECT_EQ(originalRegionScores, recoveredRegionScores);
 }
 
+TEST_F(SsdFileTest, removeFileEntries) {
+  constexpr int64_t kSsdSize = 16 * SsdFile::kRegionSize;
+  FLAGS_ssd_verify_write = true;
+  initializeCache(kSsdSize);
+
+  const auto fileNameAlt = StringIdLease(fileIds(), "fileInStorageAlt");
+  for (auto startOffset = 0; startOffset <= kSsdSize - SsdFile::kRegionSize;
+       startOffset += SsdFile::kRegionSize) {
+    auto pins =
+        makePins(fileName_.id(), startOffset, 4096, 2048 * 1025, 62 * kMB);
+    pins.push_back(cache_->findOrCreate(
+        RawFileCacheKey{fileNameAlt.id(), (uint64_t)startOffset},
+        1024,
+        nullptr));
+    ssdFile_->write(pins);
+    readAndCheckPins(pins);
+  }
+  EXPECT_EQ(ssdFile_->testingNumWritableRegions(), 1);
+
+  folly::F14FastSet<uint64_t> filesToRemove{fileName_.id()};
+  folly::F14FastSet<uint64_t> filesRetained;
+  ssdFile_->removeFileEntries(filesToRemove, filesRetained);
+  EXPECT_EQ(ssdFile_->testingNumWritableRegions(), 16);
+  EXPECT_EQ(filesRetained.size(), 0);
+}
+
 #ifdef VELOX_SSD_FILE_TEST_SET_NO_COW_FLAG
 TEST_F(SsdFileTest, disabledCow) {
   LOG(ERROR) << "here";

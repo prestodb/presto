@@ -281,6 +281,10 @@ class SsdFile {
     return tracker_.copyScores();
   }
 
+  int32_t testingNumWritableRegions() const {
+    return writableRegions_.size();
+  }
+
  private:
   // 4 first bytes of a checkpoint file. Allows distinguishing between format
   // versions.

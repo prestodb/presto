@@ -583,9 +583,14 @@ bool SsdFile::removeFileEntries(
   }
   if (toFree.size() > 0) {
     clearRegionEntriesLocked(toFree);
-    writableRegions_.reserve(writableRegions_.size() + toFree.size());
+    writableRegions_.reserve(
+        std::min<size_t>(writableRegions_.size() + toFree.size(), numRegions_));
+    folly::F14FastSet<uint64_t> existingWritableRegions(
+        writableRegions_.begin(), writableRegions_.end());
     for (int32_t region : toFree) {
-      writableRegions_.push_back(region);
+      if (existingWritableRegions.count(region) == 0) {
+        writableRegions_.push_back(region);
+      }
     }
   }
 
