@@ -16,6 +16,8 @@
 
 #include "velox/dwio/common/OnDemandUnitLoader.h"
 
+#include <numeric>
+
 #include "velox/common/base/Exceptions.h"
 #include "velox/dwio/common/MeasureTime.h"
 #include "velox/dwio/common/UnitLoaderTools.h"
@@ -81,7 +83,16 @@ class OnDemandUnitLoader : public UnitLoader {
 } // namespace
 
 std::unique_ptr<UnitLoader> OnDemandUnitLoaderFactory::create(
-    std::vector<std::unique_ptr<LoadUnit>> loadUnits) {
+    std::vector<std::unique_ptr<LoadUnit>> loadUnits,
+    uint64_t rowsToSkip) {
+  const auto totalRows = std::accumulate(
+      loadUnits.cbegin(), loadUnits.cend(), 0UL, [](uint64_t sum, auto& unit) {
+        return sum + unit->getNumRows();
+      });
+  VELOX_CHECK_LE(
+      rowsToSkip,
+      totalRows,
+      "Can only skip up to the past-the-end row of the file.");
   return std::make_unique<OnDemandUnitLoader>(
       std::move(loadUnits), blockedOnIoCallback_);
 }

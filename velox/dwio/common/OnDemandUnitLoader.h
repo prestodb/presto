@@ -33,8 +33,8 @@ class OnDemandUnitLoaderFactory
   ~OnDemandUnitLoaderFactory() override = default;
 
   std::unique_ptr<velox::dwio::common::UnitLoader> create(
-      std::vector<std::unique_ptr<velox::dwio::common::LoadUnit>> loadUnits)
-      override;
+      std::vector<std::unique_ptr<velox::dwio::common::LoadUnit>> loadUnits,
+      uint64_t rowsToSkip) override;
 
  private:
   std::function<void(std::chrono::high_resolution_clock::duration)>

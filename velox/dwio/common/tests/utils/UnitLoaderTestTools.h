@@ -74,7 +74,8 @@ class ReaderMock {
   ReaderMock(
       std::vector<uint64_t> rowsPerUnit,
       std::vector<uint64_t> ioSizes,
-      UnitLoaderFactory& factory);
+      UnitLoaderFactory& factory,
+      uint64_t rowsToSkip);
 
   bool read(uint64_t maxRows);
 
@@ -93,8 +94,8 @@ class ReaderMock {
   std::vector<uint64_t> ioSizes_;
   std::vector<std::atomic_bool> unitsLoaded_;
   std::unique_ptr<UnitLoader> loader_;
-  size_t currentUnit_{0};
-  size_t currentRowInUnit_{0};
+  size_t currentUnit_;
+  size_t currentRowInUnit_;
   std::optional<size_t> lastUnitLoaded_;
 };
 

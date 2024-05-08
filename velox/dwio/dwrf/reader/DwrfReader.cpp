@@ -308,7 +308,7 @@ std::unique_ptr<dwio::common::UnitLoader> DwrfRowReader::getUnitLoader() {
         std::make_shared<dwio::common::OnDemandUnitLoaderFactory>(
             options_.getBlockedOnIoCallback());
   }
-  return unitLoaderFactory->create(std::move(loadUnits));
+  return unitLoaderFactory->create(std::move(loadUnits), 0);
 }
 
 uint64_t DwrfRowReader::seekToRow(uint64_t rowNumber) {

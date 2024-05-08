@@ -23,12 +23,27 @@ namespace facebook::velox::dwio::common::test {
 ReaderMock::ReaderMock(
     std::vector<uint64_t> rowsPerUnit,
     std::vector<uint64_t> ioSizes,
-    UnitLoaderFactory& factory)
+    UnitLoaderFactory& factory,
+    uint64_t rowsToSkip)
     : rowsPerUnit_{std::move(rowsPerUnit)},
       ioSizes_{std::move(ioSizes)},
       unitsLoaded_(std::vector<std::atomic_bool>(rowsPerUnit_.size())),
-      loader_{factory.create(getUnits())} {
+      loader_{factory.create(getUnits(), rowsToSkip)},
+      currentUnit_{0},
+      currentRowInUnit_{0} {
   VELOX_CHECK(rowsPerUnit_.size() == ioSizes_.size());
+  auto rowsLeftToSkip = rowsToSkip;
+  for (auto rowsInUnit : rowsPerUnit_) {
+    if (rowsLeftToSkip >= rowsInUnit) {
+      rowsLeftToSkip -= rowsInUnit;
+      ++currentUnit_;
+    } else {
+      currentRowInUnit_ = rowsLeftToSkip;
+      rowsLeftToSkip = 0;
+      break;
+    }
+  }
+  VELOX_CHECK_EQ(rowsLeftToSkip, 0);
 }
 
 bool ReaderMock::read(uint64_t maxRows) {

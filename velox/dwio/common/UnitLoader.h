@@ -62,7 +62,8 @@ class UnitLoaderFactory {
  public:
   virtual ~UnitLoaderFactory() = default;
   virtual std::unique_ptr<UnitLoader> create(
-      std::vector<std::unique_ptr<LoadUnit>> loadUnits) = 0;
+      std::vector<std::unique_ptr<LoadUnit>> loadUnits,
+      uint64_t rowsToSkip) = 0;
 };
 
 } // namespace facebook::velox::dwio::common
