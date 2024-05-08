@@ -114,6 +114,72 @@ public class TestCteExecution
     }
 
     @Test
+    public void testComplexCommonFilterPushdown()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        String testQuery = "WITH order_platform_data AS (\n" +
+                "  SELECT\n" +
+                "    o.orderkey AS order_key,\n" +
+                "    o.orderdate AS datestr,\n" +
+                "    o.orderpriority AS event_type\n" +
+                "  FROM\n" +
+                "    orders o\n" +
+                "  WHERE\n" +
+                "    o.orderdate BETWEEN DATE '1995-01-01' AND DATE '1995-01-31'\n" +
+                "    AND o.orderpriority IN ('1-URGENT', '3-MEDIUM')\n" +
+                "  UNION ALL\n" +
+                "  SELECT\n" +
+                "    l.orderkey AS order_key,\n" +
+                "    o.orderdate AS datestr,\n" +
+                "    o.orderpriority AS event_type\n" +
+                "  FROM\n" +
+                "    lineitem l\n" +
+                "    JOIN orders o ON l.orderkey = o.orderkey\n" +
+                "  WHERE\n" +
+                "    o.orderdate BETWEEN DATE '1995-01-01' AND DATE '1995-01-31'\n" +
+                "    AND o.orderpriority IN ('2-HIGH', '5-LOW')\n" +
+                "),\n" +
+                "urgent AS (\n" +
+                "    SELECT order_key, datestr\n" +
+                "    FROM order_platform_data\n" +
+                "    WHERE event_type = '1-URGENT'\n" +
+                "),\n" +
+                "medium AS (\n" +
+                "    SELECT order_key, datestr\n" +
+                "    FROM order_platform_data\n" +
+                "    WHERE event_type = '3-MEDIUM'\n" +
+                "),\n" +
+                "high AS (\n" +
+                "    SELECT order_key, datestr\n" +
+                "    FROM order_platform_data\n" +
+                "    WHERE event_type = '2-HIGH'\n" +
+                "),\n" +
+                "low AS (\n" +
+                "    SELECT order_key, datestr\n" +
+                "    FROM order_platform_data\n" +
+                "    WHERE event_type = '5-LOW'\n" +
+                ")\n" +
+                "SELECT\n" +
+                "    ofin.order_key AS order_key,\n" +
+                "    ofin.datestr AS order_date\n" +
+                " FROM " +
+                "    urgent ofin\n" +
+                "    LEFT JOIN medium oproc ON ofin.datestr = oproc.datestr\n" +
+                "   LEFT JOIN low on oproc.datestr = low.datestr" +
+                "  LEFT JOIN high on low.datestr = high.datestr" +
+                " ORDER BY\n" +
+                "    ofin.order_key\n";
+        compareResults(queryRunner.execute(Session.builder(super.getSession())
+                                .setSystemProperty(PUSHDOWN_SUBFIELDS_ENABLED, "true")
+                                .setSystemProperty(CTE_MATERIALIZATION_STRATEGY, "HEURISTIC_COMPLEX_QUERIES_ONLY")
+                                .setSystemProperty(CTE_FILTER_AND_PROJECTION_PUSHDOWN_ENABLED, "true")
+                                .build(),
+                        testQuery),
+                queryRunner.execute(getSession(),
+                        testQuery));
+    }
+
+    @Test
     public void testPersistentCteWithStructTypes()
     {
         String testQuery = "WITH temp AS (" +
