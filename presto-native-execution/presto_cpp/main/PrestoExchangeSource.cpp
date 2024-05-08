@@ -178,17 +178,16 @@ void PrestoExchangeSource::doRequest(
   }
 
   auto path = fmt::format("{}/{}", basePath_, sequence_);
-  VLOG(1) << "Fetching data from " << host_ << ":" << port_ << " " << path;
   auto self = getSelfPtr();
-  auto requestBuilder =
-      http::RequestBuilder().method(proxygen::HTTPMethod::GET).url(path);
-
+  proxygen::HTTPMethod method;
   if (maxBytes == 0) {
-    requestBuilder.header(protocol::PRESTO_GET_DATA_SIZE_HEADER, "true");
-    // Coordinator ignores the header and always sends back data.  There is only
-    // one coordinator to fetch data from, so a limit of 1MB is enough.
-    maxBytes = 1 << 20;
+    method = proxygen::HTTPMethod::HEAD;
+    VLOG(1) << "Get data sizes from " << host_ << ":" << port_ << " " << path;
+  } else {
+    method = proxygen::HTTPMethod::GET;
+    VLOG(1) << "Fetching data from " << host_ << ":" << port_ << " " << path;
   }
+  auto requestBuilder = http::RequestBuilder().method(method).url(path);
 
   velox::common::testutil::TestValue::adjust(
       "facebook::presto::PrestoExchangeSource::doRequest", this);
@@ -288,6 +287,7 @@ void PrestoExchangeSource::processDataResponse(
   auto remainingBytesString = headers->getHeaders().getSingleOrEmpty(
       protocol::PRESTO_BUFFER_REMAINING_BYTES_HEADER);
   if (!remainingBytesString.empty()) {
+    VLOG(1) << "Remaining bytes: " << remainingBytesString;
     folly::split(',', remainingBytesString, remainingBytes);
     if (!remainingBytes.empty() && remainingBytes[0] == 0) {
       VELOX_CHECK_EQ(remainingBytes.size(), 1);
