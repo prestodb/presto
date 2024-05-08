@@ -129,6 +129,7 @@ import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getDeleteMode;
 import static com.facebook.presto.iceberg.IcebergUtil.getFileFormat;
 import static com.facebook.presto.iceberg.IcebergUtil.getPartitionKeyColumnHandles;
+import static com.facebook.presto.iceberg.IcebergUtil.getPartitions;
 import static com.facebook.presto.iceberg.IcebergUtil.getSnapshotIdAsOfTime;
 import static com.facebook.presto.iceberg.IcebergUtil.getTableComment;
 import static com.facebook.presto.iceberg.IcebergUtil.resolveSnapshotIdByName;
@@ -215,9 +216,23 @@ public abstract class IcebergAbstractMetadata
         IcebergTableHandle handle = (IcebergTableHandle) table;
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
 
-        List<IcebergColumnHandle> partitionColumns = getPartitionKeyColumnHandles(icebergTable, typeManager);
+        List<IcebergColumnHandle> partitionColumns = getPartitionKeyColumnHandles(handle, icebergTable, typeManager);
         TupleDomain<ColumnHandle> partitionColumnPredicate = TupleDomain.withColumnDomains(Maps.filterKeys(constraint.getSummary().getDomains().get(), Predicates.in(partitionColumns)));
         Optional<Set<IcebergColumnHandle>> requestedColumns = desiredColumns.map(columns -> columns.stream().map(column -> (IcebergColumnHandle) column).collect(toImmutableSet()));
+
+        List<HivePartition> partitions;
+        if (handle.getIcebergTableName().getTableType() == CHANGELOG ||
+                handle.getIcebergTableName().getTableType() == EQUALITY_DELETES) {
+            partitions = ImmutableList.of(new HivePartition(handle.getSchemaTableName()));
+        }
+        else {
+            partitions = getPartitions(
+                    typeManager,
+                    handle,
+                    icebergTable,
+                    constraint,
+                    partitionColumns);
+        }
 
         ConnectorTableLayout layout = getTableLayout(
                 session,
@@ -230,7 +245,7 @@ public abstract class IcebergAbstractMetadata
                         .setRequestedColumns(requestedColumns)
                         .setPushdownFilterEnabled(isPushdownFilterEnabled(session))
                         .setPartitionColumnPredicate(partitionColumnPredicate)
-                        .setPartitions(Optional.empty())
+                        .setPartitions(Optional.ofNullable(partitions.size() == 0 ? null : partitions))
                         .setTable(handle)
                         .build());
         return new ConnectorTableLayoutResult(layout, constraint.getSummary());
@@ -259,19 +274,19 @@ public abstract class IcebergAbstractMetadata
         Table icebergTable = getIcebergTable(session, tableHandle.getSchemaTableName());
         validateTableMode(session, icebergTable);
         List<ColumnHandle> partitionColumns = ImmutableList.copyOf(icebergTableLayoutHandle.getPartitionColumns());
+        Optional<List<HivePartition>> partitions = icebergTableLayoutHandle.getPartitions();
+        Optional<DiscretePredicates> discretePredicates = partitions.flatMap(parts -> getDiscretePredicates(partitionColumns, parts));
         if (!isPushdownFilterEnabled(session)) {
             return new ConnectorTableLayout(
                     icebergTableLayoutHandle,
                     Optional.empty(),
-                    icebergTableLayoutHandle.getPartitionColumnPredicate(),
+                    partitions.isPresent() ? icebergTableLayoutHandle.getPartitionColumnPredicate() : TupleDomain.none(),
                     Optional.empty(),
                     Optional.empty(),
-                    Optional.empty(),
+                    discretePredicates,
                     ImmutableList.of(),
                     Optional.empty());
         }
-        Optional<List<HivePartition>> partitions = icebergTableLayoutHandle.getPartitions();
-        Optional<DiscretePredicates> discretePredicates = partitions.flatMap(parts -> getDiscretePredicates(partitionColumns, parts));
 
         Map<String, ColumnHandle> predicateColumns = icebergTableLayoutHandle.getPredicateColumns().entrySet()
                 .stream().collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
