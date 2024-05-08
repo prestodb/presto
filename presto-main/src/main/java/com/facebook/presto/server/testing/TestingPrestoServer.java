@@ -173,7 +173,6 @@ public class TestingPrestoServer
     private final boolean coordinator;
     private final boolean nodeSchedulerIncludeCoordinator;
     private final ServerInfoResource serverInfoResource;
-
     private final NativeFunctionNamespaceManagerProvider nativeFunctionNamespaceManagerProvider;
     private final ResourceManagerClusterStateProvider clusterStateProvider;
 

@@ -145,6 +145,7 @@ public class SqlInvokedFunction
         return new SqlInvokedFunction(
                 signature.getName(),
                 parameters,
+                signature.getTypeVariableConstraints(),
                 signature.getReturnType(),
                 description,
                 routineCharacteristics,

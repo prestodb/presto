@@ -1346,7 +1346,12 @@ public class BuiltInTypeAndFunctionNamespaceManager
 
     private SpecializedFunctionKey doGetSpecializedFunctionKey(Signature signature)
     {
-        Iterable<SqlFunction> candidates = getFunctions(null, signature.getName());
+        Collection<SqlFunction> candidates = getFunctions(null, signature.getName());
+        return doGetSpecializedFunctionKey(signature, candidates);
+    }
+
+    public SpecializedFunctionKey doGetSpecializedFunctionKey(Signature signature, Collection<SqlFunction> candidates)
+    {
         // search for exact match
         Type returnType = functionAndTypeManager.getType(signature.getReturnType());
         List<TypeSignatureProvider> argumentTypeSignatureProviders = fromTypeSignatures(signature.getArgumentTypes());

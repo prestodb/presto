@@ -55,7 +55,7 @@ public class NativeFunctionNamespaceManagerFactory
     {
         try {
             Bootstrap app = new Bootstrap(
-                    new NativeFunctionNamespaceManagerModule(catalogName, context.getNodeManager()),
+                    new NativeFunctionNamespaceManagerModule(catalogName, context.getNodeManager(), context.getFunctionMetadataManager()),
                     new NoopSqlFunctionExecutorsModule());
 
             Injector injector = app

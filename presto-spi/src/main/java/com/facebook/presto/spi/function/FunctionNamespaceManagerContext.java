@@ -24,11 +24,14 @@ public class FunctionNamespaceManagerContext
 {
     private final TypeManager typeManager;
     private final Optional<NodeManager> nodeManager;
+    private final Optional<FunctionMetadataManager> functionMetadataManager;
 
-    public FunctionNamespaceManagerContext(TypeManager typeManager, Optional<NodeManager> nodeManager)
+    public FunctionNamespaceManagerContext(TypeManager typeManager, Optional<NodeManager> nodeManager,
+            Optional<FunctionMetadataManager> functionMetadataManager)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.functionMetadataManager = requireNonNull(functionMetadataManager, "functionMetadataManager is null");
     }
 
     public TypeManager getTypeManager()
@@ -39,5 +42,10 @@ public class FunctionNamespaceManagerContext
     public NodeManager getNodeManager()
     {
         return nodeManager.orElseThrow(() -> new IllegalArgumentException("nodeManager is not present"));
+    }
+
+    public FunctionMetadataManager getFunctionMetadataManager()
+    {
+        return functionMetadataManager.orElseThrow(() -> new IllegalArgumentException("functionMetadataManager is not present"));
     }
 }

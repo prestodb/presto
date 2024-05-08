@@ -106,6 +106,7 @@ import com.facebook.presto.metadata.StaticCatalogStoreConfig;
 import com.facebook.presto.metadata.StaticFunctionNamespaceStore;
 import com.facebook.presto.metadata.StaticFunctionNamespaceStoreConfig;
 import com.facebook.presto.metadata.TablePropertyManager;
+import com.facebook.presto.nodeManager.PluginNodeManager;
 import com.facebook.presto.operator.ExchangeClientConfig;
 import com.facebook.presto.operator.ExchangeClientFactory;
 import com.facebook.presto.operator.ExchangeClientSupplier;
@@ -782,8 +783,8 @@ public class ServerMainModule
         newOptionalBinder(binder, NodeStatusService.class);
         binder.bind(NodeStatusNotificationManager.class).in(Scopes.SINGLETON);
         //native-function-namespace-manager binder
-        binder.bind(NativeFunctionNamespaceManagerProvider.class);
-        binder.bind(NodeManager.class).to(ConnectorAwareNodeManager.class).in(Scopes.SINGLETON);
+        binder.bind(NodeManager.class).to(PluginNodeManager.class).in(Scopes.SINGLETON);
+        binder.bind(NativeFunctionNamespaceManagerProvider.class).in(Scopes.SINGLETON);
     }
 
     @Provides

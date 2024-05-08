@@ -20,6 +20,7 @@ import com.facebook.presto.functionNamespace.ServingCatalog;
 import com.facebook.presto.functionNamespace.SqlInvokedFunctionNamespaceManagerConfig;
 import com.facebook.presto.functionNamespace.execution.SqlFunctionLanguageConfig;
 import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.TypeLiteral;
@@ -38,11 +39,13 @@ public class NativeFunctionNamespaceManagerModule
     private final String catalogName;
 
     private final NodeManager nodeManager;
+    private final FunctionMetadataManager functionMetadataManager;
 
-    public NativeFunctionNamespaceManagerModule(String catalogName, NodeManager nodeManager)
+    public NativeFunctionNamespaceManagerModule(String catalogName, NodeManager nodeManager, FunctionMetadataManager functionMetadataManager)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.functionMetadataManager = requireNonNull(functionMetadataManager, "functionMetadataManager is null");
     }
 
     @Override
@@ -57,5 +60,6 @@ public class NativeFunctionNamespaceManagerModule
                 .toInstance(new JsonCodecFactory().mapJsonCodec(String.class, listJsonCodec(JsonBasedUdfFunctionMetadata.class)));
         binder.bind(NativeFunctionNamespaceManager.class).in(SINGLETON);
         binder.bind(NodeManager.class).toInstance(nodeManager);
+        binder.bind(FunctionMetadataManager.class).toInstance(functionMetadataManager);
     }
 }

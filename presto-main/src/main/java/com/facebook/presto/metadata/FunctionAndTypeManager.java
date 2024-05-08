@@ -50,6 +50,7 @@ import com.facebook.presto.spi.function.ScalarFunctionImplementation;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlFunctionSupplier;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.FunctionAndTypeResolver;
@@ -216,6 +217,12 @@ public class FunctionAndTypeManager
             }
 
             @Override
+            public SqlFunctionSupplier getSpecializedFunctionKey(Signature signature)
+            {
+                return FunctionAndTypeManager.this.getSpecializedFunctionKey(signature);
+            }
+
+            @Override
             public Collection<SqlFunction> listBuiltInFunctions()
             {
                 return FunctionAndTypeManager.this.listBuiltInFunctions();
@@ -257,7 +264,7 @@ public class FunctionAndTypeManager
         requireNonNull(functionNamespaceManagerName, "functionNamespaceManagerName is null");
         FunctionNamespaceManagerFactory factory = functionNamespaceManagerFactories.get(functionNamespaceManagerName);
         checkState(factory != null, "No factory for function namespace manager %s", functionNamespaceManagerName);
-        FunctionNamespaceManager<?> functionNamespaceManager = factory.create(catalogName, properties, new FunctionNamespaceManagerContext(this, nodeManager));
+        FunctionNamespaceManager<?> functionNamespaceManager = factory.create(catalogName, properties, new FunctionNamespaceManagerContext(this, nodeManager, Optional.of(this)));
         functionNamespaceManager.setBlockEncodingSerde(blockEncodingSerde);
         transactionManager.registerFunctionNamespaceManager(catalogName, functionNamespaceManager);
         if (functionNamespaceManagers.putIfAbsent(catalogName, functionNamespaceManager) != null) {
@@ -618,17 +625,19 @@ public class FunctionAndTypeManager
     public FunctionHandle lookupFunction(String name, List<TypeSignatureProvider> parameterTypes)
     {
         QualifiedObjectName functionName = qualifyObjectName(QualifiedName.of(name));
+        Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionName.getCatalogSchemaName());
+        checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for function '%s'", functionName);
         if (parameterTypes.stream().noneMatch(TypeSignatureProvider::hasDependency)) {
             return lookupCachedFunction(functionName, parameterTypes);
         }
 
-        Collection<? extends SqlFunction> candidates = builtInTypeAndFunctionNamespaceManager.getFunctions(Optional.empty(), functionName);
+        Collection<? extends SqlFunction> candidates = functionNamespaceManager.get().getFunctions(Optional.empty(), functionName);
         Optional<Signature> match = functionSignatureMatcher.match(candidates, parameterTypes, false);
         if (!match.isPresent()) {
             throw new PrestoException(FUNCTION_NOT_FOUND, constructFunctionNotFoundErrorMessage(functionName, parameterTypes, candidates));
         }
 
-        return builtInTypeAndFunctionNamespaceManager.getFunctionHandle(Optional.empty(), match.get());
+        return functionNamespaceManager.get().getFunctionHandle(Optional.empty(), match.get());
     }
 
     public FunctionHandle lookupCast(CastType castType, Type fromType, Type toType)
@@ -744,6 +753,17 @@ public class FunctionAndTypeManager
     private Optional<FunctionNamespaceManager<? extends SqlFunction>> getServingFunctionNamespaceManager(TypeSignatureBase typeSignatureBase)
     {
         return Optional.ofNullable(functionNamespaceManagers.get(typeSignatureBase.getTypeName().getCatalogName()));
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public SpecializedFunctionKey getSpecializedFunctionKey(Signature signature)
+    {
+        QualifiedObjectName functionName = signature.getName();
+        Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionName.getCatalogSchemaName());
+        checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for signature '%s'", signature.getName());
+        Collection<SqlFunction> candidates = (Collection<SqlFunction>) functionNamespaceManager.get().getFunctions(Optional.empty(), functionName);
+        return builtInTypeAndFunctionNamespaceManager.doGetSpecializedFunctionKey(signature, candidates);
     }
 
     private static class FunctionResolutionCacheKey

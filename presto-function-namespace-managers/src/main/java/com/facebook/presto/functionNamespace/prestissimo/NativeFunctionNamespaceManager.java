@@ -31,17 +31,28 @@ import com.facebook.presto.spi.function.AggregationFunctionImplementation;
 import com.facebook.presto.spi.function.AlterRoutineCharacteristics;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
+import com.facebook.presto.spi.function.FunctionMetadataManager;
+import com.facebook.presto.spi.function.FunctionNamespaceTransactionHandle;
 import com.facebook.presto.spi.function.Parameter;
 import com.facebook.presto.spi.function.ScalarFunctionImplementation;
+import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.function.SqlFunctionHandle;
 import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlFunctionSupplier;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
+import com.facebook.presto.spi.function.TypeVariableConstraint;
 import com.google.common.base.Suppliers;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 
 import javax.inject.Inject;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -60,6 +71,7 @@ import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.HOURS;
 
 public class NativeFunctionNamespaceManager
         extends AbstractSqlInvokedFunctionNamespaceManager
@@ -71,6 +83,8 @@ public class NativeFunctionNamespaceManager
     private final NodeManager nodeManager;
     private final Map<SqlFunctionId, SqlInvokedFunction> latestFunctions = new ConcurrentHashMap<>();
     private final Supplier<Map<SqlFunctionId, SqlInvokedFunction>> memoizedFunctionsSupplier;
+    private final FunctionMetadataManager functionMetadataManager;
+    private final LoadingCache<Signature, SqlFunctionSupplier> specializedFunctionKeyCache;
 
     @Inject
     public NativeFunctionNamespaceManager(
@@ -78,13 +92,24 @@ public class NativeFunctionNamespaceManager
             SqlFunctionExecutors sqlFunctionExecutors,
             SqlInvokedFunctionNamespaceManagerConfig config,
             FunctionDefinitionProvider functionDefinitionProvider,
-            NodeManager nodeManager)
+            NodeManager nodeManager,
+            FunctionMetadataManager functionMetadataManager)
     {
         super(catalogName, sqlFunctionExecutors, config);
         this.functionDefinitionProvider = requireNonNull(functionDefinitionProvider, "functionDefinitionProvider is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.memoizedFunctionsSupplier = Suppliers.memoizeWithExpiration(this::bootstrapNamespace,
                 config.getFunctionCacheExpiration().toMillis(), TimeUnit.MILLISECONDS);
+        this.functionMetadataManager = requireNonNull(functionMetadataManager, "functionMetadataManager is null");
+        this.specializedFunctionKeyCache = CacheBuilder.newBuilder()
+                .maximumSize(1000)
+                .expireAfterWrite(1, HOURS)
+                .build(CacheLoader.from(this::doGetSpecializedFunctionKey));
+    }
+
+    private SqlFunctionSupplier doGetSpecializedFunctionKey(Signature signature)
+    {
+        return functionMetadataManager.getSpecializedFunctionKey(signature);
     }
 
     private Map<SqlFunctionId, SqlInvokedFunction> bootstrapNamespace()
@@ -137,6 +162,7 @@ public class NativeFunctionNamespaceManager
         return new SqlInvokedFunction(
                 function.getSignature().getName(),
                 function.getParameters(),
+                function.getSignature().getTypeVariableConstraints(),
                 function.getSignature().getReturnType(),
                 function.getDescription(),
                 function.getRoutineCharacteristics(),
@@ -152,15 +178,28 @@ public class NativeFunctionNamespaceManager
         QualifiedObjectName qualifiedFunctionName = QualifiedObjectName.valueOf(new CatalogSchemaName(getCatalogName(), jsonBasedUdfFunctionMetaData.getSchema()), functionName);
         List<String> parameterNameList = jsonBasedUdfFunctionMetaData.getParamNames();
         List<TypeSignature> parameterTypeList = jsonBasedUdfFunctionMetaData.getParamTypes();
-
+        List<TypeVariableConstraint> typeVariableConstraintsList = jsonBasedUdfFunctionMetaData.getTypeVariableConstraints().isPresent() ?
+                jsonBasedUdfFunctionMetaData.getTypeVariableConstraints().get() : Collections.emptyList();
         ImmutableList.Builder<Parameter> parameterBuilder = ImmutableList.builder();
         for (int i = 0; i < parameterNameList.size(); i++) {
             parameterBuilder.add(new Parameter(parameterNameList.get(i), parameterTypeList.get(i)));
         }
 
+        // Todo: Clean this method up
+        ImmutableList.Builder<TypeVariableConstraint> typeVariableConstraintsBuilder = ImmutableList.builder();
+        for (TypeVariableConstraint typeVariableConstraint : typeVariableConstraintsList) {
+            typeVariableConstraintsBuilder.add(new TypeVariableConstraint(
+                    typeVariableConstraint.getName(),
+                    typeVariableConstraint.isComparableRequired(),
+                    typeVariableConstraint.isOrderableRequired(),
+                    null,
+                    typeVariableConstraint.isNonDecimalNumericRequired()));
+        }
+
         return new SqlInvokedFunction(
                 qualifiedFunctionName,
                 parameterBuilder.build(),
+                typeVariableConstraintsBuilder.build(),
                 jsonBasedUdfFunctionMetaData.getOutputType(),
                 jsonBasedUdfFunctionMetaData.getDocString(),
                 jsonBasedUdfFunctionMetaData.getRoutineCharacteristics(),
@@ -188,10 +227,13 @@ public class NativeFunctionNamespaceManager
     @Override
     protected FunctionMetadata fetchFunctionMetadataDirect(SqlFunctionHandle functionHandle)
     {
+        if (functionHandle instanceof NativeFunctionHandle) {
+            return getMetadataFromNativeFunctionHandle(functionHandle);
+        }
+
         return fetchFunctionsDirect(functionHandle.getFunctionId().getFunctionName()).stream()
                 .filter(function -> function.getRequiredFunctionHandle().equals(functionHandle))
-                .map(this::sqlInvokedFunctionToMetadata)
-                .collect(onlyElement());
+                .map(this::sqlInvokedFunctionToMetadata).collect(onlyElement());
     }
 
     @Override
@@ -247,5 +289,48 @@ public class NativeFunctionNamespaceManager
                 "Parametric type %s already registered",
                 name);
         userDefinedTypes.put(name, userDefinedType);
+    }
+
+    @Override
+    public final FunctionHandle getFunctionHandle(Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle, Signature signature)
+    {
+        FunctionHandle functionHandle = super.getFunctionHandle(transactionHandle, signature);
+
+        // only handle variadic signatures here , for normal signature we use the AbstractSqlInvokedFunctionNamespaceManager function handle.
+        if (functionHandle == null) {
+            return new NativeFunctionHandle(signature);
+        }
+        return functionHandle;
+    }
+
+    private FunctionMetadata getMetadataFromNativeFunctionHandle(SqlFunctionHandle functionHandle)
+    {
+        NativeFunctionHandle nativeFunctionHandle = (NativeFunctionHandle) functionHandle;
+        Signature signature = nativeFunctionHandle.getSignature();
+        SqlFunctionSupplier functionKey;
+        try {
+            functionKey = specializedFunctionKeyCache.getUnchecked(signature);
+        }
+        catch (UncheckedExecutionException e) {
+            throw convertToPrestoException(e, format("Error getting FunctionMetadata for handle: %s", functionHandle));
+        }
+        SqlFunction function = functionKey.getFunction();
+
+        // todo: verify this metadata return
+        SqlInvokedFunction sqlFunction = (SqlInvokedFunction) function;
+        return new FunctionMetadata(
+                signature.getName(),
+                signature.getArgumentTypes(),
+                sqlFunction.getParameters().stream()
+                        .map(Parameter::getName)
+                        .collect(toImmutableList()),
+                signature.getReturnType(),
+                function.getSignature().getKind(),
+                sqlFunction.getRoutineCharacteristics().getLanguage(),
+                getFunctionImplementationType(sqlFunction),
+                function.isDeterministic(),
+                function.isCalledOnNullInput(),
+                sqlFunction.getVersion(),
+                function.getComplexTypeFunctionDescriptor());
     }
 }
