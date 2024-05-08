@@ -2,6 +2,10 @@
 Binary Functions
 ================
 
+.. spark::function:: crc32(binary) -> bigint
+
+    Computes the crc32 checksum of ``binary``.
+
 .. spark:function:: hash(x, ...) -> integer
 
     Computes the hash of one or more input values using seed value of 42. For

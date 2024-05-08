@@ -40,15 +40,27 @@ void registerArithmeticFunctions(const std::string& prefix) {
   registerUnaryNumeric<UnaryMinusFunction>({prefix + "unaryminus"});
   // Math functions.
   registerUnaryNumeric<AbsFunction>({prefix + "abs"});
+  registerFunction<
+      DecimalAbsFunction,
+      LongDecimal<P1, S1>,
+      LongDecimal<P1, S1>>({prefix + "abs"});
+  registerFunction<
+      DecimalAbsFunction,
+      ShortDecimal<P1, S1>,
+      ShortDecimal<P1, S1>>({prefix + "abs"});
   registerFunction<AcosFunction, double, double>({prefix + "acos"});
+  registerFunction<AsinFunction, double, double>({prefix + "asin"});
   registerFunction<AcoshFunction, double, double>({prefix + "acosh"});
   registerFunction<AsinhFunction, double, double>({prefix + "asinh"});
+  registerFunction<AtanFunction, double, double>({prefix + "atan"});
   registerFunction<AtanhFunction, double, double>({prefix + "atanh"});
   registerFunction<SecFunction, double, double>({prefix + "sec"});
   registerFunction<CscFunction, double, double>({prefix + "csc"});
   registerFunction<SinhFunction, double, double>({prefix + "sinh"});
+  registerFunction<CosFunction, double, double>({prefix + "cos"});
   registerFunction<CoshFunction, double, double>({prefix + "cosh"});
   registerFunction<CotFunction, double, double>({prefix + "cot"});
+  registerFunction<DegreesFunction, double, double>({prefix + "degrees"});
   registerFunction<Atan2Function, double, double, double>({prefix + "atan2"});
   registerFunction<Log1pFunction, double, double>({prefix + "log1p"});
   registerFunction<ToBinaryStringFunction, Varchar, int64_t>({prefix + "bin"});

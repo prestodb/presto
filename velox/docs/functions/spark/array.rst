@@ -21,13 +21,31 @@ Array Functions
 
         SELECT array_contains(array(1, 2, 3), 2); -- true
 
+.. spark::function:: array_distinct(array(E)) -> array(E)
+
+    Remove duplicate values from the input array. ::
+
+        SELECT array_distinct(ARRAY [1, 2, 3]); -- [1, 2, 3]
+        SELECT array_distinct(ARRAY [1, 2, 1]); -- [1, 2]
+        SELECT array_distinct(ARRAY [1, NULL, NULL]); -- [1, NULL]
+
+.. spark::function:: array_except(array(E) x, array(E) y) -> array(E)
+
+    Returns an array of the elements in array ``x`` but not in array ``y``, without duplicates. ::
+
+        SELECT array_except(ARRAY [1, 2, 3], ARRAY [4, 5, 6]); -- [1, 2, 3]
+        SELECT array_except(ARRAY [1, 2, 3], ARRAY [1, 2]); -- [3]
+        SELECT array_except(ARRAY [1, 2, 2], ARRAY [1, 1, 2]); -- []
+        SELECT array_except(ARRAY [1, 2, 2], ARRAY [1, 3, 4]); -- [2]
+        SELECT array_except(ARRAY [1, NULL, NULL], ARRAY [1, 1, NULL]); -- []
+
 .. spark:function:: array_intersect(array(E), array(E1)) -> array(E2)
 
     Returns an array of the elements in the intersection of array1 and array2, without duplicates. ::
 
         SELECT array_intersect(array(1, 2, 3), array(1, 3, 5)); -- [1,3]
 
-.. function:: array_max(array(E)) -> E
+.. spark::function:: array_max(array(E)) -> E
 
     Returns maximum non-NULL element of the array. Returns NULL if array is empty or all elements are NULL.
     When E is DOUBLE or REAL, returns NaN if any element is NaN. ::
@@ -38,7 +56,7 @@ Array Functions
         SELECT array_max(array()); -- NULL
         SELECT array_max(array(-0.0001, -0.0002, -0.0003, float('nan'))); -- NaN
 
-.. function:: array_min(array(E)) -> E
+.. spark::function:: array_min(array(E)) -> E
 
     Returns minimum non-NULL element of the array. Returns NULL if array is empty or all elements are NULL.
     When E is DOUBLE or REAL, NaN value is considered greater than any non-NaN value. ::
@@ -51,7 +69,15 @@ Array Functions
         SELECT array_min(array(4.0, float('nan')]); -- 4.0
         SELECT array_min(array(NULL, float('nan'))); -- NaN
 
-.. function:: array_remove(x, element) -> array
+.. spark::function:: array_position(x, element) -> bigint
+
+    Returns the position (1-based) of the first occurrence of the ``element`` in array ``x`` (or 0 if not found). ::
+
+        SELECT array_position(array(1, 2, 3), 2); -- 2
+        SELECT array_position(array(1, 2, 3), 4); -- 0
+        SELECT array_position(array(1, 2, 3, 2), 2); -- 2
+
+.. spark::function:: array_remove(x, element) -> array
 
     Remove all elements that equal ``element`` from array ``x``. Returns NULL as result if ``element`` is NULL.
     If array ``x`` is empty array, returns empty array. If all elements in array ``x`` are NULL but ``element`` is not NULL,

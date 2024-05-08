@@ -15,6 +15,28 @@ difference of the character classes.
 
 See https://github.com/google/re2/wiki/Syntax for more information.
 
+.. spark::function:: like(string, pattern) -> boolean
+                     like(string, pattern, escape) -> boolean
+
+    Evaluates if the ``string`` matches the ``pattern``. Patterns can contain
+    regular characters as well as wildcards. Wildcard characters can be escaped
+    using the single character specified for the ``escape`` parameter. Only ASCII
+    characters are supported for the ``escape`` parameter. Matching is case sensitive.
+
+    Note: The wildcard '%' represents 0, 1 or multiple characters and the
+    wildcard '_' represents exactly one character.
+
+    Note: Each function instance allow for a maximum of 20 regular expressions to
+    be compiled per thread of execution. Not all patterns require
+    compilation of regular expressions. Patterns 'hello', 'hello%', '_hello__%',
+    '%hello', '%__hello_', '%hello%', where 'hello', 'velox'
+    contains only regular characters and '_' wildcards are evaluated without
+    using regular expressions. Only those patterns that require the compilation of
+    regular expressions are counted towards the limit.
+
+        SELECT like('abc', '%b%'); -- true
+        SELECT like('a_c', '%#_%', '#'); -- true
+
 .. spark:function:: regexp_extract(string, pattern) -> varchar
 
     Returns the first substring matched by the regular expression ``pattern``
@@ -35,6 +57,21 @@ See https://github.com/google/re2/wiki/Syntax for more information.
     Patterns must be constant values. ::
 
         SELECT regexp_extract('1a 2b 14m', '(\d+)([a-z]+)', 2); -- 'a'
+
+.. spark::function:: regexp_extract_all(string, pattern) -> array(varchar):
+
+    Returns the substring(s) matched by the regular expression ``pattern``
+    in ``string``::
+
+        SELECT regexp_extract_all('1a 2b 14m', '\d+'); -- [1, 2, 14]
+
+.. spark::function:: regexp_extract_all(string, pattern, group) -> array(varchar):
+    :noindex:
+
+    Finds all occurrences of the regular expression ``pattern`` in
+    ``string`` and returns the capturing group number ``group``::
+
+        SELECT regexp_extract_all('1a 2b 14m', '(\d+)([a-z]+)', 2); -- ['a', 'b', 'm']
 
 .. spark:function:: rlike(string, pattern) -> boolean
 

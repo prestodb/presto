@@ -14,9 +14,17 @@ Mathematical Functions
 
     Returns inverse hyperbolic cosine of ``x``.
 
+.. spark::function:: asin(x) -> double
+
+    Returns the arc sine of ``x``.
+
 .. spark:function:: asinh(x) -> double
 
     Returns inverse hyperbolic sine of ``x``.
+
+.. spark::function:: atan(x) -> double
+
+    Returns the arc tangent of ``x``.
 
 .. spark:function:: atan2(y, x) -> double
 
@@ -58,6 +66,10 @@ Mathematical Functions
     Returns ``x`` rounded up to the nearest integer.  
     Supported types are: BIGINT and DOUBLE.
 
+.. spark::function:: cos(x) -> double
+
+    Returns the cosine of ``x``.
+
 .. spark:function:: cosh(x) -> double
 
     Returns the hyperbolic cosine of ``x``.
@@ -69,6 +81,10 @@ Mathematical Functions
 .. spark:function:: csc(x) -> double
 
     Returns the cosecant of ``x``.
+
+.. spark::function:: degrees(x) -> double
+
+    Converts angle x in radians to degrees.
 
 .. spark:function:: divide(x, y) -> double
 
