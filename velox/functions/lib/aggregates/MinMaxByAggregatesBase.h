@@ -581,6 +581,9 @@ std::unique_ptr<exec::Aggregate> create(
     case TypeKind::DOUBLE:
       return std::make_unique<Aggregate<W, double, isMaxFunc, Comparator>>(
           resultType);
+    case TypeKind::HUGEINT:
+      return std::make_unique<Aggregate<W, int128_t, isMaxFunc, Comparator>>(
+          resultType);
     case TypeKind::VARBINARY:
       [[fallthrough]];
     case TypeKind::VARCHAR:
@@ -635,6 +638,9 @@ std::unique_ptr<exec::Aggregate> create(
     case TypeKind::BIGINT:
       return create<Aggregate, isMaxFunc, Comparator, int64_t>(
           resultType, compareType, errorMessage, throwOnNestedNulls);
+    case TypeKind::HUGEINT:
+      return create<Aggregate, isMaxFunc, Comparator, int128_t>(
+          resultType, compareType, errorMessage);
     case TypeKind::REAL:
       return create<Aggregate, isMaxFunc, Comparator, float>(
           resultType, compareType, errorMessage, throwOnNestedNulls);

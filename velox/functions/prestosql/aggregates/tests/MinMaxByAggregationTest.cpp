@@ -45,7 +45,8 @@ const std::vector<TypeKind> kSupportedTypes = {
     TypeKind::REAL,
     TypeKind::DOUBLE,
     TypeKind::VARCHAR,
-    TypeKind::TIMESTAMP};
+    TypeKind::TIMESTAMP,
+    TypeKind::HUGEINT};
 
 std::vector<TestParam> getTestParams() {
   std::vector<TestParam> params;
@@ -74,6 +75,9 @@ std::vector<TestParam> getTestParams() {
         break;                                                       \
       case TypeKind::BIGINT:                                         \
         testFunc<valueType, int64_t>();                              \
+        break;                                                       \
+      case TypeKind::HUGEINT:                                        \
+        testFunc<valueType, int128_t>();                             \
         break;                                                       \
       case TypeKind::REAL:                                           \
         testFunc<valueType, float>();                                \
@@ -110,6 +114,9 @@ std::vector<TestParam> getTestParams() {
         break;                                                  \
       case TypeKind::BIGINT:                                    \
         EXECUTE_TEST_BY_VALUE_TYPE(testFunc, int64_t);          \
+        break;                                                  \
+      case TypeKind::HUGEINT:                                   \
+        EXECUTE_TEST_BY_VALUE_TYPE(testFunc, int128_t);         \
         break;                                                  \
       case TypeKind::REAL:                                      \
         EXECUTE_TEST_BY_VALUE_TYPE(testFunc, float);            \
@@ -203,6 +210,21 @@ class MinMaxByAggregationTestBase : public AggregationTestBase {
   std::vector<RowVectorPtr> rowVectors_;
 };
 
+template <>
+FlatVectorPtr<int128_t> MinMaxByAggregationTestBase::buildDataVector(
+    vector_size_t size,
+    folly::Range<const int*> values) {
+  if (values.empty()) {
+    return makeFlatVector<int128_t>(
+        size, [](auto row) { return HugeInt::build(row - 3, row - 3); });
+  } else {
+    VELOX_CHECK_EQ(values.size(), size);
+    return makeFlatVector<int128_t>(size, [&](auto row) {
+      return HugeInt::build(values[row], values[row]);
+    });
+  }
+}
+
 // Build a flat vector with StringView. The value in the returned flat vector
 // is in ascending order.
 template <>
@@ -274,6 +296,8 @@ VectorPtr MinMaxByAggregationTestBase::buildDataVector(
       return buildDataVector<float>(size, values);
     case TypeKind::DOUBLE:
       return buildDataVector<double>(size, values);
+    case TypeKind::HUGEINT:
+      return buildDataVector<int128_t>(size, values);
     case TypeKind::VARCHAR:
       return buildDataVector<StringView>(size, values);
     case TypeKind::TIMESTAMP:
@@ -326,6 +350,9 @@ void MinMaxByAggregationTestBase::SetUp() {
         break;
       case TypeKind::BIGINT:
         dataVectorsByType_.emplace(type, buildDataVector<int64_t>(numValues_));
+        break;
+      case TypeKind::HUGEINT:
+        dataVectorsByType_.emplace(type, buildDataVector<int128_t>(numValues_));
         break;
       case TypeKind::REAL:
         dataVectorsByType_.emplace(type, buildDataVector<float>(numValues_));

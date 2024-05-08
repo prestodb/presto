@@ -90,11 +90,15 @@ struct MinMaxByNAccumulator {
   int64_t n{0};
 
   using Pair = std::pair<C, std::optional<V>>;
-  using Heap = std::vector<Pair, StlAllocator<Pair>>;
+  using Allocator = std::conditional_t<
+      std::is_same_v<int128_t, V> || std::is_same_v<int128_t, C>,
+      AlignedStlAllocator<Pair, sizeof(int128_t)>,
+      StlAllocator<Pair>>;
+  using Heap = std::vector<Pair, Allocator>;
   Heap heapValues;
 
   explicit MinMaxByNAccumulator(HashStringAllocator* allocator)
-      : heapValues{StlAllocator<Pair>(allocator)} {}
+      : heapValues{Allocator(allocator)} {}
 
   int64_t getN() const {
     return n;
@@ -1041,6 +1045,8 @@ std::unique_ptr<exec::Aggregate> createNArg(
       return std::make_unique<NAggregate<W, int32_t>>(resultType);
     case TypeKind::BIGINT:
       return std::make_unique<NAggregate<W, int64_t>>(resultType);
+    case TypeKind::HUGEINT:
+      return std::make_unique<NAggregate<W, int128_t>>(resultType);
     case TypeKind::REAL:
       return std::make_unique<NAggregate<W, float>>(resultType);
     case TypeKind::DOUBLE:
@@ -1076,6 +1082,9 @@ std::unique_ptr<exec::Aggregate> createNArg(
           resultType, compareType, errorMessage);
     case TypeKind::BIGINT:
       return createNArg<NAggregate, int64_t>(
+          resultType, compareType, errorMessage);
+    case TypeKind::HUGEINT:
+      return createNArg<NAggregate, int128_t>(
           resultType, compareType, errorMessage);
     case TypeKind::REAL:
       return createNArg<NAggregate, float>(
@@ -1139,12 +1148,14 @@ exec::AggregateRegistrationResult registerMinMaxBy(
                            .argumentType("V")
                            .argumentType("C")
                            .build());
+  // Add signatures for 3-arg version of min_by/max_by.
   const std::vector<std::string> supportedCompareTypes = {
       "boolean",
       "tinyint",
       "smallint",
       "integer",
       "bigint",
+      "hugeint",
       "real",
       "double",
       "varchar",
@@ -1164,7 +1175,18 @@ exec::AggregateRegistrationResult registerMinMaxBy(
                              .argumentType("bigint")
                              .build());
   }
-
+  signatures.push_back(
+      exec::AggregateFunctionSignatureBuilder()
+          .integerVariable("a_precision")
+          .integerVariable("a_scale")
+          .typeVariable("V")
+          .returnType("array(V)")
+          .intermediateType(
+              "row(bigint,array(DECIMAL(a_precision, a_scale)),array(V))")
+          .argumentType("V")
+          .argumentType("DECIMAL(a_precision, a_scale)")
+          .argumentType("bigint")
+          .build());
   return exec::registerAggregateFunction(
       name,
       std::move(signatures),
