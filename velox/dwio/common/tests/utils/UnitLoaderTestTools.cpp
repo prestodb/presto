@@ -15,6 +15,7 @@
  */
 
 #include "velox/dwio/common/tests/utils/UnitLoaderTestTools.h"
+#include "velox/dwio/common/UnitLoaderTools.h"
 
 using facebook::velox::dwio::common::LoadUnit;
 
@@ -32,18 +33,10 @@ ReaderMock::ReaderMock(
       currentUnit_{0},
       currentRowInUnit_{0} {
   VELOX_CHECK(rowsPerUnit_.size() == ioSizes_.size());
-  auto rowsLeftToSkip = rowsToSkip;
-  for (auto rowsInUnit : rowsPerUnit_) {
-    if (rowsLeftToSkip >= rowsInUnit) {
-      rowsLeftToSkip -= rowsInUnit;
-      ++currentUnit_;
-    } else {
-      currentRowInUnit_ = rowsLeftToSkip;
-      rowsLeftToSkip = 0;
-      break;
-    }
-  }
-  VELOX_CHECK_EQ(rowsLeftToSkip, 0);
+  auto [currentUnit, currentRowInUnit] = unit_loader_tools::howMuchToSkip(
+      rowsToSkip, rowsPerUnit_.cbegin(), rowsPerUnit_.cend());
+  currentUnit_ = currentUnit;
+  currentRowInUnit_ = currentRowInUnit;
 }
 
 bool ReaderMock::read(uint64_t maxRows) {

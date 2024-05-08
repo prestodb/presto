@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "velox/dwio/common/UnitLoaderTools.h"
@@ -140,4 +141,54 @@ TEST(UnitLoaderToolsTests, WillOnlyCallbackOnce) {
     EXPECT_EQ(callCount, 1);
   }
   EXPECT_EQ(callCount, 1);
+}
+
+TEST(UnitLoaderToolsTests, HowMuchToSkip) {
+  // Helpers
+  auto testSkip = [](uint64_t rowsToSkip, std::vector<uint64_t> rowCount) {
+    return howMuchToSkip(rowsToSkip, rowCount.cbegin(), rowCount.cend());
+  };
+
+  auto result = [](uint32_t unitsToSkip, uint64_t rowsToSkip) {
+    return std::make_pair(unitsToSkip, rowsToSkip);
+  };
+
+  static const char* kErrorMessage =
+      "Can't skip more rows than all the rows in all the units";
+
+  // Test cases
+  EXPECT_EQ(testSkip(0, {}), result(0, 0));
+  EXPECT_THAT(
+      [&]() { testSkip(1, {}); },
+      Throws<facebook::velox::VeloxRuntimeError>(Property(
+          &facebook::velox::VeloxRuntimeError::message,
+          HasSubstr(kErrorMessage))));
+
+  EXPECT_EQ(testSkip(0, {0}), result(1, 0));
+  EXPECT_THAT(
+      [&]() { testSkip(1, {0}); },
+      Throws<facebook::velox::VeloxRuntimeError>(Property(
+          &facebook::velox::VeloxRuntimeError::message,
+          HasSubstr(kErrorMessage))));
+
+  EXPECT_EQ(testSkip(0, {1}), result(0, 0));
+  EXPECT_EQ(testSkip(1, {1}), result(1, 0));
+  EXPECT_THAT(
+      [&]() { testSkip(2, {1}); },
+      Throws<facebook::velox::VeloxRuntimeError>(Property(
+          &facebook::velox::VeloxRuntimeError::message,
+          HasSubstr(kErrorMessage))));
+
+  std::vector<uint64_t> rowCount = {2, 1, 2};
+  EXPECT_EQ(testSkip(0, rowCount), result(0, 0));
+  EXPECT_EQ(testSkip(1, rowCount), result(0, 1));
+  EXPECT_EQ(testSkip(2, rowCount), result(1, 0));
+  EXPECT_EQ(testSkip(3, rowCount), result(2, 0));
+  EXPECT_EQ(testSkip(4, rowCount), result(2, 1));
+  EXPECT_EQ(testSkip(5, rowCount), result(3, 0));
+  EXPECT_THAT(
+      [&]() { testSkip(6, rowCount); },
+      Throws<facebook::velox::VeloxRuntimeError>(Property(
+          &facebook::velox::VeloxRuntimeError::message,
+          HasSubstr(kErrorMessage))));
 }

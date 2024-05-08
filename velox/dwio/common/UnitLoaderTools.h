@@ -25,6 +25,7 @@
 #include <vector>
 
 #include "folly/synchronization/CallOnce.h"
+#include "velox/common/base/Exceptions.h"
 
 namespace facebook::velox::dwio::common::unit_loader_tools {
 
@@ -167,5 +168,27 @@ class CallbackOnLastSignal {
   std::shared_ptr<std::atomic_size_t> callsLeft_;
   std::shared_ptr<Callable> cb_;
 };
+
+template <typename NumRowsIter>
+std::pair<uint32_t, uint64_t>
+howMuchToSkip(uint64_t rowsToSkip, NumRowsIter begin, NumRowsIter end) {
+  uint64_t rowsLeftToSkip = rowsToSkip;
+  uint32_t unitsToSkip = 0;
+  for (NumRowsIter it = begin; it != end; ++it) {
+    const auto rowsInUnit = *it;
+    if (rowsLeftToSkip < rowsInUnit) {
+      return {unitsToSkip, rowsLeftToSkip};
+    }
+    rowsLeftToSkip -= rowsInUnit;
+    ++unitsToSkip;
+  }
+
+  VELOX_CHECK_EQ(
+      rowsLeftToSkip,
+      0,
+      "Can't skip more rows than all the rows in all the units");
+
+  return {unitsToSkip, rowsLeftToSkip};
+}
 
 } // namespace facebook::velox::dwio::common::unit_loader_tools
