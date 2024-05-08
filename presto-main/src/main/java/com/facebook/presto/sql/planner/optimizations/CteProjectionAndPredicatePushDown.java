@@ -31,6 +31,7 @@ import com.facebook.presto.sql.planner.RowExpressionVariableInliner;
 import com.facebook.presto.sql.planner.SimplePlanVisitor;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.VariablesExtractor;
+import com.facebook.presto.sql.planner.iterative.rule.SimplifyRowExpressions;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.google.common.collect.ImmutableList;
@@ -48,7 +49,6 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.SystemSessionProperties.getCteFilterAndProjectionPushdownEnabled;
 import static com.facebook.presto.SystemSessionProperties.isCteMaterializationApplicable;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.OR;
 import static com.facebook.presto.sql.planner.PlannerUtils.isConstant;
 import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
 import static com.facebook.presto.sql.relational.Expressions.constant;
@@ -370,14 +370,21 @@ public class CteProjectionAndPredicatePushDown
                 return node;
             }
 
-            RowExpression predicate;
+            RowExpression resultPredicate;
             if (predicates.size() == 1) {
-                predicate = predicates.get(0);
+                resultPredicate = predicates.get(0);
             }
             else {
-                predicate = new SpecialFormExpression(OR, BOOLEAN, predicates);
+                resultPredicate = predicates.get(0);
+                for (int i = 1; i < predicates.size(); i++) {
+                    resultPredicate = new SpecialFormExpression(
+                            SpecialFormExpression.Form.OR,
+                            BOOLEAN,
+                            resultPredicate, predicates.get(i));
+                }
             }
-            return new FilterNode(node.getSourceLocation(), idAllocator.getNextId(), node, predicate);
+            resultPredicate = SimplifyRowExpressions.rewrite(resultPredicate, metadata, session.toConnectorSession());
+            return new FilterNode(node.getSourceLocation(), idAllocator.getNextId(), node, resultPredicate);
         }
 
         private boolean isConstTrue(List<RowExpression> predicates)
