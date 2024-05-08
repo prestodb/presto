@@ -90,7 +90,7 @@ class SsdCache {
   /// Drops all entries. Outstanding pins become invalid but reading them will
   /// mostly succeed since the files will not be rewritten until new content is
   /// stored.
-  void clear();
+  void testingClear();
 
   /// Deletes backing files. Used in testing.
   void testingDeleteFiles();

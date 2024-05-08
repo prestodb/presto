@@ -171,9 +171,9 @@ SsdCacheStats SsdCache::stats() const {
   return stats;
 }
 
-void SsdCache::clear() {
+void SsdCache::testingClear() {
   for (auto& file : files_) {
-    file->clear();
+    file->testingClear();
   }
 }
 

@@ -62,11 +62,11 @@ class SsdFileTracker {
       const std::vector<int32_t>& regionPins);
 
   // Expose the region access data. Used in checkpointing cache state.
-  std::vector<tsan_atomic<uint64_t>>& regionScores() {
+  std::vector<tsan_atomic<double>>& regionScores() {
     return regionScores_;
   }
 
-  void setRegionScores(const std::vector<int64_t>& scores) {
+  void setRegionScores(const std::vector<double>& scores) {
     VELOX_CHECK_EQ(scores.size(), regionScores_.size());
     for (auto i = 0; i < scores.size(); ++i) {
       regionScores_[i] = scores[i];
@@ -76,18 +76,23 @@ class SsdFileTracker {
   /// Exports a copy of the scores. Tsan will report an error if a
   /// pointer to atomics is passed to write(). Therefore copy the
   /// atomics into non-atomics before writing.
-  std::vector<uint64_t> copyScores() {
-    std::vector<uint64_t> scores(regionScores_.size());
+  std::vector<double> copyScores() {
+    std::vector<double> scores(regionScores_.size());
     for (auto i = 0; i < scores.size(); ++i) {
       scores[i] = tsanAtomicValue(regionScores_[i]);
     }
     return scores;
   }
 
+  /// Resets scores of all regions.
+  void testingClear() {
+    std::fill(regionScores_.begin(), regionScores_.end(), 0);
+  }
+
  private:
   static constexpr int32_t kDecayInterval = 1000;
 
-  std::vector<tsan_atomic<uint64_t>> regionScores_;
+  std::vector<tsan_atomic<double>> regionScores_;
 
   // Count of lookups. The scores are decayed every time the count goes
   // over kDecayInterval or half count of cache entries, whichever comes first.

@@ -495,7 +495,7 @@ TEST_F(CacheTest, ssd) {
   EXPECT_LT(0, ioStats_->rawOverreadBytes());
   auto fullStripeBytes = ioStats_->rawBytesRead();
   auto bytes = ioStats_->rawBytesRead();
-  cache_->clear();
+  cache_->testingClear();
   // We read 10 stripes with some columns sparsely accessed.
   readLoop("testfile", 30, 70, 10, 10, 1, ioStats_);
   auto sparseStripeBytes = (ioStats_->rawBytesRead() - bytes) / 10;
@@ -510,7 +510,7 @@ TEST_F(CacheTest, ssd) {
       "prefix1_", 0, kSsdBytes / bytesPerFile, 30, 100, 1, kStripesPerFile, 4);
 
   waitForWrite();
-  cache_->clear();
+  cache_->testingClear();
   // Read double this to get some eviction from SSD.
   readFiles(
       "prefix1_",

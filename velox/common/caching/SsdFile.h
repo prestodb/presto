@@ -250,7 +250,7 @@ class SsdFile {
   void updateStats(SsdCacheStats& stats) const;
 
   /// Resets this' to a post-construction empty state. See SsdCache::clear().
-  void clear();
+  void testingClear();
 
   // Deletes the backing file. Used in testing.
   void deleteFile();
@@ -275,6 +275,10 @@ class SsdFile {
   /// Return the SSD file path.
   const std::string& fileName() const {
     return fileName_;
+  }
+
+  std::vector<double> testingCopyScores() {
+    return tracker_.copyScores();
   }
 
  private:

@@ -401,14 +401,14 @@ class TpchBenchmark {
 #endif
 
         if (cache_) {
-          cache_->clear();
+          cache_->testingClear();
         }
       }
       if (FLAGS_clear_ssd_cache) {
         if (cache_) {
           auto ssdCache = cache_->ssdCache();
           if (ssdCache) {
-            ssdCache->clear();
+            ssdCache->testingClear();
           }
         }
       }

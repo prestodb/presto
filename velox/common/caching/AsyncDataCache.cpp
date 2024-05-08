@@ -875,7 +875,7 @@ CacheStats AsyncDataCache::refreshStats() const {
   return stats;
 }
 
-void AsyncDataCache::clear() {
+void AsyncDataCache::testingClear() {
   for (auto& shard : shards_) {
     memory::Allocation unused;
     shard->evict(std::numeric_limits<uint64_t>::max(), true, 0, unused);

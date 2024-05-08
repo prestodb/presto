@@ -510,13 +510,14 @@ void SsdFile::updateStats(SsdCacheStats& stats) const {
   stats.readCheckpointErrors += stats_.readCheckpointErrors;
 }
 
-void SsdFile::clear() {
+void SsdFile::testingClear() {
   std::lock_guard<std::shared_mutex> l(mutex_);
   entries_.clear();
   std::fill(regionSizes_.begin(), regionSizes_.end(), 0);
   std::fill(erasedRegionSizes_.begin(), erasedRegionSizes_.end(), 0);
   writableRegions_.resize(numRegions_);
   std::iota(writableRegions_.begin(), writableRegions_.end(), 0);
+  tracker_.testingClear();
 }
 
 void SsdFile::deleteFile() {
@@ -863,8 +864,8 @@ void SsdFile::readCheckpoint(std::ifstream& state) {
       maxRegions_,
       "Trying to start from checkpoint with a different capacity");
   numRegions_ = readNumber<int32_t>(state);
-  std::vector<int64_t> scores(maxRegions);
-  state.read(asChar(scores.data()), maxRegions_ * sizeof(uint64_t));
+  std::vector<double> scores(maxRegions);
+  state.read(asChar(scores.data()), maxRegions_ * sizeof(double));
   std::unordered_map<uint64_t, StringIdLease> idMap;
   for (;;) {
     const auto id = readNumber<uint64_t>(state);

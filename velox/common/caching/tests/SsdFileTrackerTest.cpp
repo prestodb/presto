@@ -48,4 +48,23 @@ TEST(SsdFileTrackerTest, tracker) {
       tracker.findEvictionCandidates(kNumRegions, kNumRegions, pins);
   std::vector<int32_t> expected{0, 1, 4, 5, 6, 7, 8, 9};
   EXPECT_EQ(candidates, expected);
+
+  // Test large region scores.
+  tracker.testingClear();
+  for (auto region = 0; region < kNumRegions; ++region) {
+    tracker.regionRead(region, INT32_MAX);
+    tracker.regionRead(region, region * 100'000'000);
+  }
+  for (int i = 0; i < 999; ++i) {
+    for (auto region = 0; region < kNumRegions; ++region) {
+      tracker.regionFilled(region);
+    }
+  }
+  for (const auto score : tracker.copyScores()) {
+    EXPECT_TRUE(std::isinf(score));
+  }
+  // Mark all regions to be evictable.
+  std::fill(pins.begin(), pins.end(), 0);
+  candidates = tracker.findEvictionCandidates(3, kNumRegions, pins);
+  EXPECT_EQ(candidates.size(), 3);
 }

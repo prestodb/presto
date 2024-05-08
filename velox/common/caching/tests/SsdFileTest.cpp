@@ -42,7 +42,7 @@ class SsdFileTest : public testing::Test {
  protected:
   static constexpr int64_t kMB = 1 << 20;
 
-  static void SetUpTestCase() {
+  void SetUp() override {
     memory::MemoryManager::testingSetInstance({});
   }
 
@@ -56,22 +56,27 @@ class SsdFileTest : public testing::Test {
   }
 
   void initializeCache(
-      int64_t maxBytes,
       int64_t ssdBytes = 0,
-      bool setNoCowFlag = false) {
+      int64_t checkpointIntervalBytes = 0,
+      bool disableFileCow = false) {
     // tmpfs does not support O_DIRECT, so turn this off for testing.
     FLAGS_ssd_odirect = false;
     cache_ = AsyncDataCache::create(memory::memoryManager()->allocator());
-
     fileName_ = StringIdLease(fileIds(), "fileInStorage");
-
     tempDirectory_ = exec::test::TempDirectoryPath::create();
+    initializeSsdFile(ssdBytes, checkpointIntervalBytes, disableFileCow);
+  }
+
+  void initializeSsdFile(
+      int64_t ssdBytes = 0,
+      int64_t checkpointIntervalBytes = 0,
+      bool disableFileCow = false) {
     ssdFile_ = std::make_unique<SsdFile>(
         fmt::format("{}/ssdtest", tempDirectory_->getPath()),
         0, // shardId
         bits::roundUp(ssdBytes, SsdFile::kRegionSize) / SsdFile::kRegionSize,
-        0, // checkpointInternalBytes
-        setNoCowFlag);
+        checkpointIntervalBytes,
+        disableFileCow);
   }
 
   static void initializeContents(int64_t sequence, memory::Allocation& alloc) {
@@ -240,7 +245,7 @@ class SsdFileTest : public testing::Test {
 TEST_F(SsdFileTest, writeAndRead) {
   constexpr int64_t kSsdSize = 16 * SsdFile::kRegionSize;
   std::vector<TestEntry> allEntries;
-  initializeCache(128 * kMB, kSsdSize);
+  initializeCache(kSsdSize);
   FLAGS_ssd_verify_write = true;
   for (auto startOffset = 0; startOffset <= kSsdSize - SsdFile::kRegionSize;
        startOffset += SsdFile::kRegionSize) {
@@ -302,6 +307,30 @@ TEST_F(SsdFileTest, writeAndRead) {
       }
     }
   }
+}
+
+TEST_F(SsdFileTest, checkpoint) {
+  constexpr int64_t kSsdSize = 16 * SsdFile::kRegionSize;
+  const int32_t checkpointIntervalBytes = 5 * SsdFile::kRegionSize;
+  FLAGS_ssd_verify_write = true;
+  initializeCache(kSsdSize, checkpointIntervalBytes);
+
+  for (auto startOffset = 0; startOffset <= kSsdSize - SsdFile::kRegionSize;
+       startOffset += SsdFile::kRegionSize) {
+    auto pins =
+        makePins(fileName_.id(), startOffset, 4096, 2048 * 1025, 62 * kMB);
+    ssdFile_->write(pins);
+    readAndCheckPins(pins);
+  }
+  const auto originalRegionScores = ssdFile_->testingCopyScores();
+  EXPECT_EQ(originalRegionScores.size(), 16);
+
+  // Re-initialize SSD file from checkpoint.
+  ssdFile_->checkpoint(true);
+  initializeSsdFile(kSsdSize, checkpointIntervalBytes);
+  const auto recoveredRegionScores = ssdFile_->testingCopyScores();
+  EXPECT_EQ(recoveredRegionScores.size(), 16);
+  EXPECT_EQ(originalRegionScores, recoveredRegionScores);
 }
 
 #ifdef VELOX_SSD_FILE_TEST_SET_NO_COW_FLAG

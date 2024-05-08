@@ -777,7 +777,7 @@ class AsyncDataCache : public memory::Cache {
   }
 
   // Drops all unpinned entries. Pins stay valid.
-  void clear();
+  void testingClear();
 
   // Saves all entries with 'ssdSaveable_' to 'ssdCache_'.
   void saveToSsd();

@@ -637,7 +637,7 @@ TEST_F(AsyncDataCacheTest, pin) {
   EXPECT_EQ(0, stats.numShared);
   EXPECT_EQ(0, stats.numExclusive);
 
-  cache_->clear();
+  cache_->testingClear();
   stats = cache_->refreshStats();
   EXPECT_EQ(0, stats.largeSize);
   EXPECT_EQ(0, stats.numEntries);
@@ -816,7 +816,7 @@ TEST_F(AsyncDataCacheTest, DISABLED_ssd) {
   ASSERT_EQ(ramStats.numShared, 0);
   ASSERT_EQ(ramStats.numExclusive, 0);
 
-  cache_->ssdCache()->clear();
+  cache_->ssdCache()->testingClear();
   // We cut the tail off one of the cache shards.
   corruptFile(fmt::format("{}/cache0.cpt", tempDirectory_->getPath()));
   // We open the cache from checkpoint. Reading checks the data integrity, here
