@@ -640,7 +640,8 @@ public class TestQueryStateMachine
                 executor,
                 ticker,
                 metadata,
-                WarningCollector.NOOP);
+                WarningCollector.NOOP,
+                false);
         stateMachine.setInputs(INPUTS);
         stateMachine.setOutput(OUTPUT);
         stateMachine.setColumns(OUTPUT_FIELD_NAMES, OUTPUT_FIELD_TYPES);

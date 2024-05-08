@@ -296,7 +296,8 @@ public class PrestoSparkQueryExecutionFactory
             Optional<ExecutionFailureInfo> failureInfo,
             QueryStateTimer queryStateTimer,
             Optional<StageInfo> rootStage,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            boolean isNativeExecutionEnabled)
     {
         checkArgument(failureInfo.isPresent() || queryState != FAILED, "unexpected query state: %s", queryState);
 
@@ -335,7 +336,8 @@ public class PrestoSparkQueryExecutionFactory
                 succinctBytes(peakTaskUserMemoryInBytes),
                 succinctBytes(peakTaskTotalMemoryInBytes),
                 succinctBytes(peakNodeTotalMemoryInBytes),
-                session.getRuntimeStats());
+                session.getRuntimeStats(),
+                isNativeExecutionEnabled);
 
         Optional<PrestoSparkExecutionContext> prestoSparkExecutionContext = Optional.empty();
         if (planAndMore.isPresent()) {
@@ -654,7 +656,8 @@ public class PrestoSparkQueryExecutionFactory
                             Optional.empty(),
                             queryStateTimer,
                             Optional.empty(),
-                            warningCollector)));
+                            warningCollector,
+                            featuresConfig.isNativeExecutionEnabled())));
 
             // including queueing time
             Duration queryMaxRunTime = getQueryMaxRunTime(session);
@@ -805,7 +808,8 @@ public class PrestoSparkQueryExecutionFactory
                         failureInfo,
                         queryStateTimer,
                         Optional.empty(),
-                        warningCollector);
+                        warningCollector,
+                        featuresConfig.isNativeExecutionEnabled());
                 queryMonitor.queryCompletedEvent(queryInfo);
                 if (queryStatusInfoOutputLocation.isPresent()) {
                     PrestoSparkQueryStatusInfo prestoSparkQueryStatusInfo = createPrestoSparkQueryInfo(

@@ -261,7 +261,8 @@ public class PrestoSparkAdaptiveQueryExecution
                         Optional.empty(),
                         queryStateTimer,
                         Optional.of(createStageInfo(session.getQueryId(), planFragmenter.fragmentQueryPlan(session, planAndMore.getPlan(), warningCollector), ImmutableList.of())),
-                        warningCollector));
+                        warningCollector,
+                        featuresConfig.isNativeExecutionEnabled()));
 
         IterativePlanFragmenter.PlanAndFragments planAndFragments = iterativePlanFragmenter.createReadySubPlans(this.planAndMore.getPlan().getRoot());
 

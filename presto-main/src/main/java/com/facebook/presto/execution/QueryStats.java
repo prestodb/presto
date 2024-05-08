@@ -49,6 +49,11 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class QueryStats
 {
+    // Native worker uses different operator names.
+    private static final String NATIVE_OPERATOR_MERGE = "MergeExchange";
+    private static final String NATIVE_OPERATOR_EXCHANGE = "Exchange";
+    private static final String NATIVE_OPERATOR_TABLE_SCAN = "TableScan";
+
     private final DateTime createTime;
 
     private final DateTime executionStartTime;
@@ -293,7 +298,8 @@ public class QueryStats
             DataSize peakTaskUserMemory,
             DataSize peakTaskTotalMemory,
             DataSize peakNodeTotalMemory,
-            RuntimeStats runtimeStats)
+            RuntimeStats runtimeStats,
+            boolean isNativeExecutionEnabled)
     {
         int totalTasks = 0;
         int runningTasks = 0;
@@ -373,14 +379,36 @@ public class QueryStats
                 PlanFragment plan = stageInfo.getPlan().get();
                 for (OperatorStats operatorStats : stageExecutionStats.getOperatorSummaries()) {
                     // NOTE: we need to literally check each operator type to tell if the source is from table input or shuffled input. A stage can have input from both types of source.
+                    // NOTE: also check for operator names from presto native execution.
                     String operatorType = operatorStats.getOperatorType();
-                    if (operatorType.equals(ExchangeOperator.class.getSimpleName()) || operatorType.equals(MergeOperator.class.getSimpleName())) {
-                        shuffledPositions += operatorStats.getRawInputPositions();
-                        shuffledDataSize += operatorStats.getRawInputDataSize().toBytes();
+                    if (isNativeExecutionEnabled) {
+                        if (operatorType.equals(NATIVE_OPERATOR_EXCHANGE) || operatorType.equals(NATIVE_OPERATOR_MERGE)) {
+                            shuffledPositions += operatorStats.getRawInputPositions();
+                            shuffledDataSize += operatorStats.getRawInputDataSize().toBytes();
+                        }
+                        else if (operatorType.equals(NATIVE_OPERATOR_TABLE_SCAN)) {
+                            rawInputDataSize += operatorStats.getRawInputDataSize().toBytes();
+                            rawInputPositions += operatorStats.getRawInputPositions();
+                        }
+                        // TODO(spershin): Remove the two if statements below when Native worker stops renaming operators.
+                        else if (operatorType.equals(ExchangeOperator.class.getSimpleName()) || operatorType.equals(MergeOperator.class.getSimpleName())) {
+                            shuffledPositions += operatorStats.getRawInputPositions();
+                            shuffledDataSize += operatorStats.getRawInputDataSize().toBytes();
+                        }
+                        else if (operatorType.equals(TableScanOperator.class.getSimpleName()) || operatorType.equals(ScanFilterAndProjectOperator.class.getSimpleName())) {
+                            rawInputDataSize += operatorStats.getRawInputDataSize().toBytes();
+                            rawInputPositions += operatorStats.getRawInputPositions();
+                        }
                     }
-                    else if (operatorType.equals(TableScanOperator.class.getSimpleName()) || operatorType.equals(ScanFilterAndProjectOperator.class.getSimpleName())) {
-                        rawInputDataSize += operatorStats.getRawInputDataSize().toBytes();
-                        rawInputPositions += operatorStats.getRawInputPositions();
+                    else {
+                        if (operatorType.equals(ExchangeOperator.class.getSimpleName()) || operatorType.equals(MergeOperator.class.getSimpleName())) {
+                            shuffledPositions += operatorStats.getRawInputPositions();
+                            shuffledDataSize += operatorStats.getRawInputDataSize().toBytes();
+                        }
+                        else if (operatorType.equals(TableScanOperator.class.getSimpleName()) || operatorType.equals(ScanFilterAndProjectOperator.class.getSimpleName())) {
+                            rawInputDataSize += operatorStats.getRawInputDataSize().toBytes();
+                            rawInputPositions += operatorStats.getRawInputPositions();
+                        }
                     }
                 }
                 processedInputDataSize += stageExecutionStats.getProcessedInputDataSize().toBytes();

@@ -31,6 +31,7 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.AnalyzerProvider;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.security.AccessControl;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.tracing.NoopTracerProvider;
 import com.facebook.presto.tracing.QueryStateTracingListener;
 import com.facebook.presto.transaction.TransactionManager;
@@ -65,6 +66,8 @@ public class LocalDispatchQueryFactory
 
     private final QueryPrerequisitesManager queryPrerequisitesManager;
 
+    private final FeaturesConfig featuresConfig;
+
     /**
      * Instantiates a new Local dispatch query factory.
      *
@@ -78,6 +81,7 @@ public class LocalDispatchQueryFactory
      * @param clusterSizeMonitor the cluster size monitor
      * @param dispatchExecutor the dispatch executor
      * @param queryPrerequisitesManager the query prerequisites manager
+     * @param featuresConfig the features config
      */
     @Inject
     public LocalDispatchQueryFactory(
@@ -90,7 +94,8 @@ public class LocalDispatchQueryFactory
             ExecutionFactoriesManager executionFactoriesManager,
             ClusterSizeMonitor clusterSizeMonitor,
             DispatchExecutor dispatchExecutor,
-            QueryPrerequisitesManager queryPrerequisitesManager)
+            QueryPrerequisitesManager queryPrerequisitesManager,
+            FeaturesConfig featuresConfig)
     {
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
@@ -104,6 +109,7 @@ public class LocalDispatchQueryFactory
 
         this.executor = requireNonNull(dispatchExecutor, "executorService is null").getExecutor();
         this.queryPrerequisitesManager = requireNonNull(queryPrerequisitesManager, "queryPrerequisitesManager is null");
+        this.featuresConfig = requireNonNull(featuresConfig, "featuresConfig is null");
     }
 
     /**
@@ -153,7 +159,8 @@ public class LocalDispatchQueryFactory
                 accessControl,
                 executor,
                 metadata,
-                warningCollector);
+                warningCollector,
+                featuresConfig.isNativeExecutionEnabled());
 
         stateMachine.addStateChangeListener(new QueryStateTracingListener(stateMachine.getSession().getTracer().orElse(NoopTracerProvider.NOOP_TRACER)));
         queryMonitor.queryCreatedEvent(stateMachine.getBasicQueryInfo(Optional.empty()));

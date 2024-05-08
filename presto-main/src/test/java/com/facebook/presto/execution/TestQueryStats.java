@@ -393,7 +393,7 @@ public class TestQueryStats
         List<StageInfo> allStages = StageInfo.getAllStages(rootStage);
         QueryStats queryStats = QueryStats.create(new QueryStateTimer(new TestingTicker()), rootStage, allStages, 0,
                 succinctBytes(0L), succinctBytes(0L), succinctBytes(0L), succinctBytes(0L), succinctBytes(0L),
-                new RuntimeStats(ImmutableMap.of(TEST_METRIC_NAME, RuntimeMetric.copyOf(TEST_RUNTIME_METRIC_1))));
+                new RuntimeStats(ImmutableMap.of(TEST_METRIC_NAME, RuntimeMetric.copyOf(TEST_RUNTIME_METRIC_1))), false);
 
         assertEquals(queryStats.getRawInputDataSize().toBytes(), 8620);
         assertEquals(queryStats.getRawInputPositions(), 150);

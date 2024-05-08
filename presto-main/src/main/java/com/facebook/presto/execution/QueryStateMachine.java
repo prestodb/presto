@@ -165,6 +165,7 @@ public class QueryStateMachine
     private final Set<SqlFunctionId> removedSessionFunctions = Sets.newConcurrentHashSet();
 
     private final WarningCollector warningCollector;
+    boolean isNativeExecutionEnabled;
     private final AtomicReference<Set<String>> scalarFunctions = new AtomicReference<>(ImmutableSet.of());
     private final AtomicReference<Set<String>> aggregateFunctions = new AtomicReference<>(ImmutableSet.of());
     private final AtomicReference<Set<String>> windowsFunctions = new AtomicReference<>(ImmutableSet.of());
@@ -180,7 +181,8 @@ public class QueryStateMachine
             Executor executor,
             Ticker ticker,
             Metadata metadata,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            boolean isNativeExecutionEnabled)
     {
         this.query = requireNonNull(query, "query is null");
         this.preparedQuery = requireNonNull(preparedQuery, "preparedQuery is null");
@@ -197,6 +199,7 @@ public class QueryStateMachine
         this.finalQueryInfo = new StateMachine<>("finalQueryInfo-" + queryId, executor, Optional.empty());
         this.outputManager = new QueryOutputManager(executor);
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+        this.isNativeExecutionEnabled = isNativeExecutionEnabled;
     }
 
     /**
@@ -214,7 +217,8 @@ public class QueryStateMachine
             AccessControl accessControl,
             Executor executor,
             Metadata metadata,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            boolean isNativeExecutionEnabled)
     {
         return beginWithTicker(
                 query,
@@ -229,7 +233,8 @@ public class QueryStateMachine
                 executor,
                 Ticker.systemTicker(),
                 metadata,
-                warningCollector);
+                warningCollector,
+                isNativeExecutionEnabled);
     }
 
     static QueryStateMachine beginWithTicker(
@@ -245,7 +250,8 @@ public class QueryStateMachine
             Executor executor,
             Ticker ticker,
             Metadata metadata,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            boolean isNativeExecutionEnabled)
     {
         // If there is not an existing transaction, begin an auto commit transaction
         if (!session.getTransactionId().isPresent() && !transactionControl) {
@@ -265,7 +271,8 @@ public class QueryStateMachine
                 executor,
                 ticker,
                 metadata,
-                warningCollector);
+                warningCollector,
+                isNativeExecutionEnabled);
 
         queryStateMachine.addStateChangeListener(newState -> {
             QUERY_STATE_LOG.debug("Query %s is %s", queryStateMachine.getQueryId(), newState);
@@ -511,7 +518,8 @@ public class QueryStateMachine
                 succinctBytes(getPeakTaskUserMemory()),
                 succinctBytes(getPeakTaskTotalMemory()),
                 succinctBytes(getPeakNodeTotalMemory()),
-                session.getRuntimeStats());
+                session.getRuntimeStats(),
+                isNativeExecutionEnabled);
     }
 
     public VersionedMemoryPoolId getMemoryPool()

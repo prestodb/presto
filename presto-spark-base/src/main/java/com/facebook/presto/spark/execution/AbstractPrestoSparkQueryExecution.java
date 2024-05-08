@@ -601,7 +601,8 @@ public abstract class AbstractPrestoSparkQueryExecution
                 failureInfo,
                 queryStateTimer,
                 stageInfoOptional,
-                warningCollector);
+                warningCollector,
+                featuresConfig.isNativeExecutionEnabled());
 
         queryMonitor.queryCompletedEvent(queryInfo);
         historyBasedPlanStatisticsTracker.updateStatistics(queryInfo);

@@ -191,7 +191,8 @@ public class PrestoSparkStaticQueryExecution
                         Optional.empty(),
                         queryStateTimer,
                         Optional.of(createStageInfo(session.getQueryId(), rootFragmentedPlan, ImmutableList.of())),
-                        warningCollector));
+                        warningCollector,
+                        featuresConfig.isNativeExecutionEnabled()));
 
         log.info(textDistributedPlan(rootFragmentedPlan, metadata.getFunctionAndTypeManager(), session, true));
         int hashPartitionCount = planAndMore.getPhysicalResourceSettings().getHashPartitionCount();

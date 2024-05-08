@@ -224,6 +224,7 @@ public final class TaskTestUtils
                 new AllowAllAccessControl(),
                 executor,
                 metadata,
-                WarningCollector.NOOP);
+                WarningCollector.NOOP,
+                false);
     }
 }

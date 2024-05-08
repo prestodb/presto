@@ -143,7 +143,8 @@ public class TestCreateMaterializedViewTask
                 accessControl,
                 executorService,
                 metadata,
-                WarningCollector.NOOP);
+                WarningCollector.NOOP,
+                false);
         WarningCollector warningCollector = stateMachine.getWarningCollector();
         CreateMaterializedViewTask createMaterializedViewTask = new CreateMaterializedViewTask(parser);
         getFutureValue(createMaterializedViewTask.execute(statement, transactionManager, metadata, accessControl, testSession, emptyList(), warningCollector));
@@ -170,7 +171,8 @@ public class TestCreateMaterializedViewTask
                 accessControl,
                 executorService,
                 metadata,
-                WarningCollector.NOOP);
+                WarningCollector.NOOP,
+                false);
         WarningCollector warningCollector = stateMachine.getWarningCollector();
         try {
             getFutureValue(new CreateMaterializedViewTask(parser).execute(statement, transactionManager, metadata, accessControl, testSession, emptyList(), warningCollector));

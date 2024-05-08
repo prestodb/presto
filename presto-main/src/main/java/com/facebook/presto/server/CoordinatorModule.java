@@ -79,6 +79,7 @@ import com.facebook.presto.server.remotetask.HttpRemoteTaskFactory;
 import com.facebook.presto.server.remotetask.RemoteTaskStats;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
 import com.facebook.presto.spi.security.SelectedRole;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanOptimizers;
@@ -195,6 +196,7 @@ public class CoordinatorModule
         newExporter(binder).export(DispatchExecutor.class).withGeneratedName();
 
         // local dispatcher
+        configBinder(binder).bindConfig(FeaturesConfig.class);
         binder.bind(DispatchQueryFactory.class).to(LocalDispatchQueryFactory.class);
 
         // cluster memory manager
