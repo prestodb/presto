@@ -111,6 +111,23 @@ void TestStream::addOne(
   CUDA_CHECK(cudaGetLastError());
 }
 
+void TestStream::addOneReg(
+    int32_t* numbers,
+    int32_t size,
+    int32_t repeats,
+    int32_t width) {
+  constexpr int32_t kBlockSize = 256;
+  auto numBlocks = roundUp(size, kBlockSize) / kBlockSize;
+  int32_t stride = size;
+  if (numBlocks > width / kBlockSize) {
+    stride = width;
+    numBlocks = width / kBlockSize;
+  }
+  addOneRegKernel<<<numBlocks, kBlockSize, 0, stream_->stream>>>(
+      numbers, size, stride, repeats);
+  CUDA_CHECK(cudaGetLastError());
+}
+
 void TestStream::addOneShared(
     int32_t* numbers,
     int32_t size,
@@ -128,23 +145,6 @@ void TestStream::addOneShared(
       kBlockSize,
       kBlockSize * sizeof(int32_t),
       stream_->stream>>>(numbers, size, stride, repeats);
-  CUDA_CHECK(cudaGetLastError());
-}
-
-void TestStream::addOneReg(
-    int32_t* numbers,
-    int32_t size,
-    int32_t repeats,
-    int32_t width) {
-  constexpr int32_t kBlockSize = 256;
-  auto numBlocks = roundUp(size, kBlockSize) / kBlockSize;
-  int32_t stride = size;
-  if (numBlocks > width / kBlockSize) {
-    stride = width;
-    numBlocks = width / kBlockSize;
-  }
-  addOneRegKernel<<<numBlocks, kBlockSize, 0, stream_->stream>>>(
-      numbers, size, stride, repeats);
   CUDA_CHECK(cudaGetLastError());
 }
 

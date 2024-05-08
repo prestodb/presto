@@ -24,6 +24,8 @@
 #include "velox/experimental/wave/common/GpuArena.h"
 #include "velox/experimental/wave/common/tests/BlockTest.h"
 
+#include <folly/Random.h>
+
 using namespace facebook::velox;
 using namespace facebook::velox::wave;
 
@@ -213,6 +215,95 @@ class BlockTest : public testing::Test {
       }
     }
   }
+
+  void scatterBitsTest(int32_t numBits, int32_t setPct, bool useSmem = false) {
+    auto numWords = bits::nwords(numBits);
+    auto maskBuffer = arena_->allocate<uint64_t>(numWords);
+    auto sourceBuffer = arena_->allocate<uint64_t>(numWords + 1);
+    auto resultBuffer = arena_->allocate<uint64_t>(numWords);
+    auto smemBuffer = arena_->allocate<uint32_t>(
+        BlockTestStream::scatterBitsSize(256) / sizeof(int32_t));
+    VELOX_CHECK_LE(1000, numBits);
+    memset(maskBuffer->as<char>(), 0, maskBuffer->capacity());
+    BlockTestStream stream;
+
+    auto maskData = maskBuffer->as<uint64_t>();
+    folly::Random::DefaultGenerator rng;
+    rng.seed(1);
+    for (auto bit = 0; bit < numBits; ++bit) {
+      if (folly::Random::rand32(rng) % 100 < setPct) {
+        bits::setBit(maskData, bit);
+      }
+    }
+    // Ranges of tens of set and unset bits.
+    bits::fillBits(maskData, numBits - 130, numBits - 2, true);
+    bits::fillBits(maskData, numBits - 601, numBits - 403, true);
+
+    // Range of mostly set bits, 1/50 is not set.
+    for (auto bit = numBits - 1000; bit > 400; --bit) {
+      if (folly::Random::rand32(rng) % 50) {
+        bits::setBit(maskData, bit);
+      }
+    }
+    // Alternating groups of 5 bits with 0-3 bis set.
+    for (auto i = 0; i < 305; i += 5) {
+      auto numSet = (i / 5) % 4;
+      for (auto j = 0; j < numSet; ++j) {
+        bits::setBit(maskData, i + j, true);
+      }
+    }
+
+    auto numInMask = bits::countBits(maskData, 0, numBits);
+    auto* source = sourceBuffer->as<uint64_t>();
+    uint64_t seed = 0x123456789abcdef0LL;
+    for (auto i = 0; i < numWords; ++i) {
+      source[i] = seed;
+      seed *= 0x5cdf;
+    }
+    std::vector<uint64_t> reference(numWords);
+    auto sourceAsChar = sourceBuffer->as<char>() + 1;
+    uint64_t cpuTime = 0;
+    {
+      MicrosecondTimer t(&cpuTime);
+      bits::scatterBits(
+          numInMask,
+          numBits,
+          sourceAsChar,
+          maskData,
+          reinterpret_cast<char*>(reference.data()));
+    }
+    prefetch(stream, maskBuffer);
+    prefetch(stream, resultBuffer);
+    prefetch(stream, smemBuffer);
+    prefetch(stream, sourceBuffer);
+    stream.wait();
+    uint64_t gpuTime = 0;
+    {
+      MicrosecondTimer t(&gpuTime);
+      stream.scatterBits(
+          numInMask,
+          numBits,
+          sourceAsChar,
+          maskData,
+          resultBuffer->as<char>(),
+          smemBuffer->as<int32_t>());
+      stream.wait();
+    }
+    auto resultAsChar = resultBuffer->as<char>();
+    for (int32_t i = 0; i < numBits; ++i) {
+      EXPECT_EQ(
+          bits::isBitSet(reference.data(), i), bits::isBitSet(resultAsChar, i));
+    }
+
+    std::cout << fmt::format(
+                     "scatterBits {} {}% set: cpu1t {} Mb/s gpu256t {} Mb/s",
+                     numBits,
+                     setPct,
+                     numBits / static_cast<float>(cpuTime),
+                     numBits / static_cast<float>(gpuTime))
+              << std::endl;
+  }
+
   Device* device_;
   GpuAllocator* allocator_;
   std::unique_ptr<GpuArena> arena_;
@@ -345,4 +436,15 @@ TEST_F(BlockTest, partition) {
       checkPartitionRun(*run, parts);
     }
   }
+}
+
+TEST_F(BlockTest, scatterBits) {
+  scatterBitsTest(1999, 0);
+  scatterBitsTest(1999, 100);
+  scatterBitsTest(1999, 42);
+  scatterBitsTest(1999, 96);
+  scatterBitsTest(12345999, 0);
+  scatterBitsTest(12345999, 100);
+  scatterBitsTest(12345999, 42);
+  scatterBitsTest(12345999, 96);
 }

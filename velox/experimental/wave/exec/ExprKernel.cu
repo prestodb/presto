@@ -153,6 +153,7 @@ __global__ void waveBaseKernel(
   for (;;) {
     switch (instruction->opCode) {
       case OpCode::kReturn:
+        __syncthreads();
         return;
       case OpCode::kFilter:
         filterKernel(

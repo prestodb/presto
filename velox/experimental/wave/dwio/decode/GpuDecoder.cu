@@ -56,6 +56,7 @@ __global__ void decodeKernel(GpuDecodeParams inlineParams) {
   for (auto i = programStart; i < programEnd; ++i) {
     detail::decodeSwitch<kBlockSize>(ops[i]);
   }
+  __syncthreads();
 }
 
 void launchDecode(
