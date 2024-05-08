@@ -160,15 +160,15 @@ class PlanNode : public ISerializable {
   /// @param addContext Optional lambda to add context for a given plan node.
   /// Receives plan node ID, indentation and std::stringstream where to append
   /// the context. Use indentation for second and subsequent lines of a
-  /// mult-line context. Do not use indentation for single-line context. Do not
+  /// multi-line context. Do not use indentation for single-line context. Do not
   /// add trailing new-line character for the last or only line of context.
   std::string toString(
       bool detailed = false,
       bool recursive = false,
-      std::function<void(
+      const std::function<void(
           const PlanNodeId& planNodeId,
           const std::string& indentation,
-          std::stringstream& stream)> addContext = nullptr) const {
+          std::stringstream& stream)>& addContext = nullptr) const {
     std::stringstream stream;
     toString(stream, detailed, recursive, 0, addContext);
     return stream.str();
@@ -211,10 +211,10 @@ class PlanNode : public ISerializable {
       bool detailed,
       bool recursive,
       size_t indentationSize,
-      std::function<void(
+      const std::function<void(
           const PlanNodeId& planNodeId,
           const std::string& indentation,
-          std::stringstream& stream)> addContext) const;
+          std::stringstream& stream)>& addContext) const;
 
   const std::string id_;
 };

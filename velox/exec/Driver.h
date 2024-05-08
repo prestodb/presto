@@ -521,6 +521,7 @@ class Driver : public std::enable_shared_from_this<Driver> {
   std::vector<std::unique_ptr<Operator>> operators_;
 
   BlockingReason blockingReason_{BlockingReason::kNotBlocked};
+  size_t blockedOperatorId_{0};
 
   bool trackOperatorCpuUsage_;
 

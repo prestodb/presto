@@ -2229,23 +2229,34 @@ ContinueFuture Task::taskCompletionFuture() {
 std::string Task::toString() const {
   std::lock_guard<std::timed_mutex> l(mutex_);
   std::stringstream out;
-  out << "{Task " << shortId(taskId_) << " (" << taskId_ << ")";
+  out << "{Task " << shortId(taskId_) << " (" << taskId_ << ")" << std::endl;
 
   if (exception_) {
     out << "Error: " << errorMessageLocked() << std::endl;
   }
 
   if (planFragment_.planNode) {
-    out << "Plan: " << planFragment_.planNode->toString() << std::endl;
+    out << "Plan:\n"
+        << planFragment_.planNode->toString(true, true) << std::endl;
   }
 
-  out << " drivers:\n";
-  for (auto& driver : drivers_) {
+  size_t numRemainingDrivers{0};
+  for (const auto& driver : drivers_) {
     if (driver) {
-      out << driver->toString() << std::endl;
+      ++numRemainingDrivers;
     }
   }
 
+  if (numRemainingDrivers > 0) {
+    out << "drivers:\n";
+    for (auto& driver : drivers_) {
+      if (driver) {
+        out << driver->toString() << std::endl;
+      }
+    }
+  }
+
+  out << "}";
   return out.str();
 }
 

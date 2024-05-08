@@ -566,6 +566,7 @@ StopReason Driver::runInternal(
             curOperatorId_,
             kOpMethodIsBlocked);
         if (blockingReason_ != BlockingReason::kNotBlocked) {
+          blockedOperatorId_ = curOperatorId_;
           checkIsBlockFutureValid(op, future);
           blockingState = std::make_shared<BlockingState>(
               self, std::move(future), op, blockingReason_);
@@ -582,6 +583,7 @@ StopReason Driver::runInternal(
               curOperatorId_ + 1,
               kOpMethodIsBlocked);
           if (blockingReason_ != BlockingReason::kNotBlocked) {
+            blockedOperatorId_ = curOperatorId_ + 1;
             checkIsBlockFutureValid(nextOp, future);
             blockingState = std::make_shared<BlockingState>(
                 self, std::move(future), nextOp, blockingReason_);
@@ -672,6 +674,7 @@ StopReason Driver::runInternal(
                   curOperatorId_,
                   kOpMethodIsBlocked);
               if (blockingReason_ != BlockingReason::kNotBlocked) {
+                blockedOperatorId_ = curOperatorId_;
                 checkIsBlockFutureValid(op, future);
                 blockingState = std::make_shared<BlockingState>(
                     self, std::move(future), op, blockingReason_);
@@ -987,15 +990,30 @@ std::vector<Operator*> Driver::operators() const {
 
 std::string Driver::toString() const {
   std::stringstream out;
-  out << "{Driver: ";
-  if (state_.isOnThread()) {
+  out << "{Driver." << driverCtx()->pipelineId << "." << driverCtx()->driverId
+      << ": ";
+  if (state_.isTerminated) {
+    out << "terminated, ";
+  }
+  if (state_.hasBlockingFuture) {
+    std::string blockedOp = (blockedOperatorId_ < operators_.size())
+        ? operators_[blockedOperatorId_]->toString()
+        : "<unknown op>";
+    out << "blocked (" << blockingReasonToString(blockingReason_) << " "
+        << blockedOp << "), ";
+  } else if (state_.isEnqueued) {
+    out << "enqueued ";
+  } else if (state_.isOnThread()) {
     out << "running ";
   } else {
-    out << "blocked " << blockingReasonToString(blockingReason_) << " ";
+    out << "unknown state";
   }
+
+  out << "{Operators: ";
   for (auto& op : operators_) {
-    out << op->toString() << " ";
+    out << op->toString() << ", ";
   }
+  out << "}";
   const auto ocs = opCallStatus();
   if (!ocs.empty()) {
     out << "{OpCallStatus: executing "

@@ -16,6 +16,7 @@
 #include <folly/Unit.h>
 #include <folly/init/Init.h>
 #include <velox/exec/Driver.h>
+#include <memory>
 #include "folly/experimental/EventCount.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/testutil/TestValue.h"
@@ -1539,7 +1540,7 @@ TEST_F(DriverTest, additionalContextInRuntimeException) {
   auto vector = makeRowVector({makeFlatVector<int64_t>({1, 2, 3, 4, 5, 6})});
   registerFunction<ThrowRuntimeExceptionFunction, int64_t, int64_t>(
       {"throwException"});
-  auto op = PlanBuilder()
+  auto op = PlanBuilder(std::make_shared<core::PlanNodeIdGenerator>(13))
                 .values({vector})
                 .project({"c0 + throwException(c0)"})
                 .planNode();
@@ -1550,11 +1551,10 @@ TEST_F(DriverTest, additionalContextInRuntimeException) {
     auto additionalContext = e.additionalContext();
     // Remove the string following `TaskId` from the additional context since
     // its indeterministic.
-    additionalContext.resize(additionalContext.find(" TaskId:"));
     ASSERT_EQ(
         additionalContext,
         "Top-level Expression: plus(c0, throwexception(c0)) Operator: "
-        "FilterProject(1) PlanNodeId: 1");
+        "FilterProject[14] 1");
   }
 }
 
