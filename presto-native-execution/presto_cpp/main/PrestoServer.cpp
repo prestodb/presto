@@ -218,7 +218,6 @@ void PrestoServer::run() {
     exit(EXIT_FAILURE);
   }
 
-  registerStatsCounters();
   registerFileSinks();
   registerFileSystems();
   registerMemoryArbitrators();
