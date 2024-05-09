@@ -111,11 +111,15 @@ class PlanBuilder {
   /// types (for all columns) in this argument as opposed to 'outputType', where
   /// you define the output types only. See 'missingColumns' test in
   /// 'TableScanTest'.
+  /// @param assignments Optional ColumnHandles.
   PlanBuilder& tableScan(
       const RowTypePtr& outputType,
       const std::vector<std::string>& subfieldFilters = {},
       const std::string& remainingFilter = "",
-      const RowTypePtr& dataColumns = nullptr);
+      const RowTypePtr& dataColumns = nullptr,
+      const std::unordered_map<
+          std::string,
+          std::shared_ptr<connector::ColumnHandle>>& assignments = {});
 
   /// Add a TableScanNode to scan a Hive table.
   ///

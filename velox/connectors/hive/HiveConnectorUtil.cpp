@@ -252,6 +252,12 @@ inline bool isSynthesizedColumn(
   return name == kPath || name == kBucket || infoColumns.count(name) != 0;
 }
 
+inline bool isRowIndexColumn(
+    const std::string& name,
+    std::shared_ptr<HiveColumnHandle> rowIndexColumn) {
+  return rowIndexColumn != nullptr && rowIndexColumn->name() == name;
+}
+
 } // namespace
 
 const std::string& getColumnName(const common::Subfield& subfield) {
@@ -343,6 +349,7 @@ std::shared_ptr<common::ScanSpec> makeScanSpec(
         partitionKeys,
     const std::unordered_map<std::string, std::shared_ptr<HiveColumnHandle>>&
         infoColumns,
+    const std::shared_ptr<HiveColumnHandle>& rowIndexColumn,
     memory::MemoryPool* pool) {
   auto spec = std::make_shared<common::ScanSpec>("root");
   folly::F14FastMap<std::string, std::vector<const common::Subfield*>>
@@ -351,6 +358,7 @@ std::shared_ptr<common::ScanSpec> makeScanSpec(
   for (auto& [subfield, _] : filters) {
     if (auto name = subfield.toString();
         !isSynthesizedColumn(name, infoColumns) &&
+        !isRowIndexColumn(name, rowIndexColumn) &&
         partitionKeys.count(name) == 0) {
       filterSubfields[getColumnName(subfield)].push_back(&subfield);
     }
@@ -360,6 +368,9 @@ std::shared_ptr<common::ScanSpec> makeScanSpec(
   for (int i = 0; i < rowType->size(); ++i) {
     auto& name = rowType->nameOf(i);
     auto& type = rowType->childAt(i);
+    if (isRowIndexColumn(name, rowIndexColumn)) {
+      continue;
+    }
     auto it = outputSubfields.find(name);
     if (it == outputSubfields.end()) {
       auto* fieldSpec = spec->addFieldRecursively(name, *type, i);

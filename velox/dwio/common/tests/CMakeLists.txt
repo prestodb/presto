@@ -36,7 +36,8 @@ add_executable(
   TestBufferedInput.cpp
   TypeTests.cpp
   UnitLoaderToolsTests.cpp
-  WriterTest.cpp)
+  WriterTest.cpp
+  OptionsTests.cpp)
 add_test(velox_dwio_common_test velox_dwio_common_test)
 target_link_libraries(
   velox_dwio_common_test

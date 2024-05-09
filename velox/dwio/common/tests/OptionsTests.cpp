@@ -19,24 +19,35 @@
 using namespace ::testing;
 using namespace facebook::velox::dwio::common;
 
-TEST(OptionsTests, defaultAppendRowNumberColumnTest) {
+TEST(OptionsTests, defaultRowNumberColumnInfoTest) {
   // appendRowNumberColumn flag should be false by default
   RowReaderOptions rowReaderOptions;
-  ASSERT_EQ(false, rowReaderOptions.getAppendRowNumberColumn());
+  ASSERT_EQ(std::nullopt, rowReaderOptions.getRowNumberColumnInfo());
 }
 
-TEST(OptionsTests, setAppendRowNumberColumnToTrueTest) {
+TEST(OptionsTests, setRowNumberColumnInfoTest) {
   RowReaderOptions rowReaderOptions;
-  rowReaderOptions.setAppendRowNumberColumn(true);
-  ASSERT_EQ(true, rowReaderOptions.getAppendRowNumberColumn());
+  RowNumberColumnInfo rowNumberColumnInfo;
+  rowNumberColumnInfo.insertPosition = 0;
+  rowNumberColumnInfo.name = "test";
+  rowReaderOptions.setRowNumberColumnInfo(rowNumberColumnInfo);
+  auto rowNumberColumn = rowReaderOptions.getRowNumberColumnInfo().value();
+  ASSERT_EQ(rowNumberColumnInfo.insertPosition, rowNumberColumn.insertPosition);
+  ASSERT_EQ(rowNumberColumnInfo.name, rowNumberColumn.name);
 }
 
-TEST(OptionsTests, testAppendRowNumberColumnInCopy) {
+TEST(OptionsTests, testRowNumberColumnInfoInCopy) {
   RowReaderOptions rowReaderOptions;
   RowReaderOptions rowReaderOptionsCopy{rowReaderOptions};
-  ASSERT_EQ(false, rowReaderOptionsCopy.getAppendRowNumberColumn());
+  ASSERT_EQ(std::nullopt, rowReaderOptionsCopy.getRowNumberColumnInfo());
 
-  rowReaderOptions.setAppendRowNumberColumn(true);
+  RowNumberColumnInfo rowNumberColumnInfo;
+  rowNumberColumnInfo.insertPosition = 0;
+  rowNumberColumnInfo.name = "test";
+  rowReaderOptions.setRowNumberColumnInfo(rowNumberColumnInfo);
   RowReaderOptions rowReaderOptionsSecondCopy{rowReaderOptions};
-  ASSERT_EQ(true, rowReaderOptionsSecondCopy.getAppendRowNumberColumn());
+  auto rowNumberColumn =
+      rowReaderOptionsSecondCopy.getRowNumberColumnInfo().value();
+  ASSERT_EQ(rowNumberColumnInfo.insertPosition, rowNumberColumn.insertPosition);
+  ASSERT_EQ(rowNumberColumnInfo.name, rowNumberColumn.name);
 }

@@ -751,7 +751,7 @@ class ParquetRowReader::Impl {
           "Input Table Schema (with partition columns): {}\n",
           readerBase_->bufferedInput().getReadFile()->getName(),
           readerBase_->schema()->toString(),
-          requestedType_->toString());
+          requestedType_->type()->toString());
       return exceptionMessageContext;
     };
 
@@ -762,8 +762,9 @@ class ParquetRowReader::Impl {
         pool_, columnReaderStats_, readerBase_->fileMetaData());
     auto columnSelector = std::make_shared<ColumnSelector>(
         ColumnSelector::apply(options_.getSelector(), readerBase_->schema()));
+    requestedType_ = columnSelector->getSchemaWithId();
     columnReader_ = ParquetColumnReader::build(
-        columnSelector->getSchemaWithId(),
+        requestedType_,
         readerBase_->schemaWithId(), // Id is schema id
         params,
         *options_.getScanSpec());
@@ -834,13 +835,23 @@ class ParquetRowReader::Impl {
       uint64_t size,
       velox::VectorPtr& result,
       const dwio::common::Mutation* mutation) {
-    VELOX_DCHECK(!options_.getAppendRowNumberColumn());
     auto rowsToRead = nextReadSize(size);
     if (rowsToRead == kAtEnd) {
       return 0;
     }
     VELOX_DCHECK_GT(rowsToRead, 0);
-    columnReader_->next(rowsToRead, result, mutation);
+    if (!options_.getRowNumberColumnInfo().has_value()) {
+      columnReader_->next(rowsToRead, result, mutation);
+    } else {
+      readWithRowNumber(
+          columnReader_,
+          options_,
+          nextRowNumber(),
+          rowsToRead,
+          mutation,
+          result);
+    }
+
     currentRowInGroup_ += rowsToRead;
     return rowsToRead;
   }
@@ -900,7 +911,7 @@ class ParquetRowReader::Impl {
 
   std::unique_ptr<dwio::common::SelectiveColumnReader> columnReader_;
 
-  RowTypePtr requestedType_;
+  std::shared_ptr<const dwio::common::TypeWithId> requestedType_;
 
   dwio::common::ColumnReaderStatistics columnReaderStats_;
 };

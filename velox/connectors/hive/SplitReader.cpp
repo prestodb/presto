@@ -140,7 +140,8 @@ void SplitReader::configureReaderOptions(
 
 void SplitReader::prepareSplit(
     std::shared_ptr<common::MetadataFilter> metadataFilter,
-    dwio::common::RuntimeStatistics& runtimeStats) {
+    dwio::common::RuntimeStatistics& runtimeStats,
+    const std::shared_ptr<HiveColumnHandle>& rowIndexColumn) {
   createReader();
 
   if (checkIfSplitIsEmpty(runtimeStats)) {
@@ -148,7 +149,7 @@ void SplitReader::prepareSplit(
     return;
   }
 
-  createRowReader(metadataFilter);
+  createRowReader(metadataFilter, rowIndexColumn);
 }
 
 uint64_t SplitReader::next(uint64_t size, VectorPtr& output) {
@@ -278,21 +279,43 @@ bool SplitReader::checkIfSplitIsEmpty(
 }
 
 void SplitReader::createRowReader(
-    std::shared_ptr<common::MetadataFilter> metadataFilter) {
+    std::shared_ptr<common::MetadataFilter> metadataFilter,
+    const std::shared_ptr<HiveColumnHandle>& rowIndexColumn) {
   auto& fileType = baseReader_->rowType();
   auto columnTypes = adaptColumns(fileType, baseReaderOpts_.getFileSchema());
+  auto columnNames = fileType->names();
+  if (rowIndexColumn != nullptr) {
+    setRowIndexColumn(fileType, rowIndexColumn);
+  }
 
   configureRowReaderOptions(
       baseRowReaderOpts_,
       hiveTableHandle_->tableParameters(),
       scanSpec_,
       metadataFilter,
-      ROW(std::vector<std::string>(fileType->names()), std::move(columnTypes)),
+      ROW(std::move(columnNames), std::move(columnTypes)),
       hiveSplit_);
   // NOTE: we firstly reset the finished 'baseRowReader_' of previous split
   // before setting up for the next one to avoid doubling the peak memory usage.
   baseRowReader_.reset();
   baseRowReader_ = baseReader_->createRowReader(baseRowReaderOpts_);
+}
+
+void SplitReader::setRowIndexColumn(
+    const RowTypePtr& fileType,
+    const std::shared_ptr<HiveColumnHandle>& rowIndexColumn) {
+  auto rowIndexColumnName = rowIndexColumn->name();
+  auto rowIndexMetaColIdx =
+      readerOutputType_->getChildIdxIfExists(rowIndexColumnName);
+  if (rowIndexMetaColIdx.has_value() &&
+      !fileType->containsChild(rowIndexColumnName) &&
+      hiveSplit_->partitionKeys.find(rowIndexColumnName) ==
+          hiveSplit_->partitionKeys.end()) {
+    dwio::common::RowNumberColumnInfo rowNumberColumnInfo;
+    rowNumberColumnInfo.insertPosition = rowIndexMetaColIdx.value();
+    rowNumberColumnInfo.name = rowIndexColumnName;
+    baseRowReaderOpts_.setRowNumberColumnInfo(std::move(rowNumberColumnInfo));
+  }
 }
 
 std::vector<TypePtr> SplitReader::adaptColumns(

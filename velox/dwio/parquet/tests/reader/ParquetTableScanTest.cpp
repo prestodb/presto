@@ -56,6 +56,18 @@ class ParquetTableScanTest : public HiveConnectorTestBase {
     assertQuery(plan, splits_, sql);
   }
 
+  void assertSelectWithAssignments(
+      std::vector<std::string>&& outputColumnNames,
+      std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>&
+          assignments,
+      const std::string& sql) {
+    auto rowType = getRowType(std::move(outputColumnNames));
+    auto plan = PlanBuilder()
+                    .tableScan(rowType, {}, "", nullptr, assignments)
+                    .planNode();
+    assertQuery(plan, splits_, sql);
+  }
+
   void assertSelectWithFilter(
       std::vector<std::string>&& outputColumnNames,
       const std::vector<std::string>& subfieldFilters,
@@ -131,8 +143,10 @@ class ParquetTableScanTest : public HiveConnectorTestBase {
 
   std::shared_ptr<connector::hive::HiveConnectorSplit> makeSplit(
       const std::string& filePath) {
-    return makeHiveConnectorSplits(
+    auto split = makeHiveConnectorSplits(
         filePath, 1, dwio::common::FileFormat::PARQUET)[0];
+
+    return split;
   }
 
  private:
@@ -467,6 +481,63 @@ TEST_F(ParquetTableScanTest, readAsLowerCase) {
   ASSERT_TRUE(waitForTaskCompletion(result.first->task().get()));
   assertEqualResults(
       result.second, {makeRowVector({"a"}, {makeFlatVector<int64_t>({0, 1})})});
+}
+
+TEST_F(ParquetTableScanTest, rowIndex) {
+  // case 1: file not have `_tmp_metadata_row_index`, scan generate it for user.
+  loadData(
+      getExampleFilePath("sample.parquet"),
+      ROW({"a", "b", "_tmp_metadata_row_index"},
+          {BIGINT(), DOUBLE(), BIGINT()}),
+      makeRowVector(
+          {"a", "b", "_tmp_metadata_row_index"},
+          {
+              makeFlatVector<int64_t>(20, [](auto row) { return row + 1; }),
+              makeFlatVector<double>(20, [](auto row) { return row + 1; }),
+              makeFlatVector<int64_t>(20, [](auto row) { return row; }),
+          }));
+  std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
+      assignments;
+  assignments["a"] = std::make_shared<connector::hive::HiveColumnHandle>(
+      "a",
+      connector::hive::HiveColumnHandle::ColumnType::kRegular,
+      BIGINT(),
+      BIGINT());
+  assignments["b"] = std::make_shared<connector::hive::HiveColumnHandle>(
+      "b",
+      connector::hive::HiveColumnHandle::ColumnType::kRegular,
+      DOUBLE(),
+      DOUBLE());
+  assignments["_tmp_metadata_row_index"] =
+      std::make_shared<connector::hive::HiveColumnHandle>(
+          "_tmp_metadata_row_index",
+          connector::hive::HiveColumnHandle::ColumnType::kRowIndex,
+          BIGINT(),
+          BIGINT());
+
+  assertSelect({"a"}, "SELECT a FROM tmp");
+  assertSelectWithAssignments(
+      {"a", "_tmp_metadata_row_index"},
+      assignments,
+      "SELECT a, _tmp_metadata_row_index FROM tmp");
+  // case 2: file has `_tmp_metadata_row_index` column, then use user data
+  // insteads of generating it.
+  loadData(
+      getExampleFilePath("sample_with_rowindex.parquet"),
+      ROW({"a", "b", "_tmp_metadata_row_index"},
+          {BIGINT(), DOUBLE(), BIGINT()}),
+      makeRowVector(
+          {"a", "b", "_tmp_metadata_row_index"},
+          {
+              makeFlatVector<int64_t>(20, [](auto row) { return row + 1; }),
+              makeFlatVector<double>(20, [](auto row) { return row + 1; }),
+              makeFlatVector<int64_t>(20, [](auto row) { return row + 1; }),
+          }));
+
+  assertSelect({"a"}, "SELECT a FROM tmp");
+  assertSelect(
+      {"a", "_tmp_metadata_row_index"},
+      "SELECT a, _tmp_metadata_row_index FROM tmp");
 }
 
 int main(int argc, char** argv) {

@@ -187,11 +187,6 @@ class DwrfRowReader : public StrideIndexProvider,
       const dwio::common::Mutation*,
       VectorPtr& result);
 
-  void readWithRowNumber(
-      uint64_t rowsToRead,
-      const dwio::common::Mutation*,
-      VectorPtr& result);
-
   uint64_t skip(uint64_t numValues);
 
   std::unique_ptr<ColumnReader>& getColumnReader();

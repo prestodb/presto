@@ -119,6 +119,7 @@ class HiveDataSource : public DataSource {
   const ConnectorQueryCtx* const connectorQueryCtx_;
   const std::shared_ptr<HiveConfig> hiveConfig_;
   std::shared_ptr<io::IoStatistics> ioStats_;
+  std::shared_ptr<HiveColumnHandle> rowIndexColumn_;
 
  private:
   // Evaluates remainingFilter_ on the specified vector. Returns number of rows

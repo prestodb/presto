@@ -52,7 +52,8 @@ IcebergSplitReader::IcebergSplitReader(
 
 void IcebergSplitReader::prepareSplit(
     std::shared_ptr<common::MetadataFilter> metadataFilter,
-    dwio::common::RuntimeStatistics& runtimeStats) {
+    dwio::common::RuntimeStatistics& runtimeStats,
+    const std::shared_ptr<HiveColumnHandle>& rowIndexColumn) {
   createReader();
 
   if (checkIfSplitIsEmpty(runtimeStats)) {
@@ -60,7 +61,7 @@ void IcebergSplitReader::prepareSplit(
     return;
   }
 
-  createRowReader(metadataFilter);
+  createRowReader(metadataFilter, rowIndexColumn);
 
   std::shared_ptr<const HiveIcebergSplit> icebergSplit =
       std::dynamic_pointer_cast<const HiveIcebergSplit>(hiveSplit_);

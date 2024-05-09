@@ -501,11 +501,17 @@ void DwrfRowReader::readNext(
     }
     return;
   }
-  if (!options_.getAppendRowNumberColumn()) {
+  if (!options_.getRowNumberColumnInfo().has_value()) {
     getSelectiveColumnReader()->next(rowsToRead, result, mutation);
     return;
   }
-  readWithRowNumber(rowsToRead, mutation, result);
+  readWithRowNumber(
+      getSelectiveColumnReader(),
+      options_,
+      previousRow_,
+      rowsToRead,
+      mutation,
+      result);
 }
 
 uint64_t DwrfRowReader::skip(uint64_t numValues) {
@@ -514,76 +520,6 @@ uint64_t DwrfRowReader::skip(uint64_t numValues) {
   } else {
     return getColumnReader()->skip(numValues);
   }
-}
-
-void DwrfRowReader::readWithRowNumber(
-    uint64_t rowsToRead,
-    const dwio::common::Mutation* mutation,
-    VectorPtr& result) {
-  auto* rowVector = result->asUnchecked<RowVector>();
-  column_index_t numChildren = 0;
-  for (auto& column : options_.getScanSpec()->children()) {
-    if (column->projectOut()) {
-      ++numChildren;
-    }
-  }
-  VectorPtr rowNumVector;
-  if (rowVector->childrenSize() != numChildren) {
-    VELOX_CHECK_EQ(rowVector->childrenSize(), numChildren + 1);
-    rowNumVector = rowVector->childAt(numChildren);
-    auto& rowType = rowVector->type()->asRow();
-    auto names = rowType.names();
-    auto types = rowType.children();
-    auto children = rowVector->children();
-    VELOX_DCHECK(!names.empty() && !types.empty() && !children.empty());
-    names.pop_back();
-    types.pop_back();
-    children.pop_back();
-    result = std::make_shared<RowVector>(
-        rowVector->pool(),
-        ROW(std::move(names), std::move(types)),
-        rowVector->nulls(),
-        rowVector->size(),
-        std::move(children));
-  }
-  getSelectiveColumnReader()->next(rowsToRead, result, mutation);
-  FlatVector<int64_t>* flatRowNum = nullptr;
-  if (rowNumVector && BaseVector::isVectorWritable(rowNumVector)) {
-    flatRowNum = rowNumVector->asFlatVector<int64_t>();
-  }
-  if (flatRowNum) {
-    flatRowNum->clearAllNulls();
-    flatRowNum->resize(result->size());
-  } else {
-    rowNumVector = std::make_shared<FlatVector<int64_t>>(
-        result->pool(),
-        BIGINT(),
-        nullptr,
-        result->size(),
-        AlignedBuffer::allocate<int64_t>(result->size(), result->pool()),
-        std::vector<BufferPtr>());
-    flatRowNum = rowNumVector->asUnchecked<FlatVector<int64_t>>();
-  }
-  auto rowOffsets = getSelectiveColumnReader()->outputRows();
-  VELOX_DCHECK_EQ(rowOffsets.size(), result->size());
-  auto* rawRowNum = flatRowNum->mutableRawValues();
-  for (int i = 0; i < rowOffsets.size(); ++i) {
-    rawRowNum[i] = previousRow_ + rowOffsets[i];
-  }
-  rowVector = result->asUnchecked<RowVector>();
-  auto& rowType = rowVector->type()->asRow();
-  auto names = rowType.names();
-  auto types = rowType.children();
-  auto children = rowVector->children();
-  names.emplace_back();
-  types.push_back(BIGINT());
-  children.push_back(rowNumVector);
-  result = std::make_shared<RowVector>(
-      rowVector->pool(),
-      ROW(std::move(names), std::move(types)),
-      rowVector->nulls(),
-      rowVector->size(),
-      std::move(children));
 }
 
 int64_t DwrfRowReader::nextRowNumber() {

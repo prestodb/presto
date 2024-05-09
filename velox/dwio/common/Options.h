@@ -108,6 +108,11 @@ struct TableParameter {
       "serialization.null.format";
 };
 
+struct RowNumberColumnInfo {
+  column_index_t insertPosition;
+  std::string name;
+};
+
 /**
  * Options for creating a RowReader.
  */
@@ -131,6 +136,8 @@ class RowReaderOptions {
   std::shared_ptr<folly::Executor> decodingExecutor_;
   size_t decodingParallelismFactor_{0};
   bool appendRowNumberColumn_ = false;
+  std::optional<RowNumberColumnInfo> rowNumberColumnInfo_ = std::nullopt;
+
   // Function to populate metrics related to feature projection stats
   // in Koski. This gets fired in FlatMapColumnReader.
   // This is a bit of a hack as there is (by design) no good way
@@ -329,18 +336,13 @@ class RowReaderOptions {
     decodingParallelismFactor_ = factor;
   }
 
-  /*
-   * Set to true, if you want to add a new column to the results containing the
-   * row numbers.  These row numbers are relative to the beginning of file (0 as
-   * first row) and does not affected by filtering or deletion during the read
-   * (it always counts all rows in the file).
-   */
-  void setAppendRowNumberColumn(bool value) {
-    appendRowNumberColumn_ = value;
+  void setRowNumberColumnInfo(
+      std::optional<RowNumberColumnInfo> rowNumberColumnInfo) {
+    rowNumberColumnInfo_ = std::move(rowNumberColumnInfo);
   }
 
-  bool getAppendRowNumberColumn() const {
-    return appendRowNumberColumn_;
+  const std::optional<RowNumberColumnInfo>& getRowNumberColumnInfo() const {
+    return rowNumberColumnInfo_;
   }
 
   void setKeySelectionCallback(

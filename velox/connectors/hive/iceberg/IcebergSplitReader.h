@@ -43,7 +43,8 @@ class IcebergSplitReader : public SplitReader {
 
   void prepareSplit(
       std::shared_ptr<common::MetadataFilter> metadataFilter,
-      dwio::common::RuntimeStatistics& runtimeStats) override;
+      dwio::common::RuntimeStatistics& runtimeStats,
+      const std::shared_ptr<HiveColumnHandle>& rowIndexColumn) override;
 
   uint64_t next(uint64_t size, VectorPtr& output) override;
 

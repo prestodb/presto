@@ -148,4 +148,82 @@ VectorPtr RowReader::projectColumns(
       input->pool(), rowType, nullptr, size, std::move(children));
 }
 
+void RowReader::readWithRowNumber(
+    std::unique_ptr<dwio::common::SelectiveColumnReader>& columnReader,
+    const dwio::common::RowReaderOptions& options,
+    uint64_t previousRow,
+    uint64_t rowsToRead,
+    const dwio::common::Mutation* mutation,
+    VectorPtr& result) {
+  auto* rowVector = result->asUnchecked<RowVector>();
+  column_index_t numChildren = 0;
+  for (auto& column : options.getScanSpec()->children()) {
+    if (column->projectOut()) {
+      ++numChildren;
+    }
+  }
+  VectorPtr rowNumVector;
+  auto rowNumberColumnInfo = options.getRowNumberColumnInfo();
+  VELOX_CHECK_EQ(rowNumberColumnInfo.has_value(), true);
+  auto& rowNumberColumnIndex = rowNumberColumnInfo->insertPosition;
+  auto& rowNumberColumnName = rowNumberColumnInfo->name;
+  VELOX_CHECK_LE(rowNumberColumnIndex, numChildren);
+  if (rowVector->childrenSize() != numChildren) {
+    VELOX_CHECK_EQ(rowVector->childrenSize(), numChildren + 1);
+    rowNumVector = rowVector->childAt(rowNumberColumnIndex);
+    auto& rowType = rowVector->type()->asRow();
+    auto names = rowType.names();
+    auto types = rowType.children();
+    auto children = rowVector->children();
+    VELOX_DCHECK(!names.empty() && !types.empty() && !children.empty());
+    names.erase(names.begin() + rowNumberColumnIndex);
+    types.erase(types.begin() + rowNumberColumnIndex);
+    children.erase(children.begin() + rowNumberColumnIndex);
+    result = std::make_shared<RowVector>(
+        rowVector->pool(),
+        ROW(std::move(names), std::move(types)),
+        rowVector->nulls(),
+        rowVector->size(),
+        std::move(children));
+  }
+  columnReader->next(rowsToRead, result, mutation);
+  FlatVector<int64_t>* flatRowNum = nullptr;
+  if (rowNumVector && BaseVector::isVectorWritable(rowNumVector)) {
+    flatRowNum = rowNumVector->asFlatVector<int64_t>();
+  }
+  if (flatRowNum) {
+    flatRowNum->clearAllNulls();
+    flatRowNum->resize(result->size());
+  } else {
+    rowNumVector = std::make_shared<FlatVector<int64_t>>(
+        result->pool(),
+        BIGINT(),
+        nullptr,
+        result->size(),
+        AlignedBuffer::allocate<int64_t>(result->size(), result->pool()),
+        std::vector<BufferPtr>());
+    flatRowNum = rowNumVector->asUnchecked<FlatVector<int64_t>>();
+  }
+  auto rowOffsets = columnReader->outputRows();
+  VELOX_DCHECK_EQ(rowOffsets.size(), result->size());
+  auto* rawRowNum = flatRowNum->mutableRawValues();
+  for (int i = 0; i < rowOffsets.size(); ++i) {
+    rawRowNum[i] = previousRow + rowOffsets[i];
+  }
+  rowVector = result->asUnchecked<RowVector>();
+  auto& rowType = rowVector->type()->asRow();
+  auto names = rowType.names();
+  auto types = rowType.children();
+  auto children = rowVector->children();
+  names.insert(names.begin() + rowNumberColumnIndex, rowNumberColumnName);
+  types.insert(types.begin() + rowNumberColumnIndex, BIGINT());
+  children.insert(children.begin() + rowNumberColumnIndex, rowNumVector);
+  result = std::make_shared<RowVector>(
+      rowVector->pool(),
+      ROW(std::move(names), std::move(types)),
+      rowVector->nulls(),
+      rowVector->size(),
+      std::move(children));
+}
+
 } // namespace facebook::velox::dwio::common

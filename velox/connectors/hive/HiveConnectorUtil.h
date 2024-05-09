@@ -57,6 +57,7 @@ std::shared_ptr<common::ScanSpec> makeScanSpec(
         partitionKeys,
     const std::unordered_map<std::string, std::shared_ptr<HiveColumnHandle>>&
         infoColumns,
+    const std::shared_ptr<HiveColumnHandle>& rowIndexColumn,
     memory::MemoryPool* pool);
 
 void configureReaderOptions(

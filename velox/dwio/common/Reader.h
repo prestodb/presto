@@ -24,6 +24,7 @@
 #include "velox/dwio/common/InputStream.h"
 #include "velox/dwio/common/Mutation.h"
 #include "velox/dwio/common/Options.h"
+#include "velox/dwio/common/SelectiveColumnReader.h"
 #include "velox/dwio/common/Statistics.h"
 #include "velox/dwio/common/TypeWithId.h"
 #include "velox/type/Type.h"
@@ -146,6 +147,14 @@ class RowReader {
       const VectorPtr& input,
       const velox::common::ScanSpec& spec,
       const Mutation* mutation);
+
+  static void readWithRowNumber(
+      std::unique_ptr<dwio::common::SelectiveColumnReader>& columnReader,
+      const dwio::common::RowReaderOptions& options,
+      uint64_t previousRow,
+      uint64_t rowsToRead,
+      const dwio::common::Mutation*,
+      VectorPtr& result);
 };
 
 /**
