@@ -16,7 +16,7 @@
 
 #include "velox/common/base/Portability.h"
 #include "velox/common/testutil/TestValue.h"
-#include "velox/dwio/common/tests/E2EFilterTestBase.h"
+#include "velox/dwio/common/tests/utils/E2EFilterTestBase.h"
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
 #include "velox/dwio/dwrf/writer/FlushPolicy.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
@@ -79,13 +79,14 @@ class E2EFilterTest : public E2EFilterTestBase {
         200 * 1024 * 1024,
         dwio::common::FileSink::Options{.pool = leafPool_.get()});
     ASSERT_TRUE(sink->isBuffered());
-    sinkPtr_ = sink.get();
+    auto* sinkPtr = sink.get();
     options.memoryPool = rootPool_.get();
     writer_ = std::make_unique<dwrf::Writer>(std::move(sink), options);
     for (auto& batch : batches) {
       writer_->write(batch);
     }
     writer_->close();
+    sinkData_ = std::string_view(sinkPtr->data(), sinkPtr->size());
   }
 
   void setUpRowReaderOptions(

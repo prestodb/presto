@@ -450,6 +450,10 @@ class SelectiveColumnReader {
   void
   prepareRead(vector_size_t offset, RowSet rows, const uint64_t* incomingNulls);
 
+  virtual bool readsNullsOnly() const {
+    return scanSpec_->readsNullsOnly();
+  }
+
   void setOutputRows(RowSet rows) {
     outputRows_.resize(rows.size());
     if (!rows.size()) {

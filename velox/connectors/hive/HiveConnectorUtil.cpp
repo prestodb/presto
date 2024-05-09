@@ -544,34 +544,11 @@ void configureRowReaderOptions(
   if (skipRowsIt != tableParameters.end()) {
     rowReaderOptions.setSkipRows(folly::to<uint64_t>(skipRowsIt->second));
   }
-
   rowReaderOptions.setScanSpec(scanSpec);
   rowReaderOptions.setMetadataFilter(metadataFilter);
-
-  std::vector<std::string> columnNames;
-  for (auto& spec : scanSpec->children()) {
-    if (spec->isConstant()) {
-      continue;
-    }
-    std::string name = spec->fieldName();
-    if (!spec->flatMapFeatureSelection().empty()) {
-      name += "#[";
-      name += folly::join(',', spec->flatMapFeatureSelection());
-      name += ']';
-    }
-    columnNames.push_back(std::move(name));
-  }
-  std::shared_ptr<dwio::common::ColumnSelector> cs;
-  if (columnNames.empty()) {
-    static const RowTypePtr kEmpty{ROW({}, {})};
-    cs = std::make_shared<dwio::common::ColumnSelector>(kEmpty);
-  } else {
-    cs = std::make_shared<dwio::common::ColumnSelector>(rowType, columnNames);
-  }
-  rowReaderOptions.select(cs);
-  if (hiveSplit) {
-    rowReaderOptions.range(hiveSplit->start, hiveSplit->length);
-  }
+  rowReaderOptions.select(
+      dwio::common::ColumnSelector::fromScanSpec(*scanSpec, rowType));
+  rowReaderOptions.range(hiveSplit->start, hiveSplit->length);
 }
 
 namespace {

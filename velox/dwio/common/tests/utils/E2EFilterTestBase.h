@@ -85,6 +85,14 @@ class E2EFilterTestBase : public testing::Test {
   void SetUp() override {
     rootPool_ = memory::memoryManager()->addRootPool("E2EFilterTestBase");
     leafPool_ = rootPool_->addLeafChild("E2EFilterTestBase");
+    // Check environment variable because `buck test` does not allow pass in
+    // command line arguments.
+    if (const char* useRandomSeed = getenv("VELOX_TEST_USE_RANDOM_SEED")) {
+      if (folly::to<bool>(useRandomSeed)) {
+        seed_ = folly::Random::secureRand32();
+        LOG(INFO) << "Random seed: " << seed_;
+      }
+    }
   }
 
   static bool typeKindSupportsValueHook(TypeKind kind) {
@@ -314,7 +322,7 @@ class E2EFilterTestBase : public testing::Test {
   std::shared_ptr<memory::MemoryPool> rootPool_;
   std::shared_ptr<memory::MemoryPool> leafPool_;
   std::shared_ptr<const RowType> rowType_;
-  dwio::common::MemorySink* sinkPtr_;
+  std::string_view sinkData_;
   bool useVInts_ = true;
   dwio::common::RuntimeStatistics runtimeStats_;
   // Number of calls to flush policy between starting new stripes.
@@ -323,6 +331,8 @@ class E2EFilterTestBase : public testing::Test {
   std::vector<int32_t> readSizes_;
   int32_t batchCount_ = kBatchCount;
   int32_t batchSize_ = kBatchSize;
+  bool testRowGroupSkip_ = true;
+  uint32_t seed_ = 1;
 };
 
 } // namespace facebook::velox::dwio::common

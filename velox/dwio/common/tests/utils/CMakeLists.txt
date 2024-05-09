@@ -12,20 +12,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_library(velox_dwio_common_test_utils BatchMaker.cpp DataFiles.cpp
-                                         DataSetBuilder.cpp FilterGenerator.cpp
-                                         UnitLoaderTestTools.cpp)
+add_library(
+  velox_dwio_common_test_utils
+  BatchMaker.cpp DataFiles.cpp DataSetBuilder.cpp FilterGenerator.cpp
+  UnitLoaderTestTools.cpp E2EFilterTestBase.cpp)
 
 target_link_libraries(
   velox_dwio_common_test_utils
   Folly::folly
+  fmt::fmt
+  glog::glog
+  gflags::gflags
+  gtest
   velox_dwio_common
   velox_dwio_common_exception
   velox_exception
+  velox_functions_prestosql
   velox_memory
+  velox_parse_parser
   velox_type
   velox_type_fbhive
-  velox_vector)
+  velox_vector
+  velox_vector_test_lib)
 
 # older versions of GCC need it to allow std::filesystem
 if(CMAKE_COMPILER_IS_GNUCC AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9)

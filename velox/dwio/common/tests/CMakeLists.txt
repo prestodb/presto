@@ -65,22 +65,6 @@ target_link_libraries(
   velox_dwio_common_int_decoder_benchmark velox_dwio_common_exception
   velox_exception velox_dwio_dwrf_common Folly::folly ${FOLLY_BENCHMARK})
 
-add_library(velox_e2e_filter_test_base E2EFilterTestBase.cpp)
-
-target_link_libraries(
-  velox_e2e_filter_test_base
-  velox_functions_prestosql
-  velox_parse_parser
-  velox_vector_test_lib
-  velox_link_libs
-  Folly::folly
-  fmt::fmt
-  lz4::lz4
-  lzo2::lzo2
-  zstd::zstd
-  ZLIB::ZLIB
-  ${TEST_LINK_LIBS})
-
 if(VELOX_ENABLE_ARROW AND VELOX_ENABLE_BENCHMARKS)
   add_subdirectory(Lemire/FastPFor)
   add_executable(velox_dwio_common_bitpack_decoder_benchmark

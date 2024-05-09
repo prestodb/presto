@@ -222,9 +222,11 @@ class ScanSpec {
     valueHook_ = valueHook;
   }
 
-  // Returns true if the corresponding reader only needs to reference
-  // the nulls stream. True if filter is is-null with or without value
-  // extraction or if filter is is-not-null and no value is extracted.
+  // Returns true if the corresponding reader only needs to reference the nulls
+  // stream.  True if filter is is-null with or without value extraction or if
+  // filter is is-not-null and no value is extracted.  Note that this does not
+  // apply to Nimble format leaf nodes, because nulls are mixed in the encoding
+  // with actual values.
   bool readsNullsOnly() const {
     if (filter_) {
       if (filter_->kind() == FilterKind::kIsNull) {

@@ -18,6 +18,7 @@
 
 #include "velox/dwio/common/FilterNode.h"
 #include "velox/dwio/common/MetricsLog.h"
+#include "velox/dwio/common/ScanSpec.h"
 #include "velox/dwio/common/TypeWithId.h"
 
 namespace facebook::velox::dwio::common {
@@ -291,6 +292,10 @@ class ColumnSelector {
   static ColumnSelector apply(
       const std::shared_ptr<ColumnSelector>& origin,
       const std::shared_ptr<const velox::RowType>& fileSchema);
+
+  static std::shared_ptr<ColumnSelector> fromScanSpec(
+      const velox::common::ScanSpec& spec,
+      const RowTypePtr& rowType);
 
  private:
   // visit the tree with disk type
