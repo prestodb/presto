@@ -131,4 +131,138 @@ constexpr folly::StringPiece kMetricFileWriterEarlyFlushedRawBytes{
 
 constexpr folly::StringPiece kMetricArbitratorRequestsCount{
     "velox.arbitrator_requests_count"};
+
+constexpr folly::StringPiece kMetricMappedMemoryBytes{
+    "velox.memory_allocator_mapped_bytes"};
+
+constexpr folly::StringPiece kMetricAllocatedMemoryBytes{
+    "velox.memory_allocator_alloc_bytes"};
+
+constexpr folly::StringPiece kMetricMmapExternalMappedBytes{
+    "velox.mmap_allocator_external_mapped_bytes"};
+
+constexpr folly::StringPiece kMetricMmapDelegatedAllocBytes{
+    "velox.mmap_allocator_delegated_alloc_bytes"};
+
+constexpr folly::StringPiece kMetricCacheMaxAgeSecs{"velox.cache_max_age_secs"};
+
+constexpr folly::StringPiece kMetricMemoryCacheNumEntries{
+    "velox.memory_cache_num_entries"};
+
+constexpr folly::StringPiece kMetricMemoryCacheNumEmptyEntries{
+    "velox.memory_cache_num_empty_entries"};
+
+constexpr folly::StringPiece kMetricMemoryCacheNumSharedEntries{
+    "velox.memory_cache_num_shared_entries"};
+
+constexpr folly::StringPiece kMetricMemoryCacheNumExclusiveEntries{
+    "velox.memory_cache_num_exclusive_entries"};
+
+constexpr folly::StringPiece kMetricMemoryCacheNumPrefetchedEntries{
+    "velox.memory_cache_num_prefetched_entries"};
+
+constexpr folly::StringPiece kMetricMemoryCacheTotalTinyBytes{
+    "velox.memory_cache_total_tiny_bytes"};
+
+constexpr folly::StringPiece kMetricMemoryCacheTotalLargeBytes{
+    "velox.memory_cache_total_large_bytes"};
+
+constexpr folly::StringPiece kMetricMemoryCacheTotalTinyPaddingBytes{
+    "velox.memory_cache_total_tiny_padding_bytes"};
+
+constexpr folly::StringPiece kMetricMemoryCacheTotalLargePaddingBytes{
+    "velox.memory_cache_total_large_padding_bytes"};
+
+constexpr folly::StringPiece kMetricMemoryCacheTotalPrefetchBytes{
+    "velox.memory_cache_total_prefetched_bytes"};
+
+constexpr folly::StringPiece kMetricMemoryCacheSumEvictScore{
+    "velox.memory_cache_sum_evict_score"};
+
+constexpr folly::StringPiece kMetricMemoryCacheNumHits{
+    "velox.memory_cache_num_hits"};
+
+constexpr folly::StringPiece kMetricMemoryCacheHitBytes{
+    "velox.memory_cache_hit_bytes"};
+
+constexpr folly::StringPiece kMetricMemoryCacheNumNew{
+    "velox.memory_cache_num_new"};
+
+constexpr folly::StringPiece kMetricMemoryCacheNumEvicts{
+    "velox.memory_cache_num_evicts"};
+
+constexpr folly::StringPiece kMetricMemoryCacheNumEvictChecks{
+    "velox.memory_cache_num_evict_checks"};
+
+constexpr folly::StringPiece kMetricMemoryCacheNumWaitExclusive{
+    "velox.memory_cache_num_wait_exclusive"};
+
+constexpr folly::StringPiece kMetricMemoryCacheNumAllocClocks{
+    "velox.memory_cache_num_alloc_clocks"};
+
+constexpr folly::StringPiece kMetricMemoryCacheNumAgedOutEntries{
+    "velox.memory_cache_num_aged_out_entries"};
+
+constexpr folly::StringPiece kMetricSsdCacheCachedRegions{
+    "velox.ssd_cache_cached_regions"};
+
+constexpr folly::StringPiece kMetricSsdCacheCachedEntries{
+    "velox.ssd_cache_cached_entries"};
+
+constexpr folly::StringPiece kMetricSsdCacheCachedBytes{
+    "velox.ssd_cache_cached_bytes"};
+
+constexpr folly::StringPiece kMetricSsdCacheReadEntries{
+    "velox.ssd_cache_read_entries"};
+
+constexpr folly::StringPiece kMetricSsdCacheReadBytes{
+    "velox.ssd_cache_read_bytes"};
+
+constexpr folly::StringPiece kMetricSsdCacheWrittenEntries{
+    "velox.ssd_cache_written_entries"};
+
+constexpr folly::StringPiece kMetricSsdCacheWrittenBytes{
+    "velox.ssd_cache_written_bytes"};
+
+constexpr folly::StringPiece kMetricSsdCacheAgedOutEntries{
+    "velox.ssd_cache_aged_out_entries"};
+
+constexpr folly::StringPiece kMetricSsdCacheAgedOutRegions{
+    "velox.ssd_cache_aged_out_regions"};
+
+constexpr folly::StringPiece kMetricSsdCacheOpenSsdErrors{
+    "velox.ssd_cache_open_ssd_errors"};
+
+constexpr folly::StringPiece kMetricSsdCacheOpenCheckpointErrors{
+    "velox.ssd_cache_open_checkpoint_errors"};
+
+constexpr folly::StringPiece kMetricSsdCacheOpenLogErrors{
+    "velox.ssd_cache_open_log_errors"};
+
+constexpr folly::StringPiece kMetricSsdCacheDeleteCheckpointErrors{
+    "velox.ssd_cache_delete_checkpoint_errors"};
+
+constexpr folly::StringPiece kMetricSsdCacheGrowFileErrors{
+    "velox.ssd_cache_grow_file_errors"};
+
+constexpr folly::StringPiece kMetricSsdCacheWriteSsdErrors{
+    "velox.ssd_cache_write_ssd_errors"};
+
+constexpr folly::StringPiece kMetricSsdCacheWriteCheckpointErrors{
+    "velox.ssd_cache_write_checkpoint_errors"};
+
+constexpr folly::StringPiece kMetricSsdCacheReadSsdErrors{
+    "velox.ssd_cache_read_ssd_errors"};
+
+constexpr folly::StringPiece kMetricSsdCacheReadCheckpointErrors{
+    "velox.ssd_cache_read_checkpoint_errors"};
+
+constexpr folly::StringPiece kMetricSsdCacheCheckpointsRead{
+    "velox.ssd_cache_checkpoints_read"};
+
+constexpr folly::StringPiece kMetricSsdCacheCheckpointsWritten{
+    "velox.ssd_cache_checkpoints_written"};
+
+constexpr folly::StringPiece kMetricSsdCacheRegionsEvicted{
+    "velox.ssd_cache_regions_evicted"};
 } // namespace facebook::velox

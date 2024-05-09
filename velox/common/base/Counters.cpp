@@ -46,6 +46,190 @@ void registerVeloxMetrics() {
   DEFINE_HISTOGRAM_METRIC(
       kMetricCacheShrinkTimeMs, 10'000, 0, 100'000, 50, 90, 99, 100);
 
+  /// ================== Memory Allocator Counters =================
+
+  // Number of bytes currently mapped in MemoryAllocator. These bytes represent
+  // the bytes that are either currently being allocated or were in the past
+  // allocated, not yet been returned back to the operating system, in the
+  // form of 'Allocation' or 'ContiguousAllocation'.
+  DEFINE_METRIC(kMetricMappedMemoryBytes, facebook::velox::StatType::AVG);
+
+  // Number of bytes currently allocated (used) from MemoryAllocator in the form
+  // of 'Allocation' or 'ContiguousAllocation'.
+  DEFINE_METRIC(kMetricAllocatedMemoryBytes, facebook::velox::StatType::AVG);
+
+  // Number of bytes currently mapped in MmapAllocator, in the form of
+  // 'ContiguousAllocation'.
+  //
+  // NOTE: This applies only to MmapAllocator
+  DEFINE_METRIC(kMetricMmapExternalMappedBytes, facebook::velox::StatType::AVG);
+
+  // Number of bytes currently allocated from MmapAllocator directly from raw
+  // allocateBytes() interface, and internally allocated by malloc. Only small
+  // chunks of memory are delegated to malloc.
+  //
+  // NOTE: This applies only to MmapAllocator
+  DEFINE_METRIC(kMetricMmapDelegatedAllocBytes, facebook::velox::StatType::AVG);
+
+  /// ================== AsyncDataCache Counters =================
+
+  // Max possible age of AsyncDataCache and SsdCache entries since the raw file
+  // was opened to load the cache.
+  DEFINE_METRIC(kMetricCacheMaxAgeSecs, facebook::velox::StatType::AVG);
+
+  // Total number of cache entries.
+  DEFINE_METRIC(kMetricMemoryCacheNumEntries, facebook::velox::StatType::AVG);
+
+  // Total number of cache entries that do not cache anything.
+  DEFINE_METRIC(
+      kMetricMemoryCacheNumEmptyEntries, facebook::velox::StatType::AVG);
+
+  // Total number of cache entries that are pinned for shared access.
+  DEFINE_METRIC(
+      kMetricMemoryCacheNumSharedEntries, facebook::velox::StatType::AVG);
+
+  // Total number of cache entries that are pinned for exclusive access.
+  DEFINE_METRIC(
+      kMetricMemoryCacheNumExclusiveEntries, facebook::velox::StatType::AVG);
+
+  // Total number of cache entries that are being or have been prefetched but
+  // have not been hit.
+  DEFINE_METRIC(
+      kMetricMemoryCacheNumPrefetchedEntries, facebook::velox::StatType::AVG);
+
+  // Total number of bytes of the cached data that is much smaller than
+  // kTinyDataSize.
+  DEFINE_METRIC(
+      kMetricMemoryCacheTotalTinyBytes, facebook::velox::StatType::AVG);
+
+  // Total number of bytes of the cached data excluding
+  // 'kMetricMemoryCacheTotalTinyBytes'.
+  DEFINE_METRIC(
+      kMetricMemoryCacheTotalLargeBytes, facebook::velox::StatType::AVG);
+
+  // Total unused capacity bytes in 'kMetricMemoryCacheTotalTinyBytes'.
+  DEFINE_METRIC(
+      kMetricMemoryCacheTotalTinyPaddingBytes, facebook::velox::StatType::AVG);
+
+  // Total unused capacity bytes in 'kMetricMemoryCacheTotalLargeBytes'.
+  DEFINE_METRIC(
+      kMetricMemoryCacheTotalLargePaddingBytes, facebook::velox::StatType::AVG);
+
+  // Total bytes of cache entries in prefetch state.
+  DEFINE_METRIC(
+      kMetricMemoryCacheTotalPrefetchBytes, facebook::velox::StatType::AVG);
+
+  // Sum of scores of evicted entries. This serves to infer an average lifetime
+  // for entries in cache.
+  DEFINE_METRIC(
+      kMetricMemoryCacheSumEvictScore, facebook::velox::StatType::SUM);
+
+  // Number of hits (saved IO) since last counter retrieval. The first hit to a
+  // prefetched entry does not count.
+  DEFINE_METRIC(kMetricMemoryCacheNumHits, facebook::velox::StatType::SUM);
+
+  // Amount of hit bytes (saved IO) since last counter retrieval. The first hit
+  // to a prefetched entry does not count.
+  DEFINE_METRIC(kMetricMemoryCacheHitBytes, facebook::velox::StatType::SUM);
+
+  // Number of new entries created since last counter retrieval.
+  DEFINE_METRIC(kMetricMemoryCacheNumNew, facebook::velox::StatType::SUM);
+
+  // Number of times a valid entry was removed in order to make space, since
+  // last counter retrieval.
+  DEFINE_METRIC(kMetricMemoryCacheNumEvicts, facebook::velox::StatType::SUM);
+
+  // Number of entries considered for evicting, since last counter retrieval.
+  DEFINE_METRIC(
+      kMetricMemoryCacheNumEvictChecks, facebook::velox::StatType::SUM);
+
+  // Number of times a user waited for an entry to transit from exclusive to
+  // shared mode, since last counter retrieval.
+  DEFINE_METRIC(
+      kMetricMemoryCacheNumWaitExclusive, facebook::velox::StatType::SUM);
+
+  // Clocks spent in allocating or freeing memory for backing cache entries,
+  // since last counter retrieval
+  DEFINE_METRIC(
+      kMetricMemoryCacheNumAllocClocks, facebook::velox::StatType::SUM);
+
+  // Number of AsyncDataCache entries that are aged out and evicted
+  // given configured TTL.
+  DEFINE_METRIC(
+      kMetricMemoryCacheNumAgedOutEntries, facebook::velox::StatType::SUM);
+
+  /// ================== SsdCache Counters ==================
+
+  // Number of regions currently cached by SSD.
+  DEFINE_METRIC(kMetricSsdCacheCachedRegions, facebook::velox::StatType::AVG);
+
+  // Number of entries currently cached by SSD.
+  DEFINE_METRIC(kMetricSsdCacheCachedEntries, facebook::velox::StatType::AVG);
+
+  // Total bytes currently cached by SSD.
+  DEFINE_METRIC(kMetricSsdCacheCachedBytes, facebook::velox::StatType::AVG);
+
+  // Total number of entries read from SSD.
+  DEFINE_METRIC(kMetricSsdCacheReadEntries, facebook::velox::StatType::SUM);
+
+  // Total number of bytes read from SSD.
+  DEFINE_METRIC(kMetricSsdCacheReadBytes, facebook::velox::StatType::SUM);
+
+  // Total number of entries written to SSD.
+  DEFINE_METRIC(kMetricSsdCacheWrittenEntries, facebook::velox::StatType::SUM);
+
+  // Total number of bytes written to SSD.
+  DEFINE_METRIC(kMetricSsdCacheWrittenBytes, facebook::velox::StatType::SUM);
+
+  // Total number of SsdCache entries that are aged out and evicted given
+  // configured TTL.
+  DEFINE_METRIC(kMetricSsdCacheAgedOutEntries, facebook::velox::StatType::SUM);
+
+  // Total number of SsdCache regions that are aged out and evicted given
+  // configured TTL.
+  DEFINE_METRIC(kMetricSsdCacheAgedOutRegions, facebook::velox::StatType::SUM);
+
+  // Total number of SSD file open errors.
+  DEFINE_METRIC(kMetricSsdCacheOpenSsdErrors, facebook::velox::StatType::SUM);
+
+  // Total number of SSD checkpoint file open errors.
+  DEFINE_METRIC(
+      kMetricSsdCacheOpenCheckpointErrors, facebook::velox::StatType::SUM);
+
+  // Total number of SSD evict log file open errors.
+  DEFINE_METRIC(kMetricSsdCacheOpenLogErrors, facebook::velox::StatType::SUM);
+
+  // Total number of errors while deleting SSD checkpoint files.
+  DEFINE_METRIC(
+      kMetricSsdCacheDeleteCheckpointErrors, facebook::velox::StatType::SUM);
+
+  // Total number of errors while growing SSD cache files.
+  DEFINE_METRIC(kMetricSsdCacheGrowFileErrors, facebook::velox::StatType::SUM);
+
+  // Total number of error while writing to SSD cache files.
+  DEFINE_METRIC(kMetricSsdCacheWriteSsdErrors, facebook::velox::StatType::SUM);
+
+  // Total number of errors while writing SSD checkpoint file.
+  DEFINE_METRIC(
+      kMetricSsdCacheWriteCheckpointErrors, facebook::velox::StatType::SUM);
+
+  // Total number of errors while reading from SSD cache files.
+  DEFINE_METRIC(kMetricSsdCacheReadSsdErrors, facebook::velox::StatType::SUM);
+
+  // Total number of errors while reading from SSD checkpoint files.
+  DEFINE_METRIC(
+      kMetricSsdCacheReadCheckpointErrors, facebook::velox::StatType::SUM);
+
+  // Total number of checkpoints read.
+  DEFINE_METRIC(kMetricSsdCacheCheckpointsRead, facebook::velox::StatType::SUM);
+
+  // Total number of checkpoints written.
+  DEFINE_METRIC(
+      kMetricSsdCacheCheckpointsWritten, facebook::velox::StatType::SUM);
+
+  // Total number of cache regions evicted.
+  DEFINE_METRIC(kMetricSsdCacheRegionsEvicted, facebook::velox::StatType::SUM);
+
   /// ================== Memory Arbitration Counters =================
 
   // The number of arbitration requests.

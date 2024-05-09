@@ -17,6 +17,8 @@
 #pragma once
 
 #include <folly/experimental/ThreadedRepeatingFunctionRunner.h>
+#include "velox/common/caching/AsyncDataCache.h"
+#include "velox/common/caching/SsdFile.h"
 #include "velox/common/memory/MemoryArbitrator.h"
 
 namespace folly {
@@ -39,13 +41,22 @@ class PeriodicStatsReporter {
   struct Options {
     Options() {}
 
-    const memory::MemoryArbitrator* arbitrator{nullptr};
+    const velox::memory::MemoryAllocator* allocator{nullptr};
+    uint64_t allocatorStatsIntervalMs{2'000};
 
+    const velox::cache::AsyncDataCache* cache{nullptr};
+    uint64_t cacheStatsIntervalMs{60'000};
+
+    const memory::MemoryArbitrator* arbitrator{nullptr};
     uint64_t arbitratorStatsIntervalMs{60'000};
 
     std::string toString() const {
       return fmt::format(
-          "arbitratorStatsIntervalMs:{}", arbitratorStatsIntervalMs);
+          "allocatorStatsIntervalMs:{}, cacheStatsIntervalMs:{}, "
+          "arbitratorStatsIntervalMs:{}",
+          allocatorStatsIntervalMs,
+          cacheStatsIntervalMs,
+          arbitratorStatsIntervalMs);
     }
   };
 
@@ -76,10 +87,16 @@ class PeriodicStatsReporter {
         });
   }
 
+  void reportCacheStats();
+  void reportAllocatorStats();
   void reportArbitratorStats();
 
+  const velox::memory::MemoryAllocator* const allocator_{nullptr};
+  const velox::cache::AsyncDataCache* const cache_{nullptr};
   const velox::memory::MemoryArbitrator* const arbitrator_{nullptr};
   const Options options_;
+
+  cache::CacheStats lastCacheStats_;
 
   folly::ThreadedRepeatingFunctionRunner scheduler_;
 };

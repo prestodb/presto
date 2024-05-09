@@ -188,6 +188,172 @@ Memory Management
      - Tracks the count of double frees in memory allocator, indicating the
        possibility of buffer ownership issues when a buffer is freed more
        than once.
+   * - memory_allocator_mapped_bytes
+     - Avg
+     - Number of bytes currently mapped in MemoryAllocator. These bytes represent
+       the bytes that are either currently being allocated or were in the past
+       allocated, not yet been returned back to the operating system, in the
+       form of 'Allocation' or 'ContiguousAllocation'.
+   * - memory_allocator_alloc_bytes
+     - Avg
+     - Number of bytes currently allocated (used) from MemoryAllocator in the form
+       of 'Allocation' or 'ContiguousAllocation'.
+   * - mmap_allocator_external_mapped_bytes
+     - Avg
+     - Number of bytes currently mapped in MmapAllocator, in the form of
+       'ContiguousAllocation'.
+       NOTE: This applies only to MmapAllocator
+   * - mmap_allocator_delegated_alloc_bytes
+     - Avg
+     - Number of bytes currently allocated from MmapAllocator directly from raw
+       allocateBytes() interface, and internally allocated by malloc. Only small
+       chunks of memory are delegated to malloc
+       NOTE: This applies only to MmapAllocator
+
+Cache
+--------------
+
+.. list-table::
+   :widths: 40 10 50
+   :header-rows: 1
+
+   * - Metric Name
+     - Type
+     - Description
+   * - cache_max_age_secs
+     - Avg
+     - Max possible age of AsyncDataCache and SsdCache entries since the raw file
+       was opened to load the cache.
+   * - memory_cache_num_entries
+     - Avg
+     - Total number of cache entries.
+   * - memory_cache_num_empty_entries
+     - Avg
+     - Total number of cache entries that do not cache anything.
+   * - memory_cache_num_shared_entries
+     - Avg
+     - Total number of cache entries that are pinned for shared access.
+   * - memory_cache_num_exclusive_entries
+     - Avg
+     - Total number of cache entries that are pinned for exclusive access.
+   * - memory_cache_num_prefetched_entries
+     - Avg
+     - Total number of cache entries that are being or have been prefetched but
+       have not been hit.
+   * - memory_cache_total_tiny_bytes
+     - Avg
+     - Total number of bytes of the cached data that is much smaller than kTinyDataSize.
+   * - memory_cache_total_large_bytes
+     - Avg
+     - Total number of bytes of the cached data excluding 'memory_cache_total_tiny_bytes'
+   * - memory_cache_total_tiny_padding_bytes
+     - Avg
+     - Total unused capacity bytes in 'memory_cache_total_tiny_bytes'.
+   * - memory_cache_total_large_padding_bytes
+     - Avg
+     - Total unused capacity bytes in 'memory_cache_total_large_bytes'.
+   * - memory_cache_total_prefetched_bytes
+     - Avg
+     - Total bytes of cache entries in prefetch state.
+   * - memory_cache_sum_evict_score
+     - Sum
+     - Sum of scores of evicted entries. This serves to infer an average lifetime
+       for entries in cache.
+   * - memory_cache_num_hits
+     - Sum
+     - Number of hits (saved IO) since last counter retrieval. The first hit to a
+       prefetched entry does not count.
+   * - memory_cache_hit_bytes
+     - Sum
+     - Amount of hit bytes (saved IO) since last counter retrieval. The first hit
+       to a prefetched entry does not count.
+   * - memory_cache_num_new
+     - Sum
+     - Number of new entries created since last counter retrieval.
+   * - memory_cache_num_evicts
+     - Sum
+     - Number of times a valid entry was removed in order to make space, since
+       last counter retrieval.
+   * - memory_cache_num_evict_checks
+     - Sum
+     - Number of entries considered for evicting, since last counter retrieval.
+   * - memory_cache_num_wait_exclusive
+     - Sum
+     - Number of times a user waited for an entry to transit from exclusive to
+       shared mode, since last counter retrieval.
+   * - memory_cache_num_alloc_clocks
+     - Sum
+     - Clocks spent in allocating or freeing memory for backing cache entries,
+       since last counter retrieval
+   * - memory_cache_num_aged_out_entries
+     - Sum
+     - Number of AsyncDataCache entries that are aged out and evicted.
+       given configured TTL.
+   * - ssd_cache_cached_regions
+     - Avg
+     - Number of regions currently cached by SSD.
+   * - ssd_cache_cached_entries
+     - Avg
+     - Number of entries currently cached by SSD.
+   * - ssd_cache_cached_bytes
+     - Avg
+     - Total bytes currently cached by SSD.
+   * - ssd_cache_read_entries
+     - Sum
+     - Total number of entries read from SSD.
+   * - ssd_cache_read_bytes
+     - Sum
+     - Total number of bytes read from SSD.
+   * - ssd_cache_written_entries
+     - Sum
+     - Total number of entries written to SSD.
+   * - ssd_cache_written_bytes
+     - Sum
+     - Total number of bytes written to SSD.
+   * - ssd_cache_aged_out_entries
+     - Sum
+     - Total number of SsdCache entries that are aged out and evicted given
+       configured TTL.
+   * - ssd_cache_aged_out_regions
+     - Sum
+     - Total number of SsdCache regions that are aged out and evicted given
+       configured TTL.
+   * - ssd_cache_open_ssd_errors
+     - Sum
+     - Total number of SSD file open errors.
+   * - ssd_cache_open_checkpoint_errors
+     - Sum
+     - Total number of SSD checkpoint file open errors.
+   * - ssd_cache_open_log_errors
+     - Sum
+     - Total number of SSD evict log file open errors.
+   * - ssd_cache_delete_checkpoint_errors
+     - Sum
+     - Total number of errors while deleting SSD checkpoint files.
+   * - ssd_cache_grow_file_errors
+     - Sum
+     - Total number of errors while growing SSD cache files.
+   * - ssd_cache_write_ssd_errors
+     - Sum
+     - Total number of error while writing to SSD cache files.
+   * - ssd_cache_write_checkpoint_errors
+     - Sum
+     - Total number of errors while writing SSD checkpoint file.
+   * - ssd_cache_read_ssd_errors
+     - Sum
+     - Total number of errors while reading from SSD cache files.
+   * - ssd_cache_read_checkpoint_errors
+     - Sum
+     - Total number of errors while reading from SSD checkpoint files.
+   * - ssd_cache_checkpoints_read
+     - Sum
+     - Total number of checkpoints read.
+   * - ssd_cache_checkpoints_written
+     - Sum
+     - Total number of checkpoints written.
+   * - ssd_cache_regions_evicted
+     - Sum
+     - Total number of cache regions evicted.
 
 Spilling
 --------

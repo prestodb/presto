@@ -134,17 +134,17 @@ struct hash<::facebook::velox::cache::RawFileCacheKey> {
 
 namespace facebook::velox::cache {
 
-// Represents a contiguous range of bytes cached from a file. This
-// is the primary unit of access. These are typically owned via
-// CachePin and can be in shared or exclusive mode. 'numPins_'
-// counts the shared leases, the special value kExclusive means that
-// this is being written to by another thread. It is possible to
-// wait for the exclusive mode to finish, at which time one can
-// retry getting access. Entries belong to one CacheShard at a
-// time. The CacheShard serializes the mapping from a key to the
-// entry and the setting entries to exclusive mode. An unpinned
-// entry is evictable. CacheShard decides the eviction policy and
-// serializes eviction with other access.
+/// Represents a contiguous range of bytes cached from a file. This
+/// is the primary unit of access. These are typically owned via
+/// CachePin and can be in shared or exclusive mode. 'numPins_'
+/// counts the shared leases, the special value kExclusive means that
+/// this is being written to by another thread. It is possible to
+/// wait for the exclusive mode to finish, at which time one can
+/// retry getting access. Entries belong to one CacheShard at a
+/// time. The CacheShard serializes the mapping from a key to the
+/// entry and the setting entries to exclusive mode. An unpinned
+/// entry is evictable. CacheShard decides the eviction policy and
+/// serializes eviction with other access.
 class AsyncDataCacheEntry {
  public:
   static constexpr int32_t kExclusive = -10000;
@@ -153,9 +153,9 @@ class AsyncDataCacheEntry {
   explicit AsyncDataCacheEntry(CacheShard* shard);
   ~AsyncDataCacheEntry();
 
-  // Sets the key and allocates the entry's memory.  Resets
-  //  all other state. The entry must be held exclusively and must
-  //  hold no memory when calling this.
+  /// Sets the key and allocates the entry's memory.  Resets
+  ///  all other state. The entry must be held exclusively and must
+  ///  hold no memory when calling this.
   void initialize(FileCacheKey key);
 
   memory::Allocation& data() {
@@ -254,9 +254,9 @@ class AsyncDataCacheEntry {
   /// Sets access stats so that this is immediately evictable.
   void makeEvictable();
 
-  // Moves the promise out of 'this'. Used in order to handle the
-  // promise within the lock of the cache shard, so not within private
-  // methods of 'this'.
+  /// Moves the promise out of 'this'. Used in order to handle the
+  /// promise within the lock of the cache shard, so not within private
+  /// methods of 'this'.
   std::unique_ptr<folly::SharedPromise<bool>> movePromise() {
     return std::move(promise_);
   }
@@ -471,58 +471,65 @@ class CoalescedLoad {
   std::vector<int32_t> sizes_;
 };
 
-// Struct for CacheShard stats. Stats from all shards are added into
-// this struct to provide a snapshot of state.
+/// Struct for CacheShard stats. Stats from all shards are added into
+/// this struct to provide a snapshot of state.
 struct CacheStats {
-  // Total size in 'tinyData_'
-  int64_t tinySize{0};
-  // Total size in 'data_'
-  int64_t largeSize{0};
-  // Unused capacity in 'tinyData_'.
-  int64_t tinyPadding{0};
-  // Unused capacity in 'data_'.
-  int64_t largePadding{0};
-  // Total number of entries.
-  int32_t numEntries{0};
-  // Number of entries that do not cache anything.
-  int32_t numEmptyEntries{0};
-  // Number of entries pinned for shared access.
-  int32_t numShared{0};
-  // Number of entries pinned for exclusive access.
-  int32_t numExclusive{0};
-  // Number of entries that are being or have been prefetched but have not been
-  // hit.
-  int32_t numPrefetch{0};
-  // Total size of entries in prefetch state.
-  int64_t prefetchBytes{0};
-  // Number of hits (saved IO). The first hit to a prefetched entry does not
-  // count.
-  int64_t numHit{0};
-  // Sum of sizes of entries counted in 'numHit'.
-  int64_t hitBytes{0};
-  // Number of new entries created.
-  int64_t numNew{0};
-  // Number of times a valid entry was removed in order to make space.
-  int64_t numEvict{0};
-  // Number of entries considered for evicting.
-  int64_t numEvictChecks{0};
-  // Number of times a user waited for an entry to transit from exclusive to
-  // shared mode.
-  int64_t numWaitExclusive{0};
-  // Total number of entries that are aged out and beyond TTL.
-  int64_t numAgedOut{};
-  // Cumulative clocks spent in allocating or freeing memory for backing cache
-  // entries.
-  uint64_t allocClocks{0};
-  // Sum of scores of evicted entries. This serves to infer an average
-  // lifetime for entries in cache.
-  int64_t sumEvictScore{0};
+  /// ============= Snapshot stats =============
 
-  // Total size of shared/exclusive pinned entries.
+  /// Total size in 'tinyData_'
+  int64_t tinySize{0};
+  /// Total size in 'data_'
+  int64_t largeSize{0};
+  /// Unused capacity in 'tinyData_'.
+  int64_t tinyPadding{0};
+  /// Unused capacity in 'data_'.
+  int64_t largePadding{0};
+  /// Total number of entries.
+  int32_t numEntries{0};
+  /// Number of entries that do not cache anything.
+  int32_t numEmptyEntries{0};
+  /// Number of entries pinned for shared access.
+  int32_t numShared{0};
+  /// Number of entries pinned for exclusive access.
+  int32_t numExclusive{0};
+  /// Number of entries that are being or have been prefetched but have not been
+  /// hit.
+  int32_t numPrefetch{0};
+  /// Total size of entries in prefetch state.
+  int64_t prefetchBytes{0};
+  /// Total size of shared/exclusive pinned entries.
   int64_t sharedPinnedBytes{0};
   int64_t exclusivePinnedBytes{0};
 
+  /// ============= Cumulative stats =============
+
+  /// Number of hits (saved IO). The first hit to a prefetched entry does not
+  /// count.
+  int64_t numHit{0};
+  /// Sum of sizes of entries counted in 'numHit'.
+  int64_t hitBytes{0};
+  /// Number of new entries created.
+  int64_t numNew{0};
+  /// Number of times a valid entry was removed in order to make space.
+  int64_t numEvict{0};
+  /// Number of entries considered for evicting.
+  int64_t numEvictChecks{0};
+  /// Number of times a user waited for an entry to transit from exclusive to
+  /// shared mode.
+  int64_t numWaitExclusive{0};
+  /// Total number of entries that are aged out and beyond TTL.
+  int64_t numAgedOut{};
+  /// Cumulative clocks spent in allocating or freeing memory for backing cache
+  /// entries.
+  uint64_t allocClocks{0};
+  /// Sum of scores of evicted entries. This serves to infer an average
+  /// lifetime for entries in cache.
+  int64_t sumEvictScore{0};
+
+  /// Ssd cache stats that include both snapshot and cumulative stats.
   std::shared_ptr<SsdCacheStats> ssdStats = nullptr;
+
+  CacheStats operator-(CacheStats& other) const;
 
   std::string toString() const;
 };
@@ -569,20 +576,20 @@ class CacheShard {
       memory::MachinePageCount pagesToAcquire,
       memory::Allocation& acquiredAllocation);
 
-  // Removes 'entry' from 'this'. Removes a possible promise from the entry
-  // inside the shard mutex and returns it so that it can be realized outside of
-  // the mutex.
+  /// Removes 'entry' from 'this'. Removes a possible promise from the entry
+  /// inside the shard mutex and returns it so that it can be realized outside
+  /// of the mutex.
   std::unique_ptr<folly::SharedPromise<bool>> removeEntry(
       AsyncDataCacheEntry* entry);
 
-  // Adds the stats of 'this' to 'stats'.
+  /// Adds the stats of 'this' to 'stats'.
   void updateStats(CacheStats& stats);
 
-  // Appends a batch of non-saved SSD savable entries in 'this' to
-  // 'pins'. This may have to be called several times since this keeps
-  // limits on the batch to write at one time. The savable entries
-  // are pinned for read. 'pins' should be written or dropped before
-  // calling this a second time.
+  /// Appends a batch of non-saved SSD savable entries in 'this' to
+  /// 'pins'. This may have to be called several times since this keeps
+  /// limits on the batch to write at one time. The savable entries
+  /// are pinned for read. 'pins' should be written or dropped before
+  /// calling this a second time.
   void appendSsdSaveable(std::vector<CachePin>& pins);
 
   /// Remove cache entries from this shard for files in the fileNum set
@@ -637,24 +644,24 @@ class CacheShard {
   int32_t evictionThreshold_{kNoThreshold};
   // Cumulative count of cache hits.
   uint64_t numHit_{0};
-  // Sum of bytes in cache hits.
+  // Cumulative Sum of bytes in cache hits.
   uint64_t hitBytes_{0};
   // Cumulative count of hits on entries held in exclusive mode.
   uint64_t numWaitExclusive_{0};
   // Cumulative count of new entry creation.
   uint64_t numNew_{0};
-  // Count of entries evicted.
+  // Cumulative count of entries evicted.
   uint64_t numEvict_{0};
-  // Count of entries considered for eviction. This divided by
+  // Cumulative count of entries considered for eviction. This divided by
   // 'numEvict_' measured efficiency of eviction.
   uint64_t numEvictChecks_{0};
-  // Count of entries aged out due to TTL.
+  // Cumulative count of entries aged out due to TTL.
   uint64_t numAgedOut_{};
-  // Sum of evict scores. This divided by 'numEvict_' correlates to
+  // Cumulative sum of evict scores. This divided by 'numEvict_' correlates to
   // time data stays in cache.
   uint64_t sumEvictScore_{0};
-  // Tracker of time spent in allocating/freeing MemoryAllocator space
-  // for backing cached data.
+  // Tracker of cumulative time spent in allocating/freeing MemoryAllocator
+  // space for backing cached data.
   std::atomic<uint64_t> allocClocks_{0};
 };
 
