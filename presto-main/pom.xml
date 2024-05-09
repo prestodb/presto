@@ -556,12 +556,13 @@
                 <artifactId>frontend-maven-plugin</artifactId>
                 <version>1.15.0</version>
                 <configuration>
-                    <installDirectory>target</installDirectory>
+                    <installDirectory>${project.build.directory}</installDirectory>
                     <workingDirectory>src/main/resources/webapp/src</workingDirectory>
                 </configuration>
                 <executions>
                     <execution>
                         <id>install node and yarn</id>
+                        <phase>initialize</phase>
                         <goals>
                             <goal>install-node-and-yarn</goal>
                         </goals>
@@ -572,9 +573,13 @@
                     </execution>
                     <execution>
                         <id>yarn install</id>
+                        <phase>generate-sources</phase>
                         <goals>
                             <goal>yarn</goal>
                         </goals>
+                        <configuration>
+                            <arguments>run install -o ${project.build.directory}/classes/webapp</arguments>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>
