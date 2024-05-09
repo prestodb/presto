@@ -901,6 +901,7 @@ class HashJoinTest : public HiveConnectorTestBase {
       const Operator* op,
       uint64_t targetBytes,
       memory::MemoryReclaimer::Stats& reclaimerStats) {
+    memory::ScopedMemoryArbitrationContext ctx(op->pool());
     const auto oldCapacity = op->pool()->capacity();
     op->pool()->reclaim(targetBytes, 0, reclaimerStats);
     dynamic_cast<memory::MemoryPoolImpl*>(op->pool())
@@ -5823,10 +5824,10 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringOutputProcessing) {
                         concat(probeType_->names(), buildType_->names()))
                     .planNode();
 
+    std::atomic_bool driverWaitFlag{true};
     folly::EventCount driverWait;
-    auto driverWaitKey = driverWait.prepareWait();
+    std::atomic_bool testWaitFlag{true};
     folly::EventCount testWait;
-    auto testWaitKey = testWait.prepareWait();
 
     std::atomic<bool> injectOnce{true};
     Operator* op;
@@ -5849,8 +5850,9 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringOutputProcessing) {
           } else {
             ASSERT_EQ(reclaimableBytes, 0);
           }
-          testWait.notify();
-          driverWait.wait(driverWaitKey);
+          testWaitFlag = false;
+          testWait.notifyAll();
+          driverWait.await([&]() { return !testWaitFlag.load(); });
         })));
 
     std::thread taskThread([&]() {
@@ -5873,11 +5875,12 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringOutputProcessing) {
           .run();
     });
 
-    testWait.wait(testWaitKey);
+    testWait.await([&]() { return !testWaitFlag.load(); });
     ASSERT_TRUE(op != nullptr);
     auto task = op->testingOperatorCtx()->task();
     auto taskPauseWait = task->requestPause();
-    driverWait.notify();
+    driverWaitFlag = false;
+    driverWait.notifyAll();
     taskPauseWait.wait();
 
     uint64_t reclaimableBytes{0};
@@ -5967,6 +5970,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringWaitForProbe) {
         }
         auto* driver = op->testingOperatorCtx()->driver();
         auto task = driver->task();
+        memory::ScopedMemoryArbitrationContext ctx(op->pool());
         SuspendedSection suspendedSection(driver);
         auto taskPauseWait = task->requestPause();
         taskPauseWait.wait();

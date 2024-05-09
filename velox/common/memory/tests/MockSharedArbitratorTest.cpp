@@ -454,6 +454,8 @@ class MockSharedArbitrationTest : public testing::Test {
   std::unique_ptr<MemoryManager> manager_;
   SharedArbitrator* arbitrator_;
   std::vector<std::shared_ptr<MockTask>> tasks_;
+  std::unique_ptr<folly::CPUThreadPoolExecutor> executor_ =
+      std::make_unique<folly::CPUThreadPoolExecutor>(4);
 };
 
 MockMemoryOperator* MockSharedArbitrationTest::addMemoryOp(
@@ -571,6 +573,36 @@ TEST_F(MockSharedArbitrationTest, arbitrationStateCheck) {
   ASSERT_EQ(task->capacity(), 0);
   MockMemoryOperator* memOp = task->addMemoryOp();
   VELOX_ASSERT_THROW(memOp->allocate(128), "bad check");
+}
+
+TEST_F(MockSharedArbitrationTest, asyncArbitrationWork) {
+  const int memoryCapacity = 512 * MB;
+  const int poolCapacity = 256 * MB;
+  setupMemory(memoryCapacity, 0, poolCapacity, 0);
+
+  std::atomic_int reclaimedCount{0};
+  std::shared_ptr<MockTask> task = addTask(poolCapacity);
+  MockMemoryOperator* memoryOp =
+      addMemoryOp(task, true, [&](MemoryPool* pool, uint64_t /*unsed*/) {
+        struct Result {
+          bool succeeded{true};
+
+          explicit Result(bool _succeeded) : succeeded(_succeeded) {}
+        };
+        auto asyncReclaimTask = createAsyncMemoryReclaimTask<Result>([&]() {
+          memoryOp->allocate(poolCapacity);
+          return std::make_unique<Result>(true);
+        });
+        executor_->add([&]() { asyncReclaimTask->prepare(); });
+        std::this_thread::sleep_for(std::chrono::seconds(1)); // NOLINT
+        const auto result = asyncReclaimTask->move();
+        ASSERT_TRUE(result->succeeded);
+        memoryOp->freeAll();
+        ++reclaimedCount;
+      });
+  memoryOp->allocate(poolCapacity);
+  memoryOp->allocate(poolCapacity);
+  ASSERT_EQ(reclaimedCount, 1);
 }
 
 TEST_F(MockSharedArbitrationTest, arbitrationFailsTask) {
