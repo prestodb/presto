@@ -224,6 +224,8 @@ SystemConfig::SystemConfig() {
           STR_PROP(kCacheVeloxTtlThreshold, "2d"),
           STR_PROP(kCacheVeloxTtlCheckInterval, "1h"),
           BOOL_PROP(kEnableRuntimeMetricsCollection, false),
+          NUM_PROP(kIoMinBackoffTimeMs, 200),
+          NUM_PROP(kIoMaxBackoffTimeMs, 30'000),
       };
 }
 
@@ -625,6 +627,18 @@ std::chrono::duration<double> SystemConfig::cacheVeloxTtlCheckInterval() const {
 
 bool SystemConfig::enableRuntimeMetricsCollection() const {
   return optionalProperty<bool>(kEnableRuntimeMetricsCollection).value();
+}
+
+uint64_t SystemConfig::ioMinBackoffTimeMs() const {
+  static constexpr uint64_t kIoMinBackoffTimeMsDefault = {200}; // 200 ms.
+  return optionalProperty<uint64_t>(kIoMinBackoffTimeMs)
+      .value_or(kIoMinBackoffTimeMsDefault);
+}
+
+uint64_t SystemConfig::ioMaxBackoffTimeMs() const {
+  static constexpr uint64_t kIoMaxBackoffTimeMsDefault = {30'000}; // 30 secs.
+  return optionalProperty<uint64_t>(kIoMaxBackoffTimeMs)
+      .value_or(kIoMaxBackoffTimeMsDefault);
 }
 
 NodeConfig::NodeConfig() {

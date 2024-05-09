@@ -517,6 +517,15 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kDriverMaxPagePartitioningBufferSize{
       "driver.max-page-partitioning-buffer-size"};
 
+  /// The minimal delay to be injected upon io throttling signals from remote
+  /// storage.
+  static constexpr std::string_view kIoMinBackoffTimeMs{
+      "io.throttle.min-backoff-time-ms"};
+  /// The maximal delay to be injected upon io throttling signals from remote
+  /// storage.
+  static constexpr std::string_view kIoMaxBackoffTimeMs{
+      "io.throttle.max-backoff-time-ms"};
+
   SystemConfig();
 
   virtual ~SystemConfig() = default;
@@ -710,6 +719,9 @@ class SystemConfig : public ConfigBase {
   std::chrono::duration<double> cacheVeloxTtlCheckInterval() const;
 
   bool enableRuntimeMetricsCollection() const;
+
+  uint64_t ioMinBackoffTimeMs() const;
+  uint64_t ioMaxBackoffTimeMs() const;
 };
 
 /// Provides access to node properties defined in node.properties file.
