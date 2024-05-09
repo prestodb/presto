@@ -16,6 +16,7 @@
 
 #include "velox/dwio/parquet/reader/ParquetReader.h"
 
+#include <boost/algorithm/string.hpp>
 #include <thrift/protocol/TCompactProtocol.h> //@manual
 
 #include "velox/dwio/parquet/reader/ParquetColumnReader.h"
@@ -360,20 +361,68 @@ std::unique_ptr<ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
           // also an indication of this is a list type
           // child of LIST
           VELOX_CHECK_GE(children.size(), 1);
-          auto type = TypeFactory<TypeKind::ARRAY>::create(children[0]->type());
-          return std::make_unique<ParquetTypeWithId>(
-              std::move(type),
-              std::move(children),
-              curSchemaIdx,
-              maxSchemaElementIdx,
-              ParquetTypeWithId::kNonLeaf, // columnIdx,
-              std::move(name),
-              std::nullopt,
-              std::nullopt,
-              maxRepeat,
-              maxDefine,
-              isOptional,
-              isRepeated);
+          if (children.size() == 1 && name != "array" &&
+              name != schema[parentSchemaIdx].name + "_tuple") {
+            auto type =
+                TypeFactory<TypeKind::ARRAY>::create(children[0]->type());
+            return std::make_unique<ParquetTypeWithId>(
+                std::move(type),
+                std::move(children),
+                curSchemaIdx,
+                maxSchemaElementIdx,
+                ParquetTypeWithId::kNonLeaf, // columnIdx,
+                std::move(name),
+                std::nullopt,
+                std::nullopt,
+                maxRepeat,
+                maxDefine,
+                isOptional,
+                isRepeated);
+          } else {
+            // According to the spec of list backward compatibility
+            // https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#lists
+            // "If the repeated field is a group with multiple fields, then its
+            // type is the element type and elements are required." when there
+            // are multiple fields, creating a new row type instance which has
+            // all the fields as its children.
+            // TODO: since this is newly created node, its schemaIdx actually
+            // doesn't exist from the footer schema. Reusing the curSchemaIdx
+            // but potentially could have issue.
+            auto childrenRowType =
+                createRowType(children, isFileColumnNamesReadAsLowerCase());
+            std::vector<std::unique_ptr<ParquetTypeWithId::TypeWithId>>
+                rowChildren;
+            // In this legacy case, there is no middle layer between "array"
+            // node and the children nodes. Below creates this dummy middle
+            // layer to mimic the non-legacy case and fill the gap.
+            rowChildren.emplace_back(std::make_unique<ParquetTypeWithId>(
+                childrenRowType,
+                std::move(children),
+                curSchemaIdx,
+                maxSchemaElementIdx,
+                ParquetTypeWithId::kNonLeaf,
+                "dummy",
+                std::nullopt,
+                std::nullopt,
+                maxRepeat,
+                maxDefine,
+                isOptional,
+                isRepeated));
+            auto res = std::make_unique<ParquetTypeWithId>(
+                TypeFactory<TypeKind::ARRAY>::create(childrenRowType),
+                std::move(rowChildren),
+                curSchemaIdx,
+                maxSchemaElementIdx,
+                ParquetTypeWithId::kNonLeaf, // columnIdx,
+                std::move(name),
+                std::nullopt,
+                std::nullopt,
+                maxRepeat,
+                maxDefine,
+                isOptional,
+                isRepeated);
+            return res;
+          }
         } else if (
             schema[parentSchemaIdx].converted_type ==
                 thrift::ConvertedType::MAP ||

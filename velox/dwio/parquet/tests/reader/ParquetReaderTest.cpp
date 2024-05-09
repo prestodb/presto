@@ -123,22 +123,31 @@ TEST_F(ParquetReaderTest, parseUnannotatedList) {
   EXPECT_EQ(
       std::static_pointer_cast<const ParquetTypeWithId>(col0)->name_, "self");
 
-  EXPECT_EQ(col0->size(), 3ULL);
-  EXPECT_EQ(col0->childAt(0)->type()->kind(), TypeKind::BIGINT);
+  EXPECT_EQ(col0->size(), 1ULL);
+  EXPECT_EQ(col0->childAt(0)->type()->kind(), TypeKind::ROW);
   EXPECT_EQ(
       std::static_pointer_cast<const ParquetTypeWithId>(col0->childAt(0))
           ->name_,
+      "dummy");
+
+  EXPECT_EQ(col0->childAt(0)->childAt(0)->type()->kind(), TypeKind::BIGINT);
+  EXPECT_EQ(
+      std::static_pointer_cast<const ParquetTypeWithId>(
+          col0->childAt(0)->childAt(0))
+          ->name_,
       "a");
 
-  EXPECT_EQ(col0->childAt(1)->type()->kind(), TypeKind::BOOLEAN);
+  EXPECT_EQ(col0->childAt(0)->childAt(1)->type()->kind(), TypeKind::BOOLEAN);
   EXPECT_EQ(
-      std::static_pointer_cast<const ParquetTypeWithId>(col0->childAt(1))
+      std::static_pointer_cast<const ParquetTypeWithId>(
+          col0->childAt(0)->childAt(1))
           ->name_,
       "b");
 
-  EXPECT_EQ(col0->childAt(2)->type()->kind(), TypeKind::VARCHAR);
+  EXPECT_EQ(col0->childAt(0)->childAt(2)->type()->kind(), TypeKind::VARCHAR);
   EXPECT_EQ(
-      std::static_pointer_cast<const ParquetTypeWithId>(col0->childAt(2))
+      std::static_pointer_cast<const ParquetTypeWithId>(
+          col0->childAt(0)->childAt(2))
           ->name_,
       "c");
 }
@@ -159,7 +168,6 @@ TEST_F(ParquetReaderTest, parseUnannotatedMap) {
 
   facebook::velox::dwio::common::ReaderOptions readerOptions{leafPool_.get()};
   auto reader = createReader(sample, readerOptions);
-  auto numRows = reader->numberOfRows();
 
   auto type = reader->typeWithId();
   EXPECT_EQ(type->size(), 1ULL);
@@ -180,6 +188,60 @@ TEST_F(ParquetReaderTest, parseUnannotatedMap) {
       std::static_pointer_cast<const ParquetTypeWithId>(col0->childAt(1))
           ->name_,
       "value");
+}
+
+TEST_F(ParquetReaderTest, parseLegacyListWithMultipleChildren) {
+  // listmultiplechildren.parquet has the following the schema
+  // message hive_schema {
+  //  optional group test (LIST) {
+  //    repeated group array {
+  //      optional int64 a;
+  //      optional boolean b;
+  //      optional binary c (STRING);
+  //    }
+  //  }
+  // }
+  // Namely, node 'array' has >1 child
+  const std::string filename("listmultiplechildren.parquet");
+  const std::string sample(getExampleFilePath(filename));
+
+  facebook::velox::dwio::common::ReaderOptions readerOptions{leafPool_.get()};
+  auto reader = createReader(sample, readerOptions);
+
+  auto type = reader->typeWithId();
+  EXPECT_EQ(type->size(), 1ULL);
+  auto col0 = type->childAt(0);
+  EXPECT_EQ(col0->type()->kind(), TypeKind::ARRAY);
+  EXPECT_EQ(
+      std::static_pointer_cast<const ParquetTypeWithId>(col0)->name_, "test");
+
+  EXPECT_EQ(col0->size(), 1ULL);
+  EXPECT_EQ(col0->childAt(0)->type()->kind(), TypeKind::ROW);
+  EXPECT_EQ(
+      std::static_pointer_cast<const ParquetTypeWithId>(col0->childAt(0))
+          ->name_,
+      "dummy");
+
+  EXPECT_EQ(col0->childAt(0)->childAt(0)->type()->kind(), TypeKind::BIGINT);
+  EXPECT_EQ(
+      std::static_pointer_cast<const ParquetTypeWithId>(
+          col0->childAt(0)->childAt(0))
+          ->name_,
+      "a");
+
+  EXPECT_EQ(col0->childAt(0)->childAt(1)->type()->kind(), TypeKind::BOOLEAN);
+  EXPECT_EQ(
+      std::static_pointer_cast<const ParquetTypeWithId>(
+          col0->childAt(0)->childAt(1))
+          ->name_,
+      "b");
+
+  EXPECT_EQ(col0->childAt(0)->childAt(2)->type()->kind(), TypeKind::VARCHAR);
+  EXPECT_EQ(
+      std::static_pointer_cast<const ParquetTypeWithId>(
+          col0->childAt(0)->childAt(2))
+          ->name_,
+      "c");
 }
 
 TEST_F(ParquetReaderTest, parseSampleRange1) {
