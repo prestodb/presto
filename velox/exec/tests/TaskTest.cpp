@@ -714,6 +714,17 @@ TEST_F(TaskTest, testTerminateDeadlock) {
   });
 
   VELOX_ASSERT_THROW(cursor->moveNext(), "Aborted for external error");
+
+  // There should be some Drivers closed by the Task due to termination.
+  // They also should all be empty, otherwise we have zombie Drivers.
+  const auto& driversClosedByTask =
+      cursor->task()->testingDriversClosedByTask();
+  EXPECT_GT(driversClosedByTask.size(), 0);
+  for (const auto& driverWeak : driversClosedByTask) {
+    EXPECT_EQ(driverWeak.lock(), nullptr);
+  }
+  EXPECT_EQ(
+      cursor->task()->toString().find("zombie drivers:"), std::string::npos);
 }
 
 TEST_F(TaskTest, singleThreadedExecution) {

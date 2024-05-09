@@ -344,6 +344,10 @@ class Task : public std::enable_shared_from_this<Task> {
     return numFinishedDrivers_;
   }
 
+  const std::vector<std::weak_ptr<Driver>>& testingDriversClosedByTask() const {
+    return driversClosedByTask_;
+  }
+
   /// Internal public methods. These methods are intended to be used by internal
   /// library components (Driver, Operator, etc.) and should not be called by
   /// the library users.
@@ -1030,6 +1034,11 @@ class Task : public std::enable_shared_from_this<Task> {
 
   std::vector<std::unique_ptr<DriverFactory>> driverFactories_;
   std::vector<std::shared_ptr<Driver>> drivers_;
+  /// When Drivers are closed by the Task, there is a chance that race and/or
+  /// bugs can cause such Drivers to be held forever, in turn holding a pointer
+  /// to the Task making it a zombie Tasks. This vector is used to keep track of
+  /// such drivers to assist debugging zombie Tasks.
+  std::vector<std::weak_ptr<Driver>> driversClosedByTask_;
   /// The total number of running drivers in all pipelines.
   /// This number changes over time as drivers finish their work and maybe new
   /// get created.

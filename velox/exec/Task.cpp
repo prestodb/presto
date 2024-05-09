@@ -944,6 +944,7 @@ void Task::resume(std::shared_ptr<Task> self) {
 
   // Get the stats and free the resources of Drivers that were not on thread.
   for (auto& driver : offThreadDrivers) {
+    self->driversClosedByTask_.emplace_back(driver);
     driver->closeByTask();
   }
 }
@@ -1896,6 +1897,7 @@ ContinueFuture Task::terminate(TaskState terminalState) {
   // Get the stats and free the resources of Drivers that were not on
   // thread.
   for (auto& driver : offThreadDrivers) {
+    driversClosedByTask_.emplace_back(driver);
     driver->closeByTask();
   }
 
@@ -2248,10 +2250,29 @@ std::string Task::toString() const {
   }
 
   if (numRemainingDrivers > 0) {
-    out << "drivers:\n";
+    bool addedCaption{false};
     for (auto& driver : drivers_) {
       if (driver) {
+        if (!addedCaption) {
+          out << "drivers:\n";
+          addedCaption = true;
+        }
         out << driver->toString() << std::endl;
+      }
+    }
+  }
+
+  if (!driversClosedByTask_.empty()) {
+    bool addedCaption{false};
+    for (auto& driver : driversClosedByTask_) {
+      auto zombieDriver = driver.lock();
+      if (zombieDriver) {
+        if (!addedCaption) {
+          out << "zombie drivers:\n";
+          addedCaption = true;
+        }
+        out << zombieDriver->toString()
+            << ", refcount: " << zombieDriver.use_count() - 1 << std::endl;
       }
     }
   }
