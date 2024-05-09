@@ -590,7 +590,7 @@ public class HiveFileFormatBenchmark
         for (RunResult result : results) {
             Statistics inputSizeStats = result.getSecondaryResults().get("inputSize").getStatistics();
             Statistics outputSizeStats = result.getSecondaryResults().get("outputSize").getStatistics();
-            double compressionRatio = 1.0 * inputSizeStats.getSum() / outputSizeStats.getSum();
+            double compressionRatio = inputSizeStats.getSum() / outputSizeStats.getSum();
             String compression = result.getParams().getParam("compression");
             String fileFormat = result.getParams().getParam("fileFormat");
             String dataSet = result.getParams().getParam("dataSet");
