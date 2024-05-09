@@ -130,7 +130,7 @@ public final class ColorFunctions
             @SqlType(ColorType.NAME) long lowColor,
             @SqlType(ColorType.NAME) long highColor)
     {
-        return color((value - low) * 1.0 / (high - low), lowColor, highColor);
+        return color((value - low) / (high - low), lowColor, highColor);
     }
 
     /**
