@@ -191,6 +191,19 @@ uint64_t HiveConfig::orcWriterMaxDictionaryMemory(const Config* session) const {
       core::CapacityUnit::BYTE);
 }
 
+bool HiveConfig::orcWriterLinearStripeSizeHeuristics(
+    const Config* session) const {
+  return session->get<bool>(
+      kOrcWriterLinearStripeSizeHeuristicsSession,
+      config_->get<bool>(kOrcWriterLinearStripeSizeHeuristics, true));
+}
+
+uint64_t HiveConfig::orcWriterMinCompressionSize(const Config* session) const {
+  return session->get<uint64_t>(
+      kOrcWriterMinCompressionSizeSession,
+      config_->get<uint64_t>(kOrcWriterMinCompressionSize, 1024));
+}
+
 std::string HiveConfig::writeFileCreateConfig() const {
   return config_->get<std::string>(kWriteFileCreateConfig, "");
 }

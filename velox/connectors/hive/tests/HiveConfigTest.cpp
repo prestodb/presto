@@ -61,6 +61,10 @@ TEST(HiveConfigTest, defaultConfig) {
   ASSERT_EQ(
       hiveConfig->sortWriterMaxOutputBytes(emptySession.get()), 10UL << 20);
   ASSERT_EQ(hiveConfig->isPartitionPathAsLowerCase(emptySession.get()), true);
+  ASSERT_EQ(hiveConfig->orcWriterMinCompressionSize(emptySession.get()), 1024);
+  ASSERT_EQ(
+      hiveConfig->orcWriterLinearStripeSizeHeuristics(emptySession.get()),
+      true);
 }
 
 TEST(HiveConfigTest, overrideConfig) {
@@ -89,7 +93,9 @@ TEST(HiveConfigTest, overrideConfig) {
       {HiveConfig::kOrcWriterMaxStripeSize, "100MB"},
       {HiveConfig::kOrcWriterMaxDictionaryMemory, "100MB"},
       {HiveConfig::kSortWriterMaxOutputRows, "100"},
-      {HiveConfig::kSortWriterMaxOutputBytes, "100MB"}};
+      {HiveConfig::kSortWriterMaxOutputBytes, "100MB"},
+      {HiveConfig::kOrcWriterLinearStripeSizeHeuristics, "false"},
+      {HiveConfig::kOrcWriterMinCompressionSize, "512"}};
   HiveConfig* hiveConfig =
       new HiveConfig(std::make_shared<MemConfig>(configFromFile));
   auto emptySession = std::make_unique<MemConfig>();
@@ -127,6 +133,10 @@ TEST(HiveConfigTest, overrideConfig) {
   ASSERT_EQ(hiveConfig->sortWriterMaxOutputRows(emptySession.get()), 100);
   ASSERT_EQ(
       hiveConfig->sortWriterMaxOutputBytes(emptySession.get()), 100UL << 20);
+  ASSERT_EQ(hiveConfig->orcWriterMinCompressionSize(emptySession.get()), 512);
+  ASSERT_EQ(
+      hiveConfig->orcWriterLinearStripeSizeHeuristics(emptySession.get()),
+      false);
 }
 
 TEST(HiveConfigTest, overrideSession) {
@@ -140,7 +150,9 @@ TEST(HiveConfigTest, overrideSession) {
       {HiveConfig::kSortWriterMaxOutputRowsSession, "20"},
       {HiveConfig::kSortWriterMaxOutputBytesSession, "20MB"},
       {HiveConfig::kPartitionPathAsLowerCaseSession, "false"},
-      {HiveConfig::kIgnoreMissingFilesSession, "true"}};
+      {HiveConfig::kIgnoreMissingFilesSession, "true"},
+      {HiveConfig::kOrcWriterMinCompressionSizeSession, "512"},
+      {HiveConfig::kOrcWriterLinearStripeSizeHeuristicsSession, "false"}};
   const auto session = std::make_unique<MemConfig>(sessionOverride);
   ASSERT_EQ(
       hiveConfig->insertExistingPartitionsBehavior(session.get()),
@@ -176,4 +188,7 @@ TEST(HiveConfigTest, overrideSession) {
   ASSERT_EQ(hiveConfig->sortWriterMaxOutputBytes(session.get()), 20UL << 20);
   ASSERT_EQ(hiveConfig->isPartitionPathAsLowerCase(session.get()), false);
   ASSERT_EQ(hiveConfig->ignoreMissingFiles(session.get()), true);
+  ASSERT_EQ(
+      hiveConfig->orcWriterLinearStripeSizeHeuristics(session.get()), false);
+  ASSERT_EQ(hiveConfig->orcWriterMinCompressionSize(session.get()), 512);
 }

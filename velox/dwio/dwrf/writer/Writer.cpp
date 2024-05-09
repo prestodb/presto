@@ -775,17 +775,27 @@ dwrf::WriterOptions getDwrfOptions(const dwio::common::WriterOptions& options) {
         Config::COMPRESSION.configKey(),
         std::to_string(options.compressionKind.value()));
   }
-
+  if (options.orcMinCompressionSize.has_value()) {
+    configs.emplace(
+        Config::COMPRESSION_BLOCK_SIZE_MIN.configKey(),
+        std::to_string(options.orcMinCompressionSize.value()));
+  }
   if (options.maxStripeSize.has_value()) {
     configs.emplace(
         Config::STRIPE_SIZE.configKey(),
         std::to_string(options.maxStripeSize.value()));
+  }
+  if (options.orcLinearStripeSizeHeuristics.has_value()) {
+    configs.emplace(
+        Config::LINEAR_STRIPE_SIZE_HEURISTICS.configKey(),
+        std::to_string(options.orcLinearStripeSizeHeuristics.value()));
   }
   if (options.maxDictionaryMemory.has_value()) {
     configs.emplace(
         Config::MAX_DICTIONARY_SIZE.configKey(),
         std::to_string(options.maxDictionaryMemory.value()));
   }
+
   dwrf::WriterOptions dwrfOptions;
   dwrfOptions.config = Config::fromMap(configs);
   dwrfOptions.schema = options.schema;
