@@ -18,7 +18,6 @@ import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
 import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.fs.LocatedFileStatus;
-import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
 import java.util.List;
@@ -34,7 +33,7 @@ import static java.util.Objects.requireNonNull;
 public class HiveFileInfo
         implements Comparable
 {
-    private final Path path;
+    private final String path;
     private final boolean isDirectory;
     private final List<BlockLocation> blockLocations;
     private final long length;
@@ -74,7 +73,7 @@ public class HiveFileInfo
             Optional<byte[]> extraFileInfo,
             Map<String, String> customSplitInfo)
     {
-        this.path = new Path(requireNonNull(pathString, "pathString is null"));
+        this.path = requireNonNull(pathString, "pathString is null");
         this.isDirectory = directory;
         this.blockLocations = requireNonNull(blockLocations, "blockLocations is null");
         this.length = length;
@@ -84,9 +83,9 @@ public class HiveFileInfo
     }
 
     @ThriftField(1)
-    public String getPathString()
+    public String getPath()
     {
-        return path.toString();
+        return path;
     }
 
     @ThriftField(2)
@@ -123,11 +122,6 @@ public class HiveFileInfo
     public Map<String, String> getCustomSplitInfo()
     {
         return customSplitInfo;
-    }
-
-    public Path getPath()
-    {
-        return path;
     }
 
     @Override
@@ -169,5 +163,10 @@ public class HiveFileInfo
     {
         HiveFileInfo other = (HiveFileInfo) o;
         return this.getPath().compareTo(other.getPath());
+    }
+
+    public String getFileName()
+    {
+        return path.substring(path.lastIndexOf('/') + 1);
     }
 }

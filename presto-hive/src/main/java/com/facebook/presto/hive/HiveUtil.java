@@ -326,7 +326,7 @@ public final class HiveUtil
         configuration.setBoolean(READ_ALL_COLUMNS, false);
     }
 
-    public static Optional<CompressionCodec> getCompressionCodec(TextInputFormat inputFormat, Path file)
+    public static Optional<CompressionCodec> getCompressionCodec(TextInputFormat inputFormat, String file)
     {
         CompressionCodecFactory compressionCodecFactory;
 
@@ -341,7 +341,7 @@ public final class HiveUtil
             return Optional.empty();
         }
 
-        return Optional.ofNullable(compressionCodecFactory.getCodec(file));
+        return Optional.ofNullable(compressionCodecFactory.getCodec(new Path(file)));
     }
 
     public static InputFormat<?, ?> getInputFormat(Configuration configuration, String inputFormatName, boolean symlinkTarget)
@@ -440,7 +440,7 @@ public final class HiveUtil
         return HIVE_TIMESTAMP_PARSER.withZone(timeZone).parseMillis(value);
     }
 
-    public static boolean isSplittable(InputFormat<?, ?> inputFormat, FileSystem fileSystem, Path path)
+    public static boolean isSplittable(InputFormat<?, ?> inputFormat, FileSystem fileSystem, String path)
     {
         if ("OrcInputFormat".equals(inputFormat.getClass().getSimpleName()) ||
                 "RCFileInputFormat".equals(inputFormat.getClass().getSimpleName())) {
@@ -463,14 +463,14 @@ public final class HiveUtil
         }
         try {
             method.setAccessible(true);
-            return (boolean) method.invoke(inputFormat, fileSystem, path);
+            return (boolean) method.invoke(inputFormat, fileSystem, new Path(path));
         }
         catch (InvocationTargetException | IllegalAccessException e) {
             throw new RuntimeException(e);
         }
     }
 
-    public static boolean isSelectSplittable(InputFormat<?, ?> inputFormat, Path path, boolean s3SelectPushdownEnabled)
+    public static boolean isSelectSplittable(InputFormat<?, ?> inputFormat, String path, boolean s3SelectPushdownEnabled)
     {
         // S3 Select supports splitting for uncompressed CSV & JSON files
         // Previous checks for supported input formats, SerDes, column types and S3 path
@@ -478,7 +478,7 @@ public final class HiveUtil
         return !s3SelectPushdownEnabled || isUncompressed(inputFormat, path);
     }
 
-    private static boolean isUncompressed(InputFormat<?, ?> inputFormat, Path path)
+    private static boolean isUncompressed(InputFormat<?, ?> inputFormat, String path)
     {
         if (inputFormat instanceof TextInputFormat) {
             return !getCompressionCodec((TextInputFormat) inputFormat, path).isPresent();

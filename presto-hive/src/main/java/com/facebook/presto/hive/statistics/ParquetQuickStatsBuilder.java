@@ -323,7 +323,7 @@ public class ParquetQuickStatsBuilder
         while (files.hasNext()) {
             HiveFileInfo file = files.next();
             filesCount++;
-            Path path = file.getPath();
+            Path path = new Path(file.getPath());
             long fileSize = file.getLength();
 
             HiveFileContext hiveFileContext = new HiveFileContext(

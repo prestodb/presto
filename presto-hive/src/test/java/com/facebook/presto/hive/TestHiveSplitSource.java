@@ -25,7 +25,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
-import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
 import java.time.Instant;
@@ -609,7 +608,7 @@ public class TestHiveSplitSource
                                     false,
                                     ImmutableMap.of(),
                                     ImmutableMap.of()),
-                            new Path("path").toUri(),
+                            "path",
                             ImmutableList.of(),
                             "partition-name",
                             id,

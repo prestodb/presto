@@ -19,7 +19,6 @@ import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.collect.ImmutableSet;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
 import org.apache.hadoop.io.compress.BZip2Codec;
 import org.apache.hadoop.io.compress.GzipCodec;
@@ -87,7 +86,7 @@ public class S3SelectPushdown
         return SUPPORTED_INPUT_FORMATS.contains(inputFormat);
     }
 
-    public static boolean isCompressionCodecSupported(InputFormat inputFormat, Path path)
+    public static boolean isCompressionCodecSupported(InputFormat inputFormat, String path)
     {
         if (inputFormat instanceof TextInputFormat) {
             return getCompressionCodec((TextInputFormat) inputFormat, path)

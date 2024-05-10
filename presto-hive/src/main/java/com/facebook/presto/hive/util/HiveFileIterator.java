@@ -66,7 +66,7 @@ public class HiveFileIterator
                 HiveFileInfo fileInfo = getLocatedFileStatus(remoteIterator);
 
                 // Ignore hidden files and directories. Hive ignores files starting with _ and . as well.
-                String fileName = fileInfo.getPath().getName();
+                String fileName = fileInfo.getFileName();
                 if (fileName.startsWith("_") || fileName.startsWith(".")) {
                     continue;
                 }
@@ -76,7 +76,7 @@ public class HiveFileIterator
                         case IGNORED:
                             continue;
                         case RECURSE:
-                            paths.add(fileInfo.getPath());
+                            paths.add(new Path(fileInfo.getPath()));
                             continue;
                         case FAIL:
                             throw new NestedDirectoryNotAllowedException();

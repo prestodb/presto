@@ -31,7 +31,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
@@ -73,10 +72,10 @@ public final class HiveBucketing
 
     private HiveBucketing() {}
 
-    public static int getVirtualBucketNumber(int bucketCount, Path path)
+    public static int getVirtualBucketNumber(int bucketCount, String path)
     {
         // this is equivalent to bucketing the table on a VARCHAR column containing $path
-        return (hashBytes(0, utf8Slice(path.toString())) & Integer.MAX_VALUE) % bucketCount;
+        return (hashBytes(0, utf8Slice(path)) & Integer.MAX_VALUE) % bucketCount;
     }
 
     public static int getBucket(int bucketCount, List<Type> types, Page page, int position)

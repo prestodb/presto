@@ -156,7 +156,7 @@ public class StoragePartitionLoader
     }
 
     private ListenableFuture<?> handleSymlinkTextInputFormat(ExtendedFileSystem fs,
-                                                             Path path,
+                                                             String path,
                                                              InputFormat<?, ?> inputFormat,
                                                              boolean s3SelectPushdownEnabled,
                                                              Storage storage,
@@ -174,7 +174,7 @@ public class StoragePartitionLoader
 
         // TODO: This should use an iterator like the HiveFileIterator
         ListenableFuture<?> lastResult = COMPLETED_FUTURE;
-        for (Path targetPath : getTargetPathsFromSymlink(fs, path, partition.getPartition())) {
+        for (Path targetPath : getTargetPathsFromSymlink(fs, new Path(path), partition.getPartition())) {
             // The input should be in TextInputFormat.
             TextInputFormat targetInputFormat = new TextInputFormat();
             // the splits must be generated using the file system for the target path
@@ -221,7 +221,7 @@ public class StoragePartitionLoader
                                                          InputFormat<?, ?> inputFormat,
                                                          boolean s3SelectPushdownEnabled,
                                                          Storage storage,
-                                                         Path path,
+                                                         String path,
                                                          String partitionName,
                                                          List<HivePartitionKey> partitionKeys,
                                                          int partitionDataColumnCount,
@@ -237,7 +237,7 @@ public class StoragePartitionLoader
                 s3SelectPushdownEnabled,
                 new HiveSplitPartitionInfo(
                         storage,
-                        path.toUri(),
+                        path,
                         partitionKeys,
                         partitionName,
                         partitionDataColumnCount,
@@ -280,10 +280,10 @@ public class StoragePartitionLoader
         }
         InputFormat<?, ?> inputFormat = getInputFormat(configuration, inputFormatName, false);
         ExtendedFileSystem fs = hdfsEnvironment.getFileSystem(hdfsContext.getIdentity().getUser(), path, configuration);
-        boolean s3SelectPushdownEnabled = shouldEnablePushdownForTable(session, table, path.toString(), partition.getPartition());
+        boolean s3SelectPushdownEnabled = shouldEnablePushdownForTable(session, table, location, partition.getPartition());
 
         if (inputFormat instanceof SymlinkTextInputFormat) {
-            return handleSymlinkTextInputFormat(fs, path, inputFormat, s3SelectPushdownEnabled, storage, partitionKeys, partitionName,
+            return handleSymlinkTextInputFormat(fs, location, inputFormat, s3SelectPushdownEnabled, storage, partitionKeys, partitionName,
                     partitionDataColumnCount, stopped, partition, hiveSplitSource);
         }
 
@@ -309,7 +309,7 @@ public class StoragePartitionLoader
                 inputFormat,
                 s3SelectPushdownEnabled,
                 storage,
-                path,
+                location,
                 partitionName,
                 partitionKeys,
                 partitionDataColumnCount,
@@ -438,7 +438,7 @@ public class StoragePartitionLoader
         if (!shouldCreateFilesForMissingBuckets(table, session)) {
             fileInfos.stream()
                     .forEach(fileInfo -> {
-                        String fileName = fileInfo.getPath().getName();
+                        String fileName = fileInfo.getFileName();
                         OptionalInt bucket = getBucketNumber(fileName);
                         if (bucket.isPresent()) {
                             bucketToFileInfo.put(bucket.getAsInt(), fileInfo);
@@ -451,7 +451,7 @@ public class StoragePartitionLoader
         else {
             // build mapping of file name to bucket
             for (HiveFileInfo file : fileInfos) {
-                String fileName = file.getPath().getName();
+                String fileName = file.getFileName();
                 OptionalInt bucket = getBucketNumber(fileName);
                 if (bucket.isPresent()) {
                     bucketToFileInfo.put(bucket.getAsInt(), file);
@@ -470,10 +470,10 @@ public class StoragePartitionLoader
                                     partitionBucketCount,
                                     partitionName));
                 }
-                if (fileInfos.get(0).getPath().getName().matches("\\d+")) {
+                if (fileInfos.get(0).getFileName().matches("\\d+")) {
                     try {
                         // File names are integer if they are created when file_renaming_enabled is set to true
-                        fileInfos.sort(Comparator.comparingInt(fileInfo -> Integer.parseInt(fileInfo.getPath().getName())));
+                        fileInfos.sort(Comparator.comparingInt(fileInfo -> Integer.parseInt(fileInfo.getFileName())));
                     }
                     catch (NumberFormatException e) {
                         throw new PrestoException(
@@ -585,7 +585,7 @@ public class StoragePartitionLoader
             List<HiveFileInfo> manifestFileInfos = ImmutableList.copyOf(directoryLister.list(fileSystem, table, symlinkDir, partition, namenodeStats, hiveDirectoryContext));
 
             for (HiveFileInfo symlink : manifestFileInfos) {
-                try (BufferedReader reader = new BufferedReader(new InputStreamReader(fileSystem.open(symlink.getPath()), StandardCharsets.UTF_8))) {
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(fileSystem.open(new Path(symlink.getPath())), StandardCharsets.UTF_8))) {
                     CharStreams.readLines(reader).stream()
                             .map(Path::new)
                             .forEach(targets::add);

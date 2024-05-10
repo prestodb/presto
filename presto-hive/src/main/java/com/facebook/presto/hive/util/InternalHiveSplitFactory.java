@@ -27,12 +27,10 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.InputFormat;
 
 import java.io.IOException;
-import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -120,7 +118,7 @@ public class InternalHiveSplitFactory
         FileStatus file = fileSystem.getFileStatus(split.getPath());
         Map<String, String> customSplitInfo = extractCustomSplitInfo(split);
         return createInternalHiveSplit(
-                split.getPath(),
+                split.getPath().toString(),
                 fromHiveBlockLocations(fileSystem.getFileBlockLocations(file, split.getStart(), split.getLength())).toArray(new BlockLocation[0]),
                 split.getStart(),
                 split.getLength(),
@@ -134,7 +132,7 @@ public class InternalHiveSplitFactory
     }
 
     private Optional<InternalHiveSplit> createInternalHiveSplit(
-            Path path,
+            String path,
             BlockLocation[] blockLocations,
             long start,
             long length,
@@ -146,8 +144,7 @@ public class InternalHiveSplitFactory
             Optional<byte[]> extraFileInfo,
             Map<String, String> customSplitInfo)
     {
-        String pathString = path.toString();
-        if (!pathMatchesPredicate(pathDomain, pathString)) {
+        if (!pathMatchesPredicate(pathDomain, path)) {
             return Optional.empty();
         }
 
@@ -175,9 +172,12 @@ public class InternalHiveSplitFactory
                 continue;
             }
 
-            List<HostAddress> addresses = getHostAddresses(blockLocation);
-            if (!needsHostAddresses(forceLocalScheduling, addresses)) {
-                addresses = ImmutableList.of();
+            List<HostAddress> addresses = ImmutableList.of();
+            if (schedulerUsesHostAddresses || forceLocalScheduling) {
+                addresses = getHostAddresses(blockLocation);
+                if (!needsHostAddresses(forceLocalScheduling, addresses)) {
+                    addresses = ImmutableList.of();
+                }
             }
             blockBuilder.add(new InternalHiveBlock(blockEnd, addresses));
         }
@@ -193,9 +193,14 @@ public class InternalHiveSplitFactory
             blocks = ImmutableList.of(new InternalHiveBlock(start + length, addresses));
         }
 
-        URI relativePath = partitionInfo.getPath().relativize(path.toUri());
+        checkArgument(
+                path.startsWith(partitionInfo.getPath()),
+                "File %s is expected to be located inside a partition directory %s",
+                path,
+                partitionInfo.getPath());
+        String relativePath = new String(path.substring(partitionInfo.getPath().length()));
         return Optional.of(new InternalHiveSplit(
-                relativePath.toString(),
+                relativePath,
                 start,
                 start + length,
                 fileSize,
