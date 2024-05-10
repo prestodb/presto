@@ -299,6 +299,30 @@ public abstract class AbstractTestNanQueries
     }
 
     @Test
+    public void testDoubleArrayMinAgg()
+    {
+        assertQueryWithSameQueryRunner(format("SELECT min(%s) FROM %s WHERE none_match(%s, x -> x IS NULL)", SIMPLE_DOUBLE_ARRAY_COLUMN, ARRAY_TABLE_NAME, SIMPLE_DOUBLE_ARRAY_COLUMN), "SELECT ARRAY[0, 1, -1, nan()]");
+    }
+
+    @Test
+    public void testRealArrayMinAgg()
+    {
+        assertQueryWithSameQueryRunner(format("SELECT min(%s) FROM %s WHERE none_match(%s, x -> x IS NULL)", SIMPLE_REAL_ARRAY_COLUMN, ARRAY_TABLE_NAME, SIMPLE_REAL_ARRAY_COLUMN), "SELECT ARRAY[REAL'0', REAL '1', REAL '-1', CAST(nan() AS REAL)]");
+    }
+
+    @Test
+    public void testDoubleArrayMaxAgg()
+    {
+        assertQueryWithSameQueryRunner(format("SELECT max(%s) FROM %s WHERE none_match(%s, x -> x IS NULL)", SIMPLE_DOUBLE_ARRAY_COLUMN, ARRAY_TABLE_NAME, SIMPLE_DOUBLE_ARRAY_COLUMN), "SELECT ARRAY[nan(), nan()]");
+    }
+
+    @Test
+    public void testRealArrayMaxAgg()
+    {
+        assertQueryWithSameQueryRunner(format("SELECT max(%s) FROM %s WHERE none_match(%s, x -> x IS NULL)", SIMPLE_REAL_ARRAY_COLUMN, ARRAY_TABLE_NAME, SIMPLE_REAL_ARRAY_COLUMN), "SELECT ARRAY[CAST(nan() AS REAL), CAST(nan() AS REAL)]");
+    }
+
+    @Test
     public void testMax()
     {
         assertQueryWithSameQueryRunner(format("SELECT max(%s), max(%s), max(%s) FROM %s", DOUBLE_NAN_FIRST_COLUMN, DOUBLE_NAN_MIDDLE_COLUMN, DOUBLE_NAN_LAST_COLUMN, DOUBLE_NANS_TABLE_NAME), "SELECT nan(), nan(), nan()");
