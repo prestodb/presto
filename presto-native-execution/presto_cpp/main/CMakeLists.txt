@@ -20,6 +20,7 @@ add_library(
   Announcer.cpp
   CPUMon.cpp
   CoordinatorDiscoverer.cpp
+  LinuxMemoryChecker.cpp
   PeriodicMemoryChecker.cpp
   PeriodicTaskManager.cpp
   PrestoExchangeSource.cpp

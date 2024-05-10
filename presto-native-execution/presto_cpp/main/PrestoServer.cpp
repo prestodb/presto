@@ -538,6 +538,24 @@ void PrestoServer::run() {
   addAdditionalPeriodicTasks();
   periodicTaskManager_->start();
 
+  uint64_t systemMemLimitBytes = systemConfig->systemMemLimitGb();
+  uint64_t systemMemShrinkBytes = systemConfig->systemMemShrinkGb();
+  linuxMemoryChecker_ =
+      std::make_unique<LinuxMemoryChecker>(PeriodicMemoryChecker::Config{
+          1, // memoryCheckerIntervalSec
+          systemConfig->systemMemPushbackEnabled(), // systemMemPushbackEnabled
+          systemMemLimitBytes << 30, // systemMemLimitBytes
+          systemMemShrinkBytes << 30, // systemMemShrinkBytes
+          systemConfig->mallocMemHeapDumpEnabled(), // mallocMemHeapDumpEnabled
+          systemConfig
+              ->mallocMemMinHeapDumpInterval(), // minHeapDumpIntervalSec
+          "/path/to/dir", // heapDumpLogDir
+          "prefix", // heapDumpFilePrefix
+          systemConfig->mallocMemMaxHeapDumpFiles(), // maxHeapDumpFiles
+          20UL * 1024 * 1024 * 1024}); // mallocBytesUsageDumpThreshold
+
+  linuxMemoryChecker_->start();
+
   // Start everything. After the return from the following call we are shutting
   // down.
   httpServer_->start(getHttpServerFilters());
