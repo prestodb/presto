@@ -22,6 +22,7 @@ target_link_libraries(velox_functions_util velox_vector velox_common_base)
 
 add_library(
   velox_functions_lib
+  ArrayShuffle.cpp
   CheckDuplicateKeys.cpp
   CheckNestedNulls.cpp
   DateTimeFormatter.cpp

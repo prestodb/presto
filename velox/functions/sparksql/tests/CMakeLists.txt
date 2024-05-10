@@ -20,6 +20,7 @@ add_executable(
   ArrayMinTest.cpp
   ArraySizeTest.cpp
   ArraySortTest.cpp
+  ArrayShuffleTest.cpp
   BitwiseTest.cpp
   ComparisonsTest.cpp
   DateTimeFunctionsTest.cpp

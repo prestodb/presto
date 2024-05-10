@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <numeric>
 #include <random>
 #include "velox/expression/EvalCtx.h"
 #include "velox/expression/Expr.h"
@@ -40,13 +39,16 @@ namespace {
 //
 class ArrayShuffleFunction : public exec::VectorFunction {
  public:
+  explicit ArrayShuffleFunction(int32_t seed)
+      : randGen_(std::make_unique<std::mt19937>(seed)) {}
+
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& /*outputType*/,
       exec::EvalCtx& context,
       VectorPtr& result) const override {
-    VELOX_CHECK_EQ(args.size(), 1);
+    VELOX_CHECK_GE(args.size(), 1);
 
     // This is a non-deterministic function, which violates the guarantee on a
     // deterministic single-arg function that the expression evaluation will
@@ -73,7 +75,6 @@ class ArrayShuffleFunction : public exec::VectorFunction {
     vector_size_t* rawSizes = sizes->asMutable<vector_size_t>();
 
     vector_size_t newOffset = 0;
-    std::mt19937 randGen(std::random_device{}());
     context.applyToSelectedNoThrow(rows, [&](auto row) {
       vector_size_t arrayRow = decodedArg->index(row);
       vector_size_t size = arrayVector->sizeAt(arrayRow);
@@ -81,7 +82,7 @@ class ArrayShuffleFunction : public exec::VectorFunction {
 
       std::iota(rawIndices + newOffset, rawIndices + newOffset + size, offset);
       std::shuffle(
-          rawIndices + newOffset, rawIndices + newOffset + size, randGen);
+          rawIndices + newOffset, rawIndices + newOffset + size, *randGen_);
 
       rawSizes[row] = size;
       rawOffsets[row] = newOffset;
@@ -101,9 +102,17 @@ class ArrayShuffleFunction : public exec::VectorFunction {
 
     context.moveOrCopyResult(localResult, rows, result);
   }
-};
 
-std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
+ private:
+  std::unique_ptr<std::mt19937> randGen_;
+};
+} // namespace
+
+exec::VectorFunctionMetadata getMetadataForArrayShuffle() {
+  return exec::VectorFunctionMetadataBuilder().deterministic(false).build();
+}
+
+std::vector<std::shared_ptr<exec::FunctionSignature>> arrayShuffleSignatures() {
   return {// array(T) -> array(T)
           exec::FunctionSignatureBuilder()
               .typeVariable("T")
@@ -112,12 +121,36 @@ std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
               .build()};
 }
 
-} // namespace
+std::shared_ptr<exec::VectorFunction> makeArrayShuffle(
+    const std::string& name,
+    const std::vector<exec::VectorFunctionArg>& inputArgs,
+    const core::QueryConfig& config) {
+  return std::make_unique<ArrayShuffleFunction>(std::random_device{}());
+}
 
-// Register function.
-VELOX_DECLARE_VECTOR_FUNCTION_WITH_METADATA(
-    udf_array_shuffle,
-    signatures(),
-    exec::VectorFunctionMetadataBuilder().deterministic(false).build(),
-    std::make_unique<ArrayShuffleFunction>());
+std::vector<std::shared_ptr<exec::FunctionSignature>>
+arrayShuffleWithCustomSeedSignatures() {
+  return {exec::FunctionSignatureBuilder()
+              .typeVariable("T")
+              .returnType("array(T)")
+              .argumentType("array(T)")
+              .constantArgumentType("bigint")
+              .build()};
+}
+
+std::shared_ptr<exec::VectorFunction> makeArrayShuffleWithCustomSeed(
+    const std::string& name,
+    const std::vector<exec::VectorFunctionArg>& inputArgs,
+    const core::QueryConfig& config) {
+  VELOX_USER_CHECK_EQ(inputArgs.size(), 2);
+  VELOX_USER_CHECK_EQ(inputArgs[1].type->kind(), TypeKind::BIGINT);
+  VELOX_USER_CHECK_NOT_NULL(inputArgs[1].constantValue);
+  VELOX_CHECK(!inputArgs[1].constantValue->isNullAt(0));
+
+  const auto seed = inputArgs[1]
+                        .constantValue->template as<ConstantVector<int64_t>>()
+                        ->valueAt(0);
+  return std::make_shared<ArrayShuffleFunction>(
+      seed + config.sparkPartitionId());
+}
 } // namespace facebook::velox::functions

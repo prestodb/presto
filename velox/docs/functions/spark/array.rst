@@ -146,6 +146,16 @@ Array Functions
     Returns true if value matches at least one of the elements of the array.
     Supports BOOLEAN, REAL, DOUBLE, BIGINT, VARCHAR, TIMESTAMP, DATE input types.
 
+.. spark:function:: shuffle(array(E), seed) -> array(E)
+
+    Generates a random permutation of the given ``array`` using a seed derived 
+    from the parameter ``seed`` and the configuration `spark.partition_id`.
+    ``seed`` must be constant. ::
+
+        SELECT shuffle(array(1, 2, 3), 0); -- [3, 1, 2]
+        SELECT shuffle(array(0, 0, 0), 0); -- [0, 0, 0]
+        SELECT shuffle(array(1, NULL, 1, NULL, 2), 0); -- [2, 1, NULL, NULL, 1]
+
 .. spark:function:: size(array(E)) -> bigint
 
     Returns the size of the array. Returns null for null input

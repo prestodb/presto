@@ -17,6 +17,7 @@
 #include <string>
 
 #include "velox/functions/Registerer.h"
+#include "velox/functions/lib/ArrayShuffle.h"
 #include "velox/functions/lib/Repeat.h"
 #include "velox/functions/prestosql/ArrayConstructor.h"
 #include "velox/functions/prestosql/ArrayFunctions.h"
@@ -135,7 +136,11 @@ void registerArrayFunctions(const std::string& prefix) {
   VELOX_REGISTER_VECTOR_FUNCTION(udf_zip, prefix + "zip");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_zip_with, prefix + "zip_with");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_array_position, prefix + "array_position");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_array_shuffle, prefix + "shuffle");
+  exec::registerStatefulVectorFunction(
+      prefix + "shuffle",
+      arrayShuffleSignatures(),
+      makeArrayShuffle,
+      getMetadataForArrayShuffle());
 
   VELOX_REGISTER_VECTOR_FUNCTION(udf_array_sort, prefix + "array_sort");
   VELOX_REGISTER_VECTOR_FUNCTION(

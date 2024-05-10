@@ -24,7 +24,6 @@ add_library(
   ArrayIntersectExcept.cpp
   ArrayAndMapMatch.cpp
   ArrayPosition.cpp
-  ArrayShuffle.cpp
   ArraySort.cpp
   ArraySum.cpp
   Comparisons.cpp
