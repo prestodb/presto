@@ -1,6 +1,6 @@
-====================
-Prestissimo Features
-====================
+===================
+Presto C++ Features
+===================
 
 .. contents::
     :local:
@@ -27,7 +27,7 @@ Other HTTP endpoints include:
 * GET: v1/info
 * GET: v1/status
 
-The request/response flow of Prestissimo is identical to Java workers. The
+The request/response flow of Presto C++ is identical to Java workers. The
 tasks or new splits are registered via `TaskUpdateRequest`. Resource
 utilization and query progress are sent to the coordinator via task endpoints.
 
@@ -35,9 +35,9 @@ utilization and query progress are sent to the coordinator via task endpoints.
 Remote Function Execution
 -------------------------
 
-Prestissimo supports remote execution of scalar functions. This feature is
+Presto C++ supports remote execution of scalar functions. This feature is
 useful for cases when the function code is not written in C++, or if for
-security or flexibility reasons the function code cannot be linked to the same
+security or flexibility reasons, the function code cannot be linked to the same
 executable as the main engine.
 
 Remote function signatures need to be provided using a JSON file, following
@@ -114,7 +114,7 @@ function server. If specified, takes precedence over
 JWT authentication support
 --------------------------
 
-Prestissimo supports JWT authentication for internal communication.
+C++ based Presto supports JWT authentication for internal communication.
 For details on the generally supported parameters visit `JWT <../security/internal-communication.html#jwt>`_.
 
 There is also an additional parameter:
@@ -169,9 +169,9 @@ Size of the SSD cache when async data cache is enabled.
 * **Default value:** ``true``
 * **Presto on Spark default value:** ``false``
 
-Enable periodic clean up of old tasks. This is ``true`` for Prestissimo,
-however for Presto on Spark this defaults to ``false`` as zombie/stuck tasks
-are handled by spark via speculative execution.
+Enable periodic clean up of old tasks. The default value is ``true`` for Presto C++. 
+For Presto on Spark this property defaults to ``false``, as zombie or stuck tasks
+are handled by Spark by speculative execution.
 
 ``old-task-cleanup-ms``
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -189,7 +189,7 @@ Old task is defined as a PrestoTask which has not received heartbeat for at leas
 Session Properties
 ------------------
 
-The following are the native session properties for Prestissimo.
+The following are the native session properties for C++ based Presto.
 
 ``driver_cpu_time_slice_limit_ms``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
