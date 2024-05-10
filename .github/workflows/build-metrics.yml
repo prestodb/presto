@@ -41,7 +41,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runner: ["16-core"]
+        runner: ["16-core-ubuntu"]
         type: ["debug", "release"]
     defaults:
       run:
