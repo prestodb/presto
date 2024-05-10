@@ -113,9 +113,9 @@ void verifyTaskSpilledRuntimeStats(const exec::Task& task, bool expectedSpill) {
           ASSERT_EQ(op.runtimeStats[Operator::kSpillWriteTime].count, 0);
           ASSERT_EQ(op.runtimeStats[Operator::kSpillReadBytes].count, 0);
           ASSERT_EQ(op.runtimeStats[Operator::kSpillReads].count, 0);
-          ASSERT_EQ(op.runtimeStats[Operator::kSpillReadTimeUs].count, 0);
+          ASSERT_EQ(op.runtimeStats[Operator::kSpillReadTime].count, 0);
           ASSERT_EQ(
-              op.runtimeStats[Operator::kSpillDeserializationTimeUs].count, 0);
+              op.runtimeStats[Operator::kSpillDeserializationTime].count, 0);
         } else {
           if (op.operatorType == "HashBuild") {
             ASSERT_GT(op.runtimeStats[Operator::kSpillRuns].count, 0);
@@ -140,9 +140,9 @@ void verifyTaskSpilledRuntimeStats(const exec::Task& task, bool expectedSpill) {
               op.runtimeStats[Operator::kSpillWriteTime].count);
           ASSERT_GT(op.runtimeStats[Operator::kSpillReadBytes].sum, 0);
           ASSERT_GT(op.runtimeStats[Operator::kSpillReads].sum, 0);
-          ASSERT_GT(op.runtimeStats[Operator::kSpillReadTimeUs].sum, 0);
+          ASSERT_GT(op.runtimeStats[Operator::kSpillReadTime].sum, 0);
           ASSERT_GT(
-              op.runtimeStats[Operator::kSpillDeserializationTimeUs].sum, 0);
+              op.runtimeStats[Operator::kSpillDeserializationTime].sum, 0);
         }
       }
     }

@@ -331,22 +331,22 @@ class Operator : public BaseRuntimeStatWriter {
   /// The name of the runtime spill stats collected and reported by operators
   /// that support spilling.
   /// The spill write stats.
-  static inline const std::string kSpillFillTime{"spillFillTime"};
-  static inline const std::string kSpillSortTime{"spillSortTime"};
+  static inline const std::string kSpillFillTime{"spillFillWallNanos"};
+  static inline const std::string kSpillSortTime{"spillSortWallNanos"};
   static inline const std::string kSpillSerializationTime{
-      "spillSerializationTime"};
-  static inline const std::string kSpillFlushTime{"spillFlushTime"};
+      "spillSerializationWallNanos"};
+  static inline const std::string kSpillFlushTime{"spillFlushWallNanos"};
   static inline const std::string kSpillWrites{"spillWrites"};
-  static inline const std::string kSpillWriteTime{"spillWriteTime"};
+  static inline const std::string kSpillWriteTime{"spillWriteWallNanos"};
   static inline const std::string kSpillRuns{"spillRuns"};
   static inline const std::string kExceededMaxSpillLevel{
       "exceededMaxSpillLevel"};
   /// The spill read stats.
   static inline const std::string kSpillReadBytes{"spillReadBytes"};
   static inline const std::string kSpillReads{"spillReads"};
-  static inline const std::string kSpillReadTimeUs{"spillReadTimeUs"};
-  static inline const std::string kSpillDeserializationTimeUs{
-      "spillDeserializationTimeUs"};
+  static inline const std::string kSpillReadTime{"spillReadWallNanos"};
+  static inline const std::string kSpillDeserializationTime{
+      "spillDeserializationWallNanos"};
 
   /// 'operatorId' is the initial index of the 'this' in the Driver's list of
   /// Operators. This is used as in index into OperatorStats arrays in the Task.

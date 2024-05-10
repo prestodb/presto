@@ -377,16 +377,20 @@ void Operator::recordSpillStats() {
 
   if (lockedSpillStats->spillReadTimeUs != 0) {
     lockedStats->addRuntimeStat(
-        kSpillReadTimeUs,
+        kSpillReadTime,
         RuntimeCounter{
-            static_cast<int64_t>(lockedSpillStats->spillReadTimeUs)});
+            static_cast<int64_t>(lockedSpillStats->spillReadTimeUs) *
+                Timestamp::kNanosecondsInMicrosecond,
+            RuntimeCounter::Unit::kNanos});
   }
 
   if (lockedSpillStats->spillDeserializationTimeUs != 0) {
     lockedStats->addRuntimeStat(
-        kSpillDeserializationTimeUs,
-        RuntimeCounter{static_cast<int64_t>(
-            lockedSpillStats->spillDeserializationTimeUs)});
+        kSpillDeserializationTime,
+        RuntimeCounter{
+            static_cast<int64_t>(lockedSpillStats->spillDeserializationTimeUs) *
+                Timestamp::kNanosecondsInMicrosecond,
+            RuntimeCounter::Unit::kNanos});
   }
   lockedSpillStats->reset();
 }

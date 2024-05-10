@@ -240,8 +240,8 @@ TEST_F(RowNumberTest, spill) {
         runtimeStats.at(Operator::kSpillReadBytes).sum,
         operatorStats.spilledBytes);
     ASSERT_GT(runtimeStats.at(Operator::kSpillReads).sum, 0);
-    ASSERT_GT(runtimeStats.at(Operator::kSpillReadTimeUs).sum, 0);
-    ASSERT_GT(runtimeStats.at(Operator::kSpillDeserializationTimeUs).sum, 0);
+    ASSERT_GT(runtimeStats.at(Operator::kSpillReadTime).sum, 0);
+    ASSERT_GT(runtimeStats.at(Operator::kSpillDeserializationTime).sum, 0);
 
     task.reset();
     waitForAllTasksToBeDeleted();
