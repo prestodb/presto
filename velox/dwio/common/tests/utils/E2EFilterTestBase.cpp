@@ -110,7 +110,9 @@ void E2EFilterTestBase::readWithoutFilter(
     bool hasData;
     {
       MicrosecondTimer timer(&time);
-      hasData = rowReader->next(1000, resultBatch);
+      auto rowsScanned = rowReader->next(1000, resultBatch);
+      VLOG(1) << "rowsScanned=" << rowsScanned;
+      hasData = rowsScanned > 0;
     }
     if (!hasData) {
       break;
