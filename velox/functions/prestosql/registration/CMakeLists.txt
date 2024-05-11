@@ -14,7 +14,6 @@
 
 add_library(
   velox_functions_prestosql
-  ArithmeticFunctionsRegistration.cpp
   ArrayConcatRegistration.cpp
   ArrayFunctionsRegistration.cpp
   ArrayNGramsRegistration.cpp
@@ -27,6 +26,9 @@ add_library(
   HyperLogFunctionsRegistration.cpp
   JsonFunctionsRegistration.cpp
   MapFunctionsRegistration.cpp
+  MathematicalFunctionsRegistration.cpp
+  MathematicalOperatorsRegistration.cpp
+  ProbabilityTrigonometricFunctionsRegistration.cpp
   RegistrationFunctions.cpp
   StringFunctionsRegistration.cpp
   URLFunctionsRegistration.cpp)

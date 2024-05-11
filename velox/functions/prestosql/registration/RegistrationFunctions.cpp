@@ -17,7 +17,9 @@
 
 namespace facebook::velox::functions {
 
-extern void registerArithmeticFunctions(const std::string& prefix);
+extern void registerMathematicalFunctions(const std::string& prefix);
+extern void registerMathematicalOperators(const std::string& prefix);
+extern void registerProbabilityTrigonometryFunctions(const std::string& prefix);
 extern void registerArrayFunctions(const std::string& prefix);
 extern void registerBitwiseFunctions(const std::string& prefix);
 extern void registerCheckedArithmeticFunctions(const std::string& prefix);
@@ -37,7 +39,9 @@ extern void registerInternalArrayFunctions();
 
 namespace prestosql {
 void registerArithmeticFunctions(const std::string& prefix) {
-  functions::registerArithmeticFunctions(prefix);
+  functions::registerMathematicalOperators(prefix);
+  functions::registerMathematicalFunctions(prefix);
+  functions::registerProbabilityTrigonometryFunctions(prefix);
 }
 
 void registerCheckedArithmeticFunctions(const std::string& prefix) {
