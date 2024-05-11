@@ -764,7 +764,7 @@ public class IcebergPageSourceProvider
                 split.getLength(),
                 split.getFileFormat(),
                 regularColumns,
-                table.getPredicate(),
+                icebergLayout.getValidPredicate(),
                 splitContext.isCacheable());
         ConnectorPageSource dataPageSource = connectorPageSourceWithRowPositions.getConnectorPageSource();
 

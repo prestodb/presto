@@ -239,12 +239,12 @@ public abstract class IcebergAbstractMetadata
                 new IcebergTableLayoutHandle.Builder()
                         .setPartitionColumns(ImmutableList.copyOf(partitionColumns))
                         .setDataColumns(toHiveColumns(icebergTable.schema().columns()))
-                        .setDomainPredicate(constraint.getSummary().transform(IcebergAbstractMetadata::toSubfield))
+                        .setDomainPredicate(constraint.getSummary().simplify().transform(IcebergAbstractMetadata::toSubfield))
                         .setRemainingPredicate(TRUE_CONSTANT)
                         .setPredicateColumns(predicateColumns)
                         .setRequestedColumns(requestedColumns)
                         .setPushdownFilterEnabled(isPushdownFilterEnabled(session))
-                        .setPartitionColumnPredicate(partitionColumnPredicate)
+                        .setPartitionColumnPredicate(partitionColumnPredicate.simplify())
                         .setPartitions(Optional.ofNullable(partitions.size() == 0 ? null : partitions))
                         .setTable(handle)
                         .build());
@@ -689,7 +689,12 @@ public abstract class IcebergAbstractMetadata
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
-        return TableStatisticsMaker.getTableStatistics(session, typeManager, constraint, handle, icebergTable, columnHandles.stream().map(IcebergColumnHandle.class::cast).collect(Collectors.toList()));
+        return TableStatisticsMaker.getTableStatistics(session, typeManager,
+                tableLayoutHandle
+                        .map(IcebergTableLayoutHandle.class::cast)
+                        .map(IcebergTableLayoutHandle::getValidPredicate),
+                constraint, handle, icebergTable,
+                columnHandles.stream().map(IcebergColumnHandle.class::cast).collect(Collectors.toList()));
     }
 
     @Override
@@ -903,13 +908,10 @@ public abstract class IcebergAbstractMetadata
         }
 
         TableScan scan = icebergTable.newScan();
-        TupleDomain<ColumnHandle> domainPredicate = layoutHandle.getDomainPredicate()
-                .transform(subfield -> isEntireColumn(subfield) ? subfield.getRootName() : null)
-                .transform(layoutHandle.getPredicateColumns()::get)
-                .transform(ColumnHandle.class::cast);
+        TupleDomain<IcebergColumnHandle> domainPredicate = layoutHandle.getValidPredicate();
 
         if (!domainPredicate.isAll()) {
-            Expression filterExpression = toIcebergExpression(handle.getPredicate());
+            Expression filterExpression = toIcebergExpression(domainPredicate);
             scan = scan.filter(filterExpression);
         }
 
