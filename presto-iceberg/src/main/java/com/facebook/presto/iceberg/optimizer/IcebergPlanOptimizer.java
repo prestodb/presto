@@ -258,7 +258,7 @@ public class IcebergPlanOptimizer
         }
     }
 
-    private static Set<IcebergColumnHandle> getEnforcedColumns(
+    public static Set<IcebergColumnHandle> getEnforcedColumns(
             Table table,
             Set<Integer> partitionSpecIds,
             TupleDomain<IcebergColumnHandle> entireColumnDomain,
