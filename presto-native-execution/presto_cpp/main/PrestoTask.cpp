@@ -282,12 +282,29 @@ void PrestoTask::updateHeartbeatLocked() {
   info.lastHeartbeat = util::toISOTimestamp(lastHeartbeatMs);
 }
 
+void PrestoTask::updateCoordinatorHeartbeat() {
+  std::lock_guard<std::mutex> l(mutex);
+  updateCoordinatorHeartbeatLocked();
+}
+
+void PrestoTask::updateCoordinatorHeartbeatLocked() {
+  lastCoordinatorHeartbeatMs = velox::getCurrentTimeMs();
+}
+
 uint64_t PrestoTask::timeSinceLastHeartbeatMs() const {
   std::lock_guard<std::mutex> l(mutex);
   if (lastHeartbeatMs == 0UL) {
     return 0UL;
   }
   return getCurrentTimeMs() - lastHeartbeatMs;
+}
+
+uint64_t PrestoTask::timeSinceLastCoordinatorHeartbeatMs() const {
+  std::lock_guard<std::mutex> l(mutex);
+  if (lastCoordinatorHeartbeatMs == 0UL) {
+    return 0UL;
+  }
+  return getCurrentTimeMs() - lastCoordinatorHeartbeatMs;
 }
 
 void PrestoTask::recordProcessCpuTime() {

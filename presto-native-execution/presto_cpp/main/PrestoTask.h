@@ -95,8 +95,15 @@ struct PrestoTask {
   /// has not been started, until the actual 'create task' message comes.
   bool taskStarted{false};
 
+  /// Time point (in ms) when the last message (any) came for this task.
+  // TODO (spershin): Deprecate it, use only the 'lastCoordinatorHeartbeatMs'.
   uint64_t lastHeartbeatMs{0};
+  /// Time point (in ms) when the last message came for this task from the
+  /// Coordinator. Used to determine if the Task has been abandoned.
+  uint64_t lastCoordinatorHeartbeatMs{0};
+  /// Time point (in ms) when the time we updated Task stats.
   uint64_t lastTaskStatsUpdateMs = {0};
+
   uint64_t lastMemoryReservation = {0};
   uint64_t createTimeMs{0};
   uint64_t firstSplitStartTimeMs{0};
@@ -132,9 +139,20 @@ struct PrestoTask {
   /// Updates when this task was touched last time.
   void updateHeartbeatLocked();
 
+  /// Updates time point (ms) when this task was touched last time by a message
+  /// from the Coordinator.
+  void updateCoordinatorHeartbeat();
+  void updateCoordinatorHeartbeatLocked();
+
   /// Returns time (ms) since the task was touched last time (last heartbeat).
   /// Returns zero, if never (shouldn't happen).
   uint64_t timeSinceLastHeartbeatMs() const;
+
+  /// Returns time (ms) since the task was touched last time by a message from
+  /// the Coordinator.
+  /// If above never happened, returns time since the task start or zero, if
+  /// task never started.
+  uint64_t timeSinceLastCoordinatorHeartbeatMs() const;
 
   protocol::TaskStatus updateStatus() {
     std::lock_guard<std::mutex> l(mutex);

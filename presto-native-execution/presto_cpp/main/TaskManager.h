@@ -171,7 +171,7 @@ class TaskManager {
   // coordinator for a considerable time.
   void cancelAbandonedTasks();
 
-  std::unique_ptr<protocol::TaskInfo> createOrUpdateTask(
+  std::unique_ptr<protocol::TaskInfo> createOrUpdateTaskImpl(
       const protocol::TaskId& taskId,
       const velox::core::PlanFragment& planFragment,
       const std::vector<protocol::TaskSource>& sources,

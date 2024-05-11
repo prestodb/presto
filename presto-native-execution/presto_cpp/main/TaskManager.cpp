@@ -43,7 +43,7 @@ void cancelAbandonedTasksInternal(const TaskMap& taskMap, int32_t abandonedMs) {
   for (const auto& [id, prestoTask] : taskMap) {
     if (prestoTask->task != nullptr) {
       if (prestoTask->task->isRunning()) {
-        if (prestoTask->timeSinceLastHeartbeatMs() >= abandonedMs) {
+        if (prestoTask->timeSinceLastCoordinatorHeartbeatMs() >= abandonedMs) {
           LOG(INFO) << "Cancelling abandoned task '" << id << "'.";
           prestoTask->task->requestCancel();
         }
@@ -364,6 +364,7 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateErrorTask(
   auto prestoTask = findOrCreateTask(taskId, startProcessCpuTime);
   {
     std::lock_guard<std::mutex> l(prestoTask->mutex);
+    prestoTask->updateCoordinatorHeartbeatLocked();
     prestoTask->updateHeartbeatLocked();
     if (prestoTask->error == nullptr) {
       prestoTask->error = exception;
@@ -428,7 +429,7 @@ std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateTask(
     const velox::core::PlanFragment& planFragment,
     std::shared_ptr<velox::core::QueryCtx> queryCtx,
     long startProcessCpuTime) {
-  return createOrUpdateTask(
+  return createOrUpdateTaskImpl(
       taskId,
       planFragment,
       updateRequest.sources,
@@ -447,7 +448,7 @@ std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateBatchTask(
 
   checkSplitsForBatchTask(planFragment.planNode, updateRequest.sources);
 
-  return createOrUpdateTask(
+  return createOrUpdateTaskImpl(
       taskId,
       planFragment,
       updateRequest.sources,
@@ -456,7 +457,7 @@ std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateBatchTask(
       startProcessCpuTime);
 }
 
-std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
+std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
     const TaskId& taskId,
     const velox::core::PlanFragment& planFragment,
     const std::vector<protocol::TaskSource>& sources,
@@ -468,6 +469,7 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
   auto prestoTask = findOrCreateTask(taskId, startProcessCpuTime);
   {
     std::lock_guard<std::mutex> l(prestoTask->mutex);
+    prestoTask->updateCoordinatorHeartbeatLocked();
     if (not prestoTask->task && planFragment.planNode) {
       // If the task is aborted, no need to do anything else.
       // This takes care of DELETE task message coming before CREATE task.
@@ -620,6 +622,7 @@ std::unique_ptr<TaskInfo> TaskManager::deleteTask(
 
   std::lock_guard<std::mutex> l(prestoTask->mutex);
   prestoTask->updateHeartbeatLocked();
+  prestoTask->updateCoordinatorHeartbeatLocked();
   auto execTask = prestoTask->task;
   if (execTask) {
     auto state = execTask->state();
@@ -771,6 +774,7 @@ folly::Future<std::unique_ptr<protocol::TaskInfo>> TaskManager::getTaskInfo(
     // Return current TaskInfo without waiting.
     promise.setValue(
         std::make_unique<protocol::TaskInfo>(prestoTask->updateInfo()));
+    prestoTask->updateCoordinatorHeartbeat();
     return std::move(future).via(httpSrvCpuExecutor_);
   }
 
@@ -780,6 +784,7 @@ folly::Future<std::unique_ptr<protocol::TaskInfo>> TaskManager::getTaskInfo(
   {
     std::lock_guard<std::mutex> l(prestoTask->mutex);
     prestoTask->updateHeartbeatLocked();
+    prestoTask->updateCoordinatorHeartbeatLocked();
     if (!prestoTask->task) {
       auto promiseHolder =
           std::make_shared<PromiseHolder<std::unique_ptr<protocol::TaskInfo>>>(
@@ -937,6 +942,7 @@ folly::Future<std::unique_ptr<protocol::TaskStatus>> TaskManager::getTaskStatus(
 
   if (!currentState || !maxWait) {
     // Return task's status immediately without waiting.
+    prestoTask->updateCoordinatorHeartbeat();
     return std::make_unique<protocol::TaskStatus>(prestoTask->updateStatus());
   }
 
@@ -946,6 +952,7 @@ folly::Future<std::unique_ptr<protocol::TaskStatus>> TaskManager::getTaskStatus(
   protocol::TaskStatus status;
   {
     std::lock_guard<std::mutex> l(prestoTask->mutex);
+    prestoTask->updateCoordinatorHeartbeatLocked();
     if (!prestoTask->task) {
       auto promiseHolder = std::make_shared<
           PromiseHolder<std::unique_ptr<protocol::TaskStatus>>>(
