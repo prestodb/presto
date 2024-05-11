@@ -921,7 +921,7 @@ public class IcebergDistributedSmokeTestBase
 
     protected void dropTable(Session session, String table)
     {
-        assertUpdate(session, "DROP TABLE " + table);
+        assertUpdate(session, "DROP TABLE IF EXISTS " + table);
         assertFalse(getQueryRunner().tableExists(session, table));
     }
 
@@ -1586,6 +1586,139 @@ public class IcebergDistributedSmokeTestBase
         assertQueryFails(session, "DELETE FROM " + tableName + " WHERE value = 1", errorMessage);
 
         dropTable(session, tableName);
+    }
+
+    @DataProvider(name = "version_and_mode")
+    public Object[][] versionAndMode()
+    {
+        return new Object[][] {
+                {"1", "copy-on-write"},
+                {"1", "merge-on-read"},
+                {"2", "copy-on-write"}};
+    }
+
+    @Test(dataProvider = "version_and_mode")
+    public void testMetadataDeleteOnNonIdentityPartitionColumn(String version, String mode)
+    {
+        String errorMessage = "This connector only supports delete where one or more partitions are deleted entirely.*";
+        metadataDeleteOnHourTransform(version, mode, errorMessage);
+        metadataDeleteOnDayTransform(version, mode, errorMessage);
+        metadataDeleteOnMonthTransform(version, mode, errorMessage);
+        metadataDeleteOnYearTransform(version, mode, errorMessage);
+        metadataDeleteOnTruncateTransform(version, mode, errorMessage);
+    }
+
+    private void metadataDeleteOnHourTransform(String version, String mode, String errorMessage)
+    {
+        Session session = sessionForTimezone("UTC", true);
+        String tableName = "test_hour_transform_timestamp";
+        try {
+            assertUpdate(session, "CREATE TABLE " + tableName + " (d TIMESTAMP, b BIGINT) WITH (format_version = '" + version + "', delete_mode = '" + mode + "', partitioning = ARRAY['hour(d)'])");
+            assertUpdate(session, "INSERT INTO " + tableName + " VALUES (NULL, 101), (TIMESTAMP '1969-01-01 00:01:02.123', 10), (TIMESTAMP '1969-12-31 13:14:02.001', 11), (TIMESTAMP '1970-01-01 08:10:21.000', 1)", 4);
+            assertQuery(session, "SELECT * FROM " + tableName, "VALUES (NULL, 101), (TIMESTAMP '1969-01-01 00:01:02.123', 10), (TIMESTAMP '1969-12-31 13:14:02.001', 11), (TIMESTAMP '1970-01-01 08:10:21.000', 1)");
+
+            assertUpdate(session, "delete from " + tableName + " where d is NULL", 1);
+            assertQuery(session, "SELECT * FROM " + tableName, "VALUES (TIMESTAMP '1969-01-01 00:01:02.123', 10), (TIMESTAMP '1969-12-31 13:14:02.001', 11), (TIMESTAMP '1970-01-01 08:10:21.000', 1)");
+            assertUpdate(session, "delete from " + tableName + " where d >= TIMESTAMP '1970-01-01 00:00:00'", 1);
+            assertQuery(session, "SELECT * FROM " + tableName, "VALUES (TIMESTAMP '1969-01-01 00:01:02.123', 10), (TIMESTAMP '1969-12-31 13:14:02.001', 11)");
+            assertUpdate(session, "delete from " + tableName + " where d >= DATE '1969-12-31'", 1);
+            assertQuery(session, "SELECT * FROM " + tableName, "VALUES (TIMESTAMP '1969-01-01 00:01:02.123', 10)");
+            assertQueryFails(session, "DELETE FROM " + tableName + " WHERE d >= TIMESTAMP '1968-05-15 03:00:00.001'", errorMessage);
+        }
+        finally {
+            dropTable(session, tableName);
+        }
+    }
+
+    public void metadataDeleteOnDayTransform(String version, String mode, String errorMessage)
+    {
+        Session session = sessionForTimezone("UTC", true);
+        String tableName = "test_day_transform_timestamp";
+        try {
+            assertUpdate(session, "CREATE TABLE " + tableName + " (d TIMESTAMP, b BIGINT) WITH (format_version = '" + version + "', delete_mode = '" + mode + "', partitioning = ARRAY['day(d)'])");
+            assertUpdate(session, "INSERT INTO " + tableName + " VALUES (NULL, 101), (TIMESTAMP '1969-01-01 00:01:02.123', 10), (TIMESTAMP '1969-12-31 13:14:02.001', 11), (TIMESTAMP '1970-01-01 08:10:21.000', 1)", 4);
+            assertQuery(session, "SELECT * FROM " + tableName, "VALUES (NULL, 101), (TIMESTAMP '1969-01-01 00:01:02.123', 10), (TIMESTAMP '1969-12-31 13:14:02.001', 11), (TIMESTAMP '1970-01-01 08:10:21.000', 1)");
+
+            assertUpdate(session, "delete from " + tableName + " where d is null", 1);
+            assertQuery(session, "SELECT * FROM " + tableName, "VALUES (TIMESTAMP '1969-01-01 00:01:02.123', 10), (TIMESTAMP '1969-12-31 13:14:02.001', 11), (TIMESTAMP '1970-01-01 08:10:21.000', 1)");
+            assertUpdate(session, "delete from " + tableName + " where d >= TIMESTAMP '1970-01-01 00:00:00'", 1);
+            assertQuery(session, "SELECT * FROM " + tableName, "VALUES (TIMESTAMP '1969-01-01 00:01:02.123', 10), (TIMESTAMP '1969-12-31 13:14:02.001', 11)");
+            assertUpdate(session, "delete from " + tableName + " where d >= date '1969-12-31'", 1);
+            assertQuery(session, "SELECT * FROM " + tableName, "VALUES (TIMESTAMP '1969-01-01 00:01:02.123', 10)");
+            assertQueryFails(session, "DELETE FROM " + tableName + " WHERE d >= TIMESTAMP '1968-05-15 00:00:00.001'", errorMessage);
+        }
+        finally {
+            dropTable(session, tableName);
+        }
+    }
+
+    public void metadataDeleteOnMonthTransform(String version, String mode, String errorMessage)
+    {
+        String tableName = "test_month_transform_date";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (d DATE, b BIGINT) WITH (format_version = '" + version + "', delete_mode = '" + mode + "', partitioning = ARRAY['month(d)'])");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (NULL, 101), (DATE '1958-03-02', 10), (DATE '1969-08-31', 11), (DATE '1970-08-01', 1)", 4);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (NULL, 101), (DATE '1958-03-02', 10), (DATE '1969-08-31', 11), (DATE '1970-08-01', 1)");
+
+            assertUpdate("delete from " + tableName + " where d is null", 1);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (DATE '1958-03-02', 10), (DATE '1969-08-31', 11), (DATE '1970-08-01', 1)");
+            assertUpdate("delete from " + tableName + " where d >= DATE '1970-03-01'", 1);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (DATE '1958-03-02', 10), (DATE '1969-08-31', 11)");
+            assertUpdate("delete from " + tableName + " where d >= date '1969-08-01'", 1);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (DATE '1958-03-02', 10)");
+            assertQueryFails("DELETE FROM " + tableName + " WHERE d >= date '1958-02-02'", errorMessage);
+        }
+        finally {
+            dropTable(getSession(), tableName);
+        }
+    }
+
+    public void metadataDeleteOnYearTransform(String version, String mode, String errorMessage)
+    {
+        String tableName = "test_year_transform_date";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (d DATE, b BIGINT) WITH (format_version = '" + version + "', delete_mode = '" + mode + "', partitioning = ARRAY['year(d)'])");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (NULL, 101), (DATE '1958-03-02', 10), (DATE '1969-08-31', 11), (DATE '1970-08-01', 1)", 4);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (NULL, 101), (DATE '1958-03-02', 10), (DATE '1969-08-31', 11), (DATE '1970-08-01', 1)");
+
+            assertUpdate("delete from " + tableName + " where d is null", 1);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (DATE '1958-03-02', 10), (DATE '1969-08-31', 11), (DATE '1970-08-01', 1)");
+            assertUpdate("delete from " + tableName + " where d >= DATE '1970-01-01'", 1);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (DATE '1958-03-02', 10), (DATE '1969-08-31', 11)");
+            assertUpdate("delete from " + tableName + " where d >= date '1968-01-01'", 1);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (DATE '1958-03-02', 10)");
+            assertQueryFails("DELETE FROM " + tableName + " WHERE d >= date '1957-02-01'", errorMessage);
+        }
+        finally {
+            dropTable(getSession(), tableName);
+        }
+    }
+
+    public void metadataDeleteOnTruncateTransform(String version, String mode, String errorMessage)
+    {
+        String tableName = "test_truncate_transform";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (c VARCHAR, d DECIMAL(9, 2), b BIGINT) WITH (format_version = '" + version + "', delete_mode = '" + mode + "', partitioning = ARRAY['truncate(c, 2)', 'truncate(d, 10)'])");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (NULL, 11.59, 101), ('abcd', 12.34, 10), ('abxy', NULL, 11), ('Kielce', 12.30, 1), ('Kiev', 0.05, 2)", 5);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (NULL, 11.59, 101), ('abcd', 12.34, 10), ('abxy', NULL, 11), ('Kielce', 12.30, 1), ('Kiev', 0.05, 2)");
+
+            assertUpdate("delete from " + tableName + " where c is null", 1);
+            assertQuery("SELECT * FROM " + tableName, "VALUES ('abcd', 12.34, 10), ('abxy', NULL, 11), ('Kielce', 12.30, 1), ('Kiev', 0.05, 2)");
+            assertQueryFails("DELETE FROM " + tableName + " WHERE c >= 'ab'", errorMessage);
+            assertUpdate("delete from " + tableName + " where c is not null", 4);
+            assertQuery("SELECT count(*) FROM " + tableName, "VALUES 0");
+
+            assertUpdate("INSERT INTO " + tableName + " VALUES (NULL, 11.59, 101), ('abcd', 12.34, 10), ('abxy', NULL, 11), ('Kielce', 12.30, 1), ('Kiev', 0.05, 2)", 5);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (NULL, 11.59, 101), ('abcd', 12.34, 10), ('abxy', NULL, 11), ('Kielce', 12.30, 1), ('Kiev', 0.05, 2)");
+            assertUpdate("delete from " + tableName + " where d is NULL", 1);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (NULL, 11.59, 101), ('abcd', 12.34, 10), ('Kielce', 12.30, 1), ('Kiev', 0.05, 2)");
+            assertUpdate("delete from " + tableName + " where c is null and d is not null", 1);
+            assertQuery("SELECT * FROM " + tableName, "VALUES ('abcd', 12.34, 10), ('Kielce', 12.30, 1), ('Kiev', 0.05, 2)");
+            assertQueryFails("DELETE FROM " + tableName + " WHERE d >= 12.20", errorMessage);
+        }
+        finally {
+            dropTable(getSession(), tableName);
+        }
     }
 
     private Session sessionForTimezone(String zoneId, boolean legacyTimestamp)

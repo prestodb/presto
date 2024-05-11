@@ -70,6 +70,7 @@ import org.apache.iceberg.DeleteFiles;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.FileMetadata;
 import org.apache.iceberg.FileScanTask;
+import org.apache.iceberg.ManifestFile;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
@@ -93,6 +94,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
@@ -145,6 +147,7 @@ import static com.facebook.presto.iceberg.TableStatisticsMaker.getSupportedColum
 import static com.facebook.presto.iceberg.TypeConverter.toIcebergType;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.facebook.presto.iceberg.changelog.ChangelogUtil.getRowTypeFromColumnMeta;
+import static com.facebook.presto.iceberg.optimizer.IcebergPlanOptimizer.getEnforcedColumns;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
@@ -861,36 +864,43 @@ public abstract class IcebergAbstractMetadata
         // Allow metadata delete for range filters on partition columns.
         IcebergTableLayoutHandle layoutHandle = (IcebergTableLayoutHandle) tableLayoutHandle.get();
 
-        TupleDomain<ColumnHandle> domainPredicate = layoutHandle.getDomainPredicate()
-                .transform(subfield -> isEntireColumn(subfield) ? subfield.getRootName() : null)
+        // Do not support metadata delete if existing predicate on non-entire columns
+        Optional<Set<Subfield>> subFields = layoutHandle.getDomainPredicate().getDomains()
+                .map(subfieldDomainMap -> subfieldDomainMap.keySet().stream()
+                        .filter(subfield -> !isEntireColumn(subfield))
+                        .collect(Collectors.toSet()));
+        if (subFields.isPresent() && !subFields.get().isEmpty()) {
+            return false;
+        }
+
+        TupleDomain<IcebergColumnHandle> domainPredicate = layoutHandle.getDomainPredicate()
+                .transform(Subfield::getRootName)
                 .transform(layoutHandle.getPredicateColumns()::get)
-                .transform(ColumnHandle.class::cast);
+                .transform(IcebergColumnHandle.class::cast);
 
         if (domainPredicate.isAll()) {
             return true;
         }
 
+        // Get partition specs that really need to be checked
+        Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
+        Set<Integer> partitionSpecIds = handle.getIcebergTableName().getSnapshotId().map(
+                snapshot -> icebergTable.snapshot(snapshot).allManifests(icebergTable.io()).stream()
+                        .map(ManifestFile::partitionSpecId)
+                        .collect(toImmutableSet()))
+                .orElseGet(() -> ImmutableSet.copyOf(icebergTable.specs().keySet()));   // No snapshot, so no data. This case doesn't matter.
+
+        Set<Integer> enforcedColumnIds = getEnforcedColumns(icebergTable, partitionSpecIds, domainPredicate, session)
+                .stream()
+                .map(IcebergColumnHandle::getId)
+                .collect(toImmutableSet());
+
         Set<Integer> predicateColumnIds = domainPredicate.getDomains().get().keySet().stream()
                 .map(IcebergColumnHandle.class::cast)
                 .map(IcebergColumnHandle::getId)
                 .collect(toImmutableSet());
-        Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
 
-        boolean supportsMetadataDelete = true;
-        for (PartitionSpec spec : icebergTable.specs().values()) {
-            // Currently we do not support delete when any partition columns in predicate is not transform by identity()
-            Set<Integer> partitionColumnSourceIds = spec.fields().stream()
-                    .filter(field -> field.transform().isIdentity())
-                    .map(PartitionField::sourceId)
-                    .collect(Collectors.toSet());
-
-            if (!partitionColumnSourceIds.containsAll(predicateColumnIds)) {
-                supportsMetadataDelete = false;
-                break;
-            }
-        }
-
-        return supportsMetadataDelete;
+        return Objects.equals(enforcedColumnIds, predicateColumnIds);
     }
 
     @Override
