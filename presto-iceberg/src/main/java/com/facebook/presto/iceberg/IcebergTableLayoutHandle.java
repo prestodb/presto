@@ -31,6 +31,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.iceberg.IcebergAbstractMetadata.isEntireColumn;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -67,7 +68,7 @@ public class IcebergTableLayoutHandle
                 table);
     }
 
-    protected IcebergTableLayoutHandle(
+    public IcebergTableLayoutHandle(
             List<BaseHiveColumnHandle> partitionColumns,
             List<Column> dataColumns,
             TupleDomain<Subfield> domainPredicate,
@@ -115,6 +116,17 @@ public class IcebergTableLayoutHandle
     public IcebergTableHandle getTable()
     {
         return table;
+    }
+
+    public TupleDomain<IcebergColumnHandle> getValidPredicate()
+    {
+        TupleDomain<IcebergColumnHandle> predicate = getDomainPredicate()
+                .transform(subfield -> isEntireColumn(subfield) ? subfield.getRootName() : null)
+                .transform(getPredicateColumns()::get);
+        if (isPushdownFilterEnabled()) {
+            predicate = predicate.intersect(getPartitionColumnPredicate().transform(IcebergColumnHandle.class::cast));
+        }
+        return predicate;
     }
 
     @Override

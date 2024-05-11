@@ -50,6 +50,8 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
+import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -185,6 +187,33 @@ public class IcebergDistributedSmokeTestBase
         assertUpdate(session, format("INSERT INTO %s (x) VALUES (CAST('%s' AS %s))", tableName, decimalValue, decimalType), 1);
         assertQuery(session, format("SELECT * FROM %s", tableName), format("SELECT CAST('%s' AS %s)", decimalValue, decimalType));
         dropTable(session, tableName);
+    }
+
+    @Test
+    public void testSimplifyPredicateOnPartitionedColumn()
+    {
+        try {
+            assertUpdate("create table simplify_predicate_on_partition_column(a int) with (partitioning = ARRAY['a'])");
+            String insertValues = range(0, 100)
+                    .mapToObj(Integer::toString)
+                    .collect(joining(", "));
+            assertUpdate("insert into simplify_predicate_on_partition_column values " + insertValues, 100);
+
+            String inValues = range(0, 50)
+                    .map(i -> i * 2 + 1)
+                    .mapToObj(Integer::toString)
+                    .collect(joining(", "));
+            String notInValues = range(0, 50)
+                    .map(i -> i * 2)
+                    .mapToObj(Integer::toString)
+                    .collect(joining(", "));
+
+            assertQuery("select * from simplify_predicate_on_partition_column where a in (" + inValues + ")", "values " + inValues);
+            assertQuery("select * from simplify_predicate_on_partition_column where a not in (" + inValues + ")", "values " + notInValues);
+        }
+        finally {
+            assertUpdate("drop table if exists simplify_predicate_on_partition_column");
+        }
     }
 
     @Test

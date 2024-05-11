@@ -23,6 +23,7 @@ import com.facebook.presto.iceberg.IcebergAbstractMetadata;
 import com.facebook.presto.iceberg.IcebergColumnHandle;
 import com.facebook.presto.iceberg.IcebergMetadataColumn;
 import com.facebook.presto.iceberg.IcebergTableHandle;
+import com.facebook.presto.iceberg.IcebergTableLayoutHandle;
 import com.facebook.presto.iceberg.IcebergTableName;
 import com.facebook.presto.iceberg.IcebergTableType;
 import com.facebook.presto.iceberg.IcebergTransactionManager;
@@ -167,6 +168,7 @@ public class IcebergEqualityDeleteAsJoin
         {
             TableHandle table = node.getTable();
             IcebergTableHandle icebergTableHandle = (IcebergTableHandle) table.getConnectorHandle();
+            Optional<IcebergTableLayoutHandle> icebergTableLayoutHandle = table.getLayout().map(IcebergTableLayoutHandle.class::cast);
             IcebergTableName tableName = icebergTableHandle.getIcebergTableName();
             if (!tableName.getSnapshotId().isPresent() || tableName.getTableType() != IcebergTableType.DATA) {
                 // Node is already optimized or not ready for planning
@@ -176,8 +178,12 @@ public class IcebergEqualityDeleteAsJoin
             IcebergAbstractMetadata metadata = (IcebergAbstractMetadata) transactionManager.get(table.getTransaction());
             Table icebergTable = getIcebergTable(metadata, session, icebergTableHandle.getSchemaTableName());
 
+            TupleDomain<IcebergColumnHandle> predicate = icebergTableLayoutHandle
+                    .map(IcebergTableLayoutHandle::getValidPredicate)
+                    .orElse(TupleDomain.all());
+
             // Collect info about each unique delete schema to join by
-            ImmutableMap<Set<Integer>, DeleteSetInfo> deleteSchemas = collectDeleteInformation(icebergTable, icebergTableHandle, tableName.getSnapshotId().get());
+            ImmutableMap<Set<Integer>, DeleteSetInfo> deleteSchemas = collectDeleteInformation(icebergTable, predicate, tableName.getSnapshotId().get());
 
             if (deleteSchemas.isEmpty()) {
                 // no equality deletes
@@ -262,13 +268,13 @@ public class IcebergEqualityDeleteAsJoin
         }
 
         private static ImmutableMap<Set<Integer>, DeleteSetInfo> collectDeleteInformation(Table icebergTable,
-                IcebergTableHandle icebergTableHandle,
-                long snapshotId)
+                                                                                          TupleDomain<IcebergColumnHandle> predicate,
+                                                                                          long snapshotId)
         {
             // Delete schemas can repeat, so using a normal hashmap to dedup, will be converted to immutable at the end of the function.
             HashMap<Set<Integer>, DeleteSetInfo> deleteInformations = new HashMap<>();
             try (CloseableIterator<DeleteFile> files =
-                    getDeleteFiles(icebergTable, snapshotId, icebergTableHandle.getPredicate(), Optional.empty(), Optional.empty()).iterator()) {
+                    getDeleteFiles(icebergTable, snapshotId, predicate, Optional.empty(), Optional.empty()).iterator()) {
                 files.forEachRemaining(delete -> {
                     if (fromIcebergFileContent(delete.content()) == EQUALITY_DELETES) {
                         ImmutableMap.Builder<Integer, PartitionFieldInfo> partitionFieldsBuilder = new ImmutableMap.Builder<>();
@@ -316,7 +322,7 @@ public class IcebergEqualityDeleteAsJoin
                             tableName.getSnapshotId(),
                             Optional.empty()),
                     icebergTableHandle.isSnapshotSpecified(),
-                    icebergTableHandle.getPredicate(),
+                    TupleDomain.all(),
                     icebergTableHandle.getOutputPath(),
                     icebergTableHandle.getStorageProperties(),
                     Optional.of(SchemaParser.toJson(new Schema(deleteFields))),
@@ -344,7 +350,7 @@ public class IcebergEqualityDeleteAsJoin
                             tableName.getSnapshotId(),
                             tableName.getChangelogEndSnapshot()),
                     icebergTableHandle.isSnapshotSpecified(),
-                    icebergTableHandle.getPredicate(),
+                    TupleDomain.all(),
                     icebergTableHandle.getOutputPath(),
                     icebergTableHandle.getStorageProperties(),
                     icebergTableHandle.getTableSchemaJson(),
