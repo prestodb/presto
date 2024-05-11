@@ -34,10 +34,8 @@ import org.apache.iceberg.util.TableScanUtil;
 
 import javax.inject.Inject;
 
-import static com.facebook.presto.hive.rule.FilterPushdownUtils.isEntireColumn;
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getMinimumAssignedSplitWeight;
-import static com.facebook.presto.iceberg.IcebergSessionProperties.isPushdownFilterEnabled;
 import static com.facebook.presto.iceberg.IcebergTableType.CHANGELOG;
 import static com.facebook.presto.iceberg.IcebergTableType.EQUALITY_DELETES;
 import static com.facebook.presto.iceberg.IcebergUtil.getIcebergTable;
@@ -71,14 +69,7 @@ public class IcebergSplitManager
             return new FixedSplitSource(ImmutableList.of());
         }
 
-        TupleDomain<IcebergColumnHandle> predicate = isPushdownFilterEnabled(session) ?
-                layoutHandle.getPartitionColumnPredicate()
-                        .transform(IcebergColumnHandle.class::cast)
-                        .intersect(layoutHandle.getDomainPredicate()
-                                .transform(subfield -> isEntireColumn(subfield) ? subfield.getRootName() : null)
-                                .transform(layoutHandle.getPredicateColumns()::get)) :
-                table.getPredicate();
-
+        TupleDomain<IcebergColumnHandle> predicate = layoutHandle.getValidPredicate();
         Table icebergTable = getIcebergTable(transactionManager.get(transaction), session, table.getSchemaTableName());
 
         if (table.getIcebergTableName().getTableType() == CHANGELOG) {
@@ -93,7 +84,7 @@ public class IcebergSplitManager
         else if (table.getIcebergTableName().getTableType() == EQUALITY_DELETES) {
             CloseableIterable<DeleteFile> deleteFiles = IcebergUtil.getDeleteFiles(icebergTable,
                     table.getIcebergTableName().getSnapshotId().get(),
-                    table.getPredicate(),
+                    predicate,
                     table.getPartitionSpecId(),
                     table.getEqualityFieldIds());
 

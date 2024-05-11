@@ -25,6 +25,7 @@ import com.facebook.presto.hive.SubfieldExtractor;
 import com.facebook.presto.iceberg.IcebergAbstractMetadata;
 import com.facebook.presto.iceberg.IcebergColumnHandle;
 import com.facebook.presto.iceberg.IcebergTableHandle;
+import com.facebook.presto.iceberg.IcebergTableLayoutHandle;
 import com.facebook.presto.iceberg.IcebergTransactionManager;
 import com.facebook.presto.iceberg.PartitionTransforms;
 import com.facebook.presto.iceberg.PartitionTransforms.ColumnTransform;
@@ -32,6 +33,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
 import com.facebook.presto.spi.ConnectorPlanRewriter;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
@@ -63,6 +65,7 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.common.Utils.nativeValueToBlock;
 import static com.facebook.presto.expressions.LogicalRowExpressions.FALSE_CONSTANT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
+import static com.facebook.presto.iceberg.IcebergAbstractMetadata.toSubfield;
 import static com.facebook.presto.iceberg.IcebergPageSink.adjustTimestampForPartitionTransform;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isPushdownFilterEnabled;
 import static com.facebook.presto.iceberg.IcebergTableType.DATA;
@@ -74,6 +77,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 public class IcebergPlanOptimizer
         implements ConnectorPlanOptimizer
@@ -215,21 +219,25 @@ public class IcebergPlanOptimizer
             TupleDomain<IcebergColumnHandle> simplifiedColumnDomain = entireColumnDomain.simplify();
             boolean predicateNotChangedBySimplification = simplifiedColumnDomain.equals(entireColumnDomain);
 
-            IcebergTableHandle oldTableHandle = (IcebergTableHandle) handle.getConnectorHandle();
-            IcebergTableHandle newTableHandle = new IcebergTableHandle(
-                    oldTableHandle.getSchemaName(),
-                    oldTableHandle.getIcebergTableName(),
-                    oldTableHandle.isSnapshotSpecified(),
-                    simplifiedColumnDomain.intersect(oldTableHandle.getPredicate()),
-                    oldTableHandle.getOutputPath(),
-                    oldTableHandle.getStorageProperties(),
-                    oldTableHandle.getTableSchemaJson(),
-                    oldTableHandle.getPartitionSpecId(),
-                    oldTableHandle.getEqualityFieldIds());
+            Optional<ConnectorTableLayoutHandle> newConnectorTableLayoutHandle = handle.getLayout().map(IcebergTableLayoutHandle.class::cast)
+                    .map(icebergTableLayoutHandle -> new IcebergTableLayoutHandle(
+                            icebergTableLayoutHandle.getPartitionColumns().stream()
+                                    .map(IcebergColumnHandle.class::cast).collect(toList()),
+                            icebergTableLayoutHandle.getDataColumns(),
+                            simplifiedColumnDomain.transform(columnHandle -> toSubfield(columnHandle))
+                                    .intersect(icebergTableLayoutHandle.getDomainPredicate()),
+                            icebergTableLayoutHandle.getRemainingPredicate(),
+                            icebergTableLayoutHandle.getPredicateColumns(),
+                            icebergTableLayoutHandle.getRequestedColumns(),
+                            icebergTableLayoutHandle.isPushdownFilterEnabled(),
+                            identityPartitionColumnPredicate.simplify()
+                                    .intersect(icebergTableLayoutHandle.getPartitionColumnPredicate()),
+                            icebergTableLayoutHandle.getPartitions(),
+                            icebergTableLayoutHandle.getTable()));
             TableScanNode newTableScan = new TableScanNode(
                     tableScan.getSourceLocation(),
                     tableScan.getId(),
-                    new TableHandle(handle.getConnectorId(), newTableHandle, handle.getTransaction(), handle.getLayout()),
+                    new TableHandle(handle.getConnectorId(), handle.getConnectorHandle(), handle.getTransaction(), newConnectorTableLayoutHandle),
                     tableScan.getOutputVariables(),
                     tableScan.getAssignments(),
                     simplifiedColumnDomain.transform(ColumnHandle.class::cast)
