@@ -237,9 +237,7 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   virtual void* allocateZeroFilled(int64_t numEntries, int64_t sizeEach) = 0;
 
   /// Re-allocates from an existing buffer with 'newSize' and update memory
-  /// usage counting accordingly. If 'newSize' is larger than the current buffer
-  /// 'size', the function will allocate a new buffer and free the old buffer.
-  /// If the new allocation fails, this method will throw and not free 'p'.
+  /// usage counting accordingly.
   virtual void* reallocate(void* p, int64_t size, int64_t newSize) = 0;
 
   /// Frees an allocated buffer.

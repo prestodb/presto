@@ -17,6 +17,8 @@
 #include "velox/buffer/Buffer.h"
 
 #include "folly/Range.h"
+#include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/testutil/TestValue.h"
 #include "velox/type/StringView.h"
 
 #include <glog/logging.h>
@@ -180,6 +182,117 @@ TEST_F(BufferTest, testReallocate) {
   EXPECT_EQ(pool_->currentBytes(), 0);
   EXPECT_GT(numInPlace, 0);
   EXPECT_GT(numMoved, 0);
+}
+
+TEST_F(BufferTest, testReallocateNoReuse) {
+  // This test checks that regardless of how we resize a Buffer in reallocate
+  // (up, down, the same) as long as we hit MemoryPool::reallocate,  the Buffer
+  // always points to a new location in memory. If this test fails, it's not
+  // necessarily a problem, but it's worth looking at optimizations we could do
+  // in reallocate when the pointer doesn't change.
+
+  enum BufferResizeOption {
+    BIGGER,
+    SMALLER,
+    SAME,
+  };
+
+  auto test = [&](BufferResizeOption bufferResizeOption,
+                  bool useMmapAllocator) {
+    memory::MemoryManagerOptions options;
+    options.useMmapAllocator = useMmapAllocator;
+    options.allocatorCapacity = 1024 * 1024;
+    memory::MemoryManager memoryManager(options);
+
+    auto pool = memoryManager.addLeafPool("testReallocateNoReuse");
+
+    const size_t originalBufferSize = 10;
+    auto buffer = AlignedBuffer::allocate<char>(originalBufferSize, pool.get());
+    auto* originalBufferPtr = buffer.get();
+
+    size_t newSize;
+    switch (bufferResizeOption) {
+      case SMALLER:
+        newSize = originalBufferSize - 1;
+        break;
+      case SAME:
+        newSize = originalBufferSize;
+        break;
+      case BIGGER:
+        // Make sure the new size is large enough that we hit
+        // MemoryPoolImpl::reallocate.
+        newSize = buffer->capacity() + 1;
+        break;
+      default:
+        VELOX_FAIL("Unexpected buffer resize option");
+    }
+
+    AlignedBuffer::reallocate<char>(&buffer, newSize);
+
+    EXPECT_NE(buffer.get(), originalBufferPtr);
+  };
+
+  test(SMALLER, true);
+  test(SAME, true);
+  test(BIGGER, true);
+
+  test(SMALLER, false);
+  test(SAME, false);
+  test(BIGGER, false);
+}
+
+DEBUG_ONLY_TEST_F(BufferTest, testReallocateFails) {
+  // Reallocating a buffer can cause an exception to be thrown e.g. if we
+  // run out of memory.  If the buffer is left in an invalid state this can
+  // cause crahses, e.g. if VectorSaver attempts to write out a Vector that
+  // was in the midst of resizing.  This test verifies the buffer is valid at
+  // different points in the exception's lifecycle.
+
+  const size_t bufferSize = 10;
+  auto buffer = AlignedBuffer::allocate<char>(bufferSize, pool_.get());
+
+  ::memset(buffer->asMutable<char>(), 'a', bufferSize);
+
+  common::testutil::TestValue::enable();
+
+  const std::string kErrorMessage = "Expected out of memory exception";
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::memory::MemoryPoolImpl::reserveThreadSafe",
+      std::function<void(memory::MemoryPool*)>([&](memory::MemoryPool*) {
+        VELOX_MEM_POOL_CAP_EXCEEDED(kErrorMessage);
+      }));
+
+  {
+    ExceptionContextSetter setter(
+        {.messageFunc = [](VeloxException::Type,
+                           void* untypedArg) -> std::string {
+           // Validate that the buffer is still valid at the point
+           // the exception is thrown.
+           auto bufferArg = *static_cast<BufferPtr*>(untypedArg);
+
+           const auto* bufferContents = bufferArg->as<char>();
+           VELOX_CHECK_EQ(bufferArg->size(), 10);
+           for (int i = 0; i < 10; i++) {
+             VELOX_CHECK_EQ(bufferContents[i], 'a');
+           }
+
+           return "Exception context message func called.";
+         },
+         .arg = &buffer});
+
+    VELOX_ASSERT_THROW_CODE(
+        AlignedBuffer::reallocate<char>(
+            &buffer, pool_->availableReservation() + 1),
+        error_code::kMemCapExceeded,
+        kErrorMessage);
+  }
+
+  // Validate the buffer is valid after the exception is caught.
+  const auto* bufferContents = buffer->as<char>();
+  VELOX_CHECK_EQ(buffer->size(), bufferSize);
+  for (int i = 0; i < bufferSize; i++) {
+    VELOX_CHECK_EQ(bufferContents[i], 'a');
+  }
 }
 
 struct MockCachePin {

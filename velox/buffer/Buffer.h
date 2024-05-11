@@ -381,34 +381,19 @@ class AlignedBuffer : public Buffer {
     auto oldCapacity = checkedPlus<size_t>(old->capacity(), kPaddedSize);
     auto preferredSize =
         pool->preferredSize(checkedPlus<size_t>(size, kPaddedSize));
-    // Make the buffer no longer owned by '*buffer' because reallocate
-    // may free the old buffer. Reassigning the new buffer to
-    // '*buffer' would be a double free.
+
+    void* newPtr = pool->reallocate(old, oldCapacity, preferredSize);
+
+    // Make the old buffer no longer owned by '*buffer' because reallocate
+    // freed the old buffer. Reassigning the new buffer to
+    // '*buffer' would be a double free if we didn't do this.
     buffer->detach();
-    // Decrement the reference count.  No need to check, we just
-    // checked old->unique().
-    old->referenceCount_.fetch_sub(1);
-    void* newPtr;
-    try {
-      newPtr = pool->reallocate(old, oldCapacity, preferredSize);
-    } catch (const std::exception&) {
-      *buffer = old;
-      throw;
-    }
-    if (newPtr == reinterpret_cast<void*>(old)) {
-      // The pointer did not change. Put the old pointer back in the
-      // smart pointer and adjust capacity.
-      *buffer = old;
-      (*buffer)->setCapacity(preferredSize - kPaddedSize);
-      (*buffer)->setSize(size);
-      reinterpret_cast<AlignedBuffer*>(buffer->get())
-          ->fillNewMemory<T>(oldSize, size, initValue);
-      return;
-    }
+
     auto newBuffer =
         new (newPtr) AlignedBuffer(pool, preferredSize - kPaddedSize);
     newBuffer->setSize(size);
     newBuffer->fillNewMemory<T>(oldSize, size, initValue);
+
     *buffer = newBuffer;
   }
 
