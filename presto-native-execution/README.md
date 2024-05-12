@@ -5,6 +5,7 @@ using [Velox](https://github.com/facebookincubator/velox).
 
 ## Table of Contents
 * [Build from Source](#build-from-source)
+* [Build using Dockerfile](#build-using-dockerfile)
 * [Development](#development)
 * [Create Pull Request](#create-pull-request)
 * [Advance Velox Version](#advance-velox-version)
@@ -107,6 +108,9 @@ A reminder of the available Makefile targets can be obtained using `make help`
     tidy-check              Check clang-tidy issues in the current branch
     help                    Show the help messages
 ```
+
+## Build using Dockerfile
+Information on how to build a dependency and runtime image of Prestissimo [can be found here](scripts/dockerfiles/README.md).
 
 ## Development
 ### Setup Presto with [IntelliJ IDEA](https://www.jetbrains.com/idea/) and Prestissimo with [CLion](https://www.jetbrains.com/clion/)

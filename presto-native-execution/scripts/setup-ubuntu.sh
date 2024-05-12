@@ -19,18 +19,17 @@ set -eufx -o pipefail
 # Run the velox setup script first.
 source "$(dirname "${BASH_SOURCE}")/../velox/scripts/setup-ubuntu.sh"
 export FB_OS_VERSION=v2024.04.01.00
-
-function install_presto_deps_from_apt {
-  sudo apt install -y gperf
-}
+SUDO="${SUDO:-"sudo --preserve-env"}"
 
 function install_proxygen {
+  # proxygen requires python and gperf
+  ${SUDO} apt update
+  ${SUDO} apt install -y gperf python3
   github_checkout facebook/proxygen "${FB_OS_VERSION}"
   cmake_install -DBUILD_TESTS=OFF
 }
 
 function install_presto_deps {
-  run_and_time install_presto_deps_from_apt
   run_and_time install_proxygen
 }
 
