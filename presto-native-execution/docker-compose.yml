@@ -1,0 +1,64 @@
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+version: '3.5'
+
+services:
+  ubuntu-native-dependency:
+    # Usage:
+    #   docker-compose build ubuntu-native-dependency
+    #   podman compose build ubuntu-native-dependency
+    image: presto/prestissimo-dependency:amd64-ubuntu-22.04
+    build:
+      args:
+        - BUILD_TYPE=Release
+      context: .
+      dockerfile: scripts/dockerfiles/ubuntu-22.04-dependency.dockerfile
+
+  ubuntu-native-runtime:
+    # Usage:
+    #   docker-compose build ubuntu-native-runtime
+    #   podman compose build ubuntu-native-runtime
+    image: presto/prestissimo-runtime:amd64-ubuntu-22.04
+    build:
+      args:
+        - BUILD_TYPE=Release
+        - DEPENDENCY_IMAGE=presto/prestissimo-dependency:amd64-ubuntu-22.04
+        - BASE_IMAGE=amd64/ubuntu:22.04
+        - OSNAME=ubuntu
+      context: .
+      dockerfile: scripts/dockerfiles/prestissimo-runtime.dockerfile
+    environment:
+      NUM_THREADS: 8 # default value for NUM_THREADS
+
+  centos-native-dependency:
+    # Usage:
+    #   docker-compose build centos-native-dependency
+    #   podman compose build centos-native-dependency
+    image: presto/prestissimo-dependency:centos8
+    build:
+      args:
+        - BUILD_TYPE=Release
+      context: .
+      dockerfile: scripts/dockerfiles/centos-8-stream-dependency.dockerfile
+
+  centos-native-runtime:
+    # Usage:
+    #   docker-compose build centos-native-runtime
+    #   podman compose build centos-native-runtime
+    image: presto/prestissimo-runtime:centos8
+    build:
+      args:
+        - BUILD_TYPE=Release
+      context: .
+      dockerfile: scripts/dockerfiles/prestissimo-runtime.dockerfile
+    environment:
+      NUM_THREADS: 8 # default value for NUM_THREADS
