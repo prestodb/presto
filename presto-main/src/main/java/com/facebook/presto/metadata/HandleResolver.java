@@ -41,7 +41,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.operator.ExchangeOperator.REMOTE_CONNECTOR_ID;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -192,14 +192,14 @@ public class HandleResolver
     private MaterializedHandleResolver resolverFor(String id)
     {
         MaterializedHandleResolver resolver = handleResolvers.get(id);
-        checkArgument(resolver != null, "No handle resolver for connector: %s", id);
+        checkNotNull(resolver, "No handle resolver for connector: %s", id);
         return resolver;
     }
 
     private MaterializedFunctionHandleResolver resolverForFunctionNamespace(String id)
     {
         MaterializedFunctionHandleResolver resolver = functionHandleResolvers.get(id);
-        checkArgument(resolver != null, "No handle resolver for function namespace: %s", id);
+        checkNotNull(resolver, "No handle resolver for function namespace: %s", id);
         return resolver;
     }
 

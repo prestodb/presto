@@ -517,6 +517,7 @@ import static com.facebook.presto.type.TypeUtils.resolveTypes;
 import static com.facebook.presto.type.khyperloglog.KHyperLogLogType.K_HYPER_LOG_LOG;
 import static com.facebook.presto.type.setdigest.SetDigestType.SET_DIGEST;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
@@ -1559,7 +1560,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 }
             }
 
-            checkArgument(methodHandle != null,
+            checkNotNull(methodHandle,
                     "Expected type %s to use (or can be converted into) Java type %s, but Java type is %s",
                     type,
                     parameterType.getJavaType(),

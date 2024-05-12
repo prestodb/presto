@@ -24,6 +24,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 public class ResourceGroupNameTemplate
@@ -81,7 +82,7 @@ public class ResourceGroupNameTemplate
         for (NameFragment fragment : fragments) {
             if (fragment.isVariable()) {
                 String value = variables.getValue(fragment.getVariable());
-                checkArgument(value != null, "unresolved variable '%s' in resource group '%s', available: %s", fragment.getVariable(), this, variables);
+                checkNotNull(value, "unresolved variable '%s' in resource group '%s', available: %s", fragment.getVariable(), this, variables);
                 builder.append(value);
             }
             else {

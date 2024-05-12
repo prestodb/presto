@@ -88,6 +88,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static com.facebook.presto.spi.ConnectorId.createInformationSchemaConnectorId;
 import static com.facebook.presto.spi.ConnectorId.createSystemTablesConnectorId;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -214,7 +215,7 @@ public class ConnectorManager
     {
         requireNonNull(connectorName, "connectorName is null");
         ConnectorFactory connectorFactory = connectorFactories.get(connectorName);
-        checkArgument(connectorFactory != null, "No factory for connector %s", connectorName);
+        checkNotNull(connectorFactory, "No factory for connector %s", connectorName);
         return createConnection(catalogName, connectorFactory, properties);
     }
 

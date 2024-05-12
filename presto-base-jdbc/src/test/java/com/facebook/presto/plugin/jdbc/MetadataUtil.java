@@ -26,7 +26,7 @@ import java.util.Map;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;
 
@@ -63,7 +63,7 @@ final class MetadataUtil
         protected Type _deserialize(String value, DeserializationContext context)
         {
             Type type = types.get(value.toLowerCase(ENGLISH));
-            checkArgument(type != null, "Unknown type %s", value);
+            checkNotNull(type, "Unknown type %s", value);
             return type;
         }
     }

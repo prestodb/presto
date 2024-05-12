@@ -26,8 +26,8 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.util.Objects.requireNonNull;
 
 public class TestIsNullAnnotation
         extends AbstractTestFunctions
@@ -60,7 +60,7 @@ public class TestIsNullAnnotation
             @SqlType(StandardTypes.VARCHAR) Slice varcharIsNull,
             @IsNull boolean isNullVarchar)
     {
-        checkArgument(properties != null, "properties is null");
+        requireNonNull(properties, "properties is null");
 
         StringBuilder builder = new StringBuilder();
 
@@ -69,7 +69,7 @@ public class TestIsNullAnnotation
         }
         builder.append(":");
 
-        checkArgument(varcharNotNullable != null, "varcharNotNullable is null while it doesn't has @SqlNullable");
+        requireNonNull(varcharNotNullable, "varcharNotNullable is null while it doesn't have @SqlNullable");
         builder.append(varcharNotNullable.toStringUtf8())
                 .append(":");
 

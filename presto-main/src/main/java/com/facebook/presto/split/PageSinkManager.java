@@ -25,7 +25,7 @@ import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -65,7 +65,7 @@ public class PageSinkManager
     private ConnectorPageSinkProvider providerFor(ConnectorId connectorId)
     {
         ConnectorPageSinkProvider provider = pageSinkProviders.get(connectorId);
-        checkArgument(provider != null, "No page sink provider for catalog '%s'", connectorId.getCatalogName());
+        checkNotNull(provider, "No page sink provider for catalog '%s'", connectorId.getCatalogName());
         return provider;
     }
 }

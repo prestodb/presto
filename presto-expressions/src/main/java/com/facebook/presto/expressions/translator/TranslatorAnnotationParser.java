@@ -140,7 +140,7 @@ class TranslatorAnnotationParser
 
         // return type
         SqlType annotatedReturnType = method.getAnnotation(SqlType.class);
-        checkArgument(annotatedReturnType != null, format("Method [%s] is missing @SqlType annotation", method));
+        requireNonNull(annotatedReturnType, format("Method [%s] is missing @SqlType annotation", method));
         TypeSignature returnType = parseTypeSignature(annotatedReturnType.value(), ImmutableSet.of());
 
         // argument type

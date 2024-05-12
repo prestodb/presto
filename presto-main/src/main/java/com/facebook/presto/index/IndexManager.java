@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -55,7 +55,7 @@ public class IndexManager
     private ConnectorIndexProvider getProvider(IndexHandle handle)
     {
         ConnectorIndexProvider result = providers.get(handle.getConnectorId());
-        checkArgument(result != null, "No index provider for connector '%s'", handle.getConnectorId());
+        checkNotNull(result, "No index provider for connector '%s'", handle.getConnectorId());
         return result;
     }
 }

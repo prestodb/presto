@@ -171,7 +171,7 @@ public class GroupedTypedHistogram
             BlockBuilder blockBuilder = out.beginBlockEntry();
 
             iterateGroupNodes(currentGroupId, nodePointer -> {
-                checkArgument(nodePointer != NULL, "should never see null here as we exclude in iterateGroupNodesCall");
+                requireNonNull(nodePointer, "should never see null here as we exclude in iterateGroupNodesCall");
                 ValueNode valueNode = bucketNodeFactory.createValueNode(nodePointer);
                 valueNode.writeNodeAsBlock(values, blockBuilder);
             });
@@ -190,7 +190,7 @@ public class GroupedTypedHistogram
     public void readAllValues(HistogramValueReader reader)
     {
         iterateGroupNodes(currentGroupId, nodePointer -> {
-            checkArgument(nodePointer != NULL, "should never see null here as we exclude in iterateGroupNodesCall");
+            requireNonNull(nodePointer, "should never see null here as we exclude in iterateGroupNodesCall");
             ValueNode valueNode = bucketNodeFactory.createValueNode(nodePointer);
             reader.read(values, valueNode.getValuePosition(), valueNode.getCount());
         });
@@ -271,7 +271,7 @@ public class GroupedTypedHistogram
     {
         // while the index can be a long, the value is always an int
         int currentPointer = (int) headPointers.get(groupId);
-        checkArgument(currentPointer != NULL, "valid group must have non-null head pointer");
+        requireNonNull(currentPointer, "valid group must have non-null head pointer");
 
         while (currentPointer != NULL) {
             checkState(currentPointer < nextNodePointer, "error, corrupt pointer; max valid %s, found %s", nextNodePointer, currentPointer);

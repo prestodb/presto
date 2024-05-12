@@ -47,7 +47,7 @@ import static com.facebook.presto.hive.HiveTestUtils.getAllSessionProperties;
 import static com.facebook.presto.hive.HiveTestUtils.getTypes;
 import static com.facebook.presto.spi.SplitContext.NON_CACHEABLE;
 import static com.facebook.presto.testing.MaterializedResult.materializeSourceDataStream;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 
@@ -215,7 +215,7 @@ public class HiveFileSystemTestUtils
     public static ConnectorTableHandle getTableHandle(ConnectorMetadata metadata, SchemaTableName tableName, ConnectorSession session)
     {
         ConnectorTableHandle handle = metadata.getTableHandle(session, tableName);
-        checkArgument(handle != null, "table not found: %s", tableName);
+        checkNotNull(handle, "table not found: %s", tableName);
         return handle;
     }
 

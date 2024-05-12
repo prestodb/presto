@@ -748,8 +748,8 @@ public class RowExpressionInterpreter
 
         private List<RowExpression> toRowExpressions(List<Object> values, List<RowExpression> unchangedValues)
         {
-            checkArgument(values != null, "value is null");
-            checkArgument(unchangedValues != null, "value is null");
+            requireNonNull(values, "value is null");
+            requireNonNull(unchangedValues, "value is null");
             checkArgument(values.size() == unchangedValues.size());
             ImmutableList.Builder<RowExpression> rowExpressions = ImmutableList.builder();
             for (int i = 0; i < values.size(); i++) {

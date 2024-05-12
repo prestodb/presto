@@ -22,6 +22,7 @@ import java.io.InputStream;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 
@@ -46,7 +47,7 @@ public final class IsolatedClass
         Class<?> isolatedClass = isolatedClasses.get(implementationClass.getName());
 
         // verify the isolated class
-        checkArgument(isolatedClass != null, "Could load class %s", implementationClass.getName());
+        checkNotNull(isolatedClass, "Could load class %s", implementationClass.getName());
         checkArgument(publicBaseClass.isAssignableFrom(isolatedClass),
                 "Error isolating class %s, newly loaded class is not a sub type of %s",
                 implementationClass.getName(),
@@ -59,7 +60,7 @@ public final class IsolatedClass
     private static byte[] getBytecode(Class<?> clazz)
     {
         try (InputStream stream = clazz.getClassLoader().getResourceAsStream(clazz.getName().replace('.', '/') + ".class")) {
-            checkArgument(stream != null, "Could not obtain byte code for class %s", clazz.getName());
+            checkNotNull(stream, "Could not obtain byte code for class %s", clazz.getName());
             return ByteStreams.toByteArray(stream);
         }
         catch (IOException e) {

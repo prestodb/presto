@@ -32,7 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -108,7 +108,7 @@ public class SessionDefinitionExecution<T extends Statement>
         {
             @SuppressWarnings("unchecked")
             SessionTransactionControlTask<T> task = (SessionTransactionControlTask<T>) tasks.get(statement.getClass());
-            checkArgument(task != null, "no task for statement: %s", statement.getClass().getSimpleName());
+            checkNotNull(task, "no task for statement: %s", statement.getClass().getSimpleName());
 
             stateMachine.setUpdateType(task.getName());
             return new SessionDefinitionExecution<>(task, statement, slug, retryCount, transactionManager, metadata, accessControl, stateMachine, parameters);

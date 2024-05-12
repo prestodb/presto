@@ -18,7 +18,7 @@ import com.facebook.presto.druid.DataInputSource;
 import java.io.IOException;
 import java.util.zip.ZipException;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class Zip64EndOfCentralDirectoryLocator
 {
@@ -37,7 +37,7 @@ public class Zip64EndOfCentralDirectoryLocator
     public static ZipFileData read(ZipFileData file, DataInputSource dataInputSource, long position)
             throws IOException
     {
-        checkArgument(file != null, "Zip file data for source:%s is null", dataInputSource.getId());
+        checkNotNull(file, "Zip file data for source:%s is null", dataInputSource.getId());
 
         byte[] fixedSizeData = new byte[FIXED_DATA_SIZE];
         dataInputSource.readFully(position, fixedSizeData, 0, FIXED_DATA_SIZE);

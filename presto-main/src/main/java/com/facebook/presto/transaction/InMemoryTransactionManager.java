@@ -545,7 +545,7 @@ public class InMemoryTransactionManager
         {
             checkOpenTransaction();
             ConnectorTransactionMetadata transactionMetadata = connectorIdToMetadata.get(connectorId);
-            checkArgument(transactionMetadata != null, "Cannot record write for connector not part of transaction");
+            requireNonNull(transactionMetadata, "Cannot record write for connector not part of transaction");
             if (readOnly) {
                 throw new PrestoException(READ_ONLY_VIOLATION, "Cannot execute write in a read-only transaction");
             }

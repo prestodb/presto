@@ -53,7 +53,6 @@ import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.function.FunctionImplementationType.THRIFT;
 import static com.facebook.presto.thrift.api.udf.ThriftUdfPage.prestoPage;
 import static com.facebook.presto.thrift.api.udf.ThriftUdfPage.thriftPage;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -86,7 +85,7 @@ public class ThriftSqlFunctionExecutor
     public void setBlockEncodingSerde(BlockEncodingSerde blockEncodingSerde)
     {
         checkState(this.blockEncodingSerde == null, "blockEncodingSerde already set");
-        checkArgument(blockEncodingSerde != null, "blockEncodingSerde is null");
+        requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         this.blockEncodingSerde = blockEncodingSerde;
     }
 

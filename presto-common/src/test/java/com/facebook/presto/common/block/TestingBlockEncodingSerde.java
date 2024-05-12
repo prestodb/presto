@@ -23,6 +23,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
@@ -76,7 +77,7 @@ public final class TestingBlockEncodingSerde
 
         // look up the encoding factory
         BlockEncoding blockEncoding = blockEncodings.get(encodingName);
-        checkArgument(blockEncoding != null, "Unknown block encoding %s", encodingName);
+        checkNotNull(blockEncoding, "Unknown block encoding %s", encodingName);
 
         // load read the encoding factory from the output stream
         return blockEncoding.readBlock(this, input);

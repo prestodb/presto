@@ -63,7 +63,7 @@ import static com.facebook.presto.sql.planner.iterative.rule.PreconditionRules.c
 import static com.facebook.presto.sql.planner.plan.Patterns.filter;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.facebook.presto.sql.planner.plan.Patterns.tableScan;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.intersection;
 import static java.util.Objects.requireNonNull;
@@ -400,7 +400,7 @@ public class PickTableLayout
         public Object getValue(VariableReferenceExpression variable)
         {
             ColumnHandle column = assignments.get(variable);
-            checkArgument(column != null, "Missing column assignment for %s", variable);
+            checkNotNull(column, "Missing column assignment for %s", variable);
 
             if (!bindings.containsKey(column)) {
                 return missingBindingSupplier.apply(variable);

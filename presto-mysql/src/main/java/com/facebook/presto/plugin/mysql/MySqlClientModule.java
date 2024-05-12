@@ -25,6 +25,7 @@ import java.util.Properties;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Objects.requireNonNull;
 
 public class MySqlClientModule
         extends AbstractConfigurationAwareModule
@@ -42,7 +43,7 @@ public class MySqlClientModule
         try {
             Driver driver = new Driver();
             Properties urlProperties = driver.parseURL(connectionUrl, null);
-            checkArgument(urlProperties != null, "Invalid JDBC URL for MySQL connector");
+            requireNonNull(urlProperties, "Invalid JDBC URL for MySQL connector");
             checkArgument(driver.database(urlProperties) == null, "Database (catalog) must not be specified in JDBC URL for MySQL connector");
         }
         catch (SQLException e) {

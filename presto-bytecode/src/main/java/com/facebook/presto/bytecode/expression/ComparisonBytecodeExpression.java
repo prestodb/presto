@@ -253,7 +253,7 @@ class ComparisonBytecodeExpression
     {
         requireNonNull(expression, name + " is null");
         Class<?> leftType = expression.getType().getPrimitiveType();
-        checkArgument(leftType != null, name + " is not a primitive");
+        requireNonNull(leftType, name + " is not a primitive");
         checkArgument(leftType != void.class, name + " is void");
         return leftType;
     }

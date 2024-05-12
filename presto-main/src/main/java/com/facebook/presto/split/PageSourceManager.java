@@ -32,7 +32,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Supplier;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -92,7 +92,7 @@ public class PageSourceManager
     {
         ConnectorPageSourceProvider provider = pageSourceProviders.get(split.getConnectorId());
 
-        checkArgument(provider != null, "No page stream provider for '%s", split.getConnectorId());
+        checkNotNull(provider, "No page stream provider for '%s", split.getConnectorId());
 
         return provider;
     }

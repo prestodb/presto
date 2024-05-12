@@ -20,7 +20,6 @@ import javax.security.auth.Subject;
 import javax.security.auth.kerberos.KerberosTicket;
 
 import static com.facebook.presto.hive.authentication.KerberosTicketUtils.getTicketGrantingTicket;
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.security.UserGroupInformationShim.getSubject;
 
@@ -67,7 +66,7 @@ public class CachingKerberosHadoopAuthentication
     private static long calculateNextRefreshTime(UserGroupInformation userGroupInformation)
     {
         Subject subject = getSubject(userGroupInformation);
-        checkArgument(subject != null, "subject must be present in kerberos based UGI");
+        requireNonNull(subject, "subject must be present in kerberos based UGI");
         KerberosTicket tgtTicket = getTicketGrantingTicket(subject);
         return KerberosTicketUtils.getRefreshTime(tgtTicket);
     }

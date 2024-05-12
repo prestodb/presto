@@ -53,7 +53,7 @@ public class TestScalarValidation
     @ScalarFunction
     public static final class NoParametricMethods {}
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Method .* is missing @SqlType annotation")
+    @Test(expectedExceptions = NullPointerException.class, expectedExceptionsMessageRegExp = "Method .* is missing @SqlType annotation")
     public void testMethodMissingReturnAnnotation()
     {
         extractScalars(MethodMissingReturnAnnotation.class);

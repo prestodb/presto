@@ -20,7 +20,7 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 public class HudiTransactionManager
@@ -30,14 +30,14 @@ public class HudiTransactionManager
     public ConnectorMetadata get(ConnectorTransactionHandle transaction)
     {
         ConnectorMetadata metadata = transactions.get(transaction);
-        checkArgument(metadata != null, "no such transaction: %s", transaction);
+        checkNotNull(metadata, "no such transaction: %s", transaction);
         return metadata;
     }
 
     public ConnectorMetadata remove(ConnectorTransactionHandle transaction)
     {
         ConnectorMetadata metadata = transactions.remove(transaction);
-        checkArgument(metadata != null, "no such transaction: %s", transaction);
+        checkNotNull(metadata, "no such transaction: %s", transaction);
         return metadata;
     }
 

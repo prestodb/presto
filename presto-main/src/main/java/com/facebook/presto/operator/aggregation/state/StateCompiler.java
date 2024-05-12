@@ -736,7 +736,7 @@ public class StateCompiler
             this.type = requireNonNull(type, "type is null");
             this.getterName = requireNonNull(getterName, "getterName is null");
             this.initialValue = initialValue;
-            checkArgument(sqlType != null, "sqlType is null");
+            requireNonNull(sqlType, "sqlType is null");
             if (sqlType.isPresent()) {
                 checkArgument(
                         (sqlType.get().getJavaType() == type) ||

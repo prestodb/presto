@@ -39,6 +39,7 @@ import java.util.Set;
 import static com.facebook.presto.connector.thrift.server.SplitInfo.indexSplit;
 import static com.facebook.presto.tests.AbstractTestIndexedQueries.INDEX_SPEC;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Objects.requireNonNull;
 
 public class ThriftIndexedTpchService
         extends ThriftTpchService
@@ -138,7 +139,7 @@ public class ThriftIndexedTpchService
                     result.add(null);
                 }
                 else {
-                    checkArgument(longs != null, "block structure is incorrect");
+                    requireNonNull(longs, "block structure is incorrect");
                     result.add(String.valueOf(longs[index]));
                 }
             }
@@ -151,7 +152,7 @@ public class ThriftIndexedTpchService
                     result.add(null);
                 }
                 else {
-                    checkArgument(ints != null, "block structure is incorrect");
+                    requireNonNull(ints, "block structure is incorrect");
                     result.add(String.valueOf(ints[index]));
                 }
             }
@@ -174,12 +175,12 @@ public class ThriftIndexedTpchService
                     result.add(null);
                 }
                 else {
-                    checkArgument(sizes != null, "block structure is incorrect");
+                    requireNonNull(sizes, "block structure is incorrect");
                     if (sizes[index] == 0) {
                         result.add("");
                     }
                     else {
-                        checkArgument(bytes != null);
+                        requireNonNull(bytes);
                         result.add(new String(bytes, startOffset, sizes[index]));
                         startOffset += sizes[index];
                     }

@@ -32,8 +32,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -97,7 +97,7 @@ public class MultilevelSplitQueue
      */
     public void offer(PrioritizedSplitRunner split)
     {
-        checkArgument(split != null, "split is null");
+        requireNonNull(split, "split is null");
 
         split.setReady();
         int level = split.getPriority().getLevel();
@@ -246,7 +246,7 @@ public class MultilevelSplitQueue
 
     public void remove(PrioritizedSplitRunner split)
     {
-        checkArgument(split != null, "split is null");
+        requireNonNull(split, "split is null");
         lock.lock();
         try {
             for (PriorityQueue<PrioritizedSplitRunner> level : levelWaitingSplits) {

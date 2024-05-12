@@ -68,6 +68,7 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMEN
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableBiMap.toImmutableBiMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.intersection;
@@ -425,7 +426,7 @@ public abstract class BaseSubfieldExtractionRewriter
 
             Function<VariableReferenceExpression, Object> variableResolver = variable -> {
                 ColumnHandle column = assignments.get(variable.getName());
-                checkArgument(column != null, "Missing column assignment for %s", variable);
+                checkNotNull(column, "Missing column assignment for %s", variable);
 
                 if (!bindings.containsKey(column)) {
                     return variable;

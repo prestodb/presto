@@ -39,6 +39,7 @@ import static com.facebook.presto.spi.connector.EmptyConnectorCommitHandle.INSTA
 import static com.facebook.presto.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
 import static com.facebook.presto.spi.transaction.IsolationLevel.checkConnectorSupports;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -82,7 +83,7 @@ public class AccumuloConnector
     public ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
     {
         ConnectorMetadata metadata = transactions.get(transactionHandle);
-        checkArgument(metadata != null, "no such transaction: %s", transactionHandle);
+        checkNotNull(metadata, "no such transaction: %s", transactionHandle);
         return metadata;
     }
 
@@ -106,7 +107,7 @@ public class AccumuloConnector
     public void rollback(ConnectorTransactionHandle transactionHandle)
     {
         AccumuloMetadata metadata = transactions.remove(transactionHandle);
-        checkArgument(metadata != null, "no such transaction: %s", transactionHandle);
+        checkNotNull(metadata, "no such transaction: %s", transactionHandle);
         metadata.rollback();
     }
 

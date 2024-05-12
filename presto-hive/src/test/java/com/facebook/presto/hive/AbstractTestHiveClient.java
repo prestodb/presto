@@ -308,7 +308,7 @@ import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.ex
 import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static com.facebook.presto.testing.MaterializedResult.materializeSourceDataStream;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -1294,7 +1294,7 @@ public abstract class AbstractTestHiveClient
             checkState(!closed);
             closed = true;
             TransactionalMetadata metadata = transactionManager.remove(transactionHandle);
-            checkArgument(metadata != null, "no such transaction: %s", transactionHandle);
+            checkNotNull(metadata, "no such transaction: %s", transactionHandle);
             metadata.commit();
         }
 
@@ -1304,7 +1304,7 @@ public abstract class AbstractTestHiveClient
             checkState(!closed);
             closed = true;
             TransactionalMetadata metadata = transactionManager.remove(transactionHandle);
-            checkArgument(metadata != null, "no such transaction: %s", transactionHandle);
+            checkNotNull(metadata, "no such transaction: %s", transactionHandle);
             metadata.rollback();
         }
 
@@ -5187,7 +5187,7 @@ public abstract class AbstractTestHiveClient
     protected ConnectorTableHandle getTableHandle(ConnectorMetadata metadata, SchemaTableName tableName)
     {
         ConnectorTableHandle handle = metadata.getTableHandle(newSession(), tableName);
-        checkArgument(handle != null, "table not found: %s", tableName);
+        checkNotNull(handle, "table not found: %s", tableName);
         return handle;
     }
 

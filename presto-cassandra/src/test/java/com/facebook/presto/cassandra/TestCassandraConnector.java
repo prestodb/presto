@@ -65,7 +65,7 @@ import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;
@@ -269,7 +269,7 @@ public class TestCassandraConnector
     private ConnectorTableHandle getTableHandle(SchemaTableName tableName)
     {
         ConnectorTableHandle handle = metadata.getTableHandle(SESSION, tableName);
-        checkArgument(handle != null, "table not found: %s", tableName);
+        checkNotNull(handle, "table not found: %s", tableName);
         return handle;
     }
 

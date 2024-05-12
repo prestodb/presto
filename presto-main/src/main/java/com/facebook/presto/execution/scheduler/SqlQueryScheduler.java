@@ -95,7 +95,7 @@ import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.sql.planner.PlanFragmenterUtils.ROOT_FRAGMENT_ID;
 import static com.facebook.presto.sql.planner.SchedulingOrderVisitor.scheduleOrder;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.jsonFragmentPlan;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -868,7 +868,7 @@ public class SqlQueryScheduler
     {
         StageId stageId = getStageId(subPlan.getFragment().getId());
         StageExecutionInfo stageExecutionInfo = stageExecutionInfos.get(stageId);
-        checkArgument(stageExecutionInfo != null, "No stageExecutionInfo for %s", stageId);
+        checkNotNull(stageExecutionInfo, "No stageExecutionInfo for %s", stageId);
         return new StageInfo(
                 stageId,
                 locationFactory.createStageLocation(stageId),

@@ -146,7 +146,7 @@ public class RcFileWriteValidation
             ImmutableList.Builder<Type> types = ImmutableList.builder();
             for (int column = 0; column < columnCount; column++) {
                 Type type = readColumns.get(column);
-                checkArgument(type != null, "checksum requires all columns to be read");
+                requireNonNull(type, "checksum requires all columns to be read");
                 types.add(type);
             }
             return new WriteChecksumBuilder(types.build());

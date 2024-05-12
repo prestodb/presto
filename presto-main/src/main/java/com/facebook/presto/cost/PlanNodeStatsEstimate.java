@@ -193,7 +193,7 @@ public class PlanNodeStatsEstimate
 
     private double getOutputSizeForVariable(VariableStatsEstimate variableStatistics, Type type)
     {
-        checkArgument(type != null, "type is null");
+        requireNonNull(type, "type is null");
 
         double averageRowSize = variableStatistics.getAverageRowSize();
         double nullsFraction = firstNonNaN(variableStatistics.getNullsFraction(), 0d);
