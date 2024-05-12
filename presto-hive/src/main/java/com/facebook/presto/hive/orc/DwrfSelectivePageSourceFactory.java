@@ -119,7 +119,7 @@ public class DwrfSelectivePageSourceFactory
             throw new PrestoException(HIVE_BAD_DATA, "ORC file is empty: " + fileSplit.getPath());
         }
 
-        checkRowIDPartitionComponent(columns, rowIDPartitionComponent);
+        checkRowIDPartitionComponent(columns, rowIDPartitionComponent, "DwrfSelectivePageSourceFactory");
 
         return Optional.of(createOrcPageSource(
                 session,

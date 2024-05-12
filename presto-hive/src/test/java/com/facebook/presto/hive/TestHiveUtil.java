@@ -95,7 +95,7 @@ public class TestHiveUtil
     {
         HiveColumnHandle handle = HiveColumnHandle.pathColumnHandle();
         List<HiveColumnHandle> columns = ImmutableList.of(handle);
-        checkRowIDPartitionComponent(columns, Optional.empty());
+        checkRowIDPartitionComponent(columns, Optional.empty(), "test");
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)
@@ -103,7 +103,7 @@ public class TestHiveUtil
     {
         HiveColumnHandle handle = HiveColumnHandle.rowIdColumnHandle();
         List<HiveColumnHandle> columns = ImmutableList.of(handle);
-        checkRowIDPartitionComponent(columns, Optional.empty());
+        checkRowIDPartitionComponent(columns, Optional.empty(), "test");
     }
 
     @Test
@@ -111,7 +111,7 @@ public class TestHiveUtil
     {
         HiveColumnHandle handle = HiveColumnHandle.rowIdColumnHandle();
         List<HiveColumnHandle> columns = ImmutableList.of(handle);
-        checkRowIDPartitionComponent(columns, Optional.of(new byte[0]));
+        checkRowIDPartitionComponent(columns, Optional.of(new byte[0]), "test");
     }
 
     @Test

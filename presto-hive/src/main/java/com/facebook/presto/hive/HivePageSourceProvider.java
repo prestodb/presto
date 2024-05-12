@@ -73,6 +73,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HivePageSourceProvider.ColumnMapping.toColumnHandles;
 import static com.facebook.presto.hive.HiveSessionProperties.isUseRecordPageSourceForCustomSplit;
+import static com.facebook.presto.hive.HiveUtil.checkRowIDPartitionComponent;
 import static com.facebook.presto.hive.HiveUtil.getPrefilledColumnValue;
 import static com.facebook.presto.hive.HiveUtil.parsePartitionValue;
 import static com.facebook.presto.hive.HiveUtil.shouldUseRecordReaderFromInputFormat;
@@ -146,6 +147,8 @@ public class HivePageSourceProvider
                 .collect(toList());
 
         HiveSplit hiveSplit = (HiveSplit) split;
+        checkRowIDPartitionComponent(selectedColumns, hiveSplit.getRowIdPartitionComponent(), "HivePageSpurceProvider.createPageSource");
+
         Path path = new Path(hiveSplit.getFileSplit().getPath());
 
         Configuration configuration = hdfsEnvironment.getConfiguration(
@@ -183,7 +186,6 @@ public class HivePageSourceProvider
             return createAggregatedPageSource(aggregatedPageSourceFactories, configuration, session, hiveSplit, hiveLayout, selectedColumns, fileContext, encryptionInformation);
         }
         if (hiveLayout.isPushdownFilterEnabled()) {
-            Optional<byte[]> rowIDPartitionComponent = hiveSplit.getRowIdPartitionComponent();
             Optional<ConnectorPageSource> selectivePageSource = createSelectivePageSource(
                     selectivePageSourceFactories,
                     configuration,
@@ -371,9 +373,10 @@ public class HivePageSourceProvider
                 .map(filter -> filter.transform(handle -> new Subfield(((HiveColumnHandle) handle).getName())).intersect(layout.getDomainPredicate()))
                 .orElse(layout.getDomainPredicate());
 
+        List<HiveColumnHandle> columnHandles = toColumnHandles(columnMappings, true);
+        Optional<byte[]> rowIDPartitionComponent = split.getRowIdPartitionComponent();
+        checkRowIDPartitionComponent(columnHandles, rowIDPartitionComponent, "HivePageSource");
         for (HiveSelectivePageSourceFactory pageSourceFactory : selectivePageSourceFactories) {
-            List<HiveColumnHandle> columnHandles = toColumnHandles(columnMappings, true);
-            Optional<byte[]> rowIDPartitionComponent = split.getRowIdPartitionComponent();
             Optional<? extends ConnectorPageSource> pageSource = pageSourceFactory.createPageSource(
                     configuration,
                     session,

@@ -282,8 +282,10 @@ public class OrcSelectivePageSourceFactory
         OrcDataSource orcDataSource = getOrcDataSource(session, fileSplit, hdfsEnvironment, configuration, hiveFileContext, stats);
         Path path = new Path(fileSplit.getPath());
 
-        boolean supplyRowIDs = selectedColumns.stream().anyMatch(column -> HiveColumnHandle.isRowIdColumnHandle(column));
-        checkArgument(!supplyRowIDs || rowIDPartitionComponent.isPresent(), "rowIDPartitionComponent required when supplying row IDs");
+        boolean supplyRowIDs = selectedColumns.stream().anyMatch(column1 -> HiveColumnHandle.isRowIdColumnHandle(column1));
+        if (supplyRowIDs) {
+            checkArgument(rowIDPartitionComponent.isPresent(), "rowIDPartitionComponent required when supplying row IDs to OrcSelectivePageSourceFactory");
+        }
         byte[] partitionID = rowIDPartitionComponent.orElse(new byte[0]);
         String rowGroupId = path.getName();
 
