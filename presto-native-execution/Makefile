@@ -9,7 +9,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-.PHONY: all cmake build clean debug release unittest submodules velox-submodule
+.PHONY: all cmake build cmake-and-build clean debug release unittest submodules velox-submodule
 
 BUILD_BASE_DIR=_build
 BUILD_DIR=release
@@ -78,6 +78,10 @@ debug:					#: Build with debugging symbols
 release:				#: Build the release version
 	$(MAKE) cmake BUILD_DIR=release BUILD_TYPE=Release && \
 	$(MAKE) build BUILD_DIR=release
+
+cmake-and-build:			#: cmake and build without updating submodules which requires git
+	cmake -B "$(BUILD_BASE_DIR)/$(BUILD_DIR)" $(FORCE_COLOR) $(CMAKE_FLAGS) $(EXTRA_CMAKE_FLAGS)
+	cmake --build $(BUILD_BASE_DIR)/$(BUILD_DIR) -j $(NUM_THREADS)
 
 unittest: debug			#: Build with debugging and run unit tests
 	cd $(BUILD_BASE_DIR)/debug && ctest -j $(NUM_THREADS) -VV --output-on-failure --exclude-regex velox.*
