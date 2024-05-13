@@ -132,6 +132,7 @@ public final class HiveSessionProperties
     public static final String QUICK_STATS_BACKGROUND_BUILD_TIMEOUT = "quick_stats_background_build_timeout";
     public static final String DYNAMIC_SPLIT_SIZES_ENABLED = "dynamic_split_sizes_enabled";
     public static final String AFFINITY_SCHEDULING_FILE_SECTION_SIZE = "affinity_scheduling_file_section_size";
+    public static final String SKIP_EMPTY_FILES = "skip_empty_files";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -641,6 +642,11 @@ public final class HiveSessionProperties
                         AFFINITY_SCHEDULING_FILE_SECTION_SIZE,
                         "Size of file section for affinity scheduling",
                         hiveClientConfig.getAffinitySchedulingFileSectionSize(),
+                        false),
+                booleanProperty(
+                        SKIP_EMPTY_FILES,
+                        "If it is required empty files will be skipped",
+                        hiveClientConfig.isSkipEmptyFilesEnabled(),
                         false));
     }
 
@@ -1117,5 +1123,10 @@ public final class HiveSessionProperties
     public static DataSize getAffinitySchedulingFileSectionSize(ConnectorSession session)
     {
         return session.getProperty(AFFINITY_SCHEDULING_FILE_SECTION_SIZE, DataSize.class);
+    }
+
+    public static boolean isSkipEmptyFilesEnabled(ConnectorSession session)
+    {
+        return session.getProperty(SKIP_EMPTY_FILES, Boolean.class);
     }
 }

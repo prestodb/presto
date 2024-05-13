@@ -48,6 +48,7 @@ import static com.facebook.presto.hive.HiveManifestUtils.decompressFileSizes;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxInitialSplitSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxSplitSize;
 import static com.facebook.presto.hive.HiveSessionProperties.isManifestVerificationEnabled;
+import static com.facebook.presto.hive.HiveSessionProperties.isSkipEmptyFilesEnabled;
 import static com.facebook.presto.hive.HiveUtil.buildDirectoryContextProperties;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
 import static com.facebook.presto.hive.NestedDirectoryPolicy.IGNORED;
@@ -191,6 +192,7 @@ public class ManifestPartitionLoader
         HiveDirectoryContext hiveDirectoryContext = new HiveDirectoryContext(
                 recursiveDirWalkerEnabled ? RECURSE : IGNORED,
                 false,
+                isSkipEmptyFilesEnabled(session),
                 hdfsContext.getIdentity(),
                 buildDirectoryContextProperties(session),
                 session.getRuntimeStats());
