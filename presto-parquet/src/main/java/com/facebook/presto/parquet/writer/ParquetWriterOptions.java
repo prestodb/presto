@@ -21,8 +21,8 @@ import static java.util.Objects.requireNonNull;
 
 public class ParquetWriterOptions
 {
-    private static final DataSize DEFAULT_MAX_ROW_GROUP_SIZE = DataSize.valueOf("128MB");
-    private static final DataSize DEFAULT_MAX_PAGE_SIZE = DataSize.valueOf("1MB");
+    protected static final DataSize DEFAULT_MAX_ROW_GROUP_SIZE = DataSize.valueOf("128MB");
+    protected static final DataSize DEFAULT_MAX_PAGE_SIZE = DataSize.valueOf("1MB");
     public static final WriterVersion DEFAULT_WRITER_VERSION = WriterVersion.PARQUET_2_0;
 
     public static ParquetWriterOptions.Builder builder()
