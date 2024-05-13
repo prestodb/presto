@@ -926,8 +926,6 @@ void AggregationTestBase::testAggregationsImpl(
     assertResults(queryBuilder);
   }
 
-  // TODO: turn on this after spilling for VarianceAggregationTest pass.
-#if 0
   if (!groupingKeys.empty() && allowInputShuffle_) {
     SCOPED_TRACE("Run single with spilling");
     PlanBuilder builder(pool());
@@ -947,19 +945,22 @@ void AggregationTestBase::testAggregationsImpl(
         .config(core::QueryConfig::kAggregationSpillEnabled, "true")
         .spillDirectory(spillDirectory->getPath());
 
-    TestScopedSpillInjection scopedSpillInjection(100);
+    exec::TestScopedSpillInjection scopedSpillInjection(100);
     auto task = assertResults(queryBuilder);
-
-    // Expect > 0 spilled bytes unless there was no input.
-    auto inputRows =
-        toPlanStats(task->taskStats()).at(aggregationNodeId).inputRows;
-    if (inputRows > 1) {
-      EXPECT_LT(0, spilledBytes(*task));
+    if (exec::injectedSpillCount() > 0) {
+      EXPECT_LT(0, spilledBytes(*task))
+          << " spilledRows: " << spilledRows(*task)
+          << " spilledInputBytes: " << spilledInputBytes(*task)
+          << " spilledFiles: " << spilledFiles(*task)
+          << " injectedSpills: " << exec::injectedSpillCount();
     } else {
-      EXPECT_EQ(0, spilledBytes(*task));
+      EXPECT_EQ(0, spilledBytes(*task))
+          << " spilledRows: " << spilledRows(*task)
+          << " spilledInputBytes: " << spilledInputBytes(*task)
+          << " spilledFiles: " << spilledFiles(*task)
+          << " injectedSpills: " << exec::injectedSpillCount();
     }
   }
-#endif
 
   {
     SCOPED_TRACE("Run partial + intermediate + final");
