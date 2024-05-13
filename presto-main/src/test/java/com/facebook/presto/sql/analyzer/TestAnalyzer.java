@@ -86,6 +86,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WINDOW_REQUIRES
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
@@ -844,6 +845,31 @@ public class TestAnalyzer
     public void testExplainAnalyze()
     {
         analyze("EXPLAIN ANALYZE SELECT * FROM t1");
+    }
+
+    @Test
+    public void testExplainAnalyzeFormatJson()
+    {
+        analyze("EXPLAIN ANALYZE (format JSON) SELECT * FROM t1");
+    }
+
+    public void testExplainAnalyzeFormatJsonHasStats()
+    {
+        analyze("EXPLAIN ANALYZE (format JSON) SELECT * FROM t1");
+    }
+
+    @Test
+    public void testExplainAnalyzeFormatJsonTypeDistributed()
+    {
+        analyze("EXPLAIN ANALYZE (format JSON, type DISTRIBUTED) SELECT * FROM t1");
+    }
+
+    @Test
+    public void testExplainAnalyzeIllegalArgs()
+    {
+        assertThrows(IllegalStateException.class, () -> analyze("EXPLAIN ANALYZE (type LOGICAL) SELECT * FROM t1"));
+        assertThrows(IllegalStateException.class, () -> analyze("EXPLAIN ANALYZE (format TEXT, type LOGICAL) SELECT * FROM t1"));
+        assertThrows(IllegalStateException.class, () -> analyze("EXPLAIN ANALYZE (format JSON, format TEXT) SELECT * FROM t1"));
     }
 
     @Test

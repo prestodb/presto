@@ -16,9 +16,12 @@ package com.facebook.presto.sql.planner.planPrinter;
 import com.facebook.presto.operator.DynamicFilterStats;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.util.Mergeable;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -39,6 +42,10 @@ public class PlanNodeStats
 
     private final Duration planNodeScheduledTime;
     private final Duration planNodeCpuTime;
+    private final Duration planNodeBlockedWallTime;
+    private final Duration planNodeAddInputWallTime;
+    private final Duration planNodeGetOutputWallTime;
+    private final Duration planNodeFinishWallTime;
     private final long planNodeInputPositions;
     private final DataSize planNodeInputDataSize;
     private final long planNodeRawInputPositions;
@@ -46,6 +53,7 @@ public class PlanNodeStats
     private final long planNodeOutputPositions;
     private final DataSize planNodeOutputDataSize;
 
+    private final DataSize planNodePeakMemorySize;
     protected final Map<String, OperatorInputStats> operatorInputStats;
     private final long planNodeNullJoinBuildKeyCount;
     private final long planNodeJoinBuildKeyCount;
@@ -53,27 +61,37 @@ public class PlanNodeStats
     private final long planNodeJoinProbeKeyCount;
     private final Optional<DynamicFilterStats> dynamicFilterStats;
 
-    PlanNodeStats(
-            PlanNodeId planNodeId,
-            Duration planNodeScheduledTime,
-            Duration planNodeCpuTime,
-            long planNodeInputPositions,
-            DataSize planNodeInputDataSize,
-            long planNodeRawInputPositions,
-            DataSize planNodeRawInputDataSize,
-            long planNodeOutputPositions,
-            DataSize planNodeOutputDataSize,
-            Map<String, OperatorInputStats> operatorInputStats,
-            long planNodeNullJoinBuildKeyCount,
-            long planNodeJoinBuildKeyCount,
-            long planNodeNullJoinProbeKeyCount,
-            long planNodeJoinProbeKeyCount,
-            Optional<DynamicFilterStats> dynamicFilterStats)
+    @JsonCreator
+    public PlanNodeStats(
+            @JsonProperty("planNodeId") PlanNodeId planNodeId,
+            @JsonProperty("planNodeScheduledTime") Duration planNodeScheduledTime,
+            @JsonProperty("planNodeCpuTime") Duration planNodeCpuTime,
+            @JsonProperty("planNodeBlockedWallTime") Duration planNodeBlockedWallTime,
+            @JsonProperty("planNodeAddInputWallTime") Duration planNodeAddInputWallTime,
+            @JsonProperty("planNodeGetOutputWallTime") Duration planNodeGetOutputWallTime,
+            @JsonProperty("planNodeFinishWallTime") Duration planNodeFinishWallTime,
+            @JsonProperty("planNodeInputPositions") long planNodeInputPositions,
+            @JsonProperty("planNodeInputDataSize") DataSize planNodeInputDataSize,
+            @JsonProperty("planNodeRawInputPositions") long planNodeRawInputPositions,
+            @JsonProperty("planNodeRawInputDataSize") DataSize planNodeRawInputDataSize,
+            @JsonProperty("planNodeOutputPositions") long planNodeOutputPositions,
+            @JsonProperty("planNodeOutputDataSize") DataSize planNodeOutputDataSize,
+            @JsonProperty("planNodePeakMemorySize") DataSize planNodePeakMemorySize,
+            @JsonProperty("operatorInputStats") Map<String, OperatorInputStats> operatorInputStats,
+            @JsonProperty("planNodeNullJoinBuildKeyCount") long planNodeNullJoinBuildKeyCount,
+            @JsonProperty("planNodeJoinBuildKeyCount") long planNodeJoinBuildKeyCount,
+            @JsonProperty("planNodeNullJoinProbeKeyCount") long planNodeNullJoinProbeKeyCount,
+            @JsonProperty("planNodeJoinProbeKeyCount") long planNodeJoinProbeKeyCount,
+            @JsonProperty("dynamicFilterStats") Optional<DynamicFilterStats> dynamicFilterStats)
     {
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
 
         this.planNodeScheduledTime = requireNonNull(planNodeScheduledTime, "planNodeScheduledTime is null");
         this.planNodeCpuTime = requireNonNull(planNodeCpuTime, "planNodeCpuTime is null");
+        this.planNodeBlockedWallTime = requireNonNull(planNodeBlockedWallTime, "planNodeBlockedWallTime is null");
+        this.planNodeAddInputWallTime = requireNonNull(planNodeAddInputWallTime, "planNodeAddInputWallTime is null");
+        this.planNodeGetOutputWallTime = requireNonNull(planNodeGetOutputWallTime, "planNodeGetOutputWallTime is null");
+        this.planNodeFinishWallTime = requireNonNull(planNodeFinishWallTime, "planNodeFinishWallTime is null");
         this.planNodeInputPositions = planNodeInputPositions;
         this.planNodeInputDataSize = planNodeInputDataSize;
         this.planNodeRawInputPositions = planNodeRawInputPositions;
@@ -82,6 +100,7 @@ public class PlanNodeStats
         this.planNodeOutputDataSize = planNodeOutputDataSize;
 
         this.operatorInputStats = requireNonNull(operatorInputStats, "operatorInputStats is null");
+        this.planNodePeakMemorySize = planNodePeakMemorySize;
         this.planNodeNullJoinBuildKeyCount = planNodeNullJoinBuildKeyCount;
         this.planNodeJoinBuildKeyCount = planNodeJoinBuildKeyCount;
         this.planNodeNullJoinProbeKeyCount = planNodeNullJoinProbeKeyCount;
@@ -97,19 +116,53 @@ public class PlanNodeStats
         return sqrt(max(variance, 0d));
     }
 
+    @JsonProperty
     public PlanNodeId getPlanNodeId()
     {
         return planNodeId;
     }
 
+    @JsonProperty
     public Duration getPlanNodeScheduledTime()
     {
         return planNodeScheduledTime;
     }
 
+    @JsonProperty
     public Duration getPlanNodeCpuTime()
     {
         return planNodeCpuTime;
+    }
+
+    @JsonProperty
+    public Duration getPlanNodeBlockedWallTime()
+    {
+        return planNodeBlockedWallTime;
+    }
+
+    @JsonProperty
+    public Duration getPlanNodeAddInputWallTime()
+    {
+        return planNodeAddInputWallTime;
+    }
+
+    @JsonProperty
+    public Duration getPlanNodeGetOutputWallTime()
+    {
+        return planNodeGetOutputWallTime;
+    }
+
+    @JsonProperty
+    public Duration getPlanNodeFinishWallTime()
+    {
+        return planNodeFinishWallTime;
+    }
+
+    @JsonProperty
+    public Map<String, OperatorInputStats> getOperatorInputStats()
+    {
+        // no need to copy, just prevent modifications
+        return Collections.unmodifiableMap(operatorInputStats);
     }
 
     public Set<String> getOperatorTypes()
@@ -117,31 +170,37 @@ public class PlanNodeStats
         return operatorInputStats.keySet();
     }
 
+    @JsonProperty
     public long getPlanNodeInputPositions()
     {
         return planNodeInputPositions;
     }
 
+    @JsonProperty
     public DataSize getPlanNodeInputDataSize()
     {
         return planNodeInputDataSize;
     }
 
+    @JsonProperty
     public long getPlanNodeRawInputPositions()
     {
         return planNodeRawInputPositions;
     }
 
+    @JsonProperty
     public DataSize getPlanNodeRawInputDataSize()
     {
         return planNodeRawInputDataSize;
     }
 
+    @JsonProperty
     public long getPlanNodeOutputPositions()
     {
         return planNodeOutputPositions;
     }
 
+    @JsonProperty
     public DataSize getPlanNodeOutputDataSize()
     {
         return planNodeOutputDataSize;
@@ -166,21 +225,31 @@ public class PlanNodeStats
                                 entry.getValue().getTotalDrivers())));
     }
 
+    @JsonProperty
+    public DataSize getPlanNodePeakMemorySize()
+    {
+        return planNodePeakMemorySize;
+    }
+
+    @JsonProperty
     public long getPlanNodeNullJoinBuildKeyCount()
     {
         return planNodeNullJoinBuildKeyCount;
     }
 
+    @JsonProperty
     public long getPlanNodeJoinBuildKeyCount()
     {
         return planNodeJoinBuildKeyCount;
     }
 
+    @JsonProperty
     public long getPlanNodeNullJoinProbeKeyCount()
     {
         return planNodeNullJoinProbeKeyCount;
     }
 
+    @JsonProperty
     public long getPlanNodeJoinProbeKeyCount()
     {
         return planNodeJoinProbeKeyCount;
@@ -216,6 +285,7 @@ public class PlanNodeStats
         DataSize planNodeRawInputDataSize = succinctBytes((long) ((double) this.planNodeRawInputDataSize.toBytes() + (double) other.planNodeRawInputDataSize.toBytes()));
         long planNodeOutputPositions = this.planNodeOutputPositions + other.planNodeOutputPositions;
         DataSize planNodeOutputDataSize = succinctBytes((long) ((double) this.planNodeOutputDataSize.toBytes() + (double) other.planNodeOutputDataSize.toBytes()));
+        DataSize planNodePeakMemorySize = succinctBytes(Math.max(this.planNodePeakMemorySize.toBytes(), other.planNodePeakMemorySize.toBytes()));
 
         Map<String, OperatorInputStats> operatorInputStats = mergeMaps(this.operatorInputStats, other.operatorInputStats, OperatorInputStats::merge);
         long planNodeNullJoinBuildKeyCount = this.planNodeNullJoinBuildKeyCount + other.planNodeNullJoinBuildKeyCount;
@@ -228,10 +298,16 @@ public class PlanNodeStats
                 planNodeId,
                 new Duration(planNodeScheduledTime.toMillis() + other.getPlanNodeScheduledTime().toMillis(), MILLISECONDS),
                 new Duration(planNodeCpuTime.toMillis() + other.getPlanNodeCpuTime().toMillis(), MILLISECONDS),
+                new Duration(planNodeBlockedWallTime.toMillis() + other.getPlanNodeBlockedWallTime().toMillis(), MILLISECONDS),
+                new Duration(planNodeAddInputWallTime.toMillis() + other.getPlanNodeAddInputWallTime().toMillis(), MILLISECONDS),
+                new Duration(planNodeGetOutputWallTime.toMillis() + other.getPlanNodeGetOutputWallTime().toMillis(), MILLISECONDS),
+                new Duration(planNodeFinishWallTime.toMillis() + other.getPlanNodeFinishWallTime().toMillis(), MILLISECONDS),
                 planNodeInputPositions, planNodeInputDataSize,
                 planNodeRawInputPositions, planNodeRawInputDataSize,
                 planNodeOutputPositions, planNodeOutputDataSize,
+                planNodePeakMemorySize,
                 operatorInputStats,
+
                 planNodeNullJoinBuildKeyCount,
                 planNodeJoinBuildKeyCount,
                 planNodeNullJoinProbeKeyCount,

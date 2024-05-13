@@ -20,13 +20,17 @@ import com.facebook.presto.execution.QueryPerformanceFetcher;
 import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.sql.tree.ExplainFormat;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.jsonDistributedPlan;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textDistributedPlan;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -42,6 +46,7 @@ public class ExplainAnalyzeOperator
         private final QueryPerformanceFetcher queryPerformanceFetcher;
         private final FunctionAndTypeManager functionAndTypeManager;
         private final boolean verbose;
+        private final ExplainFormat.Type format;
         private boolean closed;
 
         public ExplainAnalyzeOperatorFactory(
@@ -49,13 +54,15 @@ public class ExplainAnalyzeOperator
                 PlanNodeId planNodeId,
                 QueryPerformanceFetcher queryPerformanceFetcher,
                 FunctionAndTypeManager functionAndTypeManager,
-                boolean verbose)
+                boolean verbose,
+                ExplainFormat.Type format)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.queryPerformanceFetcher = requireNonNull(queryPerformanceFetcher, "queryPerformanceFetcher is null");
             this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
             this.verbose = verbose;
+            this.format = requireNonNull(format, "format is null");
         }
 
         @Override
@@ -63,7 +70,7 @@ public class ExplainAnalyzeOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, ExplainAnalyzeOperator.class.getSimpleName());
-            return new ExplainAnalyzeOperator(operatorContext, queryPerformanceFetcher, functionAndTypeManager, verbose);
+            return new ExplainAnalyzeOperator(operatorContext, queryPerformanceFetcher, functionAndTypeManager, verbose, format);
         }
 
         @Override
@@ -75,7 +82,7 @@ public class ExplainAnalyzeOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new ExplainAnalyzeOperatorFactory(operatorId, planNodeId, queryPerformanceFetcher, functionAndTypeManager, verbose);
+            return new ExplainAnalyzeOperatorFactory(operatorId, planNodeId, queryPerformanceFetcher, functionAndTypeManager, verbose, format);
         }
     }
 
@@ -83,6 +90,7 @@ public class ExplainAnalyzeOperator
     private final QueryPerformanceFetcher queryPerformanceFetcher;
     private final FunctionAndTypeManager functionAndTypeManager;
     private final boolean verbose;
+    private final ExplainFormat.Type format;
     private boolean finishing;
     private boolean outputConsumed;
 
@@ -90,12 +98,14 @@ public class ExplainAnalyzeOperator
             OperatorContext operatorContext,
             QueryPerformanceFetcher queryPerformanceFetcher,
             FunctionAndTypeManager functionAndTypeManager,
-            boolean verbose)
+            boolean verbose,
+            ExplainFormat.Type format)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.queryPerformanceFetcher = requireNonNull(queryPerformanceFetcher, "queryPerformanceFetcher is null");
         this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
         this.verbose = verbose;
+        this.format = requireNonNull(format, "format is null");
     }
 
     @Override
@@ -144,8 +154,18 @@ public class ExplainAnalyzeOperator
         if (!hasFinalStageInfo(queryInfo.getOutputStage().get())) {
             return null;
         }
+        String plan;
+        switch (format) {
+            case TEXT:
+                plan = textDistributedPlan(queryInfo.getOutputStage().get().getSubStages().get(0), functionAndTypeManager, operatorContext.getSession(), verbose);
+                break;
+            case JSON:
+                plan = jsonDistributedPlan(queryInfo.getOutputStage().get().getSubStages().get(0), functionAndTypeManager, operatorContext.getSession());
+                break;
+            default:
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, "Explain format not supported: " + format);
+        }
 
-        String plan = textDistributedPlan(queryInfo.getOutputStage().get().getSubStages().get(0), functionAndTypeManager, operatorContext.getSession(), verbose);
         BlockBuilder builder = VARCHAR.createBlockBuilder(null, 1);
         VARCHAR.writeString(builder, plan);
 
