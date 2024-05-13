@@ -31,6 +31,8 @@ struct OperationCounters {
   uint64_t localThrottleCount{0};
   uint64_t networkThrottleCount{0};
   uint64_t globalThrottleCount{0};
+  uint64_t fullThrottleCount{0};
+  uint64_t partialThrottleCount{0};
   uint64_t retryCount{0};
   uint64_t latencyInMs{0};
   uint64_t requestCount{0};
@@ -131,7 +133,9 @@ class IoStatistics {
       const uint64_t globalThrottleCount,
       const uint64_t retryCount,
       const uint64_t latencyInMs,
-      const uint64_t delayInjectedInSecs);
+      const uint64_t delayInjectedInSecs,
+      const uint64_t fullThrottleCount = 0,
+      const uint64_t partialThrottleCount = 0);
 
   std::unordered_map<std::string, OperationCounters> operationStats() const;
 
