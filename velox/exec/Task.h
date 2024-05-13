@@ -84,6 +84,10 @@ class Task : public std::enable_shared_from_this<Task> {
       ConsumerSupplier consumerSupplier,
       std::function<void(std::exception_ptr)> onError = nullptr);
 
+  /// Convenience function for shortening a Presto taskId. To be used
+  /// in debugging messages and listings.
+  static std::string shortId(const std::string& id);
+
   ~Task();
 
   /// Specify directory to which data will be spilled if spilling is enabled and
@@ -116,9 +120,9 @@ class Task : public std::enable_shared_from_this<Task> {
     return destination_;
   }
 
-  // Convenience function for shortening a Presto taskId. To be used
-  // in debugging messages and listings.
-  static std::string shortId(const std::string& id);
+  /// Configured cpu slice time limit for drivers. 0 (meaning slicing/yield
+  /// disabled) when task is under serial mode.
+  uint64_t driverCpuTimeSliceLimitMs() const;
 
   /// Returns QueryCtx specified in the constructor.
   const std::shared_ptr<core::QueryCtx>& queryCtx() const {

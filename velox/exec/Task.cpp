@@ -412,6 +412,12 @@ void Task::removeSpillDirectoryIfExists() {
   }
 }
 
+uint64_t Task::driverCpuTimeSliceLimitMs() const {
+  return mode_ == Task::ExecutionMode::kSerial
+      ? 0
+      : queryCtx_->queryConfig().driverCpuTimeSliceLimitMs();
+}
+
 void Task::initTaskPool() {
   VELOX_CHECK_NULL(pool_);
   pool_ = queryCtx_->pool()->addAggregateChild(
