@@ -109,9 +109,9 @@ class RowVector : public BaseVector {
     return childrenSize_;
   }
 
-  // Resize a row vector by adding trailing nulls to the top level row without
-  // resizing children.
-  // Caller should ensure that the vector is unique before calling this method.
+  /// Resize a row vector by adding trailing nulls to the top level row without
+  /// resizing children.
+  /// Caller should ensure that the vector is unique before calling this method.
   void appendNulls(vector_size_t numberOfRows);
 
   /// Get the child vector at a given offset.
@@ -296,8 +296,8 @@ class RowVector : public BaseVector {
   VectorPtr rawVectorForBatchReader_;
 };
 
-// Common parent class for ARRAY and MAP vectors.  Contains 'offsets' and
-// 'sizes' data and provide manipulations on them.
+/// Common parent class for ARRAY and MAP vectors.  Contains 'offsets' and
+/// 'sizes' data and provide manipulations on them.
 struct ArrayVectorBase : BaseVector {
   ArrayVectorBase(const ArrayVectorBase&) = delete;
   const BufferPtr& offsets() const {
@@ -342,8 +342,8 @@ struct ArrayVectorBase : BaseVector {
     BaseVector::resize(size, setNotNull);
   }
 
-  // Its the caller responsibility to make sure that `offsets_` and `sizes_` are
-  // safe to write at index i, i.ex not shared, or not large enough.
+  /// Its the caller responsibility to make sure that `offsets_` and `sizes_`
+  /// are safe to write at index i, i.ex not shared, or not large enough.
   void
   setOffsetAndSize(vector_size_t i, vector_size_t offset, vector_size_t size) {
     DCHECK_LT(i, BaseVector::length_);
@@ -632,17 +632,17 @@ class MapVector : public ArrayVectorBase {
 
   std::string toString(vector_size_t index) const override;
 
-  // Sorts all maps smallest key first. This enables linear time
-  // comparison and log time lookup.  This may only be done if there
-  // are no other references to 'map'. Checks that 'map' is uniquely
-  // referenced. This is guaranteed after construction or when
-  // retrieving values from aggregation or join row containers.
+  /// Sorts all maps smallest key first. This enables linear time
+  /// comparison and log time lookup.  This may only be done if there
+  /// are no other references to 'map'. Checks that 'map' is uniquely
+  /// referenced. This is guaranteed after construction or when
+  /// retrieving values from aggregation or join row containers.
   static void canonicalize(
       const std::shared_ptr<MapVector>& map,
       bool useStableSort = false);
 
-  // Returns indices into the map at 'index' such
-  // that keys[indices[i]] < keys[indices[i + 1]].
+  /// Returns indices into the map at 'index' such
+  /// that keys[indices[i]] < keys[indices[i + 1]].
   std::vector<vector_size_t> sortedKeyIndices(vector_size_t index) const;
 
   void ensureWritable(const SelectivityVector& rows) override;

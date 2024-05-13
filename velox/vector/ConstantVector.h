@@ -88,13 +88,13 @@ class ConstantVector final : public SimpleVector<T> {
     }
   }
 
-  // Creates constant vector with value coming from 'index' element of the
-  // 'base' vector. Base vector can be flat or lazy vector. Base vector cannot
-  // be a constant or dictionary vector. Use BaseVector::wrapInConstant to
-  // automatically peel off encodings of the base vector.
-  //
-  // If base vector is lazy and has not been loaded yet, loading will be delayed
-  // until loadedVector() is called.
+  /// Creates constant vector with value coming from 'index' element of the
+  /// 'base' vector. Base vector can be flat or lazy vector. Base vector cannot
+  /// be a constant or dictionary vector. Use BaseVector::wrapInConstant to
+  /// automatically peel off encodings of the base vector.
+  ///
+  /// If base vector is lazy and has not been loaded yet, loading will be
+  /// delayed until loadedVector() is called.
   ConstantVector(
       velox::memory::MemoryPool* pool,
       vector_size_t length,
@@ -184,13 +184,9 @@ class ConstantVector final : public SimpleVector<T> {
     return &value_;
   }
 
-  /**
-   * Loads a 256bit vector of data at the virtual byteOffset given
-   * Note this method is implemented on each vector type, but is intentionally
-   * not virtual for performance reasons
-   *
-   * @param byteOffset - the byte offset to laod from
-   */
+  /// Loads a 256bit vector of data at the virtual byteOffset given
+  /// Note this method is implemented on each vector type, but is intentionally
+  /// not virtual for performance reasons
   xsimd::batch<T> loadSIMDValueBufferAt(size_t /* byteOffset */) const {
     VELOX_DCHECK(initialized_);
     return valueBuffer_;
@@ -247,8 +243,8 @@ class ConstantVector final : public SimpleVector<T> {
         kDummy);
   }
 
-  // Base vector if isScalar() is false (e.g. complex type vector) or if base
-  // vector is a lazy vector that hasn't been loaded yet.
+  /// Base vector if isScalar() is false (e.g. complex type vector) or if base
+  /// vector is a lazy vector that hasn't been loaded yet.
   const VectorPtr& valueVector() const override {
     return valueVector_;
   }
@@ -257,8 +253,8 @@ class ConstantVector final : public SimpleVector<T> {
     return valueVector_;
   }
 
-  // Index of the element of the base vector that determines the value of this
-  // constant vector.
+  /// Index of the element of the base vector that determines the value of this
+  /// constant vector.
   vector_size_t index() const {
     return index_;
   }

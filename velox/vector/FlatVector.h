@@ -28,9 +28,9 @@
 
 namespace facebook::velox {
 
-// FlatVector is marked final to allow for inlining on virtual methods called
-// on a pointer that has the static type FlatVector<T>; this can be a
-// significant performance win when these methods are called in loops.
+/// FlatVector is marked final to allow for inlining on virtual methods called
+/// on a pointer that has the static type FlatVector<T>; this can be a
+/// significant performance win when these methods are called in loops.
 template <typename T>
 class FlatVector final : public SimpleVector<T> {
  public:
@@ -43,9 +43,9 @@ class FlatVector final : public SimpleVector<T> {
        std::is_same_v<T, int16_t> || std::is_same_v<T, int8_t> ||
        std::is_same_v<T, bool> || std::is_same_v<T, size_t>);
 
-  // Minimum size of a string buffer. 32 KB value is chosen to ensure that a
-  // single buffer is sufficient for a "typical" vector: 1K rows, medium size
-  // strings.
+  /// Minimum size of a string buffer. 32 KB value is chosen to ensure that a
+  /// single buffer is sufficient for a "typical" vector: 1K rows, medium size
+  /// strings.
   static constexpr size_t kInitialStringSize =
       (32 * 1024) - sizeof(AlignedBuffer);
   /// Maximum size of a string buffer to re-use (see
@@ -121,28 +121,23 @@ class FlatVector final : public SimpleVector<T> {
 
   std::unique_ptr<SimpleVector<uint64_t>> hashAll() const override;
 
-  /**
-   * Loads a SIMD vector of data at the virtual byteOffset given
-   * Note this method is implemented on each vector type, but is intentionally
-   * not virtual for performance reasons
-   *
-   * @param byteOffset - the byte offset to load from
-   */
+  /// Loads a SIMD vector of data at the virtual byteOffset given
+  /// Note this method is implemented on each vector type, but is intentionally
+  /// not virtual for performance reasons.
+  /// 'index' indicates the byte offset to load from
   xsimd::batch<T> loadSIMDValueBufferAt(size_t index) const;
 
-  // dictionary vector makes internal usehere for SIMD functions
+  /// dictionary vector makes internal usehere for SIMD functions
   template <typename X>
   friend class DictionaryVector;
 
-  // Sequence vector needs to get shared_ptr to value array
+  /// Sequence vector needs to get shared_ptr to value array
   template <typename X>
   friend class SequenceVector;
 
-  /**
-   * @return a smart pointer holding the values for
-   * this vector. This is used during execution to process over the subset of
-   * values when possible.
-   */
+  /// Returns a smart pointer holding the values for
+  /// this vector. This is used during execution to process over the subset of
+  /// values when possible.
   const BufferPtr& values() const override {
     return values_;
   }
@@ -188,16 +183,12 @@ class FlatVector final : public SimpleVector<T> {
     return values_;
   }
 
-  /**
-   * @return true if this number of comparison values on this vector should use
-   * simd for equality constraint filtering, false to use standard set
-   * examination filtering.
-   */
+  /// Returns true if this number of comparison values on this vector should use
+  /// simd for equality constraint filtering, false to use standard set
+  /// examination filtering.
   bool useSimdEquality(size_t numCmpVals) const;
 
-  /**
-   * @return the raw values of this vector as a continuous array.
-   */
+  /// Returns the raw values of this vector as a continuous array.
   const T* rawValues() const;
 
   const void* valuesAsVoid() const override {
@@ -209,8 +200,8 @@ class FlatVector final : public SimpleVector<T> {
     return reinterpret_cast<const As*>(rawValues_);
   }
 
-  // Bool uses compact representation, use mutableRawValues<uint64_t> and
-  // bits::setBit instead.
+  /// Bool uses compact representation, use mutableRawValues<uint64_t> and
+  /// bits::setBit instead.
   T* mutableRawValues() {
     if (!(values_ && values_->isMutable())) {
       BufferPtr newValues =
@@ -402,12 +393,10 @@ class FlatVector final : public SimpleVector<T> {
     return size;
   }
 
-  /**
-   * Used for vectors of type VARCHAR and VARBINARY to hold data referenced by
-   * StringView's. It is safe to share these among multiple vectors. These
-   * buffers are append only. It is allowed to append data, but it is prohibited
-   * to modify already written data.
-   */
+  /// Used for vectors of type VARCHAR and VARBINARY to hold data referenced by
+  /// StringView's. It is safe to share these among multiple vectors. These
+  /// buffers are append only. It is allowed to append data, but it is
+  /// prohibited to modify already written data.
   const std::vector<BufferPtr>& stringBuffers() const {
     return stringBuffers_;
   }
@@ -447,13 +436,14 @@ class FlatVector final : public SimpleVector<T> {
     return true;
   }
 
-  // Acquire ownership for any string buffer that appears in source, the
-  // function does nothing if the vector type is not Varchar or Varbinary.
-  // The function throws if input encoding is lazy.
+  /// Acquire ownership for any string buffer that appears in source, the
+  /// function does nothing if the vector type is not Varchar or Varbinary.
+  /// The function throws if input encoding is lazy.
   void acquireSharedStringBuffers(const BaseVector* source);
 
-  // Acquire ownership for any string buffer that appears in source or any
-  // of its children recursively. The function throws if input encoding is lazy.
+  /// Acquire ownership for any string buffer that appears in source or any
+  /// of its children recursively. The function throws if input encoding is
+  /// lazy.
   void acquireSharedStringBuffersRecursive(const BaseVector* source);
 
   /// This API is available only for string vectors (T = StringView).

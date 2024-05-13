@@ -89,15 +89,15 @@ struct AsciiInfo {
   folly::Synchronized<SelectivityVector> asciiComputedRows_;
 };
 
-// This class abstracts over various Columnar Storage Formats such that Velox
-// can select the most appropriate one on a per field / per block basis.
-// The goal is to use the most appropriate type to optimize for:
-//   - Lazy deserialization if desired.
-//   - serialization / rehydration cost, ideally we use a smart view into the
-//     data without fully rehydrating.
-//   - serialized bytes
-//   - cpu cost of filtering
-//   - optimize aggregation of sequential values
+/// This class abstracts over various Columnar Storage Formats such that Velox
+/// can select the most appropriate one on a per field / per block basis.
+/// The goal is to use the most appropriate type to optimize for:
+///   - Lazy deserialization if desired.
+///   - serialization / rehydration cost, ideally we use a smart view into the
+///     data without fully rehydrating.
+///   - serialized bytes
+///   - cpu cost of filtering
+///   - optimize aggregation of sequential values
 template <typename T>
 class SimpleVector : public BaseVector {
  public:
