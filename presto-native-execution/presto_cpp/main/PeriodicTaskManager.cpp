@@ -65,9 +65,10 @@ folly::StringPiece getCounterForBlockingReason(
     case velox::exec::BlockingReason::kYield:
       return kCounterNumBlockedYieldDrivers;
     case velox::exec::BlockingReason::kNotBlocked:
+      [[fallthrough]];
+    default:
       return {};
   }
-  return {};
 }
 } // namespace
 
