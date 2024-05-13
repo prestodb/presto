@@ -674,28 +674,6 @@ class TableWriteTest : public HiveConnectorTestBase {
     }
   }
 
-  RowVectorPtr makePartitionsVector(
-      RowVectorPtr input,
-      const std::vector<column_index_t>& partitionChannels) {
-    std::vector<VectorPtr> partitions;
-    std::vector<std::string> partitonKeyNames;
-    std::vector<TypePtr> partitionKeyTypes;
-
-    RowTypePtr inputType = asRowType(input->type());
-    for (column_index_t channel : partitionChannels) {
-      partitions.push_back(input->childAt(channel));
-      partitonKeyNames.push_back(inputType->nameOf(channel));
-      partitionKeyTypes.push_back(inputType->childAt(channel));
-    }
-
-    return std::make_shared<RowVector>(
-        pool(),
-        ROW(std::move(partitonKeyNames), std::move(partitionKeyTypes)),
-        nullptr,
-        input->size(),
-        partitions);
-  }
-
   // Parameter partitionName is string formatted in the Hive style
   // key1=value1/key2=value2/... Parameter partitionTypes are types of partition
   // keys in the same order as in partitionName.The return value is a SQL
