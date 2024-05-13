@@ -82,6 +82,11 @@ public class PlanNodeStatsSummarizer
         Map<PlanNodeId, Long> planNodeOutputBytes = new HashMap<>();
         Map<PlanNodeId, Long> planNodeScheduledMillis = new HashMap<>();
         Map<PlanNodeId, Long> planNodeCpuMillis = new HashMap<>();
+        Map<PlanNodeId, Long> planNodePeakMemory = new HashMap<>();
+        Map<PlanNodeId, Long> planNodeBlockedMillis = new HashMap<>();
+        Map<PlanNodeId, Long> planNodeAddInputMillis = new HashMap<>();
+        Map<PlanNodeId, Long> planNodeGetOutputMillis = new HashMap<>();
+        Map<PlanNodeId, Long> planNodeFinishMillis = new HashMap<>();
         Map<PlanNodeId, Long> planNodeNullJoinBuildKeyCount = new HashMap<>();
         Map<PlanNodeId, Long> planNodeJoinBuildKeyCount = new HashMap<>();
         Map<PlanNodeId, Long> planNodeNullJoinProbeKeyCount = new HashMap<>();
@@ -114,6 +119,11 @@ public class PlanNodeStatsSummarizer
 
                 long cpuMillis = operatorStats.getAddInputCpu().toMillis() + operatorStats.getGetOutputCpu().toMillis() + operatorStats.getFinishCpu().toMillis();
                 planNodeCpuMillis.merge(planNodeId, cpuMillis, Long::sum);
+                planNodeBlockedMillis.merge(planNodeId, operatorStats.getBlockedWall().toMillis(), Long::sum);
+                planNodeAddInputMillis.merge(planNodeId, operatorStats.getAddInputWall().toMillis(), Long::sum);
+                planNodeFinishMillis.merge(planNodeId, operatorStats.getFinishWall().toMillis(), Long::sum);
+                planNodeGetOutputMillis.merge(planNodeId, operatorStats.getGetOutputWall().toMillis(), Long::sum);
+                planNodePeakMemory.merge(planNodeId, operatorStats.getPeakTotalMemoryReservation().toBytes(), Math::max);
 
                 // A pipeline like hash build before join might link to another "internal" pipelines which provide actual input for this plan node
                 if (operatorStats.getPlanNodeId().equals(inputPlanNode) && !pipelineStats.isInputPipeline()) {
@@ -212,12 +222,17 @@ public class PlanNodeStatsSummarizer
                         planNodeId,
                         new Duration(planNodeScheduledMillis.get(planNodeId), MILLISECONDS),
                         new Duration(planNodeCpuMillis.get(planNodeId), MILLISECONDS),
+                        new Duration(planNodeBlockedMillis.get(planNodeId), MILLISECONDS),
+                        new Duration(planNodeAddInputMillis.get(planNodeId), MILLISECONDS),
+                        new Duration(planNodeGetOutputMillis.get(planNodeId), MILLISECONDS),
+                        new Duration(planNodeFinishMillis.get(planNodeId), MILLISECONDS),
                         planNodeInputPositions.get(planNodeId),
                         succinctDataSize(planNodeInputBytes.get(planNodeId), BYTE),
                         planNodeRawInputPositions.get(planNodeId),
                         succinctDataSize(planNodeRawInputBytes.get(planNodeId), BYTE),
                         outputPositions,
                         succinctDataSize(planNodeOutputBytes.getOrDefault(planNodeId, 0L), BYTE),
+                        succinctDataSize(planNodePeakMemory.get(planNodeId), BYTE),
                         operatorInputStats.get(planNodeId),
                         planNodeNullJoinBuildKeyCount.get(planNodeId),
                         planNodeJoinBuildKeyCount.get(planNodeId),
@@ -231,12 +246,17 @@ public class PlanNodeStatsSummarizer
                         planNodeId,
                         new Duration(planNodeScheduledMillis.get(planNodeId), MILLISECONDS),
                         new Duration(planNodeCpuMillis.get(planNodeId), MILLISECONDS),
+                        new Duration(planNodeBlockedMillis.get(planNodeId), MILLISECONDS),
+                        new Duration(planNodeAddInputMillis.get(planNodeId), MILLISECONDS),
+                        new Duration(planNodeGetOutputMillis.get(planNodeId), MILLISECONDS),
+                        new Duration(planNodeFinishMillis.get(planNodeId), MILLISECONDS),
                         planNodeInputPositions.get(planNodeId),
                         succinctDataSize(planNodeInputBytes.get(planNodeId), BYTE),
                         planNodeRawInputPositions.get(planNodeId),
                         succinctDataSize(planNodeRawInputBytes.get(planNodeId), BYTE),
                         outputPositions,
                         succinctDataSize(planNodeOutputBytes.getOrDefault(planNodeId, 0L), BYTE),
+                        succinctDataSize(planNodePeakMemory.get(planNodeId), BYTE),
                         operatorInputStats.get(planNodeId),
                         planNodeNullJoinBuildKeyCount.get(planNodeId),
                         planNodeJoinBuildKeyCount.get(planNodeId),
@@ -250,12 +270,17 @@ public class PlanNodeStatsSummarizer
                         planNodeId,
                         new Duration(planNodeScheduledMillis.get(planNodeId), MILLISECONDS),
                         new Duration(planNodeCpuMillis.get(planNodeId), MILLISECONDS),
+                        new Duration(planNodeBlockedMillis.get(planNodeId), MILLISECONDS),
+                        new Duration(planNodeAddInputMillis.get(planNodeId), MILLISECONDS),
+                        new Duration(planNodeGetOutputMillis.get(planNodeId), MILLISECONDS),
+                        new Duration(planNodeFinishMillis.get(planNodeId), MILLISECONDS),
                         planNodeInputPositions.get(planNodeId),
                         succinctDataSize(planNodeInputBytes.get(planNodeId), BYTE),
                         planNodeRawInputPositions.get(planNodeId),
                         succinctDataSize(planNodeRawInputBytes.get(planNodeId), BYTE),
                         outputPositions,
                         succinctDataSize(planNodeOutputBytes.getOrDefault(planNodeId, 0L), BYTE),
+                        succinctDataSize(planNodePeakMemory.get(planNodeId), BYTE),
                         operatorInputStats.get(planNodeId),
                         planNodeNullJoinBuildKeyCount.get(planNodeId),
                         planNodeJoinBuildKeyCount.get(planNodeId),

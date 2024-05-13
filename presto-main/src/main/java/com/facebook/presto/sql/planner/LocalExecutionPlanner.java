@@ -998,7 +998,8 @@ public class LocalExecutionPlanner
                     node.getId(),
                     analyzeContext.getQueryPerformanceFetcher(),
                     metadata.getFunctionAndTypeManager(),
-                    node.isVerbose());
+                    node.isVerbose(),
+                    node.getFormat());
             return new PhysicalOperation(operatorFactory, makeLayout(node), context, source);
         }
 
