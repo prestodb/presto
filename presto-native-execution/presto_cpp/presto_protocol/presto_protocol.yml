@@ -273,6 +273,7 @@ JavaClasses:
   - presto-main/src/main/java/com/facebook/presto/memory/MemoryInfo.java
   - presto-spi/src/main/java/com/facebook/presto/spi/memory/MemoryPoolInfo.java
   - presto-spi/src/main/java/com/facebook/presto/spi/NodeState.java
+  - presto-main/src/main/java/com/facebook/presto/operator/DynamicFilterStats.java
   - presto-main/src/main/java/com/facebook/presto/operator/OperatorStats.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/Ordering.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/OrderingScheme.java
@@ -356,3 +357,5 @@ JavaClasses:
   - presto-main/src/main/java/com/facebook/presto/connector/system/SystemColumnHandle.java
   - presto-main/src/main/java/com/facebook/presto/connector/system/SystemTableLayoutHandle.java
   - presto-main/src/main/java/com/facebook/presto/connector/system/SystemTransactionHandle.java
+presto-main/src/main/java/com/facebook/presto/operator/OperatorStats:
+  java:
