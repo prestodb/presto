@@ -21,10 +21,10 @@ import com.google.common.hash.HashFunction;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.facebook.presto.common.type.encoding.StringUtils.UTF_8;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.google.common.hash.Hashing.murmur3_32;
 import static java.lang.Math.toIntExact;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.unmodifiableList;
 
 public class ModularHashingNodeProvider

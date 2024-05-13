@@ -104,14 +104,8 @@ class PeriodicTaskManager {
   void addOldTaskCleanupTask();
   void cleanupOldTask();
 
-  void addMemoryAllocatorStatsTask();
-  void updateMemoryAllocatorStats();
-
   void addPrestoExchangeSourceMemoryStatsTask();
   void updatePrestoExchangeSourceMemoryStats();
-
-  void addCacheStatsUpdateTask();
-  void updateCacheStats();
 
   void addConnectorStatsTask();
 
@@ -124,9 +118,6 @@ class PeriodicTaskManager {
   // Adds task that periodically prints http endpoint latency metrics.
   void addHttpEndpointLatencyStatsTask();
   void printHttpEndpointLatencyStats();
-
-  void addArbitratorStatsTask();
-  void updateArbitratorStatsTask();
 
   void addWatchdogTask();
 
