@@ -16,4 +16,4 @@ add_executable(velox_function_registry_test FunctionRegistryTest.cpp)
 add_test(NAME velox_function_registry_test COMMAND velox_function_registry_test)
 
 target_link_libraries(velox_function_registry_test velox_function_registry
-                      gmock gtest gtest_main)
+                      velox_functions_test_lib gmock gtest gtest_main)

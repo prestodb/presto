@@ -62,20 +62,32 @@ using FunctionMap = std::unordered_map<std::string, SignatureMap>;
 
 class SimpleFunctionRegistry {
  public:
+  /// Register a UDF with the given aliases and constraints. If an alias already
+  /// exists and 'overwrite' is true, the existing entry in the function
+  /// registry is overwritten by the current UDF. If an alias already exists and
+  /// 'overwrite' is false, the current UDF is not registered with this alias.
+  /// This method returns true if all 'aliases' are registered successfully. It
+  /// returns false if any alias in 'aliases' already exists in the registry and
+  /// is not overwritten.
   template <typename UDF>
-  void registerFunction(
+  bool registerFunction(
       const std::vector<std::string>& aliases,
-      const std::vector<exec::SignatureVariable>& constraints) {
+      const std::vector<exec::SignatureVariable>& constraints,
+      bool overwrite) {
     const auto& metadata = singletonUdfMetadata<typename UDF::Metadata>(
         UDF::is_default_null_behavior, constraints);
     const auto factory = []() { return CreateUdf<UDF>(); };
 
     if (aliases.empty()) {
-      registerFunctionInternal(metadata->getName(), metadata, factory);
+      return registerFunctionInternal(
+          metadata->getName(), metadata, factory, overwrite);
     } else {
+      bool registered = true;
       for (const auto& name : aliases) {
-        registerFunctionInternal(name, metadata, factory);
+        registered &=
+            registerFunctionInternal(name, metadata, factory, overwrite);
       }
+      return registered;
     }
   }
 
@@ -142,10 +154,17 @@ class SimpleFunctionRegistry {
     return std::make_unique<T>();
   }
 
-  void registerFunctionInternal(
+  /// Registers a function with the given name and metadata. If an entry with
+  /// the name already exists and 'overwrite' is true, the existing entry is
+  /// overwritten. If an entry with the name already exists and 'overwrite' is
+  /// false, the function reigstry remain unchanged. This method returns true if
+  /// the function is successfully registered. It returns false if the function
+  /// registry remains unchanged.
+  bool registerFunctionInternal(
       const std::string& name,
       const std::shared_ptr<const Metadata>& metadata,
-      const FunctionFactory& factory);
+      const FunctionFactory& factory,
+      bool overwrite);
 
   folly::Synchronized<FunctionMap> registeredFunctions_;
 };
@@ -159,13 +178,16 @@ SimpleFunctionRegistry& mutableSimpleFunctions();
 /// @param constraints Additional constraints for variables used in function
 /// signature. Primarily used to specify rules for calculating precision and
 /// scale for decimal result types.
+/// @param overwrite If true, overwrites existing entries in the function
+/// registry with the same names.
 template <typename UDFHolder>
-void registerSimpleFunction(
+bool registerSimpleFunction(
     const std::vector<std::string>& names,
-    const std::vector<exec::SignatureVariable>& constraints) {
-  mutableSimpleFunctions()
+    const std::vector<exec::SignatureVariable>& constraints,
+    bool overwrite) {
+  return mutableSimpleFunctions()
       .registerFunction<SimpleFunctionAdapterFactoryImpl<UDFHolder>>(
-          names, constraints);
+          names, constraints, overwrite);
 }
 
 } // namespace facebook::velox::exec

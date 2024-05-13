@@ -1394,6 +1394,15 @@ TEST_F(SimpleFunctionTest, decimals) {
   // Verify overwrite behavior. Register a different function using the same
   // name and physical signature as decimal_plus_one. Expect the new function to
   // be used for (short) -> short signature.
+  // Not overwrite function registry.
+  registerFunction<
+      DecimalPlusTwoFunction,
+      ShortDecimal<P1, S1>,
+      ShortDecimal<P1, S1>>({"decimal_plus_one"}, {}, false);
+  result = evaluate("decimal_plus_one(c1)", data);
+  assertEqualVectors(expected, result);
+
+  // Overwrite function registry.
   registerFunction<
       DecimalPlusTwoFunction,
       ShortDecimal<P1, S1>,

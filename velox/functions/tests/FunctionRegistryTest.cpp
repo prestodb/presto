@@ -24,6 +24,7 @@
 #include "velox/functions/FunctionRegistry.h"
 #include "velox/functions/Macros.h"
 #include "velox/functions/Registerer.h"
+#include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/type/Type.h"
 
 namespace facebook::velox {
@@ -79,9 +80,18 @@ struct FuncFour {
 
 template <typename T>
 struct FuncFive {
-  FOLLY_ALWAYS_INLINE bool call(
-      int64_t& /* result */,
-      const int64_t& /* arg1 */) {
+  FOLLY_ALWAYS_INLINE bool call(int64_t& result, const int64_t& /* arg1 */) {
+    result = 5;
+    return true;
+  }
+};
+
+// FuncSix has the same signature as FuncFive. It's used to test overwrite
+// during registration.
+template <typename T>
+struct FuncSix {
+  FOLLY_ALWAYS_INLINE bool call(int64_t& result, const int64_t& /* arg1 */) {
+    result = 6;
     return true;
   }
 };
@@ -223,7 +233,7 @@ inline void registerTestFunctions() {
 }
 } // namespace
 
-class FunctionRegistryTest : public ::testing::Test {
+class FunctionRegistryTest : public testing::Test {
  public:
   FunctionRegistryTest() {
     registerTestFunctions();
@@ -588,4 +598,25 @@ TEST_F(FunctionRegistryTest, resolveWithMetadata) {
   result = resolveFunctionWithMetadata("non-existent-function", {VARCHAR()});
   EXPECT_FALSE(result.has_value());
 }
+
+class FunctionRegistryOverwriteTest : public functions::test::FunctionBaseTest {
+ public:
+  FunctionRegistryOverwriteTest() {
+    registerTestFunctions();
+  }
+};
+
+TEST_F(FunctionRegistryOverwriteTest, overwrite) {
+  ASSERT_TRUE((registerFunction<FuncFive, int64_t, int64_t>({"foo"})));
+  ASSERT_FALSE(
+      (registerFunction<FuncSix, int64_t, int64_t>({"foo"}, {}, false)));
+  ASSERT_TRUE((evaluateOnce<int64_t, int64_t>("foo(c0)", 0) == 5));
+  ASSERT_TRUE((registerFunction<FuncSix, int64_t, int64_t>({"foo"})));
+  ASSERT_TRUE((evaluateOnce<int64_t, int64_t>("foo(c0)", 0) == 6));
+
+  auto& simpleFunctions = exec::simpleFunctions();
+  auto signatures = simpleFunctions.getFunctionSignatures("foo");
+  ASSERT_EQ(signatures.size(), 1);
+}
+
 } // namespace facebook::velox

@@ -33,12 +33,13 @@ SimpleFunctionRegistry& mutableSimpleFunctions() {
   return simpleFunctionsInternal();
 }
 
-void SimpleFunctionRegistry::registerFunctionInternal(
+bool SimpleFunctionRegistry::registerFunctionInternal(
     const std::string& name,
     const std::shared_ptr<const Metadata>& metadata,
-    const FunctionFactory& factory) {
+    const FunctionFactory& factory,
+    bool overwrite) {
   const auto sanitizedName = sanitizeName(name);
-  registeredFunctions_.withWLock([&](auto& map) {
+  return registeredFunctions_.withWLock([&](auto& map) {
     SignatureMap& signatureMap = map[sanitizedName];
     auto& functions = signatureMap[*metadata->signature()];
 
@@ -46,6 +47,9 @@ void SimpleFunctionRegistry::registerFunctionInternal(
       const auto& otherMetadata = (*it)->getMetadata();
 
       if (metadata->physicalSignatureEquals(otherMetadata)) {
+        if (!overwrite) {
+          return false;
+        }
         functions.erase(it);
         break;
       }
@@ -60,6 +64,7 @@ void SimpleFunctionRegistry::registerFunctionInternal(
 
     functions.emplace_back(
         std::make_unique<const FunctionEntry>(metadata, factory));
+    return true;
   });
 }
 
