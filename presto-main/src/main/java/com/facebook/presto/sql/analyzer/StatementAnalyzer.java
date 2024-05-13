@@ -94,6 +94,7 @@ import com.facebook.presto.sql.tree.DropView;
 import com.facebook.presto.sql.tree.Except;
 import com.facebook.presto.sql.tree.Execute;
 import com.facebook.presto.sql.tree.Explain;
+import com.facebook.presto.sql.tree.ExplainFormat;
 import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
@@ -273,6 +274,8 @@ import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.ExpressionDeterminismEvaluator.isDeterministic;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionOptimizer;
+import static com.facebook.presto.sql.tree.ExplainFormat.Type.JSON;
+import static com.facebook.presto.sql.tree.ExplainFormat.Type.TEXT;
 import static com.facebook.presto.sql.tree.ExplainType.Type.DISTRIBUTED;
 import static com.facebook.presto.sql.tree.FrameBound.Type.CURRENT_ROW;
 import static com.facebook.presto.sql.tree.FrameBound.Type.FOLLOWING;
@@ -1135,9 +1138,20 @@ class StatementAnalyzer
                 throws SemanticException
         {
             checkState(node.isAnalyze(), "Non analyze explain should be rewritten to Query");
-            if (node.getOptions().stream().anyMatch(option -> !option.equals(new ExplainType(DISTRIBUTED)))) {
-                throw new SemanticException(NOT_SUPPORTED, node, "EXPLAIN ANALYZE only supports TYPE DISTRIBUTED option");
-            }
+            List<ExplainFormat.Type> formats = node.getOptions().stream()
+                    .filter(option -> option instanceof ExplainFormat)
+                    .map(ExplainFormat.class::cast)
+                    .map(ExplainFormat::getType)
+                    .collect(Collectors.toList());
+            checkState(formats.size() <= 1, "only a single format option is supported in EXPLAIN ANALYZE");
+            formats.stream().findFirst().ifPresent(format -> checkState(format.equals(TEXT) || format.equals(JSON),
+                    "only TEXT and JSON formats are supported in EXPLAIN ANALYZE"));
+            checkState(node.getOptions().stream()
+                    .filter(option -> option instanceof ExplainType)
+                    .findFirst()
+                    .map(ExplainType.class::cast)
+                    .map(ExplainType::getType)
+                    .orElse(DISTRIBUTED).equals(DISTRIBUTED), "only DISTRIBUTED type is supported in EXPLAIN ANALYZE");
             process(node.getStatement(), scope);
             analysis.setUpdateType(null);
             return createAndAssignScope(node, scope, Field.newUnqualified(node.getLocation(), "Query Plan", VARCHAR));

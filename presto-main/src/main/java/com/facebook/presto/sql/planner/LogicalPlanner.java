@@ -59,6 +59,7 @@ import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.Explain;
+import com.facebook.presto.sql.tree.ExplainFormat;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.Insert;
@@ -101,6 +102,7 @@ import static com.facebook.presto.sql.planner.plan.TableWriterNode.RefreshMateri
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.UpdateTarget;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import static com.facebook.presto.sql.relational.Expressions.constant;
+import static com.facebook.presto.sql.tree.ExplainFormat.Type.TEXT;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -196,7 +198,12 @@ public class LogicalPlanner
         PlanNode root = underlyingPlan.getRoot();
         Scope scope = analysis.getScope(statement);
         VariableReferenceExpression outputVariable = newVariable(variableAllocator, scope.getRelationType().getFieldByIndex(0));
-        root = new ExplainAnalyzeNode(getSourceLocation(statement), idAllocator.getNextId(), root, outputVariable, statement.isVerbose());
+        ExplainFormat.Type type = statement.getOptions()
+                .stream().filter(option -> option instanceof ExplainFormat)
+                .findFirst().map(ExplainFormat.class::cast)
+                .map(ExplainFormat::getType)
+                .orElse(TEXT);
+        root = new ExplainAnalyzeNode(getSourceLocation(statement), idAllocator.getNextId(), root, outputVariable, statement.isVerbose(), type);
         return new RelationPlan(root, scope, ImmutableList.of(outputVariable));
     }
 
