@@ -195,6 +195,9 @@ Property Name                                      Description                  
                                                    S3SelectPushdown.
 
 ``hive.metastore.load-balancing-enabled``          Enable load balancing between multiple Metastore instances
+
+``hive.skip-empty-files``                          Enable skipping empty files. Otherwise, it will produce an   ``false``
+                                                   error iterating through these files.
 ================================================== ============================================================ ============
 
 Metastore Configuration Properties

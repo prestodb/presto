@@ -292,6 +292,7 @@ public class TestHiveClientConfig
                 .put("hive.quick-stats.max-concurrent-calls", "101")
                 .put("hive.cte-virtual-bucket-count", "256")
                 .put("hive.affinity-scheduling-file-section-size", "512MB")
+                .put("hive.skip-empty-files", "true")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -412,6 +413,8 @@ public class TestHiveClientConfig
                 .setParquetQuickStatsFileMetadataFetchTimeout(new Duration(30, TimeUnit.SECONDS))
                 .setMaxConcurrentParquetQuickStatsCalls(399)
                 .setMaxConcurrentQuickStatsCalls(101)
+                .setAffinitySchedulingFileSectionSize(new DataSize(512, MEGABYTE))
+                .setSkipEmptyFilesEnabled(true);
                 .setCteVirtualBucketCount(256)
                 .setAffinitySchedulingFileSectionSize(new DataSize(512, MEGABYTE));
 

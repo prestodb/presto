@@ -44,7 +44,8 @@ public class HadoopDirectoryLister
                 path,
                 p -> new HadoopFileInfoIterator(fileSystem.listLocatedStatus(p)),
                 namenodeStats,
-                hiveDirectoryContext.getNestedDirectoryPolicy());
+                hiveDirectoryContext.getNestedDirectoryPolicy(),
+                hiveDirectoryContext.isSkipEmptyFilesEnabled());
     }
 
     public static class HadoopFileInfoIterator

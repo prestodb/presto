@@ -67,6 +67,7 @@ import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
 import static com.facebook.presto.hive.HiveSessionProperties.getQuickStatsBackgroundBuildTimeout;
 import static com.facebook.presto.hive.HiveSessionProperties.getQuickStatsInlineBuildTimeout;
 import static com.facebook.presto.hive.HiveSessionProperties.isQuickStatsEnabled;
+import static com.facebook.presto.hive.HiveSessionProperties.isSkipEmptyFilesEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isUseListDirectoryCache;
 import static com.facebook.presto.hive.HiveUtil.buildDirectoryContextProperties;
 import static com.facebook.presto.hive.NestedDirectoryPolicy.IGNORED;
@@ -329,7 +330,7 @@ public class QuickStatsProvider
 
         HdfsContext hdfsContext = new HdfsContext(session, table.getSchemaName(), table.getTableName(), partitionId, false);
         HiveDirectoryContext hiveDirectoryContext = new HiveDirectoryContext(recursiveDirWalkerEnabled ? RECURSE : IGNORED, isUseListDirectoryCache(session),
-                hdfsContext.getIdentity(), buildDirectoryContextProperties(session), session.getRuntimeStats());
+                isSkipEmptyFilesEnabled(session), hdfsContext.getIdentity(), buildDirectoryContextProperties(session), session.getRuntimeStats());
         ExtendedFileSystem fs;
         try {
             fs = hdfsEnvironment.getFileSystem(hdfsContext, path);

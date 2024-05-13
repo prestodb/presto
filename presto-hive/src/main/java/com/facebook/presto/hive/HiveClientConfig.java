@@ -205,6 +205,8 @@ public class HiveClientConfig
 
     private boolean partitionFilteringFromMetastoreEnabled = true;
 
+    private boolean skipEmptyFiles;
+
     private boolean parallelParsingOfPartitionValuesEnabled;
     private int maxParallelParsingConcurrency = 100;
     private boolean quickStatsEnabled;
@@ -1831,5 +1833,18 @@ public class HiveClientConfig
     {
         this.affinitySchedulingFileSectionSize = affinitySchedulingFileSectionSize;
         return this;
+    }
+
+    @Config("hive.skip-empty-files")
+    @ConfigDescription("Enables skip of parquet empty files avoiding output error")
+    public HiveClientConfig setSkipEmptyFilesEnabled(boolean parallelParsingOfPartitionValuesEnabled)
+    {
+        this.skipEmptyFiles = parallelParsingOfPartitionValuesEnabled;
+        return this;
+    }
+
+    public boolean isSkipEmptyFilesEnabled()
+    {
+        return this.skipEmptyFiles;
     }
 }

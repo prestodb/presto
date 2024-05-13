@@ -98,7 +98,8 @@ public class HudiDirectoryLister
                         table.getStorage().getLocation(),
                         p),
                 namenodeStats,
-                hiveDirectoryContext.getNestedDirectoryPolicy());
+                hiveDirectoryContext.getNestedDirectoryPolicy(),
+                hiveDirectoryContext.isSkipEmptyFilesEnabled());
     }
 
     public static class HudiFileInfoIterator
