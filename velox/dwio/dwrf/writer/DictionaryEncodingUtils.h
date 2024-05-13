@@ -80,6 +80,8 @@ class DictionaryEncodingUtils {
     uint32_t newIndex = 0;
     auto dictLengthWriter =
         createBufferedWriter<uint32_t>(pool, 64 * 1024, lengthFn);
+    auto errorGuard =
+        folly::makeGuard([&dictLengthWriter]() { dictLengthWriter.abort(); });
     for (uint32_t i = 0; i != numKeys; ++i) {
       auto origIndex = (sort ? sortedIndex[i] : i);
       if (!dropInfrequentKeys || shouldWriteKey(dictEncoder, origIndex)) {
@@ -94,6 +96,7 @@ class DictionaryEncodingUtils {
         inDict[origIndex] = false;
       }
     }
+    errorGuard.dismiss();
     dictLengthWriter.close();
 
     return newIndex;
