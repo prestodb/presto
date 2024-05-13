@@ -149,7 +149,7 @@ public class TestHiveSkipEmptyFiles
                 PARQUET_2_0);
         logger.info("First file written");
         File secondParquetFile = new File(temporaryDirectory, randomUUID().toString());
-        if (!secondParquetFile.createNewFile()){
+        if (!secondParquetFile.createNewFile()) {
             throw new RuntimeException("Could not create empty file");
         }
         return temporaryDirectory;
