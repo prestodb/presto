@@ -22,6 +22,7 @@ import com.facebook.presto.spi.SplitWeight;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -59,7 +60,7 @@ public class HiveSplit
     private final Optional<EncryptionInformation> encryptionInformation;
     private final Set<ColumnHandle> redundantColumnDomains;
     private final SplitWeight splitWeight;
-    private final Optional<byte[]> rowIdPartitionComponent;
+    private Optional<byte[]> rowIdPartitionComponent;
 
     @JsonCreator
     public HiveSplit(
@@ -244,6 +245,13 @@ public class HiveSplit
     public Optional<byte[]> getRowIdPartitionComponent()
     {
         return rowIdPartitionComponent;
+    }
+
+    // Because tests often mock things that come from Metastore in production
+    @VisibleForTesting
+    public void setRowIdPartitionComponent(Optional<byte[]> rowIdPartitionComponent)
+    {
+        this.rowIdPartitionComponent = rowIdPartitionComponent;
     }
 
     @Override
