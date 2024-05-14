@@ -164,9 +164,7 @@ public class TestingExtendedHiveMetastore
 
             Partition partition = partitions.get(partitionKey);
             if (partition != null) {
-                Partition.Builder builder = Partition.builder(partition)
-                        .setLastDataCommitTime(time);
-                result.put(partitionNameWithVersion.getPartitionName(), Optional.of(builder.build()));
+                result.put(partitionNameWithVersion.getPartitionName(), Optional.of(partition));
             }
             else {
                 result.put(partitionNameWithVersion.getPartitionName(), Optional.empty());
