@@ -341,6 +341,9 @@
                     <ignorePackages>
                         <ignorePackage>com.facebook.presto.testing.assertions</ignorePackage>
                     </ignorePackages>
+                    <ignoreClassNamePatterns>
+                        <ignoreClassNamePattern>com.facebook.presto.common.MockHttpServletRequest</ignoreClassNamePattern>
+                    </ignoreClassNamePatterns>
                 </configuration>
             </plugin>
         </plugins>

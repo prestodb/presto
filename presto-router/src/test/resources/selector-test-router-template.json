@@ -1,0 +1,37 @@
+{
+  "groups": [
+    {
+      "name": "group1",
+      "members": ${SERVERS}
+  },
+    {
+      "name": "group2",
+      "members": ${SERVERS}
+  },
+    {
+      "name": "group3",
+      "members": ${SERVERS}
+  }
+  ],
+  "selectors": [
+    {
+      "targetGroup": "group1",
+      "source": "source1",
+      "user": "user1",
+      "clientTags": [ "tag1" ]
+    },
+    {
+      "targetGroup": "group2",
+      "source": "source2",
+      "user": "user2",
+      "clientTags": [ "tag2" ]
+    },
+    {
+      "targetGroup": "group3",
+      "source": "source3",
+      "user": "user3",
+      "clientTags": [ "tag3" ]
+    }
+  ],
+  "scheduler": "RANDOM_CHOICE"
+}

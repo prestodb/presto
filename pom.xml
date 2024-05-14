@@ -2633,6 +2633,9 @@
                         <exclusionPatterns>
                             <exclusionPattern>org/joda/time/.*</exclusionPattern>
                         </exclusionPatterns>
+                        <ignoreClassNamePatterns>
+                            <ignoreClassNamePattern>com.facebook.presto.common.MockHttpServletRequest</ignoreClassNamePattern>
+                        </ignoreClassNamePatterns>
                     </configuration>
                 </plugin>
 
