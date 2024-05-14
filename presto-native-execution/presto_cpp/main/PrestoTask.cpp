@@ -263,6 +263,14 @@ void updateTaskRuntimeStats(
   }
 }
 
+presto::protocol::DynamicFilterStats toPrestoDynamicFilterStats(
+    const velox::exec::OperatorStats& veloxOpStats) {
+  presto::protocol::DynamicFilterStats dynamicFilterStats;
+  for (const auto& nodeId : veloxOpStats.dynamicFilterStats.producerNodeIds) {
+    dynamicFilterStats.producerNodeIds.emplace_back(nodeId);
+  }
+  return dynamicFilterStats;
+}
 } // namespace
 
 PrestoTask::PrestoTask(
@@ -729,6 +737,10 @@ void PrestoTask::updateExecutionInfoLocked(
       if (veloxOp.operatorType == "HashProbe") {
         prestoOp.joinProbeKeyCount = veloxOp.inputPositions;
         prestoOp.nullJoinProbeKeyCount = veloxOp.numNullKeys;
+      }
+
+      if (!veloxOp.dynamicFilterStats.empty()) {
+        prestoOp.dynamicFilterStats = toPrestoDynamicFilterStats(veloxOp);
       }
 
       for (const auto& stat : veloxOp.runtimeStats) {
