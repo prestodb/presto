@@ -4,8 +4,8 @@
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
 
-    <meta name="description" content="Cluster Overview - Presto">
-    <title>Cluster Overview - Presto</title>
+    <meta name="description" content="SQL Client - Presto">
+    <title>SQL Client - Presto</title>
 
     <link rel="icon" href="assets/favicon.ico">
 
@@ -24,9 +24,6 @@
     <!-- Bootstrap JS -->
     <script type="text/javascript" src="vendor/bootstrap/js/bootstrap.js"></script>
 
-    <!-- Sparkline -->
-    <script type="text/javascript" src="vendor/jquery.sparkline/jquery.sparkline.min.js"></script>
-
     <!-- CSS loader -->
     <link href="vendor/css-loaders/loader.css" rel="stylesheet">
 
@@ -39,22 +36,14 @@
 <div class="container">
     <div id="title"></div>
 
-    <div class="hud-container">
-        <div id="cluster-hud">
+    <div class="container">
+        <div id="sql-client">
             <div class="loader">Loading...</div>
         </div>
     </div>
-
-    <div id="query-list-container">
-        <div id="query-list-title">
-            Query Details
-        </div>
-        <div id="query-list" class="font-white"><div class="loader">Loading...</div></div>
-    </div>
-
 </div> <!-- /container -->
 
-<script type="text/javascript" src="dist/index.js"></script>
+<script type="text/javascript" src="sql_client.js"></script>
 
 <!-- Fonts -->
 <link href="https://fonts.googleapis.com/css?family=Roboto:400,500,700" rel="stylesheet">

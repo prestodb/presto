@@ -25,6 +25,7 @@
     "@prestodb/presto-js-client": "^1.0.0",
     "antlr4": "^4.13.1-patch-1",
     "clsx": "^2.1.0",
+    "copy-webpack-plugin": "^12.0.2",
     "d3": "^5.7.0",
     "dagre-d3": "^0.6.1",
     "prismjs": "^1.29.0",
@@ -37,9 +38,7 @@
   },
   "scripts": {
     "install": "webpack --env=production --config webpack.config.js",
-    "package": "webpack --env=production --config webpack.config.js",
     "watch": "webpack --config webpack.config.js --watch",
-    "serve": "webpack serve --config webpack.config.js",
-    "spa": "webpack  --env=production --config webpack-single-page.config.js"
+    "serve": "webpack serve --config webpack.config.js"
   }
 }

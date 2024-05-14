@@ -82,6 +82,11 @@
         </dependency>
 
         <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-ui</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>com.google.code.findbugs</groupId>
             <artifactId>jsr305</artifactId>
         </dependency>
@@ -552,31 +557,13 @@
                 </configuration>
             </plugin>
             <plugin>
-                <groupId>com.github.eirslett</groupId>
-                <artifactId>frontend-maven-plugin</artifactId>
-                <version>1.15.0</version>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
                 <configuration>
-                    <installDirectory>target</installDirectory>
-                    <workingDirectory>src/main/resources/webapp/src</workingDirectory>
+                    <ignoredDependencies>
+                        <ignoredDependency>com.facebook.presto:presto-ui:jar</ignoredDependency>
+                    </ignoredDependencies>
                 </configuration>
-                <executions>
-                    <execution>
-                        <id>install node and yarn</id>
-                        <goals>
-                            <goal>install-node-and-yarn</goal>
-                        </goals>
-                        <configuration>
-                            <nodeVersion>v18.20.2</nodeVersion>
-                            <yarnVersion>v1.22.22</yarnVersion>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>yarn install</id>
-                        <goals>
-                            <goal>yarn</goal>
-                        </goals>
-                    </execution>
-                </executions>
             </plugin>
         </plugins>
     </build>
