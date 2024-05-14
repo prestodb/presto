@@ -48,7 +48,7 @@ std::optional<StringView> matchAuthorityAndPath(
   }
 
   if (authorityMatch[subGroup].matched) {
-    return submatch(authorityMatch, subGroup);
+    return detail::submatch(authorityMatch, subGroup);
   }
 
   return std::nullopt;

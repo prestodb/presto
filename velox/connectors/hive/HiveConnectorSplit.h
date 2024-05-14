@@ -81,7 +81,7 @@ struct HiveConnectorSplit : public connector::ConnectorSplit {
     return fmt::format("Hive: {} {} - {}", filePath, start, length);
   }
 
-  std::string getFileName() const {
+  std::string getFileName() const override {
     auto i = filePath.rfind('/');
     return i == std::string::npos ? filePath : filePath.substr(i + 1);
   }

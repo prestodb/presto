@@ -31,3 +31,9 @@ Miscellaneous Functions
     ``seed`` must be constant. ::
 
         SELECT uuid(0);    -- "8c7f0aac-97c4-4a2f-b716-a675d821ccc0"
+
+.. spark:function:: input_file_name() => string
+
+    Returns the name of the file being read, or empty string if not available.
+    The returned file name align with vinalla spark implementation is
+    always valid url-encoded string if available.

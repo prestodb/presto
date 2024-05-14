@@ -51,6 +51,7 @@ class TableScan : public SourceOperator {
       const std::shared_ptr<common::Filter>& filter) override;
 
  private:
+  void setInputFileName(std::shared_ptr<connector::ConnectorSplit> split);
   // Checks if this table scan operator needs to yield before processing the
   // next split.
   bool shouldYield(StopReason taskStopReason, size_t startTimeMs) const;

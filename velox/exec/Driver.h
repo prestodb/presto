@@ -267,6 +267,7 @@ struct DriverCtx {
   /// Id of the partition to use by this driver. For local exchange, for
   /// instance.
   const uint32_t partitionId;
+  std::string inputFileName;
 
   std::shared_ptr<Task> task;
   Driver* driver;

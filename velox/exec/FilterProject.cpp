@@ -131,7 +131,11 @@ RowVectorPtr FilterProject::getOutput() {
   auto* rows = localRows.get();
   VELOX_DCHECK_NOT_NULL(rows)
   rows->setAll();
-  EvalCtx evalCtx(operatorCtx_->execCtx(), exprs_.get(), input_.get());
+  EvalCtx evalCtx(
+      operatorCtx_->execCtx(),
+      exprs_.get(),
+      input_.get(),
+      operatorCtx_->driverCtx());
 
   // Pre-load lazy vectors which are referenced by both expressions and identity
   // projections.

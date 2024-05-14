@@ -32,7 +32,8 @@ add_library(
   Size.cpp
   SplitFunctions.cpp
   String.cpp
-  UnscaledValueFunction.cpp)
+  UnscaledValueFunction.cpp
+  InputFileName.cpp)
 
 # GCC 12 has a bug where it does not respect "pragma ignore" directives and ends
 # up failing compilation in an openssl header included by a hash-related
