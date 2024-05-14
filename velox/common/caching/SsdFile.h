@@ -278,12 +278,6 @@ class SsdFile {
   // Adds 'stats_' to 'stats'.
   void updateStats(SsdCacheStats& stats) const;
 
-  /// Resets this' to a post-construction empty state. See SsdCache::clear().
-  void testingClear();
-
-  // Deletes the backing file. Used in testing.
-  void deleteFile();
-
   /// Remove cached entries of files in the fileNum set 'filesToRemove'. If
   /// successful, return true, and 'filesRetained' contains entries that should
   /// not be removed, ex., from pinned regions. Otherwise, return false and
@@ -298,13 +292,24 @@ class SsdFile {
   // written since last checkpoint and silently returns if not.
   void checkpoint(bool force = false);
 
-  /// Returns true if copy on write is disabled for this file. Used in testing.
-  bool testingIsCowDisabled() const;
-
-  /// Return the SSD file path.
+  /// Returns the SSD file path.
   const std::string& fileName() const {
     return fileName_;
   }
+
+  /// Returns the eviction log file path.
+  std::string getEvictLogFilePath() const {
+    return fileName_ + kLogExtension;
+  }
+
+  /// Deletes the backing file. Used in testing.
+  void testingDeleteFile();
+
+  /// Resets this' to a post-construction empty state. See SsdCache::clear().
+  void testingClear();
+
+  /// Returns true if copy on write is disabled for this file. Used in testing.
+  bool testingIsCowDisabled() const;
 
   std::vector<double> testingCopyScores() {
     return tracker_.copyScores();
@@ -377,6 +382,24 @@ class SsdFile {
   // Synchronously logs that 'regions' are no longer valid in a possibly
   // existing checkpoint.
   void logEviction(const std::vector<int32_t>& regions);
+
+  // Returns true if checkpoint has been enabled.
+  bool checkpointEnabled() const {
+    return checkpointIntervalBytes_ > 0;
+  }
+
+  // Returns true if checkpoint is needed.
+  bool needCheckpoint(bool force) const {
+    if (!checkpointEnabled()) {
+      return false;
+    }
+    return force || (bytesAfterCheckpoint_ >= checkpointIntervalBytes_);
+  }
+
+  // Returns the checkpoint file path.
+  std::string getCheckpointFilePath() const {
+    return fileName_ + kCheckpointExtension;
+  }
 
   static constexpr const char* kLogExtension = ".log";
   static constexpr const char* kCheckpointExtension = ".cpt";

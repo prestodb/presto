@@ -62,13 +62,13 @@ class CacheTest : public testing::Test {
   }
 
   void TearDown() override {
-    executor_->join();
-    auto ssdCache = cache_->ssdCache();
-    if (ssdCache) {
-      ssdCache->testingDeleteFiles();
-    }
     if (cache_) {
       cache_->shutdown();
+    }
+    executor_->join();
+    auto* ssdCache = cache_->ssdCache();
+    if (ssdCache) {
+      ssdCache->testingDeleteFiles();
     }
   }
 

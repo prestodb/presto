@@ -87,14 +87,6 @@ class SsdCache {
     return *groupStats_;
   }
 
-  /// Drops all entries. Outstanding pins become invalid but reading them will
-  /// mostly succeed since the files will not be rewritten until new content is
-  /// stored.
-  void testingClear();
-
-  /// Deletes backing files. Used in testing.
-  void testingDeleteFiles();
-
   /// Stops writing to the cache files and waits for pending writes to finish.
   /// If checkpointing is on, makes a checkpoint.
   void shutdown();
@@ -105,18 +97,35 @@ class SsdCache {
     return filePrefix_;
   }
 
+  /// Drops all entries. Outstanding pins become invalid but reading them will
+  /// mostly succeed since the files will not be rewritten until new content is
+  /// stored.
+  void testingClear();
+
+  /// Deletes backing files. Used in testing.
+  void testingDeleteFiles();
+
+  /// Returns the total size of eviction log files. Used in testing.
+  uint64_t testingTotalLogEvictionFilesSize();
+
  private:
+  void checkNotShutdownLocked() {
+    VELOX_CHECK(
+        !shutdown_, "Unexpected write after SSD cache has been shutdown");
+  }
+
   const std::string filePrefix_;
   const int32_t numShards_;
   // Stats for selecting entries to save from AsyncDataCache.
   const std::unique_ptr<FileGroupStats> groupStats_;
   folly::Executor* const executor_;
+  mutable std::mutex mutex_;
 
   std::vector<std::unique_ptr<SsdFile>> files_;
 
   // Count of shards with unfinished writes.
   std::atomic_int32_t writesInProgress_{0};
-  std::atomic_bool isShutdown_{false};
+  bool shutdown_{false};
 };
 
 } // namespace facebook::velox::cache

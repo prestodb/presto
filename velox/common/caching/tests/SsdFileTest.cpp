@@ -48,7 +48,7 @@ class SsdFileTest : public testing::Test {
 
   void TearDown() override {
     if (ssdFile_) {
-      ssdFile_->deleteFile();
+      ssdFile_->testingDeleteFile();
     }
     if (cache_) {
       cache_->shutdown();
