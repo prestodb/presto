@@ -19,4 +19,6 @@ add_library(
 target_link_libraries(velox_hive_iceberg_splitreader velox_connector
                       Folly::folly)
 
-add_subdirectory(tests)
+if(${VELOX_BUILD_TESTING})
+  add_subdirectory(tests)
+endif()
