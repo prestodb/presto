@@ -24,6 +24,8 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Optional;
 
 import static com.facebook.presto.common.RuntimeUnit.NONE;
@@ -39,6 +41,10 @@ public class TestOperatorStats
     private static final String TEST_METRIC_NAME = "test_metric";
     private static final RuntimeMetric TEST_RUNTIME_METRIC_1 = new RuntimeMetric(TEST_METRIC_NAME, NONE, 10, 2, 9, 1);
     private static final RuntimeMetric TEST_RUNTIME_METRIC_2 = new RuntimeMetric(TEST_METRIC_NAME, NONE, 5, 2, 3, 2);
+    private static final DynamicFilterStats TEST_DYNAMIC_FILTER_STATS_1 = new DynamicFilterStats(new HashSet<>(Arrays.asList(new PlanNodeId[] {new PlanNodeId("1"),
+            new PlanNodeId("2")})));
+    private static final DynamicFilterStats TEST_DYNAMIC_FILTER_STATS_2 = new DynamicFilterStats(new HashSet<>(Arrays.asList(new PlanNodeId[] {new PlanNodeId("2"),
+            new PlanNodeId("3")})));
 
     public static final OperatorStats EXPECTED = new OperatorStats(
             0,
@@ -86,8 +92,10 @@ public class TestOperatorStats
             new DataSize(25, BYTE),
 
             Optional.empty(),
+
             NON_MERGEABLE_INFO,
             new RuntimeStats(ImmutableMap.of(TEST_METRIC_NAME, RuntimeMetric.copyOf(TEST_RUNTIME_METRIC_1))),
+            TEST_DYNAMIC_FILTER_STATS_1,
             0,
             0,
             0,
@@ -140,6 +148,7 @@ public class TestOperatorStats
             Optional.empty(),
             MERGEABLE_INFO,
             new RuntimeStats(ImmutableMap.of(TEST_METRIC_NAME, RuntimeMetric.copyOf(TEST_RUNTIME_METRIC_2))),
+            TEST_DYNAMIC_FILTER_STATS_2,
             0,
             0,
             0,
@@ -208,6 +217,7 @@ public class TestOperatorStats
         assertEquals(actual.getInfo().getClass(), SplitOperatorInfo.class);
         assertEquals(((SplitOperatorInfo) actual.getInfo()).getSplitInfo(), NON_MERGEABLE_INFO.getSplitInfo());
         assertRuntimeMetricEquals(actual.getRuntimeStats().getMetric(TEST_METRIC_NAME), TEST_RUNTIME_METRIC_1);
+        assertEquals(actual.getDynamicFilterStats().getProducerNodeIds(), TEST_DYNAMIC_FILTER_STATS_1.getProducerNodeIds());
     }
 
     @Test
@@ -257,6 +267,7 @@ public class TestOperatorStats
         RuntimeMetric expectedMetric = RuntimeMetric.merge(TEST_RUNTIME_METRIC_1, TEST_RUNTIME_METRIC_1);
         expectedMetric.mergeWith(TEST_RUNTIME_METRIC_1);
         assertRuntimeMetricEquals(actual.getRuntimeStats().getMetric(TEST_METRIC_NAME), expectedMetric);
+        assertEquals(actual.getDynamicFilterStats().getProducerNodeIds(), TEST_DYNAMIC_FILTER_STATS_1.getProducerNodeIds());
     }
 
     @Test
@@ -308,5 +319,6 @@ public class TestOperatorStats
         RuntimeMetric expectedMetric = RuntimeMetric.merge(TEST_RUNTIME_METRIC_2, TEST_RUNTIME_METRIC_2);
         expectedMetric.mergeWith(TEST_RUNTIME_METRIC_2);
         assertRuntimeMetricEquals(actual.getRuntimeStats().getMetric(TEST_METRIC_NAME), expectedMetric);
+        assertEquals(actual.getDynamicFilterStats().getProducerNodeIds(), TEST_DYNAMIC_FILTER_STATS_2.getProducerNodeIds());
     }
 }
