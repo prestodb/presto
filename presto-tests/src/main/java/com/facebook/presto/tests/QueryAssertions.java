@@ -312,7 +312,7 @@ public final class QueryAssertions
         }
     }
 
-    protected static void assertQuerySucceeds(QueryRunner queryRunner, Session session, @Language("SQL") String sql)
+    static void assertQuerySucceeds(QueryRunner queryRunner, Session session, @Language("SQL") String sql)
     {
         try {
             queryRunner.execute(session, sql);
@@ -322,7 +322,7 @@ public final class QueryAssertions
         }
     }
 
-    protected static void assertQueryFailsEventually(QueryRunner queryRunner, Session session, @Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp, Duration timeout)
+    static void assertQueryFailsEventually(QueryRunner queryRunner, Session session, @Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp, Duration timeout)
     {
         long start = System.nanoTime();
         while (!Thread.currentThread().isInterrupted()) {
@@ -339,7 +339,7 @@ public final class QueryAssertions
         }
     }
 
-    protected static void assertQueryFails(QueryRunner queryRunner, Session session, @Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
+    static void assertQueryFails(QueryRunner queryRunner, Session session, @Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
     {
         try {
             queryRunner.execute(session, sql);
@@ -350,7 +350,7 @@ public final class QueryAssertions
         }
     }
 
-    protected static void assertQueryReturnsEmptyResult(QueryRunner queryRunner, Session session, @Language("SQL") String sql)
+    static void assertQueryReturnsEmptyResult(QueryRunner queryRunner, Session session, @Language("SQL") String sql)
     {
         try {
             MaterializedResult results = queryRunner.execute(session, sql).toTestTypes();
