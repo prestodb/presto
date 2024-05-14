@@ -189,7 +189,7 @@ public class TestPostgreSqlIntegrationSmokeTest
         Map<String, String> properties = ImmutableMap.of("deprecated.legacy-char-to-varchar-coercion", "true");
         Map<String, String> connectorProperties = ImmutableMap.of("connection-url", postgreSqlServer.getJdbcUrl());
 
-        try (QueryRunner queryRunner = new DistributedQueryRunner(getSession(), 3, properties);) {
+        try (QueryRunner queryRunner = new DistributedQueryRunner(getSession(), 3, properties)) {
             queryRunner.installPlugin(new PostgreSqlPlugin());
             queryRunner.createCatalog("postgresql", "postgresql", connectorProperties);
 
