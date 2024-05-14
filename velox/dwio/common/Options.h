@@ -135,7 +135,6 @@ class RowReaderOptions {
   // operations.
   std::shared_ptr<folly::Executor> decodingExecutor_;
   size_t decodingParallelismFactor_{0};
-  bool appendRowNumberColumn_ = false;
   std::optional<RowNumberColumnInfo> rowNumberColumnInfo_ = std::nullopt;
 
   // Function to populate metrics related to feature projection stats
