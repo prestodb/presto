@@ -63,7 +63,7 @@ public final class CodecSupplier<T>
         {
             Type type = metadata.getType(parseTypeSignature(value));
             if (type == null) {
-                throw new IllegalArgumentException(String.valueOf("Unknown type " + value));
+                throw new IllegalArgumentException("Unknown type " + value);
             }
             return type;
         }

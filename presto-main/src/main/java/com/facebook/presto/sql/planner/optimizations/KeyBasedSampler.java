@@ -178,7 +178,7 @@ public class KeyBasedSampler
                 tableName = ((TableScanNode) tableScanNode).getTable().getConnectorHandle().toString();
             }
             else {
-                tableName = "plan node: " + String.valueOf(tableScanNode.getId());
+                tableName = "plan node: " + tableScanNode.getId();
             }
 
             sampledFields.add(String.format("%s from %s", rowExpression, tableName));
