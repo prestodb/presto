@@ -421,5 +421,11 @@ void registerVeloxMetrics() {
   // flushed due to memory reclaiming.
   DEFINE_METRIC(
       kMetricFileWriterEarlyFlushedRawBytes, facebook::velox::StatType::SUM);
+
+  // The current spilling memory usage in bytes.
+  DEFINE_METRIC(kMetricSpillMemoryBytes, facebook::velox::StatType::AVG);
+
+  // The peak spilling memory usage in bytes.
+  DEFINE_METRIC(kMetricSpillPeakMemoryBytes, facebook::velox::StatType::AVG);
 }
 } // namespace facebook::velox

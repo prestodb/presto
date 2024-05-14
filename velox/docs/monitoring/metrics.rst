@@ -414,6 +414,12 @@ Spilling
    * - file_writer_early_flushed_raw_bytes
      - Sum
      - Number of bytes pre-maturely flushed from file writers because of memory reclaiming.
+   * - spill_memory_bytes
+     - Avg
+     - The current spilling memory usage in bytes.
+   * - spill_peak_memory_bytes
+     - Avg
+     - The peak spilling memory usage in bytes.
 
 Hive Connector
 --------------
