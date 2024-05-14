@@ -239,6 +239,9 @@ public class HiveColumnHandle
         return new HiveColumnHandle(FILE_MODIFIED_TIME_COLUMN_NAME, FILE_MODIFIED_TIME_TYPE, FILE_MODIFIED_TIME_TYPE_SIGNATURE, FILE_MODIFIED_TIME_COLUMN_INDEX, SYNTHESIZED, Optional.empty(), ImmutableList.of(), Optional.empty());
     }
 
+    // TODO(elharo) a problem here could result in the off by one issues we see
+    // since nothing would be coerced to a row ID. This includes calling this with
+    // the wrong kind of number.
     public static boolean isRowIdColumnHandle(HiveColumnHandle column)
     {
         return column.getHiveColumnIndex() == ROW_ID_COLUMN_INDEX;

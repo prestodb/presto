@@ -389,6 +389,7 @@ public class OrcSelectivePageSourceFactory
                     appendRowNumberEnabled,
                     partitionID,
                     rowGroupId,
+                    // TODO(elharo): this always returns false because presentcolumns doesn't contain negative numbers!
                     recordReader.isColumnPresent(OrcSelectivePageSource.ROW_ID_COLUMN_INDEX));
         }
         catch (Exception e) {

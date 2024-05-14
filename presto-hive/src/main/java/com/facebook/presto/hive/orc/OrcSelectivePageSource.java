@@ -71,8 +71,9 @@ public class OrcSelectivePageSource
         this.runtimeStats = runtimeStats;
         this.appendRowNumberEnabled = appendRowNumberEnabled;
         this.coercer = new RowIDCoercer(rowIDPartitionComponent, rowGroupId);
-        // TODO can we combine supplyRowIDs and rowIDColumnIndex by using
+        // TODO(elharo): can we combine supplyRowIDs and rowIDColumnIndex by using
         // rowIDColumnIndex.isPresent() instead of a separate supplyRowIDs argument?
+        // maybe we can pull this positive rowIDColumnIndex from this class and use it in presentcolumns check
         this.supplyRowIDs = supplyRowIDs;
         this.rowIDColumnIndex = recordReader.toZeroBasedColumnIndex(ROW_ID_COLUMN_INDEX);
     }
@@ -115,6 +116,7 @@ public class OrcSelectivePageSource
             if (page == null) {
                 close();
             }
+            // TODO(elharo): make sure you hit this code
             else if (supplyRowIDs) { // If we need a row ID block, synthesize it here.
                 page = fillInRowIDs(page);
             }

@@ -186,6 +186,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
         for (int column : includedColumns.keySet()) {
             // an old file can have fewer columns since columns can be added
             // after the file was written
+            // TODO(elharo) presentColumns contains no number < 0 but row ID is -10!
             if (column >= 0 && column < root.getFieldCount()) {
                 presentColumns.add(column);
             }

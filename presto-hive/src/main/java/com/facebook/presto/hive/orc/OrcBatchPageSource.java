@@ -135,6 +135,8 @@ public class OrcBatchPageSource
             typesBuilder.add(type);
 
             hiveColumnIndexes[columnIndex] = column.getHiveColumnIndex();
+            // TODO(elharo) a problem here could result in the off by one issues we see
+            // since nothing would be coerced to a row ID
             rowIDColumnIndexes[columnIndex] = HiveColumnHandle.isRowIdColumnHandle(column);
 
             if (!recordReader.isColumnPresent(column.getHiveColumnIndex())) {
@@ -195,12 +197,15 @@ public class OrcBatchPageSource
                 if (isRowPositionColumn(fieldId)) {
                     blocks[fieldId] = getRowPosColumnBlock(recordReader.getFilePosition(), batchSize);
                 }
+                // TODO(elharo) a problem here could result in the off by one issues we see
+                // since nothing would be coerced to a row ID and we wouldn't even fill in that field
+                // The block would be null or get a lazy block below
                 else if (isRowIDColumn(fieldId)) {
                     Block rowNumbers = getRowPosColumnBlock(recordReader.getFilePosition(), batchSize);
                     Block rowIDs = coercer.apply(rowNumbers);
                     blocks[fieldId] = rowIDs;
                 }
-                else {
+                else { // TODO(elharo) else if else instead of nested if block
                     if (constantBlocks[fieldId] != null) {
                         blocks[fieldId] = constantBlocks[fieldId].getRegion(0, batchSize);
                     }
