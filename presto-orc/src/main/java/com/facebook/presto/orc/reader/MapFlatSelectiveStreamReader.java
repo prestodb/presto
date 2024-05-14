@@ -404,6 +404,7 @@ public class MapFlatSelectiveStreamReader
             throws IOException
     {
         presentStream = presentStreamSource.openStream();
+        checkNotNull("dd");
 
         for (int i = 0; i < keyCount; i++) {
             BooleanInputStream inMapStream = checkNotNull(inMapStreamSources.get(i).openStream(), "missing inMapStream at position %s", i);
