@@ -11,17 +11,17 @@ set -euo pipefail
 # https://stackoverflow.com/questions/69692842/error-message-error0308010cdigital-envelope-routinesunsupported
 export NODE_OPTIONS=--openssl-legacy-provider
 
-WEBUI_ROOT="$(pwd)/${BASH_SOURCE%/*}/../src/main/resources/webapp"
+WEBUI_ROOT="$(pwd)/${BASH_SOURCE%/*}/../src"
 
 # Make sure the generated lockfile is the same as the check-in version.
 
 pushd $(mktemp -d)
 
-cp "${WEBUI_ROOT}/src/yarn.lock" .
+cp "${WEBUI_ROOT}/yarn.lock" .
 
-yarn --cwd ${WEBUI_ROOT}/src/ install
+yarn --cwd ${WEBUI_ROOT}/ install
 
-if ! diff -u ${WEBUI_ROOT}/src/yarn.lock yarn.lock; then
+if ! diff -u ${WEBUI_ROOT}/yarn.lock yarn.lock; then
     echo "Generated lockfile did not match checked-in version"
     echo "Refer to the CONTRIBUTING.md for instructions"
     exit 1
@@ -31,7 +31,7 @@ popd
 
 # Fail on flow warnings
 
-if ! yarn --cwd ${WEBUI_ROOT}/src/ run flow; then
+if ! yarn --cwd ${WEBUI_ROOT}/ run flow; then
     echo "ERROR: Flow found type errors while performing static analysis"
     exit 1
 fi

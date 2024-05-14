@@ -25,6 +25,7 @@ jobs:
         filters: |
           codechange:
             - '!presto-docs/**'
+            - 'presto-ui/**'
   web-ui-checks:
     runs-on: ubuntu-latest
     needs: changes
@@ -38,4 +39,4 @@ jobs:
         with:
           show-progress: false
       - name: Web UI Checks
-        run: presto-main/bin/check_webui.sh
+        run: presto-ui/bin/check_webui.sh
