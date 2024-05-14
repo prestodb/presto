@@ -19,7 +19,7 @@
 #include <gtest/gtest.h>
 #include <unordered_set>
 
-#include "velox/exec/tests/JoinFuzzerRunner.h"
+#include "velox/exec/fuzzer/JoinFuzzerRunner.h"
 
 DEFINE_int64(
     seed,

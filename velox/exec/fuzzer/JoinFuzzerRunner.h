@@ -20,7 +20,7 @@
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/memory/SharedArbitrator.h"
 #include "velox/exec/MemoryReclaimer.h"
-#include "velox/exec/tests/JoinFuzzer.h"
+#include "velox/exec/fuzzer/JoinFuzzer.h"
 #include "velox/serializers/PrestoSerializer.h"
 
 /// Join FuzzerRunner leverages JoinFuzzer and VectorFuzzer to
