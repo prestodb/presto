@@ -607,3 +607,19 @@ TEST_F(LazyVectorTest, lazyWithDictionaryInConstant) {
     EXPECT_EQ(constant->as<SimpleVector<int32_t>>()->valueAt(i), 7);
   }
 }
+
+TEST_F(LazyVectorTest, reset) {
+  static constexpr int32_t kVectorSize = 10;
+  auto loader = [&](RowSet rows) {
+    return makeFlatVector<int32_t>(
+        rows.back() + 1, [](auto row) { return row; });
+  };
+  LazyVector lazy(
+      pool_.get(),
+      INTEGER(),
+      kVectorSize,
+      std::make_unique<test::SimpleVectorLoader>(loader));
+  lazy.setNull(0, true);
+  lazy.reset(std::make_unique<test::SimpleVectorLoader>(loader), kVectorSize);
+  ASSERT_EQ(lazy.nulls(), nullptr);
+}
