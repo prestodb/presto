@@ -200,13 +200,11 @@ public class OrcBatchPageSource
                     Block rowIDs = coercer.apply(rowNumbers);
                     blocks[fieldId] = rowIDs;
                 }
+                else if (constantBlocks[fieldId] != null) {
+                    blocks[fieldId] = constantBlocks[fieldId].getRegion(0, batchSize);
+                }
                 else {
-                    if (constantBlocks[fieldId] != null) {
-                        blocks[fieldId] = constantBlocks[fieldId].getRegion(0, batchSize);
-                    }
-                    else {
-                        blocks[fieldId] = new LazyBlock(batchSize, new OrcBlockLoader(hiveColumnIndexes[fieldId]));
-                    }
+                    blocks[fieldId] = new LazyBlock(batchSize, new OrcBlockLoader(hiveColumnIndexes[fieldId]));
                 }
             }
             return new Page(batchSize, blocks);
