@@ -72,6 +72,7 @@ void registerArithmeticFunctions(const std::string& prefix) {
   registerBinaryIntegral<PModIntFunction>({prefix + "pmod"});
   registerBinaryFloatingPoint<PModFloatFunction>({prefix + "pmod"});
   registerFunction<PowerFunction, double, double, double>({prefix + "power"});
+  registerFunction<RIntFunction, double, double>({prefix + "rint"});
   registerUnaryNumeric<RoundFunction>({prefix + "round"});
   registerFunction<RoundFunction, int8_t, int8_t, int32_t>({prefix + "round"});
   registerFunction<RoundFunction, int16_t, int16_t, int32_t>(

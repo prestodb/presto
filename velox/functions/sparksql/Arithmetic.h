@@ -402,4 +402,13 @@ struct UnHexFunction {
     return true;
   }
 };
+
+template <typename T>
+struct RIntFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(double& result, double input) {
+    result = std::rint(input);
+  }
+};
 } // namespace facebook::velox::functions::sparksql

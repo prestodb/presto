@@ -214,6 +214,14 @@ Mathematical Functions
 
     Returns the modulus (remainder) of ``n`` divided by ``m``. Corresponds to Spark's operator ``%``.
 
+.. spark:function:: rint(x) -> double
+
+    Returns the double value that is closest in value to the argument and is 
+    equal to a mathematical integer.
+    Returns ``x`` if ``x`` is a positive or negative infinity or a NaN. ::
+
+        SELECT rint(12.3456); -- 12.0
+
 .. spark:function:: round(x, d) -> [same as x]
 
     Returns ``x`` rounded to ``d`` decimal places using HALF_UP rounding mode. 
