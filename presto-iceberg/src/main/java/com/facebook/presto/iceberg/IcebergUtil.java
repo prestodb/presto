@@ -44,7 +44,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
-import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -56,6 +55,7 @@ import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DeleteFile;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.HistoryEntry;
+import org.apache.iceberg.ManifestFile;
 import org.apache.iceberg.MetadataTableType;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
@@ -74,7 +74,6 @@ import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.types.Types.NestedField;
 import org.apache.iceberg.util.SnapshotUtil;
-import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -110,24 +109,12 @@ import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimeType.TIME;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
-import static com.facebook.presto.hive.HiveUtil.bigintPartitionKey;
-import static com.facebook.presto.hive.HiveUtil.booleanPartitionKey;
-import static com.facebook.presto.hive.HiveUtil.charPartitionKey;
-import static com.facebook.presto.hive.HiveUtil.datePartitionKey;
-import static com.facebook.presto.hive.HiveUtil.doublePartitionKey;
-import static com.facebook.presto.hive.HiveUtil.floatPartitionKey;
-import static com.facebook.presto.hive.HiveUtil.integerPartitionKey;
-import static com.facebook.presto.hive.HiveUtil.longDecimalPartitionKey;
-import static com.facebook.presto.hive.HiveUtil.shortDecimalPartitionKey;
-import static com.facebook.presto.hive.HiveUtil.smallintPartitionKey;
-import static com.facebook.presto.hive.HiveUtil.timestampPartitionKey;
-import static com.facebook.presto.hive.HiveUtil.tinyintPartitionKey;
-import static com.facebook.presto.hive.HiveUtil.varcharPartitionKey;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_QUERY_ID_NAME;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_VERSION_NAME;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_VIEW_COMMENT;
@@ -136,6 +123,7 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.TABLE_COMMENT;
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
 import static com.facebook.presto.iceberg.FileContent.POSITION_DELETES;
 import static com.facebook.presto.iceberg.FileContent.fromIcebergFileContent;
+import static com.facebook.presto.iceberg.FileFormat.PARQUET;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_FORMAT_VERSION;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
@@ -152,6 +140,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.immutableEntry;
 import static com.google.common.collect.Streams.mapWithIndex;
 import static com.google.common.collect.Streams.stream;
@@ -171,6 +160,7 @@ import static java.lang.String.format;
 import static java.util.Collections.emptyIterator;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
 import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
 import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_ENABLED;
@@ -239,20 +229,22 @@ public final class IcebergUtil
         return resourceFactory.getCatalog(session).loadTable(toIcebergTableIdentifier(table));
     }
 
-    public static List<IcebergColumnHandle> getPartitionKeyColumnHandles(org.apache.iceberg.Table table, TypeManager typeManager)
+    public static List<IcebergColumnHandle> getPartitionKeyColumnHandles(IcebergTableHandle tableHandle, Table table, TypeManager typeManager)
     {
-        ImmutableList.Builder<IcebergColumnHandle> partitionColumns = ImmutableList.builder();
-        List<IcebergColumnHandle> allColumns = getColumns(table.schema(), table.spec(), typeManager);
+        Set<PartitionSpec> partitionSpecs = tableHandle.getIcebergTableName().getSnapshotId()
+                .map(snapshot -> table.snapshot(snapshot).allManifests(table.io()).stream()
+                        .map(ManifestFile::partitionSpecId)
+                        .map(specId -> table.specs().get(specId))
+                        .collect(toImmutableSet()))
+                .orElseGet(() -> ImmutableSet.copyOf(table.specs().values()));   // No snapshot, so no data. This case doesn't matter.
 
-        for (int i = 0; i < table.spec().fields().size(); i++) {
-            PartitionField field = table.spec().fields().get(i);
-            if (field.transform().isIdentity()) {
-                Optional<IcebergColumnHandle> columnHandle = allColumns.stream().filter(icebergColumnHandle -> Objects.equals(icebergColumnHandle.getName(), field.name())).findAny();
-                columnHandle.ifPresent(partitionColumns::add);
-            }
-        }
-
-        return partitionColumns.build();
+        return table.spec().fields().stream()
+                .filter(field -> field.transform().isIdentity() &&
+                        partitionSpecs.stream()
+                                .allMatch(partitionSpec -> partitionSpec.getFieldsBySourceId(field.sourceId()).stream()
+                                        .anyMatch(partitionField -> partitionField.transform().isIdentity())))
+                .map(field -> IcebergColumnHandle.create(table.schema().findField(field.sourceId()), typeManager, PARTITION_KEY))
+                .collect(toImmutableList());
     }
 
     public static Optional<Long> resolveSnapshotIdByName(Table table, IcebergTableName name)
@@ -438,7 +430,7 @@ public final class IcebergUtil
         }
     }
 
-    private static boolean isValidPartitionType(com.facebook.presto.common.type.Type type)
+    private static boolean isValidPartitionType(FileFormat fileFormat, Type type)
     {
         return type instanceof DecimalType ||
                 BOOLEAN.equals(type) ||
@@ -449,145 +441,30 @@ public final class IcebergUtil
                 REAL.equals(type) ||
                 DOUBLE.equals(type) ||
                 DATE.equals(type) ||
-                TIMESTAMP.equals(type) ||
+                type instanceof TimestampType ||
+                (TIME.equals(type) && fileFormat == PARQUET) ||
                 VARBINARY.equals(type) ||
                 isVarcharType(type) ||
                 isCharType(type);
     }
 
-    private static void verifyPartitionTypeSupported(String partitionName, com.facebook.presto.common.type.Type type)
+    private static void verifyPartitionTypeSupported(FileFormat fileFormat, String partitionName, Type type)
     {
-        if (!isValidPartitionType(type)) {
+        if (!isValidPartitionType(fileFormat, type)) {
             throw new PrestoException(NOT_SUPPORTED, format("Unsupported type [%s] for partition: %s", type, partitionName));
         }
     }
 
     private static NullableValue parsePartitionValue(
-            String partitionName,
-            String value,
-            com.facebook.presto.common.type.Type type,
-            DateTimeZone timeZone)
+            FileFormat fileFormat,
+            String partitionStringValue,
+            Type prestoType,
+            String partitionName)
     {
-        verifyPartitionTypeSupported(partitionName, type);
+        verifyPartitionTypeSupported(fileFormat, partitionName, prestoType);
 
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
-            if (value == null) {
-                return NullableValue.asNull(decimalType);
-            }
-            if (decimalType.isShort()) {
-                if (value.isEmpty()) {
-                    return NullableValue.of(decimalType, 0L);
-                }
-                return NullableValue.of(decimalType, shortDecimalPartitionKey(value, decimalType, partitionName));
-            }
-            else {
-                if (value.isEmpty()) {
-                    return NullableValue.of(decimalType, Decimals.encodeUnscaledValue(BigInteger.ZERO));
-                }
-                return NullableValue.of(decimalType, longDecimalPartitionKey(value, decimalType, partitionName));
-            }
-        }
-
-        if (BOOLEAN.equals(type)) {
-            if (value == null) {
-                return NullableValue.asNull(BOOLEAN);
-            }
-            if (value.isEmpty()) {
-                return NullableValue.of(BOOLEAN, false);
-            }
-            return NullableValue.of(BOOLEAN, booleanPartitionKey(value, partitionName));
-        }
-
-        if (TINYINT.equals(type)) {
-            if (value == null) {
-                return NullableValue.asNull(TINYINT);
-            }
-            if (value.isEmpty()) {
-                return NullableValue.of(TINYINT, 0L);
-            }
-            return NullableValue.of(TINYINT, tinyintPartitionKey(value, partitionName));
-        }
-
-        if (SMALLINT.equals(type)) {
-            if (value == null) {
-                return NullableValue.asNull(SMALLINT);
-            }
-            if (value.isEmpty()) {
-                return NullableValue.of(SMALLINT, 0L);
-            }
-            return NullableValue.of(SMALLINT, smallintPartitionKey(value, partitionName));
-        }
-
-        if (INTEGER.equals(type)) {
-            if (value == null) {
-                return NullableValue.asNull(INTEGER);
-            }
-            if (value.isEmpty()) {
-                return NullableValue.of(INTEGER, 0L);
-            }
-            return NullableValue.of(INTEGER, integerPartitionKey(value, partitionName));
-        }
-
-        if (BIGINT.equals(type)) {
-            if (value == null) {
-                return NullableValue.asNull(BIGINT);
-            }
-            if (value.isEmpty()) {
-                return NullableValue.of(BIGINT, 0L);
-            }
-            return NullableValue.of(BIGINT, bigintPartitionKey(value, partitionName));
-        }
-
-        if (DATE.equals(type)) {
-            if (value == null) {
-                return NullableValue.asNull(DATE);
-            }
-            return NullableValue.of(DATE, datePartitionKey(value, partitionName));
-        }
-
-        if (TIMESTAMP.equals(type)) {
-            if (value == null) {
-                return NullableValue.asNull(TIMESTAMP);
-            }
-            return NullableValue.of(TIMESTAMP, timestampPartitionKey(value, timeZone, partitionName));
-        }
-
-        if (REAL.equals(type)) {
-            if (value == null) {
-                return NullableValue.asNull(REAL);
-            }
-            if (value.isEmpty()) {
-                return NullableValue.of(REAL, (long) floatToRawIntBits(0.0f));
-            }
-            return NullableValue.of(REAL, floatPartitionKey(value, partitionName));
-        }
-
-        if (DOUBLE.equals(type)) {
-            if (value == null) {
-                return NullableValue.asNull(DOUBLE);
-            }
-            if (value.isEmpty()) {
-                return NullableValue.of(DOUBLE, 0.0);
-            }
-            return NullableValue.of(DOUBLE, doublePartitionKey(value, partitionName));
-        }
-
-        if (isVarcharType(type)) {
-            if (value == null) {
-                return NullableValue.asNull(type);
-            }
-            return NullableValue.of(type, varcharPartitionKey(value, partitionName, type));
-        }
-
-        if (isCharType(type)) {
-            if (value == null) {
-                return NullableValue.asNull(type);
-            }
-            return NullableValue.of(type, charPartitionKey(value, partitionName, type));
-        }
-
-        throw new VerifyException(format("Unhandled type [%s] for partition: %s", type, partitionName));
+        Object partitionValue = deserializePartitionValue(prestoType, partitionStringValue, partitionName);
+        return partitionValue == null ? NullableValue.asNull(prestoType) : NullableValue.of(prestoType, partitionValue);
     }
 
     public static List<HivePartition> getPartitions(
@@ -598,7 +475,7 @@ public final class IcebergUtil
             List<IcebergColumnHandle> partitionColumns)
     {
         IcebergTableName name = ((IcebergTableHandle) tableHandle).getIcebergTableName();
-
+        FileFormat fileFormat = getFileFormat(icebergTable);
         // Empty iceberg table would cause `snapshotId` not present
         Optional<Long> snapshotId = resolveSnapshotIdByName(icebergTable, name);
         if (!snapshotId.isPresent()) {
@@ -613,6 +490,10 @@ public final class IcebergUtil
 
         try (CloseableIterable<FileScanTask> fileScanTasks = tableScan.planFiles()) {
             for (FileScanTask fileScanTask : fileScanTasks) {
+                // If exists delete files, skip the metadata optimization based on partition values as they might become incorrect
+                if (!fileScanTask.deletes().isEmpty()) {
+                    return ImmutableList.of(new HivePartition(((IcebergTableHandle) tableHandle).getSchemaTableName()));
+                }
                 StructLike partition = fileScanTask.file().partition();
                 PartitionSpec spec = fileScanTask.spec();
                 Map<PartitionField, Integer> fieldToIndex = getIdentityPartitions(spec);
@@ -637,12 +518,14 @@ public final class IcebergUtil
                         }
                     }
 
-                    NullableValue partitionValue = parsePartitionValue(partition.toString(), partitionStringValue, toPrestoType(type, typeManager), DateTimeZone.UTC);
+                    NullableValue partitionValue = parsePartitionValue(fileFormat, partitionStringValue, toPrestoType(type, typeManager), partition.toString());
                     Optional<IcebergColumnHandle> column = partitionColumns.stream()
-                            .filter(icebergColumnHandle -> Objects.equals(icebergColumnHandle.getName(), field.name()))
+                            .filter(icebergColumnHandle -> Objects.equals(icebergColumnHandle.getId(), field.sourceId()))
                             .findAny();
 
-                    builder.put(column.get(), partitionValue);
+                    if (column.isPresent()) {
+                        builder.put(column.get(), partitionValue);
+                    }
                 });
 
                 Map<ColumnHandle, NullableValue> values = builder.build();
@@ -725,7 +608,10 @@ public final class IcebergUtil
             if (type.equals(DOUBLE)) {
                 return parseDouble(valueString);
             }
-            if (type.equals(DATE) || type.equals(TIME) || type.equals(TIMESTAMP)) {
+            if (type.equals(TIMESTAMP) || type.equals(TIME)) {
+                return MICROSECONDS.toMillis(parseLong(valueString));
+            }
+            if (type.equals(DATE) || type.equals(TIMESTAMP_MICROSECONDS)) {
                 return parseLong(valueString);
             }
             if (type instanceof VarcharType) {

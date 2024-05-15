@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.MetadataManager;
@@ -69,7 +68,6 @@ public class TestSetSessionTask
         CatalogManager catalogManager = new CatalogManager();
         transactionManager = createTestTransactionManager(catalogManager);
         accessControl = new AllowAllAccessControl();
-        BlockEncodingManager blockEncodingManager = new BlockEncodingManager();
 
         metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
 

@@ -442,7 +442,6 @@ public class TestReplaceConstantVariableReferencesWithConstants
                 {
                     VariableReferenceExpression key1 = planBuilder.variable("key1", INTEGER);
                     VariableReferenceExpression key2 = planBuilder.variable("key2", INTEGER);
-                    VariableReferenceExpression count = planBuilder.variable("cnt");
                     return planBuilder.join(
                             JoinType.INNER,
                             planBuilder.filter(

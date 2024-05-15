@@ -30,24 +30,17 @@ import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.spi.security.Privilege;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import org.testng.Assert.ThrowingRunnable;
 import org.testng.annotations.Test;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
 import java.util.Optional;
 
 import static com.facebook.presto.hive.security.ranger.RangerBasedAccessControlConfig.RANGER_REST_POLICY_MGR_DOWNLOAD_URL;
 import static com.facebook.presto.hive.security.ranger.RangerBasedAccessControlConfig.RANGER_REST_USER_GROUP_URL;
 import static com.facebook.presto.hive.security.ranger.RangerBasedAccessControlConfig.RANGER_REST_USER_ROLES_URL;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertThrows;
 
@@ -227,19 +220,6 @@ public class TestRangerBasedAccessControl
         ImmutableListMultimap.Builder<String, String> headers = ImmutableListMultimap.builder();
         headers.put("Content-Type", "application/json");
         return new TestingResponse(HttpStatus.OK, headers.build(), answerJson);
-    }
-
-    private static <T> T jsonParse(File file, Class<T> clazz)
-    {
-        try {
-            BufferedReader bufferedReader = new BufferedReader(new FileReader(file));
-            ObjectMapper mapper = new ObjectMapper();
-            mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-            return mapper.readValue(bufferedReader, clazz);
-        }
-        catch (IOException e) {
-            throw new IllegalArgumentException(format("Invalid JSON file '%s'", file.getPath()), e);
-        }
     }
 
     private static void assertDenied(ThrowingRunnable runnable)

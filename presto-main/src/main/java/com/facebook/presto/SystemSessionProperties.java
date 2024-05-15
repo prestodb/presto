@@ -311,6 +311,7 @@ public final class SystemSessionProperties
     public static final String ADD_PARTIAL_NODE_FOR_ROW_NUMBER_WITH_LIMIT = "add_partial_node_for_row_number_with_limit";
     public static final String REWRITE_CASE_TO_MAP_ENABLED = "rewrite_case_to_map_enabled";
     public static final String FIELD_NAMES_IN_JSON_CAST_ENABLED = "field_names_in_json_cast_enabled";
+    public static final String LEGACY_JSON_CAST = "legacy_json_cast";
     public static final String PULL_EXPRESSION_FROM_LAMBDA_ENABLED = "pull_expression_from_lambda_enabled";
     public static final String REWRITE_CONSTANT_ARRAY_CONTAINS_TO_IN_EXPRESSION = "rewrite_constant_array_contains_to_in_expression";
     public static final String INFER_INEQUALITY_PREDICATES = "infer_inequality_predicates";
@@ -344,7 +345,7 @@ public final class SystemSessionProperties
     public static final String NATIVE_EXECUTION_PROCESS_REUSE_ENABLED = "native_execution_process_reuse_enabled";
     public static final String NATIVE_DEBUG_VALIDATE_OUTPUT_FROM_OPERATORS = "native_debug_validate_output_from_operators";
     public static final String DEFAULT_VIEW_SECURITY_MODE = "default_view_security_mode";
-    public static final String OPTIMIZER_USE_HISTOGRAMS = "optimizer_use_histograms";
+    public static final String JOIN_PREFILTER_BUILD_SIDE = "join_prefilter_build_side";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1754,6 +1755,11 @@ public final class SystemSessionProperties
                         featuresConfig.isFieldNamesInJsonCastEnabled(),
                         false),
                 booleanProperty(
+                        LEGACY_JSON_CAST,
+                        "Keep the legacy json cast behavior, do not reserve the case for field names when casting to row type",
+                        featuresConfig.isLegacyJsonCast(),
+                        false),
+                booleanProperty(
                         OPTIMIZE_JOIN_PROBE_FOR_EMPTY_BUILD_RUNTIME,
                         "Optimize join probe at runtime if build side is empty",
                         featuresConfig.isOptimizeJoinProbeForEmptyBuildRuntimeEnabled(),
@@ -1903,7 +1909,7 @@ public final class SystemSessionProperties
                         GENERATE_DOMAIN_FILTERS,
                         "Infer predicates from column domains during predicate pushdown",
                         featuresConfig.getGenerateDomainFilters(),
-                        false),
+                                false),
                 booleanProperty(
                         REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION,
                         "Rewrite left join with is null check to semi join",
@@ -1921,9 +1927,10 @@ public final class SystemSessionProperties
                         false,
                         value -> CreateView.Security.valueOf(((String) value).toUpperCase()),
                         CreateView.Security::name),
-                booleanProperty(OPTIMIZER_USE_HISTOGRAMS,
-                        "whether or not to use histograms in the CBO",
-                        featuresConfig.isUseHistograms(),
+                booleanProperty(
+                        JOIN_PREFILTER_BUILD_SIDE,
+                        "Prefiltering the build/inner side of a join with keys from the other side",
+                        false,
                         false));
     }
 
@@ -2338,14 +2345,14 @@ public final class SystemSessionProperties
     public static DataSize getAggregationOperatorUnspillMemoryLimit(Session session)
     {
         DataSize memoryLimitForMerge = session.getSystemProperty(AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT, DataSize.class);
-        checkArgument(memoryLimitForMerge.toBytes() >= 0, "%s must be positive", AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT);
+        checkArgument(memoryLimitForMerge.toBytes() >= 0, "%s must be non-negative", AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT);
         return memoryLimitForMerge;
     }
 
     public static DataSize getTopNOperatorUnspillMemoryLimit(Session session)
     {
         DataSize unspillMemoryLimit = session.getSystemProperty(TOPN_OPERATOR_UNSPILL_MEMORY_LIMIT, DataSize.class);
-        checkArgument(unspillMemoryLimit.toBytes() >= 0, "%s must be positive", TOPN_OPERATOR_UNSPILL_MEMORY_LIMIT);
+        checkArgument(unspillMemoryLimit.toBytes() >= 0, "%s must be non-negative", TOPN_OPERATOR_UNSPILL_MEMORY_LIMIT);
         return unspillMemoryLimit;
     }
 
@@ -2357,7 +2364,7 @@ public final class SystemSessionProperties
     public static DataSize getTempStorageSpillerBufferSize(Session session)
     {
         DataSize tempStorageSpillerBufferSize = session.getSystemProperty(TEMP_STORAGE_SPILLER_BUFFER_SIZE, DataSize.class);
-        checkArgument(tempStorageSpillerBufferSize.toBytes() >= 0, "%s must be positive", TEMP_STORAGE_SPILLER_BUFFER_SIZE);
+        checkArgument(tempStorageSpillerBufferSize.toBytes() >= 0, "%s must be non-negative", TEMP_STORAGE_SPILLER_BUFFER_SIZE);
         return tempStorageSpillerBufferSize;
     }
 
@@ -3207,8 +3214,8 @@ public final class SystemSessionProperties
         return session.getSystemProperty(DEFAULT_VIEW_SECURITY_MODE, CreateView.Security.class);
     }
 
-    public static boolean shouldOptimizerUseHistograms(Session session)
+    public static boolean isJoinPrefilterEnabled(Session session)
     {
-        return session.getSystemProperty(OPTIMIZER_USE_HISTOGRAMS, Boolean.class);
+        return session.getSystemProperty(JOIN_PREFILTER_BUILD_SIDE, Boolean.class);
     }
 }

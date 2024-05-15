@@ -77,7 +77,7 @@ public final class AddConstraint
     @Override
     public int hashCode()
     {
-        return Objects.hash(tableName, constraintSpecification);
+        return Objects.hash(tableName, tableExists, constraintSpecification);
     }
 
     @Override
@@ -91,6 +91,7 @@ public final class AddConstraint
         }
         AddConstraint o = (AddConstraint) obj;
         return Objects.equals(tableName, o.tableName) &&
+                Objects.equals(tableExists, o.tableExists) &&
                 Objects.equals(constraintSpecification, o.constraintSpecification);
     }
 
@@ -99,6 +100,7 @@ public final class AddConstraint
     {
         return toStringHelper(this)
                 .add("tableName", tableName)
+                .add("tableExists", tableExists)
                 .add("constraintSpecification", constraintSpecification)
                 .toString();
     }

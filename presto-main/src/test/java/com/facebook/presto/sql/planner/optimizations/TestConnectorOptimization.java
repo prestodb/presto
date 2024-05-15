@@ -353,11 +353,6 @@ public class TestConnectorOptimization
                 this.predicate = predicate;
             }
 
-            public RowExpression getPredicate()
-            {
-                return predicate;
-            }
-
             @Override
             public boolean equals(Object obj)
             {

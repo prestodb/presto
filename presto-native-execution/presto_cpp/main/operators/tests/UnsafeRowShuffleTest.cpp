@@ -341,7 +341,11 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
         executor_.get(), core::QueryConfig({}));
     core::PlanFragment planFragment{planNode};
     return exec::Task::create(
-        taskId, std::move(planFragment), destination, std::move(queryCtx));
+        taskId,
+        std::move(planFragment),
+        destination,
+        std::move(queryCtx),
+        exec::Task::ExecutionMode::kParallel);
   }
 
   RowVectorPtr deserialize(
@@ -1124,10 +1128,11 @@ TEST_F(UnsafeRowShuffleTest, shuffleWriterToString) {
                       testShuffleInfo(10, 10)))
                   .planNode();
 
-  ASSERT_EQ(plan->toString(false, false), "-- ShuffleWrite\n");
+  ASSERT_EQ(plan->toString(false, false), "-- ShuffleWrite[3]\n");
   ASSERT_EQ(
       plan->toString(true, false),
-      "-- ShuffleWrite[4, test-shuffle] -> partition:INTEGER, data:VARBINARY\n");
+      "-- ShuffleWrite[3][4, test-shuffle]"
+      " -> partition:INTEGER, data:VARBINARY\n");
 }
 
 TEST_F(UnsafeRowShuffleTest, partitionAndSerializeToString) {
@@ -1141,20 +1146,22 @@ TEST_F(UnsafeRowShuffleTest, partitionAndSerializeToString) {
                   .addNode(addPartitionAndSerializeNode(4, false))
                   .planNode();
 
-  ASSERT_EQ(plan->toString(false, false), "-- PartitionAndSerialize\n");
+  ASSERT_EQ(plan->toString(false, false), "-- PartitionAndSerialize[1]\n");
   ASSERT_EQ(
       plan->toString(true, false),
-      "-- PartitionAndSerialize[(c0) 4 HASH(c0) ROW<c0:INTEGER,c1:BIGINT>] -> partition:INTEGER, data:VARBINARY\n");
+      "-- PartitionAndSerialize[1][(c0) 4 HASH(c0) ROW<c0:INTEGER,c1:BIGINT>]"
+      " -> partition:INTEGER, data:VARBINARY\n");
 
   plan = exec::test::PlanBuilder()
              .values({data}, true)
              .addNode(addPartitionAndSerializeNode(4, true))
              .planNode();
 
-  ASSERT_EQ(plan->toString(false, false), "-- PartitionAndSerialize\n");
+  ASSERT_EQ(plan->toString(false, false), "-- PartitionAndSerialize[1]\n");
   ASSERT_EQ(
       plan->toString(true, false),
-      "-- PartitionAndSerialize[(c0) 4 HASH(c0) ROW<c0:INTEGER,c1:BIGINT>] -> partition:INTEGER, data:VARBINARY, replicate:BOOLEAN\n");
+      "-- PartitionAndSerialize[1][(c0) 4 HASH(c0) ROW<c0:INTEGER,c1:BIGINT>]"
+      " -> partition:INTEGER, data:VARBINARY, replicate:BOOLEAN\n");
 }
 
 class DummyShuffleInterfaceFactory : public ShuffleInterfaceFactory {

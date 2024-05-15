@@ -15,7 +15,6 @@ package com.facebook.presto.plugin.prometheus;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.DoubleType;
-import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.google.common.collect.ImmutableList;
@@ -64,7 +63,6 @@ public class TestPrometheusRecordSetProvider
     @Test
     public void testGetRecordSet()
     {
-        ConnectorTableHandle tableHandle = new PrometheusTableHandle("schema", "table");
         PrometheusRecordSetProvider recordSetProvider = new PrometheusRecordSetProvider(client);
         RecordSet recordSet = recordSetProvider.getRecordSet(
                 PrometheusTransactionHandle.INSTANCE,

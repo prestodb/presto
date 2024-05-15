@@ -14,6 +14,7 @@
 #include "presto_cpp/main/TaskResource.h"
 #include <presto_cpp/main/common/Exception.h>
 #include "presto_cpp/main/common/Configs.h"
+#include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/thrift/ProtocolToThrift.h"
 #include "presto_cpp/main/thrift/ThriftIO.h"
 #include "presto_cpp/main/thrift/gen-cpp2/PrestoThrift.h"
@@ -220,7 +221,7 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTaskImpl(
         folly::via(
             httpSrvCpuExecutor_,
             [this, &body, taskId, createOrUpdateFunc]() {
-              const auto startProcessCpuTime = PrestoTask::getProcessCpuTime();
+              const auto startProcessCpuTimeNs = util::getProcessCpuTimeNs();
 
               // TODO Avoid copy
               std::ostringstream oss;
@@ -231,15 +232,15 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTaskImpl(
 
               std::unique_ptr<protocol::TaskInfo> taskInfo;
               try {
-                taskInfo =
-                    createOrUpdateFunc(taskId, updateJson, startProcessCpuTime);
+                taskInfo = createOrUpdateFunc(
+                    taskId, updateJson, startProcessCpuTimeNs);
               } catch (const velox::VeloxException& e) {
                 // Creating an empty task, putting errors inside so that next
                 // status fetch from coordinator will catch the error and well
                 // categorize it.
                 try {
                   taskInfo = taskManager_.createOrUpdateErrorTask(
-                      taskId, std::current_exception(), startProcessCpuTime);
+                      taskId, std::current_exception(), startProcessCpuTimeNs);
                 } catch (const velox::VeloxUserError& e) {
                   throw;
                 }

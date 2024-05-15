@@ -55,6 +55,7 @@ import static com.facebook.presto.SystemSessionProperties.ENABLE_INTERMEDIATE_AG
 import static com.facebook.presto.SystemSessionProperties.FIELD_NAMES_IN_JSON_CAST_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.GENERATE_DOMAIN_FILTERS;
 import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
+import static com.facebook.presto.SystemSessionProperties.JOIN_PREFILTER_BUILD_SIDE;
 import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_FUNCTION;
 import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_PERCENTAGE;
@@ -7526,5 +7527,25 @@ public abstract class AbstractTestQueries
                 "values (1, 's2s3s4s'), (2, 's20s30s40s')");
         assertQueryFails("SELECT id, reduce_agg(value, array[id, value], (a, b) -> a || b, (a, b) -> a || b) FROM ( VALUES (1, 2), (1, 3), (1, 4), (2, 20), (2, 30), (2, 40) ) AS t(id, value) GROUP BY id",
                 ".*REDUCE_AGG only supports non-NULL literal as the initial value.*");
+    }
+
+    @Test
+    public void testJoinPrefilter()
+    {
+        // Orig
+        String testQuery = "SELECT 1 from region join nation using(regionkey)";
+        MaterializedResult result = computeActual("explain(type distributed) " + testQuery);
+        assertTrue(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("SemiJoin") == -1);
+        result = computeActual(testQuery);
+        assertTrue(result.getRowCount() == 25);
+
+        // With feature
+        Session session = Session.builder(getSession())
+                .setSystemProperty(JOIN_PREFILTER_BUILD_SIDE, String.valueOf(true))
+                .build();
+        result = computeActual(session, "explain(type distributed) " + testQuery);
+        assertTrue(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("SemiJoin") != -1);
+        result = computeActual(session, testQuery);
+        assertTrue(result.getRowCount() == 25);
     }
 }

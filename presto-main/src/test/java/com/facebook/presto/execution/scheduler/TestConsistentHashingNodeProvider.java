@@ -60,7 +60,7 @@ public class TestConsistentHashingNodeProvider
         assertEquals(ImmutableSet.copyOf(nodeProvider.get("split1", 11)), nodes.stream().map(InternalNode::getHostAndPort).collect(toImmutableSet()));
 
         ConsistentHashingNodeProvider nodeProviderWithWeight = ConsistentHashingNodeProvider.create(nodes, 100);
-        assertEquals(ImmutableSet.copyOf(nodeProvider.get("split1", 10)), nodes.stream().map(InternalNode::getHostAndPort).collect(toImmutableSet()));
+        assertEquals(ImmutableSet.copyOf(nodeProviderWithWeight.get("split1", 10)), nodes.stream().map(InternalNode::getHostAndPort).collect(toImmutableSet()));
     }
 
     private List<InternalNode> createTestNodes()

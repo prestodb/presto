@@ -26,10 +26,8 @@ import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.common.type.NamedTypeSignature;
 import com.facebook.presto.common.type.RowFieldName;
-import com.facebook.presto.common.type.SqlTimestamp;
 import com.facebook.presto.common.type.SqlVarbinary;
 import com.facebook.presto.common.type.StandardTypes;
-import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.google.common.collect.ImmutableList;
@@ -70,7 +68,6 @@ import static com.facebook.presto.orc.TestingOrcPredicate.createOrcPredicate;
 import static com.facebook.presto.testing.TestingEnvironment.FUNCTION_AND_TYPE_MANAGER;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toList;
 
 public class TestMapFlatSelectiveStreamReader
@@ -526,11 +523,6 @@ public class TestMapFlatSelectiveStreamReader
     private static boolean intToBoolean(int i)
     {
         return i % 2 == 0;
-    }
-
-    private static SqlTimestamp intToTimestamp(int i)
-    {
-        return new SqlTimestamp(i, TimeZoneKey.UTC_KEY, MILLISECONDS);
     }
 
     private static List<Integer> intToList(int i)

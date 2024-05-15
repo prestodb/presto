@@ -617,7 +617,6 @@ public class TestTDigestFunctions
         long count = values.size();
 
         SqlVarbinary sqlVarbinary = new SqlVarbinary(tDigest.serialize().getBytes());
-        String tdigestStr = sqlVarbinary.toString().replaceAll("\\s+", " ");
 
         String destructureTdigestSql = format("destructure_tdigest(CAST(X'%s' AS tdigest(%s)))",
                 new SqlVarbinary(tDigest.serialize().getBytes()).toString().replaceAll("\\s+", " "),

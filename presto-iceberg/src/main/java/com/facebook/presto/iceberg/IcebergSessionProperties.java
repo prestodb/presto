@@ -62,6 +62,7 @@ public final class IcebergSessionProperties
     public static final String DELETE_AS_JOIN_REWRITE_ENABLED = "delete_as_join_rewrite_enabled";
     public static final String HIVE_METASTORE_STATISTICS_MERGE_STRATEGY = "hive_statistics_merge_strategy";
     public static final String STATISTIC_SNAPSHOT_RECORD_DIFFERENCE_WEIGHT = "statistic_snapshot_record_difference_weight";
+    public static final String ROWS_FOR_METADATA_OPTIMIZATION_THRESHOLD = "rows_for_metadata_optimization_threshold";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -185,6 +186,13 @@ public final class IcebergSessionProperties
                         DELETE_AS_JOIN_REWRITE_ENABLED,
                         "When enabled equality delete row filtering will be pushed down into a join.",
                         icebergConfig.isDeleteAsJoinRewriteEnabled(),
+                        false),
+                integerProperty(
+                        ROWS_FOR_METADATA_OPTIMIZATION_THRESHOLD,
+                        "The max partitions number to utilize metadata optimization. When partitions number " +
+                                "of an Iceberg table exceeds this threshold, metadata optimization would be skipped for " +
+                                "the table. A value of 0 means skip metadata optimization directly.",
+                        icebergConfig.getRowsForMetadataOptimizationThreshold(),
                         false));
     }
 
@@ -294,5 +302,10 @@ public final class IcebergSessionProperties
     public static boolean isDeleteToJoinPushdownEnabled(ConnectorSession session)
     {
         return session.getProperty(DELETE_AS_JOIN_REWRITE_ENABLED, Boolean.class);
+    }
+
+    public static int getRowsForMetadataOptimizationThreshold(ConnectorSession session)
+    {
+        return session.getProperty(ROWS_FOR_METADATA_OPTIMIZATION_THRESHOLD, Integer.class);
     }
 }

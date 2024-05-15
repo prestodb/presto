@@ -41,6 +41,7 @@ import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import com.google.common.collect.ImmutableList;
@@ -87,6 +88,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -117,7 +119,7 @@ import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
-public class IcebergDistributedTestBase
+public abstract class IcebergDistributedTestBase
         extends AbstractTestDistributedQueries
 {
     private final CatalogType catalogType;
@@ -491,11 +493,15 @@ public class IcebergDistributedTestBase
     @Test(dataProvider = "timezones")
     public void testPartitionedByTimestampType(String zoneId, boolean legacyTimestamp)
     {
-        Session session = sessionForTimezone(zoneId, legacyTimestamp);
+        Session sessionForTimeZone = sessionForTimezone(zoneId, legacyTimestamp);
+        testWithAllFileFormats(sessionForTimeZone, (session, fileFormat) -> testPartitionedByTimestampTypeForFormat(session, fileFormat));
+    }
 
+    private void testPartitionedByTimestampTypeForFormat(Session session, FileFormat fileFormat)
+    {
         try {
             // create iceberg table partitioned by column of TimestampType, and insert some data
-            assertQuerySucceeds(session, "create table test_partition_columns(a bigint, b timestamp) with (partitioning = ARRAY['b'])");
+            assertQuerySucceeds(session, format("create table test_partition_columns(a bigint, b timestamp) with (partitioning = ARRAY['b'], format = '%s')", fileFormat.name()));
             assertQuerySucceeds(session, "insert into test_partition_columns values(1, timestamp '1984-12-08 00:10:00'), (2, timestamp '2001-01-08 12:01:01')");
 
             // validate return data of TimestampType
@@ -1245,6 +1251,63 @@ public class IcebergDistributedTestBase
         assertQuery(session, "SELECT * FROM " + tableName, "VALUES (1, '1001', NULL, NULL), (3, '1003', NULL, NULL), (6, '1004', 1, NULL), (6, '1006', 2, 'th002')");
     }
 
+    @Test
+    public void testPartShowStatsWithFilters()
+    {
+        assertQuerySucceeds("CREATE TABLE showstatsfilters (i int) WITH (partitioning = ARRAY['i'])");
+        assertQuerySucceeds("INSERT INTO showstatsfilters VALUES 1, 2, 3, 4, 5, 6, 7, 7, 7, 7");
+        assertQuerySucceeds("ANALYZE showstatsfilters");
+
+        MaterializedResult statsTable = getQueryRunner().execute("SHOW STATS for showstatsfilters");
+        MaterializedRow columnStats = statsTable.getMaterializedRows().get(0);
+        assertEquals(columnStats.getField(2), 7.0); // ndvs;
+        assertEquals(columnStats.getField(3), 0.0); // nulls
+        assertEquals(columnStats.getField(5), "1"); // min
+        assertEquals(columnStats.getField(6), "7"); // max
+
+        // EQ
+        statsTable = getQueryRunner().execute("SHOW STATS for (SELECT * FROM showstatsfilters WHERE i = 7)");
+        columnStats = statsTable.getMaterializedRows().get(0);
+        assertEquals(columnStats.getField(5), "7"); // min
+        assertEquals(columnStats.getField(6), "7"); // max
+        assertEquals(columnStats.getField(3), 0.0); // nulls
+        assertEquals((double) columnStats.getField(2), 7.0d * (4.0d / 10.0d), 1E-8); // ndvs;
+
+        // LT
+        statsTable = getQueryRunner().execute("SHOW STATS for (SELECT * FROM showstatsfilters WHERE i < 7)");
+        columnStats = statsTable.getMaterializedRows().get(0);
+        assertEquals(columnStats.getField(5), "1"); // min
+        assertEquals(columnStats.getField(6), "6"); // max
+        assertEquals(columnStats.getField(3), 0.0); // nulls
+        assertEquals((double) columnStats.getField(2), 7.0d * (6.0d / 10.0d), 1E-8); // ndvs;
+
+        // LTE
+        statsTable = getQueryRunner().execute("SHOW STATS for (SELECT * FROM showstatsfilters WHERE i <= 7)");
+        columnStats = statsTable.getMaterializedRows().get(0);
+        assertEquals(columnStats.getField(5), "1"); // min
+        assertEquals(columnStats.getField(6), "7"); // max
+        assertEquals(columnStats.getField(3), 0.0); // nulls
+        assertEquals(columnStats.getField(2), 7.0d); // ndvs;
+
+        // GT
+        statsTable = getQueryRunner().execute("SHOW STATS for (SELECT * FROM showstatsfilters WHERE i > 7)");
+        columnStats = statsTable.getMaterializedRows().get(0);
+        assertEquals(columnStats.getField(5), null); // min
+        assertEquals(columnStats.getField(6), null); // max
+        assertEquals(columnStats.getField(3), null); // nulls
+        assertEquals(columnStats.getField(2), null); // ndvs;
+
+        // GTE
+        statsTable = getQueryRunner().execute("SHOW STATS for (SELECT * FROM showstatsfilters WHERE i >= 7)");
+        columnStats = statsTable.getMaterializedRows().get(0);
+        assertEquals(columnStats.getField(5), "7"); // min
+        assertEquals(columnStats.getField(6), "7"); // max
+        assertEquals(columnStats.getField(3), 0.0); // nulls
+        assertEquals((double) columnStats.getField(2), 7.0d * (4.0d / 10.0d), 1E-8); // ndvs;
+
+        assertQuerySucceeds("DROP TABLE showstatsfilters");
+    }
+
     private void testCheckDeleteFiles(Table icebergTable, int expectedSize, List<FileContent> expectedFileContent)
     {
         // check delete file list
@@ -1380,5 +1443,11 @@ public class IcebergDistributedTestBase
             sessionBuilder.setTimeZoneKey(TimeZoneKey.getTimeZoneKey(zoneId));
         }
         return sessionBuilder.build();
+    }
+
+    private void testWithAllFileFormats(Session session, BiConsumer<Session, FileFormat> test)
+    {
+        test.accept(session, FileFormat.PARQUET);
+        test.accept(session, FileFormat.ORC);
     }
 }

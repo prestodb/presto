@@ -13,30 +13,21 @@ export NODE_OPTIONS=--openssl-legacy-provider
 
 WEBUI_ROOT="$(pwd)/${BASH_SOURCE%/*}/../src/main/resources/webapp"
 
-# Fail if running the command to generate the `dist` folder again produces different results.
-# The lockfile is generated code also, and must go through the same process.
+# Make sure the generated lockfile is the same as the check-in version.
 
 pushd $(mktemp -d)
 
 cp "${WEBUI_ROOT}/src/yarn.lock" .
-cp -r "${WEBUI_ROOT}/dist" .
 
 yarn --cwd ${WEBUI_ROOT}/src/ install
 
 if ! diff -u ${WEBUI_ROOT}/src/yarn.lock yarn.lock; then
     echo "Generated lockfile did not match checked-in version"
-    echo "Refer to the root README.md for instructions"
-    exit 1
-fi
-
-if ! diff -u ${WEBUI_ROOT}/dist dist; then
-    echo "ERROR: Generated dist folder did not match checked-in version"
-    echo "Refer to the root README.md for instructions on generating Web UI"
+    echo "Refer to the CONTRIBUTING.md for instructions"
     exit 1
 fi
 
 popd
-
 
 # Fail on flow warnings
 

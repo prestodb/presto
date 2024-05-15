@@ -277,6 +277,7 @@ public class FeaturesConfig
     private boolean useDefaultsForCorrelatedAggregationPushdownThroughOuterJoins = true;
     private boolean mergeDuplicateAggregationsEnabled = true;
     private boolean fieldNamesInJsonCastEnabled;
+    private boolean legacyJsonCast = true;
     private boolean mergeAggregationsWithAndWithoutFilter;
     private boolean simplifyPlanWithEmptyInput = true;
     private PushDownFilterThroughCrossJoinStrategy pushDownFilterExpressionEvaluationThroughCrossJoin = PushDownFilterThroughCrossJoinStrategy.REWRITTEN_TO_INNER_JOIN;
@@ -307,7 +308,6 @@ public class FeaturesConfig
     private boolean limitNumberOfGroupsForKHyperLogLogAggregations = true;
     private boolean generateDomainFilters;
     private CreateView.Security defaultViewSecurityMode = DEFINER;
-    private boolean useHistograms;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -651,6 +651,18 @@ public class FeaturesConfig
     public FeaturesConfig setFieldNamesInJsonCastEnabled(boolean fieldNamesInJsonCastEnabled)
     {
         this.fieldNamesInJsonCastEnabled = fieldNamesInJsonCastEnabled;
+        return this;
+    }
+
+    public boolean isLegacyJsonCast()
+    {
+        return legacyJsonCast;
+    }
+
+    @Config("legacy-json-cast")
+    public FeaturesConfig setLegacyJsonCast(boolean legacyJsonCast)
+    {
+        this.legacyJsonCast = legacyJsonCast;
         return this;
     }
 
@@ -3087,19 +3099,6 @@ public class FeaturesConfig
     public FeaturesConfig setDefaultViewSecurityMode(CreateView.Security securityMode)
     {
         this.defaultViewSecurityMode = securityMode;
-        return this;
-    }
-
-    public boolean isUseHistograms()
-    {
-        return useHistograms;
-    }
-
-    @Config("optimizer.use-histograms")
-    @ConfigDescription("Use histogram statistics in cost-based calculations in the optimizer")
-    public FeaturesConfig setUseHistograms(boolean useHistograms)
-    {
-        this.useHistograms = useHistograms;
         return this;
     }
 }

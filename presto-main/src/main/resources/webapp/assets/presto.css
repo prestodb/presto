@@ -356,7 +356,7 @@ pre {
     white-space: nowrap;
     padding: 0 40px 5px 5px;
     border: none;
-    z-index: 100;
+    z-index: 1060;
 }
 
 /** Query list **/

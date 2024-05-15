@@ -40,7 +40,8 @@ public class TestNodeSchedulerConfig
                 .setIncludeCoordinator(true)
                 .setNodeSelectionHashStrategy(MODULAR_HASHING)
                 .setMinVirtualNodeCount(1000)
-                .setResourceAwareSchedulingStrategy(RANDOM));
+                .setResourceAwareSchedulingStrategy(RANDOM)
+                .setMaxPreferredNodes(2));
     }
 
     @Test
@@ -56,6 +57,7 @@ public class TestNodeSchedulerConfig
                 .put("node-scheduler.node-selection-hash-strategy", "CONSISTENT_HASHING")
                 .put("node-scheduler.consistent-hashing-min-virtual-node-count", "2000")
                 .put("experimental.resource-aware-scheduling-strategy", "TTL")
+                .put("node-scheduler.max-preferred-nodes", "5")
                 .build();
 
         NodeSchedulerConfig expected = new NodeSchedulerConfig()
@@ -67,7 +69,8 @@ public class TestNodeSchedulerConfig
                 .setMinCandidates(11)
                 .setNodeSelectionHashStrategy(CONSISTENT_HASHING)
                 .setMinVirtualNodeCount(2000)
-                .setResourceAwareSchedulingStrategy(TTL);
+                .setResourceAwareSchedulingStrategy(TTL)
+                .setMaxPreferredNodes(5);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

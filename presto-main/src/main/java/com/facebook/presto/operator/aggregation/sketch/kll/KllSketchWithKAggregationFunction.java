@@ -54,9 +54,9 @@ public class KllSketchWithKAggregationFunction
     {
         initializeSketch(state, () -> Long::compareTo, ArrayOfLongsSerDe::new, k);
         KllItemsSketch<Long> sketch = state.getSketch();
-        state.addMemoryUsage(-getEstimatedKllInMemorySize(sketch, long.class));
+        state.addMemoryUsage(() -> -getEstimatedKllInMemorySize(sketch, long.class));
         state.getSketch().update(value);
-        state.addMemoryUsage(getEstimatedKllInMemorySize(sketch, long.class));
+        state.addMemoryUsage(() -> getEstimatedKllInMemorySize(sketch, long.class));
     }
 
     @InputFunction
@@ -65,9 +65,9 @@ public class KllSketchWithKAggregationFunction
     {
         initializeSketch(state, () -> Double::compareTo, ArrayOfDoublesSerDe::new, k);
         KllItemsSketch<Double> sketch = state.getSketch();
-        state.addMemoryUsage(-getEstimatedKllInMemorySize(sketch, double.class));
+        state.addMemoryUsage(() -> -getEstimatedKllInMemorySize(sketch, double.class));
         state.getSketch().update(value);
-        state.addMemoryUsage(getEstimatedKllInMemorySize(sketch, double.class));
+        state.addMemoryUsage(() -> getEstimatedKllInMemorySize(sketch, double.class));
     }
 
     @InputFunction
@@ -76,9 +76,9 @@ public class KllSketchWithKAggregationFunction
     {
         initializeSketch(state, () -> String::compareTo, ArrayOfStringsSerDe::new, k);
         KllItemsSketch sketch = state.getSketch();
-        state.addMemoryUsage(-getEstimatedKllInMemorySize(sketch, Slice.class));
+        state.addMemoryUsage(() -> -getEstimatedKllInMemorySize(sketch, Slice.class));
         state.getSketch().update(value.toStringUtf8());
-        state.addMemoryUsage(getEstimatedKllInMemorySize(sketch, Slice.class));
+        state.addMemoryUsage(() -> getEstimatedKllInMemorySize(sketch, Slice.class));
     }
 
     @InputFunction
@@ -87,22 +87,22 @@ public class KllSketchWithKAggregationFunction
     {
         initializeSketch(state, () -> Boolean::compareTo, ArrayOfBooleansSerDe::new, k);
         KllItemsSketch<Boolean> sketch = state.getSketch();
-        state.addMemoryUsage(-getEstimatedKllInMemorySize(sketch, boolean.class));
+        state.addMemoryUsage(() -> -getEstimatedKllInMemorySize(sketch, boolean.class));
         state.getSketch().update(value);
-        state.addMemoryUsage(getEstimatedKllInMemorySize(sketch, boolean.class));
+        state.addMemoryUsage(() -> getEstimatedKllInMemorySize(sketch, boolean.class));
     }
 
     @CombineFunction
     public static void combine(@AggregationState KllSketchAggregationState state, @AggregationState KllSketchAggregationState otherState)
     {
         if (state.getSketch() != null && otherState.getSketch() != null) {
-            state.addMemoryUsage(-getEstimatedKllInMemorySize(state.getSketch(), state.getType().getJavaType()));
+            state.addMemoryUsage(() -> -getEstimatedKllInMemorySize(state.getSketch(), state.getType().getJavaType()));
             state.getSketch().merge(otherState.getSketch());
-            state.addMemoryUsage(getEstimatedKllInMemorySize(state.getSketch(), state.getType().getJavaType()));
+            state.addMemoryUsage(() -> getEstimatedKllInMemorySize(state.getSketch(), state.getType().getJavaType()));
         }
         else if (state.getSketch() == null) {
             state.setSketch(otherState.getSketch());
-            state.addMemoryUsage(getEstimatedKllInMemorySize(otherState.getSketch(), state.getType().getJavaType()));
+            state.addMemoryUsage(() -> getEstimatedKllInMemorySize(otherState.getSketch(), state.getType().getJavaType()));
         }
     }
 
@@ -125,7 +125,7 @@ public class KllSketchWithKAggregationFunction
         if (state.getSketch() == null) {
             KllItemsSketch<T> sketch = KllItemsSketch.newHeapInstance((int) k, comparator.get(), serdeSupplier.get());
             state.setSketch(sketch);
-            state.addMemoryUsage(getEstimatedKllInMemorySize(sketch, state.getType().getJavaType()));
+            state.addMemoryUsage(() -> getEstimatedKllInMemorySize(sketch, state.getType().getJavaType()));
         }
     }
 }

@@ -19,6 +19,7 @@ import com.google.common.net.HostAndPort;
 import okhttp3.Protocol;
 
 import java.io.File;
+import java.security.KeyStore;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -45,6 +46,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<Boolean> DISABLE_COMPRESSION = new DisableCompression();
     public static final ConnectionProperty<Boolean> SSL = new Ssl();
     public static final ConnectionProperty<String> SSL_KEY_STORE_PATH = new SslKeyStorePath();
+
     public static final ConnectionProperty<String> SSL_KEY_STORE_PASSWORD = new SslKeyStorePassword();
     public static final ConnectionProperty<String> SSL_TRUST_STORE_PATH = new SslTrustStorePath();
     public static final ConnectionProperty<String> SSL_TRUST_STORE_PASSWORD = new SslTrustStorePassword();
@@ -64,7 +66,8 @@ final class ConnectionProperties
     public static final ConnectionProperty<List<QueryInterceptor>> QUERY_INTERCEPTORS = new QueryInterceptors();
     public static final ConnectionProperty<Boolean> VALIDATE_NEXTURI_SOURCE = new ValidateNextUriSource();
     public static final ConnectionProperty<Boolean> FOLLOW_REDIRECTS = new FollowRedirects();
-
+    public static final ConnectionProperty<String> SSL_KEY_STORE_TYPE = new SSLKeyStoreType();
+    public static final ConnectionProperty<String> SSL_TRUST_STORE_TYPE = new SSLTrustStoreType();
     private static final Set<ConnectionProperty<?>> ALL_PROPERTIES = ImmutableSet.<ConnectionProperty<?>>builder()
             .add(USER)
             .add(PASSWORD)
@@ -75,8 +78,10 @@ final class ConnectionProperties
             .add(SSL)
             .add(SSL_KEY_STORE_PATH)
             .add(SSL_KEY_STORE_PASSWORD)
+            .add(SSL_KEY_STORE_TYPE)
             .add(SSL_TRUST_STORE_PATH)
             .add(SSL_TRUST_STORE_PASSWORD)
+            .add(SSL_TRUST_STORE_TYPE)
             .add(KERBEROS_REMOTE_SERVICE_NAME)
             .add(KERBEROS_USE_CANONICAL_HOSTNAME)
             .add(KERBEROS_PRINCIPAL)
@@ -387,6 +392,23 @@ final class ConnectionProperties
         public FollowRedirects()
         {
             super("followRedirects", Optional.of("true"), NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
+        }
+    }
+    private static class SSLTrustStoreType
+            extends AbstractConnectionProperty<String>
+    {
+        public SSLTrustStoreType()
+        {
+            super("SSLTrustStoreType", Optional.of(KeyStore.getDefaultType()), NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
+        }
+    }
+
+    private static class SSLKeyStoreType
+            extends AbstractConnectionProperty<String>
+    {
+        public SSLKeyStoreType()
+        {
+            super("SSLKeyStoreType", Optional.of(KeyStore.getDefaultType()), NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
         }
     }
 }

@@ -33,7 +33,12 @@ public final class ConnectorRowExpressionService
     private final DeterminismEvaluator determinismEvaluator;
     private final RowExpressionFormatter rowExpressionFormatter;
 
-    public ConnectorRowExpressionService(DomainTranslator domainTranslator, ExpressionOptimizer expressionOptimizer, PredicateCompiler predicateCompiler, DeterminismEvaluator determinismEvaluator, RowExpressionFormatter rowExpressionFormatter)
+    public ConnectorRowExpressionService(
+            DomainTranslator domainTranslator,
+            ExpressionOptimizer expressionOptimizer,
+            PredicateCompiler predicateCompiler,
+            DeterminismEvaluator determinismEvaluator,
+            RowExpressionFormatter rowExpressionFormatter)
     {
         this.domainTranslator = requireNonNull(domainTranslator, "domainTranslator is null");
         this.expressionOptimizer = requireNonNull(expressionOptimizer, "expressionOptimizer is null");

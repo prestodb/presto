@@ -171,6 +171,7 @@ import static java.lang.Integer.parseInt;
 import static java.lang.Long.parseLong;
 import static java.lang.Short.parseShort;
 import static java.lang.String.format;
+import static java.lang.String.join;
 import static java.math.BigDecimal.ROUND_UNNECESSARY;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -193,6 +194,8 @@ public final class HiveUtil
     public static final String PRESTO_CLIENT_INFO = "presto_client_info";
     public static final String PRESTO_USER_NAME = "presto_user_name";
     public static final String PRESTO_METASTORE_HEADER = "presto_metastore_header";
+    public static final String PRESTO_CLIENT_TAGS = "presto_client_tags";
+    public static final String CLIENT_TAGS_DELIMITER = ",";
 
     private static final Pattern DEFAULT_HIVE_COLUMN_NAME_PATTERN = Pattern.compile("_col\\d+");
 
@@ -212,6 +215,14 @@ public final class HiveUtil
     private static final String BIG_DECIMAL_POSTFIX = "BD";
     private static final String USE_RECORD_READER_FROM_INPUT_FORMAT_ANNOTATION = "UseRecordReaderFromInputFormat";
     private static final String USE_FILE_SPLITS_FROM_INPUT_FORMAT_ANNOTATION = "UseFileSplitsFromInputFormat";
+
+    public static void checkRowIDPartitionComponent(List<HiveColumnHandle> columns, Optional<byte[]> rowIdPartitionComponent)
+    {
+        boolean supplyRowIDs = columns.stream().anyMatch(column -> HiveColumnHandle.isRowIdColumnHandle(column));
+        if (supplyRowIDs) {
+            checkArgument(rowIdPartitionComponent.isPresent(), "rowIDPartitionComponent required when supplying row IDs");
+        }
+    }
 
     static {
         DateTimeParser[] timestampWithoutTimeZoneParser = {
@@ -1292,6 +1303,9 @@ public final class HiveUtil
         session.getClientInfo().ifPresent(clientInfo -> directoryContextProperties.put(PRESTO_CLIENT_INFO, clientInfo));
         getMetastoreHeaders(session).ifPresent(metastoreHeaders -> directoryContextProperties.put(PRESTO_METASTORE_HEADER, metastoreHeaders));
         directoryContextProperties.put(PRESTO_USER_NAME, session.getUser());
+        if (!session.getClientTags().isEmpty()) {
+            directoryContextProperties.put(PRESTO_CLIENT_TAGS, join(CLIENT_TAGS_DELIMITER, session.getClientTags()));
+        }
         return directoryContextProperties.build();
     }
 }

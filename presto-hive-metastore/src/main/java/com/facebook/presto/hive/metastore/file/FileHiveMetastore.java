@@ -45,6 +45,7 @@ import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableConstraintNotFoundException;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.constraints.NotNullConstraint;
 import com.facebook.presto.spi.constraints.PrimaryKeyConstraint;
 import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.constraints.UniqueConstraint;
@@ -109,6 +110,7 @@ import static com.facebook.presto.hive.metastore.PrestoTableType.TEMPORARY_TABLE
 import static com.facebook.presto.hive.metastore.PrestoTableType.VIRTUAL_VIEW;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.constraints.TableConstraintsHolder.validateTableConstraints;
 import static com.facebook.presto.spi.security.PrincipalType.ROLE;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -1080,6 +1082,7 @@ public class FileHiveMetastore
             }
         }
         else {
+            validateTableConstraints(ImmutableList.of(tableConstraint));
             if (tableConstraint instanceof PrimaryKeyConstraint) {
                 tableConstraint = new PrimaryKeyConstraint(Optional.of(randomUUID().toString()),
                         tableConstraint.getColumns(),
@@ -1087,12 +1090,16 @@ public class FileHiveMetastore
                         tableConstraint.isRely(),
                         tableConstraint.isEnforced());
             }
-            else {
+            else if (tableConstraint instanceof UniqueConstraint) {
                 tableConstraint = new UniqueConstraint(Optional.of(randomUUID().toString()),
                         tableConstraint.getColumns(),
                         tableConstraint.isEnabled(),
                         tableConstraint.isRely(),
                         tableConstraint.isEnforced());
+            }
+            else if (tableConstraint instanceof NotNullConstraint) {
+                tableConstraint = new NotNullConstraint(Optional.of(randomUUID().toString()),
+                        tableConstraint.getColumns());
             }
         }
         constraints.add(tableConstraint);
@@ -1102,10 +1109,28 @@ public class FileHiveMetastore
 
     public List<TableConstraint<String>> getTableConstraints(MetastoreContext metastoreContext, String schemaName, String tableName)
     {
-        return readConstraintsFile(schemaName, tableName).stream()
+        Set<TableConstraint> rawConstraints = readConstraintsFile(schemaName, tableName);
+        validateTableConstraints(rawConstraints.stream()
                 .map(constraint -> (TableConstraint<String>) constraint)
+                .collect(toImmutableList()));
+
+        List<TableConstraint<String>> constraints = rawConstraints.stream()
+                .map(constraint -> (TableConstraint<String>) constraint)
+                .filter(constraint -> constraint instanceof PrimaryKeyConstraint)
+                .collect(toList());
+
+        constraints.addAll(rawConstraints.stream()
+                .map(constraint -> (TableConstraint<String>) constraint)
+                .filter(constraint -> (constraint instanceof UniqueConstraint) && !(constraint instanceof PrimaryKeyConstraint))
                 .sorted(Comparator.comparing(constraint -> constraint.getName().get()))
-                .collect(toImmutableList());
+                .collect(toList()));
+
+        constraints.addAll(rawConstraints.stream()
+                .map(constraint -> (TableConstraint<String>) constraint)
+                .filter(constraint -> constraint instanceof NotNullConstraint)
+                .collect(toList()));
+
+        return ImmutableList.copyOf(constraints);
     }
 
     @Override

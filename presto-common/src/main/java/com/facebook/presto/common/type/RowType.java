@@ -83,6 +83,11 @@ public class RowType
         return new Field(Optional.empty(), type);
     }
 
+    public static Field field(String name, Type type, boolean delimited)
+    {
+        return new Field(Optional.of(name), type, delimited);
+    }
+
     private static TypeSignature makeSignature(List<Field> fields)
     {
         int size = fields.size();

@@ -52,6 +52,7 @@ AbstractClasses:
         - { name: HiveColumnHandle,         key: hive }
         - { name: IcebergColumnHandle,      key: hive-iceberg }
         - { name: TpchColumnHandle,         key: tpch }
+        - { name: SystemColumnHandle,       key: $system@system }
 
     ConnectorPartitioningHandle:
       super: JsonEncodedSubclass
@@ -66,6 +67,7 @@ AbstractClasses:
         - { name: HiveTableHandle,          key: hive }
         - { name: IcebergTableHandle,       key: hive-iceberg }
         - { name: TpchTableHandle,          key: tpch }
+        - { name: SystemTableHandle,        key: $system@system }
 
     ConnectorOutputTableHandle:
       super: JsonEncodedSubclass
@@ -82,6 +84,7 @@ AbstractClasses:
       subclasses:
         - { name: HiveTransactionHandle,    key: hive }
         - { name: RemoteTransactionHandle,  key: $remote }
+        - { name: SystemTransactionHandle,  key: $system@system }
 
     ConnectorTableLayoutHandle:
       super: JsonEncodedSubclass
@@ -89,6 +92,7 @@ AbstractClasses:
         - { name: HiveTableLayoutHandle,    key: hive }
         - { name: IcebergTableLayoutHandle, key: hive-iceberg }
         - { name: TpchTableLayoutHandle,    key: tpch }
+        - { name: SystemTableLayoutHandle,  key: $system@system }
 
     ConnectorMetadataUpdateHandle:
       super: JsonEncodedSubclass
@@ -103,6 +107,7 @@ AbstractClasses:
         - { name: TpchSplit,            key: tpch }
         - { name: RemoteSplit,          key: $remote }
         - { name: EmptySplit,           key: $empty }
+        - { name: SystemSplit,          key: $system@system }
 
     ConnectorHistogram:
       super: JsonEncodedSubclass
@@ -346,3 +351,8 @@ JavaClasses:
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/JoinType.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/JoinDistributionType.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/EquiJoinClause.java
+  - presto-main/src/main/java/com/facebook/presto/connector/system/SystemSplit.java
+  - presto-main/src/main/java/com/facebook/presto/connector/system/SystemTableHandle.java
+  - presto-main/src/main/java/com/facebook/presto/connector/system/SystemColumnHandle.java
+  - presto-main/src/main/java/com/facebook/presto/connector/system/SystemTableLayoutHandle.java
+  - presto-main/src/main/java/com/facebook/presto/connector/system/SystemTransactionHandle.java

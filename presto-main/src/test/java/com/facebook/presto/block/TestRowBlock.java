@@ -29,7 +29,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.IntStream;
 
 import static com.facebook.presto.block.BlockAssertions.createLongDictionaryBlock;
 import static com.facebook.presto.block.BlockAssertions.createRLEBlock;
@@ -132,7 +131,6 @@ public class TestRowBlock
     public void testLogicalSizeInBytes()
     {
         int positionCount = 100;
-        int[] offsets = IntStream.rangeClosed(0, positionCount).toArray();
         boolean[] nulls = new boolean[positionCount];
 
         // Row(LongArrayBlock, LongArrayBlock)

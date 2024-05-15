@@ -78,7 +78,8 @@ dwio::common::FileFormat toVeloxFileFormat(
       return dwio::common::FileFormat::JSON;
     }
   } else if (format.inputFormat == "com.facebook.alpha.AlphaInputFormat") {
-    return dwio::common::FileFormat::ALPHA;
+    // ALPHA has been renamed in Velox to NIMBLE.
+    return dwio::common::FileFormat::NIMBLE;
   }
   VELOX_UNSUPPORTED(
       "Unsupported file format: {} {}", format.inputFormat, format.serDe);
@@ -880,7 +881,8 @@ dwio::common::FileFormat toFileFormat(
     case protocol::HiveStorageFormat::PARQUET:
       return dwio::common::FileFormat::PARQUET;
     case protocol::HiveStorageFormat::ALPHA:
-      return dwio::common::FileFormat::ALPHA;
+      // This has been renamed in Velox from ALPHA to NIMBLE.
+      return dwio::common::FileFormat::NIMBLE;
     default:
       VELOX_UNSUPPORTED(
           "Unsupported file format in {}: {}.",

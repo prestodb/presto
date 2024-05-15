@@ -167,7 +167,11 @@ class TaskManager {
       "concurrent_lifespans_per_task"};
   static constexpr folly::StringPiece kSessionTimezone{"session_timezone"};
 
-  std::unique_ptr<protocol::TaskInfo> createOrUpdateTask(
+  // We request cancellation for tasks which haven't been accessed by
+  // coordinator for a considerable time.
+  void cancelAbandonedTasks();
+
+  std::unique_ptr<protocol::TaskInfo> createOrUpdateTaskImpl(
       const protocol::TaskId& taskId,
       const velox::core::PlanFragment& planFragment,
       const std::vector<protocol::TaskSource>& sources,

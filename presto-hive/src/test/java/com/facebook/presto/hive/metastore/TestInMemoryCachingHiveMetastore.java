@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive.metastore;
 
-import com.facebook.presto.hive.ColumnConverter;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.MockHiveMetastore;
 import com.facebook.presto.hive.PartitionMutator;
@@ -25,6 +24,7 @@ import com.facebook.presto.hive.metastore.thrift.HiveMetastoreClient;
 import com.facebook.presto.hive.metastore.thrift.MockHiveMetastoreClient;
 import com.facebook.presto.hive.metastore.thrift.ThriftHiveMetastore;
 import com.facebook.presto.hive.metastore.thrift.ThriftHiveMetastoreStats;
+import com.facebook.presto.spi.constraints.NotNullConstraint;
 import com.facebook.presto.spi.constraints.PrimaryKeyConstraint;
 import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.constraints.UniqueConstraint;
@@ -278,7 +278,6 @@ public class TestInMemoryCachingHiveMetastore
         MockHiveCluster mockHiveCluster = new MockHiveCluster(mockClient);
         ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("partition-versioning-test-%s")));
         MockHiveMetastore mockHiveMetastore = new MockHiveMetastore(mockHiveCluster);
-        ColumnConverter hiveColumnConverter = new HiveColumnConverter();
         InMemoryCachingHiveMetastore partitionCachingEnabledmetastore = new InMemoryCachingHiveMetastore(
                 new BridgingHiveMetastore(mockHiveMetastore, partitionMutator),
                 executor,
@@ -317,7 +316,6 @@ public class TestInMemoryCachingHiveMetastore
         ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("partition-versioning-test-%s")));
         MockHiveMetastore mockHiveMetastore = new MockHiveMetastore(mockHiveCluster);
         PartitionMutator mockPartitionMutator = new MockPartitionMutator(identity());
-        ColumnConverter hiveColumnConverter = new HiveColumnConverter();
         InMemoryCachingHiveMetastore partitionCacheVerificationEnabledMetastore = new InMemoryCachingHiveMetastore(
                 new BridgingHiveMetastore(mockHiveMetastore, mockPartitionMutator),
                 executor,
@@ -469,12 +467,13 @@ public class TestInMemoryCachingHiveMetastore
         List<TableConstraint<String>> tableConstraints = metastore.getTableConstraints(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS);
         assertEquals(tableConstraints.get(0), new PrimaryKeyConstraint<>(Optional.of("pk"), new LinkedHashSet<>(ImmutableList.of("c1")), true, true, false));
         assertEquals(tableConstraints.get(1), new UniqueConstraint<>(Optional.of("uk"), new LinkedHashSet<>(ImmutableList.of("c2")), true, true, false));
-        assertEquals(mockClient.getAccessCount(), 2);
+        assertEquals(tableConstraints.get(2), new NotNullConstraint<>("c3"));
+        assertEquals(mockClient.getAccessCount(), 3);
         metastore.getTableConstraints(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS);
-        assertEquals(mockClient.getAccessCount(), 2);
+        assertEquals(mockClient.getAccessCount(), 3);
         metastore.invalidateAll();
         metastore.getTableConstraints(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS);
-        assertEquals(mockClient.getAccessCount(), 4);
+        assertEquals(mockClient.getAccessCount(), 6);
     }
 
     public static class MockHiveCluster

@@ -33,7 +33,11 @@ import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.ParquetProperties;
+import org.apache.parquet.column.ParquetProperties.WriterVersion;
 import org.apache.parquet.column.values.ValuesWriter;
+import org.apache.parquet.column.values.factory.DefaultV1ValuesWriterFactory;
+import org.apache.parquet.column.values.factory.DefaultV2ValuesWriterFactory;
+import org.apache.parquet.column.values.factory.ValuesWriterFactory;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.MessageType;
@@ -60,6 +64,18 @@ import static java.util.Objects.requireNonNull;
 class ParquetWriters
 {
     private ParquetWriters() {}
+
+    static ValuesWriterFactory getValuesWriterFactory(WriterVersion writerVersion)
+    {
+        switch (writerVersion) {
+            case PARQUET_1_0:
+                return new DefaultV1ValuesWriterFactory();
+            case PARQUET_2_0:
+                return new DefaultV2ValuesWriterFactory();
+            default:
+                throw new PrestoException(NOT_SUPPORTED, format("Unsupported Parquet writer version: %s", writerVersion));
+        }
+    }
 
     static List<ColumnWriter> getColumnWriters(MessageType messageType, Map<List<String>, Type> prestoTypes, ParquetProperties parquetProperties, CompressionCodecName compressionCodecName)
     {

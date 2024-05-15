@@ -297,11 +297,6 @@ public class TestAccessControlManager
             this.name = requireNonNull(name, "name is null");
         }
 
-        public Map<String, String> getConfig()
-        {
-            return config;
-        }
-
         public Optional<Principal> getCheckedPrincipal()
         {
             return checkedPrincipal;

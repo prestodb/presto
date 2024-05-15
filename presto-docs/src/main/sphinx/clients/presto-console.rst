@@ -11,8 +11,9 @@ Overview
 ========
 
 The Presto Console is a web-based UI that is included as part of a Presto server 
-installation. For more information about installing Presto, see 
+installation. To install Presto, see 
 `Installing Presto <../installation/deployment.html#installing-presto>`_.
+For information about developing the Presto Console, see :doc:`/develop/presto-console`.
 
 Configuration
 =============
@@ -36,11 +37,12 @@ After starting Presto, you can access the web UI at the default port
 .. figure:: ../images/presto_console.png
    :align: center
 
-Plan Viewer
+Query Viewer
 =======================
 
-Plan Viewer generates the graph of a query plan on the Presto Console.
-To access the Plan Viewer using a web browser, add the path ``/ui/dev/index.html``
+Query Viewer displays a query's details on the Presto Console, including
+overview, query plans, stage performance, and splits.
+To access the Query Viewer using a web browser, add the path ``/ui/dev/index.html``
 to your server IP and port number. For example:
 
 .. code-block:: none
@@ -54,9 +56,9 @@ Use the ``JSON`` tab on the ``Query Details`` page to export and save a query in
 
 *Note:* When a Presto server restarts, all the query information is reset.
 
-With the JSON files, you can use the Plan Viewer to view the graph of query plans.
+With the JSON files, you can use the Query Viewer to view the query details.
 
-1. Access the Plan Viewer page. For example: ``http://localhost:8080/ui/dev/index.html``
+1. Access the Query Viewer page. For example: ``http://localhost:8080/ui/dev/index.html``
 2. Select the ``Browse`` button and select the JSON file you want to examine.
-   The query plan graph is displayed.
+   The query information is displayed.
 3. Select the ``Browse`` button to view other JSON files if needed.

@@ -87,11 +87,11 @@ public interface ConnectorMetadata
     ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName);
 
     /**
-     * Returns an error for connectors which do not support table version AS OF expression.
+     * Returns an error for connectors which do not support table version AS OF/BEFORE expression.
      */
     default ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> tableVersion)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support table version AS OF expression");
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support table version AS OF/BEFORE expression");
     }
 
     /**
@@ -849,7 +849,7 @@ public interface ConnectorMetadata
     /**
      * Drop the specified constraint
      */
-    default void dropConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, String constraintName)
+    default void dropConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<String> constraintName, Optional<String> columnName)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping table constraints");
     }
