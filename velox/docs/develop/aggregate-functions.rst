@@ -221,7 +221,7 @@ is `std::optional<T>`.
 
 When `T` is Varchar, Varbinary, or a complex type, `exec::arg_type<T>`,
 `exec::optional_arg_type<T>`, and `exec::out_type<T>` are the corresponding
-view and writer types of `T`. A datailed explanaion can be found in :doc:`view-and-writer-types`.
+view and writer types of `T`. A detailed explanation can be found in :doc:`view-and-writer-types`.
 
 .. list-table::
    :widths: 25 25
