@@ -78,8 +78,7 @@ public class HiveCachingHdfsConfiguration
                         (ExtendedFileSystem) fileSystem,
                         cacheManager,
                         context.getSession().map(HiveSessionProperties::isCacheEnabled).orElse(cacheConfig.isCachingEnabled()),
-                        cacheConfig.getCacheType(),
-                        cacheConfig.isValidationEnabled());
+                        cacheConfig);
             }
             catch (IOException e) {
                 throw new PrestoException(GENERIC_INTERNAL_ERROR, "cannot create caching file system", e);
