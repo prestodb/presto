@@ -162,8 +162,8 @@ void ReaderBase::loadFileMetaData() {
       strncmp(copy.data() + readSize - 4, "PAR1", 4) == 0,
       "No magic bytes found at end of the Parquet file");
 
-  uint32_t footerLength =
-      *(reinterpret_cast<const uint32_t*>(copy.data() + readSize - 8));
+  uint32_t footerLength;
+  std::memcpy(&footerLength, copy.data() + readSize - 8, sizeof(uint32_t));
   VELOX_CHECK_LE(footerLength + 12, fileLength_);
   int32_t footerOffsetInBuffer = readSize - 8 - footerLength;
   if (footerLength > readSize - 8) {
