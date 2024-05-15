@@ -423,8 +423,17 @@ void GroupingSet::initializeGlobalAggregation() {
   // requirements of all aggregate functions are satisfied.
 
   // Allocate space for the null and initialized flags.
+  size_t numAggregates = aggregates_.size();
+  if (sortedAggregations_) {
+    numAggregates++;
+  }
+  for (const auto& aggregation : distinctAggregations_) {
+    if (aggregation != nullptr) {
+      numAggregates++;
+    }
+  }
   int32_t rowSizeOffset =
-      bits::nbytes(aggregates_.size() * RowContainer::kNumAccumulatorFlags);
+      bits::nbytes(numAggregates * RowContainer::kNumAccumulatorFlags);
   int32_t offset = rowSizeOffset + sizeof(int32_t);
   int32_t accumulatorFlagsOffset = 0;
   int32_t alignment = 1;
@@ -459,6 +468,8 @@ void GroupingSet::initializeGlobalAggregation() {
     offset = bits::roundUp(offset, accumulator.alignment());
 
     sortedAggregations_->setAllocator(&stringAllocator_);
+    VELOX_DCHECK_LT(
+        RowContainer::nullByte(accumulatorFlagsOffset), rowSizeOffset);
     sortedAggregations_->setOffsets(
         offset,
         RowContainer::nullByte(accumulatorFlagsOffset),
