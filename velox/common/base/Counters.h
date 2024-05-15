@@ -100,6 +100,12 @@ constexpr folly::StringPiece kMetricArbitratorFreeReservedCapacityBytes{
 constexpr folly::StringPiece kMetricDriverYieldCount{
     "velox.driver_yield_count"};
 
+constexpr folly::StringPiece kMetricDriverQueueTimeMs{
+    "velox.driver_queue_time_ms"};
+
+constexpr folly::StringPiece kMetricDriverExecTimeMs{
+    "velox.driver_exec_time_ms"};
+
 constexpr folly::StringPiece kMetricSpilledInputBytes{
     "velox.spill_input_bytes"};
 

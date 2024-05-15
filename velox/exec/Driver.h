@@ -19,6 +19,8 @@
 #include <folly/portability/SysSyscall.h>
 #include <memory>
 
+#include "velox/common/base/Counters.h"
+#include "velox/common/base/StatsReporter.h"
 #include "velox/common/future/VeloxPromise.h"
 #include "velox/common/process/ThreadDebugInfo.h"
 #include "velox/common/time/CpuWallTimer.h"
@@ -147,8 +149,10 @@ struct ThreadState {
 
   void clearThread() {
     thread = std::thread::id(); // no thread.
-    startExecTimeMs = 0;
     endExecTimeMs = getCurrentTimeMs();
+    RECORD_HISTOGRAM_METRIC_VALUE(
+        kMetricDriverExecTimeMs, (endExecTimeMs - startExecTimeMs));
+    startExecTimeMs = 0;
     tid = 0;
   }
 
@@ -513,7 +517,7 @@ class Driver : public std::enable_shared_from_this<Driver> {
   ThreadState state_;
 
   // Timer used to track down the time we are sitting in the driver queue.
-  size_t queueTimeStartMicros_{0};
+  size_t queueTimeStartUs_{0};
   // Id (index in the vector) of the current operator to run (or the 1st one if
   // we haven't started yet). Used to determine which operator's queueTime we
   // should update.

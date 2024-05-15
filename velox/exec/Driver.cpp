@@ -377,7 +377,7 @@ void Driver::enqueueInternal() {
   VELOX_CHECK(!state_.isEnqueued);
   state_.isEnqueued = true;
   // When enqueuing, starting timing the queue time.
-  queueTimeStartMicros_ = getCurrentTimeMicro();
+  queueTimeStartUs_ = getCurrentTimeMicro();
 }
 
 // Call an Oprator method. record silenced throws, but not a query
@@ -485,7 +485,7 @@ StopReason Driver::runInternal(
     std::shared_ptr<BlockingState>& blockingState,
     RowVectorPtr& result) {
   const auto now = getCurrentTimeMicro();
-  const auto queuedTime = (now - queueTimeStartMicros_) * 1'000;
+  const auto queuedTimeUs = now - queueTimeStartUs_;
   // Update the next operator's queueTime.
   StopReason stop =
       closed_ ? StopReason::kTerminate : task()->enter(state_, now);
@@ -512,7 +512,9 @@ StopReason Driver::runInternal(
   if (curOperatorId_ < operators_.size()) {
     operators_[curOperatorId_]->addRuntimeStat(
         "queuedWallNanos",
-        RuntimeCounter(queuedTime, RuntimeCounter::Unit::kNanos));
+        RuntimeCounter(queuedTimeUs * 1'000, RuntimeCounter::Unit::kNanos));
+    RECORD_HISTOGRAM_METRIC_VALUE(
+        kMetricDriverQueueTimeMs, queuedTimeUs / 1'000);
   }
 
   CancelGuard guard(task().get(), &state_, [&](StopReason reason) {
@@ -1029,7 +1031,7 @@ folly::dynamic Driver::toJson() const {
   obj["blockingReason"] = blockingReasonToString(blockingReason_);
   obj["state"] = state_.toJson();
   obj["closed"] = closed_.load();
-  obj["queueTimeStartMicros"] = queueTimeStartMicros_;
+  obj["queueTimeStartMicros"] = queueTimeStartUs_;
   const auto ocs = opCallStatus();
   if (!ocs.empty()) {
     obj["curOpCall"] =

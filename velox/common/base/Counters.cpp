@@ -25,6 +25,16 @@ void registerVeloxMetrics() {
   // limit if enforced.
   DEFINE_METRIC(kMetricDriverYieldCount, facebook::velox::StatType::COUNT);
 
+  // Tracks driver queue latency in range of [0, 10s] with 20 buckets and
+  // reports P50, P90, P99, and P100.
+  DEFINE_HISTOGRAM_METRIC(
+      kMetricDriverQueueTimeMs, 500, 0, 10'000, 50, 90, 99, 100);
+
+  // Tracks driver execution latency in range of [0, 30s] with 30 buckets and
+  // reports P50, P90, P99, and P100.
+  DEFINE_HISTOGRAM_METRIC(
+      kMetricDriverExecTimeMs, 1'000, 0, 30'000, 50, 90, 99, 100);
+
   /// ================== Cache Counters =================
 
   // Tracks hive handle generation latency in range of [0, 100s] and reports
