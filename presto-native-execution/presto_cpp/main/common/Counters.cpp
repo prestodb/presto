@@ -110,28 +110,6 @@ void registerPrestoMetrics() {
       62l * 1024 * 1024 * 1024, // max bucket value: 62GB
       100);
 
-  /// ================== Disk Spilling Counters =================
-
-  DEFINE_METRIC(kCounterSpillRuns, facebook::velox::StatType::SUM);
-  DEFINE_METRIC(kCounterSpilledFiles, facebook::velox::StatType::SUM);
-  DEFINE_METRIC(kCounterSpilledRows, facebook::velox::StatType::SUM);
-  DEFINE_METRIC(kCounterSpilledBytes, facebook::velox::StatType::SUM);
-  DEFINE_METRIC(kCounterSpillFillTimeUs, facebook::velox::StatType::SUM);
-  DEFINE_METRIC(kCounterSpillSortTimeUs, facebook::velox::StatType::SUM);
-  DEFINE_METRIC(
-      kCounterSpillSerializationTimeUs, facebook::velox::StatType::SUM);
-  DEFINE_METRIC(kCounterSpillWrites, facebook::velox::StatType::SUM);
-  DEFINE_METRIC(kCounterSpillFlushTimeUs, facebook::velox::StatType::SUM);
-  DEFINE_METRIC(kCounterSpillWriteTimeUs, facebook::velox::StatType::SUM);
-  DEFINE_METRIC(kCounterSpillMemoryBytes, facebook::velox::StatType::AVG);
-  DEFINE_HISTOGRAM_METRIC(
-      kCounterSpillPeakMemoryBytes,
-      1l * 512 * 1024 * 1024,
-      0,
-      20l * 1024 * 1024 * 1024, // max bucket value: 20GB
-      100);
-  DEFINE_METRIC(kCounterSpillMaxLevelExceeded, facebook::velox::StatType::SUM);
-
   // NOTE: Metrics type exporting for file handle cache counters are in
   // PeriodicTaskManager because they have dynamic names. The following counters
   // have their type exported there:
