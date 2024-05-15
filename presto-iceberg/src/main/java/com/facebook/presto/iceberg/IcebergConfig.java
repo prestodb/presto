@@ -60,6 +60,7 @@ public class IcebergConfig
     private long maxManifestCacheSize = IO_MANIFEST_CACHE_MAX_TOTAL_BYTES_DEFAULT;
     private long manifestCacheExpireDuration = IO_MANIFEST_CACHE_EXPIRATION_INTERVAL_MS_DEFAULT;
     private long manifestCacheMaxContentLength = IO_MANIFEST_CACHE_MAX_CONTENT_LENGTH_DEFAULT;
+    private int splitManagerThreads = Runtime.getRuntime().availableProcessors();
 
     @NotNull
     public FileFormat getFileFormat()
@@ -332,6 +333,20 @@ public class IcebergConfig
     public IcebergConfig setManifestCacheMaxContentLength(long manifestCacheMaxContentLength)
     {
         this.manifestCacheMaxContentLength = manifestCacheMaxContentLength;
+        return this;
+    }
+
+    @Min(0)
+    public int getSplitManagerThreads()
+    {
+        return splitManagerThreads;
+    }
+
+    @Config("iceberg.split-manager-threads")
+    @ConfigDescription("Number of threads to use for generating splits")
+    public IcebergConfig setSplitManagerThreads(int splitManagerThreads)
+    {
+        this.splitManagerThreads = splitManagerThreads;
         return this;
     }
 }

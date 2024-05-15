@@ -59,7 +59,8 @@ public class TestIcebergConfig
                 .setFileIOImpl(HadoopFileIO.class.getName())
                 .setMaxManifestCacheSize(IO_MANIFEST_CACHE_MAX_TOTAL_BYTES_DEFAULT)
                 .setManifestCacheExpireDuration(IO_MANIFEST_CACHE_EXPIRATION_INTERVAL_MS_DEFAULT)
-                .setManifestCacheMaxContentLength(IO_MANIFEST_CACHE_MAX_CONTENT_LENGTH_DEFAULT));
+                .setManifestCacheMaxContentLength(IO_MANIFEST_CACHE_MAX_CONTENT_LENGTH_DEFAULT)
+                .setSplitManagerThreads(Runtime.getRuntime().availableProcessors()));
     }
 
     @Test
@@ -86,6 +87,7 @@ public class TestIcebergConfig
                 .put("iceberg.io.manifest.cache.max-total-bytes", "1048576000")
                 .put("iceberg.io.manifest.cache.expiration-interval-ms", "600000")
                 .put("iceberg.io.manifest.cache.max-content-length", "10485760")
+                .put("iceberg.split-manager-threads", "42")
                 .build();
 
         IcebergConfig expected = new IcebergConfig()
@@ -108,7 +110,8 @@ public class TestIcebergConfig
                 .setFileIOImpl("com.facebook.presto.iceberg.HdfsFileIO")
                 .setMaxManifestCacheSize(1048576000)
                 .setManifestCacheExpireDuration(600000)
-                .setManifestCacheMaxContentLength(10485760);
+                .setManifestCacheMaxContentLength(10485760)
+                .setSplitManagerThreads(42);
 
         assertFullMapping(properties, expected);
     }

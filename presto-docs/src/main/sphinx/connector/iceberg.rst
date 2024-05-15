@@ -247,6 +247,8 @@ Property Name                                           Description             
                                                         metadata optimization is skipped.
 
                                                         Set to ``0`` to disable metadata optimization.
+
+``iceberg.split-manager-threads``                       Number of threads to use for generating Iceberg splits.        ``Number of available processors``
 ======================================================= ============================================================= ============
 
 Table Properties

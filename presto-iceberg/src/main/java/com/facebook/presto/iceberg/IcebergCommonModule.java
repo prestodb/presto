@@ -88,6 +88,7 @@ import java.util.concurrent.ExecutorService;
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static java.lang.Math.toIntExact;
 import static java.util.concurrent.Executors.newFixedThreadPool;
@@ -132,6 +133,7 @@ public class IcebergCommonModule
         binder.bind(IcebergTableProperties.class).in(Scopes.SINGLETON);
 
         binder.bind(ConnectorSplitManager.class).to(IcebergSplitManager.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(ConnectorSplitManager.class).as(generatedNameOf(IcebergSplitManager.class, connectorId));
         binder.bind(ConnectorPageSourceProvider.class).to(IcebergPageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPageSinkProvider.class).to(IcebergPageSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorNodePartitioningProvider.class).to(HiveNodePartitioningProvider.class).in(Scopes.SINGLETON);
@@ -173,6 +175,19 @@ public class IcebergCommonModule
         return newFixedThreadPool(
                 metastoreClientConfig.getMaxMetastoreRefreshThreads(),
                 daemonThreadsNamed("hive-metastore-iceberg-%s"));
+    }
+
+    @Provides
+    @Singleton
+    @ForIcebergSplitManager
+    public ExecutorService createSplitManagerExecutor(IcebergConfig config)
+    {
+        if (config.getSplitManagerThreads() == 0) {
+            return newDirectExecutorService();
+        }
+        return newFixedThreadPool(
+                config.getSplitManagerThreads(),
+                daemonThreadsNamed("iceberg-split-manager-" + connectorId + "-%s"));
     }
 
     @Singleton
