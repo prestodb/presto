@@ -69,16 +69,20 @@ public final class CachingStatsProvider
 
         try {
             if (node instanceof GroupReference) {
-                return getGroupStats((GroupReference) node);
+                PlanNodeStatsEstimate result = getGroupStats((GroupReference) node);
+                session.getPlanNodeStatsMap().put(node.getId(), result);
+                return result;
             }
 
             PlanNodeStatsEstimate stats = cache.get(node);
             if (stats != null) {
+                session.getPlanNodeStatsMap().put(node.getId(), stats);
                 return stats;
             }
 
             stats = statsCalculator.calculateStats(node, this, lookup, session, types);
             verify(cache.put(node, stats) == null, "Stats already set");
+            session.getPlanNodeStatsMap().put(node.getId(), stats);
             return stats;
         }
         catch (RuntimeException e) {
