@@ -33,6 +33,7 @@ public class CacheConfig
     private boolean validationEnabled;
     private CacheQuotaScope cacheQuotaScope = GLOBAL;
     private Optional<DataSize> defaultCacheQuota = Optional.empty();
+    private boolean lastModifiedTimeCheckEnabled;
 
     @Nullable
     public URI getBaseDirectory()
@@ -110,6 +111,19 @@ public class CacheConfig
         if (defaultCacheQuota != null) {
             this.defaultCacheQuota = Optional.of(defaultCacheQuota);
         }
+        return this;
+    }
+
+    public boolean isLastModifiedTimeCheckEnabled()
+    {
+        return lastModifiedTimeCheckEnabled;
+    }
+
+    @Config("cache.last-modified-time-check-enabled")
+    @ConfigDescription("Enable the check of the last modified time for each cached file entry")
+    public CacheConfig setLastModifiedTimeCheckEnabled(boolean lastModifiedTimeCheckEnabled)
+    {
+        this.lastModifiedTimeCheckEnabled = lastModifiedTimeCheckEnabled;
         return this;
     }
 }

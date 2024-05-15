@@ -38,7 +38,8 @@ public class TestCacheConfig
                 .setBaseDirectory(null)
                 .setValidationEnabled(false)
                 .setCacheQuotaScope(GLOBAL)
-                .setDefaultCacheQuota(null));
+                .setDefaultCacheQuota(null)
+                .setLastModifiedTimeCheckEnabled(false));
     }
 
     @Test
@@ -52,6 +53,7 @@ public class TestCacheConfig
                 .put("cache.validation-enabled", "true")
                 .put("cache.cache-quota-scope", "TABLE")
                 .put("cache.default-cache-quota", "1GB")
+                .put("cache.last-modified-time-check-enabled", "true")
                 .build();
 
         CacheConfig expected = new CacheConfig()
@@ -60,7 +62,8 @@ public class TestCacheConfig
                 .setBaseDirectory(new URI("tcp://abc"))
                 .setValidationEnabled(true)
                 .setCacheQuotaScope(TABLE)
-                .setDefaultCacheQuota(DataSize.succinctDataSize(1, DataSize.Unit.GIGABYTE));
+                .setDefaultCacheQuota(DataSize.succinctDataSize(1, DataSize.Unit.GIGABYTE))
+                .setLastModifiedTimeCheckEnabled(true);
 
         assertFullMapping(properties, expected);
     }
