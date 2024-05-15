@@ -14,6 +14,7 @@
 
 package com.facebook.presto.cost;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -24,6 +25,7 @@ import com.google.common.graph.Traverser;
 import java.util.Map;
 import java.util.Objects;
 
+import static com.facebook.presto.SystemSessionProperties.isPrintEstimatedStatsFromCacheEnabled;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -77,15 +79,16 @@ public class StatsAndCosts
         return new StatsAndCosts(filteredStats.build(), filteredCosts.build());
     }
 
-    public static StatsAndCosts create(PlanNode root, StatsProvider statsProvider, CostProvider costProvider)
+    public static StatsAndCosts create(PlanNode root, StatsProvider statsProvider, CostProvider costProvider, Session session)
     {
         Iterable<PlanNode> planIterator = Traverser.forTree(PlanNode::getSources)
                 .depthFirstPreOrder(root);
         ImmutableMap.Builder<PlanNodeId, PlanNodeStatsEstimate> stats = ImmutableMap.builder();
         ImmutableMap.Builder<PlanNodeId, PlanCostEstimate> costs = ImmutableMap.builder();
+        boolean printStatsFromCache = isPrintEstimatedStatsFromCacheEnabled(session);
         for (PlanNode node : planIterator) {
-            stats.put(node.getId(), statsProvider.getStats(node));
-            costs.put(node.getId(), costProvider.getCost(node));
+            stats.put(node.getId(), printStatsFromCache ? session.getPlanNodeStatsMap().getOrDefault(node.getId(), PlanNodeStatsEstimate.unknown()) : statsProvider.getStats(node));
+            costs.put(node.getId(), printStatsFromCache ? session.getPlanNodeCostMap().getOrDefault(node.getId(), PlanCostEstimate.unknown()) : costProvider.getCost(node));
         }
         return new StatsAndCosts(stats.build(), costs.build());
     }

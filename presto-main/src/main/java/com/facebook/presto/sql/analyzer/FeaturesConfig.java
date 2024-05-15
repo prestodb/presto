@@ -307,6 +307,7 @@ public class FeaturesConfig
     private long kHyperLogLogAggregationGroupNumberLimit;
     private boolean limitNumberOfGroupsForKHyperLogLogAggregations = true;
     private boolean generateDomainFilters;
+    private boolean printEstimatedStatsFromCache;
     private CreateView.Security defaultViewSecurityMode = DEFINER;
 
     public enum PartitioningPrecisionStrategy
@@ -3099,6 +3100,19 @@ public class FeaturesConfig
     public FeaturesConfig setDefaultViewSecurityMode(CreateView.Security securityMode)
     {
         this.defaultViewSecurityMode = securityMode;
+        return this;
+    }
+
+    public boolean isPrintEstimatedStatsFromCache()
+    {
+        return this.printEstimatedStatsFromCache;
+    }
+
+    @Config("optimizer.print-estimated-stats-from-cache")
+    @ConfigDescription("In the end of query optimization, print the estimation stats from cache populated during optimization instead of calculating from ground")
+    public FeaturesConfig setPrintEstimatedStatsFromCache(boolean printEstimatedStatsFromCache)
+    {
+        this.printEstimatedStatsFromCache = printEstimatedStatsFromCache;
         return this;
     }
 }
