@@ -84,7 +84,6 @@ static constexpr size_t kTaskPeriodCleanOldTasks{60'000'000}; // 60 seconds.
 static constexpr size_t kConnectorPeriodGlobalCounters{
     60'000'000}; // 60 seconds.
 static constexpr size_t kOsPeriodGlobalCounters{2'000'000}; // 2 seconds
-static constexpr size_t kSpillStatsUpdateIntervalUs{60'000'000}; // 60 seconds
 // Every 1 minute we print endpoint latency counters.
 static constexpr size_t kHttpEndpointLatencyPeriodGlobalCounters{
     60'000'000}; // 60 seconds.
@@ -114,6 +113,7 @@ void PeriodicTaskManager::start() {
   opts.arbitrator = arbitrator_->kind() == "NOOP" ? nullptr : arbitrator_;
   opts.allocator = memoryAllocator_;
   opts.cache = asyncDataCache_;
+  opts.spillMemoryPool = velox::memory::spillMemoryPool();
   velox::startPeriodicStatsReporter(opts);
 
   // If executors are null, don't bother starting this task.
@@ -133,8 +133,6 @@ void PeriodicTaskManager::start() {
   addConnectorStatsTask();
 
   addOperatingSystemStatsUpdateTask();
-
-  addSpillStatsUpdateTask();
 
   if (SystemConfig::instance()->enableHttpEndpointLatencyFilter()) {
     addHttpEndpointLatencyStatsTask();
@@ -391,51 +389,6 @@ void PeriodicTaskManager::addOperatingSystemStatsUpdateTask() {
       [this]() { updateOperatingSystemStats(); },
       kOsPeriodGlobalCounters,
       "os_counters");
-}
-
-void PeriodicTaskManager::addSpillStatsUpdateTask() {
-  addTask(
-      [this]() { updateSpillStatsTask(); },
-      kSpillStatsUpdateIntervalUs,
-      "spill_stats");
-}
-
-void PeriodicTaskManager::updateSpillStatsTask() {
-  const auto updatedSpillStats = velox::common::globalSpillStats();
-  VELOX_CHECK_GE(updatedSpillStats, lastSpillStats_);
-  const auto deltaSpillStats = updatedSpillStats - lastSpillStats_;
-  REPORT_IF_NOT_ZERO(kCounterSpillRuns, deltaSpillStats.spillRuns);
-  REPORT_IF_NOT_ZERO(kCounterSpilledFiles, deltaSpillStats.spilledFiles);
-  REPORT_IF_NOT_ZERO(kCounterSpilledRows, deltaSpillStats.spilledRows);
-  REPORT_IF_NOT_ZERO(kCounterSpilledBytes, deltaSpillStats.spilledBytes);
-  REPORT_IF_NOT_ZERO(kCounterSpillFillTimeUs, deltaSpillStats.spillFillTimeUs);
-  REPORT_IF_NOT_ZERO(kCounterSpillSortTimeUs, deltaSpillStats.spillSortTimeUs);
-  REPORT_IF_NOT_ZERO(
-      kCounterSpillSerializationTimeUs,
-      deltaSpillStats.spillSerializationTimeUs);
-  REPORT_IF_NOT_ZERO(kCounterSpillWrites, deltaSpillStats.spillWrites);
-  REPORT_IF_NOT_ZERO(
-      kCounterSpillFlushTimeUs, deltaSpillStats.spillFlushTimeUs);
-  REPORT_IF_NOT_ZERO(
-      kCounterSpillWriteTimeUs, deltaSpillStats.spillWriteTimeUs);
-  REPORT_IF_NOT_ZERO(
-      kCounterSpillMaxLevelExceeded,
-      deltaSpillStats.spillMaxLevelExceededCount);
-
-  if (!deltaSpillStats.empty()) {
-    LOG(INFO) << "Updated spill stats: " << updatedSpillStats.toString();
-    LOG(INFO) << "Spill stats change:" << deltaSpillStats.toString();
-  }
-
-  const auto spillMemoryStats = velox::memory::spillMemoryPool()->stats();
-  LOG(INFO) << "Spill memory usage: current["
-            << velox::succinctBytes(spillMemoryStats.currentBytes) << "] peak["
-            << velox::succinctBytes(spillMemoryStats.peakBytes) << "]";
-  RECORD_METRIC_VALUE(kCounterSpillMemoryBytes, spillMemoryStats.currentBytes);
-  RECORD_HISTOGRAM_METRIC_VALUE(
-      kCounterSpillPeakMemoryBytes, spillMemoryStats.peakBytes);
-
-  lastSpillStats_ = updatedSpillStats;
 }
 
 void PeriodicTaskManager::printHttpEndpointLatencyStats() {

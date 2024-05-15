@@ -138,50 +138,6 @@ constexpr folly::StringPiece kCounterOsNumVoluntaryContextSwitches{
 constexpr folly::StringPiece kCounterOsNumForcedContextSwitches{
     "presto_cpp.os_num_forced_context_switches"};
 
-/// ================== Disk Spilling Counters =================
-
-/// The number of times that spilling runs on a velox operator.
-constexpr folly::StringPiece kCounterSpillRuns{"presto_cpp.spill_run_count"};
-/// The number of spilled files.
-constexpr folly::StringPiece kCounterSpilledFiles{
-    "presto_cpp.spilled_file_count"};
-/// The number of spilled rows.
-constexpr folly::StringPiece kCounterSpilledRows{
-    "presto_cpp.spilled_row_count"};
-/// The number of bytes spilled to disks.
-///
-/// NOTE: if compression is enabled, this counts the compressed bytes.
-constexpr folly::StringPiece kCounterSpilledBytes{"presto_cpp.spilled_bytes"};
-/// The time spent on filling rows for spilling.
-constexpr folly::StringPiece kCounterSpillFillTimeUs{
-    "presto_cpp.spill_fill_time_us"};
-/// The time spent on sorting rows for spilling.
-constexpr folly::StringPiece kCounterSpillSortTimeUs{
-    "presto_cpp.spill_sort_time_us"};
-/// The time spent on serializing rows for spilling.
-constexpr folly::StringPiece kCounterSpillSerializationTimeUs{
-    "presto_cpp.spill_serialization_time_us"};
-/// The number of disk writes to spill rows.
-constexpr folly::StringPiece kCounterSpillWrites{
-    "presto_cpp.spill_write_count"};
-/// The time spent on copy out serialized rows for disk write. If compression
-/// is enabled, this includes the compression time.
-constexpr folly::StringPiece kCounterSpillFlushTimeUs{
-    "presto_cpp.spill_flush_time_us"};
-/// The time spent on writing spilled rows to disk.
-constexpr folly::StringPiece kCounterSpillWriteTimeUs{
-    "presto_cpp.spill_write_time_us"};
-/// The number of times that a spillable operator exceeds the max spill level
-/// limit that can't spill.
-constexpr folly::StringPiece kCounterSpillMaxLevelExceeded{
-    "presto_cpp.spill_exceeded_max_level_count"};
-/// The current spilling memory usage in bytes.
-constexpr folly::StringPiece kCounterSpillMemoryBytes{
-    "presto_cpp.spill_memory_bytes"};
-/// The peak spilling memory usage in bytes.
-constexpr folly::StringPiece kCounterSpillPeakMemoryBytes{
-    "presto_cpp.spill_peak_memory_bytes"};
-
 /// ================== HiveConnector Counters ==================
 /// Format template strings use 'constexpr std::string_view' to be 'fmt::format'
 /// compatible.
