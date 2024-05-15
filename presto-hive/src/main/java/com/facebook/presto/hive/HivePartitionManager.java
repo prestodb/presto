@@ -76,10 +76,8 @@ import static com.facebook.presto.hive.HiveUtil.getPartitionKeyColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.parsePartitionValue;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.extractPartitionValues;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getMetastoreHeaders;
-import static com.facebook.presto.hive.metastore.MetastoreUtil.getProtectMode;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isUserDefinedTypeEncodingEnabled;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.makePartName;
-import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyOnline;
 import static com.facebook.presto.hive.metastore.PrestoTableType.TEMPORARY_TABLE;
 import static com.facebook.presto.spi.Constraint.alwaysTrue;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -427,13 +425,7 @@ public class HivePartitionManager
         if (!target.isPresent()) {
             throw new TableNotFoundException(hiveTableHandle.getSchemaTableName());
         }
-        Table table = target.get();
-
-        if (!offlineDataDebugModeEnabled) {
-            verifyOnline(hiveTableHandle.getSchemaTableName(), Optional.empty(), getProtectMode(table), table.getParameters());
-        }
-
-        return table;
+        return target.get();
     }
 
     private List<PartitionNameWithVersion> getFilteredPartitionNames(ConnectorSession session, SemiTransactionalHiveMetastore metastore, HiveTableHandle hiveTableHandle, Map<Column, Domain> partitionPredicates)

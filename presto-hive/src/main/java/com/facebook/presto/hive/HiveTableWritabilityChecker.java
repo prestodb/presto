@@ -59,6 +59,7 @@ public class HiveTableWritabilityChecker
         checkWritable(
                 table.getSchemaTableName(),
                 Optional.empty(),
+                !table.getPartitionColumns().isEmpty(),
                 getProtectMode(table),
                 table.getParameters(),
                 table.getStorage());

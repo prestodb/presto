@@ -101,6 +101,7 @@ import static com.facebook.presto.hive.HiveType.getPrimitiveType;
 import static com.facebook.presto.hive.HiveWarningCode.PARTITION_NOT_READABLE;
 import static com.facebook.presto.hive.StoragePartitionLoader.BucketSplitInfo.createBucketSplitInfo;
 import static com.facebook.presto.hive.TableToPartitionMapping.mapColumnsByIndex;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.OBJECT_NOT_READABLE;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getMetastoreHeaders;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getProtectMode;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isUserDefinedTypeEncodingEnabled;
@@ -132,8 +133,6 @@ import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Cate
 public class HiveSplitManager
         implements ConnectorSplitManager
 {
-    public static final String OBJECT_NOT_READABLE = "object_not_readable";
-
     private final HiveTransactionManager hiveTransactionManager;
     private final NamenodeStats namenodeStats;
     private final HdfsEnvironment hdfsEnvironment;
@@ -524,7 +523,7 @@ public class HiveSplitManager
 
                 if (!isOfflineDataDebugModeEnabled(session)) {
                     // verify partition is online
-                    verifyOnline(tableName, Optional.of(partitionName), getProtectMode(partition), partition.getParameters());
+                    verifyOnline(tableName, Optional.of(partitionName), true, getProtectMode(partition), partition.getParameters());
 
                     // verify partition is not marked as non-readable
                     String reason = partition.getParameters().get(OBJECT_NOT_READABLE);

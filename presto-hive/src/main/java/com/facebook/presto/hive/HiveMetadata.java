@@ -517,7 +517,7 @@ public class HiveMetadata
         }
 
         if (!isOfflineDataDebugModeEnabled(session)) {
-            verifyOnline(tableName, Optional.empty(), getProtectMode(table.get()), table.get().getParameters());
+            verifyOnline(tableName, Optional.empty(), !table.get().getPartitionColumns().isEmpty(), getProtectMode(table.get()), table.get().getParameters());
         }
 
         return new HiveTableHandle(tableName.getSchemaName(), tableName.getTableName());

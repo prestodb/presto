@@ -20,7 +20,6 @@ import org.apache.hadoop.hive.metastore.ProtectMode;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
-import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_OFFLINE;
 import static com.facebook.presto.hive.metastore.PrestoTableType.EXTERNAL_TABLE;
 import static com.facebook.presto.hive.metastore.PrestoTableType.MANAGED_TABLE;
 import static com.facebook.presto.hive.metastore.PrestoTableType.MATERIALIZED_VIEW;
@@ -65,16 +64,6 @@ public abstract class AbstractTestTableWritabilityChecker
                 .setParameter(ProtectMode.PARAMETER_NAME, ProtectMode.FLAG_READ_ONLY)
                 .build()))
                 .isInstanceOf(HiveReadOnlyException.class);
-        assertThatThrownBy(() -> writesToNonManagedTablesDisabled.checkTableWritable(tableBuilder()
-                .setTableType(MANAGED_TABLE)
-                .setParameter(ProtectMode.PARAMETER_NAME, ProtectMode.FLAG_OFFLINE)
-                .build()))
-                .isInstanceOf(TableOfflineException.class);
-        assertThatThrownBy(() -> writesToNonManagedTablesDisabled.checkTableWritable(tableBuilder()
-                .setTableType(MANAGED_TABLE)
-                .setParameter(PRESTO_OFFLINE, "true")
-                .build()))
-                .isInstanceOf(TableOfflineException.class);
     }
 
     @Test

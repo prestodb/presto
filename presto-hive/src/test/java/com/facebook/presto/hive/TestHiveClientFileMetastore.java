@@ -28,6 +28,7 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayout;
+import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
@@ -44,8 +45,13 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.hive.HiveQueryRunner.METASTORE_CONTEXT;
-import static com.facebook.presto.hive.HiveSplitManager.OBJECT_NOT_READABLE;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
+import static com.facebook.presto.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
+import static com.facebook.presto.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
+import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
+import static com.facebook.presto.hive.HiveTableProperties.SORTED_BY_PROPERTY;
+import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.OBJECT_NOT_READABLE;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_QUERY_ID_NAME;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_VERSION_NAME;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.toPartitionValues;
@@ -54,6 +60,7 @@ import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSched
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static org.apache.hadoop.hive.common.FileUtils.makePartName;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
@@ -114,6 +121,37 @@ public class TestHiveClientFileMetastore
     public void testTableConstraints()
     {
         // FileHiveMetastore has no support for table constraints
+    }
+
+    @Test
+    public void testUnPartitionedTableNotReadable()
+    {
+        SchemaTableName tableName = temporaryTable("tempTable");
+        try (Transaction transaction = newTransaction()) {
+            ConnectorSession session = newSession();
+            ConnectorMetadata metadata = transaction.getMetadata();
+
+            Map<String, Object> tableParameters = ImmutableMap.<String, Object>builder()
+                    .put(OBJECT_NOT_READABLE, "Testing Unreadable Un-Partitioned Table")
+                    .put(STORAGE_FORMAT_PROPERTY, ORC)
+                    .put(PARTITIONED_BY_PROPERTY, ImmutableList.of())
+                    .put(BUCKETED_BY_PROPERTY, ImmutableList.of())
+                    .put(BUCKET_COUNT_PROPERTY, 0)
+                    .put(SORTED_BY_PROPERTY, ImmutableList.of())
+                    .build();
+
+            ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, STATISTICS_PARTITIONED_TABLE_COLUMNS, tableParameters);
+            metadata.createTable(session, tableMetadata, false);
+            transaction.commit();
+        }
+
+        try (Transaction transaction = newTransaction()) {
+            ConnectorMetadata metadata = transaction.getMetadata();
+
+            // try load the new table; should throw TableOfflineException
+            assertThatThrownBy(() -> getTableHandle(metadata, tableName))
+                    .isInstanceOf(TableOfflineException.class);
+        }
     }
 
     @Test

@@ -174,6 +174,7 @@ public class MetastoreUtil
 
     @SuppressWarnings("OctalInteger")
     public static final FsPermission ALL_PERMISSIONS = new FsPermission((short) 0777);
+    public static final String OBJECT_NOT_READABLE = "object_not_readable";
 
     private static final String PARTITION_VALUE_WILDCARD = "";
     private static final String NUM_FILES = "numFiles";
@@ -469,13 +470,19 @@ public class MetastoreUtil
         }
     }
 
-    public static void verifyOnline(SchemaTableName tableName, Optional<String> partitionName, ProtectMode protectMode, Map<String, String> parameters)
+    public static void verifyOnline(SchemaTableName tableName, Optional<String> partitionName, boolean isPartitioned, ProtectMode protectMode, Map<String, String> parameters)
     {
         if (protectMode.offline) {
             if (partitionName.isPresent()) {
                 throw new PartitionOfflineException(tableName, partitionName.get(), false, null);
             }
             throw new TableOfflineException(tableName, false, null);
+        }
+
+        // Throw table offline exception for un-partitioned tables when table parameters has object_not_readable
+        String objectNotReadable = parameters.get(OBJECT_NOT_READABLE);
+        if (!isNullOrEmpty(objectNotReadable) && !isPartitioned) {
+            throw new TableOfflineException(tableName, true, objectNotReadable);
         }
 
         String prestoOffline = parameters.get(PRESTO_OFFLINE);
