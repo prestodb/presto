@@ -147,6 +147,7 @@ struct SsdCacheStats {
     deleteCheckpointErrors = tsanAtomicValue(other.deleteCheckpointErrors);
     growFileErrors = tsanAtomicValue(other.growFileErrors);
     writeSsdErrors = tsanAtomicValue(other.writeSsdErrors);
+    writeSsdDropped = tsanAtomicValue(other.writeSsdDropped);
     writeCheckpointErrors = tsanAtomicValue(other.writeCheckpointErrors);
     readSsdErrors = tsanAtomicValue(other.readSsdErrors);
     readCheckpointErrors = tsanAtomicValue(other.readCheckpointErrors);
@@ -171,6 +172,7 @@ struct SsdCacheStats {
         deleteCheckpointErrors - other.deleteCheckpointErrors;
     result.growFileErrors = growFileErrors - other.growFileErrors;
     result.writeSsdErrors = writeSsdErrors - other.writeSsdErrors;
+    result.writeSsdDropped = writeSsdDropped - other.writeSsdDropped;
     result.writeCheckpointErrors =
         writeCheckpointErrors - other.writeCheckpointErrors;
     result.readSsdErrors = readSsdErrors - other.readSsdErrors;
@@ -201,6 +203,7 @@ struct SsdCacheStats {
   tsan_atomic<uint32_t> deleteCheckpointErrors{0};
   tsan_atomic<uint32_t> growFileErrors{0};
   tsan_atomic<uint32_t> writeSsdErrors{0};
+  tsan_atomic<uint32_t> writeSsdDropped{0};
   tsan_atomic<uint32_t> writeCheckpointErrors{0};
   tsan_atomic<uint32_t> readSsdErrors{0};
   tsan_atomic<uint32_t> readCheckpointErrors{0};

@@ -260,6 +260,9 @@ constexpr folly::StringPiece kMetricSsdCacheGrowFileErrors{
 constexpr folly::StringPiece kMetricSsdCacheWriteSsdErrors{
     "velox.ssd_cache_write_ssd_errors"};
 
+constexpr folly::StringPiece kMetricSsdCacheWriteSsdDropped{
+    "velox.ssd_cache_write_ssd_dropped"};
+
 constexpr folly::StringPiece kMetricSsdCacheWriteCheckpointErrors{
     "velox.ssd_cache_write_checkpoint_errors"};
 

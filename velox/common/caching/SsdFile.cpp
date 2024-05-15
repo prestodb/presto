@@ -378,6 +378,7 @@ void SsdFile::write(std::vector<CachePin>& pins) {
     auto space = getSpace(pins, storeIndex);
     if (!space.has_value()) {
       // No space can be reclaimed. The pins are freed when the caller is freed.
+      ++stats_.writeSsdDropped;
       return;
     }
 
