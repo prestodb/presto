@@ -330,7 +330,6 @@ if("${ENABLE_ALL_WARNINGS}")
   elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(KNOWN_COMPILER_SPECIFIC_WARNINGS
         "-Wno-implicit-fallthrough \
-         -Wno-empty-body \
          -Wno-class-memaccess \
          -Wno-comment \
          -Wno-int-in-bool-context \
