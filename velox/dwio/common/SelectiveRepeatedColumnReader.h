@@ -24,10 +24,6 @@ namespace facebook::velox::dwio::common {
 // logic for dealing with mapping between enclosing and nested rows.
 class SelectiveRepeatedColumnReader : public SelectiveColumnReader {
  public:
-  bool useBulkPath() const override {
-    return false;
-  }
-
   const std::vector<SelectiveColumnReader*>& children() const override {
     return children_;
   }
@@ -72,8 +68,6 @@ class SelectiveRepeatedColumnReader : public SelectiveColumnReader {
   // Apply filter on parent level.  Child filtering should be handled separately
   // in subclasses.
   RowSet applyFilter(RowSet rows);
-
-  void setResultNulls(BaseVector& result);
 
   BufferPtr allLengthsHolder_;
   vector_size_t* allLengths_;

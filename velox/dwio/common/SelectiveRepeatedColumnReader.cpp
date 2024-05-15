@@ -153,7 +153,9 @@ void SelectiveRepeatedColumnReader::makeOffsetsAndSizes(
     rawOffsets[i] = nestedRowIndex;
     if (nulls && bits::isBitNull(nulls, row)) {
       rawSizes[i] = 0;
-      bits::setNull(rawResultNulls_, i);
+      if (!returnReaderNulls_) {
+        bits::setNull(rawResultNulls_, i);
+      }
       anyNulls_ = true;
     } else {
       currentOffset += allLengths_[row];
@@ -184,15 +186,6 @@ RowSet SelectiveRepeatedColumnReader::applyFilter(RowSet rows) {
           scanSpec_->filter()->toString());
   }
   return outputRows_;
-}
-
-void SelectiveRepeatedColumnReader::setResultNulls(BaseVector& result) {
-  if (anyNulls_) {
-    resultNulls_->setSize(bits::nbytes(result.size()));
-    result.setNulls(resultNulls_);
-  } else {
-    result.resetNulls();
-  }
 }
 
 SelectiveListColumnReader::SelectiveListColumnReader(
@@ -251,7 +244,7 @@ void SelectiveListColumnReader::getValues(RowSet rows, VectorPtr* result) {
   prepareResult(*result, requestedType_->type(), rows.size(), &memoryPool_);
   auto* resultArray = result->get()->asUnchecked<ArrayVector>();
   makeOffsetsAndSizes(rows, *resultArray);
-  setResultNulls(**result);
+  result->get()->setNulls(resultNulls());
   if (child_ && !nestedRows_.empty()) {
     auto& elements = resultArray->elements();
     prepareStructResult(requestedType_->type()->childAt(0), &elements);
@@ -332,7 +325,7 @@ void SelectiveMapColumnReader::getValues(RowSet rows, VectorPtr* result) {
   prepareResult(*result, requestedType_->type(), rows.size(), &memoryPool_);
   auto* resultMap = result->get()->asUnchecked<MapVector>();
   makeOffsetsAndSizes(rows, *resultMap);
-  setResultNulls(**result);
+  result->get()->setNulls(resultNulls());
   VELOX_CHECK(
       keyReader_ && elementReader_,
       "keyReader_ and elementReaer_ must exist in "

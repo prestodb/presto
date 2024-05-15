@@ -379,7 +379,7 @@ class SelectiveColumnReader {
   // discard nulls. This is used at read prepare time. useFastPath()
   // in DecoderUtil.h is used at read time and is expected to produce
   // the same result.
-  virtual bool useBulkPath() const {
+  bool useBulkPath() const {
     auto filter = scanSpec_->filter();
     return hasBulkPath() && process::hasAvx2() &&
         (!filter ||
@@ -444,6 +444,13 @@ class SelectiveColumnReader {
   // scanSpec_->readsNullsOnly() is true.
   template <typename T>
   void filterNulls(RowSet rows, bool isNull, bool extractValues);
+
+  // Temporary method for estimate in-memory row size (number of bits) of this
+  // column for Nimble.  Will be removed once column statistics are added for
+  // Nimble.
+  virtual std::optional<size_t> estimatedRowBitSize() const {
+    return std::nullopt;
+  }
 
  protected:
   template <typename T>

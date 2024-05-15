@@ -113,17 +113,15 @@ void SelectiveColumnReader::prepareNulls(
   returnReaderNulls_ = false;
   if (resultNulls_ && resultNulls_->unique() &&
       resultNulls_->capacity() >= bits::nbytes(numRows) + simd::kPadding) {
-    // Clear whole capacity because future uses could hit
-    // uncleared data between capacity() and 'numBytes'.
-    simd::memset(rawResultNulls_, bits::kNotNullByte, resultNulls_->capacity());
-    anyNulls_ = false;
-    return;
+    resultNulls_->setSize(bits::nbytes(numRows));
+  } else {
+    resultNulls_ = AlignedBuffer::allocate<bool>(
+        numRows + (simd::kPadding * 8), &memoryPool_);
+    rawResultNulls_ = resultNulls_->asMutable<uint64_t>();
   }
-
   anyNulls_ = false;
-  resultNulls_ = AlignedBuffer::allocate<bool>(
-      numRows + (simd::kPadding * 8), &memoryPool_);
-  rawResultNulls_ = resultNulls_->asMutable<uint64_t>();
+  // Clear whole capacity because future uses could hit uncleared data between
+  // capacity() and 'numBytes'.
   simd::memset(rawResultNulls_, bits::kNotNullByte, resultNulls_->capacity());
 }
 

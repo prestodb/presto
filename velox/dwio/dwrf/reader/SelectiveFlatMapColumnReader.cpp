@@ -93,6 +93,8 @@ std::vector<KeyNode<T>> getKeyNodes(
 
   common::ScanSpec* keysSpec = nullptr;
   common::ScanSpec* valuesSpec = nullptr;
+  std::unordered_map<KeyValue<T>, common::ScanSpec*, KeyValueHash<T>>
+      childSpecs;
   if (!asStruct) {
     keysSpec = scanSpec.getOrCreateChild(
         common::Subfield(common::ScanSpec::kMapKeysFieldName));
@@ -103,17 +105,15 @@ std::vector<KeyNode<T>> getKeyNodes(
     keysSpec->setExtractValues(true);
     valuesSpec->setProjectOut(true);
     valuesSpec->setExtractValues(true);
-  }
-
-  std::unordered_map<KeyValue<T>, common::ScanSpec*, KeyValueHash<T>>
-      childSpecs;
-  if (asStruct) {
+  } else {
     for (auto& c : scanSpec.children()) {
+      T key;
       if constexpr (std::is_same_v<T, StringView>) {
-        childSpecs[KeyValue<T>(StringView(c->fieldName()))] = c.get();
+        key = StringView(c->fieldName());
       } else {
-        childSpecs[KeyValue<T>(c->subscript())] = c.get();
+        key = folly::to<T>(c->fieldName());
       }
+      childSpecs[KeyValue<T>(key)] = c.get();
     }
   }
 
@@ -171,6 +171,11 @@ std::vector<KeyNode<T>> getKeyNodes(
           << fileType->id() << ", keys=" << keyNodes.size()
           << ", streams=" << streams;
 
+  if (!asStruct) {
+    std::sort(keyNodes.begin(), keyNodes.end(), [](auto& x, auto& y) {
+      return x.sequence < y.sequence;
+    });
+  }
   return keyNodes;
 }
 
@@ -217,239 +222,22 @@ class SelectiveFlatMapReader : public SelectiveStructColumnReaderBase {
             fileType,
             params,
             scanSpec),
-        keyNodes_(
-            getKeyNodes<T>(requestedType, fileType, params, scanSpec, false)) {
-    std::sort(keyNodes_.begin(), keyNodes_.end(), [](auto& x, auto& y) {
-      return x.sequence < y.sequence;
-    });
-    children_.resize(keyNodes_.size());
-    for (int i = 0; i < keyNodes_.size(); ++i) {
-      children_[i] = keyNodes_[i].reader.get();
-      children_[i]->setIsFlatMapValue(true);
-    }
-    if (auto type = requestedType_->type()->childAt(1); type->isRow()) {
-      childValues_ = BaseVector::create(type, 0, &memoryPool_);
-    }
-  }
-
-  bool useBulkPath() const override {
-    return false;
-  }
+        flatMap_(
+            *this,
+            getKeyNodes<T>(requestedType, fileType, params, scanSpec, false)) {}
 
   void read(vector_size_t offset, RowSet rows, const uint64_t* incomingNulls)
       override {
-    numReads_ = scanSpec_->newRead();
-    prepareRead<char>(offset, rows, incomingNulls);
-    VELOX_DCHECK(!hasMutation());
-    auto activeRows = rows;
-    auto* mapNulls =
-        nullsInReadRange_ ? nullsInReadRange_->as<uint64_t>() : nullptr;
-    if (scanSpec_->filter()) {
-      auto kind = scanSpec_->filter()->kind();
-      VELOX_CHECK(
-          kind == common::FilterKind::kIsNull ||
-          kind == common::FilterKind::kIsNotNull);
-      filterNulls<int32_t>(rows, kind == common::FilterKind::kIsNull, false);
-      if (outputRows_.empty()) {
-        for (auto* reader : children_) {
-          reader->addParentNulls(offset, mapNulls, rows);
-        }
-        return;
-      }
-      activeRows = outputRows_;
-    }
-    // Separate the loop to be cache friendly.
-    for (auto* reader : children_) {
-      advanceFieldReader(reader, offset);
-    }
-    for (auto* reader : children_) {
-      reader->read(offset, activeRows, mapNulls);
-      reader->addParentNulls(offset, mapNulls, rows);
-    }
-    lazyVectorReadOffset_ = offset;
-    readOffset_ = offset + rows.back() + 1;
+    flatMap_.read(offset, rows, incomingNulls);
   }
 
   void getValues(RowSet rows, VectorPtr* result) override {
-    auto& mapResult = prepareResult(*result, rows.size());
-    auto* rawOffsets = mapResult.mutableOffsets(rows.size())
-                           ->template asMutable<vector_size_t>();
-    auto* rawSizes = mapResult.mutableSizes(rows.size())
-                         ->template asMutable<vector_size_t>();
-    auto numNestedRows = calculateOffsets(rows, rawOffsets, rawSizes);
-    auto& keys = mapResult.mapKeys();
-    auto& values = mapResult.mapValues();
-    BaseVector::prepareForReuse(keys, numNestedRows);
-    BaseVector::prepareForReuse(values, numNestedRows);
-    auto* flatKeys = keys->template asFlatVector<T>();
-    VELOX_DYNAMIC_TYPE_DISPATCH(
-        copyValues, values->typeKind(), rows, flatKeys, rawOffsets, *values);
-    VELOX_CHECK_EQ(rawOffsets[rows.size() - 1], numNestedRows);
-    std::copy_backward(
-        rawOffsets, rawOffsets + rows.size() - 1, rawOffsets + rows.size());
-    rawOffsets[0] = 0;
-    result->get()->setNulls(resultNulls());
+    flatMap_.getValues(rows, result);
   }
 
  private:
-  MapVector& prepareResult(VectorPtr& result, vector_size_t size) {
-    if (result && result->encoding() == VectorEncoding::Simple::MAP &&
-        result.unique()) {
-      result->resetDataDependentFlags(nullptr);
-      result->resize(size);
-    } else {
-      VLOG(1) << "Reallocating result MAP vector of size " << size;
-      result = BaseVector::create(requestedType_->type(), size, &memoryPool_);
-    }
-    return *result->asUnchecked<MapVector>();
-  }
-
-  vector_size_t
-  calculateOffsets(RowSet rows, vector_size_t* offsets, vector_size_t* sizes) {
-    auto* nulls =
-        nullsInReadRange_ ? nullsInReadRange_->as<uint64_t>() : nullptr;
-    inMaps_.resize(children_.size());
-    for (int k = 0; k < children_.size(); ++k) {
-      auto& data = static_cast<const DwrfData&>(children_[k]->formatData());
-      inMaps_[k] = data.inMap();
-      if (!inMaps_[k]) {
-        inMaps_[k] = nulls;
-      }
-    }
-    columnRowBits_.resize(bits::nwords(children_.size() * rows.size()));
-    std::fill(columnRowBits_.begin(), columnRowBits_.end(), 0);
-    std::fill(sizes, sizes + rows.size(), 0);
-    for (int k = 0; k < children_.size(); ++k) {
-      if (inMaps_[k]) {
-        for (vector_size_t i = 0; i < rows.size(); ++i) {
-          if (bits::isBitSet(inMaps_[k], rows[i])) {
-            bits::setBit(columnRowBits_.data(), i + k * rows.size());
-            ++sizes[i];
-          }
-        }
-      } else {
-        bits::fillBits(
-            columnRowBits_.data(),
-            k * rows.size(),
-            (k + 1) * rows.size(),
-            true);
-        for (vector_size_t i = 0; i < rows.size(); ++i) {
-          ++sizes[i];
-        }
-      }
-    }
-    vector_size_t numNestedRows = 0;
-    for (vector_size_t i = 0; i < rows.size(); ++i) {
-      if (nulls && bits::isBitNull(nulls, rows[i])) {
-        if (!returnReaderNulls_) {
-          bits::setNull(rawResultNulls_, i);
-        }
-        anyNulls_ = true;
-      }
-      offsets[i] = numNestedRows;
-      numNestedRows += sizes[i];
-    }
-    return numNestedRows;
-  }
-
-  template <TypeKind kKind>
-  void copyValues(
-      RowSet rows,
-      FlatVector<T>* flatKeys,
-      vector_size_t* rawOffsets,
-      BaseVector& values) {
-    // String values are not copied directly because currently we don't have
-    // them in production so no need to optimize.
-    constexpr bool kDirectCopy =
-        TypeKind::TINYINT <= kKind && kKind <= TypeKind::DOUBLE;
-    using ValueType = typename TypeTraits<kKind>::NativeType;
-    T* rawKeys = flatKeys->mutableRawValues();
-    [[maybe_unused]] size_t strKeySize;
-    [[maybe_unused]] char* rawStrKeyBuffer;
-    if constexpr (std::is_same_v<T, StringView>) {
-      strKeySize = 0;
-      for (int k = 0; k < children_.size(); ++k) {
-        if (!keyNodes_[k].key.get().isInline()) {
-          strKeySize += keyNodes_[k].key.get().size();
-        }
-      }
-      if (strKeySize > 0) {
-        auto buf = AlignedBuffer::allocate<char>(strKeySize, &memoryPool_);
-        rawStrKeyBuffer = buf->template asMutable<char>();
-        flatKeys->addStringBuffer(buf);
-        strKeySize = 0;
-        for (int k = 0; k < children_.size(); ++k) {
-          auto& s = keyNodes_[k].key.get();
-          if (!s.isInline()) {
-            memcpy(&rawStrKeyBuffer[strKeySize], s.data(), s.size());
-            strKeySize += s.size();
-          }
-        }
-        strKeySize = 0;
-      }
-    }
-    [[maybe_unused]] ValueType* targetValues;
-    [[maybe_unused]] uint64_t* targetNulls;
-    if constexpr (kDirectCopy) {
-      VELOX_CHECK(values.isFlatEncoding());
-      auto* flat = values.asUnchecked<FlatVector<ValueType>>();
-      targetValues = flat->mutableRawValues();
-      targetNulls = flat->mutableRawNulls();
-    }
-    for (int k = 0; k < children_.size(); ++k) {
-      [[maybe_unused]] StringView strKey;
-      if constexpr (std::is_same_v<T, StringView>) {
-        strKey = keyNodes_[k].key.get();
-        if (!strKey.isInline()) {
-          strKey = {
-              &rawStrKeyBuffer[strKeySize],
-              static_cast<int32_t>(strKey.size())};
-          strKeySize += strKey.size();
-        }
-      }
-      children_[k]->getValues(rows, &childValues_);
-      if constexpr (kDirectCopy) {
-        decodedChildValues_.decode(*childValues_);
-      }
-      const auto begin = k * rows.size();
-      bits::forEachSetBit(
-          columnRowBits_.data(),
-          begin,
-          begin + rows.size(),
-          [&](vector_size_t i) {
-            i -= begin;
-            if constexpr (std::is_same_v<T, StringView>) {
-              rawKeys[rawOffsets[i]] = strKey;
-            } else {
-              rawKeys[rawOffsets[i]] = keyNodes_[k].key.get();
-            }
-            if constexpr (kDirectCopy) {
-              targetValues[rawOffsets[i]] =
-                  decodedChildValues_.valueAt<ValueType>(i);
-              bits::setNull(
-                  targetNulls, rawOffsets[i], decodedChildValues_.isNullAt(i));
-            } else {
-              copyRanges_.push_back({
-                  .sourceIndex = i,
-                  .targetIndex = rawOffsets[i],
-                  .count = 1,
-              });
-            }
-            ++rawOffsets[i];
-          });
-      if constexpr (!kDirectCopy) {
-        values.copyRanges(childValues_.get(), copyRanges_);
-        copyRanges_.clear();
-      }
-    }
-  }
-
-  std::vector<KeyNode<T>> keyNodes_;
-  VectorPtr childValues_;
-  DecodedVector decodedChildValues_;
-  std::vector<const uint64_t*> inMaps_;
-  std::vector<uint64_t> columnRowBits_;
-  std::vector<BaseVector::CopyRange> copyRanges_;
+  dwio::common::SelectiveFlatMapColumnReaderHelper<T, KeyNode<T>, DwrfData>
+      flatMap_;
 };
 
 template <typename T>
