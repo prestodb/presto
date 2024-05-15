@@ -270,7 +270,8 @@ public class TestFeaturesConfig
                 .setDefaultWriterReplicationCoefficient(3.0)
                 .setDefaultViewSecurityMode(DEFINER)
                 .setCteHeuristicReplicationThreshold(4)
-                .setLegacyJsonCast(true));
+                .setLegacyJsonCast(true)
+                .setPrintEstimatedStatsFromCache(false));
     }
 
     @Test
@@ -485,6 +486,7 @@ public class TestFeaturesConfig
                 .put("optimizer.default-writer-replication-coefficient", "5.0")
                 .put("default-view-security-mode", INVOKER.name())
                 .put("cte-heuristic-replication-threshold", "2")
+                .put("optimizer.print-estimated-stats-from-cache", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -696,7 +698,8 @@ public class TestFeaturesConfig
                 .setDefaultWriterReplicationCoefficient(5.0)
                 .setDefaultViewSecurityMode(INVOKER)
                 .setCteHeuristicReplicationThreshold(2)
-                .setLegacyJsonCast(false);
+                .setLegacyJsonCast(false)
+                .setPrintEstimatedStatsFromCache(true);
         assertFullMapping(properties, expected);
     }
 
