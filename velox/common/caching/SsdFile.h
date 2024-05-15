@@ -319,6 +319,10 @@ class SsdFile {
     return writableRegions_.size();
   }
 
+  SsdCacheStats testingStats() const {
+    return stats_;
+  }
+
  private:
   // 4 first bytes of a checkpoint file. Allows distinguishing between format
   // versions.

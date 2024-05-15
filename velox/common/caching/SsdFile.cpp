@@ -575,12 +575,15 @@ bool SsdFile::removeFileEntries(
   std::vector<int32_t> toFree;
   toFree.reserve(numRegions_);
   for (auto region = 0; region < numRegions_; ++region) {
-    if (erasedRegionSizes_[region] >
-        regionSizes_[region] * kMaxErasedSizePct / 100) {
+    if (regionPins_[region] == 0 &&
+        erasedRegionSizes_[region] >
+            regionSizes_[region] * kMaxErasedSizePct / 100) {
       toFree.push_back(region);
     }
   }
   if (toFree.size() > 0) {
+    VELOX_CHECK(!suspended_);
+    logEviction(toFree);
     clearRegionEntriesLocked(toFree);
     writableRegions_.reserve(
         std::min<size_t>(writableRegions_.size() + toFree.size(), numRegions_));
@@ -590,11 +593,14 @@ bool SsdFile::removeFileEntries(
       if (existingWritableRegions.count(region) == 0) {
         writableRegions_.push_back(region);
       }
+      VELOX_CHECK_EQ(regionSizes_[region], 0);
+      VELOX_CHECK_EQ(erasedRegionSizes_[region], 0);
     }
   }
 
   stats_.entriesAgedOut += entriesAgedOut;
   stats_.regionsAgedOut += toFree.size();
+  stats_.regionsEvicted += toFree.size();
   VELOX_SSD_CACHE_LOG(INFO)
       << "Removed " << entriesAgedOut << " entries from " << fileName_
       << ". And erased " << toFree.size() << " regions with "
