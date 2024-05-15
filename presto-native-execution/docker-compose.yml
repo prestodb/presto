@@ -34,6 +34,7 @@ services:
         - DEPENDENCY_IMAGE=presto/prestissimo-dependency:amd64-ubuntu-22.04
         - BASE_IMAGE=amd64/ubuntu:22.04
         - OSNAME=ubuntu
+        - EXTRA_CMAKE_FLAGS=-DPRESTO_ENABLE_TESTING=OFF -DPRESTO_ENABLE_PARQUET=ON -DPRESTO_ENABLE_S3=ON
       context: .
       dockerfile: scripts/dockerfiles/prestissimo-runtime.dockerfile
     environment:
@@ -58,6 +59,7 @@ services:
     build:
       args:
         - BUILD_TYPE=Release
+        - EXTRA_CMAKE_FLAGS=-DPRESTO_ENABLE_TESTING=OFF -DPRESTO_ENABLE_PARQUET=ON -DPRESTO_ENABLE_S3=ON
       context: .
       dockerfile: scripts/dockerfiles/prestissimo-runtime.dockerfile
     environment:
