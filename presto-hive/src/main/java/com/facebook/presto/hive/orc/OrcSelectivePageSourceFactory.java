@@ -389,7 +389,7 @@ public class OrcSelectivePageSourceFactory
                     appendRowNumberEnabled,
                     partitionID,
                     rowGroupId,
-                    recordReader.isColumnPresent(OrcSelectivePageSource.ROW_ID_COLUMN_INDEX));
+                    supplyRowIDs);
         }
         catch (Exception e) {
             try {
