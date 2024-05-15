@@ -102,9 +102,9 @@ Array Functions
         SELECT array_repeat(100, -1); -- []
 
 .. spark:function:: array_size(array(E)) -> integer
-    
+
         Returns the size of the array. ::
-    
+
             SELECT array_size(array(1, 2, 3)); -- 3
 
 .. spark:function:: array_sort(array(E)) -> array(E)
@@ -140,6 +140,17 @@ Array Functions
         SELECT flatten(array(array(1, 2), array(3, 4))); -- [1, 2, 3, 4]
         SELECT flatten(array(array(1, 2), array(3, NULL))); -- [1, 2, 3, NULL]
         SELECT flatten(array(array(1, 2), NULL, array(3, 4))); -- NULL
+
+.. spark:function:: get(array(E), index) -> E
+
+    Returns an element of the array at the specified 0-based index.
+    Returns NULL if index points outside of the array boundaries. ::
+
+        SELECT get(array(1, 2, 3), 0); -- 1
+        SELECT get(array(1, 2, 3), 3); -- NULL
+        SELECT get(array(1, 2, 3), -1); -- NULL
+        SELECT get(array(1, 2, 3), NULL); -- NULL
+        SELECT get(array(1, 2, NULL), 2); -- NULL
 
 .. spark:function:: in(value, array(E)) -> boolean
 
