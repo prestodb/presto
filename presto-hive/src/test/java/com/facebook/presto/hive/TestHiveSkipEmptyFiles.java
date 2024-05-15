@@ -26,7 +26,6 @@ import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
-import org.testng.log4testng.Logger;
 
 import java.io.File;
 import java.net.URL;
@@ -46,7 +45,6 @@ import static org.testng.Assert.assertEquals;
 public class TestHiveSkipEmptyFiles
         extends AbstractTestQueryFramework
 {
-    private static final Logger logger = Logger.getLogger(TestHiveSkipEmptyFiles.class);
     private static final String CATALOG = "hive";
     private static final String SCHEMA = "skip_empty_files_schema";
     private DistributedQueryRunner queryRunner;
@@ -56,14 +54,11 @@ public class TestHiveSkipEmptyFiles
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        logger.info("Creating 'QueryRunner'");
         Session session = testSessionBuilder().setCatalog(CATALOG).setSchema(SCHEMA).setTimeZoneKey(TimeZoneKey.UTC_KEY).build();
         this.queryRunner = DistributedQueryRunner.builder(session).setExtraProperties(ImmutableMap.<String, String>builder().build()).build();
 
-        logger.info("  |-- Installing Plugin: " + CATALOG);
         this.queryRunner.installPlugin(new HivePlugin(CATALOG));
         Path catalogDirectory = this.queryRunner.getCoordinator().getDataDirectory().resolve("hive_data").getParent().resolve("catalog");
-        logger.info("  |-- Obtained catalog directory: " + catalogDirectory.toFile().toURI());
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("hive.metastore", "file")
                 .put("hive.metastore.catalog.dir", catalogDirectory.toFile().toURI().toString())
@@ -74,16 +69,10 @@ public class TestHiveSkipEmptyFiles
                 .put("hive.storage-format", "PARQUET")
                 .put("hive.skip-empty-files", "true")
                 .build();
-        logger.info("  |-- Properties loaded");
 
-        logger.info("  |-- Creating catalog '" + CATALOG + "' using plugin '" + CATALOG + '\'');
         this.queryRunner.createCatalog(CATALOG, CATALOG, properties);
-        logger.info("  |-- Catalog '" + CATALOG + "' created");
-        logger.info("  |-- Creating schema '" + SCHEMA + "' on catalog '" + CATALOG + '\'');
         this.queryRunner.execute(format("CREATE SCHEMA %s.%s", CATALOG, SCHEMA));
-        logger.info("  |-- Schema '" + SCHEMA + "' created");
 
-        logger.info("'QueryRunner' created succesfully");
         return this.queryRunner;
     }
 
@@ -91,14 +80,11 @@ public class TestHiveSkipEmptyFiles
     private void createQueryFailRunner()
             throws Exception
     {
-        logger.info("Creating 'QueryFailRunner'");
         Session session = testSessionBuilder().setCatalog(CATALOG).setSchema(SCHEMA).setTimeZoneKey(TimeZoneKey.UTC_KEY).build();
         this.queryFailRunner = DistributedQueryRunner.builder(session).setExtraProperties(ImmutableMap.<String, String>builder().build()).build();
 
-        logger.info("  |-- Installing Plugin: " + CATALOG);
         this.queryFailRunner.installPlugin(new HivePlugin(CATALOG));
         Path catalogDirectory = this.queryFailRunner.getCoordinator().getDataDirectory().resolve("hive_data").getParent().resolve("catalog");
-        logger.info("  |-- Obtained catalog directory: " + catalogDirectory.toFile().toURI());
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("hive.metastore", "file")
                 .put("hive.metastore.catalog.dir", catalogDirectory.toFile().toURI().toString())
@@ -109,26 +95,20 @@ public class TestHiveSkipEmptyFiles
                 .put("hive.storage-format", "PARQUET")
                 .put("hive.skip-empty-files", "false")
                 .build();
-        logger.info("  |-- Properties loaded");
 
-        logger.info("  |-- Creating catalog '" + CATALOG + "' using plugin '" + CATALOG + '\'');
         this.queryFailRunner.createCatalog(CATALOG, CATALOG, properties);
-        logger.info("  |-- Catalog '" + CATALOG + "' created");
-        logger.info("  |-- Creating schema '" + SCHEMA + "' on catalog '" + CATALOG + '\'');
         this.queryFailRunner.execute(format("CREATE SCHEMA %s.%s", CATALOG, SCHEMA));
-        logger.info("  |-- Schema '" + SCHEMA + "' created");
-
-        logger.info("'QueryFailRunner' created succesfully");
     }
 
     /**
      * Generates a temporary directory and creates two parquet files inside, one is empty and the other is not
+     *
      * @return a {@link File} pointing to the newly created temporary directory
      */
     private static File generateMetadata(String tableName)
             throws Exception
     {
-        // obtains the root resouce directory in order to create temporary tables
+        // obtains the root resource directory in order to create temporary tables
         URL url = TestHiveSkipEmptyFiles.class.getClassLoader().getResource(".");
         if (url == null) {
             throw new RuntimeException("Could not obtain resource URL");
@@ -138,7 +118,6 @@ public class TestHiveSkipEmptyFiles
         if (!created) {
             throw new RuntimeException("Could not create resource directory: " + temporaryDirectory.getPath());
         }
-        logger.info("Created temporary directory: " + temporaryDirectory.toPath());
         File firstParquetFile = new File(temporaryDirectory, randomUUID().toString());
         ParquetTester.writeParquetFileFromPresto(firstParquetFile,
                 ImmutableList.of(IntegerType.INTEGER),
@@ -147,7 +126,6 @@ public class TestHiveSkipEmptyFiles
                 1,
                 GZIP,
                 PARQUET_2_0);
-        logger.info("First file written");
         File secondParquetFile = new File(temporaryDirectory, randomUUID().toString());
         if (!secondParquetFile.createNewFile()) {
             throw new RuntimeException("Could not create empty file");
@@ -158,35 +136,21 @@ public class TestHiveSkipEmptyFiles
     /**
      * Deletes the given directory and all of its contents recursively
      * Does not follow symbolic links
+     *
      * @param temporaryDirectory a {@link File} pointing to the directory to delete
      */
     private static void deleteMetadata(File temporaryDirectory)
     {
-        File[] data = temporaryDirectory.listFiles();
-        if (data != null) {
-            for (File f : data) {
-                if (!Files.isSymbolicLink(f.toPath())) {
-                    deleteMetadata(f);
+        File[] metadataFiles = temporaryDirectory.listFiles();
+        if (metadataFiles != null) {
+            for (File file : metadataFiles) {
+                if (!Files.isSymbolicLink(file.toPath())) {
+                    deleteMetadata(file);
                 }
             }
         }
-        deleteAndLog(temporaryDirectory);
-    }
-
-    private static void deleteAndLog(File file)
-    {
-        String filePath = file.getAbsolutePath();
-        boolean isDirectory = file.isDirectory();
-        if (file.delete()) {
-            if (isDirectory) {
-                logger.info("   deleted temporary directory: " + filePath);
-            }
-            else {
-                logger.info("   deleted temporary file: " + filePath);
-            }
-        }
-        else {
-            logger.info("   could not delete temporary element: " + filePath);
+        if (!temporaryDirectory.delete()) {
+            throw new RuntimeException("Could not to delete metadata");
         }
     }
 
@@ -213,7 +177,8 @@ public class TestHiveSkipEmptyFiles
 
     /**
      * Obtains the external location from the local resources directory of the project
-     * @param tableName a {@link String} containting the directory name to search for
+     *
+     * @param tableName a {@link String} containing the directory name to search for
      * @return a {@link String} with the external location for the given table_name
      */
     private static String getResourceUrl(String tableName)
@@ -222,13 +187,13 @@ public class TestHiveSkipEmptyFiles
         if (resourceUrl == null) {
             throw new RuntimeException("Cannot find resource path for table name: " + tableName);
         }
-        logger.info("resource url: " + resourceUrl);
         return resourceUrl.toString();
     }
 
     /**
      * Tries a table with the configuration property desired. If succeeds, tests the output.
      * Finally, it drops the table.
+     *
      * @param queryRunner a {@link QueryRunner} with the desired configuration properties
      * @param tableName a {@link String} containing the desired table name
      * @param externalLocation a {@link String} with the external location to create the table against it
@@ -237,7 +202,6 @@ public class TestHiveSkipEmptyFiles
      */
     private void executeCreationTestAndDropCycle(DistributedQueryRunner queryRunner, String tableName, String externalLocation, boolean shouldFail, @Language("RegExp") String errorMessage)
     {
-        logger.info("Executing Create - Test - Drop for: " + tableName);
         try {
             @Language("SQL") String createQuery = format(
                     "CREATE TABLE %s.\"%s\".\"%s\" (field %s) WITH (external_location = '%s')",
@@ -246,11 +210,9 @@ public class TestHiveSkipEmptyFiles
                     tableName,
                     IntegerType.INTEGER,
                     externalLocation);
-            logger.info("Creating table: " + createQuery);
             queryRunner.execute(createQuery);
             @Language("SQL") String selectQuery = format("SELECT * FROM %s.\"%s\".\"%s\"", CATALOG,
                     SCHEMA, tableName);
-            logger.info("Executing query: " + selectQuery);
             if (shouldFail) {
                 assertQueryFails(queryRunner, selectQuery, errorMessage);
             }
@@ -262,7 +224,6 @@ public class TestHiveSkipEmptyFiles
         finally {
             @Language("SQL") String dropQuery = format("DROP TABLE IF EXISTS %s.\"%s\".\"%s\"", CATALOG,
                     SCHEMA, tableName);
-            logger.info("Dropping table: " + dropQuery);
             queryRunner.execute(dropQuery);
         }
     }

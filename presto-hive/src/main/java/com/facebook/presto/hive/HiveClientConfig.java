@@ -1836,10 +1836,10 @@ public class HiveClientConfig
     }
 
     @Config("hive.skip-empty-files")
-    @ConfigDescription("Enables skip of parquet empty files avoiding output error")
-    public HiveClientConfig setSkipEmptyFilesEnabled(boolean parallelParsingOfPartitionValuesEnabled)
+    @ConfigDescription("Enables skip of empty files avoiding output error")
+    public HiveClientConfig setSkipEmptyFilesEnabled(boolean skipEmptyFiles)
     {
-        this.skipEmptyFiles = parallelParsingOfPartitionValuesEnabled;
+        this.skipEmptyFiles = skipEmptyFiles;
         return this;
     }
 
