@@ -27,6 +27,27 @@ void FunctionBaseTest::SetUpTestCase() {
 }
 
 // static
+std::vector<const exec::FunctionSignature*> FunctionBaseTest::getSignatures(
+    const std::string& functionName,
+    const std::string& returnType) {
+  const auto allSignatures = getFunctionSignatures();
+
+  std::vector<const exec::FunctionSignature*> signatures;
+  for (const auto& signature : allSignatures.at(functionName)) {
+    const auto& typeName = signature->returnType().baseName();
+    if (exec::sanitizeName(typeName) == exec::sanitizeName(returnType)) {
+      signatures.push_back(signature);
+    }
+  }
+  VELOX_CHECK(
+      !signatures.empty(),
+      "No signature found for function {} with return type {}.",
+      functionName,
+      returnType);
+  return signatures;
+}
+
+// static
 std::unordered_set<std::string> FunctionBaseTest::getSignatureStrings(
     const std::string& functionName) {
   auto allSignatures = getFunctionSignatures();

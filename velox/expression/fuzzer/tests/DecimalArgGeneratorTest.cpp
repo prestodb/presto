@@ -15,8 +15,8 @@
  */
 
 #include <gtest/gtest.h>
-#include "velox/expression/SignatureBinder.h"
 #include "velox/expression/fuzzer/DecimalArgGeneratorBase.h"
+#include "velox/expression/fuzzer/tests/ArgGeneratorTestUtils.h"
 
 namespace facebook::velox::fuzzer::test {
 
@@ -50,38 +50,6 @@ class DecimalArgGeneratorTest : public testing::Test {
       return {{p, s}};
     }
   };
-
-  // Assert the equivalence between the given return type and the actual type
-  // resolved from generated argument types.
-  void assertReturnType(
-      const std::shared_ptr<DecimalArgGeneratorBase>& generator,
-      const exec::FunctionSignature& signature,
-      const TypePtr& returnType) {
-    std::mt19937 seed{0};
-    const auto argTypes = generator->generateArgs(signature, returnType, seed);
-
-    // Resolve return type from argument types for the given signature.
-    TypePtr actualType;
-    exec::SignatureBinder binder(signature, argTypes);
-    if (binder.tryBind()) {
-      actualType = binder.tryResolveReturnType();
-    } else {
-      VELOX_FAIL("Failed to resolve return type from argument types.");
-    }
-    EXPECT_TRUE(returnType->equivalent(*actualType))
-        << "Expected type: " << returnType->toString()
-        << ", actual type: " << actualType->toString();
-  }
-
-  // Assert that no argument types can be generated for the given return type.
-  void assertEmptyArgs(
-      std::shared_ptr<DecimalArgGeneratorBase> generator,
-      const exec::FunctionSignature& signature,
-      const TypePtr& returnType) {
-    std::mt19937 seed{0};
-    const auto argTypes = generator->generateArgs(signature, returnType, seed);
-    EXPECT_TRUE(argTypes.empty());
-  }
 };
 
 TEST_F(DecimalArgGeneratorTest, unary) {
