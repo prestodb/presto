@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.airlift.concurrent.ThreadPoolExecutorMBean;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.iceberg.changelog.ChangelogSplitSource;
@@ -31,8 +32,13 @@ import org.apache.iceberg.TableScan;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.util.SnapshotUtil;
 import org.apache.iceberg.util.TableScanUtil;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import javax.inject.Inject;
+
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
 
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getMinimumAssignedSplitWeight;
@@ -46,13 +52,19 @@ public class IcebergSplitManager
 {
     private final IcebergTransactionManager transactionManager;
     private final TypeManager typeManager;
+    private final ExecutorService executor;
+    private final ThreadPoolExecutorMBean executorServiceMBean;
 
     @Inject
-    public IcebergSplitManager(IcebergTransactionManager transactionManager,
-            TypeManager typeManager)
+    public IcebergSplitManager(
+            IcebergTransactionManager transactionManager,
+            TypeManager typeManager,
+            @ForIcebergSplitManager ExecutorService executor)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.executor = requireNonNull(executor, "executor is null");
+        this.executorServiceMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) executor);
     }
 
     @Override
@@ -93,7 +105,8 @@ public class IcebergSplitManager
         else {
             TableScan tableScan = icebergTable.newScan()
                     .filter(toIcebergExpression(predicate))
-                    .useSnapshot(table.getIcebergTableName().getSnapshotId().get());
+                    .useSnapshot(table.getIcebergTableName().getSnapshotId().get())
+                    .planWith(executor);
 
             // TODO Use residual. Right now there is no way to propagate residual to presto but at least we can
             //      propagate it at split level so the parquet pushdown can leverage it.
@@ -104,5 +117,12 @@ public class IcebergSplitManager
                     getMinimumAssignedSplitWeight(session));
             return splitSource;
         }
+    }
+
+    @Managed
+    @Nested
+    public ThreadPoolExecutorMBean getExecutor()
+    {
+        return executorServiceMBean;
     }
 }
