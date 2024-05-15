@@ -117,11 +117,7 @@ public class Optimizer
                 PlanOptimizerResult optimizerResult = optimizer.optimize(root, session, TypeProvider.viewOf(variableAllocator.getVariables()), variableAllocator, idAllocator, warningCollector);
                 requireNonNull(optimizerResult, format("%s returned a null plan", optimizer.getClass().getName()));
                 if (enableVerboseRuntimeStats || trackOptimizerRuntime(session, optimizer)) {
-                    String optimizerName = optimizer.getClass().getSimpleName();
-                    if (optimizer instanceof StatsRecordingPlanOptimizer) {
-                        optimizerName = format("%s:%s", optimizerName, ((StatsRecordingPlanOptimizer) optimizer).getDelegate().getClass().getSimpleName());
-                    }
-                    session.getRuntimeStats().addMetricValue(String.format("optimizer%sTimeNanos", optimizerName), NANO, System.nanoTime() - start);
+                    session.getRuntimeStats().addMetricValue(String.format("optimizer%sTimeNanos", getOptimizerNameForLog(optimizer)), NANO, System.nanoTime() - start);
                 }
                 TypeProvider types = TypeProvider.viewOf(variableAllocator.getVariables());
 
@@ -146,11 +142,7 @@ public class Optimizer
             return false;
         }
         List<String> optimizers = Splitter.on(",").trimResults().splitToList(optimizerString);
-        String optimizerName = optimizer.getClass().getSimpleName();
-        if (optimizer instanceof StatsRecordingPlanOptimizer) {
-            optimizerName = ((StatsRecordingPlanOptimizer) optimizer).getDelegate().getClass().getSimpleName();
-        }
-        return optimizers.contains(optimizerName);
+        return optimizers.contains(getOptimizerNameForLog(optimizer));
     }
 
     private StatsAndCosts computeStats(PlanNode root, TypeProvider types)
@@ -172,7 +164,7 @@ public class Optimizer
             return;
         }
 
-        String optimizerName = optimizer.getClass().getSimpleName();
+        String optimizerName = getOptimizerNameForLog(optimizer);
         boolean isTriggered = planOptimizerResult.isOptimizerTriggered();
         boolean isApplicable =
                 isTriggered ||
@@ -191,5 +183,14 @@ public class Optimizer
             String newNodeStr = PlannerUtils.getPlanString(planOptimizerResult.getPlanNode(), session, types, metadata, false);
             session.getOptimizerResultCollector().addOptimizerResult(optimizerName, oldNodeStr, newNodeStr);
         }
+    }
+
+    private String getOptimizerNameForLog(PlanOptimizer optimizer)
+    {
+        String optimizerName = optimizer.getClass().getSimpleName();
+        if (optimizer instanceof StatsRecordingPlanOptimizer) {
+            optimizerName = format("%s:%s", optimizerName, ((StatsRecordingPlanOptimizer) optimizer).getDelegate().getClass().getSimpleName());
+        }
+        return optimizerName;
     }
 }

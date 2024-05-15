@@ -34,6 +34,7 @@ import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.PlannerUtils;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.planner.iterative.rule.RowExpressionRewriteRuleSet;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizerResult;
 import com.google.common.base.Splitter;
@@ -179,7 +180,7 @@ public class IterativeOptimizer
 
                 if (!rule.isEnabled(context.session)) {
                     if (isVerboseOptimizerInfoEnabled(context.session) && isApplicable(node, rule, matcher, context)) {
-                        context.addRulesApplicable(rule.getClass().getSimpleName());
+                        context.addRulesApplicable(getNameOfOptimizerRule(rule));
                     }
                     continue;
                 }
@@ -198,7 +199,7 @@ public class IterativeOptimizer
                             transformedNode = transformedNode.assignStatsEquivalentPlanNode(node.getStatsEquivalentPlanNode());
                         }
                     }
-                    context.addRulesTriggered(rule.getClass().getSimpleName(), node, transformedNode, rule.isCostBased(context.session), rule.getStatsSource());
+                    context.addRulesTriggered(getNameOfOptimizerRule(rule), node, transformedNode, rule.isCostBased(context.session), rule.getStatsSource());
                     node = context.memo.replace(group, transformedNode, rule.getClass().getName());
 
                     done = false;
@@ -208,6 +209,15 @@ public class IterativeOptimizer
         }
 
         return progress;
+    }
+
+    private String getNameOfOptimizerRule(Rule<?> rule)
+    {
+        String ruleName = rule.getClass().getSimpleName();
+        if (rule instanceof RowExpressionRewriteRuleSet.RowExpressionRewriteRule) {
+            ruleName = ((RowExpressionRewriteRuleSet.RowExpressionRewriteRule) rule).getOptimizerNameForLog();
+        }
+        return ruleName;
     }
 
     private <T> Rule.Result transform(PlanNode node, Rule<T> rule, Matcher matcher, Context context)
@@ -232,7 +242,7 @@ public class IterativeOptimizer
         }
         stats.record(rule, duration, !result.isEmpty());
         if (SystemSessionProperties.isVerboseRuntimeStatsEnabled(context.session) || trackOptimizerRuntime(context.session, rule)) {
-            context.session.getRuntimeStats().addMetricValue(String.format("rule%sTimeNanos", rule.getClass().getSimpleName()), NANO, duration);
+            context.session.getRuntimeStats().addMetricValue(String.format("rule%sTimeNanos", getNameOfOptimizerRule(rule)), NANO, duration);
         }
 
         return result;
@@ -245,7 +255,7 @@ public class IterativeOptimizer
             return false;
         }
         List<String> optimizers = Splitter.on(",").trimResults().splitToList(optimizerString);
-        return optimizers.contains(rule.getClass().getSimpleName());
+        return optimizers.contains(getNameOfOptimizerRule(rule));
     }
 
     private <T> boolean isApplicable(PlanNode node, Rule<T> rule, Matcher matcher, Context context)
