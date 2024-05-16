@@ -516,7 +516,7 @@ public class TestSourcePartitionedScheduler
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(variable)),
                 StageExecutionDescriptor.ungroupedExecution(),
                 false,
-                StatsAndCosts.empty(),
+                Optional.of(StatsAndCosts.empty()),
                 Optional.empty());
 
         return new SubPlan(testFragment, ImmutableList.of());
