@@ -82,12 +82,16 @@ Array Functions
 
 .. function:: array_least_frequent(array(T)) -> array(T)
 
-    Returns the least frequent element of an array. If there are multiple elements with same frequency, the function returns the largest element.
+    Returns the least frequent element of an array. If there are multiple elements with same frequency, the function returns the smallest element. ::
+
+        SELECT array_least_frequent(ARRAY[1, 0 , 5])  -- ARRAY[0]
 
 .. function:: array_least_frequent(array(T), n) -> array(T)
 
-    Returns n least frequent elements of an array. The elements are based on increasing order of their frequencies.
-    If two elements have same frequency then element with higher value will appear before lower value.
+    Returns ``n`` least frequent elements of an array. The elements are ordered in increasing order of their frequencies.
+    If two elements have same frequency, smaller elements will appear first. ::
+
+        SELECT array_least_frequent(ARRAY[3, 2, 2, 6, 6, 1, 1], 3) -- ARRAY[3, 1, 2]
 
 .. function:: array_max(x) -> x
 
