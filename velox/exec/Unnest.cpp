@@ -286,7 +286,24 @@ VectorPtr Unnest::UnnestChannelEncoding::wrap(
     return base;
   }
 
-  return BaseVector::wrapInDictionary(nulls, indices, wrapSize, base);
+  const auto result =
+      BaseVector::wrapInDictionary(nulls, indices, wrapSize, base);
+
+  // Dictionary vectors whose size is much smaller than the size of the
+  // 'alphabet' (base vector) create efficiency problems downstream. For
+  // example, expression evaluation may peel the dictionary encoding and
+  // evaluate the expression on the base vector. If a dictionary references
+  // 1K rows of the base vector with row numbers 1'000'000...1'000'999, the
+  // expression needs to allocate a result vector of size 1'001'000. This
+  // causes large number of large allocations and wastes a lot of
+  // resources.
+  //
+  // Make a flat copy of the necessary rows to avoid inefficient downstream
+  // processing.
+  //
+  // TODO A better fix might be to change expression evaluation (and all other
+  // operations) to handle dictionaries with large alphabets efficiently.
+  return BaseVector::copy(*result);
 }
 
 bool Unnest::isFinished() {
