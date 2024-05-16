@@ -306,7 +306,7 @@ TEST_F(MemoryManagerTest, defaultMemoryManager) {
     ASSERT_THAT(
         managerA.toString(true),
         testing::HasSubstr(fmt::format(
-            "default_shared_leaf_pool_{} usage 0B reserved 0B peak 0B\n", i)));
+            "__sys_shared_leaf__{} usage 0B reserved 0B peak 0B\n", i)));
   }
 }
 
@@ -628,4 +628,20 @@ TEST_F(MemoryManagerTest, quotaEnforcement) {
   }
 }
 
+TEST_F(MemoryManagerTest, deprecatedSharedPoolAccess) {
+  MemoryManager manager{};
+  auto& pool1 = deprecatedSharedLeafPool();
+  auto& pool2 = deprecatedSharedLeafPool();
+  ASSERT_EQ(pool1.name(), pool2.name());
+  ASSERT_EQ(&pool1, &pool2);
+  auto testThread = std::thread([&] {
+    auto& pool3 = deprecatedSharedLeafPool();
+    auto& pool4 = deprecatedSharedLeafPool();
+    ASSERT_EQ(pool4.name(), pool3.name());
+    ASSERT_EQ(&pool4, &pool3);
+    ASSERT_NE(pool3.name(), pool1.name());
+    ASSERT_NE(&pool3, &pool1);
+  });
+  testThread.join();
+}
 } // namespace facebook::velox::memory
