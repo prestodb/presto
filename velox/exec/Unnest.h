@@ -61,6 +61,8 @@ class Unnest : public Operator {
     BufferPtr indices;
     BufferPtr nulls;
     bool identityMapping;
+
+    VectorPtr wrap(const VectorPtr& base, vector_size_t wrapSize) const;
   };
 
   // Invoked by generateOutput above to generate the encoding for the unnested
@@ -80,7 +82,6 @@ class Unnest : public Operator {
   const bool withOrdinality_;
   std::vector<column_index_t> unnestChannels_;
 
-  SelectivityVector inputRows_;
   std::vector<DecodedVector> unnestDecoded_;
 
   BufferPtr maxSizes_;

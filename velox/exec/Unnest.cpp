@@ -16,7 +16,6 @@
 
 #include "velox/exec/Unnest.h"
 #include "velox/common/base/Nulls.h"
-#include "velox/exec/OperatorUtils.h"
 #include "velox/vector/FlatVector.h"
 
 namespace facebook::velox::exec {
@@ -63,8 +62,7 @@ void Unnest::addInput(RowVectorPtr input) {
     child->loadedVector();
   }
 
-  auto size = input_->size();
-  inputRows_.resize(size);
+  const auto size = input_->size();
 
   // The max number of elements at each row across all unnested columns.
   maxSizes_ = allocateSizes(size, pool());
@@ -76,30 +74,29 @@ void Unnest::addInput(RowVectorPtr input) {
 
   for (auto channel = 0; channel < unnestChannels_.size(); ++channel) {
     const auto& unnestVector = input_->childAt(unnestChannels_[channel]);
-    unnestDecoded_[channel].decode(*unnestVector, inputRows_);
 
     auto& currentDecoded = unnestDecoded_[channel];
+    currentDecoded.decode(*unnestVector);
+
     rawIndices_[channel] = currentDecoded.indices();
 
-    const ArrayVector* unnestBaseArray;
-    const MapVector* unnestBaseMap;
     if (unnestVector->typeKind() == TypeKind::ARRAY) {
-      unnestBaseArray = currentDecoded.base()->as<ArrayVector>();
+      const auto* unnestBaseArray = currentDecoded.base()->as<ArrayVector>();
       rawSizes_[channel] = unnestBaseArray->rawSizes();
       rawOffsets_[channel] = unnestBaseArray->rawOffsets();
     } else {
       VELOX_CHECK(unnestVector->typeKind() == TypeKind::MAP);
-      unnestBaseMap = currentDecoded.base()->as<MapVector>();
+      const auto* unnestBaseMap = currentDecoded.base()->as<MapVector>();
       rawSizes_[channel] = unnestBaseMap->rawSizes();
       rawOffsets_[channel] = unnestBaseMap->rawOffsets();
     }
 
     // Count max number of elements per row.
-    auto currentSizes = rawSizes_[channel];
-    auto currentIndices = rawIndices_[channel];
+    auto* currentSizes = rawSizes_[channel];
+    auto* currentIndices = rawIndices_[channel];
     for (auto row = 0; row < size; ++row) {
       if (!currentDecoded.isNullAt(row)) {
-        auto unnestSize = currentSizes[currentIndices[row]];
+        const auto unnestSize = currentSizes[currentIndices[row]];
         if (rawMaxSizes_[row] < unnestSize) {
           rawMaxSizes_[row] = unnestSize;
         }
@@ -167,8 +164,11 @@ void Unnest::generateRepeatedColumns(
 
   // Wrap "replicated" columns in a dictionary using 'repeatedIndices'.
   for (const auto& projection : identityProjections_) {
-    outputs.at(projection.outputChannel) = wrapChild(
-        numElements, repeatedIndices, input_->childAt(projection.inputChannel));
+    outputs.at(projection.outputChannel) = BaseVector::wrapInDictionary(
+        nullptr /*nulls*/,
+        repeatedIndices,
+        numElements,
+        input_->childAt(projection.inputChannel));
   }
 }
 
@@ -184,19 +184,19 @@ const Unnest::UnnestChannelEncoding Unnest::generateEncodingForChannel(
   auto rawNulls = nulls->asMutable<uint64_t>();
 
   auto& currentDecoded = unnestDecoded_[channel];
-  auto currentSizes = rawSizes_[channel];
-  auto currentOffsets = rawOffsets_[channel];
-  auto currentIndices = rawIndices_[channel];
+  auto* currentSizes = rawSizes_[channel];
+  auto* currentOffsets = rawOffsets_[channel];
+  auto* currentIndices = rawIndices_[channel];
 
   // Make dictionary index for elements column since they may be out of order.
   vector_size_t index = 0;
   bool identityMapping = true;
   for (auto row = start; row < start + size; ++row) {
-    auto maxSize = rawMaxSizes_[row];
+    const auto maxSize = rawMaxSizes_[row];
 
     if (!currentDecoded.isNullAt(row)) {
-      auto offset = currentOffsets[currentIndices[row]];
-      auto unnestSize = currentSizes[currentIndices[row]];
+      const auto offset = currentOffsets[currentIndices[row]];
+      const auto unnestSize = currentSizes[currentIndices[row]];
 
       if (index != offset || unnestSize < maxSize) {
         identityMapping = false;
@@ -229,9 +229,9 @@ VectorPtr Unnest::generateOrdinalityVector(
 
   // Set the ordinality at each result row to be the index of the element in
   // the original array (or map) plus one.
-  auto rawOrdinality = ordinalityVector->mutableRawValues();
+  auto* rawOrdinality = ordinalityVector->mutableRawValues();
   for (auto row = start; row < start + size; ++row) {
-    auto maxSize = rawMaxSizes_[row];
+    const auto maxSize = rawMaxSizes_[row];
     std::iota(rawOrdinality, rawOrdinality + maxSize, 1);
     rawOrdinality += maxSize;
   }
@@ -249,39 +249,24 @@ RowVectorPtr Unnest::generateOutput(
   // Create unnest columns.
   vector_size_t outputsIndex = identityProjections_.size();
   for (auto channel = 0; channel < unnestChannels_.size(); ++channel) {
-    auto& currentDecoded = unnestDecoded_[channel];
-    auto unnestChannelEncoding =
+    const auto unnestChannelEncoding =
         generateEncodingForChannel(channel, start, size, numElements);
 
+    auto& currentDecoded = unnestDecoded_[channel];
     if (currentDecoded.base()->typeKind() == TypeKind::ARRAY) {
       // Construct unnest column using Array elements wrapped using above
       // created dictionary.
-      auto unnestBaseArray = currentDecoded.base()->as<ArrayVector>();
-      outputs[outputsIndex++] = unnestChannelEncoding.identityMapping
-          ? unnestBaseArray->elements()
-          : wrapChild(
-                numElements,
-                unnestChannelEncoding.indices,
-                unnestBaseArray->elements(),
-                unnestChannelEncoding.nulls);
+      const auto* unnestBaseArray = currentDecoded.base()->as<ArrayVector>();
+      outputs[outputsIndex++] =
+          unnestChannelEncoding.wrap(unnestBaseArray->elements(), numElements);
     } else {
       // Construct two unnest columns for Map keys and values vectors wrapped
       // using above created dictionary.
-      auto unnestBaseMap = currentDecoded.base()->as<MapVector>();
-      outputs[outputsIndex++] = unnestChannelEncoding.identityMapping
-          ? unnestBaseMap->mapKeys()
-          : wrapChild(
-                numElements,
-                unnestChannelEncoding.indices,
-                unnestBaseMap->mapKeys(),
-                unnestChannelEncoding.nulls);
-      outputs[outputsIndex++] = unnestChannelEncoding.identityMapping
-          ? unnestBaseMap->mapValues()
-          : wrapChild(
-                numElements,
-                unnestChannelEncoding.indices,
-                unnestBaseMap->mapValues(),
-                unnestChannelEncoding.nulls);
+      const auto* unnestBaseMap = currentDecoded.base()->as<MapVector>();
+      outputs[outputsIndex++] =
+          unnestChannelEncoding.wrap(unnestBaseMap->mapKeys(), numElements);
+      outputs[outputsIndex++] =
+          unnestChannelEncoding.wrap(unnestBaseMap->mapValues(), numElements);
     }
   }
 
@@ -292,6 +277,16 @@ RowVectorPtr Unnest::generateOutput(
 
   return std::make_shared<RowVector>(
       pool(), outputType_, BufferPtr(nullptr), numElements, std::move(outputs));
+}
+
+VectorPtr Unnest::UnnestChannelEncoding::wrap(
+    const VectorPtr& base,
+    vector_size_t wrapSize) const {
+  if (identityMapping) {
+    return base;
+  }
+
+  return BaseVector::wrapInDictionary(nulls, indices, wrapSize, base);
 }
 
 bool Unnest::isFinished() {
