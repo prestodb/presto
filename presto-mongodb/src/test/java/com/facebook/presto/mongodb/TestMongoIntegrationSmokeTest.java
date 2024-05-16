@@ -277,6 +277,7 @@ public class TestMongoIntegrationSmokeTest
         assertUpdate("CREATE TABLE test_delete.tmp_delete_rows (value bigint)");
         MongoCollection<Document> collection = mongoQueryRunner.getMongoClient().getDatabase("test_delete").getCollection("tmp_delete_rows");
         collection.insertOne(new Document(ImmutableMap.of("value", 1)));
+        assertQuery("SELECT * from test_delete.tmp_delete_rows", "SELECT 1");
 
         assertUpdate("DELETE FROM test_delete.tmp_delete_rows WHERE value = 1", 1);
         assertQuery("SELECT count(*) FROM test_delete.tmp_delete_rows", "SELECT 0");

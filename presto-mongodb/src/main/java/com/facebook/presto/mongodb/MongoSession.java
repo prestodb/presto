@@ -569,7 +569,6 @@ public class MongoSession
         log.debug("Delete documents: collection: %s, filter: %s", schemaTableName, filter);
 
         DeleteResult result = getCollection(schemaTableName).deleteMany(filter);
-        log.info("Deleted: %s row(s)", result.getDeletedCount());
 
         return result.getDeletedCount();
     }
