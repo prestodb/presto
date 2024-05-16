@@ -25,7 +25,6 @@ class BitwiseXorAggregationTest : public aggregate::test::AggregationTestBase {
   void SetUp() override {
     AggregationTestBase::SetUp();
     registerAggregateFunctions("");
-    allowInputShuffle();
   }
 
   RowTypePtr rowType_{

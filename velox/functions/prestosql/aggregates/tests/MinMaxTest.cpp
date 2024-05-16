@@ -34,7 +34,6 @@ class MinMaxTest : public functions::aggregate::test::AggregationTestBase {
  protected:
   void SetUp() override {
     AggregationTestBase::SetUp();
-    allowInputShuffle();
   }
 
   std::vector<RowVectorPtr> fuzzData(const RowTypePtr& rowType) {
@@ -474,7 +473,6 @@ class MinMaxNTest : public functions::aggregate::test::AggregationTestBase {
  protected:
   void SetUp() override {
     AggregationTestBase::SetUp();
-    allowInputShuffle();
   }
 
   template <typename T>

@@ -38,7 +38,6 @@ class BoolAndOrTest : public virtual AggregationTestBase,
  protected:
   void SetUp() override {
     AggregationTestBase::SetUp();
-    allowInputShuffle();
   }
 };
 

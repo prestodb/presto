@@ -41,7 +41,6 @@ class VarianceAggregationTest : public AggregationTestBase {
  protected:
   void SetUp() override {
     AggregationTestBase::SetUp();
-    allowInputShuffle();
   }
 
   RowTypePtr rowType_{
@@ -159,8 +158,7 @@ TEST_F(VarianceAggregationTest, varianceNulls) {
 // when inputs are very large integers (> 15 digits long). Unfortunately
 // makeVectors() generates data that contains a lot of very large integers.
 // Replace makeVectors() with a dataset that doesn't contain very large
-// integers and enable more testing by calling allowInputShuffle() from
-// Setup().
+// integers and enable more testing.
 TEST_F(VarianceAggregationTest, varianceWithGlobalAggregation) {
   auto vectors = makeVectors(rowType_, 10, 20);
   createDuckDbTable(vectors);

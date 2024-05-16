@@ -325,7 +325,6 @@ std::string asSql(bool value) {
 
 void MinMaxByAggregationTestBase::SetUp() {
   AggregationTestBase::SetUp();
-  AggregationTestBase::disallowInputShuffle();
   std::vector<TypePtr> supportedTypes;
   std::vector<std::string> columnNames;
   int columnId = 0;
@@ -647,8 +646,6 @@ TEST_P(
   }
 
   // Enable disk spilling test with distinct comparison values.
-  AggregationTestBase::allowInputShuffle();
-
   auto rowType =
       ROW({"c0", "c1"},
           {createScalarType(GetParam().valueType),
@@ -1083,8 +1080,6 @@ TEST_P(
   }
 
   // Enable disk spilling test with distinct comparison values.
-  AggregationTestBase::allowInputShuffle();
-
   auto rowType =
       ROW({"c0", "c1", "c2"},
           {createScalarType(GetParam().valueType),
@@ -1387,7 +1382,6 @@ class MinMaxByNTest : public AggregationTestBase {
  protected:
   void SetUp() override {
     AggregationTestBase::SetUp();
-    AggregationTestBase::allowInputShuffle();
     AggregationTestBase::enableTestStreaming();
   }
 };

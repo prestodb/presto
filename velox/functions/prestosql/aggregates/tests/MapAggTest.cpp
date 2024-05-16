@@ -125,8 +125,6 @@ TEST_F(MapAggTest, groupByWithNullValues) {
 }
 
 TEST_F(MapAggTest, groupByWithDuplicates) {
-  disallowInputShuffle();
-
   auto data = makeRowVector({
       makeFlatVector<int32_t>({0, 0, 1, 1, 2, 2, 3, 3, 4, 4}),
       makeFlatVector<int32_t>({0, 0, 1, 1, 2, 2, 3, 3, 4, 4}),

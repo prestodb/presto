@@ -272,6 +272,55 @@ getFunctionNamesAndArgs(const std::vector<std::string>& aggregates) {
   }
   return std::make_pair(functionNames, aggregateArgs);
 }
+
+// Given a list of aggregation expressions, e.g., {"avg(c0)",
+// "\"$internal$count_distinct\"(c1)"}, fetch the function names from
+// AggregationNode of builder.planNode().
+std::vector<std::string> getFunctionNames(
+    std::function<void(exec::test::PlanBuilder&)> makeSource,
+    const std::vector<std::string>& aggregates,
+    memory::MemoryPool* pool) {
+  std::vector<std::string> functionNames;
+
+  PlanBuilder builder(pool);
+  makeSource(builder);
+
+  builder.singleAggregation({}, aggregates);
+  auto& aggregationNode =
+      static_cast<const core::AggregationNode&>(*builder.planNode());
+
+  for (const auto& aggregate : aggregationNode.aggregates()) {
+    const auto& aggregateExpr = aggregate.call;
+    const auto& name = aggregateExpr->name();
+
+    functionNames.push_back(name);
+  }
+
+  return functionNames;
+}
+
+// Given a list of aggregation expressions, check if any of aggregate functions
+// are order sensitive with metadata.
+bool hasOrderSensitive(
+    std::function<void(exec::test::PlanBuilder&)> makeSource,
+    const std::vector<std::string>& aggregates,
+    memory::MemoryPool* pool) {
+  auto functionNames = getFunctionNames(makeSource, aggregates, pool);
+  return std::any_of(
+      functionNames.begin(), functionNames.end(), [](const auto& functionName) {
+        auto* entry = exec::getAggregateFunctionEntry(functionName);
+        const auto& metadata = entry->metadata;
+        return metadata.orderSensitive;
+      });
+}
+// Same as above, but allows to specify input data instead of a function.
+bool hasOrderSensitive(
+    const std::vector<RowVectorPtr>& data,
+    const std::vector<std::string>& aggregates,
+    memory::MemoryPool* pool) {
+  return hasOrderSensitive(
+      [&](PlanBuilder& builder) { builder.values(data); }, aggregates, pool);
+}
 } // namespace
 
 void AggregationTestBase::testAggregationsWithCompanion(
@@ -372,7 +421,7 @@ void AggregationTestBase::testAggregationsWithCompanion(
     assertResults(queryBuilder);
   }
 
-  if (!groupingKeys.empty() && allowInputShuffle_) {
+  if (!groupingKeys.empty() && !hasOrderSensitive(data, aggregates, pool())) {
     SCOPED_TRACE("Run partial + final with spilling");
     PlanBuilder builder(pool());
     builder.values(dataWithExtraGroupingKey);
@@ -604,7 +653,6 @@ bool isTableScanSupported(const TypePtr& type) {
 
   return true;
 }
-
 } // namespace
 
 void AggregationTestBase::testReadFromFiles(
@@ -633,9 +681,10 @@ void AggregationTestBase::testReadFromFiles(
   auto writerPool = rootPool_->addAggregateChild("AggregationTestBase.writer");
 
   // Splits and writes the input vectors into two files, to some extent,
-  // involves shuffling of the inputs. So only split input if allowInputShuffle_
-  // is true. Otherwise, only write into a single file.
-  if (allowInputShuffle_ && input->size() >= 2) {
+  // involves shuffling of the inputs. So only split input if aggregate
+  // is non-orderSensitive. Otherwise, only write into a single file.
+  if (!hasOrderSensitive(makeSource, aggregates, pool()) &&
+      input->size() >= 2) {
     auto size1 = input->size() / 2;
     auto size2 = input->size() - size1;
     auto input1 = input->slice(0, size1);
@@ -814,7 +863,8 @@ void AggregationTestBase::testAggregationsImpl(
     assertResults(queryBuilder);
   }
 
-  if (!groupingKeys.empty() && allowInputShuffle_) {
+  if (!groupingKeys.empty() &&
+      !hasOrderSensitive(makeSource, aggregates, pool())) {
     SCOPED_TRACE("Run partial + final with spilling");
     PlanBuilder builder(pool());
     makeSource(builder);
@@ -926,7 +976,8 @@ void AggregationTestBase::testAggregationsImpl(
     assertResults(queryBuilder);
   }
 
-  if (!groupingKeys.empty() && allowInputShuffle_) {
+  if (!groupingKeys.empty() &&
+      !hasOrderSensitive(makeSource, aggregates, pool())) {
     SCOPED_TRACE("Run single with spilling");
     PlanBuilder builder(pool());
     makeSource(builder);
@@ -1117,7 +1168,8 @@ void AggregationTestBase::testAggregations(
     testIncrementalAggregation(makeSource, aggregates, config);
   }
 
-  if (allowInputShuffle_ && !groupingKeys.empty()) {
+  if (!hasOrderSensitive(makeSource, aggregates, pool()) &&
+      !groupingKeys.empty()) {
     testStreamingAggregationsImpl(
         makeSource,
         groupingKeys,

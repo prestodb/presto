@@ -33,7 +33,6 @@ class AverageAggregationTest : public AggregationTestBase {
  protected:
   void SetUp() override {
     AggregationTestBase::SetUp();
-    allowInputShuffle();
 
     registerSimpleAverageAggregate("simple_avg");
   }

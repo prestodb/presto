@@ -31,7 +31,6 @@ class CountDistinctTest : public AggregationTestBase {
   void SetUp() override {
     prestosql::registerInternalAggregateFunctions("");
     AggregationTestBase::SetUp();
-    allowInputShuffle();
   }
 };
 

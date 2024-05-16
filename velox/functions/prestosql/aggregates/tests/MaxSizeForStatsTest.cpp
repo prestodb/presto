@@ -27,7 +27,6 @@ class MaxSizeForStatsTest : public AggregationTestBase {
  public:
   void SetUp() override {
     AggregationTestBase::SetUp();
-    allowInputShuffle();
   }
 };
 

@@ -29,7 +29,6 @@ class CountAggregationTest : public AggregationTestBase {
  protected:
   void SetUp() override {
     AggregationTestBase::SetUp();
-    allowInputShuffle();
   }
 
   RowTypePtr rowType_{

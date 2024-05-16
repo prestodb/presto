@@ -31,7 +31,6 @@ class HistogramTest : public AggregationTestBase {
  protected:
   void SetUp() override {
     AggregationTestBase::SetUp();
-    allowInputShuffle();
   }
 
   void testHistogramWithDuck(

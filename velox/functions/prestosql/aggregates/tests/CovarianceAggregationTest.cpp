@@ -28,7 +28,6 @@ class CovarianceAggregationTest
  protected:
   void SetUp() override {
     AggregationTestBase::SetUp();
-    allowInputShuffle();
   }
 
   void testGroupBy(const std::string& aggName, const RowVectorPtr& data) {

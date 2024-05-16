@@ -29,7 +29,6 @@ class CentralMomentsAggregationTest
  protected:
   void SetUp() override {
     AggregationTestBase::SetUp();
-    allowInputShuffle();
   }
 
   void testGroupBy(

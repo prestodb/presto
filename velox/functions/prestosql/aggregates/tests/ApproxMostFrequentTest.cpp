@@ -27,7 +27,6 @@ struct ApproxMostFrequentTest : AggregationTestBase {
  protected:
   void SetUp() override {
     AggregationTestBase::SetUp();
-    allowInputShuffle();
   }
 
   std::shared_ptr<FlatVector<int>> makeGroupKeys() {

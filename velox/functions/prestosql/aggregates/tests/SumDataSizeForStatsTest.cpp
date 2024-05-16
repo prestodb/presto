@@ -27,7 +27,6 @@ class SumDataSizeForStatsTest : public AggregationTestBase {
  public:
   void SetUp() override {
     AggregationTestBase::SetUp();
-    allowInputShuffle();
   }
 };
 

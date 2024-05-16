@@ -28,7 +28,6 @@ class MinMaxByAggregateTest : public AggregationTestBase {
  protected:
   void SetUp() override {
     AggregationTestBase::SetUp();
-    AggregationTestBase::disallowInputShuffle();
     registerAggregateFunctions("spark_");
   }
 };

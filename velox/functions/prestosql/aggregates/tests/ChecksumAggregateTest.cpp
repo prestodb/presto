@@ -31,7 +31,6 @@ class ChecksumAggregateTest : public AggregationTestBase {
  protected:
   void SetUp() override {
     AggregationTestBase::SetUp();
-    allowInputShuffle();
   }
 
   template <typename T>

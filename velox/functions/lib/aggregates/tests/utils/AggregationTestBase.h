@@ -220,17 +220,6 @@ class AggregationTestBase : public exec::test::OperatorTestBase {
       const std::string& expectedMessage,
       const std::unordered_map<std::string, std::string>& config = {});
 
-  /// Specifies that aggregate functions used in this test are not sensitive
-  /// to the order of inputs.
-  void allowInputShuffle() {
-    allowInputShuffle_ = true;
-  }
-  /// Specifies that aggregate functions used in this test are sensitive
-  /// to the order of inputs.
-  void disallowInputShuffle() {
-    allowInputShuffle_ = false;
-  }
-
   void disableTestStreaming() {
     testStreaming_ = false;
   }
@@ -296,8 +285,6 @@ class AggregationTestBase : public exec::test::OperatorTestBase {
       std::function<std::shared_ptr<exec::Task>(
           exec::test::AssertQueryBuilder&)> assertResults,
       const std::unordered_map<std::string, std::string>& config);
-
-  bool allowInputShuffle_{false};
 };
 
 } // namespace facebook::velox::functions::aggregate::test

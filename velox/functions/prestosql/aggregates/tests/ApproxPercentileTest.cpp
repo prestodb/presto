@@ -87,7 +87,6 @@ class ApproxPercentileTest : public AggregationTestBase {
   void SetUp() override {
     AggregationTestBase::SetUp();
     random::setSeed(0);
-    allowInputShuffle();
   }
 
   template <typename T>

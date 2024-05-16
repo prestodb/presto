@@ -29,7 +29,6 @@ class BloomFilterAggAggregateTest
   void SetUp() override {
     AggregationTestBase::SetUp();
     registerAggregateFunctions("");
-    allowInputShuffle();
   }
 
   VectorPtr getSerializedBloomFilter(int32_t capacity) {

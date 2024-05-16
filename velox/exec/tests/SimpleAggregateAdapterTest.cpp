@@ -34,7 +34,6 @@ class SimpleAverageAggregationTest : public AggregationTestBase {
  protected:
   void SetUp() override {
     AggregationTestBase::SetUp();
-    allowInputShuffle();
 
     registerSimpleAverageAggregate(kSimpleAvg);
   }
@@ -114,7 +113,6 @@ class SimpleArrayAggAggregationTest : public AggregationTestBase {
  protected:
   void SetUp() override {
     AggregationTestBase::SetUp();
-    disallowInputShuffle();
 
     registerSimpleArrayAggAggregate(kSimpleArrayAgg);
   }
