@@ -337,8 +337,8 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
       const std::string& taskId,
       core::PlanNodePtr planNode,
       int destination) {
-    auto queryCtx = std::make_shared<core::QueryCtx>(
-        executor_.get(), core::QueryConfig({}));
+    auto queryCtx =
+        core::QueryCtx::create(executor_.get(), core::QueryConfig({}));
     core::PlanFragment planFragment{planNode};
     return exec::Task::create(
         taskId,
@@ -711,8 +711,8 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
         {core::QueryConfig::kPreferredOutputBatchRows,
          std::to_string(outputRowLimit)}};
 
-    auto queryCtx = std::make_shared<core::QueryCtx>(
-        executor_.get(), core::QueryConfig(properties));
+    auto queryCtx =
+        core::QueryCtx::create(executor_.get(), core::QueryConfig(properties));
     auto params = exec::test::CursorParameters();
     params.planNode = plan;
     params.queryCtx = queryCtx;
