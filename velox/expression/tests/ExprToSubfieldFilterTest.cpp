@@ -68,8 +68,8 @@ class ExprToSubfieldFilterTest : public testing::Test {
  private:
   std::shared_ptr<memory::MemoryPool> pool_ =
       memory::memoryManager()->addLeafPool();
-  core::QueryCtx queryCtx_;
-  SimpleExpressionEvaluator evaluator_{&queryCtx_, pool_.get()};
+  std::shared_ptr<core::QueryCtx> queryCtx_{core::QueryCtx::create()};
+  SimpleExpressionEvaluator evaluator_{queryCtx_.get(), pool_.get()};
 };
 
 TEST_F(ExprToSubfieldFilterTest, eq) {

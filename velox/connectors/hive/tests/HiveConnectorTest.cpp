@@ -464,8 +464,8 @@ TEST_F(HiveConnectorTest, makeScanSpec_prunedMapNonNullMapKey) {
 }
 
 TEST_F(HiveConnectorTest, extractFiltersFromRemainingFilter) {
-  core::QueryCtx queryCtx;
-  exec::SimpleExpressionEvaluator evaluator(&queryCtx, pool_.get());
+  auto queryCtx = core::QueryCtx::create();
+  exec::SimpleExpressionEvaluator evaluator(queryCtx.get(), pool_.get());
   auto rowType = ROW({"c0", "c1", "c2"}, {BIGINT(), BIGINT(), DECIMAL(20, 0)});
 
   auto expr = parseExpr("not (c0 > 0 or c1 > 0)", rowType);
@@ -503,8 +503,8 @@ TEST_F(HiveConnectorTest, extractFiltersFromRemainingFilter) {
 }
 
 TEST_F(HiveConnectorTest, prestoTableSampling) {
-  core::QueryCtx queryCtx;
-  exec::SimpleExpressionEvaluator evaluator(&queryCtx, pool_.get());
+  auto queryCtx = core::QueryCtx::create();
+  exec::SimpleExpressionEvaluator evaluator(queryCtx.get(), pool_.get());
   auto rowType = ROW({"c0"}, {BIGINT()});
 
   auto expr = parseExpr("rand() < 0.5", rowType);

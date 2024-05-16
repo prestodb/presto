@@ -29,7 +29,7 @@ class MergeJoinTest : public HiveConnectorTestBase {
   CursorParameters makeCursorParameters(
       const std::shared_ptr<const core::PlanNode>& planNode,
       uint32_t preferredOutputBatchSize) {
-    auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
+    auto queryCtx = core::QueryCtx::create(executor_.get());
 
     CursorParameters params;
     params.planNode = planNode;

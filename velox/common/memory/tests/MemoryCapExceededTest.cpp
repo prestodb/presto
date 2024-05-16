@@ -95,7 +95,7 @@ TEST_P(MemoryCapExceededTest, singleDriver) {
                   .singleAggregation({"c0"}, {"sum(p1)"})
                   .orderBy({"c0"}, false)
                   .planNode();
-  auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
+  auto queryCtx = core::QueryCtx::create(executor_.get());
   queryCtx->testingOverrideMemoryPool(memory::memoryManager()->addRootPool(
       queryCtx->queryId(), kMaxBytes, exec::MemoryReclaimer::create()));
   CursorParameters params;
@@ -153,7 +153,7 @@ TEST_P(MemoryCapExceededTest, multipleDrivers) {
                   .values(data, true)
                   .singleAggregation({"c0"}, {"sum(c1)"})
                   .planNode();
-  auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
+  auto queryCtx = core::QueryCtx::create(executor_.get());
   queryCtx->testingOverrideMemoryPool(memory::memoryManager()->addRootPool(
       queryCtx->queryId(), kMaxBytes, exec::MemoryReclaimer::create()));
 
@@ -229,7 +229,7 @@ TEST_P(MemoryCapExceededTest, allocatorCapacityExceededError) {
                     .singleAggregation({"c0"}, {"sum(p1)"})
                     .orderBy({"c0"}, false)
                     .planNode();
-    auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
+    auto queryCtx = core::QueryCtx::create(executor_.get());
     queryCtx->testingOverrideMemoryPool(
         manager.addRootPool(queryCtx->queryId(), kMaxBytes));
     CursorParameters params;

@@ -119,7 +119,7 @@ TEST_F(GroupedExecutionTest, groupedExecutionErrors) {
   planFragment.executionStrategy = core::ExecutionStrategy::kUngrouped;
   planFragment.groupedExecutionLeafNodeIds.clear();
   planFragment.groupedExecutionLeafNodeIds.emplace(tableScanNodeId);
-  queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
+  queryCtx = core::QueryCtx::create(executor_.get());
   task = exec::Task::create(
       "0",
       planFragment,
@@ -133,7 +133,7 @@ TEST_F(GroupedExecutionTest, groupedExecutionErrors) {
   // Check grouped execution without supplied leaf node ids.
   planFragment.executionStrategy = core::ExecutionStrategy::kGrouped;
   planFragment.groupedExecutionLeafNodeIds.clear();
-  queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
+  queryCtx = core::QueryCtx::create(executor_.get());
   task = exec::Task::create(
       "0",
       planFragment,
@@ -149,7 +149,7 @@ TEST_F(GroupedExecutionTest, groupedExecutionErrors) {
   planFragment.executionStrategy = core::ExecutionStrategy::kGrouped;
   planFragment.groupedExecutionLeafNodeIds.clear();
   planFragment.groupedExecutionLeafNodeIds.emplace(projectNodeId);
-  queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
+  queryCtx = core::QueryCtx::create(executor_.get());
   task = exec::Task::create(
       "0",
       planFragment,
@@ -167,7 +167,7 @@ TEST_F(GroupedExecutionTest, groupedExecutionErrors) {
   planFragment.groupedExecutionLeafNodeIds.clear();
   planFragment.groupedExecutionLeafNodeIds.emplace(tableScanNodeId);
   planFragment.groupedExecutionLeafNodeIds.emplace(projectNodeId);
-  queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
+  queryCtx = core::QueryCtx::create(executor_.get());
   task = exec::Task::create(
       "0",
       planFragment,
@@ -185,7 +185,7 @@ TEST_F(GroupedExecutionTest, groupedExecutionErrors) {
   planFragment.executionStrategy = core::ExecutionStrategy::kGrouped;
   planFragment.groupedExecutionLeafNodeIds.clear();
   planFragment.groupedExecutionLeafNodeIds.emplace(localPartitionNodeId);
-  queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
+  queryCtx = core::QueryCtx::create(executor_.get());
   task = exec::Task::create(
       "0",
       planFragment,
@@ -226,7 +226,7 @@ TEST_F(GroupedExecutionTest, groupedExecutionWithOutputBuffer) {
   planFragment.executionStrategy = core::ExecutionStrategy::kGrouped;
   planFragment.groupedExecutionLeafNodeIds.emplace(tableScanNodeId);
   planFragment.numSplitGroups = 10;
-  auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
+  auto queryCtx = core::QueryCtx::create(executor_.get());
   auto task = exec::Task::create(
       "0",
       std::move(planFragment),
@@ -384,7 +384,7 @@ DEBUG_ONLY_TEST_F(
     }
     planFragment.numSplitGroups = 2;
 
-    auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
+    auto queryCtx = core::QueryCtx::create(executor_.get());
     if (testData.enableSpill) {
       std::unordered_map<std::string, std::string> configs;
       configs.emplace(core::QueryConfig::kSpillEnabled, "true");
@@ -544,7 +544,7 @@ TEST_F(GroupedExecutionTest, groupedExecutionWithHashAndNestedLoopJoin) {
     planFragment.executionStrategy = core::ExecutionStrategy::kGrouped;
     planFragment.groupedExecutionLeafNodeIds.emplace(probeScanNodeId);
     planFragment.numSplitGroups = 10;
-    auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
+    auto queryCtx = core::QueryCtx::create(executor_.get());
     auto task = exec::Task::create(
         "0",
         std::move(planFragment),

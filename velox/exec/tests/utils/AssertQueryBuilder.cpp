@@ -238,7 +238,7 @@ AssertQueryBuilder::readCursor() {
       // NOTE: the destructor of 'executor_' will wait for all the async task
       // activities to finish on AssertQueryBuilder dtor.
       static std::atomic<uint64_t> cursorQueryId{0};
-      params_.queryCtx = std::make_shared<core::QueryCtx>(
+      params_.queryCtx = core::QueryCtx::create(
           executor_.get(),
           core::QueryConfig({}),
           std::unordered_map<std::string, std::shared_ptr<Config>>{},

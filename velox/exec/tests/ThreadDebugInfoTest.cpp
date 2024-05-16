@@ -90,7 +90,7 @@ DEBUG_ONLY_TEST_F(ThreadDebugInfoDeathTest, withinTheCallingThread) {
   auto plan =
       PlanBuilder().values({vector}).project({"segFault(c0)"}).planFragment();
 
-  auto queryCtx = std::make_shared<core::QueryCtx>(
+  auto queryCtx = core::QueryCtx::create(
       executor_.get(),
       core::QueryConfig({}),
       std::unordered_map<std::string, std::shared_ptr<Config>>{},

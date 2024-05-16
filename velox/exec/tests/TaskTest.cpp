@@ -470,7 +470,7 @@ class TaskTest : public HiveConnectorTestBase {
         "single.execution.task.0",
         plan,
         0,
-        std::make_shared<core::QueryCtx>(),
+        core::QueryCtx::create(),
         Task::ExecutionMode::kSerial);
 
     for (const auto& [nodeId, paths] : filePaths) {
@@ -519,7 +519,7 @@ TEST_F(TaskTest, toJson) {
       "task-1",
       std::move(plan),
       0,
-      std::make_shared<core::QueryCtx>(driverExecutor_.get()),
+      core::QueryCtx::create(driverExecutor_.get()),
       Task::ExecutionMode::kParallel);
 
   ASSERT_EQ(
@@ -565,7 +565,7 @@ TEST_F(TaskTest, wrongPlanNodeForSplit) {
       "task-1",
       std::move(plan),
       0,
-      std::make_shared<core::QueryCtx>(driverExecutor_.get()),
+      core::QueryCtx::create(driverExecutor_.get()),
       Task::ExecutionMode::kParallel);
 
   // Add split for the source node.
@@ -621,7 +621,7 @@ TEST_F(TaskTest, wrongPlanNodeForSplit) {
       "task-2",
       std::move(plan),
       0,
-      std::make_shared<core::QueryCtx>(driverExecutor_.get()),
+      core::QueryCtx::create(driverExecutor_.get()),
       Task::ExecutionMode::kParallel);
   errorMessage =
       "Splits can be associated only with leaf plan nodes which require splits. Plan node ID 0 doesn't refer to such plan node.";
@@ -648,7 +648,7 @@ TEST_F(TaskTest, duplicatePlanNodeIds) {
           "task-1",
           std::move(plan),
           0,
-          std::make_shared<core::QueryCtx>(driverExecutor_.get()),
+          core::QueryCtx::create(driverExecutor_.get()),
           Task::ExecutionMode::kParallel),
       "Plan node IDs must be unique. Found duplicate ID: 0.")
 }
@@ -921,7 +921,7 @@ TEST_F(TaskTest, singleThreadedExecutionExternalBlockable) {
       "single.execution.task.0",
       plan,
       0,
-      std::make_shared<core::QueryCtx>(),
+      core::QueryCtx::create(),
       Task::ExecutionMode::kSerial);
   std::vector<RowVectorPtr> results;
   for (;;) {
@@ -941,7 +941,7 @@ TEST_F(TaskTest, singleThreadedExecutionExternalBlockable) {
       "single.execution.task.1",
       plan,
       0,
-      std::make_shared<core::QueryCtx>(),
+      core::QueryCtx::create(),
       Task::ExecutionMode::kSerial);
   // Before we block, we expect `next` to get data normally.
   results.push_back(blockingTask->next(&continueFuture));
@@ -977,7 +977,7 @@ TEST_F(TaskTest, supportsSingleThreadedExecution) {
       "single.execution.task.0",
       plan,
       0,
-      std::make_shared<core::QueryCtx>(),
+      core::QueryCtx::create(),
       Task::ExecutionMode::kSerial);
 
   // PartitionedOutput does not support single threaded execution, therefore the
@@ -997,7 +997,7 @@ TEST_F(TaskTest, updateBroadCastOutputBuffers) {
         "t0",
         plan,
         0,
-        std::make_shared<core::QueryCtx>(driverExecutor_.get()),
+        core::QueryCtx::create(driverExecutor_.get()),
         Task::ExecutionMode::kParallel);
 
     task->start(1, 1);
@@ -1015,7 +1015,7 @@ TEST_F(TaskTest, updateBroadCastOutputBuffers) {
         "t1",
         plan,
         0,
-        std::make_shared<core::QueryCtx>(driverExecutor_.get()),
+        core::QueryCtx::create(driverExecutor_.get()),
         Task::ExecutionMode::kParallel);
 
     task->start(1, 1);
@@ -1091,7 +1091,7 @@ DEBUG_ONLY_TEST_F(TaskTest, outputDriverFinishEarly) {
 
   CursorParameters params;
   params.planNode = plan;
-  params.queryCtx = std::make_shared<core::QueryCtx>(driverExecutor_.get());
+  params.queryCtx = core::QueryCtx::create(driverExecutor_.get());
   params.queryCtx->testingOverrideConfigUnsafe(
       {{core::QueryConfig::kPreferredOutputBatchRows, "1"}});
 
@@ -1137,7 +1137,7 @@ DEBUG_ONLY_TEST_F(TaskTest, liveStats) {
 
   CursorParameters params;
   params.planNode = plan;
-  params.queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
+  params.queryCtx = core::QueryCtx::create(executor_.get());
   params.queryCtx->testingOverrideConfigUnsafe(
       {{core::QueryConfig::kPreferredOutputBatchRows, "1"}});
 
@@ -1216,7 +1216,7 @@ TEST_F(TaskTest, outputBufferSize) {
 
   CursorParameters params;
   params.planNode = plan;
-  params.queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
+  params.queryCtx = core::QueryCtx::create(executor_.get());
 
   // Produce the results to output buffer manager but not consuming them to
   // check the buffer utilization in test.
@@ -1265,7 +1265,7 @@ DEBUG_ONLY_TEST_F(TaskTest, inconsistentExecutionMode) {
     CursorParameters params;
     params.planNode =
         PlanBuilder().values({data, data, data}).project({"c0"}).planNode();
-    params.queryCtx = std::make_shared<core::QueryCtx>(driverExecutor_.get());
+    params.queryCtx = core::QueryCtx::create(driverExecutor_.get());
     params.maxDrivers = 4;
 
     auto cursor = TaskCursor::create(params);
@@ -1289,7 +1289,7 @@ DEBUG_ONLY_TEST_F(TaskTest, inconsistentExecutionMode) {
     });
     auto plan =
         PlanBuilder().values({data, data, data}).project({"c0"}).planFragment();
-    auto queryCtx = std::make_shared<core::QueryCtx>(driverExecutor_.get());
+    auto queryCtx = core::QueryCtx::create(driverExecutor_.get());
     auto task =
         Task::create("task.0", plan, 0, queryCtx, Task::ExecutionMode::kSerial);
 
@@ -1330,7 +1330,7 @@ DEBUG_ONLY_TEST_F(TaskTest, findPeerOperators) {
                               "",
                               {"t_c0", "t_c1", "u_c0"})
                           .planNode();
-    params.queryCtx = std::make_shared<core::QueryCtx>(driverExecutor_.get());
+    params.queryCtx = core::QueryCtx::create(driverExecutor_.get());
     params.maxDrivers = numDriver;
 
     auto cursor = TaskCursor::create(params);
@@ -1381,7 +1381,7 @@ DEBUG_ONLY_TEST_F(TaskTest, raceBetweenTaskPauseAndTerminate) {
   CursorParameters params;
   params.planNode =
       PlanBuilder(planNodeIdGenerator).values(values, true).planNode();
-  params.queryCtx = std::make_shared<core::QueryCtx>(driverExecutor_.get());
+  params.queryCtx = core::QueryCtx::create(driverExecutor_.get());
   params.maxDrivers = 1;
 
   auto cursor = TaskCursor::create(params);
@@ -1458,7 +1458,7 @@ DEBUG_ONLY_TEST_F(TaskTest, driverCounters) {
 
   CursorParameters params;
   params.planNode = plan.planNode;
-  params.queryCtx = std::make_shared<core::QueryCtx>(driverExecutor_.get());
+  params.queryCtx = core::QueryCtx::create(driverExecutor_.get());
   // The queue size in the executor is 3, so we will have 1 driver queued.
   params.maxDrivers = 4;
 
@@ -1563,7 +1563,7 @@ TEST_F(TaskTest, driverCreationMemoryAllocationCheck) {
         "driverCreationMemoryAllocationCheck",
         plan,
         0,
-        std::make_shared<core::QueryCtx>(
+        core::QueryCtx::create(
             singleThreadExecution ? nullptr : driverExecutor_.get()),
         singleThreadExecution ? Task::ExecutionMode::kSerial
                               : Task::ExecutionMode::kParallel);
@@ -1591,7 +1591,7 @@ TEST_F(TaskTest, spillDirectoryLifecycleManagement) {
                         .planNode();
   CursorParameters params;
   params.planNode = plan;
-  params.queryCtx = std::make_shared<core::QueryCtx>(driverExecutor_.get());
+  params.queryCtx = core::QueryCtx::create(driverExecutor_.get());
   params.queryCtx->testingOverrideConfigUnsafe(
       {{core::QueryConfig::kSpillEnabled, "true"},
        {core::QueryConfig::kAggregationSpillEnabled, "true"}});
@@ -1648,7 +1648,7 @@ TEST_F(TaskTest, spillDirNotCreated) {
                             {"t_c0", "t_c1", "u_c0"})
                         .capturePlanNodeId(hashJoinNodeId)
                         .planNode();
-  params.queryCtx = std::make_shared<core::QueryCtx>(driverExecutor_.get());
+  params.queryCtx = core::QueryCtx::create(driverExecutor_.get());
   params.queryCtx->testingOverrideConfigUnsafe(
       {{core::QueryConfig::kSpillEnabled, "true"},
        {core::QueryConfig::kJoinSpillEnabled, "true"}});
@@ -1703,7 +1703,7 @@ DEBUG_ONLY_TEST_F(TaskTest, resumeAfterTaskFinish) {
       "task",
       std::move(plan),
       0,
-      std::make_shared<core::QueryCtx>(driverExecutor_.get()),
+      core::QueryCtx::create(driverExecutor_.get()),
       Task::ExecutionMode::kParallel);
   task->start(4, 1);
 
@@ -1734,7 +1734,7 @@ DEBUG_ONLY_TEST_F(
   auto plan =
       PlanBuilder().values({data, data, data}).project({"c0"}).planFragment();
 
-  auto queryCtx = std::make_shared<core::QueryCtx>(driverExecutor_.get());
+  auto queryCtx = core::QueryCtx::create(driverExecutor_.get());
 
   auto blockingTask = Task::create(
       "blocking.task.0", plan, 0, queryCtx, Task::ExecutionMode::kSerial);
@@ -1809,7 +1809,7 @@ DEBUG_ONLY_TEST_F(TaskTest, longRunningOperatorInTaskReclaimerAbort) {
   auto plan =
       PlanBuilder().values({data, data, data}).project({"c0"}).planFragment();
 
-  auto queryCtx = std::make_shared<core::QueryCtx>(driverExecutor_.get());
+  auto queryCtx = core::QueryCtx::create(driverExecutor_.get());
 
   auto blockingTask = Task::create(
       "blocking.task.0", plan, 0, queryCtx, Task::ExecutionMode::kParallel);
@@ -1866,7 +1866,7 @@ DEBUG_ONLY_TEST_F(TaskTest, taskReclaimStats) {
 
   auto queryPool = memory::memoryManager()->addRootPool(
       "taskReclaimStats", 1UL << 30, exec::MemoryReclaimer::create());
-  auto queryCtx = std::make_shared<core::QueryCtx>(
+  auto queryCtx = core::QueryCtx::create(
       driverExecutor_.get(),
       core::QueryConfig{{}},
       std::unordered_map<std::string, std::shared_ptr<Config>>{},
@@ -1937,7 +1937,7 @@ DEBUG_ONLY_TEST_F(TaskTest, taskPauseTime) {
 
   auto queryPool = memory::memoryManager()->addRootPool(
       "taskPauseTime", 1UL << 30, exec::MemoryReclaimer::create());
-  auto queryCtx = std::make_shared<core::QueryCtx>(
+  auto queryCtx = core::QueryCtx::create(
       driverExecutor_.get(),
       core::QueryConfig{{}},
       std::unordered_map<std::string, std::shared_ptr<Config>>{},
@@ -1997,7 +1997,7 @@ TEST_F(TaskTest, updateStatsWhileCloseOffThreadDriver) {
       "task",
       std::move(plan),
       0,
-      std::make_shared<core::QueryCtx>(driverExecutor_.get()),
+      core::QueryCtx::create(driverExecutor_.get()),
       Task::ExecutionMode::kParallel);
   task->start(4, 1);
   std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -2042,7 +2042,7 @@ DEBUG_ONLY_TEST_F(TaskTest, driverEnqueAfterFailedAndPausedTask) {
       "task",
       std::move(plan),
       0,
-      std::make_shared<core::QueryCtx>(driverExecutor_.get()),
+      core::QueryCtx::create(driverExecutor_.get()),
       Task::ExecutionMode::kParallel);
   task->start(4, 1);
 

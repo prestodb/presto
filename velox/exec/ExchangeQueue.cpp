@@ -97,7 +97,7 @@ std::vector<std::unique_ptr<SerializedPage>> ExchangeQueue::dequeueLocked(
     uint32_t maxBytes,
     bool* atEnd,
     ContinueFuture* future) {
-  VELOX_CHECK(future);
+  VELOX_CHECK_NOT_NULL(future);
   if (!error_.empty()) {
     *atEnd = true;
     VELOX_FAIL(error_);

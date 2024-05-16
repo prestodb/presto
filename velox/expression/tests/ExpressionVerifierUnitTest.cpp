@@ -81,8 +81,8 @@ class ExpressionVerifierUnitTest : public testing::Test, public VectorTestBase {
 
   std::shared_ptr<memory::MemoryPool> pool_{
       memory::memoryManager()->addLeafPool()};
-  core::QueryCtx queryCtx_{};
-  core::ExecCtx execCtx_{pool_.get(), &queryCtx_};
+  std::shared_ptr<core::QueryCtx> queryCtx_{core::QueryCtx::create()};
+  core::ExecCtx execCtx_{pool_.get(), queryCtx_.get()};
 };
 
 TEST_F(ExpressionVerifierUnitTest, persistReproInfo) {

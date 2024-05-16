@@ -19,6 +19,45 @@
 
 namespace facebook::velox::core {
 
+/*static*/ std::shared_ptr<QueryCtx> QueryCtx::create(
+    folly::Executor* executor,
+    QueryConfig&& queryConfig,
+    std::unordered_map<std::string, std::shared_ptr<Config>> connectorConfigs,
+    cache::AsyncDataCache* cache,
+    std::shared_ptr<memory::MemoryPool> pool,
+    folly::Executor* spillExecutor,
+    const std::string& queryId) {
+  std::shared_ptr<QueryCtx> queryCtx(new QueryCtx(
+      executor,
+      std::move(queryConfig),
+      std::move(connectorConfigs),
+      cache,
+      std::move(pool),
+      spillExecutor,
+      queryId));
+  queryCtx->maybeSetReclaimer();
+  return queryCtx;
+}
+
+/*static*/ std::shared_ptr<QueryCtx> QueryCtx::create(
+    folly::Executor::KeepAlive<> executorKeepalive,
+    std::unordered_map<std::string, std::string> queryConfigValues,
+    std::unordered_map<std::string, std::shared_ptr<Config>>
+        connectorSessionProperties,
+    cache::AsyncDataCache* cache,
+    std::shared_ptr<memory::MemoryPool> pool,
+    const std::string& queryId) {
+  std::shared_ptr<QueryCtx> queryCtx(new QueryCtx(
+      executorKeepalive,
+      std::move(queryConfigValues),
+      std::move(connectorSessionProperties),
+      cache,
+      std::move(pool),
+      queryId));
+  queryCtx->maybeSetReclaimer();
+  return queryCtx;
+}
+
 QueryCtx::QueryCtx(
     folly::Executor* executor,
     QueryConfig&& queryConfig,
@@ -31,25 +70,6 @@ QueryCtx::QueryCtx(
     : queryId_(queryId),
       executor_(executor),
       spillExecutor_(spillExecutor),
-      cache_(cache),
-      connectorSessionProperties_(connectorSessionProperties),
-      pool_(std::move(pool)),
-      queryConfig_{std::move(queryConfig)} {
-  initPool(queryId);
-}
-
-QueryCtx::QueryCtx(
-    folly::Executor* executor,
-    QueryConfig&& queryConfig,
-    std::unordered_map<std::string, std::shared_ptr<Config>>
-        connectorSessionProperties,
-    cache::AsyncDataCache* cache,
-    std::shared_ptr<memory::MemoryPool> pool,
-    std::shared_ptr<folly::Executor> spillExecutor,
-    const std::string& queryId)
-    : queryId_(queryId),
-      executor_(executor),
-      spillExecutor_(spillExecutor.get()),
       cache_(cache),
       connectorSessionProperties_(connectorSessionProperties),
       pool_(std::move(pool)),
@@ -81,6 +101,15 @@ QueryCtx::QueryCtx(
   return fmt::format("query.{}.{}", queryId.c_str(), seqNum++);
 }
 
+void QueryCtx::maybeSetReclaimer() {
+  VELOX_CHECK_NOT_NULL(pool_);
+  VELOX_CHECK(!underArbitration_);
+  if (pool_->reclaimer() != nullptr) {
+    return;
+  }
+  pool_->setReclaimer(QueryCtx::MemoryReclaimer::create(this, pool_.get()));
+}
+
 void QueryCtx::updateSpilledBytesAndCheckLimit(uint64_t bytes) {
   const auto numSpilledBytes = numSpilledBytes_.fetch_add(bytes) + bytes;
   if (queryConfig_.maxSpillBytes() > 0 &&
@@ -91,4 +120,99 @@ void QueryCtx::updateSpilledBytesAndCheckLimit(uint64_t bytes) {
   }
 }
 
+std::unique_ptr<memory::MemoryReclaimer> QueryCtx::MemoryReclaimer::create(
+    QueryCtx* queryCtx,
+    memory::MemoryPool* pool) {
+  return std::unique_ptr<memory::MemoryReclaimer>(
+      new QueryCtx::MemoryReclaimer(queryCtx->shared_from_this(), pool));
+}
+
+uint64_t QueryCtx::MemoryReclaimer::reclaim(
+    memory::MemoryPool* pool,
+    uint64_t targetBytes,
+    uint64_t maxWaitMs,
+    memory::MemoryReclaimer::Stats& stats) {
+  auto queryCtx = ensureQueryCtx();
+  if (queryCtx == nullptr) {
+    return 0;
+  }
+  VELOX_CHECK_EQ(pool->name(), pool_->name());
+
+  const auto leaveGuard =
+      folly::makeGuard([&]() { queryCtx->finishArbitration(); });
+  queryCtx->startArbitration();
+  // Sort the child pools based on their reserved memory and reclaim from the
+  // child pool with most reservation first.
+  struct Candidate {
+    std::shared_ptr<memory::MemoryPool> pool;
+    int64_t reclaimableBytes;
+  };
+  std::vector<Candidate> candidates;
+  {
+    std::shared_lock guard{pool->poolMutex_};
+    candidates.reserve(pool->children_.size());
+    for (auto& entry : pool->children_) {
+      auto child = entry.second.lock();
+      if (child != nullptr) {
+        const int64_t reclaimableBytes = child->reclaimableBytes().value_or(0);
+        candidates.push_back(Candidate{std::move(child), reclaimableBytes});
+      }
+    }
+  }
+
+  std::sort(
+      candidates.begin(),
+      candidates.end(),
+      [](const auto& lhs, const auto& rhs) {
+        return lhs.reclaimableBytes > rhs.reclaimableBytes;
+      });
+
+  uint64_t reclaimedBytes{0};
+  for (const auto& candidate : candidates) {
+    if (candidate.reclaimableBytes == 0) {
+      break;
+    }
+    const auto bytes = candidate.pool->reclaim(targetBytes, maxWaitMs, stats);
+    reclaimedBytes += bytes;
+    if (targetBytes != 0) {
+      if (bytes >= targetBytes) {
+        break;
+      }
+      targetBytes -= bytes;
+    }
+  }
+  return reclaimedBytes;
+}
+
+bool QueryCtx::checkUnderArbitration(ContinueFuture* future) {
+  VELOX_CHECK_NOT_NULL(future);
+  std::lock_guard<std::mutex> l(mutex_);
+  if (!underArbitration_) {
+    VELOX_CHECK(arbitrationPromises_.empty());
+    return false;
+  }
+  arbitrationPromises_.emplace_back("QueryCtx::waitArbitration");
+  *future = arbitrationPromises_.back().getSemiFuture();
+  return true;
+}
+
+void QueryCtx::startArbitration() {
+  std::lock_guard<std::mutex> l(mutex_);
+  VELOX_CHECK(!underArbitration_);
+  VELOX_CHECK(arbitrationPromises_.empty());
+  underArbitration_ = true;
+}
+
+void QueryCtx::finishArbitration() {
+  std::vector<ContinuePromise> promises;
+  {
+    std::lock_guard<std::mutex> l(mutex_);
+    VELOX_CHECK(underArbitration_);
+    underArbitration_ = false;
+    promises.swap(arbitrationPromises_);
+  }
+  for (auto& promise : promises) {
+    promise.setValue();
+  }
+}
 } // namespace facebook::velox::core

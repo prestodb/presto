@@ -1296,8 +1296,8 @@ void AggregationTestBase::testIncrementalAggregation(
     auto queryCtxConfig = config;
     auto func = createAggregateFunction(
         functionName, aggregate.rawInputTypes, allocator, config);
-    auto queryCtx = std::make_shared<core::QueryCtx>(
-        nullptr, core::QueryConfig{queryCtxConfig});
+    auto queryCtx =
+        core::QueryCtx::create(nullptr, core::QueryConfig{queryCtxConfig});
 
     std::shared_ptr<core::ExpressionEvaluator> expressionEvaluator;
     if (!lambdas.empty()) {

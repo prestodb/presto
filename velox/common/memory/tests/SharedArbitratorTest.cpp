@@ -32,12 +32,13 @@
 #include "velox/core/PlanNode.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/exec/Driver.h"
-#include "velox/exec/HashBuild.h"
+#include "velox/exec/HashAggregation.h"
 #include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/TableWriter.h"
 #include "velox/exec/Values.h"
 #include "velox/exec/tests/utils/ArbitratorTestUtil.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
+#include "velox/exec/tests/utils/SumNonPODAggregate.h"
 
 DECLARE_bool(velox_memory_leak_check_enabled);
 DECLARE_bool(velox_suppress_memory_capacity_exceeding_error_message);
@@ -236,6 +237,7 @@ class SharedArbitrationTest : public exec::test::HiveConnectorTestBase {
 
   void SetUp() override {
     HiveConnectorTestBase::SetUp();
+    registerSumNonPODAggregate("sumnonpod", 64);
     fakeOperatorFactory_->setCanReclaim(true);
 
     setupMemory();
@@ -303,6 +305,132 @@ class SharedArbitrationTest : public exec::test::HiveConnectorTestBase {
   RowVectorPtr vector_;
   std::atomic_uint64_t numAddedPools_{0};
 };
+
+DEBUG_ONLY_TEST_F(SharedArbitrationTest, queryArbitrationStateCheck) {
+  const std::vector<RowVectorPtr> vectors =
+      createVectors(rowType_, 32, 32 << 20);
+  createDuckDbTable(vectors);
+  std::shared_ptr<core::QueryCtx> queryCtx =
+      newQueryCtx(memory::memoryManager(), executor_.get(), kMemoryCapacity);
+
+  std::atomic_bool queryCtxStateChecked{false};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Task::requestPauseLocked",
+      std::function<void(Task*)>(([&](Task* /*unused*/) {
+        ASSERT_TRUE(queryCtx->testingUnderArbitration());
+        queryCtxStateChecked = true;
+      })));
+
+  const auto spillDirectory = exec::test::TempDirectoryPath::create();
+  TestScopedSpillInjection scopedSpillInjection(100);
+  core::PlanNodeId aggregationNodeId;
+  AssertQueryBuilder(duckDbQueryRunner_)
+      .queryCtx(queryCtx)
+      .spillDirectory(spillDirectory->getPath())
+      .config(core::QueryConfig::kSpillEnabled, "true")
+      .plan(PlanBuilder()
+                .values(vectors)
+                .singleAggregation({"c0", "c1"}, {"array_agg(c2)"})
+                .capturePlanNodeId(aggregationNodeId)
+                .planNode())
+      .assertResults("SELECT c0, c1, array_agg(c2) FROM tmp GROUP BY c0, c1");
+  ASSERT_TRUE(queryCtxStateChecked);
+  ASSERT_FALSE(queryCtx->testingUnderArbitration());
+  waitForAllTasksToBeDeleted();
+  ASSERT_FALSE(queryCtx->testingUnderArbitration());
+}
+
+DEBUG_ONLY_TEST_F(SharedArbitrationTest, skipNonReclaimableTaskTest) {
+  const std::vector<RowVectorPtr> vectors =
+      createVectors(rowType_, 32, 32 << 20);
+  std::shared_ptr<core::QueryCtx> queryCtx =
+      newQueryCtx(memory::memoryManager(), executor_.get(), kMemoryCapacity);
+  std::unordered_map<std::string, std::string> configs;
+  configs.emplace(core::QueryConfig::kSpillEnabled, "true");
+  queryCtx->testingOverrideConfigUnsafe(std::move(configs));
+
+  std::atomic_int blockedCount{0};
+  std::atomic_bool blockedAggregation{false};
+  std::atomic_bool blockedPartialAggregation{false};
+  folly::EventCount arbitrationWait;
+  std::atomic<bool> arbitrationWaitFlag{true};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Driver::runInternal::addInput",
+      std::function<void(exec::Operator*)>(([&](exec::Operator* op) {
+        if (op->testingOperatorCtx()->operatorType() != "Aggregation" &&
+            op->testingOperatorCtx()->operatorType() != "PartialAggregation") {
+          return;
+        }
+        if (op->pool()->currentBytes() == 0) {
+          return;
+        }
+        if (op->testingOperatorCtx()->operatorType() == "PartialAggregation") {
+          if (blockedPartialAggregation.exchange(true)) {
+            return;
+          }
+        } else {
+          if (blockedAggregation.exchange(true)) {
+            return;
+          }
+        }
+        auto* driver = op->testingOperatorCtx()->driver();
+        SuspendedSection suspendedSection(driver);
+        arbitrationWait.await([&]() { return !arbitrationWaitFlag.load(); });
+      })));
+
+  std::atomic_int taskPausedCount{0};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Task::requestPauseLocked",
+      std::function<void(Task*)>(([&](Task* /*unused*/) {
+        ASSERT_TRUE(queryCtx->testingUnderArbitration());
+        ++taskPausedCount;
+      })));
+
+  std::thread spillableThread([&]() {
+    const auto spillDirectory = exec::test::TempDirectoryPath::create();
+    AssertQueryBuilder(PlanBuilder()
+                           .values(vectors)
+                           .singleAggregation({"c0", "c1"}, {"array_agg(c2)"})
+                           .planNode())
+        .queryCtx(queryCtx)
+        .spillDirectory(spillDirectory->getPath())
+        .copyResults(pool());
+  });
+
+  std::thread nonSpillableThread([&]() {
+    AssertQueryBuilder(PlanBuilder()
+                           .values(vectors)
+                           .aggregation(
+                               {"c0", "c1"},
+                               {"sum(c0)", "array_agg(c2)"},
+                               {},
+                               core::AggregationNode::Step::kPartial,
+                               false)
+                           .planNode())
+        .queryCtx(queryCtx)
+        .copyResults(pool());
+  });
+
+  while (!blockedPartialAggregation || !blockedAggregation) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  }
+
+  testingRunArbitration();
+
+  arbitrationWaitFlag = false;
+  arbitrationWait.notifyAll();
+
+  spillableThread.join();
+  nonSpillableThread.join();
+
+  // We shall only reclaim from the reclaimable task but not non-reclaimable
+  // task.
+  ASSERT_EQ(taskPausedCount, 1);
+  ASSERT_FALSE(queryCtx->testingUnderArbitration());
+  waitForAllTasksToBeDeleted();
+  ASSERT_FALSE(queryCtx->testingUnderArbitration());
+  ASSERT_EQ(taskPausedCount, 1);
+}
 
 DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimToOrderBy) {
   const int numVectors = 32;

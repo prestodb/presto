@@ -177,7 +177,7 @@ TEST_F(MergeTest, offByOne) {
 
   CursorParameters params;
   params.planNode = plan;
-  params.queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
+  params.queryCtx = core::QueryCtx::create(executor_.get());
   params.queryCtx->testingOverrideConfigUnsafe(
       {{core::QueryConfig::kPreferredOutputBatchRows, "6"}});
   assertQueryOrdered(params, "VALUES (0), (1), (2), (3), (4), (5), (10)", {0});

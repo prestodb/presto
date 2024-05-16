@@ -94,8 +94,8 @@ void RemoteFunctionServiceHandler::invokeFunction(
   SelectivityVector rows{numRows};
 
   // Expression boilerplate.
-  core::QueryCtx queryCtx;
-  core::ExecCtx execCtx{pool_.get(), &queryCtx};
+  auto queryCtx = core::QueryCtx::create();
+  core::ExecCtx execCtx{pool_.get(), queryCtx.get()};
   exec::ExprSet exprSet{
       getExpressions(
           inputType,

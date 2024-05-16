@@ -175,8 +175,8 @@ core::PlanNodePtr PlanBuilder::TableScanBuilder::build(core::PlanNodeId id) {
 
   SubfieldFilters filters;
   filters.reserve(subfieldFilters_.size());
-  core::QueryCtx queryCtx;
-  exec::SimpleExpressionEvaluator evaluator(&queryCtx, planBuilder_.pool_);
+  auto queryCtx = core::QueryCtx::create();
+  exec::SimpleExpressionEvaluator evaluator(queryCtx.get(), planBuilder_.pool_);
   for (const auto& filter : subfieldFilters_) {
     auto filterExpr =
         parseExpr(filter, parseType, planBuilder_.options_, planBuilder_.pool_);

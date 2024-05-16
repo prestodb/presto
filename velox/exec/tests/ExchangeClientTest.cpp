@@ -60,7 +60,7 @@ class ExchangeClientTest : public testing::Test,
   std::shared_ptr<Task> makeTask(
       const std::string& taskId,
       const core::PlanNodePtr& planNode) {
-    auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
+    auto queryCtx = core::QueryCtx::create(executor_.get());
     queryCtx->testingOverrideMemoryPool(
         memory::memoryManager()->addRootPool(queryCtx->queryId()));
     return Task::create(

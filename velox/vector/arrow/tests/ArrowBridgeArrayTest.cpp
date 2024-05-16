@@ -360,7 +360,7 @@ class ArrowBridgeArrayExportTest : public testing::Test {
 
   // Boiler plate structures required by vectorMaker.
   ArrowOptions options_;
-  std::shared_ptr<core::QueryCtx> queryCtx_{std::make_shared<core::QueryCtx>()};
+  std::shared_ptr<core::QueryCtx> queryCtx_{velox::core::QueryCtx::create()};
   std::shared_ptr<memory::MemoryPool> pool_{
       memory::memoryManager()->addLeafPool()};
   core::ExecCtx execCtx_{pool_.get(), queryCtx_.get()};

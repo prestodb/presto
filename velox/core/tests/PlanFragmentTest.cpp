@@ -67,7 +67,7 @@ class PlanFragmentTest : public testing::Test {
         {QueryConfig::kOrderBySpillEnabled,
          orderBySpillEnabled ? "true" : "false"},
     });
-    return std::make_shared<QueryCtx>(nullptr, std::move(configData));
+    return QueryCtx::create(nullptr, std::move(configData));
   }
 
   RowTypePtr rowType_;

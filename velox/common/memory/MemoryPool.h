@@ -34,6 +34,10 @@
 DECLARE_bool(velox_memory_leak_check_enabled);
 DECLARE_bool(velox_memory_pool_debug_enabled);
 
+namespace facebook::velox::core {
+class QueryCtx;
+}
+
 namespace facebook::velox::memory {
 #define VELOX_MEM_POOL_CAP_EXCEEDED(errorMessage)                   \
   _VELOX_THROW(                                                     \
@@ -546,6 +550,7 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
 
   friend class TestMemoryReclaimer;
   friend class MemoryReclaimer;
+  friend class core::QueryCtx;
 };
 
 std::ostream& operator<<(std::ostream& out, MemoryPool::Kind kind);

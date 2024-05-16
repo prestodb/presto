@@ -190,7 +190,7 @@ DEBUG_ONLY_TEST_F(ParquetWriterTest, unitFromHiveConfig) {
       std::make_shared<folly::CPUThreadPoolExecutor>(
           std::thread::hardware_concurrency());
   std::shared_ptr<core::QueryCtx> queryCtx =
-      std::make_shared<core::QueryCtx>(executor.get());
+      core::QueryCtx::create(executor.get());
   std::unordered_map<std::string, std::string> session = {
       {std::string(
            connector::hive::HiveConfig::kParquetWriteTimestampUnitSession),

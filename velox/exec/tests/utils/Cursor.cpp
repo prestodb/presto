@@ -151,7 +151,7 @@ class TaskCursorBase : public TaskCursor {
       // activities to finish on TaskCursor destruction.
       executor_ = executor;
       static std::atomic<uint64_t> cursorQueryId{0};
-      queryCtx_ = std::make_shared<core::QueryCtx>(
+      queryCtx_ = core::QueryCtx::create(
           executor_.get(),
           core::QueryConfig({}),
           std::unordered_map<std::string, std::shared_ptr<Config>>{},

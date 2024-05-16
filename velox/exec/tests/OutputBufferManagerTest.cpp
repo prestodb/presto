@@ -71,7 +71,7 @@ class OutputBufferManagerTest : public testing::Test {
       configSettings[core::QueryConfig::kMaxPartitionedOutputBufferSize] =
           std::to_string(maxOutputBufferSize);
     }
-    auto queryCtx = std::make_shared<core::QueryCtx>(
+    auto queryCtx = core::QueryCtx::create(
         executor_.get(), core::QueryConfig(std::move(configSettings)));
 
     auto task = Task::create(

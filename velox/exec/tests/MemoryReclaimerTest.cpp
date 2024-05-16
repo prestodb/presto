@@ -44,7 +44,7 @@ class MemoryReclaimerTest : public OperatorTestBase {
         "MemoryReclaimerTest",
         std::move(fakePlanFragment),
         0,
-        std::make_shared<core::QueryCtx>(executor_.get()),
+        core::QueryCtx::create(executor_.get()),
         Task::ExecutionMode::kParallel);
   }
 

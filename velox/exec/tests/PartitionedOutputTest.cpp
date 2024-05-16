@@ -25,7 +25,7 @@ class PartitionedOutputTest : public OperatorTestBase {
  protected:
   std::shared_ptr<core::QueryCtx> createQueryContext(
       std::unordered_map<std::string, std::string> config) {
-    return std::make_shared<core::QueryCtx>(
+    return core::QueryCtx::create(
         executor_.get(), core::QueryConfig(std::move(config)));
   }
 

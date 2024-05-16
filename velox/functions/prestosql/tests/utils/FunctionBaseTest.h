@@ -339,7 +339,7 @@ class FunctionBaseTest : public testing::Test,
       const VectorPtr& expected);
 
   std::shared_ptr<core::QueryCtx> queryCtx_{
-      std::make_shared<core::QueryCtx>(executor_.get())};
+      core::QueryCtx::create(executor_.get())};
   core::ExecCtx execCtx_{pool_.get(), queryCtx_.get()};
   parse::ParseOptions options_;
 

@@ -352,7 +352,7 @@ TEST_F(TopNRowNumberTest, maxSpillBytes) {
   } testSettings[] = {{1 << 30, false}, {13 << 20, true}, {0, false}};
 
   auto spillDirectory = exec::test::TempDirectoryPath::create();
-  auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
+  auto queryCtx = core::QueryCtx::create(executor_.get());
 
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());

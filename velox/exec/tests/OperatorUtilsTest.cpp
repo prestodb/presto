@@ -47,7 +47,7 @@ class OperatorUtilsTest : public OperatorTestBase {
         "SpillOperatorGroupTest_task",
         std::move(planFragment),
         0,
-        std::make_shared<core::QueryCtx>(executor_.get()),
+        core::QueryCtx::create(executor_.get()),
         Task::ExecutionMode::kParallel);
     driver_ = Driver::testingCreate();
     driverCtx_ = std::make_unique<DriverCtx>(task_, 0, 0, 0, 0);

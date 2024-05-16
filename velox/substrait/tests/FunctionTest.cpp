@@ -35,8 +35,7 @@ class FunctionTest : public ::testing::Test {
     memory::MemoryManager::testingSetInstance({});
   }
 
-  std::shared_ptr<core::QueryCtx> queryCtx_ =
-      std::make_shared<core::QueryCtx>();
+  std::shared_ptr<core::QueryCtx> queryCtx_ = core::QueryCtx::create();
 
   std::shared_ptr<memory::MemoryPool> pool_ =
       memory::memoryManager()->addLeafPool();

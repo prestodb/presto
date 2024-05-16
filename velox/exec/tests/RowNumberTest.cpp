@@ -194,7 +194,7 @@ TEST_F(RowNumberTest, spill) {
   std::vector<RowVectorPtr> vectors = createVectors(8, rowType_, fuzzerOpts_);
   createDuckDbTable(vectors);
   const auto spillDirectory = exec::test::TempDirectoryPath::create();
-  auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
+  auto queryCtx = core::QueryCtx::create(executor_.get());
 
   struct {
     uint32_t spillPartitionBits;
@@ -269,7 +269,7 @@ TEST_F(RowNumberTest, maxSpillBytes) {
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
     auto spillDirectory = exec::test::TempDirectoryPath::create();
-    auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
+    auto queryCtx = core::QueryCtx::create(executor_.get());
     try {
       TestScopedSpillInjection scopedSpillInjection(100);
       AssertQueryBuilder(plan)
@@ -308,7 +308,7 @@ TEST_F(RowNumberTest, memoryUsage) {
   int64_t peakBytesWithOutSpilling = 0;
 
   for (const auto& spillEnable : {false, true}) {
-    auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
+    auto queryCtx = core::QueryCtx::create(executor_.get());
     auto spillDirectory = exec::test::TempDirectoryPath::create();
     const std::string spillEnableConfig = std::to_string(spillEnable);
 

@@ -401,7 +401,7 @@ class ExprTest : public testing::Test, public VectorTestBase {
     return exprSet.exprs().front()->propagatesNulls();
   }
 
-  std::shared_ptr<core::QueryCtx> queryCtx_{std::make_shared<core::QueryCtx>()};
+  std::shared_ptr<core::QueryCtx> queryCtx_{velox::core::QueryCtx::create()};
   std::unique_ptr<core::ExecCtx> execCtx_{
       std::make_unique<core::ExecCtx>(pool_.get(), queryCtx_.get())};
   parse::ParseOptions options_;
@@ -414,7 +414,7 @@ class ParameterizedExprTest : public ExprTest,
     std::unordered_map<std::string, std::string> configData(
         {{core::QueryConfig::kEnableExpressionEvaluationCache,
           GetParam() ? "true" : "false"}});
-    queryCtx_ = std::make_shared<core::QueryCtx>(
+    queryCtx_ = velox::core::QueryCtx::create(
         nullptr, core::QueryConfig(std::move(configData)));
     execCtx_ = std::make_unique<core::ExecCtx>(pool_.get(), queryCtx_.get());
   }
@@ -4235,7 +4235,7 @@ TEST_F(ExprTest, commonSubExpressionWithPeeling) {
       // Set max_shared_subexpr_results_cached low so the
       // second result isn't cached, so expr1 is only evaluated once, but expr2
       // is evaluated twice.
-      auto queryCtx = std::make_shared<core::QueryCtx>(
+      auto queryCtx = velox::core::QueryCtx::create(
           nullptr,
           core::QueryConfig(std::unordered_map<std::string, std::string>{
               {core::QueryConfig::kMaxSharedSubexprResultsCached, "1"}}));

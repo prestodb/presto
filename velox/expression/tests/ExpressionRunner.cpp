@@ -119,7 +119,7 @@ void ExpressionRunner::run(
     bool useSeperatePoolForInput) {
   VELOX_CHECK(!sql.empty());
   auto memoryManager = memory::memoryManager();
-  std::shared_ptr<core::QueryCtx> queryCtx{std::make_shared<core::QueryCtx>()};
+  auto queryCtx = core::QueryCtx::create();
   std::shared_ptr<memory::MemoryPool> deserializerPool{
       memoryManager->addLeafPool()};
   std::shared_ptr<memory::MemoryPool> pool = useSeperatePoolForInput

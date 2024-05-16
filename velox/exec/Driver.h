@@ -211,6 +211,9 @@ enum class BlockingReason {
   /// exit them because Task requested to yield or stop or after a certain time.
   /// This is the blocking reason used in such cases.
   kYield,
+  /// Operator is blocked waiting for its associated query memory arbitration to
+  /// finish.
+  kWaitForArbitration,
 };
 
 std::string blockingReasonToString(BlockingReason reason);
@@ -388,6 +391,11 @@ class Driver : public std::enable_shared_from_this<Driver> {
   /// Returns true if this driver is running on thread and has exceeded the cpu
   /// time slice limit if set.
   bool shouldYield() const;
+
+  /// Checks if the associated query is under memory arbitration or not. The
+  /// function returns true if it is and set future which is fulfilled when the
+  /// the memory arbiration finishes.
+  bool checkUnderArbitration(ContinueFuture* future);
 
   void initializeOperatorStats(std::vector<OperatorStats>& stats);
 

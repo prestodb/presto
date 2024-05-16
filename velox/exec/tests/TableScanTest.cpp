@@ -1489,7 +1489,7 @@ DEBUG_ONLY_TEST_F(TableScanTest, tableScanSplitsAndWeights) {
                       .partitionedOutput({}, 1, {"c0", "c1", "c2"})
                       .planNode();
   std::unordered_map<std::string, std::string> config;
-  auto queryCtx = std::make_shared<core::QueryCtx>(
+  auto queryCtx = core::QueryCtx::create(
       executor_.get(), core::QueryConfig(std::move(config)));
   core::PlanFragment planFragment{leafPlan};
   Consumer consumer = nullptr;

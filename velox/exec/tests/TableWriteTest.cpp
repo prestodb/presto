@@ -2149,7 +2149,7 @@ TEST_P(AllTableWriterTest, writeNoFile) {
     readCursor(params, [&](Task* task) { task->noMoreSplits("0"); });
   };
 
-  execute(plan, std::make_shared<core::QueryCtx>(executor_.get()));
+  execute(plan, core::QueryCtx::create(executor_.get()));
   ASSERT_TRUE(fs::is_empty(outputDirectory->getPath()));
 }
 
@@ -3565,92 +3565,82 @@ DEBUG_ONLY_TEST_F(TableWriterArbitrationTest, writerFlushThreshold) {
   options.vectorSize = batchSize;
   options.stringVariableLength = false;
   options.stringLength = 1'000;
-  VectorFuzzer fuzzer(options, pool());
   const int numBatches = 20;
-  std::vector<RowVectorPtr> vectors;
-  int numRows{0};
-  for (int i = 0; i < numBatches; ++i) {
-    numRows += batchSize;
-    vectors.push_back(fuzzer.fuzzRow(rowType_));
-  }
+  const int numRows = numBatches * batchSize;
+  std::vector<RowVectorPtr> vectors =
+      createVectors(numBatches, rowType_, options);
   createDuckDbTable(vectors);
 
   const std::vector<uint64_t> writerFlushThresholds{0, 1UL << 30};
   for (uint64_t writerFlushThreshold : writerFlushThresholds) {
-    {
-      SCOPED_TRACE(fmt::format(
-          "writerFlushThreshold: {}", succinctBytes(writerFlushThreshold)));
+    SCOPED_TRACE(fmt::format(
+        "writerFlushThreshold: {}", succinctBytes(writerFlushThreshold)));
 
-      auto memoryManager = createMemoryManager();
-      auto arbitrator = memoryManager->arbitrator();
-      auto numAddedPools = 0;
-      {
-        auto queryCtx =
-            newQueryCtx(memoryManager.get(), executor_.get(), kMemoryCapacity);
-        ++numAddedPools;
-        ASSERT_EQ(queryCtx->pool()->capacity(), kMemoryPoolInitCapacity);
+    auto memoryManager = createMemoryManager();
+    auto arbitrator = memoryManager->arbitrator();
+    auto queryCtx =
+        newQueryCtx(memoryManager.get(), executor_.get(), kMemoryCapacity);
+    ASSERT_EQ(queryCtx->pool()->capacity(), kMemoryPoolInitCapacity);
 
-        std::atomic<int> numInputs{0};
-        SCOPED_TESTVALUE_SET(
-            "facebook::velox::exec::Driver::runInternal::addInput",
-            std::function<void(Operator*)>(([&](Operator* op) {
-              if (op->operatorType() != "TableWrite") {
-                return;
-              }
-              if (++numInputs != numBatches) {
-                return;
-              }
+    std::atomic<int> numInputs{0};
+    SCOPED_TESTVALUE_SET(
+        "facebook::velox::exec::Driver::runInternal::addInput",
+        std::function<void(Operator*)>(([&](Operator* op) {
+          if (op->operatorType() != "TableWrite") {
+            return;
+          }
+          if (++numInputs != numBatches) {
+            return;
+          }
 
-              const auto fakeAllocationSize =
-                  arbitrator->stats().maxCapacityBytes -
-                  op->pool()->parent()->reservedBytes();
-              if (writerFlushThreshold == 0) {
-                auto* buffer = op->pool()->allocate(fakeAllocationSize);
-                op->pool()->free(buffer, fakeAllocationSize);
-              } else {
-                // The injected memory allocation fail if we set very high
-                // memory flush threshold.
-                VELOX_ASSERT_THROW(
-                    op->pool()->allocate(fakeAllocationSize),
-                    "Exceeded memory pool");
-              }
-            })));
+          const auto fakeAllocationSize = arbitrator->stats().maxCapacityBytes -
+              op->pool()->parent()->reservedBytes();
+          if (writerFlushThreshold == 0) {
+            auto* buffer = op->pool()->allocate(fakeAllocationSize);
+            op->pool()->free(buffer, fakeAllocationSize);
+          } else {
+            // The injected memory allocation fail if we set very high
+            // memory flush threshold.
+            VELOX_ASSERT_THROW(
+                op->pool()->allocate(fakeAllocationSize),
+                "Exceeded memory pool");
+          }
+        })));
 
-        auto spillDirectory = exec::test::TempDirectoryPath::create();
-        auto outputDirectory = TempDirectoryPath::create();
-        auto writerPlan =
-            PlanBuilder()
-                .values(vectors)
-                .tableWrite(outputDirectory->getPath())
-                .project({TableWriteTraits::rowCountColumnName()})
-                .singleAggregation(
-                    {},
-                    {fmt::format(
-                        "sum({})", TableWriteTraits::rowCountColumnName())})
-                .planNode();
+    auto spillDirectory = exec::test::TempDirectoryPath::create();
+    auto outputDirectory = TempDirectoryPath::create();
+    auto writerPlan =
+        PlanBuilder()
+            .values(vectors)
+            .tableWrite(outputDirectory->getPath())
+            .project({TableWriteTraits::rowCountColumnName()})
+            .singleAggregation(
+                {},
+                {fmt::format(
+                    "sum({})", TableWriteTraits::rowCountColumnName())})
+            .planNode();
 
-        AssertQueryBuilder(duckDbQueryRunner_)
-            .queryCtx(queryCtx)
-            .maxDrivers(1)
-            .spillDirectory(spillDirectory->getPath())
-            .config(core::QueryConfig::kSpillEnabled, true)
-            .config(core::QueryConfig::kWriterSpillEnabled, true)
-            .config(
-                core::QueryConfig::kWriterFlushThresholdBytes,
-                writerFlushThreshold)
-            .plan(std::move(writerPlan))
-            .assertResults(fmt::format("SELECT {}", numRows));
+    AssertQueryBuilder(duckDbQueryRunner_)
+        .queryCtx(queryCtx)
+        .maxDrivers(1)
+        .spillDirectory(spillDirectory->getPath())
+        .config(core::QueryConfig::kSpillEnabled, true)
+        .config(core::QueryConfig::kWriterSpillEnabled, true)
+        .config(
+            core::QueryConfig::kWriterFlushThresholdBytes, writerFlushThreshold)
+        .plan(std::move(writerPlan))
+        .assertResults(fmt::format("SELECT {}", numRows));
 
-        ASSERT_EQ(
-            arbitrator->stats().numFailures, writerFlushThreshold == 0 ? 0 : 1);
-        ASSERT_EQ(
-            arbitrator->stats().numNonReclaimableAttempts,
-            writerFlushThreshold == 0 ? 0 : 1);
-        waitForAllTasksToBeDeleted(3'000'000);
-      }
-      ASSERT_EQ(arbitrator->stats().numReserves, numAddedPools);
-      ASSERT_EQ(arbitrator->stats().numReleases, numAddedPools);
-    }
+    ASSERT_EQ(
+
+        arbitrator->stats().numFailures, writerFlushThreshold == 0 ? 0 : 1);
+    // We don't trigger reclaim on a writer if it doesn't meet the writer flush
+    // threshold.
+    ASSERT_EQ(arbitrator->stats().numNonReclaimableAttempts, 0);
+    waitForAllTasksToBeDeleted(3'000'000);
+    queryCtx.reset();
+    ASSERT_EQ(arbitrator->stats().numReserves, 1);
+    ASSERT_EQ(arbitrator->stats().numReleases, 1);
   }
 }
 

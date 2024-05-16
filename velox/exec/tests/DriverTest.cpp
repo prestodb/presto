@@ -267,7 +267,7 @@ class DriverTest : public OperatorTestBase {
         "t0",
         plan,
         0,
-        std::make_shared<core::QueryCtx>(driverExecutor_.get()),
+        core::QueryCtx::create(driverExecutor_.get()),
         Task::ExecutionMode::kParallel,
         [](RowVectorPtr /*unused*/, ContinueFuture* /*unused*/) {
           return exec::BlockingReason::kNotBlocked;
@@ -580,7 +580,7 @@ TEST_F(DriverTest, pause) {
   // Make sure CPU usage tracking is enabled.
   std::unordered_map<std::string, std::string> queryConfig{
       {core::QueryConfig::kOperatorTrackCpuUsage, "true"}};
-  params.queryCtx = std::make_shared<core::QueryCtx>(
+  params.queryCtx = core::QueryCtx::create(
       executor_.get(), core::QueryConfig(std::move(queryConfig)));
   int32_t numRead = 0;
   readResults(params, ResultOperation::kPause, 370'000'000, &numRead);
@@ -803,7 +803,7 @@ TEST_F(DriverTest, pauserNode) {
   std::vector<CursorParameters> params(kNumTasks);
   int32_t hits{0};
   for (int32_t i = 0; i < kNumTasks; ++i) {
-    params[i].queryCtx = std::make_shared<core::QueryCtx>(executor.get());
+    params[i].queryCtx = core::QueryCtx::create(executor.get());
     params[i].planNode = makeValuesFilterProject(
         rowType_,
         "m1 % 10 > 0",
@@ -1518,8 +1518,7 @@ DEBUG_ONLY_TEST_F(DriverTest, driverCpuTimeSlicingCheck) {
           "t0",
           fragment,
           0,
-          std::make_shared<core::QueryCtx>(
-              driverExecutor_.get(), std::move(queryConfig)),
+          core::QueryCtx::create(driverExecutor_.get(), std::move(queryConfig)),
           testParam.executionMode,
           [](RowVectorPtr /*unused*/, ContinueFuture* /*unused*/) {
             return exec::BlockingReason::kNotBlocked;
@@ -1530,8 +1529,7 @@ DEBUG_ONLY_TEST_F(DriverTest, driverCpuTimeSlicingCheck) {
           "t0",
           fragment,
           0,
-          std::make_shared<core::QueryCtx>(
-              driverExecutor_.get(), std::move(queryConfig)),
+          core::QueryCtx::create(driverExecutor_.get(), std::move(queryConfig)),
           testParam.executionMode);
       while (task->next() != nullptr) {
       }
@@ -1603,8 +1601,7 @@ TEST_F(OpCallStatusTest, basic) {
       "t19",
       fragment,
       0,
-      std::make_shared<core::QueryCtx>(
-          driverExecutor_.get(), std::move(queryConfig)),
+      core::QueryCtx::create(driverExecutor_.get(), std::move(queryConfig)),
       Task::ExecutionMode::kParallel,
       [](RowVectorPtr /*unused*/, ContinueFuture* /*unused*/) {
         return exec::BlockingReason::kNotBlocked;

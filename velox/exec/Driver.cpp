@@ -480,6 +480,10 @@ bool Driver::shouldYield() const {
   return execTimeMs() >= cpuSliceMs_;
 }
 
+bool Driver::checkUnderArbitration(ContinueFuture* future) {
+  return task()->queryCtx()->checkUnderArbitration(future);
+}
+
 StopReason Driver::runInternal(
     std::shared_ptr<Driver>& self,
     std::shared_ptr<BlockingState>& blockingState,
@@ -550,17 +554,35 @@ StopReason Driver::runInternal(
           return stop;
         }
 
-        auto* op = operators_[i].get();
-
         if (FOLLY_UNLIKELY(shouldYield())) {
           recordYieldCount();
           guard.notThrown();
           return StopReason::kYield;
         }
 
+        auto* op = operators_[i].get();
+
         // In case we are blocked, this index will point to the operator, whose
         // queuedTime we should update.
         curOperatorId_ = i;
+
+        if (FOLLY_UNLIKELY(checkUnderArbitration(&future))) {
+          // Blocks the driver if the associated query is under memory
+          // arbitration as it is very likely the driver run will trigger memory
+          // arbitration when it needs to allocate memory, and the memory
+          // arbitration will be blocked by the current running arbitration
+          // until it finishes. Instead of blocking the driver thread to wait
+          // for the current running arbitration, it is more efficient
+          // system-wide to let driver go off thread for the other queries which
+          // have free memory capacity to run during the time.
+          blockedOperatorId_ = curOperatorId_ + 1;
+          VELOX_CHECK(future.valid());
+          blockingReason_ = BlockingReason::kWaitForArbitration;
+          blockingState = std::make_shared<BlockingState>(
+              self, std::move(future), op, blockingReason_);
+          guard.notThrown();
+          return StopReason::kBlock;
+        }
 
         CALL_OPERATOR(
             blockingReason_ = op->isBlocked(&future),
@@ -1092,6 +1114,8 @@ std::string blockingReasonToString(BlockingReason reason) {
       return "kWaitForSpill";
     case BlockingReason::kYield:
       return "kYield";
+    case BlockingReason::kWaitForArbitration:
+      return "kWaitForArbitration";
   }
   VELOX_UNREACHABLE();
   return "";

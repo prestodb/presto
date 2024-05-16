@@ -500,8 +500,8 @@ void E2EFilterTestBase::testMetadataFilter() {
   test::VectorMaker vectorMaker(leafPool_.get());
   functions::prestosql::registerAllScalarFunctions();
   parse::registerTypeResolver();
-  core::QueryCtx queryCtx;
-  exec::SimpleExpressionEvaluator evaluator(&queryCtx, leafPool_.get());
+  auto queryCtx = core::QueryCtx::create();
+  exec::SimpleExpressionEvaluator evaluator(queryCtx.get(), leafPool_.get());
 
   // a: bigint, b: struct<c: bigint>
   std::vector<RowVectorPtr> batches;
