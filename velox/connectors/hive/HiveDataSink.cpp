@@ -351,6 +351,7 @@ HiveDataSink::HiveDataSink(
       connectorQueryCtx_(connectorQueryCtx),
       commitStrategy_(commitStrategy),
       hiveConfig_(hiveConfig),
+      updateMode_(getUpdateMode()),
       maxOpenWriters_(hiveConfig_->maxPartitionsPerWriters(
           connectorQueryCtx->sessionProperties())),
       partitionChannels_(getPartitionChannels(insertTableHandle_)),
@@ -777,12 +778,10 @@ void HiveDataSink::splitInputRowsAndEnsureWriters() {
 HiveWriterParameters HiveDataSink::getWriterParameters(
     const std::optional<std::string>& partition,
     std::optional<uint32_t> bucketId) const {
-  const auto updateMode = getUpdateMode();
-
   auto [targetFileName, writeFileName] = getWriterFileNames(bucketId);
 
   return HiveWriterParameters{
-      updateMode,
+      updateMode_,
       partition,
       targetFileName,
       makePartitionDirectory(
