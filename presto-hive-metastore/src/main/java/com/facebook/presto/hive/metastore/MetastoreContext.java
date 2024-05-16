@@ -22,6 +22,7 @@ import com.facebook.presto.spi.security.ConnectorIdentity;
 
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -31,6 +32,7 @@ public class MetastoreContext
     private final String username;
     private final String queryId;
     private final Optional<String> clientInfo;
+    private final Set<String> clientTags;
     private final Optional<String> source;
     private final boolean impersonationEnabled;
     private final Optional<String> metastoreHeaders;
@@ -47,6 +49,7 @@ public class MetastoreContext
             ConnectorIdentity identity,
             String queryId,
             Optional<String> clientInfo,
+            Set<String> clientTags,
             Optional<String> source,
             Optional<String> metastoreHeaders,
             boolean userDefinedTypeEncodingEnabled,
@@ -54,13 +57,14 @@ public class MetastoreContext
             WarningCollector warningCollector,
             RuntimeStats runtimeStats)
     {
-        this(requireNonNull(identity, "identity is null").getUser(), queryId, clientInfo, source, metastoreHeaders, userDefinedTypeEncodingEnabled, columnConverterProvider, warningCollector, runtimeStats);
+        this(requireNonNull(identity, "identity is null").getUser(), queryId, clientInfo, clientTags, source, metastoreHeaders, userDefinedTypeEncodingEnabled, columnConverterProvider, warningCollector, runtimeStats);
     }
 
     public MetastoreContext(
             String username,
             String queryId,
             Optional<String> clientInfo,
+            Set<String> clientTags,
             Optional<String> source,
             Optional<String> metastoreHeaders,
             boolean userDefinedTypeEncodingEnabled,
@@ -68,13 +72,14 @@ public class MetastoreContext
             WarningCollector warningCollector,
             RuntimeStats runtimeStats)
     {
-        this(username, queryId, clientInfo, source, false, metastoreHeaders, userDefinedTypeEncodingEnabled, columnConverterProvider, warningCollector, runtimeStats);
+        this(username, queryId, clientInfo, clientTags, source, false, metastoreHeaders, userDefinedTypeEncodingEnabled, columnConverterProvider, warningCollector, runtimeStats);
     }
 
     public MetastoreContext(
             String username,
             String queryId,
             Optional<String> clientInfo,
+            Set<String> clientTags,
             Optional<String> source,
             boolean impersonationEnabled,
             Optional<String> metastoreHeaders,
@@ -86,6 +91,7 @@ public class MetastoreContext
         this.username = requireNonNull(username, "username is null");
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
+        this.clientTags = requireNonNull(clientTags, "clientTags is null");
         this.source = requireNonNull(source, "source is null");
         this.columnConverterProvider = requireNonNull(columnConverterProvider, "columnConverterProvider is null");
         this.impersonationEnabled = impersonationEnabled;
@@ -126,6 +132,11 @@ public class MetastoreContext
         return clientInfo;
     }
 
+    public Set<String> getClientTags()
+    {
+        return clientTags;
+    }
+
     public Optional<String> getSource()
     {
         return source;
@@ -163,6 +174,7 @@ public class MetastoreContext
                 .add("username", username)
                 .add("queryId", queryId)
                 .add("clientInfo", clientInfo.orElse(""))
+                .add("clientTags", clientTags)
                 .add("source", source.orElse(""))
                 .add("impersonationEnabled", Boolean.toString(impersonationEnabled))
                 .add("userDefinedTypeEncodingEnabled", Boolean.toString(userDefinedTypeEncodingEnabled))
