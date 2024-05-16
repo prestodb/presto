@@ -16,6 +16,13 @@ The C++ evaluation engine has a number of limitations:
 
 * Not all built-in types are implemented in C++. Attempting to use unimplemented types will result in a query failure. 
 
+  * All basic and structured types in :doc:`../language/types` are supported, except for ``CHAR``, ``TIME``, and ``TIME WITH TIMEZONE``. 
+    These are subsumed by ``VARCHAR``, ``TIMESTAMP`` and ``TIMESTAMP WITH TIMEZONE``.
+
+  * Presto C++ only supports unlimited length ``VARCHAR``, and does not honor the length ``n`` in ``varchar[n]``.
+
+  * The following types are not supported: ``IPADDRESS``, ``IPPREFIX``, ``UUID``, ``KHYPERLOGLOG``, ``P4HYPERLOGLOG``, ``QDIGEST``, ``TDIGEST``.
+
 * Certain parts of the plugin SPI are not used by the C++ evaluation engine. In particular, C++ workers will not load any plugin in the plugins directory, and certain plugin types are either partially or completely unsupported.  
 
   * ``PageSourceProvider``, ``RecordSetProvider``, and ``PageSinkProvider`` do not work in the C++ evaluation engine.
