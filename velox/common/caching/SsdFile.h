@@ -237,11 +237,11 @@ class SsdFile {
   /// Finds an entry for 'key'. If no entry is found, the returned pin is empty.
   SsdPin find(RawFileCacheKey key);
 
-  // Erases 'key'
+  /// Erases 'key'
   bool erase(RawFileCacheKey key);
 
-  // Copies the data in 'ssdPins' into 'pins'. Coalesces IO for nearby
-  // entries if they are in ascending order and near enough.
+  /// Copies the data in 'ssdPins' into 'pins'. Coalesces IO for nearby
+  /// entries if they are in ascending order and near enough.
   CoalesceIoStats load(
       const std::vector<SsdPin>& ssdPins,
       const std::vector<CachePin>& pins);
@@ -249,8 +249,8 @@ class SsdFile {
   /// Increments the pin count of the region of 'offset'.
   void pinRegion(uint64_t offset);
 
-  // Decrements the pin count of the region of 'offset'. If the pin count goes
-  // to zero and evict is due, starts the eviction.
+  /// Decrements the pin count of the region of 'offset'. If the pin count goes
+  /// to zero and evict is due, starts the eviction.
   void unpinRegion(uint64_t offset);
 
   /// Asserts that the region of 'offset' is pinned. This is called by the pin
@@ -265,7 +265,7 @@ class SsdFile {
     return offset / kRegionSize;
   }
 
-  // Updates the read count of a region.
+  /// Updates the read count of a region.
   void regionRead(int32_t region, int32_t size) {
     tracker_.regionRead(region, size);
   }
@@ -278,7 +278,7 @@ class SsdFile {
     return shardId_;
   }
 
-  // Adds 'stats_' to 'stats'.
+  /// Adds 'stats_' to 'stats'.
   void updateStats(SsdCacheStats& stats) const;
 
   /// Remove cached entries of files in the fileNum set 'filesToRemove'. If
@@ -289,11 +289,15 @@ class SsdFile {
       const folly::F14FastSet<uint64_t>& filesToRemove,
       folly::F14FastSet<uint64_t>& filesRetained);
 
-  // Writes a checkpoint state that can be recovered from. The
-  // checkpoint is serialized on 'mutex_'. If 'force' is false,
-  // rechecks that at least 'checkpointIntervalBytes_' have been
-  // written since last checkpoint and silently returns if not.
+  /// Writes a checkpoint state that can be recovered from. The
+  /// checkpoint is serialized on 'mutex_'. If 'force' is false,
+  /// rechecks that at least 'checkpointIntervalBytes_' have been
+  /// written since last checkpoint and silently returns if not.
   void checkpoint(bool force = false);
+
+  /// Deletes checkpoint files. If 'keepLog' is true, truncates and syncs the
+  /// eviction log and leaves this open.
+  void deleteCheckpoint(bool keepLog = false);
 
   /// Returns the SSD file path.
   const std::string& fileName() const {
@@ -365,10 +369,6 @@ class SsdFile {
 
   // Verifies that 'entry' has the data at 'run'.
   void verifyWrite(AsyncDataCacheEntry& entry, SsdRun run);
-
-  // Deletes checkpoint files. If 'keepLog' is true, truncates and syncs the
-  // eviction log and leaves this open.
-  void deleteCheckpoint(bool keepLog = false);
 
   // Reads a checkpoint state file and sets 'this' accordingly if read is
   // successful. Return true for successful read. A failed read deletes the

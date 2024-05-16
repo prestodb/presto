@@ -105,6 +105,9 @@ class SsdCache {
   /// Deletes backing files. Used in testing.
   void testingDeleteFiles();
 
+  /// Deletes checkpoint files. Used in testing.
+  void testingDeleteCheckpoints();
+
   /// Returns the total size of eviction log files. Used in testing.
   uint64_t testingTotalLogEvictionFilesSize();
 

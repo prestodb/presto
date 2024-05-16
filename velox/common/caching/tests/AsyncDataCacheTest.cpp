@@ -1158,41 +1158,55 @@ TEST_F(AsyncDataCacheTest, shutdown) {
   constexpr uint64_t kRamBytes = 32 << 20;
   constexpr uint64_t kSsdBytes = 64UL << 20;
 
-  // Initialize cache with a big checkpointIntervalBytes, giving eviction log
-  // chance to survive.
-  initializeCache(kRamBytes, kSsdBytes, kSsdBytes * 10);
-  ASSERT_EQ(cache_->ssdCache()->stats().openCheckpointErrors, 4);
+  for (const auto asyncShutdown : {false, true}) {
+    SCOPED_TRACE(fmt::format("asyncShutdown {}", asyncShutdown));
+    // Initialize cache with a big checkpointIntervalBytes, giving eviction log
+    // chance to survive.
+    initializeCache(kRamBytes, kSsdBytes, kSsdBytes * 10);
+    ASSERT_EQ(cache_->ssdCache()->stats().openCheckpointErrors, 4);
 
-  // Write large amount of data, making sure eviction is triggered and the log
-  // file is not zero.
-  loadLoop(0, 16 * kSsdBytes);
-  ASSERT_GT(cache_->ssdCache()->stats().regionsEvicted, 0);
-  ASSERT_GT(cache_->ssdCache()->testingTotalLogEvictionFilesSize(), 0);
+    // Write large amount of data, making sure eviction is triggered and the log
+    // file is not zero.
+    loadLoop(0, 16 * kSsdBytes);
+    ASSERT_GT(cache_->ssdCache()->stats().regionsEvicted, 0);
+    ASSERT_GT(cache_->ssdCache()->testingTotalLogEvictionFilesSize(), 0);
 
-  // Shutdown cache.
-  const auto bytesWrittenBeforeShutdown =
-      cache_->ssdCache()->stats().bytesWritten;
-  cache_->ssdCache()->shutdown();
-  const auto bytesWrittenAfterShutdown =
-      cache_->ssdCache()->stats().bytesWritten;
-  cache_->ssdCache()->shutdown();
+    // Shutdown cache.
+    if (!asyncShutdown) {
+      waitForSsdWriteToFinish(cache_->ssdCache());
+    }
+    const auto bytesWrittenBeforeShutdown =
+        cache_->ssdCache()->stats().bytesWritten;
+    cache_->ssdCache()->shutdown();
+    const auto bytesWrittenAfterShutdown =
+        cache_->ssdCache()->stats().bytesWritten;
 
-  // No new data has been written after shutdown.
-  ASSERT_EQ(bytesWrittenBeforeShutdown, bytesWrittenAfterShutdown);
-  // Eviction log files have been truncated.
-  ASSERT_EQ(cache_->ssdCache()->testingTotalLogEvictionFilesSize(), 0);
+    if (asyncShutdown) {
+      // The written bytes before shutdown is not larger than before shutdown.
+      ASSERT_LE(bytesWrittenBeforeShutdown, bytesWrittenAfterShutdown);
+    } else {
+      // No new data has been written after shutdown.
+      ASSERT_EQ(bytesWrittenBeforeShutdown, bytesWrittenAfterShutdown);
+    }
+    // Eviction log files have been truncated.
+    ASSERT_EQ(cache_->ssdCache()->testingTotalLogEvictionFilesSize(), 0);
 
-  // New cache write attempt is blocked and triggers exception.
-  VELOX_ASSERT_THROW(
-      cache_->ssdCache()->startWrite(),
-      "Unexpected write after SSD cache has been shutdown");
+    // Shutdown again making sure no issue is triggered.
+    cache_->ssdCache()->shutdown();
 
-  // Re-initialize cache.
-  cache_->ssdCache()->testingClear();
-  initializeCache(kRamBytes, kSsdBytes, kSsdBytes * 10);
-  // Checkpoint files are intact and readable.
-  ASSERT_EQ(cache_->ssdCache()->stats().openCheckpointErrors, 0);
-  ASSERT_EQ(cache_->ssdCache()->stats().readCheckpointErrors, 0);
+    // New cache write attempt is blocked and triggers exception.
+    VELOX_ASSERT_THROW(
+        cache_->ssdCache()->startWrite(),
+        "Unexpected write after SSD cache has been shutdown");
+
+    // Re-initialize cache.
+    cache_->ssdCache()->testingClear();
+    initializeCache(kRamBytes, kSsdBytes, kSsdBytes * 10);
+    // Checkpoint files are intact and readable.
+    ASSERT_EQ(cache_->ssdCache()->stats().openCheckpointErrors, 0);
+    ASSERT_EQ(cache_->ssdCache()->stats().readCheckpointErrors, 0);
+    cache_->ssdCache()->testingDeleteCheckpoints();
+  }
 }
 
 // TODO: add concurrent fuzzer test.

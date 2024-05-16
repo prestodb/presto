@@ -211,6 +211,12 @@ void SsdCache::testingDeleteFiles() {
   }
 }
 
+void SsdCache::testingDeleteCheckpoints() {
+  for (auto& file : files_) {
+    file->deleteCheckpoint();
+  }
+}
+
 uint64_t SsdCache::testingTotalLogEvictionFilesSize() {
   uint64_t size = 0;
   for (auto& file : files_) {
