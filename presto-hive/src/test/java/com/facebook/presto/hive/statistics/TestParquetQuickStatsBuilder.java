@@ -50,6 +50,7 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.chrono.ChronoLocalDate;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -209,6 +210,7 @@ public class TestParquetQuickStatsBuilder
         metastoreContext = new MetastoreContext(SESSION.getUser(),
                 SESSION.getQueryId(),
                 Optional.empty(),
+                Collections.emptySet(),
                 Optional.empty(),
                 Optional.empty(),
                 false,

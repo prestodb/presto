@@ -50,6 +50,7 @@ import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 import java.time.Instant;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -141,6 +142,7 @@ public class TestQuickStatsProvider
         metastoreContext = new MetastoreContext(SESSION.getUser(),
                 SESSION.getQueryId(),
                 Optional.empty(),
+                Collections.emptySet(),
                 Optional.empty(),
                 Optional.empty(),
                 false,
