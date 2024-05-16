@@ -128,7 +128,7 @@ public final class TaskTestUtils
                         .withBucketToPartition(Optional.of(new int[1])),
                 StageExecutionDescriptor.ungroupedExecution(),
                 false,
-                StatsAndCosts.empty(),
+                Optional.of(StatsAndCosts.empty()),
                 Optional.empty());
     }
 

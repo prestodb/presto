@@ -847,7 +847,7 @@ public final class HttpRemoteTask
 
         List<TaskSource> sources = getSources();
 
-        Optional<byte[]> fragment = sendPlan.get() ? Optional.of(planFragment.toBytes(planFragmentCodec)) : Optional.empty();
+        Optional<byte[]> fragment = sendPlan.get() ? Optional.of(planFragment.bytesForTaskSerialization(planFragmentCodec)) : Optional.empty();
         Optional<TableWriteInfo> writeInfo = sendPlan.get() ? Optional.of(tableWriteInfo) : Optional.empty();
         TaskUpdateRequest updateRequest = new TaskUpdateRequest(
                 session.toSessionRepresentation(),

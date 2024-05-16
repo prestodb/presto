@@ -190,7 +190,7 @@ public class TestLocalExecutionPlanner
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of()),
                 StageExecutionDescriptor.ungroupedExecution(),
                 false,
-                StatsAndCosts.empty(),
+                Optional.of(StatsAndCosts.empty()),
                 Optional.empty());
         return createTestingPlanner().plan(
                 createTaskContext(EXECUTOR, SCHEDULED_EXECUTOR, session),
