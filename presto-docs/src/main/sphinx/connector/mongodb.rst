@@ -273,9 +273,9 @@ The connector supports ``ALTER TABLE RENAME TO`` operation. Other uses of ``ALTE
 DELETE
 ^^^^^^
 
-The MongoDB connector can delete rows from a table. If ``WHERE`` clause is specified, only the matching rows are deleted. Otherwise, all rows from the table are deleted.
+The MongoDB connector can delete rows from a table. If a ``WHERE`` clause is specified, only the matching rows are deleted. Without a ``WHERE`` clause, all rows from the table are deleted.
 For example, to delete from the table ``lineitem``::
 
-     DELETE FROM lineitem;
-
      DELETE FROM lineitem WHERE linenumber = 1;
+
+     DELETE FROM lineitem;
