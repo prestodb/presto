@@ -135,7 +135,10 @@ std::vector<std::shared_ptr<connector::hive::HiveConnectorSplit>>
 HiveConnectorTestBase::makeHiveConnectorSplits(
     const std::string& filePath,
     uint32_t splitCount,
-    dwio::common::FileFormat format) {
+    dwio::common::FileFormat format,
+    const std::optional<
+        std::unordered_map<std::string, std::optional<std::string>>>&
+        partitionKeys) {
   auto file =
       filesystems::getFileSystem(filePath, nullptr)->openFileForRead(filePath);
   const int64_t fileSize = file->size();
@@ -144,11 +147,17 @@ HiveConnectorTestBase::makeHiveConnectorSplits(
   std::vector<std::shared_ptr<connector::hive::HiveConnectorSplit>> splits;
   // Add all the splits.
   for (int i = 0; i < splitCount; i++) {
-    auto split = HiveConnectorSplitBuilder(filePath)
-                     .fileFormat(format)
-                     .start(i * splitSize)
-                     .length(splitSize)
-                     .build();
+    auto splitBuilder = HiveConnectorSplitBuilder(filePath)
+                            .fileFormat(format)
+                            .start(i * splitSize)
+                            .length(splitSize);
+    if (partitionKeys.has_value()) {
+      for (auto partitionKey : partitionKeys.value()) {
+        splitBuilder.partitionKey(partitionKey.first, partitionKey.second);
+      }
+    }
+
+    auto split = splitBuilder.build();
     splits.push_back(std::move(split));
   }
   return splits;
@@ -167,7 +176,8 @@ HiveConnectorTestBase::makeColumnHandle(
     const std::string& name,
     const TypePtr& dataType,
     const TypePtr& hiveType,
-    const std::vector<std::string>& requiredSubfields) {
+    const std::vector<std::string>& requiredSubfields,
+    connector::hive::HiveColumnHandle::ColumnType columnType) {
   std::vector<common::Subfield> subfields;
   subfields.reserve(requiredSubfields.size());
   for (auto& path : requiredSubfields) {
@@ -175,11 +185,7 @@ HiveConnectorTestBase::makeColumnHandle(
   }
 
   return std::make_shared<connector::hive::HiveColumnHandle>(
-      name,
-      connector::hive::HiveColumnHandle::ColumnType::kRegular,
-      dataType,
-      hiveType,
-      std::move(subfields));
+      name, columnType, dataType, hiveType, std::move(subfields));
 }
 
 std::vector<std::shared_ptr<connector::ConnectorSplit>>

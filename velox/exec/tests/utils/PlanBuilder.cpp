@@ -92,6 +92,7 @@ PlanBuilder& PlanBuilder::tableScan(
       .subfieldFilters(subfieldFilters)
       .remainingFilter(remainingFilter)
       .dataColumns(dataColumns)
+      .assignments(assignments)
       .endTableScan();
 }
 
@@ -101,7 +102,10 @@ PlanBuilder& PlanBuilder::tableScan(
     const std::unordered_map<std::string, std::string>& columnAliases,
     const std::vector<std::string>& subfieldFilters,
     const std::string& remainingFilter,
-    const RowTypePtr& dataColumns) {
+    const RowTypePtr& dataColumns,
+    const std::unordered_map<
+        std::string,
+        std::shared_ptr<connector::ColumnHandle>>& assignments) {
   return TableScanBuilder(*this)
       .tableName(tableName)
       .outputType(outputType)
@@ -109,6 +113,7 @@ PlanBuilder& PlanBuilder::tableScan(
       .subfieldFilters(subfieldFilters)
       .remainingFilter(remainingFilter)
       .dataColumns(dataColumns)
+      .assignments(assignments)
       .endTableScan();
 }
 

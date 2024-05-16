@@ -148,7 +148,10 @@ class PlanBuilder {
       const std::unordered_map<std::string, std::string>& columnAliases = {},
       const std::vector<std::string>& subfieldFilters = {},
       const std::string& remainingFilter = "",
-      const RowTypePtr& dataColumns = nullptr);
+      const RowTypePtr& dataColumns = nullptr,
+      const std::unordered_map<
+          std::string,
+          std::shared_ptr<connector::ColumnHandle>>& assignments = {});
 
   /// Add a TableScanNode to scan a TPC-H table.
   ///
