@@ -54,7 +54,7 @@ TEST_F(QueryContextCacheTest, basic) {
 
   for (int i = 0; i < 16; ++i) {
     auto queryId = fmt::format("query-{}", i);
-    auto queryCtx = std::make_shared<core::QueryCtx>(
+    auto queryCtx = core::QueryCtx::create(
         (folly::Executor*)nullptr, core::QueryConfig({}));
     queryCtxs[queryId] = queryCtx;
     queryContextCache.insert(queryId, queryCtx);
@@ -84,7 +84,7 @@ TEST_F(QueryContextCacheTest, eviction) {
 
   for (int i = 0; i < 8; ++i) {
     auto queryId = fmt::format("query-{}", i);
-    auto queryCtx = std::make_shared<core::QueryCtx>(
+    auto queryCtx = core::QueryCtx::create(
         (folly::Executor*)nullptr, core::QueryConfig({}));
     queryCtxs[queryId] = queryCtx;
     queryContextCache.insert(queryId, queryCtx);
@@ -104,7 +104,7 @@ TEST_F(QueryContextCacheTest, eviction) {
   // Insert 4 more query ctxs
   for (int i = 8; i < 12; ++i) {
     auto queryId = fmt::format("query-{}", i);
-    auto queryCtx = std::make_shared<core::QueryCtx>(
+    auto queryCtx = core::QueryCtx::create(
         (folly::Executor*)nullptr, core::QueryConfig({}));
     queryCtxs[queryId] = queryCtx;
     queryContextCache.insert(queryId, queryCtx);
@@ -118,7 +118,7 @@ TEST_F(QueryContextCacheTest, eviction) {
   // Ensure that cache expands if all the queries in cache are alive.
   for (int i = 12; i < 20; ++i) {
     auto queryId = fmt::format("query-{}", i);
-    auto queryCtx = std::make_shared<core::QueryCtx>(
+    auto queryCtx = core::QueryCtx::create(
         (folly::Executor*)nullptr, core::QueryConfig({}));
     queryCtxs[queryId] = queryCtx;
     queryContextCache.insert(queryId, queryCtx);

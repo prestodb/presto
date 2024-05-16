@@ -1343,7 +1343,7 @@ TEST_F(TaskManagerTest, testCumulativeMemory) {
                                 .values(batches)
                                 .partitionedOutput({}, 1)
                                 .planFragment();
-  auto queryCtx = std::make_shared<core::QueryCtx>(driverExecutor_.get());
+  auto queryCtx = core::QueryCtx::create(driverExecutor_.get());
   const protocol::TaskId taskId = "scan.0.0.1.0";
   auto veloxTask = Task::create(
       taskId,

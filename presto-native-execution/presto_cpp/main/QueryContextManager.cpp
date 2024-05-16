@@ -189,12 +189,9 @@ std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtx(
   static std::atomic_uint64_t poolId{0};
   auto pool = memory::MemoryManager::getInstance()->addRootPool(
       fmt::format("{}_{}", queryId, poolId++),
-      queryConfig.queryMaxMemoryPerNode(),
-      !SystemConfig::instance()->memoryArbitratorKind().empty()
-          ? memory::MemoryReclaimer::create()
-          : nullptr);
+      queryConfig.queryMaxMemoryPerNode());
 
-  auto queryCtx = std::make_shared<core::QueryCtx>(
+  auto queryCtx = core::QueryCtx::create(
       driverExecutor_,
       std::move(queryConfig),
       connectorConfigs,
