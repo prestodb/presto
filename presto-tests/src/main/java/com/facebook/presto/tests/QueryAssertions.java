@@ -224,11 +224,15 @@ public final class QueryAssertions
 
         if (ensureOrdering) {
             if (!actualRows.equals(expectedRows)) {
-                assertEquals(actualRows, expectedRows, "For query: \n " + actual + "\n:");
+                assertEquals(actualRows,
+                        expectedRows,
+                        "For query: \n " + actual + "\n actual column types:\n " + actualResults.getTypes() + "\nexpected column types:\n" + expectedResults.getTypes() + "\n");
             }
         }
         else {
-            assertEqualsIgnoreOrder(actualRows, expectedRows, "For query: \n " + actual);
+            assertEqualsIgnoreOrder(actualRows,
+                    expectedRows,
+                    "For query: \n " + actual + "\n actual column types:\n " + actualResults.getTypes() + "\nexpected column types:\n" + expectedResults.getTypes() + "\n");
         }
     }
 
