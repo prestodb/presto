@@ -16,6 +16,8 @@
 
 #include "velox/common/memory/Memory.h"
 
+#include <atomic>
+
 #include "velox/common/base/Counters.h"
 #include "velox/common/base/StatsReporter.h"
 #include "velox/common/memory/MallocAllocator.h"
@@ -27,15 +29,18 @@ namespace facebook::velox::memory {
 namespace {
 constexpr std::string_view kSysRootName{"__sys_root__"};
 
-std::mutex& instanceMutex() {
-  static std::mutex kMutex;
-  return kMutex;
-}
+struct SingletonState {
+  ~SingletonState() {
+    delete instance.load(std::memory_order_acquire);
+  }
 
-// Must be called while holding a lock over instanceMutex().
-std::unique_ptr<MemoryManager>& instance() {
-  static std::unique_ptr<MemoryManager> kInstance;
-  return kInstance;
+  std::atomic<MemoryManager*> instance{nullptr};
+  std::mutex mutex;
+};
+
+SingletonState& singletonState() {
+  static SingletonState state;
+  return state;
 }
 
 std::shared_ptr<MemoryAllocator> createAllocator(
@@ -140,40 +145,49 @@ MemoryManager::~MemoryManager() {
 // static
 MemoryManager& MemoryManager::deprecatedGetInstance(
     const MemoryManagerOptions& options) {
-  std::lock_guard<std::mutex> l(instanceMutex());
-  auto& instanceRef = instance();
-  if (instanceRef == nullptr) {
-    instanceRef = std::make_unique<MemoryManager>(options);
+  auto& state = singletonState();
+  if (auto* instance = state.instance.load(std::memory_order_acquire)) {
+    return *instance;
   }
-  return *instanceRef;
+
+  std::lock_guard<std::mutex> l(state.mutex);
+  auto* instance = state.instance.load(std::memory_order_acquire);
+  if (instance != nullptr) {
+    return *instance;
+  }
+  instance = new MemoryManager(options);
+  state.instance.store(instance, std::memory_order_release);
+  return *instance;
 }
 
 // static
 void MemoryManager::initialize(const MemoryManagerOptions& options) {
-  std::lock_guard<std::mutex> l(instanceMutex());
-  auto& instanceRef = instance();
+  auto& state = singletonState();
+  std::lock_guard<std::mutex> l(state.mutex);
+  auto* instance = state.instance.load(std::memory_order_acquire);
   VELOX_CHECK_NULL(
-      instanceRef,
+      instance,
       "The memory manager has already been set: {}",
-      instanceRef->toString());
-  instanceRef = std::make_unique<MemoryManager>(options);
+      instance->toString());
+  instance = new MemoryManager(options);
+  state.instance.store(instance, std::memory_order_release);
 }
 
 // static.
 MemoryManager* MemoryManager::getInstance() {
-  std::lock_guard<std::mutex> l(instanceMutex());
-  auto& instanceRef = instance();
-  VELOX_CHECK_NOT_NULL(instanceRef, "The memory manager is not set");
-  return instanceRef.get();
+  auto* instance = singletonState().instance.load(std::memory_order_acquire);
+  VELOX_CHECK_NOT_NULL(instance, "The memory manager is not set");
+  return instance;
 }
 
 // static.
 MemoryManager& MemoryManager::testingSetInstance(
     const MemoryManagerOptions& options) {
-  std::lock_guard<std::mutex> l(instanceMutex());
-  auto& instanceRef = instance();
-  instanceRef = std::make_unique<MemoryManager>(options);
-  return *instanceRef;
+  auto& state = singletonState();
+  std::lock_guard<std::mutex> l(state.mutex);
+  auto* instance = new MemoryManager(options);
+  delete state.instance.exchange(instance, std::memory_order_acq_rel);
+  return *instance;
 }
 
 int64_t MemoryManager::capacity() const {
