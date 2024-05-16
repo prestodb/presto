@@ -272,6 +272,7 @@ public class TestHiveClientGlueMetastore
                     session.getIdentity(),
                     session.getQueryId(),
                     session.getClientInfo(),
+                    session.getClientTags(),
                     session.getSource(),
                     getMetastoreHeaders(session),
                     false,

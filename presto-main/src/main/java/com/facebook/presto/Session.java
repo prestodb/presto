@@ -166,7 +166,7 @@ public final class Session
         this.tracer = requireNonNull(tracer, "tracer is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.runtimeStats = requireNonNull(runtimeStats, "runtimeStats is null");
-        this.context = new AccessControlContext(queryId, clientInfo, source, warningCollector, runtimeStats);
+        this.context = new AccessControlContext(queryId, clientInfo, clientTags, source, warningCollector, runtimeStats);
     }
 
     public QueryId getQueryId()

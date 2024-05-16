@@ -38,6 +38,7 @@ import org.testng.annotations.Test;
 import org.testng.internal.collections.Pair;
 
 import java.io.File;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -106,7 +107,7 @@ public class TestSpatialJoins
 
         FileHiveMetastore metastore = new FileHiveMetastore(hdfsEnvironment, dataDirectory.toURI().toString(), "test");
         ColumnConverterProvider columnConverterProvider = HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER;
-        metastore.createDatabase(new MetastoreContext("test_user", "test_queryId", Optional.empty(), Optional.empty(), Optional.empty(), false, columnConverterProvider, WarningCollector.NOOP, new RuntimeStats()), Database.builder()
+        metastore.createDatabase(new MetastoreContext("test_user", "test_queryId", Optional.empty(), Collections.emptySet(), Optional.empty(), Optional.empty(), false, columnConverterProvider, WarningCollector.NOOP, new RuntimeStats()), Database.builder()
                 .setDatabaseName("default")
                 .setOwnerName("public")
                 .setOwnerType(PrincipalType.ROLE)

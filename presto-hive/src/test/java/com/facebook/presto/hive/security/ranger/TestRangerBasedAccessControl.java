@@ -36,6 +36,7 @@ import com.google.common.io.ByteStreams;
 import org.testng.Assert.ThrowingRunnable;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.presto.hive.security.ranger.RangerBasedAccessControlConfig.RANGER_REST_POLICY_MGR_DOWNLOAD_URL;
@@ -47,7 +48,7 @@ import static org.testng.Assert.assertThrows;
 public class TestRangerBasedAccessControl
 {
     public static final ConnectorTransactionHandle TRANSACTION_HANDLE = new ConnectorTransactionHandle() {};
-    public static final AccessControlContext CONTEXT = new AccessControlContext(new QueryId("query_id"), Optional.empty(), Optional.empty(), WarningCollector.NOOP, new RuntimeStats());
+    public static final AccessControlContext CONTEXT = new AccessControlContext(new QueryId("query_id"), Optional.empty(), Collections.emptySet(), Optional.empty(), WarningCollector.NOOP, new RuntimeStats());
 
     @Test
     public void testTablePriviledgesRolesNotAllowed()

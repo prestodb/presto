@@ -43,6 +43,7 @@ public class AccessControlUtils
                     new AccessControlContext(
                             queryId,
                             Optional.ofNullable(sessionContext.getClientInfo()),
+                            sessionContext.getClientTags(),
                             Optional.ofNullable(sessionContext.getSource()),
                             WarningCollector.NOOP,
                             sessionContext.getRuntimeStats()),
@@ -67,6 +68,7 @@ public class AccessControlUtils
                     new AccessControlContext(
                             queryId,
                             Optional.ofNullable(sessionContext.getClientInfo()),
+                            sessionContext.getClientTags(),
                             Optional.ofNullable(sessionContext.getSource()),
                             WarningCollector.NOOP,
                             sessionContext.getRuntimeStats()),

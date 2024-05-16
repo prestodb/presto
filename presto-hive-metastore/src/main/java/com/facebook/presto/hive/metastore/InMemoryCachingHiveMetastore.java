@@ -865,6 +865,7 @@ public class InMemoryCachingHiveMetastore
                     context.getUsername(),
                     context.getQueryId(),
                     context.getClientInfo(),
+                    context.getClientTags(),
                     context.getSource(),
                     true,
                     context.getMetastoreHeaders(),

@@ -123,7 +123,17 @@ public class MetastoreHiveStatisticsProvider
             return ImmutableMap.of();
         }
         boolean unpartitioned = hivePartitions.stream().anyMatch(partition -> partition.getPartitionId().equals(UNPARTITIONED_ID));
-        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), metastore.getColumnConverterProvider(), session.getWarningCollector(), session.getRuntimeStats());
+        MetastoreContext metastoreContext = new MetastoreContext(
+                session.getIdentity(),
+                session.getQueryId(),
+                session.getClientInfo(),
+                session.getClientTags(),
+                session.getSource(),
+                getMetastoreHeaders(session),
+                isUserDefinedTypeEncodingEnabled(session),
+                metastore.getColumnConverterProvider(),
+                session.getWarningCollector(),
+                session.getRuntimeStats());
         if (unpartitioned) {
             checkArgument(hivePartitions.size() == 1, "expected only one hive partition");
             PartitionStatistics tableStatistics = metastore.getTableStatistics(metastoreContext, table.getSchemaName(), table.getTableName());
