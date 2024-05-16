@@ -131,7 +131,7 @@ public class MockRemoteTaskFactory
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(variable)),
                 StageExecutionDescriptor.ungroupedExecution(),
                 false,
-                StatsAndCosts.empty(),
+                Optional.of(StatsAndCosts.empty()),
                 Optional.empty());
 
         ImmutableMultimap.Builder<PlanNodeId, Split> initialSplits = ImmutableMultimap.builder();
