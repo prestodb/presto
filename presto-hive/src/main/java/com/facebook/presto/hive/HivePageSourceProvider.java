@@ -183,7 +183,6 @@ public class HivePageSourceProvider
             return createAggregatedPageSource(aggregatedPageSourceFactories, configuration, session, hiveSplit, hiveLayout, selectedColumns, fileContext, encryptionInformation);
         }
         if (hiveLayout.isPushdownFilterEnabled()) {
-            Optional<byte[]> rowIDPartitionComponent = hiveSplit.getRowIdPartitionComponent();
             Optional<ConnectorPageSource> selectivePageSource = createSelectivePageSource(
                     selectivePageSourceFactories,
                     configuration,
@@ -371,9 +370,10 @@ public class HivePageSourceProvider
                 .map(filter -> filter.transform(handle -> new Subfield(((HiveColumnHandle) handle).getName())).intersect(layout.getDomainPredicate()))
                 .orElse(layout.getDomainPredicate());
 
+        List<HiveColumnHandle> columnHandles = toColumnHandles(columnMappings, true);
+        Optional<byte[]> rowIDPartitionComponent = split.getRowIdPartitionComponent();
+        HiveUtil.checkRowIDPartitionComponent(columnHandles, rowIDPartitionComponent);
         for (HiveSelectivePageSourceFactory pageSourceFactory : selectivePageSourceFactories) {
-            List<HiveColumnHandle> columnHandles = toColumnHandles(columnMappings, true);
-            Optional<byte[]> rowIDPartitionComponent = split.getRowIdPartitionComponent();
             Optional<? extends ConnectorPageSource> pageSource = pageSourceFactory.createPageSource(
                     configuration,
                     session,
