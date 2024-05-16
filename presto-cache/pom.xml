@@ -23,7 +23,7 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-hive-common</artifactId>
+            <artifactId>presto-hdfs-core</artifactId>
         </dependency>
 
         <dependency>
