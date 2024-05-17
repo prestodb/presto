@@ -736,7 +736,6 @@ public abstract class IcebergAbstractMetadata
                 tableName.getSchemaName(),
                 new IcebergTableName(name.getTableName(), name.getTableType(), tableSnapshotId, name.getChangelogEndSnapshot()),
                 name.getSnapshotId().isPresent(),
-                TupleDomain.all(),
                 tryGetLocation(table),
                 tryGetProperties(table),
                 tableSchemaJson,
