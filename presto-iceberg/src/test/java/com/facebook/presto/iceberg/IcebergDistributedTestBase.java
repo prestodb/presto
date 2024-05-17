@@ -1408,6 +1408,7 @@ public abstract class IcebergDistributedTestBase
     protected Table loadTable(String tableName)
     {
         Catalog catalog = CatalogUtil.loadCatalog(catalogType.getCatalogImpl(), "test-hive", getProperties(), new Configuration());
+        System.out.println(catalog);
         return catalog.loadTable(TableIdentifier.of("tpch", tableName));
     }
 
@@ -1428,6 +1429,7 @@ public abstract class IcebergDistributedTestBase
                         .resolve(TEST_CATALOG_DIRECTORY)
                         .toFile();
             case HADOOP:
+            case JDBC:
             case NESSIE:
                 return dataDirectory.toFile();
         }

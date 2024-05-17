@@ -174,7 +174,6 @@ public final class IcebergQueryRunner
                 .putAll(getConnectorProperties(CatalogType.valueOf(catalogType), icebergDataDirectory))
                 .putAll(extraConnectorProperties)
                 .build();
-
         queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", icebergProperties);
 
         if (addJmxPlugin) {
@@ -222,6 +221,7 @@ public final class IcebergQueryRunner
         switch (icebergCatalogType) {
             case HADOOP:
             case NESSIE:
+            case JDBC:
                 return ImmutableMap.of("iceberg.catalog.warehouse", testDataDirectory.getParent().toFile().toURI().toString());
             case HIVE:
                 Path testCatalogDirectory = testDataDirectory.getParent().resolve(TEST_CATALOG_DIRECTORY);
