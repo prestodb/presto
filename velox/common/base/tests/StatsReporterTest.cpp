@@ -33,12 +33,14 @@ namespace facebook::velox {
 
 class TestReporter : public BaseStatsReporter {
  public:
+  mutable std::mutex m;
   mutable std::unordered_map<std::string, size_t> counterMap;
   mutable std::unordered_map<std::string, StatType> statTypeMap;
   mutable std::unordered_map<std::string, std::vector<int32_t>>
       histogramPercentilesMap;
 
   void clear() {
+    std::lock_guard<std::mutex> l(m);
     counterMap.clear();
     statTypeMap.clear();
     histogramPercentilesMap.clear();
@@ -74,28 +76,34 @@ class TestReporter : public BaseStatsReporter {
 
   void addMetricValue(const std::string& key, const size_t value)
       const override {
+    std::lock_guard<std::mutex> l(m);
     counterMap[key] += value;
   }
 
   void addMetricValue(const char* key, const size_t value) const override {
+    std::lock_guard<std::mutex> l(m);
     counterMap[key] += value;
   }
 
   void addMetricValue(folly::StringPiece key, size_t value) const override {
+    std::lock_guard<std::mutex> l(m);
     counterMap[key.str()] += value;
   }
 
   void addHistogramMetricValue(const std::string& key, size_t value)
       const override {
+    std::lock_guard<std::mutex> l(m);
     counterMap[key] = std::max(counterMap[key], value);
   }
 
   void addHistogramMetricValue(const char* key, size_t value) const override {
+    std::lock_guard<std::mutex> l(m);
     counterMap[key] = std::max(counterMap[key], value);
   }
 
   void addHistogramMetricValue(folly::StringPiece key, size_t value)
       const override {
+    std::lock_guard<std::mutex> l(m);
     counterMap[key.str()] = std::max(counterMap[key.str()], value);
   }
 };
@@ -410,60 +418,65 @@ TEST_F(PeriodicStatsReporterTest, basic) {
 
   // Check snapshot stats
   const auto& counterMap = reporter_->counterMap;
-  ASSERT_EQ(counterMap.count(kMetricArbitratorFreeCapacityBytes.str()), 1);
-  ASSERT_EQ(
-      counterMap.count(kMetricArbitratorFreeReservedCapacityBytes.str()), 1);
-  ASSERT_EQ(counterMap.count(kMetricMemoryCacheNumEntries.str()), 1);
-  ASSERT_EQ(counterMap.count(kMetricMemoryCacheNumEmptyEntries.str()), 1);
-  ASSERT_EQ(counterMap.count(kMetricMemoryCacheNumSharedEntries.str()), 1);
-  ASSERT_EQ(counterMap.count(kMetricMemoryCacheNumExclusiveEntries.str()), 1);
-  ASSERT_EQ(counterMap.count(kMetricMemoryCacheNumPrefetchedEntries.str()), 1);
-  ASSERT_EQ(counterMap.count(kMetricMemoryCacheTotalTinyBytes.str()), 1);
-  ASSERT_EQ(counterMap.count(kMetricMemoryCacheTotalLargeBytes.str()), 1);
-  ASSERT_EQ(counterMap.count(kMetricMemoryCacheTotalTinyPaddingBytes.str()), 1);
-  ASSERT_EQ(
-      counterMap.count(kMetricMemoryCacheTotalLargePaddingBytes.str()), 1);
-  ASSERT_EQ(counterMap.count(kMetricMemoryCacheTotalPrefetchBytes.str()), 1);
-  ASSERT_EQ(counterMap.count(kMetricSsdCacheCachedEntries.str()), 1);
-  ASSERT_EQ(counterMap.count(kMetricSsdCacheCachedRegions.str()), 1);
-  ASSERT_EQ(counterMap.count(kMetricSsdCacheCachedBytes.str()), 1);
-  ASSERT_EQ(counterMap.count(kMetricCacheMaxAgeSecs.str()), 1);
-  ASSERT_EQ(counterMap.count(kMetricMappedMemoryBytes.str()), 1);
-  ASSERT_EQ(counterMap.count(kMetricAllocatedMemoryBytes.str()), 1);
-  ASSERT_EQ(counterMap.count(kMetricMmapDelegatedAllocBytes.str()), 1);
-  ASSERT_EQ(counterMap.count(kMetricMmapExternalMappedBytes.str()), 1);
-  ASSERT_EQ(counterMap.count(kMetricSpillMemoryBytes.str()), 1);
-  ASSERT_EQ(counterMap.count(kMetricSpillPeakMemoryBytes.str()), 1);
-  // Check deltas are not reported
-  ASSERT_EQ(counterMap.count(kMetricMemoryCacheNumHits.str()), 0);
-  ASSERT_EQ(counterMap.count(kMetricMemoryCacheHitBytes.str()), 0);
-  ASSERT_EQ(counterMap.count(kMetricMemoryCacheNumNew.str()), 0);
-  ASSERT_EQ(counterMap.count(kMetricMemoryCacheNumEvicts.str()), 0);
-  ASSERT_EQ(counterMap.count(kMetricMemoryCacheNumEvictChecks.str()), 0);
-  ASSERT_EQ(counterMap.count(kMetricMemoryCacheNumWaitExclusive.str()), 0);
-  ASSERT_EQ(counterMap.count(kMetricMemoryCacheNumAllocClocks.str()), 0);
-  ASSERT_EQ(counterMap.count(kMetricMemoryCacheNumAgedOutEntries.str()), 0);
-  ASSERT_EQ(counterMap.count(kMetricMemoryCacheSumEvictScore.str()), 0);
-  ASSERT_EQ(counterMap.count(kMetricSsdCacheReadEntries.str()), 0);
-  ASSERT_EQ(counterMap.count(kMetricSsdCacheReadBytes.str()), 0);
-  ASSERT_EQ(counterMap.count(kMetricSsdCacheWrittenEntries.str()), 0);
-  ASSERT_EQ(counterMap.count(kMetricSsdCacheWrittenBytes.str()), 0);
-  ASSERT_EQ(counterMap.count(kMetricSsdCacheOpenSsdErrors.str()), 0);
-  ASSERT_EQ(counterMap.count(kMetricSsdCacheOpenCheckpointErrors.str()), 0);
-  ASSERT_EQ(counterMap.count(kMetricSsdCacheOpenLogErrors.str()), 0);
-  ASSERT_EQ(counterMap.count(kMetricSsdCacheDeleteCheckpointErrors.str()), 0);
-  ASSERT_EQ(counterMap.count(kMetricSsdCacheGrowFileErrors.str()), 0);
-  ASSERT_EQ(counterMap.count(kMetricSsdCacheWriteSsdErrors.str()), 0);
-  ASSERT_EQ(counterMap.count(kMetricSsdCacheWriteSsdDropped.str()), 0);
-  ASSERT_EQ(counterMap.count(kMetricSsdCacheWriteCheckpointErrors.str()), 0);
-  ASSERT_EQ(counterMap.count(kMetricSsdCacheReadSsdErrors.str()), 0);
-  ASSERT_EQ(counterMap.count(kMetricSsdCacheReadCheckpointErrors.str()), 0);
-  ASSERT_EQ(counterMap.count(kMetricSsdCacheCheckpointsRead.str()), 0);
-  ASSERT_EQ(counterMap.count(kMetricSsdCacheCheckpointsWritten.str()), 0);
-  ASSERT_EQ(counterMap.count(kMetricSsdCacheRegionsEvicted.str()), 0);
-  ASSERT_EQ(counterMap.count(kMetricSsdCacheAgedOutEntries.str()), 0);
-  ASSERT_EQ(counterMap.count(kMetricSsdCacheAgedOutRegions.str()), 0);
-  ASSERT_EQ(counterMap.size(), 22);
+  {
+    std::lock_guard<std::mutex> l(reporter_->m);
+    ASSERT_EQ(counterMap.count(kMetricArbitratorFreeCapacityBytes.str()), 1);
+    ASSERT_EQ(
+        counterMap.count(kMetricArbitratorFreeReservedCapacityBytes.str()), 1);
+    ASSERT_EQ(counterMap.count(kMetricMemoryCacheNumEntries.str()), 1);
+    ASSERT_EQ(counterMap.count(kMetricMemoryCacheNumEmptyEntries.str()), 1);
+    ASSERT_EQ(counterMap.count(kMetricMemoryCacheNumSharedEntries.str()), 1);
+    ASSERT_EQ(counterMap.count(kMetricMemoryCacheNumExclusiveEntries.str()), 1);
+    ASSERT_EQ(
+        counterMap.count(kMetricMemoryCacheNumPrefetchedEntries.str()), 1);
+    ASSERT_EQ(counterMap.count(kMetricMemoryCacheTotalTinyBytes.str()), 1);
+    ASSERT_EQ(counterMap.count(kMetricMemoryCacheTotalLargeBytes.str()), 1);
+    ASSERT_EQ(
+        counterMap.count(kMetricMemoryCacheTotalTinyPaddingBytes.str()), 1);
+    ASSERT_EQ(
+        counterMap.count(kMetricMemoryCacheTotalLargePaddingBytes.str()), 1);
+    ASSERT_EQ(counterMap.count(kMetricMemoryCacheTotalPrefetchBytes.str()), 1);
+    ASSERT_EQ(counterMap.count(kMetricSsdCacheCachedEntries.str()), 1);
+    ASSERT_EQ(counterMap.count(kMetricSsdCacheCachedRegions.str()), 1);
+    ASSERT_EQ(counterMap.count(kMetricSsdCacheCachedBytes.str()), 1);
+    ASSERT_EQ(counterMap.count(kMetricCacheMaxAgeSecs.str()), 1);
+    ASSERT_EQ(counterMap.count(kMetricMappedMemoryBytes.str()), 1);
+    ASSERT_EQ(counterMap.count(kMetricAllocatedMemoryBytes.str()), 1);
+    ASSERT_EQ(counterMap.count(kMetricMmapDelegatedAllocBytes.str()), 1);
+    ASSERT_EQ(counterMap.count(kMetricMmapExternalMappedBytes.str()), 1);
+    ASSERT_EQ(counterMap.count(kMetricSpillMemoryBytes.str()), 1);
+    ASSERT_EQ(counterMap.count(kMetricSpillPeakMemoryBytes.str()), 1);
+    // Check deltas are not reported
+    ASSERT_EQ(counterMap.count(kMetricMemoryCacheNumHits.str()), 0);
+    ASSERT_EQ(counterMap.count(kMetricMemoryCacheHitBytes.str()), 0);
+    ASSERT_EQ(counterMap.count(kMetricMemoryCacheNumNew.str()), 0);
+    ASSERT_EQ(counterMap.count(kMetricMemoryCacheNumEvicts.str()), 0);
+    ASSERT_EQ(counterMap.count(kMetricMemoryCacheNumEvictChecks.str()), 0);
+    ASSERT_EQ(counterMap.count(kMetricMemoryCacheNumWaitExclusive.str()), 0);
+    ASSERT_EQ(counterMap.count(kMetricMemoryCacheNumAllocClocks.str()), 0);
+    ASSERT_EQ(counterMap.count(kMetricMemoryCacheNumAgedOutEntries.str()), 0);
+    ASSERT_EQ(counterMap.count(kMetricMemoryCacheSumEvictScore.str()), 0);
+    ASSERT_EQ(counterMap.count(kMetricSsdCacheReadEntries.str()), 0);
+    ASSERT_EQ(counterMap.count(kMetricSsdCacheReadBytes.str()), 0);
+    ASSERT_EQ(counterMap.count(kMetricSsdCacheWrittenEntries.str()), 0);
+    ASSERT_EQ(counterMap.count(kMetricSsdCacheWrittenBytes.str()), 0);
+    ASSERT_EQ(counterMap.count(kMetricSsdCacheOpenSsdErrors.str()), 0);
+    ASSERT_EQ(counterMap.count(kMetricSsdCacheOpenCheckpointErrors.str()), 0);
+    ASSERT_EQ(counterMap.count(kMetricSsdCacheOpenLogErrors.str()), 0);
+    ASSERT_EQ(counterMap.count(kMetricSsdCacheDeleteCheckpointErrors.str()), 0);
+    ASSERT_EQ(counterMap.count(kMetricSsdCacheGrowFileErrors.str()), 0);
+    ASSERT_EQ(counterMap.count(kMetricSsdCacheWriteSsdErrors.str()), 0);
+    ASSERT_EQ(counterMap.count(kMetricSsdCacheWriteSsdDropped.str()), 0);
+    ASSERT_EQ(counterMap.count(kMetricSsdCacheWriteCheckpointErrors.str()), 0);
+    ASSERT_EQ(counterMap.count(kMetricSsdCacheReadSsdErrors.str()), 0);
+    ASSERT_EQ(counterMap.count(kMetricSsdCacheReadCheckpointErrors.str()), 0);
+    ASSERT_EQ(counterMap.count(kMetricSsdCacheCheckpointsRead.str()), 0);
+    ASSERT_EQ(counterMap.count(kMetricSsdCacheCheckpointsWritten.str()), 0);
+    ASSERT_EQ(counterMap.count(kMetricSsdCacheRegionsEvicted.str()), 0);
+    ASSERT_EQ(counterMap.count(kMetricSsdCacheAgedOutEntries.str()), 0);
+    ASSERT_EQ(counterMap.count(kMetricSsdCacheAgedOutRegions.str()), 0);
+    ASSERT_EQ(counterMap.size(), 22);
+  }
 
   // Update stats
   auto newSsdStats = std::make_shared<cache::SsdCacheStats>();
@@ -507,35 +520,38 @@ TEST_F(PeriodicStatsReporterTest, basic) {
   periodicReporter.stop();
 
   // Check delta stats are reported
-  ASSERT_EQ(counterMap.count(kMetricMemoryCacheNumHits.str()), 1);
-  ASSERT_EQ(counterMap.count(kMetricMemoryCacheHitBytes.str()), 1);
-  ASSERT_EQ(counterMap.count(kMetricMemoryCacheNumNew.str()), 1);
-  ASSERT_EQ(counterMap.count(kMetricMemoryCacheNumEvicts.str()), 1);
-  ASSERT_EQ(counterMap.count(kMetricMemoryCacheNumEvictChecks.str()), 1);
-  ASSERT_EQ(counterMap.count(kMetricMemoryCacheNumWaitExclusive.str()), 1);
-  ASSERT_EQ(counterMap.count(kMetricMemoryCacheNumAllocClocks.str()), 1);
-  ASSERT_EQ(counterMap.count(kMetricMemoryCacheNumAgedOutEntries.str()), 1);
-  ASSERT_EQ(counterMap.count(kMetricMemoryCacheSumEvictScore.str()), 1);
-  ASSERT_EQ(counterMap.count(kMetricSsdCacheReadEntries.str()), 1);
-  ASSERT_EQ(counterMap.count(kMetricSsdCacheReadBytes.str()), 1);
-  ASSERT_EQ(counterMap.count(kMetricSsdCacheWrittenEntries.str()), 1);
-  ASSERT_EQ(counterMap.count(kMetricSsdCacheWrittenBytes.str()), 1);
-  ASSERT_EQ(counterMap.count(kMetricSsdCacheOpenSsdErrors.str()), 1);
-  ASSERT_EQ(counterMap.count(kMetricSsdCacheOpenCheckpointErrors.str()), 1);
-  ASSERT_EQ(counterMap.count(kMetricSsdCacheOpenLogErrors.str()), 1);
-  ASSERT_EQ(counterMap.count(kMetricSsdCacheDeleteCheckpointErrors.str()), 1);
-  ASSERT_EQ(counterMap.count(kMetricSsdCacheGrowFileErrors.str()), 1);
-  ASSERT_EQ(counterMap.count(kMetricSsdCacheWriteSsdErrors.str()), 1);
-  ASSERT_EQ(counterMap.count(kMetricSsdCacheWriteSsdDropped.str()), 1);
-  ASSERT_EQ(counterMap.count(kMetricSsdCacheWriteCheckpointErrors.str()), 1);
-  ASSERT_EQ(counterMap.count(kMetricSsdCacheReadSsdErrors.str()), 1);
-  ASSERT_EQ(counterMap.count(kMetricSsdCacheReadCheckpointErrors.str()), 1);
-  ASSERT_EQ(counterMap.count(kMetricSsdCacheCheckpointsRead.str()), 1);
-  ASSERT_EQ(counterMap.count(kMetricSsdCacheCheckpointsWritten.str()), 1);
-  ASSERT_EQ(counterMap.count(kMetricSsdCacheRegionsEvicted.str()), 1);
-  ASSERT_EQ(counterMap.count(kMetricSsdCacheAgedOutEntries.str()), 1);
-  ASSERT_EQ(counterMap.count(kMetricSsdCacheAgedOutRegions.str()), 1);
-  ASSERT_EQ(counterMap.size(), 50);
+  {
+    std::lock_guard<std::mutex> l(reporter_->m);
+    ASSERT_EQ(counterMap.count(kMetricMemoryCacheNumHits.str()), 1);
+    ASSERT_EQ(counterMap.count(kMetricMemoryCacheHitBytes.str()), 1);
+    ASSERT_EQ(counterMap.count(kMetricMemoryCacheNumNew.str()), 1);
+    ASSERT_EQ(counterMap.count(kMetricMemoryCacheNumEvicts.str()), 1);
+    ASSERT_EQ(counterMap.count(kMetricMemoryCacheNumEvictChecks.str()), 1);
+    ASSERT_EQ(counterMap.count(kMetricMemoryCacheNumWaitExclusive.str()), 1);
+    ASSERT_EQ(counterMap.count(kMetricMemoryCacheNumAllocClocks.str()), 1);
+    ASSERT_EQ(counterMap.count(kMetricMemoryCacheNumAgedOutEntries.str()), 1);
+    ASSERT_EQ(counterMap.count(kMetricMemoryCacheSumEvictScore.str()), 1);
+    ASSERT_EQ(counterMap.count(kMetricSsdCacheReadEntries.str()), 1);
+    ASSERT_EQ(counterMap.count(kMetricSsdCacheReadBytes.str()), 1);
+    ASSERT_EQ(counterMap.count(kMetricSsdCacheWrittenEntries.str()), 1);
+    ASSERT_EQ(counterMap.count(kMetricSsdCacheWrittenBytes.str()), 1);
+    ASSERT_EQ(counterMap.count(kMetricSsdCacheOpenSsdErrors.str()), 1);
+    ASSERT_EQ(counterMap.count(kMetricSsdCacheOpenCheckpointErrors.str()), 1);
+    ASSERT_EQ(counterMap.count(kMetricSsdCacheOpenLogErrors.str()), 1);
+    ASSERT_EQ(counterMap.count(kMetricSsdCacheDeleteCheckpointErrors.str()), 1);
+    ASSERT_EQ(counterMap.count(kMetricSsdCacheGrowFileErrors.str()), 1);
+    ASSERT_EQ(counterMap.count(kMetricSsdCacheWriteSsdErrors.str()), 1);
+    ASSERT_EQ(counterMap.count(kMetricSsdCacheWriteSsdDropped.str()), 1);
+    ASSERT_EQ(counterMap.count(kMetricSsdCacheWriteCheckpointErrors.str()), 1);
+    ASSERT_EQ(counterMap.count(kMetricSsdCacheReadSsdErrors.str()), 1);
+    ASSERT_EQ(counterMap.count(kMetricSsdCacheReadCheckpointErrors.str()), 1);
+    ASSERT_EQ(counterMap.count(kMetricSsdCacheCheckpointsRead.str()), 1);
+    ASSERT_EQ(counterMap.count(kMetricSsdCacheCheckpointsWritten.str()), 1);
+    ASSERT_EQ(counterMap.count(kMetricSsdCacheRegionsEvicted.str()), 1);
+    ASSERT_EQ(counterMap.count(kMetricSsdCacheAgedOutEntries.str()), 1);
+    ASSERT_EQ(counterMap.count(kMetricSsdCacheAgedOutRegions.str()), 1);
+    ASSERT_EQ(counterMap.size(), 50);
+  }
 }
 
 TEST_F(PeriodicStatsReporterTest, globalInstance) {
