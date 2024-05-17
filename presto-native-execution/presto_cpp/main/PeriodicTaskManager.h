@@ -43,11 +43,12 @@ class PrestoServer;
 class PeriodicTaskManager {
  public:
   explicit PeriodicTaskManager(
-      folly::CPUThreadPoolExecutor* const driverCPUExecutor,
-      folly::IOThreadPoolExecutor* const httpExecutor,
-      TaskManager* const taskManager,
-      const velox::memory::MemoryAllocator* const memoryAllocator,
-      const velox::cache::AsyncDataCache* const asyncDataCache,
+      folly::CPUThreadPoolExecutor* driverCPUExecutor,
+      folly::CPUThreadPoolExecutor* spillerExecutor,
+      folly::IOThreadPoolExecutor* httpExecutor,
+      TaskManager* taskManager,
+      const velox::memory::MemoryAllocator* memoryAllocator,
+      const velox::cache::AsyncDataCache* asyncDataCache,
       const std::unordered_map<
           std::string,
           std::shared_ptr<velox::connector::Connector>>& connectors,
@@ -124,16 +125,17 @@ class PeriodicTaskManager {
   void detachWorker(const char* reason);
   void maybeAttachWorker();
 
-  folly::CPUThreadPoolExecutor* const driverCPUExecutor_;
-  folly::IOThreadPoolExecutor* const httpExecutor_;
-  TaskManager* const taskManager_;
-  const velox::memory::MemoryAllocator* const memoryAllocator_;
-  const velox::cache::AsyncDataCache* const asyncDataCache_;
-  const velox::memory::MemoryArbitrator* const arbitrator_;
+  folly::CPUThreadPoolExecutor* driverCPUExecutor_;
+  folly::CPUThreadPoolExecutor* spillerExecutor_;
+  folly::IOThreadPoolExecutor* httpExecutor_;
+  TaskManager* taskManager_;
+  const velox::memory::MemoryAllocator* memoryAllocator_;
+  const velox::cache::AsyncDataCache* asyncDataCache_;
+  const velox::memory::MemoryArbitrator* arbitrator_;
   const std::unordered_map<
       std::string,
       std::shared_ptr<velox::connector::Connector>>& connectors_;
-  PrestoServer* const server_;
+  PrestoServer* server_;
 
   // Cache related stats
   int64_t lastMemoryCacheHits_{0};

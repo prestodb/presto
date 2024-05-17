@@ -22,6 +22,10 @@ void registerPrestoMetrics() {
       kCounterDriverCPUExecutorQueueSize, facebook::velox::StatType::AVG);
   DEFINE_METRIC(
       kCounterDriverCPUExecutorLatencyMs, facebook::velox::StatType::AVG);
+  DEFINE_METRIC(
+      kCounterSpillerExecutorQueueSize, facebook::velox::StatType::AVG);
+  DEFINE_METRIC(
+      kCounterSpillerExecutorLatencyMs, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterHTTPExecutorLatencyMs, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterNumHTTPRequest, facebook::velox::StatType::COUNT);
   DEFINE_METRIC(kCounterNumHTTPRequestError, facebook::velox::StatType::COUNT);

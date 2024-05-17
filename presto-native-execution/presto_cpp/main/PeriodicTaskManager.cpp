@@ -90,16 +90,18 @@ static constexpr size_t kHttpEndpointLatencyPeriodGlobalCounters{
     60'000'000}; // 60 seconds.
 
 PeriodicTaskManager::PeriodicTaskManager(
-    folly::CPUThreadPoolExecutor* const driverCPUExecutor,
-    folly::IOThreadPoolExecutor* const httpExecutor,
-    TaskManager* const taskManager,
-    const velox::memory::MemoryAllocator* const memoryAllocator,
-    const velox::cache::AsyncDataCache* const asyncDataCache,
+    folly::CPUThreadPoolExecutor* driverCPUExecutor,
+    folly::CPUThreadPoolExecutor* spillerExecutor,
+    folly::IOThreadPoolExecutor* httpExecutor,
+    TaskManager* taskManager,
+    const velox::memory::MemoryAllocator* memoryAllocator,
+    const velox::cache::AsyncDataCache* asyncDataCache,
     const std::unordered_map<
         std::string,
         std::shared_ptr<velox::connector::Connector>>& connectors,
     PrestoServer* server)
     : driverCPUExecutor_(driverCPUExecutor),
+      spillerExecutor_(spillerExecutor),
       httpExecutor_(httpExecutor),
       taskManager_(taskManager),
       memoryAllocator_(memoryAllocator),
@@ -167,6 +169,19 @@ void PeriodicTaskManager::updateExecutorStats() {
     driverCPUExecutor_->add([timer = timer]() {
       RECORD_METRIC_VALUE(
           kCounterDriverCPUExecutorLatencyMs, timer.elapsed().count());
+    });
+  }
+
+  if (spillerExecutor_ != nullptr) {
+    // Report the current queue size of the spiller thread pool.
+    RECORD_METRIC_VALUE(
+        kCounterSpillerExecutorQueueSize, spillerExecutor_->getTaskQueueSize());
+
+    // Report spiller execution latency.
+    folly::stop_watch<std::chrono::milliseconds> timer;
+    spillerExecutor_->add([timer = timer]() {
+      RECORD_METRIC_VALUE(
+          kCounterSpillerExecutorLatencyMs, timer.elapsed().count());
     });
   }
 
