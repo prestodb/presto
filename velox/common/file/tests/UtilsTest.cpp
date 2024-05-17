@@ -70,8 +70,13 @@ coalescedIndices(Iter begin, Iter end, ShouldCoalesce& shouldCoalesce) {
 bool willCoalesceIfDistanceLE(
     uint64_t distance,
     const Region& regionA,
-    const Region& regionB) {
-  return CoalesceIfDistanceLE(distance)(regionA, regionB);
+    const Region& regionB,
+    uint64_t expectedCoalescedBytes) {
+  uint64_t coalescedBytes = 0;
+  const bool willCoalesce =
+      CoalesceIfDistanceLE(distance, &coalescedBytes)(regionA, regionB);
+  EXPECT_EQ(coalescedBytes, expectedCoalescedBytes);
+  return willCoalesce;
 }
 
 auto getReader(
@@ -197,53 +202,68 @@ TEST(CoalesceSegmentsTest, MergeEven) {
 }
 
 TEST(CoalesceIfDistanceLETest, MultipleCases) {
-  EXPECT_TRUE(willCoalesceIfDistanceLE(0, {0, 1}, {1, 1}));
-  EXPECT_FALSE(willCoalesceIfDistanceLE(0, {0, 1}, {2, 1}));
+  EXPECT_TRUE(willCoalesceIfDistanceLE(0, {0, 1}, {1, 1}, 0));
+  EXPECT_FALSE(willCoalesceIfDistanceLE(0, {0, 1}, {2, 1}, 0));
 
-  EXPECT_TRUE(willCoalesceIfDistanceLE(1, {0, 1}, {2, 1}));
+  EXPECT_TRUE(willCoalesceIfDistanceLE(1, {0, 1}, {2, 1}, 1));
 
-  EXPECT_TRUE(willCoalesceIfDistanceLE(10, {0, 1}, {1, 1}));
-  EXPECT_TRUE(willCoalesceIfDistanceLE(10, {10, 1}, {11, 1}));
-  EXPECT_TRUE(willCoalesceIfDistanceLE(10, {0, 10}, {19, 5}));
-  EXPECT_TRUE(willCoalesceIfDistanceLE(10, {0, 10}, {20, 5}));
-  EXPECT_FALSE(willCoalesceIfDistanceLE(10, {0, 10}, {21, 5}));
+  EXPECT_TRUE(willCoalesceIfDistanceLE(10, {0, 1}, {1, 1}, 0));
+  EXPECT_TRUE(willCoalesceIfDistanceLE(10, {10, 1}, {11, 1}, 0));
+  EXPECT_TRUE(willCoalesceIfDistanceLE(10, {0, 10}, {19, 5}, 9));
+  EXPECT_TRUE(willCoalesceIfDistanceLE(10, {0, 10}, {20, 5}, 10));
+  EXPECT_FALSE(willCoalesceIfDistanceLE(10, {0, 10}, {21, 5}, 0));
 
-  EXPECT_TRUE(willCoalesceIfDistanceLE(0, {0, 0}, {0, 1}));
+  EXPECT_TRUE(willCoalesceIfDistanceLE(0, {0, 0}, {0, 1}, 0));
+}
+
+TEST(CoalesceIfDistanceLETest, MultipleSegments) {
+  uint64_t coalescedBytes = 0;
+  auto willCoalesce = CoalesceIfDistanceLE(10, &coalescedBytes);
+  EXPECT_TRUE(willCoalesce({0, 1}, {1, 1})); // 0
+  EXPECT_TRUE(willCoalesce({10, 1}, {11, 1})); // 0
+  EXPECT_TRUE(willCoalesce({0, 10}, {19, 5})); // 9
+  EXPECT_TRUE(willCoalesce({0, 10}, {20, 5})); // 10
+  EXPECT_FALSE(willCoalesce({0, 10}, {21, 5})); // 0
+  EXPECT_EQ(coalescedBytes, 19);
+}
+
+TEST(CoalesceIfDistanceLETest, SupportsNullArgument) {
+  EXPECT_NO_THROW(CoalesceIfDistanceLE(10, nullptr)({0, 10}, {20, 5})); // 10
 }
 
 TEST(CoalesceIfDistanceLETest, SegmentsMustBeSorted) {
   EXPECT_THROW(
-      willCoalesceIfDistanceLE(0, {1, 1}, {0, 1}),
+      willCoalesceIfDistanceLE(0, {1, 1}, {0, 1}, 0),
       ::facebook::velox::VeloxRuntimeError);
   EXPECT_THROW(
-      willCoalesceIfDistanceLE(10, {1, 1}, {0, 1}),
+      willCoalesceIfDistanceLE(10, {1, 1}, {0, 1}, 0),
       ::facebook::velox::VeloxRuntimeError);
   EXPECT_THROW(
-      willCoalesceIfDistanceLE(0, {1000, 1}, {2, 1}),
+      willCoalesceIfDistanceLE(0, {1000, 1}, {2, 1}, 0),
       ::facebook::velox::VeloxRuntimeError);
   EXPECT_THROW(
-      willCoalesceIfDistanceLE(10, {1000, 1}, {2, 1}),
+      willCoalesceIfDistanceLE(10, {1000, 1}, {2, 1}, 0),
       ::facebook::velox::VeloxRuntimeError);
 }
 
 TEST(CoalesceIfDistanceLETest, SegmentsCantOverlap) {
   EXPECT_THROW(
-      willCoalesceIfDistanceLE(0, {0, 1}, {0, 1}),
+      willCoalesceIfDistanceLE(0, {0, 1}, {0, 1}, 0),
       ::facebook::velox::VeloxRuntimeError);
   EXPECT_THROW(
-      willCoalesceIfDistanceLE(10, {0, 1}, {0, 1}),
+      willCoalesceIfDistanceLE(10, {0, 1}, {0, 1}, 0),
       ::facebook::velox::VeloxRuntimeError);
   EXPECT_THROW(
-      willCoalesceIfDistanceLE(0, {0, 2}, {1, 1}),
+      willCoalesceIfDistanceLE(0, {0, 2}, {1, 1}, 0),
       ::facebook::velox::VeloxRuntimeError);
   EXPECT_THROW(
-      willCoalesceIfDistanceLE(10, {0, 2}, {1, 1}),
+      willCoalesceIfDistanceLE(10, {0, 2}, {1, 1}, 0),
       ::facebook::velox::VeloxRuntimeError);
   EXPECT_THROW(
-      willCoalesceIfDistanceLE(0, {0, 2}, {1, 2}),
+      willCoalesceIfDistanceLE(0, {0, 2}, {1, 2}, 0),
       ::facebook::velox::VeloxRuntimeError);
   EXPECT_THROW(
-      willCoalesceIfDistanceLE(10, {0, 2}, {1, 2}),
+      willCoalesceIfDistanceLE(10, {0, 2}, {1, 2}, 0),
       ::facebook::velox::VeloxRuntimeError);
 }
 

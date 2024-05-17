@@ -28,7 +28,11 @@ bool CoalesceIfDistanceLE::operator()(
   VELOX_CHECK_LE(beginGap, endGap, "Regions to combine can't overlap.");
   const uint64_t gap = endGap - beginGap;
 
-  return gap <= maxCoalescingDistance_;
+  const bool shouldCoalesce = gap <= maxCoalescingDistance_;
+  if (coalescedBytes_ && shouldCoalesce) {
+    *coalescedBytes_ += gap;
+  }
+  return shouldCoalesce;
 }
 
 } // namespace facebook::velox::file::utils

@@ -106,8 +106,11 @@ class CoalesceRegions {
 
 class CoalesceIfDistanceLE {
  public:
-  explicit CoalesceIfDistanceLE(uint64_t maxCoalescingDistance)
-      : maxCoalescingDistance_(maxCoalescingDistance) {}
+  explicit CoalesceIfDistanceLE(
+      uint64_t maxCoalescingDistance,
+      uint64_t* FOLLY_NULLABLE coalescedBytes = nullptr)
+      : maxCoalescingDistance_{maxCoalescingDistance},
+        coalescedBytes_{coalescedBytes} {}
 
   bool operator()(
       const velox::common::Region& a,
@@ -115,6 +118,7 @@ class CoalesceIfDistanceLE {
 
  private:
   uint64_t maxCoalescingDistance_;
+  uint64_t* coalescedBytes_;
 };
 
 template <typename RegionIter, typename OutputIter, typename Reader>
