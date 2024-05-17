@@ -26,7 +26,10 @@ constexpr folly::StringPiece kCounterDriverCPUExecutorQueueSize{
     "presto_cpp.driver_cpu_executor_queue_size"};
 constexpr folly::StringPiece kCounterDriverCPUExecutorLatencyMs{
     "presto_cpp.driver_cpu_executor_latency_ms"};
-
+constexpr folly::StringPiece kCounterSpillerExecutorQueueSize{
+    "presto_cpp.spiller_executor_queue_size"};
+constexpr folly::StringPiece kCounterSpillerExecutorLatencyMs{
+    "presto_cpp.spiller_executor_latency_ms"};
 constexpr folly::StringPiece kCounterHTTPExecutorLatencyMs{
     "presto_cpp.http_executor_latency_ms"};
 constexpr folly::StringPiece kCounterNumHTTPRequest{
