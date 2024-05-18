@@ -26,6 +26,7 @@ import com.facebook.presto.verifier.framework.QueryConfiguration;
 import com.facebook.presto.verifier.framework.QueryObjectBundle;
 import com.facebook.presto.verifier.framework.VerificationContext;
 import com.facebook.presto.verifier.framework.VerifierConfig;
+import com.facebook.presto.verifier.prestoaction.DefaultClientInfoFactory;
 import com.facebook.presto.verifier.prestoaction.JdbcPrestoAction;
 import com.facebook.presto.verifier.prestoaction.JdbcUrlSelector;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
@@ -96,7 +97,7 @@ public class TestQueryRewriter
                 new QueryActionsConfig().getChecksumTimeout(),
                 new RetryConfig(),
                 new RetryConfig(),
-                new VerifierConfig().setTestId("test"));
+                new DefaultClientInfoFactory(new VerifierConfig().setTestId("test")));
     }
 
     @AfterClass

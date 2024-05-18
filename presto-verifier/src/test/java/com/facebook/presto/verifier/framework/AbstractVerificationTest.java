@@ -21,6 +21,7 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.tests.StandaloneQueryRunner;
 import com.facebook.presto.verifier.event.VerifierQueryEvent;
+import com.facebook.presto.verifier.prestoaction.DefaultClientInfoFactory;
 import com.facebook.presto.verifier.prestoaction.JdbcPrestoAction;
 import com.facebook.presto.verifier.prestoaction.JdbcUrlSelector;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
@@ -173,7 +174,7 @@ public abstract class AbstractVerificationTest
                 queryActionsConfig.getChecksumTimeout(),
                 retryConfig,
                 retryConfig,
-                verifierConfig);
+                new DefaultClientInfoFactory(verifierConfig));
     }
 
     private Optional<VerifierQueryEvent> verify(

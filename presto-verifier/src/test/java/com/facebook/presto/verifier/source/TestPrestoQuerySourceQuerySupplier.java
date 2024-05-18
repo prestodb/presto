@@ -22,6 +22,8 @@ import com.facebook.presto.tests.StandaloneQueryRunner;
 import com.facebook.presto.verifier.framework.QueryConfiguration;
 import com.facebook.presto.verifier.framework.SourceQuery;
 import com.facebook.presto.verifier.framework.VerifierConfig;
+import com.facebook.presto.verifier.prestoaction.ClientInfoFactory;
+import com.facebook.presto.verifier.prestoaction.DefaultClientInfoFactory;
 import com.facebook.presto.verifier.prestoaction.PrestoExceptionClassifier;
 import com.facebook.presto.verifier.prestoaction.QueryActionsModule;
 import com.google.common.collect.ImmutableList;
@@ -97,6 +99,7 @@ public class TestPrestoQuerySourceQuerySupplier
                             configBinder(binder).bindConfig(VerifierConfig.class);
                             binder.bind(SqlParserOptions.class).toInstance(new SqlParserOptions());
                             binder.bind(SqlParser.class).in(SINGLETON);
+                            binder.bind(ClientInfoFactory.class).to(DefaultClientInfoFactory.class);
                         })
                         .build());
         injector = app
