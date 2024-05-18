@@ -16,6 +16,8 @@ package com.facebook.presto.verifier;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.verifier.framework.AbstractVerifyCommand;
 import com.facebook.presto.verifier.framework.SourceQuery;
+import com.facebook.presto.verifier.prestoaction.ClientInfoFactory;
+import com.facebook.presto.verifier.prestoaction.DefaultClientInfoFactory;
 import com.facebook.presto.verifier.prestoaction.PrestoExceptionClassifier;
 import com.facebook.presto.verifier.prestoaction.SqlExceptionClassifier;
 import com.google.common.collect.ImmutableList;
@@ -71,5 +73,11 @@ public class PrestoVerifyCommand
     public SqlExceptionClassifier getSqlExceptionClassifier()
     {
         return PrestoExceptionClassifier.defaultBuilder().build();
+    }
+
+    @Override
+    public Class<? extends ClientInfoFactory> getClientInfoFactory()
+    {
+        return DefaultClientInfoFactory.class;
     }
 }
