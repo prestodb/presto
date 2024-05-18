@@ -22,6 +22,8 @@ import com.facebook.presto.verifier.framework.QueryObjectBundle;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.AT_SIGN;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.COLON;
@@ -65,6 +67,7 @@ public class TestIgnoredFunctionsMismatchResolver
                 ImmutableList.of(),
                 sqlParser.createStatement(query, PARSING_OPTIONS),
                 ImmutableList.of(),
-                CONTROL);
+                CONTROL,
+                Optional.empty());
     }
 }
