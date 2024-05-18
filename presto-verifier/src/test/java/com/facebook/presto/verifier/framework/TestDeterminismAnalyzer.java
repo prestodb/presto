@@ -19,6 +19,7 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;
+import com.facebook.presto.verifier.prestoaction.DefaultClientInfoFactory;
 import com.facebook.presto.verifier.prestoaction.JdbcPrestoAction;
 import com.facebook.presto.verifier.prestoaction.JdbcUrlSelector;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
@@ -81,7 +82,7 @@ public class TestDeterminismAnalyzer
                 queryActionsConfig.getChecksumTimeout(),
                 retryConfig,
                 retryConfig,
-                verifierConfig);
+                new DefaultClientInfoFactory(verifierConfig));
         QueryRewriter queryRewriter = new QueryRewriter(
                 sqlParser,
                 typeManager,

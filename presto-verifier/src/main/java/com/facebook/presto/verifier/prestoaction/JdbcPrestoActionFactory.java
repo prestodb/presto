@@ -15,7 +15,6 @@ package com.facebook.presto.verifier.prestoaction;
 
 import com.facebook.presto.verifier.framework.QueryConfiguration;
 import com.facebook.presto.verifier.framework.VerificationContext;
-import com.facebook.presto.verifier.framework.VerifierConfig;
 import com.facebook.presto.verifier.retry.RetryConfig;
 import io.airlift.units.Duration;
 
@@ -30,7 +29,7 @@ public class JdbcPrestoActionFactory
     private final RetryConfig prestoRetryConfig;
     private final Duration metadataTimeout;
     private final Duration checksumTimeout;
-    private final VerifierConfig verifierConfig;
+    private final ClientInfoFactory clientInfoFactory;
     private final JdbcUrlSelector jdbcUrlSelector;
 
     public JdbcPrestoActionFactory(
@@ -40,7 +39,7 @@ public class JdbcPrestoActionFactory
             RetryConfig prestoRetryConfig,
             Duration metadataTimeout,
             Duration checksumTimeout,
-            VerifierConfig verifierConfig)
+            ClientInfoFactory clientInfoFactory)
     {
         this.exceptionClassifier = requireNonNull(exceptionClassifier, "exceptionClassifier is null");
         this.prestoActionConfig = requireNonNull(prestoActionConfig, "prestoClusterConfig is null");
@@ -48,8 +47,8 @@ public class JdbcPrestoActionFactory
         this.prestoRetryConfig = requireNonNull(prestoRetryConfig, "prestoRetryConfig is null");
         this.metadataTimeout = requireNonNull(metadataTimeout, "metadataTimeout is null");
         this.checksumTimeout = requireNonNull(checksumTimeout, "checksumTimeout is null");
-        this.verifierConfig = requireNonNull(verifierConfig, "verifierConfig is null");
         this.jdbcUrlSelector = new JdbcUrlSelector(prestoActionConfig.getJdbcUrls());
+        this.clientInfoFactory = requireNonNull(clientInfoFactory, "clientInfoFactory is null");
     }
 
     @Override
@@ -65,6 +64,6 @@ public class JdbcPrestoActionFactory
                 checksumTimeout,
                 networkRetryConfig,
                 prestoRetryConfig,
-                verifierConfig);
+                clientInfoFactory);
     }
 }
