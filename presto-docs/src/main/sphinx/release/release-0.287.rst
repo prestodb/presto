@@ -11,45 +11,42 @@ Release 0.287
 General Changes
 _______________
 * Fix a bug in CTE reference node creation, where different CTEs may be incorrectly considered as the same CTE. :pr:`22515`
-* Add Heuristic CTE Materialization strategy which auto materialized expensive CTEs. This is configurable by setting ``cte_materialization_strategy`` to ``HEURISTIC`` or ``HEURISTIC_COMPLEX_QUERIES_ONLY``. (default ``NONE``). :pr:`21720`
 * Fix an issue with heuristic CTE materialization strategy where incorrect CTEs were materialized. :pr:`22433`
-* Improve latency of materialized CTEs by scheduling multiple dependent subgraphs independently. :pr:`22205`
-* Add a session property ``track_history_based_plan_statistics_from_complete_stages_in_failed_query`` to enable tracking hbo statistics from complete stages in failed queries. :pr:`20947`
-* Add session property ``history_optimization_plan_canonicalize_strategy`` to specify the plan canonicalization strategies to use for HBO. :pr:`21832`
-* Add worker type and query ID information in HBO stats. :pr:`22234`
-* Add log of stats equivalent plan and canonicalized plan for HBO. This feature is controlled by session property ``log_query_plans_used_in_history_based_optimizer``. :pr:`22306`
-* Add limit to the amount of data written during CTE Materialization. This is configurable by the session property ``query_max_written_intermediate_bytes`` (default is 2TB). :pr:`22017`
 * Fix plan canonicalization by canonicalizing plan node ids. :pr:`22033`
-* Add a new plan canonicalization strategy ``ignore_scan_constants`` which canonicalizes predicates for both partitioned and non-partitioned columns in scan node. :pr:`21832`
-* Add an optimizer rule to get rid of map cast in map access functions when possible. :pr:`22059`
-* Add histogram column statistic to Presto for the optimizer. Connectors can now implement support for them. :pr:`21236`
-* Add Quick stats, a mechanism to build stats from metadata for tables and partitions that are missing stats. :pr:`21436`
-* Add DDL support for Table constraints (primary key and unique constraints). :pr:`20384`
-* Improve propagation of logical properties by enabling it by default. :pr:`22266`
-* Add optimization for query plans which contain RowNumber and TopNRowNumber nodes with empty input. :pr:`21914`
 * Fix bug with spilling in TopNRowNumber. :pr:`22281`
 * Fix problem when writing large varchar values to throw a user error when it exceeds internal limits. :pr:`22063`
 * Fix queries that filter with ``LIKE '%...%'`` over char columns. :pr:`22076`
 * Fix the regr_count, regr_avgx, regr_avgy, regr_syy, regr_sxx, and regr_sxy functions result to be null when the input data is null, not 0. :pr:`22112`
 * Fix precision loss when timestamp yielded from ``from_unixtime(double)`` function. :pr:`21899`
-* Improve accuracy and performance of HyperLogLog functions. :pr:`21943`
-* Add support for Apache DataSketches KLL sketch with the ``sketch_kll`` and related family of functions. :pr:`21568`
-* Improve repeat function to create RunLengthEncodedBlock to improve performance. :pr:`21984`
 * Fix CAST(str as INTEGER), CAST(str as BIGINT), CAST(str as SMALLINT), CAST(str as TINYINT) to allow leading and trailing spaces in the string. :pr:`22284`
+* Improve latency of materialized CTEs by scheduling multiple dependent subgraphs independently. :pr:`22205`
+* Improve propagation of logical properties by enabling it by default. :pr:`22266`
+* Improve accuracy and performance of HyperLogLog functions. :pr:`21943`
+* Improve repeat function to create RunLengthEncodedBlock to improve performance. :pr:`21984`
+* Add Heuristic CTE Materialization strategy which auto materialized expensive CTEs. This is configurable by setting ``cte_materialization_strategy`` to ``HEURISTIC`` or ``HEURISTIC_COMPLEX_QUERIES_ONLY``. (default ``NONE``). :pr:`21720`
+* Add a session property ``track_history_based_plan_statistics_from_complete_stages_in_failed_query`` to enable tracking hbo statistics from complete stages in failed queries. :pr:`20947`
+* Add session property ``history_optimization_plan_canonicalize_strategy`` to specify the plan canonicalization strategies to use for HBO. :pr:`21832`
+* Add worker type and query ID information in HBO stats. :pr:`22234`
+* Add log of stats equivalent plan and canonicalized plan for HBO. This feature is controlled by session property ``log_query_plans_used_in_history_based_optimizer``. :pr:`22306`
+* Add limit to the amount of data written during CTE Materialization. This is configurable by the session property ``query_max_written_intermediate_bytes`` (default is 2TB). :pr:`22017`
+* Add a new plan canonicalization strategy ``ignore_scan_constants`` which canonicalizes predicates for both partitioned and non-partitioned columns in scan node. :pr:`21832`
+* Add an optimizer rule to get rid of map cast in map access functions when possible. :pr:`22059`
+* Add histogram column statistic to Presto for the optimizer. Connectors can now implement support for them. :pr:`21236`
+* Add Quick stats, a mechanism to build stats from metadata for tables and partitions that are missing stats. :pr:`21436`
+* Add DDL support for Table constraints (primary key and unique constraints). :pr:`20384`
+* Add optimization for query plans which contain RowNumber and TopNRowNumber nodes with empty input. :pr:`21914`
+* Add support for Apache DataSketches KLL sketch with the ``sketch_kll`` and related family of functions. :pr:`21568`
 * Add support for ``map_key_exists`` builtin SQL UDF. :pr:`21966`
-* Optimize ``map_normalize`` builtin SQL UDF to avoid repeated reduce computation. :pr:`22211`
 * Add configuration property ``legacy_json_cast`` whose default value is ``true``. See `Legacy Compatible Properties <../admin/properties.html#legacy-compatible-properties>`_. :pr:`21869`
 * Add support for tracking of the input data size when there is a fragment result cache hit. This can be enabled by setting the configuration property ``fragment-result-cache.input-data-stats-enabled=true``. :pr:`22145`
-* Remove ``native_execution_enabled``, ``native_execution_executable_path`` and ``native_execution_program_arguments`` session properties. Corresponding configuration properties are still available. :pr:`22183`
-* Remove the configuration property ``use-legacy-scheduler`` and the corresponding session property ``use_legacy_scheduler``.   The property previously defaulted to true, and the new scheduler, which was intended to replace it eventually, was never productionized and is no longer needed. The configuration property ``max-stage-retries`` and the session property ``max_stage_retries`` have also been removed. :pr:`21952`
 * Add JSON as a supported output format in the Presto CLI. :pr:`22181`
-* Upgrade Alluxio to 310. :pr:`22012`
-* Upgrade Alluxio to 312. :pr:`22452`
-* Upgrade Airlift version to 0.209. :pr:`21943`
 * Add documentation for supported data `Type mapping <../connector/iceberg.html#type-mapping>`_  in the Iceberg connector. :pr:`22093`
 * Add usage documentation for :doc:`/clients/presto-cli`. :pr:`22265`
 * Add usage documentation for :doc:`/clients/presto-console`. :pr:`22349`
-* Add :doc:`Prestissimo Developer Guide <../prestissimo>` topic to the Presto documentation. :pr:`21953`
+* Improve ``map_normalize`` builtin SQL UDF to avoid repeated reduce computation. :pr:`22211`
+* Remove ``native_execution_enabled``, ``native_execution_executable_path`` and ``native_execution_program_arguments`` session properties. Corresponding configuration properties are still available. :pr:`22183`
+* Remove the configuration property ``use-legacy-scheduler`` and the corresponding session property ``use_legacy_scheduler``.   The property previously defaulted to true, and the new scheduler, which was intended to replace it eventually, was never productionized and is no longer needed. The configuration property ``max-stage-retries`` and the session property ``max_stage_retries`` have also been removed. :pr:`21952`
+* Upgrade Alluxio to 312. :pr:`22452`
 
 Security Changes
 ________________
