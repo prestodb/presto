@@ -16,6 +16,7 @@
 
 #include "velox/functions/prestosql/tests/CastBaseTest.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
+#include "velox/type/tz/TimeZoneMap.h"
 
 using namespace facebook::velox;
 
@@ -62,6 +63,102 @@ TEST_F(TimestampWithTimeZoneCastTest, fromTimestamp) {
   expected->setNull(1, true);
 
   testCast(tsVector, expected);
+}
+
+TEST_F(TimestampWithTimeZoneCastTest, fromVarchar) {
+  const auto stringVector = makeNullableFlatVector<StringView>(
+      {std::nullopt,
+       "2012-10-31 01:00:47 America/Denver",
+       "2012-10-31 01:00:47 -06:00",
+       "1994-05-06 15:49 Europe/Vienna",
+       "1979-02-24 08:33:31 Pacific/Chatham",
+       "1979-02-24 08:33:31 +13:45"});
+
+  // Varchar representations above hold local time (relative to specified time
+  // zone). For instance, the first string represents a wall-clock displaying
+  // '2012-10-31 01:00:47' in Denver. Below, we use UTC representations of the
+  // above local wall-clocks, to match the UTC timepoints held in the
+  // TimestampWithTimezone type.
+  auto denverUTC = util::fromTimestampString("2012-10-31 07:00:47").toMillis();
+  auto viennaUTC = util::fromTimestampString("1994-05-06 13:49:00").toMillis();
+  auto chathamUTC = util::fromTimestampString("1979-02-23 18:48:31").toMillis();
+
+  auto timestamps = std::vector<int64_t>{
+      0, denverUTC, denverUTC, viennaUTC, chathamUTC, chathamUTC};
+
+  auto timezones = std::vector<TimeZoneKey>{
+      {0,
+       (int16_t)util::getTimeZoneID("America/Denver"),
+       (int16_t)util::getTimeZoneID("-06:00"),
+       (int16_t)util::getTimeZoneID("Europe/Vienna"),
+       (int16_t)util::getTimeZoneID("Pacific/Chatham"),
+       (int16_t)util::getTimeZoneID("+13:45")}};
+
+  const auto expected = makeTimestampWithTimeZoneVector(
+      timestamps.size(),
+      [&](int32_t index) { return timestamps[index]; },
+      [&](int32_t index) { return timezones[index]; });
+  expected->setNull(0, true);
+
+  testCast(stringVector, expected);
+}
+
+TEST_F(TimestampWithTimeZoneCastTest, fromVarcharWithoutTimezone) {
+  setQueryTimeZone("America/Denver");
+
+  const auto stringVector =
+      makeNullableFlatVector<StringView>({"2012-10-31 01:00:47"});
+  auto denverUTC = util::fromTimestampString("2012-10-31 07:00:47").toMillis();
+
+  auto timestamps = std::vector<int64_t>{denverUTC};
+
+  auto timezones =
+      std::vector<TimeZoneKey>{(int16_t)util::getTimeZoneID("America/Denver")};
+
+  const auto expected = makeTimestampWithTimeZoneVector(
+      timestamps.size(),
+      [&](int32_t index) { return timestamps[index]; },
+      [&](int32_t index) { return timezones[index]; });
+
+  testCast(stringVector, expected);
+}
+
+TEST_F(TimestampWithTimeZoneCastTest, fromVarcharInvalidInput) {
+  const auto invalidStringVector1 = makeNullableFlatVector<StringView>(
+      {"2012-10-31 01:00:47fooAmerica/Los_Angeles"});
+
+  const auto invalidStringVector2 = makeNullableFlatVector<StringView>(
+      {"2012-10-31 01:00:47 America/California"});
+
+  const auto invalidStringVector3 = makeNullableFlatVector<StringView>(
+      {"2012-10-31foo01:00:47 America/Los_Angeles"});
+
+  const auto invalidStringVector4 = makeNullableFlatVector<StringView>(
+      {"2012-10-31 35:00:47 America/Los_Angeles"});
+
+  auto millis = util::fromTimestampString("2012-10-31 07:00:47").toMillis();
+  auto timestamps = std::vector<int64_t>{millis};
+
+  auto timezones =
+      std::vector<TimeZoneKey>{(int16_t)util::getTimeZoneID("America/Denver")};
+
+  const auto expected = makeTimestampWithTimeZoneVector(
+      timestamps.size(),
+      [&](int32_t index) { return timestamps[index]; },
+      [&](int32_t index) { return timezones[index]; });
+
+  VELOX_ASSERT_THROW(
+      testCast(invalidStringVector1, expected),
+      "Unknown timezone value: \"fooAmerica/Los_Angeles\"");
+  VELOX_ASSERT_THROW(
+      testCast(invalidStringVector2, expected),
+      "Unknown timezone value: \"America/California\"");
+  VELOX_ASSERT_THROW(
+      testCast(invalidStringVector3, expected),
+      "Unable to parse timestamp value: \"2012-10-31foo01:00:47 America/Los_Angeles\"");
+  VELOX_ASSERT_THROW(
+      testCast(invalidStringVector4, expected),
+      "Unable to parse timestamp value: \"2012-10-31 35:00:47 America/Los_Angeles\"");
 }
 
 TEST_F(TimestampWithTimeZoneCastTest, toTimestamp) {
