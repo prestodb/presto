@@ -386,7 +386,7 @@ public class FunctionCallRewriter
                     }
 
                     boolean rewrittenDistinct = originalInstance.isDistinct();
-                    boolean rewrittenIgnoreNulls = originalInstance.isIgnoreNulls();
+                    boolean rewrittenIgnoreNulls = false;
                     Optional<Expression> rewrittenFilter = defaultRewrite.getFilter().isPresent() ? defaultRewrite.getFilter() : originalInstance.getFilter();
                     Optional<OrderBy> rewrittenOrderBy = defaultRewrite.getOrderBy().isPresent() ? defaultRewrite.getOrderBy() : originalInstance.getOrderBy();
 

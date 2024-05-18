@@ -468,6 +468,11 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
         return SqlFormatter.formatSql(statement, Optional.empty());
     }
 
+    protected static String formatSql(Statement statement, Optional<String> comment)
+    {
+        return comment.isPresent() ? formatSql(statement) + "\n-- " + comment.get() : formatSql(statement);
+    }
+
     protected static List<String> formatSqls(List<Statement> statements)
     {
         return statements.stream()
