@@ -46,6 +46,7 @@ import javax.inject.Provider;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.AT_SIGN;
@@ -69,7 +70,8 @@ public class VerifierTestUtil
                     "INSERT INTO test SELECT * FROM source",
                     ParsingOptions.builder().setDecimalLiteralTreatment(AS_DOUBLE).build()),
             ImmutableList.of(),
-            CONTROL);
+            CONTROL,
+            Optional.empty());
 
     private static final MySqlOptions MY_SQL_OPTIONS = MySqlOptions.builder()
             .setCommandTimeout(new Duration(90, SECONDS))
