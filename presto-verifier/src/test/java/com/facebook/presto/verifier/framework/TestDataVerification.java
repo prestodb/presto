@@ -179,6 +179,26 @@ public class TestDataVerification
     }
 
     @Test
+    public void testInvalidFunctionCallSubstitutes()
+    {
+        VerificationSettings settings = new VerificationSettings();
+        settings.functionSubstitutes = Optional.of("/ARRAY_AGG(c)/MIN(c)/");
+        String sourceQuery = "SELECT ARRAY_AGG(c)[1] FROM (VALUES (10), (100)) AS t(c)";
+
+        Optional<VerifierQueryEvent> event = runVerification(sourceQuery, sourceQuery, settings);
+        assertTrue(event.isPresent());
+        assertEquals(event.get().getSkippedReason(), FAILED_BEFORE_CONTROL_QUERY.name());
+        assertEvent(
+                event.get(),
+                SKIPPED,
+                Optional.empty(),
+                Optional.of("PRESTO(SYNTAX_ERROR)"),
+                Optional.of("Test state NOT_RUN, Control state NOT_RUN.\n\n" +
+                        "REWRITE query failed on CONTROL cluster:\n.*" +
+                        "com.facebook.presto.sql.analyzer.SemanticException.*"));
+    }
+
+    @Test
     public void testControlFailed()
     {
         Optional<VerifierQueryEvent> event = runVerification("INSERT INTO dest SELECT * FROM test", "SELECT 1");
