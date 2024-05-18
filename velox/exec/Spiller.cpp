@@ -444,7 +444,7 @@ void Spiller::runSpill(bool lastRun) {
     }
     writes.push_back(std::make_shared<AsyncSource<SpillStatus>>(
         [partition, this]() { return writeSpill(partition); }));
-    if (executor_) {
+    if ((writes.size() > 1) && executor_ != nullptr) {
       executor_->add([source = writes.back()]() { source->prepare(); });
     }
   }

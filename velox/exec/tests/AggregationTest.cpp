@@ -3040,7 +3040,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimEmptyInput) {
           SuspendedSection suspendedSection(driver);
           task->pool()->reclaim(kMaxBytes, 0, stats);
           ASSERT_EQ(stats.numNonReclaimableAttempts, 0);
-          ASSERT_GT(stats.reclaimExecTimeUs, 0);
+          ASSERT_GE(stats.reclaimExecTimeUs, 0);
           ASSERT_EQ(stats.reclaimedBytes, 0);
           ASSERT_GT(stats.reclaimWaitTimeUs, 0);
         }

@@ -49,6 +49,9 @@ constexpr folly::StringPiece kMetricTaskMemoryReclaimCount{
 constexpr folly::StringPiece kMetricTaskMemoryReclaimWaitTimeMs{
     "velox.task_memory_reclaim_wait_ms"};
 
+constexpr folly::StringPiece kMetricTaskMemoryReclaimExecTimeMs{
+    "velox.task_memory_reclaim_exec_ms"};
+
 constexpr folly::StringPiece kMetricTaskMemoryReclaimWaitTimeoutCount{
     "velox.task_memory_reclaim_wait_timeout_count"};
 

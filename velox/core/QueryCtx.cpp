@@ -141,47 +141,7 @@ uint64_t QueryCtx::MemoryReclaimer::reclaim(
   const auto leaveGuard =
       folly::makeGuard([&]() { queryCtx->finishArbitration(); });
   queryCtx->startArbitration();
-  // Sort the child pools based on their reserved memory and reclaim from the
-  // child pool with most reservation first.
-  struct Candidate {
-    std::shared_ptr<memory::MemoryPool> pool;
-    int64_t reclaimableBytes;
-  };
-  std::vector<Candidate> candidates;
-  {
-    std::shared_lock guard{pool->poolMutex_};
-    candidates.reserve(pool->children_.size());
-    for (auto& entry : pool->children_) {
-      auto child = entry.second.lock();
-      if (child != nullptr) {
-        const int64_t reclaimableBytes = child->reclaimableBytes().value_or(0);
-        candidates.push_back(Candidate{std::move(child), reclaimableBytes});
-      }
-    }
-  }
-
-  std::sort(
-      candidates.begin(),
-      candidates.end(),
-      [](const auto& lhs, const auto& rhs) {
-        return lhs.reclaimableBytes > rhs.reclaimableBytes;
-      });
-
-  uint64_t reclaimedBytes{0};
-  for (const auto& candidate : candidates) {
-    if (candidate.reclaimableBytes == 0) {
-      break;
-    }
-    const auto bytes = candidate.pool->reclaim(targetBytes, maxWaitMs, stats);
-    reclaimedBytes += bytes;
-    if (targetBytes != 0) {
-      if (bytes >= targetBytes) {
-        break;
-      }
-      targetBytes -= bytes;
-    }
-  }
-  return reclaimedBytes;
+  return memory::MemoryReclaimer::reclaim(pool, targetBytes, maxWaitMs, stats);
 }
 
 bool QueryCtx::checkUnderArbitration(ContinueFuture* future) {

@@ -180,7 +180,7 @@ uint64_t MemoryReclaimer::run(
   RECORD_HISTOGRAM_METRIC_VALUE(
       kMetricMemoryReclaimExecTimeMs, execTimeUs / 1'000);
   RECORD_METRIC_VALUE(kMetricMemoryReclaimedBytes, reclaimedBytes);
-  RECORD_METRIC_VALUE(kMetricMemoryReclaimCount, 1);
+  RECORD_METRIC_VALUE(kMetricMemoryReclaimCount);
   addThreadLocalRuntimeStat(
       "memoryReclaimWallNanos",
       RuntimeCounter(execTimeUs * 1'000, RuntimeCounter::Unit::kNanos));
@@ -223,7 +223,7 @@ uint64_t MemoryReclaimer::reclaim(
   // child pool with most reservation first.
   struct Candidate {
     std::shared_ptr<memory::MemoryPool> pool;
-    int64_t reservedBytes;
+    int64_t reclaimableBytes;
   };
   std::vector<Candidate> candidates;
   {
@@ -232,8 +232,8 @@ uint64_t MemoryReclaimer::reclaim(
     for (auto& entry : pool->children_) {
       auto child = entry.second.lock();
       if (child != nullptr) {
-        const int64_t reservedBytes = child->reservedBytes();
-        candidates.push_back(Candidate{std::move(child), reservedBytes});
+        const int64_t reclaimableBytes = child->reclaimableBytes().value_or(0);
+        candidates.push_back(Candidate{std::move(child), reclaimableBytes});
       }
     }
   }
@@ -242,11 +242,14 @@ uint64_t MemoryReclaimer::reclaim(
       candidates.begin(),
       candidates.end(),
       [](const auto& lhs, const auto& rhs) {
-        return lhs.reservedBytes > rhs.reservedBytes;
+        return lhs.reclaimableBytes > rhs.reclaimableBytes;
       });
 
   uint64_t reclaimedBytes{0};
   for (const auto& candidate : candidates) {
+    if (candidate.reclaimableBytes == 0) {
+      break;
+    }
     const auto bytes = candidate.pool->reclaim(targetBytes, maxWaitMs, stats);
     reclaimedBytes += bytes;
     if (targetBytes != 0) {
@@ -294,6 +297,15 @@ bool MemoryReclaimer::Stats::operator==(
 bool MemoryReclaimer::Stats::operator!=(
     const MemoryReclaimer::Stats& other) const {
   return !(*this == other);
+}
+
+MemoryReclaimer::Stats& MemoryReclaimer::Stats::operator+=(
+    const MemoryReclaimer::Stats& other) {
+  numNonReclaimableAttempts += other.numNonReclaimableAttempts;
+  reclaimExecTimeUs += other.reclaimExecTimeUs;
+  reclaimedBytes += other.reclaimedBytes;
+  reclaimWaitTimeUs += other.reclaimWaitTimeUs;
+  return *this;
 }
 
 MemoryArbitrator::Stats::Stats(

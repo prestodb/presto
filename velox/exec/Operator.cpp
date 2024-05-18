@@ -366,7 +366,9 @@ void Operator::recordSpillStats() {
   if (lockedSpillStats->spillReadBytes != 0) {
     lockedStats->addRuntimeStat(
         kSpillReadBytes,
-        RuntimeCounter{static_cast<int64_t>(lockedSpillStats->spillReadBytes)});
+        RuntimeCounter{
+            static_cast<int64_t>(lockedSpillStats->spillReadBytes),
+            RuntimeCounter::Unit::kBytes});
   }
 
   if (lockedSpillStats->spillReads != 0) {

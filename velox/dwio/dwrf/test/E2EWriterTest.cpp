@@ -1947,10 +1947,10 @@ TEST_F(E2EWriterTest, memoryReclaimAfterClose) {
     memory::MemoryReclaimer::Stats stats;
     const auto oldCapacity = writerPool->capacity();
     writerPool->reclaim(1L << 30, 0, stats);
-    if (testData.expectedNonReclaimableAttempt) {
-      ASSERT_EQ(stats.numNonReclaimableAttempts, 1);
-    } else {
+    if (testData.abort || !testData.canReclaim) {
       ASSERT_EQ(stats.numNonReclaimableAttempts, 0);
+    } else {
+      ASSERT_EQ(stats.numNonReclaimableAttempts, 1);
     }
     // Reclaim does not happen as the writer is either aborted or closed.
     ASSERT_EQ(stats.reclaimExecTimeUs, 0);
@@ -2007,7 +2007,7 @@ DEBUG_ONLY_TEST_F(E2EWriterTest, memoryReclaimDuringInit) {
           if (reclaimable) {
             ASSERT_GE(reclaimableBytesOpt.value(), 0);
             // We can't reclaim during writer init.
-            ASSERT_EQ(stats.numNonReclaimableAttempts, 1);
+            ASSERT_LE(stats.numNonReclaimableAttempts, 1);
             ASSERT_EQ(stats.reclaimedBytes, 0);
             ASSERT_EQ(stats.reclaimExecTimeUs, 0);
           } else {
@@ -2101,7 +2101,7 @@ TEST_F(E2EWriterTest, memoryReclaimThreshold) {
           *writerPool, reclaimableBytes));
       ASSERT_EQ(reclaimableBytes, 0);
       ASSERT_EQ(writerPool->reclaim(1L << 30, 0, stats), 0);
-      ASSERT_GT(stats.numNonReclaimableAttempts, 0);
+      ASSERT_EQ(stats.numNonReclaimableAttempts, 0);
       ASSERT_EQ(stats.reclaimExecTimeUs, 0);
       ASSERT_EQ(stats.reclaimedBytes, 0);
     }

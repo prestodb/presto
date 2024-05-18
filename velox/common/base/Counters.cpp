@@ -278,10 +278,15 @@ void registerVeloxMetrics() {
   DEFINE_METRIC(
       kMetricTaskMemoryReclaimCount, facebook::velox::StatType::COUNT);
 
-  // Tracks memory reclaim task wait time in range of [0, 60s] with 10 buckets
+  // Tracks memory reclaim task wait time in range of [0, 60s] with 60 buckets
   // and reports P50, P90, P99, and P100.
   DEFINE_HISTOGRAM_METRIC(
-      kMetricTaskMemoryReclaimWaitTimeMs, 6'000, 0, 60'000, 50, 90, 99, 100);
+      kMetricTaskMemoryReclaimWaitTimeMs, 1'000, 0, 60'000, 50, 90, 99, 100);
+
+  // Tracks memory reclaim task wait time in range of [0, 240s] with 60 buckets
+  // and reports P50, P90, P99, and P100.
+  DEFINE_HISTOGRAM_METRIC(
+      kMetricTaskMemoryReclaimExecTimeMs, 4'000, 0, 240'000, 50, 90, 99, 100);
 
   // Tracks the number of times that the task memory reclaim wait timeouts.
   DEFINE_METRIC(
@@ -327,7 +332,7 @@ void registerVeloxMetrics() {
   DEFINE_HISTOGRAM_METRIC(
       kMetricArbitratorWaitTimeMs, 30'000, 0, 600'000, 50, 90, 99, 100);
 
-  // The distribution of the amount of time it take to complete a single
+  // The distribution of the amount of time it takes to complete a single
   // arbitration request stays queued in range of [0, 600s] with 20
   // buckets. It is configured to report the latency at P50, P90, P99,
   // and P100 percentiles.

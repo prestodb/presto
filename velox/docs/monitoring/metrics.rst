@@ -110,7 +110,12 @@ Memory Management
    * - task_memory_reclaim_wait_ms
      - Histogram
      - The distribution of task memory reclaim wait time in range of [0, 60s]
-       with 10 buckets. It is configured to report latency at P50, P90, P99,
+       with 60 buckets. It is configured to report latency at P50, P90, P99,
+       and P100 percentiles.
+   * - task_memory_reclaim_exec_ms
+     - Histogram
+     - The distribution of task memory execution time in range of [0, 240s]
+       with 60 buckets. It is configured to report latency at P50, P90, P99,
        and P100 percentiles.
    * - task_memory_reclaim_wait_timeout_count
      - Count
@@ -154,7 +159,7 @@ Memory Management
        its request, the arbitration request would surpass the maximum allowed
        capacity for the requester, or the arbitration process couldn't release
        the requested amount of memory.
-   * - arbitrator_queue_time_ms
+   * - arbitrator_wait_time_ms
      - Histogram
      - The distribution of the amount of time an arbitration request stays in
        arbitration queues and waits the arbitration r/w locks in range of [0, 600s]
@@ -173,7 +178,7 @@ Memory Management
    * - arbitrator_free_reserved_capacity_bytes
      - Average
      - The average of free memory capacity reserved to ensure each query has
-       the minimal reuired capacity to run.
+       the minimal required capacity to run.
    * - memory_pool_initial_capacity_bytes
      - Histogram
      - The distribution of a root memory pool's initial capacity in range of [0 256MB]

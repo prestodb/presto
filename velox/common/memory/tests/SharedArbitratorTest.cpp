@@ -237,7 +237,6 @@ class SharedArbitrationTest : public exec::test::HiveConnectorTestBase {
 
   void SetUp() override {
     HiveConnectorTestBase::SetUp();
-    registerSumNonPODAggregate("sumnonpod", 64);
     fakeOperatorFactory_->setCanReclaim(true);
 
     setupMemory();
@@ -349,7 +348,6 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, skipNonReclaimableTaskTest) {
   configs.emplace(core::QueryConfig::kSpillEnabled, "true");
   queryCtx->testingOverrideConfigUnsafe(std::move(configs));
 
-  std::atomic_int blockedCount{0};
   std::atomic_bool blockedAggregation{false};
   std::atomic_bool blockedPartialAggregation{false};
   folly::EventCount arbitrationWait;
@@ -402,7 +400,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, skipNonReclaimableTaskTest) {
                            .values(vectors)
                            .aggregation(
                                {"c0", "c1"},
-                               {"sum(c0)", "array_agg(c2)"},
+                               {"array_agg(c2)"},
                                {},
                                core::AggregationNode::Step::kPartial,
                                false)
@@ -800,8 +798,8 @@ DEBUG_ONLY_TEST_F(
       newQueryCtx(memoryManager_.get(), executor_.get(), kMemoryCapacity);
   ASSERT_EQ(queryCtx->pool()->capacity(), 0);
 
-  // Allocate a large chunk of memory to trigger memory reclaim during the query
-  // execution.
+  // Allocate a large chunk of memory to trigger memory reclaim during the
+  // query execution.
   auto fakeLeafPool = queryCtx->pool()->addLeafChild("fakeLeaf");
   const size_t fakeAllocationSize = kMemoryCapacity / 2;
   TestAllocation fakeAllocation{
@@ -940,8 +938,8 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, asyncArbitratonFromNonDriverContext) {
       [&]() { return !aggregationAllocationOnce.load(); });
   ASSERT_TRUE(injectPool != nullptr);
 
-  // Trigger the memory arbitration with memory pool whose associated driver is
-  // running on driver thread.
+  // Trigger the memory arbitration with memory pool whose associated driver
+  // is running on driver thread.
   const size_t fakeAllocationSize = arbitrator_->stats().freeCapacityBytes / 2;
   TestAllocation fakeAllocation = {
       injectPool.load(),

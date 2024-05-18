@@ -324,6 +324,7 @@ class MemoryReclaimer {
 
     bool operator==(const Stats& other) const;
     bool operator!=(const Stats& other) const;
+    Stats& operator+=(const Stats& other);
   };
 
   virtual ~MemoryReclaimer() = default;
