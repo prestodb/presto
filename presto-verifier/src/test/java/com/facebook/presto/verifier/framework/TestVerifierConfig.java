@@ -52,7 +52,8 @@ public class TestVerifierConfig
                 .setConcurrentControlAndTest(false)
                 .setRunningMode("control-test")
                 .setExtendedVerification(false)
-                .setSaveSnapshot(false));
+                .setSaveSnapshot(false)
+                .setFunctionSubstitutes(null));
     }
 
     @Test
@@ -84,6 +85,7 @@ public class TestVerifierConfig
                 .put("running-mode", "query-bank")
                 .put("extended-verification", "true")
                 .put("save-snapshot", "true")
+                .put("function-substitutes", "/approx_distinct(c)/count(c)/")
                 .build();
         VerifierConfig expected = new VerifierConfig()
                 .setWhitelist("a,b,c")
@@ -110,7 +112,8 @@ public class TestVerifierConfig
                 .setConcurrentControlAndTest(true)
                 .setRunningMode("query-bank")
                 .setExtendedVerification(true)
-                .setSaveSnapshot(true);
+                .setSaveSnapshot(true)
+                .setFunctionSubstitutes("/approx_distinct(c)/count(c)/");
 
         assertFullMapping(properties, expected);
     }

@@ -17,7 +17,6 @@ import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.tests.StandaloneQueryRunner;
@@ -35,7 +34,6 @@ import com.facebook.presto.verifier.prestoaction.PrestoExceptionClassifier;
 import com.facebook.presto.verifier.prestoaction.QueryActionsConfig;
 import com.facebook.presto.verifier.retry.RetryConfig;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
@@ -54,7 +52,6 @@ import static com.facebook.presto.verifier.VerifierTestUtil.SCHEMA;
 import static com.facebook.presto.verifier.VerifierTestUtil.createTypeManager;
 import static com.facebook.presto.verifier.VerifierTestUtil.setupPresto;
 import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
-import static com.facebook.presto.verifier.framework.ClusterType.TEST;
 import static com.facebook.presto.verifier.rewrite.FunctionCallRewriter.FunctionCallSubstitute;
 import static com.facebook.presto.verifier.rewrite.FunctionCallRewriter.validateAndConstructFunctionCallSubstituteMap;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -74,6 +71,7 @@ public class TestQueryRewriter
     private static final QueryRewriteConfig QUERY_REWRITE_CONFIG = new QueryRewriteConfig()
             .setTablePrefix("local.tmp")
             .setTableProperties("{\"p_int\": 30, \"p_long\": 4294967297, \"p_double\": 1.5, \"p_varchar\": \"test\", \"p_bool\": true}");
+    private static final VerifierConfig VERIFIER_CONFIG = new VerifierConfig();
     private static final SqlParser sqlParser = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(COLON, AT_SIGN));
 
     private static StandaloneQueryRunner queryRunner;
@@ -207,9 +205,9 @@ public class TestQueryRewriter
     @Test
     public void testTemporaryTableName()
     {
-        QueryRewriter tableNameRewriter = getQueryRewriter(new QueryRewriteConfig().setTablePrefix("tmp"));
-        QueryRewriter schemaRewriter = getQueryRewriter(new QueryRewriteConfig().setTablePrefix("local.tmp"));
-        QueryRewriter catalogRewriter = getQueryRewriter(new QueryRewriteConfig().setTablePrefix("verifier_batch.local.tmp"));
+        QueryRewriter tableNameRewriter = getQueryRewriter(new QueryRewriteConfig().setTablePrefix("tmp"), VERIFIER_CONFIG);
+        QueryRewriter schemaRewriter = getQueryRewriter(new QueryRewriteConfig().setTablePrefix("local.tmp"), VERIFIER_CONFIG);
+        QueryRewriter catalogRewriter = getQueryRewriter(new QueryRewriteConfig().setTablePrefix("verifier_batch.local.tmp"), VERIFIER_CONFIG);
 
         @Language("SQL") String query = "INSERT INTO dest_table SELECT * FROM test_table";
         assertTableName(tableNameRewriter, query, "tmp_");
@@ -323,7 +321,7 @@ public class TestQueryRewriter
     @Test
     public void testRewriteFunctionCalls()
     {
-        QueryRewriter queryRewriter = getQueryRewriter(
+        VerifierConfig verifierConfig = new VerifierConfig().setFunctionSubstitutes(
                 "/approx_distinct(x)/count(x)/," +
                         "/approx_percentile(x,array[0.9])/repeat(avg(x),cast(cardinality(array[0.9]) as integer))/," +
                         "/approx_percentile(x,_)/avg(x)/," +
@@ -337,6 +335,7 @@ public class TestQueryRewriter
                         "/now()/date_trunc('day',now())/," +
                         "/rand()/1/," +
                         "/row_number() over (partition by x order by y)/row_number() over (partition by y)/");
+        QueryRewriter queryRewriter = getQueryRewriter(new QueryRewriteConfig(), verifierConfig);
 
         // Test rewriting nested function calls.
         assertCreateTableAs(
@@ -625,22 +624,11 @@ public class TestQueryRewriter
 
     private QueryRewriter getQueryRewriter()
     {
-        return getQueryRewriter(QUERY_REWRITE_CONFIG);
+        return getQueryRewriter(QUERY_REWRITE_CONFIG, VERIFIER_CONFIG);
     }
 
-    private QueryRewriter getQueryRewriter(QueryRewriteConfig config)
+    private QueryRewriter getQueryRewriter(QueryRewriteConfig rewriteConfig, VerifierConfig verifierConfig)
     {
-        return new VerificationQueryRewriterFactory(sqlParser, createTypeManager(), config, config).create(prestoAction);
-    }
-
-    private QueryRewriter getQueryRewriter(String functionSubstitutes)
-    {
-        return new QueryRewriter(
-                sqlParser,
-                createTypeManager(),
-                prestoAction,
-                ImmutableMap.of(CONTROL, QualifiedName.of("control"), TEST, QualifiedName.of("test")),
-                ImmutableMap.of(CONTROL, ImmutableList.of(), TEST, ImmutableList.of()),
-                FunctionCallRewriter.validateAndConstructFunctionCallSubstituteMap(functionSubstitutes));
+        return new VerificationQueryRewriterFactory(sqlParser, createTypeManager(), rewriteConfig, rewriteConfig, verifierConfig).create(prestoAction);
     }
 }
