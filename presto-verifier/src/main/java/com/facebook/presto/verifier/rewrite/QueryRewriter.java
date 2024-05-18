@@ -49,6 +49,8 @@ import com.facebook.presto.verifier.prestoaction.PrestoAction;
 import com.facebook.presto.verifier.prestoaction.PrestoAction.ResultSetConverter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.Multimap;
 import org.intellij.lang.annotations.Language;
 
 import java.sql.ResultSetMetaData;
@@ -78,6 +80,7 @@ import static com.facebook.presto.verifier.framework.QueryStage.REWRITE;
 import static com.facebook.presto.verifier.framework.VerifierUtil.PARSING_OPTIONS;
 import static com.facebook.presto.verifier.framework.VerifierUtil.getColumnNames;
 import static com.facebook.presto.verifier.framework.VerifierUtil.getColumnTypes;
+import static com.facebook.presto.verifier.rewrite.FunctionCallRewriter.FunctionCallSubstitute;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -104,7 +107,7 @@ public class QueryRewriter
             Map<ClusterType, QualifiedName> tablePrefixes,
             Map<ClusterType, List<Property>> tableProperties)
     {
-        this(sqlParser, typeManager, prestoAction, tablePrefixes, tableProperties, Optional.empty());
+        this(sqlParser, typeManager, prestoAction, tablePrefixes, tableProperties, ImmutableMultimap.of());
     }
 
     public QueryRewriter(
@@ -113,15 +116,14 @@ public class QueryRewriter
             PrestoAction prestoAction,
             Map<ClusterType, QualifiedName> tablePrefixes,
             Map<ClusterType, List<Property>> tableProperties,
-            Optional<String> nonDeterministicFunctionSubstitutes)
+            Multimap<String, FunctionCallSubstitute> functionSubstitutes)
     {
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.prestoAction = requireNonNull(prestoAction, "prestoAction is null");
         this.prefixes = ImmutableMap.copyOf(tablePrefixes);
         this.tableProperties = ImmutableMap.copyOf(tableProperties);
-        this.functionCallRewriter =
-                requireNonNull(nonDeterministicFunctionSubstitutes, "nonDeterministicFunctionSubstitutes is null").map(functionSubstitutes -> FunctionCallRewriter.getInstance(functionSubstitutes));
+        this.functionCallRewriter = FunctionCallRewriter.getInstance(functionSubstitutes, typeManager);
     }
 
     public QueryObjectBundle rewriteQuery(@Language("SQL") String query, ClusterType clusterType)
@@ -135,8 +137,11 @@ public class QueryRewriter
             CreateTableAsSelect createTableAsSelect = (CreateTableAsSelect) statement;
             QualifiedName temporaryTableName = generateTemporaryName(Optional.of(createTableAsSelect.getName()), prefix);
             Query createQuery = createTableAsSelect.getQuery();
+            Optional<String> functionSubstitutions = Optional.empty();
             if (functionCallRewriter.isPresent()) {
-                createQuery = (Query) functionCallRewriter.get().rewrite(createQuery);
+                FunctionCallRewriter.RewriterResult rewriterResult = functionCallRewriter.get().rewrite(createQuery);
+                createQuery = (Query) rewriterResult.getRewrittenNode();
+                functionSubstitutions = rewriterResult.getSubstitutions();
             }
             return new QueryObjectBundle(
                     temporaryTableName,
@@ -150,15 +155,19 @@ public class QueryRewriter
                             createTableAsSelect.getColumnAliases(),
                             createTableAsSelect.getComment()),
                     ImmutableList.of(new DropTable(temporaryTableName, true)),
-                    clusterType);
+                    clusterType,
+                    functionSubstitutions);
         }
         if (statement instanceof Insert) {
             Insert insert = (Insert) statement;
             QualifiedName originalTableName = insert.getTarget();
             QualifiedName temporaryTableName = generateTemporaryName(Optional.of(originalTableName), prefix);
             Query insertQuery = insert.getQuery();
+            Optional<String> functionSubstitutions = Optional.empty();
             if (functionCallRewriter.isPresent()) {
-                insertQuery = (Query) functionCallRewriter.get().rewrite(insertQuery);
+                FunctionCallRewriter.RewriterResult rewriterResult = functionCallRewriter.get().rewrite(insertQuery);
+                insertQuery = (Query) rewriterResult.getRewrittenNode();
+                functionSubstitutions = rewriterResult.getSubstitutions();
             }
             return new QueryObjectBundle(
                     temporaryTableName,
@@ -174,13 +183,17 @@ public class QueryRewriter
                             insert.getColumns(),
                             insertQuery),
                     ImmutableList.of(new DropTable(temporaryTableName, true)),
-                    clusterType);
+                    clusterType,
+                    functionSubstitutions);
         }
         if (statement instanceof Query) {
             QualifiedName temporaryTableName = generateTemporaryName(Optional.empty(), prefix);
             Query queryBody = (Query) statement;
+            Optional<String> functionSubstitutions = Optional.empty();
             if (functionCallRewriter.isPresent()) {
-                queryBody = (Query) functionCallRewriter.get().rewrite(queryBody);
+                FunctionCallRewriter.RewriterResult rewriterResult = functionCallRewriter.get().rewrite(queryBody);
+                queryBody = (Query) rewriterResult.getRewrittenNode();
+                functionSubstitutions = rewriterResult.getSubstitutions();
             }
             ResultSetMetaData metadata = getResultMetadata(queryBody);
             List<Identifier> columnAliases = generateStorageColumnAliases(metadata);
@@ -198,7 +211,8 @@ public class QueryRewriter
                             Optional.of(columnAliases),
                             Optional.empty()),
                     ImmutableList.of(new DropTable(temporaryTableName, true)),
-                    clusterType);
+                    clusterType,
+                    functionSubstitutions);
         }
         if (statement instanceof CreateView) {
             CreateView createView = (CreateView) statement;
@@ -232,7 +246,8 @@ public class QueryRewriter
                             createView.isReplace(),
                             createView.getSecurity()),
                     ImmutableList.of(new DropView(temporaryViewName, true)),
-                    clusterType);
+                    clusterType,
+                    Optional.empty());
         }
         if (statement instanceof CreateTable) {
             CreateTable createTable = (CreateTable) statement;
@@ -247,7 +262,8 @@ public class QueryRewriter
                             applyPropertyOverride(createTable.getProperties(), properties),
                             createTable.getComment()),
                     ImmutableList.of(new DropTable(temporaryTableName, true)),
-                    clusterType);
+                    clusterType,
+                    Optional.empty());
         }
 
         throw new IllegalStateException(format("Unsupported query type: %s", statement.getClass()));
