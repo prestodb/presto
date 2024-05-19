@@ -69,7 +69,6 @@ import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.DeleteFiles;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.FileMetadata;
-import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.ManifestFile;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
@@ -79,16 +78,12 @@ import org.apache.iceberg.RowLevelOperationMode;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Table;
-import org.apache.iceberg.TableScan;
 import org.apache.iceberg.Transaction;
-import org.apache.iceberg.expressions.Expression;
-import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.util.CharSequenceSet;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -101,7 +96,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
@@ -148,7 +142,6 @@ import static com.facebook.presto.iceberg.TypeConverter.toIcebergType;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.facebook.presto.iceberg.changelog.ChangelogUtil.getRowTypeFromColumnMeta;
 import static com.facebook.presto.iceberg.optimizer.IcebergPlanOptimizer.getEnforcedColumns;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.google.common.base.Verify.verify;
@@ -159,6 +152,9 @@ import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
+import static org.apache.iceberg.SnapshotSummary.DELETED_RECORDS_PROP;
+import static org.apache.iceberg.SnapshotSummary.REMOVED_EQ_DELETES_PROP;
+import static org.apache.iceberg.SnapshotSummary.REMOVED_POS_DELETES_PROP;
 
 public abstract class IcebergAbstractMetadata
         implements ConnectorMetadata
@@ -769,12 +765,7 @@ public abstract class IcebergAbstractMetadata
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
-        try (CloseableIterable<FileScanTask> files = icebergTable.newScan().planFiles()) {
-            removeScanFiles(icebergTable, files);
-        }
-        catch (IOException e) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, "failed to scan files for delete", e);
-        }
+        removeScanFiles(icebergTable, TupleDomain.all());
     }
 
     @Override
@@ -916,39 +907,29 @@ public abstract class IcebergAbstractMetadata
             throw new TableNotFoundException(handle.getSchemaTableName());
         }
 
-        TableScan scan = icebergTable.newScan();
         TupleDomain<IcebergColumnHandle> domainPredicate = layoutHandle.getValidPredicate();
-
-        if (!domainPredicate.isAll()) {
-            Expression filterExpression = toIcebergExpression(domainPredicate);
-            scan = scan.filter(filterExpression);
-        }
-
-        try (CloseableIterable<FileScanTask> files = scan.planFiles()) {
-            return OptionalLong.of(removeScanFiles(icebergTable, files));
-        }
-        catch (IOException e) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, "failed to scan files for delete", e);
-        }
+        return removeScanFiles(icebergTable, domainPredicate);
     }
 
     /**
-     * Deletes all the files within a particular scan
+     * Deletes all the files for a specific predicate
      *
      * @return the number of rows deleted from all files
      */
-    private long removeScanFiles(Table icebergTable, Iterable<FileScanTask> scan)
+    private OptionalLong removeScanFiles(Table icebergTable, TupleDomain<IcebergColumnHandle> predicate)
     {
         transaction = icebergTable.newTransaction();
-        DeleteFiles deletes = transaction.newDelete();
-        AtomicLong rowsDeleted = new AtomicLong(0L);
-        scan.forEach(t -> {
-            deletes.deleteFile(t.file());
-            rowsDeleted.addAndGet(t.estimatedRowsCount());
-        });
-        deletes.commit();
+        DeleteFiles deleteFiles = transaction.newDelete()
+                .deleteFromRowFilter(toIcebergExpression(predicate));
+        deleteFiles.commit();
         transaction.commitTransaction();
-        return rowsDeleted.get();
+
+        Map<String, String> summary = icebergTable.currentSnapshot().summary();
+        long deletedRecords = Long.parseLong(summary.getOrDefault(DELETED_RECORDS_PROP, "0"));
+        long removedPositionDeletes = Long.parseLong(summary.getOrDefault(REMOVED_POS_DELETES_PROP, "0"));
+        long removedEqualityDeletes = Long.parseLong(summary.getOrDefault(REMOVED_EQ_DELETES_PROP, "0"));
+        // Removed rows count is inaccurate when existing equality delete files
+        return OptionalLong.of(deletedRecords - removedPositionDeletes - removedEqualityDeletes);
     }
 
     private static long getSnapshotIdForTableVersion(Table table, ConnectorTableVersion tableVersion)
