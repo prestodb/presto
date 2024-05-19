@@ -821,7 +821,7 @@ public final class PlanMatchPattern
         return withOutputs(ImmutableList.copyOf(aliases));
     }
 
-    public PlanMatchPattern withOutputs(List<String> aliases)
+    public PlanMatchPattern withOutputs(Collection<String> aliases)
     {
         matchers.add(new OutputMatcher(aliases));
         return this;
