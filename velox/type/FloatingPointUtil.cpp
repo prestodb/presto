@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "velox/type/DoubleUtil.h"
+#include "velox/type/FloatingPointUtil.h"
 #include <array>
 
 namespace facebook::velox {

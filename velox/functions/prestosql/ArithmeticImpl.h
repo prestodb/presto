@@ -19,7 +19,7 @@
 #include <cmath>
 #include <type_traits>
 #include "folly/CPortability.h"
-#include "velox/type/DoubleUtil.h"
+#include "velox/type/FloatingPointUtil.h"
 
 namespace facebook::velox::functions {
 

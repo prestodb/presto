@@ -17,6 +17,7 @@ add_executable(
   DecimalTest.cpp
   FilterTest.cpp
   FilterSerDeTest.cpp
+  FloatingPointUtilTest.cpp
   HugeIntTest.cpp
   StringViewTest.cpp
   SubfieldTest.cpp

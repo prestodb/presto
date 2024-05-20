@@ -130,24 +130,10 @@ class variant {
   variant(TypeKind kind, void* ptr) : kind_{kind}, ptr_{ptr} {}
 
   template <TypeKind KIND>
-  bool lessThan(const variant& a, const variant& b) const {
-    if (a.isNull() && !b.isNull()) {
-      return true;
-    }
-    if (a.isNull() || b.isNull()) {
-      return false;
-    }
-    return a.value<KIND>() < b.value<KIND>();
-  }
+  bool lessThan(const variant& a, const variant& b) const;
 
   template <TypeKind KIND>
-  bool equals(const variant& a, const variant& b) const {
-    if (a.isNull() || b.isNull()) {
-      return false;
-    }
-    // todo(youknowjack): centralize equality semantics
-    return a.value<KIND>() == b.value<KIND>();
-  }
+  bool equals(const variant& a, const variant& b) const;
 
   template <TypeKind KIND>
   void typedDestroy() {
@@ -367,22 +353,9 @@ class variant {
     return *this;
   }
 
-  bool operator<(const variant& other) const {
-    if (other.kind_ != this->kind_) {
-      return other.kind_ < this->kind_;
-    }
-    return VELOX_DYNAMIC_TYPE_DISPATCH_ALL(lessThan, kind_, *this, other);
-  }
+  bool operator<(const variant& other) const;
 
-  bool equals(const variant& other) const {
-    if (other.kind_ != this->kind_) {
-      return false;
-    }
-    if (other.isNull()) {
-      return this->isNull();
-    }
-    return VELOX_DYNAMIC_TYPE_DISPATCH_ALL(equals, kind_, *this, other);
-  }
+  bool equals(const variant& other) const;
 
   bool equalsWithNullEqualsNull(const variant& other) const {
     if (other.kind_ != this->kind_) {

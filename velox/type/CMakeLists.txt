@@ -23,8 +23,8 @@ add_library(
   velox_type
   Conversions.cpp
   DecimalUtil.cpp
-  DoubleUtil.cpp
   Filter.cpp
+  FloatingPointUtil.cpp
   HugeInt.cpp
   StringView.cpp
   StringView.h
