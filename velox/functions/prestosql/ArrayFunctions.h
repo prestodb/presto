@@ -21,6 +21,7 @@
 #include "velox/functions/Udf.h"
 #include "velox/functions/lib/CheckedArithmetic.h"
 #include "velox/type/Conversions.h"
+#include "velox/type/FloatingPointUtil.h"
 
 namespace facebook::velox::functions {
 
@@ -32,13 +33,27 @@ struct ArrayMinMaxFunction {
 
   template <typename T>
   void update(T& currentValue, const T& candidateValue) {
-    if constexpr (isMax) {
-      if (candidateValue > currentValue) {
-        currentValue = candidateValue;
+    if constexpr (std::is_same_v<T, float> || std::is_same_v<T, double>) {
+      using facebook::velox::util::floating_point::NaNAwareGreaterThan;
+      using facebook::velox::util::floating_point::NaNAwareLessThan;
+      if constexpr (isMax) {
+        if (NaNAwareGreaterThan<T>{}(candidateValue, currentValue)) {
+          currentValue = candidateValue;
+        }
+      } else {
+        if (NaNAwareLessThan<T>{}(candidateValue, currentValue)) {
+          currentValue = candidateValue;
+        }
       }
     } else {
-      if (candidateValue < currentValue) {
-        currentValue = candidateValue;
+      if constexpr (isMax) {
+        if (candidateValue > currentValue) {
+          currentValue = candidateValue;
+        }
+      } else {
+        if (candidateValue < currentValue) {
+          currentValue = candidateValue;
+        }
       }
     }
   }
@@ -53,68 +68,10 @@ struct ArrayMinMaxFunction {
   }
 
   template <typename TReturn, typename TInput>
-  bool callForFloatOrDouble(TReturn& out, const TInput& array) {
-    bool hasNull = false;
-    auto it = array.begin();
-
-    // Find the first non-null item (if any)
-    while (it != array.end()) {
-      if (it->has_value()) {
-        break;
-      }
-
-      hasNull = true;
-      ++it;
-    }
-
-    // Return false if end of array is reached without finding a non-null item.
-    if (it == array.end()) {
-      return false;
-    }
-
-    // If first non-null item is NAN, return immediately.
-    auto currentValue = it->value();
-    if (std::isnan(currentValue)) {
-      assign(out, currentValue);
-      return true;
-    }
-
-    ++it;
-    while (it != array.end()) {
-      if (it->has_value()) {
-        auto newValue = it->value();
-        if (std::isnan(newValue)) {
-          assign(out, newValue);
-          return true;
-        }
-        update(currentValue, newValue);
-      } else {
-        hasNull = true;
-      }
-      ++it;
-    }
-
-    // If we found a null, return false. Note that, if we found
-    // a NAN, the function will return at earlier stage as soon as
-    // a NAN is observed.
-    if (hasNull) {
-      return false;
-    }
-
-    assign(out, currentValue);
-    return true;
-  }
-
-  template <typename TReturn, typename TInput>
   FOLLY_ALWAYS_INLINE bool call(TReturn& out, const TInput& array) {
     // Result is null if array is empty.
     if (array.size() == 0) {
       return false;
-    }
-
-    if constexpr (
-        std::is_same_v<TReturn, float> || std::is_same_v<TReturn, double>) {
-      return callForFloatOrDouble(out, array);
     }
 
     if (!array.mayHaveNulls()) {

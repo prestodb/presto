@@ -94,30 +94,30 @@ Array Functions
 .. function:: array_max(array(E)) -> E
 
     Returns the maximum value of input array.
-    Returns NaN if E is REAL or DOUBLE and array contains a NaN value.
-    Returns NULL if array doesn't contain a NaN value, but contains a NULL value. ::
+    NaN is considered to be greater than Infinity.
+    Returns NULL if array contains a NULL value. ::
 
         SELECT array_max(ARRAY [1, 2, 3]); -- 3
         SELECT array_max(ARRAY [-1, -2, -2]); -- -1
         SELECT array_max(ARRAY [-1, -2, NULL]); -- NULL
         SELECT array_max(ARRAY []); -- NULL
-        SELECT array_max(ARRAY[NULL, nan()]); -- NaN
+        SELECT array_max(ARRAY [-1, nan(), NULL]); -- NULL
         SELECT array_max(ARRAY[{-1, -2, -3, nan()]); -- NaN
-        SELECT array_max(ARRAY[-0.0001, NULL, -0.0003, nan()]); -- NaN
+        SELECT array_max(ARRAY[{infinity(), nan()]); -- NaN
 
 .. function:: array_min(array(E)) -> E
 
     Returns the minimum value of input array.
-    Returns NaN if E is REAL or DOUBLE and array contains a NaN value.
-    Returns NULL if array doesn't contain a NaN value, but contains a NULL value. ::
+    NaN is considered to be greater than Infinity.
+    Returns NULL if array contains a NULL value. ::
 
         SELECT array_min(ARRAY [1, 2, 3]); -- 1
         SELECT array_min(ARRAY [-1, -2, -2]); -- -2
         SELECT array_min(ARRAY [-1, -2, NULL]); -- NULL
         SELECT array_min(ARRAY []); -- NULL
-        SELECT array_min(ARRAY[NULL, nan()]); -- NaN
-        SELECT array_min(ARRAY[{-1, -2, -3, nan()]); -- NaN
-        SELECT array_min(ARRAY[-0.0001, NULL, -0.0003, nan()]); -- NaN
+        SELECT array_min(ARRAY [-1, nan(), NULL]); -- NULL
+        SELECT array_min(ARRAY[{-1, -2, -3, nan()]); -- -1
+        SELECT array_min(ARRAY[{infinity(), nan()]); -- Infinity
 
 .. function:: array_normalize(array(E), E) -> array(E)
 

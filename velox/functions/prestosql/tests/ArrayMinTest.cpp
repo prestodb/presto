@@ -43,17 +43,12 @@ class ArrayMinTest : public FunctionBaseTest {
         makeNullableFlatVector<int64_t>({1, -2, std::nullopt, std::nullopt});
     testExpr<int64_t>(expected1, "array_min(C0)", {input1});
 
+    static const float kNaN = std::numeric_limits<float>::quiet_NaN();
+    static const float kInfinity = std::numeric_limits<float>::infinity();
     auto input2 = makeNullableArrayVector<float>(
-        {{std::nullopt, std::numeric_limits<double>::quiet_NaN()},
-         {-1, -2, -3, std::numeric_limits<float>::quiet_NaN()},
-         {-0.0001,
-          std::nullopt,
-          -0.0003,
-          std::numeric_limits<float>::quiet_NaN()}});
-    auto expected2 = makeNullableFlatVector<float>(
-        {std::numeric_limits<float>::quiet_NaN(),
-         std::numeric_limits<float>::quiet_NaN(),
-         std::numeric_limits<float>::quiet_NaN()});
+        {{-1, kNaN, std::nullopt}, {-1, -2, -3, kNaN}, {kInfinity, kNaN}});
+    auto expected2 =
+        makeNullableFlatVector<float>({std::nullopt, -3, kInfinity});
 
     testExpr<float>(expected2, "array_min(C0)", {input2});
   }
@@ -157,6 +152,24 @@ class ArrayMinTest : public FunctionBaseTest {
         {false, true, false, std::nullopt, false, true});
     testExpr<bool>(expected, "array_min(C0)", {arrayVector});
   }
+
+  template <typename T>
+  void testFloatingPoint() {
+    static const T kNaN = std::numeric_limits<T>::quiet_NaN();
+    static const T kInfinity = std::numeric_limits<T>::infinity();
+    static const T kNegativeInfinity = -1 * std::numeric_limits<T>::infinity();
+    auto input = makeNullableArrayVector<T>(
+        {{-1, std::nullopt, kNaN},
+         {-1, std::nullopt, 2},
+         {-1, 0, 2},
+         {-1, kNegativeInfinity, kNaN},
+         {kInfinity, kNaN},
+         {kNaN, kNaN}});
+    auto expected = makeNullableFlatVector<T>(
+        {std::nullopt, std::nullopt, -1, kNegativeInfinity, kInfinity, kNaN});
+
+    testExpr<T>(expected, "array_min(C0)", {input});
+  }
 };
 
 } // namespace
@@ -183,6 +196,11 @@ TEST_F(ArrayMinTest, varcharArrays) {
 TEST_F(ArrayMinTest, boolArrays) {
   testBoolNullable();
   testBool();
+}
+
+TEST_F(ArrayMinTest, floatArrays) {
+  testFloatingPoint<float>();
+  testFloatingPoint<double>();
 }
 
 TEST_F(ArrayMinTest, complexTypeElements) {
