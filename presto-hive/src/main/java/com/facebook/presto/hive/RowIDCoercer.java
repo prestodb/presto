@@ -16,29 +16,39 @@ package com.facebook.presto.hive;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.LazyBlock;
 import com.facebook.presto.common.predicate.TupleDomainFilter;
-import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.VarbinaryType;
+import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.charset.StandardCharsets;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 public class RowIDCoercer
         implements HiveCoercer
 {
-    private final byte[] rowIDPartitionComponent;
-    private final byte[] rowGroupID; // file name
+    private final ByteBuffer byteBuffer;
+    private final Slice slice;
 
-    public RowIDCoercer(byte[] rowIDPartitionComponent, String rowGroupID)
+    public RowIDCoercer(byte[] partitionComponent, String rowGroupID)
     {
-        this.rowIDPartitionComponent = requireNonNull(rowIDPartitionComponent);
-        this.rowGroupID = rowGroupID.getBytes(StandardCharsets.UTF_8);
+        requireNonNull(partitionComponent, "partitionComponent is null");
+        requireNonNull(rowGroupID, "rowGroupID is null");
+
+        // precompute content of the row_id slice
+        byte[] rowGroupIdComponent = rowGroupID.getBytes(UTF_8);
+        byte[] bytes = new byte[Long.BYTES + rowGroupIdComponent.length + partitionComponent.length];
+        this.byteBuffer = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN);
+        this.slice = Slices.wrappedBuffer(bytes);
+        this.slice.setBytes(Long.BYTES, rowGroupIdComponent);
+        this.slice.setBytes(Long.BYTES + rowGroupIdComponent.length, partitionComponent);
     }
 
     @Override
@@ -51,26 +61,24 @@ public class RowIDCoercer
     @Override
     public Type getToType()
     {
-        return VarbinaryType.VARBINARY;
+        return VARBINARY;
     }
 
     @Override
-    public Block apply(Block in)
+    public Block apply(Block rowNumberBlock)
     {
-        BlockBuilder out = VarbinaryType.VARBINARY.createBlockBuilder(null, in.getPositionCount());
-        for (int i = 0; i < in.getPositionCount(); i++) {
-            if (in.isNull(i)) {
-                out.appendNull();
-                continue;
+        requireNonNull(rowNumberBlock, "rowNumberBlock is null");
+
+        int positionCount = rowNumberBlock.getPositionCount();
+        Block lazyBlock = new LazyBlock(positionCount, (block) -> {
+            BlockBuilder blockBuilder = VARBINARY.createBlockBuilder(null, positionCount, slice.length());
+            for (int i = 0; i < positionCount; i++) {
+                long rowNumber = BIGINT.getLong(rowNumberBlock, i);
+                byteBuffer.putLong(0, rowNumber);
+                VARBINARY.writeSlice(blockBuilder, slice);
             }
-            long rowNumber = BigintType.BIGINT.getLong(in, i);
-            ByteBuffer rowID = ByteBuffer.allocateDirect(this.rowIDPartitionComponent.length + this.rowGroupID.length + 8).order(ByteOrder.LITTLE_ENDIAN);
-            rowID.putLong(rowNumber);
-            rowID.put(this.rowGroupID);
-            rowID.put(this.rowIDPartitionComponent);
-            rowID.flip();
-            VarbinaryType.VARBINARY.writeSlice(out, Slices.wrappedBuffer(rowID));
-        }
-        return out.build();
+            block.setBlock(blockBuilder.build());
+        });
+        return lazyBlock;
     }
 }
