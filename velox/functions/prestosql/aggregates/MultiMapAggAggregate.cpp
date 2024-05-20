@@ -18,6 +18,7 @@
 #include "velox/exec/Strings.h"
 #include "velox/functions/lib/aggregates/ValueList.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
+#include "velox/type/FloatingPointUtil.h"
 #include "velox/vector/FlatVector.h"
 
 namespace facebook::velox::aggregate::prestosql {
@@ -230,6 +231,23 @@ struct ComplexTypeMultiMapAccumulator {
 template <typename T>
 struct MultiMapAccumulatorTypeTraits {
   using AccumulatorType = MultiMapAccumulator<T>;
+};
+
+// Ensure Accumulator treats NaNs as equal.
+template <>
+struct MultiMapAccumulatorTypeTraits<float> {
+  using AccumulatorType = MultiMapAccumulator<
+      float,
+      util::floating_point::NaNAwareHash<float>,
+      util::floating_point::NaNAwareEquals<float>>;
+};
+
+template <>
+struct MultiMapAccumulatorTypeTraits<double> {
+  using AccumulatorType = MultiMapAccumulator<
+      double,
+      util::floating_point::NaNAwareHash<double>,
+      util::floating_point::NaNAwareEquals<double>>;
 };
 
 template <>
