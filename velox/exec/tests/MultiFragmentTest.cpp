@@ -1849,17 +1849,22 @@ TEST_F(MultiFragmentTest, maxBytes) {
   test(32 * kMB);
 }
 
-/// Verify that ExchangeClient stats are populated even if task fails.
+// Verifies that ExchangeClient stats are populated even if task fails.
 DEBUG_ONLY_TEST_F(MultiFragmentTest, exchangeStatsOnFailure) {
-  // Trigger a failure after fetching first 10 pages.
+  // Triggers a failure after fetching first 10 pages.
+  std::atomic_uint64_t expectedReceivedPages{0};
   SCOPED_TESTVALUE_SET(
       "facebook::velox::exec::test::LocalExchangeSource",
-      std::function<void(void* data)>([&](void* data) {
-        int32_t numPages = *static_cast<int32_t*>(data);
-        if (numPages > 10) {
-          VELOX_FAIL("Forced failure after {} pages", numPages);
-        }
-      }));
+      std::function<void(exec::ExchangeSource * data)>(
+          [&](exec::ExchangeSource* source) {
+            auto* queue = source->testingQueue();
+            const auto receivedPages = queue->receivedPages();
+            if (receivedPages > 10) {
+              expectedReceivedPages = receivedPages;
+
+              VELOX_FAIL("Forced failure after {} pages", receivedPages);
+            }
+          }));
 
   std::string s(25, 'x');
   auto data = makeRowVector({
@@ -1890,7 +1895,10 @@ DEBUG_ONLY_TEST_F(MultiFragmentTest, exchangeStatsOnFailure) {
       << "Got: [" << task->errorMessage() << "]";
 
   auto stats = toPlanStats(task->taskStats());
-  EXPECT_EQ(10, stats.at("0").customStats.at("numReceivedPages").sum);
+
+  EXPECT_EQ(
+      expectedReceivedPages,
+      stats.at("0").customStats.at("numReceivedPages").sum);
 
   ASSERT_TRUE(waitForTaskCompletion(producerTask.get(), 3'000'000));
 }

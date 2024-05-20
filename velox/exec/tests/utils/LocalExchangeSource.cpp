@@ -110,7 +110,7 @@ class LocalExchangeSource : public exec::ExchangeSource {
 
       try {
         common::testutil::TestValue::adjust(
-            "facebook::velox::exec::test::LocalExchangeSource", &numPages_);
+            "facebook::velox::exec::test::LocalExchangeSource", this);
       } catch (const std::exception& e) {
         queue_->setError(e.what());
         checkSetRequestPromise();
