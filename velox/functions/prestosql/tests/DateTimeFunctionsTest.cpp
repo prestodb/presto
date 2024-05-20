@@ -4025,3 +4025,46 @@ TEST_F(DateTimeFunctionsTest, toISO8601Date) {
   EXPECT_EQ("-3492-10-05", toISO8601("-3492-10-05"));
   EXPECT_EQ("-0653-07-12", toISO8601("-653-07-12"));
 }
+
+TEST_F(DateTimeFunctionsTest, atTimezoneTest) {
+  const auto at_timezone = [&](std::optional<int64_t> timestampWithTimezone,
+                               std::optional<std::string> targetTimezone) {
+    return evaluateOnce<int64_t>(
+        "at_timezone(c0, c1)",
+        {TIMESTAMP_WITH_TIME_ZONE(), VARCHAR()},
+        timestampWithTimezone,
+        targetTimezone);
+  };
+
+  EXPECT_EQ(
+      at_timezone(
+          pack(1500101514, util::getTimeZoneID("Asia/Kathmandu")),
+          "America/Boise"),
+      pack(1500101514, util::getTimeZoneID("America/Boise")));
+
+  EXPECT_EQ(
+      at_timezone(
+          pack(1500101514, util::getTimeZoneID("America/Boise")),
+          "Europe/London"),
+      pack(1500101514, util::getTimeZoneID("Europe/London")));
+
+  EXPECT_EQ(
+      at_timezone(
+          pack(1500321297, util::getTimeZoneID("Canada/Yukon")),
+          "Australia/Melbourne"),
+      pack(1500321297, util::getTimeZoneID("Australia/Melbourne")));
+
+  EXPECT_EQ(
+      at_timezone(
+          pack(1500321297, util::getTimeZoneID("Atlantic/Bermuda")),
+          "Pacific/Fiji"),
+      pack(1500321297, util::getTimeZoneID("Pacific/Fiji")));
+
+  EXPECT_EQ(
+      at_timezone(
+          pack(1500321297, util::getTimeZoneID("Atlantic/Bermuda")),
+          std::nullopt),
+      std::nullopt);
+
+  EXPECT_EQ(at_timezone(std::nullopt, "Pacific/Fiji"), std::nullopt);
+}

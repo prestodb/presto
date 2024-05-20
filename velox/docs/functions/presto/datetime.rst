@@ -405,3 +405,11 @@ picked to be consistent with Presto.
 **Timezone Name Parsing**: When parsing strings that contain timezone names, the
 list of supported timezones follow the definition `here
 <https://en.wikipedia.org/wiki/List_of_tz_database_time_zones>`_.
+
+**Timezone Conversion**: The ``AT TIME ZONE`` operator sets the time zone of a timestamp: ::
+
+        SELECT timestamp '2012-10-31 01:00 UTC';
+        -- 2012-10-31 01:00:00.000 UTC
+
+        SELECT timestamp '2012-10-31 01:00 UTC' AT TIME ZONE 'America/Los_Angeles';
+        -- 2012-10-30 18:00:00.000 America/Los_Angeles

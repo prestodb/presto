@@ -1492,4 +1492,39 @@ struct ToISO8601Function {
   }
 };
 
+template <typename T>
+struct AtTimezoneFunction : public TimestampWithTimezoneSupport<T> {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  std::optional<int64_t> targetTimezoneID_;
+
+  FOLLY_ALWAYS_INLINE void initialize(
+      const std::vector<TypePtr>& /*inputTypes*/,
+      const core::QueryConfig& config,
+      const arg_type<TimestampWithTimezone>* /*tsWithTz*/,
+      const arg_type<Varchar>* timezone) {
+    if (timezone != nullptr) {
+      targetTimezoneID_ = util::getTimeZoneID(
+          std::string_view(timezone->data(), timezone->size()));
+    }
+  }
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<TimestampWithTimezone>& result,
+      const arg_type<TimestampWithTimezone>& tsWithTz,
+      const arg_type<Varchar>& timezone) {
+    const auto inputMs = unpackMillisUtc(tsWithTz);
+    const auto targetTimezoneID = targetTimezoneID_.has_value()
+        ? targetTimezoneID_.value()
+        : util::getTimeZoneID(
+              std::string_view(timezone.data(), timezone.size()));
+
+    // Input and output TimestampWithTimezones should not contain
+    // different timestamp values - solely timezone ID should differ between the
+    // two, as timestamp is stored as a UTC offset. The timestamp is then
+    // resolved to the respective timezone at the time of display.
+    result = pack(inputMs, targetTimezoneID);
+  }
+};
+
 } // namespace facebook::velox::functions
