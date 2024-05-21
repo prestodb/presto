@@ -122,9 +122,14 @@ module.exports = (env) => {
             static: {
                 directory: path.join(__dirname, '..', outputDir),
             },
-            proxy: {
-                '/v1': `http://${apiHost}:${apiPort}`,
-            },
+            proxy: [
+                {
+               context: ['/v1'],
+               target: `http://${apiHost}:${apiPort}`,
+               secure: false, // when using http
+               changeOrigin: true, // Modify the Origin header to match the target
+                },
+            ],
         },
     };
 };

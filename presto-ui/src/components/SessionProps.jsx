@@ -182,7 +182,7 @@ export function SessionProps({ show, changeHandler }) {
     return (
         <div className={clsx(!show && 'hide')}>
             <div className="row">
-                <div className='col-xs-12'>
+                <div className='col-12'>
                     <DataTable
                         columns={COLUMNS}
                         data={filter.data}
