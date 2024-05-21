@@ -28,7 +28,7 @@ class StringIdMap {
  public:
   static constexpr uint64_t kNoId = ~0UL;
 
-  StringIdMap() {}
+  StringIdMap() = default;
 
   StringIdMap(const StringIdMap& other) = delete;
   StringIdMap(StringIdMap&& other) = delete;
@@ -45,7 +45,7 @@ class StringIdMap {
   }
 
   // Returns the id for 'string' and increments its use count. Assigns a
-  // new id if none exists. must be released with release() when no longer used.
+  // new id if none exists. Must be released with release() when no longer used.
   uint64_t makeId(std::string_view string);
 
   // Decrements the use count of id and may free the associated memory if no
@@ -59,8 +59,8 @@ class StringIdMap {
   // no string.
   std::string string(uint64_t id) {
     std::lock_guard<std::mutex> l(mutex_);
-    auto it = idToString_.find(id);
-    return it == idToString_.end() ? "" : it->second.string;
+    auto it = idToEntry_.find(id);
+    return it == idToEntry_.end() ? "" : it->second.string;
   }
 
  private:
@@ -72,9 +72,9 @@ class StringIdMap {
 
   std::mutex mutex_;
   folly::F14FastMap<std::string, uint64_t> stringToId_;
-  folly::F14FastMap<uint64_t, Entry> idToString_;
-  uint64_t lastId_{};
-  uint64_t pinnedSize_{};
+  folly::F14FastMap<uint64_t, Entry> idToEntry_;
+  uint64_t lastId_{0};
+  uint64_t pinnedSize_{0};
 };
 
 // Keeps a string-id association live for the duration of this.
@@ -106,6 +106,15 @@ class StringIdLease {
     other.id_ = StringIdMap::kNoId;
   }
 
+  void operator=(const StringIdLease& other) {
+    clear();
+    ids_ = other.ids_;
+    if (ids_ && other.id_ != StringIdMap::kNoId) {
+      ids_->addReference(other.id_);
+    }
+    id_ = other.id_;
+  }
+
   void operator=(StringIdLease&& other) noexcept {
     clear();
     ids_ = other.ids_;
@@ -128,15 +137,6 @@ class StringIdLease {
 
   bool hasValue() const {
     return id_ != StringIdMap::kNoId;
-  }
-
-  void operator=(const StringIdLease& other) {
-    clear();
-    ids_ = other.ids_;
-    if (ids_ && other.id_ != StringIdMap::kNoId) {
-      ids_->addReference(other.id_);
-    }
-    id_ = other.id_;
   }
 
   uint64_t id() const {
