@@ -132,7 +132,7 @@ export class PlanNode extends React.Component<PlanNodeProps, PlanNodeState> {
 
     render(): any {
         return (
-            <div style={{color: "#000"}} data-toggle="tooltip" data-placement="bottom" data-container="body" data-html="true"
+            <div style={{color: "#000"}} data-bs-toggle="tooltip" data-placement="bottom" data-container="body" data-html="true"
                  title={"<h4>" + this.props.name + "</h4>" + this.props.identifier}>
                 <strong>{this.props.name}</strong>
                 <div>
@@ -291,8 +291,8 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
         if (this.state.ended) {
             // Zoom doesn't deal well with DOM changes
             const initialScale = Math.min(width / graphWidth, height / graphHeight);
-            const zoom = d3.zoom().scaleExtent([initialScale, 1]).on("zoom", function () {
-                inner.attr("transform", d3.event.transform);
+            const zoom = d3.zoom().scaleExtent([initialScale, 1]).on("zoom",(event) => {
+                inner.attr("transform", event.transform);
             });
 
             svg.call(zoom);
@@ -309,7 +309,7 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
     componentDidUpdate() {
         this.updateD3Graph();
         //$FlowFixMe
-        $('[data-toggle="tooltip"]').tooltip()
+        $('[data-bs-toggle="tooltip"]').tooltip()
     }
 
     render(): any {
@@ -322,7 +322,7 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
             }
             return (
                 <div className="row error-message">
-                    <div className="col-xs-12"><h4>{label}</h4></div>
+                    <div className="col-12"><h4>{label}</h4></div>
                 </div>
             );
         }
@@ -331,7 +331,7 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
         if (query && !query.outputStage) {
             loadingMessage = (
                 <div className="row error-message">
-                    <div className="col-xs-12">
+                    <div className="col-12">
                         <h4>Live plan graph will appear automatically when query starts running.</h4>
                         <div className="loader">Loading...</div>
                     </div>
@@ -345,7 +345,7 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
             <div>
                 {queryHeader}
                 <div className="row">
-                    <div className="col-xs-12">
+                    <div className="col-12">
                         {loadingMessage}
                         <div id="live-plan" className="graph-container">
                             <div className="pull-right">

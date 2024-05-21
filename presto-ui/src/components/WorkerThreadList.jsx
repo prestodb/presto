@@ -50,7 +50,7 @@ export class WorkerThreadList extends React.Component {
                 initialized: true,
             });
         }.bind(this))
-        .error(function () {
+        .fail(function () {
             this.setState({
                 initialized: true,
             });
@@ -144,9 +144,9 @@ export class WorkerThreadList extends React.Component {
         return (
             <div key={threadInfo.id}>
                 <span className="font-white">{threadInfo.name} {threadInfo.state} #{threadInfo.id} {threadInfo.lockOwnerId}</span>
-                <a className="copy-button" data-clipboard-target={"#stack-trace-" + threadInfo.id} data-toggle="tooltip" data-placement="right"
+                <a className="copy-button" data-clipboard-target={"#stack-trace-" + threadInfo.id} data-bs-toggle="tooltip" data-placement="right"
                    title="Copy to clipboard">
-                    <span className="glyphicon glyphicon-copy" alt="Copy to clipboard"/>
+                    <span className="bi bi-copy" alt="Copy to clipboard"/>
                 </a>
                 <br/>
                 <span className="stack-traces" id={"stack-trace-" + threadInfo.id}>
@@ -168,21 +168,21 @@ export class WorkerThreadList extends React.Component {
             if (this.state.initialized === false) {
                 display = (
                     <div className="row error-message">
-                        <div className="col-xs-12"><button className="btn btn-info live-button" onClick={this.handleNewSnapshotClick.bind(this)}>Capture Snapshot</button></div>
+                        <div className="col-12"><button className="btn btn-info live-button rounded-0 text-white" onClick={this.handleNewSnapshotClick.bind(this)} style={{fontSize: '14px'}}>Capture Snapshot</button></div>
                     </div>
                 );
             }
             else {
                 display = (
                     <div className="row error-message">
-                        <div className="col-xs-12"><h4>Thread snapshot could not be loaded</h4></div>
+                        <div className="col-12"><h4>Thread snapshot could not be loaded</h4></div>
                     </div>
                 );
             }
         }
         else {
             toolbar = (
-                <div className="col-xs-9">
+                <div className="col-9">
                     <table className="header-inline-links">
                         <tbody>
                         <tr>
@@ -197,7 +197,7 @@ export class WorkerThreadList extends React.Component {
                             </td>
                             <td>
                                 <div className="input-group-btn text-right">
-                                    <button type="button" className="btn btn-default dropdown-toggle pull-right text-right" data-toggle="dropdown" aria-haspopup="true"
+                                    <button type="button" className="btn btn-default dropdown-toggle pull-right text-right" data-bs-toggle="dropdown" aria-haspopup="true"
                                             aria-expanded="false">
                                         <strong>Group:</strong> {this.state.selectedGroup} <span className="caret"/>
                                     </button>
@@ -208,7 +208,7 @@ export class WorkerThreadList extends React.Component {
                             </td>
                             <td>
                                 <div className="input-group-btn text-right">
-                                    <button type="button" className="btn btn-default dropdown-toggle pull-right text-right" data-toggle="dropdown" aria-haspopup="true"
+                                    <button type="button" className="btn btn-default dropdown-toggle pull-right text-right" data-bs-toggle="dropdown" aria-haspopup="true"
                                             aria-expanded="false">
                                         <strong>State:</strong> {this.state.selectedThreadState} <span className="caret"/>
                                     </button>
@@ -228,19 +228,19 @@ export class WorkerThreadList extends React.Component {
             if (filteredThreads.length === 0 && this.state.selectedThreadState === ALL_THREAD_STATE) {
                 displayedThreads = (
                     <div className="row error-message">
-                        <div className="col-xs-12"><h4>No threads in group '{this.state.selectedGroup}'</h4></div>
+                        <div className="col-12"><h4>No threads in group '{this.state.selectedGroup}'</h4></div>
                     </div>);
             }
             else if (filteredThreads.length === 0 && this.state.selectedGroup === ALL_THREADS) {
                 displayedThreads = (
                     <div className="row error-message">
-                        <div className="col-xs-12"><h4>No threads with state {this.state.selectedThreadState}</h4></div>
+                        <div className="col-12"><h4>No threads with state {this.state.selectedThreadState}</h4></div>
                     </div>);
             }
             else if (filteredThreads.length === 0) {
                 displayedThreads = (
                     <div className="row error-message">
-                        <div className="col-xs-12"><h4>No threads in group '{this.state.selectedGroup}' with state {this.state.selectedThreadState}</h4></div>
+                        <div className="col-12"><h4>No threads in group '{this.state.selectedGroup}' with state {this.state.selectedThreadState}</h4></div>
                     </div>);
             }
             else {
@@ -260,11 +260,11 @@ export class WorkerThreadList extends React.Component {
         return (
             <div>
                 <div className="row">
-                    <div className="col-xs-3">
-                        <h3>
+                    <div className="col-3">
+                        <h3 style={{fontSize: '24px'}}>
                             Thread Snapshot
-                            <a className="btn copy-button" data-clipboard-target="#stack-traces" data-toggle="tooltip" data-placement="right" title="Copy to clipboard">
-                                <span className="glyphicon glyphicon-copy" alt="Copy to clipboard"/>
+                            <a className="btn copy-button" data-clipboard-target="#stack-traces" data-bs-toggle="tooltip" data-placement="right" title="Copy to clipboard">
+                                <span className="bi bi-copy" alt="Copy to clipboard" />
                             </a>
                             &nbsp;
                         </h3>
@@ -272,7 +272,7 @@ export class WorkerThreadList extends React.Component {
                     {toolbar}
                 </div>
                 <div className="row">
-                    <div className="col-xs-12">
+                    <div className="col-12">
                         <hr className="h3-hr"/>
                         {display}
                     </div>

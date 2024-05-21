@@ -15,9 +15,25 @@
 /** Element preset overrides **/
 /** ======================== **/
 
+#query-list > div > div > div > div > div > div > div > a{
+    text-decoration: none;
+}
+#query-list > div > div > div > div > div > div > div > a:hover{
+    text-decoration: underline;
+}
+#query-list > div > div > div > div > div > div > div > span > span > a{
+    text-decoration: none;
+}
+#query-list > div > div > div > div > div > div > div > span > span > a:hover{
+    text-decoration: underline;
+}
+
 body {
     padding-top: 20px;
     padding-bottom: 20px;
+    background-color: #252830;
+    font-family: Roboto , "Helvetica Neue", Helvetica, Arial, sans-serif;
+
 }
 
 h2 {
@@ -42,6 +58,19 @@ pre {
 
 /** Bootstrap overrides **/
 /** =================== **/
+
+#legend > div{
+    width: 200px;
+}
+
+.search-bar{
+    width: 25vw;
+}
+
+.search-bar::placeholder{
+    color: black;
+    opacity: 0.4;
+}
 
 .container {
     min-width: 960px;
@@ -119,6 +148,11 @@ pre {
     background-color: #7b7b7b;
 }
 
+.dropdown-menu > li > a:hover {
+    color: #fff; 
+    background-color: #d7d4d4;
+}
+
 /** Convenience classes */
 /** =================== */
 
@@ -167,6 +201,7 @@ pre {
 .navbar {
     padding: 0 5px 0 5px;
     border-bottom: 1px solid #1EDCFF;
+    background: #252830 !important
 }
 
 .navbar-brand {
@@ -179,6 +214,7 @@ pre {
 
 .navbar-brand a {
     color: #ffffffa5;
+    text-decoration: none;
 }
 
 .navbar-brand a:hover {
@@ -294,8 +330,8 @@ pre {
 .hud-container {
     background-size: 5px 5px;
     background-image: linear-gradient(to right, #2d2d2d 1px, transparent 1px), linear-gradient(to bottom, #2d2d2d 1px, transparent 1px);
-    margin: -15px 0 0 0;
-    padding: 15px 0 0 0;
+
+    padding: 15px 0 0 0 !important;
     height: 375px;
 }
 
@@ -391,7 +427,7 @@ pre {
 }
 
 .query-snippet {
-    height: 138px;
+    height: 160px;
     overflow: hidden;
 }
 
@@ -431,8 +467,8 @@ pre {
 
 .query-header-queryid {
     margin-left: -15px;
-    margin-right: -35px;
-    padding: 8px 0 8px 0;
+    margin-right: -25px;
+    padding: 6px 0 6px 0;
 }
 
 .query-header-timestamp {
