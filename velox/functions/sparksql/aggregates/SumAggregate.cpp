@@ -49,7 +49,7 @@ exec::AggregateRegistrationResult registerSum(
     bool overwrite) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
       exec::AggregateFunctionSignatureBuilder()
-          .returnType("real")
+          .returnType("double")
           .intermediateType("double")
           .argumentType("real")
           .build(),

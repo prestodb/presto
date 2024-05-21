@@ -449,5 +449,17 @@ TEST_F(SumAggregationTest, decimalRangeOverflow) {
       {expected},
       {});
 }
+
+TEST_F(SumAggregationTest, sumFloat) {
+  auto data =
+      makeRowVector({makeFlatVector<float>({3.4028235E38, 3.4028235E38})});
+  createDuckDbTable({data});
+
+  testAggregations(
+      [&](auto& builder) { builder.values({data}); },
+      {},
+      {"spark_sum(c0)"},
+      "SELECT sum(c0) FROM tmp");
+}
 } // namespace
 } // namespace facebook::velox::functions::aggregate::sparksql::test
