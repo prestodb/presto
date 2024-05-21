@@ -937,9 +937,14 @@ void toTypeSql(const TypePtr& type, std::ostream& out) {
 }
 
 std::string IntervalDayTimeType::valueToString(int64_t value) const {
-  static const char* kIntervalFormat = "%d %02d:%02d:%02d.%03d";
+  static const char* kIntervalFormat = "%s%lld %02d:%02d:%02d.%03d";
 
-  int64_t remainMillis = value;
+  int128_t remainMillis = value;
+  std::string sign{};
+  if (remainMillis < 0) {
+    sign = "-";
+    remainMillis = -remainMillis;
+  }
   const int64_t days = remainMillis / kMillisInDay;
   remainMillis -= days * kMillisInDay;
   const int64_t hours = remainMillis / kMillisInHour;
@@ -953,6 +958,7 @@ std::string IntervalDayTimeType::valueToString(int64_t value) const {
       buf,
       sizeof(buf),
       kIntervalFormat,
+      sign.c_str(),
       days,
       hours,
       minutes,
