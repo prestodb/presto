@@ -239,6 +239,9 @@ std::unique_ptr<DistinctAggregations> DistinctAggregations::create(
     case TypeKind::BIGINT:
       return std::make_unique<TypedDistinctAggregations<int64_t>>(
           aggregates, inputType, pool);
+    case TypeKind::HUGEINT:
+      return std::make_unique<TypedDistinctAggregations<int128_t>>(
+          aggregates, inputType, pool);
     case TypeKind::REAL:
       return std::make_unique<TypedDistinctAggregations<float>>(
           aggregates, inputType, pool);
