@@ -12,7 +12,6 @@
 
 FROM quay.io/centos/centos:stream8
 
-ARG BUILD_TYPE=Release
 ENV PROMPT_ALWAYS_RESPOND=n
 ENV CC=/opt/rh/gcc-toolset-9/root/bin/gcc
 ENV CXX=/opt/rh/gcc-toolset-9/root/bin/g++
