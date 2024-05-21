@@ -46,14 +46,14 @@ export function QueryResults({ results }) {
     return (
         <>
             <div className="row">
-                <div className='col-xs-6'>
+                <div className='col-6'>
                     <h3>Results</h3>
                 </div>
-                <div className="col-xs-6">
+                <div className="col-6">
                     {results.queryId &&
                         <a style={{ display: 'block', marginTop: '27px', marginBottom: '10px' }}
                             href={"query.html?" + results.queryId} target="_blank"
-                            data-toggle="tooltip" data-trigger="hover" title="Query ID"
+                            data-bs-toggle="tooltip" data-trigger="hover" title="Query ID"
                         >
                             {results.queryId}
                         </a>}
@@ -70,7 +70,7 @@ export function QueryResults({ results }) {
                     data={results.data}
                     theme='dark'
                     customStyles={CUSTOM_STYLES}
-                    striped='true'
+                    striped={true}
                     pagination />
             </div>}
         </>

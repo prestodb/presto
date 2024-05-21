@@ -97,15 +97,15 @@ export class QueryHeader extends React.Component {
         return (
             <div>
                 <div className="row">
-                    <div className="col-xs-6">
+                    <div className="col-6">
                         <h3 className="query-id">
                             <span id="query-id">{query.queryId}</span>
-                            <a className="btn copy-button" data-clipboard-target="#query-id" data-toggle="tooltip" data-placement="right" title="Copy to clipboard">
-                                <span className="glyphicon glyphicon-copy" aria-hidden="true" alt="Copy to clipboard"/>
+                            <a className="btn copy-button" data-clipboard-target="#query-id" data-bs-toggle="tooltip" data-placement="right" title="Copy to clipboard">
+                                <span className="bi bi-copy" aria-hidden="true" alt="Copy to clipboard"/>
                             </a>
                         </h3>
                     </div>
-                    <div className="col-xs-6">
+                    <div className="col-6">
                         <table className="header-inline-links">
                             <tbody>
                             <tr>
@@ -127,7 +127,7 @@ export class QueryHeader extends React.Component {
                 </div>
                 <hr className="h2-hr"/>
                 <div className="row">
-                    <div className="col-xs-12">
+                    <div className="col-12">
                         {this.renderProgressBar()}
                     </div>
                 </div>

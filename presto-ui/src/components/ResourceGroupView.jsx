@@ -70,7 +70,7 @@ function NoGroupIdWidget({groupId, error, groups}) {
     if (groups.length > 0) {
         docView = (
             <>
-            <div className="col-xs-4 col-xs-offset-4">
+            <div className="col-4 col-offset-4">
                 <h4 className="text-center">Available resource groups:</h4>
                 <div className="list-group">
                     {groups.map(grp => (
@@ -82,7 +82,7 @@ function NoGroupIdWidget({groupId, error, groups}) {
         );
     } else if (error) {
         docView = (
-            <div className="col-xs-12">
+            <div className="col-12">
                 <h3 className="text-center">For details information about Resource Groups, please check document <a href="https://prestodb.io/docs/current/admin/resource-groups.html">here</a></h3>
                 <h4 className="text-center">{error.message}</h4>
             </div>
@@ -90,7 +90,7 @@ function NoGroupIdWidget({groupId, error, groups}) {
     }
 
     return (
-        <div className="col-xs-12">{docView}</div>
+        <div className="col-12">{docView}</div>
     );
 }
 
@@ -234,7 +234,7 @@ export default function ResourceGroupView() {
         $('#agg-running-queries-sparkline').sparkline(dataSet.current.numAggregatedRunningQueries, $.extend({}, SPARKLINE_PROPERTIES, {chartRangeMin: 0}));
         $('#agg-queued-queries-sparkline').sparkline(dataSet.current.numAggregatedQueuedQueries, $.extend({}, SPARKLINE_PROPERTIES, {chartRangeMin: 0}));
         $('#memory-usage-sparkline').sparkline(dataSet.current.memoryUsage, $.extend({}, SPARKLINE_PROPERTIES, {numberFormatter: formatDataSizeBytes}));
-        $('[data-toggle="tooltip"]').tooltip();
+        $('[data-bs-toggle="tooltip"]').tooltip();
         timerid.current = setTimeout(fetchData, 1000);
     }
 
@@ -261,16 +261,16 @@ export default function ResourceGroupView() {
             <div className={values.showResource ? 'container' : 'hide container'}>
                 <div className="row">
                     {values.id.length > 0 && (
-                        <div className="col-xs-12">
-                                <div className="col-xs-2 breadcrumb breadcrumb-title">
+                        <div className="col-12">
+                                <div className="col-2 breadcrumb breadcrumb-title">
                                     Resource Group:
                                 </div>
-                                <div className="col-xs-10">
+                                <div className="col-10">
                                 <GroupBreadcrumb groupId={values.id} />
                             </div>
                         </div>
                     )}
-                    <div className="col-xs-6">
+                    <div className="col-6">
                         <h3>Information</h3>
                         <hr className="h3-hr"/>
                         <table className="table">
@@ -297,7 +297,7 @@ export default function ResourceGroupView() {
                             </tbody>
                         </table>
                     </div>
-                    <div className="col-xs-6">
+                    <div className="col-6">
                         <h3>Timeline</h3>
                         <hr className="h3-hr"/>
                         <table className="table">
@@ -310,7 +310,7 @@ export default function ResourceGroupView() {
                             </tbody>
                         </table>
                     </div>
-                    <div className={ values.runningQueries.length ? "col-xs-12" : "hide col-xs-12"}>
+                    <div className={ values.runningQueries.length ? "col-12" : "hide col-12"}>
                         <h3>Running Queries</h3>
                         <hr className="h3-hr"/>
                         { values.runningQueries.map( query => (
