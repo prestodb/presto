@@ -40,7 +40,9 @@ not listed below.
 | [gperf](https://www.gnu.org/software/gperf) |`v3.1`|
 | [proxygen](https://github.com/facebook/proxygen) |`v2024.04.01.00`|
 
-### Supported operating systems and compilers
+### Supported architectures, operating systems, and compilers
+
+The supported architectures are `x86_64 (avx, sse)`, and `AArch64 (apple-m1+crc, neoverse-n1)`.
 
 Prestissimo can be built by a variety of compilers (and versions) but not all.
 Compilers (and versions) not mentioned are known to not work or have not been tried.
