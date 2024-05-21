@@ -49,49 +49,6 @@ class QueryCtx : public std::enable_shared_from_this<QueryCtx> {
       folly::Executor* spillExecutor = nullptr,
       const std::string& queryId = "");
 
-  /// Constructor to block the destruction of executor while this object is
-  /// alive.
-  ///
-  /// This constructor does not keep the ownership of executor.
-  static std::shared_ptr<QueryCtx> create(
-      folly::Executor::KeepAlive<> executorKeepalive,
-      std::unordered_map<std::string, std::string> queryConfigValues = {},
-      std::unordered_map<std::string, std::shared_ptr<Config>>
-          connectorConfigs = {},
-      cache::AsyncDataCache* cache = cache::AsyncDataCache::getInstance(),
-      std::shared_ptr<memory::MemoryPool> pool = nullptr,
-      const std::string& queryId = "");
-
-  /// QueryCtx is used in different places. When used with `Task::start()`, it's
-  /// required that the caller supplies the executor and ensure its lifetime
-  /// outlives the tasks that use it. In contrast, when used in expression
-  /// evaluation through `ExecCtx` or 'Task::next()' for single thread execution
-  /// mode, executor is not needed. Hence, we don't require executor to always
-  /// be passed in here, but instead, ensure that executor exists when actually
-  /// being used.
-  QueryCtx(
-      folly::Executor* executor = nullptr,
-      QueryConfig&& queryConfig = QueryConfig{{}},
-      std::unordered_map<std::string, std::shared_ptr<Config>>
-          connectorConfigs = {},
-      cache::AsyncDataCache* cache = cache::AsyncDataCache::getInstance(),
-      std::shared_ptr<memory::MemoryPool> pool = nullptr,
-      folly::Executor* spillExecutor = nullptr,
-      const std::string& queryId = "");
-
-  /// Constructor to block the destruction of executor while this
-  /// object is alive.
-  ///
-  /// This constructor does not keep the ownership of executor.
-  explicit QueryCtx(
-      folly::Executor::KeepAlive<> executorKeepalive,
-      std::unordered_map<std::string, std::string> queryConfigValues = {},
-      std::unordered_map<std::string, std::shared_ptr<Config>>
-          connectorConfigs = {},
-      cache::AsyncDataCache* cache = cache::AsyncDataCache::getInstance(),
-      std::shared_ptr<memory::MemoryPool> pool = nullptr,
-      const std::string& queryId = "");
-
   static std::string generatePoolName(const std::string& queryId);
 
   memory::MemoryPool* pool() const {
@@ -103,15 +60,12 @@ class QueryCtx : public std::enable_shared_from_this<QueryCtx> {
   }
 
   folly::Executor* executor() const {
-    VELOX_CHECK(isExecutorSupplied(), "Executor was not supplied.");
-    if (executor_ != nullptr) {
-      return executor_;
-    }
-    return executorKeepalive_.get();
+    return executor_;
+    ;
   }
 
   bool isExecutorSupplied() const {
-    return executor_ != nullptr || executorKeepalive_.get() != nullptr;
+    return executor_ != nullptr;
   }
 
   const QueryConfig& queryConfig() const {
@@ -171,6 +125,23 @@ class QueryCtx : public std::enable_shared_from_this<QueryCtx> {
   }
 
  private:
+  /// QueryCtx is used in different places. When used with `Task::start()`, it's
+  /// required that the caller supplies the executor and ensure its lifetime
+  /// outlives the tasks that use it. In contrast, when used in expression
+  /// evaluation through `ExecCtx` or 'Task::next()' for single thread execution
+  /// mode, executor is not needed. Hence, we don't require executor to always
+  /// be passed in here, but instead, ensure that executor exists when actually
+  /// being used.
+  QueryCtx(
+      folly::Executor* executor = nullptr,
+      QueryConfig&& queryConfig = QueryConfig{{}},
+      std::unordered_map<std::string, std::shared_ptr<Config>>
+          connectorConfigs = {},
+      cache::AsyncDataCache* cache = cache::AsyncDataCache::getInstance(),
+      std::shared_ptr<memory::MemoryPool> pool = nullptr,
+      folly::Executor* spillExecutor = nullptr,
+      const std::string& queryId = "");
+
   class MemoryReclaimer : public memory::MemoryReclaimer {
    public:
     static std::unique_ptr<memory::MemoryReclaimer> create(
@@ -233,7 +204,6 @@ class QueryCtx : public std::enable_shared_from_this<QueryCtx> {
   std::unordered_map<std::string, std::shared_ptr<Config>>
       connectorSessionProperties_;
   std::shared_ptr<memory::MemoryPool> pool_;
-  folly::Executor::KeepAlive<> executorKeepalive_;
   QueryConfig queryConfig_;
   std::atomic<uint64_t> numSpilledBytes_{0};
 

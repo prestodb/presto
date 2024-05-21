@@ -39,25 +39,6 @@ namespace facebook::velox::core {
   return queryCtx;
 }
 
-/*static*/ std::shared_ptr<QueryCtx> QueryCtx::create(
-    folly::Executor::KeepAlive<> executorKeepalive,
-    std::unordered_map<std::string, std::string> queryConfigValues,
-    std::unordered_map<std::string, std::shared_ptr<Config>>
-        connectorSessionProperties,
-    cache::AsyncDataCache* cache,
-    std::shared_ptr<memory::MemoryPool> pool,
-    const std::string& queryId) {
-  std::shared_ptr<QueryCtx> queryCtx(new QueryCtx(
-      executorKeepalive,
-      std::move(queryConfigValues),
-      std::move(connectorSessionProperties),
-      cache,
-      std::move(pool),
-      queryId));
-  queryCtx->maybeSetReclaimer();
-  return queryCtx;
-}
-
 QueryCtx::QueryCtx(
     folly::Executor* executor,
     QueryConfig&& queryConfig,
@@ -74,23 +55,6 @@ QueryCtx::QueryCtx(
       connectorSessionProperties_(connectorSessionProperties),
       pool_(std::move(pool)),
       queryConfig_{std::move(queryConfig)} {
-  initPool(queryId);
-}
-
-QueryCtx::QueryCtx(
-    folly::Executor::KeepAlive<> executorKeepalive,
-    std::unordered_map<std::string, std::string> queryConfigValues,
-    std::unordered_map<std::string, std::shared_ptr<Config>>
-        connectorSessionProperties,
-    cache::AsyncDataCache* cache,
-    std::shared_ptr<memory::MemoryPool> pool,
-    const std::string& queryId)
-    : queryId_(queryId),
-      cache_(cache),
-      connectorSessionProperties_(connectorSessionProperties),
-      pool_(std::move(pool)),
-      executorKeepalive_(std::move(executorKeepalive)),
-      queryConfig_{std::move(queryConfigValues)} {
   initPool(queryId);
 }
 

@@ -1518,7 +1518,8 @@ DEBUG_ONLY_TEST_F(DriverTest, driverCpuTimeSlicingCheck) {
           "t0",
           fragment,
           0,
-          core::QueryCtx::create(driverExecutor_.get(), std::move(queryConfig)),
+          core::QueryCtx::create(
+              driverExecutor_.get(), core::QueryConfig{std::move(queryConfig)}),
           testParam.executionMode,
           [](RowVectorPtr /*unused*/, ContinueFuture* /*unused*/) {
             return exec::BlockingReason::kNotBlocked;
@@ -1529,7 +1530,8 @@ DEBUG_ONLY_TEST_F(DriverTest, driverCpuTimeSlicingCheck) {
           "t0",
           fragment,
           0,
-          core::QueryCtx::create(driverExecutor_.get(), std::move(queryConfig)),
+          core::QueryCtx::create(
+              driverExecutor_.get(), core::QueryConfig{std::move(queryConfig)}),
           testParam.executionMode);
       while (task->next() != nullptr) {
       }
@@ -1601,7 +1603,8 @@ TEST_F(OpCallStatusTest, basic) {
       "t19",
       fragment,
       0,
-      core::QueryCtx::create(driverExecutor_.get(), std::move(queryConfig)),
+      core::QueryCtx::create(
+          driverExecutor_.get(), core::QueryConfig{std::move(queryConfig)}),
       Task::ExecutionMode::kParallel,
       [](RowVectorPtr /*unused*/, ContinueFuture* /*unused*/) {
         return exec::BlockingReason::kNotBlocked;
