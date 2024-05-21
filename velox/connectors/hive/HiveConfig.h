@@ -106,6 +106,12 @@ class HiveConfig {
   /// The GCS service account configuration as json string
   static constexpr const char* kGCSCredentials = "hive.gcs.credentials";
 
+  /// The GCS maximum retry counter of transient errors.
+  static constexpr const char* kGCSMaxRetryCount = "hive.gcs.max-retry-count";
+
+  /// The GCS maximum time allowed to retry transient errors.
+  static constexpr const char* kGCSMaxRetryTime = "hive.gcs.max-retry-time";
+
   /// Maps table field names to file field names using names, not indices.
   // TODO: remove hive_orc_use_column_names since it doesn't exist in presto,
   // right now this is only used for testing.
@@ -241,6 +247,10 @@ class HiveConfig {
   std::string gcsScheme() const;
 
   std::string gcsCredentials() const;
+
+  std::optional<int> gcsMaxRetryCount() const;
+
+  std::optional<std::string> gcsMaxRetryTime() const;
 
   bool isOrcUseColumnNames(const Config* session) const;
 

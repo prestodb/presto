@@ -20,6 +20,7 @@
 #include "velox/connectors/hive/HiveConfig.h"
 #include "velox/connectors/hive/storage_adapters/gcs/GCSUtil.h"
 #include "velox/core/Config.h"
+#include "velox/core/QueryConfig.h"
 
 #include <fmt/format.h>
 #include <glog/logging.h>
@@ -274,6 +275,20 @@ class GCSFileSystem::Impl {
       options.set<gc::UnifiedCredentialsOption>(gc::MakeInsecureCredentials());
     }
     options.set<gcs::UploadBufferSizeOption>(kUploadBufferSize);
+
+    auto max_retry_count = hiveConfig_->gcsMaxRetryCount();
+    if (max_retry_count) {
+      options.set<gcs::RetryPolicyOption>(
+          gcs::LimitedErrorCountRetryPolicy(max_retry_count.value()).clone());
+    }
+
+    auto max_retry_time = hiveConfig_->gcsMaxRetryTime();
+    if (max_retry_time) {
+      auto retry_time = std::chrono::duration_cast<std::chrono::milliseconds>(
+          facebook::velox::core::toDuration(max_retry_time.value()));
+      options.set<gcs::RetryPolicyOption>(
+          gcs::LimitedTimeRetryPolicy(retry_time).clone());
+    }
 
     auto endpointOverride = hiveConfig_->gcsEndpoint();
     if (!endpointOverride.empty()) {

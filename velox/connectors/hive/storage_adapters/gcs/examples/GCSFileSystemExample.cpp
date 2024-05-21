@@ -24,10 +24,19 @@
 #include <iostream>
 
 DEFINE_string(gcs_path, "", "Path of GCS bucket");
+DEFINE_string(gcs_max_retry_count, "", "Max retry count");
+DEFINE_string(gcs_max_retry_time, "", "Max retry time");
 
 auto newConfiguration() {
   using namespace facebook::velox;
   std::unordered_map<std::string, std::string> configOverride = {};
+  if (!FLAGS_gcs_max_retry_count.empty()) {
+    configOverride.emplace(
+        "hive.gcs.max-retry-count", FLAGS_gcs_max_retry_count);
+  }
+  if (!FLAGS_gcs_max_retry_time.empty()) {
+    configOverride.emplace("hive.gcs.max-retry-time", FLAGS_gcs_max_retry_time);
+  }
   return std::make_shared<const core::MemConfig>(std::move(configOverride));
 }
 
@@ -40,7 +49,7 @@ int main(int argc, char** argv) {
   }
   filesystems::GCSFileSystem gcfs(newConfiguration());
   gcfs.initializeClient();
-  std::cout << "Opening file " << FLAGS_gcs_path << std::endl;
+  std::cout << "Opening file for read " << FLAGS_gcs_path << std::endl;
   std::unique_ptr<ReadFile> file_read = gcfs.openFileForRead(FLAGS_gcs_path);
   std::size_t file_size = file_read->size();
   std::cout << "File size = " << file_size << std::endl;
