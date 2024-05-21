@@ -857,11 +857,11 @@ void RowContainer::hashTyped(
                       : BaseVector::kNullHash;
     } else {
       uint64_t hash;
-      if (Kind == TypeKind::VARCHAR || Kind == TypeKind::VARBINARY) {
+      if constexpr (Kind == TypeKind::VARCHAR || Kind == TypeKind::VARBINARY) {
         hash =
             folly::hasher<StringView>()(HashStringAllocator::contiguousString(
                 valueAt<StringView>(row, offset), storage));
-      } else if (
+      } else if constexpr (
           Kind == TypeKind::ROW || Kind == TypeKind::ARRAY ||
           Kind == TypeKind::MAP) {
         auto in = prepareRead(row, offset);

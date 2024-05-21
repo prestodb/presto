@@ -833,7 +833,8 @@ class RowContainer {
     // Resize the result vector before all copies.
     result->resize(numRows + resultOffset);
 
-    if (Kind == TypeKind::ROW || Kind == TypeKind::ARRAY ||
+    if constexpr (
+        Kind == TypeKind::ROW || Kind == TypeKind::ARRAY ||
         Kind == TypeKind::MAP) {
       extractComplexType<useRowNumbers>(
           rows, rowNumbers, numRows, column, resultOffset, result);
@@ -1047,11 +1048,12 @@ class RowContainer {
     if (indexIsNull) {
       return flags.nullsFirst ? 1 : -1;
     }
-    if (Kind == TypeKind::ROW || Kind == TypeKind::ARRAY ||
+    if constexpr (
+        Kind == TypeKind::ROW || Kind == TypeKind::ARRAY ||
         Kind == TypeKind::MAP) {
       return compareComplexType(row, column.offset(), decoded, index, flags);
     }
-    if (Kind == TypeKind::VARCHAR || Kind == TypeKind::VARBINARY) {
+    if constexpr (Kind == TypeKind::VARCHAR || Kind == TypeKind::VARBINARY) {
       auto result = compareStringAsc(
           valueAt<StringView>(row, column.offset()), decoded, index);
       return flags.ascending ? result : result * -1;
@@ -1084,12 +1086,13 @@ class RowContainer {
 
     auto leftOffset = leftColumn.offset();
     auto rightOffset = rightColumn.offset();
-    if (Kind == TypeKind::ROW || Kind == TypeKind::ARRAY ||
+    if constexpr (
+        Kind == TypeKind::ROW || Kind == TypeKind::ARRAY ||
         Kind == TypeKind::MAP) {
       return compareComplexType(
           left, right, type, leftOffset, rightOffset, flags);
     }
-    if (Kind == TypeKind::VARCHAR || Kind == TypeKind::VARBINARY) {
+    if constexpr (Kind == TypeKind::VARCHAR || Kind == TypeKind::VARBINARY) {
       auto leftValue = valueAt<StringView>(left, leftOffset);
       auto rightValue = valueAt<StringView>(right, rightOffset);
       auto result = compareStringAsc(leftValue, rightValue);

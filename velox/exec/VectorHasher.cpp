@@ -53,7 +53,8 @@ namespace facebook::velox::exec {
 namespace {
 template <TypeKind Kind>
 uint64_t hashOne(DecodedVector& decoded, vector_size_t index) {
-  if (Kind == TypeKind::ROW || Kind == TypeKind::ARRAY ||
+  if constexpr (
+      Kind == TypeKind::ROW || Kind == TypeKind::ARRAY ||
       Kind == TypeKind::MAP) {
     // Virtual function call for complex type.
     return decoded.base()->hashValueAt(decoded.index(index));
