@@ -14,7 +14,9 @@
 package com.facebook.presto.verifier.checksum;
 
 import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.common.type.MapType;
+import com.facebook.presto.common.type.RealType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.Expression;
@@ -44,16 +46,28 @@ public class MapColumnValidator
 
         Expression checksum = functionCall("checksum", column.getExpression());
         Expression keysChecksum = generateArrayChecksum(functionCall("map_keys", column.getExpression()), new ArrayType(keyType));
-        Expression valuesChecksum = generateArrayChecksum(functionCall("map_values", column.getExpression()), new ArrayType(valueType));
         Expression mapCardinalityChecksum = functionCall("checksum", functionCall("cardinality", column.getExpression()));
         Expression mapCardinalitySum = new CoalesceExpression(
                 functionCall("sum", functionCall("cardinality", column.getExpression())),
                 new LongLiteral("0"));
 
+        // We need values checksum in one case only: when key is a floating point type and value is not.
+        // In such case, when both column checksum and the key checksum do not match, we cannot tell if the values match or not.
+        // Meaning we cannot resolve column mismatch, because value type is not a floating type and a mismatch in the values could indicate a real correctness issue.
+        // In order to resolve column mismatch in such a situation, generate an extra checksum for the values.
+        if (isFloatingPointType(keyType) && !isFloatingPointType(valueType)) {
+            Expression valuesChecksum = generateArrayChecksum(functionCall("map_values", column.getExpression()), new ArrayType(valueType));
+            return ImmutableList.of(
+                    new SingleColumn(checksum, Optional.of(delimitedIdentifier(getChecksumColumnAlias(column)))),
+                    new SingleColumn(keysChecksum, Optional.of(delimitedIdentifier(getKeysChecksumColumnAlias(column)))),
+                    new SingleColumn(valuesChecksum, Optional.of(delimitedIdentifier(getValuesChecksumColumnAlias(column)))),
+                    new SingleColumn(mapCardinalityChecksum, Optional.of(delimitedIdentifier(getCardinalityChecksumColumnAlias(column)))),
+                    new SingleColumn(mapCardinalitySum, Optional.of(delimitedIdentifier(getCardinalitySumColumnAlias(column)))));
+        }
+
         return ImmutableList.of(
                 new SingleColumn(checksum, Optional.of(delimitedIdentifier(getChecksumColumnAlias(column)))),
                 new SingleColumn(keysChecksum, Optional.of(delimitedIdentifier(getKeysChecksumColumnAlias(column)))),
-                new SingleColumn(valuesChecksum, Optional.of(delimitedIdentifier(getValuesChecksumColumnAlias(column)))),
                 new SingleColumn(mapCardinalityChecksum, Optional.of(delimitedIdentifier(getCardinalityChecksumColumnAlias(column)))),
                 new SingleColumn(mapCardinalitySum, Optional.of(delimitedIdentifier(getCardinalitySumColumnAlias(column)))));
     }
@@ -72,9 +86,14 @@ public class MapColumnValidator
         return new MapColumnChecksum(
                 checksumResult.getChecksum(getChecksumColumnAlias(column)),
                 checksumResult.getChecksum(getKeysChecksumColumnAlias(column)),
-                checksumResult.getChecksum(getValuesChecksumColumnAlias(column)),
+                checksumResult.getChecksums().containsKey(getValuesChecksumColumnAlias(column)) ? checksumResult.getChecksum(getValuesChecksumColumnAlias(column)) : null,
                 checksumResult.getChecksum(getCardinalityChecksumColumnAlias(column)),
                 (long) checksumResult.getChecksum(getCardinalitySumColumnAlias(column)));
+    }
+
+    private static boolean isFloatingPointType(Type type)
+    {
+        return type instanceof DoubleType || type instanceof RealType;
     }
 
     private static String getChecksumColumnAlias(Column column)
