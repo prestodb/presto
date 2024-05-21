@@ -23,6 +23,7 @@
 #include "velox/exec/Exchange.h"
 #include "velox/exec/OutputBufferManager.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
+#include "velox/exec/tests/utils/LocalExchangeSource.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/parse/Expressions.h"
@@ -112,10 +113,15 @@ void OperatorTestBase::SetUp() {
   }
   driverExecutor_ = std::make_unique<folly::CPUThreadPoolExecutor>(3);
   ioExecutor_ = std::make_unique<folly::IOThreadPoolExecutor>(3);
+  testingStartLocalExchangeSource();
 }
 
 void OperatorTestBase::TearDown() {
   waitForAllTasksToBeDeleted();
+  // There might be lingering exchange source on executor even after all tasks
+  // are deleted. This can cause memory leak because exchange source holds
+  // reference to memory pool. We need to make sure they are properly cleaned.
+  testingShutdownLocalExchangeSource();
   pool_.reset();
   rootPool_.reset();
   resetMemory();

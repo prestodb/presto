@@ -64,15 +64,14 @@ class LocalExchangeSource : public exec::ExchangeSource {
                               int64_t sequence,
                               std::vector<int64_t> remainingBytes) {
       {
-        std::lock_guard<std::mutex> l(timeoutMutex_);
+        std::lock_guard<std::mutex> l(mutex_);
         // This function is called either for a result or timeout. Only the
         // first of these calls has an effect.
         auto iter = timeouts_.find(self);
-        if (iter != timeouts_.end()) {
-          timeouts_.erase(iter);
-        } else {
+        if (iter == timeouts_.end()) {
           return;
         }
+        timeouts_.erase(iter);
       }
 
       if (requestedSequence > sequence && !data.empty()) {
@@ -182,15 +181,35 @@ class LocalExchangeSource : public exec::ExchangeSource {
     };
   }
 
-  /// Stops timeout thread and makes sure there are no references to
-  /// sources or their callbacks in global state.
+  // Invoked to start exchange source to run. It clears 'stop_' which allows
+  // the background timeout executor to run on the first exchange source
+  // request.
+  static void start() {
+    std::lock_guard<std::mutex> l(mutex_);
+    VELOX_CHECK_NULL(timerThread_);
+    VELOX_CHECK(timeouts_.empty());
+    stop_ = false;
+  }
+
+  // Invoked to stop the exchange source. It sets 'stop_', clears the current
+  // pending request 'timeouts_' and join/destroy 'timeoutCheckExecutor_' if
+  // created.
   static void stop() {
-    if (executor_) {
+    {
+      std::lock_guard<std::mutex> l(mutex_);
+      if (stop_) {
+        VELOX_CHECK(timeouts_.empty());
+        return;
+      }
       stop_ = true;
-      executor_->join();
+      if (timerThread_ == nullptr) {
+        VELOX_CHECK(timeouts_.empty());
+        return;
+      }
       timeouts_.clear();
-      executor_.reset();
     }
+    timerThread_->join();
+    timerThread_.reset();
   }
 
  private:
@@ -198,24 +217,21 @@ class LocalExchangeSource : public exec::ExchangeSource {
       std::vector<std::unique_ptr<folly::IOBuf>> data,
       int64_t sequence,
       std::vector<int64_t> remainingBytes)>;
+
   static void registerTimeout(
       const std::shared_ptr<ExchangeSource>& self,
       ResultCallback callback,
       std::chrono::microseconds maxWait) {
-    std::lock_guard<std::mutex> l(timeoutMutex_);
-    if (!executor_) {
-      executor_ = std::make_unique<folly::CPUThreadPoolExecutor>(1);
-      if (!exitInitialized_) {
-        exitInitialized_ = true;
-        atexit([]() { stop(); });
-      }
-      stop_ = false;
-      executor_->add([]() {
+    std::lock_guard<std::mutex> l(mutex_);
+    VELOX_CHECK(!stop_, "Local exchange source has stopped");
+
+    if (timerThread_ == nullptr) {
+      timerThread_ = std::make_unique<std::thread>([&]() {
         while (!stop_) {
           auto now = std::chrono::system_clock::now();
           ResultCallback callback = nullptr;
           {
-            std::lock_guard<std::mutex> t(timeoutMutex_);
+            std::lock_guard<std::mutex> t(mutex_);
             for (auto& pair : timeouts_) {
               if (pair.second.second < now) {
                 callback = pair.second.first;
@@ -231,6 +247,10 @@ class LocalExchangeSource : public exec::ExchangeSource {
           std::this_thread::sleep_for(std::chrono::seconds(1));
         }
       });
+      if (!exitInitialized_) {
+        exitInitialized_ = true;
+        atexit([]() { stop(); });
+      }
     }
     timeouts_[self] =
         std::make_pair(callback, std::chrono::system_clock::now() + maxWait);
@@ -250,33 +270,21 @@ class LocalExchangeSource : public exec::ExchangeSource {
     return false;
   }
 
+  static inline std::mutex mutex_;
+  static inline folly::F14FastMap<
+      std::shared_ptr<ExchangeSource>,
+      std::pair<ResultCallback, std::chrono::system_clock::time_point>>
+      timeouts_;
+  static inline std::unique_ptr<std::thread> timerThread_;
+  static inline std::atomic_bool stop_{false};
+  static inline bool exitInitialized_{false};
+
   // Records the total number of pages fetched from sources.
   std::atomic<int64_t> numPages_{0};
   std::atomic<uint64_t> totalBytes_{0};
   VeloxPromise<Response> promise_{VeloxPromise<Response>::makeEmpty()};
   int32_t numRequests_{0};
-
-  static std::mutex timeoutMutex_;
-  static folly::F14FastMap<
-      std::shared_ptr<ExchangeSource>,
-      std::pair<ResultCallback, std::chrono::system_clock::time_point>>
-      timeouts_;
-  static std::unique_ptr<folly::CPUThreadPoolExecutor> executor_;
-  static std::atomic_bool stop_;
-  static bool exitInitialized_;
 };
-
-std::mutex LocalExchangeSource::timeoutMutex_;
-folly::F14FastMap<
-    std::shared_ptr<ExchangeSource>,
-    std::pair<
-        LocalExchangeSource::ResultCallback,
-        std::chrono::system_clock::time_point>>
-    LocalExchangeSource::timeouts_;
-std::unique_ptr<folly::CPUThreadPoolExecutor> LocalExchangeSource::executor_;
-std::atomic_bool LocalExchangeSource::stop_ = false;
-bool LocalExchangeSource::exitInitialized_ = false;
-
 } // namespace
 
 std::unique_ptr<ExchangeSource> createLocalExchangeSource(
@@ -291,6 +299,10 @@ std::unique_ptr<ExchangeSource> createLocalExchangeSource(
     throw std::runtime_error("Testing error");
   }
   return nullptr;
+}
+
+void testingStartLocalExchangeSource() {
+  LocalExchangeSource::start();
 }
 
 void testingShutdownLocalExchangeSource() {

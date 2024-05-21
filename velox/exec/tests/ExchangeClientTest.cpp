@@ -20,6 +20,7 @@
 #include "velox/exec/Task.h"
 #include "velox/exec/tests/utils/LocalExchangeSource.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
+#include "velox/exec/tests/utils/QueryAssertions.h"
 #include "velox/serializers/PrestoSerializer.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
@@ -35,14 +36,19 @@ class ExchangeClientTest : public testing::Test,
   }
 
   void SetUp() override {
+    test::testingStartLocalExchangeSource();
     executor_ = std::make_unique<folly::CPUThreadPoolExecutor>(16);
     exec::ExchangeSource::factories().clear();
     exec::ExchangeSource::registerFactory(test::createLocalExchangeSource);
     if (!isRegisteredVectorSerde()) {
       velox::serializer::presto::PrestoVectorSerde::registerVectorSerde();
     }
-
     bufferManager_ = OutputBufferManager::getInstance().lock();
+  }
+
+  void TearDown() override {
+    exec::test::waitForAllTasksToBeDeleted();
+    test::testingShutdownLocalExchangeSource();
   }
 
   std::unique_ptr<SerializedPage> toSerializedPage(const RowVectorPtr& vector) {
@@ -420,7 +426,6 @@ TEST_F(ExchangeClientTest, sourceTimeout) {
   EXPECT_TRUE(atEnd);
 
   client->close();
-  test::testingShutdownLocalExchangeSource();
 }
 
 TEST_F(ExchangeClientTest, callNextAfterClose) {
@@ -467,7 +472,6 @@ TEST_F(ExchangeClientTest, callNextAfterClose) {
   EXPECT_FALSE(futureFinal.valid());
 
   client->close();
-  test::testingShutdownLocalExchangeSource();
 }
 
 } // namespace
