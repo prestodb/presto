@@ -12,7 +12,7 @@
 
 ARG base=amd64/ubuntu:22.04
 FROM ${base}
-ARG BUILD_TYPE=Release
+
 # Set a default timezone, can be overriden via ARG
 ARG tz="America/New_York"
 ARG DEBIAN_FRONTEND="noninteractive"
