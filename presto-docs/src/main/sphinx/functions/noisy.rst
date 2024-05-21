@@ -123,6 +123,30 @@ is supported via the Sketch-Flip-Merge (SFM) data sketch [Hehir2023]_.
         Unlike :func:`approx_set`, this function returns ``NULL`` when ``col`` is empty.
         If this behavior is undesirable, use :func:`coalesce` with :func:`noisy_empty_approx_set_sfm`.
 
+.. function:: noisy_approx_set_sfm_from_index_and_zeros(col_index, col_zeros, epsilon, buckets[, precision]) -> SfmSketch
+
+    Returns an SFM sketch of the input values in ``col_index`` and ``col_zeros``.
+
+    This is similar to :func:`noisy_approx_set_sfm` except that function calculates a ``Murmur3Hash128.hash64()`` of ``col``,
+    and calculates the SFM PCSA bucket index and number of trailing zeros as described in
+    [FlajoletMartin1985]_. In this function, the caller must explicitly calculate the hash bucket index
+    and zeros themselves and pass them as arguments ``col_index`` and ``col_zeros``.
+
+    - ``col_index`` (bigint) must be in the range ``0..buckets-1``.
+    - ``col_zeros`` (bigint) must be in the range ``0..64``. If it exceeds ``precision``, it
+      is cropped to ``precision-1``.
+    - ``epsilon`` (double) is a positive number that controls the level of noise in
+      the sketch, as described in [Hehir2023]_. Smaller values of epsilon correspond
+      to noisier sketches.
+    - ``buckets`` (int) is the number of buckets in the SFM PCSA sketch as described in [Hehir2023]_.
+    - ``precision`` (int) defaults to 24.
+
+    .. note::
+
+        Like  :func:`noisy_approx_set_sfm`, this function returns ``NULL`` when ``col_index``
+        or ``col_zeros`` is ``NULL``.
+        If this behavior is undesirable, use :func:`coalesce` with :func:`noisy_empty_approx_set_sfm`.
+
 .. function:: noisy_approx_distinct_sfm(col, epsilon[, buckets[, precision]]) -> bigint
 
     Equivalent to ``cardinality(noisy_approx_set_sfm(col, epsilon, buckets, precision))``,
@@ -205,3 +229,8 @@ privacy-preserving purposes, including:
     Privacy Analysis of the Gaussian Sparse Histogram Mechanism.
     <https://journalprivacyconfidentiality.org/index.php/jpc/article/view/823/755>`_
     *Journal of Privacy and Confidentiality*, 14 (1).
+
+.. [FlajoletMartin1985] Flajolet, P, Martin, G. N. (1985). `Probabilistic Counting Algorithms for Data Base Applications.
+   <https://algo.inria.fr/flajolet/Publications/src/FlMa85.pdf>`_
+   In *Journal of Computer and System Sciences*, 31:182–209, 1985 
+
