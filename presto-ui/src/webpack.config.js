@@ -50,6 +50,9 @@ module.exports = (env) => {
                     }),
                     new HtmlInlineScriptPlugin({
                         htmlMatchPattern: [/query_viewer_spa.html$/],
+                        assetPreservePattern: [
+                            /.*.js$/,
+                        ]
                     }),
                 ],
         mode,
