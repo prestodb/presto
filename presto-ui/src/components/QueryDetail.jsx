@@ -100,7 +100,7 @@ function TaskList({tasks}) {
     if (tasks === undefined || tasks.length === 0) {
         return (
             <div className="row error-message">
-                <div className="col-xs-12"><h4>No threads in the selected group</h4></div>
+                <div className="col-12"><h4>No threads in the selected group</h4></div>
             </div>);
     }
 
@@ -156,8 +156,8 @@ function TaskList({tasks}) {
             minWidth: '80px',
         },
         {
-            name: (<span className="glyphicon glyphicon-pause" style={GLYPHICON_HIGHLIGHT}
-                data-toggle="tooltip" data-placement="top"
+            name: (<span className="bi bi-pause-circle-fill" style={GLYPHICON_HIGHLIGHT}
+                data-bs-toggle="tooltip" data-placement="top"
                 title="Pending splits"/>),
             selector: row => row.stats.queuedDrivers,
             sortable: true,
@@ -165,8 +165,8 @@ function TaskList({tasks}) {
             minWidth: '40px',
         },
         {
-            name: (<span className="glyphicon glyphicon-play" style={GLYPHICON_HIGHLIGHT}
-                data-toggle="tooltip" data-placement="top"
+            name: (<span className="bi bi-play-circle-fill" style={GLYPHICON_HIGHLIGHT}
+                data-bs-toggle="tooltip" data-placement="top"
                 title="Running splits"/>),
             selector: row => row.stats.runningDrivers,
             sortable: true,
@@ -174,8 +174,8 @@ function TaskList({tasks}) {
             minWidth: '40px',
         },
         {
-            name: (<span className="glyphicon glyphicon-bookmark"
-                style={GLYPHICON_HIGHLIGHT} data-toggle="tooltip"
+            name: (<span className="bi bi-bookmark-check-fill"
+                style={GLYPHICON_HIGHLIGHT} data-bs-toggle="tooltip"
                 data-placement="top"
                 title="Blocked splits"/>),
             selector: row => row.stats.blockedDrivers,
@@ -184,8 +184,8 @@ function TaskList({tasks}) {
             minWidth: '40px',
         },
         {
-            name: (<span className="glyphicon glyphicon-ok" style={GLYPHICON_HIGHLIGHT}
-                data-toggle="tooltip" data-placement="top"
+            name: (<span className="bi bi-check-lg" style={GLYPHICON_HIGHLIGHT}
+                data-bs-toggle="tooltip" data-placement="top"
                 title="Completed splits"/>),
             selector: row => row.stats.completedDrivers,
             sortable: true,
@@ -286,7 +286,7 @@ class RuntimeStatsList extends React.Component {
     }
 
     getExpandedIcon() {
-        return this.state.expanded ? "glyphicon-chevron-up" : "glyphicon-chevron-down";
+        return this.state.expanded ?  "bi bi-chevron-up" : "bi bi-chevron-down";
     }
 
     getExpandedStyle() {
@@ -321,7 +321,7 @@ class RuntimeStatsList extends React.Component {
                      <th className="info-text">Max</th>
                      <th className="expand-charts-container">
                          <a onClick={this.toggleExpanded.bind(this)} className="expand-stats-button">
-                             <span className={"glyphicon " + this.getExpandedIcon()} style={GLYPHICON_HIGHLIGHT} data-toggle="tooltip" data-placement="top" title="Show metrics" />
+                             <span className={"bi " + this.getExpandedIcon()} style={GLYPHICON_HIGHLIGHT} data-bs-toggle="tooltip" data-placement="top" title="Show metrics" />
                          </a>
                      </th>
                  </tr>
@@ -356,7 +356,7 @@ class StageSummary extends React.Component {
     }
 
     getExpandedIcon() {
-        return this.state.expanded ? "glyphicon-chevron-up" : "glyphicon-chevron-down";
+        return this.state.expanded ? "bi bi-chevron-up" : "bi bi-chevron-down";
     }
 
     getExpandedStyle() {
@@ -471,17 +471,17 @@ class StageSummary extends React.Component {
 
     renderTaskFilter() {
         return (<div className="row">
-            <div className="col-xs-6">
+            <div className="col-6">
                 <h3>Tasks</h3>
             </div>
-            <div className="col-xs-6">
+            <div className="col-6">
                 <table className="header-inline-links">
                     <tbody>
                     <tr>
                         <td>
                             <div className="input-group-btn text-right">
                                 <button type="button" className="btn btn-default dropdown-toggle pull-right text-right"
-                                        data-toggle="dropdown" aria-haspopup="true"
+                                        data-bs-toggle="dropdown" aria-haspopup="true"
                                         aria-expanded="false">
                                     Show: {this.state.taskFilter.text} <span className="caret"/>
                                 </button>
@@ -702,7 +702,7 @@ class StageSummary extends React.Component {
                             </td>
                             <td className="expand-charts-container">
                                 <a onClick={this.toggleExpanded.bind(this)} className="expand-charts-button">
-                                    <span className={"glyphicon " + this.getExpandedIcon()} style={GLYPHICON_HIGHLIGHT} data-toggle="tooltip" data-placement="top" title="More"/>
+                                    <span className={"bi " + this.getExpandedIcon()} style={GLYPHICON_HIGHLIGHT} data-bs-toggle="tooltip" data-placement="top" title="More"/>
                                 </a>
                             </td>
                         </tr>
@@ -768,7 +768,7 @@ class StageList extends React.Component {
         if (stages === undefined || stages.length === 0) {
             return (
                 <div className="row">
-                    <div className="col-xs-12">
+                    <div className="col-12">
                         No stage information available.
                     </div>
                 </div>
@@ -779,7 +779,7 @@ class StageList extends React.Component {
 
         return (
             <div className="row">
-                <div className="col-xs-12">
+                <div className="col-12">
                     <table className="table" id="stage-list">
                         <tbody>
                         {renderedStages}
@@ -970,7 +970,7 @@ export class QueryDetail extends React.Component {
             }
             this.resetTimer();
         }.bind(this))
-            .error(() => {
+            .fail(() => {
                 this.setState({
                     initialized: true,
                 });
@@ -994,10 +994,10 @@ export class QueryDetail extends React.Component {
 
     renderStageRefreshButton() {
         if (this.state.stageRefresh) {
-            return <button className="btn btn-info live-button" onClick={this.handleStageRefreshClick.bind(this)}>Auto-Refresh: On</button>
+            return <button className="btn btn-info live-button rounded-0" onClick={this.handleStageRefreshClick.bind(this)}>Auto-Refresh: On</button>
         }
         else {
-            return <button className="btn btn-info live-button" onClick={this.handleStageRefreshClick.bind(this)}>Auto-Refresh: Off</button>
+            return <button className="btn btn-info live-button rounded-0" onClick={this.handleStageRefreshClick.bind(this)}>Auto-Refresh: Off</button>
         }
     }
 
@@ -1033,7 +1033,7 @@ export class QueryDetail extends React.Component {
             });
         }
 
-        $('[data-toggle="tooltip"]').tooltip();
+        $('[data-bs-toggle="tooltip"]').tooltip();
         new Clipboard('.copy-button');
     }
 
@@ -1045,10 +1045,10 @@ export class QueryDetail extends React.Component {
         return (
             <div>
                 <div className="row">
-                    <div className="col-xs-9">
+                    <div className="col-9">
                         <h3>Stages</h3>
                     </div>
-                    <div className="col-xs-3">
+                    <div className="col-3">
                         <table className="header-inline-links">
                             <tbody>
                             <tr>
@@ -1061,7 +1061,7 @@ export class QueryDetail extends React.Component {
                     </div>
                 </div>
                 <div className="row">
-                    <div className="col-xs-12">
+                    <div className="col-12">
                         <StageList key={this.state.query.queryId} outputStage={this.state.lastSnapshotStage}/>
                     </div>
                 </div>
@@ -1076,11 +1076,11 @@ export class QueryDetail extends React.Component {
         }
 
         return (
-            <div className="col-xs-12">
+            <div className="col-12">
                 <h3>
                     Prepared Query
-                        <a className="btn copy-button" data-clipboard-target="#prepared-query-text" data-toggle="tooltip" data-placement="right" title="Copy to clipboard">
-                            <span className="glyphicon glyphicon-copy" aria-hidden="true" alt="Copy to clipboard"/>
+                        <a className="btn copy-button" data-clipboard-target="#prepared-query-text" data-bs-toggle="tooltip" data-placement="right" title="Copy to clipboard">
+                            <span className="bi bi-copy" aria-hidden="true" alt="Copy to clipboard"/>
                         </a>
                 </h3>
                 <pre id="prepared-query">
@@ -1146,7 +1146,7 @@ export class QueryDetail extends React.Component {
         if (query.warnings.length > 0) {
             return (
                 <div className="row">
-                    <div className="col-xs-12">
+                    <div className="col-12">
                         <h3>Warnings</h3>
                         <hr className="h3-hr"/>
                         <table className="table" id="warnings-table">
@@ -1176,7 +1176,7 @@ export class QueryDetail extends React.Component {
         if (Object.values(query.queryStats.runtimeStats).length == 0) return null;
         return (
             <div className="row">
-                <div className="col-xs-6">
+                <div className="col-6">
                     <h3>Runtime Statistics</h3>
                     <hr className="h3-hr"/>
                     <RuntimeStatsList stats={query.queryStats.runtimeStats} />
@@ -1190,7 +1190,7 @@ export class QueryDetail extends React.Component {
         if (query.failureInfo) {
             return (
                 <div className="row">
-                    <div className="col-xs-12">
+                    <div className="col-12">
                         <h3>Error Information</h3>
                         <hr className="h3-hr"/>
                         <table className="table">
@@ -1214,8 +1214,8 @@ export class QueryDetail extends React.Component {
                             <tr>
                                 <td className="info-title">
                                     Stack Trace
-                                    <a className="btn copy-button" data-clipboard-target="#stack-trace" data-toggle="tooltip" data-placement="right" title="Copy to clipboard">
-                                        <span className="glyphicon glyphicon-copy" aria-hidden="true" alt="Copy to clipboard"/>
+                                    <a className="btn copy-button" data-clipboard-target="#stack-trace" data-bs-toggle="tooltip" data-placement="right" title="Copy to clipboard">
+                                        <span className="bi bi-copy" aria-hidden="true" alt="Copy to clipboard"/>
                                     </a>
                                 </td>
                                 <td className="info-text">
@@ -1245,7 +1245,7 @@ export class QueryDetail extends React.Component {
             }
             return (
                 <div className="row error-message">
-                    <div className="col-xs-12"><h4>{label}</h4></div>
+                    <div className="col-12"><h4>{label}</h4></div>
                 </div>
             );
         }
@@ -1254,7 +1254,7 @@ export class QueryDetail extends React.Component {
             <div>
                 <QueryHeader query={query}/>
                 <div className="row">
-                    <div className="col-xs-6">
+                    <div className="col-6">
                         <h3>Session</h3>
                         <hr className="h3-hr"/>
                         <table className="table">
@@ -1266,8 +1266,8 @@ export class QueryDetail extends React.Component {
                                 <td className="info-text wrap-text">
                                     <span id="query-user">{query.session.user}</span>
                                     &nbsp;&nbsp;
-                                    <a href="#" className="copy-button" data-clipboard-target="#query-user" data-toggle="tooltip" data-placement="right" title="Copy to clipboard">
-                                        <span className="glyphicon glyphicon-copy" aria-hidden="true" alt="Copy to clipboard"/>
+                                    <a href="#" className="copy-button" data-clipboard-target="#query-user" data-bs-toggle="tooltip" data-placement="right" title="Copy to clipboard">
+                                        <span className="bi bi-copy" aria-hidden="true" alt="Copy to clipboard"/>
                                     </a>
                                 </td>
                             </tr>
@@ -1338,7 +1338,7 @@ export class QueryDetail extends React.Component {
                             </tbody>
                         </table>
                     </div>
-                    <div className="col-xs-6">
+                    <div className="col-6">
                         <h3>Execution</h3>
                         <hr className="h3-hr"/>
                         <table className="table">
@@ -1420,9 +1420,9 @@ export class QueryDetail extends React.Component {
                     </div>
                 </div>
                 <div className="row">
-                    <div className="col-xs-12">
+                    <div className="col-12">
                         <div className="row">
-                            <div className="col-xs-6">
+                            <div className="col-6">
                                 <h3>Resource Utilization Summary</h3>
                                 <hr className="h3-hr"/>
                                 <table className="table">
@@ -1485,7 +1485,7 @@ export class QueryDetail extends React.Component {
                                     </tr>
                                    <tr>
                                         <td className="info-title">
-                                            <span className="text" data-toggle="tooltip" data-placement="right" title="The total number of rows shuffled across all query stages">
+                                            <span className="text" data-bs-toggle="tooltip" data-placement="right" title="The total number of rows shuffled across all query stages">
                                                 Shuffled Rows
                                             </span>
                                         </td>
@@ -1495,7 +1495,7 @@ export class QueryDetail extends React.Component {
                                     </tr>
                                     <tr>
                                         <td className="info-title">
-                                            <span className="text" data-toggle="tooltip" data-placement="right" title="The total number of bytes shuffled across all query stages">
+                                            <span className="text" data-bs-toggle="tooltip" data-placement="right" title="The total number of bytes shuffled across all query stages">
                                                 Shuffled Data
                                             </span>
                                         </td>
@@ -1596,7 +1596,7 @@ export class QueryDetail extends React.Component {
                                     </tbody>
                                 </table>
                             </div>
-                            <div className="col-xs-6">
+                            <div className="col-6">
                                 <h3>Timeline</h3>
                                 <hr className="h3-hr"/>
                                 <table className="table">
@@ -1686,11 +1686,11 @@ export class QueryDetail extends React.Component {
                 {this.renderWarningInfo()}
                 {this.renderFailureInfo()}
                 <div className="row">
-                    <div className="col-xs-12">
+                    <div className="col-12">
                         <h3>
                             Query
-                            <a className="btn copy-button" data-clipboard-target="#query-text" data-toggle="tooltip" data-placement="right" title="Copy to clipboard">
-                                <span className="glyphicon glyphicon-copy" aria-hidden="true" alt="Copy to clipboard"/>
+                            <a className="btn copy-button" data-clipboard-target="#query-text" data-bs-toggle="tooltip" data-placement="right" title="Copy to clipboard">
+                                <span className="bi bi-copy" aria-hidden="true" alt="Copy to clipboard"/>
                             </a>
                         </h3>
                         <pre id="query">

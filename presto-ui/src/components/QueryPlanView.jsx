@@ -114,13 +114,13 @@ export default function PlanView({show, data}) {
             widgets.current.svg = d3.select("#plan-canvas");
         }
         updateD3Graph();
-        $('[data-toggle="tooltip"]').tooltip()
+        $('[data-bs-toggle="tooltip"]').tooltip()
     }, [data, show]);
 
     return (
         <div className={clsx(!show && 'hide')}>
             <div className="row">
-            <div className="col-xs-12">
+            <div className="col-12">
                 <div id="plan-viewer" className="graph-container">
                     {data && <div className="pull-right">
                         {data.finalQueryInfo ? "Scroll to zoom." : "Zoom disabled while query is running."} Click stage to view additional statistics
