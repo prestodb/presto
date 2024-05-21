@@ -576,12 +576,14 @@ TEST_F(MergeJoinTest, complexTypedFilter) {
           }
         }
 
-        assertQuery(
-            plan,
-            fmt::format(
-                "SELECT {} FROM t LEFT JOIN u ON t_c0 = u_c0 AND {}",
-                outputs,
-                queryFilter));
+        for (size_t outputBatchSize : {1000, 1024, 13}) {
+          assertQuery(
+              makeCursorParameters(plan, outputBatchSize),
+              fmt::format(
+                  "SELECT {} FROM t LEFT JOIN u ON t_c0 = u_c0 AND {}",
+                  outputs,
+                  queryFilter));
+        }
       };
 
   std::vector<std::vector<std::string>> outputLayouts{

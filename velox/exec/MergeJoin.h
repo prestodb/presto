@@ -197,10 +197,21 @@ class MergeJoin : public Operator {
   /// output row is a result of a match between left and right sides or a miss.
   /// We use LeftJoinTracker::addMatch and addMiss methods for that.
   ///
-  /// Once we have a batch of output, we evaluate the filter on a subset of rows
-  /// which correspond to matches between left and right sides. There is no
-  /// point evaluating filters on misses as these need to be included in the
-  /// output regardless of whether filter passes or fails.
+  /// The semantic of the filter is to include at least one left side row in the
+  /// output after filters are applied. Therefore:
+  ///
+  /// 1. if left was a miss on the right side: just leave the current row as-is
+  /// without even evaluating the filter (it would have to be added even if
+  /// filters failed).
+  ///
+  /// 2. if left was a hit on the side: if at least one row from the key match
+  /// passes the filter, leave them as-is. If none passed, add a new row with
+  /// the right projections null (see `noMoreFilterResults()`).
+  ///
+  /// Specifically, once we have a batch of output, we evaluate the filter on a
+  /// subset of rows which correspond to matches between left and right sides.
+  /// There is no point evaluating filters on misses as these need to be
+  /// included in the output regardless of whether filter passes or fails.
   ///
   /// We also track blocks of consecutive output rows that correspond to the
   /// same left-side row. If the filter passes on at least one row in such a
@@ -261,7 +272,7 @@ class MergeJoin : public Operator {
       lastIndex_ = -1;
     }
 
-    /// Called for each row that the filter was evaluated on in order starting
+    /// Called for each row that the filter was evaluated on, in order, starting
     /// with the first row. Calls 'onMiss' if the filter failed on all output
     /// rows that correspond to a single left-side row. Use
     /// 'noMoreFilterResults' to make sure 'onMiss' is called for the last
@@ -286,6 +297,12 @@ class MergeJoin : public Operator {
       if (passed) {
         currentRowPassed_ = true;
       }
+    }
+
+    /// Returns whether `row` corresponds to the same left key as the last
+    /// left match evaluated.
+    bool isCurrentLeftMatch(vector_size_t row) {
+      return currentLeftRowNumber_ == rawLeftRowNumbers_[row];
     }
 
     /// Called when all rows from the current output batch are processed and the

@@ -732,7 +732,26 @@ RowVectorPtr MergeJoin::applyFilter(const RowVectorPtr& output) {
       }
     }
 
-    if (!leftMatch_) {
+    // Every time we start a new left key match, `processFilterResult()` will
+    // check if at least one row from the previous match passed the filter. If
+    // none did, it calls onMiss to add a record with null right projections to
+    // the output.
+    //
+    // Before we leave the current buffer, since we may not have seen the next
+    // left key match yet, the last key match may still be pending to produce a
+    // row (because `processFilterResult()` was not called yet).
+    //
+    // To handle this, we need to call `noMoreFilterResults()` unless the
+    // same current left key match may continue in the next buffer. So there are
+    // two cases to check:
+    //
+    // 1. If leftMatch_ is nullopt, there for sure the next buffer will contain
+    // a different key match.
+    //
+    // 2. leftMatch_ may not be nullopt, but may be related to a different
+    // (subsequent) left key. So we check if the last row in the batch has the
+    // same left row number as the last key match.
+    if (!leftMatch_ || !leftJoinTracker_->isCurrentLeftMatch(numRows - 1)) {
       leftJoinTracker_->noMoreFilterResults(onMiss);
     }
   } else {
