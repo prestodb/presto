@@ -73,6 +73,26 @@
                 <artifactId>commons-codec</artifactId>
                 <version>1.13</version>
             </dependency>
+
+            <dependency>
+                <groupId>io.grpc</groupId>
+                <artifactId>grpc-context</artifactId>
+                <version>1.64.0</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.grpc</groupId>
+                <artifactId>grpc-protobuf-lite</artifactId>
+                <version>1.64.0</version>
+            </dependency>
+
+            <!-- Pinned version is required. -->
+            <!-- It is a transitive dependency of gRPC and bigquerystorage libraries -->
+            <dependency>
+                <groupId>io.perfmark</groupId>
+                <artifactId>perfmark-api</artifactId>
+                <version>0.26.0</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
