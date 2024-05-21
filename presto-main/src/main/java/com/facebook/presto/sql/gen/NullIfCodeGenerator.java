@@ -25,6 +25,7 @@ import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.JavaScalarFunctionImplementation;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.google.common.collect.ImmutableList;
 
@@ -62,6 +63,7 @@ public class NullIfCodeGenerator
 
         Type firstType = first.getType();
         Type secondType = second.getType();
+        boolean constSecond = second instanceof ConstantExpression && !((ConstantExpression) second).isNull();
 
         // if (equal(cast(first as <common type>), cast(second as <common type>))
         FunctionAndTypeManager functionAndTypeManager = generatorContext.getFunctionManager();
@@ -76,8 +78,12 @@ public class NullIfCodeGenerator
                         cast(generatorContext, generatorContext.generate(second, Optional.empty()), secondType, functionAndTypeManager.getType(equalFunctionMetadata.getArgumentTypes().get(1)))));
 
         BytecodeBlock conditionBlock = new BytecodeBlock()
-                .append(equalsCall)
-                .append(BytecodeUtils.ifWasNullClearPopAndGoto(scope, notMatch, void.class, boolean.class));
+                .append(equalsCall);
+
+        // A common usecase is the second arg is a non-null const so we special case as we don't need null check for that
+        if (!constSecond) {
+            conditionBlock.append(BytecodeUtils.ifWasNullClearPopAndGoto(scope, notMatch, void.class, boolean.class));
+        }
 
         // if first and second are equal, return null
         BytecodeBlock trueBlock = new BytecodeBlock()
