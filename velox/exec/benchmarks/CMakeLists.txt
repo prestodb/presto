@@ -44,6 +44,13 @@ target_link_libraries(
   velox_hash_join_list_result_benchmark velox_exec velox_exec_test_lib
   velox_vector_test_lib ${FOLLY_BENCHMARK})
 
+add_executable(velox_hash_join_prepare_join_table_benchmark
+               HashJoinPrepareJoinTableBenchmark.cpp)
+
+target_link_libraries(
+  velox_hash_join_prepare_join_table_benchmark velox_exec velox_exec_test_lib
+  velox_vector_test_lib ${FOLLY_BENCHMARK})
+
 if(${VELOX_ENABLE_PARQUET})
   add_executable(velox_sort_benchmark RowContainerSortBenchmark.cpp)
 
