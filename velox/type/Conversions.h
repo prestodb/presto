@@ -21,6 +21,7 @@
 #include <string>
 #include <type_traits>
 #include "velox/common/base/Exceptions.h"
+#include "velox/type/CppToType.h"
 #include "velox/type/TimestampConversion.h"
 #include "velox/type/Type.h"
 
@@ -195,11 +196,8 @@ struct Converter<
           VELOX_USER_FAIL("Encountered a non-digit character");
         }
         if (!decimalPoint) {
-          result = result * 10 - (v[index] - '0');
-        }
-        // Overflow check
-        if (result > 0) {
-          VELOX_USER_FAIL("Value is too large for type");
+          result = checkedMultiply<T>(result, 10, CppToType<T>::name);
+          result = checkedMinus<T>(result, v[index] - '0', CppToType<T>::name);
         }
       }
     } else {
@@ -215,11 +213,8 @@ struct Converter<
           VELOX_USER_FAIL("Encountered a non-digit character");
         }
         if (!decimalPoint) {
-          result = result * 10 + (v[index] - '0');
-        }
-        // Overflow check
-        if (result < 0) {
-          VELOX_USER_FAIL("Value is too large for type");
+          result = checkedMultiply<T>(result, 10, CppToType<T>::name);
+          result = checkedPlus<T>(result, v[index] - '0', CppToType<T>::name);
         }
       }
     }

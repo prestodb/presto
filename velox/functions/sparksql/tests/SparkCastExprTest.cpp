@@ -235,7 +235,9 @@ TEST_F(SparkCastExprTest, primitiveInvalidCornerCases) {
   {
     // Invalid strings.
     testInvalidCast<std::string>(
-        "tinyint", {"1234567"}, "Value is too large for type");
+        "tinyint",
+        {"1234567"},
+        "Cannot cast VARCHAR '1234567' to TINYINT. TINYINT overflow: 123 * 10");
     testInvalidCast<std::string>(
         "tinyint", {"1a"}, "Encountered a non-digit character");
     testInvalidCast<std::string>("tinyint", {""}, "Empty string");
@@ -451,6 +453,27 @@ TEST_F(SparkCastExprTest, overflow) {
   testCast(
       makeNullableFlatVector<int64_t>({214748364890}, DECIMAL(12, 2)),
       makeNullableFlatVector<int64_t>({2147483648}));
+
+  testInvalidCast<std::string>(
+      "tinyint",
+      {"166"},
+      "Cannot cast VARCHAR '166' to TINYINT. TINYINT overflow: 16 * 10");
+  testInvalidCast<std::string>(
+      "smallint",
+      {"52769"},
+      "Cannot cast VARCHAR '52769' to SMALLINT. SMALLINT overflow: 5276 * 10");
+  testInvalidCast<std::string>(
+      "integer",
+      {"17515055537"},
+      "Cannot cast VARCHAR '17515055537' to INTEGER. INTEGER overflow: 1751505553 * 10");
+  testInvalidCast<std::string>(
+      "integer",
+      {"-17515055537"},
+      "Cannot cast VARCHAR '-17515055537' to INTEGER. INTEGER overflow: -1751505553 * 10");
+  testInvalidCast<std::string>(
+      "bigint",
+      {"9663372036854775809"},
+      "Cannot cast VARCHAR '9663372036854775809' to BIGINT. BIGINT overflow: 966337203685477580 * 10");
 }
 
 TEST_F(SparkCastExprTest, timestampToString) {
