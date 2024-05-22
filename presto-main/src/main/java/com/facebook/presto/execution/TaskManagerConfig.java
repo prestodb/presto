@@ -281,9 +281,9 @@ public class TaskManagerConfig
 
     @LegacyConfig("task.shard.max-threads")
     @Config("task.max-worker-threads")
-    public TaskManagerConfig setMaxWorkerThreads(int maxWorkerThreads)
+    public TaskManagerConfig setMaxWorkerThreads(String maxWorkerThreads)
     {
-        this.maxWorkerThreads = maxWorkerThreads;
+        this.maxWorkerThreads = ThreadCountParser.parse(maxWorkerThreads);
         return this;
     }
 
