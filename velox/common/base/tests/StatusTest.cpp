@@ -128,5 +128,23 @@ TEST(StatusTest, macros) {
   ASSERT_TRUE(didThrow) << "VELOX_CHECK_OK did not throw";
 }
 
+Expected<int> modulo(int a, int b) {
+  if (b == 0) {
+    return folly::makeUnexpected(Status::UserError("division by zero"));
+  }
+
+  return a % b;
+}
+
+TEST(StatusTest, expected) {
+  auto result = modulo(10, 3);
+  EXPECT_TRUE(result.hasValue());
+  EXPECT_EQ(result.value(), 1);
+
+  result = modulo(10, 0);
+  EXPECT_TRUE(result.hasError());
+  EXPECT_EQ(result.error(), Status::UserError("division by zero"));
+}
+
 } // namespace
 } // namespace facebook::velox::test

@@ -20,6 +20,7 @@
 
 #include <fmt/format.h>
 #include <fmt/ostream.h>
+#include <folly/Expected.h>
 #include <folly/Likely.h>
 #include <string>
 #include <utility>
@@ -489,6 +490,24 @@ inline Status genericToStatus(Status&& st) {
 }
 
 } // namespace internal
+
+/// Holds a result or an error. Designed to be used by APIs that do not throw.
+///
+/// Here is an example of a modulo operation that doesn't throw, but indicates
+/// failure using Status.
+///
+/// Expected<int> modulo(int a, int b) {
+///   if (b == 0) {
+///     return folly::makeUnexpected(Status::UserError("division by zero"));
+///   }
+///
+///   return a % b;
+/// }
+///
+/// Status should not be OK.
+template <typename T>
+using Expected = folly::Expected<T, Status>;
+
 } // namespace facebook::velox
 
 template <>
