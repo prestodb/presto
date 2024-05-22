@@ -369,6 +369,67 @@ FOLLY_ALWAYS_INLINE static int8_t fromHex(char c) {
 } // namespace detail
 
 template <typename T>
+struct WidthBucketFunction {
+  FOLLY_ALWAYS_INLINE bool call(
+      int64_t& result,
+      double value,
+      double bound1,
+      double bound2,
+      int64_t numBuckets) {
+    // NULL would be returned if the input arguments don't follow conditions
+    // list belows:
+    // - `numBuckets` must be greater than zero and be less than Long.MaxValue.
+    // - `value`, `bound1`, and `bound2` cannot be NaN.
+    // - `bound1` bound cannot equal `bound2`.
+    // - `bound1` and `bound2` must be finite.
+    if (shouldReturnNull(value, bound1, bound2, numBuckets)) {
+      return false;
+    }
+
+    result = computeBucketNumber(value, bound1, bound2, numBuckets);
+    return true;
+  }
+
+ private:
+  static FOLLY_ALWAYS_INLINE bool shouldReturnNull(
+      double value,
+      double bound1,
+      double bound2,
+      int64_t numBuckets) {
+    return numBuckets <= 0 ||
+        numBuckets == std::numeric_limits<int64_t>::max() ||
+        std::isnan(value) || bound1 == bound2 || !std::isfinite(bound1) ||
+        !std::isfinite(bound2);
+  }
+
+  static FOLLY_ALWAYS_INLINE int64_t computeBucketNumber(
+      double value,
+      double bound1,
+      double bound2,
+      int64_t numBuckets) {
+    if (bound1 < bound2) {
+      if (value < bound1) {
+        return 0;
+      }
+
+      if (value >= bound2) {
+        return numBuckets + 1;
+      }
+    } else { // bound1 > bound2 case
+      if (value > bound1) {
+        return 0;
+      }
+      if (value <= bound2) {
+        return numBuckets + 1;
+      }
+    }
+    return static_cast<int64_t>(
+               (numBuckets * (value - bound1) / (bound2 - bound1))) +
+        1;
+  }
+};
+
+template <typename T>
 struct UnHexFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 

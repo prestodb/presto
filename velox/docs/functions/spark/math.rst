@@ -270,3 +270,24 @@ Mathematical Functions
         SELECT unhex("b2323"); -- \x0B##
         SELECT unhex("G"); -- NULL
         SELECT unhex("G23"); -- NULL
+
+.. spark:function:: width_bucket(x, bound1, bound2, n) -> bigint
+
+    Returns the zero-based bucket number to which ``x`` would be assigned in an equiwidth histogram with ``n`` buckets,
+    in the range ``bound1`` to ``bound2``.
+    `bound1` can be greater than `bound2`.
+    If `bound1` less than `bound2`, if `x` less than `bound1` return 0, if `x` greater than or equal to `bound2` return n + 1.
+    If `bound1` greater than `bound2`, if `x` greater than `bound1` return 0, if `x` less than or equal to `bound2` return n + 1.
+    `n` must be a positive integral value. `x`, `bound1`, and `bound2` cannot be NaN. `bound1`, and `bound2` must be finite.
+    `bound1` cannot equal `bound2`;
+    Otherwise, the function will return NULL.
+
+    ::
+        
+        SELECT width_bucket(-1.0, 0.0, 10.0, 5); -- 0
+        SELECT width_bucket(0.1, 0.0, 10.0, 5); -- 1
+        SELECT width_bucket(10.1, 0.0, 10.0, 5); -- 6
+        SELECT width_bucket(-1.0, 10.0, 0.0, 5); -- 6
+        SELECT width_bucket(0.1, 10.0, 0.0, 5); -- 5
+        SELECT width_bucket(10.1, 10.0, 0.0, 5); -- 0
+        SELECT width_bucket(10.1, 10.0, 10.0, 5); -- NULL

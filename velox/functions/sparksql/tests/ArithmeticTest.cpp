@@ -490,6 +490,49 @@ TEST_F(ArithmeticTest, hexWithVarbinaryAndVarchar) {
   ASSERT_EQ(toHex("Spark\u6570\u636ESQL"), "537061726BE695B0E68DAE53514C");
 }
 
+TEST_F(ArithmeticTest, widthBucket) {
+  constexpr int64_t kMaxInt64 = std::numeric_limits<int64_t>::max();
+
+  const auto widthBucket = [&](std::optional<double> value,
+                               std::optional<double> min,
+                               std::optional<double> max,
+                               std::optional<int64_t> numBucket) {
+    return evaluateOnce<int64_t>(
+        "width_bucket(c0, c1, c2, c3)", value, min, max, numBucket);
+  };
+
+  // min < max
+  EXPECT_EQ(3, widthBucket(3.14, 0, 4, 3));
+  EXPECT_EQ(2, widthBucket(2, 0, 4, 3));
+  EXPECT_EQ(4, widthBucket(kInf, 0, 4, 3));
+  EXPECT_EQ(0, widthBucket(-1, 0, 3.2, 4));
+
+  // min > max
+  EXPECT_EQ(1, widthBucket(3.14, 4, 0, 3));
+  EXPECT_EQ(2, widthBucket(2, 4, 0, 3));
+  EXPECT_EQ(0, widthBucket(kInf, 4, 0, 3));
+  EXPECT_EQ(5, widthBucket(-1, 3.2, 0, 4));
+
+  // max - min + 1 > Long.MaxValue
+  EXPECT_EQ(widthBucket(5.3, 0, 9223372036854775807, 10), 1);
+
+  // Cases to get null result.
+  EXPECT_EQ(widthBucket(3.14, 0, 4, 0), std::nullopt);
+  EXPECT_EQ(widthBucket(kNan, 0, 4, 10), std::nullopt);
+  EXPECT_EQ(widthBucket(3.14, kNan, 0, 10), std::nullopt);
+  EXPECT_EQ(widthBucket(3.14, kInf, 0, 10), std::nullopt);
+  EXPECT_EQ(widthBucket(3.14, 0, kNan, 10), std::nullopt);
+  EXPECT_EQ(widthBucket(3.14, 0, kInf, 10), std::nullopt);
+  EXPECT_EQ(widthBucket(3.14, 0, 0, 10), std::nullopt);
+  EXPECT_EQ(widthBucket(kInf, 0, 4, kMaxInt64), std::nullopt);
+  EXPECT_EQ(widthBucket(kInf, 4, 0, kMaxInt64), std::nullopt);
+  EXPECT_EQ(widthBucket(5.3, 0.2, 10.6, 9223372036854775807), std::nullopt);
+
+  // value is infinite.
+  EXPECT_EQ(widthBucket(kInf, 0, 4, 3), 4);
+  EXPECT_EQ(widthBucket(-kInf, 0, 4, 3), 0);
+}
+
 class LogNTest : public SparkFunctionBaseTest {
  protected:
   static constexpr float kInf = std::numeric_limits<double>::infinity();

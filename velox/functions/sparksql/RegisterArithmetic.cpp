@@ -94,6 +94,13 @@ void registerArithmeticFunctions(const std::string& prefix) {
   registerFunction<HypotFunction, double, double, double>({prefix + "hypot"});
   registerFunction<sparksql::Log2Function, double, double>({prefix + "log2"});
   registerFunction<sparksql::Log10Function, double, double>({prefix + "log10"});
+  registerFunction<
+      WidthBucketFunction,
+      int64_t,
+      double,
+      double,
+      double,
+      int64_t>({prefix + "width_bucket"});
   registerRandFunctions(prefix);
 
   VELOX_REGISTER_VECTOR_FUNCTION(udf_decimal_add, prefix + "add");
