@@ -34,7 +34,7 @@ class RowIterable
     private final List<Type> types;
     private final Page page;
 
-    public RowIterable(ConnectorSession session, List<Type> types, Page page)
+    RowIterable(ConnectorSession session, List<Type> types, Page page)
     {
         this.session = session;
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));

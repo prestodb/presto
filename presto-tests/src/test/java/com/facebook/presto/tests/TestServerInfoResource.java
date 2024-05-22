@@ -42,7 +42,6 @@ public class TestServerInfoResource
             .setCatalog("tpch")
             .setSchema("tiny")
             .build();
-    private static final String COORDINATOR = "coordinator";
 
     private ListeningExecutorService executor;
 

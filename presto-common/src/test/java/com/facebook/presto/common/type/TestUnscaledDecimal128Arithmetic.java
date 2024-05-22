@@ -19,9 +19,6 @@ import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.math.BigInteger;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.nio.IntBuffer;
 import java.util.Collections;
 
 import static com.facebook.presto.common.type.Decimals.MAX_DECIMAL_UNSCALED_VALUE;
@@ -771,18 +768,5 @@ public class TestUnscaledDecimal128Arithmetic
             ints[i] = slice.getInt(i * Integer.SIZE / Byte.SIZE);
         }
         return ints;
-    }
-
-    private static BigInteger toBigInteger(int[] data)
-    {
-        byte[] array = new byte[data.length * 4];
-        ByteBuffer byteBuffer = ByteBuffer.wrap(array);
-        byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
-        IntBuffer intBuffer = byteBuffer.asIntBuffer();
-        intBuffer.put(data);
-
-        Collections.reverse(Bytes.asList(array));
-        array[0] &= ~(1 << 7);
-        return new BigInteger((array[0] & (1 << 7)) > 0 ? -1 : 1, array);
     }
 }

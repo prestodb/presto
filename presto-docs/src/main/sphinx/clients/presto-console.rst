@@ -11,8 +11,9 @@ Overview
 ========
 
 The Presto Console is a web-based UI that is included as part of a Presto server 
-installation. For more information about installing Presto, see 
+installation. To install Presto, see 
 `Installing Presto <../installation/deployment.html#installing-presto>`_.
+For information about developing the Presto Console, see :doc:`/develop/presto-console`.
 
 Configuration
 =============

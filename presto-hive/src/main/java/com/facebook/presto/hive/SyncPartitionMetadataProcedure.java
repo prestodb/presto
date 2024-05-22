@@ -123,6 +123,7 @@ public class SyncPartitionMetadataProcedure
                 session.getIdentity(),
                 session.getQueryId(),
                 session.getClientInfo(),
+                session.getClientTags(),
                 session.getSource(),
                 getMetastoreHeaders(session),
                 isUserDefinedTypeEncodingEnabled(session),

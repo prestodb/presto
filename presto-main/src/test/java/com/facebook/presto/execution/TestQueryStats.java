@@ -18,6 +18,7 @@ import com.facebook.airlift.stats.Distribution;
 import com.facebook.airlift.testing.TestingTicker;
 import com.facebook.presto.common.RuntimeMetric;
 import com.facebook.presto.common.RuntimeStats;
+import com.facebook.presto.operator.DynamicFilterStats;
 import com.facebook.presto.operator.ExchangeOperator;
 import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.HashBuilderOperator;
@@ -56,7 +57,8 @@ public class TestQueryStats
     private static final String TEST_METRIC_NAME = "test_metric";
     private static final RuntimeMetric TEST_RUNTIME_METRIC_1 = new RuntimeMetric(TEST_METRIC_NAME, NONE, 10, 2, 9, 1);
     private static final RuntimeMetric TEST_RUNTIME_METRIC_2 = new RuntimeMetric(TEST_METRIC_NAME, NONE, 5, 2, 3, 2);
-
+    private static final DynamicFilterStats TEST_DYNAMIC_FILTER_STATS_1 = new DynamicFilterStats(ImmutableSet.of(new PlanNodeId("1"), new PlanNodeId("2")));
+    private static final DynamicFilterStats TEST_DYNAMIC_FILTER_STATS_2 = new DynamicFilterStats(ImmutableSet.of(new PlanNodeId("2"), new PlanNodeId("3")));
     private static final List<OperatorStats> OPERATOR_SUMMARIES = ImmutableList.of(
             new OperatorStats(
                     10,
@@ -98,6 +100,7 @@ public class TestQueryStats
                     Optional.empty(),
                     null,
                     new RuntimeStats(ImmutableMap.of(TEST_METRIC_NAME, RuntimeMetric.copyOf(TEST_RUNTIME_METRIC_1))),
+                    TEST_DYNAMIC_FILTER_STATS_1,
                     0,
                     0,
                     0,
@@ -142,6 +145,7 @@ public class TestQueryStats
                     Optional.empty(),
                     null,
                     new RuntimeStats(ImmutableMap.of(TEST_METRIC_NAME, RuntimeMetric.copyOf(TEST_RUNTIME_METRIC_2))),
+                    TEST_DYNAMIC_FILTER_STATS_2,
                     0,
                     0,
                     0,
@@ -186,6 +190,7 @@ public class TestQueryStats
                     Optional.empty(),
                     null,
                     new RuntimeStats(),
+                    new DynamicFilterStats(ImmutableSet.of()),
                     0,
                     0,
                     0,
@@ -505,10 +510,10 @@ public class TestQueryStats
     }
 
     private static OperatorStats createOperatorStats(int stageId, int stageExecutionId, int pipelineId,
-                                                     int operatorId, PlanNodeId planNodeId, Class operatorCls,
-                                                     DataSize rawInputDataSize, long rawInputPositions,
-                                                     DataSize inputDataSize, long inputPositions,
-                                                     DataSize outputDataSize, long outputPositions)
+            int operatorId, PlanNodeId planNodeId, Class operatorCls,
+            DataSize rawInputDataSize, long rawInputPositions,
+            DataSize inputDataSize, long inputPositions,
+            DataSize outputDataSize, long outputPositions)
     {
         return new OperatorStats(
                 stageId,
@@ -550,6 +555,7 @@ public class TestQueryStats
                 Optional.empty(),
                 null,
                 new RuntimeStats(ImmutableMap.of(TEST_METRIC_NAME, RuntimeMetric.copyOf(TEST_RUNTIME_METRIC_1))),
+                DynamicFilterStats.copyOf(TEST_DYNAMIC_FILTER_STATS_1),
                 0,
                 0,
                 0,
@@ -557,9 +563,9 @@ public class TestQueryStats
     }
 
     private static StageExecutionStats createStageStats(int stageId, int stageExecutionId, DataSize rawInputDataSize, long rawInputPositions,
-                                                        DataSize inputDataSize, long inputPositions,
-                                                        DataSize outputDataSize, long outputPositions,
-                                                        List<OperatorStats> operatorSummaries)
+            DataSize inputDataSize, long inputPositions,
+            DataSize outputDataSize, long outputPositions,
+            List<OperatorStats> operatorSummaries)
     {
         return new StageExecutionStats(
                 new DateTime(0),

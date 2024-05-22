@@ -12,8 +12,8 @@
  * limitations under the License.
  */
 
-#include "presto_cpp/main/common/ConfigReader.h"
 #include "presto_cpp/main/common/Configs.h"
+#include "presto_cpp/main/common/ConfigReader.h"
 #include "presto_cpp/main/common/Utils.h"
 #include "velox/core/QueryConfig.h"
 
@@ -185,6 +185,7 @@ SystemConfig::SystemConfig() {
           BOOL_PROP(kUseMmapAllocator, true),
           STR_PROP(kMemoryArbitratorKind, ""),
           NUM_PROP(kQueryMemoryGb, 38),
+          NUM_PROP(kQueryReservedMemoryGb, 4),
           BOOL_PROP(kEnableVeloxTaskLogging, false),
           BOOL_PROP(kEnableVeloxExprSetLogging, false),
           NUM_PROP(kLocalShuffleMaxPartitionBytes, 268435456),
@@ -462,10 +463,20 @@ int32_t SystemConfig::queryMemoryGb() const {
   return optionalProperty<int32_t>(kQueryMemoryGb).value();
 }
 
+int32_t SystemConfig::queryReservedMemoryGb() const {
+  return optionalProperty<int32_t>(kQueryReservedMemoryGb).value();
+}
+
 uint64_t SystemConfig::memoryPoolInitCapacity() const {
   static constexpr uint64_t kMemoryPoolInitCapacityDefault = 128 << 20;
   return optionalProperty<uint64_t>(kMemoryPoolInitCapacity)
       .value_or(kMemoryPoolInitCapacityDefault);
+}
+
+uint64_t SystemConfig::memoryPoolReservedCapacity() const {
+  static constexpr uint64_t kMemoryPoolReservedCapacityDefault = 64 << 20;
+  return optionalProperty<uint64_t>(kMemoryPoolReservedCapacity)
+      .value_or(kMemoryPoolReservedCapacityDefault);
 }
 
 uint64_t SystemConfig::memoryPoolTransferCapacity() const {

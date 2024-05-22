@@ -55,6 +55,7 @@ import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.builder;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class RowExpressionRewriteRuleSet
@@ -141,8 +142,18 @@ public class RowExpressionRewriteRuleSet
         return new AggregationRowExpressionRewrite();
     }
 
+    public abstract class RowExpressionRewriteRule<T>
+            implements Rule<T>
+    {
+        public String getOptimizerNameForLog()
+        {
+            String rewriterName = rewriter.getClass().getName();
+            return format("%s:%s", rewriterName.substring(rewriterName.lastIndexOf('.') + 1), this.getClass().getSimpleName());
+        }
+    }
+
     private final class ProjectRowExpressionRewrite
-            implements Rule<ProjectNode>
+            extends RowExpressionRewriteRule<ProjectNode>
     {
         @Override
         public boolean isEnabled(Session session)
@@ -177,7 +188,7 @@ public class RowExpressionRewriteRuleSet
     }
 
     private final class SpatialJoinRowExpressionRewrite
-            implements Rule<SpatialJoinNode>
+            extends RowExpressionRewriteRule<SpatialJoinNode>
     {
         @Override
         public boolean isEnabled(Session session)
@@ -215,7 +226,7 @@ public class RowExpressionRewriteRuleSet
     }
 
     private final class JoinRowExpressionRewrite
-            implements Rule<JoinNode>
+            extends RowExpressionRewriteRule<JoinNode>
     {
         @Override
         public boolean isEnabled(Session session)
@@ -259,7 +270,7 @@ public class RowExpressionRewriteRuleSet
     }
 
     private final class WindowRowExpressionRewrite
-            implements Rule<WindowNode>
+            extends RowExpressionRewriteRule<WindowNode>
     {
         @Override
         public boolean isEnabled(Session session)
@@ -316,7 +327,7 @@ public class RowExpressionRewriteRuleSet
     }
 
     private final class ApplyRowExpressionRewrite
-            implements Rule<ApplyNode>
+            extends RowExpressionRewriteRule<ApplyNode>
     {
         @Override
         public boolean isEnabled(Session session)
@@ -366,7 +377,7 @@ public class RowExpressionRewriteRuleSet
     }
 
     private final class FilterRowExpressionRewrite
-            implements Rule<FilterNode>
+            extends RowExpressionRewriteRule<FilterNode>
     {
         @Override
         public boolean isEnabled(Session session)
@@ -394,7 +405,7 @@ public class RowExpressionRewriteRuleSet
     }
 
     private final class ValuesRowExpressionRewrite
-            implements Rule<ValuesNode>
+            extends RowExpressionRewriteRule<ValuesNode>
     {
         @Override
         public boolean isEnabled(Session session)
@@ -432,7 +443,7 @@ public class RowExpressionRewriteRuleSet
     }
 
     private final class AggregationRowExpressionRewrite
-            implements Rule<AggregationNode>
+            extends RowExpressionRewriteRule<AggregationNode>
     {
         @Override
         public boolean isEnabled(Session session)
@@ -480,7 +491,7 @@ public class RowExpressionRewriteRuleSet
     }
 
     private final class TableFinishRowExpressionRewrite
-            implements Rule<TableFinishNode>
+            extends RowExpressionRewriteRule<TableFinishNode>
     {
         @Override
         public boolean isEnabled(Session session)
@@ -537,7 +548,7 @@ public class RowExpressionRewriteRuleSet
     }
 
     private final class TableWriterRowExpressionRewrite
-            implements Rule<TableWriterNode>
+            extends RowExpressionRewriteRule<TableWriterNode>
     {
         @Override
         public boolean isEnabled(Session session)

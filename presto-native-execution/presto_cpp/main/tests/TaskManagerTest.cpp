@@ -601,7 +601,12 @@ class TaskManagerTest : public testing::Test {
     auto queryCtx =
         taskManager_->getQueryContextManager()->findOrCreateQueryCtx(
             taskId, {});
-    return exec::Task::create(taskId, planFragment, 0, std::move(queryCtx));
+    return exec::Task::create(
+        taskId,
+        planFragment,
+        0,
+        std::move(queryCtx),
+        exec::Task::ExecutionMode::kParallel);
   }
 
   std::unique_ptr<protocol::TaskInfo> createOrUpdateTask(
@@ -1338,10 +1343,14 @@ TEST_F(TaskManagerTest, testCumulativeMemory) {
                                 .values(batches)
                                 .partitionedOutput({}, 1)
                                 .planFragment();
-  auto queryCtx = std::make_shared<core::QueryCtx>(driverExecutor_.get());
+  auto queryCtx = core::QueryCtx::create(driverExecutor_.get());
   const protocol::TaskId taskId = "scan.0.0.1.0";
-  auto veloxTask =
-      Task::create(taskId, std::move(planFragment), 0, std::move(queryCtx));
+  auto veloxTask = Task::create(
+      taskId,
+      std::move(planFragment),
+      0,
+      std::move(queryCtx),
+      Task::ExecutionMode::kParallel);
 
   const uint64_t startTimeMs = velox::getCurrentTimeMs();
   auto prestoTask = std::make_unique<PrestoTask>(taskId, "fakeId");

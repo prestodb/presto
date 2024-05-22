@@ -46,6 +46,7 @@
 #include "velox/common/memory/MmapAllocator.h"
 #include "velox/common/memory/SharedArbitrator.h"
 #include "velox/connectors/Connector.h"
+#include "velox/connectors/hive/HiveConnector.h"
 #include "velox/core/Config.h"
 #include "velox/exec/OutputBufferManager.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
@@ -218,12 +219,16 @@ void PrestoServer::run() {
     exit(EXIT_FAILURE);
   }
 
-  registerStatsCounters();
   registerFileSinks();
   registerFileSystems();
   registerMemoryArbitrators();
   registerShuffleInterfaceFactories();
   registerCustomOperators();
+
+  // Register Velox connector factory for iceberg.
+  // The iceberg catalog is handled by the hive connector factory.
+  connector::registerConnectorFactory(
+      std::make_shared<connector::hive::HiveConnectorFactory>("iceberg"));
 
   registerPrestoToVeloxConnector(
       std::make_unique<HivePrestoToVeloxConnector>("hive"));
@@ -489,6 +494,7 @@ void PrestoServer::run() {
   auto* asyncDataCache = cache::AsyncDataCache::getInstance();
   periodicTaskManager_ = std::make_unique<PeriodicTaskManager>(
       driverExecutor_.get(),
+      spillerExecutor_.get(),
       httpServer_->getExecutor(),
       taskManager_.get(),
       memoryAllocator,
@@ -669,7 +675,16 @@ void PrestoServer::initializeVeloxMemory() {
         memoryGb,
         "Query memory capacity must not be larger than system memory capacity");
     options.arbitratorCapacity = queryMemoryGb << 30;
+    const uint64_t queryReservedMemoryGb =
+        systemConfig->queryReservedMemoryGb();
+    VELOX_USER_CHECK_LE(
+        queryReservedMemoryGb,
+        queryMemoryGb,
+        "Query reserved memory capacity must not be larger than query memory capacity");
+    options.arbitratorReservedCapacity = queryReservedMemoryGb << 30;
     options.memoryPoolInitCapacity = systemConfig->memoryPoolInitCapacity();
+    options.memoryPoolReservedCapacity =
+        systemConfig->memoryPoolReservedCapacity();
     options.memoryPoolTransferCapacity =
         systemConfig->memoryPoolTransferCapacity();
     options.memoryReclaimWaitMs = systemConfig->memoryReclaimWaitMs();

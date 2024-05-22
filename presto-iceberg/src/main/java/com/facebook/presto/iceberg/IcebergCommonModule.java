@@ -39,6 +39,10 @@ import com.facebook.presto.hive.gcs.HiveGcsConfig;
 import com.facebook.presto.hive.gcs.HiveGcsConfigurationInitializer;
 import com.facebook.presto.iceberg.nessie.NessieConfig;
 import com.facebook.presto.iceberg.optimizer.IcebergPlanOptimizerProvider;
+import com.facebook.presto.iceberg.procedure.ExpireSnapshotsProcedure;
+import com.facebook.presto.iceberg.procedure.RegisterTableProcedure;
+import com.facebook.presto.iceberg.procedure.RollbackToSnapshotProcedure;
+import com.facebook.presto.iceberg.procedure.UnregisterTableProcedure;
 import com.facebook.presto.orc.CachingStripeMetadataSource;
 import com.facebook.presto.orc.DwrfAwareStripeMetadataSourceFactory;
 import com.facebook.presto.orc.EncryptionLibrary;
@@ -84,6 +88,7 @@ import java.util.concurrent.ExecutorService;
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static java.lang.Math.toIntExact;
 import static java.util.concurrent.Executors.newFixedThreadPool;
@@ -128,6 +133,7 @@ public class IcebergCommonModule
         binder.bind(IcebergTableProperties.class).in(Scopes.SINGLETON);
 
         binder.bind(ConnectorSplitManager.class).to(IcebergSplitManager.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(ConnectorSplitManager.class).as(generatedNameOf(IcebergSplitManager.class, connectorId));
         binder.bind(ConnectorPageSourceProvider.class).to(IcebergPageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPageSinkProvider.class).to(IcebergPageSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorNodePartitioningProvider.class).to(HiveNodePartitioningProvider.class).in(Scopes.SINGLETON);
@@ -146,6 +152,7 @@ public class IcebergCommonModule
         procedures.addBinding().toProvider(RollbackToSnapshotProcedure.class).in(Scopes.SINGLETON);
         procedures.addBinding().toProvider(RegisterTableProcedure.class).in(Scopes.SINGLETON);
         procedures.addBinding().toProvider(UnregisterTableProcedure.class).in(Scopes.SINGLETON);
+        procedures.addBinding().toProvider(ExpireSnapshotsProcedure.class).in(Scopes.SINGLETON);
 
         // for orc
         binder.bind(EncryptionLibrary.class).annotatedWith(HiveDwrfEncryptionProvider.ForCryptoService.class).to(UnsupportedEncryptionLibrary.class).in(Scopes.SINGLETON);
@@ -168,6 +175,19 @@ public class IcebergCommonModule
         return newFixedThreadPool(
                 metastoreClientConfig.getMaxMetastoreRefreshThreads(),
                 daemonThreadsNamed("hive-metastore-iceberg-%s"));
+    }
+
+    @Provides
+    @Singleton
+    @ForIcebergSplitManager
+    public ExecutorService createSplitManagerExecutor(IcebergConfig config)
+    {
+        if (config.getSplitManagerThreads() == 0) {
+            return newDirectExecutorService();
+        }
+        return newFixedThreadPool(
+                config.getSplitManagerThreads(),
+                daemonThreadsNamed("iceberg-split-manager-" + connectorId + "-%s"));
     }
 
     @Singleton

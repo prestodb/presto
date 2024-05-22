@@ -56,10 +56,14 @@ class BroadcastTest : public exec::test::OperatorTestBase {
       const std::string& taskId,
       core::PlanNodePtr planNode,
       int destination) {
-    auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
+    auto queryCtx = core::QueryCtx::create(executor_.get());
     core::PlanFragment planFragment{planNode};
     return exec::Task::create(
-        taskId, std::move(planFragment), destination, std::move(queryCtx));
+        taskId,
+        std::move(planFragment),
+        destination,
+        std::move(queryCtx),
+        exec::Task::ExecutionMode::kParallel);
   }
 
   std::pair<RowTypePtr, std::vector<std::string>> executeBroadcastWrite(

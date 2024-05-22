@@ -95,6 +95,8 @@ public class OperatorStats
 
     private final RuntimeStats runtimeStats;
 
+    private final DynamicFilterStats dynamicFilterStats;
+
     private final long nullJoinBuildKeyCount;
     private final long joinBuildKeyCount;
     private final long nullJoinProbeKeyCount;
@@ -152,6 +154,7 @@ public class OperatorStats
             @Nullable
             @JsonProperty("info") OperatorInfo info,
             @JsonProperty("runtimeStats") RuntimeStats runtimeStats,
+            @JsonProperty("dynamicFilterStats") DynamicFilterStats dynamicFilterStats,
             @JsonProperty("nullJoinBuildKeyCount") long nullJoinBuildKeyCount,
             @JsonProperty("joinBuildKeyCount") long joinBuildKeyCount,
             @JsonProperty("nullJoinProbeKeyCount") long nullJoinProbeKeyCount,
@@ -208,6 +211,8 @@ public class OperatorStats
         this.spilledDataSize = requireNonNull(spilledDataSize, "spilledDataSize is null");
 
         this.runtimeStats = runtimeStats;
+
+        this.dynamicFilterStats = dynamicFilterStats;
 
         this.blockedReason = blockedReason;
 
@@ -269,6 +274,7 @@ public class OperatorStats
             Optional<BlockedReason> blockedReason,
 
             RuntimeStats runtimeStats,
+            DynamicFilterStats dynamicFilterStats,
             @Nullable
             OperatorInfoUnion infoUnion,
             long nullJoinBuildKeyCount,
@@ -327,6 +333,8 @@ public class OperatorStats
         this.spilledDataSize = requireNonNull(spilledDataSize, "spilledDataSize is null");
 
         this.runtimeStats = runtimeStats;
+
+        this.dynamicFilterStats = dynamicFilterStats;
 
         this.blockedReason = blockedReason;
 
@@ -647,6 +655,14 @@ public class OperatorStats
         return joinProbeKeyCount;
     }
 
+    @Nullable
+    @JsonProperty
+    @ThriftField(44)
+    public DynamicFilterStats getDynamicFilterStats()
+    {
+        return dynamicFilterStats;
+    }
+
     public OperatorStats add(OperatorStats operatorStats)
     {
         return add(ImmutableList.of(operatorStats));
@@ -695,6 +711,7 @@ public class OperatorStats
         Optional<BlockedReason> blockedReason = this.blockedReason;
 
         RuntimeStats runtimeStats = RuntimeStats.copyOf(this.runtimeStats);
+        DynamicFilterStats dynamicFilterStats = DynamicFilterStats.copyOf(this.dynamicFilterStats);
 
         long nullJoinBuildKeyCount = this.nullJoinBuildKeyCount;
         long joinBuildKeyCount = this.joinBuildKeyCount;
@@ -754,6 +771,7 @@ public class OperatorStats
             }
 
             runtimeStats.mergeWith(operator.getRuntimeStats());
+            dynamicFilterStats.mergeWith(operator.getDynamicFilterStats());
 
             nullJoinBuildKeyCount += operator.getNullJoinBuildKeyCount();
             joinBuildKeyCount += operator.getJoinBuildKeyCount();
@@ -811,6 +829,7 @@ public class OperatorStats
 
                 (OperatorInfo) base,
                 runtimeStats,
+                dynamicFilterStats,
                 nullJoinBuildKeyCount,
                 joinBuildKeyCount,
                 nullJoinProbeKeyCount,
@@ -879,6 +898,7 @@ public class OperatorStats
                 blockedReason,
                 info,
                 runtimeStats,
+                dynamicFilterStats,
                 nullJoinBuildKeyCount,
                 joinBuildKeyCount,
                 nullJoinProbeKeyCount,

@@ -65,8 +65,8 @@ public class KllSketchStateSerializer
         KllSketchAggregationState.SketchParameters parameters = KllSketchAggregationState.getSketchParameters(type);
         // use heapify over wrap in order to get a writable sketch for updates and merges
         KllItemsSketch sketch = KllItemsSketch.heapify(memory, parameters.getComparator(), parameters.getSerde());
-        state.addMemoryUsage(-getEstimatedKllInMemorySize(state.getSketch(), type.getJavaType()));
+        state.addMemoryUsage(() -> -getEstimatedKllInMemorySize(state.getSketch(), type.getJavaType()));
         state.setSketch(sketch);
-        state.addMemoryUsage(getEstimatedKllInMemorySize(state.getSketch(), type.getJavaType()));
+        state.addMemoryUsage(() -> getEstimatedKllInMemorySize(state.getSketch(), type.getJavaType()));
     }
 }

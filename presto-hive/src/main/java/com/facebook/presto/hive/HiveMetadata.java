@@ -77,6 +77,7 @@ import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitioningMetadata;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.constraints.NotNullConstraint;
 import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
@@ -185,6 +186,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_COLUMN_ORDER_MISMATCH;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CONCURRENT_MODIFICATION_DETECTED;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_READ_ONLY;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TIMEZONE_MISMATCH;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_ENCRYPTION_OPERATION;
@@ -338,6 +340,7 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_ANALYZE_PROPERTY
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_VIEW;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static com.facebook.presto.spi.TableLayoutFilterCoverage.COVERED;
@@ -649,7 +652,14 @@ public class HiveMetadata
             throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, format("Not a Hive table '%s'", tableName));
         }
 
-        Function<HiveColumnHandle, ColumnMetadata> metadataGetter = columnMetadataGetter(table.get(), typeManager, metastoreContext.getColumnConverter());
+        List<TableConstraint<String>> tableConstraints = metastore.getTableConstraints(metastoreContext, tableName.getSchemaName(), tableName.getTableName());
+        List<String> notNullColumns = tableConstraints.stream()
+                .filter(NotNullConstraint.class::isInstance)
+                .map(constraint -> constraint.getColumns().stream()
+                        .findFirst()
+                        .orElseThrow(() -> new PrestoException(HIVE_METASTORE_ERROR, format("NOT NULL constraint found with no column in table %s", tableName.getTableName()))))
+                .collect(toImmutableList());
+        Function<HiveColumnHandle, ColumnMetadata> metadataGetter = columnMetadataGetter(table.get(), typeManager, metastoreContext.getColumnConverter(), notNullColumns);
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
         Map<String, ColumnHandle> columnNameToHandleAssignments = new HashMap<>();
         for (HiveColumnHandle columnHandle : hiveColumnHandles(table.get())) {
@@ -729,7 +739,6 @@ public class HiveMetadata
 
         Optional<String> comment = Optional.ofNullable(table.get().getParameters().get(TABLE_COMMENT));
 
-        List<TableConstraint<String>> tableConstraints = metastore.getTableConstraints(metastoreContext, tableName.getSchemaName(), tableName.getTableName());
         return new ConnectorTableMetadata(tableName, columns.build(), properties.build(), comment, tableConstraints, columnNameToHandleAssignments);
     }
 
@@ -967,6 +976,12 @@ public class HiveMetadata
         PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(table.getOwner());
         HiveBasicStatistics basicStatistics = table.getPartitionColumns().isEmpty() ? createZeroStatistics() : createEmptyStatistics();
 
+        List<TableConstraint<String>> constraints = tableMetadata.getColumns().stream()
+                .filter(columnMetadata -> !columnMetadata.isNullable())
+                .map(columnMetadata -> new NotNullConstraint<>(columnMetadata.getName()))
+                .collect(Collectors.toList());
+        constraints.addAll(tableMetadata.getTableConstraintsHolder().getTableConstraints());
+
         metastore.createTable(
                 session,
                 table,
@@ -974,7 +989,7 @@ public class HiveMetadata
                 Optional.empty(),
                 ignoreExisting,
                 new PartitionStatistics(basicStatistics, ImmutableMap.of()),
-                tableMetadata.getTableConstraintsHolder().getTableConstraints());
+                constraints);
     }
 
     private Table prepareTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, PrestoTableType tableType)
@@ -1401,6 +1416,9 @@ public class HiveMetadata
     {
         HiveTableHandle handle = (HiveTableHandle) tableHandle;
         failIfAvroSchemaIsSet(session, handle);
+        if (!column.isNullable()) {
+            throw new PrestoException(NOT_SUPPORTED, "This connector does not support ADD COLUMN with NOT NULL");
+        }
 
         MetastoreContext metastoreContext = getMetastoreContext(session);
         metastore.addColumn(metastoreContext, handle.getSchemaName(), handle.getTableName(), column.getName(), toHiveType(typeTranslator, column.getType()), column.getComment());
@@ -1755,7 +1773,17 @@ public class HiveMetadata
 
     private MetastoreContext getMetastoreContext(ConnectorSession session)
     {
-        return new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), metastore.getColumnConverterProvider(), session.getWarningCollector(), session.getRuntimeStats());
+        return new MetastoreContext(
+                session.getIdentity(),
+                session.getQueryId(),
+                session.getClientInfo(),
+                session.getClientTags(),
+                session.getSource(),
+                getMetastoreHeaders(session),
+                isUserDefinedTypeEncodingEnabled(session),
+                metastore.getColumnConverterProvider(),
+                session.getWarningCollector(),
+                session.getRuntimeStats());
     }
 
     private Column columnHandleToColumn(ConnectorSession session, HiveColumnHandle handle)
@@ -1878,7 +1906,7 @@ public class HiveMetadata
         tableWritabilityChecker.checkTableWritable(table);
 
         List<TableConstraint<String>> constraints = metastore.getTableConstraints(metastoreContext, tableName.getSchemaName(), tableName.getTableName());
-        if (constraints.stream().anyMatch(TableConstraint::isEnforced)) {
+        if (constraints.stream().anyMatch(constraint -> !(constraint instanceof NotNullConstraint) && constraint.isEnforced())) {
             throw new PrestoException(NOT_SUPPORTED, format("Cannot write to table %s since it has table constraints that are enforced", table.getSchemaTableName().toString()));
         }
 
@@ -3623,7 +3651,7 @@ public class HiveMetadata
     }
 
     @VisibleForTesting
-    static Function<HiveColumnHandle, ColumnMetadata> columnMetadataGetter(Table table, TypeManager typeManager, ColumnConverter columnConverter)
+    static Function<HiveColumnHandle, ColumnMetadata> columnMetadataGetter(Table table, TypeManager typeManager, ColumnConverter columnConverter, List<String> notNullColumns)
     {
         ImmutableList.Builder<String> columnNames = ImmutableList.builder();
         table.getPartitionColumns().stream().map(Column::getName).forEach(columnNames::add);
@@ -3664,9 +3692,11 @@ public class HiveMetadata
         return handle -> new ColumnMetadata(
                 handle.getName(),
                 typeManager.getType(columnConverter.getTypeSignature(handle.getHiveType(), typeMetadata.getOrDefault(handle.getName(), Optional.empty()))),
+                !notNullColumns.contains(handle.getName()),
                 columnComment.get(handle.getName()).orElse(null),
                 columnExtraInfo(handle.isPartitionKey()),
-                handle.isHidden());
+                handle.isHidden(),
+                ImmutableMap.of());
     }
 
     @Override
@@ -3729,11 +3759,30 @@ public class HiveMetadata
     }
 
     @Override
-    public void dropConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, String constraintName)
+    public void dropConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<String> constraintName, Optional<String> columnName)
     {
         HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
         MetastoreContext metastoreContext = getMetastoreContext(session);
-        metastore.dropConstraint(metastoreContext, hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName(), constraintName);
+        checkArgument((constraintName.isPresent() && !columnName.isPresent()) || (!constraintName.isPresent() && columnName.isPresent()));
+        String constraintToDrop;
+        if (constraintName.isPresent()) {
+            constraintToDrop = constraintName.get();
+        }
+        else {
+            List<TableConstraint<String>> notNullConstraints = metastore.getTableConstraints(metastoreContext, hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName())
+                    .stream()
+                    .filter(NotNullConstraint.class::isInstance)
+                    .filter(constraint -> constraint.getColumns().stream()
+                            .findFirst()
+                            .orElse("")
+                            .equals(columnName.get()))
+                    .collect(toImmutableList());
+            if (notNullConstraints.size() == 0 || !notNullConstraints.get(0).getName().isPresent()) {
+                throw new PrestoException(NOT_FOUND, format("Not Null constraint not found on column %s", columnName.get()));
+            }
+            constraintToDrop = notNullConstraints.get(0).getName().get();
+        }
+        metastore.dropConstraint(metastoreContext, hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName(), constraintToDrop);
     }
 
     @Override

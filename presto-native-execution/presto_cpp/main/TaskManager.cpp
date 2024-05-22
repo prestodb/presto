@@ -37,6 +37,21 @@ namespace facebook::presto {
 constexpr uint32_t kMaxConcurrentLifespans{16};
 
 namespace {
+// We request cancellation for tasks which haven't been accessed by coordinator
+// for a considerable time.
+void cancelAbandonedTasksInternal(const TaskMap& taskMap, int32_t abandonedMs) {
+  for (const auto& [id, prestoTask] : taskMap) {
+    if (prestoTask->task != nullptr) {
+      if (prestoTask->task->isRunning()) {
+        if (prestoTask->timeSinceLastCoordinatorHeartbeatMs() >= abandonedMs) {
+          LOG(INFO) << "Cancelling abandoned task '" << id << "'.";
+          prestoTask->task->requestCancel();
+        }
+      }
+    }
+  }
+}
+
 // If spilling is enabled and the given Task can spill, then this helper
 // generates the spilling directory path for the Task, and sets the path to it
 // in the Task.
@@ -207,15 +222,16 @@ void checkSplitsForBatchTask(
 }
 
 struct ZombieTaskStats {
-  const std::string taskId;
-  const std::string taskInfo;
+  const std::string info;
+  const long numExtraReferences;
 
-  explicit ZombieTaskStats(const std::shared_ptr<exec::Task>& task)
-      : taskId(task->taskId()), taskInfo(task->toString()) {}
-
-  std::string toString() const {
-    return SystemConfig::instance()->logZombieTaskInfo() ? taskInfo : taskId;
-  }
+  ZombieTaskStats(
+      const std::shared_ptr<exec::Task>& task,
+      long _numExtraReferences)
+      : info(
+            SystemConfig::instance()->logZombieTaskInfo() ? task->toString()
+                                                          : task->taskId()),
+        numExtraReferences(_numExtraReferences) {}
 };
 
 // Helper structure holding stats for 'zombie' tasks.
@@ -235,7 +251,9 @@ struct ZombieTaskStatsSet {
     tasks.reserve(numSampleTasks);
   }
 
-  void updateCounts(std::shared_ptr<exec::Task>& task) {
+  void updateCounts(
+      std::shared_ptr<exec::Task>& task,
+      long numExtraReferences) {
     switch (task->state()) {
       case exec::TaskState::kRunning:
         ++numRunning;
@@ -256,7 +274,7 @@ struct ZombieTaskStatsSet {
         break;
     }
     if (tasks.size() < numSampleTasks) {
-      tasks.emplace_back(task);
+      tasks.emplace_back(task, numExtraReferences);
     }
   }
 
@@ -271,8 +289,10 @@ struct ZombieTaskStatsSet {
                << numFailed << "]  Sample task IDs (shows only "
                << numSampleTasks << " IDs): " << std::endl;
     for (auto i = 0; i < tasks.size(); ++i) {
-      LOG(ERROR) << "Zombie Task[" << i + 1 << "/" << tasks.size()
-                 << "]: " << tasks[i].toString() << std::endl;
+      LOG(ERROR) << "Zombie " << hangingClassName << " [" << i + 1 << "/"
+                 << tasks.size()
+                 << "]: Extra Refs: " << tasks[i].numExtraReferences << ", "
+                 << tasks[i].info << std::endl;
     }
   }
 };
@@ -344,6 +364,7 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateErrorTask(
   auto prestoTask = findOrCreateTask(taskId, startProcessCpuTime);
   {
     std::lock_guard<std::mutex> l(prestoTask->mutex);
+    prestoTask->updateCoordinatorHeartbeatLocked();
     prestoTask->updateHeartbeatLocked();
     if (prestoTask->error == nullptr) {
       prestoTask->error = exception;
@@ -408,7 +429,7 @@ std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateTask(
     const velox::core::PlanFragment& planFragment,
     std::shared_ptr<velox::core::QueryCtx> queryCtx,
     long startProcessCpuTime) {
-  return createOrUpdateTask(
+  return createOrUpdateTaskImpl(
       taskId,
       planFragment,
       updateRequest.sources,
@@ -427,7 +448,7 @@ std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateBatchTask(
 
   checkSplitsForBatchTask(planFragment.planNode, updateRequest.sources);
 
-  return createOrUpdateTask(
+  return createOrUpdateTaskImpl(
       taskId,
       planFragment,
       updateRequest.sources,
@@ -436,7 +457,7 @@ std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateBatchTask(
       startProcessCpuTime);
 }
 
-std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
+std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
     const TaskId& taskId,
     const velox::core::PlanFragment& planFragment,
     const std::vector<protocol::TaskSource>& sources,
@@ -448,6 +469,7 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
   auto prestoTask = findOrCreateTask(taskId, startProcessCpuTime);
   {
     std::lock_guard<std::mutex> l(prestoTask->mutex);
+    prestoTask->updateCoordinatorHeartbeatLocked();
     if (not prestoTask->task && planFragment.planNode) {
       // If the task is aborted, no need to do anything else.
       // This takes care of DELETE task message coming before CREATE task.
@@ -462,7 +484,11 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
       // task which hasn't been destroyed yet, such as the task pool in query's
       // root memory pool.
       auto newExecTask = exec::Task::create(
-          taskId, planFragment, prestoTask->id.id(), std::move(queryCtx));
+          taskId,
+          planFragment,
+          prestoTask->id.id(),
+          std::move(queryCtx),
+          exec::Task::ExecutionMode::kParallel);
       // TODO: move spill directory creation inside velox task execution
       // whenever spilling is triggered. It will reduce the unnecessary file
       // operations on remote storage.
@@ -596,6 +622,7 @@ std::unique_ptr<TaskInfo> TaskManager::deleteTask(
 
   std::lock_guard<std::mutex> l(prestoTask->mutex);
   prestoTask->updateHeartbeatLocked();
+  prestoTask->updateCoordinatorHeartbeatLocked();
   auto execTask = prestoTask->task;
   if (execTask) {
     auto state = execTask->state();
@@ -615,7 +642,7 @@ std::unique_ptr<TaskInfo> TaskManager::deleteTask(
   }
 
   // Do not erase the finished/aborted tasks, because someone might still want
-  // to get some results from them. Instead we run a periodic task to clean up
+  // to get some results from them. Instead, we run a periodic task to clean up
   // the old finished/aborted tasks.
   if (prestoTask->info.taskStatus.state == protocol::TaskState::RUNNING) {
     prestoTask->info.taskStatus.state = protocol::TaskState::ABORTED;
@@ -677,17 +704,19 @@ size_t TaskManager::cleanOldTasks() {
         if (prestoTaskRefCount > 2) {
           ++zombiePrestoTaskCounts.numTotal;
           if (task != nullptr) {
-            zombiePrestoTaskCounts.updateCounts(task);
+            zombiePrestoTaskCounts.updateCounts(task, prestoTaskRefCount - 2);
           }
         }
         if (taskRefCount > 1) {
           ++zombieVeloxTaskCounts.numTotal;
-          zombieVeloxTaskCounts.updateCounts(task);
+          zombieVeloxTaskCounts.updateCounts(task, taskRefCount - 1);
         }
       } else {
         taskIdsToClean.emplace(id);
       }
     }
+
+    cancelAbandonedTasksInternal(taskMap, oldTaskCleanUpMs_);
   }
 
   const auto elapsedMs = (getCurrentTimeMs() - startTimeMs);
@@ -725,6 +754,13 @@ size_t TaskManager::cleanOldTasks() {
   return taskIdsToClean.size();
 }
 
+void TaskManager::cancelAbandonedTasks() {
+  // We copy task map locally to avoid locking task map for a potentially long
+  // time. We also lock for 'read'.
+  const TaskMap taskMap = *(taskMap_.rlock());
+  cancelAbandonedTasksInternal(taskMap, oldTaskCleanUpMs_);
+}
+
 folly::Future<std::unique_ptr<protocol::TaskInfo>> TaskManager::getTaskInfo(
     const TaskId& taskId,
     bool summarize,
@@ -738,6 +774,7 @@ folly::Future<std::unique_ptr<protocol::TaskInfo>> TaskManager::getTaskInfo(
     // Return current TaskInfo without waiting.
     promise.setValue(
         std::make_unique<protocol::TaskInfo>(prestoTask->updateInfo()));
+    prestoTask->updateCoordinatorHeartbeat();
     return std::move(future).via(httpSrvCpuExecutor_);
   }
 
@@ -747,6 +784,7 @@ folly::Future<std::unique_ptr<protocol::TaskInfo>> TaskManager::getTaskInfo(
   {
     std::lock_guard<std::mutex> l(prestoTask->mutex);
     prestoTask->updateHeartbeatLocked();
+    prestoTask->updateCoordinatorHeartbeatLocked();
     if (!prestoTask->task) {
       auto promiseHolder =
           std::make_shared<PromiseHolder<std::unique_ptr<protocol::TaskInfo>>>(
@@ -904,6 +942,7 @@ folly::Future<std::unique_ptr<protocol::TaskStatus>> TaskManager::getTaskStatus(
 
   if (!currentState || !maxWait) {
     // Return task's status immediately without waiting.
+    prestoTask->updateCoordinatorHeartbeat();
     return std::make_unique<protocol::TaskStatus>(prestoTask->updateStatus());
   }
 
@@ -913,6 +952,7 @@ folly::Future<std::unique_ptr<protocol::TaskStatus>> TaskManager::getTaskStatus(
   protocol::TaskStatus status;
   {
     std::lock_guard<std::mutex> l(prestoTask->mutex);
+    prestoTask->updateCoordinatorHeartbeatLocked();
     if (!prestoTask->task) {
       auto promiseHolder = std::make_shared<
           PromiseHolder<std::unique_ptr<protocol::TaskStatus>>>(
@@ -1112,8 +1152,9 @@ void TaskManager::shutdown() {
     PRESTO_SHUTDOWN_LOG(INFO)
         << "Waited (" << seconds
         << " seconds so far) for 'Running' tasks to complete. " << numTasks
-        << " tasks left: " << PrestoTask::taskNumbersToString(taskNumbers);
+        << " tasks left: " << PrestoTask::taskStatesToString(taskNumbers);
     std::this_thread::sleep_for(std::chrono::seconds(1));
+    cancelAbandonedTasks();
     taskNumbers = getTaskNumbers(numTasks);
     ++seconds;
   }

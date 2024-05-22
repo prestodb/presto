@@ -106,7 +106,8 @@ public class RcFilePageSourceFactory
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone,
             HiveFileContext hiveFileContext,
-            Optional<EncryptionInformation> encryptionInformation)
+            Optional<EncryptionInformation> encryptionInformation,
+            Optional<byte[]> rowIDPartitionComponent)
     {
         RcFileEncoding rcFileEncoding;
         if (LazyBinaryColumnarSerDe.class.getName().equals(storage.getStorageFormat().getSerDe())) {

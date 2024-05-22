@@ -263,6 +263,14 @@ void updateTaskRuntimeStats(
   }
 }
 
+presto::protocol::DynamicFilterStats toPrestoDynamicFilterStats(
+    const velox::exec::OperatorStats& veloxOpStats) {
+  presto::protocol::DynamicFilterStats dynamicFilterStats;
+  for (const auto& nodeId : veloxOpStats.dynamicFilterStats.producerNodeIds) {
+    dynamicFilterStats.producerNodeIds.emplace_back(nodeId);
+  }
+  return dynamicFilterStats;
+}
 } // namespace
 
 PrestoTask::PrestoTask(
@@ -272,7 +280,7 @@ PrestoTask::PrestoTask(
     : id(taskId),
       startProcessCpuTime{
           _startProcessCpuTime > 0 ? _startProcessCpuTime
-                                   : getProcessCpuTime()} {
+                                   : util::getProcessCpuTimeNs()} {
   info.taskId = taskId;
   info.nodeId = nodeId;
 }
@@ -280,6 +288,15 @@ PrestoTask::PrestoTask(
 void PrestoTask::updateHeartbeatLocked() {
   lastHeartbeatMs = velox::getCurrentTimeMs();
   info.lastHeartbeat = util::toISOTimestamp(lastHeartbeatMs);
+}
+
+void PrestoTask::updateCoordinatorHeartbeat() {
+  std::lock_guard<std::mutex> l(mutex);
+  updateCoordinatorHeartbeatLocked();
+}
+
+void PrestoTask::updateCoordinatorHeartbeatLocked() {
+  lastCoordinatorHeartbeatMs = velox::getCurrentTimeMs();
 }
 
 uint64_t PrestoTask::timeSinceLastHeartbeatMs() const {
@@ -290,16 +307,12 @@ uint64_t PrestoTask::timeSinceLastHeartbeatMs() const {
   return getCurrentTimeMs() - lastHeartbeatMs;
 }
 
-// static
-long PrestoTask::getProcessCpuTime() {
-  struct rusage rusageEnd;
-  getrusage(RUSAGE_SELF, &rusageEnd);
-
-  auto tvNanos = [](struct timeval tv) {
-    return tv.tv_sec * 1000000000 + tv.tv_usec * 1000;
-  };
-
-  return tvNanos(rusageEnd.ru_utime) + tvNanos(rusageEnd.ru_stime);
+uint64_t PrestoTask::timeSinceLastCoordinatorHeartbeatMs() const {
+  std::lock_guard<std::mutex> l(mutex);
+  if (lastCoordinatorHeartbeatMs == 0UL) {
+    return 0UL;
+  }
+  return getCurrentTimeMs() - lastCoordinatorHeartbeatMs;
 }
 
 void PrestoTask::recordProcessCpuTime() {
@@ -307,7 +320,7 @@ void PrestoTask::recordProcessCpuTime() {
     return;
   }
 
-  processCpuTime_ = getProcessCpuTime() - startProcessCpuTime;
+  processCpuTime_ = util::getProcessCpuTimeNs() - startProcessCpuTime;
 }
 
 protocol::TaskStatus PrestoTask::updateStatusLocked() {
@@ -726,6 +739,10 @@ void PrestoTask::updateExecutionInfoLocked(
         prestoOp.nullJoinProbeKeyCount = veloxOp.numNullKeys;
       }
 
+      if (!veloxOp.dynamicFilterStats.empty()) {
+        prestoOp.dynamicFilterStats = toPrestoDynamicFilterStats(veloxOp);
+      }
+
       for (const auto& stat : veloxOp.runtimeStats) {
         auto statName = generateRuntimeStatName(veloxOp, stat.first);
         prestoOp.runtimeStats[statName] =
@@ -778,8 +795,8 @@ void PrestoTask::updateExecutionInfoLocked(
       prestoTaskStats);
 }
 
-/*static*/ std::string PrestoTask::taskNumbersToString(
-    const std::array<size_t, 5>& taskNumbers) {
+/*static*/ std::string PrestoTask::taskStatesToString(
+    const std::array<size_t, 5>& taskStates) {
   // Names of five TaskState (enum defined in exec/Task.h).
   static constexpr std::array<folly::StringPiece, 5> taskStateNames{
       "Running",
@@ -790,10 +807,10 @@ void PrestoTask::updateExecutionInfoLocked(
   };
 
   std::string str;
-  for (size_t i = 0; i < taskNumbers.size(); ++i) {
-    if (taskNumbers[i] != 0) {
+  for (size_t i = 0; i < taskStates.size(); ++i) {
+    if (taskStates[i] != 0) {
       folly::toAppend(
-          fmt::format("{}={} ", taskStateNames[i], taskNumbers[i]), &str);
+          fmt::format("{}={} ", taskStateNames[i], taskStates[i]), &str);
     }
   }
   return str;

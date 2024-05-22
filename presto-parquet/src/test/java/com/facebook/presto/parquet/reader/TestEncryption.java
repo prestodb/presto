@@ -264,10 +264,6 @@ public class TestEncryption
         MessageType schema = createSchema();
         String[] encryptColumns = {"name", "gender"};
         String[] maskingColumn = {"name", "gender"};
-        Map<String, String> extraMetadata = new HashMap<String, String>() {{
-                put("key1", "value1");
-                put("key2", "value2");
-            }};
         TestFile inputFile = new TestFileBuilder(conf, schema)
                 .withEncryptColumns(encryptColumns)
                 .withDataMaskingTest()
@@ -284,10 +280,6 @@ public class TestEncryption
         MessageType schema = createSchema();
         String[] encryptColumns = {"name", "gender"};
         String[] maskingColumn = {"name", "gender"};
-        Map<String, String> extraMetadata = new HashMap<String, String>() {{
-                put("key1", "value1");
-                put("key2", "value2");
-            }};
         TestFile inputFile = new TestFileBuilder(conf, schema)
                 .withEncryptColumns(encryptColumns)
                 .withDataMaskingTest()
@@ -303,10 +295,6 @@ public class TestEncryption
         MessageType schema = createSchema();
         String[] encryptColumns = {"name", "gender"};
         String[] maskingColumn = {"name", "gender"};
-        Map<String, String> extraMetadata = new HashMap<String, String>() {{
-                put("key1", "value1");
-                put("key2", "value2");
-            }};
         TestFile inputFile = new TestFileBuilder(conf, schema)
                 .withEncryptColumns(encryptColumns)
                 .withDataMaskingTest()
@@ -323,10 +311,6 @@ public class TestEncryption
         MessageType schema = createSchema();
         String[] encryptColumns = {"name", "gender"};
         String[] maskingColumn = {"name", "gender"};
-        Map<String, String> extraMetadata = new HashMap<String, String>() {{
-                put("key1", "value1");
-                put("key2", "value2");
-            }};
         TestFile inputFile = new TestFileBuilder(conf, schema)
                 .withEncryptColumns(encryptColumns)
                 .withDataMaskingTest()
@@ -343,10 +327,6 @@ public class TestEncryption
         MessageType schema = createSchema();
         String[] encryptColumns = {"name", "gender"};
         String[] maskingColumn = {"name", "gender"};
-        Map<String, String> extraMetadata = new HashMap<String, String>() {{
-                put("key1", "value1");
-                put("key2", "value2");
-            }};
         TestFile inputFile = new TestFileBuilder(conf, schema)
                 .withEncryptColumns(encryptColumns)
                 .withNumRecord(1)
@@ -363,10 +343,6 @@ public class TestEncryption
         MessageType schema = createSchema();
         String[] encryptColumns = {"id", "name", "gender"};
         String[] maskingColumn = {"id", "name", "gender"};
-        Map<String, String> extraMetadata = new HashMap<String, String>() {{
-                put("key1", "value1");
-                put("key2", "value2");
-            }};
         TestFile inputFile = new TestFileBuilder(conf, schema)
                 .withEncryptColumns(encryptColumns)
                 .withNumRecord(10000)

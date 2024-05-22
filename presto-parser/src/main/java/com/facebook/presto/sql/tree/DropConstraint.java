@@ -92,13 +92,15 @@ public class DropConstraint
         }
         DropConstraint that = (DropConstraint) o;
         return Objects.equals(tableName, that.tableName) &&
-                Objects.equals(constraintName, that.constraintName);
+                Objects.equals(constraintName, that.constraintName) &&
+                Objects.equals(tableExists, that.tableExists) &&
+                Objects.equals(constraintExists, constraintExists);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(tableName, constraintName);
+        return Objects.hash(tableName, tableExists, constraintName);
     }
 
     @Override
@@ -107,6 +109,8 @@ public class DropConstraint
         return toStringHelper(this)
                 .add("table", tableName)
                 .add("constraint", constraintName)
+                .add("tableExists", tableExists)
+                .add("constraintExists", constraintExists)
                 .toString();
     }
 }

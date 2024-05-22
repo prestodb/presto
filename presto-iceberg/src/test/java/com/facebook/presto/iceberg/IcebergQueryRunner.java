@@ -41,6 +41,7 @@ import io.airlift.tpch.TpchTable;
 import java.io.File;
 import java.net.URI;
 import java.nio.file.Path;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -61,7 +62,7 @@ public final class IcebergQueryRunner
     public static final String ICEBERG_CATALOG = "iceberg";
     public static final String TEST_DATA_DIRECTORY = "iceberg_data";
     public static final String TEST_CATALOG_DIRECTORY = "catalog";
-    public static final MetastoreContext METASTORE_CONTEXT = new MetastoreContext("test_user", "test_queryId", Optional.empty(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, WarningCollector.NOOP, new RuntimeStats());
+    public static final MetastoreContext METASTORE_CONTEXT = new MetastoreContext("test_user", "test_queryId", Optional.empty(), Collections.emptySet(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, WarningCollector.NOOP, new RuntimeStats());
 
     private IcebergQueryRunner() {}
 

@@ -190,6 +190,7 @@
         <module>redis-hbo-provider</module>
         <module>presto-singlestore</module>
         <module>presto-hana</module>
+        <module>presto-ui</module>
     </modules>
 
     <dependencyManagement>
@@ -610,6 +611,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-main</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-ui</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -2214,6 +2221,12 @@
                 <groupId>org.apache.datasketches</groupId>
                 <artifactId>datasketches-java</artifactId>
                 <version>5.0.1</version>
+            </dependency>
+            
+            <dependency>
+                <groupId>com.google.j2objc</groupId>
+                <artifactId>j2objc-annotations</artifactId>
+                <version>1.3</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

@@ -428,7 +428,7 @@ public class IcebergHiveMetadata
 
     private MetastoreContext getMetastoreContext(ConnectorSession session)
     {
-        return new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, session.getWarningCollector(), session.getRuntimeStats());
+        return new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getClientTags(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, session.getWarningCollector(), session.getRuntimeStats());
     }
 
     private List<String> listSchemas(ConnectorSession session, String schemaNameOrNull)
@@ -443,18 +443,16 @@ public class IcebergHiveMetadata
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         org.apache.iceberg.Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
-        TableStatistics icebergStatistics = TableStatisticsMaker.getTableStatistics(session, typeManager, constraint, handle, icebergTable, columnHandles.stream().map(IcebergColumnHandle.class::cast).collect(Collectors.toList()));
+        TableStatistics icebergStatistics = TableStatisticsMaker.getTableStatistics(session, typeManager,
+                tableLayoutHandle
+                        .map(IcebergTableLayoutHandle.class::cast)
+                        .map(IcebergTableLayoutHandle::getValidPredicate),
+                constraint, handle, icebergTable,
+                columnHandles.stream().map(IcebergColumnHandle.class::cast).collect(Collectors.toList()));
         EnumSet<ColumnStatisticType> mergeFlags = getHiveStatisticsMergeStrategy(session);
         return tableLayoutHandle.map(IcebergTableLayoutHandle.class::cast).map(layoutHandle -> {
-            TupleDomain<ColumnHandle> domainPredicate = layoutHandle.getDomainPredicate()
-                    .transform(subfield -> isEntireColumn(subfield) ? subfield.getRootName() : null)
-                    .transform(layoutHandle.getPredicateColumns()::get)
-                    .transform(ColumnHandle.class::cast);
-
-            TupleDomain<VariableReferenceExpression> predicate = domainPredicate.transform(icebergLayout -> {
-                IcebergColumnHandle columnHandle = (IcebergColumnHandle) icebergLayout;
-                return new VariableReferenceExpression(Optional.empty(), columnHandle.getName(), columnHandle.getType());
-            });
+            TupleDomain<VariableReferenceExpression> predicate = layoutHandle.getValidPredicate()
+                    .transform(columnHandle -> new VariableReferenceExpression(Optional.empty(), columnHandle.getName(), columnHandle.getType()));
             RowExpression translatedPredicate = rowExpressionService.getDomainTranslator().toPredicate(predicate);
             TableStatistics mergedStatistics = Optional.of(mergeFlags)
                     .filter(set -> !set.isEmpty())

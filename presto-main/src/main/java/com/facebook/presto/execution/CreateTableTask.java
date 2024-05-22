@@ -61,6 +61,7 @@ import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
+import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static com.facebook.presto.sql.NodeUtils.mapFromProperties;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_COLUMN_NAME;
@@ -203,7 +204,7 @@ public class CreateTableTask
                 .collect(Collectors.groupingBy(c -> c.getName().get(), Collectors.counting()))
                 .forEach((constraintName, count) -> {
                     if (count > 1) {
-                        throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Constraint name '%s' specified more than once", constraintName));
+                        throw new PrestoException(SYNTAX_ERROR, format("Constraint name '%s' specified more than once", constraintName));
                     }
                 });
 
@@ -211,7 +212,7 @@ public class CreateTableTask
                 .filter(PrimaryKeyConstraint.class::isInstance)
                 .collect(Collectors.groupingBy(c -> c.getName().orElse(""), Collectors.counting()))
                 .size() > 1) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Multiple primary key constraints are not allowed");
+            throw new PrestoException(SYNTAX_ERROR, "Multiple primary key constraints are not allowed");
         }
 
         Map<String, Expression> sqlProperties = mapFromProperties(statement.getProperties());

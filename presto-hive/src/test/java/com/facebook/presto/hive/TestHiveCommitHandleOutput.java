@@ -46,6 +46,7 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -185,6 +186,7 @@ public class TestHiveCommitHandleOutput
                         connectorSession.getUser(),
                         connectorSession.getQueryId(),
                         Optional.empty(),
+                        Collections.emptySet(),
                         Optional.empty(),
                         Optional.empty(),
                         false,

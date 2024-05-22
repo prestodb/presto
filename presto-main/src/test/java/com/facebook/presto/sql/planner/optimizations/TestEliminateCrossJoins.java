@@ -36,7 +36,6 @@ public class TestEliminateCrossJoins
     private static final PlanMatchPattern ORDERS_WITH_SHIPPRIORITY_TABLESCAN = tableScan(
             "orders",
             ImmutableMap.of("O_ORDERKEY", "orderkey", "O_SHIPPRIORITY", "shippriority"));
-    private static final PlanMatchPattern SUPPLIER_TABLESCAN = tableScan("supplier", ImmutableMap.of("S_SUPPKEY", "suppkey"));
     private static final PlanMatchPattern PART_TABLESCAN = tableScan("part", ImmutableMap.of("P_PARTKEY", "partkey"));
     private static final PlanMatchPattern PART_WITH_NAME_TABLESCAN = tableScan("part", ImmutableMap.of("P_PARTKEY", "partkey", "P_NAME", "name"));
     private static final PlanMatchPattern LINEITEM_TABLESCAN = tableScan(

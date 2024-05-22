@@ -82,6 +82,11 @@
         </dependency>
 
         <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-ui</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>com.google.code.findbugs</groupId>
             <artifactId>jsr305</artifactId>
         </dependency>
@@ -549,6 +554,15 @@
                     <ignorePackages>
                         <ignorePackage>com.facebook.presto.testing.assertions</ignorePackage>
                     </ignorePackages>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <configuration>
+                    <ignoredDependencies>
+                        <ignoredDependency>com.facebook.presto:presto-ui:jar</ignoredDependency>
+                    </ignoredDependencies>
                 </configuration>
             </plugin>
         </plugins>

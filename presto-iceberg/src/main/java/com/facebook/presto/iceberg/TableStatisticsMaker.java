@@ -127,12 +127,12 @@ public class TableStatisticsMaker
             .put(ICEBERG_DATA_SIZE_BLOB_TYPE_ID, TableStatisticsMaker::readDataSizeBlob)
             .build();
 
-    public static TableStatistics getTableStatistics(ConnectorSession session, TypeManager typeManager, Constraint constraint, IcebergTableHandle tableHandle, Table icebergTable, List<IcebergColumnHandle> columns)
+    public static TableStatistics getTableStatistics(ConnectorSession session, TypeManager typeManager, Optional<TupleDomain<IcebergColumnHandle>> currentPredicate, Constraint constraint, IcebergTableHandle tableHandle, Table icebergTable, List<IcebergColumnHandle> columns)
     {
-        return new TableStatisticsMaker(icebergTable, session, typeManager).makeTableStatistics(tableHandle, constraint, columns);
+        return new TableStatisticsMaker(icebergTable, session, typeManager).makeTableStatistics(tableHandle, currentPredicate, constraint, columns);
     }
 
-    private TableStatistics makeTableStatistics(IcebergTableHandle tableHandle, Constraint constraint, List<IcebergColumnHandle> selectedColumns)
+    private TableStatistics makeTableStatistics(IcebergTableHandle tableHandle, Optional<TupleDomain<IcebergColumnHandle>> currentPredicate, Constraint constraint, List<IcebergColumnHandle> selectedColumns)
     {
         if (!tableHandle.getIcebergTableName().getSnapshotId().isPresent() || constraint.getSummary().isNone()) {
             return TableStatistics.builder()
@@ -141,8 +141,10 @@ public class TableStatisticsMaker
         }
 
         TupleDomain<IcebergColumnHandle> intersection = constraint.getSummary()
-                .transform(IcebergColumnHandle.class::cast)
-                .intersect(tableHandle.getPredicate());
+                .transform(IcebergColumnHandle.class::cast);
+        if (currentPredicate.isPresent()) {
+            intersection.intersect(currentPredicate.get());
+        }
 
         if (intersection.isNone()) {
             return TableStatistics.builder()
@@ -178,6 +180,10 @@ public class TableStatisticsMaker
                     .setRowCount(Estimate.of(0))
                     .build();
         }
+        // the total record count for the whole table
+        Optional<Long> totalRecordCount = Optional.of(intersection)
+                .filter(domain -> !domain.isAll())
+                .map(domain -> getDataTableSummary(tableHandle, ImmutableList.of(), TupleDomain.all(), idToTypeMapping, nonPartitionPrimitiveColumns, partitionFields).getRecordCount());
 
         double recordCount = summary.getRecordCount();
         TableStatistics.Builder result = TableStatistics.builder();
@@ -185,6 +191,10 @@ public class TableStatisticsMaker
 
         Map<Integer, ColumnStatistics.Builder> tableStats = getClosestStatisticsFileForSnapshot(tableHandle)
                 .map(this::loadStatisticsFile).orElseGet(Collections::emptyMap);
+        // scale all NDV values loaded from puffin files based on row count
+        totalRecordCount.ifPresent(fullTableRecordCount -> tableStats.forEach((id, stat) ->
+                stat.setDistinctValuesCount(stat.getDistinctValuesCount().map(value -> value * recordCount / fullTableRecordCount))));
+
         for (IcebergColumnHandle columnHandle : selectedColumns) {
             int fieldId = columnHandle.getId();
             ColumnStatistics.Builder columnBuilder = tableStats.getOrDefault(fieldId, ColumnStatistics.builder());

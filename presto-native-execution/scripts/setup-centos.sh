@@ -15,7 +15,6 @@ set -e
 set -x
 
 export FB_OS_VERSION=v2024.04.01.00
-export RE2_VERSION=2021-04-01
 export nproc=$(getconf _NPROCESSORS_ONLN)
 export CC=/opt/rh/gcc-toolset-9/root/bin/gcc
 export CXX=/opt/rh/gcc-toolset-9/root/bin/g++

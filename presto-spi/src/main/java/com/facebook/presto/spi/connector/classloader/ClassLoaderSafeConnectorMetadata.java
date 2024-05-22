@@ -778,10 +778,10 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public void dropConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, String constraintName)
+    public void dropConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<String> constraintName, Optional<String> columnName)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            delegate.dropConstraint(session, tableHandle, constraintName);
+            delegate.dropConstraint(session, tableHandle, constraintName, columnName);
         }
     }
 

@@ -35,6 +35,7 @@ import com.google.common.collect.ImmutableMap;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -64,7 +65,7 @@ public class TestHiveMaterializedViewUtils
     private static final String SQL = "sql";
 
     private final LiteralEncoder literalEncoder = new LiteralEncoder(new TestingBlockEncodingSerde());
-    private final MetastoreContext metastoreContext = new MetastoreContext(USER_NAME, QUERY_ID, Optional.empty(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, WarningCollector.NOOP, new RuntimeStats());
+    private final MetastoreContext metastoreContext = new MetastoreContext(USER_NAME, QUERY_ID, Optional.empty(), Collections.emptySet(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, WarningCollector.NOOP, new RuntimeStats());
 
     @Test
     public void testMaterializedDataPredicates()

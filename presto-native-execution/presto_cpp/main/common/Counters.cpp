@@ -22,6 +22,10 @@ void registerPrestoMetrics() {
       kCounterDriverCPUExecutorQueueSize, facebook::velox::StatType::AVG);
   DEFINE_METRIC(
       kCounterDriverCPUExecutorLatencyMs, facebook::velox::StatType::AVG);
+  DEFINE_METRIC(
+      kCounterSpillerExecutorQueueSize, facebook::velox::StatType::AVG);
+  DEFINE_METRIC(
+      kCounterSpillerExecutorLatencyMs, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterHTTPExecutorLatencyMs, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterNumHTTPRequest, facebook::velox::StatType::COUNT);
   DEFINE_METRIC(kCounterNumHTTPRequestError, facebook::velox::StatType::COUNT);
@@ -90,11 +94,6 @@ void registerPrestoMetrics() {
       kCounterNumBlockedWaitForSpillDrivers, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterNumBlockedYieldDrivers, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterNumStuckDrivers, facebook::velox::StatType::AVG);
-  DEFINE_METRIC(kCounterMappedMemoryBytes, facebook::velox::StatType::AVG);
-  DEFINE_METRIC(kCounterAllocatedMemoryBytes, facebook::velox::StatType::AVG);
-  DEFINE_METRIC(kCounterMmapRawAllocBytesSmall, facebook::velox::StatType::AVG);
-  DEFINE_METRIC(
-      kCounterMmapExternalMappedBytes, facebook::velox::StatType::AVG);
   DEFINE_METRIC(
       kCounterTotalPartitionedOutputBuffer, facebook::velox::StatType::AVG);
   DEFINE_METRIC(
@@ -114,151 +113,6 @@ void registerPrestoMetrics() {
       0,
       62l * 1024 * 1024 * 1024, // max bucket value: 62GB
       100);
-
-  /// ================== AsyncDataCache Counters ==================
-
-  DEFINE_METRIC(kCounterCacheMaxAgeSecs, facebook::velox::StatType::AVG);
-
-  DEFINE_METRIC(kCounterMemoryCacheNumEntries, facebook::velox::StatType::AVG);
-  DEFINE_METRIC(
-      kCounterMemoryCacheNumEmptyEntries, facebook::velox::StatType::AVG);
-  DEFINE_METRIC(
-      kCounterMemoryCacheNumSharedEntries, facebook::velox::StatType::AVG);
-  DEFINE_METRIC(
-      kCounterMemoryCacheNumExclusiveEntries, facebook::velox::StatType::AVG);
-  DEFINE_METRIC(
-      kCounterMemoryCacheNumPrefetchedEntries, facebook::velox::StatType::AVG);
-  DEFINE_METRIC(
-      kCounterMemoryCacheTotalTinyBytes, facebook::velox::StatType::AVG);
-  DEFINE_METRIC(
-      kCounterMemoryCacheTotalLargeBytes, facebook::velox::StatType::AVG);
-  DEFINE_METRIC(
-      kCounterMemoryCacheTotalTinyPaddingBytes, facebook::velox::StatType::AVG);
-  DEFINE_METRIC(
-      kCounterMemoryCacheTotalLargePaddingBytes,
-      facebook::velox::StatType::AVG);
-  DEFINE_METRIC(
-      kCounterMemoryCacheTotalPrefetchBytes, facebook::velox::StatType::AVG);
-  DEFINE_METRIC(
-      kCounterMemoryCacheTotalTinyPaddingBytes, facebook::velox::StatType::AVG);
-  DEFINE_METRIC(
-      kCounterMemoryCacheSumEvictScore, facebook::velox::StatType::AVG);
-  DEFINE_METRIC(
-      kCounterMemoryCacheNumCumulativeHit, facebook::velox::StatType::AVG);
-  DEFINE_METRIC(kCounterMemoryCacheNumHit, facebook::velox::StatType::AVG);
-  DEFINE_METRIC(
-      kCounterMemoryCacheCumulativeHitBytes, facebook::velox::StatType::AVG);
-  DEFINE_METRIC(kCounterMemoryCacheHitBytes, facebook::velox::StatType::AVG);
-  DEFINE_METRIC(
-      kCounterMemoryCacheNumCumulativeNew, facebook::velox::StatType::AVG);
-  DEFINE_METRIC(kCounterMemoryCacheNumNew, facebook::velox::StatType::AVG);
-  DEFINE_METRIC(
-      kCounterMemoryCacheNumCumulativeEvict, facebook::velox::StatType::AVG);
-  DEFINE_METRIC(kCounterMemoryCacheNumEvict, facebook::velox::StatType::AVG);
-  DEFINE_METRIC(
-      kCounterMemoryCacheNumCumulativeEvictChecks,
-      facebook::velox::StatType::AVG);
-  DEFINE_METRIC(
-      kCounterMemoryCacheNumEvictChecks, facebook::velox::StatType::AVG);
-  DEFINE_METRIC(
-      kCounterMemoryCacheNumCumulativeWaitExclusive,
-      facebook::velox::StatType::AVG);
-  DEFINE_METRIC(
-      kCounterMemoryCacheNumWaitExclusive, facebook::velox::StatType::AVG);
-  DEFINE_METRIC(
-      kCounterMemoryCacheNumCumulativeAllocClocks,
-      facebook::velox::StatType::AVG);
-  DEFINE_METRIC(
-      kCounterMemoryCacheNumAllocClocks, facebook::velox::StatType::AVG);
-  DEFINE_METRIC(
-      kCounterMemoryCacheNumCumulativeAgedOutEntries,
-      facebook::velox::StatType::AVG);
-  DEFINE_METRIC(
-      kCounterMemoryCacheNumAgedOutEntries, facebook::velox::StatType::AVG);
-
-  /// ================== SsdCache Counters ==================
-
-  DEFINE_METRIC(kCounterSsdCacheCachedEntries, facebook::velox::StatType::AVG);
-  DEFINE_METRIC(kCounterSsdCacheCachedRegions, facebook::velox::StatType::AVG);
-  DEFINE_METRIC(kCounterSsdCacheCachedBytes, facebook::velox::StatType::AVG);
-  DEFINE_METRIC(
-      kCounterSsdCacheCumulativeReadEntries, facebook::velox::StatType::AVG);
-  DEFINE_METRIC(
-      kCounterSsdCacheCumulativeReadBytes, facebook::velox::StatType::AVG);
-  DEFINE_METRIC(
-      kCounterSsdCacheCumulativeWrittenEntries, facebook::velox::StatType::AVG);
-  DEFINE_METRIC(
-      kCounterSsdCacheCumulativeWrittenBytes, facebook::velox::StatType::AVG);
-  DEFINE_METRIC(
-      kCounterSsdCacheCumulativeAgedOutEntries, facebook::velox::StatType::AVG);
-  DEFINE_METRIC(
-      kCounterSsdCacheCumulativeAgedOutRegions, facebook::velox::StatType::AVG);
-  DEFINE_METRIC(
-      kCounterSsdCacheCumulativeOpenSsdErrors, facebook::velox::StatType::AVG);
-  DEFINE_METRIC(
-      kCounterSsdCacheCumulativeOpenCheckpointErrors,
-      facebook::velox::StatType::AVG);
-  DEFINE_METRIC(
-      kCounterSsdCacheCumulativeOpenLogErrors, facebook::velox::StatType::AVG);
-  DEFINE_METRIC(
-      kCounterSsdCacheCumulativeDeleteCheckpointErrors,
-      facebook::velox::StatType::AVG);
-  DEFINE_METRIC(
-      kCounterSsdCacheCumulativeGrowFileErrors, facebook::velox::StatType::AVG);
-  DEFINE_METRIC(
-      kCounterSsdCacheCumulativeWriteSsdErrors, facebook::velox::StatType::AVG);
-  DEFINE_METRIC(
-      kCounterSsdCacheCumulativeWriteCheckpointErrors,
-      facebook::velox::StatType::AVG);
-  DEFINE_METRIC(
-      kCounterSsdCacheCumulativeReadSsdErrors, facebook::velox::StatType::AVG);
-  DEFINE_METRIC(
-      kCounterSsdCacheCumulativeReadCheckpointErrors,
-      facebook::velox::StatType::AVG);
-
-  DEFINE_METRIC(
-      kCounterSsdCacheCheckpointsRead, facebook::velox::StatType::SUM);
-  DEFINE_METRIC(
-      kCounterSsdCacheCheckpointsWritten, facebook::velox::StatType::SUM);
-
-  /// ================== Disk Spilling Counters =================
-
-  DEFINE_METRIC(kCounterSpillRuns, facebook::velox::StatType::SUM);
-  DEFINE_METRIC(kCounterSpilledFiles, facebook::velox::StatType::SUM);
-  DEFINE_METRIC(kCounterSpilledRows, facebook::velox::StatType::SUM);
-  DEFINE_METRIC(kCounterSpilledBytes, facebook::velox::StatType::SUM);
-  DEFINE_METRIC(kCounterSpillFillTimeUs, facebook::velox::StatType::SUM);
-  DEFINE_METRIC(kCounterSpillSortTimeUs, facebook::velox::StatType::SUM);
-  DEFINE_METRIC(
-      kCounterSpillSerializationTimeUs, facebook::velox::StatType::SUM);
-  DEFINE_METRIC(kCounterSpillWrites, facebook::velox::StatType::SUM);
-  DEFINE_METRIC(kCounterSpillFlushTimeUs, facebook::velox::StatType::SUM);
-  DEFINE_METRIC(kCounterSpillWriteTimeUs, facebook::velox::StatType::SUM);
-  DEFINE_METRIC(kCounterSpillMemoryBytes, facebook::velox::StatType::AVG);
-  DEFINE_HISTOGRAM_METRIC(
-      kCounterSpillPeakMemoryBytes,
-      1l * 512 * 1024 * 1024,
-      0,
-      20l * 1024 * 1024 * 1024, // max bucket value: 20GB
-      100);
-  DEFINE_METRIC(kCounterSpillMaxLevelExceeded, facebook::velox::StatType::SUM);
-
-  /// ================== Memory Arbitrator Counters =================
-
-  DEFINE_METRIC(kCounterArbitratorNumRequests, facebook::velox::StatType::SUM);
-  DEFINE_METRIC(kCounterArbitratorNumAborted, facebook::velox::StatType::SUM);
-  DEFINE_METRIC(kCounterArbitratorNumFailures, facebook::velox::StatType::SUM);
-  DEFINE_METRIC(kCounterArbitratorQueueTimeUs, facebook::velox::StatType::SUM);
-  DEFINE_METRIC(
-      kCounterArbitratorArbitrationTimeUs, facebook::velox::StatType::SUM);
-  DEFINE_METRIC(
-      kCounterArbitratorNumShrunkBytes, facebook::velox::StatType::SUM);
-  DEFINE_METRIC(
-      kCounterArbitratorNumReclaimedBytes, facebook::velox::StatType::SUM);
-  DEFINE_METRIC(
-      kCounterArbitratorFreeCapacityBytes, facebook::velox::StatType::AVG);
-  DEFINE_METRIC(
-      kCounterArbitratorNonReclaimableAttempts, facebook::velox::StatType::SUM);
 
   // NOTE: Metrics type exporting for file handle cache counters are in
   // PeriodicTaskManager because they have dynamic names. The following counters

@@ -1,5 +1,0 @@
-node.environment=cnds-intel
-node.location=cnds-cluster
-# Bellow values are filled on runtime
-# node.id=
-# node.ip=

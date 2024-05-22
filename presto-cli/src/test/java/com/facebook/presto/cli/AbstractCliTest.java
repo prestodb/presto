@@ -141,6 +141,8 @@ public abstract class AbstractCliTest
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
                 false,
                 true);
     }

@@ -453,8 +453,6 @@ public class TestCostCalculator
                 "ts1", statsEstimate(ts1, 4000));
         Map<String, PlanCostEstimate> costs = ImmutableMap.of(
                 "ts1", new PlanCostEstimate(1000, 10, 10, 1000));
-        Map<String, Type> types = ImmutableMap.of(
-                "orderkey", BIGINT);
         assertCost(cteProducerNode, costs, stats)
                 .cpu(14500)
                 .memory(10)
@@ -479,8 +477,6 @@ public class TestCostCalculator
                 "ts1", statsEstimate(ts1, 4000));
         Map<String, PlanCostEstimate> costs = ImmutableMap.of(
                 "ts1", new PlanCostEstimate(1000, 10, 10, 1000));
-        Map<String, Type> types = ImmutableMap.of(
-                "orderkey", BIGINT);
         assertCost(cteConsumerNode, costs, stats)
                 .cpu(4500)
                 .memory(0)
@@ -656,10 +652,6 @@ public class TestCostCalculator
         Map<String, PlanCostEstimate> costs = ImmutableMap.of(
                 "ts1", cpuCost(1000),
                 "ts2", cpuCost(1000));
-        Map<String, Type> types = ImmutableMap.of(
-                "orderkey", BIGINT,
-                "orderkey_0", BIGINT,
-                "orderkey_1", BIGINT);
         assertCost(union, costs, stats)
                 .cpu(2000)
                 .memory(0)

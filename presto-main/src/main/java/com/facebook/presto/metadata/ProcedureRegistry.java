@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.common.type.SqlTimestamp;
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.spi.ConnectorId;
@@ -33,6 +35,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.StandardTypes.ARRAY;
 import static com.facebook.presto.common.type.StandardTypes.MAP;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -111,6 +114,9 @@ public class ProcedureRegistry
         if (type.equals(BOOLEAN)) {
             return boolean.class;
         }
+        if (type.equals(INTEGER)) {
+            return int.class;
+        }
         if (type.equals(BIGINT)) {
             return long.class;
         }
@@ -119,6 +125,9 @@ public class ProcedureRegistry
         }
         if (type.equals(VARCHAR)) {
             return String.class;
+        }
+        if (type instanceof TimestampType) {
+            return SqlTimestamp.class;
         }
         if (type.getTypeSignature().getBase().equals(ARRAY)) {
             getObjectType(type.getTypeParameters().get(0));

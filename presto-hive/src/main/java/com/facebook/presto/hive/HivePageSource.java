@@ -96,9 +96,11 @@ public class HivePageSource
             if (columnMapping.getCoercionFrom().isPresent()) {
                 coercers[columnIndex] = createCoercer(typeManager, columnMapping.getCoercionFrom().get(), columnMapping.getHiveColumnHandle().getHiveType());
             }
-            else if (isRowIdColumnHandle(columnMapping.getHiveColumnHandle()) && rowIdPartitionComponent.isPresent()) {
+            else if (isRowIdColumnHandle(columnMapping.getHiveColumnHandle())) {
+                // If there's no row ID partition component, then path + row numbers will be supplied for $row_id
+                byte[] component = rowIdPartitionComponent.orElse(new byte[0]);
                 String rowGroupId = Paths.get(path).getFileName().toString();
-                coercers[columnIndex] = new RowIDCoercer(rowIdPartitionComponent.get(), rowGroupId);
+                coercers[columnIndex] = new RowIDCoercer(component, rowGroupId);
             }
 
             if (columnMapping.getKind() == PREFILLED) {

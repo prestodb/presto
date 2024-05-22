@@ -70,6 +70,7 @@ import org.apache.iceberg.DeleteFiles;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.FileMetadata;
 import org.apache.iceberg.FileScanTask;
+import org.apache.iceberg.ManifestFile;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
@@ -93,6 +94,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
@@ -103,7 +105,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
-import static com.facebook.presto.hive.MetadataUtils.createPredicate;
 import static com.facebook.presto.hive.MetadataUtils.getCombinedRemainingPredicate;
 import static com.facebook.presto.hive.MetadataUtils.getDiscretePredicates;
 import static com.facebook.presto.hive.MetadataUtils.getPredicate;
@@ -130,6 +131,7 @@ import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getDeleteMode;
 import static com.facebook.presto.iceberg.IcebergUtil.getFileFormat;
 import static com.facebook.presto.iceberg.IcebergUtil.getPartitionKeyColumnHandles;
+import static com.facebook.presto.iceberg.IcebergUtil.getPartitions;
 import static com.facebook.presto.iceberg.IcebergUtil.getSnapshotIdAsOfTime;
 import static com.facebook.presto.iceberg.IcebergUtil.getTableComment;
 import static com.facebook.presto.iceberg.IcebergUtil.resolveSnapshotIdByName;
@@ -145,6 +147,7 @@ import static com.facebook.presto.iceberg.TableStatisticsMaker.getSupportedColum
 import static com.facebook.presto.iceberg.TypeConverter.toIcebergType;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.facebook.presto.iceberg.changelog.ChangelogUtil.getRowTypeFromColumnMeta;
+import static com.facebook.presto.iceberg.optimizer.IcebergPlanOptimizer.getEnforcedColumns;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
@@ -195,9 +198,9 @@ public abstract class IcebergAbstractMetadata
 
     protected abstract boolean tableExists(ConnectorSession session, SchemaTableName schemaTableName);
 
-    protected abstract void registerTable(ConnectorSession clientSession, SchemaTableName schemaTableName, Path metadataLocation);
+    public abstract void registerTable(ConnectorSession clientSession, SchemaTableName schemaTableName, Path metadataLocation);
 
-    protected abstract void unregisterTable(ConnectorSession clientSession, SchemaTableName schemaTableName);
+    public abstract void unregisterTable(ConnectorSession clientSession, SchemaTableName schemaTableName);
 
     /**
      * This class implements the default implementation for getTableLayoutForConstraint which will be used in the case of a Java Worker
@@ -216,21 +219,36 @@ public abstract class IcebergAbstractMetadata
         IcebergTableHandle handle = (IcebergTableHandle) table;
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
 
-        TupleDomain<ColumnHandle> partitionColumnPredicate = TupleDomain.withColumnDomains(Maps.filterKeys(constraint.getSummary().getDomains().get(), Predicates.in(getPartitionKeyColumnHandles(icebergTable, typeManager))));
+        List<IcebergColumnHandle> partitionColumns = getPartitionKeyColumnHandles(handle, icebergTable, typeManager);
+        TupleDomain<ColumnHandle> partitionColumnPredicate = TupleDomain.withColumnDomains(Maps.filterKeys(constraint.getSummary().getDomains().get(), Predicates.in(partitionColumns)));
         Optional<Set<IcebergColumnHandle>> requestedColumns = desiredColumns.map(columns -> columns.stream().map(column -> (IcebergColumnHandle) column).collect(toImmutableSet()));
+
+        List<HivePartition> partitions;
+        if (handle.getIcebergTableName().getTableType() == CHANGELOG ||
+                handle.getIcebergTableName().getTableType() == EQUALITY_DELETES) {
+            partitions = ImmutableList.of(new HivePartition(handle.getSchemaTableName()));
+        }
+        else {
+            partitions = getPartitions(
+                    typeManager,
+                    handle,
+                    icebergTable,
+                    constraint,
+                    partitionColumns);
+        }
 
         ConnectorTableLayout layout = getTableLayout(
                 session,
                 new IcebergTableLayoutHandle.Builder()
-                        .setPartitionColumns(ImmutableList.copyOf(getPartitionKeyColumnHandles(icebergTable, typeManager)))
+                        .setPartitionColumns(ImmutableList.copyOf(partitionColumns))
                         .setDataColumns(toHiveColumns(icebergTable.schema().columns()))
-                        .setDomainPredicate(constraint.getSummary().transform(IcebergAbstractMetadata::toSubfield))
+                        .setDomainPredicate(constraint.getSummary().simplify().transform(IcebergAbstractMetadata::toSubfield))
                         .setRemainingPredicate(TRUE_CONSTANT)
                         .setPredicateColumns(predicateColumns)
                         .setRequestedColumns(requestedColumns)
                         .setPushdownFilterEnabled(isPushdownFilterEnabled(session))
-                        .setPartitionColumnPredicate(partitionColumnPredicate)
-                        .setPartitions(Optional.empty())
+                        .setPartitionColumnPredicate(partitionColumnPredicate.simplify())
+                        .setPartitions(Optional.ofNullable(partitions.size() == 0 ? null : partitions))
                         .setTable(handle)
                         .build());
         return new ConnectorTableLayoutResult(layout, constraint.getSummary());
@@ -258,59 +276,52 @@ public abstract class IcebergAbstractMetadata
 
         Table icebergTable = getIcebergTable(session, tableHandle.getSchemaTableName());
         validateTableMode(session, icebergTable);
-
+        List<ColumnHandle> partitionColumns = ImmutableList.copyOf(icebergTableLayoutHandle.getPartitionColumns());
+        Optional<List<HivePartition>> partitions = icebergTableLayoutHandle.getPartitions();
+        Optional<DiscretePredicates> discretePredicates = partitions.flatMap(parts -> getDiscretePredicates(partitionColumns, parts));
         if (!isPushdownFilterEnabled(session)) {
-            return new ConnectorTableLayout(handle);
-        }
-
-        if (!icebergTableLayoutHandle.getPartitions().isPresent()) {
             return new ConnectorTableLayout(
                     icebergTableLayoutHandle,
                     Optional.empty(),
-                    TupleDomain.none(),
+                    partitions.isPresent() ? icebergTableLayoutHandle.getPartitionColumnPredicate() : TupleDomain.none(),
                     Optional.empty(),
                     Optional.empty(),
-                    Optional.empty(),
+                    discretePredicates,
                     ImmutableList.of(),
                     Optional.empty());
         }
-        List<ColumnHandle> partitionColumns = ImmutableList.copyOf(icebergTableLayoutHandle.getPartitionColumns());
-        List<HivePartition> partitions = icebergTableLayoutHandle.getPartitions().get();
 
-        Optional<DiscretePredicates> discretePredicates = getDiscretePredicates(partitionColumns, partitions);
+        Map<String, ColumnHandle> predicateColumns = icebergTableLayoutHandle.getPredicateColumns().entrySet()
+                .stream().collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        Optional<TupleDomain<ColumnHandle>> predicate = partitions.map(parts -> getPredicate(icebergTableLayoutHandle, partitionColumns, parts, predicateColumns));
+        // capture subfields from domainPredicate to add to remainingPredicate
+        // so those filters don't get lost
+        Map<String, com.facebook.presto.common.type.Type> columnTypes = getColumns(icebergTable.schema(), icebergTable.spec(), typeManager).stream()
+                .collect(toImmutableMap(IcebergColumnHandle::getName, icebergColumnHandle -> getColumnMetadata(session, tableHandle, icebergColumnHandle).getType()));
 
-        TupleDomain<ColumnHandle> predicate;
-        RowExpression subfieldPredicate;
-        if (isPushdownFilterEnabled(session)) {
-            Map<String, ColumnHandle> predicateColumns = icebergTableLayoutHandle.getPredicateColumns().entrySet()
-                    .stream().collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-
-            predicate = getPredicate(icebergTableLayoutHandle, partitionColumns, partitions, predicateColumns);
-
-            // capture subfields from domainPredicate to add to remainingPredicate
-            // so those filters don't get lost
-            Map<String, com.facebook.presto.common.type.Type> columnTypes = getColumns(icebergTable.schema(), icebergTable.spec(), typeManager).stream()
-                    .collect(toImmutableMap(IcebergColumnHandle::getName, icebergColumnHandle -> getColumnMetadata(session, tableHandle, icebergColumnHandle).getType()));
-
-            subfieldPredicate = getSubfieldPredicate(session, icebergTableLayoutHandle, columnTypes, functionResolution, rowExpressionService);
-        }
-        else {
-            predicate = createPredicate(partitionColumns, partitions);
-            subfieldPredicate = TRUE_CONSTANT;
-        }
+        RowExpression subfieldPredicate = getSubfieldPredicate(session, icebergTableLayoutHandle, columnTypes, functionResolution, rowExpressionService);
 
         // combine subfieldPredicate with remainingPredicate
         RowExpression combinedRemainingPredicate = getCombinedRemainingPredicate(icebergTableLayoutHandle, subfieldPredicate);
 
-        return new ConnectorTableLayout(
-                icebergTableLayoutHandle,
-                Optional.empty(),
-                predicate,
-                Optional.empty(),
-                Optional.empty(),
-                discretePredicates,
-                ImmutableList.of(),
-                Optional.of(combinedRemainingPredicate));
+        return predicate.map(pred -> new ConnectorTableLayout(
+                        icebergTableLayoutHandle,
+                        Optional.empty(),
+                        pred,
+                        Optional.empty(),
+                        Optional.empty(),
+                        discretePredicates,
+                        ImmutableList.of(),
+                        Optional.of(combinedRemainingPredicate)))
+                .orElseGet(() -> new ConnectorTableLayout(
+                        icebergTableLayoutHandle,
+                        Optional.empty(),
+                        TupleDomain.none(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableList.of(),
+                        Optional.empty()));
     }
 
     protected Optional<SystemTable> getIcebergSystemTable(SchemaTableName tableName, Table table)
@@ -681,7 +692,12 @@ public abstract class IcebergAbstractMetadata
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
-        return TableStatisticsMaker.getTableStatistics(session, typeManager, constraint, handle, icebergTable, columnHandles.stream().map(IcebergColumnHandle.class::cast).collect(Collectors.toList()));
+        return TableStatisticsMaker.getTableStatistics(session, typeManager,
+                tableLayoutHandle
+                        .map(IcebergTableLayoutHandle.class::cast)
+                        .map(IcebergTableLayoutHandle::getValidPredicate),
+                constraint, handle, icebergTable,
+                columnHandles.stream().map(IcebergColumnHandle.class::cast).collect(Collectors.toList()));
     }
 
     @Override
@@ -720,7 +736,6 @@ public abstract class IcebergAbstractMetadata
                 tableName.getSchemaName(),
                 new IcebergTableName(name.getTableName(), name.getTableType(), tableSnapshotId, name.getChangelogEndSnapshot()),
                 name.getSnapshotId().isPresent(),
-                TupleDomain.all(),
                 tryGetLocation(table),
                 tryGetProperties(table),
                 tableSchemaJson,
@@ -848,36 +863,43 @@ public abstract class IcebergAbstractMetadata
         // Allow metadata delete for range filters on partition columns.
         IcebergTableLayoutHandle layoutHandle = (IcebergTableLayoutHandle) tableLayoutHandle.get();
 
-        TupleDomain<ColumnHandle> domainPredicate = layoutHandle.getDomainPredicate()
-                .transform(subfield -> isEntireColumn(subfield) ? subfield.getRootName() : null)
+        // Do not support metadata delete if existing predicate on non-entire columns
+        Optional<Set<Subfield>> subFields = layoutHandle.getDomainPredicate().getDomains()
+                .map(subfieldDomainMap -> subfieldDomainMap.keySet().stream()
+                        .filter(subfield -> !isEntireColumn(subfield))
+                        .collect(Collectors.toSet()));
+        if (subFields.isPresent() && !subFields.get().isEmpty()) {
+            return false;
+        }
+
+        TupleDomain<IcebergColumnHandle> domainPredicate = layoutHandle.getDomainPredicate()
+                .transform(Subfield::getRootName)
                 .transform(layoutHandle.getPredicateColumns()::get)
-                .transform(ColumnHandle.class::cast);
+                .transform(IcebergColumnHandle.class::cast);
 
         if (domainPredicate.isAll()) {
             return true;
         }
 
+        // Get partition specs that really need to be checked
+        Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
+        Set<Integer> partitionSpecIds = handle.getIcebergTableName().getSnapshotId().map(
+                snapshot -> icebergTable.snapshot(snapshot).allManifests(icebergTable.io()).stream()
+                        .map(ManifestFile::partitionSpecId)
+                        .collect(toImmutableSet()))
+                .orElseGet(() -> ImmutableSet.copyOf(icebergTable.specs().keySet()));   // No snapshot, so no data. This case doesn't matter.
+
+        Set<Integer> enforcedColumnIds = getEnforcedColumns(icebergTable, partitionSpecIds, domainPredicate, session)
+                .stream()
+                .map(IcebergColumnHandle::getId)
+                .collect(toImmutableSet());
+
         Set<Integer> predicateColumnIds = domainPredicate.getDomains().get().keySet().stream()
                 .map(IcebergColumnHandle.class::cast)
                 .map(IcebergColumnHandle::getId)
                 .collect(toImmutableSet());
-        Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
 
-        boolean supportsMetadataDelete = true;
-        for (PartitionSpec spec : icebergTable.specs().values()) {
-            // Currently we do not support delete when any partition columns in predicate is not transform by identity()
-            Set<Integer> partitionColumnSourceIds = spec.fields().stream()
-                    .filter(field -> field.transform().isIdentity())
-                    .map(PartitionField::sourceId)
-                    .collect(Collectors.toSet());
-
-            if (!partitionColumnSourceIds.containsAll(predicateColumnIds)) {
-                supportsMetadataDelete = false;
-                break;
-            }
-        }
-
-        return supportsMetadataDelete;
+        return Objects.equals(enforcedColumnIds, predicateColumnIds);
     }
 
     @Override
@@ -895,13 +917,10 @@ public abstract class IcebergAbstractMetadata
         }
 
         TableScan scan = icebergTable.newScan();
-        TupleDomain<ColumnHandle> domainPredicate = layoutHandle.getDomainPredicate()
-                .transform(subfield -> isEntireColumn(subfield) ? subfield.getRootName() : null)
-                .transform(layoutHandle.getPredicateColumns()::get)
-                .transform(ColumnHandle.class::cast);
+        TupleDomain<IcebergColumnHandle> domainPredicate = layoutHandle.getValidPredicate();
 
         if (!domainPredicate.isAll()) {
-            Expression filterExpression = toIcebergExpression(handle.getPredicate());
+            Expression filterExpression = toIcebergExpression(domainPredicate);
             scan = scan.filter(filterExpression);
         }
 

@@ -133,7 +133,7 @@ public final class Estimate
     }
 
     /**
-     * If the estimate is unknown, run another function to generate an estimate
+     * If the estimate is unknown, run another function to generate a value
      *
      * @param supplier function to supply a new estimate
      * @return a new estimate

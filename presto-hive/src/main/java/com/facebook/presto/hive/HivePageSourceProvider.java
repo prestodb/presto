@@ -370,13 +370,16 @@ public class HivePageSourceProvider
                 .map(filter -> filter.transform(handle -> new Subfield(((HiveColumnHandle) handle).getName())).intersect(layout.getDomainPredicate()))
                 .orElse(layout.getDomainPredicate());
 
+        List<HiveColumnHandle> columnHandles = toColumnHandles(columnMappings, true);
+        Optional<byte[]> rowIDPartitionComponent = split.getRowIdPartitionComponent();
+        HiveUtil.checkRowIDPartitionComponent(columnHandles, rowIDPartitionComponent);
         for (HiveSelectivePageSourceFactory pageSourceFactory : selectivePageSourceFactories) {
             Optional<? extends ConnectorPageSource> pageSource = pageSourceFactory.createPageSource(
                     configuration,
                     session,
                     split.getFileSplit(),
                     split.getStorage(),
-                    toColumnHandles(columnMappings, true),
+                    columnHandles,
                     prefilledValues,
                     coercers,
                     bucketAdaptation,
@@ -387,7 +390,7 @@ public class HivePageSourceProvider
                     fileContext,
                     encryptionInformation,
                     layout.isAppendRowNumberEnabled(),
-                    split.getRowIdPartitionComponent());
+                    rowIDPartitionComponent);
             if (pageSource.isPresent()) {
                 return Optional.of(pageSource.get());
             }
@@ -497,7 +500,8 @@ public class HivePageSourceProvider
                     effectivePredicate,
                     hiveStorageTimeZone,
                     hiveFileContext,
-                    encryptionInformation);
+                    encryptionInformation,
+                    rowIdPartitionComponent);
             if (pageSource.isPresent()) {
                 HivePageSource hivePageSource = new HivePageSource(
                         columnMappings,

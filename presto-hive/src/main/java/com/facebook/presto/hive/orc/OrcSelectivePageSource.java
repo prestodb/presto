@@ -40,7 +40,7 @@ import static java.util.Objects.requireNonNull;
 public class OrcSelectivePageSource
         implements ConnectorPageSource
 {
-    static final int ROW_ID_COLUMN_INDEX = -10;
+    private static final int ROW_ID_COLUMN_INDEX = -10;
 
     private final OrcSelectiveRecordReader recordReader;
     private final OrcDataSource orcDataSource;

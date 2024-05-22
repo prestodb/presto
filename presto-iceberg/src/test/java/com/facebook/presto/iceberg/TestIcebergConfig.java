@@ -54,11 +54,13 @@ public class TestIcebergConfig
                 .setMergeOnReadModeEnabled(true)
                 .setPushdownFilterEnabled(false)
                 .setDeleteAsJoinRewriteEnabled(true)
+                .setRowsForMetadataOptimizationThreshold(1000)
                 .setManifestCachingEnabled(false)
                 .setFileIOImpl(HadoopFileIO.class.getName())
                 .setMaxManifestCacheSize(IO_MANIFEST_CACHE_MAX_TOTAL_BYTES_DEFAULT)
                 .setManifestCacheExpireDuration(IO_MANIFEST_CACHE_EXPIRATION_INTERVAL_MS_DEFAULT)
-                .setManifestCacheMaxContentLength(IO_MANIFEST_CACHE_MAX_CONTENT_LENGTH_DEFAULT));
+                .setManifestCacheMaxContentLength(IO_MANIFEST_CACHE_MAX_CONTENT_LENGTH_DEFAULT)
+                .setSplitManagerThreads(Runtime.getRuntime().availableProcessors()));
     }
 
     @Test
@@ -79,11 +81,13 @@ public class TestIcebergConfig
                 .put("iceberg.hive-statistics-merge-strategy", NUMBER_OF_DISTINCT_VALUES.name() + "," + TOTAL_SIZE_IN_BYTES.name())
                 .put("iceberg.pushdown-filter-enabled", "true")
                 .put("iceberg.delete-as-join-rewrite-enabled", "false")
+                .put("iceberg.rows-for-metadata-optimization-threshold", "500")
                 .put("iceberg.io.manifest.cache-enabled", "true")
                 .put("iceberg.io-impl", "com.facebook.presto.iceberg.HdfsFileIO")
                 .put("iceberg.io.manifest.cache.max-total-bytes", "1048576000")
                 .put("iceberg.io.manifest.cache.expiration-interval-ms", "600000")
                 .put("iceberg.io.manifest.cache.max-content-length", "10485760")
+                .put("iceberg.split-manager-threads", "42")
                 .build();
 
         IcebergConfig expected = new IcebergConfig()
@@ -101,11 +105,13 @@ public class TestIcebergConfig
                 .setHiveStatisticsMergeFlags("NUMBER_OF_DISTINCT_VALUES,TOTAL_SIZE_IN_BYTES")
                 .setPushdownFilterEnabled(true)
                 .setDeleteAsJoinRewriteEnabled(false)
+                .setRowsForMetadataOptimizationThreshold(500)
                 .setManifestCachingEnabled(true)
                 .setFileIOImpl("com.facebook.presto.iceberg.HdfsFileIO")
                 .setMaxManifestCacheSize(1048576000)
                 .setManifestCacheExpireDuration(600000)
-                .setManifestCacheMaxContentLength(10485760);
+                .setManifestCacheMaxContentLength(10485760)
+                .setSplitManagerThreads(42);
 
         assertFullMapping(properties, expected);
     }

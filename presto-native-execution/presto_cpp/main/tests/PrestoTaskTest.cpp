@@ -14,6 +14,7 @@
 #include "presto_cpp/main/PrestoTask.h"
 #include <gtest/gtest.h>
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/time/Timer.h"
 
 DECLARE_bool(velox_memory_leak_check_enabled);
 
@@ -63,4 +64,15 @@ TEST_F(PrestoTaskTest, runtimeMetricConversion) {
   EXPECT_EQ(veloxMetric.count, prestoMetric.count);
   EXPECT_EQ(veloxMetric.max, prestoMetric.max);
   EXPECT_EQ(veloxMetric.min, prestoMetric.min);
+}
+
+TEST_F(PrestoTaskTest, basic) {
+  PrestoTask task{"20201107_130540_00011_wrpkw.1.2.3.4", "node2", 0};
+
+  // Test coordinator heartbeat.
+  EXPECT_EQ(task.timeSinceLastCoordinatorHeartbeatMs(), 0);
+  task.updateCoordinatorHeartbeat();
+  /* sleep override */
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  EXPECT_GE(task.timeSinceLastCoordinatorHeartbeatMs(), 100);
 }

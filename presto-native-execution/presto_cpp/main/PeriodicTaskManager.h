@@ -16,7 +16,6 @@
 #include <folly/experimental/FunctionScheduler.h>
 #include <folly/experimental/ThreadedRepeatingFunctionRunner.h>
 #include "velox/common/memory/Memory.h"
-#include "velox/exec/Spill.h"
 #include "velox/exec/Task.h"
 
 namespace folly {
@@ -43,19 +42,16 @@ class PrestoServer;
 class PeriodicTaskManager {
  public:
   explicit PeriodicTaskManager(
-      folly::CPUThreadPoolExecutor* const driverCPUExecutor,
-      folly::IOThreadPoolExecutor* const httpExecutor,
-      TaskManager* const taskManager,
-      const velox::memory::MemoryAllocator* const memoryAllocator,
-      const velox::cache::AsyncDataCache* const asyncDataCache,
+      folly::CPUThreadPoolExecutor* driverCPUExecutor,
+      folly::CPUThreadPoolExecutor* spillerExecutor,
+      folly::IOThreadPoolExecutor* httpExecutor,
+      TaskManager* taskManager,
+      const velox::memory::MemoryAllocator* memoryAllocator,
+      const velox::cache::AsyncDataCache* asyncDataCache,
       const std::unordered_map<
           std::string,
           std::shared_ptr<velox::connector::Connector>>& connectors,
       PrestoServer* server);
-
-  ~PeriodicTaskManager() {
-    stop();
-  }
 
   /// Invoked to start all registered, and fundamental periodic tasks running at
   /// the background.
@@ -108,57 +104,34 @@ class PeriodicTaskManager {
   void addOldTaskCleanupTask();
   void cleanupOldTask();
 
-  void addMemoryAllocatorStatsTask();
-  void updateMemoryAllocatorStats();
-
   void addPrestoExchangeSourceMemoryStatsTask();
   void updatePrestoExchangeSourceMemoryStats();
-
-  void addCacheStatsUpdateTask();
-  void updateCacheStats();
 
   void addConnectorStatsTask();
 
   void addOperatingSystemStatsUpdateTask();
   void updateOperatingSystemStats();
 
-  void addSpillStatsUpdateTask();
-  void updateSpillStatsTask();
-
   // Adds task that periodically prints http endpoint latency metrics.
   void addHttpEndpointLatencyStatsTask();
   void printHttpEndpointLatencyStats();
-
-  void addArbitratorStatsTask();
-  void updateArbitratorStatsTask();
 
   void addWatchdogTask();
 
   void detachWorker(const char* reason);
   void maybeAttachWorker();
 
-  folly::CPUThreadPoolExecutor* const driverCPUExecutor_;
-  folly::IOThreadPoolExecutor* const httpExecutor_;
-  TaskManager* const taskManager_;
-  const velox::memory::MemoryAllocator* const memoryAllocator_;
-  const velox::cache::AsyncDataCache* const asyncDataCache_;
-  const velox::memory::MemoryArbitrator* const arbitrator_;
+  folly::CPUThreadPoolExecutor* driverCPUExecutor_;
+  folly::CPUThreadPoolExecutor* spillerExecutor_;
+  folly::IOThreadPoolExecutor* httpExecutor_;
+  TaskManager* taskManager_;
+  const velox::memory::MemoryAllocator* memoryAllocator_;
+  const velox::cache::AsyncDataCache* asyncDataCache_;
+  const velox::memory::MemoryArbitrator* arbitrator_;
   const std::unordered_map<
       std::string,
       std::shared_ptr<velox::connector::Connector>>& connectors_;
-  PrestoServer* const server_;
-
-  // Cache related stats
-  int64_t lastMemoryCacheHits_{0};
-  int64_t lastMemoryCacheHitsBytes_{0};
-  int64_t lastMemoryCacheInserts_{0};
-  int64_t lastMemoryCacheEvictions_{0};
-  int64_t lastMemoryCacheEvictionChecks_{0};
-  int64_t lastMemoryCacheStalls_{0};
-  int64_t lastMemoryCacheAllocClocks_{0};
-  int64_t lastMemoryCacheAgedOuts_{0};
-  int64_t lastSsdCacheCheckpointsWritten_{0};
-  int64_t lastSsdCacheCheckpointsRead_{0};
+  PrestoServer* server_;
 
   // Operating system related stats.
   int64_t lastUserCpuTimeUs_{0};
@@ -167,9 +140,6 @@ class PeriodicTaskManager {
   int64_t lastHardPageFaults_{0};
   int64_t lastVoluntaryContextSwitches_{0};
   int64_t lastForcedContextSwitches_{0};
-  // Renabled this after update velox.
-  velox::common::SpillStats lastSpillStats_;
-  velox::memory::MemoryArbitrator::Stats lastArbitratorStats_;
 
   // NOTE: declare last since the threads access other members of `this`.
   folly::FunctionScheduler oneTimeRunner_;

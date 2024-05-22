@@ -62,6 +62,10 @@ statement
         ADD constraintSpecification                                    #addConstraint
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         DROP CONSTRAINT (IF EXISTS)? name=identifier                   #dropConstraint
+    | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
+        ALTER (COLUMN)? column=identifier SET NOT NULL                 #alterColumnSetNotNull
+    | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
+        ALTER (COLUMN)? column=identifier DROP NOT NULL                #alterColumnDropNotNull
     | ANALYZE qualifiedName (WITH properties)?                         #analyze
     | CREATE TYPE qualifiedName AS (
         '(' sqlParameterDeclaration (',' sqlParameterDeclaration)* ')'
@@ -543,7 +547,12 @@ qualifiedName
     ;
 
 tableVersionExpression
-    : FOR tableVersionType=(SYSTEM_TIME | SYSTEM_VERSION | TIMESTAMP | VERSION) AS OF valueExpression          #tableVersion
+    : FOR tableVersionType=(SYSTEM_TIME | SYSTEM_VERSION | TIMESTAMP | VERSION) tableVersionState valueExpression          #tableVersion
+    ;
+
+tableVersionState
+    : AS OF                 #tableversionasof
+    | BEFORE                #tableversionbefore
     ;
 
 grantor
@@ -585,12 +594,22 @@ namedConstraintSpecification
     ;
 
 unnamedConstraintSpecification
-    : constraintType columnAliases constraintEnabled? constraintRely? constraintEnforced?
+    : constraintType columnAliases constraintQualifiers?
     ;
 
 constraintType
     : UNIQUE
     | PRIMARY KEY
+    ;
+
+constraintQualifiers
+    : constraintQualifier*
+    ;
+
+constraintQualifier
+    : constraintEnabled
+    | constraintRely
+    | constraintEnforced
     ;
 
 constraintRely
@@ -608,7 +627,7 @@ constraintEnforced
 nonReserved
     // IMPORTANT: this rule must only contain tokens. Nested rules are not supported. See SqlParser.exitNonReserved
     : ADD | ADMIN | ALL | ANALYZE | ANY | ARRAY | ASC | AT
-    | BERNOULLI
+    | BEFORE | BERNOULLI
     | CALL | CALLED | CASCADE | CATALOGS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | CURRENT | CURRENT_ROLE
     | DATA | DATE | DAY | DEFINER | DESC | DETERMINISTIC | DISABLED | DISTRIBUTED
     | ENABLED | ENFORCED | EXCLUDING | EXPLAIN | EXTERNAL
@@ -645,6 +664,7 @@ ARRAY: 'ARRAY';
 AS: 'AS';
 ASC: 'ASC';
 AT: 'AT';
+BEFORE: 'BEFORE';
 BERNOULLI: 'BERNOULLI';
 BETWEEN: 'BETWEEN';
 BY: 'BY';

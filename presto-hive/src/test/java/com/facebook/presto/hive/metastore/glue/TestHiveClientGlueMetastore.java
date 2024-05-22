@@ -272,6 +272,7 @@ public class TestHiveClientGlueMetastore
                     session.getIdentity(),
                     session.getQueryId(),
                     session.getClientInfo(),
+                    session.getClientTags(),
                     session.getSource(),
                     getMetastoreHeaders(session),
                     false,
@@ -962,11 +963,6 @@ public class TestHiveClientGlueMetastore
         private static PartitionValues make(String... values)
         {
             return new PartitionValues(Arrays.asList(values));
-        }
-
-        private static PartitionValues make(List<String> values)
-        {
-            return new PartitionValues(values);
         }
 
         private PartitionValues(List<String> values)

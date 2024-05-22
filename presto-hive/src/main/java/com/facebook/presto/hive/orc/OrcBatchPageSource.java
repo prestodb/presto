@@ -24,6 +24,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.HiveColumnHandle;
+import com.facebook.presto.hive.RowIDCoercer;
 import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcBatchRecordReader;
 import com.facebook.presto.orc.OrcCorruptionException;
@@ -58,6 +59,7 @@ public class OrcBatchPageSource
 
     private final Block[] constantBlocks;
     private final int[] hiveColumnIndexes;
+    private final boolean[] rowIDColumnIndexes;
 
     private int batchId;
     private long completedPositions;
@@ -71,6 +73,8 @@ public class OrcBatchPageSource
 
     private final List<Boolean> isRowPositionList;
 
+    private final RowIDCoercer coercer;
+
     public OrcBatchPageSource(
             OrcBatchRecordReader recordReader,
             OrcDataSource orcDataSource,
@@ -78,9 +82,11 @@ public class OrcBatchPageSource
             TypeManager typeManager,
             OrcAggregatedMemoryContext systemMemoryContext,
             FileFormatDataSourceStats stats,
-            RuntimeStats runtimeStats)
+            RuntimeStats runtimeStats,
+            byte[] rowIDPartitionComponent,
+            String rowGroupId)
     {
-        this(recordReader, orcDataSource, columns, typeManager, systemMemoryContext, stats, runtimeStats, nCopies(columns.size(), false));
+        this(recordReader, orcDataSource, columns, typeManager, systemMemoryContext, stats, runtimeStats, nCopies(columns.size(), false), rowIDPartitionComponent, rowGroupId);
     }
 
     /**
@@ -97,7 +103,9 @@ public class OrcBatchPageSource
             OrcAggregatedMemoryContext systemMemoryContext,
             FileFormatDataSourceStats stats,
             RuntimeStats runtimeStats,
-            List<Boolean> isRowPositionList)
+            List<Boolean> isRowPositionList,
+            byte[] rowIDPartitionComponent,
+            String rowGroupId)
     {
         this.recordReader = requireNonNull(recordReader, "recordReader is null");
         this.orcDataSource = requireNonNull(orcDataSource, "orcDataSource is null");
@@ -107,9 +115,12 @@ public class OrcBatchPageSource
         this.stats = requireNonNull(stats, "stats is null");
         this.runtimeStats = requireNonNull(runtimeStats, "runtimeStats is null");
         this.isRowPositionList = requireNonNull(isRowPositionList, "isRowPositionList is null");
+        // TODO don't create this if there's no rowID column
+        this.coercer = new RowIDCoercer(rowIDPartitionComponent, rowGroupId);
 
         this.constantBlocks = new Block[size];
         this.hiveColumnIndexes = new int[size];
+        this.rowIDColumnIndexes = new boolean[size];
 
         ImmutableList.Builder<String> namesBuilder = ImmutableList.builder();
         ImmutableList.Builder<Type> typesBuilder = ImmutableList.builder();
@@ -124,6 +135,7 @@ public class OrcBatchPageSource
             typesBuilder.add(type);
 
             hiveColumnIndexes[columnIndex] = column.getHiveColumnIndex();
+            rowIDColumnIndexes[columnIndex] = HiveColumnHandle.isRowIdColumnHandle(column);
 
             if (!recordReader.isColumnPresent(column.getHiveColumnIndex())) {
                 constantBlocks[columnIndex] = RunLengthEncodedBlock.create(type, null, MAX_BATCH_SIZE);
@@ -183,13 +195,16 @@ public class OrcBatchPageSource
                 if (isRowPositionColumn(fieldId)) {
                     blocks[fieldId] = getRowPosColumnBlock(recordReader.getFilePosition(), batchSize);
                 }
+                else if (isRowIDColumn(fieldId)) {
+                    Block rowNumbers = getRowPosColumnBlock(recordReader.getFilePosition(), batchSize);
+                    Block rowIDs = coercer.apply(rowNumbers);
+                    blocks[fieldId] = rowIDs;
+                }
+                else if (constantBlocks[fieldId] != null) {
+                    blocks[fieldId] = constantBlocks[fieldId].getRegion(0, batchSize);
+                }
                 else {
-                    if (constantBlocks[fieldId] != null) {
-                        blocks[fieldId] = constantBlocks[fieldId].getRegion(0, batchSize);
-                    }
-                    else {
-                        blocks[fieldId] = new LazyBlock(batchSize, new OrcBlockLoader(hiveColumnIndexes[fieldId]));
-                    }
+                    blocks[fieldId] = new LazyBlock(batchSize, new OrcBlockLoader(hiveColumnIndexes[fieldId]));
                 }
             }
             return new Page(batchSize, blocks);
@@ -260,6 +275,12 @@ public class OrcBatchPageSource
         return isRowPositionList.get(column);
     }
 
+    private boolean isRowIDColumn(int column)
+    {
+        return this.rowIDColumnIndexes[column];
+    }
+
+    // TODO verify these are row numbers and rename?
     private static Block getRowPosColumnBlock(long baseIndex, int size)
     {
         long[] rowPositions = new long[size];

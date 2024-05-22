@@ -38,5 +38,6 @@ public interface HiveBatchPageSourceFactory
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone,
             HiveFileContext hiveFileContext,
-            Optional<EncryptionInformation> encryptionInformation);
+            Optional<EncryptionInformation> encryptionInformation,
+            Optional<byte[]> rowIdPartitionComponent);
 }

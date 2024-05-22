@@ -34,6 +34,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -2243,7 +2244,7 @@ public class TestHiveMaterializedViewLogicalPlanner
                     "t1.ds as ds, t1.orderpriority as view_orderpriority, t2.orderstatus as view_orderstatus " +
                     " FROM %s t1 inner join %s t2 ON t1.ds=t2.ds", view, table1, table2));
 
-            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds='2020-01-01'", view, table1, table2), 65025);
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds='2020-01-01'", view), 65025);
 
             String viewQuery = format("SELECT view_orderkey from %s where view_orderkey < 10000 ORDER BY view_orderkey", view);
             String baseQuery = format("SELECT t1.orderkey FROM %s t1 inner join %s t2 ON t1.ds=t2.ds where t1.orderkey < 10000 ORDER BY t1.orderkey", table1, table2);
@@ -2734,7 +2735,7 @@ public class TestHiveMaterializedViewLogicalPlanner
 
     private void appendTableParameter(ExtendedHiveMetastore metastore, String tableName, String parameterKey, String parameterValue)
     {
-        MetastoreContext metastoreContext = new MetastoreContext(getSession().getUser(), getSession().getQueryId().getId(), Optional.empty(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, getSession().getWarningCollector(), getSession().getRuntimeStats());
+        MetastoreContext metastoreContext = new MetastoreContext(getSession().getUser(), getSession().getQueryId().getId(), Optional.empty(), Collections.emptySet(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, getSession().getWarningCollector(), getSession().getRuntimeStats());
         Optional<Table> table = metastore.getTable(metastoreContext, getSession().getSchema().get(), tableName);
         if (table.isPresent()) {
             Table originalTable = table.get();

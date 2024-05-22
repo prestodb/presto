@@ -51,6 +51,7 @@ import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
 import java.security.Principal;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -81,7 +82,7 @@ public class TestAccessControlManager
         AccessControlManager accessControlManager = new AccessControlManager(createTestTransactionManager());
         accessControlManager.checkCanSetUser(
                 new Identity(USER_NAME, Optional.of(PRINCIPAL)),
-                new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Optional.empty(), WarningCollector.NOOP, new RuntimeStats()),
+                new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Collections.emptySet(), Optional.empty(), WarningCollector.NOOP, new RuntimeStats()),
                 Optional.empty(),
                 "foo");
     }
@@ -93,7 +94,7 @@ public class TestAccessControlManager
         accessControlManager.setSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
         accessControlManager.checkCanSetUser(
                 new Identity(USER_NAME, Optional.of(PRINCIPAL)),
-                new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Optional.empty(), WarningCollector.NOOP, new RuntimeStats()),
+                new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Collections.emptySet(), Optional.empty(), WarningCollector.NOOP, new RuntimeStats()),
                 Optional.empty(),
                 USER_NAME);
     }
@@ -105,7 +106,7 @@ public class TestAccessControlManager
         QualifiedObjectName tableName = new QualifiedObjectName("catalog", "schema", "table");
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControlManager accessControlManager = new AccessControlManager(transactionManager);
-        AccessControlContext context = new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Optional.empty(), WarningCollector.NOOP, new RuntimeStats());
+        AccessControlContext context = new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Collections.emptySet(), Optional.empty(), WarningCollector.NOOP, new RuntimeStats());
 
         accessControlManager.setSystemAccessControl(ReadOnlySystemAccessControl.NAME, ImmutableMap.of());
         accessControlManager.checkCanSetUser(identity, context, Optional.of(PRINCIPAL), USER_NAME);
@@ -148,7 +149,7 @@ public class TestAccessControlManager
 
         accessControlManager.checkCanSetUser(
                 new Identity(USER_NAME, Optional.of(PRINCIPAL)),
-                new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Optional.empty(), WarningCollector.NOOP, new RuntimeStats()),
+                new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Collections.emptySet(), Optional.empty(), WarningCollector.NOOP, new RuntimeStats()),
                 Optional.of(PRINCIPAL),
                 USER_NAME);
         assertEquals(accessControlFactory.getCheckedUserName(), USER_NAME);
@@ -159,7 +160,7 @@ public class TestAccessControlManager
     public void testCheckQueryIntegrity()
     {
         AccessControlManager accessControlManager = new AccessControlManager(createTestTransactionManager());
-        AccessControlContext context = new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Optional.empty(), WarningCollector.NOOP, new RuntimeStats());
+        AccessControlContext context = new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Collections.emptySet(), Optional.empty(), WarningCollector.NOOP, new RuntimeStats());
 
         TestSystemAccessControlFactory accessControlFactory = new TestSystemAccessControlFactory("test");
         accessControlManager.addSystemAccessControlFactory(accessControlFactory);
@@ -209,7 +210,7 @@ public class TestAccessControlManager
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
                     accessControlManager.checkCanSelectFromColumns(transactionId, new Identity(USER_NAME, Optional.of(PRINCIPAL)),
-                            new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Optional.empty(), WarningCollector.NOOP, new RuntimeStats()),
+                            new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Collections.emptySet(), Optional.empty(), WarningCollector.NOOP, new RuntimeStats()),
                             new QualifiedObjectName("catalog", "schema", "table"), ImmutableSet.of(new Subfield("column")));
                 });
     }
@@ -231,7 +232,7 @@ public class TestAccessControlManager
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
                     accessControlManager.checkCanSelectFromColumns(transactionId, new Identity(USER_NAME, Optional.of(PRINCIPAL)),
-                            new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Optional.empty(), WarningCollector.NOOP, new RuntimeStats()),
+                            new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Collections.emptySet(), Optional.empty(), WarningCollector.NOOP, new RuntimeStats()),
                             new QualifiedObjectName("catalog", "schema", "table"), ImmutableSet.of(new Subfield("column")));
                 });
     }
@@ -253,7 +254,7 @@ public class TestAccessControlManager
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
                     accessControlManager.checkCanSelectFromColumns(transactionId, new Identity(USER_NAME, Optional.of(PRINCIPAL)),
-                            new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Optional.empty(), WarningCollector.NOOP, new RuntimeStats()),
+                            new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Collections.emptySet(), Optional.empty(), WarningCollector.NOOP, new RuntimeStats()),
                             new QualifiedObjectName("secured_catalog", "schema", "table"), ImmutableSet.of(new Subfield("column")));
                 });
     }
@@ -295,11 +296,6 @@ public class TestAccessControlManager
         public TestSystemAccessControlFactory(String name)
         {
             this.name = requireNonNull(name, "name is null");
-        }
-
-        public Map<String, String> getConfig()
-        {
-            return config;
         }
 
         public Optional<Principal> getCheckedPrincipal()

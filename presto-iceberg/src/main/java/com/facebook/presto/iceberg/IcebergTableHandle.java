@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.iceberg;
 
-import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.hive.BaseHiveTableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -29,7 +28,6 @@ public class IcebergTableHandle
         extends BaseHiveTableHandle
 {
     private final IcebergTableName icebergTableName;
-    private final TupleDomain<IcebergColumnHandle> predicate;
     private final boolean snapshotSpecified;
     private final Optional<String> outputPath;
     private final Optional<Map<String, String>> storageProperties;
@@ -42,7 +40,6 @@ public class IcebergTableHandle
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("icebergTableName") IcebergTableName icebergTableName,
             @JsonProperty("snapshotSpecified") boolean snapshotSpecified,
-            @JsonProperty("predicate") TupleDomain<IcebergColumnHandle> predicate,
             @JsonProperty("outputPath") Optional<String> outputPath,
             @JsonProperty("storageProperties") Optional<Map<String, String>> storageProperties,
             @JsonProperty("tableSchemaJson") Optional<String> tableSchemaJson,
@@ -53,7 +50,6 @@ public class IcebergTableHandle
 
         this.icebergTableName = requireNonNull(icebergTableName, "tableName is null");
         this.snapshotSpecified = snapshotSpecified;
-        this.predicate = requireNonNull(predicate, "predicate is null");
         this.outputPath = requireNonNull(outputPath, "filePrefix is null");
         this.storageProperties = requireNonNull(storageProperties, "storageProperties is null");
         this.tableSchemaJson = requireNonNull(tableSchemaJson, "tableSchemaJson is null");
@@ -71,12 +67,6 @@ public class IcebergTableHandle
     public boolean isSnapshotSpecified()
     {
         return snapshotSpecified;
-    }
-
-    @JsonProperty
-    public TupleDomain<IcebergColumnHandle> getPredicate()
-    {
-        return predicate;
     }
 
     @JsonProperty
@@ -123,7 +113,6 @@ public class IcebergTableHandle
         return Objects.equals(getSchemaName(), that.getSchemaName()) &&
                 Objects.equals(icebergTableName, that.icebergTableName) &&
                 snapshotSpecified == that.snapshotSpecified &&
-                Objects.equals(predicate, that.predicate) &&
                 Objects.equals(tableSchemaJson, that.tableSchemaJson) &&
                 Objects.equals(equalityFieldIds, that.equalityFieldIds);
     }
@@ -131,7 +120,7 @@ public class IcebergTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(getSchemaName(), icebergTableName, predicate, snapshotSpecified, tableSchemaJson, equalityFieldIds);
+        return Objects.hash(getSchemaName(), icebergTableName, snapshotSpecified, tableSchemaJson, equalityFieldIds);
     }
 
     @Override

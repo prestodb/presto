@@ -14,13 +14,17 @@
 package com.facebook.presto.spi.constraints;
 
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.PrestoException;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
@@ -33,8 +37,19 @@ public class TableConstraintsHolder
     {
         requireNonNull(tableConstraints, "tableConstraints is null");
         requireNonNull(columnNameToHandleAssignments, "columnNameToHandleAssignments is null");
+        validateTableConstraints(tableConstraints);
         this.tableConstraints = Collections.unmodifiableList(new ArrayList<>(tableConstraints));
         this.columnNameToHandleAssignments = Collections.unmodifiableMap(columnNameToHandleAssignments);
+    }
+
+    public static void validateTableConstraints(Collection<TableConstraint<String>> constraints)
+    {
+        constraints.forEach(constraint -> {
+            if (!(constraint instanceof PrimaryKeyConstraint || constraint instanceof UniqueConstraint || constraint instanceof NotNullConstraint)) {
+                throw new PrestoException(NOT_SUPPORTED,
+                        format("Constraint %s of unknown type (%s) is not supported", constraint.getName().orElse(""), constraint.getClass().getName()));
+            }
+        });
     }
 
     public List<TableConstraint<String>> getTableConstraints()

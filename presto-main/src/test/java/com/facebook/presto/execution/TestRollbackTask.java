@@ -19,7 +19,6 @@ import com.facebook.presto.Session.SessionBuilder;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.sql.tree.Rollback;
 import com.facebook.presto.transaction.TransactionManager;
@@ -63,7 +62,6 @@ public class TestRollbackTask
                 .setTransactionId(transactionManager.beginTransaction(false))
                 .build();
         QueryStateMachine stateMachine = createQueryStateMachine("ROLLBACK", session, true, transactionManager, executor, metadata);
-        WarningCollector warningCollector = stateMachine.getWarningCollector();
         RollbackTask rollbackTask = new RollbackTask();
         assertTrue(stateMachine.getSession().getTransactionId().isPresent());
         assertEquals(transactionManager.getAllTransactionInfos().size(), 1);

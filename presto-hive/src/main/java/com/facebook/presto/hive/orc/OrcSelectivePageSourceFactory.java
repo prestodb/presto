@@ -283,9 +283,9 @@ public class OrcSelectivePageSourceFactory
         Path path = new Path(fileSplit.getPath());
 
         boolean supplyRowIDs = selectedColumns.stream().anyMatch(column -> HiveColumnHandle.isRowIdColumnHandle(column));
-        String rowGroupId = path.getName();
         checkArgument(!supplyRowIDs || rowIDPartitionComponent.isPresent(), "rowIDPartitionComponent required when supplying row IDs");
         byte[] partitionID = rowIDPartitionComponent.orElse(new byte[0]);
+        String rowGroupId = path.getName();
 
         DataSize maxMergeDistance = getOrcMaxMergeDistance(session);
         DataSize tinyStripeThreshold = getOrcTinyStripeThreshold(session);
@@ -389,7 +389,7 @@ public class OrcSelectivePageSourceFactory
                     appendRowNumberEnabled,
                     partitionID,
                     rowGroupId,
-                    recordReader.isColumnPresent(OrcSelectivePageSource.ROW_ID_COLUMN_INDEX));
+                    supplyRowIDs);
         }
         catch (Exception e) {
             try {

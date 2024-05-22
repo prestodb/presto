@@ -315,15 +315,19 @@ public final class ArrayJoin
             Slice nullReplacement)
     {
         int numElements = arrayBlock.getPositionCount();
+        boolean hasOutput = false;
 
         for (int i = 0; i < numElements; i++) {
+            if (arrayBlock.isNull(i) && nullReplacement == null) {
+                continue;
+            }
+
+            if (hasOutput) {
+                blockBuilder.writeBytes(delimiter, 0, delimiter.length());
+            }
+
             if (arrayBlock.isNull(i)) {
-                if (nullReplacement != null) {
-                    blockBuilder.writeBytes(nullReplacement, 0, nullReplacement.length());
-                }
-                else {
-                    continue;
-                }
+                blockBuilder.writeBytes(nullReplacement, 0, nullReplacement.length());
             }
             else {
                 try {
@@ -337,9 +341,7 @@ public final class ArrayJoin
                 }
             }
 
-            if (i != numElements - 1) {
-                blockBuilder.writeBytes(delimiter, 0, delimiter.length());
-            }
+            hasOutput = true;
         }
 
         blockBuilder.closeEntry();
