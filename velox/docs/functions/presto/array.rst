@@ -149,9 +149,11 @@ Array Functions
 .. function:: array_remove(x, element) -> array
 
     Remove all elements that equal ``element`` from array ``x``.
+    For REAL and DOUBLE, NANs (Not-a-Number) are considered equal.
 
         SELECT array_remove(ARRAY [1, 2, 3], 3); -- [1, 2]
         SELECT array_remove(ARRAY [2, 1, NULL], 1); -- [2, NULL]
+        SELECT array_remove(ARRAY [2.1, 1.1, nan()], nan()); -- [2.1, 1.1]
 
 .. function:: array_sort(array(E)) -> array(E)
 
@@ -231,8 +233,10 @@ Array Functions
 
     Returns true if the array ``x`` contains the ``element``.
     When 'element' is of complex type, throws if 'x' or 'element' contains nested nulls
-    and these need to be compared to produce a result. ::
+    and these need to be compared to produce a result.
+    For REAL and DOUBLE, NANs (Not-a-Number) are considered equal. ::
 
+        SELECT contains(ARRAY [2.1, 1.1, nan()], nan()); -- true.
         SELECT contains(ARRAY[ARRAY[1, 3]], ARRAY[2, null]); -- false.
         SELECT contains(ARRAY[ARRAY[2, 3]], ARRAY[2, null]); -- failed: contains does not support arrays with elements that are null or contain null
         SELECT contains(ARRAY[ARRAY[2, null]], ARRAY[2, 1]); -- failed: contains does not support arrays with elements that are null or contain null

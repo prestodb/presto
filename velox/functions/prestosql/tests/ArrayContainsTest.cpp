@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <functional>
 #include <optional>
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
@@ -53,6 +54,59 @@ class ArrayContainsTest : public FunctionBaseTest {
 
     assertEqualVectors(makeNullableFlatVector<bool>(expected), result);
   };
+
+  void testContainsGeneric(
+      const VectorPtr& arrayVector,
+      const VectorPtr& search,
+      const std::vector<std::optional<bool>>& expected) {
+    auto result = evaluate(
+        "contains(c0, c1)",
+        makeRowVector({
+            arrayVector,
+            search,
+        }));
+
+    assertEqualVectors(makeNullableFlatVector<bool>(expected), result);
+  };
+
+  template <typename T>
+  void testFloatingPointNaNs() {
+    static const T kNaN = std::numeric_limits<T>::quiet_NaN();
+    static const T kSNaN = std::numeric_limits<T>::signaling_NaN();
+    {
+      auto arrayVector =
+          makeArrayVector<T>({{1, 2, 3, 4}, {3, 4, kNaN}, {5, 6, 7, 8, kSNaN}});
+      // Test fast path for flat.
+      testContains(arrayVector, kNaN, {false, true, true});
+      // Test code path for generic encoded vectors.
+      auto indices = makeIndices(arrayVector->size(), std::identity{});
+      auto dictOverArray = wrapInDictionary(indices, arrayVector);
+      testContainsGeneric(
+          dictOverArray,
+          makeConstant(kNaN, arrayVector->size()),
+          {false, true, true});
+    }
+
+    // Test code path for complex-type elements.
+    {
+      RowTypePtr rowType;
+      if constexpr (std::is_same_v<T, float>) {
+        rowType = ROW({REAL(), VARCHAR()});
+      } else {
+        static_assert(std::is_same_v<T, double>);
+        rowType = ROW({DOUBLE(), VARCHAR()});
+      }
+      using ArrayOfRow = std::vector<std::optional<std::tuple<T, std::string>>>;
+      std::vector<ArrayOfRow> data = {
+          {{{1, "red"}}, {{2, "blue"}}, {{3, "green"}}},
+          {{{1, "red"}}, {{kNaN, "blue"}}, {{3, "green"}}},
+          {{{1, "red"}}, {{kSNaN, "blue"}}, {{3, "green"}}}};
+      auto arrayVector = makeArrayOfRowVector(data, rowType);
+      const auto searchVector =
+          makeConstantRow(rowType, variant::row({kNaN, "blue"}), 2);
+      testContainsGeneric(arrayVector, searchVector, {false, true, true});
+    }
+  }
 };
 
 TEST_F(ArrayContainsTest, integerNoNulls) {
@@ -422,5 +476,10 @@ TEST_F(ArrayContainsTest, rowCheckNulls) {
   ASSERT_FALSE(contains({6, std::nullopt}, true));
   // (3, null) = (3, null) is true in $internal$contains.
   ASSERT_TRUE(contains({3, std::nullopt}, true));
+}
+
+TEST_F(ArrayContainsTest, floatNaNs) {
+  testFloatingPointNaNs<float>();
+  testFloatingPointNaNs<double>();
 }
 } // namespace

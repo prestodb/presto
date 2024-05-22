@@ -40,6 +40,50 @@ class ArrayRemoveTest : public FunctionBaseTest {
     VELOX_ASSERT_THROW(
         evaluate(expression, makeRowVector(input)), expectedError);
   }
+
+  template <typename T>
+  void testFloats() {
+    static const T kNaN = std::numeric_limits<T>::quiet_NaN();
+    static const T kSNaN = std::numeric_limits<T>::signaling_NaN();
+    {
+      const auto arrayVector = makeNullableArrayVector<T>(
+          {{1, std::nullopt, 2, 3, std::nullopt, 4},
+           {3, 4, 5, kNaN, 3, 4, kNaN},
+           {kSNaN, 8, 9}});
+      const auto elementVector = makeFlatVector<T>({3, kNaN, kNaN});
+      const auto expected = makeNullableArrayVector<T>({
+          {1, std::nullopt, 2, std::nullopt, 4},
+          {3, 4, 5, 3, 4},
+          {8, 9},
+      });
+      testExpression(
+          "array_remove(c0, c1)", {arrayVector, elementVector}, expected);
+    }
+    // Test array_remove with complex-type elements.
+    {
+      RowTypePtr rowType;
+      if constexpr (std::is_same_v<T, float>) {
+        rowType = ROW({REAL(), VARCHAR()});
+      } else {
+        static_assert(std::is_same_v<T, double>);
+        rowType = ROW({DOUBLE(), VARCHAR()});
+      }
+      using ArrayOfRow = std::vector<std::optional<std::tuple<T, std::string>>>;
+      std::vector<ArrayOfRow> data = {
+          {{{1, "red"}}, {{kNaN, "blue"}}, {{3, "green"}}, {{kNaN, "blue"}}},
+          {{{1, "red"}}, {{kSNaN, "blue"}}, {{3, "green"}}, {{kNaN, "blue"}}}};
+      auto arrayVector = makeArrayOfRowVector(data, rowType);
+
+      const auto elementVector =
+          makeConstantRow(rowType, variant::row({kNaN, "blue"}), 2);
+
+      std::vector<ArrayOfRow> expectedData = {
+          {{{1, "red"}}, {{3, "green"}}}, {{{1, "red"}}, {{3, "green"}}}};
+      const auto expected = makeArrayOfRowVector(expectedData, rowType);
+      testExpression(
+          "array_remove(c0, c1)", {arrayVector, elementVector}, expected);
+    }
+  }
 };
 
 //// Remove simple-type elements from array.
@@ -58,6 +102,12 @@ TEST_F(ArrayRemoveTest, arrayWithSimpleTypes) {
   });
   testExpression(
       "array_remove(c0, c1)", {arrayVector, elementVector}, expected);
+}
+
+//// Remove simple-type elements from array.
+TEST_F(ArrayRemoveTest, arrayWithFloatTypes) {
+  testFloats<float>();
+  testFloats<double>();
 }
 
 //// Remove simple-type elements from array.

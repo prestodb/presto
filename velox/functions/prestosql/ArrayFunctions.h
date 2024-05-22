@@ -868,8 +868,15 @@ struct ArrayRemoveFunction {
   void call(Out& out, const In& inputArray, E element) {
     for (const auto& item : inputArray) {
       if (item.has_value()) {
-        if (element != item.value()) {
-          out.push_back(item.value());
+        if constexpr (std::is_floating_point_v<E>) {
+          if (!util::floating_point::NaNAwareEquals<E>{}(
+                  element, item.value())) {
+            out.push_back(item.value());
+          }
+        } else {
+          if (element != item.value()) {
+            out.push_back(item.value());
+          }
         }
       } else {
         out.add_null();

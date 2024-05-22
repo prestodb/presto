@@ -14,10 +14,20 @@
  * limitations under the License.
  */
 #include "velox/expression/VectorFunction.h"
+#include "velox/type/FloatingPointUtil.h"
 #include "velox/vector/DecodedVector.h"
 
 namespace facebook::velox::functions {
 namespace {
+
+template <typename T>
+inline bool isPrimitiveEqual(const T& lhs, const T& rhs) {
+  if constexpr (std::is_floating_point_v<T>) {
+    return util::floating_point::NaNAwareEquals<T>{}(lhs, rhs);
+  } else {
+    return lhs == rhs;
+  }
+}
 
 template <TypeKind kind>
 void applyTyped(
@@ -47,12 +57,11 @@ void applyTyped(
       auto offset = rawOffsets[indices[row]];
 
       for (auto i = 0; i < size; i++) {
-        if (rawElements[offset + i] == search) {
+        if (isPrimitiveEqual<T>(rawElements[offset + i], search)) {
           flatResult.set(row, true);
           return;
         }
       }
-
       flatResult.set(row, false);
     });
   } else {
@@ -67,7 +76,8 @@ void applyTyped(
       for (auto i = 0; i < size; i++) {
         if (elementsDecoded.isNullAt(offset + i)) {
           foundNull = true;
-        } else if (elementsDecoded.valueAt<T>(offset + i) == search) {
+        } else if (isPrimitiveEqual<T>(
+                       elementsDecoded.valueAt<T>(offset + i), search)) {
           flatResult.set(row, true);
           return;
         }
