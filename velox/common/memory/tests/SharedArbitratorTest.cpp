@@ -384,29 +384,29 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, skipNonReclaimableTaskTest) {
         ++taskPausedCount;
       })));
 
-  auto plan = PlanBuilder()
-                  .values(vectors)
-                  .singleAggregation({"c0", "c1"}, {"array_agg(c2)"})
-                  .planNode();
+  const auto spillPlan = PlanBuilder()
+                             .values(vectors)
+                             .singleAggregation({"c0", "c1"}, {"array_agg(c2)"})
+                             .planNode();
   std::thread spillableThread([&]() {
     const auto spillDirectory = exec::test::TempDirectoryPath::create();
-    AssertQueryBuilder(plan)
+    AssertQueryBuilder(spillPlan)
         .queryCtx(queryCtx)
         .spillDirectory(spillDirectory->getPath())
         .copyResults(pool());
   });
 
-  plan = PlanBuilder()
-             .values(vectors)
-             .aggregation(
-                 {"c0", "c1"},
-                 {"array_agg(c2)"},
-                 {},
-                 core::AggregationNode::Step::kPartial,
-                 false)
-             .planNode();
+  const auto nonSpillPlan = PlanBuilder()
+                                .values(vectors)
+                                .aggregation(
+                                    {"c0", "c1"},
+                                    {"array_agg(c2)"},
+                                    {},
+                                    core::AggregationNode::Step::kPartial,
+                                    false)
+                                .planNode();
   std::thread nonSpillableThread([&]() {
-    AssertQueryBuilder(plan).queryCtx(queryCtx).copyResults(pool());
+    AssertQueryBuilder(nonSpillPlan).queryCtx(queryCtx).copyResults(pool());
   });
 
   while (!blockedPartialAggregation || !blockedAggregation) {
