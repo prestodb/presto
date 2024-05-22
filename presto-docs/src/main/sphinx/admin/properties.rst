@@ -546,6 +546,12 @@ in performance due to a context switching. The number of active threads is avail
 via the ``RunningSplits`` property of the
 ``com.facebook.presto.execution.executor:name=TaskExecutor.RunningSplits`` JXM object.
 
+The number of threads can be configured using either an absolute value (for example, ``10``)
+or a value relative to the number of available CPU cores (for example, ``1.5C``). When
+using a relative value, the number of threads is calculated based on the available CPU
+cores multiplied by the specified factor (for example, ``1.5``) and rounded to the
+nearest integer.
+
 ``task.min-drivers``
 ^^^^^^^^^^^^^^^^^^^^
 
