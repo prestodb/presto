@@ -59,6 +59,6 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl presto-spark-launcher,presto-spark-package,presto-spark-testing
+          ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl presto-spark-launcher,presto-spark-package,presto-spark-testing,!presto-ui
       - name: Maven Tests
         run: ./mvnw test ${MAVEN_TEST} -pl :presto-spark-testing -P test-presto-spark-integration-smoke-test

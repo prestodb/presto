@@ -60,7 +60,7 @@ jobs:
       - name: Install Hive Module
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl :presto-hive-hadoop2
+          ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl :presto-hive-hadoop2,!presto-ui
       - name: Run Hive Tests
         run: presto-hive-hadoop2/bin/run_hive_tests.sh
       - name: Run Hive S3 Tests
@@ -112,6 +112,6 @@ jobs:
       - name: Install Hive Module
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl :presto-hive
+          ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl :presto-hive,!presto-ui
       - name: Run Hive Dockerized Tests
         run: ./mvnw test ${MAVEN_TEST} -pl :presto-hive -P test-hive-insert-overwrite
