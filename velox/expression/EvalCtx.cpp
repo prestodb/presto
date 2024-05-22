@@ -191,7 +191,7 @@ std::exception_ptr toVeloxUserError(const std::string& message) {
 
 } // namespace
 
-void EvalCtx::setStatus(vector_size_t index, Status status) {
+void EvalCtx::setStatus(vector_size_t index, const Status& status) {
   VELOX_CHECK(!status.ok(), "Status must be an error");
 
   static std::exception_ptr kUserError = toVeloxUserError("<not captured>");

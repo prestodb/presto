@@ -329,12 +329,19 @@ void CastExpr::applyCastKernel(
     EvalCtx& context,
     const SimpleVector<typename TypeTraits<FromKind>::NativeType>* input,
     FlatVector<typename TypeTraits<ToKind>::NativeType>* result) {
+  bool wrapException = true;
   auto setError = [&](const std::string& details) {
     if (setNullInResultAtError()) {
       result->setNull(row, true);
     } else {
-      context.setVeloxExceptionError(
-          row, makeBadCastException(result->type(), *input, row, details));
+      wrapException = false;
+      if (context.captureErrorDetails()) {
+        const auto errorDetails =
+            makeErrorMessage(*input, row, result->type(), details);
+        context.setStatus(row, Status::UserError("{}", errorDetails));
+      } else {
+        context.setStatus(row, Status::UserError("{}", details));
+      }
     }
   };
 
@@ -359,7 +366,14 @@ void CastExpr::applyCastKernel(
       }
     }
 
-    auto output = util::Converter<ToKind, void, TPolicy>::cast(inputRowValue);
+    const auto castResult =
+        util::Converter<ToKind, void, TPolicy>::tryCast(inputRowValue);
+    if (castResult.hasError()) {
+      setError(castResult.error().message());
+      return;
+    }
+
+    const auto output = castResult.value();
 
     if constexpr (
         ToKind == TypeKind::VARCHAR || ToKind == TypeKind::VARBINARY) {
@@ -372,7 +386,7 @@ void CastExpr::applyCastKernel(
     }
 
   } catch (const VeloxException& ue) {
-    if (!ue.isUserError()) {
+    if (!ue.isUserError() || !wrapException) {
       throw;
     }
     setError(ue.message());
@@ -525,8 +539,11 @@ VectorPtr CastExpr::applyDecimalToFloatCast(
   const auto simpleInput = input.as<SimpleVector<FromNativeType>>();
   const auto scaleFactor = DecimalUtil::kPowersOfTen[precisionScale.second];
   applyToSelectedNoThrowLocal(context, rows, result, [&](int row) {
-    auto output = util::Converter<ToKind, void, util::DefaultCastPolicy>::cast(
-        simpleInput->valueAt(row));
+    const auto output =
+        util::Converter<ToKind>::tryCast(simpleInput->valueAt(row))
+            .thenOrThrow(folly::identity, [&](const Status& status) {
+              VELOX_USER_FAIL("{}", status.message());
+            });
     resultBuffer[row] = output / scaleFactor;
   });
   return result;

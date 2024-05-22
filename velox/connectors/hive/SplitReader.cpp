@@ -50,7 +50,10 @@ VectorPtr newConstantFromString(
     return std::make_shared<ConstantVector<StringView>>(
         pool, size, false, type, StringView(value.value()));
   } else {
-    auto copy = velox::util::Converter<kind>::cast(value.value());
+    auto copy = velox::util::Converter<kind>::tryCast(value.value())
+                    .thenOrThrow(folly::identity, [&](const Status& status) {
+                      VELOX_USER_FAIL("{}", status.message());
+                    });
     if constexpr (kind == TypeKind::TIMESTAMP) {
       copy.toGMT(Timestamp::defaultTimezone());
     }

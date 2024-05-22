@@ -2956,7 +2956,7 @@ TEST_P(ParameterizedExprTest, castExceptionContext) {
       makeFlatVector<std::string>({"1a"}),
       "Top-level Expression: cast((c0) as BIGINT)",
       "",
-      "Cannot cast VARCHAR '1a' to BIGINT. Non-whitespace character found after end of conversion: \"a\"");
+      "Cannot cast VARCHAR '1a' to BIGINT. Non-whitespace character found after end of conversion: \"\"");
 
   assertError(
       "cast(c0 as timestamp)",

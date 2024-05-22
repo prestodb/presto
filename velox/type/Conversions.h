@@ -17,10 +17,12 @@
 #pragma once
 
 #include <folly/Conv.h>
+#include <folly/Expected.h>
 #include <cctype>
 #include <string>
 #include <type_traits>
 #include "velox/common/base/Exceptions.h"
+#include "velox/common/base/Status.h"
 #include "velox/type/CppToType.h"
 #include "velox/type/TimestampConversion.h"
 #include "velox/type/Type.h"
@@ -51,100 +53,124 @@ struct TruncateLegacyCastPolicy {
 
 template <TypeKind KIND, typename = void, typename TPolicy = DefaultCastPolicy>
 struct Converter {
-  template <typename T>
-  static typename TypeTraits<KIND>::NativeType cast(T) {
-    VELOX_UNSUPPORTED(
+  using TTo = typename TypeTraits<KIND>::NativeType;
+
+  template <typename TFrom>
+  static Expected<TTo> tryCast(TFrom) {
+    static const std::string kErrorMessage = fmt::format(
         "Conversion to {} is not supported", TypeTraits<KIND>::name);
+
+    return folly::makeUnexpected(Status::UserError(kErrorMessage));
   }
 };
 
+namespace detail {
+
+template <typename T, typename F>
+Expected<T> callFollyTo(const F& v) {
+  const auto result = folly::tryTo<T>(v);
+  if (result.hasError()) {
+    return folly::makeUnexpected(Status::UserError(
+        "{}", folly::makeConversionError(result.error(), "").what()));
+  }
+
+  return result.value();
+}
+
+} // namespace detail
+
+/// To BOOLEAN converter.
 template <typename TPolicy>
 struct Converter<TypeKind::BOOLEAN, void, TPolicy> {
   using T = bool;
 
-  template <typename From>
-  static T cast(const From& v) {
+  template <typename TFrom>
+  static Expected<T> tryCast(const TFrom& v) {
     if constexpr (TPolicy::truncate) {
-      VELOX_UNSUPPORTED("Conversion to BOOLEAN is not supported");
+      return folly::makeUnexpected(
+          Status::UserError("Conversion to BOOLEAN is not supported"));
     }
-    return folly::to<T>(v);
+
+    return detail::callFollyTo<T>(v);
   }
 
-  static T cast(folly::StringPiece v) {
-    return folly::to<T>(v);
+  static Expected<T> tryCast(folly::StringPiece v) {
+    return detail::callFollyTo<T>(v);
   }
 
-  static T cast(const StringView& v) {
-    return folly::to<T>(folly::StringPiece(v));
+  static Expected<T> tryCast(const StringView& v) {
+    return detail::callFollyTo<T>(folly::StringPiece(v));
   }
 
-  static T cast(const std::string& v) {
-    return folly::to<T>(v);
+  static Expected<T> tryCast(const std::string& v) {
+    return detail::callFollyTo<T>(v);
   }
 
-  static T cast(const bool& v) {
-    return folly::to<T>(v);
+  static Expected<T> tryCast(const bool& v) {
+    return detail::callFollyTo<T>(v);
   }
 
-  static T cast(const float& v) {
-    if constexpr (TPolicy::truncate) {
-      if (std::isnan(v)) {
-        return false;
-      }
-      return v != 0;
-    } else {
-      return folly::to<T>(v);
-    }
-  }
-
-  static T cast(const double& v) {
+  static Expected<T> tryCast(const float& v) {
     if constexpr (TPolicy::truncate) {
       if (std::isnan(v)) {
         return false;
       }
       return v != 0;
     } else {
-      return folly::to<T>(v);
+      return detail::callFollyTo<T>(v);
     }
   }
 
-  static T cast(const int8_t& v) {
+  static Expected<T> tryCast(const double& v) {
+    if constexpr (TPolicy::truncate) {
+      if (std::isnan(v)) {
+        return false;
+      }
+      return v != 0;
+    } else {
+      return detail::callFollyTo<T>(v);
+    }
+  }
+
+  static Expected<T> tryCast(const int8_t& v) {
     if constexpr (TPolicy::truncate) {
       return T(v);
     } else {
-      return folly::to<T>(v);
+      return detail::callFollyTo<T>(v);
     }
   }
 
-  static T cast(const int16_t& v) {
+  static Expected<T> tryCast(const int16_t& v) {
     if constexpr (TPolicy::truncate) {
       return T(v);
     } else {
-      return folly::to<T>(v);
+      return detail::callFollyTo<T>(v);
     }
   }
 
-  static T cast(const int32_t& v) {
+  static Expected<T> tryCast(const int32_t& v) {
     if constexpr (TPolicy::truncate) {
       return T(v);
     } else {
-      return folly::to<T>(v);
+      return detail::callFollyTo<T>(v);
     }
   }
 
-  static T cast(const int64_t& v) {
+  static Expected<T> tryCast(const int64_t& v) {
     if constexpr (TPolicy::truncate) {
       return T(v);
     } else {
-      return folly::to<T>(v);
+      return detail::callFollyTo<T>(v);
     }
   }
 
-  static T cast(const Timestamp&) {
-    VELOX_UNSUPPORTED("Conversion of Timestamp to Boolean is not supported");
+  static Expected<T> tryCast(const Timestamp&) {
+    return folly::makeUnexpected(Status::UserError(
+        "Conversion of Timestamp to Boolean is not supported"));
   }
 };
 
+/// To TINYINT, SMALLINT, INTEGER, BIGINT, and HUGEINT converter.
 template <TypeKind KIND, typename TPolicy>
 struct Converter<
     KIND,
@@ -157,18 +183,21 @@ struct Converter<
   using T = typename TypeTraits<KIND>::NativeType;
 
   template <typename From>
-  static T cast(const From&) {
-    VELOX_UNSUPPORTED(
+  static Expected<T> tryCast(const From&) {
+    static const std::string kErrorMessage = fmt::format(
         "Conversion to {} is not supported", TypeTraits<KIND>::name);
+
+    return folly::makeUnexpected(Status::UserError(kErrorMessage));
   }
 
-  static T convertStringToInt(const folly::StringPiece v) {
+  static Expected<T> convertStringToInt(const folly::StringPiece v) {
     // Handling integer target cases
     T result = 0;
     int index = 0;
     int len = v.size();
     if (len == 0) {
-      VELOX_USER_FAIL("Cannot cast an empty string to an integral value.");
+      return folly::makeUnexpected(Status::UserError(
+          "Cannot cast an empty string to an integral value."));
     }
 
     // Setting negative flag
@@ -177,8 +206,8 @@ struct Converter<
     bool decimalPoint = false;
     if (v[0] == '-' || v[0] == '+') {
       if (len == 1) {
-        VELOX_USER_FAIL(
-            "Cannot cast an '{}' string to an integral value.", v[0]);
+        return folly::makeUnexpected(Status::UserError(fmt::format(
+            "Cannot cast an '{}' string to an integral value.", v[0])));
       }
       negative = v[0] == '-';
       index = 1;
@@ -193,7 +222,8 @@ struct Converter<
           }
         }
         if (!std::isdigit(v[index])) {
-          VELOX_USER_FAIL("Encountered a non-digit character");
+          return folly::makeUnexpected(
+              Status::UserError("Encountered a non-digit character"));
         }
         if (!decimalPoint) {
           result = checkedMultiply<T>(result, 10, CppToType<T>::name);
@@ -210,7 +240,8 @@ struct Converter<
           }
         }
         if (!std::isdigit(v[index])) {
-          VELOX_USER_FAIL("Encountered a non-digit character");
+          return folly::makeUnexpected(
+              Status::UserError("Encountered a non-digit character"));
         }
         if (!decimalPoint) {
           result = checkedMultiply<T>(result, 10, CppToType<T>::name);
@@ -222,63 +253,68 @@ struct Converter<
     return result;
   }
 
-  static T cast(folly::StringPiece v) {
+  static Expected<T> tryCast(folly::StringPiece v) {
     if constexpr (TPolicy::truncate) {
       return convertStringToInt(v);
     } else {
-      return folly::to<T>(v);
+      return detail::callFollyTo<T>(v);
     }
   }
 
-  static T cast(const StringView& v) {
+  static Expected<T> tryCast(const StringView& v) {
     if constexpr (TPolicy::truncate) {
       return convertStringToInt(folly::StringPiece(v));
     } else {
-      return folly::to<T>(folly::StringPiece(v));
+      return detail::callFollyTo<T>(folly::StringPiece(v));
     }
   }
 
-  static T cast(const std::string& v) {
+  static Expected<T> tryCast(const std::string& v) {
     if constexpr (TPolicy::truncate) {
       return convertStringToInt(v);
     } else {
-      return folly::to<T>(v);
+      return detail::callFollyTo<T>(v);
     }
   }
 
-  static T cast(const bool& v) {
+  static Expected<T> tryCast(const bool& v) {
     return folly::to<T>(v);
   }
 
   struct LimitType {
     static constexpr bool kByteOrSmallInt =
         std::is_same_v<T, int8_t> || std::is_same_v<T, int16_t>;
+
     static int64_t minLimit() {
       if (kByteOrSmallInt) {
         return std::numeric_limits<int32_t>::min();
       }
       return std::numeric_limits<T>::min();
     }
+
     static int64_t maxLimit() {
       if (kByteOrSmallInt) {
         return std::numeric_limits<int32_t>::max();
       }
       return std::numeric_limits<T>::max();
     }
+
     static T min() {
       if (kByteOrSmallInt) {
         return 0;
       }
       return std::numeric_limits<T>::min();
     }
+
     static T max() {
       if (kByteOrSmallInt) {
         return -1;
       }
       return std::numeric_limits<T>::max();
     }
+
     template <typename FP>
-    static T cast(const FP& v) {
+    static Expected<T> tryCast(const FP& v) {
       if (kByteOrSmallInt) {
         return T(int32_t(v));
       }
@@ -286,87 +322,88 @@ struct Converter<
     }
   };
 
-  static T cast(const float& v) {
+  static Expected<T> tryCast(const float& v) {
     if constexpr (TPolicy::truncate) {
       if (std::isnan(v)) {
         return 0;
       }
+
       if constexpr (std::is_same_v<T, int128_t>) {
         return std::numeric_limits<int128_t>::max();
       } else if (v > LimitType::maxLimit()) {
         return LimitType::max();
-      }
-      if constexpr (std::is_same_v<T, int128_t>) {
-        return std::numeric_limits<int128_t>::min();
       } else if (v < LimitType::minLimit()) {
         return LimitType::min();
       }
-      return LimitType::cast(v);
+
+      return LimitType::tryCast(v);
     } else {
       if (std::isnan(v)) {
-        VELOX_USER_FAIL("Cannot cast NaN to an integral value.");
+        return folly::makeUnexpected(
+            Status::UserError("Cannot cast NaN to an integral value."));
       }
-      return folly::to<T>(std::round(v));
+      return detail::callFollyTo<T>(std::round(v));
     }
   }
 
-  static T cast(const double& v) {
+  static Expected<T> tryCast(const double& v) {
     if constexpr (TPolicy::truncate) {
       if (std::isnan(v)) {
         return 0;
       }
+
       if constexpr (std::is_same_v<T, int128_t>) {
         return std::numeric_limits<int128_t>::max();
       } else if (v > LimitType::maxLimit()) {
         return LimitType::max();
-      }
-      if constexpr (std::is_same_v<T, int128_t>) {
-        return std::numeric_limits<int128_t>::min();
       } else if (v < LimitType::minLimit()) {
         return LimitType::min();
       }
-      return LimitType::cast(v);
+
+      return LimitType::tryCast(v);
     } else {
       if (std::isnan(v)) {
-        VELOX_USER_FAIL("Cannot cast NaN to an integral value.");
+        return folly::makeUnexpected(
+            Status::UserError("Cannot cast NaN to an integral value."));
       }
-      return folly::to<T>(std::round(v));
+      return detail::callFollyTo<T>(std::round(v));
     }
   }
 
-  static T cast(const int8_t& v) {
+  static Expected<T> tryCast(const int8_t& v) {
     if constexpr (TPolicy::truncate) {
       return T(v);
     } else {
-      return folly::to<T>(v);
+      return detail::callFollyTo<T>(v);
     }
   }
 
-  static T cast(const int16_t& v) {
+  static Expected<T> tryCast(const int16_t& v) {
     if constexpr (TPolicy::truncate) {
       return T(v);
     } else {
-      return folly::to<T>(v);
+      return detail::callFollyTo<T>(v);
     }
   }
 
-  static T cast(const int32_t& v) {
+  static Expected<T> tryCast(const int32_t& v) {
     if constexpr (TPolicy::truncate) {
       return T(v);
     } else {
-      return folly::to<T>(v);
+      return detail::callFollyTo<T>(v);
     }
   }
 
-  static T cast(const int64_t& v) {
+  static Expected<T> tryCast(const int64_t& v) {
     if constexpr (TPolicy::truncate) {
       return T(v);
     } else {
-      return folly::to<T>(v);
+      return detail::callFollyTo<T>(v);
     }
   }
 };
 
+/// To REAL and DOUBLE converter.
 template <TypeKind KIND, typename TPolicy>
 struct Converter<
     KIND,
@@ -375,83 +412,85 @@ struct Converter<
   using T = typename TypeTraits<KIND>::NativeType;
 
   template <typename From>
-  static T cast(const From& v) {
-    return folly::to<T>(v);
+  static Expected<T> tryCast(const From& v) {
+    return detail::callFollyTo<T>(v);
   }
 
-  static T cast(folly::StringPiece v) {
-    return cast<folly::StringPiece>(v);
+  static Expected<T> tryCast(folly::StringPiece v) {
+    return tryCast<folly::StringPiece>(v);
   }
 
-  static T cast(const StringView& v) {
-    return cast<folly::StringPiece>(folly::StringPiece(v));
+  static Expected<T> tryCast(const StringView& v) {
+    return tryCast<folly::StringPiece>(folly::StringPiece(v));
   }
 
-  static T cast(const std::string& v) {
-    return cast<std::string>(v);
+  static Expected<T> tryCast(const std::string& v) {
+    return tryCast<std::string>(v);
   }
 
-  static T cast(const bool& v) {
-    return cast<bool>(v);
+  static Expected<T> tryCast(const bool& v) {
+    return tryCast<bool>(v);
   }
 
-  static T cast(const float& v) {
-    return cast<float>(v);
+  static Expected<T> tryCast(const float& v) {
+    return tryCast<float>(v);
   }
 
-  static T cast(const double& v) {
+  static Expected<T> tryCast(const double& v) {
     if constexpr (TPolicy::truncate) {
       return T(v);
     } else {
-      return cast<double>(v);
+      return tryCast<double>(v);
     }
   }
 
-  static T cast(const int8_t& v) {
-    return cast<int8_t>(v);
+  static Expected<T> tryCast(const int8_t& v) {
+    return tryCast<int8_t>(v);
   }
 
-  static T cast(const int16_t& v) {
-    return cast<int16_t>(v);
+  static Expected<T> tryCast(const int16_t& v) {
+    return tryCast<int16_t>(v);
   }
 
   // Convert integer to double or float directly, not using folly, as it
   // might throw 'loss of precision' error.
-  static T cast(const int32_t& v) {
+  static Expected<T> tryCast(const int32_t& v) {
     return static_cast<T>(v);
   }
 
   // Convert large integer to double or float directly, not using folly, as it
   // might throw 'loss of precision' error.
-  static T cast(const int64_t& v) {
+  static Expected<T> tryCast(const int64_t& v) {
     return static_cast<T>(v);
   }
 
   // Convert large integer to double or float directly, not using folly, as it
   // might throw 'loss of precision' error.
-  static T cast(const int128_t& v) {
+  static Expected<T> tryCast(const int128_t& v) {
     return static_cast<T>(v);
   }
 
-  static T cast(const Timestamp&) {
-    VELOX_UNSUPPORTED(
-        "Conversion of Timestamp to Real or Double is not supported");
+  static Expected<T> tryCast(const Timestamp&) {
+    return folly::makeUnexpected(Status::UserError(
+        "Conversion of Timestamp to Real or Double is not supported"));
   }
 };
 
+/// To VARBINARY converter.
 template <typename TPolicy>
 struct Converter<TypeKind::VARBINARY, void, TPolicy> {
   // Same semantics of TypeKind::VARCHAR converter.
   template <typename T>
-  static std::string cast(const T& val) {
-    return Converter<TypeKind::VARCHAR, void, TPolicy>::cast(val);
+  static Expected<std::string> tryCast(const T& val) {
+    return Converter<TypeKind::VARCHAR, void, TPolicy>::tryCast(val);
   }
 };
 
+/// To VARCHAR converter.
 template <typename TPolicy>
 struct Converter<TypeKind::VARCHAR, void, TPolicy> {
   template <typename T>
-  static std::string cast(const T& val) {
+  static Expected<std::string> tryCast(const T& val) {
     if constexpr (std::is_same_v<T, double> || std::is_same_v<T, float>) {
       if constexpr (TPolicy::legacyCast) {
         auto str = folly::to<std::string>(val);
@@ -482,7 +521,7 @@ struct Converter<TypeKind::VARCHAR, void, TPolicy> {
     return folly::to<std::string>(val);
   }
 
-  static std::string cast(const Timestamp& val) {
+  static Expected<std::string> tryCast(const Timestamp& val) {
     TimestampToStringOptions options;
     options.precision = TimestampToStringOptions::Precision::kMilliseconds;
     if constexpr (!TPolicy::legacyCast) {
@@ -492,7 +531,7 @@ struct Converter<TypeKind::VARCHAR, void, TPolicy> {
     return val.toString(options);
   }
 
-  static std::string cast(const bool& val) {
+  static Expected<std::string> tryCast(const bool& val) {
     return val ? "true" : "false";
   }
 
@@ -548,26 +587,24 @@ struct Converter<TypeKind::VARCHAR, void, TPolicy> {
   }
 };
 
-// Allow conversions from string to TIMESTAMP type.
+/// To TIMESTAMP converter.
 template <typename TPolicy>
 struct Converter<TypeKind::TIMESTAMP, void, TPolicy> {
-  using T = typename TypeTraits<TypeKind::TIMESTAMP>::NativeType;
-
   template <typename From>
-  static T cast(const From& /* v */) {
-    VELOX_UNSUPPORTED("Conversion to Timestamp is not supported");
-    return T();
+  static Expected<Timestamp> tryCast(const From& /* v */) {
+    return folly::makeUnexpected(
+        Status::UserError("Conversion to Timestamp is not supported"));
   }
 
-  static T cast(folly::StringPiece v) {
+  static Expected<Timestamp> tryCast(folly::StringPiece v) {
     return fromTimestampString(v.data(), v.size());
   }
 
-  static T cast(const StringView& v) {
+  static Expected<Timestamp> tryCast(const StringView& v) {
     return fromTimestampString(v.data(), v.size());
   }
 
-  static T cast(const std::string& v) {
+  static Expected<Timestamp> tryCast(const std::string& v) {
     return fromTimestampString(v.data(), v.size());
   }
 };

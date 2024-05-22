@@ -162,9 +162,8 @@ struct ArrayJoinFunction {
 
   template <typename C>
   void writeValue(out_type<velox::Varchar>& result, const C& value) {
-    result +=
-        util::Converter<TypeKind::VARCHAR, void, util::DefaultCastPolicy>::cast(
-            value);
+    // To VARCHAR converter never throws.
+    result += util::Converter<TypeKind::VARCHAR>::tryCast(value).value();
   }
 
   template <typename C>

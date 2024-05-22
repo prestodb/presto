@@ -1094,7 +1094,7 @@ TEST_F(CastExprTest, truncateVsRound) {
   testInvalidCast<int32_t>(
       "tinyint",
       {1111111, 1000, -100101},
-      "Cannot cast INTEGER '1111111' to TINYINT. Overflow during arithmetic conversion: (signed char) 1111111");
+      "Cannot cast INTEGER '1111111' to TINYINT. Overflow during arithmetic conversion:");
 }
 
 TEST_F(CastExprTest, nullInputs) {

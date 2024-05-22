@@ -42,16 +42,22 @@ class ConversionsTest : public testing::Test {
     const TypeKind toTypeKind = CppToType<TTo>::typeKind;
 
     auto cast = [&](TFrom input) -> TTo {
+      Expected<TTo> result;
       if (truncate & legacyCast) {
-        return Converter<toTypeKind, void, TruncateLegacyCastPolicy>::cast(
+        result = Converter<toTypeKind, void, TruncateLegacyCastPolicy>::tryCast(
             input);
       } else if (!truncate & legacyCast) {
-        return Converter<toTypeKind, void, LegacyCastPolicy>::cast(input);
+        result = Converter<toTypeKind, void, LegacyCastPolicy>::tryCast(input);
       } else if (truncate & !legacyCast) {
-        return Converter<toTypeKind, void, TruncateCastPolicy>::cast(input);
+        result =
+            Converter<toTypeKind, void, TruncateCastPolicy>::tryCast(input);
       } else {
-        return Converter<toTypeKind, void, DefaultCastPolicy>::cast(input);
+        result = Converter<toTypeKind, void, DefaultCastPolicy>::tryCast(input);
       }
+
+      return result.thenOrThrow(folly::identity, [](const Status& status) {
+        VELOX_USER_FAIL(status.message());
+      });
     };
 
     for (auto i = 0; i < input.size(); i++) {

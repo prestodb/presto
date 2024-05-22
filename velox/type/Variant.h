@@ -19,6 +19,7 @@
 #include <map>
 
 #include <fmt/format.h>
+#include <folly/Conv.h>
 
 #include "folly/dynamic.h"
 #include "velox/common/base/Exceptions.h"
@@ -552,7 +553,12 @@ struct VariantConverter {
     if (value.isNull()) {
       return variant{value.kind()};
     }
-    auto converted = util::Converter<ToKind>::cast(value.value<FromKind>());
+
+    const auto converted =
+        util::Converter<ToKind>::tryCast(value.value<FromKind>())
+            .thenOrThrow(folly::identity, [&](const Status& status) {
+              VELOX_USER_FAIL("{}", status.message());
+            });
     return {converted};
   }
 
