@@ -80,6 +80,9 @@ class ArraysOverlapTest : public FunctionBaseTest {
           std::numeric_limits<T>::infinity(),
           std::numeric_limits<T>::max()},
          {std::numeric_limits<T>::quiet_NaN(), 9.0009},
+         {std::numeric_limits<T>::quiet_NaN(), 3.1},
+         // quiet NaN and signaling NaN are treated equal
+         {std::numeric_limits<T>::signaling_NaN(), 3.1},
          {std::numeric_limits<T>::quiet_NaN(), 9.0009, std::nullopt}});
     auto array2 = makeNullableArrayVector<T>(
         {{1.0, -2.0, 4.0},
@@ -87,9 +90,11 @@ class ArraysOverlapTest : public FunctionBaseTest {
          {1.0001, -2.02, std::numeric_limits<T>::max(), 8.00099},
          {9.0009, std::numeric_limits<T>::infinity()},
          {9.0009, std::numeric_limits<T>::quiet_NaN()},
+         {9.0009, std::numeric_limits<T>::quiet_NaN()},
+         {9.0009, std::numeric_limits<T>::quiet_NaN()},
          {9.0}});
     auto expected = makeNullableFlatVector<bool>(
-        {true, true, true, true, true, std::nullopt});
+        {true, true, true, true, true, true, true, std::nullopt});
     testExpr(expected, "arrays_overlap(C0, C1)", {array1, array2});
     testExpr(expected, "arrays_overlap(C1, C0)", {array1, array2});
   }

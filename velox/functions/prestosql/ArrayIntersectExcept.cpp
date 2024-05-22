@@ -16,6 +16,7 @@
 #include "velox/expression/VectorFunction.h"
 #include "velox/functions/lib/LambdaFunctionUtil.h"
 #include "velox/functions/lib/RowsTranslationUtil.h"
+#include "velox/type/FloatingPointUtil.h"
 
 namespace facebook::velox::functions {
 namespace {
@@ -31,7 +32,7 @@ struct SetWithNull {
     hasNull = false;
   }
 
-  folly::F14FastSet<T> set;
+  util::floating_point::HashSetNaNAware<T> set;
   bool hasNull{false};
   static constexpr vector_size_t kInitialSetSize{128};
 };

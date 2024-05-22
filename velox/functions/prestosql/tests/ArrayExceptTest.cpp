@@ -107,6 +107,8 @@ class ArrayExceptTest : public FunctionBaseTest {
          std::numeric_limits<T>::infinity(),
          std::numeric_limits<T>::max()},
         {std::numeric_limits<T>::quiet_NaN(), 9.0009},
+        {std::numeric_limits<T>::quiet_NaN(), 9.0009},
+        {std::numeric_limits<T>::quiet_NaN(), 9.0009},
     });
     auto array2 = makeNullableArrayVector<T>({
         {1.0, -2.0, 4.0},
@@ -114,24 +116,29 @@ class ArrayExceptTest : public FunctionBaseTest {
         {1.0001, -2.02, std::numeric_limits<T>::max(), 8.00099},
         {9.0009, std::numeric_limits<T>::infinity()},
         {9.0009, std::numeric_limits<T>::quiet_NaN()},
+        {std::numeric_limits<T>::quiet_NaN()},
+        // quiet NaN and signaling NaN are treated equal
+        {std::numeric_limits<T>::signaling_NaN()},
     });
 
-    auto expected = makeNullableArrayVector<T>({
-        {1.0001, 3.03, std::nullopt, 4.00004},
-        {2.02, 1},
-        {8.0001, std::nullopt},
-        {std::numeric_limits<T>::max()},
-        {std::numeric_limits<T>::quiet_NaN()},
-    });
+    auto expected = makeNullableArrayVector<T>(
+        {{1.0001, 3.03, std::nullopt, 4.00004},
+         {2.02, 1},
+         {8.0001, std::nullopt},
+         {std::numeric_limits<T>::max()},
+         {},
+         {9.0009},
+         {9.0009}});
     testExpr(expected, "array_except(C0, C1)", {array1, array2});
 
-    expected = makeNullableArrayVector<T>({
-        {1.0, 4.0},
-        {2.0199, 1.000001},
-        {1.0001, -2.02, 8.00099},
-        {},
-        {std::numeric_limits<T>::quiet_NaN()},
-    });
+    expected = makeNullableArrayVector<T>(
+        {{1.0, 4.0},
+         {2.0199, 1.000001},
+         {1.0001, -2.02, 8.00099},
+         {},
+         {},
+         {},
+         {}});
     testExpr(expected, "array_except(C1, C0)", {array1, array2});
   }
 };

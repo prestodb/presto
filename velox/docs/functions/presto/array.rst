@@ -35,7 +35,8 @@ Array Functions
 
 .. function:: array_distinct(array(E)) -> array(E)
 
-    Remove duplicate values from the input array. ::
+    Remove duplicate values from the input array.
+    For REAL and DOUBLE, NANs (Not-a-Number) are considered equal. ::
 
         SELECT array_distinct(ARRAY [1, 2, 3]); -- [1, 2, 3]
         SELECT array_distinct(ARRAY [1, 2, 1]); -- [1, 2]
@@ -50,7 +51,8 @@ Array Functions
 
 .. function:: array_except(array(E) x, array(E) y) -> array(E)
 
-    Returns an array of the elements in array ``x`` but not in array ``y``, without duplicates. ::
+    Returns an array of the elements in array ``x`` but not in array ``y``, without duplicates.
+    For REAL and DOUBLE, NANs (Not-a-Number) are considered equal. ::
 
         SELECT array_except(ARRAY [1, 2, 3], ARRAY [4, 5, 6]); -- [1, 2, 3]
         SELECT array_except(ARRAY [1, 2, 3], ARRAY [1, 2]); -- [3]
@@ -77,7 +79,8 @@ Array Functions
 
 .. function:: array_intersect(array(E) x, array(E) y) -> array(E)
 
-    Returns an array of the elements in the intersection of array ``x`` and array ``y``, without duplicates. ::
+    Returns an array of the elements in the intersection of array ``x`` and array ``y``, without duplicates.
+    For REAL and DOUBLE, NANs (Not-a-Number) are considered equal. ::
 
         SELECT array_intersect(ARRAY [1, 2, 3], ARRAY[4, 5, 6]); -- []
         SELECT array_intersect(ARRAY [1, 2, 2], ARRAY[1, 1, 2]); -- [1, 2]
@@ -127,6 +130,12 @@ Array Functions
 
     Tests if arrays ``x`` and ``y`` have any non-null elements in common.
     Returns null if there are no non-null elements in common but either array contains null.
+    For REAL and DOUBLE, NANs (Not-a-Number) are considered equal.
+
+.. function:: arrays_union(x, y) -> array
+
+    Returns an array of the elements in the union of x and y, without duplicates.
+    For REAL and DOUBLE, NANs (Not-a-Number) are considered equal.
 
 .. function:: array_position(x, element) -> bigint
 
@@ -153,6 +162,7 @@ Array Functions
 
         SELECT array_sort(ARRAY [1, 2, 3]); -- [1, 2, 3]
         SELECT array_sort(ARRAY [3, 2, 1]); -- [1, 2, 3]
+        SELECT array_sort(ARRAY [infinity(), -1.1, nan(), 1.1, -Infinity(), 0])); -- [-Infinity, -1.1, 0, 1.1, Infinity, NaN]
         SELECT array_sort(ARRAY [2, 1, NULL]; -- [1, 2, NULL]
         SELECT array_sort(ARRAY [NULL, 1, NULL]); -- [1, NULL, NULL]
         SELECT array_sort(ARRAY [NULL, 2, 1]); -- [1, 2, NULL]

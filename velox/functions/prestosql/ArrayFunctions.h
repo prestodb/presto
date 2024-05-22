@@ -34,14 +34,14 @@ struct ArrayMinMaxFunction {
   template <typename T>
   void update(T& currentValue, const T& candidateValue) {
     if constexpr (std::is_same_v<T, float> || std::is_same_v<T, double>) {
-      using facebook::velox::util::floating_point::NaNAwareGreaterThan;
-      using facebook::velox::util::floating_point::NaNAwareLessThan;
       if constexpr (isMax) {
-        if (NaNAwareGreaterThan<T>{}(candidateValue, currentValue)) {
+        if (util::floating_point::NaNAwareGreaterThan<T>{}(
+                candidateValue, currentValue)) {
           currentValue = candidateValue;
         }
       } else {
-        if (NaNAwareLessThan<T>{}(candidateValue, currentValue)) {
+        if (util::floating_point::NaNAwareLessThan<T>{}(
+                candidateValue, currentValue)) {
           currentValue = candidateValue;
         }
       }
@@ -836,7 +836,7 @@ struct ArrayUnionFunction {
 
   template <typename Out, typename In>
   void call(Out& out, const In& inputArray1, const In& inputArray2) {
-    folly::F14FastSet<typename In::element_t> elementSet;
+    util::floating_point::HashSetNaNAware<typename In::element_t> elementSet;
     bool nullAdded = false;
     auto addItems = [&](auto& inputArray) {
       for (const auto& item : inputArray) {

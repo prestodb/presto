@@ -14,12 +14,11 @@
  * limitations under the License.
  */
 
-#include <folly/container/F14Set.h>
-
 #include "velox/expression/EvalCtx.h"
 #include "velox/expression/Expr.h"
 #include "velox/expression/VectorFunction.h"
 #include "velox/functions/lib/RowsTranslationUtil.h"
+#include "velox/type/FloatingPointUtil.h"
 
 namespace facebook::velox::functions {
 namespace {
@@ -96,7 +95,7 @@ class ArrayDistinctFunction : public exec::VectorFunction {
     auto* rawNewOffsets = newOffsets->asMutable<vector_size_t>();
 
     // Process the rows: store unique values in the hash table.
-    folly::F14FastSet<T> uniqueSet;
+    util::floating_point::HashSetNaNAware<T> uniqueSet;
 
     rows.applyToSelected([&](vector_size_t row) {
       auto size = arrayVector->sizeAt(row);

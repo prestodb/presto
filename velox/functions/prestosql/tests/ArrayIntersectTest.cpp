@@ -106,20 +106,24 @@ class ArrayIntersectTest : public FunctionBaseTest {
          std::numeric_limits<T>::infinity(),
          std::numeric_limits<T>::max()},
         {std::numeric_limits<T>::quiet_NaN(), 9.0009},
+        {std::numeric_limits<T>::quiet_NaN(), 9.0009},
     });
     auto array2 = makeNullableArrayVector<T>({
         {1.0, -2.0, 4.0},
         {std::numeric_limits<T>::min(), 2.0199, -2.001, 1.000001},
         {1.0001, -2.02, std::numeric_limits<T>::max(), 8.00099},
         {9.0009, std::numeric_limits<T>::infinity()},
-        {9.0009, std::numeric_limits<T>::quiet_NaN()},
+        {std::numeric_limits<T>::quiet_NaN()},
+        // quiet NaN and signaling NaN are treated equal
+        {std::numeric_limits<T>::signaling_NaN(), 9.0009},
     });
     auto expected = makeNullableArrayVector<T>({
         {-2.0},
         {std::numeric_limits<T>::min(), -2.001},
         {std::numeric_limits<T>::max()},
         {9.0009, std::numeric_limits<T>::infinity()},
-        {9.0009},
+        {std::numeric_limits<T>::quiet_NaN()},
+        {std::numeric_limits<T>::quiet_NaN(), 9.0009},
     });
 
     testExpr(expected, "array_intersect(C0, C1)", {array1, array2});

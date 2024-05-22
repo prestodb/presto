@@ -20,6 +20,8 @@
 #include <cmath>
 #include <vector>
 
+#include <folly/container/F14Set.h>
+
 namespace facebook::velox {
 
 /// Custom comparator and hash functors for floating point types. These are
@@ -80,6 +82,21 @@ struct NaNAwareHash {
     return std::hash<FLOAT>{}(val);
   }
 };
+
+// Utility struct to provide a clean way of defining a hash set type using
+// folly::F14FastSet with overrides for floating point types.
+template <typename Key>
+class HashSetNaNAware : public folly::F14FastSet<Key> {};
+
+template <>
+class HashSetNaNAware<float>
+    : public folly::
+          F14FastSet<float, NaNAwareHash<float>, NaNAwareEquals<float>> {};
+
+template <>
+class HashSetNaNAware<double>
+    : public folly::
+          F14FastSet<double, NaNAwareHash<double>, NaNAwareEquals<double>> {};
 } // namespace util::floating_point
 
 /// A static class that holds helper functions for DOUBLE type.

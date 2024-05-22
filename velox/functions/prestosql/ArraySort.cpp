@@ -22,6 +22,7 @@
 #include "velox/functions/lib/LambdaFunctionUtil.h"
 #include "velox/functions/lib/RowsTranslationUtil.h"
 #include "velox/functions/prestosql/SimpleComparisonMatcher.h"
+#include "velox/type/FloatingPointUtil.h"
 
 namespace facebook::velox::functions {
 namespace {
@@ -171,6 +172,19 @@ void applyScalarType(
       } else {
         bits::fillBits(rawBits, startRow, startRow + numOneBits, true);
         bits::fillBits(rawBits, endZeroRow, endRow, false);
+      }
+    } else if constexpr (kind == TypeKind::REAL || kind == TypeKind::DOUBLE) {
+      T* resultRawValues = flatResults->mutableRawValues();
+      if (ascending) {
+        std::sort(
+            resultRawValues + startRow,
+            resultRawValues + endRow,
+            util::floating_point::NaNAwareLessThan<T>());
+      } else {
+        std::sort(
+            resultRawValues + startRow,
+            resultRawValues + endRow,
+            util::floating_point::NaNAwareGreaterThan<T>());
       }
     } else {
       T* resultRawValues = flatResults->mutableRawValues();

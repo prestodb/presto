@@ -224,6 +224,29 @@ class ArraySortTest : public FunctionBaseTest,
     }
   }
 
+  template <typename T>
+  void testFloatingPoint() {
+    // Verify that NaNs are treated as greater than infinity
+    static const T kNaN = std::numeric_limits<T>::quiet_NaN();
+    static const T kInfinity = std::numeric_limits<T>::infinity();
+    static const T kNegativeInfinity = -1 * std::numeric_limits<T>::infinity();
+
+    auto input = makeRowVector({makeNullableArrayVector<T>(
+        {{kInfinity, -1, kNaN, 1, kNegativeInfinity, kNaN, 0}})});
+
+    {
+      auto expected = makeNullableArrayVector<T>(
+          {{kNegativeInfinity, -1, 0, 1, kInfinity, kNaN, kNaN}});
+      assertEqualVectors(expected, evaluate("try(array_sort(c0))", input));
+    }
+
+    {
+      auto expected = makeNullableArrayVector<T>(
+          {{kNaN, kNaN, kInfinity, 1, 0, -1, kNegativeInfinity}});
+      assertEqualVectors(expected, evaluate("try(array_sort_desc(c0))", input));
+    }
+  }
+
   // Specify the number of values per each data vector in 'dataVectorsByType_'.
   const int numValues_;
   std::unordered_map<TypeKind, VectorPtr> dataVectorsByType_;
@@ -678,6 +701,11 @@ TEST_F(ArraySortTest, failOnRowNullCompare) {
     assertEqualVectors(
         expected, evaluate("try(array_sort(c0))", nullCompareBatch2));
   }
+}
+
+TEST_F(ArraySortTest, floatingPointExtremes) {
+  testFloatingPoint<float>();
+  testFloatingPoint<double>();
 }
 
 VELOX_INSTANTIATE_TEST_SUITE_P(

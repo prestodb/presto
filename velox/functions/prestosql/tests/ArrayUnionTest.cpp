@@ -32,6 +32,38 @@ class ArrayUnionTest : public FunctionBaseTest {
     auto result = evaluate(expression, makeRowVector(input));
     assertEqualVectors(expected, result);
   }
+
+  template <typename T>
+  void floatArrayTest() {
+    static const T kQuietNaN = std::numeric_limits<T>::quiet_NaN();
+    static const T kSignalingNaN = std::numeric_limits<T>::signaling_NaN();
+    static const T kInfinity = std::numeric_limits<T>::infinity();
+    const auto array1 = makeArrayVector<T>(
+        {{1.1, 2.2, 3.3, 4.4},
+         {3.3, 4.4},
+         {3.3, 4.4, kQuietNaN},
+         {3.3, 4.4, kQuietNaN},
+         {3.3, 4.4, kQuietNaN},
+         {3.3, 4.4, kQuietNaN, kInfinity}});
+    const auto array2 = makeArrayVector<T>(
+        {{3.3, 4.4},
+         {3.3, 5.5},
+         {5.5},
+         {3.3, kQuietNaN},
+         {5.5, kSignalingNaN},
+         {5.5, kInfinity}});
+    VectorPtr expected;
+
+    expected = makeArrayVector<T>({
+        {1.1, 2.2, 3.3, 4.4},
+        {3.3, 4.4, 5.5},
+        {3.3, 4.4, kQuietNaN, 5.5},
+        {3.3, 4.4, kQuietNaN},
+        {3.3, 4.4, kQuietNaN, 5.5},
+        {3.3, 4.4, kQuietNaN, kInfinity, 5.5},
+    });
+    testExpression("array_union(c0, c1)", {array1, array2}, expected);
+  }
 };
 
 /// Union two integer arrays.
@@ -128,5 +160,12 @@ TEST_F(ArrayUnionTest, complexTypes) {
 
   testExpression(
       "array_union(c0, c1)", {arrayOfArrays1, arrayOfArrays2}, expected);
+}
+
+/// Union two floating point arrays including extreme values like infinity and
+/// NaN.
+TEST_F(ArrayUnionTest, floatingPointType) {
+  floatArrayTest<float>();
+  floatArrayTest<double>();
 }
 } // namespace
