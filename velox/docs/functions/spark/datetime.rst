@@ -93,6 +93,12 @@ These functions support TIMESTAMP and DATE input types.
         SELECT from_unixtime(3600, 'yyyy'); -- '1970'
         SELECT from_unixtime(9223372036854775807, "yyyy-MM-dd HH:mm:ss");  -- '1969-12-31 23:59:59'
 
+    If we run the following query in the `Asia/Shanghai` time zone: ::
+
+        SELECT from_unixtime(100, 'yyyy-MM-dd HH:mm:ss'); -- '1970-01-01 08:01:40'
+        SELECT from_unixtime(3600, 'yyyy'); -- '1970'
+        SELECT from_unixtime(9223372036854775807, "yyyy-MM-dd HH:mm:ss");  -- '1970-01-01 07:59:59'
+
 .. spark:function:: from_utc_timestamp(timestamp, string) -> timestamp
 
     Returns the timestamp value from UTC timezone to the given timezone. ::

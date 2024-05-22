@@ -187,7 +187,7 @@ struct Timestamp {
   /// Due to the limit of std::chrono, throws if timestamp is outside of
   /// [-32767-01-01, 32767-12-31] range.
   /// If allowOverflow is true, integer overflow is allowed in converting
-  /// timestmap to milliseconds.
+  /// timestamp to milliseconds.
   std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>
   toTimePoint(bool allowOverflow = false) const;
 
@@ -311,12 +311,14 @@ struct Timestamp {
   // Same as above, but accepts PrestoDB time zone ID.
   void toGMT(int16_t tzID);
 
-  // Assuming the timestamp represents a GMT time, converts it to the time at
-  // the same moment at zone.
-  // Example: Timestamp ts{0, 0};
-  // ts.Timezone("America/Los_Angeles");
-  // ts.toString() returns December 31, 1969 16:00:00
-  void toTimezone(const date::time_zone& zone);
+  /// Assuming the timestamp represents a GMT time, converts it to the time at
+  /// the same moment at zone.
+  /// @param allowOverflow If true, integer overflow is allowed when converting
+  /// timestamp to TimePoint. Otherwise, user exception is thrown for overflow.
+  /// Example: Timestamp ts{0, 0};
+  /// ts.Timezone("America/Los_Angeles");
+  /// ts.toString() returns December 31, 1969 16:00:00
+  void toTimezone(const date::time_zone& zone, bool allowOverflow = false);
 
   // Same as above, but accepts PrestoDB time zone ID.
   void toTimezone(int16_t tzID);

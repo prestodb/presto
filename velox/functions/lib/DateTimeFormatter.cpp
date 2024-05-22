@@ -1033,7 +1033,7 @@ int32_t DateTimeFormatter::format(
     bool allowOverflow) const {
   Timestamp t = timestamp;
   if (timezone != nullptr) {
-    t.toTimezone(*timezone);
+    t.toTimezone(*timezone, allowOverflow);
   }
   const auto timePoint = t.toTimePoint(allowOverflow);
   const auto daysTimePoint = date::floor<date::days>(timePoint);

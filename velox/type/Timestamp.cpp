@@ -118,8 +118,8 @@ Timestamp::toTimePoint(bool allowOverflow) const {
   return tp;
 }
 
-void Timestamp::toTimezone(const date::time_zone& zone) {
-  auto tp = toTimePoint();
+void Timestamp::toTimezone(const date::time_zone& zone, bool allowOverflow) {
+  auto tp = toTimePoint(allowOverflow);
   auto epoch = zone.to_local(tp).time_since_epoch();
   // NOTE: Round down to get the seconds of the current time point.
   seconds_ = std::chrono::floor<std::chrono::seconds>(epoch).count();
