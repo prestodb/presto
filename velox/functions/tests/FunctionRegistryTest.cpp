@@ -390,6 +390,27 @@ TEST_F(FunctionRegistryTest, getFunctionSignatures) {
           ->toString());
 }
 
+TEST_F(FunctionRegistryTest, getVectorFunctionSignatures) {
+  auto functionSignatures = getVectorFunctionSignatures();
+  ASSERT_EQ(functionSignatures.size(), 5);
+
+  std::set<std::string> functionNames;
+  std::transform(
+      functionSignatures.begin(),
+      functionSignatures.end(),
+      std::inserter(functionNames, functionNames.end()),
+      [](auto& signature) { return signature.first; });
+
+  ASSERT_THAT(
+      functionNames,
+      ::testing::UnorderedElementsAre(
+          "vector_func_one",
+          "vector_func_one_alias",
+          "vector_func_two",
+          "vector_func_three",
+          "vector_func_four"));
+}
+
 TEST_F(FunctionRegistryTest, hasSimpleFunctionSignature) {
   auto result = resolveFunction("func_one", {VARCHAR()});
   ASSERT_EQ(*result, *VARCHAR());

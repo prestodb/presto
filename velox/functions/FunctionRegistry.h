@@ -31,6 +31,10 @@ using FunctionSignatureMap = std::
 /// The mapping is function name -> list of function signatures
 FunctionSignatureMap getFunctionSignatures();
 
+/// Returns a mapping of all Vector functions registered in Velox
+/// The mapping is function name -> list of function signatures
+FunctionSignatureMap getVectorFunctionSignatures();
+
 /// Given a function name and argument types, returns
 /// the return type if function exists otherwise returns nullptr
 TypePtr resolveFunction(

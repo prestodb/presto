@@ -64,6 +64,12 @@ FunctionSignatureMap getFunctionSignatures() {
   return result;
 }
 
+FunctionSignatureMap getVectorFunctionSignatures() {
+  FunctionSignatureMap result;
+  populateVectorFunctionSignatures(result);
+  return result;
+}
+
 void clearFunctionRegistry() {
   exec::mutableSimpleFunctions().clearRegistry();
   exec::vectorFunctionFactories().withWLock(
