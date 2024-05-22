@@ -6,8 +6,8 @@ Presto on Spark makes it possible to leverage Spark as an execution framework
 for Presto queries. This is useful for queries that we want to run on thousands 
 of nodes, requires 10s or 100s of terabytes of memory, and consume many CPU years.
 
-Spark provides several values adds like resource isolation, fine grained resource 
-management, and Spark's scalable materialized exchange mechanism.
+Spark adds several useful features like resource isolation, fine grained resource 
+management, and a scalable materialized exchange mechanism.
 
 Steps
 -----
