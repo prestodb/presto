@@ -17,10 +17,20 @@
 
 #include "velox/expression/Expr.h"
 #include "velox/expression/VectorFunction.h"
+#include "velox/type/FloatingPointUtil.h"
 #include "velox/vector/DecodedVector.h"
 
 namespace facebook::velox::functions {
 namespace {
+
+template <typename T>
+inline bool isPrimitiveEqual(const T& lhs, const T& rhs) {
+  if constexpr (std::is_floating_point_v<T>) {
+    return util::floating_point::NaNAwareEquals<T>{}(lhs, rhs);
+  } else {
+    return lhs == rhs;
+  }
+}
 
 // Find the index of the first match for primitive types.
 template <
@@ -76,7 +86,7 @@ void applyTypedFirstMatch(
 
       int i;
       for (i = 0; i < size; i++) {
-        if (rawElements[offset + i] == search) {
+        if (isPrimitiveEqual<T>(rawElements[offset + i], search)) {
           flatResult.set(row, i + 1);
           break;
         }
@@ -99,7 +109,7 @@ void applyTypedFirstMatch(
     int i;
     for (i = 0; i < size; i++) {
       if (!elementsDecoded.isNullAt(offset + i) &&
-          elementsDecoded.valueAt<T>(offset + i) == search) {
+          isPrimitiveEqual<T>(elementsDecoded.valueAt<T>(offset + i), search)) {
         flatResult.set(row, i + 1);
         break;
       }
@@ -246,7 +256,7 @@ void applyTypedWithInstance(
 
       int i;
       for (i = startIndex; i != endIndex; i += step) {
-        if (rawElements[offset + i] == search) {
+        if (isPrimitiveEqual<T>(rawElements[offset + i], search)) {
           if (--remaining == 0) {
             flatResult.set(row, i + 1);
             break;
@@ -278,7 +288,7 @@ void applyTypedWithInstance(
     int i;
     for (i = startIndex; i != endIndex; i += step) {
       if (!elementsDecoded.isNullAt(offset + i) &&
-          elementsDecoded.valueAt<T>(offset + i) == search) {
+          isPrimitiveEqual<T>(elementsDecoded.valueAt<T>(offset + i), search)) {
         --instance;
         if (instance == 0) {
           flatResult.set(row, i + 1);

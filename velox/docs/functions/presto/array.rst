@@ -140,11 +140,13 @@ Array Functions
 .. function:: array_position(x, element) -> bigint
 
     Returns the position of the first occurrence of the ``element`` in array ``x`` (or 0 if not found).
+    For REAL and DOUBLE, NANs (Not-a-Number) are considered equal.
 
 .. function:: array_position(x, element, instance) -> bigint
     :noindex:
 
     If ``instance > 0``, returns the position of the ``instance``-th occurrence of the ``element`` in array ``x``. If ``instance < 0``, returns the position of the ``instance``-to-last occurrence of the ``element`` in array ``x``. If no matching element instance is found, 0 is returned.
+    For REAL and DOUBLE, NANs (Not-a-Number) are considered equal.
 
 .. function:: array_remove(x, element) -> array
 

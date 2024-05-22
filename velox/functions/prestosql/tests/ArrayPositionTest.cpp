@@ -51,6 +51,17 @@ class ArrayPositionTest : public FunctionBaseTest {
         makeNullableFlatVector<int64_t>(expected));
   }
 
+  template <typename T>
+  void testPosition(
+      const ArrayVectorPtr& arrayVector,
+      const std::optional<T>& search,
+      const std::vector<std::optional<int64_t>>& expected) {
+    evalExpr(
+        {arrayVector, makeConstant(search, arrayVector->size())},
+        "array_position(c0, c1)",
+        makeNullableFlatVector<int64_t>(expected));
+  }
+
   void testPosition(
       const ArrayVectorPtr& arrayVector,
       const std::vector<int64_t>& search,
@@ -152,6 +163,20 @@ class ArrayPositionTest : public FunctionBaseTest {
   }
 
   template <typename T>
+  void testPositionWithInstance(
+      const ArrayVectorPtr& array,
+      const std::optional<T>& search,
+      const int64_t instance,
+      const std::vector<std::optional<int64_t>>& expected) {
+    evalExpr(
+        {array,
+         makeConstant(search, array->size()),
+         makeConstant(instance, array->size())},
+        "array_position(c0, c1, c2)",
+        makeNullableFlatVector<int64_t>(expected));
+  }
+
+  template <typename T>
   void testPositionWithInstanceNoNulls(
       const std::vector<std::vector<T>>& array,
       const std::optional<T>& search,
@@ -238,6 +263,71 @@ class ArrayPositionTest : public FunctionBaseTest {
         {dictArrayVector, dictSearchVector, dictInstanceVector},
         "array_position(c0, c1, c2)",
         dictExpectedVector);
+  }
+
+  // Verify that all NaNs are treated as equal and are identifiable in the input
+  // array.
+  template <typename T>
+  void testFloatingPointNaN() {
+    static const T kNaN = std::numeric_limits<T>::quiet_NaN();
+    static const T kSNaN = std::numeric_limits<T>::signaling_NaN();
+
+    // Test NaN in a simple array.
+    ArrayVectorPtr arrayVectorWithNulls = makeNullableArrayVector<T>({
+        {1, std::nullopt, kNaN, 4, kNaN, 5, 6, kNaN, 7},
+        {1, std::nullopt, kSNaN, 4, kNaN, 5, 6, kNaN, 7},
+    });
+    // This exercises the optimization for null free input.
+    ArrayVectorPtr arrayVectorWithoutNulls = makeArrayVector<T>({
+        {1, 3, kNaN, 4, kNaN, 5, 6, kNaN, 7},
+        {1, 3, kSNaN, 4, kNaN, 5, 6, kNaN, 7},
+    });
+
+    for (auto& arrayVectorPtr :
+         {arrayVectorWithNulls, arrayVectorWithoutNulls}) {
+      for (const T& nan : {kNaN, kSNaN}) {
+        testPosition<T>(arrayVectorPtr, nan, {3, 3});
+        testPositionWithInstance<T>(arrayVectorPtr, nan, 1, {3, 3});
+        testPositionWithInstance<T>(arrayVectorPtr, nan, 2, {5, 5});
+        testPositionWithInstance<T>(arrayVectorPtr, nan, -1, {8, 8});
+      }
+    }
+
+    // Test NaN withing a array of complex type.
+    std::vector<std::vector<std::optional<std::tuple<double, std::string>>>>
+        data = {
+            {{{1, "red"}}, {{kNaN, "blue"}}, {{3, "green"}}},
+            {{{kNaN, "blue"}}, std::nullopt, {{5, "green"}}},
+            {},
+            {std::nullopt},
+            {{{1, "yellow"}},
+             {{kNaN, "blue"}},
+             {{4, "green"}},
+             {{5, "purple"}}},
+        };
+
+    auto rowType = ROW({DOUBLE(), VARCHAR()});
+    auto arrayVector = makeArrayOfRowVector(data, rowType);
+    auto size = arrayVector->size();
+
+    auto testPositionOfRow =
+        [&](double n,
+            const char* color,
+            const std::vector<std::optional<int64_t>>& expected) {
+          auto expectedVector = makeNullableFlatVector<int64_t>(expected);
+          auto searchVector =
+              makeConstantRow(rowType, variant::row({n, color}), size);
+
+          evalExpr(
+              {arrayVector,
+               makeConstantRow(rowType, variant::row({n, color}), size)},
+              "array_position(c0, c1)",
+              makeNullableFlatVector<int64_t>(expected));
+        };
+
+    testPositionOfRow(1, "red", {1, 0, 0, 0, 0});
+    testPositionOfRow(kNaN, "blue", {2, 1, 0, 0, 2});
+    testPositionOfRow(kSNaN, "blue", {2, 1, 0, 0, 2});
   }
 };
 
@@ -880,6 +970,11 @@ TEST_F(ArrayPositionTest, dictionaryEncodingElements) {
   testPosition(arrayVector, {3, 4, 5}, {2, 1}, std::nullopt);
   testPosition(arrayVector, {1, 2, 3, 4}, {1, 2}, 1);
   testPosition(arrayVector, {1, 2, 3, 4}, {5, 2}, -1);
+}
+
+TEST_F(ArrayPositionTest, floatNaN) {
+  testFloatingPointNaN<float>();
+  testFloatingPointNaN<double>();
 }
 
 } // namespace
