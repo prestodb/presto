@@ -246,6 +246,46 @@ public class TestPage
         page.replaceColumn(1, newBlock);
     }
 
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testPrependColumnWrongNumberOfRows()
+    {
+        int entries = 10;
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, entries);
+        for (int i = 0; i < entries; i++) {
+            BIGINT.writeLong(blockBuilder, i);
+        }
+        Block block = blockBuilder.build();
+        Page page = new Page(block, block);
+
+        BlockBuilder newBlockBuilder = BIGINT.createBlockBuilder(null, entries - 5);
+        for (int i = 0; i < entries - 5; i++) {
+            BIGINT.writeLong(newBlockBuilder, -i);
+        }
+        Block newBlock = newBlockBuilder.build();
+
+        page.prependColumn(newBlock);
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testAppendColumnsWrongNumberOfRows()
+    {
+        int entries = 10;
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, entries);
+        for (int i = 0; i < entries; i++) {
+            BIGINT.writeLong(blockBuilder, i);
+        }
+        Block block = blockBuilder.build();
+        Page page = new Page(block, block);
+
+        BlockBuilder newBlockBuilder = BIGINT.createBlockBuilder(null, entries - 5);
+        for (int i = 0; i < entries - 5; i++) {
+            BIGINT.writeLong(newBlockBuilder, -i);
+        }
+        Block newBlock = newBlockBuilder.build();
+
+        page.appendColumn(newBlock);
+    }
+
     @Test
     public void testRetainedSizeIsCorrect()
     {
