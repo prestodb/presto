@@ -52,13 +52,16 @@ function install_build_prerequisites {
   ${SUDO} apt install -y libunwind-dev
   ${SUDO} apt install -y \
     build-essential \
-    cmake \
+    python3-pip \
     ccache \
     curl \
     ninja-build \
     checkinstall \
     git \
     wget
+
+    # Install to /usr/local to make it available to all users.
+    ${SUDO} pip3 install cmake==3.28.3
 }
 
 # Install packages required for build.

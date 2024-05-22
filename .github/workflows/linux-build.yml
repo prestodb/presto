@@ -70,6 +70,9 @@ jobs:
         # it doesn't work
         run: git config --global --add safe.directory /__w/velox/velox
 
+      - name: Install cmake
+        run: python3 -m pip install cmake==3.28.3
+
       - name: Install Dependencies
         run: |
           # Allows to install arbitrary cuda-version whithout needing to update

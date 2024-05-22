@@ -26,7 +26,7 @@ dependencies:
   - binutils
   - bison
   - clangxx=14 # pin to something recent'ish to avoid warings on upgrade
-  - cmake
+  - cmake=3.28
   - ccache
   - flex
   - make

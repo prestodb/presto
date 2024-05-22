@@ -26,7 +26,7 @@ dependencies:
   - binutils
   - bison
   - clangxx=14
-  - cmake
+  - cmake=3.28.3
   - ccache
   - flex
   - gxx=12 # has to be installed to get clang to work...
