@@ -384,29 +384,29 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, skipNonReclaimableTaskTest) {
         ++taskPausedCount;
       })));
 
+  auto plan = PlanBuilder()
+                  .values(vectors)
+                  .singleAggregation({"c0", "c1"}, {"array_agg(c2)"})
+                  .planNode();
   std::thread spillableThread([&]() {
     const auto spillDirectory = exec::test::TempDirectoryPath::create();
-    AssertQueryBuilder(PlanBuilder()
-                           .values(vectors)
-                           .singleAggregation({"c0", "c1"}, {"array_agg(c2)"})
-                           .planNode())
+    AssertQueryBuilder(plan)
         .queryCtx(queryCtx)
         .spillDirectory(spillDirectory->getPath())
         .copyResults(pool());
   });
 
+  plan = PlanBuilder()
+             .values(vectors)
+             .aggregation(
+                 {"c0", "c1"},
+                 {"array_agg(c2)"},
+                 {},
+                 core::AggregationNode::Step::kPartial,
+                 false)
+             .planNode();
   std::thread nonSpillableThread([&]() {
-    AssertQueryBuilder(PlanBuilder()
-                           .values(vectors)
-                           .aggregation(
-                               {"c0", "c1"},
-                               {"array_agg(c2)"},
-                               {},
-                               core::AggregationNode::Step::kPartial,
-                               false)
-                           .planNode())
-        .queryCtx(queryCtx)
-        .copyResults(pool());
+    AssertQueryBuilder(plan).queryCtx(queryCtx).copyResults(pool());
   });
 
   while (!blockedPartialAggregation || !blockedAggregation) {
