@@ -20,13 +20,11 @@
 #include <sstream>
 
 #include <fmt/format.h>
-#include <fmt/ostream.h>
-#include <glog/logging.h>
-
-#include <folly/Conv.h>
-#include <folly/Exception.h>
 #include <folly/Preprocessor.h>
-#include "FmtStdFormatters.h"
+
+#include <fmt/ostream.h>
+
+#include "velox/common/base/FmtStdFormatters.h"
 #include "velox/common/base/VeloxException.h"
 
 namespace facebook::velox {
