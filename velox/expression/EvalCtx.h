@@ -347,6 +347,15 @@ class EvalCtx {
  private:
   void ensureErrorsVectorSize(ErrorVectorPtr& errors, vector_size_t size) const;
 
+  // Copy error from 'from' at index 'fromIndex' to 'to' at index 'toIndex'.
+  // No-op if 'from' doesn't have an error at 'fromIndex' or if 'to' already has
+  // an error at 'toIndex'.
+  void copyError(
+      const ErrorVector& from,
+      vector_size_t fromIndex,
+      ErrorVectorPtr& to,
+      vector_size_t toIndex) const;
+
   core::ExecCtx* const execCtx_;
   ExprSet* const exprSet_;
   const RowVector* row_;
