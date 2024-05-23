@@ -109,7 +109,7 @@ TEST_F(EvalCtxTest, vectorRecycler) {
 
 TEST_F(EvalCtxTest, ensureErrorsVectorSize) {
   EvalCtx context(&execCtx_);
-  context.ensureErrorsVectorSize(*context.errorsPtr(), 10);
+  context.ensureErrorsVectorSize(10);
   ASSERT_GE(context.errors()->size(), 10);
   ASSERT_EQ(BaseVector::countNulls(context.errors()->nulls(), 10), 10);
 
@@ -119,7 +119,7 @@ TEST_F(EvalCtxTest, ensureErrorsVectorSize) {
 
   ASSERT_EQ(BaseVector::countNulls(context.errors()->nulls(), 10), 9);
 
-  context.ensureErrorsVectorSize(*context.errorsPtr(), 20);
+  context.ensureErrorsVectorSize(20);
 
   ASSERT_GE(context.errors()->size(), 20);
   ASSERT_EQ(BaseVector::countNulls(context.errors()->nulls(), 20), 19);

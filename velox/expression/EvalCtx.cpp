@@ -278,6 +278,25 @@ void EvalCtx::convertElementErrorsToTopLevelNulls(
   });
 }
 
+void EvalCtx::moveAppendErrors(ErrorVectorPtr& other) {
+  if (!errors_) {
+    return;
+  }
+
+  if (!other) {
+    std::swap(errors_, other);
+    return;
+  }
+
+  ensureErrorsVectorSize(other, errors_->size());
+  bits::forEachBit(
+      errors_->rawNulls(), 0, errors_->size(), bits::kNotNull, [&](auto row) {
+        other->set(row, errors_->valueAt(row));
+      });
+
+  errors_.reset();
+}
+
 const VectorPtr& EvalCtx::getField(int32_t index) const {
   const VectorPtr* field;
   if (!peeledFields_.empty()) {

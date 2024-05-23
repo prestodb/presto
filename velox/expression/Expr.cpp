@@ -402,7 +402,7 @@ bool Expr::evalArgsDefaultNulls(
       // An error adds itself to argument errors.
       if (context.errors()) {
         // There are new errors.
-        context.ensureErrorsVectorSize(*context.errorsPtr(), rows.rows().end());
+        context.ensureErrorsVectorSize(rows.rows().end());
         auto newErrors = context.errors();
         assert(newErrors); // lint
         if (flatNulls) {

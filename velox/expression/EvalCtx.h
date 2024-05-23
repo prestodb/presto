@@ -173,29 +173,19 @@ class EvalCtx {
     return &errors_;
   }
 
+  /// Make sure the error vector is addressable up to index `size`-1. Initialize
+  /// all
+  /// new elements to null.
+  void ensureErrorsVectorSize(vector_size_t size) {
+    ensureErrorsVectorSize(errors_, size);
+  }
+
   void swapErrors(ErrorVectorPtr& other) {
     std::swap(errors_, other);
   }
 
   /// Adds errors in 'this' to 'other'. Clears errors from 'this'.
-  void moveAppendErrors(ErrorVectorPtr& other) {
-    if (!errors_) {
-      return;
-    }
-
-    if (!other) {
-      std::swap(errors_, other);
-      return;
-    }
-
-    ensureErrorsVectorSize(other, errors_->size());
-    bits::forEachBit(
-        errors_->rawNulls(), 0, errors_->size(), bits::kNotNull, [&](auto row) {
-          other->set(row, errors_->valueAt(row));
-        });
-
-    errors_.reset();
-  }
+  void moveAppendErrors(ErrorVectorPtr& other);
 
   /// Boolean indicating whether exceptions that occur during expression
   /// evaluation should be thrown directly or saved for later processing.
@@ -338,9 +328,6 @@ class EvalCtx {
         rows, type, execCtx_->pool(), result, execCtx_->vectorPool());
   }
 
-  /// Make sure the vector is addressable up to index `size`-1. Initialize all
-  /// new elements to null.
-  void ensureErrorsVectorSize(ErrorVectorPtr& vector, vector_size_t size) const;
   PeeledEncoding* getPeeledEncoding() {
     return peeledEncoding_.get();
   }
@@ -358,6 +345,8 @@ class EvalCtx {
   }
 
  private:
+  void ensureErrorsVectorSize(ErrorVectorPtr& errors, vector_size_t size) const;
+
   core::ExecCtx* const execCtx_;
   ExprSet* const exprSet_;
   const RowVector* row_;
