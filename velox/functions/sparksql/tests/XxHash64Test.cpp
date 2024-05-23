@@ -18,6 +18,8 @@
 
 #include <stdint.h>
 
+using facebook::velox::test::assertEqualVectors;
+
 namespace facebook::velox::functions::sparksql::test {
 namespace {
 class XxHash64Test : public SparkFunctionBaseTest {
@@ -25,6 +27,10 @@ class XxHash64Test : public SparkFunctionBaseTest {
   template <typename T>
   std::optional<int64_t> xxhash64(std::optional<T> arg) {
     return evaluateOnce<int64_t>("xxhash64(c0)", arg);
+  }
+
+  VectorPtr xxhash64(VectorPtr vector) {
+    return evaluate("xxhash64(c0)", makeRowVector({vector}));
   }
 };
 
@@ -136,6 +142,106 @@ TEST_F(XxHash64Test, float) {
   EXPECT_EQ(xxhash64<float>(limits::quiet_NaN()), 2692338816207849720);
   EXPECT_EQ(xxhash64<float>(limits::infinity()), -5940311692336719973);
   EXPECT_EQ(xxhash64<float>(-limits::infinity()), -7580553461823983095);
+}
+
+TEST_F(XxHash64Test, array) {
+  assertEqualVectors(
+      makeFlatVector<int64_t>({-6041664978295882827, 42, 4904562767517797033}),
+      xxhash64(makeArrayVector<int64_t>({{1, 2, 3, 4, 5}, {}, {1, 2, 3}})));
+
+  assertEqualVectors(
+      makeFlatVector<int64_t>({-6698625589789238999, 8420071140774656230, 42}),
+      xxhash64(makeNullableArrayVector<int32_t>(
+          {{1, std::nullopt}, {std::nullopt, 2}, {std::nullopt}})));
+
+  // Nested array.
+  {
+    auto arrayVector = makeNestedArrayVectorFromJson<int64_t>(
+        {"[[1, null, 2, 3], [4, 5]]",
+         "[[1, null, 2, 3], [6, 7, 8]]",
+         "[[]]",
+         "[[null]]",
+         "[null]"});
+    assertEqualVectors(
+        makeFlatVector<int64_t>(
+            {-6041664978295882827, -1052942565807509112, 42, 42, 42}),
+        xxhash64(arrayVector));
+  }
+
+  // Array of map.
+  {
+    using S = StringView;
+    using P = std::pair<int64_t, std::optional<S>>;
+    std::vector<P> a{P{1, S{"a"}}, P{2, std::nullopt}};
+    std::vector<P> b{P{3, S{"c"}}};
+    std::vector<std::vector<std::vector<P>>> data = {{a, b}};
+    auto arrayVector = makeArrayOfMapVector<int64_t, S>(data);
+    assertEqualVectors(
+        makeFlatVector<int64_t>(std::vector<int64_t>{2880747995994395223}),
+        xxhash64(arrayVector));
+  }
+
+  // Array of row.
+  {
+    std::vector<std::vector<std::optional<std::tuple<int32_t, std::string>>>>
+        data = {
+            {{{1, "red"}}, {{2, "blue"}}, {{3, "green"}}},
+            {{{1, "red"}}, std::nullopt, {{3, "green"}}},
+            {std::nullopt},
+        };
+    auto arrayVector = makeArrayOfRowVector(data, ROW({INTEGER(), VARCHAR()}));
+    assertEqualVectors(
+        makeFlatVector<int64_t>(
+            {-4096178443626566478, -8973283971856715104, 42}),
+        xxhash64(arrayVector));
+  }
+}
+
+TEST_F(XxHash64Test, map) {
+  auto mapVector = makeMapVector<int64_t, double>(
+      {{{1, 17.0}, {2, 36.0}, {3, 8.0}, {4, 28.0}, {5, 24.0}, {6, 32.0}}});
+  assertEqualVectors(
+      makeFlatVector<int64_t>(std::vector<int64_t>{-6303587702533348160}),
+      xxhash64(mapVector));
+
+  auto mapOfArrays = createMapOfArraysVector<int32_t, int32_t>(
+      {{{1, {{1, 2, 3}}}}, {{2, {{4, 5, 6}}}}, {{3, {{7, 8, 9}}}}});
+  assertEqualVectors(
+      makeFlatVector<int64_t>(
+          {-2103781794412908874, 1112887818746642853, 5787852566364222439}),
+      xxhash64(mapOfArrays));
+
+  auto mapWithNullArrays = createMapOfArraysVector<int64_t, int64_t>(
+      {{{1, std::nullopt}}, {{2, {{4, 5, std::nullopt}}}}, {{3, {{}}}}});
+  assertEqualVectors(
+      makeFlatVector<int64_t>(
+          {-7001672635703045582, 7217681953522744649, 3188756510806108107}),
+      xxhash64(mapWithNullArrays));
+}
+
+TEST_F(XxHash64Test, row) {
+  auto row = makeRowVector({
+      makeFlatVector<int64_t>({1, 3}),
+      makeFlatVector<int64_t>({2, 4}),
+  });
+  assertEqualVectors(
+      makeFlatVector<int64_t>({-8198029865082835910, 351067884137457704}),
+      xxhash64(row));
+
+  row = makeRowVector({
+      makeNullableFlatVector<int64_t>({1, std::nullopt}),
+      makeNullableFlatVector<int64_t>({std::nullopt, 4}),
+  });
+  assertEqualVectors(
+      makeFlatVector<int64_t>({-7001672635703045582, 404280023041566627}),
+      xxhash64(row));
+
+  row->setNull(0, true);
+  assertEqualVectors(
+      makeFlatVector<int64_t>({42, 404280023041566627}), xxhash64(row));
+
+  row->setNull(1, true);
+  assertEqualVectors(makeFlatVector<int64_t>({42, 42}), xxhash64(row));
 }
 
 TEST_F(XxHash64Test, hashSeed) {

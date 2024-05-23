@@ -26,6 +26,7 @@ using namespace facebook::velox;
 
 int main(int argc, char** argv) {
   folly::Init init(&argc, &argv);
+  memory::MemoryManager::initialize({});
   functions::sparksql::registerFunctions("");
 
   ExpressionBenchmarkBuilder benchmarkBuilder;

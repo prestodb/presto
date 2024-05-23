@@ -27,3 +27,7 @@ target_link_libraries(
 add_executable(velox_sparksql_benchmarks_compare CompareBenchmark.cpp)
 target_link_libraries(velox_sparksql_benchmarks_compare velox_functions_spark
                       velox_benchmark_builder velox_vector_test_lib)
+
+add_executable(velox_sparksql_benchmarks_hash HashBenchmark.cpp)
+target_link_libraries(velox_sparksql_benchmarks_hash velox_functions_spark
+                      velox_benchmark_builder velox_vector_test_lib)
