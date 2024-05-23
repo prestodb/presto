@@ -44,6 +44,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorTableVersion.VersionOperator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -264,10 +265,10 @@ public final class IcebergUtil
         return tryGetCurrentSnapshot(table).map(Snapshot::snapshotId);
     }
 
-    public static long getSnapshotIdAsOfTime(Table table, long millisUtc)
+    public static long getSnapshotIdTimeOperator(Table table, long millisUtc, VersionOperator operator)
     {
         return table.history().stream()
-                .filter(logEntry -> logEntry.timestampMillis() <= millisUtc)
+                .filter(logEntry -> operator == VersionOperator.EQUAL ? logEntry.timestampMillis() <= millisUtc : logEntry.timestampMillis() < millisUtc)
                 .max(comparing(HistoryEntry::timestampMillis))
                 .orElseThrow(() -> new PrestoException(ICEBERG_INVALID_TABLE_TIMESTAMP, format("No history found based on timestamp for table %s", table.name())))
                 .snapshotId();

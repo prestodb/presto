@@ -280,8 +280,6 @@ import static com.facebook.presto.sql.tree.FrameBound.Type.PRECEDING;
 import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
 import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
 import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionOperator;
-import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionOperator.EQUAL;
-import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionOperator.LESS_THAN;
 import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionType;
 import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionType.TIMESTAMP;
 import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionType.VERSION;
@@ -1397,9 +1395,6 @@ class StatementAnalyzer
             ExpressionAnalysis expressionAnalysis = analyzeExpression(stateExpr, scope.get());
             analysis.recordSubqueries(table, expressionAnalysis);
             Type stateExprType = expressionAnalysis.getType(stateExpr);
-            if (tableVersionOperator == LESS_THAN) {
-                throw new SemanticException(NOT_SUPPORTED, stateExpr, "Table version BEFORE expression is not supported for %s", name.toString());
-            }
             if (stateExprType == UNKNOWN) {
                 throw new PrestoException(INVALID_ARGUMENTS, format("Table version AS OF/BEFORE expression cannot be NULL for %s", name.toString()));
             }
