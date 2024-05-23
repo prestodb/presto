@@ -40,6 +40,7 @@ public class SingleMapBlock
     private final int offset;
     private final int positionCount;  // The number of keys in this single map * 2
     private final AbstractMapBlock mapBlock;
+    private int mapLookups;
 
     SingleMapBlock(int positionInMap, int offset, int positionCount, AbstractMapBlock mapBlock)
     {
@@ -171,9 +172,24 @@ public class SingleMapBlock
     /**
      * @return position of the value under {@code nativeValue} key. -1 when key is not found.
      */
-    public int seekKey(Object nativeValue, MethodHandle keyNativeHashCode, MethodHandle keyBlockNativeEquals, MethodHandle keyBlockHashCode)
+    public int seekKey(Object nativeValue, MethodHandle keyNativeHashCode, MethodHandle keyBlockNativeEquals, MethodHandle keyBlockHashCode, int mapLookupsWithoutHashTable)
     {
         if (positionCount == 0) {
+            return -1;
+        }
+
+        mapLookups += 1;
+        if (mapLookups <= mapLookupsWithoutHashTable) {
+            for (int i = 0; i < positionCount / 2; i++) {
+                try {
+                    if ((Boolean) keyBlockNativeEquals.invoke(mapBlock.getRawKeyBlock(), offset / 2 + i, nativeValue)) {
+                        return 2 * i + 1;
+                    }
+                }
+                catch (Throwable throwable) {
+                    throw handleThrowable(throwable);
+                }
+            }
             return -1;
         }
 
@@ -218,9 +234,24 @@ public class SingleMapBlock
     // The next 5 seekKeyExact functions are the same as seekKey
     // except MethodHandle.invoke is replaced with invokeExact.
 
-    public int seekKeyExact(long nativeValue, MethodHandle keyNativeHashCode, MethodHandle keyBlockNativeEquals, MethodHandle keyBlockHashCode)
+    public int seekKeyExact(long nativeValue, MethodHandle keyNativeHashCode, MethodHandle keyBlockNativeEquals, MethodHandle keyBlockHashCode, int mapLookupsWithoutHashTable)
     {
         if (positionCount == 0) {
+            return -1;
+        }
+
+        mapLookups += 1;
+        if (mapLookups <= mapLookupsWithoutHashTable) {
+            for (int i = 0; i < positionCount / 2; i++) {
+                try {
+                    if ((Boolean) keyBlockNativeEquals.invokeExact(mapBlock.getRawKeyBlock(), offset / 2 + i, nativeValue)) {
+                        return 2 * i + 1;
+                    }
+                }
+                catch (Throwable throwable) {
+                    throw handleThrowable(throwable);
+                }
+            }
             return -1;
         }
 
@@ -262,9 +293,24 @@ public class SingleMapBlock
         }
     }
 
-    public int seekKeyExact(boolean nativeValue, MethodHandle keyNativeHashCode, MethodHandle keyBlockNativeEquals, MethodHandle keyBlockHashCode)
+    public int seekKeyExact(boolean nativeValue, MethodHandle keyNativeHashCode, MethodHandle keyBlockNativeEquals, MethodHandle keyBlockHashCode, int mapLookupsWithoutHashTable)
     {
         if (positionCount == 0) {
+            return -1;
+        }
+
+        mapLookups += 1;
+        if (mapLookups <= mapLookupsWithoutHashTable) {
+            for (int i = 0; i < positionCount / 2; i++) {
+                try {
+                    if ((Boolean) keyBlockNativeEquals.invokeExact(mapBlock.getRawKeyBlock(), offset / 2 + i, nativeValue)) {
+                        return 2 * i + 1;
+                    }
+                }
+                catch (Throwable throwable) {
+                    throw handleThrowable(throwable);
+                }
+            }
             return -1;
         }
 
@@ -306,9 +352,24 @@ public class SingleMapBlock
         }
     }
 
-    public int seekKeyExact(double nativeValue, MethodHandle keyNativeHashCode, MethodHandle keyBlockNativeEquals, MethodHandle keyBlockHashCode)
+    public int seekKeyExact(double nativeValue, MethodHandle keyNativeHashCode, MethodHandle keyBlockNativeEquals, MethodHandle keyBlockHashCode, int mapLookupsWithoutHashTable)
     {
         if (positionCount == 0) {
+            return -1;
+        }
+
+        mapLookups += 1;
+        if (mapLookups <= mapLookupsWithoutHashTable) {
+            for (int i = 0; i < positionCount / 2; i++) {
+                try {
+                    if ((Boolean) keyBlockNativeEquals.invokeExact(mapBlock.getRawKeyBlock(), offset / 2 + i, nativeValue)) {
+                        return 2 * i + 1;
+                    }
+                }
+                catch (Throwable throwable) {
+                    throw handleThrowable(throwable);
+                }
+            }
             return -1;
         }
 
@@ -350,9 +411,24 @@ public class SingleMapBlock
         }
     }
 
-    public int seekKeyExact(Slice nativeValue, MethodHandle keyNativeHashCode, MethodHandle keyBlockNativeEquals, MethodHandle keyBlockHashCode)
+    public int seekKeyExact(Slice nativeValue, MethodHandle keyNativeHashCode, MethodHandle keyBlockNativeEquals, MethodHandle keyBlockHashCode, int mapLookupsWithoutHashTable)
     {
         if (positionCount == 0) {
+            return -1;
+        }
+
+        mapLookups += 1;
+        if (mapLookups <= mapLookupsWithoutHashTable) {
+            for (int i = 0; i < positionCount / 2; i++) {
+                try {
+                    if ((Boolean) keyBlockNativeEquals.invokeExact(mapBlock.getRawKeyBlock(), offset / 2 + i, nativeValue)) {
+                        return 2 * i + 1;
+                    }
+                }
+                catch (Throwable throwable) {
+                    throw handleThrowable(throwable);
+                }
+            }
             return -1;
         }
 
@@ -401,9 +477,24 @@ public class SingleMapBlock
         }
     }
 
-    public int seekKeyExact(Block nativeValue, MethodHandle keyNativeHashCode, MethodHandle keyBlockNativeEquals, MethodHandle keyBlockHashCode)
+    public int seekKeyExact(Block nativeValue, MethodHandle keyNativeHashCode, MethodHandle keyBlockNativeEquals, MethodHandle keyBlockHashCode, int mapLookupsWithoutHashTable)
     {
         if (positionCount == 0) {
+            return -1;
+        }
+
+        mapLookups += 1;
+        if (mapLookups <= mapLookupsWithoutHashTable) {
+            for (int i = 0; i < positionCount / 2; i++) {
+                try {
+                    if ((Boolean) keyBlockNativeEquals.invokeExact(mapBlock.getRawKeyBlock(), offset / 2 + i, nativeValue)) {
+                        return 2 * i + 1;
+                    }
+                }
+                catch (Throwable throwable) {
+                    throw handleThrowable(throwable);
+                }
+            }
             return -1;
         }
 
@@ -443,6 +534,36 @@ public class SingleMapBlock
                 position = 0;
             }
         }
+    }
+
+    public int seekKey(Object nativeValue, MethodHandle keyNativeHashCode, MethodHandle keyBlockNativeEquals, MethodHandle keyBlockHashCode)
+    {
+        return seekKey(nativeValue, keyNativeHashCode, keyBlockNativeEquals, keyBlockHashCode, 0);
+    }
+
+    public int seekKeyExact(long nativeValue, MethodHandle keyNativeHashCode, MethodHandle keyBlockNativeEquals, MethodHandle keyBlockHashCode)
+    {
+        return seekKeyExact(nativeValue, keyNativeHashCode, keyBlockNativeEquals, keyBlockHashCode, 0);
+    }
+
+    public int seekKeyExact(boolean nativeValue, MethodHandle keyNativeHashCode, MethodHandle keyBlockNativeEquals, MethodHandle keyBlockHashCode)
+    {
+        return seekKeyExact(nativeValue, keyNativeHashCode, keyBlockNativeEquals, keyBlockHashCode, 0);
+    }
+
+    public int seekKeyExact(double nativeValue, MethodHandle keyNativeHashCode, MethodHandle keyBlockNativeEquals, MethodHandle keyBlockHashCode)
+    {
+        return seekKeyExact(nativeValue, keyNativeHashCode, keyBlockNativeEquals, keyBlockHashCode, 0);
+    }
+
+    public int seekKeyExact(Slice nativeValue, MethodHandle keyNativeHashCode, MethodHandle keyBlockNativeEquals, MethodHandle keyBlockHashCode)
+    {
+        return seekKeyExact(nativeValue, keyNativeHashCode, keyBlockNativeEquals, keyBlockHashCode, 0);
+    }
+
+    public int seekKeyExact(Block nativeValue, MethodHandle keyNativeHashCode, MethodHandle keyBlockNativeEquals, MethodHandle keyBlockHashCode)
+    {
+        return seekKeyExact(nativeValue, keyNativeHashCode, keyBlockNativeEquals, keyBlockHashCode, 0);
     }
 
     private static RuntimeException handleThrowable(Throwable throwable)
