@@ -282,7 +282,7 @@ void MemoryManager::dropPool(MemoryPool* pool) {
     VELOX_FAIL("The dropped memory pool {} not found", pool->name());
   }
   pools_.erase(it);
-  VELOX_DCHECK_EQ(pool->currentBytes(), 0);
+  VELOX_DCHECK_EQ(pool->reservedBytes(), 0);
   arbitrator_->shrinkCapacity(pool, 0);
 }
 

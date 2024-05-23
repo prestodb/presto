@@ -199,7 +199,7 @@ void SortBuffer::ensureInputFits(const VectorPtr& input) {
     return;
   }
 
-  const auto currentMemoryUsage = pool_->currentBytes();
+  const auto currentMemoryUsage = pool_->usedBytes();
   const auto minReservationBytes =
       currentMemoryUsage * spillConfig_->minSpillableReservationPct / 100;
   const auto availableReservationBytes = pool_->availableReservation();
@@ -233,7 +233,7 @@ void SortBuffer::ensureInputFits(const VectorPtr& input) {
   }
   LOG(WARNING) << "Failed to reserve " << succinctBytes(targetIncrementBytes)
                << " for memory pool " << pool()->name()
-               << ", usage: " << succinctBytes(pool()->currentBytes())
+               << ", usage: " << succinctBytes(pool()->usedBytes())
                << ", reservation: " << succinctBytes(pool()->reservedBytes());
 }
 

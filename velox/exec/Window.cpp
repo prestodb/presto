@@ -203,8 +203,7 @@ void Window::reclaim(
     // TODO Add support for spilling after noMoreInput().
     LOG(WARNING)
         << "Can't reclaim from window operator which has started producing output: "
-        << pool()->name()
-        << ", usage: " << succinctBytes(pool()->currentBytes())
+        << pool()->name() << ", usage: " << succinctBytes(pool()->usedBytes())
         << ", reservation: " << succinctBytes(pool()->reservedBytes());
     return;
   }

@@ -316,6 +316,10 @@ class TestMemoryPool : public memory::MemoryPool {
     return 0;
   }
 
+  int64_t usedBytes() const override {
+    return 0;
+  }
+
   int64_t peakBytes() const override {
     return 0;
   }

@@ -286,7 +286,7 @@ bool Writer::maybeReserveMemory(
   auto& context = getContext();
   auto& pool = context.getMemoryPool(memoryUsageCategory);
   const uint64_t availableReservation = pool.availableReservation();
-  const uint64_t usedReservationBytes = pool.currentBytes();
+  const uint64_t usedReservationBytes = pool.usedBytes();
   const uint64_t minReservationBytes =
       usedReservationBytes * spillConfig_->minSpillableReservationPct / 100;
   const uint64_t estimatedIncrementBytes =
@@ -536,7 +536,7 @@ void Writer::flushStripe(bool close) {
   metrics.availableMemory = context.getMemoryBudget() - totalMemoryUsage;
 
   auto& dictionaryPool = context.getMemoryPool(MemoryUsageCategory::DICTIONARY);
-  metrics.dictionaryMemory = dictionaryPool.currentBytes();
+  metrics.dictionaryMemory = dictionaryPool.usedBytes();
   // TODO: what does this try to capture?
   metrics.maxDictSize = dictionaryPool.stats().peakBytes;
 

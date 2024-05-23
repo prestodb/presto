@@ -359,7 +359,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, skipNonReclaimableTaskTest) {
             op->testingOperatorCtx()->operatorType() != "PartialAggregation") {
           return;
         }
-        if (op->pool()->currentBytes() == 0) {
+        if (op->pool()->usedBytes() == 0) {
           return;
         }
         if (op->testingOperatorCtx()->operatorType() == "PartialAggregation") {
@@ -1073,7 +1073,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, arbitrateMemoryFromOtherOperator) {
               if (!RE2::FullMatch(pool->name(), re)) {
                 return;
               }
-              if (pool->root()->currentBytes() == 0) {
+              if (pool->root()->usedBytes() == 0) {
                 return;
               }
               if (!injectReallocateOnce.exchange(false)) {

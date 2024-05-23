@@ -408,7 +408,7 @@ void HashAggregation::reclaim(
       LOG(WARNING)
           << "Can't reclaim from aggregation operator which has spilled and is under output processing, pool "
           << pool()->name()
-          << ", memory usage: " << succinctBytes(pool()->currentBytes())
+          << ", memory usage: " << succinctBytes(pool()->usedBytes())
           << ", reservation: " << succinctBytes(pool()->reservedBytes());
       return;
     }

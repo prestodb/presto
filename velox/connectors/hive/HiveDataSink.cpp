@@ -969,14 +969,13 @@ uint64_t HiveDataSink::WriterReclaimer::reclaim(
     RECORD_METRIC_VALUE(kMetricMemoryNonReclaimableCount);
     LOG(WARNING) << "Can't reclaim from hive writer pool " << pool->name()
                  << " which is under non-reclaimable section, "
-                 << " used memory: " << succinctBytes(pool->currentBytes())
-                 << ", reserved memory: "
+                 << " reserved memory: "
                  << succinctBytes(pool->reservedBytes());
     ++stats.numNonReclaimableAttempts;
     return 0;
   }
 
-  const uint64_t memoryUsageBeforeReclaim = pool->currentBytes();
+  const uint64_t memoryUsageBeforeReclaim = pool->reservedBytes();
   const std::string memoryUsageTreeBeforeReclaim = pool->treeMemoryUsage();
   const auto writtenBytesBeforeReclaim = ioStats_->rawBytesWritten();
   const auto reclaimedBytes =
@@ -990,7 +989,7 @@ uint64_t HiveDataSink::WriterReclaimer::reclaim(
     RECORD_METRIC_VALUE(
         kMetricFileWriterEarlyFlushedRawBytes, earlyFlushedRawBytes);
   }
-  const uint64_t memoryUsageAfterReclaim = pool->currentBytes();
+  const uint64_t memoryUsageAfterReclaim = pool->reservedBytes();
   if (memoryUsageAfterReclaim > memoryUsageBeforeReclaim) {
     VELOX_FAIL(
         "Unexpected memory growth after memory reclaim from {}, the memory usage before reclaim: {}, after reclaim: {}\nThe memory tree usage before reclaim:\n{}\nThe memory tree usage after reclaim:\n{}",

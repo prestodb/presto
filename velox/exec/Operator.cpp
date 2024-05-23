@@ -140,10 +140,9 @@ std::unique_ptr<JoinBridge> Operator::joinBridgeFromPlanNode(
 void Operator::initialize() {
   VELOX_CHECK(!initialized_);
   VELOX_CHECK_EQ(
-      pool()->currentBytes(),
+      pool()->usedBytes(),
       0,
-      "Unexpected memory usage {} from pool {} before operator init",
-      succinctBytes(pool()->currentBytes()),
+      "Unexpected memory usage from pool {} before operator init",
       pool()->name());
   initialized_ = true;
   maybeSetReclaimer();
@@ -641,7 +640,7 @@ uint64_t Operator::MemoryReclaimer::reclaim(
     RECORD_METRIC_VALUE(kMetricMemoryNonReclaimableCount);
     LOG(WARNING) << "Can't reclaim from memory pool " << pool->name()
                  << " which is under non-reclaimable section, memory usage: "
-                 << succinctBytes(pool->currentBytes())
+                 << succinctBytes(pool->usedBytes())
                  << ", reservation: " << succinctBytes(pool->reservedBytes());
     return 0;
   }

@@ -856,7 +856,7 @@ void GroupingSet::ensureInputFits(const RowVectorPtr& input) {
     return;
   }
 
-  const auto currentUsage = pool_.currentBytes();
+  const auto currentUsage = pool_.usedBytes();
   const auto minReservationBytes =
       currentUsage * spillConfig_->minSpillableReservationPct / 100;
   const auto availableReservationBytes = pool_.availableReservation();
@@ -902,7 +902,7 @@ void GroupingSet::ensureInputFits(const RowVectorPtr& input) {
   }
   LOG(WARNING) << "Failed to reserve " << succinctBytes(targetIncrementBytes)
                << " for memory pool " << pool_.name()
-               << ", usage: " << succinctBytes(pool_.currentBytes())
+               << ", usage: " << succinctBytes(pool_.usedBytes())
                << ", reservation: " << succinctBytes(pool_.reservedBytes());
 }
 
@@ -934,7 +934,7 @@ void GroupingSet::ensureOutputFits() {
   LOG(WARNING) << "Failed to reserve "
                << succinctBytes(outputBufferSizeToReserve)
                << " for memory pool " << pool_.name()
-               << ", usage: " << succinctBytes(pool_.currentBytes())
+               << ", usage: " << succinctBytes(pool_.usedBytes())
                << ", reservation: " << succinctBytes(pool_.reservedBytes());
 }
 

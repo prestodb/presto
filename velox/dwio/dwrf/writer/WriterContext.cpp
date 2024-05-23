@@ -116,11 +116,11 @@ int64_t WriterContext::getMemoryUsage(
     const MemoryUsageCategory& category) const {
   switch (category) {
     case MemoryUsageCategory::DICTIONARY:
-      return dictionaryPool_->currentBytes();
+      return dictionaryPool_->usedBytes();
     case MemoryUsageCategory::OUTPUT_STREAM:
-      return outputStreamPool_->currentBytes();
+      return outputStreamPool_->usedBytes();
     case MemoryUsageCategory::GENERAL:
-      return generalPool_->currentBytes();
+      return generalPool_->usedBytes();
     default:
       VELOX_FAIL("Unreachable: {}", static_cast<int>(category));
   }

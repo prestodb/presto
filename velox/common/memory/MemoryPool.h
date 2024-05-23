@@ -320,8 +320,16 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   /// 'capacity()' is fixed and set to 'maxCapacity()' on creation.
   virtual int64_t capacity() const = 0;
 
-  /// Returns the currently used memory in bytes of this memory pool.
+  /// Returns the currently used memory in bytes of this memory pool. For
+  /// non-leaf memory pool, the function returns the aggregated memory
+  /// reservation from all its child memory pools.
   virtual int64_t currentBytes() const = 0;
+
+  /// Returns the currently used memory in bytes of this memory pool. It returns
+  /// the same usage as currentBytes() for leaf memory pool. But for non-leaf
+  /// memory pool, the function returns the aggregated used memory from all its
+  /// child memory pools.
+  virtual int64_t usedBytes() const = 0;
 
   /// Returns the peak memory usage in bytes of this memory pool.
   virtual int64_t peakBytes() const = 0;
@@ -615,6 +623,8 @@ class MemoryPoolImpl : public MemoryPool {
     std::lock_guard<std::mutex> l(mutex_);
     return currentBytesLocked();
   }
+
+  int64_t usedBytes() const override;
 
   int64_t peakBytes() const override {
     std::lock_guard<std::mutex> l(mutex_);

@@ -1546,7 +1546,7 @@ void HashProbe::ensureOutputFits() {
   }
   LOG(WARNING) << "Failed to reserve " << succinctBytes(bytesToReserve)
                << " for memory pool " << pool()->name()
-               << ", usage: " << succinctBytes(pool()->currentBytes())
+               << ", usage: " << succinctBytes(pool()->usedBytes())
                << ", reservation: " << succinctBytes(pool()->reservedBytes());
 }
 
@@ -1577,9 +1577,9 @@ void HashProbe::reclaim(
         << "Can't reclaim from hash probe operator, state_["
         << ProbeOperatorState(state_) << "], nonReclaimableSection_["
         << nonReclaimableSection_ << "], " << pool()->name()
-        << ", usage: " << succinctBytes(pool()->currentBytes())
-        << ", node pool usage: "
-        << succinctBytes(pool()->parent()->currentBytes());
+        << ", usage: " << succinctBytes(pool()->usedBytes())
+        << ", node pool reservation: "
+        << succinctBytes(pool()->parent()->reservedBytes());
     return;
   }
 
@@ -1597,9 +1597,9 @@ void HashProbe::reclaim(
           << "Can't reclaim from hash probe operator, state_["
           << ProbeOperatorState(probeOp->state_) << "], nonReclaimableSection_["
           << probeOp->nonReclaimableSection_ << "], " << probeOp->pool()->name()
-          << ", usage: " << succinctBytes(pool()->currentBytes())
-          << ", node pool usage: "
-          << succinctBytes(pool()->parent()->currentBytes());
+          << ", usage: " << succinctBytes(pool()->usedBytes())
+          << ", node pool reservation: "
+          << succinctBytes(pool()->parent()->reservedBytes());
       return;
     }
     hasMoreProbeInput |= !probeOp->noMoreSpillInput_;

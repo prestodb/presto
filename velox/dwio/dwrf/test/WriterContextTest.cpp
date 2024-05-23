@@ -172,11 +172,11 @@ TEST_F(WriterContextTest, memory) {
   ASSERT_EQ(context.getTotalMemoryUsage(), 262208 + bufferSize * 3);
   ASSERT_EQ(context.availableMemoryReservation(), 2880448);
 
-  ASSERT_EQ(generalPool.currentBytes(), 262208 + bufferSize);
+  ASSERT_EQ(generalPool.usedBytes(), 262208 + bufferSize);
   ASSERT_EQ(generalPool.reservedBytes(), 1048576);
-  ASSERT_EQ(dictPool.currentBytes(), bufferSize);
+  ASSERT_EQ(dictPool.usedBytes(), bufferSize);
   ASSERT_EQ(dictPool.reservedBytes(), 1048576);
-  ASSERT_EQ(outputPool.currentBytes(), bufferSize);
+  ASSERT_EQ(outputPool.usedBytes(), bufferSize);
   ASSERT_EQ(outputPool.reservedBytes(), 1048576);
   ASSERT_EQ(context.getTotalMemoryUsage(), 262208 + bufferSize * 3);
   ASSERT_EQ(context.availableMemoryReservation(), 2880448);
@@ -184,22 +184,22 @@ TEST_F(WriterContextTest, memory) {
   ASSERT_TRUE(generalPool.maybeReserve(4L << 20));
   ASSERT_TRUE(dictPool.maybeReserve(4L << 20));
   ASSERT_TRUE(outputPool.maybeReserve(4L << 20));
-  ASSERT_EQ(generalPool.currentBytes(), 262208 + bufferSize);
+  ASSERT_EQ(generalPool.usedBytes(), 262208 + bufferSize);
   ASSERT_EQ(generalPool.reservedBytes(), 9437184);
-  ASSERT_EQ(dictPool.currentBytes(), bufferSize);
+  ASSERT_EQ(dictPool.usedBytes(), bufferSize);
   ASSERT_EQ(dictPool.reservedBytes(), 9437184);
-  ASSERT_EQ(outputPool.currentBytes(), bufferSize);
+  ASSERT_EQ(outputPool.usedBytes(), bufferSize);
   ASSERT_EQ(outputPool.reservedBytes(), 9437184);
   ASSERT_EQ(context.getTotalMemoryUsage(), 262208 + bufferSize * 3);
   ASSERT_EQ(context.availableMemoryReservation(), 28046272);
 
   context.releaseMemoryReservation();
   ASSERT_EQ(context.getTotalMemoryUsage(), 262208 + bufferSize * 3);
-  ASSERT_EQ(generalPool.currentBytes(), 262208 + bufferSize);
+  ASSERT_EQ(generalPool.usedBytes(), 262208 + bufferSize);
   ASSERT_EQ(generalPool.reservedBytes(), 1048576);
-  ASSERT_EQ(dictPool.currentBytes(), bufferSize);
+  ASSERT_EQ(dictPool.usedBytes(), bufferSize);
   ASSERT_EQ(dictPool.reservedBytes(), 1048576);
-  ASSERT_EQ(outputPool.currentBytes(), bufferSize);
+  ASSERT_EQ(outputPool.usedBytes(), bufferSize);
   ASSERT_EQ(outputPool.reservedBytes(), 1048576);
   ASSERT_EQ(context.getTotalMemoryUsage(), 262208 + bufferSize * 3);
   ASSERT_EQ(context.availableMemoryReservation(), 2880448);
@@ -208,11 +208,11 @@ TEST_F(WriterContextTest, memory) {
   dictPool.free(dictBuf, bufferSize);
   outputPool.free(outputBuf, bufferSize);
   ASSERT_EQ(context.getTotalMemoryUsage(), 262208);
-  ASSERT_EQ(generalPool.currentBytes(), 262208);
+  ASSERT_EQ(generalPool.usedBytes(), 262208);
   ASSERT_EQ(generalPool.reservedBytes(), 1048576);
-  ASSERT_EQ(dictPool.currentBytes(), 0);
+  ASSERT_EQ(dictPool.usedBytes(), 0);
   ASSERT_EQ(dictPool.reservedBytes(), 0);
-  ASSERT_EQ(outputPool.currentBytes(), 0);
+  ASSERT_EQ(outputPool.usedBytes(), 0);
   ASSERT_EQ(outputPool.reservedBytes(), 0);
   ASSERT_EQ(context.getTotalMemoryUsage(), 262208);
   ASSERT_EQ(context.availableMemoryReservation(), 786368);
@@ -239,11 +239,11 @@ TEST_F(WriterContextTest, abort) {
   ASSERT_EQ(context.getTotalMemoryUsage(), 262208 + bufferSize * 3);
   ASSERT_EQ(context.availableMemoryReservation(), 2880448);
 
-  ASSERT_EQ(generalPool.currentBytes(), 262208 + bufferSize);
+  ASSERT_EQ(generalPool.usedBytes(), 262208 + bufferSize);
   ASSERT_EQ(generalPool.reservedBytes(), 1048576);
-  ASSERT_EQ(dictPool.currentBytes(), bufferSize);
+  ASSERT_EQ(dictPool.usedBytes(), bufferSize);
   ASSERT_EQ(dictPool.reservedBytes(), 1048576);
-  ASSERT_EQ(outputPool.currentBytes(), bufferSize);
+  ASSERT_EQ(outputPool.usedBytes(), bufferSize);
   ASSERT_EQ(outputPool.reservedBytes(), 1048576);
   ASSERT_EQ(context.getTotalMemoryUsage(), 262208 + bufferSize * 3);
   ASSERT_EQ(context.availableMemoryReservation(), 2880448);
@@ -251,11 +251,11 @@ TEST_F(WriterContextTest, abort) {
   ASSERT_TRUE(generalPool.maybeReserve(4L << 20));
   ASSERT_TRUE(dictPool.maybeReserve(4L << 20));
   ASSERT_TRUE(outputPool.maybeReserve(4L << 20));
-  ASSERT_EQ(generalPool.currentBytes(), 262208 + bufferSize);
+  ASSERT_EQ(generalPool.usedBytes(), 262208 + bufferSize);
   ASSERT_EQ(generalPool.reservedBytes(), 9437184);
-  ASSERT_EQ(dictPool.currentBytes(), bufferSize);
+  ASSERT_EQ(dictPool.usedBytes(), bufferSize);
   ASSERT_EQ(dictPool.reservedBytes(), 9437184);
-  ASSERT_EQ(outputPool.currentBytes(), bufferSize);
+  ASSERT_EQ(outputPool.usedBytes(), bufferSize);
   ASSERT_EQ(outputPool.reservedBytes(), 9437184);
   ASSERT_EQ(context.getTotalMemoryUsage(), 262208 + bufferSize * 3);
   ASSERT_EQ(context.availableMemoryReservation(), 28046272);
@@ -263,11 +263,11 @@ TEST_F(WriterContextTest, abort) {
   context.abort();
 
   ASSERT_EQ(context.getTotalMemoryUsage(), bufferSize * 3);
-  ASSERT_EQ(generalPool.currentBytes(), bufferSize);
+  ASSERT_EQ(generalPool.usedBytes(), bufferSize);
   ASSERT_EQ(generalPool.reservedBytes(), 1048576);
-  ASSERT_EQ(dictPool.currentBytes(), bufferSize);
+  ASSERT_EQ(dictPool.usedBytes(), bufferSize);
   ASSERT_EQ(dictPool.reservedBytes(), 1048576);
-  ASSERT_EQ(outputPool.currentBytes(), bufferSize);
+  ASSERT_EQ(outputPool.usedBytes(), bufferSize);
   ASSERT_EQ(outputPool.reservedBytes(), 1048576);
   ASSERT_EQ(context.availableMemoryReservation(), 3142656);
 
@@ -275,11 +275,11 @@ TEST_F(WriterContextTest, abort) {
   dictPool.free(dictBuf, bufferSize);
   outputPool.free(outputBuf, bufferSize);
   ASSERT_EQ(context.getTotalMemoryUsage(), 0);
-  ASSERT_EQ(generalPool.currentBytes(), 0);
+  ASSERT_EQ(generalPool.usedBytes(), 0);
   ASSERT_EQ(generalPool.reservedBytes(), 0);
-  ASSERT_EQ(dictPool.currentBytes(), 0);
+  ASSERT_EQ(dictPool.usedBytes(), 0);
   ASSERT_EQ(dictPool.reservedBytes(), 0);
-  ASSERT_EQ(outputPool.currentBytes(), 0);
+  ASSERT_EQ(outputPool.usedBytes(), 0);
   ASSERT_EQ(outputPool.reservedBytes(), 0);
   ASSERT_EQ(context.getTotalMemoryUsage(), 0);
   ASSERT_EQ(context.availableMemoryReservation(), 0);

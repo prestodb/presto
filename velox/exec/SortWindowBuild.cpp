@@ -100,7 +100,7 @@ void SortWindowBuild::ensureInputFits(const RowVectorPtr& input) {
       data_->stringAllocator().retainedSize() - outOfLineFreeBytes;
   const auto outOfLineBytesPerRow = outOfLineBytes / data_->numRows();
 
-  const auto currentUsage = data_->pool()->currentBytes();
+  const auto currentUsage = data_->pool()->usedBytes();
   const auto minReservationBytes =
       currentUsage * spillConfig_->minSpillableReservationPct / 100;
   const auto availableReservationBytes = data_->pool()->availableReservation();
@@ -132,7 +132,7 @@ void SortWindowBuild::ensureInputFits(const RowVectorPtr& input) {
 
   LOG(WARNING) << "Failed to reserve " << succinctBytes(targetIncrementBytes)
                << " for memory pool " << data_->pool()->name()
-               << ", usage: " << succinctBytes(data_->pool()->currentBytes())
+               << ", usage: " << succinctBytes(data_->pool()->usedBytes())
                << ", reservation: "
                << succinctBytes(data_->pool()->reservedBytes());
 }

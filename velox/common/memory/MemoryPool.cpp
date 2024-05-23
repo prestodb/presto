@@ -682,6 +682,21 @@ int64_t MemoryPoolImpl::capacity() const {
   return capacity_;
 }
 
+int64_t MemoryPoolImpl::usedBytes() const {
+  if (isLeaf()) {
+    return currentBytes();
+  }
+  if (currentBytes() == 0) {
+    return 0;
+  }
+  int64_t usedBytes{0};
+  visitChildren([&](MemoryPool* pool) {
+    usedBytes += pool->usedBytes();
+    return true;
+  });
+  return usedBytes;
+}
+
 std::shared_ptr<MemoryPool> MemoryPoolImpl::genChild(
     std::shared_ptr<MemoryPool> parent,
     const std::string& name,
@@ -821,7 +836,7 @@ bool MemoryPoolImpl::incrementReservationThreadSafe(
       succinctBytes(size),
       capacityToString(manager_->capacity()),
       requestor->name(),
-      succinctBytes(requestor->currentBytes()),
+      succinctBytes(requestor->usedBytes()),
       treeMemoryUsage()));
 }
 

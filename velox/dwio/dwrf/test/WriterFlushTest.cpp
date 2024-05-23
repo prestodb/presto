@@ -156,6 +156,10 @@ class MockMemoryPool : public velox::memory::MemoryPool {
     return localMemoryUsage_;
   }
 
+  int64_t usedBytes() const override {
+    return localMemoryUsage_;
+  }
+
   std::shared_ptr<MemoryPool> genChild(
       std::shared_ptr<MemoryPool> parent,
       const std::string& name,
@@ -320,7 +324,7 @@ struct SimulatedFlush {
     auto& generalPool = dynamic_cast<MockMemoryPool&>(
         context.getMemoryPool(MemoryUsageCategory::GENERAL));
     dictPool.setLocalMemoryUsage(dictMemoryUsage);
-    ASSERT_EQ(outputStreamMemoryUsage, outputPool.currentBytes());
+    ASSERT_EQ(outputStreamMemoryUsage, outputPool.usedBytes());
     outputPool.updateLocalMemoryUsage(flushOverhead);
     generalPool.setLocalMemoryUsage(generalMemoryUsage);
 
@@ -417,13 +421,12 @@ class WriterFlushTestHelper {
       if (writer->shouldFlush(context, write.numRows)) {
         ASSERT_EQ(
             0,
-            context.getMemoryPool(MemoryUsageCategory::DICTIONARY)
-                .currentBytes());
+            context.getMemoryPool(MemoryUsageCategory::DICTIONARY).usedBytes());
         auto outputStreamMemoryUsage =
             context.getMemoryPool(MemoryUsageCategory::OUTPUT_STREAM)
-                .currentBytes();
+                .usedBytes();
         auto generalMemoryUsage =
-            context.getMemoryPool(MemoryUsageCategory::GENERAL).currentBytes();
+            context.getMemoryPool(MemoryUsageCategory::GENERAL).usedBytes();
 
         uint64_t flushOverhead =
             folly::Random::rand32(0, context.stripeRawSize(), gen);

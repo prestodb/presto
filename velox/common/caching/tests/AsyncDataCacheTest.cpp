@@ -679,11 +679,11 @@ TEST_F(AsyncDataCacheTest, evictAccounting) {
   memory::ContiguousAllocation large;
   pool->allocateNonContiguous(1200, allocation);
   pool->allocateContiguous(1200, large);
-  EXPECT_EQ(memory::AllocationTraits::pageBytes(2400), pool->currentBytes());
+  EXPECT_EQ(memory::AllocationTraits::pageBytes(2400), pool->usedBytes());
   loadLoop(0, kMaxBytes * 1.1);
   pool->allocateNonContiguous(2400, allocation);
   pool->allocateContiguous(2400, large);
-  EXPECT_EQ(memory::AllocationTraits::pageBytes(4800), pool->currentBytes());
+  EXPECT_EQ(memory::AllocationTraits::pageBytes(4800), pool->usedBytes());
   auto stats = cache_->refreshStats();
   EXPECT_LT(0, stats.numEvict);
 }

@@ -59,17 +59,17 @@ TEST_F(AllocationPoolTest, hugePages) {
     EXPECT_EQ(1, allocationPool->numRanges());
     EXPECT_EQ(allocationPool->testingFreeAddressableBytes(), 64 << 10);
     allocationPool->newRun(64 << 10);
-    EXPECT_LE(128 << 10, pool_->currentBytes());
+    EXPECT_LE(128 << 10, pool_->usedBytes());
     allocationPool->allocateFixed(64 << 10);
     // Now at end of second 64K range, next will go to huge pages.
     setByte(allocationPool->allocateFixed(11));
     EXPECT_LE((2 << 20) - 11, allocationPool->testingFreeAddressableBytes());
     // The first 2MB of the hugepage run are marked reserved.
-    EXPECT_LE((2048 + 128) << 10, pool_->currentBytes());
+    EXPECT_LE((2048 + 128) << 10, pool_->usedBytes());
 
     // The next allocation starts reserves the next 2MB of the mmapped range.
     setByte(allocationPool->allocateFixed(2 << 20));
-    EXPECT_LE((4096 + 128) << 10, pool_->currentBytes());
+    EXPECT_LE((4096 + 128) << 10, pool_->usedBytes());
 
     // Allocate the rest.
     allocationPool->allocateFixed(
@@ -97,7 +97,7 @@ TEST_F(AllocationPoolTest, hugePages) {
     EXPECT_LE(
         (5UL << 30) + (31 << 20) + (128 << 10),
         allocationPool->allocatedBytes());
-    EXPECT_LE((5UL << 30) + (31 << 20) + (128 << 10), pool_->currentBytes());
+    EXPECT_LE((5UL << 30) + (31 << 20) + (128 << 10), pool_->usedBytes());
 
     if (counter++ >= 1) {
       break;
@@ -106,11 +106,11 @@ TEST_F(AllocationPoolTest, hugePages) {
     // Repeat the above after a clear().
     allocationPool->clear();
     // Should be empty after clear().
-    EXPECT_EQ(0, pool_->currentBytes());
+    EXPECT_EQ(0, pool_->usedBytes());
   }
   allocationPool.reset();
   // Should be empty after destruction.
-  EXPECT_EQ(0, pool_->currentBytes());
+  EXPECT_EQ(0, pool_->usedBytes());
 }
 
 // This test relies on TestValue, so needs to be run in debug mode.

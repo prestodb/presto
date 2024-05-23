@@ -348,13 +348,13 @@ TEST_F(ByteStreamTest, appendWindow) {
     {
       AppendWindow<uint64_t> window(stream, scratch);
       auto ptr = window.get(numWords);
-      bytes = arena->pool()->currentBytes();
+      bytes = arena->pool()->usedBytes();
       memcpy(ptr, words.data() + offset, numWords * sizeof(words[0]));
       offset += numWords;
       ++counter;
     }
     // We check that there is no allocation at exit of AppendWindow block.k
-    EXPECT_EQ(arena->pool()->currentBytes(), bytes);
+    EXPECT_EQ(arena->pool()->usedBytes(), bytes);
   }
   std::stringstream stringStream;
   OStreamOutputStream out(&stringStream);

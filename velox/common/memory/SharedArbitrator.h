@@ -68,7 +68,7 @@ class SharedArbitrator : public memory::MemoryArbitrator {
   struct Candidate {
     int64_t reclaimableBytes{0};
     int64_t freeBytes{0};
-    int64_t currentBytes{0};
+    int64_t reservedBytes{0};
     MemoryPool* pool;
 
     std::string toString() const;

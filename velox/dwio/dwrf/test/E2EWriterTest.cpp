@@ -1823,7 +1823,7 @@ DEBUG_ONLY_TEST_F(E2EWriterTest, memoryReclaimOnFlush) {
           auto& context = writer->getContext();
           auto& outputPool =
               context.getMemoryPool(dwrf::MemoryUsageCategory::OUTPUT_STREAM);
-          const auto memoryUsage = outputPool.currentBytes();
+          const auto memoryUsage = outputPool.usedBytes();
           const auto availableMemoryUsage = outputPool.availableReservation();
           ASSERT_GE(
               availableMemoryUsage,

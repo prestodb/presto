@@ -446,7 +446,7 @@ void HashBuild::ensureInputFits(RowVectorPtr& input) {
       rows->stringAllocator().retainedSize() - outOfLineFreeBytes;
   const auto outOfLineBytesPerRow =
       std::max<uint64_t>(1, numRows == 0 ? 0 : outOfLineBytes / numRows);
-  const auto currentUsage = pool()->currentBytes();
+  const auto currentUsage = pool()->usedBytes();
 
   if (numRows != 0) {
     // Test-only spill path.
@@ -499,7 +499,7 @@ void HashBuild::ensureInputFits(RowVectorPtr& input) {
       LOG(WARNING) << "Failed to reserve "
                    << succinctBytes(targetIncrementBytes) << " for memory pool "
                    << pool()->name()
-                   << ", usage: " << succinctBytes(pool()->currentBytes())
+                   << ", usage: " << succinctBytes(pool()->usedBytes())
                    << ", reservation: "
                    << succinctBytes(pool()->reservedBytes());
     }
@@ -798,7 +798,7 @@ void HashBuild::ensureTableFits(uint64_t numRows) {
 
   LOG(WARNING) << "Failed to reserve " << succinctBytes(bytesToReserve)
                << " for memory pool " << pool()->name()
-               << ", usage: " << succinctBytes(pool()->currentBytes())
+               << ", usage: " << succinctBytes(pool()->usedBytes())
                << ", reservation: " << succinctBytes(pool()->reservedBytes());
 }
 
@@ -821,7 +821,7 @@ void HashBuild::ensureNextRowVectorFits(
     if (!pool()->maybeReserve(bytesToReserve)) {
       LOG(WARNING) << "Failed to reserve " << succinctBytes(bytesToReserve)
                    << " for memory pool " << pool()->name()
-                   << ", usage: " << succinctBytes(pool()->currentBytes())
+                   << ", usage: " << succinctBytes(pool()->usedBytes())
                    << ", reservation: "
                    << succinctBytes(pool()->reservedBytes());
     }
@@ -831,8 +831,7 @@ void HashBuild::ensureNextRowVectorFits(
     if (!build->pool()->maybeReserve(bytesToReserve)) {
       LOG(WARNING) << "Failed to reserve " << succinctBytes(bytesToReserve)
                    << " for memory pool " << build->pool()->name()
-                   << ", usage: "
-                   << succinctBytes(build->pool()->currentBytes())
+                   << ", usage: " << succinctBytes(build->pool()->usedBytes())
                    << ", reservation: "
                    << succinctBytes(build->pool()->reservedBytes());
     }
@@ -1079,7 +1078,7 @@ void HashBuild::reclaim(
                 ? "cleared"
                 : (spiller_->finalized() ? "finalized" : "non-finalized"))
         << "] " << pool()->name()
-        << ", usage: " << succinctBytes(pool()->currentBytes());
+        << ", usage: " << succinctBytes(pool()->usedBytes());
     return;
   }
 
@@ -1099,7 +1098,7 @@ void HashBuild::reclaim(
           << "Can't reclaim from hash build operator, state_["
           << stateName(buildOp->state_) << "], nonReclaimableSection_["
           << buildOp->nonReclaimableSection_ << "], " << buildOp->pool()->name()
-          << ", usage: " << succinctBytes(buildOp->pool()->currentBytes());
+          << ", usage: " << succinctBytes(buildOp->pool()->usedBytes());
       return;
     }
   }
