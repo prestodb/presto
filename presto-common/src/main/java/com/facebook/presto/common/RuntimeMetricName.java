@@ -60,4 +60,5 @@ public class RuntimeMetricName
     public static final String HISTORY_OPTIMIZER_QUERY_REGISTRATION_GET_STATISTICS = "historyOptimizerQueryRegistrationGetStatistics";
     public static final String DIRECTORY_LISTING_CACHE_HIT = "directoryListingCacheHit";
     public static final String DIRECTORY_LISTING_CACHE_MISS = "directoryListingCacheMiss";
+    public static final String FILES_READ_COUNT = "filesReadCount";
 }
