@@ -221,7 +221,7 @@ pipeline {
                             cd presto-native-execution/
                             make submodules
                             docker buildx build --load --platform "linux/amd64" \
-                                    -t "${PRESTO_NATIVE_DOCKER_IMAGE}" \
+                                    -t "${NATIVE_DOCKER_IMAGE}" \
                                     --build-arg BUILD_TYPE=Release \
                                     --build-arg DEPENDENCY_IMAGE=${AWS_ECR}/presto-native-dependency:latest \
                                     --build-arg "EXTRA_CMAKE_FLAGS=-DPRESTO_ENABLE_TESTING=OFF -DPRESTO_ENABLE_PARQUET=ON -DPRESTO_ENABLE_S3=ON" \
