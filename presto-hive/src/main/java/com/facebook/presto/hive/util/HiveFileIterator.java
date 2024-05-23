@@ -52,7 +52,7 @@ public class HiveFileIterator
             ListDirectoryOperation listDirectoryOperation,
             NamenodeStats namenodeStats,
             NestedDirectoryPolicy nestedDirectoryPolicy,
-            boolean skipEmptyFiles)// Tipo Boolean
+            boolean skipEmptyFiles)
     {
         paths.addLast(requireNonNull(path, "path is null"));
         this.listDirectoryOperation = requireNonNull(listDirectoryOperation, "listDirectoryOperation is null");
