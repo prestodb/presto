@@ -2663,8 +2663,7 @@ TEST_F(DateTimeFunctionsTest, parseDatetime) {
   // Ensure it throws.
   VELOX_ASSERT_THROW(parseDatetime("", ""), "Invalid pattern specification");
   VELOX_ASSERT_THROW(
-      parseDatetime("1234", "Y Y"),
-      "Invalid date format: '1234' is malformed at ''");
+      parseDatetime("1234", "Y Y"), "Invalid date format: '1234'");
 
   // Simple tests. More exhaustive tests are provided as part of Joda's
   // implementation.
@@ -2740,7 +2739,7 @@ TEST_F(DateTimeFunctionsTest, parseDatetime) {
 
   VELOX_ASSERT_THROW(
       parseDatetime("2024-02-25+06:00:99 PST", "yyyy-MM-dd+HH:mm:99 ZZZ"),
-      "Invalid date format: '2024-02-25+06:00:99 PST' is malformed at 'PST'");
+      "Invalid date format: '2024-02-25+06:00:99 PST'");
 }
 
 TEST_F(DateTimeFunctionsTest, formatDateTime) {

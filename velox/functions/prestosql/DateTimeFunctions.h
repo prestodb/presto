@@ -1408,7 +1408,7 @@ struct ParseDateTimeFunction {
     }
   }
 
-  FOLLY_ALWAYS_INLINE void call(
+  FOLLY_ALWAYS_INLINE Status call(
       out_type<TimestampWithTimezone>& result,
       const arg_type<Varchar>& input,
       const arg_type<Varchar>& format) {
@@ -1417,16 +1417,19 @@ struct ParseDateTimeFunction {
           std::string_view(format.data(), format.size()));
     }
     auto dateTimeResult =
-        format_->parse(std::string_view(input.data(), input.size()), true)
-            .value();
+        format_->parse(std::string_view(input.data(), input.size()), false);
+    if (!dateTimeResult.has_value()) {
+      return Status::UserError("Invalid date format: '{}'", input);
+    }
 
     // If timezone was not parsed, fallback to the session timezone. If there's
     // no session timezone, fallback to 0 (GMT).
-    int16_t timezoneId = dateTimeResult.timezoneId != -1
-        ? dateTimeResult.timezoneId
+    int16_t timezoneId = dateTimeResult->timezoneId != -1
+        ? dateTimeResult->timezoneId
         : sessionTzID_.value_or(0);
-    dateTimeResult.timestamp.toGMT(timezoneId);
-    result = pack(dateTimeResult.timestamp.toMillis(), timezoneId);
+    dateTimeResult->timestamp.toGMT(timezoneId);
+    result = pack(dateTimeResult->timestamp.toMillis(), timezoneId);
+    return Status::OK();
   }
 };
 
