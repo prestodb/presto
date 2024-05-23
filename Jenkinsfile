@@ -22,8 +22,10 @@ pipeline {
     parameters {
         booleanParam(name: 'PUBLISH_ARTIFACTS_ON_CURRENT_BRANCH',
                      defaultValue: false,
-                     description: 'whether to publish tar and docker image even if current branch is not master'
-        )
+                     description: 'whether to publish tar and docker image even if current branch is not master')
+        booleanParam(name: 'BUILD_PRESTISSIMO_DEPENDENCY',
+                     defaultValue: false,
+                     description: 'Check to build a new native dependency image because of the build dependency updates')
     }
 
     stages {
@@ -36,7 +38,7 @@ pipeline {
             }
 
             stages {
-                stage('Setup') {
+                stage('Maven Agent Setup') {
                     steps {
                         sh 'apt update && apt install -y awscli git tree'
                         sh 'git config --global --add safe.directory ${WORKSPACE}'
@@ -94,6 +96,8 @@ pipeline {
                                 sh(script: "git show -s --format=%cd --date=format:'%Y%m%d%H%M%S'", returnStdout: true).trim() + "-" +
                                 env.PRESTO_COMMIT_SHA.substring(0, 7)
                             env.DOCKER_IMAGE = env.AWS_ECR + "/${IMG_NAME}:${PRESTO_BUILD_VERSION}"
+                            env.NATIVE_DOCKER_IMAGE_DEPENDENCY = env.AWS_ECR + "/presto-native-dependency:${PRESTO_BUILD_VERSION}"
+                            env.NATIVE_DOCKER_IMAGE = env.AWS_ECR + "/presto-native:${PRESTO_BUILD_VERSION}"
                         }
                         sh 'printenv | sort'
 
@@ -133,10 +137,11 @@ pipeline {
             }
 
             stages {
-                stage('Docker') {
+                stage('Docker Agent Setup') {
                     steps {
-                        echo 'build docker image'
-                        sh 'apk update && apk add aws-cli bash git'
+                        sh 'apk update && apk add aws-cli bash git make'
+                        sh 'git config --global --add safe.directory ${WORKSPACE}'
+                        sh 'git config --global --add safe.directory ${WORKSPACE}/presto-native-execution/velox'
                         sh '''
                             docker run --privileged --rm tonistiigi/binfmt --install all
                             docker context ls
@@ -144,17 +149,18 @@ pipeline {
                             docker buildx ls
                             docker buildx inspect container
                         '''
+                    }
+                }
+
+                stage('Docker Java') {
+                    steps {
+                        echo 'build docker image'
                         withCredentials([[
                                 $class:            'AmazonWebServicesCredentialsBinding',
                                 credentialsId:     "${AWS_CREDENTIAL_ID}",
                                 accessKeyVariable: 'AWS_ACCESS_KEY_ID',
                                 secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                             sh '''#!/bin/bash -ex
-                                for dir in /home/jenkins/agent/workspace/*/; do
-                                    echo "${dir}"
-                                    git config --global --add safe.directory "${dir:0:-1}"
-                                done
-
                                 cd docker/
                                 aws s3 cp ${AWS_S3_PREFIX}/${PRESTO_BUILD_VERSION}/${PRESTO_PKG}     . --no-progress
                                 aws s3 cp ${AWS_S3_PREFIX}/${PRESTO_BUILD_VERSION}/${PRESTO_CLI_JAR} . --no-progress
@@ -166,13 +172,12 @@ pipeline {
                     }
                 }
 
-                stage('Publish Docker') {
+                stage('Publish Docker Java') {
                     when {
                         anyOf {
                             expression { params.PUBLISH_ARTIFACTS_ON_CURRENT_BRANCH }
                             branch "master"
                         }
-                        beforeAgent true
                     }
 
                     steps {
@@ -187,6 +192,69 @@ pipeline {
                                 aws s3 ls ${AWS_S3_PREFIX}/${PRESTO_BUILD_VERSION}/
                                 aws ecr-public get-login-password | docker login --username AWS --password-stdin ${AWS_ECR}
                                 PUBLISH=true REG_ORG=${AWS_ECR} IMAGE_NAME=${IMG_NAME} TAG=${PRESTO_BUILD_VERSION} ./build.sh ${PRESTO_VERSION}
+                            '''
+                        }
+                    }
+                }
+
+                stage ('Build Docker Native Dependency') {
+                    when {
+                        environment name: 'BUILD_PRESTISSIMO_DEPENDENCY', value: 'true'
+                    }
+                    steps {
+                        sh '''
+                            cd presto-native-execution/
+                            make submodules
+                            docker buildx build --load --platform "linux/amd64" \
+                                    -t "${NATIVE_DOCKER_IMAGE_DEPENDENCY}" \
+                                    -f scripts/dockerfiles/centos-8-stream-dependency.dockerfile \
+                                    .
+                            docker tag "${NATIVE_DOCKER_IMAGE_DEPENDENCY}" "${AWS_ECR}/presto-native-dependency:latest"
+                            docker image ls
+                        '''
+                    }
+                }
+
+                stage ('Build Docker Native') {
+                    steps {
+                        sh '''
+                            cd presto-native-execution/
+                            make submodules
+                            docker buildx build --load --platform "linux/amd64" \
+                                    -t "${PRESTO_NATIVE_DOCKER_IMAGE}" \
+                                    --build-arg BUILD_TYPE=Release \
+                                    --build-arg DEPENDENCY_IMAGE=${AWS_ECR}/presto-native-dependency:latest \
+                                    --build-arg "EXTRA_CMAKE_FLAGS=-DPRESTO_ENABLE_TESTING=OFF -DPRESTO_ENABLE_PARQUET=ON -DPRESTO_ENABLE_S3=ON" \
+                                    -f scripts/dockerfiles/prestissimo-runtime.dockerfile \
+                                    .
+                            docker image ls
+                        '''
+                    }
+                }
+
+                stage('Publish Docker Native') {
+                    when {
+                        anyOf {
+                            expression { params.PUBLISH_ARTIFACTS_ON_CURRENT_BRANCH }
+                            branch "master"
+                        }
+                    }
+
+                    steps {
+                        echo 'Publish docker image'
+                        withCredentials([[
+                                $class:            'AmazonWebServicesCredentialsBinding',
+                                credentialsId:     "${AWS_CREDENTIAL_ID}",
+                                accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                                secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                            sh '''
+                                aws ecr-public get-login-password | docker login --username AWS --password-stdin ${AWS_ECR}
+                                if ${BUILD_PRESTISSIMO_DEPENDENCY}
+                                then
+                                    docker push "${NATIVE_DOCKER_IMAGE_DEPENDENCY}"
+                                    docker push "${AWS_ECR}/presto-native-dependency:latest"
+                                fi
+                                docker push "${NATIVE_DOCKER_IMAGE}"
                             '''
                         }
                     }
