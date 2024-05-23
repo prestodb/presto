@@ -101,7 +101,7 @@ TEST_F(ByteStreamTest, inputStream) {
   uint8_t* const kFakeBuffer = reinterpret_cast<uint8_t*>(this);
   std::vector<ByteRange> byteRanges;
   size_t totalBytes{0};
-  size_t lastRangeEnd;
+  [[maybe_unused]] size_t lastRangeEnd;
   for (int32_t i = 0; i < 32; ++i) {
     byteRanges.push_back(ByteRange{kFakeBuffer, 4096 + i, 0});
     totalBytes += 4096 + i;

@@ -311,7 +311,6 @@ TEST_F(SsdFileTest, writeAndRead) {
 
   // We check howmany entries are found. The earliest writes will have been
   // evicted. We read back the found entries and check their contents.
-  int32_t numFound = 0;
   for (auto& entry : allEntries) {
     std::vector<CachePin> pins;
 
@@ -325,7 +324,6 @@ TEST_F(SsdFileTest, writeAndRead) {
       ssdPins.push_back(
           ssdFile_->find(RawFileCacheKey{fileName_.id(), entry.key.offset}));
       if (!ssdPins.back().empty()) {
-        ++numFound;
         ssdFile_->load(ssdPins, pins);
         checkContents(pins[0].entry()->data(), pins[0].entry()->size());
       }
