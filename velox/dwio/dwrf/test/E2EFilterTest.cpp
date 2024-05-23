@@ -93,8 +93,8 @@ class E2EFilterTest : public E2EFilterTestBase {
       dwio::common::RowReaderOptions& opts,
       const std::shared_ptr<ScanSpec>& spec) override {
     E2EFilterTestBase::setUpRowReaderOptions(opts, spec);
-    if (!flatmapNodeIdsAsStruct_.empty()) {
-      opts.setFlatmapNodeIdsAsStruct(flatmapNodeIdsAsStruct_);
+    for (auto& field : flatMapAsStructFields_) {
+      spec->childByName(field)->setFlatMapAsStruct(true);
     }
   }
 
@@ -127,6 +127,7 @@ class E2EFilterTest : public E2EFilterTestBase {
           mapFlatColsStructKeys.back().push_back(name);
         }
         columnTypes[i] = MAP(VARCHAR(), columnTypes[i]->childAt(0));
+        flatMapAsStructFields_.push_back(rowType.nameOf(i));
       }
       writerSchema = ROW(
           std::vector<std::string>(rowType.names()), std::move(columnTypes));
@@ -137,10 +138,6 @@ class E2EFilterTest : public E2EFilterTestBase {
         }
         auto& child = schemaWithId->childAt(i);
         mapFlatCols.push_back(child->column());
-        if (!rowType.childAt(i)->isRow()) {
-          continue;
-        }
-        flatmapNodeIdsAsStruct_[child->id()] = mapFlatColsStructKeys[i];
       }
       config->set(dwrf::Config::FLATTEN_MAP, true);
       config->set(dwrf::Config::MAP_FLAT_DISABLE_DICT_ENCODING, false);
@@ -158,8 +155,7 @@ class E2EFilterTest : public E2EFilterTestBase {
   }
 
   std::unique_ptr<dwrf::Writer> writer_;
-  std::unordered_map<uint32_t, std::vector<std::string>>
-      flatmapNodeIdsAsStruct_;
+  std::vector<std::string> flatMapAsStructFields_;
 };
 
 TEST_F(E2EFilterTest, integerDirect) {

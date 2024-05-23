@@ -322,6 +322,10 @@ void SelectiveMapColumnReader::read(
 
 void SelectiveMapColumnReader::getValues(RowSet rows, VectorPtr* result) {
   VELOX_DCHECK_NOT_NULL(result);
+  VELOX_CHECK(
+      !result->get() || result->get()->type()->isMap(),
+      "Expect MAP result vector, got {}",
+      result->get()->type()->toString());
   prepareResult(*result, requestedType_->type(), rows.size(), &memoryPool_);
   auto* resultMap = result->get()->asUnchecked<MapVector>();
   makeOffsetsAndSizes(rows, *resultMap);

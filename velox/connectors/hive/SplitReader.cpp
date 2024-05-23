@@ -380,10 +380,16 @@ std::vector<TypePtr> SplitReader::adaptColumns(
         childSpec->setConstantValue(nullptr);
         auto outputTypeIdx = readerOutputType_->getChildIdxIfExists(fieldName);
         if (outputTypeIdx.has_value()) {
-          // We know the fieldName exists in the file, make the type at that
-          // position match what we expect in the output.
-          columnTypes[fileTypeIdx.value()] =
-              readerOutputType_->childAt(*outputTypeIdx);
+          auto& outputType = readerOutputType_->childAt(*outputTypeIdx);
+          auto& columnType = columnTypes[*fileTypeIdx];
+          if (childSpec->isFlatMapAsStruct()) {
+            // Flat map column read as struct.  Leave the schema type as MAP.
+            VELOX_CHECK(outputType->isRow() && columnType->isMap());
+          } else {
+            // We know the fieldName exists in the file, make the type at that
+            // position match what we expect in the output.
+            columnType = outputType;
+          }
         }
       }
     }

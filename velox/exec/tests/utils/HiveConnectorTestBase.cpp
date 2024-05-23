@@ -71,9 +71,17 @@ void HiveConnectorTestBase::writeToFile(
     const std::string& filePath,
     const std::vector<RowVectorPtr>& vectors,
     std::shared_ptr<dwrf::Config> config) {
+  writeToFile(filePath, vectors, std::move(config), vectors[0]->type());
+}
+
+void HiveConnectorTestBase::writeToFile(
+    const std::string& filePath,
+    const std::vector<RowVectorPtr>& vectors,
+    std::shared_ptr<dwrf::Config> config,
+    const TypePtr& schema) {
   velox::dwrf::WriterOptions options;
   options.config = config;
-  options.schema = vectors[0]->type();
+  options.schema = schema;
   auto localWriteFile = std::make_unique<LocalWriteFile>(filePath, true, false);
   auto sink = std::make_unique<dwio::common::WriteFileSink>(
       std::move(localWriteFile), filePath);

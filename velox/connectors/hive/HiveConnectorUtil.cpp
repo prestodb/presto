@@ -327,14 +327,25 @@ void checkColumnNameLowerCase(const core::TypedExprPtr& typeExpr) {
 
 namespace {
 
-void filterOutNullMapKeys(const Type& rootType, common::ScanSpec& rootSpec) {
-  rootSpec.visit(rootType, [](const Type& type, common::ScanSpec& spec) {
+void processFieldSpec(
+    const RowTypePtr& dataColumns,
+    const TypePtr& outputType,
+    common::ScanSpec& fieldSpec) {
+  fieldSpec.visit(*outputType, [](const Type& type, common::ScanSpec& spec) {
     if (type.isMap() && !spec.isConstant()) {
       auto* keys = spec.childByName(common::ScanSpec::kMapKeysFieldName);
       VELOX_CHECK_NOT_NULL(keys);
       keys->addFilter(common::IsNotNull());
     }
   });
+  if (dataColumns) {
+    auto i = dataColumns->getChildIdxIfExists(fieldSpec.fieldName());
+    if (i.has_value()) {
+      if (dataColumns->childAt(*i)->isMap() && outputType->isRow()) {
+        fieldSpec.setFlatMapAsStruct(true);
+      }
+    }
+  }
 }
 
 } // namespace
@@ -374,7 +385,7 @@ std::shared_ptr<common::ScanSpec> makeScanSpec(
     auto it = outputSubfields.find(name);
     if (it == outputSubfields.end()) {
       auto* fieldSpec = spec->addFieldRecursively(name, *type, i);
-      filterOutNullMapKeys(*type, *fieldSpec);
+      processFieldSpec(dataColumns, type, *fieldSpec);
       filterSubfields.erase(name);
       continue;
     }
@@ -390,7 +401,7 @@ std::shared_ptr<common::ScanSpec> makeScanSpec(
     }
     auto* fieldSpec = spec->addField(name, i);
     addSubfields(*type, subfieldSpecs, 1, pool, *fieldSpec);
-    filterOutNullMapKeys(*type, *fieldSpec);
+    processFieldSpec(dataColumns, type, *fieldSpec);
     subfieldSpecs.clear();
   }
 
@@ -404,7 +415,7 @@ std::shared_ptr<common::ScanSpec> makeScanSpec(
       auto& type = dataColumns->findChild(fieldName);
       auto* fieldSpec = spec->getOrCreateChild(common::Subfield(fieldName));
       addSubfields(*type, subfieldSpecs, 1, pool, *fieldSpec);
-      filterOutNullMapKeys(*type, *fieldSpec);
+      processFieldSpec(dataColumns, type, *fieldSpec);
       subfieldSpecs.clear();
     }
   }

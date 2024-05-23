@@ -186,8 +186,7 @@ class SelectiveFlatMapAsStructReader : public SelectiveStructColumnReaderBase {
       const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
       const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
       DwrfParams& params,
-      common::ScanSpec& scanSpec,
-      const std::vector<std::string>& /*keys*/)
+      common::ScanSpec& scanSpec)
       : SelectiveStructColumnReaderBase(
             requestedType,
             fileType,
@@ -246,12 +245,9 @@ std::unique_ptr<dwio::common::SelectiveColumnReader> createReader(
     const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
     DwrfParams& params,
     common::ScanSpec& scanSpec) {
-  auto& mapColumnIdAsStruct =
-      params.stripeStreams().getRowReaderOptions().getMapColumnIdAsStruct();
-  auto it = mapColumnIdAsStruct.find(requestedType->id());
-  if (it != mapColumnIdAsStruct.end()) {
+  if (scanSpec.isFlatMapAsStruct()) {
     return std::make_unique<SelectiveFlatMapAsStructReader<T>>(
-        requestedType, fileType, params, scanSpec, it->second);
+        requestedType, fileType, params, scanSpec);
   } else {
     return std::make_unique<SelectiveFlatMapReader<T>>(
         requestedType, fileType, params, scanSpec);

@@ -328,6 +328,14 @@ class ScanSpec {
   template <typename F>
   void visit(const Type& type, F&& f);
 
+  bool isFlatMapAsStruct() const {
+    return isFlatMapAsStruct_;
+  }
+
+  void setFlatMapAsStruct(bool value) {
+    isFlatMapAsStruct_ = value;
+  }
+
  private:
   void reorder();
 
@@ -407,6 +415,10 @@ class ScanSpec {
 
   // Used only for bulk reader to project flat map features.
   std::vector<std::string> flatMapFeatureSelection_;
+
+  // This node represents a flat map column that need to be read as struct,
+  // i.e. in table schema it is a MAP, but in result vector it is ROW.
+  bool isFlatMapAsStruct_ = false;
 };
 
 template <typename F>
