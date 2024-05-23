@@ -38,6 +38,11 @@ int64_t& threadNumVeloxThrow() {
   return numThrow;
 }
 
+bool& threadSkipErrorDetails() {
+  thread_local bool skipErrorDetails{false};
+  return skipErrorDetails;
+}
+
 ExceptionContext& getExceptionContext() {
   thread_local ExceptionContext context;
   return context;

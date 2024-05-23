@@ -341,6 +341,25 @@ class VeloxRuntimeError final : public VeloxException {
 /// Returns a reference to a thread level counter of Velox error throws.
 int64_t& threadNumVeloxThrow();
 
+/// Returns a reference to a thread level boolean that controls whether no-throw
+/// APIs include detailed error messages in Status.
+bool& threadSkipErrorDetails();
+
+class ScopedThreadSkipErrorDetails {
+ public:
+  ScopedThreadSkipErrorDetails(bool skip = true)
+      : original_{threadSkipErrorDetails()} {
+    threadSkipErrorDetails() = skip;
+  }
+
+  ~ScopedThreadSkipErrorDetails() {
+    threadSkipErrorDetails() = original_;
+  }
+
+ private:
+  bool original_;
+};
+
 /// Holds a pointer to a function that provides addition context to be
 /// added to the detailed error message in case of an exception.
 struct ExceptionContext {

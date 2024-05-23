@@ -920,6 +920,9 @@ void CastExpr::evalSpecialForm(
     ScopedVarSetter holder{context.mutableThrowOnError(), false};
     ScopedVarSetter captureErrorDetails(
         context.mutableCaptureErrorDetails(), false);
+
+    ScopedThreadSkipErrorDetails skipErrorDetails(true);
+
     apply(rows, input, context, fromType, toType, result);
   } else {
     apply(rows, input, context, fromType, toType, result);
