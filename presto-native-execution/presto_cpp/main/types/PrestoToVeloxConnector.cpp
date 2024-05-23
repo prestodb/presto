@@ -88,7 +88,7 @@ dwio::common::FileFormat toVeloxFileFormat(
 dwio::common::FileFormat toVeloxFileFormat(
     const presto::protocol::FileFormat format) {
   if (format == protocol::FileFormat::ORC) {
-    return dwio::common::FileFormat::DWRF;
+    return dwio::common::FileFormat::ORC;
   } else if (format == protocol::FileFormat::PARQUET) {
     return dwio::common::FileFormat::PARQUET;
   }
