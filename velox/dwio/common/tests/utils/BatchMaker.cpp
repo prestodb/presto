@@ -51,14 +51,11 @@ VectorPtr createScalar(
   BufferPtr nulls = allocateNulls(size, &pool);
   auto* nullsPtr = nulls->asMutable<uint64_t>();
 
-  size_t nullCount = 0;
   for (size_t i = 0; i < size; ++i) {
     auto notNull = isNotNull(gen, i, isNullAt);
     bits::setNull(nullsPtr, i, !notNull);
     if (notNull) {
       valuesPtr[i] = val();
-    } else {
-      nullCount++;
     }
   }
 

@@ -253,9 +253,7 @@ class FilterProjectBenchmark : public VectorTestBase {
 
   int64_t run(std::shared_ptr<const core::PlanNode> plan) {
     auto start = getCurrentTimeMicro();
-    int32_t numRows = 0;
     auto result = exec::test::AssertQueryBuilder(plan).copyResults(pool_.get());
-    numRows += result->childAt(0)->as<FlatVector<int64_t>>()->valueAt(0);
     auto elapsedMicros = getCurrentTimeMicro() - start;
     return elapsedMicros;
   }

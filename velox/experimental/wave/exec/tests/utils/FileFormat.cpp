@@ -250,10 +250,8 @@ StringView StringSet::add(StringView data) {
 
 std::unique_ptr<Column> StringSet::toColumn() {
   auto buffer = AlignedBuffer::allocate<char>(totalSize_, pool_);
-  int64_t fill = 0;
   for (auto& piece : buffers_) {
     memcpy(buffer->asMutable<char>(), piece->as<char>(), piece->size());
-    fill += piece->size();
   }
   auto column = std::make_unique<Column>();
   column->kind = TypeKind::VARCHAR;

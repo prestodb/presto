@@ -452,16 +452,12 @@ class HashTableTest : public testing::TestWithParam<bool>,
     const auto mode = topTable_->hashMode();
     SelectivityInfo hashTime;
     SelectivityInfo probeTime;
-    int32_t numHashed = 0;
-    int32_t numProbed = 0;
-    int32_t numHit = 0;
     auto& hashers = topTable_->hashers();
     VectorHasher::ScratchMemory scratchMemory;
     for (auto batchIndex = 0; batchIndex < batches_.size(); ++batchIndex) {
       const auto& batch = batches_[batchIndex];
       lookup->reset(batch->size());
       rows.setAll();
-      numHashed += batch->size();
       {
         SelectivityTimer timer(hashTime, 0);
         for (auto i = 0; i < hashers.size(); ++i) {
@@ -496,13 +492,11 @@ class HashTableTest : public testing::TestWithParam<bool>,
         }
       } else {
         {
-          numProbed += lookup->rows.size();
           SelectivityTimer timer(probeTime, 0);
           topTable_->joinProbe(*lookup);
         }
         for (auto i = 0; i < lookup->rows.size(); ++i) {
           const auto key = lookup->rows[i];
-          numHit += lookup->hits[key] != nullptr;
           ASSERT_EQ(rowOfKey_[startOffset + key], lookup->hits[key]);
         }
       }

@@ -1926,7 +1926,6 @@ void testFlatmapAsMapFieldLifeCycle(
   auto child =
       std::dynamic_pointer_cast<MapVector>(result->as<RowVector>()->childAt(0));
   BaseVector* rowPtr = result.get();
-  MapVector* childPtr = child.get();
   Buffer* rawNulls = child->nulls().get();
   BufferPtr sizes = child->sizes();
   Buffer* rawOffsets = child->offsets().get();
@@ -1947,7 +1946,6 @@ void testFlatmapAsMapFieldLifeCycle(
 
   auto mapKeys = child->mapKeys();
   auto rawSizes = child->sizes().get();
-  childPtr = child.get();
   child.reset();
 
   EXPECT_TRUE(rowReader->next(batchSize, result));
@@ -1959,7 +1957,6 @@ void testFlatmapAsMapFieldLifeCycle(
   EXPECT_NE(mapKeys, child->mapKeys());
   // there is a TODO in FlatMapColumnReader next() (result is not reused)
   // should be EQ; fix: https://fburl.com/code/wtrq8r5q
-  // EXPECT_EQ(childPtr, child.get());
   EXPECT_EQ(rowPtr, result.get());
 
   EXPECT_TRUE(rowReader->next(batchSize, result));
@@ -1971,7 +1968,6 @@ void testFlatmapAsMapFieldLifeCycle(
   EXPECT_NE(rawSizes, childCurr->sizes().get());
   EXPECT_NE(rawOffsets, childCurr->offsets().get());
   EXPECT_NE(keysPtr, childCurr->mapKeys().get());
-  // EXPECT_EQ(childPtr, childCurr.get());
   EXPECT_EQ(rowPtr, result.get());
 }
 

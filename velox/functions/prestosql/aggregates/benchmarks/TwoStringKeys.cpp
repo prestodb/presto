@@ -75,9 +75,8 @@ class TwoStringKeysBenchmark : public HiveConnectorTestBase {
 
     auto task = makeTask(plan);
 
-    vector_size_t numResultRows = 0;
     while (auto result = task->next()) {
-      numResultRows += result->size();
+      // no action
     }
 
     LOG(ERROR) << exec::printPlanWithStats(

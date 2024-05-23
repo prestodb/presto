@@ -69,7 +69,6 @@ void enqueueReads(
   auto& metadataCache = readerBase.getMetadataCache();
   uint64_t offset = stripeStart;
   uint64_t length = 0;
-  uint32_t regions = 0;
   for (const auto& stream : footer.streams()) {
     length = stream.length();
     // If index cache is available, there is no need to read it
@@ -81,7 +80,6 @@ void enqueueReads(
         selector.shouldReadStream(stream.node(), stream.sequence()) &&
         !inMetaCache) {
       input.enqueue({offset, length});
-      regions++;
     }
     offset += length;
   }

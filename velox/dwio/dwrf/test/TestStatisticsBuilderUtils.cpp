@@ -280,10 +280,8 @@ TEST_F(TestStatisticsBuilderUtils, addBinaryValues) {
 
   std::array<char, 10> data;
   std::memset(data.data(), 'a', 10);
-  size_t total = 0;
   for (size_t i = 0; i < size; ++i) {
     valuesPtr[i] = StringView(data.data(), i + 1);
-    total += (i + 1);
   }
 
   {

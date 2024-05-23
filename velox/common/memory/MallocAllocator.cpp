@@ -138,10 +138,8 @@ bool MallocAllocator::allocateContiguousImpl(
   } else {
     VELOX_CHECK_LE(numPages, maxPages);
   }
-  [[maybe_unused]] MachinePageCount numCollateralPages = 0;
   if (collateral != nullptr) {
-    numCollateralPages =
-        freeNonContiguous(*collateral) / AllocationTraits::kPageSize;
+    freeNonContiguous(*collateral);
   }
   auto numContiguousCollateralPages = allocation.numPages();
   if (numContiguousCollateralPages > 0) {

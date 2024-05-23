@@ -321,7 +321,6 @@ class HashTableBenchmark : public VectorTestBase {
     int32_t mask = powerOfTwo - 1;
     int32_t position = 0;
     int32_t delta = 1;
-    int32_t numInserted = 0;
     auto nextOffset = rowContainer->nextOffset();
 
     // We insert values in a geometric skip order. 1, 2, 4, 7,
@@ -340,7 +339,6 @@ class HashTableBenchmark : public VectorTestBase {
         if (nextOffset) {
           *reinterpret_cast<char**>(newRow + nextOffset) = nullptr;
         }
-        ++numInserted;
         for (auto i = 0; i < batches[batchIndex]->type()->size(); ++i) {
           rowContainer->store(decoded[batchIndex][i], rowIndex, newRow, i);
         }

@@ -1155,8 +1155,6 @@ TEST_F(TestSeek, uncompressedLarge) {
     return 0;
   };
   // Start and size of last Next as offsets to content (no headers).
-  int32_t lastReadStart = 0;
-  int32_t lastReadSize = 0;
 
   for (auto& pair : ranges) {
     uint64_t target = pair.first;
@@ -1170,8 +1168,6 @@ TEST_F(TestSeek, uncompressedLarge) {
       EXPECT_EQ(result, addressForOffset(target + readSize));
       EXPECT_EQ(
           size, readSizeForAddress(reinterpret_cast<const char*>(result)));
-      lastReadStart = target + readSize;
-      lastReadSize = size;
       readSize += size;
     } while (readSize < targetSize);
   }

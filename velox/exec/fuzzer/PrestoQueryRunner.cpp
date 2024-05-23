@@ -611,12 +611,10 @@ std::vector<RowVectorPtr> PrestoQueryRunner::execute(const std::string& sql) {
   auto response = ServerResponse(startQuery(sql));
   response.throwIfFailed();
 
-  vector_size_t numResults = 0;
   std::vector<RowVectorPtr> queryResults;
   for (;;) {
     for (auto& result : response.queryResults(pool_.get())) {
       queryResults.push_back(result);
-      numResults += result->size();
     }
 
     if (response.queryCompleted()) {

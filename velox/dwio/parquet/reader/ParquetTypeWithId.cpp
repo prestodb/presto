@@ -103,12 +103,8 @@ LevelMode ParquetTypeWithId::makeLevelInfo(LevelInfo& info) const {
   bool isMap = type()->kind() == TypeKind::MAP;
   bool hasList = false;
   if (isStruct) {
-    bool isAllLists = true;
     for (auto i = 0; i < getChildren().size(); ++i) {
       auto& child = parquetChildAt(i);
-      if (child.type()->kind() != TypeKind ::ARRAY) {
-        isAllLists = false;
-      }
       hasList |= hasList || containsList(child);
     }
   }
