@@ -248,7 +248,7 @@ uint64_t SharedArbitrator::growCapacity(
       decrementFreeCapacityLocked(maxBytesToReserve, minBytesToReserve);
   try {
     checkedGrow(pool, reservedBytes, 0);
-  } catch (const VeloxRuntimeError& error) {
+  } catch (const VeloxRuntimeError&) {
     reservedBytes = 0;
   }
   return reservedBytes;

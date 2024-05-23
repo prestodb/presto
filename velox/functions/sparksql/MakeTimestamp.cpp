@@ -125,7 +125,7 @@ class MakeTimestampFunction : public exec::VectorFunction {
         int64_t constantTzID;
         try {
           constantTzID = util::getTimeZoneID(std::string_view(tz));
-        } catch (const VeloxException& e) {
+        } catch (const VeloxException&) {
           context.setErrors(rows, std::current_exception());
           return;
         }

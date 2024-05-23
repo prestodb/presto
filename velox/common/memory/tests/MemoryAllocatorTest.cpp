@@ -121,7 +121,7 @@ class MemoryAllocatorTest : public testing::TestWithParam<int> {
         EXPECT_TRUE(result.empty());
         return false;
       }
-    } catch (const VeloxException& e) {
+    } catch (const VeloxException&) {
       EXPECT_TRUE(result.empty());
       return false;
     }

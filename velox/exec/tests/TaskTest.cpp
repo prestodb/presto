@@ -1480,7 +1480,7 @@ DEBUG_ONLY_TEST_F(TaskTest, driverCounters) {
     try {
       while (cursor->moveNext()) {
       };
-    } catch (VeloxRuntimeError& ex) {
+    } catch (VeloxRuntimeError&) {
     }
   });
 
@@ -1763,7 +1763,7 @@ DEBUG_ONLY_TEST_F(
 
   try {
     VELOX_FAIL(abortErrorMessage);
-  } catch (VeloxException& e) {
+  } catch (VeloxException&) {
     abortWait.await([&]() { return abortWaitFlag.load(); });
     blockingTask->pool()->abort(std::current_exception());
   }
@@ -1818,7 +1818,7 @@ DEBUG_ONLY_TEST_F(TaskTest, longRunningOperatorInTaskReclaimerAbort) {
   const std::string abortErrorMessage("Synthetic Exception");
   try {
     VELOX_FAIL(abortErrorMessage);
-  } catch (VeloxException& e) {
+  } catch (VeloxException&) {
     blockingTask->pool()->abort(std::current_exception());
   }
   waitForTaskCompletion(blockingTask.get());

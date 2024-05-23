@@ -140,7 +140,7 @@ TEST(AsyncSourceTest, errorsWithThreads) {
             auto gizmo =
                 gizmos[folly::Random::rand32(rng) % gizmos.size()]->move();
             EXPECT_EQ(nullptr, gizmo);
-          } catch (std::exception& e) {
+          } catch (std::exception&) {
             ++numErrors;
           }
         }
