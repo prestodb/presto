@@ -980,6 +980,10 @@ void JoinFuzzer::verify(core::JoinType joinType) {
       flatBuildInput,
       outputColumns));
 
+  makeAlternativePlans(defaultPlan.plan, probeInput, buildInput, altPlans);
+  makeAlternativePlans(
+      defaultPlan.plan, flatProbeInput, flatBuildInput, altPlans);
+
   const auto tableScanDir = exec::test::TempDirectoryPath::create();
   addPlansWithTableScan(
       tableScanDir->getPath(),
