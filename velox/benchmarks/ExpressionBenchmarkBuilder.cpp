@@ -116,8 +116,8 @@ void ExpressionBenchmarkBuilder::registerBenchmarks() {
             return 1;
           });
     }
-    BENCHMARK_DRAW_LINE();
-    BENCHMARK_DRAW_LINE();
+
+    folly::addBenchmark(__FILE__, "-", []() -> unsigned { return 0; });
   }
 }
 } // namespace facebook::velox

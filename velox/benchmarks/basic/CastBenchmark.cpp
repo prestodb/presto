@@ -30,7 +30,7 @@ int main(int argc, char** argv) {
   ExpressionBenchmarkBuilder benchmarkBuilder;
   const vector_size_t vectorSize = 1000;
   auto vectorMaker = benchmarkBuilder.vectorMaker();
-  auto invalidInput = vectorMaker.flatVector<facebook::velox::StringView>({""});
+  auto emptyInput = vectorMaker.flatVector<facebook::velox::StringView>({""});
   auto validInput = vectorMaker.flatVector<facebook::velox::StringView>({""});
   auto nanInput = vectorMaker.flatVector<facebook::velox::StringView>({""});
   auto decimalInput = vectorMaker.flatVector<int64_t>(
@@ -59,16 +59,46 @@ int main(int argc, char** argv) {
       vectorMaker.flatVector<Timestamp>(vectorSize, [&](auto j) {
         return Timestamp(1695859694 + j / 1000, j % 1000 * 1'000'000);
       });
+  auto validDateStrings = vectorMaker.flatVector<std::string>(
+      vectorSize,
+      [](auto row) { return fmt::format("2024-05-{:02d}", 1 + row % 30); });
 
-  invalidInput->resize(vectorSize);
+  emptyInput->resize(vectorSize);
   validInput->resize(vectorSize);
   nanInput->resize(vectorSize);
 
   for (int i = 0; i < vectorSize; i++) {
     nanInput->set(i, "$"_sv);
-    invalidInput->set(i, StringView::makeInline(std::string("")));
+    emptyInput->set(i, StringView::makeInline(std::string("")));
     validInput->set(i, StringView::makeInline(std::to_string(i)));
   }
+
+  benchmarkBuilder
+      .addBenchmarkSet(
+          "cast_varhar_as_date",
+          vectorMaker.rowVector(
+              {"empty", "valid_date"}, {emptyInput, validDateStrings}))
+      .addExpression("try_cast_invalid_empty_input", "try_cast(empty as date) ")
+      .addExpression(
+          "tryexpr_cast_invalid_empty_input", "try(cast (empty as date))")
+      .addExpression("cast_valid", "cast(valid_date as date)");
+
+  benchmarkBuilder
+      .addBenchmarkSet(
+          "cast_varhar_as_timestamp",
+          vectorMaker.rowVector(
+              {"empty", "valid_date"}, {emptyInput, validDateStrings}))
+      .addExpression(
+          "try_cast_invalid_empty_input", "try_cast(empty as timestamp) ")
+      .addExpression(
+          "tryexpr_cast_invalid_empty_input", "try(cast (empty as timestamp))")
+      .addExpression("cast_valid", "cast(valid_date as timestamp)");
+
+  benchmarkBuilder
+      .addBenchmarkSet(
+          "cast_timestamp_as_varchar",
+          vectorMaker.rowVector({"timestamp"}, {timestampInput}))
+      .addExpression("cast", "cast (timestamp as varchar)");
 
   benchmarkBuilder
       .addBenchmarkSet(
@@ -83,10 +113,9 @@ int main(int argc, char** argv) {
                "large_real",
                "small_real",
                "small_double",
-               "large_double",
-               "timestamp"},
+               "large_double"},
               {validInput,
-               invalidInput,
+               emptyInput,
                nanInput,
                decimalInput,
                shortDecimalInput,
@@ -94,8 +123,7 @@ int main(int argc, char** argv) {
                largeRealInput,
                smallRealInput,
                smallDoubleInput,
-               largeDoubleInput,
-               timestampInput}))
+               largeDoubleInput}))
       .addExpression("try_cast_invalid_empty_input", "try_cast (empty as int) ")
       .addExpression(
           "tryexpr_cast_invalid_empty_input", "try (cast (empty as int))")
@@ -119,7 +147,6 @@ int main(int argc, char** argv) {
       .addExpression(
           "cast_large_double_to_standard_notation",
           "cast(large_double as varchar)")
-      .addExpression("cast_timestamp", "cast (timestamp as varchar)")
       .addExpression("cast_real_as_int", "cast (small_real as integer)")
       .addExpression("cast_decimal_as_bigint", "cast (short_decimal as bigint)")
       .withIterations(100)
