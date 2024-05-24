@@ -51,7 +51,6 @@ import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import org.apache.iceberg.ManifestFile;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Table;
@@ -71,11 +70,11 @@ import static com.facebook.presto.iceberg.IcebergSessionProperties.isPushdownFil
 import static com.facebook.presto.iceberg.IcebergTableType.DATA;
 import static com.facebook.presto.iceberg.IcebergUtil.getAdjacentValue;
 import static com.facebook.presto.iceberg.IcebergUtil.getIcebergTable;
+import static com.facebook.presto.iceberg.IcebergUtil.getPartitionSpecsIncludingValidData;
 import static com.facebook.presto.spi.ConnectorPlanRewriter.rewriteWith;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -177,12 +176,7 @@ public class IcebergPlanOptimizer
             RowExpression subfieldPredicate = rowExpressionService.getDomainTranslator().toPredicate(subfieldTupleDomain);
 
             // Get partition specs that really need to be checked
-            Set<Integer> partitionSpecIds = tableHandle.getIcebergTableName().getSnapshotId().map(
-                    snapshot -> icebergTable.snapshot(snapshot).allManifests(icebergTable.io()).stream()
-                            .map(ManifestFile::partitionSpecId)
-                            .collect(toImmutableSet()))
-                    .orElseGet(() -> ImmutableSet.copyOf(icebergTable.specs().keySet()));   // No snapshot, so no data. This case doesn't matter.
-
+            Set<Integer> partitionSpecIds = getPartitionSpecsIncludingValidData(icebergTable, tableHandle.getIcebergTableName().getSnapshotId());
             Set<IcebergColumnHandle> enforcedColumns = getEnforcedColumns(icebergTable,
                     partitionSpecIds,
                     entireColumnDomain,

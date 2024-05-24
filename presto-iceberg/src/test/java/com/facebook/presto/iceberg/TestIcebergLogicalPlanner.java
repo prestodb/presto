@@ -18,11 +18,13 @@ import com.facebook.presto.Session.SessionBuilder;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.predicate.ValueSet;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.FilterNode;
@@ -88,6 +90,7 @@ import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.PARQUET_DEREFERENCE_PUSHDOWN_ENABLED;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.PUSHDOWN_FILTER_ENABLED;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.isPushdownFilterEnabled;
 import static com.facebook.presto.parquet.ParquetTypeUtils.pushdownColumnNameForSubfield;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.OR;
@@ -633,6 +636,96 @@ public class TestIcebergLogicalPlanner
                         filter("name='hd001'",
                                 strictTableScan("test_filters_with_pushdown_disable", identityMap("name", "r")))))));
         assertUpdate("DROP TABLE test_filters_with_pushdown_disable");
+    }
+
+    @Test
+    public void testThoroughlyPushdownForTableWithUnsupportedSpecsIncludingNoData()
+    {
+        // The filter pushdown session property is disabled by default
+        Session sessionWithoutFilterPushdown = getQueryRunner().getDefaultSession();
+        assertEquals(isPushdownFilterEnabled(sessionWithoutFilterPushdown.toConnectorSession(new ConnectorId(ICEBERG_CATALOG))), false);
+
+        String tableName = "test_empty_partition_spec_table";
+        try {
+            // Create a table with no partition
+            assertUpdate("CREATE TABLE " + tableName + " (a INTEGER, b VARCHAR) WITH (format_version = '1')");
+
+            // Do not insert data, and evaluate the partition spec by adding a partition column `c`
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN c INTEGER WITH (partitioning = 'identity')");
+
+            // Insert data under the new partition spec
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, '1001', 1), (2, '1002', 2), (3, '1003', 3), (4, '1004', 4)", 4);
+
+            // Only identity partition column predicates, would be enforced totally by tableScan
+            assertPlan(sessionWithoutFilterPushdown, "SELECT a, b FROM " + tableName + " WHERE c > 2",
+                    output(exchange(
+                            strictTableScan(tableName, identityMap("a", "b")))),
+                    plan -> assertTableLayout(
+                            plan,
+                            tableName,
+                            withColumnDomains(ImmutableMap.of(new Subfield(
+                                            "c",
+                                            ImmutableList.of()),
+                                    Domain.create(ValueSet.ofRanges(greaterThan(INTEGER, 2L)), false))),
+                            TRUE_CONSTANT,
+                            ImmutableSet.of("c")));
+            assertQuery("SELECT * FROM " + tableName, "VALUES (1, '1001', 1), (2, '1002', 2), (3, '1003', 3), (4, '1004', 4)");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
+    }
+
+    @Test
+    public void testThoroughlyPushdownForTableWithUnsupportedSpecsWhoseDataAllDeleted()
+    {
+        // The filter pushdown session property is disabled by default
+        Session sessionWithoutFilterPushdown = getQueryRunner().getDefaultSession();
+        assertEquals(isPushdownFilterEnabled(sessionWithoutFilterPushdown.toConnectorSession(new ConnectorId(ICEBERG_CATALOG))), false);
+
+        String tableName = "test_data_deleted_partition_spec_table";
+        try {
+            // Create a table with partition column `a`, and insert some data under this partition spec
+            assertUpdate("CREATE TABLE " + tableName + " (a INTEGER, b VARCHAR) WITH (format_version = '1', partitioning = ARRAY['a'])");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, '1001'), (2, '1002')", 2);
+
+            // Then evaluate the partition spec by adding a partition column `c`, and insert some data under the new partition spec
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN c INTEGER WITH (partitioning = 'identity')");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (3, '1003', 3), (4, '1004', 4), (5, '1005', 5)", 3);
+
+            // The predicate was enforced partially by tableScan, filter on `c` could not be thoroughly pushed down, so the filterNode drop it's filter condition `a > 2`
+            assertPlan(sessionWithoutFilterPushdown, "SELECT b FROM " + tableName + " WHERE a > 2 and c = 4",
+                    output(exchange(project(
+                            filter("c = 4",
+                                    strictTableScan(tableName, identityMap("b", "c")))))));
+            assertQuery("SELECT * FROM " + tableName, "VALUES (1, '1001', NULL), (2, '1002', NULL), (3, '1003', 3), (4, '1004', 4), (5, '1005', 5)");
+
+            // Do metadata delete on column `a`, because all partition specs contains partition column `a`
+            assertUpdate("DELETE FROM " + tableName + " WHERE a IN (1, 2)", 2);
+
+            // Only identity partition column predicates, would be enforced totally by tableScan
+            assertPlan(sessionWithoutFilterPushdown, "SELECT b FROM " + tableName + " WHERE a > 2 and c = 4",
+                    output(exchange(
+                            strictTableScan(tableName, identityMap("b")))),
+                    plan -> assertTableLayout(
+                            plan,
+                            tableName,
+                            withColumnDomains(ImmutableMap.of(
+                                    new Subfield(
+                                            "a",
+                                            ImmutableList.of()),
+                                    Domain.create(ValueSet.ofRanges(greaterThan(INTEGER, 2L)), false),
+                                    new Subfield(
+                                            "c",
+                                            ImmutableList.of()),
+                                    singleValue(INTEGER, 4L))),
+                            TRUE_CONSTANT,
+                            ImmutableSet.of("a", "c")));
+            assertQuery("SELECT * FROM " + tableName, "VALUES (3, '1003', 3), (4, '1004', 4), (5, '1005', 5)");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
     }
 
     @DataProvider(name = "timezones")

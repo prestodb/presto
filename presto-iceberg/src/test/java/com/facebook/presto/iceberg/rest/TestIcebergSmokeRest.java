@@ -164,4 +164,32 @@ public class TestIcebergSmokeRest
             super.testMetadataDeleteOnNonIdentityPartitionColumn(version, mode);
         }
     }
+
+    @Test(dataProvider = "version_and_mode")
+    public void testMetadataDeleteOnTableWithUnsupportedSpecsIncludingNoData(String version, String mode)
+    {
+        if (version.equals("1")) {
+            // v1 table create fails due to Iceberg REST catalog bug (see: https://github.com/apache/iceberg/issues/8756)
+            assertThatThrownBy(() -> super.testMetadataDeleteOnTableWithUnsupportedSpecsIncludingNoData(version, mode))
+                    .isInstanceOf(RuntimeException.class);
+        }
+        else {
+            // v2 succeeds
+            super.testMetadataDeleteOnTableWithUnsupportedSpecsIncludingNoData(version, mode);
+        }
+    }
+
+    @Test(dataProvider = "version_and_mode")
+    public void testMetadataDeleteOnTableWithUnsupportedSpecsWhoseDataAllDeleted(String version, String mode)
+    {
+        if (version.equals("1")) {
+            // v1 table create fails due to Iceberg REST catalog bug (see: https://github.com/apache/iceberg/issues/8756)
+            assertThatThrownBy(() -> super.testMetadataDeleteOnTableWithUnsupportedSpecsWhoseDataAllDeleted(version, mode))
+                    .isInstanceOf(RuntimeException.class);
+        }
+        else {
+            // v2 succeeds
+            super.testMetadataDeleteOnTableWithUnsupportedSpecsWhoseDataAllDeleted(version, mode);
+        }
+    }
 }

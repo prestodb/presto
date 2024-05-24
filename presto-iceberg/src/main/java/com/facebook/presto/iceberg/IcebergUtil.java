@@ -300,6 +300,15 @@ public final class IcebergUtil
         return columns.build();
     }
 
+    public static Set<Integer> getPartitionSpecsIncludingValidData(Table icebergTable, Optional<Long> snapshotId)
+    {
+        return snapshotId.map(snapshot -> icebergTable.snapshot(snapshot).allManifests(icebergTable.io()).stream()
+                        .filter(manifestFile -> manifestFile.hasAddedFiles() || manifestFile.hasExistingFiles())
+                        .map(ManifestFile::partitionSpecId)
+                        .collect(toImmutableSet()))
+                .orElseGet(() -> ImmutableSet.copyOf(icebergTable.specs().keySet()));   // No snapshot, so no data. This case doesn't matter.
+    }
+
     public static List<Column> toHiveColumns(List<NestedField> columns)
     {
         return columns.stream()
