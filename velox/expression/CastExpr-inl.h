@@ -340,7 +340,7 @@ void CastExpr::applyCastKernel(
             makeErrorMessage(*input, row, result->type(), details);
         context.setStatus(row, Status::UserError("{}", errorDetails));
       } else {
-        context.setStatus(row, Status::UserError(""));
+        context.setStatus(row, Status::UserError());
       }
     }
   };

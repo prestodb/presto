@@ -36,6 +36,14 @@ TEST(StatusTest, testCodeAndMessage) {
   ASSERT_EQ("file error", fileError.message());
 }
 
+TEST(StatusTest, testNoMessage) {
+  Status fileError = Status::IOError();
+  ASSERT_EQ(StatusCode::kIOError, fileError.code());
+  ASSERT_EQ("", fileError.message());
+  ASSERT_EQ("IOError: ", fileError.toString());
+  ASSERT_EQ("IOError", fileError.codeAsString());
+}
+
 TEST(StatusTest, testToString) {
   Status fileError = Status::IOError("file error");
   ASSERT_EQ("IOError: file error", fileError.toString());

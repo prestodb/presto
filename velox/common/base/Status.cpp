@@ -54,6 +54,11 @@ std::string_view toString(StatusCode code) {
   return ""; // no-op
 }
 
+Status::Status(StatusCode code) {
+  state_ = new State;
+  state_->code = code;
+}
+
 Status::Status(StatusCode code, std::string msg) {
   if (FOLLY_UNLIKELY(code == StatusCode::kOK)) {
     throw std::invalid_argument("Cannot construct ok status with message");

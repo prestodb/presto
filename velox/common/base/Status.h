@@ -156,6 +156,8 @@ class [[nodiscard]] Status {
     }
   }
 
+  explicit Status(StatusCode code);
+
   Status(StatusCode code, std::string msg);
 
   // Copy the specified status.
@@ -192,7 +194,7 @@ class [[nodiscard]] Status {
   //   auto st1 = Status::UserError("my error"):
   //   auto st2 = Status::TypeError("my other error"):
 
-  /// Return an error status for out-of-memory conditions.
+  /// Return an error status for user errors.
   template <typename... Args>
   static Status UserError(Args&&... args) {
     return Status::fromArgs(
@@ -220,6 +222,7 @@ class [[nodiscard]] Status {
     return Status::fromArgs(StatusCode::kKeyError, std::forward<Args>(args)...);
   }
 
+  /// Return an error status when something already exists (e.g. a file).
   template <typename... Args>
   static Status AlreadyExists(Args&&... args) {
     return Status::fromArgs(
@@ -367,6 +370,10 @@ class [[nodiscard]] Status {
   static Status
   fromArgs(StatusCode code, fmt::string_view fmt, Args&&... args) {
     return Status(code, fmt::vformat(fmt, fmt::make_format_args(args...)));
+  }
+
+  static Status fromArgs(StatusCode code) {
+    return Status(code);
   }
 
   void deleteState() {
