@@ -55,7 +55,11 @@ class ArraysOverlapTest : public FunctionBaseTest {
          {1, 1, -2, -2, -2, 4, 8},
          {2, -1},
          {1, 2, 3},
-         {std::nullopt}});
+         {std::nullopt},
+         {},
+         {std::nullopt},
+         {},
+         {1, 2}});
     auto array2 = makeNullableArrayVector<T>(
         {{1, -2, 4},
          {1, -2, 4},
@@ -63,9 +67,23 @@ class ArraysOverlapTest : public FunctionBaseTest {
          {1, -2, 4},
          {1, -2, std::nullopt},
          {5, 6, 7},
-         {std::nullopt}});
+         {std::nullopt},
+         {1, std::nullopt},
+         {},
+         {std::nullopt},
+         {}});
     auto expected = makeNullableFlatVector<bool>(
-        {true, true, std::nullopt, true, std::nullopt, false, std::nullopt});
+        {true,
+         true,
+         std::nullopt,
+         true,
+         std::nullopt,
+         false,
+         std::nullopt,
+         false,
+         false,
+         false,
+         false});
     testExpr(expected, "arrays_overlap(C0, C1)", {array1, array2});
     testExpr(expected, "arrays_overlap(C1, C0)", {array1, array2});
   }

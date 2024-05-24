@@ -21,7 +21,6 @@
 namespace facebook::velox::functions {
 namespace {
 template <typename T>
-
 struct SetWithNull {
   SetWithNull(vector_size_t initialSetSize = kInitialSetSize) {
     set.reserve(initialSetSize);
@@ -32,10 +31,15 @@ struct SetWithNull {
     hasNull = false;
   }
 
+  bool empty() const {
+    return !hasNull && set.empty();
+  }
+
   util::floating_point::HashSetNaNAware<T> set;
   bool hasNull{false};
   static constexpr vector_size_t kInitialSetSize{128};
 };
+
 // Generates a set based on the elements of an ArrayVector. Note that we take
 // rightSet as a parameter (instead of returning a new one) to reuse the
 // allocated memory.
@@ -169,7 +173,6 @@ class ArrayIntersectExceptFunction : public exec::VectorFunction {
 
       outputSet.reset();
       rawNewOffsets[row] = indicesCursor;
-
       // Scans the array elements on the left-hand side.
       for (vector_size_t i = offset; i < (offset + size); ++i) {
         if (decodedLeftElements->isNullAt(i)) {
@@ -286,6 +289,10 @@ class ArraysOverlapFunction : public exec::VectorFunction {
       auto offset = baseLeftArray->offsetAt(idx);
       auto size = baseLeftArray->sizeAt(idx);
       bool hasNull = rightSet.hasNull;
+      if (size == 0 || rightSet.empty()) {
+        resultBoolVector->set(row, false);
+        return;
+      }
       for (auto i = offset; i < (offset + size); ++i) {
         // For each element in the current row search for it in the rightSet.
         if (decodedLeftElements->isNullAt(i)) {
