@@ -246,4 +246,12 @@ TEST_F(ConfigTest, parseInvalid) {
   testInvalid("===\n", "property pair '===' has empty key");
 }
 
+TEST_F(ConfigTest, optionalNodeId) {
+  NodeConfig config;
+  auto nodeId = config.nodeId();
+  // Same value must be returned.
+  EXPECT_EQ(nodeId, config.nodeId());
+  EXPECT_EQ(nodeId, config.nodeId());
+}
+
 } // namespace facebook::presto::test
