@@ -96,7 +96,8 @@ Map Functions
 
 .. function:: map_top_n(map(K,V), n) -> map(K, V)
 
-    Truncates map items. Keeps only the top N elements by value.
+    Truncates map items. Keeps only the top N elements by value. Keys are used to break ties with the max key being chosen. Both keys and values should be orderable.
+
     ``n`` must be a non-negative BIGINT value.::
 
         SELECT map_top_n(map(ARRAY['a', 'b', 'c'], ARRAY[2, 3, 1]), 2) --- {'b' -> 3, 'a' -> 2}

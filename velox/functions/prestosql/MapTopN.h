@@ -34,7 +34,16 @@ struct MapTopNFunction {
           CompareFlags::NullHandlingMode::kNullAsIndeterminate};
 
       if (l->second.has_value() && r->second.has_value()) {
-        return l->second.value().compare(r->second.value(), flags) > 0;
+        auto comp = l->second.value().compare(r->second.value(), flags);
+
+        if (FOLLY_UNLIKELY(comp == 0)) {
+          return l->first.compare(r->first, flags) > 0;
+        }
+
+        return comp > 0;
+      } else if (FOLLY_UNLIKELY(
+                     l->second.has_value() && r->second.has_value())) {
+        return l->first.compare(r->first, flags) > 0;
       }
 
       return l->second.has_value();
@@ -42,8 +51,8 @@ struct MapTopNFunction {
   };
 
   void call(
-      out_type<Map<Generic<T1>, Orderable<T2>>>& out,
-      const arg_type<Map<Generic<T1>, Orderable<T2>>>& inputMap,
+      out_type<Map<Orderable<T1>, Orderable<T2>>>& out,
+      const arg_type<Map<Orderable<T1>, Orderable<T2>>>& inputMap,
       int64_t n) {
     VELOX_USER_CHECK_GE(n, 0, "n must be greater than or equal to 0")
 
@@ -56,7 +65,7 @@ struct MapTopNFunction {
       return;
     }
 
-    using It = typename arg_type<Map<Generic<T1>, Orderable<T2>>>::Iterator;
+    using It = typename arg_type<Map<Orderable<T1>, Orderable<T2>>>::Iterator;
 
     Compare<It> comparator;
 

@@ -92,8 +92,8 @@ void registerMapFunctions(const std::string& prefix) {
 
   registerFunction<
       MapTopNFunction,
-      Map<Generic<T1>, Orderable<T2>>,
-      Map<Generic<T1>, Orderable<T2>>,
+      Map<Orderable<T1>, Orderable<T2>>,
+      Map<Orderable<T1>, Orderable<T2>>,
       int64_t>({prefix + "map_top_n"});
 
   registerMapSubset(prefix);

@@ -66,5 +66,53 @@ TEST_F(MapTopNTest, basic) {
       "n must be greater than or equal to 0");
 }
 
+// Test to ensure we use keys to break ties if values are
+// equal.
+TEST_F(MapTopNTest, equalValues) {
+  auto data = makeRowVector({
+      makeMapVectorFromJson<int32_t, int64_t>(
+          {"{6:3, 2:5, 3:1, 4:4, 5:2, 1:3}",
+           "{1:3, 2:5, 3:null, 4:4, 5:2, 6:5 }",
+           "{1:null, 2:null, 3:1, 4:4, 5:null}",
+           "{1:null, 2:null, 3:null, 4:null, 5:null}"}),
+  });
+
+  auto result = evaluate("map_top_n(c0, 3)", data);
+
+  auto expected = makeMapVectorFromJson<int32_t, int64_t>(
+      {"{2:5, 4:4, 6:3}",
+       "{6:5, 2:5, 4:4}",
+       "{4:4, 3:1, 5:null}",
+       "{4:null, 3:null, 5:null}"});
+
+  assertEqualVectors(expected, result);
+
+  // Map vector with equal array's as values.
+  auto valuesVector = makeArrayVectorFromJson<int64_t>({
+      "[1, 2, 3]",
+      "[4, 5, 6]",
+      "[-1, -2, -3]",
+      "[1, 2, 3]",
+  });
+
+  auto keysVector = makeFlatVector<int32_t>({1, 2, 3, 4});
+
+  auto mapvector = makeMapVector({0, 4}, keysVector, valuesVector);
+
+  result = evaluate("map_top_n(c0, 3)", makeRowVector({mapvector}));
+
+  auto expectedValues = makeArrayVectorFromJson<int64_t>({
+      "[1, 2, 3]",
+      "[4, 5, 6]",
+      "[1, 2, 3]",
+  });
+
+  auto expectedKeys = makeFlatVector<int32_t>({1, 2, 4});
+
+  auto expectedResults = makeMapVector({0, 3}, expectedKeys, expectedValues);
+
+  assertEqualVectors(expectedResults, result);
+}
+
 } // namespace
 } // namespace facebook::velox::functions
