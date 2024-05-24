@@ -24,12 +24,16 @@ import com.facebook.airlift.log.LogJmxModule;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.node.NodeModule;
 import com.facebook.airlift.tracetoken.TraceTokenModule;
+import com.facebook.presto.router.security.RouterSecurityModule;
 import com.facebook.presto.server.security.PasswordAuthenticatorManager;
-import com.facebook.presto.server.security.ServerSecurityModule;
+import com.facebook.presto.server.security.SecurityConfig;
+import com.facebook.presto.server.security.oauth2.OAuth2Client;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import org.weakref.jmx.guice.MBeanModule;
+
+import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.OAUTH2;
 
 public class PrestoRouter
 {
@@ -50,7 +54,7 @@ public class PrestoRouter
                 .add(new LogJmxModule())
                 .add(new TraceTokenModule())
                 .add(new EventModule())
-                .add(new ServerSecurityModule())
+                .add(new RouterSecurityModule())
                 .add(new RouterModule())
                 .add(extraModules)
                 .build());
@@ -60,6 +64,10 @@ public class PrestoRouter
             Injector injector = app.initialize();
             injector.getInstance(RouterPluginManager.class).loadPlugins();
             injector.getInstance(PasswordAuthenticatorManager.class).loadPasswordAuthenticator();
+            SecurityConfig securityConfig = injector.getInstance(SecurityConfig.class);
+            if (securityConfig.getAuthenticationTypes().contains(OAUTH2)) {
+                injector.getInstance(OAuth2Client.class).load();
+            }
             log.info("======== SERVER STARTED ========");
         }
         catch (Throwable t) {
