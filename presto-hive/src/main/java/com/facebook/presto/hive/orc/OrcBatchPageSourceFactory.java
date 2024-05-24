@@ -72,6 +72,7 @@ import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 
 public class OrcBatchPageSourceFactory
@@ -242,6 +243,9 @@ public class OrcBatchPageSourceFactory
 
             byte[] partitionID = rowIDPartitionComponent.orElse(new byte[0]);
             String rowGroupID = path.getName();
+
+            // none of the columns are row numbers
+            List<Boolean> isRowNumberList = nCopies(physicalColumns.size(), false);
             return new OrcBatchPageSource(
                     recordReader,
                     reader.getOrcDataSource(),
@@ -250,6 +254,7 @@ public class OrcBatchPageSourceFactory
                     systemMemoryUsage,
                     stats,
                     hiveFileContext.getStats(),
+                    isRowNumberList,
                     partitionID,
                     rowGroupID);
         }
