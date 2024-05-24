@@ -3919,9 +3919,7 @@ DEBUG_ONLY_TEST_F(TableWriterArbitrationTest, tableFileWriteError) {
   VectorFuzzer fuzzer(options, pool());
   const int numBatches = 20;
   std::vector<RowVectorPtr> vectors;
-  int numRows{0};
   for (int i = 0; i < numBatches; ++i) {
-    numRows += batchSize;
     vectors.push_back(fuzzer.fuzzRow(rowType_));
   }
 
