@@ -1588,6 +1588,58 @@ public class IcebergDistributedSmokeTestBase
         dropTable(session, tableName);
     }
 
+    @Test(dataProvider = "version_and_mode")
+    public void testMetadataDeleteOnTableWithUnsupportedSpecsIncludingNoData(String version, String mode)
+    {
+        String tableName = "test_empty_partition_spec_table";
+        try {
+            // Create a table with no partition
+            assertUpdate("CREATE TABLE " + tableName + " (a INTEGER, b VARCHAR) WITH (format_version = '" + version + "', delete_mode = '" + mode + "')");
+
+            // Do not insert data, and evaluate the partition spec by adding a partition column `c`
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN c INTEGER WITH (partitioning = 'identity')");
+
+            // Insert data under the new partition spec
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, '1001', 1), (2, '1002', 2), (3, '1003', 3), (4, '1004', 4)", 4);
+
+            // We can do metadata delete on partition column `c`, because the initial partition spec contains no data
+            assertUpdate("DELETE FROM " + tableName + " WHERE c in (1, 3)", 2);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (2, '1002', 2), (4, '1004', 4)");
+        }
+        finally {
+            dropTable(getSession(), tableName);
+        }
+    }
+
+    @Test(dataProvider = "version_and_mode")
+    public void testMetadataDeleteOnTableWithUnsupportedSpecsWhoseDataAllDeleted(String version, String mode)
+    {
+        String errorMessage = "This connector only supports delete where one or more partitions are deleted entirely.*";
+        String tableName = "test_data_deleted_partition_spec_table";
+        try {
+            // Create a table with partition column `a`, and insert some data under this partition spec
+            assertUpdate("CREATE TABLE " + tableName + " (a INTEGER, b VARCHAR) WITH (format_version = '" + version + "', delete_mode = '" + mode + "', partitioning = ARRAY['a'])");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, '1001'), (2, '1002')", 2);
+
+            // Then evaluate the partition spec by adding a partition column `c`, and insert some data under the new partition spec
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN c INTEGER WITH (partitioning = 'identity')");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (3, '1003', 3), (4, '1004', 4), (5, '1005', 5)", 3);
+
+            // Do not support metadata delete with filter on column `c`, because we have data with old partition spec
+            assertQueryFails("DELETE FROM " + tableName + " WHERE c > 3", errorMessage);
+
+            // Do metadata delete on column `a`, because all partition specs contains partition column `a`
+            assertUpdate("DELETE FROM " + tableName + " WHERE a in (1, 2)", 2);
+
+            // Then we can do metadata delete on column `c`, because the old partition spec contains no data now
+            assertUpdate("DELETE FROM " + tableName + " WHERE c > 3", 2);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (3, '1003', 3)");
+        }
+        finally {
+            dropTable(getSession(), tableName);
+        }
+    }
+
     @DataProvider(name = "version_and_mode")
     public Object[][] versionAndMode()
     {
