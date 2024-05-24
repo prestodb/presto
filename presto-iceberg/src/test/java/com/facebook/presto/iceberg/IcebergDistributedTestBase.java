@@ -492,6 +492,42 @@ public abstract class IcebergDistributedTestBase
         }
     }
 
+    @Test
+    public void testShowColumnsForPartitionedTable()
+    {
+        // Partitioned Table with only identity partitions
+        getQueryRunner().execute("CREATE TABLE show_columns_only_identity_partition " +
+                "(id int," +
+                " name varchar," +
+                " team varchar) WITH (partitioning = ARRAY['team'])");
+
+        MaterializedResult actual = computeActual("SHOW COLUMNS FROM show_columns_only_identity_partition");
+
+        MaterializedResult expectedParametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .row("id", "integer", "", "")
+                .row("name", "varchar", "", "")
+                .row("team", "varchar", "partition key", "")
+                .build();
+
+        assertEquals(actual, expectedParametrizedVarchar);
+
+        // Partitioned Table with non identity partition transforms
+        getQueryRunner().execute("CREATE TABLE show_columns_with_non_identity_partition " +
+                "(id int," +
+                " name varchar," +
+                " team varchar) WITH (partitioning = ARRAY['truncate(team, 1)', 'team'])");
+
+        actual = computeActual("SHOW COLUMNS FROM show_columns_with_non_identity_partition");
+
+        expectedParametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .row("id", "integer", "", "")
+                .row("name", "varchar", "", "")
+                .row("team", "varchar", "partition by truncate[1], identity", "")
+                .build();
+
+        assertEquals(actual, expectedParametrizedVarchar);
+    }
+
     @Override
     public void testShowColumns()
     {

@@ -110,6 +110,7 @@ import static com.facebook.presto.iceberg.IcebergColumnHandle.PATH_COLUMN_METADA
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.DATA_SEQUENCE_NUMBER;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.FILE_PATH;
+import static com.facebook.presto.iceberg.IcebergPartitionType.ALL;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isPushdownFilterEnabled;
 import static com.facebook.presto.iceberg.IcebergTableProperties.DELETE_MODE;
 import static com.facebook.presto.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
@@ -123,6 +124,7 @@ import static com.facebook.presto.iceberg.IcebergUtil.MIN_FORMAT_VERSION_FOR_DEL
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getDeleteMode;
 import static com.facebook.presto.iceberg.IcebergUtil.getFileFormat;
+import static com.facebook.presto.iceberg.IcebergUtil.getPartitionFields;
 import static com.facebook.presto.iceberg.IcebergUtil.getPartitionKeyColumnHandles;
 import static com.facebook.presto.iceberg.IcebergUtil.getPartitionSpecsIncludingValidData;
 import static com.facebook.presto.iceberg.IcebergUtil.getPartitions;
@@ -499,14 +501,28 @@ public abstract class IcebergAbstractMetadata
 
     protected List<ColumnMetadata> getColumnMetadatas(Table table)
     {
+        Map<String, List<String>> partitionFields = getPartitionFields(table.spec(), ALL);
         return table.schema().columns().stream()
                 .map(column -> ColumnMetadata.builder()
                         .setName(column.name())
                         .setType(toPrestoType(column.type(), typeManager))
                         .setComment(Optional.ofNullable(column.doc()))
                         .setHidden(false)
+                        .setExtraInfo(Optional.ofNullable(
+                                partitionFields.containsKey(column.name()) ?
+                                        columnExtraInfo(partitionFields.get(column.name())) :
+                                        null))
                         .build())
                 .collect(toImmutableList());
+    }
+
+    private static String columnExtraInfo(List<String> partitionTransforms)
+    {
+        if (partitionTransforms.size() == 1 && partitionTransforms.get(0).equals("identity")) {
+            return "partition key";
+        }
+
+        return "partition by " + partitionTransforms.stream().collect(Collectors.joining(", "));
     }
 
     protected ImmutableMap<String, Object> createMetadataProperties(Table icebergTable)
