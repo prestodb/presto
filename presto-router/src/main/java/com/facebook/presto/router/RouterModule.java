@@ -14,10 +14,12 @@
 package com.facebook.presto.router;
 
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
+import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.router.cluster.ClusterManager;
 import com.facebook.presto.router.cluster.ClusterStatusResource;
 import com.facebook.presto.router.cluster.ClusterStatusTracker;
 import com.facebook.presto.router.cluster.ForClusterInfoTracker;
+import com.facebook.presto.router.cluster.ForClusterManager;
 import com.facebook.presto.router.cluster.ForQueryInfoTracker;
 import com.facebook.presto.router.cluster.RemoteInfoFactory;
 import com.facebook.presto.router.predictor.ForQueryCpuPredictor;
@@ -25,16 +27,25 @@ import com.facebook.presto.router.predictor.ForQueryMemoryPredictor;
 import com.facebook.presto.router.predictor.PredictorManager;
 import com.facebook.presto.router.predictor.RemoteQueryFactory;
 import com.facebook.presto.server.PluginManagerConfig;
+import com.facebook.presto.server.ServerConfig;
+import com.facebook.presto.server.WebUiResource;
+import com.facebook.presto.server.security.oauth2.ForOAuth2;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.units.Duration;
 
 import java.lang.annotation.Annotation;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static com.facebook.airlift.http.server.HttpServerBinder.httpServerBinder;
 import static com.facebook.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
+import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class RouterModule
@@ -53,14 +64,25 @@ public class RouterModule
     @Override
     protected void setup(Binder binder)
     {
+        ServerConfig serverConfig = buildConfigObject(ServerConfig.class);
+
         httpServerBinder(binder).bindResource(UI_PATH, ROUTER_UI).withWelcomeFile(INDEX_HTML);
         configBinder(binder).bindConfig(RouterConfig.class);
+
+        // resource for serving static content
+        jaxrsBinder(binder).bind(WebUiResource.class);
+
+        binder.bind(ScheduledExecutorService.class).annotatedWith(ForClusterManager.class).toInstance(newSingleThreadScheduledExecutor(threadsNamed("cluster-config")));
 
         binder.bind(ClusterManager.class).in(Scopes.SINGLETON);
         binder.bind(RemoteInfoFactory.class).in(Scopes.SINGLETON);
 
         bindHttpClient(binder, QUERY_TRACKER, ForQueryInfoTracker.class, IDLE_TIMEOUT_SECOND, REQUEST_TIMEOUT_SECOND);
         bindHttpClient(binder, QUERY_TRACKER, ForClusterInfoTracker.class, IDLE_TIMEOUT_SECOND, REQUEST_TIMEOUT_SECOND);
+
+        //Determine the NodeVersion
+        NodeVersion nodeVersion = new NodeVersion(serverConfig.getPrestoVersion());
+        binder.bind(NodeVersion.class).toInstance(nodeVersion);
 
         binder.bind(ClusterStatusTracker.class).in(Scopes.SINGLETON);
 
@@ -75,6 +97,9 @@ public class RouterModule
 
         jaxrsBinder(binder).bind(RouterResource.class);
         jaxrsBinder(binder).bind(ClusterStatusResource.class);
+
+        //binder.bind(Executor.class).annotatedWith(ForOAuth2.class).toInstance(executor);
+        binder.bind(ExecutorService.class).annotatedWith(ForOAuth2.class).toInstance(newCachedThreadPool(daemonThreadsNamed("oauth-executor-%s")));
     }
 
     private void bindHttpClient(Binder binder, String name, Class<? extends Annotation> annotation, int idleTimeout, int requestTimeout)

@@ -314,6 +314,7 @@
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
+            <version>33.1.0-jre</version>
         </dependency>
 
         <dependency>
@@ -361,11 +362,13 @@
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-api</artifactId>
         </dependency>
+
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-impl</artifactId>
             <scope>runtime</scope>
         </dependency>
+
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-jackson</artifactId>
@@ -586,6 +589,9 @@
                     <ignorePackages>
                         <ignorePackage>com.facebook.presto.testing.assertions</ignorePackage>
                     </ignorePackages>
+                    <ignoreClassNamePatterns>
+                        <ignoreClassNamePattern>com.facebook.presto.server.MockHttpServletRequest</ignoreClassNamePattern>
+                    </ignoreClassNamePatterns>
                 </configuration>
             </plugin>
             <plugin>
