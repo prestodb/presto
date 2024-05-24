@@ -212,6 +212,12 @@ class CastExpr : public SpecialForm {
       const TypePtr& toType,
       VectorPtr& castResult);
 
+  template <typename TInput>
+  VectorPtr applyIntToBinaryCast(
+      const SelectivityVector& rows,
+      exec::EvalCtx& context,
+      const BaseVector& input);
+
   template <typename TInput, typename TOutput>
   void applyFloatingPointToDecimalCastKernel(
       const SelectivityVector& rows,

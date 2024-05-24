@@ -57,10 +57,6 @@ int32_t PrestoCastHooks::castStringToDate(const StringView& dateString) const {
   return util::castFromDateString(dateString, util::ParseMode::kStandardCast);
 }
 
-bool PrestoCastHooks::legacy() const {
-  return legacyCast_;
-}
-
 StringView PrestoCastHooks::removeWhiteSpaces(const StringView& view) const {
   return view;
 }
@@ -68,9 +64,5 @@ StringView PrestoCastHooks::removeWhiteSpaces(const StringView& view) const {
 const TimestampToStringOptions& PrestoCastHooks::timestampToStringOptions()
     const {
   return options_;
-}
-
-bool PrestoCastHooks::truncate() const {
-  return false;
 }
 } // namespace facebook::velox::exec

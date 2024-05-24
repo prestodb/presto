@@ -1704,6 +1704,17 @@ TEST_F(CastExprTest, decimalToDecimal) {
       "Cannot cast DECIMAL '-99999999999999999999999999999999999999' to DECIMAL(38, 1)");
 }
 
+TEST_F(CastExprTest, integerToBinary) {
+  testInvalidCast<int8_t>(
+      "varbinary", {12}, "Cannot cast TINYINT to VARBINARY.");
+  testInvalidCast<int16_t>(
+      "varbinary", {12}, "Cannot cast SMALLINT to VARBINARY.");
+  testInvalidCast<int32_t>(
+      "varbinary", {12}, "Cannot cast INTEGER to VARBINARY.");
+  testInvalidCast<int64_t>(
+      "varbinary", {12}, "Cannot cast BIGINT to VARBINARY.");
+}
+
 TEST_F(CastExprTest, integerToDecimal) {
   testIntToDecimalCasts<int8_t>();
   testIntToDecimalCasts<int16_t>();

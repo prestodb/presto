@@ -184,3 +184,22 @@ Valid example
   SELECT cast(' -3E+2' as decimal(12, 2)); -- -300.00
   SELECT cast('-3E+2 ' as decimal(12, 2)); -- -300.00
   SELECT cast('  -3E+2  ' as decimal(12, 2)); -- -300.00
+
+Cast to Varbinary
+-----------------
+
+From integral types
+^^^^^^^^^^^^^^^^^^^
+
+Casting integral value to varbinary type is allowed.
+Bytes of input value are converted into an array of bytes in little-endian order.
+Supported types are tinyint, smallint, integer and bigint.
+
+Valid example
+
+::
+
+  SELECT cast(cast(18 as tinyint) as binary); -- [12]
+  SELECT cast(cast(180 as smallint) as binary); -- [00 B4]
+  SELECT cast(cast(180000 as integer) as binary); -- [00 02 BF 20]
+  SELECT cast(cast(180000 as bigint) as binary); -- [00 00 00 00 00 02 BF 20]

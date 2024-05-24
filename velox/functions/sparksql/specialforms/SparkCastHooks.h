@@ -30,8 +30,9 @@ class SparkCastHooks : public exec::CastHooks {
   /// non-standard cast mode to cast from string to date.
   int32_t castStringToDate(const StringView& dateString) const override;
 
-  // Returns false.
-  bool legacy() const override;
+  bool legacy() const override {
+    return false;
+  }
 
   /// When casting from string to integral, floating-point, decimal, date, and
   /// timestamp types, Spark hook trims all leading and trailing UTF8
@@ -43,7 +44,8 @@ class SparkCastHooks : public exec::CastHooks {
   /// positive sign at first if the year exceeds 9999.
   const TimestampToStringOptions& timestampToStringOptions() const override;
 
-  // Returns true.
-  bool truncate() const override;
+  bool truncate() const override {
+    return true;
+  }
 };
 } // namespace facebook::velox::functions::sparksql

@@ -556,5 +556,78 @@ TEST_F(SparkCastExprTest, fromString) {
            -30000},
           DECIMAL(12, 2)));
 }
+
+TEST_F(SparkCastExprTest, tinyintToBinary) {
+  testCast<int8_t, std::string>(
+      TINYINT(),
+      VARBINARY(),
+      {18,
+       -26,
+       0,
+       110,
+       std::numeric_limits<int8_t>::max(),
+       std::numeric_limits<int8_t>::min()},
+      {std::string("\x12", 1),
+       std::string("\xE6", 1),
+       std::string("\0", 1),
+       std::string("\x6E", 1),
+       std::string("\x7F", 1),
+       std::string("\x80", 1)});
+}
+
+TEST_F(SparkCastExprTest, smallintToBinary) {
+  testCast<int16_t, std::string>(
+      SMALLINT(),
+      VARBINARY(),
+      {180,
+       -199,
+       0,
+       12300,
+       std::numeric_limits<int16_t>::max(),
+       std::numeric_limits<int16_t>::min()},
+      {std::string("\0\xB4", 2),
+       std::string("\xFF\x39", 2),
+       std::string("\0\0", 2),
+       std::string("\x30\x0C", 2),
+       std::string("\x7F\xFF", 2),
+       std::string("\x80\00", 2)});
+}
+
+TEST_F(SparkCastExprTest, integerToBinary) {
+  testCast<int32_t, std::string>(
+      INTEGER(),
+      VARBINARY(),
+      {18,
+       -26,
+       0,
+       180000,
+       std::numeric_limits<int32_t>::max(),
+       std::numeric_limits<int32_t>::min()},
+      {std::string("\0\0\0\x12", 4),
+       std::string("\xFF\xFF\xFF\xE6", 4),
+       std::string("\0\0\0\0", 4),
+       std::string("\0\x02\xBF\x20", 4),
+       std::string("\x7F\xFF\xFF\xFF", 4),
+       std::string("\x80\0\0\0", 4)});
+}
+
+TEST_F(SparkCastExprTest, bigintToBinary) {
+  testCast<int64_t, std::string>(
+      BIGINT(),
+      VARBINARY(),
+      {123456,
+       -256789,
+       0,
+       180000,
+       std::numeric_limits<int64_t>::max(),
+       std::numeric_limits<int64_t>::min()},
+      {std::string("\0\0\0\0\0\x01\xE2\x40", 8),
+       std::string("\xFF\xFF\xFF\xFF\xFF\xFC\x14\xEB", 8),
+       std::string("\0\0\0\0\0\0\0\0", 8),
+       std::string("\0\0\0\0\0\x02\xBF\x20", 8),
+       std::string("\x7F\xFF\xFF\xFF\xFF\xFF\xFF\xFF", 8),
+       std::string("\x80\x00\x00\x00\x00\x00\x00\x00", 8)});
+}
+
 } // namespace
 } // namespace facebook::velox::test

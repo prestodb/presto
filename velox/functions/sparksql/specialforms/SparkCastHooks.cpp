@@ -40,10 +40,6 @@ int32_t SparkCastHooks::castStringToDate(const StringView& dateString) const {
       removeWhiteSpaces(dateString), util::ParseMode::kNonStandardCast);
 }
 
-bool SparkCastHooks::legacy() const {
-  return false;
-}
-
 StringView SparkCastHooks::removeWhiteSpaces(const StringView& view) const {
   StringView output;
   stringImpl::trimUnicodeWhiteSpace<true, true, StringView, StringView>(
@@ -61,9 +57,5 @@ const TimestampToStringOptions& SparkCastHooks::timestampToStringOptions()
       .dateTimeSeparator = ' ',
   };
   return options;
-}
-
-bool SparkCastHooks::truncate() const {
-  return true;
 }
 } // namespace facebook::velox::functions::sparksql

@@ -32,8 +32,9 @@ class PrestoCastHooks : public CastHooks {
   // Uses standard cast mode to cast from string to date.
   int32_t castStringToDate(const StringView& dateString) const override;
 
-  // Follows 'isLegacyCast' config.
-  bool legacy() const override;
+  bool legacy() const override {
+    return legacyCast_;
+  }
 
   // Returns the input as is.
   StringView removeWhiteSpaces(const StringView& view) const override;
@@ -41,8 +42,9 @@ class PrestoCastHooks : public CastHooks {
   // Returns cast options following 'isLegacyCast' and session timezone.
   const TimestampToStringOptions& timestampToStringOptions() const override;
 
-  // Returns false.
-  bool truncate() const override;
+  bool truncate() const override {
+    return false;
+  }
 
  private:
   const bool legacyCast_;
