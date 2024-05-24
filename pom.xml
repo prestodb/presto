@@ -192,7 +192,6 @@
         <module>redis-hbo-provider</module>
         <module>presto-singlestore</module>
         <module>presto-hana</module>
-        <module>presto-ui</module>
     </modules>
 
     <dependencyManagement>
@@ -619,12 +618,6 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-main</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.facebook.presto</groupId>
-                <artifactId>presto-ui</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -2493,6 +2486,25 @@
     </build>
 
     <profiles>
+        <profile>
+            <id>ui</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <modules>
+                <module>presto-ui</module>
+            </modules>
+            <dependencyManagement>
+                <dependencies>
+                    <dependency>
+                        <groupId>com.facebook.presto</groupId>
+                        <artifactId>presto-ui</artifactId>
+                        <version>${project.version}</version>
+                        <scope>runtime</scope>
+                    </dependency>
+                </dependencies>
+            </dependencyManagement>
+        </profile>
         <profile>
             <id>tests-with-dependencies</id>
             <!--

@@ -82,11 +82,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-ui</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>com.google.code.findbugs</groupId>
             <artifactId>jsr305</artifactId>
         </dependency>
@@ -579,6 +574,22 @@
     </build>
 
     <profiles>
+        <profile>
+            <!-- Requires the UI as a dependency by default. If the UI is   -->
+            <!-- not required, turn off this profile (-P '!ui') to prevent  -->
+            <!-- building it      -->
+            <id>ui</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <dependencies>
+                <dependency>
+                    <groupId>com.facebook.presto</groupId>
+                    <artifactId>presto-ui</artifactId>
+                    <scope>runtime</scope>
+                </dependency>
+            </dependencies>
+        </profile>
         <profile>
             <id>benchmarks</id>
             <build>
