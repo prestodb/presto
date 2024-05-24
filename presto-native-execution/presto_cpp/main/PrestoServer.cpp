@@ -1128,7 +1128,7 @@ void PrestoServer::populateMemAndCPUInfo() {
   size_t numContexts{0};
   queryCtxMgr->visitAllContexts([&](const protocol::QueryId& queryId,
                                     const velox::core::QueryCtx* queryCtx) {
-    const protocol::Long bytes = queryCtx->pool()->currentBytes();
+    const protocol::Long bytes = queryCtx->pool()->reservedBytes();
     poolInfo.queryMemoryReservations.insert({queryId, bytes});
     // TODO(spershin): Might want to see what Java exports and export similar
     // info (like child memory pools).
@@ -1199,7 +1199,7 @@ protocol::NodeStatus PrestoServer::fetchNodeStatus() {
       (int)std::thread::hardware_concurrency(),
       cpuLoadPct,
       cpuLoadPct,
-      pool_ ? pool_->currentBytes() : 0,
+      pool_ ? pool_->usedBytes() : 0,
       nodeMemoryGb * 1024 * 1024 * 1024,
       nonHeapUsed};
 

@@ -547,7 +547,8 @@ void PrestoTask::updateMemoryInfoLocked(
   protocol::TaskStats& prestoTaskStats = info.stats;
 
   const auto veloxTaskMemStats = task->pool()->stats();
-  prestoTaskStats.userMemoryReservationInBytes = veloxTaskMemStats.currentBytes;
+  const int64_t currentBytes = task->pool()->usedBytes();
+  prestoTaskStats.userMemoryReservationInBytes = currentBytes;
   prestoTaskStats.systemMemoryReservationInBytes = 0;
   prestoTaskStats.peakUserMemoryInBytes = veloxTaskMemStats.peakBytes;
   prestoTaskStats.peakTotalMemoryInBytes = veloxTaskMemStats.peakBytes;
@@ -555,7 +556,6 @@ void PrestoTask::updateMemoryInfoLocked(
   // TODO(venkatra): Populate these memory stats as well.
   prestoTaskStats.revocableMemoryReservationInBytes = {};
 
-  const int64_t currentBytes = veloxTaskMemStats.currentBytes;
   const int64_t averageMemoryForLastPeriod =
       (currentBytes + lastMemoryReservation) / 2;
   const double sinceLastPeriodMs = currentTimeMs - lastTaskStatsUpdateMs;
