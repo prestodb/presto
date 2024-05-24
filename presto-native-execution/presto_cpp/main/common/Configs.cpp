@@ -17,6 +17,9 @@
 #include "presto_cpp/main/common/Utils.h"
 #include "velox/core/QueryConfig.h"
 
+#include <boost/lexical_cast.hpp>
+#include <boost/uuid/uuid_generators.hpp>
+#include <boost/uuid/uuid_io.hpp>
 #if __has_include("filesystem")
 #include <filesystem>
 namespace fs = std::filesystem;
@@ -648,7 +651,14 @@ std::string NodeConfig::nodeEnvironment() const {
 }
 
 std::string NodeConfig::nodeId() const {
-  return requiredProperty(kNodeId);
+  auto resultOpt = optionalProperty(kNodeId);
+  if (resultOpt.hasValue()) {
+    return resultOpt.value();
+  }
+  // Generate the nodeId which must be a UUID. nodeId must be a singleton.
+  static auto nodeId =
+      boost::lexical_cast<std::string>(boost::uuids::random_generator()());
+  return nodeId;
 }
 
 std::string NodeConfig::nodeLocation() const {
