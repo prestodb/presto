@@ -191,6 +191,7 @@ public class OrcBatchPageSource
             completedPositions += batchSize;
 
             Block[] blocks = new Block[hiveColumnIndexes.length];
+            // todo less then aor equal?
             for (int fieldId = 0; fieldId < blocks.length; fieldId++) {
                 if (isRowPositionColumn(fieldId)) {
                     blocks[fieldId] = getRowPosColumnBlock(recordReader.getFilePosition(), batchSize);

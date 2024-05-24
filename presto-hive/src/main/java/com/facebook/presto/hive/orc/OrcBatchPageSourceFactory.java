@@ -242,6 +242,7 @@ public class OrcBatchPageSourceFactory
 
             byte[] partitionID = rowIDPartitionComponent.orElse(new byte[0]);
             String rowGroupID = path.getName();
+            // todo(elharo) this is effectively saying no row IDs
             return new OrcBatchPageSource(
                     recordReader,
                     reader.getOrcDataSource(),
