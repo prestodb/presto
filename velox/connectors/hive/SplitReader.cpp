@@ -310,15 +310,11 @@ void SplitReader::setRowIndexColumn(
   auto rowIndexColumnName = rowIndexColumn->name();
   auto rowIndexMetaColIdx =
       readerOutputType_->getChildIdxIfExists(rowIndexColumnName);
-  if (rowIndexMetaColIdx.has_value() &&
-      !fileType->containsChild(rowIndexColumnName) &&
-      hiveSplit_->partitionKeys.find(rowIndexColumnName) ==
-          hiveSplit_->partitionKeys.end()) {
-    dwio::common::RowNumberColumnInfo rowNumberColumnInfo;
-    rowNumberColumnInfo.insertPosition = rowIndexMetaColIdx.value();
-    rowNumberColumnInfo.name = rowIndexColumnName;
-    baseRowReaderOpts_.setRowNumberColumnInfo(std::move(rowNumberColumnInfo));
-  }
+  dwio::common::RowNumberColumnInfo rowNumberColumnInfo;
+  VELOX_CHECK(rowIndexMetaColIdx.has_value());
+  rowNumberColumnInfo.insertPosition = rowIndexMetaColIdx.value();
+  rowNumberColumnInfo.name = rowIndexColumnName;
+  baseRowReaderOpts_.setRowNumberColumnInfo(std::move(rowNumberColumnInfo));
 }
 
 std::vector<TypePtr> SplitReader::adaptColumns(
