@@ -465,6 +465,8 @@ void registerFunctions(const std::string& prefix) {
       ArrayFlattenFunction,
       Array<Generic<T1>>,
       Array<Array<Generic<T1>>>>({prefix + "flatten"});
+
+  registerFunction<SoundexFunction, Varchar, Varchar>({prefix + "soundex"});
 }
 
 } // namespace sparksql

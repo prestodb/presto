@@ -640,6 +640,44 @@ TEST_F(StringTest, sha2) {
       "3ce4857a6262b03834c01c610d74cd1215f9a466dc6ad3dd15078e3309a03a6d");
 }
 
+TEST_F(StringTest, soundex) {
+  const auto soundex = [&](const std::optional<std::string>& input) {
+    return evaluateOnce<std::string>("soundex(c0)", input);
+  };
+  EXPECT_EQ(soundex("ZIN"), "Z500");
+  EXPECT_EQ(soundex("SU"), "S000");
+  EXPECT_EQ(soundex("zZ"), "Z000");
+  EXPECT_EQ(soundex("RAGSSEEESSSVEEWE"), "R221");
+  EXPECT_EQ(soundex("Miller"), "M460");
+  EXPECT_EQ(soundex("Peterson"), "P362");
+  EXPECT_EQ(soundex("Peters"), "P362");
+  EXPECT_EQ(soundex("Auerbach"), "A612");
+  EXPECT_EQ(soundex("Uhrbach"), "U612");
+  EXPECT_EQ(soundex("Moskowitz"), "M232");
+  EXPECT_EQ(soundex("Moskovitz"), "M213");
+  EXPECT_EQ(soundex("relyheewsgeessg"), "R422");
+
+  EXPECT_EQ(soundex("Robert"), "R163");
+  EXPECT_EQ(soundex("Rupert"), "R163");
+  EXPECT_EQ(soundex("Rubin"), "R150");
+
+  EXPECT_EQ(soundex("Ashcraft"), "A261");
+  EXPECT_EQ(soundex("Ashcroft"), "A261");
+  EXPECT_EQ(soundex("Aswcraft"), "A261");
+
+  EXPECT_EQ(soundex("Tymczak"), "T522");
+
+  EXPECT_EQ(soundex("Pfister"), "P236");
+
+  EXPECT_EQ(soundex("Honeyman"), "H555");
+
+  EXPECT_EQ(soundex("Tschüss"), "T220");
+
+  EXPECT_EQ(soundex(""), "");
+  EXPECT_EQ(soundex("!!"), "!!");
+  EXPECT_EQ(soundex("测试"), "测试");
+}
+
 TEST_F(StringTest, startsWith) {
   const auto startsWith = [&](const std::optional<std::string>& str,
                               const std::optional<std::string>& pattern) {
