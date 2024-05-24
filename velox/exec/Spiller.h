@@ -299,7 +299,7 @@ class Spiller {
 
   // Function for writing a spill partition on an executor. Writes to
   // 'partition' until all rows in spillRuns_[partition] are written
-  // or spill file size limit is exceededg. Returns the number of rows
+  // or spill file size limit is exceeded. Returns the number of rows
   // written.
   std::unique_ptr<SpillStatus> writeSpill(int32_t partition);
 
