@@ -3821,6 +3821,72 @@ TEST_P(ParameterizedExprTest, cseUnderTryWithIf) {
       result);
 }
 
+// Test AND/OR expressions with multiple conjucts generating errors in different
+// rows. With and without TRY.
+TEST_P(ParameterizedExprTest, failingConjuncts) {
+  auto input = makeRowVector({
+      makeFlatVector<std::string>({"10", "foo", "11"}),
+      makeFlatVector<std::string>({"bar", "10", "11"}),
+      makeFlatVector<int64_t>({1, 2, 3}),
+  });
+
+  // cast(c0 as bigint) throws on 1st row.
+  // cast(c1 as bigint) throws on 2nd row.
+  // c2 > 0 doesn't throw and returns true for all rows.
+
+  VELOX_ASSERT_THROW(
+      evaluate(
+          "cast(c0 as bigint) > 0 AND cast(c1 as bigint) > 0 AND c2 > 0",
+          input),
+      "Cannot cast VARCHAR 'bar' to BIGINT.");
+
+  auto result = evaluate(
+      "try(cast(c0 as bigint) > 0 AND cast(c1 as bigint) > 0 AND c2 > 0)",
+      input);
+
+  auto expected =
+      makeNullableFlatVector<bool>({std::nullopt, std::nullopt, true});
+  assertEqualVectors(expected, result);
+
+  // c2 <> 1 returns false for 1st row and masks errors from other conjuncts.
+  VELOX_ASSERT_THROW(
+      evaluate(
+          "cast(c0 as bigint) > 0 AND cast(c1 as bigint) > 0 AND c2 <> 1",
+          input),
+      "Cannot cast VARCHAR 'foo' to BIGINT.");
+
+  result = evaluate(
+      "try(cast(c0 as bigint) > 0 AND cast(c1 as bigint) > 0 AND c2 <> 1)",
+      input);
+  expected = makeNullableFlatVector<bool>({false, std::nullopt, true});
+  assertEqualVectors(expected, result);
+
+  // OR succeeds because c2 > 0 returns 'true' for all rows and masks errors
+  // from other conjuncts.
+
+  result = evaluate(
+      "cast(c0 as bigint) < 0 OR cast(c1 as bigint) < 0 OR c2 > 0", input);
+  expected = makeFlatVector<bool>({true, true, true});
+  assertEqualVectors(expected, result);
+
+  result = evaluate(
+      "try(cast(c0 as bigint) < 0 OR cast(c1 as bigint) < 0 OR c2 > 0)", input);
+  assertEqualVectors(expected, result);
+
+  // c2 <> 1 returns 'false' for 1st row and fails to mask errors from other
+  // conjuncts.
+  VELOX_ASSERT_THROW(
+      evaluate(
+          "cast(c0 as bigint) < 0 OR cast(c1 as bigint) < 0 OR c2 <> 1", input),
+      "Cannot cast VARCHAR 'bar' to BIGINT.");
+
+  result = evaluate(
+      "try(cast(c0 as bigint) < 0 OR cast(c1 as bigint) < 0 OR c2 <> 1)",
+      input);
+  expected = makeNullableFlatVector<bool>({std::nullopt, true, true});
+  assertEqualVectors(expected, result);
+}
+
 TEST_P(ParameterizedExprTest, conjunctUnderTry) {
   auto input = makeRowVector({
       makeFlatVector<StringView>({"a"_sv, "b"_sv}),

@@ -110,6 +110,11 @@ void EvalCtx::ensureErrorsVectorSize(ErrorVectorPtr& vector, vector_size_t size)
   }
 }
 
+void EvalCtx::addError(vector_size_t index, ErrorVectorPtr& errorsPtr) const {
+  ensureErrorsVectorSize(errorsPtr, index + 1);
+  errorsPtr->setNull(index, false);
+}
+
 void EvalCtx::addError(
     vector_size_t index,
     const std::exception_ptr& exceptionPtr,
@@ -140,6 +145,15 @@ void EvalCtx::addErrors(
   });
 }
 
+void EvalCtx::addError(
+    vector_size_t row,
+    const ErrorVectorPtr& fromErrors,
+    ErrorVectorPtr& toErrors) const {
+  if (fromErrors != nullptr) {
+    copyError(*fromErrors, row, toErrors, row);
+  }
+}
+
 void EvalCtx::copyError(
     const ErrorVector& from,
     vector_size_t fromIndex,
@@ -147,10 +161,10 @@ void EvalCtx::copyError(
     vector_size_t toIndex) const {
   const auto fromSize = from.size();
   if (fromIndex < fromSize && !from.isNullAt(fromIndex)) {
-    addError(
-        toIndex,
-        *std::static_pointer_cast<std::exception_ptr>(from.valueAt(fromIndex)),
-        to);
+    ensureErrorsVectorSize(to, toIndex + 1);
+    if (to->isNullAt(toIndex)) {
+      to->set(toIndex, from.valueAt(fromIndex));
+    }
   }
 }
 
@@ -192,12 +206,15 @@ std::exception_ptr toVeloxUserError(const std::string& message) {
 void EvalCtx::setStatus(vector_size_t index, const Status& status) {
   VELOX_CHECK(!status.ok(), "Status must be an error");
 
-  static std::exception_ptr kUserError = toVeloxUserError("<not captured>");
-
   if (status.isUserError()) {
-    setVeloxExceptionError(
-        index,
-        captureErrorDetails_ ? toVeloxUserError(status.message()) : kUserError);
+    if (throwOnError_) {
+      VELOX_USER_FAIL(status.message());
+    }
+    if (captureErrorDetails_) {
+      addError(index, toVeloxUserError(status.message()), errors_);
+    } else {
+      addError(index, errors_);
+    }
   } else {
     VELOX_FAIL(status.message());
   }

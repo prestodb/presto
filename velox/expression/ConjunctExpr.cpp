@@ -28,12 +28,14 @@ uint64_t* rowsWithError(
     EvalCtx& context,
     ErrorVectorPtr& previousErrors,
     LocalSelectivityVector& errorRowsHolder) {
-  auto errors = context.errors();
-  if (!errors) {
+  const auto* errorsPtr = context.errorsPtr();
+  if (!errorsPtr || !*errorsPtr) {
     // No new errors. Put the old errors back.
     context.swapErrors(previousErrors);
     return nullptr;
   }
+
+  const auto& errors = *errorsPtr;
   uint64_t* errorMask = nullptr;
   SelectivityVector* errorRows = errorRowsHolder.get();
   if (!errorRows) {
@@ -53,11 +55,7 @@ uint64_t* rowsWithError(
     // Add the new errors to the previous ones and free the new errors.
     bits::forEachSetBit(
         errors->rawNulls(), rows.begin(), errors->size(), [&](int32_t row) {
-          context.addError(
-              row,
-              *std::static_pointer_cast<std::exception_ptr>(
-                  errors->valueAt(row)),
-              previousErrors);
+          context.addError(row, errors, previousErrors);
         });
     context.swapErrors(previousErrors);
     previousErrors = nullptr;

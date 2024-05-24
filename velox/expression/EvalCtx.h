@@ -137,6 +137,12 @@ class EvalCtx {
       const ErrorVectorPtr& fromErrors,
       ErrorVectorPtr& toErrors) const;
 
+  /// Like above, but for a single row.
+  void addError(
+      vector_size_t row,
+      const ErrorVectorPtr& fromErrors,
+      ErrorVectorPtr& toErrors) const;
+
   // Given a mapping from element rows to top-level rows, add element-level
   // errors in errors_ to topLevelErrors.
   void addElementErrorsToTopLevel(
@@ -162,9 +168,12 @@ class EvalCtx {
         std::min(errors_->size(), rows.end()));
   }
 
-  // Returns the vector of errors or nullptr if no errors. This is
-  // intentionally a raw pointer to signify that the caller may not
-  // retain references to this.
+  /// Returns the vector of errors or nullptr if no errors. This is
+  /// intentionally a raw pointer to signify that the caller may not
+  /// retain references to this.
+  ///
+  /// When 'captureErrorDetails' is false, only null flags are being set, the
+  /// values are null std::shared_ptr and should not be used.
   ErrorVector* errors() const {
     return errors_.get();
   }
@@ -346,6 +355,10 @@ class EvalCtx {
 
  private:
   void ensureErrorsVectorSize(ErrorVectorPtr& errors, vector_size_t size) const;
+
+  // Updates 'errorPtr' to clear null at 'index' to indicate an error has
+  // occured without specifying error details.
+  void addError(vector_size_t index, ErrorVectorPtr& errorsPtr) const;
 
   // Copy error from 'from' at index 'fromIndex' to 'to' at index 'toIndex'.
   // No-op if 'from' doesn't have an error at 'fromIndex' or if 'to' already has
