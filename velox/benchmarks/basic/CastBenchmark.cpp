@@ -62,6 +62,8 @@ int main(int argc, char** argv) {
   auto validDateStrings = vectorMaker.flatVector<std::string>(
       vectorSize,
       [](auto row) { return fmt::format("2024-05-{:02d}", 1 + row % 30); });
+  auto invalidDateStrings = vectorMaker.flatVector<std::string>(
+      vectorSize, [](auto row) { return fmt::format("2024-05...{}", row); });
 
   emptyInput->resize(vectorSize);
   validInput->resize(vectorSize);
@@ -77,21 +79,31 @@ int main(int argc, char** argv) {
       .addBenchmarkSet(
           "cast_varhar_as_date",
           vectorMaker.rowVector(
-              {"empty", "valid_date"}, {emptyInput, validDateStrings}))
+              {"empty", "invalid_date", "valid_date"},
+              {emptyInput, invalidDateStrings, validDateStrings}))
       .addExpression("try_cast_invalid_empty_input", "try_cast(empty as date) ")
       .addExpression(
           "tryexpr_cast_invalid_empty_input", "try(cast (empty as date))")
+      .addExpression(
+          "try_cast_invalid_input", "try_cast(invalid_date as date) ")
+      .addExpression(
+          "tryexpr_cast_invalid_input", "try(cast (invalid_date as date))")
       .addExpression("cast_valid", "cast(valid_date as date)");
 
   benchmarkBuilder
       .addBenchmarkSet(
           "cast_varhar_as_timestamp",
           vectorMaker.rowVector(
-              {"empty", "valid_date"}, {emptyInput, validDateStrings}))
+              {"empty", "invalid_date", "valid_date"},
+              {emptyInput, invalidDateStrings, validDateStrings}))
       .addExpression(
           "try_cast_invalid_empty_input", "try_cast(empty as timestamp) ")
       .addExpression(
           "tryexpr_cast_invalid_empty_input", "try(cast (empty as timestamp))")
+      .addExpression(
+          "try_cast_invalid_input", "try_cast(invalid_date as timestamp) ")
+      .addExpression(
+          "tryexpr_cast_invalid_input", "try(cast (invalid_date as timestamp))")
       .addExpression("cast_valid", "cast(valid_date as timestamp)");
 
   benchmarkBuilder

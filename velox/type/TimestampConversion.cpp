@@ -41,6 +41,7 @@
  */
 
 #include "velox/type/TimestampConversion.h"
+#include <folly/Expected.h>
 #include "velox/common/base/CheckedArithmetic.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/type/tz/TimeZoneMap.h"
@@ -628,34 +629,39 @@ int64_t fromDateString(const char* str, size_t len) {
   return daysSinceEpoch;
 }
 
-int32_t castFromDateString(const char* str, size_t len, ParseMode mode) {
+Expected<int32_t>
+castFromDateString(const char* str, size_t len, ParseMode mode) {
   int64_t daysSinceEpoch;
   size_t pos = 0;
 
   if (!tryParseDateString(str, len, pos, daysSinceEpoch, mode)) {
+    if (threadSkipErrorDetails()) {
+      return folly::makeUnexpected(Status::UserError());
+    }
+
     switch (mode) {
       case ParseMode::kStandardCast:
-        VELOX_USER_FAIL(
+        return folly::makeUnexpected(Status::UserError(
             "Unable to parse date value: \"{}\". "
             "Valid date string pattern is (YYYY-MM-DD), "
             "and can be prefixed with [+-]",
-            std::string(str, len));
+            std::string(str, len)));
       case ParseMode::kNonStandardCast:
-        VELOX_USER_FAIL(
+        return folly::makeUnexpected(Status::UserError(
             "Unable to parse date value: \"{}\". "
             "Valid date string patterns include "
             "([y]y*, [y]y*-[m]m*, [y]y*-[m]m*-[d]d*, "
             "[y]y*-[m]m*-[d]d* *, [y]y*-[m]m*-[d]d*T*), "
             "and any pattern prefixed with [+-]",
-            std::string(str, len));
+            std::string(str, len)));
       case ParseMode::kNonStandardNoTimeCast:
-        VELOX_USER_FAIL(
+        return folly::makeUnexpected(Status::UserError(
             "Unable to parse date value: \"{}\". "
             "Valid date string patterns include "
             "([y]y*, [y]y*-[m]m*, [y]y*-[m]m*-[d]d*, "
             "[y]y*-[m]m*-[d]d* *), "
             "and any pattern prefixed with [+-]",
-            std::string(str, len));
+            std::string(str, len)));
       default:
         VELOX_UNREACHABLE();
     }
@@ -723,8 +729,11 @@ Timestamp fromDatetime(int64_t daysSinceEpoch, int64_t microsSinceMidnight) {
 
 namespace {
 
-[[noreturn]] void parserError(const char* str, size_t len) {
-  VELOX_USER_FAIL(
+Status parserError(const char* str, size_t len) {
+  if (threadSkipErrorDetails()) {
+    return Status::UserError();
+  }
+  return Status::UserError(
       "Unable to parse timestamp value: \"{}\", "
       "expected format is (YYYY-MM-DD HH:MM:SS[.MS])",
       std::string(str, len));
@@ -732,31 +741,31 @@ namespace {
 
 } // namespace
 
-Timestamp fromTimestampString(const char* str, size_t len) {
+Expected<Timestamp> fromTimestampString(const char* str, size_t len) {
   size_t pos;
   Timestamp resultTimestamp;
 
   if (!tryParseTimestampString(str, len, pos, resultTimestamp)) {
-    parserError(str, len);
+    return folly::makeUnexpected(parserError(str, len));
   }
   skipSpaces(str, len, pos);
 
   // If not all input was consumed.
   if (pos < len) {
-    parserError(str, len);
+    return folly::makeUnexpected(parserError(str, len));
   }
   VELOX_CHECK_EQ(pos, len);
   return resultTimestamp;
 }
 
-std::pair<Timestamp, int64_t> fromTimestampWithTimezoneString(
+Expected<std::pair<Timestamp, int64_t>> fromTimestampWithTimezoneString(
     const char* str,
     size_t len) {
   size_t pos;
   Timestamp resultTimestamp;
 
   if (!tryParseTimestampString(str, len, pos, resultTimestamp)) {
-    parserError(str, len);
+    return folly::makeUnexpected(parserError(str, len));
   }
 
   int64_t timezoneID = -1;
@@ -774,7 +783,8 @@ std::pair<Timestamp, int64_t> fromTimestampWithTimezoneString(
     std::string_view timezone(str + pos, timezonePos - pos);
 
     if ((timezoneID = util::getTimeZoneID(timezone, false)) == -1) {
-      VELOX_USER_FAIL("Unknown timezone value: \"{}\"", timezone);
+      return folly::makeUnexpected(
+          Status::UserError("Unknown timezone value: \"{}\"", timezone));
     }
 
     // Skip any spaces at the end.
@@ -782,10 +792,10 @@ std::pair<Timestamp, int64_t> fromTimestampWithTimezoneString(
     skipSpaces(str, len, pos);
 
     if (pos < len) {
-      parserError(str, len);
+      return folly::makeUnexpected(parserError(str, len));
     }
   }
-  return {resultTimestamp, timezoneID};
+  return std::make_pair(resultTimestamp, timezoneID);
 }
 
 } // namespace facebook::velox::util

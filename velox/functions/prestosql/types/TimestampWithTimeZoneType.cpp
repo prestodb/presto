@@ -69,19 +69,24 @@ void castFromString(
     if (inputVector.isNullAt(row)) {
       result->setNull(row, true);
     } else {
-      auto [ts, tzID] = util::fromTimestampWithTimezoneString(
+      const auto castResult = util::fromTimestampWithTimezoneString(
           inputVector.valueAt(row).data(), inputVector.valueAt(row).size());
-      // Input string may not contain a timezone - if so, it is interpreted in
-      // session timezone.
-      if (tzID == -1) {
-        const auto& config = context.execCtx()->queryCtx()->queryConfig();
-        const auto& sessionTzName = config.sessionTimezone();
-        if (!sessionTzName.empty()) {
-          tzID = util::getTimeZoneID(sessionTzName);
+      if (castResult.hasError()) {
+        context.setStatus(row, castResult.error());
+      } else {
+        auto [ts, tzID] = castResult.value();
+        // Input string may not contain a timezone - if so, it is interpreted in
+        // session timezone.
+        if (tzID == -1) {
+          const auto& config = context.execCtx()->queryCtx()->queryConfig();
+          const auto& sessionTzName = config.sessionTimezone();
+          if (!sessionTzName.empty()) {
+            tzID = util::getTimeZoneID(sessionTzName);
+          }
         }
+        ts.toGMT(tzID);
+        rawTimestampWithTzValues[row] = pack(ts.toMillis(), tzID);
       }
-      ts.toGMT(tzID);
-      rawTimestampWithTzValues[row] = pack(ts.toMillis(), tzID);
     }
   });
 }

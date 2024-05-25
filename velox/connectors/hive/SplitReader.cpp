@@ -41,7 +41,10 @@ VectorPtr newConstantFromString(
 
   if (type->isDate()) {
     auto copy = util::castFromDateString(
-        StringView(value.value()), util::ParseMode::kStandardCast);
+                    StringView(value.value()), util::ParseMode::kStandardCast)
+                    .thenOrThrow(folly::identity, [&](const Status& status) {
+                      VELOX_USER_FAIL("{}", status.message());
+                    });
     return std::make_shared<ConstantVector<int32_t>>(
         pool, size, false, type, std::move(copy));
   }

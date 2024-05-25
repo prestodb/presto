@@ -128,9 +128,12 @@ inline int64_t fromDateString(const StringView& str) {
 /// ParseMode. Refer to ParseMode enum for further info.
 ///
 /// Throws VeloxUserError if the format or date is invalid.
-int32_t castFromDateString(const char* buf, size_t len, ParseMode mode);
+Expected<int32_t>
+castFromDateString(const char* buf, size_t len, ParseMode mode);
 
-inline int32_t castFromDateString(const StringView& str, ParseMode mode) {
+inline Expected<int32_t> castFromDateString(
+    const StringView& str,
+    ParseMode mode) {
   return castFromDateString(str.data(), str.size(), mode);
 }
 
@@ -171,9 +174,9 @@ inline int64_t fromTimeString(const StringView& str) {
 ///
 /// For a timezone-aware version of this function, check
 /// `fromTimestampWithTimezoneString()` below.
-Timestamp fromTimestampString(const char* buf, size_t len);
+Expected<Timestamp> fromTimestampString(const char* buf, size_t len);
 
-inline Timestamp fromTimestampString(const StringView& str) {
+inline Expected<Timestamp> fromTimestampString(const StringView& str) {
   return fromTimestampString(str.data(), str.size());
 }
 
@@ -193,11 +196,12 @@ inline Timestamp fromTimestampString(const StringView& str) {
 ///
 /// -1 means no timezone information was found. Throws VeloxUserError in case of
 /// parsing errors.
-std::pair<Timestamp, int64_t> fromTimestampWithTimezoneString(
+Expected<std::pair<Timestamp, int64_t>> fromTimestampWithTimezoneString(
     const char* buf,
     size_t len);
 
-inline auto fromTimestampWithTimezoneString(const StringView& str) {
+inline Expected<std::pair<Timestamp, int64_t>> fromTimestampWithTimezoneString(
+    const StringView& str) {
   return fromTimestampWithTimezoneString(str.data(), str.size());
 }
 

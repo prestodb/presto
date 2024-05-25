@@ -22,6 +22,12 @@ using namespace facebook::velox;
 
 class TimestampWithTimeZoneCastTest : public functions::test::CastBaseTest {
  public:
+  static Timestamp fromTimestampString(const StringView& timestamp) {
+    return util::fromTimestampString(timestamp).thenOrThrow(
+        folly::identity,
+        [&](const Status& status) { VELOX_USER_FAIL("{}", status.message()); });
+  }
+
   VectorPtr makeTimestampWithTimeZoneVector(
       vector_size_t size,
       const std::function<int64_t(int32_t row)>& timestampAt,
@@ -79,9 +85,9 @@ TEST_F(TimestampWithTimeZoneCastTest, fromVarchar) {
   // '2012-10-31 01:00:47' in Denver. Below, we use UTC representations of the
   // above local wall-clocks, to match the UTC timepoints held in the
   // TimestampWithTimezone type.
-  auto denverUTC = util::fromTimestampString("2012-10-31 07:00:47").toMillis();
-  auto viennaUTC = util::fromTimestampString("1994-05-06 13:49:00").toMillis();
-  auto chathamUTC = util::fromTimestampString("1979-02-23 18:48:31").toMillis();
+  auto denverUTC = fromTimestampString("2012-10-31 07:00:47").toMillis();
+  auto viennaUTC = fromTimestampString("1994-05-06 13:49:00").toMillis();
+  auto chathamUTC = fromTimestampString("1979-02-23 18:48:31").toMillis();
 
   auto timestamps = std::vector<int64_t>{
       0, denverUTC, denverUTC, viennaUTC, chathamUTC, chathamUTC};
@@ -108,7 +114,7 @@ TEST_F(TimestampWithTimeZoneCastTest, fromVarcharWithoutTimezone) {
 
   const auto stringVector =
       makeNullableFlatVector<StringView>({"2012-10-31 01:00:47"});
-  auto denverUTC = util::fromTimestampString("2012-10-31 07:00:47").toMillis();
+  auto denverUTC = fromTimestampString("2012-10-31 07:00:47").toMillis();
 
   auto timestamps = std::vector<int64_t>{denverUTC};
 
@@ -136,7 +142,7 @@ TEST_F(TimestampWithTimeZoneCastTest, fromVarcharInvalidInput) {
   const auto invalidStringVector4 = makeNullableFlatVector<StringView>(
       {"2012-10-31 35:00:47 America/Los_Angeles"});
 
-  auto millis = util::fromTimestampString("2012-10-31 07:00:47").toMillis();
+  auto millis = fromTimestampString("2012-10-31 07:00:47").toMillis();
   auto timestamps = std::vector<int64_t>{millis};
 
   auto timezones =

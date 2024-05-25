@@ -28,9 +28,11 @@ class CastHooks {
  public:
   virtual ~CastHooks() = default;
 
-  virtual Timestamp castStringToTimestamp(const StringView& view) const = 0;
+  virtual Expected<Timestamp> castStringToTimestamp(
+      const StringView& view) const = 0;
 
-  virtual int32_t castStringToDate(const StringView& dateString) const = 0;
+  virtual Expected<int32_t> castStringToDate(
+      const StringView& dateString) const = 0;
 
   // Returns whether legacy cast semantics are enabled.
   virtual bool legacy() const = 0;

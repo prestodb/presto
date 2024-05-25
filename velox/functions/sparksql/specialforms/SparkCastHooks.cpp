@@ -20,11 +20,13 @@
 
 namespace facebook::velox::functions::sparksql {
 
-Timestamp SparkCastHooks::castStringToTimestamp(const StringView& view) const {
+Expected<Timestamp> SparkCastHooks::castStringToTimestamp(
+    const StringView& view) const {
   return util::fromTimestampString(view.data(), view.size());
 }
 
-int32_t SparkCastHooks::castStringToDate(const StringView& dateString) const {
+Expected<int32_t> SparkCastHooks::castStringToDate(
+    const StringView& dateString) const {
   // Allows all patterns supported by Spark:
   // `[+-]yyyy*`
   // `[+-]yyyy*-[m]m`

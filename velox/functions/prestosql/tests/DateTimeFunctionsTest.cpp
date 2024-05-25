@@ -83,6 +83,12 @@ class DateTimeFunctionsTest : public functions::test::FunctionBaseTest {
     });
   }
 
+  static Timestamp fromTimestampString(const StringView& timestamp) {
+    return util::fromTimestampString(timestamp).thenOrThrow(
+        folly::identity,
+        [&](const Status& status) { VELOX_USER_FAIL("{}", status.message()); });
+  }
+
  public:
   struct TimestampWithTimezone {
     TimestampWithTimezone(int64_t milliSeconds, int16_t timezoneId)
@@ -2352,8 +2358,6 @@ TEST_F(DateTimeFunctionsTest, dateDiffTimestamp) {
         fmt::format("date_diff('{}', c0, c1)", unit), timestamp1, timestamp2);
   };
 
-  using util::fromTimestampString;
-
   // Check null behaviors
   EXPECT_EQ(std::nullopt, dateDiff("second", Timestamp(1, 0), std::nullopt));
   EXPECT_EQ(std::nullopt, dateDiff("month", std::nullopt, Timestamp(0, 0)));
@@ -2743,8 +2747,6 @@ TEST_F(DateTimeFunctionsTest, parseDatetime) {
 }
 
 TEST_F(DateTimeFunctionsTest, formatDateTime) {
-  using util::fromTimestampString;
-
   // era test cases - 'G'
   EXPECT_EQ("AD", formatDatetime(fromTimestampString("1970-01-01"), "G"));
   EXPECT_EQ("BC", formatDatetime(fromTimestampString("-100-01-01"), "G"));
@@ -3050,8 +3052,7 @@ TEST_F(DateTimeFunctionsTest, formatDateTime) {
 }
 
 TEST_F(DateTimeFunctionsTest, formatDateTimeTimezone) {
-  using util::fromTimestampString;
-  auto zeroTs = fromTimestampString("1970-01-01");
+  const auto zeroTs = fromTimestampString("1970-01-01");
 
   // No timezone set; default to GMT.
   EXPECT_EQ(
@@ -3075,7 +3076,6 @@ TEST_F(DateTimeFunctionsTest, dateFormat) {
     return evaluateOnce<std::string>(
         fmt::format("date_format(c0, '{}')", formatString), timestamp);
   };
-  using util::fromTimestampString;
 
   // Check null behaviors
   EXPECT_EQ(std::nullopt, dateFormatOnce(std::nullopt, "%Y"));
@@ -3158,16 +3158,14 @@ TEST_F(DateTimeFunctionsTest, dateFormat) {
     std::string dayOfMonth = std::to_string(i);
     std::string date("1970-01-" + dayOfMonth);
     EXPECT_EQ(
-        dayOfMonth,
-        dateFormat(util::fromTimestampString(StringView{date}), "%e"));
+        dayOfMonth, dateFormat(fromTimestampString(StringView{date}), "%e"));
     if (i < 10) {
       EXPECT_EQ(
           "0" + dayOfMonth,
-          dateFormat(util::fromTimestampString(StringView{date}), "%d"));
+          dateFormat(fromTimestampString(StringView{date}), "%d"));
     } else {
       EXPECT_EQ(
-          dayOfMonth,
-          dateFormat(util::fromTimestampString(StringView{date}), "%d"));
+          dayOfMonth, dateFormat(fromTimestampString(StringView{date}), "%d"));
     }
   }
 
@@ -3208,27 +3206,22 @@ TEST_F(DateTimeFunctionsTest, dateFormat) {
     std::string clockHourString = std::to_string(clockHour);
     std::string toBuild = "1996-01-01 " + hour + ":00:00";
     StringView date(toBuild);
-    EXPECT_EQ(hour, dateFormat(util::fromTimestampString(date), "%k"));
+    EXPECT_EQ(hour, dateFormat(fromTimestampString(date), "%k"));
     if (i < 10) {
-      EXPECT_EQ("0" + hour, dateFormat(util::fromTimestampString(date), "%H"));
+      EXPECT_EQ("0" + hour, dateFormat(fromTimestampString(date), "%H"));
     } else {
-      EXPECT_EQ(hour, dateFormat(util::fromTimestampString(date), "%H"));
+      EXPECT_EQ(hour, dateFormat(fromTimestampString(date), "%H"));
     }
 
-    EXPECT_EQ(
-        clockHourString, dateFormat(util::fromTimestampString(date), "%l"));
+    EXPECT_EQ(clockHourString, dateFormat(fromTimestampString(date), "%l"));
     if (clockHour < 10) {
       EXPECT_EQ(
-          "0" + clockHourString,
-          dateFormat(util::fromTimestampString(date), "%h"));
+          "0" + clockHourString, dateFormat(fromTimestampString(date), "%h"));
       EXPECT_EQ(
-          "0" + clockHourString,
-          dateFormat(util::fromTimestampString(date), "%I"));
+          "0" + clockHourString, dateFormat(fromTimestampString(date), "%I"));
     } else {
-      EXPECT_EQ(
-          clockHourString, dateFormat(util::fromTimestampString(date), "%h"));
-      EXPECT_EQ(
-          clockHourString, dateFormat(util::fromTimestampString(date), "%I"));
+      EXPECT_EQ(clockHourString, dateFormat(fromTimestampString(date), "%h"));
+      EXPECT_EQ(clockHourString, dateFormat(fromTimestampString(date), "%I"));
     }
   }
 
@@ -3721,7 +3714,7 @@ TEST_F(DateTimeFunctionsTest, currentDateWithoutTimezone) {
 
 TEST_F(DateTimeFunctionsTest, timeZoneHour) {
   const auto timezone_hour = [&](const char* time, const char* timezone) {
-    Timestamp ts = util::fromTimestampString(time);
+    Timestamp ts = fromTimestampString(time);
     auto timestamp = ts.toMillis();
     auto hour = evaluateWithTimestampWithTimezone<int64_t>(
                     "timezone_hour(c0)", timestamp, timezone)
@@ -3761,7 +3754,7 @@ TEST_F(DateTimeFunctionsTest, timeZoneHour) {
 
 TEST_F(DateTimeFunctionsTest, timeZoneMinute) {
   const auto timezone_minute = [&](const char* time, const char* timezone) {
-    Timestamp ts = util::fromTimestampString(time);
+    Timestamp ts = fromTimestampString(time);
     auto timestamp = ts.toMillis();
     auto minute = evaluateWithTimestampWithTimezone<int64_t>(
                       "timezone_minute(c0)", timestamp, timezone)
@@ -3938,7 +3931,7 @@ TEST_F(DateTimeFunctionsTest, lastDayOfMonthTimestamp) {
   };
 
   const auto lastDay = [&](const StringView& dateStr) {
-    return lastDayFunc(util::fromTimestampString(dateStr));
+    return lastDayFunc(fromTimestampString(dateStr));
   };
 
   setQueryTimeZone("Pacific/Apia");

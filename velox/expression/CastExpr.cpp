@@ -217,10 +217,33 @@ VectorPtr CastExpr::castToDate(
     case TypeKind::VARCHAR: {
       auto* inputVector = input.as<SimpleVector<StringView>>();
       applyToSelectedNoThrowLocal(context, rows, castResult, [&](int row) {
+        bool wrapException = true;
         try {
-          resultFlatVector->set(
-              row, hooks_->castStringToDate(inputVector->valueAt(row)));
+          const auto result =
+              hooks_->castStringToDate(inputVector->valueAt(row));
+          if (result.hasError()) {
+            wrapException = false;
+            if (setNullInResultAtError()) {
+              resultFlatVector->setNull(row, true);
+            } else {
+              if (context.captureErrorDetails()) {
+                context.setStatus(
+                    row,
+                    Status::UserError(
+                        "{} {}",
+                        makeErrorMessage(input, row, DATE()),
+                        result.error().message()));
+              } else {
+                context.setStatus(row, Status::UserError(""));
+              }
+            }
+          } else {
+            resultFlatVector->set(row, result.value());
+          }
         } catch (const VeloxUserError& ue) {
+          if (!wrapException) {
+            throw;
+          }
           VELOX_USER_FAIL(
               makeErrorMessage(input, row, DATE()) + " " + ue.message());
         } catch (const std::exception& e) {

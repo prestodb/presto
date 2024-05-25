@@ -111,15 +111,17 @@ TEST_F(ComparisonsTest, betweenDate) {
 }
 
 TEST_F(ComparisonsTest, betweenTimestamp) {
-  using util::fromTimestampString;
-
   const auto between = [&](std::optional<std::string> s) {
     auto expr =
         "c0 between cast(\'2019-02-28 10:00:00.500\' as timestamp) and"
         " cast(\'2019-02-28 10:00:00.600\' as timestamp)";
     if (s.has_value()) {
-      return evaluateOnce<bool>(
-          expr, std::optional(fromTimestampString((StringView)s.value())));
+      const auto ts =
+          util::fromTimestampString((StringView)s.value())
+              .thenOrThrow(folly::identity, [&](const Status& status) {
+                VELOX_USER_FAIL("{}", status.message());
+              });
+      return evaluateOnce<bool>(expr, std::optional(ts));
     }
     return evaluateOnce<bool>(expr, std::optional<Timestamp>());
   };

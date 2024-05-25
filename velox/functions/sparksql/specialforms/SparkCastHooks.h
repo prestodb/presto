@@ -24,11 +24,13 @@ namespace facebook::velox::functions::sparksql {
 class SparkCastHooks : public exec::CastHooks {
  public:
   // TODO: Spark hook allows more string patterns than Presto.
-  Timestamp castStringToTimestamp(const StringView& view) const override;
+  Expected<Timestamp> castStringToTimestamp(
+      const StringView& view) const override;
 
   /// 1) Removes all leading and trailing UTF8 white-spaces before cast. 2) Uses
   /// non-standard cast mode to cast from string to date.
-  int32_t castStringToDate(const StringView& dateString) const override;
+  Expected<int32_t> castStringToDate(
+      const StringView& dateString) const override;
 
   bool legacy() const override {
     return false;

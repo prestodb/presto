@@ -32,8 +32,15 @@ PrestoCastHooks::PrestoCastHooks(const core::QueryConfig& config)
   }
 }
 
-Timestamp PrestoCastHooks::castStringToTimestamp(const StringView& view) const {
-  auto result = util::fromTimestampWithTimezoneString(view.data(), view.size());
+Expected<Timestamp> PrestoCastHooks::castStringToTimestamp(
+    const StringView& view) const {
+  const auto conversionResult =
+      util::fromTimestampWithTimezoneString(view.data(), view.size());
+  if (conversionResult.hasError()) {
+    return folly::makeUnexpected(conversionResult.error());
+  }
+
+  auto result = conversionResult.value();
 
   // If the parsed string has timezone information, convert the timestamp at
   // GMT at that time. For example, "1970-01-01 00:00:00 -00:01" is 60 seconds
@@ -51,7 +58,8 @@ Timestamp PrestoCastHooks::castStringToTimestamp(const StringView& view) const {
   return result.first;
 }
 
-int32_t PrestoCastHooks::castStringToDate(const StringView& dateString) const {
+Expected<int32_t> PrestoCastHooks::castStringToDate(
+    const StringView& dateString) const {
   // Cast from string to date allows only complete ISO 8601 formatted strings:
   // [+-](YYYY-MM-DD).
   return util::castFromDateString(dateString, util::ParseMode::kStandardCast);

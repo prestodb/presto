@@ -26,6 +26,12 @@ namespace {
 
 class SequenceTest : public FunctionBaseTest {
  protected:
+  static Timestamp fromTimestampString(const StringView& timestamp) {
+    return util::fromTimestampString(timestamp).thenOrThrow(
+        folly::identity,
+        [&](const Status& status) { VELOX_USER_FAIL("{}", status.message()); });
+  }
+
   void testExpression(
       const std::string& expression,
       const std::vector<VectorPtr>& input,
@@ -397,48 +403,47 @@ TEST_F(SequenceTest, timestampInvalidIntervalStep) {
 
 TEST_F(SequenceTest, timestampYearMonthStep) {
   const auto startVector = makeFlatVector<Timestamp>(
-      {facebook::velox::util::fromTimestampString("1975-01-31 10:00:00.500"),
-       facebook::velox::util::fromTimestampString("1975-03-15 10:10:10.200"),
-       facebook::velox::util::fromTimestampString("2023-12-31 23:00:00.500")});
+      {fromTimestampString("1975-01-31 10:00:00.500"),
+       fromTimestampString("1975-03-15 10:10:10.200"),
+       fromTimestampString("2023-12-31 23:00:00.500")});
   const auto stopVector = makeFlatVector<Timestamp>(
-      {facebook::velox::util::fromTimestampString("1975-06-01 01:00:00.500"),
-       facebook::velox::util::fromTimestampString("1974-12-15 10:20:00.500"),
-       facebook::velox::util::fromTimestampString("2024-05-31 10:00:00.500")});
+      {fromTimestampString("1975-06-01 01:00:00.500"),
+       fromTimestampString("1974-12-15 10:20:00.500"),
+       fromTimestampString("2024-05-31 10:00:00.500")});
 
   const auto stepVector =
       makeFlatVector<int32_t>({1, -1, 2}, INTERVAL_YEAR_MONTH());
   const auto expected = makeArrayVector<Timestamp>(
       {// last day of Feb
-       {facebook::velox::util::fromTimestampString("1975-01-31 10:00:00.500"),
-        facebook::velox::util::fromTimestampString("1975-02-28 10:00:00.500"),
-        facebook::velox::util::fromTimestampString("1975-03-31 10:00:00.500"),
-        facebook::velox::util::fromTimestampString("1975-04-30 10:00:00.500"),
-        facebook::velox::util::fromTimestampString("1975-05-31 10:00:00.500")},
+       {fromTimestampString("1975-01-31 10:00:00.500"),
+        fromTimestampString("1975-02-28 10:00:00.500"),
+        fromTimestampString("1975-03-31 10:00:00.500"),
+        fromTimestampString("1975-04-30 10:00:00.500"),
+        fromTimestampString("1975-05-31 10:00:00.500")},
        // date is the same but timestamp is different so couldn't include
        // 1974-12-15 10:10:10.200
        // negative step
-       {facebook::velox::util::fromTimestampString("1975-03-15 10:10:10.200"),
-        facebook::velox::util::fromTimestampString("1975-02-15 10:10:10.200"),
-        facebook::velox::util::fromTimestampString("1975-01-15 10:10:10.200")},
+       {fromTimestampString("1975-03-15 10:10:10.200"),
+        fromTimestampString("1975-02-15 10:10:10.200"),
+        fromTimestampString("1975-01-15 10:10:10.200")},
        // leap year
        // result won't include 2024-05-31 10:00:00.500
-       {facebook::velox::util::fromTimestampString("2023-12-31 23:00:00.500"),
-        facebook::velox::util::fromTimestampString("2024-02-29 23:00:00.500"),
-        facebook::velox::util::fromTimestampString(
-            "2024-04-30 23:00:00.500")}});
+       {fromTimestampString("2023-12-31 23:00:00.500"),
+        fromTimestampString("2024-02-29 23:00:00.500"),
+        fromTimestampString("2024-04-30 23:00:00.500")}});
   testExpression(
       "sequence(C0, C1, C2)", {startVector, stopVector, stepVector}, expected);
 }
 
 TEST_F(SequenceTest, timestampInvalidYearMonthStep) {
   const auto startVector = makeFlatVector<Timestamp>(
-      {facebook::velox::util::fromTimestampString("1975-01-31 10:00:00.500"),
-       facebook::velox::util::fromTimestampString("1975-03-15 10:10:10.200"),
-       facebook::velox::util::fromTimestampString("2023-12-31 23:00:00.500")});
+      {fromTimestampString("1975-01-31 10:00:00.500"),
+       fromTimestampString("1975-03-15 10:10:10.200"),
+       fromTimestampString("2023-12-31 23:00:00.500")});
   const auto stopVector = makeFlatVector<Timestamp>(
-      {facebook::velox::util::fromTimestampString("1975-06-01 01:00:00.500"),
-       facebook::velox::util::fromTimestampString("1974-12-15 10:20:00.500"),
-       facebook::velox::util::fromTimestampString("2024-05-31 10:00:00.500")});
+      {fromTimestampString("1975-06-01 01:00:00.500"),
+       fromTimestampString("1974-12-15 10:20:00.500"),
+       fromTimestampString("2024-05-31 10:00:00.500")});
 
   auto stepVector = makeFlatVector<int32_t>({0, 0, 0}, INTERVAL_DAY_TIME());
   testExpressionWithError(
@@ -456,19 +461,17 @@ TEST_F(SequenceTest, timestampInvalidYearMonthStep) {
 
   auto expected = makeNullableArrayVector<Timestamp>(
       {// last day of Feb
-       {{facebook::velox::util::fromTimestampString("1975-01-31 10:00:00.500"),
-         facebook::velox::util::fromTimestampString("1975-02-28 10:00:00.500"),
-         facebook::velox::util::fromTimestampString("1975-03-31 10:00:00.500"),
-         facebook::velox::util::fromTimestampString("1975-04-30 10:00:00.500"),
-         facebook::velox::util::fromTimestampString(
-             "1975-05-31 10:00:00.500")}},
+       {{fromTimestampString("1975-01-31 10:00:00.500"),
+         fromTimestampString("1975-02-28 10:00:00.500"),
+         fromTimestampString("1975-03-31 10:00:00.500"),
+         fromTimestampString("1975-04-30 10:00:00.500"),
+         fromTimestampString("1975-05-31 10:00:00.500")}},
        std::nullopt,
        // leap year
        // result won't include 2024-05-31 10:00:00.500
-       {{facebook::velox::util::fromTimestampString("2023-12-31 23:00:00.500"),
-         facebook::velox::util::fromTimestampString("2024-02-29 23:00:00.500"),
-         facebook::velox::util::fromTimestampString(
-             "2024-04-30 23:00:00.500")}}});
+       {{fromTimestampString("2023-12-31 23:00:00.500"),
+         fromTimestampString("2024-02-29 23:00:00.500"),
+         fromTimestampString("2024-04-30 23:00:00.500")}}});
   testExpression(
       "try(sequence(C0, C1, C2))",
       {startVector, stopVector, stepVector},
@@ -477,13 +480,13 @@ TEST_F(SequenceTest, timestampInvalidYearMonthStep) {
 
 TEST_F(SequenceTest, timestampIntervalExceedMaxEntries) {
   const auto startVector = makeFlatVector<Timestamp>(
-      {facebook::velox::util::fromTimestampString("1975-01-31 10:00:00.500"),
-       facebook::velox::util::fromTimestampString("1975-03-15 10:10:10.200"),
-       facebook::velox::util::fromTimestampString("2023-12-31 23:00:00.500")});
+      {fromTimestampString("1975-01-31 10:00:00.500"),
+       fromTimestampString("1975-03-15 10:10:10.200"),
+       fromTimestampString("2023-12-31 23:00:00.500")});
   const auto stopVector = makeFlatVector<Timestamp>(
-      {facebook::velox::util::fromTimestampString("3975-06-01 01:00:00.500"),
-       facebook::velox::util::fromTimestampString("3974-12-15 10:20:00.500"),
-       facebook::velox::util::fromTimestampString("4024-05-31 10:00:00.500")});
+      {fromTimestampString("3975-06-01 01:00:00.500"),
+       fromTimestampString("3974-12-15 10:20:00.500"),
+       fromTimestampString("4024-05-31 10:00:00.500")});
   auto stepVector = makeFlatVector<int32_t>({1, 1, 1}, INTERVAL_YEAR_MONTH());
   testExpressionWithError(
       "sequence(C0, C1, C2)",

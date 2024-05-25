@@ -1260,11 +1260,16 @@ template <typename T>
 struct FromIso8601Date {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
-  FOLLY_ALWAYS_INLINE void call(
-      out_type<Date>& result,
-      const arg_type<Varchar>& input) {
-    result = util::castFromDateString(
+  FOLLY_ALWAYS_INLINE Status
+  call(out_type<Date>& result, const arg_type<Varchar>& input) {
+    const auto castResult = util::castFromDateString(
         input.data(), input.size(), util::ParseMode::kNonStandardNoTimeCast);
+    if (castResult.hasError()) {
+      return castResult.error();
+    }
+
+    result = castResult.value();
+    return Status::OK();
   }
 };
 

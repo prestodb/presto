@@ -361,7 +361,12 @@ void CastExpr::applyCastKernel(
         }
       }
       if constexpr (ToKind == TypeKind::TIMESTAMP) {
-        result->set(row, hooks_->castStringToTimestamp(inputRowValue));
+        const auto castResult = hooks_->castStringToTimestamp(inputRowValue);
+        if (castResult.hasError()) {
+          setError(castResult.error().message());
+        } else {
+          result->set(row, castResult.value());
+        }
         return;
       }
     }
