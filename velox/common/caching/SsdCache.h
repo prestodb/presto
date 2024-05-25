@@ -45,7 +45,9 @@ class SsdCache {
       int32_t numShards,
       folly::Executor* executor,
       int64_t checkpointIntervalBytes = 0,
-      bool disableFileCow = false);
+      bool disableFileCow = false,
+      bool checksumWriteEnabled = false,
+      bool checksumReadVerificationEnabled = false);
 
   /// Returns the shard corresponding to 'fileId'. 'fileId' is a file id from
   /// e.g. FileCacheKey.

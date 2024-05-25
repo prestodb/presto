@@ -61,6 +61,10 @@ class CacheTTLController {
     return instance_.get();
   }
 
+  static void testingClear() {
+    instance_ = nullptr;
+  }
+
   /// Add file opening info for a file identified by fileNum. Return true if a
   /// new file entry is inserted, or if the existing file entry is updated
   /// while cache deletion for the file is in progress. Return false otherwise

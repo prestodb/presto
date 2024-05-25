@@ -269,6 +269,9 @@ constexpr folly::StringPiece kMetricSsdCacheWriteSsdDropped{
 constexpr folly::StringPiece kMetricSsdCacheWriteCheckpointErrors{
     "velox.ssd_cache_write_checkpoint_errors"};
 
+constexpr folly::StringPiece kMetricSsdCacheReadCorruptions{
+    "velox.ssd_cache_read_corruptions"};
+
 constexpr folly::StringPiece kMetricSsdCacheReadSsdErrors{
     "velox.ssd_cache_read_ssd_errors"};
 

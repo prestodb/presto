@@ -33,42 +33,52 @@ class SsdRun {
  public:
   static constexpr int32_t kSizeBits = 23;
 
-  SsdRun() : bits_(0) {}
+  SsdRun() : fileBits_(0) {}
 
-  SsdRun(uint64_t offset, uint32_t size)
-      : bits_((offset << kSizeBits) | ((size - 1))) {
+  SsdRun(uint64_t offset, uint32_t size, uint32_t checksum)
+      : fileBits_((offset << kSizeBits) | ((size - 1))), checksum_(checksum) {
     VELOX_CHECK_LT(offset, 1L << (64 - kSizeBits));
     VELOX_CHECK_NE(size, 0);
     VELOX_CHECK_LE(size, 1 << kSizeBits);
   }
 
-  SsdRun(uint64_t bits) : bits_(bits) {}
+  SsdRun(uint64_t fileBits, uint32_t checksum)
+      : fileBits_(fileBits), checksum_(checksum) {}
 
   SsdRun(const SsdRun& other) = default;
   SsdRun(SsdRun&& other) = default;
 
   void operator=(const SsdRun& other) {
-    bits_ = other.bits_;
+    fileBits_ = other.fileBits_;
+    checksum_ = other.checksum_;
   }
   void operator=(SsdRun&& other) {
-    bits_ = other.bits_;
+    fileBits_ = other.fileBits_;
+    checksum_ = other.checksum_;
   }
 
   uint64_t offset() const {
-    return (bits_ >> kSizeBits);
+    return (fileBits_ >> kSizeBits);
   }
 
   uint32_t size() const {
-    return (bits_ & ((1 << kSizeBits) - 1)) + 1;
+    return (fileBits_ & ((1 << kSizeBits) - 1)) + 1;
   }
 
-  // Returns raw bits for serialization.
-  uint64_t bits() const {
-    return bits_;
+  /// Returns the checksum computed with crc32.
+  uint32_t checksum() const {
+    return checksum_;
+  }
+
+  /// Returns raw bits for offset and size for serialization.
+  uint64_t fileBits() const {
+    return fileBits_;
   }
 
  private:
-  uint64_t bits_;
+  // Contains the file offset and size.
+  uint64_t fileBits_;
+  uint32_t checksum_;
 };
 
 /// Represents an SsdFile entry that is planned for load or being loaded. This
@@ -151,6 +161,7 @@ struct SsdCacheStats {
     writeCheckpointErrors = tsanAtomicValue(other.writeCheckpointErrors);
     readSsdErrors = tsanAtomicValue(other.readSsdErrors);
     readCheckpointErrors = tsanAtomicValue(other.readCheckpointErrors);
+    readSsdCorruptions = tsanAtomicValue(other.readSsdCorruptions);
   }
 
   SsdCacheStats operator-(const SsdCacheStats& other) const {
@@ -175,6 +186,7 @@ struct SsdCacheStats {
     result.writeSsdDropped = writeSsdDropped - other.writeSsdDropped;
     result.writeCheckpointErrors =
         writeCheckpointErrors - other.writeCheckpointErrors;
+    result.readSsdCorruptions = readSsdCorruptions - other.readSsdCorruptions;
     result.readSsdErrors = readSsdErrors - other.readSsdErrors;
     result.readCheckpointErrors =
         readCheckpointErrors - other.readCheckpointErrors;
@@ -207,6 +219,7 @@ struct SsdCacheStats {
   tsan_atomic<uint32_t> writeCheckpointErrors{0};
   tsan_atomic<uint32_t> readSsdErrors{0};
   tsan_atomic<uint32_t> readCheckpointErrors{0};
+  tsan_atomic<uint32_t> readSsdCorruptions{0};
 };
 
 /// A shard of SsdCache. Corresponds to one file on SSD. The data backed by each
@@ -227,6 +240,8 @@ class SsdFile {
       int32_t maxRegions,
       int64_t checkpointInternalBytes = 0,
       bool disableFileCow = false,
+      bool checksumEnabled = false,
+      bool checksumReadVerificationEnabled = false,
       folly::Executor* executor = nullptr);
 
   /// Adds entries of 'pins' to this file. 'pins' must be in read mode and
@@ -309,6 +324,11 @@ class SsdFile {
     return fileName_ + kLogExtension;
   }
 
+  /// Returns the checkpoint file path.
+  std::string getCheckpointFilePath() const {
+    return fileName_ + kCheckpointExtension;
+  }
+
   /// Deletes the backing file. Used in testing.
   void testingDeleteFile();
 
@@ -326,14 +346,19 @@ class SsdFile {
     return writableRegions_.size();
   }
 
+  const folly::F14FastMap<FileCacheKey, SsdRun>& testingEntries() {
+    return entries_;
+  }
+
   SsdCacheStats testingStats() const {
     return stats_;
   }
 
+  bool testingChecksumReadVerificationEnabled() const {
+    return checksumReadVerificationEnabled_;
+  }
+
  private:
-  // 4 first bytes of a checkpoint file. Allows distinguishing between format
-  // versions.
-  static constexpr const char* kCheckpointMagic = "CPT1";
   // Magic number separating file names from cache entry data in checkpoint
   // file.
   static constexpr int64_t kCheckpointMapMarker = 0xfffffffffffffffe;
@@ -341,6 +366,12 @@ class SsdFile {
   static constexpr int64_t kCheckpointEndMarker = 0xcbedf11e;
 
   static constexpr int kMaxErasedSizePct = 50;
+
+  // The first 4 bytes of a checkpoint file contains version string to indicate
+  // if checksum write is enabled or not.
+  std::string checkpointVersion() const {
+    return checksumEnabled_ ? "CPT2" : "CPT1";
+  }
 
   // Increments the pin count of the region of 'offset'. Caller must hold
   // 'mutex_'.
@@ -390,6 +421,9 @@ class SsdFile {
   // existing checkpoint.
   void logEviction(const std::vector<int32_t>& regions);
 
+  // Computes the checksum of data in cache 'entry'.
+  uint32_t checksumEntry(const AsyncDataCacheEntry& entry) const;
+
   // Returns true if checkpoint has been enabled.
   bool checkpointEnabled() const {
     return checkpointIntervalBytes_ > 0;
@@ -403,9 +437,12 @@ class SsdFile {
     return force || (bytesAfterCheckpoint_ >= checkpointIntervalBytes_);
   }
 
-  // Returns the checkpoint file path.
-  std::string getCheckpointFilePath() const {
-    return fileName_ + kCheckpointExtension;
+  void maybeVerifyChecksum(AsyncDataCacheEntry& entry, SsdRun& ssdRun);
+
+  // Returns true if checksum write is enabled for the given version.
+  static bool isChecksumEnabledOnCheckpointVersion(
+      const std::string& checkpointVersion) {
+    return checkpointVersion == "CPT2";
   }
 
   static constexpr const char* kLogExtension = ".log";
@@ -419,6 +456,12 @@ class SsdFile {
 
   // True if copy on write should be disabled.
   const bool disableFileCow_;
+
+  // If true, checksum write to SSD is enabled.
+  const bool checksumEnabled_;
+
+  // If true, checksum read verification from SSD is enabled.
+  const bool checksumReadVerificationEnabled_;
 
   // Serializes access to all private data members.
   mutable std::shared_mutex mutex_;

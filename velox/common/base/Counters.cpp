@@ -229,6 +229,9 @@ void registerVeloxMetrics() {
   // Total number of errors while reading from SSD cache files.
   DEFINE_METRIC(kMetricSsdCacheReadSsdErrors, facebook::velox::StatType::SUM);
 
+  // Total number of corrupted SSD data read detected by checksum.
+  DEFINE_METRIC(kMetricSsdCacheReadCorruptions, facebook::velox::StatType::SUM);
+
   // Total number of errors while reading from SSD checkpoint files.
   DEFINE_METRIC(
       kMetricSsdCacheReadCheckpointErrors, facebook::velox::StatType::SUM);

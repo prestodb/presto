@@ -210,6 +210,8 @@ void PeriodicStatsReporter::reportCacheStats() {
     REPORT_IF_NOT_ZERO(
         kMetricSsdCacheReadSsdErrors, deltaSsdStats.readSsdErrors);
     REPORT_IF_NOT_ZERO(
+        kMetricSsdCacheReadCorruptions, deltaSsdStats.readSsdCorruptions);
+    REPORT_IF_NOT_ZERO(
         kMetricSsdCacheReadCheckpointErrors,
         deltaSsdStats.readCheckpointErrors);
     REPORT_IF_NOT_ZERO(

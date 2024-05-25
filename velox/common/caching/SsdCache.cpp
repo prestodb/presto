@@ -35,7 +35,9 @@ SsdCache::SsdCache(
     int32_t numShards,
     folly::Executor* executor,
     int64_t checkpointIntervalBytes,
-    bool disableFileCow)
+    bool disableFileCow,
+    bool checksumEnabled,
+    bool checksumReadVerificationEnabled)
     : filePrefix_(filePrefix),
       numShards_(numShards),
       groupStats_(std::make_unique<FileGroupStats>()),
@@ -46,6 +48,12 @@ SsdCache::SsdCache(
       filePrefix_.find("/") == 0,
       "Ssd path '{}' does not start with '/' that points to local file system.",
       filePrefix_);
+
+  if (checksumReadVerificationEnabled && !checksumEnabled) {
+    VELOX_SSD_CACHE_LOG(WARNING)
+        << "Checksum read has been disabled as checksum is not enabled.";
+    checksumReadVerificationEnabled = false;
+  }
   filesystems::getFileSystem(filePrefix_, nullptr)
       ->mkdir(std::filesystem::path(filePrefix).parent_path().string());
 
@@ -62,6 +70,8 @@ SsdCache::SsdCache(
         fileMaxRegions,
         checkpointIntervalBytes / numShards,
         disableFileCow,
+        checksumEnabled,
+        checksumReadVerificationEnabled,
         executor_));
   }
 }

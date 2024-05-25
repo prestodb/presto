@@ -357,6 +357,9 @@ Cache
    * - ssd_cache_write_checkpoint_errors
      - Sum
      - Total number of errors while writing SSD checkpoint file.
+   * - ssd_cache_read_corruptions
+     - Sum
+     - Total number of corrupted SSD data read detected by checksum.
    * - ssd_cache_read_ssd_errors
      - Sum
      - Total number of errors while reading from SSD cache files.

@@ -63,6 +63,15 @@ class StringIdMap {
     return it == idToEntry_.end() ? "" : it->second.string;
   }
 
+  // Resets StringIdMap.
+  void testingReset() {
+    std::lock_guard<std::mutex> l(mutex_);
+    stringToId_.clear();
+    idToEntry_.clear();
+    lastId_ = 0;
+    pinnedSize_ = 0;
+  }
+
  private:
   struct Entry {
     std::string string;
