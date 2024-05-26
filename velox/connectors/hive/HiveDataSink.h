@@ -245,7 +245,7 @@ class HiveInsertTableHandle : public ConnectorInsertTableHandle {
 
   const HiveBucketProperty* bucketProperty() const;
 
-  bool isInsertTable() const;
+  bool isExistingTable() const;
 
   folly::dynamic serialize() const override;
 
@@ -378,13 +378,13 @@ struct HiveWriterId {
 
   HiveWriterId() = default;
 
-  explicit HiveWriterId(uint32_t _partitionId)
-      : HiveWriterId(_partitionId, std::nullopt) {}
-
-  HiveWriterId(uint32_t _partitionId, std::optional<uint32_t> _bucketId)
+  HiveWriterId(
+      std::optional<uint32_t> _partitionId,
+      std::optional<uint32_t> _bucketId = std::nullopt)
       : partitionId(_partitionId), bucketId(_bucketId) {}
 
-  /// Returns the special writer id for the un-partitioned table.
+  /// Returns the special writer id for the un-partitioned (and non-bucketed)
+  /// table.
   static const HiveWriterId& unpartitionedId();
 
   std::string toString() const;
@@ -510,6 +510,10 @@ class HiveDataSink : public DataSink {
 
   // Compute the partition id and bucket id for each row in 'input'.
   void computePartitionAndBucketIds(const RowVectorPtr& input);
+
+  // Get the HiveWriter corresponding to the row
+  // from partitionIds and bucketIds.
+  FOLLY_ALWAYS_INLINE HiveWriterId getWriterId(size_t row) const;
 
   // Computes the number of input rows as well as the actual input row indices
   // to each corresponding (bucketed) partition based on the partition and
