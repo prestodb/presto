@@ -209,7 +209,7 @@ public class PrestoNativeQueryRunnerUtils
                 useThrift,
                 remoteFunctionServerUds,
                 storageFormat,
-                true);
+                false);
     }
 
     public static QueryRunner createNativeIcebergQueryRunner(
