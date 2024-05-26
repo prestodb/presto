@@ -29,6 +29,7 @@ target_link_libraries(
          velox_file
          velox_memory
          velox_process
+         velox_time
          Folly::folly
          fmt::fmt
          gflags::gflags

@@ -37,10 +37,9 @@ TEST(FileHandleTest, localFile) {
   }
 
   FileHandleFactory factory(
-      std::make_unique<
-          SimpleLRUCache<std::string, std::shared_ptr<FileHandle>>>(1000),
+      std::make_unique<SimpleLRUCache<std::string, FileHandle>>(1000),
       std::make_unique<FileHandleGenerator>());
-  auto fileHandle = factory.generate(filename).second;
+  auto fileHandle = factory.generate(filename);
   ASSERT_EQ(fileHandle->file->size(), 3);
   char buffer[3];
   ASSERT_EQ(fileHandle->file->pread(0, 3, &buffer), "foo");

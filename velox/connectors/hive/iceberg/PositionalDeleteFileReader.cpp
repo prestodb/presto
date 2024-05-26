@@ -92,10 +92,10 @@ PositionalDeleteFileReader::PositionalDeleteFileReader(
       deleteFileSchema,
       deleteSplit_);
 
-  auto deleteFileHandle =
-      fileHandleFactory_->generate(deleteFile_.filePath).second;
+  auto deleteFileHandleCachePtr =
+      fileHandleFactory_->generate(deleteFile_.filePath);
   auto deleteFileInput = createBufferedInput(
-      *deleteFileHandle,
+      *deleteFileHandleCachePtr,
       deleteReaderOpts,
       connectorQueryCtx,
       ioStats_,

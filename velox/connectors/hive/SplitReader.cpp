@@ -227,18 +227,18 @@ void SplitReader::createReader() {
   VELOX_CHECK_NE(
       baseReaderOpts_.getFileFormat(), dwio::common::FileFormat::UNKNOWN);
 
-  std::shared_ptr<FileHandle> fileHandle;
+  FileHandleCachedPtr fileHandleCachePtr;
   try {
-    fileHandle = fileHandleFactory_->generate(hiveSplit_->filePath).second;
+    fileHandleCachePtr = fileHandleFactory_->generate(hiveSplit_->filePath);
+    VELOX_CHECK_NOT_NULL(fileHandleCachePtr.get());
   } catch (const VeloxRuntimeError& e) {
     if (e.errorCode() == error_code::kFileNotFound &&
         hiveConfig_->ignoreMissingFiles(
             connectorQueryCtx_->sessionProperties())) {
       emptySplit_ = true;
       return;
-    } else {
-      throw;
     }
+    throw;
   }
 
   // Here we keep adding new entries to CacheTTLController when new fileHandles
@@ -246,10 +246,14 @@ void SplitReader::createReader() {
   // CacheTTLController needs to make sure a size control strategy was available
   // such as removing aged out entries.
   if (auto* cacheTTLController = cache::CacheTTLController::getInstance()) {
-    cacheTTLController->addOpenFileInfo(fileHandle->uuid.id());
+    cacheTTLController->addOpenFileInfo(fileHandleCachePtr->uuid.id());
   }
   auto baseFileInput = createBufferedInput(
-      *fileHandle, baseReaderOpts_, connectorQueryCtx_, ioStats_, executor_);
+      *fileHandleCachePtr,
+      baseReaderOpts_,
+      connectorQueryCtx_,
+      ioStats_,
+      executor_);
 
   baseReader_ = dwio::common::getReaderFactory(baseReaderOpts_.getFileFormat())
                     ->createReader(std::move(baseFileInput), baseReaderOpts_);
