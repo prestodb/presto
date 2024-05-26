@@ -274,8 +274,17 @@ void registerVeloxMetrics() {
   DEFINE_HISTOGRAM_METRIC(
       kMetricMemoryReclaimExecTimeMs, 30'000, 0, 600'000, 50, 90, 99, 100);
 
-  // Tracks op memory reclaim bytes.
-  DEFINE_METRIC(kMetricMemoryReclaimedBytes, facebook::velox::StatType::SUM);
+  // Tracks op memory reclaim bytes distribution in range of [0, 4GB] with 64
+  // buckets and reports P50, P90, P99, and P100
+  DEFINE_HISTOGRAM_METRIC(
+      kMetricMemoryReclaimedBytes,
+      67'108'864,
+      0,
+      4'294'967'296,
+      50,
+      90,
+      99,
+      100);
 
   // Tracks the memory reclaim count on an operator.
   DEFINE_METRIC(

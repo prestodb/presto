@@ -323,10 +323,13 @@ class MockMemoryOperator {
       allocIt = allocations_.erase(allocIt);
     }
     totalBytes_ -= bytesReclaimed;
+    const auto oldReservedBytes = pool_->reservedBytes();
     for (const auto& allocation : allocationsToFree) {
       pool_->free(allocation.buffer, allocation.size);
     }
-    return pool_->shrink(targetBytes);
+    const auto newReservedBytes = pool_->reservedBytes();
+    VELOX_CHECK_GE(oldReservedBytes, newReservedBytes);
+    return newReservedBytes - oldReservedBytes;
   }
 
   void abort(MemoryPool* pool) {
@@ -676,11 +679,12 @@ TEST_F(MockSharedArbitrationTest, shrinkPools) {
     std::string debugString() const {
       std::stringstream tasksOss;
       for (const auto& testTask : testTasks) {
+        tasksOss << "[";
         tasksOss << testTask.debugString();
-        tasksOss << ",";
+        tasksOss << "], ";
       }
       return fmt::format(
-          "taskTests: [{}], targetBytes: {}, expectedFreedBytes: {}, expectedFreeCapacity: {}, expectedReservedFreeCapacity: {}, allowSpill: {}, allowAbort: {}",
+          "testTasks: [{}], targetBytes: {}, expectedFreedBytes: {}, expectedFreeCapacity: {}, expectedReservedFreeCapacity: {}, allowSpill: {}, allowAbort: {}",
           tasksOss.str(),
           succinctBytes(targetBytes),
           succinctBytes(expectedFreedBytes),

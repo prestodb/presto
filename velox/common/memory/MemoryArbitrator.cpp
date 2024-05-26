@@ -179,7 +179,7 @@ uint64_t MemoryReclaimer::run(
   stats.reclaimedBytes += reclaimedBytes;
   RECORD_HISTOGRAM_METRIC_VALUE(
       kMetricMemoryReclaimExecTimeMs, execTimeUs / 1'000);
-  RECORD_METRIC_VALUE(kMetricMemoryReclaimedBytes, reclaimedBytes);
+  RECORD_HISTOGRAM_METRIC_VALUE(kMetricMemoryReclaimedBytes, reclaimedBytes);
   RECORD_METRIC_VALUE(kMetricMemoryReclaimCount);
   addThreadLocalRuntimeStat(
       "memoryReclaimWallNanos",

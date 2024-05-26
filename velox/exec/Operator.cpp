@@ -649,8 +649,11 @@ uint64_t Operator::MemoryReclaimer::reclaim(
 
   auto reclaimBytes = memory::MemoryReclaimer::run(
       [&]() {
+        const auto reservedBytesBeforeReclaim = pool->reservedBytes();
         op_->reclaim(targetBytes, stats);
-        return pool->shrink(targetBytes);
+        const auto reservedBytesAfterReclaim = pool->reservedBytes();
+        VELOX_CHECK_GE(reservedBytesBeforeReclaim, reservedBytesAfterReclaim);
+        return reservedBytesBeforeReclaim - reservedBytesAfterReclaim;
       },
       stats);
 

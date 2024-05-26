@@ -232,16 +232,6 @@ class OrderByTest : public OperatorTestBase {
     }
   }
 
-  static void reclaimAndRestoreCapacity(
-      const Operator* op,
-      uint64_t targetBytes,
-      memory::MemoryReclaimer::Stats& reclaimerStats) {
-    const auto oldCapacity = op->pool()->capacity();
-    op->pool()->reclaim(targetBytes, 0, reclaimerStats);
-    dynamic_cast<memory::MemoryPoolImpl*>(op->pool())
-        ->testingSetCapacity(oldCapacity);
-  }
-
   std::vector<RowVectorPtr> makeVectors(
       const RowTypePtr& rowType,
       int32_t numVectors,
@@ -661,9 +651,9 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimDuringInputProcessing) {
     }
 
     if (testData.expectedReclaimable) {
-      reclaimAndRestoreCapacity(
-          op,
+      op->pool()->reclaim(
           folly::Random::oneIn(2) ? 0 : folly::Random::rand32(rng_),
+          0,
           reclaimerStats_);
       ASSERT_GT(reclaimerStats_.reclaimedBytes, 0);
       ASSERT_GT(reclaimerStats_.reclaimExecTimeUs, 0);
@@ -784,9 +774,9 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimDuringReserve) {
   ASSERT_TRUE(reclaimable);
   ASSERT_GT(reclaimableBytes, 0);
 
-  reclaimAndRestoreCapacity(
-      op,
+  op->pool()->reclaim(
       folly::Random::oneIn(2) ? 0 : folly::Random::rand32(rng_),
+      0,
       reclaimerStats_);
   ASSERT_GT(reclaimerStats_.reclaimedBytes, 0);
   ASSERT_GT(reclaimerStats_.reclaimExecTimeUs, 0);
@@ -939,7 +929,7 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimDuringOutputProcessing) {
   constexpr int64_t kMaxBytes = 1LL << 30; // 1GB
   auto rowType = ROW({"c0", "c1", "c2"}, {INTEGER(), INTEGER(), INTEGER()});
   VectorFuzzer fuzzer({.vectorSize = 1000}, pool());
-  const int32_t numBatches = 10;
+  const int32_t numBatches = 200;
   std::vector<RowVectorPtr> batches;
   for (int32_t i = 0; i < numBatches; ++i) {
     batches.push_back(fuzzer.fuzzRow(rowType));
@@ -1032,8 +1022,9 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimDuringOutputProcessing) {
     if (enableSpilling) {
       ASSERT_GT(reclaimableBytes, 0);
       reclaimerStats_.reset();
-      reclaimAndRestoreCapacity(op, reclaimableBytes, reclaimerStats_);
-      ASSERT_EQ(reclaimerStats_.reclaimedBytes, reclaimableBytes);
+      op->pool()->reclaim(reclaimableBytes, 0, reclaimerStats_);
+      ASSERT_GT(reclaimerStats_.reclaimedBytes, 0);
+      ASSERT_LE(reclaimerStats_.reclaimedBytes, reclaimableBytes);
       ASSERT_GT(reclaimerStats_.reclaimExecTimeUs, 0);
     } else {
       ASSERT_EQ(reclaimableBytes, 0);

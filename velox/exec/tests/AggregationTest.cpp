@@ -376,16 +376,6 @@ class AggregationTest : public OperatorTestBase {
         pool_.get());
   }
 
-  static void reclaimAndRestoreCapacity(
-      const Operator* op,
-      uint64_t targetBytes,
-      memory::MemoryReclaimer::Stats& reclaimerStats) {
-    const auto oldCapacity = op->pool()->capacity();
-    op->pool()->reclaim(targetBytes, 0, reclaimerStats);
-    dynamic_cast<memory::MemoryPoolImpl*>(op->pool())
-        ->testingSetCapacity(oldCapacity);
-  }
-
   RowTypePtr rowType_{
       ROW({"c0", "c1", "c2", "c3", "c4", "c5", "c6"},
           {BIGINT(),
@@ -2109,9 +2099,9 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringInputProcessing) {
 
     if (testData.expectedReclaimable) {
       const auto usedMemory = op->pool()->usedBytes();
-      reclaimAndRestoreCapacity(
-          op,
+      op->pool()->reclaim(
           folly::Random::oneIn(2) ? 0 : folly::Random::rand32(rng_),
+          0,
           reclaimerStats_);
       ASSERT_GT(reclaimerStats_.reclaimExecTimeUs, 0);
       ASSERT_GT(reclaimerStats_.reclaimedBytes, 0);
@@ -2233,12 +2223,12 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringReserve) {
   ASSERT_GT(reclaimableBytes, 0);
 
   const auto usedMemory = op->pool()->usedBytes();
-  reclaimAndRestoreCapacity(
-      op,
+  op->pool()->reclaim(
       folly::Random::oneIn(2) ? 0 : folly::Random::rand32(rng_),
+      0,
       reclaimerStats_);
   ASSERT_GT(reclaimerStats_.reclaimExecTimeUs, 0);
-  ASSERT_GT(reclaimerStats_.reclaimedBytes, 0);
+  ASSERT_GE(reclaimerStats_.reclaimedBytes, 0);
   reclaimerStats_.reset();
   // The hash table itself in the grouping set is not cleared so it still
   // uses some memory.
@@ -2476,9 +2466,9 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringOutputProcessing) {
     if (enableSpilling) {
       ASSERT_GT(reclaimableBytes, 0);
       const auto usedMemory = op->pool()->usedBytes();
-      reclaimAndRestoreCapacity(
-          op,
+      op->pool()->reclaim(
           folly::Random::oneIn(2) ? 0 : folly::Random::rand32(rng_),
+          0,
           reclaimerStats_);
       ASSERT_EQ(reclaimerStats_.numNonReclaimableAttempts, 0);
       ASSERT_GT(usedMemory, op->pool()->usedBytes());
@@ -2764,9 +2754,9 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimWithEmptyAggregationTable) {
     if (enableSpilling) {
       ASSERT_EQ(reclaimableBytes, 0);
       const auto usedMemory = op->pool()->usedBytes();
-      reclaimAndRestoreCapacity(
-          op,
+      op->pool()->reclaim(
           folly::Random::oneIn(2) ? 0 : folly::Random::rand32(rng_),
+          0,
           reclaimerStats_);
       ASSERT_EQ(reclaimerStats_, memory::MemoryReclaimer::Stats{});
       // No reclaim as the operator has started output processing.

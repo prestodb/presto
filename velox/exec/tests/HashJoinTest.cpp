@@ -897,17 +897,6 @@ class HashJoinTest : public HiveConnectorTestBase {
         joinNode->outputType());
   }
 
-  static void reclaimAndRestoreCapacity(
-      const Operator* op,
-      uint64_t targetBytes,
-      memory::MemoryReclaimer::Stats& reclaimerStats) {
-    memory::ScopedMemoryArbitrationContext ctx(op->pool());
-    const auto oldCapacity = op->pool()->capacity();
-    op->pool()->reclaim(targetBytes, 0, reclaimerStats);
-    dynamic_cast<memory::MemoryPoolImpl*>(op->pool())
-        ->testingSetCapacity(oldCapacity);
-  }
-
   const int32_t numDrivers_;
 
   // The default left and right table types used for test.
@@ -5502,10 +5491,13 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringInputProcessing) {
     }
 
     if (testData.expectedReclaimable) {
-      reclaimAndRestoreCapacity(
-          op,
-          folly::Random::oneIn(2) ? 0 : folly::Random::rand32(),
-          reclaimerStats_);
+      {
+        memory::ScopedMemoryArbitrationContext ctx(op->pool());
+        op->pool()->reclaim(
+            folly::Random::oneIn(2) ? 0 : folly::Random::rand32(),
+            0,
+            reclaimerStats_);
+      }
       ASSERT_GT(reclaimerStats_.reclaimExecTimeUs, 0);
       ASSERT_GT(reclaimerStats_.reclaimedBytes, 0);
       reclaimerStats_.reset();
@@ -5639,10 +5631,13 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringReserve) {
   ASSERT_TRUE(reclaimable);
   ASSERT_GT(reclaimableBytes, 0);
 
-  reclaimAndRestoreCapacity(
-      op,
-      folly::Random::oneIn(2) ? 0 : folly::Random::rand32(),
-      reclaimerStats_);
+  {
+    memory::ScopedMemoryArbitrationContext ctx(op->pool());
+    op->pool()->reclaim(
+        folly::Random::oneIn(2) ? 0 : folly::Random::rand32(),
+        0,
+        reclaimerStats_);
+  }
   ASSERT_GT(reclaimerStats_.reclaimedBytes, 0);
   ASSERT_GT(reclaimerStats_.reclaimExecTimeUs, 0);
   ASSERT_EQ(op->pool()->usedBytes(), 0);
@@ -5891,11 +5886,14 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringOutputProcessing) {
     if (enableSpilling) {
       ASSERT_GT(reclaimableBytes, 0);
       const auto usedMemoryBytes = op->pool()->usedBytes();
-      reclaimAndRestoreCapacity(
-          op,
-          folly::Random::oneIn(2) ? 0 : folly::Random::rand32(),
-          reclaimerStats_);
-      ASSERT_GT(reclaimerStats_.reclaimedBytes, 0);
+      {
+        memory::ScopedMemoryArbitrationContext ctx(op->pool());
+        op->pool()->reclaim(
+            folly::Random::oneIn(2) ? 0 : folly::Random::rand32(),
+            0,
+            reclaimerStats_);
+      }
+      ASSERT_GE(reclaimerStats_.reclaimedBytes, 0);
       ASSERT_GT(reclaimerStats_.reclaimExecTimeUs, 0);
       // No reclaim as the operator has started output processing.
       ASSERT_EQ(usedMemoryBytes, op->pool()->usedBytes());
@@ -6036,11 +6034,14 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringWaitForProbe) {
 
   const auto usedMemoryBytes = op->pool()->usedBytes();
   reclaimerStats_.reset();
-  reclaimAndRestoreCapacity(
-      op,
-      folly::Random::oneIn(2) ? 0 : folly::Random::rand32(),
-      reclaimerStats_);
-  ASSERT_GT(reclaimerStats_.reclaimedBytes, 0);
+  {
+    memory::ScopedMemoryArbitrationContext ctx(op->pool());
+    op->pool()->reclaim(
+        folly::Random::oneIn(2) ? 0 : folly::Random::rand32(),
+        0,
+        reclaimerStats_);
+  }
+  ASSERT_GE(reclaimerStats_.reclaimedBytes, 0);
   ASSERT_GT(reclaimerStats_.reclaimExecTimeUs, 0);
   //  No reclaim as the build operator is not in building table state.
   ASSERT_EQ(usedMemoryBytes, op->pool()->usedBytes());

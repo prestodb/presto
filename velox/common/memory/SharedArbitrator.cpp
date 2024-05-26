@@ -758,10 +758,9 @@ uint64_t SharedArbitrator::reclaim(
       VELOX_MEM_LOG(ERROR) << "Failed to reclaim from memory pool "
                            << pool->name() << ", aborting it: " << e.what();
       abort(pool, std::current_exception());
-      // Free up all the free capacity from the aborted pool as the associated
-      // query has failed at this point.
       pool->shrink();
     }
+    pool->shrink(bytesToReclaim);
     const uint64_t newCapacity = pool->capacity();
     VELOX_CHECK_GE(oldCapacity, newCapacity);
     reclaimedBytes = oldCapacity - newCapacity;

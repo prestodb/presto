@@ -102,8 +102,9 @@ Memory Management
        with 20 buckets. It is configured to report latency at P50, P90, P99, and
        P100 percentiles.
    * - memory_reclaim_bytes
-     - Sum
-     - The sum of reclaimed memory bytes.
+     - Histogram
+     - The distribution of reclaimed bytes in range of [0, 4GB] with 64 buckets
+       and reports P50, P90, P99, and P100.
    * - task_memory_reclaim_count
      - Count
      - The count of task memory reclaims.
