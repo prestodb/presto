@@ -20,5 +20,7 @@ RUN mkdir -p /scripts /velox/scripts
 COPY scripts /scripts
 COPY velox/scripts /velox/scripts
 RUN mkdir build && \
-    (cd build && ../scripts/setup-centos.sh && ../velox/scripts/setup-adapters.sh aws) && \
+    (cd build && ../scripts/setup-centos.sh && \
+                 ../velox/scripts/setup-adapters.sh aws && \
+                 ../scripts/setup-adapters.sh ) && \
     rm -rf build
