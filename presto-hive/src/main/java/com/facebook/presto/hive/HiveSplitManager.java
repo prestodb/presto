@@ -530,7 +530,7 @@ public class HiveSplitManager
                     throw new PrestoException(GENERIC_INTERNAL_ERROR, "Partition not loaded: " + hivePartition);
                 }
                 String partitionName = makePartName(table.getPartitionColumns(), partition.getValues());
-                Optional<EncryptionInformation> encryptionInformation = encryptionInformationForPartitions.map(metadata -> metadata.get(hivePartition.getPartitionId()));
+                Optional<EncryptionInformation> encryptionInformation = encryptionInformationForPartitions.map(metadata -> metadata.get(hivePartition.getPartitionId().getPartitionName()));
 
                 if (!isOfflineDataDebugModeEnabled(session)) {
                     // verify partition is online
