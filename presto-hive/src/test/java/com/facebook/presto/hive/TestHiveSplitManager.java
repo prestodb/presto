@@ -32,6 +32,7 @@ import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.facebook.presto.hive.metastore.PartitionWithStatistics;
 import com.facebook.presto.hive.metastore.Storage;
+import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hive.metastore.UnimplementedHiveMetastore;
 import com.facebook.presto.hive.statistics.QuickStatsProvider;
@@ -85,7 +86,11 @@ import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTAN
 import static com.facebook.presto.hive.AbstractTestHiveClient.TEST_SERVER_VERSION;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.EncryptionProperties.DWRF_ENCRYPTION_ALGORITHM_KEY;
+import static com.facebook.presto.hive.EncryptionProperties.DWRF_ENCRYPTION_PROVIDER_KEY;
+import static com.facebook.presto.hive.EncryptionProperties.ENCRYPT_COLUMNS_KEY;
 import static com.facebook.presto.hive.HiveFileInfo.createHiveFileInfo;
+import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.HiveTestUtils.DO_NOTHING_DIRECTORY_LISTER;
 import static com.facebook.presto.hive.HiveTestUtils.FILTER_STATS_CALCULATOR_SERVICE;
@@ -118,6 +123,7 @@ import static java.lang.Float.floatToIntBits;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestHiveSplitManager
 {
@@ -138,23 +144,7 @@ public class TestHiveSplitManager
     private static final String PARTITION_VALUE = "2020-01-01";
     private static final String PARTITION_NAME = "ds=2020-01-01";
     private static final PartitionNameWithVersion PARTITION_NAME_WITH_VERSION = new PartitionNameWithVersion(PARTITION_NAME, Optional.empty());
-    private static final Table TEST_TABLE = new Table(
-            "test_db",
-            "test_table",
-            "test_owner",
-            MANAGED_TABLE,
-            new Storage(
-                    VIEW_STORAGE_FORMAT,
-                    "",
-                    Optional.empty(),
-                    false,
-                    ImmutableMap.of(),
-                    ImmutableMap.of()),
-            COLUMNS,
-            ImmutableList.of(new Column("ds", HIVE_STRING, Optional.empty(), Optional.empty())),
-            ImmutableMap.of(),
-            Optional.empty(),
-            Optional.empty());
+    private static final Table TEST_TABLE = createTestTable(VIEW_STORAGE_FORMAT, ImmutableMap.of());
 
     private ListeningExecutorService executor;
 
@@ -168,6 +158,28 @@ public class TestHiveSplitManager
     public void shutdown()
     {
         executor.shutdownNow();
+    }
+
+    private static Table createTestTable(StorageFormat storageFormat, Map<String, String> parameters)
+    {
+        return new Table("test_db",
+                "test_table",
+                "test_owner",
+                MANAGED_TABLE,
+                new Storage(storageFormat,
+                        "",
+                        Optional.empty(),
+                        false,
+                        ImmutableMap.of(),
+                        ImmutableMap.of()),
+                COLUMNS,
+                ImmutableList.of(
+                        new Column("ds", HIVE_STRING,
+                                Optional.empty(),
+                                Optional.empty())),
+                parameters,
+                Optional.empty(),
+                Optional.empty());
     }
 
     @Test
@@ -590,6 +602,157 @@ public class TestHiveSplitManager
                 .map(HiveSplit::getRedundantColumnDomains)
                 .collect(toImmutableList());
         assertEquals(actualRedundantColumnDomains, expectedRedundantColumnDomains);
+    }
+
+    @Test
+    public void testEncryptionInformation()
+            throws Exception
+    {
+        StorageFormat storageFormat = fromHiveStorageFormat(DWRF);
+        String testEncryptionAlgorithm = "test_encryption_algo";
+        String testEncryptionProvider = "test_provider";
+        Table testTable = createTestTable(storageFormat,
+                ImmutableMap.of(
+                        ENCRYPT_COLUMNS_KEY, "foo1:col_bigint,col_struct.b.b1;foo2:col_map;foo3:col_struct.a",
+                        DWRF_ENCRYPTION_ALGORITHM_KEY, testEncryptionAlgorithm,
+                        DWRF_ENCRYPTION_PROVIDER_KEY, testEncryptionProvider));
+        PartitionWithStatistics partitionWithStatistics = new PartitionWithStatistics(
+                new Partition(
+                        "test_db",
+                        "test_table",
+                        ImmutableList.of(PARTITION_VALUE),
+                        new Storage(
+                                storageFormat,
+                                "location",
+                                Optional.empty(),
+                                true,
+                                ImmutableMap.of(),
+                                ImmutableMap.of()),
+                        COLUMNS,
+                        ImmutableMap.of(),
+                        Optional.empty(),
+                        false,
+                        true,
+                        0,
+                        0,
+                        Optional.empty()),
+                PARTITION_NAME,
+                PartitionStatistics.empty());
+
+        HiveClientConfig hiveClientConfig = new HiveClientConfig().setPartitionStatisticsBasedOptimizationEnabled(true);
+        HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(
+                new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hiveClientConfig, new MetastoreClientConfig()), ImmutableSet.of(), hiveClientConfig),
+                new MetastoreClientConfig(),
+                new NoHdfsAuthentication());
+        HiveEncryptionInformationProvider encryptionInformationProvider = new HiveEncryptionInformationProvider(ImmutableList.of(new TestDwrfEncryptionInformationSource()));
+
+        HiveMetadataFactory metadataFactory = new HiveMetadataFactory(
+                new TestingExtendedHiveMetastore(testTable, partitionWithStatistics),
+                hdfsEnvironment,
+                new HivePartitionManager(FUNCTION_AND_TYPE_MANAGER, hiveClientConfig),
+                DateTimeZone.forOffsetHours(1),
+                true,
+                false,
+                false,
+                true,
+                true,
+                hiveClientConfig.getMaxPartitionBatchSize(),
+                hiveClientConfig.getMaxPartitionsPerScan(),
+                false,
+                10_000,
+                FUNCTION_AND_TYPE_MANAGER,
+                new HiveLocationService(hdfsEnvironment),
+                FUNCTION_RESOLUTION,
+                ROW_EXPRESSION_SERVICE,
+                FILTER_STATS_CALCULATOR_SERVICE,
+                new TableParameterCodec(),
+                HiveTestUtils.PARTITION_UPDATE_CODEC,
+                HiveTestUtils.PARTITION_UPDATE_SMILE_CODEC,
+                executor,
+                new HiveTypeTranslator(),
+                new HiveStagingFileCommitter(hdfsEnvironment, executor),
+                new HiveZeroRowFileCreator(hdfsEnvironment, new OutputStreamDataSinkFactory(), executor),
+                TEST_SERVER_VERSION,
+                new HivePartitionObjectBuilder(),
+                encryptionInformationProvider,
+                new HivePartitionStats(),
+                new HiveFileRenamer(),
+                HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER,
+                new QuickStatsProvider(HDFS_ENVIRONMENT, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of()),
+                new HiveTableWritabilityChecker(false));
+
+        HiveSplitManager splitManager = new HiveSplitManager(
+                new TestingHiveTransactionManager(metadataFactory),
+                new NamenodeStats(),
+                hdfsEnvironment,
+                new TestingDirectoryLister(),
+                directExecutor(),
+                new HiveCoercionPolicy(FUNCTION_AND_TYPE_MANAGER),
+                new CounterStat(),
+                100,
+                hiveClientConfig.getMaxOutstandingSplitsSize(),
+                hiveClientConfig.getMinPartitionBatchSize(),
+                hiveClientConfig.getMaxPartitionBatchSize(),
+                hiveClientConfig.getSplitLoaderConcurrency(),
+                false,
+                new ConfigBasedCacheQuotaRequirementProvider(new CacheConfig()),
+                encryptionInformationProvider,
+                new HivePartitionSkippabilityChecker());
+
+        HiveColumnHandle partitionColumn = new HiveColumnHandle(
+                "ds",
+                HIVE_STRING,
+                parseTypeSignature(VARCHAR),
+                MAX_PARTITION_KEY_COLUMN_INDEX,
+                PARTITION_KEY,
+                Optional.empty(),
+                Optional.empty());
+        List<HivePartition> partitions = ImmutableList.of(
+                new HivePartition(
+                        new SchemaTableName("test_schema", "test_table"),
+                        PARTITION_NAME_WITH_VERSION,
+                        ImmutableMap.of(partitionColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice(PARTITION_VALUE)))));
+
+        SchemaTableName schemaTableName = new SchemaTableName("test_schema", "test_table");
+        HiveTableHandle hiveTableHandle = new HiveTableHandle(schemaTableName.getSchemaName(), schemaTableName.getTableName());
+        HiveTableLayoutHandle layoutHandle = new HiveTableLayoutHandle.Builder()
+                .setSchemaTableName(schemaTableName)
+                .setTablePath("test_path")
+                .setPartitionColumns(ImmutableList.of(partitionColumn))
+                .setDataColumns(COLUMNS)
+                .setTableParameters(ImmutableMap.of())
+                .setDomainPredicate(TupleDomain.all())
+                .setRemainingPredicate(TRUE_CONSTANT)
+                .setPredicateColumns(ImmutableMap.of())
+                .setPartitionColumnPredicate(TupleDomain.all())
+                .setPartitions(partitions)
+                .setBucketHandle(Optional.empty())
+                .setBucketFilter(Optional.empty())
+                .setPushdownFilterEnabled(false)
+                .setLayoutString("layout")
+                .setRequestedColumns(Optional.empty())
+                .setPartialAggregationsPushedDown(false)
+                .setAppendRowNumberEnabled(false)
+                .setHiveTableHandle(hiveTableHandle)
+                .build();
+
+        ConnectorSplitSource splitSource = splitManager.getSplits(
+                new HiveTransactionHandle(),
+                new TestingConnectorSession(getAllSessionProperties(hiveClientConfig, new HiveCommonClientConfig())),
+                layoutHandle,
+                SPLIT_SCHEDULING_CONTEXT);
+        Optional<EncryptionInformation> encryptionInformation = splitSource.getNextBatch(NOT_PARTITIONED, 100).get().getSplits()
+                .stream()
+                .map(HiveSplit.class::cast)
+                .map(HiveSplit::getEncryptionInformation)
+                .findFirst()
+                .get();
+        assertTrue(encryptionInformation.isPresent());
+        Optional<DwrfEncryptionMetadata> dwrfEncryptionMetadata = encryptionInformation.get().getDwrfEncryptionMetadata();
+        assertTrue(dwrfEncryptionMetadata.isPresent());
+        assertEquals(dwrfEncryptionMetadata.get().getEncryptionAlgorithm(), testEncryptionAlgorithm);
+        assertEquals(dwrfEncryptionMetadata.get().getEncryptionProvider(), testEncryptionProvider);
+        assertEquals(dwrfEncryptionMetadata.get().getFieldToKeyData().size(), 4);
     }
 
     private static class TestingHiveTransactionManager
