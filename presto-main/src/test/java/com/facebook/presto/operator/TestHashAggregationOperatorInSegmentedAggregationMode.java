@@ -32,6 +32,7 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
@@ -56,7 +57,7 @@ public class TestHashAggregationOperatorInSegmentedAggregationMode
     private static final FunctionAndTypeManager FUNCTION_AND_TYPE_MANAGER = MetadataManager.createTestMetadataManager().getFunctionAndTypeManager();
 
     private static final JavaAggregationFunctionImplementation COUNT = FUNCTION_AND_TYPE_MANAGER.getJavaAggregateFunctionImplementation(
-            FUNCTION_AND_TYPE_MANAGER.lookupFunction("count", ImmutableList.of()));
+            FUNCTION_AND_TYPE_MANAGER.lookupFunction("count", Collections.emptyList()));
 
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
@@ -68,7 +69,7 @@ public class TestHashAggregationOperatorInSegmentedAggregationMode
             ImmutableList.of(BIGINT, BIGINT),
             ImmutableList.of(0, 1),
             ImmutableList.of(0),
-            ImmutableList.of(),
+            Collections.emptyList(),
             Step.SINGLE,
             false,
             ImmutableList.of(generateAccumulatorFactory(COUNT, ImmutableList.of(2), Optional.empty())),

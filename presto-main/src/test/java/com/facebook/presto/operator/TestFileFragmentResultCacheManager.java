@@ -31,6 +31,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
@@ -111,7 +112,7 @@ public class TestFileFragmentResultCacheManager
         assertEquals(stats.getCacheSizeInBytes(), 0);
 
         // Test empty page. Current cache status: empty
-        cacheManager.put(SERIALIZED_PLAN_FRAGMENT_1, SPLIT_1, ImmutableList.of(), INPUT_DATA_SIZE_1).get();
+        cacheManager.put(SERIALIZED_PLAN_FRAGMENT_1, SPLIT_1, Collections.emptyList(), INPUT_DATA_SIZE_1).get();
         fragmentCacheResult = cacheManager.get(SERIALIZED_PLAN_FRAGMENT_1, SPLIT_1);
         Optional<Iterator<Page>> result = fragmentCacheResult.getPages();
         assertTrue(result.isPresent());
@@ -193,7 +194,7 @@ public class TestFileFragmentResultCacheManager
         assertEquals(stats.getCacheSizeInBytes(), getCachePhysicalSize(cacheDirectory));
 
         // Adding an empty page is fine.
-        cacheManager.put(SERIALIZED_PLAN_FRAGMENT_2, SPLIT_1, ImmutableList.of(), 0).get();
+        cacheManager.put(SERIALIZED_PLAN_FRAGMENT_2, SPLIT_1, Collections.emptyList(), 0).get();
         fragmentCacheResult = cacheManager.get(SERIALIZED_PLAN_FRAGMENT_2, SPLIT_1);
         result = fragmentCacheResult.getPages();
         assertTrue(result.isPresent());
@@ -316,7 +317,7 @@ public class TestFileFragmentResultCacheManager
         @Override
         public List<HostAddress> getPreferredNodes(NodeProvider nodeProvider)
         {
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
 
         @Override

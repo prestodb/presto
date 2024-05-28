@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.USE_DEFAULTS_FOR_CORRELATED_AGGREGATION_PUSHDOWN_THROUGH_OUTER_JOINS;
@@ -78,7 +79,7 @@ public class TestPushAggregationThroughOuterJoin
                         project(ImmutableMap.of(
                                 "COL1", expression("COL1"),
                                 "COALESCE", expression("coalesce(AVG, AVG_NULL)")),
-                                join(JoinType.INNER, ImmutableList.of(),
+                                join(JoinType.INNER, Collections.emptyList(),
                                         join(JoinType.LEFT, ImmutableList.of(equiJoinClause("COL1", "COL2")),
                                                 values(ImmutableMap.of("COL1", 0)),
                                                 aggregation(
@@ -127,7 +128,7 @@ public class TestPushAggregationThroughOuterJoin
                                 "COL1", expression("COL1"),
                                 "COL3", expression("COL3"),
                                 "COALESCE", expression("coalesce(AVG, AVG_NULL)")),
-                                join(JoinType.INNER, ImmutableList.of(),
+                                join(JoinType.INNER, Collections.emptyList(),
                                         join(JoinType.LEFT, ImmutableList.of(equiJoinClause("COL1", "COL2")),
                                                 values(ImmutableMap.of("COL1", 0, "COL3", 0)),
                                                 aggregation(
@@ -174,7 +175,7 @@ public class TestPushAggregationThroughOuterJoin
                         project(ImmutableMap.of(
                                 "COALESCE", expression("coalesce(AVG, AVG_NULL)"),
                                 "COL1", expression("COL1")),
-                                join(JoinType.INNER, ImmutableList.of(),
+                                join(JoinType.INNER, Collections.emptyList(),
                                         join(JoinType.RIGHT, ImmutableList.of(equiJoinClause("COL2", "COL1")),
                                                 aggregation(
                                                         singleGroupingSet("COL2"),

@@ -63,6 +63,7 @@ import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeClass;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -481,7 +482,7 @@ public class AbstractAnalyzerTest
                 connectorId,
                 connector,
                 createInformationSchemaConnectorId(connectorId),
-                new InformationSchemaConnector(catalogName, nodeManager, metadata, accessControl, ImmutableList.of()),
+                new InformationSchemaConnector(catalogName, nodeManager, metadata, accessControl, Collections.emptyList()),
                 systemId,
                 new SystemConnector(
                         systemId,

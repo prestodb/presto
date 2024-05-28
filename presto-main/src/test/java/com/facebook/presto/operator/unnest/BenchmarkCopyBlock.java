@@ -19,7 +19,6 @@ import com.facebook.presto.common.block.LongArrayBlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.Metadata;
-import com.google.common.collect.ImmutableList;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -38,6 +37,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -144,7 +144,7 @@ public class BenchmarkCopyBlock
                         primitiveNullsRatio,
                         0.0f,
                         false,
-                        ImmutableList.of()));
+                        Collections.emptyList()));
             }
         }
 

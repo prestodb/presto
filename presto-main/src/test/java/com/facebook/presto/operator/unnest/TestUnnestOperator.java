@@ -33,6 +33,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -432,12 +433,12 @@ public class TestUnnestOperator
 
     protected void testUnnest(List<Type> replicatedTypes, List<Type> unnestTypes, List<Type> types)
     {
-        testUnnest(replicatedTypes, unnestTypes, types, 0.0f, 0.0f, false, ImmutableList.of());
-        testUnnest(replicatedTypes, unnestTypes, types, 0.0f, 0.2f, false, ImmutableList.of());
-        testUnnest(replicatedTypes, unnestTypes, types, 0.2f, 0.2f, false, ImmutableList.of());
-        testUnnest(replicatedTypes, unnestTypes, types, 0.0f, 0.0f, true, ImmutableList.of());
-        testUnnest(replicatedTypes, unnestTypes, types, 0.0f, 0.2f, true, ImmutableList.of());
-        testUnnest(replicatedTypes, unnestTypes, types, 0.2f, 0.2f, true, ImmutableList.of());
+        testUnnest(replicatedTypes, unnestTypes, types, 0.0f, 0.0f, false, Collections.emptyList());
+        testUnnest(replicatedTypes, unnestTypes, types, 0.0f, 0.2f, false, Collections.emptyList());
+        testUnnest(replicatedTypes, unnestTypes, types, 0.2f, 0.2f, false, Collections.emptyList());
+        testUnnest(replicatedTypes, unnestTypes, types, 0.0f, 0.0f, true, Collections.emptyList());
+        testUnnest(replicatedTypes, unnestTypes, types, 0.0f, 0.2f, true, Collections.emptyList());
+        testUnnest(replicatedTypes, unnestTypes, types, 0.2f, 0.2f, true, Collections.emptyList());
 
         testUnnest(replicatedTypes, unnestTypes, types, 0.0f, 0.0f, false, ImmutableList.of(DICTIONARY));
         testUnnest(replicatedTypes, unnestTypes, types, 0.0f, 0.0f, false, ImmutableList.of(RUN_LENGTH));

@@ -20,6 +20,8 @@ import com.facebook.presto.spi.StandardErrorCode;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
+
 import static com.facebook.presto.common.type.DecimalType.createDecimalType;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
@@ -82,21 +84,21 @@ public class TestMapKeysByTopNValuesFunction
         assertFunction(
                 "MAP_KEYS_BY_TOP_N_VALUES(MAP(ARRAY[-1, -2, -3], ARRAY[4, 5, 6]), 0)",
                 new ArrayType(INTEGER),
-                ImmutableList.of());
+                Collections.emptyList());
         assertFunction(
                 "MAP_KEYS_BY_TOP_N_VALUES(MAP(ARRAY['ab', 'bc', 'cd'], ARRAY['x', 'y', 'z']), 0)",
                 new ArrayType(createVarcharType(2)),
-                ImmutableList.of());
+                Collections.emptyList());
         assertFunction(
                 "MAP_KEYS_BY_TOP_N_VALUES(MAP(ARRAY[123.0, 99.5, 1000.99], ARRAY['x', 'y', 'z']), 0)",
                 new ArrayType(createDecimalType(6, 2)),
-                ImmutableList.of());
+                Collections.emptyList());
     }
 
     @Test
     public void testEmpty()
     {
-        assertFunction("MAP_KEYS_BY_TOP_N_VALUES(MAP(ARRAY[], ARRAY[]), 5)", new ArrayType(UNKNOWN), ImmutableList.of());
+        assertFunction("MAP_KEYS_BY_TOP_N_VALUES(MAP(ARRAY[], ARRAY[]), 5)", new ArrayType(UNKNOWN), Collections.emptyList());
     }
 
     @Test

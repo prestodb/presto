@@ -17,9 +17,9 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.relation.InSubqueryExpression;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
@@ -34,7 +34,7 @@ public class TestRemoveUnreferencedScalarApplyNodes
         tester().assertThat(new RemoveUnreferencedScalarApplyNodes())
                 .on(p -> p.apply(
                         assignment(p.variable("z"), new InSubqueryExpression(Optional.empty(), p.variable("x"), p.variable("y"))),
-                        ImmutableList.of(),
+                        Collections.emptyList(),
                         p.values(p.variable("x")),
                         p.values(p.variable("y"))))
                 .doesNotFire();
@@ -46,7 +46,7 @@ public class TestRemoveUnreferencedScalarApplyNodes
         tester().assertThat(new RemoveUnreferencedScalarApplyNodes())
                 .on(p -> p.apply(
                         Assignments.of(),
-                        ImmutableList.of(),
+                        Collections.emptyList(),
                         p.values(p.variable("x")),
                         p.values(p.variable("y"))))
                 .matches(values("x"));

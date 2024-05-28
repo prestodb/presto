@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
@@ -47,7 +48,7 @@ public class TestPruneCrossJoinColumns
                                 ImmutableMap.of("rightValue", PlanMatchPattern.expression("rightValue")),
                                 join(
                                         JoinType.INNER,
-                                        ImmutableList.of(),
+                                        Collections.emptyList(),
                                         Optional.empty(),
                                         strictProject(
                                                 ImmutableMap.of(),
@@ -66,7 +67,7 @@ public class TestPruneCrossJoinColumns
                                 ImmutableMap.of("leftValue", PlanMatchPattern.expression("leftValue")),
                                 join(
                                         JoinType.INNER,
-                                        ImmutableList.of(),
+                                        Collections.emptyList(),
                                         Optional.empty(),
                                         values(ImmutableList.of("leftValue")),
                                         strictProject(
@@ -97,7 +98,7 @@ public class TestPruneCrossJoinColumns
                         JoinType.INNER,
                         p.values(leftValue),
                         p.values(rightValue),
-                        ImmutableList.of(),
+                        Collections.emptyList(),
                         outputs,
                         Optional.empty(),
                         Optional.empty(),

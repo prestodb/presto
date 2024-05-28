@@ -23,6 +23,7 @@ import com.facebook.presto.operator.JoinProbe.JoinProbeFactory;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.OptionalInt;
 
@@ -163,7 +164,7 @@ public class TestLookupJoinPageBuilder
         Page page = new Page(blockBuilder.build());
 
         // nothing on the build side so we don't append anything
-        LookupSource lookupSource = new TestLookupSource(ImmutableList.of(), page);
+        LookupSource lookupSource = new TestLookupSource(Collections.emptyList(), page);
         JoinProbe probe = (new JoinProbeFactory(new int[] {0}, ImmutableList.of(0), OptionalInt.empty())).createJoinProbe(page);
         LookupJoinPageBuilder lookupJoinPageBuilder = new LookupJoinPageBuilder(ImmutableList.of(BIGINT));
 

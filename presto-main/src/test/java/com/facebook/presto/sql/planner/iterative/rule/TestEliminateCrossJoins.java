@@ -31,6 +31,7 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Optional;
 import java.util.function.Function;
 
@@ -292,7 +293,7 @@ public class TestEliminateCrossJoins
                 Optional.empty(),
                 idAllocator.getNextId(),
                 Arrays.asList(variables),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 Optional.empty());
     }
 }

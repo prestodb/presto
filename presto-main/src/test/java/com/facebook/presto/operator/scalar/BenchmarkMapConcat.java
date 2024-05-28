@@ -47,6 +47,7 @@ import org.openjdk.jmh.runner.options.VerboseMode;
 import org.openjdk.jmh.runner.options.WarmupMode;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
@@ -115,16 +116,16 @@ public class BenchmarkMapConcat
             List<String> rightKeys;
             switch (mapConfig) {
                 case "left_empty":
-                    leftKeys = ImmutableList.of();
+                    leftKeys = Collections.emptyList();
                     rightKeys = keyList1;
                     break;
                 case "right_empty":
                     leftKeys = keyList1;
-                    rightKeys = ImmutableList.of();
+                    rightKeys = Collections.emptyList();
                     break;
                 case "both_empty":
-                    leftKeys = ImmutableList.of();
-                    rightKeys = ImmutableList.of();
+                    leftKeys = Collections.emptyList();
+                    rightKeys = Collections.emptyList();
                     break;
                 case "non_empty":
                     leftKeys = keyList1;

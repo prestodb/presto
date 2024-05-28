@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -83,7 +84,7 @@ public class TestSwapAdjacentWindowsBySpecifications
                                 ImmutableList.of(p.variable("a")),
                                 Optional.empty()),
                         ImmutableMap.of(p.variable("avg_1"),
-                                new WindowNode.Function(call("avg", functionHandle, DOUBLE, ImmutableList.of()), frame, false)),
+                                new WindowNode.Function(call("avg", functionHandle, DOUBLE, Collections.emptyList()), frame, false)),
                         p.values(p.variable("a"))))
                 .doesNotFire();
     }
@@ -94,8 +95,8 @@ public class TestSwapAdjacentWindowsBySpecifications
         String columnAAlias = "ALIAS_A";
         String columnBAlias = "ALIAS_B";
 
-        ExpectedValueProvider<WindowNode.Specification> specificationA = specification(ImmutableList.of(columnAAlias), ImmutableList.of(), ImmutableMap.of());
-        ExpectedValueProvider<WindowNode.Specification> specificationAB = specification(ImmutableList.of(columnAAlias, columnBAlias), ImmutableList.of(), ImmutableMap.of());
+        ExpectedValueProvider<WindowNode.Specification> specificationA = specification(ImmutableList.of(columnAAlias), Collections.emptyList(), ImmutableMap.of());
+        ExpectedValueProvider<WindowNode.Specification> specificationAB = specification(ImmutableList.of(columnAAlias, columnBAlias), Collections.emptyList(), ImmutableMap.of());
 
         tester().assertThat(new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(0))
                 .on(p ->
@@ -138,13 +139,13 @@ public class TestSwapAdjacentWindowsBySpecifications
     @Test
     public void dependentWindowsAreNotReorderedWithOffset()
     {
-        FunctionHandle rankFunction = createTestMetadataManager().getFunctionAndTypeManager().lookupFunction("rank", ImmutableList.of());
+        FunctionHandle rankFunction = createTestMetadataManager().getFunctionAndTypeManager().lookupFunction("rank", Collections.emptyList());
         WindowNode.Function windowFunction = new WindowNode.Function(
                 call(
                         "rank",
                         rankFunction,
                         BIGINT,
-                        ImmutableList.of()),
+                        Collections.emptyList()),
                 frame,
                 false);
         WindowNode.Frame frameWithRowOffset = new WindowNode.Frame(
@@ -183,13 +184,13 @@ public class TestSwapAdjacentWindowsBySpecifications
     @Test
     public void dependentWindowsWithRangeAreNotReordered()
     {
-        FunctionHandle rankFunction = createTestMetadataManager().getFunctionAndTypeManager().lookupFunction("rank", ImmutableList.of());
+        FunctionHandle rankFunction = createTestMetadataManager().getFunctionAndTypeManager().lookupFunction("rank", Collections.emptyList());
         WindowNode.Function windowFunction = new WindowNode.Function(
                 call(
                         "rank",
                         rankFunction,
                         BIGINT,
-                        ImmutableList.of()),
+                        Collections.emptyList()),
                 frame,
                 false);
         WindowNode.Frame frameWithRowOffset = new WindowNode.Frame(

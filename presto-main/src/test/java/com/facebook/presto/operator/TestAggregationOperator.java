@@ -38,6 +38,7 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
@@ -138,12 +139,12 @@ public class TestAggregationOperator
                 ImmutableList.of(0),
                 Optional.of(1),
                 ImmutableList.of(BIGINT, BOOLEAN),
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 null,
                 true, // distinct
                 new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig()),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 false,
                 TEST_SESSION,
                 new TempStorageStandaloneSpillerFactory(new TestingTempStorageManager(), new BlockEncodingManager(), new NodeSpillConfig(), new FeaturesConfig(), new SpillerStats()));

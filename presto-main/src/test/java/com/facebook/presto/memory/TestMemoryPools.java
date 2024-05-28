@@ -43,6 +43,7 @@ import io.airlift.units.DataSize;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -133,7 +134,7 @@ public class TestMemoryPools
                     TableScanOperator.class.getSimpleName());
 
             OutputFactory outputFactory = new PageConsumerOutputFactory(types -> (page -> {}));
-            Operator outputOperator = outputFactory.createOutputOperator(2, new PlanNodeId("output"), ImmutableList.of(), Function.identity(), Optional.empty(), new TestingPagesSerdeFactory())
+            Operator outputOperator = outputFactory.createOutputOperator(2, new PlanNodeId("output"), Collections.emptyList(), Function.identity(), Optional.empty(), new TestingPagesSerdeFactory())
                     .createOperator(driverContext);
             RevocableMemoryOperator revocableMemoryOperator = new RevocableMemoryOperator(revokableOperatorContext, reservedPerPage, numberOfPages);
             createOperator.set(revocableMemoryOperator);

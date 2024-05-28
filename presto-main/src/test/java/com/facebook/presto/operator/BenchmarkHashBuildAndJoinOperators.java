@@ -41,6 +41,7 @@ import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -304,7 +305,7 @@ public class BenchmarkHashBuildAndJoinOperators
                 buildContext.getHashChannel(),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 10_000,
                 new PagesIndex.TestingFactory(false),
                 false,

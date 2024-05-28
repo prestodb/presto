@@ -67,7 +67,7 @@ public abstract class AbstractTestApproximateCountDistinct
     @Test(dataProvider = "provideStandardErrors")
     public void testNoPositions(double maxStandardError)
     {
-        assertCount(ImmutableList.of(), maxStandardError, 0);
+        assertCount(Collections.emptyList(), maxStandardError, 0);
     }
 
     @Test(dataProvider = "provideStandardErrors")

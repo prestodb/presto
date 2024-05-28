@@ -29,6 +29,7 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -91,10 +92,10 @@ public class TestMergeAdjacentWindows
     private static final FunctionHandle SUM_FUNCTION_HANDLE = createTestMetadataManager().getFunctionAndTypeManager().lookupFunction("sum", fromTypes(DOUBLE));
     private static final FunctionHandle AVG_FUNCTION_HANDLE = createTestMetadataManager().getFunctionAndTypeManager().lookupFunction("avg", fromTypes(DOUBLE));
     private static final FunctionHandle LAG_FUNCTION_HANDLE = createTestMetadataManager().getFunctionAndTypeManager().lookupFunction("lag", fromTypes(DOUBLE));
-    private static final FunctionHandle RANK_FUNCTION_HANDLE = createTestMetadataManager().getFunctionAndTypeManager().lookupFunction("rank", ImmutableList.of());
+    private static final FunctionHandle RANK_FUNCTION_HANDLE = createTestMetadataManager().getFunctionAndTypeManager().lookupFunction("rank", Collections.emptyList());
     private static final String columnAAlias = "ALIAS_A";
     private static final ExpectedValueProvider<WindowNode.Specification> specificationA =
-            specification(ImmutableList.of(columnAAlias), ImmutableList.of(), ImmutableMap.of());
+            specification(ImmutableList.of(columnAAlias), Collections.emptyList(), ImmutableMap.of());
 
     @Test
     public void testPlanWithoutWindowNode()

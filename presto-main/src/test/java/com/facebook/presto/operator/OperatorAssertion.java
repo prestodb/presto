@@ -28,6 +28,7 @@ import io.airlift.units.Duration;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -173,7 +174,7 @@ public final class OperatorAssertion
 
     public static List<Page> toPages(OperatorFactory operatorFactory, DriverContext driverContext)
     {
-        return toPages(operatorFactory, driverContext, ImmutableList.of());
+        return toPages(operatorFactory, driverContext, Collections.emptyList());
     }
 
     public static MaterializedResult toMaterializedResult(Session session, List<Type> types, List<Page> pages)
@@ -221,7 +222,7 @@ public final class OperatorAssertion
             MaterializedResult expected,
             boolean revokeMemoryWhenAddingPages)
     {
-        assertOperatorEquals(operatorFactory, driverContext, input, expected, false, ImmutableList.of(), revokeMemoryWhenAddingPages);
+        assertOperatorEquals(operatorFactory, driverContext, input, expected, false, Collections.emptyList(), revokeMemoryWhenAddingPages);
     }
 
     public static void assertOperatorEquals(OperatorFactory operatorFactory, DriverContext driverContext, List<Page> input, MaterializedResult expected, boolean hashEnabled, List<Integer> hashChannels)

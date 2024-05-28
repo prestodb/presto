@@ -22,6 +22,7 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -302,7 +303,7 @@ public class TestMemo
         @Override
         public List<VariableReferenceExpression> getOutputVariables()
         {
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
 
         @Override

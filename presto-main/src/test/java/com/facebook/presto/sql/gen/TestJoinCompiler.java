@@ -31,6 +31,7 @@ import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -176,7 +177,7 @@ public class TestJoinCompiler
 
         OptionalInt hashChannel = OptionalInt.empty();
         ImmutableList<List<Block>> channels = ImmutableList.of(extraChannel, varcharChannel, longChannel, doubleChannel, booleanChannel, extraUnusedChannel);
-        List<Block> precomputedHash = ImmutableList.of();
+        List<Block> precomputedHash = Collections.emptyList();
         if (hashEnabled) {
             ImmutableList.Builder<Block> hashChannelBuilder = ImmutableList.builder();
             for (int i = 0; i < 3; i++) {

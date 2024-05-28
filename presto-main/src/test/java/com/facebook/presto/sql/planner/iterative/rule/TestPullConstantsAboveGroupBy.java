@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
@@ -76,7 +77,7 @@ public class TestPullConstantsAboveGroupBy
     @Test
     public void testRuleDisabledDoesNotFire()
     {
-        RuleTester tester = new RuleTester(ImmutableList.of(), ImmutableMap.of("optimize_constant_grouping_keys", "false", "rewrite_expression_with_constant_expression", "false"));
+        RuleTester tester = new RuleTester(Collections.emptyList(), ImmutableMap.of("optimize_constant_grouping_keys", "false", "rewrite_expression_with_constant_expression", "false"));
 
         tester.assertThat(new PullConstantsAboveGroupBy())
             .on(p -> p.aggregation(ab -> ab

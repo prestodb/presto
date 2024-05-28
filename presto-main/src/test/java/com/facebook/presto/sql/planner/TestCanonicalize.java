@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION;
@@ -56,7 +57,7 @@ public class TestCanonicalize
                         .setSystemProperty(REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION, "false")
                         .build(),
                 anyTree(
-                        join(INNER, ImmutableList.of(), Optional.empty(),
+                        join(INNER, Collections.emptyList(), Optional.empty(),
                                 project(
                                         ImmutableMap.of("X", expression("BIGINT '1'")),
                                         values(ImmutableMap.of())),
@@ -67,7 +68,7 @@ public class TestCanonicalize
     public void testDuplicatesInWindowOrderBy()
     {
         ExpectedValueProvider<WindowNode.Specification> specification = specification(
-                ImmutableList.of(),
+                Collections.emptyList(),
                 ImmutableList.of("A"),
                 ImmutableMap.of("A", SortOrder.ASC_NULLS_LAST));
 
@@ -78,7 +79,7 @@ public class TestCanonicalize
                 anyTree(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(specification)
-                                        .addFunction(functionCall("row_number", Optional.empty(), ImmutableList.of())),
+                                        .addFunction(functionCall("row_number", Optional.empty(), Collections.emptyList())),
                                 values("A"))),
                 ImmutableList.of(
                         new UnaliasSymbolReferences(getMetadata().getFunctionAndTypeManager()),

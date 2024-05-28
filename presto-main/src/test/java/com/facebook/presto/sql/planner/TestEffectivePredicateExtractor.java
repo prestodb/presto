@@ -59,6 +59,7 @@ import org.testng.annotations.Test;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -166,7 +167,7 @@ public class TestEffectivePredicateExtractor
                         CV, count(metadata.getFunctionAndTypeManager()),
                         DV, count(metadata.getFunctionAndTypeManager())),
                 singleGroupingSet(ImmutableList.of(AV, BV, CV)),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 AggregationNode.Step.FINAL,
                 Optional.empty(),
                 Optional.empty(),
@@ -192,7 +193,7 @@ public class TestEffectivePredicateExtractor
                 filter(baseTableScan, FALSE_CONSTANT),
                 ImmutableMap.of(),
                 globalAggregation(),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 AggregationNode.Step.FINAL,
                 Optional.empty(),
                 Optional.empty(),
@@ -208,7 +209,7 @@ public class TestEffectivePredicateExtractor
     {
         PlanNode node = filter(baseTableScan,
                 and(
-                        greaterThan(AV, call(metadata.getFunctionAndTypeManager(), "rand", DOUBLE, ImmutableList.of())),
+                        greaterThan(AV, call(metadata.getFunctionAndTypeManager(), "rand", DOUBLE, Collections.emptyList())),
                         lessThan(BV, bigintLiteral(10))));
 
         RowExpression effectivePredicate = effectivePredicateExtractor.extract(node);

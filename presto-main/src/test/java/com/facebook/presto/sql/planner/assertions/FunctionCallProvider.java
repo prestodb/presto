@@ -21,8 +21,8 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.WindowFrame;
 import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -54,12 +54,12 @@ class FunctionCallProvider
 
     FunctionCallProvider(QualifiedName name, Optional<WindowFrame> frame, boolean distinct, List<PlanTestSymbol> args)
     {
-        this(true, name, frame, distinct, args, ImmutableList.of());
+        this(true, name, frame, distinct, args, Collections.emptyList());
     }
 
     FunctionCallProvider(QualifiedName name, boolean distinct, List<PlanTestSymbol> args)
     {
-        this(false, name, Optional.empty(), distinct, args, ImmutableList.of());
+        this(false, name, Optional.empty(), distinct, args, Collections.emptyList());
     }
 
     FunctionCallProvider(QualifiedName name, List<PlanTestSymbol> args, List<PlanMatchPattern.Ordering> orderBy)
@@ -69,7 +69,7 @@ class FunctionCallProvider
 
     FunctionCallProvider(QualifiedName name, List<PlanTestSymbol> args)
     {
-        this(false, name, Optional.empty(), false, args, ImmutableList.of());
+        this(false, name, Optional.empty(), false, args, Collections.emptyList());
     }
 
     @Override

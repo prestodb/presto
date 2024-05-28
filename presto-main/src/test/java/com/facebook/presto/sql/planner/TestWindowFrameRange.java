@@ -29,6 +29,7 @@ import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.DecimalType.createDecimalType;
@@ -66,7 +67,7 @@ public class TestWindowFrameRange
                         window(
                                 windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(specification(
-                                                ImmutableList.of(),
+                                                Collections.emptyList(),
                                                 ImmutableList.of("key"),
                                                 ImmutableMap.of("key", SortOrder.ASC_NULLS_LAST)))
                                         .addFunction(
@@ -109,7 +110,7 @@ public class TestWindowFrameRange
                         window(
                                 windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(specification(
-                                                ImmutableList.of(),
+                                                Collections.emptyList(),
                                                 ImmutableList.of("key"),
                                                 ImmutableMap.of("key", SortOrder.ASC_NULLS_LAST)))
                                         .addFunction(
@@ -152,7 +153,7 @@ public class TestWindowFrameRange
                         window(
                                 windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(specification(
-                                                ImmutableList.of(),
+                                                Collections.emptyList(),
                                                 ImmutableList.of("key"),
                                                 ImmutableMap.of("key", SortOrder.ASC_NULLS_LAST)))
                                         .addFunction(

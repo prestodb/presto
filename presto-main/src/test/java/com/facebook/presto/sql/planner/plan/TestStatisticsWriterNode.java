@@ -40,6 +40,7 @@ import com.google.inject.Key;
 import com.google.inject.Module;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -111,7 +112,7 @@ public class TestStatisticsWriterNode
         return new StatisticsWriterNode(
                 withSourceLocation ? Optional.of(new SourceLocation(1, 2)) : Optional.empty(),
                 newId(),
-                new ValuesNode(Optional.empty(), newId(), COLUMNS.stream().map(column -> new VariableReferenceExpression(Optional.empty(), column, BIGINT)).collect(toImmutableList()), ImmutableList.of(), Optional.empty()),
+                new ValuesNode(Optional.empty(), newId(), COLUMNS.stream().map(column -> new VariableReferenceExpression(Optional.empty(), column, BIGINT)).collect(toImmutableList()), Collections.emptyList(), Optional.empty()),
                 new TableHandle(new ConnectorId("test"), new TestingTableHandle(), TestingTransactionHandle.create(), Optional.empty()),
                 variableAllocator.newVariable("count", BIGINT),
                 true,

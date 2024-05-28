@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -494,7 +495,7 @@ public class TestPredicatePushdown
                                 ImmutableMap.of("a1", expression("a1")),
                                 join(
                                         INNER,
-                                        ImmutableList.of(),
+                                        Collections.emptyList(),
                                         Optional.empty(),
                                         Optional.of(REPLICATED),
                                         project(

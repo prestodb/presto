@@ -18,6 +18,8 @@ import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
+
 import static com.facebook.presto.common.type.JsonType.JSON;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 
@@ -41,7 +43,7 @@ public class TestJsonPrestoQueryPlanFunctions
         assertFunction("json_presto_query_plan_node_children(null, '1')", new ArrayType(VARCHAR), null);
 
         assertFunction("json_presto_query_plan_node_children(json '" + TestJsonPrestoQueryPlanFunctionUtils.joinPlan.replaceAll("'", "''") + "', '314')",
-                new ArrayType(VARCHAR), ImmutableList.of());
+                new ArrayType(VARCHAR), Collections.emptyList());
 
         assertFunction("json_presto_query_plan_node_children(json '" + TestJsonPrestoQueryPlanFunctionUtils.joinPlan.replaceAll("'", "''") + "', '230')",
                 new ArrayType(VARCHAR), ImmutableList.of("251", "284"));

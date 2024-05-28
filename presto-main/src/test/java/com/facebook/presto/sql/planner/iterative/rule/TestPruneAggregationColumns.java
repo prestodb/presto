@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Optional;
 import java.util.function.Predicate;
 
@@ -50,7 +51,7 @@ public class TestPruneAggregationColumns
                                         singleGroupingSet("key"),
                                         ImmutableMap.of(
                                                 Optional.of("b"),
-                                                functionCall("count", false, ImmutableList.of())),
+                                                functionCall("count", false, Collections.emptyList())),
                                         ImmutableMap.of(),
                                         Optional.empty(),
                                         SINGLE,

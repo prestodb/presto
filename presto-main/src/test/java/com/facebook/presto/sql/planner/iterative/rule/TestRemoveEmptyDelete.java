@@ -19,10 +19,10 @@ import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.tpch.TpchTableHandle;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -43,7 +43,7 @@ public class TestRemoveEmptyDelete
                                         new TpchTableHandle("nation", 1.0),
                                         TestingTransactionHandle.create(),
                                         Optional.empty()),
-                                ImmutableList.of(),
+                                Collections.emptyList(),
                                 ImmutableMap.of()),
                         p.variable("a", BIGINT)))
                 .doesNotFire();

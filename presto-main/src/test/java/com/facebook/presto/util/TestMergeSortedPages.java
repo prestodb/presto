@@ -25,6 +25,7 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
@@ -401,7 +402,7 @@ public class TestMergeSortedPages
         assertTrue(mergedPages.process());
 
         if (mergedPages.isFinished()) {
-            return toMaterializedResult(TEST_SESSION, types, ImmutableList.of());
+            return toMaterializedResult(TEST_SESSION, types, Collections.emptyList());
         }
 
         Page page = mergedPages.getResult();

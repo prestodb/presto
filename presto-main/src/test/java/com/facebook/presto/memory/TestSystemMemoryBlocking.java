@@ -45,6 +45,7 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
@@ -115,7 +116,7 @@ public class TestSystemMemoryBlocking
                         new ConnectorTableHandle() {},
                         new ConnectorTransactionHandle() {},
                         Optional.empty()),
-                ImmutableList.of());
+                Collections.emptyList());
         PageConsumerOperator sink = createSinkOperator(types);
         Driver driver = Driver.createDriver(driverContext, source, sink);
         assertSame(driver.getDriverContext(), driverContext);
@@ -168,7 +169,7 @@ public class TestSystemMemoryBlocking
         @Override
         public List<HostAddress> getPreferredNodes(NodeProvider nodeProvider)
         {
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
 
         @Override

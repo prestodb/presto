@@ -54,6 +54,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.io.Closeable;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -110,18 +111,18 @@ public class TestDriver
                             Optional.empty(),
                             new PlanNodeId("test-scan"),
                             TESTING_TABLE_HANDLE,
-                            ImmutableList.of(),
+                            Collections.emptyList(),
                             ImmutableMap.of(),
                             TupleDomain.all(),
                             TupleDomain.all()),
                     ImmutableMap.of(),
-                    singleGroupingSet(ImmutableList.of()),
-                    ImmutableList.of(),
+                    singleGroupingSet(Collections.emptyList()),
+                    Collections.emptyList(),
                     AggregationNode.Step.PARTIAL,
                     Optional.empty(),
                     Optional.empty(),
                     Optional.empty()),
-            new PartitioningScheme(Partitioning.create(FIXED_HASH_DISTRIBUTION, ImmutableList.of()), ImmutableList.of()),
+            new PartitioningScheme(Partitioning.create(FIXED_HASH_DISTRIBUTION, Collections.emptyList()), Collections.emptyList()),
             testSessionBuilder().setSystemProperty(FRAGMENT_RESULT_CACHING_ENABLED, "true").build(),
             new ObjectMapper()).get();
 
@@ -253,7 +254,7 @@ public class TestDriver
                         .addSequencePage(10, 20, 30, 40)
                         .build()),
                 TESTING_TABLE_HANDLE,
-                ImmutableList.of());
+                Collections.emptyList());
 
         PageConsumerOperator sink = createSinkOperator(driverContext, types);
         Driver driver = Driver.createDriver(driverContext, source, sink);
@@ -286,7 +287,7 @@ public class TestDriver
             throws Exception
     {
         BrokenOperator brokenOperator = new BrokenOperator(driverContext.addOperatorContext(0, new PlanNodeId("test"), "source"), false);
-        final Driver driver = Driver.createDriver(driverContext, brokenOperator, createSinkOperator(driverContext, ImmutableList.of()));
+        final Driver driver = Driver.createDriver(driverContext, brokenOperator, createSinkOperator(driverContext, Collections.emptyList()));
 
         assertSame(driver.getDriverContext(), driverContext);
 
@@ -318,7 +319,7 @@ public class TestDriver
             throws Exception
     {
         BrokenOperator brokenOperator = new BrokenOperator(driverContext.addOperatorContext(0, new PlanNodeId("test"), "source"), true);
-        final Driver driver = Driver.createDriver(driverContext, brokenOperator, createSinkOperator(driverContext, ImmutableList.of()));
+        final Driver driver = Driver.createDriver(driverContext, brokenOperator, createSinkOperator(driverContext, Collections.emptyList()));
 
         assertSame(driver.getDriverContext(), driverContext);
 
@@ -353,7 +354,7 @@ public class TestDriver
                         .addSequencePage(10, 20, 30, 40)
                         .build()),
                 TESTING_TABLE_HANDLE,
-                ImmutableList.of());
+                Collections.emptyList());
 
         Driver driver = Driver.createDriver(driverContext, source, createSinkOperator(driverContext, types));
         // the table scan operator will request memory revocation with requestMemoryRevoking()
@@ -382,7 +383,7 @@ public class TestDriver
                         .addSequencePage(10, 20, 30, 40)
                         .build()),
                 TESTING_TABLE_HANDLE,
-                ImmutableList.of());
+                Collections.emptyList());
 
         BrokenOperator brokenOperator = new BrokenOperator(driverContext.addOperatorContext(0, new PlanNodeId("test"), "source"));
         final Driver driver = Driver.createDriver(driverContext, source, brokenOperator);
@@ -439,7 +440,7 @@ public class TestDriver
                         .addSequencePage(10, 20, 30, 40)
                         .build()),
                 TESTING_TABLE_HANDLE,
-                ImmutableList.of());
+                Collections.emptyList());
 
         PageConsumerOperator sink = createSinkOperator(driverContext, types);
         Driver driver = Driver.createDriver(driverContext, source, sink);
@@ -652,7 +653,7 @@ public class TestDriver
         @Override
         public List<HostAddress> getPreferredNodes(NodeProvider nodeProvider)
         {
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
 
         @Override

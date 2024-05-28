@@ -41,6 +41,7 @@ import org.testng.annotations.Test;
 
 import java.net.URI;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -80,7 +81,7 @@ public class TestResourceManagerClusterStateProvider
 
         ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(nodeManager, new SessionPropertyManager(), 10, Duration.valueOf("4s"), Duration.valueOf("8s"), Duration.valueOf("5s"), Duration.valueOf("0s"), Duration.valueOf("4s"), true, newSingleThreadScheduledExecutor());
 
-        assertEquals(provider.getClusterQueries(), ImmutableList.of());
+        assertEquals(provider.getClusterQueries(), Collections.emptyList());
 
         long query1Sequence = 0;
         long query2Sequence = 0;
@@ -131,7 +132,7 @@ public class TestResourceManagerClusterStateProvider
 
         ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(nodeManager, new SessionPropertyManager(), 10, Duration.valueOf("4s"), Duration.valueOf("8s"), Duration.valueOf("5s"), Duration.valueOf("0s"), Duration.valueOf("4s"), true, newSingleThreadScheduledExecutor());
 
-        assertEquals(provider.getClusterQueries(), ImmutableList.of());
+        assertEquals(provider.getClusterQueries(), Collections.emptyList());
 
         provider.registerQueryHeartbeat("node1", createQueryInfo("1", QUEUED), 1);
         provider.registerQueryHeartbeat("node1", createQueryInfo("2", FINISHED), 2);
@@ -163,7 +164,7 @@ public class TestResourceManagerClusterStateProvider
         provider.registerNodeHeartbeat(createCoordinatorNodeStatus("node2"));
         provider.registerNodeHeartbeat(createCoordinatorNodeStatus("node3"));
 
-        assertEquals(provider.getClusterQueries(), ImmutableList.of());
+        assertEquals(provider.getClusterQueries(), Collections.emptyList());
 
         long query1Sequence = 0;
         long query2Sequence = 0;
@@ -213,7 +214,7 @@ public class TestResourceManagerClusterStateProvider
         provider.registerNodeHeartbeat(createCoordinatorNodeStatus("node5"));
         provider.registerNodeHeartbeat(createCoordinatorNodeStatus("node6"));
 
-        assertEquals(provider.getClusterQueries(), ImmutableList.of());
+        assertEquals(provider.getClusterQueries(), Collections.emptyList());
 
         provider.registerQueryHeartbeat("node1", createQueryInfo("1", WAITING_FOR_PREREQUISITES, "rg4", GENERAL_POOL), 0);
         assertTrue(provider.getClusterResourceGroups("node1").isEmpty());
@@ -299,7 +300,7 @@ public class TestResourceManagerClusterStateProvider
         long query8Sequence = 0;
         long query9Sequence = 0;
 
-        assertEquals(provider.getClusterQueries(), ImmutableList.of());
+        assertEquals(provider.getClusterQueries(), Collections.emptyList());
 
         provider.registerQueryHeartbeat("node1", createQueryInfo("1", WAITING_FOR_PREREQUISITES, "root.rg4", GENERAL_POOL), query1Sequence++);
         assertTrue(provider.getClusterResourceGroups("node1").isEmpty());
@@ -517,7 +518,7 @@ public class TestResourceManagerClusterStateProvider
 
         ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(nodeManager, new SessionPropertyManager(), 10, Duration.valueOf("4s"), Duration.valueOf("8s"), Duration.valueOf("5s"), Duration.valueOf("0s"), Duration.valueOf("4s"), true, newSingleThreadScheduledExecutor());
 
-        assertEquals(provider.getClusterQueries(), ImmutableList.of());
+        assertEquals(provider.getClusterQueries(), Collections.emptyList());
 
         long query1Sequence = 0;
         long query2Sequence = 0;
@@ -775,7 +776,7 @@ public class TestResourceManagerClusterStateProvider
                         OptionalDouble.of(20)),
                 null,
                 Optional.empty(),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 Optional.empty());
     }
 }

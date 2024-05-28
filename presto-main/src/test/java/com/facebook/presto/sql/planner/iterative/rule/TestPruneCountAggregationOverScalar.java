@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -49,7 +50,7 @@ public class TestPruneCountAggregationOverScalar
                                         p.variable("count_1", BIGINT),
                                         p.rowExpression("count()"))
                                 .source(
-                                        p.tableScan(ImmutableList.of(), ImmutableMap.of())))
+                                        p.tableScan(Collections.emptyList(), ImmutableMap.of())))
                 ).doesNotFire();
     }
 
@@ -66,7 +67,7 @@ public class TestPruneCountAggregationOverScalar
                                 .step(AggregationNode.Step.SINGLE)
                                 .source(
                                         p.aggregation((aggregationBuilder) -> aggregationBuilder
-                                                .source(p.tableScan(ImmutableList.of(), ImmutableMap.of()))
+                                                .source(p.tableScan(Collections.emptyList(), ImmutableMap.of()))
                                                 .globalGrouping()
                                                 .step(AggregationNode.Step.SINGLE)))))
                 .matches(values(ImmutableMap.of("count_1", 0)));
@@ -100,7 +101,7 @@ public class TestPruneCountAggregationOverScalar
                                         p.rowExpression("count()"))
                                 .step(AggregationNode.Step.SINGLE)
                                 .globalGrouping()
-                                .source(p.enforceSingleRow(p.tableScan(ImmutableList.of(), ImmutableMap.of())))))
+                                .source(p.enforceSingleRow(p.tableScan(Collections.emptyList(), ImmutableMap.of())))))
                 .matches(values(ImmutableMap.of("count_1", 0)));
     }
 
@@ -118,9 +119,9 @@ public class TestPruneCountAggregationOverScalar
                                 .source(
                                         p.aggregation(aggregationBuilder -> {
                                             aggregationBuilder
-                                                    .source(p.tableScan(ImmutableList.of(), ImmutableMap.of())).groupingSets(singleGroupingSet(ImmutableList.of(p.variable("orderkey"))));
+                                                    .source(p.tableScan(Collections.emptyList(), ImmutableMap.of())).groupingSets(singleGroupingSet(ImmutableList.of(p.variable("orderkey"))));
                                             aggregationBuilder
-                                                    .source(p.tableScan(ImmutableList.of(), ImmutableMap.of()));
+                                                    .source(p.tableScan(Collections.emptyList(), ImmutableMap.of()));
                                         }))))
                 .doesNotFire();
     }

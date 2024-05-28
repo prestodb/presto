@@ -43,6 +43,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
@@ -68,7 +69,7 @@ public class TestDetermineSemiJoinDistributionType
     @BeforeClass
     public void setUp()
     {
-        tester = new RuleTester(ImmutableList.of(), ImmutableMap.of(), Optional.of(NODES_COUNT));
+        tester = new RuleTester(Collections.emptyList(), ImmutableMap.of(), Optional.of(NODES_COUNT));
     }
 
     @AfterClass(alwaysRun = true)

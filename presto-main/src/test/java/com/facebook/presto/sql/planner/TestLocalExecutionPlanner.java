@@ -55,6 +55,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
@@ -187,7 +188,7 @@ public class TestLocalExecutionPlanner
                 ImmutableSet.of(),
                 SOURCE_DISTRIBUTION,
                 ImmutableList.of(new PlanNodeId("sourceId")),
-                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of()),
+                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, Collections.emptyList()), Collections.emptyList()),
                 StageExecutionDescriptor.ungroupedExecution(),
                 false,
                 StatsAndCosts.empty(),
@@ -262,7 +263,7 @@ public class TestLocalExecutionPlanner
         @Override
         public List<VariableReferenceExpression> getOutputVariables()
         {
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
 
         @Override

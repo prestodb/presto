@@ -22,7 +22,6 @@ import com.facebook.presto.spi.NodeProvider;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
-import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -108,7 +107,7 @@ public class MockSplitSource
                     nextBatchFuture.setException(new IllegalStateException("Mock failure"));
                     break;
                 case FINISH:
-                    nextBatchFuture.set(ImmutableList.of());
+                    nextBatchFuture.set(Collections.emptyList());
                     break;
                 case DO_NOTHING:
                     break;
@@ -174,7 +173,7 @@ public class MockSplitSource
         @Override
         public List<HostAddress> getPreferredNodes(NodeProvider nodeProvider)
         {
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
 
         @Override

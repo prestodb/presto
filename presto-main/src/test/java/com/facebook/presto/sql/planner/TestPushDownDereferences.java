@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_DEREFERENCE_ENABLED;
@@ -95,7 +96,7 @@ public class TestPushDownDereferences
         assertPlan("WITH t(msg) AS (SELECT * FROM (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))) " +
                         "SELECT a.msg.y, b.msg.x from t a cross join t b where a.msg.x = 7 or is_finite(b.msg.y)",
                 anyTree(
-                        join(INNER, ImmutableList.of(),
+                        join(INNER, Collections.emptyList(),
                                 project(ImmutableMap.of("a_x", expression("msg.x"), "a_y", expression("msg.y")),
                                         values("msg")),
                                 project(ImmutableMap.of("b_x", expression("msg.x"), "b_y", expression("msg.y")),

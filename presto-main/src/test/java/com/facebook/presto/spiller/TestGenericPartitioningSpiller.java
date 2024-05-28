@@ -34,6 +34,7 @@ import org.testng.annotations.Test;
 
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
@@ -143,7 +144,7 @@ public class TestGenericPartitioningSpiller
             assertSpilledPages(
                     TYPES,
                     spiller,
-                    ImmutableList.of(ImmutableList.of(), secondPartition, thirdPartition, ImmutableList.of()));
+                    ImmutableList.of(Collections.emptyList(), secondPartition, thirdPartition, Collections.emptyList()));
         }
     }
 

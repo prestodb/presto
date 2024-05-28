@@ -20,6 +20,8 @@ import com.facebook.presto.sql.analyzer.SemanticErrorCode;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
+
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
@@ -61,15 +63,15 @@ public class TestMapTopNKeysComparatorFunction
     @Test
     public void testZeroN()
     {
-        assertFunction("MAP_TOP_N_KEYS(MAP(ARRAY[4, 5, 6], ARRAY[1, 2, 3]), 0, (x, y) -> IF(x < y, 1, IF(x = y, 0, -1)))", new ArrayType(INTEGER), ImmutableList.of());
-        assertFunction("MAP_TOP_N_KEYS(MAP(ARRAY[4, 5, 6], ARRAY[1, 2, 3]), 0, (x, y) -> IF(x > y, 1, IF(x = y, 0, -1)))", new ArrayType(INTEGER), ImmutableList.of());
-        assertFunction("MAP_TOP_N_KEYS(MAP(ARRAY['x', 'y', 'z'], ARRAY[1, 2, 3]), 0, (x, y) -> IF(x > y, 1, IF(x = y, 0, -1)))", new ArrayType(createVarcharType(1)), ImmutableList.of());
+        assertFunction("MAP_TOP_N_KEYS(MAP(ARRAY[4, 5, 6], ARRAY[1, 2, 3]), 0, (x, y) -> IF(x < y, 1, IF(x = y, 0, -1)))", new ArrayType(INTEGER), Collections.emptyList());
+        assertFunction("MAP_TOP_N_KEYS(MAP(ARRAY[4, 5, 6], ARRAY[1, 2, 3]), 0, (x, y) -> IF(x > y, 1, IF(x = y, 0, -1)))", new ArrayType(INTEGER), Collections.emptyList());
+        assertFunction("MAP_TOP_N_KEYS(MAP(ARRAY['x', 'y', 'z'], ARRAY[1, 2, 3]), 0, (x, y) -> IF(x > y, 1, IF(x = y, 0, -1)))", new ArrayType(createVarcharType(1)), Collections.emptyList());
     }
 
     @Test
     public void testEmpty()
     {
-        assertFunction("MAP_TOP_N_KEYS(MAP(ARRAY[], ARRAY[]), 1, (x, y) -> IF(x < y, 1, IF(x = y, 0, -1)))", new ArrayType(UNKNOWN), ImmutableList.of());
+        assertFunction("MAP_TOP_N_KEYS(MAP(ARRAY[], ARRAY[]), 1, (x, y) -> IF(x < y, 1, IF(x = y, 0, -1)))", new ArrayType(UNKNOWN), Collections.emptyList());
     }
 
     @Test

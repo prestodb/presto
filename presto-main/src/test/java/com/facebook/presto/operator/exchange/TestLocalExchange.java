@@ -44,6 +44,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -110,7 +111,7 @@ public class TestLocalExchange
                 SINGLE_DISTRIBUTION,
                 8,
                 TYPES,
-                ImmutableList.of(),
+                Collections.emptyList(),
                 Optional.empty(),
                 executionStrategy,
                 new DataSize(retainedSizeOfPages(99), BYTE));
@@ -184,7 +185,7 @@ public class TestLocalExchange
                 FIXED_BROADCAST_DISTRIBUTION,
                 2,
                 TYPES,
-                ImmutableList.of(),
+                Collections.emptyList(),
                 Optional.empty(),
                 executionStrategy,
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES);
@@ -273,7 +274,7 @@ public class TestLocalExchange
                 FIXED_ARBITRARY_DISTRIBUTION,
                 2,
                 TYPES,
-                ImmutableList.of(),
+                Collections.emptyList(),
                 Optional.empty(),
                 executionStrategy,
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES);
@@ -323,7 +324,7 @@ public class TestLocalExchange
                 FIXED_PASSTHROUGH_DISTRIBUTION,
                 2,
                 TYPES,
-                ImmutableList.of(),
+                Collections.emptyList(),
                 Optional.empty(),
                 executionStrategy,
                 new DataSize(retainedSizeOfPages(1), BYTE));
@@ -500,7 +501,7 @@ public class TestLocalExchange
                 }),
                 new ConnectorPartitioningHandle() {
                 });
-        PartitionFunction partitionFunction = createPartitionFunction(partitioningProviderManager, session, partitioningHandle, 600, ImmutableList.of(), false);
+        PartitionFunction partitionFunction = createPartitionFunction(partitioningProviderManager, session, partitioningHandle, 600, Collections.emptyList(), false);
 
         assertEquals(partitionFunction.getPartitionCount(), partitionCount);
     }
@@ -516,7 +517,7 @@ public class TestLocalExchange
                 FIXED_BROADCAST_DISTRIBUTION,
                 2,
                 types,
-                ImmutableList.of(),
+                Collections.emptyList(),
                 Optional.empty(),
                 executionStrategy,
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES);
@@ -564,7 +565,7 @@ public class TestLocalExchange
                 FIXED_BROADCAST_DISTRIBUTION,
                 2,
                 TYPES,
-                ImmutableList.of(),
+                Collections.emptyList(),
                 Optional.empty(),
                 executionStrategy,
                 new DataSize(1, BYTE));

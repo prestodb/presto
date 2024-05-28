@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
@@ -105,7 +106,7 @@ public class TestDynamicFilter
                 "SELECT o.orderkey FROM orders o CROSS JOIN lineitem l",
                 anyTree(
                         join(
-                                INNER, ImmutableList.of(),
+                                INNER, Collections.emptyList(),
                                 tableScan("orders"),
                                 exchange(tableScan("lineitem")))));
     }
@@ -117,7 +118,7 @@ public class TestDynamicFilter
                 anyTree(filter("O_COMMENT < CAST(L_COMMENT AS varchar(79))",
                         join(
                                 INNER,
-                                ImmutableList.of(),
+                                Collections.emptyList(),
                                 tableScan("orders", ImmutableMap.of("O_COMMENT", "comment")),
                                 exchange(
                                         tableScan("lineitem", ImmutableMap.of("L_COMMENT", "comment")))))));

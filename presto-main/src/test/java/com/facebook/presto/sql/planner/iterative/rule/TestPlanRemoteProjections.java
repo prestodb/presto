@@ -39,6 +39,7 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -64,7 +65,7 @@ public class TestPlanRemoteProjections
 
     private static final SqlInvokedFunction FUNCTION_REMOTE_FOO_0 = new SqlInvokedFunction(
             REMOTE_FOO,
-            ImmutableList.of(),
+            Collections.emptyList(),
             parseTypeSignature(StandardTypes.INTEGER),
             "remote_foo()",
             RoutineCharacteristics.builder().setLanguage(JAVA).setNullCallClause(RETURNS_NULL_ON_NULL_INPUT).build(),
@@ -103,7 +104,7 @@ public class TestPlanRemoteProjections
     @BeforeClass
     public void setup()
     {
-        tester = new RuleTester(ImmutableList.of(), ImmutableMap.of("remote_functions_enabled", "true"));
+        tester = new RuleTester(Collections.emptyList(), ImmutableMap.of("remote_functions_enabled", "true"));
         FunctionAndTypeManager functionAndTypeManager = getFunctionAndTypeManager();
         functionAndTypeManager.addFunctionNamespace(
                 "unittest",
@@ -270,7 +271,7 @@ public class TestPlanRemoteProjections
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = ".*Remote functions are not enabled")
     public void testRemoteFunctionDisabled()
     {
-        RuleTester tester = new RuleTester(ImmutableList.of());
+        RuleTester tester = new RuleTester(Collections.emptyList());
         FunctionAndTypeManager functionAndTypeManager = tester.getMetadata().getFunctionAndTypeManager();
         functionAndTypeManager.addFunctionNamespace(
                 "unittest",

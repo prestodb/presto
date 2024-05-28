@@ -15,8 +15,8 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
-import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -55,6 +55,6 @@ public class TestCountAggregation
     @Override
     protected List<String> getFunctionParameterTypes()
     {
-        return ImmutableList.of();
+        return Collections.emptyList();
     }
 }

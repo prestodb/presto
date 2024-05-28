@@ -51,6 +51,7 @@ import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -564,7 +565,7 @@ public class TestOptimizedPartitionedOutputOperator
     public void testEmptyPage()
     {
         List<Type> types = updateBlockTypesWithHashBlockAndNullBlock(ImmutableList.of(BIGINT), true, false);
-        Page page = PageAssertions.createPageWithRandomData(ImmutableList.of(BIGINT), 0, true, false, 0.0f, 0.0f, false, ImmutableList.of());
+        Page page = PageAssertions.createPageWithRandomData(ImmutableList.of(BIGINT), 0, true, false, 0.0f, 0.0f, false, Collections.emptyList());
 
         testPartitioned(types, ImmutableList.of(page), new DataSize(128, MEGABYTE));
     }
@@ -572,8 +573,8 @@ public class TestOptimizedPartitionedOutputOperator
     @Test
     public void testPageWithNoBlocks()
     {
-        List<Type> types = updateBlockTypesWithHashBlockAndNullBlock(ImmutableList.of(), false, false);
-        Page page = PageAssertions.createPageWithRandomData(ImmutableList.of(), 1, false, false, 0.0f, 0.0f, false, ImmutableList.of());
+        List<Type> types = updateBlockTypesWithHashBlockAndNullBlock(Collections.emptyList(), false, false);
+        Page page = PageAssertions.createPageWithRandomData(Collections.emptyList(), 1, false, false, 0.0f, 0.0f, false, Collections.emptyList());
 
         testPartitionedForZeroBlocks(types, ImmutableList.of(page), new DataSize(128, MEGABYTE));
     }
@@ -625,7 +626,7 @@ public class TestOptimizedPartitionedOutputOperator
         List<Type> types = updateBlockTypesWithHashBlockAndNullBlock(targetTypes, true, false);
 
         // Test plain blocks: no block views, no Dictionary/RLE blocks
-        Page page = PageAssertions.createPageWithRandomData(targetTypes, POSITION_COUNT, true, false, 0.2f, 0.2f, false, ImmutableList.of());
+        Page page = PageAssertions.createPageWithRandomData(targetTypes, POSITION_COUNT, true, false, 0.2f, 0.2f, false, Collections.emptyList());
 
         // First test for the cases where the buffer can hold the whole page, then force flushing for every a few rows.
         testPartitioned(types, ImmutableList.of(page), new DataSize(128, MEGABYTE));
@@ -646,7 +647,7 @@ public class TestOptimizedPartitionedOutputOperator
         List<Type> types = updateBlockTypesWithHashBlockAndNullBlock(targetTypes, true, false);
         List<Page> pages = new ArrayList<>();
         for (int i = 0; i < PAGE_COUNT; i++) {
-            pages.add(PageAssertions.createPageWithRandomData(targetTypes, POSITION_COUNT + RANDOM.nextInt(POSITION_COUNT), true, false, 0.2f, 0.2f, false, ImmutableList.of()));
+            pages.add(PageAssertions.createPageWithRandomData(targetTypes, POSITION_COUNT + RANDOM.nextInt(POSITION_COUNT), true, false, 0.2f, 0.2f, false, Collections.emptyList()));
             pages.add(PageAssertions.createPageWithRandomData(targetTypes, POSITION_COUNT + RANDOM.nextInt(POSITION_COUNT), true, false, 0.2f, 0.2f, true, ImmutableList.of(DICTIONARY, DICTIONARY, RUN_LENGTH)));
             pages.add(PageAssertions.createPageWithRandomData(targetTypes, POSITION_COUNT + RANDOM.nextInt(POSITION_COUNT), true, false, 0.2f, 0.2f, true, ImmutableList.of(RUN_LENGTH, DICTIONARY, DICTIONARY)));
         }
@@ -656,7 +657,7 @@ public class TestOptimizedPartitionedOutputOperator
 
         pages.clear();
         for (int i = 0; i < PAGE_COUNT / 3; i++) {
-            pages.add(PageAssertions.createPageWithRandomData(targetTypes, POSITION_COUNT + RANDOM.nextInt(POSITION_COUNT), true, false, 0.2f, 0.2f, false, ImmutableList.of()));
+            pages.add(PageAssertions.createPageWithRandomData(targetTypes, POSITION_COUNT + RANDOM.nextInt(POSITION_COUNT), true, false, 0.2f, 0.2f, false, Collections.emptyList()));
             pages.add(PageAssertions.createPageWithRandomData(targetTypes, POSITION_COUNT + RANDOM.nextInt(POSITION_COUNT), true, false, 0.2f, 0.2f, true, ImmutableList.of(DICTIONARY, DICTIONARY, RUN_LENGTH)));
             pages.add(PageAssertions.createPageWithRandomData(targetTypes, POSITION_COUNT + RANDOM.nextInt(POSITION_COUNT), true, false, 0.2f, 0.2f, true, ImmutableList.of(RUN_LENGTH, DICTIONARY, DICTIONARY)));
         }
@@ -669,7 +670,7 @@ public class TestOptimizedPartitionedOutputOperator
     {
         // Add a block that only contain null as the last block to force replicating all rows.
         List<Type> types = updateBlockTypesWithHashBlockAndNullBlock(targetTypes, true, true);
-        Page page = PageAssertions.createPageWithRandomData(targetTypes, POSITION_COUNT, true, true, 0.2f, 0.2f, false, ImmutableList.of());
+        Page page = PageAssertions.createPageWithRandomData(targetTypes, POSITION_COUNT, true, true, 0.2f, 0.2f, false, Collections.emptyList());
         testReplicated(types, ImmutableList.of(page), new DataSize(128, MEGABYTE));
         testReplicated(types, ImmutableList.of(page), new DataSize(1, KILOBYTE));
     }
@@ -679,7 +680,7 @@ public class TestOptimizedPartitionedOutputOperator
         List<Type> types = updateBlockTypesWithHashBlockAndNullBlock(targetTypes, true, true);
         List<Page> pages = new ArrayList<>();
         for (int i = 0; i < PAGE_COUNT; i++) {
-            pages.add(PageAssertions.createPageWithRandomData(targetTypes, POSITION_COUNT + RANDOM.nextInt(POSITION_COUNT), true, true, 0.2f, 0.2f, false, ImmutableList.of()));
+            pages.add(PageAssertions.createPageWithRandomData(targetTypes, POSITION_COUNT + RANDOM.nextInt(POSITION_COUNT), true, true, 0.2f, 0.2f, false, Collections.emptyList()));
         }
 
         testReplicated(types, pages, new DataSize(128, MEGABYTE));
@@ -688,7 +689,7 @@ public class TestOptimizedPartitionedOutputOperator
 
     private void testPartitionedForZeroBlocks(List<Type> types, List<Page> pages, DataSize maxMemory)
     {
-        testPartitioned(types, pages, maxMemory, ImmutableList.of(), new InterpretedHashGenerator(ImmutableList.of(), new int[0]));
+        testPartitioned(types, pages, maxMemory, Collections.emptyList(), new InterpretedHashGenerator(Collections.emptyList(), new int[0]));
     }
 
     private void testPartitioned(List<Type> types, List<Page> pages, DataSize maxMemory)

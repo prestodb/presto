@@ -44,6 +44,7 @@ import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
@@ -125,7 +126,7 @@ public class TestHighMemoryTaskKiller
     {
         TaskInfo taskInfo = sqlTask.updateTask(TEST_SESSION,
                 Optional.of(PLAN_FRAGMENT),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 createInitialEmptyOutputBuffers(PARTITIONED)
                         .withNoMoreBufferIds(),
                 Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())));

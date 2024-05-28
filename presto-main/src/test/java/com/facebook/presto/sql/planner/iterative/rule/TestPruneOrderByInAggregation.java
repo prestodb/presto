@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -81,6 +82,6 @@ public class TestPruneOrderByInAggregation
                 .addAggregation(avg, planBuilder.rowExpression("avg(input order by input)"), Optional.empty(), Optional.of(orderingScheme), false, Optional.of(mask))
                 .addAggregation(arrayAgg, planBuilder.rowExpression("array_agg(input order by input)"), Optional.empty(), Optional.of(orderingScheme), false, Optional.of(mask))
                 .hashVariable(keyHash)
-                .source(planBuilder.values(sourceVariables, ImmutableList.of())));
+                .source(planBuilder.values(sourceVariables, Collections.emptyList())));
     }
 }

@@ -21,6 +21,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Optional;
 import java.util.OptionalInt;
 
@@ -45,7 +46,7 @@ public class TestPositionLinks
         assertEquals(factoryBuilder.link(11, 10), 11);
         assertEquals(factoryBuilder.link(12, 11), 12);
 
-        PositionLinks positionLinks = factoryBuilder.build().create(ImmutableList.of());
+        PositionLinks positionLinks = factoryBuilder.build().create(Collections.emptyList());
 
         assertEquals(positionLinks.start(3, 0, TEST_PAGE), 3);
         assertEquals(positionLinks.next(3, 0, TEST_PAGE), 2);
@@ -310,9 +311,9 @@ public class TestPositionLinks
     {
         return new SimplePagesHashStrategy(
                 ImmutableList.of(BIGINT),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 ImmutableList.of(ImmutableList.of(TEST_PAGE.getBlock(0))),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 OptionalInt.empty(),
                 Optional.of(0),
                 MetadataManager.createTestMetadataManager().getFunctionAndTypeManager(),

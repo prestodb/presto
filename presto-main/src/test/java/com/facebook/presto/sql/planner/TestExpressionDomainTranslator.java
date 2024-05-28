@@ -52,6 +52,7 @@ import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -1272,7 +1273,7 @@ public class TestExpressionDomainTranslator
 
     private static Expression randPredicate(String symbol, Type type)
     {
-        return comparison(GREATER_THAN, new SymbolReference(symbol), cast(new FunctionCall(QualifiedName.of("rand"), ImmutableList.of()), type));
+        return comparison(GREATER_THAN, new SymbolReference(symbol), cast(new FunctionCall(QualifiedName.of("rand"), Collections.emptyList()), type));
     }
 
     private static ComparisonExpression equal(String symbol, Expression expression)

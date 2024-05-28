@@ -75,6 +75,7 @@ import com.google.common.collect.Maps;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -219,7 +220,7 @@ public final class PlanMatchPattern
             Step step,
             PlanMatchPattern source)
     {
-        return aggregation(groupingSets, aggregations, ImmutableList.of(), masks, groupId, step, source);
+        return aggregation(groupingSets, aggregations, Collections.emptyList(), masks, groupId, step, source);
     }
 
     public static PlanMatchPattern aggregation(
@@ -506,7 +507,7 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern exchange(ExchangeNode.Scope scope, ExchangeNode.Type type, PlanMatchPattern... sources)
     {
-        return exchange(scope, type, ImmutableList.of(), sources);
+        return exchange(scope, type, Collections.emptyList(), sources);
     }
 
     public static PlanMatchPattern exchange(ExchangeNode.Scope scope, ExchangeNode.Type type, List<Ordering> orderBy, PlanMatchPattern... sources)
@@ -676,7 +677,7 @@ public final class PlanMatchPattern
         }
         if (node instanceof GroupReference) {
             if (sourcePatterns.isEmpty() && shapeMatchesMatchers(node)) {
-                states.add(new PlanMatchingState(ImmutableList.of()));
+                states.add(new PlanMatchingState(Collections.emptyList()));
             }
         }
         else if (node.getSources().size() == sourcePatterns.size() && shapeMatchesMatchers(node)) {

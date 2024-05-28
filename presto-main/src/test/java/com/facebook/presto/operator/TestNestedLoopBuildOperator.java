@@ -25,6 +25,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -101,7 +102,7 @@ public class TestNestedLoopBuildOperator
             throws Exception
     {
         TaskContext taskContext = createTaskContext();
-        List<Type> buildTypes = ImmutableList.of();
+        List<Type> buildTypes = Collections.emptyList();
         JoinBridgeManager<NestedLoopJoinBridge> nestedLoopJoinBridgeManager = new JoinBridgeManager<>(
                 false,
                 PipelineExecutionStrategy.UNGROUPED_EXECUTION,
@@ -137,7 +138,7 @@ public class TestNestedLoopBuildOperator
             throws Exception
     {
         TaskContext taskContext = createTaskContext();
-        List<Type> buildTypes = ImmutableList.of();
+        List<Type> buildTypes = Collections.emptyList();
         JoinBridgeManager<NestedLoopJoinBridge> nestedLoopJoinBridgeManager = new JoinBridgeManager<>(
                 false,
                 PipelineExecutionStrategy.UNGROUPED_EXECUTION,

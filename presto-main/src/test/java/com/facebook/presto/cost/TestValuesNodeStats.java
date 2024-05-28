@@ -18,6 +18,7 @@ import com.facebook.presto.sql.relational.FunctionResolution;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -132,7 +133,7 @@ public class TestValuesNodeStats
         tester().assertStatsFor(pb -> pb
                 .values(
                         ImmutableList.of(pb.variable("a", BIGINT)),
-                        ImmutableList.of()))
+                        Collections.emptyList()))
                 .check(outputStats -> outputStats.equalTo(
                         PlanNodeStatsEstimate.builder()
                                 .setOutputRowCount(0)

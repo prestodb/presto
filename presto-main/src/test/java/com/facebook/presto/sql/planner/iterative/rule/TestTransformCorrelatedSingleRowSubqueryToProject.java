@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -61,8 +62,8 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
                                 p.project(
                                         assignment(p.variable("l_expr2"), p.rowExpression("l_nationkey + 1")),
                                         p.values(
-                                                ImmutableList.of(),
-                                                ImmutableList.of(ImmutableList.of())))))
+                                                Collections.emptyList(),
+                                                ImmutableList.of(Collections.emptyList())))))
                 .matches(project(
                         ImmutableMap.of(
                                 ("l_expr2"), PlanMatchPattern.expression("l_nationkey + 1"),

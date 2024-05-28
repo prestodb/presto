@@ -34,6 +34,7 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
@@ -417,7 +418,7 @@ public class TestBlockEncodingBuffers
 
         assertSerialized(type, createAllNullsBlock(type, POSITIONS_PER_BLOCK));
 
-        BlockStatus blockStatus = buildBlockStatusWithType(type, POSITIONS_PER_BLOCK, false, ImmutableList.of());
+        BlockStatus blockStatus = buildBlockStatusWithType(type, POSITIONS_PER_BLOCK, false, Collections.emptyList());
         assertSerialized(type, blockStatus.block, blockStatus.expectedRowSizes);
 
         blockStatus = buildBlockStatusWithType(type, POSITIONS_PER_BLOCK, false, ImmutableList.of(DICTIONARY));
@@ -438,7 +439,7 @@ public class TestBlockEncodingBuffers
         blockStatus = buildBlockStatusWithType(type, POSITIONS_PER_BLOCK, false, ImmutableList.of(RUN_LENGTH, DICTIONARY, RUN_LENGTH, DICTIONARY));
         assertSerialized(type, blockStatus.block, blockStatus.expectedRowSizes);
 
-        blockStatus = buildBlockStatusWithType(type, POSITIONS_PER_BLOCK, true, ImmutableList.of());
+        blockStatus = buildBlockStatusWithType(type, POSITIONS_PER_BLOCK, true, Collections.emptyList());
         assertSerialized(type, blockStatus.block, blockStatus.expectedRowSizes);
 
         blockStatus = buildBlockStatusWithType(type, POSITIONS_PER_BLOCK, true, ImmutableList.of(DICTIONARY));

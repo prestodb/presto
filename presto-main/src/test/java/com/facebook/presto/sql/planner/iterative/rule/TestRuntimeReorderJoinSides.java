@@ -37,6 +37,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -64,7 +65,7 @@ public class TestRuntimeReorderJoinSides
     @BeforeClass
     public void setUp()
     {
-        tester = new RuleTester(ImmutableList.of(), ImmutableMap.of(), Optional.of(NODES_COUNT));
+        tester = new RuleTester(Collections.emptyList(), ImmutableMap.of(), Optional.of(NODES_COUNT));
         connectorId = tester.getCurrentConnectorId();
 
         TpchTableHandle nationTpchTableHandle = new TpchTableHandle("nation", 1.0);

@@ -42,6 +42,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -178,7 +179,7 @@ public class BenchmarkUnnestOperator
                         primitiveNullsRatio,
                         rowNullsRatio,
                         false,
-                        ImmutableList.of()));
+                        Collections.emptyList()));
             }
 
             operatorFactory = new UnnestOperator.UnnestOperatorFactory(

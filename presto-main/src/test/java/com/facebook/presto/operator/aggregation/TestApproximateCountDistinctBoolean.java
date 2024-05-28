@@ -15,12 +15,12 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Booleans;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -73,7 +73,7 @@ public class TestApproximateCountDistinctBoolean
     @Test
     public void testNoInput()
     {
-        assertCount(ImmutableList.of(), 0, 0);
+        assertCount(Collections.emptyList(), 0, 0);
     }
 
     private long distinctCount(List<Boolean> inputSequence)

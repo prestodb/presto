@@ -55,6 +55,7 @@ import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -563,7 +564,7 @@ public class TestHashJoinOperator
 
         ValuesOperatorFactory valuesOperatorFactory1 = new ValuesOperatorFactory(17, new PlanNodeId("values1"), probe1Pages.build());
         ValuesOperatorFactory valuesOperatorFactory2 = new ValuesOperatorFactory(18, new PlanNodeId("values2"), probe2Pages.build());
-        ValuesOperatorFactory valuesOperatorFactory3 = new ValuesOperatorFactory(18, new PlanNodeId("values3"), ImmutableList.of());
+        ValuesOperatorFactory valuesOperatorFactory3 = new ValuesOperatorFactory(18, new PlanNodeId("values3"), Collections.emptyList());
         PageBuffer pageBuffer = new PageBuffer(10);
         PageBufferOperatorFactory pageBufferOperatorFactory = new PageBufferOperatorFactory(19, new PlanNodeId(PAGE_BUFFER), pageBuffer, PAGE_BUFFER);
 
@@ -1599,7 +1600,7 @@ public class TestHashJoinOperator
                         .map(OptionalInt::of).orElse(OptionalInt.empty()),
                 filterFunctionFactory,
                 Optional.empty(),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 100,
                 new PagesIndex.TestingFactory(false),
                 spillEnabled,
