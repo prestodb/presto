@@ -1128,3 +1128,31 @@ TEST_F(ParquetReaderTest, testEnumType) {
 
   assertReadWithReaderAndExpected(fileSchema, *rowReader, expected, *leafPool_);
 }
+
+TEST_F(ParquetReaderTest, readVarbinaryFromFLBA) {
+  const std::string filename("varbinary_flba.parquet");
+  const std::string sample(getExampleFilePath(filename));
+
+  facebook::velox::dwio::common::ReaderOptions readerOptions{leafPool_.get()};
+  auto reader = createReader(sample, readerOptions);
+
+  auto type = reader->typeWithId();
+  EXPECT_EQ(type->size(), 8ULL);
+  auto flbaCol =
+      std::static_pointer_cast<const ParquetTypeWithId>(type->childAt(6));
+  EXPECT_EQ(flbaCol->name_, "flba_field");
+  EXPECT_EQ(flbaCol->parquetType_, thrift::Type::FIXED_LEN_BYTE_ARRAY);
+
+  auto selectedType = ROW({"flba_field"}, {VARBINARY()});
+  auto rowReaderOpts = getReaderOpts(selectedType);
+  rowReaderOpts.setScanSpec(makeScanSpec(selectedType));
+  auto rowReader = reader->createRowReader(rowReaderOpts);
+
+  auto expected = std::string(1024, '*');
+  VectorPtr result = BaseVector::create(selectedType, 0, &(*leafPool_));
+  rowReader->next(1, result);
+  EXPECT_EQ(
+      expected,
+      result->as<RowVector>()->childAt(0)->asFlatVector<StringView>()->valueAt(
+          0));
+}

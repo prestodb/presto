@@ -646,7 +646,7 @@ TypePtr ReaderBase::convertType(
       case thrift::Type::type::INT64:
         return BIGINT();
       case thrift::Type::type::INT96:
-        return DOUBLE(); // TODO: Lose precision
+        return TIMESTAMP(); // INT96 only maps to a timestamp
       case thrift::Type::type::FLOAT:
         return REAL();
       case thrift::Type::type::DOUBLE:
