@@ -146,6 +146,10 @@ class NestedLoopJoinProbe : public Operator {
   std::vector<IdentityProjection> filterProbeProjections_;
   BufferPtr probeOutMapping_;
   BufferPtr probeIndices_;
+  // Indicate if the probe side has empty input or not. For the last prober,
+  // this indicates if all the probe sides are empty or not. This flag is used
+  // for mismatched output producing.
+  bool probeSideEmpty_{true};
 
   // Build side state
   std::optional<std::vector<RowVectorPtr>> buildVectors_;

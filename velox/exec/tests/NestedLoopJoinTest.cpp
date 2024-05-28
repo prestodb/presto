@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/VectorTestUtil.h"
@@ -130,6 +131,72 @@ class NestedLoopJoinTest : public HiveConnectorTestBase {
       probeKeyName_,
       buildKeyName_)};
 };
+
+TEST_F(NestedLoopJoinTest, emptyBuildOrProbeWithoutFilter) {
+  auto empty = makeRowVector({"u0"}, {makeFlatVector<StringView>({})});
+  auto nonEmpty = makeRowVector({"t0"}, {makeFlatVector<StringView>({"foo"})});
+  auto expected = makeRowVector({makeFlatVector<StringView>({"foo", "foo"})});
+
+  auto testJoin = [&](const std::vector<RowVectorPtr>& leftVectors,
+                      const std::vector<RowVectorPtr>& rightVectors,
+                      core::JoinType joinType,
+                      const std::vector<std::string>& outputLayout,
+                      const VectorPtr& expected) {
+    auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+    auto plan = PlanBuilder(planNodeIdGenerator)
+                    .values(leftVectors)
+                    .localPartitionRoundRobinRow()
+                    .nestedLoopJoin(
+                        PlanBuilder(planNodeIdGenerator)
+                            .values(rightVectors)
+                            .localPartition({})
+                            .planNode(),
+                        "",
+                        outputLayout,
+                        joinType)
+                    .planNode();
+    AssertQueryBuilder builder{plan};
+    auto result = builder.copyResults(pool());
+    facebook::velox::test::assertEqualVectors(expected, result);
+  };
+
+  testJoin({nonEmpty}, {empty}, core::JoinType::kLeft, {"t0"}, nonEmpty);
+  testJoin(
+      {nonEmpty, nonEmpty},
+      {empty, empty},
+      core::JoinType::kLeft,
+      {"t0"},
+      expected);
+  testJoin({empty}, {nonEmpty}, core::JoinType::kLeft, {"u0"}, empty);
+
+  testJoin({empty}, {nonEmpty}, core::JoinType::kRight, {"t0"}, nonEmpty);
+  testJoin(
+      {empty, empty},
+      {nonEmpty, nonEmpty},
+      core::JoinType::kRight,
+      {"t0"},
+      expected);
+  testJoin({nonEmpty}, {empty}, core::JoinType::kRight, {"u0"}, empty);
+
+  testJoin(
+      {nonEmpty, nonEmpty},
+      {empty, empty},
+      core::JoinType::kFull,
+      {"t0", "u0"},
+      makeRowVector({
+          makeFlatVector<StringView>({"foo", "foo"}),
+          makeNullableFlatVector<StringView>({std::nullopt, std::nullopt}),
+      }));
+  testJoin(
+      {empty, empty},
+      {nonEmpty, nonEmpty},
+      core::JoinType::kFull,
+      {"u0", "t0"},
+      makeRowVector({
+          makeNullableFlatVector<StringView>({std::nullopt, std::nullopt}),
+          makeFlatVector<StringView>({"foo", "foo"}),
+      }));
+}
 
 TEST_F(NestedLoopJoinTest, basic) {
   auto probeVectors = makeBatches(20, 5, probeType_, pool_.get());

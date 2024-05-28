@@ -128,6 +128,9 @@ void NestedLoopJoinProbe::addInput(RowVectorPtr input) {
     child->loadedVector();
   }
   input_ = std::move(input);
+  if (input_->size() > 0) {
+    probeSideEmpty_ = false;
+  }
   VELOX_CHECK_EQ(buildIndex_, 0);
   if (needsProbeMismatch(joinType_)) {
     probeMatched_.resizeFill(input_->size(), false);
@@ -238,7 +241,12 @@ RowVectorPtr NestedLoopJoinProbe::getMismatchedOutput(
     BufferPtr& unmatchedMapping,
     const std::vector<IdentityProjection>& projections,
     const std::vector<IdentityProjection>& nullProjections) {
-  if (matched.isAllSelected() || joinCondition_ == nullptr) {
+  // If data is all matched or the join is a cross product, there is no
+  // mismatched rows. But there is an exception that if the join is a cross
+  // product but the build or probe side is empty, there could still be
+  // mismatched rows from the other side.
+  if (matched.isAllSelected() ||
+      (joinCondition_ == nullptr && !probeSideEmpty_ && !buildSideEmpty_)) {
     return nullptr;
   }
 
@@ -311,6 +319,7 @@ void NestedLoopJoinProbe::beginBuildMismatch() {
     VELOX_CHECK_NOT_NULL(probe);
     for (auto i = 0; i < buildMatched_.size(); ++i) {
       buildMatched_[i].select(probe->buildMatched_[i]);
+      probeSideEmpty_ &= probe->probeSideEmpty_;
     }
   }
   peers.clear();
