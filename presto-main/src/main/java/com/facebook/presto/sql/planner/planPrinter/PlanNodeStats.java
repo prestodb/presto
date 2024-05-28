@@ -13,12 +13,14 @@
  */
 package com.facebook.presto.sql.planner.planPrinter;
 
+import com.facebook.presto.operator.DynamicFilterStats;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.util.Mergeable;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.util.MoreMaps.mergeMaps;
@@ -49,6 +51,7 @@ public class PlanNodeStats
     private final long planNodeJoinBuildKeyCount;
     private final long planNodeNullJoinProbeKeyCount;
     private final long planNodeJoinProbeKeyCount;
+    private final Optional<DynamicFilterStats> dynamicFilterStats;
 
     PlanNodeStats(
             PlanNodeId planNodeId,
@@ -64,7 +67,8 @@ public class PlanNodeStats
             long planNodeNullJoinBuildKeyCount,
             long planNodeJoinBuildKeyCount,
             long planNodeNullJoinProbeKeyCount,
-            long planNodeJoinProbeKeyCount)
+            long planNodeJoinProbeKeyCount,
+            Optional<DynamicFilterStats> dynamicFilterStats)
     {
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
 
@@ -82,6 +86,7 @@ public class PlanNodeStats
         this.planNodeJoinBuildKeyCount = planNodeJoinBuildKeyCount;
         this.planNodeNullJoinProbeKeyCount = planNodeNullJoinProbeKeyCount;
         this.planNodeJoinProbeKeyCount = planNodeJoinProbeKeyCount;
+        this.dynamicFilterStats = dynamicFilterStats;
     }
 
     private static double computedStdDev(double sumSquared, double sum, long n)
@@ -181,6 +186,25 @@ public class PlanNodeStats
         return planNodeJoinProbeKeyCount;
     }
 
+    public Optional<DynamicFilterStats> getDynamicFilterStats()
+    {
+        return dynamicFilterStats;
+    }
+
+    public static Optional<DynamicFilterStats> mergeDynamicFilterStats(Optional<DynamicFilterStats> stats1, Optional<DynamicFilterStats> stats2)
+    {
+        Optional<DynamicFilterStats> optionalDynamicFilterStats = Optional.empty();
+        if (stats1.isPresent()) {
+            DynamicFilterStats dynamicFilterStats = stats1.get();
+            stats2.ifPresent(dynamicFilterStats::mergeWith);
+            optionalDynamicFilterStats = Optional.of(dynamicFilterStats);
+        }
+        else if (stats2.isPresent()) {
+            optionalDynamicFilterStats = Optional.of(stats2.get());
+        }
+        return optionalDynamicFilterStats;
+    }
+
     @Override
     public PlanNodeStats mergeWith(PlanNodeStats other)
     {
@@ -198,6 +222,7 @@ public class PlanNodeStats
         long planNodeJoinBuildKeyCount = this.planNodeJoinBuildKeyCount + other.planNodeJoinBuildKeyCount;
         long planNodeNullJoinProbeKeyCount = this.planNodeNullJoinProbeKeyCount + other.planNodeNullJoinProbeKeyCount;
         long planNodeJoinProbeKeyCount = this.planNodeJoinProbeKeyCount + other.planNodeJoinProbeKeyCount;
+        Optional<DynamicFilterStats> optionalDynamicFilterStats = mergeDynamicFilterStats(this.dynamicFilterStats, other.dynamicFilterStats);
 
         return new PlanNodeStats(
                 planNodeId,
@@ -210,6 +235,7 @@ public class PlanNodeStats
                 planNodeNullJoinBuildKeyCount,
                 planNodeJoinBuildKeyCount,
                 planNodeNullJoinProbeKeyCount,
-                planNodeJoinProbeKeyCount);
+                planNodeJoinProbeKeyCount,
+                optionalDynamicFilterStats);
     }
 }

@@ -48,8 +48,11 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.graph.GraphBuilder;
+import com.google.common.graph.MutableGraph;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -66,6 +69,7 @@ import static com.facebook.presto.cost.HistoricalPlanStatisticsUtil.updatePlanSt
 import static com.facebook.presto.cost.HistoryBasedPlanStatisticsManager.historyBasedPlanCanonicalizationStrategyList;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.planPrinter.PlanNodeStatsSummarizer.aggregateStageStats;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.graph.Traverser.forTree;
@@ -164,6 +168,7 @@ public class HistoryBasedPlanStatisticsTracker
         Map<PlanNodeWithHash, PlanStatisticsWithSourceInfo> planStatisticsMap = new HashMap<>();
         Map<CanonicalPlan, PlanNodeCanonicalInfo> canonicalInfoMap = new HashMap<>();
         Map<Integer, FinalAggregationStatsInfo> aggregationNodeMap = new HashMap<>();
+        Set<PlanNodeId> planNodeIdsDynamicFilter = getPlanNodeAppliedDynamicFilter(planNodeStatsMap, allStages);
 
         queryInfo.getPlanCanonicalInfo().forEach(canonicalPlanWithInfo -> {
             // We can have duplicate stats equivalent plan nodes. It's ok to use any stats in this case
@@ -177,7 +182,7 @@ public class HistoryBasedPlanStatisticsTracker
             boolean isScaledWriterStage = stageInfo.getPlan().isPresent() && stageInfo.getPlan().get().getPartitioning().equals(SCALED_WRITER_DISTRIBUTION);
             PlanNode root = stageInfo.getPlan().get().getRoot();
             for (PlanNode planNode : forTree(PlanNode::getSources).depthFirstPreOrder(root)) {
-                if (!planNode.getStatsEquivalentPlanNode().isPresent() && !isAggregation(planNode, AggregationNode.Step.PARTIAL)) {
+                if ((!planNode.getStatsEquivalentPlanNode().isPresent() && !isAggregation(planNode, AggregationNode.Step.PARTIAL)) || planNodeIdsDynamicFilter.contains(planNode.getId())) {
                     continue;
                 }
                 PlanNodeStats planNodeStats = planNodeStatsMap.get(planNode.getId());
@@ -250,6 +255,54 @@ public class HistoryBasedPlanStatisticsTracker
             }
         }
         return ImmutableMap.copyOf(planStatisticsMap);
+    }
+
+    private static Set<PlanNodeId> getPlanNodeAppliedDynamicFilter(Map<PlanNodeId, PlanNodeStats> planNodeStatsMap, List<StageInfo> allStages)
+    {
+        Map<PlanNodeId, Set<PlanNodeId>> dynamicFilterNodeMap = new HashMap<>();
+        planNodeStatsMap.forEach((planNodeId, planNodeStats) -> {
+            if (planNodeStats.getDynamicFilterStats().isPresent()) {
+                if (!dynamicFilterNodeMap.containsKey(planNodeId)) {
+                    dynamicFilterNodeMap.put(planNodeId, new HashSet<>());
+                }
+                dynamicFilterNodeMap.get(planNodeId).addAll(planNodeStats.getDynamicFilterStats().get().getProducerNodeIds());
+            }
+        });
+        if (dynamicFilterNodeMap.isEmpty()) {
+            return ImmutableSet.of();
+        }
+        // Now find the path between producer and child node having dynamic filter applied. Reverse the tree so that all nodes' out degree is at most 1 and easier to find path between nodes
+        MutableGraph<PlanNodeId> reversePlanTree = GraphBuilder.directed().allowsSelfLoops(false).build();
+        for (StageInfo stageInfo : allStages) {
+            if (!stageInfo.getPlan().isPresent()) {
+                continue;
+            }
+            PlanNode root = stageInfo.getPlan().get().getRoot();
+            for (PlanNode planNode : forTree(PlanNode::getSources).depthFirstPreOrder(root)) {
+                for (PlanNode child : planNode.getSources()) {
+                    reversePlanTree.putEdge(child.getId(), planNode.getId());
+                }
+            }
+        }
+        Set<PlanNodeId> planNodeIdsDynamicFilter = new HashSet<>();
+        dynamicFilterNodeMap.forEach((destNode, producerNodes) -> {
+            for (PlanNodeId producerNode : producerNodes) {
+                PlanNodeId rootNode = destNode;
+                Set<PlanNodeId> visitedNodes = new HashSet<>();
+                while (!rootNode.equals(producerNode)) {
+                    visitedNodes.add(rootNode);
+                    if (reversePlanTree.successors(rootNode).isEmpty()) {
+                        break;
+                    }
+                    checkState(reversePlanTree.successors(rootNode).size() == 1);
+                    rootNode = reversePlanTree.successors(rootNode).stream().findFirst().orElse(null);
+                }
+                if (rootNode.equals(producerNode)) {
+                    planNodeIdsDynamicFilter.addAll(visitedNodes);
+                }
+            }
+        });
+        return planNodeIdsDynamicFilter;
     }
 
     private static void updatePartialAggregationStatistics(
