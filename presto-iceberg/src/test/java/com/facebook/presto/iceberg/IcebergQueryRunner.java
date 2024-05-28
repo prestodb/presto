@@ -190,6 +190,9 @@ public final class IcebergQueryRunner
             ExtendedHiveMetastore metastore = getFileHiveMetastore(icebergDir);
             if (!metastore.getDatabase(METASTORE_CONTEXT, "tpch").isPresent()) {
                 queryRunner.execute("CREATE SCHEMA tpch");
+                if (createTpchTables) {
+                    copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, session, TpchTable.getTables());
+                }
             }
             if (!metastore.getDatabase(METASTORE_CONTEXT, "tpcds").isPresent()) {
                 queryRunner.execute("CREATE SCHEMA tpcds");
@@ -198,10 +201,9 @@ public final class IcebergQueryRunner
         else {
             queryRunner.execute("CREATE SCHEMA tpch");
             queryRunner.execute("CREATE SCHEMA tpcds");
-        }
-
-        if (createTpchTables) {
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, session, TpchTable.getTables());
+            if (createTpchTables) {
+                copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, session, TpchTable.getTables());
+            }
         }
 
         return queryRunner;
