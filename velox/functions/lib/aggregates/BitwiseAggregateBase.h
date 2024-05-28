@@ -108,8 +108,7 @@ exec::AggregateRegistrationResult registerBitwise(
           case TypeKind::BIGINT:
             return std::make_unique<T<int64_t>>(resultType);
           default:
-            VELOX_CHECK(
-                false,
+            VELOX_UNREACHABLE(
                 "Unknown input type for {} aggregation {}",
                 name,
                 inputType->kindName());

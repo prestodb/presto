@@ -104,8 +104,7 @@ exec::AggregateRegistrationResult registerSum(
             return std::make_unique<DecimalSumAggregate<int128_t>>(resultType);
 
           default:
-            VELOX_CHECK(
-                false,
+            VELOX_UNREACHABLE(
                 "Unknown input type for {} aggregation {}",
                 name,
                 inputType->kindName());

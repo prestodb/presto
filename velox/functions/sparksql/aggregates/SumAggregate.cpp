@@ -148,8 +148,7 @@ exec::AggregateRegistrationResult registerSum(
           }
             [[fallthrough]];
           default:
-            VELOX_CHECK(
-                false,
+            VELOX_UNREACHABLE(
                 "Unknown input type for {} aggregation {}",
                 name,
                 inputType->kindName());
