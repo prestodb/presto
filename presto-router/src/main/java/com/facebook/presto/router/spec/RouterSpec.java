@@ -31,10 +31,10 @@ import static java.util.Objects.requireNonNull;
 
 public class RouterSpec
 {
-    private final List<GroupSpec> groups;
-    private final List<SelectorRuleSpec> selectors;
-    private final Optional<SchedulerType> schedulerType;
-    private final Optional<URI> predictorUri;
+    private List<GroupSpec> groups;
+    private List<SelectorRuleSpec> selectors;
+    private Optional<SchedulerType> schedulerType;
+    private Optional<URI> predictorUri;
 
     private static final Logger log = Logger.get(RouterSpec.class);
 

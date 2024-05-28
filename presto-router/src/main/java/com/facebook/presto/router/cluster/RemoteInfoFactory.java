@@ -29,23 +29,26 @@ public class RemoteInfoFactory
 
     private final HttpClient clusterInfoHttpClient;
     private final HttpClient queryInfoHttpClient;
+    private final RemoteStateConfig remoteStateConfig;
 
     @Inject
     public RemoteInfoFactory(
             @ForClusterInfoTracker HttpClient clusterInfoHttpClient,
-            @ForQueryInfoTracker HttpClient queryInfoHttpClient)
+            @ForQueryInfoTracker HttpClient queryInfoHttpClient,
+            RemoteStateConfig remoteStateConfig)
     {
         this.clusterInfoHttpClient = requireNonNull(clusterInfoHttpClient, "Http client for cluster info is null");
         this.queryInfoHttpClient = requireNonNull(queryInfoHttpClient, "Http client for cluster info is null");
+        this.remoteStateConfig = requireNonNull(remoteStateConfig, "remoteStateConfig is null");
     }
 
     public RemoteQueryInfo createRemoteQueryInfo(URI uri)
     {
-        return new RemoteQueryInfo(clusterInfoHttpClient, uriBuilderFrom(uri).appendPath(QUERY_INFO).build());
+        return new RemoteQueryInfo(clusterInfoHttpClient, uriBuilderFrom(uri).appendPath(QUERY_INFO).build(), remoteStateConfig);
     }
 
     public RemoteClusterInfo createRemoteClusterInfo(URI uri)
     {
-        return new RemoteClusterInfo(queryInfoHttpClient, uriBuilderFrom(uri).appendPath(CLUSTER_INFO).build());
+        return new RemoteClusterInfo(queryInfoHttpClient, uriBuilderFrom(uri).appendPath(CLUSTER_INFO).build(), remoteStateConfig);
     }
 }

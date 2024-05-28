@@ -17,7 +17,6 @@ import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.airlift.bootstrap.LifeCycleManager;
 import com.facebook.airlift.http.server.testing.TestingHttpServerModule;
 import com.facebook.airlift.jaxrs.JaxrsModule;
-import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonModule;
 import com.facebook.airlift.log.Logging;
 import com.facebook.airlift.node.testing.TestingNodeModule;
@@ -38,16 +37,11 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.net.URI;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.List;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.facebook.presto.router.TestingRouterUtil.getConfigFile;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
@@ -73,7 +67,8 @@ public class TestPredictorManager
             builder.add(createPrestoServer());
         }
         prestoServers = builder.build();
-        configFile = getConfigFile(prestoServers);
+        File tempFile = File.createTempFile("router", "json");
+        configFile = getConfigFile(prestoServers, tempFile);
 
         Bootstrap app = new Bootstrap(
                 new TestingNodeModule("test"),
@@ -168,28 +163,5 @@ public class TestPredictorManager
         predictorServer = new MockWebServer();
         predictorServer.setDispatcher(dispatcher);
         predictorServer.start(8000);
-    }
-
-    private File getConfigFile(List<TestingPrestoServer> servers)
-            throws IOException
-    {
-        // setup router config file
-        File tempFile = File.createTempFile("router", "json");
-        FileOutputStream fileOutputStream = new FileOutputStream(tempFile);
-        String configTemplate = new String(Files.readAllBytes(Paths.get(getResourceFilePath("simple-router-template.json"))));
-        fileOutputStream.write(configTemplate.replaceAll("\\$\\{SERVERS}", getClusterList(servers)).getBytes(UTF_8));
-        fileOutputStream.close();
-        return tempFile;
-    }
-
-    private static String getClusterList(List<TestingPrestoServer> servers)
-    {
-        JsonCodec<List<URI>> codec = JsonCodec.listJsonCodec(URI.class);
-        return codec.toJson(servers.stream().map(TestingPrestoServer::getBaseUrl).collect(toImmutableList()));
-    }
-
-    private String getResourceFilePath(String fileName)
-    {
-        return this.getClass().getClassLoader().getResource(fileName).getPath();
     }
 }

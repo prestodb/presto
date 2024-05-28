@@ -162,10 +162,15 @@
             <artifactId>jmxutils</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>stats</artifactId>
+        </dependency>
+
         <!-- test dependencies-->
         <dependency>
-            <groupId>org.testng</groupId>
-            <artifactId>testng</artifactId>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-main</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -176,8 +181,8 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-main</artifactId>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -199,4 +204,20 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+   <build>
+       <plugins>
+           <plugin>
+               <groupId>org.gaul</groupId>
+               <artifactId>modernizer-maven-plugin</artifactId>
+               <configuration>
+                   <ignorePackages>
+                       <ignorePackage>com.facebook.presto.testing.assertions</ignorePackage>
+                   </ignorePackages>
+                   <ignoreClassNamePatterns>
+                       <ignoreClassNamePattern>com.facebook.presto.router.MockRouterHttpServletRequest</ignoreClassNamePattern>
+                   </ignoreClassNamePatterns>
+               </configuration>
+           </plugin>
+       </plugins>
+   </build>
 </project>

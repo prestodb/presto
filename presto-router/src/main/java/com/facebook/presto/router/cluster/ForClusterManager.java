@@ -11,13 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.router.scheduler;
+package com.facebook.presto.router.cluster;
 
-public enum SchedulerType
+import com.google.inject.BindingAnnotation;
+
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
+
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.ElementType.METHOD;
+import static java.lang.annotation.ElementType.PARAMETER;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
+
+@Retention(RUNTIME)
+@Target({FIELD, PARAMETER, METHOD})
+@BindingAnnotation
+public @interface ForClusterManager
 {
-    RANDOM_CHOICE,
-    ROUND_ROBIN,
-    USER_HASH,
-    WEIGHTED_RANDOM_CHOICE,
-    WEIGHTED_ROUND_ROBIN
 }

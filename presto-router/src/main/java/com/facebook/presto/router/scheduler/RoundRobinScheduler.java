@@ -18,29 +18,25 @@ import com.facebook.airlift.log.Logger;
 import java.net.URI;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 
-// As the round-robin scheduler keeps the selected index as a state for scheduling,
-// the candidates shall not be modified after they are assigned.
-// This design indicates that the round-robin scheduler can only be used when
-// the candidates are always consistent.
 public class RoundRobinScheduler
         implements Scheduler
 {
     private List<URI> candidates;
 
-    private static Integer candidateIndex = 0;
+    private AtomicInteger candidateIndex = new AtomicInteger(0);
     private static final Logger log = Logger.get(RoundRobinScheduler.class);
 
     @Override
     public Optional<URI> getDestination(String user)
     {
         try {
-            synchronized (candidateIndex) {
-                if (candidateIndex >= candidates.size()) {
-                    candidateIndex = 0;
-                }
-                return Optional.of(candidates.get(candidateIndex++));
+            if (candidateIndex.get() >= candidates.size()) {
+                candidateIndex.set(0);
             }
+            URI selection = candidates.get(candidateIndex.getAndIncrement());
+            return Optional.of(selection);
         }
         catch (IllegalArgumentException e) {
             log.warn(e, "Error getting destination for user " + user);
@@ -50,15 +46,6 @@ public class RoundRobinScheduler
 
     public void setCandidates(List<URI> candidates)
     {
-        // Only keeps the first given `candidates` due to maintaining the
-        // selected index for round-robin.
-        if (this.candidates == null) {
-            this.candidates = candidates;
-        }
-    }
-
-    public List<URI> getCandidates()
-    {
-        return candidates;
+        this.candidates = candidates;
     }
 }
