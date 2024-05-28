@@ -101,58 +101,36 @@ FOLLY_ALWAYS_INLINE void charEscape(unsigned char c, char* output) {
   output[2] = toHex(c % 16);
 }
 
-FOLLY_ALWAYS_INLINE bool isDigit(char c) {
-  return c >= '0' && c <= '9';
-}
-
-FOLLY_ALWAYS_INLINE bool isAlphaNumeric(char c) {
-  return isDigit(c) || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
-}
-
-FOLLY_ALWAYS_INLINE bool shouldEncode(char c) {
-  switch (c) {
-    case '-':
-    case '_':
-    case '.':
-    case '*':
-      return false;
-  };
-  return !isAlphaNumeric(c);
-}
-
 /// Escapes ``input`` by encoding it so that it can be safely included in
 /// URL query parameter names and values:
 ///
 ///  * Alphanumeric characters are not encoded.
 ///  * The characters ``.``, ``-``, ``*`` and ``_`` are not encoded.
-///  * The ASCII space character is encoded as ``+`` if usePlusForSpace is true.
+///  * The ASCII space character is encoded as ``+``.
 ///  * All other characters are converted to UTF-8 and the bytes are encoded
 ///    as the string ``%XX`` where ``XX`` is the uppercase hexadecimal
 ///    value of the UTF-8 byte.
 template <typename TOutString, typename TInString>
-FOLLY_ALWAYS_INLINE void urlEscape(
-    TOutString& output,
-    const TInString& input,
-    bool usePlusForSpace = true,
-    const uint64_t* doNotEncodeSymbolsBits = nullptr) {
+FOLLY_ALWAYS_INLINE void urlEscape(TOutString& output, const TInString& input) {
   auto inputSize = input.size();
-  output.resize(inputSize * 3);
+  output.reserve(inputSize * 3);
 
   auto inputBuffer = input.data();
   auto outputBuffer = output.data();
+
   size_t outIndex = 0;
   for (auto i = 0; i < inputSize; ++i) {
     unsigned char p = inputBuffer[i];
-    if (p == ' ' && usePlusForSpace) {
+
+    if ((p >= 'a' && p <= 'z') || (p >= 'A' && p <= 'Z') ||
+        (p >= '0' && p <= '9') || p == '-' || p == '_' || p == '.' ||
+        p == '*') {
+      outputBuffer[outIndex++] = p;
+    } else if (p == ' ') {
       outputBuffer[outIndex++] = '+';
-    } else if (
-        shouldEncode(p) &&
-        (!doNotEncodeSymbolsBits ||
-         !bits::isBitSet(doNotEncodeSymbolsBits, static_cast<size_t>(p)))) {
+    } else {
       charEscape(p, outputBuffer + outIndex);
       outIndex += 3;
-    } else {
-      outputBuffer[outIndex++] = p;
     }
   }
   output.resize(outIndex);
@@ -227,8 +205,6 @@ FOLLY_ALWAYS_INLINE void urlUnescape(
   output.resize(outputBuffer - output.data());
 }
 
-} // namespace detail
-
 /// Matches the authority (i.e host[:port], ipaddress), and path from a string
 /// representing the authority and path. Returns true if the regex matches, and
 /// sets the appropriate groups matching authority in authorityMatch.
@@ -236,6 +212,8 @@ std::optional<StringView> matchAuthorityAndPath(
     StringView authorityAndPath,
     boost::cmatch& authorityMatch,
     int subGroup);
+
+} // namespace detail
 
 template <typename T>
 struct UrlExtractProtocolFunction {
@@ -313,7 +291,7 @@ struct UrlExtractHostFunction {
     }
     boost::cmatch authorityMatch;
 
-    if (auto host = matchAuthorityAndPath(
+    if (auto host = detail::matchAuthorityAndPath(
             authAndPath.value(), authorityMatch, detail::kHost)) {
       result.setNoCopy(host.value());
     } else {
@@ -338,7 +316,7 @@ struct UrlExtractPortFunction {
     }
 
     boost::cmatch authorityMatch;
-    if (auto port = matchAuthorityAndPath(
+    if (auto port = detail::matchAuthorityAndPath(
             authAndPath.value(), authorityMatch, detail::kPort)) {
       if (!port.value().empty()) {
         try {

@@ -198,7 +198,6 @@ RowVectorPtr TableScan::getOutput() {
                 (getCurrentTimeMicro() - addSplitStartMicros) * 1'000,
                 RuntimeCounter::Unit::kNanos));
       }
-      setInputFileName(connectorSplit);
       curStatus_ = "getOutput: updating stats_.numSplits";
       ++stats_.wlock()->numSplits;
 
@@ -350,11 +349,6 @@ void TableScan::checkPreload() {
           };
     }
   }
-}
-
-void TableScan::setInputFileName(
-    std::shared_ptr<connector::ConnectorSplit> split) {
-  driverCtx_->inputFileName = split->getFileName();
 }
 
 bool TableScan::isFinished() {

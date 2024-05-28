@@ -18,7 +18,7 @@
 #include <optional>
 #include "velox/type/Type.h"
 
-namespace facebook::velox::functions {
+namespace facebook::velox::functions::detail {
 
 std::optional<StringView> matchAuthorityAndPath(
     StringView authorityAndPath,
@@ -54,4 +54,4 @@ std::optional<StringView> matchAuthorityAndPath(
   return std::nullopt;
 }
 
-} // namespace facebook::velox::functions
+} // namespace facebook::velox::functions::detail

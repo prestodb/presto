@@ -60,10 +60,6 @@ struct ConnectorSplit {
   virtual std::string toString() const {
     return fmt::format("[split: {}]", connectorId);
   }
-
-  virtual std::string getFileName() const {
-    return "";
-  }
 };
 
 class ColumnHandle : public ISerializable {
