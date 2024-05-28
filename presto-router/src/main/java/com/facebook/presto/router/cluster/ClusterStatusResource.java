@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.client.NodeVersion.UNKNOWN;
+import static com.facebook.presto.router.cluster.ClusterManager.ClusterStatusTracker;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 

@@ -13,12 +13,10 @@
  */
 package com.facebook.presto.router.scheduler;
 
-import com.facebook.airlift.log.Logger;
-
 import java.net.URI;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -35,11 +33,10 @@ public class WeightedRoundRobinScheduler
         implements Scheduler
 {
     private List<URI> candidates;
-    private HashMap<URI, Integer> weights;
+    private Map<URI, Integer> weights;
     private List<URI> serverList;
 
     private static Integer serverIndex = 0;
-    private static final Logger log = Logger.get(WeightedRoundRobinScheduler.class);
 
     @Override
     public Optional<URI> getDestination(String user)
@@ -67,12 +64,7 @@ public class WeightedRoundRobinScheduler
         }
     }
 
-    public List<URI> getCandidates()
-    {
-        return candidates;
-    }
-
-    public void setWeights(HashMap<URI, Integer> weights)
+    public void setWeights(Map<URI, Integer> weights)
     {
         // Only keeps the first given `weights` due to maintaining the
         // selected index for weighted round-robin.
@@ -81,7 +73,7 @@ public class WeightedRoundRobinScheduler
         }
     }
 
-    public HashMap<URI, Integer> getWeights()
+    public Map<URI, Integer> getWeights()
     {
         return weights;
     }
