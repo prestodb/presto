@@ -59,6 +59,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.any;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static java.lang.Double.NaN;
 import static java.lang.Double.isNaN;
 import static org.testng.Assert.assertFalse;
 
@@ -447,9 +448,38 @@ public class TestHistoryBasedStatsTracking
         assertPlan(query, anyTree(node(DistinctLimitNode.class, anyTree(any())).withOutputRowCount(2)));
     }
 
+    @Test
+    public void testBroadcastJoin()
+    {
+        Session broadcastSession = Session.builder(getQueryRunner().getDefaultSession()).setSystemProperty(JOIN_DISTRIBUTION_TYPE, "BROADCAST").build();
+        String sql = "select s.name, s.acctbal, sum(l.quantity) from lineitem l join supplier s on l.suppkey=s.suppkey where acctbal < 0 and length(l.comment) > 2 group by 1, 2";
+        // CBO Statistics
+        assertPlan(
+                broadcastSession,
+                sql,
+                anyTree(
+                        node(ProjectNode.class, anyTree(any())).withOutputRowCount(NaN),
+                        anyTree(any())));
+
+        // HBO Statistics
+        executeAndTrackHistory(sql, broadcastSession);
+        assertPlan(
+                broadcastSession,
+                sql,
+                anyTree(
+                        node(ProjectNode.class, anyTree(any())).withOutputRowCount(60175.0),
+                        anyTree(any())));
+    }
+
     private void executeAndTrackHistory(String sql)
     {
         getQueryRunner().execute(sql);
+        getHistoryProvider().waitProcessQueryEvents();
+    }
+
+    private void executeAndTrackHistory(String sql, Session session)
+    {
+        getQueryRunner().execute(session, sql);
         getHistoryProvider().waitProcessQueryEvents();
     }
 
