@@ -30,6 +30,7 @@ import static java.lang.Double.doubleToLongBits;
 import static java.lang.Double.doubleToRawLongBits;
 import static java.lang.Double.isNaN;
 import static java.lang.Double.longBitsToDouble;
+import static java.lang.Double.parseDouble;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -113,6 +114,8 @@ public class TestDoubleOperators
         assertFunction("37.7E0 = 17.1E0", BOOLEAN, false);
         assertFunction("17.1E0 = 37.7E0", BOOLEAN, false);
         assertFunction("17.1E0 = 17.1E0", BOOLEAN, true);
+        assertFunction("DOUBLE'-0.0' = DOUBLE'0.0'", BOOLEAN, true);
+        assertFunction("nan() = nan()", BOOLEAN, true);
     }
 
     @Test
@@ -122,6 +125,8 @@ public class TestDoubleOperators
         assertFunction("37.7E0 <> 17.1E0", BOOLEAN, true);
         assertFunction("17.1E0 <> 37.7E0", BOOLEAN, true);
         assertFunction("17.1E0 <> 17.1E0", BOOLEAN, false);
+        assertFunction("DOUBLE'-0.0' <> DOUBLE'0.0'", BOOLEAN, false);
+        assertFunction("nan() <> nan()", BOOLEAN, false);
     }
 
     @Test
@@ -131,6 +136,8 @@ public class TestDoubleOperators
         assertFunction("37.7E0 < 17.1E0", BOOLEAN, false);
         assertFunction("17.1E0 < 37.7E0", BOOLEAN, true);
         assertFunction("17.1E0 < 17.1E0", BOOLEAN, false);
+        assertFunction("DOUBLE '-0.0' < DOUBLE '0.0'", BOOLEAN, false);
+        assertFunction("nan() < nan()", BOOLEAN, false);
     }
 
     @Test
@@ -140,6 +147,8 @@ public class TestDoubleOperators
         assertFunction("37.7E0 <= 17.1E0", BOOLEAN, false);
         assertFunction("17.1E0 <= 37.7E0", BOOLEAN, true);
         assertFunction("17.1E0 <= 17.1E0", BOOLEAN, true);
+        assertFunction("DOUBLE '-0.0' <= DOUBLE '0.0'", BOOLEAN, true);
+        assertFunction("nan() <= nan()", BOOLEAN, true);
     }
 
     @Test
@@ -149,6 +158,8 @@ public class TestDoubleOperators
         assertFunction("37.7E0 > 17.1E0", BOOLEAN, true);
         assertFunction("17.1E0 > 37.7E0", BOOLEAN, false);
         assertFunction("17.1E0 > 17.1E0", BOOLEAN, false);
+        assertFunction("DOUBLE '0.0' > DOUBLE '-0.0'", BOOLEAN, false);
+        assertFunction("nan() > nan()", BOOLEAN, false);
     }
 
     @Test
@@ -158,6 +169,8 @@ public class TestDoubleOperators
         assertFunction("37.7E0 >= 17.1E0", BOOLEAN, true);
         assertFunction("17.1E0 >= 37.7E0", BOOLEAN, false);
         assertFunction("17.1E0 >= 17.1E0", BOOLEAN, true);
+        assertFunction("DOUBLE'-0.0' >= DOUBLE'0.0'", BOOLEAN, true);
+        assertFunction("nan() >= nan()", BOOLEAN, true);
     }
 
     @Test
@@ -174,6 +187,8 @@ public class TestDoubleOperators
 
         assertFunction("17.1E0 BETWEEN 17.1E0 AND 37.7E0", BOOLEAN, true);
         assertFunction("17.1E0 BETWEEN 17.1E0 AND 17.1E0", BOOLEAN, true);
+        assertFunction("DOUBLE'-0.0' BETWEEN DOUBLE'0.0' AND DOUBLE '0.0'", BOOLEAN, true);
+        assertFunction("nan() BETWEEN nan() AND nan()", BOOLEAN, true);
     }
 
     @Test
@@ -300,6 +315,7 @@ public class TestDoubleOperators
         assertFunction("NULL IS DISTINCT FROM 37.7", BOOLEAN, true);
         assertFunction("37.7 IS DISTINCT FROM NULL", BOOLEAN, true);
         assertFunction("nan() IS DISTINCT FROM nan()", BOOLEAN, false);
+        assertFunction("DOUBLE '-0.0' IS DISTINCT FROM DOUBLE '0.0'", BOOLEAN, false);
     }
 
     @Test
@@ -321,7 +337,13 @@ public class TestDoubleOperators
             assertTrue(nanRepresentation == nanRepresentations[0]
                     || doubleToRawLongBits(longBitsToDouble(nanRepresentation)) != doubleToRawLongBits(longBitsToDouble(nanRepresentations[0])));
 
-            assertEquals(DoubleOperators.hashCode(longBitsToDouble(nanRepresentation)), DoubleOperators.hashCode(longBitsToDouble(nanRepresentations[0])));
+            assertEquals(DoubleComparisonOperators.hashCode(longBitsToDouble(nanRepresentation)), DoubleComparisonOperators.hashCode(longBitsToDouble(nanRepresentations[0])));
         }
+    }
+
+    @Test
+    public void testZeroHash()
+    {
+        assertEquals(DoubleComparisonOperators.hashCode(0), DoubleComparisonOperators.hashCode(parseDouble("-0.0")));
     }
 }

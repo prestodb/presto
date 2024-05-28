@@ -246,6 +246,7 @@ import com.facebook.presto.type.DateOperators;
 import com.facebook.presto.type.DateTimeOperators;
 import com.facebook.presto.type.DecimalOperators;
 import com.facebook.presto.type.DecimalParametricType;
+import com.facebook.presto.type.DoubleComparisonOperators;
 import com.facebook.presto.type.DoubleOperators;
 import com.facebook.presto.type.EnumCasts;
 import com.facebook.presto.type.HyperLogLogOperators;
@@ -255,6 +256,7 @@ import com.facebook.presto.type.IntervalYearMonthOperators;
 import com.facebook.presto.type.IpAddressOperators;
 import com.facebook.presto.type.IpPrefixOperators;
 import com.facebook.presto.type.KllSketchOperators;
+import com.facebook.presto.type.LegacyDoubleComparisonOperators;
 import com.facebook.presto.type.LikeFunctions;
 import com.facebook.presto.type.LongEnumOperators;
 import com.facebook.presto.type.MapParametricType;
@@ -623,11 +625,11 @@ public class BuiltInTypeAndFunctionNamespaceManager
         addType(INTEGER);
         addType(SMALLINT);
         addType(TINYINT);
-        if(!featuresConfig.getUseNewNanDefinition()) {
+        if (!featuresConfig.getUseNewNanDefinition()) {
             addType(OLD_NAN_DOUBLE);
             addType(OLD_NAN_REAL);
-
-        } else {
+        }
+        else {
             addType(DOUBLE);
             addType(REAL);
         }
@@ -798,9 +800,18 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalar(SmallintOperators.SmallintDistinctFromOperator.class)
                 .scalars(TinyintOperators.class)
                 .scalar(TinyintOperators.TinyintDistinctFromOperator.class)
-                .scalars(DoubleOperators.class)
-                .scalar(DoubleOperators.DoubleDistinctFromOperator.class)
-                .scalars(RealOperators.class)
+                .scalars(DoubleOperators.class);
+
+        if (featuresConfig.getUseNewNanDefinition()) {
+            builder.scalars(DoubleComparisonOperators.class)
+                    .scalar(DoubleComparisonOperators.DoubleDistinctFromOperator.class);
+        }
+        else {
+
+            builder.scalars(LegacyDoubleComparisonOperators.class)
+                    .scalar(LegacyDoubleComparisonOperators.DoubleDistinctFromOperator.class);
+        }
+        builder.scalars(RealOperators.class)
                 .scalar(RealOperators.RealDistinctFromOperator.class)
                 .scalars(VarcharOperators.class)
                 .scalar(VarcharOperators.VarcharDistinctFromOperator.class)

@@ -21,7 +21,12 @@ import java.util.Optional;
 
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TypeUtils.containsDistinctType;
+import static com.facebook.presto.common.type.TypeUtils.doubleCompare;
+import static com.facebook.presto.common.type.TypeUtils.doubleEquals;
+import static com.facebook.presto.common.type.TypeUtils.doubleHashCode;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static java.lang.Double.longBitsToDouble;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -51,5 +56,30 @@ public class TestTypeUtils
         assertFalse(containsDistinctType(ImmutableList.of(new ArrayType(RowType.anonymous(ImmutableList.of(INTEGER, VARCHAR))))));
         assertTrue(containsDistinctType(ImmutableList.of(new ArrayType(new ArrayType(distinctType)))));
         assertTrue(containsDistinctType(ImmutableList.of(new ArrayType(RowType.anonymous(ImmutableList.of(INTEGER, distinctType))))));
+    }
+
+    @Test
+    public void testDoubleHashCode()
+    {
+        assertEquals(doubleHashCode(0), doubleHashCode(Double.parseDouble("-0")));
+        //0x7ff8123412341234L is a different representation of NaN
+        assertEquals(doubleHashCode(Double.NaN), doubleHashCode(longBitsToDouble(0x7ff8123412341234L)));
+    }
+
+    @Test
+    public void testDoubleEquals()
+    {
+        assertTrue(doubleEquals(0, Double.parseDouble("-0")));
+        //0x7ff8123412341234L is a different representation of NaN
+        assertTrue(doubleEquals(Double.NaN, longBitsToDouble(0x7ff8123412341234L)));
+    }
+
+    @Test
+    public void testDoubleCompare()
+    {
+        assertEquals(doubleCompare(0, Double.parseDouble("-0")), 0);
+        assertEquals(doubleCompare(Double.NaN, Double.NaN), 0);
+        //0x7ff8123412341234L is a different representation of NaN
+        assertEquals(doubleCompare(Double.NaN, longBitsToDouble(0x7ff8123412341234L)), 0);
     }
 }
