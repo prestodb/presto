@@ -52,6 +52,7 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -265,8 +266,8 @@ public class TestLogicalPlanner
         assertDistributedPlan("SELECT rank() OVER (PARTITION BY orderkey) FROM orders",
                 anyTree(
                         window(windowMatcherBuilder -> windowMatcherBuilder
-                                        .specification(specification(ImmutableList.of("orderkey"), ImmutableList.of(), ImmutableMap.of()))
-                                        .addFunction(functionCall("rank", Optional.empty(), ImmutableList.of())),
+                                        .specification(specification(ImmutableList.of("orderkey"), Collections.emptyList(), ImmutableMap.of()))
+                                        .addFunction(functionCall("rank", Optional.empty(), Collections.emptyList())),
                                 project(tableScan("orders", ImmutableMap.of("orderkey", "orderkey"))))));
 
         assertDistributedPlan("SELECT row_number() OVER (PARTITION BY orderkey) FROM orders",
@@ -288,8 +289,8 @@ public class TestLogicalPlanner
         assertDistributedPlan("SELECT rank() OVER (PARTITION BY orderstatus) FROM orders",
                 anyTree(
                         window(windowMatcherBuilder -> windowMatcherBuilder
-                                        .specification(specification(ImmutableList.of("orderstatus"), ImmutableList.of(), ImmutableMap.of()))
-                                        .addFunction(functionCall("rank", Optional.empty(), ImmutableList.of())),
+                                        .specification(specification(ImmutableList.of("orderstatus"), Collections.emptyList(), ImmutableMap.of()))
+                                        .addFunction(functionCall("rank", Optional.empty(), Collections.emptyList())),
                                 exchange(LOCAL, GATHER,
                                         exchange(REMOTE_STREAMING, REPARTITION,
                                                 project(tableScan("orders", ImmutableMap.of("orderstatus", "orderstatus"))))))));
@@ -329,8 +330,8 @@ public class TestLogicalPlanner
                 noJoinReordering(),
                 anyTree(
                         window(windowMatcherBuilder -> windowMatcherBuilder
-                                        .specification(specification(ImmutableList.of("orderstatus", "orderkey"), ImmutableList.of(), ImmutableMap.of()))
-                                        .addFunction(functionCall("rank", Optional.empty(), ImmutableList.of())),
+                                        .specification(specification(ImmutableList.of("orderstatus", "orderkey"), Collections.emptyList(), ImmutableMap.of()))
+                                        .addFunction(functionCall("rank", Optional.empty(), Collections.emptyList())),
                                 exchange(LOCAL, GATHER,
                                         project(
                                                 join(INNER, ImmutableList.of(equiJoinClause("orderstatus", "linestatus")), Optional.empty(), Optional.of(PARTITIONED),
@@ -345,8 +346,8 @@ public class TestLogicalPlanner
                 noJoinReordering(),
                 anyTree(
                         window(windowMatcherBuilder -> windowMatcherBuilder
-                                        .specification(specification(ImmutableList.of("orderkey"), ImmutableList.of(), ImmutableMap.of()))
-                                        .addFunction(functionCall("rank", Optional.empty(), ImmutableList.of())),
+                                        .specification(specification(ImmutableList.of("orderkey"), Collections.emptyList(), ImmutableMap.of()))
+                                        .addFunction(functionCall("rank", Optional.empty(), Collections.emptyList())),
                                 exchange(LOCAL, GATHER,
                                         exchange(REMOTE_STREAMING, REPARTITION,
                                                 anyTree(join(INNER, ImmutableList.of(equiJoinClause("orderstatus", "linestatus")), Optional.empty(), Optional.of(PARTITIONED),
@@ -366,8 +367,8 @@ public class TestLogicalPlanner
                 broadcastJoin,
                 anyTree(
                         window(windowMatcherBuilder -> windowMatcherBuilder
-                                        .specification(specification(ImmutableList.of("custkey"), ImmutableList.of(), ImmutableMap.of()))
-                                        .addFunction(functionCall("rank", Optional.empty(), ImmutableList.of())),
+                                        .specification(specification(ImmutableList.of("custkey"), Collections.emptyList(), ImmutableMap.of()))
+                                        .addFunction(functionCall("rank", Optional.empty(), Collections.emptyList())),
                                 exchange(LOCAL, GATHER,
                                         exchange(REMOTE_STREAMING, REPARTITION,
                                                 project(
@@ -385,8 +386,8 @@ public class TestLogicalPlanner
         assertDistributedPlan("SELECT rank() OVER (PARTITION BY custkey) FROM orders GROUP BY custkey",
                 anyTree(
                         window(windowMatcherBuilder -> windowMatcherBuilder
-                                        .specification(specification(ImmutableList.of("custkey"), ImmutableList.of(), ImmutableMap.of()))
-                                        .addFunction(functionCall("rank", Optional.empty(), ImmutableList.of())),
+                                        .specification(specification(ImmutableList.of("custkey"), Collections.emptyList(), ImmutableMap.of()))
+                                        .addFunction(functionCall("rank", Optional.empty(), Collections.emptyList())),
                                 project(aggregation(singleGroupingSet("custkey"), ImmutableMap.of(), ImmutableMap.of(), Optional.empty(), FINAL,
                                         exchange(LOCAL, GATHER,
                                                 project(exchange(REMOTE_STREAMING, REPARTITION,
@@ -396,8 +397,8 @@ public class TestLogicalPlanner
         assertDistributedPlan("SELECT rank() OVER (partition by custkey) FROM (SELECT shippriority, custkey, sum(totalprice) FROM orders GROUP BY shippriority, custkey)",
                 anyTree(
                         window(windowMatcherBuilder -> windowMatcherBuilder
-                                        .specification(specification(ImmutableList.of("custkey"), ImmutableList.of(), ImmutableMap.of()))
-                                        .addFunction(functionCall("rank", Optional.empty(), ImmutableList.of())),
+                                        .specification(specification(ImmutableList.of("custkey"), Collections.emptyList(), ImmutableMap.of()))
+                                        .addFunction(functionCall("rank", Optional.empty(), Collections.emptyList())),
                                 exchange(LOCAL, GATHER,
                                         exchange(REMOTE_STREAMING, REPARTITION,
                                                 project(aggregation(singleGroupingSet("shippriority", "custkey"), ImmutableMap.of(), ImmutableMap.of(), Optional.empty(), FINAL,
@@ -414,7 +415,7 @@ public class TestLogicalPlanner
                         node(DistinctLimitNode.class,
                                 anyTree(
                                         filter("O_ORDERKEY < L_ORDERKEY",
-                                                join(INNER, ImmutableList.of(), Optional.empty(),
+                                                join(INNER, Collections.emptyList(), Optional.empty(),
                                                         tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")),
                                                         any(tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey"))))
                                                         .withExactOutputs(ImmutableList.of("O_ORDERKEY", "L_ORDERKEY")))))));
@@ -458,7 +459,7 @@ public class TestLogicalPlanner
         assertPlan("SELECT 1 FROM orders o JOIN lineitem l ON o.orderkey < l.orderkey",
                 anyTree(
                         filter("O_ORDERKEY < L_ORDERKEY",
-                                join(INNER, ImmutableList.of(), Optional.empty(),
+                                join(INNER, Collections.emptyList(), Optional.empty(),
                                         tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")),
                                         any(tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey")))))));
     }
@@ -488,7 +489,7 @@ public class TestLogicalPlanner
                 anyTree(
                         project(
                                 filter("O_ORDERKEY < L_ORDERKEY",
-                                        join(INNER, ImmutableList.of(), Optional.empty(),
+                                        join(INNER, Collections.emptyList(), Optional.empty(),
                                                 tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")),
                                                 any(
                                                         filter("NOT (L_ORDERKEY IS NULL)",
@@ -587,7 +588,7 @@ public class TestLogicalPlanner
         assertPlan(
                 "SELECT * FROM orders WHERE orderkey = (SELECT 1)",
                 anyTree(
-                        join(INNER, ImmutableList.of(),
+                        join(INNER, Collections.emptyList(),
                                 project(
                                         filter("orderkey = BIGINT '1'",
                                                 tableScan("orders", ImmutableMap.of("orderkey", "orderkey")))),
@@ -736,7 +737,7 @@ public class TestLogicalPlanner
                         project(
                                 join(
                                         INNER,
-                                        ImmutableList.of(),
+                                        Collections.emptyList(),
                                         Optional.empty(),
                                         //Optional.of("region_regionkey = BIGINT '3'"),
                                         any(any(tableScan("region", ImmutableMap.of("region_regionkey", "regionkey")))),
@@ -850,7 +851,7 @@ public class TestLogicalPlanner
                 anyTree(
                         aggregation(
                                 singleGroupingSet("o_orderkey"),
-                                ImmutableMap.of(Optional.empty(), functionCall("count", ImmutableList.of())),
+                                ImmutableMap.of(Optional.empty(), functionCall("count", Collections.emptyList())),
                                 ImmutableList.of("o_orderkey"), // streaming
                                 ImmutableMap.of(),
                                 Optional.empty(),
@@ -866,7 +867,7 @@ public class TestLogicalPlanner
                 anyTree(
                         aggregation(
                                 singleGroupingSet("o_orderkey"),
-                                ImmutableMap.of(Optional.empty(), functionCall("count", ImmutableList.of())),
+                                ImmutableMap.of(Optional.empty(), functionCall("count", Collections.emptyList())),
                                 ImmutableList.of("o_orderkey"), // streaming
                                 ImmutableMap.of(),
                                 Optional.empty(),
@@ -882,12 +883,12 @@ public class TestLogicalPlanner
                 anyTree(
                         aggregation(
                                 singleGroupingSet("orderkey"),
-                                ImmutableMap.of(Optional.empty(), functionCall("count", ImmutableList.of())),
-                                ImmutableList.of(), // not streaming
+                                ImmutableMap.of(Optional.empty(), functionCall("count", Collections.emptyList())),
+                                Collections.emptyList(), // not streaming
                                 ImmutableMap.of(),
                                 Optional.empty(),
                                 SINGLE,
-                                join(INNER, ImmutableList.of(),
+                                join(INNER, Collections.emptyList(),
                                         tableScan("orders", ImmutableMap.of("orderkey", "orderkey")),
                                         anyTree(
                                                 node(TableScanNode.class))))));
@@ -958,7 +959,7 @@ public class TestLogicalPlanner
                 anyTree(
                         filter("FINAL_COUNT > BIGINT '0'",
                                 aggregation(ImmutableMap.of("FINAL_COUNT", functionCall("count", ImmutableList.of("NON_NULL"))),
-                                        join(LEFT, ImmutableList.of(), Optional.of("BIGINT '3' = ORDERKEY"),
+                                        join(LEFT, Collections.emptyList(), Optional.of("BIGINT '3' = ORDERKEY"),
                                                 any(
                                                         tableScan("orders", ImmutableMap.of("ORDERKEY", "orderkey"))),
                                                 project(ImmutableMap.of("NON_NULL", expression("true")),
@@ -1122,7 +1123,7 @@ public class TestLogicalPlanner
                 broadcastJoin,
                 false,
                 anyTree(
-                        join(INNER, ImmutableList.of(), Optional.empty(), Optional.of(REPLICATED),
+                        join(INNER, Collections.emptyList(), Optional.empty(), Optional.of(REPLICATED),
                                 anyTree(
                                         node(TableScanNode.class)),
                                 anyTree(
@@ -1529,7 +1530,7 @@ public class TestLogicalPlanner
                                         "(row_num > BIGINT '2')",
                                         rowNumber(
                                                 pattern -> pattern
-                                                        .partitionBy(ImmutableList.of()),
+                                                        .partitionBy(Collections.emptyList()),
                                                 any(
                                                         tableScan("nation", ImmutableMap.of("NAME", "name"))))
                                                 .withAlias("row_num", new RowNumberSymbolMatcher())))));
@@ -1543,7 +1544,7 @@ public class TestLogicalPlanner
                                         "row_num > BIGINT '2'",
                                         rowNumber(
                                                 pattern -> pattern
-                                                        .partitionBy(ImmutableList.of()),
+                                                        .partitionBy(Collections.emptyList()),
                                                 anyTree(
                                                         sort(
                                                                 ImmutableList.of(sort("regionkey", ASCENDING, LAST)),

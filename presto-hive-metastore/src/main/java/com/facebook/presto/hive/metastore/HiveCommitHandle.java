@@ -16,9 +16,9 @@ package com.facebook.presto.hive.metastore;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorCommitHandle;
 import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -56,7 +56,7 @@ public class HiveCommitHandle
 
     static String serializeCommitOutput(Map<SchemaTableName, List<Long>> lastDataCommitTimes, SchemaTableName table)
     {
-        List<Long> commitTimes = lastDataCommitTimes.getOrDefault(table, ImmutableList.of());
+        List<Long> commitTimes = lastDataCommitTimes.getOrDefault(table, Collections.emptyList());
         return Joiner.on(",").join(commitTimes);
     }
 

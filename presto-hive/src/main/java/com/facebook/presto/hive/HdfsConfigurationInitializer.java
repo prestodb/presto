@@ -16,7 +16,6 @@ package com.facebook.presto.hive;
 import com.facebook.presto.hive.gcs.GcsConfigurationInitializer;
 import com.facebook.presto.hive.s3.S3ConfigurationUpdater;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
 import org.apache.hadoop.conf.Configuration;
@@ -28,6 +27,7 @@ import org.apache.hadoop.net.SocksSocketFactory;
 import javax.inject.Inject;
 import javax.net.SocketFactory;
 
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.hive.util.ConfigurationUtils.copy;
@@ -147,7 +147,7 @@ public class HdfsConfigurationInitializer
         public List<String> resolve(List<String> names)
         {
             // dfs client expects an empty list as an indication that the host->switch mapping for the given names are not known
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
 
         @Override

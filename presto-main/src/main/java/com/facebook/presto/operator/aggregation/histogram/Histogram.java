@@ -31,6 +31,7 @@ import com.facebook.presto.spi.function.aggregation.GroupedAccumulator;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -60,7 +61,7 @@ public class Histogram
     {
         super(NAME,
                 ImmutableList.of(comparableTypeParameter("K")),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 parseTypeSignature("map(K,bigint)"),
                 ImmutableList.of(parseTypeSignature("K")));
         this.groupMode = groupMode;

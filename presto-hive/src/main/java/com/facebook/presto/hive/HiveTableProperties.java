@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import javax.inject.Inject;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -84,7 +85,7 @@ public class HiveTableProperties
                         "Partition columns",
                         typeManager.getType(parseTypeSignature("array(varchar)")),
                         List.class,
-                        ImmutableList.of(),
+                        Collections.emptyList(),
                         false,
                         value -> ImmutableList.copyOf(((Collection<?>) value).stream()
                                 .map(name -> ((String) name).toLowerCase(ENGLISH))
@@ -95,7 +96,7 @@ public class HiveTableProperties
                         "Bucketing columns",
                         typeManager.getType(parseTypeSignature("array(varchar)")),
                         List.class,
-                        ImmutableList.of(),
+                        Collections.emptyList(),
                         false,
                         value -> ImmutableList.copyOf(((Collection<?>) value).stream()
                                 .map(name -> ((String) name).toLowerCase(ENGLISH))
@@ -106,7 +107,7 @@ public class HiveTableProperties
                         "Bucket sorting columns",
                         typeManager.getType(parseTypeSignature("array(varchar)")),
                         List.class,
-                        ImmutableList.of(),
+                        Collections.emptyList(),
                         false,
                         value -> ((Collection<?>) value).stream()
                                 .map(String.class::cast)
@@ -121,7 +122,7 @@ public class HiveTableProperties
                         "ORC Bloom filter index columns",
                         typeManager.getType(parseTypeSignature("array(varchar)")),
                         List.class,
-                        ImmutableList.of(),
+                        Collections.emptyList(),
                         false,
                         value -> ((Collection<?>) value).stream()
                                 .map(String.class::cast)
@@ -140,7 +141,7 @@ public class HiveTableProperties
                         "Preferred ordering columns for unbucketed table",
                         typeManager.getType(parseTypeSignature("array(varchar)")),
                         List.class,
-                        ImmutableList.of(),
+                        Collections.emptyList(),
                         false,
                         value -> ((Collection<?>) value).stream()
                                 .map(String.class::cast)
@@ -196,7 +197,7 @@ public class HiveTableProperties
     public static List<String> getPartitionedBy(Map<String, Object> tableProperties)
     {
         List<String> partitionedBy = (List<String>) tableProperties.get(PARTITIONED_BY_PROPERTY);
-        return partitionedBy == null ? ImmutableList.of() : ImmutableList.copyOf(partitionedBy);
+        return partitionedBy == null ? Collections.emptyList() : ImmutableList.copyOf(partitionedBy);
     }
 
     public static Optional<HiveBucketProperty> getBucketProperty(Map<String, Object> tableProperties)
@@ -263,7 +264,7 @@ public class HiveTableProperties
     {
         List<SortingColumn> preferredOrderingColumns = (List<SortingColumn>) tableProperties.get(PREFERRED_ORDERING_COLUMNS);
         if (preferredOrderingColumns == null) {
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
         if (!preferredOrderingColumns.isEmpty() && getBucketProperty(tableProperties).isPresent()) {
             throw new PrestoException(INVALID_TABLE_PROPERTY, format("%s must not be specified when %s is specified", PREFERRED_ORDERING_COLUMNS, BUCKETED_BY_PROPERTY));

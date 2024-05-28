@@ -23,6 +23,7 @@ import com.google.common.collect.Sets;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -169,7 +170,7 @@ class PreferredProperties
     public static class Builder
     {
         private Optional<Global> globalProperties = Optional.empty();
-        private List<LocalProperty<VariableReferenceExpression>> localProperties = ImmutableList.of();
+        private List<LocalProperty<VariableReferenceExpression>> localProperties = Collections.emptyList();
 
         public Builder global(Global globalProperties)
         {

@@ -36,6 +36,7 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.io.Closeable;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Deque;
 import java.util.LinkedList;
 import java.util.List;
@@ -415,7 +416,7 @@ public class ExchangeClient
             responseSize += page.getSizeInBytes();
         }
 
-        List<SettableFuture<?>> notify = ImmutableList.of();
+        List<SettableFuture<?>> notify = Collections.emptyList();
         synchronized (this) {
             if (isClosed() || isFailed()) {
                 return false;

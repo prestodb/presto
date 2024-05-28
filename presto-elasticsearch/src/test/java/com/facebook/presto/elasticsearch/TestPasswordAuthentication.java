@@ -25,13 +25,13 @@ import org.apache.http.message.BasicHeader;
 import org.apache.http.nio.entity.NStringEntity;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;
-import org.testcontainers.shaded.com.google.common.collect.ImmutableList;
 import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 
 import static com.facebook.presto.elasticsearch.ElasticsearchQueryRunner.createElasticsearchQueryRunner;
 import static com.google.common.io.Resources.getResource;
@@ -64,7 +64,7 @@ public class TestPasswordAuthentication
 
         DistributedQueryRunner runner = createElasticsearchQueryRunner(
                 elasticsearch.getAddress(),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 ImmutableMap.of(),
                 ImmutableMap.<String, String>builder()
                         .put("elasticsearch.security", "PASSWORD")

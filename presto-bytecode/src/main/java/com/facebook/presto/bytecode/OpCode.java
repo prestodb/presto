@@ -14,10 +14,10 @@
 package com.facebook.presto.bytecode;
 
 import com.facebook.presto.bytecode.instruction.InstructionNode;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.objectweb.asm.MethodVisitor;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -268,7 +268,7 @@ public enum OpCode
     @Override
     public List<BytecodeNode> getChildNodes()
     {
-        return ImmutableList.of();
+        return Collections.emptyList();
     }
 
     @Override

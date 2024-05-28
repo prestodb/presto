@@ -45,6 +45,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -153,7 +154,7 @@ public class PartitionTable
     {
         // TODO instead of cursor use pageSource method.
         if (!snapshotId.isPresent()) {
-            return new InMemoryRecordSet(resultTypes, ImmutableList.of()).cursor();
+            return new InMemoryRecordSet(resultTypes, Collections.emptyList()).cursor();
         }
         TableScan tableScan = icebergTable.newScan()
                 .useSnapshot(snapshotId.get())

@@ -22,10 +22,10 @@ import com.facebook.presto.common.predicate.FilterFunction;
 import com.facebook.presto.common.relation.Predicate;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.testing.TestingConnectorSession;
-import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Optional;
 
 import static org.testng.Assert.assertEquals;
@@ -39,7 +39,7 @@ public class TestFilterFunction
     @Test
     public void testFilter()
     {
-        ConnectorSession session = new TestingConnectorSession(ImmutableList.of());
+        ConnectorSession session = new TestingConnectorSession(Collections.emptyList());
         FilterFunction filter = new FilterFunction(session.getSqlFunctionProperties(), true, new IsOddPredicate());
 
         Block numbers = makeNumbers(0, 1000);

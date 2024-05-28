@@ -194,6 +194,7 @@ import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -265,7 +266,7 @@ class AstBuilder
     @Override
     public Node visitCreateSchema(SqlBaseParser.CreateSchemaContext context)
     {
-        List<Property> properties = ImmutableList.of();
+        List<Property> properties = Collections.emptyList();
         if (context.properties() != null) {
             properties = visit(context.properties().property(), Property.class);
         }
@@ -309,7 +310,7 @@ class AstBuilder
             columnAliases = Optional.of(visit(context.columnAliases().identifier(), Identifier.class));
         }
 
-        List<Property> properties = ImmutableList.of();
+        List<Property> properties = Collections.emptyList();
         if (context.properties() != null) {
             properties = visit(context.properties().property(), Property.class);
         }
@@ -332,7 +333,7 @@ class AstBuilder
         if (context.COMMENT() != null) {
             comment = Optional.of(((StringLiteral) visit(context.string())).getValue());
         }
-        List<Property> properties = ImmutableList.of();
+        List<Property> properties = Collections.emptyList();
         if (context.properties() != null) {
             properties = visit(context.properties().property(), Property.class);
         }
@@ -472,7 +473,7 @@ class AstBuilder
     @Override
     public Node visitAnalyze(SqlBaseParser.AnalyzeContext context)
     {
-        List<Property> properties = ImmutableList.of();
+        List<Property> properties = Collections.emptyList();
         if (context.properties() != null) {
             properties = visit(context.properties().property(), Property.class);
         }
@@ -636,7 +637,7 @@ class AstBuilder
             comment = Optional.of(((StringLiteral) visit(context.string())).getValue());
         }
 
-        List<Property> properties = ImmutableList.of();
+        List<Property> properties = Collections.emptyList();
         if (context.properties() != null) {
             properties = visit(context.properties().property(), Property.class);
         }
@@ -1936,7 +1937,7 @@ class AstBuilder
             comment = Optional.of(((StringLiteral) visit(context.string())).getValue());
         }
 
-        List<Property> properties = ImmutableList.of();
+        List<Property> properties = Collections.emptyList();
         if (context.properties() != null) {
             properties = visit(context.properties().property(), Property.class);
         }

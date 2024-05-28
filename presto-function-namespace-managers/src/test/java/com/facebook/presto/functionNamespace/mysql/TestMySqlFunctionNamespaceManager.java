@@ -45,6 +45,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -329,7 +330,7 @@ public class TestMySqlFunctionNamespaceManager
     {
         createFunction(FUNCTION_POWER_TOWER_DOUBLE, false);
         createFunction(FUNCTION_POWER_TOWER_INT, false);
-        alterFunction(POWER_TOWER, Optional.of(ImmutableList.of()), new AlterRoutineCharacteristics(Optional.of(RETURNS_NULL_ON_NULL_INPUT)));
+        alterFunction(POWER_TOWER, Optional.of(Collections.emptyList()), new AlterRoutineCharacteristics(Optional.of(RETURNS_NULL_ON_NULL_INPUT)));
     }
 
     @Test
@@ -377,7 +378,7 @@ public class TestMySqlFunctionNamespaceManager
     {
         createFunction(FUNCTION_POWER_TOWER_DOUBLE, false);
         createFunction(FUNCTION_POWER_TOWER_INT, false);
-        dropFunction(POWER_TOWER, Optional.of(ImmutableList.of()), true);
+        dropFunction(POWER_TOWER, Optional.of(Collections.emptyList()), true);
     }
 
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Function not found: unittest\\.memory\\.tangent\\(double\\)")

@@ -22,10 +22,10 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.relation.DomainTranslator;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -41,7 +41,7 @@ public final class FilterPushdownUtils
     {
         return withColumnDomains(ImmutableMap.<Subfield, Domain>builder()
                 .putAll(unenforcedConstraint
-                        .transform(columnHandle -> new Subfield(((BaseHiveColumnHandle) columnHandle).getName(), ImmutableList.of()))
+                        .transform(columnHandle -> new Subfield(((BaseHiveColumnHandle) columnHandle).getName(), Collections.emptyList()))
                         .getDomains()
                         .orElse(ImmutableMap.of()))
                 .putAll(decomposedFilter.getTupleDomain()

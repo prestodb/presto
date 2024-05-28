@@ -19,6 +19,7 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -133,7 +134,7 @@ public class FailureResolverModule
 
         public FailureResolverBinding(String name, Class<? extends FailureResolver> resolverClass, Optional<Class<?>> configClass)
         {
-            super(name, configClass, ImmutableList.of());
+            super(name, configClass, Collections.emptyList());
             this.resolverClass = resolverClass;
         }
 

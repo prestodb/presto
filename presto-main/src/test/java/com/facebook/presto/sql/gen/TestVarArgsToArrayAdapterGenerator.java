@@ -29,6 +29,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
@@ -79,8 +80,8 @@ public class TestVarArgsToArrayAdapterGenerator
             super(new Signature(
                     QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "var_args_sum"),
                     FunctionKind.SCALAR,
-                    ImmutableList.of(),
-                    ImmutableList.of(),
+                    Collections.emptyList(),
+                    Collections.emptyList(),
                     INTEGER.getTypeSignature(),
                     ImmutableList.of(INTEGER.getTypeSignature()),
                     true));

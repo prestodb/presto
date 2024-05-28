@@ -29,6 +29,7 @@ import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.OptionalDouble;
 import java.util.Set;
@@ -493,7 +494,7 @@ public class StageExecutionStats
                 0,
                 new DataSize(0, BYTE),
                 new StageGcStatistics(stageId, 0, 0, 0, 0, 0, 0, 0),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 new RuntimeStats());
     }
 }

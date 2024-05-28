@@ -49,6 +49,7 @@ import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -175,7 +176,7 @@ public class TestTypeValidator
 
         WindowNode.Function function = new WindowNode.Function(call("sum", functionHandle, DOUBLE, variableC), frame, false);
 
-        WindowNode.Specification specification = new WindowNode.Specification(ImmutableList.of(), Optional.empty());
+        WindowNode.Specification specification = new WindowNode.Specification(Collections.emptyList(), Optional.empty());
 
         PlanNode node = new WindowNode(
                 Optional.empty(),
@@ -209,7 +210,7 @@ public class TestTypeValidator
                         false,
                         Optional.empty())),
                 singleGroupingSet(ImmutableList.of(variableA, variableB)),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 SINGLE,
                 Optional.empty(),
                 Optional.empty(),
@@ -236,8 +237,8 @@ public class TestTypeValidator
                         Optional.empty(),
                         false,
                         Optional.empty())),
-                singleGroupingSet(ImmutableList.of()),
-                ImmutableList.of(),
+                singleGroupingSet(Collections.emptyList()),
+                Collections.emptyList(),
                 INTERMEDIATE,
                 Optional.empty(),
                 Optional.empty(),
@@ -264,8 +265,8 @@ public class TestTypeValidator
                         Optional.empty(),
                         false,
                         Optional.empty())),
-                singleGroupingSet(ImmutableList.of()),
-                ImmutableList.of(),
+                singleGroupingSet(Collections.emptyList()),
+                Collections.emptyList(),
                 PARTIAL,
                 Optional.empty(),
                 Optional.empty(),
@@ -322,8 +323,8 @@ public class TestTypeValidator
                         Optional.empty(),
                         false,
                         Optional.empty())),
-                singleGroupingSet(ImmutableList.of()),
-                ImmutableList.of(),
+                singleGroupingSet(Collections.emptyList()),
+                Collections.emptyList(),
                 INTERMEDIATE,
                 Optional.empty(),
                 Optional.empty(),
@@ -350,8 +351,8 @@ public class TestTypeValidator
                         Optional.empty(),
                         false,
                         Optional.empty())),
-                singleGroupingSet(ImmutableList.of()),
-                ImmutableList.of(),
+                singleGroupingSet(Collections.emptyList()),
+                Collections.emptyList(),
                 PARTIAL,
                 Optional.empty(),
                 Optional.empty(),
@@ -380,7 +381,7 @@ public class TestTypeValidator
                         false,
                         Optional.empty())),
                 singleGroupingSet(ImmutableList.of(variableA, variableB)),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 SINGLE,
                 Optional.empty(),
                 Optional.empty(),
@@ -409,7 +410,7 @@ public class TestTypeValidator
                         false,
                         Optional.empty())),
                 singleGroupingSet(ImmutableList.of(variableA, variableB)),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 SINGLE,
                 Optional.empty(),
                 Optional.empty(),
@@ -437,7 +438,7 @@ public class TestTypeValidator
 
         WindowNode.Function function = new WindowNode.Function(call("sum", functionHandle, BIGINT, variableA), frame, false);
 
-        WindowNode.Specification specification = new WindowNode.Specification(ImmutableList.of(), Optional.empty());
+        WindowNode.Specification specification = new WindowNode.Specification(Collections.emptyList(), Optional.empty());
 
         PlanNode node = new WindowNode(
                 Optional.empty(),
@@ -471,7 +472,7 @@ public class TestTypeValidator
 
         WindowNode.Function function = new WindowNode.Function(call("sum", functionHandle, BIGINT, variableC), frame, false);
 
-        WindowNode.Specification specification = new WindowNode.Specification(ImmutableList.of(), Optional.empty());
+        WindowNode.Specification specification = new WindowNode.Specification(Collections.emptyList(), Optional.empty());
 
         PlanNode node = new WindowNode(
                 Optional.empty(),

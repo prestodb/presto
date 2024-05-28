@@ -37,6 +37,7 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -88,7 +89,7 @@ public class TestJdbcQueryBuilder
         jdbcClient = database.getJdbcClient();
         CharType charType = CharType.createCharType(0);
 
-        session = new TestingConnectorSession(ImmutableList.of());
+        session = new TestingConnectorSession(Collections.emptyList());
         columns = ImmutableList.of(
                 new JdbcColumnHandle("test_id", "col_0", JDBC_BIGINT, BIGINT, true, Optional.empty()),
                 new JdbcColumnHandle("test_id", "col_1", JDBC_DOUBLE, DOUBLE, true, Optional.empty()),

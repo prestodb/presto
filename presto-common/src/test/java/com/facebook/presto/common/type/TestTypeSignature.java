@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -248,7 +249,7 @@ public class TestTypeSignature
     @Test
     public void parseSignature()
     {
-        assertSignature("boolean", "boolean", ImmutableList.of());
+        assertSignature("boolean", "boolean", Collections.emptyList());
         assertSignature("varchar", "varchar", ImmutableList.of(Integer.toString(VarcharType.UNBOUNDED_LENGTH)));
         assertEquals(parseTypeSignature("int"), parseTypeSignature("integer"));
 

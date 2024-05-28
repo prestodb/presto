@@ -81,6 +81,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -413,7 +414,7 @@ public class PropertyDerivations
                         // Cross join doesn't preserve sorting or grouping local properties on either side.
                         return ActualProperties.builder()
                                 .global(probeProperties)
-                                .local(ImmutableList.of())
+                                .local(Collections.emptyList())
                                 .constants(constants)
                                 .build();
                     }
@@ -430,7 +431,7 @@ public class PropertyDerivations
                     buildProperties = buildProperties.translateVariable(column -> filterIfMissing(node.getOutputVariables(), column));
 
                     return ActualProperties.builderFrom(buildProperties.translateVariable(column -> filterIfMissing(outputVariableReferences, column)))
-                            .local(ImmutableList.of())
+                            .local(Collections.emptyList())
                             .unordered(true)
                             .build();
                 case FULL:
@@ -551,7 +552,7 @@ public class PropertyDerivations
                     rightProperties = rightProperties.translateVariable(column -> filterIfMissing(node.getOutputVariables(), column));
 
                     return ActualProperties.builderFrom(rightProperties.translateVariable(column -> filterIfMissing(outputVariableReferences, column)))
-                            .local(ImmutableList.of())
+                            .local(Collections.emptyList())
                             .unordered(true)
                             .build();
                 case FULL:

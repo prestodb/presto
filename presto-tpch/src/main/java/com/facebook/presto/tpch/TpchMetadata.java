@@ -64,6 +64,7 @@ import io.airlift.tpch.TpchTable;
 
 import java.time.LocalDate;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -195,7 +196,7 @@ public class TpchMetadata
 
         Optional<ConnectorTablePartitioning> tablePartitioning = Optional.empty();
         Optional<Set<ColumnHandle>> partitioningColumns = Optional.empty();
-        List<LocalProperty<ColumnHandle>> localProperties = ImmutableList.of();
+        List<LocalProperty<ColumnHandle>> localProperties = Collections.emptyList();
 
         TupleDomain<ColumnHandle> predicate = TupleDomain.all();
         TupleDomain<ColumnHandle> unenforcedConstraint = constraint.getSummary();
@@ -433,7 +434,7 @@ public class TpchMetadata
     @Override
     public TableStatisticsMetadata getStatisticsCollectionMetadata(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
-        return new TableStatisticsMetadata(ImmutableSet.of(), ImmutableSet.of(ROW_COUNT), ImmutableList.of());
+        return new TableStatisticsMetadata(ImmutableSet.of(), ImmutableSet.of(ROW_COUNT), Collections.emptyList());
     }
 
     @Override
@@ -500,7 +501,7 @@ public class TpchMetadata
         if (schemaNameToScaleFactor(schemaName.get()) > 0) {
             return ImmutableList.of(schemaName.get());
         }
-        return ImmutableList.of();
+        return Collections.emptyList();
     }
 
     protected static String scaleFactorSchemaName(double scaleFactor)

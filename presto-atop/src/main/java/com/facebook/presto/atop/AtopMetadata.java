@@ -34,6 +34,7 @@ import com.google.common.collect.ImmutableMap;
 
 import javax.inject.Inject;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -135,7 +136,7 @@ public class AtopMetadata
                     .collect(Collectors.toList());
         }
         if (!listSchemaNames(session).contains(schemaNameOrNull)) {
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
         return Stream.of(AtopTable.values())
                 .map(table -> new SchemaTableName(schemaNameOrNull, table.getName()))

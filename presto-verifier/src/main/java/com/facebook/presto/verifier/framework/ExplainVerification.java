@@ -33,6 +33,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListeningExecutorService;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -83,7 +84,7 @@ public class ExplainVerification
     {
         Statement statement = sqlParser.createStatement(getSourceQuery().getQuery(clusterType), PARSING_OPTIONS);
         Explain explain = new Explain(statement, false, false, ImmutableList.of(new ExplainFormat(JSON)));
-        return new QueryBundle(ImmutableList.of(), explain, ImmutableList.of(), clusterType);
+        return new QueryBundle(Collections.emptyList(), explain, Collections.emptyList(), clusterType);
     }
 
     @Override

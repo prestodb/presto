@@ -25,6 +25,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import org.apache.accumulo.core.data.Range;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -75,7 +76,7 @@ public class AccumuloSplit
             addresses = ImmutableList.of(HostAddress.fromString(hostPort.get()));
         }
         else {
-            addresses = ImmutableList.of();
+            addresses = Collections.emptyList();
         }
     }
 

@@ -34,6 +34,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -88,7 +89,7 @@ public class HashJoinBenchmark
                     OptionalInt.empty(),
                     Optional.empty(),
                     Optional.empty(),
-                    ImmutableList.of(),
+                    Collections.emptyList(),
                     1_500_000,
                     new PagesIndex.TestingFactory(false),
                     false,

@@ -537,7 +537,7 @@ public class OrcWriter
             throws IOException
     {
         if (stripeRowCount == 0) {
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
 
         List<Stream> unencryptedStreams = new ArrayList<>(columnWriters.size() * 3);
@@ -891,7 +891,7 @@ public class OrcWriter
     {
         checkArgument(data.size() == expectedSize);
         if (expectedSize == 0) {
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
 
         List<Integer> sortedKeys = new ArrayList<>(data.keySet());
@@ -907,7 +907,7 @@ public class OrcWriter
     private static List<ColumnStatistics> toFileStats(List<List<ColumnStatistics>> stripes, Int2LongMap nodeSizes, Int2ObjectMap<Object2LongMap<DwrfProto.KeyInfo>> mapKeySizes)
     {
         if (stripes.isEmpty()) {
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
 
         int columnCount = stripes.get(0).size();

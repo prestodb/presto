@@ -36,6 +36,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -1071,7 +1072,7 @@ public class TestMapOperators
         assertFunction("map_entries(MAP(null, ARRAY[]))", unknownEntryType, null);
         assertFunction("map_entries(MAP(ARRAY[1, 2, 3], null))", entryType(INTEGER, UNKNOWN), null);
         assertFunction("map_entries(MAP(null, ARRAY[1, 2, 3]))", entryType(UNKNOWN, INTEGER), null);
-        assertFunction("map_entries(MAP(ARRAY[], ARRAY[]))", unknownEntryType, ImmutableList.of());
+        assertFunction("map_entries(MAP(ARRAY[], ARRAY[]))", unknownEntryType, Collections.emptyList());
         assertFunction("map_entries(MAP(ARRAY[1], ARRAY['x']))", entryType(INTEGER, createVarcharType(1)), ImmutableList.of(ImmutableList.of(1, "x")));
         assertFunction("map_entries(MAP(ARRAY[1, 2], ARRAY['x', 'y']))", entryType(INTEGER, createVarcharType(1)), ImmutableList.of(ImmutableList.of(1, "x"), ImmutableList.of(2, "y")));
 

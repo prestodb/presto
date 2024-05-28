@@ -48,6 +48,7 @@ import java.time.LocalTime;
 import java.time.OffsetTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.Collections;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -170,7 +171,7 @@ public abstract class TestDateTimeFunctionsBase
                         timeZoneKey,
                         US,
                         instant,
-                        ImmutableList.of(),
+                        Collections.emptyList(),
                         ImmutableMap.of(),
                         isLegacyTimestamp(session),
                         Optional.empty(),

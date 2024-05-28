@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableSet;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Set;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -182,6 +183,6 @@ public class TestExpressionEquivalence
     private static Type generateType(Symbol symbol)
     {
         String typeName = Splitter.on('_').limit(2).splitToList(symbol.getName()).get(1);
-        return METADATA.getType(new TypeSignature(typeName, ImmutableList.of()));
+        return METADATA.getType(new TypeSignature(typeName, Collections.emptyList()));
     }
 }

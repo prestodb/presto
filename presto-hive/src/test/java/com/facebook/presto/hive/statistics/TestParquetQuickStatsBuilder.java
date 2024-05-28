@@ -197,14 +197,14 @@ public class TestParquetQuickStatsBuilder
                         .setStorageFormat(fromHiveStorageFormat(PARQUET))
                         .setLocation("location")
                         .build(),
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 ImmutableMap.of(),
                 Optional.empty(),
                 Optional.empty());
 
         TestingSemiTransactionalHiveMetastore mock = TestingSemiTransactionalHiveMetastore.create();
-        mock.addTable(TEST_SCHEMA, TEST_TABLE, table, ImmutableList.of());
+        mock.addTable(TEST_SCHEMA, TEST_TABLE, table, Collections.emptyList());
         metastore = mock;
 
         metastoreContext = new MetastoreContext(SESSION.getUser(),

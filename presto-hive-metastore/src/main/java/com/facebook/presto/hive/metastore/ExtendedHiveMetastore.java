@@ -23,9 +23,9 @@ import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
-import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -153,7 +153,7 @@ public interface ExtendedHiveMetastore
 
     default List<TableConstraint<String>> getTableConstraints(MetastoreContext metastoreContext, String schemaName, String tableName)
     {
-        return ImmutableList.of();
+        return Collections.emptyList();
     }
 
     // Different metastore systems could implement this commit batch size differently based on different underlying database capacity.

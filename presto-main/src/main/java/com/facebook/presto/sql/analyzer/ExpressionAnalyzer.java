@@ -121,6 +121,7 @@ import io.airlift.slice.SliceUtf8;
 import javax.annotation.Nullable;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -495,7 +496,7 @@ public class ExpressionAnalyzer
             // If we found a direct column reference, and we will put it in tableColumnReferencesWithSubFields
             if (isTopMostReference(node, context)) {
                 Optional<QualifiedObjectName> tableName = field.getOriginTable();
-                Optional<Subfield> subfield = field.getOriginColumnName().map(column -> new Subfield(column, ImmutableList.of()));
+                Optional<Subfield> subfield = field.getOriginColumnName().map(column -> new Subfield(column, Collections.emptyList()));
                 ResolvedSubfield resolvedSubfield = context.getContext().getResolvedLambdaArguments().get(node);
                 if (resolvedSubfield != null) {
                     tableName = resolvedSubfield.getResolvedField().getField().getOriginTable();

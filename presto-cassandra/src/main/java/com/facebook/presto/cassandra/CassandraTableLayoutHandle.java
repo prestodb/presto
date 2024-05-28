@@ -19,6 +19,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
@@ -33,7 +34,7 @@ public final class CassandraTableLayoutHandle
     @JsonCreator
     public CassandraTableLayoutHandle(@JsonProperty("table") CassandraTableHandle table)
     {
-        this(table, ImmutableList.of(), "");
+        this(table, Collections.emptyList(), "");
     }
 
     public CassandraTableLayoutHandle(CassandraTableHandle table, List<CassandraPartition> partitions, String clusteringPredicates)

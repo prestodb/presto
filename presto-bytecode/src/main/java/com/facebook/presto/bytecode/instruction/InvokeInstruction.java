@@ -28,6 +28,7 @@ import org.objectweb.asm.Opcodes;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.bytecode.MethodDefinition.methodDescription;
@@ -363,7 +364,7 @@ public class InvokeInstruction
     @Override
     public List<BytecodeNode> getChildNodes()
     {
-        return ImmutableList.of();
+        return Collections.emptyList();
     }
 
     @Override

@@ -31,6 +31,7 @@ import io.airlift.slice.SliceOutput;
 
 import java.io.IOException;
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -59,7 +60,7 @@ public class MapToJsonCast
     {
         super(OperatorType.CAST,
                 ImmutableList.of(typeVariable("K"), typeVariable("V")),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 parseTypeSignature(StandardTypes.JSON),
                 ImmutableList.of(parseTypeSignature("map(K,V)")));
     }

@@ -19,6 +19,7 @@ import com.google.common.collect.Streams;
 import org.locationtech.jts.geom.Envelope;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.geospatial.GeometryUtils.flattenCollection;
@@ -95,10 +96,10 @@ public class TestGeometryUtils
         assertFlattenLeavesUnchanged(OGCGeometry.fromText("MULTIPOLYGON (((0 0, 0 1, 1 1, 0 0)))"));
         assertFlattenLeavesUnchanged(OGCGeometry.fromText("MULTIPOLYGON (((0 0, 0 1, 1 1, 0 0)), ((10 10, 10 11, 11 11, 10 10)))"));
 
-        assertFlattens(OGCGeometry.fromText("GEOMETRYCOLLECTION EMPTY"), ImmutableList.of());
+        assertFlattens(OGCGeometry.fromText("GEOMETRYCOLLECTION EMPTY"), Collections.emptyList());
         assertFlattens(OGCGeometry.fromText("GEOMETRYCOLLECTION (POINT EMPTY)"), OGCGeometry.fromText("POINT EMPTY"));
         assertFlattens(OGCGeometry.fromText("GEOMETRYCOLLECTION (POINT (0 1))"), OGCGeometry.fromText("POINT (0 1)"));
-        assertFlattens(OGCGeometry.fromText("GEOMETRYCOLLECTION (GEOMETRYCOLLECTION EMPTY)"), ImmutableList.of());
+        assertFlattens(OGCGeometry.fromText("GEOMETRYCOLLECTION (GEOMETRYCOLLECTION EMPTY)"), Collections.emptyList());
         assertFlattens(
                 OGCGeometry.fromText("GEOMETRYCOLLECTION (GEOMETRYCOLLECTION (POINT (0 1), POINT (1 2)))"),
                 ImmutableList.of(OGCGeometry.fromText("POINT (0 1)"), OGCGeometry.fromText("POINT (1 2)")));

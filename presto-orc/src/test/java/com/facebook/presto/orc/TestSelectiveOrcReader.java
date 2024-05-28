@@ -582,7 +582,7 @@ public class TestSelectiveOrcReader
         // empty arrays
         try {
             tester.testRoundTrip(arrayType(INTEGER),
-                    nCopies(NUM_ROWS, ImmutableList.of()),
+                    nCopies(NUM_ROWS, Collections.emptyList()),
                     ImmutableList.of(ImmutableMap.of(new Subfield("c[2]"), IS_NULL)));
             fail("Expected 'Array subscript out of bounds' exception");
         }
@@ -593,7 +593,7 @@ public class TestSelectiveOrcReader
         // empty nested arrays
         try {
             tester.testRoundTrip(arrayType(arrayType(INTEGER)),
-                    nCopies(NUM_ROWS, ImmutableList.of()),
+                    nCopies(NUM_ROWS, Collections.emptyList()),
                     ImmutableList.of(ImmutableMap.of(new Subfield("c[2][3]"), IS_NULL)));
             fail("Expected 'Array subscript out of bounds' exception");
         }
@@ -689,7 +689,7 @@ public class TestSelectiveOrcReader
                 ImmutableList.of(
                         createList(NUM_ROWS, i -> random.nextInt()),
                         Collections.nCopies(NUM_ROWS, ImmutableMap.of())),
-                ImmutableList.of());
+                Collections.emptyList());
 
         // read selected positions from all nulls map column
         tester.testRoundTripTypes(ImmutableList.of(INTEGER, mapType(INTEGER, INTEGER)),

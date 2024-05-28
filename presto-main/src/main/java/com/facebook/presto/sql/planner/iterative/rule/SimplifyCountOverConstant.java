@@ -27,8 +27,8 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.relational.FunctionResolution;
-import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -84,7 +84,7 @@ public class SimplifyCountOverConstant
                                 "count",
                                 functionResolution.countFunction(),
                                 BIGINT,
-                                ImmutableList.of()),
+                                Collections.emptyList()),
                         Optional.empty(),
                         Optional.empty(),
                         false,
@@ -102,7 +102,7 @@ public class SimplifyCountOverConstant
                 child,
                 aggregations,
                 parent.getGroupingSets(),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 parent.getStep(),
                 parent.getHashVariable(),
                 parent.getGroupIdVariable(),

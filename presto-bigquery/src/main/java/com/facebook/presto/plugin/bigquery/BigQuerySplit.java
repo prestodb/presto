@@ -22,6 +22,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -62,7 +63,7 @@ public class BigQuerySplit
     static BigQuerySplit emptyProjection(long numberOfRows)
     {
         checkArgument(numberOfRows > 0, "checkArgument must be greater than 0");
-        return new BigQuerySplit("", "", ImmutableList.of(), numberOfRows);
+        return new BigQuerySplit("", "", Collections.emptyList(), numberOfRows);
     }
 
     @JsonProperty
@@ -98,7 +99,7 @@ public class BigQuerySplit
     @Override
     public List<HostAddress> getPreferredNodes(NodeProvider nodeProvider)
     {
-        return ImmutableList.of();
+        return Collections.emptyList();
     }
 
     @Override

@@ -22,6 +22,8 @@ import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
+
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.operator.scalar.JsonToMapCast.JSON_TO_MAP;
@@ -42,7 +44,7 @@ public final class JsonStringToMapCast
                 QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, JSON_STRING_TO_MAP_NAME),
                 SCALAR,
                 ImmutableList.of(comparableTypeParameter("K"), typeVariable("V")),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 parseTypeSignature("map(K,V)"),
                 ImmutableList.of(parseTypeSignature(StandardTypes.VARCHAR)),
                 false));

@@ -27,6 +27,7 @@ import io.airlift.units.DataSize;
 import org.joda.time.DateTime;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -306,7 +307,7 @@ public class StageExecutionInfo
         return new StageExecutionInfo(
                 isQueryDone ? StageExecutionState.ABORTED : StageExecutionState.PLANNED,
                 StageExecutionStats.zero(stageId),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 Optional.empty());
     }
 }

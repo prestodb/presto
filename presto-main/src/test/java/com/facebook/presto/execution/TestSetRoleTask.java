@@ -27,12 +27,12 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.SetRole;
 import com.facebook.presto.transaction.TransactionManager;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
@@ -98,7 +98,7 @@ public class TestSetRoleTask
                 .build();
         QueryStateMachine stateMachine = createQueryStateMachine(statement, session, false, transactionManager, executor, metadata);
         SetRoleTask setRoleTask = new SetRoleTask();
-        setRoleTask.execute(setRole, transactionManager, metadata, accessControl, stateMachine, ImmutableList.of());
+        setRoleTask.execute(setRole, transactionManager, metadata, accessControl, stateMachine, Collections.emptyList());
         QueryInfo queryInfo = stateMachine.getQueryInfo(Optional.empty());
         assertEquals(queryInfo.getSetRoles(), expected);
     }

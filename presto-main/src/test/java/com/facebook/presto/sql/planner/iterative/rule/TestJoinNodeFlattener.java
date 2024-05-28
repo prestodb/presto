@@ -36,6 +36,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Optional;
 
@@ -423,7 +424,7 @@ public class TestJoinNodeFlattener
                 projectWithNonDeterministicAssignment,
                 valuesC,
                 ImmutableList.of(equiJoinClause(randomPlusSum, c1)),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 Optional.empty());
 
         MultiJoinNode expected = MultiJoinNode.builder()

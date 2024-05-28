@@ -34,6 +34,7 @@ import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
@@ -104,7 +105,7 @@ public class HiveClientConfig
     private int maxOpenSortFiles = 50;
     private int writeValidationThreads = 16;
 
-    private List<String> resourceConfigFiles = ImmutableList.of();
+    private List<String> resourceConfigFiles = Collections.emptyList();
 
     private DataSize textMaxLineLength = new DataSize(100, MEGABYTE);
     private boolean assumeCanonicalPartitionKeys;
@@ -162,7 +163,7 @@ public class HiveClientConfig
     private boolean adaptiveFilterReorderingEnabled = true;
     private Duration fileStatusCacheExpireAfterWrite = new Duration(0, TimeUnit.SECONDS);
     private long fileStatusCacheMaxSize;
-    private List<String> fileStatusCacheTables = ImmutableList.of();
+    private List<String> fileStatusCacheTables = Collections.emptyList();
 
     private DataSize pageFileStripeMaxSize = new DataSize(24, MEGABYTE);
     private boolean parquetDereferencePushdownEnabled;

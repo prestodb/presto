@@ -52,6 +52,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Primitives;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.presto.bytecode.Access.FINAL;
@@ -99,7 +100,7 @@ public final class MapTransformValueFunction
                 QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "transform_values"),
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("K"), typeVariable("V1"), typeVariable("V2")),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 parseTypeSignature("map(K,V2)"),
                 ImmutableList.of(parseTypeSignature("map(K,V1)"), parseTypeSignature("function(K,V1,V2)")),
                 false));

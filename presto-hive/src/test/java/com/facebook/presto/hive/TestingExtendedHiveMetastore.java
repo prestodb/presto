@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -133,7 +134,7 @@ public class TestingExtendedHiveMetastore
         }
 
         if (!lastDataCommitTimes.containsKey(partitionKey)) {
-            return new MetastoreOperationResult(ImmutableList.of());
+            return new MetastoreOperationResult(Collections.emptyList());
         }
         return new MetastoreOperationResult(ImmutableList.of(lastDataCommitTimes.get(partitionKey)));
     }

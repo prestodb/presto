@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -54,7 +55,7 @@ class ThriftTableMetadata
         this(thriftTableMetadata.getSchemaTableName().toSchemaTableName(),
                 columnMetadata(thriftTableMetadata.getColumns(), typeManager),
                 Optional.ofNullable(thriftTableMetadata.getComment()),
-                thriftTableMetadata.getIndexableKeys() != null ? thriftTableMetadata.getIndexableKeys() : ImmutableList.of());
+                thriftTableMetadata.getIndexableKeys() != null ? thriftTableMetadata.getIndexableKeys() : Collections.emptyList());
     }
 
     public SchemaTableName getSchemaTableName()

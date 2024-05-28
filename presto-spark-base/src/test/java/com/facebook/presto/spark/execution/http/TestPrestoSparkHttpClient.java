@@ -54,7 +54,6 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.testing.TestingSession;
 import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.net.MediaType;
@@ -76,6 +75,7 @@ import java.io.InputStream;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
@@ -1251,7 +1251,7 @@ public class TestPrestoSparkHttpClient
                         taskState,
                         location,
                         ImmutableSet.of(),
-                        ImmutableList.of(),
+                        Collections.emptyList(),
                         0,
                         0,
                         0.0,

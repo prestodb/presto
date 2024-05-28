@@ -32,6 +32,7 @@ import com.facebook.presto.spi.security.PrincipalType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -100,7 +101,7 @@ public final class GlueToPrestoConverter
                 tableBuilder.setPartitionColumns(convertColumns(glueTable.getPartitionKeys()));
             }
             else {
-                tableBuilder.setPartitionColumns(ImmutableList.of());
+                tableBuilder.setPartitionColumns(Collections.emptyList());
             }
 
             new StorageConverter().setConvertedStorage(sd, tableBuilder.getStorageBuilder());
@@ -216,7 +217,7 @@ public final class GlueToPrestoConverter
         private static List<SortingColumn> createSortingColumns(List<com.amazonaws.services.glue.model.Order> sortColumns)
         {
             if (isNullOrEmpty(sortColumns)) {
-                return ImmutableList.of();
+                return Collections.emptyList();
             }
             return mappedCopy(sortColumns, column -> new SortingColumn(column.getColumn(), Order.fromMetastoreApiOrder(column.getSortOrder(), "unknown")));
         }

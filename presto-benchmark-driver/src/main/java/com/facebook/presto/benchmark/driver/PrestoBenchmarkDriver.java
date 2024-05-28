@@ -27,6 +27,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -125,7 +126,7 @@ public class PrestoBenchmarkDriver
     {
         File[] files = queriesDir.listFiles();
         if (files == null) {
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
         Arrays.sort(files);
 

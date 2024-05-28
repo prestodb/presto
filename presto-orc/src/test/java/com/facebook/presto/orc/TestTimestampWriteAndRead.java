@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -202,7 +203,7 @@ public class TestTimestampWriteAndRead
                         format,
                         false,
                         true,
-                        ImmutableList.of(),
+                        Collections.emptyList(),
                         ImmutableMap.of());
             }
         }

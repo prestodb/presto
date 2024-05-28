@@ -29,6 +29,7 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
@@ -56,7 +57,7 @@ public class TestStreamingAggregationOperator
     private static final JavaAggregationFunctionImplementation LONG_SUM = FUNCTION_AND_TYPE_MANAGER.getJavaAggregateFunctionImplementation(
             FUNCTION_AND_TYPE_MANAGER.lookupFunction("sum", fromTypes(BIGINT)));
     private static final JavaAggregationFunctionImplementation COUNT = FUNCTION_AND_TYPE_MANAGER.getJavaAggregateFunctionImplementation(
-            FUNCTION_AND_TYPE_MANAGER.lookupFunction("count", ImmutableList.of()));
+            FUNCTION_AND_TYPE_MANAGER.lookupFunction("count", Collections.emptyList()));
 
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;

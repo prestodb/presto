@@ -34,6 +34,7 @@ import com.facebook.presto.sql.relational.FunctionResolution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -82,7 +83,7 @@ public class StatisticsAggregationPlanner
                             "count",
                             functionResolution.countFunction(),
                             BIGINT,
-                            ImmutableList.of()),
+                            Collections.emptyList()),
                     Optional.empty(),
                     Optional.empty(),
                     false,

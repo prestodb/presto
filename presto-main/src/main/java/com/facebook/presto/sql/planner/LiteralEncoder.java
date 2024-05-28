@@ -56,6 +56,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.SliceUtf8;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -179,13 +180,13 @@ public final class LiteralEncoder
             // if you remove this, you will need to update the TupleDomainOrcPredicate
             // When changing this, don't forget about similar code for REAL below
             if (value.isNaN()) {
-                return new FunctionCall(QualifiedName.of("nan"), ImmutableList.of());
+                return new FunctionCall(QualifiedName.of("nan"), Collections.emptyList());
             }
             if (value.equals(Double.NEGATIVE_INFINITY)) {
-                return ArithmeticUnaryExpression.negative(new FunctionCall(QualifiedName.of("infinity"), ImmutableList.of()));
+                return ArithmeticUnaryExpression.negative(new FunctionCall(QualifiedName.of("infinity"), Collections.emptyList()));
             }
             if (value.equals(Double.POSITIVE_INFINITY)) {
-                return new FunctionCall(QualifiedName.of("infinity"), ImmutableList.of());
+                return new FunctionCall(QualifiedName.of("infinity"), Collections.emptyList());
             }
             return new DoubleLiteral(object.toString());
         }
@@ -194,13 +195,13 @@ public final class LiteralEncoder
             Float value = intBitsToFloat(((Long) object).intValue());
             // WARNING for ORC predicate code as above (for double)
             if (value.isNaN()) {
-                return new Cast(new FunctionCall(QualifiedName.of("nan"), ImmutableList.of()), StandardTypes.REAL);
+                return new Cast(new FunctionCall(QualifiedName.of("nan"), Collections.emptyList()), StandardTypes.REAL);
             }
             if (value.equals(Float.NEGATIVE_INFINITY)) {
-                return ArithmeticUnaryExpression.negative(new Cast(new FunctionCall(QualifiedName.of("infinity"), ImmutableList.of()), StandardTypes.REAL));
+                return ArithmeticUnaryExpression.negative(new Cast(new FunctionCall(QualifiedName.of("infinity"), Collections.emptyList()), StandardTypes.REAL));
             }
             if (value.equals(Float.POSITIVE_INFINITY)) {
-                return new Cast(new FunctionCall(QualifiedName.of("infinity"), ImmutableList.of()), StandardTypes.REAL);
+                return new Cast(new FunctionCall(QualifiedName.of("infinity"), Collections.emptyList()), StandardTypes.REAL);
             }
             return new GenericLiteral("REAL", value.toString());
         }

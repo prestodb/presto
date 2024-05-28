@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
@@ -111,7 +112,7 @@ public class TestStreamingAggregationPlan
                                     ExchangeNode.class,
                                     aggregation(
                                             singleGroupingSet("custkey"),
-                                            ImmutableMap.of(Optional.empty(), functionCall("count", ImmutableList.of())),
+                                            ImmutableMap.of(Optional.empty(), functionCall("count", Collections.emptyList())),
                                             ImmutableList.of("custkey"), // streaming
                                             ImmutableMap.of(),
                                             Optional.empty(),
@@ -147,8 +148,8 @@ public class TestStreamingAggregationPlan
                                     ExchangeNode.class,
                                     aggregation(
                                             singleGroupingSet("custkey"),
-                                            ImmutableMap.of(Optional.empty(), functionCall("count", ImmutableList.of())),
-                                            ImmutableList.of(), // non-streaming
+                                            ImmutableMap.of(Optional.empty(), functionCall("count", Collections.emptyList())),
+                                            Collections.emptyList(), // non-streaming
                                             ImmutableMap.of(),
                                             Optional.empty(),
                                             SINGLE,
@@ -189,7 +190,7 @@ public class TestStreamingAggregationPlan
                                     ExchangeNode.class,
                                     aggregation(
                                             singleGroupingSet("custkey", "name"),
-                                            ImmutableMap.of(Optional.empty(), functionCall("count", ImmutableList.of())),
+                                            ImmutableMap.of(Optional.empty(), functionCall("count", Collections.emptyList())),
                                             ImmutableList.of("custkey", "name"), // streaming
                                             ImmutableMap.of(),
                                             Optional.empty(),
@@ -246,7 +247,7 @@ public class TestStreamingAggregationPlan
                                     ExchangeNode.class,
                                     aggregation(
                                             singleGroupingSet("custkey", "name"),
-                                            ImmutableMap.of(Optional.empty(), functionCall("count", ImmutableList.of())),
+                                            ImmutableMap.of(Optional.empty(), functionCall("count", Collections.emptyList())),
                                             ImmutableList.of("custkey", "name"), // streaming
                                             ImmutableMap.of(),
                                             Optional.empty(),
@@ -280,7 +281,7 @@ public class TestStreamingAggregationPlan
                                     ExchangeNode.class,
                                     aggregation(
                                             singleGroupingSet("custkey", "name"),
-                                            ImmutableMap.of(Optional.empty(), functionCall("count", ImmutableList.of())),
+                                            ImmutableMap.of(Optional.empty(), functionCall("count", Collections.emptyList())),
                                             ImmutableList.of("custkey", "name"), // streaming
                                             ImmutableMap.of(),
                                             Optional.empty(),
@@ -339,7 +340,7 @@ public class TestStreamingAggregationPlan
                                     ExchangeNode.class,
                                     aggregation(
                                             singleGroupingSet("custkey"),
-                                            ImmutableMap.of(Optional.empty(), functionCall("count", ImmutableList.of())),
+                                            ImmutableMap.of(Optional.empty(), functionCall("count", Collections.emptyList())),
                                             ImmutableList.of("custkey"), // streaming
                                             ImmutableMap.of(),
                                             Optional.empty(),
@@ -399,7 +400,7 @@ public class TestStreamingAggregationPlan
                 singleGroupingSet(groupingKeys),
                 // note: final aggregation function's parameter is of size one
                 ImmutableMap.of(Optional.empty(), functionCall("count", false, ImmutableList.of(anySymbol()))),
-                ImmutableList.of(), // non-streaming
+                Collections.emptyList(), // non-streaming
                 ImmutableMap.of(),
                 Optional.empty(),
                 FINAL,
@@ -408,8 +409,8 @@ public class TestStreamingAggregationPlan
                         anyTree(aggregation(
                                 singleGroupingSet(groupingKeys),
                                 // note: partial aggregation function has no parameter
-                                ImmutableMap.of(Optional.empty(), functionCall("count", ImmutableList.of())),
-                                ImmutableList.of(), // non-streaming
+                                ImmutableMap.of(Optional.empty(), functionCall("count", Collections.emptyList())),
+                                Collections.emptyList(), // non-streaming
                                 ImmutableMap.of(),
                                 Optional.empty(),
                                 PARTIAL,

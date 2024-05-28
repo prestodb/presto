@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -140,7 +141,7 @@ public class TestVerboseOptimizerInfo
         MaterializedResult materializedResult = computeActual(sessionPrintAll, "explain " + query);
         String explain = (String) getOnlyElement(materializedResult.getOnlyColumnAsSet());
 
-        checkOptimizerResults(explain, ImmutableList.of("PayloadJoinOptimizer", "RemoveRedundantIdentityProjections", "PruneUnreferencedOutputs"), ImmutableList.of());
+        checkOptimizerResults(explain, ImmutableList.of("PayloadJoinOptimizer", "RemoveRedundantIdentityProjections", "PruneUnreferencedOutputs"), Collections.emptyList());
 
         Session sessionPrintSome = Session.builder(sessionPrintAll)
                 .setSystemProperty(VERBOSE_OPTIMIZER_RESULTS, "PayloadJoinOptimizer,RemoveRedundantIdentityProjections")

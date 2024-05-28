@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -342,8 +343,8 @@ public abstract class AbstractTestNativeGeneralQueries
                 .build();
 
         try {
-            computeExpected(String.format("CREATE TABLE %s (c0 DATE) WITH (format = 'PARQUET')", tmpTableName), ImmutableList.of());
-            computeExpected(String.format("INSERT INTO %s VALUES (DATE '1996-01-02'), (DATE '1996-12-01')", tmpTableName), ImmutableList.of());
+            computeExpected(String.format("CREATE TABLE %s (c0 DATE) WITH (format = 'PARQUET')", tmpTableName), Collections.emptyList());
+            computeExpected(String.format("INSERT INTO %s VALUES (DATE '1996-01-02'), (DATE '1996-12-01')", tmpTableName), Collections.emptyList());
 
             assertQueryResultCount(session, String.format("SELECT * from %s where c0 in (select c0 from %s) ", tmpTableName, tmpTableName), 2);
         }
@@ -1282,8 +1283,8 @@ public abstract class AbstractTestNativeGeneralQueries
 
         try {
             // Create a Parquet table with decimal types and test data.
-            getExpectedQueryRunner().execute(expectedSession, String.format("CREATE TABLE %s (c0 DECIMAL(15,2), c1 DECIMAL(38,2)) WITH (format = 'PARQUET')", tmpTableName), ImmutableList.of());
-            getExpectedQueryRunner().execute(expectedSession, String.format("INSERT INTO %s VALUES (DECIMAL '0', DECIMAL '0'), (DECIMAL '1.2', DECIMAL '3.4'), (DECIMAL '1000000.12', DECIMAL '28239823232323.57'), (DECIMAL '-542392.89', DECIMAL '-6723982392109.29')", tmpTableName), ImmutableList.of());
+            getExpectedQueryRunner().execute(expectedSession, String.format("CREATE TABLE %s (c0 DECIMAL(15,2), c1 DECIMAL(38,2)) WITH (format = 'PARQUET')", tmpTableName), Collections.emptyList());
+            getExpectedQueryRunner().execute(expectedSession, String.format("INSERT INTO %s VALUES (DECIMAL '0', DECIMAL '0'), (DECIMAL '1.2', DECIMAL '3.4'), (DECIMAL '1000000.12', DECIMAL '28239823232323.57'), (DECIMAL '-542392.89', DECIMAL '-6723982392109.29')", tmpTableName), Collections.emptyList());
 
             String[] queries = {
                     String.format("SELECT * FROM %s WHERE c0 > DECIMAL '1.1' and c1 < DECIMAL '5.2'", tmpTableName),
@@ -1336,11 +1337,11 @@ public abstract class AbstractTestNativeGeneralQueries
         String tmpTableName = generateRandomTableName();
         try {
             // Create a Parquet table with decimal types and test data.
-            getExpectedQueryRunner().execute(expectedSession, String.format("CREATE TABLE %s (c0 DECIMAL(15,2), c1 DECIMAL(38,2)) WITH (format = 'PARQUET')", tmpTableName), ImmutableList.of());
+            getExpectedQueryRunner().execute(expectedSession, String.format("CREATE TABLE %s (c0 DECIMAL(15,2), c1 DECIMAL(38,2)) WITH (format = 'PARQUET')", tmpTableName), Collections.emptyList());
             getExpectedQueryRunner().execute(expectedSession, String.format("INSERT INTO %s VALUES (DECIMAL '0', DECIMAL '0'), (DECIMAL '1.2', DECIMAL '3.4'), "
                     + "(DECIMAL '1000000.12', DECIMAL '28239823232323.57'), "
                     + "(DECIMAL '-542392.89', DECIMAL '-6723982392109.29'), (NULL, NULL), "
-                    + "(NULL, DECIMAL'-6723982392109.29'),(DECIMAL'1.2', NULL)", tmpTableName), ImmutableList.of());
+                    + "(NULL, DECIMAL'-6723982392109.29'),(DECIMAL'1.2', NULL)", tmpTableName), Collections.emptyList());
             String[] queries = {
                     String.format("Select approx_distinct(c0) from %s", tmpTableName),
                     String.format("Select approx_distinct(c1) from %s", tmpTableName),
@@ -1431,7 +1432,7 @@ public abstract class AbstractTestNativeGeneralQueries
                     anyTree(
                             aggregation(
                                     ImmutableMap.of(
-                                            "FINAL_COUNT", functionCall("count", ImmutableList.of()),
+                                            "FINAL_COUNT", functionCall("count", Collections.emptyList()),
                                             "FINAL_SUM", functionCall("sum", ImmutableList.of("REGION_KEY"))),
                                     SINGLE,
                                     exchange(LOCAL, GATHER,
@@ -1446,7 +1447,7 @@ public abstract class AbstractTestNativeGeneralQueries
                             aggregation(
                                     singleGroupingSet("REGION_KEY"),
                                     ImmutableMap.of(
-                                            Optional.of("FINAL_COUNT"), functionCall("count", ImmutableList.of())),
+                                            Optional.of("FINAL_COUNT"), functionCall("count", Collections.emptyList())),
                                     ImmutableMap.of(),
                                     Optional.empty(),
                                     SINGLE,
@@ -1522,10 +1523,10 @@ public abstract class AbstractTestNativeGeneralQueries
             SchemaTableName table = new SchemaTableName(session.getSchema().get(), tmpTableName);
             Map<String, Object> tableProperties = ImmutableMap.<String, Object>builder()
                     .put(STORAGE_FORMAT_PROPERTY, DWRF)
-                    .put(PARTITIONED_BY_PROPERTY, ImmutableList.of())
-                    .put(BUCKETED_BY_PROPERTY, ImmutableList.of())
+                    .put(PARTITIONED_BY_PROPERTY, Collections.emptyList())
+                    .put(BUCKETED_BY_PROPERTY, Collections.emptyList())
                     .put(BUCKET_COUNT_PROPERTY, 0)
-                    .put(SORTED_BY_PROPERTY, ImmutableList.of())
+                    .put(SORTED_BY_PROPERTY, Collections.emptyList())
                     .build();
             ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(table, ImmutableList.of(
                     new ColumnMetadata("col", RowType.from(ImmutableList.of(

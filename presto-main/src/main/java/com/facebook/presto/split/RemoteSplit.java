@@ -21,8 +21,8 @@ import com.facebook.presto.spi.NodeProvider;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
@@ -69,7 +69,7 @@ public class RemoteSplit
     @Override
     public List<HostAddress> getPreferredNodes(NodeProvider nodeProvider)
     {
-        return ImmutableList.of();
+        return Collections.emptyList();
     }
 
     @Override

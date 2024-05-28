@@ -30,6 +30,7 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -100,7 +101,7 @@ public abstract class AbstractCliTest
                 null,
                 StatementStats.builder().setState("FINISHED").build(),
                 null,
-                ImmutableList.of(),
+                Collections.emptyList(),
                 null,
                 null);
     }

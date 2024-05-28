@@ -46,6 +46,7 @@ import io.airlift.slice.Slice;
 import javax.inject.Inject;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -418,6 +419,6 @@ public class AccumuloMetadata
         }
 
         // Else, return empty list
-        return ImmutableList.of();
+        return Collections.emptyList();
     }
 }

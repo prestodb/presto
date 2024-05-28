@@ -40,6 +40,7 @@ import com.teradata.tpcds.Table;
 import com.teradata.tpcds.column.Column;
 import com.teradata.tpcds.column.ColumnType;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -111,7 +112,7 @@ public class TpcdsMetadata
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableList.of());
+                Collections.emptyList());
 
         return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
     }
@@ -217,7 +218,7 @@ public class TpcdsMetadata
         if (schemaNameToScaleFactor(schemaName.get()) > 0) {
             return ImmutableList.of(schemaName.get());
         }
-        return ImmutableList.of();
+        return Collections.emptyList();
     }
 
     private static String scaleFactorSchemaName(double scaleFactor)

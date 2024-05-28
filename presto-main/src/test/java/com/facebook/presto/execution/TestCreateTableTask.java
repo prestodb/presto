@@ -44,6 +44,7 @@ import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -98,7 +99,7 @@ public class TestCreateTableTask
         catalogManager.registerCatalog(testCatalog);
         tablePropertyManager.addProperties(testCatalog.getConnectorId(),
                 ImmutableList.of(stringProperty("baz", "test property", null, false)));
-        columnPropertyManager.addProperties(testCatalog.getConnectorId(), ImmutableList.of());
+        columnPropertyManager.addProperties(testCatalog.getConnectorId(), Collections.emptyList());
         testSession = testSessionBuilder()
                 .setTransactionId(transactionManager.beginTransaction(false))
                 .build();
@@ -116,7 +117,7 @@ public class TestCreateTableTask
         CreateTable statement = new CreateTable(QualifiedName.of("test_table"),
                 ImmutableList.of(new ColumnDefinition(identifier("a"), "BIGINT", true, emptyList(), Optional.empty())),
                 true,
-                ImmutableList.of(),
+                Collections.emptyList(),
                 Optional.empty());
 
         getFutureValue(new CreateTableTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList(), warningCollector));
@@ -129,7 +130,7 @@ public class TestCreateTableTask
         CreateTable statement = new CreateTable(QualifiedName.of("test_table"),
                 ImmutableList.of(new ColumnDefinition(identifier("a"), "BIGINT", true, emptyList(), Optional.empty())),
                 false,
-                ImmutableList.of(),
+                Collections.emptyList(),
                 Optional.empty());
 
         try {
@@ -153,7 +154,7 @@ public class TestCreateTableTask
                 new ColumnDefinition(identifier("a"), "DATE", true, emptyList(), Optional.empty()),
                 new ColumnDefinition(identifier("b"), "VARCHAR", false, emptyList(), Optional.empty()),
                 new ColumnDefinition(identifier("c"), "VARBINARY", false, emptyList(), Optional.empty()));
-        CreateTable statement = new CreateTable(QualifiedName.of("test_table"), inputColumns, true, ImmutableList.of(), Optional.empty());
+        CreateTable statement = new CreateTable(QualifiedName.of("test_table"), inputColumns, true, Collections.emptyList(), Optional.empty());
 
         getFutureValue(new CreateTableTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList(), warningCollector));
         assertEquals(metadata.getCreateTableCallCount(), 1);
@@ -184,7 +185,7 @@ public class TestCreateTableTask
                 QualifiedName.of("test_table"),
                 inputColumns,
                 true,
-                ImmutableList.of(),
+                Collections.emptyList(),
                 Optional.empty());
 
         getFutureValue(new CreateTableTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList(), warningCollector));
@@ -201,7 +202,7 @@ public class TestCreateTableTask
                 new ConstraintSpecification(Optional.of("pk"), ImmutableList.of("a"), PRIMARY_KEY, true, true, false),
                 new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("b", "c"), UNIQUE, false, false, false));
 
-        CreateTable statement = new CreateTable(QualifiedName.of("test_table"), inputColumns, true, ImmutableList.of(), Optional.empty());
+        CreateTable statement = new CreateTable(QualifiedName.of("test_table"), inputColumns, true, Collections.emptyList(), Optional.empty());
 
         getFutureValue(new CreateTableTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList(), warningCollector));
         assertEquals(metadata.getCreateTableCallCount(), 1);
@@ -226,7 +227,7 @@ public class TestCreateTableTask
                 new ColumnDefinition(identifier("c"), "VARBINARY", true, emptyList(), Optional.empty()),
                 new ConstraintSpecification(Optional.of("pk"), ImmutableList.of("a"), PRIMARY_KEY, true, true, false));
 
-        CreateTable statement = new CreateTable(QualifiedName.of("test_table"), inputColumns, true, ImmutableList.of(), Optional.empty());
+        CreateTable statement = new CreateTable(QualifiedName.of("test_table"), inputColumns, true, Collections.emptyList(), Optional.empty());
 
         getFutureValue(new CreateTableTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList(), warningCollector));
     }
@@ -240,7 +241,7 @@ public class TestCreateTableTask
                 new ColumnDefinition(identifier("c"), "VARBINARY", true, emptyList(), Optional.empty()),
                 new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("b", "c"), UNIQUE, false, false, false));
 
-        CreateTable statement = new CreateTable(QualifiedName.of("test_table"), inputColumns, true, ImmutableList.of(), Optional.empty());
+        CreateTable statement = new CreateTable(QualifiedName.of("test_table"), inputColumns, true, Collections.emptyList(), Optional.empty());
 
         getFutureValue(new CreateTableTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList(), warningCollector));
     }

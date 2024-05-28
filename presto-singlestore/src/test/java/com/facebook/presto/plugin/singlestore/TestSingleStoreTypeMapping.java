@@ -33,6 +33,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.Collections;
 
 import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
@@ -69,7 +70,7 @@ public class TestSingleStoreTypeMapping
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return SingleStoreQueryRunner.createSingleStoreQueryRunner(singleStoreServer, ImmutableMap.of(), ImmutableList.of());
+        return SingleStoreQueryRunner.createSingleStoreQueryRunner(singleStoreServer, ImmutableMap.of(), Collections.emptyList());
     }
 
     @AfterClass(alwaysRun = true)

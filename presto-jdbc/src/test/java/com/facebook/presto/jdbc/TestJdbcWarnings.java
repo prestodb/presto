@@ -39,6 +39,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLWarning;
 import java.sql.Statement;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -81,7 +82,7 @@ public class TestJdbcWarnings
                 null,
                 null,
                 new SqlParserOptions(),
-                ImmutableList.of());
+                Collections.emptyList());
         server.installPlugin(new TpchPlugin());
         server.createCatalog("tpch", "tpch");
         server.installPlugin(new BlackHolePlugin());

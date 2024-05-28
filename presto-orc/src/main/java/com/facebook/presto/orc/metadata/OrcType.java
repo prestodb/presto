@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -91,17 +92,17 @@ public class OrcType
 
     private OrcType(OrcTypeKind orcTypeKind)
     {
-        this(orcTypeKind, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty());
+        this(orcTypeKind, Collections.emptyList(), Collections.emptyList(), Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     private OrcType(OrcTypeKind orcTypeKind, int length)
     {
-        this(orcTypeKind, ImmutableList.of(), ImmutableList.of(), Optional.of(length), Optional.empty(), Optional.empty());
+        this(orcTypeKind, Collections.emptyList(), Collections.emptyList(), Optional.of(length), Optional.empty(), Optional.empty());
     }
 
     private OrcType(OrcTypeKind orcTypeKind, int precision, int scale)
     {
-        this(orcTypeKind, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.of(precision), Optional.of(scale));
+        this(orcTypeKind, Collections.emptyList(), Collections.emptyList(), Optional.empty(), Optional.of(precision), Optional.of(scale));
     }
 
     private OrcType(OrcTypeKind orcTypeKind, List<Integer> fieldTypeIndexes, List<String> fieldNames)

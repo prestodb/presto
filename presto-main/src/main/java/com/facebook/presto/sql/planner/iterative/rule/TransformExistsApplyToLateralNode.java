@@ -38,6 +38,7 @@ import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.presto.common.function.OperatorType.GREATER_THAN;
@@ -179,13 +180,13 @@ public class TransformExistsApplyToLateralNode
                                                 "count",
                                                 functionResolution.countFunction(),
                                                 BIGINT,
-                                                ImmutableList.of()),
+                                                Collections.emptyList()),
                                         Optional.empty(),
                                         Optional.empty(),
                                         false,
                                         Optional.empty())),
                                 globalAggregation(),
-                                ImmutableList.of(),
+                                Collections.emptyList(),
                                 AggregationNode.Step.SINGLE,
                                 Optional.empty(),
                                 Optional.empty(),

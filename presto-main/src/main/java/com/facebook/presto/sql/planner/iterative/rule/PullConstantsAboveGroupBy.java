@@ -24,8 +24,8 @@ import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -110,7 +110,7 @@ public class PullConstantsAboveGroupBy
                 source,
                 parent.getAggregations(),
                 singleGroupingSet(newGroupingKeys),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 parent.getStep(),
                 parent.getHashVariable(),
                 parent.getGroupIdVariable(),

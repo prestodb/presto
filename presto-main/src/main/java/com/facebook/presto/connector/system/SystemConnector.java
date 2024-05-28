@@ -24,8 +24,8 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.facebook.presto.transaction.InternalConnector;
-import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
@@ -48,7 +48,7 @@ public class SystemConnector
             Set<SystemTable> tables,
             Function<TransactionId, ConnectorTransactionHandle> transactionHandleFunction)
     {
-        this(connectorId, nodeManager, new StaticSystemTablesProvider(tables), transactionHandleFunction, ImmutableList.of());
+        this(connectorId, nodeManager, new StaticSystemTablesProvider(tables), transactionHandleFunction, Collections.emptyList());
     }
 
     public SystemConnector(

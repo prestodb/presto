@@ -17,12 +17,12 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.druid.DruidClient;
 import com.facebook.presto.druid.DruidConfig;
 import com.facebook.presto.spi.ConnectorPageSink;
-import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import org.apache.hadoop.fs.Path;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -78,7 +78,7 @@ public class DruidPageSink
                 .withAppendToExisting(true)
                 .build();
         druidClient.ingestData(ingestTask);
-        return completedFuture(ImmutableList.of());
+        return completedFuture(Collections.emptyList());
     }
 
     @Override

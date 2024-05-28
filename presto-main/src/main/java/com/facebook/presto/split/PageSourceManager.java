@@ -24,8 +24,8 @@ import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.SplitContext;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
-import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -63,7 +63,7 @@ public class PageSourceManager
 
         // directly return the result if the given constraint is always false
         if (dynamicFilter.isPresent() && dynamicFilter.get().get().isNone()) {
-            return new FixedPageSource(ImmutableList.of());
+            return new FixedPageSource(Collections.emptyList());
         }
 
         if (dynamicFilter.isPresent()) {

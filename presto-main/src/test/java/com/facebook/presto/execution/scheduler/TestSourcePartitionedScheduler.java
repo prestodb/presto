@@ -70,6 +70,7 @@ import org.testng.annotations.Test;
 
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -491,7 +492,7 @@ public class TestSourcePartitionedScheduler
                 TupleDomain.all(),
                 TupleDomain.all());
 
-        RemoteSourceNode remote = new RemoteSourceNode(Optional.empty(), new PlanNodeId("remote_id"), new PlanFragmentId(0), ImmutableList.of(), false, Optional.empty(), GATHER);
+        RemoteSourceNode remote = new RemoteSourceNode(Optional.empty(), new PlanNodeId("remote_id"), new PlanFragmentId(0), Collections.emptyList(), false, Optional.empty(), GATHER);
         PlanFragment testFragment = new PlanFragment(
                 new PlanFragmentId(0),
                 new JoinNode(
@@ -500,7 +501,7 @@ public class TestSourcePartitionedScheduler
                         INNER,
                         tableScan,
                         remote,
-                        ImmutableList.of(),
+                        Collections.emptyList(),
                         ImmutableList.<VariableReferenceExpression>builder()
                                 .addAll(tableScan.getOutputVariables())
                                 .addAll(remote.getOutputVariables())
@@ -513,13 +514,13 @@ public class TestSourcePartitionedScheduler
                 ImmutableSet.of(variable),
                 SOURCE_DISTRIBUTION,
                 ImmutableList.of(TABLE_SCAN_NODE_ID),
-                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(variable)),
+                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, Collections.emptyList()), ImmutableList.of(variable)),
                 StageExecutionDescriptor.ungroupedExecution(),
                 false,
                 StatsAndCosts.empty(),
                 Optional.empty());
 
-        return new SubPlan(testFragment, ImmutableList.of());
+        return new SubPlan(testFragment, Collections.emptyList());
     }
 
     private static ConnectorSplitSource createFixedSplitSource(int splitCount, Supplier<ConnectorSplit> splitFactory)

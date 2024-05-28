@@ -30,6 +30,7 @@ import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -118,7 +119,7 @@ public class JoinPrefilter
                 // First create a SELECT DISTINCT leftKey FROM left
                 Map<VariableReferenceExpression, VariableReferenceExpression> leftVarMap = new HashMap();
                 PlanNode leftKeys = clonePlanNode(rewrittenLeft, session, metadata, idAllocator, ImmutableList.of(leftKey), leftVarMap);
-                PlanNode projectNode = projectExpressions(leftKeys, idAllocator, variableAllocator, ImmutableList.of(leftVarMap.get(leftKey)), ImmutableList.of());
+                PlanNode projectNode = projectExpressions(leftKeys, idAllocator, variableAllocator, ImmutableList.of(leftVarMap.get(leftKey)), Collections.emptyList());
 
                 // DISTINCT on the leftkey
                 PlanNode filteringSource = new AggregationNode(
@@ -134,7 +135,7 @@ public class JoinPrefilter
                         Optional.empty());
 
                 // There should be only one output variable. Project that
-                filteringSource = projectExpressions(filteringSource, idAllocator, variableAllocator, ImmutableList.of(filteringSource.getOutputVariables().get(0)), ImmutableList.of());
+                filteringSource = projectExpressions(filteringSource, idAllocator, variableAllocator, ImmutableList.of(filteringSource.getOutputVariables().get(0)), Collections.emptyList());
 
                 // Now we add a semijoin as the right side
                 VariableReferenceExpression semiJoinOutput = variableAllocator.newVariable("semiJoinOutput", BOOLEAN);

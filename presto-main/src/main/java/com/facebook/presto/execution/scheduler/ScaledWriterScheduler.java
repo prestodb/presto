@@ -23,6 +23,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -131,7 +132,7 @@ public class ScaledWriterScheduler
     private List<RemoteTask> scheduleTasks(int count)
     {
         if (count == 0) {
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
 
         List<InternalNode> nodes = nodeSelector.selectRandomNodes(count, scheduledNodes);

@@ -33,6 +33,7 @@ import javax.inject.Inject;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Paths;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -165,6 +166,6 @@ public class TempStorageManager
                 return ImmutableList.copyOf(files);
             }
         }
-        return ImmutableList.of();
+        return Collections.emptyList();
     }
 }

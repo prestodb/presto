@@ -55,6 +55,7 @@ import org.intellij.lang.annotations.Language;
 
 import java.sql.ResultSetMetaData;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -145,7 +146,7 @@ public class QueryRewriter
             }
             return new QueryObjectBundle(
                     temporaryTableName,
-                    ImmutableList.of(),
+                    Collections.emptyList(),
                     new CreateTableAsSelect(
                             temporaryTableName,
                             createQuery,
@@ -201,7 +202,7 @@ public class QueryRewriter
 
             return new QueryObjectBundle(
                     temporaryTableName,
-                    ImmutableList.of(),
+                    Collections.emptyList(),
                     new CreateTableAsSelect(
                             temporaryTableName,
                             queryBody,
@@ -254,7 +255,7 @@ public class QueryRewriter
             QualifiedName temporaryTableName = generateTemporaryName(Optional.empty(), prefix);
             return new QueryObjectBundle(
                     temporaryTableName,
-                    ImmutableList.of(),
+                    Collections.emptyList(),
                     new CreateTable(
                             temporaryTableName,
                             createTable.getElements(),

@@ -24,6 +24,7 @@ import io.prestodb.tempto.query.QueryExecutor;
 import io.prestodb.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -750,7 +751,7 @@ public class TestRoles
         QueryAssert.assertThat(() -> onPrestoBob().executeQuery(insert))
                 .failsWithMessage("Access Denied");
         QueryAssert.assertThat(onPrestoBob().executeQuery("SHOW GRANTS ON hive.default.test_table"))
-                .containsOnly(ImmutableList.of());
+                .containsOnly(Collections.emptyList());
 
         onPrestoBob().executeQuery("SET ROLE role1");
         onPrestoBob().executeQuery(select);

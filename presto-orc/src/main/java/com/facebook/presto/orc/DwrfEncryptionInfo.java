@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,7 +32,7 @@ import static java.util.Objects.requireNonNull;
 
 public class DwrfEncryptionInfo
 {
-    public static final DwrfEncryptionInfo UNENCRYPTED = new DwrfEncryptionInfo(ImmutableMap.of(), ImmutableList.of(), ImmutableMap.of());
+    public static final DwrfEncryptionInfo UNENCRYPTED = new DwrfEncryptionInfo(ImmutableMap.of(), Collections.emptyList(), ImmutableMap.of());
     private final Map<Integer, DwrfDataEncryptor> dwrfEncryptors;
     private final List<byte[]> encryptedKeyMetadatas;
     private final Map<Integer, Integer> nodeToGroupMap;

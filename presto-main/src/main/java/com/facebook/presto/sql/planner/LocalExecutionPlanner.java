@@ -237,6 +237,7 @@ import javax.inject.Inject;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -471,7 +472,7 @@ public class LocalExecutionPlanner
                 remoteSourceFactory,
                 tableWriteInfo,
                 false,
-                ImmutableList.of());
+                Collections.emptyList());
     }
 
     public LocalExecutionPlan plan(
@@ -508,7 +509,7 @@ public class LocalExecutionPlanner
                 remoteSourceFactory,
                 tableWriteInfo,
                 pageSinkCommitRequired,
-                ImmutableList.of());
+                Collections.emptyList());
     }
 
     public LocalExecutionPlan plan(
@@ -1110,8 +1111,8 @@ public class LocalExecutionPlanner
             List<Integer> partitionChannels = ImmutableList.copyOf(getChannelsForVariables(node.getPartitionBy(), source.getLayout()));
             List<Integer> preGroupedChannels = ImmutableList.copyOf(getChannelsForVariables(node.getPrePartitionedInputs(), source.getLayout()));
 
-            List<Integer> sortChannels = ImmutableList.of();
-            List<SortOrder> sortOrder = ImmutableList.of();
+            List<Integer> sortChannels = Collections.emptyList();
+            List<SortOrder> sortOrder = Collections.emptyList();
 
             if (node.getOrderingScheme().isPresent()) {
                 OrderingScheme orderingScheme = node.getOrderingScheme().get();
@@ -1633,7 +1634,7 @@ public class LocalExecutionPlanner
             context.setDriverInstanceCount(1);
 
             if (node.getRows().isEmpty()) {
-                OperatorFactory operatorFactory = new ValuesOperatorFactory(context.getNextOperatorId(), node.getId(), ImmutableList.of());
+                OperatorFactory operatorFactory = new ValuesOperatorFactory(context.getNextOperatorId(), node.getId(), Collections.emptyList());
                 return new PhysicalOperation(operatorFactory, makeLayout(node), context, UNGROUPED_EXECUTION);
             }
 
@@ -2717,7 +2718,7 @@ public class LocalExecutionPlanner
                         aggregation.getAggregations(),
                         ImmutableSet.of(),
                         groupingVariables,
-                        ImmutableList.of(),
+                        Collections.emptyList(),
                         PARTIAL,
                         Optional.empty(),
                         Optional.empty(),
@@ -2823,7 +2824,7 @@ public class LocalExecutionPlanner
                         aggregation.getAggregations(),
                         ImmutableSet.of(),
                         groupingVariables,
-                        ImmutableList.of(),
+                        Collections.emptyList(),
                         INTERMEDIATE,
                         Optional.empty(),
                         Optional.empty(),
@@ -2878,7 +2879,7 @@ public class LocalExecutionPlanner
                         aggregation.getAggregations(),
                         ImmutableSet.of(),
                         groupingVariables,
-                        ImmutableList.of(),
+                        Collections.emptyList(),
                         FINAL,
                         Optional.empty(),
                         Optional.empty(),
@@ -3033,7 +3034,7 @@ public class LocalExecutionPlanner
                     node.getPartitioningScheme().getPartitioning().getHandle(),
                     operatorsCount,
                     types,
-                    ImmutableList.of(),
+                    Collections.emptyList(),
                     Optional.empty(),
                     source.getPipelineExecutionStrategy(),
                     maxLocalExchangeBufferSize);
@@ -3219,8 +3220,8 @@ public class LocalExecutionPlanner
             }
 
             Optional<Integer> maskChannel = aggregation.getMask().map(value -> source.getLayout().get(value));
-            List<SortOrder> sortOrders = ImmutableList.of();
-            List<VariableReferenceExpression> sortKeys = ImmutableList.of();
+            List<SortOrder> sortOrders = Collections.emptyList();
+            List<VariableReferenceExpression> sortKeys = Collections.emptyList();
             if (aggregation.getOrderBy().isPresent()) {
                 OrderingScheme orderBy = aggregation.getOrderBy().get();
                 sortKeys = orderBy.getOrderByVariables();
@@ -3555,7 +3556,7 @@ public class LocalExecutionPlanner
             requireNonNull(pipelineExecutionStrategy, "pipelineExecutionStrategy is null");
 
             this.operatorFactories = ImmutableList.<OperatorFactory>builder()
-                    .addAll(source.map(PhysicalOperation::getOperatorFactories).orElse(ImmutableList.of()))
+                    .addAll(source.map(PhysicalOperation::getOperatorFactories).orElse(Collections.emptyList()))
                     .add(operatorFactory)
                     .build();
             this.layout = ImmutableMap.copyOf(layout);

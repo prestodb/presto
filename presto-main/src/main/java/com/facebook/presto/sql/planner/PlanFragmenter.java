@@ -28,10 +28,10 @@ import com.facebook.presto.sql.planner.BasePlanFragmenter.FragmentProperties;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
-import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
 
+import java.util.Collections;
 import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
@@ -84,7 +84,7 @@ public class PlanFragmenter
                 getOutputTableWriterNodeIds(plan.getRoot()));
 
         FragmentProperties properties = new FragmentProperties(new PartitioningScheme(
-                Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()),
+                Partitioning.create(SINGLE_DISTRIBUTION, Collections.emptyList()),
                 plan.getRoot().getOutputVariables()));
         if (forceSingleNode || isForceSingleNodeOutput(session)) {
             properties = properties.setSingleNodeDistribution();

@@ -25,11 +25,11 @@ import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -46,7 +46,7 @@ public class TestingConnectorSession
         implements ConnectorSession
 {
     private static final QueryIdGenerator queryIdGenerator = new QueryIdGenerator();
-    public static final ConnectorSession SESSION = new TestingConnectorSession(ImmutableList.of());
+    public static final ConnectorSession SESSION = new TestingConnectorSession(Collections.emptyList());
 
     private final String queryId;
     private final ConnectorIdentity identity;

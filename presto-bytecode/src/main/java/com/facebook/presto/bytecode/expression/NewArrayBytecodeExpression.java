@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nullable;
 
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.bytecode.ArrayOpCode.getArrayOpCode;
@@ -103,6 +104,6 @@ class NewArrayBytecodeExpression
     @Override
     public List<BytecodeNode> getChildNodes()
     {
-        return ImmutableList.of();
+        return Collections.emptyList();
     }
 }

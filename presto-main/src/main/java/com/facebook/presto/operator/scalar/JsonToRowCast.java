@@ -34,6 +34,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
@@ -64,7 +65,7 @@ public class JsonToRowCast
     {
         super(OperatorType.CAST,
                 ImmutableList.of(withVariadicBound("T", "row")),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 parseTypeSignature("T"),
                 ImmutableList.of(parseTypeSignature(StandardTypes.JSON)));
     }

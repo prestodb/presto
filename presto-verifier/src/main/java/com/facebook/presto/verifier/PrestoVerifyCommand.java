@@ -18,11 +18,11 @@ import com.facebook.presto.verifier.framework.AbstractVerifyCommand;
 import com.facebook.presto.verifier.framework.SourceQuery;
 import com.facebook.presto.verifier.prestoaction.PrestoExceptionClassifier;
 import com.facebook.presto.verifier.prestoaction.SqlExceptionClassifier;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Module;
 import io.airlift.airline.Command;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Predicate;
@@ -34,7 +34,7 @@ public class PrestoVerifyCommand
     @Override
     public List<Module> getAdditionalModules()
     {
-        return ImmutableList.of();
+        return Collections.emptyList();
     }
 
     @Override
@@ -64,7 +64,7 @@ public class PrestoVerifyCommand
     @Override
     public List<Class<? extends Predicate<SourceQuery>>> getCustomQueryFilterClasses()
     {
-        return ImmutableList.of();
+        return Collections.emptyList();
     }
 
     @Override

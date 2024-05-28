@@ -55,6 +55,7 @@ import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -154,7 +155,7 @@ public class IterativePlanFragmenter
                 variableAllocator,
                 getOutputTableWriterNodeIds(plan));
         FragmentProperties properties = new FragmentProperties(new PartitioningScheme(
-                Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()),
+                Partitioning.create(SINGLE_DISTRIBUTION, Collections.emptyList()),
                 plan.getOutputVariables()));
         if (forceSingleNode || isForceSingleNodeOutput(session)) {
             properties = properties.setSingleNodeDistribution();

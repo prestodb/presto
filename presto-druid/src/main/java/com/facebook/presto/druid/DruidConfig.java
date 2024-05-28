@@ -26,6 +26,7 @@ import org.apache.hadoop.fs.Path;
 import javax.annotation.Nullable;
 import javax.validation.constraints.NotNull;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -37,7 +38,7 @@ public class DruidConfig
     private String brokerUrl;
     private String schema = "druid";
     private boolean pushdown;
-    private List<String> hadoopConfiguration = ImmutableList.of();
+    private List<String> hadoopConfiguration = Collections.emptyList();
     private DruidAuthenticationType druidAuthenticationType = DruidAuthenticationType.NONE;
     private String basicAuthenticationUsername;
     private String basicAuthenticationPassword;

@@ -18,9 +18,9 @@ import com.facebook.presto.bytecode.BytecodeVisitor;
 import com.facebook.presto.bytecode.MethodGenerationContext;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.instruction.LabelNode;
-import com.google.common.collect.ImmutableList;
 import org.objectweb.asm.MethodVisitor;
 
+import java.util.Collections;
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -63,7 +63,7 @@ public class LocalVariableNode
     @Override
     public List<BytecodeNode> getChildNodes()
     {
-        return ImmutableList.of();
+        return Collections.emptyList();
     }
 
     @Override

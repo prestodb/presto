@@ -36,6 +36,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -179,7 +180,7 @@ public class TestMetadataManager
                         session,
                         transactionSession -> {
                             queryRunner.getMetadata().getCatalogHandle(transactionSession, "upper_case_schema_catalog");
-                            assertEquals(queryRunner.getMetadata().getTableStatistics(transactionSession, tableHandle, ImmutableList.of(), alwaysTrue()), TableStatistics.empty());
+                            assertEquals(queryRunner.getMetadata().getTableStatistics(transactionSession, tableHandle, Collections.emptyList(), alwaysTrue()), TableStatistics.empty());
                         });
     }
 
@@ -195,7 +196,7 @@ public class TestMetadataManager
                         session,
                         transactionSession -> {
                             queryRunner.getMetadata().getCatalogHandle(transactionSession, "upper_case_schema_catalog");
-                            assertEquals(queryRunner.getMetadata().getTableStatistics(transactionSession, tableHandle, ImmutableList.of(), alwaysTrue()), TableStatistics.empty());
+                            assertEquals(queryRunner.getMetadata().getTableStatistics(transactionSession, tableHandle, Collections.emptyList(), alwaysTrue()), TableStatistics.empty());
                         });
     }
 }

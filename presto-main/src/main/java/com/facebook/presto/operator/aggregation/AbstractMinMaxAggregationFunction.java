@@ -37,6 +37,7 @@ import com.facebook.presto.spi.function.aggregation.GroupedAccumulator;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.common.function.OperatorType.GREATER_THAN;
@@ -81,7 +82,7 @@ public abstract class AbstractMinMaxAggregationFunction
     {
         super(name,
                 ImmutableList.of(orderableTypeParameter("E")),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 parseTypeSignature("E"),
                 ImmutableList.of(parseTypeSignature("E")));
         this.min = min;

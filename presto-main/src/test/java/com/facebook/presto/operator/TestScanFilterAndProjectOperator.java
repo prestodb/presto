@@ -51,6 +51,7 @@ import com.google.common.collect.Iterators;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -125,7 +126,7 @@ public class TestScanFilterAndProjectOperator
                 cursorProcessor,
                 pageProcessor,
                 TESTING_TABLE_HANDLE,
-                ImmutableList.of(),
+                Collections.emptyList(),
                 ImmutableList.of(VARCHAR),
                 Optional.empty(),
                 new DataSize(0, BYTE),
@@ -174,7 +175,7 @@ public class TestScanFilterAndProjectOperator
                 cursorProcessor,
                 pageProcessor,
                 TESTING_TABLE_HANDLE,
-                ImmutableList.of(),
+                Collections.emptyList(),
                 ImmutableList.of(BIGINT),
                 Optional.empty(),
                 new DataSize(64, KILOBYTE),
@@ -224,7 +225,7 @@ public class TestScanFilterAndProjectOperator
                 cursorProcessor,
                 () -> pageProcessor,
                 TESTING_TABLE_HANDLE,
-                ImmutableList.of(),
+                Collections.emptyList(),
                 ImmutableList.of(BIGINT),
                 Optional.empty(),
                 new DataSize(0, BYTE),
@@ -267,7 +268,7 @@ public class TestScanFilterAndProjectOperator
                 cursorProcessor,
                 pageProcessor,
                 TESTING_TABLE_HANDLE,
-                ImmutableList.of(),
+                Collections.emptyList(),
                 ImmutableList.of(BIGINT),
                 Optional.empty(),
                 new DataSize(0, BYTE),
@@ -316,7 +317,7 @@ public class TestScanFilterAndProjectOperator
                 cursorProcessor,
                 pageProcessor,
                 TESTING_TABLE_HANDLE,
-                ImmutableList.of(),
+                Collections.emptyList(),
                 ImmutableList.of(VARCHAR),
                 Optional.empty(),
                 new DataSize(0, BYTE),
@@ -374,7 +375,7 @@ public class TestScanFilterAndProjectOperator
                 cursorProcessor,
                 pageProcessor,
                 TESTING_TABLE_HANDLE,
-                ImmutableList.of(),
+                Collections.emptyList(),
                 ImmutableList.of(BIGINT),
                 Optional.empty(),
                 new DataSize(0, BYTE),
@@ -447,7 +448,7 @@ public class TestScanFilterAndProjectOperator
                 cursorProcessor,
                 pageProcessor,
                 TESTING_TABLE_HANDLE,
-                ImmutableList.of(),
+                Collections.emptyList(),
                 ImmutableList.of(BIGINT),
                 Optional.empty(),
                 new DataSize(0, BYTE),

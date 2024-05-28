@@ -44,6 +44,7 @@ import com.google.common.collect.ImmutableSet;
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Method;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -117,7 +118,7 @@ public class CodegenScalarFromAnnotationsParser
                 QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, codegenScalarFunction.value()),
                 FunctionKind.SCALAR,
                 Arrays.stream(method.getAnnotationsByType(TypeParameter.class)).map(t -> withVariadicBound(t.value(), t.boundedBy().isEmpty() ? null : t.boundedBy())).collect(toImmutableList()),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 parseTypeSignature(method.getAnnotation(SqlType.class).value()),
                 Arrays.stream(method.getParameters()).map(p -> parseTypeSignature(p.getAnnotation(SqlType.class).value())).collect(toImmutableList()),
                 false);

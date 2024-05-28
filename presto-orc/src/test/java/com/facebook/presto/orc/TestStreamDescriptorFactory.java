@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -89,13 +90,13 @@ public class TestStreamDescriptorFactory
         StreamDescriptor streamDescriptor = createStreamDescriptor(orcTypes, DUMMY_ORC_DATA_SOURCE);
 
         StreamProperty rootProperty = new StreamProperty("", orcTypes.get(0), "", ImmutableList.of(1, 2));
-        StreamProperty column1Property = new StreamProperty(".column1", orcTypes.get(1), "column1", ImmutableList.of());
+        StreamProperty column1Property = new StreamProperty(".column1", orcTypes.get(1), "column1", Collections.emptyList());
         StreamProperty column2Property = new StreamProperty(".column2", orcTypes.get(2), "column2", ImmutableList.of(3, 4));
-        StreamProperty mapKeyProperty = new StreamProperty(".column2.key", orcTypes.get(3), "key", ImmutableList.of());
+        StreamProperty mapKeyProperty = new StreamProperty(".column2.key", orcTypes.get(3), "key", Collections.emptyList());
         StreamProperty mapValueProperty = new StreamProperty(".column2.value", orcTypes.get(4), "value", ImmutableList.of(5));
         StreamProperty listElementProperty = new StreamProperty(".column2.value.item", orcTypes.get(5), "item", ImmutableList.of(6, 7));
-        StreamProperty inner1Property = new StreamProperty(".column2.value.item.inner1", orcTypes.get(6), "inner1", ImmutableList.of());
-        StreamProperty inner2Property = new StreamProperty(".column2.value.item.inner2", orcTypes.get(7), "inner2", ImmutableList.of());
+        StreamProperty inner1Property = new StreamProperty(".column2.value.item.inner1", orcTypes.get(6), "inner1", Collections.emptyList());
+        StreamProperty inner2Property = new StreamProperty(".column2.value.item.inner2", orcTypes.get(7), "inner2", Collections.emptyList());
 
         ImmutableMap.Builder<Integer, StreamProperty> streamToPropertyMapBuilder = ImmutableMap.builder();
         streamToPropertyMapBuilder.put(0, rootProperty);

@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -64,15 +65,15 @@ public class TestTransformExistsApplyToLateralJoin
                 .on(p ->
                         p.apply(
                                 assignment(p.variable("b", BOOLEAN), new ExistsExpression(Optional.empty(), TRUE_CONSTANT)),
-                                ImmutableList.of(),
+                                Collections.emptyList(),
                                 p.values(),
                                 p.values()))
                 .matches(lateral(
-                        ImmutableList.of(),
+                        Collections.emptyList(),
                         values(ImmutableMap.of()),
                         project(
                                 ImmutableMap.of("b", PlanMatchPattern.expression("(\"count_expr\" > CAST(0 AS bigint))")),
-                                aggregation(ImmutableMap.of("count_expr", functionCall("count", ImmutableList.of())),
+                                aggregation(ImmutableMap.of("count_expr", functionCall("count", Collections.emptyList())),
                                         values()))));
     }
 

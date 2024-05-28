@@ -35,6 +35,7 @@ import com.facebook.presto.spi.function.aggregation.GroupedAccumulator;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
 
@@ -70,7 +71,7 @@ public abstract class AbstractMinMaxByNAggregationFunction
     {
         super(name,
                 ImmutableList.of(typeVariable("V"), orderableTypeParameter("K")),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 parseTypeSignature("array(V)"),
                 ImmutableList.of(parseTypeSignature("V"), parseTypeSignature("K"), parseTypeSignature(StandardTypes.BIGINT)));
         this.name = requireNonNull(name, "name is null");

@@ -22,6 +22,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
+
 import static com.facebook.presto.block.BlockAssertions.createMapType;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -162,27 +164,27 @@ public class TestArraySqlFunctions
     public void testArrayDuplicates()
     {
         assertFunction("array_duplicates(cast(null as array(varchar)))", new ArrayType(VARCHAR), null);
-        assertFunction("array_duplicates(cast(array[] as array(varchar)))", new ArrayType(VARCHAR), ImmutableList.of());
+        assertFunction("array_duplicates(cast(array[] as array(varchar)))", new ArrayType(VARCHAR), Collections.emptyList());
 
         assertFunction("array_duplicates(array[varchar 'a', varchar 'b', varchar 'a'])", new ArrayType(VARCHAR), ImmutableList.of("a"));
-        assertFunction("array_duplicates(array[varchar 'a', varchar 'b'])", new ArrayType(VARCHAR), ImmutableList.of());
+        assertFunction("array_duplicates(array[varchar 'a', varchar 'b'])", new ArrayType(VARCHAR), Collections.emptyList());
         assertFunction("array_duplicates(array[varchar 'a', varchar 'a'])", new ArrayType(VARCHAR), ImmutableList.of("a"));
 
         assertFunction("array_duplicates(array[1, 2, 1])", new ArrayType(INTEGER), ImmutableList.of(1));
-        assertFunction("array_duplicates(array[1, 2])", new ArrayType(INTEGER), ImmutableList.of());
+        assertFunction("array_duplicates(array[1, 2])", new ArrayType(INTEGER), Collections.emptyList());
         assertFunction("array_duplicates(array[1, 1, 1])", new ArrayType(INTEGER), ImmutableList.of(1));
 
-        assertFunction("array_duplicates(array[0, null])", new ArrayType(INTEGER), ImmutableList.of());
+        assertFunction("array_duplicates(array[0, null])", new ArrayType(INTEGER), Collections.emptyList());
         assertFunction("array_duplicates(array[0, null, null])", new ArrayType(INTEGER), singletonList(null));
 
         // Test legacy name.
         assertFunction("array_dupes(array[1, 2, 1])", new ArrayType(INTEGER), ImmutableList.of(1));
 
         RowType rowType = RowType.from(ImmutableList.of(RowType.field(INTEGER), RowType.field(INTEGER)));
-        assertFunction("array_duplicates(array[array[1], array[2], array[]])", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of());
+        assertFunction("array_duplicates(array[array[1], array[2], array[]])", new ArrayType(new ArrayType(INTEGER)), Collections.emptyList());
         assertFunction("array_duplicates(array[array[1], array[2], array[2]])", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of(ImmutableList.of(2)));
         assertFunction("array_duplicates(array[(1, 2), (1, 2)])", new ArrayType(rowType), ImmutableList.of(ImmutableList.of(1, 2)));
-        assertFunction("array_duplicates(array[(1, 2), (2, 2)])", new ArrayType(rowType), ImmutableList.of());
+        assertFunction("array_duplicates(array[(1, 2), (2, 2)])", new ArrayType(rowType), Collections.emptyList());
         assertInvalidFunction("array_duplicates(array[(1, null), (null, 2), (null, 1)])", StandardErrorCode.NOT_SUPPORTED, "ROW comparison not supported for fields with null elements");
         assertInvalidFunction("array_duplicates(array[(1, null), (null, 2), (null, null)])", StandardErrorCode.NOT_SUPPORTED, "map key cannot be null or contain nulls");
     }

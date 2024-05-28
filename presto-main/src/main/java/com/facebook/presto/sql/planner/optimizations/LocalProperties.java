@@ -24,6 +24,7 @@ import com.google.common.collect.PeekingIterator;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -42,7 +43,7 @@ public final class LocalProperties
 
     public static <T> List<LocalProperty<T>> none()
     {
-        return ImmutableList.of();
+        return Collections.emptyList();
     }
 
     public static <T> List<LocalProperty<T>> grouped(Collection<T> columns)

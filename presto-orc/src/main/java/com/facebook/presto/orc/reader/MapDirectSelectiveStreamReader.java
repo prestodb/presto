@@ -34,7 +34,6 @@ import com.facebook.presto.orc.stream.BooleanInputStream;
 import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.orc.stream.LongInputStream;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
@@ -44,6 +43,7 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -139,7 +139,7 @@ public class MapDirectSelectiveStreamReader
                     .map(x -> ImmutableMap.of(new Subfield("c"), x))
                     .orElseGet(ImmutableMap::of);
 
-            List<Subfield> elementRequiredSubfields = ImmutableList.of();
+            List<Subfield> elementRequiredSubfields = Collections.emptyList();
             if (requiredSubfields.stream().map(Subfield::getPath).allMatch(path -> path.size() > 1)) {
                 elementRequiredSubfields = requiredSubfields.stream()
                         .map(subfield -> subfield.tail(subfield.getRootName()))
@@ -147,7 +147,7 @@ public class MapDirectSelectiveStreamReader
                         .collect(toImmutableList());
             }
 
-            this.keyReader = SelectiveStreamReaders.createStreamReader(nestedStreams.get(0), keyFilter, keyOutputType, ImmutableList.of(), hiveStorageTimeZone, options, systemMemoryContext.newOrcAggregatedMemoryContext(), isLowMemory);
+            this.keyReader = SelectiveStreamReaders.createStreamReader(nestedStreams.get(0), keyFilter, keyOutputType, Collections.emptyList(), hiveStorageTimeZone, options, systemMemoryContext.newOrcAggregatedMemoryContext(), isLowMemory);
             this.valueReader = SelectiveStreamReaders.createStreamReader(nestedStreams.get(1), ImmutableMap.of(), valueOutputType, elementRequiredSubfields, hiveStorageTimeZone, options, systemMemoryContext.newOrcAggregatedMemoryContext(), isLowMemory);
         }
         else {

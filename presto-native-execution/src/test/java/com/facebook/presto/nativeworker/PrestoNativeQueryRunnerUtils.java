@@ -20,7 +20,6 @@ import com.facebook.presto.hive.HiveQueryRunner;
 import com.facebook.presto.iceberg.FileFormat;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 
@@ -30,6 +29,7 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Collections;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.UUID;
@@ -136,7 +136,7 @@ public class PrestoNativeQueryRunnerUtils
         Optional<Path> dataDirectory = addStorageFormatToPath ? baseDataDirectory.map(path -> Paths.get(path.toString() + '/' + storageFormat)) : baseDataDirectory;
         DistributedQueryRunner queryRunner =
                 HiveQueryRunner.createQueryRunner(
-                        ImmutableList.of(),
+                        Collections.emptyList(),
                         ImmutableMap.of(
                                 "parse-decimal-literals-as-double", "true",
                                 "regex-library", "RE2J",
@@ -263,8 +263,8 @@ public class PrestoNativeQueryRunnerUtils
 
         // Make query runner with external workers for tests
         return HiveQueryRunner.createQueryRunner(
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 ImmutableMap.<String, String>builder()
                         .put("http-server.http.port", "8081")
                         .put("experimental.internal-communication.thrift-transport-enabled", String.valueOf(useThrift))

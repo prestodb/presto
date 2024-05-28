@@ -38,6 +38,7 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -62,7 +63,7 @@ public class TestLongDictionaryProvider
 {
     private static final OrcDataSourceId ORC_DATA_SOURCE_ID = new OrcDataSourceId("dict_provider_test");
     private static final DataSize COMPRESSION_BLOCK_SIZE = new DataSize(256, KILOBYTE);
-    private static final OrcType LONG_TYPE = new OrcType(LONG, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty());
+    private static final OrcType LONG_TYPE = new OrcType(LONG, Collections.emptyList(), Collections.emptyList(), Optional.empty(), Optional.empty(), Optional.empty());
     private static final OrcDataSource DUMMY_ORC_DATA_SOURCE = new NoopOrcDataSource();
 
     @DataProvider(name = "dataForDictionaryLoadingTest")
@@ -291,7 +292,7 @@ public class TestLongDictionaryProvider
     {
         Map<Integer, StreamProperty> streamProperties = ImmutableMap.of(
                 streamId.getColumn(),
-                new StreamProperty("test_dictionary_stream", LONG_TYPE, "field_" + streamId.getColumn(), ImmutableList.of()));
+                new StreamProperty("test_dictionary_stream", LONG_TYPE, "field_" + streamId.getColumn(), Collections.emptyList()));
         AllStreams allStreams = new AllStreams(DUMMY_ORC_DATA_SOURCE, streamProperties);
 
         return new StreamDescriptor(streamId.getColumn(), streamId.getSequence(), allStreams);

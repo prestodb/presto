@@ -25,10 +25,10 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.Collections;
 import java.util.Optional;
 import java.util.Set;
 
@@ -108,7 +108,7 @@ public class TransformDistinctInnerJoinToRightEarlyOutJoin
                 innerJoin.getLeft(),
                 ImmutableMap.of(),
                 singleGroupingSet(innerJoin.getLeft().getOutputVariables()),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 SINGLE,
                 Optional.empty(),
                 Optional.empty(),

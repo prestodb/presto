@@ -57,6 +57,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.IntStream;
@@ -142,7 +143,7 @@ public class TestAdaptivePhasedExecutionPolicy
                 new SplitSchedulerStats(),
                 new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()));
         StageLinkage stageLinkage = new StageLinkage(fragmentId, (id, tasks, noMoreExchangeLocations) -> {}, ImmutableSet.of());
-        StageScheduler stageScheduler = new FixedCountScheduler(stageExecution, ImmutableList.of());
+        StageScheduler stageScheduler = new FixedCountScheduler(stageExecution, Collections.emptyList());
         StageExecutionAndScheduler scheduler = new StageExecutionAndScheduler(stageExecution, stageLinkage, stageScheduler);
         return scheduler;
     }
@@ -155,7 +156,7 @@ public class TestAdaptivePhasedExecutionPolicy
                 ImmutableSet.copyOf(remoteSourcePlanNode.getOutputVariables()),
                 SOURCE_DISTRIBUTION,
                 ImmutableList.of(remoteSourcePlanNode.getId()),
-                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), remoteSourcePlanNode.getOutputVariables()),
+                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, Collections.emptyList()), remoteSourcePlanNode.getOutputVariables()),
                 StageExecutionDescriptor.ungroupedExecution(),
                 false,
                 StatsAndCosts.empty(),
@@ -168,7 +169,7 @@ public class TestAdaptivePhasedExecutionPolicy
                 Optional.empty(),
                 TABLE_SCAN_NODE_ID,
                 new TableHandle(CONNECTOR_ID, new TestingMetadata.TestingTableHandle(), TRANSACTION_HANDLE, Optional.empty()),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 ImmutableMap.of());
     }
 

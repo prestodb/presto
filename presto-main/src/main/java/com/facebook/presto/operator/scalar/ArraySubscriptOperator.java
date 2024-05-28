@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 
 import static com.facebook.presto.common.function.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
@@ -51,7 +52,7 @@ public class ArraySubscriptOperator
     {
         super(SUBSCRIPT,
                 ImmutableList.of(typeVariable("E")),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 parseTypeSignature("E"),
                 ImmutableList.of(parseTypeSignature("array(E)"), parseTypeSignature("bigint")));
     }

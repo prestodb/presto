@@ -149,7 +149,7 @@ public class TestDwrfMetadataReader
     {
         long aLongNumber = Integer.MAX_VALUE + 1000L;
         for (OptionalLong stripeRawDataSize : ImmutableList.of(OptionalLong.empty(), OptionalLong.of(1_000_123))) {
-            StripeInformation expectedStripeInformation = new StripeInformation(aLongNumber, aLongNumber, aLongNumber, aLongNumber, aLongNumber, stripeRawDataSize, ImmutableList.of());
+            StripeInformation expectedStripeInformation = new StripeInformation(aLongNumber, aLongNumber, aLongNumber, aLongNumber, aLongNumber, stripeRawDataSize, Collections.emptyList());
             DwrfProto.StripeInformation dwrfStripeInformation = DwrfMetadataWriter.toStripeInformation(expectedStripeInformation);
 
             DwrfProto.Footer protoFooter = DwrfProto.Footer.newBuilder()
@@ -229,7 +229,7 @@ public class TestDwrfMetadataReader
         InputStream inputStream = new ByteArrayInputStream(data);
 
         OrcDataSourceId orcDataSourceId = new OrcDataSourceId("test");
-        OrcCorruptionException ex = expectThrows(OrcCorruptionException.class, () -> dwrfMetadataReader.readStripeFooter(orcDataSourceId, ImmutableList.of(), inputStream));
+        OrcCorruptionException ex = expectThrows(OrcCorruptionException.class, () -> dwrfMetadataReader.readStripeFooter(orcDataSourceId, Collections.emptyList(), inputStream));
         assertEquals(ex.getMessage(), "java.io.IOException: Malformed ORC file. Stream size 9223372036854775807 of one of the streams for column 0 is larger than supported size 2147483647 [test]");
     }
 

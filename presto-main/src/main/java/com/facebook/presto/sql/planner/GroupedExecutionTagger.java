@@ -34,6 +34,7 @@ import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -342,7 +343,7 @@ class GroupedExecutionTagger
 
         public static GroupedExecutionProperties notCapable()
         {
-            return new GroupedExecutionProperties(false, false, ImmutableList.of(), 1, false);
+            return new GroupedExecutionProperties(false, false, Collections.emptyList(), 1, false);
         }
 
         public boolean isCurrentNodeCapable()

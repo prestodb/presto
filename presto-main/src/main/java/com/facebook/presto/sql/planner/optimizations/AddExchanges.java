@@ -90,6 +90,7 @@ import com.google.common.collect.SetMultimap;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -657,10 +658,10 @@ public class AddExchanges
 
             if (!shufflePartitioningScheme.isPresent()) {
                 if (scaleWriters) {
-                    shufflePartitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(SCALED_WRITER_DISTRIBUTION, ImmutableList.of()), source.getNode().getOutputVariables()));
+                    shufflePartitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(SCALED_WRITER_DISTRIBUTION, Collections.emptyList()), source.getNode().getOutputVariables()));
                 }
                 else if (redistributeWrites) {
-                    shufflePartitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), source.getNode().getOutputVariables()));
+                    shufflePartitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, Collections.emptyList()), source.getNode().getOutputVariables()));
                 }
             }
 
@@ -780,7 +781,7 @@ public class AddExchanges
                         idAllocator.getNextId(),
                         GATHER,
                         REMOTE_STREAMING,
-                        new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), exchangeNode.getOutputVariables()),
+                        new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, Collections.emptyList()), exchangeNode.getOutputVariables()),
                         exchangeNode.getSources(),
                         exchangeNode.getInputs(),
                         true,
@@ -792,7 +793,7 @@ public class AddExchanges
 
             return withDerivedProperties(
                     ChildReplacer.replaceChildren(node, ImmutableList.of(gather)),
-                    ImmutableList.of());
+                    Collections.emptyList());
         }
 
         private <T> SetMultimap<T, T> createMapping(List<T> keys, List<T> values)
@@ -1114,7 +1115,7 @@ public class AddExchanges
                     .collect(toImmutableList());
 
             // Only prefer grouping on join columns if no parent local property preferences
-            List<LocalProperty<VariableReferenceExpression>> desiredLocalProperties = preferredProperties.getLocalProperties().isEmpty() ? grouped(joinColumns) : ImmutableList.of();
+            List<LocalProperty<VariableReferenceExpression>> desiredLocalProperties = preferredProperties.getLocalProperties().isEmpty() ? grouped(joinColumns) : Collections.emptyList();
 
             PlanWithProperties probeSource = accept(node.getProbeSource(), PreferredProperties.partitionedWithLocal(ImmutableSet.copyOf(joinColumns), desiredLocalProperties)
                     .mergeWithParent(preferredProperties, true));
@@ -1325,7 +1326,7 @@ public class AddExchanges
                                         idAllocator.getNextId(),
                                         REPARTITION,
                                         REMOTE_STREAMING,
-                                        new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), node.getOutputVariables()),
+                                        new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, Collections.emptyList()), node.getOutputVariables()),
                                         distributedChildren,
                                         distributedOutputLayouts,
                                         false,
@@ -1345,7 +1346,7 @@ public class AddExchanges
                         idAllocator.getNextId(),
                         GATHER,
                         REMOTE_STREAMING,
-                        new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), node.getOutputVariables()),
+                        new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, Collections.emptyList()), node.getOutputVariables()),
                         distributedChildren,
                         distributedOutputLayouts,
                         false,
@@ -1365,7 +1366,7 @@ public class AddExchanges
                             idAllocator.getNextId(),
                             GATHER,
                             REMOTE_STREAMING,
-                            new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), exchangeOutputLayout),
+                            new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, Collections.emptyList()), exchangeOutputLayout),
                             distributedChildren,
                             distributedOutputLayouts,
                             false,

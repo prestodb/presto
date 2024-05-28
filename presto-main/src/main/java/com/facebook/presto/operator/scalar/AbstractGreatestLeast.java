@@ -37,6 +37,7 @@ import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.IntStream;
 
@@ -79,7 +80,7 @@ public abstract class AbstractGreatestLeast
                 name,
                 FunctionKind.SCALAR,
                 ImmutableList.of(orderableTypeParameter("E")),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 parseTypeSignature("E"),
                 ImmutableList.of(parseTypeSignature("E")),
                 true));

@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.MERGE_AGGREGATIONS_WITH_AND_WITHOUT_FILTER;
@@ -256,7 +257,7 @@ public class TestMergePartialAggregationsWithFilter
                                                         AggregationNode.Step.PARTIAL,
                                                         anyTree(
                                                                 groupingSet(
-                                                                        ImmutableList.of(ImmutableList.of(), ImmutableList.of("partkey")),
+                                                                        ImmutableList.of(Collections.emptyList(), ImmutableList.of("partkey")),
                                                                         ImmutableMap.of("quantity", "quantity", "expr", "expr"),
                                                                         "groupid",
                                                                         ImmutableMap.of("partkey$gid", expression("partkey")),
@@ -281,7 +282,7 @@ public class TestMergePartialAggregationsWithFilter
                                 anyTree(
                                         aggregation(
                                                 singleGroupingSet("partkey"),
-                                                ImmutableMap.of(Optional.of("partialCnt"), functionCall("count", ImmutableList.of()), Optional.of("maskPartialCnt"), functionCall("count", ImmutableList.of())),
+                                                ImmutableMap.of(Optional.of("partialCnt"), functionCall("count", Collections.emptyList()), Optional.of("maskPartialCnt"), functionCall("count", Collections.emptyList())),
                                                 ImmutableMap.of(new Symbol("maskPartialCnt"), new Symbol("expr")),
                                                 Optional.empty(),
                                                 AggregationNode.Step.PARTIAL,

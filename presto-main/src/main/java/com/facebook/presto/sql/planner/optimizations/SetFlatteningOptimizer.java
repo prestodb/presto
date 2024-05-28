@@ -31,6 +31,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -152,7 +153,7 @@ public class SetFlatteningOptimizer
                     rewrittenNode,
                     node.getAggregations(),
                     node.getGroupingSets(),
-                    ImmutableList.of(),
+                    Collections.emptyList(),
                     node.getStep(),
                     node.getHashVariable(),
                     node.getGroupIdVariable(),

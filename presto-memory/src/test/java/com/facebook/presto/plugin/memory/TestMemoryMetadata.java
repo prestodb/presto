@@ -33,6 +33,7 @@ import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -69,10 +70,10 @@ public class TestMemoryMetadata
 
         ConnectorOutputTableHandle table = metadata.beginCreateTable(
                 SESSION,
-                new ConnectorTableMetadata(schemaTableName, ImmutableList.of(), ImmutableMap.of()),
+                new ConnectorTableMetadata(schemaTableName, Collections.emptyList(), ImmutableMap.of()),
                 Optional.empty());
 
-        metadata.finishCreateTable(SESSION, table, ImmutableList.of(), ImmutableList.of());
+        metadata.finishCreateTable(SESSION, table, Collections.emptyList(), Collections.emptyList());
 
         List<SchemaTableName> tables = metadata.listTables(SESSION, Optional.empty());
         assertTrue(tables.size() == 1, "Expected only one table");
@@ -86,10 +87,10 @@ public class TestMemoryMetadata
 
         SchemaTableName test1Table = new SchemaTableName("default", "test1");
         SchemaTableName test2Table = new SchemaTableName("default", "test2");
-        metadata.createTable(SESSION, new ConnectorTableMetadata(test1Table, ImmutableList.of()), false);
+        metadata.createTable(SESSION, new ConnectorTableMetadata(test1Table, Collections.emptyList()), false);
 
         try {
-            metadata.createTable(SESSION, new ConnectorTableMetadata(test1Table, ImmutableList.of()), false);
+            metadata.createTable(SESSION, new ConnectorTableMetadata(test1Table, Collections.emptyList()), false);
             fail("Should fail because table already exists");
         }
         catch (PrestoException ex) {
@@ -98,7 +99,7 @@ public class TestMemoryMetadata
         }
 
         ConnectorTableHandle test1TableHandle = metadata.getTableHandle(SESSION, test1Table);
-        metadata.createTable(SESSION, new ConnectorTableMetadata(test2Table, ImmutableList.of()), false);
+        metadata.createTable(SESSION, new ConnectorTableMetadata(test2Table, Collections.emptyList()), false);
 
         try {
             metadata.renameTable(SESSION, test1TableHandle, test2Table);
@@ -116,7 +117,7 @@ public class TestMemoryMetadata
         assertNoTables();
 
         SchemaTableName firstTableName = new SchemaTableName("default", "first_table");
-        metadata.createTable(SESSION, new ConnectorTableMetadata(firstTableName, ImmutableList.of(), ImmutableMap.of()), false);
+        metadata.createTable(SESSION, new ConnectorTableMetadata(firstTableName, Collections.emptyList(), ImmutableMap.of()), false);
 
         MemoryTableHandle firstTableHandle = (MemoryTableHandle) metadata.getTableHandle(SESSION, firstTableName);
         Long firstTableId = firstTableHandle.getTableId();
@@ -124,7 +125,7 @@ public class TestMemoryMetadata
         assertTrue(metadata.beginInsert(SESSION, firstTableHandle).getActiveTableIds().contains(firstTableId));
 
         SchemaTableName secondTableName = new SchemaTableName("default", "second_table");
-        metadata.createTable(SESSION, new ConnectorTableMetadata(secondTableName, ImmutableList.of(), ImmutableMap.of()), false);
+        metadata.createTable(SESSION, new ConnectorTableMetadata(secondTableName, Collections.emptyList(), ImmutableMap.of()), false);
 
         MemoryTableHandle secondTableHandle = (MemoryTableHandle) metadata.getTableHandle(SESSION, secondTableName);
         Long secondTableId = secondTableHandle.getTableId();
@@ -143,7 +144,7 @@ public class TestMemoryMetadata
 
         ConnectorOutputTableHandle table = metadata.beginCreateTable(
                 SESSION,
-                new ConnectorTableMetadata(tableName, ImmutableList.of(), ImmutableMap.of()),
+                new ConnectorTableMetadata(tableName, Collections.emptyList(), ImmutableMap.of()),
                 Optional.empty());
 
         List<SchemaTableName> tableNames = metadata.listTables(SESSION, Optional.empty());
@@ -157,7 +158,7 @@ public class TestMemoryMetadata
         assertTrue(tableLayoutHandle instanceof MemoryTableLayoutHandle);
         assertTrue(((MemoryTableLayoutHandle) tableLayoutHandle).getDataFragments().isEmpty(), "Data fragments should be empty");
 
-        metadata.finishCreateTable(SESSION, table, ImmutableList.of(), ImmutableList.of());
+        metadata.finishCreateTable(SESSION, table, Collections.emptyList(), Collections.emptyList());
     }
 
     @Test
@@ -166,20 +167,20 @@ public class TestMemoryMetadata
         assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of("default"));
         metadata.createSchema(SESSION, "test", ImmutableMap.of());
         assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of("default", "test"));
-        assertEquals(metadata.listTables(SESSION, "test"), ImmutableList.of());
+        assertEquals(metadata.listTables(SESSION, "test"), Collections.emptyList());
 
         SchemaTableName tableName = new SchemaTableName("test", "first_table");
         metadata.createTable(
                 SESSION,
                 new ConnectorTableMetadata(
                         tableName,
-                        ImmutableList.of(),
+                        Collections.emptyList(),
                         ImmutableMap.of()),
                 false);
 
         assertEquals(metadata.listTables(SESSION, Optional.empty()), ImmutableList.of(tableName));
         assertEquals(metadata.listTables(SESSION, Optional.of("test")), ImmutableList.of(tableName));
-        assertEquals(metadata.listTables(SESSION, Optional.of("default")), ImmutableList.of());
+        assertEquals(metadata.listTables(SESSION, Optional.of("default")), Collections.emptyList());
     }
 
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "View already exists: test\\.test_view")
@@ -283,7 +284,7 @@ public class TestMemoryMetadata
 
         SchemaTableName table1 = new SchemaTableName("test1", "test_schema_table1");
         try {
-            metadata.beginCreateTable(SESSION, new ConnectorTableMetadata(table1, ImmutableList.of(), ImmutableMap.of()), Optional.empty());
+            metadata.beginCreateTable(SESSION, new ConnectorTableMetadata(table1, Collections.emptyList(), ImmutableMap.of()), Optional.empty());
             fail("Should fail because schema does not exist");
         }
         catch (PrestoException ex) {
@@ -331,9 +332,9 @@ public class TestMemoryMetadata
         metadata.createSchema(SESSION, "test_schema", ImmutableMap.of());
         ConnectorOutputTableHandle table = metadata.beginCreateTable(
                 SESSION,
-                new ConnectorTableMetadata(tableName, ImmutableList.of(), ImmutableMap.of()),
+                new ConnectorTableMetadata(tableName, Collections.emptyList(), ImmutableMap.of()),
                 Optional.empty());
-        metadata.finishCreateTable(SESSION, table, ImmutableList.of(), ImmutableList.of());
+        metadata.finishCreateTable(SESSION, table, Collections.emptyList(), Collections.emptyList());
 
         // rename table to schema which does not exist
         SchemaTableName invalidSchemaTableName = new SchemaTableName("test_schema_not_exist", "test_table_renamed");
@@ -350,12 +351,12 @@ public class TestMemoryMetadata
         metadata.createSchema(SESSION, "test_different_schema", ImmutableMap.of());
         SchemaTableName differentSchemaTableName = new SchemaTableName("test_different_schema", "test_renamed");
         metadata.renameTable(SESSION, metadata.getTableHandle(SESSION, sameSchemaTableName), differentSchemaTableName);
-        assertEquals(metadata.listTables(SESSION, "test_schema"), ImmutableList.of());
+        assertEquals(metadata.listTables(SESSION, "test_schema"), Collections.emptyList());
         assertEquals(metadata.listTables(SESSION, "test_different_schema"), ImmutableList.of(differentSchemaTableName));
     }
 
     private void assertNoTables()
     {
-        assertEquals(metadata.listTables(SESSION, Optional.empty()), ImmutableList.of(), "No table was expected");
+        assertEquals(metadata.listTables(SESSION, Optional.empty()), Collections.emptyList(), "No table was expected");
     }
 }

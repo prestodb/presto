@@ -1084,7 +1084,7 @@ public class MetastoreUtil
                 .setOwner(session.getUser())
                 .setTableType(VIRTUAL_VIEW)
                 .setDataColumns(columns)
-                .setPartitionColumns(ImmutableList.of())
+                .setPartitionColumns(Collections.emptyList())
                 .setParameters(properties)
                 .setViewOriginalText(Optional.of(encodedViewData))
                 .setViewExpandedText(Optional.of(PRESTO_VIEW_EXPANDED_TEXT_MARKER));

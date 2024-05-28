@@ -63,6 +63,7 @@ import javax.ws.rs.core.UriInfo;
 
 import java.net.URI;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -420,7 +421,7 @@ class Query
                         .setWaitingForPrerequisites(true)
                         .build(),
                 null,
-                ImmutableList.of(),
+                Collections.emptyList(),
                 queryResults.getUpdateType(),
                 queryResults.getUpdateCount());
     }

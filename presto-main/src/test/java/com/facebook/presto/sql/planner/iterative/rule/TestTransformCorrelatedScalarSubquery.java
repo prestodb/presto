@@ -33,6 +33,7 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -88,7 +89,7 @@ public class TestTransformCorrelatedScalarSubquery
     {
         tester().assertThat(rule)
                 .on(p -> p.lateral(
-                        ImmutableList.of(),
+                        Collections.emptyList(),
                         p.values(p.variable("a")),
                         p.values(ImmutableList.of(p.variable("b")), ImmutableList.of(constantExpressions(BIGINT, 1L)))))
                 .doesNotFire();

@@ -225,7 +225,7 @@ public class TestVerificationManager
                         new DeterminismAnalyzerConfig()),
                 SQL_PARSER,
                 ImmutableSet.of(eventClient),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 new QueryConfigurationOverridesConfig(),
                 new QueryConfigurationOverridesConfig(),
                 verifierConfig);

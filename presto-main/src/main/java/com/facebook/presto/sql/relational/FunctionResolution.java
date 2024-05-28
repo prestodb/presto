@@ -22,8 +22,8 @@ import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.sql.analyzer.FunctionAndTypeResolver;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -277,7 +277,7 @@ public final class FunctionResolution
     @Override
     public FunctionHandle countFunction()
     {
-        return functionAndTypeResolver.lookupFunction("count", ImmutableList.of());
+        return functionAndTypeResolver.lookupFunction("count", Collections.emptyList());
     }
 
     @Override

@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -33,7 +34,7 @@ import static com.google.common.base.Preconditions.checkState;
 public class WindowInfo
         implements Mergeable<WindowInfo>, OperatorInfo
 {
-    private static final WindowInfo EMPTY_INFO = new WindowInfo(ImmutableList.of());
+    private static final WindowInfo EMPTY_INFO = new WindowInfo(Collections.emptyList());
 
     public static WindowInfo emptyInfo()
     {

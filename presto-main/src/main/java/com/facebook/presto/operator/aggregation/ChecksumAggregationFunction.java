@@ -31,6 +31,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -61,7 +62,7 @@ public class ChecksumAggregationFunction
     {
         super(NAME,
                 ImmutableList.of(comparableTypeParameter("T")),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 parseTypeSignature(StandardTypes.VARBINARY),
                 ImmutableList.of(parseTypeSignature("T")));
     }

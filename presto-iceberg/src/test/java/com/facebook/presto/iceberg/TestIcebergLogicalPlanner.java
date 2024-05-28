@@ -59,6 +59,7 @@ import org.testng.annotations.Ignore;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -559,7 +560,7 @@ public class TestIcebergLogicalPlanner
                         "test_filters_with_pushdown_disable",
                         withColumnDomains(ImmutableMap.of(new Subfield(
                                         "id",
-                                        ImmutableList.of()),
+                                        Collections.emptyList()),
                                 singleValue(INTEGER, 10L))),
                         TRUE_CONSTANT,
                         ImmutableSet.of("id")));
@@ -665,7 +666,7 @@ public class TestIcebergLogicalPlanner
                             tableName,
                             withColumnDomains(ImmutableMap.of(new Subfield(
                                             "c",
-                                            ImmutableList.of()),
+                                            Collections.emptyList()),
                                     Domain.create(ValueSet.ofRanges(greaterThan(INTEGER, 2L)), false))),
                             TRUE_CONSTANT,
                             ImmutableSet.of("c")));
@@ -713,11 +714,11 @@ public class TestIcebergLogicalPlanner
                             withColumnDomains(ImmutableMap.of(
                                     new Subfield(
                                             "a",
-                                            ImmutableList.of()),
+                                            Collections.emptyList()),
                                     Domain.create(ValueSet.ofRanges(greaterThan(INTEGER, 2L)), false),
                                     new Subfield(
                                             "c",
-                                            ImmutableList.of()),
+                                            Collections.emptyList()),
                                     singleValue(INTEGER, 4L))),
                             TRUE_CONSTANT,
                             ImmutableSet.of("a", "c")));
@@ -1506,7 +1507,7 @@ public class TestIcebergLogicalPlanner
                         "lineitem",
                         withColumnDomains(ImmutableMap.of(new Subfield(
                                 "partkey",
-                                ImmutableList.of()),
+                                Collections.emptyList()),
                                 singleValue(BIGINT, 10L))),
                         TRUE_CONSTANT,
                         ImmutableSet.of("partkey")));
@@ -1520,7 +1521,7 @@ public class TestIcebergLogicalPlanner
                         "lineitem",
                         withColumnDomains(ImmutableMap.of(new Subfield(
                                 "partkey",
-                                ImmutableList.of()),
+                                Collections.emptyList()),
                                 singleValue(BIGINT, 10L))),
                         TRUE_CONSTANT,
                         ImmutableSet.of("partkey")));
@@ -1547,7 +1548,7 @@ public class TestIcebergLogicalPlanner
                         "lineitem",
                         withColumnDomains(ImmutableMap.of(new Subfield(
                                         "orderkey",
-                                        ImmutableList.of()),
+                                        Collections.emptyList()),
                                 singleValue(BIGINT, 10L))),
                         TRUE_CONSTANT,
                         ImmutableSet.of("orderkey")));
@@ -1571,7 +1572,7 @@ public class TestIcebergLogicalPlanner
                         "lineitem",
                         withColumnDomains(ImmutableMap.of(new Subfield(
                                         "orderkey",
-                                        ImmutableList.of()),
+                                        Collections.emptyList()),
                                 singleValue(BIGINT, 10L))),
                         TRUE_CONSTANT,
                         ImmutableSet.of("orderkey")));
@@ -1649,7 +1650,7 @@ public class TestIcebergLogicalPlanner
                         "lineitem",
                         withColumnDomains(ImmutableMap.of(new Subfield(
                                 "partkey",
-                                ImmutableList.of()),
+                                Collections.emptyList()),
                                 singleValue(BIGINT, 10L))),
                         remainingPredicate,
                         ImmutableSet.of("partkey", "orderkey")));
@@ -1663,7 +1664,7 @@ public class TestIcebergLogicalPlanner
                         "lineitem",
                         withColumnDomains(ImmutableMap.of(new Subfield(
                                 "partkey",
-                                ImmutableList.of()),
+                                Collections.emptyList()),
                                 singleValue(BIGINT, 10L))),
                         remainingPredicate,
                         ImmutableSet.of("partkey", "orderkey")));
@@ -1710,9 +1711,9 @@ public class TestIcebergLogicalPlanner
                         plan,
                         "lineitem",
                         withColumnDomains(ImmutableMap.of(
-                                new Subfield("partkey", ImmutableList.of()),
+                                new Subfield("partkey", Collections.emptyList()),
                                 multipleValues(BIGINT, ImmutableList.of(5L, 10L)),
-                                new Subfield("orderkey", ImmutableList.of()),
+                                new Subfield("orderkey", Collections.emptyList()),
                                 multipleValues(BIGINT, ImmutableList.of(5L, 10L)))),
                         remainingPredicateForAndOrCombination,
                         ImmutableSet.of("partkey", "orderkey")));
@@ -1762,7 +1763,7 @@ public class TestIcebergLogicalPlanner
                             "test_partition_pruning",
                             withColumnDomains(ImmutableMap.of(new Subfield(
                                             "orderkey",
-                                            ImmutableList.of()),
+                                            Collections.emptyList()),
                                     singleValue(BIGINT, 7L))),
                             TRUE_CONSTANT,
                             ImmutableSet.of("orderkey")));

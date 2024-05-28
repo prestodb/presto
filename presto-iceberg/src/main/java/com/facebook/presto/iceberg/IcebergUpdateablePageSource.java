@@ -23,12 +23,12 @@ import com.facebook.presto.iceberg.delete.RowPredicate;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.UpdatablePageSource;
-import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -168,7 +168,7 @@ public class IcebergUpdateablePageSource
     public CompletableFuture<Collection<Slice>> finish()
     {
         if (deleteSink == null) {
-            return CompletableFuture.completedFuture(ImmutableList.of());
+            return CompletableFuture.completedFuture(Collections.emptyList());
         }
         return deleteSink.finish();
     }

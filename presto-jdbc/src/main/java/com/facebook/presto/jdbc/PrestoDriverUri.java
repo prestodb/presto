@@ -16,7 +16,6 @@ package com.facebook.presto.jdbc;
 import com.facebook.presto.client.ClientException;
 import com.facebook.presto.client.OkHttpUtil;
 import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.net.HostAndPort;
@@ -28,6 +27,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.sql.SQLException;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -199,7 +199,7 @@ final class PrestoDriverUri
     public List<QueryInterceptor> getQueryInterceptors()
             throws SQLException
     {
-        return QUERY_INTERCEPTORS.getValue(properties).orElse(ImmutableList.of());
+        return QUERY_INTERCEPTORS.getValue(properties).orElse(Collections.emptyList());
     }
 
     public boolean isCompressionDisabled()

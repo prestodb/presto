@@ -17,8 +17,8 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.Property;
 import com.facebook.presto.sql.tree.SortItem;
-import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -31,7 +31,7 @@ public class NodeUtils
 
     public static List<SortItem> getSortItemsFromOrderBy(Optional<OrderBy> orderBy)
     {
-        return orderBy.map(OrderBy::getSortItems).orElse(ImmutableList.of());
+        return orderBy.map(OrderBy::getSortItems).orElse(Collections.emptyList());
     }
 
     public static Map<String, Expression> mapFromProperties(List<Property> properties)

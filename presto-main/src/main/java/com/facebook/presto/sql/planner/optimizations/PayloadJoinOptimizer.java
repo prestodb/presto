@@ -42,6 +42,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slices;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -381,7 +382,7 @@ public class PayloadJoinOptimizer
                     planNode,
                     ImmutableMap.of(),
                     singleGroupingSet(groupingKeys),
-                    ImmutableList.of(),
+                    Collections.emptyList(),
                     SINGLE,
                     Optional.empty(),
                     Optional.empty(),
@@ -448,7 +449,7 @@ public class PayloadJoinOptimizer
                     JoinType.LEFT,
                     payloadPlanNode,
                     projectNode,
-                    ImmutableList.of(),
+                    Collections.emptyList(),
                     resultOutputCols,
                     Optional.of(LogicalRowExpressions.and(joinCriteria)),
                     keysNode.getLeftHashVariable(),

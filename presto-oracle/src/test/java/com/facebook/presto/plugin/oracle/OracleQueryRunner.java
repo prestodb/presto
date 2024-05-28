@@ -21,6 +21,7 @@ import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
 import io.airlift.tpch.TpchTable;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -36,7 +37,7 @@ public class OracleQueryRunner
     public static DistributedQueryRunner createOracleQueryRunner(OracleServerTester server)
             throws Exception
     {
-        return createOracleQueryRunner(server, ImmutableList.of());
+        return createOracleQueryRunner(server, Collections.emptyList());
     }
 
     public static DistributedQueryRunner createOracleQueryRunner(OracleServerTester server, TpchTable<?>... tables)

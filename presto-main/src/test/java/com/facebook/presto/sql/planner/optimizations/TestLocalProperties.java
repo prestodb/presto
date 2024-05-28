@@ -35,6 +35,7 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -49,8 +50,8 @@ public class TestLocalProperties
     @Test
     public void testConstantProcessing()
     {
-        assertEquals(stripLeadingConstants(ImmutableList.of()), ImmutableList.of());
-        assertEquals(extractLeadingConstants(ImmutableList.of()), ImmutableSet.of());
+        assertEquals(stripLeadingConstants(Collections.emptyList()), Collections.emptyList());
+        assertEquals(extractLeadingConstants(Collections.emptyList()), ImmutableSet.of());
 
         List<LocalProperty<String>> input = ImmutableList.of(grouped("a"));
         assertEquals(stripLeadingConstants(input), ImmutableList.of(grouped("a")));
@@ -69,11 +70,11 @@ public class TestLocalProperties
         assertEquals(extractLeadingConstants(input), ImmutableSet.of());
 
         input = ImmutableList.of(constant("a"));
-        assertEquals(stripLeadingConstants(input), ImmutableList.of());
+        assertEquals(stripLeadingConstants(input), Collections.emptyList());
         assertEquals(extractLeadingConstants(input), ImmutableSet.of("a"));
 
         input = ImmutableList.of(constant("a"), constant("b"));
-        assertEquals(stripLeadingConstants(input), ImmutableList.of());
+        assertEquals(stripLeadingConstants(input), Collections.emptyList());
         assertEquals(extractLeadingConstants(input), ImmutableSet.of("a", "b"));
     }
 
@@ -81,12 +82,12 @@ public class TestLocalProperties
     public void testTranslate()
     {
         Map<String, String> map = ImmutableMap.of();
-        List<LocalProperty<String>> input = ImmutableList.of();
-        assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of());
+        List<LocalProperty<String>> input = Collections.emptyList();
+        assertEquals(LocalProperties.translate(input, translateWithMap(map)), Collections.emptyList());
 
         map = ImmutableMap.of();
         input = ImmutableList.of(grouped("a"));
-        assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of());
+        assertEquals(LocalProperties.translate(input, translateWithMap(map)), Collections.emptyList());
 
         map = ImmutableMap.of("a", "a1");
         input = ImmutableList.of(grouped("a"));
@@ -94,11 +95,11 @@ public class TestLocalProperties
 
         map = ImmutableMap.of();
         input = ImmutableList.of(constant("a"));
-        assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of());
+        assertEquals(LocalProperties.translate(input, translateWithMap(map)), Collections.emptyList());
 
         map = ImmutableMap.of();
         input = ImmutableList.of(constant("a"), grouped("b"));
-        assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of());
+        assertEquals(LocalProperties.translate(input, translateWithMap(map)), Collections.emptyList());
 
         map = ImmutableMap.of("b", "b1");
         input = ImmutableList.of(constant("a"), grouped("b"));
@@ -118,7 +119,7 @@ public class TestLocalProperties
 
         map = ImmutableMap.of("a", "a1", "c", "c1");
         input = ImmutableList.of(grouped("a", "b"), grouped("c"));
-        assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of());
+        assertEquals(LocalProperties.translate(input, translateWithMap(map)), Collections.emptyList());
 
         map = ImmutableMap.of("a", "a1", "c", "c1");
         input = ImmutableList.of(grouped("a"), grouped("b"), grouped("c"));

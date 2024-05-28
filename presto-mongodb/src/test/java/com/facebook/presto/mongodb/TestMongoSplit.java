@@ -17,8 +17,9 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.SchemaTableName;
-import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
+
+import java.util.Collections;
 
 import static org.testng.Assert.assertEquals;
 
@@ -29,13 +30,13 @@ public class TestMongoSplit
     @Test
     public void testJsonRoundTrip()
     {
-        MongoSplit expected = new MongoSplit(new SchemaTableName("schema1", "table1"), TupleDomain.all(), ImmutableList.of());
+        MongoSplit expected = new MongoSplit(new SchemaTableName("schema1", "table1"), TupleDomain.all(), Collections.emptyList());
 
         String json = codec.toJson(expected);
         MongoSplit actual = codec.fromJson(json);
 
         assertEquals(actual.getSchemaTableName(), expected.getSchemaTableName());
         assertEquals(actual.getTupleDomain(), TupleDomain.<ColumnHandle>all());
-        assertEquals(actual.getAddresses(), ImmutableList.of());
+        assertEquals(actual.getAddresses(), Collections.emptyList());
     }
 }

@@ -114,6 +114,7 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -344,7 +345,7 @@ public class OrcTester
     public void testRoundTrip(Type type, List<?> readValues)
             throws Exception
     {
-        testRoundTrip(type, readValues, ImmutableList.of());
+        testRoundTrip(type, readValues, Collections.emptyList());
     }
 
     public void testRoundTrip(Type type, List<?> readValues, TupleDomainFilter... filters)
@@ -468,7 +469,7 @@ public class OrcTester
                     .map(OrcTester::toHiveStructWithNull)
                     .collect(toList());
 
-            assertRoundTripWithSettings(writeType, readType, writeValues, readValues, true, ImmutableList.of());
+            assertRoundTripWithSettings(writeType, readType, writeValues, readValues, true, Collections.emptyList());
         }
     }
 
@@ -535,7 +536,7 @@ public class OrcTester
     private void testRoundTripType(Type type, List<?> readValues)
             throws Exception
     {
-        testRoundTripTypes(ImmutableList.of(type), ImmutableList.of(readValues), ImmutableList.of());
+        testRoundTripTypes(ImmutableList.of(type), ImmutableList.of(readValues), Collections.emptyList());
     }
 
     public void testRoundTripTypes(List<Type> types, List<List<?>> readValues, List<Map<Integer, Map<Subfield, TupleDomainFilter>>> filters)
@@ -547,7 +548,7 @@ public class OrcTester
     public void testRoundTripTypes(List<Type> types, List<List<?>> readValues, List<Map<Integer, Map<Subfield, TupleDomainFilter>>> filters, List<Map<Integer, Map<Subfield, TupleDomainFilter>>> valuesFilters)
             throws Exception
     {
-        testRoundTripTypes(types, readValues, filters, valuesFilters, ImmutableList.of());
+        testRoundTripTypes(types, readValues, filters, valuesFilters, Collections.emptyList());
     }
 
     public void testRoundTripTypes(
@@ -614,7 +615,7 @@ public class OrcTester
     public void assertRoundTrip(Type type, List<?> readValues)
             throws Exception
     {
-        assertRoundTripWithSettings(type, type, readValues, readValues, true, ImmutableList.of());
+        assertRoundTripWithSettings(type, type, readValues, readValues, true, Collections.emptyList());
     }
 
     public void assertRoundTrip(
@@ -639,7 +640,7 @@ public class OrcTester
     public void assertRoundTrip(Type type, List<?> readValues, boolean verifyWithHiveReader)
             throws Exception
     {
-        assertRoundTripWithSettings(type, type, readValues, readValues, verifyWithHiveReader, ImmutableList.of());
+        assertRoundTripWithSettings(type, type, readValues, readValues, verifyWithHiveReader, Collections.emptyList());
     }
 
     public void assertRoundTrip(
@@ -653,7 +654,7 @@ public class OrcTester
                 .mapToObj(i -> OrcReaderSettings.builder()
                         .setColumnFilters(columnFilters.get(i))
                         .setExpectedValuesFilters(readValuesFilters.get(i))
-                        .setExpectedFilterOrder(expectedFilterOrder.isEmpty() ? ImmutableList.of() : expectedFilterOrder.get(i))
+                        .setExpectedFilterOrder(expectedFilterOrder.isEmpty() ? Collections.emptyList() : expectedFilterOrder.get(i))
                         .build())
                 .collect(toImmutableList());
         assertRoundTripWithSettings(types, types, readValues, readValues, true, settings);
@@ -878,8 +879,8 @@ public class OrcTester
         {
             private Map<Integer, Map<Subfield, TupleDomainFilter>> columnFilters = ImmutableMap.of();
             private Map<Integer, Map<Subfield, TupleDomainFilter>> expectedValuesFilters = ImmutableMap.of();
-            private List<Integer> expectedFilterOrder = ImmutableList.of();
-            private List<FilterFunction> filterFunctions = ImmutableList.of();
+            private List<Integer> expectedFilterOrder = Collections.emptyList();
+            private List<FilterFunction> filterFunctions = Collections.emptyList();
             private Map<Integer, Integer> filterFunctionInputMapping = ImmutableMap.of();
             private Map<Integer, List<Subfield>> requiredSubfields = new HashMap<>();
             private OrcFileTailSource orcFileTailSource = new StorageOrcFileTailSource();
@@ -1105,7 +1106,7 @@ public class OrcTester
                     orcEncoding,
                     orcPredicate,
                     Optional.empty(),
-                    ImmutableList.of(),
+                    Collections.emptyList(),
                     ImmutableMap.of(),
                     ImmutableMap.of(),
                     intermediateEncryptionKeys,
@@ -1774,7 +1775,7 @@ public class OrcTester
                 ImmutableList.of(type),
                 initialBatchSize,
                 ImmutableMap.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 ImmutableMap.of(),
                 ImmutableMap.of(),
                 ImmutableMap.of(),

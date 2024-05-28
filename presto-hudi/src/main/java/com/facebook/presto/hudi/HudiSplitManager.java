@@ -32,7 +32,6 @@ import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
 import org.apache.hadoop.conf.Configuration;
@@ -48,6 +47,7 @@ import org.apache.hudi.common.util.HoodieTimer;
 import javax.inject.Inject;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -109,7 +109,7 @@ public class HudiSplitManager
         List<String> partitions = hudiPartitionManager.getEffectivePartitions(session, metastore, table.getSchemaTableName(), layout.getTupleDomain());
         log.debug("Took %d ms to get %d partitions", timer.endTimer(), partitions.size());
         if (partitions.isEmpty()) {
-            return new FixedSplitSource(ImmutableList.of());
+            return new FixedSplitSource(Collections.emptyList());
         }
 
         // Load Hudi metadata
@@ -121,7 +121,7 @@ public class HudiSplitManager
         String timestamp = timeline.lastInstant().map(HoodieInstant::getTimestamp).orElse(null);
         if (timestamp == null) {
             // no completed instant for current table
-            return new FixedSplitSource(ImmutableList.of());
+            return new FixedSplitSource(Collections.emptyList());
         }
         HoodieLocalEngineContext engineContext = new HoodieLocalEngineContext(conf);
         HoodieTableFileSystemView fsView = createInMemoryFileSystemViewWithTimeline(engineContext, metaClient, metadataConfig, timeline);
@@ -165,7 +165,7 @@ public class HudiSplitManager
             // non-partitioned tableLayout
             Table table = metastore.getTable(context, databaseName, tableName)
                     .orElseThrow(() -> new PrestoException(HUDI_INVALID_METADATA, format("Table %s.%s expected but not found", databaseName, tableName)));
-            return new HudiPartition(partitionName, ImmutableList.of(), ImmutableMap.of(), table.getStorage(), tableLayout.getDataColumns());
+            return new HudiPartition(partitionName, Collections.emptyList(), ImmutableMap.of(), table.getStorage(), tableLayout.getDataColumns());
         }
         else {
             // partitioned tableLayout

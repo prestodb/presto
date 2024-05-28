@@ -22,6 +22,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -82,8 +83,8 @@ public class TestJdbcRecordSet
                 new JdbcColumnHandle("test", "text", JDBC_VARCHAR, VARCHAR, true, Optional.empty())));
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of(BIGINT, BIGINT, VARCHAR));
 
-        recordSet = new JdbcRecordSet(jdbcClient, session, split, ImmutableList.of());
-        assertEquals(recordSet.getColumnTypes(), ImmutableList.of());
+        recordSet = new JdbcRecordSet(jdbcClient, session, split, Collections.emptyList());
+        assertEquals(recordSet.getColumnTypes(), Collections.emptyList());
     }
 
     @Test

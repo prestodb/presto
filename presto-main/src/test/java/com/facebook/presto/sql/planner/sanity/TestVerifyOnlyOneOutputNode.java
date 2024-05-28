@@ -22,9 +22,9 @@ import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
-import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -46,10 +46,10 @@ public class TestVerifyOnlyOneOutputNode
                                 new ValuesNode(
                                         Optional.empty(),
                                         idAllocator.getNextId(),
-                                        ImmutableList.of(), ImmutableList.of(),
+                                        Collections.emptyList(), Collections.emptyList(),
                                         Optional.empty()),
                                 Assignments.of()
-                        ), ImmutableList.of(), ImmutableList.of());
+                        ), Collections.emptyList(), Collections.emptyList());
         new VerifyOnlyOneOutputNode().validate(root, null, null, null, null, WarningCollector.NOOP);
     }
 
@@ -63,12 +63,12 @@ public class TestVerifyOnlyOneOutputNode
                                 new OutputNode(Optional.empty(), idAllocator.getNextId(),
                                         new ProjectNode(idAllocator.getNextId(),
                                                 new ValuesNode(Optional.empty(),
-                                                        idAllocator.getNextId(), ImmutableList.of(), ImmutableList.of(), Optional.empty()),
+                                                        idAllocator.getNextId(), Collections.emptyList(), Collections.emptyList(), Optional.empty()),
                                                 Assignments.of()
-                                        ), ImmutableList.of(), ImmutableList.of()
+                                        ), Collections.emptyList(), Collections.emptyList()
                                 ), new VariableReferenceExpression(Optional.empty(), "a", BIGINT),
                                 false),
-                        ImmutableList.of(), ImmutableList.of());
+                        Collections.emptyList(), Collections.emptyList());
         new VerifyOnlyOneOutputNode().validate(root, null, null, null, null, WarningCollector.NOOP);
     }
 }

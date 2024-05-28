@@ -27,10 +27,10 @@ import com.facebook.presto.verifier.prestoaction.PrestoExceptionClassifier;
 import com.facebook.presto.verifier.prestoaction.QueryActionsConfig;
 import com.facebook.presto.verifier.retry.RetryConfig;
 import com.facebook.presto.verifier.rewrite.QueryRewriter;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.parser.IdentifierSymbol.AT_SIGN;
@@ -75,7 +75,7 @@ public class TestDeterminismAnalyzer
                 PrestoExceptionClassifier.defaultBuilder().build(),
                 configuration,
                 verificationContext,
-                new JdbcUrlSelector(ImmutableList.of()),
+                new JdbcUrlSelector(Collections.emptyList()),
                 new PrestoActionConfig(),
                 queryActionsConfig.getMetadataTimeout(),
                 queryActionsConfig.getChecksumTimeout(),

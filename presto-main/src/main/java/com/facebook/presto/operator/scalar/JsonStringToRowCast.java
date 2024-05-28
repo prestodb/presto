@@ -22,6 +22,8 @@ import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
+
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.operator.scalar.JsonToRowCast.JSON_TO_ROW;
@@ -41,7 +43,7 @@ public final class JsonStringToRowCast
                 QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, JSON_STRING_TO_ROW_NAME),
                 SCALAR,
                 ImmutableList.of(withVariadicBound("T", "row")),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 parseTypeSignature("T"),
                 ImmutableList.of(parseTypeSignature(StandardTypes.VARCHAR)),
                 false));

@@ -23,6 +23,7 @@ import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -265,8 +266,8 @@ public class QueryInfo
         private final String schema;
         private final String originalQuery;
         private final Map<String, String> sessionProperties;
-        private List<String> setupQueryIds = ImmutableList.of();
-        private List<String> teardownQueryIds = ImmutableList.of();
+        private List<String> setupQueryIds = Collections.emptyList();
+        private List<String> teardownQueryIds = Collections.emptyList();
         private Optional<String> checksumQueryId = Optional.empty();
         private Optional<String> query = Optional.empty();
         private Optional<List<String>> setupQueries = Optional.empty();

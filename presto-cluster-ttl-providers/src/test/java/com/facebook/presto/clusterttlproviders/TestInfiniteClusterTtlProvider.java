@@ -14,8 +14,9 @@
 package com.facebook.presto.clusterttlproviders;
 
 import com.facebook.presto.clusterttlproviders.infinite.InfiniteClusterTtlProvider;
-import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
+
+import java.util.Collections;
 
 import static com.facebook.presto.spi.ttl.ConfidenceBasedTtlInfo.getInfiniteTtl;
 import static org.testng.Assert.assertEquals;
@@ -25,6 +26,6 @@ public class TestInfiniteClusterTtlProvider
     @Test
     public void testGetClusterTtl()
     {
-        assertEquals(new InfiniteClusterTtlProvider().getClusterTtl(ImmutableList.of()), getInfiniteTtl());
+        assertEquals(new InfiniteClusterTtlProvider().getClusterTtl(Collections.emptyList()), getInfiniteTtl());
     }
 }

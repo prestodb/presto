@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.presto.pinot.PinotSessionProperties.BROKER_AUTHENTICATION_PASSWORD;
@@ -38,7 +39,7 @@ public class TestPinotAuthenticationProvider
     {
         PinotEmptyAuthenticationProvider pinotEmptyAuthenticationProvider = PinotEmptyAuthenticationProvider.instance();
         assertEquals(pinotEmptyAuthenticationProvider.getAuthenticationToken(), Optional.empty());
-        assertEquals(pinotEmptyAuthenticationProvider.getAuthenticationToken(new TestingConnectorSession(ImmutableList.of(), ImmutableMap.of())), Optional.empty());
+        assertEquals(pinotEmptyAuthenticationProvider.getAuthenticationToken(new TestingConnectorSession(Collections.emptyList(), ImmutableMap.of())), Optional.empty());
     }
 
     @Test

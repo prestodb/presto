@@ -25,6 +25,7 @@ import org.testng.annotations.Test;
 import scala.Tuple2;
 
 import java.nio.ByteBuffer;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.IntStream;
@@ -54,7 +55,7 @@ public class TestPrestoSparkRowBatch
     @Test
     public void testRoundTrip()
     {
-        assertRoundTrip(ImmutableList.of());
+        assertRoundTrip(Collections.emptyList());
         assertRoundTrip(ImmutableList.of(
                 createRow(1, "row_data_1")));
         assertRoundTrip(ImmutableList.of(

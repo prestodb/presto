@@ -55,6 +55,7 @@ import io.airlift.slice.XxHash64;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -774,63 +775,63 @@ public class OrcWriteValidation
 
             if (BOOLEAN.equals(type)) {
                 statisticsBuilder = new BooleanStatisticsBuilder();
-                fieldExtractor = ignored -> ImmutableList.of();
-                fieldBuilders = ImmutableList.of();
+                fieldExtractor = ignored -> Collections.emptyList();
+                fieldBuilders = Collections.emptyList();
             }
             else if (TINYINT.equals(type)) {
                 statisticsBuilder = new IntegerStatisticsBuilder();
-                fieldExtractor = ignored -> ImmutableList.of();
-                fieldBuilders = ImmutableList.of();
+                fieldExtractor = ignored -> Collections.emptyList();
+                fieldBuilders = Collections.emptyList();
             }
             else if (SMALLINT.equals(type)) {
                 statisticsBuilder = new IntegerStatisticsBuilder();
-                fieldExtractor = ignored -> ImmutableList.of();
-                fieldBuilders = ImmutableList.of();
+                fieldExtractor = ignored -> Collections.emptyList();
+                fieldBuilders = Collections.emptyList();
             }
             else if (INTEGER.equals(type)) {
                 statisticsBuilder = new IntegerStatisticsBuilder();
-                fieldExtractor = ignored -> ImmutableList.of();
-                fieldBuilders = ImmutableList.of();
+                fieldExtractor = ignored -> Collections.emptyList();
+                fieldBuilders = Collections.emptyList();
             }
             else if (BIGINT.equals(type)) {
                 statisticsBuilder = new IntegerStatisticsBuilder();
-                fieldExtractor = ignored -> ImmutableList.of();
-                fieldBuilders = ImmutableList.of();
+                fieldExtractor = ignored -> Collections.emptyList();
+                fieldBuilders = Collections.emptyList();
             }
             else if (DOUBLE.equals(type)) {
                 statisticsBuilder = new DoubleStatisticsBuilder();
-                fieldExtractor = ignored -> ImmutableList.of();
-                fieldBuilders = ImmutableList.of();
+                fieldExtractor = ignored -> Collections.emptyList();
+                fieldBuilders = Collections.emptyList();
             }
             else if (REAL.equals(type)) {
                 statisticsBuilder = new DoubleStatisticsBuilder();
-                fieldExtractor = ignored -> ImmutableList.of();
-                fieldBuilders = ImmutableList.of();
+                fieldExtractor = ignored -> Collections.emptyList();
+                fieldBuilders = Collections.emptyList();
             }
             else if (type instanceof VarcharType) {
                 statisticsBuilder = new StringStatisticsBuilder(stringStatisticsLimitInBytes);
-                fieldExtractor = ignored -> ImmutableList.of();
-                fieldBuilders = ImmutableList.of();
+                fieldExtractor = ignored -> Collections.emptyList();
+                fieldBuilders = Collections.emptyList();
             }
             else if (type instanceof CharType) {
                 statisticsBuilder = new StringStatisticsBuilder(stringStatisticsLimitInBytes);
-                fieldExtractor = ignored -> ImmutableList.of();
-                fieldBuilders = ImmutableList.of();
+                fieldExtractor = ignored -> Collections.emptyList();
+                fieldBuilders = Collections.emptyList();
             }
             else if (VARBINARY.equals(type)) {
                 statisticsBuilder = new BinaryStatisticsBuilder();
-                fieldExtractor = ignored -> ImmutableList.of();
-                fieldBuilders = ImmutableList.of();
+                fieldExtractor = ignored -> Collections.emptyList();
+                fieldBuilders = Collections.emptyList();
             }
             else if (DATE.equals(type)) {
                 statisticsBuilder = new DateStatisticsBuilder();
-                fieldExtractor = ignored -> ImmutableList.of();
-                fieldBuilders = ImmutableList.of();
+                fieldExtractor = ignored -> Collections.emptyList();
+                fieldBuilders = Collections.emptyList();
             }
             else if (TIMESTAMP.equals(type) || TIMESTAMP_MICROSECONDS.equals(type)) {
                 statisticsBuilder = new CountStatisticsBuilder();
-                fieldExtractor = ignored -> ImmutableList.of();
-                fieldBuilders = ImmutableList.of();
+                fieldExtractor = ignored -> Collections.emptyList();
+                fieldBuilders = Collections.emptyList();
             }
             else if (type instanceof DecimalType) {
                 DecimalType decimalType = (DecimalType) type;
@@ -840,8 +841,8 @@ public class OrcWriteValidation
                 else {
                     statisticsBuilder = new LongDecimalStatisticsBuilder();
                 }
-                fieldExtractor = ignored -> ImmutableList.of();
-                fieldBuilders = ImmutableList.of();
+                fieldExtractor = ignored -> Collections.emptyList();
+                fieldBuilders = Collections.emptyList();
             }
             else if (type.getTypeSignature().getBase().equals(ARRAY)) {
                 statisticsBuilder = new CountStatisticsBuilder();

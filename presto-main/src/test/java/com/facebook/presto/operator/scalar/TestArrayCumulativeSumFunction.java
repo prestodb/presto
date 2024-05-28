@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
+import java.util.Collections;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DecimalType.createDecimalType;
@@ -37,7 +38,7 @@ public class TestArrayCumulativeSumFunction
         assertFunction("array_cum_sum(ARRAY [cast(5 as INTEGER), 6, 0])", new ArrayType(INTEGER), ImmutableList.of(5, 11, 11));
         assertFunction("array_cum_sum(ARRAY [cast(5 as INTEGER), 6, null, null, 2, 1])", new ArrayType(INTEGER), Arrays.asList(5, 11, null, null, null, null));
         assertFunction("array_cum_sum(ARRAY [cast(null as INTEGER), 6, 2, 3, 2, 1])", new ArrayType(INTEGER), Arrays.asList(null, null, null, null, null, null));
-        assertFunction("array_cum_sum(CAST(ARRAY[] AS array(integer)))", new ArrayType(INTEGER), ImmutableList.of());
+        assertFunction("array_cum_sum(CAST(ARRAY[] AS array(integer)))", new ArrayType(INTEGER), Collections.emptyList());
         assertFunction("array_cum_sum(CAST(NULL AS array(integer)))", new ArrayType(INTEGER), null);
         assertFunctionThrowsIncorrectly("array_cum_sum(ARRAY [cast(2147483647 as integer), 2147483647, 2147483647])", PrestoException.class, "integer addition overflow:.*");
     }
@@ -48,7 +49,7 @@ public class TestArrayCumulativeSumFunction
         assertFunction("array_cum_sum(ARRAY [cast(5 as bigint), 6, 0])", new ArrayType(BIGINT), ImmutableList.of(5L, 11L, 11L));
         assertFunction("array_cum_sum(ARRAY [cast(5 as bigint), 6, null, null, 2, 1])", new ArrayType(BIGINT), Arrays.asList(5L, 11L, null, null, null, null));
         assertFunction("array_cum_sum(ARRAY [cast(null as bigint), 6, 2, 3, 2, 1])", new ArrayType(BIGINT), Arrays.asList(null, null, null, null, null, null));
-        assertFunction("array_cum_sum(CAST(ARRAY[] AS array(bigint)))", new ArrayType(BIGINT), ImmutableList.of());
+        assertFunction("array_cum_sum(CAST(ARRAY[] AS array(bigint)))", new ArrayType(BIGINT), Collections.emptyList());
         assertFunction("array_cum_sum(CAST(NULL AS array(bigint)))", new ArrayType(BIGINT), null);
         assertFunction("array_cum_sum(ARRAY [cast(2147483647 as bigint), 2147483647, 2147483647])", new ArrayType(BIGINT), ImmutableList.of(2147483647L, 4294967294L, 6442450941L));
     }
@@ -59,7 +60,7 @@ public class TestArrayCumulativeSumFunction
         assertFunctionFloatArrayWithError("array_cum_sum(ARRAY [cast(5.1 as real), 6.1, 0.5])", new ArrayType(REAL), ImmutableList.of(5.1f, 11.2f, 11.7f), 1e-5f);
         assertFunction("array_cum_sum(ARRAY [cast(5.1 as real), 6, null, null, 2, 1.2])", new ArrayType(REAL), Arrays.asList(5.1f, 11.1f, null, null, null, null));
         assertFunction("array_cum_sum(ARRAY [cast(null as real), 6.2, 2, 3, 2, 1])", new ArrayType(REAL), Arrays.asList(null, null, null, null, null, null));
-        assertFunction("array_cum_sum(CAST(ARRAY[] AS array(real)))", new ArrayType(REAL), ImmutableList.of());
+        assertFunction("array_cum_sum(CAST(ARRAY[] AS array(real)))", new ArrayType(REAL), Collections.emptyList());
         assertFunction("array_cum_sum(CAST(NULL AS array(real)))", new ArrayType(REAL), null);
     }
 
@@ -69,7 +70,7 @@ public class TestArrayCumulativeSumFunction
         assertFunctionDoubleArrayWithError("array_cum_sum(ARRAY [cast(5.1 as double), 6.1, 0.5])", new ArrayType(DOUBLE), ImmutableList.of(5.1, 11.2, 11.7), 1e-5);
         assertFunction("array_cum_sum(ARRAY [cast(5.1 as double), 6, null, null, 2, 1.2])", new ArrayType(DOUBLE), Arrays.asList(5.1, 11.1, null, null, null, null));
         assertFunction("array_cum_sum(ARRAY [cast(null as double), 6.2, 2, 3, 2, 1])", new ArrayType(DOUBLE), Arrays.asList(null, null, null, null, null, null));
-        assertFunction("array_cum_sum(CAST(ARRAY[] AS array(double)))", new ArrayType(DOUBLE), ImmutableList.of());
+        assertFunction("array_cum_sum(CAST(ARRAY[] AS array(double)))", new ArrayType(DOUBLE), Collections.emptyList());
         assertFunction("array_cum_sum(CAST(NULL AS array(double)))", new ArrayType(DOUBLE), null);
     }
 

@@ -19,6 +19,7 @@ import com.facebook.presto.spi.procedure.Procedure;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.common.block.MethodHandleUtil.methodHandle;
@@ -63,7 +64,7 @@ public class TestProcedureCreation
         assertThatThrownBy(() -> new Procedure(
                 "schema",
                 "name",
-                ImmutableList.of(),
+                Collections.emptyList(),
                 methodHandle(Procedures.class, "funWithoutArguments")))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Method must return void");
@@ -75,7 +76,7 @@ public class TestProcedureCreation
         assertThatThrownBy(() -> new Procedure(
                 "schema",
                 "name",
-                ImmutableList.of(),
+                Collections.emptyList(),
                 null))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("methodHandle is null");
@@ -87,7 +88,7 @@ public class TestProcedureCreation
         assertThatThrownBy(() -> new Procedure(
                 "schema",
                 "name",
-                ImmutableList.of(),
+                Collections.emptyList(),
                 methodHandle(Procedures.class, "funWithVarargs", String[].class)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Method must have fixed arity");

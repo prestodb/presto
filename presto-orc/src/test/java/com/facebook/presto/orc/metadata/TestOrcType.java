@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -62,7 +63,7 @@ public class TestOrcType
     @Test
     public void testMapColumnToNodeEmpty()
     {
-        Set<Integer> actual = mapColumnToNode(ImmutableSet.of(), ImmutableList.of());
+        Set<Integer> actual = mapColumnToNode(ImmutableSet.of(), Collections.emptyList());
         assertTrue(actual.isEmpty());
     }
 
@@ -117,7 +118,7 @@ public class TestOrcType
     @Test
     public void testCreateNodeIdToColumnIdMapWithNoColumn()
     {
-        List<OrcType> orcTypes = OrcType.createOrcRowType(0, ImmutableList.of(), ImmutableList.of());
+        List<OrcType> orcTypes = OrcType.createOrcRowType(0, Collections.emptyList(), Collections.emptyList());
         Map<Integer, Integer> actual = createNodeIdToColumnMap(orcTypes);
         Map<Integer, Integer> expected = ImmutableMap.of();
         assertEquals(actual, expected);

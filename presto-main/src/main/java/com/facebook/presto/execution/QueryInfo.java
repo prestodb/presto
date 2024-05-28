@@ -42,6 +42,7 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 import java.net.URI;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -230,7 +231,7 @@ public class QueryInfo
         this.scalarFunctions = scalarFunctions;
         this.aggregateFunctions = aggregateFunctions;
         this.windowsFunctions = windowsFunctions;
-        this.planCanonicalInfo = planCanonicalInfo == null ? ImmutableList.of() : planCanonicalInfo;
+        this.planCanonicalInfo = planCanonicalInfo == null ? Collections.emptyList() : planCanonicalInfo;
         this.planIdNodeMap = planIdNodeMap == null ? ImmutableMap.of() : ImmutableMap.copyOf(planIdNodeMap);
         this.prestoSparkExecutionContext = prestoSparkExecutionContext;
     }

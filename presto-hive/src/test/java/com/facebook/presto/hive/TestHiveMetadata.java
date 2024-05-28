@@ -33,6 +33,7 @@ import io.airlift.slice.Slices;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -93,7 +94,7 @@ public class TestHiveMetadata
                         Optional.of(new HiveBucketProperty(
                                 ImmutableList.of(column1.getName()),
                                 100,
-                                ImmutableList.of(),
+                                Collections.emptyList(),
                                 HIVE_COMPATIBLE,
                                 Optional.empty())),
                         false,
@@ -105,11 +106,11 @@ public class TestHiveMetadata
                 Optional.empty(),
                 Optional.empty());
 
-        ColumnMetadata actual = HiveMetadata.columnMetadataGetter(mockTable, mockTypeManager, new HiveColumnConverter(), ImmutableList.of()).apply(hiveColumnHandle1);
+        ColumnMetadata actual = HiveMetadata.columnMetadataGetter(mockTable, mockTypeManager, new HiveColumnConverter(), Collections.emptyList()).apply(hiveColumnHandle1);
         ColumnMetadata expected = new ColumnMetadata("c1", IntegerType.INTEGER);
         assertEquals(actual, expected);
 
-        actual = HiveMetadata.columnMetadataGetter(mockTable, mockTypeManager, new TestColumnConverter(), ImmutableList.of()).apply(hidden);
+        actual = HiveMetadata.columnMetadataGetter(mockTable, mockTypeManager, new TestColumnConverter(), Collections.emptyList()).apply(hidden);
         expected = ColumnMetadata.builder().setName(HiveColumnHandle.PATH_COLUMN_NAME).setType(IntegerType.INTEGER).setHidden(true).build();
         assertEquals(actual, expected);
     }
@@ -167,7 +168,7 @@ public class TestHiveMetadata
     @Test
     public void testPreferredOrderingColumnsSerDe()
     {
-        verifyPreferredOrderingColumnsRoundTrip(ImmutableList.of());
+        verifyPreferredOrderingColumnsRoundTrip(Collections.emptyList());
         verifyPreferredOrderingColumnsRoundTrip(ImmutableList.of(new SortingColumn("a", ASCENDING)));
         verifyPreferredOrderingColumnsRoundTrip(ImmutableList.of(new SortingColumn("a", DESCENDING)));
         verifyPreferredOrderingColumnsRoundTrip(ImmutableList.of(new SortingColumn("a", ASCENDING), new SortingColumn("b", DESCENDING)));

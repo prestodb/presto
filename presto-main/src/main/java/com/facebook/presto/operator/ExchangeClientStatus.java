@@ -21,6 +21,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -137,7 +138,7 @@ public class ExchangeClientStatus
                 successfulRequestsCount + other.successfulRequestsCount,
                 bufferedPages + other.bufferedPages,
                 noMoreLocations && other.noMoreLocations, // if at least one has some locations, merge has some too
-                ImmutableList.of()); // pageBufferClientStatuses may be long, so we don't want to combine the lists
+                Collections.emptyList()); // pageBufferClientStatuses may be long, so we don't want to combine the lists
     }
 
     private static long mergeAvgs(long value1, long count1, long value2, long count2)

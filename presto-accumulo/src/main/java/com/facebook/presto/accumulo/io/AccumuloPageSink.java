@@ -26,7 +26,6 @@ import com.facebook.presto.common.type.TypeUtils;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.PrestoException;
-import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import org.apache.accumulo.core.client.AccumuloException;
 import org.apache.accumulo.core.client.AccumuloSecurityException;
@@ -40,6 +39,7 @@ import org.apache.accumulo.core.data.Value;
 import org.apache.hadoop.io.Text;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -279,7 +279,7 @@ public class AccumuloPageSink
         }
 
         // TODO Look into any use of the metadata for writing out the rows
-        return completedFuture(ImmutableList.of());
+        return completedFuture(Collections.emptyList());
     }
 
     @Override

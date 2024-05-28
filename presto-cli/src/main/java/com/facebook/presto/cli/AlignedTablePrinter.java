@@ -21,6 +21,7 @@ import org.fusesource.jansi.AnsiString;
 import java.io.IOException;
 import java.io.Writer;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -57,7 +58,7 @@ public class AlignedTablePrinter
     public void finish()
             throws IOException
     {
-        printRows(ImmutableList.of(), true);
+        printRows(Collections.emptyList(), true);
         writer.append(format("(%s row%s)%n", rowCount, (rowCount != 1) ? "s" : ""));
         writer.flush();
     }

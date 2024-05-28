@@ -47,6 +47,7 @@ import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -205,7 +206,7 @@ public class MemoryMetadata
     public synchronized void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
         ConnectorOutputTableHandle outputTableHandle = beginCreateTable(session, tableMetadata, Optional.empty());
-        finishCreateTable(session, outputTableHandle, ImmutableList.of(), ImmutableList.of());
+        finishCreateTable(session, outputTableHandle, Collections.emptyList(), Collections.emptyList());
     }
 
     @Override
@@ -365,6 +366,6 @@ public class MemoryMetadata
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableList.of());
+                Collections.emptyList());
     }
 }

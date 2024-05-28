@@ -25,6 +25,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import org.apache.iceberg.types.Types;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -69,7 +70,7 @@ public class IcebergColumnHandle
 
     public IcebergColumnHandle(ColumnIdentity columnIdentity, Type type, Optional<String> comment, ColumnType columnType)
     {
-        this(columnIdentity, type, comment, columnType, ImmutableList.of());
+        this(columnIdentity, type, comment, columnType, Collections.emptyList());
     }
 
     @JsonProperty
@@ -160,7 +161,7 @@ public class IcebergColumnHandle
 
     private static ColumnIdentity columnIdentity(IcebergMetadataColumn metadata)
     {
-        return new ColumnIdentity(metadata.getId(), metadata.getColumnName(), metadata.getTypeCategory(), ImmutableList.of());
+        return new ColumnIdentity(metadata.getId(), metadata.getColumnName(), metadata.getTypeCategory(), Collections.emptyList());
     }
 
     public boolean isPathColumn()

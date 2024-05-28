@@ -38,6 +38,7 @@ import javax.validation.constraints.NotNull;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationPartitioningMergingStrategy.LEGACY;
@@ -156,7 +157,7 @@ public class FeaturesConfig
     private boolean orderBySpillEnabled = true;
     private DataSize aggregationOperatorUnspillMemoryLimit = new DataSize(4, MEGABYTE);
     private DataSize topNOperatorUnspillMemoryLimit = new DataSize(4, MEGABYTE);
-    private List<Path> spillerSpillPaths = ImmutableList.of();
+    private List<Path> spillerSpillPaths = Collections.emptyList();
     private int spillerThreads = 4;
     private double spillMaxUsedSpaceThreshold = 0.9;
     private boolean iterativeOptimizerEnabled = true;

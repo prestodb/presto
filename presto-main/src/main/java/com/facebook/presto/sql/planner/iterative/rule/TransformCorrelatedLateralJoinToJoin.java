@@ -25,9 +25,9 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.presto.matching.Pattern.nonEmpty;
@@ -77,7 +77,7 @@ public class TransformCorrelatedLateralJoinToJoin
                         lateralJoinNode.getType().toJoinNodeType(),
                         lateralJoinNode.getInput(),
                         decorrelatedNode.getNode(),
-                        ImmutableList.of(),
+                        Collections.emptyList(),
                         lateralJoinNode.getOutputVariables(),
                         decorrelatedNode.getCorrelatedPredicates(),
                         Optional.empty(),

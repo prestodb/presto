@@ -23,6 +23,7 @@ import com.google.inject.Inject;
 import javax.annotation.PostConstruct;
 
 import java.net.URI;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
@@ -135,7 +136,7 @@ public class ClusterStatusTracker
     {
         ImmutableList.Builder<JsonNode> builder = ImmutableList.builder();
         remoteQueryInfos.forEach((coordinator, remoteQueryInfo) ->
-                builder.addAll(remoteQueryInfo.getQueryList().orElse(ImmutableList.of()).stream()
+                builder.addAll(remoteQueryInfo.getQueryList().orElse(Collections.emptyList()).stream()
                         .map(queryInfo -> ((ObjectNode) queryInfo).put("coordinatorUri", coordinator.toASCIIString()))
                         .collect(toImmutableList())));
         return builder.build();

@@ -37,6 +37,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import javax.annotation.concurrent.GuardedBy;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -178,7 +179,7 @@ public class FixedSourcePartitionedScheduler
     public ScheduleResult schedule()
     {
         // schedule a task on every node in the distribution
-        List<RemoteTask> newTasks = ImmutableList.of();
+        List<RemoteTask> newTasks = Collections.emptyList();
         if (!scheduledTasks) {
             newTasks = Streams.mapWithIndex(
                     nodes.stream(),
@@ -221,7 +222,7 @@ public class FixedSourcePartitionedScheduler
 
         int splitsScheduled = 0;
         Iterator<SourceScheduler> schedulerIterator = sourceSchedulers.iterator();
-        List<Lifespan> driverGroupsToStart = ImmutableList.of();
+        List<Lifespan> driverGroupsToStart = Collections.emptyList();
         while (schedulerIterator.hasNext()) {
             synchronized (this) {
                 // if a source scheduler is closed while it is scheduling, we can get an error
@@ -386,7 +387,7 @@ public class FixedSourcePartitionedScheduler
             if (!scheduleCompleted) {
                 List<Lifespan> lifespans = sourceScheduler.drainCompletelyScheduledLifespans();
                 if (lifespans.isEmpty()) {
-                    return ImmutableList.of();
+                    return Collections.emptyList();
                 }
                 checkState(ImmutableList.of(Lifespan.taskWide()).equals(lifespans));
                 scheduleCompleted = true;

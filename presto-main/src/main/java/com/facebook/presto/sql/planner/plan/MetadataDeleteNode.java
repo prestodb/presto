@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -80,7 +81,7 @@ public class MetadataDeleteNode
     @Override
     public List<PlanNode> getSources()
     {
-        return ImmutableList.of();
+        return Collections.emptyList();
     }
 
     @Override

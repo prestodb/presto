@@ -152,7 +152,7 @@ public class PluginManager
 
         installedPluginsDir = config.getInstalledPluginsDir();
         if (config.getPlugins() == null) {
-            this.plugins = ImmutableList.of();
+            this.plugins = Collections.emptyList();
         }
         else {
             this.plugins = ImmutableList.copyOf(config.getPlugins());
@@ -407,7 +407,7 @@ public class PluginManager
                 return ImmutableList.copyOf(files);
             }
         }
-        return ImmutableList.of();
+        return Collections.emptyList();
     }
 
     private static List<Artifact> sortedArtifacts(List<Artifact> artifacts)

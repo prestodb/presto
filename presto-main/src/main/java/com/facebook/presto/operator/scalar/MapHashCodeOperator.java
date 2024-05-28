@@ -23,6 +23,7 @@ import com.facebook.presto.metadata.SqlOperator;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 
 import static com.facebook.presto.common.function.OperatorType.HASH_CODE;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
@@ -43,7 +44,7 @@ public class MapHashCodeOperator
     {
         super(HASH_CODE,
                 ImmutableList.of(comparableTypeParameter("K"), comparableTypeParameter("V")),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 parseTypeSignature(StandardTypes.BIGINT),
                 ImmutableList.of(parseTypeSignature("map(K,V)")));
     }

@@ -33,6 +33,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -67,7 +68,7 @@ public class HandTpchQuery1
         doubleSum = functionAndTypeManager.getJavaAggregateFunctionImplementation(
                 functionAndTypeManager.lookupFunction("sum", fromTypes(DOUBLE)));
         countFunction = functionAndTypeManager.getJavaAggregateFunctionImplementation(
-                functionAndTypeManager.lookupFunction("count", ImmutableList.of()));
+                functionAndTypeManager.lookupFunction("count", Collections.emptyList()));
     }
 
     @Override
@@ -113,8 +114,8 @@ public class HandTpchQuery1
                 new PlanNodeId("test"),
                 getColumnTypes("lineitem", "returnflag", "linestatus"),
                 Ints.asList(0, 1),
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 Step.SINGLE,
                 ImmutableList.of(
                         generateAccumulatorFactory(doubleSum, ImmutableList.of(2), Optional.empty()),

@@ -24,6 +24,7 @@ import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
@@ -63,7 +64,7 @@ public class TestRcFileReaderManual
         SliceOutput output = new DynamicSliceOutput(10 * 1024);
 
         List<Segment> segments = ImmutableList.of(
-                writeSegment(output, ImmutableList.of()),
+                writeSegment(output, Collections.emptyList()),
                 writeSegment(output, ImmutableList.of(ImmutableList.of(0, 2, 3, 4), ImmutableList.of(10, 12, 13))),
                 writeSegment(output, ImmutableList.of(ImmutableList.of(20, 22), ImmutableList.of(30, 33), ImmutableList.of(40, 44))),
                 writeSegment(output, ImmutableList.of(ImmutableList.of(100, 101, 102))));
@@ -90,8 +91,8 @@ public class TestRcFileReaderManual
             assertEquals(segment.getValues(), readValues(file, segment.getOffset() - 1, 2));
 
             // regions entirely within the segment
-            assertEquals(ImmutableList.of(), readValues(file, segment.getOffset() + 1, 1));
-            assertEquals(ImmutableList.of(), readValues(file, segment.getOffset() + 1, segment.getLength() - 1));
+            assertEquals(Collections.emptyList(), readValues(file, segment.getOffset() + 1, 1));
+            assertEquals(Collections.emptyList(), readValues(file, segment.getOffset() + 1, segment.getLength() - 1));
 
             for (int rowGroupOffset : segment.getRowGroupSegmentOffsets()) {
                 // segment header to row group start
@@ -101,7 +102,7 @@ public class TestRcFileReaderManual
 
                 // region from grow group start until end of file (row group offset is always inside of the segment since a
                 // segment starts with a file header or sync sequence)
-                assertEquals(ImmutableList.of(), readValues(file, segment.getOffset() + rowGroupOffset, segment.getLength() - rowGroupOffset));
+                assertEquals(Collections.emptyList(), readValues(file, segment.getOffset() + rowGroupOffset, segment.getLength() - rowGroupOffset));
             }
         }
 

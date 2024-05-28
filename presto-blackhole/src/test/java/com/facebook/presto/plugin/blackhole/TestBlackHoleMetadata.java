@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -60,12 +61,12 @@ public class TestBlackHoleMetadata
 
         ConnectorOutputTableHandle table = metadata.beginCreateTable(
                 SESSION,
-                new ConnectorTableMetadata(schemaTableName, ImmutableList.of(), tableProperties),
+                new ConnectorTableMetadata(schemaTableName, Collections.emptyList(), tableProperties),
                 Optional.empty());
 
         assertThatNoTableIsCreated();
 
-        metadata.finishCreateTable(SESSION, table, ImmutableList.of(), ImmutableList.of());
+        metadata.finishCreateTable(SESSION, table, Collections.emptyList(), Collections.emptyList());
 
         List<SchemaTableName> tables = metadata.listTables(SESSION, Optional.empty());
         assertTrue(tables.size() == 1, "Expected only one table.");
@@ -77,7 +78,7 @@ public class TestBlackHoleMetadata
     {
         SchemaTableName schemaTableName = new SchemaTableName("schema1", "test_table");
         try {
-            metadata.beginCreateTable(SESSION, new ConnectorTableMetadata(schemaTableName, ImmutableList.of(), tableProperties), Optional.empty());
+            metadata.beginCreateTable(SESSION, new ConnectorTableMetadata(schemaTableName, Collections.emptyList(), tableProperties), Optional.empty());
             fail("Should fail because schema does not exist");
         }
         catch (PrestoException ex) {
@@ -88,6 +89,6 @@ public class TestBlackHoleMetadata
 
     private void assertThatNoTableIsCreated()
     {
-        assertEquals(metadata.listTables(SESSION, Optional.empty()), ImmutableList.of(), "No table was expected");
+        assertEquals(metadata.listTables(SESSION, Optional.empty()), Collections.emptyList(), "No table was expected");
     }
 }

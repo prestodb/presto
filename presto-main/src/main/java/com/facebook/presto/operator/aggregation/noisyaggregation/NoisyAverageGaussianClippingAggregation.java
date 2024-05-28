@@ -40,6 +40,7 @@ import com.facebook.presto.spi.function.aggregation.GroupedAccumulator;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -92,7 +93,7 @@ public class NoisyAverageGaussianClippingAggregation
     {
         super(NAME,
                 ImmutableList.of(typeVariable("T")),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 parseTypeSignature(StandardTypes.DOUBLE),
                 ImmutableList.of(parseTypeSignature("T"),
                         parseTypeSignature(StandardTypes.DOUBLE),

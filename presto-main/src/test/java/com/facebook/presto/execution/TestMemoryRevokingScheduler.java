@@ -50,6 +50,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -821,7 +822,7 @@ public class TestMemoryRevokingScheduler
     {
         if (!sqlTask.getTaskContext().isPresent()) {
             // update task to update underlying taskHolderReference with taskExecution + create a new taskContext
-            updateTask(sqlTask, ImmutableList.of(), createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds());
+            updateTask(sqlTask, Collections.emptyList(), createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds());
         }
         return sqlTask.getTaskContext().orElseThrow(() -> new IllegalStateException("TaskContext not present"));
     }

@@ -32,6 +32,7 @@ import com.google.common.collect.ImmutableSet;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -466,7 +467,7 @@ public class TestMergeWindows
         assertUnitPlan(sql,
                 anyTree(
                         filter("SUM = AVG",
-                                join(JoinType.INNER, ImmutableList.of(),
+                                join(JoinType.INNER, Collections.emptyList(),
                                         any(
                                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                                 .specification(leftSpecification)

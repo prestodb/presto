@@ -36,6 +36,7 @@ import io.airlift.slice.Slice;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -455,7 +456,7 @@ public class TableFinishOperator
                 return extractStatisticsRows(page).map(ImmutableList::of).orElse(ImmutableList.of());
             }
             if (!committedRecoverableLifespanAndStages.containsKey(lifespanAndStage)) {
-                return ImmutableList.of();
+                return Collections.emptyList();
             }
             checkState(!uncommittedRecoverableLifespanAndStageStates.containsKey(lifespanAndStage), "lifespanAndStage %s is already committed", lifespanAndStage);
             LifespanAndStageState lifespanAndStageState = committedRecoverableLifespanAndStages.get(lifespanAndStage);

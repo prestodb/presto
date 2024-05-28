@@ -42,6 +42,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -110,7 +111,7 @@ public class TestHiveBucketing
         assertBucketEquals("timestamp", new Timestamp(1000 * LocalDateTime.of(1950, 11, 19, 12, 34, 56, 789_000_000).toEpochSecond(ZoneOffset.UTC)));
         assertBucketEquals("timestamp", new Timestamp(1000 * LocalDateTime.of(2015, 11, 19, 7, 6, 5, 432_000_000).toEpochSecond(ZoneOffset.UTC)));
         assertBucketEquals("array<double>", null);
-        assertBucketEquals("array<boolean>", ImmutableList.of());
+        assertBucketEquals("array<boolean>", Collections.emptyList());
         assertBucketEquals("array<smallint>", ImmutableList.of((short) 5, (short) 8, (short) 13));
         assertBucketEquals("array<string>", ImmutableList.of("test1", "test2", "test3", "test4"));
         assertBucketEquals("map<float,date>", null);

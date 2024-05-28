@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -48,8 +49,8 @@ public class TestHiveEncryptionInformationProvider
                     false,
                     ImmutableMap.of(),
                     ImmutableMap.of()),
-            ImmutableList.of(),
-            ImmutableList.of(),
+            Collections.emptyList(),
+            Collections.emptyList(),
             ImmutableMap.of(),
             Optional.empty(),
             Optional.empty());

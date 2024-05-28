@@ -18,7 +18,6 @@ import com.facebook.presto.common.type.TestingTypeManager;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveType;
-import com.google.common.collect.ImmutableList;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe;
@@ -27,6 +26,7 @@ import org.apache.hadoop.mapred.RecordReader;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.stream.Stream;
@@ -201,7 +201,7 @@ public class TestS3SelectRecordCursor
     @Test(expectedExceptions = NullPointerException.class)
     public void shouldThrowNullPointerExceptionWhenSchemaIsNull()
     {
-        updateSplitSchema(null, ImmutableList.of());
+        updateSplitSchema(null, Collections.emptyList());
     }
 
     private Properties buildSplitSchema(String ddlSerializationValue, HiveColumnHandle... columns)

@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nullable;
 
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.execution.ExecutionFailureInfo.toStackTraceElement;
@@ -72,7 +73,7 @@ public class PrestoSparkFailureUtils
                 toPrestoSparkFailure(executionFailureInfo.getCause()),
                 executionFailureInfo.getType(),
                 executionFailureInfo.getErrorCode() == null ? "" : executionFailureInfo.getErrorCode().getName(),
-                ImmutableList.of());
+                Collections.emptyList());
 
         for (ExecutionFailureInfo suppressed : executionFailureInfo.getSuppressed()) {
             prestoSparkFailure.addSuppressed(requireNonNull(toPrestoSparkFailure(suppressed), "suppressed failure is null"));
@@ -92,7 +93,7 @@ public class PrestoSparkFailureUtils
     private static List<ExecutionStrategy> getRetryExecutionStrategies(Session session, ErrorCode errorCode, String message, ErrorCause errorCause)
     {
         if (errorCode == null || message == null) {
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
 
         ImmutableList.Builder<ExecutionStrategy> strategies = new ImmutableList.Builder<>();

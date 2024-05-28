@@ -89,6 +89,7 @@ import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -1094,7 +1095,7 @@ public class MetadataManager
                 return materializedViews.get().stream().map(convertFromSchemaTableName(tableName.getCatalogName())).collect(toImmutableList());
             }
         }
-        return ImmutableList.of();
+        return Collections.emptyList();
     }
 
     @Override

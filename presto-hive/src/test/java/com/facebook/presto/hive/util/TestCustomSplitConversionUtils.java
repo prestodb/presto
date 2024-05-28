@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive.util;
 
-import com.google.common.collect.ImmutableList;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hudi.common.model.HoodieLogFile;
@@ -25,6 +24,7 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -69,8 +69,8 @@ public class TestCustomSplitConversionUtils
     public void testHudiRealtimeSplitConverterNoLogRoundTrip()
             throws IOException
     {
-        List<String> deltaLogPaths = ImmutableList.of();
-        List<HoodieLogFile> deltaLogFiles = ImmutableList.of();
+        List<String> deltaLogPaths = Collections.emptyList();
+        List<HoodieLogFile> deltaLogFiles = Collections.emptyList();
         String expectedMaxCommitTime = "max_commit_time";
 
         FileSplit baseSplit = new FileSplit(FILE_PATH, SPLIT_START_POS, SPLIT_LENGTH, SPLIT_HOSTS);

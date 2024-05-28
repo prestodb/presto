@@ -23,6 +23,7 @@ import com.google.common.io.Files;
 import javax.inject.Inject;
 
 import java.io.File;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -47,7 +48,7 @@ public class StaticCatalogStore
     {
         this(connectorManager,
                 config.getCatalogConfigurationDir(),
-                firstNonNull(config.getDisabledCatalogs(), ImmutableList.of()));
+                firstNonNull(config.getDisabledCatalogs(), Collections.emptyList()));
     }
 
     public StaticCatalogStore(ConnectorManager connectorManager, File catalogConfigurationDir, List<String> disabledCatalogs)
@@ -132,6 +133,6 @@ public class StaticCatalogStore
                 return ImmutableList.copyOf(files);
             }
         }
-        return ImmutableList.of();
+        return Collections.emptyList();
     }
 }

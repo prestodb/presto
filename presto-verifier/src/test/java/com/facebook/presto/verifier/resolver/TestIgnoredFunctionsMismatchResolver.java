@@ -19,9 +19,9 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.verifier.checksum.ColumnMatchResult;
 import com.facebook.presto.verifier.checksum.SimpleColumnChecksum;
 import com.facebook.presto.verifier.framework.QueryObjectBundle;
-import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -64,9 +64,9 @@ public class TestIgnoredFunctionsMismatchResolver
     {
         return new QueryObjectBundle(
                 QualifiedName.of("test"),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 sqlParser.createStatement(query, PARSING_OPTIONS),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 CONTROL,
                 Optional.empty());
     }

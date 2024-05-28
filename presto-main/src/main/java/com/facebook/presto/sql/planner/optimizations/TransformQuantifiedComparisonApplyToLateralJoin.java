@@ -41,6 +41,7 @@ import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
@@ -199,7 +200,7 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
                                     false,
                                     Optional.empty())),
                     globalAggregation(),
-                    ImmutableList.of(),
+                    Collections.emptyList(),
                     AggregationNode.Step.SINGLE,
                     Optional.empty(),
                     Optional.empty(),

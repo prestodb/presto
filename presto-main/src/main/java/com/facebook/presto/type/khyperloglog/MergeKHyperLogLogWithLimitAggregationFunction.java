@@ -33,6 +33,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
@@ -55,7 +56,7 @@ public final class MergeKHyperLogLogWithLimitAggregationFunction
 
     public MergeKHyperLogLogWithLimitAggregationFunction(long groupLimit)
     {
-        super(NAME, ImmutableList.of(), ImmutableList.of(), K_HYPER_LOG_LOG.getTypeSignature(), ImmutableList.of(K_HYPER_LOG_LOG.getTypeSignature()));
+        super(NAME, Collections.emptyList(), Collections.emptyList(), K_HYPER_LOG_LOG.getTypeSignature(), ImmutableList.of(K_HYPER_LOG_LOG.getTypeSignature()));
         this.groupLimit = groupLimit;
     }
 

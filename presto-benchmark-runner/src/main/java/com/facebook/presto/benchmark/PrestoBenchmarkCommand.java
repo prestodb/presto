@@ -17,11 +17,11 @@ import com.facebook.presto.benchmark.prestoaction.PrestoExceptionClassifier;
 import com.facebook.presto.benchmark.prestoaction.SqlExceptionClassifier;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParserOptions;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Module;
 import io.airlift.airline.Command;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -34,7 +34,7 @@ public class PrestoBenchmarkCommand
     @Override
     public List<Module> getAdditionalModules()
     {
-        return ImmutableList.of();
+        return Collections.emptyList();
     }
 
     @Override

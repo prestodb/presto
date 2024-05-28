@@ -30,6 +30,7 @@ import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 
@@ -148,7 +149,7 @@ public class ImplementFilteredAggregations
                                 predicate),
                         aggregations.build(),
                         aggregation.getGroupingSets(),
-                        ImmutableList.of(),
+                        Collections.emptyList(),
                         aggregation.getStep(),
                         aggregation.getHashVariable(),
                         aggregation.getGroupIdVariable(),

@@ -23,6 +23,7 @@ import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.presto.matching.Pattern.empty;
@@ -50,7 +51,7 @@ public class TransformUncorrelatedLateralToJoin
                 JoinType.INNER,
                 lateralJoinNode.getInput(),
                 lateralJoinNode.getSubquery(),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 ImmutableList.<VariableReferenceExpression>builder()
                         .addAll(lateralJoinNode.getInput().getOutputVariables())
                         .addAll(lateralJoinNode.getSubquery().getOutputVariables())

@@ -43,6 +43,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.time.ZoneId;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -140,7 +141,7 @@ public class TestHiveMetadataFileFormatEncryptionSettings
                 new HivePartitionStats(),
                 new HiveFileRenamer(),
                 HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER,
-                new QuickStatsProvider(HDFS_ENVIRONMENT, HiveTestUtils.DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of()),
+                new QuickStatsProvider(HDFS_ENVIRONMENT, HiveTestUtils.DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), Collections.emptyList()),
                 new HiveTableWritabilityChecker(false));
 
         metastore.createDatabase(METASTORE_CONTEXT, Database.builder()
@@ -163,8 +164,8 @@ public class TestHiveMetadataFileFormatEncryptionSettings
     {
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
         properties.put(BUCKET_COUNT_PROPERTY, 0);
-        properties.put(BUCKETED_BY_PROPERTY, ImmutableList.of());
-        properties.put(SORTED_BY_PROPERTY, ImmutableList.of());
+        properties.put(BUCKETED_BY_PROPERTY, Collections.emptyList());
+        properties.put(SORTED_BY_PROPERTY, Collections.emptyList());
         if (isPartitioned) {
             properties.put(PARTITIONED_BY_PROPERTY, ImmutableList.of("ds"));
         }
@@ -278,14 +279,14 @@ public class TestHiveMetadataFileFormatEncryptionSettings
                             "test_provider")));
 
             List<PartitionUpdate> partitionUpdates = ImmutableList.of(
-                    new PartitionUpdate("ds=2020-06-26", NEW, "path1", "path1", ImmutableList.of(), 0, 0, 0, false),
-                    new PartitionUpdate("ds=2020-06-27", NEW, "path2", "path2", ImmutableList.of(), 0, 0, 0, false));
+                    new PartitionUpdate("ds=2020-06-26", NEW, "path1", "path1", Collections.emptyList(), 0, 0, 0, false),
+                    new PartitionUpdate("ds=2020-06-27", NEW, "path2", "path2", Collections.emptyList(), 0, 0, 0, false));
 
             metadata.finishCreateTable(
                     SESSION,
                     outputHandle,
                     partitionUpdates.stream().map(update -> Slices.utf8Slice(PARTITION_CODEC.toJson(update))).collect(toImmutableList()),
-                    ImmutableList.of());
+                    Collections.emptyList());
 
             ConnectorTableMetadata receivedMetadata = metadata.getTableMetadata(SESSION, new HiveTableHandle(TEST_DB_NAME, tableName));
 
@@ -459,14 +460,14 @@ public class TestHiveMetadataFileFormatEncryptionSettings
                                     "test_provider")));
 
             List<PartitionUpdate> partitionUpdates = ImmutableList.of(
-                    new PartitionUpdate("ds=2020-06-26", NEW, "path1", "path1", ImmutableList.of(), 0, 0, 0, false),
-                    new PartitionUpdate("ds=2020-06-27", NEW, "path2", "path2", ImmutableList.of(), 0, 0, 0, false));
+                    new PartitionUpdate("ds=2020-06-26", NEW, "path1", "path1", Collections.emptyList(), 0, 0, 0, false),
+                    new PartitionUpdate("ds=2020-06-27", NEW, "path2", "path2", Collections.emptyList(), 0, 0, 0, false));
 
             createHiveMetadata.finishInsert(
                     SESSION,
                     insertTableHandle,
                     partitionUpdates.stream().map(update -> Slices.utf8Slice(PARTITION_CODEC.toJson(update))).collect(toImmutableList()),
-                    ImmutableList.of());
+                    Collections.emptyList());
             createHiveMetadata.commit();
 
             Map<String, Optional<Partition>> partitions = metastore.getPartitionsByNames(
@@ -481,13 +482,13 @@ public class TestHiveMetadataFileFormatEncryptionSettings
             HiveMetadata overrideHiveMetadata = metadataFactory.get();
             insertTableHandle = overrideHiveMetadata.beginInsert(SESSION, new HiveTableHandle(TEST_DB_NAME, tableName));
             partitionUpdates = ImmutableList.of(
-                    new PartitionUpdate("ds=2020-06-26", OVERWRITE, "path3", "path3", ImmutableList.of(), 0, 0, 0, false));
+                    new PartitionUpdate("ds=2020-06-26", OVERWRITE, "path3", "path3", Collections.emptyList(), 0, 0, 0, false));
 
             overrideHiveMetadata.finishInsert(
                     SESSION,
                     insertTableHandle,
                     partitionUpdates.stream().map(update -> Slices.utf8Slice(PARTITION_CODEC.toJson(update))).collect(toImmutableList()),
-                    ImmutableList.of());
+                    Collections.emptyList());
             overrideHiveMetadata.commit();
 
             partitions = metastore.getPartitionsByNames(
@@ -583,25 +584,25 @@ public class TestHiveMetadataFileFormatEncryptionSettings
             HiveInsertTableHandle insertTableHandle = createHiveMetadata.beginInsert(SESSION, new HiveTableHandle(TEST_DB_NAME, tableName));
 
             List<PartitionUpdate> partitionUpdates = ImmutableList.of(
-                    new PartitionUpdate("ds=2020-06-26", NEW, "path1", "path1", ImmutableList.of(), 0, 0, 0, false));
+                    new PartitionUpdate("ds=2020-06-26", NEW, "path1", "path1", Collections.emptyList(), 0, 0, 0, false));
 
             createHiveMetadata.finishInsert(
                     SESSION,
                     insertTableHandle,
                     partitionUpdates.stream().map(update -> Slices.utf8Slice(PARTITION_CODEC.toJson(update))).collect(toImmutableList()),
-                    ImmutableList.of());
+                    Collections.emptyList());
             createHiveMetadata.commit();
 
             HiveMetadata appendHiveMetadata = metadataFactory.get();
             insertTableHandle = appendHiveMetadata.beginInsert(SESSION, new HiveTableHandle(TEST_DB_NAME, tableName));
             partitionUpdates = ImmutableList.of(
-                    new PartitionUpdate("ds=2020-06-26", APPEND, "path3", "path3", ImmutableList.of(), 0, 0, 0, false));
+                    new PartitionUpdate("ds=2020-06-26", APPEND, "path3", "path3", Collections.emptyList(), 0, 0, 0, false));
 
             appendHiveMetadata.finishInsert(
                     SESSION,
                     insertTableHandle,
                     partitionUpdates.stream().map(update -> Slices.utf8Slice(PARTITION_CODEC.toJson(update))).collect(toImmutableList()),
-                    ImmutableList.of());
+                    Collections.emptyList());
         }
         finally {
             dropTable(tableName);

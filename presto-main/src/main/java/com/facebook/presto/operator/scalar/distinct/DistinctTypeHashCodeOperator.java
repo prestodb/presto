@@ -22,6 +22,7 @@ import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.presto.common.function.OperatorType.HASH_CODE;
@@ -42,7 +43,7 @@ public class DistinctTypeHashCodeOperator
     {
         super(HASH_CODE,
                 ImmutableList.of(withVariadicBound("T", DISTINCT_TYPE)),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 parseTypeSignature(BIGINT),
                 ImmutableList.of(parseTypeSignature("T")));
     }

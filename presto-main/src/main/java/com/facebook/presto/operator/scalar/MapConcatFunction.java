@@ -36,6 +36,7 @@ import com.facebook.presto.sql.gen.VarArgsToArrayAdapterGenerator.VarArgMethodHa
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -69,13 +70,13 @@ public final class MapConcatFunction
                 QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, FUNCTION_NAME),
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("K"), typeVariable("V")),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 parseTypeSignature("map(K,V)"),
                 ImmutableList.of(parseTypeSignature("map(K,V)")),
                 true));
         descriptor = new ComplexTypeFunctionDescriptor(
                 false,
-                ImmutableList.of(),
+                Collections.emptyList(),
                 Optional.empty(),
                 Optional.of(ComplexTypeFunctionDescriptor::allSubfieldsRequired),
                 getSignature());

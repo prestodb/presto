@@ -26,8 +26,8 @@ import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.OffsetNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
-import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.isOffsetClauseEnabled;
@@ -88,7 +88,7 @@ public class ImplementOffset
                 parent.getSourceLocation(),
                 context.getIdAllocator().getNextId(),
                 parent.getSource(),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 rowNumberSymbol,
                 Optional.empty(),
                 false,

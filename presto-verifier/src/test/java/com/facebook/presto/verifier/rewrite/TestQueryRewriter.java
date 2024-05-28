@@ -42,6 +42,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -122,7 +123,7 @@ public class TestQueryRewriter
                         "* " +
                         "FROM test_table",
                 "local.tmp",
-                ImmutableList.of(),
+                Collections.emptyList(),
                 "CREATE TABLE %s( \"x\", \"y\", \"x_p_7\", \"x__1\", \"x_p_7__1\", \"a\", \"a__1\", \"b\" )\n" +
                         "WITH (\n" +
                         "   p_int = 30,\n" +
@@ -146,7 +147,7 @@ public class TestQueryRewriter
                 getQueryRewriter(),
                 "SELECT * FROM test_table a CROSS JOIN test_table b",
                 "local.tmp",
-                ImmutableList.of(),
+                Collections.emptyList(),
                 "CREATE TABLE %s( \"a\", \"b\", \"a__1\", \"b__1\" )\n" +
                         "WITH (\n" +
                         "   p_int = 30,\n" +
@@ -189,7 +190,7 @@ public class TestQueryRewriter
                 getQueryRewriter(),
                 "CREATE TABLE dest_table WITH (test_property = 90) AS SELECT * FROM test_table",
                 "local.tmp",
-                ImmutableList.of(),
+                Collections.emptyList(),
                 "CREATE TABLE %s\n" +
                         "WITH (\n" +
                         "   p_varchar = 'test',\n" +
@@ -640,7 +641,7 @@ public class TestQueryRewriter
                 createTypeManager(),
                 prestoAction,
                 ImmutableMap.of(CONTROL, QualifiedName.of("control"), TEST, QualifiedName.of("test")),
-                ImmutableMap.of(CONTROL, ImmutableList.of(), TEST, ImmutableList.of()),
+                ImmutableMap.of(CONTROL, Collections.emptyList(), TEST, Collections.emptyList()),
                 FunctionCallRewriter.validateAndConstructFunctionCallSubstituteMap(functionSubstitutes));
     }
 }

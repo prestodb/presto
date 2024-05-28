@@ -42,6 +42,7 @@ import com.facebook.presto.sql.relational.FunctionResolution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -151,7 +152,7 @@ public class PushAggregationThroughOuterJoin
                 getInnerTable(join),
                 aggregation.getAggregations(),
                 singleGroupingSet(groupingKeys),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 aggregation.getStep(),
                 aggregation.getHashVariable(),
                 aggregation.getGroupIdVariable(),
@@ -287,7 +288,7 @@ public class PushAggregationThroughOuterJoin
                 JoinType.INNER,
                 outerJoin,
                 aggregationOverNull,
-                ImmutableList.of(),
+                Collections.emptyList(),
                 ImmutableList.<VariableReferenceExpression>builder()
                         .addAll(outerJoin.getOutputVariables())
                         .addAll(aggregationOverNull.getOutputVariables())
@@ -378,7 +379,7 @@ public class PushAggregationThroughOuterJoin
                 nullRow,
                 aggregationsOverNullBuilder.build(),
                 globalAggregation(),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 AggregationNode.Step.SINGLE,
                 Optional.empty(),
                 Optional.empty(),

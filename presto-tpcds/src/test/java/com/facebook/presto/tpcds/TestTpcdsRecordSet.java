@@ -22,6 +22,7 @@ import com.teradata.tpcds.Table;
 import com.teradata.tpcds.column.Column;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -84,9 +85,9 @@ public class TestTpcdsRecordSet
                 createVarcharType(16)));
 
         table = getTable(DBGEN_VERSION.getName());
-        columns = ImmutableList.of();
+        columns = Collections.emptyList();
         recordSet = new TpcdsRecordSet(constructResults(table, session), columns);
-        assertEquals(recordSet.getColumnTypes(), ImmutableList.of());
+        assertEquals(recordSet.getColumnTypes(), Collections.emptyList());
     }
 
     @Test

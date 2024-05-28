@@ -43,10 +43,10 @@ import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.google.common.collect.ImmutableBiMap;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -217,7 +217,7 @@ public class PickTableLayout
                             .collect(toImmutableSet())));
 
             if (layout.getLayout().getPredicate().isNone()) {
-                return Result.ofPlanNode(new ValuesNode(tableScanNode.getSourceLocation(), context.getIdAllocator().getNextId(), tableScanNode.getOutputVariables(), ImmutableList.of(), Optional.empty()));
+                return Result.ofPlanNode(new ValuesNode(tableScanNode.getSourceLocation(), context.getIdAllocator().getNextId(), tableScanNode.getOutputVariables(), Collections.emptyList(), Optional.empty()));
             }
 
             return Result.ofPlanNode(new TableScanNode(
@@ -300,7 +300,7 @@ public class PickTableLayout
             constraint = new Constraint<>(newDomain);
         }
         if (constraint.getSummary().isNone()) {
-            return new ValuesNode(node.getSourceLocation(), idAllocator.getNextId(), node.getOutputVariables(), ImmutableList.of(), Optional.empty());
+            return new ValuesNode(node.getSourceLocation(), idAllocator.getNextId(), node.getOutputVariables(), Collections.emptyList(), Optional.empty());
         }
 
         // Layouts will be returned in order of the connector's preference
@@ -313,7 +313,7 @@ public class PickTableLayout
                         .collect(toImmutableSet())));
 
         if (layout.getLayout().getPredicate().isNone()) {
-            return new ValuesNode(node.getSourceLocation(), idAllocator.getNextId(), node.getOutputVariables(), ImmutableList.of(), Optional.empty());
+            return new ValuesNode(node.getSourceLocation(), idAllocator.getNextId(), node.getOutputVariables(), Collections.emptyList(), Optional.empty());
         }
 
         TableScanNode tableScan = new TableScanNode(

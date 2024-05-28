@@ -33,6 +33,7 @@ import com.facebook.presto.sql.gen.CachedInstanceBinder;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.bytecode.Access.FINAL;
@@ -65,7 +66,7 @@ public class RowIndeterminateOperator
 
     private RowIndeterminateOperator()
     {
-        super(INDETERMINATE, ImmutableList.of(withVariadicBound("T", "row")), ImmutableList.of(), BOOLEAN.getTypeSignature(), ImmutableList.of(parseTypeSignature("T")));
+        super(INDETERMINATE, ImmutableList.of(withVariadicBound("T", "row")), Collections.emptyList(), BOOLEAN.getTypeSignature(), ImmutableList.of(parseTypeSignature("T")));
     }
 
     @Override

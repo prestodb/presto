@@ -52,6 +52,7 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -98,7 +99,7 @@ public class TestHivePageSourceProvider
             5,
             REGULAR,
             Optional.empty(),
-            ImmutableList.of(),
+            Collections.emptyList(),
             Optional.empty());
 
     private static final ColumnHandle LONG_AGGREGATED_COLUMN = new HiveColumnHandle(
@@ -108,7 +109,7 @@ public class TestHivePageSourceProvider
             5,
             AGGREGATED,
             Optional.empty(),
-            ImmutableList.of(),
+            Collections.emptyList(),
             Optional.of(AggregationNodeUtils.count(FunctionAndTypeManager.createTestFunctionAndTypeManager())));
 
     public HivePageSourceProvider createPageSourceProvider()
@@ -150,8 +151,8 @@ public class TestHivePageSourceProvider
                         false,
                         ImmutableMap.of(),
                         ImmutableMap.of()),
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 OptionalInt.empty(),
                 OptionalInt.empty(),
                 NO_PREFERENCE,
@@ -181,8 +182,8 @@ public class TestHivePageSourceProvider
                         false,
                         ImmutableMap.of(),
                         ImmutableMap.of()),
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 OptionalInt.empty(),
                 OptionalInt.empty(),
                 NO_PREFERENCE,
@@ -236,14 +237,14 @@ public class TestHivePageSourceProvider
                 OptionalInt.empty(),
                 storage,
                 TupleDomain.none(),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 ImmutableMap.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 DateTimeZone.UTC,
                 new TestingTypeManager(),
                 new SchemaTableName("test", "test"),
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 ImmutableMap.of(),
                 0,
                 TableToPartitionMapping.empty(),
@@ -290,14 +291,14 @@ public class TestHivePageSourceProvider
                 OptionalInt.empty(),
                 storage,
                 TupleDomain.none(),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 ImmutableMap.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 DateTimeZone.UTC,
                 new TestingTypeManager(),
                 new SchemaTableName("test", "test"),
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 ImmutableMap.of(),
                 0,
                 TableToPartitionMapping.empty(),
@@ -358,7 +359,7 @@ public class TestHivePageSourceProvider
                 SESSION,
                 getHiveSplit(RCBINARY),
                 getHiveTableLayout(true, false, false),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 new SplitContext(false));
         assertTrue(pageSource instanceof FilteringPageSource, format("pageSource was %s", pageSource.getClass().getSimpleName()));
     }
@@ -455,8 +456,8 @@ public class TestHivePageSourceProvider
         return new HiveTableLayoutHandle(
                 new SchemaTableName(TEST_DATABASE, TEST_TABLE_NAME),
                 TEST_TABLE_NAME,
-                ImmutableList.of(),
-                ImmutableList.of(), // TODO fill out columns
+                Collections.emptyList(),
+                Collections.emptyList(), // TODO fill out columns
                 ImmutableMap.of(),
                 TupleDomain.all(), // none
                 TRUE_CONSTANT,
@@ -501,8 +502,8 @@ public class TestHivePageSourceProvider
                         false,
                         ImmutableMap.of(),
                         ImmutableMap.of()),
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 OptionalInt.empty(),
                 OptionalInt.empty(),
                 NO_PREFERENCE,

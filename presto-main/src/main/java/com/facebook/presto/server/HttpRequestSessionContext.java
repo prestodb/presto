@@ -161,7 +161,7 @@ public final class HttpRequestSessionContext
             certificates = ImmutableList.copyOf(certs);
         }
         else {
-            certificates = ImmutableList.of();
+            certificates = Collections.emptyList();
         }
 
         source = servletRequest.getHeader(PRESTO_SOURCE);

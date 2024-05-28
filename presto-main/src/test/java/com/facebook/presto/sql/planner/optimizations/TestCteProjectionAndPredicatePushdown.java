@@ -32,6 +32,7 @@ import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -104,7 +105,7 @@ public class TestCteProjectionAndPredicatePushdown
                         sequence(cteProducer(addQueryScopeDelimiter("temp", 0),
                                         tableScan("orders")),
                                 anyTree(
-                                        join(INNER, ImmutableList.of(),
+                                        join(INNER, Collections.emptyList(),
                                                 anyTree(cteConsumer(addQueryScopeDelimiter("temp", 0))),
                                                 cteConsumer(addQueryScopeDelimiter("temp", 0)))))));
     }
@@ -119,7 +120,7 @@ public class TestCteProjectionAndPredicatePushdown
                         sequence(cteProducer(addQueryScopeDelimiter("temp", 0),
                                         tableScan("orders")),
                                 anyTree(
-                                        join(INNER, ImmutableList.of(),
+                                        join(INNER, Collections.emptyList(),
                                                 project(cteConsumer(addQueryScopeDelimiter("temp", 0))),
                                                 cteConsumer(addQueryScopeDelimiter("temp", 0)))))));
     }

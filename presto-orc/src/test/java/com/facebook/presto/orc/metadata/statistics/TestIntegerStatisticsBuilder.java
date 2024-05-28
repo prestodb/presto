@@ -26,6 +26,7 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.orc.metadata.statistics.AbstractStatisticsBuilderTest.StatisticsType.INTEGER;
@@ -68,7 +69,7 @@ public class TestIntegerStatisticsBuilder
     @Test
     public void testTotalValueBytes()
     {
-        assertTotalValueBytes(0L, ImmutableList.of());
+        assertTotalValueBytes(0L, Collections.emptyList());
         assertTotalValueBytes(INTEGER_VALUE_BYTES, ImmutableList.of(42L));
         assertTotalValueBytes(INTEGER_VALUE_BYTES, ImmutableList.of(0L));
         assertTotalValueBytes(4 * INTEGER_VALUE_BYTES, ImmutableList.of(0L, 42L, 42L, 43L));

@@ -76,6 +76,7 @@ import com.google.common.collect.ImmutableSet;
 
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -235,7 +236,7 @@ public class LogicalPlanner
                         new TableScanNode(getSourceLocation(analyzeStatement), idAllocator.getNextId(), targetTable, tableScanOutputs, variableToColumnHandle.build(), TupleDomain.all(), TupleDomain.all()),
                         statisticAggregations.getAggregations(),
                         singleGroupingSet(statisticAggregations.getGroupingVariables()),
-                        ImmutableList.of(),
+                        Collections.emptyList(),
                         AggregationNode.Step.SINGLE,
                         Optional.empty(),
                         Optional.empty(),

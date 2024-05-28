@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -72,7 +73,7 @@ public class Suite
     public List<BenchmarkSchema> selectSchemas(Iterable<String> schemas)
     {
         if (schemaNameTemplates.isEmpty()) {
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
 
         ImmutableList.Builder<BenchmarkSchema> benchmarkSchemas = ImmutableList.builder();

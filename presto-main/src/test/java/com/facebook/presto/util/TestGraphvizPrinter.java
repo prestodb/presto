@@ -64,7 +64,7 @@ public class TestGraphvizPrinter
             Optional.empty(),
             TEST_TABLE_SCAN_NODE_ID,
             new TableHandle(TEST_CONNECTOR_ID, TEST_CONNECTOR_TABLE_HANDLE, TestingTransactionHandle.create(), Optional.empty()),
-            ImmutableList.of(),
+            Collections.emptyList(),
             ImmutableMap.of(),
             TupleDomain.all(),
             TupleDomain.all());
@@ -98,7 +98,7 @@ public class TestGraphvizPrinter
     {
         SubPlan tableScanNodeSubPlan = new SubPlan(
                 createTestPlanFragment(0, TEST_TABLE_SCAN_NODE),
-                ImmutableList.of());
+                Collections.emptyList());
         SubPlan nestedSubPlan = new SubPlan(
                 createTestPlanFragment(1, TEST_TABLE_SCAN_NODE),
                 ImmutableList.of(tableScanNodeSubPlan));
@@ -150,7 +150,7 @@ public class TestGraphvizPrinter
     @Test
     public void testPrintLogicalForJoinNode()
     {
-        ValuesNode valuesNode = new ValuesNode(Optional.empty(), new PlanNodeId("right"), ImmutableList.of(), ImmutableList.of(), Optional.empty());
+        ValuesNode valuesNode = new ValuesNode(Optional.empty(), new PlanNodeId("right"), Collections.emptyList(), Collections.emptyList(), Optional.empty());
 
         PlanNode node = new JoinNode(
                 Optional.empty(),
@@ -199,7 +199,7 @@ public class TestGraphvizPrinter
                 ImmutableSet.of(),
                 SOURCE_DISTRIBUTION,
                 ImmutableList.of(TEST_TABLE_SCAN_NODE_ID),
-                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of()),
+                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, Collections.emptyList()), Collections.emptyList()),
                 ungroupedExecution(),
                 false,
                 StatsAndCosts.empty(),

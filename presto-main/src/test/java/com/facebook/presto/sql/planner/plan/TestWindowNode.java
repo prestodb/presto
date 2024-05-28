@@ -47,6 +47,7 @@ import io.airlift.slice.Slice;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -94,7 +95,7 @@ public class TestWindowNode
                 Optional.empty(),
                 newId(),
                 ImmutableList.of(columnA, columnB, columnC),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 Optional.empty());
     }
 

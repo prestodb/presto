@@ -14,8 +14,8 @@
 package com.facebook.presto.expressions.translator;
 
 import com.facebook.presto.spi.relation.RowExpression;
-import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -51,7 +51,7 @@ public class TranslatedExpression<T>
 
     public static <T> TranslatedExpression<T> untranslated(RowExpression originalExpression)
     {
-        return new TranslatedExpression<>(Optional.empty(), originalExpression, ImmutableList.of());
+        return new TranslatedExpression<>(Optional.empty(), originalExpression, Collections.emptyList());
     }
 
     public static <T> TranslatedExpression<T> untranslated(RowExpression originalExpression, List<TranslatedExpression<T>> translatedArguments)

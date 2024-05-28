@@ -18,11 +18,11 @@ import com.facebook.presto.bytecode.BytecodeVisitor;
 import com.facebook.presto.bytecode.MethodGenerationContext;
 import com.facebook.presto.bytecode.OpCode;
 import com.facebook.presto.bytecode.ParameterizedType;
-import com.google.common.collect.ImmutableList;
 import org.objectweb.asm.MethodVisitor;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.bytecode.OpCode.GETFIELD;
@@ -115,7 +115,7 @@ public abstract class FieldInstruction
     @Override
     public List<BytecodeNode> getChildNodes()
     {
-        return ImmutableList.of();
+        return Collections.emptyList();
     }
 
     @Override

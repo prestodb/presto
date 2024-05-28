@@ -1151,7 +1151,7 @@ public class TestHiveMaterializedViewLogicalPlanner
                     aggregation(
                             singleGroupingSet("orderkey"),
                             ImmutableMap.of(Optional.empty(), functionCall("sum", ImmutableList.of("count"))),
-                            ImmutableList.of(),
+                            Collections.emptyList(),
                             ImmutableMap.of(),
                             Optional.empty(),
                             SINGLE,
@@ -1159,7 +1159,7 @@ public class TestHiveMaterializedViewLogicalPlanner
                                     ExchangeNode.class,
                                     anyTree(
                                             aggregation(
-                                                    ImmutableMap.of("count", functionCall("count", false, ImmutableList.of())),
+                                                    ImmutableMap.of("count", functionCall("count", false, Collections.emptyList())),
                                                     SINGLE,
                                                     node(
                                                             ExchangeNode.class,
@@ -1228,7 +1228,7 @@ public class TestHiveMaterializedViewLogicalPlanner
                     aggregation(
                             singleGroupingSet("orderkey"),
                             ImmutableMap.of(Optional.empty(), functionCall("sum", ImmutableList.of("count"))),
-                            ImmutableList.of(),
+                            Collections.emptyList(),
                             ImmutableMap.of(),
                             Optional.empty(),
                             SINGLE,
@@ -1236,7 +1236,7 @@ public class TestHiveMaterializedViewLogicalPlanner
                                     ExchangeNode.class,
                                     anyTree(
                                             aggregation(
-                                                    ImmutableMap.of("count", functionCall("count", false, ImmutableList.of())),
+                                                    ImmutableMap.of("count", functionCall("count", false, Collections.emptyList())),
                                                     SINGLE,
                                                     node(
                                                             ExchangeNode.class,
@@ -1298,8 +1298,8 @@ public class TestHiveMaterializedViewLogicalPlanner
             PlanMatchPattern expectedPatternWithoutCountOptimization = anyTree(
                     aggregation(
                             singleGroupingSet("orderkey"),
-                            ImmutableMap.of(Optional.empty(), functionCall("count", false, ImmutableList.of())),
-                            ImmutableList.of(),
+                            ImmutableMap.of(Optional.empty(), functionCall("count", false, Collections.emptyList())),
+                            Collections.emptyList(),
                             ImmutableMap.of(),
                             Optional.empty(),
                             SINGLE,
@@ -1370,7 +1370,7 @@ public class TestHiveMaterializedViewLogicalPlanner
                                             project(
                                                     ImmutableMap.of("ds_43", expression("'2021-07-12'")),
                                                     aggregation(
-                                                            ImmutableMap.of("count", functionCall("count", false, ImmutableList.of())),
+                                                            ImmutableMap.of("count", functionCall("count", false, Collections.emptyList())),
                                                             SINGLE,
                                                             node(
                                                                     ExchangeNode.class,
@@ -2254,7 +2254,7 @@ public class TestHiveMaterializedViewLogicalPlanner
             assertEquals(viewTable, baseTable);
 
             assertPlan(getSession(), viewQuery, anyTree(
-                    join(INNER, ImmutableList.of(),
+                    join(INNER, Collections.emptyList(),
                             filter("orderkey < BIGINT'10000'", constrainedTableScan(table1,
                                     ImmutableMap.of(
                                             "ds", singleValue(createVarcharType(10), utf8Slice("2019-01-02")),

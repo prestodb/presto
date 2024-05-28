@@ -62,6 +62,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
 import java.nio.file.Path;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -149,7 +150,7 @@ public class DistributedQueryRunner
                 ENVIRONMENT,
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableList.of());
+                Collections.emptyList());
     }
 
     public static Builder builder(Session defaultSession)
@@ -209,7 +210,7 @@ public class DistributedQueryRunner
                 extraCoordinatorProperties.put("node-scheduler.include-coordinator", "false");
             }
             else {
-                externalWorkers = ImmutableList.of();
+                externalWorkers = Collections.emptyList();
 
                 for (int i = (coordinatorCount + (resourceManagerEnabled ? resourceManagerCount : 0)); i < nodeCount; i++) {
                     // We are simply splitting the nodes into leaf and intermediate for testing purpose
@@ -878,7 +879,7 @@ public class DistributedQueryRunner
         private Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher = Optional.empty();
         private boolean resourceManagerEnabled;
         private boolean catalogServerEnabled;
-        private List<Module> extraModules = ImmutableList.of();
+        private List<Module> extraModules = Collections.emptyList();
         private int resourceManagerCount = 1;
 
         protected Builder(Session defaultSession)

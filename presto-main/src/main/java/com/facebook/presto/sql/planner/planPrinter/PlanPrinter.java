@@ -451,7 +451,7 @@ public class PlanPrinter
                 types.allVariables(),
                 SINGLE_DISTRIBUTION,
                 ImmutableList.of(plan.getId()),
-                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getOutputVariables()),
+                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, Collections.emptyList()), plan.getOutputVariables()),
                 StageExecutionDescriptor.ungroupedExecution(),
                 false,
                 estimatedStatsAndCosts,
@@ -980,7 +980,7 @@ public class PlanPrinter
                     format(formatString, arguments.toArray(new Object[0])),
                     allNodes,
                     ImmutableList.of(sourceNode),
-                    ImmutableList.of());
+                    Collections.emptyList());
 
             if (projectNode.isPresent()) {
                 printAssignments(nodeOutput, projectNode.get().getAssignments());
@@ -1111,8 +1111,8 @@ public class PlanPrinter
             addNode(node,
                     format("Remote%s", node.getOrderingScheme().isPresent() ? "Merge" : "Source"),
                     format("[%s]", Joiner.on(',').join(node.getSourceFragmentIds())),
-                    ImmutableList.of(),
-                    ImmutableList.of(),
+                    Collections.emptyList(),
+                    Collections.emptyList(),
                     node.getSourceFragmentIds());
 
             return null;
@@ -1259,7 +1259,7 @@ public class PlanPrinter
         @Override
         public Void visitGroupReference(GroupReference node, Void context)
         {
-            addNode(node, "GroupReference", format("[%s]", node.getGroupId()), ImmutableList.of());
+            addNode(node, "GroupReference", format("[%s]", node.getGroupId()), Collections.emptyList());
 
             return null;
         }
@@ -1358,12 +1358,12 @@ public class PlanPrinter
 
         public NodeRepresentation addNode(PlanNode node, String name, String identifier, List<PlanNode> children)
         {
-            return addNode(node, name, identifier, ImmutableList.of(node.getId()), children, ImmutableList.of());
+            return addNode(node, name, identifier, ImmutableList.of(node.getId()), children, Collections.emptyList());
         }
 
         public NodeRepresentation addNode(PlanNode node, String name, List<PlanNode> children)
         {
-            return addNode(node, name, "", ImmutableList.of(node.getId()), children, ImmutableList.of());
+            return addNode(node, name, "", ImmutableList.of(node.getId()), children, Collections.emptyList());
         }
 
         public NodeRepresentation addNode(PlanNode rootNode, String name, String identifier, List<PlanNodeId> allNodes, List<PlanNode> children, List<PlanFragmentId> remoteSources)

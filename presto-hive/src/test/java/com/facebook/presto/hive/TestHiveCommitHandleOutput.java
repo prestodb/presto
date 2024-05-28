@@ -90,8 +90,8 @@ public class TestHiveCommitHandleOutput
             URI tempUri = createTempDirectory("test").toUri();
             testTableProperties = ImmutableMap.<String, Object>builder()
                     .put(BUCKET_COUNT_PROPERTY, 0)
-                    .put(BUCKETED_BY_PROPERTY, ImmutableList.of())
-                    .put(SORTED_BY_PROPERTY, ImmutableList.of())
+                    .put(BUCKETED_BY_PROPERTY, Collections.emptyList())
+                    .put(SORTED_BY_PROPERTY, Collections.emptyList())
                     .put(STORAGE_FORMAT_PROPERTY, ORC)
                     .put(EXTERNAL_LOCATION_PROPERTY, tempUri.toASCIIString())
                     .put(PARTITIONED_BY_PROPERTY, ImmutableList.of("a"))
@@ -226,7 +226,7 @@ public class TestHiveCommitHandleOutput
 
     private HiveMetadata getHiveMetadata(TestingExtendedHiveMetastore metastore, HiveClientConfig hiveClientConfig, ListeningExecutorService listeningExecutor)
     {
-        HdfsEnvironment hdfsEnvironment = new TestingHdfsEnvironment(ImmutableList.of());
+        HdfsEnvironment hdfsEnvironment = new TestingHdfsEnvironment(Collections.emptyList());
         HiveMetadataFactory hiveMetadataFactory = new HiveMetadataFactory(
                 metastore,
                 hdfsEnvironment,
@@ -255,11 +255,11 @@ public class TestHiveCommitHandleOutput
                 new HiveZeroRowFileCreator(hdfsEnvironment, new OutputStreamDataSinkFactory(), listeningExecutor),
                 TEST_SERVER_VERSION,
                 new HivePartitionObjectBuilder(),
-                new HiveEncryptionInformationProvider(ImmutableList.of()),
+                new HiveEncryptionInformationProvider(Collections.emptyList()),
                 new HivePartitionStats(),
                 new HiveFileRenamer(),
                 HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER,
-                new QuickStatsProvider(HDFS_ENVIRONMENT, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of()),
+                new QuickStatsProvider(HDFS_ENVIRONMENT, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), Collections.emptyList()),
                 new HiveTableWritabilityChecker(false));
         return hiveMetadataFactory.get();
     }
@@ -269,7 +269,7 @@ public class TestHiveCommitHandleOutput
         Partition.Builder partitionBuilder = Partition.builder()
                 .setDatabaseName(TEST_SCHEMA)
                 .setTableName(TEST_TABLE)
-                .setColumns(ImmutableList.of())
+                .setColumns(Collections.emptyList())
                 .setValues(toPartitionValues(partitionName))
                 .withStorage(storage -> storage
                         .setStorageFormat(fromHiveStorageFormat(HiveStorageFormat.ORC))

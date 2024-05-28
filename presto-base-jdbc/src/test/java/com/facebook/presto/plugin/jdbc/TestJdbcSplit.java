@@ -15,9 +15,9 @@ package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.predicate.TupleDomain;
-import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
@@ -32,11 +32,11 @@ public class TestJdbcSplit
     public void testAddresses()
     {
         // split uses "example" scheme so no addresses are available and is not remotely accessible
-        assertEquals(split.getAddresses(), ImmutableList.of());
+        assertEquals(split.getAddresses(), Collections.emptyList());
         assertEquals(split.getNodeSelectionStrategy(), NO_PREFERENCE);
 
         JdbcSplit jdbcSplit = new JdbcSplit("connectorId", "catalog", "schemaName", "tableName", TupleDomain.all(), Optional.empty());
-        assertEquals(jdbcSplit.getAddresses(), ImmutableList.of());
+        assertEquals(jdbcSplit.getAddresses(), Collections.emptyList());
     }
 
     @Test
@@ -49,7 +49,7 @@ public class TestJdbcSplit
         assertEquals(copy.getSchemaName(), split.getSchemaName());
         assertEquals(copy.getTableName(), split.getTableName());
 
-        assertEquals(copy.getAddresses(), ImmutableList.of());
+        assertEquals(copy.getAddresses(), Collections.emptyList());
         assertEquals(copy.getNodeSelectionStrategy(), NO_PREFERENCE);
     }
 }

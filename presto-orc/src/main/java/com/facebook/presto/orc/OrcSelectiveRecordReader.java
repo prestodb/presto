@@ -54,6 +54,7 @@ import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -612,7 +613,7 @@ public class OrcSelectiveRecordReader
                         streamDescriptor,
                         Optional.ofNullable(filters.get(columnId)).orElse(ImmutableMap.of()),
                         outputRequired ? Optional.of(includedColumns.get(columnId)) : Optional.empty(),
-                        Optional.ofNullable(requiredSubfields.get(columnId)).orElse(ImmutableList.of()),
+                        Optional.ofNullable(requiredSubfields.get(columnId)).orElse(Collections.emptyList()),
                         hiveStorageTimeZone,
                         options,
                         systemMemoryContext,

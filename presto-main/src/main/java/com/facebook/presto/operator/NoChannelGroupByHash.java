@@ -18,9 +18,9 @@ import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.function.aggregation.GroupByIdBlock;
-import com.google.common.collect.ImmutableList;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -53,7 +53,7 @@ public class NoChannelGroupByHash
     @Override
     public List<Type> getTypes()
     {
-        return ImmutableList.of();
+        return Collections.emptyList();
     }
 
     @Override

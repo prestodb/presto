@@ -42,6 +42,7 @@ import com.google.common.collect.Streams;
 
 import javax.inject.Inject;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -97,7 +98,7 @@ public class BigQueryMetadata
     private List<SchemaTableName> listTablesWithTypes(ConnectorSession session, Optional<String> schemaName, TableDefinition.Type... types)
     {
         if (schemaName.isPresent() && schemaName.get().equalsIgnoreCase(INFORMATION_SCHEMA)) {
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
         Set<String> schemaNames = schemaName.map(ImmutableSet::of)
                 .orElseGet(() -> ImmutableSet.copyOf(listSchemaNames(session)));
@@ -151,7 +152,7 @@ public class BigQueryMetadata
                 Optional.empty(), // tablePartitioning
                 Optional.empty(), // streamPartitioningColumns
                 Optional.empty(), // discretePredicates
-                ImmutableList.of()); // localProperties
+                Collections.emptyList()); // localProperties
     }
 
     private Optional<TableInfo> getBigQueryTable(SchemaTableName tableName)
@@ -177,7 +178,7 @@ public class BigQueryMetadata
         SchemaTableName schemaTableName = new SchemaTableName(table.getTableId().getDataset(), table.getTableId().getTable());
         Schema schema = table.getDefinition().getSchema();
         List<ColumnMetadata> columns = schema == null ?
-                ImmutableList.of() :
+                Collections.emptyList() :
                 schema.getFields().stream()
                         .map(Conversions::toColumnMetadata)
                         .collect(toImmutableList());
@@ -231,6 +232,6 @@ public class BigQueryMetadata
         Optional<TableInfo> tableInfo = getBigQueryTable(tableName);
         return tableInfo.isPresent() ?
                 ImmutableList.of(tableName) :
-                ImmutableList.of(); // table does not exist
+                Collections.emptyList(); // table does not exist
     }
 }

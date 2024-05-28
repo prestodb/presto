@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 
 import javax.validation.constraints.NotNull;
 
+import java.util.Collections;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -31,7 +32,7 @@ public class SecurityConfig
 {
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
-    private List<AuthenticationType> authenticationTypes = ImmutableList.of();
+    private List<AuthenticationType> authenticationTypes = Collections.emptyList();
     private boolean allowForwardedHttps;
     private boolean authorizedIdentitySelectionEnabled;
 

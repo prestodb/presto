@@ -77,6 +77,7 @@ import com.google.common.collect.Sets;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -404,7 +405,7 @@ public class PruneUnreferencedOutputs
                     source,
                     aggregations.build(),
                     node.getGroupingSets(),
-                    ImmutableList.of(),
+                    Collections.emptyList(),
                     node.getStep(),
                     node.getHashVariable(),
                     node.getGroupIdVariable(),

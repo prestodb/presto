@@ -19,6 +19,7 @@ import io.airlift.units.Duration;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Callable;
@@ -73,7 +74,7 @@ public class RetryDriver
                 DEFAULT_SCALE_FACTOR,
                 DEFAULT_MAX_RETRY_TIME,
                 Function.identity(),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 Optional.empty());
     }
 

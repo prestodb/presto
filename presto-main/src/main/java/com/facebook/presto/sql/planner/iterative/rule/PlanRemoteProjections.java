@@ -38,6 +38,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -263,7 +264,7 @@ public class PlanRemoteProjections
             if (local) {
                 if (processedArguments.isEmpty() || (processedArguments.size() == 1 && !processedArguments.get(0).isRemote())) {
                     // This call and all its arguments are local
-                    return ImmutableList.of();
+                    return Collections.emptyList();
                 }
                 else if (!processedArguments.get(processedArguments.size() - 1).isRemote()) {
                     // This call and its arguments has local projections, merge the call into the last local projection
@@ -311,19 +312,19 @@ public class PlanRemoteProjections
         @Override
         public List<ProjectionContext> visitConstant(ConstantExpression literal, Void context)
         {
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
 
         @Override
         public List<ProjectionContext> visitLambda(LambdaDefinitionExpression lambda, Void context)
         {
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
 
         @Override
         public List<ProjectionContext> visitVariableReference(VariableReferenceExpression reference, Void context)
         {
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
 
         @Override
@@ -334,7 +335,7 @@ public class PlanRemoteProjections
             List<RowExpression> newArguments = newArgumentsBuilder.build();
             if (processedArguments.isEmpty() || (processedArguments.size() == 1 && !processedArguments.get(0).isRemote())) {
                 // Arguments do not contain remote projection
-                return ImmutableList.of();
+                return Collections.emptyList();
             }
             else if (!processedArguments.get(processedArguments.size() - 1).isRemote()) {
                 // There are remote projections, but the previous stage is local, so merge them

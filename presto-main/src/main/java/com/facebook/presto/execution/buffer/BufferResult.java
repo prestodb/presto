@@ -16,6 +16,7 @@ package com.facebook.presto.execution.buffer;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -33,7 +34,7 @@ public class BufferResult
 
     public static BufferResult emptyResults(String taskInstanceId, long token, long bufferedBytes, boolean bufferComplete)
     {
-        return new BufferResult(taskInstanceId, token, token, bufferComplete, bufferedBytes, ImmutableList.of());
+        return new BufferResult(taskInstanceId, token, token, bufferComplete, bufferedBytes, Collections.emptyList());
     }
 
     private final String taskInstanceId;

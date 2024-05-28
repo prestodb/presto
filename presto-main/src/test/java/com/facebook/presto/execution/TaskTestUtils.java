@@ -79,6 +79,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import java.net.URI;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Executor;
@@ -103,7 +104,7 @@ public final class TaskTestUtils
 
     public static final ScheduledSplit SPLIT = new ScheduledSplit(0, TABLE_SCAN_NODE_ID, new Split(CONNECTOR_ID, TRANSACTION_HANDLE, TestingSplit.createLocalSplit()));
 
-    public static final ImmutableList<TaskSource> EMPTY_SOURCES = ImmutableList.of();
+    public static final List<TaskSource> EMPTY_SOURCES = Collections.emptyList();
 
     public static final VariableReferenceExpression VARIABLE = new VariableReferenceExpression(Optional.empty(), "column", BIGINT);
 
@@ -124,7 +125,7 @@ public final class TaskTestUtils
                 ImmutableSet.of(VARIABLE),
                 SOURCE_DISTRIBUTION,
                 ImmutableList.of(TABLE_SCAN_NODE_ID),
-                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(VARIABLE))
+                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, Collections.emptyList()), ImmutableList.of(VARIABLE))
                         .withBucketToPartition(Optional.of(new int[1])),
                 StageExecutionDescriptor.ungroupedExecution(),
                 false,

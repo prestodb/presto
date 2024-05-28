@@ -25,6 +25,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -86,7 +87,7 @@ public class InvokeFunctionBytecodeExpression
     @Override
     public List<BytecodeNode> getChildNodes()
     {
-        return ImmutableList.of();
+        return Collections.emptyList();
     }
 
     @Override

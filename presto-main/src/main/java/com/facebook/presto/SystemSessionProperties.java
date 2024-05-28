@@ -53,6 +53,7 @@ import io.airlift.units.Duration;
 
 import javax.inject.Inject;
 
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -3011,7 +3012,7 @@ public final class SystemSessionProperties
                     .map(x -> PlanCanonicalizationStrategy.valueOf(x)).sorted(Comparator.comparingInt(PlanCanonicalizationStrategy::getErrorLevel)).collect(toImmutableList());
         }
         catch (Exception e) {
-            strategyList = ImmutableList.of();
+            strategyList = Collections.emptyList();
         }
 
         return strategyList;

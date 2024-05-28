@@ -159,9 +159,9 @@ public class TestQuickStatsProvider
         Partition mockPartition = new Partition(
                 TEST_SCHEMA,
                 TEST_TABLE,
-                ImmutableList.of(),
+                Collections.emptyList(),
                 mockStorage,
-                ImmutableList.of(),
+                Collections.emptyList(),
                 ImmutableMap.of(),
                 Optional.empty(),
                 false,
@@ -178,8 +178,8 @@ public class TestQuickStatsProvider
                         .setStorageFormat(fromHiveStorageFormat(PARQUET))
                         .setLocation("location")
                         .build(),
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 ImmutableMap.of(),
                 Optional.empty(),
                 Optional.empty());

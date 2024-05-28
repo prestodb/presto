@@ -30,9 +30,9 @@ import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
-import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -129,7 +129,7 @@ public class LimitPushDown
                         node.getSourceLocation(),
                         idAllocator.getNextId(),
                         node.getOutputVariables(),
-                        ImmutableList.of(),
+                        Collections.emptyList(),
                         Optional.empty());
             }
 

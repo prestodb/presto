@@ -29,6 +29,8 @@ import io.airlift.units.DataSize;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
+
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
@@ -38,7 +40,7 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestMemoryPagesStore
 {
-    public static final ConnectorSession SESSION = new TestingConnectorSession(ImmutableList.of());
+    public static final ConnectorSession SESSION = new TestingConnectorSession(Collections.emptyList());
     private static final int POSITIONS_PER_PAGE = 0;
 
     private MemoryPagesStore pagesStore;
@@ -55,7 +57,7 @@ public class TestMemoryPagesStore
     public void testCreateEmptyTable()
     {
         createTable(0L, 0L);
-        assertEquals(pagesStore.getPages(0L, 0, 1, ImmutableList.of(0), 0), ImmutableList.of());
+        assertEquals(pagesStore.getPages(0L, 0, 1, ImmutableList.of(0), 0), Collections.emptyList());
     }
 
     @Test
@@ -83,7 +85,7 @@ public class TestMemoryPagesStore
     public void testTryToReadFromEmptyTable()
     {
         createTable(0L, 0L);
-        assertEquals(pagesStore.getPages(0L, 0, 1, ImmutableList.of(0), 0), ImmutableList.of());
+        assertEquals(pagesStore.getPages(0L, 0, 1, ImmutableList.of(0), 0), Collections.emptyList());
         pagesStore.getPages(0L, 0, 1, ImmutableList.of(0), 42);
     }
 
@@ -153,7 +155,7 @@ public class TestMemoryPagesStore
                         "schema",
                         format("table_%d", tableId),
                         tableId,
-                        ImmutableList.of()),
+                        Collections.emptyList()),
                 ImmutableSet.copyOf(activeTableIds));
     }
 
@@ -165,7 +167,7 @@ public class TestMemoryPagesStore
                         "schema",
                         format("table_%d", tableId),
                         tableId,
-                        ImmutableList.of()),
+                        Collections.emptyList()),
                 ImmutableSet.copyOf(activeTableIds));
     }
 

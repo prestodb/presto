@@ -109,6 +109,7 @@ import javax.inject.Inject;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -282,7 +283,7 @@ public class IcebergPageSourceProvider
                     .map(type -> new MessageType(fileSchema.getName(), type))
                     .reduce(MessageType::union);
 
-            MessageType requestedSchema = messageType.orElse(new MessageType(fileSchema.getName(), ImmutableList.of()));
+            MessageType requestedSchema = messageType.orElse(new MessageType(fileSchema.getName(), Collections.emptyList()));
             Map<List<String>, RichColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, requestedSchema);
             TupleDomain<ColumnDescriptor> parquetTupleDomain = getParquetTupleDomain(descriptorsByPath, effectivePredicate);
             Predicate parquetPredicate = buildPredicate(requestedSchema, parquetTupleDomain, descriptorsByPath);
@@ -491,8 +492,8 @@ public class IcebergPageSourceProvider
                     inputStream,
                     stats);
 
-            // Todo: pass real columns to ProjectionBasedDwrfKeyProvider instead of ImmutableList.of()
-            DwrfKeyProvider dwrfKeyProvider = new ProjectionBasedDwrfKeyProvider(encryptionInformation, ImmutableList.of(), true, path);
+            // Todo: pass real columns to ProjectionBasedDwrfKeyProvider instead of Collections.emptyList()
+            DwrfKeyProvider dwrfKeyProvider = new ProjectionBasedDwrfKeyProvider(encryptionInformation, Collections.emptyList(), true, path);
             RuntimeStats runtimeStats = new RuntimeStats();
             OrcReader reader = new OrcReader(
                     orcDataSource,
@@ -648,7 +649,7 @@ public class IcebergPageSourceProvider
         List<OrcType> orcTypes = reader.getFooter().getTypes();
         OrcType rootOrcType = orcTypes.get(ROOT_COLUMN_ID);
 
-        List<IcebergOrcColumn> columnAttributes = ImmutableList.of();
+        List<IcebergOrcColumn> columnAttributes = Collections.emptyList();
         if (rootOrcType.getOrcTypeKind() == OrcType.OrcTypeKind.STRUCT) {
             columnAttributes = IntStream.range(0, rootOrcType.getFieldCount())
                     .mapToObj(fieldId -> new IcebergOrcColumn(

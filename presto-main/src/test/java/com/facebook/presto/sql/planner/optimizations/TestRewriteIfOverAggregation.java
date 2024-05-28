@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_CONDITIONAL_AGGREGATION_ENABLED;
@@ -81,7 +82,7 @@ public class TestRewriteIfOverAggregation
                                         ImmutableMap.of("avg", functionCall("avg", ImmutableList.of("partial_avg")), "count", functionCall("count", ImmutableList.of("partial_count"))),
                                         exchange(
                                                 aggregation(
-                                                        ImmutableMap.of("partial_avg", functionCall("avg", ImmutableList.of("totalprice")), "partial_count", functionCall("count", ImmutableList.of())),
+                                                        ImmutableMap.of("partial_avg", functionCall("avg", ImmutableList.of("totalprice")), "partial_count", functionCall("count", Collections.emptyList())),
                                                         project(
                                                                 ImmutableMap.of("totalprice", expression("totalprice"), "orderpriority", expression("orderpriority")),
                                                                 tableScan("orders", ImmutableMap.of("totalprice", "totalprice", "orderpriority", "orderpriority")))))))));

@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -57,7 +58,7 @@ public class FloatingPointColumnValidator
     public List<SingleColumn> generateChecksumColumns(Column column)
     {
         Expression doubleColumn = column.getType().equals(DOUBLE) ? column.getExpression() : new Cast(column.getExpression(), DOUBLE.getDisplayName());
-        Expression positiveInfinity = new FunctionCall(QualifiedName.of("infinity"), ImmutableList.of());
+        Expression positiveInfinity = new FunctionCall(QualifiedName.of("infinity"), Collections.emptyList());
         Expression negativeInfinity = new ArithmeticUnaryExpression(MINUS, positiveInfinity);
 
         return ImmutableList.of(

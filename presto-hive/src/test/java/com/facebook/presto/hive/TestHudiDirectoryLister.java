@@ -19,7 +19,6 @@ import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.security.ConnectorIdentity;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -32,6 +31,7 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.Optional;
 
@@ -92,16 +92,16 @@ public class TestHudiDirectoryLister
                 new Storage(fromHiveStorageFormat(PARQUET),
                         getTableBasePath("hudi_non_part_cow"),
                         Optional.of(new HiveBucketProperty(
-                                ImmutableList.of(),
+                                Collections.emptyList(),
                                 1,
-                                ImmutableList.of(),
+                                Collections.emptyList(),
                                 HIVE_COMPATIBLE,
                                 Optional.empty())),
                         false,
                         ImmutableMap.of(),
                         ImmutableMap.of()),
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 ImmutableMap.of(),
                 Optional.empty(),
                 Optional.empty());
@@ -172,16 +172,16 @@ public class TestHudiDirectoryLister
                 new Storage(fromHiveStorageFormat(PARQUET),
                         getTableBasePath("non_hudi_table"),
                         Optional.of(new HiveBucketProperty(
-                                ImmutableList.of(),
+                                Collections.emptyList(),
                                 1,
-                                ImmutableList.of(),
+                                Collections.emptyList(),
                                 HIVE_COMPATIBLE,
                                 Optional.empty())),
                         false,
                         ImmutableMap.of(),
                         ImmutableMap.of()),
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 ImmutableMap.of(),
                 Optional.empty(),
                 Optional.empty());

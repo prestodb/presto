@@ -60,6 +60,7 @@ import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
@@ -381,7 +382,7 @@ public class TestAnnotationEngineForAggregates
                 QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "simple_generic_implementations"),
                 FunctionKind.AGGREGATE,
                 ImmutableList.of(typeVariable("T")),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 parseTypeSignature("T"),
                 ImmutableList.of(parseTypeSignature("T")),
                 false);
@@ -540,7 +541,7 @@ public class TestAnnotationEngineForAggregates
                 QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "implicit_specialized_aggregate"),
                 FunctionKind.AGGREGATE,
                 ImmutableList.of(typeVariable("T")),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 parseTypeSignature("T"),
                 ImmutableList.of(new TypeSignature(ARRAY, TypeSignatureParameter.of(parseTypeSignature("T"))), parseTypeSignature("T")),
                 false);
@@ -632,7 +633,7 @@ public class TestAnnotationEngineForAggregates
                 QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "explicit_specialized_aggregate"),
                 FunctionKind.AGGREGATE,
                 ImmutableList.of(typeVariable("T")),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 parseTypeSignature("T"),
                 ImmutableList.of(new TypeSignature(ARRAY, TypeSignatureParameter.of(parseTypeSignature("T")))),
                 false);
@@ -871,7 +872,7 @@ public class TestAnnotationEngineForAggregates
                 QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "inject_type_aggregate"),
                 FunctionKind.AGGREGATE,
                 ImmutableList.of(typeVariable("T")),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 parseTypeSignature("T"),
                 ImmutableList.of(parseTypeSignature("T")),
                 false);
@@ -1023,7 +1024,7 @@ public class TestAnnotationEngineForAggregates
         Signature expectedSignature = new Signature(
                 QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "parametric_aggregate_long_constraint"),
                 FunctionKind.AGGREGATE,
-                ImmutableList.of(),
+                Collections.emptyList(),
                 ImmutableList.of(new LongVariableConstraint("z", "x + y")),
                 parseTypeSignature("varchar(z)", ImmutableSet.of("z")),
                 ImmutableList.of(parseTypeSignature("varchar(x)", ImmutableSet.of("x")),
@@ -1098,8 +1099,8 @@ public class TestAnnotationEngineForAggregates
         Signature expectedSignature = new Signature(
                 QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "fixed_type_parameter_injection"),
                 FunctionKind.AGGREGATE,
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 DoubleType.DOUBLE.getTypeSignature(),
                 ImmutableList.of(DoubleType.DOUBLE.getTypeSignature()),
                 false);
@@ -1165,7 +1166,7 @@ public class TestAnnotationEngineForAggregates
                 QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "partially_fixed_type_parameter_injection"),
                 FunctionKind.AGGREGATE,
                 ImmutableList.of(typeVariable("T1"), typeVariable("T2")),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 DoubleType.DOUBLE.getTypeSignature(),
                 ImmutableList.of(DoubleType.DOUBLE.getTypeSignature()),
                 false);

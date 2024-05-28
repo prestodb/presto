@@ -638,7 +638,7 @@ public class SemiTransactionalHiveMetastore
         TableSource tableSource = getTableSource(hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName());
         switch (tableSource) {
             case CREATED_IN_THIS_TRANSACTION:
-                partitionNames = ImmutableList.of();
+                partitionNames = Collections.emptyList();
                 break;
             case PRE_EXISTING_TABLE: {
                 Optional<List<PartitionNameWithVersion>> partitionNameResult;
@@ -1904,7 +1904,7 @@ public class SemiTransactionalHiveMetastore
                         // check every existing partition that is outside for the base directory
                         if (!table.get().getPartitionColumns().isEmpty()) {
                             List<PartitionNameWithVersion> partitionNamesWithVersion = delegate.getPartitionNames(metastoreContext, schemaTableName.getSchemaName(), schemaTableName.getTableName())
-                                    .orElse(ImmutableList.of());
+                                    .orElse(Collections.emptyList());
                             for (List<PartitionNameWithVersion> partitionNameBatch : Iterables.partition(partitionNamesWithVersion, 10)) {
                                 Collection<Optional<Partition>> partitions = delegate.getPartitionsByNames(metastoreContext, schemaTableName.getSchemaName(), schemaTableName.getTableName(), partitionNameBatch).values();
                                 partitions.stream()
@@ -2121,7 +2121,7 @@ public class SemiTransactionalHiveMetastore
             fileSystem = hdfsEnvironment.getFileSystem(context, directory);
 
             if (!fileSystem.exists(directory)) {
-                return new RecursiveDeleteResult(true, ImmutableList.of());
+                return new RecursiveDeleteResult(true, Collections.emptyList());
             }
         }
         catch (IOException e) {
@@ -2137,7 +2137,7 @@ public class SemiTransactionalHiveMetastore
     {
         // don't delete hidden presto directories
         if (directory.getName().startsWith(".presto")) {
-            return new RecursiveDeleteResult(false, ImmutableList.of());
+            return new RecursiveDeleteResult(false, Collections.emptyList());
         }
 
         FileStatus[] allFiles;
@@ -2192,7 +2192,7 @@ public class SemiTransactionalHiveMetastore
             if (!deleteIfExists(fileSystem, directory, false)) {
                 return new RecursiveDeleteResult(false, ImmutableList.of(directory.toString() + "/"));
             }
-            return new RecursiveDeleteResult(true, ImmutableList.of());
+            return new RecursiveDeleteResult(true, Collections.emptyList());
         }
         return new RecursiveDeleteResult(false, notDeletedEligibleItems.build());
     }
@@ -3096,7 +3096,7 @@ public class SemiTransactionalHiveMetastore
                     partitionsFailedToRollback.add(createdPartitionValue);
                 }
             }
-            operationResults = ImmutableList.of();
+            operationResults = Collections.emptyList();
             createdPartitionValues = partitionsFailedToRollback;
             return partitionsFailedToRollback;
         }

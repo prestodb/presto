@@ -23,6 +23,7 @@ import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -125,7 +126,7 @@ public class InternalHiveSplit
             addressesBuilder.add(addresses);
             blockEndOffsets[i] = block.getEnd();
         }
-        blockAddresses = allAddressesEmpty ? ImmutableList.of() : addressesBuilder.build();
+        blockAddresses = allAddressesEmpty ? Collections.emptyList() : addressesBuilder.build();
         this.encryptionInformation = encryptionInformation;
     }
 
@@ -203,7 +204,7 @@ public class InternalHiveSplit
     public InternalHiveBlock currentBlock()
     {
         checkState(!isDone(), "All blocks have been consumed");
-        List<HostAddress> addresses = blockAddresses.isEmpty() ? ImmutableList.of() : blockAddresses.get(currentBlockIndex);
+        List<HostAddress> addresses = blockAddresses.isEmpty() ? Collections.emptyList() : blockAddresses.get(currentBlockIndex);
         return new InternalHiveBlock(blockEndOffsets[currentBlockIndex], addresses);
     }
 

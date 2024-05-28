@@ -24,7 +24,6 @@ import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SplitWeight;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
-import com.google.common.collect.ImmutableList;
 import org.apache.iceberg.AddedRowsScanTask;
 import org.apache.iceberg.ChangelogScanTask;
 import org.apache.iceberg.ContentScanTask;
@@ -39,6 +38,7 @@ import org.apache.iceberg.io.CloseableIterator;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -130,13 +130,13 @@ public class ChangelogSplitSource
                 task.start(),
                 task.length(),
                 FileFormat.fromIcebergFileFormat(task.file().format()),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 getPartitionKeys(task),
                 PartitionSpecParser.toJson(spec),
                 partitionData.map(PartitionData::toJson),
                 getNodeSelectionStrategy(session),
                 SplitWeight.fromProportion(Math.min(Math.max((double) task.length() / tableScan.targetSplitSize(), minimumAssignedSplitWeight), 1.0)),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 Optional.of(new ChangelogSplitInfo(fromIcebergChangelogOperation(changeTask.operation()),
                         changeTask.changeOrdinal(),
                         changeTask.commitSnapshotId(),

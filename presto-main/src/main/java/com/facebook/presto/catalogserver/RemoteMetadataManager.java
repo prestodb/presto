@@ -31,11 +31,11 @@ import com.facebook.presto.transaction.TransactionManager;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import javax.inject.Inject;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -72,7 +72,7 @@ public class RemoteMetadataManager
                 session.toSessionRepresentation(),
                 catalogName);
         return schemaNamesJson.isEmpty()
-                ? ImmutableList.of()
+                ? Collections.emptyList()
                 : readValue(schemaNamesJson, new TypeReference<List<String>>() {});
     }
 
@@ -105,7 +105,7 @@ public class RemoteMetadataManager
                 session.toSessionRepresentation(),
                 prefix);
         return tableListJson.isEmpty()
-                ? ImmutableList.of()
+                ? Collections.emptyList()
                 : readValue(tableListJson, new TypeReference<List<QualifiedObjectName>>() {});
     }
 
@@ -117,7 +117,7 @@ public class RemoteMetadataManager
                 session.toSessionRepresentation(),
                 prefix);
         return viewsListJson.isEmpty()
-                ? ImmutableList.of()
+                ? Collections.emptyList()
                 : readValue(viewsListJson, new TypeReference<List<QualifiedObjectName>>() {});
     }
 
@@ -141,7 +141,7 @@ public class RemoteMetadataManager
                 session.toSessionRepresentation(),
                 tableName);
         return referencedMaterializedViewsListJson.isEmpty()
-                ? ImmutableList.of()
+                ? Collections.emptyList()
                 : readValue(referencedMaterializedViewsListJson, new TypeReference<List<QualifiedObjectName>>() {});
     }
 

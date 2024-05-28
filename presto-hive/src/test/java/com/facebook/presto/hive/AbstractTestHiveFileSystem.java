@@ -79,6 +79,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -220,11 +221,11 @@ public abstract class AbstractTestHiveFileSystem
                 new HiveZeroRowFileCreator(hdfsEnvironment, new OutputStreamDataSinkFactory(), listeningDecorator(executor)),
                 new NodeVersion("test_version"),
                 new HivePartitionObjectBuilder(),
-                new HiveEncryptionInformationProvider(ImmutableList.of()),
+                new HiveEncryptionInformationProvider(Collections.emptyList()),
                 new HivePartitionStats(),
                 new HiveFileRenamer(),
                 columnConverterProvider,
-                new QuickStatsProvider(HDFS_ENVIRONMENT, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of()),
+                new QuickStatsProvider(HDFS_ENVIRONMENT, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), Collections.emptyList()),
                 new HiveTableWritabilityChecker(config));
 
         transactionManager = new HiveTransactionManager();
@@ -438,7 +439,7 @@ public abstract class AbstractTestHiveFileSystem
             Collection<Slice> fragments = getFutureValue(sink.finish());
 
             // commit the table
-            metadata.finishCreateTable(session, outputHandle, fragments, ImmutableList.of());
+            metadata.finishCreateTable(session, outputHandle, fragments, Collections.emptyList());
 
             transaction.commit();
 

@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -330,7 +331,7 @@ public class OrderByOperator
     private List<WorkProcessor<Page>> getSpilledPages()
     {
         if (!spiller.isPresent()) {
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
 
         return spiller.get().getSpills().stream()

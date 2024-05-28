@@ -23,6 +23,7 @@ import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -49,7 +50,7 @@ public class StatefulSleepingSum
                 QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "stateful_sleeping_sum"),
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("bigint")),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 parseTypeSignature("bigint"),
                 ImmutableList.of(parseTypeSignature("double"), parseTypeSignature("bigint"), parseTypeSignature("bigint"), parseTypeSignature("bigint")),
                 false));

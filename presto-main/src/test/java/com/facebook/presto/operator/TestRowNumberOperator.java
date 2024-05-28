@@ -32,6 +32,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
@@ -122,7 +123,7 @@ public class TestRowNumberOperator
                 ImmutableList.of(BIGINT, DOUBLE),
                 Ints.asList(1, 0),
                 Ints.asList(),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 Optional.empty(),
                 Optional.empty(),
                 10,
@@ -344,7 +345,7 @@ public class TestRowNumberOperator
                 ImmutableList.of(BIGINT, DOUBLE),
                 Ints.asList(1, 0),
                 Ints.asList(),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 Optional.of(3),
                 Optional.empty(),
                 10,

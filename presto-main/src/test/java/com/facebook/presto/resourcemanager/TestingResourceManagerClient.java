@@ -21,6 +21,7 @@ import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -34,7 +35,7 @@ public class TestingResourceManagerClient
     private final AtomicInteger resourceGroupRuntimeHeartbeats = new AtomicInteger();
     private final Map<String, Integer> resourceGroupInfoCalls = new ConcurrentHashMap<>();
 
-    private volatile List<ResourceGroupRuntimeInfo> resourceGroupRuntimeInfos = ImmutableList.of();
+    private volatile List<ResourceGroupRuntimeInfo> resourceGroupRuntimeInfos = Collections.emptyList();
 
     private int runningTaskCount;
 

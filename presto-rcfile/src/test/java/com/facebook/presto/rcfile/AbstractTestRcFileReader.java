@@ -27,6 +27,7 @@ import org.testng.annotations.Test;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -76,7 +77,7 @@ public abstract class AbstractTestRcFileReader
     public void testNoData()
             throws Exception
     {
-        tester.testRoundTrip(VARCHAR, ImmutableList.of());
+        tester.testRoundTrip(VARCHAR, Collections.emptyList());
     }
 
     @Test

@@ -37,6 +37,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -74,7 +75,7 @@ public class TestReorderJoins
     private FunctionResolution functionResolution;
 
     // TWO_ROWS are used to prevent node from being scalar
-    private static final ImmutableList<List<RowExpression>> TWO_ROWS = ImmutableList.of(ImmutableList.of(), ImmutableList.of());
+    private static final ImmutableList<List<RowExpression>> TWO_ROWS = ImmutableList.of(Collections.emptyList(), Collections.emptyList());
     private static final QualifiedName RANDOM = QualifiedName.of("random");
 
     @DataProvider
@@ -112,7 +113,7 @@ public class TestReorderJoins
     public void setUp()
     {
         tester = new RuleTester(
-                ImmutableList.of(),
+                Collections.emptyList(),
                 ImmutableMap.of(
                         JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name(),
                         JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.AUTOMATIC.name(),
@@ -338,7 +339,7 @@ public class TestReorderJoins
                                 INNER,
                                 p.values(new PlanNodeId("valuesA"), ImmutableList.of(p.variable("A1")), TWO_ROWS),
                                 p.values(new PlanNodeId("valuesB"), ImmutableList.of(p.variable("B1")), TWO_ROWS),
-                                ImmutableList.of(),
+                                Collections.emptyList(),
                                 ImmutableList.of(p.variable("A1"), p.variable("B1")),
                                 Optional.empty()))
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
@@ -385,9 +386,9 @@ public class TestReorderJoins
                                                 Optional.empty(),
                                                 Optional.empty(),
                                                 qualifyObjectName(RANDOM),
-                                                ImmutableList.of()),
+                                                Collections.emptyList()),
                                         BIGINT,
-                                        ImmutableList.of())))))
+                                        Collections.emptyList())))))
                 .doesNotFire();
     }
 
@@ -402,7 +403,7 @@ public class TestReorderJoins
                                         INNER,
                                         p.values(new PlanNodeId("valuesA"), ImmutableList.of(p.variable("A1")), TWO_ROWS),
                                         p.values(new PlanNodeId("valuesB"), ImmutableList.of(p.variable("B1"), p.variable("B2")), TWO_ROWS),
-                                        ImmutableList.of(),
+                                        Collections.emptyList(),
                                         ImmutableList.of(p.variable("A1"), p.variable("B1"), p.variable("B2")),
                                         Optional.empty()),
                                 p.values(new PlanNodeId("valuesC"), ImmutableList.of(p.variable("C1")), TWO_ROWS),
@@ -641,7 +642,7 @@ public class TestReorderJoins
                                 anyTree(
                                         project(ImmutableMap.of("SUBTRACT", expression("S_ACCTBAL - C_ACCTBAL")),
                                                 join(INNER,
-                                                        ImmutableList.of(), //CrossJoin
+                                                        Collections.emptyList(), //CrossJoin
                                                         join(INNER,
                                                                 ImmutableList.of(equiJoinClause("PS_SUPPKEY", "S_SUPPKEY")),
                                                                 anyTree(tableScan("partsupp", ImmutableMap.of("PS_SUPPKEY", "suppkey"))),
@@ -663,7 +664,7 @@ public class TestReorderJoins
                                 anyTree(
                                         filter("O_TOTALPRICE = S_ACCTBAL - C_ACCTBAL",
                                                 join(INNER,
-                                                        ImmutableList.of(), //CrossJoin
+                                                        Collections.emptyList(), //CrossJoin
                                                         join(INNER,
                                                                 ImmutableList.of(equiJoinClause("O_CUSTKEY", "C_CUSTKEY")),
                                                                 anyTree(tableScan("orders", ImmutableMap.of("O_CUSTKEY", "custkey", "O_TOTALPRICE", "totalprice"))),
@@ -684,7 +685,7 @@ public class TestReorderJoins
                 anyTree(
                         filter("PS_PARTKEY - P_PARTKEY = 0",
                                 join(INNER,
-                                        ImmutableList.of(), // CrossJoin
+                                        Collections.emptyList(), // CrossJoin
                                         join(INNER,
                                                 ImmutableList.of(equiJoinClause("PS_SUPPKEY", "S_SUPPKEY")),
                                                 anyTree(

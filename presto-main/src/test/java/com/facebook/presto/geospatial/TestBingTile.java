@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -155,9 +156,9 @@ public class TestBingTile
     @Test
     public void testFindDissolvedTileCovering()
     {
-        assertTileCovering("POINT EMPTY", 0, ImmutableList.of());
-        assertTileCovering("POINT EMPTY", 10, ImmutableList.of());
-        assertTileCovering("POINT EMPTY", 20, ImmutableList.of());
+        assertTileCovering("POINT EMPTY", 0, Collections.emptyList());
+        assertTileCovering("POINT EMPTY", 10, Collections.emptyList());
+        assertTileCovering("POINT EMPTY", 20, Collections.emptyList());
 
         assertSmallSquareCovering(2);
         assertSmallSquareCovering(5);

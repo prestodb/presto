@@ -18,7 +18,6 @@ import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.presto.hive.HiveCompressionCodec;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableList;
 import org.apache.iceberg.hadoop.HadoopFileIO;
 
 import javax.validation.constraints.DecimalMax;
@@ -26,6 +25,7 @@ import javax.validation.constraints.DecimalMin;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 
@@ -45,7 +45,7 @@ public class IcebergConfig
     private String catalogWarehouse;
     private int catalogCacheSize = 10;
     private int maxPartitionsPerWriter = 100;
-    private List<String> hadoopConfigResources = ImmutableList.of();
+    private List<String> hadoopConfigResources = Collections.emptyList();
     private double minimumAssignedSplitWeight = 0.05;
     private boolean parquetDereferencePushdownEnabled = true;
     private boolean mergeOnReadModeEnabled = true;

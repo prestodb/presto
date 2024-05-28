@@ -15,7 +15,6 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.testing.assertions.Assert;
-import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.Duration;
@@ -23,6 +22,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -52,7 +52,7 @@ public class TestOperatorAssertion
     {
         Operator operator = new BlockedOperator(Duration.valueOf("15 ms"));
         List<Page> pages = OperatorAssertion.toPages(operator, emptyIterator());
-        Assert.assertEquals(pages, ImmutableList.of());
+        Assert.assertEquals(pages, Collections.emptyList());
     }
 
     private class BlockedOperator

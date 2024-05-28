@@ -25,6 +25,7 @@ import javax.inject.Inject;
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
@@ -88,8 +89,8 @@ public class RedisTableDescriptionSupplier
                     log.debug("Created dummy Table definition for %s", tableName);
                     builder.put(tableName, new RedisTableDescription(tableName.getTableName(),
                             tableName.getSchemaName(),
-                            new RedisTableFieldGroup(DummyRowDecoder.NAME, null, ImmutableList.of()),
-                            new RedisTableFieldGroup(DummyRowDecoder.NAME, null, ImmutableList.of())));
+                            new RedisTableFieldGroup(DummyRowDecoder.NAME, null, Collections.emptyList()),
+                            new RedisTableFieldGroup(DummyRowDecoder.NAME, null, Collections.emptyList())));
                 }
             }
 
@@ -110,6 +111,6 @@ public class RedisTableDescriptionSupplier
                 return ImmutableList.copyOf(files);
             }
         }
-        return ImmutableList.of();
+        return Collections.emptyList();
     }
 }

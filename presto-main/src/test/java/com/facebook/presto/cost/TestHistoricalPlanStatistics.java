@@ -25,6 +25,7 @@ import com.facebook.presto.spi.statistics.TableWriterNodeStatistics;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -37,10 +38,10 @@ public class TestHistoricalPlanStatistics
     public void testWithNoTables()
     {
         HistoricalPlanStatistics stats = HistoricalPlanStatistics.empty();
-        stats = updatePlanStatistics(stats, ImmutableList.of(), stats(10, 10));
-        assertEquals(getPredictedPlanStatistics(stats, ImmutableList.of()), stats(10, 10));
-        stats = updatePlanStatistics(stats, ImmutableList.of(), stats(12, 13));
-        assertEquals(getPredictedPlanStatistics(stats, ImmutableList.of()), stats(12, 13));
+        stats = updatePlanStatistics(stats, Collections.emptyList(), stats(10, 10));
+        assertEquals(getPredictedPlanStatistics(stats, Collections.emptyList()), stats(10, 10));
+        stats = updatePlanStatistics(stats, Collections.emptyList(), stats(12, 13));
+        assertEquals(getPredictedPlanStatistics(stats, Collections.emptyList()), stats(12, 13));
     }
 
     @Test

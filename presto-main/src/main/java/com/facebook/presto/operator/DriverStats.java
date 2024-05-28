@@ -29,6 +29,7 @@ import org.joda.time.DateTime;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -109,7 +110,7 @@ public class DriverStats
 
         this.physicalWrittenDataSize = new DataSize(0, BYTE);
 
-        this.operatorStats = ImmutableList.of();
+        this.operatorStats = Collections.emptyList();
     }
 
     @JsonCreator

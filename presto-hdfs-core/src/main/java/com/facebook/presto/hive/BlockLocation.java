@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -54,7 +55,7 @@ public class BlockLocation
             throws IOException
     {
         if (blockLocations == null) {
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
 
         ImmutableList.Builder<BlockLocation> result = ImmutableList.builder();

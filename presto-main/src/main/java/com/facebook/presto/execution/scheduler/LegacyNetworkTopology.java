@@ -14,8 +14,8 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.spi.HostAddress;
-import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
 import java.util.List;
 
 public class LegacyNetworkTopology
@@ -30,6 +30,6 @@ public class LegacyNetworkTopology
     @Override
     public List<String> getLocationSegmentNames()
     {
-        return ImmutableList.of();
+        return Collections.emptyList();
     }
 }

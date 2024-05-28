@@ -41,6 +41,7 @@ import com.facebook.presto.sql.tree.Join;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
@@ -229,11 +230,11 @@ public class PrefilterForLimitingAggregation
             RowExpression rightHashExpression = getHashExpression(functionAndTypeManager, timedDistinctLimitNode.getOutputVariables()).get();
 
             Type mapType = createMapType(functionAndTypeManager, BIGINT, BOOLEAN);
-            PlanNode rightProjectNode = projectExpressions(timedDistinctLimitNode, idAllocator, variableAllocator, ImmutableList.of(rightHashExpression, constant(TRUE, BOOLEAN)), ImmutableList.of());
+            PlanNode rightProjectNode = projectExpressions(timedDistinctLimitNode, idAllocator, variableAllocator, ImmutableList.of(rightHashExpression, constant(TRUE, BOOLEAN)), Collections.emptyList());
 
             VariableReferenceExpression mapAggVariable = variableAllocator.newVariable("expr", mapType);
-            PlanNode crossJoinRhs = addAggregation(rightProjectNode, functionAndTypeManager, idAllocator, variableAllocator, "MAP_AGG", mapType, ImmutableList.of(), mapAggVariable, rightProjectNode.getOutputVariables().get(0), rightProjectNode.getOutputVariables().get(1));
-            PlanNode crossJoinLhs = addProjections(originalSource, idAllocator, variableAllocator, ImmutableList.of(leftHashExpression), ImmutableList.of());
+            PlanNode crossJoinRhs = addAggregation(rightProjectNode, functionAndTypeManager, idAllocator, variableAllocator, "MAP_AGG", mapType, Collections.emptyList(), mapAggVariable, rightProjectNode.getOutputVariables().get(0), rightProjectNode.getOutputVariables().get(1));
+            PlanNode crossJoinLhs = addProjections(originalSource, idAllocator, variableAllocator, ImmutableList.of(leftHashExpression), Collections.emptyList());
             ImmutableList.Builder<VariableReferenceExpression> crossJoinOutput = ImmutableList.builder();
 
             crossJoinOutput.addAll(crossJoinLhs.getOutputVariables());
@@ -245,7 +246,7 @@ public class PrefilterForLimitingAggregation
                     typeConvert(Join.Type.CROSS),
                     crossJoinLhs,
                     crossJoinRhs,
-                    ImmutableList.of(),
+                    Collections.emptyList(),
                     crossJoinOutput.build(),
                     Optional.empty(),
                     Optional.empty(),

@@ -76,6 +76,7 @@ import io.airlift.slice.Slices;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
@@ -690,7 +691,7 @@ public class PredicatePushDown
                 FunctionAndTypeManager functionAndTypeManager)
         {
             Map<String, VariableReferenceExpression> dynamicFilters = ImmutableMap.of();
-            List<RowExpression> predicates = ImmutableList.of();
+            List<RowExpression> predicates = Collections.emptyList();
             if (node.getType() == INNER || node.getType() == RIGHT) {
                 List<CallExpression> clauses = getDynamicFilterClauses(node, equiJoinClauses, joinFilter, functionAndTypeManager);
                 List<VariableReferenceExpression> buildSymbols = clauses.stream()
@@ -1714,7 +1715,7 @@ public class PredicatePushDown
                         rewrittenSource,
                         node.getAggregations(),
                         node.getGroupingSets(),
-                        ImmutableList.of(),
+                        Collections.emptyList(),
                         node.getStep(),
                         node.getHashVariable(),
                         node.getGroupIdVariable(),

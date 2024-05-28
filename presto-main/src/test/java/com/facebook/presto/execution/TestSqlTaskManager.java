@@ -50,6 +50,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.util.Collections;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
@@ -366,7 +367,7 @@ public class TestSqlTaskManager
                 TEST_SESSION,
                 taskId,
                 Optional.of(PLAN_FRAGMENT),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 outputBuffers,
                 Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())));
     }

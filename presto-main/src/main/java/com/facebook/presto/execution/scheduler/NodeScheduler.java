@@ -49,6 +49,7 @@ import javax.inject.Inject;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -159,7 +160,7 @@ public class NodeScheduler
             }
         }
         else {
-            networkLocationSegmentNames = ImmutableList.of();
+            networkLocationSegmentNames = Collections.emptyList();
         }
         topologicalSplitCounters = builder.build();
         this.nodeMapRefreshInterval = requireNonNull(nodeMapRefreshInterval, "nodeMapRefreshInterval is null");

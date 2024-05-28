@@ -23,6 +23,7 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.Executor;
@@ -120,7 +121,7 @@ public class AsyncQueue<T>
         int oldSize = elements.size();
         int reduceBy = Math.min(maxSize, oldSize);
         if (reduceBy == 0) {
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
         List<T> result = new ArrayList<>(reduceBy);
         for (int i = 0; i < reduceBy; i++) {
@@ -136,7 +137,7 @@ public class AsyncQueue<T>
 
     public synchronized ListenableFuture<List<T>> getBatchAsync(int maxSize)
     {
-        return borrowBatchAsync(maxSize, elements -> new BorrowResult<>(ImmutableList.of(), elements));
+        return borrowBatchAsync(maxSize, elements -> new BorrowResult<>(Collections.emptyList(), elements));
     }
 
     /**
@@ -164,7 +165,7 @@ public class AsyncQueue<T>
                 borrowerCount++;
             }
             else if (finishing && borrowerCount == 0) {
-                borrowedListFuture = immediateFuture(ImmutableList.of());
+                borrowedListFuture = immediateFuture(Collections.emptyList());
             }
             else {
                 borrowedListFuture = Futures.transform(

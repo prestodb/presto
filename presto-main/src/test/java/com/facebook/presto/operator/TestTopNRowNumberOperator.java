@@ -31,6 +31,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
@@ -171,7 +172,7 @@ public class TestTopNRowNumberOperator
                 ImmutableList.of(BIGINT, DOUBLE),
                 Ints.asList(1, 0),
                 Ints.asList(),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 Ints.asList(1),
                 ImmutableList.of(SortOrder.ASC_NULLS_LAST),
                 3,

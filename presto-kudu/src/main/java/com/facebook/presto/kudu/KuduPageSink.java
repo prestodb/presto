@@ -21,7 +21,6 @@ import com.facebook.presto.common.type.SqlDecimal;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorSession;
-import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import org.apache.kudu.client.KuduException;
 import org.apache.kudu.client.KuduSession;
@@ -35,6 +34,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -188,7 +188,7 @@ public class KuduPageSink
     public CompletableFuture<Collection<Slice>> finish()
     {
         closeSession();
-        return completedFuture(ImmutableList.of());
+        return completedFuture(Collections.emptyList());
     }
 
     @Override

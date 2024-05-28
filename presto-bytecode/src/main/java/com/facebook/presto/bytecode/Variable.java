@@ -17,6 +17,7 @@ import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.bytecode.instruction.VariableInstruction;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.bytecode.ParameterizedType.type;
@@ -65,7 +66,7 @@ public class Variable
     @Override
     public List<BytecodeNode> getChildNodes()
     {
-        return ImmutableList.of();
+        return Collections.emptyList();
     }
 
     private static final class SetVariableBytecodeExpression

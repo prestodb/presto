@@ -146,8 +146,8 @@ public class SignatureBinder
         return new Signature(
                 signature.getName(),
                 signature.getKind(),
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 boundReturnTypeSignature,
                 boundArgumentSignatures,
                 false);

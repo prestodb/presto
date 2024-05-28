@@ -63,6 +63,7 @@ import org.testng.annotations.Test;
 
 import java.sql.Types;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.Optional;
 import java.util.Queue;
@@ -123,7 +124,7 @@ public class TestJdbcComputePushdown
         PlanNode original = filter(jdbcTableScan(schema, table, BIGINT, "c1", "c2"), rowExpression);
 
         JdbcTableHandle jdbcTableHandle = new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName(schema, table), CATALOG_NAME, schema, table);
-        ConnectorSession session = new TestingConnectorSession(ImmutableList.of());
+        ConnectorSession session = new TestingConnectorSession(Collections.emptyList());
         JdbcTableLayoutHandle jdbcTableLayoutHandle = new JdbcTableLayoutHandle(session.getSqlFunctionProperties(), jdbcTableHandle, TupleDomain.none(), Optional.of(new JdbcExpression("(('c1' + 'c2') - 'c2')")));
 
         PlanNode actual = this.jdbcComputePushdown.optimize(original, session, null, ID_ALLOCATOR);
@@ -145,7 +146,7 @@ public class TestJdbcComputePushdown
         PlanNode original = filter(jdbcTableScan(schema, table, BIGINT, "c1", "c2"), rowExpression);
 
         JdbcTableHandle jdbcTableHandle = new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName(schema, table), CATALOG_NAME, schema, table);
-        ConnectorSession session = new TestingConnectorSession(ImmutableList.of());
+        ConnectorSession session = new TestingConnectorSession(Collections.emptyList());
         JdbcTableLayoutHandle jdbcTableLayoutHandle = new JdbcTableLayoutHandle(
                 session.getSqlFunctionProperties(),
                 jdbcTableHandle,
@@ -171,7 +172,7 @@ public class TestJdbcComputePushdown
         PlanNode original = filter(jdbcTableScan(schema, table, BIGINT, "c1", "c2"), rowExpression);
 
         JdbcTableHandle jdbcTableHandle = new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName(schema, table), CATALOG_NAME, schema, table);
-        ConnectorSession session = new TestingConnectorSession(ImmutableList.of());
+        ConnectorSession session = new TestingConnectorSession(Collections.emptyList());
         // Test should expect an empty entry for translatedSql since > is an unsupported function currently in the optimizer
         JdbcTableLayoutHandle jdbcTableLayoutHandle = new JdbcTableLayoutHandle(session.getSqlFunctionProperties(), jdbcTableHandle, TupleDomain.none(), Optional.empty());
 
@@ -194,7 +195,7 @@ public class TestJdbcComputePushdown
         PlanNode original = filter(jdbcTableScan(schema, table, BIGINT, "c1", "c2"), rowExpression);
 
         JdbcTableHandle jdbcTableHandle = new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName(schema, table), CATALOG_NAME, schema, table);
-        ConnectorSession session = new TestingConnectorSession(ImmutableList.of());
+        ConnectorSession session = new TestingConnectorSession(Collections.emptyList());
         JdbcTableLayoutHandle jdbcTableLayoutHandle = new JdbcTableLayoutHandle(
                 session.getSqlFunctionProperties(),
                 jdbcTableHandle,
@@ -220,7 +221,7 @@ public class TestJdbcComputePushdown
 
         Set<ColumnHandle> columns = Stream.of("c1", "c2").map(TestJdbcComputePushdown::booleanJdbcColumnHandle).collect(Collectors.toSet());
         JdbcTableHandle jdbcTableHandle = new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName(schema, table), CATALOG_NAME, schema, table);
-        ConnectorSession session = new TestingConnectorSession(ImmutableList.of());
+        ConnectorSession session = new TestingConnectorSession(Collections.emptyList());
         JdbcTableLayoutHandle jdbcTableLayoutHandle = new JdbcTableLayoutHandle(
                 session.getSqlFunctionProperties(),
                 jdbcTableHandle,

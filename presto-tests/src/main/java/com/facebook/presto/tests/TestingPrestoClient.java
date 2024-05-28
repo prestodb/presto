@@ -51,6 +51,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -112,7 +113,7 @@ public class TestingPrestoClient
 
         private final AtomicReference<Optional<String>> updateType = new AtomicReference<>(Optional.empty());
         private final AtomicReference<OptionalLong> updateCount = new AtomicReference<>(OptionalLong.empty());
-        private final AtomicReference<List<PrestoWarning>> warnings = new AtomicReference<>(ImmutableList.of());
+        private final AtomicReference<List<PrestoWarning>> warnings = new AtomicReference<>(Collections.emptyList());
 
         @Override
         public void setUpdateType(String type)

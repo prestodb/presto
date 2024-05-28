@@ -50,6 +50,7 @@ import org.bson.types.ObjectId;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
@@ -203,7 +204,7 @@ public class MongoSession
     private List<Document> getColumnMetadata(Document doc)
     {
         if (!doc.containsKey(FIELDS_KEY)) {
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
 
         return (List<Document>) doc.get(FIELDS_KEY);
@@ -469,7 +470,7 @@ public class MongoSession
         Document doc = db.getCollection(tableName).find().first();
         if (doc == null) {
             // no records at the collection
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
 
         ImmutableList.Builder<Document> builder = ImmutableList.builder();

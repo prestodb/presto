@@ -23,6 +23,8 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.TryExpression;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
+
 public class DesugarTryExpressionRewriter
 {
     private DesugarTryExpressionRewriter() {}
@@ -42,7 +44,7 @@ public class DesugarTryExpressionRewriter
 
             return new FunctionCall(
                     QualifiedName.of("$internal$try"),
-                    ImmutableList.of(new LambdaExpression(ImmutableList.of(), expression)));
+                    ImmutableList.of(new LambdaExpression(Collections.emptyList(), expression)));
         }
     }
 }

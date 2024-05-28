@@ -293,7 +293,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
 
         OrcType root = types.get(0);
         for (int includedColumn : includedColumns) {
-            List<Subfield> subfields = Optional.ofNullable(requiredSubfields.get(includedColumn)).orElse(ImmutableList.of());
+            List<Subfield> subfields = Optional.ofNullable(requiredSubfields.get(includedColumn)).orElse(Collections.emptyList());
             includeOrcColumnsRecursive(types, includes, root.getFieldTypeIndex(includedColumn), subfields);
         }
 
@@ -312,7 +312,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
 
         int children = type.getFieldCount();
         for (int i = 0; i < children; ++i) {
-            List<Subfield> subfields = ImmutableList.of();
+            List<Subfield> subfields = Collections.emptyList();
             if (requiredFields.isPresent()) {
                 String fieldName = type.getFieldNames().get(i).toLowerCase(Locale.ENGLISH);
                 if (!requiredFields.get().containsKey(fieldName)) {
@@ -692,7 +692,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
             }
         }
 
-        return ImmutableList.of();
+        return Collections.emptyList();
     }
 
     private void validateWrite(Predicate<OrcWriteValidation> test, String messageFormat, Object... args)
@@ -839,7 +839,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
         public static OrcBatchRecordReader.LinearProbeRangeFinder createTinyStripesRangeFinder(List<StripeInformation> stripes, DataSize maxMergeDistance, DataSize tinyStripeThreshold)
         {
             if (stripes.isEmpty()) {
-                return new OrcBatchRecordReader.LinearProbeRangeFinder(ImmutableList.of());
+                return new OrcBatchRecordReader.LinearProbeRangeFinder(Collections.emptyList());
             }
 
             List<DiskRange> scratchDiskRanges = stripes.stream()

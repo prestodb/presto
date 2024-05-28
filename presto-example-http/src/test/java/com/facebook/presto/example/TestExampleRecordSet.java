@@ -22,6 +22,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -54,8 +55,8 @@ public class TestExampleRecordSet
                 new ExampleColumnHandle("test", "text", createUnboundedVarcharType(), 0)));
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of(BIGINT, BIGINT, createUnboundedVarcharType()));
 
-        recordSet = new ExampleRecordSet(new ExampleSplit("test", "schema", "table", dataUri), ImmutableList.of());
-        assertEquals(recordSet.getColumnTypes(), ImmutableList.of());
+        recordSet = new ExampleRecordSet(new ExampleSplit("test", "schema", "table", dataUri), Collections.emptyList());
+        assertEquals(recordSet.getColumnTypes(), Collections.emptyList());
     }
 
     @Test

@@ -29,6 +29,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -264,11 +265,11 @@ public class TestOrcOutputBuffer
     {
         OrcOutputBuffer orcOutputBuffer = createOrcOutputBuffer(new DataSize(256, KILOBYTE));
         orcOutputBuffer.writeBytes(EMPTY_SLICE); // EMPTY_SLICE has null byte buffer
-        assertCompressedContent(orcOutputBuffer, new byte[0], ImmutableList.of());
+        assertCompressedContent(orcOutputBuffer, new byte[0], Collections.emptyList());
 
         orcOutputBuffer = createOrcOutputBuffer(new DataSize(256, KILOBYTE));
         orcOutputBuffer.writeBytes(EMPTY_SLICE, 0, 0);
-        assertCompressedContent(orcOutputBuffer, new byte[0], ImmutableList.of());
+        assertCompressedContent(orcOutputBuffer, new byte[0], Collections.emptyList());
     }
 
     @Test
@@ -276,11 +277,11 @@ public class TestOrcOutputBuffer
     {
         OrcOutputBuffer orcOutputBuffer = createOrcOutputBuffer(new DataSize(256, KILOBYTE));
         orcOutputBuffer.writeBytes(new byte[0]); // EMPTY_SLICE has null byte buffer
-        assertCompressedContent(orcOutputBuffer, new byte[0], ImmutableList.of());
+        assertCompressedContent(orcOutputBuffer, new byte[0], Collections.emptyList());
 
         orcOutputBuffer = createOrcOutputBuffer(new DataSize(256, KILOBYTE));
         orcOutputBuffer.writeBytes(new byte[0], 0, 0);
-        assertCompressedContent(orcOutputBuffer, new byte[0], ImmutableList.of());
+        assertCompressedContent(orcOutputBuffer, new byte[0], Collections.emptyList());
     }
 
     private void assertWriteBytes(byte[] byteArray, DataSize maxCompressionBufferSize, List<DataSize> writeChunks, List<DataSize> expectedDecompressedChunks)

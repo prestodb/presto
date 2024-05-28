@@ -48,6 +48,7 @@ import com.google.common.io.BaseEncoding;
 
 import javax.inject.Inject;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -345,7 +346,7 @@ public class ElasticsearchMetadata
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
         if (schemaName.isPresent() && !schemaName.get().equals(this.schemaName)) {
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
 
         ImmutableList.Builder<SchemaTableName> result = ImmutableList.builder();

@@ -15,8 +15,8 @@ package com.facebook.presto.plugin.base.security;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -32,9 +32,9 @@ public class AccessControlRules
             @JsonProperty("tables") Optional<List<TableAccessControlRule>> tableRules,
             @JsonProperty("sessionProperties") Optional<List<SessionPropertyAccessControlRule>> sessionPropertyRules)
     {
-        this.schemaRules = schemaRules.orElse(ImmutableList.of());
-        this.tableRules = tableRules.orElse(ImmutableList.of());
-        this.sessionPropertyRules = sessionPropertyRules.orElse(ImmutableList.of());
+        this.schemaRules = schemaRules.orElse(Collections.emptyList());
+        this.tableRules = tableRules.orElse(Collections.emptyList());
+        this.sessionPropertyRules = sessionPropertyRules.orElse(Collections.emptyList());
     }
 
     public List<SchemaAccessControlRule> getSchemaRules()

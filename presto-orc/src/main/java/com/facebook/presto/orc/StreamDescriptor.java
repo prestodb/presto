@@ -19,6 +19,7 @@ import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.orc.metadata.ColumnEncoding.DEFAULT_SEQUENCE_ID;
@@ -92,7 +93,7 @@ public final class StreamDescriptor
     {
         List<Integer> nestedStreamIds = getStreamProperty().getNestedStreamIds();
         if (nestedStreamIds.isEmpty()) {
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
 
         ImmutableList.Builder<StreamDescriptor> nestedStreamsBuilder = ImmutableList.builderWithExpectedSize(nestedStreamIds.size());

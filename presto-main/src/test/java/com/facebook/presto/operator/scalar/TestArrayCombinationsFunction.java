@@ -19,6 +19,8 @@ import com.google.common.collect.ContiguousSet;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
+
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
@@ -51,7 +53,7 @@ public class TestArrayCombinationsFunction
     @Test
     public void testBasic()
     {
-        assertFunction("combinations(ARRAY['bar', 'foo', 'baz', 'foo'], 0)", new ArrayType(new ArrayType(createVarcharType(3))), ImmutableList.of(ImmutableList.of()));
+        assertFunction("combinations(ARRAY['bar', 'foo', 'baz', 'foo'], 0)", new ArrayType(new ArrayType(createVarcharType(3))), ImmutableList.of(Collections.emptyList()));
         assertFunction("combinations(ARRAY['bar', 'foo', 'baz', 'foo'], 1)", new ArrayType(new ArrayType(createVarcharType(3))), ImmutableList.of(
                 ImmutableList.of("bar"),
                 ImmutableList.of("foo"),
@@ -71,7 +73,7 @@ public class TestArrayCombinationsFunction
                 ImmutableList.of("foo", "baz", "foo")));
         assertFunction("combinations(ARRAY['bar', 'foo', 'baz', 'foo'], 4)", new ArrayType(new ArrayType(createVarcharType(3))), ImmutableList.of(
                 ImmutableList.of("bar", "foo", "baz", "foo")));
-        assertFunction("combinations(ARRAY['bar', 'foo', 'baz', 'foo'], 5)", new ArrayType(new ArrayType(createVarcharType(3))), ImmutableList.of());
+        assertFunction("combinations(ARRAY['bar', 'foo', 'baz', 'foo'], 5)", new ArrayType(new ArrayType(createVarcharType(3))), Collections.emptyList());
         assertFunction("combinations(ARRAY['a', 'bb', 'ccc', 'dddd'], 2)", new ArrayType(new ArrayType(createVarcharType(4))), ImmutableList.of(
                 ImmutableList.of("a", "bb"),
                 ImmutableList.of("a", "ccc"),
@@ -147,8 +149,8 @@ public class TestArrayCombinationsFunction
                 ImmutableList.of("\u4FE1\u5FF5\u7231", "\u671B"),
                 ImmutableList.of("\u5E0C\u671B", "\u671B")));
 
-        assertFunction("combinations(ARRAY[], 2)", new ArrayType(new ArrayType(UNKNOWN)), ImmutableList.of());
-        assertFunction("combinations(ARRAY[''], 2)", new ArrayType(new ArrayType(createVarcharType(0))), ImmutableList.of());
+        assertFunction("combinations(ARRAY[], 2)", new ArrayType(new ArrayType(UNKNOWN)), Collections.emptyList());
+        assertFunction("combinations(ARRAY[''], 2)", new ArrayType(new ArrayType(createVarcharType(0))), Collections.emptyList());
         assertFunction("combinations(ARRAY['', ''], 2)", new ArrayType(new ArrayType(createVarcharType(0))), ImmutableList.of(ImmutableList.of("", "")));
     }
 }

@@ -27,6 +27,7 @@ import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -41,8 +42,8 @@ public class MongoClientConfig
     private static final Splitter TAG_SPLITTER = Splitter.on(':').trimResults().omitEmptyStrings();
 
     private String schemaCollection = "_schema";
-    private List<ServerAddress> seeds = ImmutableList.of();
-    private List<MongoCredential> credentials = ImmutableList.of();
+    private List<ServerAddress> seeds = Collections.emptyList();
+    private List<MongoCredential> credentials = Collections.emptyList();
 
     private int minConnectionsPerHost;
     private int connectionsPerHost = 100;
@@ -56,7 +57,7 @@ public class MongoClientConfig
     private int cursorBatchSize; // use driver default
 
     private ReadPreferenceType readPreference = ReadPreferenceType.PRIMARY;
-    private List<TagSet> readPreferenceTagSets = ImmutableList.of();
+    private List<TagSet> readPreferenceTagSets = Collections.emptyList();
     private WriteConcernType writeConcern = WriteConcernType.ACKNOWLEDGED;
     private String requiredReplicaSetName;
     private String implicitRowFieldPrefix = "_pos";

@@ -38,6 +38,7 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.io.IOException;
 import java.time.Instant;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -81,7 +82,7 @@ public class TestDynamicPruning
             1,
             HiveColumnHandle.ColumnType.PARTITION_KEY,
             Optional.empty(),
-            ImmutableList.of(),
+            Collections.emptyList(),
             Optional.empty());
 
     @Test
@@ -145,12 +146,12 @@ public class TestDynamicPruning
                 new Storage(
                         StorageFormat.create(config.getHiveStorageFormat().getSerDe(), config.getHiveStorageFormat().getInputFormat(), config.getHiveStorageFormat().getOutputFormat()),
                         "location",
-                        Optional.of(new HiveBucketProperty(ImmutableList.of("l_orderkey"), 10, ImmutableList.of(), HIVE_COMPATIBLE, Optional.empty())),
+                        Optional.of(new HiveBucketProperty(ImmutableList.of("l_orderkey"), 10, Collections.emptyList(), HIVE_COMPATIBLE, Optional.empty())),
                         false,
                         ImmutableMap.of(),
                         ImmutableMap.of()),
                 partitionKeys,
-                ImmutableList.of(),
+                Collections.emptyList(),
                 OptionalInt.of(1),
                 OptionalInt.of(1),
                 NO_PREFERENCE,

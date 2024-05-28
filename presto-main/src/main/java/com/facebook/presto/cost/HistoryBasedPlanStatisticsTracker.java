@@ -45,10 +45,10 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.planPrinter.PlanNodeStats;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -145,7 +145,7 @@ public class HistoryBasedPlanStatisticsTracker
         }
 
         StageInfo outputStage = queryInfo.getOutputStage().get();
-        List<StageInfo> allStages = ImmutableList.of();
+        List<StageInfo> allStages = Collections.emptyList();
         if (querySucceed) {
             allStages = outputStage.getAllStages();
         }

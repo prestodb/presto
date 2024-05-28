@@ -16,6 +16,7 @@ package com.facebook.presto.execution.resourceGroups;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.ConcurrentModificationException;
 import java.util.Iterator;
 import java.util.List;
@@ -108,7 +109,7 @@ public class TestUpdateablePriorityQueue
         assertFalse(queue.contains(1));
         assertThrows(IllegalStateException.class, iterator::remove);
 
-        assertEquals(ImmutableList.of(), ImmutableList.copyOf(queue));
+        assertEquals(Collections.emptyList(), ImmutableList.copyOf(queue));
         assertFalse(iterator.hasNext());
         assertThrows(IllegalStateException.class, iterator::remove);
         assertThrows(NoSuchElementException.class, iterator::next);

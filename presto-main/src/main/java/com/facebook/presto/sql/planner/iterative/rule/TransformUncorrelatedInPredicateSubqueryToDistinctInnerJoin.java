@@ -34,6 +34,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.getJoinReorderingStrategy;
@@ -151,7 +152,7 @@ public class TransformUncorrelatedInPredicateSubqueryToDistinctInnerJoin
                 singleGroupingSet(ImmutableList.<VariableReferenceExpression>builder()
                         .addAll(innerJoin.getOutputVariables())
                         .build()),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 SINGLE,
                 Optional.empty(),
                 Optional.empty(),

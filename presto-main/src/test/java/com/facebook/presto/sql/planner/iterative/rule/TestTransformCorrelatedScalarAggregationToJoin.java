@@ -19,6 +19,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
+
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
@@ -55,7 +57,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     {
         tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata().getFunctionAndTypeManager()))
                 .on(p -> p.lateral(
-                        ImmutableList.of(),
+                        Collections.emptyList(),
                         p.values(p.variable("a")),
                         p.values(p.variable("b"))))
                 .doesNotFire();
@@ -90,7 +92,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
                         project(ImmutableMap.of("sum_1", expression("sum_1"), "corr", expression("corr")),
                                 aggregation(ImmutableMap.of("sum_1", functionCall("sum", ImmutableList.of("a"))),
                                         join(JoinType.LEFT,
-                                                ImmutableList.of(),
+                                                Collections.emptyList(),
                                                 assignUniqueId("unique",
                                                         values(ImmutableMap.of("corr", 0))),
                                                 project(ImmutableMap.of("non_null", expression("true")),
@@ -114,7 +116,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
                         project(ImmutableMap.of("corr", expression("corr"), "expr", expression("(\"sum_1\" + 1)")),
                                 aggregation(ImmutableMap.of("sum_1", functionCall("sum", ImmutableList.of("a"))),
                                         join(JoinType.LEFT,
-                                                ImmutableList.of(),
+                                                Collections.emptyList(),
                                                 assignUniqueId("unique",
                                                         values(ImmutableMap.of("corr", 0))),
                                                 project(ImmutableMap.of("non_null", expression("true")),

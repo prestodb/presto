@@ -45,6 +45,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -107,7 +108,7 @@ public class PlanNodeDecorrelator
             return Optional.of(new DecorrelationResult(
                     node,
                     ImmutableSet.of(),
-                    ImmutableList.of(),
+                    Collections.emptyList(),
                     ImmutableMultimap.of(),
                     false));
         }
@@ -118,7 +119,7 @@ public class PlanNodeDecorrelator
             Optional<DecorrelationResult> childDecorrelationResultOptional = Optional.of(new DecorrelationResult(
                     node.getSource(),
                     ImmutableSet.of(),
-                    ImmutableList.of(),
+                    Collections.emptyList(),
                     ImmutableMultimap.of(),
                     false));
 
@@ -209,7 +210,7 @@ public class PlanNodeDecorrelator
                     decorrelatedChildNode,
                     ImmutableMap.of(),
                     singleGroupingSet(decorrelatedChildNode.getOutputVariables()),
-                    ImmutableList.of(),
+                    Collections.emptyList(),
                     AggregationNode.Step.SINGLE,
                     Optional.empty(),
                     Optional.empty(),
@@ -404,7 +405,7 @@ public class PlanNodeDecorrelator
                             .addAll(node.getGroupingKeys())
                             .addAll(variablesToAdd)
                             .build()),
-                    ImmutableList.of(),
+                    Collections.emptyList(),
                     decorrelatedAggregation.getStep(),
                     decorrelatedAggregation.getHashVariable(),
                     decorrelatedAggregation.getGroupIdVariable(),

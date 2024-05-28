@@ -39,6 +39,7 @@ import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -72,7 +73,7 @@ public class ReloadingResourceGroupConfigurationManager
     @GuardedBy("this")
     private Map<ResourceGroupIdTemplate, ResourceGroupSpec> resourceGroupSpecs = new HashMap<>();
     private final ConcurrentMap<ResourceGroupIdTemplate, List<ResourceGroupId>> configuredGroups = new ConcurrentHashMap<>();
-    private final AtomicReference<List<ResourceGroupSpec>> rootGroups = new AtomicReference<>(ImmutableList.of());
+    private final AtomicReference<List<ResourceGroupSpec>> rootGroups = new AtomicReference<>(Collections.emptyList());
     private final AtomicReference<List<ResourceGroupSelector>> selectors = new AtomicReference<>();
     private final AtomicReference<Optional<Duration>> cpuQuotaPeriod = new AtomicReference<>(Optional.empty());
     private final ManagerSpecProvider managerSpecProvider;
@@ -245,7 +246,7 @@ public class ReloadingResourceGroupConfigurationManager
     private synchronized void configureChangedGroups(Set<ResourceGroupIdTemplate> changedSpecs)
     {
         for (ResourceGroupIdTemplate resourceGroupIdTemplate : changedSpecs) {
-            for (ResourceGroupId resourceGroupId : configuredGroups.getOrDefault(resourceGroupIdTemplate, ImmutableList.of())) {
+            for (ResourceGroupId resourceGroupId : configuredGroups.getOrDefault(resourceGroupIdTemplate, Collections.emptyList())) {
                 synchronized (getRootGroup(resourceGroupId)) {
                     configureGroup(groups.get(resourceGroupId), resourceGroupSpecs.get(resourceGroupIdTemplate));
                 }
@@ -256,7 +257,7 @@ public class ReloadingResourceGroupConfigurationManager
     private synchronized void disableDeletedGroups(Set<ResourceGroupIdTemplate> deletedSpecs)
     {
         for (ResourceGroupIdTemplate resourceGroupIdTemplate : deletedSpecs) {
-            for (ResourceGroupId resourceGroupId : configuredGroups.getOrDefault(resourceGroupIdTemplate, ImmutableList.of())) {
+            for (ResourceGroupId resourceGroupId : configuredGroups.getOrDefault(resourceGroupIdTemplate, Collections.emptyList())) {
                 disableGroup(groups.get(resourceGroupId));
             }
         }

@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -44,8 +45,8 @@ public class TestIcebergColumnHandle
         testRoundTrip(primitiveIcebergColumnHandle(12, "blah", BIGINT, Optional.of("this is a comment")));
 
         // Nested column
-        ColumnIdentity foo1 = new ColumnIdentity(1, "foo1", PRIMITIVE, ImmutableList.of());
-        ColumnIdentity foo2 = new ColumnIdentity(2, "foo2", PRIMITIVE, ImmutableList.of());
+        ColumnIdentity foo1 = new ColumnIdentity(1, "foo1", PRIMITIVE, Collections.emptyList());
+        ColumnIdentity foo2 = new ColumnIdentity(2, "foo2", PRIMITIVE, Collections.emptyList());
         ColumnIdentity foo3 = new ColumnIdentity(3, "foo3", ARRAY, ImmutableList.of(foo1));
         IcebergColumnHandle nestedColumn = new IcebergColumnHandle(
                 new ColumnIdentity(

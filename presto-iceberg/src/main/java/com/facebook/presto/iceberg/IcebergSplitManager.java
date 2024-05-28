@@ -24,7 +24,6 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.google.common.collect.ImmutableList;
 import org.apache.iceberg.DeleteFile;
 import org.apache.iceberg.IncrementalChangelogScan;
 import org.apache.iceberg.Table;
@@ -37,6 +36,7 @@ import org.weakref.jmx.Nested;
 
 import javax.inject.Inject;
 
+import java.util.Collections;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 
@@ -78,7 +78,7 @@ public class IcebergSplitManager
         IcebergTableHandle table = layoutHandle.getTable();
 
         if (!table.getIcebergTableName().getSnapshotId().isPresent()) {
-            return new FixedSplitSource(ImmutableList.of());
+            return new FixedSplitSource(Collections.emptyList());
         }
 
         TupleDomain<IcebergColumnHandle> predicate = layoutHandle.getValidPredicate();

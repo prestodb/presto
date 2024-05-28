@@ -44,6 +44,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -89,7 +90,7 @@ public class TestAvroDecoder
             SchemaBuilder.GenericDefault<Schema> genericDefault = fieldBuilder.type(fieldSchema);
             switch (fieldSchema.getType()) {
                 case ARRAY:
-                    genericDefault.withDefault(ImmutableList.of());
+                    genericDefault.withDefault(Collections.emptyList());
                     break;
                 case MAP:
                     genericDefault.withDefault(ImmutableMap.of());

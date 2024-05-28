@@ -22,6 +22,8 @@ import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
+
 import static com.facebook.presto.common.function.OperatorType.CAST;
 import static com.facebook.presto.common.type.DistinctType.hasAncestorRelationship;
 import static com.facebook.presto.common.type.StandardTypes.DISTINCT_TYPE;
@@ -48,7 +50,7 @@ public class DistinctTypeCasts
         {
             super(CAST,
                     ImmutableList.of(typeVariable("T1"), withVariadicBound("T2", DISTINCT_TYPE)),
-                    ImmutableList.of(),
+                    Collections.emptyList(),
                     parseTypeSignature("T2"),
                     ImmutableList.of(parseTypeSignature("T1")));
         }
@@ -75,7 +77,7 @@ public class DistinctTypeCasts
         {
             super(CAST,
                     ImmutableList.of(typeVariable("T2"), withVariadicBound("T1", DISTINCT_TYPE)),
-                    ImmutableList.of(),
+                    Collections.emptyList(),
                     parseTypeSignature("T2"),
                     ImmutableList.of(parseTypeSignature("T1")));
         }

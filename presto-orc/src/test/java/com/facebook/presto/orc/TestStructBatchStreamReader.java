@@ -41,6 +41,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -71,7 +72,7 @@ public class TestStructBatchStreamReader
 
     private static final String STRUCT_COL_NAME = "struct_col";
 
-    public static final ConnectorSession SESSION = new TestingConnectorSession(ImmutableList.of());
+    public static final ConnectorSession SESSION = new TestingConnectorSession(Collections.emptyList());
 
     private TempFile tempFile;
 

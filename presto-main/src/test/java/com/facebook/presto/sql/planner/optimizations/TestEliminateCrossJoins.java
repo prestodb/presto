@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.plan.JoinType.INNER;
@@ -81,7 +82,7 @@ public class TestEliminateCrossJoins
                 anyTree(
                         join(INNER, ImmutableList.of(equiJoinClause("O_ORDERKEY", "L_ORDERKEY")),
                                 anyTree(
-                                        join(INNER, ImmutableList.of(),
+                                        join(INNER, Collections.emptyList(),
                                                 tableScan("part"),
                                                 anyTree(tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))))),
                                 anyTree(tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey"))))));

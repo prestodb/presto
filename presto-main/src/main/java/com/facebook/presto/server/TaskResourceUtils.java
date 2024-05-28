@@ -24,10 +24,10 @@ import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.server.thrift.Any;
 import com.facebook.presto.spi.ConnectorMetadataUpdateHandle;
 import com.facebook.presto.spi.ConnectorTypeSerde;
-import com.google.common.collect.ImmutableList;
 
 import javax.ws.rs.core.HttpHeaders;
 
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.operator.OperatorInfoUnion.convertToOperatorInfo;
@@ -263,7 +263,7 @@ public class TaskResourceUtils
     {
         List<ConnectorMetadataUpdateHandle> metadataUpdateHandles = metadataUpdates.getMetadataUpdates();
         if (metadataUpdateHandles.isEmpty()) {
-            return new MetadataUpdates(metadataUpdates.getConnectorId(), ImmutableList.of(), true);
+            return new MetadataUpdates(metadataUpdates.getConnectorId(), Collections.emptyList(), true);
         }
         ConnectorTypeSerde<ConnectorMetadataUpdateHandle> connectorTypeSerde =
                 connectorTypeSerdeManager.getMetadataUpdateHandleSerde(metadataUpdates.getConnectorId());
@@ -498,7 +498,7 @@ public class TaskResourceUtils
     {
         List<Any> metadataUpdateHandles = metadataUpdates.getMetadataUpdatesAny();
         if (metadataUpdateHandles.isEmpty()) {
-            return new MetadataUpdates(metadataUpdates.getConnectorId(), ImmutableList.of());
+            return new MetadataUpdates(metadataUpdates.getConnectorId(), Collections.emptyList());
         }
         ConnectorTypeSerde<ConnectorMetadataUpdateHandle> connectorTypeSerde =
                 connectorTypeSerdeManager.getMetadataUpdateHandleSerde(metadataUpdates.getConnectorId());

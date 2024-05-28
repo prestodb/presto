@@ -19,6 +19,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
+
 import static com.facebook.presto.SystemSessionProperties.CTE_MATERIALIZATION_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.SIMPLIFY_PLAN_WITH_EMPTY_INPUT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
@@ -189,7 +191,7 @@ public class TestSimplifyPlanWithEmptyInput
                 output(
                         ImmutableList.of("count"),
                         aggregation(
-                                ImmutableMap.of("count", functionCall("count", ImmutableList.of())),
+                                ImmutableMap.of("count", functionCall("count", Collections.emptyList())),
                                 values())));
     }
 
@@ -243,7 +245,7 @@ public class TestSimplifyPlanWithEmptyInput
                 enableOptimization(),
                 output(
                         ImmutableList.of("orderkey", "rownumber", "orderpriority"),
-                        values(ImmutableList.of("orderkey", "orderpriority", "rownumber"), ImmutableList.of())));
+                        values(ImmutableList.of("orderkey", "orderpriority", "rownumber"), Collections.emptyList())));
     }
 
     @Test
@@ -253,7 +255,7 @@ public class TestSimplifyPlanWithEmptyInput
                 enableOptimization(),
                 output(
                         ImmutableList.of("orderkey", "row_number", "orderpriority"),
-                        values(ImmutableList.of("orderkey", "orderpriority", "row_number"), ImmutableList.of())));
+                        values(ImmutableList.of("orderkey", "orderpriority", "row_number"), Collections.emptyList())));
     }
 
     @Test

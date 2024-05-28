@@ -26,6 +26,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.util.Collections;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
@@ -151,7 +152,7 @@ public class TestPrometheusRetrieveUpValueIntegrationTests
                         new PrometheusColumnHandle("text", createUnboundedVarcharType(), 0)));
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of(BIGINT, BIGINT, createUnboundedVarcharType()));
 
-        recordSet = new PrometheusRecordSet(client, new PrometheusSplit(dataUri), ImmutableList.of());
-        assertEquals(recordSet.getColumnTypes(), ImmutableList.of());
+        recordSet = new PrometheusRecordSet(client, new PrometheusSplit(dataUri), Collections.emptyList());
+        assertEquals(recordSet.getColumnTypes(), Collections.emptyList());
     }
 }

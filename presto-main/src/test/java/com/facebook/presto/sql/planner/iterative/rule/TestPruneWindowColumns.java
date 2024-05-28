@@ -33,6 +33,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -330,6 +331,6 @@ public class TestPruneWindowColumns
                         hash,
                         p.values(
                                 filteredInputs,
-                                ImmutableList.of())));
+                                Collections.emptyList())));
     }
 }

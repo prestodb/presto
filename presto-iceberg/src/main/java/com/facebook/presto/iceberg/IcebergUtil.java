@@ -488,7 +488,7 @@ public final class IcebergUtil
         // Empty iceberg table would cause `snapshotId` not present
         Optional<Long> snapshotId = resolveSnapshotIdByName(icebergTable, name);
         if (!snapshotId.isPresent()) {
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
 
         TableScan tableScan = icebergTable.newScan()

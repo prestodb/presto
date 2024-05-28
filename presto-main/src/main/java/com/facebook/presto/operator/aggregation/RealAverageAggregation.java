@@ -32,6 +32,7 @@ import com.facebook.presto.spi.function.aggregation.GroupedAccumulator;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.common.type.RealType.REAL;
@@ -59,8 +60,8 @@ public class RealAverageAggregation
     protected RealAverageAggregation()
     {
         super(NAME,
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 parseTypeSignature(StandardTypes.REAL),
                 ImmutableList.of(parseTypeSignature(StandardTypes.REAL)));
     }

@@ -29,6 +29,7 @@ import com.google.cloud.bigquery.TableResult;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -94,7 +95,7 @@ public class BigQuerySplitManager
 
     private ImmutableList<BigQuerySplit> readFromBigQuery(TableId tableId, Optional<List<ColumnHandle>> projectedColumns, int actualParallelism, Optional<String> filter)
     {
-        List<ColumnHandle> columns = projectedColumns.orElse(ImmutableList.of());
+        List<ColumnHandle> columns = projectedColumns.orElse(Collections.emptyList());
         ImmutableList<String> projectedColumnsNames = columns.stream()
                 .map(column -> ((BigQueryColumnHandle) column).getName())
                 .collect(toImmutableList());

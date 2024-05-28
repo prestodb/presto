@@ -40,6 +40,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -235,7 +236,7 @@ public class OptimizeMixedDistinctAggregations
                     source,
                     aggregations.build(),
                     node.getGroupingSets(),
-                    ImmutableList.of(),
+                    Collections.emptyList(),
                     node.getStep(),
                     Optional.empty(),
                     node.getGroupIdVariable(),
@@ -454,7 +455,7 @@ public class OptimizeMixedDistinctAggregations
                     allVariables.stream().collect(Collectors.toMap(
                             identity(),
                             variable -> (variable.equals(duplicatedDistinctVariable) ? distinctVariable : variable))),
-                    ImmutableList.of(),
+                    Collections.emptyList(),
                     groupVariable);
         }
 
@@ -522,7 +523,7 @@ public class OptimizeMixedDistinctAggregations
                     groupIdNode,
                     aggregations.build(),
                     singleGroupingSet(ImmutableList.copyOf(groupByKeys)),
-                    ImmutableList.of(),
+                    Collections.emptyList(),
                     SINGLE,
                     originalNode.getHashVariable(),
                     Optional.empty(),

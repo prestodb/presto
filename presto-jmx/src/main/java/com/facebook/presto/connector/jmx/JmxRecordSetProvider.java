@@ -34,6 +34,7 @@ import javax.management.ObjectName;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -172,7 +173,7 @@ public class JmxRecordSetProvider
             }
         }
         catch (JMException e) {
-            rows = ImmutableList.of();
+            rows = Collections.emptyList();
         }
 
         return new InMemoryRecordSet(getColumnTypes(columns), rows);

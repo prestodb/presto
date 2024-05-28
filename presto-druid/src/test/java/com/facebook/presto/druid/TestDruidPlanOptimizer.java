@@ -39,6 +39,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -170,7 +171,7 @@ public class TestDruidPlanOptimizer
                     }
                     return false;
                 }).collect(toImmutableList())),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 SINGLE,
                 Optional.empty(),
                 Optional.empty(),

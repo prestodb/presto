@@ -16,10 +16,10 @@ package com.facebook.presto.verifier.source;
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableList;
 
 import javax.validation.constraints.NotNull;
 
+import java.util.Collections;
 import java.util.List;
 
 public class MySqlSourceQueryConfig
@@ -27,7 +27,7 @@ public class MySqlSourceQueryConfig
     private String database = "jdbc:mysql://localhost:3306";
     private String tableName = "verifier_queries";
     private String snapshotTableName = "verifier_snapshots";
-    private List<String> suites = ImmutableList.of();
+    private List<String> suites = Collections.emptyList();
     private int maxQueriesPerSuite = 100_000;
 
     @NotNull

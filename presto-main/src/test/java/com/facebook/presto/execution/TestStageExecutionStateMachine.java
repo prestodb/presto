@@ -21,6 +21,7 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.sql.SQLException;
+import java.util.Collections;
 import java.util.concurrent.ExecutorService;
 
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -272,7 +273,7 @@ public class TestStageExecutionStateMachine
         assertEquals(stateMachine.getStageExecutionId(), STAGE_ID);
 
         StageExecutionInfo stageExecutionInfo = stateMachine.getStageExecutionInfo(ImmutableList::of, 0, 0);
-        assertEquals(stageExecutionInfo.getTasks(), ImmutableList.of());
+        assertEquals(stageExecutionInfo.getTasks(), Collections.emptyList());
 
         assertEquals(stateMachine.getState(), expectedState);
         assertEquals(stageExecutionInfo.getState(), expectedState);

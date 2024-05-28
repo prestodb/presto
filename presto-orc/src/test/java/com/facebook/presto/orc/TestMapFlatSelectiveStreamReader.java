@@ -426,9 +426,9 @@ public class TestMapFlatSelectiveStreamReader
 
         OrcPredicate orcPredicate = createOrcPredicate(0, mapType, expectedValues, OrcTester.Format.DWRF, true);
 
-        runTest(testOrcFileName, mapType, expectedValues, orcPredicate, Optional.empty(), ImmutableList.of());
-        runTest(testOrcFileName, mapType, expectedValues.stream().filter(Objects::isNull).collect(toList()), orcPredicate, Optional.of(IS_NULL), ImmutableList.of());
-        runTest(testOrcFileName, mapType, expectedValues.stream().filter(Objects::nonNull).collect(toList()), orcPredicate, Optional.of(IS_NOT_NULL), ImmutableList.of());
+        runTest(testOrcFileName, mapType, expectedValues, orcPredicate, Optional.empty(), Collections.emptyList());
+        runTest(testOrcFileName, mapType, expectedValues.stream().filter(Objects::isNull).collect(toList()), orcPredicate, Optional.of(IS_NULL), Collections.emptyList());
+        runTest(testOrcFileName, mapType, expectedValues.stream().filter(Objects::nonNull).collect(toList()), orcPredicate, Optional.of(IS_NOT_NULL), Collections.emptyList());
 
         if (keyType != VARBINARY) {
             // read only some keys
@@ -455,7 +455,7 @@ public class TestMapFlatSelectiveStreamReader
                 OrcEncoding.DWRF,
                 OrcPredicate.TRUE,
                 Optional.of(filters),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 ImmutableMap.of(),
                 ImmutableMap.of());
 
@@ -515,7 +515,7 @@ public class TestMapFlatSelectiveStreamReader
                 OrcEncoding.DWRF,
                 orcPredicate,
                 filters,
-                ImmutableList.of(),
+                Collections.emptyList(),
                 ImmutableMap.of(),
                 ImmutableMap.of(0, subfields));
     }

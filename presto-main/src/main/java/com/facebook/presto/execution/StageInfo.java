@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.concurrent.Immutable;
 
 import java.net.URI;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -124,7 +125,7 @@ public class StageInfo
 
     public static List<StageInfo> getAllStages(Optional<StageInfo> stageInfo)
     {
-        return stageInfo.map(StageInfo::getAllStages).orElse(ImmutableList.of());
+        return stageInfo.map(StageInfo::getAllStages).orElse(Collections.emptyList());
     }
 
     public Optional<StageInfo> getStageWithStageId(StageId stageId)

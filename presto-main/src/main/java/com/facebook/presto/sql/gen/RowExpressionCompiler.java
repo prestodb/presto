@@ -39,6 +39,7 @@ import com.facebook.presto.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -298,7 +299,7 @@ public class RowExpressionCompiler
 
             return generateLambda(
                     generatorContext,
-                    ImmutableList.of(),
+                    Collections.emptyList(),
                     compiledLambdaMap.get(lambda),
                     context.getLambdaInterface().get());
         }

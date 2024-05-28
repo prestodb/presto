@@ -58,6 +58,7 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -460,7 +461,7 @@ public class QueryStateMachine
                 memoryPool.get().getId(),
                 queryStats.isScheduled(),
                 self,
-                outputManager.getQueryOutputInfo().map(QueryOutputInfo::getColumnNames).orElse(ImmutableList.of()),
+                outputManager.getQueryOutputInfo().map(QueryOutputInfo::getColumnNames).orElse(Collections.emptyList()),
                 query,
                 expandedQuery.get(),
                 preparedQuery,
@@ -1059,8 +1060,8 @@ public class QueryStateMachine
                 outputStage.getSelf(),
                 Optional.empty(), // Remove the plan
                 pruneStageExecutionInfo(outputStage.getLatestAttemptExecutionInfo()),
-                ImmutableList.of(), // Remove failed attempts
-                ImmutableList.of(),
+                Collections.emptyList(), // Remove failed attempts
+                Collections.emptyList(),
                 outputStage.isRuntimeOptimized())); // Remove the substages
 
         QueryInfo prunedQueryInfo = new QueryInfo(
@@ -1104,7 +1105,7 @@ public class QueryStateMachine
                 queryInfo.getScalarFunctions(),
                 queryInfo.getAggregateFunctions(),
                 queryInfo.getWindowsFunctions(),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 ImmutableMap.of(),
                 queryInfo.getPrestoSparkExecutionContext());
         finalQueryInfo.compareAndSet(finalInfo, Optional.of(prunedQueryInfo));
@@ -1116,7 +1117,7 @@ public class QueryStateMachine
                 info.getState(),
                 info.getStats(),
                 // Remove the tasks
-                ImmutableList.of(),
+                Collections.emptyList(),
                 info.getFailureCause());
     }
 
@@ -1177,7 +1178,7 @@ public class QueryStateMachine
                 queryStats.getWrittenOutputPhysicalDataSize(),
                 queryStats.getWrittenIntermediatePhysicalDataSize(),
                 queryStats.getStageGcStatistics(),
-                ImmutableList.of(), // Remove the operator summaries as OperatorInfo (especially ExchangeClientStatus) can hold onto a large amount of memory
+                Collections.emptyList(), // Remove the operator summaries as OperatorInfo (especially ExchangeClientStatus) can hold onto a large amount of memory
                 queryStats.getRuntimeStats());
     }
 

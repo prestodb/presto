@@ -41,6 +41,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -158,7 +159,7 @@ public class TestJmxSplitManager
     {
         for (SchemaTableName schemaTableName : metadata.listTables(SESSION, HISTORY_SCHEMA_NAME)) {
             // wait for at least two samples
-            List<Long> timeStamps = ImmutableList.of();
+            List<Long> timeStamps = Collections.emptyList();
             for (int waited = 0; waited < TIMEOUT_TIME; waited += SLEEP_TIME) {
                 RecordSet recordSet = getRecordSet(schemaTableName);
                 timeStamps = readTimeStampsFrom(recordSet);

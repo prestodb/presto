@@ -51,6 +51,7 @@ import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
 
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -260,7 +261,7 @@ public class HivePageSourceProvider
         List<ColumnMapping> columnMappings = ColumnMapping.buildColumnMappings(
                 hiveSplit.getPartitionKeys(),
                 selectedColumns,
-                hiveSplit.getBucketConversion().map(BucketConversion::getBucketColumnHandles).orElse(ImmutableList.of()),
+                hiveSplit.getBucketConversion().map(BucketConversion::getBucketColumnHandles).orElse(Collections.emptyList()),
                 hiveSplit.getTableToPartitionMapping(),
                 hiveSplit.getFileSplit(),
                 hiveSplit.getTableBucketNumber());
@@ -322,7 +323,7 @@ public class HivePageSourceProvider
     {
         Set<HiveColumnHandle> interimColumns = ImmutableSet.<HiveColumnHandle>builder()
                 .addAll(layout.getPredicateColumns().values())
-                .addAll(split.getBucketConversion().map(BucketConversion::getBucketColumnHandles).orElse(ImmutableList.of()))
+                .addAll(split.getBucketConversion().map(BucketConversion::getBucketColumnHandles).orElse(Collections.emptyList()))
                 .build();
 
         Set<String> columnNames = selectedColumns.stream().map(HiveColumnHandle::getName).collect(toImmutableSet());
@@ -335,7 +336,7 @@ public class HivePageSourceProvider
         List<ColumnMapping> columnMappings = ColumnMapping.buildColumnMappings(
                 split.getPartitionKeys(),
                 allColumns,
-                ImmutableList.of(),
+                Collections.emptyList(),
                 split.getTableToPartitionMapping(),
                 split.getFileSplit(),
                 split.getTableBucketNumber());
@@ -448,7 +449,7 @@ public class HivePageSourceProvider
         List<ColumnMapping> columnMappings = ColumnMapping.buildColumnMappings(
                 partitionKeys,
                 allColumns,
-                bucketConversion.map(BucketConversion::getBucketColumnHandles).orElse(ImmutableList.of()),
+                bucketConversion.map(BucketConversion::getBucketColumnHandles).orElse(Collections.emptyList()),
                 tableToPartitionMapping,
                 fileSplit,
                 tableBucketNumber);

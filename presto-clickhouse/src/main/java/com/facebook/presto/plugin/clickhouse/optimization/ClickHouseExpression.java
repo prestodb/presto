@@ -16,8 +16,8 @@ package com.facebook.presto.plugin.clickhouse.optimization;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -30,7 +30,7 @@ public class ClickHouseExpression
 
     public ClickHouseExpression(String expression)
     {
-        this(expression, ImmutableList.of());
+        this(expression, Collections.emptyList());
     }
 
     @JsonCreator

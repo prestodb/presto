@@ -19,8 +19,8 @@ import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.presto.expressions.LogicalRowExpressions.FALSE_CONSTANT;
@@ -48,7 +48,7 @@ public class RemoveTrivialFilters
         }
 
         if (predicate.equals(FALSE_CONSTANT)) {
-            return Result.ofPlanNode(new ValuesNode(filterNode.getSourceLocation(), context.getIdAllocator().getNextId(), filterNode.getOutputVariables(), ImmutableList.of(), Optional.empty()));
+            return Result.ofPlanNode(new ValuesNode(filterNode.getSourceLocation(), context.getIdAllocator().getNextId(), filterNode.getOutputVariables(), Collections.emptyList(), Optional.empty()));
         }
 
         return Result.empty();

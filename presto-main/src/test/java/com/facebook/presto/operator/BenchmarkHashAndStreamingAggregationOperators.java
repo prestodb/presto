@@ -45,6 +45,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -86,7 +87,7 @@ public class BenchmarkHashAndStreamingAggregationOperators
     private static final JavaAggregationFunctionImplementation LONG_SUM = FUNCTION_AND_TYPE_MANAGER.getJavaAggregateFunctionImplementation(
             FUNCTION_AND_TYPE_MANAGER.lookupFunction("sum", fromTypes(BIGINT)));
     private static final JavaAggregationFunctionImplementation COUNT = FUNCTION_AND_TYPE_MANAGER.getJavaAggregateFunctionImplementation(
-            FUNCTION_AND_TYPE_MANAGER.lookupFunction("count", ImmutableList.of()));
+            FUNCTION_AND_TYPE_MANAGER.lookupFunction("count", Collections.emptyList()));
 
     @State(Thread)
     public static class Context
@@ -159,8 +160,8 @@ public class BenchmarkHashAndStreamingAggregationOperators
                     new PlanNodeId("test"),
                     ImmutableList.of(VARCHAR),
                     ImmutableList.of(0),
-                    ImmutableList.of(),
-                    ImmutableList.of(),
+                    Collections.emptyList(),
+                    Collections.emptyList(),
                     AggregationNode.Step.SINGLE,
                     false,
                     ImmutableList.of(generateAccumulatorFactory(COUNT, ImmutableList.of(0), Optional.empty()),

@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableSet;
 
 import javax.inject.Inject;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -72,7 +73,7 @@ public class CassandraSplitManager
         List<CassandraPartition> partitions = layoutHandle.getPartitions();
 
         if (partitions.isEmpty()) {
-            return new FixedSplitSource(ImmutableList.of());
+            return new FixedSplitSource(Collections.emptyList());
         }
 
         // if this is an unpartitioned table, split into equal ranges

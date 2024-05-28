@@ -26,7 +26,6 @@ import com.facebook.presto.verifier.prestoaction.SqlExceptionClassifier;
 import com.facebook.presto.verifier.resolver.FailureResolverManager;
 import com.facebook.presto.verifier.rewrite.QueryRewriter;
 import com.facebook.presto.verifier.source.SnapshotQueryConsumer;
-import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
 
 import java.util.Collections;
@@ -131,7 +130,7 @@ public class DataVerification
                         Optional.empty(),
                         OptionalLong.empty(),
                         OptionalLong.empty(),
-                        ImmutableList.of());
+                        Collections.emptyList());
             }
         }
         else if (QUERY_BANK_MODE.equals(runningMode)) {

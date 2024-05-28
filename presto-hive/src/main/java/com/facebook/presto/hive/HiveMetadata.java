@@ -128,6 +128,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -1088,7 +1089,7 @@ public class HiveMetadata
                     return new HiveBucketProperty(
                             partitionColumns,
                             partitioningHandle.getBucketCount(),
-                            ImmutableList.of(),
+                            Collections.emptyList(),
                             HIVE_COMPATIBLE,
                             Optional.empty());
                 case PRESTO_NATIVE:
@@ -1097,7 +1098,7 @@ public class HiveMetadata
                     return new HiveBucketProperty(
                             partitionColumns,
                             partitioningHandle.getBucketCount(),
-                            ImmutableList.of(),
+                            Collections.emptyList(),
                             PRESTO_NATIVE,
                             Optional.of(partitionColumns.stream()
                                     .map(columnNameToTypeMap::get)
@@ -1722,7 +1723,7 @@ public class HiveMetadata
                     .map(PartitionUpdate::getStatistics)
                     .reduce((first, second) -> reduce(first, second, ADD))
                     .orElse(createZeroStatistics());
-            tableStatistics = createPartitionStatistics(session, basicStatistics, columnTypes, getColumnStatistics(partitionComputedStatistics, ImmutableList.of()), timeZone);
+            tableStatistics = createPartitionStatistics(session, basicStatistics, columnTypes, getColumnStatistics(partitionComputedStatistics, Collections.emptyList()), timeZone);
         }
         else {
             tableStatistics = new PartitionStatistics(createEmptyStatistics(), ImmutableMap.of());
@@ -1809,7 +1810,7 @@ public class HiveMetadata
     {
         // avoid creation of PartitionUpdate with empty list of files
         if (!shouldCreateFilesForMissingBuckets(table, session)) {
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
         HiveStorageFormat storageFormat = table.getPartitionColumns().isEmpty() ? handle.getTableStorageFormat() : handle.getPartitionStorageFormat();
 
@@ -1872,7 +1873,7 @@ public class HiveMetadata
     {
         if (existingFileNames.size() == bucketCount) {
             // fast path for common case
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
         String fileExtension = getFileExtension(fromHiveStorageFormat(storageFormat), compressionCodec);
         ImmutableList.Builder<String> missingFileNamesBuilder = ImmutableList.builder();
@@ -2071,7 +2072,7 @@ public class HiveMetadata
                         session,
                         partitionUpdate.getStatistics(),
                         columnTypes,
-                        getColumnStatistics(partitionComputedStatistics, ImmutableList.of()), timeZone);
+                        getColumnStatistics(partitionComputedStatistics, Collections.emptyList()), timeZone);
                 metastore.finishInsertIntoExistingTable(
                         session,
                         handle.getSchemaName(),
@@ -2693,7 +2694,7 @@ public class HiveMetadata
 
     private static Subfield toSubfield(ColumnHandle columnHandle)
     {
-        return new Subfield(((HiveColumnHandle) columnHandle).getName(), ImmutableList.of());
+        return new Subfield(((HiveColumnHandle) columnHandle).getName(), Collections.emptyList());
     }
 
     private static boolean isEntireColumn(Subfield subfield)
@@ -3145,7 +3146,7 @@ public class HiveMetadata
         if (!isCollectColumnStatisticsOnWrite(session)) {
             return TableStatisticsMetadata.empty();
         }
-        List<String> partitionedBy = firstNonNull(getPartitionedBy(tableMetadata.getProperties()), ImmutableList.of());
+        List<String> partitionedBy = firstNonNull(getPartitionedBy(tableMetadata.getProperties()), Collections.emptyList());
         MetastoreContext metastoreContext = getMetastoreContext(session);
         Optional<Table> table = metastore.getTable(metastoreContext, tableMetadata.getTable().getSchemaName(), tableMetadata.getTable().getTableName());
         return getStatisticsCollectionMetadata(session, tableMetadata.getColumns(), partitionedBy, false, table.isPresent() && table.get().getTableType() == TEMPORARY_TABLE);
@@ -3154,7 +3155,7 @@ public class HiveMetadata
     @Override
     public TableStatisticsMetadata getStatisticsCollectionMetadata(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
-        List<String> partitionedBy = firstNonNull(getPartitionedBy(tableMetadata.getProperties()), ImmutableList.of());
+        List<String> partitionedBy = firstNonNull(getPartitionedBy(tableMetadata.getProperties()), Collections.emptyList());
         return getStatisticsCollectionMetadata(session, tableMetadata.getColumns(), partitionedBy, true, false);
     }
 
@@ -3413,7 +3414,7 @@ public class HiveMetadata
     static List<SortingColumn> decodePreferredOrderingColumnsFromStorage(Storage storage)
     {
         if (!storage.getParameters().containsKey(PREFERRED_ORDERING_COLUMNS)) {
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
 
         return Splitter.on(COMMA).trimResults().omitEmptyStrings().splitToList(storage.getParameters().get(PREFERRED_ORDERING_COLUMNS)).stream()

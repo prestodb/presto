@@ -24,6 +24,7 @@ import javax.annotation.Nullable;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.bytecode.Access.STATIC;
@@ -102,7 +103,7 @@ class GetFieldBytecodeExpression
     @Override
     public List<BytecodeNode> getChildNodes()
     {
-        return (instance == null) ? ImmutableList.of() : ImmutableList.of(instance);
+        return (instance == null) ? Collections.emptyList() : ImmutableList.of(instance);
     }
 
     private static Field getDeclaredField(Class<?> declaringClass, String name)

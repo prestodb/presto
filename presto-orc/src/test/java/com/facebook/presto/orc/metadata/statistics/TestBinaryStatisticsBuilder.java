@@ -19,6 +19,7 @@ import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
@@ -128,7 +129,7 @@ public class TestBinaryStatisticsBuilder
     @Test
     public void testTotalValueBytes()
     {
-        assertTotalValueBytes(0L, ImmutableList.of());
+        assertTotalValueBytes(0L, Collections.emptyList());
         assertTotalValueBytes(BINARY_VALUE_BYTES_OVERHEAD, ImmutableList.of(EMPTY_SLICE));
         assertTotalValueBytes(FIRST_VALUE.length() + BINARY_VALUE_BYTES_OVERHEAD, ImmutableList.of(FIRST_VALUE));
         assertTotalValueBytes((FIRST_VALUE.length() + SECOND_VALUE.length()) + 2 * BINARY_VALUE_BYTES_OVERHEAD, ImmutableList.of(FIRST_VALUE, SECOND_VALUE));

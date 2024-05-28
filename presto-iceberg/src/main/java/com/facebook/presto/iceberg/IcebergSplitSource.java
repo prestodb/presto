@@ -19,7 +19,6 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.SplitWeight;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
-import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionSpec;
@@ -31,6 +30,7 @@ import org.apache.iceberg.io.CloseableIterator;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -117,7 +117,7 @@ public class IcebergSplitSource
                 task.start(),
                 task.length(),
                 fromIcebergFileFormat(task.file().format()),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 getPartitionKeys(task),
                 PartitionSpecParser.toJson(spec),
                 partitionData.map(PartitionData::toJson),

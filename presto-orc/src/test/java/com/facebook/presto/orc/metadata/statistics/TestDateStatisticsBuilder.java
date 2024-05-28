@@ -19,6 +19,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
+
 import static com.facebook.presto.orc.metadata.statistics.AbstractStatisticsBuilderTest.StatisticsType.DATE;
 import static com.facebook.presto.orc.metadata.statistics.DateStatistics.DATE_VALUE_BYTES;
 import static java.lang.Integer.MAX_VALUE;
@@ -75,7 +77,7 @@ public class TestDateStatisticsBuilder
     @Test
     public void testTotalValueBytes()
     {
-        assertTotalValueBytes(0L, ImmutableList.of());
+        assertTotalValueBytes(0L, Collections.emptyList());
         assertTotalValueBytes(DATE_VALUE_BYTES, ImmutableList.of(42));
         assertTotalValueBytes(DATE_VALUE_BYTES, ImmutableList.of(0));
         assertTotalValueBytes(4 * DATE_VALUE_BYTES, ImmutableList.of(0, 42, 42, 43));

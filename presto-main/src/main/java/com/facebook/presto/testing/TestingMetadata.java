@@ -47,6 +47,7 @@ import io.airlift.slice.Slice;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -315,7 +316,7 @@ public class TestingMetadata
     public void createMaterializedView(ConnectorSession session, ConnectorTableMetadata viewMetadata, MaterializedViewDefinition viewDefinition, boolean ignoreExisting)
     {
         SchemaTableName viewName = new SchemaTableName(viewDefinition.getSchema(), viewDefinition.getTable());
-        tables.put(viewName, new ConnectorTableMetadata(viewName, ImmutableList.of()));
+        tables.put(viewName, new ConnectorTableMetadata(viewName, Collections.emptyList()));
         materializedViews.put(viewName, viewDefinition);
     }
 

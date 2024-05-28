@@ -29,10 +29,10 @@ import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.relational.Expressions;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -80,7 +80,7 @@ public class DynamicFiltersChecker
                         .getFilter()
                         .map(DynamicFilters::extractDynamicFilters)
                         .map(DynamicFilters.DynamicFilterExtractResult::getDynamicConjuncts)
-                        .orElse(ImmutableList.of());
+                        .orElse(Collections.emptyList());
                 verify(nonPushedDownFilters.isEmpty(), "Dynamic filters %s present in join's filter predicate were not pushed down.", nonPushedDownFilters);
 
                 return extractUnmatchedDynamicFilters(node, context);

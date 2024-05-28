@@ -18,6 +18,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
+
 import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.spi.plan.JoinType.INNER;
@@ -58,7 +60,7 @@ public class TestUseDefaultsforCorrelatedAggregations
                                                 aggregation(ImmutableMap.of("count", functionCall("count", ImmutableList.of("count_6"))),
                                                         FINAL,
                                                         anyTree(
-                                                                aggregation(ImmutableMap.of("count_6", functionCall("count", ImmutableList.of())),
+                                                                aggregation(ImmutableMap.of("count_6", functionCall("count", Collections.emptyList())),
                                                                         PARTIAL,
                                                                         tableScan("customer", ImmutableMap.of("nationkey_1", "nationkey"))))))))));
 
@@ -148,7 +150,7 @@ public class TestUseDefaultsforCorrelatedAggregations
                 output(
                         anyTree(
                                 join(INNER,
-                                        ImmutableList.of(),
+                                        Collections.emptyList(),
                                         join(LEFT,
                                                 ImmutableList.of(equiJoinClause("nationkey", "nationkey_1")),
                                                 anyTree(
@@ -163,7 +165,7 @@ public class TestUseDefaultsforCorrelatedAggregations
                 output(
                         anyTree(
                                 join(INNER,
-                                        ImmutableList.of(),
+                                        Collections.emptyList(),
                                         join(LEFT,
                                                 ImmutableList.of(equiJoinClause("nationkey", "nationkey_1")),
                                                 anyTree(

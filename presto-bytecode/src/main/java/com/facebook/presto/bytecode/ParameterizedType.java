@@ -19,6 +19,7 @@ import org.objectweb.asm.Type;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
+import java.util.Collections;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -83,7 +84,7 @@ public class ParameterizedType
         this.className = className;
         this.simpleName = className.substring(className.lastIndexOf("/") + 1);
         this.type = "L" + className + ";";
-        this.parameters = ImmutableList.of();
+        this.parameters = Collections.emptyList();
 
         this.isInterface = false;
         this.primitiveType = null;
@@ -96,7 +97,7 @@ public class ParameterizedType
         this.type = toInternalIdentifier(type);
         this.className = getPathName(type);
         this.simpleName = type.getSimpleName();
-        this.parameters = ImmutableList.of();
+        this.parameters = Collections.emptyList();
 
         this.isInterface = type.isInterface();
         this.primitiveType = type.isPrimitive() ? type : null;

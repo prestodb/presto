@@ -37,6 +37,7 @@ import org.apache.iceberg.Table;
 import org.apache.iceberg.types.Conversions;
 import org.apache.iceberg.types.Type;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -95,7 +96,7 @@ public class ManifestsTable
     public ConnectorPageSource pageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
         if (!snapshotId.isPresent()) {
-            return new FixedPageSource(ImmutableList.of());
+            return new FixedPageSource(Collections.emptyList());
         }
         return new FixedPageSource(buildPages(tableMetadata, icebergTable, snapshotId.get()));
     }

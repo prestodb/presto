@@ -44,6 +44,7 @@ import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
 import javax.inject.Provider;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -65,11 +66,11 @@ public class VerifierTestUtil
 
     public static final QueryObjectBundle TEST_BUNDLE = new QueryObjectBundle(
             QualifiedName.of("test"),
-            ImmutableList.of(),
+            Collections.emptyList(),
             new SqlParser(new SqlParserOptions().allowIdentifierSymbol(AT_SIGN, COLON)).createStatement(
                     "INSERT INTO test SELECT * FROM source",
                     ParsingOptions.builder().setDecimalLiteralTreatment(AS_DOUBLE).build()),
-            ImmutableList.of(),
+            Collections.emptyList(),
             CONTROL,
             Optional.empty());
 

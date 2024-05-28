@@ -63,6 +63,7 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.ArrayDeque;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -892,7 +893,7 @@ public class Analysis
                             Map.Entry::getKey,
                             accessControlEntry -> accessControlEntry.getValue().entrySet().stream().collect(toImmutableMap(
                                     Map.Entry::getKey,
-                                    tableEntry -> tableEntry.getValue().stream().map(column -> new Subfield(column, ImmutableList.of())).collect(toImmutableSet())))));
+                                    tableEntry -> tableEntry.getValue().stream().map(column -> new Subfield(column, Collections.emptyList())).collect(toImmutableSet())))));
         }
         else if (!checkAccessControlOnUtilizedColumnsOnly) {
             references = tableColumnAndSubfieldReferences;

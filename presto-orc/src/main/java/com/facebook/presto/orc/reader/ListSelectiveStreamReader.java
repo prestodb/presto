@@ -32,7 +32,6 @@ import com.facebook.presto.orc.stream.BooleanInputStream;
 import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.orc.stream.LongInputStream;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import org.joda.time.DateTimeZone;
@@ -41,6 +40,7 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -194,7 +194,7 @@ public class ListSelectiveStreamReader
         StreamDescriptor elementStreamDescriptor = streamDescriptor.getNestedStreams().get(0);
         Optional<Type> elementOutputType = outputType.map(type -> type.getTypeParameters().get(0));
 
-        List<Subfield> elementSubfields = ImmutableList.of();
+        List<Subfield> elementSubfields = Collections.emptyList();
         if (subfields.stream().map(Subfield::getPath).allMatch(path -> path.size() > 1)) {
             elementSubfields = subfields.stream()
                     .map(subfield -> subfield.tail(subfield.getRootName()))

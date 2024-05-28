@@ -20,6 +20,7 @@ import com.google.common.collect.Range;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -66,7 +67,7 @@ public class TestLongDecimalStatisticsBuilder
     public void testTotalValueBytes()
     {
         long longDecimalBytes = DECIMAL_VALUE_BYTES_OVERHEAD + LONG_DECIMAL_VALUE_BYTES;
-        assertTotalValueBytes(0L, ImmutableList.of());
+        assertTotalValueBytes(0L, Collections.emptyList());
         assertTotalValueBytes(longDecimalBytes, ImmutableList.of(LARGE_POSITIVE_VALUE));
         assertTotalValueBytes(longDecimalBytes, ImmutableList.of(LARGE_NEGATIVE_VALUE));
         assertTotalValueBytes(4 * longDecimalBytes, ImmutableList.of(LARGE_POSITIVE_VALUE, LARGE_POSITIVE_VALUE, LARGE_POSITIVE_VALUE, LARGE_NEGATIVE_VALUE));

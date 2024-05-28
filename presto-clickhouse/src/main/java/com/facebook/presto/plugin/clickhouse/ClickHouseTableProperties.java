@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
 
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
@@ -59,7 +60,7 @@ public final class ClickHouseTableProperties
                         "columns to be the sorting key, it's required for table MergeTree engine family",
                         new ArrayType(VARCHAR),
                         List.class,
-                        ImmutableList.of(),
+                        Collections.emptyList(),
                         false,
                         value -> (List<?>) value,
                         value -> value),
@@ -68,7 +69,7 @@ public final class ClickHouseTableProperties
                         "columns to be the partition key. it's optional for table MergeTree engine family",
                         new ArrayType(VARCHAR),
                         List.class,
-                        ImmutableList.of(),
+                        Collections.emptyList(),
                         false,
                         value -> (List<?>) value,
                         value -> value),
@@ -77,7 +78,7 @@ public final class ClickHouseTableProperties
                         "columns to be the primary key. it's optional for table MergeTree engine family",
                         new ArrayType(VARCHAR),
                         List.class,
-                        ImmutableList.of(),
+                        Collections.emptyList(),
                         false,
                         value -> (List<?>) value,
                         value -> value),

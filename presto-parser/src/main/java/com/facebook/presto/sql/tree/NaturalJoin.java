@@ -13,8 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.collect.ImmutableList;
-
+import java.util.Collections;
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -46,6 +45,6 @@ public class NaturalJoin
     @Override
     public List<Node> getNodes()
     {
-        return ImmutableList.of();
+        return Collections.emptyList();
     }
 }

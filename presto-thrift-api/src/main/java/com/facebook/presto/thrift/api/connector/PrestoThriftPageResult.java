@@ -22,11 +22,11 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.thrift.api.datatypes.PrestoThriftBlock;
-import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nullable;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -132,7 +132,7 @@ public final class PrestoThriftPageResult
         int numberOfColumns = types.size();
         int positions = totalRecords(recordSet);
         if (numberOfColumns == 0) {
-            return new PrestoThriftPageResult(ImmutableList.of(), positions, null);
+            return new PrestoThriftPageResult(Collections.emptyList(), positions, null);
         }
         List<PrestoThriftBlock> thriftBlocks = new ArrayList<>(numberOfColumns);
         for (int columnIndex = 0; columnIndex < numberOfColumns; columnIndex++) {

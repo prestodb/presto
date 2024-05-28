@@ -34,7 +34,6 @@ import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -300,7 +299,7 @@ public class BenchmarkSelectiveStreamReaders
                     nonEmptyFilterCount > 0 ?
                             IntStream.range(0, channelCount).filter(i -> filters.get(i).isPresent()).boxed().collect(Collectors.toMap(Function.identity(), i -> ImmutableMap.of(new Subfield("c"), filters.get(i).orElse(null))))
                             : ImmutableMap.of(),
-                    ImmutableList.of(),
+                    Collections.emptyList(),
                     ImmutableMap.of(),
                     ImmutableMap.of(),
                     ImmutableMap.of(),

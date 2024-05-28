@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -105,7 +106,7 @@ public class ResourceGroupSpec
 
         this.perQueryLimits = perQueryLimits.orElse(NO_LIMITS);
 
-        this.subGroups = ImmutableList.copyOf(requireNonNull(subGroups, "subGroups is null").orElse(ImmutableList.of()));
+        this.subGroups = ImmutableList.copyOf(requireNonNull(subGroups, "subGroups is null").orElse(Collections.emptyList()));
         Set<ResourceGroupNameTemplate> names = new HashSet<>();
         for (ResourceGroupSpec subGroup : this.subGroups) {
             checkArgument(!names.contains(subGroup.getName()), "Duplicated sub group: %s", subGroup.getName());

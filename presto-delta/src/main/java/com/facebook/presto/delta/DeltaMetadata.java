@@ -47,6 +47,7 @@ import com.google.common.collect.ImmutableMultimap;
 import javax.inject.Inject;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -256,7 +257,7 @@ public class DeltaMetadata
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 Optional.empty());
 
         return ImmutableList.of(new ConnectorTableLayoutResult(newLayout, unenforcedPredicate));

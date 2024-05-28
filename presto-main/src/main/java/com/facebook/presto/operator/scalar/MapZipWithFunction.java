@@ -39,6 +39,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.presto.common.block.MethodHandleUtil.compose;
@@ -72,7 +73,7 @@ public final class MapZipWithFunction
                 QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "map_zip_with"),
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("K"), typeVariable("V1"), typeVariable("V2"), typeVariable("V3")),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 parseTypeSignature("map(K,V3)"),
                 ImmutableList.of(parseTypeSignature("map(K,V1)"), parseTypeSignature("map(K,V2)"), parseTypeSignature("function(K,V1,V2,V3)")),
                 false));

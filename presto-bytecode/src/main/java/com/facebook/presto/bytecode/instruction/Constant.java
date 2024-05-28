@@ -17,11 +17,11 @@ import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.BytecodeVisitor;
 import com.facebook.presto.bytecode.MethodGenerationContext;
 import com.facebook.presto.bytecode.ParameterizedType;
-import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Type;
 
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.bytecode.OpCode.ACONST_NULL;
@@ -153,7 +153,7 @@ public abstract class Constant
     @Override
     public List<BytecodeNode> getChildNodes()
     {
-        return ImmutableList.of();
+        return Collections.emptyList();
     }
 
     @Override

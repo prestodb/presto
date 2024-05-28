@@ -29,6 +29,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -53,7 +54,7 @@ public class TestPruneUnreferencedOutputs
     @Test
     public void windowNodePruning()
     {
-        FunctionHandle functionHandle = createTestMetadataManager().getFunctionAndTypeManager().lookupFunction("rank", ImmutableList.of());
+        FunctionHandle functionHandle = createTestMetadataManager().getFunctionAndTypeManager().lookupFunction("rank", Collections.emptyList());
         CallExpression call = call("rank", functionHandle, BIGINT);
         WindowNode.Frame frame = new WindowNode.Frame(
                 RANGE,

@@ -90,6 +90,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -328,7 +329,7 @@ public class TestIterativePlanFragmenter
                 source,
                 ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "count", BIGINT), aggregation),
                 singleGroupingSet(source.getOutputVariables()),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 AggregationNode.Step.FINAL,
                 Optional.empty(),
                 Optional.empty(),

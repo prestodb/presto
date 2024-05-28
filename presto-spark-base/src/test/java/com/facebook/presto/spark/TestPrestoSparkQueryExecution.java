@@ -27,7 +27,6 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.QueryAssertions;
-import com.google.common.collect.ImmutableList;
 import org.apache.spark.Dependency;
 import org.apache.spark.MapOutputStatistics;
 import org.apache.spark.rdd.RDD;
@@ -35,6 +34,7 @@ import org.apache.spark.rdd.ShuffledRDD;
 import org.testng.annotations.Test;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -64,7 +64,7 @@ public class TestPrestoSparkQueryExecution
 
     private IPrestoSparkQueryExecution getPrestoSparkQueryExecution(Session session, String sql)
     {
-        return prestoSparkQueryRunner.createPrestoSparkQueryExecution(session, sql, ImmutableList.of());
+        return prestoSparkQueryRunner.createPrestoSparkQueryExecution(session, sql, Collections.emptyList());
     }
 
     @Test

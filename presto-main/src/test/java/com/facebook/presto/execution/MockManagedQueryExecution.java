@@ -22,7 +22,6 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -30,6 +29,7 @@ import org.joda.time.DateTime;
 
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalDouble;
@@ -155,7 +155,7 @@ public class MockManagedQueryExecution
                         OptionalDouble.empty()),
                 null,
                 Optional.empty(),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 Optional.empty());
     }
 

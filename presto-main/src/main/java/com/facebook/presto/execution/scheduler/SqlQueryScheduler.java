@@ -874,7 +874,7 @@ public class SqlQueryScheduler
                 locationFactory.createStageLocation(stageId),
                 Optional.of(subPlan.getFragment()),
                 stageExecutionInfo,
-                ImmutableList.of(),
+                Collections.emptyList(),
                 subPlan.getChildren().stream()
                         .map(plan -> buildStageInfo(plan, stageExecutionInfos))
                         .collect(toImmutableList()),

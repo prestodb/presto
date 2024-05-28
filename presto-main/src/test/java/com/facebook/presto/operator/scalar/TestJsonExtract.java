@@ -21,6 +21,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -48,8 +49,8 @@ public class TestJsonExtract
     @Test
     public void testJsonTokenizer()
     {
-        assertEquals(tokenizePath("$"), ImmutableList.of());
-        assertEquals(tokenizePath("$"), ImmutableList.of());
+        assertEquals(tokenizePath("$"), Collections.emptyList());
+        assertEquals(tokenizePath("$"), Collections.emptyList());
         assertEquals(tokenizePath("$.foo"), ImmutableList.of("foo"));
         assertEquals(tokenizePath("$[\"foo\"]"), ImmutableList.of("foo"));
         assertEquals(tokenizePath("$[\"foo.bar\"]"), ImmutableList.of("foo.bar"));

@@ -43,6 +43,7 @@ import javax.annotation.concurrent.Immutable;
 import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -155,7 +156,7 @@ public class SpoolingOutputBuffer
                 totalBufferedPages.get(),
                 totalRowsAdded.get(),
                 totalPagesAdded.get(),
-                ImmutableList.of());
+                Collections.emptyList());
     }
 
     @Override
@@ -377,7 +378,7 @@ public class SpoolingOutputBuffer
     private ListenableFuture<List<SerializedPage>> getPagesFromStorage(long startSequenceId, GetTracker getTracker)
     {
         if (startSequenceId >= currentMemorySequenceId.get()) {
-            return immediateFuture(ImmutableList.of());
+            return immediateFuture(Collections.emptyList());
         }
 
         Iterator<HandleInfo> handleInfoIterator = getTracker.getHandleInfos().iterator();

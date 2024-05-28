@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.TypeUtils.readNativeValue;
@@ -53,7 +54,7 @@ public final class ArrayReduceFunction
                 QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "reduce"),
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("T"), typeVariable("S"), typeVariable("R")),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 parseTypeSignature("R"),
                 ImmutableList.of(parseTypeSignature("array(T)"), parseTypeSignature("S"), parseTypeSignature("function(S,T,S)"), parseTypeSignature("function(S,R)")),
                 false));

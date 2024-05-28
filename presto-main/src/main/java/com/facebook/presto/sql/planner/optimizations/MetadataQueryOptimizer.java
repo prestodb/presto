@@ -56,6 +56,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -344,7 +345,7 @@ public class MetadataQueryOptimizer
             if (ignoreMetadataStats) {
                 return true;
             }
-            TableStatistics tableStatistics = metadata.getTableStatistics(session, table, ImmutableList.of(), new Constraint<>(tupleDomain));
+            TableStatistics tableStatistics = metadata.getTableStatistics(session, table, Collections.emptyList(), new Constraint<>(tupleDomain));
             return !tableStatistics.getRowCount().isUnknown() && tableStatistics.getRowCount().getValue() > 0;
         }
 

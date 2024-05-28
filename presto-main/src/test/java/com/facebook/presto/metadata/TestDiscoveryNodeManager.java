@@ -34,6 +34,7 @@ import org.testng.annotations.Test;
 import javax.annotation.concurrent.GuardedBy;
 
 import java.net.URI;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -326,7 +327,7 @@ public class TestDiscoveryNodeManager
             implements ServiceSelector
     {
         @GuardedBy("this")
-        private List<ServiceDescriptor> descriptors = ImmutableList.of();
+        private List<ServiceDescriptor> descriptors = Collections.emptyList();
 
         private synchronized void announceNodes(Set<InternalNode> activeNodes, Set<InternalNode> inactiveNodes)
         {

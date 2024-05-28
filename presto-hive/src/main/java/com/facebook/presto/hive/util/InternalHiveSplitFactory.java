@@ -33,6 +33,7 @@ import org.apache.hadoop.mapred.InputFormat;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -156,7 +157,7 @@ public class InternalHiveSplitFactory
         // while others (e.g. hdfs.DistributedFileSystem) produces no block.
         // Synthesize an empty block if one does not already exist.
         if (fileSize == 0 && blockLocations.length == 0) {
-            blockLocations = new BlockLocation[] {new BlockLocation(ImmutableList.of(), 0, 0)};
+            blockLocations = new BlockLocation[] {new BlockLocation(Collections.emptyList(), 0, 0)};
             // Turn off force local scheduling because hosts list doesn't exist.
             forceLocalScheduling = false;
         }
@@ -177,7 +178,7 @@ public class InternalHiveSplitFactory
 
             List<HostAddress> addresses = getHostAddresses(blockLocation);
             if (!needsHostAddresses(forceLocalScheduling, addresses)) {
-                addresses = ImmutableList.of();
+                addresses = Collections.emptyList();
             }
             blockBuilder.add(new InternalHiveBlock(blockEnd, addresses));
         }
@@ -188,7 +189,7 @@ public class InternalHiveSplitFactory
             // not splittable, use the hosts from the first block if it exists
             List<HostAddress> addresses = blocks.get(0).getAddresses();
             if (!needsHostAddresses(forceLocalScheduling, addresses)) {
-                addresses = ImmutableList.of();
+                addresses = Collections.emptyList();
             }
             blocks = ImmutableList.of(new InternalHiveBlock(start + length, addresses));
         }

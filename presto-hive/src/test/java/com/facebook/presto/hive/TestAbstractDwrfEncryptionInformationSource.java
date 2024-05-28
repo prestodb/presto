@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 
@@ -66,7 +67,7 @@ public class TestAbstractDwrfEncryptionInformationSource
                         new Column("col_bigint", HIVE_LONG, Optional.empty(), Optional.empty()),
                         new Column("col_map", HiveType.valueOf("map<string,string>"), Optional.empty(), Optional.empty()),
                         new Column("col_struct", STRUCT_TYPE, Optional.empty(), Optional.empty())),
-                isPartitioned ? ImmutableList.of(new Column("ds", HIVE_STRING, Optional.empty(), Optional.empty())) : ImmutableList.of(),
+                isPartitioned ? ImmutableList.of(new Column("ds", HIVE_STRING, Optional.empty(), Optional.empty())) : Collections.emptyList(),
                 tableEncryptionProperties.map(DwrfTableEncryptionProperties::toHiveProperties).orElse(ImmutableMap.of()),
                 Optional.empty(),
                 Optional.empty());

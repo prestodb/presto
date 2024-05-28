@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 
+import java.util.Collections;
 import java.util.List;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
@@ -72,6 +73,6 @@ public class PageFileFooterOutput
 
     public static PageFileFooterOutput createEmptyPageFileFooterOutput()
     {
-        return new PageFileFooterOutput(ImmutableList.of(), HiveCompressionCodec.NONE);
+        return new PageFileFooterOutput(Collections.emptyList(), HiveCompressionCodec.NONE);
     }
 }

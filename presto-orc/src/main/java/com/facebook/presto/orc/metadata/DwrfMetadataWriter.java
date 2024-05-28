@@ -36,6 +36,7 @@ import io.airlift.slice.SliceOutput;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -62,7 +63,7 @@ public class DwrfMetadataWriter
     public List<Integer> getOrcMetadataVersion()
     {
         // DWRF does not have a version field
-        return ImmutableList.of();
+        return Collections.emptyList();
     }
 
     @Override

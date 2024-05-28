@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -73,13 +74,13 @@ public class TestSubfieldTokenizer
     @Test
     public void testColumnNames()
     {
-        assertPath(new Subfield("#bucket", ImmutableList.of()));
-        assertPath(new Subfield("$bucket", ImmutableList.of()));
-        assertPath(new Subfield("apollo-11", ImmutableList.of()));
-        assertPath(new Subfield("a/b/c:12", ImmutableList.of()));
-        assertPath(new Subfield("@basis", ImmutableList.of()));
-        assertPath(new Subfield("@basis|city_id", ImmutableList.of()));
-        assertPath(new Subfield("a and b", ImmutableList.of()));
+        assertPath(new Subfield("#bucket", Collections.emptyList()));
+        assertPath(new Subfield("$bucket", Collections.emptyList()));
+        assertPath(new Subfield("apollo-11", Collections.emptyList()));
+        assertPath(new Subfield("a/b/c:12", Collections.emptyList()));
+        assertPath(new Subfield("@basis", Collections.emptyList()));
+        assertPath(new Subfield("@basis|city_id", Collections.emptyList()));
+        assertPath(new Subfield("a and b", Collections.emptyList()));
     }
 
     @Test

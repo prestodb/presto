@@ -30,6 +30,7 @@ import org.testng.annotations.Test;
 
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.OptionalInt;
@@ -298,7 +299,7 @@ public class TestDynamicLifespanScheduler
         @Override
         public List<HostAddress> getPreferredNodes(NodeProvider nodeProvider)
         {
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
 
         @Override

@@ -59,6 +59,7 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -255,7 +256,7 @@ public class OptimizedPartitionedOutputOperator
                     estimatedSizeInBytes);
         }
 
-        return new DecodedBlockNode(decodedBlock, ImmutableList.of(), block.getRetainedSizeInBytes(), estimatedSizeInBytes);
+        return new DecodedBlockNode(decodedBlock, Collections.emptyList(), block.getRetainedSizeInBytes(), estimatedSizeInBytes);
     }
 
     public static class OptimizedPartitionedOutputFactory

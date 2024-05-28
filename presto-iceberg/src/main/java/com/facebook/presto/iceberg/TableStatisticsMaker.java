@@ -183,7 +183,7 @@ public class TableStatisticsMaker
         // the total record count for the whole table
         Optional<Long> totalRecordCount = Optional.of(intersection)
                 .filter(domain -> !domain.isAll())
-                .map(domain -> getDataTableSummary(tableHandle, ImmutableList.of(), TupleDomain.all(), idToTypeMapping, nonPartitionPrimitiveColumns, partitionFields).getRecordCount());
+                .map(domain -> getDataTableSummary(tableHandle, Collections.emptyList(), TupleDomain.all(), idToTypeMapping, nonPartitionPrimitiveColumns, partitionFields).getRecordCount());
 
         double recordCount = summary.getRecordCount();
         TableStatistics.Builder result = TableStatistics.builder();

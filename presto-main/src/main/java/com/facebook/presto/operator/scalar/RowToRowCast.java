@@ -42,6 +42,7 @@ import com.google.common.hash.Hashing;
 import com.google.common.io.BaseEncoding;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.bytecode.Access.FINAL;
@@ -73,7 +74,7 @@ public class RowToRowCast
 
     private RowToRowCast()
     {
-        super(CAST, ImmutableList.of(withVariadicBound("F", "row"), withVariadicBound("T", "row")), ImmutableList.of(), parseTypeSignature("T"), ImmutableList.of(parseTypeSignature("F")));
+        super(CAST, ImmutableList.of(withVariadicBound("F", "row"), withVariadicBound("T", "row")), Collections.emptyList(), parseTypeSignature("T"), ImmutableList.of(parseTypeSignature("F")));
     }
 
     @Override

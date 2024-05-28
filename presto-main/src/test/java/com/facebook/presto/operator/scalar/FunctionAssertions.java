@@ -970,9 +970,9 @@ public final class FunctionAssertions
     private static OperatorFactory compileFilterWithNoInputColumns(SqlFunctionProperties sqlFunctionProperties, RowExpression filter, ExpressionCompiler compiler)
     {
         try {
-            Supplier<PageProcessor> processor = compiler.compilePageProcessor(sqlFunctionProperties, Optional.of(filter), ImmutableList.of());
+            Supplier<PageProcessor> processor = compiler.compilePageProcessor(sqlFunctionProperties, Optional.of(filter), Collections.emptyList());
 
-            return new FilterAndProjectOperatorFactory(0, new PlanNodeId("test"), processor, ImmutableList.of(), new DataSize(0, BYTE), 0);
+            return new FilterAndProjectOperatorFactory(0, new PlanNodeId("test"), processor, Collections.emptyList(), new DataSize(0, BYTE), 0);
         }
         catch (Throwable e) {
             if (e instanceof UncheckedExecutionException) {
@@ -1022,7 +1022,7 @@ public final class FunctionAssertions
                             new ConnectorTableHandle() {},
                             new ConnectorTransactionHandle() {},
                             Optional.empty()),
-                    ImmutableList.of(),
+                    Collections.emptyList(),
                     ImmutableList.of(projection.getType()),
                     Optional.empty(),
                     new DataSize(0, BYTE),
@@ -1198,7 +1198,7 @@ public final class FunctionAssertions
         @Override
         public List<HostAddress> getPreferredNodes(NodeProvider nodeProvider)
         {
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
 
         @Override

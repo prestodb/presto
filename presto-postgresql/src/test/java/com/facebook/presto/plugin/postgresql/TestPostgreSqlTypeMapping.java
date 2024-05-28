@@ -34,6 +34,7 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.Collections;
 import java.util.function.Function;
 
 import static com.facebook.presto.common.type.JsonType.JSON;
@@ -81,7 +82,7 @@ public class TestPostgreSqlTypeMapping
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createPostgreSqlQueryRunner(postgreSqlServer, ImmutableMap.of(), ImmutableList.of());
+        return createPostgreSqlQueryRunner(postgreSqlServer, ImmutableMap.of(), Collections.emptyList());
     }
 
     @AfterClass(alwaysRun = true)

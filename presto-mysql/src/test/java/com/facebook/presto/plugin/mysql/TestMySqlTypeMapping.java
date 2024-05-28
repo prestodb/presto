@@ -36,6 +36,7 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.Collections;
 
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
@@ -79,7 +80,7 @@ public class TestMySqlTypeMapping
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createMySqlQueryRunner(mysqlServer, ImmutableMap.of(), ImmutableList.of());
+        return createMySqlQueryRunner(mysqlServer, ImmutableMap.of(), Collections.emptyList());
     }
 
     @AfterClass(alwaysRun = true)

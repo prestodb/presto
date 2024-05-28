@@ -32,6 +32,7 @@ import com.google.common.collect.ImmutableSet;
 
 import javax.inject.Inject;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -95,7 +96,7 @@ public class BuiltInQueryPreparer
                 throw new PrestoException(NOT_SUPPORTED, "EXPLAIN ANALYZE doesn't support statement type: " + innerStatement.getClass().getSimpleName());
             }
         }
-        List<Expression> parameters = ImmutableList.of();
+        List<Expression> parameters = Collections.emptyList();
         if (wrappedStatement instanceof Execute) {
             parameters = ((Execute) wrappedStatement).getParameters();
         }

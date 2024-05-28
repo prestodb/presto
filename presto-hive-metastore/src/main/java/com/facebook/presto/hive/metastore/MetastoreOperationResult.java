@@ -13,8 +13,7 @@
  */
 package com.facebook.presto.hive.metastore;
 
-import com.google.common.collect.ImmutableList;
-
+import java.util.Collections;
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
@@ -27,7 +26,7 @@ public class MetastoreOperationResult
 
     public MetastoreOperationResult()
     {
-        this(ImmutableList.of());
+        this(Collections.emptyList());
     }
 
     public MetastoreOperationResult(List<Long> lastDataCommitTimes)

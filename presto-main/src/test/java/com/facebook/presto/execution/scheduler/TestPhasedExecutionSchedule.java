@@ -38,6 +38,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -184,7 +185,7 @@ public class TestPhasedExecutionSchedule
                                 Optional.empty(),
                                 REPARTITION))
                         .collect(toImmutableList()),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 ImmutableMap.of());
 
         return createFragment(planNode);
@@ -206,14 +207,14 @@ public class TestPhasedExecutionSchedule
                 TupleDomain.all(),
                 TupleDomain.all());
 
-        RemoteSourceNode remote = new RemoteSourceNode(Optional.empty(), new PlanNodeId("build_id"), buildFragment.getId(), ImmutableList.of(), false, Optional.empty(), REPLICATE);
+        RemoteSourceNode remote = new RemoteSourceNode(Optional.empty(), new PlanNodeId("build_id"), buildFragment.getId(), Collections.emptyList(), false, Optional.empty(), REPLICATE);
         PlanNode join = new JoinNode(
                 Optional.empty(),
                 new PlanNodeId(name + "_id"),
                 INNER,
                 tableScan,
                 remote,
-                ImmutableList.of(),
+                Collections.emptyList(),
                 ImmutableList.<VariableReferenceExpression>builder()
                         .addAll(tableScan.getOutputVariables())
                         .addAll(remote.getOutputVariables())
@@ -229,15 +230,15 @@ public class TestPhasedExecutionSchedule
 
     private static PlanFragment createJoinPlanFragment(JoinType joinType, String name, PlanFragment buildFragment, PlanFragment probeFragment)
     {
-        RemoteSourceNode probe = new RemoteSourceNode(Optional.empty(), new PlanNodeId("probe_id"), probeFragment.getId(), ImmutableList.of(), false, Optional.empty(), REPARTITION);
-        RemoteSourceNode build = new RemoteSourceNode(Optional.empty(), new PlanNodeId("build_id"), buildFragment.getId(), ImmutableList.of(), false, Optional.empty(), REPARTITION);
+        RemoteSourceNode probe = new RemoteSourceNode(Optional.empty(), new PlanNodeId("probe_id"), probeFragment.getId(), Collections.emptyList(), false, Optional.empty(), REPARTITION);
+        RemoteSourceNode build = new RemoteSourceNode(Optional.empty(), new PlanNodeId("build_id"), buildFragment.getId(), Collections.emptyList(), false, Optional.empty(), REPARTITION);
         PlanNode planNode = new JoinNode(
                 Optional.empty(),
                 new PlanNodeId(name + "_id"),
                 joinType,
                 probe,
                 build,
-                ImmutableList.of(),
+                Collections.emptyList(),
                 ImmutableList.<VariableReferenceExpression>builder()
                         .addAll(probe.getOutputVariables())
                         .addAll(build.getOutputVariables())
@@ -277,7 +278,7 @@ public class TestPhasedExecutionSchedule
                 ImmutableSet.copyOf(planNode.getOutputVariables()),
                 SOURCE_DISTRIBUTION,
                 ImmutableList.of(planNode.getId()),
-                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), planNode.getOutputVariables()),
+                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, Collections.emptyList()), planNode.getOutputVariables()),
                 StageExecutionDescriptor.ungroupedExecution(),
                 false,
                 StatsAndCosts.empty(),

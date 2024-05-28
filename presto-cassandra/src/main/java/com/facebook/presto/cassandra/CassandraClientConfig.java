@@ -21,7 +21,6 @@ import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.configuration.ConfigSecuritySensitive;
 import com.facebook.airlift.configuration.DefunctConfig;
 import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDuration;
 import io.airlift.units.MinDuration;
@@ -32,6 +31,7 @@ import javax.validation.constraints.Size;
 
 import java.io.File;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -47,7 +47,7 @@ public class CassandraClientConfig
 
     private ConsistencyLevel consistencyLevel = ConsistencyLevel.ONE;
     private int fetchSize = 5_000;
-    private List<String> contactPoints = ImmutableList.of();
+    private List<String> contactPoints = Collections.emptyList();
     private int nativeProtocolPort = 9042;
     private int partitionSizeForBatchSelect = 100;
     private int splitSize = 1_024;
@@ -66,7 +66,7 @@ public class CassandraClientConfig
     private boolean useTokenAware;
     private boolean tokenAwareShuffleReplicas;
     private boolean useWhiteList;
-    private List<String> whiteListAddresses = ImmutableList.of();
+    private List<String> whiteListAddresses = Collections.emptyList();
     private Duration noHostAvailableRetryTimeout = new Duration(1, MINUTES);
     private int speculativeExecutionLimit = 1;
     private Duration speculativeExecutionDelay = new Duration(500, MILLISECONDS);

@@ -27,9 +27,9 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.relational.FunctionResolution;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -48,7 +48,7 @@ public class AggregationNodeUtils
                 new CallExpression("count",
                         new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver()).countFunction(),
                         BIGINT,
-                        ImmutableList.of()),
+                        Collections.emptyList()),
                 Optional.empty(),
                 Optional.empty(),
                 false,

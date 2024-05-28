@@ -555,7 +555,7 @@ public class PrestoSparkQueryRunner
                         ImmutableSet.of(),
                         p.getUpdateType(),
                         getOnlyElement(getOnlyElement(rows).getFields()) == null ? OptionalLong.empty() : OptionalLong.of((Long) getOnlyElement(getOnlyElement(rows).getFields())),
-                        ImmutableList.of());
+                        Collections.emptyList());
             }
         }
         else if (execution instanceof PrestoSparkAccessControlCheckerExecution) {
@@ -567,17 +567,17 @@ public class PrestoSparkQueryRunner
                     ImmutableSet.of(),
                     Optional.empty(),
                     OptionalLong.empty(),
-                    ImmutableList.of());
+                    Collections.emptyList());
         }
         else {
             return new MaterializedResult(
                     rows,
-                    ImmutableList.of(),
+                    Collections.emptyList(),
                     ImmutableMap.of(),
                     ImmutableSet.of(),
                     Optional.empty(),
                     OptionalLong.empty(),
-                    ImmutableList.of());
+                    Collections.emptyList());
         }
     }
 

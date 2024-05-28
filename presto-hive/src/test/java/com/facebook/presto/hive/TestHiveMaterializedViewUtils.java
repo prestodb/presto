@@ -147,7 +147,7 @@ public class TestHiveMaterializedViewUtils
         Column dsColumn = new Column("ds", HIVE_STRING, Optional.empty(), Optional.empty());
         Column categoryColumn = new Column("category", HIVE_STRING, Optional.empty(), Optional.empty());
         List<Column> partitionColumns = ImmutableList.of(dsColumn, categoryColumn);
-        List<String> partitions = ImmutableList.of();
+        List<String> partitions = Collections.emptyList();
         testMetastore.setPartitionNames(partitions);
 
         ImmutableList.Builder<List<TestingPartitionResult>> partitionResults = ImmutableList.builder();
@@ -433,7 +433,7 @@ public class TestHiveMaterializedViewUtils
 
         Column viewShipModeColumn = new Column("view_shipmode", HIVE_STRING, Optional.empty(), Optional.empty());
         List<Column> viewPartitionColumns = ImmutableList.of(dsColumn, viewShipModeColumn);
-        List<String> viewPartitions = ImmutableList.of();
+        List<String> viewPartitions = Collections.emptyList();
         testMetastore.setPartitionNames(viewPartitions);
 
         MaterializedDataPredicates materializedDataPredicates =
@@ -478,7 +478,7 @@ public class TestHiveMaterializedViewUtils
 
         Column viewShipModeColumn = new Column("view_shipmode", HIVE_STRING, Optional.empty(), Optional.empty());
         List<Column> viewPartitionColumns = ImmutableList.of(dsColumn, viewShipModeColumn);
-        List<String> viewPartitions = ImmutableList.of();
+        List<String> viewPartitions = Collections.emptyList();
         testMetastore.setPartitionNames(viewPartitions);
 
         MaterializedDataPredicates materializedDataPredicates =
@@ -506,7 +506,7 @@ public class TestHiveMaterializedViewUtils
 
         SchemaTableName tableName = new SchemaTableName(SCHEMA_NAME, TABLE_NAME);
         Map<String, Map<SchemaTableName, String>> originalColumnMapping = ImmutableMap.of(dsColumn.getName(), ImmutableMap.of(tableName, dsColumn.getName()));
-        testMetastore.addTable(SCHEMA_NAME, TABLE_NAME, getTable(partitionColumns), ImmutableList.of());
+        testMetastore.addTable(SCHEMA_NAME, TABLE_NAME, getTable(partitionColumns), Collections.emptyList());
         List<Column> viewPartitionColumns = ImmutableList.of(dsColumn);
 
         validateMaterializedViewPartitionColumns(testMetastore, metastoreContext, getTable(viewPartitionColumns), getConnectorMaterializedViewDefinition(ImmutableList.of(tableName), originalColumnMapping));
@@ -521,11 +521,11 @@ public class TestHiveMaterializedViewUtils
         Column shipmodeColumn = new Column("shipmode", HIVE_STRING, Optional.empty(), Optional.empty());
 
         SchemaTableName tableName1 = new SchemaTableName(SCHEMA_NAME, TABLE_NAME);
-        testMetastore.addTable(SCHEMA_NAME, TABLE_NAME, getTable(ImmutableList.of(dsColumn)), ImmutableList.of());
+        testMetastore.addTable(SCHEMA_NAME, TABLE_NAME, getTable(ImmutableList.of(dsColumn)), Collections.emptyList());
 
         String table2 = "table2";
         SchemaTableName tableName2 = new SchemaTableName(SCHEMA_NAME, table2);
-        testMetastore.addTable(SCHEMA_NAME, table2, getTable(table2, ImmutableList.of(shipmodeColumn)), ImmutableList.of());
+        testMetastore.addTable(SCHEMA_NAME, table2, getTable(table2, ImmutableList.of(shipmodeColumn)), Collections.emptyList());
 
         Map<String, Map<SchemaTableName, String>> originalColumnMapping = ImmutableMap.of(
                 dsColumn.getName(), ImmutableMap.of(tableName1, dsColumn.getName()),
@@ -546,7 +546,7 @@ public class TestHiveMaterializedViewUtils
 
         SchemaTableName tableName = new SchemaTableName(SCHEMA_NAME, TABLE_NAME);
         Map<String, Map<SchemaTableName, String>> originalColumnMapping = ImmutableMap.of();
-        testMetastore.addTable(SCHEMA_NAME, TABLE_NAME, getTable(partitionColumns), ImmutableList.of());
+        testMetastore.addTable(SCHEMA_NAME, TABLE_NAME, getTable(partitionColumns), Collections.emptyList());
         List<Column> viewPartitionColumns = ImmutableList.of(dsColumn);
 
         validateMaterializedViewPartitionColumns(testMetastore, metastoreContext, getTable(viewPartitionColumns), getConnectorMaterializedViewDefinition(ImmutableList.of(tableName), originalColumnMapping));
@@ -563,8 +563,8 @@ public class TestHiveMaterializedViewUtils
 
         SchemaTableName tableName = new SchemaTableName(SCHEMA_NAME, TABLE_NAME);
         Map<String, Map<SchemaTableName, String>> originalColumnMapping = ImmutableMap.of(dsColumn.getName(), ImmutableMap.of(tableName, dsColumn.getName()));
-        testMetastore.addTable(SCHEMA_NAME, TABLE_NAME, getTable(partitionColumns), ImmutableList.of());
-        List<Column> viewPartitionColumns = ImmutableList.of();
+        testMetastore.addTable(SCHEMA_NAME, TABLE_NAME, getTable(partitionColumns), Collections.emptyList());
+        List<Column> viewPartitionColumns = Collections.emptyList();
 
         validateMaterializedViewPartitionColumns(testMetastore, metastoreContext, getTable(viewPartitionColumns), getConnectorMaterializedViewDefinition(ImmutableList.of(tableName), originalColumnMapping));
     }
@@ -580,7 +580,7 @@ public class TestHiveMaterializedViewUtils
 
         SchemaTableName tableName = new SchemaTableName(SCHEMA_NAME, TABLE_NAME);
         Map<String, Map<SchemaTableName, String>> originalColumnMapping = ImmutableMap.of(dsColumn.getName(), ImmutableMap.of(tableName, dsColumn.getName()));
-        testMetastore.addTable(SCHEMA_NAME, TABLE_NAME, getTable(partitionColumns), ImmutableList.of());
+        testMetastore.addTable(SCHEMA_NAME, TABLE_NAME, getTable(partitionColumns), Collections.emptyList());
         List<Column> viewPartitionColumns = ImmutableList.of(dsColumn);
 
         validateMaterializedViewPartitionColumns(testMetastore, metastoreContext, getTable(viewPartitionColumns), getConnectorMaterializedViewDefinition(ImmutableList.of(tableName), originalColumnMapping));
@@ -633,7 +633,7 @@ public class TestHiveMaterializedViewUtils
                         false,
                         ImmutableMap.of(),
                         ImmutableMap.of()),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 partitionColumns,
                 ImmutableMap.of(),
                 Optional.empty(),
@@ -658,6 +658,6 @@ public class TestHiveMaterializedViewUtils
             List<SchemaTableName> tables,
             Map<String, Map<SchemaTableName, String>> originalColumnMapping)
     {
-        return new MaterializedViewDefinition(SQL, SCHEMA_NAME, TABLE_NAME, tables, Optional.empty(), originalColumnMapping, originalColumnMapping, ImmutableList.of(), Optional.empty());
+        return new MaterializedViewDefinition(SQL, SCHEMA_NAME, TABLE_NAME, tables, Optional.empty(), originalColumnMapping, originalColumnMapping, Collections.emptyList(), Optional.empty());
     }
 }

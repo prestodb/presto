@@ -33,6 +33,7 @@ import com.google.common.collect.ImmutableList;
 import javax.inject.Inject;
 import javax.inject.Provider;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -55,7 +56,7 @@ public class ChecksumValidator
     public Query generateChecksumQuery(QualifiedName tableName, List<Column> columns)
     {
         ImmutableList.Builder<SelectItem> selectItems = ImmutableList.builder();
-        selectItems.add(new SingleColumn(new FunctionCall(QualifiedName.of("count"), ImmutableList.of())));
+        selectItems.add(new SingleColumn(new FunctionCall(QualifiedName.of("count"), Collections.emptyList())));
         for (Column column : columns) {
             selectItems.addAll(columnValidators.get(column.getCategory()).get().generateChecksumColumns(column));
         }
@@ -65,7 +66,7 @@ public class ChecksumValidator
     public Query generatePartitionChecksumQuery(QualifiedName tableName, List<Column> dataColumns, List<Column> partitionColumns)
     {
         ImmutableList.Builder<SelectItem> selectItems = ImmutableList.builder();
-        selectItems.add(new SingleColumn(new FunctionCall(QualifiedName.of("count"), ImmutableList.of())));
+        selectItems.add(new SingleColumn(new FunctionCall(QualifiedName.of("count"), Collections.emptyList())));
         for (Column column : dataColumns) {
             selectItems.addAll(columnValidators.get(column.getCategory()).get().generateChecksumColumns(column));
         }
@@ -90,7 +91,7 @@ public class ChecksumValidator
     public Query generateBucketChecksumQuery(QualifiedName tableName, List<Column> partitionColumns, List<Column> dataColumns)
     {
         ImmutableList.Builder<SelectItem> selectItems = ImmutableList.builder();
-        selectItems.add(new SingleColumn(new FunctionCall(QualifiedName.of("count"), ImmutableList.of())));
+        selectItems.add(new SingleColumn(new FunctionCall(QualifiedName.of("count"), Collections.emptyList())));
         for (Column column : dataColumns) {
             selectItems.addAll(columnValidators.get(column.getCategory()).get().generateChecksumColumns(column));
         }

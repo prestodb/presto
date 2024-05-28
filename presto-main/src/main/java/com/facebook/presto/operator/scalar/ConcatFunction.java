@@ -38,6 +38,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.IntStream;
 
@@ -78,8 +79,8 @@ public final class ConcatFunction
         super(new Signature(
                 QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "concat"),
                 FunctionKind.SCALAR,
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 type,
                 ImmutableList.of(type),
                 true));

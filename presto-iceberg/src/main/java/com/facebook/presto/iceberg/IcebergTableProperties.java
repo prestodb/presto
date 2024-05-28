@@ -22,6 +22,7 @@ import org.apache.iceberg.TableProperties;
 import javax.inject.Inject;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -63,7 +64,7 @@ public class IcebergTableProperties
                         "Partition transforms",
                         new ArrayType(VARCHAR),
                         List.class,
-                        ImmutableList.of(),
+                        Collections.emptyList(),
                         false,
                         value -> ((Collection<?>) value).stream()
                                 .map(name -> ((String) name).toLowerCase(ENGLISH))
@@ -121,7 +122,7 @@ public class IcebergTableProperties
     public static List<String> getPartitioning(Map<String, Object> tableProperties)
     {
         List<String> partitioning = (List<String>) tableProperties.get(PARTITIONING_PROPERTY);
-        return partitioning == null ? ImmutableList.of() : ImmutableList.copyOf(partitioning);
+        return partitioning == null ? Collections.emptyList() : ImmutableList.copyOf(partitioning);
     }
 
     public static String getTableLocation(Map<String, Object> tableProperties)

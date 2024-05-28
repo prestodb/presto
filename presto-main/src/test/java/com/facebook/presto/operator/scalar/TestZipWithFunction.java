@@ -19,6 +19,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
+
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
@@ -42,7 +44,7 @@ public class TestZipWithFunction
     {
         assertFunction("zip_with(ARRAY[], ARRAY[], (x, y) -> (y, x))",
                 new ArrayType(RowType.anonymous(ImmutableList.of(UNKNOWN, UNKNOWN))),
-                ImmutableList.of());
+                Collections.emptyList());
 
         assertFunction("zip_with(ARRAY[1, 2], ARRAY['a', 'b'], (x, y) -> (y, x))",
                 new ArrayType(RowType.anonymous(ImmutableList.of(createVarcharType(1), INTEGER))),

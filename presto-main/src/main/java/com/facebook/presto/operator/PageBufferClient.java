@@ -34,6 +34,7 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.Closeable;
 import java.net.URI;
+import java.util.Collections;
 import java.util.List;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
@@ -297,7 +298,7 @@ public final class PageBufferClient
                             shouldAcknowledge = pages.size() > 0;
                         }
                         else {
-                            pages = ImmutableList.of();
+                            pages = Collections.emptyList();
                         }
                     }
 
@@ -497,7 +498,7 @@ public final class PageBufferClient
 
         public static PagesResponse createEmptyPagesResponse(String taskInstanceId, long token, long nextToken, boolean complete)
         {
-            return new PagesResponse(taskInstanceId, token, nextToken, ImmutableList.of(), complete);
+            return new PagesResponse(taskInstanceId, token, nextToken, Collections.emptyList(), complete);
         }
 
         private final String taskInstanceId;

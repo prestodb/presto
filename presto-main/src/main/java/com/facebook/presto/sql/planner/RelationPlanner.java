@@ -98,6 +98,7 @@ import com.google.common.collect.UnmodifiableIterator;
 import javax.annotation.Nullable;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -876,7 +877,7 @@ class RelationPlanner
                 ImmutableList.of(values.build()),
                 Optional.empty());
 
-        UnnestNode unnestNode = new UnnestNode(getSourceLocation(node), idAllocator.getNextId(), valuesNode, ImmutableList.of(), unnestVariables.build(), ordinalityVariable);
+        UnnestNode unnestNode = new UnnestNode(getSourceLocation(node), idAllocator.getNextId(), valuesNode, Collections.emptyList(), unnestVariables.build(), ordinalityVariable);
         return new RelationPlan(unnestNode, scope, unnestedVariables);
     }
 
@@ -1040,7 +1041,7 @@ class RelationPlanner
                 node,
                 ImmutableMap.of(),
                 singleGroupingSet(node.getOutputVariables()),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 AggregationNode.Step.SINGLE,
                 Optional.empty(),
                 Optional.empty(),

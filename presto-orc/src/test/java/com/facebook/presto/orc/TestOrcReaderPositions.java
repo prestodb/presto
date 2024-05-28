@@ -50,6 +50,7 @@ import java.io.IOException;
 import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.LongStream;
@@ -188,7 +189,7 @@ public class TestOrcReaderPositions
             List<Long> expectedValues = LongStream.range(0, 100).boxed().filter(input -> input % 2 != 0)
                     .collect(ArrayList::new, List::add, List::addAll);
 
-            ConnectorSession session = new TestingConnectorSession(ImmutableList.of());
+            ConnectorSession session = new TestingConnectorSession(Collections.emptyList());
             FilterFunction filter = new FilterFunction(session.getSqlFunctionProperties(), true, new IsOddPredicate());
             OrcSelectiveRecordReader reader = createCustomOrcSelectiveRecordReader(tempFile.getFile(),
                     ORC,

@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -84,11 +85,11 @@ public class TestIonSqlQueryBuilder
     {
         // CSV
         IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(createTestFunctionAndTypeManager(), CSV);
-        assertEquals("SELECT ' ' FROM S3Object s", queryBuilder.buildSql(ImmutableList.of(), TupleDomain.all()));
+        assertEquals("SELECT ' ' FROM S3Object s", queryBuilder.buildSql(Collections.emptyList(), TupleDomain.all()));
 
         // JSON
         queryBuilder = new IonSqlQueryBuilder(createTestFunctionAndTypeManager(), JSON);
-        assertEquals(queryBuilder.buildSql(ImmutableList.of(), TupleDomain.all()), "SELECT ' ' FROM S3Object s");
+        assertEquals(queryBuilder.buildSql(Collections.emptyList(), TupleDomain.all()), "SELECT ' ' FROM S3Object s");
     }
 
     @Test

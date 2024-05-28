@@ -24,6 +24,7 @@ import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.Work;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.common.type.TypeUtils.writeNativeValue;
@@ -31,7 +32,7 @@ import static com.facebook.presto.common.type.TypeUtils.writeNativeValue;
 public class ConstantPageProjection
         implements PageProjection
 {
-    private static final InputChannels INPUT_PARAMETERS = new InputChannels(ImmutableList.of());
+    private static final InputChannels INPUT_PARAMETERS = new InputChannels(Collections.emptyList());
 
     private final Block value;
 

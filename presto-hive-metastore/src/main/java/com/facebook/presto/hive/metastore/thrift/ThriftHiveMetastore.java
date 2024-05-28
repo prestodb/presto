@@ -100,6 +100,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
@@ -264,7 +265,7 @@ public class ThriftHiveMetastore
                             getMetastoreClientThenCall(metastoreContext, client -> client.getUniqueConstraints("hive", dbName, tableName))));
 
             if (!uniqueConstraintsResponse.isPresent() || uniqueConstraintsResponse.get().getUniqueConstraints().size() == 0) {
-                return ImmutableList.of();
+                return Collections.emptyList();
             }
 
             List<SQLUniqueConstraint> uniqueConstraints = uniqueConstraintsResponse.get().getUniqueConstraints();
@@ -301,7 +302,7 @@ public class ThriftHiveMetastore
                             getMetastoreClientThenCall(metastoreContext, client -> client.getNotNullConstraints("hive", dbName, tableName))));
 
             if (!notNullConstraintsResponse.isPresent() || notNullConstraintsResponse.get().getNotNullConstraints().size() == 0) {
-                return ImmutableList.of();
+                return Collections.emptyList();
             }
 
             ImmutableList<NotNullConstraint<String>> result = notNullConstraintsResponse.get().getNotNullConstraints().stream()
@@ -1189,7 +1190,7 @@ public class ThriftHiveMetastore
     public List<String> getPartitionNamesByFilter(MetastoreContext metastoreContext, String databaseName, String tableName, Map<Column, Domain> partitionPredicates)
     {
         List<String> parts = convertPredicateToParts(partitionPredicates);
-        return getPartitionNamesByParts(metastoreContext, databaseName, tableName, parts).orElse(ImmutableList.of());
+        return getPartitionNamesByParts(metastoreContext, databaseName, tableName, parts).orElse(Collections.emptyList());
     }
 
     @Override
@@ -1376,7 +1377,7 @@ public class ThriftHiveMetastore
                 tableName,
                 ImmutableSet.of(partitionName),
                 ImmutableList.copyOf(columnsWithMissingStatistics))
-                .getOrDefault(partitionName, ImmutableList.of());
+                .getOrDefault(partitionName, Collections.emptyList());
 
         for (ColumnStatisticsObj statistics : statisticsToBeRemoved) {
             deletePartitionColumnStatistics(metastoreContext, databaseName, tableName, partitionName, statistics.getColName());
@@ -1420,7 +1421,7 @@ public class ThriftHiveMetastore
         }
         catch (NoSuchObjectException e) {
             // assume none of the partitions in the batch are available
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
         catch (TException e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);

@@ -27,6 +27,7 @@ import com.google.common.collect.Lists;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -56,7 +57,7 @@ public class ClientTypeSignature
 
     public ClientTypeSignature(String rawType, List<ClientTypeSignatureParameter> arguments)
     {
-        this(rawType, ImmutableList.of(), ImmutableList.of(), arguments);
+        this(rawType, Collections.emptyList(), Collections.emptyList(), arguments);
     }
 
     @JsonCreator

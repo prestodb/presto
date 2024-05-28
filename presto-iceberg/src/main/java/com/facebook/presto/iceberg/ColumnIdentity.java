@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import org.apache.iceberg.types.Types;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -116,7 +117,7 @@ public class ColumnIdentity
 
     public static ColumnIdentity primitiveColumnIdentity(int id, String name)
     {
-        return new ColumnIdentity(id, name, PRIMITIVE, ImmutableList.of());
+        return new ColumnIdentity(id, name, PRIMITIVE, Collections.emptyList());
     }
 
     public static ColumnIdentity createColumnIdentity(Types.NestedField column)
@@ -131,7 +132,7 @@ public class ColumnIdentity
         }
 
         if (!fieldType.isNestedType()) {
-            return new ColumnIdentity(id, name, PRIMITIVE, ImmutableList.of());
+            return new ColumnIdentity(id, name, PRIMITIVE, Collections.emptyList());
         }
 
         if (fieldType.isListType()) {

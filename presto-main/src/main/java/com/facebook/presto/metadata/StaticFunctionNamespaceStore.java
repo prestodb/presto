@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import javax.inject.Inject;
 
 import java.io.File;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -90,6 +91,6 @@ public class StaticFunctionNamespaceStore
                 return ImmutableList.copyOf(files);
             }
         }
-        return ImmutableList.of();
+        return Collections.emptyList();
     }
 }

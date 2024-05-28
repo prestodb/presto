@@ -92,7 +92,7 @@ public class TestDictionaryColumnWriter
     public void testStringNoRows()
             throws Exception
     {
-        List<String> values = ImmutableList.of();
+        List<String> values = Collections.emptyList();
         for (StringDictionaryInput input : StringDictionaryInput.values()) {
             DirectConversionTester directConversionTester = new DirectConversionTester();
             List<StripeFooter> stripeFooters = testStringDictionary(directConversionTester, input, values);
@@ -343,7 +343,7 @@ public class TestDictionaryColumnWriter
             throws IOException
     {
         DirectConversionTester directConversionTester = new DirectConversionTester();
-        List<Integer> values = ImmutableList.of();
+        List<Integer> values = Collections.emptyList();
         List<StripeFooter> stripeFooters = testIntegerDictionary(directConversionTester, values);
         assertEquals(stripeFooters.size(), getStripeSize(values.size()));
     }

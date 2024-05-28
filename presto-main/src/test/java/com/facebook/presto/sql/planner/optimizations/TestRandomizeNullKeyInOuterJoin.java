@@ -19,6 +19,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
+
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
 import static com.facebook.presto.SystemSessionProperties.RANDOMIZE_OUTER_JOIN_NULL_KEY;
@@ -296,7 +298,7 @@ public class TestRandomizeNullKeyInOuterJoin
                 anyTree(
                         join(
                                 INNER,
-                                ImmutableList.of(),
+                                Collections.emptyList(),
                                 tableScan("orders", ImmutableMap.of("leftCol", "orderkey")),
                                 anyTree(
                                         tableScan("lineitem", ImmutableMap.of("rightCol", "orderkey"))))),
@@ -311,7 +313,7 @@ public class TestRandomizeNullKeyInOuterJoin
                 anyTree(
                         join(
                                 INNER,
-                                ImmutableList.of(),
+                                Collections.emptyList(),
                                 join(
                                         LEFT,
                                         ImmutableList.of(equiJoinClause("ps_partkey_random", "p_partkey_random")),

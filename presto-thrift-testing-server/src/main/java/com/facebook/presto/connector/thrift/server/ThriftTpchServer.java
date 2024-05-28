@@ -19,6 +19,7 @@ import com.facebook.drift.transport.netty.server.DriftNettyServerModule;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Module;
 
+import java.util.Collections;
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
@@ -45,7 +46,7 @@ public final class ThriftTpchServer
     {
         Logger log = Logger.get(ThriftTpchServer.class);
         try {
-            start(ImmutableList.of());
+            start(Collections.emptyList());
             log.info("======== SERVER STARTED ========");
         }
         catch (Throwable t) {

@@ -54,6 +54,7 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -256,8 +257,8 @@ public class TestHivePageSink
                         false,
                         ImmutableMap.of(),
                         ImmutableMap.of()),
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 OptionalInt.empty(),
                 OptionalInt.empty(),
                 NO_PREFERENCE,
@@ -274,7 +275,7 @@ public class TestHivePageSink
         HiveTableLayoutHandle layoutHandle = new HiveTableLayoutHandle.Builder()
                 .setSchemaTableName(new SchemaTableName(SCHEMA_NAME, TABLE_NAME))
                 .setTablePath("path")
-                .setPartitionColumns(ImmutableList.of())
+                .setPartitionColumns(Collections.emptyList())
                 .setDataColumns(getColumnHandles().stream().map(column -> new Column(column.getName(), column.getHiveType(), Optional.empty(), Optional.empty())).collect(toImmutableList()))
                 .setTableParameters(ImmutableMap.of())
                 .setDomainPredicate(TupleDomain.all())
@@ -321,9 +322,9 @@ public class TestHivePageSink
                 config.getHiveStorageFormat(),
                 config.getHiveStorageFormat(),
                 config.getCompressionCodec(),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 Optional.empty(),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 "test",
                 ImmutableMap.of(),
                 Optional.empty());

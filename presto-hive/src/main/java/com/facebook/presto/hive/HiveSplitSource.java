@@ -35,6 +35,7 @@ import javax.annotation.concurrent.GuardedBy;
 
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -328,14 +329,14 @@ class HiveSplitSource
                     {
                         checkArgument(bucketNumber.isPresent(), "bucketNumber must be present");
                         if (!allSplitLoaded.isDone()) {
-                            return allSplitLoaded.transform(ignored -> ImmutableList.of(), executor);
+                            return allSplitLoaded.transform(ignored -> Collections.emptyList(), executor);
                         }
                         return immediateFuture(function.apply(getSplits(bucketNumber.getAsInt(), maxSize)).getResult());
                     }
 
                     private List<InternalHiveSplit> getSplits(int bucketNumber, int batchSize)
                     {
-                        return splits.getOrDefault(bucketNumber, ImmutableList.of()).stream()
+                        return splits.getOrDefault(bucketNumber, Collections.emptyList()).stream()
                                 .filter(split -> !split.isDone())
                                 .limit(batchSize)
                                 .collect(toImmutableList());
@@ -361,7 +362,7 @@ class HiveSplitSource
                         checkArgument(bucketNumber.isPresent(), "bucketNumber must be present");
                         checkState(allSplitLoaded.isDone(), "splits cannot be rewound before splits enumeration is finished");
                         int revivedSplitCount = 0;
-                        for (InternalHiveSplit split : splits.getOrDefault(bucketNumber.getAsInt(), ImmutableList.of())) {
+                        for (InternalHiveSplit split : splits.getOrDefault(bucketNumber.getAsInt(), Collections.emptyList())) {
                             if (split.isDone()) {
                                 revivedSplitCount++;
                             }

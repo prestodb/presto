@@ -84,6 +84,7 @@ import java.security.cert.CertificateExpiredException;
 import java.security.cert.CertificateNotYetValidException;
 import java.security.cert.X509Certificate;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -526,7 +527,7 @@ public class ElasticsearchClient
 
             switch (type) {
                 case "date":
-                    List<String> formats = ImmutableList.of();
+                    List<String> formats = Collections.emptyList();
                     if (value.has("format")) {
                         formats = Arrays.asList(value.get("format").asText().split("\\|\\|"));
                     }

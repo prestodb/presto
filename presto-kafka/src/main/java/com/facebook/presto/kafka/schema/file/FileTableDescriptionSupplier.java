@@ -32,6 +32,7 @@ import javax.inject.Provider;
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -114,8 +115,8 @@ public class FileTableDescriptionSupplier
                             tableName.getTableName(),
                             Optional.ofNullable(tableName.getSchemaName()),
                             definedTable,
-                            Optional.of(new KafkaTopicFieldGroup(DummyRowDecoder.NAME, Optional.empty(), ImmutableList.of())),
-                            Optional.of(new KafkaTopicFieldGroup(DummyRowDecoder.NAME, Optional.empty(), ImmutableList.of()))));
+                            Optional.of(new KafkaTopicFieldGroup(DummyRowDecoder.NAME, Optional.empty(), Collections.emptyList())),
+                            Optional.of(new KafkaTopicFieldGroup(DummyRowDecoder.NAME, Optional.empty(), Collections.emptyList()))));
                 }
             }
 
@@ -136,6 +137,6 @@ public class FileTableDescriptionSupplier
                 return ImmutableList.copyOf(files);
             }
         }
-        return ImmutableList.of();
+        return Collections.emptyList();
     }
 }

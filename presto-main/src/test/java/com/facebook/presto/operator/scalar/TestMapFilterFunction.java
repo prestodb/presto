@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -177,22 +178,22 @@ public class TestMapFilterFunction
         assertFunction(
                 "map_filter(map(ARRAY [ARRAY [1, 2], ARRAY [3, 4], ARRAY []], ARRAY [25, 26, 27]), (k, v) -> k = ARRAY [1, 2] OR v = 27)",
                 mapType(new ArrayType(INTEGER), INTEGER),
-                ImmutableMap.of(ImmutableList.of(1, 2), 25, ImmutableList.of(), 27));
+                ImmutableMap.of(ImmutableList.of(1, 2), 25, Collections.emptyList(), 27));
         assertFunction(
                 "map_filter(map(ARRAY [ARRAY [1, 2], ARRAY [3, 4], ARRAY []], ARRAY [25.5E0, 26.5E0, 27.5E0]), (k, v) -> k = ARRAY [1, 2] OR v = 27.5E0)",
                 mapType(new ArrayType(INTEGER), DOUBLE),
-                ImmutableMap.of(ImmutableList.of(1, 2), 25.5, ImmutableList.of(), 27.5));
+                ImmutableMap.of(ImmutableList.of(1, 2), 25.5, Collections.emptyList(), 27.5));
         assertFunction(
                 "map_filter(map(ARRAY [ARRAY [1, 2], ARRAY [3, 4], ARRAY []], ARRAY [false, null, true]), (k, v) -> k = ARRAY [1, 2] OR v)",
                 mapType(new ArrayType(INTEGER), BOOLEAN),
-                ImmutableMap.of(ImmutableList.of(1, 2), false, ImmutableList.of(), true));
+                ImmutableMap.of(ImmutableList.of(1, 2), false, Collections.emptyList(), true));
         assertFunction(
                 "map_filter(map(ARRAY [ARRAY [1, 2], ARRAY [3, 4], ARRAY []], ARRAY ['abc', 'def', 'xyz']), (k, v) -> k = ARRAY [1, 2] OR v = 'xyz')",
                 mapType(new ArrayType(INTEGER), createVarcharType(3)),
-                ImmutableMap.of(ImmutableList.of(1, 2), "abc", ImmutableList.of(), "xyz"));
+                ImmutableMap.of(ImmutableList.of(1, 2), "abc", Collections.emptyList(), "xyz"));
         assertFunction(
                 "map_filter(map(ARRAY [ARRAY [1, 2], ARRAY [3, 4], ARRAY []], ARRAY [ARRAY ['a', 'b'], ARRAY ['a', 'b', 'c'], ARRAY ['a', 'c']]), (k, v) -> cardinality(k) = 0 OR cardinality(v) = 3)",
                 mapType(new ArrayType(INTEGER), new ArrayType(createVarcharType(1))),
-                ImmutableMap.of(ImmutableList.of(3, 4), ImmutableList.of("a", "b", "c"), ImmutableList.of(), ImmutableList.of("a", "c")));
+                ImmutableMap.of(ImmutableList.of(3, 4), ImmutableList.of("a", "b", "c"), Collections.emptyList(), ImmutableList.of("a", "c")));
     }
 }

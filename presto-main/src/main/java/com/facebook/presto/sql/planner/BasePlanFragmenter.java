@@ -52,6 +52,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -216,13 +217,13 @@ public abstract class BasePlanFragmenter
             checkArgument(cteProducerCount >= 1, "CteProducer subgraph has 0 CTE producers");
             PlanNode source = cteProducerSubgraph.get(cteProducerCount - 1);
             FragmentProperties childProperties = new FragmentProperties(new PartitioningScheme(
-                    Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()),
+                    Partitioning.create(SINGLE_DISTRIBUTION, Collections.emptyList()),
                     source.getOutputVariables()));
             SubPlan lastSubPlan = buildSubPlan(source, childProperties, context);
             for (int sourceIndex = cteProducerCount - 2; sourceIndex >= 0; sourceIndex--) {
                 source = cteProducerSubgraph.get(sourceIndex);
                 childProperties = new FragmentProperties(new PartitioningScheme(
-                        Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()),
+                        Partitioning.create(SINGLE_DISTRIBUTION, Collections.emptyList()),
                         source.getOutputVariables()));
                 childProperties.addChildren(ImmutableList.of(lastSubPlan));
                 lastSubPlan = buildSubPlan(source, childProperties, context);
@@ -392,7 +393,7 @@ public abstract class BasePlanFragmenter
                 partitioningMetadata);
 
         FragmentProperties writeProperties = new FragmentProperties(new PartitioningScheme(
-                Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()),
+                Partitioning.create(SINGLE_DISTRIBUTION, Collections.emptyList()),
                 write.getOutputVariables()));
         writeProperties.setCoordinatorOnlyDistribution(write);
 

@@ -21,6 +21,7 @@ import com.facebook.presto.spi.function.aggregation.AggregationMetadata;
 import com.facebook.presto.spi.function.aggregation.GroupedAccumulator;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -65,7 +66,7 @@ public final class BuiltInAggregationFunctionImplementation
                 aggregationMetadata,
                 accumulatorClass,
                 groupedAccumulatorClass,
-                ImmutableList.of());
+                Collections.emptyList());
     }
 
     public BuiltInAggregationFunctionImplementation(

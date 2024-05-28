@@ -42,6 +42,7 @@ import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -311,7 +312,7 @@ public class TestQueryStats
         StageExecutionInfo stageExecutionInfo0 = new StageExecutionInfo(
                 StageExecutionState.FINISHED,
                 stageExecutionStats0,
-                ImmutableList.of(),
+                Collections.emptyList(),
                 Optional.empty());
 
         // build stage_1 execution info
@@ -382,16 +383,16 @@ public class TestQueryStats
         StageExecutionInfo stageExecutionInfo1 = new StageExecutionInfo(
                 StageExecutionState.FINISHED,
                 stageExecutionStats1,
-                ImmutableList.of(),
+                Collections.emptyList(),
                 Optional.empty());
 
         // build whole stage info architecture
         StageInfo stageInfo1 = new StageInfo(StageId.valueOf("0.1"), URI.create("127.0.0.1"),
                 Optional.of(testPlanFragment),
-                stageExecutionInfo1, ImmutableList.of(), ImmutableList.of(), false);
+                stageExecutionInfo1, Collections.emptyList(), Collections.emptyList(), false);
         StageInfo stageInfo0 = new StageInfo(StageId.valueOf("0.0"), URI.create("127.0.0.1"),
                 Optional.of(testPlanFragment),
-                stageExecutionInfo0, ImmutableList.of(), ImmutableList.of(stageInfo1), false);
+                stageExecutionInfo0, Collections.emptyList(), ImmutableList.of(stageInfo1), false);
 
         // calculate query stats
         Optional<StageInfo> rootStage = Optional.of(stageInfo0);

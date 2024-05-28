@@ -42,6 +42,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -378,7 +379,7 @@ public class TestAnnotationEngineForScalars
                 QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "parametric_scalar"),
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("T")),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 parseTypeSignature("T"),
                 ImmutableList.of(parseTypeSignature("T")),
                 false);
@@ -418,8 +419,8 @@ public class TestAnnotationEngineForScalars
         Signature expectedSignature = new Signature(
                 QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "with_exact_scalar"),
                 FunctionKind.SCALAR,
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 BOOLEAN.getTypeSignature(),
                 ImmutableList.of(parseTypeSignature("array(varchar(x))", ImmutableSet.of("x"))),
                 false);
@@ -427,8 +428,8 @@ public class TestAnnotationEngineForScalars
         Signature exactSignature = new Signature(
                 QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "with_exact_scalar"),
                 FunctionKind.SCALAR,
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 BOOLEAN.getTypeSignature(),
                 ImmutableList.of(parseTypeSignature("array(varchar(17))")),
                 false);
@@ -465,8 +466,8 @@ public class TestAnnotationEngineForScalars
         Signature expectedSignature = new Signature(
                 QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "parametric_scalar_inject"),
                 FunctionKind.SCALAR,
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 BIGINT.getTypeSignature(),
                 ImmutableList.of(parseTypeSignature("varchar(x)", ImmutableSet.of("x"))),
                 false);
@@ -526,7 +527,7 @@ public class TestAnnotationEngineForScalars
                 QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "parametric_scalar_inject_constructor"),
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("T")),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 BIGINT.getTypeSignature(),
                 ImmutableList.of(parseTypeSignature("array(T)")),
                 false);
@@ -568,8 +569,8 @@ public class TestAnnotationEngineForScalars
         Signature expectedSignature = new Signature(
                 QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "fixed_type_parameter_scalar_function"),
                 FunctionKind.SCALAR,
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 BIGINT.getTypeSignature(),
                 ImmutableList.of(BIGINT.getTypeSignature()),
                 false);
@@ -607,7 +608,7 @@ public class TestAnnotationEngineForScalars
                 QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "partially_fixed_type_parameter_scalar_function"),
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("T1"), typeVariable("T2")),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 BIGINT.getTypeSignature(),
                 ImmutableList.of(BIGINT.getTypeSignature()),
                 false);

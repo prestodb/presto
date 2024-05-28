@@ -404,7 +404,7 @@ public class SimplifyPlanWithEmptyInput
         private PlanNode convertToEmptyValuesNode(PlanNode node)
         {
             this.planChanged = true;
-            return new ValuesNode(node.getSourceLocation(), idAllocator.getNextId(), node.getOutputVariables(), ImmutableList.of(), Optional.empty());
+            return new ValuesNode(node.getSourceLocation(), idAllocator.getNextId(), node.getOutputVariables(), Collections.emptyList(), Optional.empty());
         }
 
         private ProjectNode convertJoinToProject(JoinNode joinNode, PlanNode nonEmptySource, List<VariableReferenceExpression> nullVariables)

@@ -50,6 +50,7 @@ import org.joda.time.DateTime;
 import javax.annotation.Nullable;
 
 import java.net.URI;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -261,7 +262,7 @@ public class SqlTask
         long versionNumber = nextTaskInfoVersion.getAndIncrement();
 
         TaskState state = taskStateMachine.getState();
-        List<ExecutionFailureInfo> failures = ImmutableList.of();
+        List<ExecutionFailureInfo> failures = Collections.emptyList();
         if (state == FAILED) {
             failures = toFailures(taskStateMachine.getFailureCauses());
         }

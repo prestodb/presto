@@ -19,11 +19,11 @@ import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.metadata.InternalNode;
-import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
@@ -62,7 +62,7 @@ public class TestFixedCountScheduler
         FixedCountScheduler nodeScheduler = new FixedCountScheduler(
                 (node, partition) -> Optional.of(taskFactory.createTableScanTask(
                         new TaskId("test", 1, 0, 1, 0),
-                        node, ImmutableList.of(),
+                        node, Collections.emptyList(),
                         new NodeTaskMap.NodeStatsTracker(delta -> {}, delta -> {}, (age, delta) -> {}))),
                 generateRandomNodes(1));
 
@@ -79,7 +79,7 @@ public class TestFixedCountScheduler
         FixedCountScheduler nodeScheduler = new FixedCountScheduler(
                 (node, partition) -> Optional.of(taskFactory.createTableScanTask(
                         new TaskId("test", 1, 0, 1, 0),
-                        node, ImmutableList.of(),
+                        node, Collections.emptyList(),
                         new NodeTaskMap.NodeStatsTracker(delta -> {}, delta -> {}, (age, delta) -> {}))),
                 generateRandomNodes(5));
 

@@ -37,6 +37,7 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -295,7 +296,7 @@ public class TestRecordingHiveMetastore
                 return ImmutableList.of(new PartitionNameWithVersion("value", Optional.empty()));
             }
 
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
 
         @Override
@@ -340,7 +341,7 @@ public class TestRecordingHiveMetastore
                 return constraints;
             }
 
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
     }
 }

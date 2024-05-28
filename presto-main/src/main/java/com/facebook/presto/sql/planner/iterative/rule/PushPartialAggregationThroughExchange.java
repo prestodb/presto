@@ -294,7 +294,7 @@ public class PushPartialAggregationThroughExchange
         // We can always enable streaming aggregation for partial aggregations. But if the table is not pre-group by the groupby columns, it may have regressions.
         // This session property is just a solution to force enabling when we know the execution would benefit from partial streaming aggregation.
         // We can work on determining it based on the input table properties later.
-        List<VariableReferenceExpression> preGroupedSymbols = ImmutableList.of();
+        List<VariableReferenceExpression> preGroupedSymbols = Collections.emptyList();
         if (isStreamingForPartialAggregationEnabled(context.getSession())) {
             preGroupedSymbols = ImmutableList.copyOf(node.getGroupingSets().getGroupingKeys());
         }
@@ -322,7 +322,7 @@ public class PushPartialAggregationThroughExchange
                 node.getGroupingSets(),
                 // preGroupedSymbols reflect properties of the input. Splitting the aggregation and pushing partial aggregation
                 // through the exchange may or may not preserve these properties. Hence, it is safest to drop preGroupedSymbols here.
-                ImmutableList.of(),
+                Collections.emptyList(),
                 FINAL,
                 node.getHashVariable(),
                 node.getGroupIdVariable(),

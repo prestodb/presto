@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -58,8 +59,8 @@ public class HashAggregationBenchmark
                 new PlanNodeId("test"),
                 ImmutableList.of(tableTypes.get(0)),
                 Ints.asList(0),
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 Step.SINGLE,
                 ImmutableList.of(generateAccumulatorFactory(doubleSum, ImmutableList.of(1), Optional.empty())),
                 Optional.empty(),

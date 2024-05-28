@@ -34,6 +34,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.SliceOutput;
 import io.airlift.units.DataSize;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -52,8 +53,8 @@ public class PrestoSparkRowOutputOperator
     {
         private static final OutputPartitioning SINGLE_PARTITION = new OutputPartitioning(
                 new ConstantPartitionFunction(),
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 false,
                 OptionalInt.empty());
 

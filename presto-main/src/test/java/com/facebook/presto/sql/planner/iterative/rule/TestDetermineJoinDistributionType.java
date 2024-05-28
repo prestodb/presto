@@ -40,6 +40,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
@@ -77,7 +78,7 @@ public class TestDetermineJoinDistributionType
     @BeforeClass
     public void setUp()
     {
-        tester = new RuleTester(ImmutableList.of(), ImmutableMap.of(), Optional.of(NODES_COUNT));
+        tester = new RuleTester(Collections.emptyList(), ImmutableMap.of(), Optional.of(NODES_COUNT));
     }
 
     @AfterClass(alwaysRun = true)
@@ -210,13 +211,13 @@ public class TestDetermineJoinDistributionType
                                 p.values(
                                         ImmutableList.of(p.variable("B1")),
                                         ImmutableList.of(constantExpressions(BIGINT, 50L), constantExpressions(BIGINT, 11L))),
-                                ImmutableList.of(),
+                                Collections.emptyList(),
                                 ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
                                 Optional.of(p.rowExpression("A1 * B1 > 100"))))
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.PARTITIONED.name())
                 .matches(join(
                         joinType,
-                        ImmutableList.of(),
+                        Collections.emptyList(),
                         Optional.of("A1 * B1 > 100"),
                         Optional.of(com.facebook.presto.spi.plan.JoinDistributionType.REPLICATED),
                         values(ImmutableMap.of("A1", 0)),
@@ -662,12 +663,12 @@ public class TestDetermineJoinDistributionType
                                 RIGHT,
                                 p.values(new PlanNodeId("valuesA"), aRows, p.variable("A1", BIGINT)),
                                 p.values(new PlanNodeId("valuesB"), bRows, p.variable("B1", BIGINT)),
-                                ImmutableList.of(),
+                                Collections.emptyList(),
                                 ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
                                 Optional.empty()))
                 .matches(join(
                         LEFT,
-                        ImmutableList.of(),
+                        Collections.emptyList(),
                         Optional.empty(),
                         Optional.of(REPLICATED),
                         values(ImmutableMap.of("B1", 0)),
@@ -695,12 +696,12 @@ public class TestDetermineJoinDistributionType
                                 RIGHT,
                                 p.values(new PlanNodeId("valuesA"), aRows, p.variable("A1", BIGINT)),
                                 p.values(new PlanNodeId("valuesB"), bRows, p.variable("B1", BIGINT)),
-                                ImmutableList.of(),
+                                Collections.emptyList(),
                                 ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
                                 Optional.empty()))
                 .matches(join(
                         RIGHT,
-                        ImmutableList.of(),
+                        Collections.emptyList(),
                         Optional.empty(),
                         Optional.of(PARTITIONED),
                         values(ImmutableMap.of("B1", 0)),
@@ -1265,13 +1266,13 @@ public class TestDetermineJoinDistributionType
                                     TRUE_CONSTANT,
                                     p.values(new PlanNodeId("valuesB"), bRows, b1)),
                             p.values(new PlanNodeId("valuesA"), aRows, a1),
-                            ImmutableList.of(),
+                            Collections.emptyList(),
                             ImmutableList.of(b1, a1),
                             Optional.empty());
                 })
                 .matches(join(
                         INNER,
-                        ImmutableList.of(),
+                        Collections.emptyList(),
                         Optional.empty(),
                         Optional.of(REPLICATED),
                         filter("true", values(ImmutableMap.of("B1", 0))),
@@ -1377,7 +1378,7 @@ public class TestDetermineJoinDistributionType
                 getSourceTablesSizeInBytes(
                         planBuilder.unnest(
                                 planBuilder.values(sourceVariable1),
-                                ImmutableList.of(),
+                                Collections.emptyList(),
                                 ImmutableMap.of(sourceVariable1, ImmutableList.of(sourceVariable1)),
                                 Optional.empty()),
                         noLookup(),
@@ -1495,7 +1496,7 @@ public class TestDetermineJoinDistributionType
                                 ImmutableList.of(
                                         planBuilder.unnest(
                                                 planBuilder.values(sourceVariable1),
-                                                ImmutableList.of(),
+                                                Collections.emptyList(),
                                                 ImmutableMap.of(sourceVariable1, ImmutableList.of(sourceVariable1)),
                                                 Optional.empty()),
                                         planBuilder.values(sourceVariable2))),
@@ -1523,7 +1524,7 @@ public class TestDetermineJoinDistributionType
                                 ImmutableList.of(
                                         planBuilder.unnest(
                                                 planBuilder.values(sourceVariable1),
-                                                ImmutableList.of(),
+                                                Collections.emptyList(),
                                                 ImmutableMap.of(sourceVariable1, ImmutableList.of(sourceVariable1)),
                                                 Optional.empty()),
                                         planBuilder.values(sourceVariable2))),

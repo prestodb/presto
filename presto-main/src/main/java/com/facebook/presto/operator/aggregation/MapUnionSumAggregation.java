@@ -32,6 +32,7 @@ import com.facebook.presto.spi.function.aggregation.GroupedAccumulator;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.common.type.StandardTypes.MAP;
@@ -59,7 +60,7 @@ public class MapUnionSumAggregation
     {
         super(NAME,
                 ImmutableList.of(comparableTypeParameter("K"), nonDecimalNumericTypeParameter("V")),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 parseTypeSignature("map<K,V>"),
                 ImmutableList.of(parseTypeSignature("map<K,V>")));
     }

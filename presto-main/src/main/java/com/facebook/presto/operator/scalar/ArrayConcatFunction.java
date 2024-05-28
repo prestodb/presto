@@ -30,6 +30,7 @@ import com.facebook.presto.sql.gen.VarArgsToArrayAdapterGenerator;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
@@ -61,13 +62,13 @@ public final class ArrayConcatFunction
                 QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, FUNCTION_NAME),
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("E")),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 parseTypeSignature("array(E)"),
                 ImmutableList.of(parseTypeSignature("array(E)")),
                 true));
         descriptor = new ComplexTypeFunctionDescriptor(
                 false,
-                ImmutableList.of(),
+                Collections.emptyList(),
                 Optional.empty(),
                 Optional.of(ComplexTypeFunctionDescriptor::allSubfieldsRequired),
                 getSignature());

@@ -18,10 +18,10 @@ import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 
@@ -46,7 +46,7 @@ public class TestJsonHiveHandles
             .put("hiveColumnIndex", -1)
             .put("columnType", PARTITION_KEY.toString())
             .put("comment", "comment")
-            .put("requiredSubfields", ImmutableList.of())
+            .put("requiredSubfields", Collections.emptyList())
             .build();
 
     private final ObjectMapper objectMapper = new JsonObjectMapperProvider().get();

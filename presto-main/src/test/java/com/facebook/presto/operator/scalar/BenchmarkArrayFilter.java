@@ -56,6 +56,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
@@ -208,7 +209,7 @@ public class BenchmarkArrayFilter
                     QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "exact_filter"),
                     FunctionKind.SCALAR,
                     ImmutableList.of(typeVariable("T")),
-                    ImmutableList.of(),
+                    Collections.emptyList(),
                     parseTypeSignature("array(T)"),
                     ImmutableList.of(parseTypeSignature("array(T)"), parseTypeSignature("function(T,boolean)")),
                     false));

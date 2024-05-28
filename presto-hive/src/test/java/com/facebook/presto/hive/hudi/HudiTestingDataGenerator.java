@@ -161,7 +161,7 @@ public class HudiTestingDataGenerator
                 .setTableType(PrestoTableType.EXTERNAL_TABLE)
                 .setOwner(OWNER_PUBLIC)
                 .setDataColumns(allDataColumns())
-                .setPartitionColumns(partitioned ? PARTITION_COLUMNS : ImmutableList.of())
+                .setPartitionColumns(partitioned ? PARTITION_COLUMNS : Collections.emptyList())
                 .setParameters(ImmutableMap.of("serialization.format", "1", "EXTERNAL", "TRUE"))
                 .withStorage(buildingStorage(type, "file://" + dataDirectory.resolve(relativePath)))
                 .build();

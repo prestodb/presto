@@ -31,7 +31,6 @@ import com.facebook.presto.orc.Stripe;
 import com.facebook.presto.orc.stream.BooleanInputStream;
 import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
@@ -43,6 +42,7 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -179,7 +179,7 @@ public class StructSelectiveStreamReader
                                 .filter(entry -> entry.getKey().getPath().size() > 0)
                                 .filter(entry -> ((Subfield.NestedField) entry.getKey().getPath().get(0)).getName().equalsIgnoreCase(fieldName))
                                 .collect(toImmutableMap(entry -> entry.getKey().tail(fieldName), Map.Entry::getValue));
-                        List<Subfield> nestedRequiredSubfields = requiredFields.map(names -> names.get(fieldName)).orElse(ImmutableList.of());
+                        List<Subfield> nestedRequiredSubfields = requiredFields.map(names -> names.get(fieldName)).orElse(Collections.emptyList());
                         SelectiveStreamReader nestedReader = SelectiveStreamReaders.createStreamReader(
                                 nestedStream,
                                 nestedFilters,

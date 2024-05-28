@@ -143,7 +143,7 @@ public class MockHiveMetastoreClient
             throw new RuntimeException();
         }
         if (!dbName.equals(TEST_DATABASE)) {
-            return ImmutableList.of(); // As specified by Hive specification
+            return Collections.emptyList(); // As specified by Hive specification
         }
         return ImmutableList.of(TEST_TABLE, TEST_TABLE_WITH_CONSTRAINTS);
     }
@@ -246,7 +246,7 @@ public class MockHiveMetastoreClient
             throw new RuntimeException();
         }
         if (!dbName.equals(TEST_DATABASE) || !tableName.equals(TEST_TABLE)) {
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
         return ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2);
     }

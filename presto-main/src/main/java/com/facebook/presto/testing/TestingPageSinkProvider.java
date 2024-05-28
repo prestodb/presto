@@ -21,10 +21,10 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PageSinkContext;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -56,7 +56,7 @@ public class TestingPageSinkProvider
         @Override
         public CompletableFuture<Collection<Slice>> finish()
         {
-            return completedFuture(ImmutableList.of());
+            return completedFuture(Collections.emptyList());
         }
 
         @Override

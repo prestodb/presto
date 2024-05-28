@@ -55,6 +55,7 @@ import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Table;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -194,7 +195,7 @@ public class IcebergPlanOptimizer
                             entireColumnDomain.transform(icebergColumnHandle -> (ColumnHandle) icebergColumnHandle)
                                     .getDomains().get(),
                             Predicates.not(Predicates.in(enforcedColumns))))
-                    .transform(columnHandle -> new Subfield(columnHandleToNameMapping.get(columnHandle), ImmutableList.of()))
+                    .transform(columnHandle -> new Subfield(columnHandleToNameMapping.get(columnHandle), Collections.emptyList()))
                     .transform(subfield -> subfieldExtractor.toRowExpression(subfield, columnTypes.get(subfield.getRootName())));
             RowExpression nonPartitionColumn = rowExpressionService.getDomainTranslator().toPredicate(nonPartitionColumnPredicate);
 

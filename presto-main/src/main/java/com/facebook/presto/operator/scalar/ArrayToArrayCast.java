@@ -38,6 +38,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 
 import static com.facebook.presto.bytecode.Access.FINAL;
 import static com.facebook.presto.bytecode.Access.PUBLIC;
@@ -65,7 +66,7 @@ public class ArrayToArrayCast
     {
         super(CAST,
                 ImmutableList.of(typeVariable("F"), typeVariable("T")),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 parseTypeSignature("array(T)"),
                 ImmutableList.of(parseTypeSignature("array(F)")));
     }

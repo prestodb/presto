@@ -24,6 +24,7 @@ import com.facebook.presto.spi.function.FunctionHandle;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
@@ -40,7 +41,7 @@ public abstract class RowComparisonOperator
     {
         super(operatorType,
                 ImmutableList.of(orderableWithVariadicBound("T", StandardTypes.ROW)),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 parseTypeSignature(StandardTypes.BOOLEAN),
                 ImmutableList.of(parseTypeSignature("T"), parseTypeSignature("T")));
     }

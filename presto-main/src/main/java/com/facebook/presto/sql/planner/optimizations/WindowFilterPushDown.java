@@ -42,6 +42,7 @@ import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -302,7 +303,7 @@ public class WindowFilterPushDown
 
         private static boolean isRowNumberMetadata(FunctionAndTypeManager functionAndTypeManager, FunctionMetadata functionMetadata)
         {
-            FunctionHandle rowNumberFunction = functionAndTypeManager.lookupFunction("row_number", ImmutableList.of());
+            FunctionHandle rowNumberFunction = functionAndTypeManager.lookupFunction("row_number", Collections.emptyList());
             return functionMetadata.equals(functionAndTypeManager.getFunctionMetadata(rowNumberFunction));
         }
     }

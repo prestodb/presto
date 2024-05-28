@@ -43,6 +43,7 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -73,7 +74,7 @@ public class JdbcFilterToSqlTranslator
             return new TranslatedExpression<>(
                     Optional.of(new JdbcExpression("?", ImmutableList.of(literal))),
                     literal,
-                    ImmutableList.of());
+                    Collections.emptyList());
         }
         return untranslated(literal);
     }
@@ -86,7 +87,7 @@ public class JdbcFilterToSqlTranslator
         return new TranslatedExpression<>(
                 Optional.of(new JdbcExpression(quote + columnHandle.getColumnName().replace(quote, quote + quote) + quote)),
                 variable,
-                ImmutableList.of());
+                Collections.emptyList());
     }
 
     @Override

@@ -15,7 +15,6 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.array.AdaptiveLongBigArray;
-import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
@@ -23,6 +22,7 @@ import it.unimi.dsi.fastutil.ints.IntArrays;
 import it.unimi.dsi.fastutil.ints.IntComparator;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.function.IntFunction;
@@ -156,7 +156,7 @@ public final class SortedPositionLinks
                 public PositionLinks create(List<JoinFilterFunction> searchFunctions)
                 {
                     return new SortedPositionLinks(
-                            arrayPositionLinksFactory.create(ImmutableList.of()),
+                            arrayPositionLinksFactory.create(Collections.emptyList()),
                             sortedPositionLinks,
                             searchFunctions);
                 }

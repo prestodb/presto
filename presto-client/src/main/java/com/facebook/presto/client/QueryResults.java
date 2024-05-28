@@ -22,6 +22,7 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 import java.net.URI;
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.client.FixJsonDataUtils.fixData;
@@ -73,7 +74,7 @@ public class QueryResults
                 binaryData,
                 stats,
                 error,
-                firstNonNull(warnings, ImmutableList.of()),
+                firstNonNull(warnings, Collections.emptyList()),
                 updateType,
                 updateCount);
     }

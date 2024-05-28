@@ -17,9 +17,9 @@ import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.BytecodeVisitor;
 import com.facebook.presto.bytecode.MethodGenerationContext;
 import com.facebook.presto.bytecode.OpCode;
-import com.google.common.collect.ImmutableList;
 import org.objectweb.asm.MethodVisitor;
 
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.bytecode.OpCode.GOTO;
@@ -151,7 +151,7 @@ public class JumpInstruction
     @Override
     public List<BytecodeNode> getChildNodes()
     {
-        return ImmutableList.of();
+        return Collections.emptyList();
     }
 
     @Override

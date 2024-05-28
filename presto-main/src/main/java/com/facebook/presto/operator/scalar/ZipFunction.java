@@ -27,9 +27,9 @@ import com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.Ar
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
-import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.IntStream;
 
@@ -73,7 +73,7 @@ public final class ZipFunction
                 QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "zip"),
                 FunctionKind.SCALAR,
                 typeParameters.stream().map(Signature::typeVariable).collect(toImmutableList()),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 parseTypeSignature("array(row(" + join(",", typeParameters) + "))"),
                 typeParameters.stream().map(name -> "array(" + name + ")").map(TypeSignature::parseTypeSignature).collect(toImmutableList()),
                 false));

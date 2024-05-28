@@ -19,9 +19,9 @@ import com.facebook.presto.spi.NodeProvider;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.Collections;
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
@@ -53,7 +53,7 @@ public class LarkSheetsSplit
     @Override
     public List<HostAddress> getPreferredNodes(NodeProvider nodeProvider)
     {
-        return ImmutableList.of();
+        return Collections.emptyList();
     }
 
     @Override

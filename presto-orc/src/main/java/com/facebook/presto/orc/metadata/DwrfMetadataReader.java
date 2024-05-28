@@ -54,6 +54,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -116,7 +117,7 @@ public class DwrfMetadataReader
         runtimeStats.addMetricValue("DwrfReadPostScriptTimeNanos", RuntimeUnit.NANO, THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
 
         return new PostScript(
-                ImmutableList.of(),
+                Collections.emptyList(),
                 postScript.getFooterLength(),
                 0,
                 toCompression(postScript.getCompression()),
@@ -129,7 +130,7 @@ public class DwrfMetadataReader
     @Override
     public Metadata readMetadata(HiveWriterVersion hiveWriterVersion, InputStream inputStream)
     {
-        return new Metadata(ImmutableList.of());
+        return new Metadata(Collections.emptyList());
     }
 
     @Override
@@ -290,7 +291,7 @@ public class DwrfMetadataReader
     private static List<StripeInformation> toStripeInformation(List<DwrfProto.StripeInformation> stripeInformationList)
     {
         ImmutableList.Builder<StripeInformation> stripeInfoBuilder = ImmutableList.builderWithExpectedSize(stripeInformationList.size());
-        List<byte[]> previousKeyMetadata = ImmutableList.of();
+        List<byte[]> previousKeyMetadata = Collections.emptyList();
         for (DwrfProto.StripeInformation dwrfStripeInfo : stripeInformationList) {
             StripeInformation prestoStripeInfo = toStripeInformation(dwrfStripeInfo, previousKeyMetadata);
             stripeInfoBuilder.add(prestoStripeInfo);
@@ -440,7 +441,7 @@ public class DwrfMetadataReader
     public List<HiveBloomFilter> readBloomFilterIndexes(InputStream inputStream)
     {
         // DWRF does not have bloom filters
-        return ImmutableList.of();
+        return Collections.emptyList();
     }
 
     private RowGroupIndex toRowGroupIndex(HiveWriterVersion hiveWriterVersion, DwrfProto.RowIndexEntry rowIndexEntry, HiveBloomFilter bloomFilter)
@@ -461,7 +462,7 @@ public class DwrfMetadataReader
     private List<ColumnStatistics> toColumnStatistics(HiveWriterVersion hiveWriterVersion, List<DwrfProto.ColumnStatistics> columnStatistics, boolean isRowGroup)
     {
         if (columnStatistics == null) {
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
 
         return columnStatistics.stream()

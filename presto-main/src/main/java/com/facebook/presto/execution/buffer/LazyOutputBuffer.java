@@ -30,6 +30,7 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -140,7 +141,7 @@ public class LazyOutputBuffer
                     0,
                     0,
                     0,
-                    ImmutableList.of());
+                    Collections.emptyList());
         }
         return outputBuffer.getInfo();
     }
@@ -149,7 +150,7 @@ public class LazyOutputBuffer
     public void setOutputBuffers(OutputBuffers newOutputBuffers)
     {
         Set<OutputBufferId> abortedBuffers = ImmutableSet.of();
-        List<PendingRead> pendingReads = ImmutableList.of();
+        List<PendingRead> pendingReads = Collections.emptyList();
         OutputBuffer outputBuffer = delegate;
         if (outputBuffer == null) {
             synchronized (this) {
@@ -281,7 +282,7 @@ public class LazyOutputBuffer
     @Override
     public void destroy()
     {
-        List<PendingRead> pendingReads = ImmutableList.of();
+        List<PendingRead> pendingReads = Collections.emptyList();
         OutputBuffer outputBuffer = delegate;
         if (outputBuffer == null) {
             synchronized (this) {

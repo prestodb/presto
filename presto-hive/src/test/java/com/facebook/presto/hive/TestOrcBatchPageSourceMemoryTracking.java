@@ -91,6 +91,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -477,8 +478,8 @@ public class TestOrcBatchPageSourceMemoryTracking
                     DateTimeZone.UTC,
                     FUNCTION_AND_TYPE_MANAGER,
                     new SchemaTableName("schema", "table"),
-                    ImmutableList.of(),
-                    ImmutableList.of(),
+                    Collections.emptyList(),
+                    Collections.emptyList(),
                     ImmutableMap.of(),
                     0,
                     TableToPartitionMapping.empty(),

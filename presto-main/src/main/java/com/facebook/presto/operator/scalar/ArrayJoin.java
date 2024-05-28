@@ -35,6 +35,7 @@ import io.airlift.slice.Slice;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -115,7 +116,7 @@ public final class ArrayJoin
                     QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, FUNCTION_NAME),
                     FunctionKind.SCALAR,
                     ImmutableList.of(typeVariable("T")),
-                    ImmutableList.of(),
+                    Collections.emptyList(),
                     parseTypeSignature(StandardTypes.VARCHAR),
                     ImmutableList.of(parseTypeSignature("array(T)"), parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.VARCHAR)),
                     false));
@@ -157,7 +158,7 @@ public final class ArrayJoin
                 QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, FUNCTION_NAME),
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("T")),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 parseTypeSignature(StandardTypes.VARCHAR),
                 ImmutableList.of(parseTypeSignature("array(T)"), parseTypeSignature(StandardTypes.VARCHAR)),
                 false));

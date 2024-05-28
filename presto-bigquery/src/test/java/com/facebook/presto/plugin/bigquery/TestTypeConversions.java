@@ -31,6 +31,7 @@ import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 
 import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
@@ -253,8 +254,8 @@ public class TestTypeConversions
     public void testConvertOneLevelRecordColumn()
     {
         BigQueryColumnHandle column = new BigQueryColumnHandle("rec", BigQueryType.RECORD, NULLABLE, ImmutableList.of(
-                new BigQueryColumnHandle("sub_s", BigQueryType.STRING, NULLABLE, ImmutableList.of(), null),
-                new BigQueryColumnHandle("sub_i", BigQueryType.INTEGER, NULLABLE, ImmutableList.of(), null)
+                new BigQueryColumnHandle("sub_s", BigQueryType.STRING, NULLABLE, Collections.emptyList(), null),
+                new BigQueryColumnHandle("sub_i", BigQueryType.INTEGER, NULLABLE, Collections.emptyList(), null)
         ), null);
         ColumnMetadata metadata = column.getColumnMetadata();
         RowType targetType = RowType.from(ImmutableList.of(
@@ -268,11 +269,11 @@ public class TestTypeConversions
     {
         BigQueryColumnHandle column = new BigQueryColumnHandle("rec", BigQueryType.RECORD, NULLABLE, ImmutableList.of(
                 new BigQueryColumnHandle("sub_rec", BigQueryType.RECORD, NULLABLE, ImmutableList.of(
-                        new BigQueryColumnHandle("sub_sub_s", BigQueryType.STRING, NULLABLE, ImmutableList.of(), null),
-                        new BigQueryColumnHandle("sub_sub_i", BigQueryType.INTEGER, NULLABLE, ImmutableList.of(), null)
+                        new BigQueryColumnHandle("sub_sub_s", BigQueryType.STRING, NULLABLE, Collections.emptyList(), null),
+                        new BigQueryColumnHandle("sub_sub_i", BigQueryType.INTEGER, NULLABLE, Collections.emptyList(), null)
                 ), null),
-                new BigQueryColumnHandle("sub_s", BigQueryType.STRING, NULLABLE, ImmutableList.of(), null),
-                new BigQueryColumnHandle("sub_i", BigQueryType.INTEGER, NULLABLE, ImmutableList.of(), null)
+                new BigQueryColumnHandle("sub_s", BigQueryType.STRING, NULLABLE, Collections.emptyList(), null),
+                new BigQueryColumnHandle("sub_i", BigQueryType.INTEGER, NULLABLE, Collections.emptyList(), null)
         ), null);
         ColumnMetadata metadata = column.getColumnMetadata();
         RowType targetType = RowType.from(ImmutableList.of(
@@ -287,7 +288,7 @@ public class TestTypeConversions
     @Test
     public void testConvertStringArrayColumn()
     {
-        BigQueryColumnHandle column = new BigQueryColumnHandle("test", BigQueryType.STRING, REPEATED, ImmutableList.of(), null);
+        BigQueryColumnHandle column = new BigQueryColumnHandle("test", BigQueryType.STRING, REPEATED, Collections.emptyList(), null);
         ColumnMetadata metadata = column.getColumnMetadata();
         assertThat(metadata.getType()).isEqualTo(new ArrayType(VarcharType.VARCHAR));
     }
@@ -300,7 +301,7 @@ public class TestTypeConversions
 
     private BigQueryColumnHandle createColumn(LegacySQLTypeName type)
     {
-        return new BigQueryColumnHandle("test", BigQueryType.valueOf(type.name()), NULLABLE, ImmutableList.of(), null);
+        return new BigQueryColumnHandle("test", BigQueryType.valueOf(type.name()), NULLABLE, Collections.emptyList(), null);
     }
 
     @Test

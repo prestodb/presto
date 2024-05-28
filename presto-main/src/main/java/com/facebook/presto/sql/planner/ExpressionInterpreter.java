@@ -104,6 +104,7 @@ import io.airlift.slice.Slice;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
@@ -1194,7 +1195,7 @@ public class ExpressionInterpreter
         @Override
         protected Object visitCurrentUser(CurrentUser node, Object context)
         {
-            FunctionCall functionCall = new FunctionCall(QualifiedName.of("$current_user"), ImmutableList.of());
+            FunctionCall functionCall = new FunctionCall(QualifiedName.of("$current_user"), Collections.emptyList());
             addGeneratedExpressionType(functionCall, type(node));
             return visitFunctionCall(functionCall, context);
         }

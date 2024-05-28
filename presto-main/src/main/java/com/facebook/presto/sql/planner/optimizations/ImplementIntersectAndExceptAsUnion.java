@@ -43,6 +43,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Maps;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -271,7 +272,7 @@ public class ImplementIntersectAndExceptAsUnion
                     sourceNode,
                     aggregations.build(),
                     singleGroupingSet(originalColumns),
-                    ImmutableList.of(),
+                    Collections.emptyList(),
                     Step.SINGLE,
                     Optional.empty(),
                     Optional.empty(),

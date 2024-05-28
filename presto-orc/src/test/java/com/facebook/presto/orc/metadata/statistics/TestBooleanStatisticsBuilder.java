@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.orc.metadata.statistics.AbstractStatisticsBuilderTest.StatisticsType.BOOLEAN;
@@ -97,7 +98,7 @@ public class TestBooleanStatisticsBuilder
     @Test
     public void testTotalValueBytes()
     {
-        assertTotalValueBytes(0L, ImmutableList.of());
+        assertTotalValueBytes(0L, Collections.emptyList());
         assertTotalValueBytes(BOOLEAN_VALUE_BYTES, ImmutableList.of(true));
         assertTotalValueBytes(BOOLEAN_VALUE_BYTES, ImmutableList.of(false));
         assertTotalValueBytes(4 * BOOLEAN_VALUE_BYTES, ImmutableList.of(true, true, false, true));

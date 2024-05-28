@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -98,7 +99,7 @@ public class TestOrcSelectiveStreamReaders
                         types,
                         1,
                         ImmutableMap.of(),
-                        ImmutableList.of(),
+                        Collections.emptyList(),
                         ImmutableMap.of(),
                         OrcTester.OrcReaderSettings.builder().build().getRequiredSubfields(),
                         ImmutableMap.of(),

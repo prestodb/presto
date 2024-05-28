@@ -32,6 +32,7 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -82,11 +83,11 @@ public class TestTooManyOpenPartitionsFailureResolver
     private static final int MAX_BUCKETS_PER_WRITER = 100;
     private static final QueryObjectBundle TEST_BUNDLE = new QueryObjectBundle(
             QualifiedName.of(TABLE_NAME),
-            ImmutableList.of(),
+            Collections.emptyList(),
             new SqlParser(new SqlParserOptions().allowIdentifierSymbol(AT_SIGN, COLON)).createStatement(
                     "INSERT INTO test SELECT * FROM source",
                     ParsingOptions.builder().setDecimalLiteralTreatment(AS_DOUBLE).build()),
-            ImmutableList.of(),
+            Collections.emptyList(),
             TEST,
             Optional.empty());
     private static final QueryException HIVE_TOO_MANY_OPEN_PARTITIONS_EXCEPTION = new PrestoQueryException(

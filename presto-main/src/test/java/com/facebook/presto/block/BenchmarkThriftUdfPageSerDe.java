@@ -57,6 +57,7 @@ import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 
+import java.util.Collections;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
@@ -138,7 +139,7 @@ public class BenchmarkThriftUdfPageSerDe
                     0.0f,
                     0.0f,
                     false,
-                    ImmutableList.of());
+                    Collections.emptyList());
             page = new Page(POSITIONS_PER_PAGE, block);
         }
 

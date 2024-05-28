@@ -18,12 +18,13 @@ import com.facebook.airlift.stats.Distribution;
 import com.facebook.airlift.stats.Distribution.DistributionSnapshot;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.spi.eventlistener.StageGcStatistics;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
+
+import java.util.Collections;
 
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -87,7 +88,7 @@ public class TestStageExecutionStats
                     106,
                     107),
 
-            ImmutableList.of(),
+            Collections.emptyList(),
             new RuntimeStats());
 
     @Test

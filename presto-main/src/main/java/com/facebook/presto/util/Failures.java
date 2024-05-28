@@ -28,7 +28,6 @@ import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.tree.NodeLocation;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import io.airlift.slice.SliceTooLargeException;
 
@@ -36,6 +35,7 @@ import javax.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -117,7 +117,7 @@ public final class Failures
         }
 
         if (seenFailures.contains(throwable)) {
-            return new ExecutionFailureInfo(type, "[cyclic] " + throwable.getMessage(), null, ImmutableList.of(), ImmutableList.of(), null, GENERIC_INTERNAL_ERROR.toErrorCode(), remoteHost, UNKNOWN);
+            return new ExecutionFailureInfo(type, "[cyclic] " + throwable.getMessage(), null, Collections.emptyList(), Collections.emptyList(), null, GENERIC_INTERNAL_ERROR.toErrorCode(), remoteHost, UNKNOWN);
         }
         seenFailures.add(throwable);
 

@@ -107,6 +107,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
 import java.nio.file.Path;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -202,7 +203,7 @@ public class TestingPrestoServer
     public TestingPrestoServer()
             throws Exception
     {
-        this(ImmutableList.of());
+        this(Collections.emptyList());
     }
 
     public TestingPrestoServer(List<Module> additionalModules)

@@ -20,6 +20,7 @@ import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -252,7 +253,7 @@ public class TestStringStatisticsBuilder
     @Test
     public void testTotalValueBytes()
     {
-        assertTotalValueBytes(0L, ImmutableList.of());
+        assertTotalValueBytes(0L, Collections.emptyList());
         assertTotalValueBytes(STRING_VALUE_BYTES_OVERHEAD, ImmutableList.of(EMPTY_SLICE));
         assertTotalValueBytes(LOW_BOTTOM_VALUE.length() + STRING_VALUE_BYTES_OVERHEAD, ImmutableList.of(LOW_BOTTOM_VALUE));
         assertTotalValueBytes((LOW_BOTTOM_VALUE.length() + LOW_TOP_VALUE.length()) + 2 * STRING_VALUE_BYTES_OVERHEAD, ImmutableList.of(LOW_BOTTOM_VALUE, LOW_TOP_VALUE));

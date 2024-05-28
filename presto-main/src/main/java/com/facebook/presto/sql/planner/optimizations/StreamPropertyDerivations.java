@@ -69,6 +69,7 @@ import com.google.common.collect.Iterables;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -676,9 +677,9 @@ public final class StreamPropertyDerivations
             this.partitioningColumns = requireNonNull(partitioningColumns, "partitioningProperties is null")
                     .map(ImmutableList::copyOf);
 
-            checkArgument(distribution != SINGLE || this.partitioningColumns.equals(Optional.of(ImmutableList.of())),
+            checkArgument(distribution != SINGLE || this.partitioningColumns.equals(Optional.of(Collections.emptyList())),
                     "Single stream must be partitioned on empty set");
-            checkArgument(distribution == SINGLE || !this.partitioningColumns.equals(Optional.of(ImmutableList.of())),
+            checkArgument(distribution == SINGLE || !this.partitioningColumns.equals(Optional.of(Collections.emptyList())),
                     "Multiple streams must not be partitioned on empty set");
 
             this.ordered = ordered;

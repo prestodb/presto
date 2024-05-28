@@ -18,9 +18,9 @@ import com.facebook.presto.orc.checkpoint.StreamCheckpoint;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.stream.StreamDataOutput;
-import com.google.common.collect.ImmutableList;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -31,7 +31,7 @@ public interface ColumnWriter
 
     default List<ColumnWriter> getNestedColumnWriters()
     {
-        return ImmutableList.of();
+        return Collections.emptyList();
     }
 
     Map<Integer, ColumnEncoding> getColumnEncodings();

@@ -25,6 +25,8 @@ import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
+
 @Deprecated
 public class CanonicalizeExpressionRewriter
 {
@@ -54,15 +56,15 @@ public class CanonicalizeExpressionRewriter
 
             switch (node.getFunction()) {
                 case DATE:
-                    return new FunctionCall(QualifiedName.of("current_date"), ImmutableList.of());
+                    return new FunctionCall(QualifiedName.of("current_date"), Collections.emptyList());
                 case TIME:
-                    return new FunctionCall(QualifiedName.of("current_time"), ImmutableList.of());
+                    return new FunctionCall(QualifiedName.of("current_time"), Collections.emptyList());
                 case LOCALTIME:
-                    return new FunctionCall(QualifiedName.of("localtime"), ImmutableList.of());
+                    return new FunctionCall(QualifiedName.of("localtime"), Collections.emptyList());
                 case TIMESTAMP:
-                    return new FunctionCall(QualifiedName.of("current_timestamp"), ImmutableList.of());
+                    return new FunctionCall(QualifiedName.of("current_timestamp"), Collections.emptyList());
                 case LOCALTIMESTAMP:
-                    return new FunctionCall(QualifiedName.of("localtimestamp"), ImmutableList.of());
+                    return new FunctionCall(QualifiedName.of("localtimestamp"), Collections.emptyList());
                 default:
                     throw new UnsupportedOperationException("not yet implemented: " + node.getFunction());
             }

@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -135,7 +136,7 @@ public class SingleDistinctAggregationToGroupBy
                                         .addAll(aggregation.getGroupingKeys())
                                         .addAll(variables)
                                         .build()),
-                                ImmutableList.of(),
+                                Collections.emptyList(),
                                 SINGLE,
                                 Optional.empty(),
                                 Optional.empty(),

@@ -37,6 +37,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.common.type.Decimals.MAX_PRECISION;
@@ -75,8 +76,8 @@ public class DecimalSumAggregation
     public DecimalSumAggregation()
     {
         super(NAME,
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 parseTypeSignature("decimal(38,s)", ImmutableSet.of("s")),
                 ImmutableList.of(parseTypeSignature("decimal(p,s)", ImmutableSet.of("p", "s"))),
                 FunctionKind.AGGREGATE);

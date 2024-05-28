@@ -39,6 +39,7 @@ import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -121,7 +122,7 @@ public class ScalarAggregationToJoinRewriter
                 JoinType.LEFT,
                 inputWithUniqueColumns,
                 scalarAggregationSource,
-                ImmutableList.of(),
+                Collections.emptyList(),
                 ImmutableList.<VariableReferenceExpression>builder()
                         .addAll(inputWithUniqueColumns.getOutputVariables())
                         .addAll(scalarAggregationSource.getOutputVariables())
@@ -208,7 +209,7 @@ public class ScalarAggregationToJoinRewriter
                 leftOuterJoin,
                 aggregations.build(),
                 singleGroupingSet(leftOuterJoin.getLeft().getOutputVariables()),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 scalarAggregation.getStep(),
                 scalarAggregation.getHashVariable(),
                 Optional.empty(),

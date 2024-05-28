@@ -17,6 +17,8 @@ import com.facebook.presto.common.type.ArrayType;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
+
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
@@ -42,8 +44,8 @@ public class TestArrayExceptFunction
     @Test
     public void testEmpty()
     {
-        assertFunction("array_except(ARRAY[], ARRAY[])", new ArrayType(UNKNOWN), ImmutableList.of());
-        assertFunction("array_except(ARRAY[], ARRAY[1, 3])", new ArrayType(INTEGER), ImmutableList.of());
+        assertFunction("array_except(ARRAY[], ARRAY[])", new ArrayType(UNKNOWN), Collections.emptyList());
+        assertFunction("array_except(ARRAY[], ARRAY[1, 3])", new ArrayType(INTEGER), Collections.emptyList());
         assertFunction("array_except(ARRAY[CAST('abc' as VARCHAR)], ARRAY[])", new ArrayType(VARCHAR), ImmutableList.of("abc"));
     }
 
@@ -53,8 +55,8 @@ public class TestArrayExceptFunction
         assertFunction("array_except(ARRAY[NULL], NULL)", new ArrayType(UNKNOWN), null);
         assertFunction("array_except(NULL, NULL)", new ArrayType(UNKNOWN), null);
         assertFunction("array_except(NULL, ARRAY[NULL])", new ArrayType(UNKNOWN), null);
-        assertFunction("array_except(ARRAY[NULL], ARRAY[NULL])", new ArrayType(UNKNOWN), ImmutableList.of());
-        assertFunction("array_except(ARRAY[], ARRAY[NULL])", new ArrayType(UNKNOWN), ImmutableList.of());
+        assertFunction("array_except(ARRAY[NULL], ARRAY[NULL])", new ArrayType(UNKNOWN), Collections.emptyList());
+        assertFunction("array_except(ARRAY[], ARRAY[NULL])", new ArrayType(UNKNOWN), Collections.emptyList());
         assertFunction("array_except(ARRAY[NULL], ARRAY[])", new ArrayType(UNKNOWN), singletonList(null));
     }
 

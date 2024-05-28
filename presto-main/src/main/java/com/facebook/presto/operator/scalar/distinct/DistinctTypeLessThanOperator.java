@@ -23,6 +23,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
@@ -45,7 +46,7 @@ public class DistinctTypeLessThanOperator
     {
         super(LESS_THAN,
                 ImmutableList.of(withVariadicBound("T", DISTINCT_TYPE)),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 parseTypeSignature(BOOLEAN),
                 ImmutableList.of(parseTypeSignature("T"), parseTypeSignature("T")));
     }

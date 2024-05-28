@@ -36,6 +36,7 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
@@ -100,7 +101,7 @@ public class TestHiveTableConstraints
 
         metastore.dropTable(new HdfsContext(session, TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS, "/some/path", false), TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS);
         tableConstraints = metastore.getTableConstraints(METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS);
-        assertEquals(tableConstraints, ImmutableList.of());
+        assertEquals(tableConstraints, Collections.emptyList());
     }
 
     public static class MockHiveCluster

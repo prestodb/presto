@@ -66,6 +66,7 @@ import javax.annotation.concurrent.GuardedBy;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -128,7 +129,7 @@ public class MockRemoteTaskFactory
                 ImmutableSet.of(variable),
                 SOURCE_DISTRIBUTION,
                 ImmutableList.of(sourceId),
-                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(variable)),
+                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, Collections.emptyList()), ImmutableList.of(variable)),
                 StageExecutionDescriptor.ungroupedExecution(),
                 false,
                 StatsAndCosts.empty(),
@@ -267,7 +268,7 @@ public class MockRemoteTaskFactory
         {
             TaskStats stats = taskContext.getTaskStats();
             TaskState state = taskStateMachine.getState();
-            List<ExecutionFailureInfo> failures = ImmutableList.of();
+            List<ExecutionFailureInfo> failures = Collections.emptyList();
             if (state == TaskState.FAILED) {
                 failures = toFailures(taskStateMachine.getFailureCauses());
             }
@@ -324,7 +325,7 @@ public class MockRemoteTaskFactory
                     taskStateMachine.getState(),
                     location,
                     ImmutableSet.of(),
-                    ImmutableList.of(),
+                    Collections.emptyList(),
                     queuedSplitsInfo.getCount(),
                     combinedSplitsInfo.getCount() - queuedSplitsInfo.getCount(),
                     0.0,

@@ -35,6 +35,7 @@ import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -63,7 +64,7 @@ public class TestPrestoSparkSourceDistributionSplitAssigner
                 new DataSize(10, BYTE),
                 2,
                 4,
-                ImmutableList.of(),
+                Collections.emptyList(),
                 ImmutableMap.of());
         assertSplitAssignmentWithAutoTuneEnabled(
                 new DataSize(10, BYTE),
@@ -147,7 +148,7 @@ public class TestPrestoSparkSourceDistributionSplitAssigner
     {
         assertSplitAssignmentWithAutoTuneDisabled(
                 1,
-                ImmutableList.of(),
+                Collections.emptyList(),
                 ImmutableMap.of());
         assertSplitAssignmentWithAutoTuneDisabled(
                 1,

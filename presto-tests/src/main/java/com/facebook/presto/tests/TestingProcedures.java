@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Method;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.common.type.StandardTypes.BIGINT;
@@ -130,7 +131,7 @@ public final class TestingProcedures
     public List<Procedure> getProcedures(String schema)
     {
         return ImmutableList.<Procedure>builder()
-                .add(procedure(schema, "test_simple", "simple", ImmutableList.of()))
+                .add(procedure(schema, "test_simple", "simple", Collections.emptyList()))
                 .add(procedure(schema, "test_args", "args", ImmutableList.of(
                         new Argument("x", BIGINT),
                         new Argument("y", DOUBLE),
@@ -162,8 +163,8 @@ public final class TestingProcedures
                         new Argument("y", VARCHAR),
                         new Argument("z", VARCHAR, false, "z default"),
                         new Argument("v", VARCHAR, false, "v default"))))
-                .add(procedure(schema, "test_exception", "exception", ImmutableList.of()))
-                .add(procedure(schema, "test_error", "error", ImmutableList.of()))
+                .add(procedure(schema, "test_exception", "exception", Collections.emptyList()))
+                .add(procedure(schema, "test_error", "error", Collections.emptyList()))
                 .build();
     }
 

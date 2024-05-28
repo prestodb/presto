@@ -62,6 +62,7 @@ import com.google.inject.Injector;
 import com.google.inject.Module;
 import org.weakref.jmx.guice.MBeanModule;
 
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -191,7 +192,7 @@ public class PrestoServer
 
     protected Iterable<? extends Module> getAdditionalModules()
     {
-        return ImmutableList.of();
+        return Collections.emptyList();
     }
 
     protected void startAssociatedProcesses(Injector injector)

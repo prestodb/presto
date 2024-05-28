@@ -30,6 +30,7 @@ import com.google.common.collect.ImmutableSet;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -55,7 +56,7 @@ public class TestEliminateSorts
     private static final String TAX_ALIAS = "TAX";
 
     private static final ExpectedValueProvider<WindowNode.Specification> windowSpec = specification(
-            ImmutableList.of(),
+            Collections.emptyList(),
             ImmutableList.of(QUANTITY_ALIAS),
             ImmutableMap.of(QUANTITY_ALIAS, SortOrder.ASC_NULLS_LAST));
 
@@ -76,7 +77,7 @@ public class TestEliminateSorts
                 output(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(windowSpec)
-                                        .addFunction(functionCall("row_number", Optional.empty(), ImmutableList.of())),
+                                        .addFunction(functionCall("row_number", Optional.empty(), Collections.emptyList())),
                                 anyTree(LINEITEM_TABLESCAN_Q_BASIC)));
 
         assertUnitPlan(sql, pattern);
@@ -124,7 +125,7 @@ public class TestEliminateSorts
                                 anyTree(
                                         window(windowMatcherBuilder -> windowMatcherBuilder
                                                         .specification(windowSpec)
-                                                        .addFunction(functionCall("row_number", Optional.empty(), ImmutableList.of())),
+                                                        .addFunction(functionCall("row_number", Optional.empty(), Collections.emptyList())),
                                                 anyTree(LINEITEM_TABLESCAN_Q)))));
 
         assertUnitPlan(sql, pattern);

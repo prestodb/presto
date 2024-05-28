@@ -60,6 +60,7 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -211,7 +212,7 @@ public class TestHiveSplitManager
         assertRedundantColumnDomains(
                 partitionRange,
                 createIntegerPartitionStatistics(1, 3, columnName),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 columnHandle);
 
         // Test partition having subfield domain stripped
@@ -263,7 +264,7 @@ public class TestHiveSplitManager
         assertRedundantColumnDomains(
                 partitionRange,
                 createDoublePartitionStatistics(1.0, 3.0, columnHandle.getName()),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 columnHandle);
 
         // Test partition having subfield domain stripped
@@ -307,7 +308,7 @@ public class TestHiveSplitManager
         assertRedundantColumnDomains(
                 partitionRange,
                 createDoublePartitionStatistics(1.0, 3.0, columnHandle.getName()),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 columnHandle);
 
         // Test partition having subfield domain stripped
@@ -376,7 +377,7 @@ public class TestHiveSplitManager
         assertRedundantColumnDomains(
                 partitionRange,
                 createDecimalPartitionStatistics(1, 3, columnHandle.getName()),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 columnHandle);
 
         // Test partition having subfield domain stripped
@@ -428,7 +429,7 @@ public class TestHiveSplitManager
         assertRedundantColumnDomains(
                 partitionRange,
                 createDatePartitionStatistics(1, 3, columnHandle.getName()),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 columnHandle);
 
         // Test partition having subfield domain stripped
@@ -515,11 +516,11 @@ public class TestHiveSplitManager
                 new HiveZeroRowFileCreator(hdfsEnvironment, new OutputStreamDataSinkFactory(), executor),
                 TEST_SERVER_VERSION,
                 new HivePartitionObjectBuilder(),
-                new HiveEncryptionInformationProvider(ImmutableList.of()),
+                new HiveEncryptionInformationProvider(Collections.emptyList()),
                 new HivePartitionStats(),
                 new HiveFileRenamer(),
                 HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER,
-                new QuickStatsProvider(HDFS_ENVIRONMENT, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of()),
+                new QuickStatsProvider(HDFS_ENVIRONMENT, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), Collections.emptyList()),
                 new HiveTableWritabilityChecker(false));
 
         HiveSplitManager splitManager = new HiveSplitManager(
@@ -537,7 +538,7 @@ public class TestHiveSplitManager
                 hiveClientConfig.getSplitLoaderConcurrency(),
                 false,
                 new ConfigBasedCacheQuotaRequirementProvider(new CacheConfig()),
-                new HiveEncryptionInformationProvider(ImmutableList.of()),
+                new HiveEncryptionInformationProvider(Collections.emptyList()),
                 new HivePartitionSkippabilityChecker());
 
         HiveColumnHandle partitionColumn = new HiveColumnHandle(
@@ -555,7 +556,7 @@ public class TestHiveSplitManager
                         ImmutableMap.of(partitionColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice(PARTITION_VALUE)))));
         TupleDomain<Subfield> domainPredicate = queryTupleDomain
                 .transform(HiveColumnHandle.class::cast)
-                .transform(column -> new Subfield(column.getName(), ImmutableList.of()));
+                .transform(column -> new Subfield(column.getName(), Collections.emptyList()));
 
         SchemaTableName schemaTableName = new SchemaTableName("test_schema", "test_table");
         HiveTableHandle hiveTableHandle = new HiveTableHandle(schemaTableName.getSchemaName(), schemaTableName.getTableName());

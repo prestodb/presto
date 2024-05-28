@@ -24,11 +24,11 @@ import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.WarningCollector;
-import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.util.Collections;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -82,8 +82,8 @@ public class TestPartialResultQueryTaskTracker
                 false);
         TaskId taskId1 = new TaskId("test1", 1, 0, 1, 0);
         TaskId taskId2 = new TaskId("test2", 2, 0, 1, 0);
-        RemoteTask task1 = taskFactory.createTableScanTask(taskId1, node1, ImmutableList.of(), new NodeTaskMap.NodeStatsTracker(delta -> {}, delta -> {}, (age, delta) -> {}));
-        RemoteTask task2 = taskFactory.createTableScanTask(taskId2, node2, ImmutableList.of(), new NodeTaskMap.NodeStatsTracker(delta -> {}, delta -> {}, (age, delta) -> {}));
+        RemoteTask task1 = taskFactory.createTableScanTask(taskId1, node1, Collections.emptyList(), new NodeTaskMap.NodeStatsTracker(delta -> {}, delta -> {}, (age, delta) -> {}));
+        RemoteTask task2 = taskFactory.createTableScanTask(taskId2, node2, Collections.emptyList(), new NodeTaskMap.NodeStatsTracker(delta -> {}, delta -> {}, (age, delta) -> {}));
 
         tracker.trackTask(task1);
         tracker.trackTask(task2);

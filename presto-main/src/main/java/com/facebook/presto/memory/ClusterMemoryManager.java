@@ -57,6 +57,7 @@ import javax.inject.Inject;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -327,7 +328,7 @@ public class ClusterMemoryManager
             // in the general pool (as they already are). In this case we create an effectively NOOP MemoryPoolAssignmentsRequest.
             // Once the reserved pool is removed we should get rid of the logic of putting queries into reserved pool including
             // this piece of code.
-            assignmentsRequest = new MemoryPoolAssignmentsRequest(coordinatorId, Long.MIN_VALUE, ImmutableList.of());
+            assignmentsRequest = new MemoryPoolAssignmentsRequest(coordinatorId, Long.MIN_VALUE, Collections.emptyList());
         }
         updateNodes(assignmentsRequest);
     }
@@ -343,7 +344,7 @@ public class ClusterMemoryManager
             // We are in the multi-coordinator codepath, and thus care about the globally running queries
             allRunningQueries = getClusterInfo(GENERAL_POOL)
                             .getRunningQueries()
-                            .orElse(ImmutableList.of())
+                            .orElse(Collections.emptyList())
                             .stream().collect(toImmutableMap(identity(), t -> Optional.empty()));
         }
         else {

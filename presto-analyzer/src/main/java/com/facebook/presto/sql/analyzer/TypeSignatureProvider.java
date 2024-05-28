@@ -17,6 +17,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
 
@@ -51,7 +52,7 @@ public class TypeSignatureProvider
     public TypeSignature getTypeSignature()
     {
         checkState(!hasDependency);
-        return typeSignatureResolver.apply(ImmutableList.of());
+        return typeSignatureResolver.apply(Collections.emptyList());
     }
 
     public TypeSignature getTypeSignature(List<Type> boundTypeParameters)

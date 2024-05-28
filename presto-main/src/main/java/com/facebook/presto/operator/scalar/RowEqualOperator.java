@@ -24,6 +24,7 @@ import com.facebook.presto.spi.function.FunctionHandle;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
@@ -47,7 +48,7 @@ public class RowEqualOperator
     {
         super(EQUAL,
                 ImmutableList.of(comparableWithVariadicBound("T", "row")),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 parseTypeSignature(StandardTypes.BOOLEAN),
                 ImmutableList.of(parseTypeSignature("T"), parseTypeSignature("T")));
     }

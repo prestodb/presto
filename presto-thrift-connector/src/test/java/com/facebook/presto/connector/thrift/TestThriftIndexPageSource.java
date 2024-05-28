@@ -243,7 +243,7 @@ public class TestThriftIndexPageSource
         public ListenableFuture<PrestoThriftSplitBatch> getIndexSplits(PrestoThriftSchemaTableName schemaTableName, List<String> indexColumnNames, List<String> outputColumnNames, PrestoThriftPageResult keys, PrestoThriftTupleDomain outputConstraint, int maxSplitCount, PrestoThriftNullableToken nextToken)
         {
             if (keys.getRowCount() == 0) {
-                return immediateFuture(new PrestoThriftSplitBatch(ImmutableList.of(), null));
+                return immediateFuture(new PrestoThriftSplitBatch(Collections.emptyList(), null));
             }
             PrestoThriftId newNextToken = null;
             int[] values = keys.getColumnBlocks().get(0).getIntegerData().getInts();
@@ -267,7 +267,7 @@ public class TestThriftIndexPageSource
 
             List<PrestoThriftSplit> splits = new ArrayList<>(end - begin);
             for (int i = begin; i < end; i++) {
-                splits.add(new PrestoThriftSplit(new PrestoThriftId(Ints.toByteArray(values[i])), ImmutableList.of()));
+                splits.add(new PrestoThriftSplit(new PrestoThriftId(Ints.toByteArray(values[i])), Collections.emptyList()));
             }
             if (shuffleSplits) {
                 shuffle(splits);
@@ -279,7 +279,7 @@ public class TestThriftIndexPageSource
         public ListenableFuture<PrestoThriftPageResult> getRows(PrestoThriftId splitId, List<String> columns, long maxBytes, PrestoThriftNullableToken nextToken)
         {
             if (rowsPerSplit == 0) {
-                return immediateFuture(new PrestoThriftPageResult(ImmutableList.of(), 0, null));
+                return immediateFuture(new PrestoThriftPageResult(Collections.emptyList(), 0, null));
             }
             int key = Ints.fromByteArray(splitId.getId());
             int offset = nextToken.getToken() != null ? Ints.fromByteArray(nextToken.getToken().getId()) : 0;

@@ -26,6 +26,7 @@ import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
@@ -96,7 +97,7 @@ public class ExpressionExtractor
                         aggregation.getFilter().ifPresent(context::add);
                         aggregation.getOrderBy()
                                 .map(OrderingScheme::getOrderByVariables)
-                                .orElse(ImmutableList.of())
+                                .orElse(Collections.emptyList())
                                 .forEach(context::add);
                     });
             return super.visitAggregation(node, context);

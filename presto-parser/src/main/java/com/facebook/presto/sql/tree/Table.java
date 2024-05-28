@@ -15,6 +15,7 @@ package com.facebook.presto.sql.tree;
 
 import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -66,7 +67,7 @@ public class Table
         if (tableVersionExpression.isPresent()) {
             return ImmutableList.of(tableVersionExpression.get());
         }
-        return ImmutableList.of();
+        return Collections.emptyList();
     }
 
     @Override

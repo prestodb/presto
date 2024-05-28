@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.io.IOException;
 import java.io.Writer;
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.cli.AlignedTablePrinter.formatHexDump;
@@ -59,7 +60,7 @@ public class CsvPrinter
     public void finish()
             throws IOException
     {
-        printRows(ImmutableList.of(), true);
+        printRows(Collections.emptyList(), true);
         writer.flush();
         checkError();
     }

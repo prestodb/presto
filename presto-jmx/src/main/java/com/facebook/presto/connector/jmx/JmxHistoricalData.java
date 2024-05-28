@@ -20,6 +20,7 @@ import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -66,7 +67,7 @@ public class JmxHistoricalData
     {
         String lowerCaseObjectName = objectName.toLowerCase(Locale.ENGLISH);
         if (!tableData.containsKey(lowerCaseObjectName)) {
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
         return projectRows(tableData.get(lowerCaseObjectName), selectedColumns);
     }

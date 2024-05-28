@@ -24,6 +24,7 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -67,7 +68,7 @@ public class TestGroupIdOperator
 
     public void testGroupId()
     {
-        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(false, ImmutableList.of(), BIGINT, VARCHAR, BOOLEAN, BIGINT);
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(false, Collections.emptyList(), BIGINT, VARCHAR, BOOLEAN, BIGINT);
         List<Page> input = rowPagesBuilder
                 .addSequencePage(3, 100, 400, 0, 1000)
                 .addSequencePage(3, 200, 500, 0, 1100)

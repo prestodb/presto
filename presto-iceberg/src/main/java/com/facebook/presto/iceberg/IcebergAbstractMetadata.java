@@ -252,7 +252,7 @@ public abstract class IcebergAbstractMetadata
 
     public static Subfield toSubfield(ColumnHandle columnHandle)
     {
-        return new Subfield(((IcebergColumnHandle) columnHandle).getName(), ImmutableList.of());
+        return new Subfield(((IcebergColumnHandle) columnHandle).getName(), Collections.emptyList());
     }
 
     protected static boolean isEntireColumn(Subfield subfield)
@@ -283,7 +283,7 @@ public abstract class IcebergAbstractMetadata
                     Optional.empty(),
                     Optional.empty(),
                     discretePredicates,
-                    ImmutableList.of(),
+                    Collections.emptyList(),
                     Optional.empty());
         }
 
@@ -307,7 +307,7 @@ public abstract class IcebergAbstractMetadata
                         Optional.empty(),
                         Optional.empty(),
                         discretePredicates,
-                        ImmutableList.of(),
+                        Collections.emptyList(),
                         Optional.of(combinedRemainingPredicate)))
                 .orElseGet(() -> new ConnectorTableLayout(
                         icebergTableLayoutHandle,
@@ -316,7 +316,7 @@ public abstract class IcebergAbstractMetadata
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
-                        ImmutableList.of(),
+                        Collections.emptyList(),
                         Optional.empty()));
     }
 
@@ -416,7 +416,7 @@ public abstract class IcebergAbstractMetadata
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
         Optional<ConnectorNewTableLayout> layout = getNewTableLayout(session, tableMetadata);
-        finishCreateTable(session, beginCreateTable(session, tableMetadata, layout), ImmutableList.of(), ImmutableList.of());
+        finishCreateTable(session, beginCreateTable(session, tableMetadata, layout), Collections.emptyList(), Collections.emptyList());
     }
 
     @Override

@@ -268,13 +268,13 @@ public class TestHiveLogicalPlanner
         assertPlan(pushdownFilterEnabled, "SELECT linenumber FROM lineitem WHERE partkey = 10",
                 output(exchange(
                         strictTableScan("lineitem", identityMap("linenumber")))),
-                plan -> assertTableLayout(plan, "lineitem", withColumnDomains(ImmutableMap.of(new Subfield("partkey", ImmutableList.of()), singleValue(BIGINT, 10L))), TRUE_CONSTANT, ImmutableSet.of("partkey")));
+                plan -> assertTableLayout(plan, "lineitem", withColumnDomains(ImmutableMap.of(new Subfield("partkey", Collections.emptyList()), singleValue(BIGINT, 10L))), TRUE_CONSTANT, ImmutableSet.of("partkey")));
 
         assertPlan(pushdownFilterEnabled, "SELECT partkey, linenumber FROM lineitem WHERE partkey = 10",
                 output(exchange(
                         project(
                                 strictTableScan("lineitem", identityMap("linenumber"))))),
-                plan -> assertTableLayout(plan, "lineitem", withColumnDomains(ImmutableMap.of(new Subfield("partkey", ImmutableList.of()), singleValue(BIGINT, 10L))), TRUE_CONSTANT, ImmutableSet.of("partkey")));
+                plan -> assertTableLayout(plan, "lineitem", withColumnDomains(ImmutableMap.of(new Subfield("partkey", Collections.emptyList()), singleValue(BIGINT, 10L))), TRUE_CONSTANT, ImmutableSet.of("partkey")));
 
         // Only remaining predicate
         assertPlan("SELECT linenumber FROM lineitem WHERE mod(orderkey, 2) = 1",
@@ -335,14 +335,14 @@ public class TestHiveLogicalPlanner
         assertPlan(pushdownFilterEnabled, "SELECT linenumber FROM lineitem WHERE partkey = 10 AND mod(orderkey, 2) = 1",
                 output(exchange(
                         strictTableScan("lineitem", identityMap("linenumber")))),
-                plan -> assertTableLayout(plan, "lineitem", withColumnDomains(ImmutableMap.of(new Subfield("partkey", ImmutableList.of()), singleValue(BIGINT, 10L))), remainingPredicate, ImmutableSet.of("partkey", "orderkey")));
+                plan -> assertTableLayout(plan, "lineitem", withColumnDomains(ImmutableMap.of(new Subfield("partkey", Collections.emptyList()), singleValue(BIGINT, 10L))), remainingPredicate, ImmutableSet.of("partkey", "orderkey")));
 
         assertPlan(pushdownFilterEnabled, "SELECT partkey, orderkey, linenumber FROM lineitem WHERE partkey = 10 AND mod(orderkey, 2) = 1",
                 output(exchange(
                         project(
                                 ImmutableMap.of("expr_8", expression("10")),
                                 strictTableScan("lineitem", identityMap("orderkey", "linenumber"))))),
-                plan -> assertTableLayout(plan, "lineitem", withColumnDomains(ImmutableMap.of(new Subfield("partkey", ImmutableList.of()), singleValue(BIGINT, 10L))), remainingPredicate, ImmutableSet.of("partkey", "orderkey")));
+                plan -> assertTableLayout(plan, "lineitem", withColumnDomains(ImmutableMap.of(new Subfield("partkey", Collections.emptyList()), singleValue(BIGINT, 10L))), remainingPredicate, ImmutableSet.of("partkey", "orderkey")));
     }
 
     @Test
@@ -529,14 +529,14 @@ public class TestHiveLogicalPlanner
                     optimizeMetadataQueries,
                     "SELECT * FROM test_metadata_aggregation_folding WHERE ds = (SELECT max(ds) from test_metadata_aggregation_folding)",
                     anyTree(
-                            join(INNER, ImmutableList.of(),
+                            join(INNER, Collections.emptyList(),
                                     tableScan("test_metadata_aggregation_folding", getSingleValueColumnDomain("ds", "2020-07-07"), TRUE_CONSTANT, ImmutableSet.of("ds")),
                                     anyTree(any()))));
             assertPlan(
                     optimizeMetadataQueries,
                     "SELECT * FROM test_metadata_aggregation_folding WHERE ds = (SELECT min(ds) from test_metadata_aggregation_folding)",
                     anyTree(
-                            join(INNER, ImmutableList.of(),
+                            join(INNER, Collections.emptyList(),
                                     tableScan("test_metadata_aggregation_folding", getSingleValueColumnDomain("ds", "2020-07-01"), TRUE_CONSTANT, ImmutableSet.of("ds")),
                                     anyTree(any()))));
 
@@ -544,14 +544,14 @@ public class TestHiveLogicalPlanner
                     optimizeMetadataQueries,
                     "SELECT * FROM test_metadata_aggregation_folding_more_partitions WHERE ds = (SELECT max(ds) from test_metadata_aggregation_folding_more_partitions)",
                     anyTree(
-                            join(INNER, ImmutableList.of(),
+                            join(INNER, Collections.emptyList(),
                                     tableScan("test_metadata_aggregation_folding_more_partitions", getSingleValueColumnDomain("ds", "2021-01-16"), TRUE_CONSTANT, ImmutableSet.of("ds")),
                                     anyTree(any()))));
             assertPlan(
                     optimizeMetadataQueries,
                     "SELECT * FROM test_metadata_aggregation_folding_more_partitions WHERE ds = (SELECT min(ds) from test_metadata_aggregation_folding_more_partitions)",
                     anyTree(
-                            join(INNER, ImmutableList.of(),
+                            join(INNER, Collections.emptyList(),
                                     tableScan("test_metadata_aggregation_folding_more_partitions", getSingleValueColumnDomain("ds", "2020-07-01"), TRUE_CONSTANT, ImmutableSet.of("ds")),
                                     anyTree(any()))));
 
@@ -559,14 +559,14 @@ public class TestHiveLogicalPlanner
                     optimizeMetadataQueries,
                     "SELECT * FROM test_metadata_aggregation_folding WHERE ds = (SELECT max(ds) from test_metadata_aggregation_folding_null_partitions)",
                     anyTree(
-                            join(INNER, ImmutableList.of(),
+                            join(INNER, Collections.emptyList(),
                                     tableScan("test_metadata_aggregation_folding", getSingleValueColumnDomain("ds", "2020-07-07"), TRUE_CONSTANT, ImmutableSet.of("ds")),
                                     anyTree(any()))));
             assertPlan(
                     optimizeMetadataQueries,
                     "SELECT * FROM test_metadata_aggregation_folding WHERE ds = (SELECT min(ds) from test_metadata_aggregation_folding_null_partitions)",
                     anyTree(
-                            join(INNER, ImmutableList.of(),
+                            join(INNER, Collections.emptyList(),
                                     tableScan("test_metadata_aggregation_folding", getSingleValueColumnDomain("ds", "2020-07-01"), TRUE_CONSTANT, ImmutableSet.of("ds")),
                                     anyTree(any()))));
         }
@@ -636,7 +636,7 @@ public class TestHiveLogicalPlanner
                     anyTree(
                             join(
                                     INNER,
-                                    ImmutableList.of(),
+                                    Collections.emptyList(),
                                     tableScan("test_metadata_aggregation_folding_with_empty_partitions", getSingleValueColumnDomain("ds", "2020-07-20"), TRUE_CONSTANT, ImmutableSet.of("ds")),
                                     anyTree(any()))));
             // Max ds matching the filter has stats. Enable rewrite.
@@ -646,7 +646,7 @@ public class TestHiveLogicalPlanner
                     anyTree(
                             join(
                                     INNER,
-                                    ImmutableList.of(),
+                                    Collections.emptyList(),
                                     tableScan("test_metadata_aggregation_folding_with_empty_partitions", getSingleValueColumnDomain("ds", "2020-07-02"), TRUE_CONSTANT, ImmutableSet.of("ds")),
                                     anyTree(any()))));
             // Min ds partition stats indicates that it is an empty partition. Disable rewrite.
@@ -665,7 +665,7 @@ public class TestHiveLogicalPlanner
                     anyTree(
                             join(
                                     INNER,
-                                    ImmutableList.of(),
+                                    Collections.emptyList(),
                                     tableScan("test_metadata_aggregation_folding_with_empty_partitions", getSingleValueColumnDomain("ds", "2020-07-01"), TRUE_CONSTANT, ImmutableSet.of("ds")),
                                     anyTree(any()))));
             // Test the non-reducible code path.

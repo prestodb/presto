@@ -31,6 +31,7 @@ import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Type.Repetition;
 import org.apache.parquet.schema.Types;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -70,7 +71,7 @@ public class ParquetSchemaConverter
     {
         Types.MessageTypeBuilder builder = Types.buildMessage();
         for (int i = 0; i < types.size(); i++) {
-            builder.addField(convert(types.get(i), columnNames.get(i), ImmutableList.of(), OPTIONAL));
+            builder.addField(convert(types.get(i), columnNames.get(i), Collections.emptyList(), OPTIONAL));
         }
         return builder.named("presto_schema");
     }

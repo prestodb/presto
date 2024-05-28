@@ -94,7 +94,7 @@ public class TestPageProcessor
     @Test
     public void testProjectNoColumns()
     {
-        PageProcessor pageProcessor = new PageProcessor(Optional.empty(), ImmutableList.of(), OptionalInt.of(MAX_BATCH_SIZE));
+        PageProcessor pageProcessor = new PageProcessor(Optional.empty(), Collections.emptyList(), OptionalInt.of(MAX_BATCH_SIZE));
 
         Page inputPage = new Page(createLongSequenceBlock(0, 100));
 
@@ -110,7 +110,7 @@ public class TestPageProcessor
     @Test
     public void testFilterNoColumns()
     {
-        PageProcessor pageProcessor = new PageProcessor(Optional.of(new TestingPageFilter(positionsRange(0, 50))), ImmutableList.of());
+        PageProcessor pageProcessor = new PageProcessor(Optional.of(new TestingPageFilter(positionsRange(0, 50))), Collections.emptyList());
 
         Page inputPage = new Page(createLongSequenceBlock(0, 100));
 
@@ -147,27 +147,27 @@ public class TestPageProcessor
     {
         // Primitive types
 
-        testPartialFilterAsList(BOOLEAN, 100, 0.5f, 0.5f, false, ImmutableList.of());
-        testPartialFilterAsList(REAL, 100, 0.5f, 0.5f, false, ImmutableList.of());
-        testPartialFilterAsList(BIGINT, 100, 0.5f, 0.5f, false, ImmutableList.of());
-        testPartialFilterAsList(VARCHAR, 100, 0.5f, 0.5f, false, ImmutableList.of());
+        testPartialFilterAsList(BOOLEAN, 100, 0.5f, 0.5f, false, Collections.emptyList());
+        testPartialFilterAsList(REAL, 100, 0.5f, 0.5f, false, Collections.emptyList());
+        testPartialFilterAsList(BIGINT, 100, 0.5f, 0.5f, false, Collections.emptyList());
+        testPartialFilterAsList(VARCHAR, 100, 0.5f, 0.5f, false, Collections.emptyList());
 
-        testPartialFilterAsList(BOOLEAN, 100, 0.5f, 0.5f, true, ImmutableList.of());
-        testPartialFilterAsList(REAL, 100, 0.5f, 0.5f, true, ImmutableList.of());
-        testPartialFilterAsList(BIGINT, 100, 0.5f, 0.5f, true, ImmutableList.of());
-        testPartialFilterAsList(VARCHAR, 100, 0.5f, 0.5f, true, ImmutableList.of());
+        testPartialFilterAsList(BOOLEAN, 100, 0.5f, 0.5f, true, Collections.emptyList());
+        testPartialFilterAsList(REAL, 100, 0.5f, 0.5f, true, Collections.emptyList());
+        testPartialFilterAsList(BIGINT, 100, 0.5f, 0.5f, true, Collections.emptyList());
+        testPartialFilterAsList(VARCHAR, 100, 0.5f, 0.5f, true, Collections.emptyList());
 
         // Complex types
 
-        testPartialFilterAsList(new ArrayType(BIGINT), 100, 0.5f, 0.5f, false, ImmutableList.of());
-        testPartialFilterAsList(new ArrayType(VARCHAR), 100, 0.5f, 0.5f, false, ImmutableList.of());
-        testPartialFilterAsList(createMapType(BIGINT, VARCHAR), 100, 0.5f, 0.5f, false, ImmutableList.of());
-        testPartialFilterAsList(withDefaultFieldNames(ImmutableList.of(BIGINT, withDefaultFieldNames(ImmutableList.of(BOOLEAN, VARCHAR)))), 100, 0.5f, 0.5f, false, ImmutableList.of());
+        testPartialFilterAsList(new ArrayType(BIGINT), 100, 0.5f, 0.5f, false, Collections.emptyList());
+        testPartialFilterAsList(new ArrayType(VARCHAR), 100, 0.5f, 0.5f, false, Collections.emptyList());
+        testPartialFilterAsList(createMapType(BIGINT, VARCHAR), 100, 0.5f, 0.5f, false, Collections.emptyList());
+        testPartialFilterAsList(withDefaultFieldNames(ImmutableList.of(BIGINT, withDefaultFieldNames(ImmutableList.of(BOOLEAN, VARCHAR)))), 100, 0.5f, 0.5f, false, Collections.emptyList());
 
-        testPartialFilterAsList(new ArrayType(BIGINT), 100, 0.5f, 0.5f, true, ImmutableList.of());
-        testPartialFilterAsList(new ArrayType(VARCHAR), 100, 0.5f, 0.5f, true, ImmutableList.of());
-        testPartialFilterAsList(createMapType(BIGINT, VARCHAR), 100, 0.5f, 0.5f, true, ImmutableList.of());
-        testPartialFilterAsList(withDefaultFieldNames(ImmutableList.of(BIGINT, withDefaultFieldNames(ImmutableList.of(BOOLEAN, VARCHAR)))), 100, 0.5f, 0.5f, true, ImmutableList.of());
+        testPartialFilterAsList(new ArrayType(BIGINT), 100, 0.5f, 0.5f, true, Collections.emptyList());
+        testPartialFilterAsList(new ArrayType(VARCHAR), 100, 0.5f, 0.5f, true, Collections.emptyList());
+        testPartialFilterAsList(createMapType(BIGINT, VARCHAR), 100, 0.5f, 0.5f, true, Collections.emptyList());
+        testPartialFilterAsList(withDefaultFieldNames(ImmutableList.of(BIGINT, withDefaultFieldNames(ImmutableList.of(BOOLEAN, VARCHAR)))), 100, 0.5f, 0.5f, true, Collections.emptyList());
     }
 
     @Test

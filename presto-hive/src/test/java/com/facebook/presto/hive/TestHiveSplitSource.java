@@ -30,6 +30,7 @@ import org.testng.annotations.Test;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -169,7 +170,7 @@ public class TestHiveSplitSource
         AtomicReference<String> reference = new AtomicReference<>();
         split.getPreferredNodes((key) -> {
             reference.set(key);
-            return ImmutableList.of();
+            return Collections.emptyList();
         });
         assertNotNull(reference.get());
         return reference.get();
@@ -595,7 +596,7 @@ public class TestHiveSplitSource
                     fileSize.toBytes(),
                     fileSize.toBytes(),
                     Instant.now().toEpochMilli(),
-                    ImmutableList.of(new InternalHiveBlock(fileSize.toBytes(), ImmutableList.of())),
+                    ImmutableList.of(new InternalHiveBlock(fileSize.toBytes(), Collections.emptyList())),
                     bucketNumber,
                     bucketNumber,
                     true,
@@ -610,7 +611,7 @@ public class TestHiveSplitSource
                                     ImmutableMap.of(),
                                     ImmutableMap.of()),
                             new Path("path").toUri(),
-                            ImmutableList.of(),
+                            Collections.emptyList(),
                             "partition-name",
                             id,
                             TableToPartitionMapping.empty(),

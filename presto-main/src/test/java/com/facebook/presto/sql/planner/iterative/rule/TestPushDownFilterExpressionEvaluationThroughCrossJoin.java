@@ -16,9 +16,10 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
+
+import java.util.Collections;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
@@ -54,7 +55,7 @@ public class TestPushDownFilterExpressionEvaluationThroughCrossJoin
                                         "add_1 = add_0",
                                         join(
                                                 JoinType.INNER,
-                                                ImmutableList.of(),
+                                                Collections.emptyList(),
                                                 project(
                                                         ImmutableMap.of("add_1", expression("left_k1+left_k2")),
                                                         values("left_k1", "left_k2")),
@@ -101,7 +102,7 @@ public class TestPushDownFilterExpressionEvaluationThroughCrossJoin
                                         "left_k1 = card",
                                         join(
                                                 JoinType.INNER,
-                                                ImmutableList.of(),
+                                                Collections.emptyList(),
                                                 values("left_k1"),
                                                 project(
                                                         ImmutableMap.of("card", expression("cardinality(right_k1)")),
@@ -130,7 +131,7 @@ public class TestPushDownFilterExpressionEvaluationThroughCrossJoin
                                         "left_k1 = right_k1 OR cast_1 = cast_0",
                                         join(
                                                 JoinType.INNER,
-                                                ImmutableList.of(),
+                                                Collections.emptyList(),
                                                 project(
                                                         ImmutableMap.of("cast_1", expression("CAST(left_k2 AS bigint)")),
                                                         values("left_k1", "left_k2")),
@@ -161,7 +162,7 @@ public class TestPushDownFilterExpressionEvaluationThroughCrossJoin
                                         "left_k1 = right_k1 OR cast_1 = expr",
                                         join(
                                                 JoinType.INNER,
-                                                ImmutableList.of(),
+                                                Collections.emptyList(),
                                                 project(
                                                         ImmutableMap.of("cast_1", expression("CAST(left_k1 AS varchar)")),
                                                         values("left_k1")),
@@ -190,7 +191,7 @@ public class TestPushDownFilterExpressionEvaluationThroughCrossJoin
                                         "contains(right_array_k1, cast_l)",
                                         join(
                                                 JoinType.INNER,
-                                                ImmutableList.of(),
+                                                Collections.emptyList(),
                                                 project(
                                                         ImmutableMap.of("cast_l", expression("CAST(left_k1 AS bigint)")),
                                                         values("left_k1")),
@@ -217,7 +218,7 @@ public class TestPushDownFilterExpressionEvaluationThroughCrossJoin
                                         "contains(cast_arr, left_k1)",
                                         join(
                                                 JoinType.INNER,
-                                                ImmutableList.of(),
+                                                Collections.emptyList(),
                                                 values("left_k1"),
                                                 project(
                                                         ImmutableMap.of("cast_arr", expression("cast(right_array_k1 as array<varchar>)")),

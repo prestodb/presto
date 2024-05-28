@@ -20,6 +20,7 @@ import com.facebook.presto.common.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -43,7 +44,7 @@ public class PrimitiveTypeMapBuilder
     private Map<List<String>, Type> buildTypeMap(List<Type> types, List<String> columnNames)
     {
         for (int i = 0; i < types.size(); i++) {
-            visitType(types.get(i), makeCompatibleName(columnNames.get(i)), ImmutableList.of());
+            visitType(types.get(i), makeCompatibleName(columnNames.get(i)), Collections.emptyList());
         }
         return builder.build();
     }

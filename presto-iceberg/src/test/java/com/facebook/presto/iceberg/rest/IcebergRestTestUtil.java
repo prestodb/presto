@@ -22,7 +22,6 @@ import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.testing.TestingConnectorSession;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
@@ -37,6 +36,7 @@ import org.apache.iceberg.rest.RESTSessionCatalog;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -48,7 +48,7 @@ import static org.apache.iceberg.CatalogProperties.WAREHOUSE_LOCATION;
 
 public class IcebergRestTestUtil
 {
-    public static final ConnectorSession SESSION = new TestingConnectorSession(ImmutableList.of());
+    public static final ConnectorSession SESSION = new TestingConnectorSession(Collections.emptyList());
 
     private IcebergRestTestUtil()
     {

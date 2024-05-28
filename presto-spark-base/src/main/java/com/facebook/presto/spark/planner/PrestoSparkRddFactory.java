@@ -65,6 +65,7 @@ import scala.Tuple2;
 import javax.inject.Inject;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -247,7 +248,7 @@ public class PrestoSparkRddFactory
             // Task with no inputs may produce results (e.g.: ValuesNode).
             // To force the task to be scheduled we create a PrestoSparkTaskSourceRdd that contains exactly one partition.
             // Since there's also no table scans in the fragment, the list of TaskSource's for this partition is empty.
-            PrestoSparkTaskSourceRdd prestoSparkTaskSourceRdd = new PrestoSparkTaskSourceRdd(sparkContext.sc(), ImmutableList.of(ImmutableList.of()));
+            PrestoSparkTaskSourceRdd prestoSparkTaskSourceRdd = new PrestoSparkTaskSourceRdd(sparkContext.sc(), ImmutableList.of(Collections.emptyList()));
             prestoSparkTaskSourceRdd.setName(getRDDName(fragment.getId().getId()));
             taskSourceRdd = Optional.of(prestoSparkTaskSourceRdd);
         }

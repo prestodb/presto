@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
@@ -75,7 +76,7 @@ public class TestPruneJoinChildrenColumns
                             JoinType.INNER,
                             p.values(leftValue),
                             p.values(rightValue),
-                            ImmutableList.of(),
+                            Collections.emptyList(),
                             ImmutableList.of(leftValue, rightValue),
                             Optional.empty(),
                             Optional.empty(),

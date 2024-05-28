@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Type;
 
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.bytecode.OpCode.ILOAD;
@@ -61,7 +62,7 @@ public abstract class VariableInstruction
     @Override
     public List<BytecodeNode> getChildNodes()
     {
-        return ImmutableList.of();
+        return Collections.emptyList();
     }
 
     @Override

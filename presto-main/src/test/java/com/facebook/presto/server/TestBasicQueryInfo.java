@@ -32,6 +32,7 @@ import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.util.Collections;
 import java.util.Optional;
 import java.util.OptionalDouble;
 
@@ -119,7 +120,7 @@ public class TestBasicQueryInfo
                                         105,
                                         106,
                                         107)),
-                                ImmutableList.of(),
+                                Collections.emptyList(),
                                 new RuntimeStats()),
                         Optional.empty(),
                         Optional.empty(),
@@ -134,7 +135,7 @@ public class TestBasicQueryInfo
                         Optional.empty(),
                         null,
                         StandardErrorCode.ABANDONED_QUERY.toErrorCode(),
-                        ImmutableList.of(),
+                        Collections.emptyList(),
                         ImmutableSet.of(),
                         Optional.empty(),
                         false,
@@ -145,12 +146,12 @@ public class TestBasicQueryInfo
                         ImmutableMap.of(),
                         ImmutableSet.of(),
                         StatsAndCosts.empty(),
-                        ImmutableList.of(),
-                        ImmutableList.of(),
+                        Collections.emptyList(),
+                        Collections.emptyList(),
                         ImmutableSet.of(),
                         ImmutableSet.of(),
                         ImmutableSet.of(),
-                        ImmutableList.of(),
+                        Collections.emptyList(),
                         ImmutableMap.of(),
                         Optional.empty()));
 

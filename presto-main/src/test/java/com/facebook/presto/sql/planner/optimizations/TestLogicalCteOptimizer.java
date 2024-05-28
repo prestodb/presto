@@ -28,6 +28,7 @@ import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -169,7 +170,7 @@ public class TestLogicalCteOptimizer
                         sequence(
                                 cteProducer(addQueryScopeDelimiter("T", 0), anyTree(values("ColumnA", "ColumnB"))),
                                 cteProducer(addQueryScopeDelimiter("T", 1), anyTree(values("colA"))),
-                                anyTree(lateral(ImmutableList.of(),
+                                anyTree(lateral(Collections.emptyList(),
                                         anyTree(join(anyTree(cteConsumer(addQueryScopeDelimiter("T", 0))), anyTree(cteConsumer(addQueryScopeDelimiter("T", 0))))),
                                         anyTree(cteConsumer(addQueryScopeDelimiter("T", 1))))))));
     }

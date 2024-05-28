@@ -17,9 +17,9 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.google.common.collect.ImmutableList;
 
 import java.io.IOException;
+import java.util.Collections;
 
 public class BigQueryEmptySplitPageSource
         implements ConnectorPageSource
@@ -63,7 +63,7 @@ public class BigQueryEmptySplitPageSource
     public Page getNextPage()
     {
         log.debug("[%s] creating %d empty rows", Thread.currentThread(), numberOfRows);
-        PageBuilder pageBuilder = new PageBuilder(ImmutableList.of());
+        PageBuilder pageBuilder = new PageBuilder(Collections.emptyList());
         for (long i = 0; i < numberOfRows; i++) {
             pageBuilder.declarePosition();
         }

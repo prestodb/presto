@@ -22,6 +22,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
+
 import static com.facebook.presto.SystemSessionProperties.OFFSET_CLAUSE_ENABLED;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.rowNumber;
@@ -53,7 +55,7 @@ public class TestImplementOffset
                                         "row_num > BIGINT '2'",
                                         rowNumber(
                                                 pattern -> pattern
-                                                        .partitionBy(ImmutableList.of()),
+                                                        .partitionBy(Collections.emptyList()),
                                                 values("a", "b"))
                                                 .withAlias("row_num", new RowNumberSymbolMatcher()))));
     }
@@ -76,7 +78,7 @@ public class TestImplementOffset
                                         "row_num > BIGINT '2'",
                                         rowNumber(
                                                 pattern -> pattern
-                                                        .partitionBy(ImmutableList.of()),
+                                                        .partitionBy(Collections.emptyList()),
                                                 values("a", "b"))
                                                 .withAlias("row_num", new RowNumberSymbolMatcher()))));
     }
@@ -102,7 +104,7 @@ public class TestImplementOffset
                                         "row_num > BIGINT '2'",
                                         rowNumber(
                                                 pattern -> pattern
-                                                        .partitionBy(ImmutableList.of()),
+                                                        .partitionBy(Collections.emptyList()),
                                                 sort(
                                                         ImmutableList.of(sort("a", ASCENDING, FIRST)),
                                                         values("a", "b")))

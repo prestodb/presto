@@ -52,6 +52,7 @@ import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -395,7 +396,7 @@ public class TestTableWriterOperator
         void complete()
         {
             future.complete(null);
-            finishFuture.complete(ImmutableList.of());
+            finishFuture.complete(Collections.emptyList());
         }
     }
 
@@ -414,7 +415,7 @@ public class TestTableWriterOperator
         @Override
         public CompletableFuture<Collection<Slice>> finish()
         {
-            return completedFuture(ImmutableList.of());
+            return completedFuture(Collections.emptyList());
         }
 
         @Override

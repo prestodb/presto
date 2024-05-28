@@ -61,6 +61,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -352,7 +353,7 @@ public class AddLocalExchanges
 
             PlanWithProperties child = planAndEnforce(node.getSource(), childRequirements, childRequirements);
 
-            List<VariableReferenceExpression> preGroupedSymbols = ImmutableList.of();
+            List<VariableReferenceExpression> preGroupedSymbols = Collections.emptyList();
             // Logic in LocalProperties.match(localProperties, groupingKeys)
             // 1. Extract the longest prefix of localProperties to a set that is a subset of groupingKeys
             // 2. Iterate grouped-by keys and add the elements that's not in the set to the result
@@ -717,7 +718,7 @@ public class AddLocalExchanges
                         idAllocator.getNextId(),
                         GATHER,
                         LOCAL,
-                        new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), node.getOutputVariables()),
+                        new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, Collections.emptyList()), node.getOutputVariables()),
                         sources,
                         inputLayouts,
                         false,
@@ -748,7 +749,7 @@ public class AddLocalExchanges
                     idAllocator.getNextId(),
                     REPARTITION,
                     LOCAL,
-                    new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), node.getOutputVariables()),
+                    new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, Collections.emptyList()), node.getOutputVariables()),
                     sources,
                     inputLayouts,
                     false,

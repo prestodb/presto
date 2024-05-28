@@ -31,6 +31,7 @@ import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
+import java.util.Collections;
 
 import static com.facebook.presto.common.block.MethodHandleUtil.compose;
 import static com.facebook.presto.common.block.MethodHandleUtil.nativeValueGetter;
@@ -72,7 +73,7 @@ public final class MapToMapCast
     {
         super(CAST,
                 ImmutableList.of(typeVariable("FK"), typeVariable("FV"), typeVariable("TK"), typeVariable("TV")),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 parseTypeSignature("map(TK,TV)"),
                 ImmutableList.of(parseTypeSignature("map(FK,FV)")));
     }

@@ -26,6 +26,7 @@ import io.airlift.slice.Slice;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashSet;
@@ -248,7 +249,7 @@ public class BingTileUtils
         checkZoomLevel(zoom);
 
         if (envelope.isEmpty()) {
-            return Optional.of(ImmutableList.of());
+            return Optional.of(Collections.emptyList());
         }
         checkLatitude(envelope.getYMin(), LATITUDE_SPAN_OUT_OF_RANGE);
         checkLatitude(envelope.getYMax(), LATITUDE_SPAN_OUT_OF_RANGE);

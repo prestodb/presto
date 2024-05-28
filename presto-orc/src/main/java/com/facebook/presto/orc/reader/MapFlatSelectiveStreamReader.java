@@ -675,7 +675,7 @@ public class MapFlatSelectiveStreamReader
                     valueStreamDescriptor,
                     ImmutableBiMap.of(),
                     Optional.ofNullable(outputType).map(MapType::getValueType),
-                    ImmutableList.of(),
+                    Collections.emptyList(),
                     hiveStorageTimeZone,
                     options,
                     systemMemoryContext.newOrcAggregatedMemoryContext(),

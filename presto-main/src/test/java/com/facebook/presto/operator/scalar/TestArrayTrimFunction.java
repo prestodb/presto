@@ -17,6 +17,8 @@ import com.facebook.presto.common.type.ArrayType;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
+
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static java.util.Arrays.asList;
@@ -31,7 +33,7 @@ public class TestArrayTrimFunction
         assertFunction("trim_array(ARRAY[1, 2, 3, 4], 1)", new ArrayType(INTEGER), ImmutableList.of(1, 2, 3));
         assertFunction("trim_array(ARRAY[1, 2, 3, 4], 2)", new ArrayType(INTEGER), ImmutableList.of(1, 2));
         assertFunction("trim_array(ARRAY[1, 2, 3, 4], 3)", new ArrayType(INTEGER), ImmutableList.of(1));
-        assertFunction("trim_array(ARRAY[1, 2, 3, 4], 4)", new ArrayType(INTEGER), ImmutableList.of());
+        assertFunction("trim_array(ARRAY[1, 2, 3, 4], 4)", new ArrayType(INTEGER), Collections.emptyList());
 
         assertFunction("trim_array(ARRAY['a', 'b', 'c', 'd'], 1)", new ArrayType(createVarcharType(1)), ImmutableList.of("a", "b", "c"));
         assertFunction("trim_array(ARRAY['a', 'b', null, 'd'], 1)", new ArrayType(createVarcharType(1)), asList("a", "b", null));

@@ -41,6 +41,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -71,12 +72,12 @@ public class IterativeOptimizer
 
     public IterativeOptimizer(Metadata metadata, RuleStatsRecorder stats, StatsCalculator statsCalculator, CostCalculator costCalculator, Set<Rule<?>> rules)
     {
-        this(metadata, stats, statsCalculator, costCalculator, ImmutableList.of(), Optional.empty(), rules);
+        this(metadata, stats, statsCalculator, costCalculator, Collections.emptyList(), Optional.empty(), rules);
     }
 
     public IterativeOptimizer(Metadata metadata, RuleStatsRecorder stats, StatsCalculator statsCalculator, CostCalculator costCalculator, Optional<LogicalPropertiesProvider> logicalPropertiesProvider, Set<Rule<?>> rules)
     {
-        this(metadata, stats, statsCalculator, costCalculator, ImmutableList.of(), logicalPropertiesProvider, rules);
+        this(metadata, stats, statsCalculator, costCalculator, Collections.emptyList(), logicalPropertiesProvider, rules);
     }
 
     public IterativeOptimizer(Metadata metadata, RuleStatsRecorder stats, StatsCalculator statsCalculator, CostCalculator costCalculator, List<PlanOptimizer> legacyRules, Set<Rule<?>> newRules)

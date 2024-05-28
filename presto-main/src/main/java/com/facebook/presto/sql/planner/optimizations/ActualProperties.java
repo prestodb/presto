@@ -30,6 +30,7 @@ import com.google.common.collect.ImmutableSet;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -273,7 +274,7 @@ public class ActualProperties
 
         public Builder()
         {
-            this(Global.arbitraryPartition(), ImmutableList.of(), ImmutableMap.of());
+            this(Global.arbitraryPartition(), Collections.emptyList(), ImmutableMap.of());
         }
 
         public Builder(Global global, List<LocalProperty<VariableReferenceExpression>> localProperties, Map<VariableReferenceExpression, ConstantExpression> constants)
@@ -388,16 +389,16 @@ public class ActualProperties
         {
             return partitionedOn(
                     COORDINATOR_DISTRIBUTION,
-                    ImmutableList.of(),
-                    Optional.of(ImmutableList.of()));
+                    Collections.emptyList(),
+                    Optional.of(Collections.emptyList()));
         }
 
         public static Global singleStreamPartition()
         {
             return partitionedOn(
                     SINGLE_DISTRIBUTION,
-                    ImmutableList.of(),
-                    Optional.of(ImmutableList.of()));
+                    Collections.emptyList(),
+                    Optional.of(Collections.emptyList()));
         }
 
         public static Global arbitraryPartition()

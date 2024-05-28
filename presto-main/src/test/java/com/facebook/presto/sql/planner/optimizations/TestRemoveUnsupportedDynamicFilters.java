@@ -45,6 +45,7 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -147,8 +148,8 @@ public class TestRemoveUnsupportedDynamicFilters
     public void testUnmatchedDynamicFilter()
     {
         PlanNode root = builder.output(
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 builder.join(
                         INNER,
                         ordersTableScanNode,
@@ -158,7 +159,7 @@ public class TestRemoveUnsupportedDynamicFilters
                                         createDynamicFilterExpression("DF", lineitemOrderKeyVariable, metadata.getFunctionAndTypeManager())),
                                 lineitemTableScanNode),
                         ImmutableList.of(new EquiJoinClause(ordersOrderKeyVariable, lineitemOrderKeyVariable)),
-                        ImmutableList.of(),
+                        Collections.emptyList(),
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
@@ -177,8 +178,8 @@ public class TestRemoveUnsupportedDynamicFilters
     public void testNestedDynamicFilterDisjunctionRewrite()
     {
         PlanNode root = builder.output(
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 builder.join(
                         INNER,
                         ordersTableScanNode,
@@ -209,7 +210,7 @@ public class TestRemoveUnsupportedDynamicFilters
     @Test
     public void testNestedDynamicFilterConjunctionRewrite()
     {
-        PlanNode root = builder.output(ImmutableList.of(), ImmutableList.of(),
+        PlanNode root = builder.output(Collections.emptyList(), Collections.emptyList(),
                 builder.join(
                         INNER,
                         ordersTableScanNode,

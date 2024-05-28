@@ -50,6 +50,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
@@ -134,7 +135,7 @@ public class InMemoryHiveMetastore
         if (!databases.containsKey(databaseName)) {
             throw new SchemaNotFoundException(databaseName);
         }
-        if (!getAllTables(metastoreContext, databaseName).orElse(ImmutableList.of()).isEmpty()) {
+        if (!getAllTables(metastoreContext, databaseName).orElse(Collections.emptyList()).isEmpty()) {
             throw new PrestoException(SCHEMA_NOT_EMPTY, "Schema not empty: " + databaseName);
         }
         databases.remove(databaseName);
@@ -376,7 +377,7 @@ public class InMemoryHiveMetastore
     public List<String> getPartitionNamesByFilter(MetastoreContext metastoreContext, String databaseName, String tableName, Map<Column, Domain> partitionPredicates)
     {
         List<String> parts = convertPredicateToParts(partitionPredicates);
-        return getPartitionNamesByParts(metastoreContext, databaseName, tableName, parts).orElse(ImmutableList.of());
+        return getPartitionNamesByParts(metastoreContext, databaseName, tableName, parts).orElse(Collections.emptyList());
     }
 
     private static boolean partitionMatches(Partition partition, String databaseName, String tableName, List<String> parts)
@@ -406,7 +407,7 @@ public class InMemoryHiveMetastore
             PartitionName partitionName = PartitionName.partition(databaseName, tableName, name);
             Partition partition = getPartitionFromInMemoryMap(metastoreContext, partitionName);
             if (partition == null) {
-                return ImmutableList.of();
+                return Collections.emptyList();
             }
             builder.add(partition.deepCopy());
         }

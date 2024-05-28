@@ -36,10 +36,10 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.facebook.presto.transaction.InternalConnector;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -77,7 +77,7 @@ public class GlobalSystemConnector
             @Override
             public List<String> listSchemaNames(ConnectorSession session)
             {
-                return ImmutableList.of();
+                return Collections.emptyList();
             }
 
             @Override
@@ -107,7 +107,7 @@ public class GlobalSystemConnector
             @Override
             public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
             {
-                return ImmutableList.of();
+                return Collections.emptyList();
             }
 
             @Override

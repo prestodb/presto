@@ -22,6 +22,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -85,7 +86,7 @@ public class PinotSplit
                 expectedColumnHandles,
                 Optional.of(requireNonNull(brokerQuery, "brokerQuery is null")),
                 Optional.empty(),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 Optional.empty(),
                 Optional.empty());
     }
@@ -185,7 +186,7 @@ public class PinotSplit
     @Override
     public List<HostAddress> getPreferredNodes(NodeProvider nodeProvider)
     {
-        return ImmutableList.of();
+        return Collections.emptyList();
     }
 
     @Override

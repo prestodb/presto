@@ -27,7 +27,6 @@ import com.facebook.presto.hudi.HudiTableType;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
-import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import org.apache.hadoop.fs.Path;
 import org.apache.hudi.common.fs.FSUtils;
@@ -35,6 +34,7 @@ import org.apache.hudi.common.model.FileSlice;
 import org.apache.hudi.common.table.view.HoodieTableFileSystemView;
 import org.apache.hudi.common.util.HoodieTimer;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Queue;
@@ -140,7 +140,7 @@ public class HudiPartitionSplitGenerator
                 partition,
                 Optional.ofNullable(baseFile),
                 logFiles,
-                ImmutableList.of(),
+                Collections.emptyList(),
                 NodeSelectionStrategy.NO_PREFERENCE,
                 splitWeightProvider.calculateSplitWeight(sizeInBytes)));
     }

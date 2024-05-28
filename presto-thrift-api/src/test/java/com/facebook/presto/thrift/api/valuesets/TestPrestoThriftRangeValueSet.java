@@ -22,6 +22,8 @@ import com.facebook.presto.thrift.api.valuesets.PrestoThriftRangeValueSet.Presto
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
+
 import static com.facebook.presto.common.predicate.Range.range;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.thrift.api.datatypes.PrestoThriftBlock.bigintData;
@@ -48,7 +50,7 @@ public class TestPrestoThriftRangeValueSet
     {
         PrestoThriftValueSet thriftValueSet = fromValueSet(ValueSet.none(BIGINT));
         assertNotNull(thriftValueSet.getRangeValueSet());
-        assertEquals(thriftValueSet.getRangeValueSet().getRanges(), ImmutableList.of());
+        assertEquals(thriftValueSet.getRangeValueSet().getRanges(), Collections.emptyList());
     }
 
     @Test

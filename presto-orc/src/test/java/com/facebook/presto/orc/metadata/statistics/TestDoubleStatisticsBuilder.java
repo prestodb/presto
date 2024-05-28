@@ -16,6 +16,7 @@ package com.facebook.presto.orc.metadata.statistics;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
@@ -86,7 +87,7 @@ public class TestDoubleStatisticsBuilder
     @Test
     public void testTotalValueBytes()
     {
-        assertTotalValueBytes(0L, ImmutableList.of());
+        assertTotalValueBytes(0L, Collections.emptyList());
         assertTotalValueBytes(DOUBLE_VALUE_BYTES, ImmutableList.of(42D));
         assertTotalValueBytes(DOUBLE_VALUE_BYTES, ImmutableList.of(0D));
         assertTotalValueBytes(4 * DOUBLE_VALUE_BYTES, ImmutableList.of(0D, 42D, 42D, 43D));

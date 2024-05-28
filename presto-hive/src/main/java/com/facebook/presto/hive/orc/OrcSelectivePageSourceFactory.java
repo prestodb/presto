@@ -81,6 +81,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -213,7 +214,7 @@ public class OrcSelectivePageSourceFactory
 
         // per HIVE-13040 and ORC-162, empty files are allowed
         if (fileSplit.getFileSize() == 0) {
-            return Optional.of(new FixedPageSource(ImmutableList.of()));
+            return Optional.of(new FixedPageSource(Collections.emptyList()));
         }
 
         return Optional.of(createOrcPageSource(

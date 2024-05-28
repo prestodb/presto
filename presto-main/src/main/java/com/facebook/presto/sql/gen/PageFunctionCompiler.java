@@ -72,6 +72,7 @@ import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -381,7 +382,7 @@ public class PageFunctionCompiler
         generateProcessMethod(classDefinition, blockBuilderFields, projections.size(), propertiesField, pageField, selectedPositionsField, nextIndexOrPositionField, resultField);
 
         // getResult
-        MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), "getResult", type(Object.class), ImmutableList.of());
+        MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), "getResult", type(Object.class), Collections.emptyList());
         method.getBody().append(method.getThis().getField(resultField)).ret(Object.class);
 
         AtomicInteger lambdaCounter = new AtomicInteger(0);
@@ -480,7 +481,7 @@ public class PageFunctionCompiler
             FieldDefinition nextIndexOrPosition,
             FieldDefinition result)
     {
-        MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), "process", type(boolean.class), ImmutableList.of());
+        MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), "process", type(boolean.class), Collections.emptyList());
 
         Scope scope = method.getScope();
         Variable thisVariable = method.getThis();

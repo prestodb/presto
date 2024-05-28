@@ -51,6 +51,7 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -108,7 +109,7 @@ public class TestHashAggregationOperator
     private static final JavaAggregationFunctionImplementation LONG_AVERAGE = getAggregation("avg", BIGINT);
     private static final JavaAggregationFunctionImplementation LONG_SUM = getAggregation("sum", BIGINT);
     private static final JavaAggregationFunctionImplementation COUNT = FUNCTION_AND_TYPE_MANAGER.getJavaAggregateFunctionImplementation(
-            FUNCTION_AND_TYPE_MANAGER.lookupFunction("count", ImmutableList.of()));
+            FUNCTION_AND_TYPE_MANAGER.lookupFunction("count", Collections.emptyList()));
 
     private static final int MAX_BLOCK_SIZE_IN_BYTES = 64 * 1024;
 
@@ -181,8 +182,8 @@ public class TestHashAggregationOperator
                 new PlanNodeId("test"),
                 ImmutableList.of(VARCHAR),
                 hashChannels,
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 Step.SINGLE,
                 false,
                 ImmutableList.of(generateAccumulatorFactory(COUNT, ImmutableList.of(0), Optional.empty()),
@@ -236,7 +237,7 @@ public class TestHashAggregationOperator
                 new PlanNodeId("test"),
                 ImmutableList.of(VARCHAR, BIGINT),
                 groupByChannels,
-                ImmutableList.of(),
+                Collections.emptyList(),
                 globalAggregationGroupIds,
                 Step.SINGLE,
                 true,
@@ -289,8 +290,8 @@ public class TestHashAggregationOperator
                 new PlanNodeId("test"),
                 ImmutableList.of(BIGINT),
                 hashChannels,
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 Step.SINGLE,
                 true,
                 ImmutableList.of(generateAccumulatorFactory(arrayAggColumn, ImmutableList.of(0), Optional.empty())),
@@ -333,8 +334,8 @@ public class TestHashAggregationOperator
                 new PlanNodeId("test"),
                 ImmutableList.of(BIGINT),
                 hashChannels,
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 Step.SINGLE,
                 ImmutableList.of(generateAccumulatorFactory(COUNT, ImmutableList.of(0), Optional.empty()),
                         generateAccumulatorFactory(LONG_SUM, ImmutableList.of(3), Optional.empty()),
@@ -372,8 +373,8 @@ public class TestHashAggregationOperator
                 new PlanNodeId("test"),
                 ImmutableList.of(VARCHAR),
                 hashChannels,
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 Step.SINGLE,
                 false,
                 ImmutableList.of(generateAccumulatorFactory(COUNT, ImmutableList.of(0), Optional.empty())),
@@ -401,8 +402,8 @@ public class TestHashAggregationOperator
                 new PlanNodeId("test"),
                 ImmutableList.of(type),
                 ImmutableList.of(0),
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 Step.SINGLE,
                 ImmutableList.of(generateAccumulatorFactory(COUNT, ImmutableList.of(0), Optional.empty())),
                 Optional.of(1),
@@ -454,8 +455,8 @@ public class TestHashAggregationOperator
                 new PlanNodeId("test"),
                 ImmutableList.of(VARCHAR),
                 hashChannels,
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 Step.SINGLE,
                 ImmutableList.of(generateAccumulatorFactory(COUNT, ImmutableList.of(0), Optional.empty())),
                 rowPagesBuilder.getHashChannel(),
@@ -488,8 +489,8 @@ public class TestHashAggregationOperator
                 new PlanNodeId("test"),
                 ImmutableList.of(BIGINT),
                 hashChannels,
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 Step.SINGLE,
                 ImmutableList.of(generateAccumulatorFactory(COUNT, ImmutableList.of(0), Optional.empty()),
                         generateAccumulatorFactory(LONG_AVERAGE, ImmutableList.of(1), Optional.empty())),
@@ -521,8 +522,8 @@ public class TestHashAggregationOperator
                 new PlanNodeId("test"),
                 ImmutableList.of(BIGINT),
                 hashChannels,
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 Step.PARTIAL,
                 ImmutableList.of(generateAccumulatorFactory(LONG_SUM, ImmutableList.of(0), Optional.empty())),
                 rowPagesBuilder.getHashChannel(),
@@ -603,8 +604,8 @@ public class TestHashAggregationOperator
                 new PlanNodeId("test"),
                 ImmutableList.of(BIGINT),
                 ImmutableList.of(0),
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 Step.SINGLE,
                 false,
                 ImmutableList.of(generateAccumulatorFactory(LONG_SUM, ImmutableList.of(0), Optional.empty())),
@@ -649,8 +650,8 @@ public class TestHashAggregationOperator
                 new PlanNodeId("test"),
                 ImmutableList.of(BIGINT),
                 ImmutableList.of(0),
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 Step.SINGLE,
                 false,
                 ImmutableList.of(generateAccumulatorFactory(LONG_SUM, ImmutableList.of(0), Optional.empty())),
@@ -705,8 +706,8 @@ public class TestHashAggregationOperator
                 new PlanNodeId("test"),
                 ImmutableList.of(BIGINT),
                 hashChannels,
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 Step.SINGLE,
                 false,
                 ImmutableList.of(generateAccumulatorFactory(COUNT, ImmutableList.of(0), Optional.empty()),
@@ -750,8 +751,8 @@ public class TestHashAggregationOperator
                 new PlanNodeId("test"),
                 ImmutableList.of(BIGINT),
                 ImmutableList.of(0),
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 Step.SINGLE,
                 false,
                 ImmutableList.of(generateAccumulatorFactory(COUNT, ImmutableList.of(1), Optional.of(2))),
@@ -796,8 +797,8 @@ public class TestHashAggregationOperator
                 new PlanNodeId("test"),
                 ImmutableList.of(BIGINT),
                 hashChannels,
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 Step.SINGLE,
                 ImmutableList.of(generateAccumulatorFactory(LONG_SUM, ImmutableList.of(0), Optional.empty())),
                 rowPagesBuilder.getHashChannel(),
@@ -840,8 +841,8 @@ public class TestHashAggregationOperator
                 new PlanNodeId("test"),
                 ImmutableList.of(BIGINT),
                 hashChannels,
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 Step.PARTIAL,
                 false,
                 ImmutableList.of(generateAccumulatorFactory(LONG_SUM, ImmutableList.of(0), Optional.empty())),
@@ -914,8 +915,8 @@ public class TestHashAggregationOperator
                 new PlanNodeId("test"),
                 ImmutableList.of(BIGINT),
                 hashChannels,
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 Step.PARTIAL,
                 false,
                 ImmutableList.of(generateAccumulatorFactory(LONG_SUM, ImmutableList.of(0), Optional.empty())),
@@ -951,7 +952,7 @@ public class TestHashAggregationOperator
         MaterializedResult expected = MaterializedResult.resultBuilder(driverContext.getSession(), BIGINT, BIGINT)
                 .pages(expectedPages)
                 .build();
-        OperatorAssertion.assertOperatorEquals(operatorFactory, driverContext, inputPages, expected, false, ImmutableList.of(), false);
+        OperatorAssertion.assertOperatorEquals(operatorFactory, driverContext, inputPages, expected, false, Collections.emptyList(), false);
     }
 
     private DriverContext createDriverContext()
@@ -1001,7 +1002,7 @@ public class TestHashAggregationOperator
                 @Override
                 public List<Iterator<Page>> getSpills()
                 {
-                    return ImmutableList.of();
+                    return Collections.emptyList();
                 }
 
                 @Override

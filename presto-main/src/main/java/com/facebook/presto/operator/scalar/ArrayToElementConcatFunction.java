@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
@@ -52,7 +53,7 @@ public class ArrayToElementConcatFunction
                 QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "concat"),
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("E")),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 parseTypeSignature("array(E)"),
                 ImmutableList.of(parseTypeSignature("array(E)"), parseTypeSignature("E")),
                 false));

@@ -21,6 +21,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
@@ -41,12 +42,12 @@ public class TestingSplit
 
     public static TestingSplit createEmptySplit()
     {
-        return new TestingSplit(HARD_AFFINITY, ImmutableList.of());
+        return new TestingSplit(HARD_AFFINITY, Collections.emptyList());
     }
 
     public static TestingSplit createRemoteSplit()
     {
-        return new TestingSplit(NO_PREFERENCE, ImmutableList.of());
+        return new TestingSplit(NO_PREFERENCE, Collections.emptyList());
     }
 
     @JsonCreator

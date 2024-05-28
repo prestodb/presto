@@ -50,6 +50,7 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.JOIN_MAX_BROADCAST_TABLE_SIZE;
@@ -84,7 +85,7 @@ public class TestPickJoinSides
     public void setUp()
     {
         tester = new RuleTester(
-                ImmutableList.of(),
+                Collections.emptyList(),
                 ImmutableMap.of(),
                 new PrestoSparkSessionPropertyManagerProvider(new SystemSessionProperties(), new PrestoSparkSessionProperties()).get(),
                 Optional.of(NODES_COUNT),
@@ -458,7 +459,7 @@ public class TestPickJoinSides
                                 p.values(
                                         ImmutableList.of(p.variable("B1")),
                                         ImmutableList.of(constantExpressions(BIGINT, 50L), constantExpressions(BIGINT, 11L))),
-                                ImmutableList.of(),
+                                Collections.emptyList(),
                                 ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
                                 Optional.empty(),
                                 Optional.empty(),

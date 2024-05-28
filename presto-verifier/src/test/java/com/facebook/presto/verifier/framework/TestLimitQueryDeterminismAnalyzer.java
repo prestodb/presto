@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.sql.ResultSetMetaData;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -204,13 +205,13 @@ public class TestLimitQueryDeterminismAnalyzer
     @Test
     public void testLimitOrderByFailedDataChanged()
     {
-        MockPrestoAction prestoAction = createPrestoAction(ImmutableList.of(), TIE_INSPECTOR_COLUMNS);
+        MockPrestoAction prestoAction = createPrestoAction(Collections.emptyList(), TIE_INSPECTOR_COLUMNS);
         assertAnalysis(prestoAction, ORDER_BY_LIMIT_QUERY, FAILED_DATA_CHANGED);
     }
 
     private static MockPrestoAction createPrestoAction(long rowCount)
     {
-        return new MockPrestoAction(ImmutableList.of(rowCount), ImmutableList.of());
+        return new MockPrestoAction(ImmutableList.of(rowCount), Collections.emptyList());
     }
 
     private static MockPrestoAction createPrestoAction(List<List<Object>> rows, List<ColumnInfo> columns)

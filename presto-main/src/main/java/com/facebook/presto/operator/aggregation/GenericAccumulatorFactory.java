@@ -62,6 +62,7 @@ import javax.annotation.Nullable;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -186,7 +187,7 @@ public class GenericAccumulatorFactory
     public Accumulator createIntermediateAccumulator()
     {
         try {
-            return accumulatorConstructor.newInstance(stateDescriptors, ImmutableList.of(), Optional.empty(), lambdaProviders);
+            return accumulatorConstructor.newInstance(stateDescriptors, Collections.emptyList(), Optional.empty(), lambdaProviders);
         }
         catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
             throw new RuntimeException(e);
@@ -230,7 +231,7 @@ public class GenericAccumulatorFactory
     {
         if (!hasOrderBy() && !hasDistinct()) {
             try {
-                return groupedAccumulatorConstructor.newInstance(stateDescriptors, ImmutableList.of(), Optional.empty(), lambdaProviders);
+                return groupedAccumulatorConstructor.newInstance(stateDescriptors, Collections.emptyList(), Optional.empty(), lambdaProviders);
             }
             catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
                 throw new RuntimeException(e);
@@ -359,13 +360,13 @@ public class GenericAccumulatorFactory
                 javaAggregationFunctionImplementation,
                 inputChannels,
                 maskChannel,
-                ImmutableList.of(),
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 null,
                 false,
                 null,
-                ImmutableList.of(),
+                Collections.emptyList(),
                 false,
                 null,
                 null);

@@ -90,6 +90,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -456,9 +457,9 @@ class QueryPlanner
     {
         Scope scope = Scope.create();
         return new RelationPlan(
-                new ValuesNode(Optional.empty(), idAllocator.getNextId(), ImmutableList.of(), ImmutableList.of(ImmutableList.of()), Optional.empty()),
+                new ValuesNode(Optional.empty(), idAllocator.getNextId(), Collections.emptyList(), ImmutableList.of(Collections.emptyList()), Optional.empty()),
                 scope,
-                ImmutableList.of());
+                Collections.emptyList());
     }
 
     private PlanBuilder filter(PlanBuilder subPlan, Expression predicate, Node node)
@@ -676,7 +677,7 @@ class QueryPlanner
         // This tracks the grouping sets before complex expressions are considered (see comments below)
         // It's also used to compute the descriptors needed to implement grouping()
         List<Set<FieldId>> columnOnlyGroupingSets = ImmutableList.of(ImmutableSet.of());
-        List<List<VariableReferenceExpression>> groupingSets = ImmutableList.of(ImmutableList.of());
+        List<List<VariableReferenceExpression>> groupingSets = ImmutableList.of(Collections.emptyList());
 
         if (node.getGroupBy().isPresent()) {
             // For the purpose of "distinct", we need to canonicalize column references that may have varying
@@ -787,7 +788,7 @@ class QueryPlanner
                         groupingKeys.build(),
                         groupingSets.size(),
                         globalGroupingSets.build()),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 AggregationNode.Step.SINGLE,
                 Optional.empty(),
                 groupIdVariable,
@@ -1228,7 +1229,7 @@ class QueryPlanner
                             subPlan.getRoot(),
                             ImmutableMap.of(),
                             singleGroupingSet(subPlan.getRoot().getOutputVariables()),
-                            ImmutableList.of(),
+                            Collections.emptyList(),
                             AggregationNode.Step.SINGLE,
                             Optional.empty(),
                             Optional.empty(),

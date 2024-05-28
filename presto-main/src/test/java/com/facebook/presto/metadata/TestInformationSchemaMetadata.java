@@ -43,6 +43,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -70,7 +71,7 @@ public class TestInformationSchemaMetadata
                                 new SchemaTableName("test_schema", "test_view"),
                                 new SchemaTableName("test_schema", "another_table")))
                 .withGetViews((connectorSession, prefix) -> {
-                    String viewJson = VIEW_DEFINITION_JSON_CODEC.toJson(new ViewDefinition("select 1", Optional.of("test_catalog"), Optional.of("test_schema"), ImmutableList.of(), Optional.empty(), false));
+                    String viewJson = VIEW_DEFINITION_JSON_CODEC.toJson(new ViewDefinition("select 1", Optional.of("test_catalog"), Optional.of("test_schema"), Collections.emptyList(), Optional.empty(), false));
                     SchemaTableName viewName = new SchemaTableName("test_schema", "test_view");
                     return ImmutableMap.of(viewName, new ConnectorViewDefinition(viewName, Optional.empty(), viewJson));
                 }).build();

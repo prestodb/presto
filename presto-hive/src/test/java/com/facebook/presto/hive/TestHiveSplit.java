@@ -44,6 +44,7 @@ import com.google.inject.Scopes;
 import org.testng.annotations.Test;
 
 import java.time.Instant;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -78,7 +79,7 @@ public class TestHiveSplit
                 5,
                 REGULAR,
                 Optional.empty(),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 Optional.empty()));
         HiveFileSplit fileSplit = new HiveFileSplit(
                 "path",

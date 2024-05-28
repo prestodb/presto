@@ -26,6 +26,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -118,7 +119,7 @@ public class TestOrcRecordReaderDwrfStripeCaching
     public void testNoneAllStripes(File orcFile)
             throws IOException
     {
-        List<DiskRange> forbiddenRanges = ImmutableList.of();
+        List<DiskRange> forbiddenRanges = Collections.emptyList();
         assertFileContentCachingEnabled(orcFile, forbiddenRanges);
         assertFileContentCachingDisabled(orcFile);
     }
@@ -127,7 +128,7 @@ public class TestOrcRecordReaderDwrfStripeCaching
     public void testStripeCacheDisabled(File orcFile)
             throws IOException
     {
-        List<DiskRange> forbiddenRanges = ImmutableList.of();
+        List<DiskRange> forbiddenRanges = Collections.emptyList();
         assertFileContentCachingEnabled(orcFile, forbiddenRanges);
         assertFileContentCachingDisabled(orcFile);
     }
@@ -198,7 +199,7 @@ public class TestOrcRecordReaderDwrfStripeCaching
                 ImmutableMap.of(0, INTEGER, 1, INTEGER, 2, INTEGER),
                 ImmutableList.of(0, 1, 2),
                 ImmutableMap.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 ImmutableMap.of(),
                 ImmutableMap.of(),
                 ImmutableMap.of(),

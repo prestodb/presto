@@ -34,6 +34,7 @@ import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -270,8 +271,8 @@ public class TestQueryStateInfo
                         DataSize.valueOf("34GB"),
                         DataSize.valueOf("35GB"),
                         DataSize.valueOf("36GB"),
-                        ImmutableList.of(),
-                        ImmutableList.of(),
+                        Collections.emptyList(),
+                        Collections.emptyList(),
                         new RuntimeStats()),
                 Optional.empty(),
                 Optional.empty(),
@@ -300,12 +301,12 @@ public class TestQueryStateInfo
                 ImmutableMap.of(),
                 ImmutableSet.of(),
                 StatsAndCosts.empty(),
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 ImmutableSet.of(),
                 ImmutableSet.of(),
                 ImmutableSet.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 ImmutableMap.of(),
                 Optional.empty());
     }

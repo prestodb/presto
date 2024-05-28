@@ -43,6 +43,7 @@ import org.locationtech.jts.operation.valid.IsValidOp;
 import org.locationtech.jts.operation.valid.TopologyValidationError;
 
 import java.util.ArrayDeque;
+import java.util.Collections;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -366,13 +367,13 @@ public final class GeometryUtils
     public static Iterable<OGCGeometry> flattenCollection(OGCGeometry geometry)
     {
         if (geometry == null) {
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
         if (!(geometry instanceof OGCConcreteGeometryCollection)) {
             return ImmutableList.of(geometry);
         }
         if (((OGCConcreteGeometryCollection) geometry).numGeometries() == 0) {
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
         return () -> new GeometryCollectionIterator(geometry);
     }

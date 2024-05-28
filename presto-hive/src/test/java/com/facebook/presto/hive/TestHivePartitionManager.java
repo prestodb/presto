@@ -31,6 +31,7 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -68,7 +69,7 @@ public class TestHivePartitionManager
                     Optional.of(new HiveBucketProperty(
                             ImmutableList.of(BUCKET_COLUMN.getName()),
                             100,
-                            ImmutableList.of(),
+                            Collections.emptyList(),
                             HIVE_COMPATIBLE,
                             Optional.empty())),
                     false,

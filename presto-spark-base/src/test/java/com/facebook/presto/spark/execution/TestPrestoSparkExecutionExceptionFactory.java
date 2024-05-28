@@ -18,7 +18,6 @@ import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.Failure;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkExecutionException;
 import com.facebook.presto.spi.PrestoException;
-import com.google.common.collect.ImmutableList;
 import org.apache.spark.ExceptionFailure;
 import org.apache.spark.SparkException;
 import org.testng.annotations.AfterClass;
@@ -26,6 +25,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
@@ -73,7 +73,7 @@ public class TestPrestoSparkExecutionExceptionFactory
         assertTrue(failure.isPresent());
         assertFailure(failure.get().toFailure(), prestoException);
 
-        ExceptionFailure exceptionFailure = new ExceptionFailure(executionException, asScalaBuffer(ImmutableList.of()));
+        ExceptionFailure exceptionFailure = new ExceptionFailure(executionException, asScalaBuffer(Collections.emptyList()));
         SparkException sparkException = new SparkException(SPARK_EXCEPTION_STRING + exceptionFailure.toErrorString());
 
         failure = factory.extractExecutionFailureInfo(sparkException);

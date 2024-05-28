@@ -39,6 +39,7 @@ import java.nio.file.FileStore;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -144,7 +145,7 @@ public class LocalTempStorage
     @Override
     public List<StorageCapabilities> getStorageCapabilities()
     {
-        return ImmutableList.of();
+        return Collections.emptyList();
     }
 
     private static void cleanupOldSpillFiles(Path path)

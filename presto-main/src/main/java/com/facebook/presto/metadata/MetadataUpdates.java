@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nullable;
 
+import java.util.Collections;
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
@@ -32,7 +33,7 @@ import static java.util.Objects.requireNonNull;
 @ThriftStruct
 public class MetadataUpdates
 {
-    public static final MetadataUpdates DEFAULT_METADATA_UPDATES = new MetadataUpdates(null, ImmutableList.of());
+    public static final MetadataUpdates DEFAULT_METADATA_UPDATES = new MetadataUpdates(null, Collections.emptyList());
 
     private final ConnectorId connectorId;
     private List<ConnectorMetadataUpdateHandle> metadataUpdates;

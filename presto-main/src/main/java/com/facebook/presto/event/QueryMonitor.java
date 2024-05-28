@@ -75,6 +75,7 @@ import org.joda.time.DateTime;
 
 import javax.inject.Inject;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -160,7 +161,7 @@ public class QueryMonitor
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
-                                ImmutableList.of(),
+                                Collections.emptyList(),
                                 queryInfo.getSession().getTraceToken())));
     }
 
@@ -184,7 +185,7 @@ public class QueryMonitor
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
-                        ImmutableList.of(),
+                        Collections.emptyList(),
                         queryInfo.getSession().getTraceToken()),
                 new QueryStatistics(
                         ofMillis(0),
@@ -221,24 +222,24 @@ public class QueryMonitor
                         true,
                         new RuntimeStats()),
                 createQueryContext(queryInfo.getSession(), queryInfo.getResourceGroupId()),
-                new QueryIOMetadata(ImmutableList.of(), Optional.empty()),
+                new QueryIOMetadata(Collections.emptyList(), Optional.empty()),
                 createQueryFailureInfo(failure, Optional.empty()),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 queryInfo.getQueryType(),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 ofEpochMilli(queryInfo.getQueryStats().getCreateTime().getMillis()),
                 ofEpochMilli(queryInfo.getQueryStats().getEndTime().getMillis()),
                 ofEpochMilli(queryInfo.getQueryStats().getEndTime().getMillis()),
-                ImmutableList.of(),
-                ImmutableList.of(),
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 ImmutableMap.of(),
                 ImmutableMap.of(),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 ImmutableSet.of(),
                 ImmutableSet.of(),
                 ImmutableSet.of(),
@@ -265,7 +266,7 @@ public class QueryMonitor
                         createQueryFailureInfo(queryInfo.getFailureInfo(), queryInfo.getOutputStage()),
                         queryInfo.getWarnings(),
                         queryInfo.getQueryType(),
-                        queryInfo.getFailedTasks().orElse(ImmutableList.of()).stream()
+                        queryInfo.getFailedTasks().orElse(Collections.emptyList()).stream()
                                 .map(TaskId::toString)
                                 .collect(toImmutableList()),
                         ofEpochMilli(queryStats.getCreateTime().getMillis()),
@@ -324,7 +325,7 @@ public class QueryMonitor
                 createJsonQueryPlan(queryInfo),
                 createGraphvizQueryPlan(queryInfo),
                 queryInfo.getOutputStage().flatMap(stage -> stageInfoCodec.toJsonWithLengthLimit(stage, maxJsonLimit)),
-                queryInfo.getRuntimeOptimizedStages().orElse(ImmutableList.of()).stream()
+                queryInfo.getRuntimeOptimizedStages().orElse(Collections.emptyList()).stream()
                         .map(stageId -> String.valueOf(stageId.getId()))
                         .collect(toImmutableList()),
                 queryInfo.getSession().getTraceToken());

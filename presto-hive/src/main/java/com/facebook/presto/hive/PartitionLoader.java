@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -42,7 +43,7 @@ public abstract class PartitionLoader
     public List<HivePartitionKey> getPartitionKeys(Table table, Optional<Partition> partition, String partitionName)
     {
         if (!partition.isPresent()) {
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
         ImmutableList.Builder<HivePartitionKey> partitionKeys = ImmutableList.builder();
         // partition information provided by Hive Metastore could be out of order

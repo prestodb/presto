@@ -21,6 +21,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -74,7 +75,7 @@ public class HiveBucketProperty
         if (!bucketColsSet) {
             throw new PrestoException(HIVE_INVALID_METADATA, "Table/partition metadata has 'numBuckets' set, but 'bucketCols' is not set: " + tablePartitionName);
         }
-        List<SortingColumn> sortedBy = ImmutableList.of();
+        List<SortingColumn> sortedBy = Collections.emptyList();
         if (storageDescriptor.isSetSortCols()) {
             sortedBy = storageDescriptor.getSortCols().stream()
                     .map(order -> SortingColumn.fromMetastoreApiOrder(order, tablePartitionName))

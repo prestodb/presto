@@ -65,7 +65,6 @@ import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.facebook.presto.transaction.TransactionManager;
-import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.units.Duration;
 import org.apache.spark.MapOutputStatistics;
@@ -80,6 +79,7 @@ import scala.concurrent.impl.ExecutionContextImpl;
 import scala.runtime.AbstractFunction1;
 import scala.util.Try;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -260,7 +260,7 @@ public class PrestoSparkAdaptiveQueryExecution
                         sparkQueueName,
                         Optional.empty(),
                         queryStateTimer,
-                        Optional.of(createStageInfo(session.getQueryId(), planFragmenter.fragmentQueryPlan(session, planAndMore.getPlan(), warningCollector), ImmutableList.of())),
+                        Optional.of(createStageInfo(session.getQueryId(), planFragmenter.fragmentQueryPlan(session, planAndMore.getPlan(), warningCollector), Collections.emptyList())),
                         warningCollector));
 
         IterativePlanFragmenter.PlanAndFragments planAndFragments = iterativePlanFragmenter.createReadySubPlans(this.planAndMore.getPlan().getRoot());

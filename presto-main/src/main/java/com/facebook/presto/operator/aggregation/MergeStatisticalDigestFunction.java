@@ -32,6 +32,7 @@ import com.facebook.presto.spi.function.aggregation.GroupedAccumulator;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
@@ -71,7 +72,7 @@ public abstract class MergeStatisticalDigestFunction
                         QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, name),
                         AGGREGATE,
                         ImmutableList.of(comparableTypeParameter("T")),
-                        ImmutableList.of(),
+                        Collections.emptyList(),
                         parseTypeSignature(type + "(T)"),
                         ImmutableList.of(parseTypeSignature(type + "(T)")),
                         false),

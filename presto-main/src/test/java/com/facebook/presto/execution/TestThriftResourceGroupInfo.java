@@ -45,6 +45,7 @@ import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalDouble;
@@ -317,7 +318,7 @@ public class TestThriftResourceGroupInfo
                 Optional.of(FAKE_QUERY_SCHEMA),
                 Optional.of(new ArrayList<>()),
                 Optional.of(queryProgressStats.get(1)),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 Optional.empty()));
     }
 

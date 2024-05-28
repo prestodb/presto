@@ -32,7 +32,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.tracing.TracerProviderManager;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -65,6 +64,7 @@ import javax.ws.rs.core.UriBuilder;
 import javax.ws.rs.core.UriInfo;
 
 import java.net.URI;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
@@ -426,7 +426,7 @@ public class QueuedStatementResource
                         .setWaitingForPrerequisitesTimeMillis(waitingForPrerequisitesTime.toMillis())
                         .build(),
                 queryError.orElse(null),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 null,
                 null);
     }

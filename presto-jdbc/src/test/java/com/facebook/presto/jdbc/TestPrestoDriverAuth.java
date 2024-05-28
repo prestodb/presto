@@ -18,7 +18,6 @@ import com.facebook.airlift.security.pem.PemReader;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.tpch.TpchPlugin;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -35,6 +34,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
@@ -86,7 +86,7 @@ public class TestPrestoDriverAuth
                 null,
                 null,
                 new SqlParserOptions(),
-                ImmutableList.of());
+                Collections.emptyList());
         server.installPlugin(new TpchPlugin());
         server.createCatalog(TEST_CATALOG, "tpch");
         waitForNodeRefresh(server);

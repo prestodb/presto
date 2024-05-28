@@ -19,9 +19,9 @@ import com.facebook.presto.spi.NodeProvider;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalLong;
@@ -131,7 +131,7 @@ public class DeltaSplit
             // SOFT_AFFINITY node selection strategy scheduler would choose preferred nodes for scheduling
             return nodeProvider.get(filePath);
         }
-        return ImmutableList.of(); // empty list indicates no preference.
+        return Collections.emptyList(); // empty list indicates no preference.
     }
 
     @Override

@@ -759,7 +759,7 @@ public class TestAddExchanges
 
     public static Global singleStream()
     {
-        return Global.streamPartitionedOn(ImmutableList.of());
+        return Global.streamPartitionedOn(Collections.emptyList());
     }
 
     private static Global streamPartitionedOn(String... columnNames)

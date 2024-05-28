@@ -55,6 +55,7 @@ import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
@@ -122,7 +123,7 @@ public class TestQueryInfo
         assertEquals(actual.getAddedSessionFunctions(), expected.getAddedSessionFunctions());
         assertEquals(actual.getRemovedSessionFunctions(), expected.getRemovedSessionFunctions());
         // Test that planCanonicalInfo is not serialized
-        assertEquals(actual.getPlanCanonicalInfo(), ImmutableList.of());
+        assertEquals(actual.getPlanCanonicalInfo(), Collections.emptyList());
         assertEquals(actual.getPrestoSparkExecutionContext(), expected.getPrestoSparkExecutionContext());
     }
 
@@ -193,16 +194,16 @@ public class TestQueryInfo
                 ImmutableMap.of(),
                 ImmutableSet.of(),
                 StatsAndCosts.empty(),
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 ImmutableSet.of(),
                 ImmutableSet.of(),
                 ImmutableSet.of(),
                 ImmutableList.of(new CanonicalPlanWithInfo(
                         new CanonicalPlan(
-                                new ValuesNode(Optional.empty(), new PlanNodeId("0"), ImmutableList.of(), ImmutableList.of(), Optional.empty()),
+                                new ValuesNode(Optional.empty(), new PlanNodeId("0"), Collections.emptyList(), Collections.emptyList(), Optional.empty()),
                                 PlanCanonicalizationStrategy.DEFAULT),
-                        new PlanNodeCanonicalInfo("a", ImmutableList.of()))),
+                        new PlanNodeCanonicalInfo("a", Collections.emptyList()))),
                 ImmutableMap.of(),
                 Optional.of(PrestoSparkExecutionContext.create(1024, 300, true, false)));
     }

@@ -39,9 +39,9 @@ import com.facebook.presto.tpch.TpchColumnHandle;
 import com.facebook.presto.tpch.TpchHandleResolver;
 import com.facebook.presto.tpch.TpchRecordSetProvider;
 import com.facebook.presto.tpch.TpchSplitManager;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -230,8 +230,8 @@ public class MockConnectorFactory
 
     public static final class Builder
     {
-        private Function<ConnectorSession, List<String>> listSchemaNames = (session) -> ImmutableList.of();
-        private BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables = (session, schemaName) -> ImmutableList.of();
+        private Function<ConnectorSession, List<String>> listSchemaNames = (session) -> Collections.emptyList();
+        private BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables = (session, schemaName) -> Collections.emptyList();
         private BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews = (session, schemaTablePrefix) -> ImmutableMap.of();
         private BiFunction<ConnectorSession, ConnectorTableHandle, Map<String, TpchColumnHandle>> getColumnHandles = (session, tableHandle) -> notSupported();
         private Supplier<TableStatistics> getTableStatistics = TableStatistics::empty;

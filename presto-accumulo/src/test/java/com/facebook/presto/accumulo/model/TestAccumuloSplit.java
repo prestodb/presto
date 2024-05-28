@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import org.apache.accumulo.core.data.Range;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -68,8 +69,8 @@ public class TestAccumuloSplit
                 "table",
                 "id",
                 LexicoderRowSerializer.class.getCanonicalName(),
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 Optional.empty(),
                 Optional.empty());
 

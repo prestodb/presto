@@ -45,6 +45,7 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -167,7 +168,7 @@ public class TestCassandraConnector
     public void testListUnknownSchema()
     {
         assertNull(metadata.getTableHandle(SESSION, new SchemaTableName("totally_invalid_database_name", "dual")));
-        assertEquals(metadata.listTables(SESSION, "totally_invalid_database_name"), ImmutableList.of());
+        assertEquals(metadata.listTables(SESSION, "totally_invalid_database_name"), Collections.emptyList());
         assertEquals(metadata.listTableColumns(SESSION, new SchemaTablePrefix("totally_invalid_database_name", "dual")), ImmutableMap.of());
     }
 

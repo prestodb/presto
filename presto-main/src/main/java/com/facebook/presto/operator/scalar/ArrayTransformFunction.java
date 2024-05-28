@@ -44,6 +44,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Primitives;
 
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.presto.bytecode.Access.FINAL;
@@ -85,7 +86,7 @@ public final class ArrayTransformFunction
                 QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "transform"),
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("T"), typeVariable("U")),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 parseTypeSignature("array(U)"),
                 ImmutableList.of(parseTypeSignature("array(T)"), parseTypeSignature("function(T,U)")),
                 false));

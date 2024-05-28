@@ -60,6 +60,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -282,7 +283,7 @@ public class PlannerUtils
                     planNode,
                     aggregationMap,
                     groupingSetDescriptor,
-                    ImmutableList.of(),
+                    Collections.emptyList(),
                     AggregationNode.Step.SINGLE,
                     Optional.empty(),
                     Optional.empty(),
@@ -290,7 +291,7 @@ public class PlannerUtils
                 planNodeIdAllocator,
                 variableAllocator,
                 ImmutableList.of(resultVariable),
-                ImmutableList.of());
+                Collections.emptyList());
     }
 
     private static PlanNode cloneFilterNode(FilterNode filterNode, Session session, Metadata metadata, PlanNodeIdAllocator planNodeIdAllocator, List<VariableReferenceExpression> variablesToKeep, Map<VariableReferenceExpression, VariableReferenceExpression> varMap, PlanNodeIdAllocator idAllocator)

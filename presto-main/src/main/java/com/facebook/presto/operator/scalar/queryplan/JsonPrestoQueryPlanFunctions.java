@@ -30,11 +30,11 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.Serialization;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.planPrinter.JsonRenderer;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -197,7 +197,7 @@ public final class JsonPrestoQueryPlanFunctions
         List<JsonRenderedNode> newChildren = node.getChildren().stream().map(x -> scrubJsonPlan(x)).collect(Collectors.toList());
         String newDetails = scrubDetails(node.getDetails());
 
-        return new JsonRenderedNode(node.getSourceLocation(), "PLANID", newName, newIdentifier, newDetails, newChildren, node.getRemoteSources(), ImmutableList.of());
+        return new JsonRenderedNode(node.getSourceLocation(), "PLANID", newName, newIdentifier, newDetails, newChildren, node.getRemoteSources(), Collections.emptyList());
     }
 
     private static String scrubName(String name)

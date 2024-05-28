@@ -50,6 +50,7 @@ import org.objectweb.asm.Type;
 
 import java.lang.reflect.Method;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -367,7 +368,7 @@ public class LambdaBytecodeGenerator
                 a(PUBLIC),
                 "getLambda",
                 type(Object.class),
-                ImmutableList.of());
+                Collections.emptyList());
 
         Scope scope = method.getScope();
         BytecodeBlock body = method.getBody();
@@ -395,7 +396,7 @@ public class LambdaBytecodeGenerator
         body.append(
                 generateLambda(
                         generatorContext,
-                        ImmutableList.of(),
+                        Collections.emptyList(),
                         compiledLambdaMap.get(lambdaExpression),
                         lambdaInterface))
                 .retObject();

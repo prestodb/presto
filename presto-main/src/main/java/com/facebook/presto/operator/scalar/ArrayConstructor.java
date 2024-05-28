@@ -40,6 +40,7 @@ import com.google.common.primitives.Primitives;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Method;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -79,7 +80,7 @@ public final class ArrayConstructor
         super(new Signature(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "array_constructor"),
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("E")),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 parseTypeSignature("array(E)"),
                 ImmutableList.of(parseTypeSignature("E"), parseTypeSignature("E")),
                 true));

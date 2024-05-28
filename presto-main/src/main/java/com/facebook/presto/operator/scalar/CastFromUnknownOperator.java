@@ -21,6 +21,7 @@ import com.facebook.presto.metadata.SqlOperator;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 
 import static com.facebook.presto.common.function.OperatorType.CAST;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
@@ -39,7 +40,7 @@ public final class CastFromUnknownOperator
     {
         super(CAST,
                 ImmutableList.of(typeVariable("E")),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 parseTypeSignature("E"),
                 ImmutableList.of(parseTypeSignature("unknown")));
     }

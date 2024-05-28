@@ -39,6 +39,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import javax.annotation.Nullable;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -288,7 +289,7 @@ public class WindowOperator
                     expectedPositions,
                     // merged pages are grouped on all partition channels
                     partitionChannels,
-                    ImmutableList.of(),
+                    Collections.emptyList(),
                     // merged pages are pre sorted on all sort channels
                     sortChannels,
                     sortChannels,
@@ -826,7 +827,7 @@ public class WindowOperator
                     operatorContext.aggregateUserMemoryContext(),
                     operatorContext.getDriverContext().getYieldSignal());
 
-            return mergedPages.transform(new PagesToPagesIndexes(mergedPagesIndexWithHashStrategies, ImmutableList.of(), ImmutableList.of()));
+            return mergedPages.transform(new PagesToPagesIndexes(mergedPagesIndexWithHashStrategies, Collections.emptyList(), Collections.emptyList()));
         }
 
         void updateMemoryUsage(boolean revocablePagesIndex)

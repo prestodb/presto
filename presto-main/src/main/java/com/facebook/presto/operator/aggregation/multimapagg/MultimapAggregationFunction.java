@@ -34,6 +34,7 @@ import com.facebook.presto.spi.function.aggregation.GroupedAccumulator;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
@@ -63,7 +64,7 @@ public class MultimapAggregationFunction
     {
         super(NAME,
                 ImmutableList.of(comparableTypeParameter("K"), typeVariable("V")),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 parseTypeSignature("map(K,array(V))"),
                 ImmutableList.of(parseTypeSignature("K"), parseTypeSignature("V")));
         this.groupMode = groupMode;

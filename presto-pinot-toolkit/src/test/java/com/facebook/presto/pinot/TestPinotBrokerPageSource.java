@@ -29,6 +29,7 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -135,8 +136,8 @@ public class TestPinotBrokerPageSource
                 {
                     "SELECT max(group_country) FROM meetupRsvp",
                     "{ \"exceptions\": [ { \"errorCode\": 200, \"message\": \"QueryExecutionError:\\njava.lang.NumberFormatException: For input string: \\\"nl\\\"\\n\\tat sun.misc.FloatingDecimal.readJavaFormatString(FloatingDecimal.java:2043)\\n\\tat sun.misc.FloatingDecimal.parseDouble(FloatingDecimal.java:110)\\n\\tat java.lang.Double.parseDouble(Double.java:538)\\n\\tat org.apache.pinot.core.realtime.impl.dictionary.StringOnHeapMutableDictionary.getDoubleValue(StringOnHeapMutableDictionary.java:138)\\n\\tat org.apache.pinot.core.segment.index.readers.BaseDictionary.readDoubleValues(BaseDictionary.java:55)\\n\\tat org.apache.pinot.core.common.DataFetcher.fetchDoubleValues(DataFetcher.java:163)\\n\\tat org.apache.pinot.core.common.DataBlockCache.getDoubleValuesForSVColumn(DataBlockCache.java:166)\\n\\tat org.apache.pinot.core.operator.docvalsets.ProjectionBlockValSet.getDoubleValuesSV(ProjectionBlockValSet.java:85)\\n\\tat org.apache.pinot.core.query.aggregation.function.MaxAggregationFunction.aggregate(MaxAggregationFunction.java:62)\\n\\tat org.apache.pinot.core.query.aggregation.DefaultAggregationExecutor.aggregate(DefaultAggregationExecutor.java:47)\\n\\tat org.apache.pinot.core.operator.query.AggregationOperator.getNextBlock(AggregationOperator.java:65)\\n\\tat org.apache.pinot.core.operator.query.AggregationOperator.getNextBlock(AggregationOperator.java:35)\\n\\tat org.apache.pinot.core.operator.BaseOperator.nextBlock(BaseOperator.java:49)\\n\\tat org.apache.pinot.core.operator.CombineOperator$1.runJob(CombineOperator.java:105)\" }], \"numServersQueried\": 1, \"numServersResponded\": 1, \"numSegmentsQueried\": 1, \"numSegmentsProcessed\": 1, \"numSegmentsMatched\": 1, \"numConsumingSegmentsQueried\": 1, \"numDocsScanned\": 1376, \"numEntriesScannedInFilter\": 0, \"numEntriesScannedPostFilter\": 1376, \"numGroupsLimitReached\": false, \"totalDocs\": 1376, \"timeUsedMs\": 26, \"segmentStatistics\": [], \"traceInfo\": {}, \"minConsumingFreshnessTimeMs\": 1592910013309 }",
-                    ImmutableList.of(),
-                    ImmutableList.of(),
+                    Collections.emptyList(),
+                    Collections.emptyList(),
                     Optional.of(PinotException.class)},
                 {
                     "select * from meetupRsvp",
@@ -164,7 +165,7 @@ public class TestPinotBrokerPageSource
         PinotQueryGenerator.GeneratedPinotQuery generatedPinotQuery = new PinotQueryGenerator.GeneratedPinotQuery(
                 pinotTable.getTableName(),
                 "SELECT * FROM myTable",
-                ImmutableList.of(),
+                Collections.emptyList(),
                 false,
                 false);
 
@@ -177,8 +178,8 @@ public class TestPinotBrokerPageSource
                                 pinotConfig.isMarkDataFetchExceptionsAsRetriable(),
                                 false))),
                 generatedPinotQuery,
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 new MockPinotClusterInfoFetcher(pinotConfig),
                 objectMapper,
                 PinotBrokerAuthenticationProvider.create(PinotEmptyAuthenticationProvider.instance()));
@@ -187,7 +188,7 @@ public class TestPinotBrokerPageSource
         generatedPinotQuery = new PinotQueryGenerator.GeneratedPinotQuery(
                 pinotTable.getTableName(),
                 "SELECT * FROM myTable WHERE jsonStr = '\"{\"abc\" : \"def\"}\"'",
-                ImmutableList.of(),
+                Collections.emptyList(),
                 false,
                 false);
         assertEquals(pageSource.getRequestPayload(generatedPinotQuery), "{\"sql\":\"SELECT * FROM myTable WHERE jsonStr = '\\\"{\\\"abc\\\" : \\\"def\\\"}\\\"'\"}");
@@ -211,7 +212,7 @@ public class TestPinotBrokerPageSource
                 false);
         PinotBrokerPageSource pageSource = new PinotBrokerPageSource(
                 pinotConfig,
-                new TestingConnectorSession(ImmutableList.of()),
+                new TestingConnectorSession(Collections.emptyList()),
                 generatedSql,
                 actualHandles,
                 actualHandles,

@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
@@ -89,6 +90,6 @@ public class TestPruneAggregationSourceColumns
                 .source(
                         planBuilder.values(
                                 filteredSourceVariables,
-                                ImmutableList.of())));
+                                Collections.emptyList())));
     }
 }

@@ -30,6 +30,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -170,7 +171,7 @@ public class PushPartialAggregationThroughJoin
                 source,
                 aggregation.getAggregations(),
                 singleGroupingSet(groupingKeys),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 aggregation.getStep(),
                 aggregation.getHashVariable(),
                 aggregation.getGroupIdVariable(),

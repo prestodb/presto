@@ -48,6 +48,7 @@ import org.apache.iceberg.Schema;
 import org.apache.iceberg.types.Types;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -318,29 +319,29 @@ public final class TypeConverter
     {
         switch (type.typeId()) {
             case BOOLEAN:
-                return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.BOOLEAN, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
+                return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.BOOLEAN, Collections.emptyList(), Collections.emptyList(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
             case INTEGER:
             case TIME:
-                return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.INT, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
+                return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.INT, Collections.emptyList(), Collections.emptyList(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
             case LONG:
-                return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.LONG, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
+                return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.LONG, Collections.emptyList(), Collections.emptyList(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
             case FLOAT:
-                return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.FLOAT, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
+                return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.FLOAT, Collections.emptyList(), Collections.emptyList(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
             case DOUBLE:
-                return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.DOUBLE, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
+                return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.DOUBLE, Collections.emptyList(), Collections.emptyList(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
             case DATE:
-                return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.DATE, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
+                return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.DATE, Collections.emptyList(), Collections.emptyList(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
             case TIMESTAMP:
-                return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.TIMESTAMP, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
+                return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.TIMESTAMP, Collections.emptyList(), Collections.emptyList(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
             case STRING:
-                return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.STRING, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
+                return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.STRING, Collections.emptyList(), Collections.emptyList(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
             case UUID:
             case FIXED:
             case BINARY:
-                return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.BINARY, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
+                return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.BINARY, Collections.emptyList(), Collections.emptyList(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
             case DECIMAL:
                 Types.DecimalType decimalType = (Types.DecimalType) type;
-                return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.DECIMAL, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.of(decimalType.precision()), Optional.of(decimalType.scale()), attributes));
+                return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.DECIMAL, Collections.emptyList(), Collections.emptyList(), Optional.empty(), Optional.of(decimalType.precision()), Optional.of(decimalType.scale()), attributes));
             case STRUCT:
                 return toOrcStructType(nextFieldTypeIndex, (Types.StructType) type, attributes);
             case LIST:

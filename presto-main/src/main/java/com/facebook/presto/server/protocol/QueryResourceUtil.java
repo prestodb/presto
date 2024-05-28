@@ -45,6 +45,7 @@ import java.net.URL;
 import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -275,7 +276,7 @@ public final class QueryResourceUtil
         // Recurse into child stages to create their StageStats
         List<StageInfo> subStages = stageInfo.getSubStages();
         if (subStages.isEmpty()) {
-            builder.setSubStages(ImmutableList.of());
+            builder.setSubStages(Collections.emptyList());
         }
         else {
             ImmutableList.Builder<StageStats> subStagesBuilder = ImmutableList.builderWithExpectedSize(subStages.size());

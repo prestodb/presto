@@ -47,6 +47,7 @@ import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -362,7 +363,7 @@ public abstract class BaseSubfieldExtractionRewriter
                 tableScan.getSourceLocation(),
                 idAllocator.getNextId(),
                 tableScan.getOutputVariables(),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 Optional.of(tableScan.getTable().getConnectorHandle().toString()));
     }
 

@@ -17,10 +17,10 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.session.SessionConfigurationContext;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -54,7 +54,7 @@ public class SessionMatchSpec
         this.userRegex = requireNonNull(userRegex, "userRegex is null");
         this.sourceRegex = requireNonNull(sourceRegex, "sourceRegex is null");
         requireNonNull(clientTags, "clientTags is null");
-        this.clientTags = ImmutableSet.copyOf(clientTags.orElse(ImmutableList.of()));
+        this.clientTags = ImmutableSet.copyOf(clientTags.orElse(Collections.emptyList()));
         this.queryType = requireNonNull(queryType, "queryType is null");
         this.resourceGroupRegex = requireNonNull(resourceGroupRegex, "resourceGroupRegex is null");
         this.clientInfoRegex = requireNonNull(clientInfoRegex, "clientInfoRegex is null");

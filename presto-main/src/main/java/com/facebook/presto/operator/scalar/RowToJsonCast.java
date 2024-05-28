@@ -33,6 +33,7 @@ import io.airlift.slice.SliceOutput;
 import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -64,7 +65,7 @@ public class RowToJsonCast
     {
         super(OperatorType.CAST,
                 ImmutableList.of(withVariadicBound("T", "row")),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 parseTypeSignature(StandardTypes.JSON),
                 ImmutableList.of(parseTypeSignature("T")));
     }

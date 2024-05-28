@@ -56,6 +56,7 @@ import org.testng.annotations.Test;
 
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -118,9 +119,9 @@ public class TestBackgroundHiveSplitLoader
             new HiveColumnHandle("col1", HIVE_INT, INTEGER.getTypeSignature(), 0, ColumnType.REGULAR, Optional.empty(), Optional.empty()));
 
     private static final Optional<HiveBucketProperty> BUCKET_PROPERTY = Optional.of(
-            new HiveBucketProperty(ImmutableList.of("col1"), BUCKET_COUNT, ImmutableList.of(), HIVE_COMPATIBLE, Optional.empty()));
+            new HiveBucketProperty(ImmutableList.of("col1"), BUCKET_COUNT, Collections.emptyList(), HIVE_COMPATIBLE, Optional.empty()));
 
-    private static final Table SIMPLE_TABLE = table(ImmutableList.of(), Optional.empty());
+    private static final Table SIMPLE_TABLE = table(Collections.emptyList(), Optional.empty());
     private static final Table PARTITIONED_TABLE = table(PARTITION_COLUMNS, BUCKET_PROPERTY);
 
     @Test
@@ -322,7 +323,7 @@ public class TestBackgroundHiveSplitLoader
                 LazySimpleSerDe.class.getName(),
                 TestSplittableFailureInputFormat.class.getName(),
                 TestSplittableFailureInputFormat.class.getName());
-        Table table = table(ImmutableList.of(), Optional.empty(), splittableStorageFormat);
+        Table table = table(Collections.emptyList(), Optional.empty(), splittableStorageFormat);
 
         //  Exactly minimum split size, no isSplittable check
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(

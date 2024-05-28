@@ -117,6 +117,7 @@ import java.io.UncheckedIOException;
 import java.net.URI;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
@@ -516,8 +517,8 @@ public class PrestoSparkTaskExecutorFactory
             int partitionCount = getHashPartitionCount(session);
             preDeterminedPartition = Optional.of(new OutputPartitioning(
                     new PreDeterminedPartitionFunction(partitionId % partitionCount, partitionCount),
-                    ImmutableList.of(),
-                    ImmutableList.of(),
+                    Collections.emptyList(),
+                    Collections.emptyList(),
                     false,
                     OptionalInt.empty()));
         }
@@ -558,7 +559,7 @@ public class PrestoSparkTaskExecutorFactory
                         stageId),
                 taskDescriptor.getTableWriteInfo(),
                 true,
-                ImmutableList.of());
+                Collections.emptyList());
 
         taskStateMachine.addStateChangeListener(state -> {
             if (state.isDone()) {
@@ -912,7 +913,7 @@ public class PrestoSparkTaskExecutorFactory
             TaskState taskState = taskContext.getState();
             TaskStats taskStats = taskContext.getTaskStats().summarizeFinal();
 
-            List<ExecutionFailureInfo> failures = ImmutableList.of();
+            List<ExecutionFailureInfo> failures = Collections.emptyList();
             if (taskState == FAILED) {
                 failures = toFailures(taskStateMachine.getFailureCauses());
             }
@@ -949,7 +950,7 @@ public class PrestoSparkTaskExecutorFactory
                     0,
                     outputBuffer.getTotalRowsProcessed(),
                     outputBuffer.getTotalPagesProcessed(),
-                    ImmutableList.of());
+                    Collections.emptyList());
 
             return new TaskInfo(
                     taskId,

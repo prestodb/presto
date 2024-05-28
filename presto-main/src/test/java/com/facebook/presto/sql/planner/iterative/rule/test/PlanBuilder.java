@@ -97,6 +97,7 @@ import com.google.common.collect.ListMultimap;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -196,7 +197,7 @@ public class PlanBuilder
 
     public ValuesNode values()
     {
-        return values(idAllocator.getNextId(), ImmutableList.of(), ImmutableList.of());
+        return values(idAllocator.getNextId(), Collections.emptyList(), Collections.emptyList());
     }
 
     public ValuesNode values(VariableReferenceExpression... columns)
@@ -326,7 +327,7 @@ public class PlanBuilder
 
     public RemoteSourceNode remoteSource(List<PlanFragmentId> sourceFragmentIds)
     {
-        return remoteSource(idAllocator.getNextId(), sourceFragmentIds, ImmutableList.of());
+        return remoteSource(idAllocator.getNextId(), sourceFragmentIds, Collections.emptyList());
     }
 
     public RemoteSourceNode remoteSource(PlanNodeId planNodeId, List<PlanFragmentId> sourceFragmentIds, List<VariableReferenceExpression> outputVariables)
@@ -340,7 +341,7 @@ public class PlanBuilder
                 Optional.empty(),
                 idAllocator.getNextId(),
                 Optional.of(statsEquivalentPlanNode),
-                sourceFragmentIds, ImmutableList.of(),
+                sourceFragmentIds, Collections.emptyList(),
                 false,
                 Optional.empty(),
                 REPARTITION);
@@ -427,7 +428,7 @@ public class PlanBuilder
 
         public AggregationBuilder globalGrouping()
         {
-            groupingSets(AggregationNode.singleGroupingSet(ImmutableList.of()));
+            groupingSets(AggregationNode.singleGroupingSet(Collections.emptyList()));
             return this;
         }
 
@@ -540,7 +541,7 @@ public class PlanBuilder
                 tableHandle,
                 variables,
                 assignments,
-                ImmutableList.of(),
+                Collections.emptyList(),
                 currentConstraint,
                 enforcedConstraint);
     }
@@ -701,7 +702,7 @@ public class PlanBuilder
 
         public ExchangeBuilder singleDistributionPartitioningScheme(List<VariableReferenceExpression> outputVariables)
         {
-            return partitioningScheme(new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), outputVariables));
+            return partitioningScheme(new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, Collections.emptyList()), outputVariables));
         }
 
         public ExchangeBuilder fixedHashDistributionPartitioningScheme(List<VariableReferenceExpression> outputVariables, List<VariableReferenceExpression> partitioningVariables)

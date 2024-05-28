@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 
 import static org.testng.Assert.assertEquals;
@@ -34,7 +35,7 @@ public class TestPercentileBasedClusterTtlProvider
     @Test
     public void testWithEmptyTtlList()
     {
-        assertEquals(clusterTtlProvider.getClusterTtl(ImmutableList.of()), new ConfidenceBasedTtlInfo(0, 100));
+        assertEquals(clusterTtlProvider.getClusterTtl(Collections.emptyList()), new ConfidenceBasedTtlInfo(0, 100));
     }
 
     @Test

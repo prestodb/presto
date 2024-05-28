@@ -18,6 +18,7 @@ import com.facebook.presto.parquet.writer.levels.DefinitionLevelIterable;
 import com.facebook.presto.parquet.writer.levels.RepetitionLevelIterable;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
@@ -30,7 +31,7 @@ public class ColumnChunk
 
     public ColumnChunk(Block block)
     {
-        this(block, ImmutableList.of(), ImmutableList.of());
+        this(block, Collections.emptyList(), Collections.emptyList());
     }
 
     public ColumnChunk(Block block, List<DefinitionLevelIterable> definitionLevelIterables, List<RepetitionLevelIterable> repetitionLevelIterables)

@@ -15,12 +15,12 @@ package com.facebook.presto.plugin.blackhole;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.spi.ConnectorPageSink;
-import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.airlift.concurrent.MoreFutures.toCompletableFuture;
@@ -30,7 +30,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 class BlackHolePageSink
         implements ConnectorPageSink
 {
-    private static final CompletableFuture<Collection<Slice>> NON_BLOCKED = CompletableFuture.completedFuture(ImmutableList.of());
+    private static final CompletableFuture<Collection<Slice>> NON_BLOCKED = CompletableFuture.completedFuture(Collections.emptyList());
 
     private final ListeningScheduledExecutorService executorService;
     private final long pageProcessingDelayMillis;
@@ -52,7 +52,7 @@ class BlackHolePageSink
     private CompletableFuture<Collection<Slice>> scheduleAppend()
     {
         if (pageProcessingDelayMillis > 0) {
-            return toCompletableFuture(executorService.schedule(() -> ImmutableList.of(), pageProcessingDelayMillis, MILLISECONDS));
+            return toCompletableFuture(executorService.schedule(() -> Collections.emptyList(), pageProcessingDelayMillis, MILLISECONDS));
         }
         return NON_BLOCKED;
     }

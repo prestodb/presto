@@ -48,6 +48,7 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -210,7 +211,7 @@ public class TestBeginQuery
         @Override
         public ConnectorSplitManager getSplitManager()
         {
-            return new TestingSplitManager(ImmutableList.of());
+            return new TestingSplitManager(Collections.emptyList());
         }
 
         @Override
@@ -220,7 +221,7 @@ public class TestBeginQuery
                 @Override
                 public ConnectorPageSource createPageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, ConnectorTableLayoutHandle layout, List<ColumnHandle> columns, SplitContext splitContext)
                 {
-                    return new FixedPageSource(ImmutableList.of());
+                    return new FixedPageSource(Collections.emptyList());
                 }
             };
         }

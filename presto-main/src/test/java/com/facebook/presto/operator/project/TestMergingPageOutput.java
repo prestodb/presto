@@ -18,6 +18,7 @@ import com.facebook.presto.common.type.Type;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -151,7 +152,7 @@ public class TestMergingPageOutput
     public void testPositionCountOnly()
     {
         int minRowCount = 256;
-        MergingPageOutput output = new MergingPageOutput(ImmutableList.of(), 1024 * 1024, minRowCount);
+        MergingPageOutput output = new MergingPageOutput(Collections.emptyList(), 1024 * 1024, minRowCount);
 
         Page bufferedPage = new Page(minRowCount - 1);
         output.addInput(createPagesIterator(bufferedPage));

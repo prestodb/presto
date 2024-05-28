@@ -35,6 +35,7 @@ import com.facebook.presto.spi.function.aggregation.GroupedAccumulator;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -113,7 +114,7 @@ public abstract class StatisticalDigestAggregationFunction
                         QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, name),
                         AGGREGATE,
                         ImmutableList.of(comparableTypeParameter("V")),
-                        ImmutableList.of(),
+                        Collections.emptyList(),
                         parseTypeSignature(type + "(V)"),
                         ImmutableList.copyOf(typeSignatures),
                         false),

@@ -21,6 +21,7 @@ import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.util.Collections;
 
 import static com.facebook.presto.orc.metadata.statistics.AbstractStatisticsBuilderTest.StatisticsType.DECIMAL;
 import static com.facebook.presto.orc.metadata.statistics.DecimalStatistics.DECIMAL_VALUE_BYTES_OVERHEAD;
@@ -65,7 +66,7 @@ public class TestShortDecimalStatisticsBuilder
     public void testTotalValueBytes()
     {
         long shortDecimalBytes = DECIMAL_VALUE_BYTES_OVERHEAD + SHORT_DECIMAL_VALUE_BYTES;
-        assertTotalValueBytes(0L, ImmutableList.of());
+        assertTotalValueBytes(0L, Collections.emptyList());
         assertTotalValueBytes(shortDecimalBytes, ImmutableList.of(0L));
         assertTotalValueBytes(shortDecimalBytes, ImmutableList.of(42L));
         assertTotalValueBytes(5 * shortDecimalBytes, ImmutableList.of(0L, 1L, 42L, 44L, 52L));

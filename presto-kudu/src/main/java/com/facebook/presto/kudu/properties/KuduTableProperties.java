@@ -43,6 +43,7 @@ import java.time.temporal.TemporalAccessor;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -95,7 +96,7 @@ public final class KuduTableProperties
                         "Columns for optional first hash partition level",
                         typeManager.getType(parseTypeSignature("array(varchar)")),
                         List.class,
-                        ImmutableList.of(),
+                        Collections.emptyList(),
                         false,
                         value -> ImmutableList.copyOf(((Collection<?>) value).stream()
                                 .map(name -> ((String) name).toLowerCase(ENGLISH))
@@ -111,7 +112,7 @@ public final class KuduTableProperties
                         "Columns for optional second hash partition level",
                         typeManager.getType(parseTypeSignature("array(varchar)")),
                         List.class,
-                        ImmutableList.of(),
+                        Collections.emptyList(),
                         false,
                         value -> ImmutableList.copyOf(((Collection<?>) value).stream()
                                 .map(name -> ((String) name).toLowerCase(ENGLISH))
@@ -127,7 +128,7 @@ public final class KuduTableProperties
                         "Columns for optional range partition level",
                         typeManager.getType(parseTypeSignature("array(varchar)")),
                         List.class,
-                        ImmutableList.of(),
+                        Collections.emptyList(),
                         false,
                         value -> ImmutableList.copyOf(((Collection<?>) value).stream()
                                 .map(name -> ((String) name).toLowerCase(ENGLISH))
@@ -261,7 +262,7 @@ public final class KuduTableProperties
             try {
                 RangePartition[] partitions = mapper.readValue(json, RangePartition[].class);
                 if (partitions == null) {
-                    return ImmutableList.of();
+                    return Collections.emptyList();
                 }
                 return ImmutableList.copyOf(partitions);
             }
@@ -270,7 +271,7 @@ public final class KuduTableProperties
             }
         }
         else {
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
     }
 

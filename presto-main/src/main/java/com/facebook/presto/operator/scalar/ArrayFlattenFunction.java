@@ -30,6 +30,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
@@ -54,13 +55,13 @@ public class ArrayFlattenFunction
         super(new Signature(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, FUNCTION_NAME),
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("E")),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 parseTypeSignature("array(E)"),
                 ImmutableList.of(parseTypeSignature("array(array(E))")),
                 false));
         descriptor = new ComplexTypeFunctionDescriptor(
                 false,
-                ImmutableList.of(),
+                Collections.emptyList(),
                 Optional.of(ImmutableSet.of(0)),
                 Optional.of(ComplexTypeFunctionDescriptor::prependAllSubscripts),
                 getSignature());

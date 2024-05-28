@@ -23,6 +23,7 @@ import com.facebook.presto.metadata.SqlOperator;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.common.function.OperatorType.NOT_EQUAL;
@@ -42,7 +43,7 @@ public class RowNotEqualOperator
     {
         super(NOT_EQUAL,
                 ImmutableList.of(comparableWithVariadicBound("T", "row")),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 parseTypeSignature(StandardTypes.BOOLEAN),
                 ImmutableList.of(parseTypeSignature("T"), parseTypeSignature("T")));
     }

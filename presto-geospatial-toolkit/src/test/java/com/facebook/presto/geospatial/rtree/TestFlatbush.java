@@ -23,6 +23,7 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Random;
@@ -59,7 +60,7 @@ public class TestFlatbush
     public void testEmptyFlatbush()
     {
         Flatbush<Rectangle> rtree = new Flatbush<>(new Rectangle[] {});
-        assertEquals(findIntersections(rtree, EVERYTHING), ImmutableList.of());
+        assertEquals(findIntersections(rtree, EVERYTHING), Collections.emptyList());
     }
 
     @Test
@@ -72,7 +73,7 @@ public class TestFlatbush
         // hit
         assertEquals(findIntersections(rtree, new Rectangle(1, 1, 2, 2)), items);
         // miss
-        assertEquals(findIntersections(rtree, new Rectangle(-1, -1, -0.1, -0.1)), ImmutableList.of());
+        assertEquals(findIntersections(rtree, new Rectangle(-1, -1, -0.1, -0.1)), Collections.emptyList());
     }
 
     @Test
@@ -85,7 +86,7 @@ public class TestFlatbush
         // hit
         assertEquals(findIntersections(rtree, new Rectangle(1, 11, 2, 12)), items);
         // miss
-        assertEquals(findIntersections(rtree, new Rectangle(11, 1, 12, 2)), ImmutableList.of());
+        assertEquals(findIntersections(rtree, new Rectangle(11, 1, 12, 2)), Collections.emptyList());
     }
 
     @Test
@@ -105,9 +106,9 @@ public class TestFlatbush
         assertEquals(findIntersections(rtree, new Rectangle(1, 1, 2, 2)), ImmutableList.of(rect0));
         assertEquals(findIntersections(rtree, new Rectangle(-2, -2, -1, -2)), ImmutableList.of(rect1));
         // This should test missing at the root level
-        assertEquals(findIntersections(rtree, new Rectangle(10, 10, 12, 12)), ImmutableList.of());
+        assertEquals(findIntersections(rtree, new Rectangle(10, 10, 12, 12)), Collections.emptyList());
         // This should test missing at the leaf level
-        assertEquals(findIntersections(rtree, new Rectangle(0, 0, 0, 0)), ImmutableList.of());
+        assertEquals(findIntersections(rtree, new Rectangle(0, 0, 0, 0)), Collections.emptyList());
     }
 
     @Test
@@ -133,9 +134,9 @@ public class TestFlatbush
         assertEqualsSorted(results12, ImmutableList.of(rect1, rect2), RECTANGLE_COMPARATOR);
 
         // This should test missing at the root level
-        assertEquals(findIntersections(rtree, new Rectangle(10, 10, 12, 12)), ImmutableList.of());
+        assertEquals(findIntersections(rtree, new Rectangle(10, 10, 12, 12)), Collections.emptyList());
         // This should test missing at the leaf level
-        assertEquals(findIntersections(rtree, new Rectangle(0, 0, 0, 0)), ImmutableList.of());
+        assertEquals(findIntersections(rtree, new Rectangle(0, 0, 0, 0)), Collections.emptyList());
     }
 
     @Test
@@ -178,7 +179,7 @@ public class TestFlatbush
 
         assertEquals(findIntersections(rtree, pointZ.getExtent()), ImmutableList.of(octagonB));
 
-        assertEquals(findIntersections(rtree, pointW.getExtent()), ImmutableList.of());
+        assertEquals(findIntersections(rtree, pointW.getExtent()), Collections.emptyList());
     }
 
     @DataProvider(name = "rectangle-counts")

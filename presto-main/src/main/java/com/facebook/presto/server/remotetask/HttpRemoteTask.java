@@ -81,6 +81,7 @@ import javax.annotation.concurrent.GuardedBy;
 
 import java.net.URI;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -989,7 +990,7 @@ public final class HttpRemoteTask
             return;
         }
 
-        abort(failWith(getTaskStatus(), ABORTED, ImmutableList.of()));
+        abort(failWith(getTaskStatus(), ABORTED, Collections.emptyList()));
     }
 
     private synchronized void abort(TaskStatus status)

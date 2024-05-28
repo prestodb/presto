@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import java.net.URI;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -303,7 +304,7 @@ public class TaskStatus
                 PLANNED,
                 location,
                 ImmutableSet.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 0,
                 0,
                 0.0,

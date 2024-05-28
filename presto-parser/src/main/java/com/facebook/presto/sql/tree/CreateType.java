@@ -13,8 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.collect.ImmutableList;
-
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -34,15 +33,15 @@ public class CreateType
 
     public CreateType(QualifiedName typeName, String distinctType)
     {
-        this(typeName, Optional.of(distinctType), ImmutableList.of(), ImmutableList.of());
+        this(typeName, Optional.of(distinctType), Collections.emptyList(), Collections.emptyList());
     }
 
-    public CreateType(QualifiedName typeName, ImmutableList<String> parameterNames, ImmutableList<String> parameterTypes)
+    public CreateType(QualifiedName typeName, List<String> parameterNames, List<String> parameterTypes)
     {
         this(typeName, Optional.empty(), parameterNames, parameterTypes);
     }
 
-    private CreateType(QualifiedName typeName, Optional<String> distinctType, ImmutableList<String> parameterNames, ImmutableList<String> parameterTypes)
+    private CreateType(QualifiedName typeName, Optional<String> distinctType, List<String> parameterNames, List<String> parameterTypes)
     {
         super(Optional.empty());
 

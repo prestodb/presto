@@ -18,8 +18,8 @@ import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.SampleNode;
-import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.planner.plan.Patterns.Sample.sampleRatio;
@@ -43,6 +43,6 @@ public class EvaluateZeroSample
     @Override
     public Result apply(SampleNode sample, Captures captures, Context context)
     {
-        return Result.ofPlanNode(new ValuesNode(sample.getSourceLocation(), sample.getId(), sample.getOutputVariables(), ImmutableList.of(), Optional.empty()));
+        return Result.ofPlanNode(new ValuesNode(sample.getSourceLocation(), sample.getId(), sample.getOutputVariables(), Collections.emptyList(), Optional.empty()));
     }
 }

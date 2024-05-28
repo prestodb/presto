@@ -28,6 +28,7 @@ import com.google.common.collect.Sets;
 import javax.inject.Inject;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -111,7 +112,7 @@ public class CassandraPartitionManager
     private List<CassandraPartition> getCassandraPartitions(CassandraTable table, TupleDomain<ColumnHandle> tupleDomain)
     {
         if (tupleDomain.isNone()) {
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
 
         List<Set<Object>> partitionKeysList = getPartitionKeysList(table, tupleDomain);
@@ -119,7 +120,7 @@ public class CassandraPartitionManager
         Set<List<Object>> filterList = Sets.cartesianProduct(partitionKeysList);
         // empty filters means, all partitions
         if (filterList.isEmpty()) {
-            return cassandraSession.getPartitions(table, ImmutableList.of());
+            return cassandraSession.getPartitions(table, Collections.emptyList());
         }
 
         return cassandraSession.getPartitions(table, partitionKeysList);
@@ -133,12 +134,12 @@ public class CassandraPartitionManager
 
             // if there is no constraint on a partition key, return an empty set
             if (domain == null) {
-                return ImmutableList.of();
+                return Collections.emptyList();
             }
 
             // todo does cassandra allow null partition keys?
             if (domain.isNullAllowed()) {
-                return ImmutableList.of();
+                return Collections.emptyList();
             }
 
             Set<Object> values = domain.getValues().getValuesProcessor().transform(

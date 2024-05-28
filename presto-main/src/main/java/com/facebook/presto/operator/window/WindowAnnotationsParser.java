@@ -21,6 +21,7 @@ import com.facebook.presto.spi.function.WindowFunction;
 import com.facebook.presto.spi.function.WindowFunctionSignature;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -48,7 +49,7 @@ public final class WindowAnnotationsParser
             Class<? extends WindowFunction> clazz,
             WindowFunctionSignature window)
     {
-        List<TypeVariableConstraint> typeVariables = ImmutableList.of();
+        List<TypeVariableConstraint> typeVariables = Collections.emptyList();
         if (!window.typeVariable().isEmpty()) {
             typeVariables = ImmutableList.of(typeVariable(window.typeVariable()));
         }
@@ -61,7 +62,7 @@ public final class WindowAnnotationsParser
                 QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, window.name()),
                 WINDOW,
                 typeVariables,
-                ImmutableList.of(),
+                Collections.emptyList(),
                 parseTypeSignature(window.returnType()),
                 argumentTypes,
                 false);

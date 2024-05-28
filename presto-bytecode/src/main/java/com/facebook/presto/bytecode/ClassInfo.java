@@ -35,6 +35,7 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
 
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.bytecode.ParameterizedType.type;
@@ -115,7 +116,7 @@ public class ClassInfo
     public List<ClassInfo> getInterfaces()
     {
         if (interfaces == null) {
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
         ImmutableList.Builder<ClassInfo> builder = ImmutableList.builder();
         for (ParameterizedType anInterface : interfaces) {

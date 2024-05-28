@@ -46,6 +46,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.graph.SuccessorsFunction;
 import com.google.common.graph.Traverser;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -220,7 +221,7 @@ public class TransformCorrelatedInPredicateToJoin
                         .put(countNullMatchesVariable, countWithFilter(nullMatchCondition))
                         .build(),
                 singleGroupingSet(probeSide.getOutputVariables()),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 AggregationNode.Step.SINGLE,
                 Optional.empty(),
                 Optional.empty(),
@@ -264,7 +265,7 @@ public class TransformCorrelatedInPredicateToJoin
                 JoinType.LEFT,
                 probeSide,
                 buildSide,
-                ImmutableList.of(),
+                Collections.emptyList(),
                 ImmutableList.<VariableReferenceExpression>builder()
                         .addAll(probeSide.getOutputVariables())
                         .addAll(buildSide.getOutputVariables())
@@ -284,7 +285,7 @@ public class TransformCorrelatedInPredicateToJoin
                         "count",
                         functionResolution.countFunction(),
                         BIGINT,
-                        ImmutableList.of()),
+                        Collections.emptyList()),
                 Optional.of(condition),
                 Optional.empty(),
                 false,
@@ -374,7 +375,7 @@ public class TransformCorrelatedInPredicateToJoin
                 return Optional.empty();
             }
             else {
-                return Optional.of(new Decorrelated(ImmutableList.of(), reference));
+                return Optional.of(new Decorrelated(Collections.emptyList(), reference));
             }
         }
 

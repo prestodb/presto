@@ -24,6 +24,8 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
+
 import static com.facebook.presto.SystemSessionProperties.REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
@@ -217,7 +219,7 @@ public class TestReplaceConstantVariableReferencesWithConstants
                                                 semiJoin("partkey", "suppkey_17", "expr_37",
                                                         project(
                                                                 join(JoinType.INNER,
-                                                                        ImmutableList.of(),
+                                                                        Collections.emptyList(),
                                                                         anyTree(
                                                                                 filter("orderkey = 10",
                                                                                         tableScan("orders", ImmutableMap.of("orderstatus", "orderstatus", "orderkey", "orderkey")))),
@@ -324,14 +326,14 @@ public class TestReplaceConstantVariableReferencesWithConstants
                                         exchange(
                                                 anyTree(
                                                         aggregation(
-                                                                ImmutableMap.of("count_29", functionCall("count", ImmutableList.of())),
+                                                                ImmutableMap.of("count_29", functionCall("count", Collections.emptyList())),
                                                                 project(
                                                                         filter(
                                                                                 "orderkey = 5",
                                                                                 tableScan("lineitem", ImmutableMap.of("extendedprice", "extendedprice", "orderkey", "orderkey")))))),
                                                 anyTree(
                                                         aggregation(
-                                                                ImmutableMap.of("count_29", functionCall("count", ImmutableList.of())),
+                                                                ImmutableMap.of("count_29", functionCall("count", Collections.emptyList())),
                                                                 project(
                                                                         filter(
                                                                                 "orderkey_4 = 5",
@@ -353,7 +355,7 @@ public class TestReplaceConstantVariableReferencesWithConstants
                                                         project(
                                                                 ImmutableMap.of("orderkey_11", expression("orderkey")),
                                                                 aggregation(
-                                                                        ImmutableMap.of("count_29", functionCall("count", ImmutableList.of())),
+                                                                        ImmutableMap.of("count_29", functionCall("count", Collections.emptyList())),
                                                                         project(
                                                                                 project(
                                                                                         ImmutableMap.of("orderkey", expression("5")),
@@ -364,7 +366,7 @@ public class TestReplaceConstantVariableReferencesWithConstants
                                                         project(
                                                                 ImmutableMap.of("orderkey_11", expression("orderkey_4")),
                                                                 aggregation(
-                                                                        ImmutableMap.of("count_29", functionCall("count", ImmutableList.of())),
+                                                                        ImmutableMap.of("count_29", functionCall("count", Collections.emptyList())),
                                                                         project(
                                                                                 project(
                                                                                         ImmutableMap.of("orderkey_4", expression("2")),
@@ -388,7 +390,7 @@ public class TestReplaceConstantVariableReferencesWithConstants
                                                         project(
                                                                 ImmutableMap.of("orderkey_11", expression("orderkey")),
                                                                 aggregation(
-                                                                        ImmutableMap.of("count_29", functionCall("count", ImmutableList.of())),
+                                                                        ImmutableMap.of("count_29", functionCall("count", Collections.emptyList())),
                                                                         project(
                                                                                 project(
                                                                                         ImmutableMap.of("orderkey", expression("5")),
@@ -399,7 +401,7 @@ public class TestReplaceConstantVariableReferencesWithConstants
                                                         project(
                                                                 ImmutableMap.of("orderkey_11", expression("orderkey_4")),
                                                                 aggregation(
-                                                                        ImmutableMap.of("count_29", functionCall("count", ImmutableList.of())),
+                                                                        ImmutableMap.of("count_29", functionCall("count", Collections.emptyList())),
                                                                         project(
                                                                                 tableScan("orders", ImmutableMap.of("orderkey_4", "orderkey", "totalprice", "totalprice")))))))))));
     }
@@ -425,7 +427,7 @@ public class TestReplaceConstantVariableReferencesWithConstants
                 })
                 .matches(
                         aggregation(
-                                ImmutableMap.of("cnt", functionCall("count", ImmutableList.of())),
+                                ImmutableMap.of("cnt", functionCall("count", Collections.emptyList())),
                                 project(
                                         ImmutableMap.of("key1", expression("3")),
                                         filter(
@@ -530,7 +532,7 @@ public class TestReplaceConstantVariableReferencesWithConstants
                 })
                 .matches(
                         aggregation(
-                                ImmutableMap.of("cnt", functionCall("count", ImmutableList.of())),
+                                ImmutableMap.of("cnt", functionCall("count", Collections.emptyList())),
                                 filter(
                                         "key1=2",
                                         filter(
@@ -561,7 +563,7 @@ public class TestReplaceConstantVariableReferencesWithConstants
                 })
                 .matches(
                         aggregation(
-                                ImmutableMap.of("cnt", functionCall("count", ImmutableList.of())),
+                                ImmutableMap.of("cnt", functionCall("count", Collections.emptyList())),
                                 filter(
                                         "key1=2 and key2=5",
                                         filter(
@@ -592,7 +594,7 @@ public class TestReplaceConstantVariableReferencesWithConstants
                 })
                 .matches(
                         aggregation(
-                                ImmutableMap.of("cnt", functionCall("count", ImmutableList.of())),
+                                ImmutableMap.of("cnt", functionCall("count", Collections.emptyList())),
                                 project(
                                         ImmutableMap.of("key1", expression("3")),
                                         filter(
@@ -625,7 +627,7 @@ public class TestReplaceConstantVariableReferencesWithConstants
                 })
                 .matches(
                         aggregation(
-                                ImmutableMap.of("cnt", functionCall("count", ImmutableList.of())),
+                                ImmutableMap.of("cnt", functionCall("count", Collections.emptyList())),
                                 project(
                                         ImmutableMap.of("key1", expression("3"), "key2", expression("5")),
                                         filter(
@@ -658,7 +660,7 @@ public class TestReplaceConstantVariableReferencesWithConstants
                 })
                 .matches(
                         aggregation(
-                                ImmutableMap.of("cnt", functionCall("count", ImmutableList.of())),
+                                ImmutableMap.of("cnt", functionCall("count", Collections.emptyList())),
                                 project(
                                         ImmutableMap.of("key1", expression("3"), "key2", expression("key2")),
                                         filter(
@@ -691,7 +693,7 @@ public class TestReplaceConstantVariableReferencesWithConstants
                 })
                 .matches(
                         aggregation(
-                                ImmutableMap.of("cnt", functionCall("count", ImmutableList.of())),
+                                ImmutableMap.of("cnt", functionCall("count", Collections.emptyList())),
                                 project(
                                         ImmutableMap.of("key1", expression("3"), "key2", expression("key2")),
                                         project(
@@ -724,7 +726,7 @@ public class TestReplaceConstantVariableReferencesWithConstants
                 })
                 .matches(
                         aggregation(
-                                ImmutableMap.of("cnt", functionCall("count", ImmutableList.of())),
+                                ImmutableMap.of("cnt", functionCall("count", Collections.emptyList())),
                                 filter(
                                         "key1=3",
                                         project(
@@ -755,7 +757,7 @@ public class TestReplaceConstantVariableReferencesWithConstants
                 })
                 .matches(
                         aggregation(
-                                ImmutableMap.of("cnt", functionCall("count", ImmutableList.of())),
+                                ImmutableMap.of("cnt", functionCall("count", Collections.emptyList())),
                                 project(
                                         ImmutableMap.of("key1", expression("3")),
                                         filter(
@@ -791,7 +793,7 @@ public class TestReplaceConstantVariableReferencesWithConstants
                 })
                 .matches(
                         aggregation(
-                                ImmutableMap.of("cnt", functionCall("count", ImmutableList.of())),
+                                ImmutableMap.of("cnt", functionCall("count", Collections.emptyList())),
                                 project(
                                         ImmutableMap.of("key1", expression("5")),
                                         filter(

@@ -38,6 +38,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.presto.common.block.MethodHandleUtil.compose;
@@ -87,13 +88,13 @@ public final class MapConstructor
                 QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "map"),
                 FunctionKind.SCALAR,
                 ImmutableList.of(comparableTypeParameter("K"), typeVariable("V")),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 TypeSignature.parseTypeSignature("map(K,V)"),
                 ImmutableList.of(TypeSignature.parseTypeSignature("array(K)"), TypeSignature.parseTypeSignature("array(V)")),
                 false));
         descriptor = new ComplexTypeFunctionDescriptor(
                 false,
-                ImmutableList.of(),
+                Collections.emptyList(),
                 Optional.of(ImmutableSet.of(1)),
                 Optional.of(ComplexTypeFunctionDescriptor::allSubfieldsRequired),
                 getSignature());

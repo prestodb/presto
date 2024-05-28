@@ -35,6 +35,7 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -206,7 +207,7 @@ public class TestRowBasedSerialization
     public void testRandom(String typeSignature)
     {
         Type type = functionAndTypeManager.getType(parseTypeSignature(typeSignature));
-        testRandomBlocks(type, ImmutableList.of());
+        testRandomBlocks(type, Collections.emptyList());
     }
 
     @Test(dataProvider = "getTypeSignatures")
@@ -263,7 +264,7 @@ public class TestRowBasedSerialization
     private static List<Slice> serialize(List<Block> blocks)
     {
         if (blocks.isEmpty()) {
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
         int positions = blocks.get(0).getPositionCount();
         for (Block block : blocks) {
@@ -280,7 +281,7 @@ public class TestRowBasedSerialization
     {
         if (types.isEmpty()) {
             assertTrue(rows.isEmpty());
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
 
         List<BlockBuilder> blockBuilders = types.stream()

@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.io.IOException;
 import java.io.Writer;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
@@ -56,7 +57,7 @@ public class TsvPrinter
     public void finish()
             throws IOException
     {
-        printRows(ImmutableList.of(), true);
+        printRows(Collections.emptyList(), true);
         writer.flush();
     }
 

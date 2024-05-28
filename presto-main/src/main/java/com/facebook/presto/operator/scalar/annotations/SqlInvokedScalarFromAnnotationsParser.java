@@ -33,6 +33,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import java.lang.reflect.Method;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -142,7 +143,7 @@ public final class SqlInvokedScalarFromAnnotationsParser
                     .collect(toImmutableList());
         }
         else {
-            parameters = ImmutableList.of();
+            parameters = Collections.emptyList();
         }
 
         // Routine characteristics

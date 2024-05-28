@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -68,7 +69,7 @@ public class FunctionTranslator<T>
     public TranslatedExpression<T> translate(FunctionMetadata functionMetadata, RowExpression original)
             throws Throwable
     {
-        return translate(functionMetadata, original, ImmutableList.of());
+        return translate(functionMetadata, original, Collections.emptyList());
     }
 
     private FunctionTranslator(Map<FunctionMetadata, MethodHandle> functionMapping)

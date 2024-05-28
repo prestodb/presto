@@ -70,6 +70,7 @@ import org.testng.annotations.Test;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -184,7 +185,7 @@ public class TestSqlTaskExecution
                     taskStateMachine,
                     taskContext,
                     outputBuffer,
-                    ImmutableList.of(),
+                    Collections.emptyList(),
                     localExecutionPlan,
                     taskExecutor,
                     taskNotificationExecutor,
@@ -446,7 +447,7 @@ public class TestSqlTaskExecution
                     taskStateMachine,
                     taskContext,
                     outputBuffer,
-                    ImmutableList.of(),
+                    Collections.emptyList(),
                     localExecutionPlan,
                     taskExecutor,
                     taskNotificationExecutor,
@@ -1364,7 +1365,7 @@ public class TestSqlTaskExecution
         @Override
         public List<HostAddress> getPreferredNodes(NodeProvider nodeProvider)
         {
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
 
         @Override

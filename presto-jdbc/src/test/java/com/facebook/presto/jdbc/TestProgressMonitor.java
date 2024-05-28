@@ -32,6 +32,7 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -97,7 +98,7 @@ public class TestProgressMonitor
                         .setScheduled(true)
                         .build(),
                 null,
-                ImmutableList.of(),
+                Collections.emptyList(),
                 null,
                 null);
 

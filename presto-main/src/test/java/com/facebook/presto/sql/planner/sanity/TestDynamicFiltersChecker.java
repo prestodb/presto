@@ -38,6 +38,7 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -123,8 +124,8 @@ public class TestDynamicFiltersChecker
     public void testUnmatchedDynamicFilter()
     {
         PlanNode root = builder.output(
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 builder.join(
                         INNER,
                         ordersTableScanNode,
@@ -146,8 +147,8 @@ public class TestDynamicFiltersChecker
     public void testUnmatchedNestedDynamicFilter()
     {
         PlanNode root = builder.output(
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 builder.join(
                         INNER,
                         ordersTableScanNode,

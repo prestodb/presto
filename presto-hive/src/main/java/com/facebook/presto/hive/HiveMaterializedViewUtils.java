@@ -29,6 +29,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.joda.time.DateTimeZone;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -54,7 +55,7 @@ import static java.util.Collections.emptyMap;
 
 public class HiveMaterializedViewUtils
 {
-    private static final MaterializedDataPredicates EMPTY_MATERIALIZED_VIEW_DATA_PREDICATES = new MaterializedDataPredicates(ImmutableList.of(), ImmutableList.of());
+    private static final MaterializedDataPredicates EMPTY_MATERIALIZED_VIEW_DATA_PREDICATES = new MaterializedDataPredicates(Collections.emptyList(), Collections.emptyList());
 
     private HiveMaterializedViewUtils()
     {
@@ -206,7 +207,7 @@ public class HiveMaterializedViewUtils
         Map<String, Map<SchemaTableName, String>> columnMappings = viewDefinition.getColumnMappingsAsMap();
         Map<String, Map<SchemaTableName, String>> directColumnMappings = viewDefinition.getDirectColumnMappingsAsMap();
 
-        for (String viewPartition : viewDefinition.getValidRefreshColumns().orElse(ImmutableList.of())) {
+        for (String viewPartition : viewDefinition.getValidRefreshColumns().orElse(Collections.emptyList())) {
             String baseTablePartition = columnMappings.get(viewPartition).get(schemaBaseTable);
             // Check if it is a base table partition column
             if (baseTable.getPartitionColumns().stream().noneMatch(col -> col.getName().equals(baseTablePartition))) {

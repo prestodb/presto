@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.longs.LongArraySet;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -48,8 +49,8 @@ public final class KDistinct
         super(new Signature(
                 QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "k_distinct"),
                 FunctionKind.SCALAR,
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 BOOLEAN.getTypeSignature(),
                 ImmutableList.of(BIGINT.getTypeSignature(), BIGINT.getTypeSignature()),
                 false));

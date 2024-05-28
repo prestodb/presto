@@ -29,6 +29,7 @@ import org.apache.kafka.clients.producer.RecordMetadata;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
@@ -124,7 +125,7 @@ public class KafkaPageSink
         if (errorCounter.getErrorCount() > 0) {
             throw new PrestoException(KAFKA_PRODUCER_ERROR, format("%d producer record('s) failed to send", errorCounter.getErrorCount()));
         }
-        return completedFuture(ImmutableList.of());
+        return completedFuture(Collections.emptyList());
     }
 
     @Override

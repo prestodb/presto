@@ -50,6 +50,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.management.ManagementFactory;
 import java.math.BigDecimal;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -185,7 +186,7 @@ public class OrcMetadataReader
                 stripeInformation.getDataLength(),
                 stripeInformation.getFooterLength(),
                 OptionalLong.empty(),
-                ImmutableList.of());
+                Collections.emptyList());
     }
 
     @Override
@@ -196,7 +197,7 @@ public class OrcMetadataReader
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
         OrcProto.StripeFooter stripeFooter = OrcProto.StripeFooter.parseFrom(input);
         runtimeStats.addMetricValue("OrcReadStripeFooterTimeNanos", RuntimeUnit.NANO, THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
-        return new StripeFooter(toStream(stripeFooter.getStreamsList()), toColumnEncoding(stripeFooter.getColumnsList()), ImmutableList.of());
+        return new StripeFooter(toStream(stripeFooter.getStreamsList()), toColumnEncoding(stripeFooter.getColumnsList()), Collections.emptyList());
     }
 
     private static Stream toStream(OrcProto.Stream stream)
@@ -285,7 +286,7 @@ public class OrcMetadataReader
     private static List<ColumnStatistics> toColumnStatistics(HiveWriterVersion hiveWriterVersion, List<OrcProto.ColumnStatistics> columnStatistics, boolean isRowGroup)
     {
         if (columnStatistics == null) {
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
         return columnStatistics.stream()
                 .map(statistics -> toColumnStatistics(hiveWriterVersion, statistics, isRowGroup, null))

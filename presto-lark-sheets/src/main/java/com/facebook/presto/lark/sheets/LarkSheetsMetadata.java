@@ -37,6 +37,7 @@ import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nullable;
 
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -315,7 +316,7 @@ public class LarkSheetsMetadata
                         .filter(sheet -> sheet.getIndex() == i)
                         .collect(Collectors.toList());
             }
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
         else if (firstChar == '@') {
             // filter by sheets id

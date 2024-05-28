@@ -5769,7 +5769,7 @@ public class TestHiveIntegrationSmokeTest
                     InsertTableHandle insertTableHandle = metadata.beginInsert(transactionSession, handle.get());
                     HiveInsertTableHandle hiveInsertTableHandle = (HiveInsertTableHandle) insertTableHandle.getConnectorHandle();
 
-                    metadata.finishInsert(transactionSession, insertTableHandle, ImmutableList.of(), ImmutableList.of());
+                    metadata.finishInsert(transactionSession, insertTableHandle, Collections.emptyList(), Collections.emptyList());
                     return hiveInsertTableHandle;
                 });
     }

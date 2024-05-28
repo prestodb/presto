@@ -14,8 +14,8 @@
 package com.facebook.presto.resourcemanager;
 
 import com.facebook.presto.execution.resourceGroups.ResourceGroupRuntimeInfo;
-import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
 import java.util.List;
 
 public class NoopResourceGroupService
@@ -24,6 +24,6 @@ public class NoopResourceGroupService
     @Override
     public List<ResourceGroupRuntimeInfo> getResourceGroupInfo()
     {
-        return ImmutableList.of();
+        return Collections.emptyList();
     }
 }

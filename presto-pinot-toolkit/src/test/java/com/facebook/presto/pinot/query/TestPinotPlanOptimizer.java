@@ -50,6 +50,7 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -281,7 +282,7 @@ public class TestPinotPlanOptimizer
     @Test
     public void testUnsupportedPredicatePushdown()
     {
-        Map<String, ExpectedValueProvider<FunctionCall>> aggregationsSecond = ImmutableMap.of("count", PlanMatchPattern.functionCall("count", false, ImmutableList.of()));
+        Map<String, ExpectedValueProvider<FunctionCall>> aggregationsSecond = ImmutableMap.of("count", PlanMatchPattern.functionCall("count", false, Collections.emptyList()));
 
         PlanBuilder planBuilder = createPlanBuilder(defaultSessionHolder);
         PlanNode limit = limit(planBuilder, 50L, tableScan(planBuilder, pinotTable, regionId, city, fare, secondsSinceEpoch));

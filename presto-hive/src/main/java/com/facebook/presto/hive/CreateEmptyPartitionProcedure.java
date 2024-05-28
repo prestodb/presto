@@ -32,6 +32,7 @@ import javax.inject.Inject;
 import javax.inject.Provider;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -143,7 +144,7 @@ public class CreateEmptyPartitionProcedure
                 UpdateMode.NEW,
                 writeInfo.getWritePath(),
                 writeInfo.getTargetPath(),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 0,
                 0,
                 0,
@@ -160,7 +161,7 @@ public class CreateEmptyPartitionProcedure
                 session,
                 hiveInsertTableHandle,
                 ImmutableList.of(Slices.wrappedBuffer(serializedPartitionUpdate)),
-                ImmutableList.of());
+                Collections.emptyList());
         hiveMetadata.commit();
     }
 }

@@ -40,6 +40,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -88,9 +89,9 @@ public class TestJsonRenderer
                 TypeProvider.viewOf(VARIABLE_ALLOCATOR.getVariables()),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableList.of(),
-                ImmutableList.of(),
-                ImmutableList.of());
+                Collections.emptyList(),
+                Collections.emptyList(),
+                Collections.emptyList());
     }
 
     private NodeRepresentation getNodeRepresentation(PlanNode root, List<PlanNodeId> planNodeIds)
@@ -103,11 +104,11 @@ public class TestJsonRenderer
                 "",
                 root.getOutputVariables(),
                 Optional.empty(),
-                ImmutableList.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
                 planNodeIds,
-                ImmutableList.of(),
-                ImmutableList.of());
+                Collections.emptyList(),
+                Collections.emptyList());
     }
 
     private Map<PlanRepresentation, JsonRenderer.JsonRenderedNode> buildPlanResult(PlanNode root)

@@ -47,6 +47,7 @@ import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalLong;
@@ -107,7 +108,7 @@ public class TestMetastoreHiveStatisticsProvider
     private static final HiveColumnHandle PARTITION_COLUMN_1 = new HiveColumnHandle("p1", HIVE_STRING, VARCHAR.getTypeSignature(), 0, PARTITION_KEY, Optional.empty(), Optional.empty());
     private static final HiveColumnHandle PARTITION_COLUMN_2 = new HiveColumnHandle("p2", HIVE_LONG, BIGINT.getTypeSignature(), 1, PARTITION_KEY, Optional.empty(), Optional.empty());
 
-    private static final QuickStatsProvider quickStatsProvider = new QuickStatsProvider(HDFS_ENVIRONMENT, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of());
+    private static final QuickStatsProvider quickStatsProvider = new QuickStatsProvider(HDFS_ENVIRONMENT, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), Collections.emptyList());
 
     @Test
     public void testGetPartitionsSample()
@@ -263,7 +264,7 @@ public class TestMetastoreHiveStatisticsProvider
     @Test
     public void testCalculateAverageRowsPerPartition()
     {
-        assertThat(calculateAverageRowsPerPartition(ImmutableList.of())).isEmpty();
+        assertThat(calculateAverageRowsPerPartition(Collections.emptyList())).isEmpty();
         assertThat(calculateAverageRowsPerPartition(ImmutableList.of(PartitionStatistics.empty()))).isEmpty();
         assertThat(calculateAverageRowsPerPartition(ImmutableList.of(PartitionStatistics.empty(), PartitionStatistics.empty()))).isEmpty();
         assertEquals(calculateAverageRowsPerPartition(ImmutableList.of(rowsCount(10))), OptionalDouble.of(10));
@@ -275,7 +276,7 @@ public class TestMetastoreHiveStatisticsProvider
     @Test
     public void testCalculateAverageSizePerPartition()
     {
-        assertThat(calculateAverageSizePerPartition(ImmutableList.of())).isEmpty();
+        assertThat(calculateAverageSizePerPartition(Collections.emptyList())).isEmpty();
         assertThat(calculateAverageSizePerPartition(ImmutableList.of(PartitionStatistics.empty()))).isEmpty();
         assertThat(calculateAverageSizePerPartition(ImmutableList.of(PartitionStatistics.empty(), PartitionStatistics.empty()))).isEmpty();
         assertEquals(calculateAverageSizePerPartition(ImmutableList.of(inMemorySize(10))), OptionalDouble.of(10));
@@ -287,7 +288,7 @@ public class TestMetastoreHiveStatisticsProvider
     @Test
     public void testCalculateDistinctPartitionKeys()
     {
-        assertEquals(calculateDistinctPartitionKeys(PARTITION_COLUMN_1, ImmutableList.of()), 0);
+        assertEquals(calculateDistinctPartitionKeys(PARTITION_COLUMN_1, Collections.emptyList()), 0);
         assertEquals(
                 calculateDistinctPartitionKeys(
                         PARTITION_COLUMN_1,
@@ -513,7 +514,7 @@ public class TestMetastoreHiveStatisticsProvider
     @Test
     public void testCreateDataColumnStatistics()
     {
-        assertEquals(createDataColumnStatistics(COLUMN, BIGINT, 1000, ImmutableList.of()), ColumnStatistics.empty());
+        assertEquals(createDataColumnStatistics(COLUMN, BIGINT, 1000, Collections.emptyList()), ColumnStatistics.empty());
         assertEquals(
                 createDataColumnStatistics(COLUMN, BIGINT, 1000, ImmutableList.of(PartitionStatistics.empty(), PartitionStatistics.empty())),
                 ColumnStatistics.empty());
@@ -529,7 +530,7 @@ public class TestMetastoreHiveStatisticsProvider
     @Test
     public void testCalculateDistinctValuesCount()
     {
-        assertEquals(calculateDistinctValuesCount(ImmutableList.of()), Estimate.unknown());
+        assertEquals(calculateDistinctValuesCount(Collections.emptyList()), Estimate.unknown());
         assertEquals(calculateDistinctValuesCount(ImmutableList.of(HiveColumnStatistics.empty())), Estimate.unknown());
         assertEquals(calculateDistinctValuesCount(ImmutableList.of(HiveColumnStatistics.empty(), HiveColumnStatistics.empty())), Estimate.unknown());
         assertEquals(calculateDistinctValuesCount(ImmutableList.of(distinctValuesCount(1))), Estimate.of(1));
@@ -552,7 +553,7 @@ public class TestMetastoreHiveStatisticsProvider
     @Test
     public void testCalculateNullsFraction()
     {
-        assertEquals(calculateNullsFraction(COLUMN, ImmutableList.of()), Estimate.unknown());
+        assertEquals(calculateNullsFraction(COLUMN, Collections.emptyList()), Estimate.unknown());
         assertEquals(calculateNullsFraction(COLUMN, ImmutableList.of(PartitionStatistics.empty())), Estimate.unknown());
         assertEquals(calculateNullsFraction(COLUMN, ImmutableList.of(rowsCount(1000))), Estimate.unknown());
         assertEquals(calculateNullsFraction(COLUMN, ImmutableList.of(rowsCount(1000), nullsCount(500))), Estimate.unknown());
@@ -564,8 +565,8 @@ public class TestMetastoreHiveStatisticsProvider
     @Test
     public void testCalculateDataSize()
     {
-        assertEquals(calculateDataSize(COLUMN, ImmutableList.of(), 0), Estimate.unknown());
-        assertEquals(calculateDataSize(COLUMN, ImmutableList.of(), 1000), Estimate.unknown());
+        assertEquals(calculateDataSize(COLUMN, Collections.emptyList(), 0), Estimate.unknown());
+        assertEquals(calculateDataSize(COLUMN, Collections.emptyList(), 1000), Estimate.unknown());
         assertEquals(calculateDataSize(COLUMN, ImmutableList.of(PartitionStatistics.empty()), 1000), Estimate.unknown());
         assertEquals(calculateDataSize(COLUMN, ImmutableList.of(rowsCount(1000)), 1000), Estimate.unknown());
         assertEquals(calculateDataSize(COLUMN, ImmutableList.of(dataSize(1000)), 1000), Estimate.unknown());
@@ -597,7 +598,7 @@ public class TestMetastoreHiveStatisticsProvider
     @Test
     public void testCalculateRange()
     {
-        assertEquals(calculateRange(VARCHAR, ImmutableList.of()), Optional.empty());
+        assertEquals(calculateRange(VARCHAR, Collections.emptyList()), Optional.empty());
         assertEquals(calculateRange(VARCHAR, ImmutableList.of(integerRange(OptionalLong.empty(), OptionalLong.empty()))), Optional.empty());
         assertEquals(calculateRange(VARCHAR, ImmutableList.of(integerRange(1, 2))), Optional.empty());
         assertEquals(calculateRange(BIGINT, ImmutableList.of(integerRange(1, 2))), Optional.of(new DoubleRange(1, 2)));

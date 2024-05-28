@@ -99,6 +99,7 @@ import com.facebook.presto.sql.tree.WhenClause;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
+import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -752,8 +753,8 @@ public final class SqlToRowExpressionTranslator
                     getType(node),
                     new LambdaDefinitionExpression(
                             getSourceLocation(node),
-                            ImmutableList.of(),
-                            ImmutableList.of(),
+                            Collections.emptyList(),
+                            Collections.emptyList(),
                             body));
         }
 

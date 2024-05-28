@@ -28,6 +28,7 @@ import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -39,7 +40,7 @@ public class PrestoActionConfig
 {
     private static final Splitter HOST_SPLITTER = Splitter.on(",");
 
-    private List<String> hosts = ImmutableList.of();
+    private List<String> hosts = Collections.emptyList();
     private int jdbcPort;
     private Optional<Integer> httpPort = Optional.empty();
     private Map<String, String> jdbcUrlParameters = ImmutableMap.of();

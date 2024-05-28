@@ -67,6 +67,7 @@ import org.weakref.jmx.Nested;
 
 import javax.inject.Inject;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -264,7 +265,7 @@ public class HiveSplitManager
         // short circuit if we don't have any partitions
         HivePartition partition = Iterables.getFirst(partitions, null);
         if (partition == null) {
-            return new FixedSplitSource(ImmutableList.of());
+            return new FixedSplitSource(Collections.emptyList());
         }
 
         Optional<HiveBucketFilter> bucketFilter = layout.getBucketFilter();
@@ -454,7 +455,7 @@ public class HiveSplitManager
             Optional<Map<Subfield, Domain>> domains)
     {
         if (hivePartitions.isEmpty()) {
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
 
         Optional<Set<HiveColumnHandle>> allRequestedColumns = mergeRequestedAndPredicateColumns(requestedColumns, ImmutableSet.copyOf(predicateColumns.values()));

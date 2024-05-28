@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListeningExecutorService;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -165,7 +166,7 @@ public class ExtendedVerification
                     Optional.empty(),
                     OptionalLong.of(controlPartitionChecksum.size()),
                     OptionalLong.of(testPartitionChecksum.size()),
-                    ImmutableList.of()));
+                    Collections.emptyList()));
         }
         for (int i = 0; i < controlPartitionChecksum.size(); i++) {
             DataMatchResult partitionMatchResult = match(
@@ -185,7 +186,7 @@ public class ExtendedVerification
                 Optional.empty(),
                 OptionalLong.of(controlPartitionChecksum.size()),
                 OptionalLong.of(testPartitionChecksum.size()),
-                ImmutableList.of()));
+                Collections.emptyList()));
     }
 
     private Optional<DataMatchResult> verifyBucket(
@@ -214,7 +215,7 @@ public class ExtendedVerification
                     Optional.empty(),
                     OptionalLong.of(controlBucketChecksum.size()),
                     OptionalLong.of(testBucketChecksum.size()),
-                    ImmutableList.of()));
+                    Collections.emptyList()));
         }
         for (int i = 0; i < controlBucketChecksum.size(); i++) {
             DataMatchResult bucketMatchResult = match(
@@ -234,7 +235,7 @@ public class ExtendedVerification
                 Optional.empty(),
                 OptionalLong.of(controlBucketChecksum.size()),
                 OptionalLong.of(testBucketChecksum.size()),
-                ImmutableList.of()));
+                Collections.emptyList()));
     }
 
     // Returns the hidden system table name "tableName$partitions".

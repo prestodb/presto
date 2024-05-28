@@ -52,6 +52,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -104,7 +105,7 @@ public class TestCreateMaterializedViewTask
                 ImmutableList.of(stringProperty("baz", "test property", null, false)));
 
         ColumnPropertyManager columnPropertyManager = new ColumnPropertyManager();
-        columnPropertyManager.addProperties(testCatalog.getConnectorId(), ImmutableList.of());
+        columnPropertyManager.addProperties(testCatalog.getConnectorId(), Collections.emptyList());
 
         FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
 

@@ -20,12 +20,12 @@ import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -74,7 +74,7 @@ public class TestHudiIntegration
         assertQuery("DESCRIBE stock_ticks_mor_rt", sql);
 
         // non-partition tables
-        @Language("SQL") String sql2 = generateDescribeIdenticalQuery(typeManager, HUDI_META_COLUMNS, DATA_COLUMNS, ImmutableList.of());
+        @Language("SQL") String sql2 = generateDescribeIdenticalQuery(typeManager, HUDI_META_COLUMNS, DATA_COLUMNS, Collections.emptyList());
         assertQuery("DESCRIBE stock_ticks_cown", sql2);
         assertQuery("DESCRIBE stock_ticks_morn_ro", sql2);
         assertQuery("DESCRIBE stock_ticks_morn_rt", sql2);

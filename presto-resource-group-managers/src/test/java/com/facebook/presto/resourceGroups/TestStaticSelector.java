@@ -24,6 +24,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -100,7 +101,7 @@ public class TestStaticSelector
         StaticSelector selector = new StaticSelector(
                 Optional.empty(),
                 Optional.empty(),
-                Optional.of(ImmutableList.of()),
+                Optional.of(Collections.emptyList()),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),

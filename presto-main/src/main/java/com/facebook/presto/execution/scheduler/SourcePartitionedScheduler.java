@@ -33,6 +33,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -414,7 +415,7 @@ public class SourcePartitionedScheduler
     {
         if (scheduleGroups.isEmpty()) {
             // Invoking splitSource.isFinished would fail if it was already closed, which is possible if scheduleGroups is empty.
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
 
         ImmutableList.Builder<Lifespan> result = ImmutableList.builder();

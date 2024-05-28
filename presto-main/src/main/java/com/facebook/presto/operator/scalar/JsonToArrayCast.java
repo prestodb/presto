@@ -34,6 +34,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty.valueTypeArgumentProperty;
@@ -60,7 +61,7 @@ public class JsonToArrayCast
     {
         super(OperatorType.CAST,
                 ImmutableList.of(typeVariable("T")),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 parseTypeSignature("array(T)"),
                 ImmutableList.of(parseTypeSignature(StandardTypes.JSON)));
     }

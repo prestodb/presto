@@ -15,8 +15,8 @@ package com.facebook.presto.connector.thrift.server;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
@@ -94,7 +94,7 @@ public final class SplitInfo
 
     public static SplitInfo normalSplit(String schemaName, String tableName, int partNumber, int totalParts)
     {
-        return new SplitInfo(schemaName, tableName, partNumber, totalParts, false, ImmutableList.of(), ImmutableList.of());
+        return new SplitInfo(schemaName, tableName, partNumber, totalParts, false, Collections.emptyList(), Collections.emptyList());
     }
 
     public static SplitInfo indexSplit(String schemaName, String tableName, List<String> lookupColumnNames, List<List<String>> keys)

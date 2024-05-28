@@ -51,13 +51,13 @@ import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 import org.apache.spark.SparkException;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.util.CollectionAccumulator;
 import scala.Tuple2;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -190,7 +190,7 @@ public class PrestoSparkStaticQueryExecution
                         sparkQueueName,
                         Optional.empty(),
                         queryStateTimer,
-                        Optional.of(createStageInfo(session.getQueryId(), rootFragmentedPlan, ImmutableList.of())),
+                        Optional.of(createStageInfo(session.getQueryId(), rootFragmentedPlan, Collections.emptyList())),
                         warningCollector));
 
         log.info(textDistributedPlan(rootFragmentedPlan, metadata.getFunctionAndTypeManager(), session, true));

@@ -17,6 +17,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -29,7 +30,7 @@ public final class JoinUtils
     public static List<Page> channelsToPages(List<List<Block>> channels)
     {
         if (channels.isEmpty()) {
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
 
         int pagesCount = channels.get(0).size();

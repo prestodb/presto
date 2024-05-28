@@ -19,6 +19,7 @@ import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
+import java.util.Collections;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
@@ -33,7 +34,7 @@ public class TestListBasedRecordSet
     @Test
     public void testEmptyCursor()
     {
-        ListBasedRecordSet recordSet = new ListBasedRecordSet(ImmutableList.of(), ImmutableList.of(BIGINT, INTEGER));
+        ListBasedRecordSet recordSet = new ListBasedRecordSet(Collections.emptyList(), ImmutableList.of(BIGINT, INTEGER));
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of(BIGINT, INTEGER));
         RecordCursor cursor = recordSet.cursor();
         assertFalse(cursor.advanceNextPosition());

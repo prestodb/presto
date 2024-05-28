@@ -25,6 +25,7 @@ import com.facebook.presto.sql.gen.lambda.UnaryFunctionInterface;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
@@ -52,7 +53,7 @@ public final class ApplyFunction
                 QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "apply"),
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("T"), typeVariable("U")),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 parseTypeSignature("U"),
                 ImmutableList.of(parseTypeSignature("T"), parseTypeSignature("function(T,U)")),
                 false));

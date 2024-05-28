@@ -33,6 +33,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -83,7 +84,7 @@ public class ThriftIndexedTpchService
                     schemaTableName.getTableName(),
                     indexColumnNames,
                     thriftPageToList(keys, begin, end));
-            splits.add(new PrestoThriftSplit(new PrestoThriftId(SPLIT_INFO_CODEC.toJsonBytes(splitInfo)), ImmutableList.of()));
+            splits.add(new PrestoThriftSplit(new PrestoThriftId(SPLIT_INFO_CODEC.toJsonBytes(splitInfo)), Collections.emptyList()));
         }
         return new PrestoThriftSplitBatch(splits, null);
     }
@@ -117,7 +118,7 @@ public class ThriftIndexedTpchService
         checkArgument(begin <= end, "invalid interval");
         if (begin == end) {
             // empty interval
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
         List<PrestoThriftBlock> blocks = page.getColumnBlocks();
         List<List<String>> result = new ArrayList<>(blocks.size());

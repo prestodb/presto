@@ -15,6 +15,7 @@ package com.facebook.presto.sql.tree;
 
 import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -61,7 +62,7 @@ public class ExternalBodyReference
         if (identifier.isPresent()) {
             return ImmutableList.of(identifier.get());
         }
-        return ImmutableList.of();
+        return Collections.emptyList();
     }
 
     @Override

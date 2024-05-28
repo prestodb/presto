@@ -34,7 +34,6 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
-import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -43,6 +42,7 @@ import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
 import javax.inject.Inject;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -123,7 +123,7 @@ public class OrcAggregatedPageSourceFactory
 
         // per HIVE-13040 and ORC-162, empty files are allowed
         if (fileSplit.getFileSize() == 0) {
-            return Optional.of(new FixedPageSource(ImmutableList.of()));
+            return Optional.of(new FixedPageSource(Collections.emptyList()));
         }
 
         return Optional.of(createOrcPageSource(

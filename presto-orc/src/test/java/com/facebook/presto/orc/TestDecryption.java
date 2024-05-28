@@ -33,6 +33,7 @@ import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -81,15 +82,15 @@ public class TestDecryption
     private static final List<byte[]> A_KEYS = ImmutableList.of("key1a".getBytes(), "key2a".getBytes());
     private static final List<byte[]> B_KEYS = ImmutableList.of("key1b".getBytes(), "key2b".getBytes());
     private static final StripeInformation A_STRIPE = new StripeInformation(1, 2, 3, 4, 5, OptionalLong.empty(), A_KEYS);
-    private static final StripeInformation NO_KEYS_STRIPE = new StripeInformation(1, 2, 3, 4, 5, OptionalLong.empty(), ImmutableList.of());
+    private static final StripeInformation NO_KEYS_STRIPE = new StripeInformation(1, 2, 3, 4, 5, OptionalLong.empty(), Collections.emptyList());
     private static final StripeInformation B_STRIPE = new StripeInformation(1, 2, 3, 4, 5, OptionalLong.empty(), B_KEYS);
 
     private static final OrcType ROW_TYPE = new OrcType(STRUCT, ImmutableList.of(1, 2, 4, 7), ImmutableList.of("col_int", "col_list", "col_map", "col_row"), Optional.empty(), Optional.empty(), Optional.empty());
     private static final OrcType ROW_TYPE2 = new OrcType(STRUCT, ImmutableList.of(8), ImmutableList.of("sub_row1"), Optional.empty(), Optional.empty(), Optional.empty());
     private static final OrcType ROW_TYPE3 = new OrcType(STRUCT, ImmutableList.of(9, 10), ImmutableList.of("sub_int1", "sub_int2"), Optional.empty(), Optional.empty(), Optional.empty());
-    private static final OrcType INT_TYPE = new OrcType(INT, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty());
-    private static final OrcType LIST_TYPE = new OrcType(LIST, ImmutableList.of(3), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty());
-    private static final OrcType MAP_TYPE = new OrcType(MAP, ImmutableList.of(5, 6), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty());
+    private static final OrcType INT_TYPE = new OrcType(INT, Collections.emptyList(), Collections.emptyList(), Optional.empty(), Optional.empty(), Optional.empty());
+    private static final OrcType LIST_TYPE = new OrcType(LIST, ImmutableList.of(3), Collections.emptyList(), Optional.empty(), Optional.empty(), Optional.empty());
+    private static final OrcType MAP_TYPE = new OrcType(MAP, ImmutableList.of(5, 6), Collections.emptyList(), Optional.empty(), Optional.empty(), Optional.empty());
 
     @Test
     public void testValidateEncrypted()
@@ -159,7 +160,7 @@ public class TestDecryption
                 OptionalLong.empty(),
                 stripes,
                 types,
-                ImmutableList.of(),
+                Collections.emptyList(),
                 ImmutableMap.of(),
                 encryption,
                 Optional.empty());
@@ -203,8 +204,8 @@ public class TestDecryption
     public void testGetStripeDecryptionKeysUnencrypted()
     {
         List<StripeInformation> unencryptedStripes = ImmutableList.of(NO_KEYS_STRIPE, NO_KEYS_STRIPE);
-        assertEquals(getDecryptionKeyMetadata(0, unencryptedStripes), ImmutableList.of());
-        assertEquals(getDecryptionKeyMetadata(1, unencryptedStripes), ImmutableList.of());
+        assertEquals(getDecryptionKeyMetadata(0, unencryptedStripes), Collections.emptyList());
+        assertEquals(getDecryptionKeyMetadata(1, unencryptedStripes), Collections.emptyList());
     }
 
     @Test
@@ -586,7 +587,7 @@ public class TestDecryption
             throws Exception
     {
         List<Type> types = ImmutableList.of(BIGINT, BIGINT);
-        List<List<?>> values = ImmutableList.of(ImmutableList.of(), ImmutableList.of());
+        List<List<?>> values = ImmutableList.of(Collections.emptyList(), Collections.emptyList());
         Slice iek1 = Slices.utf8Slice("iek1");
         Slice iek2 = Slices.utf8Slice("iek2");
         List<Integer> outputColumns = ImmutableList.of(0, 1);
@@ -625,7 +626,7 @@ public class TestDecryption
                     DWRF,
                     OrcPredicate.TRUE,
                     Optional.empty(),
-                    ImmutableList.of(),
+                    Collections.emptyList(),
                     ImmutableMap.of(),
                     requiredSubfields,
                     readerIntermediateKeys,
@@ -750,7 +751,7 @@ public class TestDecryption
                 ImmutableMap.of(0, BIGINT),
                 ImmutableList.of(0),
                 ImmutableMap.of(),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 ImmutableMap.of(),
                 ImmutableMap.of(),
                 ImmutableMap.of(),

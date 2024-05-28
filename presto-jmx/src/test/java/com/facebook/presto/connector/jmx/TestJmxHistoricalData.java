@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 
 import static org.testng.Assert.assertEquals;
@@ -35,11 +36,11 @@ public class TestJmxHistoricalData
         List<Integer> bothColumns = ImmutableList.of(0, 1);
         List<Integer> secondColumn = ImmutableList.of(1);
 
-        assertEquals(jmxHistoricalData.getRows(TABLE_NAME, bothColumns), ImmutableList.of());
+        assertEquals(jmxHistoricalData.getRows(TABLE_NAME, bothColumns), Collections.emptyList());
         jmxHistoricalData.addRow(TABLE_NAME, ImmutableList.of(42, "ala"));
         assertEquals(jmxHistoricalData.getRows(TABLE_NAME, bothColumns), ImmutableList.of(ImmutableList.<Object>of(42, "ala")));
         assertEquals(jmxHistoricalData.getRows(TABLE_NAME, secondColumn), ImmutableList.of(ImmutableList.<Object>of("ala")));
-        assertEquals(jmxHistoricalData.getRows(NOT_EXISTING_TABLE_NAME, bothColumns), ImmutableList.of());
+        assertEquals(jmxHistoricalData.getRows(NOT_EXISTING_TABLE_NAME, bothColumns), Collections.emptyList());
 
         jmxHistoricalData.addRow(TABLE_NAME, ImmutableList.of(42, "ala"));
         jmxHistoricalData.addRow(TABLE_NAME, ImmutableList.of(42, "ala"));
@@ -53,8 +54,8 @@ public class TestJmxHistoricalData
         JmxHistoricalData jmxHistoricalData = new JmxHistoricalData(MAX_ENTRIES, ImmutableSet.of(TABLE_NAME.toUpperCase()));
 
         List<Integer> columns = ImmutableList.of(0);
-        assertEquals(jmxHistoricalData.getRows(TABLE_NAME, columns), ImmutableList.of());
-        assertEquals(jmxHistoricalData.getRows(TABLE_NAME.toUpperCase(), columns), ImmutableList.of());
+        assertEquals(jmxHistoricalData.getRows(TABLE_NAME, columns), Collections.emptyList());
+        assertEquals(jmxHistoricalData.getRows(TABLE_NAME.toUpperCase(), columns), Collections.emptyList());
 
         jmxHistoricalData.addRow(TABLE_NAME, ImmutableList.of(42));
         jmxHistoricalData.addRow(TABLE_NAME.toUpperCase(), ImmutableList.of(44));

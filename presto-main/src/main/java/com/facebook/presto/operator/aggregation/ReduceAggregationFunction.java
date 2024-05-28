@@ -34,6 +34,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
@@ -60,7 +61,7 @@ public class ReduceAggregationFunction
     {
         super(NAME,
                 ImmutableList.of(typeVariable("T"), typeVariable("S")),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 parseTypeSignature("S"),
                 ImmutableList.of(
                         parseTypeSignature("T"),

@@ -32,6 +32,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -156,7 +157,7 @@ public class TupleDomainOrcPredicate<C>
                     return Optional.of(discreteValues.build());
                 },
                 discreteValues -> Optional.of(discreteValues.getValues()),
-                allOrNone -> allOrNone.isAll() ? Optional.empty() : Optional.of(ImmutableList.of()));
+                allOrNone -> allOrNone.isAll() ? Optional.empty() : Optional.of(Collections.emptyList()));
     }
 
     // checks whether a value part of the effective predicate is likely to be part of this bloom filter

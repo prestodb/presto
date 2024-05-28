@@ -72,6 +72,7 @@ import javax.inject.Inject;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -655,7 +656,7 @@ public class FunctionAndTypeManager
     {
         FunctionNamespaceManager<?> functionNamespaceManager = getServingFunctionNamespaceManager(functionName.getCatalogSchemaName()).orElse(null);
         if (functionNamespaceManager == null) {
-            throw new PrestoException(FUNCTION_NOT_FOUND, constructFunctionNotFoundErrorMessage(functionName, parameterTypes, ImmutableList.of()));
+            throw new PrestoException(FUNCTION_NOT_FOUND, constructFunctionNotFoundErrorMessage(functionName, parameterTypes, Collections.emptyList()));
         }
 
         Optional<FunctionNamespaceTransactionHandle> transactionHandle = transactionId

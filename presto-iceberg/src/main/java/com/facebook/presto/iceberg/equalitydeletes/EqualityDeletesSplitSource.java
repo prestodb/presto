@@ -31,6 +31,7 @@ import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.CloseableIterator;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Optional;
@@ -113,13 +114,13 @@ public class EqualityDeletesSplitSource
                 0,
                 deleteFile.fileSizeInBytes(),
                 fromIcebergFileFormat(deleteFile.format()),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 getPartitionKeys(specById.get(deleteFile.specId()), deleteFile.partition()),
                 PartitionSpecParser.toJson(spec),
                 partitionData.map(PartitionData::toJson),
                 getNodeSelectionStrategy(session),
                 SplitWeight.standard(),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 Optional.empty(),
                 IcebergUtil.getDataSequenceNumber(deleteFile));
     }

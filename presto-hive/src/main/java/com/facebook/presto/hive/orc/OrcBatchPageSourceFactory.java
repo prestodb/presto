@@ -53,6 +53,7 @@ import org.joda.time.DateTimeZone;
 import javax.inject.Inject;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -144,7 +145,7 @@ public class OrcBatchPageSourceFactory
 
         // per HIVE-13040 and ORC-162, empty files are allowed
         if (fileSplit.getFileSize() == 0) {
-            return Optional.of(new FixedPageSource(ImmutableList.of()));
+            return Optional.of(new FixedPageSource(Collections.emptyList()));
         }
 
         return Optional.of(createOrcPageSource(

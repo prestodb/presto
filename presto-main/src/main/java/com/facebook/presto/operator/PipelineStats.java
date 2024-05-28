@@ -26,6 +26,7 @@ import org.joda.time.DateTime;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -481,7 +482,7 @@ public class PipelineStats
                 outputPositions,
                 physicalWrittenDataSizeInBytes,
                 summarizeOperatorStats(operatorSummaries),
-                ImmutableList.of());
+                Collections.emptyList());
     }
 
     private static List<OperatorStats> summarizeOperatorStats(List<OperatorStats> operatorSummaries)

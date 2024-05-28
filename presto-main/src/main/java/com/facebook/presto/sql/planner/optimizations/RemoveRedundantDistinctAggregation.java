@@ -25,6 +25,7 @@ import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -155,7 +156,7 @@ public class RemoveRedundantDistinctAggregation
             List<PlanWithProperties> children = node.getSources().stream().map(this::accept).collect(toImmutableList());
             PlanNode result = replaceChildren(node, children.stream().map(PlanWithProperties::getNode).collect(toImmutableList()));
             if (!passProperties) {
-                return new PlanWithProperties(result, ImmutableList.of());
+                return new PlanWithProperties(result, Collections.emptyList());
             }
             ImmutableList.Builder<Set<VariableReferenceExpression>> properties = ImmutableList.builder();
             children.stream().map(PlanWithProperties::getProperties).forEach(properties::addAll);

@@ -32,6 +32,7 @@ import org.testng.annotations.Test;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
+import java.util.Collections;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -158,7 +159,7 @@ public class TestProvidedBlockBuilderReturnPlaceConvention
                     QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "identity1"),
                     FunctionKind.SCALAR,
                     ImmutableList.of(typeVariable("T")),
-                    ImmutableList.of(),
+                    Collections.emptyList(),
                     parseTypeSignature("T"),
                     ImmutableList.of(parseTypeSignature("T")),
                     false));
@@ -278,7 +279,7 @@ public class TestProvidedBlockBuilderReturnPlaceConvention
                     QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "identity2"),
                     FunctionKind.SCALAR,
                     ImmutableList.of(typeVariable("T")),
-                    ImmutableList.of(),
+                    Collections.emptyList(),
                     parseTypeSignature("T"),
                     ImmutableList.of(parseTypeSignature("T")),
                     false));

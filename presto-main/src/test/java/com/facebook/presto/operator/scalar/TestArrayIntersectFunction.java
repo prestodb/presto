@@ -18,6 +18,8 @@ import com.facebook.presto.common.type.RowType;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
+
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
@@ -42,9 +44,9 @@ public class TestArrayIntersectFunction
     @Test
     public void testEmpty()
     {
-        assertFunction("array_intersect(ARRAY[], ARRAY[])", new ArrayType(UNKNOWN), ImmutableList.of());
-        assertFunction("array_intersect(ARRAY[], ARRAY[1, 3])", new ArrayType(INTEGER), ImmutableList.of());
-        assertFunction("array_intersect(ARRAY[CAST('abc' as VARCHAR)], ARRAY[])", new ArrayType(VARCHAR), ImmutableList.of());
+        assertFunction("array_intersect(ARRAY[], ARRAY[])", new ArrayType(UNKNOWN), Collections.emptyList());
+        assertFunction("array_intersect(ARRAY[], ARRAY[1, 3])", new ArrayType(INTEGER), Collections.emptyList());
+        assertFunction("array_intersect(ARRAY[CAST('abc' as VARCHAR)], ARRAY[])", new ArrayType(VARCHAR), Collections.emptyList());
     }
 
     @Test
@@ -54,8 +56,8 @@ public class TestArrayIntersectFunction
         assertFunction("array_intersect(NULL, NULL)", new ArrayType(UNKNOWN), null);
         assertFunction("array_intersect(NULL, ARRAY[NULL])", new ArrayType(UNKNOWN), null);
         assertFunction("array_intersect(ARRAY[NULL], ARRAY[NULL])", new ArrayType(UNKNOWN), asList(false ? 1 : null));
-        assertFunction("array_intersect(ARRAY[], ARRAY[NULL])", new ArrayType(UNKNOWN), ImmutableList.of());
-        assertFunction("array_intersect(ARRAY[NULL], ARRAY[])", new ArrayType(UNKNOWN), ImmutableList.of());
+        assertFunction("array_intersect(ARRAY[], ARRAY[NULL])", new ArrayType(UNKNOWN), Collections.emptyList());
+        assertFunction("array_intersect(ARRAY[NULL], ARRAY[])", new ArrayType(UNKNOWN), Collections.emptyList());
     }
 
     @Test
@@ -71,7 +73,7 @@ public class TestArrayIntersectFunction
     public void testSQLFunctions()
     {
         assertFunction("array_intersect(ARRAY[ARRAY[1, 3, 5], ARRAY[2, 3, 5], ARRAY[3, 3, 3, 6]])", new ArrayType(INTEGER), ImmutableList.of(3));
-        assertFunction("array_intersect(ARRAY[ARRAY[], ARRAY[1, 2, 3]])", new ArrayType(INTEGER), ImmutableList.of());
+        assertFunction("array_intersect(ARRAY[ARRAY[], ARRAY[1, 2, 3]])", new ArrayType(INTEGER), Collections.emptyList());
         assertFunction("array_intersect(ARRAY[ARRAY[1, 2, 3], null])", new ArrayType(INTEGER), null);
         assertFunction("array_intersect(ARRAY[ARRAY[DOUBLE'1.1', DOUBLE'2.2', DOUBLE'3.3'], ARRAY[DOUBLE'1.1', DOUBLE'3.4'], ARRAY[DOUBLE'1.0', DOUBLE'1.1', DOUBLE'1.2']])", new ArrayType(DOUBLE), ImmutableList.of(1.1));
 

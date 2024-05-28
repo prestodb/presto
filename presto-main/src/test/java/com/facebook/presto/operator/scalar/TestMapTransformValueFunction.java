@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -206,10 +207,10 @@ public class TestMapTransformValueFunction
         assertFunction(
                 "transform_values(map(ARRAY [ARRAY [1, 2], ARRAY []], ARRAY ['a', 'ff']), (k, v) -> k || from_base(v, 16))",
                 mapType(new ArrayType(INTEGER), new ArrayType(BIGINT)),
-                ImmutableMap.of(ImmutableList.of(1, 2), ImmutableList.of(1L, 2L, 10L), ImmutableList.of(), ImmutableList.of(255L)));
+                ImmutableMap.of(ImmutableList.of(1, 2), ImmutableList.of(1L, 2L, 10L), Collections.emptyList(), ImmutableList.of(255L)));
         assertFunction(
                 "transform_values(map(ARRAY [ARRAY [3, 4], ARRAY []], ARRAY [ARRAY ['a', 'b', 'c'], ARRAY ['a', 'c']]), (k, v) -> transform(k, x -> CAST(x AS VARCHAR)) || v)",
                 mapType(new ArrayType(INTEGER), new ArrayType(VARCHAR)),
-                ImmutableMap.of(ImmutableList.of(3, 4), ImmutableList.of("3", "4", "a", "b", "c"), ImmutableList.of(), ImmutableList.of("a", "c")));
+                ImmutableMap.of(ImmutableList.of(3, 4), ImmutableList.of("3", "4", "a", "b", "c"), Collections.emptyList(), ImmutableList.of("a", "c")));
     }
 }

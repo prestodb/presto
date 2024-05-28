@@ -47,6 +47,7 @@ import com.google.common.collect.Multimap;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -311,8 +312,8 @@ public class FunctionCallRewriter
                 identifierToArgumentMap.put(toIdentifier(patternArguments.get(i)), instanceArguments.get(i));
             }
 
-            List<SortItem> patternOrderBys = originalPattern.getOrderBy().map(OrderBy::getSortItems).orElse(ImmutableList.of());
-            List<SortItem> instanceOrderBys = originalInstance.getOrderBy().map(OrderBy::getSortItems).orElse(ImmutableList.of());
+            List<SortItem> patternOrderBys = originalPattern.getOrderBy().map(OrderBy::getSortItems).orElse(Collections.emptyList());
+            List<SortItem> instanceOrderBys = originalInstance.getOrderBy().map(OrderBy::getSortItems).orElse(Collections.emptyList());
             for (int i = 0; i < patternOrderBys.size(); i++) {
                 Identifier identifier = (Identifier) patternOrderBys.get(i).getSortKey();
                 if (OMIT_IDENTIFIER.equals(identifier.getValue())) {
@@ -321,8 +322,8 @@ public class FunctionCallRewriter
                 identifierToArgumentMap.put(identifier, instanceOrderBys.get(i).getSortKey());
             }
 
-            List<Expression> patternWindowPartitionBys = originalPattern.getWindow().map(Window::getPartitionBy).orElse(ImmutableList.of());
-            List<Expression> instanceWindowPartitionBys = originalInstance.getWindow().map(Window::getPartitionBy).orElse(ImmutableList.of());
+            List<Expression> patternWindowPartitionBys = originalPattern.getWindow().map(Window::getPartitionBy).orElse(Collections.emptyList());
+            List<Expression> instanceWindowPartitionBys = originalInstance.getWindow().map(Window::getPartitionBy).orElse(Collections.emptyList());
             for (int i = 0; i < patternWindowPartitionBys.size(); i++) {
                 Identifier identifier = (Identifier) patternWindowPartitionBys.get(i);
                 if (OMIT_IDENTIFIER.equals(identifier.getValue())) {
@@ -331,8 +332,8 @@ public class FunctionCallRewriter
                 identifierToArgumentMap.put(identifier, instanceWindowPartitionBys.get(i));
             }
 
-            List<SortItem> patternWindowOrderBys = originalPattern.getWindow().flatMap(Window::getOrderBy).map(OrderBy::getSortItems).orElse(ImmutableList.of());
-            List<SortItem> instanceWindowOrderBys = originalInstance.getWindow().flatMap(Window::getOrderBy).map(OrderBy::getSortItems).orElse(ImmutableList.of());
+            List<SortItem> patternWindowOrderBys = originalPattern.getWindow().flatMap(Window::getOrderBy).map(OrderBy::getSortItems).orElse(Collections.emptyList());
+            List<SortItem> instanceWindowOrderBys = originalInstance.getWindow().flatMap(Window::getOrderBy).map(OrderBy::getSortItems).orElse(Collections.emptyList());
             for (int i = 0; i < patternWindowOrderBys.size(); i++) {
                 Identifier identifier = (Identifier) patternWindowOrderBys.get(i).getSortKey();
                 if (OMIT_IDENTIFIER.equals(identifier.getValue())) {
@@ -462,9 +463,9 @@ public class FunctionCallRewriter
             FunctionCall functionCall = (FunctionCall) expression;
 
             Stream<Expression> arguments = functionCall.getArguments().stream();
-            arguments = Stream.concat(arguments, functionCall.getOrderBy().map(OrderBy::getSortItems).orElse(ImmutableList.of()).stream().map(SortItem::getSortKey));
-            arguments = Stream.concat(arguments, functionCall.getWindow().map(Window::getPartitionBy).orElse(ImmutableList.of()).stream());
-            arguments = Stream.concat(arguments, functionCall.getWindow().flatMap(Window::getOrderBy).map(OrderBy::getSortItems).orElse(ImmutableList.of()).stream().map(SortItem::getSortKey));
+            arguments = Stream.concat(arguments, functionCall.getOrderBy().map(OrderBy::getSortItems).orElse(Collections.emptyList()).stream().map(SortItem::getSortKey));
+            arguments = Stream.concat(arguments, functionCall.getWindow().map(Window::getPartitionBy).orElse(Collections.emptyList()).stream());
+            arguments = Stream.concat(arguments, functionCall.getWindow().flatMap(Window::getOrderBy).map(OrderBy::getSortItems).orElse(Collections.emptyList()).stream().map(SortItem::getSortKey));
 
             arguments.forEach(argument -> {
                 if (argument instanceof Identifier || argument instanceof Literal) {

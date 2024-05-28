@@ -40,6 +40,7 @@ import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
 import java.lang.invoke.MethodHandles;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -403,7 +404,7 @@ public class TestFunctionAndTypeManager
 
     private static SignatureBuilder functionSignature(List<String> arguments, String returnType)
     {
-        return functionSignature(arguments, returnType, ImmutableList.of());
+        return functionSignature(arguments, returnType, Collections.emptyList());
     }
 
     private static SignatureBuilder functionSignature(List<String> arguments, String returnType, List<TypeVariableConstraint> typeVariableConstraints)
@@ -428,8 +429,8 @@ public class TestFunctionAndTypeManager
     {
         private static final String TEST_FUNCTION_NAME = "TEST_FUNCTION_NAME";
 
-        private List<SignatureBuilder> functionSignatures = ImmutableList.of();
-        private List<TypeSignature> parameterTypes = ImmutableList.of();
+        private List<SignatureBuilder> functionSignatures = Collections.emptyList();
+        private List<TypeSignature> parameterTypes = Collections.emptyList();
 
         public ResolveFunctionAssertion among(SignatureBuilder... functionSignatures)
         {

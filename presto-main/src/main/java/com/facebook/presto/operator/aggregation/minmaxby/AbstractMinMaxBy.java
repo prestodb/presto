@@ -44,6 +44,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -88,7 +89,7 @@ public abstract class AbstractMinMaxBy
     {
         super((min ? "min" : "max") + "_by",
                 ImmutableList.of(orderableTypeParameter("K"), typeVariable("V")),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 parseTypeSignature("V"),
                 ImmutableList.of(parseTypeSignature("V"), parseTypeSignature("K")));
         this.min = min;

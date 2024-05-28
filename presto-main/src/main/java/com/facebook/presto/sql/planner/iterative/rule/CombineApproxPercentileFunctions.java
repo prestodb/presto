@@ -33,6 +33,7 @@ import com.facebook.presto.sql.planner.iterative.Rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -315,7 +316,7 @@ public class CombineApproxPercentileFunctions
                                         aggregationNode.getSource(), sourceProjectAssignments.build()),
                                 aggregations.build(),
                                 aggregationNode.getGroupingSets(),
-                                ImmutableList.of(),
+                                Collections.emptyList(),
                                 aggregationNode.getStep(),
                                 aggregationNode.getHashVariable(),
                                 aggregationNode.getGroupIdVariable(),

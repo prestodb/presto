@@ -22,6 +22,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -56,15 +57,15 @@ public class TestDwrfEncryptionMetadata
 
         List<OrcType> orcTypes = ImmutableList.of(
                 new OrcType(OrcType.OrcTypeKind.STRUCT, ImmutableList.of(1, 2, 4), ImmutableList.of("c1", "c2,", "c3"), Optional.empty(), Optional.empty(), Optional.empty()),
-                new OrcType(OrcType.OrcTypeKind.INT, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty()),
+                new OrcType(OrcType.OrcTypeKind.INT, Collections.emptyList(), Collections.emptyList(), Optional.empty(), Optional.empty(), Optional.empty()),
                 new OrcType(OrcType.OrcTypeKind.STRUCT, ImmutableList.of(3), ImmutableList.of("d1"), Optional.empty(), Optional.empty(), Optional.empty()),
-                new OrcType(OrcType.OrcTypeKind.INT, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty()),
+                new OrcType(OrcType.OrcTypeKind.INT, Collections.emptyList(), Collections.emptyList(), Optional.empty(), Optional.empty(), Optional.empty()),
                 new OrcType(OrcType.OrcTypeKind.STRUCT, ImmutableList.of(5, 6), ImmutableList.of("d1", "d2"), Optional.empty(), Optional.empty(), Optional.empty()),
-                new OrcType(OrcType.OrcTypeKind.INT, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty()),
+                new OrcType(OrcType.OrcTypeKind.INT, Collections.emptyList(), Collections.emptyList(), Optional.empty(), Optional.empty(), Optional.empty()),
                 new OrcType(OrcType.OrcTypeKind.STRUCT, ImmutableList.of(7, 9), ImmutableList.of("e1", "e2"), Optional.empty(), Optional.empty(), Optional.empty()),
                 new OrcType(OrcType.OrcTypeKind.STRUCT, ImmutableList.of(8), ImmutableList.of("f1"), Optional.empty(), Optional.empty(), Optional.empty()),
-                new OrcType(OrcType.OrcTypeKind.INT, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty()),
-                new OrcType(OrcType.OrcTypeKind.INT, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty()));
+                new OrcType(OrcType.OrcTypeKind.INT, Collections.emptyList(), Collections.emptyList(), Optional.empty(), Optional.empty(), Optional.empty()),
+                new OrcType(OrcType.OrcTypeKind.INT, Collections.emptyList(), Collections.emptyList(), Optional.empty(), Optional.empty(), Optional.empty()));
         Map<Integer, Slice> actualKeyMap = dwrfEncryptionMetadata.toKeyMap(orcTypes, columnHandleList);
         Map<Integer, Slice> expectedKeyMap = ImmutableMap.of(
                 1, Slices.wrappedBuffer("abcd".getBytes()),
@@ -87,8 +88,8 @@ public class TestDwrfEncryptionMetadata
                 new HiveColumnHandle("c2", HIVE_INT, TypeSignature.parseTypeSignature(BIGINT), 2, HiveColumnHandle.ColumnType.REGULAR, Optional.empty(), Optional.empty()));
 
         List<OrcType> orcTypes = ImmutableList.of(
-                new OrcType(OrcType.OrcTypeKind.INT, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty()),
-                new OrcType(OrcType.OrcTypeKind.INT, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty()));
+                new OrcType(OrcType.OrcTypeKind.INT, Collections.emptyList(), Collections.emptyList(), Optional.empty(), Optional.empty(), Optional.empty()),
+                new OrcType(OrcType.OrcTypeKind.INT, Collections.emptyList(), Collections.emptyList(), Optional.empty(), Optional.empty(), Optional.empty()));
         Map<Integer, Slice> actualKeyMap = dwrfEncryptionMetadata.toKeyMap(orcTypes, columnHandleList);
         Map<Integer, Slice> expectedKeyMap = ImmutableMap.of(0, Slices.wrappedBuffer("abcd".getBytes()));
         assertEquals(actualKeyMap, expectedKeyMap);
@@ -104,7 +105,7 @@ public class TestDwrfEncryptionMetadata
 
         List<OrcType> orcTypes = ImmutableList.of(
                 new OrcType(OrcType.OrcTypeKind.STRUCT, ImmutableList.of(1), ImmutableList.of("column1"), Optional.empty(), Optional.empty(), Optional.empty()),
-                new OrcType(OrcType.OrcTypeKind.INT, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty()));
+                new OrcType(OrcType.OrcTypeKind.INT, Collections.emptyList(), Collections.emptyList(), Optional.empty(), Optional.empty(), Optional.empty()));
         dwrfEncryptionMetadata.toKeyMap(orcTypes, columnHandleList);
     }
 }

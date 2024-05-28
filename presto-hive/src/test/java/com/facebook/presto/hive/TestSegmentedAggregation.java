@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.SEGMENTED_AGGREGATION_ENABLED;
@@ -68,7 +69,7 @@ public class TestSegmentedAggregation
                     anyTree(aggregation(
                             singleGroupingSet("custkey"),
                             ImmutableMap.of(Optional.of("count"), functionCall("count", ImmutableList.of("name"))),
-                            ImmutableList.of(), // no segmented streaming
+                            Collections.emptyList(), // no segmented streaming
                             ImmutableMap.of(),
                             Optional.empty(),
                             SINGLE,
@@ -97,7 +98,7 @@ public class TestSegmentedAggregation
                             "WHERE ds = '2021-07-11' GROUP BY 1, 2, 3",
                     anyTree(aggregation(
                             singleGroupingSet("custkey", "name", "nationkey"),
-                            ImmutableMap.of(Optional.empty(), functionCall("count", ImmutableList.of())),
+                            ImmutableMap.of(Optional.empty(), functionCall("count", Collections.emptyList())),
                             ImmutableList.of("custkey", "name"), // segmented streaming
                             ImmutableMap.of(),
                             Optional.empty(),
@@ -127,7 +128,7 @@ public class TestSegmentedAggregation
                             "WHERE ds = '2021-07-11' GROUP BY 1, 2",
                     anyTree(aggregation(
                             singleGroupingSet("name", "custkey"),
-                            ImmutableMap.of(Optional.empty(), functionCall("count", ImmutableList.of())),
+                            ImmutableMap.of(Optional.empty(), functionCall("count", Collections.emptyList())),
                             ImmutableList.of("custkey"), // segmented aggregation
                             ImmutableMap.of(),
                             Optional.empty(),
@@ -157,7 +158,7 @@ public class TestSegmentedAggregation
                             "WHERE ds = '2021-07-11' GROUP BY 1, 2, 3",
                     anyTree(aggregation(
                             singleGroupingSet("name", "custkey", "nationkey"),
-                            ImmutableMap.of(Optional.empty(), functionCall("count", ImmutableList.of())),
+                            ImmutableMap.of(Optional.empty(), functionCall("count", Collections.emptyList())),
                             ImmutableList.of("custkey"), // segmented aggregation
                             ImmutableMap.of(),
                             Optional.empty(),

@@ -117,7 +117,7 @@ public class TestInMemoryGroupedTopNBuilder
                 produceRowNumbers,
                 new TestingMemoryContext(100L),
                 groupByHash);
-        assertBuilderSize(groupByHash, types, ImmutableList.of(), ImmutableList.of(), groupedTopNBuilder.getEstimatedSizeInBytes());
+        assertBuilderSize(groupByHash, types, Collections.emptyList(), Collections.emptyList(), groupedTopNBuilder.getEstimatedSizeInBytes());
 
         // add 4 rows for the first page and created three heaps with 1, 1, 2 rows respectively
         assertTrue(groupedTopNBuilder.processPage(input.get(0)).process());
@@ -192,7 +192,7 @@ public class TestInMemoryGroupedTopNBuilder
                 new NoChannelGroupByHash());
 
         GroupByHash groupByHash = groupedTopNBuilder.getGroupByHash();
-        assertBuilderSize(groupByHash, types, ImmutableList.of(), ImmutableList.of(), groupedTopNBuilder.getEstimatedSizeInBytes());
+        assertBuilderSize(groupByHash, types, Collections.emptyList(), Collections.emptyList(), groupedTopNBuilder.getEstimatedSizeInBytes());
 
         // add 4 rows for the first page and created a single heap with 4 rows
         assertTrue(groupedTopNBuilder.processPage(input.get(0)).process());
@@ -253,7 +253,7 @@ public class TestInMemoryGroupedTopNBuilder
                 false,
                 new TestingMemoryContext(100L),
                 groupByHash);
-        assertBuilderSize(groupByHash, types, ImmutableList.of(), ImmutableList.of(), groupedTopNBuilder.getEstimatedSizeInBytes());
+        assertBuilderSize(groupByHash, types, Collections.emptyList(), Collections.emptyList(), groupedTopNBuilder.getEstimatedSizeInBytes());
 
         Work<?> work = groupedTopNBuilder.processPage(input);
         assertFalse(work.process());
@@ -271,7 +271,7 @@ public class TestInMemoryGroupedTopNBuilder
                 .build()
                 .get(0);
         assertPageEquals(types, output.get(0), expected);
-        assertBuilderSize(groupByHash, types, ImmutableList.of(0), ImmutableList.of(), groupedTopNBuilder.getEstimatedSizeInBytes());
+        assertBuilderSize(groupByHash, types, ImmutableList.of(0), Collections.emptyList(), groupedTopNBuilder.getEstimatedSizeInBytes());
     }
 
     @Test

@@ -74,6 +74,7 @@ import java.io.OutputStream;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -190,7 +191,7 @@ public class FileHiveMetastore
         requireNonNull(databaseName, "databaseName is null");
 
         getRequiredDatabase(metastoreContext, databaseName);
-        if (!getAllTables(metastoreContext, databaseName).orElse(ImmutableList.of()).isEmpty()) {
+        if (!getAllTables(metastoreContext, databaseName).orElse(Collections.emptyList()).isEmpty()) {
             throw new PrestoException(HIVE_METASTORE_ERROR, "Database " + databaseName + " is not empty");
         }
 
@@ -763,7 +764,7 @@ public class FileHiveMetastore
     @Override
     public synchronized Set<String> listRoles(MetastoreContext metastoreContext)
     {
-        return ImmutableSet.copyOf(readFile("roles", getRolesFile(), rolesCodec).orElse(ImmutableList.of()));
+        return ImmutableSet.copyOf(readFile("roles", getRolesFile(), rolesCodec).orElse(Collections.emptyList()));
     }
 
     @Override
@@ -877,7 +878,7 @@ public class FileHiveMetastore
 
     private Set<RoleGrant> readRoleGrantsFile()
     {
-        return ImmutableSet.copyOf(readFile("roleGrants", getRoleGrantsFile(), roleGrantsCodec).orElse(ImmutableList.of()));
+        return ImmutableSet.copyOf(readFile("roleGrants", getRoleGrantsFile(), roleGrantsCodec).orElse(Collections.emptyList()));
     }
 
     private void writeRoleGrantsFile(Set<RoleGrant> roleGrants)
@@ -911,7 +912,7 @@ public class FileHiveMetastore
     private List<ArrayDeque<String>> listPartitions(Path director, List<Column> partitionColumns)
     {
         if (partitionColumns.isEmpty()) {
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
 
         try {
@@ -1025,7 +1026,7 @@ public class FileHiveMetastore
             result.add(new HivePrivilegeInfo(OWNERSHIP, true, principal, principal));
         }
         Path permissionFilePath = getPermissionsPath(getPermissionsDirectory(table), principal);
-        result.addAll(readFile("permissions", permissionFilePath, permissionsCodec).orElse(ImmutableList.of()).stream()
+        result.addAll(readFile("permissions", permissionFilePath, permissionsCodec).orElse(Collections.emptyList()).stream()
                 .map(permissionMetadata -> permissionMetadata.toHivePrivilegeInfo(principal.getName()))
                 .collect(toSet()));
         return result.build();
@@ -1274,7 +1275,7 @@ public class FileHiveMetastore
     {
         try {
             if (!metadataFileSystem.isDirectory(metadataDirectory)) {
-                return ImmutableList.of();
+                return Collections.emptyList();
             }
 
             ImmutableList.Builder<Path> childSchemaDirectories = ImmutableList.builder();

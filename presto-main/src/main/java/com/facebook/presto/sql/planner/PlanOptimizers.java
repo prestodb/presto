@@ -187,6 +187,7 @@ import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -925,7 +926,7 @@ public class PlanOptimizers
                 ruleStats,
                 statsCalculator,
                 costCalculator,
-                ImmutableList.of(),
+                Collections.emptyList(),
                 ImmutableSet.of(new RuntimeReorderJoinSides(metadata, sqlParser))));
         this.runtimeOptimizers = runtimeBuilder.build();
     }

@@ -20,10 +20,10 @@ import com.facebook.presto.hive.metastore.thrift.BridgingHiveMetastore;
 import com.facebook.presto.hive.metastore.thrift.TestingHiveCluster;
 import com.facebook.presto.hive.metastore.thrift.ThriftHiveMetastore;
 import com.facebook.presto.tests.DistributedQueryRunner;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 
@@ -41,7 +41,7 @@ public final class S3HiveQueryRunner
             Map<String, String> additionalHiveProperties)
             throws Exception
     {
-        return HiveQueryRunner.createQueryRunner(ImmutableList.of(), ImmutableList.of(), ImmutableMap.of(),
+        return HiveQueryRunner.createQueryRunner(Collections.emptyList(), Collections.emptyList(), ImmutableMap.of(),
                 ImmutableMap.of(), "sql-standard",
                 ImmutableMap.<String, String>builder()
                         .put("hive.s3.endpoint", "http://" + s3Endpoint)

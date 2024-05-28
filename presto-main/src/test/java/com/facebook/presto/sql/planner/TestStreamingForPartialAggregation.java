@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.STREAMING_FOR_PARTIAL_AGGREGATION_ENABLED;
@@ -42,7 +43,7 @@ public class TestStreamingForPartialAggregation
         assertPlan("SELECT clerk, count(*) FROM orders GROUP BY 1",
                 anyTree(aggregation(
                         singleGroupingSet("clerk"),
-                        ImmutableMap.of(Optional.empty(), functionCall("count", ImmutableList.of())),
+                        ImmutableMap.of(Optional.empty(), functionCall("count", Collections.emptyList())),
                         ImmutableList.of("clerk"), // streaming
                         ImmutableMap.of(),
                         Optional.empty(),

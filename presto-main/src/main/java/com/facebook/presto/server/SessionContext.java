@@ -20,11 +20,11 @@ import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.spi.tracing.Tracer;
-import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nullable;
 
 import java.security.cert.X509Certificate;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -36,7 +36,7 @@ public interface SessionContext
 
     default List<X509Certificate> getCertificates()
     {
-        return ImmutableList.of();
+        return Collections.emptyList();
     }
 
     @Nullable

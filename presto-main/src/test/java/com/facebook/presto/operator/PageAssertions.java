@@ -22,6 +22,7 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.block.BlockAssertions.Encoding.DICTIONARY;
@@ -52,7 +53,7 @@ public final class PageAssertions
 
     public static Page createPageWithRandomData(List<Type> types, int positionCount, float primitiveNullRate, float nestedNullRate)
     {
-        return createPageWithRandomData(types, positionCount, true, false, primitiveNullRate, nestedNullRate, false, ImmutableList.of());
+        return createPageWithRandomData(types, positionCount, true, false, primitiveNullRate, nestedNullRate, false, Collections.emptyList());
     }
 
     public static Page createDictionaryPageWithRandomData(List<Type> types, int positionCount, float primitiveNullRate, float nestedNullRate)

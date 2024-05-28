@@ -25,6 +25,7 @@ import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -132,7 +133,7 @@ public class TaskStats
                 0L,
                 0,
                 0L,
-                ImmutableList.of(),
+                Collections.emptyList(),
                 new RuntimeStats());
     }
 
@@ -595,7 +596,7 @@ public class TaskStats
                 physicalWrittenDataSizeInBytes,
                 fullGcCount,
                 fullGcTimeInMillis,
-                ImmutableList.of(),
+                Collections.emptyList(),
                 runtimeStats);
     }
 

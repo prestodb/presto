@@ -26,6 +26,7 @@ import com.facebook.presto.spi.function.InvocationConvention;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -53,7 +54,7 @@ public class RowDistinctFromOperator
     {
         super(IS_DISTINCT_FROM,
                 ImmutableList.of(comparableWithVariadicBound("T", "row")),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 parseTypeSignature(StandardTypes.BOOLEAN),
                 ImmutableList.of(parseTypeSignature("T"), parseTypeSignature("T")));
     }

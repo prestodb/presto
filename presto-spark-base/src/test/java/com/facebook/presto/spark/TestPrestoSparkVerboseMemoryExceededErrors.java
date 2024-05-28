@@ -16,7 +16,8 @@ package com.facebook.presto.spark;
 import com.facebook.presto.Session;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestVerboseMemoryExceededErrors;
-import com.google.common.collect.ImmutableList;
+
+import java.util.Collections;
 
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_TOTAL_MEMORY_PER_NODE;
 import static com.facebook.presto.spark.PrestoSparkQueryRunner.createHivePrestoSparkQueryRunner;
@@ -27,7 +28,7 @@ public class TestPrestoSparkVerboseMemoryExceededErrors
     @Override
     protected QueryRunner createQueryRunner()
     {
-        return createHivePrestoSparkQueryRunner(ImmutableList.of());
+        return createHivePrestoSparkQueryRunner(Collections.emptyList());
     }
 
     @Override

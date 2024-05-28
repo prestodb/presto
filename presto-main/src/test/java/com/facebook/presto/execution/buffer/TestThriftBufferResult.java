@@ -15,8 +15,9 @@ package com.facebook.presto.execution.buffer;
 
 import com.facebook.presto.spi.page.PageCodecMarker;
 import com.facebook.presto.spi.page.SerializedPage;
-import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
+
+import java.util.Collections;
 
 import static com.facebook.presto.execution.buffer.ThriftBufferResult.fromBufferResult;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
@@ -36,7 +37,7 @@ public class TestThriftBufferResult
     @Test
     public void testThriftBufferResult()
     {
-        BufferResult bufferResult = new BufferResult("task-instance-id", 0, 0, false, 0, ImmutableList.of());
+        BufferResult bufferResult = new BufferResult("task-instance-id", 0, 0, false, 0, Collections.emptyList());
         ThriftBufferResult thriftBufferResult = fromBufferResult(bufferResult);
         BufferResult newBufferResult = thriftBufferResult.toBufferResult();
         assertEquals(bufferResult, newBufferResult);

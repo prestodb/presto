@@ -18,6 +18,7 @@ import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
@@ -124,7 +125,7 @@ public class TestZOrder
     public void testZOrderEmptyInput()
     {
         ZOrder zOrder = new ZOrder(ImmutableList.of(8, 8), true);
-        List<Integer> intColumns = ImmutableList.of();
+        List<Integer> intColumns = Collections.emptyList();
 
         try {
             zOrder.encodeToByteArray(intColumns);
@@ -153,7 +154,7 @@ public class TestZOrder
     public void testZOrderEmptyEncodingBits()
     {
         try {
-            new ZOrder(ImmutableList.of(), true);
+            new ZOrder(Collections.emptyList(), true);
             fail("Expected test to fail: encoding bits list should not be empty.");
         }
         catch (IllegalArgumentException e) {
@@ -381,13 +382,13 @@ public class TestZOrder
 
         List<ZAddressRange<Integer>> addresses = zOrder.zOrderSearchCurveIntegers(ranges);
 
-        assertEquals(addresses, ImmutableList.of());
+        assertEquals(addresses, Collections.emptyList());
 
         ranges = ImmutableList.of(new ZValueRange(ImmutableList.of(Optional.of(3)), ImmutableList.of(Optional.of(3))));
 
         addresses = zOrder.zOrderSearchCurveIntegers(ranges);
 
-        assertEquals(addresses, ImmutableList.of());
+        assertEquals(addresses, Collections.emptyList());
     }
 
     private static int getHighestSetBitPosition(int value)

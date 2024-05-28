@@ -14,9 +14,9 @@
 package com.facebook.presto.bytecode;
 
 import com.facebook.presto.bytecode.instruction.InstructionNode;
-import com.google.common.collect.ImmutableList;
 import org.objectweb.asm.MethodVisitor;
 
+import java.util.Collections;
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -52,7 +52,7 @@ public class Comment
     @Override
     public List<BytecodeNode> getChildNodes()
     {
-        return ImmutableList.of();
+        return Collections.emptyList();
     }
 
     @Override

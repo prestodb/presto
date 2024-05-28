@@ -21,6 +21,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.reflect.Method;
+import java.util.Collections;
 import java.util.List;
 
 import static com.google.common.collect.Iterables.transform;
@@ -66,7 +67,7 @@ class InvokeDynamicBytecodeExpression
     @Override
     public List<BytecodeNode> getChildNodes()
     {
-        return ImmutableList.of();
+        return Collections.emptyList();
     }
 
     @Override

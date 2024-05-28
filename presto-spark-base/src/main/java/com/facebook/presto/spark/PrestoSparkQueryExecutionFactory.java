@@ -124,6 +124,7 @@ import java.net.URI;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -354,7 +355,7 @@ public class PrestoSparkQueryExecutionFactory
                 new MemoryPoolId("spark-memory-pool"),
                 queryStats.isScheduled(),
                 URI.create("http://fake.invalid/query/" + session.getQueryId()),
-                planAndMore.map(PlanAndMore::getFieldNames).orElse(ImmutableList.of()),
+                planAndMore.map(PlanAndMore::getFieldNames).orElse(Collections.emptyList()),
                 query,
                 Optional.empty(),
                 Optional.empty(),
@@ -384,7 +385,7 @@ public class PrestoSparkQueryExecutionFactory
                 ImmutableSet.of(),
                 planAndMore.map(PlanAndMore::getPlan).map(Plan::getStatsAndCosts).orElseGet(StatsAndCosts::empty),
                 session.getOptimizerInformationCollector().getOptimizationInfo(),
-                ImmutableList.of(),
+                Collections.emptyList(),
                 planAndMore.map(PlanAndMore::getInvokedScalarFunctions).orElseGet(ImmutableSet::of),
                 planAndMore.map(PlanAndMore::getInvokedAggregateFunctions).orElseGet(ImmutableSet::of),
                 planAndMore.map(PlanAndMore::getInvokedWindowFunctions).orElseGet(ImmutableSet::of),
@@ -432,7 +433,7 @@ public class PrestoSparkQueryExecutionFactory
                 URI.create("http://fake.invalid/stage/" + stageId),
                 Optional.of(plan.getFragment()),
                 stageExecutionInfo,
-                ImmutableList.of(),
+                Collections.emptyList(),
                 plan.getChildren().stream()
                         .map(child -> createStageInfo(queryId, child, taskInfoMap))
                         .collect(toImmutableList()),

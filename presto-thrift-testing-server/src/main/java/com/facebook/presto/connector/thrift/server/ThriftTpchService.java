@@ -47,6 +47,7 @@ import javax.annotation.PreDestroy;
 
 import java.io.Closeable;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -111,7 +112,7 @@ public class ThriftTpchService
 
     protected List<Set<String>> getIndexableKeys(String schemaName, String tableName)
     {
-        return ImmutableList.of();
+        return Collections.emptyList();
     }
 
     @Override
@@ -142,7 +143,7 @@ public class ThriftTpchService
                     schemaTableName.getTableName(),
                     partNumber + 1,
                     totalParts);
-            splits.add(new PrestoThriftSplit(new PrestoThriftId(SPLIT_INFO_CODEC.toJsonBytes(splitInfo)), ImmutableList.of()));
+            splits.add(new PrestoThriftSplit(new PrestoThriftId(SPLIT_INFO_CODEC.toJsonBytes(splitInfo)), Collections.emptyList()));
             partNumber++;
         }
         PrestoThriftId newNextToken = partNumber < totalParts ? new PrestoThriftId(Ints.toByteArray(partNumber)) : null;
@@ -252,7 +253,7 @@ public class ThriftTpchService
     {
         if (page == null) {
             checkState(nextToken == null, "there must be no more data when page is null");
-            return new PrestoThriftPageResult(ImmutableList.of(), 0, null);
+            return new PrestoThriftPageResult(Collections.emptyList(), 0, null);
         }
         checkState(page.getChannelCount() == columnTypes.size(), "number of columns in a page doesn't match the one in requested types");
         int numberOfColumns = columnTypes.size();
@@ -314,7 +315,7 @@ public class ThriftTpchService
             return ImmutableList.of(schemaNameOrNull);
         }
         else {
-            return ImmutableList.of();
+            return Collections.emptyList();
         }
     }
 
