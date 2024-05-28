@@ -37,9 +37,9 @@ public class RemoteQueryInfo
 
     private final AtomicReference<Optional<List<JsonNode>>> queryList = new AtomicReference<>(Optional.empty());
 
-    public RemoteQueryInfo(HttpClient httpClient, URI remoteUri)
+    public RemoteQueryInfo(HttpClient httpClient, URI remoteUri, RemoteStateConfig remoteStateConfig)
     {
-        super(httpClient, remoteUri);
+        super(httpClient, remoteUri, remoteStateConfig);
     }
 
     public Optional<List<JsonNode>> getQueryList()
