@@ -413,6 +413,11 @@ struct Timestamp {
     return obj;
   }
 
+  // Pretty printer for gtest.
+  friend void PrintTo(const Timestamp& timestamp, std::ostream* os) {
+    *os << "sec: " << timestamp.seconds_ << ", ns: " << timestamp.nanos_;
+  }
+
  private:
   int64_t seconds_;
   uint64_t nanos_;
