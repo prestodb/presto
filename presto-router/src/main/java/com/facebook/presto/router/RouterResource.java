@@ -40,7 +40,6 @@ import static javax.ws.rs.core.Response.Status.BAD_GATEWAY;
 public class RouterResource
 {
     private static final Logger log = Logger.get(RouterResource.class);
-
     private final ClusterManager clusterManager;
 
     @Inject
