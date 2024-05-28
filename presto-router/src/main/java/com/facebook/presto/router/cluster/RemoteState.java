@@ -25,9 +25,12 @@ import io.airlift.units.Duration;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
+import javax.inject.Inject;
 
 import java.net.URI;
+import java.time.Instant;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -47,15 +50,22 @@ public abstract class RemoteState
     private static final JsonCodec<JsonNode> JSON_CODEC = jsonCodec(JsonNode.class);
 
     private final HttpClient httpClient;
-    private final URI remoteUri;
+    public final URI remoteUri;
     private final AtomicReference<Future<?>> future = new AtomicReference<>();
     private final AtomicLong lastUpdateNanos = new AtomicLong();
     private final AtomicLong lastWarningLogged = new AtomicLong();
+    private final java.time.Duration clusterUnhealthyTimeout;
 
-    public RemoteState(HttpClient httpClient, URI remoteUri)
+    private AtomicBoolean isHealthy;
+    private volatile Instant lastHealthyResponseTime = Instant.now();
+
+    @Inject
+    public RemoteState(HttpClient httpClient, URI remoteUri, RemoteStateConfig remoteStateConfig)
     {
+        this.isHealthy = new AtomicBoolean(true);
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.remoteUri = requireNonNull(remoteUri, "remoteUri is null");
+        this.clusterUnhealthyTimeout = remoteStateConfig.getClusterUnhealthyTimeout();
     }
 
     public void handleResponse(JsonNode response) {}
@@ -67,8 +77,16 @@ public abstract class RemoteState
         if (nanosSince(lastWarningLogged.get()).toMillis() > 1_000 &&
                 sinceUpdate.toMillis() > 10_000 &&
                 future.get() != null) {
-            log.warn("Coordinator update request to %s has not returned in %s", remoteUri, sinceUpdate.toString(SECONDS));
+            log.warn(
+                    "Coordinator update request to %s has not returned in %s",
+                    String.format("%s:%d", remoteUri.getHost(), remoteUri.getPort()),
+                    sinceUpdate.toString(SECONDS));
             lastWarningLogged.set(System.nanoTime());
+        }
+
+        if (java.time.Duration.between(lastHealthyResponseTime, Instant.now()).compareTo(clusterUnhealthyTimeout) >= 0 && isHealthy.get()) {
+            isHealthy.set(false);
+            log.warn("%s:%d marked as unhealthy", remoteUri.getHost(), remoteUri.getPort());
         }
 
         if (sinceUpdate.toMillis() > 1_000 && future.get() == null) {
@@ -91,9 +109,18 @@ public abstract class RemoteState
                             handleResponse(result.getValue());
                         }
                         if (result.getStatusCode() != OK.code()) {
-                            log.warn("Error fetching node state from %s returned status %d", remoteUri, result.getStatusCode());
-                            return;
+                            log.warn("Error fetching node state from %s returned status code %d", remoteUri, result.getStatusCode());
                         }
+                        else {
+                            if (!isHealthy.get()) {
+                                log.info("%s:%d was unhealthy, and is now healthy", remoteUri.getHost(), remoteUri.getPort());
+                                isHealthy.set(true);
+                            }
+                            lastHealthyResponseTime = Instant.now();
+                        }
+                    }
+                    else {
+                        log.info("RemoteState successful result was null");
                     }
                 }
 
@@ -106,5 +133,10 @@ public abstract class RemoteState
                 }
             }, directExecutor());
         }
+    }
+
+    public boolean isHealthy()
+    {
+        return isHealthy.get();
     }
 }
