@@ -1369,7 +1369,7 @@ TEST_F(TaskManagerTest, testCumulativeMemory) {
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
-  const auto memoryUsage = veloxTask->queryCtx()->pool()->currentBytes();
+  const auto memoryUsage = veloxTask->queryCtx()->pool()->usedBytes();
   ASSERT_GT(memoryUsage, 0);
 
   const uint64_t lastTimeMs = velox::getCurrentTimeMs();
