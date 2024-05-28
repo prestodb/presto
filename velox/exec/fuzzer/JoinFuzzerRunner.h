@@ -21,6 +21,8 @@
 #include "velox/common/memory/SharedArbitrator.h"
 #include "velox/exec/MemoryReclaimer.h"
 #include "velox/exec/fuzzer/JoinFuzzer.h"
+#include "velox/functions/prestosql/registration/RegistrationFunctions.h"
+#include "velox/parse/TypeResolver.h"
 #include "velox/serializers/PrestoSerializer.h"
 
 /// Join FuzzerRunner leverages JoinFuzzer and VectorFuzzer to
@@ -62,6 +64,8 @@ class JoinFuzzerRunner {
     facebook::velox::serializer::presto::PrestoVectorSerde::
         registerVectorSerde();
     facebook::velox::filesystems::registerLocalFileSystem();
+    facebook::velox::functions::prestosql::registerAllScalarFunctions();
+    facebook::velox::parse::registerTypeResolver();
 
     facebook::velox::exec::test::joinFuzzer(seed);
     return RUN_ALL_TESTS();
