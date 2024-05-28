@@ -146,7 +146,6 @@ public class OrcSelectivePageSource
 
         // figure out which block is the row ID and replace it
         page = page.replaceColumn(rowIDColumnIndex.getAsInt(), rowIDs);
-
         if (!appendRowNumberEnabled) {
             // remove the row number block now that the row IDs have been constructed unless it was also requested
             page = page.dropColumn(page.getChannelCount() - 1);
