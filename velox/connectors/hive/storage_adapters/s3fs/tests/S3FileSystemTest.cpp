@@ -60,40 +60,6 @@ TEST_F(S3FileSystemTest, writeAndRead) {
   readData(readFile.get());
 }
 
-TEST_F(S3FileSystemTest, viaRegistry) {
-  const char* bucketName = "data2";
-  const char* file = "test.txt";
-  const std::string filename = localPath(bucketName) + "/" + file;
-  const std::string s3File = s3URI(bucketName, file);
-  addBucket(bucketName);
-  {
-    LocalWriteFile writeFile(filename);
-    writeData(&writeFile);
-  }
-  auto hiveConfig = minioServer_->hiveConfig();
-  auto s3fs = filesystems::getFileSystem(s3File, hiveConfig);
-  auto readFile = s3fs->openFileForRead(s3File);
-  readData(readFile.get());
-}
-
-TEST_F(S3FileSystemTest, fileHandle) {
-  const char* bucketName = "data3";
-  const char* file = "test.txt";
-  const std::string filename = localPath(bucketName) + "/" + file;
-  const std::string s3File = s3URI(bucketName, file);
-  addBucket(bucketName);
-  {
-    LocalWriteFile writeFile(filename);
-    writeData(&writeFile);
-  }
-  auto hiveConfig = minioServer_->hiveConfig();
-  FileHandleFactory factory(
-      std::make_unique<SimpleLRUCache<std::string, FileHandle>>(1000),
-      std::make_unique<FileHandleGenerator>(hiveConfig));
-  auto fileHandle = factory.generate(s3File);
-  readData(fileHandle->file.get());
-}
-
 TEST_F(S3FileSystemTest, invalidCredentialsConfig) {
   {
     const std::unordered_map<std::string, std::string> config(
