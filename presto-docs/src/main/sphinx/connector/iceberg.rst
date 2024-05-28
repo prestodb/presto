@@ -651,7 +651,7 @@ example uses the earliest snapshot ID: ``2423571386296047175``
     SELECT * FROM "ctas_orders@2423571386296047175$changelog" ORDER BY ordinal;
 
 .. code-block:: text
-    
+
      operation | ordinal |     snapshotid      |                                                                                                                   rowdata
     -----------+---------+---------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
      INSERT    |       0 | 8702997868627997320 | {orderkey=37504, custkey=1291, orderstatus=O, totalprice=165509.83, orderdate=1996-03-04, orderpriority=5-LOW, clerk=Clerk#000000871, shippriority=0, comment=c theodolites alongside of the fluffily bold requests haggle quickly against }
@@ -663,6 +663,114 @@ example uses the earliest snapshot ID: ``2423571386296047175``
      INSERT    |       2 |  677209275408372885 | {orderkey=17990, custkey=458, orderstatus=O, totalprice=218031.58, orderdate=1998-03-18, orderpriority=3-MEDIUM, clerk=Clerk#000000340, shippriority=0, comment=ounts wake final foxe}
      INSERT    |       2 |  677209275408372885 | {orderkey=18016, custkey=403, orderstatus=O, totalprice=174070.99, orderdate=1996-03-19, orderpriority=1-URGENT, clerk=Clerk#000000629, shippriority=0, comment=ly. quickly ironic excuses are furiously. carefully ironic pack}
      INSERT    |       2 |  677209275408372885 | {orderkey=18017, custkey=958, orderstatus=F, totalprice=203091.02, orderdate=1993-03-26, orderpriority=1-URGENT, clerk=Clerk#000000830, shippriority=0, comment=sleep quickly bold requests. slyly pending pinto beans haggle in pla}
+
+Procedures
+----------
+
+Use the CALL statement to perform data manipulation or administrative tasks. Procedures are available in the ``system`` schema of the catalog.
+
+Register Table
+^^^^^^^^^^^^^^
+
+Iceberg tables for which table data and metadata already exist in the
+file system can be registered with the catalog. Use the ``register_table``
+procedure on the catalog's ``system`` schema and supply the target schema,
+desired table name, and the location of the table metadata::
+
+    CALL iceberg.system.register_table('schema_name', 'table_name', 'hdfs://localhost:9000/path/to/iceberg/table/metadata/dir')
+
+.. note::
+
+    If multiple metadata files of the same version exist at the specified
+    location, the most recently modified one is used.
+
+A metadata file can optionally be included as an argument to ``register_table``
+where a specific metadata file contains the targeted table state::
+
+    CALL iceberg.system.register_table('schema_name', 'table_name', 'hdfs://localhost:9000/path/to/iceberg/table/metadata/dir', '00000-35a08aed-f4b0-4010-95d2-9d73ef4be01c.metadata.json')
+
+.. note::
+
+    The Iceberg REST catalog may not support table register depending on the
+    type of the backing catalog.
+
+.. note::
+
+    When registering a table with the Hive metastore, the user calling the
+    procedure is set as the owner of the table and has ``SELECT``,
+    ``INSERT``, ``UPDATE``, and ``DELETE`` privileges for that table. These
+    privileges can be altered using the ``GRANT`` and ``REVOKE`` commands.
+
+.. note::
+
+    When using the Hive catalog, attempts to read registered Iceberg tables
+    using the Hive connector will fail.
+
+Unregister Table
+^^^^^^^^^^^^^^^^
+
+Iceberg tables can be unregistered from the catalog using the ``unregister_table``
+procedure on the catalog's ``system`` schema::
+
+    CALL iceberg.system.unregister_table('schema_name', 'table_name')
+
+.. note::
+
+    Table data and metadata remain in the filesystem after a call to
+    ``unregister_table`` only when using the Hive catalog. This is similar to
+    the behavior listed for the `DROP TABLE <#id1>`_ command.
+
+
+Rollback to Snapshot
+^^^^^^^^^^^^^^^^^^^^
+
+Roll back a table to a specific snapshot ID. Iceberg can roll back to a specific snapshot ID by using the ``rollback_to_snapshot`` procedure on Iceberg`s ``system`` schema::
+
+    CALL iceberg.system.rollback_to_snapshot('table_name', 'snapshot_id');
+
+The following arguments are available:
+
+===================== ========== =============== =======================================================================
+Argument Name         required   type            Description
+===================== ========== =============== =======================================================================
+``table``             ✔️          string          Name of the table to update
+
+``snapshot_id``       ✔️          long            Snapshot ID to rollback to
+===================== ========== =============== =======================================================================
+
+Expire Snapshots
+^^^^^^^^^^^^^^^^
+
+Each DML (Data Manipulation Language) action in Iceberg produces a new snapshot while keeping the old data and metadata for snapshot isolation and time travel. Use `expire_snapshots` to remove older snapshots and their files.
+
+This procedure removes old snapshots and their corresponding files, and never removes files which are required by a non-expired snapshot.
+
+The following arguments are available:
+
+===================== ========== =============== =======================================================================
+Argument Name         required   type            Description
+===================== ========== =============== =======================================================================
+``schema``            ✔️         string          Schema of the table to update
+
+``table_name``        ✔️         string          Name of the table to update
+
+``older_than``                   timestamp       Timestamp before which snapshots will be removed (Default: 5 days ago)
+
+``retain_last``                  int             Number of ancestor snapshots to preserve regardless of older_than
+                                                 (defaults to 1)
+
+``snapshot_ids``                 array of long   Array of snapshot IDs to expire
+===================== ========== =============== =======================================================================
+
+Examples:
+
+* Remove snapshots older than a specific day and time, but retain the last 10 snapshots::
+
+    CALL iceberg.system.expire_snapshots('schema_name', 'table_name', TIMESTAMP '2023-08-31 00:00:00.000', 10);
+
+* Remove snapshots with snapshot ID 10001 and 10002 (note that these snapshot IDs should not be the current snapshot)::
+
+    CALL iceberg.system.expire_snapshots(schema => 'schema_name', table_name => 'table_name', snapshot_ids => ARRAY[10001, 10002]);
 
 
 SQL Support
@@ -914,91 +1022,6 @@ DROP SCHEMA
 Drop the schema ``iceberg.web``::
 
     DROP SCHEMA iceberg.web
-
-Register table
-^^^^^^^^^^^^^^
-
-Iceberg tables for which table data and metadata already exist in the
-file system can be registered with the catalog using the ``register_table``
-procedure on the catalog's ``system`` schema by supplying the target schema,
-desired table name, and the location of the table metadata::
-
-    CALL iceberg.system.register_table('schema_name', 'table_name', 'hdfs://localhost:9000/path/to/iceberg/table/metadata/dir')
-
-.. note::
-
-    If multiple metadata files of the same version exist at the specified
-    location, the most recently modified one will be used.
-
-A metadata file can optionally be included as an argument to ``register_table``
-in the case where a specific metadata file contains the targeted table state::
-
-    CALL iceberg.system.register_table('schema_name', 'table_name', 'hdfs://localhost:9000/path/to/iceberg/table/metadata/dir', '00000-35a08aed-f4b0-4010-95d2-9d73ef4be01c.metadata.json')
-
-.. note::
-
-    The Iceberg REST catalog may not support table register depending on the
-    type of the backing catalog.
-
-.. note::
-
-    When registering a table with the Hive metastore, the user calling the
-    procedure will be set as the owner of the table and will have ``SELECT``,
-    ``INSERT``, ``UPDATE``, and ``DELETE`` privileges for that table. These
-    privileges can be altered using the ``GRANT`` and ``REVOKE`` commands.
-
-.. note::
-
-    When using the Hive catalog, attempts to read registered Iceberg tables
-    using the Hive connector will fail.
-
-Unregister table
-^^^^^^^^^^^^^^^^
-
-Iceberg tables can be unregistered from the catalog using the ``unregister_table``
-procedure on the catalog's ``system`` schema::
-
-    CALL iceberg.system.unregister_table('schema_name', 'table_name')
-
-.. note::
-
-    Table data and metadata will remain in the filesystem after a call to
-    ``unregister_table`` only when using the Hive catalog. This is similar to
-    the behavior listed above for the ``DROP TABLE`` command.
-
-Expire snapshots
-^^^^^^^^^^^^^^^^
-
-Each DML (Data Manipulation Language) action in Iceberg produces a new snapshot while keeping the old data and metadata for snapshot isolation and time travel. Use `expire_snapshots` to remove older snapshots and their files.
-
-This procedure removes old snapshots and their corresponding files, and never removes files which are required by a non-expired snapshot.
-
-The following arguments are available:
-
-===================== ========== =============== =======================================================================
-Argument Name         required   type            Description
-===================== ========== =============== =======================================================================
-``schema``            ✔️         string          Schema of the table to update
-
-``table_name``        ✔️         string          Name of the table to update
-
-``older_than``                   timestamp       Timestamp before which snapshots will be removed (Default: 5 days ago)
-
-``retain_last``                  int             Number of ancestor snapshots to preserve regardless of older_than
-                                                 (defaults to 1)
-
-``snapshot_ids``                 array of long   Array of snapshot IDs to expire
-===================== ========== =============== =======================================================================
-
-Examples:
-
-* Remove snapshots older than a specific day and time, but retain the last 10 snapshots::
-
-    CALL iceberg.system.expire_snapshots('schema_name', 'table_name', TIMESTAMP '2023-08-31 00:00:00.000', 10);
-
-* Remove snapshots with snapshot ID 10001 and 10002 (note that these snapshot IDs should not be the current snapshot)::
-
-    CALL iceberg.system.expire_snapshots(schema => 'schema_name', table_name => 'table_name', snapshot_ids => ARRAY[10001, 10002]);
 
 Schema Evolution
 -----------------
@@ -1261,8 +1284,8 @@ Type mapping
 ------------
 
 PrestoDB and Iceberg have data types not supported by the other. When using Iceberg to read or write data, Presto changes
-each Iceberg data type to the corresponding Presto data type, and from each Presto data type to the comparable Iceberg data type. 
-The following tables detail the specific type maps between PrestoDB and Iceberg. 
+each Iceberg data type to the corresponding Presto data type, and from each Presto data type to the comparable Iceberg data type.
+The following tables detail the specific type maps between PrestoDB and Iceberg.
 
 Iceberg to PrestoDB type mapping
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
