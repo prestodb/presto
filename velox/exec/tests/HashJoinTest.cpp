@@ -6771,9 +6771,24 @@ DEBUG_ONLY_TEST_F(
       runHashJoinTask(vectors, queryCtx, numDrivers, pool(), false).data;
 
   std::atomic_bool nonReclaimableSectionWaitFlag{true};
+  std::atomic_bool reclaimerInitializationWaitFlag{true};
   folly::EventCount nonReclaimableSectionWait;
   std::atomic_bool memoryArbitrationWaitFlag{true};
   folly::EventCount memoryArbitrationWait;
+
+  std::atomic<uint32_t> numInitializedDrivers{0};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Driver::runInternal",
+      std::function<void(exec::Driver*)>([&](exec::Driver* driver) {
+        numInitializedDrivers++;
+        // We need to make sure reclaimers on both build and probe side are set
+        // (in Operator::initialize) to avoid race conditions, producing
+        // consistent test results.
+        if (numInitializedDrivers.load() == 2) {
+          reclaimerInitializationWaitFlag = false;
+          nonReclaimableSectionWait.notifyAll();
+        }
+      }));
 
   std::atomic<bool> injectNonReclaimableSectionOnce{true};
   SCOPED_TESTVALUE_SET(
@@ -6809,8 +6824,11 @@ DEBUG_ONLY_TEST_F(
   });
 
   // Wait for the hash build operators to enter into non-reclaimable section.
-  nonReclaimableSectionWait.await(
-      [&]() { return !nonReclaimableSectionWaitFlag.load(); });
+  nonReclaimableSectionWait.await([&]() {
+    return (
+        !nonReclaimableSectionWaitFlag.load() &&
+        !reclaimerInitializationWaitFlag.load());
+  });
 
   // We expect capacity grow fails as we can't reclaim from hash join operators.
   memory::testingRunArbitration();
