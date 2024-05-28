@@ -60,8 +60,8 @@ public class ClusterStatusTracker
     public void startPollingQueryInfo()
     {
         clusterManager.getAllClusters().forEach(uri -> {
-            remoteClusterInfos.put(uri, remoteInfoFactory.createRemoteClusterInfo(uri));
-            remoteQueryInfos.put(uri, remoteInfoFactory.createRemoteQueryInfo(uri));
+            remoteClusterInfos.put(uri, clusterManager.getRemoteClusterInfos().get(uri));
+            remoteQueryInfos.put(uri, clusterManager.getRemoteQueryInfos().get(uri));
         });
 
         queryInfoUpdateExecutor.scheduleWithFixedDelay(() -> {

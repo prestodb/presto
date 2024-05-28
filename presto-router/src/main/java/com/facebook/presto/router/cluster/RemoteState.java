@@ -25,6 +25,7 @@ import io.airlift.units.Duration;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
+import javax.inject.Inject;
 
 import java.net.URI;
 import java.util.concurrent.Future;
@@ -51,11 +52,17 @@ public abstract class RemoteState
     private final AtomicReference<Future<?>> future = new AtomicReference<>();
     private final AtomicLong lastUpdateNanos = new AtomicLong();
     private final AtomicLong lastWarningLogged = new AtomicLong();
+    private final long secondsToUnhealthy;
 
-    public RemoteState(HttpClient httpClient, URI remoteUri)
+    private Boolean isHealthy = false;
+    private long lastHealthyResponseTime;
+
+    @Inject
+    public RemoteState(HttpClient httpClient, URI remoteUri, RemoteStateConfig remoteStateConfig)
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.remoteUri = requireNonNull(remoteUri, "remoteUri is null");
+        this.secondsToUnhealthy = remoteStateConfig.getSecondsToUnhealthy();
     }
 
     public void handleResponse(JsonNode response) {}
@@ -71,9 +78,15 @@ public abstract class RemoteState
             lastWarningLogged.set(System.nanoTime());
         }
 
+        if (nanosSince(lastHealthyResponseTime).toMillis() >= (secondsToUnhealthy * 1_000) && isHealthy) {
+            isHealthy = false;
+            log.warn("%s marked as unhealthy", remoteUri);
+        }
+
         if (sinceUpdate.toMillis() > 1_000 && future.get() == null) {
             Request request = prepareGet()
                     .setUri(remoteUri)
+                    .addHeader("Authorization", "Basic " + System.getenv("ROUTER_USER_CREDENTIALS"))
                     .build();
 
             HttpClient.HttpResponseFuture<FullJsonResponseHandler.JsonResponse<JsonNode>> responseFuture = httpClient.executeAsync(request, createFullJsonResponseHandler(JSON_CODEC));
@@ -91,8 +104,14 @@ public abstract class RemoteState
                             handleResponse(result.getValue());
                         }
                         if (result.getStatusCode() != OK.code()) {
-                            log.warn("Error fetching node state from %s returned status %d", remoteUri, result.getStatusCode());
-                            return;
+                            log.warn("Error fetching node state from %s returned status %d: %s", remoteUri, result.getStatusCode(), result.getStatusMessage());
+                        }
+                        else {
+                            if (!isHealthy) {
+                                log.info("%s marked as healthy", remoteUri);
+                                isHealthy = true;
+                            }
+                            lastHealthyResponseTime = System.nanoTime();
                         }
                     }
                 }
@@ -106,5 +125,10 @@ public abstract class RemoteState
                 }
             }, directExecutor());
         }
+    }
+
+    public Boolean isHealthy()
+    {
+        return isHealthy;
     }
 }
