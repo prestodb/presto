@@ -116,6 +116,32 @@ class DataSetBuilder {
   }
 
   template <typename T>
+  DataSetBuilder& withIntRleForField(const common::Subfield& field) {
+    constexpr int kMinRun = 5;
+    constexpr int kMaxRun = 101;
+    int remaining = 0;
+    T value;
+    auto vec = *batches_;
+    for (auto& batch : vec) {
+      auto numbers = dwio::common::getChildBySubfield(batch.get(), field)
+                         ->as<FlatVector<T>>();
+      for (auto row = 0; row < numbers->size(); ++row) {
+        if (numbers->isNullAt(row)) {
+          continue;
+        }
+        if (remaining == 0) {
+          value = numbers->valueAt(row);
+          remaining =
+              kMinRun + folly::Random::rand32(rng_) % (kMaxRun - kMinRun);
+        }
+        numbers->set(row, value);
+        --remaining;
+      }
+    }
+    return *this;
+  }
+
+  template <typename T>
   DataSetBuilder& withQuantizedFloatForField(
       const common::Subfield& field,
       int64_t buckets,

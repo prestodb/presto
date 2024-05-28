@@ -82,16 +82,19 @@ class E2EFilterTestBase : public testing::Test {
     memory::MemoryManager::testingSetInstance({});
   }
 
+  static bool useRandomSeed() {
+    // Check environment variable because `buck test` does not allow pass in
+    // command line arguments.
+    const char* env = getenv("VELOX_TEST_USE_RANDOM_SEED");
+    return !env ? false : folly::to<bool>(env);
+  }
+
   void SetUp() override {
     rootPool_ = memory::memoryManager()->addRootPool("E2EFilterTestBase");
     leafPool_ = rootPool_->addLeafChild("E2EFilterTestBase");
-    // Check environment variable because `buck test` does not allow pass in
-    // command line arguments.
-    if (const char* useRandomSeed = getenv("VELOX_TEST_USE_RANDOM_SEED")) {
-      if (folly::to<bool>(useRandomSeed)) {
-        seed_ = folly::Random::secureRand32();
-        LOG(INFO) << "Random seed: " << seed_;
-      }
+    if (useRandomSeed()) {
+      seed_ = folly::Random::secureRand32();
+      LOG(INFO) << "Random seed: " << seed_;
     }
   }
 
@@ -134,6 +137,11 @@ class E2EFilterTestBase : public testing::Test {
         rareMin,
         rareMax,
         keepNulls);
+  }
+
+  template <typename T>
+  void makeIntRle(const std::string& fieldName) {
+    dataSetBuilder_->withIntRleForField<T>(Subfield(fieldName));
   }
 
   template <typename T>

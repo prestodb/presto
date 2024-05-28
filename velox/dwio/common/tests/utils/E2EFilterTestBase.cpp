@@ -155,6 +155,9 @@ void E2EFilterTestBase::readWithFilter(
   // The spec must stay live over the lifetime of the reader.
   setUpRowReaderOptions(rowReaderOpts, spec);
   VLOG(1) << "spec: " << spec->toString();
+  if (!mutationSpec.deletedRows.empty()) {
+    VLOG(1) << "numDeletedRows=" << mutationSpec.deletedRows.size();
+  }
   OwnershipChecker ownershipChecker;
   auto rowReader = reader->createRowReader(rowReaderOpts);
   runtimeStats_ = dwio::common::RuntimeStatistics();
@@ -192,8 +195,8 @@ void E2EFilterTestBase::readWithFilter(
       if (haveDelete) {
         mutation.deletedRows = isDeleted.data();
       }
+      VLOG(1) << "readSize=" << readSize;
       auto rowsScanned = rowReader->next(readSize, resultBatch, &mutation);
-      VLOG(1) << "rowsScanned=" << rowsScanned;
       ASSERT_EQ(rowsScanned, readSize);
       if (resultBatch->size() == 0) {
         // No hits in the last resultBatch of rows.

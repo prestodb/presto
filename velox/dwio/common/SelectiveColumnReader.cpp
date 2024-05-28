@@ -90,6 +90,16 @@ void SelectiveColumnReader::seekTo(vector_size_t offset, bool readsNullsOnly) {
   }
 }
 
+void SelectiveColumnReader::initReturnReaderNulls(RowSet rows) {
+  if (useBulkPath() && !scanSpec_->hasFilter()) {
+    anyNulls_ = nullsInReadRange_ != nullptr;
+    bool isDense = rows.back() == rows.size() - 1;
+    returnReaderNulls_ = anyNulls_ && isDense;
+  } else {
+    returnReaderNulls_ = false;
+  }
+}
+
 void SelectiveColumnReader::prepareNulls(
     RowSet rows,
     bool hasNulls,
@@ -98,19 +108,12 @@ void SelectiveColumnReader::prepareNulls(
     anyNulls_ = false;
     return;
   }
-  auto numRows = rows.size() + extraRows;
-  if (useBulkPath()) {
-    bool isDense = rows.back() == rows.size() - 1;
-    if (!scanSpec_->hasFilter()) {
-      anyNulls_ = nullsInReadRange_ != nullptr;
-      returnReaderNulls_ = anyNulls_ && isDense;
-      // No need for null flags if fast path
-      if (returnReaderNulls_) {
-        return;
-      }
-    }
+  initReturnReaderNulls(rows);
+  if (returnReaderNulls_) {
+    // No need for null flags if fast path.
+    return;
   }
-  returnReaderNulls_ = false;
+  auto numRows = rows.size() + extraRows;
   if (resultNulls_ && resultNulls_->unique() &&
       resultNulls_->capacity() >= bits::nbytes(numRows) + simd::kPadding) {
     resultNulls_->setSize(bits::nbytes(numRows));

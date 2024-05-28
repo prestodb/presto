@@ -220,6 +220,11 @@ class SelectiveColumnReader {
     return reinterpret_cast<T*>(rawValues_) + numValues_;
   }
 
+  uint64_t valuesCapacity() const {
+    VELOX_DCHECK_NOT_NULL(values_);
+    return values_->capacity();
+  }
+
   // Returns a mutable pointer to start of result nulls
   // bitmap. Ensures that this has at least 'numValues_' + 'size'
   // capacity and is unique. If extending existing buffer, preserves
@@ -242,12 +247,18 @@ class SelectiveColumnReader {
     return rawResultNulls_;
   }
 
+  uint64_t* rawResultNulls() {
+    return rawResultNulls_;
+  }
+
   // True if this reads contiguous rows starting at 0 and may have
   // nulls. If so, the nulls decoded from the nulls in encoded data
   // can be returned directly in the vector in getValues().
   bool returnReaderNulls() const {
     return returnReaderNulls_;
   }
+
+  void initReturnReaderNulls(RowSet rows);
 
   void setNumValues(vector_size_t size) {
     numValues_ = size;
@@ -279,6 +290,10 @@ class SelectiveColumnReader {
     }
   }
 
+  bool hasNulls() const {
+    return anyNulls_;
+  }
+
   void setHasNulls() {
     anyNulls_ = true;
   }
@@ -308,13 +323,12 @@ class SelectiveColumnReader {
   }
 
   template <typename T>
-  inline void addValue(const T value) {
-    // @lint-ignore-every HOWTOEVEN ConstantArgumentPassByValue
+  inline void addValue(T value) {
     static_assert(
         std::is_pod_v<T>,
         "General case of addValue is only for primitive types");
-    VELOX_DCHECK_LE(
-        rawValues_ && (numValues_ + 1) * sizeof(T), values_->capacity());
+    VELOX_DCHECK_NOT_NULL(rawValues_);
+    VELOX_DCHECK_LE((numValues_ + 1) * sizeof(T), values_->capacity());
     reinterpret_cast<T*>(rawValues_)[numValues_] = value;
     numValues_++;
   }
@@ -373,6 +387,10 @@ class SelectiveColumnReader {
 
   BufferPtr& nullsInReadRange() {
     return nullsInReadRange_;
+  }
+
+  const uint64_t* rawNullsInReadRange() const {
+    return nullsInReadRange_ ? nullsInReadRange_->as<uint64_t>() : nullptr;
   }
 
   // Returns true if no filters or deterministic filters/hooks that
@@ -450,6 +468,14 @@ class SelectiveColumnReader {
   // Nimble.
   virtual std::optional<size_t> estimatedRowBitSize() const {
     return std::nullopt;
+  }
+
+  StringView copyStringValueIfNeed(folly::StringPiece value) {
+    if (value.size() <= StringView::kInlineSize) {
+      return StringView(value);
+    }
+    auto* data = copyStringValue(value);
+    return StringView(data, value.size());
   }
 
  protected:

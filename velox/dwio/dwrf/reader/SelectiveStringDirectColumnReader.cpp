@@ -341,12 +341,12 @@ void SelectiveStringDirectColumnReader::extractSparse(
       });
 }
 
-template <bool hasNulls>
+template <bool kHasNulls>
 void SelectiveStringDirectColumnReader::skipInDecode(
     int32_t numValues,
     int32_t current,
     const uint64_t* nulls) {
-  if (hasNulls) {
+  if (kHasNulls) {
     numValues = bits::countNonNulls(nulls, current, current + numValues);
   }
   for (size_t i = lengthIndex_; i < lengthIndex_ + numValues; ++i) {
@@ -371,19 +371,19 @@ folly::StringPiece SelectiveStringDirectColumnReader::readValue(
   return folly::StringPiece(tempString_);
 }
 
-template <bool hasNulls, typename Visitor>
+template <bool kHasNulls, typename Visitor>
 void SelectiveStringDirectColumnReader::decode(
     const uint64_t* nulls,
     Visitor visitor) {
   int32_t current = visitor.start();
   bool atEnd = false;
-  bool allowNulls = hasNulls && visitor.allowNulls();
+  bool allowNulls = kHasNulls && visitor.allowNulls();
   for (;;) {
     int32_t toSkip;
-    if (hasNulls && allowNulls && bits::isBitNull(nulls, current)) {
+    if (kHasNulls && allowNulls && bits::isBitNull(nulls, current)) {
       toSkip = visitor.processNull(atEnd);
     } else {
-      if (hasNulls && !allowNulls) {
+      if (kHasNulls && !allowNulls) {
         toSkip = visitor.checkAndSkipNulls(nulls, current, atEnd);
         if (!Visitor::dense) {
           skipInDecode<false>(toSkip, current, nullptr);
@@ -406,7 +406,7 @@ void SelectiveStringDirectColumnReader::decode(
     }
     ++current;
     if (toSkip) {
-      skipInDecode<hasNulls>(toSkip, current, nulls);
+      skipInDecode<kHasNulls>(toSkip, current, nulls);
       current += toSkip;
     }
     if (atEnd) {

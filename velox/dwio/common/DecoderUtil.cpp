@@ -54,7 +54,7 @@ bool nonNullRowsFromSparse(
     RowSet rows,
     raw_vector<int32_t>& innerRows,
     raw_vector<int32_t>& outerRows,
-    uint64_t* resultNulls,
+    uint8_t* resultNullBytes,
     int32_t& tailSkip) {
   constexpr int32_t kStep = xsimd::batch<int32_t>::size;
   bool anyNull = false;
@@ -66,7 +66,6 @@ bool nonNullRowsFromSparse(
   int32_t numNulls = 0;
   int32_t numInner = 0;
   int32_t lastNonNull = -1;
-  auto resultNullBytes = reinterpret_cast<uint8_t*>(resultNulls);
 
   // Returns the index in terms of non-null rows for
   // 'rows[i]'. Assumes that i is increasing between calls.
@@ -158,7 +157,7 @@ template bool nonNullRowsFromSparse<true, false>(
     RowSet rows,
     raw_vector<int32_t>& innerRows,
     raw_vector<int32_t>& outerRows,
-    uint64_t* resultNulls,
+    uint8_t* resultNullBytes,
     int32_t& tailSkip);
 
 template bool nonNullRowsFromSparse<false, true>(
@@ -166,7 +165,7 @@ template bool nonNullRowsFromSparse<false, true>(
     RowSet rows,
     raw_vector<int32_t>& innerRows,
     raw_vector<int32_t>& outerRows,
-    uint64_t* resultNulls,
+    uint8_t* resultNullBytes,
     int32_t& tailSkip);
 
 template bool nonNullRowsFromSparse<false, false>(
@@ -174,7 +173,7 @@ template bool nonNullRowsFromSparse<false, false>(
     RowSet rows,
     raw_vector<int32_t>& innerRows,
     raw_vector<int32_t>& outerRows,
-    uint64_t* resultNulls,
+    uint8_t* resultNullBytes,
     int32_t& tailSkip);
 
 template <typename T>

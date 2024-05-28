@@ -153,6 +153,10 @@ class ColumnVisitor {
   using DataType = T;
   static constexpr bool dense = isDense;
   static constexpr bool kHasBulkPath = true;
+  static constexpr bool kHasFilter =
+      !std::is_same_v<FilterType, velox::common::AlwaysTrue>;
+  static constexpr bool kHasHook = !std::is_same_v<HookType, NoHook>;
+  static constexpr bool kFilterOnly = std::is_same_v<Extract, DropValues>;
 
   ColumnVisitor(
       TFilter& filter,
@@ -164,20 +168,6 @@ class ColumnVisitor {
         allowNulls_(!TFilter::deterministic || filter.testNull()),
         rows_(&rows[0]),
         numRows_(rows.size()),
-        rowIndex_(0),
-        values_(values) {}
-
-  template <bool isDense2 = isDense, std::enable_if_t<isDense2, int> = 0>
-  ColumnVisitor(
-      TFilter& filter,
-      SelectiveColumnReader* reader,
-      vector_size_t numRows,
-      ExtractValues values)
-      : filter_(filter),
-        reader_(reader),
-        allowNulls_(!TFilter::deterministic || filter.testNull()),
-        rows_(nullptr),
-        numRows_(numRows),
         rowIndex_(0),
         values_(values) {}
 
@@ -378,6 +368,10 @@ class ColumnVisitor {
     rowIndex_ = index;
   }
 
+  void addRowIndex(vector_size_t size) {
+    rowIndex_ += size;
+  }
+
   bool atEnd() const {
     return rowIndex_ >= numRows_;
   }
@@ -435,6 +429,14 @@ class ColumnVisitor {
     }
   }
 
+  void addNumValues(int size) {
+    auto numValues = reader_->numValues() + size;
+    reader_->setNumValues(numValues);
+    if constexpr (kHasFilter) {
+      reader_->setNumRows(numValues);
+    }
+  }
+
   ExtractValues extractValues() const {
     return values_;
   }
@@ -478,8 +480,8 @@ class ColumnVisitor {
   StringDictionaryColumnVisitor<TFilter, ExtractValues, isDense>
   toStringDictionaryColumnVisitor();
 
-  // Use for replacing *coall rows with non-null rows for fast path with
-  // processRun and processRle.
+  // Use for replacing all rows with non-null rows for fast path with processRun
+  // and processRle.
   void setRows(folly::Range<const int32_t*> newRows) {
     rows_ = newRows.data();
     numRows_ = newRows.size();
@@ -844,8 +846,7 @@ class DictionaryColumnVisitor
     // written, the passing bitmap is used to load a permute mask to
     // permute the passing values to the left of a vector register and
     // write  the whole register to the end of 'values'
-    constexpr bool kFilterOnly =
-        std::is_same_v<typename super::Extract, DropValues>;
+    constexpr bool kFilterOnly = super::kFilterOnly;
     constexpr int32_t kWidth = xsimd::batch<int32_t>::size;
     int32_t last = numInput & ~(kWidth - 1);
     for (auto i = 0; i < numInput; i += kWidth) {
