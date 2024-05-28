@@ -488,7 +488,7 @@ TEST_P(PrestoExchangeSourceTest, basic) {
 
   auto exchangeSource = makeExchangeSource(producerAddress, useHttps, 3, queue);
 
-  size_t beforePoolSize = pool_->currentBytes();
+  size_t beforePoolSize = pool_->usedBytes();
   size_t beforeQueueSize = queue->totalBytes();
   requestNextPage(queue, exchangeSource);
   for (int i = 0; i < pages.size(); i++) {
@@ -498,14 +498,14 @@ TEST_P(PrestoExchangeSourceTest, basic) {
   }
   waitForEndMarker(queue);
 
-  size_t deltaPool = pool_->currentBytes() - beforePoolSize;
-  size_t deltaQueue = queue->totalBytes() - beforeQueueSize;
-  EXPECT_EQ(deltaPool, deltaQueue);
+  size_t deltaPoolBytes = pool_->usedBytes() - beforePoolSize;
+  size_t deltaQueueBytes = queue->totalBytes() - beforeQueueSize;
+  EXPECT_EQ(deltaPoolBytes, deltaQueueBytes);
 
   producer->waitForDeleteResults();
   exchangeCpuExecutor_->stop();
   serverWrapper.stop();
-  EXPECT_EQ(pool_->currentBytes(), 0);
+  EXPECT_EQ(pool_->usedBytes(), 0);
 
   const auto stats = exchangeSource->stats();
   ASSERT_EQ(stats.size(), 2);
@@ -631,7 +631,7 @@ TEST_P(PrestoExchangeSourceTest, earlyTerminatingConsumer) {
 
   producer->waitForDeleteResults();
   serverWrapper.stop();
-  EXPECT_EQ(pool_->currentBytes(), 0);
+  EXPECT_EQ(pool_->usedBytes(), 0);
 
   const auto stats = exchangeSource->stats();
   ASSERT_EQ(stats.size(), 2);
@@ -654,8 +654,8 @@ TEST_P(PrestoExchangeSourceTest, slowProducer) {
   auto queue = makeSingleSourceQueue();
   auto exchangeSource = makeExchangeSource(producerAddress, useHttps, 3, queue);
 
-  size_t beforePoolSize = pool_->currentBytes();
-  size_t beforeQueueSize = queue->totalBytes();
+  const size_t beforePoolSize = pool_->usedBytes();
+  const size_t beforeQueueSize = queue->totalBytes();
   requestNextPage(queue, exchangeSource);
 
   for (int i = 0; i < pages.size(); i++) {
@@ -667,13 +667,13 @@ TEST_P(PrestoExchangeSourceTest, slowProducer) {
   producer->noMoreData();
   waitForEndMarker(queue);
 
-  size_t deltaPool = pool_->currentBytes() - beforePoolSize;
-  size_t deltaQueue = queue->totalBytes() - beforeQueueSize;
-  EXPECT_EQ(deltaPool, deltaQueue);
+  const size_t deltaPoolBytes = pool_->usedBytes() - beforePoolSize;
+  const size_t deltaQueueBytes = queue->totalBytes() - beforeQueueSize;
+  EXPECT_EQ(deltaPoolBytes, deltaQueueBytes);
 
   producer->waitForDeleteResults();
   serverWrapper.stop();
-  EXPECT_EQ(pool_->currentBytes(), 0);
+  EXPECT_EQ(pool_->usedBytes(), 0);
 
   const auto stats = exchangeSource->stats();
   ASSERT_EQ(stats.size(), 2);
@@ -828,7 +828,7 @@ DEBUG_ONLY_TEST_P(
       // response data other than just failing the query.
       ASSERT_GE(exchangeSource->testingFailedAttempts(), 1);
     }
-    ASSERT_EQ(leafPool->currentBytes(), 0);
+    ASSERT_EQ(leafPool->usedBytes(), 0);
   }
 }
 
