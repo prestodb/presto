@@ -420,6 +420,29 @@ public abstract class AbstractTestNanQueries
     }
 
     @Test
+    public void testGreatest()
+    {
+        assertQueryWithSameQueryRunner("SELECT GREATEST(1.5E0, nan())", "SELECT nan()");
+        assertQueryWithSameQueryRunner(
+                format("SELECT greatest(%s, %s, %s) FROM %s", DOUBLE_NAN_FIRST_COLUMN, DOUBLE_NAN_MIDDLE_COLUMN, DOUBLE_NAN_LAST_COLUMN, DOUBLE_NANS_TABLE_NAME),
+                "SELECT * FROM (VALUES (nan()), (nan()), (infinity()), (nan()))");
+        assertQueryWithSameQueryRunner(
+                format("SELECT greatest(%s, %s, %s) FROM %s", REAL_NAN_FIRST_COLUMN, REAL_NAN_MIDDLE_COLUMN, REAL_NAN_LAST_COLUMN, REAL_NANS_TABLE_NAME),
+                "SELECT * FROM (VALUES (CAST(nan() AS REAL)), (CAST(nan() AS REAL)), CAST(infinity() AS REAL), (CAST(nan() AS REAL)))");
+    }
+
+    @Test
+    public void testLeast()
+    {
+        assertQueryWithSameQueryRunner(
+                format("SELECT least(%s, %s, %s) FROM %s", DOUBLE_NAN_FIRST_COLUMN, DOUBLE_NAN_MIDDLE_COLUMN, DOUBLE_NAN_LAST_COLUMN, DOUBLE_NANS_TABLE_NAME),
+                "SELECT * FROM (VALUES (DOUBLE '0.0'), (DOUBLE '0.0'), (DOUBLE '0.0'), (DOUBLE '-4.0'))");
+        assertQueryWithSameQueryRunner(
+                format("SELECT least(%s, %s, %s) FROM %s", REAL_NAN_FIRST_COLUMN, REAL_NAN_MIDDLE_COLUMN, REAL_NAN_LAST_COLUMN, REAL_NANS_TABLE_NAME),
+                "SELECT * FROM (VALUES (REAL '0.0'), (REAL '0.0'), (REAL'0.0'), REAL'-4.0')");
+    }
+
+    @Test
     public void testDoubleSetAgg()
     {
         assertQueryWithSameQueryRunner(format("SELECT set_agg(%s), set_agg(%s) FROM %s", DOUBLE_DISTINCT1_COLUMN, DOUBLE_DISTINCT2_COLUMN, DISTINCT_TABLE_NAME), "SELECT ARRAY[nan(), 0.0, null, 3.0], ARRAY[0, nan(), null, 3.0]");
