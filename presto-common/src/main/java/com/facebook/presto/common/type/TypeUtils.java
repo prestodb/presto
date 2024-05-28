@@ -33,6 +33,7 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static java.lang.Double.doubleToLongBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.util.Locale.ENGLISH;
@@ -211,5 +212,50 @@ public final class TypeUtils
     {
         return entries.entrySet().stream()
                 .collect(toMap(e -> e.getKey().toUpperCase(ENGLISH), Map.Entry::getValue));
+    }
+
+    /**
+     * For our definitions of double and real, Nan=NaN is true
+     * NaN is greater than all other values, and +0=-0 is true.
+     * the below functions enforce that definition
+     */
+    public static boolean doubleEquals(double a, double b)
+    {
+        // the first check ensures +0 == -0 is true. the second ensures that NaN == NaN is true
+        // for all other cases a == b and doubleToLongBits(a) == doubleToLongBits(b) will return
+        // the same result
+        // doubleToLongBits converts all NaNs to the same representation
+        return a == b || doubleToLongBits(a) == doubleToLongBits(b);
+    }
+
+    public static long doubleHashCode(double value)
+    {
+        // canonicalize +0 and -0 to a single value
+        value = value == -0 ? 0 : value;
+        // doubleToLongBits converts all NaNs to the same representation
+        return AbstractLongType.hash(doubleToLongBits(value));
+    }
+
+    public static int doubleCompare(double a, double b)
+    {
+        // these three ifs can only be true if neither value is NaN
+        if (a < b) {
+            return -1;
+        }
+        if (a > b) {
+            return 1;
+        }
+        // this check ensure doubleCompare(+0, -0) will return 0
+        // if we just did doubleToLongBits comparison, then they
+        // would not compare as equal
+        if (a == b) {
+            return 0;
+        }
+
+        // this ensures that doubleCompare(NaN, NaN) will return 0
+        // doubleToLongBits converts all NaNs to the same representation
+        long aBits = doubleToLongBits(a);
+        long bBits = doubleToLongBits(b);
+        return Long.compare(aBits, bBits);
     }
 }
