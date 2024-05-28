@@ -13,11 +13,13 @@
  */
 package com.facebook.presto.sql.planner.planPrinter;
 
+import com.facebook.presto.operator.DynamicFilterStats;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -41,10 +43,12 @@ public class WindowPlanNodeStats
             long planNodeJoinBuildKeyCount,
             long planNodeNullJoinProbeKeyCount,
             long planNodeJoinProbeKeyCount,
+            Optional<DynamicFilterStats> dynamicFilterStats,
             WindowOperatorStats windowOperatorStats)
     {
         super(planNodeId, planNodeScheduledTime, planNodeCpuTime, planNodeInputPositions, planNodeInputDataSize, planNodeRawInputPositions, planNodeRawInputDataSize,
-                planNodeOutputPositions, planNodeOutputDataSize, operatorInputStats, planNodeNullJoinBuildKeyCount, planNodeJoinBuildKeyCount, planNodeNullJoinProbeKeyCount, planNodeJoinProbeKeyCount);
+                planNodeOutputPositions, planNodeOutputDataSize, operatorInputStats, planNodeNullJoinBuildKeyCount, planNodeJoinBuildKeyCount, planNodeNullJoinProbeKeyCount,
+                planNodeJoinProbeKeyCount, dynamicFilterStats);
         this.windowOperatorStats = windowOperatorStats;
     }
 
@@ -74,6 +78,7 @@ public class WindowPlanNodeStats
                 merged.getPlanNodeJoinBuildKeyCount(),
                 merged.getPlanNodeNullJoinProbeKeyCount(),
                 merged.getPlanNodeJoinProbeKeyCount(),
+                merged.getDynamicFilterStats(),
                 windowOperatorStats);
     }
 }

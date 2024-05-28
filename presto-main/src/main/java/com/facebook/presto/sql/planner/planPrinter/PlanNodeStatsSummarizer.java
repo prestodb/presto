@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.planPrinter;
 
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskInfo;
+import com.facebook.presto.operator.DynamicFilterStats;
 import com.facebook.presto.operator.HashCollisionsInfo;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.PipelineStats;
@@ -29,6 +30,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.util.MoreMaps.mergeMaps;
@@ -84,6 +86,7 @@ public class PlanNodeStatsSummarizer
         Map<PlanNodeId, Long> planNodeJoinBuildKeyCount = new HashMap<>();
         Map<PlanNodeId, Long> planNodeNullJoinProbeKeyCount = new HashMap<>();
         Map<PlanNodeId, Long> planNodeJoinProbeKeyCount = new HashMap<>();
+        Map<PlanNodeId, Optional<DynamicFilterStats>> planNodeIdDynamicFilterStatsMap = new HashMap<>();
 
         Map<PlanNodeId, Map<String, OperatorInputStats>> operatorInputStats = new HashMap<>();
         Map<PlanNodeId, Map<String, OperatorHashCollisionsStats>> operatorHashCollisionsStats = new HashMap<>();
@@ -158,6 +161,8 @@ public class PlanNodeStatsSummarizer
                 planNodeNullJoinProbeKeyCount.merge(planNodeId, operatorStats.getNullJoinProbeKeyCount(), Long::sum);
                 planNodeJoinProbeKeyCount.merge(planNodeId, operatorStats.getJoinProbeKeyCount(), Long::sum);
 
+                planNodeIdDynamicFilterStatsMap.merge(planNodeId, Optional.of(operatorStats.getDynamicFilterStats()), PlanNodeStats::mergeDynamicFilterStats);
+
                 processedNodes.add(planNodeId);
             }
 
@@ -218,6 +223,7 @@ public class PlanNodeStatsSummarizer
                         planNodeJoinBuildKeyCount.get(planNodeId),
                         planNodeNullJoinProbeKeyCount.get(planNodeId),
                         planNodeJoinProbeKeyCount.get(planNodeId),
+                        planNodeIdDynamicFilterStatsMap.get(planNodeId),
                         operatorHashCollisionsStats.get(planNodeId));
             }
             else if (windowNodeStats.containsKey(planNodeId)) {
@@ -236,6 +242,7 @@ public class PlanNodeStatsSummarizer
                         planNodeJoinBuildKeyCount.get(planNodeId),
                         planNodeNullJoinProbeKeyCount.get(planNodeId),
                         planNodeJoinProbeKeyCount.get(planNodeId),
+                        planNodeIdDynamicFilterStatsMap.get(planNodeId),
                         windowNodeStats.get(planNodeId));
             }
             else {
@@ -253,7 +260,8 @@ public class PlanNodeStatsSummarizer
                         planNodeNullJoinBuildKeyCount.get(planNodeId),
                         planNodeJoinBuildKeyCount.get(planNodeId),
                         planNodeNullJoinProbeKeyCount.get(planNodeId),
-                        planNodeJoinProbeKeyCount.get(planNodeId));
+                        planNodeJoinProbeKeyCount.get(planNodeId),
+                        planNodeIdDynamicFilterStatsMap.get(planNodeId));
             }
 
             stats.add(nodeStats);
