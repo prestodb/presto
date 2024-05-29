@@ -26,6 +26,7 @@
 #include "velox/dwio/common/Reader.h"
 #include "velox/expression/Expr.h"
 #include "velox/expression/ExprToSubfieldFilter.h"
+#include "velox/type/TimestampConversion.h"
 
 namespace facebook::velox::connector::hive {
 
@@ -577,10 +578,17 @@ void configureRowReaderOptions(
 namespace {
 
 bool applyPartitionFilter(
-    TypeKind kind,
+    const TypePtr& type,
     const std::string& partitionValue,
     common::Filter* filter) {
-  switch (kind) {
+  if (type->isDate()) {
+    const auto result = util::castFromDateString(
+        StringView(partitionValue), util::ParseMode::kStandardCast);
+    VELOX_CHECK(!result.hasError());
+    return applyFilter(*filter, result.value());
+  }
+
+  switch (type->kind()) {
     case TypeKind::BIGINT:
     case TypeKind::INTEGER:
     case TypeKind::SMALLINT:
@@ -598,7 +606,8 @@ bool applyPartitionFilter(
       return applyFilter(*filter, partitionValue);
     }
     default:
-      VELOX_FAIL("Bad type {} for partition value: {}", kind, partitionValue);
+      VELOX_FAIL(
+          "Bad type {} for partition value: {}", type->kind(), partitionValue);
   }
 }
 
@@ -629,7 +638,7 @@ bool testFilters(
 
           // This is a non-null partition key
           return applyPartitionFilter(
-              handlesIter->second->dataType()->kind(),
+              handlesIter->second->dataType(),
               iter->second.value(),
               child->filter());
         }
