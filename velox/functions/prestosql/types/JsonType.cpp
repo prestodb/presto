@@ -67,9 +67,14 @@ void generateJsonTyped(
     } else if constexpr (
         std::is_same_v<T, double> || std::is_same_v<T, float>) {
       if constexpr (!legacyCast) {
-        // To VARCHAR converter never throws.
-        result.append(
-            util::Converter<TypeKind::VARCHAR>::tryCast(value).value());
+        if (FOLLY_UNLIKELY(std::isinf(value) || std::isnan(value))) {
+          result.append(fmt::format(
+              "\"{}\"",
+              util::Converter<TypeKind::VARCHAR>::tryCast(value).value()));
+        } else {
+          result.append(
+              util::Converter<TypeKind::VARCHAR>::tryCast(value).value());
+        }
       } else {
         folly::toAppend<std::string, T>(value, &result);
       }

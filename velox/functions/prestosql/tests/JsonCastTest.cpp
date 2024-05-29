@@ -311,10 +311,10 @@ TEST_F(JsonCastTest, fromDoubleAndReal) {
        "12345.0"_sv,
        "1.0E7"_sv,
        "1.2345678901234567E8"_sv,
-       "NaN"_sv,
-       "NaN"_sv,
-       "Infinity"_sv,
-       "-Infinity"_sv,
+       "\"NaN\""_sv,
+       "\"NaN\""_sv,
+       "\"Infinity\""_sv,
+       "\"-Infinity\""_sv,
        std::nullopt});
   testCastToJson<float>(
       REAL(),
@@ -343,10 +343,10 @@ TEST_F(JsonCastTest, fromDoubleAndReal) {
        "12345.0"_sv,
        "1.0E7"_sv,
        "1.2345678E8"_sv,
-       "NaN"_sv,
-       "NaN"_sv,
-       "Infinity"_sv,
-       "-Infinity"_sv,
+       "\"NaN\""_sv,
+       "\"NaN\""_sv,
+       "\"Infinity\""_sv,
+       "\"-Infinity\""_sv,
        std::nullopt});
 
   testCastToJson<double>(
