@@ -275,18 +275,18 @@ void TableWriter::setConnectorMemoryReclaimer() {
   VELOX_CHECK_NOT_NULL(connectorPool_);
   if (connectorPool_->parent()->reclaimer() != nullptr) {
     connectorPool_->setReclaimer(TableWriter::ConnectorReclaimer::create(
-        operatorCtx_->driverCtx(), this, spillConfig_.has_value()));
+        spillConfig_, operatorCtx_->driverCtx(), this));
   }
 }
 
 std::unique_ptr<memory::MemoryReclaimer>
 TableWriter::ConnectorReclaimer::create(
+    const std::optional<common::SpillConfig>& spillConfig,
     DriverCtx* driverCtx,
-    Operator* op,
-    bool canReclaim) {
+    Operator* op) {
   return std::unique_ptr<memory::MemoryReclaimer>(
       new TableWriter::ConnectorReclaimer(
-          driverCtx->driver->shared_from_this(), op, canReclaim));
+          spillConfig, driverCtx->driver->shared_from_this(), op));
 }
 
 bool TableWriter::ConnectorReclaimer::reclaimableBytes(
@@ -340,7 +340,7 @@ uint64_t TableWriter::ConnectorReclaimer::reclaim(
     return 0;
   }
   RuntimeStatWriterScopeGuard opStatsGuard(op_);
-  return memory::MemoryReclaimer::reclaim(pool, targetBytes, maxWaitMs, stats);
+  return ParallelMemoryReclaimer::reclaim(pool, targetBytes, maxWaitMs, stats);
 }
 
 // static

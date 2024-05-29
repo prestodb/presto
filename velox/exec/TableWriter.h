@@ -97,9 +97,6 @@ class TableWriteTraits {
       velox::memory::MemoryPool* pool);
 };
 
-/**
- * Implements a simple table writer operator.
- */
 class TableWriter : public Operator {
  public:
   TableWriter(
@@ -149,10 +146,12 @@ class TableWriter : public Operator {
   // The memory reclaimer customized for connector which interface with the
   // memory arbitrator to reclaim memory from the file writers created within
   // the connector.
-  class ConnectorReclaimer : public Operator::MemoryReclaimer {
+  class ConnectorReclaimer : public exec::ParallelMemoryReclaimer {
    public:
-    static std::unique_ptr<memory::MemoryReclaimer>
-    create(DriverCtx* driverCtx, Operator* op, bool canReclaim);
+    static std::unique_ptr<memory::MemoryReclaimer> create(
+        const std::optional<common::SpillConfig>& spillConfig,
+        DriverCtx* driverCtx,
+        Operator* op);
 
     void enterArbitration() override {}
 
@@ -171,14 +170,24 @@ class TableWriter : public Operator {
     void abort(memory::MemoryPool* pool, const std::exception_ptr& /* error */)
         override {}
 
+    std::shared_ptr<Driver> ensureDriver() const {
+      return driver_.lock();
+    }
+
    private:
     ConnectorReclaimer(
+        const std::optional<common::SpillConfig>& spillConfig,
         const std::shared_ptr<Driver>& driver,
-        Operator* op,
-        bool canReclaim)
-        : Operator::MemoryReclaimer(driver, op), canReclaim_(canReclaim) {}
+        Operator* op)
+        : ParallelMemoryReclaimer(
+              spillConfig.has_value() ? spillConfig.value().executor : nullptr),
+          canReclaim_(spillConfig.has_value()),
+          driver_(driver),
+          op_(op) {}
 
     const bool canReclaim_{false};
+    const std::weak_ptr<Driver> driver_;
+    Operator* const op_;
   };
 
   void createDataSink();
