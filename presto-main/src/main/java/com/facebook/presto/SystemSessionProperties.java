@@ -74,7 +74,6 @@ import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
-import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.PartialAggregationStrategy.ALWAYS;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.PartialAggregationStrategy.NEVER;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -275,6 +274,7 @@ public final class SystemSessionProperties
     public static final String RESTRICT_HISTORY_BASED_OPTIMIZATION_TO_COMPLEX_QUERY = "restrict_history_based_optimization_to_complex_query";
     public static final String HISTORY_INPUT_TABLE_STATISTICS_MATCHING_THRESHOLD = "history_input_table_statistics_matching_threshold";
     public static final String HISTORY_BASED_OPTIMIZATION_PLAN_CANONICALIZATION_STRATEGY = "history_based_optimization_plan_canonicalization_strategy";
+    public static final String LOG_QUERY_PLANS_USED_IN_HISTORY_BASED_OPTIMIZER = "log_query_plans_used_in_history_based_optimizer";
     public static final String MAX_LEAF_NODES_IN_PLAN = "max_leaf_nodes_in_plan";
     public static final String LEAF_NODE_LIMIT_ENABLED = "leaf_node_limit_enabled";
     public static final String PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID = "push_remote_exchange_through_group_id";
@@ -311,6 +311,7 @@ public final class SystemSessionProperties
     public static final String ADD_PARTIAL_NODE_FOR_ROW_NUMBER_WITH_LIMIT = "add_partial_node_for_row_number_with_limit";
     public static final String REWRITE_CASE_TO_MAP_ENABLED = "rewrite_case_to_map_enabled";
     public static final String FIELD_NAMES_IN_JSON_CAST_ENABLED = "field_names_in_json_cast_enabled";
+    public static final String LEGACY_JSON_CAST = "legacy_json_cast";
     public static final String PULL_EXPRESSION_FROM_LAMBDA_ENABLED = "pull_expression_from_lambda_enabled";
     public static final String REWRITE_CONSTANT_ARRAY_CONTAINS_TO_IN_EXPRESSION = "rewrite_constant_array_contains_to_in_expression";
     public static final String INFER_INEQUALITY_PREDICATES = "infer_inequality_predicates";
@@ -337,13 +338,14 @@ public final class SystemSessionProperties
     public static final String NATIVE_WRITER_SPILL_ENABLED = "native_writer_spill_enabled";
     public static final String NATIVE_ROW_NUMBER_SPILL_ENABLED = "native_row_number_spill_enabled";
     public static final String NATIVE_TOPN_ROW_NUMBER_SPILL_ENABLED = "native_topn_row_number_spill_enabled";
-    public static final String NATIVE_JOIN_SPILLER_PARTITION_BITS = "native_join_spiller_partition_bits";
+    public static final String NATIVE_SPILLER_NUM_PARTITION_BITS = "native_spiller_num_partition_bits";
     private static final String NATIVE_EXECUTION_ENABLED = "native_execution_enabled";
     private static final String NATIVE_EXECUTION_EXECUTABLE_PATH = "native_execution_executable_path";
     private static final String NATIVE_EXECUTION_PROGRAM_ARGUMENTS = "native_execution_program_arguments";
     public static final String NATIVE_EXECUTION_PROCESS_REUSE_ENABLED = "native_execution_process_reuse_enabled";
     public static final String NATIVE_DEBUG_VALIDATE_OUTPUT_FROM_OPERATORS = "native_debug_validate_output_from_operators";
     public static final String DEFAULT_VIEW_SECURITY_MODE = "default_view_security_mode";
+    public static final String JOIN_PREFILTER_BUILD_SIDE = "join_prefilter_build_side";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1562,6 +1564,11 @@ public final class SystemSessionProperties
                                         .collect(joining(","))),
                         featuresConfig.getHistoryBasedOptimizerPlanCanonicalizationStrategies(),
                         false),
+                booleanProperty(
+                        LOG_QUERY_PLANS_USED_IN_HISTORY_BASED_OPTIMIZER,
+                        "Enable logging of query plans generated and used in history based optimizer",
+                        featuresConfig.isLogPlansUsedInHistoryBasedOptimizer(),
+                        false),
                 new PropertyMetadata<>(
                         MAX_LEAF_NODES_IN_PLAN,
                         "Maximum number of leaf nodes in the logical plan of SQL statement",
@@ -1655,35 +1662,10 @@ public final class SystemSessionProperties
                         false,
                         false),
                 integerProperty(
-                        NATIVE_JOIN_SPILLER_PARTITION_BITS,
+                        NATIVE_SPILLER_NUM_PARTITION_BITS,
                         "Native Execution only. The number of bits (N) used to calculate the " +
                                 "spilling partition number for hash join and RowNumber: 2 ^ N",
-                        2,
-                        false),
-                booleanProperty(
-                        NATIVE_EXECUTION_ENABLED,
-                        "Enable execution on native engine",
-                        featuresConfig.isNativeExecutionEnabled(),
-                        false),
-                stringProperty(
-                        NATIVE_EXECUTION_EXECUTABLE_PATH,
-                        "The native engine executable file path for native engine execution",
-                        featuresConfig.getNativeExecutionExecutablePath(),
-                        false),
-                stringProperty(
-                        NATIVE_EXECUTION_PROGRAM_ARGUMENTS,
-                        "Program arguments for native engine execution. The main target use case for this " +
-                        "property is to control logging levels using glog flags. E,g, to enable verbose mode, add " +
-                        "'--v 1'. More advanced glog gflags usage can be found at " +
-                        "https://rpg.ifi.uzh.ch/docs/glog.html\n" +
-                        "e.g. --vmodule=mapreduce=2,file=1,gfs*=3 --v=0\n" +
-                        "will:\n" +
-                        "\n" +
-                        "a. Print VLOG(2) and lower messages from mapreduce.{h,cc}\n" +
-                        "b. Print VLOG(1) and lower messages from file.{h,cc}\n" +
-                        "c. Print VLOG(3) and lower messages from files prefixed with \"gfs\"\n" +
-                        "d. Print VLOG(0) and lower messages from elsewhere",
-                        featuresConfig.getNativeExecutionProgramArguments(),
+                        3,
                         false),
                 booleanProperty(
                         NATIVE_EXECUTION_PROCESS_REUSE_ENABLED,
@@ -1706,7 +1688,7 @@ public final class SystemSessionProperties
                         false),
                 new PropertyMetadata<>(
                         RANDOMIZE_OUTER_JOIN_NULL_KEY_STRATEGY,
-                        format("When to apply randomization to join keys in outer joins to mitigate null skew",
+                        format("When to apply randomization to join keys in outer joins to mitigate null skew. Value must be one of: %s",
                                 Stream.of(RandomizeOuterJoinNullKeyStrategy.values())
                                         .map(RandomizeOuterJoinNullKeyStrategy::name)
                                         .collect(joining(","))),
@@ -1718,12 +1700,12 @@ public final class SystemSessionProperties
                         RandomizeOuterJoinNullKeyStrategy::name),
                 doubleProperty(
                         RANDOMIZE_OUTER_JOIN_NULL_KEY_NULL_RATIO_THRESHOLD,
-                        "Enable randomizing null join key for outer join when ratio of null join keys exceed the threshold",
+                        "Enable randomizing null join key for outer join when ratio of null join keys exceeds the threshold",
                         0.02,
                         false),
                 new PropertyMetadata<>(
                         SHARDED_JOINS_STRATEGY,
-                        format("When to shard joins to mitigate skew",
+                        format("When to shard joins to mitigate skew. Value must be one of: %s",
                                 Stream.of(ShardedJoinStrategy.values())
                                         .map(ShardedJoinStrategy::name)
                                         .collect(joining(","))),
@@ -1773,6 +1755,11 @@ public final class SystemSessionProperties
                         featuresConfig.isFieldNamesInJsonCastEnabled(),
                         false),
                 booleanProperty(
+                        LEGACY_JSON_CAST,
+                        "Keep the legacy json cast behavior, do not reserve the case for field names when casting to row type",
+                        featuresConfig.isLegacyJsonCast(),
+                        false),
+                booleanProperty(
                         OPTIMIZE_JOIN_PROBE_FOR_EMPTY_BUILD_RUNTIME,
                         "Optimize join probe at runtime if build side is empty",
                         featuresConfig.isOptimizeJoinProbeForEmptyBuildRuntimeEnabled(),
@@ -1799,7 +1786,7 @@ public final class SystemSessionProperties
                         false),
                 new PropertyMetadata<>(
                         PUSH_DOWN_FILTER_EXPRESSION_EVALUATION_THROUGH_CROSS_JOIN,
-                        format("Push down expression evaluation in filter through cross join",
+                        format("Push down expression evaluation in filter through cross join %s",
                                 Stream.of(PushDownFilterThroughCrossJoinStrategy.values())
                                         .map(PushDownFilterThroughCrossJoinStrategy::name)
                                         .collect(joining(","))),
@@ -1939,7 +1926,12 @@ public final class SystemSessionProperties
                         featuresConfig.getDefaultViewSecurityMode(),
                         false,
                         value -> CreateView.Security.valueOf(((String) value).toUpperCase()),
-                        CreateView.Security::name));
+                        CreateView.Security::name),
+                booleanProperty(
+                        JOIN_PREFILTER_BUILD_SIDE,
+                        "Prefiltering the build/inner side of a join with keys from the other side",
+                        false,
+                        false));
     }
 
     public static boolean isSpoolingOutputBufferEnabled(Session session)
@@ -2043,7 +2035,7 @@ public final class SystemSessionProperties
 
     public static boolean isCteMaterializationApplicable(Session session)
     {
-        boolean isStrategyNone = getCteMaterializationStrategy(session).equals(NONE);
+        boolean isStrategyNone = getCteMaterializationStrategy(session) == CteMaterializationStrategy.NONE;
         boolean hasMaterializedCTE = session.getCteInformationCollector().getCTEInformationList()
                 .stream()
                 .anyMatch(CTEInformation::isMaterialized);
@@ -2209,7 +2201,7 @@ public final class SystemSessionProperties
         Boolean reorderJoins = session.getSystemProperty(REORDER_JOINS, Boolean.class);
         if (reorderJoins != null) {
             if (!reorderJoins) {
-                return NONE;
+                return JoinReorderingStrategy.NONE;
             }
             return ELIMINATE_CROSS_JOINS;
         }
@@ -2353,14 +2345,14 @@ public final class SystemSessionProperties
     public static DataSize getAggregationOperatorUnspillMemoryLimit(Session session)
     {
         DataSize memoryLimitForMerge = session.getSystemProperty(AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT, DataSize.class);
-        checkArgument(memoryLimitForMerge.toBytes() >= 0, "%s must be positive", AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT);
+        checkArgument(memoryLimitForMerge.toBytes() >= 0, "%s must be non-negative", AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT);
         return memoryLimitForMerge;
     }
 
     public static DataSize getTopNOperatorUnspillMemoryLimit(Session session)
     {
         DataSize unspillMemoryLimit = session.getSystemProperty(TOPN_OPERATOR_UNSPILL_MEMORY_LIMIT, DataSize.class);
-        checkArgument(unspillMemoryLimit.toBytes() >= 0, "%s must be positive", TOPN_OPERATOR_UNSPILL_MEMORY_LIMIT);
+        checkArgument(unspillMemoryLimit.toBytes() >= 0, "%s must be non-negative", TOPN_OPERATOR_UNSPILL_MEMORY_LIMIT);
         return unspillMemoryLimit;
     }
 
@@ -2372,7 +2364,7 @@ public final class SystemSessionProperties
     public static DataSize getTempStorageSpillerBufferSize(Session session)
     {
         DataSize tempStorageSpillerBufferSize = session.getSystemProperty(TEMP_STORAGE_SPILLER_BUFFER_SIZE, DataSize.class);
-        checkArgument(tempStorageSpillerBufferSize.toBytes() >= 0, "%s must be positive", TEMP_STORAGE_SPILLER_BUFFER_SIZE);
+        checkArgument(tempStorageSpillerBufferSize.toBytes() >= 0, "%s must be non-negative", TEMP_STORAGE_SPILLER_BUFFER_SIZE);
         return tempStorageSpillerBufferSize;
     }
 
@@ -3018,6 +3010,11 @@ public final class SystemSessionProperties
         return strategyList;
     }
 
+    public static boolean logQueryPlansUsedInHistoryBasedOptimizer(Session session)
+    {
+        return session.getSystemProperty(LOG_QUERY_PLANS_USED_IN_HISTORY_BASED_OPTIMIZER, Boolean.class);
+    }
+
     public static boolean shouldPushRemoteExchangeThroughGroupId(Session session)
     {
         return session.getSystemProperty(PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID, Boolean.class);
@@ -3215,5 +3212,10 @@ public final class SystemSessionProperties
     public static CreateView.Security getDefaultViewSecurityMode(Session session)
     {
         return session.getSystemProperty(DEFAULT_VIEW_SECURITY_MODE, CreateView.Security.class);
+    }
+
+    public static boolean isJoinPrefilterEnabled(Session session)
+    {
+        return session.getSystemProperty(JOIN_PREFILTER_BUILD_SIDE, Boolean.class);
     }
 }

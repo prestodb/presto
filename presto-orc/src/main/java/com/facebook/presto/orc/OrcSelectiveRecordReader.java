@@ -60,6 +60,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.IntStream;
@@ -99,7 +100,7 @@ public class OrcSelectiveRecordReader
     private static final Page EMPTY_PAGE = new Page(0);
 
     private final int[] hiveColumnIndices;                            // elements are hive column indices
-    private final List<Integer> outputColumns;                        // elements are hive column indices
+    private final List<Integer> outputColumns;                        // elements are zero based column indices
     private final Map<Integer, Type> columnTypes;                     // key: index into hiveColumnIndices array
     private final Object[] constantValues;                            // aligned with hiveColumnIndices array
     private final Function<Block, Block>[] coercers;                   // aligned with hiveColumnIndices array
@@ -897,11 +898,17 @@ public class OrcSelectiveRecordReader
         return new LongArrayBlock(positionCount, Optional.empty(), rowNumbers);
     }
 
-    @Override
-    public void close()
-            throws IOException
+    /**
+     * Convert from Hive column index to zero based column index.
+     */
+    public OptionalInt toZeroBasedColumnIndex(int hiveColumnIndex)
     {
-        super.close();
+        for (int i = 0; i < hiveColumnIndices.length; i++) {
+            if (hiveColumnIndices[i] == hiveColumnIndex) {
+                return OptionalInt.of(outputColumns.get(i));
+            }
+        }
+        return OptionalInt.empty();
     }
 
     private final class OrcBlockLoader

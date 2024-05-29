@@ -41,7 +41,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -287,7 +286,6 @@ public class TestPrestoSparkSourceDistributionSplitAssigner
         int minSparkInputPartitionCountForAutoTune = 2;
         int maxSparkInputPartitionCountForAutoTune = 5;
         int maxSplitSizeInBytes = 2048;
-        AtomicInteger sequenceId = new AtomicInteger();
         for (int i = 0; i < 3; ++i) {
             List<Long> splitSizes = new ArrayList<>(1000);
             for (int j = 0; j < 1000; j++) {

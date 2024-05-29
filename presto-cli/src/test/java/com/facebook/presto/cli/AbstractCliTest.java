@@ -126,6 +126,9 @@ public abstract class AbstractCliTest
         return new QueryRunner(
                 clientSession,
                 false,
+                false,
+                Optional.empty(),
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),

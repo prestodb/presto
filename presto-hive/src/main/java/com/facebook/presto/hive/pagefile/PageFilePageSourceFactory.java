@@ -72,7 +72,8 @@ public class PageFilePageSourceFactory
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone,
             HiveFileContext hiveFileContext,
-            Optional<EncryptionInformation> encryptionInformation)
+            Optional<EncryptionInformation> encryptionInformation,
+            Optional<byte[]> rowIDPartitionComponent)
     {
         if (!PageInputFormat.class.getSimpleName().equals(storage.getStorageFormat().getInputFormat())) {
             return Optional.empty();

@@ -100,7 +100,7 @@ pipeline {
                         echo "build prestodb source code with build version ${PRESTO_BUILD_VERSION}"
                         retry (5) {
                             sh '''
-                                unset MAVEN_CONFIG && ./mvnw install -DskipTests -B -T C1 -P ci -pl '!presto-docs'
+                                unset MAVEN_CONFIG && ./mvnw install -DskipTests -B -T 1C -P ci -pl '!presto-docs'
                                 tree /root/.m2/repository/com/facebook/presto/
                             '''
                         }

@@ -50,10 +50,12 @@ public class IcebergPlanOptimizerProvider
                 new IcebergPlanOptimizer(functionResolution, rowExpressionService, functionMetadataManager, transactionManager),
                 new IcebergFilterPushdown(rowExpressionService, functionResolution, functionMetadataManager, transactionManager, typeManager),
                 new IcebergParquetDereferencePushDown(transactionManager, rowExpressionService, typeManager));
-        this.logicalPlanOptimizers = ImmutableSet.<ConnectorPlanOptimizer>builder()
-                .addAll(this.planOptimizers)
-                .add(new IcebergEqualityDeleteAsJoin(functionResolution, transactionManager, typeManager))
-                .build();
+        this.logicalPlanOptimizers = ImmutableSet.of(
+                new IcebergPlanOptimizer(functionResolution, rowExpressionService, functionMetadataManager, transactionManager),
+                new IcebergFilterPushdown(rowExpressionService, functionResolution, functionMetadataManager, transactionManager, typeManager),
+                new IcebergMetadataOptimizer(functionMetadataManager, typeManager, transactionManager, rowExpressionService, functionResolution),
+                new IcebergParquetDereferencePushDown(transactionManager, rowExpressionService, typeManager),
+                new IcebergEqualityDeleteAsJoin(functionResolution, transactionManager, typeManager));
     }
 
     @Override

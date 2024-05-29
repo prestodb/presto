@@ -131,7 +131,7 @@ void setCellFromVariantByKind<TypeKind::VARBINARY>(
     vector_size_t row,
     const velox::variant& value) {
   auto values = column->as<FlatVector<StringView>>();
-  values->set(row, StringView(value.value<Varbinary>()));
+  values->set(row, StringView(value.value<TypeKind::VARBINARY>()));
 }
 
 template <>
@@ -140,7 +140,7 @@ void setCellFromVariantByKind<TypeKind::VARCHAR>(
     vector_size_t row,
     const velox::variant& value) {
   auto values = column->as<FlatVector<StringView>>();
-  values->set(row, StringView(value.value<Varchar>()));
+  values->set(row, StringView(value.value<TypeKind::VARCHAR>()));
 }
 
 void setCellFromVariant(

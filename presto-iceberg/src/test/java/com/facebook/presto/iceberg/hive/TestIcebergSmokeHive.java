@@ -32,7 +32,7 @@ import org.apache.iceberg.Table;
 
 import java.io.File;
 
-import static com.facebook.presto.hive.metastore.CachingHiveMetastore.memoizeMetastore;
+import static com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore.memoizeMetastore;
 import static com.facebook.presto.iceberg.CatalogType.HIVE;
 import static java.lang.String.format;
 

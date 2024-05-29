@@ -296,9 +296,6 @@ public class TopNRowNumberOperator
     @Override
     public ListenableFuture<?> startMemoryRevoke()
     {
-        if (finishing) {
-            return NOT_BLOCKED;
-        }
         return groupedTopNBuilder.startMemoryRevoke();
     }
 

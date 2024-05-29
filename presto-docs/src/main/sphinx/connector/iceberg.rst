@@ -225,10 +225,13 @@ Property Name                                           Description             
 
 ``iceberg.enable-parquet-dereference-pushdown``         Enable parquet dereference pushdown.                          ``true``
 
-``iceberg.hive-statistics-merge-strategy``              Determines how to merge statistics that are stored in the     ``NONE``
-                                                        Hive Metastore. The available values are ``NONE``,
-                                                        ``USE_NULLS_FRACTION_AND_NDV``, ``USE_NULLS_FRACTIONS``
-                                                        and, ``USE_NDV``
+``iceberg.hive-statistics-merge-strategy``              Comma separated list of statistics to use from the
+                                                        Hive Metastore to override Iceberg table statistics.
+                                                        The available values are ``NUMBER_OF_DISTINCT_VALUES``
+                                                        and ``TOTAL_SIZE_IN_BYTES``.
+
+                                                        **Note**: Only valid when the Iceberg connector is
+                                                        configured with Hive.
 
 ``iceberg.statistic-snapshot-record-difference-weight`` The amount that the difference in total record count matters
                                                         when calculating the closest snapshot when picking
@@ -237,6 +240,13 @@ Property Name                                           Description             
 
 ``iceberg.pushdown-filter-enabled``                     Experimental: Enable filter pushdown for Iceberg. This is     ``false``
                                                         only supported with Native Worker.
+
+``iceberg.rows-for-metadata-optimization-threshold``    The maximum number of partitions in an Iceberg table to       ``1000``
+                                                        allow optimizing queries of that table using metadata. If
+                                                        an Iceberg table has more partitions than this threshold,
+                                                        metadata optimization is skipped.
+
+                                                        Set to ``0`` to disable metadata optimization.
 ======================================================= ============================================================= ============
 
 Table Properties
@@ -301,12 +311,17 @@ Session Properties
 
 Session properties set behavior changes for queries executed within the given session.
 
-============================================= ======================================================================
-Property Name                                 Description
-============================================= ======================================================================
-``iceberg.delete_as_join_rewrite_enabled``    Overrides the behavior of the connector property
-                                              ``iceberg.delete-as-join-rewrite-enabled`` in the current session.
-============================================= ======================================================================
+===================================================== ======================================================================
+Property Name                                         Description
+===================================================== ======================================================================
+``iceberg.delete_as_join_rewrite_enabled``            Overrides the behavior of the connector property
+                                                      ``iceberg.delete-as-join-rewrite-enabled`` in the current session.
+``iceberg.hive_statistics_merge_strategy``            Overrides the behavior of the connector property
+                                                      ``iceberg.hive-statistics-merge-strategy`` in the current session.
+``iceberg.rows_for_metadata_optimization_threshold``  Overrides the behavior of the connector property
+                                                      ``iceberg.rows-for-metadata-optimization-threshold`` in the current
+                                                      session.
+===================================================== ======================================================================
 
 Caching Support
 ----------------
@@ -907,6 +922,40 @@ procedure on the catalog's ``system`` schema::
     ``unregister_table`` only when using the Hive catalog. This is similar to
     the behavior listed above for the ``DROP TABLE`` command.
 
+Expire snapshots
+^^^^^^^^^^^^^^^^
+
+Each DML (Data Manipulation Language) action in Iceberg produces a new snapshot while keeping the old data and metadata for snapshot isolation and time travel. Use `expire_snapshots` to remove older snapshots and their files.
+
+This procedure removes old snapshots and their corresponding files, and never removes files which are required by a non-expired snapshot.
+
+The following arguments are available:
+
+===================== ========== =============== =======================================================================
+Argument Name         required   type            Description
+===================== ========== =============== =======================================================================
+``schema``            ✔️         string          Schema of the table to update
+
+``table_name``        ✔️         string          Name of the table to update
+
+``older_than``                   timestamp       Timestamp before which snapshots will be removed (Default: 5 days ago)
+
+``retain_last``                  int             Number of ancestor snapshots to preserve regardless of older_than
+                                                 (defaults to 1)
+
+``snapshot_ids``                 array of long   Array of snapshot IDs to expire
+===================== ========== =============== =======================================================================
+
+Examples:
+
+* Remove snapshots older than a specific day and time, but retain the last 10 snapshots::
+
+    CALL iceberg.system.expire_snapshots('schema_name', 'table_name', TIMESTAMP '2023-08-31 00:00:00.000', 10);
+
+* Remove snapshots with snapshot ID 10001 and 10002 (note that these snapshot IDs should not be the current snapshot)::
+
+    CALL iceberg.system.expire_snapshots(schema => 'schema_name', table_name => 'table_name', snapshot_ids => ARRAY[10001, 10002]);
+
 Schema Evolution
 -----------------
 
@@ -1172,7 +1221,7 @@ each Iceberg data type to the corresponding Presto data type, and from each Pres
 The following tables detail the specific type maps between PrestoDB and Iceberg. 
 
 Iceberg to PrestoDB type mapping
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Map of Iceberg types to the relevant PrestoDB types:
 
@@ -1215,7 +1264,7 @@ Map of Iceberg types to the relevant PrestoDB types:
 No other types are supported.
 
 PrestoDB to Iceberg type mapping
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Map of PrestoDB types to the relevant Iceberg types:
 

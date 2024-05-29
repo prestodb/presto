@@ -840,38 +840,38 @@ The following procedures are available:
 
 * ``system.create_empty_partition(schema_name, table_name, partition_columns, partition_values)``
 
-    Create an empty partition in the specified table.
+  Create an empty partition in the specified table.
 
 * ``system.sync_partition_metadata(schema_name, table_name, mode, case_sensitive)``
 
-    Check and update partitions list in metastore. There are three modes available:
+  Check and update partitions list in metastore. There are three modes available:
 
-    * ``ADD`` : add any partitions that exist on the file system but not in the metastore.
-    * ``DROP``: drop any partitions that exist in the metastore but not on the file system.
-    * ``FULL``: perform both ``ADD`` and ``DROP``.
+  * ``ADD`` : add any partitions that exist on the file system but not in the metastore.
+  * ``DROP``: drop any partitions that exist in the metastore but not on the file system.
+  * ``FULL``: perform both ``ADD`` and ``DROP``.
 
-    The ``case_sensitive`` argument is optional. The default value is ``true`` for compatibility
-    with Hive's ``MSCK REPAIR TABLE`` behavior, which expects the partition column names in
-    file system paths to use lowercase (e.g. ``col_x=SomeValue``). Partitions on the file system
-    not conforming to this convention are ignored, unless the argument is set to ``false``.
+  The ``case_sensitive`` argument is optional. The default value is ``true`` for compatibility
+  with Hive's ``MSCK REPAIR TABLE`` behavior, which expects the partition column names in
+  file system paths to use lowercase (e.g. ``col_x=SomeValue``). Partitions on the file system
+  not conforming to this convention are ignored, unless the argument is set to ``false``.
 
 * ``system.invalidate_directory_list_cache()``
 
-    Flush full directory list cache.
+  Flush full directory list cache.
 
 * ``system.invalidate_directory_list_cache(directory_path)``
 
-    Invalidate directory list cache for specified directory_path.
+  Invalidate directory list cache for specified directory_path.
 
 Extra Hidden Columns
 --------------------
 
-The Hive connector exposes extra hidden metadata columns in Hive tables. You can query these
-columns as a part of SQL query like any other columns of the table.
+The Hive connector exposes extra hidden metadata columns in Hive tables. Query these
+columns as a part of the query like any other columns of the table.
 
 * ``$path`` : Filepath for the given row data
-* ``$file_size`` : Filesize for the given row
-* ``$file_modified_time`` : Last file modified time for the given row
+* ``$file_size`` : Filesize for the given row (int64_t)
+* ``$file_modified_time`` : Last file modified time for the given row (int64_t), in milliseconds since January 1, 1970 UTC
 
 How to invalidate metastore cache?
 ---------------------------------

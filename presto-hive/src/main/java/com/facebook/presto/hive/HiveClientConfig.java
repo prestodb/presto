@@ -216,6 +216,7 @@ public class HiveClientConfig
     private Duration parquetQuickStatsFileMetadataFetchTimeout = new Duration(60, TimeUnit.SECONDS);
     private int parquetQuickStatsMaxConcurrentCalls = 500;
     private int quickStatsMaxConcurrentCalls = 100;
+    private DataSize affinitySchedulingFileSectionSize = new DataSize(256, MEGABYTE);
 
     @Min(0)
     public int getMaxInitialSplits()
@@ -749,7 +750,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.orc.use-column-names")
-    @ConfigDescription("Access ORC columns using names from the file")
+    @ConfigDescription("Access ORC columns using names from the file first, and fallback to Hive schema column names if not found to ensure backward compatibility with old data")
     public HiveClientConfig setUseOrcColumnNames(boolean useOrcColumnNames)
     {
         this.useOrcColumnNames = useOrcColumnNames;
@@ -1801,5 +1802,18 @@ public class HiveClientConfig
     public int getMaxParallelParsingConcurrency()
     {
         return this.maxParallelParsingConcurrency;
+    }
+
+    @NotNull
+    public DataSize getAffinitySchedulingFileSectionSize()
+    {
+        return affinitySchedulingFileSectionSize;
+    }
+
+    @Config("hive.affinity-scheduling-file-section-size")
+    public HiveClientConfig setAffinitySchedulingFileSectionSize(DataSize affinitySchedulingFileSectionSize)
+    {
+        this.affinitySchedulingFileSectionSize = affinitySchedulingFileSectionSize;
+        return this;
     }
 }

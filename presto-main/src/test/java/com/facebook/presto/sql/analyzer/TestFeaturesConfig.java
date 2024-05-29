@@ -89,6 +89,7 @@ public class TestFeaturesConfig
                 .setHistoryCanonicalPlanNodeLimit(1000)
                 .setHistoryBasedOptimizerTimeout(new Duration(10, SECONDS))
                 .setHistoryBasedOptimizerPlanCanonicalizationStrategies("IGNORE_SAFE_CONSTANTS")
+                .setLogPlansUsedInHistoryBasedOptimizer(false)
                 .setRedistributeWrites(true)
                 .setScaleWriters(false)
                 .setWriterMinSize(new DataSize(32, MEGABYTE))
@@ -159,7 +160,7 @@ public class TestFeaturesConfig
                 .setFilterAndProjectMinOutputPageSize(new DataSize(500, KILOBYTE))
                 .setFilterAndProjectMinOutputPageRowCount(256)
                 .setUseMarkDistinct(true)
-                .setExploitConstraints(false)
+                .setExploitConstraints(true)
                 .setPreferPartialAggregation(true)
                 .setPartialAggregationStrategy(PartialAggregationStrategy.ALWAYS)
                 .setPartialAggregationByteReductionThreshold(0.5)
@@ -268,7 +269,8 @@ public class TestFeaturesConfig
                 .setRewriteExpressionWithConstantVariable(true)
                 .setDefaultWriterReplicationCoefficient(3.0)
                 .setDefaultViewSecurityMode(DEFINER)
-                .setCteHeuristicReplicationThreshold(4));
+                .setCteHeuristicReplicationThreshold(4)
+                .setLegacyJsonCast(true));
     }
 
     @Test
@@ -321,6 +323,7 @@ public class TestFeaturesConfig
                 .put("optimizer.use-perfectly-consistent-histories", "true")
                 .put("optimizer.history-canonical-plan-node-limit", "2")
                 .put("optimizer.history-based-optimizer-plan-canonicalization-strategies", "IGNORE_SAFE_CONSTANTS,IGNORE_SCAN_CONSTANTS")
+                .put("optimizer.log-plans-used-in-history-based-optimizer", "true")
                 .put("optimizer.history-based-optimizer-timeout", "1s")
                 .put("redistribute-writes", "false")
                 .put("scale-writers", "true")
@@ -374,7 +377,7 @@ public class TestFeaturesConfig
                 .put("arrayagg.implementation", "LEGACY")
                 .put("multimapagg.implementation", "LEGACY")
                 .put("optimizer.use-mark-distinct", "false")
-                .put("optimizer.exploit-constraints", "true")
+                .put("optimizer.exploit-constraints", "false")
                 .put("optimizer.prefer-partial-aggregation", "false")
                 .put("optimizer.partial-aggregation-strategy", "automatic")
                 .put("optimizer.partial-aggregation-byte-reduction-threshold", "0.8")
@@ -451,6 +454,7 @@ public class TestFeaturesConfig
                 .put("optimizer.push-aggregation-below-join-byte-reduction-threshold", "0.9")
                 .put("optimizer.prefilter-for-groupby-limit", "true")
                 .put("field-names-in-json-cast-enabled", "true")
+                .put("legacy-json-cast", "false")
                 .put("optimizer.optimize-probe-for-empty-build-runtime", "true")
                 .put("optimizer.use-defaults-for-correlated-aggregation-pushdown-through-outer-joins", "false")
                 .put("optimizer.merge-duplicate-aggregations", "false")
@@ -522,6 +526,7 @@ public class TestFeaturesConfig
                 .setHistoryCanonicalPlanNodeLimit(2)
                 .setHistoryBasedOptimizerTimeout(new Duration(1, SECONDS))
                 .setHistoryBasedOptimizerPlanCanonicalizationStrategies("IGNORE_SAFE_CONSTANTS,IGNORE_SCAN_CONSTANTS")
+                .setLogPlansUsedInHistoryBasedOptimizer(true)
                 .setRedistributeWrites(false)
                 .setScaleWriters(true)
                 .setWriterMinSize(new DataSize(42, GIGABYTE))
@@ -579,7 +584,7 @@ public class TestFeaturesConfig
                 .setFilterAndProjectMinOutputPageSize(new DataSize(1, MEGABYTE))
                 .setFilterAndProjectMinOutputPageRowCount(2048)
                 .setUseMarkDistinct(false)
-                .setExploitConstraints(true)
+                .setExploitConstraints(false)
                 .setPreferPartialAggregation(false)
                 .setPartialAggregationStrategy(PartialAggregationStrategy.AUTOMATIC)
                 .setPartialAggregationByteReductionThreshold(0.8)
@@ -690,7 +695,8 @@ public class TestFeaturesConfig
                 .setRewriteExpressionWithConstantVariable(false)
                 .setDefaultWriterReplicationCoefficient(5.0)
                 .setDefaultViewSecurityMode(INVOKER)
-                .setCteHeuristicReplicationThreshold(2);
+                .setCteHeuristicReplicationThreshold(2)
+                .setLegacyJsonCast(false);
         assertFullMapping(properties, expected);
     }
 

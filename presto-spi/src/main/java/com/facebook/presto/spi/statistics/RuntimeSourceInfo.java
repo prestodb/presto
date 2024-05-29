@@ -50,10 +50,4 @@ public class RuntimeSourceInfo
     {
         return "Runtime";
     }
-
-    @Override
-    public boolean estimateSizeUsingVariables()
-    {
-        return false;
-    }
 }

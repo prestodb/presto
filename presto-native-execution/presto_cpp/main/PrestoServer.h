@@ -200,6 +200,8 @@ class PrestoServer {
   // Periodically yield tasks if there are tasks queued.
   void yieldTasks();
 
+  void registerSystemConnector();
+
   const std::string configDirectoryPath_;
 
   std::shared_ptr<CoordinatorDiscoverer> coordinatorDiscoverer_;

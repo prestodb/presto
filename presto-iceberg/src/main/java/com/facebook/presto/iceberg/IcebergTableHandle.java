@@ -29,6 +29,7 @@ public class IcebergTableHandle
         extends BaseHiveTableHandle
 {
     private final IcebergTableName icebergTableName;
+    // TODO: this field is no longer useful, would be removed in a subsequent PR
     private final TupleDomain<IcebergColumnHandle> predicate;
     private final boolean snapshotSpecified;
     private final Optional<String> outputPath;

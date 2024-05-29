@@ -57,14 +57,14 @@ TEST_F(RemoteFunctionRegistererTest, singleFile) {
 
   // Write to a single output file.
   auto path = exec::test::TempFilePath::create();
-  writeToFile(path->path, json);
+  writeToFile(path->getPath(), json);
 
   // Check functions do not exist first.
   EXPECT_TRUE(exec::getVectorFunctionSignatures("mock1") == std::nullopt);
   EXPECT_TRUE(exec::getVectorFunctionSignatures("mock2") == std::nullopt);
 
   // Read and register functions in that file.
-  EXPECT_EQ(registerRemoteFunctions(path->path, {}), 2);
+  EXPECT_EQ(registerRemoteFunctions(path->getPath(), {}), 2);
   EXPECT_TRUE(exec::getVectorFunctionSignatures("mock1") != std::nullopt);
   EXPECT_TRUE(exec::getVectorFunctionSignatures("mock2") != std::nullopt);
 }
@@ -87,7 +87,7 @@ TEST_F(RemoteFunctionRegistererTest, prefixes) {
 
   // Write to a single output file.
   auto path = exec::test::TempFilePath::create();
-  writeToFile(path->path, json);
+  writeToFile(path->getPath(), json);
 
   EXPECT_TRUE(exec::getVectorFunctionSignatures("mock3") == std::nullopt);
   EXPECT_TRUE(
@@ -96,7 +96,7 @@ TEST_F(RemoteFunctionRegistererTest, prefixes) {
       exec::getVectorFunctionSignatures("json.mock_schema.mock3") ==
       std::nullopt);
 
-  EXPECT_EQ(registerRemoteFunctions(path->path, {}), 1);
+  EXPECT_EQ(registerRemoteFunctions(path->getPath(), {}), 1);
 
   EXPECT_TRUE(exec::getVectorFunctionSignatures("mock3") == std::nullopt);
   EXPECT_TRUE(
@@ -105,7 +105,7 @@ TEST_F(RemoteFunctionRegistererTest, prefixes) {
       exec::getVectorFunctionSignatures("json.mock_schema.mock3") ==
       std::nullopt);
 
-  EXPECT_EQ(registerRemoteFunctions(path->path, {}, "json"), 1);
+  EXPECT_EQ(registerRemoteFunctions(path->getPath(), {}, "json"), 1);
 
   EXPECT_TRUE(exec::getVectorFunctionSignatures("mock3") == std::nullopt);
   EXPECT_TRUE(
@@ -133,14 +133,14 @@ TEST_F(RemoteFunctionRegistererTest, directory) {
   // $ tmpDir/subdir/remote3.json
   //
   // to ensure files can be read recursively.
-  writeToFile(tempDir->path + "/remote1.json", getJson("mock1"));
-  writeToFile(tempDir->path + "/remote2.json", getJson("mock2"));
+  writeToFile(tempDir->getPath() + "/remote1.json", getJson("mock1"));
+  writeToFile(tempDir->getPath() + "/remote2.json", getJson("mock2"));
 
-  const std::string tempSubdir = tempDir->path + "/subdir";
+  const std::string tempSubdir = tempDir->getPath() + "/subdir";
   fs::create_directory(tempSubdir);
   writeToFile(tempSubdir + "/remote3.json", getJson("mock3"));
 
-  EXPECT_EQ(registerRemoteFunctions(tempDir->path, {}), 3);
+  EXPECT_EQ(registerRemoteFunctions(tempDir->getPath(), {}), 3);
 }
 
 } // namespace

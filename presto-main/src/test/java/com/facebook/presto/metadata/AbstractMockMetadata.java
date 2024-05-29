@@ -662,7 +662,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public void dropConstraint(Session session, TableHandle tableHandle, String constraintName)
+    public void dropConstraint(Session session, TableHandle tableHandle, Optional<String> constraintName, Optional<String> columnName)
     {
         throw new UnsupportedOperationException();
     }

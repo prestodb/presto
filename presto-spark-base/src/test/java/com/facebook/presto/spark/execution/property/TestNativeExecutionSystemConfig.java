@@ -84,7 +84,9 @@ public class TestNativeExecutionSystemConfig
                 .setUseMmapAllocator(true)
                 .setMemoryArbitratorKind("SHARED")
                 .setMemoryArbitratorCapacityGb(8)
+                .setMemoryArbitratorReservedCapacityGb(0)
                 .setMemoryPoolInitCapacity(8L << 30)
+                .setMemoryPoolReservedCapacity(0)
                 .setMemoryPoolTransferCapacity(2L << 30)
                 .setMemoryReclaimWaitMs(300_000)
                 .setSpillerSpillPath("")
@@ -123,7 +125,9 @@ public class TestNativeExecutionSystemConfig
                 .setUseMmapAllocator(false)
                 .setMemoryArbitratorKind("")
                 .setMemoryArbitratorCapacityGb(10)
+                .setMemoryArbitratorReservedCapacityGb(8)
                 .setMemoryPoolInitCapacity(7L << 30)
+                .setMemoryPoolReservedCapacity(6L << 30)
                 .setMemoryPoolTransferCapacity(1L << 30)
                 .setMemoryReclaimWaitMs(123123123)
                 .setSpillerSpillPath("dummy.spill.path")
@@ -192,11 +196,10 @@ public class TestNativeExecutionSystemConfig
         Path directory = null;
         try {
             directory = Files.createTempDirectory("presto");
-            Path veloxPropertiesPath = Paths.get(directory.toString(), "velox.properties");
             Path configPropertiesPath = Paths.get(directory.toString(), "config.properties");
             Path nodePropertiesPath = Paths.get(directory.toString(), "node.properties");
             Path connectorPropertiesPath = Paths.get(directory.toString(), "catalog/hive.properties");
-            workerProperty.populateAllProperties(veloxPropertiesPath, configPropertiesPath, nodePropertiesPath, connectorPropertiesPath);
+            workerProperty.populateAllProperties(configPropertiesPath, nodePropertiesPath, connectorPropertiesPath);
 
             verifyProperties(workerProperty.getSystemConfig().getAllProperties(), readPropertiesFromDisk(configPropertiesPath));
             verifyProperties(workerProperty.getNodeConfig().getAllProperties(), readPropertiesFromDisk(nodePropertiesPath));

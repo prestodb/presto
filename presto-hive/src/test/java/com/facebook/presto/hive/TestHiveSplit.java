@@ -87,8 +87,10 @@ public class TestHiveSplit
                 88,
                 Instant.now().toEpochMilli(),
                 Optional.empty(),
-                customSplitInfo);
+                customSplitInfo,
+                0);
 
+        byte[] rowIdPartitionComponent = {(byte) 76, (byte) 58};
         HiveSplit expected = new HiveSplit(
                 fileSplit,
                 "db",
@@ -120,7 +122,8 @@ public class TestHiveSplit
                         "test_algo",
                         "test_provider"))),
                 redundantColumnDomains,
-                SplitWeight.fromProportion(2.0)); // some non-standard value
+                SplitWeight.fromProportion(2.0), // some non-standard value
+                Optional.of(rowIdPartitionComponent));
 
         JsonCodec<HiveSplit> codec = getJsonCodec();
         String json = codec.toJson(expected);
@@ -142,6 +145,7 @@ public class TestHiveSplit
         assertEquals(actual.getCacheQuotaRequirement(), expected.getCacheQuotaRequirement());
         assertEquals(actual.getEncryptionInformation(), expected.getEncryptionInformation());
         assertEquals(actual.getSplitWeight(), expected.getSplitWeight());
+        assertEquals(actual.getRowIdPartitionComponent().get(), expected.getRowIdPartitionComponent().get());
     }
 
     private JsonCodec<HiveSplit> getJsonCodec()

@@ -55,6 +55,7 @@ import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
@@ -169,9 +170,9 @@ public class TestExchangeOperator
         waitForPages(operator, 3);
 
         // verify state
-        assertEquals(operator.isFinished(), false);
-        assertEquals(operator.needsInput(), false);
-        assertEquals(operator.getOutput(), null);
+        assertFalse(operator.isFinished());
+        assertFalse(operator.needsInput());
+        assertNull(operator.getOutput());
 
         // add more pages and close the buffers
         taskBuffers.getUnchecked(TASK_1_ID).addPages(2, true);
@@ -200,9 +201,9 @@ public class TestExchangeOperator
         waitForPages(operator, 1);
 
         // verify state
-        assertEquals(operator.isFinished(), false);
-        assertEquals(operator.needsInput(), false);
-        assertEquals(operator.getOutput(), null);
+        assertFalse(operator.isFinished());
+        assertFalse(operator.needsInput());
+        assertNull(operator.getOutput());
 
         // add a buffer location
         operator.addSplit(new ScheduledSplit(1, operator.getSourceId(), newRemoteSplit(TASK_2_ID)));
@@ -238,9 +239,9 @@ public class TestExchangeOperator
         waitForPages(operator, 3);
 
         // verify state
-        assertEquals(operator.isFinished(), false);
-        assertEquals(operator.needsInput(), false);
-        assertEquals(operator.getOutput(), null);
+        assertFalse(operator.isFinished());
+        assertFalse(operator.needsInput());
+        assertNull(operator.getOutput());
 
         // finish without closing buffers
         operator.finish();

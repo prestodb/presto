@@ -18,16 +18,18 @@ set -eufx -o pipefail
 
 # Run the velox setup script first.
 source "$(dirname "${BASH_SOURCE}")/../velox/scripts/setup-ubuntu.sh"
-export FB_OS_VERSION=v2023.12.04.00
-sudo apt install -y gperf
+export FB_OS_VERSION=v2024.04.01.00
+SUDO="${SUDO:-"sudo --preserve-env"}"
 
 function install_proxygen {
+  # proxygen requires python and gperf
+  ${SUDO} apt update
+  ${SUDO} apt install -y gperf python3
   github_checkout facebook/proxygen "${FB_OS_VERSION}"
   cmake_install -DBUILD_TESTS=OFF
 }
 
 function install_presto_deps {
-  install_velox_deps
   run_and_time install_proxygen
 }
 
@@ -35,6 +37,15 @@ if [[ $# -ne 0 ]]; then
   for cmd in "$@"; do
     run_and_time "${cmd}"
   done
+  echo "All specified dependencies installed!"
 else
+  if [ "${INSTALL_PREREQUISITES:-Y}" == "Y" ]; then
+    echo "Installing build dependencies"
+    run_and_time install_build_prerequisites
+  else
+    echo "Skipping installation of build dependencies since INSTALL_PREREQUISITES is not set"
+  fi
+  install_velox_deps
   install_presto_deps
+  echo "All dependencies for Prestissimo installed!"
 fi

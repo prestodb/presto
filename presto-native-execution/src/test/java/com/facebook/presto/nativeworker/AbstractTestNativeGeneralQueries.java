@@ -906,6 +906,22 @@ public abstract class AbstractTestNativeGeneralQueries
         // from_base64url, to_base64url
         assertQuery("SELECT from_base64url(to_base64url(cast(comment as varbinary))) FROM orders");
 
+        //to_ieee754_32
+        assertQuery("SELECT to_ieee754_32(null)");
+        assertQuery("SELECT to_ieee754_32(cast(0.0 as REAL))");
+        assertQuery("SELECT to_ieee754_32(cast(3.14158999999999988261834005243E0 as REAL))");
+        assertQuery("SELECT to_ieee754_32(cast(-3.14158999999999988261834005243E0 as REAL))");
+        assertQuery("SELECT to_ieee754_32(cast(totalprice as REAL)) FROM orders");
+        assertQuery("SELECT to_ieee754_32(cast(acctbal as REAL)) FROM customer");
+
+        //from_ieee754_32
+        assertQuery("SELECT from_ieee754_32(to_ieee754_32(null))");
+        assertQuery("SELECT from_ieee754_32(to_ieee754_32(cast(0.0 as REAL)))");
+        assertQuery("SELECT from_ieee754_32(to_ieee754_32(cast(3.14158999999999988261834005243E0 as REAL)))");
+        assertQuery("SELECT from_ieee754_32(to_ieee754_32(cast(-3.14158999999999988261834005243E0 as REAL)))");
+        assertQuery("SELECT from_ieee754_32(to_ieee754_32(cast(totalprice as REAL))) FROM orders");
+        assertQuery("SELECT from_ieee754_32(to_ieee754_32(cast(acctbal as REAL))) FROM customer");
+
         //to_ieee754_64
         assertQuery("SELECT to_ieee754_64(null)");
         assertQuery("SELECT to_ieee754_64(0.0)");
@@ -979,20 +995,28 @@ public abstract class AbstractTestNativeGeneralQueries
     }
 
     @Test
-    public void testPath()
+    public void testPathHiddenColumn()
     {
         assertQuery("SELECT \"$path\", * from orders");
 
         // Fetch one of the file paths and use it in a filter
         String path = (String) computeActual("SELECT \"$path\" from orders LIMIT 1").getOnlyValue();
         assertQuery(format("SELECT * from orders WHERE \"$path\"='%s'", path));
+    }
 
+    @Test
+    public void testFileSizeHiddenColumn()
+    {
         assertQuery("SELECT \"$file_size\", * from orders");
 
         // Fetch one of the file sizes and use it in a filter
         Long fileSize = (Long) computeActual("SELECT \"$file_size\" from orders LIMIT 1").getOnlyValue();
         assertQuery(format("SELECT * from orders WHERE \"$file_size\"=%d", fileSize));
+    }
 
+    @Test
+    public void testFileModifiedTimeHiddenColumn()
+    {
         assertQuery("SELECT \"$file_modified_time\", * from orders");
 
         // Fetch one of the file modified times and use it as a filter.
@@ -1192,8 +1216,7 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT orderkey, date_trunc('year', from_unixtime(orderkey)), date_trunc('quarter', from_unixtime(orderkey)), date_trunc('month', from_unixtime(orderkey)), date_trunc('day', from_unixtime(orderkey)), date_trunc('hour', from_unixtime(orderkey)), date_trunc('minute', from_unixtime(orderkey)), date_trunc('second', from_unixtime(orderkey)) FROM orders");
     }
 
-    // disabling flaky test https://github.com/prestodb/presto/issues/21821
-    @Test(enabled = false)
+    @Test
     public void testPrestoBenchTables()
     {
         assertQuery("SELECT name from prestobench_nation");

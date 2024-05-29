@@ -130,6 +130,15 @@ public class TestStatementBuilder
         printStatement("select * from foo tablesample system (10) join bar tablesample bernoulli (30) on a.id = b.id");
         printStatement("select * from foo tablesample system (10) join bar tablesample bernoulli (30) on not(a.id > b.id)");
 
+        printStatement("select * from foo for version as of 8772871542276440693");
+        printStatement("select * from foo for system_version as of 8772871542276440693");
+        printStatement("select * from foo for timestamp as of timestamp '2023-08-17 13:29:46.822 America/Los_Angeles'");
+        printStatement("select * from foo for system_time as of timestamp '2023-08-17 13:29:46.822 America/Los_Angeles'");
+        printStatement("select * from foo for version before 8772871542276440693");
+        printStatement("select * from foo for system_version before 8772871542276440693");
+        printStatement("select * from foo for timestamp before timestamp '2023-08-17 13:29:46.822 America/Los_Angeles'");
+        printStatement("select * from foo for system_time before timestamp '2023-08-17 13:29:46.822 America/Los_Angeles'");
+
         printStatement("create table foo as (select * from abc)");
         printStatement("create table if not exists foo as (select * from abc)");
         printStatement("create table foo with (a = 'apple', b = 'banana') as select * from abc");
@@ -277,6 +286,11 @@ public class TestStatementBuilder
         printStatement("create table t1 (c1 int, c2 varchar, c3 double, c4 int, constraint pk1 primary key (c1, c2))");
         printStatement("create table t1 (c1 int, c2 varchar, c3 double, c4 int, constraint pk1 primary key (c1, c2), constraint uq1 unique (c4), unique (c3))");
         printStatement("create table t1 (c1 int, c2 varchar, c3 double, c4 int, constraint pk1 primary key (c1, c2) disabled not rely enforced , constraint uq1 unique (c4) not rely enforced, unique (c3) disabled)");
+
+        printStatement("alter table foo alter column bar set not null");
+        printStatement("alter table foo alter column bar drop not null");
+        printStatement("alter table if exists foo alter bar set not null");
+        printStatement("alter table if exists foo alter bar drop not null");
     }
 
     @Test

@@ -21,6 +21,7 @@
 #include "presto_cpp/main/Announcer.h"
 #include "presto_cpp/main/PeriodicTaskManager.h"
 #include "presto_cpp/main/SignalHandler.h"
+#include "presto_cpp/main/SystemConnector.h"
 #include "presto_cpp/main/TaskResource.h"
 #include "presto_cpp/main/common/ConfigReader.h"
 #include "presto_cpp/main/common/Counters.h"
@@ -45,6 +46,7 @@
 #include "velox/common/memory/MmapAllocator.h"
 #include "velox/common/memory/SharedArbitrator.h"
 #include "velox/connectors/Connector.h"
+#include "velox/connectors/hive/HiveConnector.h"
 #include "velox/core/Config.h"
 #include "velox/exec/OutputBufferManager.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
@@ -188,19 +190,9 @@ void PrestoServer::run() {
         VELOX_USER_FAIL(
             "Https Client Certificates are not configured correctly");
       }
-      clientCertAndKeyPath = optionalClientCertPath.value();
 
-      try {
-        sslContext_ = std::make_shared<folly::SSLContext>();
-        sslContext_->loadCertKeyPairFromFiles(
-            clientCertAndKeyPath.c_str(), clientCertAndKeyPath.c_str());
-        sslContext_->setCiphersOrThrow(ciphers);
-      } catch (const std::exception& ex) {
-        LOG(FATAL) << fmt::format(
-            "Unable to load certificate or key from {} : {}",
-            clientCertAndKeyPath,
-            ex.what());
-      }
+      sslContext_ =
+          util::createSSLContext(optionalClientCertPath.value(), ciphers);
     }
 
     if (systemConfig->internalCommunicationJwtEnabled()) {
@@ -227,12 +219,16 @@ void PrestoServer::run() {
     exit(EXIT_FAILURE);
   }
 
-  registerStatsCounters();
   registerFileSinks();
   registerFileSystems();
   registerMemoryArbitrators();
   registerShuffleInterfaceFactories();
   registerCustomOperators();
+
+  // Register Velox connector factory for iceberg.
+  // The iceberg catalog is handled by the hive connector factory.
+  connector::registerConnectorFactory(
+      std::make_shared<connector::hive::HiveConnectorFactory>("iceberg"));
 
   registerPrestoToVeloxConnector(
       std::make_unique<HivePrestoToVeloxConnector>("hive"));
@@ -242,6 +238,17 @@ void PrestoServer::run() {
       std::make_unique<IcebergPrestoToVeloxConnector>("iceberg"));
   registerPrestoToVeloxConnector(
       std::make_unique<TpchPrestoToVeloxConnector>("tpch"));
+  // Presto server uses system catalog or system schema in other catalogs
+  // in different places in the code. All these resolve to the SystemConnector.
+  // Depending on where the operator or column is used, different prefixes can
+  // be used in the naming. So the protocol class is mapped
+  // to all the different prefixes for System tables/columns.
+  registerPrestoToVeloxConnector(
+      std::make_unique<SystemPrestoToVeloxConnector>("$system"));
+  registerPrestoToVeloxConnector(
+      std::make_unique<SystemPrestoToVeloxConnector>("system"));
+  registerPrestoToVeloxConnector(
+      std::make_unique<SystemPrestoToVeloxConnector>("$system@system"));
 
   initializeVeloxMemory();
   initializeThreadPools();
@@ -448,6 +455,7 @@ void PrestoServer::run() {
   }
   prestoServerOperations_ =
       std::make_unique<PrestoServerOperations>(taskManager_.get(), this);
+  registerSystemConnector();
 
   // The endpoint used by operation in production.
   httpServer_->registerGet(
@@ -666,7 +674,16 @@ void PrestoServer::initializeVeloxMemory() {
         memoryGb,
         "Query memory capacity must not be larger than system memory capacity");
     options.arbitratorCapacity = queryMemoryGb << 30;
+    const uint64_t queryReservedMemoryGb =
+        systemConfig->queryReservedMemoryGb();
+    VELOX_USER_CHECK_LE(
+        queryReservedMemoryGb,
+        queryMemoryGb,
+        "Query reserved memory capacity must not be larger than query memory capacity");
+    options.arbitratorReservedCapacity = queryReservedMemoryGb << 30;
     options.memoryPoolInitCapacity = systemConfig->memoryPoolInitCapacity();
+    options.memoryPoolReservedCapacity =
+        systemConfig->memoryPoolReservedCapacity();
     options.memoryPoolTransferCapacity =
         systemConfig->memoryPoolTransferCapacity();
     options.memoryReclaimWaitMs = systemConfig->memoryReclaimWaitMs();
@@ -949,6 +966,15 @@ std::vector<std::string> PrestoServer::registerConnectors(
   return catalogNames;
 }
 
+void PrestoServer::registerSystemConnector() {
+  PRESTO_STARTUP_LOG(INFO) << "Registering system catalog "
+                           << " using connector SystemConnector";
+  VELOX_CHECK(taskManager_);
+  auto systemConnector =
+      std::make_shared<SystemConnector>("$system@system", taskManager_.get());
+  velox::connector::registerConnector(systemConnector);
+}
+
 void PrestoServer::unregisterConnectors() {
   PRESTO_SHUTDOWN_LOG(INFO) << "Unregistering connectors";
   auto connectors = facebook::velox::connector::getAllConnectors();
@@ -969,6 +995,7 @@ void PrestoServer::unregisterConnectors() {
     }
   }
 
+  facebook::velox::connector::unregisterConnector("$system@system");
   PRESTO_SHUTDOWN_LOG(INFO)
       << "Unregistered " << connectors.size() << " connectors";
 }
@@ -1093,10 +1120,6 @@ void PrestoServer::populateMemAndCPUInfo() {
 
   // Fill global pool fields.
   poolInfo.maxBytes = nodeMemoryGb * 1024 * 1024 * 1024;
-  // TODO(sperhsin): If 'current bytes' is the same as we get by summing up all
-  // child contexts below, then use the one we sum up, rather than call
-  // 'getCurrentBytes'.
-  poolInfo.reservedBytes = pool_->currentBytes();
   poolInfo.reservedRevocableBytes = 0;
 
   // Fill basic per-query fields.
@@ -1111,6 +1134,7 @@ void PrestoServer::populateMemAndCPUInfo() {
     poolInfo.queryMemoryAllocations.insert(
         {queryId, {protocol::MemoryAllocation{"total", bytes}}});
     ++numContexts;
+    poolInfo.reservedBytes += bytes;
   });
   RECORD_METRIC_VALUE(kCounterNumQueryContexts, numContexts);
   cpuMon_.update();

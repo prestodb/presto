@@ -14,6 +14,7 @@
 
 #include "presto_cpp/main/common/Utils.h"
 #include <fmt/format.h>
+#include <sys/resource.h>
 
 namespace facebook::presto::util {
 
@@ -24,6 +25,34 @@ protocol::DateTime toISOTimestamp(uint64_t timeMilli) {
   gmtime_r(&timeSecond, &gmtTime);
   strftime(buf, sizeof buf, "%FT%T", &gmtTime);
   return fmt::format("{}.{:03d}Z", buf, timeMilli % 1000);
+}
+
+std::shared_ptr<folly::SSLContext> createSSLContext(
+    const std::string& clientCertAndKeyPath,
+    const std::string& ciphers) {
+  try {
+    auto sslContext = std::make_shared<folly::SSLContext>();
+    sslContext->loadCertKeyPairFromFiles(
+        clientCertAndKeyPath.c_str(), clientCertAndKeyPath.c_str());
+    sslContext->setCiphersOrThrow(ciphers);
+    return sslContext;
+  } catch (const std::exception& ex) {
+    LOG(FATAL) << fmt::format(
+        "Unable to load certificate or key from {} : {}",
+        clientCertAndKeyPath,
+        ex.what());
+  }
+}
+
+long getProcessCpuTimeNs() {
+  struct rusage rusageEnd;
+  getrusage(RUSAGE_SELF, &rusageEnd);
+
+  auto tvNanos = [](struct timeval tv) {
+    return tv.tv_sec * 1'000'000'000 + tv.tv_usec * 1'000;
+  };
+
+  return tvNanos(rusageEnd.ru_utime) + tvNanos(rusageEnd.ru_stime);
 }
 
 } // namespace facebook::presto::util

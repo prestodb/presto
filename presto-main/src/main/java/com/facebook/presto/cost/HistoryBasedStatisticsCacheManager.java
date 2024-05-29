@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.cost;
 
+import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeWithHash;
 import com.facebook.presto.spi.statistics.HistoricalPlanStatistics;
 import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
@@ -30,6 +32,7 @@ import com.google.common.collect.ImmutableMap;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
@@ -48,6 +51,8 @@ public class HistoryBasedStatisticsCacheManager
 
     // Stores query IDs which timeout during history optimizer registration
     private final Set<QueryId> queryIdsRegistrationTimeOut = ConcurrentHashMap.newKeySet();
+    private final Map<QueryId, Map<PlanCanonicalizationStrategy, String>> canonicalPlan = new ConcurrentHashMap<>();
+    private final Map<QueryId, PlanNode> statsEquivalentPlanRootNode = new ConcurrentHashMap<>();
 
     public HistoryBasedStatisticsCacheManager() {}
 
@@ -85,12 +90,32 @@ public class HistoryBasedStatisticsCacheManager
         return inputTableStatistics.computeIfAbsent(queryId, ignored -> new ConcurrentHashMap());
     }
 
+    public Map<PlanCanonicalizationStrategy, String> getCanonicalPlan(QueryId queryId)
+    {
+        return canonicalPlan.computeIfAbsent(queryId, ignored -> new ConcurrentHashMap());
+    }
+
+    public void setStatsEquivalentPlanRootNode(QueryId queryId, PlanNode plan)
+    {
+        statsEquivalentPlanRootNode.put(queryId, plan);
+    }
+
+    public Optional<PlanNode> getStatsEquivalentPlanRootNode(QueryId queryId)
+    {
+        if (statsEquivalentPlanRootNode.containsKey(queryId)) {
+            return Optional.of(statsEquivalentPlanRootNode.get(queryId));
+        }
+        return Optional.empty();
+    }
+
     public void invalidate(QueryId queryId)
     {
         statisticsCache.remove(queryId);
         canonicalInfoCache.remove(queryId);
         inputTableStatistics.remove(queryId);
         queryIdsRegistrationTimeOut.remove(queryId);
+        canonicalPlan.remove(queryId);
+        statsEquivalentPlanRootNode.remove(queryId);
     }
 
     @VisibleForTesting

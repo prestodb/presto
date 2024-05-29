@@ -20,6 +20,7 @@ import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveBasicStatistics;
 import com.facebook.presto.hive.HiveType;
+import com.facebook.presto.hive.PartitionNameWithVersion;
 import com.facebook.presto.hive.PartitionNotFoundException;
 import com.facebook.presto.hive.SchemaAlreadyExistsException;
 import com.facebook.presto.hive.TableAlreadyExistsException;
@@ -34,7 +35,6 @@ import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.MetastoreOperationResult;
 import com.facebook.presto.hive.metastore.MetastoreUtil;
 import com.facebook.presto.hive.metastore.Partition;
-import com.facebook.presto.hive.metastore.PartitionNameWithVersion;
 import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.facebook.presto.hive.metastore.PartitionWithStatistics;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
@@ -45,6 +45,7 @@ import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableConstraintNotFoundException;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.constraints.NotNullConstraint;
 import com.facebook.presto.spi.constraints.PrimaryKeyConstraint;
 import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.constraints.UniqueConstraint;
@@ -96,6 +97,7 @@ import static com.facebook.presto.hive.metastore.MetastoreOperationResult.EMPTY_
 import static com.facebook.presto.hive.metastore.MetastoreUtil.convertPredicateToParts;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.extractPartitionValues;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveBasicStatistics;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.getPartitionNamesWithEmptyVersion;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isIcebergTable;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.makePartName;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.toPartitionValues;
@@ -108,6 +110,7 @@ import static com.facebook.presto.hive.metastore.PrestoTableType.TEMPORARY_TABLE
 import static com.facebook.presto.hive.metastore.PrestoTableType.VIRTUAL_VIEW;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.constraints.TableConstraintsHolder.validateTableConstraints;
 import static com.facebook.presto.spi.security.PrincipalType.ROLE;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -883,7 +886,7 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized Optional<List<String>> getPartitionNames(MetastoreContext metastoreContext, String databaseName, String tableName)
+    public synchronized Optional<List<PartitionNameWithVersion>> getPartitionNames(MetastoreContext metastoreContext, String databaseName, String tableName)
     {
         requireNonNull(databaseName, "databaseName is null");
         requireNonNull(tableName, "tableName is null");
@@ -902,7 +905,7 @@ public class FileHiveMetastore
                 .map(partitionValues -> makePartName(table.getPartitionColumns(), ImmutableList.copyOf(partitionValues)))
                 .collect(toList());
 
-        return Optional.of(ImmutableList.copyOf(partitionNames));
+        return Optional.of(getPartitionNamesWithEmptyVersion(partitionNames));
     }
 
     private List<ArrayDeque<String>> listPartitions(Path director, List<Column> partitionColumns)
@@ -963,7 +966,7 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized List<String> getPartitionNamesByFilter(
+    public synchronized List<PartitionNameWithVersion> getPartitionNamesByFilter(
             MetastoreContext metastoreContext,
             String databaseName,
             String tableName,
@@ -972,7 +975,7 @@ public class FileHiveMetastore
         List<String> parts = convertPredicateToParts(partitionPredicates);
         // todo this should be more efficient by selectively walking the directory tree
         return getPartitionNames(metastoreContext, databaseName, tableName).map(partitionNames -> partitionNames.stream()
-                        .filter(partitionName -> partitionMatches(partitionName, parts))
+                        .filter(partitionNameWithVersion -> partitionMatches(partitionNameWithVersion.getPartitionName(), parts))
                         .collect(toImmutableList()))
                 .orElse(ImmutableList.of());
     }
@@ -1003,10 +1006,10 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized Map<String, Optional<Partition>> getPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> partitionNames)
+    public synchronized Map<String, Optional<Partition>> getPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<PartitionNameWithVersion> partitionNameWithVersion)
     {
         ImmutableMap.Builder<String, Optional<Partition>> builder = ImmutableMap.builder();
-        for (String partitionName : partitionNames) {
+        for (String partitionName : MetastoreUtil.getPartitionNames(partitionNameWithVersion)) {
             List<String> partitionValues = toPartitionValues(partitionName);
             builder.put(partitionName, getPartition(metastoreContext, databaseName, tableName, partitionValues));
         }
@@ -1079,6 +1082,7 @@ public class FileHiveMetastore
             }
         }
         else {
+            validateTableConstraints(ImmutableList.of(tableConstraint));
             if (tableConstraint instanceof PrimaryKeyConstraint) {
                 tableConstraint = new PrimaryKeyConstraint(Optional.of(randomUUID().toString()),
                         tableConstraint.getColumns(),
@@ -1086,12 +1090,16 @@ public class FileHiveMetastore
                         tableConstraint.isRely(),
                         tableConstraint.isEnforced());
             }
-            else {
+            else if (tableConstraint instanceof UniqueConstraint) {
                 tableConstraint = new UniqueConstraint(Optional.of(randomUUID().toString()),
                         tableConstraint.getColumns(),
                         tableConstraint.isEnabled(),
                         tableConstraint.isRely(),
                         tableConstraint.isEnforced());
+            }
+            else if (tableConstraint instanceof NotNullConstraint) {
+                tableConstraint = new NotNullConstraint(Optional.of(randomUUID().toString()),
+                        tableConstraint.getColumns());
             }
         }
         constraints.add(tableConstraint);
@@ -1101,10 +1109,28 @@ public class FileHiveMetastore
 
     public List<TableConstraint<String>> getTableConstraints(MetastoreContext metastoreContext, String schemaName, String tableName)
     {
-        return readConstraintsFile(schemaName, tableName).stream()
+        Set<TableConstraint> rawConstraints = readConstraintsFile(schemaName, tableName);
+        validateTableConstraints(rawConstraints.stream()
                 .map(constraint -> (TableConstraint<String>) constraint)
+                .collect(toImmutableList()));
+
+        List<TableConstraint<String>> constraints = rawConstraints.stream()
+                .map(constraint -> (TableConstraint<String>) constraint)
+                .filter(constraint -> constraint instanceof PrimaryKeyConstraint)
+                .collect(toList());
+
+        constraints.addAll(rawConstraints.stream()
+                .map(constraint -> (TableConstraint<String>) constraint)
+                .filter(constraint -> (constraint instanceof UniqueConstraint) && !(constraint instanceof PrimaryKeyConstraint))
                 .sorted(Comparator.comparing(constraint -> constraint.getName().get()))
-                .collect(toImmutableList());
+                .collect(toList()));
+
+        constraints.addAll(rawConstraints.stream()
+                .map(constraint -> (TableConstraint<String>) constraint)
+                .filter(constraint -> constraint instanceof NotNullConstraint)
+                .collect(toList()));
+
+        return ImmutableList.copyOf(constraints);
     }
 
     @Override

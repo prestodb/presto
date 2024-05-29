@@ -36,7 +36,6 @@ import java.util.List;
 import static com.facebook.presto.common.function.OperatorType.CAST;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
-import static com.facebook.presto.geospatial.BingTile.MAX_ZOOM_LEVEL;
 import static com.facebook.presto.geospatial.BingTileUtils.EARTH_RADIUS_KM;
 import static com.facebook.presto.geospatial.BingTileUtils.LATITUDE_OUT_OF_RANGE;
 import static com.facebook.presto.geospatial.BingTileUtils.LONGITUDE_OUT_OF_RANGE;
@@ -59,8 +58,6 @@ import static com.facebook.presto.geospatial.BingTileUtils.longitudeToTileX;
 import static com.facebook.presto.geospatial.BingTileUtils.mapSize;
 import static com.facebook.presto.geospatial.BingTileUtils.tileToEnvelope;
 import static com.facebook.presto.geospatial.BingTileUtils.tileXYToLatitudeLongitude;
-import static com.facebook.presto.geospatial.GeometryUtils.contains;
-import static com.facebook.presto.geospatial.GeometryUtils.disjoint;
 import static com.facebook.presto.geospatial.GeometryUtils.isPointOrRectangle;
 import static com.facebook.presto.geospatial.serde.EsriGeometrySerde.deserialize;
 import static com.facebook.presto.geospatial.serde.EsriGeometrySerde.deserializeEnvelope;
@@ -69,8 +66,6 @@ import static com.facebook.presto.geospatial.serde.EsriGeometrySerde.serialize;
 import static com.facebook.presto.geospatial.type.GeometryType.GEOMETRY_TYPE_NAME;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Math.asin;
 import static java.lang.Math.atan2;
@@ -90,7 +85,6 @@ import static java.lang.String.format;
  */
 public class BingTileFunctions
 {
-    private static final int OPTIMIZED_TILING_MIN_ZOOM_LEVEL = 10;
     private static final Block EMPTY_TILE_ARRAY = BIGINT.createFixedSizeBlockBuilder(0).build();
 
     private BingTileFunctions() {}
@@ -545,82 +539,6 @@ public class BingTileFunctions
         }
 
         return newLatitude;
-    }
-
-    private static BingTile[] getTilesInBetween(BingTile leftUpperTile, BingTile rightLowerTile, int zoomLevel)
-    {
-        checkArgument(leftUpperTile.getZoomLevel() == rightLowerTile.getZoomLevel());
-        checkArgument(leftUpperTile.getZoomLevel() > zoomLevel);
-
-        int divisor = 1 << (leftUpperTile.getZoomLevel() - zoomLevel);
-        int minX = (int) Math.floor(leftUpperTile.getX() / divisor);
-        int maxX = (int) Math.floor(rightLowerTile.getX() / divisor);
-        int minY = (int) Math.floor(leftUpperTile.getY() / divisor);
-        int maxY = (int) Math.floor(rightLowerTile.getY() / divisor);
-
-        BingTile[] tiles = new BingTile[(maxX - minX + 1) * (maxY - minY + 1)];
-        int index = 0;
-        for (int x = minX; x <= maxX; x++) {
-            for (int y = minY; y <= maxY; y++) {
-                tiles[index] = BingTile.fromCoordinates(x, y, OPTIMIZED_TILING_MIN_ZOOM_LEVEL);
-                index++;
-            }
-        }
-
-        return tiles;
-    }
-
-    /**
-     * Identifies a minimum set of tiles at specified zoom level that cover intersection of the
-     * specified geometry and a specified tile of the same or lower level. Adds tiles to provided
-     * BlockBuilder.
-     */
-    private static void appendIntersectingSubtiles(
-            OGCGeometry ogcGeometry,
-            int zoomLevel,
-            BingTile tile,
-            BlockBuilder blockBuilder)
-    {
-        int tileZoomLevel = tile.getZoomLevel();
-        checkArgument(tileZoomLevel <= zoomLevel);
-
-        Envelope tileEnvelope = tileToEnvelope(tile);
-        if (tileZoomLevel == zoomLevel) {
-            if (!disjoint(tileEnvelope, ogcGeometry)) {
-                BIGINT.writeLong(blockBuilder, tile.encode());
-            }
-            return;
-        }
-
-        if (contains(ogcGeometry, tileEnvelope)) {
-            int subTileCount = 1 << (zoomLevel - tileZoomLevel);
-            int minX = subTileCount * tile.getX();
-            int minY = subTileCount * tile.getY();
-            for (int x = minX; x < minX + subTileCount; x++) {
-                for (int y = minY; y < minY + subTileCount; y++) {
-                    BIGINT.writeLong(blockBuilder, BingTile.fromCoordinates(x, y, zoomLevel).encode());
-                }
-            }
-            return;
-        }
-
-        if (disjoint(tileEnvelope, ogcGeometry)) {
-            return;
-        }
-
-        int minX = 2 * tile.getX();
-        int minY = 2 * tile.getY();
-        int nextZoomLevel = tileZoomLevel + 1;
-        verify(nextZoomLevel <= MAX_ZOOM_LEVEL);
-        for (int x = minX; x < minX + 2; x++) {
-            for (int y = minY; y < minY + 2; y++) {
-                appendIntersectingSubtiles(
-                        ogcGeometry,
-                        zoomLevel,
-                        BingTile.fromCoordinates(x, y, nextZoomLevel),
-                        blockBuilder);
-            }
-        }
     }
 
     private static boolean withinDistance(GreatCircleDistanceToPoint distanceFunction, double maxDistance, Point point)

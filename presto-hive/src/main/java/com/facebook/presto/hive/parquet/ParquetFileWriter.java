@@ -157,12 +157,6 @@ public class ParquetFileWriter
     }
 
     @Override
-    public Optional<Runnable> getVerificationTask()
-    {
-        return Optional.empty();
-    }
-
-    @Override
     public long getFileSizeInBytes()
     {
         return getWrittenBytes();

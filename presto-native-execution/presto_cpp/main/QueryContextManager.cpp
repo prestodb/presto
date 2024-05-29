@@ -15,6 +15,8 @@
 #include "presto_cpp/main/QueryContextManager.h"
 #include <folly/executors/IOThreadPoolExecutor.h>
 #include "presto_cpp/main/common/Configs.h"
+#include "presto_cpp/main/common/Counters.h"
+#include "velox/common/base/StatsReporter.h"
 #include "velox/core/QueryConfig.h"
 #include "velox/type/tz/TimeZoneMap.h"
 
@@ -46,8 +48,8 @@ std::string toVeloxConfig(const std::string& name) {
           {"native_writer_spill_enabled", QueryConfig::kWriterSpillEnabled},
           {"native_row_number_spill_enabled",
            QueryConfig::kRowNumberSpillEnabled},
-          {"native_join_spiller_partition_bits",
-           QueryConfig::kJoinSpillPartitionBits},
+          {"native_spiller_num_partition_bits",
+           QueryConfig::kSpillNumPartitionBits},
           {"native_topn_row_number_spill_enabled",
            QueryConfig::kTopNRowNumberSpillEnabled},
           {"native_debug_validate_output_from_operators",
@@ -187,12 +189,9 @@ std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtx(
   static std::atomic_uint64_t poolId{0};
   auto pool = memory::MemoryManager::getInstance()->addRootPool(
       fmt::format("{}_{}", queryId, poolId++),
-      queryConfig.queryMaxMemoryPerNode(),
-      !SystemConfig::instance()->memoryArbitratorKind().empty()
-          ? memory::MemoryReclaimer::create()
-          : nullptr);
+      queryConfig.queryMaxMemoryPerNode());
 
-  auto queryCtx = std::make_shared<core::QueryCtx>(
+  auto queryCtx = core::QueryCtx::create(
       driverExecutor_,
       std::move(queryConfig),
       connectorConfigs,

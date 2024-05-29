@@ -317,6 +317,11 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
         std::make_unique<ShuffleWriteTranslator>());
   }
 
+  void TearDown() override {
+    exec::test::waitForAllTasksToBeDeleted();
+    exec::test::OperatorTestBase::TearDown();
+  }
+
   static std::string makeTaskId(
       const std::string& prefix,
       int num,
@@ -332,11 +337,15 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
       const std::string& taskId,
       core::PlanNodePtr planNode,
       int destination) {
-    auto queryCtx = std::make_shared<core::QueryCtx>(
-        executor_.get(), core::QueryConfig({}));
+    auto queryCtx =
+        core::QueryCtx::create(executor_.get(), core::QueryConfig({}));
     core::PlanFragment planFragment{planNode};
     return exec::Task::create(
-        taskId, std::move(planFragment), destination, std::move(queryCtx));
+        taskId,
+        std::move(planFragment),
+        destination,
+        std::move(queryCtx),
+        exec::Task::ExecutionMode::kParallel);
   }
 
   RowVectorPtr deserialize(
@@ -631,7 +640,7 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
     // Create a local file system storage based shuffle.
     velox::filesystems::registerLocalFileSystem();
     auto rootDirectory = velox::exec::test::TempDirectoryPath::create();
-    auto rootPath = rootDirectory->path;
+    auto rootPath = rootDirectory->getPath();
     const std::string shuffleWriteInfo =
         localShuffleWriteInfo(rootPath, numPartitions);
 
@@ -702,8 +711,8 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
         {core::QueryConfig::kPreferredOutputBatchRows,
          std::to_string(outputRowLimit)}};
 
-    auto queryCtx = std::make_shared<core::QueryCtx>(
-        executor_.get(), core::QueryConfig(properties));
+    auto queryCtx =
+        core::QueryCtx::create(executor_.get(), core::QueryConfig(properties));
     auto params = exec::test::CursorParameters();
     params.planNode = plan;
     params.queryCtx = queryCtx;
@@ -744,7 +753,7 @@ TEST_F(UnsafeRowShuffleTest, operators) {
   TestShuffleWriter::reset();
 }
 
-TEST_F(UnsafeRowShuffleTest, shuffleWriterExceptions) {
+DEBUG_ONLY_TEST_F(UnsafeRowShuffleTest, shuffleWriterExceptions) {
   auto data = makeRowVector({
       makeFlatVector<int32_t>({1, 2, 3, 4}),
       makeFlatVector<int64_t>({10, 20, 30, 40}),
@@ -774,9 +783,10 @@ TEST_F(UnsafeRowShuffleTest, shuffleWriterExceptions) {
       "ShuffleWriter::collect failed");
 
   TestShuffleWriter::reset();
+  exec::test::waitForAllTasksToBeDeleted();
 }
 
-TEST_F(UnsafeRowShuffleTest, shuffleReaderExceptions) {
+DEBUG_ONLY_TEST_F(UnsafeRowShuffleTest, shuffleReaderExceptions) {
   auto data = makeRowVector({
       makeFlatVector<int32_t>({1, 2, 3, 4}),
       makeFlatVector<int64_t>({10, 20, 30, 40}),
@@ -819,6 +829,7 @@ TEST_F(UnsafeRowShuffleTest, shuffleReaderExceptions) {
   }
 
   TestShuffleWriter::reset();
+  exec::test::waitForAllTasksToBeDeleted();
 }
 
 TEST_F(UnsafeRowShuffleTest, endToEnd) {
@@ -972,7 +983,7 @@ TEST_F(UnsafeRowShuffleTest, persistentShuffle) {
   // Create a local file system storage based shuffle.
   velox::filesystems::registerLocalFileSystem();
   auto rootDirectory = velox::exec::test::TempDirectoryPath::create();
-  auto rootPath = rootDirectory->path;
+  auto rootPath = rootDirectory->getPath();
 
   auto data = makeRowVector({
       makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6}),
@@ -1117,10 +1128,11 @@ TEST_F(UnsafeRowShuffleTest, shuffleWriterToString) {
                       testShuffleInfo(10, 10)))
                   .planNode();
 
-  ASSERT_EQ(plan->toString(false, false), "-- ShuffleWrite\n");
+  ASSERT_EQ(plan->toString(false, false), "-- ShuffleWrite[3]\n");
   ASSERT_EQ(
       plan->toString(true, false),
-      "-- ShuffleWrite[4, test-shuffle] -> partition:INTEGER, data:VARBINARY\n");
+      "-- ShuffleWrite[3][4, test-shuffle]"
+      " -> partition:INTEGER, data:VARBINARY\n");
 }
 
 TEST_F(UnsafeRowShuffleTest, partitionAndSerializeToString) {
@@ -1134,20 +1146,22 @@ TEST_F(UnsafeRowShuffleTest, partitionAndSerializeToString) {
                   .addNode(addPartitionAndSerializeNode(4, false))
                   .planNode();
 
-  ASSERT_EQ(plan->toString(false, false), "-- PartitionAndSerialize\n");
+  ASSERT_EQ(plan->toString(false, false), "-- PartitionAndSerialize[1]\n");
   ASSERT_EQ(
       plan->toString(true, false),
-      "-- PartitionAndSerialize[(c0) 4 HASH(c0) ROW<c0:INTEGER,c1:BIGINT>] -> partition:INTEGER, data:VARBINARY\n");
+      "-- PartitionAndSerialize[1][(c0) 4 HASH(c0) ROW<c0:INTEGER,c1:BIGINT>]"
+      " -> partition:INTEGER, data:VARBINARY\n");
 
   plan = exec::test::PlanBuilder()
              .values({data}, true)
              .addNode(addPartitionAndSerializeNode(4, true))
              .planNode();
 
-  ASSERT_EQ(plan->toString(false, false), "-- PartitionAndSerialize\n");
+  ASSERT_EQ(plan->toString(false, false), "-- PartitionAndSerialize[1]\n");
   ASSERT_EQ(
       plan->toString(true, false),
-      "-- PartitionAndSerialize[(c0) 4 HASH(c0) ROW<c0:INTEGER,c1:BIGINT>] -> partition:INTEGER, data:VARBINARY, replicate:BOOLEAN\n");
+      "-- PartitionAndSerialize[1][(c0) 4 HASH(c0) ROW<c0:INTEGER,c1:BIGINT>]"
+      " -> partition:INTEGER, data:VARBINARY, replicate:BOOLEAN\n");
 }
 
 class DummyShuffleInterfaceFactory : public ShuffleInterfaceFactory {

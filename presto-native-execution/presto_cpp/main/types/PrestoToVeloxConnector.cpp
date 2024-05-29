@@ -37,14 +37,14 @@ connectors() {
 
 void registerPrestoToVeloxConnector(
     std::unique_ptr<const PrestoToVeloxConnector> connector) {
-  auto& connectorId = connector->connectorId();
+  auto connectorName = connector->connectorName();
   auto connectorProtocol = connector->createConnectorProtocol();
   VELOX_CHECK(
-      connectors().insert({connectorId, std::move(connector)}).second,
+      connectors().insert({connectorName, std::move(connector)}).second,
       "Connector {} is already registered",
-      connectorId);
+      connectorName);
   protocol::registerConnectorProtocol(
-      connectorId, std::move(connectorProtocol));
+      connectorName, std::move(connectorProtocol));
 }
 
 void unregisterPrestoToVeloxConnector(const std::string& connectorName) {
@@ -53,10 +53,10 @@ void unregisterPrestoToVeloxConnector(const std::string& connectorName) {
 }
 
 const PrestoToVeloxConnector& getPrestoToVeloxConnector(
-    const std::string& connectorId) {
-  auto it = connectors().find(connectorId);
+    const std::string& connectorName) {
+  auto it = connectors().find(connectorName);
   VELOX_CHECK(
-      it != connectors().end(), "Connector {} not registered", connectorId);
+      it != connectors().end(), "Connector {} not registered", connectorName);
   return *(it->second);
 }
 
@@ -78,7 +78,8 @@ dwio::common::FileFormat toVeloxFileFormat(
       return dwio::common::FileFormat::JSON;
     }
   } else if (format.inputFormat == "com.facebook.alpha.AlphaInputFormat") {
-    return dwio::common::FileFormat::ALPHA;
+    // ALPHA has been renamed in Velox to NIMBLE.
+    return dwio::common::FileFormat::NIMBLE;
   }
   VELOX_UNSUPPORTED(
       "Unsupported file format: {} {}", format.inputFormat, format.serDe);
@@ -880,7 +881,8 @@ dwio::common::FileFormat toFileFormat(
     case protocol::HiveStorageFormat::PARQUET:
       return dwio::common::FileFormat::PARQUET;
     case protocol::HiveStorageFormat::ALPHA:
-      return dwio::common::FileFormat::ALPHA;
+      // This has been renamed in Velox from ALPHA to NIMBLE.
+      return dwio::common::FileFormat::NIMBLE;
     default:
       VELOX_UNSUPPORTED(
           "Unsupported file format in {}: {}.",

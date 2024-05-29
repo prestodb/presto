@@ -78,12 +78,6 @@ public class TestAvroDecoder
 
     private static final Type VACHAR_MAP_TYPE = FUNCTION_AND_TYPE_MANAGER.getType(parseTypeSignature("map<varchar,varchar>"));
     private static final Type DOUBLE_MAP_TYPE = FUNCTION_AND_TYPE_MANAGER.getType(parseTypeSignature("map<varchar,double>"));
-    private static final Type REAL_MAP_TYPE = FUNCTION_AND_TYPE_MANAGER.getType(parseTypeSignature("map<varchar,real>"));
-
-    private static Schema getAvroSchema(String name, String dataType)
-    {
-        return getAvroSchema(ImmutableMap.of(name, dataType));
-    }
 
     private static Schema getAvroSchema(Map<String, String> fields)
     {

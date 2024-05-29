@@ -409,27 +409,19 @@ TEST_F(Base64Test, mapSingleNullRow) {
   EXPECT_EQ(true, mapVector->isNullAt(0));
 }
 
-// TODO: enable it later when we merged
-// https://github.com/facebookincubator/velox/pull/7480
-TEST_F(Base64Test, DISABLED_timestampWithTimezone) {
+TEST_F(Base64Test, timestampWithTimezone) {
   // Base64 encoding + serialization of time stamp '2020-10-31 01:00 UTC' AT
   // TIME ZONE 'America/Los_Angeles' Serialization info see
   // https://prestodb.io/docs/current/develop/serialized-page.html
   const std::string data = "CgAAAExPTkdfQVJSQVkBAAAAACEHaLHCVxcA";
   auto resultVector = readBlock(TIMESTAMP_WITH_TIME_ZONE(), data, pool_.get());
-  ASSERT_EQ(resultVector->as<RowVector>()->childrenSize(), 2);
-  ASSERT_EQ(
-      resultVector->as<RowVector>()
-          ->childAt(0)
-          ->asFlatVector<int64_t>()
-          ->valueAt(0),
-      1604106000000);
-  ASSERT_EQ(
-      resultVector->as<RowVector>()
-          ->childAt(1)
-          ->asFlatVector<int16_t>()
-          ->valueAt(0),
-      1825);
+  ASSERT_EQ(TypeKind::BIGINT, resultVector->typeKind());
+  ASSERT_EQ(1, resultVector->size());
+
+  auto timestampTZVector = resultVector->as<FlatVector<int64_t>>();
+  ASSERT_EQ(6570418176001825, timestampTZVector->valueAt(0));
+  ASSERT_EQ(1604106000000, unpackMillisUtc(timestampTZVector->valueAt(0)));
+  ASSERT_EQ(1825, unpackZoneKeyId(timestampTZVector->valueAt(0)));
 }
 
 TEST_F(Base64Test, rowOfNull) {

@@ -4,7 +4,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.287-SNAPSHOT</version>
+        <version>0.288-SNAPSHOT</version>
     </parent>
     <artifactId>presto-iceberg</artifactId>
     <description>Presto - Iceberg Connector</description>
@@ -501,6 +501,12 @@
         </dependency>
 
         <dependency>
+          <groupId>com.facebook.presto</groupId>
+          <artifactId>presto-parser</artifactId>
+          <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-analyzer</artifactId>
             <scope>test</scope>
@@ -575,6 +581,17 @@
     <build>
         <pluginManagement>
             <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-dependency-plugin</artifactId>
+                    <configuration>
+                        <!-- Ignore these because they are picked up as false-positives when configuring logging in the IcebergQueryRunner-->
+                        <ignoredUsedUndeclaredDependencies>
+                            <dependency>org.glassfish.jersey.core:jersey-common:jar</dependency>
+                            <dependency>org.eclipse.jetty:jetty-server:jar</dependency>
+                        </ignoredUsedUndeclaredDependencies>
+                    </configuration>
+                </plugin>
                 <plugin>
                     <groupId>org.basepom.maven</groupId>
                     <artifactId>duplicate-finder-maven-plugin</artifactId>

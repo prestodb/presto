@@ -68,6 +68,7 @@ import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.SYNTHESIZ
 import static com.facebook.presto.hive.HiveBucketing.getHiveBucketFilter;
 import static com.facebook.presto.hive.HiveCoercer.createCoercer;
 import static com.facebook.presto.hive.HiveColumnHandle.isPushedDownSubfield;
+import static com.facebook.presto.hive.HiveColumnHandle.isRowIdColumnHandle;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HivePageSourceProvider.ColumnMapping.toColumnHandles;
@@ -182,6 +183,7 @@ public class HivePageSourceProvider
             return createAggregatedPageSource(aggregatedPageSourceFactories, configuration, session, hiveSplit, hiveLayout, selectedColumns, fileContext, encryptionInformation);
         }
         if (hiveLayout.isPushdownFilterEnabled()) {
+            Optional<byte[]> rowIDPartitionComponent = hiveSplit.getRowIdPartitionComponent();
             Optional<ConnectorPageSource> selectivePageSource = createSelectivePageSource(
                     selectivePageSourceFactories,
                     configuration,
@@ -238,7 +240,8 @@ public class HivePageSourceProvider
                 hiveLayout.getRemainingPredicate(),
                 hiveLayout.isPushdownFilterEnabled(),
                 rowExpressionService,
-                encryptionInformation);
+                encryptionInformation,
+                hiveSplit.getRowIdPartitionComponent());
         if (pageSource.isPresent()) {
             return pageSource.get();
         }
@@ -273,8 +276,7 @@ public class HivePageSourceProvider
                     hiveSplit.getStorage(),
                     toColumnHandles(regularAndInterimColumnMappings, true),
                     fileContext,
-                    encryptionInformation,
-                    hiveLayout.isAppendRowNumberEnabled());
+                    encryptionInformation);
             if (pageSource.isPresent()) {
                 return pageSource.get();
             }
@@ -311,7 +313,7 @@ public class HivePageSourceProvider
             ConnectorSession session,
             HiveSplit split,
             HiveTableLayoutHandle layout,
-            List<HiveColumnHandle> columns,
+            List<HiveColumnHandle> selectedColumns,
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
             LoadingCache<RowExpressionCacheKey, RowExpression> rowExpressionCache,
@@ -324,10 +326,10 @@ public class HivePageSourceProvider
                 .addAll(split.getBucketConversion().map(BucketConversion::getBucketColumnHandles).orElse(ImmutableList.of()))
                 .build();
 
-        Set<String> columnNames = columns.stream().map(HiveColumnHandle::getName).collect(toImmutableSet());
+        Set<String> columnNames = selectedColumns.stream().map(HiveColumnHandle::getName).collect(toImmutableSet());
 
         List<HiveColumnHandle> allColumns = ImmutableList.<HiveColumnHandle>builder()
-                .addAll(columns)
+                .addAll(selectedColumns)
                 .addAll(interimColumns.stream().filter(column -> !columnNames.contains(column.getName())).collect(toImmutableList()))
                 .build();
 
@@ -351,7 +353,7 @@ public class HivePageSourceProvider
                         mapping -> mapping.getHiveColumnHandle().getHiveColumnIndex(),
                         mapping -> createCoercer(typeManager, mapping.getCoercionFrom().get(), mapping.getHiveColumnHandle().getHiveType())));
 
-        List<Integer> outputColumns = columns.stream()
+        List<Integer> outputColumns = selectedColumns.stream()
                 .map(HiveColumnHandle::getHiveColumnIndex)
                 .collect(toImmutableList());
 
@@ -370,12 +372,14 @@ public class HivePageSourceProvider
                 .orElse(layout.getDomainPredicate());
 
         for (HiveSelectivePageSourceFactory pageSourceFactory : selectivePageSourceFactories) {
+            List<HiveColumnHandle> columnHandles = toColumnHandles(columnMappings, true);
+            Optional<byte[]> rowIDPartitionComponent = split.getRowIdPartitionComponent();
             Optional<? extends ConnectorPageSource> pageSource = pageSourceFactory.createPageSource(
                     configuration,
                     session,
                     split.getFileSplit(),
                     split.getStorage(),
-                    toColumnHandles(columnMappings, true),
+                    columnHandles,
                     prefilledValues,
                     coercers,
                     bucketAdaptation,
@@ -385,7 +389,8 @@ public class HivePageSourceProvider
                     hiveStorageTimeZone,
                     fileContext,
                     encryptionInformation,
-                    layout.isAppendRowNumberEnabled());
+                    layout.isAppendRowNumberEnabled(),
+                    rowIDPartitionComponent);
             if (pageSource.isPresent()) {
                 return Optional.of(pageSource.get());
             }
@@ -420,7 +425,8 @@ public class HivePageSourceProvider
             RowExpression remainingPredicate,
             boolean isPushdownFilterEnabled,
             RowExpressionService rowExpressionService,
-            Optional<EncryptionInformation> encryptionInformation)
+            Optional<EncryptionInformation> encryptionInformation,
+            Optional<byte[]> rowIdPartitionComponent)
     {
         List<HiveColumnHandle> allColumns;
 
@@ -446,11 +452,11 @@ public class HivePageSourceProvider
                 tableToPartitionMapping,
                 fileSplit,
                 tableBucketNumber);
-
         Set<Integer> outputIndices = hiveColumns.stream()
                 .map(HiveColumnHandle::getHiveColumnIndex)
                 .collect(toImmutableSet());
 
+        // Finds the non-synthetic columns.
         List<ColumnMapping> regularAndInterimColumnMappings = ColumnMapping.extractRegularAndInterimColumnMappings(columnMappings);
 
         Optional<BucketAdaptation> bucketAdaptation = bucketConversion.map(conversion -> toBucketAdaptation(conversion, regularAndInterimColumnMappings, tableBucketNumber, ColumnMapping::getIndex));
@@ -494,14 +500,17 @@ public class HivePageSourceProvider
                     effectivePredicate,
                     hiveStorageTimeZone,
                     hiveFileContext,
-                    encryptionInformation);
+                    encryptionInformation,
+                    rowIdPartitionComponent);
             if (pageSource.isPresent()) {
                 HivePageSource hivePageSource = new HivePageSource(
                         columnMappings,
                         bucketAdaptation,
                         hiveStorageTimeZone,
                         typeManager,
-                        pageSource.get());
+                        pageSource.get(),
+                        fileSplit.getPath(),
+                        rowIdPartitionComponent);
 
                 if (isPushdownFilterEnabled) {
                     return Optional.of(new FilteringPageSource(
@@ -830,6 +839,10 @@ public class HivePageSourceProvider
                     columnMappings.add(columnMapping);
                     regularIndex++;
                 }
+                else if (isRowIdColumnHandle(column)) { // ROW_ID is synthesized but not prefilled.
+                    ColumnMapping columnMapping = new ColumnMapping(ColumnMappingKind.POSTFILLED, column, Optional.empty(), OptionalInt.empty(), coercionFrom);
+                    columnMappings.add(columnMapping);
+                }
                 else {
                     columnMappings.add(prefilled(
                             column,
@@ -896,7 +909,8 @@ public class HivePageSourceProvider
         REGULAR,
         PREFILLED,
         INTERIM,
-        AGGREGATED
+        AGGREGATED,
+        POSTFILLED
     }
 
     private static final class RowExpressionCacheKey

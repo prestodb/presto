@@ -30,6 +30,7 @@ import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SplitContext;
 import com.facebook.presto.spi.SplitWeight;
 import com.facebook.presto.ttl.nodettlfetchermanagers.NodeTtlFetcherManager;
@@ -67,6 +68,7 @@ import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.Resour
 import static com.facebook.presto.execution.scheduler.NodeSelectionHashStrategy.CONSISTENT_HASHING;
 import static com.facebook.presto.metadata.InternalNode.NodeStatus.ALIVE;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
+import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Suppliers.memoizeWithExpiration;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -75,6 +77,7 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.lang.Math.addExact;
 import static java.lang.Math.ceil;
 import static java.lang.Math.min;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -98,6 +101,7 @@ public class NodeScheduler
     private final SimpleTtlNodeSelectorConfig simpleTtlNodeSelectorConfig;
     private final NodeSelectionHashStrategy nodeSelectionHashStrategy;
     private final int minVirtualNodeCount;
+    private final int maxPreferredNodes;
 
     @Inject
     public NodeScheduler(
@@ -164,6 +168,7 @@ public class NodeScheduler
         this.simpleTtlNodeSelectorConfig = requireNonNull(simpleTtlNodeSelectorConfig, "simpleTtlNodeSelectorConfig is null");
         this.nodeSelectionHashStrategy = config.getNodeSelectionHashStrategy();
         this.minVirtualNodeCount = config.getMinVirtualNodeCount();
+        this.maxPreferredNodes = config.getMaxPreferredNodes();
     }
 
     @PreDestroy
@@ -219,7 +224,7 @@ public class NodeScheduler
                     topologicalSplitCounters,
                     networkLocationSegmentNames,
                     networkLocationCache,
-                    nodeSelectionHashStrategy);
+                    maxPreferredNodes);
         }
 
         SimpleNodeSelector simpleNodeSelector = new SimpleNodeSelector(
@@ -233,7 +238,7 @@ public class NodeScheduler
                 maxPendingSplitsWeightPerTask,
                 maxUnacknowledgedSplitsPerTask,
                 maxTasksPerStage,
-                nodeSelectionHashStrategy);
+                maxPreferredNodes);
 
         if (resourceAwareSchedulingStrategy == TTL) {
             return new SimpleTtlNodeSelector(
@@ -411,7 +416,11 @@ public class NodeScheduler
         Set<InternalNode> blockedNodes = new HashSet<>();
         for (Split split : splits) {
             // node placement is forced by the bucket to node map
-            InternalNode node = bucketNodeMap.getAssignedNode(split).get();
+            Optional<InternalNode> optionalNode = bucketNodeMap.getAssignedNode(split);
+            if (!optionalNode.isPresent()) {
+                throw new PrestoException(NO_NODES_AVAILABLE, format("No assignment for split in bucketNodeMap. Split Info: %s", split.getConnectorSplit().getInfoMap()));
+            }
+            InternalNode node = optionalNode.get();
             boolean isCacheable = bucketNodeMap.isSplitCacheable(split);
             SplitWeight splitWeight = split.getSplitWeight();
 

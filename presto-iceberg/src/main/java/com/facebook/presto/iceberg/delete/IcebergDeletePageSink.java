@@ -30,9 +30,11 @@ import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
+import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
@@ -54,6 +56,7 @@ import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.iceberg.MetadataColumns.DELETE_FILE_PATH;
 import static org.apache.iceberg.MetadataColumns.DELETE_FILE_POS;
+import static org.apache.iceberg.TableProperties.DEFAULT_WRITE_METRICS_MODE;
 
 public class IcebergDeletePageSink
         implements ConnectorPageSink
@@ -74,6 +77,7 @@ public class IcebergDeletePageSink
 
     private long writtenBytes;
     private long validationCpuNanos;
+    private static final MetricsConfig FULL_METRICS_CONFIG = MetricsConfig.fromProperties(ImmutableMap.of(DEFAULT_WRITE_METRICS_MODE, "full"));
 
     public IcebergDeletePageSink(
             Schema outputSchema,
@@ -209,7 +213,8 @@ public class IcebergDeletePageSink
                     jobConf,
                     session,
                     hdfsContext,
-                    fileFormat);
+                    fileFormat,
+                    FULL_METRICS_CONFIG);
         }
     }
 }

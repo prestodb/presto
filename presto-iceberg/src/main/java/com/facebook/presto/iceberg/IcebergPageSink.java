@@ -44,6 +44,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
+import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
@@ -320,7 +321,8 @@ public class IcebergPageSink
                 jobConf,
                 session,
                 hdfsContext,
-                fileFormat);
+                fileFormat,
+                MetricsConfig.getDefault());
 
         return new WriteContext(writer, outputPath, partitionData);
     }
@@ -381,7 +383,7 @@ public class IcebergPageSink
         throw new UnsupportedOperationException("Type not supported as partition column: " + type.getDisplayName());
     }
 
-    private static Object adjustTimestampForPartitionTransform(SqlFunctionProperties functionProperties, Type type, Object value)
+    public static Object adjustTimestampForPartitionTransform(SqlFunctionProperties functionProperties, Type type, Object value)
     {
         if (type instanceof TimestampType && functionProperties.isLegacyTimestamp()) {
             long timestampValue = (long) value;

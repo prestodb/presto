@@ -10,6 +10,7 @@ Administration
     admin/properties
     admin/spill
     admin/exchange-materialization
+    admin/cte-materialization
     admin/resource-groups
     admin/session-property-managers
     admin/function-namespace-managers

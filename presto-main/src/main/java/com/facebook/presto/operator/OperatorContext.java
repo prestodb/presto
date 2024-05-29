@@ -33,6 +33,7 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.util.HashSet;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
@@ -575,6 +576,7 @@ public class OperatorContext
                 memoryFuture.get().isDone() ? Optional.empty() : Optional.of(WAITING_FOR_MEMORY),
                 info,
                 runtimeStats,
+                new DynamicFilterStats(new HashSet<>()),
                 nullJoinBuildKeyCount.get(),
                 joinBuildKeyCount.get(),
                 nullJoinProbeKeyCount.get(),

@@ -77,9 +77,17 @@ In the sample configuration, the Hive connector is mounted in the `hive` catalog
 
 To build the Presto docs, see the [docs README](presto-docs/README.md).
 
-### Building the Web UI
+### Building the Presto Console
 
-The Presto Web UI is composed of several React components and is written in JSX and ES6. This source code is compiled and packaged into browser-compatible JavaScript, which is then checked in to the Presto source code (in the `dist` folder). You must have [Node.js](https://nodejs.org/en/download/) and [Yarn](https://yarnpkg.com/en/) installed to execute these commands. To update this folder after making changes, simply run:
+The Presto Console is composed of several React components and is written in JSX and ES6. This source code is
+compiled and packaged into browser-compatible JavaScript and stored in the `presto-main/src/main/resources/webapp/dist`
+folder.
+
+You must have [Node.js](https://nodejs.org/en/download/) and [Yarn](https://yarnpkg.com/en/) installed to
+execute these commands. When you use Maven to build the project, Node and yarn are installed in the `presto-main/target`
+folder. Add the Node and yarn executables to the PATH environment variable.
+
+To update Presto Console after making changes, run:
 
     yarn --cwd presto-main/src/main/resources/webapp/src install
 
@@ -92,6 +100,13 @@ To simplify iteration, you can also run in `watch` mode, which automatically re-
     yarn --cwd presto-main/src/main/resources/webapp/src run watch
 
 To iterate quickly, simply re-build the project in IntelliJ after packaging is complete. Project resources will be hot-reloaded and changes are reflected on browser refresh.
+
+To build the query viewer page, a single-page application which shows the query details from a JSON file,
+run the following command:
+
+    yarn --cwd presto-main/src/main/resources/webapp/src run spa
+
+You can find a HTML file named `query_viewer.html` in the `presto-main/src/main/resources/webapp` directory.
 
 ## Presto native and Velox
 
@@ -357,6 +372,14 @@ We recommend you use IntelliJ as your IDE. The code style template for the proje
 * Categorize errors when throwing an exception
 * **Tests**
     * Avoid adding `Thread.sleep` in tests--these can fail due to environmental conditions, such as garbage collection or noisy neighbors in the CI environment.
+    * Do not use random values in tests. All tests should be reproducible.
+    * Be careful when storing test data in fields because doing so is
+      only appropriate for constant, immutable values. Presto tests
+      run with TestNG which, unlike JUnit, does not create a new object for
+      each test. Shared instance fields can make tests tightly coupled,
+      order dependent, and flaky. If you do use instance fields, 
+      reinitialize them before each test in a `@BeforeMethod` method,
+      and annotate the class with `@Test(singleThreaded = true)`.
 
 
 ## Commit Standards

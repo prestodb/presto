@@ -23,9 +23,12 @@ jobs:
           df -h
           sudo apt-get clean
           df -h
-      - uses: actions/checkout@v2
-      - uses: actions/setup-java@v1
+      - uses: actions/checkout@v4
         with:
+          show-progress: false
+      - uses: actions/setup-java@v2
+        with:
+          distribution: 'temurin'
           java-version: 8
       - name: Cache local Maven repository
         id: cache-maven
@@ -37,10 +40,10 @@ jobs:
             ${{ runner.os }}-maven-2-
       - name: Populate maven cache
         if: steps.cache-maven.outputs.cache-hit != 'true'
-        run: ./mvnw de.qaware.maven:go-offline-maven-plugin:resolve-dependencies -P ci
+        run: ./mvnw de.qaware.maven:go-offline-maven-plugin:resolve-dependencies  --no-transfer-progress -P ci && .github/bin/download_nodejs
       - name: Maven Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./mvnw install -B -V -T C1 -DskipTests -Dmaven.javadoc.skip=true --no-transfer-progress -P ci -pl '!presto-test-coverage,!:presto-server,!:presto-docs'
+          ./mvnw install -B -V -T 1C -DskipTests -Dmaven.javadoc.skip=true --no-transfer-progress -P ci -pl '!presto-test-coverage,!:presto-server,!:presto-docs'
       - name: Clean Maven Output
         run: ./mvnw clean -pl '!:presto-server,!:presto-cli,!presto-test-coverage'

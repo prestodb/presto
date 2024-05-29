@@ -604,7 +604,7 @@ public interface TupleDomainFilter
         @Override
         public int hashCode()
         {
-            return Objects.hash(min, max, size, containsEmptyMarker, hashTable, nullAllowed);
+            return Objects.hash(min, max, size, containsEmptyMarker, Arrays.hashCode(hashTable), nullAllowed);
         }
 
         @Override
@@ -1080,7 +1080,7 @@ public interface TupleDomainFilter
         @Override
         public int hashCode()
         {
-            return Objects.hash(lower, lowerExclusive, upper, upperExclusive, nullAllowed);
+            return Objects.hash(Arrays.hashCode(lower), lowerExclusive, Arrays.hashCode(upper), upperExclusive, nullAllowed);
         }
 
         public boolean isSingleValue()
@@ -1116,9 +1116,9 @@ public interface TupleDomainFilter
         public String toString()
         {
             StringBuilder sb = new StringBuilder(this.getClass().getName());
-            sb.append("{lower='").append(lower);
+            sb.append("{lower='").append(Arrays.toString(lower));
             sb.append(", lowerExclusive=").append(lowerExclusive);
-            sb.append(", upper='").append(upper);
+            sb.append(", upper='").append(Arrays.toString(upper));
             sb.append(", upperExclusive=").append(upperExclusive);
             sb.append(", nullAllowed=").append(nullAllowed);
             sb.append("}");
@@ -1241,14 +1241,14 @@ public interface TupleDomainFilter
         @Override
         public int hashCode()
         {
-            return Objects.hash(values, nullAllowed);
+            return Objects.hash(Arrays.hashCode(values), nullAllowed);
         }
 
         @Override
         public String toString()
         {
             StringBuilder sb = new StringBuilder(this.getClass().getName());
-            sb.append("{values='").append(values);
+            sb.append("{values='").append(Arrays.toString(values));
             sb.append(", nullAllowed=").append(nullAllowed);
             sb.append("}");
 
@@ -1383,14 +1383,14 @@ public interface TupleDomainFilter
         @Override
         public int hashCode()
         {
-            return Objects.hash(ranges, nullAllowed);
+            return Objects.hash(Arrays.hashCode(ranges), nullAllowed);
         }
 
         @Override
         public String toString()
         {
             StringBuilder sb = new StringBuilder(this.getClass().getName());
-            sb.append("{ranges='").append(ranges);
+            sb.append("{ranges='").append(Arrays.toString(ranges));
             sb.append(", nullAllowed=").append(nullAllowed);
             sb.append("}");
 
@@ -1502,14 +1502,14 @@ public interface TupleDomainFilter
         @Override
         public int hashCode()
         {
-            return Objects.hash(filters, nullAllowed, nanAllowed);
+            return Objects.hash(Arrays.hashCode(filters), nullAllowed, nanAllowed);
         }
 
         @Override
         public String toString()
         {
             StringBuilder sb = new StringBuilder(this.getClass().getName());
-            sb.append("{filters='").append(filters);
+            sb.append("{filters='").append(Arrays.toString(filters));
             sb.append(", nullAllowed=").append(nullAllowed);
             sb.append(", nanAllowed=").append(nanAllowed);
             sb.append("}");

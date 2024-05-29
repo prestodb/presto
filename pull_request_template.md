@@ -27,12 +27,12 @@ Please follow [release notes guidelines](https://github.com/prestodb/presto/wiki
 == RELEASE NOTES ==
 
 General Changes
-* ...
-* ...
+* ... :pr:`12345`
+* ... :pr:`12345`
 
-Hive Changes
-* ...
-* ...
+Hive Connector Changes
+* ... :pr:`12345`
+* ... :pr:`12345`
 ```
 
 If release note is NOT required, use:

@@ -34,6 +34,14 @@ import static java.lang.String.format;
 import static java.util.Collections.newSetFromMap;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * Data structure that holds a small table containing positionCount rows (a.k.a. tuples)
+ * and channelCount columns (a.k.a. fields). Rows and columns are indexed from zero to
+ * positionCount-1 and channelCount-1 respectively.
+ *
+ * A page is composed of blocks, one block per column.
+ * Each block in the page should have positionCount values.
+ */
 public final class Page
 {
     public static final int INSTANCE_SIZE = ClassLayout.parseClass(Page.class).instanceSize();
@@ -85,11 +93,17 @@ public final class Page
         }
     }
 
+    /**
+     * @return the number of fields/columns in this page
+     */
     public int getChannelCount()
     {
         return blocks.length;
     }
 
+    /**
+     * @return the number of rows/tuples in this page
+     */
     public int getPositionCount()
     {
         return positionCount;
@@ -440,6 +454,24 @@ public final class Page
         }
         this.retainedSizeInBytes = retainedSizeInBytes.longValue();
         return retainedSizeInBytes.longValue();
+    }
+
+    /**
+     * Returns a new page with the same columns as the original page except for the one column replaced.
+     *
+     * @param channelIndex the column to replace
+     * @param column the replacement column
+     * @return a new page with the replacement column substituted for the old column
+     */
+    public Page replaceColumn(int channelIndex, Block column)
+    {
+        if (column.getPositionCount() != positionCount) {
+            throw new IllegalArgumentException("New column does not have same number of rows as old column");
+        }
+
+        Block[] newBlocks = Arrays.copyOf(blocks, blocks.length);
+        newBlocks[channelIndex] = column;
+        return Page.wrapBlocksWithoutCopy(newBlocks.length, newBlocks);
     }
 
     private static class DictionaryBlockIndexes

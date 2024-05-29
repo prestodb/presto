@@ -499,17 +499,6 @@ public class TestLocalExchange
                     }
                 }),
                 new ConnectorPartitioningHandle() {
-                    @Override
-                    public boolean isSingleNode()
-                    {
-                        return false;
-                    }
-
-                    @Override
-                    public boolean isCoordinatorOnly()
-                    {
-                        return false;
-                    }
                 });
         PartitionFunction partitionFunction = createPartitionFunction(partitioningProviderManager, session, partitioningHandle, 600, ImmutableList.of(), false);
 

@@ -88,16 +88,26 @@ struct PrestoTask {
   std::shared_ptr<velox::exec::Task> task;
   std::atomic_bool hasStuckOperator{false};
 
-  // Has the task been normally created and started.
-  // When you create task with error - it has never been started.
-  // When you create task from 'delete task' - it has never been started.
-  // When you create task from any other endpoint, such as 'get result' - it has
-  // not been started, until the actual 'create task' message comes.
+  /// Has the task been normally created and started.
+  /// When you create task with error - it has never been started.
+  /// When you create task from 'delete task' - it has never been started.
+  /// When you create task from any other endpoint, such as 'get result' - it
+  /// has not been started, until the actual 'create task' message comes.
   bool taskStarted{false};
 
+  /// Time point (in ms) when the last message (any) came for this task.
+  // TODO (spershin): Deprecate it, use only the 'lastCoordinatorHeartbeatMs'.
   uint64_t lastHeartbeatMs{0};
+  /// Time point (in ms) when the last message came for this task from the
+  /// Coordinator. Used to determine if the Task has been abandoned.
+  uint64_t lastCoordinatorHeartbeatMs{0};
+  /// Time point (in ms) when the time we updated Task stats.
   uint64_t lastTaskStatsUpdateMs = {0};
+
   uint64_t lastMemoryReservation = {0};
+  uint64_t createTimeMs{0};
+  uint64_t firstSplitStartTimeMs{0};
+  uint64_t lastEndTimeMs{0};
   mutable std::mutex mutex;
 
   /// Error before task is created or when task is being created.
@@ -129,9 +139,20 @@ struct PrestoTask {
   /// Updates when this task was touched last time.
   void updateHeartbeatLocked();
 
+  /// Updates time point (ms) when this task was touched last time by a message
+  /// from the Coordinator.
+  void updateCoordinatorHeartbeat();
+  void updateCoordinatorHeartbeatLocked();
+
   /// Returns time (ms) since the task was touched last time (last heartbeat).
   /// Returns zero, if never (shouldn't happen).
   uint64_t timeSinceLastHeartbeatMs() const;
+
+  /// Returns time (ms) since the task was touched last time by a message from
+  /// the Coordinator.
+  /// If above never happened, returns time since the task start or zero, if
+  /// task never started.
+  uint64_t timeSinceLastCoordinatorHeartbeatMs() const;
 
   protocol::TaskStatus updateStatus() {
     std::lock_guard<std::mutex> l(mutex);
@@ -144,20 +165,36 @@ struct PrestoTask {
   }
 
   /// Turns the task numbers (per state) into a string.
-  static std::string taskNumbersToString(
-      const std::array<size_t, 5>& taskNumbers);
+  static std::string taskStatesToString(
+      const std::array<size_t, 5>& taskStates);
 
-  /// Returns process-wide CPU time in nanoseconds.
-  static long getProcessCpuTime();
-
+  /// Invoked to update presto task status from the updated velox task stats.
   protocol::TaskStatus updateStatusLocked();
   protocol::TaskInfo updateInfoLocked();
-  void updateOutputBufferInfoLocked(const velox::exec::TaskStats& taskStats);
 
   folly::dynamic toJson() const;
 
  private:
   void recordProcessCpuTime();
+
+  void updateOutputBufferInfoLocked(
+      const velox::exec::TaskStats& veloxTaskStats,
+      std::unordered_map<std::string, velox::RuntimeMetric>& taskRuntimeStats);
+
+  void updateTimeInfoLocked(
+      const velox::exec::TaskStats& veloxTaskStats,
+      uint64_t currentTimeMs,
+      std::unordered_map<std::string, velox::RuntimeMetric>& taskRuntimeStats);
+
+  void updateExecutionInfoLocked(
+      const velox::exec::TaskStats& veloxTaskStats,
+      const protocol::TaskStatus& prestoTaskStatus,
+      std::unordered_map<std::string, velox::RuntimeMetric>& taskRuntimeStats);
+
+  void updateMemoryInfoLocked(
+      const velox::exec::TaskStats& veloxTaskStats,
+      uint64_t currentTimeMs,
+      std::unordered_map<std::string, velox::RuntimeMetric>& taskRuntimeStats);
 
   long processCpuTime_{0};
 };

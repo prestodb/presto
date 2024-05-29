@@ -7,6 +7,7 @@ Presto Documentation
 
     overview
     installation
+    clients
     security
     admin
     cache
@@ -21,7 +22,7 @@ Presto Documentation
     ecosystem
     router
     develop
-    prestissimo
+    presto-cpp
     release
 
 .. Note: If "release" is not the last item, the CSS must be updated.

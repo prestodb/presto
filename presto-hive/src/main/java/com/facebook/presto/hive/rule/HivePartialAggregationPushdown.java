@@ -34,6 +34,7 @@ import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.TableScanNode;
@@ -54,6 +55,7 @@ import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveSessionProperties.isPartialAggregationPushdownEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isPartialAggregationPushdownForVariableLengthDatatypesEnabled;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
@@ -119,7 +121,7 @@ public class HivePartialAggregationPushdown
             this.idAllocator = idAllocator;
         }
 
-        private boolean isAggregationPushdownSupported(AggregationNode partialAggregationNode)
+        private boolean isAggregationPushdownSupported(AggregationNode partialAggregationNode, Map<VariableReferenceExpression, ColumnHandle> assignments)
         {
             if (partialAggregationNode.hasNonEmptyGroupingSet()) {
                 return false;
@@ -148,7 +150,7 @@ public class HivePartialAggregationPushdown
              * Aggregation push downs are supported only on primitive types and supported aggregation functions are:
              * count(*), count(columnName), min(columnName), max(columnName)
              */
-            for (AggregationNode.Aggregation aggregation : partialAggregationNode.getAggregations().values()) {
+            for (Aggregation aggregation : partialAggregationNode.getAggregations().values()) {
                 FunctionHandle functionHandle = aggregation.getFunctionHandle();
                 if (!(standardFunctionResolution.isCountFunction(functionHandle) ||
                         standardFunctionResolution.isMaxFunction(functionHandle) ||
@@ -163,6 +165,14 @@ public class HivePartialAggregationPushdown
                 List<RowExpression> arguments = aggregation.getArguments();
                 if (arguments.size() > 1) {
                     return false;
+                }
+                else if (arguments.size() == 1) {
+                    RowExpression column = aggregation.getCall().getArguments().get(0);
+                    HiveColumnHandle columnHandle = (HiveColumnHandle) assignments.get(column);
+                    // These columns get 'PREFILLED' with values in the corresponding page sources
+                    if (columnHandle.getColumnType() != REGULAR) {
+                        return false;
+                    }
                 }
 
                 if (standardFunctionResolution.isMinFunction(functionHandle) || standardFunctionResolution.isMaxFunction(functionHandle)) {
@@ -236,13 +246,13 @@ public class HivePartialAggregationPushdown
             TableHandle oldTableHandle = oldTableScanNode.getTable();
             HiveTableHandle hiveTableHandle = getHiveTableHandle(oldTableScanNode).orElseThrow(() -> new PrestoException(NOT_FOUND, "Hive table handle not found"));
 
-            if (!isAggregationPushdownSupported(partialAggregationNode)) {
+            if (!isAggregationPushdownSupported(partialAggregationNode, oldTableScanNode.getAssignments())) {
                 return Optional.empty();
             }
 
             HiveTypeTranslator hiveTypeTranslator = new HiveTypeTranslator();
             Map<VariableReferenceExpression, ColumnHandle> assignments = new HashMap<>();
-            for (Map.Entry<VariableReferenceExpression, AggregationNode.Aggregation> aggregationEntry : partialAggregationNode.getAggregations().entrySet()) {
+            for (Map.Entry<VariableReferenceExpression, Aggregation> aggregationEntry : partialAggregationNode.getAggregations().entrySet()) {
                 CallExpression callExpression = aggregationEntry.getValue().getCall();
                 String columnName;
                 int columnIndex;

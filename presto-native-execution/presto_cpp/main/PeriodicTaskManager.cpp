@@ -17,14 +17,13 @@
 #include <folly/stop_watch.h>
 #include "presto_cpp/main/PrestoExchangeSource.h"
 #include "presto_cpp/main/PrestoServer.h"
-#include "presto_cpp/main/TaskManager.h"
 #include "presto_cpp/main/common/Counters.h"
 #include "presto_cpp/main/http/filters/HttpEndpointLatencyFilter.h"
+#include "velox/common/base/PeriodicStatsReporter.h"
 #include "velox/common/base/StatsReporter.h"
 #include "velox/common/base/SuccinctPrinter.h"
 #include "velox/common/caching/AsyncDataCache.h"
 #include "velox/common/caching/CacheTTLController.h"
-#include "velox/common/caching/SsdFile.h"
 #include "velox/common/memory/MemoryAllocator.h"
 #include "velox/common/memory/MmapAllocator.h"
 #include "velox/connectors/hive/HiveConnector.h"
@@ -41,24 +40,50 @@ namespace {
 
 namespace facebook::presto {
 
+namespace {
+folly::StringPiece getCounterForBlockingReason(
+    velox::exec::BlockingReason reason) {
+  switch (reason) {
+    case velox::exec::BlockingReason::kWaitForConsumer:
+      return kCounterNumBlockedWaitForConsumerDrivers;
+    case velox::exec::BlockingReason::kWaitForSplit:
+      return kCounterNumBlockedWaitForSplitDrivers;
+    case velox::exec::BlockingReason::kWaitForProducer:
+      return kCounterNumBlockedWaitForProducerDrivers;
+    case velox::exec::BlockingReason::kWaitForJoinBuild:
+      return kCounterNumBlockedWaitForJoinBuildDrivers;
+    case velox::exec::BlockingReason::kWaitForJoinProbe:
+      return kCounterNumBlockedWaitForJoinProbeDrivers;
+    case velox::exec::BlockingReason::kWaitForMergeJoinRightSide:
+      return kCounterNumBlockedWaitForMergeJoinRightSideDrivers;
+    case velox::exec::BlockingReason::kWaitForMemory:
+      return kCounterNumBlockedWaitForMemoryDrivers;
+    case velox::exec::BlockingReason::kWaitForConnector:
+      return kCounterNumBlockedWaitForConnectorDrivers;
+    case velox::exec::BlockingReason::kWaitForSpill:
+      return kCounterNumBlockedWaitForSpillDrivers;
+    case velox::exec::BlockingReason::kYield:
+      return kCounterNumBlockedYieldDrivers;
+    case velox::exec::BlockingReason::kNotBlocked:
+      [[fallthrough]];
+    default:
+      return {};
+  }
+  return {};
+}
+} // namespace
+
 // Every two seconds we export server counters.
 static constexpr size_t kTaskPeriodGlobalCounters{2'000'000}; // 2 seconds.
-// Every two seconds we export memory counters.
-static constexpr size_t kMemoryPeriodGlobalCounters{2'000'000}; // 2 seconds.
 // Every two seconds we export exchange source counters.
 static constexpr size_t kExchangeSourcePeriodGlobalCounters{
     2'000'000}; // 2 seconds.
 // Every 1 minute we clean old tasks.
 static constexpr size_t kTaskPeriodCleanOldTasks{60'000'000}; // 60 seconds.
-// Every 1 minute we export cache counters.
-static constexpr size_t kCachePeriodGlobalCounters{60'000'000}; // 60 seconds.
 // Every 1 minute we export connector counters.
 static constexpr size_t kConnectorPeriodGlobalCounters{
     60'000'000}; // 60 seconds.
 static constexpr size_t kOsPeriodGlobalCounters{2'000'000}; // 2 seconds
-static constexpr size_t kSpillStatsUpdateIntervalUs{60'000'000}; // 60 seconds
-static constexpr size_t kArbitratorStatsUpdateIntervalUs{
-    60'000'000}; // 60 seconds
 // Every 1 minute we print endpoint latency counters.
 static constexpr size_t kHttpEndpointLatencyPeriodGlobalCounters{
     60'000'000}; // 60 seconds.
@@ -83,6 +108,14 @@ PeriodicTaskManager::PeriodicTaskManager(
       server_(server) {}
 
 void PeriodicTaskManager::start() {
+  VELOX_CHECK_NOT_NULL(arbitrator_);
+  velox::PeriodicStatsReporter::Options opts;
+  opts.arbitrator = arbitrator_->kind() == "NOOP" ? nullptr : arbitrator_;
+  opts.allocator = memoryAllocator_;
+  opts.cache = asyncDataCache_;
+  opts.spillMemoryPool = velox::memory::spillMemoryPool();
+  velox::startPeriodicStatsReporter(opts);
+
   // If executors are null, don't bother starting this task.
   if ((driverCPUExecutor_ != nullptr) || (httpExecutor_ != nullptr)) {
     addExecutorStatsTask();
@@ -95,29 +128,14 @@ void PeriodicTaskManager::start() {
     addOldTaskCleanupTask();
   }
 
-  if (memoryAllocator_ != nullptr) {
-    addMemoryAllocatorStatsTask();
-  }
-
   addPrestoExchangeSourceMemoryStatsTask();
-
-  if (asyncDataCache_ != nullptr) {
-    addCacheStatsUpdateTask();
-  }
 
   addConnectorStatsTask();
 
   addOperatingSystemStatsUpdateTask();
 
-  addSpillStatsUpdateTask();
-
   if (SystemConfig::instance()->enableHttpEndpointLatencyFilter()) {
     addHttpEndpointLatencyStatsTask();
-  }
-
-  VELOX_CHECK_NOT_NULL(arbitrator_);
-  if (arbitrator_->kind() != "NOOP") {
-    addArbitratorStatsTask();
   }
 
   if (server_ && server_->hasCoordinatorDiscoverer()) {
@@ -129,6 +147,7 @@ void PeriodicTaskManager::start() {
 }
 
 void PeriodicTaskManager::stop() {
+  velox::stopPeriodicStatsReporter();
   oneTimeRunner_.cancelAllFunctionsAndWait();
   oneTimeRunner_.shutdown();
   repeatedRunner_.stop();
@@ -183,11 +202,18 @@ void PeriodicTaskManager::updateTaskStats() {
   RECORD_METRIC_VALUE(
       kCounterNumTasksFailed, taskNumbers[velox::exec::TaskState::kFailed]);
 
-  auto driverCountStats = taskManager_->getDriverCountStats();
+  const auto driverCounts = taskManager_->getDriverCounts();
+  RECORD_METRIC_VALUE(kCounterNumQueuedDrivers, driverCounts.numQueuedDrivers);
   RECORD_METRIC_VALUE(
-      kCounterNumRunningDrivers, driverCountStats.numRunningDrivers);
+      kCounterNumOnThreadDrivers, driverCounts.numOnThreadDrivers);
   RECORD_METRIC_VALUE(
-      kCounterNumBlockedDrivers, driverCountStats.numBlockedDrivers);
+      kCounterNumSuspendedDrivers, driverCounts.numSuspendedDrivers);
+  for (const auto& it : driverCounts.numBlockedDrivers) {
+    const auto counterName = getCounterForBlockingReason(it.first);
+    if (counterName.data() != nullptr) {
+      RECORD_METRIC_VALUE(counterName, it.second);
+    }
+  }
   RECORD_METRIC_VALUE(
       kCounterTotalPartitionedOutputBuffer,
       velox::exec::OutputBufferManager::getInstance().lock()->numBuffers());
@@ -214,35 +240,6 @@ void PeriodicTaskManager::addOldTaskCleanupTask() {
       "clean_old_tasks");
 }
 
-void PeriodicTaskManager::updateMemoryAllocatorStats() {
-  RECORD_METRIC_VALUE(
-      kCounterMappedMemoryBytes,
-      (velox::memory::AllocationTraits::pageBytes(
-          memoryAllocator_->numMapped())));
-  RECORD_METRIC_VALUE(
-      kCounterAllocatedMemoryBytes,
-      (velox::memory::AllocationTraits::pageBytes(
-          memoryAllocator_->numAllocated())));
-  // TODO(jtan6): Remove condition after T150019700 is done
-  if (auto* mmapAllocator =
-          dynamic_cast<const velox::memory::MmapAllocator*>(memoryAllocator_)) {
-    RECORD_METRIC_VALUE(
-        kCounterMmapRawAllocBytesSmall, (mmapAllocator->numMallocBytes()));
-    RECORD_METRIC_VALUE(
-        kCounterMmapExternalMappedBytes,
-        velox::memory::AllocationTraits::pageBytes(
-            (mmapAllocator->numExternalMapped())));
-  }
-  // TODO(xiaoxmeng): add memory allocation size stats.
-}
-
-void PeriodicTaskManager::addMemoryAllocatorStatsTask() {
-  addTask(
-      [this]() { updateMemoryAllocatorStats(); },
-      kMemoryPeriodGlobalCounters,
-      "mmap_memory_counters");
-}
-
 void PeriodicTaskManager::updatePrestoExchangeSourceMemoryStats() {
   int64_t currQueuedMemoryBytes{0};
   int64_t peakQueuedMemoryBytes{0};
@@ -258,166 +255,6 @@ void PeriodicTaskManager::addPrestoExchangeSourceMemoryStatsTask() {
       [this]() { updatePrestoExchangeSourceMemoryStats(); },
       kExchangeSourcePeriodGlobalCounters,
       "exchange_source_counters");
-}
-
-void PeriodicTaskManager::updateCacheStats() {
-  const auto memoryCacheStats = asyncDataCache_->refreshStats();
-
-  // Snapshots.
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheNumEntries, memoryCacheStats.numEntries);
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheNumEmptyEntries, memoryCacheStats.numEmptyEntries);
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheNumSharedEntries, memoryCacheStats.numShared);
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheNumExclusiveEntries, memoryCacheStats.numExclusive);
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheNumPrefetchedEntries, memoryCacheStats.numPrefetch);
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheTotalTinyBytes, memoryCacheStats.tinySize);
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheTotalLargeBytes, memoryCacheStats.largeSize);
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheTotalTinyPaddingBytes, memoryCacheStats.tinyPadding);
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheTotalLargePaddingBytes, memoryCacheStats.largePadding);
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheTotalPrefetchBytes, memoryCacheStats.prefetchBytes);
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheSumEvictScore, memoryCacheStats.sumEvictScore);
-
-  // Interval cumulatives.
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheNumHit,
-      memoryCacheStats.numHit - lastMemoryCacheHits_);
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheHitBytes,
-      memoryCacheStats.hitBytes - lastMemoryCacheHitsBytes_);
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheNumNew,
-      memoryCacheStats.numNew - lastMemoryCacheInserts_);
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheNumEvict,
-      memoryCacheStats.numEvict - lastMemoryCacheEvictions_);
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheNumEvictChecks,
-      memoryCacheStats.numEvictChecks - lastMemoryCacheEvictionChecks_);
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheNumWaitExclusive,
-      memoryCacheStats.numWaitExclusive - lastMemoryCacheStalls_);
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheNumAllocClocks,
-      memoryCacheStats.allocClocks - lastMemoryCacheAllocClocks_);
-
-  lastMemoryCacheHits_ = memoryCacheStats.numHit;
-  lastMemoryCacheHitsBytes_ = memoryCacheStats.hitBytes;
-  lastMemoryCacheInserts_ = memoryCacheStats.numNew;
-  lastMemoryCacheEvictions_ = memoryCacheStats.numEvict;
-  lastMemoryCacheEvictionChecks_ = memoryCacheStats.numEvictChecks;
-  lastMemoryCacheStalls_ = memoryCacheStats.numWaitExclusive;
-
-  // All time cumulatives.
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheNumCumulativeHit, memoryCacheStats.numHit);
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheCumulativeHitBytes, memoryCacheStats.hitBytes);
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheNumCumulativeNew, memoryCacheStats.numNew);
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheNumCumulativeEvict, memoryCacheStats.numEvict);
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheNumCumulativeEvictChecks,
-      memoryCacheStats.numEvictChecks);
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheNumCumulativeWaitExclusive,
-      memoryCacheStats.numWaitExclusive);
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheNumCumulativeAllocClocks,
-      memoryCacheStats.allocClocks);
-
-  if (memoryCacheStats.ssdStats != nullptr) {
-    RECORD_METRIC_VALUE(
-        kCounterSsdCacheCumulativeReadEntries,
-        memoryCacheStats.ssdStats->entriesRead)
-    RECORD_METRIC_VALUE(
-        kCounterSsdCacheCumulativeReadBytes,
-        memoryCacheStats.ssdStats->bytesRead);
-    RECORD_METRIC_VALUE(
-        kCounterSsdCacheCumulativeWrittenEntries,
-        memoryCacheStats.ssdStats->entriesWritten);
-    RECORD_METRIC_VALUE(
-        kCounterSsdCacheCumulativeWrittenBytes,
-        memoryCacheStats.ssdStats->bytesWritten);
-    RECORD_METRIC_VALUE(
-        kCounterSsdCacheCumulativeOpenSsdErrors,
-        memoryCacheStats.ssdStats->openFileErrors);
-    RECORD_METRIC_VALUE(
-        kCounterSsdCacheCumulativeOpenCheckpointErrors,
-        memoryCacheStats.ssdStats->openCheckpointErrors);
-    RECORD_METRIC_VALUE(
-        kCounterSsdCacheCumulativeOpenLogErrors,
-        memoryCacheStats.ssdStats->openLogErrors);
-    RECORD_METRIC_VALUE(
-        kCounterSsdCacheCumulativeDeleteCheckpointErrors,
-        memoryCacheStats.ssdStats->deleteCheckpointErrors);
-    RECORD_METRIC_VALUE(
-        kCounterSsdCacheCumulativeGrowFileErrors,
-        memoryCacheStats.ssdStats->growFileErrors);
-    RECORD_METRIC_VALUE(
-        kCounterSsdCacheCumulativeWriteSsdErrors,
-        memoryCacheStats.ssdStats->writeSsdErrors);
-    RECORD_METRIC_VALUE(
-        kCounterSsdCacheCumulativeWriteCheckpointErrors,
-        memoryCacheStats.ssdStats->writeCheckpointErrors);
-    RECORD_METRIC_VALUE(
-        kCounterSsdCacheCumulativeReadSsdErrors,
-        memoryCacheStats.ssdStats->readSsdErrors);
-    RECORD_METRIC_VALUE(
-        kCounterSsdCacheCumulativeReadCheckpointErrors,
-        memoryCacheStats.ssdStats->readCheckpointErrors);
-    RECORD_METRIC_VALUE(
-        kCounterSsdCacheCachedEntries,
-        memoryCacheStats.ssdStats->entriesCached);
-    RECORD_METRIC_VALUE(
-        kCounterSsdCacheCachedRegions,
-        memoryCacheStats.ssdStats->regionsCached);
-    RECORD_METRIC_VALUE(
-        kCounterSsdCacheCachedBytes, memoryCacheStats.ssdStats->bytesCached);
-  }
-
-  if (auto* cacheTTLController =
-          velox::cache::CacheTTLController::getInstance()) {
-    RECORD_METRIC_VALUE(
-        kCounterCacheMaxAgeSecs,
-        cacheTTLController->getCacheAgeStats().maxAgeSecs);
-
-    RECORD_METRIC_VALUE(
-        kCounterMemoryCacheNumAgedOutEntries,
-        memoryCacheStats.numAgedOut - lastMemoryCacheAgedOuts_);
-    lastMemoryCacheAgedOuts_ = memoryCacheStats.numAgedOut;
-    RECORD_METRIC_VALUE(
-        kCounterMemoryCacheNumCumulativeAgedOutEntries,
-        memoryCacheStats.numAgedOut);
-
-    if (memoryCacheStats.ssdStats != nullptr) {
-      RECORD_METRIC_VALUE(
-          kCounterSsdCacheCumulativeAgedOutEntries,
-          memoryCacheStats.ssdStats->entriesAgedOut)
-      RECORD_METRIC_VALUE(
-          kCounterSsdCacheCumulativeAgedOutRegions,
-          memoryCacheStats.ssdStats->regionsAgedOut);
-    }
-  }
-
-  LOG(INFO) << "Cache stats:\n" << memoryCacheStats.toString();
-}
-
-void PeriodicTaskManager::addCacheStatsUpdateTask() {
-  addTask(
-      [this]() { updateCacheStats(); },
-      kCachePeriodGlobalCounters,
-      "cache_counters");
 }
 
 namespace {
@@ -552,95 +389,6 @@ void PeriodicTaskManager::addOperatingSystemStatsUpdateTask() {
       [this]() { updateOperatingSystemStats(); },
       kOsPeriodGlobalCounters,
       "os_counters");
-}
-
-void PeriodicTaskManager::addArbitratorStatsTask() {
-  addTask(
-      [this]() { updateArbitratorStatsTask(); },
-      kArbitratorStatsUpdateIntervalUs,
-      "arbitrator_stats");
-}
-
-void PeriodicTaskManager::updateArbitratorStatsTask() {
-  const auto updatedArbitratorStats = arbitrator_->stats();
-  VELOX_CHECK_GE(updatedArbitratorStats, lastArbitratorStats_);
-  const auto deltaArbitratorStats =
-      updatedArbitratorStats - lastArbitratorStats_;
-  REPORT_IF_NOT_ZERO(
-      kCounterArbitratorNumRequests, deltaArbitratorStats.numRequests);
-  REPORT_IF_NOT_ZERO(
-      kCounterArbitratorNumAborted, deltaArbitratorStats.numAborted);
-  REPORT_IF_NOT_ZERO(
-      kCounterArbitratorNumFailures, deltaArbitratorStats.numFailures);
-  REPORT_IF_NOT_ZERO(
-      kCounterArbitratorQueueTimeUs, deltaArbitratorStats.queueTimeUs);
-  REPORT_IF_NOT_ZERO(
-      kCounterArbitratorArbitrationTimeUs,
-      deltaArbitratorStats.arbitrationTimeUs);
-  REPORT_IF_NOT_ZERO(
-      kCounterArbitratorNumShrunkBytes, deltaArbitratorStats.numShrunkBytes);
-  REPORT_IF_NOT_ZERO(
-      kCounterArbitratorNumReclaimedBytes,
-      deltaArbitratorStats.numReclaimedBytes);
-  REPORT_IF_NOT_ZERO(
-      kCounterArbitratorFreeCapacityBytes,
-      deltaArbitratorStats.freeCapacityBytes);
-  REPORT_IF_NOT_ZERO(
-      kCounterArbitratorNonReclaimableAttempts,
-      deltaArbitratorStats.numNonReclaimableAttempts);
-
-  if (!deltaArbitratorStats.empty()) {
-    LOG(INFO) << "Updated memory arbitrator stats: "
-              << updatedArbitratorStats.toString();
-    LOG(INFO) << "Memory arbitrator stats change: "
-              << deltaArbitratorStats.toString();
-  }
-  lastArbitratorStats_ = updatedArbitratorStats;
-}
-
-void PeriodicTaskManager::addSpillStatsUpdateTask() {
-  addTask(
-      [this]() { updateSpillStatsTask(); },
-      kSpillStatsUpdateIntervalUs,
-      "spill_stats");
-}
-
-void PeriodicTaskManager::updateSpillStatsTask() {
-  const auto updatedSpillStats = velox::common::globalSpillStats();
-  VELOX_CHECK_GE(updatedSpillStats, lastSpillStats_);
-  const auto deltaSpillStats = updatedSpillStats - lastSpillStats_;
-  REPORT_IF_NOT_ZERO(kCounterSpillRuns, deltaSpillStats.spillRuns);
-  REPORT_IF_NOT_ZERO(kCounterSpilledFiles, deltaSpillStats.spilledFiles);
-  REPORT_IF_NOT_ZERO(kCounterSpilledRows, deltaSpillStats.spilledRows);
-  REPORT_IF_NOT_ZERO(kCounterSpilledBytes, deltaSpillStats.spilledBytes);
-  REPORT_IF_NOT_ZERO(kCounterSpillFillTimeUs, deltaSpillStats.spillFillTimeUs);
-  REPORT_IF_NOT_ZERO(kCounterSpillSortTimeUs, deltaSpillStats.spillSortTimeUs);
-  REPORT_IF_NOT_ZERO(
-      kCounterSpillSerializationTimeUs,
-      deltaSpillStats.spillSerializationTimeUs);
-  REPORT_IF_NOT_ZERO(kCounterSpillWrites, deltaSpillStats.spillWrites);
-  REPORT_IF_NOT_ZERO(
-      kCounterSpillFlushTimeUs, deltaSpillStats.spillFlushTimeUs);
-  REPORT_IF_NOT_ZERO(
-      kCounterSpillWriteTimeUs, deltaSpillStats.spillWriteTimeUs);
-  REPORT_IF_NOT_ZERO(
-      kCounterSpillMaxLevelExceeded,
-      deltaSpillStats.spillMaxLevelExceededCount);
-
-  if (!deltaSpillStats.empty()) {
-    LOG(INFO) << "Updated spill stats: " << updatedSpillStats.toString();
-    LOG(INFO) << "Spill stats change:" << deltaSpillStats.toString();
-  }
-
-  const auto spillMemoryStats = velox::memory::spillMemoryPool()->stats();
-  LOG(INFO) << "Spill memory usage: current["
-            << velox::succinctBytes(spillMemoryStats.currentBytes) << "] peak["
-            << velox::succinctBytes(spillMemoryStats.peakBytes) << "]";
-  RECORD_METRIC_VALUE(kCounterSpillMemoryBytes, spillMemoryStats.currentBytes);
-  RECORD_HISTOGRAM_METRIC_VALUE(
-      kCounterSpillPeakMemoryBytes, spillMemoryStats.peakBytes);
-
-  lastSpillStats_ = updatedSpillStats;
 }
 
 void PeriodicTaskManager::printHttpEndpointLatencyStats() {

@@ -133,7 +133,8 @@ public class TestDynamicPruning
                 outputFile.length(),
                 Instant.now().toEpochMilli(),
                 Optional.empty(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                0);
 
         HiveSplit split = new HiveSplit(
                 fileSplit,
@@ -160,7 +161,8 @@ public class TestDynamicPruning
                 NO_CACHE_REQUIREMENT,
                 Optional.empty(),
                 ImmutableSet.of(),
-                SplitWeight.standard());
+                SplitWeight.standard(),
+                Optional.empty());
 
         HiveTableHandle hiveTableHandle = new HiveTableHandle(SCHEMA_NAME, TABLE_NAME);
         HiveTableLayoutHandle tableLayoutHandle = new HiveTableLayoutHandle.Builder()

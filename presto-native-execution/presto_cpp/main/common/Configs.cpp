@@ -12,8 +12,8 @@
  * limitations under the License.
  */
 
-#include "presto_cpp/main/common/ConfigReader.h"
 #include "presto_cpp/main/common/Configs.h"
+#include "presto_cpp/main/common/ConfigReader.h"
 #include "presto_cpp/main/common/Utils.h"
 #include "velox/core/QueryConfig.h"
 
@@ -185,6 +185,7 @@ SystemConfig::SystemConfig() {
           BOOL_PROP(kUseMmapAllocator, true),
           STR_PROP(kMemoryArbitratorKind, ""),
           NUM_PROP(kQueryMemoryGb, 38),
+          NUM_PROP(kQueryReservedMemoryGb, 4),
           BOOL_PROP(kEnableVeloxTaskLogging, false),
           BOOL_PROP(kEnableVeloxExprSetLogging, false),
           NUM_PROP(kLocalShuffleMaxPartitionBytes, 268435456),
@@ -462,10 +463,20 @@ int32_t SystemConfig::queryMemoryGb() const {
   return optionalProperty<int32_t>(kQueryMemoryGb).value();
 }
 
+int32_t SystemConfig::queryReservedMemoryGb() const {
+  return optionalProperty<int32_t>(kQueryReservedMemoryGb).value();
+}
+
 uint64_t SystemConfig::memoryPoolInitCapacity() const {
   static constexpr uint64_t kMemoryPoolInitCapacityDefault = 128 << 20;
   return optionalProperty<uint64_t>(kMemoryPoolInitCapacity)
       .value_or(kMemoryPoolInitCapacityDefault);
+}
+
+uint64_t SystemConfig::memoryPoolReservedCapacity() const {
+  static constexpr uint64_t kMemoryPoolReservedCapacityDefault = 64 << 20;
+  return optionalProperty<uint64_t>(kMemoryPoolReservedCapacity)
+      .value_or(kMemoryPoolReservedCapacityDefault);
 }
 
 uint64_t SystemConfig::memoryPoolTransferCapacity() const {
@@ -670,11 +681,6 @@ BaseVeloxQueryConfig::BaseVeloxQueryConfig() {
   registeredProps_ =
       std::unordered_map<std::string, folly::Optional<std::string>>{
           BOOL_PROP(kMutableConfig, false),
-          BOOL_PROP(QueryConfig::kCodegenEnabled, c.codegenEnabled()),
-          STR_PROP(
-              QueryConfig::kCodegenConfigurationFilePath,
-              c.codegenConfigurationFilePath()),
-          BOOL_PROP(QueryConfig::kCodegenLazyLoading, c.codegenLazyLoading()),
           STR_PROP(QueryConfig::kSessionTimezone, c.sessionTimezone()),
           BOOL_PROP(
               QueryConfig::kAdjustTimestampToTimezone,
@@ -723,7 +729,6 @@ BaseVeloxQueryConfig::BaseVeloxQueryConfig() {
           BOOL_PROP(QueryConfig::kOrderBySpillEnabled, c.orderBySpillEnabled()),
           NUM_PROP(QueryConfig::kMaxSpillLevel, c.maxSpillLevel()),
           NUM_PROP(QueryConfig::kMaxSpillFileSize, c.maxSpillFileSize()),
-          NUM_PROP(QueryConfig::kMinSpillRunSize, c.minSpillRunSize()),
           NUM_PROP(
               QueryConfig::kSpillStartPartitionBit, c.spillStartPartitionBit()),
           NUM_PROP(

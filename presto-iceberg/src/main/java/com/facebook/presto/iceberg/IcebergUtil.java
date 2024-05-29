@@ -14,11 +14,13 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.GenericInternalException;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Decimals;
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.VarbinaryType;
@@ -29,6 +31,7 @@ import com.facebook.presto.hive.HiveColumnConverterProvider;
 import com.facebook.presto.hive.HivePartition;
 import com.facebook.presto.hive.HivePartitionKey;
 import com.facebook.presto.hive.HiveType;
+import com.facebook.presto.hive.PartitionNameWithVersion;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
@@ -41,10 +44,10 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
-import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.ContentFile;
 import org.apache.iceberg.ContentScanTask;
@@ -52,6 +55,7 @@ import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DeleteFile;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.HistoryEntry;
+import org.apache.iceberg.ManifestFile;
 import org.apache.iceberg.MetadataTableType;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
@@ -70,7 +74,6 @@ import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.types.Types.NestedField;
 import org.apache.iceberg.util.SnapshotUtil;
-import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -106,24 +109,12 @@ import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimeType.TIME;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
-import static com.facebook.presto.hive.HiveUtil.bigintPartitionKey;
-import static com.facebook.presto.hive.HiveUtil.booleanPartitionKey;
-import static com.facebook.presto.hive.HiveUtil.charPartitionKey;
-import static com.facebook.presto.hive.HiveUtil.datePartitionKey;
-import static com.facebook.presto.hive.HiveUtil.doublePartitionKey;
-import static com.facebook.presto.hive.HiveUtil.floatPartitionKey;
-import static com.facebook.presto.hive.HiveUtil.integerPartitionKey;
-import static com.facebook.presto.hive.HiveUtil.longDecimalPartitionKey;
-import static com.facebook.presto.hive.HiveUtil.shortDecimalPartitionKey;
-import static com.facebook.presto.hive.HiveUtil.smallintPartitionKey;
-import static com.facebook.presto.hive.HiveUtil.timestampPartitionKey;
-import static com.facebook.presto.hive.HiveUtil.tinyintPartitionKey;
-import static com.facebook.presto.hive.HiveUtil.varcharPartitionKey;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_QUERY_ID_NAME;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_VERSION_NAME;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_VIEW_COMMENT;
@@ -132,6 +123,7 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.TABLE_COMMENT;
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
 import static com.facebook.presto.iceberg.FileContent.POSITION_DELETES;
 import static com.facebook.presto.iceberg.FileContent.fromIcebergFileContent;
+import static com.facebook.presto.iceberg.FileFormat.PARQUET;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_FORMAT_VERSION;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
@@ -148,20 +140,27 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.immutableEntry;
 import static com.google.common.collect.Streams.mapWithIndex;
 import static com.google.common.collect.Streams.stream;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static java.lang.Double.doubleToRawLongBits;
+import static java.lang.Double.longBitsToDouble;
 import static java.lang.Double.parseDouble;
 import static java.lang.Float.floatToRawIntBits;
+import static java.lang.Float.intBitsToFloat;
 import static java.lang.Float.parseFloat;
 import static java.lang.Integer.parseInt;
 import static java.lang.Long.parseLong;
 import static java.lang.Math.toIntExact;
+import static java.lang.Math.ulp;
 import static java.lang.String.format;
 import static java.util.Collections.emptyIterator;
 import static java.util.Comparator.comparing;
+import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
 import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
 import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_ENABLED;
@@ -187,6 +186,16 @@ public final class IcebergUtil
     private static final Pattern SIMPLE_NAME = Pattern.compile("[a-z][a-z0-9]*");
     private static final Logger log = Logger.get(IcebergUtil.class);
     public static final int MIN_FORMAT_VERSION_FOR_DELETE = 2;
+
+    public static final long DOUBLE_POSITIVE_ZERO = 0x0000000000000000L;
+    public static final long DOUBLE_POSITIVE_INFINITE = 0x7ff0000000000000L;
+    public static final long DOUBLE_NEGATIVE_ZERO = 0x8000000000000000L;
+    public static final long DOUBLE_NEGATIVE_INFINITE = 0xfff0000000000000L;
+
+    public static final int REAL_POSITIVE_ZERO = 0x00000000;
+    public static final int REAL_POSITIVE_INFINITE = 0x7f800000;
+    public static final int REAL_NEGATIVE_ZERO = 0x80000000;
+    public static final int REAL_NEGATIVE_INFINITE = 0xff800000;
 
     private IcebergUtil() {}
 
@@ -220,20 +229,22 @@ public final class IcebergUtil
         return resourceFactory.getCatalog(session).loadTable(toIcebergTableIdentifier(table));
     }
 
-    public static List<IcebergColumnHandle> getPartitionKeyColumnHandles(org.apache.iceberg.Table table, TypeManager typeManager)
+    public static List<IcebergColumnHandle> getPartitionKeyColumnHandles(IcebergTableHandle tableHandle, Table table, TypeManager typeManager)
     {
-        ImmutableList.Builder<IcebergColumnHandle> partitionColumns = ImmutableList.builder();
-        List<IcebergColumnHandle> allColumns = getColumns(table.schema(), table.spec(), typeManager);
+        Set<PartitionSpec> partitionSpecs = tableHandle.getIcebergTableName().getSnapshotId()
+                .map(snapshot -> table.snapshot(snapshot).allManifests(table.io()).stream()
+                        .map(ManifestFile::partitionSpecId)
+                        .map(specId -> table.specs().get(specId))
+                        .collect(toImmutableSet()))
+                .orElseGet(() -> ImmutableSet.copyOf(table.specs().values()));   // No snapshot, so no data. This case doesn't matter.
 
-        for (int i = 0; i < table.spec().fields().size(); i++) {
-            PartitionField field = table.spec().fields().get(i);
-            if (field.transform().toString().equals("identity")) {
-                Optional<IcebergColumnHandle> columnHandle = allColumns.stream().filter(icebergColumnHandle -> Objects.equals(icebergColumnHandle.getName(), field.name())).findAny();
-                columnHandle.ifPresent(partitionColumns::add);
-            }
-        }
-
-        return partitionColumns.build();
+        return table.spec().fields().stream()
+                .filter(field -> field.transform().isIdentity() &&
+                        partitionSpecs.stream()
+                                .allMatch(partitionSpec -> partitionSpec.getFieldsBySourceId(field.sourceId()).stream()
+                                        .anyMatch(partitionField -> partitionField.transform().isIdentity())))
+                .map(field -> IcebergColumnHandle.create(table.schema().findField(field.sourceId()), typeManager, PARTITION_KEY))
+                .collect(toImmutableList());
     }
 
     public static Optional<Long> resolveSnapshotIdByName(Table table, IcebergTableName name)
@@ -266,7 +277,7 @@ public final class IcebergUtil
         List<String> partitionFieldNames = new ArrayList<>();
         for (int i = 0; i < partitionSpec.fields().size(); i++) {
             PartitionField field = partitionSpec.fields().get(i);
-            if (field.transform().toString().equals("identity")) {
+            if (field.transform().isIdentity()) {
                 partitionFieldNames.add(field.name());
             }
         }
@@ -282,7 +293,7 @@ public final class IcebergUtil
         ImmutableMap.Builder<PartitionField, Integer> columns = ImmutableMap.builder();
         for (int i = 0; i < partitionSpec.fields().size(); i++) {
             PartitionField field = partitionSpec.fields().get(i);
-            if (field.transform().toString().equals("identity")) {
+            if (field.transform().isIdentity()) {
                 columns.put(field, i);
             }
         }
@@ -419,7 +430,7 @@ public final class IcebergUtil
         }
     }
 
-    private static boolean isValidPartitionType(com.facebook.presto.common.type.Type type)
+    private static boolean isValidPartitionType(FileFormat fileFormat, Type type)
     {
         return type instanceof DecimalType ||
                 BOOLEAN.equals(type) ||
@@ -430,145 +441,30 @@ public final class IcebergUtil
                 REAL.equals(type) ||
                 DOUBLE.equals(type) ||
                 DATE.equals(type) ||
-                TIMESTAMP.equals(type) ||
+                type instanceof TimestampType ||
+                (TIME.equals(type) && fileFormat == PARQUET) ||
                 VARBINARY.equals(type) ||
                 isVarcharType(type) ||
                 isCharType(type);
     }
 
-    private static void verifyPartitionTypeSupported(String partitionName, com.facebook.presto.common.type.Type type)
+    private static void verifyPartitionTypeSupported(FileFormat fileFormat, String partitionName, Type type)
     {
-        if (!isValidPartitionType(type)) {
+        if (!isValidPartitionType(fileFormat, type)) {
             throw new PrestoException(NOT_SUPPORTED, format("Unsupported type [%s] for partition: %s", type, partitionName));
         }
     }
 
     private static NullableValue parsePartitionValue(
-            String partitionName,
-            String value,
-            com.facebook.presto.common.type.Type type,
-            DateTimeZone timeZone)
+            FileFormat fileFormat,
+            String partitionStringValue,
+            Type prestoType,
+            String partitionName)
     {
-        verifyPartitionTypeSupported(partitionName, type);
+        verifyPartitionTypeSupported(fileFormat, partitionName, prestoType);
 
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
-            if (value == null) {
-                return NullableValue.asNull(decimalType);
-            }
-            if (decimalType.isShort()) {
-                if (value.isEmpty()) {
-                    return NullableValue.of(decimalType, 0L);
-                }
-                return NullableValue.of(decimalType, shortDecimalPartitionKey(value, decimalType, partitionName));
-            }
-            else {
-                if (value.isEmpty()) {
-                    return NullableValue.of(decimalType, Decimals.encodeUnscaledValue(BigInteger.ZERO));
-                }
-                return NullableValue.of(decimalType, longDecimalPartitionKey(value, decimalType, partitionName));
-            }
-        }
-
-        if (BOOLEAN.equals(type)) {
-            if (value == null) {
-                return NullableValue.asNull(BOOLEAN);
-            }
-            if (value.isEmpty()) {
-                return NullableValue.of(BOOLEAN, false);
-            }
-            return NullableValue.of(BOOLEAN, booleanPartitionKey(value, partitionName));
-        }
-
-        if (TINYINT.equals(type)) {
-            if (value == null) {
-                return NullableValue.asNull(TINYINT);
-            }
-            if (value.isEmpty()) {
-                return NullableValue.of(TINYINT, 0L);
-            }
-            return NullableValue.of(TINYINT, tinyintPartitionKey(value, partitionName));
-        }
-
-        if (SMALLINT.equals(type)) {
-            if (value == null) {
-                return NullableValue.asNull(SMALLINT);
-            }
-            if (value.isEmpty()) {
-                return NullableValue.of(SMALLINT, 0L);
-            }
-            return NullableValue.of(SMALLINT, smallintPartitionKey(value, partitionName));
-        }
-
-        if (INTEGER.equals(type)) {
-            if (value == null) {
-                return NullableValue.asNull(INTEGER);
-            }
-            if (value.isEmpty()) {
-                return NullableValue.of(INTEGER, 0L);
-            }
-            return NullableValue.of(INTEGER, integerPartitionKey(value, partitionName));
-        }
-
-        if (BIGINT.equals(type)) {
-            if (value == null) {
-                return NullableValue.asNull(BIGINT);
-            }
-            if (value.isEmpty()) {
-                return NullableValue.of(BIGINT, 0L);
-            }
-            return NullableValue.of(BIGINT, bigintPartitionKey(value, partitionName));
-        }
-
-        if (DATE.equals(type)) {
-            if (value == null) {
-                return NullableValue.asNull(DATE);
-            }
-            return NullableValue.of(DATE, datePartitionKey(value, partitionName));
-        }
-
-        if (TIMESTAMP.equals(type)) {
-            if (value == null) {
-                return NullableValue.asNull(TIMESTAMP);
-            }
-            return NullableValue.of(TIMESTAMP, timestampPartitionKey(value, timeZone, partitionName));
-        }
-
-        if (REAL.equals(type)) {
-            if (value == null) {
-                return NullableValue.asNull(REAL);
-            }
-            if (value.isEmpty()) {
-                return NullableValue.of(REAL, (long) floatToRawIntBits(0.0f));
-            }
-            return NullableValue.of(REAL, floatPartitionKey(value, partitionName));
-        }
-
-        if (DOUBLE.equals(type)) {
-            if (value == null) {
-                return NullableValue.asNull(DOUBLE);
-            }
-            if (value.isEmpty()) {
-                return NullableValue.of(DOUBLE, 0.0);
-            }
-            return NullableValue.of(DOUBLE, doublePartitionKey(value, partitionName));
-        }
-
-        if (isVarcharType(type)) {
-            if (value == null) {
-                return NullableValue.asNull(type);
-            }
-            return NullableValue.of(type, varcharPartitionKey(value, partitionName, type));
-        }
-
-        if (isCharType(type)) {
-            if (value == null) {
-                return NullableValue.asNull(type);
-            }
-            return NullableValue.of(type, charPartitionKey(value, partitionName, type));
-        }
-
-        throw new VerifyException(format("Unhandled type [%s] for partition: %s", type, partitionName));
+        Object partitionValue = deserializePartitionValue(prestoType, partitionStringValue, partitionName);
+        return partitionValue == null ? NullableValue.asNull(prestoType) : NullableValue.of(prestoType, partitionValue);
     }
 
     public static List<HivePartition> getPartitions(
@@ -579,7 +475,7 @@ public final class IcebergUtil
             List<IcebergColumnHandle> partitionColumns)
     {
         IcebergTableName name = ((IcebergTableHandle) tableHandle).getIcebergTableName();
-
+        FileFormat fileFormat = getFileFormat(icebergTable);
         // Empty iceberg table would cause `snapshotId` not present
         Optional<Long> snapshotId = resolveSnapshotIdByName(icebergTable, name);
         if (!snapshotId.isPresent()) {
@@ -594,6 +490,10 @@ public final class IcebergUtil
 
         try (CloseableIterable<FileScanTask> fileScanTasks = tableScan.planFiles()) {
             for (FileScanTask fileScanTask : fileScanTasks) {
+                // If exists delete files, skip the metadata optimization based on partition values as they might become incorrect
+                if (!fileScanTask.deletes().isEmpty()) {
+                    return ImmutableList.of(new HivePartition(((IcebergTableHandle) tableHandle).getSchemaTableName()));
+                }
                 StructLike partition = fileScanTask.file().partition();
                 PartitionSpec spec = fileScanTask.spec();
                 Map<PartitionField, Integer> fieldToIndex = getIdentityPartitions(spec);
@@ -618,18 +518,20 @@ public final class IcebergUtil
                         }
                     }
 
-                    NullableValue partitionValue = parsePartitionValue(partition.toString(), partitionStringValue, toPrestoType(type, typeManager), DateTimeZone.UTC);
+                    NullableValue partitionValue = parsePartitionValue(fileFormat, partitionStringValue, toPrestoType(type, typeManager), partition.toString());
                     Optional<IcebergColumnHandle> column = partitionColumns.stream()
-                            .filter(icebergColumnHandle -> Objects.equals(icebergColumnHandle.getName(), field.name()))
+                            .filter(icebergColumnHandle -> Objects.equals(icebergColumnHandle.getId(), field.sourceId()))
                             .findAny();
 
-                    builder.put(column.get(), partitionValue);
+                    if (column.isPresent()) {
+                        builder.put(column.get(), partitionValue);
+                    }
                 });
 
                 Map<ColumnHandle, NullableValue> values = builder.build();
                 HivePartition newPartition = new HivePartition(
                         ((IcebergTableHandle) tableHandle).getSchemaTableName(),
-                        partition.toString(),
+                        new PartitionNameWithVersion(partition.toString(), Optional.empty()),
                         values);
 
                 boolean isIncludePartition = true;
@@ -706,7 +608,10 @@ public final class IcebergUtil
             if (type.equals(DOUBLE)) {
                 return parseDouble(valueString);
             }
-            if (type.equals(DATE) || type.equals(TIME) || type.equals(TIMESTAMP)) {
+            if (type.equals(TIMESTAMP) || type.equals(TIME)) {
+                return MICROSECONDS.toMillis(parseLong(valueString));
+            }
+            if (type.equals(DATE) || type.equals(TIMESTAMP_MICROSECONDS)) {
                 return parseLong(valueString);
             }
             if (type instanceof VarcharType) {
@@ -733,6 +638,47 @@ public final class IcebergUtil
         }
         // Iceberg tables don't partition by non-primitive-type columns.
         throw new PrestoException(GENERIC_INTERNAL_ERROR, "Invalid partition type " + type.toString());
+    }
+
+    /**
+     * Returns the adjacent value that compares bigger than or less than {@code value} based on parameter {@code isPrevious}.
+     * <p>
+     * The type of the value must match {@code #type.getJavaType()}.
+     *
+     * @throws IllegalStateException if the type is not {@code #isOrderable()}
+     */
+    public static Optional<Object> getAdjacentValue(Type type, Object value, boolean isPrevious)
+    {
+        if (!type.isOrderable()) {
+            throw new IllegalStateException("Type is not orderable: " + type);
+        }
+        requireNonNull(value, "value is null");
+
+        if (type.equals(BIGINT) || type instanceof TimestampType) {
+            return getBigintAdjacentValue(value, isPrevious);
+        }
+
+        if (type.equals(INTEGER) || type.equals(DATE)) {
+            return getIntegerAdjacentValue(value, isPrevious);
+        }
+
+        if (type.equals(SMALLINT)) {
+            return getSmallIntAdjacentValue(value, isPrevious);
+        }
+
+        if (type.equals(TINYINT)) {
+            return getTinyIntAdjacentValue(value, isPrevious);
+        }
+
+        if (type.equals(DOUBLE)) {
+            return getDoubleAdjacentValue(value, isPrevious);
+        }
+
+        if (type.equals(REAL)) {
+            return getRealAdjacentValue(value, isPrevious);
+        }
+
+        return Optional.empty();
     }
 
     public static Map<Integer, HivePartitionKey> getPartitionKeys(ContentScanTask<DataFile> scanTask)
@@ -804,10 +750,10 @@ public final class IcebergUtil
      * @param requestedSchema If provided, only delete files with this schema will be provided
      */
     public static CloseableIterable<DeleteFile> getDeleteFiles(Table table,
-            long snapshot,
-            TupleDomain<IcebergColumnHandle> filter,
-            Optional<Set<Integer>> requestedPartitionSpec,
-            Optional<Set<Integer>> requestedSchema)
+                                                               long snapshot,
+                                                               TupleDomain<IcebergColumnHandle> filter,
+                                                               Optional<Set<Integer>> requestedPartitionSpec,
+                                                               Optional<Set<Integer>> requestedSchema)
     {
         Expression filterExpression = toIcebergExpression(filter);
         CloseableIterable<FileScanTask> fileTasks = table.newScan().useSnapshot(snapshot).filter(filterExpression).planFiles();
@@ -827,6 +773,148 @@ public final class IcebergUtil
                 return new DeleteFilesIterator(table.specs(), fileTasks.iterator(), requestedPartitionSpec, requestedSchema);
             }
         };
+    }
+
+    private static Optional<Object> getBigintAdjacentValue(Object value, boolean isPrevious)
+    {
+        long currentValue = (long) value;
+        if (isPrevious) {
+            if (currentValue == Long.MIN_VALUE) {
+                return Optional.empty();
+            }
+            return Optional.of(currentValue - 1);
+        }
+        else {
+            if (currentValue == Long.MAX_VALUE) {
+                return Optional.empty();
+            }
+            return Optional.of(currentValue + 1);
+        }
+    }
+
+    private static Optional<Object> getIntegerAdjacentValue(Object value, boolean isPrevious)
+    {
+        long currentValue = toIntExact((long) value);
+        if (isPrevious) {
+            if (currentValue == Integer.MIN_VALUE) {
+                return Optional.empty();
+            }
+            return Optional.of(currentValue - 1);
+        }
+        else {
+            if (currentValue == Integer.MAX_VALUE) {
+                return Optional.empty();
+            }
+            return Optional.of(currentValue + 1);
+        }
+    }
+
+    private static Optional<Object> getSmallIntAdjacentValue(Object value, boolean isPrevious)
+    {
+        long currentValue = (long) value;
+        if (currentValue > Short.MAX_VALUE) {
+            throw new GenericInternalException(format("Value %d exceeds MAX_SHORT", value));
+        }
+        if (currentValue < Short.MIN_VALUE) {
+            throw new GenericInternalException(format("Value %d is less than MIN_SHORT", value));
+        }
+
+        if (isPrevious) {
+            if (currentValue == Short.MIN_VALUE) {
+                return Optional.empty();
+            }
+            return Optional.of(currentValue - 1);
+        }
+        else {
+            if (currentValue == Short.MAX_VALUE) {
+                return Optional.empty();
+            }
+            return Optional.of(currentValue + 1);
+        }
+    }
+
+    private static Optional<Object> getTinyIntAdjacentValue(Object value, boolean isPrevious)
+    {
+        long currentValue = (long) value;
+        if (currentValue > Byte.MAX_VALUE) {
+            throw new GenericInternalException(format("Value %d exceeds MAX_BYTE", value));
+        }
+        if (currentValue < Byte.MIN_VALUE) {
+            throw new GenericInternalException(format("Value %d is less than MIN_BYTE", value));
+        }
+
+        if (isPrevious) {
+            if (currentValue == Byte.MIN_VALUE) {
+                return Optional.empty();
+            }
+            return Optional.of(currentValue - 1);
+        }
+        else {
+            if (currentValue == Byte.MAX_VALUE) {
+                return Optional.empty();
+            }
+            return Optional.of(currentValue + 1);
+        }
+    }
+
+    private static Optional<Object> getDoubleAdjacentValue(Object value, boolean isPrevious)
+    {
+        long longBitForDouble = (long) value;
+        if (longBitForDouble > DOUBLE_POSITIVE_INFINITE && longBitForDouble < DOUBLE_NEGATIVE_ZERO ||
+                longBitForDouble > DOUBLE_NEGATIVE_INFINITE && longBitForDouble < DOUBLE_POSITIVE_ZERO) {
+            throw new GenericInternalException(format("Value %d exceeds the range of double", longBitForDouble));
+        }
+
+        if (isPrevious) {
+            if (longBitForDouble == DOUBLE_NEGATIVE_INFINITE) {
+                return Optional.empty();
+            }
+            if (longBitForDouble == DOUBLE_POSITIVE_INFINITE) {
+                return Optional.of(DOUBLE_POSITIVE_INFINITE - 1);
+            }
+            double currentValue = longBitsToDouble(longBitForDouble);
+            return Optional.of(doubleToRawLongBits(currentValue - ulp(currentValue)));
+        }
+        else {
+            if (longBitForDouble == DOUBLE_POSITIVE_INFINITE) {
+                return Optional.empty();
+            }
+            if (longBitForDouble == DOUBLE_NEGATIVE_INFINITE) {
+                return Optional.of(DOUBLE_NEGATIVE_INFINITE - 1);
+            }
+            double currentValue = longBitsToDouble(longBitForDouble);
+            return Optional.of(doubleToRawLongBits(currentValue + ulp(currentValue)));
+        }
+    }
+
+    private static Optional<Object> getRealAdjacentValue(Object value, boolean isPrevious)
+    {
+        int intBitForFloat = (int) value;
+        if (intBitForFloat > REAL_POSITIVE_INFINITE && intBitForFloat < REAL_NEGATIVE_ZERO ||
+                intBitForFloat > REAL_NEGATIVE_INFINITE && intBitForFloat < REAL_POSITIVE_ZERO) {
+            throw new GenericInternalException(format("Value %d exceeds the range of real", intBitForFloat));
+        }
+
+        if (isPrevious) {
+            if (intBitForFloat == REAL_NEGATIVE_INFINITE) {
+                return Optional.empty();
+            }
+            if (intBitForFloat == REAL_POSITIVE_INFINITE) {
+                return Optional.of(REAL_POSITIVE_INFINITE - 1);
+            }
+            float currentValue = intBitsToFloat(intBitForFloat);
+            return Optional.of(floatToRawIntBits(currentValue - ulp(currentValue)));
+        }
+        else {
+            if (intBitForFloat == REAL_POSITIVE_INFINITE) {
+                return Optional.empty();
+            }
+            if (intBitForFloat == REAL_NEGATIVE_INFINITE) {
+                return Optional.of(REAL_NEGATIVE_INFINITE - 1);
+            }
+            float currentValue = intBitsToFloat(intBitForFloat);
+            return Optional.of(floatToRawIntBits(currentValue + ulp(currentValue)));
+        }
     }
 
     private static class DeleteFilesIterator
@@ -866,7 +954,7 @@ public final class IcebergUtil
                 }
                 while (currentDeletes.hasNext()) {
                     DeleteFile deleteFile = currentDeletes.next();
-                    if (shouldIncludeFile(deleteFile)) {
+                    if (shouldIncludeFile(deleteFile, partitionSpecsById.get(deleteFile.specId()))) {
                         // If there is a requested schema only include files that match it
                         if (seenFiles.add(deleteFile.path().toString())) {
                             currentFile = deleteFile;
@@ -886,12 +974,25 @@ public final class IcebergUtil
             return result;
         }
 
-        private boolean shouldIncludeFile(DeleteFile file)
+        private boolean shouldIncludeFile(DeleteFile file, PartitionSpec partitionSpec)
         {
             boolean matchesPartition = !requestedPartitionSpec.isPresent() ||
-                    requestedPartitionSpec.get().equals(partitionSpecsById.get(file.specId()).fields().stream().map(PartitionField::fieldId).collect(Collectors.toSet()));
-            return matchesPartition && (fromIcebergFileContent(file.content()) == POSITION_DELETES ||
-                    !requestedSchema.isPresent() || requestedSchema.get().equals(ImmutableSet.copyOf(file.equalityFieldIds())));
+                    requestedPartitionSpec.get().equals(partitionSpec.fields().stream().map(PartitionField::fieldId).collect(Collectors.toSet()));
+            return matchesPartition &&
+                    (fromIcebergFileContent(file.content()) == POSITION_DELETES ||
+                            equalityFieldIdsFulfillRequestSchema(file, partitionSpec));
+        }
+
+        private boolean equalityFieldIdsFulfillRequestSchema(DeleteFile file, PartitionSpec partitionSpec)
+        {
+            Set<Integer> identityPartitionSourceIds = partitionSpec.fields().stream()
+                    .filter(partitionField -> partitionField.transform().isIdentity())
+                    .map(PartitionField::sourceId).collect(Collectors.toSet());
+
+            // Column ids in `requestedSchema` do not include identity partition columns for the sake of `delete-schema-merging` within the same partition spec.
+            // So we need to filter out the identity partition columns from delete files' `equalityFiledIds` when determine if they fulfill the `requestedSchema`.
+            return !requestedSchema.isPresent() ||
+                    requestedSchema.get().equals(Sets.difference(ImmutableSet.copyOf(file.equalityFieldIds()), identityPartitionSourceIds));
         }
 
         @Override

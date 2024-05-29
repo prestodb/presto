@@ -147,6 +147,7 @@ import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getCharType
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 @Test(groups = "hive")
@@ -693,7 +694,7 @@ public abstract class AbstractTestHiveFileFormats
                 Type type = HiveType.valueOf(testColumn.getObjectInspector().getTypeName()).getType(FUNCTION_AND_TYPE_MANAGER);
                 Object fieldFromCursor = getFieldFromCursor(cursor, type, i);
                 if (fieldFromCursor == null) {
-                    assertEquals(null, testColumn.getExpectedValue(), String.format("Expected null for column %s", testColumn.getName()));
+                    assertNull(testColumn.getExpectedValue(), String.format("Expected null for column %s", testColumn.getName()));
                 }
                 else if (type instanceof DecimalType) {
                     DecimalType decimalType = (DecimalType) type;
@@ -772,18 +773,13 @@ public abstract class AbstractTestHiveFileFormats
                         assertEquals(actualValue, padEnd((String) expectedValue, ((CharType) type).getLength(), ' '), "Wrong value for column " + testColumn.getName());
                     }
                     else if (testColumn.getObjectInspector().getCategory() == Category.PRIMITIVE) {
-                        if (expectedValue instanceof Slice) {
-                            expectedValue = ((Slice) expectedValue).toStringUtf8();
-                        }
-
                         if (actualValue instanceof Slice) {
                             actualValue = ((Slice) actualValue).toStringUtf8();
                         }
-                        if (actualValue instanceof SqlVarbinary) {
+                        else if (actualValue instanceof SqlVarbinary) {
                             actualValue = new String(((SqlVarbinary) actualValue).getBytes(), UTF_8);
                         }
-
-                        if (actualValue instanceof SqlDecimal) {
+                        else if (actualValue instanceof SqlDecimal) {
                             actualValue = new BigDecimal(actualValue.toString());
                         }
                         assertEquals(actualValue, expectedValue, "Wrong value for column " + testColumn.getName());
@@ -874,6 +870,13 @@ public abstract class AbstractTestHiveFileFormats
         public boolean isPartitionKey()
         {
             return partitionKey;
+        }
+
+        public TestColumn withName(String newName)
+        {
+            return new TestColumn(newName, this.objectInspector,
+                    this.writeValue, this.expectedValue,
+                    this.partitionKey);
         }
 
         @Override

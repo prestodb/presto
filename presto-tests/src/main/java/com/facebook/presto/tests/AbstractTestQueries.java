@@ -55,6 +55,7 @@ import static com.facebook.presto.SystemSessionProperties.ENABLE_INTERMEDIATE_AG
 import static com.facebook.presto.SystemSessionProperties.FIELD_NAMES_IN_JSON_CAST_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.GENERATE_DOMAIN_FILTERS;
 import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
+import static com.facebook.presto.SystemSessionProperties.JOIN_PREFILTER_BUILD_SIDE;
 import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_FUNCTION;
 import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_PERCENTAGE;
@@ -124,6 +125,7 @@ import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -1025,9 +1027,7 @@ public abstract class AbstractTestQueries
         assertQuerySucceeds(session, "SELECT DISTINCT custkey FROM orders LIMIT 10000");
 
         assertQuery(session, "" +
-                        "SELECT DISTINCT x " +
-                        "FROM (VALUES 1) t(x) JOIN (VALUES 10, 20) u(a) ON t.x < u.a " +
-                        "LIMIT 100",
+                "SELECT DISTINCT x FROM (VALUES 1) t(x) JOIN (VALUES 10, 20) u(a) ON t.x < u.a LIMIT 100",
                 "SELECT 1");
     }
 
@@ -2677,7 +2677,7 @@ public abstract class AbstractTestQueries
     {
         try {
             MaterializedResult result = computeActual(getSession(), "SHOW CATALOGS LIKE 't$_%' ESCAPE ''");
-            assertTrue(false);
+            fail();
         }
         catch (Exception e) {
             assertEquals("Escape string must be a single character", e.getMessage());
@@ -2685,7 +2685,7 @@ public abstract class AbstractTestQueries
 
         try {
             MaterializedResult result = computeActual(getSession(), "SHOW CATALOGS LIKE 't$_%' ESCAPE '$$'");
-            assertTrue(false);
+            fail();
         }
         catch (Exception e) {
             assertEquals("Escape string must be a single character", e.getMessage());
@@ -3035,7 +3035,7 @@ public abstract class AbstractTestQueries
 
         try {
             computeActual(session, "SHOW SESSION LIKE 't$_%' ESCAPE ''");
-            assertTrue(false);
+            fail();
         }
         catch (Exception e) {
             assertEquals("Escape string must be a single character", e.getMessage());
@@ -3043,7 +3043,7 @@ public abstract class AbstractTestQueries
 
         try {
             computeActual(session, "SHOW SESSION LIKE 't$_%' ESCAPE '$$'");
-            assertTrue(false);
+            fail();
         }
         catch (Exception e) {
             assertEquals("Escape string must be a single character", e.getMessage());
@@ -5666,7 +5666,7 @@ public abstract class AbstractTestQueries
         assertQueryFails(stringBuilder.toString(), "Query results in large bytecode exceeding the limits imposed by JVM|Compiler failed");
     }
 
-    @Test(timeOut = 30_000)
+    @Test(timeOut = 60_000)
     public void testLargeQuery()
     {
         StringBuilder query = new StringBuilder("SELECT * FROM (VALUES ROW(0, '0')");
@@ -6004,7 +6004,7 @@ public abstract class AbstractTestQueries
 
         assertEquals(actual1.getRowCount(), 2);
         assertEquals(actual1.getMaterializedRows().get(0).getFields().get(0), 1);
-        assertEquals(actual1.getMaterializedRows().get(0).getFields().get(1), null);
+        assertNull(actual1.getMaterializedRows().get(0).getFields().get(1));
         assertEquals(actual1.getMaterializedRows().get(1).getFields().get(0), 2);
         assertEquals(actual1.getMaterializedRows().get(1).getFields().get(1), ImmutableMap.of(3, 1L));
     }
@@ -6339,22 +6339,22 @@ public abstract class AbstractTestQueries
                 .build();
 
         String leftJoin = "SELECT o.orderkey, l.discount FROM orders o LEFT JOIN lineitem l ON o.orderkey = l.orderkey";
-        assertQuery(enableRandomize, leftJoin, getSession(), leftJoin);
+        assertQueryWithSameQueryRunner(enableRandomize, leftJoin, getSession());
 
         String multipleJoin = "SELECT o.orderkey, l.partkey, p.name FROM orders o LEFT JOIN lineitem l ON o.orderkey = l.orderkey LEFT JOIN part p ON l.partkey=p.partkey";
-        assertQuery(enableRandomize, multipleJoin, getSession(), multipleJoin);
+        assertQueryWithSameQueryRunner(enableRandomize, multipleJoin, getSession());
 
         Session enableKeyFromOuterJoin = Session.builder(getSession())
                 .setSystemProperty(RANDOMIZE_OUTER_JOIN_NULL_KEY_STRATEGY, "key_from_outer_join")
                 .build();
-        assertQuery(enableKeyFromOuterJoin, multipleJoin, getSession(), multipleJoin);
+        assertQueryWithSameQueryRunner(enableKeyFromOuterJoin, multipleJoin, getSession());
 
         Session enableRandomizeFourPartition = Session.builder(getSession())
                 .setSystemProperty(RANDOMIZE_OUTER_JOIN_NULL_KEY, "true")
                 .setSystemProperty(HASH_PARTITION_COUNT, "1")
                 .build();
         String varcharJoinKey = "select t.k, t2.k, t2.v from (values 'r0', 'r1', 'r2', 'r3') t(k) left join (values (null, 1), (null, 2), (null, 3), (null, 4)) t2(k, v) on t.k = t2.k";
-        assertQuery(enableRandomizeFourPartition, varcharJoinKey, "values ('r0', null, null), ('r1', null, null), ('r2', null, null), ('r3', null, null)");
+        assertQueryWithSameQueryRunner(enableRandomizeFourPartition, varcharJoinKey, "values ('r0', null, null), ('r1', null, null), ('r2', null, null), ('r3', null, null)");
     }
 
     @Test
@@ -6887,6 +6887,12 @@ public abstract class AbstractTestQueries
                 "WHERE\n" +
                 "    c.nationkey = 1\n";
         assertEqualsIgnoreOrder(computeActual(enablePreProcessMetadataCalls, query), computeActual(getSession(), query));
+
+        query = "WITH temp_cte AS ( \n" +
+                "   SELECT name from nation \n" +
+                "   ) \n" +
+                "   SELECT * FROM temp_cte";
+        assertEqualsIgnoreOrder(computeActual(enablePreProcessMetadataCalls, query), computeActual(getSession(), query));
     }
 
     @Test
@@ -7255,21 +7261,19 @@ public abstract class AbstractTestQueries
         assertSorted(result.getMaterializedRows().get(0).getFields());
     }
 
-    private static boolean assertSorted(List<Object> array)
+    private static void assertSorted(List<Object> array)
     {
         int i = 1;
         for (; i < array.size(); i++) {
             if (array.get(i) == null) {
                 break;
             }
-            assertThat(((Comparable) array.get(i)).compareTo((Comparable) array.get(i - 1)) >= 0);
+            assertTrue(((Comparable) array.get(i)).compareTo((Comparable) array.get(i - 1)) >= 0);
         }
 
         while (i < array.size()) {
-            assertThat(array.get(i++) == null);
+            assertNull(array.get(i++));
         }
-
-        return true;
     }
 
     @Test
@@ -7511,5 +7515,37 @@ public abstract class AbstractTestQueries
     {
         assertQuery("with t as (select orderkey, count(1) cnt from (select * from (select * from orders where 1=0) left join (select partkey, suppkey from lineitem where 1=0) on partkey=10 where suppkey is not null) group by rollup(orderkey)) select t1.orderkey, t1.cnt from t t1 cross join t t2",
                 "values (null, 0)");
+        assertQuery("select orderkey from (select * from (select * from orders where 1=0)) group by rollup(orderkey)",
+                "values (null)");
+    }
+
+    @Test
+    public void testLambdaInAggregation()
+    {
+        assertQuery("SELECT id, reduce_agg(value, 0, (a, b) -> a + b+0, (a, b) -> a + b) FROM ( VALUES (1, 2), (1, 3), (1, 4), (2, 20), (2, 30), (2, 40) ) AS t(id, value) GROUP BY id", "values (1, 9), (2, 90)");
+        assertQuery("SELECT id, reduce_agg(value, 's', (a, b) -> concat(a, b, 's'), (a, b) -> concat(a, b, 's')) FROM ( VALUES (1, '2'), (1, '3'), (1, '4'), (2, '20'), (2, '30'), (2, '40') ) AS t(id, value) GROUP BY id",
+                "values (1, 's2s3s4s'), (2, 's20s30s40s')");
+        assertQueryFails("SELECT id, reduce_agg(value, array[id, value], (a, b) -> a || b, (a, b) -> a || b) FROM ( VALUES (1, 2), (1, 3), (1, 4), (2, 20), (2, 30), (2, 40) ) AS t(id, value) GROUP BY id",
+                ".*REDUCE_AGG only supports non-NULL literal as the initial value.*");
+    }
+
+    @Test
+    public void testJoinPrefilter()
+    {
+        // Orig
+        String testQuery = "SELECT 1 from region join nation using(regionkey)";
+        MaterializedResult result = computeActual("explain(type distributed) " + testQuery);
+        assertTrue(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("SemiJoin") == -1);
+        result = computeActual(testQuery);
+        assertTrue(result.getRowCount() == 25);
+
+        // With feature
+        Session session = Session.builder(getSession())
+                .setSystemProperty(JOIN_PREFILTER_BUILD_SIDE, String.valueOf(true))
+                .build();
+        result = computeActual(session, "explain(type distributed) " + testQuery);
+        assertTrue(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("SemiJoin") != -1);
+        result = computeActual(session, testQuery);
+        assertTrue(result.getRowCount() == 25);
     }
 }

@@ -23,11 +23,6 @@
 
 namespace facebook::presto {
 
-struct DriverCountStats {
-  size_t numBlockedDrivers{0};
-  size_t numRunningDrivers{0};
-};
-
 class TaskManager {
  public:
   TaskManager(
@@ -139,8 +134,8 @@ class TaskManager {
     return taskMap_.rlock()->size();
   }
 
-  // Returns the number of running drivers in all tasks.
-  DriverCountStats getDriverCountStats() const;
+  /// Stores the number of drivers in various states of execution.
+  velox::exec::Task::DriverCounts getDriverCounts() const;
 
   // Returns array with number of tasks for each of five TaskState (enum defined
   // in exec/Task.h).
@@ -172,7 +167,11 @@ class TaskManager {
       "concurrent_lifespans_per_task"};
   static constexpr folly::StringPiece kSessionTimezone{"session_timezone"};
 
-  std::unique_ptr<protocol::TaskInfo> createOrUpdateTask(
+  // We request cancellation for tasks which haven't been accessed by
+  // coordinator for a considerable time.
+  void cancelAbandonedTasks();
+
+  std::unique_ptr<protocol::TaskInfo> createOrUpdateTaskImpl(
       const protocol::TaskId& taskId,
       const velox::core::PlanFragment& planFragment,
       const std::vector<protocol::TaskSource>& sources,

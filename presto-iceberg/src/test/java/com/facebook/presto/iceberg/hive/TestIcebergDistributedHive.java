@@ -20,13 +20,16 @@ import com.facebook.presto.iceberg.IcebergUtil;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.SchemaTableName;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.Table;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.hive.metastore.CachingHiveMetastore.memoizeMetastore;
+import static com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore.memoizeMetastore;
 import static com.facebook.presto.iceberg.CatalogType.HIVE;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
+import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
+import static com.facebook.presto.spi.statistics.ColumnStatisticType.TOTAL_SIZE_IN_BYTES;
 
 @Test
 public class TestIcebergDistributedHive
@@ -34,7 +37,7 @@ public class TestIcebergDistributedHive
 {
     public TestIcebergDistributedHive()
     {
-        super(HIVE, ImmutableMap.of("iceberg.hive-statistics-merge-strategy", "USE_NULLS_FRACTION_AND_NDV"));
+        super(HIVE, ImmutableMap.of("iceberg.hive-statistics-merge-strategy", Joiner.on(",").join(NUMBER_OF_DISTINCT_VALUES.name(), TOTAL_SIZE_IN_BYTES.name())));
     }
 
     @Override
@@ -47,6 +50,12 @@ public class TestIcebergDistributedHive
     public void testStatsByDistance()
     {
         // ignore because HMS doesn't support statistics versioning
+    }
+
+    @Override
+    public void testPartShowStatsWithFilters()
+    {
+        // Hive doesn't support returning statistics on partitioned tables
     }
 
     @Override

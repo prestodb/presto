@@ -16,7 +16,9 @@ package com.facebook.presto.server.security;
 import com.facebook.airlift.http.server.AuthenticationException;
 import com.facebook.airlift.http.server.Authenticator;
 import com.google.common.base.Joiner;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.net.HttpHeaders;
 
 import javax.inject.Inject;
 import javax.servlet.Filter;
@@ -45,12 +47,15 @@ import static javax.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
 public class AuthenticationFilter
         implements Filter
 {
+    private static final String HTTPS_PROTOCOL = "https";
     private final List<Authenticator> authenticators;
+    private final boolean allowForwardedHttps;
 
     @Inject
-    public AuthenticationFilter(List<Authenticator> authenticators)
+    public AuthenticationFilter(List<Authenticator> authenticators, SecurityConfig securityConfig)
     {
         this.authenticators = ImmutableList.copyOf(requireNonNull(authenticators, "authenticators is null"));
+        this.allowForwardedHttps = requireNonNull(securityConfig, "securityConfig is null").getAllowForwardedHttps();
     }
 
     @Override
@@ -109,10 +114,15 @@ public class AuthenticationFilter
 
     private boolean doesRequestSupportAuthentication(HttpServletRequest request)
     {
-        if (!authenticators.isEmpty() && request.isSecure()) {
+        if (authenticators.isEmpty()) {
+            return false;
+        }
+        if (request.isSecure()) {
             return true;
         }
-
+        if (allowForwardedHttps) {
+            return Strings.nullToEmpty(request.getHeader(HttpHeaders.X_FORWARDED_PROTO)).equalsIgnoreCase(HTTPS_PROTOCOL);
+        }
         return false;
     }
 

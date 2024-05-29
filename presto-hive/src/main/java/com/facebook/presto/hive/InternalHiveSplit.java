@@ -39,7 +39,7 @@ import static java.util.Objects.requireNonNull;
 @NotThreadSafe
 public class InternalHiveSplit
 {
-    // Overhead of ImmutableList and ImmutableMap is not accounted because of its complexity.
+    // Overhead of ImmutableList and ImmutableMap is not accounted for because of its complexity.
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(InternalHiveSplit.class).instanceSize();
 
     private static final int HOST_ADDRESS_INSTANCE_SIZE = ClassLayout.parseClass(HostAddress.class).instanceSize() +
@@ -88,10 +88,10 @@ public class InternalHiveSplit
             Optional<EncryptionInformation> encryptionInformation,
             Map<String, String> customSplitInfo)
     {
-        checkArgument(start >= 0, "start must be positive");
-        checkArgument(end >= 0, "end must be positive");
-        checkArgument(fileSize >= 0, "fileSize must be positive");
-        checkArgument(fileModifiedTime >= 0, "fileModifiedTime must be positive");
+        checkArgument(start >= 0, "start must be non-negative");
+        checkArgument(end >= 0, "end must be non-negative");
+        checkArgument(fileSize >= 0, "fileSize must be non-negative");
+        checkArgument(fileModifiedTime >= 0, "fileModifiedTime must be non-negative");
         requireNonNull(relativeUri, "relativeUri is null");
         requireNonNull(readBucketNumber, "readBucketNumber is null");
         requireNonNull(tableBucketNumber, "tableBucketNumber is null");

@@ -92,7 +92,7 @@ public final class DropSchema
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaName, exists);
+        return Objects.hash(schemaName, exists, cascade);
     }
 
     @Override

@@ -63,7 +63,7 @@ std::shared_ptr<const core::PlanNode> assertToVeloxQueryPlan(
   protocol::PlanFragment prestoPlan = json::parse(fragment);
   auto pool = memory::deprecatedAddDefaultLeafMemoryPool();
 
-  auto queryCtx = std::make_shared<core::QueryCtx>();
+  auto queryCtx = core::QueryCtx::create();
   VeloxInteractiveQueryPlanConverter converter(queryCtx.get(), pool.get());
   return converter
       .toVeloxQueryPlan(
@@ -80,7 +80,7 @@ std::shared_ptr<const core::PlanNode> assertToBatchVeloxQueryPlan(
 
   protocol::PlanFragment prestoPlan = json::parse(fragment);
   auto pool = memory::deprecatedAddDefaultLeafMemoryPool();
-  auto queryCtx = std::make_shared<core::QueryCtx>();
+  auto queryCtx = core::QueryCtx::create();
   VeloxBatchQueryPlanConverter converter(
       shuffleName,
       std::move(serializedShuffleWriteInfo),
@@ -185,7 +185,7 @@ TEST_F(PlanConverterTest, batchPlanConversion) {
           "  \"rootPath\": \"{}\",\n"
           "  \"numPartitions\": {}\n"
           "}}",
-          exec::test::TempDirectoryPath::create()->path,
+          exec::test::TempDirectoryPath::create()->getPath(),
           10)),
       std::make_shared<std::string>("/tmp"));
 

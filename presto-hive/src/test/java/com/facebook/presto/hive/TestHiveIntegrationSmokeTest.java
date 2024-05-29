@@ -59,6 +59,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
 import org.apache.hadoop.fs.Path;
 import org.intellij.lang.annotations.Language;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -104,6 +105,7 @@ import static com.facebook.presto.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveColumnHandle.FILE_MODIFIED_TIME_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveColumnHandle.FILE_SIZE_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveColumnHandle.PATH_COLUMN_NAME;
+import static com.facebook.presto.hive.HiveColumnHandle.ROW_ID_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveQueryRunner.TPCH_SCHEMA;
 import static com.facebook.presto.hive.HiveQueryRunner.createBucketedSession;
@@ -111,6 +113,8 @@ import static com.facebook.presto.hive.HiveQueryRunner.createMaterializeExchange
 import static com.facebook.presto.hive.HiveSessionProperties.FILE_RENAMING_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.MANIFEST_VERIFICATION_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.OPTIMIZED_PARTITION_UPDATE_SERIALIZATION_ENABLED;
+import static com.facebook.presto.hive.HiveSessionProperties.PARTIAL_AGGREGATION_PUSHDOWN_ENABLED;
+import static com.facebook.presto.hive.HiveSessionProperties.PARTIAL_AGGREGATION_PUSHDOWN_FOR_VARIABLE_LENGTH_DATATYPES_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.PREFER_MANIFESTS_TO_LIST_FILES;
 import static com.facebook.presto.hive.HiveSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.RCFILE_OPTIMIZED_WRITER_ENABLED;
@@ -118,7 +122,10 @@ import static com.facebook.presto.hive.HiveSessionProperties.SORTED_WRITE_TEMP_P
 import static com.facebook.presto.hive.HiveSessionProperties.SORTED_WRITE_TO_TEMP_PATH_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.TEMPORARY_STAGING_DIRECTORY_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.getInsertExistingPartitionsBehavior;
+import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
+import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.HiveStorageFormat.PAGEFILE;
+import static com.facebook.presto.hive.HiveStorageFormat.PARQUET;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
@@ -756,10 +763,10 @@ public class TestHiveIntegrationSmokeTest
                         .setSystemProperty("task_writer_count", "1")
                         .setCatalogSessionProperty(catalog, "shuffle_partitioned_columns_for_table_write", "true")
                         .build(),
-                HiveStorageFormat.ORC);
+                ORC);
     }
 
-    public void testCreatePartitionedTableAsShuffleOnPartitionColumns(Session session, HiveStorageFormat storageFormat)
+    private void testCreatePartitionedTableAsShuffleOnPartitionColumns(Session session, HiveStorageFormat storageFormat)
     {
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE test_create_partitioned_table_as_shuffle_on_partition_columns " +
@@ -1230,9 +1237,9 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testCreateEmptyBucketedPartition()
     {
-        for (TestingHiveStorageFormat storageFormat : getAllTestingHiveStorageFormat()) {
-            testCreateEmptyBucketedPartition(storageFormat.getFormat(), false);
-            testCreateEmptyBucketedPartition(storageFormat.getFormat(), true);
+        for (HiveStorageFormat storageFormat : getSupportedHiveStorageFormats()) {
+            testCreateEmptyBucketedPartition(storageFormat, false);
+            testCreateEmptyBucketedPartition(storageFormat, true);
         }
     }
 
@@ -1520,7 +1527,7 @@ public class TestHiveIntegrationSmokeTest
                         .setSystemProperty("task_writer_count", "1")
                         .setCatalogSessionProperty(catalog, "shuffle_partitioned_columns_for_table_write", "true")
                         .build(),
-                HiveStorageFormat.ORC);
+                ORC);
     }
 
     public void testInsertPartitionedTableShuffleOnPartitionColumns(Session session, HiveStorageFormat storageFormat)
@@ -1632,7 +1639,7 @@ public class TestHiveIntegrationSmokeTest
                 Session.builder(getSession())
                         .setCatalogSessionProperty(catalog, "insert_existing_partitions_behavior", "OVERWRITE")
                         .build(),
-                HiveStorageFormat.ORC);
+                ORC);
     }
 
     private void testInsertPartitionedTableOverwriteExistingPartition(Session session, HiveStorageFormat storageFormat)
@@ -1689,19 +1696,19 @@ public class TestHiveIntegrationSmokeTest
                 Session.builder(getSession())
                         .setCatalogSessionProperty(catalog, "insert_existing_partitions_behavior", "ERROR")
                         .build(),
-                HiveStorageFormat.ORC);
+                ORC);
         testInsertPartitionedTableImmutableExistingPartition(
                 Session.builder(getSession())
                         .setCatalogSessionProperty(catalog, "insert_existing_partitions_behavior", "ERROR")
                         .setCatalogSessionProperty(catalog, "temporary_staging_directory_enabled", "false")
                         .build(),
-                HiveStorageFormat.ORC);
+                ORC);
         testInsertPartitionedTableImmutableExistingPartition(
                 Session.builder(getSession())
                         .setCatalogSessionProperty(catalog, "insert_existing_partitions_behavior", "ERROR")
                         .setCatalogSessionProperty(catalog, "fail_fast_on_insert_into_immutable_partitions_enabled", "false")
                         .build(),
-                HiveStorageFormat.ORC);
+                ORC);
     }
 
     public void testInsertPartitionedTableImmutableExistingPartition(Session session, HiveStorageFormat storageFormat)
@@ -1791,7 +1798,7 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testPartitionPerScanLimit()
     {
-        testPartitionPerScanLimit(getSession(), HiveStorageFormat.DWRF);
+        testPartitionPerScanLimit(getSession(), DWRF);
     }
 
     private void testPartitionPerScanLimit(Session session, HiveStorageFormat storageFormat)
@@ -2800,6 +2807,10 @@ public class TestHiveIntegrationSmokeTest
         actual = computeActual("SELECT name FROM test_create_external");
         assertEquals(actual.getOnlyColumnAsSet(), ImmutableSet.of("hello", "world"));
 
+        assertQueryFails(
+                "INSERT INTO test_create_external VALUES ('somevalue')",
+                ".*Cannot write to non-managed Hive table.*");
+
         assertUpdate("DROP TABLE test_create_external");
 
         // file should still exist after drop
@@ -2832,7 +2843,7 @@ public class TestHiveIntegrationSmokeTest
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_path");
         assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
 
-        List<String> columnNames = ImmutableList.of("col0", "col1", PATH_COLUMN_NAME, FILE_SIZE_COLUMN_NAME, FILE_MODIFIED_TIME_COLUMN_NAME);
+        List<String> columnNames = ImmutableList.of("col0", "col1", PATH_COLUMN_NAME, FILE_SIZE_COLUMN_NAME, FILE_MODIFIED_TIME_COLUMN_NAME, ROW_ID_COLUMN_NAME);
         List<ColumnMetadata> columnMetadatas = tableMetadata.getColumns();
         assertEquals(columnMetadatas.size(), columnNames.size());
         for (int i = 0; i < columnMetadatas.size(); i++) {
@@ -2890,7 +2901,7 @@ public class TestHiveIntegrationSmokeTest
         assertEquals(tableMetadata.getMetadata().getProperties().get(BUCKETED_BY_PROPERTY), ImmutableList.of("col0"));
         assertEquals(tableMetadata.getMetadata().getProperties().get(BUCKET_COUNT_PROPERTY), 2);
 
-        List<String> columnNames = ImmutableList.of("col0", "col1", PATH_COLUMN_NAME, BUCKET_COLUMN_NAME, FILE_SIZE_COLUMN_NAME, FILE_MODIFIED_TIME_COLUMN_NAME);
+        List<String> columnNames = ImmutableList.of("col0", "col1", PATH_COLUMN_NAME, BUCKET_COLUMN_NAME, FILE_SIZE_COLUMN_NAME, FILE_MODIFIED_TIME_COLUMN_NAME, ROW_ID_COLUMN_NAME);
         List<ColumnMetadata> columnMetadatas = tableMetadata.getColumns();
         assertEquals(columnMetadatas.size(), columnNames.size());
         for (int i = 0; i < columnMetadatas.size(); i++) {
@@ -2898,6 +2909,10 @@ public class TestHiveIntegrationSmokeTest
             assertEquals(columnMetadata.getName(), columnNames.get(i));
             if (columnMetadata.getName().equals(BUCKET_COLUMN_NAME)) {
                 // $bucket_number should be hidden column
+                assertTrue(columnMetadata.isHidden());
+            }
+            else if (columnMetadata.getName().equals(ROW_ID_COLUMN_NAME)) {
+                // $row_id should be hidden column
                 assertTrue(columnMetadata.isHidden());
             }
         }
@@ -2938,7 +2953,7 @@ public class TestHiveIntegrationSmokeTest
 
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_file_size");
 
-        List<String> columnNames = ImmutableList.of("col0", "col1", PATH_COLUMN_NAME, FILE_SIZE_COLUMN_NAME, FILE_MODIFIED_TIME_COLUMN_NAME);
+        List<String> columnNames = ImmutableList.of("col0", "col1", PATH_COLUMN_NAME, FILE_SIZE_COLUMN_NAME, FILE_MODIFIED_TIME_COLUMN_NAME, ROW_ID_COLUMN_NAME);
         List<ColumnMetadata> columnMetadatas = tableMetadata.getColumns();
         assertEquals(columnMetadatas.size(), columnNames.size());
         for (int i = 0; i < columnMetadatas.size(); i++) {
@@ -2990,7 +3005,7 @@ public class TestHiveIntegrationSmokeTest
 
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_file_modified_time");
 
-        List<String> columnNames = ImmutableList.of("col0", "col1", PATH_COLUMN_NAME, FILE_SIZE_COLUMN_NAME, FILE_MODIFIED_TIME_COLUMN_NAME);
+        List<String> columnNames = ImmutableList.of("col0", "col1", PATH_COLUMN_NAME, FILE_SIZE_COLUMN_NAME, FILE_MODIFIED_TIME_COLUMN_NAME, ROW_ID_COLUMN_NAME);
         List<ColumnMetadata> columnMetadatas = tableMetadata.getColumns();
         assertEquals(columnMetadatas.size(), columnNames.size());
         for (int i = 0; i < columnMetadatas.size(); i++) {
@@ -4317,6 +4332,33 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testGroupedJoinWithUngroupedSemiJoin()
+    {
+        Session groupedExecutionSession = Session.builder(getSession())
+                .setSystemProperty(COLOCATED_JOIN, "true")
+                .setSystemProperty(GROUPED_EXECUTION, "true")
+                .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "1")
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "AUTOMATIC")
+                .build();
+        try {
+            assertUpdate("CREATE TABLE big_bucketed_table \n" +
+                            "WITH (bucket_count = 16, bucketed_by = ARRAY['key1']) AS\n" +
+                            "SELECT orderkey key1 FROM orders",
+                    15000);
+            assertUpdate("CREATE TABLE small_unbucketed_table AS\n" +
+                            "SELECT nationkey key2 FROM nation",
+                    25);
+            assertQuery(groupedExecutionSession,
+                    "SELECT count(*) from big_bucketed_table t1 JOIN (SELECT key1 FROM big_bucketed_table where key1 IN (SELECT key2 from small_unbucketed_table)) t2 on t1.key1 = t2.key1 group by t1.key1",
+                    "SELECT count(*) from orders where orderkey < 25 group by orderkey");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS big_bucketed_table");
+            assertUpdate("DROP TABLE IF EXISTS small_unbucketed_table");
+        }
+    }
+
+    @Test
     public void testRcTextCharDecoding()
     {
         testRcTextCharDecoding(false);
@@ -5289,7 +5331,7 @@ public class TestHiveIntegrationSmokeTest
             assertUpdate(session, createTable);
 
             TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_orc_table");
-            assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), HiveStorageFormat.ORC);
+            assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), ORC);
 
             assertUpdate(session, "INSERT INTO test_orc_table VALUES (" +
                     "true" +
@@ -5398,7 +5440,7 @@ public class TestHiveIntegrationSmokeTest
             assertUpdate(session, createTable);
 
             TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_dwrf_table");
-            assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), HiveStorageFormat.DWRF);
+            assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), DWRF);
 
             assertUpdate(session, "INSERT INTO test_dwrf_table VALUES (" +
                     "true" +
@@ -5492,7 +5534,7 @@ public class TestHiveIntegrationSmokeTest
             assertUpdate(session, createTable);
 
             TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_parquet_table");
-            assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), HiveStorageFormat.PARQUET);
+            assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), PARQUET);
 
             assertUpdate(session, "INSERT INTO test_parquet_table VALUES (" +
                     "true" +
@@ -5574,6 +5616,81 @@ public class TestHiveIntegrationSmokeTest
             assertUpdate(session, "DROP TABLE test_parquet_table");
         }
         assertFalse(getQueryRunner().tableExists(session, "test_parquet_table"));
+    }
+
+    @DataProvider
+    public static Object[][] fileFormats()
+    {
+        return new Object[][] {
+                {"orc"},
+                {"parquet"},
+                {"dwrf"}
+        };
+    }
+
+    @Test(dataProvider = "fileFormats")
+    public void testPartialAggregatePushdownWithPartitionKey(String fileFormat)
+    {
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE test_table (" +
+                " _boolean BOOLEAN" +
+                ", _tinyint TINYINT" +
+                ", _smallint SMALLINT" +
+                ", _integer INTEGER" +
+                ", _bigint BIGINT" +
+                ", _real REAL" +
+                ", _double DOUBLE" +
+                ", _string VARCHAR" +
+                ", _varchar VARCHAR(10)" +
+                ", _varbinary VARBINARY" +
+                ", _ds VARCHAR" +
+                ")" +
+                "WITH (format = '" + fileFormat + "', partitioned_by = ARRAY['_ds'])";
+
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, PARTIAL_AGGREGATION_PUSHDOWN_ENABLED, "true")
+                .setCatalogSessionProperty(catalog, PARTIAL_AGGREGATION_PUSHDOWN_FOR_VARIABLE_LENGTH_DATATYPES_ENABLED, "true")
+                .build();
+        try {
+            assertUpdate(session, createTable);
+
+            TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_table");
+            assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), HiveStorageFormat.valueOf(fileFormat.toUpperCase()));
+
+            assertUpdate(session, "INSERT INTO test_table VALUES (" +
+                    "true" +
+                    ", cast(1 as tinyint)" +
+                    ", cast(2 as smallint)" +
+                    ", 3" +
+                    ", 4" +
+                    ", 1.2" +
+                    ", 2.3" +
+                    ", 'abc'" +
+                    ", 'def'" +
+                    ", cast('klm' as varbinary)" +
+                    ", '2024-03-06'" +
+                    ")", 1);
+
+            assertUpdate(session, "INSERT INTO test_table VALUES (" +
+                    "false" +
+                    ", cast(10 as tinyint)" +
+                    ", cast(20 as smallint)" +
+                    ", 30" +
+                    ", 40" +
+                    ", 10.25" +
+                    ", 25.334" +
+                    ", 'foo'" +
+                    ", 'bar'" +
+                    ", cast('qux' as varbinary)" +
+                    ", '2024-03-05'" +
+                    ")", 1);
+            assertQuery(session, "SELECT min(_ds) FROM test_table", "SELECT '2024-03-05'");
+            assertQuery(session, "SELECT min(_ds), max(_ds) FROM test_table", "SELECT '2024-03-05', '2024-03-06'");
+        }
+        finally {
+            assertUpdate(session, "DROP TABLE test_table");
+        }
+        assertFalse(getQueryRunner().tableExists(session, "test_table"));
     }
 
     @Test
@@ -6057,11 +6174,33 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testJoinPrefilterPartitionKeys()
+    {
+        Session prefilter = Session.builder(getSession())
+                .setSystemProperty("join_prefilter_build_side", "true")
+                .build();
+
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE join_prefilter_test " +
+                "WITH (" +
+                "partitioned_by = ARRAY[ 'orderstatus' ]" +
+                ") " +
+                "AS " +
+                "SELECT custkey, orderkey, orderstatus FROM tpch.tiny.orders";
+
+        assertUpdate(prefilter, createTable, 15000);
+        MaterializedResult result = computeActual(prefilter, "explain(type distributed) select 1 from join_prefilter_test join customer using(custkey) where orderstatus='O'");
+        // Make sure the layout of the copied table matches the original
+        String plan = (String) result.getMaterializedRows().get(0).getField(0);
+        assertNotEquals(plan.lastIndexOf(":: [[\"O\"]]"), plan.indexOf(":: [[\"O\"]]"));
+    }
+
+    @Test
     public void testAddTableConstraints()
     {
         String uniqueConstraint = "UNIQUE";
         String primaryKey = "PRIMARY KEY";
-        String tableName = "test_table_with_constraints";
+        String tableName = "test_table_add_table_constraints";
         String createTableFormat = "CREATE TABLE %s.%s.%s (\n" +
                 "   %s bigint,\n" +
                 "   %s double,\n" +
@@ -6178,8 +6317,8 @@ public class TestHiveIntegrationSmokeTest
                 "\"c1\"",
                 "\"c2\"",
                 "\"c3\"",
-                format("CONSTRAINT cons2 %s (c2) NOT RELY", uniqueConstraint),
-                format("CONSTRAINT pk %s (c2, c3) DISABLED", primaryKey));
+                format("CONSTRAINT pk %s (c2, c3) DISABLED", primaryKey),
+                format("CONSTRAINT cons2 %s (c2) NOT RELY", uniqueConstraint));
 
         assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), expectedShowCreateTableWithPKAndUnique);
 
@@ -6192,12 +6331,12 @@ public class TestHiveIntegrationSmokeTest
 
         // Combinations of constraint qualifiers
         addPrimaryKeyStmt = "ALTER TABLE " + tableName + " ADD CONSTRAINT pk " + primaryKey + " (c2, c3) DISABLED NOT RELY ENFORCED";
-        addUniqueConstraintStmt = "ALTER TABLE " + tableName + " ADD CONSTRAINT uq1 " + uniqueConstraint + " (c3) DISABLED ENFORCED";
+        addUniqueConstraintStmt = "ALTER TABLE " + tableName + " ADD CONSTRAINT uq1 " + uniqueConstraint + " (c3) ENFORCED DISABLED";
         assertUpdate(getSession(), addPrimaryKeyStmt);
         assertUpdate(getSession(), addUniqueConstraintStmt);
         addUniqueConstraintStmt = "ALTER TABLE " + tableName + " ADD CONSTRAINT uq2 " + uniqueConstraint + " (c3) ENABLED RELY NOT ENFORCED";
         assertUpdate(getSession(), addUniqueConstraintStmt);
-        addUniqueConstraintStmt = "ALTER TABLE " + tableName + " ADD CONSTRAINT uq3 " + uniqueConstraint + " (c1) DISABLED NOT RELY NOT ENFORCED";
+        addUniqueConstraintStmt = "ALTER TABLE " + tableName + " ADD CONSTRAINT uq3 " + uniqueConstraint + " (c1) DISABLED NOT ENFORCED NOT RELY";
         assertUpdate(getSession(), addUniqueConstraintStmt);
 
         String createTableWithFourConstraintsFormat = "CREATE TABLE %s.%s.%s (\n" +
@@ -6230,7 +6369,7 @@ public class TestHiveIntegrationSmokeTest
 
         // Negative tests
         assertQueryFails(addPrimaryKeyStmt, format("Primary key already exists for: %s.%s", getSession().getSchema().get(), tableName));
-        assertQueryFails(addUniqueConstraintStmt, format("Constraint already exists: 'uq3'", getSession().getSchema().get(), tableName));
+        assertQueryFails(addUniqueConstraintStmt, format("Constraint already exists: 'uq3'"));
         String dropNonExistentConstraint = format("ALTER TABLE %s.%s.%s DROP CONSTRAINT missingconstraint", getSession().getCatalog().get(), getSession().getSchema().get(), tableName);
         assertQueryFails(dropNonExistentConstraint, "Constraint 'missingconstraint' not found");
 
@@ -6260,7 +6399,7 @@ public class TestHiveIntegrationSmokeTest
     {
         String uniqueConstraint = "UNIQUE";
         String primaryKey = "PRIMARY KEY";
-        String tableName = "test_table_with_constraints";
+        String tableName = "test_table_create_table_with_constraints";
 
         String createTableFormat = "CREATE TABLE %s.%s.%s (\n" +
                 "   %s bigint,\n" +
@@ -6386,7 +6525,7 @@ public class TestHiveIntegrationSmokeTest
                 "c3",
                 "c4",
                 format("CONSTRAINT pk %s (c4) NOT ENFORCED", primaryKey),
-                format("CONSTRAINT pk %s (c3, c1) DISABLED NOT RELY", uniqueConstraint));
+                format("CONSTRAINT pk %s (c3, c1) NOT RELY DISABLED", uniqueConstraint));
         assertQueryFails(createTableWithTwoConstraintsSql, "Constraint name 'pk' specified more than once");
 
         createTableWithTwoConstraintsSql = format(
@@ -6435,12 +6574,55 @@ public class TestHiveIntegrationSmokeTest
         assertQueryFails("SELECT PRIMARY FROM " + tableName, ".*cannot be resolved.*");
         assertQueryFails("SELECT PRIMARY KEY FROM " + tableName, ".*cannot be resolved.*");
         assertUpdate(getSession(), dropTableStmt);
+
+        String createTableWithInlineConstraintsFormat = "CREATE TABLE %s.%s.%s (\n" +
+                "   %s bigint%s,\n" +
+                "   %s double%s,\n" +
+                "   %s varchar%s,\n" +
+                "   %s bigint%s\n" +
+                ")\n" +
+                "WITH (\n" +
+                "   format = 'ORC'\n" +
+                ")";
+
+        String createTableWithNotNullConstraintsSql = format(
+                createTableWithInlineConstraintsFormat,
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                tableName,
+                "c1",
+                "",
+                "c2",
+                " NOT NULL",
+                "c3",
+                "",
+                "c4",
+                " NOT NULL");
+
+        String expectedCreateTableWithNotNullConstraintsSql = format(
+                createTableWithInlineConstraintsFormat,
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                tableName,
+                "\"c1\"",
+                "",
+                "\"c2\"",
+                " NOT NULL",
+                "\"c3\"",
+                "",
+                "\"c4\"",
+                " NOT NULL");
+
+        assertUpdate(getSession(), createTableWithNotNullConstraintsSql);
+        actualResult = computeActual("SHOW CREATE TABLE " + tableName);
+        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), expectedCreateTableWithNotNullConstraintsSql);
+        assertUpdate(getSession(), dropTableStmt);
     }
 
     @Test
     public void testDMLWithEnforcedConstraints()
     {
-        String tableName = "test_table_with_constraints";
+        String tableName = "test_table_dml_with_enforced_constraints";
 
         String createTableWithOneConstraintFormat = "CREATE TABLE %s.%s.%s (\n" +
                 "   %s bigint,\n" +
@@ -6503,6 +6685,149 @@ public class TestHiveIntegrationSmokeTest
 
         String dropTableStmt = format("DROP TABLE %s.%s.%s", getSession().getCatalog().get(), getSession().getSchema().get(), tableName);
         assertUpdate(getSession(), dropTableStmt);
+
+        String createTableWithInlineConstraintsFormat = "CREATE TABLE %s.%s.%s (\n" +
+                "   %s bigint%s,\n" +
+                "   %s double%s,\n" +
+                "   %s varchar%s,\n" +
+                "   %s bigint%s\n" +
+                ")\n" +
+                "WITH (\n" +
+                "   format = 'ORC'\n" +
+                ")";
+
+        String createTableWithNotNullConstraintsSql = format(
+                createTableWithInlineConstraintsFormat,
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                tableName,
+                "c1",
+                "",
+                "c2",
+                " NOT NULL",
+                "c3",
+                "",
+                "c4",
+                " NOT NULL");
+
+        assertUpdate(getSession(), createTableWithNotNullConstraintsSql);
+        assertUpdate(getSession(), insertStmt, 1);
+        insertStmt = format("INSERT INTO %s VALUES (1, null, 'abc', 4)", tableName);
+        assertQueryFails(insertStmt, "NULL value not allowed for NOT NULL column: c2");
+        insertStmt = format("INSERT INTO %s VALUES (1, 2.3, 'abc', null)", tableName);
+        assertQueryFails(insertStmt, "NULL value not allowed for NOT NULL column: c4");
+        insertStmt = format("INSERT INTO %s VALUES (null, 2.3, null, 4)", tableName);
+        assertUpdate(getSession(), insertStmt, 1);
+
+        assertUpdate(getSession(), dropTableStmt);
+    }
+
+    @Test
+    public void testAlterColumnNotNull()
+    {
+        String tableName = "test_table_alter_column_not_null";
+
+        String createTableWithInlineConstraintsFormat = "CREATE TABLE %s.%s.%s (\n" +
+                "   %s bigint%s,\n" +
+                "   %s double%s,\n" +
+                "   %s varchar%s,\n" +
+                "   %s bigint%s\n" +
+                ")\n" +
+                "WITH (\n" +
+                "   format = 'ORC'\n" +
+                ")";
+
+        String createTableSql = format(
+                createTableWithInlineConstraintsFormat,
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                tableName,
+                "c1",
+                "",
+                "c2",
+                "",
+                "c3",
+                "",
+                "c4",
+                "");
+
+        String expectedCreateTableSql = format(
+                createTableWithInlineConstraintsFormat,
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                tableName,
+                "\"c1\"",
+                "",
+                "\"c2\"",
+                "",
+                "\"c3\"",
+                "",
+                "\"c4\"",
+                "");
+
+        assertUpdate(getSession(), createTableSql);
+        MaterializedResult actualResult = computeActual("SHOW CREATE TABLE " + tableName);
+        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), expectedCreateTableSql);
+
+        @Language("SQL") String addNotNullStmt = "ALTER TABLE " + tableName + " ALTER COLUMN c2 SET NOT NULL";
+        assertUpdate(getSession(), addNotNullStmt);
+        actualResult = computeActual("SHOW CREATE TABLE " + tableName);
+        expectedCreateTableSql = format(
+                createTableWithInlineConstraintsFormat,
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                tableName,
+                "\"c1\"",
+                "",
+                "\"c2\"",
+                " NOT NULL",
+                "\"c3\"",
+                "",
+                "\"c4\"",
+                "");
+        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), expectedCreateTableSql);
+
+        addNotNullStmt = "ALTER TABLE " + tableName + " ALTER COLUMN c4 SET NOT NULL";
+        assertUpdate(getSession(), addNotNullStmt);
+        actualResult = computeActual("SHOW CREATE TABLE " + tableName);
+        expectedCreateTableSql = format(
+                createTableWithInlineConstraintsFormat,
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                tableName,
+                "\"c1\"",
+                "",
+                "\"c2\"",
+                " NOT NULL",
+                "\"c3\"",
+                "",
+                "\"c4\"",
+                " NOT NULL");
+        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), expectedCreateTableSql);
+
+        @Language("SQL") String dropNotNullStmt = "ALTER TABLE " + tableName + " ALTER COLUMN c2 DROP NOT NULL";
+        assertUpdate(getSession(), dropNotNullStmt);
+        actualResult = computeActual("SHOW CREATE TABLE " + tableName);
+        expectedCreateTableSql = format(
+                createTableWithInlineConstraintsFormat,
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                tableName,
+                "\"c1\"",
+                "",
+                "\"c2\"",
+                "",
+                "\"c3\"",
+                "",
+                "\"c4\"",
+                " NOT NULL");
+        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), expectedCreateTableSql);
+
+        @Language("SQL") String addColumnStmt = "ALTER TABLE " + tableName + " ADD COLUMN c5 int NOT NULL";
+        assertQueryFails(addColumnStmt, "This connector does not support ADD COLUMN with NOT NULL");
+
+        String dropTableStmt = format("DROP TABLE %s.%s.%s", getSession().getCatalog().get(), getSession().getSchema().get(), tableName);
+        assertUpdate(getSession(), dropTableStmt);
     }
 
     protected String retentionDays(int days)
@@ -6533,7 +6858,7 @@ public class TestHiveIntegrationSmokeTest
 
     private boolean insertOperationsSupported(HiveStorageFormat storageFormat)
     {
-        return storageFormat != HiveStorageFormat.DWRF;
+        return storageFormat != DWRF;
     }
 
     private Type canonicalizeType(Type type)
@@ -6596,21 +6921,19 @@ public class TestHiveIntegrationSmokeTest
 
     private void testWithAllStorageFormats(BiConsumer<Session, HiveStorageFormat> test)
     {
-        for (TestingHiveStorageFormat storageFormat : getAllTestingHiveStorageFormat()) {
-            testWithStorageFormat(storageFormat, test);
+        Session session = getSession();
+        for (HiveStorageFormat storageFormat : getSupportedHiveStorageFormats()) {
+            testWithStorageFormat(session, storageFormat, test);
         }
     }
 
-    private static void testWithStorageFormat(TestingHiveStorageFormat storageFormat, BiConsumer<Session, HiveStorageFormat> test)
+    private static void testWithStorageFormat(Session session, HiveStorageFormat storageFormat, BiConsumer<Session, HiveStorageFormat> test)
     {
-        requireNonNull(storageFormat, "storageFormat is null");
-        requireNonNull(test, "test is null");
-        Session session = storageFormat.getSession();
         try {
-            test.accept(session, storageFormat.getFormat());
+            test.accept(session, storageFormat);
         }
         catch (Exception | AssertionError e) {
-            fail(format("Failure for format %s with properties %s", storageFormat.getFormat(), session.getConnectorProperties()), e);
+            fail(format("Failure for format %s with properties %s", storageFormat, session.getConnectorProperties()), e);
         }
     }
 
@@ -6620,35 +6943,5 @@ public class TestHiveIntegrationSmokeTest
         return Arrays.stream(HiveStorageFormat.values())
                 .filter(format -> format != HiveStorageFormat.CSV && format != HiveStorageFormat.ALPHA)
                 .collect(toImmutableList());
-    }
-
-    private List<TestingHiveStorageFormat> getAllTestingHiveStorageFormat()
-    {
-        Session session = getSession();
-        return getSupportedHiveStorageFormats().stream()
-                .map(format -> new TestingHiveStorageFormat(session, format))
-                .collect(toImmutableList());
-    }
-
-    private static class TestingHiveStorageFormat
-    {
-        private final Session session;
-        private final HiveStorageFormat format;
-
-        TestingHiveStorageFormat(Session session, HiveStorageFormat format)
-        {
-            this.session = requireNonNull(session, "session is null");
-            this.format = requireNonNull(format, "format is null");
-        }
-
-        public Session getSession()
-        {
-            return session;
-        }
-
-        public HiveStorageFormat getFormat()
-        {
-            return format;
-        }
     }
 }

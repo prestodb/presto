@@ -46,18 +46,22 @@ public class QueryRunner
 {
     private final AtomicReference<ClientSession> session;
     private final boolean debug;
+    private final boolean runtime;
     private final OkHttpClient httpClient;
     private final Consumer<OkHttpClient.Builder> sslSetup;
 
     public QueryRunner(
             ClientSession session,
             boolean debug,
+            boolean runtime,
             Optional<HostAndPort> socksProxy,
             Optional<HostAndPort> httpProxy,
             Optional<String> keystorePath,
             Optional<String> keystorePassword,
+            Optional<String> keyStoreType,
             Optional<String> truststorePath,
             Optional<String> truststorePassword,
+            Optional<String> trustStoreType,
             Optional<String> accessToken,
             Optional<String> user,
             Optional<String> password,
@@ -71,8 +75,9 @@ public class QueryRunner
     {
         this.session = new AtomicReference<>(requireNonNull(session, "session is null"));
         this.debug = debug;
+        this.runtime = runtime;
 
-        this.sslSetup = builder -> setupSsl(builder, keystorePath, keystorePassword, truststorePath, truststorePassword);
+        this.sslSetup = builder -> setupSsl(builder, keystorePath, keystorePassword, keyStoreType, truststorePath, truststorePassword, trustStoreType);
 
         OkHttpClient.Builder builder = new OkHttpClient.Builder();
 
@@ -120,7 +125,7 @@ public class QueryRunner
 
     public Query startQuery(String query)
     {
-        return new Query(startInternalQuery(session.get(), query), debug);
+        return new Query(startInternalQuery(session.get(), query), debug, runtime);
     }
 
     public StatementClient startInternalQuery(String query)

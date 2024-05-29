@@ -55,7 +55,6 @@ import org.testng.annotations.Test;
 
 import java.io.Closeable;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -672,23 +671,23 @@ public class TestDriver
     private static class TestingFragmentResultCacheManager
             implements FragmentResultCacheManager
     {
-        private final Map<CacheKey, List<Page>> cache = new HashMap<>();
+        private final Map<CacheKey, FragmentCacheResult> cache = new HashMap<>();
 
         @Override
-        public Future<?> put(String plan, Split split, List<Page> result)
+        public Future<?> put(String plan, Split split, List<Page> result, long inputDataSize)
         {
-            cache.put(new CacheKey(plan, split.getSplitIdentifier()), result);
+            cache.put(new CacheKey(plan, split.getSplitIdentifier()), new FragmentCacheResult(Optional.of(result.stream().iterator()), inputDataSize));
             return immediateFuture(null);
         }
 
         @Override
-        public Optional<Iterator<Page>> get(String plan, Split split)
+        public FragmentCacheResult get(String plan, Split split)
         {
             CacheKey key = new CacheKey(plan, split.getSplitIdentifier());
             if (cache.containsKey(key)) {
-                return Optional.of(cache.get(key).iterator());
+                return cache.get(key);
             }
-            return Optional.empty();
+            return new FragmentCacheResult(Optional.empty(), 0);
         }
     }
 }

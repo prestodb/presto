@@ -64,17 +64,19 @@ To stop the Presto service in the background, run the following command:
 
 To stop the Presto service in the foreground, close the terminal or select Ctrl + C until the terminal prompt is shown. 
 
-Access the Presto Web Console
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Open the Presto Console
+^^^^^^^^^^^^^^^^^^^^^^^
 
-After starting Presto, you can access the web UI using the following link in a browser:
+After starting Presto, you can access the web UI at the default port ``8080`` using the following link in a browser:
 
-``http://localhost:8080``
+.. code-block:: none
 
-*Note*: The default port is 8080. To configure the Presto service to use a different port see `Config Properties <deployment.html#config-properties>`_.
+    http://localhost:8080
 
 .. figure:: ../images/presto_console.png
    :align: center
+
+For more information about the Presto Console, see :doc:`/clients/presto-console`.
 
 Start the Presto CLI
 ^^^^^^^^^^^^^^^^^^^^
@@ -160,17 +162,19 @@ To stop the Presto service in the background, run the following command:
 
 To stop the Presto service in the foreground, close the terminal or select Ctrl + C until the terminal prompt is shown. 
 
-Access the Presto Web Console
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Open the Presto Console
+^^^^^^^^^^^^^^^^^^^^^^^
 
-After starting Presto, you can access the web UI using the following link in a browser:
+After starting Presto, you can access the web UI at the default port ``8080`` using the following link in a browser:
 
-``http://localhost:8080``
+.. code-block:: none
 
-*Note*: The default port is 8080. To configure the Presto service to use a different port see `Config Properties <deployment.html#config-properties>`_.
+    http://localhost:8080
 
 .. figure:: ../images/presto_console.png
    :align: center
+
+For more information about the Presto Console, see :doc:`/clients/presto-console`.
 
 Start the Presto CLI
 ^^^^^^^^^^^^^^^^^^^^

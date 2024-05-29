@@ -252,12 +252,6 @@ public enum FileFormat
             }
             return new PrestoPageFormatWriter(targetFile, compressionCodec);
         }
-
-        @Override
-        public boolean supportsDate()
-        {
-            return true;
-        }
     },
 
     PRESTO_PARQUET {
@@ -440,7 +434,8 @@ public enum FileFormat
                 targetFile.length(),
                 0,
                 Optional.empty(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                0);
 
         RecordCursor recordCursor = cursorProvider
                 .createRecordCursor(
@@ -483,7 +478,8 @@ public enum FileFormat
                 targetFile.length(),
                 0,
                 Optional.empty(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                0);
 
         return pageSourceFactory
                 .createPageSource(
@@ -511,6 +507,7 @@ public enum FileFormat
                                 OptionalLong.of(targetFile.length()),
                                 modificationTime,
                                 false),
+                        Optional.empty(),
                         Optional.empty())
                 .get();
     }

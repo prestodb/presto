@@ -17,6 +17,7 @@ import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AddConstraint;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
+import com.facebook.presto.sql.tree.AlterColumnNotNull;
 import com.facebook.presto.sql.tree.AlterFunction;
 import com.facebook.presto.sql.tree.AlterRoutineCharacteristics;
 import com.facebook.presto.sql.tree.Analyze;
@@ -208,6 +209,9 @@ import static com.facebook.presto.sql.tree.RoutineCharacteristics.Determinism.NO
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause.RETURNS_NULL_ON_NULL_INPUT;
+import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionOperator;
+import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionOperator.EQUAL;
+import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionOperator.LESS_THAN;
 import static com.facebook.presto.sql.tree.TableVersionExpression.timestampExpression;
 import static com.facebook.presto.sql.tree.TableVersionExpression.versionExpression;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -542,18 +546,67 @@ class AstBuilder
     public Node visitUnnamedConstraintSpecification(SqlBaseParser.UnnamedConstraintSpecificationContext context)
     {
         List<Identifier> columnAliases = visit(context.columnAliases().identifier(), Identifier.class);
+        ConstraintType constraintType = getConstraintType((Token) context.constraintType().getChild(0).getPayload());
+        String constraintTypeString = constraintTypeToString(constraintType);
 
-        boolean enabled = context.constraintEnabled() == null || context.constraintEnabled().DISABLED() == null;
-        boolean rely = context.constraintRely() == null || context.constraintRely().NOT() == null;
-        boolean enforced = context.constraintEnforced() == null || context.constraintEnforced().NOT() == null;
+        List<SqlBaseParser.ConstraintQualifierContext> constraintQualifierContext = context.constraintQualifiers().constraintQualifier();
+        check(constraintQualifierContext.stream().filter(p -> p.constraintEnabled() != null).count() <= 1,
+                "Invalid " + constraintTypeString + " constraint specification ENABLED",
+                context.constraintQualifiers());
+        check(constraintQualifierContext.stream().filter(p -> p.constraintRely() != null).count() <= 1,
+                "Invalid " + constraintTypeString + " constraint specification RELY",
+                context.constraintQualifiers());
+        check(constraintQualifierContext.stream().filter(p -> p.constraintEnforced() != null).count() <= 1,
+                "Invalid " + constraintTypeString + " constraint specification ENFORCED",
+                context.constraintQualifiers());
+
+        Optional<SqlBaseParser.ConstraintQualifierContext> enabledSpecification = constraintQualifierContext.stream()
+                .filter(p -> p.constraintEnabled() != null)
+                .findFirst();
+        boolean enabled = !enabledSpecification.isPresent() ||
+                enabledSpecification.get().constraintEnabled().DISABLED() == null;
+
+        Optional<SqlBaseParser.ConstraintQualifierContext> relySpecification = constraintQualifierContext.stream()
+                .filter(p -> p.constraintRely() != null)
+                .findFirst();
+        boolean rely = !relySpecification.isPresent() ||
+                relySpecification.get().constraintRely().NOT() == null;
+
+        Optional<SqlBaseParser.ConstraintQualifierContext> enforcedSpecification = constraintQualifierContext.stream()
+                .filter(p -> p.constraintEnforced() != null)
+                .findFirst();
+        boolean enforced = !enforcedSpecification.isPresent() ||
+                enforcedSpecification.get().constraintEnforced().NOT() == null;
 
         return new ConstraintSpecification(getLocation(context),
                 Optional.empty(),
                 columnAliases.stream().map(Identifier::toString).collect(toImmutableList()),
-                getConstraintType((Token) context.constraintType().getChild(0).getPayload()),
+                constraintType,
                 enabled,
                 rely,
                 enforced);
+    }
+
+    @Override
+    public Node visitAlterColumnSetNotNull(SqlBaseParser.AlterColumnSetNotNullContext context)
+    {
+        return new AlterColumnNotNull(
+                getLocation(context),
+                getQualifiedName(context.tableName),
+                (Identifier) visit(context.column),
+                context.EXISTS() != null,
+                false);
+    }
+
+    @Override
+    public Node visitAlterColumnDropNotNull(SqlBaseParser.AlterColumnDropNotNullContext context)
+    {
+        return new AlterColumnNotNull(
+                getLocation(context),
+                getQualifiedName(context.tableName),
+                (Identifier) visit(context.column),
+                context.EXISTS() != null,
+                true);
     }
 
     @Override
@@ -1551,10 +1604,10 @@ class AstBuilder
         switch (context.tableVersionType.getType()) {
             case SqlBaseLexer.SYSTEM_TIME:
             case SqlBaseLexer.TIMESTAMP:
-                return timestampExpression(getLocation(context), child);
+                return timestampExpression(getLocation(context), getTableVersionOperator((Token) context.tableVersionState().getChild(0).getPayload()), child);
             case SqlBaseLexer.SYSTEM_VERSION:
             case SqlBaseLexer.VERSION:
-                return versionExpression(getLocation(context), child);
+                return versionExpression(getLocation(context), getTableVersionOperator((Token) context.tableVersionState().getChild(0).getPayload()), child);
             default:
                 throw new UnsupportedOperationException("Unsupported Type: " + context.tableVersionType.getText());
         }
@@ -2103,12 +2156,6 @@ class AstBuilder
     // ***************** helpers *****************
 
     @Override
-    protected Node defaultResult()
-    {
-        return null;
-    }
-
-    @Override
     protected Node aggregateResult(Node aggregate, Node nextResult)
     {
         if (nextResult == null) {
@@ -2279,6 +2326,18 @@ class AstBuilder
                 .map(Token::getText);
     }
 
+    public static String constraintTypeToString(ConstraintType constraintType)
+    {
+        switch (constraintType) {
+            case UNIQUE:
+                return "UNIQUE";
+            case PRIMARY_KEY:
+                return "PRIMARY KEY";
+            default:
+                return "";
+        }
+    }
+
     private static ConstraintType getConstraintType(Token token)
     {
         switch (token.getType()) {
@@ -2289,6 +2348,18 @@ class AstBuilder
         }
 
         throw new IllegalArgumentException("Unsupported constraint type: " + token.getText());
+    }
+
+    private static TableVersionOperator getTableVersionOperator(Token token)
+    {
+        switch (token.getType()) {
+            case SqlBaseLexer.AS:
+                return EQUAL;
+            case SqlBaseLexer.BEFORE:
+                return LESS_THAN;
+        }
+
+        throw new IllegalArgumentException("Unsupported table version operator: " + token.getText());
     }
 
     private static ArithmeticBinaryExpression.Operator getArithmeticBinaryOperator(Token operator)
