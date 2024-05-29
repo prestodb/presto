@@ -768,6 +768,8 @@ class ParquetRowReader::Impl {
         readerBase_->schemaWithId(), // Id is schema id
         params,
         *options_.getScanSpec());
+    columnReader_->setFillMutatedOutputRows(
+        options_.getRowNumberColumnInfo().has_value());
 
     filterRowGroups();
     if (!rowGroupIds_.empty()) {

@@ -204,11 +204,16 @@ void RowReader::readWithRowNumber(
         std::vector<BufferPtr>());
     flatRowNum = rowNumVector->asUnchecked<FlatVector<int64_t>>();
   }
-  auto rowOffsets = columnReader->outputRows();
-  VELOX_DCHECK_EQ(rowOffsets.size(), result->size());
   auto* rawRowNum = flatRowNum->mutableRawValues();
-  for (int i = 0; i < rowOffsets.size(); ++i) {
-    rawRowNum[i] = previousRow + rowOffsets[i];
+  if (numChildren == 0 && !mutation) {
+    VELOX_DCHECK_EQ(rowsToRead, result->size());
+    std::iota(rawRowNum, rawRowNum + rowsToRead, previousRow);
+  } else {
+    auto rowOffsets = columnReader->outputRows();
+    VELOX_DCHECK_EQ(rowOffsets.size(), result->size());
+    for (int i = 0; i < rowOffsets.size(); ++i) {
+      rawRowNum[i] = previousRow + rowOffsets[i];
+    }
   }
   rowVector = result->asUnchecked<RowVector>();
   auto& rowType = rowVector->type()->asRow();

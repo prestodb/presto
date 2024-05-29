@@ -166,6 +166,8 @@ void DwrfUnit::ensureDecoders() {
         flatMapContext,
         true); // isRoot
     selectiveColumnReader_->setIsTopLevel();
+    selectiveColumnReader_->setFillMutatedOutputRows(
+        options_.getRowNumberColumnInfo().has_value());
   } else {
     columnReader_ = ColumnReader::build( // enqueue streams
         requestedType,

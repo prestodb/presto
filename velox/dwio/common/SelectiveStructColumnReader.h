@@ -98,6 +98,10 @@ class SelectiveStructColumnReaderBase : public SelectiveColumnReader {
     return debugString_;
   }
 
+  void setFillMutatedOutputRows(bool value) final {
+    fillMutatedOutputRows_ = value;
+  }
+
  protected:
   template <typename T, typename KeyNode, typename FormatData>
   friend class SelectiveFlatMapColumnReaderHelper;
@@ -132,6 +136,8 @@ class SelectiveStructColumnReaderBase : public SelectiveColumnReader {
   // need to read it).
   bool isChildConstant(const velox::common::ScanSpec& childSpec) const;
 
+  void fillOutputRowsFromMutation(vector_size_t size);
+
   const std::shared_ptr<const dwio::common::TypeWithId> requestedType_;
 
   std::vector<SelectiveColumnReader*> children_;
@@ -150,6 +156,8 @@ class SelectiveStructColumnReaderBase : public SelectiveColumnReader {
   // After read() call mutation_ could go out of scope.  Need to keep this
   // around for lazy columns.
   bool hasMutation_ = false;
+
+  bool fillMutatedOutputRows_ = false;
 
   // Context information obtained from ExceptionContext. Stored here
   // so that LazyVector readers under this can add this to their

@@ -536,6 +536,11 @@ TEST_F(ParquetTableScanTest, rowIndex) {
       {"_tmp_metadata_row_index", "a"},
       assignments,
       "SELECT _tmp_metadata_row_index, a FROM tmp");
+  assertSelectWithAssignments(
+      {"_tmp_metadata_row_index"},
+      assignments,
+      "SELECT _tmp_metadata_row_index FROM tmp");
+
   // case 2: file has `_tmp_metadata_row_index` column, then use user data
   // insteads of generating it.
   loadData(
