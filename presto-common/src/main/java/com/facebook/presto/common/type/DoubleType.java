@@ -22,6 +22,9 @@ import com.facebook.presto.common.block.UncheckedBlock;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.common.type.TypeUtils.doubleCompare;
+import static com.facebook.presto.common.type.TypeUtils.doubleEquals;
+import static com.facebook.presto.common.type.TypeUtils.doubleHashCode;
 import static java.lang.Double.doubleToLongBits;
 import static java.lang.Double.longBitsToDouble;
 
@@ -72,17 +75,19 @@ public final class DoubleType
     {
         double leftValue = longBitsToDouble(leftBlock.getLong(leftPosition));
         double rightValue = longBitsToDouble(rightBlock.getLong(rightPosition));
-
-        // direct equality is correct here
-        // noinspection FloatingPointEquality
-        return leftValue == rightValue;
+        if (!useNewNanDefintion) {
+            // direct equality is correct here
+            // noinspection FloatingPointEquality
+            return leftValue == rightValue;
+        }
+        return doubleEquals(leftValue, rightValue);
     }
 
     @Override
     public long hash(Block block, int position)
     {
         // convert to canonical NaN if necessary
-        return AbstractLongType.hash(doubleToLongBits(longBitsToDouble(block.getLong(position))));
+        return doubleHashCode(longBitsToDouble(block.getLong(position)));
     }
 
     @Override
@@ -90,7 +95,7 @@ public final class DoubleType
     {
         double leftValue = longBitsToDouble(leftBlock.getLong(leftPosition));
         double rightValue = longBitsToDouble(rightBlock.getLong(rightPosition));
-        return Double.compare(leftValue, rightValue);
+        return doubleCompare(leftValue, rightValue);
     }
 
     @Override
