@@ -672,7 +672,7 @@ class TaskManagerTest : public exec::test::OperatorTestBase,
       bool summarize = true) {
     auto queryCtx =
         taskManager_->getQueryContextManager()->findOrCreateQueryCtx(
-            taskId, updateRequest.session);
+            taskId, updateRequest);
     return taskManager_->createOrUpdateTask(
         taskId, updateRequest, planFragment, summarize, std::move(queryCtx), 0);
   }

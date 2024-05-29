@@ -61,8 +61,10 @@ TEST_F(QueryContextManagerTest, nativeSessionProperties) {
           {"native_expression_max_array_size_in_reduce", "99999"},
           {"native_expression_max_compiled_regexes", "54321"},
       }};
+  protocol::TaskUpdateRequest updateRequest;
+  updateRequest.session = session;
   auto queryCtx = taskManager_->getQueryContextManager()->findOrCreateQueryCtx(
-      taskId, session);
+      taskId, updateRequest);
   EXPECT_EQ(queryCtx->queryConfig().maxSpillLevel(), 2);
   EXPECT_EQ(queryCtx->queryConfig().spillCompressionKind(), "NONE");
   EXPECT_FALSE(queryCtx->queryConfig().joinSpillEnabled());
@@ -84,8 +86,10 @@ TEST_F(QueryContextManagerTest, nativeConnectorSessionProperties) {
       {"native_stats_based_filter_reorder_disabled", "true"},
       {"orc_max_merge_distance", "512kB"}};
   session.catalogProperties.emplace("hive", hiveSessions);
+  protocol::TaskUpdateRequest updateRequest;
+  updateRequest.session = session;
   auto queryCtx = taskManager_->getQueryContextManager()->findOrCreateQueryCtx(
-      taskId, session);
+      taskId, updateRequest);
   EXPECT_EQ(
       queryCtx->connectorSessionProperties().at("hive")->get<std::string>(
           "orc_max_merge_distance"),
@@ -102,8 +106,10 @@ TEST_F(QueryContextManagerTest, defaultSessionProperties) {
 
   protocol::TaskId taskId = "scan.0.0.1.0";
   protocol::SessionRepresentation session{.systemProperties = {}};
+  protocol::TaskUpdateRequest updateRequest;
+  updateRequest.session = session;
   auto queryCtx = taskManager_->getQueryContextManager()->findOrCreateQueryCtx(
-      taskId, session);
+      taskId, updateRequest);
   const auto& queryConfig = queryCtx->queryConfig();
   EXPECT_EQ(queryConfig.maxSpillLevel(), defaultQC->maxSpillLevel());
   EXPECT_EQ(
@@ -121,9 +127,11 @@ TEST_F(QueryContextManagerTest, overrdingSessionProperties) {
   const auto& systemConfig = SystemConfig::instance();
   {
     protocol::SessionRepresentation session{.systemProperties = {}};
+    protocol::TaskUpdateRequest updateRequest;
+    updateRequest.session = session;
     auto queryCtx =
         taskManager_->getQueryContextManager()->findOrCreateQueryCtx(
-            taskId, session);
+            taskId, updateRequest);
     EXPECT_EQ(
         queryCtx->queryConfig().queryMaxMemoryPerNode(),
         systemConfig->queryMaxMemoryPerNode());
@@ -136,9 +144,11 @@ TEST_F(QueryContextManagerTest, overrdingSessionProperties) {
         .systemProperties = {
             {"query_max_memory_per_node", "1GB"},
             {"spill_file_create_config", "encoding:replica_2"}}};
+    protocol::TaskUpdateRequest updateRequest;
+    updateRequest.session = session;
     auto queryCtx =
         taskManager_->getQueryContextManager()->findOrCreateQueryCtx(
-            taskId, session);
+            taskId, updateRequest);
     EXPECT_EQ(
         queryCtx->queryConfig().queryMaxMemoryPerNode(),
         1UL * 1024 * 1024 * 1024);
@@ -150,6 +160,8 @@ TEST_F(QueryContextManagerTest, overrdingSessionProperties) {
 TEST_F(QueryContextManagerTest, duplicateQueryRootPoolName) {
   const protocol::TaskId fakeTaskId = "scan.0.0.1.0";
   const protocol::SessionRepresentation fakeSession{.systemProperties = {}};
+  protocol::TaskUpdateRequest fakeUpdateRequest;
+  fakeUpdateRequest.session = fakeSession;
   auto* queryCtxManager = taskManager_->getQueryContextManager();
   struct {
     bool hasPendingReference;
@@ -173,7 +185,7 @@ TEST_F(QueryContextManagerTest, duplicateQueryRootPoolName) {
     queryCtxManager->testingClearCache();
 
     auto queryCtx =
-        queryCtxManager->findOrCreateQueryCtx(fakeTaskId, fakeSession);
+        queryCtxManager->findOrCreateQueryCtx(fakeTaskId, fakeUpdateRequest);
     const auto poolName = queryCtx->pool()->name();
     ASSERT_THAT(poolName, testing::HasSubstr("scan_"));
     if (!testData.hasPendingReference) {
@@ -183,7 +195,7 @@ TEST_F(QueryContextManagerTest, duplicateQueryRootPoolName) {
       queryCtxManager->testingClearCache();
     }
     auto newQueryCtx =
-        queryCtxManager->findOrCreateQueryCtx(fakeTaskId, fakeSession);
+        queryCtxManager->findOrCreateQueryCtx(fakeTaskId, fakeUpdateRequest);
     const auto newPoolName = newQueryCtx->pool()->name();
     ASSERT_THAT(newPoolName, testing::HasSubstr("scan_"));
     if (testData.expectedNewPoolName) {
