@@ -148,7 +148,7 @@ public class TupleDomainFilterUtils
 
     /**
      * Returns true is ranges represent != or NOT IN filter for double, float or string column.
-     *
+     * <p>
      * The logic is to return true if ranges are next to each other, but don't include the touch value.
      */
     private static boolean isNotIn(List<Range> ranges)
@@ -161,7 +161,7 @@ public class TupleDomainFilterUtils
         Marker previousHigh = firstRange.getHigh();
 
         Type type = previousHigh.getType();
-        if (type != DOUBLE && type != REAL && !isVarcharType(type) && !(type instanceof CharType)) {
+        if (!type.equals(DOUBLE) && !type.equals(REAL) && !isVarcharType(type) && !(type instanceof CharType)) {
             return false;
         }
 
@@ -219,10 +219,10 @@ public class TupleDomainFilterUtils
             checkArgument(range.isSingleValue(), "Unexpected range of boolean values");
             return BooleanValue.of(((Boolean) range.getSingleValue()).booleanValue(), nullAllowed);
         }
-        if (type == DOUBLE) {
+        if (type.equals(DOUBLE)) {
             return doubleRangeToFilter(range, nullAllowed);
         }
-        if (type == REAL) {
+        if (type.equals(REAL)) {
             return floatRangeToFilter(range, nullAllowed);
         }
         if (type instanceof DecimalType) {

@@ -27,11 +27,14 @@ import static java.lang.String.format;
 public final class RealType
         extends AbstractIntType
 {
-    public static final RealType REAL = new RealType();
+    public static final RealType REAL = new RealType(true);
+    public static final RealType OLD_NAN_REAL = new RealType(false);
+    private final boolean useNewNanDefinition;
 
-    private RealType()
+    private RealType(boolean useNewNanDefinition)
     {
         super(parseTypeSignature(StandardTypes.REAL));
+        this.useNewNanDefinition = useNewNanDefinition;
     }
 
     @Override
@@ -86,7 +89,7 @@ public final class RealType
     @Override
     public boolean equals(Object other)
     {
-        return other == REAL;
+        return other instanceof RealType;
     }
 
     @Override

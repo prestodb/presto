@@ -844,7 +844,7 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitDoubleLiteral(DoubleLiteral node, StackableAstVisitorContext<Context> context)
         {
-            return setExpressionType(node, DOUBLE);
+            return setExpressionType(node, functionAndTypeResolver.getType(DOUBLE.getTypeSignature()));
         }
 
         @Override

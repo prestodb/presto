@@ -138,7 +138,7 @@ public class RawColumnDecoder
             if (columnType == BOOLEAN) {
                 checkFieldTypeOneOf(fieldType, columnName, FieldType.BYTE, FieldType.SHORT, FieldType.INT, FieldType.LONG);
             }
-            if (columnType == DOUBLE) {
+            if (columnType.equals(DOUBLE)) {
                 checkFieldTypeOneOf(fieldType, columnName, FieldType.DOUBLE, FieldType.FLOAT);
             }
             if (isVarcharType(columnType)) {
