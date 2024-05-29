@@ -79,34 +79,36 @@ To build the Presto docs, see the [docs README](presto-docs/README.md).
 
 ### Building the Presto Console
 
-The Presto Console is composed of several React components and is written in JSX and ES6. This source code is
-compiled and packaged into browser-compatible JavaScript and stored in the `presto-main/src/main/resources/webapp/dist`
-folder.
+The Presto Console is composed of several React components and is written in JSX and ES6. This
+source code is stored in the `presto-ui/` module. The compilation process generates
+browser-compatible javascript which is added as JAR resources during the maven build. When the
+resource JAR is included on the classpath of Presto coordinator, it will be able to serve the
+resources.
 
-You must have [Node.js](https://nodejs.org/en/download/) and [Yarn](https://yarnpkg.com/en/) installed to
-execute these commands. When you use Maven to build the project, Node and yarn are installed in the `presto-main/target`
-folder. Add the Node and yarn executables to the PATH environment variable.
+None of the Java code relies on the Presto UI project being compiled, so it is possible to exclude
+this UI when building Presto. It can be excluded by disabling the `ui` maven profile with `-P \!ui`:
+
+    ./mvnw clean install -P \!ui
+
+You must have [Node.js](https://nodejs.org/en/download/) and [Yarn](https://yarnpkg.com/en/) installed to build the UI. When using  Maven to build
+the project, Node and yarn are installed in the `presto-ui/target` folder. Add the node and yarn
+executables to the `PATH` environment variable.
 
 To update Presto Console after making changes, run:
 
-    yarn --cwd presto-main/src/main/resources/webapp/src install
+    yarn --cwd presto-ui/src install
 
 If no JavaScript dependencies have changed (i.e., no changes to `package.json`), it is faster to run:
 
-    yarn --cwd presto-main/src/main/resources/webapp/src run package
+    yarn --cwd presto-ui/src run package
 
-To simplify iteration, you can also run in `watch` mode, which automatically re-compiles when changes to source files are detected:
+To simplify iteration, you can also run in `watch` mode, which automatically re-compiles when
+changes to source files are detected:
 
-    yarn --cwd presto-main/src/main/resources/webapp/src run watch
+    yarn --cwd presto-ui/src run watch
 
-To iterate quickly, simply re-build the project in IntelliJ after packaging is complete. Project resources will be hot-reloaded and changes are reflected on browser refresh.
-
-To build the query viewer page, a single-page application which shows the query details from a JSON file,
-run the following command:
-
-    yarn --cwd presto-main/src/main/resources/webapp/src run spa
-
-You can find a HTML file named `query_viewer.html` in the `presto-main/src/main/resources/webapp` directory.
+To iterate quickly, simply re-build the project in IntelliJ after packaging is complete. Project
+resources will be hot-reloaded and changes are reflected on browser refresh.
 
 ## Presto native and Velox
 
