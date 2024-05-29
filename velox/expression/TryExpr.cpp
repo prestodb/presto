@@ -38,10 +38,6 @@ void TryExpr::evalSpecialForm(
   // threw exceptions which this expression already handled.
   ScopedVarSetter<ErrorVectorPtr> errorsSetter(context.errorsPtr(), nullptr);
 
-  // Allocate error vector to avoid repeated re-allocations for every failed
-  // row.
-  context.ensureErrorsVectorSize(rows.end());
-
   inputs_[0]->eval(rows, context, result);
 
   nullOutErrors(rows, context, result);
@@ -66,10 +62,6 @@ void TryExpr::evalSpecialFormSimplified(
   // parent TRY expression, so the parent won't incorrectly null out rows that
   // threw exceptions which this expression already handled.
   ScopedVarSetter<ErrorVectorPtr> errorsSetter(context.errorsPtr(), nullptr);
-
-  // Allocate error vector to avoid repeated re-allocations for every failed
-  // row.
-  context.ensureErrorsVectorSize(rows.end());
 
   inputs_[0]->evalSimplified(rows, context, result);
 
