@@ -936,6 +936,7 @@ public class LocalQueryRunner
                 new IndexJoinLookupStats(),
                 new TaskManagerConfig().setTaskConcurrency(4),
                 new MemoryManagerConfig(),
+                new FeaturesConfig(),
                 spillerFactory,
                 singleStreamSpillerFactory,
                 partitioningSpillerFactory,
