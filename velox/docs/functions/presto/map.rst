@@ -39,7 +39,8 @@ Map Functions
 .. function:: map(array(K), array(V)) -> map(K,V)
    :noindex:
 
-    Returns a map created using the given key/value arrays. Keys are not allowed to be null or to contain nulls. ::
+    Returns a map created using the given key/value arrays. Keys are not allowed to be null or to contain nulls.
+    For REAL and DOUBLE, NaNs (Not-a-Number) are considered equal. ::
 
         SELECT map(ARRAY[1,3], ARRAY[2,4]); -- {1 -> 2, 3 -> 4}
 
@@ -148,6 +149,7 @@ Map Functions
    :noindex:
 
     Returns value for given ``key``. Return null if the key is not contained in the map.
+    For REAL and DOUBLE, NaNs (Not-a-Number) are considered equal and can be used as keys.
     Corresponds to SQL subscript operator [].
 
     SELECT name_to_age_map['Bob'] AS bob_age;

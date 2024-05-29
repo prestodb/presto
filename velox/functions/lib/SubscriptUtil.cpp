@@ -28,6 +28,15 @@ namespace facebook::velox::functions {
 
 namespace {
 
+template <typename T>
+inline bool isPrimitiveEqual(const T& lhs, const T& rhs) {
+  if constexpr (std::is_floating_point_v<T>) {
+    return util::floating_point::NaNAwareEquals<T>{}(lhs, rhs);
+  } else {
+    return lhs == rhs;
+  }
+}
+
 template <TypeKind Kind>
 struct SimpleType {
   using type = typename TypeTraits<Kind>::NativeType;
@@ -128,7 +137,8 @@ VectorPtr applyMapTyped(
     } else {
       // Search map without caching.
       for (size_t offset = offsetStart; offset < offsetEnd; ++offset) {
-        if (decodedMapKeys->valueAt<TKey>(offset) == searchKey) {
+        if (isPrimitiveEqual<TKey>(
+                decodedMapKeys->valueAt<TKey>(offset), searchKey)) {
           rawIndices[row] = offset;
           found = true;
           break;

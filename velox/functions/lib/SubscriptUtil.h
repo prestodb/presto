@@ -21,6 +21,7 @@
 #include "velox/expression/Expr.h"
 #include "velox/expression/VectorFunction.h"
 #include "velox/expression/VectorReaders.h"
+#include "velox/type/FloatingPointUtil.h"
 #include "velox/type/Type.h"
 #include "velox/vector/BaseVector.h"
 #include "velox/vector/ComplexVector.h"
@@ -77,12 +78,8 @@ class LookupTable : public LookupTableBase {
   using inner_allocator_t =
       memory::StlAllocator<std::pair<key_t const, vector_size_t>>;
 
-  using inner_map_t = folly::F14FastMap<
-      key_t,
-      vector_size_t,
-      folly::f14::DefaultHasher<key_t>,
-      folly::f14::DefaultKeyEqual<key_t>,
-      inner_allocator_t>;
+  using inner_map_t = typename util::floating_point::
+      HashMapNaNAwareTypeTraits<key_t, vector_size_t, inner_allocator_t>::Type;
 
   using outer_allocator_t =
       memory::StlAllocator<std::pair<vector_size_t const, inner_map_t>>;

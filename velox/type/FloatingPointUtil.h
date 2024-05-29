@@ -20,6 +20,7 @@
 #include <cmath>
 #include <vector>
 
+#include <folly/container/F14Map.h>
 #include <folly/container/F14Set.h>
 
 namespace facebook::velox {
@@ -83,8 +84,9 @@ struct NaNAwareHash {
   }
 };
 
-// Utility struct to provide a clean way of defining a hash set type using
-// folly::F14FastSet with overrides for floating point types.
+// Utility struct to provide a clean way of defining a hash set and map type
+// using folly::F14FastSet and folly::F14FastMap respectively with overrides for
+// floating point types.
 template <typename Key>
 class HashSetNaNAware : public folly::F14FastSet<Key> {};
 
@@ -97,6 +99,39 @@ template <>
 class HashSetNaNAware<double>
     : public folly::
           F14FastSet<double, NaNAwareHash<double>, NaNAwareEquals<double>> {};
+
+template <
+    typename Key,
+    typename Mapped,
+    typename Alloc = folly::f14::DefaultAlloc<std::pair<Key const, Mapped>>>
+struct HashMapNaNAwareTypeTraits {
+  using Type = folly::F14FastMap<
+      Key,
+      Mapped,
+      folly::f14::DefaultHasher<Key>,
+      folly::f14::DefaultKeyEqual<Key>,
+      Alloc>;
+};
+
+template <typename Mapped, typename Alloc>
+struct HashMapNaNAwareTypeTraits<float, Mapped, Alloc> {
+  using Type = folly::F14FastMap<
+      float,
+      Mapped,
+      NaNAwareHash<float>,
+      NaNAwareEquals<float>,
+      Alloc>;
+};
+
+template <typename Mapped, typename Alloc>
+struct HashMapNaNAwareTypeTraits<double, Mapped, Alloc> {
+  using Type = folly::F14FastMap<
+      double,
+      Mapped,
+      NaNAwareHash<double>,
+      NaNAwareEquals<double>,
+      Alloc>;
+};
 } // namespace util::floating_point
 
 /// A static class that holds helper functions for DOUBLE type.

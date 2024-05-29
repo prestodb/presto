@@ -25,7 +25,62 @@ using namespace facebook::velox::functions::test;
 
 namespace {
 
-class MapTest : public FunctionBaseTest {};
+class MapTest : public FunctionBaseTest {
+ public:
+  template <typename T>
+  void testFloatingPointCornerCases() {
+    static const T kNaN = std::numeric_limits<T>::quiet_NaN();
+    static const T kSNaN = std::numeric_limits<T>::signaling_NaN();
+    auto values = makeNullableArrayVector<int32_t>({{1, 2, 3, 4, 5, 6}});
+    auto checkDuplicate = [&](VectorPtr& keys, std::string expectedError) {
+      VELOX_ASSERT_THROW(
+          evaluate("map(c0, c1)", makeRowVector({keys, values})),
+          expectedError);
+
+      ASSERT_NO_THROW(
+          evaluate("try(map(c0, c1))", makeRowVector({keys, values})));
+
+      // Trying the map version with allowing duplicates.
+      functions::prestosql::registerMapAllowingDuplicates("map2");
+      ASSERT_NO_THROW(evaluate("map2(c0, c1)", makeRowVector({keys, values})));
+    };
+    // Case 1: Check for duplicate NaNs with the same binary representation.
+    VectorPtr keysIdenticalNaNs =
+        makeNullableArrayVector<T>({{1, 2, kNaN, 4, 5, kNaN}});
+    checkDuplicate(
+        keysIdenticalNaNs, "Duplicate map keys (NaN) are not allowed");
+    // Case 2: Check for duplicate NaNs with different binary representation.
+    VectorPtr keysDifferentNaNs =
+        makeNullableArrayVector<T>({{1, 2, kNaN, 4, 5, kSNaN}});
+    checkDuplicate(
+        keysDifferentNaNs, "Duplicate map keys (NaN) are not allowed");
+    // Case 3: Check for duplicate NaNs when the keys vector is a constant. This
+    // is to ensure the code path for constant keys is exercised.
+    VectorPtr keysConstant =
+        BaseVector::wrapInConstant(1, 0, keysDifferentNaNs);
+    checkDuplicate(keysConstant, "Duplicate map keys (NaN) are not allowed");
+    // Case 4: Check for duplicate NaNs when the keys vector wrapped in a
+    // dictionary.
+    VectorPtr keysInDictionary =
+        wrapInDictionary(makeIndices(1, folly::identity), keysDifferentNaNs);
+    checkDuplicate(
+        keysInDictionary, "Duplicate map keys (NaN) are not allowed");
+    // Case 5: Check for equality of +0.0 and -0.0.
+    VectorPtr keysDifferentZeros =
+        makeNullableArrayVector<T>({{1, 2, -0.0, 4, 5, 0.0}});
+    checkDuplicate(
+        keysDifferentZeros, "Duplicate map keys (0) are not allowed");
+
+    // Case 6: Check for duplicate NaNs nested inside a complex key.
+    VectorPtr arrayOfRows = makeArrayVector(
+        {0},
+        makeRowVector(
+            {makeFlatVector<T>({1, 2, kNaN, 4, 5, kSNaN}),
+             makeFlatVector<int32_t>({1, 2, 3, 4, 5, 3})}));
+    checkDuplicate(
+        arrayOfRows, "Duplicate map keys ({NaN, 3}) are not allowed");
+  }
+};
 
 TEST_F(MapTest, noNulls) {
   auto size = 1'000;
@@ -168,6 +223,11 @@ TEST_F(MapTest, duplicateKeys) {
   // Trying the map version with allowing duplicates.
   functions::prestosql::registerMapAllowingDuplicates("map2");
   ASSERT_NO_THROW(evaluate("map2(c0, c1)", makeRowVector({keys, values})));
+}
+
+TEST_F(MapTest, floatingPointCornerCases) {
+  testFloatingPointCornerCases<float>();
+  testFloatingPointCornerCases<double>();
 }
 
 TEST_F(MapTest, fewerValuesThanKeys) {
