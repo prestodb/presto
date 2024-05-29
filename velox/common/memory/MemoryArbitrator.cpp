@@ -94,7 +94,7 @@ class NoopArbitrator : public MemoryArbitrator {
   // Noop arbitrator has no memory capacity limit so no operation needed for
   // memory pool capacity reserve.
   uint64_t growCapacity(MemoryPool* pool, uint64_t /*unused*/) override {
-    pool->grow(pool->maxCapacity(), 0);
+    growPool(pool, pool->maxCapacity(), 0);
     return pool->capacity();
   }
 
@@ -161,20 +161,34 @@ void MemoryArbitrator::unregisterFactory(const std::string& kind) {
   arbitratorFactories().unregisterFactory(kind);
 }
 
+/*static*/ bool MemoryArbitrator::growPool(
+    MemoryPool* pool,
+    uint64_t growBytes,
+    uint64_t reservationBytes) {
+  return pool->grow(growBytes, reservationBytes);
+}
+
+/*static*/ uint64_t MemoryArbitrator::shrinkPool(
+    MemoryPool* pool,
+    uint64_t targetBytes) {
+  return pool->shrink(targetBytes);
+}
+
 std::unique_ptr<MemoryReclaimer> MemoryReclaimer::create() {
   return std::unique_ptr<MemoryReclaimer>(new MemoryReclaimer());
 }
 
 // static
 uint64_t MemoryReclaimer::run(
-    const std::function<uint64_t()>& func,
+    const std::function<int64_t()>& func,
     Stats& stats) {
   uint64_t execTimeUs{0};
-  uint64_t reclaimedBytes{0};
+  int64_t reclaimedBytes{0};
   {
     MicrosecondTimer timer{&execTimeUs};
     reclaimedBytes = func();
   }
+  VELOX_CHECK_GE(reclaimedBytes, 0);
   stats.reclaimExecTimeUs += execTimeUs;
   stats.reclaimedBytes += reclaimedBytes;
   RECORD_HISTOGRAM_METRIC_VALUE(
@@ -516,5 +530,26 @@ void testingRunArbitration(
   // would check if the query has been aborted after finish arbitration by the
   // memory pool capacity grow path.
   static_cast<MemoryPoolImpl*>(pool)->testingCheckIfAborted();
+}
+
+ScopedReclaimedBytesRecorder::ScopedReclaimedBytesRecorder(
+    MemoryPool* pool,
+    int64_t* reclaimedBytes)
+    : pool_(pool),
+      reclaimedBytes_(reclaimedBytes),
+      reservedBytesBeforeReclaim_(pool_->reservedBytes()) {
+  VELOX_CHECK_NOT_NULL(reclaimedBytes_);
+  VELOX_CHECK_EQ(*reclaimedBytes_, 0);
+}
+
+ScopedReclaimedBytesRecorder::~ScopedReclaimedBytesRecorder() {
+  if (std::uncaught_exceptions() > 0) {
+    // NOTE: if there is an alive exception triggered by memory reclaim, then we
+    // won't set reclaimed memory bytes.
+    *reclaimedBytes_ = 0;
+    return;
+  }
+  const int64_t reservedBytesAfterReclaim = pool_->reservedBytes();
+  *reclaimedBytes_ = reservedBytesBeforeReclaim_ - reservedBytesAfterReclaim;
 }
 } // namespace facebook::velox::memory

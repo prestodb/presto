@@ -2831,12 +2831,6 @@ uint64_t Task::MemoryReclaimer::reclaimTask(
   if (task->isCancelled()) {
     return 0;
   }
-  // Before reclaiming from its operators, first to check if there is any free
-  // capacity in the root after stopping this task.
-  const uint64_t shrunkBytes = task->pool()->shrink(targetBytes);
-  if (shrunkBytes >= targetBytes) {
-    return shrunkBytes;
-  }
 
   uint64_t reclaimedBytes{0};
   try {
@@ -2844,7 +2838,7 @@ uint64_t Task::MemoryReclaimer::reclaimTask(
     {
       MicrosecondTimer timer{&reclaimExecTimeUs};
       reclaimedBytes = memory::MemoryReclaimer::reclaim(
-          task->pool(), targetBytes - shrunkBytes, maxWaitMs, stats);
+          task->pool(), targetBytes, maxWaitMs, stats);
     }
     RECORD_HISTOGRAM_METRIC_VALUE(
         kMetricTaskMemoryReclaimExecTimeMs, reclaimExecTimeUs / 1'000);
@@ -2855,7 +2849,7 @@ uint64_t Task::MemoryReclaimer::reclaimTask(
     task->setError(std::current_exception());
     std::rethrow_exception(std::current_exception());
   }
-  return shrunkBytes + reclaimedBytes;
+  return reclaimedBytes;
 }
 
 void Task::MemoryReclaimer::abort(

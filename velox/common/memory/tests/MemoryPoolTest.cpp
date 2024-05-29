@@ -2723,7 +2723,7 @@ TEST_P(MemoryPoolTest, shrinkAndGrowAPIs) {
       ASSERT_EQ(aggregationPool->freeBytes(), capacity);
     }
     if (capacity == 0) {
-      ASSERT_ANY_THROW(leafPool->allocate(allocationSize));
+      VELOX_ASSERT_THROW(leafPool->allocate(allocationSize), "");
       ASSERT_EQ(leafPool->shrink(0), 0);
       ASSERT_EQ(leafPool->shrink(allocationSize), 0);
       continue;
@@ -2733,15 +2733,15 @@ TEST_P(MemoryPoolTest, shrinkAndGrowAPIs) {
       ASSERT_EQ(rootPool->freeBytes(), 0);
       ASSERT_EQ(leafPool->freeBytes(), 0);
       ASSERT_EQ(aggregationPool->freeBytes(), 0);
-      ASSERT_ANY_THROW(leafPool->shrink(0));
-      ASSERT_ANY_THROW(leafPool->shrink(allocationSize));
-      ASSERT_ANY_THROW(leafPool->shrink(kMaxMemory));
-      ASSERT_ANY_THROW(aggregationPool->shrink(0));
-      ASSERT_ANY_THROW(aggregationPool->shrink(allocationSize));
-      ASSERT_ANY_THROW(aggregationPool->shrink(kMaxMemory));
-      ASSERT_ANY_THROW(rootPool->shrink(0));
-      ASSERT_ANY_THROW(rootPool->shrink(allocationSize));
-      ASSERT_ANY_THROW(rootPool->shrink(kMaxMemory));
+      VELOX_ASSERT_THROW(leafPool->shrink(0), "");
+      VELOX_ASSERT_THROW(leafPool->shrink(allocationSize), "");
+      VELOX_ASSERT_THROW(leafPool->shrink(kMaxMemory), "");
+      VELOX_ASSERT_THROW(aggregationPool->shrink(0), "");
+      VELOX_ASSERT_THROW(aggregationPool->shrink(allocationSize), "");
+      VELOX_ASSERT_THROW(aggregationPool->shrink(kMaxMemory), "");
+      VELOX_ASSERT_THROW(rootPool->shrink(0), "");
+      VELOX_ASSERT_THROW(rootPool->shrink(allocationSize), "");
+      VELOX_ASSERT_THROW(rootPool->shrink(kMaxMemory), "");
       leafPool->free(buffer, allocationSize);
       continue;
     }

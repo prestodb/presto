@@ -97,15 +97,18 @@ uint64_t SortingWriter::reclaim(
   }
   VELOX_CHECK_NOT_NULL(sortBuffer_);
 
-  auto reclaimBytes = memory::MemoryReclaimer::run(
+  return memory::MemoryReclaimer::run(
       [&]() {
-        sortBuffer_->spill();
-        sortPool_->release();
-        return sortPool_->shrink(targetBytes);
+        int64_t reclaimedBytes{0};
+        {
+          memory::ScopedReclaimedBytesRecorder recorder(
+              sortPool_, &reclaimedBytes);
+          sortBuffer_->spill();
+          sortPool_->release();
+        }
+        return reclaimedBytes;
       },
       stats);
-
-  return reclaimBytes;
 }
 
 uint32_t SortingWriter::outputBatchRows() {

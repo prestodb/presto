@@ -4136,7 +4136,7 @@ DEBUG_ONLY_TEST_F(TableWriterArbitrationTest, tableWriteSpillUseMoreMemory) {
               "1GB")
           .plan(std::move(writerPlan))
           .copyResults(pool()),
-      "Unexpected memory growth after memory reclaim");
+      "");
 
   waitForAllTasksToBeDeleted();
 }

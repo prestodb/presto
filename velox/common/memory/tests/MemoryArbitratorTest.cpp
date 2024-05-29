@@ -722,6 +722,73 @@ TEST_F(MemoryReclaimerTest, mockReclaimMoreThanAvailable) {
   ASSERT_EQ(stats_, MemoryReclaimer::Stats{});
 }
 
+TEST_F(MemoryReclaimerTest, scopedReclaimedBytesRecorder) {
+  auto root = memory::memoryManager()->addRootPool(
+      "memoryReclaimRecorder", kMaxMemory, MemoryReclaimer::create());
+  auto childPool = root->addLeafChild("memoryReclaimRecorder", true);
+  ASSERT_EQ(childPool->reservedBytes(), 0);
+  int64_t reclaimedBytes{0};
+  { ScopedReclaimedBytesRecorder recorder(childPool.get(), &reclaimedBytes); }
+  ASSERT_EQ(reclaimedBytes, 0);
+
+  void* buffer = childPool->allocate(1 << 20);
+  ASSERT_EQ(childPool->reservedBytes(), 1 << 20);
+  { ScopedReclaimedBytesRecorder recorder(childPool.get(), &reclaimedBytes); }
+  ASSERT_EQ(reclaimedBytes, 0);
+
+  reclaimedBytes = 0;
+  {
+    ScopedReclaimedBytesRecorder recorder(childPool.get(), &reclaimedBytes);
+    childPool->free(buffer, 1 << 20);
+  }
+  ASSERT_EQ(reclaimedBytes, 1 << 20);
+
+  childPool->maybeReserve(1 << 20);
+  buffer = childPool->allocate(1 << 20);
+  ASSERT_EQ(childPool->reservedBytes(), 8 << 20);
+  reclaimedBytes = 0;
+  {
+    ScopedReclaimedBytesRecorder recorder(childPool.get(), &reclaimedBytes);
+    childPool->free(buffer, 1 << 20);
+  }
+  ASSERT_EQ(reclaimedBytes, 0);
+
+  {
+    ScopedReclaimedBytesRecorder recorder(childPool.get(), &reclaimedBytes);
+    childPool->release();
+  }
+  ASSERT_EQ(reclaimedBytes, 8 << 20);
+
+  // Bad state.
+  reclaimedBytes = 100;
+  VELOX_ASSERT_THROW(
+      ScopedReclaimedBytesRecorder(childPool.get(), &reclaimedBytes),
+      "(100 vs. 0)");
+
+  reclaimedBytes = 0;
+  buffer = childPool->allocate(1 << 20);
+  {
+    const std::string throwMsg("throw");
+    try {
+      ScopedReclaimedBytesRecorder recorder(childPool.get(), &reclaimedBytes);
+      childPool->free(buffer, 1 << 20);
+      VELOX_FAIL(throwMsg);
+    } catch (const VeloxRuntimeError& ex) {
+      ASSERT_EQ(ex.message(), throwMsg);
+    }
+  }
+  ASSERT_EQ(reclaimedBytes, 0);
+
+  // Negative reclaim.
+  reclaimedBytes = 0;
+  {
+    ScopedReclaimedBytesRecorder recorder(childPool.get(), &reclaimedBytes);
+    buffer = childPool->allocate(1 << 20);
+  }
+  ASSERT_EQ(reclaimedBytes, -(1 << 20));
+  childPool->free(buffer, 1 << 20);
+}
+
 TEST_F(MemoryReclaimerTest, orderedReclaim) {
   // Set 1MB unit to avoid memory pool quantized reservation effect.
   const int allocUnitBytes = 1L << 20;

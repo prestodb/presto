@@ -1668,6 +1668,7 @@ DEBUG_ONLY_TEST_F(E2EWriterTest, memoryReclaimOnWrite) {
           .stringVariableLength = false,
       },
       leafPool_.get());
+
   std::vector<VectorPtr> vectors;
   for (int i = 0; i < 10; ++i) {
     vectors.push_back(fuzzer.fuzzInputRow(type));
@@ -1726,19 +1727,23 @@ DEBUG_ONLY_TEST_F(E2EWriterTest, memoryReclaimOnWrite) {
           ASSERT_FALSE(writer->testingNonReclaimableSection());
         }));
 
-    writer->flush();
     memory::MemoryReclaimer::Stats stats;
     const auto oldCapacity = writerPool->capacity();
+    const auto oldReservedBytes = writerPool->reservedBytes();
+    const auto oldUsedBytes = writerPool->usedBytes();
     writerPool->reclaim(1L << 30, 0, stats);
     ASSERT_EQ(stats.numNonReclaimableAttempts, 0);
+    // We don't expect the capacity change by memory reclaim but only the used
+    // or reserved memory change.
+    ASSERT_EQ(writerPool->capacity(), oldCapacity);
     if (enableReclaim) {
-      ASSERT_LT(writerPool->capacity(), oldCapacity);
-      ASSERT_GT(stats.reclaimedBytes, 0);
-      ASSERT_GT(stats.reclaimExecTimeUs, 0);
-      dynamic_cast<memory::MemoryPoolImpl*>(writerPool.get())
-          ->testingSetCapacity(oldCapacity);
+      // The writer is empty so nothing to free.
+      ASSERT_EQ(stats.reclaimedBytes, 0);
+      ASSERT_GE(stats.reclaimExecTimeUs, 0);
+      ASSERT_EQ(
+          oldReservedBytes - writerPool->reservedBytes(), stats.reclaimedBytes);
+      ASSERT_EQ(oldUsedBytes, writerPool->usedBytes());
     } else {
-      ASSERT_EQ(writerPool->capacity(), oldCapacity);
       ASSERT_EQ(stats, memory::MemoryReclaimer::Stats{});
     }
 
@@ -1762,7 +1767,8 @@ DEBUG_ONLY_TEST_F(E2EWriterTest, memoryReclaimOnWrite) {
       ASSERT_EQ(stats.numNonReclaimableAttempts, 1);
       writer->testingNonReclaimableSection() = false;
       stats.numNonReclaimableAttempts = 0;
-      ASSERT_GT(writerPool->reclaim(1L << 30, 0, stats), 0);
+      const auto reclaimedBytes = writerPool->reclaim(1L << 30, 0, stats);
+      ASSERT_GT(reclaimedBytes, 0);
       ASSERT_EQ(stats.numNonReclaimableAttempts, 0);
       ASSERT_GT(stats.reclaimedBytes, 0);
       ASSERT_GT(stats.reclaimExecTimeUs, 0);

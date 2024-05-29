@@ -264,6 +264,13 @@ class MemoryArbitrator {
     VELOX_CHECK_LE(reservedCapacity_, capacity_);
   }
 
+  /// Helper utilities used by the memory arbitrator implementations to call
+  /// protected methods of memory pool.
+  static bool
+  growPool(MemoryPool* pool, uint64_t growBytes, uint64_t reservationBytes);
+
+  static uint64_t shrinkPool(MemoryPool* pool, uint64_t targetBytes);
+
   const uint64_t capacity_;
   const uint64_t reservedCapacity_;
   const uint64_t memoryPoolReservedCapacity_;
@@ -331,7 +338,8 @@ class MemoryReclaimer {
 
   static std::unique_ptr<MemoryReclaimer> create();
 
-  static uint64_t run(const std::function<uint64_t()>& func, Stats& stats);
+  /// Invoked memory reclaim function from 'pool' and record execution 'stats'.
+  static uint64_t run(const std::function<int64_t()>& func, Stats& stats);
 
   /// Invoked by the memory arbitrator before entering the memory arbitration
   /// processing. The default implementation does nothing but user can override
@@ -385,6 +393,20 @@ class MemoryReclaimer {
 
  protected:
   MemoryReclaimer() = default;
+};
+
+/// Helper class used to measure the memory bytes reclaimed from a memory pool
+/// by a memory reclaim function.
+class ScopedReclaimedBytesRecorder {
+ public:
+  ScopedReclaimedBytesRecorder(MemoryPool* pool, int64_t* reclaimedBytes);
+
+  ~ScopedReclaimedBytesRecorder();
+
+ private:
+  MemoryPool* const pool_;
+  int64_t* const reclaimedBytes_;
+  const int64_t reservedBytesBeforeReclaim_;
 };
 
 /// The object is used to set/clear non-reclaimable section of an operation in

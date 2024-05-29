@@ -759,13 +759,16 @@ uint64_t Writer::MemoryReclaimer::reclaim(
     return 0;
   }
 
-  auto reclaimBytes = memory::MemoryReclaimer::run(
+  return memory::MemoryReclaimer::run(
       [&]() {
-        writer_->flushInternal(false);
-        return pool->shrink(targetBytes);
+        int64_t reclaimedBytes{0};
+        {
+          memory::ScopedReclaimedBytesRecorder recorder(pool, &reclaimedBytes);
+          writer_->flushInternal(false);
+        }
+        return reclaimedBytes;
       },
       stats);
-  return reclaimBytes;
 }
 
 dwrf::WriterOptions getDwrfOptions(const dwio::common::WriterOptions& options) {

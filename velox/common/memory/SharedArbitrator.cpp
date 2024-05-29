@@ -286,7 +286,7 @@ uint64_t SharedArbitrator::shrinkCapacity(
     uint64_t targetBytes) {
   std::lock_guard<std::mutex> l(mutex_);
   ++numReleases_;
-  const uint64_t freedBytes = pool->shrink(targetBytes);
+  const uint64_t freedBytes = shrinkPool(pool, targetBytes);
   incrementFreeCapacityLocked(freedBytes);
   return freedBytes;
 }
@@ -507,7 +507,7 @@ void SharedArbitrator::checkIfAborted(ArbitrationOperation* op) {
 
 bool SharedArbitrator::maybeGrowFromSelf(ArbitrationOperation* op) {
   if (op->requestRoot->freeBytes() >= op->targetBytes) {
-    if (op->requestRoot->grow(0, op->targetBytes)) {
+    if (growPool(op->requestRoot, 0, op->targetBytes)) {
       return true;
     }
   }
@@ -567,7 +567,7 @@ bool SharedArbitrator::handleOOM(ArbitrationOperation* op) {
   }
   // Free up all the unused capacity from the aborted memory pool and gives back
   // to the arbitrator.
-  incrementFreeCapacity(victim->shrink());
+  incrementFreeCapacity(shrinkPool(victim, 0));
   return true;
 }
 
@@ -575,7 +575,7 @@ void SharedArbitrator::checkedGrow(
     MemoryPool* pool,
     uint64_t growBytes,
     uint64_t reservationBytes) {
-  const auto ret = pool->grow(growBytes, reservationBytes);
+  const auto ret = growPool(pool, growBytes, reservationBytes);
   VELOX_CHECK(
       ret,
       "Failed to grow pool {} with {} and commit {} used reservation",
@@ -667,7 +667,7 @@ uint64_t SharedArbitrator::reclaimFreeMemoryFromCandidates(
     if (bytesToReclaim <= 0) {
       continue;
     }
-    reclaimedBytes += candidate.pool->shrink(bytesToReclaim);
+    reclaimedBytes += shrinkPool(candidate.pool, bytesToReclaim);
     if (reclaimedBytes >= reclaimTargetBytes) {
       break;
     }
@@ -719,7 +719,7 @@ uint64_t SharedArbitrator::reclaimUsedMemoryFromCandidatesByAbort(
     } catch (VeloxRuntimeError&) {
       abort(candidate.pool, std::current_exception());
     }
-    freedBytes += candidate.pool->shrink();
+    freedBytes += shrinkPool(candidate.pool, 0);
     if (freedBytes >= reclaimTargetBytes) {
       break;
     }
@@ -738,14 +738,13 @@ uint64_t SharedArbitrator::reclaim(
     return 0;
   }
   uint64_t reclaimDurationUs{0};
-  uint64_t reclaimedBytes{0};
+  uint64_t reclaimedUsedBytes{0};
   uint64_t reclaimedFreeBytes{0};
   MemoryReclaimer::Stats reclaimerStats;
   {
-    const uint64_t oldCapacity = pool->capacity();
     MicrosecondTimer reclaimTimer(&reclaimDurationUs);
     try {
-      reclaimedFreeBytes = pool->shrink(bytesToReclaim);
+      reclaimedFreeBytes = shrinkPool(pool, bytesToReclaim);
       bytesToReclaim -= reclaimedFreeBytes;
       VELOX_CHECK_GE(bytesToReclaim, 0);
       if (bytesToReclaim > 0) {
@@ -758,15 +757,11 @@ uint64_t SharedArbitrator::reclaim(
       VELOX_MEM_LOG(ERROR) << "Failed to reclaim from memory pool "
                            << pool->name() << ", aborting it: " << e.what();
       abort(pool, std::current_exception());
-      pool->shrink();
+      reclaimedUsedBytes = shrinkPool(pool, 0);
     }
-    pool->shrink(bytesToReclaim);
-    const uint64_t newCapacity = pool->capacity();
-    VELOX_CHECK_GE(oldCapacity, newCapacity);
-    reclaimedBytes = oldCapacity - newCapacity;
+    reclaimedUsedBytes += shrinkPool(pool, bytesToReclaim);
   }
-  VELOX_CHECK_GE(reclaimedBytes, reclaimedFreeBytes);
-  reclaimedUsedBytes_ += reclaimedBytes - reclaimedFreeBytes;
+  reclaimedUsedBytes_ += reclaimedUsedBytes;
   reclaimedFreeBytes_ += reclaimedFreeBytes;
   reclaimTimeUs_ += reclaimDurationUs;
   numNonReclaimableAttempts_ += reclaimerStats.numNonReclaimableAttempts;
@@ -775,11 +770,11 @@ uint64_t SharedArbitrator::reclaim(
                       << ", actually reclaimed "
                       << succinctBytes(reclaimedFreeBytes)
                       << " free memory and "
-                      << succinctBytes(reclaimedBytes - reclaimedFreeBytes)
+                      << succinctBytes(reclaimedUsedBytes)
                       << " used memory, spent "
                       << succinctMicros(reclaimDurationUs)
                       << ", isLocalArbitration: " << isLocalArbitration;
-  return reclaimedBytes;
+  return reclaimedUsedBytes + reclaimedFreeBytes;
 }
 
 void SharedArbitrator::abort(

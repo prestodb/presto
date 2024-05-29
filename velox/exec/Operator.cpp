@@ -647,17 +647,16 @@ uint64_t Operator::MemoryReclaimer::reclaim(
 
   RuntimeStatWriterScopeGuard opStatsGuard(op_);
 
-  auto reclaimBytes = memory::MemoryReclaimer::run(
+  return memory::MemoryReclaimer::run(
       [&]() {
-        const auto reservedBytesBeforeReclaim = pool->reservedBytes();
-        op_->reclaim(targetBytes, stats);
-        const auto reservedBytesAfterReclaim = pool->reservedBytes();
-        VELOX_CHECK_GE(reservedBytesBeforeReclaim, reservedBytesAfterReclaim);
-        return reservedBytesBeforeReclaim - reservedBytesAfterReclaim;
+        int64_t reclaimedBytes{0};
+        {
+          memory::ScopedReclaimedBytesRecorder recoder(pool, &reclaimedBytes);
+          op_->reclaim(targetBytes, stats);
+        }
+        return reclaimedBytes;
       },
       stats);
-
-  return reclaimBytes;
 }
 
 void Operator::MemoryReclaimer::abort(
