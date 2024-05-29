@@ -171,6 +171,8 @@ function cmake_install {
     -DCMAKE_CXX_FLAGS="$COMPILER_FLAGS" \
     -DBUILD_TESTING=OFF \
     "$@"
-  ${SUDO} ninja -C "${BINARY_DIR}" install
+
+  cmake --build "${BINARY_DIR}"
+  ${SUDO} cmake --install "${BINARY_DIR}"
 }
 
