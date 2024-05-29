@@ -42,10 +42,10 @@ RUN dnf install -y java-11-openjdk less procps python3 tzdata \
 # detailed here : https://github.com/facebookincubator/velox/issues/8127
 ENV TZ=America/Los_Angeles
 
-COPY scripts/etc/config.properties.example $PRESTO_HOME/etc/config.properties
-COPY scripts/etc/jvm.config.example $PRESTO_HOME/etc/jvm.config
-COPY scripts/etc/node.properties $PRESTO_HOME/etc/node.properties
-COPY scripts/etc/hive.properties $PRESTO_HOME/etc/catalog
-COPY scripts/start-prestojava.sh /opt
+COPY scripts/presto/etc/config.properties.example $PRESTO_HOME/etc/config.properties
+COPY scripts/presto/etc/jvm.config.example $PRESTO_HOME/etc/jvm.config
+COPY scripts/presto/etc/node.properties $PRESTO_HOME/etc/node.properties
+COPY scripts/presto/etc/hive.properties $PRESTO_HOME/etc/catalog
+COPY scripts/presto/start-prestojava.sh /opt
 
 WORKDIR /velox

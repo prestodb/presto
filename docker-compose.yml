@@ -74,3 +74,24 @@ services:
       - .:/velox:delegated
     working_dir: /velox
     command: /velox/scripts/docker-command.sh
+
+  spark-server:
+  # Usage:
+  #   docker-compose pull spark-server or docker-compose build spark-server
+  #   docker-compose run --rm spark-server
+  #   or
+  #   docker-compose run -e NUM_THREADS=<NUMBER_OF_THREADS_TO_USE> --rm spark-server
+  #   to set the number of threads used during compilation
+    image: ghcr.io/facebookincubator/velox-dev:spark-server
+    build:
+      args:
+        - SPARK_VERSION=3.5.1
+      context: .
+      dockerfile: scripts/spark-container.dockerfile
+    environment:
+      NUM_THREADS: 8 # default value for NUM_THREADS
+      CCACHE_DIR: "/velox/.ccache"
+    volumes:
+      - .:/velox:delegated
+    working_dir: /velox
+    command: /velox/scripts/docker-command.sh

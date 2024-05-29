@@ -95,6 +95,10 @@ jobs:
             file: "scripts/prestojava-container.dockerfile"
             args: "PRESTO_VERSION=0.284"
             tags: "ghcr.io/facebookincubator/velox-dev:presto-java"
+          - name: Spark server
+            file: "scripts/spark-container.dockerfile"
+            args: "SPARK_VERSION=3.5.1"
+            tags: "ghcr.io/facebookincubator/velox-dev:spark-server"
 
     steps:
       - name: Login to GitHub Container Registry
