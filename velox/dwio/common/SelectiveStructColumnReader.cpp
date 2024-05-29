@@ -411,4 +411,24 @@ void SelectiveStructColumnReaderBase::getValues(
   resultRow->updateContainsLazyNotLoaded();
 }
 
+namespace detail {
+
+#if XSIMD_WITH_AVX2
+
+xsimd::batch<int32_t> bitsToInt32s[256];
+
+__attribute__((constructor)) void initBitsToInt32s() {
+  for (int i = 0; i < 256; ++i) {
+    int32_t data[8];
+    for (int j = 0; j < 8; ++j) {
+      data[j] = bits::isBitSet(&i, j);
+    }
+    bitsToInt32s[i] = xsimd::load_unaligned(data);
+  }
+}
+
+#endif
+
+} // namespace detail
+
 } // namespace facebook::velox::dwio::common

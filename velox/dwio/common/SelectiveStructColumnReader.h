@@ -177,6 +177,19 @@ struct SelectiveStructColumnReader : SelectiveStructColumnReaderBase {
   std::vector<std::unique_ptr<SelectiveColumnReader>> childrenOwned_;
 };
 
+namespace detail {
+
+template <typename ValueType>
+struct FlatMapDirectCopyHelper {
+  ValueType* targetValues;
+  uint64_t* targetNulls;
+  const ValueType* sourceValues;
+  const uint64_t* sourceNulls;
+};
+
+} // namespace detail
+
+// Helper class to implement reading FLATMAP column into MAP type vector.
 template <typename T, typename KeyNode, typename FormatData>
 class SelectiveFlatMapColumnReaderHelper {
  public:
@@ -212,8 +225,23 @@ class SelectiveFlatMapColumnReaderHelper {
     return *result->asUnchecked<MapVector>();
   }
 
+  static void readInMapDense(
+      const uint64_t* inMap,
+      vector_size_t size,
+      uint64_t* columnBits,
+      vector_size_t* sizes);
+
   vector_size_t
   calculateOffsets(RowSet rows, vector_size_t* offsets, vector_size_t* sizes);
+
+  template <bool kDirectCopy, bool kIdentityMapping, typename ValueType>
+  void copyValuesImpl(
+      vector_size_t* rawOffsets,
+      T* rawKeys,
+      detail::FlatMapDirectCopyHelper<ValueType>& directCopy,
+      T key,
+      const uint64_t* columnBits,
+      vector_size_t size);
 
   template <TypeKind kKind>
   void copyValues(
@@ -226,8 +254,8 @@ class SelectiveFlatMapColumnReaderHelper {
   std::vector<KeyNode> keyNodes_;
   VectorPtr childValues_;
   DecodedVector decodedChildValues_;
-  std::vector<const uint64_t*> inMaps_;
   std::vector<uint64_t> columnRowBits_;
+  int columnBitsWords_;
   std::vector<BaseVector::CopyRange> copyRanges_;
 };
 
@@ -270,6 +298,49 @@ void SelectiveFlatMapColumnReaderHelper<T, KeyNode, FormatData>::read(
   reader_.readOffset_ = offset + rows.back() + 1;
 }
 
+namespace detail {
+#if XSIMD_WITH_AVX2
+// Convert 8 bits to 8 int32s.  Used to increase map sizes according to in-map
+// bits.
+extern xsimd::batch<int32_t> bitsToInt32s[256];
+#endif
+} // namespace detail
+
+// Optimized function to copy contiguous range of `inMap' bits into
+// `columnBits', and at same time increase values in `sizes' so that they will
+// contain map sizes after we iterate over all inMap streams.
+template <typename T, typename KeyNode, typename FormatData>
+void SelectiveFlatMapColumnReaderHelper<T, KeyNode, FormatData>::readInMapDense(
+    const uint64_t* inMap,
+    vector_size_t size,
+    uint64_t* columnBits,
+    vector_size_t* sizes) {
+#if XSIMD_WITH_AVX2
+  bits::copyBits(inMap, 0, columnBits, 0, size);
+  auto* inMapBytes = reinterpret_cast<const uint8_t*>(inMap);
+  int i = 0;
+  for (int end = size / 8; i < end; ++i) {
+    auto* data = sizes + i * 8;
+    (xsimd::load_unaligned(data) + detail::bitsToInt32s[inMapBytes[i]])
+        .store_unaligned(data);
+  }
+  i *= 8;
+  for (; i < size; ++i) {
+    if (bits::isBitSet(inMap, i)) {
+      ++sizes[i];
+    }
+  }
+#else
+  for (vector_size_t i = 0; i < size; ++i) {
+    if (bits::isBitSet(inMap, i)) {
+      bits::setBit(columnBits, i);
+      ++sizes[i];
+    }
+  }
+#endif
+}
+
+// Calculate the offsets and sizes of each map entry in the result.
 template <typename T, typename KeyNode, typename FormatData>
 vector_size_t
 SelectiveFlatMapColumnReaderHelper<T, KeyNode, FormatData>::calculateOffsets(
@@ -279,29 +350,32 @@ SelectiveFlatMapColumnReaderHelper<T, KeyNode, FormatData>::calculateOffsets(
   auto* nulls = reader_.nullsInReadRange_
       ? reader_.nullsInReadRange_->as<uint64_t>()
       : nullptr;
-  inMaps_.resize(reader_.children_.size());
-  for (int k = 0; k < reader_.children_.size(); ++k) {
-    auto& data =
-        static_cast<const FormatData&>(reader_.children_[k]->formatData());
-    inMaps_[k] = data.inMap();
-    if (!inMaps_[k]) {
-      inMaps_[k] = nulls;
-    }
-  }
-  columnRowBits_.resize(bits::nwords(reader_.children_.size() * rows.size()));
+  columnBitsWords_ = bits::nwords(rows.size());
+  columnRowBits_.resize(columnBitsWords_ * reader_.children_.size());
   std::fill(columnRowBits_.begin(), columnRowBits_.end(), 0);
   std::fill(sizes, sizes + rows.size(), 0);
+  const bool dense = rows.back() == rows.size() - 1;
   for (int k = 0; k < reader_.children_.size(); ++k) {
-    if (inMaps_[k]) {
-      for (vector_size_t i = 0; i < rows.size(); ++i) {
-        if (bits::isBitSet(inMaps_[k], rows[i])) {
-          bits::setBit(columnRowBits_.data(), i + k * rows.size());
-          ++sizes[i];
+    auto* inMap =
+        static_cast<const FormatData&>(reader_.children_[k]->formatData())
+            .inMap();
+    if (!inMap) {
+      inMap = nulls;
+    }
+    auto* columnBits = columnRowBits_.data() + k * columnBitsWords_;
+    if (inMap) {
+      if (dense) {
+        readInMapDense(inMap, rows.size(), columnBits, sizes);
+      } else {
+        for (vector_size_t i = 0; i < rows.size(); ++i) {
+          if (bits::isBitSet(inMap, rows[i])) {
+            bits::setBit(columnBits, i);
+            ++sizes[i];
+          }
         }
       }
     } else {
-      bits::fillBits(
-          columnRowBits_.data(), k * rows.size(), (k + 1) * rows.size(), true);
+      bits::fillBits(columnBits, 0, rows.size(), true);
       for (vector_size_t i = 0; i < rows.size(); ++i) {
         ++sizes[i];
       }
@@ -320,6 +394,44 @@ SelectiveFlatMapColumnReaderHelper<T, KeyNode, FormatData>::calculateOffsets(
   return numNestedRows;
 }
 
+// When `kDirectCopy' is true, copy the values directly into the target vector.
+// Otherwise store the copy ranges and they will be copied after calling this
+// function.
+template <typename T, typename KeyNode, typename FormatData>
+template <bool kDirectCopy, bool kIdentityMapping, typename ValueType>
+void SelectiveFlatMapColumnReaderHelper<T, KeyNode, FormatData>::copyValuesImpl(
+    vector_size_t* rawOffsets,
+    T* rawKeys,
+    detail::FlatMapDirectCopyHelper<ValueType>& directCopy,
+    T key,
+    const uint64_t* columnBits,
+    vector_size_t size) {
+  bits::forEachSetBit(columnBits, 0, size, [&](vector_size_t i) {
+    auto j = rawOffsets[i]++;
+    rawKeys[j] = key;
+    if constexpr (!kDirectCopy) {
+      copyRanges_.push_back({
+          .sourceIndex = i,
+          .targetIndex = j,
+          .count = 1,
+      });
+    } else if constexpr (kIdentityMapping) {
+      directCopy.targetValues[j] = directCopy.sourceValues[i];
+      // Nulls in identity mapping are handled more efficiently later in the
+      // code after calling this function.
+    } else {
+      directCopy.targetValues[j] = decodedChildValues_.valueAt<ValueType>(i);
+      if (decodedChildValues_.isNullAt(i)) {
+        bits::setNull(directCopy.targetNulls, j);
+      }
+    }
+  });
+}
+
+// Copy the values and nulls bits from source child values into the target
+// values.  When `kDirectCopy' is true, copy the values directly into the target
+// vector, and if the source values are flat (almost always the case), we
+// optimize the nulls copy by avoiding copying the bits where in-map is false.
 template <typename T, typename KeyNode, typename FormatData>
 template <TypeKind kKind>
 void SelectiveFlatMapColumnReaderHelper<T, KeyNode, FormatData>::copyValues(
@@ -358,55 +470,50 @@ void SelectiveFlatMapColumnReaderHelper<T, KeyNode, FormatData>::copyValues(
       strKeySize = 0;
     }
   }
-  [[maybe_unused]] ValueType* targetValues;
-  [[maybe_unused]] uint64_t* targetNulls;
+  detail::FlatMapDirectCopyHelper<ValueType> directCopy;
   if constexpr (kDirectCopy) {
     VELOX_CHECK(values.isFlatEncoding());
     auto* flat = values.asUnchecked<FlatVector<ValueType>>();
-    targetValues = flat->mutableRawValues();
-    targetNulls = flat->mutableRawNulls();
+    directCopy.targetValues = flat->mutableRawValues();
+    directCopy.targetNulls = flat->mutableRawNulls();
+    bits::fillBits(directCopy.targetNulls, 0, flat->size(), bits::kNotNull);
   }
   for (int k = 0; k < reader_.children_.size(); ++k) {
-    [[maybe_unused]] StringView strKey;
+    T key;
     if constexpr (std::is_same_v<T, StringView>) {
-      strKey = keyNodes_[k].key.get();
-      if (!strKey.isInline()) {
-        strKey = {
-            &rawStrKeyBuffer[strKeySize], static_cast<int32_t>(strKey.size())};
-        strKeySize += strKey.size();
+      key = keyNodes_[k].key.get();
+      if (!key.isInline()) {
+        key = {&rawStrKeyBuffer[strKeySize], static_cast<int32_t>(key.size())};
+        strKeySize += key.size();
       }
+    } else {
+      key = keyNodes_[k].key.get();
     }
     reader_.children_[k]->getValues(rows, &childValues_);
     if constexpr (kDirectCopy) {
       decodedChildValues_.decode(*childValues_);
+      if (decodedChildValues_.isIdentityMapping()) {
+        directCopy.sourceValues = decodedChildValues_.data<ValueType>();
+        directCopy.sourceNulls = decodedChildValues_.nulls();
+      }
     }
-    const auto begin = k * rows.size();
-    bits::forEachSetBit(
-        columnRowBits_.data(),
-        begin,
-        begin + rows.size(),
-        [&](vector_size_t i) {
-          i -= begin;
-          if constexpr (std::is_same_v<T, StringView>) {
-            rawKeys[rawOffsets[i]] = strKey;
-          } else {
-            rawKeys[rawOffsets[i]] = keyNodes_[k].key.get();
-          }
-          if constexpr (kDirectCopy) {
-            targetValues[rawOffsets[i]] =
-                decodedChildValues_.valueAt<ValueType>(i);
-            bits::setNull(
-                targetNulls, rawOffsets[i], decodedChildValues_.isNullAt(i));
-          } else {
-            copyRanges_.push_back({
-                .sourceIndex = i,
-                .targetIndex = rawOffsets[i],
-                .count = 1,
-            });
-          }
-          ++rawOffsets[i];
+    auto* columnBits = columnRowBits_.data() + k * columnBitsWords_;
+    if (decodedChildValues_.isIdentityMapping()) {
+      copyValuesImpl<kDirectCopy, true>(
+          rawOffsets, rawKeys, directCopy, key, columnBits, rows.size());
+    } else {
+      copyValuesImpl<kDirectCopy, false>(
+          rawOffsets, rawKeys, directCopy, key, columnBits, rows.size());
+    }
+    if constexpr (kDirectCopy) {
+      if (directCopy.sourceNulls && decodedChildValues_.isIdentityMapping()) {
+        bits::andWithNegatedBits(
+            columnBits, directCopy.sourceNulls, 0, rows.size());
+        bits::forEachSetBit(columnBits, 0, rows.size(), [&](vector_size_t i) {
+          bits::setNull(directCopy.targetNulls, rawOffsets[i] - 1);
         });
-    if constexpr (!kDirectCopy) {
+      }
+    } else {
       values.copyRanges(childValues_.get(), copyRanges_);
       copyRanges_.clear();
     }
