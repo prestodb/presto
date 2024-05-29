@@ -377,6 +377,30 @@ TEST_F(ArithmeticTest, log1p) {
   EXPECT_TRUE(std::isnan(log1p(kNan).value_or(0)));
 }
 
+TEST_F(ArithmeticTest, expm1) {
+  static const auto expm1 = [&](std::optional<double> a) {
+    return evaluateOnce<double>("expm1(c0)", a);
+  };
+
+  const double kE = std::exp(1);
+
+  // If the argument is NaN, the result is NaN.
+  // If the argument is positive infinity, then the result is positive infinity.
+  // If the argument is negative infinity, then the result is -1.0.
+  // If the argument is zero, then the result is a zero with the same sign as
+  // the argument.
+  EXPECT_TRUE(std::isnan(expm1(kNan).value_or(0)));
+  EXPECT_EQ(expm1(kInf), kInf);
+  EXPECT_EQ(expm1(-kInf), -1);
+  EXPECT_EQ(expm1(0), 0);
+  EXPECT_EQ(expm1(1), kE - 1);
+  // As this is only for high accuracy of little number, we use a little number
+  // 1e-12 which can give the difference. If you use std::exp(x) - 1, the value
+  // may be 1.000009e-12, while the true value should be
+  // below 1.000000000000005e-12.
+  EXPECT_LT(expm1(1e-12), 1.00009e-12);
+}
+
 class BinTest : public SparkFunctionBaseTest {
  protected:
   std::optional<std::string> bin(std::optional<std::int64_t> arg) {

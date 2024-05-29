@@ -112,6 +112,14 @@ Mathematical Functions
 
     Returns Euler's number raised to the power of ``x``.
 
+.. spark:function:: expm1(x) -> double
+
+    Returns Euler's number raised to the power of ``x``, minus 1, which is ``exp(x) - 1`` in math. This function expm1(x) is more accurate than ``exp(x) - 1``, when ``x`` is close to zero.
+    If the argument is NaN, the result is NaN.
+    If the argument is positive infinity, then the result is positive infinity.
+    If the argument is negative infinity, then the result is -1.0.
+    If the argument is zero, then the result is a zero with the same sign as the argument.
+
 .. spark:function:: floor(x) -> [same as x]
 
     Returns ``x`` rounded down to the nearest integer.
