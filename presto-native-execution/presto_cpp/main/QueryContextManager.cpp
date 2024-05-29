@@ -68,10 +68,10 @@ void updateFromSystemConfigs(
 }
 
 std::unordered_map<std::string, std::unordered_map<std::string, std::string>>
-toConnectorConfigs(const protocol::SessionRepresentation& session) {
+toConnectorConfigs(const protocol::TaskUpdateRequest& taskUpdateRequest) {
   std::unordered_map<std::string, std::unordered_map<std::string, std::string>>
       connectorConfigs;
-  for (const auto& entry : session.catalogProperties) {
+  for (const auto& entry : taskUpdateRequest.session.catalogProperties) {
     std::unordered_map<std::string, std::string> connectorConfig;
     // remove native prefix from native connector session property names
     for (const auto& sessionProperty : entry.second) {
@@ -80,6 +80,10 @@ toConnectorConfigs(const protocol::SessionRepresentation& session) {
           : sessionProperty.first;
       connectorConfig.emplace(veloxConfig, sessionProperty.second);
     }
+    connectorConfig.insert(
+        taskUpdateRequest.extraCredentials.begin(),
+        taskUpdateRequest.extraCredentials.end());
+    connectorConfig.insert({"user", taskUpdateRequest.session.user});
     connectorConfigs.insert(
         {entry.first, connectorConfig});
   }
@@ -120,9 +124,11 @@ QueryContextManager::QueryContextManager(
 std::shared_ptr<velox::core::QueryCtx>
 QueryContextManager::findOrCreateQueryCtx(
     const protocol::TaskId& taskId,
-    const protocol::SessionRepresentation& session) {
+    const protocol::TaskUpdateRequest& taskUpdateRequest) {
   return findOrCreateQueryCtx(
-      taskId, toVeloxConfigs(session), toConnectorConfigs(session));
+      taskId,
+      toVeloxConfigs(taskUpdateRequest.session),
+      toConnectorConfigs(taskUpdateRequest));
 }
 
 std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtx(
