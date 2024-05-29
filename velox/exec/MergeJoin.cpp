@@ -35,8 +35,10 @@ MergeJoin::MergeJoin(
       numKeys_{joinNode->leftKeys().size()},
       joinNode_(joinNode) {
   VELOX_USER_CHECK(
-      joinNode_->isInnerJoin() || joinNode_->isLeftJoin(),
-      "Merge join supports only inner and left joins. Other join types are not supported yet.");
+      joinNode_->isInnerJoin() || joinNode_->isLeftJoin() ||
+          joinNode_->isLeftSemiFilterJoin() ||
+          joinNode_->isRightSemiFilterJoin(),
+      "Merge join supports only inner, left and left semi joins. Other join types are not supported yet.");
 }
 
 void MergeJoin::initialize() {
@@ -64,12 +66,24 @@ void MergeJoin::initialize() {
     }
   }
 
+  if (joinNode_->isRightSemiFilterJoin()) {
+    VELOX_USER_CHECK(
+        leftProjections_.empty(),
+        "The left side projections should be empty for right semi join");
+  }
+
   for (auto i = 0; i < rightType->size(); ++i) {
     auto name = rightType->nameOf(i);
     auto outIndex = outputType_->getChildIdxIfExists(name);
     if (outIndex.has_value()) {
       rightProjections_.emplace_back(i, outIndex.value());
     }
+  }
+
+  if (joinNode_->isLeftSemiFilterJoin()) {
+    VELOX_USER_CHECK(
+        rightProjections_.empty(),
+        "The right side projections should be empty for left semi join");
   }
 
   if (joinNode_->filter()) {
@@ -382,6 +396,17 @@ bool MergeJoin::addToOutput() {
         auto rightStart = r == firstRightBatch ? rightStartIndex : 0;
         auto rightEnd =
             r == numRights - 1 ? rightMatch_->endIndex : right->size();
+
+        // TODO: Since semi joins only require determining if there is at least
+        // one match on the other side, we could explore specialized algorithms
+        // or data structures that short-circuit the join process once a match
+        // is found.
+        if (isLeftSemiFilterJoin(joinType_) ||
+            isRightSemiFilterJoin(joinType_)) {
+          // LeftSemiFilter produce each row from the left at most once.
+          // RightSemiFilter produce each row from the right at most once.
+          rightEnd = rightStart + 1;
+        }
 
         for (auto j = rightStart; j < rightEnd; ++j) {
           if (outputSize_ == outputBatchSize_) {
