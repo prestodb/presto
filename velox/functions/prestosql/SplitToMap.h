@@ -16,6 +16,7 @@
 #pragma once
 
 #include "folly/container/F14Set.h"
+#include "velox/common/base/Status.h"
 #include "velox/functions/Udf.h"
 
 namespace facebook::velox::functions {
@@ -27,23 +28,27 @@ struct SplitToMapFunction {
   // Results refer to strings in the first argument.
   static constexpr int32_t reuse_strings_from_arg = 0;
 
-  void call(
+  Status call(
       out_type<Map<Varchar, Varchar>>& out,
       const arg_type<Varchar>& input,
       const arg_type<Varchar>& entryDelimiter,
       const arg_type<Varchar>& keyValueDelimiter) {
-    VELOX_USER_CHECK(!entryDelimiter.empty(), "entryDelimiter is empty");
-    VELOX_USER_CHECK(!keyValueDelimiter.empty(), "keyValueDelimiter is empty");
-    VELOX_USER_CHECK_NE(
-        entryDelimiter,
-        keyValueDelimiter,
-        "entryDelimiter and keyValueDelimiter must not be the same");
+    VELOX_RETURN_IF(
+        entryDelimiter.empty(), Status::UserError("entryDelimiter is empty"));
+    VELOX_RETURN_IF(
+        keyValueDelimiter.empty(),
+        Status::UserError("keyValueDelimiter is empty"));
+    VELOX_RETURN_IF(
+        entryDelimiter == keyValueDelimiter,
+        Status::UserError(
+            "entryDelimiter and keyValueDelimiter must not be the same: {}",
+            entryDelimiter));
 
     if (input.empty()) {
-      return;
+      return Status::OK();
     }
 
-    callImpl(
+    return callImpl(
         out,
         toStringView(input),
         toStringView(entryDelimiter),
@@ -55,7 +60,7 @@ struct SplitToMapFunction {
     return std::string_view(input.data(), input.size());
   }
 
-  void callImpl(
+  Status callImpl(
       out_type<Map<Varchar, Varchar>>& out,
       std::string_view input,
       std::string_view entryDelimiter,
@@ -66,11 +71,11 @@ struct SplitToMapFunction {
 
     auto nextEntryPos = input.find(entryDelimiter, pos);
     while (nextEntryPos != std::string::npos) {
-      processEntry(
+      VELOX_RETURN_NOT_OK(processEntry(
           out,
           std::string_view(input.data() + pos, nextEntryPos - pos),
           keyValueDelimiter,
-          keys);
+          keys));
 
       pos = nextEntryPos + 1;
       nextEntryPos = input.find(entryDelimiter, pos);
@@ -79,30 +84,33 @@ struct SplitToMapFunction {
     // Entry delimiter can be the last character in the input. In this case
     // there is no last entry to process.
     if (pos < input.size()) {
-      processEntry(
+      VELOX_RETURN_NOT_OK(processEntry(
           out,
           std::string_view(input.data() + pos, input.size() - pos),
           keyValueDelimiter,
-          keys);
+          keys));
     }
+
+    return Status::OK();
   }
 
-  void processEntry(
+  Status processEntry(
       out_type<Map<Varchar, Varchar>>& out,
       std::string_view entry,
       std::string_view keyValueDelimiter,
       folly::F14FastSet<std::string_view>& keys) const {
     const auto delimiterPos = entry.find(keyValueDelimiter, 0);
 
-    VELOX_USER_CHECK_NE(
-        delimiterPos,
-        std::string::npos,
-        "Key-value delimiter must appear exactly once in each entry. Bad input: '{}'",
-        entry)
+    VELOX_RETURN_IF(
+        delimiterPos == std::string::npos,
+        Status::UserError(
+            "Key-value delimiter must appear exactly once in each entry. Bad input: '{}'",
+            entry));
 
     const auto key = std::string_view(entry.data(), delimiterPos);
-    VELOX_USER_CHECK(
-        keys.insert(key).second, "Duplicate keys ({}) are not allowed.", key);
+    VELOX_RETURN_IF(
+        !keys.insert(key).second,
+        Status::UnknownError("Duplicate keys ({}) are not allowed.", key));
 
     const auto value = StringView(
         entry.data() + delimiterPos + 1, entry.size() - delimiterPos - 1);
@@ -110,6 +118,8 @@ struct SplitToMapFunction {
     auto [keyWriter, valueWriter] = out.add_item();
     keyWriter.setNoCopy(StringView(key));
     valueWriter.setNoCopy(value);
+
+    return Status::OK();
   }
 };
 
