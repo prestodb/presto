@@ -19,7 +19,9 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static java.lang.Float.floatToIntBits;
+import static com.facebook.presto.common.type.TypeUtils.realCompare;
+import static com.facebook.presto.common.type.TypeUtils.realEquals;
+import static com.facebook.presto.common.type.TypeUtils.realHashCode;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -51,17 +53,18 @@ public final class RealType
     {
         float leftValue = intBitsToFloat(leftBlock.getInt(leftPosition));
         float rightValue = intBitsToFloat(rightBlock.getInt(rightPosition));
-
-        // direct equality is correct here
-        // noinspection FloatingPointEquality
-        return leftValue == rightValue;
+        if (!useNewNanDefinition) {
+            // direct equality is correct here
+            // noinspection FloatingPointEquality
+            return leftValue == rightValue;
+        }
+        return realEquals(leftValue, rightValue);
     }
 
     @Override
     public long hash(Block block, int position)
     {
-        // convert to canonical NaN if necessary
-        return hash(floatToIntBits(intBitsToFloat(block.getInt(position))));
+        return realHashCode(intBitsToFloat(block.getInt(position)));
     }
 
     @Override
@@ -71,7 +74,7 @@ public final class RealType
         // function being the equivalence of internal long representation.
         float leftValue = intBitsToFloat(leftBlock.getInt(leftPosition));
         float rightValue = intBitsToFloat(rightBlock.getInt(rightPosition));
-        return Float.compare(leftValue, rightValue);
+        return realCompare(leftValue, rightValue);
     }
 
     @Override
