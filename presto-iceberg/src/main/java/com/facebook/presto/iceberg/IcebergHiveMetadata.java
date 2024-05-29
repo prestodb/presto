@@ -301,7 +301,7 @@ public class IcebergHiveMetadata
         }
 
         FileFormat fileFormat = getFileFormat(tableMetadata.getProperties());
-        TableMetadata metadata = newTableMetadata(schema, partitionSpec, targetPath, populateTableProperties(tableMetadata, fileFormat));
+        TableMetadata metadata = newTableMetadata(schema, partitionSpec, targetPath, populateTableProperties(tableMetadata, fileFormat, session));
         transaction = createTableTransaction(tableName, operations, metadata);
 
         return new IcebergWritableTableHandle(
