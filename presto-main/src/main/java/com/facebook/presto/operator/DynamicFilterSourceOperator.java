@@ -191,7 +191,7 @@ public class DynamicFilterSourceOperator
         for (int channelIndex = 0; channelIndex < channels.size(); ++channelIndex) {
             Type type = channels.get(channelIndex).getType();
             // Skipping DOUBLE and REAL in collectMinMaxValues to avoid dealing with NaN values
-            if (minMaxCollectionLimit > 0 && type.isOrderable() && type != DOUBLE && type != REAL) {
+            if (minMaxCollectionLimit > 0 && type.isOrderable() && !type.equals(DOUBLE) && !type.equals(REAL)) {
                 minMaxChannelsBuilder.add(channelIndex);
             }
             this.blockBuilders[channelIndex] = type.createBlockBuilder(null, EXPECTED_BLOCK_BUILDER_SIZE);

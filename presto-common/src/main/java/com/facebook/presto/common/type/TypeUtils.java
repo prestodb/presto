@@ -175,10 +175,10 @@ public final class TypeUtils
         requireNonNull(type, "type is null");
         requireNonNull(value, "value is null");
 
-        if (type == DOUBLE) {
+        if (type.equals(DOUBLE)) {
             return Double.isNaN((double) value);
         }
-        if (type == REAL) {
+        if (type.equals(REAL)) {
             return Float.isNaN(intBitsToFloat(toIntExact((long) value)));
         }
         return false;
