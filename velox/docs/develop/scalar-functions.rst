@@ -763,8 +763,8 @@ and eliminate the overhead of calling DecodedVector::valueAt template.
 .. code-block:: c++
 
     if (base->isIdentityMapping() && exp->isIdentityMapping()) {
-      auto baseValues = base->values<double>();
-      auto expValues = exp->values<double>();
+      auto baseValues = base->data<double>();
+      auto expValues = exp->data<double>();
       rows.applyToSelected([&](int row) {
         rawResults[row] = std::pow(baseValues[row], expValues[row]);
       });
@@ -781,13 +781,13 @@ exponent.
 .. code-block:: c++
 
     if (base->isIdentityMapping() && exp->isIdentityMapping()) {
-      auto baseValues = base->values<double>();
-      auto expValues = exp->values<double>();
+      auto baseValues = base->data<double>();
+      auto expValues = exp->data<double>();
       rows.applyToSelected([&](int row) {
         rawResults[row] = std::pow(baseValues[row], expValues[row]);
       });
     } else if (base->isIdentityMapping() && exp->isConstantMapping()) {
-      auto baseValues = base->values<double>();
+      auto baseValues = base->data<double>();
       auto expValue = exp->valueAt<double>(0);
       rows.applyToSelected([&](int row) {
         rawResults[row] = std::pow(baseValues[row], expValue);
