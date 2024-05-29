@@ -22,6 +22,15 @@
 
 namespace facebook::velox::wave {
 
+int32_t GpuDecode::tempSize() const {
+  // The default global memory temp size is 1 int per warp plust 2
+  // ints extra for TB wide coordination. Allows for a cross TB prefix
+  // sum (warp scans shuffle in registers, so only one int needed for
+  // inter-warp communication). This could be shared memory too but
+  // global works just as well, per experiment.
+  return sizeof(int32_t) * (2 + (kBlockSize / kWarpThreads));
+}
+
 int32_t GpuDecode::sharedMemorySize() const {
   return detail::sharedMemorySizeForDecode<kBlockSize>(step);
 }
@@ -31,14 +40,15 @@ int32_t GpuDecode::sharedMemorySize() const {
 /// each thread block. The first TB runs from 0 to ends[0]. The nth runs from
 /// ends[nth-1] to ends[nth]. After gridDim.x ends, we round to an 8 aligned
 /// offset and have an array of GpuDecodes.]
-struct GpuDecodeParams {
+struct alignas(16) GpuDecodeParams {
   // If need to represent more than this many ops, use a dynamically allocated
   // external array in 'external'.
-  static constexpr int32_t kMaxInlineOps = 50;
+  static constexpr int32_t kMaxInlineOps = 19;
 
   // Pointer to standalone description of work. If nullptr, the description of
   // work fits inline in 'this'.
   GpuDecodeParams* external{nullptr};
+  void* padding;
   // The end of each decode program. The first starts at 0. The end is
   // ends[blockIdx.x].
   int32_t ends
@@ -52,7 +62,7 @@ __global__ void decodeKernel(GpuDecodeParams inlineParams) {
   int32_t programStart = blockIdx.x == 0 ? 0 : params->ends[blockIdx.x - 1];
   int32_t programEnd = params->ends[blockIdx.x];
   GpuDecode* ops =
-      reinterpret_cast<GpuDecode*>(&params->ends[0] + roundUp(gridDim.x, 2));
+      reinterpret_cast<GpuDecode*>(&params->ends[0] + roundUp(gridDim.x, 4));
   for (auto i = programStart; i < programEnd; ++i) {
     detail::decodeSwitch<kBlockSize>(ops[i]);
   }
@@ -81,12 +91,14 @@ void launchDecode(
   GpuDecodeParams* params = &localParams;
   if (numOps > GpuDecodeParams::kMaxInlineOps) {
     extra = arena->allocate<char>(
-        (numBlocks + 1) * (sizeof(GpuDecode) + sizeof(int32_t)));
-    params = extra->as<GpuDecodeParams>();
+        (numOps + 1) * (sizeof(GpuDecode) + sizeof(int32_t)) + 16);
+    uintptr_t aligned =
+        roundUp(reinterpret_cast<uintptr_t>(extra->as<char>()), 16);
+    params = reinterpret_cast<GpuDecodeParams*>(aligned);
   }
   int32_t end = programs.programs[0].size();
   GpuDecode* decodes =
-      reinterpret_cast<GpuDecode*>(&params->ends[0] + roundUp(numBlocks, 2));
+      reinterpret_cast<GpuDecode*>(&params->ends[0] + roundUp(numBlocks, 4));
   int32_t fill = 0;
   for (auto i = 0; i < programs.programs.size(); ++i) {
     params->ends[i] =
@@ -97,6 +109,7 @@ void launchDecode(
   }
   if (extra) {
     localParams.external = params;
+    stream->prefetch(getDevice(), extra->as<char>(), extra->size());
   }
 
   decodeKernel<<<numBlocks, kBlockSize, shared, stream->stream()->stream>>>(

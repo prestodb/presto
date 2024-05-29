@@ -503,6 +503,7 @@ WaveStream::fillOperands(Executable& exe, char* start, ExeLaunchInfo& info) {
   });
   Operand* operandBegin = addBytes<Operand*>(
       start, (info.numInput + info.numLocalOps) * sizeof(void*));
+  VELOX_CHECK_EQ(0, reinterpret_cast<uintptr_t>(operandBegin) & 7);
   int32_t* indicesBegin =
       addBytes<int32_t*>(operandBegin, info.numLocalOps * sizeof(Operand));
   for (auto& [id, ptr] : info.localWrap) {
@@ -628,6 +629,7 @@ LaunchControl* WaveStream::prepareProgramLaunch(
     control.status = inputControl->status;
   }
   char* operandStart = addBytes<char*>(start, operandOffset);
+  VELOX_CHECK_EQ(0, reinterpret_cast<uintptr_t>(operandStart) & 7);
   int32_t fill = 0;
   for (auto i = 0; i < exes.size(); ++i) {
     control.programs[i] = exes[i]->program;

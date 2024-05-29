@@ -38,6 +38,8 @@ class Loader {
   bool loadTail_{false};
 };
 
+int32_t waveTypeKindSize(WaveTypeKind kind);
+
 /// Represents a vector of device side intermediate results. Vector is
 /// a host side only structure, the WaveBufferPtrs own the device
 /// memory. Unlike Velox vectors, these are statically owned by Wave

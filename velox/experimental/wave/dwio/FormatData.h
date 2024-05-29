@@ -34,6 +34,9 @@ class WaveStream;
 // Describes how a column is staged on GPU, for example, copy from host RAM,
 // direct read, already on device etc.
 struct Staging {
+  Staging(const void* hostData, int32_t size)
+      : hostData(hostData), size(size) {}
+
   // Pointer to data in pageable host memory, if applicable.
   const void* hostData{nullptr};
 
@@ -58,10 +61,13 @@ class SplitStaging {
   /// Registers '*ptr' to be patched to the device side address of the transfer
   /// identified by 'id'. The *ptr is an offset into the buffer identified by
   /// id, so that the actual start of the area is added to the offset at *ptr.
+  /// If 'clear' is true, *ptr is set to nullptr first.
   template <typename T>
-  void registerPointer(BufferId id, T pointer) {
+  void registerPointer(BufferId id, T pointer, bool clear) {
     registerPointerInternal(
-        id, reinterpret_cast<void**>(reinterpret_cast<uint64_t>(pointer)));
+        id,
+        reinterpret_cast<void**>(reinterpret_cast<uint64_t>(pointer)),
+        clear);
   }
 
   int64_t bytesToDevice() const {
@@ -71,7 +77,7 @@ class SplitStaging {
   void transfer(WaveStream& waveStream, Stream& stream);
 
  private:
-  void registerPointerInternal(BufferId id, void** ptr);
+  void registerPointerInternal(BufferId id, void** ptr, bool clear);
 
   // Pinned host memory for transfer to device. May be nullptr if using unified
   // memory.
@@ -100,17 +106,28 @@ class ResultStaging {
 
   /// Registers '*pointer' to be patched to the buffer. The starting address of
   /// the buffer is added to *pointer, so that if *pointer was 16, *pointer will
-  /// come to point to the 16th byte in the buffer.
+  /// come to point to the 16th byte in the buffer. If 'clear' is true, *ptr is
+  /// set to nullptr first.
   template <typename T>
-  void registerPointer(BufferId id, T pointer) {
+  void registerPointer(BufferId id, T pointer, bool clear) {
     registerPointerInternal(
-        id, reinterpret_cast<void**>(reinterpret_cast<uint64_t>(pointer)));
+        id,
+        reinterpret_cast<void**>(reinterpret_cast<uint64_t>(pointer)),
+        clear);
   }
+
+  /// Creates a device side buffer for the reserved space and patches all the
+  /// registered pointers to offsets inside the device side buffer.  Retains
+  /// ownership of the device side buffer. Clears any reservations and
+  /// registrations so that new ones can be reserved and registered. This cycle
+  /// may repeat multiple times.  The device side buffers are freed on
+  /// destruction.
+  void makeDeviceBuffer(GpuArena& arena);
 
   void setReturnBuffer(GpuArena& arena, DecodePrograms& programs);
 
  private:
-  void registerPointerInternal(BufferId id, void** pointer);
+  void registerPointerInternal(BufferId id, void** pointer, bool clear);
 
   // Offset of each result in either buffer.
   std::vector<int32_t> offsets_;
@@ -120,16 +137,37 @@ class ResultStaging {
   int32_t fill_{0};
   WaveBufferPtr deviceBuffer_;
   WaveBufferPtr hostBuffer_;
+  std::vector<WaveBufferPtr> buffers_;
 };
 
 using RowSet = folly::Range<const int32_t*>;
 class ColumnReader;
 
+/// Information that allows a column to be read in parallel independent thread
+/// blocks. This represents an array of starting points inside the encoded
+/// column.
+struct ColumnGridInfo {
+  /// Number of independently schedulable blocks.
+  int32_t numBlocks;
+
+  ///
+  BlockStatus* status{nullptr};
+
+  /// Device readable nulls as a flat bitmap. 1 is non-null. nullptr means
+  /// non-null.
+  char* nulls{nullptr};
+
+  /// Device side array of non-null counts. Decoding for values for the ith
+  /// block starts at index 'nonNullCount[i - 1]' in encoded values. nullptr if
+  /// non nulls.
+  int32_t* numNonNull{nullptr};
+};
+
 // Specifies an action on a column. A column is not indivisible. It
 // has parts and another column's decode may depend on one part of
 // another column but not another., e.g. a child of a nullable struct
 // needs the nulls of the struct but no other parts to decode.
-enum class ColumnAction { kNulls, kFilter, kLengths, kValues };
+enum class ColumnAction { kNulls = 1, kLengths = 2, kFilter = 4, kValues = 8 };
 
 /// A generic description of a decode step. The actual steps are
 /// provided by FormatData specializations but this captures
@@ -166,6 +204,15 @@ struct ColumnOp {
   // Device side non-vector result, like set of passing rows, array of
   // lengths/starts etc.
   int32_t* deviceResult{nullptr};
+  // Id of 'deviceResult' from resultStaging. A subsequent op must refer to the
+  // result of the previous one before the former is allocated.
+  BufferId deviceResultId{kNoBufferId};
+
+  // Id of extra filter passing row count. Needed for aligning values from
+  // non-last filtered columns to final.
+  int32_t* extraRowCount{nullptr};
+  BufferId extraRowCountId{kNoBufferId};
+
   int32_t* hostResult{nullptr};
 };
 
@@ -204,6 +251,27 @@ class FormatData {
   /// column is in terms of the column, not in terms of top level rows.
   virtual void newBatch(int32_t startRow) = 0;
 
+  /// Schedules operations for preparing the encoded data to be
+  /// consumed in 'numBlocks' parallel blocks of 'blockSize' rows. For
+  /// example, for a column of 11M nullable varints, this with 1024
+  /// blocksize and 2048 blocks, this would count 2M bits and write a
+  /// prefix sum every 1K bits, so that we know the corresponding
+  /// position in the varints for non-nulls. Then for the varints, we
+  /// write the starting offset every 1K nulls, e.g, supposing 2 bytes
+  /// per varint and 800 non-nulls for every 1K bits, we get 0, 1600,
+  /// 3600, ... as starts for the varints. The FormatData stores the
+  /// intermediates. This is a no-op for encodings that are random
+  /// access capable, e.g. non-null bit packings. this is a also a
+  /// no-op if there are less than 'blockSize' rows left.
+  virtual void griddize(
+      int32_t blockSize,
+      int32_t numBlocks,
+      ResultStaging& deviceStaging,
+      ResultStaging& resultStaging,
+      SplitStaging& staging,
+      DecodePrograms& program,
+      ReadStream& stream) = 0;
+
   /// Adds the next read of the column. If the column is a filter depending on
   /// another filter, the previous filter is given on the first call. Updates
   /// status of 'op'.
@@ -215,6 +283,21 @@ class FormatData {
       SplitStaging& staging,
       DecodePrograms& program,
       ReadStream& stream) = 0;
+
+ protected:
+  std::unique_ptr<GpuDecode> makeStep(
+      ColumnOp& op,
+      const ColumnOp* previousFilter,
+      ResultStaging& deviceStaging,
+      ReadStream& stream,
+      WaveTypeKind columnKind,
+      int32_t blockIdx);
+
+  // First unaccessed row number relative to start of 'this'.
+  int32_t currentRow_{0};
+
+  ColumnGridInfo grid_;
+  bool griddized_{false};
 };
 
 class FormatParams {

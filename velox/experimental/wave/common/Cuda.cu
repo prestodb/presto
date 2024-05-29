@@ -242,7 +242,7 @@ bool registerKernel(const char* name, const void* func) {
   return true;
 }
 
-KernelInfo kernelInfo(const const void* func) {
+KernelInfo kernelInfo(const void* func) {
   cudaFuncAttributes attrs;
   CUDA_CHECK_FATAL(cudaFuncGetAttributes(&attrs, func));
   KernelInfo info;

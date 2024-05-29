@@ -40,8 +40,27 @@ __host__ __device__ constexpr inline T roundUp(T value, U factor) {
 }
 
 template <typename T>
-T __device__ __host__ lowMask(int32_t bits) {
-  return (static_cast<T>(1) << bits) - 1;
+constexpr T __device__ __host__ lowMask(int32_t bits) {
+  /****
+   * NVCC BUG: If the special case for 32 is not in, all modes except -G
+   * produce a 0 mask for 32 bits.
+   ****/
+  return bits == 32 ? 0xffffffff : (static_cast<T>(1) << bits) - 1;
+}
+
+template <typename T>
+constexpr inline __device__ __host__ T highMask(int32_t bits) {
+  return lowMask<T>(bits) << ((sizeof(T) * 8) - bits);
+}
+
+template <typename T>
+inline T* __device__ __host__ addBytes(T* ptr, int bytes) {
+  return reinterpret_cast<T*>(reinterpret_cast<char*>(ptr) + bytes);
+}
+
+template <typename T>
+inline const T* __device__ __host__ addBytes(const T* ptr, int bytes) {
+  return reinterpret_cast<const T*>(reinterpret_cast<const char*>(ptr) + bytes);
 }
 
 __device__ __host__ inline int

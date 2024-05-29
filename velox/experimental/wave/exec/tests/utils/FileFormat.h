@@ -48,6 +48,10 @@ struct Column {
 
   /// Frame of reference base for kFlat.
   int64_t baseline{0};
+
+  /// Encoded column with 'numValues' null bits, nullptr if no nulls. If set,
+  /// 'values' has an entry for each non-null.
+  std::unique_ptr<Column> nulls;
 };
 
 struct Stripe {
@@ -111,6 +115,8 @@ class Encoder : public EncoderBase {
 
   void add(T data);
 
+  void addNull();
+
   int64_t flatSize();
   int64_t dictSize();
 
@@ -139,6 +145,8 @@ class Encoder : public EncoderBase {
 
   StringSet dictStrings_;
   StringSet allStrings_;
+  // If nulls occur, has a 1 bit for each non-null. Empty if no nulls.
+  std::vector<uint64_t> nulls_;
 };
 
 template <>

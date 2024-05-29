@@ -396,7 +396,6 @@ void BlockTestStream::hashTest(
     GpuHashTableBase* table,
     HashRun& run,
     HashCase mode) {
-  constexpr int32_t kBlockSize = 256;
   int32_t shared = 0;
   if (mode == HashCase::kGroup) {
     shared = GpuHashTable::updatingProbeSharedSize();
@@ -606,6 +605,53 @@ void BlockTestStream::scatterBits(
       temp ? 0 : scatterBitsDeviceSize(256),
       stream_->stream>>>(
       numSource, numTarget, source, targetMask, target, temp);
+}
+
+void __global__ nonNullIndexKernel(
+    char* nulls,
+    int32_t* rows,
+    int32_t numRows,
+    int32_t* indices,
+    int32_t* temp) {
+  if (threadIdx.x == 0) {
+    temp[0] = countBits(reinterpret_cast<uint64_t*>(nulls), 0, rows[0]);
+    temp[1] = 0;
+  }
+  __syncthreads();
+  for (auto i = 0; i < numRows; i += blockDim.x) {
+    auto last = min(i + 256, numRows);
+    if (isDense(rows, i, last)) {
+      indices[i + threadIdx.x] =
+          nonNullIndex256(nulls, rows[i], last - i, temp, temp + 2);
+    } else {
+      // If a non-contiguous run is followed by a contiguous run, add the
+      // non-nulls after between the runs to the total.
+      if (threadIdx.x == 0) {
+        int32_t nextLast = min(last + 256, numRows);
+        // If the next 256 rows are dense, then add the non-nulls between the
+        // last of the sparse and the first of the dense.
+        if (isDense(rows, last, nextLast)) {
+          temp[1] = countBits(
+              reinterpret_cast<uint64_t*>(nulls),
+              rows[last - 1] + 1,
+              rows[last]);
+        }
+      }
+      indices[i + threadIdx.x] =
+          nonNullIndex256Sparse(nulls, rows, i, last, temp, temp + 1, temp + 2);
+    }
+  }
+  __syncthreads();
+}
+
+void BlockTestStream::nonNullIndex(
+    char* nulls,
+    int32_t* rows,
+    int32_t numRows,
+    int32_t* indices,
+    int32_t* temp) {
+  nonNullIndexKernel<<<1, 256, 0, stream_->stream>>>(
+      nulls, rows, numRows, indices, temp);
 }
 
 REGISTER_KERNEL("testSort", testSort);

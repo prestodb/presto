@@ -448,3 +448,73 @@ TEST_F(BlockTest, scatterBits) {
   scatterBitsTest(12345999, 42);
   scatterBitsTest(12345999, 96);
 }
+
+TEST_F(BlockTest, nonNull) {
+  constexpr int32_t kNumRows = 4 << 20;
+  WaveBufferPtr nullsBuffer =
+      arena_->allocate<uint64_t>(bits::nwords(kNumRows));
+  WaveBufferPtr indicesBuffer = arena_->allocate<int32_t>(kNumRows);
+  WaveBufferPtr rowsBuffer = arena_->allocate<int32_t>(kNumRows);
+  WaveBufferPtr temp = arena_->allocate<int32_t>(1000);
+  auto nulls = nullsBuffer->as<uint64_t>();
+  const char* text =
+      "les loopiettes, les loopiettes, comme elles sont chouettes"
+      " parfois ci, parfois ca, parfois tu 'l sais pas";
+  auto len = strlen(text) - 8;
+  for (auto i = 0; i < kNumRows; i += 4096) {
+    // Every run of 4096 bits, i.e. 64 words has 16 nulls, 16 nonnulls and 32
+    // mostly nonn-nulls.
+    auto run = nulls + (i / 64);
+    memset(run, 0, 128);
+    memset(run + 16, 0xff, 128);
+    for (auto j = 32; j < 64; ++j) {
+      run[j] = bits::hashMix(
+                   1, *reinterpret_cast<const int64_t*>(text + (j % len))) |
+          bits::hashMix(
+                   0x1008, *reinterpret_cast<const int64_t*>(text + (i % len)));
+    }
+  }
+  // Add a single non-null before the first accessed row.
+  nulls[0] |= 1;
+  auto rows = rowsBuffer->as<int32_t>();
+  int32_t row = 2;
+  int32_t numRows = 0;
+  bool dense = true;
+  while (row < kNumRows) {
+    rows[numRows++] = row;
+
+    if (dense) {
+      ++row;
+    } else {
+      row += 1 + (numRows % 9) + (numRows % 111 == 0 ? 131 : 0);
+    }
+    if (numRows % 611 == 0) {
+      dense = !dense;
+    }
+  }
+
+  int32_t count = 0;
+  int32_t counted = 0;
+  auto nullsBelow = [&](int32_t i) {
+    count += bits::countBits(nulls, counted, i);
+    counted = i;
+    return i - count;
+  };
+
+  auto result = indicesBuffer->as<int32_t>();
+  auto rawTemp = temp->as<int32_t>();
+  BlockTestStream stream;
+  stream.nonNullIndex(
+      reinterpret_cast<char*>(nulls), rows, numRows, result, rawTemp);
+  stream.wait();
+  for (auto i = 0; i < numRows; ++i) {
+    if (result[i] == -1) {
+      ASSERT_FALSE(bits::isBitSet(nulls, rows[i]))
+          << "i=" << i << " rows[i]=" << rows[i];
+    } else {
+      ASSERT_EQ(result[i], rows[i] - nullsBelow(rows[i]))
+          << "i=" << i << " rows[i]=" << rows[i];
+      ;
+    }
+  }
+}

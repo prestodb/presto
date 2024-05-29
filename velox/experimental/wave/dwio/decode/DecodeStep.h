@@ -22,9 +22,46 @@
 
 namespace facebook::velox::wave {
 
+enum class NullMode : uint8_t {
+  kDenseNonNull,
+  kSparseNonNull,
+  kDenseNullable,
+  kSparseNullable
+};
+
+enum class WaveFilterKind : uint8_t {
+  kAlwaysTrue,
+  kNotNull,
+  kNull,
+  kBigintRange,
+  kDoubleRange,
+  kFloatRange,
+  kBigintValues
+};
+
+struct alignas(16) WaveFilterBase {
+  union {
+    int64_t int64Range[2];
+    float floatRange[2];
+    double doubleRange[2];
+    struct {
+      int32_t size;
+      void* table;
+    } values;
+  } _;
+  // flags for float/double range.
+  bool lowerUnbounded;
+  bool upperUnbounded;
+  bool lowerExclusive;
+  bool upperExclusive;
+};
+
 /// Instructions for GPU decode.  This can be decoding,
 /// or pre/post processing other than decoding.
 enum class DecodeStep {
+  kSelective32,
+  kCompact64,
+  kSelective64,
   kConstant32,
   kConstant64,
   kConstantChar,
@@ -55,13 +92,104 @@ enum class DecodeStep {
   kFlatMap,
   kFlatMapNode,
   kRowCountNoFilter,
+  kCountBits,
   kUnsupported,
 };
 
+class ColumnReader;
+
 /// Describes a decoding loop's input and result disposition.
-struct GpuDecode {
+struct alignas(16) GpuDecode {
+  /// Constant in 'numRows' to signify the number comes from 'blockstatus'.
+  static constexpr int32_t kFilterHits = -1;
+
   // The operation to perform. Decides which branch of the union to use.
   DecodeStep step;
+  DecodeStep encoding;
+
+  WaveTypeKind dataType;
+
+  /// If false, implies a not null filter. If there is a filter, specifies
+  /// whether nulls pass.
+  bool nullsAllowed{true};
+
+  WaveFilterKind filterKind{WaveFilterKind::kAlwaysTrue};
+
+  NullMode nullMode;
+
+  // Ordinal number of TB in TBs working on the same column. Each TB does a
+  // multiple of TB width rows. The TBs for different ranges of rows are
+  // launched in the same grid but are independent. The ordinal for non-first
+  // TBs gets the base index for values.
+  uint8_t nthBlock{0};
+
+  /// Number of chunks (e.g. Parquet pages). If > 1, different rows row ranges
+  /// have different encodings. The first chunk's encoding is in 'data'. The
+  /// next chunk's encoding is in the next GpuDecode's 'data'. Each chunk has
+  /// its own 'nulls'. The input row numbers and output data/row numbers are
+  /// given by the first GpuDecode.
+  uint8_t numChunks{1};
+
+  uint16_t numRowsPerThread{1};
+
+  /// Number of rows to decode. if kFilterHits, the previous GpuDecode gives
+  /// this number in BlockStatus. If 'rows' is set, this is the number of valid
+  /// elements in 'rows'. If 'rows' is not set, the start is ''baseRow'
+  int32_t maxRow{0};
+
+  // If rows are densely decoded, this is the first row in terms of nullable
+  // rows to decode in this TB.
+  int32_t baseRow{0};
+
+  /// Row count from filter. If a filter precedes this, the row count
+  /// is read from this and 'rows' is set to the result row
+  /// numbers. If this is a filter, the row count is written to
+  /// 'blockStatus' and the row numbers are written to
+  /// 'resultRows'. There is one BlockStatus for each kBlockSize rows
+  /// in the grid. One TB covers 'numRowsPerThread' consecutive
+  /// BlockStatuses. Because the previous filter for the range of rows
+  /// is in the same TB read and write of row count is ordered by
+  /// syncthreads at the end of each filter. The subscript is
+  /// 'nthBlock * numRowsPerThread + <nth loop>'.
+  BlockStatus* blockStatus{nullptr};
+
+  /// Extra copy of result row count for each of kBlockSize rows if
+  /// this is a filter. This is needed for non-last filters that
+  /// extract values. The values have to be aligned after the final
+  /// filtering result is known. This is no longer available in
+  /// blockStatus.
+  int32_t* filterRowCount{nullptr};
+
+  // If multiple TBs on the same column and there are nulls, this is the start
+  // offset of the TB's range of rows in non-null values. nullptr if no nulls.
+  int32_t* nonNullBases{nullptr};
+
+  /// If there are multiple chunks, this is an array of starts of non-first
+  /// chunks.
+  int32_t* chunkBounds{nullptr};
+
+  /// If results will be scattered because of nulls, this is the bitmap with a 0
+  /// for null. Subscripted with row number in encoding unit.
+  char* nulls{nullptr};
+
+  // If rows are sparsely decoded, this is the array of row numbers to extract.
+  // The numbers are in terms of nullable rows.
+  int32_t* rows{nullptr};
+
+  // Data for pushed down filter. Interpretation depends on 'filterKind'.
+  WaveFilterBase filter;
+
+  // Temp storage. Requires 2 + (kBlockSize / kWarpThreads) ints for each TB.
+  int32_t* temp;
+
+  /// Row numbers that pass 'filter'. nullptr if no filter.
+  int32_t* resultRows{nullptr};
+
+  /// Result nulls.
+  uint8_t* resultNulls{nullptr};
+
+  /// Result array. nullptr if filter only.
+  void* result{nullptr};
 
   struct Trivial {
     // Type of the input and result data.
@@ -198,6 +326,31 @@ struct GpuDecode {
     BlockStatus* status;
   };
 
+  struct CountBits {
+    const uint8_t* bits;
+    // Number of bits. A count is produced for each run of 'resultStride' bits
+    // fully included in 'numBits'. If numBits is 600 and resultStride is 256
+    // then result[0] is the count of ones in the first 256, then result[1] is
+    // the count of ones in the first 512 and result[2] is unset.
+    int32_t numBits;
+    // 256/512/1024/2048.
+    int32_t resultStride;
+    // One int per warp (blockDim.x/32).
+  };
+
+  struct CompactValues {
+    // Selected row numbers from the source filtered column.
+    int32_t* sourceRows;
+    // Row count for each kBlockSize rows of the source.
+    int32_t* sourceNumRows;
+    /// The rows selected by the last filter. blockStatus has the count.
+    int32_t* finalRows;
+    /// The results produced by the first filtered column.
+    void* source;
+    /// Null flags. nullptr if not nullable.
+    uint8_t* sourceNull;
+  };
+
   union {
     Trivial trivial;
     MainlyConstant mainlyConstant;
@@ -208,11 +361,21 @@ struct GpuDecode {
     Rle rle;
     MakeScatterIndices makeScatterIndices;
     RowCountNoFilter rowCountNoFilter;
+    CountBits countBits;
+    CompactValues compact;
   } data;
 
-  /// Returns the amount f shared memory for standard size thread block for
+  /// Returns the amount of int aligned global memory per TB needed in 'temp'
+  /// for standard size TB.
+  int32_t tempSize() const;
+
+  /// Returns the amount of shared memory for standard size thread block for
   /// 'step'.
   int32_t sharedMemorySize() const;
+
+  /// Sets the pushed down filter from ScanSpec of 'reader'. Uses 'stream' to
+  /// setup device-side data like hash tables.
+  void setFilter(ColumnReader* reader, Stream* stream);
 };
 
 struct DecodePrograms {
