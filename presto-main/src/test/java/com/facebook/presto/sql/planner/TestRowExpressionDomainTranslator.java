@@ -201,9 +201,9 @@ public class TestRowExpressionDomainTranslator
         assertEquals(toPredicate(tupleDomain), and(lessThan(C_BIGINT, bigintLiteral(4L)), not(bigintIn(C_BIGINT, ImmutableList.of(1L, 2L, 3L)))));
 
         testDomain = Domain.create(ValueSet.ofRanges(
-                Range.range(BIGINT, 1L, true, 3L, true),
-                Range.range(BIGINT, 5L, true, 7L, true),
-                Range.range(BIGINT, 9L, true, 11L, true)),
+                        Range.range(BIGINT, 1L, true, 3L, true),
+                        Range.range(BIGINT, 5L, true, 7L, true),
+                        Range.range(BIGINT, 9L, true, 11L, true)),
                 false);
 
         tupleDomain = withColumnDomains(ImmutableMap.<VariableReferenceExpression, Domain>builder().put(C_BIGINT, testDomain).build());
@@ -212,7 +212,7 @@ public class TestRowExpressionDomainTranslator
 
         testDomain = Domain.create(
                 ValueSet.ofRanges(
-                        Range.lessThan(BIGINT, 4L))
+                                Range.lessThan(BIGINT, 4L))
                         .intersect(ValueSet.all(BIGINT)
                                 .subtract(ValueSet.ofRanges(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L), Range.equal(BIGINT, 3L))))
                         .union(ValueSet.ofRanges(Range.range(BIGINT, 7L, true, 9L, true))), false);
@@ -1444,7 +1444,7 @@ public class TestRowExpressionDomainTranslator
 
         public boolean isFractional()
         {
-            return input.getType() == DOUBLE || input.getType() == REAL || (input.getType() instanceof DecimalType && ((DecimalType) input.getType()).getScale() > 0);
+            return input.getType().equals(DOUBLE) || input.getType().equals(REAL) || (input.getType() instanceof DecimalType && ((DecimalType) input.getType()).getScale() > 0);
         }
     }
 }

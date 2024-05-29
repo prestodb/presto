@@ -316,6 +316,7 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.DoubleType.OLD_NAN_DOUBLE;
 import static com.facebook.presto.common.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.JsonType.JSON;
@@ -323,6 +324,7 @@ import static com.facebook.presto.common.type.KdbTreeType.KDB_TREE;
 import static com.facebook.presto.common.type.KllSketchParametricType.KLL_SKETCH;
 import static com.facebook.presto.common.type.P4HyperLogLogType.P4_HYPER_LOG_LOG;
 import static com.facebook.presto.common.type.QuantileDigestParametricType.QDIGEST;
+import static com.facebook.presto.common.type.RealType.OLD_NAN_REAL;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TDigestParametricType.TDIGEST;
@@ -605,14 +607,14 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .build(CacheLoader.from(this::instantiateParametricType));
 
         registerBuiltInFunctions(getBuiltInFunctions(featuresConfig));
-        registerBuiltInTypes();
+        registerBuiltInTypes(featuresConfig);
 
         for (Type type : requireNonNull(types, "types is null")) {
             addType(type);
         }
     }
 
-    private void registerBuiltInTypes()
+    private void registerBuiltInTypes(FeaturesConfig featuresConfig)
     {
         // always add the built-in types; Presto will not function without these
         addType(UNKNOWN);
@@ -621,8 +623,14 @@ public class BuiltInTypeAndFunctionNamespaceManager
         addType(INTEGER);
         addType(SMALLINT);
         addType(TINYINT);
-        addType(DOUBLE);
-        addType(REAL);
+        if(!featuresConfig.getUseNewNanDefinition()) {
+            addType(OLD_NAN_DOUBLE);
+            addType(OLD_NAN_REAL);
+
+        } else {
+            addType(DOUBLE);
+            addType(REAL);
+        }
         addType(VARBINARY);
         addType(DATE);
         addType(TIME);

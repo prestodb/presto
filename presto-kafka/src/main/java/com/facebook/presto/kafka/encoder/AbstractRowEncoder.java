@@ -91,10 +91,10 @@ public abstract class AbstractRowEncoder
         else if (type == TINYINT) {
             appendByte(SignedBytes.checkedCast(type.getLong(block, position)));
         }
-        else if (type == DOUBLE) {
+        else if (type.equals(DOUBLE)) {
             appendDouble(type.getDouble(block, position));
         }
-        else if (type == REAL) {
+        else if (type.equals(REAL)) {
             appendFloat(intBitsToFloat(toIntExact(type.getLong(block, position))));
         }
         else if (isVarcharType(type)) {

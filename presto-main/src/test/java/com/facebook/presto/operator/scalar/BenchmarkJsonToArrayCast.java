@@ -151,7 +151,7 @@ public class BenchmarkJsonToArrayCast
             if (valueType == BIGINT) {
                 return Long.toString(ThreadLocalRandom.current().nextLong());
             }
-            else if (valueType == DOUBLE) {
+            else if (valueType.equals(DOUBLE)) {
                 return Double.toString(ThreadLocalRandom.current().nextDouble());
             }
             else if (valueType == VARCHAR) {

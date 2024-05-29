@@ -29,11 +29,15 @@ public final class DoubleType
         extends AbstractPrimitiveType
         implements FixedWidthType
 {
-    public static final DoubleType DOUBLE = new DoubleType();
+    public static final DoubleType DOUBLE = new DoubleType(true);
+    public static final DoubleType OLD_NAN_DOUBLE = new DoubleType(false);
 
-    private DoubleType()
+    private final boolean useNewNanDefintion;
+
+    private DoubleType(boolean useNewNanDefintion)
     {
         super(parseTypeSignature(StandardTypes.DOUBLE), double.class);
+        this.useNewNanDefintion = useNewNanDefintion;
     }
 
     @Override
@@ -149,7 +153,7 @@ public final class DoubleType
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     public boolean equals(Object other)
     {
-        return other == DOUBLE;
+        return other instanceof DoubleType;
     }
 
     @Override
