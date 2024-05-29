@@ -28,13 +28,22 @@ function install_jwt_cpp {
   cmake_install -DBUILD_TESTS=OFF -DJWT_BUILD_EXAMPLES=OFF -DJWT_DISABLE_PICOJSON=ON -DJWT_CMAKE_FILES_INSTALL_DIR="${DEPENDENCY_DIR}/jwt-cpp"
 }
 
+function install_prometheus_cpp() {
+  github_checkout jupp0r/prometheus-cpp v1.2.4 --depth 1
+  git submodule init
+  git submodule update
+  cmake_install -DBUILD_SHARED_LIBS=ON -DENABLE_PUSH=OFF -DENABLE_COMPRESSION=OFF
+}
+
 cd "${DEPENDENCY_DIR}" || exit
 
 install_jwt=0
+install_prometheus_cpp=0
 
 if [ "$#" -eq 0 ]; then
     # Install all adapters by default
     install_jwt=1
+    install_prometheus_cpp=1
 fi
 
 while [[ $# -gt 0 ]]; do
@@ -43,15 +52,24 @@ while [[ $# -gt 0 ]]; do
       install_jwt=1
       shift # past argument
       ;;
+    prometheus)
+      install_prometheus_cpp=1;
+      shift
+          ;;
     *)
       echo "ERROR: Unknown option $1! will be ignored!"
       shift
       ;;
+
   esac
 done
 
 if [ $install_jwt -eq 1 ]; then
   install_jwt_cpp
+fi
+
+if [ $install_prometheus_cpp -eq 1 ]; then
+  install_prometheus_cpp
 fi
 
 _ret=$?
