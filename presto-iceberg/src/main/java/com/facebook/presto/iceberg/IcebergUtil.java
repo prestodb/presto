@@ -129,6 +129,7 @@ import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_PARTI
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_TABLE_TIMESTAMP;
 import static com.facebook.presto.iceberg.IcebergPartitionType.IDENTITY;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isMergeOnReadModeEnabled;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getCommitRetries;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getFormatVersion;
@@ -177,6 +178,8 @@ import static org.apache.iceberg.TableProperties.DELETE_MODE;
 import static org.apache.iceberg.TableProperties.DELETE_MODE_DEFAULT;
 import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
 import static org.apache.iceberg.TableProperties.MERGE_MODE;
+import static org.apache.iceberg.TableProperties.ORC_COMPRESSION;
+import static org.apache.iceberg.TableProperties.PARQUET_COMPRESSION;
 import static org.apache.iceberg.TableProperties.UPDATE_MODE;
 import static org.apache.iceberg.TableProperties.WRITE_LOCATION_PROVIDER_IMPL;
 import static org.apache.iceberg.types.Type.TypeID.BINARY;
@@ -1037,12 +1040,20 @@ public final class IcebergUtil
         }
     }
 
-    public static Map<String, String> populateTableProperties(ConnectorTableMetadata tableMetadata, FileFormat fileFormat)
+    public static Map<String, String> populateTableProperties(ConnectorTableMetadata tableMetadata, FileFormat fileFormat, ConnectorSession session)
     {
         ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builderWithExpectedSize(5);
         Integer commitRetries = getCommitRetries(tableMetadata.getProperties());
         propertiesBuilder.put(DEFAULT_FILE_FORMAT, fileFormat.toString());
         propertiesBuilder.put(COMMIT_NUM_RETRIES, String.valueOf(commitRetries));
+        switch (fileFormat) {
+            case PARQUET:
+                propertiesBuilder.put(PARQUET_COMPRESSION, getCompressionCodec(session).getParquetCompressionCodec().get().toString());
+                break;
+            case ORC:
+                propertiesBuilder.put(ORC_COMPRESSION, getCompressionCodec(session).getOrcCompressionKind().name());
+                break;
+        }
         if (tableMetadata.getComment().isPresent()) {
             propertiesBuilder.put(TABLE_COMMENT, tableMetadata.getComment().get());
         }
