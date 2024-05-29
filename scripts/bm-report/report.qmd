@@ -1,0 +1,333 @@
+---
+title: "Velox Build Metrics"
+execute:
+  echo: false
+  warning: false
+format:
+  html:
+    grid:
+        sidebar-width: 0px
+        body-width: 1800px
+        margin-width: 150px
+        gutter-width: 1.5rem
+    self-contained: true
+    page-layout: full
+    toc: false
+    margin-left: 30px
+    link-external-newwindow: true
+    theme: cosmo
+---
+
+
+
+
+```{r setup}
+library(gt)
+library(ggplot2)
+library(plotly)
+library(dplyr)
+library(purrr)
+
+# Cache conbench and gh api results for local development
+cd <- cachem::cache_disk(rappdirs::user_cache_dir("velox-bm-report"))
+mgh <- memoise::memoise(gh::gh, cache = cd)
+mruns <- memoise::memoise(conbenchcoms::runs, cache = cd)
+mresults <- memoise::memoise(conbenchcoms::benchmark_results, cache = cd)
+
+# Get latest runs of build-metric job 
+runs <- mgh(
+  "GET /repos/facebookincubator/velox/actions/workflows/build-metrics.yml/runs",
+  status = "success",
+  branch = "main"
+) |> jsonlite::toJSON()
+
+# Extract the commit sha of the most recent run. The results of the latest
+# run are displayed in the tables.
+newest_sha <- runs |>
+  jqr::jq(".workflow_runs | max_by(.updated_at) | .head_sha") |>
+  jsonlite::fromJSON()
+
+run_shas <- runs |>
+  jqr::jq("[.workflow_runs[].head_sha]") |>
+  jsonlite::fromJSON()
+run_ids <- mruns(run_shas) |>
+  filter(commit.branch == "facebookincubator:main", substr(id, 1, 2) == "BM") |>
+  pull(id)
+
+# Fetch the result and do clean/format the data
+results <- run_ids |>
+  purrr::map_df(mresults) |>
+  mutate(
+    timestamp = lubridate::as_datetime(timestamp),
+    stats.data = unlist(stats.data),
+    type = case_when(
+      startsWith(run_id, "BM-debug") ~ "debug",
+      .default = "release"
+    )
+  )
+```
+
+```{r ggplot2-specs}
+theme_set(theme_minimal(base_size = 12) %+replace%
+  theme(
+    plot.title.position = "plot",
+    strip.text = element_text(size = 12)
+  ))
+
+format_tags <- function(x) {
+  x |>
+    stringr::str_replace_all("_", " ") |>
+    stringr::str_to_title()
+}
+```
+
+::::: {.panel-tabset}
+
+## Times
+```{r total-graphs}
+# Filter the data and layout the overview plots
+times_plot <- results |>
+  filter(tags.suite == "total", endsWith(tags.source, "time")) |>
+  mutate(
+    stats.data = lubridate::dseconds(stats.data),
+    tags.name = format_tags(tags.name)
+  ) |>
+  ggplot(aes(
+    x = timestamp,
+    y = stats.data,
+    group = interaction(tags.name, type), color = tags.name
+  )) +
+  facet_wrap(~type) +
+  geom_line() +
+  geom_point() +
+  scale_y_time() +
+  scale_x_datetime() +
+  labs(
+    title = "Velox Build Times",
+    x = "Date",
+    y = "Time in Minutes"
+  ) +
+  scale_color_viridis_d()
+ggplotly(times_plot) |>
+  layout(legend = list(title = list(text = "Tags Name<br>"))) ## needed because theme legend specs don't work with ggplotly
+```
+
+```{r expensive-objects-compile}
+# Format compile time data
+compile_times <- results |>
+  filter(tags.suite == "compiling", commit.sha == newest_sha) |>
+  mutate(
+    stats.data = lubridate::dseconds(stats.data),
+    tags.name = glue::glue("`{tags.name}`")
+  )
+```
+
+### Compile Times
+
+:::: {.columns}
+
+::: {.column width="49%"}
+
+```{r compile-times-release}
+# Select and format the data to be displayed in the release compile time table
+compile_times |>
+  filter(type == "release") |>
+  select(tags.name, stats.data) |>
+  arrange(desc(stats.data)) |>
+  gt() |>
+  cols_label(
+    `tags.name` = "Object",
+    `stats.data` = "Time"
+  ) |>
+  cols_align(align = "left", columns = everything()) |>
+  tab_header(title = "Release") |>
+  fmt_markdown(columns = "tags.name") |>
+  opt_interactive(use_page_size_select = TRUE, use_search = TRUE)
+```
+
+:::
+
+::: {.column width="2%"}
+
+:::
+
+::: {.column width="49%"}
+
+```{r compile-times-debug}
+# Select and format the data to be displayed in the debug compile time table
+compile_times |>
+  filter(type == "debug") |>
+  select(tags.name, stats.data) |>
+  arrange(desc(stats.data)) |>
+  gt() |>
+  cols_label(
+    `tags.name` = "Object",
+    `stats.data` = "Time"
+  ) |>
+  cols_align(align = "left", columns = everything()) |>
+  tab_header(title = "Debug") |>
+  fmt_markdown(columns = "tags.name") |>
+  opt_interactive(use_page_size_select = TRUE, use_search = TRUE)
+```
+
+:::
+
+::::
+
+```{r expensive-objects-link}
+# Format linke time data
+link_times <- results |>
+  filter(tags.suite == "linking", commit.sha == newest_sha) |>
+  mutate(
+    stats.data = lubridate::dseconds(stats.data),
+    tags.name = glue::glue("`{tags.name}`")
+  )
+
+```
+
+### Link Times
+
+:::: {.columns}
+
+::: {.column width="49%"}
+
+```{r link-times-release}
+# Select and format the data to be displayed in the release link time table
+link_times |>
+  filter(type == "release") |>
+  select(tags.name, stats.data) |>
+  arrange(desc(stats.data)) |>
+  gt() |>
+  cols_label(
+    `tags.name` = "Object",
+    `stats.data` = "Time"
+  ) |>
+  cols_align(align = "left", columns = everything()) |>
+  tab_header(title = "Release") |>
+  fmt_markdown(columns = "tags.name") |>
+  opt_interactive(use_page_size_select = TRUE, use_search = TRUE)
+```
+
+:::
+
+::: {.column width="2%"}
+
+:::
+
+::: {.column width="49%"}
+
+```{r link-times-debug}
+# Select and format the data to be displayed in the debug link time table
+link_times |>
+  filter(type == "debug") |>
+  select(tags.name, stats.data) |>
+  arrange(desc(stats.data)) |>
+  gt() |>
+  cols_label(
+    `tags.name` = "Object",
+    `stats.data` = "Time"
+  ) |>
+  cols_align(align = "left", columns = everything()) |>
+  tab_header(title = "Link Times - Debug") |>
+  fmt_markdown(columns = "tags.name") |>
+  opt_interactive(use_page_size_select = TRUE, use_search = TRUE)
+```
+
+:::
+
+::::
+
+
+## Sizes
+```{r big-objects}
+# This is converts byte values into human-readable values in the tables
+size_formatter <- function(x) {
+  function(x) {
+    prettyunits::pretty_bytes(x)
+  }
+}
+
+# Prepare object size data
+object_sizes <- results |>
+  filter(endsWith(tags.source, "size"), commit.sha == newest_sha)  |>
+  mutate(
+    tags.name = glue::glue("`{tags.name}`")
+  )
+
+# Filter the data and layout the size overview plots
+sizes_plot <- results |>
+  filter(tags.suite == "executable", startsWith(tags.name, "total_")) |>
+  ggplot(aes(
+    x = timestamp,
+    y = stats.data,
+    group = interaction(tags.name, type), color = tags.name
+  )) +
+  facet_wrap(~type) +
+  geom_line() +
+  geom_point() +
+  scale_y_continuous(labels = size_formatter()) +
+  scale_x_datetime() +
+  labs(
+    title = "Velox Object Sizes",
+    x = "Date",
+    y = "Size"
+  ) +
+  scale_color_viridis_d()
+ggplotly(sizes_plot) |>
+  layout(legend = list(title = list(text = "Tags Name<br>"))) ## needed because theme legend specs don't work with ggplotly
+```
+
+### Object Sizes 
+:::: {.columns}
+
+::: {.column width="49%"}
+
+```{r object-sizes-release}
+# Select and format the data to be displayed in the release size table
+object_sizes |>
+  filter(type == "release") |>
+  select(tags.name, stats.data) |>
+  arrange(desc(stats.data)) |>
+  gt() |>
+  cols_label(
+    `tags.name` = "Object",
+    `stats.data` = "Size"
+  ) |>
+  fmt(columns = `stats.data`, fn = size_formatter()) |>
+  fmt_markdown(columns = "tags.name") |>
+  cols_align(align = "left", columns = everything()) |>
+  tab_header(title = "Release") |>
+  opt_interactive(use_page_size_select = TRUE, use_search = TRUE)
+```
+
+:::
+
+::: {.column width="2%"}
+
+:::
+
+::: {.column width="49%"}
+
+```{r object-sizes-debug}
+# Select and format the data to be displayed in the debug size table
+object_sizes |>
+  filter(type == "debug") |>
+  select(tags.name, stats.data) |>
+  arrange(desc(stats.data)) |>
+  gt() |>
+  fmt(columns = `stats.data`, fn = size_formatter()) |>
+  fmt_markdown(columns = "tags.name") |>
+  cols_label(
+    `tags.name` = "Object",
+    `stats.data` = "Time"
+  ) |>
+  cols_align(align = "left", columns = everything()) |>
+  tab_header(title = "Debug") |>
+  opt_interactive(use_page_size_select = TRUE, use_search = TRUE)
+```
+
+:::
+
+::::
+
+:::::
