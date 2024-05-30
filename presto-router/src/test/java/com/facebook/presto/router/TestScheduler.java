@@ -104,6 +104,7 @@ public class TestScheduler
     {
         Scheduler scheduler = new RoundRobinScheduler();
         scheduler.setCandidates(servers);
+        scheduler.setCandidateGroupName("");
 
         URI target1 = scheduler.getDestination("test").orElse(new URI("invalid"));
         assertTrue(servers.contains(target1));
@@ -129,6 +130,7 @@ public class TestScheduler
         Scheduler scheduler = new WeightedRoundRobinScheduler();
         scheduler.setCandidates(servers);
         scheduler.setWeights(weights);
+        scheduler.setCandidateGroupName("");
 
         int serverDiffCount = 0;
         URI priorURI = null;

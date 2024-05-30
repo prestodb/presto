@@ -105,6 +105,12 @@
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.google.errorprone</groupId>
+                    <artifactId>error_prone_annotations</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -199,4 +205,45 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.basepom.maven</groupId>
+                <artifactId>duplicate-finder-maven-plugin</artifactId>
+                <configuration>
+                    <ignoredResourcePatterns>
+                        <ignoredResourcePattern>google/protobuf/any.proto</ignoredResourcePattern>
+                        <ignoredResourcePattern>google/protobuf/api.proto</ignoredResourcePattern>
+                        <ignoredResourcePattern>google/protobuf/descriptor.proto</ignoredResourcePattern>
+                        <ignoredResourcePattern>google/protobuf/duration.proto</ignoredResourcePattern>
+                        <ignoredResourcePattern>google/protobuf/empty.proto</ignoredResourcePattern>
+                        <ignoredResourcePattern>google/protobuf/field_mask.proto</ignoredResourcePattern>
+                        <ignoredResourcePattern>google/protobuf/source_context.proto</ignoredResourcePattern>
+                        <ignoredResourcePattern>google/protobuf/struct.proto</ignoredResourcePattern>
+                        <ignoredResourcePattern>google/protobuf/timestamp.proto</ignoredResourcePattern>
+                        <ignoredResourcePattern>google/protobuf/type.proto</ignoredResourcePattern>
+                        <ignoredResourcePattern>google/protobuf/wrappers.proto</ignoredResourcePattern>
+                        <ignoredResourcePattern>mozilla/public-suffix-list.txt</ignoredResourcePattern>
+                    </ignoredResourcePatterns>
+                    <ignoredClassPatterns>
+                        <ignoredClassPattern>META-INF.versions.9.module-info</ignoredClassPattern>
+                        <ignoredClassPattern>module-info</ignoredClassPattern>
+                        <ignoredClassPattern>net.jodah.*</ignoredClassPattern>
+                    </ignoredClassPatterns>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.gaul</groupId>
+                <artifactId>modernizer-maven-plugin</artifactId>
+                <configuration>
+                    <ignorePackages>
+                        <ignorePackage>com.facebook.presto.testing.assertions</ignorePackage>
+                    </ignorePackages>
+                    <ignoreClassNamePatterns>
+                        <ignoreClassNamePattern>com.facebook.presto.router.MockRouterHttpServletRequest</ignoreClassNamePattern>
+                    </ignoreClassNamePatterns>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>

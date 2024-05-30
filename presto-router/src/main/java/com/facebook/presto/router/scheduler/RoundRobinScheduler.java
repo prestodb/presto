@@ -16,7 +16,9 @@ package com.facebook.presto.router.scheduler;
 import com.facebook.airlift.log.Logger;
 
 import java.net.URI;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 // As the round-robin scheduler keeps the selected index as a state for scheduling,
@@ -28,19 +30,22 @@ public class RoundRobinScheduler
 {
     private List<URI> candidates;
 
-    private static Integer candidateIndex = 0;
     private static final Logger log = Logger.get(RoundRobinScheduler.class);
+    private final Map<String, Integer> candidateIndexByGroup = new HashMap<>();
+    private String candidateGroupName;
 
     @Override
     public Optional<URI> getDestination(String user)
     {
         try {
-            synchronized (candidateIndex) {
-                if (candidateIndex >= candidates.size()) {
-                    candidateIndex = 0;
-                }
-                return Optional.of(candidates.get(candidateIndex++));
+            if (!candidateIndexByGroup.containsKey(candidateGroupName) ||
+                    candidateIndexByGroup.get(candidateGroupName) + 1 >= candidates.size()) {
+                candidateIndexByGroup.put(candidateGroupName, 0);
             }
+            else {
+                candidateIndexByGroup.put(candidateGroupName, candidateIndexByGroup.get(candidateGroupName) + 1);
+            }
+            return Optional.of(candidates.get(candidateIndexByGroup.get(candidateGroupName)));
         }
         catch (IllegalArgumentException e) {
             log.warn(e, "Error getting destination for user " + user);
@@ -57,8 +62,9 @@ public class RoundRobinScheduler
         }
     }
 
-    public List<URI> getCandidates()
+    @Override
+    public void setCandidateGroupName(String candidateGroupName)
     {
-        return candidates;
+        this.candidateGroupName = candidateGroupName;
     }
 }

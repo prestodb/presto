@@ -33,7 +33,9 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.router.RouterUtil.parseRouterConfig;
+import static com.facebook.presto.router.scheduler.SchedulerType.ROUND_ROBIN;
 import static com.facebook.presto.router.scheduler.SchedulerType.WEIGHTED_RANDOM_CHOICE;
+import static com.facebook.presto.router.scheduler.SchedulerType.WEIGHTED_ROUND_ROBIN;
 import static com.facebook.presto.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -78,10 +80,13 @@ public class ClusterManager
         checkArgument(groups.containsKey(target.get()));
         GroupSpec groupSpec = groups.get(target.get());
         scheduler.setCandidates(groupSpec.getMembers());
-        if (schedulerType == WEIGHTED_RANDOM_CHOICE) {
+        if (schedulerType == WEIGHTED_RANDOM_CHOICE || schedulerType == WEIGHTED_ROUND_ROBIN) {
             scheduler.setWeights(serverWeights.get(groupSpec.getName()));
         }
 
+        if (schedulerType == ROUND_ROBIN || schedulerType == WEIGHTED_ROUND_ROBIN) {
+            scheduler.setCandidateGroupName(target.get());
+        }
         return scheduler.getDestination(requestInfo.getUser());
     }
 
