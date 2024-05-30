@@ -161,6 +161,7 @@ import static io.airlift.tpch.TpchTable.ORDERS;
 import static io.airlift.tpch.TpchTable.PART_SUPPLIER;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Locale.ENGLISH;
 import static java.util.Locale.ROOT;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -284,6 +285,10 @@ public class TestHiveIntegrationSmokeTest
                 .hasMessageMatching("Cannot specify csv_escape table property for storage format: ORC");
         assertThatThrownBy(() -> assertUpdate("CREATE TABLE invalid_table (col1 varchar) WITH (format = 'CSV', csv_escape = 'EE')"))
                 .hasMessageMatching("csv_escape must be a single character string, but was: 'EE'");
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE test_invalid_skip_header (col1 varchar) WITH (format = 'CSV', skip_header_line_count = -1)"))
+                .hasMessageMatching("Invalid value for skip_header_line_count property: -1");
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE test_invalid_skip_footer (col1 varchar) WITH (format = 'CSV', skip_footer_line_count = -1)"))
+                .hasMessageMatching("Invalid value for skip_footer_line_count property: -1");
     }
 
     @Test
@@ -6870,6 +6875,135 @@ public class TestHiveIntegrationSmokeTest
 
         String dropTableStmt = format("DROP TABLE %s.%s.%s", getSession().getCatalog().get(), getSession().getSchema().get(), tableName);
         assertUpdate(getSession(), dropTableStmt);
+    }
+
+    private void testCreateTableWithHeaderAndFooter(String format)
+    {
+        String name = format.toLowerCase(ENGLISH);
+        String catalog = getSession().getCatalog().get();
+        String schema = getSession().getSchema().get();
+        @Language("SQL") String createTableSql = format("" +
+                        "CREATE TABLE %s.%s.%s_table_skip_header (\n" +
+                        "   \"name\" varchar\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   format = '%s',\n" +
+                        "   skip_header_line_count = 1\n" +
+                        ")",
+                catalog, schema, name, format);
+        assertUpdate(createTableSql);
+        MaterializedResult actual = computeActual(format("SHOW CREATE TABLE %s_table_skip_header", format));
+        assertEquals(actual.getOnlyValue(), createTableSql);
+        assertUpdate(format("DROP TABLE %s_table_skip_header", format));
+        createTableSql = format("" +
+                        "CREATE TABLE %s.%s.%s_table_skip_footer (\n" +
+                        "   \"name\" varchar\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   format = '%s',\n" +
+                        "   skip_footer_line_count = 1\n" +
+                        ")",
+                catalog, schema, name, format);
+        assertUpdate(createTableSql);
+        actual = computeActual(format("SHOW CREATE TABLE %s_table_skip_footer", format));
+        assertEquals(actual.getOnlyValue(), createTableSql);
+        assertUpdate(format("DROP TABLE %s_table_skip_footer", format));
+        createTableSql = format("" +
+                        "CREATE TABLE %s.%s.%s_table_skip_header_footer (\n" +
+                        "   \"name\" varchar\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   format = '%s',\n" +
+                        "   skip_footer_line_count = 1,\n" +
+                        "   skip_header_line_count = 1\n" +
+                        ")",
+                catalog, schema, name, format);
+        assertUpdate(createTableSql);
+        actual = computeActual(format("SHOW CREATE TABLE %s_table_skip_header_footer", format));
+        assertEquals(actual.getOnlyValue(), createTableSql);
+        assertUpdate(format("DROP TABLE %s_table_skip_header_footer", format));
+
+        createTableSql = format("" +
+                        "CREATE TABLE %s.%s.%s_table_skip_header " +
+                        "WITH (\n" +
+                        "   format = '%s',\n" +
+                        "   skip_header_line_count = 1\n" +
+                        ") AS SELECT CAST(1 AS VARCHAR) AS col_name1, CAST(2 AS VARCHAR) as col_name2",
+                catalog, schema, name, format);
+
+        assertUpdate(createTableSql, 1);
+        assertUpdate(format("INSERT INTO %s.%s.%s_table_skip_header VALUES('3', '4')", catalog, schema, format), 1);
+        MaterializedResult materializedRows = computeActual(format("SELECT * FROM %s_table_skip_header", format));
+        assertEqualsIgnoreOrder(materializedRows, resultBuilder(getSession(), VARCHAR, VARCHAR)
+                .row("1", "2")
+                .row("3", "4")
+                .build()
+                .getMaterializedRows());
+        assertUpdate(format("DROP TABLE %s_table_skip_header", format));
+    }
+
+    @Test
+    public void testCreateTableWithHeaderAndFooterForCsv()
+    {
+        testCreateTableWithHeaderAndFooter("CSV");
+    }
+    @Test
+    public void testInsertTableWithHeaderAndFooterForCsv()
+    {
+        @Language("SQL") String createTableSql = format("" +
+                        "CREATE TABLE %s.%s.csv_table_skip_header (\n" +
+                        "   name VARCHAR\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   format = 'CSV',\n" +
+                        "   skip_header_line_count = 2\n" +
+                        ")",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get());
+        assertUpdate(createTableSql);
+        assertThatThrownBy(() -> assertUpdate(
+                format("INSERT INTO %s.%s.csv_table_skip_header VALUES ('name')",
+                        getSession().getCatalog().get(),
+                        getSession().getSchema().get())))
+                .hasMessageMatching("INSERT into .* Hive table with value of skip.header.line.count property greater than 1 is not supported");
+
+        assertUpdate("DROP TABLE csv_table_skip_header");
+
+        createTableSql = format("" +
+                        "CREATE TABLE %s.%s.csv_table_skip_footer (\n" +
+                        "   name VARCHAR\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   format = 'CSV',\n" +
+                        "   skip_footer_line_count = 1\n" +
+                        ")",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get());
+        assertUpdate(createTableSql);
+        assertThatThrownBy(() -> assertUpdate(
+                format("INSERT INTO %s.%s.csv_table_skip_footer VALUES ('name')",
+                        getSession().getCatalog().get(),
+                        getSession().getSchema().get())))
+                .hasMessageMatching("INSERT into .* Hive table with skip.footer.line.count property not supported");
+        createTableSql = format("" +
+                        "CREATE TABLE %s.%s.csv_table_skip_header_footer (\n" +
+                        "   name VARCHAR\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   format = 'CSV',\n" +
+                        "   skip_footer_line_count = 1,\n" +
+                        "   skip_header_line_count = 1\n" +
+                        ")",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get());
+        assertUpdate(createTableSql);
+        assertThatThrownBy(() -> assertUpdate(
+                format("INSERT INTO %s.%s.csv_table_skip_header_footer VALUES ('name')",
+                        getSession().getCatalog().get(),
+                        getSession().getSchema().get())))
+                .hasMessageMatching("INSERT into .* Hive table with skip.footer.line.count property not supported");
+
+        assertUpdate("DROP TABLE csv_table_skip_header_footer");
     }
 
     protected String retentionDays(int days)
