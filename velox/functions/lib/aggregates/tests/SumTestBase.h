@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include "folly/CPortability.h"
+
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/exec/AggregationHook.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
@@ -29,6 +31,9 @@ struct SumRow {
 };
 
 template <typename InputType, typename ResultType, bool Overflow = false>
+#if defined(FOLLY_DISABLE_UNDEFINED_BEHAVIOR_SANITIZER)
+FOLLY_DISABLE_UNDEFINED_BEHAVIOR_SANITIZER("signed-integer-overflow")
+#endif
 void testHookLimits(bool expectOverflow = false) {
   // Pair of <limit, value to overflow>.
   std::vector<std::pair<InputType, InputType>> limits = {
@@ -103,10 +108,8 @@ void verifyAggregates(
 }
 
 template <typename InputType, typename ResultType, typename IntermediateType>
-#if defined(__has_feature)
-#if __has_feature(__address_sanitizer__)
-__attribute__((no_sanitize("integer")))
-#endif
+#if defined(FOLLY_DISABLE_UNDEFINED_BEHAVIOR_SANITIZER)
+FOLLY_DISABLE_UNDEFINED_BEHAVIOR_SANITIZER("signed-integer-overflow")
 #endif
 void SumTestBase::testAggregateOverflow(
     const std::string& function,

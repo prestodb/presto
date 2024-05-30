@@ -15,6 +15,8 @@
  */
 #pragma once
 
+#include "folly/CPortability.h"
+
 #include "velox/expression/FunctionSignature.h"
 #include "velox/functions/lib/CheckedArithmeticImpl.h"
 #include "velox/functions/lib/aggregates/DecimalAggregate.h"
@@ -151,7 +153,16 @@ class SumAggregateBase
   /// Update functions that check for overflows for integer types.
   /// For floating points, an overflow results in +/- infinity which is a
   /// valid output.
+  // Spark's sum function sets Overflow to true and intentionally let the result
+  // value be automatically wrapped around when integer overflow happens. Hence,
+  // disable undefined behavior sanitizer to not fail on signed integer
+  // overflow. The disablement of the sanitizer doesn't affect the Presto's sum
+  // function that sets Overflow to false because overflow is handled explicitly
+  // in checkedPlus.
   template <typename TData>
+#if defined(FOLLY_DISABLE_UNDEFINED_BEHAVIOR_SANITIZER)
+  FOLLY_DISABLE_UNDEFINED_BEHAVIOR_SANITIZER("signed-integer-overflow")
+#endif
   static void updateSingleValue(TData& result, TData value) {
     if constexpr (
         (std::is_same_v<TData, int64_t> && Overflow) ||
@@ -162,7 +173,12 @@ class SumAggregateBase
     }
   }
 
+  // Disable undefined behavior sanitizer to not fail on signed integer
+  // overflow.
   template <typename TData>
+#if defined(FOLLY_DISABLE_UNDEFINED_BEHAVIOR_SANITIZER)
+  FOLLY_DISABLE_UNDEFINED_BEHAVIOR_SANITIZER("signed-integer-overflow")
+#endif
   static void updateDuplicateValues(TData& result, TData value, int n) {
     if constexpr (
         (std::is_same_v<TData, int64_t> && Overflow) ||
