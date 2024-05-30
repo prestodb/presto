@@ -208,7 +208,6 @@ import static com.facebook.presto.spi.StandardWarningCode.REDUNDANT_ORDER_BY;
 import static com.facebook.presto.spi.analyzer.AccessControlRole.TABLE_CREATE;
 import static com.facebook.presto.spi.analyzer.AccessControlRole.TABLE_DELETE;
 import static com.facebook.presto.spi.analyzer.AccessControlRole.TABLE_INSERT;
-import static com.facebook.presto.spi.connector.ConnectorTableVersion.VersionOperator;
 import static com.facebook.presto.spi.connector.ConnectorTableVersion.VersionType;
 import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.function.FunctionKind.WINDOW;
@@ -280,7 +279,6 @@ import static com.facebook.presto.sql.tree.FrameBound.Type.PRECEDING;
 import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
 import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
 import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionOperator;
-import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionOperator.EQUAL;
 import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionOperator.LESS_THAN;
 import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionType;
 import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionType.TIMESTAMP;
@@ -1368,17 +1366,6 @@ class StatementAnalyzer
             }
         }
 
-        private VersionOperator toVersionOperator(TableVersionOperator operator)
-        {
-            switch (operator) {
-                case EQUAL:
-                    return VersionOperator.EQUAL;
-                case LESS_THAN:
-                    return VersionOperator.LESS_THAN;
-            }
-            throw new SemanticException(NOT_SUPPORTED, "Table version operator %s not supported." + operator);
-        }
-
         private VersionType toVersionType(TableVersionType type)
         {
             switch (type) {
@@ -1419,7 +1406,7 @@ class StatementAnalyzer
                 }
             }
 
-            ConnectorTableVersion tableVersion = new ConnectorTableVersion(toVersionType(tableVersionType), toVersionOperator(tableVersionOperator), stateExprType, evalStateExpr);
+            ConnectorTableVersion tableVersion = new ConnectorTableVersion(toVersionType(tableVersionType), stateExprType, evalStateExpr);
             return metadata.getHandleVersion(session, name, Optional.of(tableVersion));
         }
 
