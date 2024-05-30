@@ -205,7 +205,7 @@ public class BenchmarkPageProcessor
             return pageBuilder.build();
         }
 
-        private final RowExpression createFilterExpression(FunctionAndTypeManager functionAndTypeManager)
+        private RowExpression createFilterExpression(FunctionAndTypeManager functionAndTypeManager)
         {
             if (filterFails.equals("never")) {
                 return new ConstantExpression(true, BOOLEAN);
@@ -265,7 +265,7 @@ public class BenchmarkPageProcessor
             }
         }
 
-        private final RowExpression createProjectExpression(FunctionAndTypeManager functionAndTypeManager)
+        private RowExpression createProjectExpression(FunctionAndTypeManager functionAndTypeManager)
         {
             switch (projectionDataType) {
                 case "BIGINT":

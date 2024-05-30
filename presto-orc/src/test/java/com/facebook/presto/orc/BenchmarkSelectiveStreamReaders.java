@@ -388,7 +388,7 @@ public class BenchmarkSelectiveStreamReaders
             }
         }
 
-        private final Object createValue(Type type, float filterRate)
+        private Object createValue(Type type, float filterRate)
         {
             if (type == BOOLEAN) {
                 // We need to specialize BOOLEAN case because we can't specify filterRate by manipulating the filter value in getFilter.
