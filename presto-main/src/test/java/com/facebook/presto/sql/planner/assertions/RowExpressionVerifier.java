@@ -501,7 +501,7 @@ public final class RowExpressionVerifier
     private Boolean compareLiteral(Node expected, RowExpression actual)
     {
         if (actual instanceof CallExpression && functionResolution.isCastFunction(((CallExpression) actual).getFunctionHandle())) {
-            return getValueFromLiteral(expected).equals(String.valueOf(rowExpressionInterpreter(actual, metadata, session.toConnectorSession()).evaluate()));
+            return getValueFromLiteral(expected).equals(String.valueOf(rowExpressionInterpreter(actual, metadata.getFunctionAndTypeManager(), session.toConnectorSession()).evaluate()));
         }
         if (actual instanceof ConstantExpression) {
             return getValueFromLiteral(expected).equals(String.valueOf(LiteralInterpreter.evaluate(session.toConnectorSession(), (ConstantExpression) actual)));
@@ -513,7 +513,7 @@ public final class RowExpressionVerifier
     protected Boolean visitStringLiteral(StringLiteral expected, RowExpression actual)
     {
         if (actual instanceof CallExpression && functionResolution.isCastFunction(((CallExpression) actual).getFunctionHandle())) {
-            Object value = rowExpressionInterpreter(actual, metadata, session.toConnectorSession()).evaluate();
+            Object value = rowExpressionInterpreter(actual, metadata.getFunctionAndTypeManager(), session.toConnectorSession()).evaluate();
             if (value instanceof Slice) {
                 return expected.getValue().equals(((Slice) value).toStringUtf8());
             }
