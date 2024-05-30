@@ -236,6 +236,13 @@ public final class IcebergUtil
         }
     }
 
+    public static void verifyTypeSupported(Schema schema)
+    {
+        if (schema.columns().stream().anyMatch(column -> Types.TimestampType.withZone().equals(column.type()))) {
+            throw new PrestoException(NOT_SUPPORTED, format("Iceberg column type %s is not supported", Types.TimestampType.withZone()));
+        }
+    }
+
     public static Map<String, String> createIcebergViewProperties(ConnectorSession session, String prestoVersion)
     {
         return ImmutableMap.<String, String>builder()

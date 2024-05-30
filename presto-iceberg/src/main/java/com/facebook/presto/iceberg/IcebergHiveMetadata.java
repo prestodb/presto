@@ -111,6 +111,7 @@ import static com.facebook.presto.iceberg.IcebergUtil.getHiveIcebergTable;
 import static com.facebook.presto.iceberg.IcebergUtil.getTableComment;
 import static com.facebook.presto.iceberg.IcebergUtil.isIcebergTable;
 import static com.facebook.presto.iceberg.IcebergUtil.tryGetProperties;
+import static com.facebook.presto.iceberg.IcebergUtil.verifyTypeSupported;
 import static com.facebook.presto.iceberg.PartitionFields.parsePartitionFields;
 import static com.facebook.presto.iceberg.util.StatisticsUtil.mergeHiveStatistics;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
@@ -252,6 +253,8 @@ public class IcebergHiveMetadata
         String tableName = schemaTableName.getTableName();
 
         Schema schema = toIcebergSchema(tableMetadata.getColumns());
+
+        verifyTypeSupported(schema);
 
         PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(tableMetadata.getProperties()));
 
