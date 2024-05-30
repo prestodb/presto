@@ -65,7 +65,7 @@ ___________
 * Move `SortNode` to SPI module to be utilized in connector. :pr:`22497`
 
 Hive Connector Changes
-____________
+______________________
 * Fix a potential wrong results bug when footer stats are marked unreliable and partial aggregation pushdown is enabled.  Such queries will now fail with an error. :pr:`22011`
 * Improve the ``hive.orc.use-column-names`` configuration setting to no longer fail on reading ORC files without column names, but fall back to using Hive's schema. This change improves compatibility with legacy ORC files. :pr:`21391`
 * Add session property ``hive.dynamic_split_sizes_enabled`` to use dynamic split sizes based on data selected by query.  :pr:`22051`
@@ -74,7 +74,7 @@ ____________
 * Add system procedure ``system.invalidate_directory_list_cache()`` to invalidate directory list cache in Hive Catalog. :pr:`19821`
 
 Iceberg Connector Changes
-_______________
+_________________________
 * Upgrade Iceberg from 1.4.3 to 1.5.0. :pr:`21961`
 * Fix identity and truncate transforms on DecimalType columns. :pr:`21958`
 * Fix the bug that ``CAST`` from non-legacy timestamp to date rounding to future when the timestamp is prior than `1970-01-01 00:00:00.000`. :pr:`21959`
@@ -87,7 +87,7 @@ _______________
 * Add support for Iceberg concurrent insertions. :pr:`21250`
 
 MySQL Connector Changes
-_____________
+_______________________
 * Add support for timestamp column type. :pr:`21937`
 
 **Credits**

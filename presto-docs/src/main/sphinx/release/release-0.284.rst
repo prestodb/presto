@@ -34,12 +34,12 @@ _______________
 * Add ``noisy_count_if_gaussian(condition, noiseScale[, randomSeed])`` aggregation which calculates the number of ``TRUE`` input values, and then adds random Gaussian noise with 0 mean and standard deviation of ``noise_scale`` to the true count. Optional ``randomSeed`` is used to get a fixed value of noise, often for reproducibility purposes. If ``randomSeed`` is omitted, ``SecureRandom`` is used. If ``randomSeed`` is provided, ``Random`` is used.
 
 Hive Connector Changes
-____________
+______________________
 * Fix directory listing over directories with content-type ``application/octet-stream`` (:issue:`20310`).
 * Add DWRF filetype to min, max filtering for special column types such as tinyint, varbinary and timestamp.
 
 Iceberg Connector Changes
-_______________
+_________________________
 * Add Iceberg table location property in ``SHOW CREATE TABLE``.
 * Add validation for copy-on-write mode for Iceberg tables. This can be disabled with the ``merge_on_read_enabled`` session property or the ``iceberg.enable-merge-on-read-mode`` configuration property.
 * Add support for ``TRUNCATE TABLE <table>``.

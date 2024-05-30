@@ -21,7 +21,7 @@ ____________
 * Add session property ``hive.metastore_headers`` to allow the users to set headers that will be used in metastore operations.
 
 Iceberg Changes
-____________
+_______________
 * Add support in Iceberg connector for a native mode that can be used without a Hive installation, to run queries against Iceberg  native catalogs.
 
 **Credits**

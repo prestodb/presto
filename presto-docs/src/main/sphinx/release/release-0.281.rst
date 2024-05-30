@@ -38,13 +38,13 @@ ____________
 * Enable Hive splits for uncompressed inputs in S3 Select connector by leveraging the scan range feature of the service.
 
 Apache Hudi Changes
-____________
+___________________
 * Add the asynchronous split generation in Hudi connector to speed up the query execution and reduce overall query finishing time. ``hudi.max-outstanding-splits`` session property controls the maximum outstanding splits in a batch enqueued for processing.  ``hudi.split-generator-parallelism`` session property controls the number of threads to generate splits from partitions.
 * Upgrade Apache Hudi version to 0.12.1.
 
 
 Apache Iceberg Changes
-_______________
+______________________
 * Upgrade Apache Iceberg version from 1.1.0 to 1.2.0.
 
 JDBC Changes

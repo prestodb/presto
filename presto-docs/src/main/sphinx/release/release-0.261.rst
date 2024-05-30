@@ -38,7 +38,7 @@ ____________
 * Add column comment to metadata in JDBC based connector.
 
 Prometheus Changes
-____________
+__________________
 * Fix startup error by reducing the default value of configuration property ``prometheus.query-chunk-duration`` from ``1d`` to ``10m``.
 
 **Credits**
