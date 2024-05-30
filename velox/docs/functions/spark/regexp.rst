@@ -15,7 +15,7 @@ difference of the character classes.
 
 See https://github.com/google/re2/wiki/Syntax for more information.
 
-.. spark::function:: like(string, pattern) -> boolean
+.. spark:function:: like(string, pattern) -> boolean
                      like(string, pattern, escape) -> boolean
 
     Evaluates if the ``string`` matches the ``pattern``. Patterns can contain
@@ -58,14 +58,14 @@ See https://github.com/google/re2/wiki/Syntax for more information.
 
         SELECT regexp_extract('1a 2b 14m', '(\d+)([a-z]+)', 2); -- 'a'
 
-.. spark::function:: regexp_extract_all(string, pattern) -> array(varchar):
+.. spark:function:: regexp_extract_all(string, pattern) -> array(varchar):
 
     Returns the substring(s) matched by the regular expression ``pattern``
     in ``string``::
 
         SELECT regexp_extract_all('1a 2b 14m', '\d+'); -- [1, 2, 14]
 
-.. spark::function:: regexp_extract_all(string, pattern, group) -> array(varchar):
+.. spark:function:: regexp_extract_all(string, pattern, group) -> array(varchar):
     :noindex:
 
     Finds all occurrences of the regular expression ``pattern`` in

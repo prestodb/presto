@@ -158,7 +158,7 @@ Unless specified otherwise, all functions return NULL if at least one of the arg
         SELECT replace('ABCabc', 'abc', ''); -- ABC
         SELECT replace('ABCabc', 'abc', 'DEF'); -- ABCDEF
 
-.. spark::function:: reverse(string) -> varchar
+.. spark:function:: reverse(string) -> varchar
 
     Returns input string with characters in reverse order.
 

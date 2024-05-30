@@ -14,7 +14,7 @@ Mathematical Functions
 
     Returns inverse hyperbolic cosine of ``x``.
 
-.. spark::function:: asin(x) -> double
+.. spark:function:: asin(x) -> double
 
     Returns the arc sine of ``x``.
 
@@ -22,7 +22,7 @@ Mathematical Functions
 
     Returns inverse hyperbolic sine of ``x``.
 
-.. spark::function:: atan(x) -> double
+.. spark:function:: atan(x) -> double
 
     Returns the arc tangent of ``x``.
 
@@ -66,7 +66,7 @@ Mathematical Functions
     Returns ``x`` rounded up to the nearest integer.  
     Supported types are: BIGINT and DOUBLE.
 
-.. spark::function:: cos(x) -> double
+.. spark:function:: cos(x) -> double
 
     Returns the cosine of ``x``.
 
@@ -82,7 +82,7 @@ Mathematical Functions
 
     Returns the cosecant of ``x``.
 
-.. spark::function:: degrees(x) -> double
+.. spark:function:: degrees(x) -> double
 
     Converts angle x in radians to degrees.
 
@@ -147,7 +147,7 @@ Mathematical Functions
     Returns true if x is Nan, or false otherwise. Returns false is x is NULL.
     Supported types are: REAL, DOUBLE.
 
-.. spark::function:: log1p(x) -> double
+.. spark:function:: log1p(x) -> double
 
     Returns the natural logarithm of the “given value ``x`` plus one”.
     Return NULL if x is less than or equal to -1.

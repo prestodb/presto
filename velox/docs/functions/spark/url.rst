@@ -48,7 +48,7 @@ digits after the percent character "%". All the url extract functions will retur
 Encoding Functions
 ------------------
 
-.. spark::function:: url_encode(value) -> varchar
+.. spark:function:: url_encode(value) -> varchar
 
     Escapes ``value`` by encoding it so that it can be safely included in
     URL query parameter names and values:
@@ -60,7 +60,7 @@ Encoding Functions
       as the string ``%XX`` where ``XX`` is the uppercase hexadecimal
       value of the UTF-8 byte.
 
-.. spark::function:: url_decode(value) -> varchar
+.. spark:function:: url_decode(value) -> varchar
 
     Unescapes the URL encoded ``value``.
-    This function is the inverse of :func:`url_encode`.
+    This function is the inverse of :spark:func:`url_encode`.

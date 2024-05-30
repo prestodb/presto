@@ -2,7 +2,7 @@
 Binary Functions
 ================
 
-.. spark::function:: crc32(binary) -> bigint
+.. spark:function:: crc32(binary) -> bigint
 
     Computes the crc32 checksum of ``binary``.
 
@@ -34,7 +34,7 @@ Binary Functions
 
    Returns TRUE if ``bloomFilter`` might contain ``value``. 
 
-   ``bloomFilter`` is a VARBINARY computed using ::spark::function::`bloom_filter_agg` aggregate function. 
+   ``bloomFilter`` is a VARBINARY computed using ::spark:function::`bloom_filter_agg` aggregate function. 
    ``value`` is a BIGINT.
 
 .. spark:function:: sha1(x) -> varchar

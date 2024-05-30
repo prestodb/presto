@@ -14,7 +14,7 @@ Map Functions
 
         SELECT map(array(1, 2), array(3, 4)); -- {[1, 2] -> [3, 4]}
 
-.. spark::function:: map_entries(map(K,V)) -> array(row(K,V))
+.. spark:function:: map_entries(map(K,V)) -> array(row(K,V))
 
     Returns an array of all entries in the given map. ::
 
@@ -33,11 +33,11 @@ Map Functions
 
         SELECT map_from_arrays(array(1.0, 3.0), array('2', '4')); -- {1.0 -> 2, 3.0 -> 4}
 
-.. spark::function:: map_keys(x(K,V)) -> array(K)
+.. spark:function:: map_keys(x(K,V)) -> array(K)
 
     Returns all the keys in the map ``x``.
 
-.. spark::function:: map_values(x(K,V)) -> array(V)
+.. spark:function:: map_values(x(K,V)) -> array(V)
 
     Returns all the values in the map ``x``.
 
