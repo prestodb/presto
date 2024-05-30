@@ -81,7 +81,7 @@ public class ValuesStatsRule
         }
         return valuesNode.getRows().stream()
                 .map(row -> row.get(symbolId))
-                .map(rowExpression -> evaluateConstantRowExpression(rowExpression, metadata, session.toConnectorSession()))
+                .map(rowExpression -> evaluateConstantRowExpression(rowExpression, metadata.getFunctionAndTypeManager(), session.toConnectorSession()))
                 .collect(toList());
     }
 
