@@ -37,4 +37,14 @@ public class SecureRandomizationStrategy
     {
         return random.nextDouble();
     }
+
+    public double nextGaussian()
+    {
+        return random.nextGaussian();
+    }
+
+    public int nextInt(int max)
+    {
+        return random.nextInt(max);
+    }
 }

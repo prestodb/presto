@@ -96,6 +96,9 @@ import com.facebook.presto.operator.aggregation.differentialentropy.Differential
 import com.facebook.presto.operator.aggregation.histogram.Histogram;
 import com.facebook.presto.operator.aggregation.multimapagg.AlternativeMultimapAggregationFunction;
 import com.facebook.presto.operator.aggregation.multimapagg.MultimapAggregationFunction;
+import com.facebook.presto.operator.aggregation.noisyaggregation.MergeQuantileTreeAggregation;
+import com.facebook.presto.operator.aggregation.noisyaggregation.NoisyApproxPercentileQuantileTreeAggregation;
+import com.facebook.presto.operator.aggregation.noisyaggregation.NoisyApproxPercentileQuantileTreeArrayAggregation;
 import com.facebook.presto.operator.aggregation.noisyaggregation.NoisyApproximateDistinctCountSfmAggregation;
 import com.facebook.presto.operator.aggregation.noisyaggregation.NoisyApproximateDistinctCountSfmAggregationDefaultBucketsPrecision;
 import com.facebook.presto.operator.aggregation.noisyaggregation.NoisyApproximateDistinctCountSfmAggregationDefaultPrecision;
@@ -105,6 +108,7 @@ import com.facebook.presto.operator.aggregation.noisyaggregation.NoisyApproximat
 import com.facebook.presto.operator.aggregation.noisyaggregation.NoisyApproximateSetSfmFromIndexAndZerosAggregation;
 import com.facebook.presto.operator.aggregation.noisyaggregation.NoisyApproximateSetSfmFromIndexAndZerosAggregationDefaultPrecision;
 import com.facebook.presto.operator.aggregation.noisyaggregation.NoisyCountIfGaussianAggregation;
+import com.facebook.presto.operator.aggregation.noisyaggregation.NoisyQuantileTreeAggregation;
 import com.facebook.presto.operator.aggregation.noisyaggregation.SfmSketchMergeAggregation;
 import com.facebook.presto.operator.aggregation.reservoirsample.ReservoirSampleFunction;
 import com.facebook.presto.operator.aggregation.sketch.kll.KllSketchAggregationFunction;
@@ -185,6 +189,7 @@ import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.operator.scalar.MathFunctions.LegacyLogFunction;
 import com.facebook.presto.operator.scalar.MultimapFromEntriesFunction;
 import com.facebook.presto.operator.scalar.QuantileDigestFunctions;
+import com.facebook.presto.operator.scalar.QuantileTreeScalarFunctions;
 import com.facebook.presto.operator.scalar.Re2JRegexpFunctions;
 import com.facebook.presto.operator.scalar.Re2JRegexpReplaceLambdaFunction;
 import com.facebook.presto.operator.scalar.RepeatFunction;
@@ -259,6 +264,7 @@ import com.facebook.presto.type.LikeFunctions;
 import com.facebook.presto.type.LongEnumOperators;
 import com.facebook.presto.type.MapParametricType;
 import com.facebook.presto.type.QuantileDigestOperators;
+import com.facebook.presto.type.QuantileTreeOperators;
 import com.facebook.presto.type.RealOperators;
 import com.facebook.presto.type.SfmSketchOperators;
 import com.facebook.presto.type.SmallintOperators;
@@ -510,6 +516,7 @@ import static com.facebook.presto.type.JoniRegexpType.JONI_REGEXP;
 import static com.facebook.presto.type.JsonPathType.JSON_PATH;
 import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
 import static com.facebook.presto.type.MapParametricType.MAP;
+import static com.facebook.presto.type.QuantileTreeType.QUANTILE_TREE_TYPE;
 import static com.facebook.presto.type.Re2JRegexpType.RE2J_REGEXP;
 import static com.facebook.presto.type.RowParametricType.ROW;
 import static com.facebook.presto.type.SfmSketchType.SFM_SKETCH;
@@ -636,6 +643,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
         addType(K_HYPER_LOG_LOG);
         addType(P4_HYPER_LOG_LOG);
         addType(SFM_SKETCH);
+        addType(QUANTILE_TREE_TYPE);
         addType(JONI_REGEXP);
         addType(RE2J_REGEXP);
         addType(LIKE_PATTERN);
@@ -688,6 +696,9 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .aggregate(NoisyApproximateDistinctCountSfmAggregation.class)
                 .aggregate(NoisyApproximateDistinctCountSfmAggregationDefaultBucketsPrecision.class)
                 .aggregate(NoisyApproximateDistinctCountSfmAggregationDefaultPrecision.class)
+                .aggregate(NoisyApproxPercentileQuantileTreeAggregation.class)
+                .aggregate(NoisyApproxPercentileQuantileTreeArrayAggregation.class)
+                .aggregates(NoisyQuantileTreeAggregation.class)
                 .aggregate(SumDataSizeForStats.class)
                 .aggregate(MaxDataSizeForStats.class)
                 .aggregate(ConvexHullAggregation.class)
@@ -724,6 +735,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .aggregates(MergeHyperLogLogAggregation.class)
                 .aggregates(SfmSketchMergeAggregation.class)
                 .aggregates(ApproximateSetAggregation.class)
+                .aggregates(MergeQuantileTreeAggregation.class)
                 .functions(QDIGEST_AGG, QDIGEST_AGG_WITH_WEIGHT, QDIGEST_AGG_WITH_WEIGHT_AND_ERROR)
                 .function(MergeQuantileDigestFunction.MERGE)
                 .aggregates(DoubleHistogramAggregation.class)
@@ -777,6 +789,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalar(ColorOperators.ColorDistinctFromOperator.class)
                 .scalars(HyperLogLogFunctions.class)
                 .scalars(SfmSketchFunctions.class)
+                .scalars(QuantileTreeScalarFunctions.class)
                 .scalars(QuantileDigestFunctions.class)
                 .scalars(UnknownOperators.class)
                 .scalar(UnknownOperators.UnknownDistinctFromOperator.class)
@@ -815,6 +828,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalars(DateTimeOperators.class)
                 .scalars(HyperLogLogOperators.class)
                 .scalars(SfmSketchOperators.class)
+                .scalars(QuantileTreeOperators.class)
                 .scalars(QuantileDigestOperators.class)
                 .scalars(IpAddressOperators.class)
                 .scalar(IpAddressOperators.IpAddressDistinctFromOperator.class)

@@ -11,30 +11,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.aggregation.noisyaggregation.sketch;
+package com.facebook.presto.operator.aggregation.noisyaggregation.sketch.quantiletree;
 
-/**
- * Non-random numbers for testing
- */
-public class TestingDeterministicRandomizationStrategy
-        extends RandomizationStrategy
+public enum QuantileTreeLevelFormat
 {
-    public TestingDeterministicRandomizationStrategy() {}
+    HISTOGRAM(0),
+    SKETCHED(1),
+    OFFSET(2);
 
-    public double nextDouble()
+    private final byte tag;
+
+    QuantileTreeLevelFormat(int tag)
     {
-        return 0.5;
+        this.tag = (byte) tag;
     }
 
-    @Override
-    public double nextGaussian()
+    public byte getTag()
     {
-        return 0.5;
-    }
-
-    @Override
-    public int nextInt(int max)
-    {
-        return 1;
+        return tag;
     }
 }
