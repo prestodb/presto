@@ -38,7 +38,7 @@ public class PrometheusMetricResult
     }
 
     @JsonSetter("value")
-    private final void setTimeSeriesValues(PrometheusTimeSeriesValue timeSeriesValue)
+    private void setTimeSeriesValues(PrometheusTimeSeriesValue timeSeriesValue)
     {
         this.timeSeriesValues = new PrometheusTimeSeriesValueArray(Arrays.asList(timeSeriesValue));
     }

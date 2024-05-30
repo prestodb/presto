@@ -19,7 +19,7 @@ public class BytesUtils
     {
     }
 
-    public static final int getInt(byte[] byteBuffer, int offset)
+    public static int getInt(byte[] byteBuffer, int offset)
     {
         int ch0 = byteBuffer[offset + 0] & 255;
         int ch1 = byteBuffer[offset + 1] & 255;
@@ -29,7 +29,7 @@ public class BytesUtils
         return (ch3 << 24) + (ch2 << 16) + (ch1 << 8) + ch0;
     }
 
-    public static final long getLong(byte[] byteBuffer, int offset)
+    public static long getLong(byte[] byteBuffer, int offset)
     {
         int ch0 = byteBuffer[offset + 0];
         int ch1 = byteBuffer[offset + 1];

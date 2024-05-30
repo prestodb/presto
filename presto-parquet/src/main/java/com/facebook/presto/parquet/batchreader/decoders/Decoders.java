@@ -88,7 +88,7 @@ public class Decoders
         }
     }
 
-    private static final ValuesDecoder createValuesDecoder(ColumnDescriptor columnDescriptor, Dictionary dictionary, int valueCount, ParquetEncoding encoding, byte[] buffer, int offset, int length)
+    private static ValuesDecoder createValuesDecoder(ColumnDescriptor columnDescriptor, Dictionary dictionary, int valueCount, ParquetEncoding encoding, byte[] buffer, int offset, int length)
             throws IOException
     {
         final PrimitiveTypeName type = columnDescriptor.getPrimitiveType().getPrimitiveTypeName();
@@ -268,7 +268,7 @@ public class Decoders
                 createValuesDecoderV2(pageV2, columnDescriptor, dictionary));
     }
 
-    private static final RepetitionLevelDecoder createRepetitionLevelDecoderV2(int valueCount, RichColumnDescriptor columnDescriptor, Slice repetitionLevelBuffer)
+    private static RepetitionLevelDecoder createRepetitionLevelDecoderV2(int valueCount, RichColumnDescriptor columnDescriptor, Slice repetitionLevelBuffer)
     {
         final int maxRepetitionLevel = columnDescriptor.getMaxRepetitionLevel();
         final int repetitionLevelBitWidth = getWidthFromMaxInt(maxRepetitionLevel);
@@ -278,7 +278,7 @@ public class Decoders
         return new RepetitionLevelDecoder(valueCount, repetitionLevelBitWidth, new ByteArrayInputStream(repetitionLevelBuffer.getBytes()));
     }
 
-    private static final DefinitionLevelDecoder createDefinitionLevelDecoderV2(int valueCount, RichColumnDescriptor columnDescriptor, Slice definitionLevelBuffer)
+    private static DefinitionLevelDecoder createDefinitionLevelDecoderV2(int valueCount, RichColumnDescriptor columnDescriptor, Slice definitionLevelBuffer)
     {
         final int maxDefinitionLevel = columnDescriptor.getMaxDefinitionLevel();
         final int definitionLevelBitWidth = getWidthFromMaxInt(maxDefinitionLevel);
@@ -288,14 +288,14 @@ public class Decoders
         return new DefinitionLevelDecoder(valueCount, definitionLevelBitWidth, new ByteArrayInputStream(definitionLevelBuffer.getBytes()));
     }
 
-    private static final ValuesDecoder createValuesDecoderV2(DataPageV2 pageV2, RichColumnDescriptor columnDescriptor, Dictionary dictionary)
+    private static ValuesDecoder createValuesDecoderV2(DataPageV2 pageV2, RichColumnDescriptor columnDescriptor, Dictionary dictionary)
             throws IOException
     {
         final byte[] valueBuffer = pageV2.getSlice().getBytes();
         return createValuesDecoder(columnDescriptor, dictionary, pageV2.getValueCount(), pageV2.getDataEncoding(), valueBuffer, 0, valueBuffer.length);
     }
 
-    private static final FlatDefinitionLevelDecoder createFlatDefinitionLevelDecoder(ParquetEncoding encoding, boolean isRequired, int maxLevelValue, int valueCount, ByteBuffer buffer)
+    private static FlatDefinitionLevelDecoder createFlatDefinitionLevelDecoder(ParquetEncoding encoding, boolean isRequired, int maxLevelValue, int valueCount, ByteBuffer buffer)
             throws IOException
     {
         if (isRequired) {
@@ -320,7 +320,7 @@ public class Decoders
         return definitionLevelDecoder;
     }
 
-    public static final RepetitionLevelDecoder createRepetitionLevelDecoder(ParquetEncoding encoding, int maxLevelValue, int valueCount, ByteBuffer buffer)
+    public static RepetitionLevelDecoder createRepetitionLevelDecoder(ParquetEncoding encoding, int maxLevelValue, int valueCount, ByteBuffer buffer)
             throws IOException
     {
         final int bitWidth = getWidthFromMaxInt(maxLevelValue);
@@ -337,7 +337,7 @@ public class Decoders
         return repetitionLevelDecoder;
     }
 
-    public static final DefinitionLevelDecoder createDefinitionLevelDecoder(ParquetEncoding encoding, int maxLevelValue, int valueCount, ByteBuffer buffer)
+    public static DefinitionLevelDecoder createDefinitionLevelDecoder(ParquetEncoding encoding, int maxLevelValue, int valueCount, ByteBuffer buffer)
             throws IOException
     {
         final int bitWidth = getWidthFromMaxInt(maxLevelValue);
