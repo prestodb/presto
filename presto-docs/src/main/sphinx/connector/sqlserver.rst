@@ -25,7 +25,7 @@ connection properties as appropriate for your setup:
 
 
 Connection security
-------------------
+-------------------
 
 The JDBC driver and connector automatically use Transport Layer Security (TLS) encryption and certificate validation. This requires a suitable TLS certificate configured on your SQL Server database host.
 
@@ -75,7 +75,7 @@ if you name the property file ``sales.properties``, Presto will create a
 catalog named ``sales`` using the configured connector.
 
 General Configuration Properties
----------------------------------
+--------------------------------
 
 ================================================== ==================================================================== ===========
 Property Name                                      Description                                                          Default
