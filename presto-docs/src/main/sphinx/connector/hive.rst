@@ -253,6 +253,14 @@ Property Name                                            Description            
                                                          reading an Avro-formatted table. If specified, Presto will fetch                override schema)
                                                          and use this schema instead of relying on any schema in the
                                                          Metastore.
+
+``skip_header_line_count``                               Number of header lines to skip when reading CSV or TEXTFILE tables.             None (ignored if not set). Must be non-negative. Only valid for
+                                                         When set to ``1``, a header row will be written when creating new               CSV and TEXTFILE formats. Values greater than ``1`` are not
+                                                         CSV or TEXTFILE tables.                                                         supported for ``CREATE TABLE AS`` or ``INSERT`` operations.
+
+``skip_footer_line_count``                               Number of footer lines to skip when reading CSV or TEXTFILE tables.             None (ignored if not set). Must be non-negative. Only valid for
+                                                         Cannot be used when inserting into a table.                                     CSV and TEXTFILE formats. This property is not
+                                                                                                                                         supported for ``CREATE TABLE AS`` or ``INSERT`` operations.
 ======================================================== ============================================================================== ======================================================================================
 
 Hive Metastore Configuration for Avro
