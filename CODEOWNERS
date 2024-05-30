@@ -6,66 +6,8 @@
 # Fallback to committers group for areas that do not have active code owners
 /** @prestodb/committers
 
-# TSC may approve changes to this list
-CODEOWNERS @prestodb/team-tsc
-
 #####################################################################
-# Presto core
-
-# Presto analyzer and optimizer
-/presto-main/src/*/java/com/facebook/presto/sql @jaystarshot @feilong-liu @prestodb/committers
-
-# Presto cost based optimizer framework
-/presto-main/src/*/java/com/facebook/presto/cost @jaystarshot @feilong-liu @prestodb/committers
-
-# Testing module
-# Note: all code owners in Presto core should be included here as well
-/presto-tests @jaystarshot @feilong-liu @prestodb/committers
-
-#####################################################################
-# Prestissimo module
-/presto-native-execution @prestodb/team-velox
-
-#####################################################################
-# Presto on Spark module
-/presto-spark* @shrinidhijoshi @prestodb/committers
-
-#####################################################################
-# Presto connectors and plugins
-
-# Hudi connector
-/presto-hudi @vinothchandar @7c00 @prestodb/committers
-
-# Iceberg connector
-/presto-iceberg @hantangwangd @prestodb/committers
-
-# Ranger Hive plugin
-/presto-hive/**/com/facebook/presto/hive/security/ranger @agrawalreetika @prestodb/committers
-
-# Redis history based optimizer plugin
-/redis-hbo-provider @jaystarshot @prestodb/committers
-
-#####################################################################
-# Presto modules and libraries
-
-# Parquet reader module
-/presto-parquet @shangxinli @prestodb/committers
-
-# ORC reader module
-/presto-orc @sdruzkin @prestodb/committers
-/presto-hive/src/*/java/com/facebook/presto/hive/orc @sdruzkin @prestodb/committers
-
-#####################################################################
-# Presto Console UI
-/presto-main/src/main/resources/webapp @yhwang @prestodb/committers
-
-#####################################################################
-# Presto documentation
-/presto-docs @steveburnett @prestodb/committers
-/**/*.md @steveburnett @prestodb/committers
-
-#####################################################################
-# Fallback to committers group for areas that do not have active code owners
+# The below projects do not have a dedicated code owner for the entire module
 /presto-accumulo @prestodb/committers
 /presto-analyzer @prestodb/committers
 /presto-atop @prestodb/committers
@@ -150,3 +92,62 @@ CODEOWNERS @prestodb/team-tsc
 /presto-tpcds @prestodb/committers
 /presto-tpch @prestodb/committers
 /presto-verifier @prestodb/committers
+
+# TSC may approve changes to this list
+CODEOWNERS @prestodb/team-tsc
+
+#####################################################################
+# Presto core
+
+# Presto analyzer and optimizer
+/presto-main/src/*/java/com/facebook/presto/sql @jaystarshot @feilong-liu @prestodb/committers
+
+# Presto cost based optimizer framework
+/presto-main/src/*/java/com/facebook/presto/cost @jaystarshot @feilong-liu @prestodb/committers
+
+# Testing module
+# Note: all code owners in Presto core should be included here as well
+/presto-tests @jaystarshot @feilong-liu @prestodb/committers
+
+#####################################################################
+# Prestissimo module
+/presto-native-execution @prestodb/team-velox
+
+#####################################################################
+# Presto on Spark module
+/presto-spark* @shrinidhijoshi @prestodb/committers
+
+#####################################################################
+# Presto connectors and plugins
+
+# Hudi connector
+/presto-hudi @vinothchandar @7c00 @prestodb/committers
+
+# Iceberg connector
+/presto-iceberg @hantangwangd @prestodb/committers
+
+# Ranger Hive plugin
+/presto-hive/**/com/facebook/presto/hive/security/ranger @agrawalreetika @prestodb/committers
+
+# Redis history based optimizer plugin
+/redis-hbo-provider @jaystarshot @prestodb/committers
+
+#####################################################################
+# Presto modules and libraries
+
+# Parquet reader module
+/presto-parquet @shangxinli @prestodb/committers
+
+# ORC reader module
+/presto-orc @sdruzkin @prestodb/committers
+/presto-hive/src/*/java/com/facebook/presto/hive/orc @sdruzkin @prestodb/committers
+
+#####################################################################
+# Presto Console UI
+/presto-main/src/main/resources/webapp @yhwang @prestodb/committers
+
+#####################################################################
+# Presto documentation
+/presto-docs @steveburnett @prestodb/committers
+/**/*.md @steveburnett @prestodb/committers
+
