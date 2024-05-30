@@ -257,10 +257,12 @@ import com.facebook.presto.type.IpAddressOperators;
 import com.facebook.presto.type.IpPrefixOperators;
 import com.facebook.presto.type.KllSketchOperators;
 import com.facebook.presto.type.LegacyDoubleComparisonOperators;
+import com.facebook.presto.type.LegacyRealComparisonOperators;
 import com.facebook.presto.type.LikeFunctions;
 import com.facebook.presto.type.LongEnumOperators;
 import com.facebook.presto.type.MapParametricType;
 import com.facebook.presto.type.QuantileDigestOperators;
+import com.facebook.presto.type.RealComparisonOperators;
 import com.facebook.presto.type.RealOperators;
 import com.facebook.presto.type.SfmSketchOperators;
 import com.facebook.presto.type.SmallintOperators;
@@ -800,20 +802,22 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalar(SmallintOperators.SmallintDistinctFromOperator.class)
                 .scalars(TinyintOperators.class)
                 .scalar(TinyintOperators.TinyintDistinctFromOperator.class)
-                .scalars(DoubleOperators.class);
+                .scalars(DoubleOperators.class)
+                .scalars(RealOperators.class);
 
         if (featuresConfig.getUseNewNanDefinition()) {
             builder.scalars(DoubleComparisonOperators.class)
-                    .scalar(DoubleComparisonOperators.DoubleDistinctFromOperator.class);
+                    .scalar(DoubleComparisonOperators.DoubleDistinctFromOperator.class)
+                    .scalars(RealComparisonOperators.class)
+                    .scalar(RealComparisonOperators.RealDistinctFromOperator.class);
         }
         else {
-
             builder.scalars(LegacyDoubleComparisonOperators.class)
-                    .scalar(LegacyDoubleComparisonOperators.DoubleDistinctFromOperator.class);
+                    .scalar(LegacyDoubleComparisonOperators.DoubleDistinctFromOperator.class)
+                    .scalars(LegacyRealComparisonOperators.class)
+                    .scalar(LegacyRealComparisonOperators.RealDistinctFromOperator.class);
         }
-        builder.scalars(RealOperators.class)
-                .scalar(RealOperators.RealDistinctFromOperator.class)
-                .scalars(VarcharOperators.class)
+        builder.scalars(VarcharOperators.class)
                 .scalar(VarcharOperators.VarcharDistinctFromOperator.class)
                 .scalars(VarbinaryOperators.class)
                 .scalar(VarbinaryOperators.VarbinaryDistinctFromOperator.class)

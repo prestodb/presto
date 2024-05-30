@@ -34,6 +34,7 @@ import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static java.lang.Double.doubleToLongBits;
+import static java.lang.Float.floatToIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.util.Locale.ENGLISH;
@@ -257,5 +258,45 @@ public final class TypeUtils
         long aBits = doubleToLongBits(a);
         long bBits = doubleToLongBits(b);
         return Long.compare(aBits, bBits);
+    }
+
+    public static boolean realEquals(float a, float b)
+    {
+        // the first check ensures +0 == -0 is true. the second ensures that NaN == NaN is true
+        // for all other cases a == b and floatToIntBits(a) == floatToIntBits(b) will return
+        // the same result
+        // floatToIntBits converts all NaNs to the same representation
+        return a == b || floatToIntBits(a) == floatToIntBits(b);
+    }
+
+    public static long realHashCode(float value)
+    {
+        // canonicalize +0 and -0 to a single value
+        value = value == -0 ? 0 : value;
+        // floatToIntBits converts all NaNs to the same representation
+        return AbstractLongType.hash(floatToIntBits(value));
+    }
+
+    public static int realCompare(float a, float b)
+    {
+        // these three ifs can only be true if neither value is NaN
+        if (a < b) {
+            return -1;
+        }
+        if (a > b) {
+            return 1;
+        }
+        // this check ensure floatCompare(+0, -0) will return 0
+        // if we just did floatToIntBits comparison, then they
+        // would not compare as equal
+        if (a == b) {
+            return 0;
+        }
+
+        // this ensures that realCompare(NaN, NaN) will return 0
+        // floatToIntBits converts all NaNs to the same representation
+        int aBits = floatToIntBits(a);
+        int bBits = floatToIntBits(b);
+        return Integer.compare(aBits, bBits);
     }
 }
