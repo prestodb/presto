@@ -30,6 +30,9 @@ public abstract class AbstractTestNanQueries
     public static final String DOUBLE_NAN_LAST_COLUMN = "_double_nan_last";
 
     public static final String REAL_NANS_TABLE_NAME = "real_nans_table";
+    public static final String REAL_NAN_FIRST_COLUMN = "_real_nan_first";
+    public static final String REAL_NAN_MIDDLE_COLUMN = "_real_nan_middle";
+    public static final String REAL_NAN_LAST_COLUMN = "_real_nan_last";
 
     @BeforeClass
     public void setup()
@@ -72,6 +75,13 @@ public abstract class AbstractTestNanQueries
     }
 
     @Test
+    public void testRealLessThan()
+    {
+        assertQuery(format("SELECT _real_nan_first < CAST(nan() AS REAL) from %s", REAL_NANS_TABLE_NAME), "SELECT * FROM (VALUES (false), (true), (true), (true))");
+        assertQuery(format("SELECT CAST(nan() AS REAL) < _real_nan_first from %s", REAL_NANS_TABLE_NAME), "SELECT * FROM (VALUES (false), (false), (false), (false))");
+    }
+
+    @Test
     public void testDoubleGreaterThan()
     {
         assertQuery("SELECT nan() > 1.0", "SELECT true");
@@ -83,6 +93,12 @@ public abstract class AbstractTestNanQueries
     }
 
     @Test
+    public void testRealGreaterThan()
+    {
+        assertQuery(format("SELECT _real_nan_first > cast(nan() AS REAL) from %s", REAL_NANS_TABLE_NAME), "SELECT * FROM (VALUES (false), (false), (false), (false))");
+        assertQuery(format("SELECT CAST(nan() AS REAL)> _real_nan_first from %s", REAL_NANS_TABLE_NAME), "SELECT * FROM (VALUES (false), (true), (true), (true))");
+    }
+
     @Test
     public void testDoubleLessThanOrEqualTo()
     {
@@ -92,6 +108,13 @@ public abstract class AbstractTestNanQueries
         assertQuery("SELECT nan() <= nan()", "SELECT true");
         assertQuery(format("SELECT _double_nan_first <= nan() from %s", DOUBLE_NANS_TABLE_NAME), "SELECT * FROM (VALUES (true), (true), (true), (true))");
         assertQuery(format("SELECT nan() <= _double_nan_first from %s", DOUBLE_NANS_TABLE_NAME), "SELECT * FROM (VALUES (true), (false), (false), (false))");
+    }
+
+    @Test
+    public void testRealLessThanOrEqualTo()
+    {
+        assertQuery(format("SELECT _real_nan_first <= CAST(nan() AS REAL) from %s", REAL_NANS_TABLE_NAME), "SELECT * FROM (VALUES (true), (true), (true), (true))");
+        assertQuery(format("SELECT CAST(nan() AS REAL) <= _real_nan_first from %s", REAL_NANS_TABLE_NAME), "SELECT * FROM (VALUES (true), (false), (false), (false))");
     }
 
     @Test
@@ -106,12 +129,26 @@ public abstract class AbstractTestNanQueries
     }
 
     @Test
+    public void testRealGreaterThanOrEqualTo()
+    {
+        assertQuery(format("SELECT _real_nan_first >= CAST(nan() AS REAL) from %s", REAL_NANS_TABLE_NAME), "SELECT * FROM (VALUES (true), (false), (false), (false))");
+        assertQuery(format("SELECT CAST(nan() AS REAL) >= _real_nan_first from %s", REAL_NANS_TABLE_NAME), "SELECT * FROM (VALUES (true), (true), (true), (true))");
+    }
+
+    @Test
     public void testDoubleEquals()
     {
         assertQuery("SELECT nan() = nan()", "SELECT true");
         assertQuery("SELECT nan() = 3", "SELECT false");
         assertQuery(format("SELECT _double_nan_first = nan() from %s", DOUBLE_NANS_TABLE_NAME), "SELECT * FROM (VALUES (true), (false), (false), (false))");
         assertQuery(format("SELECT nan() = _double_nan_first from %s", DOUBLE_NANS_TABLE_NAME), "SELECT * FROM (VALUES (true), (false), (false), (false))");
+    }
+
+    @Test
+    public void testRealEquals()
+    {
+        assertQuery(format("SELECT _real_nan_first = CAST(nan() AS REAL) from %s", REAL_NANS_TABLE_NAME), "SELECT * FROM (VALUES (true), (false), (false), (false))");
+        assertQuery(format("SELECT CAST(nan() AS REAL) = _real_nan_first from %s", REAL_NANS_TABLE_NAME), "SELECT * FROM (VALUES (true), (false), (false), (false))");
     }
 
     @Test
@@ -122,11 +159,26 @@ public abstract class AbstractTestNanQueries
         assertQuery(format("SELECT _double_nan_first <> nan() from %s", DOUBLE_NANS_TABLE_NAME), "SELECT * FROM (VALUES (false), (true), (true), (true))");
         assertQuery(format("SELECT nan() <> _double_nan_first from %s", DOUBLE_NANS_TABLE_NAME), "SELECT * FROM (VALUES (false), (true), (true), (true))");
     }
+
+    @Test
+    public void testRealNotEquals()
+    {
+        assertQuery(format("SELECT _real_nan_first <> CAST(nan() AS REAL) from %s", REAL_NANS_TABLE_NAME), "SELECT * FROM (VALUES (false), (true), (true), (true))");
+        assertQuery(format("SELECT CAST(nan() AS REAL) <> _real_nan_first from %s", REAL_NANS_TABLE_NAME), "SELECT * FROM (VALUES (false), (true), (true), (true))");
+    }
+
     @Test
     public void testDoubleBetween()
     {
         assertQuery(format("SELECT nan() BETWEEN -infinity() AND _double_nan_first FROM %s", DOUBLE_NANS_TABLE_NAME), "SELECT * FROM (VALUES (true), (false), (false), (false))");
         assertQuery(format("SELECT _double_nan_first BETWEEN -infinity() AND nan() FROM %s", DOUBLE_NANS_TABLE_NAME), "SELECT * FROM (VALUES(true), (true), (true), (true))");
+    }
+
+    @Test
+    public void testRealBetween()
+    {
+        assertQuery(format("SELECT CAST(nan() AS REAL) BETWEEN CAST(-infinity() AS REAL) AND _real_nan_first FROM %s", REAL_NANS_TABLE_NAME), "SELECT * FROM (VALUES (true), (false), (false), (false))");
+        assertQuery(format("SELECT _real_nan_first BETWEEN CAST(-infinity() AS REAL) AND cast(nan() AS REAL) FROM %s", REAL_NANS_TABLE_NAME), "SELECT * FROM (VALUES(true), (true), (true), (true))");
     }
 
     @Test
@@ -137,8 +189,23 @@ public abstract class AbstractTestNanQueries
     }
 
     @Test
+    public void testRealIn()
+    {
+        assertQuery(format("SELECT CAST(nan() as REAL) IN (REAL '1', REAL '2', _real_nan_first) FROM %s", REAL_NANS_TABLE_NAME), "SELECT * FROM (VALUES (true), (false), (false), (false))");
+        assertQuery(format("SELECT _real_nan_first IN (CAST(nan() as REAL), REAL '0', REAL '6')FROM %s", REAL_NANS_TABLE_NAME), "SELECT * FROM (VALUES(true), (true), (false), (false))");
+    }
+
+    @Test
     public void testDoubleNotIn()
     {
         assertQuery(format("SELECT nan() NOT IN (1, 2, _double_nan_first) FROM %s", DOUBLE_NANS_TABLE_NAME), "SELECT * FROM (VALUES (false), (true), (true), (true))");
         assertQuery(format("SELECT _double_nan_first NOT IN (nan(), 0, 6)FROM %s", DOUBLE_NANS_TABLE_NAME), "SELECT * FROM (VALUES(false), (false), (true), (true))");
     }
+
+    @Test
+    public void testRealNotIn()
+    {
+        assertQuery(format("SELECT CAST(nan() as REAL) NOT IN (REAL '1', REAL '2', _real_nan_first) FROM %s", REAL_NANS_TABLE_NAME), "SELECT * FROM (VALUES (false), (true), (true), (true))");
+        assertQuery(format("SELECT _real_nan_first NOT IN (CAST(nan() as REAL), 0, 6)FROM %s", REAL_NANS_TABLE_NAME), "SELECT * FROM (VALUES(false), (false), (true), (true))");
+    }
+}

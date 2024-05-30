@@ -13,16 +13,11 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.common.block.Block;
-import com.facebook.presto.common.type.AbstractIntType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.function.BlockIndex;
-import com.facebook.presto.spi.function.BlockPosition;
 import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarOperator;
-import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.google.common.math.DoubleMath;
 import com.google.common.primitives.Shorts;
@@ -31,25 +26,15 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.XxHash64;
 
 import static com.facebook.presto.common.function.OperatorType.ADD;
-import static com.facebook.presto.common.function.OperatorType.BETWEEN;
 import static com.facebook.presto.common.function.OperatorType.CAST;
 import static com.facebook.presto.common.function.OperatorType.DIVIDE;
-import static com.facebook.presto.common.function.OperatorType.EQUAL;
-import static com.facebook.presto.common.function.OperatorType.GREATER_THAN;
-import static com.facebook.presto.common.function.OperatorType.GREATER_THAN_OR_EQUAL;
-import static com.facebook.presto.common.function.OperatorType.HASH_CODE;
 import static com.facebook.presto.common.function.OperatorType.INDETERMINATE;
-import static com.facebook.presto.common.function.OperatorType.IS_DISTINCT_FROM;
-import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
-import static com.facebook.presto.common.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.common.function.OperatorType.MODULUS;
 import static com.facebook.presto.common.function.OperatorType.MULTIPLY;
 import static com.facebook.presto.common.function.OperatorType.NEGATION;
-import static com.facebook.presto.common.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.common.function.OperatorType.SATURATED_FLOOR_CAST;
 import static com.facebook.presto.common.function.OperatorType.SUBTRACT;
 import static com.facebook.presto.common.function.OperatorType.XX_HASH_64;
-import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.floatToIntBits;
@@ -114,65 +99,6 @@ public final class RealOperators
     public static long negate(@SqlType(StandardTypes.REAL) long value)
     {
         return floatToRawIntBits(-intBitsToFloat((int) value));
-    }
-
-    @ScalarOperator(EQUAL)
-    @SqlType(StandardTypes.BOOLEAN)
-    @SqlNullable
-    public static Boolean equal(@SqlType(StandardTypes.REAL) long left, @SqlType(StandardTypes.REAL) long right)
-    {
-        return intBitsToFloat((int) left) == intBitsToFloat((int) right);
-    }
-
-    @ScalarOperator(NOT_EQUAL)
-    @SqlType(StandardTypes.BOOLEAN)
-    @SqlNullable
-    public static Boolean notEqual(@SqlType(StandardTypes.REAL) long left, @SqlType(StandardTypes.REAL) long right)
-    {
-        return intBitsToFloat((int) left) != intBitsToFloat((int) right);
-    }
-
-    @ScalarOperator(LESS_THAN)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean lessThan(@SqlType(StandardTypes.REAL) long left, @SqlType(StandardTypes.REAL) long right)
-    {
-        return intBitsToFloat((int) left) < intBitsToFloat((int) right);
-    }
-
-    @ScalarOperator(LESS_THAN_OR_EQUAL)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean lessThanOrEqual(@SqlType(StandardTypes.REAL) long left, @SqlType(StandardTypes.REAL) long right)
-    {
-        return intBitsToFloat((int) left) <= intBitsToFloat((int) right);
-    }
-
-    @ScalarOperator(GREATER_THAN)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean greaterThan(@SqlType(StandardTypes.REAL) long left, @SqlType(StandardTypes.REAL) long right)
-    {
-        return intBitsToFloat((int) left) > intBitsToFloat((int) right);
-    }
-
-    @ScalarOperator(GREATER_THAN_OR_EQUAL)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean greaterThanOrEqual(@SqlType(StandardTypes.REAL) long left, @SqlType(StandardTypes.REAL) long right)
-    {
-        return intBitsToFloat((int) left) >= intBitsToFloat((int) right);
-    }
-
-    @ScalarOperator(BETWEEN)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean between(@SqlType(StandardTypes.REAL) long value, @SqlType(StandardTypes.REAL) long min, @SqlType(StandardTypes.REAL) long max)
-    {
-        return intBitsToFloat((int) min) <= intBitsToFloat((int) value) &&
-                intBitsToFloat((int) value) <= intBitsToFloat((int) max);
-    }
-
-    @ScalarOperator(HASH_CODE)
-    @SqlType(StandardTypes.BIGINT)
-    public static long hashCode(@SqlType(StandardTypes.REAL) long value)
-    {
-        return AbstractIntType.hash(floatToIntBits(intBitsToFloat((int) value)));
     }
 
     @ScalarOperator(XX_HASH_64)
@@ -250,47 +176,6 @@ public final class RealOperators
     public static boolean castToBoolean(@SqlType(StandardTypes.REAL) long value)
     {
         return intBitsToFloat((int) value) != 0.0f;
-    }
-
-    @ScalarOperator(IS_DISTINCT_FROM)
-    public static class RealDistinctFromOperator
-    {
-        @SqlType(StandardTypes.BOOLEAN)
-        public static boolean isDistinctFrom(
-                @SqlType(StandardTypes.REAL) long left,
-                @IsNull boolean leftNull,
-                @SqlType(StandardTypes.REAL) long right,
-                @IsNull boolean rightNull)
-        {
-            if (leftNull != rightNull) {
-                return true;
-            }
-            if (leftNull) {
-                return false;
-            }
-            float leftFloat = intBitsToFloat((int) left);
-            float rightFloat = intBitsToFloat((int) right);
-            if (Float.isNaN(leftFloat) && Float.isNaN(rightFloat)) {
-                return false;
-            }
-            return notEqual(left, right);
-        }
-
-        @SqlType(StandardTypes.BOOLEAN)
-        public static boolean isDistinctFrom(
-                @BlockPosition @SqlType(value = StandardTypes.REAL, nativeContainerType = long.class) Block left,
-                @BlockIndex int leftPosition,
-                @BlockPosition @SqlType(value = StandardTypes.REAL, nativeContainerType = long.class) Block right,
-                @BlockIndex int rightPosition)
-        {
-            if (left.isNull(leftPosition) != right.isNull(rightPosition)) {
-                return true;
-            }
-            if (left.isNull(leftPosition)) {
-                return false;
-            }
-            return notEqual(REAL.getLong(left, leftPosition), REAL.getLong(right, rightPosition));
-        }
     }
 
     @ScalarOperator(SATURATED_FLOOR_CAST)
