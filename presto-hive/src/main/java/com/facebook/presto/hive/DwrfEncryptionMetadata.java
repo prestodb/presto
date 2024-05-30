@@ -63,7 +63,7 @@ public class DwrfEncryptionMetadata
         this.encryptionProvider = requireNonNull(encryptionProvider, "encryptionProvider is null");
 
         if (this.fieldToKeyData.containsKey(TABLE_IDENTIFIER) && this.fieldToKeyData.size() != 1) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Cannot have both table and column level settings. Given: %s", fieldToKeyData.keySet().toString()));
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Cannot have both table and column level settings. Given: %s", fieldToKeyData.keySet()));
         }
     }
 

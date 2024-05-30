@@ -92,7 +92,7 @@ public class HiveSplitPartitionInfo
         // it's safe to add a trailing slash
         if (!path.getPath().endsWith("/")) {
             try {
-                path = new URI(path.toString() + "/");
+                path = new URI(path + "/");
             }
             catch (URISyntaxException e) {
                 throw new PrestoException(GENERIC_INTERNAL_ERROR, e);
