@@ -172,7 +172,7 @@ Mathematical Functions
     assumed to be in sorted ascending order.
 
 Probability Functions: cdf
------------------------
+--------------------------
 
 .. function:: beta_cdf(a, b, value) -> double
 
@@ -230,7 +230,7 @@ Probability Functions: cdf
 
 
 Probability Functions: inverse_cdf
------------------------
+----------------------------------
 
 .. function:: inverse_beta_cdf(a, b, p) -> double
 
@@ -297,7 +297,7 @@ Probability Functions: inverse_cdf
 
 
 Statistical Functions
------------------------
+---------------------
 
 .. function:: wilson_interval_lower(successes, trials, z) -> double
 

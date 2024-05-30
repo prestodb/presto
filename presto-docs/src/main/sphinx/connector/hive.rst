@@ -658,7 +658,7 @@ This query will collect statistics for 2 partitions with keys:
 * ``partition2_value1, partition2_value2``
 
 Quick Stats
---------------------------------------
+-----------
 
 The Hive connector can build basic statistics for partitions with missing statistics
 by examining file or table metadata. For example, Parquet footers can be used to infer
@@ -874,7 +874,7 @@ columns as a part of the query like any other columns of the table.
 * ``$file_modified_time`` : Last file modified time for the given row (int64_t), in milliseconds since January 1, 1970 UTC
 
 How to invalidate metastore cache?
----------------------------------
+----------------------------------
 
 The Hive connector exposes a procedure over JMX (``com.facebook.presto.hive.metastore.CachingHiveMetastore#flushCache``) to invalidate the metastore cache.
 You can call this procedure to invalidate the metastore cache by connecting via jconsole or jmxterm.

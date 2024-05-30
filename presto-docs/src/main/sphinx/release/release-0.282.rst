@@ -28,11 +28,11 @@ ____________
 * Upgrade Alluxio version from 2.8.1 to 2.9.3.
 
 Apache Iceberg Changes
-____________
+______________________
 * Add parquet metadata caching in Apache Iceberg.
 
 Presto on Spark Changes
-____________
+_______________________
 * Add option to use ``selectAuthorizedIdentity`` API for Presto on Spark when ``permissions.authorized-identity-selection-enable`` set to ``true``.
 * Add an additional field  ``attemptNumber`` in ``TaskId`` which is used to capture task retries in Presto on Spark. For presto classic this field will be set to ``0`` by default.
 * Remove :doc:`/sql/create-function` and :doc:`/sql/drop-function` support from Presto on Spark.
