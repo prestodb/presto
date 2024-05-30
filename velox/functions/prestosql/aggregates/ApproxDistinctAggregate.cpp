@@ -463,6 +463,7 @@ exec::AggregateRegistrationResult registerApproxDistinct(
           "real",
           "double",
           "varchar",
+          "varbinary",
           "timestamp",
           "date"}) {
       signatures.push_back(exec::AggregateFunctionSignatureBuilder()
@@ -504,10 +505,9 @@ exec::AggregateRegistrationResult registerApproxDistinct(
           const TypePtr& resultType,
           const core::QueryConfig& /*config*/)
           -> std::unique_ptr<exec::Aggregate> {
-        TypePtr type = argTypes[0]->isVarbinary() ? BIGINT() : argTypes[0];
         return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
             createApproxDistinct,
-            type->kind(),
+            argTypes[0]->kind(),
             resultType,
             hllAsFinalResult,
             hllAsRawInput,

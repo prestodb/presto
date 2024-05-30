@@ -230,6 +230,16 @@ TEST_F(ApproxDistinctTest, globalAggStrings) {
   testGlobalAgg(values, kFruits.size());
 }
 
+TEST_F(ApproxDistinctTest, globalAggVarbinary) {
+  auto values = makeFlatVector<std::string>(
+      1'000,
+      [&](auto row) { return kFruits[row % kFruits.size()]; },
+      nullptr,
+      VARBINARY());
+
+  testGlobalAgg(values, kFruits.size());
+}
+
 TEST_F(ApproxDistinctTest, globalAggTimeStamp) {
   auto data = makeFlatVector<Timestamp>(
       1'000, [](auto row) { return Timestamp::fromMillis(row); });
