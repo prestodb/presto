@@ -67,7 +67,7 @@ public class AsyncQueue<T>
      */
     public synchronized boolean isFinished()
     {
-        return finishing && borrowerCount == 0 && elements.size() == 0;
+        return finishing && borrowerCount == 0 && elements.isEmpty();
     }
 
     public synchronized void finish()
@@ -83,7 +83,7 @@ public class AsyncQueue<T>
     private synchronized void signalIfFinishing()
     {
         if (finishing && borrowerCount == 0) {
-            if (elements.size() == 0) {
+            if (elements.isEmpty()) {
                 // Reset elements queue after finishing to avoid holding on to the full sized empty array inside
                 elements = new ArrayDeque<>(0);
                 completeAsync(executor, notEmptySignal);
