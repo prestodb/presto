@@ -106,7 +106,7 @@ public class PrestoNativeQueryRunnerUtils
     public static QueryRunner createJavaQueryRunner(String storageFormat)
             throws Exception
     {
-        return createJavaQueryRunner(Optional.of(getNativeQueryRunnerParameters().dataDirectory), storageFormat, true);
+        return createJavaQueryRunner(Optional.of(getNativeQueryRunnerParameters().dataDirectory), storageFormat, false);
     }
 
     public static QueryRunner createJavaQueryRunner(String storageFormat, boolean addStorageFormatToPath)
@@ -156,7 +156,7 @@ public class PrestoNativeQueryRunnerUtils
     public static QueryRunner createJavaIcebergQueryRunner(String storageFormat)
             throws Exception
     {
-        return createJavaIcebergQueryRunner(Optional.of(getNativeQueryRunnerParameters().dataDirectory), storageFormat, true);
+        return createJavaIcebergQueryRunner(Optional.of(getNativeQueryRunnerParameters().dataDirectory), storageFormat, false);
     }
 
     public static QueryRunner createJavaIcebergQueryRunner(Optional<Path> baseDataDirectory, String storageFormat, boolean addStorageFormatToPath)
@@ -175,7 +175,7 @@ public class PrestoNativeQueryRunnerUtils
                         "query.max-stage-count", "110"),
                 icebergPropertiesBuilder.build(),
                 FileFormat.valueOf(storageFormat),
-                false,
+                true,
                 false,
                 OptionalInt.empty(),
                 Optional.empty(),
@@ -309,7 +309,7 @@ public class PrestoNativeQueryRunnerUtils
                 useThrift,
                 remoteFunctionServerUds,
                 storageFormat,
-                true);
+                false);
     }
 
     // Start the remote function server. Return the UDS path used to communicate with it.
