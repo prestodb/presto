@@ -175,10 +175,10 @@ std::shared_ptr using the FlatVectorPtr alias.
     template <typename T>
     using FlatVectorPtr = std::shared_ptr<FlatVector<T>>;
 
-The following diagram shows a flat vector of type INTEGER with 11 values. This
+The following diagram shows a flat vector of type INTEGER with 12 values. This
 vector is represented as FlatVector<int32_t>. The `values_` buffer has space for
-at least 11 consecutive entries of 4 bytes each. Nulls buffer has space for at
-least 11 consecutive entries of 1 bit each.  Values in positions 2,7, 11 are
+at least 12 consecutive entries of 4 bytes each. Nulls buffer has space for at
+least 12 consecutive entries of 1 bit each.  Values in positions 2,7, 11 are
 null, e.g. bits 2, 7, 11 in `nulls_` buffer are 0. The rest of the bits in the
 `nulls_` buffer are 1. Entries 2, 7, 11 in `values_` buffer contain garbage.
 
@@ -215,9 +215,9 @@ Strings in the string buffers appear not necessarily in order and there can be
 gaps between individual strings. A single vector may use one or more string
 buffers.
 
-The following diagram shows a vector of type VARCHAR with 7 values. This vector
+The following diagram shows a vector of type VARCHAR with 8 values. This vector
 is represented as FlatVector<StringView>. `values_` buffer has space for at least
-7 entries 16 bytes each. `stringBuffers_` array has one entry containing a
+8 entries 16 bytes each. `stringBuffers_` array has one entry containing a
 concatenation of non-inlined strings. Each entry in `values_` buffer uses 4 bytes
 to store the size of the string.
 
@@ -323,9 +323,9 @@ Multiple dictionary vectors can refer to the same base vector. We are saying
 that the dictionary vector wraps the base vector.
 
 Here is a dictionary of type INTEGER that represents a result of a filter: n % 2
-= 0. The base vector contains 11 entries. Only 5 of these entries passed the
-filter, hence, the size of the dictionary vector is 5. The indices buffer
-contains 5 entries referring to positions in the original vector that passed
+= 0. The base vector contains 12 entries. Only 6 of these entries passed the
+filter, hence, the size of the dictionary vector is 6. The indices buffer
+contains 6 entries referring to positions in the original vector that passed
 the filter.
 
 .. image:: images/dictionary-subset2.png
