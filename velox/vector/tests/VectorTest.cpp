@@ -3493,7 +3493,7 @@ TEST_F(VectorTest, flatAllNulls) {
 
   auto nulls = allocateNulls(size, pool(), bits::kNull);
 
-  // BIGINT.
+  // BIGINT. set API.
   {
     auto flat = makeFlatNullValues<int64_t>(size, BIGINT(), nulls, pool());
 
@@ -3505,6 +3505,26 @@ TEST_F(VectorTest, flatAllNulls) {
     flat->set(7, 123LL);
     ASSERT_FALSE(flat->isNullAt(7));
     ASSERT_EQ(123LL, flat->valueAt(7));
+
+    for (auto i = 0; i < size; ++i) {
+      if (i != 7) {
+        ASSERT_TRUE(flat->isNullAt(i));
+      }
+    }
+  }
+
+  // BIGINT. setNull API.
+  {
+    auto flat = makeFlatNullValues<int64_t>(size, BIGINT(), nulls, pool());
+
+    for (auto i = 0; i < size; ++i) {
+      ASSERT_TRUE(flat->isNullAt(i));
+    }
+
+    // Change some rows to non-null.
+    flat->setNull(7, false);
+    ASSERT_FALSE(flat->isNullAt(7));
+    ASSERT_NO_THROW(flat->valueAt(7));
 
     for (auto i = 0; i < size; ++i) {
       if (i != 7) {

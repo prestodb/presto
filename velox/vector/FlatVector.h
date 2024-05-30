@@ -225,6 +225,13 @@ class FlatVector final : public SimpleVector<T> {
 
   Range<T> asRange() const;
 
+  void setNull(vector_size_t idx, bool isNull) override {
+    BaseVector::setNull(idx, isNull);
+    if (!isNull) {
+      ensureValues();
+    }
+  }
+
   void set(vector_size_t idx, T value) {
     VELOX_DCHECK_LT(idx, BaseVector::length_);
     ensureValues();
