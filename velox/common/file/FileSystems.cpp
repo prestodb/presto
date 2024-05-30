@@ -77,7 +77,7 @@ class LocalFileSystem : public FileSystem {
     return "Local FS";
   }
 
-  inline std::string_view extractPath(std::string_view path) {
+  inline std::string_view extractPath(std::string_view path) override {
     if (path.find(kFileScheme) == 0) {
       return path.substr(kFileScheme.length());
     }

@@ -50,6 +50,10 @@ class ReferenceQueryRunner {
       const RowTypePtr& resultType) {
     VELOX_UNSUPPORTED();
   }
+
+  virtual std::vector<velox::RowVectorPtr> execute(const std::string& sql) {
+    VELOX_UNSUPPORTED();
+  }
 };
 
 } // namespace facebook::velox::exec::test

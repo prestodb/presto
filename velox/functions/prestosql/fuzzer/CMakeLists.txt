@@ -37,3 +37,9 @@ target_link_libraries(
   velox_functions_prestosql
   gtest
   gtest_main)
+
+# Writer Fuzzer
+add_executable(velox_writer_fuzzer_test WriterFuzzerTest.cpp)
+
+target_link_libraries(velox_writer_fuzzer_test velox_writer_fuzzer
+                      velox_fuzzer_util gtest gtest_main)

@@ -19,7 +19,6 @@
 #include <gtest/gtest.h>
 #include <unordered_set>
 
-#include "velox/exec/fuzzer/DuckQueryRunner.h"
 #include "velox/exec/fuzzer/WindowFuzzerRunner.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/fuzzer/ApproxDistinctInputGenerator.h"

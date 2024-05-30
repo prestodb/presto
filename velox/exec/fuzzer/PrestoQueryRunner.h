@@ -23,6 +23,13 @@
 #include "velox/vector/ComplexVector.h"
 
 namespace facebook::velox::exec::test {
+template <typename T>
+T extractSingleValue(const std::vector<RowVectorPtr>& data) {
+  auto simpleVector = data[0]->childAt(0)->as<SimpleVector<T>>();
+  VELOX_CHECK(!simpleVector->isNullAt(0));
+  return simpleVector->valueAt(0);
+}
+
 class PrestoQueryRunner : public velox::exec::test::ReferenceQueryRunner {
  public:
   /// @param coordinatorUri Presto REST API endpoint, e.g. http://127.0.0.1:8080
@@ -58,7 +65,7 @@ class PrestoQueryRunner : public velox::exec::test::ReferenceQueryRunner {
 
   /// Executes Presto SQL query and returns the results. Tables referenced by
   /// the query must already exist.
-  std::vector<velox::RowVectorPtr> execute(const std::string& sql);
+  std::vector<velox::RowVectorPtr> execute(const std::string& sql) override;
 
   bool supportsVeloxVectorResults() const override;
 
@@ -88,6 +95,9 @@ class PrestoQueryRunner : public velox::exec::test::ReferenceQueryRunner {
 
   std::optional<std::string> toSql(
       const std::shared_ptr<const velox::core::RowNumberNode>& rowNumberNode);
+
+  std::optional<std::string> toSql(
+      const std::shared_ptr<const core::TableWriteNode>& tableWriteNode);
 
   std::string startQuery(const std::string& sql);
 

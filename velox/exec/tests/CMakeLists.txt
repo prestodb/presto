@@ -83,7 +83,8 @@ add_executable(
   ValuesTest.cpp
   VectorHasherTest.cpp
   WindowFunctionRegistryTest.cpp
-  WindowTest.cpp)
+  WindowTest.cpp
+  WriterFuzzerUtilTest.cpp)
 
 add_executable(
   velox_exec_infra_test
@@ -132,6 +133,7 @@ target_link_libraries(
   velox_type
   velox_vector
   velox_vector_fuzzer
+  velox_writer_fuzzer
   velox_window
   Boost::atomic
   Boost::context

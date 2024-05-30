@@ -68,3 +68,15 @@ add_library(velox_join_fuzzer JoinFuzzer.cpp)
 
 target_link_libraries(velox_join_fuzzer velox_type velox_vector_fuzzer
                       velox_exec_test_lib velox_expression_test_utility)
+
+add_library(velox_writer_fuzzer WriterFuzzer.cpp)
+
+target_link_libraries(
+  velox_writer_fuzzer
+  velox_fuzzer_util
+  velox_type
+  velox_vector_fuzzer
+  velox_exec_test_lib
+  velox_expression_test_utility
+  velox_temp_path
+  velox_vector_test_lib)
