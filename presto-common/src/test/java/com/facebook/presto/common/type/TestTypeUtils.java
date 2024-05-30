@@ -24,8 +24,12 @@ import static com.facebook.presto.common.type.TypeUtils.containsDistinctType;
 import static com.facebook.presto.common.type.TypeUtils.doubleCompare;
 import static com.facebook.presto.common.type.TypeUtils.doubleEquals;
 import static com.facebook.presto.common.type.TypeUtils.doubleHashCode;
+import static com.facebook.presto.common.type.TypeUtils.realCompare;
+import static com.facebook.presto.common.type.TypeUtils.realEquals;
+import static com.facebook.presto.common.type.TypeUtils.realHashCode;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static java.lang.Double.longBitsToDouble;
+import static java.lang.Float.intBitsToFloat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -81,5 +85,31 @@ public class TestTypeUtils
         assertEquals(doubleCompare(Double.NaN, Double.NaN), 0);
         //0x7ff8123412341234L is a different representation of NaN
         assertEquals(doubleCompare(Double.NaN, longBitsToDouble(0x7ff8123412341234L)), 0);
+    }
+
+    @Test
+    public void testRealHashCode()
+    {
+        assertEquals(realHashCode(0), realHashCode(Float.parseFloat("-0")));
+        // 0x7fc01234 is a different representation of NaN
+        assertEquals(realHashCode(Float.NaN), realHashCode(intBitsToFloat(0x7fc01234)));
+    }
+
+    @Test
+    public void testRealEquals()
+    {
+        assertTrue(realEquals(0, Float.parseFloat("-0")));
+        assertTrue(realEquals(Float.NaN, Float.NaN));
+        // 0x7fc01234 is a different representation of NaN
+        assertTrue(realEquals(Float.NaN, intBitsToFloat(0x7fc01234)));
+    }
+
+    @Test
+    public void testRealCompare()
+    {
+        assertEquals(realCompare(0, Float.parseFloat("-0")), 0);
+        assertEquals(realCompare(Float.NaN, Float.NaN), 0);
+        // 0x7fc01234 is a different representation of NaN
+        assertEquals(realCompare(Float.NaN, intBitsToFloat(0x7fc01234)), 0);
     }
 }
