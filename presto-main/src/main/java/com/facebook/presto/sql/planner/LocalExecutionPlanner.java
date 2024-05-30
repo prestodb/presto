@@ -1594,7 +1594,7 @@ public class LocalExecutionPlanner
         private RowExpression bindChannels(RowExpression expression, Map<VariableReferenceExpression, Integer> sourceLayout)
         {
             Type type = expression.getType();
-            Object value = new RowExpressionInterpreter(expression, metadata, session.toConnectorSession(), OPTIMIZED).optimize();
+            Object value = new RowExpressionInterpreter(expression, metadata.getFunctionAndTypeManager(), session.toConnectorSession(), OPTIMIZED).optimize();
             if (value instanceof RowExpression) {
                 RowExpression optimized = (RowExpression) value;
                 // building channel info
@@ -1643,7 +1643,7 @@ public class LocalExecutionPlanner
                 pageBuilder.declarePosition();
                 for (int i = 0; i < row.size(); i++) {
                     // evaluate the literal value
-                    Object result = rowExpressionInterpreter(row.get(i), metadata, context.getSession().toConnectorSession()).evaluate();
+                    Object result = rowExpressionInterpreter(row.get(i), metadata.getFunctionAndTypeManager(), context.getSession().toConnectorSession()).evaluate();
                     writeNativeValue(outputTypes.get(i), pageBuilder.getBlockBuilder(i), result);
                 }
             }

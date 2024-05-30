@@ -355,7 +355,7 @@ public class PickTableLayout
         {
             this.assignments = assignments;
 
-            evaluator = new RowExpressionInterpreter(expression, metadata, session.toConnectorSession(), OPTIMIZED);
+            evaluator = new RowExpressionInterpreter(expression, metadata.getFunctionAndTypeManager(), session.toConnectorSession(), OPTIMIZED);
             arguments = VariablesExtractor.extractUnique(expression).stream()
                     .map(assignments::get)
                     .collect(toImmutableSet());

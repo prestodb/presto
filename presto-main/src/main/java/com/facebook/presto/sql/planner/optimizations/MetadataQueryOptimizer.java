@@ -367,7 +367,7 @@ public class MetadataQueryOptimizer
                                     scalarFunctionName,
                                     returnType,
                                     partitionedArguments),
-                            metadata,
+                            metadata.getFunctionAndTypeManager(),
                             connectorSession);
                     reducedArguments.add(constant(reducedValue, returnType));
                 }
