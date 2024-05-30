@@ -103,62 +103,56 @@ void TryExpr::nullOutErrors(
     const SelectivityVector& rows,
     EvalCtx& context,
     VectorPtr& result) const {
-  auto errors = context.errors();
-  if (errors) {
-    applyListenersOnError(rows, context);
+  const auto* errors = context.errors();
+  if (!errors) {
+    return;
+  }
 
-    if (result->encoding() == VectorEncoding::Simple::CONSTANT) {
-      // Since it's constant, if any row is NULL they're all NULL, so check row
-      // 0 arbitrarily.
-      if (result->isNullAt(0)) {
-        // The result is already a NULL constant, so this is a no-op.
-        return;
-      }
+  applyListenersOnError(rows, context);
 
-      if (errors->isConstantEncoding()) {
-        // Set the result to be a NULL constant.
-        result = BaseVector::createNullConstant(
-            result->type(), result->size(), context.pool());
-      } else {
-        auto size = result->size();
-        VELOX_DCHECK_GE(size, rows.end());
-
-        auto nulls = allocateNulls(size, context.pool());
-        auto rawNulls = nulls->asMutable<uint64_t>();
-        rows.applyToSelected([&](auto row) {
-          if (row < errors->size() && !errors->isNullAt(row)) {
-            bits::setNull(rawNulls, row, true);
-          }
-        });
-        // Wrap in dictionary indices all pointing to index 0.
-        auto indices = allocateIndices(size, context.pool());
-        result = BaseVector::wrapInDictionary(nulls, indices, size, result);
-      }
-    } else {
-      if (result.unique() && result->isNullsWritable()) {
-        auto* rawNulls = result->mutableRawNulls();
-        rows.applyToSelected([&](auto row) {
-          if (row < errors->size() && !errors->isNullAt(row)) {
-            bits::setNull(rawNulls, row, true);
-          }
-        });
-      } else {
-        auto nulls = allocateNulls(rows.end(), context.pool());
-        auto* rawNulls = nulls->asMutable<uint64_t>();
-        auto indices = allocateIndices(rows.end(), context.pool());
-        auto* rawIndices = indices->asMutable<vector_size_t>();
-
-        rows.applyToSelected([&](auto row) {
-          rawIndices[row] = row;
-          if (row < errors->size() && !errors->isNullAt(row)) {
-            bits::setNull(rawNulls, row, true);
-          }
-        });
-
-        result =
-            BaseVector::wrapInDictionary(nulls, indices, rows.end(), result);
-      }
+  if (result->isConstantEncoding()) {
+    // Since it's constant, if any row is NULL they're all NULL, so check row
+    // 0 arbitrarily.
+    if (result->isNullAt(0)) {
+      // The result is already a NULL constant, so this is a no-op.
+      return;
     }
+
+    auto size = result->size();
+    VELOX_DCHECK_GE(size, rows.end());
+
+    auto nulls = allocateNulls(size, context.pool());
+    auto rawNulls = nulls->asMutable<uint64_t>();
+    rows.applyToSelected([&](auto row) {
+      if (row < errors->size() && !errors->isNullAt(row)) {
+        bits::setNull(rawNulls, row, true);
+      }
+    });
+
+    // Wrap in dictionary indices all pointing to index 0.
+    auto indices = allocateIndices(size, context.pool());
+    result = BaseVector::wrapInDictionary(nulls, indices, size, result);
+  } else if (result.unique() && result->isNullsWritable()) {
+    auto* rawNulls = result->mutableRawNulls();
+    rows.applyToSelected([&](auto row) {
+      if (row < errors->size() && !errors->isNullAt(row)) {
+        bits::setNull(rawNulls, row, true);
+      }
+    });
+  } else {
+    auto nulls = allocateNulls(rows.end(), context.pool());
+    auto* rawNulls = nulls->asMutable<uint64_t>();
+    auto indices = allocateIndices(rows.end(), context.pool());
+    auto* rawIndices = indices->asMutable<vector_size_t>();
+
+    rows.applyToSelected([&](auto row) {
+      rawIndices[row] = row;
+      if (row < errors->size() && !errors->isNullAt(row)) {
+        bits::setNull(rawNulls, row, true);
+      }
+    });
+
+    result = BaseVector::wrapInDictionary(nulls, indices, rows.end(), result);
   }
 }
 
