@@ -107,7 +107,6 @@ CODEOWNERS @prestodb/team-tsc
 /presto-kudu @prestodb/committers
 /presto-lark-sheets @prestodb/committers
 /presto-local-file @prestodb/committers
-/presto-main @prestodb/committers
 /presto-matching @prestodb/committers
 /presto-memory @prestodb/committers
 /presto-memory-context @prestodb/committers
