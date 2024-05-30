@@ -17,6 +17,7 @@ import com.facebook.presto.common.block.BlockEncoding;
 import com.facebook.presto.common.type.ParametricType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.analyzer.AnalyzerProvider;
+import com.facebook.presto.spi.analyzer.QueryPreparerProvider;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;
 import com.facebook.presto.spi.function.FunctionNamespaceManagerFactory;
@@ -128,6 +129,11 @@ public interface Plugin
     }
 
     default Iterable<AnalyzerProvider> getAnalyzerProviders()
+    {
+        return emptyList();
+    }
+
+    default Iterable<QueryPreparerProvider> getQueryPreparerProviders()
     {
         return emptyList();
     }
