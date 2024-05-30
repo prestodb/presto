@@ -45,6 +45,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.HadoopExtendedFileSystem;
 import org.apache.hadoop.fs.Path;
@@ -53,10 +54,13 @@ import org.apache.hadoop.hive.common.type.HiveVarchar;
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.ProtectMode;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
+import org.apache.hadoop.hive.ql.exec.TextRecordWriter;
+import org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat;
 import org.apache.hadoop.hive.ql.io.HiveOutputFormat;
 import org.apache.hadoop.hive.ql.io.RCFile;
 import org.apache.hadoop.hive.ql.io.RCFileOutputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat;
+import org.apache.hadoop.hive.serde.serdeConstants;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.Serializer;
 import org.apache.hadoop.hive.serde2.io.DateWritable;
@@ -75,6 +79,7 @@ import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
+import org.apache.hadoop.io.BinaryComparable;
 import org.apache.hadoop.io.BooleanWritable;
 import org.apache.hadoop.io.ByteWritable;
 import org.apache.hadoop.io.BytesWritable;
@@ -90,6 +95,7 @@ import org.apache.hadoop.mapred.Reporter;
 import org.apache.hive.common.util.ReflectionUtil;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -117,6 +123,7 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.pathExists;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyOnline;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.Integer.parseInt;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -124,6 +131,7 @@ import static java.util.UUID.randomUUID;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.COMPRESSRESULT;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMNS;
+import static org.apache.hadoop.hive.ql.exec.Utilities.createCompressedStream;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.getPrimitiveJavaObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.getPrimitiveWritableObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaBooleanObjectInspector;
@@ -160,6 +168,11 @@ public final class HiveWriteUtils
 
     public static RecordWriter createRecordWriter(Path target, JobConf conf, Properties properties, String outputFormatName, ConnectorSession session)
     {
+        return createRecordWriter(target, conf, properties, outputFormatName, session, Optional.empty());
+    }
+
+    public static RecordWriter createRecordWriter(Path target, JobConf conf, Properties properties, String outputFormatName, ConnectorSession session, Optional<TextCSVHeaderWriter> textCSVHeaderWriter)
+    {
         try {
             boolean compress = HiveConf.getBoolVar(conf, COMPRESSRESULT);
             if (outputFormatName.equals(RCFileOutputFormat.class.getName())) {
@@ -167,6 +180,9 @@ public final class HiveWriteUtils
             }
             if (outputFormatName.equals(MapredParquetOutputFormat.class.getName())) {
                 return createParquetWriter(target, conf, properties, compress, session);
+            }
+            if (outputFormatName.equals(HiveIgnoreKeyTextOutputFormat.class.getName())) {
+                return createTextCsvFileWriter(target, conf, properties, compress, textCSVHeaderWriter);
             }
             Object writer = Class.forName(outputFormatName).getConstructor().newInstance();
             return ((HiveOutputFormat<?, ?>) writer).getHiveRecordWriter(conf, target, Text.class, compress, properties, Reporter.NULL);
@@ -209,6 +225,63 @@ public final class HiveWriteUtils
             @Override
             public void close(boolean abort)
                     throws IOException
+            {
+                writer.close();
+                if (!abort) {
+                    length = target.getFileSystem(conf).getFileStatus(target).getLen();
+                }
+            }
+        };
+    }
+
+    private static RecordWriter createTextCsvFileWriter(Path target, JobConf conf, Properties properties, boolean compress, Optional<TextCSVHeaderWriter> textCSVHeaderWriter)
+                    throws IOException
+    {
+        String rowSeparatorString = properties.getProperty(serdeConstants.LINE_DELIM, "\n");
+
+        int rowSeparatorByte;
+        try {
+            rowSeparatorByte = Byte.parseByte(rowSeparatorString);
+        }
+        catch (NumberFormatException e) {
+            rowSeparatorByte = rowSeparatorString.charAt(0);
+        }
+
+        FSDataOutputStream output = target.getFileSystem(conf).create(target, Reporter.NULL);
+        OutputStream compressedOutput = createCompressedStream(conf, output, compress);
+        TextRecordWriter writer = new TextRecordWriter();
+        writer.initialize(compressedOutput, conf);
+        Optional<String> skipHeaderLine = Optional.ofNullable(properties.getProperty("skip.header.line.count"));
+        if (skipHeaderLine.isPresent()) {
+            if (parseInt(skipHeaderLine.get()) == 1) {
+                textCSVHeaderWriter
+                                .orElseThrow(() -> new IllegalArgumentException("TextHeaderWriter must not be empty when skip.header.line.count is set to 1"))
+                                .write(compressedOutput, rowSeparatorByte);
+            }
+        }
+        int finalRowSeparatorByte = rowSeparatorByte;
+        return new ExtendedRecordWriter()
+        {
+            private long length;
+
+            @Override
+            public long getWrittenBytes()
+            {
+                return length;
+            }
+
+            @Override
+            public void write(Writable value)
+                            throws IOException
+            {
+                BinaryComparable binary = (BinaryComparable) value;
+                compressedOutput.write(binary.getBytes(), 0, binary.getLength());
+                compressedOutput.write(finalRowSeparatorByte);
+            }
+
+            @Override
+            public void close(boolean abort)
+                            throws IOException
             {
                 writer.close();
                 if (!abort) {
