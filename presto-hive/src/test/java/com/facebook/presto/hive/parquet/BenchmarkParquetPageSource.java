@@ -448,7 +448,7 @@ public class BenchmarkParquetPageSource
             }
         }
 
-        private final Object createValue(Type type, float filterRate)
+        private Object createValue(Type type, float filterRate)
         {
             if (BOOLEAN.equals(type)) {
                 switch (withNulls) {
