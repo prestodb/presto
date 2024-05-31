@@ -25,7 +25,7 @@ on a Presto installation.
 
    **Example response**:
 
-      .. sourcecode:: http
+      .. code-block:: json
 
          {
   	    "queryId" : "20131229_211533_00017_dk5x2",
