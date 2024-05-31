@@ -29,4 +29,8 @@ struct Mutation {
   random::RandomSkipTracker* randomSkip = nullptr;
 };
 
+inline bool hasDeletion(const Mutation* mutation) {
+  return mutation && (mutation->deletedRows || mutation->randomSkip);
+}
+
 } // namespace facebook::velox::dwio::common

@@ -174,7 +174,7 @@ class SelectiveColumnReader {
   // read(). If 'this' has no filter, returns 'rows' passed to last
   // read().
   const RowSet outputRows() const {
-    if (scanSpec_->hasFilter() || hasMutation()) {
+    if (scanSpec_->hasFilter() || hasDeletion()) {
       return outputRows_;
     }
     return inputRows_;
@@ -552,7 +552,7 @@ class SelectiveColumnReader {
   // copy.
   char* copyStringValue(folly::StringPiece value);
 
-  virtual bool hasMutation() const {
+  virtual bool hasDeletion() const {
     return false;
   }
 

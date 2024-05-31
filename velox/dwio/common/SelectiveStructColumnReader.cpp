@@ -83,8 +83,10 @@ void SelectiveStructColumnReaderBase::next(
     VectorPtr& result,
     const Mutation* mutation) {
   process::TraceContext trace("SelectiveStructColumnReaderBase::next");
+  mutation_ = mutation;
+  hasDeletion_ = common::hasDeletion(mutation);
   if (children_.empty()) {
-    if (mutation) {
+    if (hasDeletion_) {
       if (fillMutatedOutputRows_) {
         fillOutputRowsFromMutation(numValues);
         numValues = outputRows_.size();
@@ -121,8 +123,6 @@ void SelectiveStructColumnReaderBase::next(
   if (numValues > oldSize) {
     std::iota(&rows_[oldSize], &rows_[rows_.size()], oldSize);
   }
-  mutation_ = mutation;
-  hasMutation_ = mutation && (mutation->deletedRows || mutation->randomSkip);
   read(readOffset_, rows_, nullptr);
   getValues(outputRows(), &result);
 }
@@ -134,7 +134,7 @@ void SelectiveStructColumnReaderBase::read(
   numReads_ = scanSpec_->newRead();
   prepareRead<char>(offset, rows, incomingNulls);
   RowSet activeRows = rows;
-  if (hasMutation_) {
+  if (hasDeletion_) {
     // We handle the mutation after prepareRead so that output rows and format
     // specific initializations (e.g. RepDef in Parquet) are done properly.
     VELOX_DCHECK(!nullsInReadRange_, "Only top level can have mutation");
