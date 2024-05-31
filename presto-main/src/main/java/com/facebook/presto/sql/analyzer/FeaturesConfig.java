@@ -311,7 +311,7 @@ public class FeaturesConfig
     private CreateView.Security defaultViewSecurityMode = DEFINER;
     private boolean useHistograms;
 
-    private boolean useNewNanDefinition;
+    private boolean useNewNanDefinition = true;
 
     public enum PartitioningPrecisionStrategy
     {
