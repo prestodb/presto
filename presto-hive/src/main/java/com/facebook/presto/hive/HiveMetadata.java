@@ -203,7 +203,6 @@ import static com.facebook.presto.hive.HivePartitioningHandle.createHiveCompatib
 import static com.facebook.presto.hive.HivePartitioningHandle.createPrestoNativePartitioningHandle;
 import static com.facebook.presto.hive.HiveSessionProperties.HIVE_STORAGE_FORMAT;
 import static com.facebook.presto.hive.HiveSessionProperties.RESPECT_TABLE_FORMAT;
-import static com.facebook.presto.hive.HiveSessionProperties.getBucketFunctionTypeForCteMaterialization;
 import static com.facebook.presto.hive.HiveSessionProperties.getBucketFunctionTypeForExchange;
 import static com.facebook.presto.hive.HiveSessionProperties.getCompressionCodec;
 import static com.facebook.presto.hive.HiveSessionProperties.getHiveStorageFormat;
@@ -2947,13 +2946,6 @@ public class HiveMetadata
                 .setBucketHandle(Optional.of(updatedBucketHandle))
                 .build();
     }
-
-    @Override
-    public ConnectorPartitioningHandle getPartitioningHandleForCteMaterialization(ConnectorSession session, int partitionCount, List<Type> partitionTypes)
-    {
-        return getHivePartitionHandle(session, partitionCount, partitionTypes, getBucketFunctionTypeForCteMaterialization(session));
-    }
-
     @Override
     public ConnectorPartitioningHandle getPartitioningHandleForExchange(ConnectorSession session, int partitionCount, List<Type> partitionTypes)
     {
