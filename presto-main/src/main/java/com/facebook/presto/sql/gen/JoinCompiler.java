@@ -46,7 +46,6 @@ import com.facebook.presto.operator.LookupSourceSupplier;
 import com.facebook.presto.operator.PagesHash;
 import com.facebook.presto.operator.PagesHashStrategy;
 import com.facebook.presto.spi.function.JavaScalarFunctionImplementation;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -93,7 +92,6 @@ import static java.util.Objects.requireNonNull;
 public class JoinCompiler
 {
     private final FunctionAndTypeManager functionAndTypeManager;
-    private final boolean groupByUsesEqualTo;
 
     private final LoadingCache<CacheKey, LookupSourceSupplierFactory> lookupSourceFactories = CacheBuilder.newBuilder()
             .recordStats()
@@ -113,10 +111,9 @@ public class JoinCompiler
     }
 
     @Inject
-    public JoinCompiler(Metadata metadata, FeaturesConfig config)
+    public JoinCompiler(Metadata metadata)
     {
         this.functionAndTypeManager = requireNonNull(metadata, "metadata is null").getFunctionAndTypeManager();
-        this.groupByUsesEqualTo = requireNonNull(config, "config is null").isGroupByUsesEqualTo();
     }
 
     @Managed
@@ -666,18 +663,6 @@ public class JoinCompiler
         Variable thisVariable = positionNotDistinctFromRowMethod.getThis();
         Scope scope = positionNotDistinctFromRowMethod.getScope();
         BytecodeBlock body = positionNotDistinctFromRowMethod.getBody();
-        if (groupByUsesEqualTo) {
-            // positionNotDistinctFromRow delegates to positionEqualsRow when groupByUsesEqualTo is set.
-            body.append(thisVariable.invoke(
-                    "positionEqualsRow",
-                    boolean.class,
-                    leftBlockIndex,
-                    leftBlockPosition,
-                    rightPosition,
-                    page,
-                    rightChannels).ret());
-            return;
-        }
         scope.declareVariable("wasNull", body, constantFalse());
         for (int index = 0; index < joinChannelTypes.size(); index++) {
             BytecodeExpression leftBlock = thisVariable

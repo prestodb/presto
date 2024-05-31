@@ -61,7 +61,8 @@ import static java.util.concurrent.TimeUnit.SECONDS;
         "deprecated.legacy-order-by",
         "deprecated.legacy-join-using",
         "use-legacy-scheduler",
-        "max-stage-retries"})
+        "max-stage-retries",
+        "deprecated.group-by-uses-equal"})
 public class FeaturesConfig
 {
     @VisibleForTesting
@@ -122,7 +123,6 @@ public class FeaturesConfig
     private boolean reduceAggForComplexTypesEnabled = true;
     private boolean legacyLogFunction;
     private boolean useAlternativeFunctionSignatures;
-    private boolean groupByUsesEqualTo;
     private boolean legacyTimestamp = true;
     private boolean legacyMapSubscript;
     private boolean legacyRowFieldOrdinalAccess;
@@ -566,18 +566,6 @@ public class FeaturesConfig
     public boolean isUseAlternativeFunctionSignatures()
     {
         return useAlternativeFunctionSignatures;
-    }
-
-    @Config("deprecated.group-by-uses-equal")
-    public FeaturesConfig setGroupByUsesEqualTo(boolean value)
-    {
-        this.groupByUsesEqualTo = value;
-        return this;
-    }
-
-    public boolean isGroupByUsesEqualTo()
-    {
-        return groupByUsesEqualTo;
     }
 
     @Config("deprecated.legacy-timestamp")
