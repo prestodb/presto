@@ -764,8 +764,8 @@ public final class MathFunctions
     @SqlType(StandardTypes.DOUBLE)
     public static double inverseNormalCdf(@SqlType(StandardTypes.DOUBLE) double mean, @SqlType(StandardTypes.DOUBLE) double sd, @SqlType(StandardTypes.DOUBLE) double p)
     {
-        checkCondition(p > 0 && p < 1, INVALID_FUNCTION_ARGUMENT, "p must be 0 > p > 1");
-        checkCondition(sd > 0, INVALID_FUNCTION_ARGUMENT, "sd must be > 0");
+        checkCondition(p > 0 && p < 1, INVALID_FUNCTION_ARGUMENT, "inverseNormalCdf Function: p must be 0 > p > 1");
+        checkCondition(sd > 0, INVALID_FUNCTION_ARGUMENT, "inverseNormalCdf Function: sd must be > 0");
 
         return mean + sd * 1.4142135623730951 * Erf.erfInv(2 * p - 1);
     }
@@ -778,7 +778,7 @@ public final class MathFunctions
             @SqlType(StandardTypes.DOUBLE) double standardDeviation,
             @SqlType(StandardTypes.DOUBLE) double value)
     {
-        checkCondition(standardDeviation > 0, INVALID_FUNCTION_ARGUMENT, "standardDeviation must be > 0");
+        checkCondition(standardDeviation > 0, INVALID_FUNCTION_ARGUMENT, "normalCdf Function: standardDeviation must be > 0");
         return 0.5 * (1 + Erf.erf((value - mean) / (standardDeviation * Math.sqrt(2))));
     }
 
@@ -790,9 +790,9 @@ public final class MathFunctions
             @SqlType(StandardTypes.DOUBLE) double b,
             @SqlType(StandardTypes.DOUBLE) double p)
     {
-        checkCondition(p >= 0 && p <= 1, INVALID_FUNCTION_ARGUMENT, "p must be in the interval [0, 1]");
-        checkCondition(a > 0, INVALID_FUNCTION_ARGUMENT, "a must be > 0");
-        checkCondition(b > 0, INVALID_FUNCTION_ARGUMENT, "b must be > 0");
+        checkCondition(p >= 0 && p <= 1, INVALID_FUNCTION_ARGUMENT, "inverseBetaCdf Function: p must be in the interval [0, 1]");
+        checkCondition(a > 0, INVALID_FUNCTION_ARGUMENT, "inverseBetaCdf Function: a must be > 0");
+        checkCondition(b > 0, INVALID_FUNCTION_ARGUMENT, "inverseBetaCdf Function: b must be > 0");
         BetaDistribution distribution = new BetaDistribution(null, a, b, BetaDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
         return distribution.inverseCumulativeProbability(p);
     }
@@ -805,9 +805,9 @@ public final class MathFunctions
             @SqlType(StandardTypes.DOUBLE) double b,
             @SqlType(StandardTypes.DOUBLE) double value)
     {
-        checkCondition(value >= 0 && value <= 1, INVALID_FUNCTION_ARGUMENT, "value must be in the interval [0, 1]");
-        checkCondition(a > 0, INVALID_FUNCTION_ARGUMENT, "a must be > 0");
-        checkCondition(b > 0, INVALID_FUNCTION_ARGUMENT, "b must be > 0");
+        checkCondition(value >= 0 && value <= 1, INVALID_FUNCTION_ARGUMENT, "betaCdf Function: value must be in the interval [0, 1]");
+        checkCondition(a > 0, INVALID_FUNCTION_ARGUMENT, "betaCdf Function: a must be > 0");
+        checkCondition(b > 0, INVALID_FUNCTION_ARGUMENT, "betaCdf Function: b must be > 0");
         BetaDistribution distribution = new BetaDistribution(null, a, b, BetaDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
         return distribution.cumulativeProbability(value);
     }
@@ -820,8 +820,8 @@ public final class MathFunctions
             @SqlType(StandardTypes.DOUBLE) double scale,
             @SqlType(StandardTypes.DOUBLE) double p)
     {
-        checkCondition(p >= 0 && p <= 1, INVALID_FUNCTION_ARGUMENT, "p must be in the interval [0, 1]");
-        checkCondition(scale > 0, INVALID_FUNCTION_ARGUMENT, "scale must be greater than 0");
+        checkCondition(p >= 0 && p <= 1, INVALID_FUNCTION_ARGUMENT, "inverseCauchyCdf Function: p must be in the interval [0, 1]");
+        checkCondition(scale > 0, INVALID_FUNCTION_ARGUMENT, "inverseCauchyCdf Function: scale must be greater than 0");
         CauchyDistribution distribution = new CauchyDistribution(null, median, scale, CauchyDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
         return distribution.inverseCumulativeProbability(p);
     }
@@ -834,7 +834,7 @@ public final class MathFunctions
             @SqlType(StandardTypes.DOUBLE) double scale,
             @SqlType(StandardTypes.DOUBLE) double value)
     {
-        checkCondition(scale > 0, INVALID_FUNCTION_ARGUMENT, "scale must be greater than 0");
+        checkCondition(scale > 0, INVALID_FUNCTION_ARGUMENT, "cauchyCdf Function: scale must be greater than 0");
         CauchyDistribution distribution = new CauchyDistribution(null, median, scale, CauchyDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
         return distribution.cumulativeProbability(value);
     }
@@ -846,8 +846,8 @@ public final class MathFunctions
             @SqlType(StandardTypes.DOUBLE) double df,
             @SqlType(StandardTypes.DOUBLE) double p)
     {
-        checkCondition(p >= 0 && p <= 1, INVALID_FUNCTION_ARGUMENT, "p must be in the interval [0, 1]");
-        checkCondition(df > 0, INVALID_FUNCTION_ARGUMENT, "df must be greater than 0");
+        checkCondition(p >= 0 && p <= 1, INVALID_FUNCTION_ARGUMENT, "inverseChiSquaredCdf Function: p must be in the interval [0, 1]");
+        checkCondition(df > 0, INVALID_FUNCTION_ARGUMENT, "inverseChiSquaredCdf Function: df must be greater than 0");
         ChiSquaredDistribution distribution = new ChiSquaredDistribution(null, df, ChiSquaredDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
         return distribution.inverseCumulativeProbability(p);
     }
@@ -859,8 +859,8 @@ public final class MathFunctions
             @SqlType(StandardTypes.DOUBLE) double df,
             @SqlType(StandardTypes.DOUBLE) double value)
     {
-        checkCondition(value >= 0, INVALID_FUNCTION_ARGUMENT, "value must non-negative");
-        checkCondition(df > 0, INVALID_FUNCTION_ARGUMENT, "df must be greater than 0");
+        checkCondition(value >= 0, INVALID_FUNCTION_ARGUMENT, "chiSquaredCdf Function: value must non-negative");
+        checkCondition(df > 0, INVALID_FUNCTION_ARGUMENT, "chiSquaredCdf Function: df must be greater than 0");
         ChiSquaredDistribution distribution = new ChiSquaredDistribution(null, df, ChiSquaredDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
         return distribution.cumulativeProbability(value);
     }
@@ -873,9 +873,9 @@ public final class MathFunctions
             @SqlType(StandardTypes.DOUBLE) double df2,
             @SqlType(StandardTypes.DOUBLE) double p)
     {
-        checkCondition(p >= 0 && p <= 1, INVALID_FUNCTION_ARGUMENT, "p must be in the interval [0, 1]");
-        checkCondition(df1 > 0, INVALID_FUNCTION_ARGUMENT, "numerator df must be greater than 0");
-        checkCondition(df2 > 0, INVALID_FUNCTION_ARGUMENT, "denominator df must be greater than 0");
+        checkCondition(p >= 0 && p <= 1, INVALID_FUNCTION_ARGUMENT, "inverseFCdf Function: p must be in the interval [0, 1]");
+        checkCondition(df1 > 0, INVALID_FUNCTION_ARGUMENT, "inverseFCdf Function: numerator df must be greater than 0");
+        checkCondition(df2 > 0, INVALID_FUNCTION_ARGUMENT, "inverseFCdf Function: denominator df must be greater than 0");
         FDistribution distribution = new FDistribution(null, df1, df2, FDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
         return distribution.inverseCumulativeProbability(p);
     }
@@ -888,9 +888,9 @@ public final class MathFunctions
             @SqlType(StandardTypes.DOUBLE) double df2,
             @SqlType(StandardTypes.DOUBLE) double value)
     {
-        checkCondition(value >= 0, INVALID_FUNCTION_ARGUMENT, "value must non-negative");
-        checkCondition(df1 > 0, INVALID_FUNCTION_ARGUMENT, "numerator df must be greater than 0");
-        checkCondition(df2 > 0, INVALID_FUNCTION_ARGUMENT, "denominator df must be greater than 0");
+        checkCondition(value >= 0, INVALID_FUNCTION_ARGUMENT, "fCdf Function: value must non-negative");
+        checkCondition(df1 > 0, INVALID_FUNCTION_ARGUMENT, "fCdf Function: numerator df must be greater than 0");
+        checkCondition(df2 > 0, INVALID_FUNCTION_ARGUMENT, "fCdf Function: denominator df must be greater than 0");
         FDistribution distribution = new FDistribution(null, df1, df2, FDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
         return distribution.cumulativeProbability(value);
     }
@@ -903,9 +903,9 @@ public final class MathFunctions
             @SqlType(StandardTypes.DOUBLE) double scale,
             @SqlType(StandardTypes.DOUBLE) double p)
     {
-        checkCondition(p >= 0 && p <= 1, INVALID_FUNCTION_ARGUMENT, "p must be in the interval [0, 1]");
-        checkCondition(shape > 0, INVALID_FUNCTION_ARGUMENT, "shape must be greater than 0");
-        checkCondition(scale > 0, INVALID_FUNCTION_ARGUMENT, "scale must be greater than 0");
+        checkCondition(p >= 0 && p <= 1, INVALID_FUNCTION_ARGUMENT, "inverseGammaCdf Function: p must be in the interval [0, 1]");
+        checkCondition(shape > 0, INVALID_FUNCTION_ARGUMENT, "inverseGammaCdf Function: shape must be greater than 0");
+        checkCondition(scale > 0, INVALID_FUNCTION_ARGUMENT, "inverseGammaCdf Function: scale must be greater than 0");
         GammaDistribution distribution = new GammaDistribution(null, shape, scale, GammaDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
         return distribution.inverseCumulativeProbability(p);
     }
@@ -918,9 +918,9 @@ public final class MathFunctions
             @SqlType(StandardTypes.DOUBLE) double scale,
             @SqlType(StandardTypes.DOUBLE) double value)
     {
-        checkCondition(value >= 0, INVALID_FUNCTION_ARGUMENT, "value must be greater than, or equal to, 0");
-        checkCondition(shape > 0, INVALID_FUNCTION_ARGUMENT, "shape must be greater than 0");
-        checkCondition(scale > 0, INVALID_FUNCTION_ARGUMENT, "scale must be greater than 0");
+        checkCondition(value >= 0, INVALID_FUNCTION_ARGUMENT, "gammaCdf Function: value must be greater than, or equal to, 0");
+        checkCondition(shape > 0, INVALID_FUNCTION_ARGUMENT, "gammaCdf Function: shape must be greater than 0");
+        checkCondition(scale > 0, INVALID_FUNCTION_ARGUMENT, "gammaCdf Function: scale must be greater than 0");
         GammaDistribution distribution = new GammaDistribution(null, shape, scale, GammaDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
         return distribution.cumulativeProbability(value);
     }
@@ -933,8 +933,8 @@ public final class MathFunctions
             @SqlType(StandardTypes.DOUBLE) double scale,
             @SqlType(StandardTypes.DOUBLE) double p)
     {
-        checkCondition(scale > 0, INVALID_FUNCTION_ARGUMENT, "scale must be greater than 0");
-        checkCondition(p >= 0 && p <= 1, INVALID_FUNCTION_ARGUMENT, "p must be in the interval [0, 1]");
+        checkCondition(scale > 0, INVALID_FUNCTION_ARGUMENT, "inverseLaplaceCdf Function: scale must be greater than 0");
+        checkCondition(p >= 0 && p <= 1, INVALID_FUNCTION_ARGUMENT, "inverseLaplaceCdf Function: p must be in the interval [0, 1]");
         LaplaceDistribution distribution = new LaplaceDistribution(null, mean, scale);
         return distribution.inverseCumulativeProbability(p);
     }
@@ -947,7 +947,7 @@ public final class MathFunctions
             @SqlType(StandardTypes.DOUBLE) double scale,
             @SqlType(StandardTypes.DOUBLE) double value)
     {
-        checkCondition(scale > 0, INVALID_FUNCTION_ARGUMENT, "scale must be greater than 0");
+        checkCondition(scale > 0, INVALID_FUNCTION_ARGUMENT, "laplaceCdf Function: scale must be greater than 0");
         LaplaceDistribution distribution = new LaplaceDistribution(null, mean, scale);
         return distribution.cumulativeProbability(value);
     }
@@ -959,8 +959,8 @@ public final class MathFunctions
             @SqlType(StandardTypes.DOUBLE) double lambda,
             @SqlType(StandardTypes.DOUBLE) double p)
     {
-        checkCondition(p >= 0 && p < 1, INVALID_FUNCTION_ARGUMENT, "p must be in the interval [0, 1)");
-        checkCondition(lambda > 0, INVALID_FUNCTION_ARGUMENT, "lambda must be greater than 0");
+        checkCondition(p >= 0 && p < 1, INVALID_FUNCTION_ARGUMENT, "inversePoissonCdf Function: p must be in the interval [0, 1)");
+        checkCondition(lambda > 0, INVALID_FUNCTION_ARGUMENT, "inversePoissonCdf Function: lambda must be greater than 0");
         PoissonDistribution distribution = new PoissonDistribution(lambda);
         return distribution.inverseCumulativeProbability(p);
     }
@@ -972,8 +972,8 @@ public final class MathFunctions
             @SqlType(StandardTypes.DOUBLE) double lambda,
             @SqlType(StandardTypes.INTEGER) long value)
     {
-        checkCondition(value >= 0, INVALID_FUNCTION_ARGUMENT, "value must be a non-negative integer");
-        checkCondition(lambda > 0, INVALID_FUNCTION_ARGUMENT, "lambda must be greater than 0");
+        checkCondition(value >= 0, INVALID_FUNCTION_ARGUMENT, "poissonCdf Function: value must be a non-negative integer");
+        checkCondition(lambda > 0, INVALID_FUNCTION_ARGUMENT, "poissonCdf Function: lambda must be greater than 0");
         PoissonDistribution distribution = new PoissonDistribution(lambda);
         return distribution.cumulativeProbability((int) value);
     }
@@ -986,9 +986,9 @@ public final class MathFunctions
             @SqlType(StandardTypes.DOUBLE) double b,
             @SqlType(StandardTypes.DOUBLE) double p)
     {
-        checkCondition(p >= 0 && p <= 1, INVALID_FUNCTION_ARGUMENT, "p must be in the interval [0, 1]");
-        checkCondition(a > 0, INVALID_FUNCTION_ARGUMENT, "a must be greater than 0");
-        checkCondition(b > 0, INVALID_FUNCTION_ARGUMENT, "b must be greater than 0");
+        checkCondition(p >= 0 && p <= 1, INVALID_FUNCTION_ARGUMENT, "inverseWeibullCdf Function: p must be in the interval [0, 1]");
+        checkCondition(a > 0, INVALID_FUNCTION_ARGUMENT, "inverseWeibullCdf Function: a must be greater than 0");
+        checkCondition(b > 0, INVALID_FUNCTION_ARGUMENT, "inverseWeibullCdf Function: b must be greater than 0");
         WeibullDistribution distribution = new WeibullDistribution(null, a, b, WeibullDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
         return distribution.inverseCumulativeProbability(p);
     }
@@ -1001,8 +1001,8 @@ public final class MathFunctions
             @SqlType(StandardTypes.DOUBLE) double b,
             @SqlType(StandardTypes.DOUBLE) double value)
     {
-        checkCondition(a > 0, INVALID_FUNCTION_ARGUMENT, "a must be greater than 0");
-        checkCondition(b > 0, INVALID_FUNCTION_ARGUMENT, "b must be greater than 0");
+        checkCondition(a > 0, INVALID_FUNCTION_ARGUMENT, "weibullCdf Function: a must be greater than 0");
+        checkCondition(b > 0, INVALID_FUNCTION_ARGUMENT, "weibullCdf Function: b must be greater than 0");
         WeibullDistribution distribution = new WeibullDistribution(null, a, b, WeibullDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
         return distribution.cumulativeProbability(value);
     }
