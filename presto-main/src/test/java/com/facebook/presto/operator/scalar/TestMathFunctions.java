@@ -1335,9 +1335,9 @@ public class TestMathFunctions
         assertFunction("inverse_normal_cdf(0, 1, 0.3)", DOUBLE, -0.52440051270804089);
         assertFunction("inverse_normal_cdf(10, 9, 0.9)", DOUBLE, 21.533964089901406);
         assertFunction("inverse_normal_cdf(0.5, 0.25, 0.65)", DOUBLE, 0.59633011660189195);
-        assertInvalidFunction("inverse_normal_cdf(4, 48, 0)", "p must be 0 > p > 1");
-        assertInvalidFunction("inverse_normal_cdf(4, 48, 1)", "p must be 0 > p > 1");
-        assertInvalidFunction("inverse_normal_cdf(4, 0, 0.4)", "sd must be > 0");
+        assertInvalidFunction("inverse_normal_cdf(4, 48, 0)", "inverseNormalCdf Function: p must be 0 > p > 1");
+        assertInvalidFunction("inverse_normal_cdf(4, 48, 1)", "inverseNormalCdf Function: p must be 0 > p > 1");
+        assertInvalidFunction("inverse_normal_cdf(4, 0, 0.4)", "inverseNormalCdf Function: sd must be > 0");
     }
 
     @Test
@@ -1354,8 +1354,8 @@ public class TestMathFunctions
         assertFunction("normal_cdf(nan(), 1, 0)", DOUBLE, Double.NaN);
         assertFunction("normal_cdf(0, 1, nan())", DOUBLE, Double.NaN);
 
-        assertInvalidFunction("normal_cdf(0, 0, 0.1985)", "standardDeviation must be > 0");
-        assertInvalidFunction("normal_cdf(0, nan(), 0.1985)", "standardDeviation must be > 0");
+        assertInvalidFunction("normal_cdf(0, 0, 0.1985)", "normalCdf Function: standardDeviation must be > 0");
+        assertInvalidFunction("normal_cdf(0, nan(), 0.1985)", "normalCdf Function: standardDeviation must be > 0");
     }
 
     @Test
@@ -1393,10 +1393,10 @@ public class TestMathFunctions
         assertFunction("inverse_beta_cdf(3, 3.6, 0.3)", DOUBLE, 0.3469675485440618);
         assertFunction("inverse_beta_cdf(3, 3.6, 0.95)", DOUBLE, 0.7600272463100223);
 
-        assertInvalidFunction("inverse_beta_cdf(0, 3, 0.5)", "a must be > 0");
-        assertInvalidFunction("inverse_beta_cdf(3, 0, 0.5)", "b must be > 0");
-        assertInvalidFunction("inverse_beta_cdf(3, 5, -0.1)", "p must be in the interval [0, 1]");
-        assertInvalidFunction("inverse_beta_cdf(3, 5, 1.1)", "p must be in the interval [0, 1]");
+        assertInvalidFunction("inverse_beta_cdf(0, 3, 0.5)", "inverseBetaCdf Function: a must be > 0");
+        assertInvalidFunction("inverse_beta_cdf(3, 0, 0.5)", "inverseBetaCdf Function: b must be > 0");
+        assertInvalidFunction("inverse_beta_cdf(3, 5, -0.1)", "inverseBetaCdf Function: p must be in the interval [0, 1]");
+        assertInvalidFunction("inverse_beta_cdf(3, 5, 1.1)", "inverseBetaCdf Function: p must be in the interval [0, 1]");
     }
 
     @Test
@@ -1407,10 +1407,10 @@ public class TestMathFunctions
         assertFunction("beta_cdf(3, 3.6, 0.3)", DOUBLE, 0.21764809997679938);
         assertFunction("beta_cdf(3, 3.6, 0.9)", DOUBLE, 0.9972502881611551);
 
-        assertInvalidFunction("beta_cdf(0, 3, 0.5)", "a must be > 0");
-        assertInvalidFunction("beta_cdf(3, 0, 0.5)", "b must be > 0");
-        assertInvalidFunction("beta_cdf(3, 5, -0.1)", "value must be in the interval [0, 1]");
-        assertInvalidFunction("beta_cdf(3, 5, 1.1)", "value must be in the interval [0, 1]");
+        assertInvalidFunction("beta_cdf(0, 3, 0.5)", "betaCdf Function: a must be > 0");
+        assertInvalidFunction("beta_cdf(3, 0, 0.5)", "betaCdf Function: b must be > 0");
+        assertInvalidFunction("beta_cdf(3, 5, -0.1)", "betaCdf Function: value must be in the interval [0, 1]");
+        assertInvalidFunction("beta_cdf(3, 5, 1.1)", "betaCdf Function: value must be in the interval [0, 1]");
     }
 
     @Test
@@ -1421,7 +1421,7 @@ public class TestMathFunctions
         assertFunction("round(inverse_cauchy_cdf(2.5, 1.0, 0.65), 2)", DOUBLE, 3.01);
         assertFunction("round(inverse_cauchy_cdf(5.0, 1.0, 0.15), 2)", DOUBLE, 3.04);
 
-        assertInvalidFunction("inverse_cauchy_cdf(0.0, -1.0, 0.0)", "scale must be greater than 0");
+        assertInvalidFunction("inverse_cauchy_cdf(0.0, -1.0, 0.0)", "inverseCauchyCdf Function: scale must be greater than 0");
     }
 
     @Test
@@ -1433,7 +1433,7 @@ public class TestMathFunctions
         assertFunction("round(cauchy_cdf(2.5, 1.0, 3.0), 2)", DOUBLE, 0.65);
         assertFunction("round(cauchy_cdf(5.0, 1.0, 3.0), 2)", DOUBLE, 0.15);
 
-        assertInvalidFunction("cauchy_cdf(0.0, -1.0, 0.0)", "scale must be greater than 0");
+        assertInvalidFunction("cauchy_cdf(0.0, -1.0, 0.0)", "cauchyCdf Function: scale must be greater than 0");
     }
 
     @Test
@@ -1444,9 +1444,9 @@ public class TestMathFunctions
         assertFunction("round(inverse_chi_squared_cdf(3, 0.3),2)", DOUBLE, 1.42);
         assertFunction("round(inverse_chi_squared_cdf(3, 0.95),2)", DOUBLE, 7.81);
 
-        assertInvalidFunction("inverse_chi_squared_cdf(-3, 0.3)", "df must be greater than 0");
-        assertInvalidFunction("inverse_chi_squared_cdf(3, -0.1)", "p must be in the interval [0, 1]");
-        assertInvalidFunction("inverse_chi_squared_cdf(3, 1.1)", "p must be in the interval [0, 1]");
+        assertInvalidFunction("inverse_chi_squared_cdf(-3, 0.3)", "inverseChiSquaredCdf Function: df must be greater than 0");
+        assertInvalidFunction("inverse_chi_squared_cdf(3, -0.1)", "inverseChiSquaredCdf Function: p must be in the interval [0, 1]");
+        assertInvalidFunction("inverse_chi_squared_cdf(3, 1.1)", "inverseChiSquaredCdf Function: p must be in the interval [0, 1]");
     }
 
     @Test
@@ -1457,8 +1457,8 @@ public class TestMathFunctions
         assertFunction("round(chi_squared_cdf(3, 2.5), 2)", DOUBLE, 0.52);
         assertFunction("round(chi_squared_cdf(3, 4), 2)", DOUBLE, 0.74);
 
-        assertInvalidFunction("chi_squared_cdf(-3, 0.3)", "df must be greater than 0");
-        assertInvalidFunction("chi_squared_cdf(3, -10)", "value must non-negative");
+        assertInvalidFunction("chi_squared_cdf(-3, 0.3)", "chiSquaredCdf Function: df must be greater than 0");
+        assertInvalidFunction("chi_squared_cdf(3, -10)", "chiSquaredCdf Function: value must non-negative");
     }
 
     @Test
@@ -1468,10 +1468,10 @@ public class TestMathFunctions
         assertFunction("round(inverse_f_cdf(2.0, 5.0, 0.5), 4)", DOUBLE, 0.7988);
         assertFunction("round(inverse_f_cdf(2.0, 5.0, 0.9), 4)", DOUBLE, 3.7797);
 
-        assertInvalidFunction("inverse_f_cdf(0, 3, 0.5)", "numerator df must be greater than 0");
-        assertInvalidFunction("inverse_f_cdf(3, 0, 0.5)", "denominator df must be greater than 0");
-        assertInvalidFunction("inverse_f_cdf(3, 5, -0.1)", "p must be in the interval [0, 1]");
-        assertInvalidFunction("inverse_f_cdf(3, 5, 1.1)", "p must be in the interval [0, 1]");
+        assertInvalidFunction("inverse_f_cdf(0, 3, 0.5)", "inverseFCdf Function: numerator df must be greater than 0");
+        assertInvalidFunction("inverse_f_cdf(3, 0, 0.5)", "inverseFCdf Function: denominator df must be greater than 0");
+        assertInvalidFunction("inverse_f_cdf(3, 5, -0.1)", "inverseFCdf Function: p must be in the interval [0, 1]");
+        assertInvalidFunction("inverse_f_cdf(3, 5, 1.1)", "inverseFCdf Function: p must be in the interval [0, 1]");
     }
 
     @Test
@@ -1480,9 +1480,9 @@ public class TestMathFunctions
         assertFunction("round(f_cdf(2.0, 5.0, 0.7988), 4)", DOUBLE, 0.5);
         assertFunction("round(f_cdf(2.0, 5.0, 3.7797), 4)", DOUBLE, 0.9);
 
-        assertInvalidFunction("f_cdf(0, 3, 0.5)", "numerator df must be greater than 0");
-        assertInvalidFunction("f_cdf(3, 0, 0.5)", "denominator df must be greater than 0");
-        assertInvalidFunction("f_cdf(3, 5, -0.1)", "value must non-negative");
+        assertInvalidFunction("f_cdf(0, 3, 0.5)", "fCdf Function: numerator df must be greater than 0");
+        assertInvalidFunction("f_cdf(3, 0, 0.5)", "fCdf Function: denominator df must be greater than 0");
+        assertInvalidFunction("f_cdf(3, 5, -0.1)", "fCdf Function: value must non-negative");
     }
 
     @Test
@@ -1495,10 +1495,10 @@ public class TestMathFunctions
         // Hence, we expect that the quantile will be close to 10k, as we indeed get:
         assertFunction("round(inverse_gamma_cdf(10000.0/2, 2.0, 0.50), 3)", DOUBLE, 9999.333);
 
-        assertInvalidFunction("inverse_gamma_cdf(0, 3, 0.5)", "shape must be greater than 0");
-        assertInvalidFunction("inverse_gamma_cdf(3, 0, 0.5)", "scale must be greater than 0");
-        assertInvalidFunction("inverse_gamma_cdf(3, 5, -0.1)", "p must be in the interval [0, 1]");
-        assertInvalidFunction("inverse_gamma_cdf(3, 5, 1.1)", "p must be in the interval [0, 1]");
+        assertInvalidFunction("inverse_gamma_cdf(0, 3, 0.5)", "inverseGammaCdf Function: shape must be greater than 0");
+        assertInvalidFunction("inverse_gamma_cdf(3, 0, 0.5)", "inverseGammaCdf Function: scale must be greater than 0");
+        assertInvalidFunction("inverse_gamma_cdf(3, 5, -0.1)", "inverseGammaCdf Function: p must be in the interval [0, 1]");
+        assertInvalidFunction("inverse_gamma_cdf(3, 5, 1.1)", "inverseGammaCdf Function: p must be in the interval [0, 1]");
     }
 
     @Test
@@ -1512,9 +1512,9 @@ public class TestMathFunctions
         // Hence, we expect that the CDF of 10k will be close to 0.5, as we indeed get:
         assertFunction("round(gamma_cdf(10000.0/2, 2.0, 10000.0), 3)", DOUBLE, 0.502);
 
-        assertInvalidFunction("gamma_cdf(0, 3, 0.5)", "shape must be greater than 0");
-        assertInvalidFunction("gamma_cdf(3, 0, 0.5)", "scale must be greater than 0");
-        assertInvalidFunction("gamma_cdf(3, 5, -0.1)", "value must be greater than, or equal to, 0");
+        assertInvalidFunction("gamma_cdf(0, 3, 0.5)", "gammaCdf Function: shape must be greater than 0");
+        assertInvalidFunction("gamma_cdf(3, 0, 0.5)", "gammaCdf Function: scale must be greater than 0");
+        assertInvalidFunction("gamma_cdf(3, 5, -0.1)", "gammaCdf Function: value must be greater than, or equal to, 0");
     }
 
     @Test
@@ -1525,10 +1525,10 @@ public class TestMathFunctions
         assertFunction("round(inverse_laplace_cdf(5, 2, 0.6), 4)", DOUBLE, 5.0 + 0.4463);
         assertFunction("round(inverse_laplace_cdf(-5, 2, 0.4), 4)", DOUBLE, -5.0 - 0.4463);
 
-        assertInvalidFunction("inverse_laplace_cdf(5, 2, -0.1)", "p must be in the interval [0, 1]");
-        assertInvalidFunction("inverse_laplace_cdf(5, 2, 1.1)", "p must be in the interval [0, 1]");
-        assertInvalidFunction("inverse_laplace_cdf(5, 0, 0.5)", "scale must be greater than 0");
-        assertInvalidFunction("inverse_laplace_cdf(5, -1, 0.5)", "scale must be greater than 0");
+        assertInvalidFunction("inverse_laplace_cdf(5, 2, -0.1)", "inverseLaplaceCdf Function: p must be in the interval [0, 1]");
+        assertInvalidFunction("inverse_laplace_cdf(5, 2, 1.1)", "inverseLaplaceCdf Function: p must be in the interval [0, 1]");
+        assertInvalidFunction("inverse_laplace_cdf(5, 0, 0.5)", "inverseLaplaceCdf Function: scale must be greater than 0");
+        assertInvalidFunction("inverse_laplace_cdf(5, -1, 0.5)", "inverseLaplaceCdf Function: scale must be greater than 0");
     }
 
     @Test
@@ -1539,8 +1539,8 @@ public class TestMathFunctions
         assertFunction("round(laplace_cdf(4, 2, 4.0 - 0.4463), 2)", DOUBLE, 0.4);
         assertFunction("round(laplace_cdf(-4, 2, -4.0 + 0.4463), 4)", DOUBLE, 0.6);
 
-        assertInvalidFunction("laplace_cdf(5, 0, 10)", "scale must be greater than 0");
-        assertInvalidFunction("laplace_cdf(5, -1, 10)", "scale must be greater than 0");
+        assertInvalidFunction("laplace_cdf(5, 0, 10)", "laplaceCdf Function: scale must be greater than 0");
+        assertInvalidFunction("laplace_cdf(5, -1, 10)", "laplaceCdf Function: scale must be greater than 0");
     }
 
     @Test
@@ -1551,10 +1551,10 @@ public class TestMathFunctions
         assertFunction("inverse_poisson_cdf(3, 0.95)", INTEGER, 6);
         assertFunction("inverse_poisson_cdf(3, 0.99999999)", INTEGER, 17);
 
-        assertInvalidFunction("inverse_poisson_cdf(-3, 0.3)", "lambda must be greater than 0");
-        assertInvalidFunction("inverse_poisson_cdf(3, -0.1)", "p must be in the interval [0, 1)");
-        assertInvalidFunction("inverse_poisson_cdf(3, 1.1)", "p must be in the interval [0, 1)");
-        assertInvalidFunction("inverse_poisson_cdf(3, 1)", "p must be in the interval [0, 1)");
+        assertInvalidFunction("inverse_poisson_cdf(-3, 0.3)", "inversePoissonCdf Function: lambda must be greater than 0");
+        assertInvalidFunction("inverse_poisson_cdf(3, -0.1)", "inversePoissonCdf Function: p must be in the interval [0, 1)");
+        assertInvalidFunction("inverse_poisson_cdf(3, 1.1)", "inversePoissonCdf Function: p must be in the interval [0, 1)");
+        assertInvalidFunction("inverse_poisson_cdf(3, 1)", "inversePoissonCdf Function: p must be in the interval [0, 1)");
     }
 
     @Test
@@ -1563,8 +1563,8 @@ public class TestMathFunctions
         assertFunction("round(poisson_cdf(10, 0), 2)", DOUBLE, 0.0);
         assertFunction("round(poisson_cdf(3, 5), 2)", DOUBLE, 0.92);
 
-        assertInvalidFunction("poisson_cdf(-3, 5)", "lambda must be greater than 0");
-        assertInvalidFunction("poisson_cdf(3, -10)", "value must be a non-negative integer");
+        assertInvalidFunction("poisson_cdf(-3, 5)", "poissonCdf Function: lambda must be greater than 0");
+        assertInvalidFunction("poisson_cdf(3, -10)", "poissonCdf Function: value must be a non-negative integer");
     }
 
     @Test
@@ -1574,10 +1574,10 @@ public class TestMathFunctions
         assertFunction("round(inverse_weibull_cdf(1.0, 1.0, 0.632), 2)", DOUBLE, 1.00);
         assertFunction("round(inverse_weibull_cdf(1.0, 0.6, 0.91), 2)", DOUBLE, 1.44);
 
-        assertInvalidFunction("inverse_weibull_cdf(0, 3, 0.5)", "a must be greater than 0");
-        assertInvalidFunction("inverse_weibull_cdf(3, 0, 0.5)", "b must be greater than 0");
-        assertInvalidFunction("inverse_weibull_cdf(3, 5, -0.1)", "p must be in the interval [0, 1]");
-        assertInvalidFunction("inverse_weibull_cdf(3, 5, 1.1)", "p must be in the interval [0, 1]");
+        assertInvalidFunction("inverse_weibull_cdf(0, 3, 0.5)", "inverseWeibullCdf Function: a must be greater than 0");
+        assertInvalidFunction("inverse_weibull_cdf(3, 0, 0.5)", "inverseWeibullCdf Function: b must be greater than 0");
+        assertInvalidFunction("inverse_weibull_cdf(3, 5, -0.1)", "inverseWeibullCdf Function: p must be in the interval [0, 1]");
+        assertInvalidFunction("inverse_weibull_cdf(3, 5, 1.1)", "inverseWeibullCdf Function: p must be in the interval [0, 1]");
     }
 
     @Test
@@ -1588,8 +1588,8 @@ public class TestMathFunctions
         assertFunction("round(weibull_cdf(1.0, 0.6, 3.0), 2)", DOUBLE, 0.99);
         assertFunction("round(weibull_cdf(1.0, 0.9, 2.0), 2)", DOUBLE, 0.89);
 
-        assertInvalidFunction("weibull_cdf(0, 3, 0.5)", "a must be greater than 0");
-        assertInvalidFunction("weibull_cdf(3, 0, 0.5)", "b must be greater than 0");
+        assertInvalidFunction("weibull_cdf(0, 3, 0.5)", "weibullCdf Function: a must be greater than 0");
+        assertInvalidFunction("weibull_cdf(3, 0, 0.5)", "weibullCdf Function: b must be greater than 0");
     }
 
     @Test
