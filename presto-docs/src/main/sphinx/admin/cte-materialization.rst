@@ -69,6 +69,20 @@ Flag to enable or disable the pushdown of common filters and projects into the m
 
 Use the ``cte_filter_and_projection_pushdown_enabled`` session property to set on a per-query basis.
 
+``hive.cte-virtual-bucket-count``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``integer``
+    * **Default value:** ``128``
+
+The number of buckets to be used for materializing CTEs in queries.
+This setting determines how many buckets should be used when materializing the CTEs, potentially affecting the performance of queries involving CTE materialization.
+A higher number of partitions might improve parallelism but also increases overhead in terms of memory and network communication.
+
+Recommended value: 4 - 10x times the size of the cluster.
+
+Use the ``hive.cte_virtual_bucket_count`` session property to set on a per-query basis.
+
 ``hive.temporary-table-storage-format``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
