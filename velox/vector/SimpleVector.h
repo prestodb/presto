@@ -29,6 +29,7 @@
 
 #include "velox/functions/lib/string/StringCore.h"
 #include "velox/type/DecimalUtil.h"
+#include "velox/type/FloatingPointUtil.h"
 #include "velox/type/Type.h"
 #include "velox/vector/BaseVector.h"
 #include "velox/vector/TypeAliases.h"
@@ -171,8 +172,14 @@ class SimpleVector : public BaseVector {
    * @return the hash of the value at the given index in this vector
    */
   uint64_t hashValueAt(vector_size_t index) const override {
-    return isNullAt(index) ? BaseVector::kNullHash
-                           : folly::hasher<T>{}(valueAt(index));
+    if constexpr (std::is_floating_point_v<T>) {
+      return isNullAt(index)
+          ? BaseVector::kNullHash
+          : util::floating_point::NaNAwareHash<T>{}(valueAt(index));
+    } else {
+      return isNullAt(index) ? BaseVector::kNullHash
+                             : folly::hasher<T>{}(valueAt(index));
+    }
   }
 
   std::optional<bool> isSorted() const {

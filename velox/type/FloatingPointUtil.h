@@ -76,11 +76,11 @@ template <
 struct NaNAwareHash {
   std::size_t operator()(const FLOAT& val) const noexcept {
     static const std::size_t kNanHash =
-        std::hash<FLOAT>{}(std::numeric_limits<FLOAT>::quiet_NaN());
+        folly::hasher<FLOAT>{}(std::numeric_limits<FLOAT>::quiet_NaN());
     if (std::isnan(val)) {
       return kNanHash;
     }
-    return std::hash<FLOAT>{}(val);
+    return folly::hasher<FLOAT>{}(val);
   }
 };
 

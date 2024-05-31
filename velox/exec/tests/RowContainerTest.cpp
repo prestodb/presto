@@ -1690,6 +1690,45 @@ TEST_F(RowContainerTest, unknown) {
       }));
 }
 
+TEST_F(RowContainerTest, nans) {
+  const static auto kNaN = std::numeric_limits<double>::quiet_NaN();
+  const static auto kSNaN = std::numeric_limits<double>::signaling_NaN();
+  static const auto kNaNHash = folly::hasher<double>{}(kNaN);
+  std::vector<TypePtr> types = {DOUBLE()};
+  auto rowContainer = std::make_unique<RowContainer>(types, pool_.get());
+
+  auto data = makeRowVector({
+      makeFlatVector<double>({kNaN, kSNaN}),
+  });
+
+  auto size = data->size();
+  DecodedVector decoded(*data->childAt(0));
+  auto rows = store(*rowContainer, decoded, size);
+
+  // Verify that the hashes are equal.
+  std::vector<uint64_t> hashes(size, 0);
+  rowContainer->hash(
+      0, folly::Range(rows.data(), rows.size()), false /*mix*/, hashes.data());
+  for (auto hash : hashes) {
+    ASSERT_EQ(kNaNHash, hash);
+  }
+
+  // Fill in hashes with sequential numbers: 0, 1, 2,..
+  std::iota(hashes.begin(), hashes.end(), 0);
+  rowContainer->hash(
+      0, folly::Range(rows.data(), rows.size()), true /*mix*/, hashes.data());
+  for (auto i = 0; i < size; ++i) {
+    ASSERT_EQ(bits::hashMix(i, kNaNHash), hashes[i]);
+  }
+
+  // Verify that they are considered equal.
+  for (size_t row = 0; row < size; ++row) {
+    ASSERT_TRUE(rowContainer->equals<false>(
+        rows[row], rowContainer->columnAt(0), decoded, row));
+  }
+  ASSERT_EQ(rowContainer->compare(rows[0], rows[1], 0, {}), 0);
+}
+
 TEST_F(RowContainerTest, toString) {
   std::vector<TypePtr> keyTypes = {BIGINT(), VARCHAR()};
   std::vector<TypePtr> dependentTypes = {TINYINT(), REAL(), ARRAY(BIGINT())};

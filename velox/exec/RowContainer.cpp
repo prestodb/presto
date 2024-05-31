@@ -20,6 +20,7 @@
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/ContainerRowSerde.h"
 #include "velox/exec/Operator.h"
+#include "velox/type/FloatingPointUtil.h"
 
 namespace facebook::velox::exec {
 namespace {
@@ -866,6 +867,8 @@ void RowContainer::hashTyped(
           Kind == TypeKind::MAP) {
         auto in = prepareRead(row, offset);
         hash = ContainerRowSerde::hash(in, type);
+      } else if constexpr (std::is_floating_point_v<T>) {
+        hash = util::floating_point::NaNAwareHash<T>()(valueAt<T>(row, offset));
       } else {
         hash = folly::hasher<T>()(valueAt<T>(row, offset));
       }

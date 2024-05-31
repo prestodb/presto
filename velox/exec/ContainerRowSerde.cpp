@@ -15,6 +15,7 @@
  */
 
 #include "velox/exec/ContainerRowSerde.h"
+#include "velox/type/FloatingPointUtil.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/FlatVector.h"
 
@@ -728,7 +729,11 @@ uint64_t hashSwitch(ByteInputStream& stream, const Type* type);
 template <TypeKind Kind>
 uint64_t hashOne(ByteInputStream& stream, const Type* /*type*/) {
   using T = typename TypeTraits<Kind>::NativeType;
-  return folly::hasher<T>()(stream.read<T>());
+  if constexpr (std::is_floating_point_v<T>) {
+    return util::floating_point::NaNAwareHash<T>()(stream.read<T>());
+  } else {
+    return folly::hasher<T>()(stream.read<T>());
+  }
 }
 
 template <>

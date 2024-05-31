@@ -15,6 +15,7 @@
  */
 
 #include <algorithm>
+#include <functional>
 
 #include <fmt/core.h>
 #include <glog/logging.h>
@@ -25,6 +26,7 @@
 #include <folly/dynamic.h>
 
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/type/FloatingPointUtil.h"
 #include "velox/vector/BuilderTypeUtils.h"
 #include "velox/vector/SimpleVector.h"
 #include "velox/vector/tests/SimpleVectorTestHelper.h"
@@ -649,12 +651,17 @@ VELOX_TYPED_TEST_SUITE(SimpleVectorUnaryTypedTest, SimpleTypes);
 
 TYPED_TEST(SimpleVectorUnaryTypedTest, hashAll) {
   LOG(INFO) << "hashAll: " << type_name<TypeParam>();
-  folly::hasher<TypeParam> hasher;
+  std::function<size_t(TypeParam)> hasher;
+  if constexpr (std::is_floating_point_v<TypeParam>) {
+    hasher = util::floating_point::NaNAwareHash<TypeParam>{};
+  } else {
+    hasher = folly::hasher<TypeParam>{};
+  }
   auto hashTest = [&hasher](SimpleVector<TypeParam>* vector) {
     auto hashes = vector->hashAll();
     for (size_t i = 0; i < vector->size(); ++i) {
-      auto expected = vector->isNullAt(i) ? BaseVector::kNullHash
-                                          : hasher(vector->valueAt(i));
+      uint64_t expected = vector->isNullAt(i) ? BaseVector::kNullHash
+                                              : hasher(vector->valueAt(i));
       EXPECT_EQ(hashes->valueAt(i), expected);
     }
   };

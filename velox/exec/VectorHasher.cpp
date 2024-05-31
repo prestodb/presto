@@ -19,6 +19,7 @@
 #include "velox/common/base/Portability.h"
 #include "velox/common/base/SimdUtil.h"
 #include "velox/common/memory/HashStringAllocator.h"
+#include "velox/type/FloatingPointUtil.h"
 
 namespace facebook::velox::exec {
 
@@ -61,7 +62,11 @@ uint64_t hashOne(DecodedVector& decoded, vector_size_t index) {
   }
   // Inlined for scalars.
   using T = typename KindToFlatVector<Kind>::HashRowType;
-  return folly::hasher<T>()(decoded.valueAt<T>(index));
+  if constexpr (std::is_floating_point_v<T>) {
+    return util::floating_point::NaNAwareHash<T>()(decoded.valueAt<T>(index));
+  } else {
+    return folly::hasher<T>()(decoded.valueAt<T>(index));
+  }
 }
 } // namespace
 

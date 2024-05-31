@@ -224,6 +224,38 @@ TEST_F(VectorHasherTest, flat) {
   }
 }
 
+TEST_F(VectorHasherTest, nans) {
+  // Sanity check to ensure the NaNs are correctly hashed, that is, all NaNs are
+  // considered equal and therefore should have the same hash.
+  static const auto kNaN = std::numeric_limits<double>::quiet_NaN();
+  static const auto kSNaN = std::numeric_limits<double>::signaling_NaN();
+  folly::hasher<double> hasher;
+  static const auto kNaNHash = hasher(kNaN);
+  auto vectorHasher = exec::VectorHasher::create(DOUBLE(), 1);
+  ASSERT_EQ(vectorHasher->channel(), 1);
+  ASSERT_EQ(vectorHasher->typeKind(), TypeKind::DOUBLE);
+
+  // Using two different binary representations of NaN.
+  std::vector<double> inputValues = {1.0, -1.0, kNaN, kSNaN, 0.0, -0.0};
+
+  auto vector = BaseVector::create(DOUBLE(), inputValues.size(), pool());
+  auto flatVector = vector->asFlatVector<double>();
+  for (int32_t i = 0; i < inputValues.size(); i++) {
+    flatVector->set(i, inputValues[i]);
+  }
+
+  raw_vector<uint64_t> hashes(inputValues.size());
+  std::fill(hashes.begin(), hashes.end(), 0);
+  SelectivityVector allRows = SelectivityVector(inputValues.size());
+  vectorHasher->decode(*vector, allRows);
+  vectorHasher->hash(allRows, false, hashes);
+  std::vector<uint64_t> expected = {
+      hasher(1.0), hasher(-1.0), kNaNHash, kNaNHash, hasher(0.0), hasher(0.0)};
+  for (int32_t i = 0; i < inputValues.size(); i++) {
+    EXPECT_EQ(hashes[i], expected[i]) << "at " << i;
+  }
+}
+
 TEST_F(VectorHasherTest, nonNullConstant) {
   auto hasher = exec::VectorHasher::create(INTEGER(), 1);
   auto vector = BaseVector::createConstant(INTEGER(), 123, 100, pool());

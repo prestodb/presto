@@ -571,5 +571,38 @@ TEST_F(ContainerRowSerdeTest, fuzzCompare) {
   }
 }
 
+TEST_F(ContainerRowSerdeTest, nans) {
+  // Verify that the NaNs with different representations are considered equal
+  // and have the same hash value.
+  auto vector = makeNullableFlatVector<double>(
+      {std::nan("1"),
+       std::nan("2"),
+       std::numeric_limits<double>::quiet_NaN(),
+       std::numeric_limits<double>::signaling_NaN()});
+
+  // Compare with the same NaN value
+  auto expected = makeConstant(std::nan("1"), 4, vector->type());
+
+  auto positions = serializeWithPositions(vector);
+
+  CompareFlags compareFlags =
+      CompareFlags::equality(CompareFlags::NullHandlingMode::kNullAsValue);
+
+  DecodedVector decodedVector(*expected);
+
+  for (auto i = 0; i < positions.size(); ++i) {
+    auto stream = HashStringAllocator::prepareRead(positions.at(i).header);
+    ASSERT_EQ(
+        0, ContainerRowSerde::compare(stream, decodedVector, i, compareFlags))
+        << "at " << i << ": " << vector->toString(i);
+
+    stream = HashStringAllocator::prepareRead(positions.at(i).header);
+    ASSERT_EQ(
+        expected->hashValueAt(i),
+        ContainerRowSerde::hash(stream, vector->type().get()))
+        << "at " << i << ": " << vector->toString(i);
+  }
+}
+
 } // namespace
 } // namespace facebook::velox::exec
