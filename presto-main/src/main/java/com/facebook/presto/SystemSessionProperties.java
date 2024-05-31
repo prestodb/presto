@@ -93,7 +93,6 @@ public final class SystemSessionProperties
     public static final String DISTRIBUTED_JOIN = "distributed_join";
     public static final String DISTRIBUTED_INDEX_JOIN = "distributed_index_join";
     public static final String HASH_PARTITION_COUNT = "hash_partition_count";
-    public static final String CTE_HASH_PARTITION_COUNT = "cte_hash_partition_count";
     public static final String CTE_HEURISTIC_REPLICATION_THRESHOLD = "cte_heuristic_replication_threshold";
 
     public static final String PARTITIONING_PROVIDER_CATALOG = "partitioning_provider_catalog";
@@ -431,11 +430,6 @@ public final class SystemSessionProperties
                         HASH_PARTITION_COUNT,
                         "Number of partitions for distributed joins and aggregations",
                         queryManagerConfig.getHashPartitionCount(),
-                        false),
-                integerProperty(
-                        CTE_HASH_PARTITION_COUNT,
-                        "Number of partitions for materializing CTEs",
-                        queryManagerConfig.getCteHashPartitionCount(),
                         false),
                 stringProperty(
                         PARTITIONING_PROVIDER_CATALOG,
@@ -2018,11 +2012,6 @@ public final class SystemSessionProperties
     public static int getHashPartitionCount(Session session)
     {
         return session.getSystemProperty(HASH_PARTITION_COUNT, Integer.class);
-    }
-
-    public static int getCteHashPartitionCount(Session session)
-    {
-        return session.getSystemProperty(CTE_HASH_PARTITION_COUNT, Integer.class);
     }
 
     public static int getCteHeuristicReplicationThreshold(Session session)
