@@ -30,6 +30,7 @@ import java.util.Optional;
 import java.util.Properties;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static java.util.Objects.requireNonNull;
 
 public class OracleClientModule
         implements Module
@@ -48,7 +49,12 @@ public class OracleClientModule
     public static ConnectionFactory connectionFactory(BaseJdbcConfig config, OracleConfig oracleConfig)
             throws SQLException
     {
+        requireNonNull(config, "BaseJdbc config  is null");
         Properties connectionProperties = new Properties();
+        if (config.getConnectionUser() != null && config.getConnectionPassword() != null) {
+            connectionProperties.setProperty("user", config.getConnectionUser());
+            connectionProperties.setProperty("password", config.getConnectionPassword());
+        }
         connectionProperties.setProperty(OracleConnection.CONNECTION_PROPERTY_INCLUDE_SYNONYMS, String.valueOf(oracleConfig.isSynonymsEnabled()));
 
         return new DriverConnectionFactory(
