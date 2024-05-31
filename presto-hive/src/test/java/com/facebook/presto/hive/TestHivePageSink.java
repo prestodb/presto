@@ -33,7 +33,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SplitWeight;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.TestingConnectorSession;
@@ -333,7 +332,7 @@ public class TestHivePageSink
                 hdfsEnvironment,
                 PAGE_SORTER,
                 metastore,
-                new GroupByHashPageIndexerFactory(new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig())),
+                new GroupByHashPageIndexerFactory(new JoinCompiler(MetadataManager.createTestMetadataManager())),
                 FUNCTION_AND_TYPE_MANAGER,
                 config,
                 metastoreClientConfig,

@@ -432,7 +432,7 @@ public class LocalQueryRunner
         this.distributedPlanChecker = new PlanChecker(featuresConfig, false);
         this.singleNodePlanChecker = new PlanChecker(featuresConfig, true);
         this.planFragmenter = new PlanFragmenter(this.metadata, this.nodePartitioningManager, new QueryManagerConfig(), sqlParser, featuresConfig);
-        this.joinCompiler = new JoinCompiler(metadata, featuresConfig);
+        this.joinCompiler = new JoinCompiler(metadata);
         this.pageIndexerFactory = new GroupByHashPageIndexerFactory(joinCompiler);
         this.statsNormalizer = new StatsNormalizer();
         this.scalarStatsCalculator = new ScalarStatsCalculator(metadata);
