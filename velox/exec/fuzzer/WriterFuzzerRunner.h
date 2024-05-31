@@ -24,6 +24,7 @@
 
 #include "velox/common/file/FileSystems.h"
 #include "velox/connectors/hive/HiveConnector.h"
+#include "velox/exec/fuzzer/FuzzerUtil.h"
 #include "velox/exec/fuzzer/WriterFuzzer.h"
 #include "velox/expression/fuzzer/FuzzerToolkit.h"
 #include "velox/parse/TypeResolver.h"
@@ -31,8 +32,6 @@
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
 namespace facebook::velox::exec::test {
-
-static inline const std::string kHiveConnectorId = "test-hive";
 
 /// WriterFuzzerRunner leverages WriterFuzzer and VectorFuzzer to
 /// automatically generate and execute table writer tests.

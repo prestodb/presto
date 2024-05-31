@@ -19,6 +19,7 @@
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/Split.h"
+#include "velox/exec/fuzzer/FuzzerUtil.h"
 #include "velox/exec/fuzzer/InputGenerator.h"
 #include "velox/exec/fuzzer/ReferenceQueryRunner.h"
 #include "velox/exec/fuzzer/ResultVerifier.h"
@@ -108,8 +109,6 @@ class AggregationFuzzerBase {
   };
 
  protected:
-  static inline const std::string kHiveConnectorId = "test-hive";
-
   struct Stats {
     // Names of functions that were tested.
     std::unordered_set<std::string> functionNames;
@@ -152,12 +151,6 @@ class AggregationFuzzerBase {
 
   std::shared_ptr<InputGenerator> findInputGenerator(
       const CallableSignature& signature);
-
-  static exec::Split makeSplit(const std::string& filePath);
-
-  std::vector<exec::Split> makeSplits(
-      const std::vector<RowVectorPtr>& inputs,
-      const std::string& path);
 
   PlanWithSplits deserialize(const folly::dynamic& obj);
 

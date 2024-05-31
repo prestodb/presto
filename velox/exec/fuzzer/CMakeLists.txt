@@ -12,10 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_library(velox_fuzzer_util DuckQueryRunner.cpp PrestoQueryRunner.cpp)
+add_library(velox_fuzzer_util DuckQueryRunner.cpp PrestoQueryRunner.cpp
+                              FuzzerUtil.cpp)
 
-target_link_libraries(velox_fuzzer_util velox_core velox_exec_test_lib cpr::cpr
-                      velox_type_parser Folly::folly)
+target_link_libraries(
+  velox_fuzzer_util
+  velox_core
+  velox_exec_test_lib
+  cpr::cpr
+  velox_type_parser
+  Folly::folly
+  velox_hive_connector
+  velox_dwio_dwrf_reader
+  velox_dwio_dwrf_writer)
 
 add_library(velox_aggregation_fuzzer_base AggregationFuzzerBase.cpp)
 

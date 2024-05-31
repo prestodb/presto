@@ -333,12 +333,6 @@ std::vector<RowVectorPtr> AggregationFuzzerBase::generateInputDataWithRowNumber(
   return input;
 }
 
-// static
-exec::Split AggregationFuzzerBase::makeSplit(const std::string& filePath) {
-  return exec::Split{std::make_shared<connector::hive::HiveConnectorSplit>(
-      kHiveConnectorId, filePath, dwio::common::FileFormat::DWRF)};
-}
-
 AggregationFuzzerBase::PlanWithSplits AggregationFuzzerBase::deserialize(
     const folly::dynamic& obj) {
   auto plan = velox::ISerializable::deserialize<core::PlanNode>(
@@ -615,20 +609,6 @@ bool isTableScanSupported(const TypePtr& type) {
   }
 
   return true;
-}
-
-std::vector<exec::Split> AggregationFuzzerBase::makeSplits(
-    const std::vector<RowVectorPtr>& inputs,
-    const std::string& path) {
-  std::vector<exec::Split> splits;
-  auto writerPool = rootPool_->addAggregateChild("writer");
-  for (auto i = 0; i < inputs.size(); ++i) {
-    const std::string filePath = fmt::format("{}/{}", path, i);
-    writeToFile(filePath, inputs[i], writerPool.get());
-    splits.push_back(makeSplit(filePath));
-  }
-
-  return splits;
 }
 
 void AggregationFuzzerBase::Stats::updateReferenceQueryStats(
