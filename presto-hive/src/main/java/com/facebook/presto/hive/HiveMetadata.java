@@ -2993,7 +2993,7 @@ public class HiveMetadata
         Table table = metastore.getTable(metastoreContext, hiveTableHandle)
                 .orElseThrow(() -> new TableNotFoundException(tableName));
 
-        Optional<HiveBucketHandle> hiveBucketHandle = getHiveBucketHandle(table);
+        Optional<HiveBucketHandle> hiveBucketHandle = getHiveBucketHandle(session, table);
         if (!hiveBucketHandle.isPresent()) {
             return Optional.empty();
         }
@@ -3040,7 +3040,7 @@ public class HiveMetadata
         Table table = metastore.getTable(metastoreContext, tableName.getSchemaName(), tableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(tableName));
 
-        Optional<HiveBucketHandle> hiveBucketHandle = getHiveBucketHandle(table);
+        Optional<HiveBucketHandle> hiveBucketHandle = getHiveBucketHandle(session, table);
         if (hiveBucketHandle.isPresent()) {
             // For bucketed table, table partitioning (i.e. the bucketing scheme) should be respected,
             // and there is no additional preferred shuffle partitioning

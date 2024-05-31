@@ -95,6 +95,7 @@ public final class HiveSessionProperties
     public static final String PARQUET_PUSHDOWN_FILTER_ENABLED = "parquet_pushdown_filter_enabled";
     public static final String ADAPTIVE_FILTER_REORDERING_ENABLED = "adaptive_filter_reordering_enabled";
     public static final String VIRTUAL_BUCKET_COUNT = "virtual_bucket_count";
+    public static final String CTE_VIRTUAL_BUCKET_COUNT = "cte_virtual_bucket_count";
     public static final String MAX_BUCKETS_FOR_GROUPED_EXECUTION = "max_buckets_for_grouped_execution";
     public static final String OFFLINE_DATA_DEBUG_MODE_ENABLED = "offline_data_debug_mode_enabled";
     public static final String FAIL_FAST_ON_INSERT_INTO_IMMUTABLE_PARTITIONS_ENABLED = "fail_fast_on_insert_into_immutable_partitions_enabled";
@@ -398,6 +399,11 @@ public final class HiveSessionProperties
                         VIRTUAL_BUCKET_COUNT,
                         "Number of virtual bucket assigned for unbucketed tables",
                         0,
+                        false),
+                integerProperty(
+                        CTE_VIRTUAL_BUCKET_COUNT,
+                        "Number of virtual bucket assigned for bucketed cte materialization temporary tables",
+                        hiveClientConfig.getCteVirtualBucketCount(),
                         false),
                 integerProperty(
                         MAX_BUCKETS_FOR_GROUPED_EXECUTION,
@@ -897,6 +903,15 @@ public final class HiveSessionProperties
         int virtualBucketCount = session.getProperty(VIRTUAL_BUCKET_COUNT, Integer.class);
         if (virtualBucketCount < 0) {
             throw new PrestoException(INVALID_SESSION_PROPERTY, format("%s must not be negative: %s", VIRTUAL_BUCKET_COUNT, virtualBucketCount));
+        }
+        return virtualBucketCount;
+    }
+
+    public static int getCteVirtualBucketCount(ConnectorSession session)
+    {
+        int virtualBucketCount = session.getProperty(CTE_VIRTUAL_BUCKET_COUNT, Integer.class);
+        if (virtualBucketCount < 0) {
+            throw new PrestoException(INVALID_SESSION_PROPERTY, format("%s must not be negative: %s", CTE_VIRTUAL_BUCKET_COUNT, virtualBucketCount));
         }
         return virtualBucketCount;
     }

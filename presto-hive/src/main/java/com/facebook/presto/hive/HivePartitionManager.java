@@ -329,10 +329,10 @@ public class HivePartitionManager
     {
         // never ignore table bucketing for temporary tables as those are created such explicitly by the engine request
         if (table.getTableType().equals(TEMPORARY_TABLE)) {
-            return getHiveBucketHandle(table);
+            return getHiveBucketHandle(session, table);
         }
 
-        Optional<HiveBucketHandle> hiveBucketHandle = getHiveBucketHandle(table);
+        Optional<HiveBucketHandle> hiveBucketHandle = getHiveBucketHandle(session, table);
         if (!hiveBucketHandle.isPresent() || shouldIgnoreTableBucketing(session)) {
             return Optional.empty();
         }
@@ -382,7 +382,7 @@ public class HivePartitionManager
                 .map(partition -> partition.orElseThrow(() -> new VerifyException("partition must exist")))
                 .collect(toImmutableList());
 
-        Optional<HiveBucketHandle> bucketHandle = shouldIgnoreTableBucketing(session) ? Optional.empty() : getHiveBucketHandle(table);
+        Optional<HiveBucketHandle> bucketHandle = shouldIgnoreTableBucketing(session) ? Optional.empty() : getHiveBucketHandle(session, table);
         return new HivePartitionResult(
                 ImmutableList.copyOf(partitionColumns),
                 table.getDataColumns(),
