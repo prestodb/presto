@@ -261,12 +261,11 @@ void PageReader::prepareDataPageV2(const PageHeader& pageHeader, int64_t row) {
     return;
   }
 
-  uint32_t defineLength = maxDefine_ > 0
-      ? pageHeader.data_page_header_v2.definition_levels_byte_length
-      : 0;
-  uint32_t repeatLength = maxRepeat_ > 0
-      ? pageHeader.data_page_header_v2.repetition_levels_byte_length
-      : 0;
+  uint32_t defineLength =
+      pageHeader.data_page_header_v2.definition_levels_byte_length;
+  uint32_t repeatLength =
+      pageHeader.data_page_header_v2.repetition_levels_byte_length;
+
   auto bytes = pageHeader.compressed_page_size;
   pageData_ = readBytes(bytes, pageBuffer_);
 

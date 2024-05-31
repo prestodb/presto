@@ -1156,3 +1156,28 @@ TEST_F(ParquetReaderTest, readVarbinaryFromFLBA) {
       result->as<RowVector>()->childAt(0)->asFlatVector<StringView>()->valueAt(
           0));
 }
+
+TEST_F(ParquetReaderTest, testV2PageWithZeroMaxDefRep) {
+  // enum_type.parquet contains 1 column (ENUM) with 3 rows.
+  const std::string sample(getExampleFilePath("v2_page.parquet"));
+
+  facebook::velox::dwio::common::ReaderOptions readerOptions{leafPool_.get()};
+  auto reader = createReader(sample, readerOptions);
+  EXPECT_EQ(reader->numberOfRows(), 5ULL);
+
+  auto rowType = reader->typeWithId();
+  EXPECT_EQ(rowType->type()->kind(), TypeKind::ROW);
+  EXPECT_EQ(rowType->size(), 1ULL);
+
+  EXPECT_EQ(rowType->childAt(0)->type()->kind(), TypeKind::BIGINT);
+
+  auto outputRowType = ROW({"regionkey"}, {BIGINT()});
+  auto rowReaderOpts = getReaderOpts(outputRowType);
+  rowReaderOpts.setScanSpec(makeScanSpec(outputRowType));
+  auto rowReader = reader->createRowReader(rowReaderOpts);
+
+  auto expected = makeRowVector({makeFlatVector<int64_t>({0, 1, 2, 3, 4})});
+
+  assertReadWithReaderAndExpected(
+      outputRowType, *rowReader, expected, *leafPool_);
+}
