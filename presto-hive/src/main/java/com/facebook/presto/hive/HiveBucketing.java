@@ -23,6 +23,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -48,7 +49,9 @@ import static com.facebook.presto.common.type.TypeUtils.hashPosition;
 import static com.facebook.presto.hive.BucketFunctionType.HIVE_COMPATIBLE;
 import static com.facebook.presto.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
+import static com.facebook.presto.hive.HiveSessionProperties.getCteVirtualBucketCount;
 import static com.facebook.presto.hive.HiveUtil.getRegularColumnHandles;
+import static com.facebook.presto.hive.metastore.PrestoTableType.TEMPORARY_TABLE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -279,10 +282,13 @@ public final class HiveBucketing
         return result;
     }
 
-    public static Optional<HiveBucketHandle> getHiveBucketHandle(Table table)
+    public static Optional<HiveBucketHandle> getHiveBucketHandle(ConnectorSession session, Table table)
     {
         Optional<HiveBucketProperty> hiveBucketProperty = table.getStorage().getBucketProperty();
         if (!hiveBucketProperty.isPresent()) {
+            if (table.getTableType().equals(TEMPORARY_TABLE)) {
+                return Optional.of(HiveBucketHandle.createVirtualBucketHandle(getCteVirtualBucketCount(session)));
+            }
             return Optional.empty();
         }
 
