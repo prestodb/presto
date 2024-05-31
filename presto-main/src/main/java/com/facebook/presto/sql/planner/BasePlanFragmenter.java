@@ -371,7 +371,7 @@ public abstract class BasePlanFragmenter
                 temporaryTableHandle,
                 exchange.getOutputVariables(),
                 variableToColumnMap,
-                partitioningMetadata);
+                Optional.of(partitioningMetadata));
 
         checkArgument(
                 !exchange.getPartitioningScheme().isReplicateNullsAndAny(),
