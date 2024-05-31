@@ -35,6 +35,22 @@ class TryExprTest : public functions::test::FunctionBaseTest {
     FunctionBaseTest::SetUpTestCase();
     TestValue::enable();
   }
+
+  VectorPtr evaluateWithCustomMemoryPool(
+      const std::string& sql,
+      const RowVectorPtr& data,
+      memory::MemoryPool* pool) {
+    auto typedExpr = makeTypedExpr(sql, asRowType(data->type()));
+
+    core::ExecCtx execCtx{pool, queryCtx_.get()};
+    exec::ExprSet exprSet({typedExpr}, &execCtx);
+    exec::EvalCtx context(&execCtx, &exprSet, data.get());
+
+    std::vector<VectorPtr> result(1);
+    SelectivityVector allRows(data->size());
+    exprSet.eval(allRows, context, result);
+    return result[0];
+  }
 };
 
 TEST_F(TryExprTest, tryExpr) {
@@ -489,4 +505,66 @@ DEBUG_ONLY_TEST_F(TryExprTest, errorRestoringContext) {
   VELOX_ASSERT_THROW(
       evaluate("try(always_throws(c0))", data), exceptionMessage);
 }
+
+// Verify memory usage increase from wrapping an expression in TRY.
+//
+// When wrapping non-throwing expression memory usage increase should not exceed
+// the amount of memory needed to store 1 bit per row (to track whether an
+// error occurred or not).
+//
+// When wrapping throwing expression memory usage increase should not exceed the
+// amount of memory needed to store 1 bit + 1
+// std::shared_ptr<std::exception_ptr> per row (16 bytes).
+//
+// We also account for the fact that memory is allocated in minimum chunks
+// (MemoryPool::preferredSize).
+TEST_F(TryExprTest, memoryUsage) {
+  vector_size_t size = 10'000;
+
+  auto data = makeRowVector({makeFlatVector<int64_t>(size, folly::identity)});
+
+  // Measure memory usage without TRY.
+  int64_t baseline;
+
+  {
+    auto pool = rootPool_->addLeafChild("test-memory-usage");
+    auto result = evaluateWithCustomMemoryPool("c0 + 1", data, pool.get());
+    ASSERT_FALSE(result->mayHaveNulls());
+
+    baseline = pool->peakBytes();
+  }
+
+  // Measure memory usage with TRY over non-throwing expression.
+  {
+    // Memory allocation is not precisise. There is some padding, rounding and
+    // quantizing that makes it hard to tell exactly how much memory is
+    // allocated. Given that we only need 1 bit per row, allowing 4 bits per row
+    // seems conservative enough.
+    const auto expectedIncrease = size / 2;
+
+    auto pool = rootPool_->addLeafChild("test-memory-usage");
+    auto result = evaluateWithCustomMemoryPool("try(c0 + 1)", data, pool.get());
+    ASSERT_FALSE(result->mayHaveNulls());
+
+    ASSERT_GE(pool->peakBytes(), baseline);
+    ASSERT_LE(pool->peakBytes(), baseline + expectedIncrease)
+        << (pool->peakBytes() - baseline);
+  }
+
+  // Measure memory usage with TRY over expression that throws from every row.
+  {
+    // We need 16 bytes + 1 bit per row. Allow 20 bytes to account for extra
+    // padding, rounding and quantiziing.
+    const auto expectedIncrease = 20 * size;
+
+    auto pool = rootPool_->addLeafChild("test-memory-usage");
+    auto result = evaluateWithCustomMemoryPool("try(c0 / 0)", data, pool.get());
+    ASSERT_TRUE(result->mayHaveNulls());
+
+    ASSERT_GE(pool->peakBytes(), baseline);
+    ASSERT_LE(pool->peakBytes(), baseline + expectedIncrease)
+        << (pool->peakBytes() - baseline);
+  }
+}
+
 } // namespace facebook::velox

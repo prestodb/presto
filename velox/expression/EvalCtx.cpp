@@ -86,13 +86,14 @@ void EvalCtx::saveAndReset(ContextSaver& saver, const SelectivityVector& rows) {
 void EvalCtx::ensureErrorsVectorSize(ErrorVectorPtr& vector, vector_size_t size)
     const {
   if (!vector) {
+    // Do not allocate 'values' buffer. It uses ~20 bytes per row and it may not
+    // be needed.
     vector = std::make_shared<ErrorVector>(
         pool(),
         OpaqueType::create<void>(),
         allocateNulls(size, pool(), bits::kNull),
         size,
-        AlignedBuffer::allocate<ErrorVector::value_type>(
-            size, pool(), ErrorVector::value_type()),
+        nullptr,
         std::vector<BufferPtr>{});
   } else if (vector->size() < size) {
     const auto oldSize = vector->size();

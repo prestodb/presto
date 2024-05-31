@@ -38,6 +38,10 @@ void TryExpr::evalSpecialForm(
   // threw exceptions which this expression already handled.
   ScopedVarSetter<ErrorVectorPtr> errorsSetter(context.errorsPtr(), nullptr);
 
+  // Allocate error vector to avoid repeated re-allocations for every failed
+  // row.
+  context.ensureErrorsVectorSize(rows.end());
+
   inputs_[0]->eval(rows, context, result);
 
   nullOutErrors(rows, context, result);
@@ -108,6 +112,14 @@ void TryExpr::nullOutErrors(
     return;
   }
 
+  const auto numErrors = errors->size();
+  const auto firstErrorRow = bits::findFirstBit(
+      errors->rawNulls(), rows.begin(), std::min(numErrors, rows.end()));
+  if (firstErrorRow < 0) {
+    // All rows are null. No errors.
+    return;
+  }
+
   applyListenersOnError(rows, context);
 
   if (result->isConstantEncoding()) {
@@ -124,7 +136,7 @@ void TryExpr::nullOutErrors(
     auto nulls = allocateNulls(size, context.pool());
     auto rawNulls = nulls->asMutable<uint64_t>();
     rows.applyToSelected([&](auto row) {
-      if (row < errors->size() && !errors->isNullAt(row)) {
+      if (row < numErrors && !errors->isNullAt(row)) {
         bits::setNull(rawNulls, row, true);
       }
     });
@@ -135,7 +147,7 @@ void TryExpr::nullOutErrors(
   } else if (result.unique() && result->isNullsWritable()) {
     auto* rawNulls = result->mutableRawNulls();
     rows.applyToSelected([&](auto row) {
-      if (row < errors->size() && !errors->isNullAt(row)) {
+      if (row < numErrors && !errors->isNullAt(row)) {
         bits::setNull(rawNulls, row, true);
       }
     });
@@ -147,7 +159,7 @@ void TryExpr::nullOutErrors(
 
     rows.applyToSelected([&](auto row) {
       rawIndices[row] = row;
-      if (row < errors->size() && !errors->isNullAt(row)) {
+      if (row < numErrors && !errors->isNullAt(row)) {
         bits::setNull(rawNulls, row, true);
       }
     });
