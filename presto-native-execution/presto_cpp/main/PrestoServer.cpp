@@ -158,8 +158,9 @@ void PrestoServer::run() {
     baseVeloxQueryConfig->initialize(
         fmt::format("{}/velox.properties", configDirectoryPath_), true);
 
-    if (systemConfig->enableRuntimeMetricsCollection()) {
-      enableRuntimeMetricReporting();
+    if (systemConfig->enableMetricsReporting() ||
+        systemConfig->enableRuntimeMetricsCollection()) {
+      enableMetricsReporting();
     }
 
     httpPort = systemConfig->httpServerHttpPort();
@@ -1104,7 +1105,7 @@ std::string PrestoServer::getBaseSpillDirectory() const {
   return SystemConfig::instance()->spillerSpillPath().value_or("");
 }
 
-void PrestoServer::enableRuntimeMetricReporting() {
+void PrestoServer::enableMetricsReporting() {
   // This flag must be set to register the counters.
   facebook::velox::BaseStatsReporter::registered = true;
   registerStatsCounters();

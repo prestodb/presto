@@ -227,6 +227,7 @@ SystemConfig::SystemConfig() {
           STR_PROP(kCacheVeloxTtlThreshold, "2d"),
           STR_PROP(kCacheVeloxTtlCheckInterval, "1h"),
           BOOL_PROP(kEnableRuntimeMetricsCollection, false),
+          BOOL_PROP(kEnableMetricsReporting, true),
       };
 }
 
@@ -628,6 +629,10 @@ std::chrono::duration<double> SystemConfig::cacheVeloxTtlCheckInterval() const {
 
 bool SystemConfig::enableRuntimeMetricsCollection() const {
   return optionalProperty<bool>(kEnableRuntimeMetricsCollection).value();
+}
+
+bool SystemConfig::enableMetricsReporting() const {
+  return optionalProperty<bool>(kEnableMetricsReporting).value();
 }
 
 NodeConfig::NodeConfig() {
