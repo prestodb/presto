@@ -71,7 +71,7 @@ Expected<T> callFollyTo(const F& v) {
   const auto result = folly::tryTo<T>(v);
   if (result.hasError()) {
     if (threadSkipErrorDetails()) {
-      return folly::makeUnexpected(Status::UserError(""));
+      return folly::makeUnexpected(Status::UserError());
     }
     return folly::makeUnexpected(Status::UserError(
         "{}", folly::makeConversionError(result.error(), "").what()));

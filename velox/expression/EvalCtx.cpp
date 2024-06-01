@@ -222,7 +222,11 @@ void EvalCtx::setError(
     throwError(exceptionPtr);
   }
 
-  addError(index, toVeloxException(exceptionPtr), errors_);
+  if (captureErrorDetails_) {
+    addError(index, toVeloxException(exceptionPtr), errors_);
+  } else {
+    addError(index, errors_);
+  }
 }
 
 // This should be used onlly when exceptionPtr is guranteed to be a
@@ -234,7 +238,11 @@ void EvalCtx::setVeloxExceptionError(
     std::rethrow_exception(exceptionPtr);
   }
 
-  addError(index, exceptionPtr, errors_);
+  if (captureErrorDetails_) {
+    addError(index, exceptionPtr, errors_);
+  } else {
+    addError(index, errors_);
+  }
 }
 
 void EvalCtx::setErrors(
@@ -244,9 +252,13 @@ void EvalCtx::setErrors(
     throwError(exceptionPtr);
   }
 
-  auto veloxException = toVeloxException(exceptionPtr);
-  rows.applyToSelected(
-      [&](auto row) { addError(row, veloxException, errors_); });
+  if (captureErrorDetails_) {
+    auto veloxException = toVeloxException(exceptionPtr);
+    rows.applyToSelected(
+        [&](auto row) { addError(row, veloxException, errors_); });
+  } else {
+    rows.applyToSelected([&](auto row) { addError(row, errors_); });
+  }
 }
 
 void EvalCtx::addElementErrorsToTopLevel(

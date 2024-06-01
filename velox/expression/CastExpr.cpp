@@ -234,7 +234,7 @@ VectorPtr CastExpr::castToDate(
                         makeErrorMessage(input, row, DATE()),
                         result.error().message()));
               } else {
-                context.setStatus(row, Status::UserError(""));
+                context.setStatus(row, Status::UserError());
               }
             }
           } else {
