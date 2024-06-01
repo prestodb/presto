@@ -438,6 +438,14 @@ bool SystemConfig::asyncCacheSsdDisableFileCow() const {
   return optionalProperty<bool>(kAsyncCacheSsdDisableFileCow).value();
 }
 
+bool SystemConfig::ssdCacheChecksumEnabled() const {
+  return optionalProperty<bool>(kSsdCacheChecksumEnabled).value();
+}
+
+bool SystemConfig::ssdCacheReadVerificationEnabled() const {
+  return optionalProperty<bool>(kSsdCacheReadVerificationEnabled).value();
+}
+
 std::string SystemConfig::shuffleName() const {
   return optionalProperty(kShuffleName).value();
 }
