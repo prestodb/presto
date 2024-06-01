@@ -30,6 +30,7 @@ import org.apache.hudi.common.config.HoodieMetadataConfig;
 import org.apache.hudi.common.engine.HoodieEngineContext;
 import org.apache.hudi.common.engine.HoodieLocalEngineContext;
 import org.apache.hudi.common.fs.FSUtils;
+import org.apache.hudi.common.model.BaseFile;
 import org.apache.hudi.common.model.HoodieBaseFile;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.common.table.view.FileSystemViewManager;
@@ -132,7 +133,8 @@ public class HudiDirectoryLister
         public HiveFileInfo next()
                 throws IOException
         {
-            FileStatus fileStatus = hoodieBaseFileIterator.next().getFileStatus();
+            HoodieBaseFile baseFile = hoodieBaseFileIterator.next();
+            FileStatus fileStatus = baseFile.getBootstrapBaseFile().map(BaseFile::getFileStatus).orElse(baseFile.getFileStatus());
             String[] name = new String[] {"localhost:" + DFS_DATANODE_DEFAULT_PORT};
             String[] host = new String[] {"localhost"};
             LocatedFileStatus hoodieFileStatus = new LocatedFileStatus(fileStatus,

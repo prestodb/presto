@@ -1,0 +1,66 @@
+{
+  "partitionToWriteStats" : {
+    "" : [ {
+      "fileId" : "27f1de49-7885-4ce8-bc34-cf6ae172b729",
+      "path" : "27f1de49-7885-4ce8-bc34-cf6ae172b729_749-18-3767_00000000000001.parquet",
+      "cdcStats" : null,
+      "prevCommit" : "null",
+      "numWrites" : 197,
+      "numDeletes" : 0,
+      "numUpdateWrites" : 0,
+      "numInserts" : 197,
+      "totalWriteBytes" : 435175,
+      "totalWriteErrors" : 0,
+      "tempPath" : null,
+      "partitionPath" : "",
+      "totalLogRecords" : 0,
+      "totalLogFilesCompacted" : 0,
+      "totalLogSizeCompacted" : 0,
+      "totalUpdatedRecordsCompacted" : 0,
+      "totalLogBlocks" : 0,
+      "totalCorruptLogBlock" : 0,
+      "totalRollbackBlocks" : 0,
+      "fileSizeInBytes" : 435175,
+      "minEventTime" : null,
+      "maxEventTime" : null,
+      "runtimeStats" : {
+        "totalScanTime" : 0,
+        "totalUpsertTime" : 0,
+        "totalCreateTime" : 1273
+      }
+    }, {
+      "fileId" : "6a0e2a0b-8ecf-4498-8111-5207766d22ad",
+      "path" : "6a0e2a0b-8ecf-4498-8111-5207766d22ad_1499-18-4517_00000000000001.parquet",
+      "cdcStats" : null,
+      "prevCommit" : "null",
+      "numWrites" : 197,
+      "numDeletes" : 0,
+      "numUpdateWrites" : 0,
+      "numInserts" : 197,
+      "totalWriteBytes" : 435181,
+      "totalWriteErrors" : 0,
+      "tempPath" : null,
+      "partitionPath" : "",
+      "totalLogRecords" : 0,
+      "totalLogFilesCompacted" : 0,
+      "totalLogSizeCompacted" : 0,
+      "totalUpdatedRecordsCompacted" : 0,
+      "totalLogBlocks" : 0,
+      "totalCorruptLogBlock" : 0,
+      "totalRollbackBlocks" : 0,
+      "fileSizeInBytes" : 435181,
+      "minEventTime" : null,
+      "maxEventTime" : null,
+      "runtimeStats" : {
+        "totalScanTime" : 0,
+        "totalUpsertTime" : 0,
+        "totalCreateTime" : 135
+      }
+    } ]
+  },
+  "compacted" : false,
+  "extraMetadata" : {
+    "schema" : "{\"type\":\"record\",\"name\":\"stock_ticks_bootstrap_record\",\"namespace\":\"hoodie.stock_ticks_bootstrap\",\"fields\":[{\"name\":\"_hoodie_commit_time\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"_hoodie_commit_seqno\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"_hoodie_record_key\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"_hoodie_partition_path\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"_hoodie_file_name\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"volume\",\"type\":[\"null\",\"long\"],\"default\":null},{\"name\":\"ts\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"symbol\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"year\",\"type\":[\"null\",\"int\"],\"default\":null},{\"name\":\"month\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"high\",\"type\":[\"null\",\"double\"],\"default\":null},{\"name\":\"low\",\"type\":[\"null\",\"double\"],\"default\":null},{\"name\":\"key\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"date\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"close\",\"type\":[\"null\",\"double\"],\"default\":null},{\"name\":\"open\",\"type\":[\"null\",\"double\"],\"default\":null},{\"name\":\"day\",\"type\":[\"null\",\"string\"],\"default\":null}]}"
+  },
+  "operationType" : "BOOTSTRAP"
+}
