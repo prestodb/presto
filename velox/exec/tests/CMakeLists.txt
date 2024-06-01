@@ -214,6 +214,13 @@ add_executable(velox_join_fuzzer_test JoinFuzzerTest.cpp)
 
 target_link_libraries(velox_join_fuzzer_test velox_join_fuzzer gtest gtest_main)
 
+# Arbitration Fuzzer.
+add_executable(velox_memory_arbitration_fuzzer_test
+               MemoryArbitrationFuzzerTest.cpp)
+
+target_link_libraries(velox_memory_arbitration_fuzzer_test
+                      velox_memory_arbitration_fuzzer gtest gtest_main)
+
 add_executable(velox_exchange_fuzzer_test ExchangeFuzzer.cpp)
 
 target_link_libraries(

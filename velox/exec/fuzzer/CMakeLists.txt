@@ -89,3 +89,15 @@ target_link_libraries(
   velox_expression_test_utility
   velox_temp_path
   velox_vector_test_lib)
+
+add_library(velox_memory_arbitration_fuzzer MemoryArbitrationFuzzer.cpp)
+
+target_link_libraries(
+  velox_memory_arbitration_fuzzer
+  velox_fuzzer_util
+  velox_type
+  velox_vector_fuzzer
+  velox_exec_test_lib
+  velox_expression_test_utility
+  velox_functions_prestosql
+  velox_aggregates)
