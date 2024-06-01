@@ -38,66 +38,60 @@ class PeeledEncoding;
 /// Used when EvalCtx::throwOnError() is false.
 class EvalErrors {
  public:
-  EvalErrors(memory::MemoryPool* pool, vector_size_t size) {
-    // Do not allocate 'values' buffer. It uses ~20 bytes per row and it may not
-    // be needed.
-    errors_ = std::make_shared<ErrorVector>(
-        pool,
-        OpaqueType::create<void>(),
-        allocateNulls(size, pool, bits::kNull),
-        size,
-        nullptr,
-        std::vector<BufferPtr>{});
+  EvalErrors(memory::MemoryPool* pool, vector_size_t size)
+      : pool_{pool}, size_{size} {
+    VELOX_CHECK_NOT_NULL(pool);
+    VELOX_CHECK_GT(size, 0);
+    errorFlags_ = AlignedBuffer::allocate<bool>(size, pool, false);
+    rawErrorFlags_ = errorFlags_->asMutable<uint64_t>();
   }
 
   vector_size_t size() const {
-    return errors_->size();
+    return size_;
   }
 
   /// Similar to std::vector::reserve. Allocates internal buffers to fit at
   /// least 'size' rows. No-op if 'size()' is already at or exceeding requested.
   void ensureCapacity(vector_size_t size) {
-    if (errors_->size() >= size) {
+    if (size_ >= size) {
       return;
     }
 
-    const auto oldSize = errors_->size();
-    errors_->resize(size, false);
-    // Set all new positions to null, including the one to be set.
-    for (auto i = oldSize; i < size; ++i) {
-      errors_->setNull(i, true);
+    AlignedBuffer::reallocate<bool>(&errorFlags_, size, false);
+    rawErrorFlags_ = errorFlags_->asMutable<uint64_t>();
+    if (exceptions_ != nullptr) {
+      AlignedBuffer::reallocate<TError>(&exceptions_, size, TError());
     }
+
+    size_ = size;
   }
 
   /// Returns true if at least one row has an error.
   bool hasError() const {
-    const auto firstErrorRow =
-        bits::findFirstBit(errors_->rawNulls(), 0, errors_->size());
+    const auto firstErrorRow = bits::findFirstBit(rawErrorFlags_, 0, size_);
     return firstErrorRow >= 0;
   }
 
   /// Returns true if 'index' has an error.
   bool hasErrorAt(vector_size_t index) const {
-    return index < errors_->size() && !errors_->isNullAt(index);
+    return index < size_ && bits::isBitSet(rawErrorFlags_, index);
   }
 
   /// Throws if 'index' has an error. The caller must ensure that error details
   /// are available.
   void throwIfErrorAt(vector_size_t index) const {
-    if (hasErrorAt(index)) {
-      auto error = errors_->valueAt(index);
-      VELOX_CHECK_NOT_NULL(error);
-      std::rethrow_exception(
-          *std::static_pointer_cast<std::exception_ptr>(error));
+    auto error = errorAt(index);
+    if (error.has_value()) {
+      VELOX_CHECK_NOT_NULL(error.value());
+      std::rethrow_exception(*error.value());
     }
   }
 
   /// Finds first row in 'rows' that has an error and throws that error. The
   /// caller must ensure that error details are available.
   void throwFirstError(const SelectivityVector& rows) const {
-    const auto errorSize = errors_->size();
     rows.testSelected([&](vector_size_t row) {
-      if (row < errorSize) {
+      if (row < size_) {
         throwIfErrorAt(row);
         return true;
       }
@@ -115,36 +109,34 @@ class EvalErrors {
       return std::nullopt;
     }
 
-    const auto error = errors_->valueAt(index);
-    if (error) {
-      return std::static_pointer_cast<std::exception_ptr>(error);
+    if (exceptions_ == nullptr) {
+      return {nullptr};
     }
 
-    return {nullptr};
+    return exceptions_->as<TError>()[index];
   }
 
   /// Bitmask with bits set for rows with errors. Only first 'size()' bits are
   /// valid.
   const uint64_t* errorFlags() const {
-    return errors_->rawNulls();
+    return rawErrorFlags_;
   }
 
   /// Returns the number of rows with errors.
   vector_size_t countErrors() const {
-    return errors_->size() -
-        BaseVector::countNulls(errors_->nulls(), errors_->size());
+    return bits::countBits(rawErrorFlags_, 0, size_);
   }
 
   /// Marks 'index' as having an error. Doesn't specify error details.
   void setError(vector_size_t index) {
     ensureCapacity(index + 1);
-    errors_->setNull(index, false);
+    bits::setBit(rawErrorFlags_, index);
   }
 
   /// Clears error at 'index'.
   void clearError(vector_size_t index) {
-    if (index < errors_->size()) {
-      errors_->setNull(index, true);
+    if (index < size_) {
+      bits::clearBit(rawErrorFlags_, index);
     }
   }
 
@@ -152,8 +144,14 @@ class EvalErrors {
   /// 'index' is already marked as having an error.
   void setError(vector_size_t index, const std::exception_ptr& exceptionPtr) {
     ensureCapacity(index + 1);
-    if (errors_->isNullAt(index)) {
-      errors_->set(index, std::make_shared<std::exception_ptr>(exceptionPtr));
+    if (!bits::isBitSet(rawErrorFlags_, index)) {
+      bits::setBit(rawErrorFlags_, index);
+
+      if (exceptions_ == nullptr) {
+        exceptions_ = AlignedBuffer::allocate<TError>(size_, pool_, TError());
+      }
+      exceptions_->asMutable<TError>()[index] =
+          std::make_shared<std::exception_ptr>(exceptionPtr);
     }
   }
 
@@ -166,8 +164,18 @@ class EvalErrors {
       vector_size_t toIndex) {
     if (from.hasErrorAt(fromIndex)) {
       ensureCapacity(toIndex + 1);
-      if (errors_->isNullAt(toIndex)) {
-        errors_->set(toIndex, from.errors_->valueAt(fromIndex));
+      if (!bits::isBitSet(rawErrorFlags_, toIndex)) {
+        bits::setBit(rawErrorFlags_, toIndex);
+
+        if (from.exceptions_ != nullptr) {
+          if (exceptions_ == nullptr) {
+            exceptions_ =
+                AlignedBuffer::allocate<TError>(size_, pool_, TError());
+          }
+
+          exceptions_->asMutable<TError>()[toIndex] =
+              from.exceptions_->as<TError>()[fromIndex];
+        }
       }
     }
   }
@@ -179,9 +187,7 @@ class EvalErrors {
     ensureCapacity(std::min(fromSize, rows.end()));
     rows.testSelected([&](auto row) {
       if (row < fromSize) {
-        if (from.hasErrorAt(row) && errors_->isNullAt(row)) {
-          errors_->set(row, from.errors_->valueAt(row));
-        }
+        copyError(from, row, row);
         return true;
       }
       return false;
@@ -193,17 +199,18 @@ class EvalErrors {
   void copyErrors(const EvalErrors& from) {
     ensureCapacity(from.size());
     bits::forEachSetBit(from.errorFlags(), 0, from.size(), [&](auto row) {
-      if (errors_->isNullAt(row)) {
-        errors_->set(row, from.errors_->valueAt(row));
-      }
+      copyError(from, row, row);
     });
   }
 
  private:
-  using ErrorVector = FlatVector<std::shared_ptr<void>>;
-  using ErrorVectorPtr = std::shared_ptr<ErrorVector>;
+  using TError = std::shared_ptr<std::exception_ptr>;
 
-  ErrorVectorPtr errors_;
+  memory::MemoryPool* pool_;
+  vector_size_t size_;
+  BufferPtr errorFlags_;
+  uint64_t* rawErrorFlags_;
+  BufferPtr exceptions_{nullptr};
 };
 
 using EvalErrorsPtr = std::shared_ptr<EvalErrors>;

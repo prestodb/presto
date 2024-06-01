@@ -508,16 +508,9 @@ DEBUG_ONLY_TEST_F(TryExprTest, errorRestoringContext) {
 
 // Verify memory usage increase from wrapping an expression in TRY.
 //
-// When wrapping non-throwing expression memory usage increase should not exceed
+// When wrapping an expression memory usage increase should not exceed
 // the amount of memory needed to store 1 bit per row (to track whether an
 // error occurred or not).
-//
-// When wrapping throwing expression memory usage increase should not exceed the
-// amount of memory needed to store 1 bit + 1
-// std::shared_ptr<std::exception_ptr> per row (16 bytes).
-//
-// We also account for the fact that memory is allocated in minimum chunks
-// (MemoryPool::preferredSize).
 TEST_F(TryExprTest, memoryUsage) {
   vector_size_t size = 10'000;
 
@@ -553,9 +546,7 @@ TEST_F(TryExprTest, memoryUsage) {
 
   // Measure memory usage with TRY over expression that throws from every row.
   {
-    // We need 16 bytes + 1 bit per row. Allow 20 bytes to account for extra
-    // padding, rounding and quantiziing.
-    const auto expectedIncrease = 20 * size;
+    const auto expectedIncrease = size / 2;
 
     auto pool = rootPool_->addLeafChild("test-memory-usage");
     auto result = evaluateWithCustomMemoryPool("try(c0 / 0)", data, pool.get());
