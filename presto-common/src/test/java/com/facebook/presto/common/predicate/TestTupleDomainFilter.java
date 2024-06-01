@@ -60,6 +60,7 @@ public class TestTupleDomainFilter
         assertFalse(filter.testNull());
         assertFalse(filter.testLong(0));
         assertFalse(filter.testLong(11));
+        assertEquals(filter.getRetainedSizeInBytes(), 32);
     }
 
     @Test
@@ -77,6 +78,7 @@ public class TestTupleDomainFilter
         assertFalse(filter.testLong(2));
         assertFalse(filter.testLong(102));
         assertFalse(filter.testLong(Long.MAX_VALUE));
+        assertEquals(filter.getRetainedSizeInBytes(), 128);
     }
 
     @Test
@@ -94,6 +96,7 @@ public class TestTupleDomainFilter
         assertFalse(filter.testLong(2));
         assertFalse(filter.testLong(102));
         assertFalse(filter.testLong(Long.MAX_VALUE));
+        assertEquals(filter.getRetainedSizeInBytes(), 168);
     }
 
     @Test
@@ -114,6 +117,7 @@ public class TestTupleDomainFilter
         assertFalse(filter.testLong(0));
         assertFalse(filter.testLong(50));
         assertFalse(filter.testLong(150));
+        assertEquals(filter.getRetainedSizeInBytes(), 120);
     }
 
     @Test
@@ -130,6 +134,7 @@ public class TestTupleDomainFilter
 
         assertFalse(filter.testNull());
         assertFalse(filter.testBoolean(true));
+        assertEquals(filter.getRetainedSizeInBytes(), 24);
     }
 
     @Test
@@ -165,6 +170,7 @@ public class TestTupleDomainFilter
         assertFalse(filter.testDouble(-0.3));
         assertFalse(filter.testDouble(55.6));
         assertFalse(filter.testDouble(Double.NaN));
+        assertEquals(filter.getRetainedSizeInBytes(), 40);
 
         try {
             DoubleRange.of(Double.NaN, false, false, Double.NaN, false, false, false);
@@ -200,6 +206,7 @@ public class TestTupleDomainFilter
         assertFalse(filter.testFloat(1.1f));
         assertFalse(filter.testFloat(15.632f));
         assertFalse(filter.testFloat(Float.NaN));
+        assertEquals(filter.getRetainedSizeInBytes(), 32);
 
         try {
             FloatRange.of(Float.NaN, false, false, Float.NaN, false, false, false);
@@ -226,6 +233,8 @@ public class TestTupleDomainFilter
 
         assertFalse(filter.testNull());
         assertFalse(filter.testDecimal(decimal("1234.56").getLong(0), decimal("1234.56").getLong(SIZE_OF_LONG)));
+
+        assertEquals(filter.getRetainedSizeInBytes(), 56);
     }
 
     private static Slice decimal(String value)
@@ -244,6 +253,7 @@ public class TestTupleDomainFilter
         assertFalse(filter.testNull());
         assertFalse(filter.testBytes(toBytes("apple"), 0, 5));
         assertFalse(filter.testLength(4));
+        assertEquals(filter.getRetainedSizeInBytes(), 70);
 
         String theBestOfTimes = "It was the best of times, it was the worst of times, it was the age of wisdom, it was the age of foolishness, it was the epoch of belief, it was the epoch of incredulity,...";
         filter = BytesRange.of(null, true, toBytes(theBestOfTimes), false, false);
@@ -258,6 +268,7 @@ public class TestTupleDomainFilter
         assertFalse(filter.testNull());
         assertFalse(filter.testBytes(toBytes("Zzz"), 0, 3));
         assertFalse(filter.testBytes(toBytes("It was the best of times, zzz"), 0, 30));
+        assertEquals(filter.getRetainedSizeInBytes(), 221);
 
         filter = BytesRange.of(toBytes("abc"), false, null, true, false);
         assertTrue(filter.testBytes(toBytes("abc"), 0, 3));
@@ -268,6 +279,7 @@ public class TestTupleDomainFilter
         assertFalse(filter.testNull());
         assertFalse(filter.testBytes(toBytes("ab"), 0, 2));
         assertFalse(filter.testBytes(toBytes("_abc"), 0, 4));
+        assertEquals(filter.getRetainedSizeInBytes(), 51);
 
         filter = BytesRange.of(toBytes("apple"), false, toBytes("banana"), false, false);
         assertTrue(filter.testBytes(toBytes("apple"), 0, 5));
@@ -277,6 +289,7 @@ public class TestTupleDomainFilter
         assertFalse(filter.testNull());
         assertFalse(filter.testBytes(toBytes("camel"), 0, 5));
         assertFalse(filter.testBytes(toBytes("_abc"), 0, 4));
+        assertEquals(filter.getRetainedSizeInBytes(), 75);
 
         filter = BytesRange.of(toBytes("apple"), true, toBytes("banana"), false, false);
         assertTrue(filter.testBytes(toBytes("banana"), 0, 6));
@@ -286,6 +299,7 @@ public class TestTupleDomainFilter
         assertFalse(filter.testBytes(toBytes("apple"), 0, 5));
         assertFalse(filter.testBytes(toBytes("camel"), 0, 5));
         assertFalse(filter.testBytes(toBytes("_abc"), 0, 4));
+        assertEquals(filter.getRetainedSizeInBytes(), 75);
 
         filter = BytesRange.of(toBytes("apple"), true, toBytes("banana"), true, false);
         assertTrue(filter.testBytes(toBytes("avocado"), 0, 7));
@@ -295,6 +309,7 @@ public class TestTupleDomainFilter
         assertFalse(filter.testBytes(toBytes("banana"), 0, 6));
         assertFalse(filter.testBytes(toBytes("camel"), 0, 5));
         assertFalse(filter.testBytes(toBytes("_abc"), 0, 4));
+        assertEquals(filter.getRetainedSizeInBytes(), 75);
     }
 
     @Test
@@ -310,6 +325,7 @@ public class TestTupleDomainFilter
         assertFalse(filter.testNull());
         assertFalse(filter.testBytes(toBytes("natura"), 0, 5));
         assertFalse(filter.testBytes(toBytes("apple"), 0, 5));
+        assertEquals(filter.getRetainedSizeInBytes(), 210);
 
         byte[][] testValues = new byte[1000][];
         byte[][] filterValues = new byte[(testValues.length / 9) + 1][];
@@ -328,6 +344,7 @@ public class TestTupleDomainFilter
             assertEquals(filter.testLength(i), i % 9 == 0);
             assertEquals(i % 9 == 0, filter.testBytes(testValues[i], 0, testValues[i].length));
         }
+        assertEquals(filter.getRetainedSizeInBytes(), 2832);
     }
 
     @Test
@@ -343,6 +360,8 @@ public class TestTupleDomainFilter
 
         assertTrue(filter.testBytes(toBytes("natura"), 0, 5));
         assertTrue(filter.testBytes(toBytes("apple"), 0, 5));
+
+        assertEquals(filter.getRetainedSizeInBytes(), 234);
     }
 
     private static byte[] sequentialBytes(byte base, int length)
@@ -373,6 +392,7 @@ public class TestTupleDomainFilter
 
         assertFalse(filter.testNull());
         assertFalse(filter.testBytes(toBytes("apple"), 0, 5));
+        assertEquals(filter.getRetainedSizeInBytes(), 148);
 
         filter = MultiRange.of(ImmutableList.of(
                 DoubleRange.of(Double.MIN_VALUE, true, true, 1.2, false, true, false),
@@ -384,6 +404,7 @@ public class TestTupleDomainFilter
         assertFalse(filter.testNull());
         assertFalse(filter.testDouble(Double.NaN));
         assertFalse(filter.testDouble(1.2));
+        assertEquals(filter.getRetainedSizeInBytes(), 104);
 
         Slice decimal = decimal("123.45");
         filter = MultiRange.of(ImmutableList.of(
@@ -396,6 +417,7 @@ public class TestTupleDomainFilter
         assertFalse(filter.testNull());
         assertFalse(filter.testFloat(Float.NaN));
         assertFalse(filter.testDecimal(decimal.getLong(0), decimal.getLong(SIZE_OF_LONG)));
+        assertEquals(filter.getRetainedSizeInBytes(), 136);
 
         filter = MultiRange.of(ImmutableList.of(
                 FloatRange.of(Float.MIN_VALUE, true, true, 1.2f, false, true, false),
@@ -406,6 +428,7 @@ public class TestTupleDomainFilter
 
         assertFalse(filter.testNull());
         assertFalse(filter.testFloat(1.2f));
+        assertEquals(filter.getRetainedSizeInBytes(), 88);
     }
 
     @Test
@@ -418,6 +441,7 @@ public class TestTupleDomainFilter
         assertTrue(filter.testFloat(Float.NaN));
         assertFalse(filter.testFloat(1.2f));
         assertTrue(filter.testFloat(1.1f));
+        assertEquals(filter.getRetainedSizeInBytes(), 88);
 
         filter = MultiRange.of(ImmutableList.of(
                 DoubleRange.of(Double.MIN_VALUE, true, true, 1.2d, false, true, false),
@@ -425,6 +449,7 @@ public class TestTupleDomainFilter
         assertTrue(filter.testDouble(Double.NaN));
         assertFalse(filter.testDouble(1.2d));
         assertTrue(filter.testDouble(1.1d));
+        assertEquals(filter.getRetainedSizeInBytes(), 104);
 
         // x <> 1.2 with nanAllowed false
         filter = MultiRange.of(ImmutableList.of(
@@ -432,12 +457,14 @@ public class TestTupleDomainFilter
                 FloatRange.of(1.2f, false, true, Float.MAX_VALUE, true, true, false)), false, false);
         assertFalse(filter.testFloat(Float.NaN));
         assertTrue(filter.testFloat(1.0f));
+        assertEquals(filter.getRetainedSizeInBytes(), 88);
 
         filter = MultiRange.of(ImmutableList.of(
                 DoubleRange.of(Double.MIN_VALUE, true, true, 1.2d, false, true, false),
                 DoubleRange.of(1.2d, false, true, Double.MAX_VALUE, true, true, false)), false, false);
         assertFalse(filter.testDouble(Double.NaN));
         assertTrue(filter.testDouble(1.4d));
+        assertEquals(filter.getRetainedSizeInBytes(), 104);
 
         // x NOT IN (1.2, 1.3) with nanAllowed true
         filter = MultiRange.of(ImmutableList.of(
@@ -449,6 +476,7 @@ public class TestTupleDomainFilter
         assertFalse(filter.testFloat(1.3f));
         assertTrue(filter.testFloat(1.4f));
         assertTrue(filter.testFloat(1.1f));
+        assertEquals(filter.getRetainedSizeInBytes(), 120);
 
         filter = MultiRange.of(ImmutableList.of(
                 DoubleRange.of(Double.MIN_VALUE, true, true, 1.2d, false, true, false),
@@ -459,6 +487,7 @@ public class TestTupleDomainFilter
         assertFalse(filter.testDouble(1.3d));
         assertTrue(filter.testDouble(1.4d));
         assertTrue(filter.testDouble(1.1d));
+        assertEquals(filter.getRetainedSizeInBytes(), 144);
 
         // x NOT IN (1.2) with nanAllowed false
         filter = MultiRange.of(ImmutableList.of(
@@ -474,5 +503,6 @@ public class TestTupleDomainFilter
         assertFalse(filter.testDouble(Double.NaN));
         assertFalse(filter.testDouble(1.2d));
         assertTrue(filter.testDouble(1.3d));
+        assertEquals(filter.getRetainedSizeInBytes(), 104);
     }
 }

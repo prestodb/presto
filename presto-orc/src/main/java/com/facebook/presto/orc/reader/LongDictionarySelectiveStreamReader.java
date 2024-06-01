@@ -373,6 +373,7 @@ public class LongDictionarySelectiveStreamReader
         return INSTANCE_SIZE +
                 (isDictionaryOwner ? sizeOf(dictionary) : 0) +
                 sizeOf(dictionaryFilterStatus) +
-                super.getRetainedSizeInBytes();
+                super.getRetainedSizeInBytes() +
+                (rowGroupFilter != null ? rowGroupFilter.getRetainedSizeInBytes() : 0);
     }
 }
