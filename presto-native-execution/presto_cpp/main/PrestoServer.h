@@ -202,6 +202,8 @@ class PrestoServer {
 
   void registerSystemConnector();
 
+  std::unique_ptr<velox::cache::SsdCache> setupSsdCache();
+
   const std::string configDirectoryPath_;
 
   std::shared_ptr<CoordinatorDiscoverer> coordinatorDiscoverer_;
