@@ -29,12 +29,23 @@ using facebook::velox::common::testutil::TestValue;
 
 namespace facebook::velox::cache {
 
+SsdCache::SsdCache(const Config& config)
+    : SsdCache(
+          config.filePrefix,
+          config.maxBytes,
+          config.numShards,
+          config.executor,
+          config.checkpointIntervalBytes,
+          config.disableFileCow,
+          config.checksumEnabled,
+          config.checksumReadVerificationEnabled) {}
+
 SsdCache::SsdCache(
     std::string_view filePrefix,
     uint64_t maxBytes,
     int32_t numShards,
     folly::Executor* executor,
-    int64_t checkpointIntervalBytes,
+    uint64_t checkpointIntervalBytes,
     bool disableFileCow,
     bool checksumEnabled,
     bool checksumReadVerificationEnabled)
@@ -45,9 +56,10 @@ SsdCache::SsdCache(
   // Make sure the given path of Ssd files has the prefix for local file system.
   // Local file system would be derived based on the prefix.
   VELOX_CHECK(
-      filePrefix_.find("/") == 0,
+      filePrefix_.find('/') == 0,
       "Ssd path '{}' does not start with '/' that points to local file system.",
       filePrefix_);
+  VELOX_CHECK_NOT_NULL(executor_);
 
   if (checksumReadVerificationEnabled && !checksumEnabled) {
     VELOX_SSD_CACHE_LOG(WARNING)
@@ -55,7 +67,7 @@ SsdCache::SsdCache(
     checksumReadVerificationEnabled = false;
   }
   filesystems::getFileSystem(filePrefix_, nullptr)
-      ->mkdir(std::filesystem::path(filePrefix).parent_path().string());
+      ->mkdir(std::filesystem::path(filePrefix_).parent_path().string());
 
   files_.reserve(numShards_);
   // Cache size must be a multiple of this so that each shard has the same max
@@ -64,7 +76,7 @@ SsdCache::SsdCache(
   const int32_t fileMaxRegions =
       bits::roundUp(maxBytes, sizeQuantum) / sizeQuantum;
   for (auto i = 0; i < numShards_; ++i) {
-    files_.push_back(std::make_unique<SsdFile>(
+    const auto fileConfig = SsdFile::Config(
         fmt::format("{}{}", filePrefix_, i),
         i,
         fileMaxRegions,
@@ -72,7 +84,8 @@ SsdCache::SsdCache(
         disableFileCow,
         checksumEnabled,
         checksumReadVerificationEnabled,
-        executor_));
+        executor_);
+    files_.push_back(std::make_unique<SsdFile>(fileConfig));
   }
 }
 

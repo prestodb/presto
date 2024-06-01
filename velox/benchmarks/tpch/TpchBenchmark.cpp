@@ -233,12 +233,13 @@ class TpchBenchmark {
         constexpr int32_t kNumSsdShards = 16;
         cacheExecutor_ =
             std::make_unique<folly::IOThreadPoolExecutor>(kNumSsdShards);
-        ssdCache = std::make_unique<cache::SsdCache>(
+        const cache::SsdCache::Config config(
             FLAGS_ssd_path,
             static_cast<uint64_t>(FLAGS_ssd_cache_gb) << 30,
             kNumSsdShards,
             cacheExecutor_.get(),
             static_cast<uint64_t>(FLAGS_ssd_checkpoint_interval_gb) << 30);
+        ssdCache = std::make_unique<cache::SsdCache>(config);
       }
 
       cache_ = cache::AsyncDataCache::create(

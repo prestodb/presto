@@ -119,24 +119,16 @@ std::string SsdPin::toString() const {
       run_.size());
 }
 
-SsdFile::SsdFile(
-    const std::string& filename,
-    int32_t shardId,
-    int32_t maxRegions,
-    int64_t checkpointIntervalBytes,
-    bool disableFileCow,
-    bool checksumEnabled,
-    bool checksumReadVerificationEnabled,
-    folly::Executor* executor)
-    : fileName_(filename),
-      maxRegions_(maxRegions),
-      disableFileCow_(disableFileCow),
-      checksumEnabled_(checksumEnabled),
+SsdFile::SsdFile(const Config& config)
+    : fileName_(config.fileName),
+      maxRegions_(config.maxRegions),
+      disableFileCow_(config.disableFileCow),
+      checksumEnabled_(config.checksumEnabled),
       checksumReadVerificationEnabled_(
-          checksumEnabled_ && checksumReadVerificationEnabled),
-      shardId_(shardId),
-      checkpointIntervalBytes_(checkpointIntervalBytes),
-      executor_(executor) {
+          config.checksumEnabled && config.checksumReadVerificationEnabled),
+      shardId_(config.shardId),
+      checkpointIntervalBytes_(config.checkpointIntervalBytes),
+      executor_(config.executor) {
   process::TraceContext trace("SsdFile::SsdFile");
   int32_t oDirect = 0;
 #ifdef linux
@@ -151,7 +143,7 @@ SsdFile::SsdFile(
       fd_,
       0,
       "Cannot open or create {}. Error: {}",
-      filename,
+      fileName_,
       folly::errnoStr(errno));
 
   if (disableFileCow_) {
@@ -332,8 +324,8 @@ bool SsdFile::growOrEvictLocked() {
     }
 
     ++stats_.growFileErrors;
-    LOG(ERROR) << "Failed to grow cache file " << fileName_ << " to "
-               << newSize;
+    VELOX_SSD_CACHE_LOG(ERROR)
+        << "Failed to grow cache file " << fileName_ << " to " << newSize;
   }
 
   const auto candidates =
@@ -877,7 +869,9 @@ uint32_t SsdFile::checksumEntry(const AsyncDataCacheEntry& entry) const {
   return crc.checksum();
 }
 
-void SsdFile::maybeVerifyChecksum(AsyncDataCacheEntry& entry, SsdRun& ssdRun) {
+void SsdFile::maybeVerifyChecksum(
+    const AsyncDataCacheEntry& entry,
+    const SsdRun& ssdRun) {
   if (!checksumReadVerificationEnabled_) {
     return;
   }

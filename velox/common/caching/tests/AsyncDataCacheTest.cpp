@@ -95,7 +95,7 @@ class AsyncDataCacheTest : public ::testing::TestWithParam<bool> {
   void initializeCache(
       uint64_t maxBytes,
       int64_t ssdBytes = 0,
-      int64_t checkpointIntervalBytes = 0) {
+      uint64_t checkpointIntervalBytes = 0) {
     if (cache_ != nullptr) {
       cache_->shutdown();
     }
@@ -111,7 +111,7 @@ class AsyncDataCacheTest : public ::testing::TestWithParam<bool> {
       if (tempDirectory_ == nullptr) {
         tempDirectory_ = exec::test::TempDirectoryPath::create();
       }
-      ssdCache = std::make_unique<SsdCache>(
+      SsdCache::Config config(
           fmt::format("{}/cache", tempDirectory_->getPath()),
           ssdBytes,
           4,
@@ -120,6 +120,7 @@ class AsyncDataCacheTest : public ::testing::TestWithParam<bool> {
           false,
           GetParam(),
           GetParam());
+      ssdCache = std::make_unique<SsdCache>(config);
     }
 
     memory::MemoryManagerOptions options;
@@ -843,8 +844,9 @@ TEST_P(AsyncDataCacheTest, DISABLED_ssd) {
 TEST_P(AsyncDataCacheTest, invalidSsdPath) {
   auto testPath = "hdfs:/test/prefix_";
   uint64_t ssdBytes = 256UL << 20;
+  SsdCache::Config config(testPath, ssdBytes, 4, executor(), ssdBytes / 20);
   VELOX_ASSERT_THROW(
-      SsdCache(testPath, ssdBytes, 4, executor(), ssdBytes / 20, false),
+      SsdCache(config),
       fmt::format(
           "Ssd path '{}' does not start with '/' that points to local file system.",
           testPath));

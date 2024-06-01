@@ -77,11 +77,12 @@ class CacheTest : public testing::Test {
     if (ssdBytes) {
       FLAGS_ssd_odirect = false;
       tempDirectory_ = exec::test::TempDirectoryPath::create();
-      ssd = std::make_unique<SsdCache>(
+      const SsdCache::Config config(
           fmt::format("{}/cache", tempDirectory_->getPath()),
           ssdBytes,
           1,
           executor_.get());
+      ssd = std::make_unique<SsdCache>(config);
       groupStats_ = &ssd->groupStats();
     }
     memory::MmapAllocator::Options options;

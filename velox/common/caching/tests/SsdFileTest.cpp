@@ -60,7 +60,7 @@ class SsdFileTest : public testing::Test {
 
   void initializeCache(
       int64_t ssdBytes = 0,
-      int64_t checkpointIntervalBytes = 0,
+      uint64_t checkpointIntervalBytes = 0,
       bool checksumEnabled = false,
       bool checksumReadVerificationEnabled = false,
       bool disableFileCow = false) {
@@ -79,11 +79,11 @@ class SsdFileTest : public testing::Test {
 
   void initializeSsdFile(
       int64_t ssdBytes = 0,
-      int64_t checkpointIntervalBytes = 0,
+      uint64_t checkpointIntervalBytes = 0,
       bool checksumEnabled = false,
       bool checksumReadVerificationEnabled = false,
       bool disableFileCow = false) {
-    ssdFile_ = std::make_unique<SsdFile>(
+    SsdFile::Config config(
         fmt::format("{}/ssdtest", tempDirectory_->getPath()),
         0, // shardId
         bits::roundUp(ssdBytes, SsdFile::kRegionSize) / SsdFile::kRegionSize,
@@ -91,6 +91,7 @@ class SsdFileTest : public testing::Test {
         disableFileCow,
         checksumEnabled,
         checksumReadVerificationEnabled);
+    ssdFile_ = std::make_unique<SsdFile>(config);
   }
 
   // Corrupts the file by invalidate the last 1/10th of its content.
@@ -365,7 +366,7 @@ TEST_F(SsdFileTest, writeAndRead) {
 
 TEST_F(SsdFileTest, checkpoint) {
   constexpr int64_t kSsdSize = 16 * SsdFile::kRegionSize;
-  const int32_t checkpointIntervalBytes = 5 * SsdFile::kRegionSize;
+  const uint64_t checkpointIntervalBytes = 5 * SsdFile::kRegionSize;
   const auto fileNameAlt = StringIdLease(fileIds(), "fileInStorageAlt");
   FLAGS_ssd_verify_write = true;
   initializeCache(kSsdSize, checkpointIntervalBytes);
@@ -459,7 +460,7 @@ TEST_F(SsdFileTest, checkpoint) {
 
 TEST_F(SsdFileTest, fileCorruption) {
   constexpr int64_t kSsdSize = 16 * SsdFile::kRegionSize;
-  const int32_t checkpointIntervalBytes = 5 * SsdFile::kRegionSize;
+  const uint64_t checkpointIntervalBytes = 5 * SsdFile::kRegionSize;
   FLAGS_ssd_verify_write = true;
 
   const auto populateCache = [&](std::vector<TestEntry>& entries) {
@@ -522,7 +523,7 @@ TEST_F(SsdFileTest, fileCorruption) {
 
 TEST_F(SsdFileTest, recoverFromCheckpointWithChecksum) {
   constexpr int64_t kSsdSize = 4 * SsdFile::kRegionSize;
-  const int32_t checkpointIntervalBytes = 3 * SsdFile::kRegionSize;
+  const uint64_t checkpointIntervalBytes = 3 * SsdFile::kRegionSize;
   FLAGS_ssd_verify_write = true;
 
   // Test if cache data can be recovered with different settings.

@@ -230,19 +230,57 @@ struct SsdCacheStats {
 /// Otherwise entries are consecutive byte ranges inside their region.
 class SsdFile {
  public:
+  struct Config {
+    Config(
+        const std::string& _fileName,
+        int32_t _shardId,
+        int32_t _maxRegions,
+        uint64_t _checkpointIntervalBytes = 0,
+        bool _disableFileCow = false,
+        bool _checksumEnabled = false,
+        bool _checksumReadVerificationEnabled = false,
+        folly::Executor* _executor = nullptr)
+        : fileName(_fileName),
+          shardId(_shardId),
+          maxRegions(_maxRegions),
+          checkpointIntervalBytes(_checkpointIntervalBytes),
+          disableFileCow(_disableFileCow),
+          checksumEnabled(_checksumEnabled),
+          checksumReadVerificationEnabled(
+              _checksumEnabled && _checksumReadVerificationEnabled),
+          executor(_executor){};
+
+    /// Name of cache file, used as prefix for checkpoint files.
+    const std::string fileName;
+
+    /// Shard index within the SsdCache.
+    const int32_t shardId;
+
+    /// Maximum size of the backing file in kRegionSize units.
+    const int32_t maxRegions;
+
+    /// Checkpoint after every 'checkpointIntervalBytes' written into this
+    /// file. 0 means no checkpointing. This is set to 0 if checkpointing fails.
+    uint64_t checkpointIntervalBytes;
+
+    /// True if copy on write should be disabled.
+    bool disableFileCow;
+
+    /// If true, checksum write to SSD is enabled.
+    bool checksumEnabled;
+
+    /// If true, checksum read verification from SSD is enabled.
+    bool checksumReadVerificationEnabled;
+
+    /// Executor for async fsync in checkpoint.
+    folly::Executor* executor;
+  };
+
   static constexpr uint64_t kRegionSize = 1 << 26; // 64MB
 
   /// Constructs a cache backed by filename. Discards any previous contents of
   /// filename.
-  SsdFile(
-      const std::string& filename,
-      int32_t shardId,
-      int32_t maxRegions,
-      int64_t checkpointInternalBytes = 0,
-      bool disableFileCow = false,
-      bool checksumEnabled = false,
-      bool checksumReadVerificationEnabled = false,
-      folly::Executor* executor = nullptr);
+  SsdFile(const Config& config);
 
   /// Adds entries of 'pins' to this file. 'pins' must be in read mode and
   /// those pins that are successfully added to SSD are marked as being on SSD.
@@ -437,7 +475,9 @@ class SsdFile {
     return force || (bytesAfterCheckpoint_ >= checkpointIntervalBytes_);
   }
 
-  void maybeVerifyChecksum(AsyncDataCacheEntry& entry, SsdRun& ssdRun);
+  void maybeVerifyChecksum(
+      const AsyncDataCacheEntry& entry,
+      const SsdRun& ssdRun);
 
   // Returns true if checksum write is enabled for the given version.
   static bool isChecksumEnabledOnCheckpointVersion(
@@ -463,11 +503,11 @@ class SsdFile {
   // If true, checksum read verification from SSD is enabled.
   const bool checksumReadVerificationEnabled_;
 
+  // Shard index within 'cache_'.
+  const int32_t shardId_;
+
   // Serializes access to all private data members.
   mutable std::shared_mutex mutex_;
-
-  // Shard index within 'cache_'.
-  int32_t shardId_;
 
   // Number of kRegionSize regions in the file.
   int32_t numRegions_{0};
