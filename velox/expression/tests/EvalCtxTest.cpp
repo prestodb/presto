@@ -111,18 +111,18 @@ TEST_F(EvalCtxTest, ensureErrorsVectorSize) {
   EvalCtx context(&execCtx_);
   context.ensureErrorsVectorSize(10);
   ASSERT_GE(context.errors()->size(), 10);
-  ASSERT_EQ(BaseVector::countNulls(context.errors()->nulls(), 10), 10);
+  ASSERT_EQ(context.errors()->countErrors(), 0);
 
   std::exception exception;
   *context.mutableThrowOnError() = false;
   context.setError(0, std::make_exception_ptr(exception));
 
-  ASSERT_EQ(BaseVector::countNulls(context.errors()->nulls(), 10), 9);
+  ASSERT_EQ(context.errors()->countErrors(), 1);
 
   context.ensureErrorsVectorSize(20);
 
   ASSERT_GE(context.errors()->size(), 20);
-  ASSERT_EQ(BaseVector::countNulls(context.errors()->nulls(), 20), 19);
+  ASSERT_EQ(context.errors()->countErrors(), 1);
 }
 
 TEST_F(EvalCtxTest, setErrors) {
@@ -140,15 +140,18 @@ TEST_F(EvalCtxTest, setErrors) {
   ASSERT_EQ(errors->size(), rows.size());
   std::exception_ptr firstEx;
   for (auto i = 0; i < rows.size(); ++i) {
-    auto ex = std::static_pointer_cast<std::exception_ptr>(errors->valueAt(i));
-    VELOX_ASSERT_THROW(std::rethrow_exception(*ex), "This is a test.");
+    auto ex = errors->errorAt(i);
+    ASSERT_TRUE(ex.has_value());
+    ASSERT_TRUE(ex.value() != nullptr);
+    VELOX_ASSERT_THROW(std::rethrow_exception(*ex.value()), "This is a test.");
+    VELOX_ASSERT_THROW(errors->throwIfErrorAt(i), "This is a test.");
 
     // Verify that a single exception is re-used for all rows vs. each row
     // storing a copy.
     if (i == 0) {
-      firstEx = *ex;
+      firstEx = *ex.value();
     } else {
-      ASSERT_EQ(*ex, firstEx);
+      ASSERT_EQ(*ex.value(), firstEx);
     }
   }
 }
@@ -162,37 +165,37 @@ TEST_F(EvalCtxTest, addErrorsPreserveOldErrors) {
       0, std::make_exception_ptr(argumentError), *context.errorsPtr());
   context.addError(
       3, std::make_exception_ptr(argumentError), *context.errorsPtr());
-  ASSERT_EQ(BaseVector::countNulls(context.errors()->nulls(), 4), 2);
+  ASSERT_EQ(context.errors()->countErrors(), 2);
 
   // Add two out_of_range to anotherErrors.
-  ErrorVectorPtr anotherErrors;
+  EvalErrorsPtr anotherErrors;
   std::out_of_range rangeError{"out of range"};
   context.addError(0, std::make_exception_ptr(rangeError), anotherErrors);
   context.addError(4, std::make_exception_ptr(rangeError), anotherErrors);
-  ASSERT_EQ(BaseVector::countNulls(anotherErrors->nulls(), 5), 3);
+  ASSERT_EQ(context.errors()->countErrors(), 2);
 
   // Add errors in anotherErrors to context.errors() and check that the original
   // error at index 0 is preserved.
   SelectivityVector rows{5};
   context.addErrors(rows, anotherErrors, *context.errorsPtr());
   ASSERT_EQ(context.errors()->size(), 5);
-  ASSERT_EQ(BaseVector::countNulls(context.errors()->nulls(), 5), 2);
+  ASSERT_EQ(context.errors()->countErrors(), 3);
 
   auto checkErrors = [&](vector_size_t index, const char* message) {
-    ASSERT_GT(context.errors()->size(), index);
+    ASSERT_TRUE(context.errors()->hasErrorAt(index));
     try {
-      std::static_pointer_cast<std::exception_ptr>(
-          context.errors()->valueAt(index));
-    } catch (const std::exception& e) {
-      ASSERT_NE(std::strstr(e.what(), message), nullptr);
+      context.errors()->throwIfErrorAt(index);
+      FAIL() << "Expected exception";
+    } catch (std::exception& e) {
+      ASSERT_TRUE(strstr(e.what(), message) != nullptr);
     }
   };
 
   checkErrors(0, "invalid argument");
   checkErrors(3, "invalid argument");
   checkErrors(4, "out of range");
-  ASSERT_TRUE(context.errors()->isNullAt(1));
-  ASSERT_TRUE(context.errors()->isNullAt(2));
+  ASSERT_FALSE(context.errors()->hasErrorAt(1));
+  ASSERT_FALSE(context.errors()->hasErrorAt(2));
 }
 
 TEST_F(EvalCtxTest, localSingleRow) {

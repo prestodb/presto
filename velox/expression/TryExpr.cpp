@@ -36,7 +36,7 @@ void TryExpr::evalSpecialForm(
   // This also prevents this TRY expression from leaking exceptions to the
   // parent TRY expression, so the parent won't incorrectly null out rows that
   // threw exceptions which this expression already handled.
-  ScopedVarSetter<ErrorVectorPtr> errorsSetter(context.errorsPtr(), nullptr);
+  ScopedVarSetter<EvalErrorsPtr> errorsSetter(context.errorsPtr(), nullptr);
 
   // Allocate error vector to avoid repeated re-allocations for every failed
   // row.
@@ -65,7 +65,7 @@ void TryExpr::evalSpecialFormSimplified(
   // This also prevents this TRY expression from leaking exceptions to the
   // parent TRY expression, so the parent won't incorrectly null out rows that
   // threw exceptions which this expression already handled.
-  ScopedVarSetter<ErrorVectorPtr> errorsSetter(context.errorsPtr(), nullptr);
+  ScopedVarSetter<EvalErrorsPtr> errorsSetter(context.errorsPtr(), nullptr);
 
   inputs_[0]->evalSimplified(rows, context, result);
 
@@ -79,12 +79,12 @@ namespace {
 void applyListenersOnError(
     const SelectivityVector& rows,
     const EvalCtx& context) {
-  auto errors = context.errors();
+  const auto* errors = context.errors();
   VELOX_CHECK_NOT_NULL(errors);
 
   vector_size_t numErrors = 0;
   rows.applyToSelected([&](auto row) {
-    if (row < errors->size() && !errors->isNullAt(row)) {
+    if (errors->hasErrorAt(row)) {
       ++numErrors;
     }
   });
@@ -112,11 +112,7 @@ void TryExpr::nullOutErrors(
     return;
   }
 
-  const auto numErrors = errors->size();
-  const auto firstErrorRow = bits::findFirstBit(
-      errors->rawNulls(), rows.begin(), std::min(numErrors, rows.end()));
-  if (firstErrorRow < 0) {
-    // All rows are null. No errors.
+  if (!errors->hasError()) {
     return;
   }
 
@@ -136,7 +132,7 @@ void TryExpr::nullOutErrors(
     auto nulls = allocateNulls(size, context.pool());
     auto rawNulls = nulls->asMutable<uint64_t>();
     rows.applyToSelected([&](auto row) {
-      if (row < numErrors && !errors->isNullAt(row)) {
+      if (errors->hasErrorAt(row)) {
         bits::setNull(rawNulls, row, true);
       }
     });
@@ -147,7 +143,7 @@ void TryExpr::nullOutErrors(
   } else if (result.unique() && result->isNullsWritable()) {
     auto* rawNulls = result->mutableRawNulls();
     rows.applyToSelected([&](auto row) {
-      if (row < numErrors && !errors->isNullAt(row)) {
+      if (errors->hasErrorAt(row)) {
         bits::setNull(rawNulls, row, true);
       }
     });
@@ -159,7 +155,7 @@ void TryExpr::nullOutErrors(
 
     rows.applyToSelected([&](auto row) {
       rawIndices[row] = row;
-      if (row < numErrors && !errors->isNullAt(row)) {
+      if (errors->hasErrorAt(row)) {
         bits::setNull(rawNulls, row, true);
       }
     });

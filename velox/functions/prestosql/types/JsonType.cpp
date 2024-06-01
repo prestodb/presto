@@ -225,7 +225,7 @@ struct AsJson {
       : decoded_(context) {
     VELOX_CHECK(rows.hasSelections());
 
-    ErrorVectorPtr oldErrors;
+    exec::EvalErrorsPtr oldErrors;
     context.swapErrors(oldErrors);
     if (isJsonType(input->type())) {
       json_ = input;
@@ -320,7 +320,7 @@ struct AsJson {
       exec::EvalCtx& context,
       const SelectivityVector& rows,
       const BufferPtr& elementToTopLevelRows,
-      ErrorVectorPtr& oldErrors) {
+      exec::EvalErrorsPtr& oldErrors) {
     if (context.errors()) {
       if (elementToTopLevelRows) {
         context.addElementErrorsToTopLevel(

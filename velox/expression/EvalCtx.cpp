@@ -83,84 +83,70 @@ void EvalCtx::saveAndReset(ContextSaver& saver, const SelectivityVector& rows) {
   }
 }
 
-void EvalCtx::ensureErrorsVectorSize(ErrorVectorPtr& vector, vector_size_t size)
+void EvalCtx::ensureErrorsVectorSize(EvalErrorsPtr& vector, vector_size_t size)
     const {
   if (!vector) {
-    // Do not allocate 'values' buffer. It uses ~20 bytes per row and it may not
-    // be needed.
-    vector = std::make_shared<ErrorVector>(
-        pool(),
-        OpaqueType::create<void>(),
-        allocateNulls(size, pool(), bits::kNull),
-        size,
-        nullptr,
-        std::vector<BufferPtr>{});
-  } else if (vector->size() < size) {
-    const auto oldSize = vector->size();
-    vector->resize(size, false);
-    // Set all new positions to null, including the one to be set.
-    for (auto i = oldSize; i < size; ++i) {
-      vector->setNull(i, true);
-    }
+    vector = std::make_shared<EvalErrors>(pool(), size);
+  } else {
+    vector->ensureCapacity(size);
   }
 }
 
-void EvalCtx::addError(vector_size_t index, ErrorVectorPtr& errorsPtr) const {
+void EvalCtx::addError(vector_size_t index, EvalErrorsPtr& errorsPtr) const {
   ensureErrorsVectorSize(errorsPtr, index + 1);
-  errorsPtr->setNull(index, false);
+  errorsPtr->setError(index);
 }
 
 void EvalCtx::addError(
     vector_size_t index,
     const std::exception_ptr& exceptionPtr,
-    ErrorVectorPtr& errorsPtr) const {
+    EvalErrorsPtr& errorsPtr) const {
   ensureErrorsVectorSize(errorsPtr, index + 1);
-  if (errorsPtr->isNullAt(index)) {
-    errorsPtr->set(index, std::make_shared<std::exception_ptr>(exceptionPtr));
-  }
+  errorsPtr->setError(index, exceptionPtr);
 }
 
 void EvalCtx::addErrors(
     const SelectivityVector& rows,
-    const ErrorVectorPtr& fromErrors,
-    ErrorVectorPtr& toErrors) const {
+    const EvalErrorsPtr& fromErrors,
+    EvalErrorsPtr& toErrors) const {
   if (!fromErrors) {
     return;
   }
 
   ensureErrorsVectorSize(toErrors, fromErrors->size());
-  rows.testSelected([&](auto row) {
-    if (!fromErrors->isIndexInRange(row)) {
-      return false;
-    }
-    if (!fromErrors->isNullAt(row) && toErrors->isNullAt(row)) {
-      toErrors->set(row, fromErrors->valueAt(row));
-    }
-    return true;
-  });
+  toErrors->copyErrors(rows, *fromErrors);
 }
 
 void EvalCtx::addError(
     vector_size_t row,
-    const ErrorVectorPtr& fromErrors,
-    ErrorVectorPtr& toErrors) const {
+    const EvalErrorsPtr& fromErrors,
+    EvalErrorsPtr& toErrors) const {
   if (fromErrors != nullptr) {
     copyError(*fromErrors, row, toErrors, row);
   }
 }
 
 void EvalCtx::copyError(
-    const ErrorVector& from,
+    const EvalErrors& from,
     vector_size_t fromIndex,
-    ErrorVectorPtr& to,
+    EvalErrorsPtr& to,
     vector_size_t toIndex) const {
   const auto fromSize = from.size();
-  if (fromIndex < fromSize && !from.isNullAt(fromIndex)) {
+  if (from.hasErrorAt(fromIndex)) {
     ensureErrorsVectorSize(to, toIndex + 1);
-    if (to->isNullAt(toIndex)) {
-      to->set(toIndex, from.valueAt(fromIndex));
-    }
+    to->copyError(from, fromIndex, toIndex);
   }
+}
+
+void EvalCtx::deselectErrors(SelectivityVector& rows) const {
+  if (!errors_) {
+    return;
+  }
+  // A non-null in errors resets the row. AND with the errors null mask.
+  rows.deselectNonNulls(
+      errors_->errorFlags(),
+      rows.begin(),
+      std::min(errors_->size(), rows.end()));
 }
 
 void EvalCtx::restore(ContextSaver& saver) {
@@ -229,8 +215,6 @@ void EvalCtx::setError(
   }
 }
 
-// This should be used onlly when exceptionPtr is guranteed to be a
-// VeloxException.
 void EvalCtx::setVeloxExceptionError(
     vector_size_t index,
     const std::exception_ptr& exceptionPtr) {
@@ -264,7 +248,7 @@ void EvalCtx::setErrors(
 void EvalCtx::addElementErrorsToTopLevel(
     const SelectivityVector& elementRows,
     const BufferPtr& elementToTopLevelRows,
-    ErrorVectorPtr& topLevelErrors) {
+    EvalErrorsPtr& topLevelErrors) {
   if (!errors_) {
     return;
   }
@@ -289,13 +273,13 @@ void EvalCtx::convertElementErrorsToTopLevelNulls(
   const auto* rawElementToTopLevelRows =
       elementToTopLevelRows->as<vector_size_t>();
   elementRows.applyToSelected([&](auto row) {
-    if (errors_->isIndexInRange(row) && !errors_->isNullAt(row)) {
+    if (errors_->hasErrorAt(row)) {
       bits::setNull(rawNulls, rawElementToTopLevelRows[row], true);
     }
   });
 }
 
-void EvalCtx::moveAppendErrors(ErrorVectorPtr& other) {
+void EvalCtx::moveAppendErrors(EvalErrorsPtr& other) {
   if (!errors_) {
     return;
   }
@@ -306,10 +290,7 @@ void EvalCtx::moveAppendErrors(ErrorVectorPtr& other) {
   }
 
   ensureErrorsVectorSize(other, errors_->size());
-  bits::forEachBit(
-      errors_->rawNulls(), 0, errors_->size(), bits::kNotNull, [&](auto row) {
-        other->set(row, errors_->valueAt(row));
-      });
+  other->copyErrors(*errors_);
 
   errors_.reset();
 }

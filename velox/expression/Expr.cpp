@@ -305,22 +305,6 @@ void Expr::computeMetadata() {
 }
 
 namespace {
-void rethrowFirstError(
-    const SelectivityVector& rows,
-    const ErrorVectorPtr& errors) {
-  auto errorSize = errors->size();
-  rows.testSelected([&](vector_size_t row) {
-    if (row >= errorSize) {
-      return false;
-    }
-    if (!errors->isNullAt(row)) {
-      auto exceptionPtr =
-          std::static_pointer_cast<std::exception_ptr>(errors->valueAt(row));
-      std::rethrow_exception(*exceptionPtr);
-    }
-    return true;
-  });
-}
 
 // Sets errors in 'context' to be the union of 'argumentErrors' for 'rows' and
 // 'errors'. If 'context' throws on first error and 'argumentErrors'
@@ -331,12 +315,12 @@ void rethrowFirstError(
 // caller.
 void mergeOrThrowArgumentErrors(
     const SelectivityVector& rows,
-    ErrorVectorPtr& originalErrors,
-    ErrorVectorPtr& argumentErrors,
+    EvalErrorsPtr& originalErrors,
+    EvalErrorsPtr& argumentErrors,
     EvalCtx& context) {
   if (argumentErrors) {
     if (context.throwOnError()) {
-      rethrowFirstError(rows, argumentErrors);
+      argumentErrors->throwFirstError(rows);
     }
     context.addErrors(rows, argumentErrors, originalErrors);
   }
@@ -375,8 +359,8 @@ bool Expr::evalArgsDefaultNulls(
     EvalArg evalArg,
     EvalCtx& context,
     VectorPtr& result) {
-  ErrorVectorPtr argumentErrors;
-  ErrorVectorPtr originalErrors;
+  EvalErrorsPtr argumentErrors;
+  EvalErrorsPtr originalErrors;
   LocalDecodedVector decoded(context);
   // Store pre-existing errors locally and clear them from
   // 'context'. We distinguish between argument errors and
@@ -408,7 +392,7 @@ bool Expr::evalArgsDefaultNulls(
         if (flatNulls) {
           // There are both nulls and errors. Only a null with no error removes
           // a row.
-          auto errorNulls = newErrors->rawNulls();
+          auto errorNulls = newErrors->errorFlags();
           auto rowBits = rows.mutableRows().asMutableRange().bits();
           auto nwords = bits::nwords(rows.rows().end());
           for (auto j = 0; j < nwords; ++j) {

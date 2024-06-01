@@ -98,7 +98,7 @@ class FindFirstFunctionBase : public exec::VectorFunction {
       auto wrapCapture = toWrapCapture<ArrayVector>(
           numElements, entry.callable, *entry.rows, flatArray);
 
-      ErrorVectorPtr elementErrors;
+      exec::EvalErrorsPtr elementErrors;
       entry.callable->applyNoThrow(
           elementRows,
           nullptr, // No need to preserve any values in 'matchBits'.
@@ -214,17 +214,6 @@ class FindFirstFunctionBase : public exec::VectorFunction {
     return elementRows;
   }
 
-  static FOLLY_ALWAYS_INLINE std::optional<std::exception_ptr> getOptionalError(
-      const ErrorVectorPtr& errors,
-      vector_size_t row) {
-    if (errors && row < errors->size() && !errors->isNullAt(row)) {
-      return *std::static_pointer_cast<std::exception_ptr>(
-          errors->valueAt(row));
-    }
-
-    return std::nullopt;
-  }
-
   // Returns an index of the first matching element or std::nullopt if no
   // element matches or there was an error evaluating the predicate.
   //
@@ -235,15 +224,16 @@ class FindFirstFunctionBase : public exec::VectorFunction {
       vector_size_t arrayRow,
       vector_size_t offset,
       vector_size_t size,
-      const ErrorVectorPtr& elementErrors,
+      const exec::EvalErrorsPtr& elementErrors,
       const exec::LocalDecodedVector& matchDecoder) const {
     const auto step = size > 0 ? 1 : -1;
-    for (auto i = offset; i != offset + size; i += step) {
-      auto index = i;
-      if (auto error = getOptionalError(elementErrors, index)) {
-        // Report first error to match Presto's implementation.
-        context.setError(arrayRow, error.value());
-        return std::nullopt;
+    for (auto index = offset; index != offset + size; index += step) {
+      if (elementErrors) {
+        if (auto error = elementErrors->errorAt(index)) {
+          // Report first error to match Presto's implementation.
+          context.setError(arrayRow, *error.value());
+          return std::nullopt;
+        }
       }
 
       if (!matchDecoder->isNullAt(index) &&

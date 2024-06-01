@@ -67,7 +67,7 @@ class MatchFunction : public exec::VectorFunction {
       auto wrapCapture = toWrapCapture<TContainer>(
           numElements, entry.callable, *entry.rows, flatContainer);
 
-      ErrorVectorPtr elementErrors;
+      exec::EvalErrorsPtr elementErrors;
       entry.callable->applyNoThrow(
           elementRows,
           nullptr, // No need to preserve any values in 'matchBits'.
@@ -95,19 +95,13 @@ class MatchFunction : public exec::VectorFunction {
     }
   }
 
-  static FOLLY_ALWAYS_INLINE bool hasError(
-      const ErrorVectorPtr& errors,
-      vector_size_t row) {
-    return errors && row < errors->size() && !errors->isNullAt(row);
-  }
-
   void applyInternal(
       FlatVector<bool>& flatResult,
       exec::EvalCtx& context,
       vector_size_t arrayRow,
       vector_size_t offset,
       vector_size_t size,
-      const ErrorVectorPtr& elementErrors,
+      const exec::EvalErrorsPtr& elementErrors,
       const exec::LocalDecodedVector& bitsDecoder) const {
     // all_match, none_match and any_match need to loop over predicate results
     // for element arrays and check for results, nulls and errors.
@@ -177,10 +171,11 @@ class MatchFunction : public exec::VectorFunction {
     std::exception_ptr errorPtr{nullptr};
     for (auto i = 0; i < size; ++i) {
       auto idx = offset + i;
-      if (hasError(elementErrors, idx)) {
-        errorPtr = *std::static_pointer_cast<std::exception_ptr>(
-            elementErrors->valueAt(idx));
-        continue;
+      if (elementErrors) {
+        if (auto error = elementErrors->errorAt(idx)) {
+          errorPtr = *error.value();
+          continue;
+        }
       }
 
       if (bitsDecoder->isNullAt(idx)) {

@@ -27,6 +27,7 @@ add_executable(
   ExprTest.cpp
   ExprToSubfieldFilterTest.cpp
   EvalCtxTest.cpp
+  EvalErrorsTest.cpp
   EvalSimplifiedTest.cpp
   FunctionCallToSpecialFormTest.cpp
   GenericViewTest.cpp

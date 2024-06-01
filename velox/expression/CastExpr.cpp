@@ -321,7 +321,7 @@ void propagateErrorsOrSetNulls(
     const SelectivityVector& nestedRows,
     const BufferPtr& elementToTopLevelRows,
     VectorPtr& result,
-    ErrorVectorPtr& oldErrors) {
+    EvalErrorsPtr& oldErrors) {
   if (context.errors()) {
     if (setNullInResultAtError) {
       // Errors in context.errors() should be translated to nulls in the top
@@ -368,7 +368,7 @@ VectorPtr CastExpr::applyMap(
         mapKeys->size(), rows, input, context.pool());
   }
 
-  ErrorVectorPtr oldErrors;
+  EvalErrorsPtr oldErrors;
   context.swapErrors(oldErrors);
 
   // Cast keys
@@ -463,7 +463,7 @@ VectorPtr CastExpr::applyArray(
   auto elementToTopLevelRows = functions::getElementToTopLevelRows(
       arrayElements->size(), rows, input, context.pool());
 
-  ErrorVectorPtr oldErrors;
+  EvalErrorsPtr oldErrors;
   context.swapErrors(oldErrors);
 
   VectorPtr newElements;
@@ -533,7 +533,7 @@ VectorPtr CastExpr::applyRow(
   std::vector<VectorPtr> newChildren;
   newChildren.reserve(numOutputChildren);
 
-  ErrorVectorPtr oldErrors;
+  EvalErrorsPtr oldErrors;
   if (setNullInResultAtError()) {
     // We need to isolate errors that happen during the cast from previous
     // errors since those translate to nulls, unlike exisiting errors.
@@ -602,7 +602,7 @@ VectorPtr CastExpr::applyRow(
     // Set errors as nulls.
     if (auto errors = context.errors()) {
       rows.applyToSelected([&](auto row) {
-        if (errors->isIndexInRange(row) && !errors->isNullAt(row)) {
+        if (errors->hasErrorAt(row)) {
           result->setNull(row, true);
         }
       });
@@ -719,7 +719,7 @@ void CastExpr::applyPeeled(
       // This can be optimized by passing setNullInResultAtError() to castTo and
       // castFrom operations.
 
-      ErrorVectorPtr oldErrors;
+      EvalErrorsPtr oldErrors;
       context.swapErrors(oldErrors);
 
       applyCustomCast();
@@ -729,7 +729,7 @@ void CastExpr::applyPeeled(
         auto rawNulls = result->mutableRawNulls();
 
         rows.applyToSelected([&](auto row) {
-          if (errors->isIndexInRange(row) && !errors->isNullAt(row)) {
+          if (errors->hasErrorAt(row)) {
             bits::setNull(rawNulls, row, true);
           }
         });
