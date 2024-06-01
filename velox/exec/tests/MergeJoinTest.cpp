@@ -498,6 +498,49 @@ TEST_F(MergeJoinTest, lazyVectors) {
           "SELECT c0, rc0, c1, rc1, c2, c3  FROM t, u WHERE t.c0 = u.rc0 and c1 + rc1 < 30");
 }
 
+// Ensures the output of merge joins are dictionaries.
+TEST_F(MergeJoinTest, dictionaryOutput) {
+  auto left =
+      makeRowVector({"t_c0"}, {makeFlatVector<int32_t>({1, 2, 3, 4, 5})});
+  auto right = makeRowVector({"u_c0"}, {makeFlatVector<int32_t>({2, 4, 6})});
+
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  auto plan =
+      PlanBuilder(planNodeIdGenerator)
+          .values({left})
+          .mergeJoin(
+              {"t_c0"},
+              {"u_c0"},
+              PlanBuilder(planNodeIdGenerator).values({right}).planNode(),
+              "",
+              {"t_c0", "u_c0"},
+              core::JoinType::kInner)
+          .planFragment();
+
+  // Run task with special callback so we can capture results without them being
+  // copied/flattened.
+  RowVectorPtr output;
+  auto task = Task::create(
+      "0",
+      std::move(plan),
+      0,
+      core::QueryCtx::create(driverExecutor_.get()),
+      Task::ExecutionMode::kParallel,
+      [&](const RowVectorPtr& vector, ContinueFuture* future) {
+        if (vector) {
+          output = vector;
+        }
+        return BlockingReason::kNotBlocked;
+      });
+
+  task->start(2);
+  waitForTaskCompletion(task.get());
+
+  for (const auto& child : output->children()) {
+    EXPECT_TRUE(isDictionary(child->encoding()));
+  }
+}
+
 TEST_F(MergeJoinTest, semiJoin) {
   auto left = makeRowVector(
       {"t0"}, {makeNullableFlatVector<int64_t>({1, 2, 2, 6, std::nullopt})});

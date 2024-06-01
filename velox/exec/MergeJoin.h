@@ -20,6 +20,28 @@
 #include "velox/exec/Operator.h"
 
 namespace facebook::velox::exec {
+
+/// The merge join operator assumes both streams, left (from addInput()) and
+/// right (from rightSource), are sorted in ascending order on the join key.
+///
+/// It works by identifying and maintaining a window of rows with key matches
+/// (leftMatch_ and rightMatch_), and outputting a cartesian product of each key
+/// match. Since keys can span multiple vectors, multiple batches from either
+/// side may need to be materialized and kept in memory. Therefore, the memory
+/// requirement is proportional to the size of the longest key match. Once all
+/// output for a particular key match is produced, the respective batches are
+/// discarded.
+///
+/// Output is produced outputBatchSize_ rows at a time.
+///
+/// The merge join operator generally returns dictionaries which are wrapped
+/// around input vectors. The output is aligned to left vectors, and since
+/// dictionaries cannot wrap around more than one vector, at times merge join
+/// may return fewer than outputBatchSize_ rows.
+///
+/// Dictionaries for right projections are optimistically created; we start by
+/// wrapping the current right vector, but if the output happens to span more
+/// than one right vector, it gets copied and flattened.
 class MergeJoin : public Operator {
  public:
   MergeJoin(
@@ -151,9 +173,11 @@ class MergeJoin : public Operator {
       const RowVectorPtr& input,
       const std::vector<column_index_t>& keys);
 
-  /// Initialize 'output_' vector using 'ouputType_' and 'outputBatchSize_' if
-  /// it is null.
-  void prepareOutput();
+  /// Ensures `output_` is ready to receive records via `addOutput()` or
+  /// `addOutputRowForLeftJoin()`. Initialize vectors using `outputBatchSize_`.
+  /// Returns true is the output_ needs to be returned/produced first, and false
+  /// in case it is ready to take records.
+  bool prepareOutput(const RowVectorPtr& left, const RowVectorPtr& right);
 
   // Appends a cartesian product of the current set of matching rows, leftMatch_
   // x rightMatch_, to output_. Returns true if output_ is full. Sets
@@ -164,18 +188,25 @@ class MergeJoin : public Operator {
   // rightMatchCursor_ if output_ filled up before all rows were added.
   bool addToOutput();
 
-  // Adds one row of output by copying values from left and right batches at the
-  // specified rows. Advances outputSize_. Assumes that output_ has room.
+  // Adds one row of output by writing to the indices of the output
+  // dictionaries. By default, this operator returns dictionaries wrapped around
+  // the input columns from the left and right. If `isRightFlattened_`, the
+  // right side projections are copied to the output.
   //
-  // TODO: Copying is inefficient especially for complex type values. Consider
-  // an optimization of using dictionary wrapping when full batch of output can
-  // be produced using single batch of input from the left side and single batch
-  // of input from the right side.
+  // Advances outputSize_. Assumes that dictionary indices in output_ have room.
   void addOutputRow(
       const RowVectorPtr& left,
       vector_size_t leftIndex,
       const RowVectorPtr& right,
       vector_size_t rightIndex);
+
+  // If the right side projected columns in the current output vector happen to
+  // span more than one vector from the right side, they cannot be simply
+  // wrapped in a dictionary and must be flattened.
+  //
+  // TODO: in theory they can be copied and turned into a dictionary, but this
+  // logic is more involved.
+  void flattenRightProjections();
 
   /// Adds one row of output for a left-side row with no right-side match.
   /// Copies values from the 'leftIndex' row of 'left' and fills in nulls
@@ -355,8 +386,26 @@ class MergeJoin : public Operator {
 
   std::optional<LeftJoinTracker> leftJoinTracker_{std::nullopt};
 
+  // Indices buffer used by the output dictionaries. All projection from the
+  // left share `leftIndices_`, and projections in the right share
+  // `rightIndices_`.
+  BufferPtr leftIndices_;
+  BufferPtr rightIndices_;
+
+  vector_size_t* rawLeftIndices_;
+  vector_size_t* rawRightIndices_;
+
+  // Stores the current left and right vectors being used by the output
+  // dictionaries.
+  RowVectorPtr currentLeft_;
+  RowVectorPtr currentRight_;
+
+  // If the right side projections have been flattened or they are still
+  // dictionaries wrapped around the right side input.
+  bool isRightFlattened_{false};
+
   // Maximum number of rows in the output batch.
-  const uint32_t outputBatchSize_;
+  const vector_size_t outputBatchSize_;
 
   // Type of join.
   const core::JoinType joinType_;
