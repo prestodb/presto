@@ -320,6 +320,14 @@ class SystemConfig : public ConfigBase {
   /// option to disable cow for cache files.
   static constexpr std::string_view kAsyncCacheSsdDisableFileCow{
       "async-cache-ssd-disable-file-cow"};
+  /// When enabled, a CRC-based checksum is calculated for each cache entry
+  /// written to SSD. The checksum is stored in the next checkpoint file.
+  static constexpr std::string_view kSsdCacheChecksumEnabled{
+      "ssd-cache-checksum-enabled"};
+  /// When enabled, the checksum is recalculated and verified against the stored
+  /// value when cache data is loaded from the SSD.
+  static constexpr std::string_view kSsdCacheReadVerificationEnabled{
+      "ssd-cache-read-verification-enabled"};
   static constexpr std::string_view kEnableSerializedPageChecksum{
       "enable-serialized-page-checksum"};
 
@@ -624,6 +632,10 @@ class SystemConfig : public ConfigBase {
   std::string asyncCacheSsdPath() const;
 
   bool asyncCacheSsdDisableFileCow() const;
+
+  bool ssdCacheChecksumEnabled() const;
+
+  bool ssdCacheReadVerificationEnabled() const;
 
   std::string shuffleName() const;
 
