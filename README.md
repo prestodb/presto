@@ -169,6 +169,9 @@ contribute to the project.
 
 ## Community
 
+Velox's technical governance mechanics is described [in this
+document.](https://velox-lib.io/docs/community/technical-governance)
+
 The main communication channel with the Velox OSS community is through the
 [the Velox-OSS Slack workspace](http://velox-oss.slack.com).
 Please reach out to **velox@meta.com** to get access to Velox Slack Channel.

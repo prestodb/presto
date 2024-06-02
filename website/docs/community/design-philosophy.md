@@ -1,6 +1,6 @@
 ---
 id: design-philosophy
-title: Velox Design Philosophy
+title: Design Philosophy
 ---
 
 ## Summary
