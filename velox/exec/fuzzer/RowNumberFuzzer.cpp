@@ -22,6 +22,7 @@
 #include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
+#include "velox/exec/fuzzer/FuzzerUtil.h"
 #include "velox/exec/fuzzer/ReferenceQueryRunner.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -73,12 +74,11 @@ class RowNumberFuzzer {
 
   struct PlanWithSplits {
     core::PlanNodePtr plan;
-    std::vector<std::shared_ptr<connector::ConnectorSplit>> splits;
+    std::vector<Split> splits;
 
     explicit PlanWithSplits(
         core::PlanNodePtr _plan,
-        const std::vector<std::shared_ptr<connector::ConnectorSplit>>& _splits =
-            {})
+        const std::vector<Split>& _splits = {})
         : plan(std::move(_plan)), splits(_splits) {}
   };
 
@@ -91,12 +91,6 @@ class RowNumberFuzzer {
     opts.nullRatio = FLAGS_null_ratio;
     return opts;
   }
-
-  static inline const std::string kHiveConnectorId = "test-hive";
-
-  // Makes a connector split from a file path on storage.
-  static std::shared_ptr<connector::ConnectorSplit> makeSplit(
-      const std::string& filePath);
 
   void seed(size_t seed) {
     currentSeed_ = seed;
@@ -147,7 +141,7 @@ class RowNumberFuzzer {
   static PlanWithSplits makePlanWithTableScan(
       const RowTypePtr& type,
       const std::vector<std::string>& partitionKeys,
-      const std::vector<std::shared_ptr<connector::ConnectorSplit>>& splits);
+      const std::vector<Split>& splits);
 
   FuzzerGenerator rng_;
   size_t currentSeed_{0};
@@ -186,28 +180,6 @@ RowNumberFuzzer::RowNumberFuzzer(
   connector::registerConnector(hiveConnector);
 
   seed(initialSeed);
-}
-
-void writeToFile(
-    const std::string& path,
-    const VectorPtr& vector,
-    memory::MemoryPool* pool) {
-  dwrf::WriterOptions options;
-  options.schema = vector->type();
-  options.memoryPool = pool;
-  auto writeFile = std::make_unique<LocalWriteFile>(path, true, false);
-  auto sink =
-      std::make_unique<dwio::common::WriteFileSink>(std::move(writeFile), path);
-  dwrf::Writer writer(std::move(sink), options);
-  writer.write(vector);
-  writer.close();
-}
-
-// static
-std::shared_ptr<connector::ConnectorSplit> RowNumberFuzzer::makeSplit(
-    const std::string& filePath) {
-  return std::make_shared<connector::hive::HiveConnectorSplit>(
-      kHiveConnectorId, filePath, dwio::common::FileFormat::DWRF);
 }
 
 template <typename T>
@@ -278,43 +250,6 @@ RowNumberFuzzer::PlanWithSplits RowNumberFuzzer::makeDefaultPlan(
                   .project(projectFields)
                   .planNode();
   return PlanWithSplits{std::move(plan)};
-}
-
-bool containsType(const TypePtr& type, const TypePtr& search) {
-  if (type->equivalent(*search)) {
-    return true;
-  }
-
-  for (auto i = 0; i < type->size(); ++i) {
-    if (containsType(type->childAt(i), search)) {
-      return true;
-    }
-  }
-  return false;
-}
-
-bool containsTypeKind(const TypePtr& type, const TypeKind& search) {
-  if (type->kind() == search) {
-    return true;
-  }
-
-  for (auto i = 0; i < type->size(); ++i) {
-    if (containsTypeKind(type->childAt(i), search)) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-bool containsUnsupportedTypes(const TypePtr& type) {
-  // Skip queries that use Timestamp, Varbinary, and IntervalDayTime types.
-  // DuckDB doesn't support nanosecond precision for timestamps or casting from
-  // Bigint to Interval.
-  // TODO Investigate mismatches reported when comparing Varbinary.
-  return containsTypeKind(type, TypeKind::TIMESTAMP) ||
-      containsTypeKind(type, TypeKind::VARBINARY) ||
-      containsType(type, INTERVAL_DAY_TIME());
 }
 
 std::optional<MaterializedRowMultiset> RowNumberFuzzer::computeReferenceResults(
@@ -391,7 +326,7 @@ RowVectorPtr RowNumberFuzzer::execute(
 RowNumberFuzzer::PlanWithSplits RowNumberFuzzer::makePlanWithTableScan(
     const RowTypePtr& type,
     const std::vector<std::string>& partitionKeys,
-    const std::vector<std::shared_ptr<connector::ConnectorSplit>>& splits) {
+    const std::vector<Split>& splits) {
   std::vector<std::string> projectFields = partitionKeys;
   projectFields.emplace_back("row_number");
 
@@ -441,13 +376,8 @@ void RowNumberFuzzer::addPlansWithTableScan(
     return;
   }
 
-  std::vector<std::shared_ptr<connector::ConnectorSplit>> inputSplits;
-  for (auto i = 0; i < input.size(); ++i) {
-    const std::string filePath = fmt::format("{}/row_number/{}", tableDir, i);
-    writeToFile(filePath, input[i], writerPool_.get());
-    inputSplits.push_back(makeSplit(filePath));
-  }
-
+  const std::vector<Split> inputSplits =
+      makeSplits(input, fmt::format("{}/row_number", tableDir), writerPool_);
   altPlans.push_back(makePlanWithTableScan(
       asRowType(input[0]->type()), partitionKeys, inputSplits));
 }

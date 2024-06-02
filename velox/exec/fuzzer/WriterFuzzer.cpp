@@ -139,6 +139,8 @@ class WriterFuzzer {
   std::shared_ptr<memory::MemoryPool> rootPool_{
       memory::memoryManager()->addRootPool()};
   std::shared_ptr<memory::MemoryPool> pool_{rootPool_->addLeafChild("leaf")};
+  std::shared_ptr<memory::MemoryPool> writerPool_{
+      rootPool_->addAggregateChild("writerFuzzerWriter")};
   VectorFuzzer vectorFuzzer_;
 };
 } // namespace
@@ -340,7 +342,7 @@ void WriterFuzzer::verifyWriter(
   comparePartitions(outputDirectoryPath, referencedOutputDirectoryPath);
 
   // 3. Verifies data itself.
-  auto splits = makeSplits(input, outputDirectoryPath, rootPool_);
+  auto splits = makeSplits(input, outputDirectoryPath, writerPool_);
   auto readPlan =
       PlanBuilder().tableScan(asRowType(input[0]->type())).planNode();
   auto actual = execute(readPlan, maxDrivers, splits);

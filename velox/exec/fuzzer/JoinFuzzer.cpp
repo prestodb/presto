@@ -22,6 +22,7 @@
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/exec/OperatorUtils.h"
+#include "velox/exec/fuzzer/FuzzerUtil.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
@@ -107,12 +108,6 @@ class JoinFuzzer {
     return opts;
   }
 
-  static inline const std::string kHiveConnectorId = "test-hive";
-
-  // Makes a connector split from a file path on storage.
-  static std::shared_ptr<connector::ConnectorSplit> makeSplit(
-      const std::string& filePath);
-
   void seed(size_t seed) {
     currentSeed_ = seed;
     vectorFuzzer_.reSeed(seed);
@@ -165,10 +160,8 @@ class JoinFuzzer {
       const RowTypePtr& buildType,
       const std::vector<std::string>& probeKeys,
       const std::vector<std::string>& buildKeys,
-      const std::vector<std::shared_ptr<connector::ConnectorSplit>>&
-          probeSplits,
-      const std::vector<std::shared_ptr<connector::ConnectorSplit>>&
-          buildSplits,
+      const std::vector<Split>& probeSplits,
+      const std::vector<Split>& buildSplits,
       const std::vector<std::string>& outputColumns);
 
   JoinFuzzer::PlanWithSplits makeMergeJoinPlanWithTableScan(
@@ -177,10 +170,8 @@ class JoinFuzzer {
       const RowTypePtr& buildType,
       const std::vector<std::string>& probeKeys,
       const std::vector<std::string>& buildKeys,
-      const std::vector<std::shared_ptr<connector::ConnectorSplit>>&
-          probeSplits,
-      const std::vector<std::shared_ptr<connector::ConnectorSplit>>&
-          buildSplits,
+      const std::vector<Split>& probeSplits,
+      const std::vector<Split>& buildSplits,
       const std::vector<std::string>& outputColumns);
 
   JoinFuzzer::PlanWithSplits makeNestedLoopJoinPlanWithTableScan(
@@ -189,10 +180,8 @@ class JoinFuzzer {
       const RowTypePtr& buildType,
       const std::vector<std::string>& probeKeys,
       const std::vector<std::string>& buildKeys,
-      const std::vector<std::shared_ptr<connector::ConnectorSplit>>&
-          probeSplits,
-      const std::vector<std::shared_ptr<connector::ConnectorSplit>>&
-          buildSplits,
+      const std::vector<Split>& probeSplits,
+      const std::vector<Split>& buildSplits,
       const std::vector<std::string>& outputColumns);
 
   void makeAlternativePlans(
@@ -595,43 +584,6 @@ core::PlanNodePtr tryFlipJoinSides(const core::NestedLoopJoinNode& joinNode) {
       joinNode.outputType());
 }
 
-bool containsTypeKind(const TypePtr& type, const TypeKind& search) {
-  if (type->kind() == search) {
-    return true;
-  }
-
-  for (auto i = 0; i < type->size(); ++i) {
-    if (containsTypeKind(type->childAt(i), search)) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-bool containsType(const TypePtr& type, const TypePtr& search) {
-  if (type->equivalent(*search)) {
-    return true;
-  }
-
-  for (auto i = 0; i < type->size(); ++i) {
-    if (containsType(type->childAt(i), search)) {
-      return true;
-    }
-  }
-  return false;
-}
-
-bool containsUnsupportedTypes(const TypePtr& type) {
-  // Skip queries that use Timestamp, Varbinary, and IntervalDayTime types.
-  // DuckDB doesn't support nanosecond precision for timestamps or casting from
-  // Bigint to Interval.
-  // TODO Investigate mismatches reported when comparing Varbinary.
-  return containsTypeKind(type, TypeKind::TIMESTAMP) ||
-      containsTypeKind(type, TypeKind::VARBINARY) ||
-      containsType(type, INTERVAL_DAY_TIME());
-}
-
 std::optional<MaterializedRowMultiset> JoinFuzzer::computeDuckDbResult(
     const std::vector<RowVectorPtr>& probeInput,
     const std::vector<RowVectorPtr>& buildInput,
@@ -763,17 +715,6 @@ JoinFuzzer::PlanWithSplits JoinFuzzer::makeDefaultPlan(
   return PlanWithSplits{plan};
 }
 
-std::vector<exec::Split> fromConnectorSplits(
-    std::vector<std::shared_ptr<connector::ConnectorSplit>> connectorSplits,
-    int32_t groupId = -1) {
-  std::vector<exec::Split> splits;
-  splits.reserve(connectorSplits.size());
-  for (auto& connectorSplit : connectorSplits) {
-    splits.emplace_back(exec::Split{std::move(connectorSplit), groupId});
-  }
-  return splits;
-}
-
 JoinFuzzer::PlanWithSplits JoinFuzzer::makeDefaultPlanWithTableScan(
     core::JoinType joinType,
     bool nullAware,
@@ -781,8 +722,8 @@ JoinFuzzer::PlanWithSplits JoinFuzzer::makeDefaultPlanWithTableScan(
     const RowTypePtr& buildType,
     const std::vector<std::string>& probeKeys,
     const std::vector<std::string>& buildKeys,
-    const std::vector<std::shared_ptr<connector::ConnectorSplit>>& probeSplits,
-    const std::vector<std::shared_ptr<connector::ConnectorSplit>>& buildSplits,
+    const std::vector<Split>& probeSplits,
+    const std::vector<Split>& buildSplits,
     const std::vector<std::string>& outputColumns) {
   auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   core::PlanNodeId probeScanId;
@@ -806,8 +747,7 @@ JoinFuzzer::PlanWithSplits JoinFuzzer::makeDefaultPlanWithTableScan(
       plan,
       probeScanId,
       buildScanId,
-      {{probeScanId, fromConnectorSplits(probeSplits)},
-       {buildScanId, fromConnectorSplits(buildSplits)}}};
+      {{probeScanId, probeSplits}, {buildScanId, buildSplits}}};
 }
 
 JoinFuzzer::PlanWithSplits JoinFuzzer::makeGroupedExecutionPlanWithTableScan(
@@ -983,15 +923,6 @@ void JoinFuzzer::makeAlternativePlans(
   }
 }
 
-std::vector<std::string> makeNames(const std::string& prefix, size_t n) {
-  std::vector<std::string> names;
-  names.reserve(n);
-  for (auto i = 0; i < n; ++i) {
-    names.push_back(fmt::format("{}{}", prefix, i));
-  }
-  return names;
-}
-
 void JoinFuzzer::shuffleJoinKeys(
     std::vector<std::string>& probeKeys,
     std::vector<std::string>& buildKeys) {
@@ -1011,57 +942,6 @@ void JoinFuzzer::shuffleJoinKeys(
     probeKeys[i] = copyProbeKeys[columnIndices[i]];
     buildKeys[i] = copyBuildKeys[columnIndices[i]];
   }
-}
-
-RowTypePtr concat(const RowTypePtr& a, const RowTypePtr& b) {
-  std::vector<std::string> names = a->names();
-  std::vector<TypePtr> types = a->children();
-
-  for (auto i = 0; i < b->size(); ++i) {
-    names.push_back(b->nameOf(i));
-    types.push_back(b->childAt(i));
-  }
-
-  return ROW(std::move(names), std::move(types));
-}
-
-void writeToFile(
-    const std::string& path,
-    const VectorPtr& vector,
-    memory::MemoryPool* pool) {
-  dwrf::WriterOptions options;
-  options.schema = vector->type();
-  options.memoryPool = pool;
-  auto writeFile = std::make_unique<LocalWriteFile>(path, true, false);
-  auto sink =
-      std::make_unique<dwio::common::WriteFileSink>(std::move(writeFile), path);
-  dwrf::Writer writer(std::move(sink), options);
-  writer.write(vector);
-  writer.close();
-}
-
-// static
-std::shared_ptr<connector::ConnectorSplit> JoinFuzzer::makeSplit(
-    const std::string& filePath) {
-  return std::make_shared<connector::hive::HiveConnectorSplit>(
-      kHiveConnectorId, filePath, dwio::common::FileFormat::DWRF);
-}
-
-bool isTableScanSupported(const TypePtr& type) {
-  if (type->kind() == TypeKind::ROW && type->size() == 0) {
-    return false;
-  }
-  if (type->kind() == TypeKind::UNKNOWN) {
-    return false;
-  }
-
-  for (auto i = 0; i < type->size(); ++i) {
-    if (!isTableScanSupported(type->childAt(i))) {
-      return false;
-    }
-  }
-
-  return true;
 }
 
 void JoinFuzzer::verify(core::JoinType joinType) {
@@ -1212,8 +1092,8 @@ JoinFuzzer::PlanWithSplits JoinFuzzer::makeMergeJoinPlanWithTableScan(
     const RowTypePtr& buildType,
     const std::vector<std::string>& probeKeys,
     const std::vector<std::string>& buildKeys,
-    const std::vector<std::shared_ptr<connector::ConnectorSplit>>& probeSplits,
-    const std::vector<std::shared_ptr<connector::ConnectorSplit>>& buildSplits,
+    const std::vector<Split>& probeSplits,
+    const std::vector<Split>& buildSplits,
     const std::vector<std::string>& outputColumns) {
   auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   core::PlanNodeId probeScanId;
@@ -1238,8 +1118,7 @@ JoinFuzzer::PlanWithSplits JoinFuzzer::makeMergeJoinPlanWithTableScan(
           .planNode(),
       probeScanId,
       buildScanId,
-      {{probeScanId, fromConnectorSplits(probeSplits)},
-       {buildScanId, fromConnectorSplits(buildSplits)}}};
+      {{probeScanId, probeSplits}, {buildScanId, buildSplits}}};
 }
 
 JoinFuzzer::PlanWithSplits JoinFuzzer::makeNestedLoopJoinPlanWithTableScan(
@@ -1248,8 +1127,8 @@ JoinFuzzer::PlanWithSplits JoinFuzzer::makeNestedLoopJoinPlanWithTableScan(
     const RowTypePtr& buildType,
     const std::vector<std::string>& probeKeys,
     const std::vector<std::string>& buildKeys,
-    const std::vector<std::shared_ptr<connector::ConnectorSplit>>& probeSplits,
-    const std::vector<std::shared_ptr<connector::ConnectorSplit>>& buildSplits,
+    const std::vector<Split>& probeSplits,
+    const std::vector<Split>& buildSplits,
     const std::vector<std::string>& outputColumns) {
   auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   core::PlanNodeId probeScanId;
@@ -1271,8 +1150,7 @@ JoinFuzzer::PlanWithSplits JoinFuzzer::makeNestedLoopJoinPlanWithTableScan(
           .planNode(),
       probeScanId,
       buildScanId,
-      {{probeScanId, fromConnectorSplits(probeSplits)},
-       {buildScanId, fromConnectorSplits(buildSplits)}}};
+      {{probeScanId, probeSplits}, {buildScanId, buildSplits}}};
 }
 
 void JoinFuzzer::addPlansWithTableScan(
@@ -1292,22 +1170,13 @@ void JoinFuzzer::addPlansWithTableScan(
     return;
   }
 
-  std::vector<std::shared_ptr<connector::ConnectorSplit>> probeScanSplits;
-  for (auto i = 0; i < probeInput.size(); ++i) {
-    const std::string filePath = fmt::format("{}/probe{}", tableDir, i);
-    writeToFile(filePath, probeInput[i], writerPool_.get());
-    probeScanSplits.push_back(makeSplit(filePath));
-  }
+  std::vector<Split> probeScanSplits =
+      makeSplits(probeInput, fmt::format("{}/probe", tableDir), writerPool_);
+  std::vector<Split> buildScanSplits =
+      makeSplits(buildInput, fmt::format("{}/build", tableDir), writerPool_);
 
-  std::vector<std::shared_ptr<connector::ConnectorSplit>> buildScanSplits;
-  for (auto i = 0; i < buildInput.size(); ++i) {
-    const std::string filePath = fmt::format("{}/build{}", tableDir, i);
-    writeToFile(filePath, buildInput[i], writerPool_.get());
-    buildScanSplits.push_back(makeSplit(filePath));
-  }
-
-  auto probeType = asRowType(probeInput[0]->type());
-  auto buildType = asRowType(buildInput[0]->type());
+  const auto probeType = asRowType(probeInput[0]->type());
+  const auto buildType = asRowType(buildInput[0]->type());
 
   std::vector<PlanWithSplits> plansWithTableScan;
   auto defaultPlan = makeDefaultPlanWithTableScan(
@@ -1369,8 +1238,8 @@ void JoinFuzzer::addPlansWithTableScan(
         altPlans,
         planWithSplits.probeScanId,
         planWithSplits.buildScanId,
-        {{planWithSplits.probeScanId, fromConnectorSplits(probeScanSplits)},
-         {planWithSplits.buildScanId, fromConnectorSplits(buildScanSplits)}});
+        {{planWithSplits.probeScanId, probeScanSplits},
+         {planWithSplits.buildScanId, buildScanSplits}});
   }
 
   // Add ungrouped NestedLoopJoin with TableScan.
@@ -1392,8 +1261,8 @@ void JoinFuzzer::addPlansWithTableScan(
         altPlans,
         planWithSplits.probeScanId,
         planWithSplits.buildScanId,
-        {{planWithSplits.probeScanId, fromConnectorSplits(probeScanSplits)},
-         {planWithSplits.buildScanId, fromConnectorSplits(buildScanSplits)}});
+        {{planWithSplits.probeScanId, probeScanSplits},
+         {planWithSplits.buildScanId, buildScanSplits}});
   }
 }
 
@@ -1416,9 +1285,9 @@ std::vector<exec::Split> JoinFuzzer::generateSplitsWithGroup(
           isProbe ? "probe" : "build",
           i);
       writeToFile(filePath, inputVectorsByGroup[groupId][i], writerPool_.get());
-      splitsWithGroup.push_back(exec::Split{makeSplit(filePath), groupId});
+      splitsWithGroup.emplace_back(makeConnectorSplit(filePath), groupId);
     }
-    splitsWithGroup.push_back(exec::Split{nullptr, groupId});
+    splitsWithGroup.emplace_back(nullptr, groupId);
   }
   return splitsWithGroup;
 }

@@ -26,6 +26,7 @@
 #include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/exec/MemoryReclaimer.h"
 #include "velox/exec/TableWriter.h"
+#include "velox/exec/fuzzer/FuzzerUtil.h"
 #include "velox/exec/tests/utils/ArbitratorTestUtil.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -139,25 +140,20 @@ class MemoryArbitrationFuzzer {
       const std::vector<std::string>& probeKeys,
       const std::vector<std::string>& buildKeys);
 
-  std::vector<PlanWithSplits> hashJoinPlans(
+  static std::vector<PlanWithSplits> hashJoinPlans(
       const core::JoinType& joinType,
       const std::vector<std::string>& probeKeys,
       const std::vector<std::string>& buildKeys,
       const std::vector<RowVectorPtr>& probeInput,
       const std::vector<RowVectorPtr>& buildInput,
-      const std::vector<std::shared_ptr<connector::ConnectorSplit>>&
-          probeSplits,
-      const std::vector<std::shared_ptr<connector::ConnectorSplit>>&
-          buildSplits);
+      const std::vector<Split>& probeSplits,
+      const std::vector<Split>& buildSplits);
 
   std::vector<PlanWithSplits> hashJoinPlans(const std::string& tableDir);
 
   std::vector<PlanWithSplits> aggregatePlans(const std::string& tableDir);
 
   void verify();
-
-  std::shared_ptr<connector::ConnectorSplit> makeSplit(
-      const std::string& filePath);
 
   static VectorFuzzer::Options getFuzzerOptions() {
     VectorFuzzer::Options opts;
@@ -167,8 +163,6 @@ class MemoryArbitrationFuzzer {
     opts.nullRatio = FLAGS_null_ratio;
     return opts;
   }
-
-  static inline const std::string kHiveConnectorId = "test-hive";
 
   FuzzerGenerator rng_;
   size_t currentSeed_{0};
@@ -332,54 +326,6 @@ std::vector<RowVectorPtr> MemoryArbitrationFuzzer::generateAggregateInput(
   return generateProbeInput(keyNames, keyTypes);
 }
 
-std::vector<std::string> makeNames(const std::string& prefix, size_t n) {
-  std::vector<std::string> names;
-  names.reserve(n);
-  for (auto i = 0; i < n; ++i) {
-    names.push_back(fmt::format("{}{}", prefix, i));
-  }
-  return names;
-}
-
-RowTypePtr concat(const RowTypePtr& a, const RowTypePtr& b) {
-  std::vector<std::string> names = a->names();
-  std::vector<TypePtr> types = a->children();
-
-  for (auto i = 0; i < b->size(); ++i) {
-    names.push_back(b->nameOf(i));
-    types.push_back(b->childAt(i));
-  }
-
-  return ROW(std::move(names), std::move(types));
-}
-
-std::vector<Split> fromConnectorSplits(
-    std::vector<std::shared_ptr<connector::ConnectorSplit>> connectorSplits) {
-  std::vector<Split> splits;
-  splits.reserve(connectorSplits.size());
-  for (auto& connectorSplit : connectorSplits) {
-    splits.emplace_back(std::move(connectorSplit));
-  }
-  return splits;
-}
-
-bool isTableScanSupported(const TypePtr& type) {
-  if (type->kind() == TypeKind::ROW && type->size() == 0) {
-    return false;
-  }
-  if (type->kind() == TypeKind::UNKNOWN) {
-    return false;
-  }
-
-  for (auto i = 0; i < type->size(); ++i) {
-    if (!isTableScanSupported(type->childAt(i))) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
 std::vector<MemoryArbitrationFuzzer::PlanWithSplits>
 MemoryArbitrationFuzzer::hashJoinPlans(
     const core::JoinType& joinType,
@@ -387,9 +333,8 @@ MemoryArbitrationFuzzer::hashJoinPlans(
     const std::vector<std::string>& buildKeys,
     const std::vector<RowVectorPtr>& probeInput,
     const std::vector<RowVectorPtr>& buildInput,
-    const std::vector<std::shared_ptr<connector::ConnectorSplit>>& probeSplits,
-    const std::vector<std::shared_ptr<connector::ConnectorSplit>>&
-        buildSplits) {
+    const std::vector<Split>& probeSplits,
+    const std::vector<Split>& buildSplits) {
   auto outputColumns =
       (core::isLeftSemiProjectJoin(joinType) ||
        core::isLeftSemiFilterJoin(joinType) || core::isAntiJoin(joinType))
@@ -446,30 +391,8 @@ MemoryArbitrationFuzzer::hashJoinPlans(
              .planNode();
   plans.push_back(PlanWithSplits{
       std::move(plan),
-      {{probeScanId, fromConnectorSplits(probeSplits)},
-       {buildScanId, fromConnectorSplits(buildSplits)}}});
+      {{probeScanId, probeSplits}, {buildScanId, buildSplits}}});
   return plans;
-}
-
-void writeToFile(
-    const std::string& path,
-    const VectorPtr& vector,
-    memory::MemoryPool* pool) {
-  dwrf::WriterOptions options;
-  options.schema = vector->type();
-  options.memoryPool = pool;
-  auto writeFile = std::make_unique<LocalWriteFile>(path, true, false);
-  auto sink =
-      std::make_unique<dwio::common::WriteFileSink>(std::move(writeFile), path);
-  dwrf::Writer writer(std::move(sink), options);
-  writer.write(vector);
-  writer.close();
-}
-
-std::shared_ptr<connector::ConnectorSplit> MemoryArbitrationFuzzer::makeSplit(
-    const std::string& filePath) {
-  return std::make_shared<connector::hive::HiveConnectorSplit>(
-      kHiveConnectorId, filePath, dwio::common::FileFormat::DWRF);
 }
 
 std::vector<MemoryArbitrationFuzzer::PlanWithSplits>
@@ -488,20 +411,10 @@ MemoryArbitrationFuzzer::hashJoinPlans(const std::string& tableDir) {
   std::vector<std::string> buildKeys = makeNames("u", keyTypes.size());
   const auto probeInput = generateProbeInput(probeKeys, keyTypes);
   const auto buildInput = generateBuildInput(probeInput, probeKeys, buildKeys);
-
-  std::vector<std::shared_ptr<connector::ConnectorSplit>> probeScanSplits;
-  for (auto i = 0; i < probeInput.size(); ++i) {
-    const std::string filePath = fmt::format("{}/probe{}", tableDir, i);
-    writeToFile(filePath, probeInput[i], writerPool_.get());
-    probeScanSplits.push_back(makeSplit(filePath));
-  }
-
-  std::vector<std::shared_ptr<connector::ConnectorSplit>> buildScanSplits;
-  for (auto i = 0; i < buildInput.size(); ++i) {
-    const std::string filePath = fmt::format("{}/build{}", tableDir, i);
-    writeToFile(filePath, buildInput[i], writerPool_.get());
-    buildScanSplits.push_back(makeSplit(filePath));
-  }
+  const std::vector<Split> probeScanSplits =
+      makeSplits(probeInput, fmt::format("{}/probe", tableDir), writerPool_);
+  const std::vector<Split> buildScanSplits =
+      makeSplits(buildInput, fmt::format("{}/build", tableDir), writerPool_);
 
   std::vector<PlanWithSplits> totalPlans;
   for (const auto& joinType : kJoinTypes) {
@@ -529,13 +442,8 @@ MemoryArbitrationFuzzer::aggregatePlans(const std::string& tableDir) {
   const std::vector<std::string> groupingKeys = makeNames("g", keyTypes.size());
   const auto aggregateInput = generateAggregateInput(groupingKeys, keyTypes);
   const std::vector<std::string> aggregates{"count(1)"};
-
-  std::vector<std::shared_ptr<connector::ConnectorSplit>> splits;
-  for (auto i = 0; i < aggregateInput.size(); ++i) {
-    const std::string filePath = fmt::format("{}/aggregate{}", tableDir, i);
-    writeToFile(filePath, aggregateInput[i], writerPool_.get());
-    splits.push_back(makeSplit(filePath));
-  }
+  const std::vector<Split> splits = makeSplits(
+      aggregateInput, fmt::format("{}/aggregate", tableDir), writerPool_);
 
   std::vector<PlanWithSplits> plans;
   const auto inputRowType = asRowType(aggregateInput[0]->type());
@@ -550,7 +458,7 @@ MemoryArbitrationFuzzer::aggregatePlans(const std::string& tableDir) {
             .capturePlanNodeId(scanId)
             .singleAggregation(groupingKeys, aggregates, {})
             .planNode(),
-        {{scanId, fromConnectorSplits(splits)}}};
+        {{scanId, splits}}};
     plans.push_back(std::move(plan));
 
     plan = PlanWithSplits{
@@ -574,7 +482,7 @@ MemoryArbitrationFuzzer::aggregatePlans(const std::string& tableDir) {
             .partialAggregation(groupingKeys, aggregates, {})
             .finalAggregation()
             .planNode(),
-        {{scanId, fromConnectorSplits(splits)}}};
+        {{scanId, splits}}};
     plans.push_back(std::move(plan));
 
     plan = PlanWithSplits{
@@ -600,7 +508,7 @@ MemoryArbitrationFuzzer::aggregatePlans(const std::string& tableDir) {
             .intermediateAggregation()
             .finalAggregation()
             .planNode(),
-        {{scanId, fromConnectorSplits(splits)}}};
+        {{scanId, splits}}};
     plans.push_back(std::move(plan));
 
     plan = PlanWithSplits{

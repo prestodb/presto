@@ -14,14 +14,13 @@
  * limitations under the License.
  */
 
-#include "FuzzerUtil.h"
+#include "velox/exec/fuzzer/FuzzerUtil.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
 
-using namespace facebook::velox;
-
+namespace facebook::velox::exec::test {
 void writeToFile(
     const std::string& path,
     const VectorPtr& vector,
@@ -37,12 +36,11 @@ void writeToFile(
   writer.close();
 }
 
-std::vector<exec::Split> makeSplits(
+std::vector<Split> makeSplits(
     const std::vector<RowVectorPtr>& inputs,
     const std::string& path,
-    const std::shared_ptr<memory::MemoryPool>& pool) {
-  std::vector<exec::Split> splits;
-  auto writerPool = pool->addAggregateChild("writer");
+    const std::shared_ptr<memory::MemoryPool>& writerPool) {
+  std::vector<Split> splits;
   for (auto i = 0; i < inputs.size(); ++i) {
     const std::string filePath = fmt::format("{}/{}", path, i);
     writeToFile(filePath, inputs[i], writerPool.get());
@@ -52,7 +50,91 @@ std::vector<exec::Split> makeSplits(
   return splits;
 }
 
-exec::Split makeSplit(const std::string& filePath) {
-  return exec::Split{std::make_shared<connector::hive::HiveConnectorSplit>(
+Split makeSplit(const std::string& filePath) {
+  return Split{std::make_shared<connector::hive::HiveConnectorSplit>(
       kHiveConnectorId, filePath, dwio::common::FileFormat::DWRF)};
 }
+
+std::shared_ptr<connector::ConnectorSplit> makeConnectorSplit(
+    const std::string& filePath) {
+  return std::make_shared<connector::hive::HiveConnectorSplit>(
+      kHiveConnectorId, filePath, dwio::common::FileFormat::DWRF);
+}
+
+std::vector<std::string> makeNames(const std::string& prefix, size_t n) {
+  std::vector<std::string> names;
+  names.reserve(n);
+  for (auto i = 0; i < n; ++i) {
+    names.push_back(fmt::format("{}{}", prefix, i));
+  }
+  return names;
+}
+
+RowTypePtr concat(const RowTypePtr& a, const RowTypePtr& b) {
+  std::vector<std::string> names = a->names();
+  std::vector<TypePtr> types = a->children();
+
+  for (auto i = 0; i < b->size(); ++i) {
+    names.push_back(b->nameOf(i));
+    types.push_back(b->childAt(i));
+  }
+
+  return ROW(std::move(names), std::move(types));
+}
+
+// Sometimes we generate zero-column input of type ROW({}) or a column of type
+// UNKNOWN(). Such data cannot be written to a file and therefore cannot
+// be tested with TableScan.
+bool isTableScanSupported(const TypePtr& type) {
+  if (type->kind() == TypeKind::ROW && type->size() == 0) {
+    return false;
+  }
+  if (type->kind() == TypeKind::UNKNOWN) {
+    return false;
+  }
+  if (type->kind() == TypeKind::HUGEINT) {
+    return false;
+  }
+
+  for (auto i = 0; i < type->size(); ++i) {
+    if (!isTableScanSupported(type->childAt(i))) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool containsType(const TypePtr& type, const TypePtr& search) {
+  if (type->equivalent(*search)) {
+    return true;
+  }
+
+  for (auto i = 0; i < type->size(); ++i) {
+    if (containsType(type->childAt(i), search)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool containsTypeKind(const TypePtr& type, const TypeKind& search) {
+  if (type->kind() == search) {
+    return true;
+  }
+
+  for (auto i = 0; i < type->size(); ++i) {
+    if (containsTypeKind(type->childAt(i), search)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+bool containsUnsupportedTypes(const TypePtr& type) {
+  return containsTypeKind(type, TypeKind::TIMESTAMP) ||
+      containsTypeKind(type, TypeKind::VARBINARY) ||
+      containsType(type, INTERVAL_DAY_TIME());
+}
+} // namespace facebook::velox::exec::test

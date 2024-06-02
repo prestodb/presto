@@ -588,29 +588,6 @@ void writeToFile(
 }
 } // namespace
 
-// Sometimes we generate zero-column input of type ROW({}) or a column of type
-// UNKNOWN(). Such data cannot be written to a file and therefore cannot
-// be tested with TableScan.
-bool isTableScanSupported(const TypePtr& type) {
-  if (type->kind() == TypeKind::ROW && type->size() == 0) {
-    return false;
-  }
-  if (type->kind() == TypeKind::UNKNOWN) {
-    return false;
-  }
-  if (type->kind() == TypeKind::HUGEINT) {
-    return false;
-  }
-
-  for (auto i = 0; i < type->size(); ++i) {
-    if (!isTableScanSupported(type->childAt(i))) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
 void AggregationFuzzerBase::Stats::updateReferenceQueryStats(
     AggregationFuzzerBase::ReferenceQueryErrorCode errorCode) {
   if (errorCode == ReferenceQueryErrorCode::kReferenceQueryFail) {

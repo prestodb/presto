@@ -326,7 +326,7 @@ void WindowFuzzer::testAlternativePlans(
   auto directory = exec::test::TempDirectoryPath::create();
   const auto inputRowType = asRowType(input[0]->type());
   if (isTableScanSupported(inputRowType)) {
-    auto splits = makeSplits(input, directory->getPath(), rootPool_);
+    auto splits = makeSplits(input, directory->getPath(), writerPool_);
 
     plans.push_back(
         {PlanBuilder()

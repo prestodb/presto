@@ -16,11 +16,43 @@
 
 #include "velox/exec/Split.h"
 
+namespace facebook::velox::exec::test {
 const std::string kHiveConnectorId = "test-hive";
 
-std::vector<facebook::velox::exec::Split> makeSplits(
-    const std::vector<facebook::velox::RowVectorPtr>& inputs,
+/// Write the vector to the path.
+void writeToFile(
     const std::string& path,
-    const std::shared_ptr<facebook::velox::memory::MemoryPool>& pool);
+    const VectorPtr& vector,
+    memory::MemoryPool* pool);
 
-facebook::velox::exec::Split makeSplit(const std::string& filePath);
+/// Write vectors into the path, one file per vector, and create spilts from
+/// those files.
+std::vector<Split> makeSplits(
+    const std::vector<RowVectorPtr>& inputs,
+    const std::string& path,
+    const std::shared_ptr<memory::MemoryPool>& writerPool);
+
+/// Create a split from an exsiting file.
+Split makeSplit(const std::string& filePath);
+
+/// Create a connector split from an exsiting file.
+std::shared_ptr<connector::ConnectorSplit> makeConnectorSplit(
+    const std::string& filePath);
+
+/// Create column names with the pattern '${prefix}${i}'.
+std::vector<std::string> makeNames(const std::string& prefix, size_t n);
+
+/// Returns whether type is supported in TableScan. Empty Row type and Unknown
+/// type are not supported.
+bool isTableScanSupported(const TypePtr& type);
+
+/// Concat tow RowTypes.
+RowTypePtr concat(const RowTypePtr& a, const RowTypePtr& b);
+
+/// Skip queries that use Timestamp, Varbinary, and IntervalDayTime types.
+/// DuckDB doesn't support nanosecond precision for timestamps or casting from
+/// Bigint to Interval.
+///
+/// TODO Investigate mismatches reported when comparing Varbinary.
+bool containsUnsupportedTypes(const TypePtr& type);
+} // namespace facebook::velox::exec::test
