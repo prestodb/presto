@@ -184,6 +184,8 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kAsyncCacheSsdCheckpointGb, 0),
           STR_PROP(kAsyncCacheSsdPath, "/mnt/flash/async_cache."),
           BOOL_PROP(kAsyncCacheSsdDisableFileCow, false),
+          BOOL_PROP(kSsdCacheChecksumEnabled, false),
+          BOOL_PROP(kSsdCacheReadVerificationEnabled, false),
           BOOL_PROP(kEnableSerializedPageChecksum, true),
           BOOL_PROP(kUseMmapAllocator, true),
           STR_PROP(kMemoryArbitratorKind, ""),
