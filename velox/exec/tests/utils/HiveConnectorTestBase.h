@@ -290,7 +290,8 @@ class HiveConnectorSplitBuilder {
         extraFileInfo,
         serdeParameters,
         splitWeight_,
-        infoColumns_);
+        infoColumns_,
+        std::nullopt);
   }
 
  private:

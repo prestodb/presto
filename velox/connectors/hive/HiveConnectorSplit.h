@@ -18,6 +18,7 @@
 #include <optional>
 #include <unordered_map>
 #include "velox/connectors/Connector.h"
+#include "velox/connectors/hive/FileProperties.h"
 #include "velox/dwio/common/Options.h"
 
 namespace facebook::velox::connector::hive {
@@ -43,6 +44,10 @@ struct HiveConnectorSplit : public connector::ConnectorSplit {
   /// associated with the HiveSplit.
   std::unordered_map<std::string, std::string> infoColumns;
 
+  /// These represent file properties like file size that are used while opening
+  /// the file handle.
+  std::optional<FileProperties> properties;
+
   HiveConnectorSplit(
       const std::string& connectorId,
       const std::string& _filePath,
@@ -56,7 +61,8 @@ struct HiveConnectorSplit : public connector::ConnectorSplit {
       const std::shared_ptr<std::string>& _extraFileInfo = {},
       const std::unordered_map<std::string, std::string>& _serdeParameters = {},
       int64_t _splitWeight = 0,
-      const std::unordered_map<std::string, std::string>& _infoColumns = {})
+      const std::unordered_map<std::string, std::string>& _infoColumns = {},
+      std::optional<FileProperties> _properties = std::nullopt)
       : ConnectorSplit(connectorId, _splitWeight),
         filePath(_filePath),
         fileFormat(_fileFormat),
@@ -67,7 +73,8 @@ struct HiveConnectorSplit : public connector::ConnectorSplit {
         customSplitInfo(_customSplitInfo),
         extraFileInfo(_extraFileInfo),
         serdeParameters(_serdeParameters),
-        infoColumns(_infoColumns) {}
+        infoColumns(_infoColumns),
+        properties(_properties) {}
 
   std::string toString() const override {
     if (tableBucketNumber.has_value()) {

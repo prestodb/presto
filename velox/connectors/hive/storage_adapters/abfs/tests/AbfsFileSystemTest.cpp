@@ -200,6 +200,21 @@ TEST_F(AbfsFileSystemTest, openFileForReadWithInvalidOptions) {
       "File size must be non-negative");
 }
 
+TEST_F(AbfsFileSystemTest, fileHandleWithProperties) {
+  auto hiveConfig = AbfsFileSystemTest::hiveConfig(
+      {{"fs.azure.account.key.test.dfs.core.windows.net",
+        azuriteServer->connectionStr()}});
+  FileHandleFactory factory(
+      std::make_unique<SimpleLRUCache<std::string, FileHandle>>(1),
+      std::make_unique<FileHandleGenerator>(hiveConfig));
+  FileProperties properties = {15 + kOneMB, 1};
+  auto fileHandleProperties = factory.generate(fullFilePath, &properties);
+  readData(fileHandleProperties->file.get());
+
+  auto fileHandleWithoutProperties = factory.generate(fullFilePath);
+  readData(fileHandleWithoutProperties->file.get());
+}
+
 TEST_F(AbfsFileSystemTest, multipleThreadsWithReadFile) {
   std::atomic<bool> startThreads = false;
   auto hiveConfig = AbfsFileSystemTest::hiveConfig(

@@ -47,3 +47,29 @@ TEST(FileHandleTest, localFile) {
   // Clean up
   remove(filename.c_str());
 }
+
+TEST(FileHandleTest, localFileWithProperties) {
+  filesystems::registerLocalFileSystem();
+
+  auto tempFile = exec::test::TempFilePath::create();
+  const auto& filename = tempFile->getPath();
+  remove(filename.c_str());
+
+  {
+    LocalWriteFile writeFile(filename);
+    writeFile.append("foo");
+  }
+
+  FileHandleFactory factory(
+      std::make_unique<SimpleLRUCache<std::string, FileHandle>>(1000),
+      std::make_unique<FileHandleGenerator>());
+  FileProperties properties = {
+      tempFile->fileSize(), tempFile->fileModifiedTime()};
+  auto fileHandle = factory.generate(filename, &properties);
+  ASSERT_EQ(fileHandle->file->size(), 3);
+  char buffer[3];
+  ASSERT_EQ(fileHandle->file->pread(0, 3, &buffer), "foo");
+
+  // Clean up
+  remove(filename.c_str());
+}

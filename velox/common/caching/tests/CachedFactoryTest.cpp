@@ -26,8 +26,11 @@
 using namespace facebook::velox;
 
 namespace {
+
 struct DoublerGenerator {
-  std::unique_ptr<int> operator()(const int& value) {
+  std::unique_ptr<int> operator()(
+      const int& value,
+      const void* properties = nullptr) {
     ++generated;
     return std::make_unique<int>(value * 2);
   }
@@ -35,7 +38,9 @@ struct DoublerGenerator {
 };
 
 struct IdentityGenerator {
-  std::unique_ptr<int> operator()(const int& value) {
+  std::unique_ptr<int> operator()(
+      const int& value,
+      const void* properties = nullptr) {
     return std::make_unique<int>(value);
   }
 };
@@ -106,7 +111,9 @@ TEST(CachedFactoryTest, basicGeneration) {
 }
 
 struct DoublerWithExceptionsGenerator {
-  std::unique_ptr<int> operator()(const int& value) {
+  std::unique_ptr<int> operator()(
+      const int& value,
+      const void* properties = nullptr) {
     if (value == 3) {
       VELOX_FAIL("3 is bad");
     }
