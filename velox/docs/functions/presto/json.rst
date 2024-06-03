@@ -118,6 +118,29 @@ JSON Functions
 
         SELECT json_array_contains('[1, 2, 3]', 2);
 
+.. function:: json_array_get(json_array, index) -> json
+
+   Returns the element at the specified index into the ``json_array``.
+   The index is zero-based::
+
+        SELECT json_array_get('[1, 2, 3]', 0); -- JSON '1'
+        SELECT json_array_get('[1, 2, 3]', 1); -- JSON '2'
+
+   This function also supports negative indexes for fetching element indexed
+   from the end of an array::
+
+        SELECT json_array_get('[1, 2, 3]', -1); -- JSON '3'
+        SELECT json_array_get('[1, 2, 3]', -2); -- JSON '2'
+
+   If the element at the specified index doesn't exist, the function returns null::
+
+        SELECT json_array_get('[1, 2, 3]', 10); -- NULL
+        SELECT json_array_get('[1, 2, 3]', -10); -- NULL
+
+   If ``json_array`` is not an array, the function returns null::
+
+        SELECT json_array_get('{"a": 10, "b": 11}', 1); -- NULL
+
 .. function:: json_array_length(json) -> bigint
 
     Returns the array length of ``json`` (a string containing a JSON

@@ -58,6 +58,11 @@ void registerJsonFunctions(const std::string& prefix) {
   registerFunction<SIMDJsonArrayContainsFunction, bool, Varchar, Varchar>(
       {prefix + "json_array_contains"});
 
+  registerFunction<SIMDJsonArrayGetFunction, Json, Json, int64_t>(
+      {prefix + "json_array_get"});
+  registerFunction<SIMDJsonArrayGetFunction, Json, Varchar, int64_t>(
+      {prefix + "json_array_get"});
+
   registerFunction<SIMDJsonSizeFunction, int64_t, Json, Varchar>(
       {prefix + "json_size"});
   registerFunction<SIMDJsonSizeFunction, int64_t, Varchar, Varchar>(

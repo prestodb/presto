@@ -163,6 +163,48 @@ struct SIMDJsonArrayLengthFunction {
   }
 };
 
+template <typename TExec>
+struct SIMDJsonArrayGetFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(TExec);
+
+  FOLLY_ALWAYS_INLINE bool
+  call(out_type<Json>& result, const arg_type<Json>& jsonArray, int64_t index) {
+    simdjson::ondemand::document jsonDoc;
+
+    simdjson::padded_string paddedJson(jsonArray.data(), jsonArray.size());
+    if (simdjsonParse(paddedJson).get(jsonDoc)) {
+      return false;
+    }
+
+    if (jsonDoc.type() != simdjson::ondemand::json_type::array) {
+      return false;
+    }
+
+    size_t numElements;
+    if (jsonDoc.count_elements().get(numElements)) {
+      return false;
+    }
+
+    if (index >= 0) {
+      if (index >= numElements) {
+        return false;
+      }
+    } else if (numElements + index < 0) {
+      return false;
+    } else {
+      index += numElements;
+    }
+
+    std::string_view resultStr;
+    if (simdjson::to_json_string(jsonDoc.at(index)).get(resultStr)) {
+      return false;
+    }
+
+    result.copy_from(resultStr);
+    return true;
+  }
+};
+
 // jsonExtractScalar(json, json_path) -> varchar
 // Like jsonExtract(), but returns the result value as a string (as opposed
 // to being encoded as JSON). The value referenced by json_path must be a scalar

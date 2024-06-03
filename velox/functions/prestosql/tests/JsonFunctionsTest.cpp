@@ -358,6 +358,39 @@ TEST_F(JsonFunctionsTest, jsonArrayLength) {
   EXPECT_EQ(jsonArrayLength(R"({"k1":[0,1,2], "k2":"v1"})"), std::nullopt);
 }
 
+TEST_F(JsonFunctionsTest, jsonArrayGet) {
+  auto arrayGet = [&](const std::string& json, int64_t index) {
+    auto r1 = evaluateOnce<std::string, std::string, int64_t>(
+        "json_array_get(c0, c1)", {JSON(), BIGINT()}, {json}, {index});
+    auto r2 = evaluateOnce<std::string, std::string, int64_t>(
+        "json_array_get(c0, c1)", {json}, {index});
+
+    EXPECT_EQ(r1, r2);
+    return r1;
+  };
+
+  EXPECT_FALSE(arrayGet("{}", 1).has_value());
+  EXPECT_FALSE(arrayGet("[]", 1).has_value());
+
+  EXPECT_EQ(arrayGet("[1, 2, 3]", 0), "1");
+  EXPECT_EQ(arrayGet("[1, 2, 3]", 1), "2");
+  EXPECT_EQ(arrayGet("[1, 2, 3]", 2), "3");
+  EXPECT_FALSE(arrayGet("[1, 2, 3]", 3).has_value());
+
+  EXPECT_EQ(arrayGet("[1, 2, 3]", -1), "3");
+  EXPECT_EQ(arrayGet("[1, 2, 3]", -2), "2");
+  EXPECT_EQ(arrayGet("[1, 2, 3]", -3), "1");
+  EXPECT_FALSE(arrayGet("[1, 2, 3]", -4).has_value());
+
+  EXPECT_EQ(arrayGet("[[1, 2], [3, 4], []]", 0), "[1, 2]");
+  EXPECT_EQ(arrayGet("[[1, 2], [3, 4], []]", 2), "[]");
+
+  EXPECT_EQ(arrayGet("[{\"foo\": 123}, {\"foo\": 456}]", 1), "{\"foo\": 456}");
+
+  EXPECT_FALSE(arrayGet("[1, 2, ...", 1).has_value());
+  EXPECT_FALSE(arrayGet("not json", 1).has_value());
+}
+
 TEST_F(JsonFunctionsTest, jsonArrayContainsBool) {
   EXPECT_EQ(jsonArrayContains<bool>(R"([])", true), false);
   EXPECT_EQ(jsonArrayContains<bool>(R"([1, 2, 3])", false), false);
