@@ -1668,7 +1668,6 @@ public abstract class AbstractTestHiveClient
         }
     }
 
-    @SuppressWarnings({"ValueOfIncrementOrDecrementUsed", "UnusedAssignment"})
     @Test
     public void testGetTableSchemaPartitionFormat()
     {
@@ -2066,7 +2065,6 @@ public abstract class AbstractTestHiveClient
         }
     }
 
-    @SuppressWarnings("ConstantConditions")
     @Test
     public void testBucketedTableBigintBoolean()
             throws Exception

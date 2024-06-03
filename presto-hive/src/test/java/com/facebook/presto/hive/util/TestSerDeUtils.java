@@ -64,7 +64,6 @@ import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFacto
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getReflectionObjectInspector;
 import static org.testng.Assert.assertEquals;
 
-@SuppressWarnings("PackageVisibleField")
 public class TestSerDeUtils
 {
     private final BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager();
