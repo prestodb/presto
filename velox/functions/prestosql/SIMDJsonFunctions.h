@@ -51,13 +51,13 @@ struct SIMDIsJsonScalarFunction {
   }
 };
 
-template <typename T>
+template <typename TExec>
 struct SIMDJsonArrayContainsFunction {
-  VELOX_DEFINE_FUNCTION_TYPES(T);
+  VELOX_DEFINE_FUNCTION_TYPES(TExec);
 
-  template <typename TInput>
+  template <typename T>
   FOLLY_ALWAYS_INLINE bool
-  call(bool& result, const arg_type<Json>& json, const TInput& value) {
+  call(bool& result, const arg_type<Json>& json, const T& value) {
     simdjson::ondemand::document jsonDoc;
 
     simdjson::padded_string paddedJson(json.data(), json.size());
@@ -71,52 +71,41 @@ struct SIMDJsonArrayContainsFunction {
 
     result = false;
     for (auto&& v : jsonDoc) {
-      try {
-        if constexpr (std::is_same_v<TInput, bool>) {
-          if (v.type() == simdjson::ondemand::json_type::boolean &&
-              v.get_bool() == value) {
-            result = true;
-            break;
-          }
-        } else if constexpr (std::is_same_v<TInput, int64_t>) {
-          if (v.type() == simdjson::ondemand::json_type::number &&
-              v.get_number_type() ==
-                  simdjson::ondemand::number_type::signed_integer &&
-              v.get_int64() == value) {
-            result = true;
-            break;
-          }
-        } else if constexpr (std::is_same_v<TInput, double>) {
-          if (v.type() == simdjson::ondemand::json_type::number &&
-              v.get_number_type() ==
-                  simdjson::ondemand::number_type::floating_point_number &&
-              v.get_double() == value) {
-            result = true;
-            break;
-          }
-        } else {
-          if (v.type() == simdjson::ondemand::json_type::string) {
-            std::string_view rlt = v.get_string();
-            std::string str_value{value.getString()};
-            if (rlt.compare(str_value) == 0) {
-              result = true;
-              break;
-            }
-          }
+      if (v.error()) {
+        return false;
+      }
+      if constexpr (std::is_same_v<T, bool>) {
+        bool boolValue;
+        if (v.type() == simdjson::ondemand::json_type::boolean &&
+            !v.get_bool().get(boolValue) && boolValue == value) {
+          result = true;
+          break;
         }
-      } catch (const simdjson::simdjson_error& e) {
-        // For bool/int64_t/double type, "get_bool()/get_int64()/get_double()"
-        // may throw an exception if the conversion of json value to the
-        // specified type failed, and the corresponding error code is
-        // "INCORRECT_TYPE" or "NUMBER_ERROR".
-        // If there are multiple json values in the json array, and some of them
-        // cannot be converted to the type of input `value`, it should not
-        // return null directly. It should continue to judge whether there is a
-        // json value that matches the input value, e.g.
-        // jsonArrayContains("[truet, false]", false) => true.
-        if (e.error() != simdjson::INCORRECT_TYPE &&
-            e.error() != simdjson::NUMBER_ERROR) {
-          return false;
+      } else if constexpr (std::is_same_v<T, int64_t>) {
+        int64_t intValue;
+        if (v.type() == simdjson::ondemand::json_type::number &&
+            v.get_number_type() ==
+                simdjson::ondemand::number_type::signed_integer &&
+            !v.get_int64().get(intValue) && intValue == value) {
+          result = true;
+          break;
+        }
+      } else if constexpr (std::is_same_v<T, double>) {
+        double doubleValue;
+        if (v.type() == simdjson::ondemand::json_type::number &&
+            v.get_number_type() ==
+                simdjson::ondemand::number_type::floating_point_number &&
+            !v.get_double().get(doubleValue) && doubleValue == value) {
+          result = true;
+          break;
+        }
+      } else {
+        std::string_view stringValue;
+        if (v.type() == simdjson::ondemand::json_type::string &&
+            !v.get_string().get(stringValue) &&
+            ((std::string_view)value).compare(stringValue) == 0) {
+          result = true;
+          break;
         }
       }
     }

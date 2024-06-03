@@ -443,11 +443,15 @@ TEST_F(JsonFunctionsTest, jsonArrayContainsBigint) {
   EXPECT_EQ(
       jsonArrayContains<int64_t>(R"("thefoxjumpedoverthefence")", 1),
       std::nullopt);
+
   EXPECT_EQ(jsonArrayContains<int64_t>(R"("")", 1), std::nullopt);
   EXPECT_EQ(jsonArrayContains<int64_t>(R"(true)", 1), std::nullopt);
   EXPECT_EQ(
       jsonArrayContains<int64_t>(R"({"k1":[0,1,2], "k2":"v1"})", 1),
       std::nullopt);
+
+  EXPECT_EQ(jsonArrayContains<int64_t>(R"([1, 2, 3,...)", 2), std::nullopt);
+  EXPECT_EQ(jsonArrayContains<int64_t>(R"([1, 2, 3,...)", 5), std::nullopt);
 
   EXPECT_EQ(jsonArrayContains<int64_t>(R"([1, 2, 3])", 1), true);
   EXPECT_EQ(jsonArrayContains<int64_t>(R"([1, 2, 3])", 4), false);
