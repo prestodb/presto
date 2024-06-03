@@ -66,6 +66,7 @@ import static com.facebook.presto.SystemSessionProperties.MERGE_DUPLICATE_AGGREG
 import static com.facebook.presto.SystemSessionProperties.OFFSET_CLAUSE_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZER_USE_HISTOGRAMS;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_CASE_EXPRESSION_PREDICATE;
+import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
 import static com.facebook.presto.SystemSessionProperties.PREFILTER_FOR_GROUPBY_LIMIT;
 import static com.facebook.presto.SystemSessionProperties.PREFILTER_FOR_GROUPBY_LIMIT_TIMEOUT_MS;
 import static com.facebook.presto.SystemSessionProperties.PRE_PROCESS_METADATA_CALLS;
@@ -7571,5 +7572,58 @@ public abstract class AbstractTestQueries
         assertTrue(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("SemiJoin") != -1);
         result = computeActual(session, testQuery);
         assertTrue(result.getRowCount() == 25);
+    }
+
+    /**
+     * When optimize_hash_generation is enabled, the "hash_code" operator is used for
+     * hashing join/group by values. When it is disabled Type.hash() is used.
+     * We want to test both code paths.
+     */
+    @DataProvider(name = "optimize_hash_generation")
+    public Object[][] optimizeHashGeneration()
+    {
+        return new Object[][] {{"true"}, {"false"}};
+    }
+
+    @Test(dataProvider = "optimize_hash_generation")
+    public void testDoubleJoinPositiveAndNegativeZero(String optimizeHashGeneration)
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_HASH_GENERATION, optimizeHashGeneration)
+                .build();
+        assertQuery(session, "WITH t AS ( SELECT * FROM (VALUES(DOUBLE '0.0'), (DOUBLE '-0.0'))_t(x)) SELECT * FROM t t1 JOIN t t2 on t1.x = t2.x",
+                "SELECT * FROM (VALUES (0.0, 0.0), (0.0, -0.0), (-0.0, 0.0), (-0.0, -0.0))");
+    }
+
+    @Test(dataProvider = "optimize_hash_generation")
+    public void testRealJoinPositiveAndNegativeZero(String optimizeHashGeneration)
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_HASH_GENERATION, optimizeHashGeneration)
+                .build();
+        assertQuery(session, "WITH t AS ( SELECT * FROM (VALUES(REAL '0.0'), (REAL '-0.0'))_t(x)) SELECT * FROM t t1 JOIN t t2 on t1.x = t2.x",
+                "SELECT * FROM (VALUES " +
+                        "(CAST (0.0 AS REAL), CAST (0.0 AS REAL)), " +
+                        "(CAST (0.0 AS REAL),  CAST(-0.0 AS REAL)), " +
+                        "(CAST (-0.0 AS REAL), CAST(0.0 AS REAL)), " +
+                        "(CAST (-0.0 AS REAL), CAST(-0.0 AS REAL)))");
+    }
+
+    @Test(dataProvider = "optimize_hash_generation")
+    public void testDoubleDistinctPositiveAndNegativeZero(String optimizeHashGeneration)
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_HASH_GENERATION, optimizeHashGeneration)
+                .build();
+        assertQuery(session, "SELECT DISTINCT x FROM (VALUES (DOUBLE '0.0'), (DOUBLE '-0.0')) t(x)", "SELECT 0.0");
+    }
+
+    @Test(dataProvider = "optimize_hash_generation")
+    public void testRealDistinctPositiveAndNegativeZero(String optimizeHashGeneration)
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_HASH_GENERATION, optimizeHashGeneration)
+                .build();
+        assertQuery(session, "SELECT DISTINCT x FROM (VALUES (REAL '0.0'), (REAL '-0.0')) t(x)", "SELECT  CAST(0.0 AS REAL)");
     }
 }
