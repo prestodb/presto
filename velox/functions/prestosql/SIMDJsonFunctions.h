@@ -173,7 +173,7 @@ struct SIMDJsonArrayGetFunction {
       if (index >= numElements) {
         return false;
       }
-    } else if (numElements + index < 0) {
+    } else if ((int64_t)numElements + index < 0) {
       return false;
     } else {
       index += numElements;
