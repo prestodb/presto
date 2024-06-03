@@ -20,6 +20,7 @@ import static java.util.Objects.requireNonNull;
 
 public class LambdaDescriptor
 {
+    public static final int DEDUCE_CALL_ARGUMENT_FROM_FUNCTION_SIGNATURE = -1;
     /**
      * Index of the argument in the Call expression of the lambda function that this LambdaDescriptor represents
      */
@@ -34,6 +35,11 @@ public class LambdaDescriptor
     {
         this.callArgumentIndex = callArgumentIndex;
         this.lambdaArgumentDescriptors = requireNonNull(lambdaArgumentDescriptors, "lambdaArgumentDescriptors is null");
+    }
+
+    public LambdaDescriptor(Map<Integer, LambdaArgumentDescriptor> lambdaArgumentDescriptors)
+    {
+        this(DEDUCE_CALL_ARGUMENT_FROM_FUNCTION_SIGNATURE, lambdaArgumentDescriptors);
     }
 
     public int getCallArgumentIndex()

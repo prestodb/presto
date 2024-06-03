@@ -23,6 +23,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.ScalarFunctionDescriptor;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.google.common.annotations.VisibleForTesting;
@@ -39,7 +40,10 @@ import static java.lang.System.arraycopy;
 import static java.util.Arrays.setAll;
 
 @Description("Returns n-element combinations from array")
-@ScalarFunction("combinations")
+@ScalarFunction(value = "combinations", descriptor = @ScalarFunctionDescriptor(
+        isAccessingInputValues = false,
+        outputToInputTransformationFunction = "removeSecondPathElement",
+        lambdaDescriptors = {}))
 public final class ArrayCombinationsFunction
 {
     private ArrayCombinationsFunction() {}

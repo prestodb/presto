@@ -15,7 +15,9 @@ package com.facebook.presto.spi.function;
 
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.spi.PrestoException;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
@@ -23,16 +25,17 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import java.util.stream.IntStream;
 
-import static com.facebook.presto.common.Subfield.allSubscripts;
 import static com.facebook.presto.common.Utils.checkArgument;
+import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
+import static com.facebook.presto.spi.function.LambdaDescriptor.DEDUCE_CALL_ARGUMENT_FROM_FUNCTION_SIGNATURE;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptySet;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 /**
  * Contains properties that describe how the function operates on Map or Array inputs.
@@ -44,7 +47,7 @@ public class ComplexTypeFunctionDescriptor
             true,
             emptyList(),
             Optional.of(emptySet()),
-            Optional.of(ComplexTypeFunctionDescriptor::allSubfieldsRequired));
+            Optional.of(SubfieldPathTransformationFunctions::allSubfieldsRequired));
 
     /**
      * Indicates whether the function accessing subfields.
@@ -90,13 +93,13 @@ public class ComplexTypeFunctionDescriptor
             Optional<Function<Set<Subfield>, Set<Subfield>>> outputToInputTransformationFunction,
             List<TypeSignature> argumentTypes)
     {
-        this(isAccessingInputValues, lambdaDescriptors, argumentIndicesContainingMapOrArray, outputToInputTransformationFunction);
+        this(isAccessingInputValues, deduceLambdaDescriptorsCallArgumentIndex(lambdaDescriptors, argumentTypes), argumentIndicesContainingMapOrArray, outputToInputTransformationFunction);
         if (argumentIndicesContainingMapOrArray.isPresent()) {
             checkArgument(argumentIndicesContainingMapOrArray.get().stream().allMatch(index -> index >= 0 &&
                     index < argumentTypes.size() &&
                     MAP_AND_ARRAY.contains(argumentTypes.get(index).getBase().toLowerCase(Locale.ENGLISH))));
         }
-        for (LambdaDescriptor lambdaDescriptor : lambdaDescriptors) {
+        for (LambdaDescriptor lambdaDescriptor : this.lambdaDescriptors) {
             checkArgument(lambdaDescriptor.getCallArgumentIndex() >= 0 && argumentTypes.get(lambdaDescriptor.getCallArgumentIndex()).isFunction());
             checkArgument(lambdaDescriptor.getLambdaArgumentDescriptors().keySet().stream().allMatch(
                     argumentIndex -> argumentIndex >= 0 && argumentIndex < argumentTypes.size()));
@@ -123,6 +126,28 @@ public class ComplexTypeFunctionDescriptor
                 Optional.of(unmodifiableSet(argumentIndicesContainingMapOrArray.get())) :
                 Optional.empty();
         this.outputToInputTransformationFunction = requireNonNull(outputToInputTransformationFunction, "outputToInputTransformationFunction is null");
+    }
+
+    private static List<LambdaDescriptor> deduceLambdaDescriptorsCallArgumentIndex(List<LambdaDescriptor> lambdaDescriptors, List<TypeSignature> functionArguments)
+    {
+        if (lambdaDescriptors.stream().noneMatch(lambdaDescriptor -> lambdaDescriptor.getCallArgumentIndex() == DEDUCE_CALL_ARGUMENT_FROM_FUNCTION_SIGNATURE) ||
+                lambdaDescriptors.isEmpty()) {
+            return lambdaDescriptors;
+        }
+        if (lambdaDescriptors.isEmpty()) {
+            return emptyList();
+        }
+        List<Integer> lambdaArgumentsIndexes = IntStream
+                .range(0, functionArguments.size())
+                .filter(i -> functionArguments.get(i).isFunction())
+                .collect(ArrayList::new, List::add, List::addAll);
+        if (lambdaDescriptors.size() != lambdaArgumentsIndexes.size()) {
+            throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR,
+                    "Function descriptor lambda descriptor counts does not match number of function's input argument of function types");
+        }
+        return IntStream.range(0, lambdaArgumentsIndexes.size())
+                .mapToObj(i -> new LambdaDescriptor(lambdaArgumentsIndexes.get(i), lambdaDescriptors.get(i).getLambdaArgumentDescriptors()))
+                .collect(toList());
     }
 
     public static ComplexTypeFunctionDescriptor defaultFunctionDescriptor()
@@ -175,60 +200,5 @@ public class ComplexTypeFunctionDescriptor
     public int hashCode()
     {
         return Objects.hash(isAccessingInputValues, argumentIndicesContainingMapOrArray, outputToInputTransformationFunction, lambdaDescriptors);
-    }
-
-    /**
-     * Adds <code>allSubscripts</code> on top of the path for every subfield in 'subfields'.
-     *
-     * @param subfields set of Subfield to transform
-     * @return transformed copy of the input set of subfields with <code>allSubscripts</code>.
-     */
-    public static Set<Subfield> prependAllSubscripts(Set<Subfield> subfields)
-    {
-        return subfields.stream().map(subfield -> new Subfield(subfield.getRootName(),
-                        unmodifiableList(
-                                Stream.concat(
-                                        Arrays.asList(allSubscripts()).stream(),
-                                        subfield.getPath().stream()).collect(Collectors.toList()))))
-                .collect(Collectors.toSet());
-    }
-
-    /**
-     * Transformation function that overrides all lambda subfields from outer functions with the single subfield with <code>allSubscripts</code> in its path.
-     * Essentially, it instructs to include all subfields of the array element or map value. This function is most commonly used with the function that
-     * returns the entire value from its input or accesses input values internally.
-     *
-     * @return one subfield with <code>allSubscripts</code> in its path.
-     */
-    public static Set<Subfield> allSubfieldsRequired(Set<Subfield> subfields)
-    {
-        if (subfields.isEmpty()) {
-            return unmodifiableSet(Stream.of(new Subfield("", Arrays.asList(allSubscripts()))).collect(Collectors.toSet()));
-        }
-        return subfields;
-    }
-
-    /**
-     * Transformation function that removes any previously accessed subfields. This function is most commonly used with the function that do not return values from its input.
-     *
-     * @return empty set.
-     */
-    public static Set<Subfield> clearRequiredSubfields(Set<Subfield> ignored)
-    {
-        return emptySet();
-    }
-
-    /**
-     * Removes the second path element from every subfield in 'subfields'.
-     *
-     * @param subfields set of Subfield to transform
-     * @return transformed copy of the input set of subfields with removed the second path element.
-     */
-    public static Set<Subfield> removeSecondPathElement(Set<Subfield> subfields)
-    {
-        return subfields.stream().map(subfield -> new Subfield(subfield.getRootName(),
-                        unmodifiableList(
-                                Stream.concat(Arrays.asList(subfield.getPath().get(0)).stream(), subfield.getPath().stream().skip(2)).collect(Collectors.toList()))))
-                .collect(Collectors.toSet());
     }
 }

@@ -18,11 +18,12 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.ScalarFunctionDescriptor;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 
-@ScalarFunction("reverse")
 @Description("Returns an array which has the reversed order of the given array.")
+@ScalarFunction(value = "reverse", descriptor = @ScalarFunctionDescriptor(isAccessingInputValues = false))
 public final class ArrayReverseFunction
 {
     @TypeParameter("E")
