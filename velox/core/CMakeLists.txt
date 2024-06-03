@@ -16,7 +16,10 @@ if(${VELOX_BUILD_TESTING})
 endif()
 
 add_library(velox_config Config.cpp)
-target_link_libraries(velox_config PUBLIC velox_exception Folly::folly)
+target_link_libraries(
+  velox_config
+  PUBLIC velox_exception Folly::folly
+  PRIVATE velox_type_tz)
 
 add_library(velox_core Expressions.cpp PlanFragment.cpp PlanNode.cpp
                        QueryConfig.cpp QueryCtx.cpp SimpleFunctionMetadata.cpp)
