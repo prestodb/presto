@@ -286,6 +286,13 @@ Probability Functions: cdf
     Compute the Gamma cdf with given shape and scale parameters: P(N < value; shape, scale).
     The shape and scale parameters must be positive real numbers. The value must be a non-negative real number.
 
+.. function:: inverse_normal_cdf(mean, sd, p) -> double
+
+    Compute the inverse of the Normal cdf with given mean and standard
+    deviation (sd) for the cumulative probability (p): P(N < n). The mean must be
+    a real value and the standard deviation must be a real and positive value (both of type DOUBLE).
+    The probability p must lie on the interval (0, 1).
+
 .. function:: laplace_cdf(mean, scale, value) -> double
 
      Compute the Laplace cdf with given mean and scale parameters: P(N < value; mean, scale).

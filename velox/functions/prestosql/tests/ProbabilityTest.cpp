@@ -453,5 +453,54 @@ TEST_F(ProbabilityTest, weibullCDF) {
       weibullCDF(kDoubleMin, kNan, kDoubleMax), "b must be greater than 0");
 }
 
+TEST_F(ProbabilityTest, inverseNormalCDF) {
+  const auto inverseNormalCDF = [&](std::optional<double> mean,
+                                    std::optional<double> sd,
+                                    std::optional<double> p) {
+    return evaluateOnce<double>("inverse_normal_cdf(c0, c1, c2)", mean, sd, p);
+  };
+
+  EXPECT_EQ(inverseNormalCDF(0, 1, 0.3), -0.52440051270804089);
+  EXPECT_EQ(inverseNormalCDF(10, 9, 0.9), 21.533964089901406);
+  EXPECT_EQ(inverseNormalCDF(0.5, 0.25, 0.65), 0.59633011660189195);
+  EXPECT_EQ(inverseNormalCDF(0, 1, 0.00001), -4.2648907939226017);
+
+  EXPECT_EQ(inverseNormalCDF(kDoubleMin, 0.25, 0.65), 0.096330116601891919);
+  EXPECT_EQ(inverseNormalCDF(kDoubleMax, 0.25, 0.65), 1.7976931348623157e+308);
+  EXPECT_EQ(inverseNormalCDF(0.5, kDoubleMin, 0.65), 0.5);
+  EXPECT_THAT(inverseNormalCDF(0.5, kDoubleMax, 0.65), IsInf());
+  EXPECT_THAT(inverseNormalCDF(kNan, 2, 0.1985), IsNan());
+
+  EXPECT_EQ(inverseNormalCDF(std::nullopt, 1, 1), std::nullopt);
+  EXPECT_EQ(inverseNormalCDF(1, 1, std::nullopt), std::nullopt);
+  EXPECT_EQ(inverseNormalCDF(std::nullopt, 1, std::nullopt), std::nullopt);
+  EXPECT_EQ(
+      inverseNormalCDF(std::nullopt, std::nullopt, std::nullopt), std::nullopt);
+
+  EXPECT_THAT(inverseNormalCDF(kInf, 1, 0.1985), IsInf());
+  EXPECT_THAT(inverseNormalCDF(0, kInf, 0.1985), IsInf());
+  EXPECT_THAT(inverseNormalCDF(-kInf, 1, 0.1985), IsInf());
+
+  // Test invalid inputs.
+  VELOX_ASSERT_THROW(
+      inverseNormalCDF(0, -kInf, 0.1985), "standardDeviation must be > 0");
+  VELOX_ASSERT_THROW(inverseNormalCDF(0, 1, kInf), "p must be 0 > p > 1");
+  VELOX_ASSERT_THROW(inverseNormalCDF(0, 1, -kInf), "p must be 0 > p > 1");
+
+  VELOX_ASSERT_THROW(
+      inverseNormalCDF(0, kNan, 0.1985), "standardDeviation must be > 0");
+  VELOX_ASSERT_THROW(inverseNormalCDF(0, 1, kNan), "p must be 0 > p > 1");
+  VELOX_ASSERT_THROW(inverseNormalCDF(kNan, kNan, kNan), "p must be 0 > p > 1");
+
+  VELOX_ASSERT_THROW(inverseNormalCDF(0, 1, kDoubleMax), "p must be 0 > p > 1");
+  VELOX_ASSERT_THROW(
+      inverseNormalCDF(0, 1, kDoubleMin),
+      "Error in function boost::math::erf_inv<double>(double, double): Overflow Error");
+
+  VELOX_ASSERT_THROW(
+      inverseNormalCDF(0, 0, 0.1985), "standardDeviation must be > 0");
+  VELOX_ASSERT_THROW(inverseNormalCDF(0, 1, 1.00001), "p must be 0 > p > 1");
+}
+
 } // namespace
 } // namespace facebook::velox
