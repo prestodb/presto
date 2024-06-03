@@ -258,33 +258,6 @@ Status toDecimalValue(
 }
 } // namespace detail
 
-template <bool adjustForTimeZone>
-void CastExpr::castTimestampToDate(
-    const SelectivityVector& rows,
-    const BaseVector& input,
-    exec::EvalCtx& context,
-    VectorPtr& result,
-    const date::time_zone* timeZone) {
-  auto* resultFlatVector = result->as<FlatVector<int32_t>>();
-  static const int32_t kSecsPerDay{86'400};
-  auto inputVector = input.as<SimpleVector<Timestamp>>();
-  applyToSelectedNoThrowLocal(context, rows, result, [&](int row) {
-    auto input = inputVector->valueAt(row);
-    if constexpr (adjustForTimeZone) {
-      input.toTimezone(*timeZone);
-    }
-    auto seconds = input.getSeconds();
-    if (seconds >= 0 || seconds % kSecsPerDay == 0) {
-      resultFlatVector->set(row, seconds / kSecsPerDay);
-    } else {
-      // For division with negatives, minus 1 to compensate the discarded
-      // fractional part. e.g. -1/86'400 yields 0, yet it should be
-      // considered as -1 day.
-      resultFlatVector->set(row, seconds / kSecsPerDay - 1);
-    }
-  });
-}
-
 template <typename Func>
 void CastExpr::applyToSelectedNoThrowLocal(
     EvalCtx& context,

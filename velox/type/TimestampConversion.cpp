@@ -798,4 +798,26 @@ Expected<std::pair<Timestamp, int64_t>> fromTimestampWithTimezoneString(
   return std::make_pair(resultTimestamp, timezoneID);
 }
 
+int32_t toDate(const Timestamp& timestamp, const date::time_zone* timeZone_) {
+  auto convertToDate = [](const Timestamp& t) -> int32_t {
+    static const int32_t kSecsPerDay{86'400};
+    auto seconds = t.getSeconds();
+    if (seconds >= 0 || seconds % kSecsPerDay == 0) {
+      return seconds / kSecsPerDay;
+    }
+    // For division with negatives, minus 1 to compensate the discarded
+    // fractional part. e.g. -1/86'400 yields 0, yet it should be considered
+    // as -1 day.
+    return seconds / kSecsPerDay - 1;
+  };
+
+  if (timeZone_ != nullptr) {
+    Timestamp copy = timestamp;
+    copy.toTimezone(*timeZone_);
+    return convertToDate(copy);
+  }
+
+  return convertToDate(timestamp);
+}
+
 } // namespace facebook::velox::util

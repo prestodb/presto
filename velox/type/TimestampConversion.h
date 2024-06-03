@@ -207,4 +207,8 @@ inline Expected<std::pair<Timestamp, int64_t>> fromTimestampWithTimezoneString(
 
 Timestamp fromDatetime(int64_t daysSinceEpoch, int64_t microsSinceMidnight);
 
+/// Returns the number of days since epoch for a given timestamp and optional
+/// time zone.
+int32_t toDate(const Timestamp& timestamp, const date::time_zone* timeZone_);
+
 } // namespace facebook::velox::util

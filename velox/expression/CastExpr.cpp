@@ -144,6 +144,18 @@ Status detail::parseHugeInt(
   return Status::OK();
 }
 
+namespace {
+const date::time_zone* getTimeZoneFromConfig(const core::QueryConfig& config) {
+  if (config.adjustTimestampToTimezone()) {
+    const auto sessionTzName = config.sessionTimezone();
+    if (!sessionTzName.empty()) {
+      return date::locate_zone(sessionTzName);
+    }
+  }
+  return nullptr;
+}
+} // namespace
+
 VectorPtr CastExpr::castFromDate(
     const SelectivityVector& rows,
     const BaseVector& input,
@@ -180,12 +192,8 @@ VectorPtr CastExpr::castFromDate(
     }
     case TypeKind::TIMESTAMP: {
       static const int64_t kMillisPerDay{86'400'000};
-      const auto& queryConfig = context.execCtx()->queryCtx()->queryConfig();
-      const auto sessionTzName = queryConfig.sessionTimezone();
       const auto* timeZone =
-          (queryConfig.adjustTimestampToTimezone() && !sessionTzName.empty())
-          ? date::locate_zone(sessionTzName)
-          : nullptr;
+          getTimeZoneFromConfig(context.execCtx()->queryCtx()->queryConfig());
       auto* resultFlatVector = castResult->as<FlatVector<Timestamp>>();
       applyToSelectedNoThrowLocal(context, rows, castResult, [&](int row) {
         auto timestamp = Timestamp::fromMillis(
@@ -255,14 +263,13 @@ VectorPtr CastExpr::castToDate(
       return castResult;
     }
     case TypeKind::TIMESTAMP: {
-      const auto& queryConfig = context.execCtx()->queryCtx()->queryConfig();
-      auto sessionTzName = queryConfig.sessionTimezone();
-      if (queryConfig.adjustTimestampToTimezone() && !sessionTzName.empty()) {
-        auto* timeZone = date::locate_zone(sessionTzName);
-        castTimestampToDate<true>(rows, input, context, castResult, timeZone);
-      } else {
-        castTimestampToDate<false>(rows, input, context, castResult);
-      }
+      auto* inputVector = input.as<SimpleVector<Timestamp>>();
+      const auto* timeZone =
+          getTimeZoneFromConfig(context.execCtx()->queryCtx()->queryConfig());
+      applyToSelectedNoThrowLocal(context, rows, castResult, [&](int row) {
+        const auto days = util::toDate(inputVector->valueAt(row), timeZone);
+        resultFlatVector->set(row, days);
+      });
       return castResult;
     }
     default:

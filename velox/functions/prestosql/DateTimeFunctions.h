@@ -101,8 +101,6 @@ template <typename T>
 struct DateFunction : public TimestampWithTimezoneSupport<T> {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
-  const date::time_zone* timeZone_ = nullptr;
-
   FOLLY_ALWAYS_INLINE void initialize(
       const std::vector<TypePtr>& /*inputTypes*/,
       const core::QueryConfig& config,
@@ -130,39 +128,20 @@ struct DateFunction : public TimestampWithTimezoneSupport<T> {
     result = DATE()->toDays(date);
   }
 
-  int32_t timestampToDate(const Timestamp& input) {
-    auto convertToDate = [](const Timestamp& t) -> int32_t {
-      static const int32_t kSecsPerDay{86'400};
-      auto seconds = t.getSeconds();
-      if (seconds >= 0 || seconds % kSecsPerDay == 0) {
-        return seconds / kSecsPerDay;
-      }
-      // For division with negatives, minus 1 to compensate the discarded
-      // fractional part. e.g. -1/86'400 yields 0, yet it should be considered
-      // as -1 day.
-      return seconds / kSecsPerDay - 1;
-    };
-
-    if (timeZone_ != nullptr) {
-      Timestamp t = input;
-      t.toTimezone(*timeZone_);
-      return convertToDate(t);
-    }
-
-    return convertToDate(input);
-  }
-
   FOLLY_ALWAYS_INLINE void call(
       out_type<Date>& result,
       const arg_type<Timestamp>& timestamp) {
-    result = timestampToDate(timestamp);
+    result = util::toDate(timestamp, timeZone_);
   }
 
   FOLLY_ALWAYS_INLINE void call(
       out_type<Date>& result,
       const arg_type<TimestampWithTimezone>& timestampWithTimezone) {
-    result = timestampToDate(this->toTimestamp(timestampWithTimezone));
+    result = util::toDate(this->toTimestamp(timestampWithTimezone), timeZone_);
   }
+
+ private:
+  const date::time_zone* timeZone_ = nullptr;
 };
 
 template <typename T>

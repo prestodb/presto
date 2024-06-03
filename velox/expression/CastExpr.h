@@ -287,14 +287,6 @@ class CastExpr : public SpecialForm {
       const BaseVector& input,
       VectorPtr& result);
 
-  template <bool adjustForTimeZone>
-  void castTimestampToDate(
-      const SelectivityVector& rows,
-      const BaseVector& input,
-      exec::EvalCtx& context,
-      VectorPtr& result,
-      const date::time_zone* timeZone = nullptr);
-
   VectorPtr applyTimestampToVarcharCast(
       const TypePtr& toType,
       const SelectivityVector& rows,
