@@ -53,7 +53,8 @@ target_link_libraries(
   gtest_main
   gmock
   glog::glog
-  fmt::fmt)
+  fmt::fmt
+  protobuf::libprotobuf)
 
 add_executable(velox_dwio_common_data_buffer_benchmark DataBufferBenchmark.cpp)
 

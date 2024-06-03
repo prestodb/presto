@@ -222,15 +222,6 @@ if(VELOX_ENABLE_S3)
   add_definitions(-DVELOX_ENABLE_S3)
 endif()
 
-if(VELOX_ENABLE_GCS)
-  # Set GCS_ROOT_DIR if you have a custom install location of GCS SDK CPP.
-  if(GCSSDK_ROOT_DIR)
-    list(APPEND CMAKE_PREFIX_PATH ${GCSSDK_ROOT_DIR})
-  endif()
-  find_package(google_cloud_cpp_storage REQUIRED)
-  add_definitions(-DVELOX_ENABLE_GCS)
-endif()
-
 if(VELOX_ENABLE_ABFS)
   # Set AZURESDK_ROOT_DIR if you have a custom install location of Azure Storage
   # SDK CPP.
@@ -442,6 +433,18 @@ if(${VELOX_BUILD_PYTHON_PACKAGE})
   add_subdirectory(pyvelox)
 endif()
 
+# DWIO (ORC/DWRF) and Substrait depend on protobuf.
+if(${VELOX_BUILD_MINIMAL_WITH_DWIO}
+   OR ${VELOX_ENABLE_HIVE_CONNECTOR}
+   OR ${VELOX_ENABLE_SUBSTRAIT}
+   OR VELOX_ENABLE_GCS)
+
+  # Locate or build protobuf.
+  set_source(Protobuf)
+  resolve_dependency(Protobuf 3.21.4 EXACT)
+  include_directories(${Protobuf_INCLUDE_DIRS})
+endif()
+
 set_source(simdjson)
 resolve_dependency(simdjson 3.8.0)
 
@@ -464,14 +467,10 @@ else()
   set(FOLLY_BENCHMARK Folly::follybenchmark)
 endif()
 
-# DWIO (ORC/DWRF) and Substrait depend on protobuf.
-if(${VELOX_BUILD_MINIMAL_WITH_DWIO}
-   OR ${VELOX_ENABLE_HIVE_CONNECTOR}
-   OR ${VELOX_ENABLE_SUBSTRAIT})
-  # Locate or build protobuf.
-  set_source(Protobuf)
-  resolve_dependency(Protobuf 3.21 EXACT)
-  include_directories(${Protobuf_INCLUDE_DIRS})
+if(VELOX_ENABLE_GCS)
+  set_source(google_cloud_cpp_storage)
+  resolve_dependency(google_cloud_cpp_storage 2.22.0 EXACT)
+  add_definitions(-DVELOX_ENABLE_GCS)
 endif()
 
 # GCC needs to link a library to enable std::filesystem.

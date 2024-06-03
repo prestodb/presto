@@ -45,5 +45,5 @@ add_library(velox_dwio_dwrf_proto ${PROTO_HDRS} ${PROTO_SRCS})
 # Access generated proto file with.
 #
 # #include "velox/dwio/dwrf/proto/dwrf_proto.pb.h"
-target_link_libraries(velox_dwio_dwrf_proto ${Protobuf_LIBRARIES})
+target_link_libraries(velox_dwio_dwrf_proto protobuf::libprotobuf)
 target_include_directories(velox_dwio_dwrf_proto PUBLIC ${PROJECT_BINARY_DIR})

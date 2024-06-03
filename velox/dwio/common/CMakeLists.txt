@@ -62,8 +62,6 @@ add_library(
   Writer.cpp
   WriterFactory.cpp)
 
-target_include_directories(velox_dwio_common PRIVATE ${Protobuf_INCLUDE_DIRS})
-
 target_link_libraries(
   velox_dwio_common
   velox_buffer
@@ -77,4 +75,5 @@ target_link_libraries(
   velox_memory
   Boost::regex
   Folly::folly
-  glog::glog)
+  glog::glog
+  protobuf::libprotobuf)

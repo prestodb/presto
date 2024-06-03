@@ -70,9 +70,6 @@ jobs:
         # it doesn't work
         run: git config --global --add safe.directory /__w/velox/velox
 
-      - name: Install cmake
-        run: python3 -m pip install cmake==3.28.3
-
       - uses: assignUser/stash/restore@v1
         with:
           path: '${{ env.CCACHE_DIR }}'
