@@ -117,7 +117,7 @@ void SelectiveIntegerDictionaryColumnReader::ensureInitialized() {
 
   Timer timer;
   scanState_.dictionary.values = dictInit_();
-  if (scanSpec_->hasFilter()) {
+  if (DictionaryValues::hasFilter(scanSpec_->filter())) {
     // Make sure there is a cache even for an empty dictionary because of asan
     // failure when preparing a gather with all lanes masked out.
     scanState_.filterCache.resize(

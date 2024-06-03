@@ -50,6 +50,17 @@ struct DictionaryValues {
     numValues = 0;
     sorted = false;
   }
+
+  /// Whether the dictionary values have filter on it.
+  static bool hasFilter(const velox::common::Filter* filter) {
+    // Dictionary values cannot be null.  It's by design not possible in ORC and
+    // Parquet; in other formats even when it is possible in theory, it should
+    // not be used in a normal file because outside dictionary we only need 1
+    // bit to encode a null, but if we move it inside dictionary, we would need
+    // 1 integer to encode a null.  A sanity check can be added on encoding
+    // metadata for such formats.
+    return filter && filter->kind() != velox::common::FilterKind::kIsNotNull;
+  }
 };
 
 struct RawDictionaryState {

@@ -756,7 +756,7 @@ class DictionaryColumnVisitor
     vector_size_t previous =
         isDense && TFilter::deterministic ? 0 : super::currentRow();
     T valueInDictionary = dict()[value];
-    if (std::is_same_v<TFilter, velox::common::AlwaysTrue>) {
+    if constexpr (!hasFilter()) {
       super::filterPassed(valueInDictionary);
     } else {
       // check the dictionary cache
@@ -811,7 +811,7 @@ class DictionaryColumnVisitor
       T* values,
       int32_t& numValues) {
     DCHECK_EQ(input, values + numValues);
-    if (!hasFilter) {
+    if constexpr (!DictionaryColumnVisitor::hasFilter()) {
       if (hasHook) {
         translateByDict(input, numInput, values);
         super::values_.hook().addValues(
@@ -824,17 +824,28 @@ class DictionaryColumnVisitor
         super::rowIndex_ += numInput;
         return;
       }
-      if (inDict()) {
-        translateScatter<true, scatter>(
-            input, numInput, scatterRows, numValues, values);
+      if constexpr (std::is_same_v<TFilter, velox::common::IsNotNull>) {
+        auto* begin = (scatter ? scatterRows : super::rows_) + super::rowIndex_;
+        std::copy(begin, begin + numInput, filterHits + numValues);
+        if constexpr (!super::kFilterOnly) {
+          translateByDict(input, numInput, values + numValues);
+        }
+        numValues += numInput;
       } else {
-        translateScatter<false, scatter>(
-            input, numInput, scatterRows, numValues, values);
+        if (inDict()) {
+          translateScatter<true, scatter>(
+              input, numInput, scatterRows, numValues, values);
+        } else {
+          translateScatter<false, scatter>(
+              input, numInput, scatterRows, numValues, values);
+        }
+        numValues = scatter ? scatterRows[super::rowIndex_ + numInput - 1] + 1
+                            : numValues + numInput;
       }
       super::rowIndex_ += numInput;
-      numValues = scatter ? scatterRows[super::rowIndex_ - 1] + 1
-                          : numValues + numInput;
       return;
+    } else {
+      static_assert(hasFilter);
     }
     // The filter path optionally extracts values but always sets
     // filterHits. It first loads a vector of indices. It translates
@@ -1091,6 +1102,13 @@ class DictionaryColumnVisitor
     return state_.filterCache;
   }
 
+  static constexpr bool hasFilter() {
+    // Dictionary values cannot be null.  See the explanation in
+    // `DictionaryValues::hasFilter'.
+    return !std::is_same_v<TFilter, velox::common::AlwaysTrue> &&
+        !std::is_same_v<TFilter, velox::common::IsNotNull>;
+  }
+
   RawScanState state_;
   const uint8_t width_;
 };
@@ -1141,7 +1159,7 @@ class StringDictionaryColumnVisitor
     }
     vector_size_t previous =
         isDense && TFilter::deterministic ? 0 : super::currentRow();
-    if (std::is_same_v<TFilter, velox::common::AlwaysTrue>) {
+    if constexpr (!DictSuper::hasFilter()) {
       super::filterPassed(index);
     } else {
       // check the dictionary cache
@@ -1194,7 +1212,7 @@ class StringDictionaryColumnVisitor
       int32_t& numValues) {
     DCHECK(input == values + numValues);
     setByInDict(values + numValues, numInput);
-    if (!hasFilter) {
+    if constexpr (!DictSuper::hasFilter()) {
       if (hasHook) {
         for (auto i = 0; i < numInput; ++i) {
           auto value = input[i];
@@ -1204,15 +1222,21 @@ class StringDictionaryColumnVisitor
               value);
         }
       }
-      DCHECK_EQ(input, values + numValues);
-      if (scatter) {
+      if constexpr (std::is_same_v<TFilter, velox::common::IsNotNull>) {
+        auto* begin = (scatter ? scatterRows : super::rows_) + super::rowIndex_;
+        std::copy(begin, begin + numInput, filterHits + numValues);
+        numValues += numInput;
+      } else if constexpr (scatter) {
         dwio::common::scatterDense(
             input, scatterRows + super::rowIndex_, numInput, values);
+        numValues = scatterRows[super::rowIndex_ + numInput - 1] + 1;
+      } else {
+        numValues += numInput;
       }
-      numValues = scatter ? scatterRows[super::rowIndex_ + numInput - 1] + 1
-                          : numValues + numInput;
       super::rowIndex_ += numInput;
       return;
+    } else {
+      static_assert(hasFilter);
     }
     constexpr bool filterOnly =
         std::is_same_v<typename super::Extract, DropValues>;

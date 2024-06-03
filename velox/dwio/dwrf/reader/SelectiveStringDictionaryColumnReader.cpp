@@ -152,7 +152,7 @@ void SelectiveStringDictionaryColumnReader::loadStrideDictionary() {
   lastStrideIndex_ = nextStride;
   dictionaryValues_ = nullptr;
 
-  if (scanSpec_->hasFilter()) {
+  if (DictionaryValues::hasFilter(scanSpec_->filter())) {
     scanState_.filterCache.resize(
         scanState_.dictionary.numValues + scanState_.dictionary2.numValues);
     simd::memset(
@@ -333,7 +333,7 @@ void SelectiveStringDictionaryColumnReader::ensureInitialized() {
 
   loadDictionary(*blobStream_, *lengthDecoder_, scanState_.dictionary);
 
-  if (scanSpec_->hasFilter()) {
+  if (DictionaryValues::hasFilter(scanSpec_->filter())) {
     scanState_.filterCache.resize(scanState_.dictionary.numValues);
     simd::memset(
         scanState_.filterCache.data(),
