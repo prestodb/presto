@@ -347,6 +347,7 @@ public final class SystemSessionProperties
     public static final String NATIVE_DEBUG_VALIDATE_OUTPUT_FROM_OPERATORS = "native_debug_validate_output_from_operators";
     public static final String DEFAULT_VIEW_SECURITY_MODE = "default_view_security_mode";
     public static final String JOIN_PREFILTER_BUILD_SIDE = "join_prefilter_build_side";
+    public static final String DELEGATING_ROW_EXPRESSION_OPTIMIZER_ENABLED = "delegating_row_expression_optimizer_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1938,6 +1939,11 @@ public final class SystemSessionProperties
                         JOIN_PREFILTER_BUILD_SIDE,
                         "Prefiltering the build/inner side of a join with keys from the other side",
                         false,
+                        false),
+                booleanProperty(
+                        DELEGATING_ROW_EXPRESSION_OPTIMIZER_ENABLED,
+                        "Enable delegating row optimizer",
+                        featuresConfig.isDelegatingRowExpressionOptimizerEnabled(),
                         false));
     }
 
@@ -3229,5 +3235,10 @@ public final class SystemSessionProperties
     public static boolean isPrintEstimatedStatsFromCacheEnabled(Session session)
     {
         return session.getSystemProperty(PRINT_ESTIMATED_STATS_FROM_CACHE, Boolean.class);
+    }
+
+    public static boolean isDelegatingRowExpressionOptimizerEnabled(Session session)
+    {
+        return session.getSystemProperty(DELEGATING_ROW_EXPRESSION_OPTIMIZER_ENABLED, Boolean.class);
     }
 }

@@ -308,6 +308,7 @@ public class FeaturesConfig
     private boolean limitNumberOfGroupsForKHyperLogLogAggregations = true;
     private boolean generateDomainFilters;
     private boolean printEstimatedStatsFromCache;
+    private boolean delegatingRowOptimizerEnabled;
     private CreateView.Security defaultViewSecurityMode = DEFINER;
 
     public enum PartitioningPrecisionStrategy
@@ -3101,6 +3102,19 @@ public class FeaturesConfig
     public FeaturesConfig setPrintEstimatedStatsFromCache(boolean printEstimatedStatsFromCache)
     {
         this.printEstimatedStatsFromCache = printEstimatedStatsFromCache;
+        return this;
+    }
+
+    public boolean isDelegatingRowExpressionOptimizerEnabled()
+    {
+        return delegatingRowOptimizerEnabled;
+    }
+
+    @Config("optimizer.delegating-row-expression-optimizer-enabled")
+    @ConfigDescription("Enable delegating row optimizer")
+    public FeaturesConfig setDelegatingRowExpressionOptimizerEnabled(boolean delegatingRowOptimizerEnabled)
+    {
+        this.delegatingRowOptimizerEnabled = delegatingRowOptimizerEnabled;
         return this;
     }
 }

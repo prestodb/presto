@@ -29,6 +29,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.projec
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.assignment;
 
+// TODO: enable the delegating row expression optimizer
 public class TestRewriteConstantArrayContainsToInExpression
         extends BaseRuleTest
 {
@@ -36,7 +37,7 @@ public class TestRewriteConstantArrayContainsToInExpression
     public void testNoNull()
     {
         tester().assertThat(
-                ImmutableSet.<Rule<?>>builder().addAll(new SimplifyRowExpressions(getMetadata()).rules()).addAll(
+                ImmutableSet.<Rule<?>>builder().addAll(new SimplifyRowExpressions(getMetadata(), getExpressionManager()).rules()).addAll(
                         new RewriteConstantArrayContainsToInExpression(getFunctionManager()).rules()).build())
                 .setSystemProperty(REWRITE_CONSTANT_ARRAY_CONTAINS_TO_IN_EXPRESSION, "true")
                 .on(p -> {
@@ -101,7 +102,7 @@ public class TestRewriteConstantArrayContainsToInExpression
     public void testNotFire()
     {
         tester().assertThat(
-                ImmutableSet.<Rule<?>>builder().addAll(new SimplifyRowExpressions(getMetadata()).rules()).addAll(
+                ImmutableSet.<Rule<?>>builder().addAll(new SimplifyRowExpressions(getMetadata(), getExpressionManager()).rules()).addAll(
                         new RewriteConstantArrayContainsToInExpression(getFunctionManager()).rules()).build())
                 .setSystemProperty(REWRITE_CONSTANT_ARRAY_CONTAINS_TO_IN_EXPRESSION, "true")
                 .on(p -> {
@@ -122,7 +123,7 @@ public class TestRewriteConstantArrayContainsToInExpression
     public void testWithNull()
     {
         tester().assertThat(
-                ImmutableSet.<Rule<?>>builder().addAll(new SimplifyRowExpressions(getMetadata()).rules()).addAll(
+                ImmutableSet.<Rule<?>>builder().addAll(new SimplifyRowExpressions(getMetadata(), getExpressionManager()).rules()).addAll(
                         new RewriteConstantArrayContainsToInExpression(getFunctionManager()).rules()).build())
                 .setSystemProperty(REWRITE_CONSTANT_ARRAY_CONTAINS_TO_IN_EXPRESSION, "true")
                 .on(p -> {
@@ -142,7 +143,7 @@ public class TestRewriteConstantArrayContainsToInExpression
     public void testLambda()
     {
         tester().assertThat(
-                ImmutableSet.<Rule<?>>builder().addAll(new SimplifyRowExpressions(getMetadata()).rules()).addAll(
+                ImmutableSet.<Rule<?>>builder().addAll(new SimplifyRowExpressions(getMetadata(), getExpressionManager()).rules()).addAll(
                         new RewriteConstantArrayContainsToInExpression(getFunctionManager()).rules()).build())
                 .setSystemProperty(REWRITE_CONSTANT_ARRAY_CONTAINS_TO_IN_EXPRESSION, "true")
                 .on(p -> {

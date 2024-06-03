@@ -13,9 +13,13 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule.test;
 
+import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.sql.expressions.ExpressionManager;
 import com.facebook.presto.sql.planner.Plan;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterClass;
@@ -23,6 +27,7 @@ import org.testng.annotations.BeforeClass;
 
 import java.util.List;
 
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.airlift.testing.Closeables.closeAllRuntimeException;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.util.MorePredicates.isInstanceOfAny;
@@ -83,5 +88,10 @@ public abstract class BaseRuleTest
                         .where(isInstanceOfAny(nodeClass))
                         .matches(),
                 "Expected " + nodeClass.toString() + " in plan after optimization. ");
+    }
+
+    protected ExpressionManager getExpressionManager()
+    {
+        return new ExpressionManager(new InMemoryNodeManager(), new NodeInfo("test"), jsonCodec(RowExpression.class));
     }
 }

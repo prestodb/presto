@@ -30,6 +30,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.projec
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.assignment;
 
+// TODO: add tests when the delegating optimizer is enabled
 public class TestRemoveMapCastRule
         extends BaseRuleTest
 {
@@ -37,7 +38,7 @@ public class TestRemoveMapCastRule
     public void testSubscriptCast()
     {
         tester().assertThat(
-                        ImmutableSet.<Rule<?>>builder().addAll(new SimplifyRowExpressions(getMetadata()).rules()).addAll(new RemoveMapCastRule(getFunctionManager()).rules()).build())
+                        ImmutableSet.<Rule<?>>builder().addAll(new SimplifyRowExpressions(getMetadata(), getExpressionManager()).rules()).addAll(new RemoveMapCastRule(getFunctionManager()).rules()).build())
                 .setSystemProperty(REMOVE_MAP_CAST, "true")
                 .on(p -> {
                     VariableReferenceExpression a = p.variable("a", DOUBLE);
@@ -57,7 +58,7 @@ public class TestRemoveMapCastRule
     public void testElementAtCast()
     {
         tester().assertThat(
-                        ImmutableSet.<Rule<?>>builder().addAll(new SimplifyRowExpressions(getMetadata()).rules()).addAll(new RemoveMapCastRule(getFunctionManager()).rules()).build())
+                        ImmutableSet.<Rule<?>>builder().addAll(new SimplifyRowExpressions(getMetadata(), getExpressionManager()).rules()).addAll(new RemoveMapCastRule(getFunctionManager()).rules()).build())
                 .setSystemProperty(REMOVE_MAP_CAST, "true")
                 .on(p -> {
                     VariableReferenceExpression a = p.variable("a", DOUBLE);

@@ -383,7 +383,7 @@ public class CteProjectionAndPredicatePushDown
                             resultPredicate, predicates.get(i));
                 }
             }
-            resultPredicate = SimplifyRowExpressions.rewrite(resultPredicate, metadata, session.toConnectorSession());
+            resultPredicate = SimplifyRowExpressions.rewrite(resultPredicate, metadata, session);
             return new FilterNode(node.getSourceLocation(), idAllocator.getNextId(), node, resultPredicate);
         }
 

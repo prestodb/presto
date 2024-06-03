@@ -13,25 +13,22 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.expressions.RowExpressionRewriter;
 import com.facebook.presto.expressions.RowExpressionTreeRewriter;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
-import com.facebook.presto.sql.expressions.ExpressionManager;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.relational.DelegatingRowExpressionOptimizer;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.relational.RowExpressionOptimizer;
 import com.google.common.annotations.VisibleForTesting;
 
-import static com.facebook.presto.SystemSessionProperties.isDelegatingRowExpressionOptimizerEnabled;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.SERIALIZABLE;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
@@ -39,56 +36,47 @@ import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.OR;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
-public class SimplifyRowExpressions
-        extends RowExpressionRewriteRuleSet
+public class DelegatingSimplifyRowExpressions
+        extends DelegatingRowExpressionRewriteRuleSet
 {
-    public SimplifyRowExpressions(Metadata metadata, ExpressionManager expressionManager)
+    public DelegatingSimplifyRowExpressions(Metadata metadata)
     {
-        super(new Rewriter(metadata, expressionManager));
+        super(new Rewriter(metadata));
     }
 
     private static class Rewriter
             implements PlanRowExpressionRewriter
     {
         private final RowExpressionOptimizer optimizer;
-        private final DelegatingRowExpressionOptimizer delegatingOptimizer;
         private final LogicalExpressionRewriter logicalExpressionRewriter;
 
-        public Rewriter(Metadata metadata, ExpressionManager expressionManager)
+        public Rewriter(Metadata metadata)
         {
             requireNonNull(metadata, "metadata is null");
             this.optimizer = new RowExpressionOptimizer(metadata);
-            this.delegatingOptimizer = new DelegatingRowExpressionOptimizer(metadata, expressionManager);
             this.logicalExpressionRewriter = new LogicalExpressionRewriter(metadata.getFunctionAndTypeManager());
         }
 
         @Override
         public RowExpression rewrite(RowExpression expression, Rule.Context context)
         {
-            return rewrite(expression, context.getSession());
+            return rewrite(expression, context.getSession().toConnectorSession());
         }
 
-        private RowExpression rewrite(RowExpression expression, Session session)
+        private RowExpression rewrite(RowExpression expression, ConnectorSession session)
         {
             // Rewrite RowExpression first to reduce depth of RowExpression tree by balancing AND/OR predicates.
             // It doesn't matter whether we rewrite/optimize first because this will be called by IterativeOptimizer.
             RowExpression rewritten = RowExpressionTreeRewriter.rewriteWith(logicalExpressionRewriter, expression, true);
-            RowExpression optimizedRowExpression;
-            if (isDelegatingRowExpressionOptimizerEnabled(session)) {
-                optimizedRowExpression = delegatingOptimizer.optimize(rewritten, SERIALIZABLE, session.toConnectorSession());
-            }
-            else {
-                optimizedRowExpression = optimizer.optimize(rewritten, SERIALIZABLE, session.toConnectorSession());
-            }
+            RowExpression optimizedRowExpression = optimizer.optimize(rewritten, SERIALIZABLE, session);
             return optimizedRowExpression;
         }
     }
 
     @VisibleForTesting
-    public static RowExpression rewrite(RowExpression expression, Metadata metadata, Session session)
+    public static RowExpression rewrite(RowExpression expression, Metadata metadata, ConnectorSession session)
     {
-        // TODO
-        return new Rewriter(metadata, null).rewrite(expression, session);
+        return new Rewriter(metadata).rewrite(expression, session);
     }
 
     private static class LogicalExpressionRewriter
