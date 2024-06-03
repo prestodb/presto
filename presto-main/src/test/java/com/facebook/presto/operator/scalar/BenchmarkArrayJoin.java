@@ -80,7 +80,6 @@ public class BenchmarkArrayJoin
                         data.getPage()));
     }
 
-    @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class BenchmarkData
     {

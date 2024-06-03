@@ -105,7 +105,6 @@ public class TestServer
         client = new JettyHttpClient();
     }
 
-    @SuppressWarnings("deprecation")
     @AfterMethod
     public void teardown()
     {

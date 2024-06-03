@@ -243,7 +243,6 @@ public class RedisMetadata
         return redisTableDescriptionSupplier.get();
     }
 
-    @SuppressWarnings("ValueOfIncrementOrDecrementUsed")
     private ConnectorTableMetadata getTableMetadata(SchemaTableName schemaTableName)
     {
         RedisTableDescription table = getDefinedTables().get(schemaTableName);
