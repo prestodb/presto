@@ -154,7 +154,7 @@ static std::
             // Lower case.
             {"jan", {"uary", 1}},
             {"feb", {"ruary", 2}},
-            {"mar", {"rch", 3}},
+            {"mar", {"ch", 3}},
             {"apr", {"il", 4}},
             {"may", {"", 5}},
             {"jun", {"e", 6}},
@@ -168,7 +168,7 @@ static std::
             // Upper case.
             {"JAN", {"UARY", 1}},
             {"FEB", {"RUARY", 2}},
-            {"MAR", {"RCH", 3}},
+            {"MAR", {"CH", 3}},
             {"APR", {"IL", 4}},
             {"MAY", {"", 5}},
             {"JUN", {"E", 6}},

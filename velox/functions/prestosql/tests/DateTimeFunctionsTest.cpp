@@ -3419,6 +3419,70 @@ TEST_F(DateTimeFunctionsTest, fromIso8601Date) {
       fromIso("2024-01-02 12:31:00"), "Unable to parse date value");
 }
 
+TEST_F(DateTimeFunctionsTest, dateParseMonthOfYearText) {
+  auto parseAndFormat = [&](const std::string& input) {
+    return dateFormat(dateParse(input, "%M_%Y"), "%Y-%m");
+  };
+
+  EXPECT_EQ(parseAndFormat("jan_2024"), "2024-01");
+  EXPECT_EQ(parseAndFormat("JAN_2024"), "2024-01");
+  EXPECT_EQ(parseAndFormat("january_2024"), "2024-01");
+  EXPECT_EQ(parseAndFormat("JANUARY_2024"), "2024-01");
+
+  EXPECT_EQ(parseAndFormat("feb_2024"), "2024-02");
+  EXPECT_EQ(parseAndFormat("FEB_2024"), "2024-02");
+  EXPECT_EQ(parseAndFormat("february_2024"), "2024-02");
+  EXPECT_EQ(parseAndFormat("FEBRUARY_2024"), "2024-02");
+
+  EXPECT_EQ(parseAndFormat("mar_2024"), "2024-03");
+  EXPECT_EQ(parseAndFormat("MAR_2024"), "2024-03");
+  EXPECT_EQ(parseAndFormat("march_2024"), "2024-03");
+  EXPECT_EQ(parseAndFormat("MARCH_2024"), "2024-03");
+
+  EXPECT_EQ(parseAndFormat("apr_2024"), "2024-04");
+  EXPECT_EQ(parseAndFormat("APR_2024"), "2024-04");
+  EXPECT_EQ(parseAndFormat("april_2024"), "2024-04");
+  EXPECT_EQ(parseAndFormat("APRIL_2024"), "2024-04");
+
+  EXPECT_EQ(parseAndFormat("may_2024"), "2024-05");
+  EXPECT_EQ(parseAndFormat("MAY_2024"), "2024-05");
+
+  EXPECT_EQ(parseAndFormat("jun_2024"), "2024-06");
+  EXPECT_EQ(parseAndFormat("JUN_2024"), "2024-06");
+  EXPECT_EQ(parseAndFormat("june_2024"), "2024-06");
+  EXPECT_EQ(parseAndFormat("JUNE_2024"), "2024-06");
+
+  EXPECT_EQ(parseAndFormat("jul_2024"), "2024-07");
+  EXPECT_EQ(parseAndFormat("JUL_2024"), "2024-07");
+  EXPECT_EQ(parseAndFormat("july_2024"), "2024-07");
+  EXPECT_EQ(parseAndFormat("JULY_2024"), "2024-07");
+
+  EXPECT_EQ(parseAndFormat("aug_2024"), "2024-08");
+  EXPECT_EQ(parseAndFormat("AUG_2024"), "2024-08");
+  EXPECT_EQ(parseAndFormat("august_2024"), "2024-08");
+  EXPECT_EQ(parseAndFormat("AUGUST_2024"), "2024-08");
+
+  EXPECT_EQ(parseAndFormat("sep_2024"), "2024-09");
+  EXPECT_EQ(parseAndFormat("SEP_2024"), "2024-09");
+  EXPECT_EQ(parseAndFormat("september_2024"), "2024-09");
+  EXPECT_EQ(parseAndFormat("SEPTEMBER_2024"), "2024-09");
+
+  EXPECT_EQ(parseAndFormat("oct_2024"), "2024-10");
+  EXPECT_EQ(parseAndFormat("OCT_2024"), "2024-10");
+  EXPECT_EQ(parseAndFormat("october_2024"), "2024-10");
+  EXPECT_EQ(parseAndFormat("OCTOBER_2024"), "2024-10");
+
+  EXPECT_EQ(parseAndFormat("nov_2024"), "2024-11");
+  EXPECT_EQ(parseAndFormat("NOV_2024"), "2024-11");
+  EXPECT_EQ(parseAndFormat("november_2024"), "2024-11");
+  EXPECT_EQ(parseAndFormat("NOVEMBER_2024"), "2024-11");
+
+  EXPECT_EQ(parseAndFormat("dec_2024"), "2024-12");
+  EXPECT_EQ(parseAndFormat("DEC_2024"), "2024-12");
+  EXPECT_EQ(parseAndFormat("december_2024"), "2024-12");
+  EXPECT_EQ(parseAndFormat("DECEMBER_2024"), "2024-12");
+}
+
 TEST_F(DateTimeFunctionsTest, dateParse) {
   // Check null behavior.
   EXPECT_EQ(std::nullopt, dateParse("1970-01-01", std::nullopt));
