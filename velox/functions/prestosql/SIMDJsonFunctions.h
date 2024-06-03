@@ -25,63 +25,52 @@
 
 namespace facebook::velox::functions {
 
-struct ParserContext {
- public:
-  explicit ParserContext() noexcept;
-  explicit ParserContext(const char* data, size_t length) noexcept
-      : padded_json(data, length) {}
-  void parseElement() {
-    jsonEle = domParser.parse(padded_json);
-  }
-  void parseDocument() {
-    jsonDoc = ondemandParser.iterate(padded_json);
-  }
-  simdjson::dom::element jsonEle;
-  simdjson::ondemand::document jsonDoc;
-
- private:
-  simdjson::padded_string padded_json;
-  simdjson::dom::parser domParser;
-  simdjson::ondemand::parser ondemandParser;
-};
-
 template <typename T>
 struct SIMDIsJsonScalarFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
-  FOLLY_ALWAYS_INLINE void call(bool& result, const arg_type<Json>& json) {
-    ParserContext ctx(json.data(), json.size());
+  FOLLY_ALWAYS_INLINE Status call(bool& result, const arg_type<Json>& json) {
+    simdjson::ondemand::document jsonDoc;
 
-    ctx.parseDocument();
+    simdjson::padded_string paddedJson(json.data(), json.size());
+    if (auto errorCode = simdjsonParse(paddedJson).get(jsonDoc)) {
+      if (threadSkipErrorDetails()) {
+        return Status::UserError();
+      }
+      return Status::UserError(
+          "Failed to parse JSON: {}", simdjson::error_message(errorCode));
+    }
 
     result =
-        (ctx.jsonDoc.type() == simdjson::ondemand::json_type::number ||
-         ctx.jsonDoc.type() == simdjson::ondemand::json_type::string ||
-         ctx.jsonDoc.type() == simdjson::ondemand::json_type::boolean ||
-         ctx.jsonDoc.type() == simdjson::ondemand::json_type::null);
+        (jsonDoc.type() == simdjson::ondemand::json_type::number ||
+         jsonDoc.type() == simdjson::ondemand::json_type::string ||
+         jsonDoc.type() == simdjson::ondemand::json_type::boolean ||
+         jsonDoc.type() == simdjson::ondemand::json_type::null);
+
+    return Status::OK();
   }
 };
 
 template <typename T>
 struct SIMDJsonArrayContainsFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
+
   template <typename TInput>
   FOLLY_ALWAYS_INLINE bool
   call(bool& result, const arg_type<Json>& json, const TInput& value) {
-    ParserContext ctx(json.data(), json.size());
+    simdjson::ondemand::document jsonDoc;
+
+    simdjson::padded_string paddedJson(json.data(), json.size());
+    if (simdjsonParse(paddedJson).get(jsonDoc)) {
+      return false;
+    }
+
+    if (jsonDoc.type() != simdjson::ondemand::json_type::array) {
+      return false;
+    }
+
     result = false;
-
-    try {
-      ctx.parseDocument();
-    } catch (const simdjson::simdjson_error&) {
-      return false;
-    }
-
-    if (ctx.jsonDoc.type() != simdjson::ondemand::json_type::array) {
-      return false;
-    }
-
-    for (auto&& v : ctx.jsonDoc) {
+    for (auto&& v : jsonDoc) {
       try {
         if constexpr (std::is_same_v<TInput, bool>) {
           if (v.type() == simdjson::ondemand::json_type::boolean &&
@@ -141,24 +130,23 @@ struct SIMDJsonArrayLengthFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
   FOLLY_ALWAYS_INLINE bool call(int64_t& len, const arg_type<Json>& json) {
-    ParserContext ctx(json.data(), json.size());
+    simdjson::ondemand::document jsonDoc;
 
-    try {
-      ctx.parseDocument();
-    } catch (const simdjson::simdjson_error&) {
+    simdjson::padded_string paddedJson(json.data(), json.size());
+    if (simdjsonParse(paddedJson).get(jsonDoc)) {
       return false;
     }
 
-    if (ctx.jsonDoc.type() != simdjson::ondemand::json_type::array) {
+    if (jsonDoc.type() != simdjson::ondemand::json_type::array) {
       return false;
     }
 
-    try {
-      len = ctx.jsonDoc.count_elements();
-    } catch (const simdjson::simdjson_error&) {
+    size_t numElements;
+    if (jsonDoc.count_elements().get(numElements)) {
       return false;
     }
 
+    len = numElements;
     return true;
   }
 };
