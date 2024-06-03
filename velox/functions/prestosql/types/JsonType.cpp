@@ -15,6 +15,7 @@
  */
 
 #include "velox/functions/prestosql/types/JsonType.h"
+#include "velox/type/DecimalUtil.h"
 
 #include <algorithm>
 #include <stdexcept>
@@ -82,6 +83,8 @@ void generateJsonTyped(
       result.append(std::to_string(value));
     } else if (type->isDate()) {
       result.append(DATE()->toString(value));
+    } else if (type->isDecimal()) {
+      result.append(DecimalUtil::toString(value, type));
     } else {
       folly::toAppend<std::string, T>(value, &result);
     }
