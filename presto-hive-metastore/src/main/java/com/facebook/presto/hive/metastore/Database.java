@@ -39,6 +39,7 @@ public class Database
     private final PrincipalType ownerType;
     private final Optional<String> comment;
     private final Map<String, String> parameters;
+    private final Optional<String> catalogName;
 
     @JsonCreator
     public Database(
@@ -47,7 +48,8 @@ public class Database
             @JsonProperty("ownerName") String ownerName,
             @JsonProperty("ownerType") PrincipalType ownerType,
             @JsonProperty("comment") Optional<String> comment,
-            @JsonProperty("parameters") Map<String, String> parameters)
+            @JsonProperty("parameters") Map<String, String> parameters,
+            @JsonProperty("catalogName") Optional<String> catalogName)
     {
         this.databaseName = requireNonNull(databaseName, "databaseName is null");
         this.location = requireNonNull(location, "location is null");
@@ -55,6 +57,7 @@ public class Database
         this.ownerType = requireNonNull(ownerType, "ownerType is null");
         this.comment = requireNonNull(comment, "comment is null");
         this.parameters = ImmutableMap.copyOf(requireNonNull(parameters, "parameters is null"));
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
     }
 
     @JsonProperty
@@ -93,6 +96,12 @@ public class Database
         return parameters;
     }
 
+    @JsonProperty
+    public Optional<String> getCatalogName()
+    {
+        return catalogName;
+    }
+
     public static Builder builder()
     {
         return new Builder();
@@ -111,6 +120,7 @@ public class Database
         private PrincipalType ownerType;
         private Optional<String> comment = Optional.empty();
         private Map<String, String> parameters = new LinkedHashMap<>();
+        private Optional<String> catalogName = Optional.empty();
 
         public Builder() {}
 
@@ -122,6 +132,7 @@ public class Database
             this.ownerType = database.ownerType;
             this.comment = database.comment;
             this.parameters = database.parameters;
+            this.catalogName = database.catalogName;
         }
 
         public Builder setDatabaseName(String databaseName)
@@ -166,6 +177,13 @@ public class Database
             return this;
         }
 
+        public Builder setCatalogName(Optional<String> catalogName)
+        {
+            requireNonNull(catalogName, "catalogName is null");
+            this.catalogName = catalogName;
+            return this;
+        }
+
         public Database build()
         {
             return new Database(
@@ -174,7 +192,8 @@ public class Database
                     ownerName,
                     ownerType,
                     comment,
-                    parameters);
+                    parameters,
+                    catalogName);
         }
     }
 
@@ -188,6 +207,7 @@ public class Database
                 .add("ownerType", ownerType)
                 .add("comment", comment)
                 .add("parameters", parameters)
+                .add("catalogName", catalogName)
                 .toString();
     }
 
@@ -207,12 +227,13 @@ public class Database
                 Objects.equals(ownerName, database.ownerName) &&
                 ownerType == database.ownerType &&
                 Objects.equals(comment, database.comment) &&
-                Objects.equals(parameters, database.parameters);
+                Objects.equals(parameters, database.parameters) &&
+                Objects.equals(catalogName, database.catalogName);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(databaseName, location, ownerName, ownerType, comment, parameters);
+        return Objects.hash(databaseName, location, ownerName, ownerType, comment, parameters, catalogName);
     }
 }

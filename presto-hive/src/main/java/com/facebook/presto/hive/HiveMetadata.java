@@ -941,11 +941,14 @@ public class HiveMetadata
             return locationUri;
         });
 
+        Optional<String> catalogName = HiveSchemaProperties.getCatalogName(properties);
+
         Database database = Database.builder()
                 .setDatabaseName(schemaName)
                 .setLocation(location)
                 .setOwnerType(USER)
                 .setOwnerName(session.getUser())
+                .setCatalogName(catalogName)
                 .build();
 
         metastore.createDatabase(getMetastoreContext(session), database);

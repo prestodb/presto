@@ -52,7 +52,7 @@ public class TestingExtendedHiveMetastore
     @Override
     public Optional<Database> getDatabase(MetastoreContext metastoreContext, String databaseName)
     {
-        return Optional.of(new Database(databaseName, Optional.of("/"), "test_owner", PrincipalType.USER, Optional.empty(), ImmutableMap.of()));
+        return Optional.of(new Database(databaseName, Optional.of("/"), "test_owner", PrincipalType.USER, Optional.empty(), ImmutableMap.of(), Optional.of("testcatalog")));
     }
 
     @Override
