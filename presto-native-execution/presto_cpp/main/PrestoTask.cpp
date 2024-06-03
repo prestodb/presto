@@ -370,7 +370,7 @@ protocol::TaskStatus PrestoTask::updateStatusLocked() {
   }
 
   const auto veloxTaskMemStats = task->pool()->stats();
-  info.taskStatus.memoryReservationInBytes = veloxTaskMemStats.currentBytes;
+  info.taskStatus.memoryReservationInBytes = task->pool()->usedBytes();
   info.taskStatus.systemMemoryReservationInBytes = 0;
   // NOTE: a presto worker may run multiple tasks from the same query.
   // 'peakNodeTotalMemoryReservationInBytes' represents peak memory usage across
