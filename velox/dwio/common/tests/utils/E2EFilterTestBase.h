@@ -145,6 +145,11 @@ class E2EFilterTestBase : public testing::Test {
   }
 
   template <typename T>
+  void makeIntMainlyConstant(const std::string& fieldName) {
+    dataSetBuilder_->withIntMainlyConstantForField<T>(Subfield(fieldName));
+  }
+
+  template <typename T>
   void makeQuantizedFloat(
       const std::string& fieldName,
       int64_t buckets,

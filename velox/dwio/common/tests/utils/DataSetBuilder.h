@@ -142,6 +142,28 @@ class DataSetBuilder {
   }
 
   template <typename T>
+  DataSetBuilder& withIntMainlyConstantForField(const common::Subfield& field) {
+    for (auto& batch : *batches_) {
+      std::optional<T> value;
+      auto* numbers = dwio::common::getChildBySubfield(batch.get(), field)
+                          ->as<FlatVector<T>>();
+      for (auto row = 0; row < numbers->size(); ++row) {
+        if (numbers->isNullAt(row)) {
+          continue;
+        }
+        if (folly::Random::randDouble01(rng_) < 0.95) {
+          if (!value.has_value()) {
+            value = numbers->valueAt(row);
+          } else {
+            numbers->set(row, *value);
+          }
+        }
+      }
+    }
+    return *this;
+  }
+
+  template <typename T>
   DataSetBuilder& withQuantizedFloatForField(
       const common::Subfield& field,
       int64_t buckets,
