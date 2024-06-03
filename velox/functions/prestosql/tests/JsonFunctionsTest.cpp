@@ -498,6 +498,13 @@ TEST_F(JsonFunctionsTest, jsonArrayContainsDouble) {
       jsonArrayContains<double>(R"({"k1":[0,1,2], "k2":"v1"})", 2.3),
       std::nullopt);
 
+  static const double kNan = std::numeric_limits<double>::quiet_NaN();
+  static const double kInf = std::numeric_limits<double>::infinity();
+  EXPECT_EQ(jsonArrayContains<double>(R"([1.1, 2.2, 3.3])", kNan), false);
+  EXPECT_EQ(jsonArrayContains<double>(R"([1.1, 2.2, 3.3])", kInf), false);
+  EXPECT_EQ(jsonArrayContains<double>(R"([1.1, 2.2, 3.3...)", kNan), false);
+  EXPECT_EQ(jsonArrayContains<double>(R"([1.1, 2.2, 3.3...)", kInf), false);
+
   EXPECT_EQ(jsonArrayContains<double>(R"([1.2, 2.3, 3.4])", 2.3), true);
   EXPECT_EQ(jsonArrayContains<double>(R"([1.2, 2.3, 3.4])", 2.4), false);
   EXPECT_EQ(

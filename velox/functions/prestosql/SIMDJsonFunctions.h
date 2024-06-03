@@ -58,6 +58,13 @@ struct SIMDJsonArrayContainsFunction {
   template <typename T>
   FOLLY_ALWAYS_INLINE bool
   call(bool& result, const arg_type<Json>& json, const T& value) {
+    if constexpr (std::is_same_v<T, double>) {
+      if (!std::isfinite(value)) {
+        result = false;
+        return true;
+      }
+    }
+
     simdjson::ondemand::document jsonDoc;
 
     simdjson::padded_string paddedJson(json.data(), json.size());
