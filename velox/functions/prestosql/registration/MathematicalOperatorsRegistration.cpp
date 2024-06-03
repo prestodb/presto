@@ -67,6 +67,7 @@ void registerMathematicalOperators(const std::string& prefix = "") {
   registerDecimalMinus(prefix);
   registerDecimalMultiply(prefix);
   registerDecimalDivide(prefix);
+  registerDecimalModulus(prefix);
 }
 
 } // namespace facebook::velox::functions

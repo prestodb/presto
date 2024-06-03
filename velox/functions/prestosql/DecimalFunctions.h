@@ -24,6 +24,8 @@ void registerDecimalMultiply(const std::string& prefix);
 
 void registerDecimalDivide(const std::string& prefix);
 
+void registerDecimalModulus(const std::string& prefix);
+
 void registerDecimalFloor(const std::string& prefix);
 
 void registerDecimalRound(const std::string& prefix);

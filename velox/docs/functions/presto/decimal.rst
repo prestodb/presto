@@ -136,7 +136,7 @@ type decimal(p2, s2) with unscaled value B.
 ::
 
     a = A / 10^s1
-    a = B / 10^s2
+    b = B / 10^s2
 
 The result type precision and scale are:
 
@@ -173,6 +173,60 @@ digits after the decimal point, hence, max(s1, s2).
 ::
 
     SELECT 1.2 / 0.01
+
+Modulus
+-------
+
+For the modulus operation :code:`a % b`, when a and b are integers, the result
+`r` is less than `b` and less than or equal to `a`. Hence the number of digits
+needed to represent `r` is no more than the minimum of the number of digits
+needed to represent `a` or `b`. We can extend this to decimal inputs `a` and
+`b` by computing the modulus of their unscaled values. However, we should
+first make sure that `a` and `b` have the same scale. This can be achieved by
+scaling up the input with lesser scale by the difference in the inputs' scales,
+so both `a` and `b` have scale s. Once `a` and `b` have the same scale, we
+compute the modulus of their unscaled values, A and B. `r` has s digits after
+the decimal point, and since `r` does not need any more digits than the
+minimum number of digits needed to represent `a` or `b`, the result precision
+needs to be increased by the smaller of the differences in the precision and
+scale of either inputs. Hence the result type precision and scale are:
+
+::
+
+    s = max(s1, s2)
+    p = min(p2 - s2, p1 - s1) + max(s1, s2)
+
+To compute R, we first rescale A and B to 's':
+
+::
+
+    A = a * 10^s1
+    B = b * 10^s2
+
+    A' = a * 10^s
+    B' = b * 10^s
+
+Then we compute modulus of the rescaled values:
+
+::
+
+    R = A' % B' = r * 10^s
+
+For example, say `a` = 12.3 and `b` = 1.21, `r` = :code:`a % b` is calculated
+as follows:
+
+::
+
+    s = max(1, 2) = 2
+    p = min(2, 1) + s = 3
+
+    A = 12.3 * 10^1 = 123
+    B = 1.21 * 10^2 = 121
+
+    A' = 12.3 * 10^2 = 1230
+    B' = 1.21 * 10^2 = 121
+
+    R = 1230 % 121 = 20 = 0.20 * 100
 
 Decimal Functions
 -----------------
@@ -215,6 +269,19 @@ Decimal Functions
         s = max(s1, s2)
 
     Throws if result cannot be represented using precision calculated above.
+
+.. function:: modulus(x: decimal(p1, s1), y: decimal(p2, s2)) -> r: decimal(p, s)
+
+    Returns the remainder from division of x by y (r = x % y).
+
+    x and y are decimal values with possibly different precisions and scales. The
+    precision and scale of the result are calculated as follows:
+    ::
+
+        p = min(p2 - s2, p1 - s1) + max(s1, s2)
+        s = max(s1, s2)
+
+    Throws if y is zero.
 
 .. function:: multiply(x: decimal(p1, s1), y: decimal(p2, s2)) -> r: decimal(p, s)
 
