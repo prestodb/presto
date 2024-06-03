@@ -84,6 +84,15 @@ Map Functions
         SELECT map_normalize(map(array['a', 'b', 'c', 'd'], array[1, null, 4, 5])); -- {a=0.1, b=null, c=0.4, d=0.5}
         SELECT map_normalize(map(array['a', 'b', 'c'], array[1, 0, -1])); -- {a=Infinity, b=NaN, c=-Infinity}
 
+.. function:: map_remove_null_values(map(K,V)) -> map(K,V)
+
+    Returns a map by removing all the keys in input map with null values. If input
+    is null, output is null. If input map is empty, output map is empty.
+
+        SELECT map_remove_null_values(MAP(ARRAY['ab', 'bc', 'cd'], ARRAY[null, null, null])); -- {}
+        SELECT map_remove_null_values(MAP(ARRAY[], ARRAY[])); -- {}
+        SELECT map_remove_null_values(MAP(ARRAY[1, 2, 3], ARRAY[3, 4, NULL])); -- {1=3, 2=4}
+        SELECT map_remove_null_values(NULL); -- NULL
 
 .. function:: map_subset(map(K,V), array(k)) -> map(K,V)
 
