@@ -1383,10 +1383,12 @@ inline void RowContainer::storeWithNulls<TypeKind::HUGEINT>(
     int32_t offset,
     int32_t nullByte,
     uint8_t nullMask) {
-  HugeInt::serialize(decoded.valueAt<int128_t>(index), row + offset);
   if (decoded.isNullAt(index)) {
     row[nullByte] |= nullMask;
+    memset(row + offset, 0, sizeof(int128_t));
+    return;
   }
+  HugeInt::serialize(decoded.valueAt<int128_t>(index), row + offset);
 }
 
 template <>

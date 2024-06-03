@@ -1968,3 +1968,51 @@ TEST_F(RowContainerTest, nextRowVector) {
 
   dataClear();
 }
+
+TEST_F(RowContainerTest, hugeIntStoreWithNulls) {
+  constexpr int32_t kNumRows = 100;
+  constexpr int32_t kColumnIndex = 0;
+
+  // wrap dictionary vector
+  std::vector<int128_t> rawData;
+  for (auto i = 0; i < kNumRows; ++i) {
+    rawData.push_back(HugeInt::build(i, i));
+  }
+  auto hugeIntVector = makeFlatVector<int128_t>(rawData);
+
+  auto isNullAt = [](vector_size_t i) { return i % 10 == 0; };
+
+  BufferPtr dictNulls = allocateNulls(kNumRows, pool());
+  auto rawDictNulls = dictNulls->asMutable<uint64_t>();
+  for (auto i = 0; i < kNumRows; ++i) {
+    bits::setNull(rawDictNulls, i, isNullAt(i));
+  }
+
+  BufferPtr dictIndices =
+      AlignedBuffer::allocate<vector_size_t>(kNumRows, pool());
+  auto rawDictIndices = dictIndices->asMutable<vector_size_t>();
+  for (auto i = 0; i < kNumRows; ++i) {
+    if (!isNullAt(i)) {
+      rawDictIndices[i] = i;
+    }
+    // indices of null indexes contain garbage values
+  }
+
+  auto source = BaseVector::wrapInDictionary(
+      dictNulls, dictIndices, kNumRows, hugeIntVector);
+
+  std::vector<TypePtr> keys;
+  auto data = makeRowContainer({HUGEINT()}, {}, false);
+  std::vector<char*> rows(kNumRows);
+  for (auto i = 0; i < kNumRows; ++i) {
+    rows[i] = data->newRow();
+  }
+  SelectivityVector allRows(kNumRows);
+  DecodedVector decoded(*source, allRows);
+  for (auto i = 0; i < kNumRows; ++i) {
+    data->store(decoded, i, rows[i], kColumnIndex);
+  }
+  auto extracted = BaseVector::copy(*source);
+  data->extractColumn(rows.data(), kNumRows, kColumnIndex, extracted);
+  assertEqualVectors(source, extracted);
+}
