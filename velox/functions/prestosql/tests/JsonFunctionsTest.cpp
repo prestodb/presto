@@ -608,7 +608,7 @@ TEST_F(JsonFunctionsTest, jsonSize) {
 TEST_F(JsonFunctionsTest, invalidPath) {
   VELOX_ASSERT_THROW(jsonSize(R"([0,1,2])", ""), "Invalid JSON path");
   VELOX_ASSERT_THROW(jsonSize(R"([0,1,2])", "$[]"), "Invalid JSON path");
-  VELOX_ASSERT_THROW(jsonSize(R"([0,1,2])", "$[-1]"), "Invalid JSON path");
+  VELOX_ASSERT_THROW(jsonSize(R"([0,1,2])", "$-1"), "Invalid JSON path");
   VELOX_ASSERT_THROW(jsonSize(R"({"k1":"v1"})", "$k1"), "Invalid JSON path");
   VELOX_ASSERT_THROW(jsonSize(R"({"k1":"v1"})", "$.k1."), "Invalid JSON path");
   VELOX_ASSERT_THROW(jsonSize(R"({"k1":"v1"})", "$.k1]"), "Invalid JSON path");
@@ -635,8 +635,15 @@ TEST_F(JsonFunctionsTest, jsonExtract) {
       std::nullopt, jsonExtract("{\"x\": {\"a\" : 1, \"b\" : 2} }", "$.x.c"));
   EXPECT_EQ(
       "3", jsonExtract("{\"x\": {\"a\" : 1, \"b\" : [2, 3]} }", "$.x.b[1]"));
-  EXPECT_EQ("2", jsonExtract("[1,2,3]", "$[1]"));
-  EXPECT_EQ("null", jsonExtract("[1,null,3]", "$[1]"));
+
+  EXPECT_EQ("2", jsonExtract("[1, 2, 3]", "$[1]"));
+  EXPECT_EQ("null", jsonExtract("[1, null, 3]", "$[1]"));
+  EXPECT_EQ(std::nullopt, jsonExtract("[1, 2, 3]", "$[10]"));
+
+  EXPECT_EQ("3", jsonExtract("[1, 2, 3]", "$[-1]"));
+  EXPECT_EQ("null", jsonExtract("[1, null, 3]", "$[-2]"));
+  EXPECT_EQ(std::nullopt, jsonExtract("[1, 2, 3]", "$[-10]"));
+
   EXPECT_EQ(std::nullopt, jsonExtract("INVALID_JSON", "$"));
   VELOX_ASSERT_THROW(jsonExtract("{\"\":\"\"}", ""), "Invalid JSON path");
 

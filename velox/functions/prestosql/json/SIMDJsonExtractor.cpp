@@ -90,8 +90,18 @@ simdjson::error_code extractArray(
     std::optional<simdjson::ondemand::value>& ret) {
   SIMDJSON_ASSIGN_OR_RAISE(auto jsonArray, jsonValue.get_array());
   auto rv = folly::tryTo<int32_t>(index);
+
   if (rv.hasValue()) {
-    auto val = jsonArray.at(rv.value());
+    auto i = rv.value();
+    if (i < 0) {
+      size_t numElements;
+      if (jsonArray.count_elements().get(numElements)) {
+        return simdjson::SUCCESS;
+      }
+
+      i += numElements;
+    }
+    auto val = jsonArray.at(i);
     if (!val.error()) {
       ret.emplace(std::move(val));
     }

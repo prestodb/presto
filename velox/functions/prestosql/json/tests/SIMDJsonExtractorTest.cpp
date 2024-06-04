@@ -430,7 +430,7 @@ TEST_F(SIMDJsonExtractorTest, fullJsonValueTest) {
 
 TEST_F(SIMDJsonExtractorTest, invalidJsonPathTest) {
   expectThrowInvalidArgument("", "");
-  expectThrowInvalidArgument("{}", "$.bar[2][-1]");
+  expectThrowInvalidArgument("{}", "$.bar[2]-1");
   expectThrowInvalidArgument("{}", "$.fuu..bar");
   expectThrowInvalidArgument("{}", "$.");
   expectThrowInvalidArgument("", "$$");

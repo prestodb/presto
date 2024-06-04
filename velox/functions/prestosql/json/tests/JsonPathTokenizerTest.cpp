@@ -72,6 +72,7 @@ TEST(JsonPathTokenizerTest, validPaths) {
   assertValidPath("$[\"foo\"]"s, TokenList{"foo"s});
   assertValidPath("$[\"foo.bar\"]"s, TokenList{"foo.bar"s});
   assertValidPath("$[42]"s, TokenList{"42"s});
+  assertValidPath("$[-1]"s, TokenList{"-1"s});
   assertValidPath("$.42"s, TokenList{"42"s});
   assertValidPath("$.42.63"s, TokenList{"42"s, "63"s});
   assertValidPath("$.foo.42.bar.63"s, TokenList{"foo"s, "42"s, "bar"s, "63"s});

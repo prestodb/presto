@@ -31,7 +31,7 @@ const char OPEN_BRACKET = '[';
 const char CLOSE_BRACKET = ']';
 
 bool isUnquotedBracketKeyFormat(char c) {
-  return c == UNDER_SCORE || c == STAR || std::isalnum(c);
+  return c == UNDER_SCORE || c == STAR || c == DASH || std::isalnum(c);
 }
 
 bool isDotKeyFormat(char c) {

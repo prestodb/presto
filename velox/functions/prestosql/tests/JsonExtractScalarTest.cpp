@@ -180,7 +180,7 @@ TEST_F(JsonExtractScalarTest, invalidPath) {
   VELOX_ASSERT_THROW(
       jsonExtractScalar(R"([0,1,2])", "$[]"), "Invalid JSON path");
   VELOX_ASSERT_THROW(
-      jsonExtractScalar(R"([0,1,2])", "$[-1]"), "Invalid JSON path");
+      jsonExtractScalar(R"([0,1,2])", "$-1"), "Invalid JSON path");
   VELOX_ASSERT_THROW(
       jsonExtractScalar(R"({"k1":"v1"})", "$k1"), "Invalid JSON path");
   VELOX_ASSERT_THROW(
