@@ -213,7 +213,7 @@ SystemConfig::SystemConfig() {
           STR_PROP(kExchangeMaxErrorDuration, "3m"),
           STR_PROP(kExchangeRequestTimeout, "10s"),
           STR_PROP(kExchangeConnectTimeout, "20s"),
-          BOOL_PROP(kExchangeEnableConnectionPool, false),
+          BOOL_PROP(kExchangeEnableConnectionPool, true),
           BOOL_PROP(kExchangeImmediateBufferTransfer, true),
           NUM_PROP(kTaskRunTimeSliceMicros, 50'000),
           BOOL_PROP(kIncludeNodeInSpillPath, false),
