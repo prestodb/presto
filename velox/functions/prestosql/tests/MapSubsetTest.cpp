@@ -21,7 +21,67 @@ using namespace facebook::velox::test;
 namespace facebook::velox::functions {
 namespace {
 
-class MapSubsetTest : public test::FunctionBaseTest {};
+class MapSubsetTest : public test::FunctionBaseTest {
+ public:
+  template <typename T>
+  void testFloatNaNs() {
+    static const auto kNaN = std::numeric_limits<T>::quiet_NaN();
+    static const auto kSNaN = std::numeric_limits<T>::signaling_NaN();
+
+    // Case 1: Non-constant search keys.
+    auto data = makeRowVector(
+        {makeMapVectorFromJson<T, int32_t>({
+             "{1:10, NaN:20, 3:null, 4:40, 5:50, 6:60}",
+             "{NaN:20}",
+         }),
+         makeArrayVector<T>({{1, kNaN, 5}, {kSNaN, 3}})});
+
+    auto expected = makeMapVectorFromJson<T, int32_t>({
+        "{1:10, NaN:20, 5:50}",
+        "{NaN:20}",
+    });
+    auto result = evaluate("map_subset(c0, c1)", data);
+    assertEqualVectors(expected, result);
+
+    // Case 2: Constant search keys.
+    data = makeRowVector(
+        {makeMapVectorFromJson<T, int32_t>({
+             "{1:10, NaN:20, 3:null, 4:40, 5:50, 6:60}",
+             "{NaN:20}",
+         }),
+         BaseVector::wrapInConstant(2, 0, makeArrayVector<T>({{1, kNaN, 5}}))});
+    expected = makeMapVectorFromJson<T, int32_t>({
+        "{1:10, NaN:20, 5:50}",
+        "{NaN:20}",
+    });
+    result = evaluate("map_subset(c0, c1)", data);
+    assertEqualVectors(expected, result);
+
+    // Case 3: Map with Complex type as key.
+    // Map: { [{1, NaN,3}: 1, {4, 5}: 2], [{NaN, 3}: 3, {1, 2}: 4] }
+    data = makeRowVector({
+        makeMapVector(
+            {0, 2},
+            makeArrayVector<T>({{1, kNaN, 3}, {4, 5}, {kSNaN, 3}, {1, 2}}),
+            makeFlatVector<int32_t>({1, 2, 3, 4})),
+        makeNestedArrayVectorFromJson<T>({
+            "[[1, NaN, 3], [4, 5]]",
+            "[[1, 2, 3], [NaN, 3]]",
+        }),
+    });
+    expected = makeMapVector(
+        {0, 2},
+        makeArrayVectorFromJson<T>({
+            "[1, NaN, 3]",
+            "[4, 5]",
+            "[NaN, 3]",
+        }),
+        makeFlatVector<int32_t>({1, 2, 3}));
+
+    result = evaluate("map_subset(c0, c1)", data);
+    assertEqualVectors(expected, result);
+  }
+};
 
 TEST_F(MapSubsetTest, bigintKey) {
   auto data = makeRowVector({
@@ -131,6 +191,11 @@ TEST_F(MapSubsetTest, arrayKey) {
       makeFlatVector<std::string>({"apple", "Cucurbitaceae"}));
 
   assertEqualVectors(expected, result);
+}
+
+TEST_F(MapSubsetTest, floatNaNs) {
+  testFloatNaNs<float>();
+  testFloatNaNs<double>();
 }
 
 } // namespace

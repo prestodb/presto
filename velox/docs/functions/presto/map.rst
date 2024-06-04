@@ -96,7 +96,8 @@ Map Functions
 
 .. function:: map_subset(map(K,V), array(k)) -> map(K,V)
 
-    Constructs a map from those entries of ``map`` for which the key is in the array given::
+    Constructs a map from those entries of ``map`` for which the key is in the array given
+    For keys containing REAL and DOUBLE, NANs (Not-a-Number) are considered equal. ::
 
         SELECT map_subset(MAP(ARRAY[1,2], ARRAY['a','b']), ARRAY[10]); -- {}
         SELECT map_subset(MAP(ARRAY[1,2], ARRAY['a','b']), ARRAY[1]); -- {1->'a'}

@@ -822,6 +822,7 @@ class VectorMaker {
       folly::json::serialization_opts options;
       options.convert_int_keys = true;
       options.allow_non_string_keys = true;
+      options.allow_nan_inf = true;
       folly::dynamic mapObject = folly::parseJson(jsonMap, options);
       if (mapObject.isNull()) {
         // Null map.

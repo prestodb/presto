@@ -17,6 +17,7 @@
 
 #include "velox/expression/ComplexViewTypes.h"
 #include "velox/functions/Udf.h"
+#include "velox/type/FloatingPointUtil.h"
 
 namespace facebook::velox::functions {
 
@@ -84,7 +85,7 @@ struct MapSubsetPrimitiveFunction {
   }
 
   bool constantSearchKeys_{false};
-  folly::F14FastSet<arg_type<Key>> searchKeys_;
+  util::floating_point::HashSetNaNAware<arg_type<Key>> searchKeys_;
 };
 
 /// Fast path for constant string keys: map_subset(m, array['a', 'b', 'c']).
