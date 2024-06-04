@@ -255,26 +255,24 @@ public abstract class AbstractTestWriter
     {
         Session session = buildSessionForTableWrite();
         String tmpTableName = generateRandomTableName();
-        // TODO: add varbinary test support once velox supports varbinary in value node
-        // https://github.com/prestodb/presto/blob/master/presto-native-execution/presto_cpp/main/types/PrestoToVeloxQueryPlan.cpp#L915
         assertUpdate(session, format("" +
                 "CREATE TABLE %s " +
                 "WITH ( " +
                 "   partitioned_by = ARRAY['p_varchar'] " +
                 ") " +
                 "AS " +
-                "SELECT c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_array, p_varchar " +
+                "SELECT c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_varbinary, c_array, p_varchar " +
                 "FROM ( " +
                 "  VALUES " +
-                "    (null, null, null, null, null, null, 'p1'), " +
-                "    (null, null, null, null, null, null, 'p1'), " +
-                "    (true, BIGINT '1', DOUBLE '2.2', TIMESTAMP '2012-08-08 01:00', CAST('abc1' AS VARCHAR), sequence(0, 10), 'p1')," +
-                "    (false, BIGINT '0', DOUBLE '1.2', TIMESTAMP '2012-08-08 00:00', CAST('abc2' AS VARCHAR), sequence(10, 20), 'p1')," +
-                "    (null, null, null, null, null, null, 'p2'), " +
-                "    (null, null, null, null, null, null, 'p2'), " +
-                "    (true, BIGINT '2', DOUBLE '3.3', TIMESTAMP '2012-09-09 01:00', CAST('cba1' AS VARCHAR), sequence(20, 25), 'p2'), " +
-                "    (false, BIGINT '1', DOUBLE '2.3', TIMESTAMP '2012-09-09 00:00', CAST('cba2' AS VARCHAR), sequence(30, 35), 'p2') " +
-                ") AS x (c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_array, p_varchar)", tmpTableName), 8);
+                "    (null, null, null, null, null, null, null, 'p1'), " +
+                "    (null, null, null, null, null, null, null, 'p1'), " +
+                "    (true, BIGINT '1', DOUBLE '2.2', TIMESTAMP '2012-08-08 01:00', CAST('abc1' AS VARCHAR), to_ieee754_64(1), sequence(0, 10), 'p1')," +
+                "    (false, BIGINT '0', DOUBLE '1.2', TIMESTAMP '2012-08-08 00:00', CAST('abc2' AS VARCHAR), to_ieee754_64(2), sequence(10, 20), 'p1')," +
+                "    (null, null, null, null, null, null, null, 'p2'), " +
+                "    (null, null, null, null, null, null, null, 'p2'), " +
+                "    (true, BIGINT '2', DOUBLE '3.3', TIMESTAMP '2012-09-09 01:00', CAST('cba1' AS VARCHAR), to_ieee754_64(3), sequence(20, 25), 'p2'), " +
+                "    (false, BIGINT '1', DOUBLE '2.3', TIMESTAMP '2012-09-09 00:00', CAST('cba2' AS VARCHAR), to_ieee754_64(4), sequence(30, 35), 'p2') " +
+                ") AS x (c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_varbinary, c_array, p_varchar)", tmpTableName), 8);
 
         assertQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar = 'p1')", tmpTableName),
                 "SELECT * FROM (VALUES " +
@@ -283,9 +281,10 @@ public abstract class AbstractTestWriter
                         "('c_double', null, 2.0E0, 0.5E0, null, '1.2', '2.2', null), " +
                         "('c_timestamp', null, 2.0E0, 0.5E0, null, null, null, null), " +
                         "('c_varchar', 16.0E0, 2.0E0, 0.5E0, null, null, null, null), " + // 8.0
+                        "('c_varbinary', 24.0, null, 0.5E0, null, null, null, null), " +
                         "('c_array', 184.0E0, null, 0.5, null, null, null, null), " + // 176
                         "('p_varchar', 8.0E0, 1.0E0, 0.0E0, null, null, null, null), " +
-                        "(null, null, null, null, 4.0E0, null, null, null)) AS x (c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_array, p_varchar, h_varchar)");
+                        "(null, null, null, null, 4.0E0, null, null, null)) AS x (column_name, data_size, distinct_values_count, nulls_fraction, row_count, low_value, high_value, histogram)");
         assertQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar = 'p2')", tmpTableName),
                 "SELECT * FROM (VALUES " +
                         "('c_boolean', null, 2.0E0, 0.5E0, null, null, null, null), " +
@@ -293,9 +292,10 @@ public abstract class AbstractTestWriter
                         "('c_double', null, 2.0E0, 0.5E0, null, '2.3', '3.3', null), " +
                         "('c_timestamp', null, 2.0E0, 0.5E0, null, null, null, null), " +
                         "('c_varchar', 16.0E0, 2.0E0, 0.5E0, null, null, null, null), " + // 8
+                        "('c_varbinary', 24.0, null, 0.5E0, null, null, null, null), " +
                         "('c_array', 104.0E0, null, 0.5, null, null, null, null), " + // 96
                         "('p_varchar', 8.0E0, 1.0E0, 0.0E0, null, null, null, null), " +
-                        "(null, null, null, null, 4.0E0, null, null, null)) AS x (c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_array, p_varchar, h_varchar)");
+                        "(null, null, null, null, 4.0E0, null, null, null)) AS x (column_name, data_size, distinct_values_count, nulls_fraction, row_count, low_value, high_value, histogram)");
 
         // non existing partition
         assertQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar = 'p3')", tmpTableName),
@@ -305,9 +305,10 @@ public abstract class AbstractTestWriter
                         "('c_double', null, 0E0, 0E0, null, null, null, null), " +
                         "('c_timestamp', null, 0E0, 0E0, null, null, null, null), " +
                         "('c_varchar', 0E0, 0E0, 0E0, null, null, null, null), " +
+                        "('c_varbinary', null, 0E0, 0E0, null, null, null, null), " +
                         "('c_array', null, 0E0, 0E0, null, null, null, null), " +
                         "('p_varchar', 0E0, 0E0, 0E0, null, null, null, null), " +
-                        "(null, null, null, null, 0E0, null, null, null)) AS x (c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_array, p_varchar, h_varchar)");
+                        "(null, null, null, null, 0E0, null, null, null)) AS x (column_name, data_size, distinct_values_count, nulls_fraction, row_count, low_value, high_value, histogram)");
 
         dropTableIfExists(tmpTableName);
     }
@@ -324,6 +325,7 @@ public abstract class AbstractTestWriter
                 "   c_double DOUBLE, " +
                 "   c_timestamp TIMESTAMP, " +
                 "   c_varchar VARCHAR, " +
+                "   c_varbinary VARBINARY, " +
                 "   c_array ARRAY(BIGINT), " +
                 "   p_varchar VARCHAR " +
                 ") " +
@@ -333,18 +335,18 @@ public abstract class AbstractTestWriter
 
         assertUpdate(format("" +
                 "INSERT INTO %s " +
-                "SELECT c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_array, p_varchar " +
+                "SELECT c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_varbinary, c_array, p_varchar " +
                 "FROM ( " +
                 "  VALUES " +
-                "    (null, null, null, null, null, null, 'p1'), " +
-                "    (null, null, null, null, null, null, 'p1'), " +
-                "    (true, BIGINT '1', DOUBLE '2.2', TIMESTAMP '2012-08-08 01:00', CAST('abc1' AS VARCHAR), sequence(0, 10), 'p1')," +
-                "    (false, BIGINT '0', DOUBLE '1.2', TIMESTAMP '2012-08-08 00:00', CAST('abc2' AS VARCHAR), sequence(10, 20), 'p1')," +
-                "    (null, null, null, null, null, null, 'p2'), " +
-                "    (null, null, null, null, null, null, 'p2'), " +
-                "    (true, BIGINT '2', DOUBLE '3.3', TIMESTAMP '2012-09-09 01:00', CAST('cba1' AS VARCHAR), sequence(20, 25), 'p2'), " +
-                "    (false, BIGINT '1', DOUBLE '2.3', TIMESTAMP '2012-09-09 00:00', CAST('cba2' AS VARCHAR), sequence(30, 35), 'p2') " +
-                ") AS x (c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_array, p_varchar)", tmpTableName), 8);
+                "    (null, null, null, null, null, null, null, 'p1'), " +
+                "    (null, null, null, null, null, null, null,  'p1'), " +
+                "    (true, BIGINT '1', DOUBLE '2.2', TIMESTAMP '2012-08-08 01:00', CAST('abc1' AS VARCHAR), to_ieee754_64(1), sequence(0, 10), 'p1')," +
+                "    (false, BIGINT '0', DOUBLE '1.2', TIMESTAMP '2012-08-08 00:00', CAST('abc2' AS VARCHAR), to_ieee754_64(2), sequence(10, 20), 'p1')," +
+                "    (null, null, null, null, null, null, null, 'p2'), " +
+                "    (null, null, null, null, null, null, null, 'p2'), " +
+                "    (true, BIGINT '2', DOUBLE '3.3', TIMESTAMP '2012-09-09 01:00', CAST('cba1' AS VARCHAR), to_ieee754_64(3), sequence(20, 25), 'p2'), " +
+                "    (false, BIGINT '1', DOUBLE '2.3', TIMESTAMP '2012-09-09 00:00', CAST('cba2' AS VARCHAR), to_ieee754_64(4), sequence(30, 35), 'p2') " +
+                ") AS x (c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_varbinary, c_array, p_varchar)", tmpTableName), 8);
 
         assertQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar = 'p1')", tmpTableName),
                 "SELECT * FROM (VALUES " +
@@ -353,9 +355,10 @@ public abstract class AbstractTestWriter
                         "('c_double', null, 2.0E0, 0.5E0, null, '1.2', '2.2', null), " +
                         "('c_timestamp', null, 2.0E0, 0.5E0, null, null, null, null), " +
                         "('c_varchar', 16.0E0, 2.0E0, 0.5E0, null, null, null, null), " + // 8
+                        "('c_varbinary', 24.0, null, 0.5E0, null, null, null, null), " +
                         "('c_array', 184.0E0, null, 0.5E0, null, null, null, null), " + // 176
                         "('p_varchar', 8.0E0, 1.0E0, 0.0E0, null, null, null, null), " +
-                        "(null, null, null, null, 4.0E0, null, null, null)) AS x (c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_array, p_varchar, p_varchar)");
+                        "(null, null, null, null, 4.0E0, null, null, null)) AS x (column_name, data_size, distinct_values_count, nulls_fraction, row_count, low_value, high_value, histogram)");
         assertQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar = 'p2')", tmpTableName),
                 "SELECT * FROM (VALUES " +
                         "('c_boolean', null, 2.0E0, 0.5E0, null, null, null, null), " +
@@ -363,9 +366,10 @@ public abstract class AbstractTestWriter
                         "('c_double', null, 2.0E0, 0.5E0, null, '2.3', '3.3', null), " +
                         "('c_timestamp', null, 2.0E0, 0.5E0, null, null, null, null), " +
                         "('c_varchar', 16.0E0, 2.0E0, 0.5E0, null, null, null, null), " + // 8
+                        "('c_varbinary', 24.0, null, 0.5E0, null, null, null, null), " +
                         "('c_array', 104.0E0, null, 0.5, null, null, null, null), " + // 96
                         "('p_varchar', 8.0E0, 1.0E0, 0.0E0, null, null, null, null), " +
-                        "(null, null, null, null, 4.0E0, null, null, null)) AS x (c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_array, p_varchar, p_varchar)");
+                        "(null, null, null, null, 4.0E0, null, null, null)) AS x (column_name, data_size, distinct_values_count, nulls_fraction, row_count, low_value, high_value, histogram)");
 
         // non existing partition
         assertQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar = 'p3')", tmpTableName),
@@ -375,9 +379,10 @@ public abstract class AbstractTestWriter
                         "('c_double', null, 0E0, 0E0, null, null, null, null), " +
                         "('c_timestamp', null, 0E0, 0E0, null, null, null, null), " +
                         "('c_varchar', 0E0, 0E0, 0E0, null, null, null, null), " +
+                        "('c_varbinary', null, 0E0, 0E0, null, null, null, null), " +
                         "('c_array', null, 0E0, 0E0, null, null, null, null), " +
                         "('p_varchar', 0E0, 0E0, 0E0, null, null, null, null), " +
-                        "(null, null, null, null, 0E0, null, null, null)) AS x (c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_array, p_varchar, p_varchar)");
+                        "(null, null, null, null, 0E0, null, null, null)) AS x (column_name, data_size, distinct_values_count, nulls_fraction, row_count, low_value, high_value, histogram)");
 
         dropTableIfExists(tmpTableName);
     }
