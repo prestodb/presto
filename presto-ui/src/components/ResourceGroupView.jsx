@@ -65,13 +65,13 @@ function TimelineItem({name, chartId, value}) {
 
 // Display the root group list if no group is specified or general information if any error.
 function NoGroupIdWidget({groupId, error, groups}) {
-    let docView = (<h3 className="text-center">{ groupId ? 'Retrieving resource group information...' : 'Detecting Resource Groups settings...'}</h3>);
+    let docView = (<h3 className="text-center resource-group-font">{ groupId ? 'Retrieving resource group information...' : 'Detecting Resource Groups settings...'}</h3>);
 
     if (groups.length > 0) {
         docView = (
             <>
             <div className="col-4 col-offset-4">
-                <h4 className="text-center">Available resource groups:</h4>
+                <h4 className="text-center res-heading">Available resource groups:</h4>
                 <div className="list-group">
                     {groups.map(grp => (
                     <a className="list-group-item text-center" href={'./res_groups.html?group=' + encodeURIComponent(grp.id[0])}>{truncateString(grp.id[0], 35)}</a>
@@ -261,8 +261,8 @@ export default function ResourceGroupView() {
             <div className={values.showResource ? 'container' : 'hide container'}>
                 <div className="row">
                     {values.id.length > 0 && (
-                        <div className="col-12">
-                                <div className="col-2 breadcrumb breadcrumb-title">
+                        <div className="row">
+                                <div className="col-2 breadcrumb breadcrumb-title res-heading">
                                     Resource Group:
                                 </div>
                                 <div className="col-10">
@@ -274,7 +274,7 @@ export default function ResourceGroupView() {
                         <h3>Information</h3>
                         <hr className="h3-hr"/>
                         <table className="table">
-                            <tbody>
+                            <tbody className="res-group-side-headings">
                             <InfoItem name="State" value={values.state} />
                             <InfoItem name="Schedule Policy" value={values.schedulingPolicy} />
                             <InfoItem name="Schedule Weight" value={values.schedulingWeight} />
@@ -301,7 +301,7 @@ export default function ResourceGroupView() {
                         <h3>Timeline</h3>
                         <hr className="h3-hr"/>
                         <table className="table">
-                            <tbody>
+                            <tbody className="res-group-side-headings">
                                 <TimelineItem name="Queued Queries" chartId="queued-queries-sparkline" value={values.numQueuedQueries} />
                                 <TimelineItem name="Running Queries" chartId="running-queries-sparkline" value={values.numRunningQueries} />
                                 <TimelineItem name="Aggregated Queued Queries" chartId="agg-queued-queries-sparkline" value={values.numAggregatedQueuedQueries} />

@@ -70,7 +70,7 @@ export default function SQLClientView() {
 
     return (
         <>
-            <div className="alert alert-warning alert-dismissible fade show" role="alert" style={{display: 'block', marginLeft: 'auto', marginRight: 'auto', textAlign: 'center', background: '#fcf8e3', color:'#8a6d3b', borderColor:'#faebcc', borderRadius:0}}>
+            <div className="alert alert-warning alert-dismissible fade show" role="alert" style={{display: 'block', marginLeft: 'auto', marginRight: 'auto',  marginTop: '10px', textAlign: 'center', background: '#fcf8e3', color:'#8a6d3b', borderColor:'#faebcc', borderRadius:0, fontSize:"14px"}}>
                 <button type="button" className="btn-close" data-bs-dismiss="alert" style={{filter:'contrast(0.5)'}} aria-label="Close"><span aria-hidden="true">&times;</span></button>
                 SQL client directly accesses the coordinator APIs and submits SQL queries. Users who can access the Web UI can use this client to query,
                 update, and even delete data in the catalogs. Be sure to enable the user authentication to protect the Web UI access if needed.

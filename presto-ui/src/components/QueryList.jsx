@@ -571,7 +571,7 @@ export class QueryList extends React.Component {
         }
 
         return (
-            <button type="button" className={classNames} onClick={this.handleStateFilterClick.bind(this, filterType)} style={{fontSize:'12px', color:'white', height: '31px'}}>
+            <button type="button" className={classNames} onClick={this.handleStateFilterClick.bind(this, filterType)} style={{height: "30px", fontSize:"12px", color:"white"}}>
                 <span className="bi bi-check-lg" style={checkmarkStyle}/>&nbsp;{filterText}
             </button>
         );
@@ -641,29 +641,29 @@ export class QueryList extends React.Component {
             }
             queryList = (
                 <div className="row error-message">
-                    <div className="col-12"><h5>{label}</h5></div>
+                    <div className="col-12"><h4>{label}</h4></div>
                 </div>
             );
         }
 
         return (
             <div>
-                <div className="row">
-                    <div className="col-12 input-group gap-1">
-                        
+                <div className="row toolbar-row justify-content-center">
+                    <div className="col-12 input-group gap-1 toolbar-col">    
                         <div className="input-group-prepend">
                             <input type="text" className="form-control search-bar rounded-0" placeholder="User, source, query ID, resource group, or query text"
-                                   onChange={this.handleSearchStringChange} value={this.state.searchString} style={{backgroundColor: "white", height:"2rem", color: 'black', fontSize: '12px'}} />
 
+                                onChange={this.handleSearchStringChange} value={this.state.searchString} style={{backgroundColor: "white", flex:"0 1 500.586px", width:"500.586px" ,color: 'black', fontSize: '12px', borderColor:"#CCCCCC"}} />
                                    </div> 
                             <div className="input-group-prepend">
-                            <span className="input-group-text rounded-0" style={{backgroundColor: "white", color: 'black', height:"2rem", fontSize:'12px'}}>State:</span>
+                            <span className="input-group-text rounded-0" style={{backgroundColor: "white", color: 'black', height:"2rem", fontSize:'12px', borderColor:"#454A58" }}>State:</span>
+
                             </div>
-                            <div className="input-group-prepend">
+                            <div className="input-group-btn">
                                 {this.renderFilterButton(FILTER_TYPE.RUNNING, "Running")}
                                 {this.renderFilterButton(FILTER_TYPE.QUEUED, "Queued")}
                                 {this.renderFilterButton(FILTER_TYPE.FINISHED, "Finished")}
-                                <button type="button" id="error-type-dropdown" className="btn btn-info dropdown-toggle rounded-0" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style={{height: '31px'}}>
+                                <button type="button" id="error-type-dropdown" className="btn btn-info dropdown-toggle rounded-0" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style={{height: '30px'}}>
                                     Failed <span className="caret"/>
                                 </button>
                                 <ul className="dropdown-menu bg-white text-dark error-type-dropdown-menu">
@@ -704,7 +704,7 @@ export class QueryList extends React.Component {
                             </div>
                             &nbsp;
                             <div className="input-group-btn">
-                                <button type="button" className="btn btn-dark btn-sm dropdown-toggle bg-white text-dark rounded-0" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style={{fontSize:'12px', height: '31px'}}>
+                                <button type="button" className="btn btn-dark btn-sm dropdown-toggle bg-white text-btn-default rounded-0" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style={{fontSize:'12px', height: '31px'}}>
                                     Show <span className="caret"/>
                                 </button>
                                 <ul className="dropdown-menu bg-white text-dark rounded-0">

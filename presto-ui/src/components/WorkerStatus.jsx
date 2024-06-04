@@ -201,7 +201,7 @@ export class WorkerStatus extends React.Component {
                     <table className="table table-condensed">
                         <tbody>
                         <tr>
-                            <td>
+                            <td className="text-queries-pool">
                                 No queries using pool
                             </td>
                         </tr>
@@ -244,7 +244,7 @@ export class WorkerStatus extends React.Component {
             <div>
                 <div className="row">
                     <div className="col-12">
-                        <h3>Overview</h3>
+                        <h3 className="font-large">Overview</h3>
                         <hr className="h3-hr"/>
                         <div className="row">
                             <div className="col-6">
@@ -325,7 +325,7 @@ export class WorkerStatus extends React.Component {
                         </div>
                         <div className="row">
                             <div className="col-12">
-                                <h3>Resource Utilization</h3>
+                                <h3 className="font-large">Resource Utilization</h3>
                                 <hr className="h3-hr"/>
                                 <div className="row">
 
@@ -408,7 +408,7 @@ export class WorkerStatus extends React.Component {
                 </div>
                 <div className="row">
                     <div className="col-12">
-                        <h3>Memory Pools</h3>
+                        <h3 className="font-large">Memory Pools</h3>
                         <hr className="h3-hr"/>
                         <div className="row">
                             <div className="col-6">

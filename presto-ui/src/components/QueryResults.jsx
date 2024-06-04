@@ -59,10 +59,11 @@ export function QueryResults({ results }) {
                         </a>}
                 </div>
             </div>
-            <div className="row"><hr className="h3-hr" /></div>
+            <div className="row"><hr className="h3-hr"/></div>
             {results.error && <div className="row">
-                <div className="alert alert-danger" role="alert">
-                    <h4 className="text-center">{results.error.message}</h4>
+                <div className="alert alert-danger" role="alert" style={{ background: '#f2dede',border: '#ebccd1', color: '#a94442', fontSize:'18px'}}>
+                    <h4 className="text-center" style ={{fontSize:'18px'}}>
+                        {results.error.message}</h4>
                 </div>
             </div>}
             {results.data && <div className="row">
