@@ -86,19 +86,17 @@ class WriterFuzzer {
     seed(rng_());
   }
 
-  // Generates at least one and up to 5 scalar columns to be used as regular
-  // columns of table write, Column names are generated using template
-  // '<prefix>N', where N is zero-based ordinal number of the column.
+  // Generates at least one and up to maxNumColumns columns to be
+  // used as columns of table write.
+  // Column names are generated using template '<prefix>N', where N is
+  // zero-based ordinal number of the column.
+  // Data types is chosen from '<columnTypes>' and for nested complex data type,
+  // maxDepth limits the max layers of nesting.
   std::vector<std::string> generateColumns(
+      int32_t maxNumColumns,
       const std::string& prefix,
-      std::vector<std::string>& names,
-      std::vector<TypePtr>& types);
-
-  // Generates at least one and up to 3 scalar columns to be used as partition
-  // columns of table write, Column names are generated using template
-  // '<prefix>N', where N is zero-based ordinal number of the column.
-  std::vector<std::string> generatePartitionKeys(
-      const std::string& prefix,
+      const std::vector<TypePtr>& dataTypes,
+      int32_t maxDepth,
       std::vector<std::string>& names,
       std::vector<TypePtr>& types);
 
@@ -132,6 +130,27 @@ class WriterFuzzer {
   // Returns all the partition names in tableDirectoryPath.
   std::set<std::string> getPartitionNames(
       const std::string& tableDirectoryPath);
+
+  const std::vector<TypePtr> kRegularColumnTypes_{
+      BOOLEAN(),
+      TINYINT(),
+      SMALLINT(),
+      INTEGER(),
+      BIGINT(),
+      VARCHAR(),
+      VARBINARY(),
+      TIMESTAMP(),
+  };
+  // Supported partition key column types
+  // According to VectorHasher::typeKindSupportsValueIds and
+  // https://github.com/prestodb/presto/blob/master/presto-hive/src/main/java/com/facebook/presto/hive/HiveUtil.java#L575
+  const std::vector<TypePtr> kPartitionKeyTypes_{
+      BOOLEAN(),
+      TINYINT(),
+      SMALLINT(),
+      INTEGER(),
+      BIGINT(),
+      VARCHAR()};
 
   FuzzerGenerator rng_;
   size_t currentSeed_{0};
@@ -198,11 +217,12 @@ void WriterFuzzer::go() {
     std::vector<TypePtr> types;
     std::vector<std::string> partitionKeys;
 
-    generateColumns("c", names, types);
+    generateColumns(5, "c", kRegularColumnTypes_, 2, names, types);
     const auto partitionOffset = names.size();
     // 50% of times test partitioned write.
     if (vectorFuzzer_.coinToss(0.5)) {
-      partitionKeys = generatePartitionKeys("p", names, types);
+      partitionKeys =
+          generateColumns(3, "p", kPartitionKeyTypes_, 1, names, types);
     }
     auto input = generateInputData(names, types, partitionOffset);
 
@@ -216,54 +236,23 @@ void WriterFuzzer::go() {
 }
 
 std::vector<std::string> WriterFuzzer::generateColumns(
+    int32_t maxNumColumns,
     const std::string& prefix,
+    const std::vector<TypePtr>& dataTypes,
+    int32_t maxDepth,
     std::vector<std::string>& names,
     std::vector<TypePtr>& types) {
-  static const std::vector<TypePtr> kNonFloatingPointTypes{
-      BOOLEAN(),
-      TINYINT(),
-      SMALLINT(),
-      INTEGER(),
-      BIGINT(),
-      VARCHAR(),
-      VARBINARY(),
-      TIMESTAMP(),
-  };
-
   const auto numColumns =
-      boost::random::uniform_int_distribution<uint32_t>(1, 5)(rng_);
+      boost::random::uniform_int_distribution<uint32_t>(1, maxNumColumns)(rng_);
   std::vector<std::string> columns;
   for (auto i = 0; i < numColumns; ++i) {
     columns.push_back(fmt::format("{}{}", prefix, i));
 
     // Pick random, possibly complex, type.
-    types.push_back(vectorFuzzer_.randType(kNonFloatingPointTypes, 2));
+    types.push_back(vectorFuzzer_.randType(dataTypes, maxDepth));
     names.push_back(columns.back());
   }
   return columns;
-}
-
-std::vector<std::string> WriterFuzzer::generatePartitionKeys(
-    const std::string& prefix,
-    std::vector<std::string>& names,
-    std::vector<TypePtr>& types) {
-  // Supported partition key column types
-  // According to VectorHasher::typeKindSupportsValueIds and
-  // https://github.com/prestodb/presto/blob/master/presto-hive/src/main/java/com/facebook/presto/hive/HiveUtil.java#L575
-  static const std::vector<TypePtr> kSupportedKeyTypes{
-      BOOLEAN(), TINYINT(), SMALLINT(), INTEGER(), BIGINT(), VARCHAR()};
-
-  const auto numKeys =
-      boost::random::uniform_int_distribution<uint32_t>(1, 3)(rng_);
-  std::vector<std::string> partitionKeys;
-  for (auto i = 0; i < numKeys; ++i) {
-    partitionKeys.push_back(fmt::format("{}{}", prefix, i));
-
-    // Pick random scalar type.
-    types.push_back(vectorFuzzer_.randType(kSupportedKeyTypes, 1));
-    names.push_back(partitionKeys.back());
-  }
-  return partitionKeys;
 }
 
 std::vector<RowVectorPtr> WriterFuzzer::generateInputData(
@@ -424,16 +413,15 @@ std::set<std::string> WriterFuzzer::getPartitionNames(
   std::set<std::string> partitionNames;
 
   for (std::string directory : directories) {
-    // Remove the path prefix to get the partition name
-    // For example: /test/tmp_write/p0=1/p1=2020
-    // partition name is /p0=1/p1=2020
-    directory.erase(0, fileSystem->extractPath(tableDirectoryPath).length());
-
     // If it's a hidden directory, ignore
     if (directory.find("/.") != std::string::npos) {
       continue;
     }
 
+    // Remove the path prefix to get the partition name
+    // For example: /test/tmp_write/p0=1/p1=2020
+    // partition name is /p0=1/p1=2020
+    directory.erase(0, fileSystem->extractPath(tableDirectoryPath).length());
     partitionNames.insert(directory);
   }
 
