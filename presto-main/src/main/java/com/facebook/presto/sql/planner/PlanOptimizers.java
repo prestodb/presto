@@ -22,6 +22,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.expressions.ExpressionManager;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -216,7 +217,8 @@ public class PlanOptimizers
             CostComparator costComparator,
             TaskCountEstimator taskCountEstimator,
             PartitioningProviderManager partitioningProviderManager,
-            FeaturesConfig featuresConfig)
+            FeaturesConfig featuresConfig,
+            ExpressionManager expressionManager)
     {
         this(metadata,
                 sqlParser,
@@ -231,7 +233,8 @@ public class PlanOptimizers
                 costComparator,
                 taskCountEstimator,
                 partitioningProviderManager,
-                featuresConfig);
+                featuresConfig,
+                expressionManager);
     }
 
     @PostConstruct
@@ -262,7 +265,8 @@ public class PlanOptimizers
             CostComparator costComparator,
             TaskCountEstimator taskCountEstimator,
             PartitioningProviderManager partitioningProviderManager,
-            FeaturesConfig featuresConfig)
+            FeaturesConfig featuresConfig,
+            ExpressionManager expressionManager)
     {
         this.exporter = exporter;
         ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
@@ -317,7 +321,7 @@ public class PlanOptimizers
                 statsCalculator,
                 estimatedExchangesCostCalculator,
                 ImmutableSet.<Rule<?>>builder()
-                        .addAll(new SimplifyRowExpressions(metadata).rules())
+                        .addAll(new SimplifyRowExpressions(metadata, expressionManager).rules())
                         .add(new PruneRedundantProjectionAssignments())
                         .build());
 

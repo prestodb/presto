@@ -26,6 +26,7 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerF
 import com.facebook.presto.spi.security.PasswordAuthenticatorFactory;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactory;
+import com.facebook.presto.spi.sql.planner.RowExpressionInterpreterServiceFactory;
 import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.spi.storage.TempStorageFactory;
 import com.facebook.presto.spi.tracing.TracerProvider;
@@ -133,6 +134,11 @@ public interface Plugin
     }
 
     default Iterable<NodeStatusNotificationProviderFactory> getNodeStatusNotificationProviderFactory()
+    {
+        return emptyList();
+    }
+
+    default Iterable<RowExpressionInterpreterServiceFactory> getBatchRowExpressionInterpreterProviders()
     {
         return emptyList();
     }

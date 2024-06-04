@@ -183,7 +183,7 @@ public class TestSimplifyRowExpressions
 
         TestingRowExpressionTranslator translator = new TestingRowExpressionTranslator(METADATA);
         RowExpression actualRowExpression = translator.translate(actualExpression, TypeProvider.viewOf(TYPES));
-        RowExpression simplifiedRowExpression = SimplifyRowExpressions.rewrite(actualRowExpression, METADATA, TEST_SESSION.toConnectorSession());
+        RowExpression simplifiedRowExpression = SimplifyRowExpressions.rewrite(actualRowExpression, METADATA, TEST_SESSION);
         Expression expectedByRowExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(rowExpressionExpected));
         RowExpression simplifiedByExpression = translator.translate(expectedByRowExpression, TypeProvider.viewOf(TYPES));
         assertEquals(normalize(simplifiedRowExpression), normalize(simplifiedByExpression));

@@ -13,16 +13,20 @@
  */
 package com.facebook.presto.sql.planner.assertions;
 
+import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.cost.StatsCalculator;
+import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.Optimizer;
+import com.facebook.presto.sql.expressions.ExpressionManager;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.TypeProvider;
@@ -46,6 +50,7 @@ import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.sql.planner.assertions.PlanAssert.assertPlan;
 import static com.facebook.presto.sql.planner.assertions.PlanAssert.assertPlanDoesNotMatch;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
@@ -170,7 +175,8 @@ public class OptimizerAssert
                         new RuleStatsRecorder(),
                         queryRunner.getStatsCalculator(),
                         queryRunner.getCostCalculator(),
-                        new SimplifyRowExpressions(metadata).rules()));
+                        // TODO: enable the delegating row expression optimizer
+                        new SimplifyRowExpressions(metadata, new ExpressionManager(new InMemoryNodeManager(), new NodeInfo("test"), jsonCodec(RowExpression.class))).rules()));
     }
 
     private <T> void inTransaction(Function<Session, T> transactionSessionConsumer)

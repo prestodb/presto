@@ -31,11 +31,12 @@ presto-docs-venv/
 #==============================================================================#
 # presto-native-execution
 #==============================================================================#
-_build/
+_build
 cmake-build-*/
 *.swp
 *~
 a.out
+presto-native-execution/scripts/**
 
 # Compiled Object files
 *.slo
