@@ -16,7 +16,6 @@ package com.facebook.presto.type;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.AbstractIntType;
 import com.facebook.presto.common.type.StandardTypes;
-import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.BlockIndex;
 import com.facebook.presto.spi.function.BlockPosition;
@@ -51,13 +50,14 @@ import static com.facebook.presto.common.function.OperatorType.SATURATED_FLOOR_C
 import static com.facebook.presto.common.function.OperatorType.SUBTRACT;
 import static com.facebook.presto.common.function.OperatorType.XX_HASH_64;
 import static com.facebook.presto.common.type.RealType.REAL;
-import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
-import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 import static java.math.RoundingMode.FLOOR;
+import static java.math.RoundingMode.HALF_UP;
 
 public final class RealOperators
 {
@@ -194,7 +194,12 @@ public final class RealOperators
     @SqlType(StandardTypes.BIGINT)
     public static long castToLong(@SqlType(StandardTypes.REAL) long value)
     {
-        return (long) MathFunctions.round((double) intBitsToFloat((int) value));
+        try {
+            return DoubleMath.roundToLong(intBitsToFloat((int) value), HALF_UP);
+        }
+        catch (ArithmeticException e) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Unable to cast %s to bigint", value), e);
+        }
     }
 
     @ScalarOperator(CAST)
@@ -202,10 +207,10 @@ public final class RealOperators
     public static long castToInteger(@SqlType(StandardTypes.REAL) long value)
     {
         try {
-            return toIntExact((long) MathFunctions.round((double) intBitsToFloat((int) value)));
+            return DoubleMath.roundToInt(intBitsToFloat((int) value), HALF_UP);
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for integer: " + value, e);
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Unable to cast %s to integer", value), e);
         }
     }
 
@@ -214,10 +219,10 @@ public final class RealOperators
     public static long castToSmallint(@SqlType(StandardTypes.REAL) long value)
     {
         try {
-            return Shorts.checkedCast((long) MathFunctions.round((double) intBitsToFloat((int) value)));
+            return Shorts.checkedCast(DoubleMath.roundToInt(intBitsToFloat((int) value), HALF_UP));
         }
-        catch (IllegalArgumentException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for smallint: " + value, e);
+        catch (ArithmeticException | IllegalArgumentException e) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Unable to cast %s to smallint", value), e);
         }
     }
 
@@ -226,10 +231,10 @@ public final class RealOperators
     public static long castToTinyint(@SqlType(StandardTypes.REAL) long value)
     {
         try {
-            return SignedBytes.checkedCast((long) MathFunctions.round((double) intBitsToFloat((int) value)));
+            return SignedBytes.checkedCast(DoubleMath.roundToInt(intBitsToFloat((int) value), HALF_UP));
         }
-        catch (IllegalArgumentException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for tinyint: " + value, e);
+        catch (ArithmeticException | IllegalArgumentException e) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Unable to cast %s to tinyint", value), e);
         }
     }
 

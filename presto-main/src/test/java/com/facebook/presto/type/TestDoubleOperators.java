@@ -20,7 +20,10 @@ import static com.facebook.presto.common.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
+import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static java.lang.Double.doubleToLongBits;
@@ -207,6 +210,59 @@ public class TestDoubleOperators
         assertInvalidFunction("cast(infinity() as bigint)", INVALID_CAST_ARGUMENT);
         assertInvalidFunction("cast(-infinity() as bigint)", INVALID_CAST_ARGUMENT);
         assertInvalidFunction("cast(nan() as bigint)", INVALID_CAST_ARGUMENT);
+    }
+
+    @Test
+    public void testCastToInteger()
+    {
+        assertFunction("cast(37.7E0 as integer)", INTEGER, 38);
+        assertFunction("cast(-37.7E0 as integer)", INTEGER, -38);
+        assertFunction("cast(17.1E0 as integer)", INTEGER, 17);
+        assertFunction("cast(-17.1E0 as integer)", INTEGER, -17);
+        assertFunction("cast(9.2E8 as integer)", INTEGER, 920000000);
+        assertFunction("cast(-9.2E8 as integer)", INTEGER, -920000000);
+        assertFunction("cast(2.21E8 as integer)", INTEGER, 221000000);
+        assertFunction("cast(-2.21E8 as integer)", INTEGER, -221000000);
+        assertFunction("cast(17.5E0 as integer)", INTEGER, 18);
+        assertFunction("cast(-17.5E0 as integer)", INTEGER, -18);
+
+        assertFunction("cast(" + Math.nextDown(0x1.0p31f) + " as integer)", INTEGER, (int) Math.nextDown(0x1.0p31f));
+        assertInvalidFunction("cast(" + 0x1.0p31 + " as integer)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(" + Math.nextUp(0x1.0p31f) + " as integer)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(" + Math.nextDown(-0x1.0p31f) + " as integer)", INVALID_CAST_ARGUMENT);
+        assertFunction("cast(" + -0x1.0p31 + " as integer)", INTEGER, (int) -0x1.0p31);
+        assertFunction("cast(" + Math.nextUp(-0x1.0p31f) + " as integer)", INTEGER, (int) Math.nextUp(-0x1.0p31f));
+
+        assertInvalidFunction("cast(9.3E9 as integer)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(-9.3E9 as integer)", INVALID_CAST_ARGUMENT);
+
+        assertInvalidFunction("cast(infinity() as integer)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(-infinity() as integer)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(nan() as integer)", INVALID_CAST_ARGUMENT);
+    }
+
+    @Test
+    public void testCastToSmallInt()
+    {
+        assertFunction("cast(" + (0x1.0p15 - 0.6) + " as smallint)", SMALLINT, Short.MAX_VALUE);
+        assertInvalidFunction("cast(DOUBLE '" + 0x1.0p15 + "' as smallint)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(9.2E9 as smallint)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(-9.2E9 as smallint)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(infinity() as smallint)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(-infinity() as smallint)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(nan() as smallint)", INVALID_CAST_ARGUMENT);
+    }
+
+    @Test
+    public void testCastToTinyInt()
+    {
+        assertFunction("cast(" + (0x1.0p7 - 0.6) + " as tinyint)", TINYINT, Byte.MAX_VALUE);
+        assertInvalidFunction("cast(DOUBLE '" + 0x1.0p7 + "' as tinyint)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(9.2E9 as tinyint)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(-9.2E9 as tinyint)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(infinity() as tinyint)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(-infinity() as tinyint)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(nan() as tinyint)", INVALID_CAST_ARGUMENT);
     }
 
     @Test
