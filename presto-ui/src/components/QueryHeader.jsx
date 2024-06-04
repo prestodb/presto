@@ -118,7 +118,7 @@ export class QueryHeader extends React.Component {
                                     &nbsp;
                                     {this.renderTab("timeline.html", "Splits")}
                                     &nbsp;
-                                    <a href={"/v1/query/" + query.queryId + "?pretty"} className="btn btn-info navbar-btn" target="_blank">JSON</a>
+                                    <a href={"/v1/query/" + query.queryId + "?pretty"} className="btn btn-info navbar-btn rounded-0" target="_blank">JSON</a>
                                 </td>
                             </tr>
                             </tbody>

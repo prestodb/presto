@@ -61,6 +61,9 @@ pre {
 
 #legend > div{
     width: 200px;
+    margin-left: 60px;
+    font-size: 14px;
+    color:#999999;
 }
 
 .search-bar{
@@ -106,6 +109,10 @@ pre {
 .navbar-btn {
     border-bottom: none;
     margin: 0;
+    color: #ffffff !important;
+    background-color: #5bc0de;
+    border-color: #46b8da;
+    font-size: 14px;
 }
 
 /* To make the table striping less stark */
@@ -151,6 +158,20 @@ pre {
 .dropdown-menu > li > a:hover {
     color: #fff; 
     background-color: #d7d4d4;
+}
+
+.res-heading {
+    font-size: 18px;
+    color: rgb(153, 153, 153);
+}
+
+.resource-group-font {
+    font-size: 24px;
+}
+
+.res-group-side-headings {
+    font-size: 14px;
+    color: rgb(153, 153, 153);
 }
 
 /** Convenience classes */
@@ -201,14 +222,15 @@ pre {
 .navbar {
     padding: 0 5px 0 5px;
     border-bottom: 1px solid #1EDCFF;
-    background: #252830 !important
+    background: #252830 !important;
+    margin-bottom: 10px;
 }
 
 .navbar-brand {
     color: #ffffff;
     text-transform: uppercase;
     font-size: 24px;
-    padding-left: 30px;
+    padding-left: 15px;
     padding-top: 25px;
 }
 
@@ -230,7 +252,7 @@ pre {
 .navbar img {
     width: 40px;
     height: auto;
-    padding-top: 17px;
+    
 }
 
 .navbar-cluster-info {
@@ -412,6 +434,7 @@ pre {
     border-bottom: 1px #424242 solid;
     border-left: 1px #424242 solid;
     border-right: 1px #424242 solid;
+    padding-left: 12px;
 }
 
 .error-message {
@@ -427,8 +450,9 @@ pre {
 }
 
 .query-snippet {
-    height: 160px;
+    height: 138px;
     overflow: hidden;
+    font-size: 13px;
 }
 
 .query-snippet code {
@@ -467,8 +491,8 @@ pre {
 
 .query-header-queryid {
     margin-left: -15px;
-    margin-right: -25px;
-    padding: 6px 0 6px 0;
+    margin-right: -35px;
+    padding: 8px 0 8px 0;
 }
 
 .query-header-timestamp {
@@ -479,7 +503,12 @@ pre {
 .query-progress-container {
     padding: 0;
 }
-
+.text-btn-default{
+    color: rgb(51,51,51);
+}
+.text-btn-default:hover{
+    color: rgb(51,51,51);
+}
 /** Query List Toolbar **/
 /** ================== **/
 
@@ -491,6 +520,7 @@ pre {
     background-color: #454a58;
     margin-top: -5px;
     padding: 5px;
+    max-width: 1176px;
 }
 
 .toolbar-row .form-control {
@@ -499,18 +529,18 @@ pre {
 
 .toolbar-row .input-group-btn .btn:focus {
     outline: none;
-    background-color: #5bc0de;
+    background-color: #5bc0de !important;
     border: 1px #529eb5 solid;
 }
 
 .toolbar-row .input-group-btn .active:focus {
     outline: none;
-    background-color: #277F98;
+    background-color: #277F98 !important;
     border: 1px #529eb5 solid;
 }
 
 .toolbar-row .input-group-btn .active {
-    background-color: #277F98;
+    background-color: #277F98 !important;
     border: 1px #529eb5 solid;
 }
 
@@ -530,7 +560,7 @@ pre {
 }
 
 .toolbar-row .input-group .form-control {
-    margin-top: 2px;
+    margin-top: 0px;
     margin-bottom: -2px;
     width: 98%;
 }
@@ -906,4 +936,17 @@ g .operator-stats:hover {
 
 .stack-traces {
     font-size: 11px;
+}
+.therad-snapshot-text{
+    font-weight: 500;
+    color: rgb(153, 153, 153);
+}
+.text-queries-pool{
+    color:rgb(92, 184, 92);
+    font-size:14px
+}
+.dropdown-menu-items{
+background-color:rgb(255, 255, 255);
+color:rgb(51, 51, 51);
+border-color:rgb(204, 204, 204);
 }

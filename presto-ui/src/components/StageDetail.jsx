@@ -14,6 +14,7 @@
 
 import React from "react";
 import ReactDOM from "react-dom";
+import { createRoot } from 'react-dom/client';
 import ReactDOMServer from "react-dom/server";
 import * as dagreD3 from "dagre-d3";
 import * as d3 from "d3";
@@ -368,8 +369,10 @@ class StageOperatorGraph extends React.Component {
                 operatorStageSummary = operatorSummaries[i];
             }
         }
-        ReactDOM.render(<OperatorDetail key={operatorCssId} operator={operatorStageSummary} tasks={stage.latestAttemptExecutionInfo.tasks}/>,
-            document.getElementById('operator-detail'));
+        const container = document.getElementById('operator-detail');
+        const root = createRoot(container);
+        root.render(<OperatorDetail key={operatorCssId} operator={operatorStageSummary} tasks={stage.latestAttemptExecutionInfo.tasks}/>);
+        
     }
 
     computeOperatorGraphs(planNode, operatorMap) {
@@ -619,7 +622,7 @@ export class StageDetail extends React.Component {
         if (!this.state.query.outputStage) {
             return (
                 <div className="row error-message">
-                    <div className="col-12"><h4>Query does not have an output stage</h4></div>
+                    <div className="col-12 res-heading"><h4>Query does not have an output stage</h4></div>
                 </div>
             );
         }
