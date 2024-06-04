@@ -307,8 +307,8 @@ struct ToUtcTimestampFunction {
       const arg_type<Varchar>* /*input*/,
       const arg_type<Varchar>* timezone) {
     if (timezone) {
-      timezone_ = date::locate_zone(
-          std::string_view((*timezone).data(), (*timezone).size()));
+      tzID_ = util::getTimeZoneID(
+          std::string_view((*timezone).data(), (*timezone).size()), false);
     }
   }
 
@@ -317,14 +317,17 @@ struct ToUtcTimestampFunction {
       const arg_type<Timestamp>& timestamp,
       const arg_type<Varchar>& timezone) {
     result = timestamp;
-    auto fromTimezone = timezone_
-        ? timezone_
-        : date::locate_zone(std::string_view(timezone.data(), timezone.size()));
-    result.toGMT(*fromTimezone);
+    auto fromTimezoneID = tzID_
+        ? tzID_.value()
+        : util::getTimeZoneID(
+              std::string_view(timezone.data(), timezone.size()), false);
+    VELOX_USER_CHECK_NE(
+        fromTimezoneID, -1, "Unknown time zone: '{}'", timezone);
+    result.toGMT(fromTimezoneID);
   }
 
  private:
-  const date::time_zone* timezone_{nullptr};
+  std::optional<int16_t> tzID_{std::nullopt};
 };
 
 template <typename T>
@@ -337,8 +340,8 @@ struct FromUtcTimestampFunction {
       const arg_type<Varchar>* /*input*/,
       const arg_type<Varchar>* timezone) {
     if (timezone) {
-      timezone_ = date::locate_zone(
-          std::string_view((*timezone).data(), (*timezone).size()));
+      tzID_ = util::getTimeZoneID(
+          std::string_view((*timezone).data(), (*timezone).size()), false);
     }
   }
 
@@ -347,14 +350,16 @@ struct FromUtcTimestampFunction {
       const arg_type<Timestamp>& timestamp,
       const arg_type<Varchar>& timezone) {
     result = timestamp;
-    auto toTimezone = timezone_
-        ? timezone_
-        : date::locate_zone(std::string_view(timezone.data(), timezone.size()));
-    result.toTimezone(*toTimezone);
+    auto toTimezoneID = tzID_
+        ? tzID_.value()
+        : util::getTimeZoneID(
+              std::string_view(timezone.data(), timezone.size()), false);
+    VELOX_USER_CHECK_NE(toTimezoneID, -1, "Unknown time zone: '{}'", timezone);
+    result.toTimezone(toTimezoneID);
   }
 
  private:
-  const date::time_zone* timezone_{nullptr};
+  std::optional<int16_t> tzID_{std::nullopt};
 };
 
 /// Converts date string to Timestmap type.

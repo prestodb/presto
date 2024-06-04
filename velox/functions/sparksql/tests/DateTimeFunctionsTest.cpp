@@ -97,9 +97,12 @@ TEST_F(DateTimeFunctionsTest, toUtcTimestamp) {
   EXPECT_EQ(
       "2015-01-24T00:00:00.000000000",
       toUtcTimestamp("2015-01-24 05:30:00", "Asia/Kolkata"));
+  EXPECT_EQ(
+      "2015-01-23T16:00:00.000000000",
+      toUtcTimestamp("2015-01-24 00:00:00", "+08:00"));
   VELOX_ASSERT_THROW(
       toUtcTimestamp("2015-01-24 00:00:00", "Asia/Ooty"),
-      "Asia/Ooty not found in timezone database");
+      "Unknown time zone: 'Asia/Ooty'");
 }
 
 TEST_F(DateTimeFunctionsTest, fromUtcTimestamp) {
@@ -124,9 +127,12 @@ TEST_F(DateTimeFunctionsTest, fromUtcTimestamp) {
   EXPECT_EQ(
       "2015-01-24T05:30:00.000000000",
       fromUtcTimestamp("2015-01-24 00:00:00", "Asia/Kolkata"));
+  EXPECT_EQ(
+      "2015-01-24T08:00:00.000000000",
+      fromUtcTimestamp("2015-01-24 00:00:00", "+08:00"));
   VELOX_ASSERT_THROW(
       fromUtcTimestamp("2015-01-24 00:00:00", "Asia/Ooty"),
-      "Asia/Ooty not found in timezone database");
+      "Unknown time zone: 'Asia/Ooty'");
 }
 
 TEST_F(DateTimeFunctionsTest, toFromUtcTimestamp) {
@@ -153,7 +159,7 @@ TEST_F(DateTimeFunctionsTest, toFromUtcTimestamp) {
       toFromUtcTimestamp("2015-01-24 00:00:00", "Asia/Kolkata"));
   VELOX_ASSERT_THROW(
       toFromUtcTimestamp("2015-01-24 00:00:00", "Asia/Ooty"),
-      "Asia/Ooty not found in timezone database");
+      "Unknown time zone: 'Asia/Ooty'");
 }
 
 TEST_F(DateTimeFunctionsTest, year) {
