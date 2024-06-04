@@ -170,7 +170,7 @@ public abstract class AbstractTestWriter
 
             // For special character in partition name, without correct handling, it would throw errors like 'Invalid partition spec: nationkey=A/B'
             // In this test, verify those partition names can be successfully created
-            String[] specialCharacters = new String[] {"\"", "#", "%", "''", "*", "/", ":", "=", "?", "\\", "\\x7F", "{", "[", "]", "^"}; // escape single quote for sql
+            String[] specialCharacters = {"\"", "#", "%", "''", "*", "/", ":", "=", "?", "\\", "\\x7F", "{", "[", "]", "^"}; // escape single quote for sql
             for (String specialCharacter : specialCharacters) {
                 getQueryRunner().execute(writeSession, String.format("INSERT INTO %s VALUES ('name', 'A%sB')", tmpTableName, specialCharacter));
                 assertQuery(String.format("SELECT nationkey FROM %s", tmpTableName), String.format("VALUES('A%sB')", specialCharacter));

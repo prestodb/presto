@@ -228,7 +228,7 @@ public class TestLongDictionaryProvider
             throws IOException
     {
         NodeId nodeId = new NodeId(1, 0);
-        long[] data = new long[] {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
+        long[] data = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
         TestingHiveOrcAggregatedMemoryContext aggregatedMemoryContext = new TestingHiveOrcAggregatedMemoryContext();
         LongDictionaryProvider dictionaryProvider = new LongDictionaryProvider(createLongDictionaryStreamSources(ImmutableMap.of(nodeId, data), aggregatedMemoryContext));
         StreamId streamId = nodeId.toDictionaryDataStreamId();
