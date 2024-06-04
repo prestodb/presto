@@ -105,6 +105,8 @@ class JoinFuzzer {
     opts.stringVariableLength = true;
     opts.stringLength = 100;
     opts.nullRatio = FLAGS_null_ratio;
+    opts.timestampPrecision =
+        VectorFuzzer::Options::TimestampPrecision::kMilliSeconds;
     return opts;
   }
 

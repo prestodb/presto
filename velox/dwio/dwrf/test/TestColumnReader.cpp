@@ -127,6 +127,7 @@ class ColumnReaderTestBase {
     ColumnSelector cs(rowType, nodes, true);
     auto options = RowReaderOptions();
     options.setReturnFlatVector(returnFlatVector());
+    options.setTimestampPrecision(TimestampPrecision::kNanoseconds);
 
     EXPECT_CALL(streams_, getColumnSelectorProxy())
         .WillRepeatedly(testing::Return(&cs));

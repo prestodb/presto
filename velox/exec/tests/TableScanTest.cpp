@@ -455,6 +455,34 @@ TEST_F(TableScanTest, timestamp) {
       "SELECT c0 FROM tmp WHERE c1 < timestamp'1970-01-01 01:30:00'");
 }
 
+TEST_F(TableScanTest, timestampPrecisionDefaultMillisecond) {
+  constexpr int kSize = 10;
+  auto vector = makeRowVector({
+      makeFlatVector<Timestamp>(
+          kSize, [](auto i) { return Timestamp(i, i * 1'001'001); }),
+  });
+  auto schema = asRowType(vector->type());
+  auto file = TempFilePath::create();
+  writeToFile(file->getPath(), {vector});
+  auto split = makeHiveConnectorSplit(file->getPath());
+
+  auto plan = PlanBuilder().tableScan(schema).planNode();
+  auto expected = makeRowVector({
+      makeFlatVector<Timestamp>(
+          kSize, [](auto i) { return Timestamp(i, i * 1'000'000); }),
+  });
+  AssertQueryBuilder(plan).split(split).assertResults(expected);
+
+  plan = PlanBuilder(pool_.get())
+             .tableScan(schema, {"c0 = timestamp '1970-01-01 00:00:01.001'"})
+             .planNode();
+  expected = makeRowVector({
+      makeFlatVector<Timestamp>(
+          1, [](auto) { return Timestamp(1, 1'000'000); }),
+  });
+  AssertQueryBuilder(plan).split(split).assertResults(expected);
+}
+
 DEBUG_ONLY_TEST_F(TableScanTest, timeLimitInGetOutput) {
   // Create two different row vectors: with some nulls and with no nulls.
   vector_size_t numRows = 100;

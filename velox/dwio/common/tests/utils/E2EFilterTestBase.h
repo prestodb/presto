@@ -205,6 +205,7 @@ class E2EFilterTestBase : public testing::Test {
       dwio::common::RowReaderOptions& opts,
       const std::shared_ptr<ScanSpec>& spec) {
     opts.setScanSpec(spec);
+    opts.setTimestampPrecision(TimestampPrecision::kNanoseconds);
   }
 
   void readWithoutFilter(

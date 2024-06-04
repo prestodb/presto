@@ -26,7 +26,9 @@ SelectiveTimestampColumnReader::SelectiveTimestampColumnReader(
     const std::shared_ptr<const TypeWithId>& fileType,
     DwrfParams& params,
     common::ScanSpec& scanSpec)
-    : SelectiveColumnReader(fileType->type(), fileType, params, scanSpec) {
+    : SelectiveColumnReader(fileType->type(), fileType, params, scanSpec),
+      precision_(
+          params.stripeStreams().getRowReaderOptions().timestampPrecision()) {
   EncodingKey encodingKey{fileType_->id(), params.flatMapContext().sequence};
   auto& stripe = params.stripeStreams();
   version_ = convertRleVersion(stripe.getEncoding(encodingKey).kind());
@@ -147,6 +149,16 @@ void SelectiveTimestampColumnReader::readHelper(
       auto seconds = secondsData[i] + EPOCH_OFFSET;
       if (seconds < 0 && nanos != 0) {
         seconds -= 1;
+      }
+      switch (precision_) {
+        case TimestampPrecision::kMilliseconds:
+          nanos = nanos / 1'000'000 * 1'000'000;
+          break;
+        case TimestampPrecision::kMicroseconds:
+          nanos = nanos / 1'000 * 1'000;
+          break;
+        case TimestampPrecision::kNanoseconds:
+          break;
       }
       rawTs[i] = Timestamp(seconds, nanos);
     }

@@ -33,6 +33,7 @@
 #include "velox/dwio/common/ScanSpec.h"
 #include "velox/dwio/common/UnitLoader.h"
 #include "velox/dwio/common/encryption/Encryption.h"
+#include "velox/type/Timestamp.h"
 
 namespace facebook::velox::dwio::common {
 
@@ -156,6 +157,8 @@ class RowReaderOptions {
   bool eagerFirstStripeLoad = true;
   uint64_t skipRows_ = 0;
   std::shared_ptr<UnitLoaderFactory> unitLoaderFactory_;
+
+  TimestampPrecision timestampPrecision_ = TimestampPrecision::kMilliseconds;
 
  public:
   RowReaderOptions() noexcept
@@ -411,6 +414,14 @@ class RowReaderOptions {
 
   size_t getDecodingParallelismFactor() const {
     return decodingParallelismFactor_;
+  }
+
+  TimestampPrecision timestampPrecision() const {
+    return timestampPrecision_;
+  }
+
+  void setTimestampPrecision(TimestampPrecision precision) {
+    timestampPrecision_ = precision;
   }
 };
 

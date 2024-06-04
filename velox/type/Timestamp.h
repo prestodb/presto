@@ -30,12 +30,14 @@ namespace date {
 class time_zone;
 }
 
+enum class TimestampPrecision : int8_t {
+  kMilliseconds = 3, // 10^3 milliseconds are equal to one second.
+  kMicroseconds = 6, // 10^6 microseconds are equal to one second.
+  kNanoseconds = 9, // 10^9 nanoseconds are equal to one second.
+};
+
 struct TimestampToStringOptions {
-  enum class Precision : int8_t {
-    kMilliseconds = 3, // 10^3 milliseconds are equal to one second.
-    kMicroseconds = 6, // 10^6 microseconds are equal to one second.
-    kNanoseconds = 9, // 10^9 nanoseconds are equal to one second.
-  };
+  using Precision = TimestampPrecision;
 
   Precision precision = Precision::kNanoseconds;
 

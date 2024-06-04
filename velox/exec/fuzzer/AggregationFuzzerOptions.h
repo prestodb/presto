@@ -52,7 +52,7 @@ struct AggregationFuzzerOptions {
 
   /// Timestamp precision to use when generating inputs of type TIMESTAMP.
   VectorFuzzer::Options::TimestampPrecision timestampPrecision{
-      VectorFuzzer::Options::TimestampPrecision::kNanoSeconds};
+      VectorFuzzer::Options::TimestampPrecision::kMilliSeconds};
 
   /// A set of configuration properties to use when running query plans.
   /// Could be used to specify timezone or enable/disable settings that

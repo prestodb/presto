@@ -51,6 +51,8 @@ class SelectiveTimestampColumnReader
       const RowSet rows,
       const uint64_t* rawNulls);
 
+  const TimestampPrecision precision_;
+
   std::unique_ptr<dwio::common::IntDecoder</*isSigned*/ true>> seconds_;
   std::unique_ptr<dwio::common::IntDecoder</*isSigned*/ false>> nano_;
 
