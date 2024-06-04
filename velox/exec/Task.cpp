@@ -607,7 +607,7 @@ RowVectorPtr Task::next(ContinueFuture* future) {
     createSplitGroupStateLocked(kUngroupedGroupId);
     std::vector<std::shared_ptr<Driver>> drivers =
         createDriversLocked(kUngroupedGroupId);
-    if (pool_->stats().currentBytes != 0) {
+    if (pool_->reservedBytes() != 0) {
       VELOX_FAIL(
           "Unexpected memory pool allocations during task[{}] driver initialization: {}",
           taskId_,
@@ -780,7 +780,7 @@ void Task::createAndStartDrivers(uint32_t concurrentSplitGroups) {
     // Create drivers.
     std::vector<std::shared_ptr<Driver>> drivers =
         createDriversLocked(kUngroupedGroupId);
-    if (pool_->stats().currentBytes != 0) {
+    if (pool_->reservedBytes() != 0) {
       VELOX_FAIL(
           "Unexpected memory pool allocations during task[{}] driver initialization: {}",
           taskId_,

@@ -152,10 +152,6 @@ class MockMemoryPool : public velox::memory::MemoryPool {
     VELOX_UNSUPPORTED("growContiguous unsupported");
   }
 
-  int64_t currentBytes() const override {
-    return localMemoryUsage_;
-  }
-
   int64_t usedBytes() const override {
     return localMemoryUsage_;
   }

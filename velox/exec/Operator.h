@@ -72,7 +72,7 @@ struct MemoryStats {
   static MemoryStats memStatsFromPool(const memory::MemoryPool* pool) {
     const auto poolStats = pool->stats();
     MemoryStats memStats;
-    memStats.userMemoryReservation = poolStats.currentBytes;
+    memStats.userMemoryReservation = poolStats.usedBytes;
     memStats.systemMemoryReservation = 0;
     memStats.peakUserMemoryReservation = poolStats.peakBytes;
     memStats.peakSystemMemoryReservation = 0;

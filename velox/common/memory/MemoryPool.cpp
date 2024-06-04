@@ -121,7 +121,7 @@ void treeMemoryUsageVisitor(
   }
   const MemoryUsage usage{
       .name = pool->name(),
-      .currentUsage = stats.currentBytes,
+      .currentUsage = stats.usedBytes,
       .reservedUsage = stats.reservedBytes,
       .peakUsage = stats.peakBytes,
   };
@@ -165,8 +165,8 @@ std::string capacityToString(int64_t capacity) {
 
 std::string MemoryPool::Stats::toString() const {
   return fmt::format(
-      "currentBytes:{} reservedBytes:{} peakBytes:{} cumulativeBytes:{} numAllocs:{} numFrees:{} numReserves:{} numReleases:{} numShrinks:{} numReclaims:{} numCollisions:{} numCapacityGrowths:{}",
-      succinctBytes(currentBytes),
+      "usedBytes:{} reservedBytes:{} peakBytes:{} cumulativeBytes:{} numAllocs:{} numFrees:{} numReserves:{} numReleases:{} numShrinks:{} numReclaims:{} numCollisions:{} numCapacityGrowths:{}",
+      succinctBytes(usedBytes),
       succinctBytes(reservedBytes),
       succinctBytes(peakBytes),
       succinctBytes(cumulativeBytes),
@@ -182,7 +182,7 @@ std::string MemoryPool::Stats::toString() const {
 
 bool MemoryPool::Stats::operator==(const MemoryPool::Stats& other) const {
   return std::tie(
-             currentBytes,
+             usedBytes,
              reservedBytes,
              peakBytes,
              cumulativeBytes,
@@ -193,7 +193,7 @@ bool MemoryPool::Stats::operator==(const MemoryPool::Stats& other) const {
              numCollisions,
              numCapacityGrowths) ==
       std::tie(
-             other.currentBytes,
+             other.usedBytes,
              other.reservedBytes,
              other.peakBytes,
              other.cumulativeBytes,
@@ -469,7 +469,7 @@ MemoryPool::Stats MemoryPoolImpl::stats() const {
 
 MemoryPool::Stats MemoryPoolImpl::statsLocked() const {
   Stats stats;
-  stats.currentBytes = currentBytesLocked();
+  stats.usedBytes = usedBytes();
   stats.reservedBytes = reservationBytes_;
   stats.peakBytes = peakBytes_;
   stats.cumulativeBytes = cumulativeBytes_;
@@ -684,9 +684,9 @@ int64_t MemoryPoolImpl::capacity() const {
 
 int64_t MemoryPoolImpl::usedBytes() const {
   if (isLeaf()) {
-    return currentBytes();
+    return usedReservationBytes_;
   }
-  if (currentBytes() == 0) {
+  if (reservedBytes() == 0) {
     return 0;
   }
   int64_t usedBytes{0};
@@ -938,7 +938,7 @@ std::string MemoryPoolImpl::treeMemoryUsage(bool skipEmptyPool) const {
     const Stats stats = statsLocked();
     const MemoryUsage usage{
         .name = name(),
-        .currentUsage = stats.currentBytes,
+        .currentUsage = stats.usedBytes,
         .reservedUsage = stats.reservedBytes,
         .peakUsage = stats.peakBytes};
     out << usage.toString() << "\n";

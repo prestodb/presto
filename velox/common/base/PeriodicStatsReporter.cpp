@@ -243,9 +243,9 @@ void PeriodicStatsReporter::reportSpillStats() {
   }
   const auto spillMemoryStats = spillMemoryPool_->stats();
   LOG(INFO) << "Spill memory usage: current["
-            << velox::succinctBytes(spillMemoryStats.currentBytes) << "] peak["
+            << velox::succinctBytes(spillMemoryStats.usedBytes) << "] peak["
             << velox::succinctBytes(spillMemoryStats.peakBytes) << "]";
-  RECORD_METRIC_VALUE(kMetricSpillMemoryBytes, spillMemoryStats.currentBytes);
+  RECORD_METRIC_VALUE(kMetricSpillMemoryBytes, spillMemoryStats.usedBytes);
   RECORD_METRIC_VALUE(kMetricSpillPeakMemoryBytes, spillMemoryStats.peakBytes);
 }
 

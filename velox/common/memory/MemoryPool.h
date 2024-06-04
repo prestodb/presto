@@ -321,14 +321,8 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   virtual int64_t capacity() const = 0;
 
   /// Returns the currently used memory in bytes of this memory pool. For
-  /// non-leaf memory pool, the function returns the aggregated memory
-  /// reservation from all its child memory pools.
-  virtual int64_t currentBytes() const = 0;
-
-  /// Returns the currently used memory in bytes of this memory pool. It returns
-  /// the same usage as currentBytes() for leaf memory pool. But for non-leaf
-  /// memory pool, the function returns the aggregated used memory from all its
-  /// child memory pools.
+  /// non-leaf memory pool, the function returns the aggregated used memory from
+  /// all its child memory pools.
   virtual int64_t usedBytes() const = 0;
 
   /// Returns the peak memory usage in bytes of this memory pool.
@@ -419,7 +413,7 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   /// The memory pool's execution stats.
   struct Stats {
     /// The current memory usage.
-    uint64_t currentBytes{0};
+    uint64_t usedBytes{0};
     /// The current reserved memory.
     uint64_t reservedBytes{0};
     /// The peak memory usage.
@@ -462,7 +456,7 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
     /// Note that peak or cumulative bytes might be non-zero and we are still
     /// empty at this moment.
     bool empty() const {
-      return currentBytes == 0 && reservedBytes == 0;
+      return usedBytes == 0 && reservedBytes == 0;
     }
   };
 
@@ -626,11 +620,6 @@ class MemoryPoolImpl : public MemoryPool {
 
   int64_t capacity() const override;
 
-  int64_t currentBytes() const override {
-    std::lock_guard<std::mutex> l(mutex_);
-    return currentBytesLocked();
-  }
-
   int64_t usedBytes() const override;
 
   int64_t peakBytes() const override {
@@ -644,7 +633,6 @@ class MemoryPoolImpl : public MemoryPool {
   }
 
   int64_t reservedBytes() const override {
-    std::lock_guard<std::mutex> l(mutex_);
     return reservationBytes_;
   }
 
@@ -765,10 +753,6 @@ class MemoryPoolImpl : public MemoryPool {
 
   FOLLY_ALWAYS_INLINE int64_t capacityLocked() const {
     return parent_ != nullptr ? toImpl(parent_)->capacity_ : capacity_;
-  }
-
-  FOLLY_ALWAYS_INLINE int64_t currentBytesLocked() const {
-    return isLeaf() ? usedReservationBytes_ : reservationBytes_;
   }
 
   FOLLY_ALWAYS_INLINE int64_t availableReservationLocked() const {
@@ -951,7 +935,7 @@ class MemoryPoolImpl : public MemoryPool {
     } else {
       out << "unlimited capacity ";
     }
-    out << "used " << succinctBytes(currentBytesLocked()) << " available "
+    out << "used " << succinctBytes(usedBytes()) << " available "
         << succinctBytes(availableReservationLocked());
     out << " reservation [used " << succinctBytes(usedReservationBytes_)
         << ", reserved " << succinctBytes(reservationBytes_) << ", min "

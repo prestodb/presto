@@ -654,7 +654,7 @@ class HashJoinBuilder {
     SCOPED_TRACE(
         injectSpill ? fmt::format("With Max Spill Level: {}", maxSpillLevel)
                     : "Without Spill");
-    ASSERT_EQ(memory::spillMemoryPool()->stats().currentBytes, 0);
+    ASSERT_EQ(memory::spillMemoryPool()->stats().usedBytes, 0);
     const uint64_t peakSpillMemoryUsage =
         memory::spillMemoryPool()->stats().peakBytes;
     TestScopedSpillInjection scopedSpillInjection(spillPct);
@@ -720,7 +720,7 @@ class HashJoinBuilder {
       testVerifier_(task, injectSpill);
     }
     OperatorTestBase::deleteTaskAndCheckSpillDirectory(task);
-    ASSERT_EQ(memory::spillMemoryPool()->stats().currentBytes, 0);
+    ASSERT_EQ(memory::spillMemoryPool()->stats().usedBytes, 0);
   }
 
   VectorFuzzer::Options fuzzerOpts_;

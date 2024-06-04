@@ -886,7 +886,7 @@ void AggregationTestBase::testAggregationsImpl(
 
     auto spillDirectory = exec::test::TempDirectoryPath::create();
 
-    ASSERT_EQ(memory::spillMemoryPool()->stats().currentBytes, 0);
+    ASSERT_EQ(memory::spillMemoryPool()->stats().usedBytes, 0);
     const auto peakSpillMemoryUsage =
         memory::spillMemoryPool()->stats().peakBytes;
     AssertQueryBuilder queryBuilder(builder.planNode(), duckDbQueryRunner_);
@@ -912,7 +912,7 @@ void AggregationTestBase::testAggregationsImpl(
           << " spilledInputBytes: " << spilledInputBytes(*task)
           << " spilledFiles: " << spilledFiles(*task)
           << " injectedSpills: " << exec::injectedSpillCount();
-      ASSERT_EQ(memory::spillMemoryPool()->stats().currentBytes, 0);
+      ASSERT_EQ(memory::spillMemoryPool()->stats().usedBytes, 0);
       ASSERT_GT(memory::spillMemoryPool()->stats().peakBytes, 0);
       ASSERT_GE(
           memory::spillMemoryPool()->stats().peakBytes, peakSpillMemoryUsage);
