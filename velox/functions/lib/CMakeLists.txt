@@ -20,13 +20,16 @@ add_library(velox_functions_util LambdaFunctionUtil.cpp RowsTranslationUtil.cpp)
 
 target_link_libraries(velox_functions_util velox_vector velox_common_base)
 
+add_library(velox_functions_lib_date_time_formatter
+            DateTimeFormatter.cpp DateTimeFormatterBuilder.cpp)
+
+target_link_libraries(velox_functions_lib_date_time_formatter velox_type_tz)
+
 add_library(
   velox_functions_lib
   ArrayShuffle.cpp
   CheckDuplicateKeys.cpp
   CheckNestedNulls.cpp
-  DateTimeFormatter.cpp
-  DateTimeFormatterBuilder.cpp
   KllSketch.cpp
   MapConcat.cpp
   Re2Functions.cpp

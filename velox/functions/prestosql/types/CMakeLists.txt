@@ -14,8 +14,9 @@
 add_library(velox_presto_types HyperLogLogType.cpp JsonType.cpp
                                TimestampWithTimeZoneType.cpp)
 
-target_link_libraries(velox_presto_types velox_memory velox_expression
-                      velox_functions_util velox_functions_json)
+target_link_libraries(
+  velox_presto_types velox_memory velox_expression velox_functions_util
+  velox_functions_json velox_functions_lib_date_time_formatter)
 
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)

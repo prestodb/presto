@@ -110,6 +110,34 @@ TEST_F(TimestampWithTimeZoneCastTest, fromVarchar) {
   testCast(stringVector, expected);
 }
 
+TEST_F(TimestampWithTimeZoneCastTest, toVarchar) {
+  // 1970-01-01 06:11:37.123 UTC in 4 different time zones.
+  const int64_t utcMillis =
+      6 * kMillisInHour + 11 * kMillisInMinute + 37 * kMillisInSecond + 123;
+  auto input = makeFlatVector<int64_t>(
+      {
+          // -5 hours.
+          pack(utcMillis, util::getTimeZoneID("America/New_York")),
+          // -8 hours.
+          pack(utcMillis, util::getTimeZoneID("America/Los_Angeles")),
+          // +8 hours.
+          pack(utcMillis, util::getTimeZoneID("Asia/Shanghai")),
+          // +5:30 hours.
+          pack(utcMillis, util::getTimeZoneID("Asia/Calcutta")),
+      },
+      TIMESTAMP_WITH_TIME_ZONE());
+
+  auto expected = makeFlatVector<std::string>({
+      "1970-01-01 01:11:37.123 America/New_York",
+      "1969-12-31 22:11:37.123 America/Los_Angeles",
+      "1970-01-01 14:11:37.123 Asia/Shanghai",
+      "1970-01-01 11:41:37.123 Asia/Calcutta",
+  });
+
+  auto result = evaluate("cast(c0 as varchar)", makeRowVector({input}));
+  test::assertEqualVectors(expected, result);
+}
+
 TEST_F(TimestampWithTimeZoneCastTest, fromVarcharWithoutTimezone) {
   setQueryTimeZone("America/Denver");
 

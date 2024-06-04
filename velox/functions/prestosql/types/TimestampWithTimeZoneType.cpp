@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
+#include "velox/expression/StringWriter.h"
+#include "velox/functions/lib/DateTimeFormatter.h"
 #include "velox/type/Timestamp.h"
 #include "velox/type/TimestampConversion.h"
 #include "velox/type/tz/TimeZoneMap.h"
@@ -97,6 +99,37 @@ void castFromString(
   });
 }
 
+void castToString(
+    const BaseVector& input,
+    exec::EvalCtx& context,
+    const SelectivityVector& rows,
+    BaseVector& result) {
+  auto* flatResult = result.as<FlatVector<StringView>>();
+  const auto* timestamps = input.as<SimpleVector<int64_t>>();
+
+  auto formatter =
+      functions::buildJodaDateTimeFormatter("yyyy-MM-dd HH:mm:ss.SSS zzzz");
+
+  context.applyToSelectedNoThrow(rows, [&](auto row) {
+    const auto timestampWithTimezone = timestamps->valueAt(row);
+
+    const auto timestamp = unpackTimestampUtc(timestampWithTimezone);
+    const auto timeZoneId = unpackZoneKeyId(timestampWithTimezone);
+    const auto* timezonePtr =
+        date::locate_zone(util::getTimeZoneName(timeZoneId));
+
+    exec::StringWriter<false> result(flatResult, row);
+
+    const auto maxResultSize = formatter->maxResultSize(timezonePtr);
+    result.reserve(maxResultSize);
+    const auto resultSize =
+        formatter->format(timestamp, timezonePtr, maxResultSize, result.data());
+    result.resize(resultSize);
+
+    result.finalize();
+  });
+}
+
 void castToTimestamp(
     const BaseVector& input,
     exec::EvalCtx& context,
@@ -158,7 +191,7 @@ bool TimestampWithTimeZoneCastOperator::isSupportedToType(
     case TypeKind::TIMESTAMP:
       return true;
     case TypeKind::VARCHAR:
-      // TODO: support cast to VARCHAR
+      return true;
     case TypeKind::INTEGER:
       return other->isDate();
     default:
@@ -206,6 +239,8 @@ void TimestampWithTimeZoneCastOperator::castFrom(
 
   if (resultType->kind() == TypeKind::TIMESTAMP) {
     castToTimestamp(input, context, rows, *result);
+  } else if (resultType->kind() == TypeKind::VARCHAR) {
+    castToString(input, context, rows, *result);
   } else if (resultType->kind() == TypeKind::INTEGER) {
     VELOX_CHECK(resultType->isDate());
     castToDate(input, context, rows, *result);
