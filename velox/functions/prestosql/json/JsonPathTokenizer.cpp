@@ -60,11 +60,11 @@ bool JsonPathTokenizer::reset(std::string_view path) {
   // '$..foo' which uses deep scan operator (..). This changes the meaning of
   // the path in unexpected way.
   //
-  // Here, we allow paths like 'foo', 'foo.bar' and similar. We do not allow
-  // paths like '.foo' or '[0]'.
+  // Here, we allow paths like 'foo', 'foo.bar', [0] and similar. We do not
+  // allow paths like '.foo'.
 
   index_ = 0;
-  if (path[0] == DOT || path[0] == OPEN_BRACKET) {
+  if (path[0] == DOT) {
     path_ = {};
     return false;
   }
@@ -78,13 +78,14 @@ bool JsonPathTokenizer::hasNext() const {
 }
 
 std::optional<std::string> JsonPathTokenizer::getNext() {
-  if (index_ == 0) {
-    // We are parsing first token in a path that doesn't start with '$'. In
-    // this case, we assume the path starts with '$.'.
+  if (index_ == 0 && path_[0] != OPEN_BRACKET) {
+    // We are parsing first token in a path that doesn't start with '$' and
+    // doesn't start with '['. In this case, we assume the path starts with
+    // '$.'.
     return matchDotKey();
   }
 
-  if (match(DOT)) {
+  if (index_ > 0 && match(DOT)) {
     if (hasNext() && path_[index_] != OPEN_BRACKET) {
       return matchDotKey();
     }

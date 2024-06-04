@@ -95,6 +95,9 @@ TEST(JsonPathTokenizerTest, validPaths) {
   assertValidPath("foo", TokenList({"foo"}));
   assertValidPath("foo[12].bar", TokenList({"foo", "12", "bar"}));
   assertValidPath("foo.bar.baz", TokenList({"foo", "bar", "baz"}));
+  assertValidPath(R"(["foo"])", TokenList({"foo"}));
+  assertValidPath(R"(["foo"].bar)", TokenList({"foo", "bar"}));
+  assertValidPath(R"([0][1].foo)", TokenList({"0", "1", "foo"}));
 
   // Paths with redundant '.'s.
   assertValidPath("$.[0].[1].[2]", TokenList({"0", "1", "2"}));
@@ -142,7 +145,6 @@ TEST(JsonPathTokenizerTest, invalidPaths) {
   EXPECT_FALSE(getTokens("..[3].foo"));
 
   // Paths without leading '$'.
-  EXPECT_FALSE(getTokens("[1].foo"));
   EXPECT_FALSE(getTokens(".[1].foo"));
   EXPECT_FALSE(getTokens(".foo.bar.baz"));
 }
