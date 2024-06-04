@@ -119,7 +119,7 @@ struct DateFunction : public TimestampWithTimezoneSupport<T> {
       const std::vector<TypePtr>& /*inputTypes*/,
       const core::QueryConfig& config,
       const arg_type<TimestampWithTimezone>* timestampWithTimezone) {
-    timeZone_ = getTimeZoneFromConfig(config);
+    // Do nothing. Session timezone doesn't affect the result.
   }
 
   FOLLY_ALWAYS_INLINE void call(
@@ -137,7 +137,7 @@ struct DateFunction : public TimestampWithTimezoneSupport<T> {
   FOLLY_ALWAYS_INLINE void call(
       out_type<Date>& result,
       const arg_type<TimestampWithTimezone>& timestampWithTimezone) {
-    result = util::toDate(this->toTimestamp(timestampWithTimezone), timeZone_);
+    result = util::toDate(this->toTimestamp(timestampWithTimezone), nullptr);
   }
 
  private:

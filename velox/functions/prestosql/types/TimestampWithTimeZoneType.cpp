@@ -40,18 +40,14 @@ void castFromTimestamp(
   timestampWithTzVector->clearNulls(rows);
 
   context.applyToSelectedNoThrow(rows, [&](auto row) {
-    if (inputVector.isNullAt(row)) {
-      result->setNull(row, true);
-    } else {
-      auto ts = inputVector.valueAt(row);
-      if (!adjustTimestampToTimezone) {
-        // Treat TIMESTAMP as wall time in session time zone. This means that in
-        // order to get its UTC representation we need to shift the value by the
-        // offset of the time zone.
-        ts.toGMT(sessionTzID);
-      }
-      rawTimestampWithTzValues[row] = pack(ts.toMillis(), sessionTzID);
+    auto ts = inputVector.valueAt(row);
+    if (!adjustTimestampToTimezone) {
+      // Treat TIMESTAMP as wall time in session time zone. This means that in
+      // order to get its UTC representation we need to shift the value by the
+      // offset of the time zone.
+      ts.toGMT(sessionTzID);
     }
+    rawTimestampWithTzValues[row] = pack(ts.toMillis(), sessionTzID);
   });
 }
 
@@ -66,27 +62,23 @@ void castFromString(
   timestampWithTzVector->clearNulls(rows);
 
   context.applyToSelectedNoThrow(rows, [&](auto row) {
-    if (inputVector.isNullAt(row)) {
-      result->setNull(row, true);
+    const auto castResult = util::fromTimestampWithTimezoneString(
+        inputVector.valueAt(row).data(), inputVector.valueAt(row).size());
+    if (castResult.hasError()) {
+      context.setStatus(row, castResult.error());
     } else {
-      const auto castResult = util::fromTimestampWithTimezoneString(
-          inputVector.valueAt(row).data(), inputVector.valueAt(row).size());
-      if (castResult.hasError()) {
-        context.setStatus(row, castResult.error());
-      } else {
-        auto [ts, tzID] = castResult.value();
-        // Input string may not contain a timezone - if so, it is interpreted in
-        // session timezone.
-        if (tzID == -1) {
-          const auto& config = context.execCtx()->queryCtx()->queryConfig();
-          const auto& sessionTzName = config.sessionTimezone();
-          if (!sessionTzName.empty()) {
-            tzID = util::getTimeZoneID(sessionTzName);
-          }
+      auto [ts, tzID] = castResult.value();
+      // Input string may not contain a timezone - if so, it is interpreted in
+      // session timezone.
+      if (tzID == -1) {
+        const auto& config = context.execCtx()->queryCtx()->queryConfig();
+        const auto& sessionTzName = config.sessionTimezone();
+        if (!sessionTzName.empty()) {
+          tzID = util::getTimeZoneID(sessionTzName);
         }
-        ts.toGMT(tzID);
-        rawTimestampWithTzValues[row] = pack(ts.toMillis(), tzID);
       }
+      ts.toGMT(tzID);
+      rawTimestampWithTzValues[row] = pack(ts.toMillis(), tzID);
     }
   });
 }
@@ -114,37 +106,41 @@ void castToTimestamp(
     const BaseVector& input,
     exec::EvalCtx& context,
     const SelectivityVector& rows,
-    FlatVector<Timestamp>& flatResult) {
+    BaseVector& result) {
   const auto& config = context.execCtx()->queryCtx()->queryConfig();
   const auto adjustTimestampToTimezone = config.adjustTimestampToTimezone();
-  const auto timestampVector = input.as<SimpleVector<int64_t>>();
+  auto* flatResult = result.as<FlatVector<Timestamp>>();
+  const auto* timestamps = input.as<SimpleVector<int64_t>>();
 
   context.applyToSelectedNoThrow(rows, [&](auto row) {
-    if (input.isNullAt(row)) {
-      flatResult.setNull(row, true);
-    } else {
-      auto timestampWithTimezone = timestampVector->valueAt(row);
-      auto ts = unpackTimestampUtc(timestampWithTimezone);
-      if (!adjustTimestampToTimezone) {
-        // Convert UTC to the given time zone.
-        ts.toTimezone(unpackZoneKeyId(timestampWithTimezone));
-      }
-      flatResult.set(row, ts);
+    auto timestampWithTimezone = timestamps->valueAt(row);
+    auto ts = unpackTimestampUtc(timestampWithTimezone);
+    if (!adjustTimestampToTimezone) {
+      // Convert UTC to the given time zone.
+      ts.toTimezone(unpackZoneKeyId(timestampWithTimezone));
     }
+    flatResult->set(row, ts);
   });
 }
 
-template <TypeKind kind>
-void castFromTimestampWithTimeZone(
+void castToDate(
     const BaseVector& input,
     exec::EvalCtx& context,
     const SelectivityVector& rows,
     BaseVector& result) {
-  VELOX_CHECK_EQ(kind, TypeKind::TIMESTAMP)
+  auto* flatResult = result.as<FlatVector<int32_t>>();
+  const auto* timestampVector = input.as<SimpleVector<int64_t>>();
 
-  auto flatResult = result.as<FlatVector<Timestamp>>();
-  castToTimestamp(input, context, rows, *flatResult);
+  context.applyToSelectedNoThrow(rows, [&](auto row) {
+    auto timestampWithTimezone = timestampVector->valueAt(row);
+    auto timestamp = unpackTimestampUtc(timestampWithTimezone);
+    timestamp.toTimezone(unpackZoneKeyId(timestampWithTimezone));
+
+    const auto days = util::toDate(timestamp, nullptr);
+    flatResult->set(row, days);
+  });
 }
+
 } // namespace
 
 bool TimestampWithTimeZoneCastOperator::isSupportedFromType(
@@ -169,7 +165,7 @@ bool TimestampWithTimeZoneCastOperator::isSupportedToType(
     case TypeKind::VARCHAR:
       // TODO: support cast to VARCHAR
     case TypeKind::INTEGER:
-      // TODO: support cast to DATE
+      return other->isDate();
     default:
       return false;
   }
@@ -199,13 +195,16 @@ void TimestampWithTimeZoneCastOperator::castFrom(
     VectorPtr& result) const {
   context.ensureWritable(rows, resultType, result);
 
-  VELOX_DYNAMIC_TYPE_DISPATCH_ALL(
-      castFromTimestampWithTimeZone,
-      result->typeKind(),
-      input,
-      context,
-      rows,
-      *result);
+  if (resultType->kind() == TypeKind::TIMESTAMP) {
+    castToTimestamp(input, context, rows, *result);
+  } else if (resultType->kind() == TypeKind::INTEGER) {
+    VELOX_CHECK(resultType->isDate());
+    castToDate(input, context, rows, *result);
+  } else {
+    VELOX_UNSUPPORTED(
+        "Cast from TIMESTAMP WITH TIME ZONE to {} not yet supported",
+        resultType->toString());
+  }
 }
 
 void registerTimestampWithTimeZoneType() {

@@ -3599,8 +3599,12 @@ TEST_F(DateTimeFunctionsTest, dateFunctionTimestampWithTimezone) {
   const auto dateFunction =
       [&](std::optional<int64_t> timestamp,
           const std::optional<std::string>& timeZoneName) {
-        return evaluateWithTimestampWithTimezone<int32_t>(
+        auto r1 = evaluateWithTimestampWithTimezone<int32_t>(
             "date(c0)", timestamp, timeZoneName);
+        auto r2 = evaluateWithTimestampWithTimezone<int32_t>(
+            "cast(c0 as date)", timestamp, timeZoneName);
+        EXPECT_EQ(r1, r2);
+        return r1;
       };
 
   // 1970-01-01 00:00:00.000 +00:00

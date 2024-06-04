@@ -204,3 +204,32 @@ TEST_F(TimestampWithTimeZoneCastTest, toTimestamp) {
   // 1969-12-31 16:00:00.
   EXPECT_EQ(Timestamp(-28800, 0), result.value());
 }
+
+TEST_F(TimestampWithTimeZoneCastTest, toDate) {
+  auto input = makeFlatVector<int64_t>(
+      {
+          // 6AM UTC is 1AM EST (same day), 10PM PST (previous day), 2PM CST
+          // (same day).
+          pack(6 * kMillisInHour, util::getTimeZoneID("America/New_York")),
+          pack(6 * kMillisInHour, util::getTimeZoneID("America/Los_Angeles")),
+          pack(6 * kMillisInHour, util::getTimeZoneID("Asia/Shanghai")),
+          // 6PM UTC is 1PM EST (same day), 10AM PST (same day), 2AM CST (next
+          // day).
+          pack(18 * kMillisInHour, util::getTimeZoneID("America/New_York")),
+          pack(18 * kMillisInHour, util::getTimeZoneID("America/Los_Angeles")),
+          pack(18 * kMillisInHour, util::getTimeZoneID("Asia/Shanghai")),
+      },
+      TIMESTAMP_WITH_TIME_ZONE());
+  auto expected = makeFlatVector<int32_t>({0, -1, 0, 0, 0, 1}, DATE());
+
+  auto result = evaluate("cast(c0 as date)", makeRowVector({input}));
+  test::assertEqualVectors(expected, result);
+
+  // Verify that session time zone doesn't affect the result.
+
+  for (auto tz : {"America/New_York", "America/Los_Angeles", "Asia/Shanghai"}) {
+    setQueryTimeZone(tz);
+    result = evaluate("cast(c0 as date)", makeRowVector({input}));
+    test::assertEqualVectors(expected, result);
+  }
+}

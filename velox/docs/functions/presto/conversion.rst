@@ -181,9 +181,9 @@ supported conversions to/from JSON are listed in :doc:`json`.
      -
      -
      -
+     - Y
+     - Y
      -
-     - Y
-     - Y
      -
      -
      -
@@ -197,7 +197,7 @@ supported conversions to/from JSON are listed in :doc:`json`.
      -
      - Y
      - Y
-     -
+     - Y
      -
      -
      -
@@ -335,7 +335,7 @@ Valid examples
 Invalid examples
 
 ::
-  
+
   SELECT cast(214748364890 decimal(12, 2) as integer); -- Out of range
 
 Cast to Boolean
@@ -614,7 +614,7 @@ From VARCHAR
 ^^^^^^^^^^^^
 
 Casting from a string to timestamp is allowed if the string represents a
-timestamp in the format `YYYY-MM-DD` followed by an optional `hh:mm:ss.MS`. 
+timestamp in the format `YYYY-MM-DD` followed by an optional `hh:mm:ss.MS`.
 Seconds and milliseconds are optional. Casting from invalid input values throws.
 
 Valid examples:
@@ -766,6 +766,20 @@ Valid examples
 
   SELECT cast(timestamp '1970-01-01 00:00:00' as date); -- 1970-01-01
   SELECT cast(timestamp '1970-01-01 23:59:59' as date); -- 1970-01-01
+
+From TIMESTAMP WITH TIME ZONE
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Casting from TIMESTAMP WITH TIME ZONE to DATE is allowed. If present,
+the part of `hh:mm:ss` in the input is ignored.
+
+Session time zone does not affect the result.
+
+Valid examples
+
+::
+
+  SELECT CAST(timestamp '2024-06-01 01:38:00 America/New_York' as DATE); -- 2024-06-01
 
 Cast to Decimal
 ---------------
