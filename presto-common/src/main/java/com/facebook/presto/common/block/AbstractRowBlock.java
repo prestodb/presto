@@ -349,7 +349,7 @@ public abstract class AbstractRowBlock
             newBlocks[i] = getRawFieldBlocks()[i].copyRegion(startFieldBlockOffset, fieldBlockLength);
         }
         boolean[] newRowIsNull = isNull(position) ? new boolean[] {true} : null;
-        int[] newOffsets = new int[] {0, fieldBlockLength};
+        int[] newOffsets = {0, fieldBlockLength};
 
         return createRowBlockInternal(0, 1, newRowIsNull, newOffsets, newBlocks);
     }
