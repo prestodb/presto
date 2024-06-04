@@ -30,7 +30,7 @@ namespace facebook::velox::functions {
 ///   . or [] - child operator
 ///   * - wildcard (all objects/elements regardless their names)
 ///
-/// Supports quoted keys.
+/// Supports single- and double-quoted keys.
 ///
 /// Notably, doesn't support deep scan, e.g. $..author.
 ///
@@ -55,6 +55,7 @@ namespace facebook::velox::functions {
 ///   "$[0].foo.bar"
 ///   "$[-1]"
 ///   "[0][1]"
+///   "$['store'][book][1]"
 class JsonPathTokenizer {
  public:
   /// Resets the tokenizer to a new path. This method must be called and return
@@ -78,7 +79,7 @@ class JsonPathTokenizer {
 
   std::optional<std::string> matchUnquotedSubscriptKey();
 
-  std::optional<std::string> matchQuotedSubscriptKey();
+  std::optional<std::string> matchQuotedSubscriptKey(char quote);
 
   // The index of the next character to process. This is at least one for
   // standard paths that start with '$'. This can be zero if 'reset' was called

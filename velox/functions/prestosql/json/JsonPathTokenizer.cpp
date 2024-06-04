@@ -23,7 +23,8 @@ const char ROOT = '$';
 const char DOT = '.';
 const char COLON = ':';
 const char DASH = '-';
-const char QUOTE = '"';
+const char DOUBLE_QUOTE = '"';
+const char SINGLE_QUOTE = '\'';
 const char STAR = '*';
 const char BACK_SLASH = '\\';
 const char UNDER_SCORE = '_';
@@ -94,8 +95,10 @@ std::optional<std::string> JsonPathTokenizer::getNext() {
   }
 
   if (match(OPEN_BRACKET)) {
-    auto token =
-        match(QUOTE) ? matchQuotedSubscriptKey() : matchUnquotedSubscriptKey();
+    auto token = match(DOUBLE_QUOTE)
+        ? matchQuotedSubscriptKey(DOUBLE_QUOTE)
+        : (match(SINGLE_QUOTE) ? matchQuotedSubscriptKey(SINGLE_QUOTE)
+                               : matchUnquotedSubscriptKey());
     if (!token || !match(CLOSE_BRACKET)) {
       return std::nullopt;
     }
@@ -138,12 +141,13 @@ std::optional<std::string> JsonPathTokenizer::matchUnquotedSubscriptKey() {
 // Reference Presto logic in
 // src/test/java/io/prestosql/operator/scalar/TestJsonExtract.java and
 // src/main/java/io/prestosql/operator/scalar/JsonExtract.java
-std::optional<std::string> JsonPathTokenizer::matchQuotedSubscriptKey() {
+std::optional<std::string> JsonPathTokenizer::matchQuotedSubscriptKey(
+    char quote) {
   bool escaped = false;
   std::string token;
-  while (hasNext() && (escaped || path_[index_] != QUOTE)) {
+  while (hasNext() && (escaped || path_[index_] != quote)) {
     if (escaped) {
-      if (path_[index_] != QUOTE && path_[index_] != BACK_SLASH) {
+      if (path_[index_] != quote && path_[index_] != BACK_SLASH) {
         return std::nullopt;
       }
       escaped = false;
@@ -151,7 +155,7 @@ std::optional<std::string> JsonPathTokenizer::matchQuotedSubscriptKey() {
     } else {
       if (path_[index_] == BACK_SLASH) {
         escaped = true;
-      } else if (path_[index_] == QUOTE) {
+      } else if (path_[index_] == quote) {
         return std::nullopt;
       } else {
         token.append(1, path_[index_]);
@@ -159,7 +163,7 @@ std::optional<std::string> JsonPathTokenizer::matchQuotedSubscriptKey() {
     }
     index_++;
   }
-  if (escaped || token.empty() || !match(QUOTE)) {
+  if (escaped || token.empty() || !match(quote)) {
     return std::nullopt;
   }
   return token;

@@ -84,6 +84,7 @@ TEST(JsonPathTokenizerTest, validPaths) {
   assertValidPath("$.foo:42.:bar63"s, TokenList{"foo:42"s, ":bar63"s});
   assertValidPath(
       "$[\"foo:42\"][\":bar63\"]"s, TokenList{"foo:42"s, ":bar63"s});
+  assertValidPath("$['foo:42'][':bar63']"s, TokenList{"foo:42"s, ":bar63"s});
   assertValidPath(
       "$.store.fruit[*].weight",
       TokenList{"store"s, "fruit"s, "*"s, "weight"s});
@@ -137,6 +138,12 @@ TEST(JsonPathTokenizerTest, invalidPaths) {
 
   // Open bracket without close bracket.
   EXPECT_FALSE(getTokens("$.store.book["));
+
+  // Unmatched double quote.
+  EXPECT_FALSE(getTokens(R"($["foo'])"));
+
+  // Unmatched single quote.
+  EXPECT_FALSE(getTokens(R"($['foo"])"));
 
   // Unsupported deep scan operator.
   EXPECT_FALSE(getTokens("$..store"));

@@ -625,16 +625,17 @@ TEST_F(JsonFunctionsTest, jsonExtract) {
   };
 
   EXPECT_EQ(
-      "{\"x\": {\"a\" : 1, \"b\" : 2} }",
-      jsonExtract("{\"x\": {\"a\" : 1, \"b\" : 2} }", "$"));
+      R"({"x": {"a" : 1, "b" : 2} })",
+      jsonExtract(R"({"x": {"a" : 1, "b" : 2} })", "$"));
   EXPECT_EQ(
-      "{\"a\" : 1, \"b\" : 2}",
-      jsonExtract("{\"x\": {\"a\" : 1, \"b\" : 2} }", "$.x"));
-  EXPECT_EQ("1", jsonExtract("{\"x\": {\"a\" : 1, \"b\" : 2} }", "$.x.a"));
+      R"({"a" : 1, "b" : 2})",
+      jsonExtract(R"({"x": {"a" : 1, "b" : 2} })", "$.x"));
+  EXPECT_EQ("1", jsonExtract(R"({"x": {"a" : 1, "b" : 2} })", "$.x.a"));
   EXPECT_EQ(
-      std::nullopt, jsonExtract("{\"x\": {\"a\" : 1, \"b\" : 2} }", "$.x.c"));
+      std::nullopt, jsonExtract(R"({"x": {"a" : 1, "b" : 2} })", "$.x.c"));
+  EXPECT_EQ("3", jsonExtract(R"({"x": {"a" : 1, "b" : [2, 3]} })", "$.x.b[1]"));
   EXPECT_EQ(
-      "3", jsonExtract("{\"x\": {\"a\" : 1, \"b\" : [2, 3]} }", "$.x.b[1]"));
+      "1", jsonExtract(R"({"x": {"a" : 1, "b" : 2} })", R"($['x']["a"])"));
 
   EXPECT_EQ("2", jsonExtract("[1, 2, 3]", "$[1]"));
   EXPECT_EQ("null", jsonExtract("[1, null, 3]", "$[1]"));
