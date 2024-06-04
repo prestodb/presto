@@ -140,6 +140,12 @@ TypePtr toVeloxType(LogicalType type, bool fileColumnNamesReadAsLowerCase) {
       return DATE();
     case LogicalTypeId::TIMESTAMP:
       return TIMESTAMP();
+    case LogicalTypeId::TIMESTAMP_TZ: {
+      if (auto customType = getCustomType("TIMESTAMP WITH TIME ZONE")) {
+        return customType;
+      }
+      [[fallthrough]];
+    }
     case LogicalTypeId::INTERVAL:
       return INTERVAL_DAY_TIME();
     case LogicalTypeId::BLOB:

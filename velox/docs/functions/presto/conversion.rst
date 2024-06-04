@@ -184,7 +184,7 @@ supported conversions to/from JSON are listed in :doc:`json`.
      - Y
      - Y
      -
-     -
+     - Y
      -
      -
    * - date
@@ -726,6 +726,21 @@ Valid examples
   SELECT cast(timestamp '1970-01-01 00:00:00' as timestamp with time zone); -- 1970-01-01 00:00:00.000 America/Los_Angeles
   SELECT cast(timestamp '2012-03-09 10:00:00' as timestamp with time zone); -- 2012-03-09 10:00:00.000 America/Los_Angeles
   SELECT cast(from_unixtime(0) as timestamp with time zone); -- 1970-01-01 00:00:00.000 America/Los_Angeles
+
+From DATE
+^^^^^^^^^
+
+The results depend on `session_timestamp`.
+
+Valid examples
+
+::
+
+    -- session_timezone = America/Los_Angeles
+    SELECT cast(date '2024-06-01' as timestamp with time zone); -- 2024-06-01 00:00:00.000 America/Los_Angeles
+
+    -- session_timezone = Asia/Shanghai
+    SELECT cast(date '2024-06-01' as timestamp with time zone); -- 2024-06-01 00:00:00.000 Asia/Shanghai
 
 Cast to Date
 ------------

@@ -18,7 +18,8 @@
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/type/tz/TimeZoneMap.h"
 
-using namespace facebook::velox;
+namespace facebook::velox {
+namespace {
 
 class TimestampWithTimeZoneCastTest : public functions::test::CastBaseTest {
  public:
@@ -233,3 +234,41 @@ TEST_F(TimestampWithTimeZoneCastTest, toDate) {
     test::assertEqualVectors(expected, result);
   }
 }
+
+TEST_F(TimestampWithTimeZoneCastTest, fromDate) {
+  auto input = makeFlatVector<int32_t>({-1, 0, 1}, DATE());
+
+  setQueryTimeZone("America/New_York");
+
+  auto tzId = util::getTimeZoneID("America/New_York");
+  auto tzOffset = -5 * kMillisInHour;
+  auto expected = makeFlatVector<int64_t>(
+      {
+          pack(-kMillisInDay - tzOffset, tzId),
+          pack(-tzOffset, tzId),
+          pack(kMillisInDay - tzOffset, tzId),
+      },
+      TIMESTAMP_WITH_TIME_ZONE());
+  auto result =
+      evaluate("cast(c0 as timestamp with time zone)", makeRowVector({input}));
+  test::assertEqualVectors(expected, result);
+
+  setQueryTimeZone("Asia/Shanghai");
+
+  tzId = util::getTimeZoneID("Asia/Shanghai");
+  tzOffset = 8 * kMillisInHour;
+  expected = makeFlatVector<int64_t>(
+      {
+          pack(-kMillisInDay - tzOffset, tzId),
+          pack(-tzOffset, tzId),
+          pack(kMillisInDay - tzOffset, tzId),
+      },
+      TIMESTAMP_WITH_TIME_ZONE());
+
+  result =
+      evaluate("cast(c0 as timestamp with time zone)", makeRowVector({input}));
+  test::assertEqualVectors(expected, result);
+}
+
+} // namespace
+} // namespace facebook::velox
