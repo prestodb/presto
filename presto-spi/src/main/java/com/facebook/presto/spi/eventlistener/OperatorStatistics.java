@@ -143,7 +143,7 @@ public class OperatorStatistics
         this.addInputCpu = requireNonNull(addInputCpu, "addInputCpu is null");
         this.addInputAllocation = requireNonNull(addInputAllocation, "addInputAllocation is null");
         this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawInputDataSize is null");
-        this.rawInputPositions = requireNonNull(rawInputPositions, "rawInputPositions is null");
+        this.rawInputPositions = rawInputPositions;
         this.inputDataSize = requireNonNull(inputDataSize, "inputDataSize is null");
         this.inputPositions = inputPositions;
         this.sumSquaredInputPositions = sumSquaredInputPositions;
