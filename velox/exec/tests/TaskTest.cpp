@@ -1278,6 +1278,7 @@ DEBUG_ONLY_TEST_F(TaskTest, inconsistentExecutionMode) {
     while (cursor->hasNext()) {
       cursor->moveNext();
     }
+    waitForTaskCompletion(task);
   }
 
   {
