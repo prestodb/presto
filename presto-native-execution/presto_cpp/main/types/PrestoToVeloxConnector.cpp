@@ -235,6 +235,9 @@ std::string toString(
     const VeloxExprConverter& exprConverter,
     const TypePtr& type) {
   auto value = exprConverter.getConstantValue(type, *block);
+  if (type->isVarbinary()) {
+    return value.value<TypeKind::VARBINARY>();
+  }
   return value.value<std::string>();
 }
 
@@ -652,6 +655,7 @@ std::unique_ptr<common::Filter> toFilter(
     case TypeKind::DOUBLE:
       return doubleRangeToFilter(range, nullAllowed, exprConverter, type);
     case TypeKind::VARCHAR:
+    case TypeKind::VARBINARY:
       return varcharRangeToFilter(range, nullAllowed, exprConverter, type);
     case TypeKind::BOOLEAN:
       return boolRangeToFilter(range, nullAllowed, exprConverter, type);
