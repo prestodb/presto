@@ -44,7 +44,7 @@ import static org.testng.Assert.assertTrue;
 public class TestArrayBlock
         extends AbstractTestBlock
 {
-    private static final int[] ARRAY_SIZES = new int[] {16, 0, 13, 1, 2, 11, 4, 7};
+    private static final int[] ARRAY_SIZES = {16, 0, 13, 1, 2, 11, 4, 7};
 
     @Test
     public void testWithFixedWidthBlock()

@@ -54,7 +54,7 @@ import static org.testng.Assert.assertTrue;
 public class TestGroupByHash
 {
     private static final int MAX_GROUP_ID = 500;
-    private static final int[] CONTAINS_CHANNELS = new int[] {0};
+    private static final int[] CONTAINS_CHANNELS = {0};
     private static final Session TEST_SESSION = TestingSession.testSessionBuilder().build();
     private static final JoinCompiler JOIN_COMPILER = new JoinCompiler(MetadataManager.createTestMetadataManager());
 
