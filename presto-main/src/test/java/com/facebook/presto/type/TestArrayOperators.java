@@ -651,6 +651,30 @@ public class TestArrayOperators
     }
 
     @Test
+    public void testArraySum()
+    {
+        assertFunction("ARRAY_SUM(ARRAY [1, 2, 3])",INTEGER,6);
+        assertFunction("ARRAY_SUM(ARRAY [1, 2, null, null, 3])",INTEGER,6);
+        assertFunction("ARRAY_SUM(ARRAY [cast(5 as INTEGER), 6, 0])",INTEGER, 11);
+
+        assertFunction("ARRAY_SUM(ARRAY [cast(5 as bigint), cast(5 as bigint), cast(5 as bigint)])",BIGINT, 15L);
+        assertFunction("ARRAY_SUM(ARRAY [cast(5 as bigint), null, null, cast(5 as bigint), cast(5 as bigint)])",BIGINT, 15L);
+        assertFunction("ARRAY_SUM(ARRAY [cast(4 as bigint), cast(5 as bigint), cast(9 as bigint)])",BIGINT, 18L);
+
+        assertDecimalFunction("ARRAY_SUM(ARRAY [1.0,2.0])",decimal("3.0"));
+        assertDecimalFunction("ARRAY_SUM(ARRAY [1.7,2.9])",decimal("4.6"));
+        assertDecimalFunction("ARRAY_SUM(ARRAY [1.0,null,2.0])",decimal("3.0"));
+
+
+        assertFunction("ARRAY_SUM(ARRAY [cast(5 as double), cast(5 as double)])",DOUBLE, 10.0);
+        assertFunction("ARRAY_SUM(ARRAY [cast(5 as double), null, null, cast(5 as double)])",DOUBLE, 10.0);
+        assertFunction("ARRAY_SUM(ARRAY [cast(7 as double), cast(3 as double),cast(2 as double)])",DOUBLE, 12.0);
+
+
+    }
+
+
+    @Test
     public void testCardinality()
     {
         assertFunction("CARDINALITY(ARRAY [])", BIGINT, 0L);
