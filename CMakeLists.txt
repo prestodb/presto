@@ -446,7 +446,7 @@ if(${VELOX_BUILD_MINIMAL_WITH_DWIO}
 endif()
 
 set_source(simdjson)
-resolve_dependency(simdjson 3.8.0)
+resolve_dependency(simdjson 3.9.3)
 
 # Locate or build folly.
 add_compile_definitions(FOLLY_HAVE_INT128_T=1)
