@@ -1,0 +1,80 @@
+***************
+May 2024 Update
+***************
+
+Documentation
+=============
+
+* Publish blog post about `optimizing TRY and TRY_CAST <https://velox-lib.io/blog/optimize-try-more>`_
+* Publish `Technical Governance <https://velox-lib.io/docs/community/technical-governance>`_.
+
+Core Library
+============
+
+* Optimize TRY and TRY_CAST for cases when many rows fail.
+* Add support for LEFT SEMI FILTER and RIGHT SEMI FILTER merge joins.
+* Add support for DECIMAL input to aggregations over distinct values. :pr:`9850`
+* Add support for specifying overwrite behavior when registering simple scalar functions. :pr:`9158`
+* Fix LEFT merge join with extra filter. :pr:`9862`
+* Fix Nested Loop join with empty build and extra filter. :pr:`9892`
+* Fix crash when copying complex vectors. :pr:`9725`
+* Fix reuse of LazyVectors in TableScan to avoid crashes in downstream operators. :pr:`9811`
+
+Presto Functions
+================
+
+* Add :func:`at_timezone` function.
+* Add support for VARBINARY input to :func:`approx_distinct` aggregate function.
+* Add support for CAST(varchar AS timestamp with time zone).
+* Add support for DECIMAL inputs to :func:`min_by` and :func:`max_by` aggregate functions.
+* Fix :func:`arrays_overlap` function for empty arrays. :pr:`9922`
+* Fix :func:`map_top_n` function to break ties by comparing keys.
+* Fix CAST(IntervalDayTime AS Varchar) for negative intervals. :pr:`9871`
+* Fix :func:`from_base64` for inputs without padding. :pr:`8647`
+
+Spark Functions
+===============
+
+* Add :spark:func:`expm1`, :spark:func:`get`, :spark:func:`rint`, :spark:func:`shuffle`,
+  :spark:func:`soundex`, :func:`unix_seconds`, :spark:func:`width_bucket` functions.
+* Add support for complex type inputs to :spark:func:`hash` and :spark:func:`xxhash64` functions.
+* Fix CAST(tinyint/smallint/integer/bigint as varbinary). :pr:`9819`
+* Fix return type for :spark:func:`sum` aggregate function with REAL input. :pr:`9818`
+
+Hive Connector
+==============
+
+* Add support for projecting synthesized row-number column from Table Scan. :pr:`9174`
+
+Performance and Correctness
+===========================
+
+* Optimize memory arbitration to avoid interference between queries to reduce overall query execution time.
+* Add cache expiration function to simple LRU cache to support remote IO throttling.
+* Add Fuzzers for TableWriter and RowNumber operators.
+* Add support for Nested Loop joins to Join Fuzzer.
+* Add support for testing different sorting flags to Window Fuzzer.
+* Add custom argument type generators for Presto decimal functions. :pr:`9715`
+* Re-enable testing of merge joins in Join Fuzzer.
+
+Build System
+============
+
+* Upgrade aws-sdk-cpp to 1.11.321 (from 1.11.169).
+* Upgrade cmake to 3.28.3 (from 3.14).
+* Upgrade simdjson to 3.9.3 (from 3.8.0).
+* Add support for docker image with Spark Connect server to use with Fuzzer. :pr:`9759`
+* Add dashboard with `build time metrics <https://facebookincubator.github.io/velox/bm-report/>`_.
+
+Credits
+=======
+
+Ankita Victor, Ashwin Krishna Kumar, Bikramjeet Vig, Bradley Dice, Daniel Munoz,
+Deepak Majeti, Giuseppe Ottaviano, Jacob Wujciak-Jens, Jia Ke, Jialiang Tan,
+Jimmy Lu, Joe Abraham, Karteekmurthys, Ke, Kevin Wilfong, Kk Pulla, Krishna
+Pai, Ma,  Rong, Masha Basmanova, NEUpanning, PHILO-HE, Patrick Sullivan, Pedro
+Eugenio Rocha Pedreira, Richard Barnes, Sandino Flores, Sergey Pershin, Ubuntu,
+Wei He, Weihan Tang, Yang Zhang, Zac Wen, Zuyu ZHANG, aditi-pandit, chliang,
+duanmeng, gaoyangxiaozhu, jay.narale, joey.ljy, kevin, kikimo, lingbin, rui-mo,
+svm1, xiaoxmeng, xumingming, yan ma, yanngyoung, yingsu00, zhli1142015,
+zhouyifan279, zjuwangg, zky.zhoukeyong, 高阳阳
