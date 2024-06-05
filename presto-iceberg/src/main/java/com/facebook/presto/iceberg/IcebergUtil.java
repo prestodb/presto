@@ -128,6 +128,7 @@ import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_FORMA
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_TABLE_TIMESTAMP;
+import static com.facebook.presto.iceberg.IcebergPartitionType.IDENTITY;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isMergeOnReadModeEnabled;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getCommitRetries;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getFormatVersion;
@@ -224,9 +225,9 @@ public final class IcebergUtil
         return new BaseTable(operations, quotedTableName(table));
     }
 
-    public static Table getNativeIcebergTable(IcebergResourceFactory resourceFactory, ConnectorSession session, SchemaTableName table)
+    public static Table getNativeIcebergTable(IcebergNativeCatalogFactory catalogFactory, ConnectorSession session, SchemaTableName table)
     {
-        return resourceFactory.getCatalog(session).loadTable(toIcebergTableIdentifier(table));
+        return catalogFactory.getCatalog(session).loadTable(toIcebergTableIdentifier(table));
     }
 
     public static List<IcebergColumnHandle> getPartitionKeyColumnHandles(IcebergTableHandle tableHandle, Table table, TypeManager typeManager)
@@ -272,15 +273,35 @@ public final class IcebergUtil
                 .snapshotId();
     }
 
+    public static Map<String, List<String>> getPartitionFields(PartitionSpec partitionSpec, IcebergPartitionType partitionType)
+    {
+        Map<String, List<String>> partitionFields = new HashMap<>();
+
+        switch (partitionType) {
+            case IDENTITY:
+                for (int i = 0; i < partitionSpec.fields().size(); i++) {
+                    PartitionField field = partitionSpec.fields().get(i);
+                    if (field.transform().isIdentity()) {
+                        partitionFields.put(field.name(), ImmutableList.of(field.transform().toString()));
+                    }
+                }
+                break;
+            case ALL:
+                for (int i = 0; i < partitionSpec.fields().size(); i++) {
+                    PartitionField field = partitionSpec.fields().get(i);
+                    String sourceColumnName = partitionSpec.schema().findColumnName(field.sourceId());
+                    partitionFields.computeIfAbsent(sourceColumnName, k -> new ArrayList<>())
+                            .add(field.transform().toString());
+                }
+                break;
+        }
+
+        return partitionFields;
+    }
+
     public static List<IcebergColumnHandle> getColumns(Schema schema, PartitionSpec partitionSpec, TypeManager typeManager)
     {
-        List<String> partitionFieldNames = new ArrayList<>();
-        for (int i = 0; i < partitionSpec.fields().size(); i++) {
-            PartitionField field = partitionSpec.fields().get(i);
-            if (field.transform().isIdentity()) {
-                partitionFieldNames.add(field.name());
-            }
-        }
+        Set<String> partitionFieldNames = getPartitionFields(partitionSpec, IDENTITY).keySet();
 
         return schema.columns().stream()
                 .map(column -> partitionFieldNames.contains(column.name()) ? IcebergColumnHandle.create(column, typeManager, PARTITION_KEY) : IcebergColumnHandle.create(column, typeManager, REGULAR))
@@ -298,6 +319,15 @@ public final class IcebergUtil
             }
         }
         return columns.build();
+    }
+
+    public static Set<Integer> getPartitionSpecsIncludingValidData(Table icebergTable, Optional<Long> snapshotId)
+    {
+        return snapshotId.map(snapshot -> icebergTable.snapshot(snapshot).allManifests(icebergTable.io()).stream()
+                        .filter(manifestFile -> manifestFile.hasAddedFiles() || manifestFile.hasExistingFiles())
+                        .map(ManifestFile::partitionSpecId)
+                        .collect(toImmutableSet()))
+                .orElseGet(() -> ImmutableSet.copyOf(icebergTable.specs().keySet()));   // No snapshot, so no data. This case doesn't matter.
     }
 
     public static List<Column> toHiveColumns(List<NestedField> columns)

@@ -112,6 +112,7 @@ public class VerificationManager
     private final int verificationResubmissionLimit;
     private final boolean explain;
     private final boolean skipControl;
+    private final boolean skipChecksum;
     private final String runningMode;
 
     private final ExecutorService executor;
@@ -151,6 +152,7 @@ public class VerificationManager
         this.queryRepetitions = config.getQueryRepetitions();
         this.verificationResubmissionLimit = config.getVerificationResubmissionLimit();
         this.skipControl = config.isSkipControl();
+        this.skipChecksum = config.isSkipChecksum();
         this.explain = config.isExplain();
 
         this.executor = newFixedThreadPool(maxConcurrency);
@@ -267,7 +269,7 @@ public class VerificationManager
                 else if (controlQueryType != testQueryType) {
                     postEvent(VerifierQueryEvent.skipped(sourceQuery.getSuite(), testId, sourceQuery, MISMATCHED_QUERY_TYPE, skipControl));
                 }
-                else if (isLimitWithoutOrderBy(controlStatement, sourceQuery.getName())) {
+                else if (!skipControl && !skipChecksum && isLimitWithoutOrderBy(controlStatement, sourceQuery.getName())) {
                     log.debug("LimitWithoutOrderByChecker Skipped %s", sourceQuery.getName());
                     postEvent(VerifierQueryEvent.skipped(sourceQuery.getSuite(), testId, sourceQuery, NON_DETERMINISTIC, skipControl));
                 }

@@ -54,6 +54,7 @@ import org.apache.iceberg.CatalogUtil;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableOperations;
@@ -115,6 +116,8 @@ import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.SnapshotSummary.TOTAL_DATA_FILES_PROP;
+import static org.apache.iceberg.SnapshotSummary.TOTAL_DELETE_FILES_PROP;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -458,6 +461,71 @@ public abstract class IcebergDistributedTestBase
         assertUpdate("CREATE TABLE test_truncate AS SELECT * FROM orders", "SELECT count(*) FROM orders");
         assertAccessAllowed("TRUNCATE TABLE test_truncate", privilege("orders", SELECT_COLUMN));
         assertUpdate("DROP TABLE test_truncate");
+    }
+
+    @Test
+    public void testTruncateTableWithDeleteFiles()
+    {
+        String tableName = "test_v2_row_delete_" + randomTableSuffix();
+        try {
+            assertUpdate("CREATE TABLE " + tableName + "(a int, b varchar) WITH (format_version = '2', delete_mode = 'merge-on-read')");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, '1001'), (2, '1002'), (3, '1003')", 3);
+
+            // execute row level deletion
+            assertUpdate("DELETE FROM " + tableName + " WHERE b in ('1002', '1003')", 2);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (1, '1001')");
+
+            Table icebergTable = loadTable(tableName);
+            assertHasDataFiles(icebergTable.currentSnapshot(), 1);
+            assertHasDeleteFiles(icebergTable.currentSnapshot(), 1);
+
+            // execute truncate table
+            assertUpdate("TRUNCATE TABLE " + tableName);
+            assertQuery("SELECT count(*) FROM " + tableName, "VALUES 0");
+
+            icebergTable = loadTable(tableName);
+            assertHasDataFiles(icebergTable.currentSnapshot(), 0);
+            assertHasDeleteFiles(icebergTable.currentSnapshot(), 0);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testShowColumnsForPartitionedTable()
+    {
+        // Partitioned Table with only identity partitions
+        getQueryRunner().execute("CREATE TABLE show_columns_only_identity_partition " +
+                "(id int," +
+                " name varchar," +
+                " team varchar) WITH (partitioning = ARRAY['team'])");
+
+        MaterializedResult actual = computeActual("SHOW COLUMNS FROM show_columns_only_identity_partition");
+
+        MaterializedResult expectedParametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .row("id", "integer", "", "")
+                .row("name", "varchar", "", "")
+                .row("team", "varchar", "partition key", "")
+                .build();
+
+        assertEquals(actual, expectedParametrizedVarchar);
+
+        // Partitioned Table with non identity partition transforms
+        getQueryRunner().execute("CREATE TABLE show_columns_with_non_identity_partition " +
+                "(id int," +
+                " name varchar," +
+                " team varchar) WITH (partitioning = ARRAY['truncate(team, 1)', 'team'])");
+
+        actual = computeActual("SHOW COLUMNS FROM show_columns_with_non_identity_partition");
+
+        expectedParametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .row("id", "integer", "", "")
+                .row("name", "varchar", "", "")
+                .row("team", "varchar", "partition by truncate[1], identity", "")
+                .build();
+
+        assertEquals(actual, expectedParametrizedVarchar);
     }
 
     @Override
@@ -1308,6 +1376,148 @@ public abstract class IcebergDistributedTestBase
         assertQuerySucceeds("DROP TABLE showstatsfilters");
     }
 
+    @Test
+    public void testMetadataDeleteOnUnPartitionedTableWithDeleteFiles()
+    {
+        String tableName = "test_v2_row_delete_" + randomTableSuffix();
+        try {
+            assertUpdate("CREATE TABLE " + tableName + "(a int, b varchar) WITH (format_version = '2', delete_mode = 'merge-on-read')");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, '1001'), (2, '1002'), (3, '1003')", 3);
+
+            // execute row level deletion
+            assertUpdate("DELETE FROM " + tableName + " WHERE b in ('1002', '1003')", 2);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (1, '1001')");
+
+            Table icebergTable = loadTable(tableName);
+            assertHasDataFiles(icebergTable.currentSnapshot(), 1);
+            assertHasDeleteFiles(icebergTable.currentSnapshot(), 1);
+
+            // execute whole table metadata deletion
+            assertUpdate("DELETE FROM " + tableName, 1);
+            assertQuery("SELECT count(*) FROM " + tableName, "VALUES 0");
+
+            icebergTable = loadTable(tableName);
+            assertHasDataFiles(icebergTable.currentSnapshot(), 0);
+            assertHasDeleteFiles(icebergTable.currentSnapshot(), 0);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testMetadataDeleteOnPartitionedTableWithDeleteFiles()
+    {
+        String tableName = "test_v2_row_delete_" + randomTableSuffix();
+        try {
+            assertUpdate("CREATE TABLE " + tableName + "(a int, b varchar) WITH (format_version = '2', delete_mode = 'merge-on-read', partitioning = ARRAY['a'])");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, '1001'), (2, '1002'), (3, '1003')", 3);
+
+            // execute row level deletion
+            assertUpdate("DELETE FROM " + tableName + " WHERE b in ('1002', '1003')", 2);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (1, '1001')");
+
+            Table icebergTable = loadTable(tableName);
+            assertHasDataFiles(icebergTable.currentSnapshot(), 3);
+            assertHasDeleteFiles(icebergTable.currentSnapshot(), 2);
+
+            // execute metadata deletion with filter
+            assertUpdate("DELETE FROM " + tableName + " WHERE a in (2, 3)", 0);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (1, '1001')");
+
+            icebergTable = loadTable(tableName);
+            assertHasDataFiles(icebergTable.currentSnapshot(), 1);
+            assertHasDeleteFiles(icebergTable.currentSnapshot(), 0);
+
+            // execute whole table metadata deletion
+            assertUpdate("DELETE FROM " + tableName, 1);
+            assertQuery("SELECT count(*) FROM " + tableName, "VALUES 0");
+
+            icebergTable = loadTable(tableName);
+            assertHasDataFiles(icebergTable.currentSnapshot(), 0);
+            assertHasDeleteFiles(icebergTable.currentSnapshot(), 0);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testMetadataDeleteOnV2MorTableWithEmptyUnsupportedSpecs()
+    {
+        String tableName = "test_empty_partition_spec_table";
+        try {
+            // Create a table with no partition
+            assertUpdate("CREATE TABLE " + tableName + " (a INTEGER, b VARCHAR) WITH (format_version = '2', delete_mode = 'merge-on-read')");
+
+            // Do not insert data, and evaluate the partition spec by adding a partition column `c`
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN c INTEGER WITH (partitioning = 'identity')");
+
+            // Insert data under the new partition spec
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, '1001', 1), (2, '1002', 2), (3, '1003', 3), (4, '1004', 4)", 4);
+
+            Table icebergTable = loadTable(tableName);
+            assertHasDataFiles(icebergTable.currentSnapshot(), 4);
+            assertHasDeleteFiles(icebergTable.currentSnapshot(), 0);
+
+            // Do metadata delete on partition column `c`, because the initial partition spec contains no data
+            assertUpdate("DELETE FROM " + tableName + " WHERE c in (1, 3)", 2);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (2, '1002', 2), (4, '1004', 4)");
+
+            icebergTable = loadTable(tableName);
+            assertHasDataFiles(icebergTable.currentSnapshot(), 2);
+            assertHasDeleteFiles(icebergTable.currentSnapshot(), 0);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testMetadataDeleteOnV2MorTableWithUnsupportedSpecsWhoseDataAllDeleted()
+    {
+        String tableName = "test_data_deleted_partition_spec_table";
+        try {
+            // Create a table with partition column `a`, and insert some data under this partition spec
+            assertUpdate("CREATE TABLE " + tableName + " (a INTEGER, b VARCHAR) WITH (format_version = '2', delete_mode = 'merge-on-read', partitioning = ARRAY['a'])");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, '1001'), (2, '1002')", 2);
+
+            Table icebergTable = loadTable(tableName);
+            assertHasDataFiles(icebergTable.currentSnapshot(), 2);
+            assertHasDeleteFiles(icebergTable.currentSnapshot(), 0);
+
+            // Evaluate the partition spec by adding a partition column `c`, and insert some data under the new partition spec
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN c INTEGER WITH (partitioning = 'identity')");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (3, '1003', 3), (4, '1004', 4), (5, '1005', 5)", 3);
+
+            icebergTable = loadTable(tableName);
+            assertHasDataFiles(icebergTable.currentSnapshot(), 5);
+            assertHasDeleteFiles(icebergTable.currentSnapshot(), 0);
+
+            // Execute row level delete with filter on column `c`, because we have data with old partition spec
+            assertUpdate("DELETE FROM " + tableName + " WHERE c > 3", 2);
+            icebergTable = loadTable(tableName);
+            assertHasDataFiles(icebergTable.currentSnapshot(), 5);
+            assertHasDeleteFiles(icebergTable.currentSnapshot(), 2);
+
+            // Do metadata delete on column `a`, because all partition specs contains partition column `a`
+            assertUpdate("DELETE FROM " + tableName + " WHERE a in (1, 2)", 2);
+            icebergTable = loadTable(tableName);
+            assertHasDataFiles(icebergTable.currentSnapshot(), 3);
+            assertHasDeleteFiles(icebergTable.currentSnapshot(), 2);
+
+            // Then do metadata delete on column `c`, because the old partition spec contains no data now
+            assertUpdate("DELETE FROM " + tableName + " WHERE c > 3", 0);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (3, '1003', 3)");
+            icebergTable = loadTable(tableName);
+            assertHasDataFiles(icebergTable.currentSnapshot(), 1);
+            assertHasDeleteFiles(icebergTable.currentSnapshot(), 0);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
     private void testCheckDeleteFiles(Table icebergTable, int expectedSize, List<FileContent> expectedFileContent)
     {
         // check delete file list
@@ -1385,7 +1595,7 @@ public abstract class IcebergDistributedTestBase
         icebergTable.newRowDelta().addDeletes(writer.toDeleteFile()).commit();
     }
 
-    protected static HdfsEnvironment getHdfsEnvironment()
+    public static HdfsEnvironment getHdfsEnvironment()
     {
         HiveClientConfig hiveClientConfig = new HiveClientConfig();
         MetastoreClientConfig metastoreClientConfig = new MetastoreClientConfig();
@@ -1449,5 +1659,19 @@ public abstract class IcebergDistributedTestBase
     {
         test.accept(session, FileFormat.PARQUET);
         test.accept(session, FileFormat.ORC);
+    }
+
+    private void assertHasDataFiles(Snapshot snapshot, int dataFilesCount)
+    {
+        Map<String, String> map = snapshot.summary();
+        int totalDataFiles = Integer.valueOf(map.get(TOTAL_DATA_FILES_PROP));
+        assertEquals(totalDataFiles, dataFilesCount);
+    }
+
+    private void assertHasDeleteFiles(Snapshot snapshot, int deleteFilesCount)
+    {
+        Map<String, String> map = snapshot.summary();
+        int totalDeleteFiles = Integer.valueOf(map.get(TOTAL_DELETE_FILES_PROP));
+        assertEquals(totalDeleteFiles, deleteFilesCount);
     }
 }

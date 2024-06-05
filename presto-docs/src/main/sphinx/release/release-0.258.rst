@@ -27,7 +27,7 @@ ____________
 * Add support for allowing to match columns between table and partition schemas by names for HUDI tables. This is enabled when configuration property ``hive.parquet.use-column-names`` or the hive catalog session property ``parquet_use_column_names`` is set to ``true``. By default they are mapped by index.
 
 Iceberg Changes
-_________________________
+_______________
 * Add support for ORC files.
 
 SPI Changes

@@ -63,13 +63,15 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.airlift.configuration.ConditionalModule.installModuleIf;
-
 public final class InternalIcebergConnectorFactory
 {
     private InternalIcebergConnectorFactory() {}
 
-    public static Connector createConnector(String catalogName, Map<String, String> config, ConnectorContext context, Optional<ExtendedHiveMetastore> metastore)
+    public static Connector createConnector(
+            String catalogName,
+            Map<String, String> config,
+            ConnectorContext context,
+            Optional<ExtendedHiveMetastore> metastore)
     {
         ClassLoader classLoader = InternalIcebergConnectorFactory.class.getClassLoader();
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
@@ -78,11 +80,7 @@ public final class InternalIcebergConnectorFactory
                     new MBeanModule(),
                     new JsonModule(),
                     new IcebergCommonModule(catalogName),
-                    installModuleIf(
-                            IcebergConfig.class,
-                            conf -> conf.getCatalogType().equals(CatalogType.HIVE),
-                            new IcebergHiveModule(catalogName, metastore),
-                            new IcebergNativeModule()),
+                    new IcebergCatalogModule(catalogName, metastore),
                     new HiveS3Module(catalogName),
                     new HiveGcsModule(),
                     new HiveAuthenticationModule(),

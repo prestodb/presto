@@ -93,7 +93,6 @@ public final class SystemSessionProperties
     public static final String DISTRIBUTED_JOIN = "distributed_join";
     public static final String DISTRIBUTED_INDEX_JOIN = "distributed_index_join";
     public static final String HASH_PARTITION_COUNT = "hash_partition_count";
-    public static final String CTE_HASH_PARTITION_COUNT = "cte_hash_partition_count";
     public static final String CTE_HEURISTIC_REPLICATION_THRESHOLD = "cte_heuristic_replication_threshold";
 
     public static final String PARTITIONING_PROVIDER_CATALOG = "partitioning_provider_catalog";
@@ -324,6 +323,7 @@ public final class SystemSessionProperties
     public static final String SKIP_HASH_GENERATION_FOR_JOIN_WITH_TABLE_SCAN_INPUT = "skip_hash_generation_for_join_with_table_scan_input";
     public static final String GENERATE_DOMAIN_FILTERS = "generate_domain_filters";
     public static final String REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION = "rewrite_expression_with_constant_expression";
+    public static final String PRINT_ESTIMATED_STATS_FROM_CACHE = "print_estimated_stats_from_cache";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "native_simplified_expression_evaluation_enabled";
@@ -346,6 +346,7 @@ public final class SystemSessionProperties
     public static final String NATIVE_DEBUG_VALIDATE_OUTPUT_FROM_OPERATORS = "native_debug_validate_output_from_operators";
     public static final String DEFAULT_VIEW_SECURITY_MODE = "default_view_security_mode";
     public static final String JOIN_PREFILTER_BUILD_SIDE = "join_prefilter_build_side";
+    public static final String OPTIMIZER_USE_HISTOGRAMS = "optimizer_use_histograms";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -430,11 +431,6 @@ public final class SystemSessionProperties
                         HASH_PARTITION_COUNT,
                         "Number of partitions for distributed joins and aggregations",
                         queryManagerConfig.getHashPartitionCount(),
-                        false),
-                integerProperty(
-                        CTE_HASH_PARTITION_COUNT,
-                        "Number of partitions for materializing CTEs",
-                        queryManagerConfig.getCteHashPartitionCount(),
                         false),
                 stringProperty(
                         PARTITIONING_PROVIDER_CATALOG,
@@ -1909,11 +1905,17 @@ public final class SystemSessionProperties
                         GENERATE_DOMAIN_FILTERS,
                         "Infer predicates from column domains during predicate pushdown",
                         featuresConfig.getGenerateDomainFilters(),
-                                false),
+                        false),
                 booleanProperty(
                         REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION,
                         "Rewrite left join with is null check to semi join",
                         featuresConfig.isRewriteExpressionWithConstantVariable(),
+                        false),
+                booleanProperty(
+                        PRINT_ESTIMATED_STATS_FROM_CACHE,
+                        "When printing estimated plan stats after optimization is complete, such as in an EXPLAIN query or for logging in a QueryCompletedEvent, " +
+                                "get stats from a cache that was populated during query optimization rather than recalculating the stats on the final plan.",
+                        featuresConfig.isPrintEstimatedStatsFromCache(),
                         false),
                 new PropertyMetadata<>(
                         DEFAULT_VIEW_SECURITY_MODE,
@@ -1931,6 +1933,10 @@ public final class SystemSessionProperties
                         JOIN_PREFILTER_BUILD_SIDE,
                         "Prefiltering the build/inner side of a join with keys from the other side",
                         false,
+                        false),
+                booleanProperty(OPTIMIZER_USE_HISTOGRAMS,
+                        "whether or not to use histograms in the CBO",
+                        featuresConfig.isUseHistograms(),
                         false));
     }
 
@@ -2011,11 +2017,6 @@ public final class SystemSessionProperties
     public static int getHashPartitionCount(Session session)
     {
         return session.getSystemProperty(HASH_PARTITION_COUNT, Integer.class);
-    }
-
-    public static int getCteHashPartitionCount(Session session)
-    {
-        return session.getSystemProperty(CTE_HASH_PARTITION_COUNT, Integer.class);
     }
 
     public static int getCteHeuristicReplicationThreshold(Session session)
@@ -3217,5 +3218,15 @@ public final class SystemSessionProperties
     public static boolean isJoinPrefilterEnabled(Session session)
     {
         return session.getSystemProperty(JOIN_PREFILTER_BUILD_SIDE, Boolean.class);
+    }
+
+    public static boolean isPrintEstimatedStatsFromCacheEnabled(Session session)
+    {
+        return session.getSystemProperty(PRINT_ESTIMATED_STATS_FROM_CACHE, Boolean.class);
+    }
+
+    public static boolean shouldOptimizerUseHistograms(Session session)
+    {
+        return session.getSystemProperty(OPTIMIZER_USE_HISTOGRAMS, Boolean.class);
     }
 }

@@ -17,9 +17,14 @@ import com.facebook.presto.Session;
 import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
+import com.facebook.presto.sql.planner.assertions.ExpressionMatcher;
+import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
+
+import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
@@ -41,7 +46,6 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strict
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictTableScan;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
-import static org.testng.Assert.fail;
 
 public class TestPlanMatchingFramework
         extends BasePlanTest
@@ -200,47 +204,36 @@ public class TestPlanMatchingFramework
                         tableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey"))));
     }
 
-    /*
-     * There are so many ways for matches to fail that this is not likely to be generally useful.
-     * Pending better diagnostics, please leave this here, and restrict its use to simple queries
-     * that have few ways to not match a pattern, and functionality that is well-tested with
-     * positive tests.
-     */
-    private void assertFails(Runnable runnable)
-    {
-        try {
-            runnable.run();
-            fail("Plans should not have matched!");
-        }
-        catch (AssertionError e) {
-            //ignored
-        }
-    }
-
     @Test
     public void testStrictOutputExtraSymbols()
     {
-        assertFails(() -> assertMinimallyOptimizedPlan("SELECT orderkey, extendedprice FROM lineitem",
+        assertMinimallyOptimizedPlanDoesNotMatch(
+                "SELECT orderkey, extendedprice FROM lineitem",
                 strictOutput(ImmutableList.of("ORDERKEY"),
-                        tableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey",
-                                "EXTENDEDPRICE", "extendedprice")))));
+                tableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey",
+                        "EXTENDEDPRICE", "extendedprice"))));
     }
 
     @Test
     public void testStrictTableScanExtraSymbols()
     {
-        assertFails(() -> assertMinimallyOptimizedPlan("SELECT orderkey, extendedprice FROM lineitem",
-                output(ImmutableList.of("ORDERKEY", "EXTENDEDPRICE"),
-                        strictTableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey")))));
+        String sql = "SELECT orderkey, extendedprice FROM lineitem";
+        List<String> outputs = ImmutableList.of("ORDERKEY", "EXTENDEDPRICE");
+        PlanMatchPattern source = strictTableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey"));
+        PlanMatchPattern output = output(outputs, source);
+        assertMinimallyOptimizedPlanDoesNotMatch(sql, output);
     }
 
     @Test
     public void testStrictProjectExtraSymbols()
     {
-        assertFails(() -> assertMinimallyOptimizedPlan("SELECT discount, orderkey, 1 + orderkey FROM lineitem",
-                output(ImmutableList.of("ORDERKEY", "EXPRESSION"),
-                        strictProject(ImmutableMap.of("EXPRESSION", expression("1 + ORDERKEY"), "ORDERKEY", expression("ORDERKEY")),
-                                tableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey"))))));
+        String sql = "SELECT discount, orderkey, 1 + orderkey FROM lineitem";
+        List<String> outputs = ImmutableList.of("ORDERKEY", "EXPRESSION");
+        Map<String, ExpressionMatcher> assignments = ImmutableMap.of("EXPRESSION", expression("1 + ORDERKEY"), "ORDERKEY", expression("ORDERKEY"));
+        PlanMatchPattern source = tableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey"));
+        PlanMatchPattern strict = strictProject(assignments, source);
+        PlanMatchPattern output = output(outputs, strict);
+        assertMinimallyOptimizedPlanDoesNotMatch(sql, output);
     }
 
     @Test(expectedExceptions = {IllegalStateException.class}, expectedExceptionsMessageRegExp = ".*already bound to expression.*")

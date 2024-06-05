@@ -238,7 +238,7 @@ Example::
 
 
 Row comparison: NOT IN
-------------------
+----------------------
 
 The NOT IN comparison operator in SQL is used to exclude the rows that match any value in a list or subquery.
 

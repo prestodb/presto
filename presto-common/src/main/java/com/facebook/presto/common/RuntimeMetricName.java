@@ -38,6 +38,8 @@ public class RuntimeMetricName
     public static final String GET_TABLE_HANDLE_TIME_NANOS = "getTableHandleTimeNanos";
     public static final String GET_COLUMN_HANDLE_TIME_NANOS = "getColumnHandleTimeNanos";
     public static final String GET_COLUMN_METADATA_TIME_NANOS = "getColumnMetadataTimeNanos";
+    public static final String GET_PARTITIONS_BY_NAMES_TIME_NANOS = "getPartitionsByNamesTimeNanos";
+    public static final String GET_TABLE_TIME_NANOS = "getTableTimeNanos";
     public static final String GET_SPLITS_TIME_NANOS = "getSplitsTimeNanos";
     public static final String LOGICAL_PLANNER_TIME_NANOS = "logicalPlannerTimeNanos";
     public static final String OPTIMIZER_TIME_NANOS = "optimizerTimeNanos";
@@ -60,4 +62,6 @@ public class RuntimeMetricName
     public static final String HISTORY_OPTIMIZER_QUERY_REGISTRATION_GET_STATISTICS = "historyOptimizerQueryRegistrationGetStatistics";
     public static final String DIRECTORY_LISTING_CACHE_HIT = "directoryListingCacheHit";
     public static final String DIRECTORY_LISTING_CACHE_MISS = "directoryListingCacheMiss";
+    public static final String DIRECTORY_LISTING_TIME_NANOS = "directoryListingTimeNanos";
+    public static final String FILES_READ_COUNT = "filesReadCount";
 }

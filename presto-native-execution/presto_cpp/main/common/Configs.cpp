@@ -17,6 +17,9 @@
 #include "presto_cpp/main/common/Utils.h"
 #include "velox/core/QueryConfig.h"
 
+#include <boost/lexical_cast.hpp>
+#include <boost/uuid/uuid_generators.hpp>
+#include <boost/uuid/uuid_io.hpp>
 #if __has_include("filesystem")
 #include <filesystem>
 namespace fs = std::filesystem;
@@ -181,6 +184,8 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kAsyncCacheSsdCheckpointGb, 0),
           STR_PROP(kAsyncCacheSsdPath, "/mnt/flash/async_cache."),
           BOOL_PROP(kAsyncCacheSsdDisableFileCow, false),
+          BOOL_PROP(kSsdCacheChecksumEnabled, false),
+          BOOL_PROP(kSsdCacheReadVerificationEnabled, false),
           BOOL_PROP(kEnableSerializedPageChecksum, true),
           BOOL_PROP(kUseMmapAllocator, true),
           STR_PROP(kMemoryArbitratorKind, ""),
@@ -435,6 +440,14 @@ bool SystemConfig::asyncCacheSsdDisableFileCow() const {
   return optionalProperty<bool>(kAsyncCacheSsdDisableFileCow).value();
 }
 
+bool SystemConfig::ssdCacheChecksumEnabled() const {
+  return optionalProperty<bool>(kSsdCacheChecksumEnabled).value();
+}
+
+bool SystemConfig::ssdCacheReadVerificationEnabled() const {
+  return optionalProperty<bool>(kSsdCacheReadVerificationEnabled).value();
+}
+
 std::string SystemConfig::shuffleName() const {
   return optionalProperty(kShuffleName).value();
 }
@@ -648,7 +661,14 @@ std::string NodeConfig::nodeEnvironment() const {
 }
 
 std::string NodeConfig::nodeId() const {
-  return requiredProperty(kNodeId);
+  auto resultOpt = optionalProperty(kNodeId);
+  if (resultOpt.hasValue()) {
+    return resultOpt.value();
+  }
+  // Generate the nodeId which must be a UUID. nodeId must be a singleton.
+  static auto nodeId =
+      boost::lexical_cast<std::string>(boost::uuids::random_generator()());
+  return nodeId;
 }
 
 std::string NodeConfig::nodeLocation() const {

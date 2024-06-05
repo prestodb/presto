@@ -30,6 +30,11 @@
         </dependency>
 
         <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>log</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>com.google.code.findbugs</groupId>
             <artifactId>jsr305</artifactId>
             <optional>true</optional>
@@ -48,6 +53,11 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-orc</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-plugin-toolkit</artifactId>
         </dependency>
 
         <dependency>
@@ -81,18 +91,13 @@
         </dependency>
 
         <dependency>
-            <groupId>org.weakref</groupId>
-            <artifactId>jmxutils</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>javax.inject</groupId>
             <artifactId>javax.inject</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.drift</groupId>
-            <artifactId>drift-api</artifactId>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-hdfs-core</artifactId>
         </dependency>
 
         <!-- for testing -->

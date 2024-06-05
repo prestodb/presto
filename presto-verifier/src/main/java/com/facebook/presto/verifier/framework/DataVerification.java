@@ -92,6 +92,7 @@ public class DataVerification
     protected void updateQueryInfoWithQueryBundle(QueryInfo.Builder queryInfo, Optional<QueryObjectBundle> queryBundle)
     {
         super.updateQueryInfoWithQueryBundle(queryInfo, queryBundle);
+        queryInfo.setQuery(queryBundle.map(bundle -> formatSql(bundle.getQuery(), bundle.getRewrittenFunctionCalls())));
         queryInfo.setOutputTableName(queryBundle.map(QueryObjectBundle::getObjectName).map(QualifiedName::toString));
     }
 

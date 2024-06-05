@@ -207,7 +207,7 @@ public class TestMySqlIntegrationSmokeTest
         Map<String, String> properties = ImmutableMap.of("deprecated.legacy-char-to-varchar-coercion", "true");
         Map<String, String> connectorProperties = ImmutableMap.of("connection-url", mysqlServer.getJdbcUrl());
 
-        try (QueryRunner queryRunner = new DistributedQueryRunner(getSession(), 3, properties);) {
+        try (QueryRunner queryRunner = new DistributedQueryRunner(getSession(), 3, properties)) {
             queryRunner.installPlugin(new MySqlPlugin());
             queryRunner.createCatalog("mysql", "mysql", connectorProperties);
 

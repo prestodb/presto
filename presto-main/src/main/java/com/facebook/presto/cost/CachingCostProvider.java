@@ -64,16 +64,20 @@ public class CachingCostProvider
 
         try {
             if (node instanceof GroupReference) {
-                return getGroupCost((GroupReference) node);
+                PlanCostEstimate result = getGroupCost((GroupReference) node);
+                session.getPlanNodeCostMap().put(node.getId(), result);
+                return result;
             }
 
             PlanCostEstimate cost = cache.get(node);
             if (cost != null) {
+                session.getPlanNodeCostMap().put(node.getId(), cost);
                 return cost;
             }
 
             cost = calculateCost(node);
             verify(cache.put(node, cost) == null, "Cost already set");
+            session.getPlanNodeCostMap().put(node.getId(), cost);
             return cost;
         }
         catch (RuntimeException e) {

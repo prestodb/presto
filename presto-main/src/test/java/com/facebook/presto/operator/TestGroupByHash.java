@@ -23,7 +23,6 @@ import com.facebook.presto.common.block.DictionaryId;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.function.aggregation.GroupByIdBlock;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.testing.TestingSession;
 import com.facebook.presto.type.TypeUtils;
@@ -55,9 +54,9 @@ import static org.testng.Assert.assertTrue;
 public class TestGroupByHash
 {
     private static final int MAX_GROUP_ID = 500;
-    private static final int[] CONTAINS_CHANNELS = new int[] {0};
+    private static final int[] CONTAINS_CHANNELS = {0};
     private static final Session TEST_SESSION = TestingSession.testSessionBuilder().build();
-    private static final JoinCompiler JOIN_COMPILER = new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig());
+    private static final JoinCompiler JOIN_COMPILER = new JoinCompiler(MetadataManager.createTestMetadataManager());
 
     @DataProvider
     public Object[][] dataType()

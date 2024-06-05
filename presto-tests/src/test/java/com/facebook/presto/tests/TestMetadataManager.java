@@ -115,7 +115,7 @@ public class TestMetadataManager
             queryRunner.execute(sql);
             fail("expected exception");
         }
-        catch (Throwable t) {
+        catch (RuntimeException t) {
             // query should fail
         }
 

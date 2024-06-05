@@ -17,7 +17,7 @@ import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.hive.HiveCompressionCodec;
 import com.facebook.presto.hive.OrcFileWriterConfig;
 import com.facebook.presto.hive.ParquetFileWriterConfig;
-import com.facebook.presto.iceberg.nessie.NessieConfig;
+import com.facebook.presto.iceberg.nessie.IcebergNessieConfig;
 import com.facebook.presto.iceberg.util.StatisticsUtil;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.session.PropertyMetadata;
@@ -31,6 +31,7 @@ import javax.inject.Inject;
 
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
@@ -72,10 +73,10 @@ public final class IcebergSessionProperties
             ParquetFileWriterConfig parquetFileWriterConfig,
             OrcFileWriterConfig orcFileWriterConfig,
             CacheConfig cacheConfig,
-            NessieConfig nessieConfig)
+            Optional<IcebergNessieConfig> nessieConfig)
     {
-        sessionProperties = ImmutableList.of(
-                new PropertyMetadata<>(
+        ImmutableList.Builder<PropertyMetadata<?>> propertiesBuilder = ImmutableList.<PropertyMetadata<?>>builder()
+                .add(new PropertyMetadata<>(
                         COMPRESSION_CODEC,
                         "The compression codec to use when writing files",
                         VARCHAR,
@@ -83,18 +84,18 @@ public final class IcebergSessionProperties
                         icebergConfig.getCompressionCodec(),
                         false,
                         value -> HiveCompressionCodec.valueOf(((String) value).toUpperCase()),
-                        HiveCompressionCodec::name),
-                dataSizeSessionProperty(
+                        HiveCompressionCodec::name))
+                .add(dataSizeSessionProperty(
                         PARQUET_WRITER_BLOCK_SIZE,
                         "Parquet: Writer block size",
                         parquetFileWriterConfig.getBlockSize(),
-                        false),
-                dataSizeSessionProperty(
+                        false))
+                .add(dataSizeSessionProperty(
                         PARQUET_WRITER_PAGE_SIZE,
                         "Parquet: Writer page size",
                         parquetFileWriterConfig.getPageSize(),
-                        false),
-                new PropertyMetadata<>(
+                        false))
+                .add(new PropertyMetadata<>(
                         PARQUET_WRITER_VERSION,
                         "Parquet: Writer version",
                         VARCHAR,
@@ -102,64 +103,54 @@ public final class IcebergSessionProperties
                         parquetFileWriterConfig.getWriterVersion(),
                         false,
                         value -> ParquetProperties.WriterVersion.valueOf(((String) value).toUpperCase()),
-                        ParquetProperties.WriterVersion::name),
-                dataSizeSessionProperty(
+                        ParquetProperties.WriterVersion::name))
+                .add(dataSizeSessionProperty(
                         ORC_OPTIMIZED_WRITER_MIN_STRIPE_SIZE,
                         "Experimental: ORC: Min stripe size",
                         orcFileWriterConfig.getStripeMinSize(),
-                        false),
-                dataSizeSessionProperty(
+                        false))
+                .add(dataSizeSessionProperty(
                         ORC_OPTIMIZED_WRITER_MAX_STRIPE_SIZE,
                         "Experimental: ORC: Max stripe size",
                         orcFileWriterConfig.getStripeMaxSize(),
-                        false),
-                integerProperty(
+                        false))
+                .add(integerProperty(
                         ORC_OPTIMIZED_WRITER_MAX_STRIPE_ROWS,
                         "Experimental: ORC: Max stripe row count",
                         orcFileWriterConfig.getStripeMaxRowCount(),
-                        false),
-                dataSizeSessionProperty(
+                        false))
+                .add(dataSizeSessionProperty(
                         ORC_OPTIMIZED_WRITER_MAX_DICTIONARY_MEMORY,
                         "Experimental: ORC: Max dictionary memory",
                         orcFileWriterConfig.getDictionaryMaxMemory(),
-                        false),
-                booleanProperty(
+                        false))
+                .add(booleanProperty(
                         // required by presto-hive module, might be removed in future
                         CACHE_ENABLED,
                         "Enable cache for Iceberg",
                         cacheConfig.isCachingEnabled(),
-                        false),
-                doubleProperty(
+                        false))
+                .add(doubleProperty(
                         MINIMUM_ASSIGNED_SPLIT_WEIGHT,
                         "Minimum assigned split weight",
                         icebergConfig.getMinimumAssignedSplitWeight(),
-                        false),
-                stringProperty(
-                        NESSIE_REFERENCE_NAME,
-                        "Nessie reference name to use",
-                        nessieConfig.getDefaultReferenceName(),
-                        false),
-                stringProperty(
-                        NESSIE_REFERENCE_HASH,
-                        "Nessie reference hash to use",
-                        null,
-                        false),
-                dataSizeSessionProperty(
+                        false))
+                .add(dataSizeSessionProperty(
                         ORC_STRING_STATISTICS_LIMIT,
                         "ORC: Maximum size of string statistics; drop if exceeding",
                         orcFileWriterConfig.getStringStatisticsLimit(),
-                        false),
-                booleanProperty(
+                        false))
+                .add(booleanProperty(
                         PARQUET_DEREFERENCE_PUSHDOWN_ENABLED,
                         "Is dereference pushdown expression pushdown into Parquet reader enabled?",
                         icebergConfig.isParquetDereferencePushdownEnabled(),
-                        false),
-                booleanProperty(
+                        false))
+                .add(booleanProperty(
                         MERGE_ON_READ_MODE_ENABLED,
                         "Reads enabled for merge-on-read Iceberg tables",
                         icebergConfig.isMergeOnReadModeEnabled(),
-                        false),
-                new PropertyMetadata<>(
+                        false))
+                .add(new PropertyMetadata<>(
                         HIVE_METASTORE_STATISTICS_MERGE_STRATEGY,
                         "Flags to choose which statistics from the Hive Metastore are used when calculating table stats. Valid values are: "
                                 + Joiner.on(", ").join(SUPPORTED_MERGE_FLAGS),
@@ -168,32 +159,46 @@ public final class IcebergSessionProperties
                         icebergConfig.getHiveStatisticsMergeFlags(),
                         false,
                         val -> decodeMergeFlags((String) val),
-                        StatisticsUtil::encodeMergeFlags),
-                booleanProperty(
+                        StatisticsUtil::encodeMergeFlags))
+                .add(booleanProperty(
                         PUSHDOWN_FILTER_ENABLED,
                         "Experimental: Enable Filter Pushdown for Iceberg. This is only supported with Native Worker.",
                         icebergConfig.isPushdownFilterEnabled(),
-                        false),
-                doubleProperty(
+                        false))
+                .add(doubleProperty(
                         STATISTIC_SNAPSHOT_RECORD_DIFFERENCE_WEIGHT,
                         "the amount that the difference in total record count matters" +
                                 "when calculating the closest snapshot when picking statistics. A " +
                                 "value of 1 means a single record is equivalent to 1 millisecond of " +
                                 "time difference.",
                         icebergConfig.getStatisticSnapshotRecordDifferenceWeight(),
-                        false),
-                booleanProperty(
+                        false))
+                .add(booleanProperty(
                         DELETE_AS_JOIN_REWRITE_ENABLED,
                         "When enabled equality delete row filtering will be pushed down into a join.",
                         icebergConfig.isDeleteAsJoinRewriteEnabled(),
-                        false),
-                integerProperty(
+                        false))
+                .add(integerProperty(
                         ROWS_FOR_METADATA_OPTIMIZATION_THRESHOLD,
                         "The max partitions number to utilize metadata optimization. When partitions number " +
                                 "of an Iceberg table exceeds this threshold, metadata optimization would be skipped for " +
                                 "the table. A value of 0 means skip metadata optimization directly.",
                         icebergConfig.getRowsForMetadataOptimizationThreshold(),
                         false));
+
+        nessieConfig.ifPresent((config) -> propertiesBuilder
+                .add(stringProperty(
+                        NESSIE_REFERENCE_NAME,
+                        "Nessie reference name to use",
+                        config.getDefaultReferenceName(),
+                        false))
+                .add(stringProperty(
+                        NESSIE_REFERENCE_HASH,
+                        "Nessie reference hash to use",
+                        null,
+                        false)));
+
+        sessionProperties = propertiesBuilder.build();
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -259,16 +264,6 @@ public final class IcebergSessionProperties
         return session.getProperty(ORC_OPTIMIZED_WRITER_MAX_DICTIONARY_MEMORY, DataSize.class);
     }
 
-    public static String getNessieReferenceName(ConnectorSession session)
-    {
-        return session.getProperty(NESSIE_REFERENCE_NAME, String.class);
-    }
-
-    public static String getNessieReferenceHash(ConnectorSession session)
-    {
-        return session.getProperty(NESSIE_REFERENCE_HASH, String.class);
-    }
-
     public static double getMinimumAssignedSplitWeight(ConnectorSession session)
     {
         return session.getProperty(MINIMUM_ASSIGNED_SPLIT_WEIGHT, Double.class);
@@ -307,5 +302,15 @@ public final class IcebergSessionProperties
     public static int getRowsForMetadataOptimizationThreshold(ConnectorSession session)
     {
         return session.getProperty(ROWS_FOR_METADATA_OPTIMIZATION_THRESHOLD, Integer.class);
+    }
+
+    public static String getNessieReferenceName(ConnectorSession session)
+    {
+        return session.getProperty(NESSIE_REFERENCE_NAME, String.class);
+    }
+
+    public static String getNessieReferenceHash(ConnectorSession session)
+    {
+        return session.getProperty(NESSIE_REFERENCE_HASH, String.class);
     }
 }

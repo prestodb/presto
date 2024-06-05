@@ -1701,8 +1701,8 @@ public abstract class AbstractTestParquetReader
                     parquetMetadataSource,
                     tempFile.getFile(),
                     tempFileModificationTime);
-            assertEquals(parquetFileMetadataCache.stats().missCount(), 3);
-            assertEquals(parquetFileMetadataCache.stats().hitCount(), 4);
+            assertEquals(parquetFileMetadataCache.stats().missCount(), 2);
+            assertEquals(parquetFileMetadataCache.stats().hitCount(), 5);
         }
     }
 

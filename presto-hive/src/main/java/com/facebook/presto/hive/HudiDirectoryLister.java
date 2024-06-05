@@ -133,8 +133,8 @@ public class HudiDirectoryLister
                 throws IOException
         {
             FileStatus fileStatus = hoodieBaseFileIterator.next().getFileStatus();
-            String[] name = new String[] {"localhost:" + DFS_DATANODE_DEFAULT_PORT};
-            String[] host = new String[] {"localhost"};
+            String[] name = {"localhost:" + DFS_DATANODE_DEFAULT_PORT};
+            String[] host = {"localhost"};
             LocatedFileStatus hoodieFileStatus = new LocatedFileStatus(fileStatus,
                     new BlockLocation[] {new BlockLocation(name, host, 0L, fileStatus.getLen())});
             return createHiveFileInfo(hoodieFileStatus, Optional.empty());

@@ -145,7 +145,7 @@ std::string bodyAsString(http::HttpResponse& response, MemoryPool* pool) {
     oss << std::string((const char*)body->data(), body->length());
     pool->free(body->writableData(), body->capacity());
   }
-  EXPECT_EQ(pool->currentBytes(), 0);
+  EXPECT_EQ(pool->usedBytes(), 0);
   return oss.str();
 }
 

@@ -96,7 +96,7 @@ public class ArraySqlFunctions
     @TypeParameter("T")
     @SqlParameter(name = "input", type = "array(T)")
     @SqlType("array<T>")
-    public static String array_least_frequent()
+    public static String arrayLeastFrequent()
     {
         return "RETURN IF(COALESCE(CARDINALITY(REMOVE_NULLS(input)), 0) = 0, NULL, TRANSFORM(SLICE(ARRAY_SORT(TRANSFORM(MAP_ENTRIES(ARRAY_FREQUENCY(REMOVE_NULLS(input))), x -> ROW(x[2], x[1]))), 1, 1), x -> x[2]))";
     }
@@ -106,7 +106,7 @@ public class ArraySqlFunctions
     @TypeParameter("T")
     @SqlParameters({@SqlParameter(name = "input", type = "array(T)"), @SqlParameter(name = "n", type = "bigint")})
     @SqlType("array<T>")
-    public static String array_n_least_frequent()
+    public static String arrayNLeastFrequent()
     {
         return "RETURN IF(n < 0, fail('n must be greater than or equal to 0'), IF(COALESCE(CARDINALITY(REMOVE_NULLS(input)), 0) = 0, NULL, TRANSFORM(SLICE(ARRAY_SORT(TRANSFORM(MAP_ENTRIES(ARRAY_FREQUENCY(REMOVE_NULLS(input))), x -> ROW(x[2], x[1]))), 1, n), x -> x[2])))";
     }

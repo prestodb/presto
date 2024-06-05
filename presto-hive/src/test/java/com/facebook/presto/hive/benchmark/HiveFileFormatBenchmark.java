@@ -289,7 +289,7 @@ public class HiveFileFormatBenchmark
                 PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(type));
                 ImmutableList.Builder<Page> pages = ImmutableList.builder();
 
-                int[] keys = new int[] {1, 2, 3, 4, 5};
+                int[] keys = {1, 2, 3, 4, 5};
 
                 long dataSize = 0;
                 while (dataSize < MIN_DATA_SIZE) {
@@ -363,7 +363,7 @@ public class HiveFileFormatBenchmark
                 PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(type));
                 ImmutableList.Builder<Page> pages = ImmutableList.builder();
 
-                int[] keys = new int[] {1, 2, 3, 4, 5};
+                int[] keys = {1, 2, 3, 4, 5};
 
                 long dataSize = 0;
                 while (dataSize < MIN_DATA_SIZE) {

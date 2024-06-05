@@ -14,15 +14,13 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.statistics.ConnectorHistogram;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
+import java.util.function.BiFunction;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
-import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.addStatsAndMaxDistinctValues;
-import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.addStatsAndSumDistinctValues;
-import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.capStats;
-import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.subtractSubsetStats;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
@@ -32,6 +30,7 @@ public class TestPlanNodeStatsEstimateMath
 {
     private static final VariableReferenceExpression VARIABLE = new VariableReferenceExpression(Optional.empty(), "variable", BIGINT);
     private static final StatisticRange NON_EMPTY_RANGE = openRange(1);
+    private final PlanNodeStatsEstimateMath calculator = new PlanNodeStatsEstimateMath(true);
 
     @Test
     public void testAddRowCount()
@@ -40,10 +39,10 @@ public class TestPlanNodeStatsEstimateMath
         PlanNodeStatsEstimate first = statistics(10, NaN, NaN, NaN, StatisticRange.empty());
         PlanNodeStatsEstimate second = statistics(20, NaN, NaN, NaN, StatisticRange.empty());
 
-        assertEquals(addStatsAndSumDistinctValues(unknownStats, unknownStats), PlanNodeStatsEstimate.unknown());
-        assertEquals(addStatsAndSumDistinctValues(first, unknownStats), PlanNodeStatsEstimate.unknown());
-        assertEquals(addStatsAndSumDistinctValues(unknownStats, second), PlanNodeStatsEstimate.unknown());
-        assertEquals(addStatsAndSumDistinctValues(first, second).getOutputRowCount(), 30.0);
+        assertEquals(calculator.addStatsAndSumDistinctValues(unknownStats, unknownStats), PlanNodeStatsEstimate.unknown());
+        assertEquals(calculator.addStatsAndSumDistinctValues(first, unknownStats), PlanNodeStatsEstimate.unknown());
+        assertEquals(calculator.addStatsAndSumDistinctValues(unknownStats, second), PlanNodeStatsEstimate.unknown());
+        assertEquals(calculator.addStatsAndSumDistinctValues(first, second).getOutputRowCount(), 30.0);
     }
 
     @Test
@@ -53,10 +52,10 @@ public class TestPlanNodeStatsEstimateMath
         PlanNodeStatsEstimate first = statistics(NaN, 10, NaN, NaN, StatisticRange.empty());
         PlanNodeStatsEstimate second = statistics(NaN, 20, NaN, NaN, StatisticRange.empty());
 
-        assertEquals(addStatsAndSumDistinctValues(unknownStats, unknownStats), PlanNodeStatsEstimate.unknown());
-        assertEquals(addStatsAndSumDistinctValues(first, unknownStats), PlanNodeStatsEstimate.unknown());
-        assertEquals(addStatsAndSumDistinctValues(unknownStats, second), PlanNodeStatsEstimate.unknown());
-        assertEquals(addStatsAndSumDistinctValues(first, second).getTotalSize(), 30.0);
+        assertEquals(calculator.addStatsAndSumDistinctValues(unknownStats, unknownStats), PlanNodeStatsEstimate.unknown());
+        assertEquals(calculator.addStatsAndSumDistinctValues(first, unknownStats), PlanNodeStatsEstimate.unknown());
+        assertEquals(calculator.addStatsAndSumDistinctValues(unknownStats, second), PlanNodeStatsEstimate.unknown());
+        assertEquals(calculator.addStatsAndSumDistinctValues(first, second).getTotalSize(), 30.0);
     }
 
     @Test
@@ -78,9 +77,9 @@ public class TestPlanNodeStatsEstimateMath
         assertAddNullsFraction(fractionalRowCountFirst, fractionalRowCountSecond, 0.2333333333333333);
     }
 
-    private static void assertAddNullsFraction(PlanNodeStatsEstimate first, PlanNodeStatsEstimate second, double expected)
+    private void assertAddNullsFraction(PlanNodeStatsEstimate first, PlanNodeStatsEstimate second, double expected)
     {
-        assertEquals(addStatsAndSumDistinctValues(first, second).getVariableStatistics(VARIABLE).getNullsFraction(), expected);
+        assertEquals(calculator.addStatsAndSumDistinctValues(first, second).getVariableStatistics(VARIABLE).getNullsFraction(), expected);
     }
 
     @Test
@@ -104,9 +103,9 @@ public class TestPlanNodeStatsEstimateMath
         assertAddAverageRowSize(fractionalRowCountFirst, fractionalRowCountSecond, 0.3608695652173913);
     }
 
-    private static void assertAddAverageRowSize(PlanNodeStatsEstimate first, PlanNodeStatsEstimate second, double expected)
+    private void assertAddAverageRowSize(PlanNodeStatsEstimate first, PlanNodeStatsEstimate second, double expected)
     {
-        assertEquals(addStatsAndSumDistinctValues(first, second).getVariableStatistics(VARIABLE).getAverageRowSize(), expected);
+        assertEquals(calculator.addStatsAndSumDistinctValues(first, second).getVariableStatistics(VARIABLE).getAverageRowSize(), expected);
     }
 
     @Test
@@ -125,9 +124,9 @@ public class TestPlanNodeStatsEstimateMath
         assertSumNumberOfDistinctValues(first, second, 5);
     }
 
-    private static void assertSumNumberOfDistinctValues(PlanNodeStatsEstimate first, PlanNodeStatsEstimate second, double expected)
+    private void assertSumNumberOfDistinctValues(PlanNodeStatsEstimate first, PlanNodeStatsEstimate second, double expected)
     {
-        assertEquals(addStatsAndSumDistinctValues(first, second).getVariableStatistics(VARIABLE).getDistinctValuesCount(), expected);
+        assertEquals(calculator.addStatsAndSumDistinctValues(first, second).getVariableStatistics(VARIABLE).getDistinctValuesCount(), expected);
     }
 
     @Test
@@ -146,9 +145,9 @@ public class TestPlanNodeStatsEstimateMath
         assertMaxNumberOfDistinctValues(first, second, 3);
     }
 
-    private static void assertMaxNumberOfDistinctValues(PlanNodeStatsEstimate first, PlanNodeStatsEstimate second, double expected)
+    private void assertMaxNumberOfDistinctValues(PlanNodeStatsEstimate first, PlanNodeStatsEstimate second, double expected)
     {
-        assertEquals(addStatsAndMaxDistinctValues(first, second).getVariableStatistics(VARIABLE).getDistinctValuesCount(), expected);
+        assertEquals(calculator.addStatsAndMaxDistinctValues(first, second).getVariableStatistics(VARIABLE).getDistinctValuesCount(), expected);
     }
 
     @Test
@@ -167,9 +166,9 @@ public class TestPlanNodeStatsEstimateMath
         assertAddRange(first, second, 12, 200);
     }
 
-    private static void assertAddRange(PlanNodeStatsEstimate first, PlanNodeStatsEstimate second, double expectedLow, double expectedHigh)
+    private void assertAddRange(PlanNodeStatsEstimate first, PlanNodeStatsEstimate second, double expectedLow, double expectedHigh)
     {
-        VariableStatsEstimate statistics = addStatsAndMaxDistinctValues(first, second).getVariableStatistics(VARIABLE);
+        VariableStatsEstimate statistics = calculator.addStatsAndMaxDistinctValues(first, second).getVariableStatistics(VARIABLE);
         assertEquals(statistics.getLowValue(), expectedLow);
         assertEquals(statistics.getHighValue(), expectedHigh);
     }
@@ -181,10 +180,10 @@ public class TestPlanNodeStatsEstimateMath
         PlanNodeStatsEstimate first = statistics(40, NaN, NaN, NaN, StatisticRange.empty());
         PlanNodeStatsEstimate second = statistics(10, NaN, NaN, NaN, StatisticRange.empty());
 
-        assertEquals(subtractSubsetStats(unknownStats, unknownStats), PlanNodeStatsEstimate.unknown());
-        assertEquals(subtractSubsetStats(first, unknownStats), PlanNodeStatsEstimate.unknown());
-        assertEquals(subtractSubsetStats(unknownStats, second), PlanNodeStatsEstimate.unknown());
-        assertEquals(subtractSubsetStats(first, second).getOutputRowCount(), 30.0);
+        assertEquals(calculator.subtractSubsetStats(unknownStats, unknownStats), PlanNodeStatsEstimate.unknown());
+        assertEquals(calculator.subtractSubsetStats(first, unknownStats), PlanNodeStatsEstimate.unknown());
+        assertEquals(calculator.subtractSubsetStats(unknownStats, second), PlanNodeStatsEstimate.unknown());
+        assertEquals(calculator.subtractSubsetStats(first, second).getOutputRowCount(), 30.0);
     }
 
     @Test
@@ -205,9 +204,9 @@ public class TestPlanNodeStatsEstimateMath
         assertSubtractNullsFraction(fractionalRowCountFirst, fractionalRowCountSecond, 0.019999999999999993);
     }
 
-    private static void assertSubtractNullsFraction(PlanNodeStatsEstimate first, PlanNodeStatsEstimate second, double expected)
+    private void assertSubtractNullsFraction(PlanNodeStatsEstimate first, PlanNodeStatsEstimate second, double expected)
     {
-        assertEquals(subtractSubsetStats(first, second).getVariableStatistics(VARIABLE).getNullsFraction(), expected);
+        assertEquals(calculator.subtractSubsetStats(first, second).getVariableStatistics(VARIABLE).getNullsFraction(), expected);
     }
 
     @Test
@@ -229,9 +228,9 @@ public class TestPlanNodeStatsEstimateMath
         assertSubtractNumberOfDistinctValues(second, third, 5);
     }
 
-    private static void assertSubtractNumberOfDistinctValues(PlanNodeStatsEstimate first, PlanNodeStatsEstimate second, double expected)
+    private void assertSubtractNumberOfDistinctValues(PlanNodeStatsEstimate first, PlanNodeStatsEstimate second, double expected)
     {
-        assertEquals(subtractSubsetStats(first, second).getVariableStatistics(VARIABLE).getDistinctValuesCount(), expected);
+        assertEquals(calculator.subtractSubsetStats(first, second).getVariableStatistics(VARIABLE).getDistinctValuesCount(), expected);
     }
 
     @Test
@@ -246,11 +245,11 @@ public class TestPlanNodeStatsEstimateMath
         assertSubtractRange(0, 2, 0.5, 1, 0, 2);
     }
 
-    private static void assertSubtractRange(double supersetLow, double supersetHigh, double subsetLow, double subsetHigh, double expectedLow, double expectedHigh)
+    private void assertSubtractRange(double supersetLow, double supersetHigh, double subsetLow, double subsetHigh, double expectedLow, double expectedHigh)
     {
         PlanNodeStatsEstimate first = statistics(30, NaN, NaN, NaN, new StatisticRange(supersetLow, supersetHigh, 10));
         PlanNodeStatsEstimate second = statistics(20, NaN, NaN, NaN, new StatisticRange(subsetLow, subsetHigh, 5));
-        VariableStatsEstimate statistics = subtractSubsetStats(first, second).getVariableStatistics(VARIABLE);
+        VariableStatsEstimate statistics = calculator.subtractSubsetStats(first, second).getVariableStatistics(VARIABLE);
         assertEquals(statistics.getLowValue(), expectedLow);
         assertEquals(statistics.getHighValue(), expectedHigh);
     }
@@ -262,11 +261,11 @@ public class TestPlanNodeStatsEstimateMath
         PlanNodeStatsEstimate first = statistics(20, NaN, NaN, NaN, NON_EMPTY_RANGE);
         PlanNodeStatsEstimate second = statistics(10, NaN, NaN, NaN, NON_EMPTY_RANGE);
 
-        assertEquals(capStats(unknownRowCount, unknownRowCount).getOutputRowCount(), NaN);
-        assertEquals(capStats(first, unknownRowCount).getOutputRowCount(), NaN);
-        assertEquals(capStats(unknownRowCount, second).getOutputRowCount(), NaN);
-        assertEquals(capStats(first, second).getOutputRowCount(), 10.0);
-        assertEquals(capStats(second, first).getOutputRowCount(), 10.0);
+        assertEquals(calculator.capStats(unknownRowCount, unknownRowCount).getOutputRowCount(), NaN);
+        assertEquals(calculator.capStats(first, unknownRowCount).getOutputRowCount(), NaN);
+        assertEquals(calculator.capStats(unknownRowCount, second).getOutputRowCount(), NaN);
+        assertEquals(calculator.capStats(first, second).getOutputRowCount(), 10.0);
+        assertEquals(calculator.capStats(second, first).getOutputRowCount(), 10.0);
     }
 
     @Test
@@ -286,9 +285,9 @@ public class TestPlanNodeStatsEstimateMath
         assertCapAverageRowSize(first, second, 10);
     }
 
-    private static void assertCapAverageRowSize(PlanNodeStatsEstimate stats, PlanNodeStatsEstimate cap, double expected)
+    private void assertCapAverageRowSize(PlanNodeStatsEstimate stats, PlanNodeStatsEstimate cap, double expected)
     {
-        assertEquals(capStats(stats, cap).getVariableStatistics(VARIABLE).getAverageRowSize(), expected);
+        assertEquals(calculator.capStats(stats, cap).getVariableStatistics(VARIABLE).getAverageRowSize(), expected);
     }
 
     @Test
@@ -306,9 +305,9 @@ public class TestPlanNodeStatsEstimateMath
         assertCapNumberOfDistinctValues(first, second, 5);
     }
 
-    private static void assertCapNumberOfDistinctValues(PlanNodeStatsEstimate stats, PlanNodeStatsEstimate cap, double expected)
+    private void assertCapNumberOfDistinctValues(PlanNodeStatsEstimate stats, PlanNodeStatsEstimate cap, double expected)
     {
-        assertEquals(capStats(stats, cap).getVariableStatistics(VARIABLE).getDistinctValuesCount(), expected);
+        assertEquals(calculator.capStats(stats, cap).getVariableStatistics(VARIABLE).getDistinctValuesCount(), expected);
     }
 
     @Test
@@ -327,9 +326,9 @@ public class TestPlanNodeStatsEstimateMath
         assertCapRange(first, second, 13, 99);
     }
 
-    private static void assertCapRange(PlanNodeStatsEstimate stats, PlanNodeStatsEstimate cap, double expectedLow, double expectedHigh)
+    private void assertCapRange(PlanNodeStatsEstimate stats, PlanNodeStatsEstimate cap, double expectedLow, double expectedHigh)
     {
-        VariableStatsEstimate symbolStats = capStats(stats, cap).getVariableStatistics(VARIABLE);
+        VariableStatsEstimate symbolStats = calculator.capStats(stats, cap).getVariableStatistics(VARIABLE);
         assertEquals(symbolStats.getLowValue(), expectedLow);
         assertEquals(symbolStats.getHighValue(), expectedHigh);
     }
@@ -351,9 +350,64 @@ public class TestPlanNodeStatsEstimateMath
         assertCapNullsFraction(first, third, 1);
     }
 
-    private static void assertCapNullsFraction(PlanNodeStatsEstimate stats, PlanNodeStatsEstimate cap, double expected)
+    private void assertCapNullsFraction(PlanNodeStatsEstimate stats, PlanNodeStatsEstimate cap, double expected)
     {
-        assertEquals(capStats(stats, cap).getVariableStatistics(VARIABLE).getNullsFraction(), expected);
+        assertEquals(calculator.capStats(stats, cap).getVariableStatistics(VARIABLE).getNullsFraction(), expected);
+    }
+
+    @Test
+    public void testAddHistograms()
+    {
+        StatisticRange zeroToTen = new StatisticRange(0, 10, 1);
+        StatisticRange zeroToFive = new StatisticRange(0, 5, 1);
+        StatisticRange fiveToTen = new StatisticRange(5, 10, 1);
+        StatisticRange threeToSeven = new StatisticRange(3, 7, 1);
+
+        PlanNodeStatsEstimate unknownRowCount = statistics(NaN, NaN, NaN, NaN, zeroToTen);
+        PlanNodeStatsEstimate unknownNullsFraction = statistics(10, NaN, NaN, NaN, zeroToTen);
+        PlanNodeStatsEstimate first = statistics(50, NaN, 0.25, NaN, zeroToTen);
+        PlanNodeStatsEstimate second = statistics(25, NaN, 0.6, NaN, zeroToFive);
+        PlanNodeStatsEstimate third = statistics(25, NaN, 0.6, NaN, fiveToTen);
+        PlanNodeStatsEstimate fourth = statistics(20, NaN, 0.6, NaN, threeToSeven);
+
+        // no histogram on unknown
+        assertEquals(calculator.addStatsAndCollapseDistinctValues(unknownRowCount, unknownRowCount).getVariableStatistics(VARIABLE).getHistogram(), Optional.empty());
+
+        // check when rows are available histograms are added properly.
+        ConnectorHistogram addedSameRange = DisjointRangeDomainHistogram.addDisjunction(unknownNullsFraction.getVariableStatistics(VARIABLE).getHistogram().get(), zeroToTen);
+        assertAddStatsHistogram(unknownNullsFraction, unknownNullsFraction, calculator::addStatsAndSumDistinctValues, addedSameRange);
+        assertAddStatsHistogram(unknownNullsFraction, unknownNullsFraction, calculator::addStatsAndCollapseDistinctValues, addedSameRange);
+        assertAddStatsHistogram(unknownNullsFraction, unknownNullsFraction, calculator::addStatsAndMaxDistinctValues, addedSameRange);
+        assertAddStatsHistogram(unknownNullsFraction, unknownNullsFraction, calculator::addStatsAndIntersect, addedSameRange);
+
+        // check when only a sub-range is added, that the histogram still represents the full range
+        ConnectorHistogram fullRangeFirst = DisjointRangeDomainHistogram.addDisjunction(first.getVariableStatistics(VARIABLE).getHistogram().get(), zeroToTen);
+        ConnectorHistogram intersectedRangeSecond = DisjointRangeDomainHistogram.addConjunction(first.getVariableStatistics(VARIABLE).getHistogram().get(), zeroToFive);
+        assertAddStatsHistogram(first, second, calculator::addStatsAndSumDistinctValues, fullRangeFirst);
+        assertAddStatsHistogram(first, second, calculator::addStatsAndCollapseDistinctValues, fullRangeFirst);
+        assertAddStatsHistogram(first, second, calculator::addStatsAndMaxDistinctValues, fullRangeFirst);
+        assertAddStatsHistogram(first, second, calculator::addStatsAndIntersect, intersectedRangeSecond);
+
+        // check when two ranges overlap, the new stats span both ranges
+        ConnectorHistogram fullRangeSecondThird = DisjointRangeDomainHistogram.addDisjunction(second.getVariableStatistics(VARIABLE).getHistogram().get(), fiveToTen);
+        ConnectorHistogram intersectedRangeSecondThird = DisjointRangeDomainHistogram.addConjunction(second.getVariableStatistics(VARIABLE).getHistogram().get(), fiveToTen);
+        assertAddStatsHistogram(second, third, calculator::addStatsAndSumDistinctValues, fullRangeSecondThird);
+        assertAddStatsHistogram(second, third, calculator::addStatsAndCollapseDistinctValues, fullRangeSecondThird);
+        assertAddStatsHistogram(second, third, calculator::addStatsAndMaxDistinctValues, fullRangeSecondThird);
+        assertAddStatsHistogram(second, third, calculator::addStatsAndIntersect, intersectedRangeSecondThird);
+
+        // check when two ranges partially overlap, the addition/intersection is applied correctly
+        ConnectorHistogram fullRangeThirdFourth = DisjointRangeDomainHistogram.addDisjunction(third.getVariableStatistics(VARIABLE).getHistogram().get(), threeToSeven);
+        ConnectorHistogram intersectedRangeThirdFourth = DisjointRangeDomainHistogram.addConjunction(third.getVariableStatistics(VARIABLE).getHistogram().get(), threeToSeven);
+        assertAddStatsHistogram(third, fourth, calculator::addStatsAndSumDistinctValues, fullRangeThirdFourth);
+        assertAddStatsHistogram(third, fourth, calculator::addStatsAndCollapseDistinctValues, fullRangeThirdFourth);
+        assertAddStatsHistogram(third, fourth, calculator::addStatsAndMaxDistinctValues, fullRangeThirdFourth);
+        assertAddStatsHistogram(third, fourth, calculator::addStatsAndIntersect, intersectedRangeThirdFourth);
+    }
+
+    private static void assertAddStatsHistogram(PlanNodeStatsEstimate first, PlanNodeStatsEstimate second, BiFunction<PlanNodeStatsEstimate, PlanNodeStatsEstimate, PlanNodeStatsEstimate> function, ConnectorHistogram expected)
+    {
+        assertEquals(function.apply(first, second).getVariableStatistics(VARIABLE).getHistogram().get(), expected);
     }
 
     private static PlanNodeStatsEstimate statistics(double rowCount, double totalSize, double nullsFraction, double averageRowSize, StatisticRange range)
@@ -365,6 +419,7 @@ public class TestPlanNodeStatsEstimateMath
                         .setNullsFraction(nullsFraction)
                         .setAverageRowSize(averageRowSize)
                         .setStatisticsRange(range)
+                        .setHistogram(Optional.of(DisjointRangeDomainHistogram.addConjunction(new UniformDistributionHistogram(range.getLow(), range.getHigh()), range)))
                         .build())
                 .build();
     }

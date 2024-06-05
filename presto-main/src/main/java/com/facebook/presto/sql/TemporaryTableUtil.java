@@ -53,6 +53,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -93,7 +94,7 @@ public class TemporaryTableUtil
             TableHandle tableHandle,
             List<VariableReferenceExpression> outputVariables,
             Map<VariableReferenceExpression, ColumnMetadata> variableToColumnMap,
-            PartitioningMetadata expectedPartitioningMetadata)
+            Optional<PartitioningMetadata> expectedPartitioningMetadata)
     {
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
         Map<VariableReferenceExpression, ColumnMetadata> outputColumns = outputVariables.stream()
@@ -106,13 +107,14 @@ public class TemporaryTableUtil
         TableLayoutResult selectedLayout = metadata.getLayout(session, tableHandle, Constraint.alwaysTrue(), Optional.of(outputColumnHandles));
         verify(selectedLayout.getUnenforcedConstraint().equals(TupleDomain.all()), "temporary table layout shouldn't enforce any constraints");
         verify(!selectedLayout.getLayout().getColumns().isPresent(), "temporary table layout must provide all the columns");
-        TableLayout.TablePartitioning expectedPartitioning = new TableLayout.TablePartitioning(
-                expectedPartitioningMetadata.getPartitioningHandle(),
-                expectedPartitioningMetadata.getPartitionColumns().stream()
-                        .map(columnHandles::get)
-                        .collect(toImmutableList()));
-        verify(selectedLayout.getLayout().getTablePartitioning().equals(Optional.of(expectedPartitioning)), "invalid temporary table partitioning");
-
+        if (expectedPartitioningMetadata.isPresent()) {
+            TableLayout.TablePartitioning expectedPartitioning = new TableLayout.TablePartitioning(
+                    expectedPartitioningMetadata.get().getPartitioningHandle(),
+                    expectedPartitioningMetadata.get().getPartitionColumns().stream()
+                            .map(columnHandles::get)
+                            .collect(toImmutableList()));
+            verify(selectedLayout.getLayout().getTablePartitioning().equals(Optional.of(expectedPartitioning)), "invalid temporary table partitioning");
+        }
         Map<VariableReferenceExpression, ColumnHandle> assignments = outputVariables.stream()
                 .collect(toImmutableMap(identity(), variable -> columnHandles.get(outputColumns.get(variable).getName())));
 
@@ -137,6 +139,11 @@ public class TemporaryTableUtil
             column++;
         }
         return result.build();
+    }
+
+    public static Map<VariableReferenceExpression, ColumnMetadata> assignTemporaryTableColumnNames(Collection<VariableReferenceExpression> outputVariables)
+    {
+        return assignTemporaryTableColumnNames(outputVariables, Collections.emptyList());
     }
 
     public static BasePlanFragmenter.PartitioningVariableAssignments assignPartitioningVariables(VariableAllocator variableAllocator,
@@ -169,7 +176,6 @@ public class TemporaryTableUtil
             TableHandle tableHandle,
             List<VariableReferenceExpression> outputs,
             Map<VariableReferenceExpression, ColumnMetadata> variableToColumnMap,
-            PartitioningMetadata partitioningMetadata,
             VariableReferenceExpression outputVar)
     {
         SchemaTableName schemaTableName = metadata.getTableMetadata(session, tableHandle).getTable();
@@ -181,19 +187,8 @@ public class TemporaryTableUtil
         Set<VariableReferenceExpression> outputNotNullColumnVariables = outputs.stream()
                 .filter(variable -> variableToColumnMap.get(variable) != null && !(variableToColumnMap.get(variable).isNullable()))
                 .collect(Collectors.toSet());
-        PartitioningHandle partitioningHandle = partitioningMetadata.getPartitioningHandle();
-        List<String> partitionColumns = partitioningMetadata.getPartitionColumns();
         Map<String, VariableReferenceExpression> columnNameToVariable = variableToColumnMap.entrySet().stream()
                 .collect(toImmutableMap(entry -> entry.getValue().getName(), Map.Entry::getKey));
-        List<VariableReferenceExpression> partitioningVariables = partitionColumns.stream()
-                .map(columnNameToVariable::get)
-                .collect(toImmutableList());
-        PartitioningScheme partitioningScheme = new PartitioningScheme(
-                Partitioning.create(partitioningHandle, partitioningVariables),
-                outputs,
-                Optional.empty(),
-                false,
-                Optional.empty());
         return new TableFinishNode(
                 source.getSourceLocation(),
                 idAllocator.getNextId(),
@@ -208,7 +203,7 @@ public class TemporaryTableUtil
                         outputs,
                         outputColumnNames,
                         outputNotNullColumnVariables,
-                        Optional.of(partitioningScheme),
+                        Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),

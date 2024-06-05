@@ -52,7 +52,7 @@
         <dep.okhttp.version>3.9.0</dep.okhttp.version>
         <dep.jdbi3.version>3.4.0</dep.jdbi3.version>
         <dep.oracle.version>19.3.0.0</dep.oracle.version>
-        <dep.drift.version>1.37</dep.drift.version>
+        <dep.drift.version>1.38</dep.drift.version>
         <!-- Changing joda version changes tzdata which must match deployed JVM tzdata
              Do not change this without also making sure it matches -->
         <dep.joda.version>2.12.5</dep.joda.version>
@@ -74,6 +74,7 @@
         <dep.docker-java.version>3.3.0</dep.docker-java.version>
         <dep.jayway.version>2.6.0</dep.jayway.version>
         <dep.ratis.version>2.2.0</dep.ratis.version>
+        <dep.jackson.version>2.11.0</dep.jackson.version>
         <!--
           America/Bahia_Banderas has:
            - offset change since 1970 (offset Jan 1970: -08:00, offset Jan 2018: -06:00)
@@ -85,7 +86,7 @@
         <air.test.parallel>methods</air.test.parallel>
         <air.test.thread-count>2</air.test.thread-count>
         <air.test.jvmsize>4g</air.test.jvmsize>
-        <grpc.version>1.35.0</grpc.version>
+        <grpc.version>1.64.0</grpc.version>
 
         <air.javadoc.lint>-missing</air.javadoc.lint>
     </properties>
@@ -108,6 +109,7 @@
         <module>presto-parquet</module>
         <module>presto-rcfile</module>
         <module>presto-hive</module>
+        <module>presto-hdfs-core</module>
         <module>presto-hive-common</module>
         <module>presto-hive-hadoop2</module>
         <module>presto-hive-metastore</module>
@@ -190,7 +192,6 @@
         <module>redis-hbo-provider</module>
         <module>presto-singlestore</module>
         <module>presto-hana</module>
-        <module>presto-ui</module>
     </modules>
 
     <dependencyManagement>
@@ -309,6 +310,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-hive</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-hdfs-core</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -536,7 +543,7 @@
             <dependency>
                 <groupId>com.google.protobuf</groupId>
                 <artifactId>protobuf-java</artifactId>
-                <version>3.16.3</version>
+                <version>3.25.1</version>
             </dependency>
 
             <dependency>
@@ -611,12 +618,6 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-main</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.facebook.presto</groupId>
-                <artifactId>presto-ui</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -893,7 +894,7 @@
             <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>aircompressor</artifactId>
-                <version>0.21</version>
+                <version>0.27</version>
             </dependency>
 
             <dependency>
@@ -972,6 +973,12 @@
                 <groupId>com.facebook.airlift</groupId>
                 <artifactId>http-server</artifactId>
                 <version>${dep.airlift.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>io.jsonwebtoken</groupId>
+                        <artifactId>jjwt</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -1289,8 +1296,19 @@
 
             <dependency>
                 <groupId>io.jsonwebtoken</groupId>
-                <artifactId>jjwt</artifactId>
-                <version>0.9.0</version>
+                <artifactId>jjwt-api</artifactId>
+                <version>0.11.5</version>
+            </dependency>
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-impl</artifactId>
+                <version>0.11.5</version>
+                <scope>runtime</scope>
+            </dependency>
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-jackson</artifactId>
+                <version>0.11.5</version>
             </dependency>
 
             <dependency>
@@ -2468,6 +2486,25 @@
     </build>
 
     <profiles>
+        <profile>
+            <id>ui</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <modules>
+                <module>presto-ui</module>
+            </modules>
+            <dependencyManagement>
+                <dependencies>
+                    <dependency>
+                        <groupId>com.facebook.presto</groupId>
+                        <artifactId>presto-ui</artifactId>
+                        <version>${project.version}</version>
+                        <scope>runtime</scope>
+                    </dependency>
+                </dependencies>
+            </dependencyManagement>
+        </profile>
         <profile>
             <id>tests-with-dependencies</id>
             <!--

@@ -28,5 +28,8 @@ COPY scripts /scripts
 COPY velox/scripts /velox/scripts
 # setup-adapters.sh does not install rpm needed for minio install.
 RUN mkdir build && \
-    (cd build && ../scripts/setup-ubuntu.sh && apt install -y rpm && ../velox/scripts/setup-adapters.sh aws) && \
+    (cd build && ../scripts/setup-ubuntu.sh && \
+                         apt install -y rpm && \
+                 ../velox/scripts/setup-adapters.sh aws && \
+                 ../scripts/setup-adapters.sh ) && \
     rm -rf build

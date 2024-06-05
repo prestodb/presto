@@ -23,7 +23,7 @@ import com.facebook.presto.sql.planner.iterative.Lookup;
 
 import java.util.Optional;
 
-import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.addStatsAndCollapseDistinctValues;
+import static com.facebook.presto.SystemSessionProperties.shouldOptimizerUseHistograms;
 import static com.facebook.presto.sql.planner.plan.Patterns.union;
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -56,7 +56,8 @@ public class UnionStatsRule
             PlanNodeStatsEstimate sourceStatsWithMappedSymbols = mapToOutputSymbols(sourceStats, node, i);
 
             if (estimate.isPresent()) {
-                estimate = Optional.of(addStatsAndCollapseDistinctValues(estimate.get(), sourceStatsWithMappedSymbols));
+                PlanNodeStatsEstimateMath calculator = new PlanNodeStatsEstimateMath(shouldOptimizerUseHistograms(session));
+                estimate = Optional.of(calculator.addStatsAndCollapseDistinctValues(estimate.get(), sourceStatsWithMappedSymbols));
             }
             else {
                 estimate = Optional.of(sourceStatsWithMappedSymbols);

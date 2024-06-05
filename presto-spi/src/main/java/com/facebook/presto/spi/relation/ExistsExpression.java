@@ -22,8 +22,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static java.lang.String.format;
-import static java.util.Arrays.asList;
-import static java.util.Collections.unmodifiableList;
+import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -54,7 +53,7 @@ public class ExistsExpression
     @Override
     public List<RowExpression> getChildren()
     {
-        return unmodifiableList(asList(subquery));
+        return singletonList(subquery);
     }
 
     @Override

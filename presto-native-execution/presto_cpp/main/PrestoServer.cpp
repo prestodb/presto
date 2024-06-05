@@ -651,6 +651,29 @@ void PrestoServer::initializeThreadPools() {
   }
 }
 
+std::unique_ptr<cache::SsdCache> PrestoServer::setupSsdCache() {
+  VELOX_CHECK_NULL(cacheExecutor_);
+  auto* systemConfig = SystemConfig::instance();
+  if (systemConfig->asyncCacheSsdGb() == 0) {
+    return nullptr;
+  }
+
+  constexpr int32_t kNumSsdShards = 16;
+  cacheExecutor_ = std::make_unique<folly::IOThreadPoolExecutor>(kNumSsdShards);
+  cache::SsdCache::Config cacheConfig(
+      systemConfig->asyncCacheSsdPath(),
+      systemConfig->asyncCacheSsdGb() << 30,
+      kNumSsdShards,
+      cacheExecutor_.get(),
+      systemConfig->asyncCacheSsdCheckpointGb() << 30,
+      systemConfig->asyncCacheSsdDisableFileCow(),
+      systemConfig->ssdCacheChecksumEnabled(),
+      systemConfig->ssdCacheReadVerificationEnabled());
+  PRESTO_STARTUP_LOG(INFO) << "Initializing SSD cache with "
+                           << cacheConfig.toString();
+  return std::make_unique<cache::SsdCache>(cacheConfig);
+}
+
 void PrestoServer::initializeVeloxMemory() {
   auto* systemConfig = SystemConfig::instance();
   const uint64_t memoryGb = systemConfig->systemMemoryGb();
@@ -695,29 +718,7 @@ void PrestoServer::initializeVeloxMemory() {
                            << memory::memoryManager()->toString();
 
   if (systemConfig->asyncDataCacheEnabled()) {
-    std::unique_ptr<cache::SsdCache> ssd;
-    const auto asyncCacheSsdGb = systemConfig->asyncCacheSsdGb();
-    if (asyncCacheSsdGb > 0) {
-      constexpr int32_t kNumSsdShards = 16;
-      cacheExecutor_ =
-          std::make_unique<folly::IOThreadPoolExecutor>(kNumSsdShards);
-      auto asyncCacheSsdCheckpointGb =
-          systemConfig->asyncCacheSsdCheckpointGb();
-      auto asyncCacheSsdDisableFileCow =
-          systemConfig->asyncCacheSsdDisableFileCow();
-      PRESTO_STARTUP_LOG(INFO)
-          << "Initializing SSD cache with capacity " << asyncCacheSsdGb
-          << "GB, checkpoint size " << asyncCacheSsdCheckpointGb
-          << "GB, file cow "
-          << (asyncCacheSsdDisableFileCow ? "DISABLED" : "ENABLED");
-      ssd = std::make_unique<cache::SsdCache>(
-          systemConfig->asyncCacheSsdPath(),
-          asyncCacheSsdGb << 30,
-          kNumSsdShards,
-          cacheExecutor_.get(),
-          asyncCacheSsdCheckpointGb << 30,
-          asyncCacheSsdDisableFileCow);
-    }
+    std::unique_ptr<cache::SsdCache> ssd = setupSsdCache();
     std::string cacheStr =
         ssd == nullptr ? "AsyncDataCache" : "AsyncDataCache with SSD";
     cache_ = cache::AsyncDataCache::create(
@@ -1128,7 +1129,7 @@ void PrestoServer::populateMemAndCPUInfo() {
   size_t numContexts{0};
   queryCtxMgr->visitAllContexts([&](const protocol::QueryId& queryId,
                                     const velox::core::QueryCtx* queryCtx) {
-    const protocol::Long bytes = queryCtx->pool()->currentBytes();
+    const protocol::Long bytes = queryCtx->pool()->usedBytes();
     poolInfo.queryMemoryReservations.insert({queryId, bytes});
     // TODO(spershin): Might want to see what Java exports and export similar
     // info (like child memory pools).
@@ -1199,7 +1200,7 @@ protocol::NodeStatus PrestoServer::fetchNodeStatus() {
       (int)std::thread::hardware_concurrency(),
       cpuLoadPct,
       cpuLoadPct,
-      pool_ ? pool_->currentBytes() : 0,
+      pool_ ? pool_->usedBytes() : 0,
       nodeMemoryGb * 1024 * 1024 * 1024,
       nonHeapUsed};
 

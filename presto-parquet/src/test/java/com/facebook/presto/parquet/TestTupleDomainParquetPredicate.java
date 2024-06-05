@@ -60,8 +60,8 @@ import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
-import static com.facebook.presto.hive.HiveWarningCode.HIVE_FILE_STATISTICS_CORRUPTION;
 import static com.facebook.presto.parquet.ParquetEncoding.PLAIN_DICTIONARY;
+import static com.facebook.presto.parquet.ParquetWarningCode.PARQUET_FILE_STATISTICS_CORRUPTION;
 import static com.facebook.presto.parquet.predicate.TupleDomainParquetPredicate.getDomain;
 import static com.facebook.presto.parquet.predicate.TupleDomainParquetPredicate.getRange;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
@@ -456,7 +456,7 @@ public class TestTupleDomainParquetPredicate
 
         List<PrestoWarning> warnings = collector.getWarnings();
         assertEquals(warnings.size(), 2);
-        assertEquals(warnings.get(0).getWarningCode(), HIVE_FILE_STATISTICS_CORRUPTION.toWarningCode());
+        assertEquals(warnings.get(0).getWarningCode(), PARQUET_FILE_STATISTICS_CORRUPTION.toWarningCode());
 
         return true;
     }

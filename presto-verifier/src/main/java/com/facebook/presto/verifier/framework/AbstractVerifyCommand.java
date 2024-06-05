@@ -44,7 +44,8 @@ public abstract class AbstractVerifyCommand
         Bootstrap app = new Bootstrap(ImmutableList.<Module>builder()
                 .add(new VerifierModule(
                         getSqlParserOptions(),
-                        getCustomQueryFilterClasses()))
+                        getCustomQueryFilterClasses(),
+                        getClientInfoFactory()))
                 .add(new SourceQueryModule(getCustomSourceQuerySupplierTypes()))
                 .add(new EventClientModule(getCustomEventClientTypes()))
                 .add(new QueryActionsModule(getSqlExceptionClassifier(), getCustomQueryActionTypes()))

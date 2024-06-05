@@ -17,7 +17,6 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.iceberg.IcebergConfig;
 import com.facebook.presto.iceberg.IcebergMetadataFactory;
-import com.facebook.presto.iceberg.IcebergResourceFactory;
 import com.facebook.presto.iceberg.IcebergTableName;
 import com.facebook.presto.iceberg.IcebergUtil;
 import com.facebook.presto.spi.ConnectorSession;
@@ -52,19 +51,16 @@ public class SetTablePropertyProcedure
     private final IcebergConfig config;
     private final IcebergMetadataFactory metadataFactory;
     private final HdfsEnvironment hdfsEnvironment;
-    private final IcebergResourceFactory resourceFactory;
 
     @Inject
     public SetTablePropertyProcedure(
             IcebergConfig config,
             IcebergMetadataFactory metadataFactory,
-            HdfsEnvironment hdfsEnvironment,
-            IcebergResourceFactory resourceFactory)
+            HdfsEnvironment hdfsEnvironment)
     {
         this.config = requireNonNull(config);
         this.metadataFactory = requireNonNull(metadataFactory);
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment);
-        this.resourceFactory = requireNonNull(resourceFactory);
     }
 
     @Override

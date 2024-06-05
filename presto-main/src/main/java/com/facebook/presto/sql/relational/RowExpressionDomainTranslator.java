@@ -637,13 +637,13 @@ public final class RowExpressionDomainTranslator
                 left = leftExpression;
             }
             else {
-                left = new RowExpressionInterpreter(leftExpression, metadata, session, OPTIMIZED).optimize();
+                left = new RowExpressionInterpreter(leftExpression, metadata.getFunctionAndTypeManager(), session, OPTIMIZED).optimize();
             }
             if (rightExpression instanceof VariableReferenceExpression) {
                 right = rightExpression;
             }
             else {
-                right = new RowExpressionInterpreter(rightExpression, metadata, session, OPTIMIZED).optimize();
+                right = new RowExpressionInterpreter(rightExpression, metadata.getFunctionAndTypeManager(), session, OPTIMIZED).optimize();
             }
 
             if (left instanceof RowExpression == right instanceof RowExpression) {

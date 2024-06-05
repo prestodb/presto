@@ -62,7 +62,7 @@ jobs:
           ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!:presto-docs,!:presto-server,!presto-test-coverage'
       - name: Maven Tests
         run: |
-          ./mvnw test ${MAVEN_TEST} -pl '
+          ./mvnw test -T 1 ${MAVEN_TEST} -pl '
             !presto-tests, 
             !presto-accumulo,
             !presto-cassandra,

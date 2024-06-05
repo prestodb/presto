@@ -68,11 +68,11 @@ public class IcebergNativeMetadata
     private static final String INFORMATION_SCHEMA = "information_schema";
     private static final String TABLE_COMMENT = "comment";
 
-    private final IcebergResourceFactory resourceFactory;
+    private final IcebergNativeCatalogFactory catalogFactory;
     private final CatalogType catalogType;
 
     public IcebergNativeMetadata(
-            IcebergResourceFactory resourceFactory,
+            IcebergNativeCatalogFactory catalogFactory,
             TypeManager typeManager,
             StandardFunctionResolution functionResolution,
             RowExpressionService rowExpressionService,
@@ -81,14 +81,14 @@ public class IcebergNativeMetadata
             NodeVersion nodeVersion)
     {
         super(typeManager, functionResolution, rowExpressionService, commitTaskCodec, nodeVersion);
-        this.resourceFactory = requireNonNull(resourceFactory, "resourceFactory is null");
+        this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
         this.catalogType = requireNonNull(catalogType, "catalogType is null");
     }
 
     @Override
     protected Table getRawIcebergTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        return getNativeIcebergTable(resourceFactory, session, schemaTableName);
+        return getNativeIcebergTable(catalogFactory, session, schemaTableName);
     }
 
     @Override
@@ -108,7 +108,7 @@ public class IcebergNativeMetadata
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
-        SupportsNamespaces supportsNamespaces = resourceFactory.getNamespaces(session);
+        SupportsNamespaces supportsNamespaces = catalogFactory.getNamespaces(session);
         return supportsNamespaces.listNamespaces()
                 .stream()
                 .map(IcebergPrestoModelConverters::toPrestoSchemaName)
@@ -124,7 +124,7 @@ public class IcebergNativeMetadata
                     .collect(toList());
         }
 
-        return resourceFactory.getCatalog(session).listTables(toIcebergNamespace(schemaName))
+        return catalogFactory.getCatalog(session).listTables(toIcebergNamespace(schemaName))
                 .stream()
                 .map(IcebergPrestoModelConverters::toPrestoSchemaTableName)
                 .collect(toList());
@@ -133,7 +133,7 @@ public class IcebergNativeMetadata
     @Override
     public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
     {
-        resourceFactory.getNamespaces(session).createNamespace(toIcebergNamespace(Optional.of(schemaName)),
+        catalogFactory.getNamespaces(session).createNamespace(toIcebergNamespace(Optional.of(schemaName)),
                 properties.entrySet().stream()
                         .collect(toMap(Map.Entry::getKey, e -> e.getValue().toString())));
     }
@@ -142,7 +142,7 @@ public class IcebergNativeMetadata
     public void dropSchema(ConnectorSession session, String schemaName)
     {
         try {
-            resourceFactory.getNamespaces(session).dropNamespace(toIcebergNamespace(Optional.of(schemaName)));
+            catalogFactory.getNamespaces(session).dropNamespace(toIcebergNamespace(Optional.of(schemaName)));
         }
         catch (NamespaceNotEmptyException e) {
             throw new PrestoException(SCHEMA_NOT_EMPTY, "Schema not empty: " + schemaName);
@@ -168,7 +168,7 @@ public class IcebergNativeMetadata
         FileFormat fileFormat = getFileFormat(tableMetadata.getProperties());
 
         try {
-            transaction = resourceFactory.getCatalog(session).newCreateTableTransaction(
+            transaction = catalogFactory.getCatalog(session).newCreateTableTransaction(
                     toIcebergTableIdentifier(schemaTableName), schema, partitionSpec, populateTableProperties(tableMetadata, fileFormat));
         }
         catch (AlreadyExistsException e) {
@@ -193,7 +193,7 @@ public class IcebergNativeMetadata
         IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
         verify(icebergTableHandle.getIcebergTableName().getTableType() == DATA, "only the data table can be dropped");
         TableIdentifier tableIdentifier = toIcebergTableIdentifier(icebergTableHandle.getSchemaTableName());
-        resourceFactory.getCatalog(session).dropTable(tableIdentifier);
+        catalogFactory.getCatalog(session).dropTable(tableIdentifier);
     }
 
     @Override
@@ -203,18 +203,18 @@ public class IcebergNativeMetadata
         verify(icebergTableHandle.getIcebergTableName().getTableType() == DATA, "only the data table can be renamed");
         TableIdentifier from = toIcebergTableIdentifier(icebergTableHandle.getSchemaTableName());
         TableIdentifier to = toIcebergTableIdentifier(newTable);
-        resourceFactory.getCatalog(session).renameTable(from, to);
+        catalogFactory.getCatalog(session).renameTable(from, to);
     }
 
     @Override
     public void registerTable(ConnectorSession clientSession, SchemaTableName schemaTableName, Path metadataLocation)
     {
-        resourceFactory.getCatalog(clientSession).registerTable(toIcebergTableIdentifier(schemaTableName), metadataLocation.toString());
+        catalogFactory.getCatalog(clientSession).registerTable(toIcebergTableIdentifier(schemaTableName), metadataLocation.toString());
     }
 
     @Override
     public void unregisterTable(ConnectorSession clientSession, SchemaTableName schemaTableName)
     {
-        resourceFactory.getCatalog(clientSession).dropTable(toIcebergTableIdentifier(schemaTableName), false);
+        catalogFactory.getCatalog(clientSession).dropTable(toIcebergTableIdentifier(schemaTableName), false);
     }
 }

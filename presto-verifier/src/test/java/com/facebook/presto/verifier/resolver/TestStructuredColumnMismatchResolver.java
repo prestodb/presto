@@ -75,30 +75,45 @@ public class TestStructuredColumnMismatchResolver
     @Test
     public void testResolveMap()
     {
-        MapColumnChecksum checksum1 = new MapColumnChecksum(binary(0x1), binary(0xa), binary(0xa), binary(0xc), 1);
-        MapColumnChecksum checksum2 = new MapColumnChecksum(binary(0x2), binary(0xa), binary(0xb), binary(0xc), 1);
-        MapColumnChecksum checksum3 = new MapColumnChecksum(binary(0x3), binary(0xb), binary(0xa), binary(0xc), 1);
-        MapColumnChecksum checksum4 = new MapColumnChecksum(binary(0x4), binary(0xb), binary(0xb), binary(0xc), 1);
-        MapColumnChecksum checksum5 = new MapColumnChecksum(binary(0x5), binary(0xb), binary(0xb), binary(0x1c), 1);
-        MapColumnChecksum checksum6 = new MapColumnChecksum(binary(0x5), binary(0xb), binary(0xb), binary(0xc), 2);
+        MapColumnChecksum cs1 = new MapColumnChecksum(binary(0x1), binary(0xa), null, binary(0xc), 1);
+        MapColumnChecksum cs2 = new MapColumnChecksum(binary(0x2), binary(0xb), null, binary(0xc), 1);
+        MapColumnChecksum cs3 = new MapColumnChecksum(binary(0x3), binary(0xa), null, binary(0xc), 1);
+        MapColumnChecksum cs4 = new MapColumnChecksum(binary(0x1), binary(0xa), null, binary(0x1c), 1);
+        MapColumnChecksum cs5 = new MapColumnChecksum(binary(0x1), binary(0xa), null, binary(0xc), 2);
 
-        // resolved
-        assertResolved(createMismatchedColumn(mapType(REAL, DOUBLE), checksum1, checksum4));
-        assertResolved(createMismatchedColumn(mapType(new ArrayType(REAL), RowType.anonymous(ImmutableList.of(INTEGER, DOUBLE))), checksum1, checksum4));
+        // Resolved - both floating points, cardinality is good.
+        assertResolved(createMismatchedColumn(mapType(DOUBLE, DOUBLE), cs1, cs2));
+        assertResolved(createMismatchedColumn(mapType(DOUBLE, DOUBLE), cs1, cs3));
+        // Not resolved - both floating points, but cardinality is bad.
+        assertNotResolved(createMismatchedColumn(mapType(DOUBLE, DOUBLE), cs1, cs4));
+        assertNotResolved(createMismatchedColumn(mapType(DOUBLE, DOUBLE), cs1, cs5));
 
-        // not resolved, contains no floating point types
-        assertNotResolved(createMismatchedColumn(mapType(new ArrayType(VARCHAR), RowType.anonymous(ImmutableList.of(INTEGER, VARCHAR))), checksum1, checksum4));
+        MapColumnChecksum csFloatNonFloat1 = new MapColumnChecksum(binary(0x1), binary(0xa), binary(0xa), binary(0xc), 1);
+        MapColumnChecksum csFloatNonFloat2 = new MapColumnChecksum(binary(0x2), binary(0xb), binary(0xa), binary(0xc), 1);
+        MapColumnChecksum csFloatNonFloat3 = new MapColumnChecksum(binary(0x1), binary(0xa), binary(0xa), binary(0x1c), 1);
+        MapColumnChecksum csFloatNonFloat4 = new MapColumnChecksum(binary(0x1), binary(0xa), binary(0xa), binary(0x1c), 2);
+        MapColumnChecksum csFloatNonFloat5 = new MapColumnChecksum(binary(0x1), binary(0xa), binary(0xb), binary(0xc), 1);
+        MapColumnChecksum csFloatNonFloat6 = new MapColumnChecksum(binary(0x2), binary(0xb), binary(0xb), binary(0xc), 1);
 
-        // not resolved, cardinality mismatches
-        assertNotResolved(createMismatchedColumn(mapType(DOUBLE, DOUBLE), checksum1, checksum5));
-        assertNotResolved(createMismatchedColumn(mapType(DOUBLE, DOUBLE), checksum1, checksum6));
+        // Resolved - key floating points, cardinality is good.
+        assertResolved(createMismatchedColumn(mapType(DOUBLE, INTEGER), csFloatNonFloat1, csFloatNonFloat2));
+        // Not resolved - cardinality is bad.
+        assertNotResolved(createMismatchedColumn(mapType(DOUBLE, INTEGER), csFloatNonFloat1, csFloatNonFloat3));
+        assertNotResolved(createMismatchedColumn(mapType(DOUBLE, INTEGER), csFloatNonFloat1, csFloatNonFloat4));
+        // Not resolved - key is floating point, but value is not.
+        assertNotResolved(createMismatchedColumn(mapType(DOUBLE, INTEGER), csFloatNonFloat1, csFloatNonFloat5));
+        assertNotResolved(createMismatchedColumn(mapType(DOUBLE, INTEGER), csFloatNonFloat1, csFloatNonFloat6));
 
-        // Key/value checks
-        assertResolved(createMismatchedColumn(mapType(DOUBLE, INTEGER), checksum1, checksum3));
-        assertNotResolved(createMismatchedColumn(mapType(DOUBLE, INTEGER), checksum1, checksum4));
+        // Not resolved, contains no floating point types.
+        assertNotResolved(createMismatchedColumn(mapType(new ArrayType(VARCHAR), RowType.anonymous(ImmutableList.of(INTEGER, VARCHAR))), cs1, cs2));
 
-        assertResolved(createMismatchedColumn(mapType(INTEGER, DOUBLE), checksum1, checksum2));
-        assertNotResolved(createMismatchedColumn(mapType(INTEGER, DOUBLE), checksum1, checksum4));
+        // Resolved - key matches, but value is floating point.
+        assertResolved(createMismatchedColumn(mapType(INTEGER, DOUBLE), cs1, cs3));
+        // Not resolved - both floating points, but cardinality is bad.
+        assertNotResolved(createMismatchedColumn(mapType(INTEGER, DOUBLE), csFloatNonFloat1, csFloatNonFloat3));
+        assertNotResolved(createMismatchedColumn(mapType(INTEGER, DOUBLE), csFloatNonFloat1, csFloatNonFloat4));
+        // Not resolved - key does not match.
+        assertNotResolved(createMismatchedColumn(mapType(INTEGER, DOUBLE), cs1, cs2));
     }
 
     @Test
@@ -120,8 +135,8 @@ public class TestStructuredColumnMismatchResolver
                 new ArrayColumnChecksum(binary(0xb), binary(0xc), 1, Optional.empty()));
         ColumnMatchResult<?> resolvable2 = createMismatchedColumn(
                 mapType(REAL, DOUBLE),
-                new MapColumnChecksum(binary(0x1), binary(0xa), binary(0xa), binary(0xc), 1),
-                new MapColumnChecksum(binary(0x4), binary(0xb), binary(0xb), binary(0xc), 1));
+                new MapColumnChecksum(binary(0x1), binary(0xa), null, binary(0xc), 1),
+                new MapColumnChecksum(binary(0x4), binary(0xb), null, binary(0xc), 1));
         ColumnMatchResult<?> nonResolvable = createMismatchedColumn(VARCHAR, new SimpleColumnChecksum(binary(0xa)), new SimpleColumnChecksum(binary(0xb)));
 
         assertResolved(resolvable1, resolvable2);

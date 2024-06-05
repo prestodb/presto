@@ -692,7 +692,7 @@ public class PropertyDerivations
                 // to take advantage of constant-folding for complex expressions
                 // However, that currently causes errors when those expressions operate on arrays or row types
                 // ("ROW comparison not supported for fields with null elements", etc)
-                Object value = new RowExpressionInterpreter(expression, metadata, session.toConnectorSession(), OPTIMIZED).optimize();
+                Object value = new RowExpressionInterpreter(expression, metadata.getFunctionAndTypeManager(), session.toConnectorSession(), OPTIMIZED).optimize();
 
                 if (value instanceof VariableReferenceExpression) {
                     ConstantExpression existingConstantValue = constants.get(value);

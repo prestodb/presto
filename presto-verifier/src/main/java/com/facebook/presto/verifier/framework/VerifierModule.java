@@ -39,6 +39,7 @@ import com.facebook.presto.verifier.checksum.MapColumnValidator;
 import com.facebook.presto.verifier.checksum.RowColumnValidator;
 import com.facebook.presto.verifier.checksum.SimpleColumnValidator;
 import com.facebook.presto.verifier.framework.Column.Category;
+import com.facebook.presto.verifier.prestoaction.ClientInfoFactory;
 import com.facebook.presto.verifier.resolver.FailureResolverModule;
 import com.facebook.presto.verifier.rewrite.VerificationQueryRewriterModule;
 import com.google.common.collect.ImmutableList;
@@ -77,13 +78,16 @@ public class VerifierModule
 {
     private final SqlParserOptions sqlParserOptions;
     private final List<Class<? extends Predicate<SourceQuery>>> customQueryFilterClasses;
+    private final Class<? extends ClientInfoFactory> clientInfoFactory;
 
     public VerifierModule(
             SqlParserOptions sqlParserOptions,
-            List<Class<? extends Predicate<SourceQuery>>> customQueryFilterClasses)
+            List<Class<? extends Predicate<SourceQuery>>> customQueryFilterClasses,
+            Class<? extends ClientInfoFactory> clientInfoFactory)
     {
         this.sqlParserOptions = requireNonNull(sqlParserOptions, "sqlParserOptions is null");
         this.customQueryFilterClasses = ImmutableList.copyOf(customQueryFilterClasses);
+        this.clientInfoFactory = requireNonNull(clientInfoFactory, "clientInfoFactory is null");
     }
 
     protected final void setup(Binder binder)
@@ -114,6 +118,7 @@ public class VerifierModule
 
         // parser
         binder.bind(SqlParserOptions.class).toInstance(sqlParserOptions);
+        binder.bind(ClientInfoFactory.class).to(clientInfoFactory).in(SINGLETON);
         binder.bind(SqlParser.class).in(SINGLETON);
 
         // transaction

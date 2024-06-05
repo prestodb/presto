@@ -152,7 +152,7 @@ public class Optimizer
                         (node instanceof JoinNode) || (node instanceof SemiJoinNode)).matches()) {
             StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types);
             CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.empty(), session);
-            return StatsAndCosts.create(root, statsProvider, costProvider);
+            return StatsAndCosts.create(root, statsProvider, costProvider, session);
         }
         return StatsAndCosts.empty();
     }

@@ -15,8 +15,11 @@ package com.facebook.presto.verifier.framework;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
+import com.facebook.presto.verifier.rewrite.FunctionCallRewriter;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Multimap;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
@@ -24,6 +27,7 @@ import javax.validation.constraints.NotNull;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.verifier.rewrite.FunctionCallRewriter.FunctionCallSubstitute;
 import static com.facebook.presto.verifier.source.MySqlSourceQuerySupplier.MYSQL_SOURCE_QUERY_SUPPLIER;
 import static java.util.Locale.ENGLISH;
 
@@ -63,6 +67,8 @@ public class VerifierConfig
 
     private boolean extendedVerification;
     private String runningMode = CONTROL_TEST_MODE;
+
+    private Multimap<String, FunctionCallSubstitute> functionSubstitutes = ImmutableMultimap.of();
 
     @NotNull
     public Optional<Set<String>> getWhitelist()
@@ -405,6 +411,22 @@ public class VerifierConfig
         if (QUERY_BANK_MODE.toLowerCase(ENGLISH).equals(runningMode)) {
             skipControl = true;
         }
+        return this;
+    }
+
+    public Multimap<String, FunctionCallSubstitute> getFunctionSubstitutes()
+    {
+        return functionSubstitutes;
+    }
+
+    @ConfigDescription("Specification of function substitutions, in the format of" +
+            " /foo(c0,_)/bar(c0)/,/fred(c0,c1)/baz(qux(c1,c0))/,/foobar(c0)/if(qux(c1),bar(c0),baz(c1))/,...," +
+            " where foo(c0, _) would be substituted by bar(c0), with the declared arguments applied" +
+            " to the corresponding positions. Concatenate function substitutions with comma.")
+    @Config("function-substitutes")
+    public VerifierConfig setFunctionSubstitutes(String functionSubstitutes)
+    {
+        this.functionSubstitutes = FunctionCallRewriter.validateAndConstructFunctionCallSubstituteMap(functionSubstitutes);
         return this;
     }
 }

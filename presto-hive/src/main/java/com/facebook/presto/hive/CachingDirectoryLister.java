@@ -39,6 +39,9 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.common.RuntimeMetricName.DIRECTORY_LISTING_CACHE_HIT;
 import static com.facebook.presto.common.RuntimeMetricName.DIRECTORY_LISTING_CACHE_MISS;
+import static com.facebook.presto.common.RuntimeMetricName.DIRECTORY_LISTING_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricName.FILES_READ_COUNT;
+import static com.facebook.presto.common.RuntimeUnit.NANO;
 import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -84,25 +87,29 @@ public class CachingDirectoryLister
             HiveDirectoryContext hiveDirectoryContext)
     {
         RuntimeStats runtimeStats = hiveDirectoryContext.getRuntimeStats();
+        long startTime = System.nanoTime();
         if (hiveDirectoryContext.isCacheable()) {
             // DO NOT USE Caching, when cache is disabled.
             // This is useful for debugging issues, when cache is explicitly disabled via session property.
             List<HiveFileInfo> files = cache.getIfPresent(path);
             if (files != null) {
                 runtimeStats.addMetricValue(DIRECTORY_LISTING_CACHE_HIT, NONE, 1);
+                runtimeStats.addMetricValue(DIRECTORY_LISTING_TIME_NANOS, NANO, System.nanoTime() - startTime);
+                runtimeStats.addMetricValue(FILES_READ_COUNT, NONE, files.size());
                 return files.iterator();
             }
         }
 
         runtimeStats.addMetricValue(DIRECTORY_LISTING_CACHE_MISS, NONE, 1);
         Iterator<HiveFileInfo> iterator = delegate.list(fileSystem, table, path, partition, namenodeStats, hiveDirectoryContext);
+        runtimeStats.addMetricValue(DIRECTORY_LISTING_TIME_NANOS, NANO, System.nanoTime() - startTime);
         if (hiveDirectoryContext.isCacheable() && cachedTableChecker.isCachedTable(table.getSchemaTableName())) {
-            return cachingIterator(iterator, path);
+            return fileCountTrackingIterator(iterator, path, runtimeStats, true);
         }
-        return iterator;
+        return fileCountTrackingIterator(iterator, path, runtimeStats, false);
     }
 
-    private Iterator<HiveFileInfo> cachingIterator(Iterator<HiveFileInfo> iterator, Path path)
+    private Iterator<HiveFileInfo> fileCountTrackingIterator(Iterator<HiveFileInfo> iterator, Path path, RuntimeStats runtimeStats, boolean enableCaching)
     {
         return new Iterator<HiveFileInfo>()
         {
@@ -113,7 +120,10 @@ public class CachingDirectoryLister
             {
                 boolean hasNext = iterator.hasNext();
                 if (!hasNext) {
-                    cache.put(path, ImmutableList.copyOf(files));
+                    runtimeStats.addMetricValue(FILES_READ_COUNT, NONE, files.size());
+                    if (enableCaching) {
+                        cache.put(path, ImmutableList.copyOf(files));
+                    }
                 }
                 return hasNext;
             }

@@ -221,6 +221,7 @@ public final class IcebergQueryRunner
         Path testDataDirectory = icebergDataDirectory.resolve(TEST_DATA_DIRECTORY);
         switch (icebergCatalogType) {
             case HADOOP:
+            case REST:
             case NESSIE:
                 return ImmutableMap.of("iceberg.catalog.warehouse", testDataDirectory.getParent().toFile().toURI().toString());
             case HIVE:

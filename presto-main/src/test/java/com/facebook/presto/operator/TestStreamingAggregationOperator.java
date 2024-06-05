@@ -21,7 +21,6 @@ import com.facebook.presto.operator.StreamingAggregationOperator.StreamingAggreg
 import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
@@ -82,7 +81,7 @@ public class TestStreamingAggregationOperator
                 AggregationNode.Step.SINGLE,
                 ImmutableList.of(generateAccumulatorFactory(COUNT, ImmutableList.of(0), Optional.empty()),
                         generateAccumulatorFactory(LONG_SUM, ImmutableList.of(2), Optional.empty())),
-                new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig()));
+                new JoinCompiler(MetadataManager.createTestMetadataManager()));
     }
 
     @AfterMethod
