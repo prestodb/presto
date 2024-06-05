@@ -2,6 +2,20 @@
 
 Thanks for your interest in Presto.  Our goal is to build a fast, scalable and reliable distributed SQL query engine for running low latency interactive and batch analytic queries against data sources of all sizes ranging from gigabytes to petabytes.
 
+## Presto Community
+
+The Presto community values:
+
+* Politeness and professionalism in all public forums such as GitHub, Slack, and mailing lists.
+* Helping those who come to the project with questions, issues, or code.
+* Collaboration and teamwork.
+
+We strive to be a welcoming and inclusive community. We believe that a diverse community is a stronger community, and we welcome all who wish to contribute to the project.
+
+## Mission and Architecture
+
+See [PrestoDB: Mission and Architecture](https://github.com/prestodb/presto/blob/master/ARCHITECTURE.md).
+
 ## Getting Started
 
 Presto's [open issues are here](https://github.com/prestodb/presto/issues). Tag issues that would make a good first pull request for new contributors with [good first issue](https://github.com/prestodb/presto/labels/good%20first%20issue) tag. An easy way to start helping the project is to *file an issue*. Issues can include bugs, new features, or documentation that looks outdated. For community support, [ask for help in Slack](https://join.slack.com/t/prestodb/shared_invite/enQtNTQ3NjU2MTYyNDA2LTYyOTg3MzUyMWE1YTI3Njc5YjgxZjNiYTgxODAzYjI5YWMwYWE0MTZjYWFhNGMwNjczYjI3N2JhM2ExMGJlMWM).
