@@ -773,14 +773,7 @@ void RowContainer::storeComplexType(
 
   valueAt<std::string_view>(row, offset) = std::string_view(
       reinterpret_cast<char*>(position.position), stream.size());
-
-  // TODO Fix ByteOutputStream::size() API. @oerling is looking into that.
-  // Fix the 'size' of the std::string_view.
-  // stream.size() is the capacity
-  // stream.size() - stream.remainingSize() is the size of the data + size of
-  // 'next' links (8 bytes per link).
-  auto readStream = prepareRead(row, offset);
-  const auto size = readStream.size();
+  const auto size = stream.size();
   valueAt<std::string_view>(row, offset) =
       std::string_view(reinterpret_cast<char*>(position.position), size);
 }
