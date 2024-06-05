@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.lark.sheets;
 
+import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.lark.sheets.api.LarkSheetsApi;
 import com.facebook.presto.lark.sheets.api.LarkSheetsSchema;
 import com.facebook.presto.lark.sheets.api.LarkSheetsSchemaStore;
@@ -222,12 +223,12 @@ public class LarkSheetsMetadata
     }
 
     @Override
-    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
+    public void createSchema(ConnectorSession session, CatalogSchemaName catalogSchemaName, Map<String, Object> properties)
     {
         String token = LarkSheetsSchemaProperties.getSchemaToken(properties).orElseThrow(
                 () -> new PrestoException(SCHEMA_TOKEN_NOT_PROVIDED, "Schema token is required but not provided"));
         boolean publicVisible = LarkSheetsSchemaProperties.isSchemaPublic(properties);
-        schemaStore.insert(new LarkSheetsSchema(schemaName, session.getUser(), token, publicVisible));
+        schemaStore.insert(new LarkSheetsSchema(catalogSchemaName.getSchemaName(), session.getUser(), token, publicVisible));
     }
 
     @Override

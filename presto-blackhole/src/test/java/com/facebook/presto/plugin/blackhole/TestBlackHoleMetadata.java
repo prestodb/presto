@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.blackhole;
 
+import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
@@ -47,7 +48,7 @@ public class TestBlackHoleMetadata
     public void testCreateSchema()
     {
         assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of("default"));
-        metadata.createSchema(SESSION, "test", ImmutableMap.of());
+        metadata.createSchema(SESSION, new CatalogSchemaName("test_catalog", "test"), ImmutableMap.of());
         assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of("default", "test"));
     }
 

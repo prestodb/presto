@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.connector;
 
+import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
@@ -312,7 +313,7 @@ public interface ConnectorMetadata
     /**
      * Creates a schema.
      */
-    default void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
+    default void createSchema(ConnectorSession session, CatalogSchemaName schemaName, Map<String, Object> properties)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating schemas");
     }

@@ -14,6 +14,7 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
@@ -217,8 +218,9 @@ public class IcebergHiveMetadata
     }
 
     @Override
-    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
+    public void createSchema(ConnectorSession session, CatalogSchemaName catalogSchemaName, Map<String, Object> properties)
     {
+        String schemaName = catalogSchemaName.getSchemaName();
         Optional<String> location = getSchemaLocation(properties).map(uri -> {
             try {
                 hdfsEnvironment.getFileSystem(new HdfsContext(session, schemaName), new Path(uri));
@@ -234,6 +236,7 @@ public class IcebergHiveMetadata
                 .setLocation(location)
                 .setOwnerType(USER)
                 .setOwnerName(session.getUser())
+                .setCatalogName(Optional.of(catalogSchemaName.getCatalogName()))
                 .build();
 
         MetastoreContext metastoreContext = getMetastoreContext(session);

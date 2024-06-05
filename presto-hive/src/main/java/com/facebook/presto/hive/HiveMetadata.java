@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.smile.SmileCodec;
+import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
@@ -929,8 +930,9 @@ public class HiveMetadata
     }
 
     @Override
-    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
+    public void createSchema(ConnectorSession session, CatalogSchemaName catalogSchemaName, Map<String, Object> properties)
     {
+        String schemaName = catalogSchemaName.getSchemaName();
         Optional<String> location = HiveSchemaProperties.getLocation(properties).map(locationUri -> {
             try {
                 hdfsEnvironment.getFileSystem(new HdfsContext(session, schemaName), new Path(locationUri));
@@ -941,14 +943,12 @@ public class HiveMetadata
             return locationUri;
         });
 
-        Optional<String> catalogName = HiveSchemaProperties.getCatalogName(properties);
-
         Database database = Database.builder()
                 .setDatabaseName(schemaName)
                 .setLocation(location)
                 .setOwnerType(USER)
                 .setOwnerName(session.getUser())
-                .setCatalogName(catalogName)
+                .setCatalogName(Optional.of(catalogSchemaName.getCatalogName()))
                 .build();
 
         metastore.createDatabase(getMetastoreContext(session), database);
