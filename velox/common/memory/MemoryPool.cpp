@@ -307,8 +307,15 @@ void MemoryPool::visitChildren(
 std::shared_ptr<MemoryPool> MemoryPool::addLeafChild(
     const std::string& name,
     bool threadSafe,
-    std::unique_ptr<MemoryReclaimer> reclaimer) {
+    std::unique_ptr<MemoryReclaimer> _reclaimer) {
   CHECK_POOL_MANAGEMENT_OP(addLeafChild);
+  // NOTE: we shall only set reclaimer in a child pool if its parent has also
+  // set. Otherwise it should be mis-configured.
+  VELOX_CHECK(
+      reclaimer() != nullptr || _reclaimer == nullptr,
+      "Child memory pool {} shall only set memory reclaimer if its parent {} has also set",
+      name,
+      name_);
 
   std::unique_lock guard{poolMutex_};
   VELOX_CHECK_EQ(
@@ -322,15 +329,22 @@ std::shared_ptr<MemoryPool> MemoryPool::addLeafChild(
       name,
       MemoryPool::Kind::kLeaf,
       threadSafe,
-      std::move(reclaimer));
+      std::move(_reclaimer));
   children_.emplace(name, child);
   return child;
 }
 
 std::shared_ptr<MemoryPool> MemoryPool::addAggregateChild(
     const std::string& name,
-    std::unique_ptr<MemoryReclaimer> reclaimer) {
+    std::unique_ptr<MemoryReclaimer> _reclaimer) {
   CHECK_POOL_MANAGEMENT_OP(addAggregateChild);
+  // NOTE: we shall only set reclaimer in a child pool if its parent has also
+  // set. Otherwise it should be mis-configured.
+  VELOX_CHECK(
+      reclaimer() != nullptr || _reclaimer == nullptr,
+      "Child memory pool {} shall only set memory reclaimer if its parent {} has also set",
+      name,
+      name_);
 
   std::unique_lock guard{poolMutex_};
   VELOX_CHECK_EQ(
@@ -344,7 +358,7 @@ std::shared_ptr<MemoryPool> MemoryPool::addAggregateChild(
       name,
       MemoryPool::Kind::kAggregate,
       true,
-      std::move(reclaimer));
+      std::move(_reclaimer));
   children_.emplace(name, child);
   return child;
 }
@@ -413,14 +427,6 @@ MemoryPoolImpl::MemoryPoolImpl(
       // actually used memory arbitration policy.
       capacity_(parent_ != nullptr ? kMaxMemory : 0) {
   VELOX_CHECK(options.threadSafe || isLeaf());
-  // NOTE: we shall only set reclaimer in a child pool if its parent has also
-  // set. Otherwise. it should be mis-configured.
-  VELOX_CHECK(
-      parent_ == nullptr || parent_->reclaimer() != nullptr ||
-          reclaimer_ == nullptr,
-      "Child memory pool {} shall only set memory reclaimer if its parent {} has also set",
-      name_,
-      parent_->name());
   VELOX_CHECK(
       isRoot() || (destructionCb_ == nullptr && growCapacityCb_ == nullptr),
       "Only root memory pool allows to set destruction and capacity grow callbacks: {}",

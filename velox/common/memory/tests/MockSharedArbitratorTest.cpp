@@ -272,27 +272,32 @@ class MockMemoryOperator {
   }
 
   void freeAll() {
-    std::lock_guard<std::mutex> l(mu_);
-    for (auto entry : allocations_) {
-      totalBytes_ -= entry.second;
+    std::unordered_map<void*, size_t> allocationsToFree;
+    {
+      std::lock_guard<std::mutex> l(mu_);
+      for (auto entry : allocations_) {
+        totalBytes_ -= entry.second;
+      }
+      VELOX_CHECK_EQ(totalBytes_, 0);
+      allocationsToFree.swap(allocations_);
     }
-    VELOX_CHECK_EQ(totalBytes_, 0);
-    for (auto entry : allocations_) {
+    for (auto entry : allocationsToFree) {
       pool_->free(entry.first, entry.second);
     }
-    allocations_.clear();
   }
 
   void free() {
     Allocation allocation;
-    std::lock_guard<std::mutex> l(mu_);
-    if (allocations_.empty()) {
-      return;
+    {
+      std::lock_guard<std::mutex> l(mu_);
+      if (allocations_.empty()) {
+        return;
+      }
+      allocation.buffer = allocations_.begin()->first;
+      allocation.size = allocations_.begin()->second;
+      totalBytes_ -= allocation.size;
+      allocations_.erase(allocations_.begin());
     }
-    allocation.buffer = allocations_.begin()->first;
-    allocation.size = allocations_.begin()->second;
-    totalBytes_ -= allocation.size;
-    allocations_.erase(allocations_.begin());
     pool_->free(allocation.buffer, allocation.size);
   }
 
@@ -312,35 +317,39 @@ class MockMemoryOperator {
     VELOX_CHECK_GT(targetBytes, 0);
     uint64_t bytesReclaimed{0};
     std::vector<Allocation> allocationsToFree;
-    std::lock_guard<std::mutex> l(mu_);
-    VELOX_CHECK_NOT_NULL(pool_);
-    VELOX_CHECK_EQ(pool->name(), pool_->name());
-    auto allocIt = allocations_.begin();
-    while (allocIt != allocations_.end() &&
-           ((targetBytes != 0) && (bytesReclaimed < targetBytes))) {
-      allocationsToFree.push_back({allocIt->first, allocIt->second});
-      bytesReclaimed += allocIt->second;
-      allocIt = allocations_.erase(allocIt);
+    {
+      std::lock_guard<std::mutex> l(mu_);
+      VELOX_CHECK_NOT_NULL(pool_);
+      VELOX_CHECK_EQ(pool->name(), pool_->name());
+      auto allocIt = allocations_.begin();
+      while (allocIt != allocations_.end() &&
+             ((targetBytes != 0) && (bytesReclaimed < targetBytes))) {
+        allocationsToFree.push_back({allocIt->first, allocIt->second});
+        bytesReclaimed += allocIt->second;
+        allocIt = allocations_.erase(allocIt);
+      }
+      totalBytes_ -= bytesReclaimed;
     }
-    totalBytes_ -= bytesReclaimed;
-    const auto oldReservedBytes = pool_->reservedBytes();
     for (const auto& allocation : allocationsToFree) {
       pool_->free(allocation.buffer, allocation.size);
     }
-    const auto newReservedBytes = pool_->reservedBytes();
-    VELOX_CHECK_GE(oldReservedBytes, newReservedBytes);
-    return newReservedBytes - oldReservedBytes;
+    return bytesReclaimed;
   }
 
   void abort(MemoryPool* pool) {
-    std::lock_guard<std::mutex> l(mu_);
-    VELOX_CHECK_NOT_NULL(pool_);
-    VELOX_CHECK_EQ(pool->name(), pool_->name());
-    for (const auto& allocation : allocations_) {
-      totalBytes_ -= allocation.second;
-      pool_->free(allocation.first, allocation.second);
+    std::unordered_map<void*, size_t> allocationsToFree;
+    {
+      std::lock_guard<std::mutex> l(mu_);
+      VELOX_CHECK_NOT_NULL(pool_);
+      VELOX_CHECK_EQ(pool->name(), pool_->name());
+      for (const auto& allocation : allocations_) {
+        totalBytes_ -= allocation.second;
+      }
+      allocationsToFree.swap(allocations_);
     }
-    allocations_.clear();
+    for (auto entry : allocationsToFree) {
+      pool_->free(entry.first, entry.second);
+    }
   }
 
   void setPool(MemoryPool* pool) {
