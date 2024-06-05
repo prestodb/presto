@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #include "velox/exec/fuzzer/FuzzerUtil.h"
+#include <filesystem>
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
@@ -47,6 +47,15 @@ std::vector<Split> makeSplits(
     splits.push_back(makeSplit(filePath));
   }
 
+  return splits;
+}
+
+std::vector<Split> makeSplits(const std::string& directory) {
+  std::vector<Split> splits;
+  for (auto const& p : std::filesystem::directory_iterator{directory}) {
+    VELOX_CHECK(!p.is_directory());
+    splits.emplace_back(makeSplit(p.path().string()));
+  }
   return splits;
 }
 

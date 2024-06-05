@@ -32,6 +32,12 @@ std::vector<Split> makeSplits(
     const std::string& path,
     const std::shared_ptr<memory::MemoryPool>& writerPool);
 
+/// Create splits from files in a directory. Don't support nested directory.
+///
+/// TODO: Add support for nested directory, need to parse directory information
+/// into split schema.
+std::vector<Split> makeSplits(const std::string& directory);
+
 /// Create a split from an exsiting file.
 Split makeSplit(const std::string& filePath);
 

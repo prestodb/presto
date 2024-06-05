@@ -326,20 +326,25 @@ void WriterFuzzer::verifyWriter(
       "Velox and reference DB results don't match");
 
   // 2. Verifies directory layout.
-  const auto referencedOutputDirectoryPath =
-      getReferenceOutputDirectoryPath(partitionKeys.size());
-  comparePartitions(outputDirectoryPath, referencedOutputDirectoryPath);
+  if (!partitionKeys.empty()) {
+    const auto referencedOutputDirectoryPath =
+        getReferenceOutputDirectoryPath(partitionKeys.size());
+    comparePartitions(outputDirectoryPath, referencedOutputDirectoryPath);
+  }
 
   // 3. Verifies data itself.
-  auto splits = makeSplits(input, outputDirectoryPath, writerPool_);
-  auto readPlan =
-      PlanBuilder().tableScan(asRowType(input[0]->type())).planNode();
-  auto actual = execute(readPlan, maxDrivers, splits);
-  auto reference_data =
-      referenceQueryRunner_->execute("SELECT * FROM tmp_write");
-  VELOX_CHECK(
-      assertEqualResults(reference_data, {actual}),
-      "Velox and reference DB results don't match");
+  // TODO: verify partitioned (bucketed) once makeSplits support nested folders.
+  if (partitionKeys.empty()) {
+    auto splits = makeSplits(outputDirectoryPath);
+    auto readPlan =
+        PlanBuilder().tableScan(asRowType(input[0]->type())).planNode();
+    auto actual = execute(readPlan, maxDrivers, splits);
+    auto reference_data =
+        referenceQueryRunner_->execute("SELECT * FROM tmp_write");
+    VELOX_CHECK(
+        assertEqualResults(reference_data, {actual}),
+        "Velox and reference DB results don't match");
+  }
 
   LOG(INFO) << "Verified results against reference DB";
 }
