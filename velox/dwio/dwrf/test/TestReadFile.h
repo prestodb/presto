@@ -40,10 +40,10 @@ class TestReadFile : public velox::ReadFile {
 
   std::string_view pread(uint64_t offset, uint64_t length, void* buffer)
       const override {
+    const uint64_t content = offset + seed_;
+    const uint64_t available = std::min(length_ - offset, length);
     int fill;
-    uint64_t content = offset + seed_;
-    uint64_t available = std::min(length_ - offset, length);
-    for (fill = 0; fill < (available); ++fill) {
+    for (fill = 0; fill < available; ++fill) {
       reinterpret_cast<char*>(buffer)[fill] = content + fill;
     }
     return std::string_view(static_cast<const char*>(buffer), fill);

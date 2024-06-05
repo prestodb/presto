@@ -140,8 +140,7 @@ class ParquetTableScanTest : public HiveConnectorTestBase {
     dwio::common::ReaderOptions readerOpts{pool.get()};
     auto reader = std::make_unique<ParquetReader>(
         std::make_unique<facebook::velox::dwio::common::BufferedInput>(
-            std::make_shared<LocalReadFile>(filePath),
-            readerOpts.getMemoryPool()),
+            std::make_shared<LocalReadFile>(filePath), readerOpts.memoryPool()),
         readerOpts);
     rowType_ = reader->rowType();
     createDuckDbTable({data});

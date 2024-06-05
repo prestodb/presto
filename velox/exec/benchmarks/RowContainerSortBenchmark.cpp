@@ -56,7 +56,7 @@ facebook::velox::parquet::ParquetReader createReader(
     const facebook::velox::dwio::common::ReaderOptions& opts) {
   return facebook::velox::parquet::ParquetReader(
       std::make_unique<facebook::velox::dwio::common::BufferedInput>(
-          std::make_shared<LocalReadFile>(path), opts.getMemoryPool()),
+          std::make_shared<LocalReadFile>(path), opts.memoryPool()),
       opts);
 }
 

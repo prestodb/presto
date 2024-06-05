@@ -254,4 +254,10 @@ uint8_t HiveConfig::parquetWriteTimestampUnit(const Config* session) const {
   return unit;
 }
 
+bool HiveConfig::cacheNoRetention(const Config* session) const {
+  return session->get<bool>(
+      kCacheNoRetentionSession,
+      config_->get<bool>(kCacheNoRetention, /*defaultValue=*/false));
+}
+
 } // namespace facebook::velox::connector::hive

@@ -231,4 +231,10 @@ uint64_t SsdCache::testingTotalLogEvictionFilesSize() {
   return size;
 }
 
+void SsdCache::testingWaitForWriteToFinish() {
+  while (writesInProgress_ != 0) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(100)); // NOLINT
+  }
+}
+
 } // namespace facebook::velox::cache

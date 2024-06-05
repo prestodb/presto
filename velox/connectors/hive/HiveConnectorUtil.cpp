@@ -538,12 +538,14 @@ void configureReaderOptions(
   readerOptions.setFooterEstimatedSize(hiveConfig->footerEstimatedSize());
   readerOptions.setFilePreloadThreshold(hiveConfig->filePreloadThreshold());
   readerOptions.setPrefetchRowGroups(hiveConfig->prefetchRowGroups());
+  readerOptions.setNoCacheRetention(
+      hiveConfig->cacheNoRetention(sessionProperties));
 
-  if (readerOptions.getFileFormat() != dwio::common::FileFormat::UNKNOWN) {
+  if (readerOptions.fileFormat() != dwio::common::FileFormat::UNKNOWN) {
     VELOX_CHECK(
-        readerOptions.getFileFormat() == hiveSplit->fileFormat,
+        readerOptions.fileFormat() == hiveSplit->fileFormat,
         "HiveDataSource received splits of different formats: {} and {}",
-        dwio::common::toString(readerOptions.getFileFormat()),
+        dwio::common::toString(readerOptions.fileFormat()),
         dwio::common::toString(hiveSplit->fileFormat));
   } else {
     auto serDeOptions =

@@ -26,6 +26,7 @@
 #include "velox/common/testutil/TestValue.h"
 #include "velox/connectors/hive/HiveConfig.h"
 #include "velox/connectors/hive/HiveConnector.h"
+#include "velox/dwio/common/CacheInputStream.h"
 #include "velox/dwio/common/tests/utils/DataFiles.h"
 #include "velox/exec/Exchange.h"
 #include "velox/exec/OutputBufferManager.h"
@@ -4343,4 +4344,50 @@ DEBUG_ONLY_TEST_F(
       op,
       {filePath},
       "SELECT c5, max(c0), max(c1), max(c2), max(c3), max(c4) FROM tmp group by c5");
+}
+
+TEST_F(TableScanTest, noCacheRetention) {
+  const auto vectors = makeVectors(10, 1'000);
+  const auto filePath = TempFilePath::create();
+  writeToFile(filePath->getPath(), vectors);
+  createDuckDbTable(vectors);
+
+  for (const bool noCacheRetention : {true}) {
+    SCOPED_TRACE(fmt::format("noCacheRetention: {}", noCacheRetention));
+
+    auto split = makeHiveConnectorSplit(
+        filePath->getPath(), 0, fs::file_size(filePath->getPath()));
+    AssertQueryBuilder(tableScanNode(), duckDbQueryRunner_)
+        .connectorSessionProperty(
+            kHiveConnectorId,
+            connector::hive::HiveConfig::kCacheNoRetentionSession,
+            noCacheRetention ? "true" : "false")
+        .split(std::move(split))
+        .assertResults("SELECT * FROM tmp");
+    waitForAllTasksToBeDeleted();
+
+    const auto cacheEntries = asyncDataCache_->testingCacheEntries();
+    if (noCacheRetention) {
+      for (const auto& cacheEntry : cacheEntries) {
+        if (!cacheEntry->testingFirstUse()) {
+          ASSERT_EQ(cacheEntry->testingAccessStats().lastUse, 0)
+              << cacheEntry->toString();
+        }
+        ASSERT_EQ(cacheEntry->testingAccessStats().numUses, 0)
+            << cacheEntry->toString();
+      }
+    } else {
+      for (const auto& cacheEntry : cacheEntries) {
+        if (cacheEntry->testingFirstUse()) {
+          ASSERT_EQ(cacheEntry->testingAccessStats().numUses, 0)
+              << cacheEntry->toString();
+        } else {
+          ASSERT_GT(cacheEntry->testingAccessStats().numUses, 0)
+              << cacheEntry->toString();
+        }
+        ASSERT_NE(cacheEntry->testingAccessStats().lastUse, 0)
+            << cacheEntry->toString();
+      }
+    }
+  }
 }

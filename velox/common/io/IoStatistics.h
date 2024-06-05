@@ -164,8 +164,8 @@ class IoStatistics {
   // reads.
   IoCounter ssdRead_;
 
-  // Time spent by a query processing thread waiting for synchronously
-  // issued IO or for an in-progress read-ahead to finish.
+  // Time spent by a query processing thread waiting for synchronously issued IO
+  // or for an in-progress read-ahead to finish.
   IoCounter queryThreadIoLatency_;
 
   std::unordered_map<std::string, OperationCounters> operationStats_;

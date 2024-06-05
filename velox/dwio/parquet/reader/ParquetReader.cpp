@@ -65,7 +65,7 @@ class ReaderBase {
   }
 
   bool isFileColumnNamesReadAsLowerCase() const {
-    return options_.isFileColumnNamesReadAsLowerCase();
+    return options_.fileColumnNamesReadAsLowerCase();
   }
 
   /// Ensures that streams are enqueued and loading for the row group at
@@ -127,9 +127,9 @@ class ReaderBase {
 ReaderBase::ReaderBase(
     std::unique_ptr<dwio::common::BufferedInput> input,
     const dwio::common::ReaderOptions& options)
-    : pool_{options.getMemoryPool()},
-      footerEstimatedSize_{options.getFooterEstimatedSize()},
-      filePreloadThreshold_{options.getFilePreloadThreshold()},
+    : pool_{options.memoryPool()},
+      footerEstimatedSize_{options.footerEstimatedSize()},
+      filePreloadThreshold_{options.filePreloadThreshold()},
       options_{options},
       input_{std::move(input)},
       fileLength_{input_->getReadFile()->size()} {

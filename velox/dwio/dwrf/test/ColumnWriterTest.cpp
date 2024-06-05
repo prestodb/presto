@@ -1601,8 +1601,7 @@ std::unique_ptr<DwrfReader> getDwrfReader(
   return std::make_unique<DwrfReader>(
       readerOpts,
       std::make_unique<BufferedInput>(
-          std::make_shared<InMemoryReadFile>(data),
-          readerOpts.getMemoryPool()));
+          std::make_shared<InMemoryReadFile>(data), readerOpts.memoryPool()));
 }
 
 void removeSizeFromStats(std::string& input) {

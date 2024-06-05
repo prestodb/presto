@@ -50,8 +50,7 @@ int main(int argc, char** argv) {
   readerOpts.setFileFormat(FileFormat::ORC);
   auto reader = DwrfReader::create(
       std::make_unique<BufferedInput>(
-          std::make_shared<LocalReadFile>(filePath),
-          readerOpts.getMemoryPool()),
+          std::make_shared<LocalReadFile>(filePath), readerOpts.memoryPool()),
       readerOpts);
 
   VectorPtr batch;

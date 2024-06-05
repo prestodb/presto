@@ -64,7 +64,7 @@ class ParquetTestBase : public testing::Test, public test::VectorTestBase {
       const std::string& path,
       const dwio::common::ReaderOptions& opts) {
     auto input = std::make_unique<dwio::common::BufferedInput>(
-        std::make_shared<LocalReadFile>(path), opts.getMemoryPool());
+        std::make_shared<LocalReadFile>(path), opts.memoryPool());
     return std::make_unique<facebook::velox::parquet::ParquetReader>(
         std::move(input), opts);
   }

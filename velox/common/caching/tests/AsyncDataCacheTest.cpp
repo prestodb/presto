@@ -1216,6 +1216,65 @@ DEBUG_ONLY_TEST_P(AsyncDataCacheTest, ttl) {
   EXPECT_EQ(statsTtl.ssdStats->entriesAgedOut, statsT1.ssdStats->entriesCached);
 }
 
+TEST_P(AsyncDataCacheTest, makeEvictable) {
+  constexpr uint64_t kRamBytes = 128UL << 20;
+  constexpr uint64_t kSsdBytes = 512UL << 20;
+  constexpr int kDataSize = 4096;
+  for (const bool evictable : {false, true}) {
+    SCOPED_TRACE(fmt::format("evictable: {}", evictable));
+    initializeCache(kRamBytes, kSsdBytes);
+    const int numEntries{10};
+    std::vector<CachePin> cachePins;
+    uint64_t offset = 0;
+    for (int i = 0; i < numEntries; ++i) {
+      cachePins.push_back(newEntry(offset, kDataSize));
+      offset += kDataSize;
+    }
+    for (auto& pin : cachePins) {
+      pin.entry()->setExclusiveToShared(!evictable);
+    }
+    if (evictable) {
+      std::vector<RawFileCacheKey> keys;
+      keys.reserve(cachePins.size());
+      for (const auto& pin : cachePins) {
+        keys.push_back(RawFileCacheKey{
+            pin.checkedEntry()->key().fileNum.id(),
+            pin.checkedEntry()->key().offset});
+      }
+      cachePins.clear();
+      for (const auto& key : keys) {
+        cache_->makeEvictable(key);
+      }
+    }
+    const auto cacheEntries = cache_->testingCacheEntries();
+    for (const auto& cacheEntry : cacheEntries) {
+      ASSERT_EQ(cacheEntry->ssdSaveable(), !evictable);
+      ASSERT_EQ(cacheEntry->testingAccessStats().numUses, 0);
+      if (evictable) {
+        ASSERT_EQ(cacheEntry->testingAccessStats().lastUse, 0);
+      } else {
+        ASSERT_NE(cacheEntry->testingAccessStats().lastUse, 0);
+      }
+    }
+    auto* ssdCache = cache_->ssdCache();
+    if (ssdCache == nullptr) {
+      continue;
+    }
+    ssdCache->testingWaitForWriteToFinish();
+    if (evictable) {
+      ASSERT_EQ(ssdCache->stats().entriesCached, 0);
+    } else {
+      if (cache_->testingSsdSavable() == 0) {
+        ASSERT_GT(ssdCache->stats().entriesCached, 0);
+      } else {
+        // Ssd write only gets triggered after a certain ssd space usage
+        // threshold.
+        ASSERT_GE(ssdCache->stats().entriesCached, 0);
+      }
+    }
+  }
+}
+
 // TODO: add concurrent fuzzer test.
 
 INSTANTIATE_TEST_SUITE_P(

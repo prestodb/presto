@@ -38,7 +38,7 @@ using facebook::velox::common::Region;
 using memory::MemoryAllocator;
 using IoStatisticsPtr = std::shared_ptr<IoStatistics>;
 
-class CacheTest : public testing::Test {
+class CacheTest : public ::testing::Test {
  protected:
   static constexpr int32_t kMaxStreams = 50;
 
@@ -55,26 +55,40 @@ class CacheTest : public testing::Test {
   }
 
   void SetUp() override {
-    executor_ = std::make_unique<folly::IOThreadPoolExecutor>(10, 10);
+    // executor_ = std::make_unique<folly::IOThreadPoolExecutor>(10, 10);
     rng_.seed(1);
     ioStats_ = std::make_shared<IoStatistics>();
     filesystems::registerLocalFileSystem();
   }
 
   void TearDown() override {
-    if (cache_) {
+    shutdownCache();
+  }
+
+  void shutdownCache() {
+    if (cache_ != nullptr) {
       cache_->shutdown();
     }
-    executor_->join();
-    auto* ssdCache = cache_->ssdCache();
-    if (ssdCache) {
-      ssdCache->testingDeleteFiles();
+    if (executor_ != nullptr) {
+      executor_.reset();
+    }
+    if (cache_ != nullptr) {
+      auto* ssdCache = cache_->ssdCache();
+      if (ssdCache != nullptr) {
+        ssdCache->testingDeleteFiles();
+      }
     }
   }
 
   void initializeCache(uint64_t maxBytes, uint64_t ssdBytes = 0) {
+    shutdownCache();
+
+    if (executor_ == nullptr) {
+      executor_ = std::make_unique<folly::IOThreadPoolExecutor>(10, 10);
+    }
+
     std::unique_ptr<SsdCache> ssd;
-    if (ssdBytes) {
+    if (ssdBytes > 0) {
       FLAGS_ssd_odirect = false;
       tempDirectory_ = exec::test::TempDirectoryPath::create();
       const SsdCache::Config config(
@@ -100,11 +114,11 @@ class CacheTest : public testing::Test {
     for (auto i = 1; i <= kMaxStreams; ++i) {
       streamStarts_[i] = streamStarts_[i - 1] + spacing * i;
       if (i < kMaxStreams / 3) {
-        spacing += 1000;
+        spacing += 1'000;
       } else if (i < kMaxStreams / 3 * 2) {
-        spacing += 20000;
+        spacing += 20'000;
       } else if (i > kMaxStreams - 5) {
-        spacing += 2000000;
+        spacing += 2'000'000;
       }
     }
   }
@@ -152,25 +166,25 @@ class CacheTest : public testing::Test {
   std::shared_ptr<TestReadFile>
   inputByPath(const std::string& path, uint64_t& fileId, uint64_t& groupId) {
     std::lock_guard<std::mutex> l(mutex_);
-    StringIdLease lease(fileIds(), path);
-    fileId = lease.id();
+    StringIdLease fileLease(fileIds(), path);
+    fileId = fileLease.id();
     StringIdLease groupLease(fileIds(), fmt::format("group{}", fileId / 2));
     groupId = groupLease.id();
-    auto it = pathToInput_.find(lease.id());
-    if (it == pathToInput_.end()) {
-      fileIds_.push_back(lease);
-      fileIds_.push_back(groupLease);
-      auto stream = std::make_shared<TestReadFile>(
-          lease.id(), 1UL << 63, std::make_shared<io::IoStatistics>());
-      pathToInput_[lease.id()] = stream;
-      return stream;
+    auto it = pathToInput_.find(fileId);
+    if (it != pathToInput_.end()) {
+      return it->second;
     }
-    return it->second;
+    fileIds_.push_back(fileLease);
+    fileIds_.push_back(groupLease);
+    // Creates an extremely large read file for test.
+    auto stream = std::make_shared<TestReadFile>(
+        fileLease.id(), 1UL << 63, std::make_shared<io::IoStatistics>());
+    pathToInput_[fileLease.id()] = stream;
+    return stream;
   }
 
-  // Makes a CachedBufferedInput with a subset of the testing streams
-  // enqueued. 'numColumns' streams are evenly selected from
-  // kMaxStreams.
+  // Makes a CachedBufferedInput with a subset of the testing streams enqueued.
+  // 'numColumns' streams are evenly selected from kMaxStreams.
   std::unique_ptr<StripeData> makeStripeData(
       std::shared_ptr<TestReadFile> readFile,
       int32_t numColumns,
@@ -178,8 +192,11 @@ class CacheTest : public testing::Test {
       uint64_t fileId,
       uint64_t groupId,
       int64_t offset,
+      bool noCacheRetention,
       const IoStatisticsPtr& ioStats) {
     auto data = std::make_unique<StripeData>();
+    auto readOptions = io::ReaderOptions(pool_.get());
+    readOptions.setNoCacheRetention(noCacheRetention);
     data->input = std::make_unique<CachedBufferedInput>(
         readFile,
         MetricsLog::voidLog(),
@@ -189,22 +206,23 @@ class CacheTest : public testing::Test {
         groupId,
         ioStats,
         executor_.get(),
-        io::ReaderOptions(pool_.get()));
+        readOptions);
     data->file = readFile.get();
     for (auto i = 0; i < numColumns; ++i) {
-      int32_t streamIndex = i * (kMaxStreams / numColumns);
+      const int32_t streamIndex = i * (kMaxStreams / numColumns);
 
-      // Each region covers half the space from its start to the
-      // start of the next or at max a little under 20MB.
-      Region region{
+      // Each region covers half the space from its start to the start of the
+      // next or at max a little under 20MB.
+      const Region region{
           offset + streamStarts_[streamIndex],
           std::min<uint64_t>(
               (1 << 20) - 11,
               (streamStarts_[streamIndex + 1] - streamStarts_[streamIndex]) /
                   2)};
       auto stream = data->input->enqueue(region, streamIds_[streamIndex].get());
-      if (cache_->ssdCache()) {
-        auto name = static_cast<const CacheInputStream&>(*stream).getName();
+      if (cache_->ssdCache() != nullptr) {
+        const auto name =
+            static_cast<const CacheInputStream&>(*stream).getName();
         EXPECT_TRUE(
             name.find("ssdFile=" + cache_->ssdCache()->filePrefix()) !=
             name.npos)
@@ -237,13 +255,13 @@ class CacheTest : public testing::Test {
     int32_t size;
     int64_t numRead = 0;
     auto& stream = *stripe.streams[columnIndex];
-    auto region = stripe.regions[columnIndex];
+    const auto region = stripe.regions[columnIndex];
     do {
       stream.Next(&data, &size);
       stripe.file->checkData(data, region.offset + numRead, size);
       numRead += size;
     } while (size > 0);
-    EXPECT_EQ(numRead, region.length);
+    ASSERT_EQ(numRead, region.length);
     if (testRandomSeek_) {
       // Test random access
       std::vector<uint64_t> offsets = {
@@ -255,47 +273,45 @@ class CacheTest : public testing::Test {
       }
     }
   }
+
   void checkRandomRead(
       const StripeData& stripe,
       SeekableInputStream& stream,
       const std::vector<uint64_t>& offsets,
       int32_t i,
-      Region region) {
+      const Region& region) {
     const void* data;
     int32_t size;
     int64_t numRead = 0;
     auto offset = offsets[i];
-    // Reads from offset to halfway to the next offset or end.
-    auto toRead =
+    // Reads from offset to half-way to the next offset or end.
+    const auto toRead =
         ((i == offsets.size() - 1 ? region.length : offsets[i + 1]) - offset) /
         2;
-
     do {
       stream.Next(&data, &size);
       stripe.file->checkData(data, region.offset + offset, size);
       numRead += size;
       offset += size;
-      if (size == 0 && numRead) {
-        FAIL() << "Stream end prematurely after  random seek";
+      if (size == 0 && numRead == 0) {
+        VELOX_FAIL("Stream end prematurely after random seek");
       }
     } while (numRead < toRead);
   }
 
-  // Makes a series of kReadAhead CachedBufferedInputs for consecutive
-  // stripes and starts background load guided by the load frequency
-  // in the previous stripes for 'stripeWindow' ahead of the stripe
-  // being read. When at end, destroys the CachedBufferedInput for the
-  // pre-read stripes while they are in a background loading state. A
-  // window size of 1 means that only one CachedbufferedInput is
-  // active at a time.
+  // Makes a series of kReadAhead CachedBufferedInputs for consecutive stripes
+  // and starts background load guided by the load frequency in the previous
+  // stripes for 'stripeWindow' ahead of the stripe being read. When at end,
+  // destroys the CachedBufferedInput for the pre-read stripes while they are in
+  // a background loading state. A window size of 1 means that only one
+  // CachedbufferedInput actives at a time.
   //
-  // 'readPct' is the probability any given
-  // stripe will access any given column. 'readPctModulo' biases the
-  // read probability of as a function of the column number. If this
-  // is 1, all columns will be read at 'readPct'. If this is 4,
-  // 'readPct is divided by 1 + columnId % readPctModulo, so that
-  // multiples of 4 get read at readPct and columns with id % 4 == 3
-  // get read at 1/4 of readPct.
+  // 'readPct' is the probability any given stripe will access any given column.
+  // 'readPctModulo' biases the read probability of as a function of the column
+  // number. If this is 1, all columns will be read at 'readPct'. If this is 4,
+  // 'readPct is divided by 1 + columnId % readPctModulo, so that multiples of 4
+  // get read at readPct and columns with id % 4 == 3 get read at 1/4 of
+  // readPct.
   void readLoop(
       const std::string& filename,
       int numColumns,
@@ -303,6 +319,7 @@ class CacheTest : public testing::Test {
       int32_t readPctModulo,
       int32_t numStripes,
       int32_t stripeWindow,
+      bool noCacheRetention,
       const IoStatisticsPtr& ioStats) {
     auto tracker = std::make_shared<ScanTracker>(
         "testTracker",
@@ -317,9 +334,10 @@ class CacheTest : public testing::Test {
       groupStats_->recordFile(fileId, groupId, numStripes);
     }
     for (auto stripeIndex = 0; stripeIndex < numStripes; ++stripeIndex) {
-      auto firstPrefetchStripe = stripeIndex + stripes.size();
-      auto window = std::min(stripeIndex + 1, stripeWindow);
-      auto lastPrefetchStripe = std::min(numStripes, stripeIndex + window);
+      const auto firstPrefetchStripe = stripeIndex + stripes.size();
+      const auto window = std::min(stripeIndex + 1, stripeWindow);
+      const auto lastPrefetchStripe =
+          std::min(numStripes, stripeIndex + window);
       for (auto prefetchStripeIndex = firstPrefetchStripe;
            prefetchStripeIndex < lastPrefetchStripe;
            ++prefetchStripeIndex) {
@@ -330,6 +348,7 @@ class CacheTest : public testing::Test {
             fileId,
             groupId,
             prefetchStripeIndex * streamStarts_[kMaxStreams - 1],
+            noCacheRetention,
             ioStats));
         if (stripes.back()->input->shouldPreload()) {
           stripes.back()->input->load(LogType::TEST);
@@ -346,8 +365,8 @@ class CacheTest : public testing::Test {
     }
   }
 
-  // Reads a files from prefix<from> to prefix<to>. The other
-  // parameters have the same meaning as with readLoop().
+  // Reads a files from prefix<from> to prefix<to>. The other parameters have
+  // the same meaning as with readLoop().
   void readFiles(
       const std::string& prefix,
       int32_t from,
@@ -365,6 +384,7 @@ class CacheTest : public testing::Test {
           readPctModulo,
           numStripes,
           stripeWindow,
+          /*noCacheRetention=*/false,
           ioStats_);
     }
   }
@@ -401,8 +421,8 @@ class CacheTest : public testing::Test {
   bool deterministic_{false};
   folly::Random::DefaultGenerator rng_;
 
-  // Specifies if random seek follows bulk read in tests. We turn this
-  // off so as not to inflate cache hits.
+  // Specifies if random seek follows bulk read in tests. We turn this off so as
+  // not to inflate cache hits.
   bool testRandomSeek_{true};
 };
 
@@ -470,17 +490,17 @@ TEST_F(CacheTest, window) {
 TEST_F(CacheTest, bufferedInput) {
   // Size 160 MB. Frequent evictions and not everything fits in prefetch window.
   initializeCache(160 << 20);
-  readLoop("testfile", 30, 70, 10, 20, 4, ioStats_);
-  readLoop("testfile", 30, 70, 10, 20, 4, ioStats_);
-  readLoop("testfile2", 30, 70, 70, 20, 4, ioStats_);
+  readLoop("testfile", 30, 70, 10, 20, 4, /*noCacheRetention=*/false, ioStats_);
+  readLoop("testfile", 30, 70, 10, 20, 4, /*noCacheRetention=*/false, ioStats_);
+  readLoop(
+      "testfile2", 30, 70, 70, 20, 4, /*noCacheRetention=*/false, ioStats_);
 }
 
-// Calibrates the data read for a densely and sparsely read stripe of
-// test data. Fills the SSD cache with test data. Reads 2x cache size
-// worth of data and checks that the cache population settles to a
-// stable state.  Shifts the reading pattern so that half the working
-// set drops out and another half is added. Checks that the
-// working set stabilizes again.
+// Calibrates the data read for a densely and sparsely read stripe of test data.
+// Fills the SSD cache with test data. Reads 2x cache size worth of data and
+// checks that the cache population settles to a stable state.  Shifts the
+// reading pattern so that half the working set drops out and another half is
+// added. Checks that the working set stabilizes again.
 TEST_F(CacheTest, ssd) {
   constexpr int64_t kSsdBytes = 256 << 20;
   // 64 RAM, 256MB SSD
@@ -489,7 +509,7 @@ TEST_F(CacheTest, ssd) {
   deterministic_ = true;
 
   // We read one stripe with all columns.
-  readLoop("testfile", 30, 100, 1, 1, 1, ioStats_);
+  readLoop("testfile", 30, 100, 1, 1, 1, /*noCacheRetention=*/false, ioStats_);
   // This is a cold read, so expect no hits.
   EXPECT_EQ(0, ioStats_->ramHit().sum());
   // Expect some extra reading from coalescing.
@@ -498,7 +518,7 @@ TEST_F(CacheTest, ssd) {
   auto bytes = ioStats_->rawBytesRead();
   cache_->testingClear();
   // We read 10 stripes with some columns sparsely accessed.
-  readLoop("testfile", 30, 70, 10, 10, 1, ioStats_);
+  readLoop("testfile", 30, 70, 10, 10, 1, /*noCacheRetention=*/false, ioStats_);
   auto sparseStripeBytes = (ioStats_->rawBytesRead() - bytes) / 10;
   EXPECT_LT(sparseStripeBytes, fullStripeBytes / 4);
   // Expect the dense fraction of columns to have read ahead.
@@ -550,7 +570,15 @@ TEST_F(CacheTest, singleFileThreads) {
   threads.reserve(numThreads);
   for (int i = 0; i < numThreads; ++i) {
     threads.push_back(std::thread([this, i]() {
-      readLoop(fmt::format("testfile{}", i), 10, 70, 10, 20, 4, ioStats_);
+      readLoop(
+          fmt::format("testfile{}", i),
+          10,
+          70,
+          10,
+          20,
+          4,
+          /*noCacheRetention=*/false,
+          ioStats_);
     }));
   }
   for (auto i = 0; i < numThreads; ++i) {
@@ -574,7 +602,14 @@ TEST_F(CacheTest, ssdThreads) {
     threads.push_back(std::thread([i, this, threadStats = stats.back()]() {
       for (auto counter = 0; counter < 4; ++counter) {
         readLoop(
-            fmt::format("testfile{}", i / 2), 10, 70, 10, 20, 2, threadStats);
+            fmt::format("testfile{}", i / 2),
+            10,
+            70,
+            10,
+            20,
+            2,
+            /*noCacheRetention=*/false,
+            threadStats);
       }
     }));
   }
@@ -609,6 +644,7 @@ class FileWithReadAhead {
       : options_(&pool) {
     fileId_ = std::make_unique<StringIdLease>(fileIds(), name);
     file_ = std::make_shared<TestReadFile>(fileId_->id(), kFileSize, stats);
+    options_.setNoCacheRetention(true);
     bufferedInput_ = std::make_unique<CachedBufferedInput>(
         file_,
         MetricsLog::voidLog(),
@@ -621,10 +657,11 @@ class FileWithReadAhead {
         options_);
     auto sequential = StreamIdentifier::sequentialFile();
     stream_ = bufferedInput_->enqueue(Region{0, file_->size()}, &sequential);
+    VELOX_CHECK(reinterpret_cast<CacheInputStream*>(stream_.get())
+                    ->testingNoCacheRetention());
     // Trigger load of next 4MB after reading the first 2MB of the previous 4MB
     // quantum.
     reinterpret_cast<CacheInputStream*>(stream_.get())->setPrefetchPct(50);
-    reinterpret_cast<CacheInputStream*>(stream_.get())->setNoRetention();
     bufferedInput_->load(LogType::FILE);
   }
 
@@ -717,4 +754,79 @@ TEST_F(CacheTest, readAhead) {
   executor_->join();
 
   LOG(INFO) << count << " prefetches with total " << bytes << " bytes";
+}
+
+TEST_F(CacheTest, noCacheRetention) {
+  const int64_t cacheSize = 1LL << 30;
+  struct {
+    bool noCacheRetention;
+    bool hasSsdCache;
+    int readPct;
+
+    std::string debugString() const {
+      return fmt::format(
+          "noCacheRetention {}, hasSsdCache {}, readPct {}",
+          noCacheRetention,
+          hasSsdCache,
+          readPct);
+    }
+  } testSettings[] = {
+      {true, true, 100},
+      {true, false, 100},
+      {false, false, 100},
+      {false, true, 100},
+      {true, true, 10},
+      {true, false, 100},
+      {false, false, 100},
+      {false, true, 100}};
+
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+    // 1GB RAM with 1GB SSD or not so there is always sufficient space to cache
+    // all the read data in both ram and ssd caches.
+    initializeCache(cacheSize, testData.hasSsdCache ? cacheSize : 0);
+    testRandomSeek_ = true;
+    deterministic_ = true;
+
+    // We read one stripe with all columns,
+    readLoop(
+        "noCacheRetention",
+        20,
+        testData.readPct,
+        1,
+        5,
+        1,
+        testData.noCacheRetention,
+        ioStats_);
+    // This is a cold read, so expect no hits.
+    ASSERT_EQ(ioStats_->ramHit().sum(), 0);
+    // Only one reference per column so there is no prefetch.
+    ASSERT_LT(0, ioStats_->prefetch().sum());
+    // Expect some extra reading from coalescing.
+    ASSERT_LT(0, ioStats_->rawOverreadBytes());
+    ASSERT_LT(0, ioStats_->rawBytesRead());
+    auto* ssdCache = cache_->ssdCache();
+    if (ssdCache != nullptr) {
+      ssdCache->testingWaitForWriteToFinish();
+      if (testData.noCacheRetention) {
+        ASSERT_EQ(ssdCache->stats().entriesCached, 0);
+      } else {
+        ASSERT_GT(ssdCache->stats().entriesCached, 0);
+      }
+      ASSERT_EQ(ssdCache->stats().regionsEvicted, 0);
+    }
+    const auto cacheEntries = cache_->testingCacheEntries();
+    for (const auto& cacheEntry : cacheEntries) {
+      if (testData.noCacheRetention) {
+        ASSERT_EQ(cacheEntry->testingAccessStats().numUses, 0);
+        ASSERT_EQ(cacheEntry->testingAccessStats().lastUse, 0);
+      } else {
+        ASSERT_GE(cacheEntry->testingAccessStats().numUses, 0);
+        ASSERT_NE(cacheEntry->testingAccessStats().lastUse, 0);
+      }
+    }
+    const auto stats = cache_->refreshStats();
+    ASSERT_EQ(stats.numEvict, 0);
+    ASSERT_EQ(stats.numEntries, cacheEntries.size());
+  }
 }

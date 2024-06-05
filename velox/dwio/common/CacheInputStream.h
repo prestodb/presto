@@ -35,10 +35,13 @@ class CacheInputStream : public SeekableInputStream {
       const velox::common::Region& region,
       std::shared_ptr<ReadFileInputStream> input,
       uint64_t fileNum,
+      bool noCacheRetention,
       std::shared_ptr<cache::ScanTracker> tracker,
       cache::TrackingId trackingId,
       uint64_t groupId,
       int32_t loadQuantum);
+
+  ~CacheInputStream() override;
 
   bool Next(const void** data, int* size) override;
   void BackUp(int count) override;
@@ -48,16 +51,15 @@ class CacheInputStream : public SeekableInputStream {
   std::string getName() const override;
   size_t positionSize() override;
 
-  /// Returns a copy of 'this', ranging over the same bytes. The clone
-  /// is initially positioned at the position of 'this' and can be
-  /// moved independently within 'region_'.  This is used for first
-  /// caching a range of bytes from a file and then giving out
-  /// delimited subranges of this to callers. skip() and
-  /// setRemainingBytes() set the bounds of the window exposed by the
-  /// clone. In specific, reading protocol buffers requires a stream
-  /// that begins and ends at the exact start and end of the
-  /// serialization. Reading these from cache requires an exactly
-  /// delimited stream.
+  /// Returns a copy of 'this', ranging over the same bytes. The clone is
+  /// initially positioned at the position of 'this' and can be moved
+  /// independently within 'region_'.  This is used for first caching a range of
+  /// bytes from a file and then giving out delimited subranges of this to
+  /// callers. skip() and setRemainingBytes() set the bounds of the window
+  /// exposed by the clone. In specific, reading protocol buffers requires a
+  /// stream that begins and ends at the exact start and end of the
+  /// serialization. Reading these from cache requires an exactly delimited
+  /// stream.
   std::unique_ptr<CacheInputStream> clone() {
     auto copy = std::make_unique<CacheInputStream>(
         bufferedInput_,
@@ -65,6 +67,7 @@ class CacheInputStream : public SeekableInputStream {
         region_,
         input_,
         fileNum_,
+        noCacheRetention_,
         tracker_,
         trackingId_,
         groupId_,
@@ -90,24 +93,32 @@ class CacheInputStream : public SeekableInputStream {
     prefetchPct_ = pct;
   }
 
-  /// Enables a mode where cache entries are made immediately evictable after
-  /// unpinning.
-  void setNoRetention() {
-    noRetention_ = true;
+  bool testingNoCacheRetention() const {
+    return noCacheRetention_;
   }
 
  private:
   // Ensures that the current position is covered by 'pin_'.
   void loadPosition();
 
+  // Returns the next quantized region to load with given loaded position.
+  velox::common::Region nextQuantizedLoadRegion(
+      uint64_t prevLoadedPosition) const;
+
   // Synchronously sets 'pin_' to cover 'region'.
-  void loadSync(velox::common::Region region);
+  void loadSync(const velox::common::Region& region);
 
   // Returns true if there is an SSD cache and 'entry' is present there and
   // successfully loaded.
   bool loadFromSsd(
-      velox::common::Region region,
+      const velox::common::Region& region,
       cache::AsyncDataCacheEntry& entry);
+
+  // Invoked to clear the cache pin of the accessed cache entry and mark it as
+  // immediate evictable if 'noCacheRetention_' flag is set.
+  void clearCachePin();
+
+  void makeCacheEvictable();
 
   // Return SSD cache file path if exists; return empty string if no SSD cache
   // file.
@@ -115,18 +126,23 @@ class CacheInputStream : public SeekableInputStream {
 
   CachedBufferedInput* const bufferedInput_;
   cache::AsyncDataCache* const cache_;
-  IoStatistics* ioStats_;
-  std::shared_ptr<ReadFileInputStream> input_;
+  // True if a pin should be set to the lowest retention score after
+  // unpinning. This applies to sequential reads where second access
+  // to the page is not expected.
+  const bool noCacheRetention_;
   // The region of 'input' 'this' ranges over.
   const velox::common::Region region_;
   const uint64_t fileNum_;
-  std::shared_ptr<cache::ScanTracker> tracker_;
+  const std::shared_ptr<cache::ScanTracker> tracker_;
   const cache::TrackingId trackingId_;
   const uint64_t groupId_;
 
   // Maximum number of bytes read from 'input' at a time. This gives the maximum
   // pin_.entry()->size().
   const int32_t loadQuantum_;
+
+  IoStatistics* const ioStats_;
+  const std::shared_ptr<ReadFileInputStream> input_;
 
   // Handle of cache entry.
   cache::CachePin pin_;
@@ -147,21 +163,16 @@ class CacheInputStream : public SeekableInputStream {
   uint64_t position_ = 0;
 
   // A restricted view over 'region'. offset is relative to 'region_'. A cloned
-  // CacheInputStream can cover a subrange of the range of the original.
+  // CacheInputStream can cover a sub-range of the range of the original.
   std::optional<velox::common::Region> window_;
 
   // Percentage of 'loadQuantum_' at which the next load quantum gets scheduled.
   // Over 100 means no prefetch.
   int32_t prefetchPct_{200};
 
-  // True if prefetch f the next 'loadQuantum_' has been started. Cleared when
+  // True if prefetch the next 'loadQuantum_' has been started. Cleared when
   // moving to the next load quantum.
   bool prefetchStarted_{false};
-
-  // True if a pin should be set to the lowest retention score after
-  // unpinning. This applies to sequential reads where second access
-  // to the page is not expected.
-  bool noRetention_{false};
 };
 
 } // namespace facebook::velox::dwio::common

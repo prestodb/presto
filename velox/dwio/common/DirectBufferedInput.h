@@ -43,7 +43,7 @@ struct LoadRequest {
   /// Buffers to be handed to 'stream' after load.
   memory::Allocation data;
   std::string tinyData;
-  // Number of bytes in 'data/tinyData'.
+  /// Number of bytes in 'data/tinyData'.
   int32_t loadSize{0};
 };
 
@@ -69,16 +69,16 @@ class DirectCoalescedLoad : public cache::CoalescedLoad {
     }
   };
 
-  // Loads the regions. Returns {} since no cache entries are made. The loaded
-  // data is retrieved with getData().
-  std::vector<cache::CachePin> loadData(bool isPrefetch) override;
+  /// Loads the regions. Returns {} since no cache entries are made. The loaded
+  /// data is retrieved with getData().
+  std::vector<cache::CachePin> loadData(bool prefetch) override;
 
-  // Returns the buffer for 'region' in either 'data' or 'tinyData'. 'region'
-  // must match a region given to SelectiveBufferedInput::enqueue().
+  /// Returns the buffer for 'region' in either 'data' or 'tinyData'. 'region'
+  /// must match a region given to DirectBufferedInput::enqueue().
   int32_t
   getData(int64_t offset, memory::Allocation& data, std::string& tinyData);
 
-  const auto& requests() {
+  const std::vector<LoadRequest>& requests() {
     return requests_;
   }
 
@@ -114,7 +114,7 @@ class DirectBufferedInput : public BufferedInput {
       const io::ReaderOptions& readerOptions)
       : BufferedInput(
             std::move(readFile),
-            readerOptions.getMemoryPool(),
+            readerOptions.memoryPool(),
             metricsLog),
         fileNum_(fileNum),
         tracker_(std::move(tracker)),
@@ -158,7 +158,7 @@ class DirectBufferedInput : public BufferedInput {
   }
 
   memory::MemoryPool* pool() {
-    return &pool_;
+    return pool_;
   }
 
   /// Returns the CoalescedLoad that contains the correlated loads for
@@ -186,7 +186,7 @@ class DirectBufferedInput : public BufferedInput {
       std::shared_ptr<IoStatistics> ioStats,
       folly::Executor* executor,
       const io::ReaderOptions& readerOptions)
-      : BufferedInput(std::move(input), readerOptions.getMemoryPool()),
+      : BufferedInput(std::move(input), readerOptions.memoryPool()),
         fileNum_(fileNum),
         tracker_(std::move(tracker)),
         groupId_(groupId),
@@ -195,13 +195,13 @@ class DirectBufferedInput : public BufferedInput {
         fileSize_(input_->getLength()),
         options_(readerOptions) {}
 
-  // Sorts requests and makes CoalescedLoads for nearby requests. If
-  // 'shouldPrefetch' is true, starts background loading.
-  void makeLoads(std::vector<LoadRequest*> requests, bool shouldPrefetch);
+  // Sorts requests and makes CoalescedLoads for nearby requests. If 'prefetch'
+  // is true, starts background loading.
+  void makeLoads(std::vector<LoadRequest*> requests, bool prefetch);
 
-  // Makes a CoalescedLoad for 'requests' to be read together, coalescing
-  // IO if appropriate. If 'prefetch' is set, schedules the CoalescedLoad
-  // on 'executor_'. Links the CoalescedLoad  to all DirectInputStreams that it
+  // Makes a CoalescedLoad for 'requests' to be read together, coalescing IO if
+  // appropriate. If 'prefetch' is set, schedules the CoalescedLoad on
+  // 'executor_'. Links the CoalescedLoad  to all DirectInputStreams that it
   // covers.
   void readRegion(std::vector<LoadRequest*> requests, bool prefetch);
 

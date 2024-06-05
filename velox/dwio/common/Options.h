@@ -429,19 +429,6 @@ class RowReaderOptions {
  * Options for creating a Reader.
  */
 class ReaderOptions : public io::ReaderOptions {
- private:
-  uint64_t tailLocation;
-  FileFormat fileFormat;
-  RowTypePtr fileSchema;
-  SerDeOptions serDeOptions;
-  std::shared_ptr<encryption::DecrypterFactory> decrypterFactory_;
-  uint64_t footerEstimatedSize{kDefaultFooterEstimatedSize};
-  uint64_t filePreloadThreshold{kDefaultFilePreloadThreshold};
-  bool fileColumnNamesReadAsLowerCase{false};
-  bool useColumnNamesForColumnMapping_{false};
-  std::shared_ptr<folly::Executor> ioExecutor_;
-  std::shared_ptr<random::RandomSkipTracker> randomSkip_;
-
  public:
   static constexpr uint64_t kDefaultFooterEstimatedSize = 1024 * 1024; // 1MB
   static constexpr uint64_t kDefaultFilePreloadThreshold =
@@ -449,74 +436,62 @@ class ReaderOptions : public io::ReaderOptions {
 
   explicit ReaderOptions(velox::memory::MemoryPool* pool)
       : io::ReaderOptions(pool),
-        tailLocation(std::numeric_limits<uint64_t>::max()),
-        fileFormat(FileFormat::UNKNOWN),
-        fileSchema(nullptr) {}
+        tailLocation_(std::numeric_limits<uint64_t>::max()),
+        fileFormat_(FileFormat::UNKNOWN),
+        fileSchema_(nullptr) {}
 
   ReaderOptions& operator=(const ReaderOptions& other) {
     io::ReaderOptions::operator=(other);
-    tailLocation = other.tailLocation;
-    fileFormat = other.fileFormat;
-    if (other.fileSchema != nullptr) {
-      fileSchema = other.getFileSchema();
-    } else {
-      fileSchema = nullptr;
-    }
-    serDeOptions = other.serDeOptions;
+    tailLocation_ = other.tailLocation_;
+    fileFormat_ = other.fileFormat_;
+    fileSchema_ = other.fileSchema_;
+    serDeOptions_ = other.serDeOptions_;
     decrypterFactory_ = other.decrypterFactory_;
-    footerEstimatedSize = other.footerEstimatedSize;
-    filePreloadThreshold = other.filePreloadThreshold;
-    fileColumnNamesReadAsLowerCase = other.fileColumnNamesReadAsLowerCase;
+    footerEstimatedSize_ = other.footerEstimatedSize_;
+    filePreloadThreshold_ = other.filePreloadThreshold_;
+    fileColumnNamesReadAsLowerCase_ = other.fileColumnNamesReadAsLowerCase_;
     useColumnNamesForColumnMapping_ = other.useColumnNamesForColumnMapping_;
     return *this;
   }
 
   ReaderOptions(const ReaderOptions& other)
       : io::ReaderOptions(other),
-        tailLocation(other.tailLocation),
-        fileFormat(other.fileFormat),
-        fileSchema(other.fileSchema),
-        serDeOptions(other.serDeOptions),
+        tailLocation_(other.tailLocation_),
+        fileFormat_(other.fileFormat_),
+        fileSchema_(other.fileSchema_),
+        serDeOptions_(other.serDeOptions_),
         decrypterFactory_(other.decrypterFactory_),
-        footerEstimatedSize(other.footerEstimatedSize),
-        filePreloadThreshold(other.filePreloadThreshold),
-        fileColumnNamesReadAsLowerCase(other.fileColumnNamesReadAsLowerCase),
+        footerEstimatedSize_(other.footerEstimatedSize_),
+        filePreloadThreshold_(other.filePreloadThreshold_),
+        fileColumnNamesReadAsLowerCase_(other.fileColumnNamesReadAsLowerCase_),
         useColumnNamesForColumnMapping_(other.useColumnNamesForColumnMapping_) {
   }
 
-  /**
-   * Set the format of the file, such as "rc" or "dwrf".  The
-   * default is "dwrf".
-   */
+  /// Sets the format of the file, such as "rc" or "dwrf". The default is
+  /// "dwrf".
   ReaderOptions& setFileFormat(FileFormat format) {
-    fileFormat = format;
+    fileFormat_ = format;
     return *this;
   }
 
-  /**
-   * Set the schema of the file (a Type tree).
-   * For "dwrf" format, a default schema is derived from the file.
-   * For "rc" format, there is no default schema.
-   */
+  /// Sets the schema of the file (a Type tree).  For "dwrf" format, a default
+  /// schema is derived from the file. For "rc" format, there is no default
+  /// schema.
   ReaderOptions& setFileSchema(const RowTypePtr& schema) {
-    fileSchema = schema;
+    fileSchema_ = schema;
     return *this;
   }
 
-  /**
-   * Set the location of the tail as defined by the logical length of the
-   * file.
-   */
+  /// Sets the location of the tail as defined by the logical length of the
+  /// file.
   ReaderOptions& setTailLocation(uint64_t offset) {
-    tailLocation = offset;
+    tailLocation_ = offset;
     return *this;
   }
 
-  /**
-   * Modify the serialization-deserialization options.
-   */
-  ReaderOptions& setSerDeOptions(const SerDeOptions& sdo) {
-    serDeOptions = sdo;
+  /// Modifies the serialization-deserialization options.
+  ReaderOptions& setSerDeOptions(const SerDeOptions& serdeOpts) {
+    serDeOptions_ = serdeOpts;
     return *this;
   }
 
@@ -527,17 +502,17 @@ class ReaderOptions : public io::ReaderOptions {
   }
 
   ReaderOptions& setFooterEstimatedSize(uint64_t size) {
-    footerEstimatedSize = size;
+    footerEstimatedSize_ = size;
     return *this;
   }
 
   ReaderOptions& setFilePreloadThreshold(uint64_t threshold) {
-    filePreloadThreshold = threshold;
+    filePreloadThreshold_ = threshold;
     return *this;
   }
 
   ReaderOptions& setFileColumnNamesReadAsLowerCase(bool flag) {
-    fileColumnNamesReadAsLowerCase = flag;
+    fileColumnNamesReadAsLowerCase_ = flag;
     return *this;
   }
 
@@ -551,58 +526,50 @@ class ReaderOptions : public io::ReaderOptions {
     return *this;
   }
 
-  /**
-   * Get the desired tail location.
-   * @return if not set, return the maximum long.
-   */
-  uint64_t getTailLocation() const {
-    return tailLocation;
+  /// Gets the desired tail location.
+  uint64_t tailLocation() const {
+    return tailLocation_;
   }
 
-  /**
-   * Get the file format.
-   */
-  FileFormat getFileFormat() const {
-    return fileFormat;
+  /// Gets the file format.
+  FileFormat fileFormat() const {
+    return fileFormat_;
   }
 
-  /**
-   * Get the file schema.
-   */
-  const std::shared_ptr<const velox::RowType>& getFileSchema() const {
-    return fileSchema;
+  /// Gets the file schema.
+  const std::shared_ptr<const velox::RowType>& fileSchema() const {
+    return fileSchema_;
   }
 
-  SerDeOptions& getSerDeOptions() {
-    return serDeOptions;
+  SerDeOptions& serDeOptions() {
+    return serDeOptions_;
   }
 
-  const SerDeOptions& getSerDeOptions() const {
-    return serDeOptions;
+  const SerDeOptions& serDeOptions() const {
+    return serDeOptions_;
   }
 
-  const std::shared_ptr<encryption::DecrypterFactory> getDecrypterFactory()
-      const {
+  const std::shared_ptr<encryption::DecrypterFactory> decrypterFactory() const {
     return decrypterFactory_;
   }
 
-  uint64_t getFooterEstimatedSize() const {
-    return footerEstimatedSize;
+  uint64_t footerEstimatedSize() const {
+    return footerEstimatedSize_;
   }
 
-  uint64_t getFilePreloadThreshold() const {
-    return filePreloadThreshold;
+  uint64_t filePreloadThreshold() const {
+    return filePreloadThreshold_;
   }
 
-  const std::shared_ptr<folly::Executor>& getIOExecutor() const {
+  const std::shared_ptr<folly::Executor>& ioExecutor() const {
     return ioExecutor_;
   }
 
-  bool isFileColumnNamesReadAsLowerCase() const {
-    return fileColumnNamesReadAsLowerCase;
+  bool fileColumnNamesReadAsLowerCase() const {
+    return fileColumnNamesReadAsLowerCase_;
   }
 
-  bool isUseColumnNamesForColumnMapping() const {
+  bool useColumnNamesForColumnMapping() const {
     return useColumnNamesForColumnMapping_;
   }
 
@@ -613,6 +580,27 @@ class ReaderOptions : public io::ReaderOptions {
   void setRandomSkip(std::shared_ptr<random::RandomSkipTracker> randomSkip) {
     randomSkip_ = randomSkip;
   }
+
+  bool noCacheRetention() const {
+    return noCacheRetention_;
+  }
+
+  void setNoCacheRetention(bool noCacheRetention) {
+    noCacheRetention_ = noCacheRetention;
+  }
+
+ private:
+  uint64_t tailLocation_;
+  FileFormat fileFormat_;
+  RowTypePtr fileSchema_;
+  SerDeOptions serDeOptions_;
+  std::shared_ptr<encryption::DecrypterFactory> decrypterFactory_;
+  uint64_t footerEstimatedSize_{kDefaultFooterEstimatedSize};
+  uint64_t filePreloadThreshold_{kDefaultFilePreloadThreshold};
+  bool fileColumnNamesReadAsLowerCase_{false};
+  bool useColumnNamesForColumnMapping_{false};
+  std::shared_ptr<folly::Executor> ioExecutor_;
+  std::shared_ptr<random::RandomSkipTracker> randomSkip_;
 };
 
 struct WriterOptions {

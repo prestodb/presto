@@ -43,7 +43,7 @@ std::unique_ptr<SeekableInputStream> DirectBufferedInput::enqueue(
   }
 
   TrackingId id;
-  if (sid) {
+  if (sid != nullptr) {
     id = TrackingId(sid->getId());
   }
   VELOX_CHECK_LE(region.offset + region.length, fileSize_);
@@ -98,7 +98,6 @@ void DirectBufferedInput::load(const LogType /*unused*/) {
   // We loop over access frequency buckets. For example readPct 80
   // will get all streams where 80% or more of the referenced data is
   // actually loaded.
-
   for (auto readPct : std::vector<int32_t>{80, 50, 20, 0}) {
     std::vector<LoadRequest*> storageLoad;
     for (auto& request : requests) {
@@ -122,8 +121,8 @@ void DirectBufferedInput::load(const LogType /*unused*/) {
 
 void DirectBufferedInput::makeLoads(
     std::vector<LoadRequest*> requests,
-    bool shouldPrefetch) {
-  if (requests.empty() || (requests.size() < 2 && !shouldPrefetch)) {
+    bool prefetch) {
+  if (requests.empty() || (requests.size() < 2 && !prefetch)) {
     // A single request has no other requests to coalesce with and is not
     // eligible to prefetch. This will be loaded by itself on first use.
     return;
@@ -134,15 +133,15 @@ void DirectBufferedInput::makeLoads(
   // for sparse, coalesce to quantum to reduce overread. Not all sparse access
   // is correlated.
   const auto maxCoalesceBytes =
-      shouldPrefetch ? options_.maxCoalesceBytes() : loadQuantum;
+      prefetch ? options_.maxCoalesceBytes() : loadQuantum;
   std::sort(
       requests.begin(),
       requests.end(),
       [&](const LoadRequest* left, const LoadRequest* right) {
         return left->region.offset < right->region.offset;
       });
-  // Combine adjacent short reads.
 
+  // Combine adjacent short reads.
   int32_t numNewLoads = 0;
   int64_t coalescedBytes = 0;
   coalesceIo<LoadRequest*, LoadRequest*>(
@@ -177,9 +176,9 @@ void DirectBufferedInput::makeLoads(
           uint64_t /*offset*/,
           const std::vector<LoadRequest*>& ranges) {
         ++numNewLoads;
-        readRegion(ranges, shouldPrefetch);
+        readRegion(ranges, prefetch);
       });
-  if (shouldPrefetch && executor_) {
+  if (prefetch && executor_) {
     for (auto i = 0; i < coalescedLoads_.size(); ++i) {
       auto& load = coalescedLoads_[i];
       if (load->state() == CoalescedLoad::State::kPlanned) {
@@ -199,7 +198,7 @@ void DirectBufferedInput::readRegion(
     return;
   }
   auto load = std::make_shared<DirectCoalescedLoad>(
-      input_, ioStats_, groupId_, requests, pool_, options_.loadQuantum());
+      input_, ioStats_, groupId_, requests, *pool_, options_.loadQuantum());
   coalescedLoads_.push_back(load);
   streamToCoalescedLoad_.withWLock([&](auto& loads) {
     for (auto& request : requests) {
@@ -238,13 +237,14 @@ void appendRanges(
 }
 } // namespace
 
-std::vector<cache::CachePin> DirectCoalescedLoad::loadData(bool isPrefetch) {
+std::vector<cache::CachePin> DirectCoalescedLoad::loadData(bool prefetch) {
   std::vector<folly::Range<char*>> buffers;
   int64_t lastEnd = requests_[0].region.offset;
   int64_t size = 0;
   int64_t overread = 0;
+
   for (auto& request : requests_) {
-    auto& region = request.region;
+    const auto& region = request.region;
     if (region.offset > lastEnd) {
       buffers.push_back(folly::Range<char*>(
           nullptr,
@@ -252,6 +252,7 @@ std::vector<cache::CachePin> DirectCoalescedLoad::loadData(bool isPrefetch) {
               static_cast<uint64_t>(region.offset - lastEnd))));
       overread += buffers.back().size();
     }
+
     if (region.length > DirectBufferedInput::kTinySize) {
       if (&request != &requests_.back()) {
         // Case where request is a little over quantum but is followed by
@@ -261,7 +262,8 @@ std::vector<cache::CachePin> DirectCoalescedLoad::loadData(bool isPrefetch) {
       } else {
         request.loadSize = std::min<int32_t>(region.length, loadQuantum_);
       }
-      auto numPages = memory::AllocationTraits::numPages(request.loadSize);
+      const auto numPages =
+          memory::AllocationTraits::numPages(request.loadSize);
       pool_.allocateNonContiguous(numPages, request.data);
       appendRanges(request.data, request.loadSize, buffers);
     } else {
@@ -272,10 +274,11 @@ std::vector<cache::CachePin> DirectCoalescedLoad::loadData(bool isPrefetch) {
     lastEnd = region.offset + request.loadSize;
     size += std::min<int32_t>(loadQuantum_, region.length);
   }
+
   input_->read(buffers, requests_[0].region.offset, LogType::FILE);
   ioStats_->read().increment(size);
   ioStats_->incRawOverreadBytes(overread);
-  if (isPrefetch) {
+  if (prefetch) {
     ioStats_->prefetch().increment(size);
   }
   return {};
@@ -283,7 +286,6 @@ std::vector<cache::CachePin> DirectCoalescedLoad::loadData(bool isPrefetch) {
 
 int32_t DirectCoalescedLoad::getData(
     int64_t offset,
-
     memory::Allocation& data,
     std::string& tinyData) {
   for (auto& request : requests_) {

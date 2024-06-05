@@ -155,8 +155,11 @@ class SsdCache {
   /// Deletes checkpoint files. Used in testing.
   void testingDeleteCheckpoints();
 
-  /// Returns the total size of eviction log files. Used in testing.
+  /// Returns the total size of eviction log files. Used by test only.
   uint64_t testingTotalLogEvictionFilesSize();
+
+  /// Waits until the pending ssd cache writes finish. Used by test only.
+  void testingWaitForWriteToFinish();
 
  private:
   void checkNotShutdownLocked() {

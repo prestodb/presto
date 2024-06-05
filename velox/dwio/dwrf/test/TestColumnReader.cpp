@@ -1979,10 +1979,10 @@ TEST_P(TestColumnReader, testShortBlobError) {
     next(100, batch);
     batch->as<RowVector>()->childAt(0)->loadedVector();
     FAIL() << "Expected an error";
-  } catch (const exception::LoggedException& e) {
-    ASSERT_EQ("bad read in readFully", e.message());
   } catch (const VeloxRuntimeError& e) {
-    ASSERT_EQ("Reading past end", e.message());
+    ASSERT_TRUE(
+        "bad read in readFully" == e.message() ||
+        "Reading past end" == e.message());
   }
 }
 

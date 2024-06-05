@@ -69,7 +69,7 @@ class E2EWriterTest : public testing::Test {
     return std::make_unique<dwrf::DwrfReader>(
         opts,
         std::make_unique<BufferedInput>(
-            std::make_shared<InMemoryReadFile>(data), opts.getMemoryPool()));
+            std::make_shared<InMemoryReadFile>(data), opts.memoryPool()));
   }
 
   void testFlatMapConfig(

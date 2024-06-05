@@ -57,15 +57,6 @@ enum class PrefetchMode {
 };
 
 class ReaderOptions {
- protected:
-  velox::memory::MemoryPool* memoryPool;
-  uint64_t autoPreloadLength;
-  PrefetchMode prefetchMode;
-  int32_t loadQuantum_{kDefaultLoadQuantum};
-  int32_t maxCoalesceDistance_{kDefaultCoalesceDistance};
-  int64_t maxCoalesceBytes_{kDefaultCoalesceBytes};
-  int32_t prefetchRowGroups_{kDefaultPrefetchRowGroups};
-
  public:
   static constexpr int32_t kDefaultLoadQuantum = 8 << 20; // 8MB
   static constexpr int32_t kDefaultCoalesceDistance = 512 << 10; // 512K
@@ -73,18 +64,19 @@ class ReaderOptions {
   static constexpr int32_t kDefaultPrefetchRowGroups = 1;
 
   explicit ReaderOptions(velox::memory::MemoryPool* pool)
-      : memoryPool(pool),
-        autoPreloadLength(DEFAULT_AUTO_PRELOAD_SIZE),
-        prefetchMode(PrefetchMode::PREFETCH) {}
+      : memoryPool_(pool),
+        autoPreloadLength_(DEFAULT_AUTO_PRELOAD_SIZE),
+        prefetchMode_(PrefetchMode::PREFETCH) {}
 
   ReaderOptions& operator=(const ReaderOptions& other) {
-    memoryPool = other.memoryPool;
-    autoPreloadLength = other.autoPreloadLength;
-    prefetchMode = other.prefetchMode;
+    memoryPool_ = other.memoryPool_;
+    autoPreloadLength_ = other.autoPreloadLength_;
+    prefetchMode_ = other.prefetchMode_;
     maxCoalesceDistance_ = other.maxCoalesceDistance_;
     maxCoalesceBytes_ = other.maxCoalesceBytes_;
     prefetchRowGroups_ = other.prefetchRowGroups_;
     loadQuantum_ = other.loadQuantum_;
+    noCacheRetention_ = other.noCacheRetention_;
     return *this;
   }
 
@@ -92,73 +84,59 @@ class ReaderOptions {
     *this = other;
   }
 
-  /**
-   * Set the memory allocator.
-   */
+  /// Sets the memory pool for allocation.
   ReaderOptions& setMemoryPool(velox::memory::MemoryPool& pool) {
-    memoryPool = &pool;
+    memoryPool_ = &pool;
     return *this;
   }
 
-  /**
-   * Modify the autoPreloadLength
-   */
+  /// Modifies the autoPreloadLength
   ReaderOptions& setAutoPreloadLength(uint64_t len) {
-    autoPreloadLength = len;
+    autoPreloadLength_ = len;
     return *this;
   }
 
-  /**
-   * Modify the prefetch mode.
-   */
+  /// Modifies the prefetch mode.
   ReaderOptions& setPrefetchMode(PrefetchMode mode) {
-    prefetchMode = mode;
+    prefetchMode_ = mode;
     return *this;
   }
 
-  /**
-   * Modify the load quantum.
-   */
+  /// Modifies the load quantum.
   ReaderOptions& setLoadQuantum(int32_t quantum) {
     loadQuantum_ = quantum;
     return *this;
   }
-  /**
-   * Modify the maximum load coalesce distance.
-   */
+
+  /// Modifies the maximum load coalesce distance.
   ReaderOptions& setMaxCoalesceDistance(int32_t distance) {
     maxCoalesceDistance_ = distance;
     return *this;
   }
-  /**
-   * Modify the maximum load coalesce bytes.
-   */
+
+  /// Modifies the maximum load coalesce bytes.
   ReaderOptions& setMaxCoalesceBytes(int64_t bytes) {
     maxCoalesceBytes_ = bytes;
     return *this;
   }
 
-  /**
-   * Modify the number of row groups to prefetch.
-   */
+  /// Modifies the number of row groups to prefetch.
   ReaderOptions& setPrefetchRowGroups(int32_t numPrefetch) {
     prefetchRowGroups_ = numPrefetch;
     return *this;
   }
 
-  /**
-   * Get the memory allocator.
-   */
-  velox::memory::MemoryPool& getMemoryPool() const {
-    return *memoryPool;
+  /// Gets the memory allocator.
+  velox::memory::MemoryPool& memoryPool() const {
+    return *memoryPool_;
   }
 
-  uint64_t getAutoPreloadLength() const {
-    return autoPreloadLength;
+  uint64_t autoPreloadLength() const {
+    return autoPreloadLength_;
   }
 
-  PrefetchMode getPrefetchMode() const {
-    return prefetchMode;
+  PrefetchMode prefetchMode() const {
+    return prefetchMode_;
   }
 
   int32_t loadQuantum() const {
@@ -176,5 +154,23 @@ class ReaderOptions {
   int64_t prefetchRowGroups() const {
     return prefetchRowGroups_;
   }
+
+  bool noCacheRetention() const {
+    return noCacheRetention_;
+  }
+
+  void setNoCacheRetention(bool noCacheRetention) {
+    noCacheRetention_ = noCacheRetention;
+  }
+
+ protected:
+  velox::memory::MemoryPool* memoryPool_;
+  uint64_t autoPreloadLength_;
+  PrefetchMode prefetchMode_;
+  int32_t loadQuantum_{kDefaultLoadQuantum};
+  int32_t maxCoalesceDistance_{kDefaultCoalesceDistance};
+  int64_t maxCoalesceBytes_{kDefaultCoalesceBytes};
+  int32_t prefetchRowGroups_{kDefaultPrefetchRowGroups};
+  bool noCacheRetention_{false};
 };
 } // namespace facebook::velox::io

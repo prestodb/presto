@@ -44,8 +44,9 @@ class HiveConfig {
 
   /// Maximum number of (bucketed) partitions per a single table writer
   /// instance.
-  // TODO: remove hive_orc_use_column_names since it doesn't exist in presto,
-  // right now this is only used for testing.
+  ///
+  /// TODO: remove hive_orc_use_column_names since it doesn't exist in presto,
+  /// right now this is only used for testing.
   static constexpr const char* kMaxPartitionsPerWriters =
       "max-partitions-per-writers";
   static constexpr const char* kMaxPartitionsPerWritersSession =
@@ -211,6 +212,9 @@ class HiveConfig {
   static constexpr const char* kParquetWriteTimestampUnitSession =
       "hive.parquet.writer.timestamp_unit";
 
+  static constexpr const char* kCacheNoRetention = "cache.no_retention";
+  static constexpr const char* kCacheNoRetentionSession = "cache.no_retention";
+
   InsertExistingPartitionsBehavior insertExistingPartitionsBehavior(
       const Config* session) const;
 
@@ -297,6 +301,13 @@ class HiveConfig {
   /// Returns the timestamp unit used when writing timestamps into Parquet
   /// through Arrow bridge. 0: second, 3: milli, 6: micro, 9: nano.
   uint8_t parquetWriteTimestampUnit(const Config* session) const;
+
+  /// Returns true to evict out a query scanned data out of in-memory cache
+  /// right after the access, and also skip staging to the ssd cache. This helps
+  /// to prevent the cache space pollution from the one-time table scan by large
+  /// batch query when mixed running with interactive query which has high data
+  /// locality.
+  bool cacheNoRetention(const Config* session) const;
 
   HiveConfig(std::shared_ptr<const Config> config) {
     VELOX_CHECK_NOT_NULL(

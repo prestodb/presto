@@ -240,7 +240,7 @@ CoalesceIoStats SsdFile::load(
   // Do coalesced IO for the pins. For short payloads, the break-even between
   // discrete pread calls and a single preadv that discards gaps is ~25K per
   // gap. For longer payloads this is ~50-100K.
-  auto stats = readPins(
+  const auto stats = readPins(
       pins,
       totalPayloadBytes / pins.size() < 10000 ? 25000 : 50000,
       // Max ranges in one preadv call. Longest gap + longest cache entry are

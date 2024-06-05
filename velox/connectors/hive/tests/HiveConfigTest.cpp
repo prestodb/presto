@@ -65,6 +65,7 @@ TEST(HiveConfigTest, defaultConfig) {
   ASSERT_EQ(
       hiveConfig->orcWriterLinearStripeSizeHeuristics(emptySession.get()),
       true);
+  ASSERT_FALSE(hiveConfig->cacheNoRetention(emptySession.get()));
 }
 
 TEST(HiveConfigTest, overrideConfig) {
@@ -95,7 +96,8 @@ TEST(HiveConfigTest, overrideConfig) {
       {HiveConfig::kSortWriterMaxOutputRows, "100"},
       {HiveConfig::kSortWriterMaxOutputBytes, "100MB"},
       {HiveConfig::kOrcWriterLinearStripeSizeHeuristics, "false"},
-      {HiveConfig::kOrcWriterMinCompressionSize, "512"}};
+      {HiveConfig::kOrcWriterMinCompressionSize, "512"},
+      {HiveConfig::kCacheNoRetention, "true"}};
   HiveConfig* hiveConfig =
       new HiveConfig(std::make_shared<MemConfig>(configFromFile));
   auto emptySession = std::make_unique<MemConfig>();
@@ -137,6 +139,7 @@ TEST(HiveConfigTest, overrideConfig) {
   ASSERT_EQ(
       hiveConfig->orcWriterLinearStripeSizeHeuristics(emptySession.get()),
       false);
+  ASSERT_TRUE(hiveConfig->cacheNoRetention(emptySession.get()));
 }
 
 TEST(HiveConfigTest, overrideSession) {
@@ -152,7 +155,8 @@ TEST(HiveConfigTest, overrideSession) {
       {HiveConfig::kPartitionPathAsLowerCaseSession, "false"},
       {HiveConfig::kIgnoreMissingFilesSession, "true"},
       {HiveConfig::kOrcWriterMinCompressionSizeSession, "512"},
-      {HiveConfig::kOrcWriterLinearStripeSizeHeuristicsSession, "false"}};
+      {HiveConfig::kOrcWriterLinearStripeSizeHeuristicsSession, "false"},
+      {HiveConfig::kCacheNoRetentionSession, "true"}};
   const auto session = std::make_unique<MemConfig>(sessionOverride);
   ASSERT_EQ(
       hiveConfig->insertExistingPartitionsBehavior(session.get()),
@@ -191,4 +195,5 @@ TEST(HiveConfigTest, overrideSession) {
   ASSERT_EQ(
       hiveConfig->orcWriterLinearStripeSizeHeuristics(session.get()), false);
   ASSERT_EQ(hiveConfig->orcWriterMinCompressionSize(session.get()), 512);
+  ASSERT_TRUE(hiveConfig->cacheNoRetention(session.get()));
 }

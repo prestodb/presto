@@ -57,7 +57,7 @@ void Allocation::findRun(uint64_t offset, int32_t* index, int32_t* offsetInRun)
     const {
   uint64_t skipped = 0;
   for (int32_t i = 0; i < runs_.size(); ++i) {
-    uint64_t size = runs_[i].numPages() * AllocationTraits::kPageSize;
+    uint64_t size = AllocationTraits::pageBytes(runs_[i].numPages());
     if (offset - skipped < size) {
       *index = i;
       *offsetInRun = static_cast<int32_t>(offset - skipped);

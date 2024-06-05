@@ -47,18 +47,18 @@ bool PositionProvider::hasNext() const {
 }
 
 void SeekableInputStream::readFully(char* buffer, size_t bufferSize) {
-  size_t posn = 0;
+  size_t pos = 0;
   size_t readLength = 0;
   size_t bytesToCopy = 0;
-  while (posn < bufferSize) {
+  while (pos < bufferSize) {
     const void* chunk;
     int32_t length;
-    DWIO_ENSURE(Next(&chunk, &length), "bad read in readFully");
+    VELOX_CHECK(Next(&chunk, &length), "bad read in readFully");
     readLength = static_cast<size_t>(length);
-    bytesToCopy = std::min(readLength, bufferSize - posn);
-    auto bytes = reinterpret_cast<const char*>(chunk);
-    std::copy(bytes, bytes + bytesToCopy, buffer + posn);
-    posn += bytesToCopy;
+    bytesToCopy = std::min(readLength, bufferSize - pos);
+    auto* bytes = reinterpret_cast<const char*>(chunk);
+    std::copy(bytes, bytes + bytesToCopy, buffer + pos);
+    pos += bytesToCopy;
   }
   // return remaining bytes back to stream
   if (bytesToCopy < readLength) {
@@ -70,64 +70,66 @@ SeekableArrayInputStream::SeekableArrayInputStream(
     const unsigned char* values,
     uint64_t size,
     uint64_t blkSize)
-    : data(reinterpret_cast<const char*>(values)), dataRead{nullptr} {
-  length = size;
-  position = 0;
-  blockSize = blkSize == 0 ? length : blkSize;
+    : data_(reinterpret_cast<const char*>(values)), dataRead_{nullptr} {
+  length_ = size;
+  position_ = 0;
+  blockSize_ = blkSize == 0 ? length_ : blkSize;
 }
 
 SeekableArrayInputStream::SeekableArrayInputStream(
     const char* values,
     uint64_t size,
     uint64_t blkSize)
-    : data(values), dataRead{nullptr} {
-  length = size;
-  position = 0;
-  blockSize = blkSize == 0 ? length : blkSize;
+    : data_(values), dataRead_{nullptr} {
+  length_ = size;
+  position_ = 0;
+  blockSize_ = blkSize == 0 ? length_ : blkSize;
 }
 
 SeekableArrayInputStream::SeekableArrayInputStream(
     std::unique_ptr<char[]> values,
     uint64_t size,
     uint64_t blkSize)
-    : ownedData(std::move(values)), data(ownedData.get()), dataRead{nullptr} {
-  length = size;
-  position = 0;
-  blockSize = blkSize == 0 ? length : blkSize;
+    : ownedData_(std::move(values)),
+      data_(ownedData_.get()),
+      dataRead_{nullptr} {
+  length_ = size;
+  position_ = 0;
+  blockSize_ = blkSize == 0 ? length_ : blkSize;
 }
 
 SeekableArrayInputStream::SeekableArrayInputStream(
     std::function<std::tuple<const char*, uint64_t>()> read,
     uint64_t blkSize)
-    : data(nullptr), dataRead{read} {
-  position = 0;
-  length = 0;
-  blockSize = blkSize;
+    : data_(nullptr), dataRead_{std::move(read)} {
+  position_ = 0;
+  length_ = 0;
+  blockSize_ = blkSize;
 }
 
 void SeekableArrayInputStream::loadIfAvailable() {
-  if (UNLIKELY(!!dataRead)) {
-    const auto result = dataRead();
-    auto size = std::get<1>(result);
-    DWIO_ENSURE_LT(size, MAX_UINT64, "invalid data size");
-    data = std::get<0>(result);
-    length = size;
-    if (blockSize == 0) {
-      blockSize = length;
-    }
-
-    // just load once
-    dataRead = nullptr;
+  if (FOLLY_LIKELY(dataRead_ == nullptr)) {
+    return;
   }
+  const auto result = dataRead_();
+  auto size = std::get<1>(result);
+  VELOX_CHECK_LT(size, MAX_UINT64, "invalid data size");
+  data_ = std::get<0>(result);
+  length_ = size;
+  if (blockSize_ == 0) {
+    blockSize_ = length_;
+  }
+  // just load once
+  dataRead_ = nullptr;
 }
 
 bool SeekableArrayInputStream::Next(const void** buffer, int32_t* size) {
   loadIfAvailable();
-  uint64_t currentSize = std::min(length - position, blockSize);
+  const uint64_t currentSize = std::min(length_ - position_, blockSize_);
   if (currentSize > 0) {
-    *buffer = data + position;
+    *buffer = data_ + position_;
     *size = static_cast<int32_t>(currentSize);
-    position += currentSize;
+    position_ += currentSize;
     totalRead_ += currentSize;
     return true;
   }
@@ -140,11 +142,10 @@ void SeekableArrayInputStream::BackUp(int32_t count) {
   loadIfAvailable();
 
   if (count >= 0) {
-    uint64_t unsignedCount = static_cast<uint64_t>(count);
-    DWIO_ENSURE(
-        unsignedCount <= blockSize && unsignedCount <= position,
-        "Can't backup that much!");
-    position -= unsignedCount;
+    const uint64_t unsignedCount = static_cast<uint64_t>(count);
+    VELOX_CHECK_LE(unsignedCount, blockSize_, "Can't backup that much!");
+    VELOX_CHECK_LE(unsignedCount, position_, "Can't backup that much!");
+    position_ -= unsignedCount;
   }
 }
 
@@ -152,28 +153,27 @@ bool SeekableArrayInputStream::SkipInt64(int64_t count) {
   loadIfAvailable();
 
   if (count >= 0) {
-    uint64_t unsignedCount = static_cast<uint64_t>(count);
-    if (unsignedCount + position <= length) {
-      position += unsignedCount;
+    const uint64_t unsignedCount = static_cast<uint64_t>(count);
+    if (unsignedCount + position_ <= length_) {
+      position_ += unsignedCount;
       return true;
-    } else {
-      position = length;
     }
+    position_ = length_;
   }
   return false;
 }
 
 google::protobuf::int64 SeekableArrayInputStream::ByteCount() const {
-  return static_cast<google::protobuf::int64>(position);
+  return static_cast<google::protobuf::int64>(position_);
 }
 
 void SeekableArrayInputStream::seekToPosition(PositionProvider& position) {
-  this->position = position.next();
+  position_ = position.next();
 }
 
 std::string SeekableArrayInputStream::getName() const {
   return folly::to<std::string>(
-      "SeekableArrayInputStream ", position, " of ", length);
+      "SeekableArrayInputStream ", position_, " of ", length_);
 }
 
 size_t SeekableArrayInputStream::positionSize() {
@@ -189,71 +189,72 @@ SeekableFileInputStream::SeekableFileInputStream(
     std::shared_ptr<ReadFileInputStream> input,
     uint64_t offset,
     uint64_t byteCount,
-    memory::MemoryPool& _pool,
+    memory::MemoryPool& pool,
     LogType logType,
-    uint64_t _blockSize)
-    : pool(_pool),
-      input(std::move(input)),
-      logType(logType),
-      start(offset),
-      length(byteCount),
-      blockSize(computeBlock(_blockSize, length)),
-      buffer{pool} {
-  position = 0;
-  pushBack = 0;
+    uint64_t blockSize)
+    : input_(std::move(input)),
+      logType_(logType),
+      start_(offset),
+      length_(byteCount),
+      blockSize_(computeBlock(blockSize, length_)),
+      pool_(&pool),
+      buffer_{pool} {
+  position_ = 0;
+  pushback_ = 0;
 }
 
 bool SeekableFileInputStream::Next(const void** data, int32_t* size) {
   uint64_t bytesRead;
-  if (pushBack != 0) {
-    *data = buffer.data() + (buffer.size() - pushBack);
-    bytesRead = pushBack;
+  if (pushback_ != 0) {
+    *data = buffer_.data() + (buffer_.size() - pushback_);
+    bytesRead = pushback_;
   } else {
-    bytesRead = std::min(length - position, blockSize);
-    buffer.resize(bytesRead);
+    bytesRead = std::min(length_ - position_, blockSize_);
+    buffer_.resize(bytesRead);
     if (bytesRead > 0) {
-      input->read(buffer.data(), bytesRead, start + position, logType);
-      *data = static_cast<void*>(buffer.data());
+      input_->read(buffer_.data(), bytesRead, start_ + position_, logType_);
+      *data = static_cast<void*>(buffer_.data());
     }
   }
-  position += bytesRead;
-  pushBack = 0;
+  position_ += bytesRead;
+  pushback_ = 0;
   *size = static_cast<int32_t>(bytesRead);
   return bytesRead != 0;
 }
 
 void SeekableFileInputStream::BackUp(int32_t signedCount) {
-  DWIO_ENSURE_GE(signedCount, 0, "can't backup negative distances");
-  uint64_t count = static_cast<uint64_t>(signedCount);
-  DWIO_ENSURE_EQ(pushBack, 0, "can't backup unless we just called Next");
-  DWIO_ENSURE(count <= blockSize && count <= position, "can't backup that far");
-  pushBack = static_cast<uint64_t>(count);
-  position -= pushBack;
+  VELOX_CHECK_GE(signedCount, 0, "can't backup negative distances");
+  VELOX_CHECK_EQ(pushback_, 0, "can't backup unless we just called Next");
+  const uint64_t count = static_cast<uint64_t>(signedCount);
+  VELOX_CHECK_LE(count, blockSize_, "can't backup that far");
+  VELOX_CHECK_LE(count, position_, "can't backup that far");
+  pushback_ = static_cast<uint64_t>(count);
+  position_ -= pushback_;
 }
 
 bool SeekableFileInputStream::SkipInt64(int64_t signedCount) {
   if (signedCount < 0) {
     return false;
   }
-  uint64_t count = static_cast<uint64_t>(signedCount);
-  position = std::min(position + count, length);
-  pushBack = 0;
-  return position < length;
+  const uint64_t count = static_cast<uint64_t>(signedCount);
+  position_ = std::min(position_ + count, length_);
+  pushback_ = 0;
+  return position_ < length_;
 }
 
 google::protobuf::int64 SeekableFileInputStream::ByteCount() const {
-  return static_cast<google::protobuf::int64>(position);
+  return static_cast<google::protobuf::int64>(position_);
 }
 
 void SeekableFileInputStream::seekToPosition(PositionProvider& location) {
-  position = location.next();
-  DWIO_ENSURE_LE(position, length, "seek too far");
-  pushBack = 0;
+  position_ = location.next();
+  VELOX_CHECK_LE(position_, length_, "seek too far");
+  pushback_ = 0;
 }
 
 std::string SeekableFileInputStream::getName() const {
   return folly::to<std::string>(
-      input->getName(), " from ", start, " for ", length);
+      input_->getName(), " from ", start_, " for ", length_);
 }
 
 size_t SeekableFileInputStream::positionSize() {

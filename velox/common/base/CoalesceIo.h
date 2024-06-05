@@ -19,9 +19,9 @@
 #include <cstdint>
 #include <vector>
 namespace facebook::velox {
-// Utility for combining IOs to nearby location into fewer coalesced
-// IOs. This may increase data transfer but generally reduces
-// latency and may reduce throttling.
+/// Utility for combining IOs to nearby location into fewer coalesced IOs. This
+/// may increase data transfer but generally reduces latency and may reduce
+/// throttling.
 
 /// Describes the outcome of coalescedIo().
 struct CoalesceIoStats {

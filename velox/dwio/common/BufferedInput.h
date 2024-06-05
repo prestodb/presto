@@ -51,7 +51,7 @@ class BufferedInput {
       uint64_t maxMergeDistance = kMaxMergeDistance,
       std::optional<bool> wsVRLoad = std::nullopt)
       : input_{std::move(input)},
-        pool_{pool},
+        pool_{&pool},
         maxMergeDistance_{maxMergeDistance},
         wsVRLoad_{wsVRLoad},
         allocPool_{std::make_unique<memory::AllocationPool>(&pool)} {}
@@ -67,17 +67,16 @@ class BufferedInput {
     return input_->getName();
   }
 
-  // The previous API was taking a vector of regions
-  // Now we allow callers to enqueue region any time/place
-  // and we do final load into buffer in 2 steps (enqueue....load)
-  // 'si' allows tracking which streams actually get read. This may control
-  // read-ahead and caching for BufferedInput implementations supporting
-  // these.
+  /// The previous API was taking a vector of regions. Now we allow callers to
+  /// enqueue region any time/place and we do final load into buffer in 2 steps
+  /// (enqueue....load). 'si' allows tracking which streams actually get read.
+  /// This may control read-ahead and caching for BufferedInput implementations
+  /// supporting these.
   virtual std::unique_ptr<SeekableInputStream> enqueue(
       velox::common::Region region,
-      const StreamIdentifier* si = nullptr);
+      const StreamIdentifier* sid = nullptr);
 
-  // load all regions to be read in an optimized way (IO efficiency)
+  /// load all regions to be read in an optimized way (IO efficiency)
   virtual void load(const LogType);
 
   virtual bool isBuffered(uint64_t offset, uint64_t length) const {
@@ -87,15 +86,15 @@ class BufferedInput {
   virtual std::unique_ptr<SeekableInputStream>
   read(uint64_t offset, uint64_t length, LogType logType) const {
     std::unique_ptr<SeekableInputStream> ret = readBuffer(offset, length);
-    if (!ret) {
-      VLOG(1) << "Unplanned read. Offset: " << offset << ", Length: " << length;
-      // We cannot do enqueue/load here because load() clears previously
-      // loaded data. TODO: figure out how we can use the data cache for
-      // this access.
-      ret = std::make_unique<SeekableFileInputStream>(
-          input_, offset, length, pool_, logType, input_->getNaturalReadSize());
+    if (ret != nullptr) {
+      return ret;
     }
-    return ret;
+    VLOG(1) << "Unplanned read. Offset: " << offset << ", Length: " << length;
+    // We cannot do enqueue/load here because load() clears previously
+    // loaded data. TODO: figure out how we can use the data cache for
+    // this access.
+    return std::make_unique<SeekableFileInputStream>(
+        input_, offset, length, *pool_, logType, input_->getNaturalReadSize());
   }
 
   // True if there is free memory for prefetching the stripe. This is
@@ -120,7 +119,7 @@ class BufferedInput {
   // underlying file and memory pool.  The enqueued regions are NOT copied.
   virtual std::unique_ptr<BufferedInput> clone() const {
     return std::make_unique<BufferedInput>(
-        input_, pool_, maxMergeDistance_, wsVRLoad_);
+        input_, *pool_, maxMergeDistance_, wsVRLoad_);
   }
 
   std::unique_ptr<SeekableInputStream> loadCompleteFile() {
@@ -145,35 +144,19 @@ class BufferedInput {
   virtual uint64_t nextFetchSize() const;
 
  protected:
-  std::shared_ptr<ReadFileInputStream> input_;
-  memory::MemoryPool& pool_;
+  const std::shared_ptr<ReadFileInputStream> input_;
+  memory::MemoryPool* const pool_;
 
  private:
-  uint64_t maxMergeDistance_;
-  std::optional<bool> wsVRLoad_;
-  std::unique_ptr<memory::AllocationPool> allocPool_;
-
-  // Regions enqueued for reading
-  std::vector<velox::common::Region> regions_;
-
-  // Offsets in the file to which the corresponding Region belongs
-  std::vector<uint64_t> offsets_;
-
-  // Buffers allocated for reading each Region.
-  std::vector<folly::Range<char*>> buffers_;
-
-  // Maps the position in which the Region was originally enqueued to the
-  // position that it went to after sorting and merging. Thus this maps from the
-  // enqueued position to its corresponding buffer offset.
-  std::vector<size_t> enqueuedToBufferOffset_;
-
   std::unique_ptr<SeekableInputStream> readBuffer(
       uint64_t offset,
       uint64_t length) const;
+
   std::tuple<const char*, uint64_t> readInternal(
       uint64_t offset,
       uint64_t length,
       std::optional<size_t> i = std::nullopt) const;
+
   void readToBuffer(
       uint64_t offset,
       folly::Range<char*> allocated,
@@ -195,6 +178,24 @@ class BufferedInput {
   bool tryMerge(
       velox::common::Region& first,
       const velox::common::Region& second);
+
+  uint64_t maxMergeDistance_;
+  std::optional<bool> wsVRLoad_;
+  std::unique_ptr<memory::AllocationPool> allocPool_;
+
+  // Regions enqueued for reading
+  std::vector<velox::common::Region> regions_;
+
+  // Offsets in the file to which the corresponding Region belongs
+  std::vector<uint64_t> offsets_;
+
+  // Buffers allocated for reading each Region.
+  std::vector<folly::Range<char*>> buffers_;
+
+  // Maps the position in which the Region was originally enqueued to the
+  // position that it went to after sorting and merging. Thus this maps from the
+  // enqueued position to its corresponding buffer offset.
+  std::vector<size_t> enqueuedToBufferOffset_;
 };
 
 } // namespace facebook::velox::dwio::common

@@ -78,9 +78,9 @@ struct AccessStats {
     return (now - lastUse) / (1 + numUses);
   }
 
-  // Resets the access tracking to not accessed. This is used after
-  // evicting the previous contents of the entry, so that the new data
-  // does not inherit the history of the previous.
+  // Resets the access tracking to not accessed. This is used after evicting the
+  // previous contents of the entry, so that the new data does not inherit the
+  // history of the previous.
   void reset() {
     lastUse = accessTime();
     numUses = 0;
@@ -223,7 +223,9 @@ class AsyncDataCacheEntry {
     return value;
   }
 
-  void setExclusiveToShared();
+  /// If 'ssdSavable' is true, marks the loaded cache entry as ssdSavable if it
+  /// is not loaded from ssd.
+  void setExclusiveToShared(bool ssdSavable = true);
 
   void setSsdFile(SsdFile* file, uint64_t offset) {
     ssdFile_ = file;
@@ -263,6 +265,14 @@ class AsyncDataCacheEntry {
 
   std::string toString() const;
 
+  const AccessStats& testingAccessStats() const {
+    return accessStats_;
+  }
+
+  bool testingFirstUse() const {
+    return isFirstUse_;
+  }
+
  private:
   void release();
   void addReference();
@@ -296,9 +306,9 @@ class AsyncDataCacheEntry {
 
   AccessStats accessStats_;
 
-  // True if 'this' is speculatively loaded. This is reset on first
-  // hit. Allows catching a situation where prefetched entries get
-  // evicted before they are hit.
+  // True if 'this' is speculatively loaded. This is reset on first hit. Allows
+  // catching a situation where prefetched entries get evicted before they are
+  // hit.
   bool isPrefetch_{false};
 
   // Sets after first use of a prefetched entry. Cleared by
@@ -427,8 +437,9 @@ class CoalescedLoad {
   /// load of the entries that are not yet present. If another thread is in the
   /// process of doing this and 'wait' is null, returns immediately. If another
   /// thread is in the process of doing this and 'wait' is not null, waits for
-  /// the other thread to be done.
-  bool loadOrFuture(folly::SemiFuture<bool>* wait);
+  /// the other thread to be done. If 'ssdSavable' is true, marks the loaded
+  /// entries as ssdsavable.
+  bool loadOrFuture(folly::SemiFuture<bool>* wait, bool ssdSavable = true);
 
   State state() const {
     tsan_lock_guard<std::mutex> l(mutex_);
@@ -447,14 +458,13 @@ class CoalescedLoad {
   }
 
  protected:
-  // Makes entries for 'keys_' and loads their content. Elements of
-  // 'keys_' that are already loaded or loading are expected to be left
-  // out. The returned pins are expected to be exclusive with data
-  // loaded. The caller will set them to shared state on success. If
-  // loadData() throws, the pins it may have made will be destructed in
-  // their exclusive state so that they do not become visible to other
-  // users of the cache.
-  virtual std::vector<CachePin> loadData(bool isPrefetch) = 0;
+  // Makes entries for 'keys_' and loads their content. Elements of 'keys_' that
+  // are already loaded or loading are expected to be left out. The returned
+  // pins are expected to be exclusive with data loaded. The caller will set
+  // them to shared state on success. If loadData() throws, the pins it may have
+  // made will be destructed in their exclusive state so that they do not become
+  // visible to other users of the cache.
+  virtual std::vector<CachePin> loadData(bool prefetch) = 0;
 
   // Sets a final state and resumes waiting threads.
   void setEndState(State endState);
@@ -548,6 +558,9 @@ class CacheShard {
       uint64_t size,
       folly::SemiFuture<bool>* readyFuture);
 
+  /// Marks the cache entry with given cache 'key' as immediate evictable.
+  void makeEvictable(RawFileCacheKey key);
+
   /// Returns true if there is an entry for 'key'. Updates access time.
   bool exists(RawFileCacheKey key) const;
 
@@ -563,13 +576,13 @@ class CacheShard {
   /// graceful shutdown. The shard will no longer be valid after this call.
   void shutdown();
 
-  /// removes 'bytesToFree' worth of entries or as many entries as are
-  /// not pinned. This favors first removing older and less frequently
-  /// used entries. If 'evictAllUnpinned' is true, anything that is
-  /// not pinned is evicted at first sight. This is for out of memory
-  /// emergencies. If 'pagesToAcquire' is set, up to this amount is added
-  /// to 'allocation'. A smaller amount can be added if not enough evictable
-  /// data is found. The function returns the total evicted bytes.
+  /// Removes 'bytesToFree' worth of entries or as many entries as are not
+  /// pinned. This favors first removing older and less frequently used entries.
+  /// If 'evictAllUnpinned' is true, anything that is not pinned is evicted at
+  /// first sight. This is for out of memory emergencies. If 'pagesToAcquire' is
+  /// set, up to this amount is added to 'allocation'. A smaller amount can be
+  /// added if not enough evictable data is found. The function returns the
+  /// total evicted bytes.
   uint64_t evict(
       uint64_t bytesToFree,
       bool evictAllUnpinned,
@@ -603,6 +616,8 @@ class CacheShard {
   auto& allocClocks() {
     return allocClocks_;
   }
+
+  std::vector<AsyncDataCacheEntry*> testingCacheEntries() const;
 
  private:
   static constexpr uint32_t kMaxFreeEntries = 1 << 10;
@@ -718,6 +733,9 @@ class AsyncDataCache : public memory::Cache {
       uint64_t size,
       folly::SemiFuture<bool>* waitFuture = nullptr);
 
+  /// Marks the cache entry with given cache 'key' as immediate evictable.
+  void makeEvictable(RawFileCacheKey key);
+
   /// Returns true if there is an entry for 'key'. Updates access time.
   bool exists(RawFileCacheKey key) const;
 
@@ -764,16 +782,15 @@ class AsyncDataCache : public memory::Cache {
     return verifyHook_;
   }
 
-  // Looks up a pin for each in 'keys' and skips all loading or
-  // loaded pins. Calls processPin for each exclusive
-  // pin. processPin must move its argument if it wants to use it
-  // afterwards. sizeFunc(i) returns the size of the ith item in
-  // 'keys'.
+  /// Looks up a pin for each in 'keys' and skips all loading or loaded pins.
+  /// Calls processPin for each exclusive pin. processPin must move its argument
+  /// if it wants to use it afterwards. sizeFunc(i) returns the size of the ith
+  /// item in 'keys'.
   template <typename SizeFunc, typename ProcessPin>
   void makePins(
       const std::vector<RawFileCacheKey>& keys,
-      SizeFunc sizeFunc,
-      ProcessPin processPin) {
+      const SizeFunc& sizeFunc,
+      const ProcessPin& processPin) {
     for (auto i = 0; i < keys.size(); ++i) {
       auto pin = findOrCreate(keys[i], sizeFunc(i), nullptr);
       if (pin.empty() || pin.checkedEntry()->isShared()) {
@@ -782,9 +799,6 @@ class AsyncDataCache : public memory::Cache {
       processPin(i, std::move(pin));
     }
   }
-
-  // Drops all unpinned entries. Pins stay valid.
-  void testingClear();
 
   // Saves all entries with 'ssdSaveable_' to 'ssdCache_'.
   void saveToSsd();
@@ -800,6 +814,15 @@ class AsyncDataCache : public memory::Cache {
   bool removeFileEntries(
       const folly::F14FastSet<uint64_t>& filesToRemove,
       folly::F14FastSet<uint64_t>& filesRetained);
+
+  /// Drops all unpinned entries. Pins stay valid.
+  void testingClear();
+
+  std::vector<AsyncDataCacheEntry*> testingCacheEntries() const;
+
+  uint64_t testingSsdSavable() const {
+    return ssdSaveable_;
+  }
 
  private:
   static constexpr int32_t kNumShards = 4; // Must be power of 2.
@@ -851,9 +874,8 @@ class AsyncDataCache : public memory::Cache {
   std::atomic<int32_t> numThreadsInAllocate_{0};
 };
 
-// Samples a set of values T from 'numSamples' calls of
-// 'iter'. Returns the value where 'percent' of the samples are less than the
-// returned value.
+/// Samples a set of values T from 'numSamples' calls of 'iter'. Returns the
+/// value where 'percent' of the samples are less than the returned value.
 template <typename T, typename Next>
 T percentile(Next next, int32_t numSamples, int percent) {
   std::vector<T> values;
@@ -865,24 +887,22 @@ T percentile(Next next, int32_t numSamples, int percent) {
   return values.empty() ? 0 : values[(values.size() * percent) / 100];
 }
 
-// Utility function for loading multiple pins with coalesced
-// IO. 'pins' is a vector of CachePins to fill. 'maxGap' is the
-// largest allowed distance in bytes between the end of one entry and
-// the start of the next. If the gap is larger or the next is before
-// the end of the previous, the entries will be fetched separately.
-//
-//'offsetFunc' returns the starting offset of the data in the
-// file given a pin and the pin's index in 'pins'. The pins are expected to be
-// sorted by this offset. 'readFunc' reads from the appropriate media. It gets
-// the 'pins' and the index of the first pin included in the read and the
-// index of the first pin not included. It gets the starting offset of the
-// read and a vector of memory ranges to fill by ReadFile::preadv or a similar
-// function.
-// The caller is responsible for calling setValid on the pins after a
-// successful read.
-//
-// Returns the number of distinct IOs, the number of bytes loaded into pins
-// and the number of extra bytes read.
+/// Utility function for loading multiple pins with coalesced IO. 'pins' is a
+/// vector of CachePins to fill. 'maxGap' is the largest allowed distance in
+/// bytes between the end of one entry and the start of the next. If the gap is
+/// larger or the next is before the end of the previous, the entries will be
+/// fetched separately.
+///
+/// 'offsetFunc' returns the starting offset of the data in the file given a pin
+/// and the pin's index in 'pins'. The pins are expected to be sorted by this
+/// offset. 'readFunc' reads from the appropriate media. It gets the 'pins' and
+/// the index of the first pin included in the read and the index of the first
+/// pin not included. It gets the starting offset of the read and a vector of
+/// memory ranges to fill by ReadFile::preadv or a similar function. The caller
+/// is responsible for calling setValid on the pins after a successful read.
+///
+/// Returns the number of distinct IOs, the number of bytes loaded into pins
+/// and the number of extra bytes read.
 CoalesceIoStats readPins(
     const std::vector<CachePin>& pins,
     int32_t maxGap,

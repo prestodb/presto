@@ -74,7 +74,7 @@ void DirectInputStream::BackUp(int32_t count) {
   VELOX_CHECK_GE(count, 0, "can't backup negative distances");
 
   const uint64_t unsignedCount = static_cast<uint64_t>(count);
-  VELOX_CHECK(unsignedCount <= offsetInRun_, "Can't backup that much!");
+  VELOX_CHECK_LE(unsignedCount, offsetInRun_, "Can't backup that much!");
   offsetInRegion_ -= unsignedCount;
 }
 
@@ -162,25 +162,25 @@ void DirectInputStream::loadPosition() {
   if (!loaded_) {
     loaded_ = true;
     auto load = bufferedInput_->coalescedLoad(this);
-    if (load) {
+    if (load != nullptr) {
       folly::SemiFuture<bool> waitFuture(false);
-      uint64_t usecs = 0;
+      uint64_t loadUs = 0;
       {
-        MicrosecondTimer timer(&usecs);
+        MicrosecondTimer timer(&loadUs);
         if (!load->loadOrFuture(&waitFuture)) {
-          auto& exec = folly::QueuedImmediateExecutor::instance();
-          std::move(waitFuture).via(&exec).wait();
+          waitFuture.wait();
         }
         loadedRegion_.offset = region_.offset;
         loadedRegion_.length = load->getData(region_.offset, data_, tinyData_);
       }
-      ioStats_->queryThreadIoLatency().increment(usecs);
+      ioStats_->queryThreadIoLatency().increment(loadUs);
     } else {
       // Standalone stream, not part of coalesced load.
       loadedRegion_.offset = 0;
       loadedRegion_.length = 0;
     }
   }
+
   // Check if position outside of loaded bounds.
   if (loadedRegion_.length == 0 ||
       region_.offset + offsetInRegion_ < loadedRegion_.offset ||

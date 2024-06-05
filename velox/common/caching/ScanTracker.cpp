@@ -21,8 +21,8 @@
 
 namespace facebook::velox::cache {
 
-// Marks that 'bytes' worth of data may be accessed in the
-// future. See TrackingData for meaning of quantum.
+// Marks that 'bytes' worth of data may be accessed in the future. See
+// TrackingData for meaning of quantum.
 void ScanTracker::recordReference(
     const TrackingId id,
     uint64_t bytes,
@@ -52,8 +52,9 @@ void ScanTracker::recordRead(
 std::string ScanTracker::toString() const {
   std::stringstream out;
   out << "ScanTracker for " << id_ << std::endl;
-  for (auto& pair : data_) {
-    int pct = 100 * pair.second.readBytes / (1 + pair.second.referencedBytes);
+  for (const auto& pair : data_) {
+    const int pct =
+        100 * pair.second.readBytes / (1 + pair.second.referencedBytes);
     out << pair.first.id() << ": " << pct << "% " << pair.second.readBytes
         << "/" << pair.second.numReads << std::endl;
   }

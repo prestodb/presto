@@ -225,7 +225,7 @@ std::string SplitReader::toString() const {
 
 void SplitReader::createReader() {
   VELOX_CHECK_NE(
-      baseReaderOpts_.getFileFormat(), dwio::common::FileFormat::UNKNOWN);
+      baseReaderOpts_.fileFormat(), dwio::common::FileFormat::UNKNOWN);
 
   FileHandleCachedPtr fileHandleCachePtr;
   try {
@@ -258,7 +258,7 @@ void SplitReader::createReader() {
       ioStats_,
       executor_);
 
-  baseReader_ = dwio::common::getReaderFactory(baseReaderOpts_.getFileFormat())
+  baseReader_ = dwio::common::getReaderFactory(baseReaderOpts_.fileFormat())
                     ->createReader(std::move(baseFileInput), baseReaderOpts_);
 }
 
@@ -295,7 +295,7 @@ void SplitReader::createRowReader(
     std::shared_ptr<common::MetadataFilter> metadataFilter,
     const std::shared_ptr<HiveColumnHandle>& rowIndexColumn) {
   auto& fileType = baseReader_->rowType();
-  auto columnTypes = adaptColumns(fileType, baseReaderOpts_.getFileSchema());
+  auto columnTypes = adaptColumns(fileType, baseReaderOpts_.fileSchema());
   auto columnNames = fileType->names();
   if (rowIndexColumn != nullptr) {
     setRowIndexColumn(fileType, rowIndexColumn);

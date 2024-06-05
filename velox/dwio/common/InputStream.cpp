@@ -16,15 +16,10 @@
 
 #include "velox/dwio/common/InputStream.h"
 
-#include <fcntl.h>
 #include <folly/container/F14Map.h>
 #include <gflags/gflags.h>
 #include <glog/logging.h>
-#include <sys/stat.h>
-#include <unistd.h>
-#include <cerrno>
 #include <cstdint>
-#include <cstring>
 #include <functional>
 #include <istream>
 #include <numeric>
@@ -88,16 +83,13 @@ void ReadFileInputStream::read(
     stats_->incTotalScanTime((getCurrentTimeMicro() - readStartMicros) * 1000);
   }
 
-  DWIO_ENSURE_EQ(
+  VELOX_CHECK_EQ(
       data_read.size(),
       length,
-      "Should read exactly as requested. File name: ",
+      "Should read exactly as requested. File name: {}, offset: {}, length: {}, read: {}",
       getName(),
-      ", offset: ",
       offset,
-      ", length: ",
       length,
-      ", read: ",
       data_read.size());
 }
 
@@ -108,16 +100,13 @@ void ReadFileInputStream::read(
   const int64_t bufferSize = totalBufferSize(buffers);
   logRead(offset, bufferSize, logType);
   auto size = readFile_->preadv(offset, buffers);
-  DWIO_ENSURE_EQ(
+  VELOX_CHECK_EQ(
       size,
       bufferSize,
-      "Should read exactly as requested. File name: ",
+      "Should read exactly as requested. File name: {}, offset: {}, length: {}, read: {}",
       getName(),
-      ", offset: ",
       offset,
-      ", length: ",
       bufferSize,
-      ", read: ",
       size);
 }
 
@@ -138,7 +127,7 @@ void ReadFileInputStream::vread(
     folly::Range<const velox::common::Region*> regions,
     folly::Range<folly::IOBuf*> iobufs,
     const LogType purpose) {
-  DWIO_ENSURE_GT(regions.size(), 0, "regions to read can't be empty");
+  VELOX_CHECK_GT(regions.size(), 0, "regions to read can't be empty");
   const size_t length = std::accumulate(
       regions.cbegin(),
       regions.cend(),

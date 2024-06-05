@@ -62,7 +62,7 @@ class ParquetWriterTest : public ParquetTestBase {
     std::string_view data(sink.data(), sink.size());
     return std::make_unique<facebook::velox::parquet::ParquetReader>(
         std::make_unique<dwio::common::BufferedInput>(
-            std::make_shared<InMemoryReadFile>(data), opts.getMemoryPool()),
+            std::make_shared<InMemoryReadFile>(data), opts.memoryPool()),
         opts);
   };
 
