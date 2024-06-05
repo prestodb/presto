@@ -102,7 +102,7 @@ public class TestArrayOperators
 {
     private static FunctionAssertions fieldNameInJsonCastEnabled;
 
-    public TestArrayOperators(){}
+    public TestArrayOperators() {}
 
     @BeforeClass
     public void setUp()
@@ -1171,6 +1171,19 @@ public class TestArrayOperators
         assertCachedInstanceHasBoundedRetainedSize("ARRAY_DISTINCT(ARRAY[CAST(5 AS BIGINT), NULL, CAST(12 AS BIGINT), NULL])");
         assertCachedInstanceHasBoundedRetainedSize("ARRAY_DISTINCT(ARRAY[true, true, false, true, false])");
         assertCachedInstanceHasBoundedRetainedSize("ARRAY_DISTINCT(ARRAY['cat', 'dog', 'dog', 'coffee', 'apple'])");
+    }
+
+    @Test
+    public void testDistinctWithIndeterminateRows()
+    {
+        assertFunction(
+                "ARRAY_DISTINCT(ARRAY[(123, 'abc'), (123, NULL)])",
+                new ArrayType(RowType.anonymous(ImmutableList.of(INTEGER, createVarcharType(3)))),
+                ImmutableList.of(asList(123, "abc"), asList(123, null)));
+        assertFunction(
+                "ARRAY_DISTINCT(ARRAY[(NULL, NULL), (42, 'def'), (NULL, 'abc'), (123, NULL), (42, 'def'), (NULL, NULL), (NULL, 'abc'), (123, NULL)])",
+                new ArrayType(RowType.anonymous(ImmutableList.of(INTEGER, createVarcharType(3)))),
+                ImmutableList.of(asList(null, null), asList(42, "def"), asList(null, "abc"), asList(123, null)));
     }
 
     @Test

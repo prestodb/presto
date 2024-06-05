@@ -50,6 +50,10 @@ Array Functions
 .. function:: array_distinct(x) -> array
 
     Remove duplicate values from the array ``x``.
+    This function uses ``IS DISTINCT FROM`` to determine the distinct elements. ::
+
+        SELECT array_distinct(ARRAY [1, 2, null, null, 2]) -- ARRAY[1, 2, null]
+        SELECT array_distinct(ARRAY [ROW(1, null), ROW (1, null)] -- ARRAY[ROW(1, null)
 
 .. function:: array_duplicates(array(T)) -> array(bigint/varchar)
 
