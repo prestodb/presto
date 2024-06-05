@@ -7,3 +7,6 @@ Testing Tools
 
     testing/fuzzer
     testing/join-fuzzer
+    testing/memory-arbitration-fuzzer
+    testing/row-number-fuzzer
+    testing/writer-fuzzer
