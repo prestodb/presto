@@ -11,30 +11,42 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.aggregation.noisyaggregation.sketch;
+package com.facebook.presto.operator.aggregation.noisyaggregation.sketch.quantiletree;
+
+import com.facebook.presto.operator.aggregation.noisyaggregation.sketch.RandomizationStrategy;
+
+import java.util.Random;
 
 /**
- * Non-random numbers for testing
+ * Seeded random numbers for testing
  */
-public class TestingDeterministicRandomizationStrategy
+public class TestQuantileTreeSeededRandomizationStrategy
         extends RandomizationStrategy
 {
-    public TestingDeterministicRandomizationStrategy() {}
+    private final Random random;
+
+    public TestQuantileTreeSeededRandomizationStrategy(long seed)
+    {
+        this.random = new Random(seed);
+    }
+
+    public boolean nextBoolean(double probability)
+    {
+        return random.nextDouble() <= probability;
+    }
 
     public double nextDouble()
     {
-        return 0.5;
+        return random.nextDouble();
     }
 
-    @Override
     public double nextGaussian()
     {
-        return 0.5;
+        return random.nextGaussian();
     }
 
-    @Override
     public int nextInt(int max)
     {
-        return 1;
+        return random.nextInt(max);
     }
 }

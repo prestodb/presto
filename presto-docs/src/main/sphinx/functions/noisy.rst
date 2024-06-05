@@ -193,6 +193,124 @@ is supported via the Sketch-Flip-Merge (SFM) data sketch [Hehir2023]_.
         FROM my_table
 
 
+Approximate Percentile Sketching
+---------------------------------------
+
+Noisy approximate percentile sketching (analogous to the deterministic :doc:`q-digest`)
+is supported via the ``QuantileTree`` data sketch to enable differential privacy (DP) for percentile queries.
+The implementation is based on [Qaradji2013]_, [Cormode2011]_, and [Cormode2019]_.
+
+.. function:: noisy_approx_percentile_qtree(x, percentage, epsilon, delta, lower, upper) -> double
+
+    Returns noisy estimates of percentiles from a multiset of values in ``x`` using ``QuantileTree`` private sketches.
+    The value of ``percentage`` must be between zero and one and must be constant for all input rows.
+    This is analogous to the :func:`approx_percentile` function.
+    Like all noisy aggregations, it does not achieve a true DP guarantee, as it returns NULL in the absence of data.
+    Its DP-like privacy guarantee holds at the row-level under unbounded-neighbors (add/ remove) semantics.
+    This corresponds to user-level privacy in the case when a user contributes at most one row.
+    To achieve user-level privacy when users contribute more than one row, divide the privacy budget accordingly.
+
+    - ``x`` (double).
+    - ``epsilon`` (double) differential privacy parameter.
+    - ``delta`` (double) differential privacy parameter.
+    - ``lower`` (double) an estimate of the lower bound of values in ``x``. A better bound value often gives better percentile result.
+    - ``upper`` (double) an estimate of the upper bound of values in ``x``. A better bound value often gives better percentile result.
+
+.. function:: noisy_qtree_agg(x, epsilon, delta, lower, upper, binCount, branchingFactor, sketchDepth, sketchWidth) -> QuantileTree<double>
+
+    Returns the ``QuantileTree`` which is composed of  all input values of ``x``
+    with differential privacy parameters (``epsilon``, ``delta``) and estimates of the lower and upper bounds of values in ``x``.
+    This is analogous to the :func:`qdigest_agg` function, which returns a ``qdigest`` sketch.
+
+    - ``x`` (double).
+    - ``epsilon`` (double) differential privacy parameter.
+    - ``delta`` (double) differential privacy parameter.
+    - ``lower`` (double) an estimate of the lower bound of values in ``x``. A better bound value often gives better percentile result.
+    - ``upper`` (double) an estimate of the upper bound of values in ``x``. A better bound value often gives better percentile result.
+    - ``binCount`` (integer) number of bins at the leaf level of the QuantileTree.
+    - ``branchingFactor`` (integer) number of children each non-leaf node in the tree has.
+    - ``sketchDepth`` (integer) number of rows in the sketch data structure.  More rows decreases the chance of bad estimate.
+    - ``sketchWidth`` (integer) number of columns in the sketch data structure.  More columns reduces the error magnitude from hash collisions.
+
+.. function:: noisy_qtree_agg(x, epsilon, delta, lower, upper, binCount, branchingFactor) -> QuantileTree<double>
+
+    Returns the ``QuantileTree`` which is composed of  all input values of ``x``
+    with differential privacy parameters (``epsilon``, ``delta``) and estimates of the lower and upper bounds of values in ``x``.
+    Other parameters of ``QuantileTree`` take default values.
+    This is analogous to the :func:`qdigest_agg` function, which returns a ``qdigest`` sketch.
+
+    - ``x`` (double).
+        - ``epsilon`` (double) differential privacy parameter.
+        - ``delta`` (double) differential privacy parameter.
+        - ``lower`` (double) an estimate of the lower bound of values in ``x``. A better bound value often gives better percentile result.
+        - ``upper`` (double) an estimate of the upper bound of values in ``x``. A better bound value often gives better percentile result.
+        - ``binCount`` (integer) number of bins at the leaf level of the QuantileTree.
+        - ``branchingFactor`` (integer) number of children each non-leaf node in the tree has.
+
+.. function:: noisy_qtree_agg(x, epsilon, delta, lower, upper, binCount) -> QuantileTree<double>
+
+    Returns the ``QuantileTree`` which is composed of  all input values of ``x``
+    with differential privacy parameters (``epsilon``, ``delta``) and estimates of the lower and upper bounds of values in ``x``.
+    Other parameters of ``QuantileTree`` take default values.
+    This is analogous to the :func:`qdigest_agg` function, which returns a ``qdigest`` sketch.
+
+    - ``x`` (double).
+    - ``epsilon`` (double) differential privacy parameter.
+    - ``delta`` (double) differential privacy parameter.
+    - ``lower`` (double) an estimate of the lower bound of values in ``x``. A better bound value often gives better percentile result.
+    - ``upper`` (double) an estimate of the upper bound of values in ``x``. A better bound value often gives better percentile result.
+    - ``binCount`` (integer) number of bins at the leaf level of the QuantileTree.
+
+.. function:: noisy_qtree_agg(x, epsilon, delta, lower, upper) -> QuantileTree<double>
+
+    Returns the ``QuantileTree`` which is composed of  all input values of ``x``
+    with differential privacy parameters (``epsilon``, ``delta``) and estimates of the lower and upper bounds of values in ``x``.
+    Other parameters of ``QuantileTree`` take default values.
+    This is analogous to the :func:`qdigest_agg` function, which returns a ``qdigest`` sketch.
+
+    - ``x`` (double).
+    - ``epsilon`` (double) differential privacy parameter.
+    - ``delta`` (double) differential privacy parameter.
+    - ``lower`` (double) an estimate of the lower bound of values in ``x``. A better bound value often gives better percentile result.
+    - ``upper`` (double) an estimate of the upper bound of values in ``x``. A better bound value often gives better percentile result.
+
+
+.. function:: noisy_empty_qtree(epsilon, delta, lower, upper) -> QuantileTree<double>
+
+    Creates an empty ``QuantileTree`` sketch object
+
+    - ``epsilon`` (double) differential privacy parameter.
+    - ``delta`` (double) differential privacy parameter.
+    - ``lower`` (double) an estimate of the lower bound of values in ``x``. A better bound value often gives better percentile result.
+    - ``upper`` (double) an estimate of the upper bound of values in ``x``. A better bound value often gives better percentile result.
+
+.. function:: ensure_noise_qtree(QuantileTree, epsilon, delta) -> QuantileTree
+
+    Adds noise to a ``QuantileTree`` sketch to ensure a given level of noise.
+    - ``epsilon`` (double) differential privacy parameter.
+    - ``delta`` (double) differential privacy parameter.
+
+.. function:: merge(QuantileTree) -> QuantileTree
+
+    Merges all input ``QuantileTree``\ s into a single ``QuantileTree``.
+
+.. function:: cardinality(QuantileTree) -> bigint
+
+    Returns the approximate number of items in a ``QuantileTree`` sketch.
+
+.. function:: value_at_quantile(QuantileTree, percentage) -> double
+
+    Returns the approximate percentile values from the ``QuantileTree`` digest given
+    the number ``percentage`` between 0 and 1.
+
+.. function:: values_at_quantiles(QuantileTree, percentages) -> ARRAY<double>
+
+    Returns the approximate percentile values as an array given the input
+    ``QuantileTree`` digest and array of values between 0 and 1 which
+    represent the quantiles to return.
+
+
+
 Limitations
 -----------
 
@@ -234,3 +352,14 @@ privacy-preserving purposes, including:
    <https://algo.inria.fr/flajolet/Publications/src/FlMa85.pdf>`_
    In *Journal of Computer and System Sciences*, 31:182–209, 1985 
 
+.. [Qaradji2013] Wahbeh Qardaji, Weining Yang, Ninghui Li (2013). `Understanding Hierarchical Methods for Differentially Private Histograms.
+   <https://www.vldb.org/pvldb/vol6/p1954-qardaji.pdf>`_
+   In *JProceedings of the VLDB Endowment* 6.14 (2013): 1954-1965.
+
+.. [Cormode2011] Cormode G, Procopiuc C, Srivastava D, Shen E, Yu T. (2012). `Differentially Private Spatial Decompositions.
+   <https://arxiv.org/abs/1103.5170>`_
+   In *IEEE 28th International Conference on Data Engineering.* IEEE, 2012
+
+.. [Cormode2019] Cormode, Graham, Tejas Kulkarni, and Divesh Srivastava (2019). `Answering range queries under local differential privacy.
+   <https://www.vldb.org/pvldb/vol12/p1126-cormode.pdf>`_
+   In *Proceedings of the VLDB Endowment* 12.10.

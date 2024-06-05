@@ -32,4 +32,16 @@ public class TestingSeededRandomizationStrategy
     {
         return random.nextDouble();
     }
+
+    @Override
+    public double nextGaussian()
+    {
+        return random.nextGaussian();
+    }
+
+    @Override
+    public int nextInt(int max)
+    {
+        return random.nextInt(max);
+    }
 }

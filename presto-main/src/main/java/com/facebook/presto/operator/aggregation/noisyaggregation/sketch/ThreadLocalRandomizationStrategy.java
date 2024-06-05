@@ -28,4 +28,16 @@ public class ThreadLocalRandomizationStrategy
     {
         return ThreadLocalRandom.current().nextDouble();
     }
+
+    @Override
+    public double nextGaussian()
+    {
+        return ThreadLocalRandom.current().nextGaussian();
+    }
+
+    @Override
+    public int nextInt(int max)
+    {
+        return ThreadLocalRandom.current().nextInt(max);
+    }
 }

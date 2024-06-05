@@ -20,5 +20,9 @@ public abstract class RandomizationStrategy
         return nextDouble() <= probability;
     }
 
-    abstract double nextDouble();
+    public abstract double nextDouble();
+
+    public abstract double nextGaussian();
+
+    public abstract int nextInt(int max);
 }
