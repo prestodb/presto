@@ -19,6 +19,7 @@ Core Library
 * Fix Nested Loop join with empty build and extra filter. :pr:`9892`
 * Fix crash when copying complex vectors. :pr:`9725`
 * Fix reuse of LazyVectors in TableScan to avoid crashes in downstream operators. :pr:`9811`
+* Add support for including metadata identifying the operator that generated an error in error messages to ease troubleshooting. :pr:`9695`
 
 Presto Functions
 ================
@@ -31,6 +32,11 @@ Presto Functions
 * Fix :func:`map_top_n` function to break ties by comparing keys.
 * Fix CAST(IntervalDayTime AS Varchar) for negative intervals. :pr:`9871`
 * Fix :func:`from_base64` for inputs without padding. :pr:`8647`
+* Fix handling of equality and total ordering of NaN (Not-a-Number) floating point
+  values in :func:`array_min`, :func:`array_sort`, :func:`array_distinct`,
+  :func:`array_except`, :func:`array_intersect`, :func:`array_union`,
+  :func:`array_position`, :func:`array_remove`, :func:`arrays_overlap`, :func:`contains`,
+  map subscript and :func:`multimap_agg`.
 
 Spark Functions
 ===============
@@ -55,6 +61,7 @@ Performance and Correctness
 * Add support for Nested Loop joins to Join Fuzzer.
 * Add support for testing different sorting flags to Window Fuzzer.
 * Add custom argument type generators for Presto decimal functions. :pr:`9715`
+* Add support for logical input types in the evaluateOnce() unit test helper method. :pr:`9708`
 * Re-enable testing of merge joins in Join Fuzzer.
 
 Build System
