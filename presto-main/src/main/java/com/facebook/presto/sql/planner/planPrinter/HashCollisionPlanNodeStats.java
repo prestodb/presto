@@ -13,11 +13,13 @@
  */
 package com.facebook.presto.sql.planner.planPrinter;
 
+import com.facebook.presto.operator.DynamicFilterStats;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.max;
@@ -45,10 +47,12 @@ public class HashCollisionPlanNodeStats
             long planNodeJoinBuildKeyCount,
             long planNodeNullJoinProbeKeyCount,
             long planNodeJoinProbeKeyCount,
+            Optional<DynamicFilterStats> dynamicFilterStats,
             Map<String, OperatorHashCollisionsStats> operatorHashCollisionsStats)
     {
         super(planNodeId, planNodeScheduledTime, planNodeCpuTime, planNodeInputPositions, planNodeInputDataSize, planNodeRawInputPositions, planNodeRawInputDataSize,
-                planNodeOutputPositions, planNodeOutputDataSize, operatorInputStats, planNodeNullJoinBuildKeyCount, planNodeJoinBuildKeyCount, planNodeNullJoinProbeKeyCount, planNodeJoinProbeKeyCount);
+                planNodeOutputPositions, planNodeOutputDataSize, operatorInputStats, planNodeNullJoinBuildKeyCount, planNodeJoinBuildKeyCount, planNodeNullJoinProbeKeyCount,
+                planNodeJoinProbeKeyCount, dynamicFilterStats);
         this.operatorHashCollisionsStats = requireNonNull(operatorHashCollisionsStats, "operatorHashCollisionsStats is null");
     }
 
@@ -108,6 +112,7 @@ public class HashCollisionPlanNodeStats
                 merged.getPlanNodeJoinBuildKeyCount(),
                 merged.getPlanNodeNullJoinProbeKeyCount(),
                 merged.getPlanNodeJoinProbeKeyCount(),
+                merged.getDynamicFilterStats(),
                 operatorHashCollisionsStats);
     }
 }
