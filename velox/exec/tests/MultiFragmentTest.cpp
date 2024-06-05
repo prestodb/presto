@@ -1582,7 +1582,9 @@ TEST_F(MultiFragmentTest, taskTerminateWithPendingOutputBuffers) {
   task.reset();
 }
 
-TEST_F(MultiFragmentTest, taskTerminateWithProblematicRemainingRemoteSplits) {
+DEBUG_ONLY_TEST_F(
+    MultiFragmentTest,
+    taskTerminateWithProblematicRemainingRemoteSplits) {
   // Start the task with 2 drivers.
   auto probeData =
       makeRowVector({"p_c0"}, {makeFlatVector<int64_t>({1, 2, 3})});
@@ -1605,30 +1607,50 @@ TEST_F(MultiFragmentTest, taskTerminateWithProblematicRemainingRemoteSplits) {
   auto task = makeTask(taskId, plan, 0);
   task->start(2);
 
-  // Wait for all drivers to be blocked, so that the promises will be made.
-  bool allDriversBlocked = false;
-  while (!allDriversBlocked) {
-    allDriversBlocked = true;
-    task->testingVisitDrivers([&](Driver* driver) {
-      if (driver->isOnThread() ||
-          (driver->blockingReason() != BlockingReason::kWaitForSplit &&
-           driver->blockingReason() != BlockingReason::kWaitForProducer &&
-           driver->blockingReason() != BlockingReason::kWaitForJoinBuild)) {
-        allDriversBlocked = false;
-      }
-    });
-  }
+  std::atomic<bool> driverRunWaitFlag{true};
+  folly::EventCount driverRunWait;
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Driver::runInternal",
+      std::function<void(const Driver*)>([&](const Driver* /* unused */) {
+        // Block on driver run so that added bad split is not immediately
+        // consumed. It gets unblocked when task termination state is set.
+        driverRunWait.await([&]() { return !(driverRunWaitFlag.load()); });
+      }));
 
-  // Add one bad remote split and trigger Task::terminate.
-  task->addSplit(exchangeNodeId, remoteSplit(makeBadTaskId("leaf", 0)));
+  std::atomic<bool> taskSetErrorWaitFlag{true};
+  folly::EventCount taskSetErrorWait;
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Task::setError",
+      std::function<void(const Task*)>([&](const Task* /* unused */) {
+        taskSetErrorWait.await(
+            [&]() { return !(taskSetErrorWaitFlag.load()); });
+      }));
+
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Task::terminate",
+      std::function<void(const Task*)>([&](const Task* /* unused */) {
+        driverRunWaitFlag = false;
+        driverRunWait.notifyAll();
+      }));
+
+  std::thread failThread([&]() {
+    try {
+      VELOX_FAIL("Test terminate task");
+    } catch (const VeloxException& e) {
+      task->setError(std::current_exception());
+    }
+  });
 
   // Add one more bad split, making sure `remainingRemoteSplits` is not empty
   // and processing it would cause an exception.
-  task->addSplit(exchangeNodeId, remoteSplit(makeBadTaskId("leaf", 1)));
+  task->addSplit(exchangeNodeId, remoteSplit(makeBadTaskId("leaf", 0)));
+  taskSetErrorWaitFlag = false;
+  taskSetErrorWait.notifyAll();
 
   // Wait for the task to fail, and make sure the task has been deleted instead
   // of hanging as a zombie task.
   ASSERT_TRUE(waitForTaskFailure(task.get(), 3'000'000)) << task->taskId();
+  failThread.join();
 }
 
 DEBUG_ONLY_TEST_F(MultiFragmentTest, mergeWithEarlyTermination) {
