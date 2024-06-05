@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.memory;
 
+import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorTableHandle;
@@ -164,7 +165,7 @@ public class TestMemoryMetadata
     public void testCreateSchema()
     {
         assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of("default"));
-        metadata.createSchema(SESSION, "test", ImmutableMap.of());
+        metadata.createSchema(SESSION, new CatalogSchemaName("test_catalog", "test"), ImmutableMap.of());
         assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of("default", "test"));
         assertEquals(metadata.listTables(SESSION, "test"), ImmutableList.of());
 
@@ -189,7 +190,7 @@ public class TestMemoryMetadata
         ConnectorTableMetadata viewMetadata = new ConnectorTableMetadata(
                 test,
                 ImmutableList.of(new ColumnMetadata("a", BIGINT)));
-        metadata.createSchema(SESSION, "test", ImmutableMap.of());
+        metadata.createSchema(SESSION, new CatalogSchemaName("test_catalog", "test"), ImmutableMap.of());
         try {
             metadata.createView(SESSION, viewMetadata, "test", false);
         }
@@ -207,7 +208,7 @@ public class TestMemoryMetadata
                 test,
                 ImmutableList.of(new ColumnMetadata("a", BIGINT)));
 
-        metadata.createSchema(SESSION, "test", ImmutableMap.of());
+        metadata.createSchema(SESSION, new CatalogSchemaName("test_catalog", "test"), ImmutableMap.of());
         metadata.createView(SESSION, viewMetadata, "aaa", true);
         metadata.createView(SESSION, viewMetadata, "bbb", true);
 
@@ -227,7 +228,7 @@ public class TestMemoryMetadata
                 ImmutableList.of(new ColumnMetadata("a", BIGINT)));
 
         // create schema
-        metadata.createSchema(SESSION, "test", ImmutableMap.of());
+        metadata.createSchema(SESSION, new CatalogSchemaName("test_catalog", "test"), ImmutableMap.of());
 
         // create views
         metadata.createView(SESSION, viewMetadata1, "test1", false);
@@ -328,7 +329,7 @@ public class TestMemoryMetadata
     public void testRenameTable()
     {
         SchemaTableName tableName = new SchemaTableName("test_schema", "test_table_to_be_renamed");
-        metadata.createSchema(SESSION, "test_schema", ImmutableMap.of());
+        metadata.createSchema(SESSION, new CatalogSchemaName("test_catalog", "test_schema"), ImmutableMap.of());
         ConnectorOutputTableHandle table = metadata.beginCreateTable(
                 SESSION,
                 new ConnectorTableMetadata(tableName, ImmutableList.of(), ImmutableMap.of()),
@@ -347,7 +348,7 @@ public class TestMemoryMetadata
         assertEquals(metadata.listTables(SESSION, "test_schema"), ImmutableList.of(sameSchemaTableName));
 
         // rename table to different schema
-        metadata.createSchema(SESSION, "test_different_schema", ImmutableMap.of());
+        metadata.createSchema(SESSION, new CatalogSchemaName("test_catalog", "test_different_schema"), ImmutableMap.of());
         SchemaTableName differentSchemaTableName = new SchemaTableName("test_different_schema", "test_renamed");
         metadata.renameTable(SESSION, metadata.getTableHandle(SESSION, sameSchemaTableName), differentSchemaTableName);
         assertEquals(metadata.listTables(SESSION, "test_schema"), ImmutableList.of());

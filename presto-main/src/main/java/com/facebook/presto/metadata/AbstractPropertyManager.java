@@ -47,7 +47,6 @@ abstract class AbstractPropertyManager
     private final ConcurrentMap<ConnectorId, Map<String, PropertyMetadata<?>>> connectorProperties = new ConcurrentHashMap<>();
     private final String propertyType;
     private final ErrorCodeSupplier propertyError;
-    private final String catalogName = "catalogName";
 
     protected AbstractPropertyManager(String propertyType, ErrorCodeSupplier propertyError)
     {
@@ -137,8 +136,6 @@ abstract class AbstractPropertyManager
                 }
             }
         }
-        // Adding catalog name to the properties to pass the catalog name in metastore request
-        properties.put(catalogName, catalog);
 
         return properties.build();
     }

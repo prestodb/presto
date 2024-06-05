@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.kudu;
 
+import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
@@ -218,9 +219,9 @@ public class KuduMetadata
     }
 
     @Override
-    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
+    public void createSchema(ConnectorSession session, CatalogSchemaName catalogSchemaName, Map<String, Object> properties)
     {
-        clientSession.createSchema(schemaName);
+        clientSession.createSchema(catalogSchemaName.getSchemaName());
     }
 
     @Override

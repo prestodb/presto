@@ -25,7 +25,6 @@ import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 public final class HiveSchemaProperties
 {
     public static final String LOCATION_PROPERTY = "location";
-    public static final String CATALOG_NAME_PROPERTY = "catalogName";
 
     public static final List<PropertyMetadata<?>> SCHEMA_PROPERTIES = ImmutableList.of(
             stringProperty(
@@ -39,10 +38,5 @@ public final class HiveSchemaProperties
     public static Optional<String> getLocation(Map<String, Object> schemaProperties)
     {
         return Optional.ofNullable((String) schemaProperties.get(LOCATION_PROPERTY));
-    }
-
-    public static Optional<String> getCatalogName(Map<String, Object> schemaProperties)
-    {
-        return Optional.ofNullable((String) schemaProperties.get(CATALOG_NAME_PROPERTY));
     }
 }
