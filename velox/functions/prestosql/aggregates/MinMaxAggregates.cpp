@@ -22,6 +22,7 @@
 #include "velox/functions/lib/aggregates/SingleValueAccumulator.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
 #include "velox/functions/prestosql/aggregates/Compare.h"
+#include "velox/type/FloatingPointUtil.h"
 
 using namespace facebook::velox::functions::aggregate;
 
@@ -119,15 +120,7 @@ class MaxAggregate : public MinMaxAggregate<T> {
       return;
     }
     BaseAggregate::template updateGroups<true, T>(
-        groups,
-        rows,
-        args[0],
-        [](T& result, T value) {
-          if (result < value) {
-            result = value;
-          }
-        },
-        mayPushdown);
+        groups, rows, args[0], updateGroup, mayPushdown);
   }
 
   void addIntermediateResults(
@@ -147,11 +140,7 @@ class MaxAggregate : public MinMaxAggregate<T> {
         group,
         rows,
         args[0],
-        [](T& result, T value) {
-          if (result < value) {
-            result = value;
-          }
-        },
+        updateGroup,
         [](T& result, T value, int /* unused */) { result = value; },
         mayPushdown,
         kInitialValue_);
@@ -175,12 +164,33 @@ class MaxAggregate : public MinMaxAggregate<T> {
     }
   }
 
+  static inline void updateGroup(T& result, T value) {
+    if constexpr (std::is_floating_point_v<T>) {
+      if (util::floating_point::NaNAwareLessThan<T>{}(result, value)) {
+        result = value;
+      }
+    } else {
+      if (result < value) {
+        result = value;
+      }
+    }
+  }
+
  private:
   static const T kInitialValue_;
 };
 
 template <typename T>
 const T MaxAggregate<T>::kInitialValue_ = MinMaxTrait<T>::lowest();
+
+// Negative INF is the smallest value of floating point type.
+template <>
+const float MaxAggregate<float>::kInitialValue_ =
+    -1 * MinMaxTrait<float>::infinity();
+
+template <>
+const double MaxAggregate<double>::kInitialValue_ =
+    -1 * MinMaxTrait<double>::infinity();
 
 template <typename T>
 class MinAggregate : public MinMaxAggregate<T> {
@@ -205,15 +215,7 @@ class MinAggregate : public MinMaxAggregate<T> {
       return;
     }
     BaseAggregate::template updateGroups<true, T>(
-        groups,
-        rows,
-        args[0],
-        [](T& result, T value) {
-          if (result > value) {
-            result = value;
-          }
-        },
-        mayPushdown);
+        groups, rows, args[0], updateGroup, mayPushdown);
   }
 
   void addIntermediateResults(
@@ -233,7 +235,7 @@ class MinAggregate : public MinMaxAggregate<T> {
         group,
         rows,
         args[0],
-        [](T& result, T value) { result = result < value ? result : value; },
+        updateGroup,
         [](T& result, T value, int /* unused */) { result = value; },
         mayPushdown,
         kInitialValue_);
@@ -248,6 +250,18 @@ class MinAggregate : public MinMaxAggregate<T> {
   }
 
  protected:
+  static inline void updateGroup(T& result, T value) {
+    if constexpr (std::is_floating_point_v<T>) {
+      if (util::floating_point::NaNAwareGreaterThan<T>{}(result, value)) {
+        result = value;
+      }
+    } else {
+      if (result > value) {
+        result = value;
+      }
+    }
+  }
+
   void initializeNewGroupsInternal(
       char** groups,
       folly::Range<const vector_size_t*> indices) override {
@@ -263,6 +277,15 @@ class MinAggregate : public MinMaxAggregate<T> {
 
 template <typename T>
 const T MinAggregate<T>::kInitialValue_ = MinMaxTrait<T>::max();
+
+// In velox, NaN is considered larger than infinity for floating point types.
+template <>
+const float MinAggregate<float>::kInitialValue_ =
+    MinMaxTrait<float>::quiet_NaN();
+
+template <>
+const double MinAggregate<double>::kInitialValue_ =
+    MinMaxTrait<double>::quiet_NaN();
 
 class NonNumericMinMaxAggregateBase : public exec::Aggregate {
  public:
@@ -878,17 +901,35 @@ class MinMaxNAggregateBase : public exec::Aggregate {
 };
 
 template <typename T>
-class MinNAggregate : public MinMaxNAggregateBase<T, std::less<T>> {
+struct LessThanComparator : public std::less<T> {};
+template <>
+struct LessThanComparator<float>
+    : public util::floating_point::NaNAwareLessThan<float> {};
+template <>
+struct LessThanComparator<double>
+    : public util::floating_point::NaNAwareLessThan<double> {};
+
+template <typename T>
+struct GreaterThanComparator : public std::greater<T> {};
+template <>
+struct GreaterThanComparator<float>
+    : public util::floating_point::NaNAwareGreaterThan<float> {};
+template <>
+struct GreaterThanComparator<double>
+    : public util::floating_point::NaNAwareGreaterThan<double> {};
+
+template <typename T>
+class MinNAggregate : public MinMaxNAggregateBase<T, LessThanComparator<T>> {
  public:
   explicit MinNAggregate(const TypePtr& resultType)
-      : MinMaxNAggregateBase<T, std::less<T>>(resultType) {}
+      : MinMaxNAggregateBase<T, LessThanComparator<T>>(resultType) {}
 };
 
 template <typename T>
-class MaxNAggregate : public MinMaxNAggregateBase<T, std::greater<T>> {
+class MaxNAggregate : public MinMaxNAggregateBase<T, GreaterThanComparator<T>> {
  public:
   explicit MaxNAggregate(const TypePtr& resultType)
-      : MinMaxNAggregateBase<T, std::greater<T>>(resultType) {}
+      : MinMaxNAggregateBase<T, GreaterThanComparator<T>>(resultType) {}
 };
 
 template <

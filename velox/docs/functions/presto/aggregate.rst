@@ -117,24 +117,34 @@ General Aggregate Functions
     Returns the maximum value of all input values.
     ``x`` must not contain nulls when it is complex type.
     ``x`` must be an orderable type.
+    Nulls are ignored if there are any non-null inputs.
+    For REAL and DOUBLE types, NaN is considered greater than Infinity.
 
 .. function:: max(x, n) -> array<[same as x]>
     :noindex:
 
     Returns ``n`` largest values of all input values of ``x``.
     ``n`` must be a positive integer and not exceed 10'000.
+    Currently not supported for ARRAY, MAP, and ROW input types.
+    Nulls are not included in the output array.
+    For REAL and DOUBLE types, NaN is considered greater than Infinity.
 
 .. function:: min(x) -> [same as x]
 
     Returns the minimum value of all input values.
     ``x`` must not contain nulls when it is complex type.
     ``x`` must be an orderable type.
+    Nulls are ignored if there are any non-null inputs.
+    For REAL and DOUBLE types, NaN is considered greater than Infinity.
 
 .. function:: min(x, n) -> array<[same as x]>
     :noindex:
 
     Returns ``n`` smallest values of all input values of ``x``.
     ``n`` must be a positive integer and not exceed 10'000.
+    Currently not supported for ARRAY, MAP, and ROW input types.
+    Nulls are not included in output array.
+    For REAL and DOUBLE types, NaN is considered greater than Infinity.
 
 .. function:: multimap_agg(K key, V value) -> map(K,array(V))
 
