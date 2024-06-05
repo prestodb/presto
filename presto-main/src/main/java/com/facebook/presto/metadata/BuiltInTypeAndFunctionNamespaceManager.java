@@ -604,7 +604,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .expireAfterWrite(1, HOURS)
                 .build(CacheLoader.from(this::instantiateParametricType));
 
-        registerBuiltInFunctions(getBuildInFunctions(featuresConfig));
+        registerBuiltInFunctions(getBuiltInFunctions(featuresConfig));
         registerBuiltInTypes();
 
         for (Type type : requireNonNull(types, "types is null")) {
@@ -664,7 +664,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
         addParametricType(VARCHAR_ENUM);
     }
 
-    private List<? extends SqlFunction> getBuildInFunctions(FeaturesConfig featuresConfig)
+    private List<? extends SqlFunction> getBuiltInFunctions(FeaturesConfig featuresConfig)
     {
         FunctionListBuilder builder = new FunctionListBuilder()
                 .window(RowNumberFunction.class)
