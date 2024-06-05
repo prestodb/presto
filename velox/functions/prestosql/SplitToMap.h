@@ -110,7 +110,7 @@ struct SplitToMapFunction {
     const auto key = std::string_view(entry.data(), delimiterPos);
     VELOX_RETURN_IF(
         !keys.insert(key).second,
-        Status::UnknownError("Duplicate keys ({}) are not allowed.", key));
+        Status::UserError("Duplicate keys ({}) are not allowed.", key));
 
     const auto value = StringView(
         entry.data() + delimiterPos + 1, entry.size() - delimiterPos - 1);
