@@ -102,7 +102,9 @@ class HiveConnectorTestBase : public OperatorTestBase {
       dwio::common::FileFormat format,
       const std::optional<
           std::unordered_map<std::string, std::optional<std::string>>>&
-          partitionKeys = {});
+          partitionKeys = {},
+      const std::optional<std::unordered_map<std::string, std::string>>&
+          infoColumns = {});
 
   static std::shared_ptr<connector::hive::HiveTableHandle> makeTableHandle(
       common::test::SubfieldFilters subfieldFilters = {},

@@ -128,8 +128,10 @@ class ParquetTableScanTest : public HiveConnectorTestBase {
       RowVectorPtr data,
       const std::optional<
           std::unordered_map<std::string, std::optional<std::string>>>&
-          partitionKeys = std::nullopt) {
-    splits_ = {makeSplit(filePath)};
+          partitionKeys = std::nullopt,
+      const std::optional<std::unordered_map<std::string, std::string>>&
+          infoColumns = std::nullopt) {
+    splits_ = {makeSplit(filePath, partitionKeys, infoColumns)};
     rowType_ = rowType;
     createDuckDbTable({data});
   }
@@ -155,9 +157,15 @@ class ParquetTableScanTest : public HiveConnectorTestBase {
       const std::string& filePath,
       const std::optional<
           std::unordered_map<std::string, std::optional<std::string>>>&
-          partitionKeys = std::nullopt) {
+          partitionKeys = std::nullopt,
+      const std::optional<std::unordered_map<std::string, std::string>>&
+          infoColumns = std::nullopt) {
     return makeHiveConnectorSplits(
-        filePath, 1, dwio::common::FileFormat::PARQUET, partitionKeys)[0];
+        filePath,
+        1,
+        dwio::common::FileFormat::PARQUET,
+        partitionKeys,
+        infoColumns)[0];
   }
 
  private:
@@ -495,18 +503,24 @@ TEST_F(ParquetTableScanTest, readAsLowerCase) {
 }
 
 TEST_F(ParquetTableScanTest, rowIndex) {
+  static const char* kPath = "file_path";
   // case 1: file not have `_tmp_metadata_row_index`, scan generate it for user.
+  auto filePath = getExampleFilePath("sample.parquet");
   loadData(
-      getExampleFilePath("sample.parquet"),
-      ROW({"a", "b", "_tmp_metadata_row_index"},
-          {BIGINT(), DOUBLE(), BIGINT()}),
+      filePath,
+      ROW({"a", "b", "_tmp_metadata_row_index", kPath},
+          {BIGINT(), DOUBLE(), BIGINT(), VARCHAR()}),
       makeRowVector(
-          {"a", "b", "_tmp_metadata_row_index"},
+          {"a", "b", "_tmp_metadata_row_index", kPath},
           {
               makeFlatVector<int64_t>(20, [](auto row) { return row + 1; }),
               makeFlatVector<double>(20, [](auto row) { return row + 1; }),
               makeFlatVector<int64_t>(20, [](auto row) { return row; }),
-          }));
+              makeFlatVector<std::string>(
+                  20, [filePath](auto row) { return filePath; }),
+          }),
+      std::nullopt,
+      std::unordered_map<std::string, std::string>{{kPath, filePath}});
   std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
       assignments;
   assignments["a"] = std::make_shared<connector::hive::HiveColumnHandle>(
@@ -519,6 +533,7 @@ TEST_F(ParquetTableScanTest, rowIndex) {
       connector::hive::HiveColumnHandle::ColumnType::kRegular,
       DOUBLE(),
       DOUBLE());
+  assignments[kPath] = synthesizedColumn(kPath, VARCHAR());
   assignments["_tmp_metadata_row_index"] =
       std::make_shared<connector::hive::HiveColumnHandle>(
           "_tmp_metadata_row_index",
@@ -539,6 +554,10 @@ TEST_F(ParquetTableScanTest, rowIndex) {
       {"_tmp_metadata_row_index"},
       assignments,
       "SELECT _tmp_metadata_row_index FROM tmp");
+  assertSelectWithAssignments(
+      {kPath, "_tmp_metadata_row_index"},
+      assignments,
+      fmt::format("SELECT {}, _tmp_metadata_row_index FROM tmp", kPath));
 
   // case 2: file has `_tmp_metadata_row_index` column, then use user data
   // insteads of generating it.

@@ -146,7 +146,9 @@ HiveConnectorTestBase::makeHiveConnectorSplits(
     dwio::common::FileFormat format,
     const std::optional<
         std::unordered_map<std::string, std::optional<std::string>>>&
-        partitionKeys) {
+        partitionKeys,
+    const std::optional<std::unordered_map<std::string, std::string>>&
+        infoColumns) {
   auto file =
       filesystems::getFileSystem(filePath, nullptr)->openFileForRead(filePath);
   const int64_t fileSize = file->size();
@@ -159,6 +161,11 @@ HiveConnectorTestBase::makeHiveConnectorSplits(
                             .fileFormat(format)
                             .start(i * splitSize)
                             .length(splitSize);
+    if (infoColumns.has_value()) {
+      for (auto infoColumn : infoColumns.value()) {
+        splitBuilder.infoColumn(infoColumn.first, infoColumn.second);
+      }
+    }
     if (partitionKeys.has_value()) {
       for (auto partitionKey : partitionKeys.value()) {
         splitBuilder.partitionKey(partitionKey.first, partitionKey.second);
