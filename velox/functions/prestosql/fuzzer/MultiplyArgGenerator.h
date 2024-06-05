@@ -19,7 +19,6 @@
 
 namespace facebook::velox::exec::test {
 
-// An argument type generator for decimal multiply Presto function.
 class MultiplyArgGenerator : public fuzzer::DecimalArgGeneratorBase {
  public:
   MultiplyArgGenerator() {

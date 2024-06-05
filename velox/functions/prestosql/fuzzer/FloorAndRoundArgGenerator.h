@@ -20,7 +20,6 @@
 
 namespace facebook::velox::exec::test {
 
-// An argument type generator for decimal floor and round Presto functions.
 class FloorAndRoundArgGenerator : public fuzzer::ArgGenerator {
  public:
   std::vector<TypePtr> generateArgs(

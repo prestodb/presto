@@ -16,6 +16,7 @@
 #include "velox/expression/fuzzer/tests/ArgGeneratorTestUtils.h"
 #include "velox/functions/prestosql/fuzzer/DivideArgGenerator.h"
 #include "velox/functions/prestosql/fuzzer/FloorAndRoundArgGenerator.h"
+#include "velox/functions/prestosql/fuzzer/ModulusArgGenerator.h"
 #include "velox/functions/prestosql/fuzzer/MultiplyArgGenerator.h"
 #include "velox/functions/prestosql/fuzzer/PlusMinusArgGenerator.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
@@ -119,6 +120,17 @@ TEST_F(ArgGeneratorTest, round) {
   assertEmptyArgs(generator, twoArgsSignature, DECIMAL(18, 18));
   assertEmptyArgs(generator, twoArgsSignature, DECIMAL(38, 38));
   assertEmptyArgs(generator, twoArgsSignature, DECIMAL(1, 0));
+}
+
+TEST_F(ArgGeneratorTest, modulus) {
+  const auto& signature = getOnlySignature("mod");
+  const auto generator = std::make_shared<exec::test::ModulusArgGenerator>();
+
+  assertReturnType(generator, signature, DECIMAL(10, 2));
+  assertReturnType(generator, signature, DECIMAL(32, 6));
+  assertReturnType(generator, signature, DECIMAL(38, 20));
+  assertReturnType(generator, signature, DECIMAL(38, 38));
+  assertReturnType(generator, signature, DECIMAL(38, 0));
 }
 
 } // namespace

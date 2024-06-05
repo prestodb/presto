@@ -19,7 +19,6 @@
 
 namespace facebook::velox::exec::test {
 
-// An argument type generator for decimal divide Presto function.
 class DivideArgGenerator : public fuzzer::DecimalArgGeneratorBase {
  public:
   DivideArgGenerator() {
