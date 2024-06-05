@@ -47,7 +47,7 @@ permissions:
 
 jobs:
   compile:
-    runs-on: 8-core
+    runs-on: 8-core-ubuntu
     timeout-minutes: 120
     env:
       CCACHE_DIR: "${{ github.workspace }}/.ccache/"
@@ -105,7 +105,7 @@ jobs:
 
 
   presto-java-aggregation-fuzzer-run:
-    runs-on: 8-core
+    runs-on: 8-core-ubuntu
     container: ghcr.io/facebookincubator/velox-dev:presto-java
     timeout-minutes: 120
     env:

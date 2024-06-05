@@ -41,7 +41,7 @@ defaults:
 jobs:
   benchmark:
     if: github.repository == 'facebookincubator/velox'
-    runs-on: 8-core
+    runs-on: 8-core-ubuntu
     env:
       CCACHE_DIR: "${{ github.workspace }}/.ccache/"
       CCACHE_BASEDIR: "${{ github.workspace }}"
