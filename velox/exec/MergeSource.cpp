@@ -231,6 +231,8 @@ void notify(std::optional<ContinuePromise>& promise) {
 BlockingReason MergeJoinSource::next(
     ContinueFuture* future,
     RowVectorPtr* data) {
+  common::testutil::TestValue::adjust(
+      "facebook::velox::exec::MergeSource::next", this);
   return state_.withWLock([&](auto& state) {
     if (state.data != nullptr) {
       *data = std::move(state.data);
@@ -252,11 +254,18 @@ BlockingReason MergeJoinSource::next(
 BlockingReason MergeJoinSource::enqueue(
     RowVectorPtr data,
     ContinueFuture* future) {
+  common::testutil::TestValue::adjust(
+      "facebook::velox::exec::MergeSource::enqueue", this);
   return state_.withWLock([&](auto& state) {
     if (state.atEnd) {
       // This can happen if consumer called close() because it doesn't need any
-      // more data.
-      // TODO Finish the pipeline early and avoid unnecessary computing.
+      // more data, or because the Task failed or was aborted and the Driver is
+      // cleaning up.
+      // TODO: Finish the pipeline early and avoid unnecessary computing.
+
+      // Notify consumerPromise_ so the consumer doesn't hang indefinitely if
+      // this is because the Driver is closing operators.
+      notify(consumerPromise_);
       return BlockingReason::kNotBlocked;
     }
 
@@ -281,6 +290,7 @@ void MergeJoinSource::close() {
     state.data = nullptr;
     state.atEnd = true;
     notify(producerPromise_);
+    notify(consumerPromise_);
   });
 }
 } // namespace facebook::velox::exec

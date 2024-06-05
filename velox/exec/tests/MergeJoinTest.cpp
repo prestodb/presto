@@ -14,11 +14,16 @@
  * limitations under the License.
  */
 
+#include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/testutil/TestValue.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 
+#include "folly/experimental/EventCount.h"
+
 using namespace facebook::velox;
+using namespace facebook::velox::common::testutil;
 using namespace facebook::velox::exec;
 using namespace facebook::velox::exec::test;
 
@@ -731,4 +736,80 @@ TEST_F(MergeJoinTest, complexTypedFilter) {
           left, "cardinality(t_c1) > 4", "cardinality(t_c1) > 4", outputLayout);
     }
   }
-};
+}
+
+DEBUG_ONLY_TEST_F(MergeJoinTest, failureOnRightSide) {
+  // Test that the Task terminates cleanly when the right side of the join
+  // throws an exception.
+
+  auto leftKeys = makeFlatVector<int32_t>(1'234, [](auto row) { return row; });
+  auto rightKeys = makeFlatVector<int32_t>(1'234, [](auto row) { return row; });
+  std::vector<RowVectorPtr> left;
+  auto payload = makeFlatVector<int32_t>(
+      leftKeys->size(), [](auto row) { return row * 10; });
+  left.push_back(makeRowVector({leftKeys, payload}));
+
+  std::vector<RowVectorPtr> right;
+  payload = makeFlatVector<int32_t>(
+      rightKeys->size(), [](auto row) { return row * 20; });
+  right.push_back(makeRowVector({rightKeys, payload}));
+
+  createDuckDbTable("t", left);
+  createDuckDbTable("u", right);
+
+  // Test INNER join.
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  auto plan = PlanBuilder(planNodeIdGenerator)
+                  .values(left)
+                  .mergeJoin(
+                      {"c0"},
+                      {"u_c0"},
+                      PlanBuilder(planNodeIdGenerator)
+                          .values(right)
+                          .project({"c1 AS u_c1", "c0 AS u_c0"})
+                          .planNode(),
+                      "",
+                      {"c0", "c1", "u_c1"},
+                      core::JoinType::kInner)
+                  .planNode();
+
+  std::atomic_bool nextCalled = false;
+  folly::EventCount nextCalledWait;
+  std::atomic_bool enqueueCalled = false;
+
+  // The left side will call next to fetch data from the right side.  We want
+  // this to be called at least once to ensure consumerPromise_ is created in
+  // the MergeSource.
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::MergeSource::next",
+      std::function<void(const MergeJoinSource*)>([&](const MergeJoinSource*) {
+        nextCalled = true;
+        nextCalledWait.notifyAll();
+      }));
+
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::MergeSource::enqueue",
+      std::function<void(const MergeJoinSource*)>([&](const MergeJoinSource*) {
+        // Only call this the first time, otherwise if we throw an exception
+        // during Driver.close the process will crash.
+        if (!enqueueCalled.load()) {
+          // The first time the right side calls enqueue, wait for the left side
+          // to call next.  Since enqueue never finished executing there won't
+          // be any data available and enqueue will create a consumerPromise_.
+          enqueueCalled = true;
+          nextCalledWait.await([&]() { return nextCalled.load(); });
+          // Throw an exception so that the task terminates and consumerPromise_
+          // is not fulfilled.
+          VELOX_FAIL("Expected");
+        }
+      }));
+
+  // Use very small output batch size.
+  VELOX_ASSERT_THROW(
+      assertQuery(
+          makeCursorParameters(plan, 16),
+          "SELECT t.c0, t.c1, u.c1 FROM t, u WHERE t.c0 = u.c0"),
+      "Expected");
+
+  waitForAllTasksToBeDeleted();
+}
