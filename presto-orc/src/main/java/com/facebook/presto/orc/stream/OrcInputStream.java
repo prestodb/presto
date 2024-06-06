@@ -167,9 +167,6 @@ public final class OrcInputStream
     {
         while (length > 0) {
             long result = skip(length);
-            if (result < 0) {
-                throw new OrcCorruptionException(orcDataSourceId, "Unexpected end of stream");
-            }
             length -= result;
         }
     }
