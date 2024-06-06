@@ -48,18 +48,18 @@ SPI Changes
 ___________
 * Add support for connectors to return joins in ``ConnectorPlanOptimizer.optimize``. :pr:`21605`
 
-Hive Changes
-____________
+Hive Connector Changes
+______________________
 * Fix parquet dereference pushdown which was not working unless the ``parquet_use_column_names`` session property was set. :pr:`21647`
 * Fix CTE materialization for unsupported Hive bucket types. :pr:`21549`
 * Remove hive config ``hive.s3.use-instance-credentials`` as deprecated. :pr:`21648`
 
-Hudi Changes
-____________
+Hudi Connector Changes
+______________________
 * Upgrade Hudi version to 0.14.0. :pr:`21012`
 
-Iceberg Changes
-_______________
+Iceberg Connector Changes
+_________________________
 * Upgrade Apache Iceberg to 1.4.3.  :pr:`21714`
 * Add Iceberg Filter Pushdown Optimizer Rule for execution with Velox. :pr:`20501`
 * Add ``iceberg.pushdown-filter-enabled`` config property to Iceberg Connector. This config property controls the behaviour of Filter Pushdown in the Iceberg connector. :pr:`20501`
