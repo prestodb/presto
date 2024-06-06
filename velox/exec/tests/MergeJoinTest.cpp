@@ -544,6 +544,9 @@ TEST_F(MergeJoinTest, dictionaryOutput) {
   for (const auto& child : output->children()) {
     EXPECT_TRUE(isDictionary(child->encoding()));
   }
+
+  // Output can't outlive the task.
+  output.reset();
 }
 
 TEST_F(MergeJoinTest, semiJoin) {
