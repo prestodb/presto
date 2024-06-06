@@ -67,10 +67,10 @@ struct MemoryUsage {
   uint64_t peakUsage;
 
   bool operator>(const MemoryUsage& other) const {
-    return std::tie(currentUsage, reservedUsage, peakUsage, name) >
+    return std::tie(reservedUsage, currentUsage, peakUsage, name) >
         std::tie(
-               other.currentUsage,
                other.reservedUsage,
+               other.currentUsage,
                other.peakUsage,
                other.name);
   }
