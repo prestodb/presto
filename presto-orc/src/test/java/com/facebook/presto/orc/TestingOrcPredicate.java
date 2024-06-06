@@ -210,11 +210,6 @@ public final class TestingOrcPredicate
                 List<T> chunk = expectedValues.subList((int) (expectedValues.size() - numberOfRows), expectedValues.size());
                 assertChunkStats(chunk, columnStatistics);
             }
-            else if (numberOfRows == expectedValues.size() % ORC_STRIPE_SIZE) {
-                // tail section
-                List<T> chunk = expectedValues.subList((int) (expectedValues.size() - numberOfRows), expectedValues.size());
-                assertChunkStats(chunk, columnStatistics);
-            }
             else {
                 fail("Unexpected number of rows: " + numberOfRows);
             }
