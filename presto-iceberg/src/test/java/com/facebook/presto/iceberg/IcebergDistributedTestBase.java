@@ -94,7 +94,9 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.SystemSessionProperties.ITERATIVE_OPTIMIZER_TIMEOUT;
 import static com.facebook.presto.SystemSessionProperties.LEGACY_TIMESTAMP;
+import static com.facebook.presto.SystemSessionProperties.OPTIMIZER_USE_HISTOGRAMS;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
@@ -116,6 +118,8 @@ import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
+import static java.util.stream.IntStream.range;
 import static org.apache.iceberg.SnapshotSummary.TOTAL_DATA_FILES_PROP;
 import static org.apache.iceberg.SnapshotSummary.TOTAL_DELETE_FILES_PROP;
 import static org.testng.Assert.assertNotEquals;
@@ -688,6 +692,59 @@ public abstract class IcebergDistributedTestBase
     @Override
     public void testDescribeOutputNamedAndUnnamed()
     {
+    }
+
+    /**
+     * Increased the optimizer timeout from 15000ms to 25000ms
+     */
+    @Override
+    public void testLargeIn()
+    {
+        String longValues = range(0, 5000)
+                .mapToObj(Integer::toString)
+                .collect(joining(", "));
+        Session session = Session.builder(getSession())
+                .setSystemProperty(ITERATIVE_OPTIMIZER_TIMEOUT, "25000ms")
+                .build();
+        assertQuery(session, "SELECT orderkey FROM orders WHERE orderkey IN (" + longValues + ")");
+        assertQuery(session, "SELECT orderkey FROM orders WHERE orderkey NOT IN (" + longValues + ")");
+
+        assertQuery(session, "SELECT orderkey FROM orders WHERE orderkey IN (mod(1000, orderkey), " + longValues + ")");
+        assertQuery(session, "SELECT orderkey FROM orders WHERE orderkey NOT IN (mod(1000, orderkey), " + longValues + ")");
+
+        String varcharValues = range(0, 5000)
+                .mapToObj(i -> "'" + i + "'")
+                .collect(joining(", "));
+        assertQuery(session, "SELECT orderkey FROM orders WHERE cast(orderkey AS VARCHAR) IN (" + varcharValues + ")");
+        assertQuery(session, "SELECT orderkey FROM orders WHERE cast(orderkey AS VARCHAR) NOT IN (" + varcharValues + ")");
+
+        String arrayValues = range(0, 5000)
+                .mapToObj(i -> format("ARRAY[%s, %s, %s]", i, i + 1, i + 2))
+                .collect(joining(", "));
+        assertQuery(session, "SELECT ARRAY[0, 0, 0] in (ARRAY[0, 0, 0], " + arrayValues + ")", "values true");
+        assertQuery(session, "SELECT ARRAY[0, 0, 0] in (" + arrayValues + ")", "values false");
+    }
+
+    /**
+     * Increased the optimizer timeouts from 30000ms and 20000ms to 40000ms and 30000ms respectively
+     */
+    @Override
+    public void testLargeInWithHistograms()
+    {
+        String longValues = range(0, 10_000)
+                .mapToObj(Integer::toString)
+                .collect(joining(", "));
+        String query = "select orderpriority, sum(totalprice) from lineitem join orders on lineitem.orderkey = orders.orderkey where orders.orderkey in (" + longValues + ") group by 1";
+        Session session = Session.builder(getSession())
+                .setSystemProperty(ITERATIVE_OPTIMIZER_TIMEOUT, "40000ms")
+                .setSystemProperty(OPTIMIZER_USE_HISTOGRAMS, "true")
+                .build();
+        assertQuerySucceeds(session, query);
+        session = Session.builder(getSession())
+                .setSystemProperty(ITERATIVE_OPTIMIZER_TIMEOUT, "30000ms")
+                .setSystemProperty(OPTIMIZER_USE_HISTOGRAMS, "false")
+                .build();
+        assertQuerySucceeds(session, query);
     }
 
     @Override
