@@ -141,4 +141,44 @@ TEST_F(PartitionedOutputTest, flush) {
   EXPECT_EQ(partition1.size(), 2);
 }
 
+TEST_F(PartitionedOutputTest, keyChannelNotAtBeginningWithNulls) {
+  // This test verifies that PartitionedOutput can handle the case where a key
+  // channel is not at the beginning of the input type when nulls are present in
+  // the key channel.  This triggers collectNullRows() to run which has special
+  // handling logic for the key channels.
+
+  auto input = makeRowVector(
+      // The key column p1 is the second column.
+      {"v1", "p1"},
+      {makeFlatVector<std::string>({"0", "1", "2", "3"}),
+       // Add nulls to the key column.
+       makeNullableFlatVector<int32_t>(std::vector<std::optional<int32_t>>{
+           0, std::nullopt, 1, std::nullopt})});
+
+  auto plan =
+      PlanBuilder()
+          .values({input}, false, 13)
+          // Set replicateNullsAndAny to true so we trigger the null path.
+          .partitionedOutput({"p1"}, 2, true, std::vector<std::string>{"v1"})
+          .planNode();
+
+  auto taskId = "local://test-partitioned-output-0";
+  auto task = Task::create(
+      taskId,
+      core::PlanFragment{plan},
+      0,
+      createQueryContext({}),
+      Task::ExecutionMode::kParallel);
+  task->start(1);
+
+  const auto partition0 = getAllData(taskId, 0);
+  const auto partition1 = getAllData(taskId, 1);
+
+  ASSERT_TRUE(waitForTaskCompletion(
+      task.get(),
+      std::chrono::duration_cast<std::chrono::microseconds>(
+          std::chrono::seconds(10))
+          .count()));
+}
+
 } // namespace facebook::velox::exec::test

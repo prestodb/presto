@@ -297,14 +297,18 @@ void PartitionedOutput::collectNullRows() {
 
   decodedVectors_.resize(keyChannels_.size());
 
-  for (auto i : keyChannels_) {
-    if (i == kConstantChannel) {
+  for (size_t keyChannelIndex = 0; keyChannelIndex < keyChannels_.size();
+       ++keyChannelIndex) {
+    column_index_t keyChannel = keyChannels_[keyChannelIndex];
+    // Skip constant channel.
+    if (keyChannel == kConstantChannel) {
       continue;
     }
-    auto& keyVector = input_->childAt(i);
+    auto& keyVector = input_->childAt(keyChannel);
     if (keyVector->mayHaveNulls()) {
-      decodedVectors_[i].decode(*keyVector, rows_);
-      if (auto* rawNulls = decodedVectors_[i].nulls(&rows_)) {
+      DecodedVector& decodedVector = decodedVectors_[keyChannelIndex];
+      decodedVector.decode(*keyVector, rows_);
+      if (auto* rawNulls = decodedVector.nulls(&rows_)) {
         bits::orWithNegatedBits(
             nullRows_.asMutableRange().bits(), rawNulls, 0, size);
       }
