@@ -184,6 +184,13 @@ General Aggregate Functions
     Returns an array created from the distinct input ``x`` elements.
 
     If the input includes ``NULL``, ``NULL`` will be included in the returned array.
+    If the input includes arrays with ``NULL`` elements or rows with ``NULL`` fields, they will
+    be included in the returned array.  This function uses ``IS DISTINCT FROM`` to determine
+    distinctness. ::
+
+        SELECT set_agg(x) FROM (VALUES(1), (2), (null), (2), (null)) t(x) -- ARRAY[1, 2, null]
+        SELECT set_agg(x) FROM (VALUES(ROW(ROW(1, null))), ROW((ROW(2, 'a'))), ROW((ROW(1, null))), (null)) t(x) -- ARRAY[ROW(1, null), ROW(2, 'a'), null]
+
 
 .. function:: set_union(array(T)) -> array(T)
 
@@ -191,6 +198,9 @@ General Aggregate Functions
 
     When all inputs are ``NULL``, this function returns an empty array. If ``NULL`` is
     an element of one of the input arrays, ``NULL`` will be included in the returned array.
+    If the input includes arrays with ``NULL`` elements or rows with ``NULL`` fields, they will
+    be included in the returned array.  This function uses ``IS DISTINCT FROM`` to determine
+    distinctness.
 
     Example::
 
