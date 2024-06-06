@@ -40,12 +40,12 @@ _______________
 * Upgrade zstandard compression to version 1.5.2.2. This improves the cpu used for data compressed with zstandard by about 2%.
 * Upgrade postgresql driver to 42.3.3.
 
-Clickhouse Changes
-____________
+Clickhouse Connector Changes
+____________________________
 * Add a Presto connector for Clickhouse with support of username/password authentication.
 
-Hive Changes
-____________
+Hive Connector Changes
+______________________
 * Add a limit that prevents caching partitions with column counts greater than a configured threshold. This threshold can be set using the ``hive.partition-cache-column-count-limit`` configuration property.
 * Add metastore configuration property ``hive.metastore.thrift.delete-files-on-table-drop`` to delete files on drop table.
 * Add support for overwriting existing partitions with a Hive configuration property ``hive.insert-existing-partitions-behavior``. This configuration property supersedes the legacy one ``hive.insert-overwrite-immutable-partitions-enabled``. The new configuration property adds capability of overwriting new partitions for S3.
@@ -53,19 +53,19 @@ ____________
 * Replace Hive session property ``streaming_aggregation_enabled`` with ``order_based_execution_enabled``.
 * Replace Hive configuration property ``hive.streaming-aggregation-enabled`` with ``hive.order-based-execution-enabled``.
 
-Iceberg Changes
-_______________
+Iceberg Connector Changes
+_________________________
 * Fix Iceberg ``$files`` table in case of column dropping.
 * Add ``$properties`` system table.
 * Add support for storing column comments for Iceberg tables.
 * Upgrade Iceberg to 0.13.1.
 
-Mongodb Changes
-_______________
+Mongodb Connector Changes
+_________________________
 * Add :func:`CAST(ObjectId() as STRING)`.
 
-Pinot Changes
-_____________
+Pinot Connector Changes
+_______________________
 * Improve query performance by enabling pushdown of topn broker queries by default.
 * Add double-quotes to Pinot generated queries to ensure that reserved keywords are escaped.
 * Add TLS support in Pinot gRPC connection.

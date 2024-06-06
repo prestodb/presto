@@ -50,8 +50,9 @@ In the above example configuration,
 
 When affinity scheduling is enabled, a set of preferred nodes is assigned to a certain file section. The default file section size is ``256MB``.
 For example, if the file size is 512MB, two different affinity preferences will be assigned:
-    - ``[0MB..256MB] -> NodeA, NodeB``
-    - ``[256MB+1B..512MB] -> NodeC, NodeD``
+
+- ``[0MB..256MB] -> NodeA, NodeB``
+- ``[256MB+1B..512MB] -> NodeC, NodeD``
 
 The section is selected based on the split start offset.
 A split that has its first byte in the first section is preferred to be scheduled on ``NodeA`` or ``NodeB``.
