@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.RowType;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -23,6 +24,7 @@ import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
 
@@ -65,5 +67,32 @@ public class TestArrayExceptFunction
         assertFunction("array_except(ARRAY[CAST(1 as BIGINT), 5, 5, 3, 3, 3, 1], ARRAY[3, 5])", new ArrayType(BIGINT), ImmutableList.of(1L));
         assertFunction("array_except(ARRAY[CAST('x' as VARCHAR), 'x', 'y', 'z'], ARRAY['x', 'y', 'x'])", new ArrayType(VARCHAR), ImmutableList.of("z"));
         assertFunction("array_except(ARRAY[true, false, null, true, false, null], ARRAY[true, true, true])", new ArrayType(BOOLEAN), asList(false, null));
+    }
+
+    @Test
+    public void testIndeterminateRows()
+    {
+        // test unsupported
+        assertFunction(
+                "array_except(ARRAY[(123, 'abc'), (123, NULL)], ARRAY[(123, 'abc'), (123, NULL)])",
+                new ArrayType(RowType.anonymous(ImmutableList.of(INTEGER, createVarcharType(3)))),
+                ImmutableList.of());
+        assertFunction(
+                "array_except(ARRAY[(NULL, 'abc'), (123, null), (123, 'abc')], ARRAY[(456, 'def'),(NULL, 'abc')])",
+                new ArrayType(RowType.anonymous(ImmutableList.of(INTEGER, createVarcharType(3)))),
+                ImmutableList.of(asList(123, null), asList(123, "abc")));
+    }
+
+    @Test
+    public void testIndeterminateArrays()
+    {
+        assertFunction(
+                "array_except(ARRAY[ARRAY[123, 456], ARRAY[123, NULL]], ARRAY[ARRAY[123, 456], ARRAY[123, NULL]])",
+                new ArrayType(new ArrayType(INTEGER)),
+                ImmutableList.of());
+        assertFunction(
+                "array_except(ARRAY[ARRAY[NULL, 456], ARRAY[123, null], ARRAY[123, 456]], ARRAY[ARRAY[456, 456],ARRAY[NULL, 456]])",
+                new ArrayType(new ArrayType(INTEGER)),
+                ImmutableList.of(asList(123, null), asList(123, 456)));
     }
 }
