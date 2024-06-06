@@ -68,7 +68,8 @@ enum class ParseMode {
   // `[+-][Y]Y*-[M]M*-[D]DT*`
   kNonStandardCast,
 
-  // Like kNonStandardCast but does not permit inclusion of timestamp.
+  // ISO-8601 format. No leading or trailing spaces allowed.
+  //
   // Supported formats:
   // `[+-][Y]Y*`
   // `[+-][Y]Y*-[M]M`

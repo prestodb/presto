@@ -122,10 +122,15 @@ struct DateFunction : public TimestampWithTimezoneSupport<T> {
     // Do nothing. Session timezone doesn't affect the result.
   }
 
-  FOLLY_ALWAYS_INLINE void call(
-      out_type<Date>& result,
-      const arg_type<Varchar>& date) {
-    result = DATE()->toDays(date);
+  FOLLY_ALWAYS_INLINE Status
+  call(out_type<Date>& result, const arg_type<Varchar>& date) {
+    auto days = util::castFromDateString(date, util::ParseMode::kStandardCast);
+    if (days.hasError()) {
+      return days.error();
+    }
+
+    result = days.value();
+    return Status::OK();
   }
 
   FOLLY_ALWAYS_INLINE void call(

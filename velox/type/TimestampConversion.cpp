@@ -172,7 +172,9 @@ bool tryParseDateString(
   int32_t year = 0;
   bool yearneg = false;
   int sep;
-  skipSpaces(buf, len, pos);
+  if (mode != ParseMode::kNonStandardNoTimeCast) {
+    skipSpaces(buf, len, pos);
+  }
 
   if (pos >= len) {
     return false;
@@ -268,9 +270,14 @@ bool tryParseDateString(
     return false;
   }
 
-  if (mode == ParseMode::kStandardCast) {
+  if (mode == ParseMode::kStandardCast ||
+      mode == ParseMode::kNonStandardNoTimeCast) {
     if (!daysSinceEpochFromDate(year, month, day, daysSinceEpoch).ok()) {
       return false;
+    }
+
+    if (mode == ParseMode::kStandardCast) {
+      skipSpaces(buf, len, pos);
     }
 
     if (pos == len) {

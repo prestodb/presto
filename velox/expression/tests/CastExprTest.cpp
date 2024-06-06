@@ -802,9 +802,9 @@ TEST_F(CastExprTest, date) {
   testCast<std::string, int32_t>(
       "date",
       {"1970-01-01",
-       "2020-01-01",
-       "2135-11-09",
-       "1969-12-27",
+       " 2020-01-01",
+       "2135-11-09  ",
+       "   1969-12-27 ",
        "1812-04-15",
        "1920-01-02",
        "12345-12-18",
@@ -908,16 +908,6 @@ TEST_F(CastExprTest, invalidDate) {
       "date",
       {"2015-03-18 (BC)"},
       "Unable to parse date value: \"2015-03-18 (BC)\"",
-      VARCHAR());
-  testInvalidCast<std::string>(
-      "date",
-      {"1970-01-01 "},
-      "Unable to parse date value: \"1970-01-01 \"",
-      VARCHAR());
-  testInvalidCast<std::string>(
-      "date",
-      {" 1970-01-01 "},
-      "Unable to parse date value: \" 1970-01-01 \"",
       VARCHAR());
 }
 

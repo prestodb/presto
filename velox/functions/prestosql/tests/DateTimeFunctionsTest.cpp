@@ -3409,9 +3409,10 @@ TEST_F(DateTimeFunctionsTest, fromIso8601Date) {
   EXPECT_EQ(-31, fromIso("1969-12"));
   EXPECT_EQ(-31, fromIso("1969-12-1"));
   EXPECT_EQ(-31, fromIso("1969-12-01"));
-  EXPECT_EQ(-31, fromIso("   1969-12-01   "));
   EXPECT_EQ(-719862, fromIso("-1-2-1"));
 
+  VELOX_ASSERT_THROW(fromIso(" 2024-01-12"), "Unable to parse date value");
+  VELOX_ASSERT_THROW(fromIso("2024-01-12  "), "Unable to parse date value");
   VELOX_ASSERT_THROW(fromIso("2024-01-xx"), "Unable to parse date value");
   VELOX_ASSERT_THROW(
       fromIso("2024-01-02T12:31:00"), "Unable to parse date value");
@@ -3540,10 +3541,15 @@ TEST_F(DateTimeFunctionsTest, dateFunctionVarchar) {
   // Date(-18297) is 1919-11-28.
   EXPECT_EQ(-18297, dateFunction("1919-11-28"));
 
+  // Allow leading and trailing spaces.
+  EXPECT_EQ(18297, dateFunction("   2020-02-05"));
+  EXPECT_EQ(18297, dateFunction("  2020-02-05   "));
+  EXPECT_EQ(18297, dateFunction("2020-02-05 "));
+
   // Illegal date format.
   VELOX_ASSERT_THROW(
       dateFunction("2020-02-05 11:00"),
-      "Unable to parse date value: \"2020-02-05 11:00\", expected format is (YYYY-MM-DD)");
+      "Unable to parse date value: \"2020-02-05 11:00\"");
 }
 
 TEST_F(DateTimeFunctionsTest, dateFunctionTimestamp) {
