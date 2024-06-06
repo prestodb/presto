@@ -541,8 +541,8 @@ std::optional<std::string> PrestoQueryRunner::toSql(
 
   // Returns a CTAS sql with specified table properties from TableWriteNode,
   // example sql:
-  // CREATE TABLE tmp_write WITH (PARTITIONED_BY = ARRAY['p0'])
-  // AS SELECT * FROM tmp
+  // CREATE TABLE tmp_write WITH (PARTITIONED_BY = ARRAY['p0'], BUCKETED_COUNT =
+  // 20, BUCKETED_BY = ARRAY['b0', 'b1']) AS SELECT * FROM tmp
   std::stringstream sql;
   sql << "CREATE TABLE tmp_write";
   std::vector<std::string> partitionKeys;
@@ -558,7 +558,21 @@ std::optional<std::string> PrestoQueryRunner::toSql(
       appendComma(i, sql);
       sql << "'" << partitionKeys[i] << "'";
     }
-    sql << "])";
+    sql << "]";
+
+    if (insertTableHandle->bucketProperty() != nullptr) {
+      const auto bucketCount =
+          insertTableHandle->bucketProperty()->bucketCount();
+      const auto bucketColumns =
+          insertTableHandle->bucketProperty()->bucketedBy();
+      sql << ", BUCKET_COUNT = " << bucketCount << ", BUCKETED_BY = ARRAY[";
+      for (int i = 0; i < bucketColumns.size(); ++i) {
+        appendComma(i, sql);
+        sql << "'" << bucketColumns[i] << "'";
+      }
+      sql << "]";
+    }
+    sql << ")";
   }
 
   sql << " AS SELECT * FROM tmp";

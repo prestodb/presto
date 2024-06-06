@@ -108,6 +108,8 @@ class WriterFuzzer {
 
   void verifyWriter(
       const std::vector<RowVectorPtr>& input,
+      int32_t bucketCount,
+      const std::vector<std::string>& bucketColumns,
       const std::vector<std::string>& partitionKeys,
       const std::string& outputDirectoryPath);
 
@@ -122,13 +124,15 @@ class WriterFuzzer {
   // Query Presto to find out table's location on disk.
   std::string getReferenceOutputDirectoryPath(int32_t layers);
 
-  // Compares if two directories have same partitions
-  void comparePartitions(
+  // Compares if two directories have same partitions and each partition has
+  // same number of buckets.
+  void comparePartitionAndBucket(
       const std::string& outputDirectoryPath,
-      const std::string& referenceOutputDirectoryPath);
+      const std::string& referenceOutputDirectoryPath,
+      int32_t bucketCount);
 
-  // Returns all the partition names in tableDirectoryPath.
-  std::set<std::string> getPartitionNames(
+  // Returns all the partition name and how many files in each partition.
+  std::map<std::string, int32_t> getPartitionNameAndFilecount(
       const std::string& tableDirectoryPath);
 
   const std::vector<TypePtr> kRegularColumnTypes_{
@@ -139,6 +143,17 @@ class WriterFuzzer {
       BIGINT(),
       VARCHAR(),
       VARBINARY(),
+      TIMESTAMP(),
+  };
+  // Supported bucket column types:
+  // https://github.com/prestodb/presto/blob/master/presto-hive/src/main/java/com/facebook/presto/hive/HiveBucketing.java#L142
+  const std::vector<TypePtr> kSupportedBucketColumnTypes_{
+      BOOLEAN(),
+      TINYINT(),
+      SMALLINT(),
+      INTEGER(),
+      BIGINT(),
+      VARCHAR(),
       TIMESTAMP(),
   };
   // Supported partition key column types
@@ -215,11 +230,22 @@ void WriterFuzzer::go() {
 
     std::vector<std::string> names;
     std::vector<TypePtr> types;
+    std::vector<std::string> bucketColumns;
     std::vector<std::string> partitionKeys;
 
     generateColumns(5, "c", kRegularColumnTypes_, 2, names, types);
-    const auto partitionOffset = names.size();
+
+    // 50% of times test bucketed write.
+    int32_t bucketCount = 0;
+    if (vectorFuzzer_.coinToss(0.5)) {
+      bucketColumns = generateColumns(
+          5, "b", kSupportedBucketColumnTypes_, 1, names, types);
+      bucketCount =
+          boost::random::uniform_int_distribution<int32_t>(1, 3)(rng_);
+    }
+
     // 50% of times test partitioned write.
+    const auto partitionOffset = names.size();
     if (vectorFuzzer_.coinToss(0.5)) {
       partitionKeys =
           generateColumns(3, "p", kPartitionKeyTypes_, 1, names, types);
@@ -227,7 +253,12 @@ void WriterFuzzer::go() {
     auto input = generateInputData(names, types, partitionOffset);
 
     auto tempDirPath = exec::test::TempDirectoryPath::create();
-    verifyWriter(input, partitionKeys, tempDirPath->getPath());
+    verifyWriter(
+        input,
+        bucketCount,
+        bucketColumns,
+        partitionKeys,
+        tempDirPath->getPath());
 
     LOG(INFO) << "==============================> Done with iteration "
               << iteration++;
@@ -263,9 +294,8 @@ std::vector<RowVectorPtr> WriterFuzzer::generateInputData(
   auto inputType = ROW(std::move(names), std::move(types));
   std::vector<RowVectorPtr> input;
 
-  // For partition keys, limit the distinct value to 4 to avoid exceeding
-  // partition number limit of 100. Since we could have up to 3 partition
-  // keys, it would generate up to 64 partitions.
+  // For partition keys, limit the distinct value to 4. Since we could have up
+  // to 3 partition keys, it would generate up to 64 partitions.
   std::vector<VectorPtr> partitionValues;
   for (auto i = partitionOffset; i < inputType->size(); ++i) {
     partitionValues.push_back(vectorFuzzer_.fuzz(inputType->childAt(i), 4));
@@ -292,12 +322,16 @@ std::vector<RowVectorPtr> WriterFuzzer::generateInputData(
 
 void WriterFuzzer::verifyWriter(
     const std::vector<RowVectorPtr>& input,
+    int32_t bucketCount,
+    const std::vector<std::string>& bucketColumns,
     const std::vector<std::string>& partitionKeys,
     const std::string& outputDirectoryPath) {
-  const auto plan = PlanBuilder()
-                        .values(input)
-                        .tableWrite(outputDirectoryPath, partitionKeys)
-                        .planNode();
+  const auto plan =
+      PlanBuilder()
+          .values(input)
+          .tableWrite(
+              outputDirectoryPath, partitionKeys, bucketCount, bucketColumns)
+          .planNode();
 
   const auto maxDrivers =
       boost::random::uniform_int_distribution<int32_t>(1, 16)(rng_);
@@ -325,11 +359,12 @@ void WriterFuzzer::verifyWriter(
       assertEqualResults(expectedResult, plan->outputType(), {result}),
       "Velox and reference DB results don't match");
 
-  // 2. Verifies directory layout.
+  // 2. Verifies directory layout for partitioned (bucketed) table.
   if (!partitionKeys.empty()) {
     const auto referencedOutputDirectoryPath =
         getReferenceOutputDirectoryPath(partitionKeys.size());
-    comparePartitions(outputDirectoryPath, referencedOutputDirectoryPath);
+    comparePartitionAndBucket(
+        outputDirectoryPath, referencedOutputDirectoryPath, bucketCount);
   }
 
   // 3. Verifies data itself.
@@ -360,7 +395,12 @@ RowVectorPtr WriterFuzzer::execute(
   if (!splits.empty()) {
     builder.splits(splits);
   }
-  return builder.maxDrivers(maxDrivers).copyResults(pool_.get());
+  return builder.maxDrivers(maxDrivers)
+      .connectorSessionProperty(
+          kHiveConnectorId,
+          connector::hive::HiveConfig::kMaxPartitionsPerWritersSession,
+          "400")
+      .copyResults(pool_.get());
 }
 
 RowVectorPtr WriterFuzzer::veloxToPrestoResult(const RowVectorPtr& result) {
@@ -390,32 +430,51 @@ std::string WriterFuzzer::getReferenceOutputDirectoryPath(int32_t layers) {
   return tableDirectoryPath.string();
 }
 
-void WriterFuzzer::comparePartitions(
+void WriterFuzzer::comparePartitionAndBucket(
     const std::string& outputDirectoryPath,
-    const std::string& referenceOutputDirectoryPath) {
-  const auto partitions = getPartitionNames(outputDirectoryPath);
-  LOG(INFO) << "Velox written partitions:" << std::endl;
-  for (const std::string& partition : partitions) {
-    LOG(INFO) << partition << std::endl;
+    const std::string& referenceOutputDirectoryPath,
+    int32_t bucketCount) {
+  LOG(INFO) << "Velox output directory:" << outputDirectoryPath << std::endl;
+  const auto partitionNameAndFileCount =
+      getPartitionNameAndFilecount(outputDirectoryPath);
+  LOG(INFO) << "Partitions and file count:" << std::endl;
+  std::vector<std::string> partitionNames;
+  partitionNames.reserve(partitionNameAndFileCount.size());
+  for (const auto& i : partitionNameAndFileCount) {
+    LOG(INFO) << i.first << ":" << i.second << std::endl;
+    partitionNames.emplace_back(i.first);
   }
 
-  const auto referencedPartitions =
-      getPartitionNames(referenceOutputDirectoryPath);
-  LOG(INFO) << "Presto written partitions:" << std::endl;
-  for (const std::string& partition : referencedPartitions) {
-    LOG(INFO) << partition << std::endl;
+  LOG(INFO) << "Presto output directory:" << referenceOutputDirectoryPath
+            << std::endl;
+  const auto referencedPartitionNameAndFileCount =
+      getPartitionNameAndFilecount(referenceOutputDirectoryPath);
+  LOG(INFO) << "Partitions and file count:" << std::endl;
+  std::vector<std::string> referencePartitionNames;
+  referencePartitionNames.reserve(referencedPartitionNameAndFileCount.size());
+  for (const auto& i : referencedPartitionNameAndFileCount) {
+    LOG(INFO) << i.first << ":" << i.second << std::endl;
+    referencePartitionNames.emplace_back(i.first);
   }
 
-  VELOX_CHECK(
-      partitions == referencedPartitions,
-      "Velox and reference DB output directory hierarchies don't match");
+  if (bucketCount == 0) {
+    // If not bucketed, only verify if their partition names match
+    VELOX_CHECK(
+        partitionNames == referencePartitionNames,
+        "Velox and reference DB output partitions don't match");
+  } else {
+    VELOX_CHECK(
+        partitionNameAndFileCount == referencedPartitionNameAndFileCount,
+        "Velox and reference DB output partition and bucket don't match");
+  }
 }
 
-std::set<std::string> WriterFuzzer::getPartitionNames(
+// static
+std::map<std::string, int32_t> WriterFuzzer::getPartitionNameAndFilecount(
     const std::string& tableDirectoryPath) {
   auto fileSystem = filesystems::getFileSystem("/", nullptr);
   auto directories = listFolders(tableDirectoryPath);
-  std::set<std::string> partitionNames;
+  std::map<std::string, int32_t> partitionNameAndFileCount;
 
   for (std::string directory : directories) {
     // If it's a hidden directory, ignore
@@ -423,14 +482,26 @@ std::set<std::string> WriterFuzzer::getPartitionNames(
       continue;
     }
 
+    // Count non-empty non-hidden files
+    const auto files = fileSystem->list(directory);
+    int32_t fileCount = 0;
+    for (const auto& file : files) {
+      // Presto query runner sometime creates empty files, ignore those.
+      if (file.find("/.") == std::string::npos &&
+          fileSystem->openFileForRead(file)->size() > 0) {
+        fileCount++;
+      }
+    }
+
     // Remove the path prefix to get the partition name
     // For example: /test/tmp_write/p0=1/p1=2020
     // partition name is /p0=1/p1=2020
     directory.erase(0, fileSystem->extractPath(tableDirectoryPath).length());
-    partitionNames.insert(directory);
+
+    partitionNameAndFileCount.emplace(directory, fileCount);
   }
 
-  return partitionNames;
+  return partitionNameAndFileCount;
 }
 
 } // namespace
