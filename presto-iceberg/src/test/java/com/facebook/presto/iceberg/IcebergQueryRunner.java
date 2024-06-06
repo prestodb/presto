@@ -201,7 +201,7 @@ public final class IcebergQueryRunner
         }
 
         if (createTpchTables) {
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, session, TpchTable.getTables());
+            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, session, TpchTable.getTables(), true);
         }
 
         return queryRunner;
