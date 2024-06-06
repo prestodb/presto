@@ -143,8 +143,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
             0,
             (type_ == Spiller::Type::kOrderByInput ||
              type_ == Spiller::Type::kOrderByOutput ||
-             type_ == Spiller::Type::kAggregateOutput ||
-             type_ == Spiller::Type::kAggregateInput)
+             type_ == Spiller::Type::kAggregateOutput)
                 ? 0
                 : 2),
         numPartitions_(hashBits_.numPartitions()),
@@ -254,7 +253,9 @@ class SpillerTest : public exec::test::RowContainerTestBase {
     VELOX_ASSERT_THROW(spiller_->spill(0, nullptr), "Unexpected spiller type");
     VELOX_ASSERT_THROW(
         spiller_->setPartitionsSpilled({}), "Unexpected spiller type");
-    auto spillPartition = spiller_->finishSpill();
+    SpillPartitionSet spillPartitionSet;
+    spiller_->finishSpill(spillPartitionSet);
+    ASSERT_EQ(spillPartitionSet.size(), numPartitions_);
     ASSERT_TRUE(spiller_->finalized());
     ASSERT_EQ(rowContainer_->numRows(), 0);
     ASSERT_EQ(numPartitions_, spiller_->stats().spilledPartitions);
@@ -268,7 +269,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
         spiller_->spill(0, nullptr), "Spiller has been finalize");
     VELOX_ASSERT_THROW(spiller_->spill(RowContainerIterator{}), "");
 
-    verifySortedSpillData(&spillPartition, outputBatchSize);
+    verifySortedSpillData(spillPartitionSet, outputBatchSize);
 
     stats = spiller_->stats();
     ASSERT_EQ(stats.spilledFiles, spilledFileSet.size());
@@ -544,11 +545,18 @@ class SpillerTest : public exec::test::RowContainerTestBase {
       // kHashJoinProbe doesn't have associated row container.
       spiller_ = std::make_unique<Spiller>(
           type_, rowType_, hashBits_, &spillConfig, &spillStats_);
-    } else if (
-        type_ == Spiller::Type::kOrderByInput ||
-        type_ == Spiller::Type::kAggregateInput) {
-      // We spill 'data' in one partition in type of kOrderBy, otherwise in 4
-      // partitions.
+    } else if (type_ == Spiller::Type::kAggregateInput) {
+      spiller_ = std::make_unique<Spiller>(
+          type_,
+          rowContainer_.get(),
+          rowType_,
+          hashBits_,
+          rowContainer_->keyTypes().size(),
+          compareFlags_,
+          &spillConfig,
+          &spillStats_);
+    } else if (type_ == Spiller::Type::kOrderByInput) {
+      // We spill 'data' in one partition in type of kOrderBy.
       spiller_ = std::make_unique<Spiller>(
           type_,
           rowContainer_.get(),
@@ -603,92 +611,95 @@ class SpillerTest : public exec::test::RowContainerTestBase {
   }
 
   void verifySortedSpillData(
-      SpillPartition* spillPartition,
+      SpillPartitionSet& spillPartitionSet,
       int32_t outputBatchSize = 0) {
-    ASSERT_EQ(numPartitions_, 1);
-    ASSERT_TRUE(spiller_->isSpilled(0));
+    for (auto& spillPartitionEntry : spillPartitionSet) {
+      ASSERT_TRUE(
+          spiller_->isSpilled(spillPartitionEntry.first.partitionNumber()));
+      const auto partition = spillPartitionEntry.first.partitionNumber();
+      auto* spillPartition = spillPartitionEntry.second.get();
+      // We make a merge reader that merges the spill files and the rows that
+      // are still in the RowContainer.
+      auto merge = spillPartition->createOrderedReader(pool(), &spillStats_);
+      ASSERT_TRUE(merge != nullptr);
+      ASSERT_TRUE(
+          spillPartition->createOrderedReader(pool(), &spillStats_) == nullptr);
 
-    // We make a merge reader that merges the spill files and the rows that
-    // are still in the RowContainer.
-    auto merge = spillPartition->createOrderedReader(pool(), &spillStats_);
-    ASSERT_TRUE(merge != nullptr);
-    ASSERT_TRUE(
-        spillPartition->createOrderedReader(pool(), &spillStats_) == nullptr);
-
-    // We read the spilled data back and check that it matches the sorted
-    // order of the partition.
-    auto& indices = partitions_[0];
-    if (outputBatchSize == 0) {
-      for (auto i = 0; i < indices.size(); ++i) {
-        auto stream = merge->next();
-        if (!stream) {
-          FAIL() << "Stream ends after " << i << " entries";
-          break;
-        }
-        ASSERT_TRUE(rowVector_->equalValueAt(
-            &stream->current(), indices[i], stream->currentIndex()));
-        stream->pop();
-      }
-    } else {
-      int nextBatchSize = std::min<int>(indices.size(), outputBatchSize);
-      auto outputVector = BaseVector::create<RowVector>(
-          rowVector_->type(), nextBatchSize, pool_.get());
-      resizeVector(*outputVector, nextBatchSize);
-
-      int i = 0;
-      int outputRow = 0;
-      int outputSize = 0;
-      std::vector<const RowVector*> sourceVectors(outputBatchSize);
-      std::vector<vector_size_t> sourceIndices(outputBatchSize);
-      for (;;) {
-        auto stream = merge->next();
-        if (stream == nullptr) {
-          for (int j = 0; j < outputVector->size(); ++j, ++i) {
-            ASSERT_TRUE(
-                rowVector_->equalValueAt(outputVector.get(), indices[i], j))
-                << j << ", " << i;
+      // We read the spilled data back and check that it matches the sorted
+      // order of the partition.
+      auto& indices = partitions_[partition];
+      if (outputBatchSize == 0) {
+        for (auto i = 0; i < indices.size(); ++i) {
+          auto stream = merge->next();
+          if (!stream) {
+            FAIL() << "Stream ends after " << i << " entries";
+            break;
           }
-          ASSERT_EQ(i, indices.size());
-          break;
+          ASSERT_TRUE(rowVector_->equalValueAt(
+              &stream->current(), indices[i], stream->currentIndex()));
+          stream->pop();
         }
-        sourceVectors[outputSize] = &stream->current();
-        bool isEndOfBatch = false;
-        sourceIndices[outputSize] = stream->currentIndex(&isEndOfBatch);
-        ++outputSize;
-        if (isEndOfBatch) {
-          // The stream is at end of input batch. Need to copy out the rows
-          // before fetching next batch in 'pop'.
-          gatherCopy(
-              outputVector.get(),
-              outputRow,
-              outputSize,
-              sourceVectors,
-              sourceIndices);
-          outputRow += outputSize;
-          outputSize = 0;
-        }
+      } else {
+        int nextBatchSize = std::min<int>(indices.size(), outputBatchSize);
+        auto outputVector = BaseVector::create<RowVector>(
+            rowVector_->type(), nextBatchSize, pool_.get());
+        resizeVector(*outputVector, nextBatchSize);
 
-        // Advance the stream.
-        stream->pop();
-
-        // The output buffer is full. Need to copy out the rows.
-        if (outputRow + outputSize == nextBatchSize) {
-          gatherCopy(
-              outputVector.get(),
-              outputRow,
-              outputSize,
-              sourceVectors,
-              sourceIndices);
-          for (int j = 0; j < outputVector->size(); ++j, ++i) {
-            ASSERT_TRUE(
-                rowVector_->equalValueAt(outputVector.get(), indices[i], j))
-                << outputVector->toString(0, nextBatchSize - 1) << i << ", "
-                << j;
+        int i = 0;
+        int outputRow = 0;
+        int outputSize = 0;
+        std::vector<const RowVector*> sourceVectors(outputBatchSize);
+        std::vector<vector_size_t> sourceIndices(outputBatchSize);
+        for (;;) {
+          auto stream = merge->next();
+          if (stream == nullptr) {
+            for (int j = 0; j < outputVector->size(); ++j, ++i) {
+              ASSERT_TRUE(
+                  rowVector_->equalValueAt(outputVector.get(), indices[i], j))
+                  << j << ", " << i;
+            }
+            ASSERT_EQ(i, indices.size());
+            break;
           }
-          outputRow = 0;
-          outputSize = 0;
-          nextBatchSize = std::min<int>(indices.size() - i, outputBatchSize);
-          resizeVector(*outputVector, nextBatchSize);
+          sourceVectors[outputSize] = &stream->current();
+          bool isEndOfBatch = false;
+          sourceIndices[outputSize] = stream->currentIndex(&isEndOfBatch);
+          ++outputSize;
+          if (isEndOfBatch) {
+            // The stream is at end of input batch. Need to copy out the rows
+            // before fetching next batch in 'pop'.
+            gatherCopy(
+                outputVector.get(),
+                outputRow,
+                outputSize,
+                sourceVectors,
+                sourceIndices);
+            outputRow += outputSize;
+            outputSize = 0;
+          }
+
+          // Advance the stream.
+          stream->pop();
+
+          // The output buffer is full. Need to copy out the rows.
+          if (outputRow + outputSize == nextBatchSize) {
+            gatherCopy(
+                outputVector.get(),
+                outputRow,
+                outputSize,
+                sourceVectors,
+                sourceIndices);
+            for (int j = 0; j < outputVector->size(); ++j, ++i) {
+              ASSERT_TRUE(
+                  rowVector_->equalValueAt(outputVector.get(), indices[i], j))
+                  << outputVector->toString(0, nextBatchSize - 1) << i << ", "
+                  << j;
+            }
+            outputRow = 0;
+            outputSize = 0;
+            nextBatchSize = std::min<int>(indices.size() - i, outputBatchSize);
+            resizeVector(*outputVector, nextBatchSize);
+          }
         }
       }
     }
@@ -969,9 +980,6 @@ class SpillerTest : public exec::test::RowContainerTestBase {
         type_ == Spiller::Type::kRowNumber ||
         type_ == Spiller::Type::kHashJoinProbe);
 
-    if (numPartitions_ > 0) {
-      VELOX_ASSERT_THROW(spiller_->finishSpill(), "");
-    }
     SpillPartitionSet spillPartitionSet;
     spiller_->finishSpill(spillPartitionSet);
     VELOX_ASSERT_THROW(
@@ -1145,8 +1153,8 @@ TEST_P(AllTypes, nonSortedSpillFunctions) {
     SpillPartitionSet spillPartitionSet;
     spiller_->finishSpill(spillPartitionSet);
     ASSERT_TRUE(spiller_->finalized());
-    ASSERT_EQ(spillPartitionSet.size(), 1);
-    verifySortedSpillData(spillPartitionSet.begin()->second.get());
+    ASSERT_EQ(spillPartitionSet.size(), numPartitions_);
+    verifySortedSpillData(spillPartitionSet);
     return;
   }
   testNonSortedSpill(2, 5'000, 3, 1, maxSpillRunRows_);
@@ -1374,11 +1382,14 @@ TEST_P(AggregationOutputOnly, basic) {
     ASSERT_EQ(rowContainer_->numRows(), numRows);
     rowContainer_->clear();
 
-    auto spillPartition = spiller_->finishSpill();
+    SpillPartitionSet spillPartitionSet;
+    spiller_->finishSpill(spillPartitionSet);
+    ASSERT_EQ(spillPartitionSet.size(), 1);
     ASSERT_TRUE(spiller_->finalized());
+    auto spillPartition = std::move(spillPartitionSet.begin()->second);
 
     const int expectedNumSpilledRows = numRows - numListedRows;
-    auto merge = spillPartition.createOrderedReader(pool(), &spillStats_);
+    auto merge = spillPartition->createOrderedReader(pool(), &spillStats_);
     if (expectedNumSpilledRows == 0) {
       ASSERT_TRUE(merge == nullptr);
     } else {
@@ -1463,11 +1474,14 @@ TEST_P(OrderByOutputOnly, basic) {
     rowContainer_->clear();
 
     rowContainer_->clear();
-    auto spillPartition = spiller_->finishSpill();
+    SpillPartitionSet spillPartitionSet;
+    spiller_->finishSpill(spillPartitionSet);
     ASSERT_TRUE(spiller_->finalized());
+    ASSERT_EQ(spillPartitionSet.size(), 1);
+    auto spillPartition = std::move(spillPartitionSet.begin()->second);
 
     const int expectedNumSpilledRows = numListedRows;
-    auto merge = spillPartition.createOrderedReader(pool(), &spillStats_);
+    auto merge = spillPartition->createOrderedReader(pool(), &spillStats_);
     if (expectedNumSpilledRows == 0) {
       ASSERT_TRUE(merge == nullptr);
     } else {
@@ -1554,16 +1568,17 @@ TEST_P(MaxSpillRunTest, basic) {
     ASSERT_EQ(totalSize, stats.spilledBytes);
     if (type_ == Spiller::Type::kAggregateOutput ||
         type_ == Spiller::Type::kOrderByOutput) {
-      ASSERT_EQ(numFiles, 1);
-      ASSERT_EQ(spillPartitionSet.size(), 1);
-    } else if (
-        type_ == Spiller::Type::kAggregateInput ||
-        type_ == Spiller::Type::kOrderByInput) {
+      ASSERT_EQ(numFiles, numPartitions_);
+      ASSERT_EQ(spillPartitionSet.size(), numPartitions_);
+    } else if (type_ == Spiller::Type::kOrderByInput) {
       // Need sort.
       ASSERT_EQ(numFiles, testData.expectedNumFiles);
-      ASSERT_EQ(spillPartitionSet.size(), 1);
+      ASSERT_EQ(spillPartitionSet.size(), numPartitions_);
+    } else if (type_ == Spiller::Type::kAggregateInput) {
+      ASSERT_GE(numFiles, testData.expectedNumFiles);
+      ASSERT_EQ(spillPartitionSet.size(), numPartitions_);
     } else {
-      ASSERT_EQ(numFiles, hashBits_.numPartitions());
+      ASSERT_EQ(numFiles, numPartitions_);
       ASSERT_EQ(spillPartitionSet.size(), numFiles);
     }
   }

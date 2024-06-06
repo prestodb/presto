@@ -59,11 +59,45 @@ Spiller::Spiller(
           spillConfig->maxSpillRunRows,
           spillConfig->fileCreateConfig,
           spillStats) {
+  VELOX_CHECK_EQ(
+      type_,
+      Type::kOrderByInput,
+      "Unexpected spiller type: {}",
+      typeName(type_));
+  VELOX_CHECK_EQ(state_.maxPartitions(), 1);
+}
+
+Spiller::Spiller(
+    Type type,
+    RowContainer* container,
+    RowTypePtr rowType,
+    const HashBitRange& hashBitRange,
+    int32_t numSortingKeys,
+    const std::vector<CompareFlags>& sortCompareFlags,
+    const common::SpillConfig* spillConfig,
+    folly::Synchronized<common::SpillStats>* spillStats)
+    : Spiller(
+          type,
+          container,
+          std::move(rowType),
+          hashBitRange,
+          numSortingKeys,
+          sortCompareFlags,
+          false,
+          spillConfig->getSpillDirPathCb,
+          spillConfig->updateAndCheckSpillLimitCb,
+          spillConfig->fileNamePrefix,
+          std::numeric_limits<uint64_t>::max(),
+          spillConfig->writeBufferSize,
+          spillConfig->compressionKind,
+          spillConfig->executor,
+          spillConfig->maxSpillRunRows,
+          spillConfig->fileCreateConfig,
+          spillStats) {
   VELOX_CHECK(
       type_ == Type::kOrderByInput || type_ == Type::kAggregateInput,
       "Unexpected spiller type: {}",
       typeName(type_));
-  VELOX_CHECK_EQ(state_.maxPartitions(), 1);
   VELOX_CHECK_EQ(state_.targetFileSize(), std::numeric_limits<uint64_t>::max());
 }
 
@@ -590,7 +624,7 @@ void Spiller::finishSpill(SpillPartitionSet& partitionSet) {
 
   for (auto& partition : state_.spilledPartitionSet()) {
     const SpillPartitionId partitionId(bits_.begin(), partition);
-    if (FOLLY_UNLIKELY(partitionSet.count(partitionId) == 0)) {
+    if (partitionSet.count(partitionId) == 0) {
       partitionSet.emplace(
           partitionId,
           std::make_unique<SpillPartition>(
@@ -599,14 +633,6 @@ void Spiller::finishSpill(SpillPartitionSet& partitionSet) {
       partitionSet[partitionId]->addFiles(state_.finish(partition));
     }
   }
-}
-
-SpillPartition Spiller::finishSpill() {
-  VELOX_CHECK_EQ(state_.maxPartitions(), 1);
-  VELOX_CHECK(state_.isPartitionSpilled(0));
-
-  finalizeSpill();
-  return SpillPartition(SpillPartitionId{bits_.begin(), 0}, state_.finish(0));
 }
 
 void Spiller::finalizeSpill() {

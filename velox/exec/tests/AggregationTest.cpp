@@ -106,7 +106,7 @@ void checkSpillStats(PlanNodeStats& stats, bool expectedSpill) {
     ASSERT_GT(stats.spilledRows, 0);
     ASSERT_GT(stats.spilledInputBytes, 0);
     ASSERT_GT(stats.spilledBytes, 0);
-    ASSERT_EQ(stats.spilledPartitions, 1);
+    ASSERT_EQ(stats.spilledPartitions, 8);
     ASSERT_GT(stats.customStats[Operator::kSpillRuns].sum, 0);
     ASSERT_GT(stats.customStats[Operator::kSpillFillTime].sum, 0);
     ASSERT_GT(stats.customStats[Operator::kSpillSortTime].sum, 0);
@@ -1145,25 +1145,31 @@ TEST_F(AggregationTest, spillAll) {
 
   auto results = AssertQueryBuilder(plan).copyResults(pool_.get());
 
-  auto tempDirectory = exec::test::TempDirectoryPath::create();
-  auto queryCtx = core::QueryCtx::create(executor_.get());
-  TestScopedSpillInjection scopedSpillInjection(100);
-  auto task = AssertQueryBuilder(plan)
-                  .spillDirectory(tempDirectory->getPath())
-                  .config(QueryConfig::kSpillEnabled, true)
-                  .config(QueryConfig::kAggregationSpillEnabled, true)
-                  .assertResults(results);
+  for (int numPartitionBits : {1, 2, 3}) {
+    auto tempDirectory = exec::test::TempDirectoryPath::create();
+    auto queryCtx = core::QueryCtx::create(executor_.get());
+    TestScopedSpillInjection scopedSpillInjection(100);
+    auto task = AssertQueryBuilder(plan)
+                    .spillDirectory(tempDirectory->getPath())
+                    .config(QueryConfig::kSpillEnabled, true)
+                    .config(QueryConfig::kAggregationSpillEnabled, true)
+                    .config(
+                        QueryConfig::kSpillNumPartitionBits,
+                        std::to_string(numPartitionBits))
+                    .assertResults(results);
 
-  auto stats = task->taskStats().pipelineStats;
-  ASSERT_LT(
-      0, stats[0].operatorStats[1].runtimeStats[Operator::kSpillRuns].count);
-  // Check spilled bytes.
-  ASSERT_LT(0, stats[0].operatorStats[1].spilledInputBytes);
-  ASSERT_LT(0, stats[0].operatorStats[1].spilledBytes);
-  ASSERT_EQ(stats[0].operatorStats[1].spilledPartitions, 1);
-  // Verifies all the rows have been spilled.
-  ASSERT_EQ(stats[0].operatorStats[1].spilledRows, numDistincts);
-  OperatorTestBase::deleteTaskAndCheckSpillDirectory(task);
+    auto stats = task->taskStats().pipelineStats;
+    ASSERT_LT(
+        0, stats[0].operatorStats[1].runtimeStats[Operator::kSpillRuns].count);
+    // Check spilled bytes.
+    ASSERT_LT(0, stats[0].operatorStats[1].spilledInputBytes);
+    ASSERT_LT(0, stats[0].operatorStats[1].spilledBytes);
+    ASSERT_EQ(
+        stats[0].operatorStats[1].spilledPartitions, 1 << numPartitionBits);
+    // Verifies all the rows have been spilled.
+    ASSERT_EQ(stats[0].operatorStats[1].spilledRows, numDistincts);
+    OperatorTestBase::deleteTaskAndCheckSpillDirectory(task);
+  }
 }
 
 // Verify number of memory allocations in the HashAggregation operator.
@@ -1653,6 +1659,7 @@ TEST_F(AggregationTest, spillDuringOutputProcessing) {
               std::to_string(1'000'000'000))
           .config(
               QueryConfig::kMaxOutputBatchRows, std::to_string(numOutputRows))
+          .config(QueryConfig::kSpillNumPartitionBits, "0")
           .plan(PlanBuilder()
                     .values({input})
                     .singleAggregation({"c0", "c1"}, {"max(c2)", "min(c3)"})
@@ -1821,7 +1828,7 @@ TEST_F(AggregationTest, distinctWithSpilling) {
                   .assertResults("SELECT distinct c0 FROM tmp");
   // Verify that spilling is not triggered.
   ASSERT_GT(toPlanStats(task->taskStats()).at(aggrNodeId).spilledInputBytes, 0);
-  ASSERT_EQ(toPlanStats(task->taskStats()).at(aggrNodeId).spilledPartitions, 1);
+  ASSERT_EQ(toPlanStats(task->taskStats()).at(aggrNodeId).spilledPartitions, 8);
   ASSERT_GT(toPlanStats(task->taskStats()).at(aggrNodeId).spilledBytes, 0);
   OperatorTestBase::deleteTaskAndCheckSpillDirectory(task);
 }
@@ -2124,7 +2131,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringInputProcessing) {
     auto stats = task->taskStats().pipelineStats;
     if (testData.expectedReclaimable) {
       ASSERT_GT(stats[0].operatorStats[1].spilledBytes, 0);
-      ASSERT_EQ(stats[0].operatorStats[1].spilledPartitions, 1);
+      ASSERT_EQ(stats[0].operatorStats[1].spilledPartitions, 8);
     } else {
       ASSERT_EQ(stats[0].operatorStats[1].spilledBytes, 0);
       ASSERT_EQ(stats[0].operatorStats[1].spilledPartitions, 0);
@@ -2240,7 +2247,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringReserve) {
 
   auto stats = task->taskStats().pipelineStats;
   ASSERT_GT(stats[0].operatorStats[1].spilledBytes, 0);
-  ASSERT_EQ(stats[0].operatorStats[1].spilledPartitions, 1);
+  ASSERT_EQ(stats[0].operatorStats[1].spilledPartitions, 8);
   OperatorTestBase::deleteTaskAndCheckSpillDirectory(task);
   ASSERT_EQ(reclaimerStats_, memory::MemoryReclaimer::Stats{});
 }

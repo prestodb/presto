@@ -143,6 +143,8 @@ std::unique_ptr<Spiller> AggregateSpillBenchmarkBase::makeSpiller() {
         spillerType_,
         rowContainer_.get(),
         rowType_,
+        HashBitRange{
+            spillConfig.startPartitionBit, spillConfig.numPartitionBits},
         rowContainer_->keyTypes().size(),
         std::vector<CompareFlags>{},
         &spillConfig,

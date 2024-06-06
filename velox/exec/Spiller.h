@@ -52,7 +52,18 @@ class Spiller {
   /// The constructor without specifying hash bits which will only use one
   /// partition by default.
 
-  /// type == Type::kOrderByInput || type == Type::kAggregateInput
+  /// type == Type::kAggregateInput
+  Spiller(
+      Type type,
+      RowContainer* container,
+      RowTypePtr rowType,
+      const HashBitRange& hashBitRange,
+      int32_t numSortingKeys,
+      const std::vector<CompareFlags>& sortCompareFlags,
+      const common::SpillConfig* spillConfig,
+      folly::Synchronized<common::SpillStats>* spillStats);
+
+  /// type == Type::kOrderByInput
   Spiller(
       Type type,
       RowContainer* container,
@@ -140,9 +151,6 @@ class Spiller {
   /// Finishes spilling and accumulate the spilled partition metadata in
   /// 'partitionSet' indexed by spill partition id.
   void finishSpill(SpillPartitionSet& partitionSet);
-
-  /// Finishes spilling and expects single partition.
-  SpillPartition finishSpill();
 
   const SpillState& state() const {
     return state_;

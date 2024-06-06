@@ -481,6 +481,14 @@ Each query can override the config by setting corresponding query session proper
      - integer
      - 1024
      - Minimal number of items in an encoded stream.
+   * - cache.no_retention
+     - cache.no_retention
+     - bool
+     - false
+     - If true, evict out a query scanned data out of in-memory cache right after the access,
+       and also skip staging to the ssd cache. This helps to prevent the cache space pollution
+       from the one-time table scan by large batch query when mixed running with interactive
+       query which has high data locality.
 
 ``Amazon S3 Configuration``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
