@@ -827,6 +827,24 @@ TEST_F(VectorHasherTest, computeValueIdsStrings) {
   }
 
   ASSERT_LE(uniqueValues.size(), multiplier);
+
+  {
+    result[42] = 0xAAAAAAAAAAAAAAAA;
+    VectorHasher hasher(dictionaryVectors[0]->type(), 0);
+    SelectivityVector oneRow(size, false);
+    oneRow.setValid(42, true);
+    oneRow.updateBounds();
+    hasher.decode(*dictionaryVectors[0], oneRow);
+    ASSERT_FALSE(hasher.computeValueIds(oneRow, result));
+    uint64_t asRange;
+    uint64_t asDistinct;
+    hasher.cardinality(0, asRange, asDistinct);
+    ASSERT_EQ(asDistinct, 2);
+    hasher.enableValueIds(1, 0);
+    hasher.decode(*dictionaryVectors[0], oneRow);
+    ASSERT_TRUE(hasher.computeValueIds(oneRow, result));
+    ASSERT_EQ(result[42], 1);
+  }
 }
 
 namespace {

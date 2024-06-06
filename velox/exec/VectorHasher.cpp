@@ -181,6 +181,36 @@ bool VectorHasher::makeValueIdsFlatWithNulls<bool>(
   return true;
 }
 
+template <typename T, bool mayHaveNulls>
+void VectorHasher::makeValueIdForOneRow(
+    const uint64_t* nulls,
+    vector_size_t row,
+    const T* values,
+    vector_size_t valueRow,
+    uint64_t* result,
+    bool& success) {
+  if constexpr (mayHaveNulls) {
+    if (bits::isBitNull(nulls, row)) {
+      if (multiplier_ == 1) {
+        result[row] = 0;
+      }
+      return;
+    }
+  }
+  T value = values[valueRow];
+  if (!success) {
+    analyzeValue(value);
+    return;
+  }
+  auto id = valueId(value);
+  if (id == kUnmappable) {
+    success = false;
+    analyzeValue(value);
+  } else {
+    result[row] = multiplier_ == 1 ? id : result[row] + multiplier_ * id;
+  }
+}
+
 template <typename T>
 bool VectorHasher::makeValueIdsFlatNoNulls(
     const SelectivityVector& rows,
@@ -192,20 +222,7 @@ bool VectorHasher::makeValueIdsFlatNoNulls(
 
   bool success = true;
   rows.applyToSelected([&](vector_size_t row) INLINE_LAMBDA {
-    T value = values[row];
-    if (!success) {
-      // If all were not mappable and we do not remove unmappable,
-      // we just analyze the remaining so we can decide the hash mode.
-      analyzeValue(value);
-      return;
-    }
-    uint64_t id = valueId(value);
-    if (id == kUnmappable) {
-      success = false;
-      analyzeValue(value);
-      return;
-    }
-    result[row] = multiplier_ == 1 ? id : result[row] + multiplier_ * id;
+    makeValueIdForOneRow<T, false>(nullptr, row, values, row, result, success);
   });
 
   return success;
@@ -220,26 +237,7 @@ bool VectorHasher::makeValueIdsFlatWithNulls(
 
   bool success = true;
   rows.applyToSelected([&](vector_size_t row) INLINE_LAMBDA {
-    if (bits::isBitNull(nulls, row)) {
-      if (multiplier_ == 1) {
-        result[row] = 0;
-      }
-      return;
-    }
-    T value = values[row];
-    if (!success) {
-      // If all were not mappable we just analyze the remaining so we can decide
-      // the hash mode.
-      analyzeValue(value);
-      return;
-    }
-    uint64_t id = valueId(value);
-    if (id == kUnmappable) {
-      success = false;
-      analyzeValue(value);
-      return;
-    }
-    result[row] = multiplier_ == 1 ? id : result[row] + multiplier_ * id;
+    makeValueIdForOneRow<T, true>(nulls, row, values, row, result, success);
   });
   return success;
 }
@@ -248,13 +246,23 @@ template <typename T, bool mayHaveNulls>
 bool VectorHasher::makeValueIdsDecoded(
     const SelectivityVector& rows,
     uint64_t* result) {
+  auto indices = decoded_.indices();
+  auto values = decoded_.data<T>();
+  bool success = true;
+
+  if (rows.countSelected() <= decoded_.base()->size()) {
+    // Cache is not beneficial in this case and we don't use them.
+    auto* nulls = decoded_.nulls(&rows);
+    rows.applyToSelected([&](vector_size_t row) INLINE_LAMBDA {
+      makeValueIdForOneRow<T, mayHaveNulls>(
+          nulls, row, values, indices[row], result, success);
+    });
+    return success;
+  }
+
   cachedHashes_.resize(decoded_.base()->size());
   std::fill(cachedHashes_.begin(), cachedHashes_.end(), 0);
 
-  auto indices = decoded_.indices();
-  auto values = decoded_.data<T>();
-
-  bool success = true;
   int numCachedHashes = 0;
   rows.testSelected([&](vector_size_t row) INLINE_LAMBDA {
     if constexpr (mayHaveNulls) {

@@ -338,6 +338,15 @@ class VectorHasher {
   template <TypeKind Kind>
   bool makeValueIds(const SelectivityVector& rows, uint64_t* result);
 
+  template <typename T, bool mayHaveNulls>
+  FOLLY_ALWAYS_INLINE void makeValueIdForOneRow(
+      const uint64_t* nulls,
+      vector_size_t row,
+      const T* values,
+      vector_size_t valueRow,
+      uint64_t* result,
+      bool& success);
+
   template <typename T>
   bool makeValueIdsFlatNoNulls(const SelectivityVector& rows, uint64_t* result);
 
