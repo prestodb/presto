@@ -26,7 +26,7 @@
 namespace facebook::velox::functions {
 
 template <typename T>
-struct SIMDIsJsonScalarFunction {
+struct IsJsonScalarFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
   FOLLY_ALWAYS_INLINE Status call(bool& result, const arg_type<Json>& json) {
@@ -52,7 +52,7 @@ struct SIMDIsJsonScalarFunction {
 };
 
 template <typename TExec>
-struct SIMDJsonArrayContainsFunction {
+struct JsonArrayContainsFunction {
   VELOX_DEFINE_FUNCTION_TYPES(TExec);
 
   template <typename T>
@@ -122,7 +122,7 @@ struct SIMDJsonArrayContainsFunction {
 };
 
 template <typename T>
-struct SIMDJsonArrayLengthFunction {
+struct JsonArrayLengthFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
   FOLLY_ALWAYS_INLINE bool call(int64_t& len, const arg_type<Json>& json) {
@@ -148,7 +148,7 @@ struct SIMDJsonArrayLengthFunction {
 };
 
 template <typename TExec>
-struct SIMDJsonArrayGetFunction {
+struct JsonArrayGetFunction {
   VELOX_DEFINE_FUNCTION_TYPES(TExec);
 
   FOLLY_ALWAYS_INLINE bool
@@ -194,7 +194,7 @@ struct SIMDJsonArrayGetFunction {
 // to being encoded as JSON). The value referenced by json_path must be a scalar
 // (boolean, number or string)
 template <typename T>
-struct SIMDJsonExtractScalarFunction {
+struct JsonExtractScalarFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
   FOLLY_ALWAYS_INLINE bool call(
@@ -257,7 +257,7 @@ struct SIMDJsonExtractScalarFunction {
 };
 
 template <typename T>
-struct SIMDJsonExtractFunction {
+struct JsonExtractFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
   bool call(
@@ -337,7 +337,7 @@ struct SIMDJsonExtractFunction {
 };
 
 template <typename T>
-struct SIMDJsonSizeFunction {
+struct JsonSizeFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
   FOLLY_ALWAYS_INLINE bool call(
