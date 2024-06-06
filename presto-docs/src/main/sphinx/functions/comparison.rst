@@ -160,9 +160,9 @@ The LIKE operator is used to match a specified character pattern in a string. Pa
 regular characters as well as wildcards. Wildcard characters can be escaped using the single character
 specified for the ESCAPE parameter. Matching is case sensitive.
 
-Syntax::
+Syntax:
 
-expression LIKE pattern [ ESCAPE 'escape_character' ]
+    expression LIKE pattern [ ESCAPE 'escape_character' ]
 
 if ``pattern`` or ``escape_character`` is null, the expression evaluates to null.
 
