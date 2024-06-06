@@ -809,6 +809,68 @@ class HashJoinTest : public HiveConnectorTestBase {
     return splitInput;
   }
 
+  void testLazyVectorsWithFilter(
+      const core::JoinType joinType,
+      const std::string& filter,
+      const std::vector<std::string>& outputLayout,
+      const std::string& referenceQuery) {
+    const vector_size_t vectorSize = 1'000;
+    auto probeVectors = makeBatches(1, [&](int32_t /*unused*/) {
+      return makeRowVector(
+          {makeFlatVector<int32_t>(vectorSize, folly::identity),
+           makeFlatVector<int64_t>(
+               vectorSize, [](auto row) { return row % 23; }),
+           makeFlatVector<int32_t>(
+               vectorSize, [](auto row) { return row % 31; })});
+    });
+
+    std::vector<RowVectorPtr> buildVectors =
+        makeBatches(1, [&](int32_t /*unused*/) {
+          return makeRowVector({makeFlatVector<int32_t>(
+              vectorSize, [](auto row) { return row * 3; })});
+        });
+
+    std::shared_ptr<TempFilePath> probeFile = TempFilePath::create();
+    writeToFile(probeFile->getPath(), probeVectors);
+
+    std::shared_ptr<TempFilePath> buildFile = TempFilePath::create();
+    writeToFile(buildFile->getPath(), buildVectors);
+
+    createDuckDbTable("t", probeVectors);
+    createDuckDbTable("u", buildVectors);
+
+    // Lazy vector is part of the filter but never gets loaded.
+    auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+    core::PlanNodeId probeScanId;
+    core::PlanNodeId buildScanId;
+    auto op = PlanBuilder(planNodeIdGenerator)
+                  .tableScan(asRowType(probeVectors[0]->type()))
+                  .capturePlanNodeId(probeScanId)
+                  .hashJoin(
+                      {"c0"},
+                      {"c0"},
+                      PlanBuilder(planNodeIdGenerator)
+                          .tableScan(asRowType(buildVectors[0]->type()))
+                          .capturePlanNodeId(buildScanId)
+                          .planNode(),
+                      filter,
+                      outputLayout,
+                      joinType)
+                  .planNode();
+    SplitInput splitInput = {
+        {probeScanId,
+         {exec::Split(makeHiveConnectorSplit(probeFile->getPath()))}},
+        {buildScanId,
+         {exec::Split(makeHiveConnectorSplit(buildFile->getPath()))}},
+    };
+    HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
+        .planNode(std::move(op))
+        .inputSplits(splitInput)
+        .checkSpillStats(false)
+        .referenceQuery(referenceQuery)
+        .run();
+  }
+
   static uint64_t getInputPositions(
       const std::shared_ptr<Task>& task,
       int operatorIndex) {
@@ -4041,59 +4103,78 @@ TEST_F(HashJoinTest, lazyVectorNotLoadedInFilter) {
   // vector to remain unloaded, as it doesn't need to be split between batches.
   // Then we use a filter that skips the execution of the expression containing
   // the lazy vector, thereby avoiding its loading.
-  const vector_size_t vectorSize = 1'000;
-  auto probeVectors = makeBatches(1, [&](int32_t /*unused*/) {
-    return makeRowVector(
-        {makeFlatVector<int32_t>(vectorSize, folly::identity),
-         makeFlatVector<int64_t>(vectorSize, [](auto row) { return row % 23; }),
-         makeFlatVector<int32_t>(
-             vectorSize, [](auto row) { return row % 31; })});
-  });
 
-  std::vector<RowVectorPtr> buildVectors =
-      makeBatches(1, [&](int32_t /*unused*/) {
-        return makeRowVector({makeFlatVector<int32_t>(
-            vectorSize, [](auto row) { return row * 3; })});
-      });
+  testLazyVectorsWithFilter(
+      core::JoinType::kInner,
+      "c1 >= 0 OR c2 > 0",
+      {"c1", "c2"},
+      "SELECT t.c1, t.c2 FROM t, u WHERE t.c0 = u.c0");
+}
 
-  std::shared_ptr<TempFilePath> probeFile = TempFilePath::create();
-  writeToFile(probeFile->getPath(), probeVectors);
+TEST_F(HashJoinTest, lazyVectorPartiallyLoadedInFilterLeftJoin) {
+  // Test the case where a filter loads a subset of the rows that will be output
+  // from a column on the probe side.
 
-  std::shared_ptr<TempFilePath> buildFile = TempFilePath::create();
-  writeToFile(buildFile->getPath(), buildVectors);
+  testLazyVectorsWithFilter(
+      core::JoinType::kLeft,
+      "c1 > 0 AND c2 > 0",
+      {"c1", "c2"},
+      "SELECT t.c1, t.c2 FROM t LEFT JOIN u ON t.c0 = u.c0 AND (c1 > 0 AND c2 > 0)");
+}
 
-  createDuckDbTable("t", probeVectors);
-  createDuckDbTable("u", buildVectors);
+TEST_F(HashJoinTest, lazyVectorPartiallyLoadedInFilterFullJoin) {
+  // Test the case where a filter loads a subset of the rows that will be output
+  // from a column on the probe side.
 
-  // Lazy vector is part of the filter but never gets loaded.
-  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
-  core::PlanNodeId probeScanId;
-  core::PlanNodeId buildScanId;
-  auto op = PlanBuilder(planNodeIdGenerator)
-                .tableScan(asRowType(probeVectors[0]->type()))
-                .capturePlanNodeId(probeScanId)
-                .hashJoin(
-                    {"c0"},
-                    {"c0"},
-                    PlanBuilder(planNodeIdGenerator)
-                        .tableScan(asRowType(buildVectors[0]->type()))
-                        .capturePlanNodeId(buildScanId)
-                        .planNode(),
-                    "c1 >= 0 OR c2 > 0",
-                    {"c1", "c2"})
-                .planNode();
-  SplitInput splitInput = {
-      {probeScanId,
-       {exec::Split(makeHiveConnectorSplit(probeFile->getPath()))}},
-      {buildScanId,
-       {exec::Split(makeHiveConnectorSplit(buildFile->getPath()))}},
-  };
-  HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
-      .planNode(std::move(op))
-      .inputSplits(splitInput)
-      .checkSpillStats(false)
-      .referenceQuery("SELECT t.c1, t.c2 FROM t, u WHERE t.c0 = u.c0")
-      .run();
+  testLazyVectorsWithFilter(
+      core::JoinType::kFull,
+      "c1 > 0 AND c2 > 0",
+      {"c1", "c2"},
+      "SELECT t.c1, t.c2 FROM t FULL OUTER JOIN u ON t.c0 = u.c0 AND (c1 > 0 AND c2 > 0)");
+}
+
+TEST_F(HashJoinTest, lazyVectorPartiallyLoadedInFilterLeftSemiProject) {
+  // Test the case where a filter loads a subset of the rows that will be output
+  // from a column on the probe side.
+
+  testLazyVectorsWithFilter(
+      core::JoinType::kLeftSemiProject,
+      "c1 > 0 AND c2 > 0",
+      {"c1", "c2", "match"},
+      "SELECT t.c1, t.c2, EXISTS (SELECT * FROM u WHERE t.c0 = u.c0 AND (t.c1 > 0 AND t.c2 > 0)) FROM t");
+}
+
+TEST_F(HashJoinTest, lazyVectorPartiallyLoadedInFilterAntiJoin) {
+  // Test the case where a filter loads a subset of the rows that will be output
+  // from a column on the probe side.
+
+  testLazyVectorsWithFilter(
+      core::JoinType::kAnti,
+      "c1 > 0 AND c2 > 0",
+      {"c1", "c2"},
+      "SELECT t.c1, t.c2 FROM t WHERE NOT EXISTS (SELECT * FROM u WHERE t.c0 = u.c0 AND (t.c1 > 0 AND t.c2 > 0))");
+}
+
+TEST_F(HashJoinTest, lazyVectorPartiallyLoadedInFilterInnerJoin) {
+  // Test the case where a filter loads a subset of the rows that will be output
+  // from a column on the probe side.
+
+  testLazyVectorsWithFilter(
+      core::JoinType::kInner,
+      "not (c1 < 15 and c2 >= 0)",
+      {"c1", "c2"},
+      "SELECT t.c1, t.c2 FROM t, u WHERE t.c0 = u.c0 AND NOT (c1 < 15 AND c2 >= 0)");
+}
+
+TEST_F(HashJoinTest, lazyVectorPartiallyLoadedInFilterLeftSemiFilter) {
+  // Test the case where a filter loads a subset of the rows that will be output
+  // from a column on the probe side.
+
+  testLazyVectorsWithFilter(
+      core::JoinType::kLeftSemiFilter,
+      "not (c1 < 15 and c2 >= 0)",
+      {"c1", "c2"},
+      "SELECT t.c1, t.c2 FROM t WHERE c0 IN (SELECT u.c0 FROM u WHERE t.c0 = u.c0 AND NOT (t.c1 < 15 AND t.c2 >= 0))");
 }
 
 TEST_F(HashJoinTest, dynamicFilters) {

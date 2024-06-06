@@ -161,6 +161,7 @@ void HashProbe::initialize() {
     auto name = probeType_->nameOf(i);
     auto outIndex = outputType_->getChildIdxIfExists(name);
     if (outIndex.has_value()) {
+      projectedInputColumns_.insert(i);
       identityProjections_.emplace_back(i, outIndex.value());
       if (outIndex.value() == i) {
         ++numIdentityProjections;
@@ -566,6 +567,9 @@ void HashProbe::addInput(RowVectorPtr input) {
   }
   input_ = std::move(input);
 
+  // Reset passingInputRowsInitialized_ as input_ as changed.
+  passingInputRowsInitialized_ = false;
+
   const auto numInput = input_->size();
 
   if (numInput > 0) {
@@ -600,9 +604,7 @@ void HashProbe::addInput(RowVectorPtr input) {
     }
     // Build side is empty. This state is valid only for anti, left and full
     // joins.
-    VELOX_CHECK(
-        isAntiJoin(joinType_) || isLeftJoin(joinType_) ||
-        isFullJoin(joinType_) || isLeftSemiProjectJoin(joinType_));
+    VELOX_CHECK(joinIncludesMissesFromLeft(joinType_));
     if (isLeftSemiProjectJoin(joinType_) ||
         (isAntiJoin(joinType_) && filter_)) {
       // For anti join with filter and semi project join we need to decode the
@@ -632,9 +634,7 @@ void HashProbe::addInput(RowVectorPtr input) {
 
   table_->prepareForJoinProbe(*lookup_.get(), input_, activeRows_, false);
 
-  passingInputRowsInitialized_ = false;
-  if (isLeftJoin(joinType_) || isFullJoin(joinType_) || isAntiJoin(joinType_) ||
-      isLeftSemiProjectJoin(joinType_)) {
+  if (joinIncludesMissesFromLeft(joinType_)) {
     // Make sure to allocate an entry in 'hits' for every input row to allow for
     // including rows without a match in the output. Also, make sure to
     // initialize all 'hits' to nullptr as HashTable::joinProbe will only
@@ -995,8 +995,7 @@ RowVectorPtr HashProbe::getOutputInternal(bool toSpillOutput) {
     } else {
       numOut = table_->listJoinResults(
           results_,
-          isLeftJoin(joinType_) || isFullJoin(joinType_) ||
-              isAntiJoin(joinType_) || isLeftSemiProjectJoin(joinType_),
+          joinIncludesMissesFromLeft(joinType_),
           mapping,
           folly::Range(outputTableRows_.data(), outputTableRows_.size()));
     }
@@ -1056,7 +1055,19 @@ bool HashProbe::maybeReadSpillOutput() {
 RowVectorPtr HashProbe::createFilterInput(vector_size_t size) {
   std::vector<VectorPtr> filterColumns(filterInputType_->size());
   for (auto projection : filterInputProjections_) {
-    ensureLoadedIfNotAtEnd(projection.inputChannel);
+    if (projectedInputColumns_.find(projection.inputChannel) !=
+        projectedInputColumns_.end()) {
+      // If the column is projected to the output, ensure it's loaded if it's
+      // lazy in case the filter only loads an incomplete subset of the rows
+      // that will be output.
+      ensureLoaded(projection.inputChannel);
+    } else {
+      // If the column isn't projected to the output, the Vector will only be
+      // reused if we've broken the input batch into multiple output batches,
+      // i.e. if results_ is not at the end of the iterator.
+      ensureLoadedIfNotAtEnd(projection.inputChannel);
+    }
+
     filterColumns[projection.outputChannel] = wrapChild(
         size, outputRowMapping_, input_->childAt(projection.inputChannel));
   }
@@ -1417,18 +1428,24 @@ int32_t HashProbe::evalFilter(int32_t numRows) {
 }
 
 void HashProbe::ensureLoadedIfNotAtEnd(column_index_t channel) {
-  if ((!filter_ &&
-       (isLeftSemiFilterJoin(joinType_) || isLeftSemiProjectJoin(joinType_) ||
-        isAntiJoin(joinType_))) ||
-      results_.atEnd()) {
+  if (results_.atEnd()) {
+    return;
+  }
+
+  ensureLoaded(channel);
+}
+
+void HashProbe::ensureLoaded(column_index_t channel) {
+  if (!filter_ &&
+      (isLeftSemiFilterJoin(joinType_) || isLeftSemiProjectJoin(joinType_) ||
+       isAntiJoin(joinType_))) {
     return;
   }
 
   if (!passingInputRowsInitialized_) {
     passingInputRowsInitialized_ = true;
     passingInputRows_.resize(input_->size());
-    if (isLeftJoin(joinType_) || isFullJoin(joinType_) ||
-        isLeftSemiProjectJoin(joinType_)) {
+    if (joinIncludesMissesFromLeft(joinType_)) {
       passingInputRows_.setAll();
     } else {
       passingInputRows_.clearAll();
@@ -1439,8 +1456,9 @@ void HashProbe::ensureLoadedIfNotAtEnd(column_index_t channel) {
           passingInputRows_.setValid(i, true);
         }
       }
+
+      passingInputRows_.updateBounds();
     }
-    passingInputRows_.updateBounds();
   }
 
   LazyVector::ensureLoadedRows(input_->childAt(channel), passingInputRows_);
