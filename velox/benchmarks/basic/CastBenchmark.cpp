@@ -30,9 +30,24 @@ int main(int argc, char** argv) {
   ExpressionBenchmarkBuilder benchmarkBuilder;
   const vector_size_t vectorSize = 1000;
   auto vectorMaker = benchmarkBuilder.vectorMaker();
-  auto emptyInput = vectorMaker.flatVector<facebook::velox::StringView>({""});
-  auto validInput = vectorMaker.flatVector<facebook::velox::StringView>({""});
-  auto nanInput = vectorMaker.flatVector<facebook::velox::StringView>({""});
+  auto emptyInput = vectorMaker.flatVector<std::string>(
+      vectorSize, [](auto /*row*/) { return ""; });
+  auto validInput = vectorMaker.flatVector<std::string>(
+      vectorSize, [](auto row) { return std::to_string(row); });
+  auto invalidInput = vectorMaker.flatVector<std::string>(
+      vectorSize, [](auto /*row*/) { return "$"; });
+  auto validDoubleStringInput = vectorMaker.flatVector<std::string>(
+      vectorSize, [](auto row) { return fmt::format("{}.12345678910", row); });
+  auto validNaNInput = vectorMaker.flatVector<std::string>(
+      vectorSize, [](auto /*row*/) { return "NaN"; });
+  auto validInfinityInput = vectorMaker.flatVector<std::string>(
+      vectorSize, [](auto /*row*/) { return "Infinity"; });
+  auto invalidNaNInput = vectorMaker.flatVector<std::string>(
+      vectorSize, [](auto /*row*/) { return "nan"; });
+  auto invalidInfinityInput = vectorMaker.flatVector<std::string>(
+      vectorSize, [](auto /*row*/) { return "infinity"; });
+  auto spaceInput = vectorMaker.flatVector<std::string>(
+      vectorSize, [](auto /*row*/) { return "   "; });
   auto decimalInput = vectorMaker.flatVector<int64_t>(
       vectorSize, [&](auto j) { return 12345 * j; }, nullptr, DECIMAL(9, 2));
   auto shortDecimalInput = vectorMaker.flatVector<int64_t>(
@@ -64,16 +79,6 @@ int main(int argc, char** argv) {
       [](auto row) { return fmt::format("2024-05-{:02d}", 1 + row % 30); });
   auto invalidDateStrings = vectorMaker.flatVector<std::string>(
       vectorSize, [](auto row) { return fmt::format("2024-05...{}", row); });
-
-  emptyInput->resize(vectorSize);
-  validInput->resize(vectorSize);
-  nanInput->resize(vectorSize);
-
-  for (int i = 0; i < vectorSize; i++) {
-    nanInput->set(i, "$"_sv);
-    emptyInput->set(i, StringView::makeInline(std::string("")));
-    validInput->set(i, StringView::makeInline(std::to_string(i)));
-  }
 
   benchmarkBuilder
       .addBenchmarkSet(
@@ -114,11 +119,35 @@ int main(int argc, char** argv) {
 
   benchmarkBuilder
       .addBenchmarkSet(
+          "cast_varchar_as_double",
+          vectorMaker.rowVector(
+              {"valid",
+               "valid_nan",
+               "valid_infinity",
+               "invalid_nan",
+               "invalid_infinity",
+               "space"},
+              {validDoubleStringInput,
+               validNaNInput,
+               validInfinityInput,
+               invalidNaNInput,
+               invalidInfinityInput,
+               spaceInput}))
+      .addExpression("cast_valid", "cast (valid as double)")
+      .addExpression("cast_valid_nan", "cast (valid_nan as double)")
+      .addExpression("cast_valid_infinity", "cast (valid_infinity as double)")
+      .addExpression("try_cast_invalid_nan", "try_cast (invalid_nan as double)")
+      .addExpression(
+          "try_cast_invalid_infinity", "try_cast (invalid_infinity as double)")
+      .addExpression("try_cast_space", "try_cast (space as double)");
+
+  benchmarkBuilder
+      .addBenchmarkSet(
           "cast",
           vectorMaker.rowVector(
               {"valid",
                "empty",
-               "nan",
+               "invalid",
                "decimal",
                "short_decimal",
                "long_decimal",
@@ -128,7 +157,7 @@ int main(int argc, char** argv) {
                "large_double"},
               {validInput,
                emptyInput,
-               nanInput,
+               invalidInput,
                decimalInput,
                shortDecimalInput,
                longDecimalInput,
@@ -139,8 +168,9 @@ int main(int argc, char** argv) {
       .addExpression("try_cast_invalid_empty_input", "try_cast (empty as int) ")
       .addExpression(
           "tryexpr_cast_invalid_empty_input", "try (cast (empty as int))")
-      .addExpression("try_cast_invalid_nan", "try_cast (nan as int)")
-      .addExpression("tryexpr_cast_invalid_nan", "try (cast (nan as int))")
+      .addExpression("try_cast_invalid_number", "try_cast (invalid as int)")
+      .addExpression(
+          "tryexpr_cast_invalid_number", "try (cast (invalid as int))")
       .addExpression("try_cast_valid", "try_cast (valid as int)")
       .addExpression("tryexpr_cast_valid", "try (cast (valid as int))")
       .addExpression("cast_valid", "cast(valid as int)")
