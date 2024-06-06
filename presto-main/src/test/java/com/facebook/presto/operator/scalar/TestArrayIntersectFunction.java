@@ -126,13 +126,27 @@ public class TestArrayIntersectFunction
     @Test
     public void testIndeterminateRows()
     {
-        // test unsupported
-        assertNotSupported(
+        assertFunction(
                 "ARRAY_INTERSECT(ARRAY[(123, 'abc'), (123, NULL)], ARRAY[(123, 'abc'), (123, NULL)])",
-                "ROW comparison not supported for fields with null elements");
-        assertNotSupported(
+                new ArrayType(RowType.anonymous(ImmutableList.of(INTEGER, createVarcharType(3)))),
+                ImmutableList.of(asList(123, "abc"), asList(123, null)));
+        assertFunction(
                 "ARRAY_INTERSECT(ARRAY[(NULL, 'abc'), (123, 'abc')], ARRAY[(123, 'abc'),(NULL, 'abc')])",
-                "ROW comparison not supported for fields with null elements");
+                new ArrayType(RowType.anonymous(ImmutableList.of(INTEGER, createVarcharType(3)))),
+                ImmutableList.of(asList(null, "abc"), asList(123, "abc")));
+    }
+
+    @Test
+    public void testIndeterminateArrays()
+    {
+        assertFunction(
+                "ARRAY_INTERSECT(ARRAY[ARRAY[123, 456], ARRAY[123, NULL]], ARRAY[ARRAY[123, 456], ARRAY[123, NULL]])",
+                new ArrayType(new ArrayType(INTEGER)),
+                ImmutableList.of(asList(123, 456), asList(123, null)));
+        assertFunction(
+                "ARRAY_INTERSECT(ARRAY[ARRAY[NULL, 456], ARRAY[123, 456]], ARRAY[ARRAY[123, 456],ARRAY[NULL, 456]])",
+                new ArrayType(new ArrayType(INTEGER)),
+                ImmutableList.of(asList(null, 456), asList(123, 456)));
     }
 
     @Test

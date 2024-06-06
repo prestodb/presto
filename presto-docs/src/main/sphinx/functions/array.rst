@@ -62,6 +62,9 @@ Array Functions
 .. function:: array_except(x, y) -> array
 
     Returns an array of elements in ``x`` but not in ``y``, without duplicates.
+    This function uses ``IS NOT DISTINCT FROM`` to determine which elements are the same. ::
+
+        SELECT array_except(ARRAY[1, 3, 3, 2, null], ARRAY[1,2, 2, 4]) -- ARRAY[3, null]
 
 .. function:: array_frequency(array(E)) -> map(E, int)
 
@@ -71,14 +74,24 @@ Array Functions
 .. function:: array_has_duplicates(array(T)) -> boolean
 
     Returns a boolean: whether ``array`` has any elements that occur more than once.
+    Throws an exception if any of the elements are rows or arrays that contain nulls. ::
+
+    SELECT array_has_duplicates(ARRAY[1, 2, null, 1, null, 3]) -- true
+    SELECT array_has_duplicates(ARRAY[ROW(1, null), ROW(1, null)]) -- "map key cannot be null or contain nulls"
 
 .. function:: array_intersect(x, y) -> array
 
     Returns an array of the elements in the intersection of ``x`` and ``y``, without duplicates.
+    This function uses ``IS NOT DISTINCT FROM`` to determine which elements are the same. ::
+
+        SELECT array_intersect(ARRAY[1, 2, 3, 2, null], ARRAY[1,2, 2, 4, null]) -- ARRAY[1, 2, null]
 
 .. function:: array_intersect(array(array(E))) -> array(E)
 
     Returns an array of the elements in the intersection of all arrays in the given array, without duplicates.
+    This function uses ``IS NOT DISTINCT FROM`` to determine which elements are the same. ::
+
+        SELECT array_intersect(ARRAY[ARRAY[1, 2, 3, 2, null], ARRAY[1,2,2, 4, null], ARRAY [1, 2, 3, 4 null]])  -- ARRAY[1, 2, null]
 
 .. function:: array_join(x, delimiter, null_replacement) -> varchar
 
@@ -209,6 +222,9 @@ Array Functions
 .. function:: array_union(x, y) -> array
 
     Returns an array of the elements in the union of ``x`` and ``y``, without duplicates.
+    This function uses ``IS NOT DISTINCT FROM`` to determine which elements are the same. ::
+
+        SELECT array_union(ARRAY[1, 2, 3, 2, null], ARRAY[1,2, 2, 4, null]) -- ARRAY[1, 2, 3, 4 null]
 
 .. function:: cardinality(x) -> bigint
 

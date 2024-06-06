@@ -15,6 +15,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.RowType;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -68,5 +69,32 @@ public class TestArrayUnionFunction
     {
         assertFunction("ARRAY_UNION(ARRAY [NULL], ARRAY [NULL, NULL])", new ArrayType(UNKNOWN), asList((Object) null));
         assertFunction("ARRAY_UNION(ARRAY ['abc', NULL, 'xyz', NULL], ARRAY [NULL, 'abc', NULL, NULL])", new ArrayType(createVarcharType(3)), asList("abc", null, "xyz"));
+    }
+
+    @Test
+    public void testIndeterminateRows()
+    {
+        // test unsupported
+        assertFunction(
+                "array_union(ARRAY[(123, 'abc'), (123, NULL)], ARRAY[(123, 'abc'), (123, NULL)])",
+                new ArrayType(RowType.anonymous(ImmutableList.of(INTEGER, createVarcharType(3)))),
+                ImmutableList.of(asList(123, "abc"), asList(123, null)));
+        assertFunction(
+                "array_union(ARRAY[(NULL, 'abc'), (123, null), (123, 'abc')], ARRAY[(456, 'def'),(NULL, 'abc')])",
+                new ArrayType(RowType.anonymous(ImmutableList.of(INTEGER, createVarcharType(3)))),
+                ImmutableList.of(asList(null, "abc"), asList(123, null), asList(123, "abc"), asList(456, "def")));
+    }
+
+    @Test
+    public void testIndeterminateArrays()
+    {
+        assertFunction(
+                "array_union(ARRAY[ARRAY[123, 456], ARRAY[123, NULL]], ARRAY[ARRAY[123, 456], ARRAY[123, NULL]])",
+                new ArrayType(new ArrayType(INTEGER)),
+                ImmutableList.of(asList(123, 456), asList(123, null)));
+        assertFunction(
+                "array_union(ARRAY[ARRAY[NULL, 456], ARRAY[123, 456]], ARRAY[ARRAY[123, 456],ARRAY[NULL, 456]])",
+                new ArrayType(new ArrayType(INTEGER)),
+                ImmutableList.of(asList(null, 456), asList(123, 456)));
     }
 }
