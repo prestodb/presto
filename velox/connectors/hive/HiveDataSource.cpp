@@ -118,10 +118,14 @@ HiveDataSource::HiveDataSource(
   if (remainingFilter) {
     remainingFilterExprSet_ = expressionEvaluator_->compile(remainingFilter);
     auto& remainingFilterExpr = remainingFilterExprSet_->expr(0);
-    folly::F14FastSet<std::string> columnNames(
-        readerRowNames.begin(), readerRowNames.end());
+    folly::F14FastMap<std::string, column_index_t> columnNames;
+    for (int i = 0; i < readerRowNames.size(); ++i) {
+      columnNames[readerRowNames[i]] = i;
+    }
     for (auto& input : remainingFilterExpr->distinctFields()) {
-      if (columnNames.count(input->field()) > 0) {
+      auto it = columnNames.find(input->field());
+      if (it != columnNames.end()) {
+        multiReferencedFields_.push_back(it->second);
         continue;
       }
       // Remaining filter may reference columns that are not used otherwise,
@@ -352,9 +356,15 @@ int64_t HiveDataSource::estimatedRowSize() {
 }
 
 vector_size_t HiveDataSource::evaluateRemainingFilter(RowVectorPtr& rowVector) {
-  auto filterStartMicros = getCurrentTimeMicro();
   filterRows_.resize(output_->size());
-
+  for (auto fieldIndex : multiReferencedFields_) {
+    LazyVector::ensureLoadedRows(
+        rowVector->childAt(fieldIndex),
+        filterRows_,
+        filterLazyDecoded_,
+        filterLazyBaseRows_);
+  }
+  auto filterStartMicros = getCurrentTimeMicro();
   expressionEvaluator_->evaluate(
       remainingFilterExprSet_.get(), filterRows_, *rowVector, filterResult_);
   auto res = exec::processFilterResults(

@@ -3003,6 +3003,44 @@ TEST_F(TableScanTest, remainingFilter) {
       "SELECT * FROM tmp WHERE not (c0 > 0 or c1 > c0)");
 }
 
+TEST_F(TableScanTest, remainingFilterLazyWithMultiReferences) {
+  constexpr int kSize = 10;
+  auto vector = makeRowVector({
+      makeFlatVector<int64_t>(kSize, folly::identity),
+      makeFlatVector<int64_t>(kSize, folly::identity),
+      makeFlatVector<int64_t>(kSize, folly::identity),
+  });
+  auto schema = asRowType(vector->type());
+  auto file = TempFilePath::create();
+  writeToFile(file->getPath(), {vector});
+  CursorParameters params;
+  params.copyResult = false;
+  params.singleThreaded = true;
+  params.planNode =
+      PlanBuilder()
+          .tableScan(schema, {}, "NOT (c0 % 2 == 0 AND c2 % 3 == 0)")
+          .planNode();
+  auto cursor = TaskCursor::create(params);
+  cursor->task()->addSplit(
+      "0", exec::Split(makeHiveConnectorSplit(file->getPath())));
+  cursor->task()->noMoreSplits("0");
+  int i = 0;
+  while (cursor->moveNext()) {
+    auto* result = cursor->current()->asUnchecked<RowVector>();
+    ASSERT_FALSE(isLazyNotLoaded(*result->childAt(0)));
+    ASSERT_TRUE(isLazyNotLoaded(*result->childAt(1)));
+    ASSERT_FALSE(isLazyNotLoaded(*result->childAt(2)));
+    for (int j = 0; j < result->size(); ++i) {
+      ASSERT_LT(i, vector->size());
+      if (i % 6 != 0) {
+        ASSERT_TRUE(result->loadedVector()->equalValueAt(vector.get(), j++, i));
+      }
+    }
+  }
+  ASSERT_EQ(i, vector->size());
+  ASSERT_TRUE(waitForTaskCompletion(cursor->task().get()));
+}
+
 TEST_F(TableScanTest, remainingFilterSkippedStrides) {
   auto rowType = ROW({{"c0", BIGINT()}, {"c1", BIGINT()}});
   std::vector<RowVectorPtr> vectors(3);
