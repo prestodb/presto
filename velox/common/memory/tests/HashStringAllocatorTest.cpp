@@ -670,5 +670,13 @@ TEST_F(HashStringAllocatorTest, storeStringFast) {
   allocator_->checkConsistency();
 }
 
+TEST_F(HashStringAllocatorTest, clear) {
+  allocator_->allocate(HashStringAllocator::kMinAlloc);
+  allocator_->allocate(HashStringAllocator::kMaxAlloc + 1);
+  EXPECT_GT(allocator_->retainedSize(), 0);
+  allocator_->clear();
+  EXPECT_EQ(allocator_->retainedSize(), 0);
+}
+
 } // namespace
 } // namespace facebook::velox

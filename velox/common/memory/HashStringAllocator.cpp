@@ -90,7 +90,10 @@ void HashStringAllocator::clear() {
   freeBytes_ = 0;
   std::fill(std::begin(freeNonEmpty_), std::end(freeNonEmpty_), 0);
   for (auto& pair : allocationsFromPool_) {
-    pool()->free(pair.first, pair.second);
+    const auto size = pair.second;
+    pool()->free(pair.first, size);
+    sizeFromPool_ -= size;
+    cumulativeBytes_ -= size;
   }
   allocationsFromPool_.clear();
   for (auto i = 0; i < kNumFreeLists; ++i) {
