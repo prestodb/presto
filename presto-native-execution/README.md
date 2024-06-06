@@ -125,7 +125,7 @@ From the Presto repo run the commands below:
 * `mvn clean install -DskipTests -T1C -pl -presto-docs`
 
 Run IntelliJ IDEA:
-* Edit/Create `HiveQueryRunnerExternal` Application Run/Debug Configuration (alter paths accordingly).
+* Edit/Create `HiveExternalWorkerQueryRunner` Application Run/Debug Configuration (alter paths accordingly).
   * Main class: `com.facebook.presto.nativeworker.HiveExternalWorkerQueryRunner`.
   * VM options: `-ea -Xmx5G -XX:+ExitOnOutOfMemoryError -Duser.timezone=America/Bahia_Banderas -Dhive.security=legacy`.
   * Working directory: `$MODULE_DIR$`
@@ -161,7 +161,7 @@ Run CLion:
 
 ### Run Presto Coordinator + Worker
 * Note that everything below can be done w/o using IDEs by running command line commands (not in this readme).
-* Run 'HiveQueryRunnerExternal' from IntelliJ and wait until it started (`======== SERVER STARTED ========` in the log output).
+* Run `HiveExternalWorkerQueryRunner` from IntelliJ and wait until it starts (`======== SERVER STARTED ========` is displayed in the log output).
 * Scroll up the log output and find `Discovery URL http://127.0.0.1:50555`. The port is 'random' with every start.
 * Copy that port (or the whole URL) to the `discovery.uri` field in `presto/presto-native-execution/etc/config.properties` for the worker to discover the Coordinator.
 * In CLion run "presto_server" module. Connection success will be indicated by `Announcement succeeded: 202` line in the log output.
