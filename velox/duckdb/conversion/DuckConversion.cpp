@@ -181,6 +181,12 @@ TypePtr toVeloxType(LogicalType type, bool fileColumnNamesReadAsLowerCase) {
       }
       return ROW(std::move(names), std::move(types));
     }
+    case LogicalTypeId::UUID: {
+      if (auto customType = getCustomType("UUID")) {
+        return customType;
+      }
+      [[fallthrough]];
+    }
     case LogicalTypeId::USER: {
       const auto name = ::duckdb::UserType::GetTypeName(type);
       if (auto customType = getCustomType(name)) {

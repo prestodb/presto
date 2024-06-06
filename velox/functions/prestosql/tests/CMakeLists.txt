@@ -97,6 +97,7 @@ add_executable(
   TypeOfTest.cpp
   URLFunctionsTest.cpp
   Utf8Test.cpp
+  UuidFunctionsTest.cpp
   WidthBucketArrayTest.cpp
   WordStemTest.cpp
   ZipTest.cpp

@@ -21,6 +21,7 @@ Presto Functions
     functions/presto/aggregate
     functions/presto/window
     functions/presto/hyperloglog
+    functions/presto/uuid
 
 Here is a list of all scalar and aggregate Presto functions available in Velox.
 Function names link to function descriptions. Check out coverage maps
