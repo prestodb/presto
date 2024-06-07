@@ -175,14 +175,20 @@ void appendSqlLiteral(
     }
     case TypeKind::HUGEINT:
       [[fallthrough]];
-    case TypeKind::TIMESTAMP:
-      [[fallthrough]];
     case TypeKind::REAL:
       [[fallthrough]];
     case TypeKind::DOUBLE:
       out << "'" << vector.wrappedVector()->toString(vector.wrappedIndex(row))
           << "'::" << vector.type()->toString();
       break;
+    case TypeKind::TIMESTAMP: {
+      TimestampToStringOptions options;
+      options.dateTimeSeparator = ' ';
+      const auto ts =
+          vector.wrappedVector()->as<SimpleVector<Timestamp>>()->valueAt(row);
+      out << "'" << ts.toString(options) << "'::" << vector.type()->toString();
+      break;
+    }
     case TypeKind::VARCHAR:
       appendSqlString(
           vector.wrappedVector()->toString(vector.wrappedIndex(row)), out);

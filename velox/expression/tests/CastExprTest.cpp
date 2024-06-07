@@ -609,6 +609,11 @@ TEST_F(CastExprTest, stringToTimestamp) {
       Timestamp(946729316, 0),
   };
   testCast<std::string, Timestamp>("timestamp", input, expected);
+
+  VELOX_ASSERT_THROW(
+      (evaluateOnce<Timestamp, std::string>(
+          "cast(c0 as timestamp)", "1970-01-01T00:00")),
+      "Cannot cast VARCHAR '1970-01-01T00:00' to TIMESTAMP. Unable to parse timestamp value");
 }
 
 TEST_F(CastExprTest, timestampToString) {

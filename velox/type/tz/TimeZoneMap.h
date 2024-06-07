@@ -26,6 +26,6 @@ std::string getTimeZoneName(int64_t timeZoneID);
 // Returns the timeZoneID for the timezone name.
 // If failOnError = true, throws an exception for unrecognized timezone.
 // Otherwise, returns -1.
-int64_t getTimeZoneID(std::string_view timeZone, bool failOnError = true);
+int16_t getTimeZoneID(std::string_view timeZone, bool failOnError = true);
 
 } // namespace facebook::velox::util

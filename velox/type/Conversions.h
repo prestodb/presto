@@ -600,15 +600,18 @@ struct Converter<TypeKind::TIMESTAMP, void, TPolicy> {
   }
 
   static Expected<Timestamp> tryCast(folly::StringPiece v) {
-    return fromTimestampString(v.data(), v.size());
+    return fromTimestampString(
+        v.data(), v.size(), TimestampParseMode::kPrestoCast);
   }
 
   static Expected<Timestamp> tryCast(const StringView& v) {
-    return fromTimestampString(v.data(), v.size());
+    return fromTimestampString(
+        v.data(), v.size(), TimestampParseMode::kPrestoCast);
   }
 
   static Expected<Timestamp> tryCast(const std::string& v) {
-    return fromTimestampString(v.data(), v.size());
+    return fromTimestampString(
+        v.data(), v.size(), TimestampParseMode::kPrestoCast);
   }
 };
 

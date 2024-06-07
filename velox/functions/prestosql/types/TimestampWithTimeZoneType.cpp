@@ -82,7 +82,9 @@ void castFromString(
     int64_t* rawResults) {
   context.applyToSelectedNoThrow(rows, [&](auto row) {
     const auto castResult = util::fromTimestampWithTimezoneString(
-        inputVector.valueAt(row).data(), inputVector.valueAt(row).size());
+        inputVector.valueAt(row).data(),
+        inputVector.valueAt(row).size(),
+        util::TimestampParseMode::kPrestoCast);
     if (castResult.hasError()) {
       context.setStatus(row, castResult.error());
     } else {

@@ -95,25 +95,52 @@ Date and Time Functions
 .. function:: from_iso8601_date(string) -> date
 
     Parses the ISO 8601 formatted ``string`` into a ``date``.
-    ISO 8601 ``string`` can be formatted as any of the following:
-    ``[+-][Y]Y*``
 
-    ``[+-][Y]Y*-[M]M*``
+    Accepts formats described by the following syntax::
 
-    ``[+-][Y]Y*-[M]M*-[D]D*``
+       date = yyyy ['-' MM ['-' dd]]
 
-    ``[+-][Y]Y*-[M]M*-[D]D* *``
+    Examples of valid input strings:
 
-    Year value must contain at least one digit, and may contain up to six digits.
-    Month and day values are optional and may each contain one or two digits.
+    * '2012'
+    * '2012-4'
+    * '2012-04'
+    * '2012-4-7'
+    * '2012-04-07'
+    * '2012-04-07   '
 
-    Examples of supported input strings:
-    "2012",
-    "2012-4",
-    "2012-04",
-    "2012-4-7",
-    "2012-04-07",
-    "2012-04-07  ”
+.. function:: from_iso8601_timestamp(string) -> timestamp with time zone
+
+    Parses the ISO 8601 formatted string into a timestamp with time zone.
+
+    Accepts formats described by the following syntax::
+
+        datetime          = time | date-opt-time
+        time              = 'T' time-element [offset]
+        date-opt-time     = date-element ['T' [time-element] [offset]]
+        date-element      = yyyy ['-' MM ['-' dd]]
+        time-element      = HH [minute-element] | [fraction]
+        minute-element    = ':' mm [second-element] | [fraction]
+        second-element    = ':' ss [fraction]
+        fraction          = ('.' | ',') digit+
+        offset            = 'Z' | (('+' | '-') HH [':' mm [':' ss [('.' | ',') SSS]]])
+
+    Examples of valid input strings:
+
+    * '2012'
+    * '2012-4'
+    * '2012-04'
+    * '2012-4-7'
+    * '2012-04-07'
+    * '2012-04-07   '
+    * '2012-04T01:02'
+    * 'T01:02:34'
+    * 'T01:02:34,123'
+    * '2012-04-07T01:02:34'
+    * '2012-04-07T01:02:34.123'
+    * '2012-04-07T01:02:34,123'
+    * '2012-04-07T01:02:34.123Z'
+    * '2012-04-07T01:02:34.123-05:00'
 
 .. function:: from_unixtime(unixtime) -> timestamp
 

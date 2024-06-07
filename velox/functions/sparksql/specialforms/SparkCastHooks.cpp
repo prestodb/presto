@@ -22,7 +22,8 @@ namespace facebook::velox::functions::sparksql {
 
 Expected<Timestamp> SparkCastHooks::castStringToTimestamp(
     const StringView& view) const {
-  return util::fromTimestampString(view.data(), view.size());
+  return util::fromTimestampString(
+      view.data(), view.size(), util::TimestampParseMode::kSparkCast);
 }
 
 Expected<int32_t> SparkCastHooks::castStringToDate(

@@ -59,9 +59,11 @@ class DateTimeFormatterTest : public testing::Test {
   };
 
   static Timestamp fromTimestampString(const StringView& timestamp) {
-    return util::fromTimestampString(timestamp).thenOrThrow(
-        folly::identity,
-        [&](const Status& status) { VELOX_USER_FAIL("{}", status.message()); });
+    return util::fromTimestampString(
+               timestamp, util::TimestampParseMode::kPrestoCast)
+        .thenOrThrow(folly::identity, [&](const Status& status) {
+          VELOX_USER_FAIL("{}", status.message());
+        });
   }
 
   void testTokenRange(

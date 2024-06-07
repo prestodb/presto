@@ -2660,7 +2660,7 @@ TEST_P(ParameterizedExprTest, constantToSql) {
 
   ASSERT_EQ(
       toSql(Timestamp(123'456, 123'000)),
-      "'1970-01-02T10:17:36.000123000'::TIMESTAMP");
+      "'1970-01-02 10:17:36.000123000'::TIMESTAMP");
   ASSERT_EQ(toSql(variant::null(TypeKind::TIMESTAMP)), "NULL::TIMESTAMP");
 
   ASSERT_EQ(

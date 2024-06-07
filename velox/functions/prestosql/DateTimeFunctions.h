@@ -1258,6 +1258,44 @@ struct FromIso8601Date {
 };
 
 template <typename T>
+struct FromIso8601Timestamp {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void initialize(
+      const std::vector<TypePtr>& /*inputTypes*/,
+      const core::QueryConfig& config,
+      const arg_type<Varchar>* /*input*/) {
+    auto sessionTzName = config.sessionTimezone();
+    if (!sessionTzName.empty()) {
+      sessionTzID_ = util::getTimeZoneID(sessionTzName);
+    }
+  }
+
+  FOLLY_ALWAYS_INLINE Status call(
+      out_type<TimestampWithTimezone>& result,
+      const arg_type<Varchar>& input) {
+    const auto castResult = util::fromTimestampWithTimezoneString(
+        input.data(), input.size(), util::TimestampParseMode::kIso8601);
+    if (castResult.hasError()) {
+      return castResult.error();
+    }
+
+    auto [ts, tzID] = castResult.value();
+    // Input string may not contain a timezone - if so, it is interpreted in
+    // session timezone.
+    if (tzID == -1) {
+      tzID = sessionTzID_;
+    }
+    ts.toGMT(tzID);
+    result = pack(ts.toMillis(), tzID);
+    return Status::OK();
+  }
+
+ private:
+  int16_t sessionTzID_{0};
+};
+
+template <typename T>
 struct DateParseFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 

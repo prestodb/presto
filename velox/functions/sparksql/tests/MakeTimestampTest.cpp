@@ -29,12 +29,6 @@ class MakeTimestampTest : public SparkFunctionBaseTest {
         {core::QueryConfig::kAdjustTimestampToTimezone, "true"},
     });
   }
-
-  static Timestamp fromTimestampString(const StringView& timestamp) {
-    return util::fromTimestampString(timestamp).thenOrThrow(
-        folly::identity,
-        [&](const Status& status) { VELOX_USER_FAIL("{}", status.message()); });
-  }
 };
 
 TEST_F(MakeTimestampTest, basic) {
@@ -69,20 +63,20 @@ TEST_F(MakeTimestampTest, basic) {
 
     setQueryTimeZone("GMT");
     auto expectedGMT = makeNullableFlatVector<Timestamp>(
-        {fromTimestampString("2021-07-11 06:30:45.678"),
-         fromTimestampString("2021-07-11 06:30:01"),
-         fromTimestampString("2021-07-11 06:31:00"),
-         fromTimestampString("2021-07-11 06:30:59.999999"),
+        {parseTimestamp("2021-07-11 06:30:45.678"),
+         parseTimestamp("2021-07-11 06:30:01"),
+         parseTimestamp("2021-07-11 06:31:00"),
+         parseTimestamp("2021-07-11 06:30:59.999999"),
          std::nullopt});
     testMakeTimestamp(data, expectedGMT, false);
     testConstantTimezone(data, "GMT", expectedGMT);
 
     setQueryTimeZone("Asia/Shanghai");
     auto expectedSessionTimezone = makeNullableFlatVector<Timestamp>(
-        {fromTimestampString("2021-07-10 22:30:45.678"),
-         fromTimestampString("2021-07-10 22:30:01"),
-         fromTimestampString("2021-07-10 22:31:00"),
-         fromTimestampString("2021-07-10 22:30:59.999999"),
+        {parseTimestamp("2021-07-10 22:30:45.678"),
+         parseTimestamp("2021-07-10 22:30:01"),
+         parseTimestamp("2021-07-10 22:31:00"),
+         parseTimestamp("2021-07-10 22:30:59.999999"),
          std::nullopt});
     testMakeTimestamp(data, expectedSessionTimezone, false);
     // Session time zone will be ignored if time zone is specified in argument.
@@ -105,8 +99,8 @@ TEST_F(MakeTimestampTest, basic) {
         makeRowVector({year, month, day, hour, minute, micros, timeZone});
     // Session time zone will be ignored if time zone is specified in argument.
     auto expected = makeNullableFlatVector<Timestamp>(
-        {fromTimestampString("2021-07-11 06:30:45.678"),
-         fromTimestampString("2021-07-11 04:30:45.678"),
+        {parseTimestamp("2021-07-11 06:30:45.678"),
+         parseTimestamp("2021-07-11 04:30:45.678"),
          std::nullopt});
     testMakeTimestamp(data, expected, true);
   }
