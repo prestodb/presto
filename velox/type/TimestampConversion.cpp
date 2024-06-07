@@ -172,7 +172,7 @@ bool tryParseDateString(
   int32_t year = 0;
   bool yearneg = false;
   int sep;
-  if (mode != ParseMode::kNonStandardNoTimeCast) {
+  if (mode != ParseMode::kIso8601) {
     skipSpaces(buf, len, pos);
   }
 
@@ -210,8 +210,7 @@ bool tryParseDateString(
   }
 
   // No month or day.
-  if ((mode == ParseMode::kNonStandardCast ||
-       mode == ParseMode::kNonStandardNoTimeCast) &&
+  if ((mode == ParseMode::kSparkCast || mode == ParseMode::kIso8601) &&
       pos == len) {
     if (!daysSinceEpochFromDate(year, 1, 1, daysSinceEpoch).ok()) {
       return false;
@@ -225,8 +224,8 @@ bool tryParseDateString(
 
   // Fetch the separator.
   sep = buf[pos++];
-  if (mode == ParseMode::kStandardCast || mode == ParseMode::kNonStandardCast ||
-      mode == ParseMode::kNonStandardNoTimeCast) {
+  if (mode == ParseMode::kPrestoCast || mode == ParseMode::kSparkCast ||
+      mode == ParseMode::kIso8601) {
     // Only '-' is valid for cast.
     if (sep != '-') {
       return false;
@@ -244,8 +243,7 @@ bool tryParseDateString(
   }
 
   // No day.
-  if ((mode == ParseMode::kNonStandardCast ||
-       mode == ParseMode::kNonStandardNoTimeCast) &&
+  if ((mode == ParseMode::kSparkCast || mode == ParseMode::kIso8601) &&
       pos == len) {
     if (!daysSinceEpochFromDate(year, month, 1, daysSinceEpoch).ok()) {
       return false;
@@ -270,13 +268,12 @@ bool tryParseDateString(
     return false;
   }
 
-  if (mode == ParseMode::kStandardCast ||
-      mode == ParseMode::kNonStandardNoTimeCast) {
+  if (mode == ParseMode::kPrestoCast || mode == ParseMode::kIso8601) {
     if (!daysSinceEpochFromDate(year, month, day, daysSinceEpoch).ok()) {
       return false;
     }
 
-    if (mode == ParseMode::kStandardCast) {
+    if (mode == ParseMode::kPrestoCast) {
       skipSpaces(buf, len, pos);
     }
 
@@ -288,7 +285,7 @@ bool tryParseDateString(
 
   // In non-standard cast mode, an optional trailing 'T' or space followed
   // by any optional characters are valid patterns.
-  if (mode == ParseMode::kNonStandardCast) {
+  if (mode == ParseMode::kSparkCast) {
     if (!daysSinceEpochFromDate(year, month, day, daysSinceEpoch).ok()) {
       return false;
     }
@@ -322,7 +319,7 @@ bool tryParseDateString(
   }
 
   // In strict mode, check remaining string for non-space characters.
-  if (mode == ParseMode::kStrict || mode == ParseMode::kNonStandardNoTimeCast) {
+  if (mode == ParseMode::kStrict || mode == ParseMode::kIso8601) {
     skipSpaces(buf, len, pos);
 
     // Check position. if end was not reached, non-space chars remaining.
@@ -486,7 +483,7 @@ bool tryParseTimestampString(
                  pos,
                  daysSinceEpoch,
                  parseMode == TimestampParseMode::kIso8601
-                     ? ParseMode::kNonStandardCast
+                     ? ParseMode::kSparkCast
                      : ParseMode::kNonStrict)) {
     return false;
   }
@@ -689,13 +686,13 @@ castFromDateString(const char* str, size_t len, ParseMode mode) {
     }
 
     switch (mode) {
-      case ParseMode::kStandardCast:
+      case ParseMode::kPrestoCast:
         return folly::makeUnexpected(Status::UserError(
             "Unable to parse date value: \"{}\". "
             "Valid date string pattern is (YYYY-MM-DD), "
             "and can be prefixed with [+-]",
             std::string(str, len)));
-      case ParseMode::kNonStandardCast:
+      case ParseMode::kSparkCast:
         return folly::makeUnexpected(Status::UserError(
             "Unable to parse date value: \"{}\". "
             "Valid date string patterns include "
@@ -703,7 +700,7 @@ castFromDateString(const char* str, size_t len, ParseMode mode) {
             "[y]y*-[m]m*-[d]d* *, [y]y*-[m]m*-[d]d*T*), "
             "and any pattern prefixed with [+-]",
             std::string(str, len)));
-      case ParseMode::kNonStandardNoTimeCast:
+      case ParseMode::kIso8601:
         return folly::makeUnexpected(Status::UserError(
             "Unable to parse date value: \"{}\". "
             "Valid date string patterns include "

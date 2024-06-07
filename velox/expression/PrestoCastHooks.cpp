@@ -62,7 +62,7 @@ Expected<int32_t> PrestoCastHooks::castStringToDate(
     const StringView& dateString) const {
   // Cast from string to date allows only complete ISO 8601 formatted strings:
   // [+-](YYYY-MM-DD).
-  return util::castFromDateString(dateString, util::ParseMode::kStandardCast);
+  return util::castFromDateString(dateString, util::ParseMode::kPrestoCast);
 }
 
 StringView PrestoCastHooks::removeWhiteSpaces(const StringView& view) const {

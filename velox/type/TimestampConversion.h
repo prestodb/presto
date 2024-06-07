@@ -55,32 +55,25 @@ enum class ParseMode {
   // Accepts complete ISO 8601 format, i.e. [+-](YYYY-MM-DD). Allows leading and
   // trailing spaces.
   // Aligned with Presto casting conventions.
-  // TODO Rename to kPrestoCast.
-  kStandardCast,
+  kPrestoCast,
 
-  // Like kStandardCast but permits years less than four digits, missing
-  // day/month, and allows trailing 'T' or spaces.
+  // ISO-8601 format with optional leading or trailing spaces. Optional trailing
+  // 'T' is also allowed.
   // Aligned with Spark SQL casting conventions.
   //
-  // Supported formats:
-  // `[+-][Y]Y*`
-  // `[+-][Y]Y*-[M]M`
-  // `[+-][Y]Y*-[M]M*-[D]D`
-  // `[+-][Y]Y*-[M]M*-[D]D *`
-  // `[+-][Y]Y*-[M]M*-[D]DT*`
-  //
-  // TODO Rename to kSparkCast.
-  kNonStandardCast,
+  // [+-][Y]Y*
+  // [+-][Y]Y*-[M]M
+  // [+-][Y]Y*-[M]M*-[D]D
+  // [+-][Y]Y*-[M]M*-[D]D *
+  // [+-][Y]Y*-[M]M*-[D]DT*
+  kSparkCast,
 
   // ISO-8601 format. No leading or trailing spaces allowed.
   //
-  // Supported formats:
-  // `[+-][Y]Y*`
-  // `[+-][Y]Y*-[M]M`
-  // `[+-][Y]Y*-[M]M*-[D]D`
-  //
-  // TODO Rename to kIso8601.
-  kNonStandardNoTimeCast
+  // [+-][Y]Y*
+  // [+-][Y]Y*-[M]M
+  // [+-][Y]Y*-[M]M*-[D]D
+  kIso8601
 };
 
 // Returns true if leap year, false otherwise

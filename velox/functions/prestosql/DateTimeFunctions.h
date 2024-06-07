@@ -124,7 +124,7 @@ struct DateFunction : public TimestampWithTimezoneSupport<T> {
 
   FOLLY_ALWAYS_INLINE Status
   call(out_type<Date>& result, const arg_type<Varchar>& date) {
-    auto days = util::castFromDateString(date, util::ParseMode::kStandardCast);
+    auto days = util::castFromDateString(date, util::ParseMode::kPrestoCast);
     if (days.hasError()) {
       return days.error();
     }
@@ -1247,7 +1247,7 @@ struct FromIso8601Date {
   FOLLY_ALWAYS_INLINE Status
   call(out_type<Date>& result, const arg_type<Varchar>& input) {
     const auto castResult = util::castFromDateString(
-        input.data(), input.size(), util::ParseMode::kNonStandardNoTimeCast);
+        input.data(), input.size(), util::ParseMode::kIso8601);
     if (castResult.hasError()) {
       return castResult.error();
     }

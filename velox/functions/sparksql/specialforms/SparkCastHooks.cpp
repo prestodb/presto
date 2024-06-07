@@ -40,7 +40,7 @@ Expected<int32_t> SparkCastHooks::castStringToDate(
   //   "1970-01-01 123"
   //   "1970-01-01 (BC)"
   return util::castFromDateString(
-      removeWhiteSpaces(dateString), util::ParseMode::kNonStandardCast);
+      removeWhiteSpaces(dateString), util::ParseMode::kSparkCast);
 }
 
 StringView SparkCastHooks::removeWhiteSpaces(const StringView& view) const {

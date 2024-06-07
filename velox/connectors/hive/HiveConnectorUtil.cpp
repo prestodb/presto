@@ -585,7 +585,7 @@ bool applyPartitionFilter(
     common::Filter* filter) {
   if (type->isDate()) {
     const auto result = util::castFromDateString(
-        StringView(partitionValue), util::ParseMode::kStandardCast);
+        StringView(partitionValue), util::ParseMode::kPrestoCast);
     VELOX_CHECK(!result.hasError());
     return applyFilter(*filter, result.value());
   }
