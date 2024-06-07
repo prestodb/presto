@@ -21,6 +21,8 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel.FACT;
+import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel.LOW;
 import static java.util.Collections.emptyList;
 
 public class TestExchangeStatsRule
@@ -135,14 +137,14 @@ public class TestExchangeStatsRule
                         .addSource(pb.values())))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(100)
-                        .setConfident(true)
+                        .setConfidence(FACT)
                         .build())
                 .withSourceStats(1, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(100)
-                        .setConfident(true)
+                        .setConfidence(FACT)
                         .build())
                 .check(check -> check
-                        .confident(true));
+                        .confident(FACT));
 
         tester().assertStatsFor(pb -> pb
                 .exchange(exchangeBuilder -> exchangeBuilder
@@ -153,13 +155,13 @@ public class TestExchangeStatsRule
                         .addSource(pb.values())))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(100)
-                        .setConfident(true)
+                        .setConfidence(FACT)
                         .build())
                 .withSourceStats(1, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(100)
-                        .setConfident(false)
+                        .setConfidence(LOW)
                         .build())
                 .check(check -> check
-                        .confident(false));
+                        .confident(LOW));
     }
 }
