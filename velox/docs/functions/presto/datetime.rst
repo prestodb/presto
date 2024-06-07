@@ -197,6 +197,7 @@ Unit            Description
 ``minute``      ``Minutes``
 ``hour``        ``Hours``
 ``day``         ``Days``
+``week``        ``Weeks``
 ``month``       ``Months``
 ``quarter``     ``Quarters of a year``
 ``year``        ``Years``

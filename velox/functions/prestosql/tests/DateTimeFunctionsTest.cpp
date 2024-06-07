@@ -1876,6 +1876,8 @@ TEST_F(DateTimeFunctionsTest, dateAddDate) {
   EXPECT_EQ(
       parseDate("2019-03-01"), dateAdd("day", 1, parseDate("2019-02-28")));
   EXPECT_EQ(
+      parseDate("2019-03-07"), dateAdd("week", 1, parseDate("2019-02-28")));
+  EXPECT_EQ(
       parseDate("2020-03-28"), dateAdd("month", 13, parseDate("2019-02-28")));
   EXPECT_EQ(
       parseDate("2020-02-28"), dateAdd("quarter", 4, parseDate("2019-02-28")));
@@ -1895,6 +1897,8 @@ TEST_F(DateTimeFunctionsTest, dateAddDate) {
   // Check for negative intervals
   EXPECT_EQ(
       parseDate("2019-02-28"), dateAdd("day", -366, parseDate("2020-02-29")));
+  EXPECT_EQ(
+      parseDate("2020-02-15"), dateAdd("week", -2, parseDate("2020-02-29")));
   EXPECT_EQ(
       parseDate("2019-02-28"), dateAdd("month", -12, parseDate("2020-02-29")));
   EXPECT_EQ(
@@ -1920,7 +1924,6 @@ TEST_F(DateTimeFunctionsTest, dateAddTimestamp) {
   VELOX_ASSERT_THROW(
       dateAdd("invalid_unit", 1, ts),
       "Unsupported datetime unit: invalid_unit");
-  VELOX_ASSERT_THROW(dateAdd("week", 1, ts), "Unsupported datetime unit: week");
 
   // Simple tests
   EXPECT_EQ(
@@ -1953,6 +1956,9 @@ TEST_F(DateTimeFunctionsTest, dateAddTimestamp) {
           "day",
           1,
           Timestamp(1551348000, 500'999'999) /*2019-02-28 10:00:00.500*/));
+  EXPECT_EQ(
+      parseTimestamp("2019-03-07 10:00:00.500"),
+      dateAdd("week", 1, parseTimestamp("2019-02-28 10:00:00.500")));
   EXPECT_EQ(
       Timestamp(1585389600, 500'999'999) /*2020-03-28 10:00:00.500*/,
       dateAdd(
@@ -2299,6 +2305,10 @@ TEST_F(DateTimeFunctionsTest, dateDiffDate) {
   EXPECT_EQ(
       1, dateDiff("day", parseDate("2019-02-28"), parseDate("2019-03-01")));
   EXPECT_EQ(
+      0, dateDiff("week", parseDate("2019-02-28"), parseDate("2019-03-01")));
+  EXPECT_EQ(
+      2, dateDiff("week", parseDate("2019-02-28"), parseDate("2019-03-15")));
+  EXPECT_EQ(
       13, dateDiff("month", parseDate("2019-02-28"), parseDate("2020-03-28")));
   EXPECT_EQ(
       4, dateDiff("quarter", parseDate("2019-02-28"), parseDate("2020-02-28")));
@@ -2326,6 +2336,10 @@ TEST_F(DateTimeFunctionsTest, dateDiffDate) {
   // Check for negative intervals
   EXPECT_EQ(
       -366, dateDiff("day", parseDate("2020-02-29"), parseDate("2019-02-28")));
+  EXPECT_EQ(
+      0, dateDiff("week", parseDate("2020-02-29"), parseDate("2020-02-25")));
+  EXPECT_EQ(
+      -64, dateDiff("week", parseDate("2020-02-29"), parseDate("2018-12-02")));
   EXPECT_EQ(
       -12, dateDiff("month", parseDate("2020-02-29"), parseDate("2019-02-28")));
   EXPECT_EQ(
@@ -2364,9 +2378,6 @@ TEST_F(DateTimeFunctionsTest, dateDiffTimestamp) {
   VELOX_ASSERT_THROW(
       dateDiff("invalid_unit", Timestamp(1, 0), Timestamp(0, 0)),
       "Unsupported datetime unit: invalid_unit");
-  VELOX_ASSERT_THROW(
-      dateDiff("week", Timestamp(1, 0), Timestamp(0, 0)),
-      "Unsupported datetime unit: week");
 
   // Simple tests
   EXPECT_EQ(
@@ -2399,6 +2410,18 @@ TEST_F(DateTimeFunctionsTest, dateDiffTimestamp) {
           "day",
           parseTimestamp("2019-02-28 10:00:00.500"),
           parseTimestamp("2019-03-01 10:00:00.500")));
+  EXPECT_EQ(
+      0,
+      dateDiff(
+          "week",
+          parseTimestamp("2019-02-28 10:00:00.500"),
+          parseTimestamp("2019-03-01 10:00:00.500")));
+  EXPECT_EQ(
+      1,
+      dateDiff(
+          "week",
+          parseTimestamp("2019-02-28 10:00:00.500"),
+          parseTimestamp("2019-03-10 10:00:00.500")));
   EXPECT_EQ(
       12 + 1,
       dateDiff(
@@ -2644,6 +2667,9 @@ TEST_F(DateTimeFunctionsTest, dateDiffTimestampWithTimezone) {
   EXPECT_EQ(
       18499,
       dateDiff("day", 0, "+00:00", 1'598'373'010'123, "America/Los_Angeles"));
+  EXPECT_EQ(
+      2642,
+      dateDiff("week", 0, "+00:00", 1'598'373'010'123, "America/Los_Angeles"));
   EXPECT_EQ(
       607,
       dateDiff("month", 0, "+00:00", 1'598'373'010'123, "America/Los_Angeles"));
