@@ -303,7 +303,7 @@ void CastExpr::applyCastKernel(
     const SimpleVector<typename TypeTraits<FromKind>::NativeType>* input,
     FlatVector<typename TypeTraits<ToKind>::NativeType>* result) {
   bool wrapException = true;
-  auto setError = [&](const std::string& details) {
+  auto setError = [&](const std::string& details) INLINE_LAMBDA {
     if (setNullInResultAtError()) {
       result->setNull(row, true);
     } else {
@@ -317,6 +317,18 @@ void CastExpr::applyCastKernel(
       }
     }
   };
+
+  // If castResult has an error, set the error in context. Otherwise, set the
+  // value in castResult directly to result. This lambda should be called only
+  // when ToKind is primitive and is not VARCHAR or VARBINARY.
+  auto setResultOrError = [&](const auto& castResult, vector_size_t row)
+                              INLINE_LAMBDA {
+                                if (castResult.hasError()) {
+                                  setError(castResult.error().message());
+                                } else {
+                                  result->set(row, castResult.value());
+                                }
+                              };
 
   try {
     auto inputRowValue = input->valueAt(row);
@@ -335,11 +347,17 @@ void CastExpr::applyCastKernel(
       }
       if constexpr (ToKind == TypeKind::TIMESTAMP) {
         const auto castResult = hooks_->castStringToTimestamp(inputRowValue);
-        if (castResult.hasError()) {
-          setError(castResult.error().message());
-        } else {
-          result->set(row, castResult.value());
-        }
+        setResultOrError(castResult, row);
+        return;
+      }
+      if constexpr (ToKind == TypeKind::REAL) {
+        const auto castResult = hooks_->castStringToReal(inputRowValue);
+        setResultOrError(castResult, row);
+        return;
+      }
+      if constexpr (ToKind == TypeKind::DOUBLE) {
+        const auto castResult = hooks_->castStringToDouble(inputRowValue);
+        setResultOrError(castResult, row);
         return;
       }
     }

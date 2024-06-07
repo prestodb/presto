@@ -32,6 +32,14 @@ class SparkCastHooks : public exec::CastHooks {
   Expected<int32_t> castStringToDate(
       const StringView& dateString) const override;
 
+  // Allows casting 'NaN', 'Infinity', '-Infinity', 'Inf', '-Inf', and these
+  // strings with different letter cases to real.
+  Expected<float> castStringToReal(const StringView& data) const override;
+
+  // Allows casting 'NaN', 'Infinity', '-Infinity', 'Inf', '-Inf', and these
+  // strings with different letter cases to double.
+  Expected<double> castStringToDouble(const StringView& data) const override;
+
   bool legacy() const override {
     return false;
   }

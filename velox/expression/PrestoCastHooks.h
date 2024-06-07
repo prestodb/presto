@@ -34,6 +34,14 @@ class PrestoCastHooks : public CastHooks {
   Expected<int32_t> castStringToDate(
       const StringView& dateString) const override;
 
+  // Allows casting 'NaN', 'Infinity', and '-Infinity' to real, but not 'Inf' or
+  // these strings with different letter cases.
+  Expected<float> castStringToReal(const StringView& data) const override;
+
+  // Allows casting 'NaN', 'Infinity', and '-Infinity' to double, but not 'Inf'
+  // or these strings with different letter cases.
+  Expected<double> castStringToDouble(const StringView& data) const override;
+
   bool legacy() const override {
     return legacyCast_;
   }

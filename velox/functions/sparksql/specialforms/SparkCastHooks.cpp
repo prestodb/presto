@@ -43,6 +43,15 @@ Expected<int32_t> SparkCastHooks::castStringToDate(
       removeWhiteSpaces(dateString), util::ParseMode::kSparkCast);
 }
 
+Expected<float> SparkCastHooks::castStringToReal(const StringView& data) const {
+  return util::Converter<TypeKind::REAL>::tryCast(data);
+}
+
+Expected<double> SparkCastHooks::castStringToDouble(
+    const StringView& data) const {
+  return util::Converter<TypeKind::DOUBLE>::tryCast(data);
+}
+
 StringView SparkCastHooks::removeWhiteSpaces(const StringView& view) const {
   StringView output;
   stringImpl::trimUnicodeWhiteSpace<true, true, StringView, StringView>(

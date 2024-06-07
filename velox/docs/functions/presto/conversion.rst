@@ -429,9 +429,9 @@ Valid examples
   SELECT cast('1.' as real); -- 1.0
   SELECT cast('1' as real); -- 1.0
   SELECT cast('1.7E308' as real); -- Infinity
-  SELECT cast('Infinity' as real); -- Infinity (case insensitive)
-  SELECT cast('-Infinity' as real); -- -Infinity (case insensitive)
-  SELECT cast('NaN' as real); -- NaN (case insensitive)
+  SELECT cast('Infinity' as real); -- Infinity (case sensitive)
+  SELECT cast('-Infinity' as real); -- -Infinity (case sensitive)
+  SELECT cast('NaN' as real); -- NaN (case sensitive)
 
 Invalid examples
 
@@ -439,21 +439,13 @@ Invalid examples
 
   SELECT cast('1.2a' as real); -- Invalid argument
   SELECT cast('1.2.3' as real); -- Invalid argument
-
-There are a few corner cases where Velox behaves differently from Presto.
-Presto throws INVALID_CAST_ARGUMENT on these queries, while Velox allows these
-conversions. We keep the Velox behaivor by intention because it is more
-consistent with other supported cases of cast.
-
-::
-
-  SELECT cast('infinity' as real); -- Infinity
-  SELECT cast('-infinity' as real); -- -Infinity
-  SELECT cast('inf' as real); -- Infinity
-  SELECT cast('InfiNiTy' as real); -- Infinity
-  SELECT cast('INFINITY' as real); -- Infinity
-  SELECT cast('nAn' as real); -- NaN
-  SELECT cast('nan' as real); -- NaN
+  SELECT cast('infinity' as real); -- Invalid argument
+  SELECT cast('-infinity' as real); -- -Invalid argument
+  SELECT cast('inf' as real); -- Invalid argument
+  SELECT cast('InfiNiTy' as real); -- Invalid argument
+  SELECT cast('INFINITY' as real); -- Invalid argument
+  SELECT cast('nAn' as real); -- Invalid argument
+  SELECT cast('nan' as real); -- Invalid argument
 
 Below cases are supported in Presto, but throw in Velox.
 

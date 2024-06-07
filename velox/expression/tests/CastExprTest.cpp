@@ -339,27 +339,13 @@ TEST_F(CastExprTest, basics) {
       {false, true, true, true, true, true, true, true, true});
   testCast<std::string, float>(
       "float",
-      {"1.888",
-       "1.",
-       "1",
-       "1.7E308",
-       "Infinity",
-       "-Infinity",
-       "infinity",
-       "inf",
-       "INFINITY",
-       "NaN",
-       "nan"},
+      {"1.888", "1.", "1", "1.7E308", "Infinity", "-Infinity", "NaN"},
       {1.888,
        1.0,
        1.0,
        std::numeric_limits<float>::infinity(),
        std::numeric_limits<float>::infinity(),
        -std::numeric_limits<float>::infinity(),
-       std::numeric_limits<float>::infinity(),
-       std::numeric_limits<float>::infinity(),
-       std::numeric_limits<float>::infinity(),
-       std::numeric_limits<float>::quiet_NaN(),
        std::numeric_limits<float>::quiet_NaN()});
 
   gflags::FlagSaver flagSaver;
@@ -1012,13 +998,29 @@ TEST_F(CastExprTest, primitiveInvalidCornerCases) {
 
     // Invalid strings.
     testInvalidCast<std::string>(
-        "real",
-        {"1.2a"},
-        "Non-whitespace character found after end of conversion");
+        "real", {"1.2a"}, "Cannot cast VARCHAR '1.2a' to REAL");
     testInvalidCast<std::string>(
-        "real",
-        {"1.2.3"},
-        "Non-whitespace character found after end of conversion");
+        "real", {"1.2.3"}, "Cannot cast VARCHAR '1.2.3' to REAL");
+    testInvalidCast<std::string>(
+        "real", {"nAn"}, "Cannot cast VARCHAR 'nAn' to REAL");
+    testInvalidCast<std::string>(
+        "real", {" nAn "}, "Cannot cast VARCHAR ' nAn ' to REAL");
+    testInvalidCast<std::string>(
+        "double", {"nAn"}, "Cannot cast VARCHAR 'nAn' to DOUBLE");
+    testInvalidCast<std::string>(
+        "real", {"iNfinitY"}, "Cannot cast VARCHAR 'iNfinitY' to REAL");
+    testInvalidCast<std::string>(
+        "double", {"iNfinitY"}, "Cannot cast VARCHAR 'iNfinitY' to DOUBLE");
+    testInvalidCast<std::string>(
+        "double", {" iNfinitY "}, "Cannot cast VARCHAR ' iNfinitY ' to DOUBLE");
+    testInvalidCast<std::string>(
+        "double", {""}, "Cannot cast VARCHAR '' to DOUBLE");
+    testInvalidCast<std::string>(
+        "double", {"   "}, "Cannot cast VARCHAR '   ' to DOUBLE");
+    testInvalidCast<std::string>(
+        "real", {"NaN  ."}, "Cannot cast VARCHAR 'NaN  .' to REAL");
+    testInvalidCast<std::string>(
+        "real", {"- NaN"}, "Cannot cast VARCHAR '- NaN' to REAL");
   }
 
   // To boolean.
@@ -1063,14 +1065,13 @@ TEST_F(CastExprTest, primitiveValidCornerCases) {
     testCast<std::string, float>("real", {"1.7E308"}, {kInf});
     testCast<std::string, float>("real", {"1."}, {1.0});
     testCast<std::string, float>("real", {"1"}, {1});
-    // When casting from "Infinity" and "NaN", Presto is case sensitive. But we
-    // let them be case insensitive to be consistent with other conversions.
-    testCast<std::string, float>("real", {"infinity"}, {kInf});
-    testCast<std::string, float>("real", {"-infinity"}, {-kInf});
-    testCast<std::string, float>("real", {"InfiNiTy"}, {kInf});
-    testCast<std::string, float>("real", {"-InfiNiTy"}, {-kInf});
-    testCast<std::string, float>("real", {"nan"}, {kNan});
-    testCast<std::string, float>("real", {"nAn"}, {kNan});
+    testCast<std::string, float>("real", {"  1  "}, {1});
+    testCast<std::string, float>("real", {"-Infinity"}, {-kInf});
+    testCast<std::string, float>("real", {"+Infinity"}, {kInf});
+    testCast<std::string, float>("real", {" Infinity "}, {kInf});
+    testCast<std::string, float>("real", {"  NaN  "}, {kNan});
+    testCast<std::string, float>("real", {"  -NaN  "}, {kNan});
+    testCast<std::string, float>("real", {"  +NaN  "}, {kNan});
   }
 
   // To boolean.
