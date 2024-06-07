@@ -561,7 +561,7 @@ void PrestoTask::updateMemoryInfoLocked(
   const double sinceLastPeriodMs = currentTimeMs - lastTaskStatsUpdateMs;
 
   prestoTaskStats.cumulativeUserMemory +=
-      (averageMemoryForLastPeriod * sinceLastPeriodMs) / 1000;
+      (averageMemoryForLastPeriod * sinceLastPeriodMs);
   // NOTE: velox doesn't differentiate user and system memory usages.
   prestoTaskStats.cumulativeTotalMemory = prestoTaskStats.cumulativeUserMemory;
   prestoTaskStats.peakNodeTotalMemoryInBytes =
