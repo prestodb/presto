@@ -663,7 +663,7 @@ daysSinceEpochFromDayOfYear(int32_t year, int32_t dayOfYear, int64_t& out) {
   return Status::OK();
 }
 
-int64_t fromDateString(const char* str, size_t len) {
+int32_t fromDateString(const char* str, size_t len) {
   int64_t daysSinceEpoch;
   size_t pos = 0;
 

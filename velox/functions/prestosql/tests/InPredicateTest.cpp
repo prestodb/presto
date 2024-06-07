@@ -454,7 +454,7 @@ TEST_F(InPredicateTest, varbinary) {
 }
 
 TEST_F(InPredicateTest, date) {
-  auto dateValue = DATE()->toDays("2000-01-01");
+  auto dateValue = parseDate("2000-01-01");
 
   auto input = makeRowVector({
       makeNullableFlatVector<int32_t>({dateValue}, DATE()),

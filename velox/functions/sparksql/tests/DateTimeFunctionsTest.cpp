@@ -51,10 +51,6 @@ class DateTimeFunctionsTest : public SparkFunctionBaseTest {
     });
   }
 
-  static int32_t parseDate(const std::string& dateStr) {
-    return DATE()->toDays(dateStr);
-  }
-
   template <typename TOutput, typename TValue>
   std::optional<TOutput> evaluateDateFuncOnce(
       const std::string& expr,
@@ -184,10 +180,10 @@ TEST_F(DateTimeFunctionsTest, yearDate) {
     return evaluateOnce<int32_t>("year(c0)", DATE(), date);
   };
   EXPECT_EQ(std::nullopt, year(std::nullopt));
-  EXPECT_EQ(1970, year(DATE()->toDays("1970-05-05")));
-  EXPECT_EQ(1969, year(DATE()->toDays("1969-12-31")));
-  EXPECT_EQ(2020, year(DATE()->toDays("2020-01-01")));
-  EXPECT_EQ(1920, year(DATE()->toDays("1920-01-01")));
+  EXPECT_EQ(1970, year(parseDate("1970-05-05")));
+  EXPECT_EQ(1969, year(parseDate("1969-12-31")));
+  EXPECT_EQ(2020, year(parseDate("2020-01-01")));
+  EXPECT_EQ(1920, year(parseDate("1920-01-01")));
 }
 
 TEST_F(DateTimeFunctionsTest, weekOfYear) {
@@ -213,12 +209,9 @@ TEST_F(DateTimeFunctionsTest, weekOfYear) {
 }
 
 TEST_F(DateTimeFunctionsTest, unixDate) {
-  const auto unixDate = [&](std::string_view date) {
+  const auto unixDate = [&](const std::string& date) {
     return evaluateOnce<int32_t>(
-        "unix_date(c0)",
-        DATE(),
-        std::make_optional<int32_t>(
-            util::fromDateString(date.data(), date.length())));
+        "unix_date(c0)", DATE(), std::make_optional<int32_t>(parseDate(date)));
   };
 
   EXPECT_EQ(unixDate("1970-01-01"), 0);
@@ -316,8 +309,8 @@ TEST_F(DateTimeFunctionsTest, makeDate) {
                             std::optional<int32_t> day) {
     return evaluateOnce<int32_t>("make_date(c0, c1, c2)", year, month, day);
   };
-  EXPECT_EQ(makeDate(1920, 1, 25), DATE()->toDays("1920-01-25"));
-  EXPECT_EQ(makeDate(-10, 1, 30), DATE()->toDays("-0010-01-30"));
+  EXPECT_EQ(makeDate(1920, 1, 25), parseDate("1920-01-25"));
+  EXPECT_EQ(makeDate(-10, 1, 30), parseDate("-0010-01-30"));
 
   auto errorMessage = fmt::format("Date out of range: {}-12-15", kMax);
   VELOX_ASSERT_THROW(makeDate(kMax, 12, 15), errorMessage);
@@ -329,10 +322,10 @@ TEST_F(DateTimeFunctionsTest, makeDate) {
   VELOX_ASSERT_THROW(makeDate(2022, 3, 35), "Date out of range: 2022-3-35");
 
   VELOX_ASSERT_THROW(makeDate(2023, 4, 31), "Date out of range: 2023-4-31");
-  EXPECT_EQ(makeDate(2023, 3, 31), DATE()->toDays("2023-03-31"));
+  EXPECT_EQ(makeDate(2023, 3, 31), parseDate("2023-03-31"));
 
   VELOX_ASSERT_THROW(makeDate(2023, 2, 29), "Date out of range: 2023-2-29");
-  EXPECT_EQ(makeDate(2023, 3, 29), DATE()->toDays("2023-03-29"));
+  EXPECT_EQ(makeDate(2023, 3, 29), parseDate("2023-03-29"));
 }
 
 TEST_F(DateTimeFunctionsTest, lastDay) {
@@ -341,11 +334,11 @@ TEST_F(DateTimeFunctionsTest, lastDay) {
   };
 
   const auto lastDay = [&](const std::string& dateStr) {
-    return lastDayFunc(DATE()->toDays(dateStr));
+    return lastDayFunc(parseDate(dateStr));
   };
 
   const auto parseDateStr = [&](const std::string& dateStr) {
-    return DATE()->toDays(dateStr);
+    return parseDate(dateStr);
   };
 
   EXPECT_EQ(lastDay("2015-02-28"), parseDateStr("2015-02-28"));
@@ -563,10 +556,10 @@ TEST_F(DateTimeFunctionsTest, dayOfWeekDate) {
   EXPECT_EQ(6, dayOfWeek(parseDate("2023-08-25")));
   EXPECT_EQ(7, dayOfWeek(parseDate("2023-08-26")));
   EXPECT_EQ(1, dayOfWeek(parseDate("2023-08-27")));
-  EXPECT_EQ(6, dayOfWeek(util::fromDateString("2011-05-06")));
-  EXPECT_EQ(4, dayOfWeek(util::fromDateString("2015-04-08")));
-  EXPECT_EQ(7, dayOfWeek(util::fromDateString("2017-05-27")));
-  EXPECT_EQ(6, dayOfWeek(util::fromDateString("1582-10-15")));
+  EXPECT_EQ(6, dayOfWeek(parseDate("2011-05-06")));
+  EXPECT_EQ(4, dayOfWeek(parseDate("2015-04-08")));
+  EXPECT_EQ(7, dayOfWeek(parseDate("2017-05-27")));
+  EXPECT_EQ(6, dayOfWeek(parseDate("1582-10-15")));
 }
 
 TEST_F(DateTimeFunctionsTest, weekdayDate) {

@@ -77,16 +77,6 @@ TEST_F(ArrayMaxTest, longVarchar) {
       "red shiny car ahead");
 }
 
-TEST_F(ArrayMaxTest, date) {
-  auto dt = [](const std::string& dateStr) { return DATE()->toDays(dateStr); };
-  EXPECT_EQ(
-      arrayMax<int32_t>({dt("1970-01-01"), dt("2023-08-23")}),
-      dt("2023-08-23"));
-  EXPECT_EQ(arrayMax<int32_t>({}), std::nullopt);
-  EXPECT_EQ(
-      arrayMax<int32_t>({dt("1970-01-01"), std::nullopt}), dt("1970-01-01"));
-}
-
 TEST_F(ArrayMaxTest, timestamp) {
   auto ts = [](int64_t micros) { return Timestamp::fromMicros(micros); };
   EXPECT_EQ(arrayMax<Timestamp>({ts(0), ts(1)}), ts(1));

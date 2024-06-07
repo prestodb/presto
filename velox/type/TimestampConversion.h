@@ -117,9 +117,9 @@ daysSinceEpochFromDayOfYear(int32_t year, int32_t dayOfYear, int64_t& out);
 /// separators. Negative years and a trailing "(BC)" are also supported.
 ///
 /// Throws VeloxUserError if the format or date is invalid.
-int64_t fromDateString(const char* buf, size_t len);
+int32_t fromDateString(const char* buf, size_t len);
 
-inline int64_t fromDateString(const StringView& str) {
+inline int32_t fromDateString(const StringView& str) {
   return fromDateString(str.data(), str.size());
 }
 

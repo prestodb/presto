@@ -328,6 +328,12 @@ class FunctionBaseTest : public testing::Test,
         });
   }
 
+  /// Parses a date string into days since epoch.
+  /// Accepts strings formatted as 'YYYY-MM-DD'.
+  static int32_t parseDate(const std::string& text) {
+    return util::fromDateString(text.data(), text.size());
+  }
+
   /// Returns a vector of signatures for the given function name and return
   /// type.
   /// @param returnType The name of expected return type defined in function

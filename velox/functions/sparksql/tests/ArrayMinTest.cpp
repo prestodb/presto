@@ -78,16 +78,6 @@ TEST_F(ArrayMinTest, longVarchar) {
       "green plants make us happy");
 }
 
-TEST_F(ArrayMinTest, date) {
-  auto dt = [](const std::string& dateStr) { return DATE()->toDays(dateStr); };
-  EXPECT_EQ(
-      arrayMin<int32_t>({dt("1970-01-01"), dt("2023-08-23")}),
-      dt("1970-01-01"));
-  EXPECT_EQ(arrayMin<int32_t>({}), std::nullopt);
-  EXPECT_EQ(
-      arrayMin<int32_t>({dt("1970-01-01"), std::nullopt}), dt("1970-01-01"));
-}
-
 TEST_F(ArrayMinTest, timestamp) {
   auto ts = [](int64_t micros) { return Timestamp::fromMicros(micros); };
   EXPECT_EQ(arrayMin<Timestamp>({ts(0), ts(1)}), ts(0));

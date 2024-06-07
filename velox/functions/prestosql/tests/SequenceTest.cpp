@@ -44,10 +44,6 @@ class SequenceTest : public FunctionBaseTest {
 };
 } // namespace
 
-int32_t parseDate(const std::string& dateStr) {
-  return DATE()->toDays(dateStr);
-}
-
 TEST_F(SequenceTest, sequence) {
   const auto startVector = makeFlatVector<int64_t>({1, 2, 10});
   const auto stopVector = makeFlatVector<int64_t>({2, 5, 9});

@@ -44,14 +44,14 @@ TEST_F(ArraySizeTest, boolean) {
   EXPECT_EQ(arraySize<bool>({true, false, true, std::nullopt}), 4);
 }
 
-TEST_F(ArraySizeTest, integer) {
+TEST_F(ArraySizeTest, smallint) {
   EXPECT_EQ(arraySize<int8_t>({}), 0);
   EXPECT_EQ(arraySize<int8_t>({1}), 1);
   EXPECT_EQ(arraySize<int8_t>({std::nullopt}), 1);
   EXPECT_EQ(arraySize<int8_t>({std::nullopt, 1}), 2);
 }
 
-TEST_F(ArraySizeTest, float) {
+TEST_F(ArraySizeTest, real) {
   EXPECT_EQ(arraySize<float>({}), 0);
   EXPECT_EQ(arraySize<float>({1.1}), 1);
   EXPECT_EQ(arraySize<float>({std::nullopt}), 1);
@@ -66,9 +66,8 @@ TEST_F(ArraySizeTest, varchar) {
   EXPECT_EQ(arraySize<std::string>({std::nullopt}), 1);
 }
 
-TEST_F(ArraySizeTest, date) {
-  auto dt = [](const std::string& dateStr) { return DATE()->toDays(dateStr); };
-  EXPECT_EQ(arraySize<int32_t>({dt("1970-01-01"), dt("2023-08-23")}), 2);
+TEST_F(ArraySizeTest, integer) {
+  EXPECT_EQ(arraySize<int32_t>({1, 2}), 2);
 }
 
 TEST_F(ArraySizeTest, timestamp) {
