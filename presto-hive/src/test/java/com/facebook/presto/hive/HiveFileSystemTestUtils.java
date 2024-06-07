@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.AbstractTestHiveClient.HiveTransaction;
 import com.facebook.presto.hive.AbstractTestHiveClient.Transaction;
@@ -95,7 +96,8 @@ public class HiveFileSystemTestUtils
                         split,
                         tableHandle.getLayout().get(),
                         columnHandles,
-                        NON_CACHEABLE)) {
+                        NON_CACHEABLE,
+                        new RuntimeStats())) {
                     MaterializedResult pageSourceResult = materializeSourceDataStream(session, pageSource, allTypes);
                     for (MaterializedRow row : pageSourceResult.getMaterializedRows()) {
                         Object[] dataValues = IntStream.range(0, row.getFieldCount())
@@ -153,7 +155,8 @@ public class HiveFileSystemTestUtils
                         split,
                         tableHandle.getLayout().get(),
                         projectedColumns,
-                        NON_CACHEABLE)) {
+                        NON_CACHEABLE,
+                        new RuntimeStats())) {
                     MaterializedResult pageSourceResult = materializeSourceDataStream(session, pageSource, allTypes);
                     for (MaterializedRow row : pageSourceResult.getMaterializedRows()) {
                         Object[] dataValues = IntStream.range(0, row.getFieldCount())
