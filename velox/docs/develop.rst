@@ -27,6 +27,7 @@ This guide is intended for Velox contributors and developers of Velox-based appl
     develop/memory
     develop/spilling
     develop/serde
+    develop/timestamp
     develop/testing
     develop/debugging
     develop/TpchBenchmark
