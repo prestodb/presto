@@ -1383,8 +1383,7 @@ TEST_F(TaskManagerTest, testCumulativeMemory) {
   // The initial reported cumulative memory must be less than the expected value
   // below.
   ASSERT_LE(
-      lastCumulativeTotalMemory,
-      memoryUsage * (lastTimeMs - startTimeMs) / 1'000);
+      lastCumulativeTotalMemory, memoryUsage * (lastTimeMs - startTimeMs));
   // Presto native doesn't differentiate user and system memory.
   ASSERT_EQ(
       lastCumulativeTotalMemory, prestoTaskInfo.stats.cumulativeUserMemory);
@@ -1403,8 +1402,7 @@ TEST_F(TaskManagerTest, testCumulativeMemory) {
   ASSERT_EQ(prestoTaskInfo.stats.systemMemoryReservationInBytes, 0);
   ASSERT_LE(
       prestoTaskInfo.stats.cumulativeTotalMemory,
-      lastCumulativeTotalMemory +
-          memoryUsage * (currentTimeMs - lastTimeMs) / 1'000);
+      lastCumulativeTotalMemory + memoryUsage * (currentTimeMs - lastTimeMs));
   ASSERT_LT(
       lastCumulativeTotalMemory, prestoTaskInfo.stats.cumulativeTotalMemory);
   ASSERT_EQ(
