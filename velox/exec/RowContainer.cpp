@@ -773,9 +773,6 @@ void RowContainer::storeComplexType(
 
   valueAt<std::string_view>(row, offset) = std::string_view(
       reinterpret_cast<char*>(position.position), stream.size());
-  const auto size = stream.size();
-  valueAt<std::string_view>(row, offset) =
-      std::string_view(reinterpret_cast<char*>(position.position), size);
 }
 
 //   static
