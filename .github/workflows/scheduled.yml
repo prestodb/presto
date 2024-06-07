@@ -71,7 +71,10 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.head_ref || github.ref }}
+  # This will not cancel fuzzer runs on main (regardless of which trigger)
+  # by making the commit sha part of the group but will use the branch
+  # name in PRs to cancel on going runs on a new commit.
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event_name == 'pull_request' && github.head_ref || github.sha  }}
   cancel-in-progress: true
 
 env:
