@@ -112,28 +112,14 @@ Status daysSinceEpochFromWeekDate(
 Status
 daysSinceEpochFromDayOfYear(int32_t year, int32_t dayOfYear, int64_t& out);
 
-/// Returns the (signed) number of days since unix epoch (1970-01-01), following
-/// the "YYYY-MM-DD" format (ISO 8601). ' ', '/' and '\' are also acceptable
-/// separators. Negative years and a trailing "(BC)" are also supported.
-///
-/// Throws VeloxUserError if the format or date is invalid.
-int32_t fromDateString(const char* buf, size_t len);
-
-inline int32_t fromDateString(const StringView& str) {
-  return fromDateString(str.data(), str.size());
-}
-
 /// Cast string to date. Supported date formats vary, depending on input
 /// ParseMode. Refer to ParseMode enum for further info.
 ///
 /// Throws VeloxUserError if the format or date is invalid.
-Expected<int32_t>
-castFromDateString(const char* buf, size_t len, ParseMode mode);
+Expected<int32_t> fromDateString(const char* buf, size_t len, ParseMode mode);
 
-inline Expected<int32_t> castFromDateString(
-    const StringView& str,
-    ParseMode mode) {
-  return castFromDateString(str.data(), str.size(), mode);
+inline Expected<int32_t> fromDateString(const StringView& str, ParseMode mode) {
+  return fromDateString(str.data(), str.size(), mode);
 }
 
 // Extracts the day of the week from the number of days since epoch

@@ -663,20 +663,7 @@ daysSinceEpochFromDayOfYear(int32_t year, int32_t dayOfYear, int64_t& out) {
   return Status::OK();
 }
 
-int32_t fromDateString(const char* str, size_t len) {
-  int64_t daysSinceEpoch;
-  size_t pos = 0;
-
-  if (!tryParseDateString(str, len, pos, daysSinceEpoch, ParseMode::kStrict)) {
-    VELOX_USER_FAIL(
-        "Unable to parse date value: \"{}\", expected format is (YYYY-MM-DD)",
-        std::string(str, len));
-  }
-  return daysSinceEpoch;
-}
-
-Expected<int32_t>
-castFromDateString(const char* str, size_t len, ParseMode mode) {
+Expected<int32_t> fromDateString(const char* str, size_t len, ParseMode mode) {
   int64_t daysSinceEpoch;
   size_t pos = 0;
 

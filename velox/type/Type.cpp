@@ -1006,11 +1006,14 @@ std::string DateType::toIso8601(int32_t days) {
 }
 
 int32_t DateType::toDays(folly::StringPiece in) const {
-  return util::fromDateString(in.data(), in.size());
+  return toDays(in.data(), in.size());
 }
 
 int32_t DateType::toDays(const char* in, size_t len) const {
-  return util::fromDateString(in, len);
+  return util::fromDateString(in, len, util::ParseMode::kPrestoCast)
+      .thenOrThrow(folly::identity, [&](const Status& status) {
+        VELOX_USER_FAIL("{}", status.message());
+      });
 }
 
 namespace {

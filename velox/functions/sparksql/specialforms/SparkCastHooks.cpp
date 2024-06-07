@@ -39,7 +39,7 @@ Expected<int32_t> SparkCastHooks::castStringToDate(
   // sequence of characters, e.g:
   //   "1970-01-01 123"
   //   "1970-01-01 (BC)"
-  return util::castFromDateString(
+  return util::fromDateString(
       removeWhiteSpaces(dateString), util::ParseMode::kSparkCast);
 }
 

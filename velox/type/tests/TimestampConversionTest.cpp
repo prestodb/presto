@@ -35,7 +35,7 @@ Timestamp parseTimestamp(
 }
 
 int32_t parseDate(const StringView& str, ParseMode mode) {
-  return castFromDateString(str.data(), str.size(), mode)
+  return fromDateString(str.data(), str.size(), mode)
       .thenOrThrow(folly::identity, [&](const Status& status) {
         VELOX_USER_FAIL("{}", status.message());
       });
@@ -105,58 +105,6 @@ TEST(DateTimeUtilTest, fromDateInvalid) {
 }
 
 TEST(DateTimeUtilTest, fromDateString) {
-  EXPECT_EQ(10957, fromDateString("2000-01-01"));
-  EXPECT_EQ(0, fromDateString("1970-01-01"));
-  EXPECT_EQ(1, fromDateString("1970-01-02"));
-
-  // Single character
-  EXPECT_EQ(1, fromDateString("1970-1-2"));
-
-  // Old and negative years.
-  EXPECT_EQ(-719528, fromDateString("0-1-1"));
-  EXPECT_EQ(-719162, fromDateString("1-1-1"));
-  EXPECT_EQ(-719893, fromDateString("-1-1-1"));
-  EXPECT_EQ(-720258, fromDateString("-2-1-1"));
-
-  // 1BC is equal 0-1-1.
-  EXPECT_EQ(-719528, fromDateString("1-1-1 (BC)"));
-  EXPECT_EQ(-719893, fromDateString("2-1-1 (BC)"));
-
-  // Leading zeros and spaces.
-  EXPECT_EQ(-719162, fromDateString("00001-1-1"));
-  EXPECT_EQ(-719162, fromDateString(" 1-1-1"));
-  EXPECT_EQ(-719162, fromDateString("     1-1-1"));
-  EXPECT_EQ(-719162, fromDateString("\t1-1-1"));
-  EXPECT_EQ(-719162, fromDateString("  \t    \n 00001-1-1  \n"));
-
-  // Different separators.
-  EXPECT_EQ(-719162, fromDateString("1/1/1"));
-  EXPECT_EQ(-719162, fromDateString("1 1 1"));
-  EXPECT_EQ(-719162, fromDateString("1\\1\\1"));
-
-  // Other string types.
-  EXPECT_EQ(0, fromDateString(StringView("1970-01-01")));
-}
-
-TEST(DateTimeUtilTest, fromDateStrInvalid) {
-  EXPECT_THROW(fromDateString(""), VeloxUserError);
-  EXPECT_THROW(fromDateString("     "), VeloxUserError);
-  EXPECT_THROW(fromDateString("2000"), VeloxUserError);
-
-  // Different separators.
-  EXPECT_THROW(fromDateString("2000/01-01"), VeloxUserError);
-  EXPECT_THROW(fromDateString("2000 01-01"), VeloxUserError);
-
-  // Trailing characters.
-  EXPECT_THROW(fromDateString("2000-01-01   asdf"), VeloxUserError);
-  EXPECT_THROW(fromDateString("2000-01-01 0"), VeloxUserError);
-
-  // Too large of a year.
-  EXPECT_THROW(fromDateString("1000000"), VeloxUserError);
-  EXPECT_THROW(fromDateString("-1000000"), VeloxUserError);
-}
-
-TEST(DateTimeUtilTest, castFromDateString) {
   for (ParseMode mode : {ParseMode::kPrestoCast, ParseMode::kSparkCast}) {
     EXPECT_EQ(0, parseDate("1970-01-01", mode));
     EXPECT_EQ(3789742, parseDate("12345-12-18", mode));
@@ -182,7 +130,7 @@ TEST(DateTimeUtilTest, castFromDateString) {
   EXPECT_EQ(16512, parseDate("2015-03-18 (BC)", ParseMode::kSparkCast));
 }
 
-TEST(DateTimeUtilTest, castFromDateStringInvalid) {
+TEST(DateTimeUtilTest, fromDateStringInvalid) {
   auto testCastFromDateStringInvalid = [&](const StringView& str,
                                            ParseMode mode) {
     if (mode == ParseMode::kPrestoCast) {

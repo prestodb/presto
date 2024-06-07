@@ -40,13 +40,9 @@ VectorPtr newConstantFromString(
   }
 
   if (type->isDate()) {
-    auto copy = util::castFromDateString(
-                    StringView(value.value()), util::ParseMode::kPrestoCast)
-                    .thenOrThrow(folly::identity, [&](const Status& status) {
-                      VELOX_USER_FAIL("{}", status.message());
-                    });
+    auto days = DATE()->toDays((folly::StringPiece)value.value());
     return std::make_shared<ConstantVector<int32_t>>(
-        pool, size, false, type, std::move(copy));
+        pool, size, false, type, std::move(days));
   }
 
   if constexpr (std::is_same_v<T, StringView>) {
