@@ -46,8 +46,7 @@ int32_t hashTimestamp(const Timestamp& ts) {
 }
 
 template <TypeKind kind>
-inline uint32_t hashOne(
-    const typename TypeTraits<kind>::NativeType& /* value */) {
+inline uint32_t hashOne(typename TypeTraits<kind>::NativeType /* value */) {
   VELOX_UNSUPPORTED(
       "Hive partitioning function doesn't support {} type",
       TypeTraits<kind>::name);
@@ -55,57 +54,57 @@ inline uint32_t hashOne(
 }
 
 template <>
-inline uint32_t hashOne<TypeKind::BOOLEAN>(const bool& value) {
+inline uint32_t hashOne<TypeKind::BOOLEAN>(bool value) {
   return value ? 1 : 0;
 }
 
 template <>
-inline uint32_t hashOne<TypeKind::TINYINT>(const int8_t& value) {
+inline uint32_t hashOne<TypeKind::TINYINT>(int8_t value) {
   return static_cast<uint32_t>(value);
 }
 
 template <>
-inline uint32_t hashOne<TypeKind::SMALLINT>(const int16_t& value) {
+inline uint32_t hashOne<TypeKind::SMALLINT>(int16_t value) {
   return static_cast<uint32_t>(value);
 }
 
 template <>
-inline uint32_t hashOne<TypeKind::INTEGER>(const int32_t& value) {
+inline uint32_t hashOne<TypeKind::INTEGER>(int32_t value) {
   return static_cast<uint32_t>(value);
 }
 
 template <>
-inline uint32_t hashOne<TypeKind::REAL>(const float& value) {
+inline uint32_t hashOne<TypeKind::REAL>(float value) {
   return static_cast<uint32_t>(*reinterpret_cast<const int32_t*>(&value));
 }
 
 template <>
-inline uint32_t hashOne<TypeKind::BIGINT>(const int64_t& value) {
+inline uint32_t hashOne<TypeKind::BIGINT>(int64_t value) {
   return hashInt64(value);
 }
 
 template <>
-inline uint32_t hashOne<TypeKind::DOUBLE>(const double& value) {
+inline uint32_t hashOne<TypeKind::DOUBLE>(double value) {
   return hashInt64(*reinterpret_cast<const int64_t*>(&value));
 }
 
 template <>
-inline uint32_t hashOne<TypeKind::VARCHAR>(const StringView& value) {
+inline uint32_t hashOne<TypeKind::VARCHAR>(StringView value) {
   return hashBytes(value, 0);
 }
 
 template <>
-inline uint32_t hashOne<TypeKind::VARBINARY>(const StringView& value) {
+inline uint32_t hashOne<TypeKind::VARBINARY>(StringView value) {
   return hashBytes(value, 0);
 }
 
 template <>
-inline uint32_t hashOne<TypeKind::TIMESTAMP>(const Timestamp& value) {
+inline uint32_t hashOne<TypeKind::TIMESTAMP>(Timestamp value) {
   return hashTimestamp(value);
 }
 
 template <>
-inline uint32_t hashOne<TypeKind::UNKNOWN>(const UnknownValue& /*value*/) {
+inline uint32_t hashOne<TypeKind::UNKNOWN>(UnknownValue /*value*/) {
   VELOX_FAIL("Unknown values cannot be non-NULL");
 }
 
