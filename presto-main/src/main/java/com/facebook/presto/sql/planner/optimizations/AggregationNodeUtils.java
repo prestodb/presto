@@ -36,6 +36,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel.LOW;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class AggregationNodeUtils
@@ -77,7 +78,7 @@ public class AggregationNodeUtils
         List<VariableReferenceExpression> groupbyKeys = aggregationNode.getGroupingSets().getGroupingKeys().stream().collect(Collectors.toList());
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types);
         PlanNodeStatsEstimate estimate = statsProvider.getStats(scanNode);
-        if (!estimate.isConfident()) {
+        if (estimate.confidenceLevel() == LOW) {
             // For safety, we assume they are low card if not confident
             // TODO(kaikalur) : maybe return low card only for partition keys if/when we can detect that
             return true;

@@ -26,6 +26,8 @@ import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.shouldOptimizerUseHistograms;
 import static com.facebook.presto.cost.PlanNodeStatsEstimate.buildFrom;
+import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel;
+import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel.FACT;
 import static com.facebook.presto.sql.planner.plan.Patterns.exchange;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -51,13 +53,13 @@ public class ExchangeStatsRule
     {
         Optional<PlanNodeStatsEstimate> estimate = Optional.empty();
         double totalSize = 0;
-        boolean confident = true;
+        ConfidenceLevel confidenceLevel = FACT;
         for (int i = 0; i < node.getSources().size(); i++) {
             PlanNode source = node.getSources().get(i);
             PlanNodeStatsEstimate sourceStats = statsProvider.getStats(source);
             totalSize += sourceStats.getOutputSizeInBytes();
-            if (!sourceStats.isConfident()) {
-                confident = false;
+            if (sourceStats.confidenceLevel().ordinal() < confidenceLevel.ordinal()) {
+                confidenceLevel = sourceStats.confidenceLevel();
             }
 
             PlanNodeStatsEstimate sourceStatsWithMappedSymbols = mapToOutputVariables(sourceStats, node.getInputs().get(i), node.getOutputVariables());
@@ -74,7 +76,7 @@ public class ExchangeStatsRule
         verify(estimate.isPresent());
         return Optional.of(buildFrom(estimate.get())
                 .setTotalSize(totalSize)
-                .setConfident(confident)
+                .setConfidence(confidenceLevel)
                 .build());
     }
 
