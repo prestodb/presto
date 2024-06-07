@@ -289,23 +289,32 @@ std::shared_ptr<const Type> ReaderBase::convertType(
   const auto type = footer.types(index);
   switch (type.kind()) {
     case TypeKind::BOOLEAN:
+      return BOOLEAN();
     case TypeKind::TINYINT:
+      return TINYINT();
     case TypeKind::SMALLINT:
+      return SMALLINT();
     case TypeKind::INTEGER:
+      return INTEGER();
     case TypeKind::BIGINT:
+      return BIGINT();
     case TypeKind::HUGEINT:
       if (type.format() == DwrfFormat::kOrc &&
           type.getOrcPtr()->kind() == proto::orc::Type_Kind_DECIMAL) {
         return DECIMAL(
             type.getOrcPtr()->precision(), type.getOrcPtr()->scale());
       }
-      [[fallthrough]];
+      return HUGEINT();
     case TypeKind::REAL:
+      return REAL();
     case TypeKind::DOUBLE:
+      return DOUBLE();
     case TypeKind::VARCHAR:
+      return VARCHAR();
     case TypeKind::VARBINARY:
+      return VARBINARY();
     case TypeKind::TIMESTAMP:
-      return createScalarType(type.kind());
+      return TIMESTAMP();
     case TypeKind::ARRAY:
       return ARRAY(convertType(
           footer, type.subtypes(0), fileColumnNamesReadAsLowerCase));

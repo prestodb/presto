@@ -267,8 +267,8 @@ class FilterType {
     return node_.node == 0;
   }
 
-  inline void addChild(const FilterTypePtr& child) {
-    children_.push_back(child);
+  inline void addChild(FilterTypePtr child) {
+    children_.push_back(std::move(child));
   }
 
   inline void setSequenceFilter(const SeqFilter& seqFilter) {

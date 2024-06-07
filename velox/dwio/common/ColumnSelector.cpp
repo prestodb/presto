@@ -91,7 +91,7 @@ FilterTypePtr ColumnSelector::buildNode(
   // column selector filter tree
   nodes_.reserve(nodes_.size() + type->size());
   if (node.node == 0) {
-    auto rowType = type->asRow();
+    auto& rowType = type->asRow();
     for (size_t i = 0, size = type->size(); i < size; ++i) {
       bool inData = contentType && i < contentType->size();
       current->addChild(buildNode(

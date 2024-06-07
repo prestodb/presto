@@ -124,8 +124,8 @@ class ReaderBase {
     return schema_;
   }
 
-  void setSchema(const RowTypePtr& newSchema) {
-    schema_ = newSchema;
+  void setSchema(RowTypePtr newSchema) {
+    schema_ = std::move(newSchema);
   }
 
   const std::shared_ptr<const dwio::common::TypeWithId>& getSchemaWithId()

@@ -791,21 +791,29 @@ TypePtr updateColumnNames(const TypePtr& fileType, const TypePtr& tableType) {
   auto fileRowType = std::dynamic_pointer_cast<const T>(fileType);
   auto tableRowType = std::dynamic_pointer_cast<const T>(tableType);
 
-  std::vector<std::string> newFileFieldNames{fileRowType->names()};
-  std::vector<TypePtr> newFileFieldTypes{fileRowType->children()};
+  std::vector<std::string> newFileFieldNames;
+  newFileFieldNames.reserve(fileRowType->size());
+  std::vector<TypePtr> newFileFieldTypes;
+  newFileFieldTypes.reserve(fileRowType->size());
 
   for (auto childIdx = 0; childIdx < tableRowType->size(); ++childIdx) {
     if (childIdx >= fileRowType->size()) {
       break;
     }
 
-    newFileFieldTypes[childIdx] = updateColumnNames(
+    newFileFieldTypes.push_back(updateColumnNames(
         fileRowType->childAt(childIdx),
         tableRowType->childAt(childIdx),
         fileRowType->nameOf(childIdx),
-        tableRowType->nameOf(childIdx));
+        tableRowType->nameOf(childIdx)));
 
-    newFileFieldNames[childIdx] = tableRowType->nameOf(childIdx);
+    newFileFieldNames.push_back(tableRowType->nameOf(childIdx));
+  }
+
+  for (auto childIdx = tableRowType->size(); childIdx < fileRowType->size();
+       ++childIdx) {
+    newFileFieldTypes.push_back(fileRowType->childAt(childIdx));
+    newFileFieldNames.push_back(fileRowType->nameOf(childIdx));
   }
 
   return std::make_shared<const T>(
@@ -830,9 +838,6 @@ TypePtr updateColumnNames(
     return fileType;
   }
 
-  std::vector<std::string> fileFieldNames{fileType->size()};
-  std::vector<TypePtr> fileFieldTypes{fileType->size()};
-
   if (fileType->isRow()) {
     return updateColumnNames<RowType>(fileType, tableType);
   }
@@ -855,9 +860,8 @@ TypePtr updateColumnNames(
 void DwrfReader::updateColumnNamesFromTableSchema() {
   const auto& tableSchema = options_.fileSchema();
   const auto& fileSchema = readerBase_->getSchema();
-  auto newSchema = std::dynamic_pointer_cast<const RowType>(
-      updateColumnNames(fileSchema, tableSchema, "", ""));
-  readerBase_->setSchema(newSchema);
+  readerBase_->setSchema(std::dynamic_pointer_cast<const RowType>(
+      updateColumnNames(fileSchema, tableSchema, "", "")));
 }
 
 std::unique_ptr<StripeInformation> DwrfReader::getStripe(
