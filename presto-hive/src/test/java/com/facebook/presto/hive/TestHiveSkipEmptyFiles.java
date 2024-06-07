@@ -30,6 +30,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.io.FilenameFilter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -94,8 +95,8 @@ public class TestHiveSkipEmptyFiles
             throws Exception
     {
         temporaryDirectory = createTempDir();
-        generateMetadata("skip_empty_files_success");
-        generateMetadata("skip_empty_files_fail");
+        generateMetadata(queryRunner, "skip_empty_files_success");
+        generateMetadata(queryFailRunner, "skip_empty_files_fail");
         generateBucketedMetadataWithEmptyFiles(queryBucketRunner, "skip_empty_files_bucket_success", false);
         generateBucketedMetadataWithEmptyFiles(queryBucketFailRunner, "skip_empty_files_bucket_insert_fail", false);
         generateBucketedMetadataWithEmptyFiles(queryBucketFailRunner, "skip_empty_files_bucket_replace_fail", true);
@@ -188,10 +189,18 @@ public class TestHiveSkipEmptyFiles
      *
      * @param tableName a {@link String} containing the desired table name
      */
-    private void generateMetadata(String tableName)
+    private void generateMetadata(DistributedQueryRunner queryRunner, String tableName)
             throws Exception
     {
         Path tempDirectory = Files.createDirectory(Paths.get(temporaryDirectory.getPath(), tableName));
+        @Language("SQL") String createQuery = format(
+                "CREATE TABLE %s.\"%s\".\"%s\" (field %s) WITH (external_location = '%s')",
+                CATALOG,
+                SCHEMA,
+                tableName,
+                IntegerType.INTEGER,
+                temporaryDirectory.toURI() + tableName);
+        queryRunner.execute(createQuery);
         Path firstParquetFile = createTempFile(tempDirectory, randomUUID().toString(), randomUUID().toString());
         ParquetTester.writeParquetFileFromPresto(firstParquetFile.toFile(),
                 ImmutableList.of(IntegerType.INTEGER),
@@ -228,133 +237,89 @@ public class TestHiveSkipEmptyFiles
             queryRunner.execute(insertQuery);
         }
         if (replaceDataFileByEmptyFile) {
-            Files.delete(Arrays.stream(requireNonNull(partitionDirectory.toFile().listFiles((dir, name) -> !name.endsWith(".crc")))).iterator().next().toPath());
+            FilenameFilter filenameFilter = (dir, name) -> !name.endsWith(".crc");
+            File[] filteredFiles = partitionDirectory.toFile().listFiles(filenameFilter);
+            Files.delete(Arrays.stream(requireNonNull(filteredFiles)).iterator().next().toPath());
         }
         createTempFile(partitionDirectory, randomUUID().toString(), randomUUID().toString());
     }
 
+    /**
+     * Tries a table with the configuration property desired. If succeeds, tests the output.
+     * Finally, it drops the table.
+     */
     @Test
     public void testSkipEmptyFilesSuccessful()
     {
-        String tableName = "skip_empty_files_success";
-        executeCreationTestAndDropCycle(queryRunner, tableName, temporaryDirectory.toURI() + tableName);
+        try {
+            @Language("SQL") String selectQuery = format("SELECT \"$path\" FROM %s.\"%s\".\"%s\"", CATALOG,
+                    SCHEMA, "skip_empty_files_success");
+            MaterializedResult result = queryRunner.execute(selectQuery);
+            assertEquals(1, result.getRowCount());
+        }
+        finally {
+            dropTable(queryRunner, "skip_empty_files_success");
+        }
     }
 
     @Test
     public void testSkipEmptyFilesError()
     {
-        String tableName = "skip_empty_files_fail";
-        executeCreationTestAndDropCycleFail(queryFailRunner, tableName, temporaryDirectory.toURI() + tableName);
+        try {
+            @Language("SQL") String selectQuery = format("SELECT * FROM %s.\"%s\".\"%s\"", CATALOG,
+                    SCHEMA, "skip_empty_files_fail");
+            assertQueryFails(queryFailRunner, selectQuery, ".* is not a valid Parquet File");
+        }
+        finally {
+            dropTable(queryFailRunner, "skip_empty_files_fail");
+        }
     }
 
     @Test
     public void testSkipEmptyFilesBucketSuccessful()
     {
-        String tableName = "skip_empty_files_bucket_success";
-        checkBucketedResult(queryBucketRunner, tableName);
+        try {
+            @Language("SQL") String selectQuery = format("SELECT * FROM %s.\"%s\".\"%s\"", CATALOG,
+                    SCHEMA, "skip_empty_files_bucket_success");
+            MaterializedResult result = queryBucketRunner.execute(selectQuery);
+            assertEquals(5, result.getRowCount());
+        }
+        finally {
+            dropTable(queryBucketRunner, "skip_empty_files_bucket_success");
+        }
     }
 
     @Test
     public void testSkipEmptyFilesBucketInsertFileFail()
     {
-        String tableName = "skip_empty_files_bucket_insert_fail";
-        checkBucketedResultFail(queryBucketFailRunner, tableName, ".* is corrupt.* does not match the standard naming pattern, and the number of files in the directory .* does not match the declared bucket count.*");
+        try {
+            @Language("SQL") String selectQuery = format("SELECT * FROM %s.\"%s\".\"%s\"", CATALOG,
+                    SCHEMA, "skip_empty_files_bucket_insert_fail");
+            assertQueryFails(queryBucketFailRunner, selectQuery, ".* is corrupt.* does not match the standard naming pattern," +
+                    " and the number of files in the directory .* does not match the declared bucket count.*");
+        }
+        finally {
+            dropTable(queryBucketFailRunner, "skip_empty_files_bucket_insert_fail");
+        }
     }
 
     @Test
     public void testSkipEmptyFilesBucketReplaceFileFail()
     {
-        String tableName = "skip_empty_files_bucket_replace_fail";
-        checkBucketedResultFail(queryBucketFailRunner, tableName, ".* is not a valid Parquet File");
-    }
-
-    /**
-     * Tries a table with the configuration property desired. If succeeds, tests the output.
-     * Finally, it drops the table.
-     *
-     * @param queryRunner a {@link QueryRunner} with the desired configuration properties
-     * @param tableName a {@link String} containing the desired table name
-     */
-    private void checkBucketedResult(DistributedQueryRunner queryRunner, String tableName)
-    {
         try {
             @Language("SQL") String selectQuery = format("SELECT * FROM %s.\"%s\".\"%s\"", CATALOG,
-                    SCHEMA, tableName);
-            MaterializedResult result = queryRunner.execute(selectQuery);
-            assertEquals(5, result.getRowCount());
+                    SCHEMA, "skip_empty_files_bucket_replace_fail");
+            assertQueryFails(queryBucketFailRunner, selectQuery, ".* is not a valid Parquet File");
         }
         finally {
-            @Language("SQL") String dropQuery = format("DROP TABLE IF EXISTS %s.\"%s\".\"%s\"", CATALOG,
-                    SCHEMA, tableName);
-            queryRunner.execute(dropQuery);
+            dropTable(queryBucketFailRunner, "skip_empty_files_bucket_replace_fail");
         }
     }
 
-    private void checkBucketedResultFail(DistributedQueryRunner queryRunner, String tableName, @Language("RegExp") String errorMessage)
+    private void dropTable(DistributedQueryRunner queryRunner, String tableName)
     {
-        try {
-            @Language("SQL") String selectQuery = format("SELECT * FROM %s.\"%s\".\"%s\"", CATALOG,
-                    SCHEMA, tableName);
-            assertQueryFails(queryRunner, selectQuery, errorMessage);
-        }
-        finally {
-            @Language("SQL") String dropQuery = format("DROP TABLE IF EXISTS %s.\"%s\".\"%s\"", CATALOG,
-                    SCHEMA, tableName);
-            queryRunner.execute(dropQuery);
-        }
-    }
-
-    /**
-     * Tries a table with the configuration property desired. If succeeds, tests the output.
-     * Finally, it drops the table.
-     *
-     * @param queryRunner a {@link QueryRunner} with the desired configuration properties
-     * @param tableName a {@link String} containing the desired table name
-     * @param externalLocation a {@link String} with the external location to create the table against it
-     */
-    private void executeCreationTestAndDropCycle(DistributedQueryRunner queryRunner, String tableName, String externalLocation)
-    {
-        try {
-            @Language("SQL") String createQuery = format(
-                    "CREATE TABLE %s.\"%s\".\"%s\" (field %s) WITH (external_location = '%s')",
-                    CATALOG,
-                    SCHEMA,
-                    tableName,
-                    IntegerType.INTEGER,
-                    externalLocation);
-            queryRunner.execute(createQuery);
-            @Language("SQL") String selectQuery = format("SELECT * FROM %s.\"%s\".\"%s\"", CATALOG,
-                    SCHEMA, tableName);
-            MaterializedResult result = queryRunner.execute(selectQuery);
-            assertEquals(1, result.getRowCount());
-        }
-        finally {
-            @Language("SQL") String dropQuery = format("DROP TABLE IF EXISTS %s.\"%s\".\"%s\"", CATALOG,
-                    SCHEMA, tableName);
-            queryRunner.execute(dropQuery);
-        }
-    }
-
-    private void executeCreationTestAndDropCycleFail(DistributedQueryRunner queryRunner, String tableName, String externalLocation)
-    {
-        try {
-            @Language("RegExp") String errorMessage = ".* is not a valid Parquet File";
-            @Language("SQL") String createQuery = format(
-                    "CREATE TABLE %s.\"%s\".\"%s\" (field %s) WITH (external_location = '%s')",
-                    CATALOG,
-                    SCHEMA,
-                    tableName,
-                    IntegerType.INTEGER,
-                    externalLocation);
-            queryRunner.execute(createQuery);
-            @Language("SQL") String selectQuery = format("SELECT * FROM %s.\"%s\".\"%s\"", CATALOG,
-                    SCHEMA, tableName);
-            assertQueryFails(queryRunner, selectQuery, errorMessage);
-        }
-        finally {
-            @Language("SQL") String dropQuery = format("DROP TABLE IF EXISTS %s.\"%s\".\"%s\"", CATALOG,
-                    SCHEMA, tableName);
-            queryRunner.execute(dropQuery);
-        }
+        @Language("SQL") String dropQuery = format("DROP TABLE IF EXISTS %s.\"%s\".\"%s\"", CATALOG,
+                SCHEMA, tableName);
+        queryRunner.execute(dropQuery);
     }
 }
