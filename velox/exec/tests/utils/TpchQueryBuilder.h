@@ -91,6 +91,7 @@ class TpchQueryBuilder {
       const std::vector<std::string>& columns);
 
   TpchPlan getQ1Plan() const;
+  TpchPlan getQ2Plan() const;
   TpchPlan getQ3Plan() const;
   TpchPlan getQ5Plan() const;
   TpchPlan getQ6Plan() const;
