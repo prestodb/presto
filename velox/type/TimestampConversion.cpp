@@ -738,36 +738,6 @@ fromTime(int32_t hour, int32_t minute, int32_t second, int32_t microseconds) {
   return result;
 }
 
-int64_t fromTimeString(const char* str, size_t len) {
-  int64_t microsSinceMidnight;
-  size_t pos;
-
-  if (!tryParseTimeString(
-          str,
-          len,
-          pos,
-          microsSinceMidnight,
-          TimestampParseMode::kPrestoCast)) {
-    VELOX_USER_FAIL(
-        "Unable to parse time value: \"{}\", "
-        "expected format is (HH:MM:SS[.MS])",
-        std::string_view(str, len));
-  }
-
-  // Check remaining string for non-space characters.
-  skipSpaces(str, len, pos);
-
-  // Check position. If end was not reached, non-space chars remaining.
-  VELOX_USER_CHECK_EQ(
-      pos,
-      len,
-      "Unable to parse time value: \"{}\", "
-      "expected format is (HH:MM:SS[.MS])",
-      std::string_view(str, len));
-
-  return microsSinceMidnight;
-}
-
 Timestamp fromDatetime(int64_t daysSinceEpoch, int64_t microsSinceMidnight) {
   int64_t secondsSinceEpoch =
       static_cast<int64_t>(daysSinceEpoch) * kSecsPerDay;
@@ -793,7 +763,7 @@ Status parserError(const char* str, size_t len) {
 
 Expected<Timestamp>
 fromTimestampString(const char* str, size_t len, TimestampParseMode parseMode) {
-  size_t pos;
+  size_t pos = 0;
   Timestamp resultTimestamp;
 
   if (!tryParseTimestampString(str, len, pos, resultTimestamp, parseMode)) {

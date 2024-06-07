@@ -188,49 +188,6 @@ TEST(DateTimeUtilTest, fromDateStringInvalid) {
   testCastFromDateStringInvalid("1970-01-01T01:00:47.000", ParseMode::kIso8601);
 }
 
-TEST(DateTimeUtilTest, fromTimeString) {
-  EXPECT_EQ(0, fromTimeString("00:00:00"));
-  EXPECT_EQ(0, fromTimeString("00:00:00.00"));
-  EXPECT_EQ(1, fromTimeString("00:00:00.000001"));
-  EXPECT_EQ(10, fromTimeString("00:00:00.00001"));
-  EXPECT_EQ(100, fromTimeString("00:00:00.0001"));
-  EXPECT_EQ(1000, fromTimeString("00:00:00.001"));
-  EXPECT_EQ(10000, fromTimeString("00:00:00.01"));
-  EXPECT_EQ(100000, fromTimeString("00:00:00.1"));
-  EXPECT_EQ(1'000'000, fromTimeString("00:00:01"));
-  EXPECT_EQ(60'000'000, fromTimeString("00:01:00"));
-  EXPECT_EQ(3'600'000'000, fromTimeString("01:00:00"));
-
-  // 1 day minus 1 second.
-  EXPECT_EQ(86'399'000'000, fromTimeString("23:59:59"));
-
-  // Single digit.
-  EXPECT_EQ(0, fromTimeString("0:0:0.0"));
-  EXPECT_EQ(3'661'000'000, fromTimeString("1:1:1"));
-
-  // Leading and trailing spaces.
-  EXPECT_EQ(0, fromTimeString("   \t \n 00:00:00.00  \t"));
-}
-
-TEST(DateTimeUtilTest, fromTimeStrInvalid) {
-  const std::string errorMsg = "Unable to parse time value: ";
-  VELOX_ASSERT_THROW(fromTimeString(""), errorMsg);
-  VELOX_ASSERT_THROW(fromTimeString("00"), errorMsg);
-  VELOX_ASSERT_THROW(fromTimeString("00:"), errorMsg);
-  VELOX_ASSERT_THROW(fromTimeString("00:00:"), errorMsg);
-  VELOX_ASSERT_THROW(fromTimeString("00:00:00."), errorMsg);
-  VELOX_ASSERT_THROW(fromTimeString("00:00-00"), errorMsg);
-  VELOX_ASSERT_THROW(fromTimeString("00/00:00"), errorMsg);
-
-  // Invalid hour, minutes and seconds.
-  VELOX_ASSERT_THROW(fromTimeString("24:00:00"), errorMsg);
-  VELOX_ASSERT_THROW(fromTimeString("00:61:00"), errorMsg);
-  VELOX_ASSERT_THROW(fromTimeString("00:00:61"), errorMsg);
-
-  // Trailing characters.
-  VELOX_ASSERT_THROW(fromTimeString("00:00:00   12"), errorMsg);
-}
-
 // bash command to verify:
 // $ date -d "2000-01-01 12:21:56Z" +%s
 // ('Z' at the end means UTC).

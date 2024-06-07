@@ -132,18 +132,6 @@ int32_t extractISODayOfTheWeek(int32_t daysSinceEpoch);
 int64_t
 fromTime(int32_t hour, int32_t minute, int32_t second, int32_t microseconds);
 
-// TODO These are used only in tests. Move them to test-only location.
-
-/// Parses the input string and returns the number of cumulative microseconds,
-/// following the "HH:MM[:SS[.MS]]" format (ISO 8601).
-//
-/// Throws VeloxUserError if the format or time is invalid.
-int64_t fromTimeString(const char* buf, size_t len);
-
-inline int64_t fromTimeString(const StringView& str) {
-  return fromTimeString(str.data(), str.size());
-}
-
 // Timestamp conversion
 
 enum class TimestampParseMode {
