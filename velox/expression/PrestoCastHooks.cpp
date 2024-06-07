@@ -35,7 +35,10 @@ PrestoCastHooks::PrestoCastHooks(const core::QueryConfig& config)
 Expected<Timestamp> PrestoCastHooks::castStringToTimestamp(
     const StringView& view) const {
   const auto conversionResult = util::fromTimestampWithTimezoneString(
-      view.data(), view.size(), util::TimestampParseMode::kPrestoCast);
+      view.data(),
+      view.size(),
+      legacyCast_ ? util::TimestampParseMode::kLegacyCast
+                  : util::TimestampParseMode::kPrestoCast);
   if (conversionResult.hasError()) {
     return folly::makeUnexpected(conversionResult.error());
   }

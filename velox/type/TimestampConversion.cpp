@@ -351,6 +351,7 @@ void parseTimeSeparator(
         pos++;
       }
       break;
+    case TimestampParseMode::kLegacyCast:
     case TimestampParseMode::kSparkCast:
       if (buf[pos] == ' ' || buf[pos] == 'T') {
         pos++;

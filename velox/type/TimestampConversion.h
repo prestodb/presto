@@ -162,6 +162,9 @@ enum class TimestampParseMode {
   // Allows leading and trailing spaces.
   kPrestoCast,
 
+  // Same as kPrestoCast, but allows 'T' separator between date and time.
+  kLegacyCast,
+
   /// A Spark-compatible timestamp string. A mix of the above. Accepts T and
   /// space as separator between date and time. Allows leading and trailing
   /// spaces.

@@ -614,6 +614,27 @@ TEST_F(CastExprTest, stringToTimestamp) {
       (evaluateOnce<Timestamp, std::string>(
           "cast(c0 as timestamp)", "1970-01-01T00:00")),
       "Cannot cast VARCHAR '1970-01-01T00:00' to TIMESTAMP. Unable to parse timestamp value");
+
+  setLegacyCast(true);
+  input = {
+      "1970-01-01",
+      "1970-01-01T00:00 America/Sao_Paulo",
+      "2000-01-01",
+      "1970-01-01T00:00:00",
+      "2000-01-01 12:21:56",
+      "1970-01-01T00:00:00-02:00",
+      std::nullopt,
+  };
+  expected = {
+      Timestamp(0, 0),
+      Timestamp(10800, 0),
+      Timestamp(946684800, 0),
+      Timestamp(0, 0),
+      Timestamp(946729316, 0),
+      Timestamp(7200, 0),
+      std::nullopt,
+  };
+  testCast<std::string, Timestamp>("timestamp", input, expected);
 }
 
 TEST_F(CastExprTest, timestampToString) {
