@@ -334,7 +334,10 @@ public class HiveWriterFactory
 
         Optional<String> partitionName;
         if (!partitionColumnNames.isEmpty()) {
-            partitionName = Optional.of(FileUtils.makePartName(partitionColumnNames, partitionValues));
+            String partName = FileUtils.makePartName(partitionColumnNames, partitionValues);
+            // FileUtils doesn't escape spaces and it should. See https://issues.apache.org/jira/browse/HIVE-28320
+            partName = partName.replace(" ", "%20");
+            partitionName = Optional.of(partName);
         }
         else {
             partitionName = Optional.empty();
