@@ -531,6 +531,54 @@ std::string formatFractionOfSecond(
   return toAdd;
 }
 
+int32_t appendTimezoneOffset(int64_t offset, char* result) {
+  int pos = 0;
+  if (offset >= 0) {
+    result[pos++] = '+';
+  } else {
+    result[pos++] = '-';
+    offset = -offset;
+  }
+
+  const auto hours = offset / 60 / 60;
+  if (hours < 10) {
+    result[pos++] = '0';
+    result[pos++] = char(hours + '0');
+  } else {
+    result[pos++] = char(hours / 10 + '0');
+    result[pos++] = char(hours % 10 + '0');
+  }
+
+  result[pos++] = ':';
+
+  const auto minutes = (offset / 60) % 60;
+  if LIKELY (minutes == 0) {
+    result[pos++] = '0';
+    result[pos++] = '0';
+  } else if (minutes < 10) {
+    result[pos++] = '0';
+    result[pos++] = char(minutes + '0');
+  } else {
+    result[pos++] = char(minutes / 10 + '0');
+    result[pos++] = char(minutes % 10 + '0');
+  }
+
+  const auto seconds = offset % 60;
+  if (seconds > 0) {
+    result[pos++] = ':';
+
+    if (seconds < 10) {
+      result[pos++] = '0';
+      result[pos++] = char(seconds + '0');
+    } else {
+      result[pos++] = char(seconds / 10 + '0');
+      result[pos++] = char(seconds % 10 + '0');
+    }
+  }
+
+  return pos;
+}
+
 // According to DateTimeFormatSpecifier enum class
 std::string getSpecifierName(DateTimeFormatSpecifier specifier) {
   switch (specifier) {
@@ -1012,8 +1060,16 @@ uint32_t DateTimeFormatter::maxResultSize(
         size += std::max(
             token.pattern.minRepresentDigits, timezone->name().length());
         break;
-      // Not supported.
       case DateTimeFormatSpecifier::TIMEZONE_OFFSET_ID:
+        if (token.pattern.minRepresentDigits != 2) {
+          VELOX_UNSUPPORTED(
+              "Date format specifier is not supported: {} ({})",
+              getSpecifierName(token.pattern.specifier),
+              token.pattern.minRepresentDigits);
+        }
+        size += 9;
+        break;
+      // Not supported.
       case DateTimeFormatSpecifier::WEEK_YEAR:
       case DateTimeFormatSpecifier::WEEK_OF_WEEK_YEAR:
       default:
@@ -1031,9 +1087,13 @@ int32_t DateTimeFormatter::format(
     const uint32_t maxResultSize,
     char* result,
     bool allowOverflow) const {
+  int64_t offset = 0;
   Timestamp t = timestamp;
   if (timezone != nullptr) {
+    const auto utcSeconds = timestamp.getSeconds();
     t.toTimezone(*timezone, allowOverflow);
+
+    offset = t.getSeconds() - utcSeconds;
   }
   const auto timePoint = t.toTimePoint(allowOverflow);
   const auto daysTimePoint = date::floor<date::days>(timePoint);
@@ -1249,9 +1309,19 @@ int32_t DateTimeFormatter::format(
           result += piece.length();
         } break;
 
-        case DateTimeFormatSpecifier::TIMEZONE_OFFSET_ID:
-          // TODO: implement timezone offset id formatting, need a map from full
-          // name to offset time
+        case DateTimeFormatSpecifier::TIMEZONE_OFFSET_ID: {
+          // Zone: 'Z' outputs offset without a colon, 'ZZ' outputs the offset
+          // with a colon, 'ZZZ' or more outputs the zone id.
+          // TODO Add support for 'Z' and 'ZZZ'.
+          if (token.pattern.minRepresentDigits != 2) {
+            VELOX_UNSUPPORTED(
+                "format is not supported for specifier {} ({})",
+                getSpecifierName(token.pattern.specifier),
+                token.pattern.minRepresentDigits);
+          }
+          result += appendTimezoneOffset(offset, result);
+          break;
+        }
         case DateTimeFormatSpecifier::WEEK_YEAR:
         case DateTimeFormatSpecifier::WEEK_OF_WEEK_YEAR:
         default:

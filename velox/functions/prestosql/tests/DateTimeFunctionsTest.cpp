@@ -2993,6 +2993,7 @@ TEST_F(DateTimeFunctionsTest, formatDateTime) {
   setQueryTimeZone("Asia/Kolkata");
   EXPECT_EQ(
       "Asia/Kolkata", formatDatetime(parseTimestamp("1970-01-01"), "zzzz"));
+  EXPECT_EQ("+05:30", formatDatetime(parseTimestamp("1970-01-01"), "ZZ"));
 
   // literal test cases
   EXPECT_EQ("hello", formatDatetime(parseTimestamp("1970-01-01"), "'hello'"));
@@ -4191,6 +4192,56 @@ TEST_F(DateTimeFunctionsTest, toISO8601Date) {
   EXPECT_EQ("872343-04-19", toISO8601("872343-04-19"));
   EXPECT_EQ("-3492-10-05", toISO8601("-3492-10-05"));
   EXPECT_EQ("-0653-07-12", toISO8601("-653-07-12"));
+}
+
+TEST_F(DateTimeFunctionsTest, toISO8601Timestamp) {
+  const auto toIso = [&](const char* timestamp) {
+    return evaluateOnce<std::string>(
+        "to_iso8601(c0)", std::make_optional(parseTimestamp(timestamp)));
+  };
+
+  setQueryTimeZone("America/New_York");
+
+  EXPECT_EQ("2024-11-01T10:00:00.000-04:00", toIso("2024-11-01 10:00"));
+  EXPECT_EQ("2024-11-04T10:00:00.000-05:00", toIso("2024-11-04 10:00"));
+  EXPECT_EQ("2024-11-04T15:05:34.100-05:00", toIso("2024-11-04 15:05:34.1"));
+  EXPECT_EQ("2024-11-04T15:05:34.123-05:00", toIso("2024-11-04 15:05:34.123"));
+  EXPECT_EQ("0022-11-01T10:00:00.000-04:56:02", toIso("22-11-01 10:00"));
+
+  setQueryTimeZone("Asia/Kathmandu");
+
+  EXPECT_EQ("2024-11-01T10:00:00.000+05:45", toIso("2024-11-01 10:00"));
+  EXPECT_EQ("0022-11-01T10:00:00.000+05:41:16", toIso("22-11-01 10:00"));
+}
+
+TEST_F(DateTimeFunctionsTest, toISO8601TimestampWithTimezone) {
+  const auto toIso = [&](const char* timestamp, const char* timezone) {
+    const auto tzId = util::getTimeZoneID(timezone);
+    auto ts = parseTimestamp(timestamp);
+    ts.toGMT(tzId);
+
+    return evaluateOnce<std::string>(
+        "to_iso8601(c0)",
+        TIMESTAMP_WITH_TIME_ZONE(),
+        std::make_optional(pack(ts.toMillis(), tzId)));
+  };
+
+  EXPECT_EQ(
+      "2024-11-01T10:00:00.000-04:00",
+      toIso("2024-11-01 10:00", "America/New_York"));
+  EXPECT_EQ(
+      "2024-11-04T10:00:45.120-05:00",
+      toIso("2024-11-04 10:00:45.12", "America/New_York"));
+  EXPECT_EQ(
+      "0022-11-01T10:00:00.000-04:56:02",
+      toIso("22-11-01 10:00", "America/New_York"));
+
+  EXPECT_EQ(
+      "2024-11-01T10:00:00.000+05:45",
+      toIso("2024-11-01 10:00", "Asia/Kathmandu"));
+  EXPECT_EQ(
+      "0022-11-01T10:00:00.000+05:41:16",
+      toIso("22-11-01 10:00", "Asia/Kathmandu"));
 }
 
 TEST_F(DateTimeFunctionsTest, atTimezoneTest) {

@@ -154,7 +154,14 @@ Date and Time Functions
 
 .. function:: to_iso8601(x) -> varchar
 
-    Formats ``x`` as an ISO 8601 string. Supported types for ``x`` are: DATE.
+    Formats ``x`` as an ISO 8601 string. Supported types for ``x`` are:
+    DATE, TIMESTAMP, TIMESTAMP WITH TIME ZONE.
+
+    Example results::
+
+        SELECT to_iso8601(current_date); -- 2024-06-06
+        SELECT to_iso8601(now()); -- 2024-06-06T20:25:46.726-07:00
+        SELECT to_iso8601(now() + interval '6' month); -- 2024-12-06T20:27:11.992-08:00
 
 .. function:: to_unixtime(timestamp) -> double
 
@@ -284,6 +291,10 @@ pattern format. The symbols currently supported are ``y``, ``Y``, ``M`` , ``d``,
 specified using the format ``+00``, ``+00:00`` or ``+0000`` (or ``-``). ``Z``
 also accepts ``UTC``,  ``UCT``, ``GMT``, and ``GMT0`` as valid representations
 of GMT.
+
+.. function:: format_datetime(timestamp, format) -> varchar
+
+    Formats ``timestamp`` as a string using ``format``.
 
 .. function:: parse_datetime(string, format) -> timestamp with time zone
 

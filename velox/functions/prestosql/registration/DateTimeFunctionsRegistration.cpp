@@ -200,7 +200,13 @@ void registerSimpleFunctions(const std::string& prefix) {
   registerFunction<FromIso8601Timestamp, TimestampWithTimezone, Varchar>(
       {prefix + "from_iso8601_timestamp"});
   registerFunction<CurrentDateFunction, Date>({prefix + "current_date"});
+
   registerFunction<ToISO8601Function, Varchar, Date>({prefix + "to_iso8601"});
+  registerFunction<ToISO8601Function, Varchar, Timestamp>(
+      {prefix + "to_iso8601"});
+  registerFunction<ToISO8601Function, Varchar, TimestampWithTimezone>(
+      {prefix + "to_iso8601"});
+
   registerFunction<
       AtTimezoneFunction,
       TimestampWithTimezone,
