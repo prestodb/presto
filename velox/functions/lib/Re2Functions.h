@@ -237,6 +237,23 @@ std::shared_ptr<exec::VectorFunction> makeRe2ExtractAll(
 
 std::vector<std::shared_ptr<exec::FunctionSignature>> re2ExtractAllSignatures();
 
+namespace detail {
+
+// A cache of compiled regular expressions (RE2 instances). Allows up to
+// 'kMaxCompiledRegexes' different expressions.
+//
+// Compiling regular expressions is expensive. It can take up to 200 times
+// more CPU time to compile a regex vs. evaluate it.
+class ReCache {
+ public:
+  RE2* findOrCompile(const StringView& pattern);
+
+ private:
+  folly::F14FastMap<std::string, std::unique_ptr<RE2>> cache_;
+};
+
+} // namespace detail
+
 /// regexp_replace(string, pattern, replacement) -> string
 /// regexp_replace(string, pattern) -> string
 ///
@@ -255,31 +272,30 @@ template <
 struct Re2RegexpReplace {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
-  std::string processedReplacement_;
-  std::string result_;
-  std::optional<RE2> re_;
-
   FOLLY_ALWAYS_INLINE void initialize(
       const std::vector<TypePtr>& /*inputTypes*/,
       const core::QueryConfig& config,
       const arg_type<Varchar>* /*string*/,
       const arg_type<Varchar>* pattern,
       const arg_type<Varchar>* replacement) {
-    VELOX_USER_CHECK(
-        pattern != nullptr, "Pattern of regexp_replace must be constant.");
-    VELOX_USER_CHECK(
-        replacement != nullptr,
-        "Replacement sequence of regexp_replace must be constant.");
-
-    auto processedPattern = prepareRegexpPattern(*pattern);
-
-    re_.emplace(processedPattern, RE2::Quiet);
-    if (UNLIKELY(!re_->ok())) {
-      VELOX_USER_FAIL(
-          "Invalid regular expression {}: {}.", processedPattern, re_->error());
+    if (pattern != nullptr) {
+      const auto processedPattern = prepareRegexpPattern(*pattern);
+      re_.emplace(processedPattern, RE2::Quiet);
+      VELOX_USER_CHECK(
+          re_->ok(),
+          "Invalid regular expression {}: {}.",
+          processedPattern,
+          re_->error());
     }
 
-    processedReplacement_ = prepareRegexpReplacement(*re_, *replacement);
+    if (replacement != nullptr) {
+      // Constant 'replacement' with non-constant 'pattern' needs to be
+      // processed separately for each row.
+      if (pattern != nullptr) {
+        ensureProcessedReplacement(re_.value(), *replacement);
+        constantReplacement_ = true;
+      }
+    }
   }
 
   FOLLY_ALWAYS_INLINE void initialize(
@@ -287,23 +303,59 @@ struct Re2RegexpReplace {
       const core::QueryConfig& config,
       const arg_type<Varchar>* string,
       const arg_type<Varchar>* pattern) {
-    StringView emptyReplacement;
-
-    initialize(inputTypes, config, string, pattern, &emptyReplacement);
+    initialize(inputTypes, config, string, pattern, nullptr);
   }
 
-  FOLLY_ALWAYS_INLINE bool call(
+  FOLLY_ALWAYS_INLINE void call(
       out_type<Varchar>& out,
       const arg_type<Varchar>& string,
-      const arg_type<Varchar>& /*pattern*/,
-      const arg_type<Varchar>& /*replacement*/ = StringView{}) {
+      const arg_type<Varchar>& pattern,
+      const arg_type<Varchar>& replacement = StringView{}) {
+    auto& re = ensurePattern(pattern);
+    const auto& processedReplacement =
+        ensureProcessedReplacement(re, replacement);
+
     result_.assign(string.data(), string.size());
-    RE2::GlobalReplace(&result_, *re_, processedReplacement_);
+    RE2::GlobalReplace(&result_, re, processedReplacement);
 
     UDFOutputString::assign(out, result_);
-
-    return true;
   }
+
+ private:
+  RE2& ensurePattern(const arg_type<Varchar>& pattern) {
+    if (!re_.has_value()) {
+      auto processedPattern = prepareRegexpPattern(pattern);
+      return *cache_.findOrCompile(StringView(processedPattern));
+    } else {
+      return re_.value();
+    }
+  }
+
+  const std::string& ensureProcessedReplacement(
+      RE2& re,
+      const arg_type<Varchar>& replacement) {
+    if (!constantReplacement_) {
+      processedReplacement_ = prepareRegexpReplacement(re, replacement);
+    }
+
+    return processedReplacement_;
+  }
+
+  // Used when pattern is constant.
+  std::optional<RE2> re_;
+
+  // True if replacement is constant.
+  bool constantReplacement_{false};
+
+  // Constant replacement if 'constantReplacement_' is true, or 'current'
+  // replacement.
+  std::string processedReplacement_;
+
+  // Used when pattern is not constant.
+  detail::ReCache cache_;
+
+  // Scratch memory to store result of replacement.
+  std::string result_;
 };
 
 } // namespace facebook::velox::functions

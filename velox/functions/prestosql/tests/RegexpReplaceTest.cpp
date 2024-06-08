@@ -21,16 +21,16 @@
 namespace facebook::velox {
 namespace {
 
-class RegexFunctionsTest : public functions::test::FunctionBaseTest {
+class RegexpReplaceTest : public functions::test::FunctionBaseTest {
  protected:
-  std::optional<std::string> regexp_replace(
+  std::optional<std::string> regexpReplace(
       const std::optional<std::string>& string,
       const std::string& pattern) {
     return evaluateOnce<std::string>(
         fmt::format("regexp_replace(c0, '{}')", pattern), string);
   }
 
-  std::optional<std::string> regexp_replace(
+  std::optional<std::string> regexpReplace(
       const std::optional<std::string>& string,
       const std::string& pattern,
       const std::string& replacement) {
@@ -40,47 +40,77 @@ class RegexFunctionsTest : public functions::test::FunctionBaseTest {
   }
 };
 
-TEST_F(RegexFunctionsTest, RegexpReplaceNoReplacement) {
-  EXPECT_EQ(regexp_replace("abcd", "cd"), "ab");
-  EXPECT_EQ(regexp_replace("a12b34c5", "\\d"), "abc");
-  EXPECT_EQ(regexp_replace("abc", "\\w"), "");
-  EXPECT_EQ(regexp_replace("", "\\d"), "");
-  EXPECT_EQ(regexp_replace("abc", ""), "abc");
-  EXPECT_EQ(regexp_replace("$$$.", "\\$"), ".");
-  EXPECT_EQ(regexp_replace("???.", "\\?"), ".");
-  EXPECT_EQ(regexp_replace(std::nullopt, "abc"), std::nullopt);
+TEST_F(RegexpReplaceTest, noReplacement) {
+  EXPECT_EQ(regexpReplace("abcd", "cd"), "ab");
+  EXPECT_EQ(regexpReplace("a12b34c5", "\\d"), "abc");
+  EXPECT_EQ(regexpReplace("abc", "\\w"), "");
+  EXPECT_EQ(regexpReplace("", "\\d"), "");
+  EXPECT_EQ(regexpReplace("abc", ""), "abc");
+  EXPECT_EQ(regexpReplace("$$$.", "\\$"), ".");
+  EXPECT_EQ(regexpReplace("???.", "\\?"), ".");
+  EXPECT_EQ(regexpReplace(std::nullopt, "abc"), std::nullopt);
+
+  auto input = makeRowVector({
+      makeFlatVector<std::string>(
+          {"apple123", "1 banana", "orange 23 ...", "12 34 56"}),
+      makeFlatVector<std::string>({"[0-9]+", "\\d+", "ge\\s", "[4-9 ]"}),
+  });
+
+  auto result = evaluate("regexp_replace(c0, c1)", input);
+
+  auto expected =
+      makeFlatVector<std::string>({"apple", " banana", "oran23 ...", "123"});
+  test::assertEqualVectors(expected, result);
 }
 
-TEST_F(RegexFunctionsTest, RegexpReplaceWithReplacement) {
-  EXPECT_EQ(regexp_replace("abcd", "cd", "ef"), "abef");
-  EXPECT_EQ(regexp_replace("abc", "\\w", ""), "");
-  EXPECT_EQ(regexp_replace("a12b34c5", "\\d", "."), "a..b..c.");
-  EXPECT_EQ(regexp_replace("", "\\d", "."), "");
-  EXPECT_EQ(regexp_replace("abc", "", "."), ".a.b.c.");
+TEST_F(RegexpReplaceTest, withReplacement) {
+  EXPECT_EQ(regexpReplace("abcd", "cd", "ef"), "abef");
+  EXPECT_EQ(regexpReplace("abc", "\\w", ""), "");
+  EXPECT_EQ(regexpReplace("a12b34c5", "\\d", "."), "a..b..c.");
+  EXPECT_EQ(regexpReplace("", "\\d", "."), "");
+  EXPECT_EQ(regexpReplace("abc", "", "."), ".a.b.c.");
   EXPECT_EQ(
-      regexp_replace("1a 2b 14m", "(\\d+)([ab]) ", "3c$2 "), "3ca 3cb 14m");
-  EXPECT_EQ(regexp_replace("1a 2b 14m", "(\\d+)([ab])", "3c$2"), "3ca 3cb 14m");
-  EXPECT_EQ(regexp_replace("abc", "(?P<alpha>\\w)", "1${alpha}"), "1a1b1c");
+      regexpReplace("1a 2b 14m", "(\\d+)([ab]) ", "3c$2 "), "3ca 3cb 14m");
+  EXPECT_EQ(regexpReplace("1a 2b 14m", "(\\d+)([ab])", "3c$2"), "3ca 3cb 14m");
+  EXPECT_EQ(regexpReplace("abc", "(?P<alpha>\\w)", "1${alpha}"), "1a1b1c");
   EXPECT_EQ(
-      regexp_replace("1a1b1c", "(?<digit>\\d)(?<alpha>\\w)", "${alpha}\\$"),
+      regexpReplace("1a1b1c", "(?<digit>\\d)(?<alpha>\\w)", "${alpha}\\$"),
       "a$b$c$");
   EXPECT_EQ(
-      regexp_replace(
-          "1a2b3c", "(?<digit>\\d)(?<alpha>\\w)", "${alpha}${digit}"),
+      regexpReplace("1a2b3c", "(?<digit>\\d)(?<alpha>\\w)", "${alpha}${digit}"),
       "a1b2c3");
-  EXPECT_EQ(regexp_replace("123", "(\\d)", "\\$"), "$$$");
+  EXPECT_EQ(regexpReplace("123", "(\\d)", "\\$"), "$$$");
   EXPECT_EQ(
-      regexp_replace("123", "(?<digit>(?<nest>\\d))", ".${digit}"), ".1.2.3");
+      regexpReplace("123", "(?<digit>(?<nest>\\d))", ".${digit}"), ".1.2.3");
   EXPECT_EQ(
-      regexp_replace("123", "(?<digit>(?<nest>\\d))", ".${nest}"), ".1.2.3");
-  EXPECT_EQ(regexp_replace(std::nullopt, "abc", "def"), std::nullopt);
+      regexpReplace("123", "(?<digit>(?<nest>\\d))", ".${nest}"), ".1.2.3");
+  EXPECT_EQ(regexpReplace(std::nullopt, "abc", "def"), std::nullopt);
 
-  EXPECT_THROW(regexp_replace("123", "(?<d", "."), VeloxUserError);
-  EXPECT_THROW(regexp_replace("123", R"((?''digit''\d))", "."), VeloxUserError);
-  EXPECT_THROW(regexp_replace("123", "(?P<>\\d)", "."), VeloxUserError);
-  EXPECT_THROW(
-      regexp_replace("123", "(?P<digit>\\d)", "${dd}"), VeloxUserError);
-  EXPECT_THROW(regexp_replace("123", "(?P<digit>\\d)", "${}"), VeloxUserError);
+  EXPECT_THROW(regexpReplace("123", "(?<d", "."), VeloxUserError);
+  EXPECT_THROW(regexpReplace("123", R"((?''digit''\d))", "."), VeloxUserError);
+  EXPECT_THROW(regexpReplace("123", "(?P<>\\d)", "."), VeloxUserError);
+  EXPECT_THROW(regexpReplace("123", "(?P<digit>\\d)", "${dd}"), VeloxUserError);
+  EXPECT_THROW(regexpReplace("123", "(?P<digit>\\d)", "${}"), VeloxUserError);
+
+  auto input = makeRowVector({
+      makeFlatVector<std::string>(
+          {"apple123", "1 banana", "orange 23 ...", "12 34 56"}),
+      makeFlatVector<std::string>({"[0-9]+", "\\d+", "ge\\s", "[4-9]"}),
+      makeFlatVector<std::string>({"_", ".", "", "[===]"}),
+  });
+
+  auto result = evaluate("regexp_replace(c0, c1, c2)", input);
+
+  auto expected = makeFlatVector<std::string>(
+      {"apple_", ". banana", "oran23 ...", "12 3[===] [===][===]"});
+  test::assertEqualVectors(expected, result);
+
+  // Constant 'replacement' with non-constant 'pattern'.
+  result = evaluate("regexp_replace(c0, c1, '||')", input);
+
+  expected = makeFlatVector<std::string>(
+      {"apple||", "|| banana", "oran||23 ...", "12 3|| ||||"});
+  test::assertEqualVectors(expected, result);
 }
 
 } // namespace

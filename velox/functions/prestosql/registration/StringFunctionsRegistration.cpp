@@ -81,14 +81,10 @@ void registerSimpleFunctions(const std::string& prefix) {
   exec::registerStatefulVectorFunction(
       prefix + "like", likeSignatures(), makeLike);
 
-  registerFunction<Re2RegexpReplacePresto, Varchar, Varchar, Constant<Varchar>>(
+  registerFunction<Re2RegexpReplacePresto, Varchar, Varchar, Varchar>(
       {prefix + "regexp_replace"});
-  registerFunction<
-      Re2RegexpReplacePresto,
-      Varchar,
-      Varchar,
-      Constant<Varchar>,
-      Constant<Varchar>>({prefix + "regexp_replace"});
+  registerFunction<Re2RegexpReplacePresto, Varchar, Varchar, Varchar, Varchar>(
+      {prefix + "regexp_replace"});
 }
 } // namespace
 

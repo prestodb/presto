@@ -21,8 +21,6 @@
 namespace facebook::velox::functions {
 namespace {
 
-static const int kMaxCompiledRegexes = 20;
-
 void checkForBadPattern(const RE2& re) {
   if (UNLIKELY(!re.ok())) {
     VELOX_USER_FAIL("invalid regular expression:{}", re.error());
@@ -34,36 +32,33 @@ re2::StringPiece toStringPiece(const T& s) {
   return re2::StringPiece(s.data(), s.size());
 }
 
-// A cache of compiled regular expressions (RE2 instances). Allows up to
-// 'kMaxCompiledRegexes' different expressions.
-//
-// Compiling regular expressions is expensive. It can take up to 200 times
-// more CPU time to compile a regex vs. evaluate it.
-class ReCache {
- public:
-  RE2* findOrCompile(const StringView& pattern) {
-    const std::string key = pattern;
+} // namespace
 
-    auto reIt = cache_.find(key);
-    if (reIt != cache_.end()) {
-      return reIt->second.get();
-    }
+namespace detail {
 
-    VELOX_USER_CHECK_LT(
-        cache_.size(), kMaxCompiledRegexes, "Max number of regex reached");
+RE2* ReCache::findOrCompile(const StringView& pattern) {
+  const std::string key = pattern;
 
-    auto re = std::make_unique<RE2>(toStringPiece(pattern), RE2::Quiet);
-    checkForBadPattern(*re);
-
-    auto [it, inserted] = cache_.emplace(key, std::move(re));
-    VELOX_CHECK(inserted);
-
-    return it->second.get();
+  auto reIt = cache_.find(key);
+  if (reIt != cache_.end()) {
+    return reIt->second.get();
   }
 
- private:
-  folly::F14FastMap<std::string, std::unique_ptr<RE2>> cache_;
-};
+  VELOX_USER_CHECK_LT(
+      cache_.size(), kMaxCompiledRegexes, "Max number of regex reached");
+
+  auto re = std::make_unique<RE2>(toStringPiece(pattern), RE2::Quiet);
+  checkForBadPattern(*re);
+
+  auto [it, inserted] = cache_.emplace(key, std::move(re));
+  VELOX_CHECK(inserted);
+
+  return it->second.get();
+}
+
+} // namespace detail
+
+namespace {
 
 std::string printTypesCsv(
     const std::vector<exec::VectorFunctionArg>& inputArgs) {
@@ -257,7 +252,7 @@ class Re2Match final : public exec::VectorFunction {
   }
 
  private:
-  mutable ReCache cache_;
+  mutable detail::ReCache cache_;
 };
 
 void checkForBadGroupId(int64_t groupId, const RE2& re) {
@@ -403,7 +398,7 @@ class Re2SearchAndExtract final : public exec::VectorFunction {
 
  private:
   const bool emptyNoMatch_;
-  mutable ReCache cache_;
+  mutable detail::ReCache cache_;
 };
 
 namespace {
@@ -1173,7 +1168,7 @@ class Re2ExtractAll final : public exec::VectorFunction {
   }
 
  private:
-  mutable ReCache cache_;
+  mutable detail::ReCache cache_;
 };
 
 template <bool (*Fn)(StringView, const RE2&)>
