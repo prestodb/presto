@@ -23,6 +23,8 @@
 #include "velox/common/base/Fs.h"
 #include "velox/common/encode/Base64.h"
 #include "velox/common/file/FileSystems.h"
+#include "velox/connectors/hive/HiveConnector.h"
+#include "velox/connectors/hive/TableHandle.h"
 #include "velox/exec/fuzzer/FuzzerUtil.h"
 #include "velox/exec/fuzzer/PrestoQueryRunner.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
@@ -52,6 +54,8 @@ DEFINE_double(
     0.1,
     "Chance of adding a null value in a vector "
     "(expressed as double from 0 to 1).");
+
+using namespace facebook::velox::connector::hive;
 
 namespace facebook::velox::exec::test {
 
@@ -108,10 +112,20 @@ class WriterFuzzer {
 
   void verifyWriter(
       const std::vector<RowVectorPtr>& input,
+      const std::vector<std::string>& names,
+      const std::vector<TypePtr>& types,
+      int32_t partitionOffset,
       int32_t bucketCount,
       const std::vector<std::string>& bucketColumns,
       const std::vector<std::string>& partitionKeys,
       const std::string& outputDirectoryPath);
+
+  // Generate table column handles based on table column properties
+  std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
+  getTableColumnHandles(
+      const std::vector<std::string>& names,
+      const std::vector<TypePtr>& types,
+      int32_t partitionOffset);
 
   // Executes velox query plan and returns the result.
   RowVectorPtr execute(
@@ -233,6 +247,7 @@ void WriterFuzzer::go() {
     std::vector<std::string> bucketColumns;
     std::vector<std::string> partitionKeys;
 
+    // Regular table columns
     generateColumns(5, "c", kRegularColumnTypes_, 2, names, types);
 
     // 50% of times test bucketed write.
@@ -255,6 +270,9 @@ void WriterFuzzer::go() {
     auto tempDirPath = exec::test::TempDirectoryPath::create();
     verifyWriter(
         input,
+        names,
+        types,
+        partitionOffset,
         bucketCount,
         bucketColumns,
         partitionKeys,
@@ -322,7 +340,10 @@ std::vector<RowVectorPtr> WriterFuzzer::generateInputData(
 
 void WriterFuzzer::verifyWriter(
     const std::vector<RowVectorPtr>& input,
-    int32_t bucketCount,
+    const std::vector<std::string>& names,
+    const std::vector<TypePtr>& types,
+    const int32_t partitionOffset,
+    const int32_t bucketCount,
     const std::vector<std::string>& bucketColumns,
     const std::vector<std::string>& partitionKeys,
     const std::string& outputDirectoryPath) {
@@ -368,20 +389,48 @@ void WriterFuzzer::verifyWriter(
   }
 
   // 3. Verifies data itself.
-  // TODO: verify partitioned (bucketed) once makeSplits support nested folders.
-  if (partitionKeys.empty()) {
-    auto splits = makeSplits(outputDirectoryPath);
-    auto readPlan =
-        PlanBuilder().tableScan(asRowType(input[0]->type())).planNode();
-    auto actual = execute(readPlan, maxDrivers, splits);
-    auto reference_data =
-        referenceQueryRunner_->execute("SELECT * FROM tmp_write");
-    VELOX_CHECK(
-        assertEqualResults(reference_data, {actual}),
-        "Velox and reference DB results don't match");
-  }
+  auto splits = makeSplits(outputDirectoryPath);
+  const auto columnHandles =
+      getTableColumnHandles(names, types, partitionOffset);
+  auto readPlan = PlanBuilder()
+                      .tableScan(
+                          asRowType(input[0]->type()),
+                          {},
+                          "",
+                          asRowType(input[0]->type()),
+                          columnHandles)
+                      .project(names)
+                      .planNode();
+  auto actual = execute(readPlan, maxDrivers, splits);
+  auto reference_data =
+      referenceQueryRunner_->execute("SELECT * FROM tmp_write");
+  VELOX_CHECK(
+      assertEqualResults(reference_data, {actual}),
+      "Velox and reference DB results don't match");
 
   LOG(INFO) << "Verified results against reference DB";
+}
+
+std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
+WriterFuzzer::getTableColumnHandles(
+    const std::vector<std::string>& names,
+    const std::vector<TypePtr>& types,
+    const int32_t partitionOffset) {
+  std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
+      columnHandle;
+  for (int i = 0; i < names.size(); ++i) {
+    HiveColumnHandle::ColumnType columnType;
+    if (i < partitionOffset) {
+      columnType = HiveColumnHandle::ColumnType::kRegular;
+    } else {
+      columnType = HiveColumnHandle::ColumnType::kPartitionKey;
+    }
+    columnHandle.insert(
+        {names.at(i),
+         std::make_shared<HiveColumnHandle>(
+             names.at(i), columnType, types.at(i), types.at(i))});
+  }
+  return columnHandle;
 }
 
 RowVectorPtr WriterFuzzer::execute(

@@ -29,7 +29,6 @@ namespace fbhive {
 namespace {
 
 constexpr size_t HEX_WIDTH = 2;
-const std::string DEFAULT_PARTITION_VALUE{"__HIVE_DEFAULT_PARTITION__"};
 
 constexpr auto charsToEscape = folly::make_array(
     '"',
@@ -170,7 +169,7 @@ std::string FileUtils::makePartName(
 
     auto valSize = pair.second.size();
     if (valSize == 0) {
-      size += DEFAULT_PARTITION_VALUE.size();
+      size += kDefaultPartitionValue.size();
     } else {
       size += valSize;
       escapeCount += countEscape(pair.second);
@@ -192,7 +191,7 @@ std::string FileUtils::makePartName(
 
     ret += "=";
     if (pair.second.size() == 0) {
-      ret += DEFAULT_PARTITION_VALUE;
+      ret += kDefaultPartitionValue;
     } else {
       ret += escapePathName(pair.second);
     }
