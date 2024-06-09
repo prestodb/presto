@@ -240,6 +240,7 @@ std::string SpillPartition::toString() const {
 
 std::unique_ptr<UnorderedStreamReader<BatchStream>>
 SpillPartition::createUnorderedReader(
+    uint64_t bufferSize,
     memory::MemoryPool* pool,
     folly::Synchronized<common::SpillStats>* spillStats) {
   VELOX_CHECK_NOT_NULL(pool);
@@ -247,7 +248,7 @@ SpillPartition::createUnorderedReader(
   streams.reserve(files_.size());
   for (auto& fileInfo : files_) {
     streams.push_back(FileSpillBatchStream::create(
-        SpillReadFile::create(fileInfo, pool, spillStats)));
+        SpillReadFile::create(fileInfo, bufferSize, pool, spillStats)));
   }
   files_.clear();
   return std::make_unique<UnorderedStreamReader<BatchStream>>(
@@ -256,13 +257,14 @@ SpillPartition::createUnorderedReader(
 
 std::unique_ptr<TreeOfLosers<SpillMergeStream>>
 SpillPartition::createOrderedReader(
+    uint64_t bufferSize,
     memory::MemoryPool* pool,
     folly::Synchronized<common::SpillStats>* spillStats) {
   std::vector<std::unique_ptr<SpillMergeStream>> streams;
   streams.reserve(files_.size());
   for (auto& fileInfo : files_) {
     streams.push_back(FileSpillMergeStream::create(
-        SpillReadFile::create(fileInfo, pool, spillStats)));
+        SpillReadFile::create(fileInfo, bufferSize, pool, spillStats)));
   }
   files_.clear();
   // Check if the partition is empty or not.

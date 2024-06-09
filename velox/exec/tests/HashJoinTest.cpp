@@ -7546,7 +7546,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, hashProbeSpillExceedLimit) {
         .buildKeys({"u_k1"})
         .buildVectors(std::move(buildVectors))
         .config(core::QueryConfig::kMaxSpillLevel, "1")
-        .config(core::QueryConfig::kJoinSpillPartitionBits, "1")
+        .config(core::QueryConfig::kSpillNumPartitionBits, "1")
         .config(core::QueryConfig::kJoinSpillEnabled, "true")
         // Set small write buffer size to have small vectors to read from
         // spilled data.

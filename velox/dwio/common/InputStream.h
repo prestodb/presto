@@ -76,7 +76,7 @@ class InputStream {
    * @param length the number of bytes to read.
    * @param offset the position in the stream to read from.
    */
-  virtual void read(void* FOLLY_NONNULL, uint64_t, uint64_t, LogType) = 0;
+  virtual void read(void*, uint64_t, uint64_t, LogType) = 0;
 
   /**
    * Read starting at offset into buffers, filling the buffers left to right. A
@@ -134,10 +134,10 @@ class InputStream {
   IoStatistics* stats_;
 };
 
-// An input stream that reads from an already opened ReadFile.
+/// An input stream that reads from an already opened ReadFile.
 class ReadFileInputStream final : public InputStream {
  public:
-  // Take shared ownership of |readFile|.
+  /// Takes shared ownership of |readFile|.
   explicit ReadFileInputStream(
       std::shared_ptr<velox::ReadFile>,
       const MetricsLogPtr& metricsLog = MetricsLog::voidLog(),
@@ -153,7 +153,7 @@ class ReadFileInputStream final : public InputStream {
     return readFile_->getNaturalReadSize();
   }
 
-  void read(void* FOLLY_NONNULL, uint64_t, uint64_t, LogType) override;
+  void read(void*, uint64_t, uint64_t, LogType) override;
 
   void read(
       const std::vector<folly::Range<char*>>& buffers,

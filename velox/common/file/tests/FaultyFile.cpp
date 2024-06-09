@@ -34,10 +34,12 @@ std::string FaultFileOperation::typeString(Type type) {
 FaultyReadFile::FaultyReadFile(
     const std::string& path,
     std::shared_ptr<ReadFile> delegatedFile,
-    FileFaultInjectionHook injectionHook)
+    FileFaultInjectionHook injectionHook,
+    folly::Executor* executor)
     : path_(path),
       delegatedFile_(std::move(delegatedFile)),
-      injectionHook_(std::move(injectionHook)) {
+      injectionHook_(std::move(injectionHook)),
+      executor_(executor) {
   VELOX_CHECK_NOT_NULL(delegatedFile_);
 }
 
@@ -64,6 +66,25 @@ uint64_t FaultyReadFile::preadv(
     }
   }
   return delegatedFile_->preadv(offset, buffers);
+}
+
+folly::SemiFuture<uint64_t> FaultyReadFile::preadvAsync(
+    uint64_t offset,
+    const std::vector<folly::Range<char*>>& buffers) const {
+  // TODO: add fault injection for async read later.
+  if (delegatedFile_->hasPreadvAsync() || executor_ == nullptr) {
+    return delegatedFile_->preadvAsync(offset, buffers);
+  }
+  auto promise = std::make_unique<folly::Promise<uint64_t>>();
+  folly::SemiFuture<uint64_t> future = promise->getSemiFuture();
+  executor_->add([this,
+                  _promise = std::move(promise),
+                  _offset = offset,
+                  _buffers = buffers]() {
+    auto delegateFuture = delegatedFile_->preadvAsync(_offset, _buffers);
+    _promise->setValue(delegateFuture.wait().value());
+  });
+  return future;
 }
 
 FaultyWriteFile::FaultyWriteFile(

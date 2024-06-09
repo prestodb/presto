@@ -60,9 +60,10 @@ std::unique_ptr<ReadFile> FaultyFileSystem::openFileForRead(
   auto delegatedFile = getFileSystem(delegatedPath, config_)
                            ->openFileForRead(delegatedPath, options);
   return std::make_unique<FaultyReadFile>(
-      std::string(path), std::move(delegatedFile), [&](FaultFileOperation* op) {
-        maybeInjectFileFault(op);
-      });
+      std::string(path),
+      std::move(delegatedFile),
+      [&](FaultFileOperation* op) { maybeInjectFileFault(op); },
+      executor_);
 }
 
 std::unique_ptr<WriteFile> FaultyFileSystem::openFileForWrite(

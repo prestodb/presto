@@ -278,7 +278,8 @@ void HashProbe::maybeSetupSpillInputReader(
   VELOX_CHECK(iter != spillPartitionSet_.end());
   auto partition = std::move(iter->second);
   VELOX_CHECK_EQ(partition->id(), restoredPartitionId.value());
-  spillInputReader_ = partition->createUnorderedReader(pool(), &spillStats_);
+  spillInputReader_ = partition->createUnorderedReader(
+      spillConfig_->readBufferSize, pool(), &spillStats_);
   spillPartitionSet_.erase(iter);
 }
 
@@ -1748,7 +1749,7 @@ void HashProbe::spillOutput() {
     return;
   }
   spillOutputReader_ = outputSpillSet.begin()->second->createUnorderedReader(
-      pool(), &spillStats_);
+      spillConfig_->readBufferSize, pool(), &spillStats_);
 }
 
 SpillPartitionSet HashProbe::spillTable() {

@@ -21,6 +21,7 @@
 #include <memory>
 #include <string_view>
 #include "velox/common/file/tests/FaultyFile.h"
+#include "velox/common/file/tests/FaultyFileSystem.h"
 
 namespace facebook::velox::tests::utils {
 
@@ -74,6 +75,12 @@ class FaultyFileSystem : public FileSystem {
   void mkdir(std::string_view path) override;
 
   void rmdir(std::string_view path) override;
+
+  /// Sets executor for async read execution.
+  void setExecutor(folly::Executor* executor) {
+    std::lock_guard<std::mutex> l(mu_);
+    executor_ = executor;
+  }
 
   /// Setups hook for file fault injection.
   void setFileInjectionHook(FileFaultInjectionHook hook);
@@ -129,6 +136,7 @@ class FaultyFileSystem : public FileSystem {
 
   mutable std::mutex mu_;
   std::optional<FileInjections> fileInjections_;
+  folly::Executor* executor_;
 };
 
 /// Registers the faulty filesystem.

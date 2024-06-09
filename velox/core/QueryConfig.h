@@ -251,6 +251,11 @@ class QueryConfig {
   static constexpr const char* kSpillWriteBufferSize =
       "spill_write_buffer_size";
 
+  /// Specifies the buffer size in bytes to read from one spilled file. If the
+  /// underlying filesystem supports async read, we do read-ahead with double
+  /// buffering, which doubles the buffer used to read from each spill file.
+  static constexpr const char* kSpillReadBufferSize = "spill_read_buffer_size";
+
   /// Config used to create spill files. This config is provided to underlying
   /// file system and the config is free form. The form should be defined by the
   /// underlying file system.
@@ -586,6 +591,11 @@ class QueryConfig {
   uint64_t spillWriteBufferSize() const {
     // The default write buffer size set to 1MB.
     return get<uint64_t>(kSpillWriteBufferSize, 1L << 20);
+  }
+
+  uint64_t spillReadBufferSize() const {
+    // The default read buffer size set to 1MB.
+    return get<uint64_t>(kSpillReadBufferSize, 1L << 20);
   }
 
   std::string spillFileCreateConfig() const {

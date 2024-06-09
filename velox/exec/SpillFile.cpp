@@ -28,17 +28,85 @@ namespace {
 static const bool kDefaultUseLosslessTimestamp = true;
 } // namespace
 
-void SpillInputStream::next(bool /*throwIfPastEnd*/) {
-  const int32_t readBytes = std::min(size_ - offset_, buffer_->capacity());
-  VELOX_CHECK_LT(0, readBytes, "Reading past end of spill file");
-  setRange({buffer_->asMutable<uint8_t>(), readBytes, 0});
-  uint64_t readTimeUs{0};
-  {
-    MicrosecondTimer timer{&readTimeUs};
-    file_->pread(offset_, readBytes, buffer_->asMutable<char>());
+SpillInputStream::SpillInputStream(
+    std::unique_ptr<ReadFile>&& file,
+    uint64_t bufferSize,
+    memory::MemoryPool* pool,
+    folly::Synchronized<common::SpillStats>* stats)
+    : file_(std::move(file)),
+      fileSize_(file_->size()),
+      bufferSize_(std::min(fileSize_, bufferSize - AlignedBuffer::kPaddedSize)),
+      pool_(pool),
+      readaEnabled_((bufferSize_ < fileSize_) && file_->hasPreadvAsync()),
+      stats_(stats) {
+  VELOX_CHECK_NOT_NULL(pool_);
+  VELOX_CHECK_GT(
+      bufferSize, AlignedBuffer::kPaddedSize, "Buffer size is too small");
+  buffers_.push_back(AlignedBuffer::allocate<char>(bufferSize_, pool_));
+  if (readaEnabled_) {
+    buffers_.push_back(AlignedBuffer::allocate<char>(bufferSize_, pool_));
   }
+  next(/*throwIfPastEnd=*/true);
+}
+
+SpillInputStream::~SpillInputStream() {
+  if (!readaWait_.valid()) {
+    return;
+  }
+  try {
+    readaWait_.wait();
+  } catch (const std::exception& ex) {
+    // ignore any prefetch error when query has failed.
+    LOG(WARNING) << "Spill read-ahead failed on destruction " << ex.what();
+  }
+}
+
+void SpillInputStream::next(bool /*throwIfPastEnd*/) {
+  int32_t readBytes{0};
+  uint64_t readTimeUs{0};
+  if (readaWait_.valid()) {
+    {
+      MicrosecondTimer timer{&readTimeUs};
+      readBytes = std::move(readaWait_)
+                      .via(&folly::QueuedImmediateExecutor::instance())
+                      .wait()
+                      .value();
+      VELOX_CHECK(!readaWait_.valid());
+    }
+    VELOX_CHECK_LT(0, readBytes, "Reading past end of spill file");
+    advanceBuffer();
+  } else {
+    readBytes = readSize();
+    VELOX_CHECK_LT(0, readBytes, "Reading past end of spill file");
+    {
+      MicrosecondTimer timer{&readTimeUs};
+      file_->pread(offset_, readBytes, buffer()->asMutable<char>());
+    }
+  }
+  setRange({buffer()->asMutable<uint8_t>(), readBytes, 0});
   updateSpillStats(readBytes, readTimeUs);
+
   offset_ += readBytes;
+  maybeIssueReadahead();
+}
+
+uint64_t SpillInputStream::readSize() const {
+  return std::min(fileSize_ - offset_, bufferSize_);
+}
+
+void SpillInputStream::maybeIssueReadahead() {
+  VELOX_CHECK(!readaWait_.valid());
+  if (!readaEnabled_) {
+    return;
+  }
+  const auto size = readSize();
+  if (size == 0) {
+    return;
+  }
+  std::vector<folly::Range<char*>> ranges;
+  ranges.emplace_back(nextBuffer()->asMutable<char>(), size);
+  readaWait_ = file_->preadvAsync(offset_, ranges);
+  VELOX_CHECK(readaWait_.valid());
 }
 
 void SpillInputStream::updateSpillStats(uint64_t readBytes, uint64_t readTimeUs)
@@ -283,12 +351,14 @@ std::vector<uint32_t> SpillWriter::testingSpilledFileIds() const {
 
 std::unique_ptr<SpillReadFile> SpillReadFile::create(
     const SpillFileInfo& fileInfo,
+    uint64_t bufferSize,
     memory::MemoryPool* pool,
     folly::Synchronized<common::SpillStats>* stats) {
   return std::unique_ptr<SpillReadFile>(new SpillReadFile(
       fileInfo.id,
       fileInfo.path,
       fileInfo.size,
+      bufferSize,
       fileInfo.type,
       fileInfo.numSortKeys,
       fileInfo.sortFlags,
@@ -301,6 +371,7 @@ SpillReadFile::SpillReadFile(
     uint32_t id,
     const std::string& path,
     uint64_t size,
+    uint64_t bufferSize,
     const RowTypePtr& type,
     uint32_t numSortKeys,
     const std::vector<CompareFlags>& sortCompareFlags,
@@ -317,17 +388,13 @@ SpillReadFile::SpillReadFile(
       readOptions_{
           kDefaultUseLosslessTimestamp,
           compressionKind_,
-          true /*nullsFirst*/},
+          /*nullsFirst=*/true},
       pool_(pool),
       stats_(stats) {
-  constexpr uint64_t kMaxReadBufferSize =
-      (1 << 20) - AlignedBuffer::kPaddedSize; // 1MB - padding.
   auto fs = filesystems::getFileSystem(path_, nullptr);
   auto file = fs->openFileForRead(path_);
-  auto buffer = AlignedBuffer::allocate<char>(
-      std::min<uint64_t>(size_, kMaxReadBufferSize), pool_);
   input_ = std::make_unique<SpillInputStream>(
-      std::move(file), std::move(buffer), stats_);
+      std::move(file), bufferSize, pool_, stats_);
 }
 
 bool SpillReadFile::nextBatch(RowVectorPtr& rowVector) {

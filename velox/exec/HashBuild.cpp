@@ -212,8 +212,8 @@ void HashBuild::setupSpiller(SpillPartition* spillPartition) {
   const auto* config = spillConfig();
   uint8_t startPartitionBit = config->startPartitionBit;
   if (spillPartition != nullptr) {
-    spillInputReader_ =
-        spillPartition->createUnorderedReader(pool(), &spillStats_);
+    spillInputReader_ = spillPartition->createUnorderedReader(
+        config->readBufferSize, pool(), &spillStats_);
     startPartitionBit =
         spillPartition->id().partitionBitOffset() + config->numPartitionBits;
     // Disable spilling if exceeding the max spill level and the query might run

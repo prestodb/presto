@@ -295,6 +295,11 @@ Spilling
      - 4MB
      - The maximum size in bytes to buffer the serialized spill data before write to disk for IO efficiency.
        If set to zero, buffering is disabled.
+   * - spill_read_buffer_size
+     - integer
+     - 1MB
+     - The buffer size in bytes to read from one spilled file. If the underlying filesystem supports async
+       read, we do read-ahead with double buffering, which doubles the buffer used to read from each spill file.
    * - min_spill_run_size
      - integer
      - 256MB

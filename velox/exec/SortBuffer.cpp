@@ -385,7 +385,7 @@ void SortBuffer::finishSpill() {
   spiller_->finishSpill(spillPartitionSet);
   VELOX_CHECK_EQ(spillPartitionSet.size(), 1);
   spillMerger_ = spillPartitionSet.begin()->second->createOrderedReader(
-      pool(), spillStats_);
+      spillConfig_->readBufferSize, pool(), spillStats_);
 }
 
 } // namespace facebook::velox::exec

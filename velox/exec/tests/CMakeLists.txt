@@ -122,6 +122,7 @@ target_link_libraries(
   velox_dwio_parquet_writer
   velox_exec
   velox_exec_test_lib
+  velox_file_test_utils
   velox_functions_json
   velox_functions_lib
   velox_functions_prestosql

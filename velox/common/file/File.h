@@ -80,11 +80,11 @@ class ReadFile {
       folly::Range<const common::Region*> regions,
       folly::Range<folly::IOBuf*> iobufs) const;
 
-  // Like preadv but may execute asynchronously and returns the read
-  // size or exception via SemiFuture. Use hasPreadvAsync() to check
-  // if the implementation is in fact asynchronous.
-  //
-  // This method should be thread safe.
+  /// Like preadv but may execute asynchronously and returns the read size or
+  /// exception via SemiFuture. Use hasPreadvAsync() to check if the
+  /// implementation is in fact asynchronous.
+  ///
+  /// This method should be thread safe.
   virtual folly::SemiFuture<uint64_t> preadvAsync(
       uint64_t offset,
       const std::vector<folly::Range<char*>>& buffers) const {
@@ -124,10 +124,8 @@ class ReadFile {
 
   virtual std::string getName() const = 0;
 
-  //
-  // Get the natural size for reads.
-  // @return the number of bytes that should be read at once
-  //
+  /// Gets the natural size for reads. Returns the number of bytes that should
+  /// be read at once.
   virtual uint64_t getNaturalReadSize() const = 0;
 
  protected:

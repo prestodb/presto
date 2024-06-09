@@ -72,25 +72,27 @@ void ReadFileInputStream::read(
     uint64_t length,
     uint64_t offset,
     MetricsLog::MetricsType purpose) {
-  if (!buf) {
-    throw std::invalid_argument("Buffer is null");
-  }
+  VELOX_CHECK_NOT_NULL(buf);
   logRead(offset, length, purpose);
-  auto readStartMicros = getCurrentTimeMicro();
-  std::string_view data_read = readFile_->pread(offset, length, buf);
+  uint64_t readTimeUs{0};
+  std::string_view readData;
+  {
+    MicrosecondTimer timer(&readTimeUs);
+    readData = readFile_->pread(offset, length, buf);
+  }
   if (stats_) {
     stats_->incRawBytesRead(length);
-    stats_->incTotalScanTime((getCurrentTimeMicro() - readStartMicros) * 1000);
+    stats_->incTotalScanTime(readTimeUs * 1'000);
   }
 
   VELOX_CHECK_EQ(
-      data_read.size(),
+      readData.size(),
       length,
       "Should read exactly as requested. File name: {}, offset: {}, length: {}, read: {}",
       getName(),
       offset,
       length,
-      data_read.size());
+      readData.size());
 }
 
 void ReadFileInputStream::read(
@@ -99,7 +101,7 @@ void ReadFileInputStream::read(
     LogType logType) {
   const int64_t bufferSize = totalBufferSize(buffers);
   logRead(offset, bufferSize, logType);
-  auto size = readFile_->preadv(offset, buffers);
+  const auto size = readFile_->preadv(offset, buffers);
   VELOX_CHECK_EQ(
       size,
       bufferSize,
