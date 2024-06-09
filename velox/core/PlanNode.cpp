@@ -1822,7 +1822,7 @@ PlanNodePtr TableWriteNode::create(const folly::dynamic& obj, void* context) {
   auto outputType = deserializeRowType(obj["outputType"]);
   auto commitStrategy =
       connector::stringToCommitStrategy(obj["commitStrategy"].asString());
-  auto source = ISerializable::deserialize<PlanNode>(obj["sources"]);
+  auto source = ISerializable::deserialize<PlanNode>(obj["sources"], context);
   return std::make_shared<TableWriteNode>(
       id,
       columns,
@@ -1853,7 +1853,7 @@ folly::dynamic TableWriteMergeNode::serialize() const {
 // static
 PlanNodePtr TableWriteMergeNode::create(
     const folly::dynamic& obj,
-    void* /*unused*/) {
+    void* context) {
   auto id = obj["id"].asString();
   auto outputType = deserializeRowType(obj["outputType"]);
   std::shared_ptr<AggregationNode> aggregationNode;
@@ -1861,7 +1861,7 @@ PlanNodePtr TableWriteMergeNode::create(
     aggregationNode = std::const_pointer_cast<AggregationNode>(
         ISerializable::deserialize<AggregationNode>(obj["aggregationNode"]));
   }
-  auto source = ISerializable::deserialize<PlanNode>(obj["sources"]);
+  auto source = ISerializable::deserialize<PlanNode>(obj["sources"], context);
   return std::make_shared<TableWriteMergeNode>(
       id, outputType, aggregationNode, source);
 }

@@ -538,6 +538,12 @@ TEST_F(PlanNodeSerdeTest, write) {
       PlanBuilder(pool_.get()).tableScan(rowTypePtr, {"c1 = true"}, "c0 < 100");
   auto plan = planBuilder.tableWrite("targetDirectory").planNode();
   testSerde(plan);
+
+  plan = PlanBuilder(pool_.get())
+             .values(data_)
+             .tableWrite("targetDirectory")
+             .planNode();
+  testSerde(plan);
 }
 
 TEST_F(PlanNodeSerdeTest, tableWriteMerge) {
@@ -548,6 +554,14 @@ TEST_F(PlanNodeSerdeTest, tableWriteMerge) {
                   .localPartition(std::vector<std::string>{})
                   .tableWriteMerge()
                   .planNode();
+  testSerde(plan);
+
+  plan = PlanBuilder(pool_.get())
+             .values(data_)
+             .tableWrite("targetDirectory")
+             .localPartition(std::vector<std::string>{})
+             .tableWriteMerge()
+             .planNode();
   testSerde(plan);
 }
 
