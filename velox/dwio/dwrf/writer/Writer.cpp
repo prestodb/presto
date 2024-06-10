@@ -798,6 +798,16 @@ dwrf::WriterOptions getDwrfOptions(const dwio::common::WriterOptions& options) {
         Config::MAX_DICTIONARY_SIZE.configKey(),
         std::to_string(options.maxDictionaryMemory.value()));
   }
+  if (options.zlibCompressionLevel.has_value()) {
+    configs.emplace(
+        Config::ZLIB_COMPRESSION_LEVEL.configKey(),
+        std::to_string(options.zlibCompressionLevel.value()));
+  }
+  if (options.zstdCompressionLevel.has_value()) {
+    configs.emplace(
+        Config::ZSTD_COMPRESSION_LEVEL.configKey(),
+        std::to_string(options.zstdCompressionLevel.value()));
+  }
 
   dwrf::WriterOptions dwrfOptions;
   dwrfOptions.config = Config::fromMap(configs);

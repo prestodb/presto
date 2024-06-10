@@ -615,6 +615,8 @@ struct WriterOptions {
   std::optional<uint64_t> maxDictionaryMemory{std::nullopt};
   std::map<std::string, std::string> serdeParameters;
   std::optional<uint8_t> parquetWriteTimestampUnit;
+  std::optional<uint8_t> zlibCompressionLevel;
+  std::optional<uint8_t> zstdCompressionLevel;
 };
 
 } // namespace facebook::velox::dwio::common

@@ -486,6 +486,11 @@ Each query can override the config by setting corresponding query session proper
      - integer
      - 1024
      - Minimal number of items in an encoded stream.
+   * - hive.orc.writer.compression-level
+     - orc_optimized_writer_compression_level
+     - tinyint
+     - 3 for ZSTD and 4 for ZLIB
+     - The compression level to use with ZLIB and ZSTD. 
    * - cache.no_retention
      - cache.no_retention
      - bool

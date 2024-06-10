@@ -185,6 +185,12 @@ class HiveConfig {
   static constexpr const char* kOrcWriterMinCompressionSizeSession =
       "orc_writer_min_compression_size";
 
+  /// The compression level to use with ZLIB and ZSTD.
+  static constexpr const char* kOrcWriterCompressionLevel =
+      "hive.orc.writer.compression-level";
+  static constexpr const char* kOrcWriterCompressionLevelSession =
+      "orc_optimized_writer_compression_level";
+
   /// Config used to create write files. This config is provided to underlying
   /// file system through hive connector and data sink. The config is free form.
   /// The form should be defined by the underlying file system.
@@ -285,6 +291,8 @@ class HiveConfig {
   bool orcWriterLinearStripeSizeHeuristics(const Config* session) const;
 
   uint64_t orcWriterMinCompressionSize(const Config* session) const;
+
+  std::optional<uint8_t> orcWriterCompressionLevel(const Config* session) const;
 
   std::string writeFileCreateConfig() const;
 

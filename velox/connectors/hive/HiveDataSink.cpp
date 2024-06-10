@@ -37,6 +37,9 @@ using facebook::velox::common::testutil::TestValue;
 namespace facebook::velox::connector::hive {
 
 namespace {
+// Default config values taken from Presto.
+constexpr uint8_t kDefaultZlibCompressionLevel = 4;
+constexpr uint8_t kDefaultZstdCompressionLevel = 3;
 
 // Returns the type of non-partition data columns.
 RowTypePtr getNonPartitionTypes(
@@ -700,6 +703,13 @@ uint32_t HiveDataSink::appendWriter(const HiveWriterId& id) {
   options.serdeParameters = std::map<std::string, std::string>(
       insertTableHandle_->serdeParameters().begin(),
       insertTableHandle_->serdeParameters().end());
+
+  auto compressionLevel =
+      hiveConfig_->orcWriterCompressionLevel(connectorSessionProperties);
+  options.zlibCompressionLevel =
+      compressionLevel.value_or(kDefaultZlibCompressionLevel);
+  options.zstdCompressionLevel =
+      compressionLevel.value_or(kDefaultZstdCompressionLevel);
 
   // Prevents the memory allocation during the writer creation.
   WRITER_NON_RECLAIMABLE_SECTION_GUARD(writerInfo_.size() - 1);

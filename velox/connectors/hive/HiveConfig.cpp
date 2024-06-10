@@ -213,6 +213,25 @@ uint64_t HiveConfig::orcWriterMinCompressionSize(const Config* session) const {
       config_->get<uint64_t>(kOrcWriterMinCompressionSize, 1024));
 }
 
+std::optional<uint8_t> HiveConfig::orcWriterCompressionLevel(
+    const Config* session) const {
+  auto sessionProp = session->get<uint8_t>(kOrcWriterCompressionLevelSession);
+
+  if (sessionProp.has_value()) {
+    return sessionProp.value();
+  }
+
+  auto configProp = config_->get<uint8_t>(kOrcWriterCompressionLevel);
+
+  if (configProp.has_value()) {
+    return configProp.value();
+  }
+
+  // Presto has a single config controlling this value, but different defaults
+  // depending on the compression kind.
+  return std::nullopt;
+}
+
 std::string HiveConfig::writeFileCreateConfig() const {
   return config_->get<std::string>(kWriteFileCreateConfig, "");
 }
