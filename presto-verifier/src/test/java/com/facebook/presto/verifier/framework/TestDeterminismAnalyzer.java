@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.verifier.framework;
 
+import com.facebook.presto.common.block.BlockEncodingManager;
+import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -50,6 +52,7 @@ public class TestDeterminismAnalyzer
     private static final String SUITE = "test-suite";
     private static final String NAME = "test-query";
     private static final SqlParser sqlParser = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(COLON, AT_SIGN));
+    private static final BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager();
 
     @Test
     public void testMutableCatalog()
@@ -66,7 +69,7 @@ public class TestDeterminismAnalyzer
 
     private static DeterminismAnalyzer createDeterminismAnalyzer(String mutableCatalogPattern)
     {
-        QueryConfiguration configuration = new QueryConfiguration(CATALOG, SCHEMA, Optional.of("user"), Optional.empty(), Optional.empty(), Optional.empty());
+        QueryConfiguration configuration = new QueryConfiguration(CATALOG, SCHEMA, Optional.of("user"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
         VerificationContext verificationContext = VerificationContext.create(SUITE, NAME);
         VerifierConfig verifierConfig = new VerifierConfig().setTestId("test-id");
         RetryConfig retryConfig = new RetryConfig();
@@ -86,6 +89,7 @@ public class TestDeterminismAnalyzer
         QueryRewriter queryRewriter = new QueryRewriter(
                 sqlParser,
                 typeManager,
+                blockEncodingSerde,
                 prestoAction,
                 ImmutableMap.of(CONTROL, QualifiedName.of("tmp_verifier_c"), TEST, QualifiedName.of("tmp_verifier_t")),
                 ImmutableMap.of(),
