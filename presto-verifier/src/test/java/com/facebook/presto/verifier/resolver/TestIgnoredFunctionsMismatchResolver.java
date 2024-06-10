@@ -69,6 +69,7 @@ public class TestIgnoredFunctionsMismatchResolver
                 ImmutableList.of(),
                 CONTROL,
                 Optional.empty(),
+                Optional.empty(),
                 false);
     }
 }

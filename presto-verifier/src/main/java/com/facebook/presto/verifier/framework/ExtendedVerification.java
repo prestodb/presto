@@ -273,7 +273,7 @@ public class ExtendedVerification
             ChecksumQueryContext checksumQueryContext,
             QueryStage queryStage)
     {
-        Query partitionChecksumQuery = checksumValidator.generatePartitionChecksumQuery(bundle.getObjectName(), dataColumns, partitionColumns);
+        Query partitionChecksumQuery = checksumValidator.generatePartitionChecksumQuery(bundle.getObjectName(), dataColumns, partitionColumns, bundle.getPartitionsPredicate());
         checksumQueryContext.setPartitionChecksumQuery(formatSql(partitionChecksumQuery));
         return callAndConsume(
                 () -> getHelperAction().execute(partitionChecksumQuery, queryStage, ChecksumResult::fromResultSet),
@@ -287,7 +287,7 @@ public class ExtendedVerification
             ChecksumQueryContext checksumQueryContext,
             QueryStage queryStage)
     {
-        Query bucketChecksumQuery = checksumValidator.generateBucketChecksumQuery(bundle.getObjectName(), partitionColumns, dataColumns);
+        Query bucketChecksumQuery = checksumValidator.generateBucketChecksumQuery(bundle.getObjectName(), partitionColumns, dataColumns, bundle.getPartitionsPredicate());
         List<ChecksumResult> checksumResults = callAndConsume(
                 () -> getHelperAction().execute(bucketChecksumQuery, queryStage, ChecksumResult::fromResultSet),
                 stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(checksumQueryContext::setBucketChecksumQueryId)).getResults();

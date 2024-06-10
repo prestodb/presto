@@ -50,15 +50,17 @@ public class TestQueryConfiguration
     private static final List<String> CLIENT_TAGS = ImmutableList.of(QueryConfiguration.CLIENT_TAG_OUTPUT_RETAINED);
 
     private static final QueryConfiguration CONFIGURATION_1 = new QueryConfiguration(CATALOG, SCHEMA, Optional.of(USERNAME), Optional.of(PASSWORD),
-            Optional.of(SESSION_PROPERTIES), Optional.of(CLIENT_TAGS));
-    private static final QueryConfiguration CONFIGURATION_2 = new QueryConfiguration(CATALOG, SCHEMA, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+            Optional.of(SESSION_PROPERTIES), Optional.of(CLIENT_TAGS), Optional.empty());
+    private static final QueryConfiguration CONFIGURATION_2 = new QueryConfiguration(CATALOG, SCHEMA, Optional.empty(), Optional.empty(),
+            Optional.empty(), Optional.empty(), Optional.empty());
     private static final QueryConfiguration CONFIGURATION_FULL_OVERRIDE = new QueryConfiguration(
             CATALOG_OVERRIDE,
             SCHEMA_OVERRIDE,
             Optional.of(USERNAME_OVERRIDE),
             Optional.of(PASSWORD_OVERRIDE),
             Optional.of(SESSION_PROPERTIES_OVERRIDE),
-            Optional.of(CLIENT_TAGS));
+            Optional.of(CLIENT_TAGS),
+            Optional.empty());
 
     private QueryConfigurationOverridesConfig overrides;
 
@@ -91,13 +93,15 @@ public class TestQueryConfiguration
                         Optional.of(USERNAME_OVERRIDE),
                         Optional.of(PASSWORD_OVERRIDE),
                         Optional.of(SESSION_PROPERTIES),
-                        Optional.of(CLIENT_TAGS)));
+                        Optional.of(CLIENT_TAGS),
+                        Optional.empty()));
         assertEquals(CONFIGURATION_2.applyOverrides(overrides),
                 new QueryConfiguration(
                         CATALOG_OVERRIDE,
                         SCHEMA_OVERRIDE,
                         Optional.of(USERNAME_OVERRIDE),
                         Optional.of(PASSWORD_OVERRIDE),
+                        Optional.empty(),
                         Optional.empty(),
                         Optional.empty()));
     }
@@ -113,6 +117,7 @@ public class TestQueryConfiguration
                 Optional.of(USERNAME_OVERRIDE),
                 Optional.of(PASSWORD_OVERRIDE),
                 Optional.of(SESSION_PROPERTIES_OVERRIDE),
+                false,
                 Optional.empty());
         assertEquals(CONFIGURATION_2.applyOverrides(overrides), overridden);
     }
@@ -127,7 +132,8 @@ public class TestQueryConfiguration
                 Optional.of(USERNAME_OVERRIDE),
                 Optional.of(PASSWORD_OVERRIDE),
                 Optional.of(ImmutableMap.of("property_1", "value_x", "property_2", "value_2", "property_3", "value_3")),
-                Optional.of(CLIENT_TAGS));
+                Optional.of(CLIENT_TAGS),
+                Optional.empty());
 
         assertEquals(CONFIGURATION_1.applyOverrides(overrides), substituted1);
 
@@ -137,6 +143,7 @@ public class TestQueryConfiguration
                 Optional.of(USERNAME_OVERRIDE),
                 Optional.of(PASSWORD_OVERRIDE),
                 Optional.of(SESSION_PROPERTIES_OVERRIDE),
+                false,
                 Optional.empty());
         assertEquals(CONFIGURATION_2.applyOverrides(overrides), substituted2);
     }
@@ -153,7 +160,8 @@ public class TestQueryConfiguration
                 Optional.of(USERNAME_OVERRIDE),
                 Optional.of(PASSWORD_OVERRIDE),
                 Optional.of(ImmutableMap.of("property_3", "value_3")),
-                Optional.of(CLIENT_TAGS));
+                Optional.of(CLIENT_TAGS),
+                Optional.empty());
 
         assertEquals(CONFIGURATION_1.applyOverrides(overrides), removed);
     }
@@ -169,7 +177,8 @@ public class TestQueryConfiguration
                 Optional.of(USERNAME_OVERRIDE),
                 Optional.of(PASSWORD_OVERRIDE),
                 Optional.of(SESSION_PROPERTIES_OVERRIDE),
-                Optional.of(CLIENT_TAGS));
+                Optional.of(CLIENT_TAGS),
+                Optional.empty());
 
         assertEquals(CONFIGURATION_1.applyOverrides(overrides), removed);
     }
@@ -185,7 +194,8 @@ public class TestQueryConfiguration
                 Optional.of(USERNAME_OVERRIDE),
                 Optional.of(PASSWORD_OVERRIDE),
                 Optional.of(ImmutableMap.of("property_1", "value_1")),
-                Optional.of(CLIENT_TAGS));
+                Optional.of(CLIENT_TAGS),
+                Optional.empty());
 
         assertEquals(CONFIGURATION_1.applyOverrides(overrides), removed);
     }

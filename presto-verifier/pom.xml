@@ -47,6 +47,11 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-hive-metastore</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
             <artifactId>presto-jdbc</artifactId>
         </dependency>
 
@@ -207,6 +212,11 @@
             <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>
             <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>joda-time</groupId>
+            <artifactId>joda-time</artifactId>
         </dependency>
 
         <!-- for testing -->
