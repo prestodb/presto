@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.verifier.rewrite;
 
+import com.facebook.presto.common.block.BlockEncodingSerde;
+import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.MapType;
@@ -22,8 +24,11 @@ import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.Cast;
+import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.ComparisonExpression.Operator;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
@@ -32,7 +37,9 @@ import com.facebook.presto.sql.tree.DropView;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.Insert;
+import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LikeClause;
+import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.Property;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
@@ -43,6 +50,7 @@ import com.facebook.presto.sql.tree.ShowCreate;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.verifier.framework.ClusterType;
+import com.facebook.presto.verifier.framework.Column;
 import com.facebook.presto.verifier.framework.QueryConfiguration;
 import com.facebook.presto.verifier.framework.QueryException;
 import com.facebook.presto.verifier.framework.QueryObjectBundle;
@@ -53,6 +61,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
 import org.intellij.lang.annotations.Language;
+import org.joda.time.DateTimeZone;
 
 import java.sql.ResultSetMetaData;
 import java.util.ArrayList;
@@ -61,6 +70,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TimeZone;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -74,9 +84,12 @@ import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.hive.HiveUtil.parsePartitionValue;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.toPartitionNamesAndValues;
 import static com.facebook.presto.sql.tree.LikeClause.PropertiesOption.INCLUDING;
 import static com.facebook.presto.sql.tree.ShowCreate.Type.VIEW;
 import static com.facebook.presto.verifier.framework.CreateViewVerification.SHOW_CREATE_VIEW_CONVERTER;
+import static com.facebook.presto.verifier.framework.DataVerificationUtil.getColumns;
 import static com.facebook.presto.verifier.framework.QueryStage.REWRITE;
 import static com.facebook.presto.verifier.framework.VerifierUtil.PARSING_OPTIONS;
 import static com.facebook.presto.verifier.framework.VerifierUtil.getColumnNames;
@@ -96,6 +109,7 @@ public class QueryRewriter
 {
     private final SqlParser sqlParser;
     private final TypeManager typeManager;
+    private final BlockEncodingSerde blockEncodingSerde;
     private final PrestoAction prestoAction;
     private final Map<ClusterType, QualifiedName> prefixes;
     private final Map<ClusterType, List<Property>> tableProperties;
@@ -105,17 +119,19 @@ public class QueryRewriter
     public QueryRewriter(
             SqlParser sqlParser,
             TypeManager typeManager,
+            BlockEncodingSerde blockEncodingSerde,
             PrestoAction prestoAction,
             Map<ClusterType, QualifiedName> tablePrefixes,
             Map<ClusterType, List<Property>> tableProperties,
             Map<ClusterType, Boolean> reuseTables)
     {
-        this(sqlParser, typeManager, prestoAction, tablePrefixes, tableProperties, reuseTables, ImmutableMultimap.of());
+        this(sqlParser, typeManager, blockEncodingSerde, prestoAction, tablePrefixes, tableProperties, reuseTables, ImmutableMultimap.of());
     }
 
     public QueryRewriter(
             SqlParser sqlParser,
             TypeManager typeManager,
+            BlockEncodingSerde blockEncodingSerde,
             PrestoAction prestoAction,
             Map<ClusterType, QualifiedName> tablePrefixes,
             Map<ClusterType, List<Property>> tableProperties,
@@ -124,6 +140,7 @@ public class QueryRewriter
     {
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerge");
         this.prestoAction = requireNonNull(prestoAction, "prestoAction is null");
         this.prefixes = ImmutableMap.copyOf(tablePrefixes);
         this.tableProperties = ImmutableMap.copyOf(tableProperties);
@@ -156,14 +173,18 @@ public class QueryRewriter
                 functionSubstitutions = rewriterResult.getSubstitutions();
             }
             if (shouldReuseTable && !functionSubstitutions.isPresent()) {
-                return new QueryObjectBundle(
-                        createTableAsSelect.getName(),
-                        ImmutableList.of(),
-                        createTableAsSelect,
-                        ImmutableList.of(),
-                        clusterType,
-                        Optional.empty(),
-                        true);
+                Optional<Expression> partitionsPredicate = getPartitionsPredicate(createTableAsSelect.getName(), queryConfiguration.getPartitions());
+                if (partitionsPredicate.isPresent()) {
+                    return new QueryObjectBundle(
+                            createTableAsSelect.getName(),
+                            ImmutableList.of(),
+                            createTableAsSelect,
+                            ImmutableList.of(),
+                            clusterType,
+                            Optional.empty(),
+                            partitionsPredicate,
+                            true);
+                }
             }
 
             QualifiedName temporaryTableName = generateTemporaryName(Optional.of(createTableAsSelect.getName()), prefix);
@@ -181,6 +202,7 @@ public class QueryRewriter
                     ImmutableList.of(new DropTable(temporaryTableName, true)),
                     clusterType,
                     functionSubstitutions,
+                    Optional.empty(),
                     false);
         }
         if (statement instanceof Insert) {
@@ -195,14 +217,18 @@ public class QueryRewriter
                 functionSubstitutions = rewriterResult.getSubstitutions();
             }
             if (shouldReuseTable && !functionSubstitutions.isPresent()) {
-                return new QueryObjectBundle(
-                        originalTableName,
-                        ImmutableList.of(),
-                        insert,
-                        ImmutableList.of(),
-                        clusterType,
-                        Optional.empty(),
-                        true);
+                Optional<Expression> partitionsPredicate = getPartitionsPredicate(originalTableName, queryConfiguration.getPartitions());
+                if (partitionsPredicate.isPresent()) {
+                    return new QueryObjectBundle(
+                            originalTableName,
+                            ImmutableList.of(),
+                            insert,
+                            ImmutableList.of(),
+                            clusterType,
+                            Optional.empty(),
+                            partitionsPredicate,
+                            true);
+                }
             }
 
             QualifiedName temporaryTableName = generateTemporaryName(Optional.of(originalTableName), prefix);
@@ -222,6 +248,7 @@ public class QueryRewriter
                     ImmutableList.of(new DropTable(temporaryTableName, true)),
                     clusterType,
                     functionSubstitutions,
+                    Optional.empty(),
                     false);
         }
         if (statement instanceof Query) {
@@ -252,6 +279,7 @@ public class QueryRewriter
                     ImmutableList.of(new DropTable(temporaryTableName, true)),
                     clusterType,
                     functionSubstitutions,
+                    Optional.empty(),
                     false);
         }
         if (statement instanceof CreateView) {
@@ -288,6 +316,7 @@ public class QueryRewriter
                     ImmutableList.of(new DropView(temporaryViewName, true)),
                     clusterType,
                     Optional.empty(),
+                    Optional.empty(),
                     false);
         }
         if (statement instanceof CreateTable) {
@@ -304,6 +333,7 @@ public class QueryRewriter
                             createTable.getComment()),
                     ImmutableList.of(new DropTable(temporaryTableName, true)),
                     clusterType,
+                    Optional.empty(),
                     Optional.empty(),
                     false);
         }
@@ -479,5 +509,65 @@ public class QueryRewriter
                 .stream()
                 .map(entry -> new Property(new Identifier(entry.getKey()), entry.getValue()))
                 .collect(toImmutableList());
+    }
+
+    private Optional<Expression> getPartitionsPredicate(QualifiedName tableName, List<String> partitions)
+    {
+        if (partitions.isEmpty()) {
+            return Optional.empty();
+        }
+
+        List<Column> columns = getColumns(prestoAction, typeManager, tableName);
+
+        Expression disjunct = null;
+        for (String partition : partitions) {
+            Optional<Expression> conjunct = Optional.empty();
+            try {
+                conjunct = getPartitionConjunct(partition, columns);
+            }
+            catch (Exception e) {
+            }
+            if (!conjunct.isPresent()) {
+                return Optional.empty();
+            }
+            disjunct = disjunct == null ? conjunct.get() : new LogicalBinaryExpression(LogicalBinaryExpression.Operator.OR, disjunct, conjunct.get());
+        }
+
+        return Optional.ofNullable(disjunct);
+    }
+
+    private Optional<Expression> getPartitionConjunct(String partition, List<Column> columns)
+    {
+        Expression conjunct = null;
+        Map<String, String> partitionRawKeyValues = toPartitionNamesAndValues(partition);
+        // TryCatch
+        for (String partitionKey : partitionRawKeyValues.keySet()) {
+            Type type = null;
+            for (Column column : columns) {
+                if (column.getName().equals(partitionKey)) {
+                    type = column.getType();
+                    break;
+                }
+            }
+            if (type == null) {
+                // LOG
+                return Optional.empty();
+            }
+
+            NullableValue partitionValue = parsePartitionValue(partitionKey, partitionRawKeyValues.get(partitionKey), type, DateTimeZone.forTimeZone(TimeZone.getDefault()));
+
+            Expression equalPredicate = null;
+            if (partitionValue.isNull()) {
+                equalPredicate = new IsNullPredicate(new Identifier(partitionKey));
+            }
+            else {
+                LiteralEncoder literalEncoder = new LiteralEncoder(blockEncodingSerde);
+                equalPredicate = new ComparisonExpression(Operator.EQUAL, new Identifier(partitionKey),
+                        literalEncoder.toExpression(partitionValue.getValue(), partitionValue.getType(), false));
+            }
+            conjunct = conjunct == null ? equalPredicate : new LogicalBinaryExpression(LogicalBinaryExpression.Operator.AND, conjunct, equalPredicate);
+        }
+
+        return Optional.ofNullable(conjunct);
     }
 }
