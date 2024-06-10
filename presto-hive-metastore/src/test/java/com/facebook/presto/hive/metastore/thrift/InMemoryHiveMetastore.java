@@ -69,7 +69,6 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static java.lang.String.format;
 import static java.util.Locale.US;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -121,7 +120,7 @@ public class InMemoryHiveMetastore
         }
 
         checkArgument(!directory.exists(), "Database directory already exists");
-        checkArgument(isAncestor(directory, baseDirectory), format("Database directory %s must be inside of the metastore base directory %s", directory, baseDirectory));
+        checkArgument(isAncestor(directory, baseDirectory), "Database directory %s must be inside of the metastore base directory %s", directory, baseDirectory);
         checkArgument(directory.mkdirs(), "Could not create database directory");
 
         if (databases.putIfAbsent(database.getName(), database) != null) {
@@ -187,7 +186,7 @@ public class InMemoryHiveMetastore
             File directory = new File(new Path(table.getSd().getLocation()).toUri());
             checkArgument(directory.exists(), "Table directory does not exist: %s", directory);
             if (tableType == MANAGED_TABLE) {
-                checkArgument(isAncestor(directory, baseDirectory), format("Table directory %s must be inside of the metastore base directory %s", directory, baseDirectory));
+                checkArgument(isAncestor(directory, baseDirectory), "Table directory %s must be inside of the metastore base directory %s", directory, baseDirectory);
             }
         }
 
@@ -228,7 +227,7 @@ public class InMemoryHiveMetastore
             for (String location : locations) {
                 if (location != null) {
                     File directory = new File(new Path(location).toUri());
-                    checkArgument(isAncestor(directory, baseDirectory), format("Table directory %s must be inside of the metastore base directory %s", directory, baseDirectory));
+                    checkArgument(isAncestor(directory, baseDirectory), "Table directory %s must be inside of the metastore base directory %s", directory, baseDirectory);
                     deleteDirectory(directory);
                 }
             }
