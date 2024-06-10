@@ -790,6 +790,19 @@ private:
 #if USE_OS_TZDB
     std::vector<detail::transition>      transitions_;
     std::vector<detail::expanded_ttinfo> ttinfos_;
+
+    // Stores extended OS_TZDB timezone information, in addition to possible
+    // repetition rules (although these are not supported yet)
+    struct {
+      std::string extended_name_;
+      std::string rule_start_;
+      std::string rule_end_;
+
+      bool has_rules() const {
+        return !rule_start_.empty();
+      }
+    } extended_info_;
+
 #else  // !USE_OS_TZDB
     std::vector<detail::zonelet>         zonelets_;
 #endif  // !USE_OS_TZDB

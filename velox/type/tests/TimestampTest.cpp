@@ -304,13 +304,28 @@ TEST(TimestampTest, decreaseOperator) {
 }
 
 TEST(TimestampTest, outOfRange) {
+  // There are two ranges for timezone conversion.
+  //
+  // #1. external/date cannot handle years larger than 32k (date::year::max()).
+  // Any conversions exceeding that threshold will fail right away.
   auto* timezone = date::locate_zone("GMT");
-  Timestamp t(-3217830796800, 0);
+  Timestamp t1(-3217830796800, 0);
 
   VELOX_ASSERT_THROW(
-      t.toTimePoint(), "Timestamp is outside of supported range");
+      t1.toTimePoint(), "Timestamp is outside of supported range");
   VELOX_ASSERT_THROW(
-      t.toTimezone(*timezone), "Timestamp is outside of supported range");
+      t1.toTimezone(*timezone), "Timestamp is outside of supported range");
+
+  // #2. external/date doesn't understand OS_TZDB repetition rules. Therefore,
+  // for timezones with pre-defined repetition rules for daylight savings, for
+  // example, it will throw for anything larger than 2037 (which is what is
+  // currently materialized in OS_TZDBs). America/Los_Angeles is an example of
+  // such timezone.
+  timezone = date::locate_zone("America/Los_Angeles");
+  Timestamp t2(32517359891, 0);
+  VELOX_ASSERT_THROW(
+      t2.toTimezone(*timezone),
+      "Unable to convert timezone 'America/Los_Angeles' past");
 }
 
 // In debug mode, Timestamp constructor will throw exception if range check

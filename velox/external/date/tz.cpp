@@ -2033,6 +2033,28 @@ time_zone::load_data(std::istream& inf,
     }
     for (auto j = 0u; i < transitions_.size(); ++i, ++j)
         transitions_[i].info = ttinfos_.data() + indices[j];
+
+    // Use getline to discard the first newline, then read the extended
+    // information
+    std::string extended_info;
+    std::getline(inf, extended_info);
+    std::getline(inf, extended_info);
+    auto comma1 = extended_info.find(',');
+
+    // Extended info can either be just the name/offset, or name/offset and
+    // rules. If there are rules, they come in pairs (when the rule starts and
+    // when the rule ends), and are separated by commas (',').
+    if (comma1 != std::string::npos) {
+      auto comma2 = extended_info.find(',', comma1 + 1);
+      assert(comma2 != std::string::npos);
+
+      extended_info_.extended_name_ = extended_info.substr(0, comma1);
+      extended_info_.rule_start_ =
+          extended_info.substr(comma1 + 1, comma2 - comma1 - 1);
+      extended_info_.rule_end_ = extended_info.substr(comma2 + 1);
+    } else {
+      extended_info_.extended_name_ = std::move(extended_info);
+    }
 }
 
 void
@@ -2125,6 +2147,16 @@ time_zone::load_sys_info(std::vector<detail::transition>::const_iterator i) cons
     using namespace std::chrono;
     assert(!transitions_.empty());
     assert(i != transitions_.begin());
+
+    // Conversions past OS_TZDB items are not supported if the timezone has
+    // repetition rules. Fail instead of returning wrong results
+    if (i == transitions_.end() && extended_info_.has_rules()) {
+      std::stringstream ss;
+      ss << "Unable to convert timezone '" << name_ << "' past "
+         << transitions_.back().timepoint;
+      throw std::invalid_argument(ss.str());
+    }
+
     sys_info r;
     r.begin = i[-1].timepoint;
     r.end = i != transitions_.end() ? i->timepoint :

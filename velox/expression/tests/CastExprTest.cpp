@@ -688,7 +688,6 @@ TEST_F(CastExprTest, timestampToString) {
           Timestamp(0, 0),
           Timestamp(946729316, 123),
           Timestamp(-50049331622, 0),
-          Timestamp(253405036800, 0),
           Timestamp(-62480038022, 0),
           std::nullopt,
       },
@@ -696,10 +695,18 @@ TEST_F(CastExprTest, timestampToString) {
           "1969-12-31 16:00:00.000",
           "2000-01-01 04:21:56.000",
           "0384-01-01 00:00:00.000",
-          "10000-02-01 08:00:00.000",
           "-0010-02-01 02:00:00.000",
           std::nullopt,
       });
+
+  // Ensure external/date throws since it doesn't know how to convert large
+  // timestamps.
+  auto mustThrow = [&]() {
+    return testCast<Timestamp, std::string>(
+        "string", {Timestamp(253405036800, 0)}, {"10000-02-01 08:00:00.000"});
+  };
+  VELOX_ASSERT_THROW(
+      mustThrow(), "Unable to convert timezone 'America/Los_Angeles' past");
 }
 
 TEST_F(CastExprTest, dateToTimestamp) {
