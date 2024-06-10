@@ -174,9 +174,9 @@ public final class HiveBucketing
                         return toIntExact(days);
                     case TIMESTAMP:
                         long millisSinceEpoch = prestoType.getLong(block, position);
-                        // seconds << 30 + nanoseconds
-                        long secondsAndNanos = (Math.floorDiv(millisSinceEpoch, 1000L) << 30) + Math.floorMod(millisSinceEpoch, 1000L);
-                        return (int) ((secondsAndNanos >>> 32) ^ secondsAndNanos);
+                        // seconds << 30 + milliseconds
+                        long secondsAndMillis = (Math.floorDiv(millisSinceEpoch, 1000L) << 30) + Math.floorMod(millisSinceEpoch, 1000L);
+                        return (int) ((secondsAndMillis >>> 32) ^ secondsAndMillis);
                     default:
                         throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive primitive category: " + primitiveCategory.toString() + ".");
                 }
@@ -233,9 +233,9 @@ public final class HiveBucketing
                         return toIntExact(days);
                     case TIMESTAMP:
                         long millisSinceEpoch = (long) value;
-                        // seconds << 30 + nanoseconds
-                        long secondsAndNanos = (Math.floorDiv(millisSinceEpoch, 1000L) << 30) + Math.floorMod(millisSinceEpoch, 1000L);
-                        return (int) ((secondsAndNanos >>> 32) ^ secondsAndNanos);
+                        // seconds << 30 + milliseconds
+                        long secondsAndMillis = (Math.floorDiv(millisSinceEpoch, 1000L) << 30) + Math.floorMod(millisSinceEpoch, 1000L);
+                        return (int) ((secondsAndMillis >>> 32) ^ secondsAndMillis);
                     default:
                         throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive primitive category: " + primitiveCategory.toString() + ".");
                 }
