@@ -227,7 +227,7 @@ public class InMemoryHiveMetastore
         if (deleteData && table.getTableType().equals(MANAGED_TABLE.name())) {
             for (String location : locations) {
                 if (location != null) {
-                    File directory = new File(location);
+                    File directory = new File(new Path(location).toUri());
                     checkArgument(isAncestor(directory, baseDirectory), format("Table directory %s must be inside of the metastore base directory %s", directory, baseDirectory));
                     deleteDirectory(directory);
                 }
