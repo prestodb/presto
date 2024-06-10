@@ -145,11 +145,15 @@ class HashTableTest : public testing::Test {
       case HashTestCase::kUpdateSum1:
         UPDATE_CASE("sum1Atm", updateSum1Atomic, true, 0);
         UPDATE_CASE("sum1NoSync", updateSum1NoSync, false, 0);
-        UPDATE_CASE("sum1AtmCoa", updateSum1AtomicCoalesce, true, 1);
+        UPDATE_CASE("sum1AtmCoaShfl", updateSum1AtomicCoalesceShfl, true, 1);
+        UPDATE_CASE("sum1AtmCoaShmem", updateSum1AtomicCoalesceShmem, true, 1);
         UPDATE_CASE("sum1Mtx", updateSum1Mtx, true, 1);
         UPDATE_CASE("sum1MtxCoa", updateSum1MtxCoalesce, true, 0);
         UPDATE_CASE("sum1Part", updateSum1Part, true, 0);
-        UPDATE_CASE("sum1Order", updateSum1Order, true, 0);
+        // Commenting out Order and Exch functions as they are too slow.
+        // (for case when only 1 distinct element).
+
+        // UPDATE_CASE("sum1Order", updateSum1Order, true, 0);
         // UPDATE_CASE("sum1Exch", updateSum1Exch, false, 0);
 
         break;
@@ -354,17 +358,27 @@ TEST_F(HashTableTest, update) {
   {
     HashRun run;
     run.testCase = HashTestCase::kUpdateSum1;
-    updateTestCase(1000, 2000000, run);
-  }
-  {
-    HashRun run;
-    run.testCase = HashTestCase::kUpdateSum1;
     updateTestCase(10000000, 2000000, run);
   }
   {
     HashRun run;
     run.testCase = HashTestCase::kUpdateSum1;
+    updateTestCase(100000, 2000000, run);
+  }
+  {
+    HashRun run;
+    run.testCase = HashTestCase::kUpdateSum1;
+    updateTestCase(1000, 2000000, run);
+  }
+  {
+    HashRun run;
+    run.testCase = HashTestCase::kUpdateSum1;
     updateTestCase(10, 2000000, run);
+  }
+  {
+    HashRun run;
+    run.testCase = HashTestCase::kUpdateSum1;
+    updateTestCase(1, 2000000, run);
   }
 }
 

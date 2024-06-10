@@ -102,7 +102,47 @@ void __device__ testSumAtomic(TestingRow* rows, HashProbe* probe) {
   }
 }
 
-void __device__ testSumAtomicCoalesce(TestingRow* rows, HashProbe* probe) {
+void __device__ testSumAtomicCoalesceShmem(TestingRow* rows, HashProbe* probe) {
+  constexpr int32_t kWarpThreads = 32;
+  auto keys = reinterpret_cast<int64_t**>(probe->keys);
+  auto indices = keys[0];
+  auto deltas = keys[1];
+  int32_t base = probe->numRowsPerThread * blockDim.x * blockIdx.x;
+  int32_t lane = cub::LaneId();
+  int32_t end = base + probe->numRows[blockIdx.x];
+  extern __shared__ char smem[];
+
+  int64_t* totals = (int64_t*)smem;
+
+  for (auto count = base; count < end; count += blockDim.x) {
+    auto i = threadIdx.x + count;
+
+    if (i < end) {
+      totals[threadIdx.x] = 0;
+      __syncwarp();
+      uint32_t laneMask = count + kWarpThreads <= end
+          ? 0xffffffff
+          : lowMask<uint32_t>(end - count);
+      auto index = indices[i];
+      auto delta = deltas[i];
+      uint32_t allPeers = __match_any_sync(laneMask, index);
+      int32_t leader = __ffs(allPeers) - 1;
+      atomicAdd(
+          (unsigned long long*)&totals
+              [(threadIdx.x & (~(kWarpThreads - 1))) | leader],
+          (unsigned long long)delta);
+      __syncwarp();
+      if (lane == leader) {
+        auto* row = &rows[index];
+        atomicAdd(
+            (unsigned long long*)&row->count,
+            (unsigned long long)totals[threadIdx.x]);
+      }
+    }
+  }
+}
+
+void __device__ testSumAtomicCoalesceShfl(TestingRow* rows, HashProbe* probe) {
   constexpr int32_t kWarpThreads = 32;
   auto keys = reinterpret_cast<int64_t**>(probe->keys);
   auto indices = keys[0];

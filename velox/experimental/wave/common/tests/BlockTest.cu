@@ -502,7 +502,11 @@ UPDATE_CASE(updateSum1NoSync, testSumNoSync, 0);
 UPDATE_CASE(updateSum1Mtx, testSumMtx, 0);
 UPDATE_CASE(updateSum1MtxCoalesce, testSumMtxCoalesce, 0);
 UPDATE_CASE(updateSum1Atomic, testSumAtomic, 0);
-UPDATE_CASE(updateSum1AtomicCoalesce, testSumAtomicCoalesce, 0);
+UPDATE_CASE(updateSum1AtomicCoalesceShfl, testSumAtomicCoalesceShfl, 0);
+UPDATE_CASE(
+    updateSum1AtomicCoalesceShmem,
+    testSumAtomicCoalesceShmem,
+    run.blockSize * sizeof(int64_t));
 UPDATE_CASE(updateSum1Exch, testSumExch, sizeof(ProbeShared));
 UPDATE_CASE(updateSum1Order, testSumOrder, 0);
 
@@ -662,7 +666,8 @@ REGISTER_KERNEL("partitionShorts", partitionShortsKernel);
 REGISTER_KERNEL("hashTest", hashTestKernel);
 REGISTER_KERNEL("allocatorTest", allocatorTestKernel);
 REGISTER_KERNEL("sum1atm", updateSum1AtomicKernel);
-REGISTER_KERNEL("sum1atmCoa", updateSum1AtomicCoalesceKernel);
+REGISTER_KERNEL("sum1atmCoaShfl", updateSum1AtomicCoalesceShflKernel);
+REGISTER_KERNEL("sum1atmCoaShmem", updateSum1AtomicCoalesceShmemKernel);
 REGISTER_KERNEL("sum1Exch", updateSum1ExchKernel);
 REGISTER_KERNEL("sum1Part", updateSum1PartKernel);
 REGISTER_KERNEL("partSum", update1PartitionKernel);
