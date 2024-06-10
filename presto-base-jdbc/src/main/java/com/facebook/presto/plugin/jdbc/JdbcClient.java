@@ -14,6 +14,7 @@
 package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.util.ConfigUtil;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
@@ -31,10 +32,16 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.common.constant.ConfigConstants.ENABLE_MIXED_CASE_SUPPORT;
+
 public interface JdbcClient
 {
     default boolean schemaExists(ConnectorSession session, JdbcIdentity identity, String schema)
     {
+        boolean enableMixedCaseSupport = ConfigUtil.getConfig(ENABLE_MIXED_CASE_SUPPORT);
+        if (enableMixedCaseSupport) {
+            return getSchemaNames(session, identity).stream().anyMatch(schema::equals);
+        }
         return getSchemaNames(session, identity).contains(schema);
     }
 

@@ -13,9 +13,11 @@
  */
 package com.facebook.presto.plugin.mysql;
 
+import com.facebook.presto.common.constant.ConfigConstants;
 import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.common.util.ConfigUtil;
 import com.facebook.presto.plugin.jdbc.BaseJdbcClient;
 import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
 import com.facebook.presto.plugin.jdbc.ConnectionFactory;
@@ -61,11 +63,15 @@ import static java.util.Locale.ENGLISH;
 public class MySqlClient
         extends BaseJdbcClient
 {
+    private final boolean checkDriverCaseSupport;
+    private final boolean enableMixedCaseSupport;
     @Inject
     public MySqlClient(JdbcConnectorId connectorId, BaseJdbcConfig config, MySqlConfig mySqlConfig)
             throws SQLException
     {
         super(connectorId, config, "`", connectionFactory(config, mySqlConfig));
+        this.enableMixedCaseSupport = ConfigUtil.getConfig(ConfigConstants.ENABLE_MIXED_CASE_SUPPORT);
+        this.checkDriverCaseSupport = config.getCheckDriverCaseSupport() && enableMixedCaseSupport;
     }
 
     private static ConnectionFactory connectionFactory(BaseJdbcConfig config, MySqlConfig mySqlConfig)
@@ -210,7 +216,7 @@ public class MySqlClient
     {
         try (Connection connection = connectionFactory.openConnection(identity)) {
             DatabaseMetaData metadata = connection.getMetaData();
-            if (metadata.storesUpperCaseIdentifiers()) {
+            if (metadata.storesUpperCaseIdentifiers() && (checkDriverCaseSupport || !enableMixedCaseSupport)) {
                 newColumnName = newColumnName.toUpperCase(ENGLISH);
             }
             String sql = format(

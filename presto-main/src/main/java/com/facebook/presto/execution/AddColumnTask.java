@@ -33,6 +33,7 @@ import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
@@ -96,7 +97,7 @@ public class AddColumnTask
         if (type.equals(UNKNOWN)) {
             throw new SemanticException(TYPE_MISMATCH, element, "Unknown type '%s' for column '%s'", element.getType(), element.getName());
         }
-        if (columnHandles.containsKey(element.getName().getValueLowerCase())) {
+        if (columnHandles.keySet().stream().anyMatch(key -> key.toLowerCase(Locale.ENGLISH).equals(element.getName().getValue().toLowerCase(Locale.ENGLISH)))) {
             if (!statement.isColumnNotExists()) {
                 throw new SemanticException(COLUMN_ALREADY_EXISTS, statement, "Column '%s' already exists", element.getName());
             }

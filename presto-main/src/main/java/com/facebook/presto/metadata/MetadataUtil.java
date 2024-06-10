@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.util.ConfigUtil;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableHandle;
@@ -38,8 +39,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
+import static com.facebook.presto.common.constant.ConfigConstants.ENABLE_MIXED_CASE_SUPPORT;
 import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
 import static com.facebook.presto.spi.security.PrincipalType.ROLE;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
@@ -48,7 +51,6 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_SCHEMA_
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.SCHEMA_NOT_SPECIFIED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public final class MetadataUtil
@@ -58,8 +60,11 @@ public final class MetadataUtil
     public static void checkTableName(String catalogName, Optional<String> schemaName, Optional<String> tableName)
     {
         checkCatalogName(catalogName);
-        schemaName.ifPresent(name -> checkLowerCase(name, "schemaName"));
-        tableName.ifPresent(name -> checkLowerCase(name, "tableName"));
+        boolean enableMixedCaseSupport = ConfigUtil.getConfig(ENABLE_MIXED_CASE_SUPPORT);
+        if (!enableMixedCaseSupport) {
+            schemaName.ifPresent(name -> checkLowerCase(name, "schemaName"));
+            tableName.ifPresent(name -> checkLowerCase(name, "tableName"));
+        }
 
         checkArgument(schemaName.isPresent() || !tableName.isPresent(), "tableName specified but schemaName is missing");
     }
@@ -89,7 +94,10 @@ public final class MetadataUtil
         if (value == null) {
             throw new NullPointerException(format("%s is null", name));
         }
-        checkArgument(value.equals(value.toLowerCase(ENGLISH)), "%s is not lowercase: %s", name, value);
+        boolean enableMixedCaseSupport = ConfigUtil.getConfig(ENABLE_MIXED_CASE_SUPPORT);
+        if (!enableMixedCaseSupport) {
+            checkArgument(value.equals(value.toLowerCase(Locale.ENGLISH)), "%s is not lowercase: %s", name, value);
+        }
         return value;
     }
 
@@ -177,11 +185,17 @@ public final class MetadataUtil
             CatalogMetadata catalogMetadata = catalog.get();
             ConnectorId connectorId = catalogMetadata.getConnectorId(session, table);
             ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
+            boolean enableMixedCaseSupport = ConfigUtil.getConfig(ENABLE_MIXED_CASE_SUPPORT);
 
             ConnectorTableHandle tableHandle;
-            tableHandle = tableVersion
-                    .map(expression -> metadata.getTableHandle(session.toConnectorSession(connectorId), toSchemaTableName(table), Optional.of(expression)))
-                    .orElseGet(() -> metadata.getTableHandle(session.toConnectorSession(connectorId), toSchemaTableName(table)));
+            if (!enableMixedCaseSupport) {
+                tableHandle = metadata.getTableHandle(session.toConnectorSession(connectorId), toSchemaTableName(table));
+            }
+            else {
+                tableHandle = tableVersion
+                        .map(expression -> metadata.getTableHandle(session.toConnectorSession(connectorId), toSchemaTableName(table), Optional.of(expression)))
+                        .orElseGet(() -> metadata.getTableHandle(session.toConnectorSession(connectorId), toSchemaTableName(table)));
+            }
             if (tableHandle != null) {
                 return Optional.of(new TableHandle(
                         connectorId,

@@ -16,10 +16,12 @@ package com.facebook.presto.common;
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
+import com.facebook.presto.common.util.ConfigUtil;
 
+import java.util.Locale;
 import java.util.Objects;
 
-import static java.util.Locale.ENGLISH;
+import static com.facebook.presto.common.constant.ConfigConstants.ENABLE_MIXED_CASE_SUPPORT;
 import static java.util.Objects.requireNonNull;
 
 @ThriftStruct
@@ -33,8 +35,10 @@ public final class CatalogSchemaName
     @ThriftConstructor
     public CatalogSchemaName(String catalogName, String schemaName)
     {
-        this.catalogName = requireNonNull(catalogName, "catalogName is null").toLowerCase(ENGLISH);
-        this.schemaName = requireNonNull(schemaName, "schemaName is null").toLowerCase(ENGLISH);
+        this.catalogName = requireNonNull(catalogName, "catalogName is null").toLowerCase(Locale.ENGLISH);
+        boolean enableMixedCaseSupport = ConfigUtil.getConfig(ENABLE_MIXED_CASE_SUPPORT);
+        this.schemaName = enableMixedCaseSupport ? requireNonNull(schemaName, "schemaName is null") :
+                requireNonNull(schemaName.toLowerCase(Locale.ENGLISH), "schemaName is null");
     }
 
     @ThriftField(1)

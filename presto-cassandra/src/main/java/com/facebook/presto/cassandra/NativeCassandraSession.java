@@ -41,6 +41,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.cassandra.util.CassandraCqlUtils;
 import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.util.ConfigUtil;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
@@ -74,6 +75,7 @@ import static com.datastax.driver.core.querybuilder.QueryBuilder.select;
 import static com.datastax.driver.core.querybuilder.Select.Where;
 import static com.facebook.presto.cassandra.CassandraErrorCode.CASSANDRA_VERSION_ERROR;
 import static com.facebook.presto.cassandra.util.CassandraCqlUtils.validSchemaName;
+import static com.facebook.presto.common.constant.ConfigConstants.ENABLE_MIXED_CASE_SUPPORT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
@@ -297,7 +299,14 @@ public class NativeCassandraSession
         // Ensure that the error message is deterministic
         List<KeyspaceMetadata> sortedKeyspaces = Ordering.from(comparing(KeyspaceMetadata::getName)).immutableSortedCopy(keyspaces);
         for (KeyspaceMetadata keyspace : sortedKeyspaces) {
-            if (keyspace.getName().equalsIgnoreCase(caseInsensitiveSchemaName)) {
+            boolean enableMixedCaseSupport = ConfigUtil.getConfig(ENABLE_MIXED_CASE_SUPPORT);
+            boolean keySpaceNameMatch = keyspace.getName().equalsIgnoreCase(caseInsensitiveSchemaName);
+
+            if (enableMixedCaseSupport) {
+                keySpaceNameMatch = keyspace.getName().equals(caseInsensitiveSchemaName);
+            }
+
+            if (keySpaceNameMatch) {
                 if (result != null) {
                     throw new PrestoException(
                             NOT_SUPPORTED,
@@ -316,8 +325,8 @@ public class NativeCassandraSession
     private static AbstractTableMetadata getTableMetadata(KeyspaceMetadata keyspace, String caseInsensitiveTableName)
     {
         List<AbstractTableMetadata> tables = Stream.concat(
-                keyspace.getTables().stream(),
-                keyspace.getMaterializedViews().stream())
+                        keyspace.getTables().stream(),
+                        keyspace.getMaterializedViews().stream())
                 .filter(table -> table.getName().equalsIgnoreCase(caseInsensitiveTableName))
                 .collect(toImmutableList());
         if (tables.size() == 0) {

@@ -15,6 +15,7 @@ package com.facebook.presto.plugin.singlestore;
 
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.common.util.ConfigUtil;
 import com.facebook.presto.plugin.jdbc.BaseJdbcClient;
 import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
 import com.facebook.presto.plugin.jdbc.DriverConnectionFactory;
@@ -38,6 +39,7 @@ import java.sql.SQLException;
 import java.util.Collection;
 import java.util.Optional;
 
+import static com.facebook.presto.common.constant.ConfigConstants.ENABLE_MIXED_CASE_SUPPORT;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
@@ -56,11 +58,15 @@ public class SingleStoreClient
         extends BaseJdbcClient
 {
     private static final String SQL_STATE_ER_TABLE_EXISTS_ERROR = "42S01";
+    private final boolean checkDriverCaseSupport;
+    private final boolean enableMixedCaseSupport;
 
     @Inject
     public SingleStoreClient(JdbcConnectorId connectorId, BaseJdbcConfig config)
     {
         super(connectorId, config, "`", new DriverConnectionFactory(new Driver(), config));
+        this.enableMixedCaseSupport = ConfigUtil.getConfig(ENABLE_MIXED_CASE_SUPPORT);
+        this.checkDriverCaseSupport = config.getCheckDriverCaseSupport() && enableMixedCaseSupport;
     }
 
     @Override
@@ -169,7 +175,7 @@ public class SingleStoreClient
     {
         try (Connection connection = connectionFactory.openConnection(identity)) {
             DatabaseMetaData metadata = connection.getMetaData();
-            if (metadata.storesUpperCaseIdentifiers()) {
+            if ((metadata.storesUpperCaseIdentifiers() && checkDriverCaseSupport) || !enableMixedCaseSupport) {
                 newColumnName = newColumnName.toUpperCase(ENGLISH);
             }
             String sql = format(

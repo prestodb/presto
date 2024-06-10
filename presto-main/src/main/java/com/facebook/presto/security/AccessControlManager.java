@@ -19,6 +19,7 @@ import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.transaction.TransactionId;
+import com.facebook.presto.common.util.ConfigUtil;
 import com.facebook.presto.spi.CatalogSchemaTableName;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
@@ -47,6 +48,7 @@ import java.security.Principal;
 import java.security.cert.X509Certificate;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -54,6 +56,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.common.constant.ConfigConstants.ENABLE_MIXED_CASE_SUPPORT;
 import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_STARTING_UP;
 import static com.facebook.presto.util.PropertiesUtil.loadProperties;
@@ -82,6 +85,7 @@ public class AccessControlManager
     private final CounterStat authenticationFail = new CounterStat();
     private final CounterStat authorizationSuccess = new CounterStat();
     private final CounterStat authorizationFail = new CounterStat();
+    private final boolean enableMixedCaseSupport;
 
     @Inject
     public AccessControlManager(TransactionManager transactionManager)
@@ -90,6 +94,7 @@ public class AccessControlManager
         addSystemAccessControlFactory(new AllowAllSystemAccessControl.Factory());
         addSystemAccessControlFactory(new ReadOnlySystemAccessControl.Factory());
         addSystemAccessControlFactory(new FileBasedSystemAccessControl.Factory());
+        this.enableMixedCaseSupport = ConfigUtil.getConfig(ENABLE_MIXED_CASE_SUPPORT);
     }
 
     public void addSystemAccessControlFactory(SystemAccessControlFactory accessControlFactory)
@@ -201,7 +206,7 @@ public class AccessControlManager
         requireNonNull(identity, "identity is null");
         requireNonNull(catalogName, "catalog is null");
 
-        authenticationCheck(() -> systemAccessControl.get().checkCanAccessCatalog(identity, context, catalogName));
+        authenticationCheck(() -> systemAccessControl.get().checkCanAccessCatalog(identity, context, catalogName.toLowerCase(Locale.ENGLISH)));
     }
 
     @Override

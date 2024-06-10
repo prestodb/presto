@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.util.ConfigUtil;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -21,6 +22,7 @@ import com.google.common.collect.Lists;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.common.constant.ConfigConstants.ENABLE_MIXED_CASE_SUPPORT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.isEmpty;
 import static com.google.common.collect.Iterables.transform;
@@ -49,6 +51,23 @@ public class QualifiedName
         requireNonNull(originalParts, "originalParts is null");
         checkArgument(!isEmpty(originalParts), "originalParts is empty");
         List<String> parts = ImmutableList.copyOf(transform(originalParts, part -> part.toLowerCase(ENGLISH)));
+
+        return new QualifiedName(ImmutableList.copyOf(originalParts), parts);
+    }
+
+    public static QualifiedName of(Iterable<String> originalParts, boolean... skipCaseConversion)
+    {
+        boolean enableMixedCaseSupport = ConfigUtil.getConfig(ENABLE_MIXED_CASE_SUPPORT);
+        boolean skipToLowerCase = skipCaseConversion.length > 0 ? skipCaseConversion[0] : false;
+        requireNonNull(originalParts, "originalParts is null");
+        checkArgument(!isEmpty(originalParts), "originalParts is empty");
+        List<String> parts;
+        if (enableMixedCaseSupport) {
+            parts = ImmutableList.copyOf(transform(originalParts, part -> !skipToLowerCase ? part.toLowerCase(ENGLISH) : part));
+        }
+        else {
+            parts = ImmutableList.copyOf(transform(originalParts, part -> part.toLowerCase(ENGLISH)));
+        }
 
         return new QualifiedName(ImmutableList.copyOf(originalParts), parts);
     }
@@ -86,7 +105,7 @@ public class QualifiedName
         }
 
         List<String> subList = parts.subList(0, parts.size() - 1);
-        return Optional.of(new QualifiedName(subList, subList));
+        return Optional.of(QualifiedName.of(subList, true));
     }
 
     public boolean hasSuffix(QualifiedName suffix)

@@ -15,6 +15,7 @@ package com.facebook.presto.mongodb;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.util.ConfigUtil;
 import com.facebook.presto.mongodb.MongoIndex.MongodbIndexKey;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -43,13 +44,15 @@ import io.airlift.slice.Slice;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.common.constant.ConfigConstants.ENABLE_MIXED_CASE_SUPPORT;
 import static com.google.common.base.Preconditions.checkState;
-import static java.util.Locale.ENGLISH;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -61,16 +64,23 @@ public class MongoMetadata
     private final MongoSession mongoSession;
 
     private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
+    private final boolean enableMixedCaseSupport;
 
     public MongoMetadata(MongoSession mongoSession)
     {
         this.mongoSession = requireNonNull(mongoSession, "mongoSession is null");
+        this.enableMixedCaseSupport = ConfigUtil.getConfig(ENABLE_MIXED_CASE_SUPPORT);
     }
 
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
-        return mongoSession.getAllSchemas();
+        if (enableMixedCaseSupport) {
+            return mongoSession.getAllSchemas();
+        }
+        return mongoSession.getAllSchemas().stream()
+                .map(schemaName -> schemaName.toLowerCase(Locale.ENGLISH))
+                .collect(toImmutableList());
     }
 
     @Override
@@ -101,7 +111,8 @@ public class MongoMetadata
 
         for (String schemaName : listSchemas(session, schemaNameOrNull)) {
             for (String tableName : mongoSession.getAllTables(schemaName)) {
-                tableNames.add(new SchemaTableName(schemaName, tableName.toLowerCase(ENGLISH)));
+                boolean enableMixedCaseSupport = ConfigUtil.getConfig(ENABLE_MIXED_CASE_SUPPORT);
+                tableNames.add(new SchemaTableName(schemaName, enableMixedCaseSupport ? tableName : tableName.toLowerCase(Locale.ENGLISH)));
             }
         }
         return tableNames.build();

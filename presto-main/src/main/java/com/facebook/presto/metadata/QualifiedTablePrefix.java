@@ -17,6 +17,7 @@ import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.util.ConfigUtil;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -26,6 +27,7 @@ import javax.annotation.concurrent.Immutable;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.facebook.presto.common.constant.ConfigConstants.ENABLE_MIXED_CASE_SUPPORT;
 import static com.facebook.presto.metadata.MetadataUtil.checkCatalogName;
 import static com.facebook.presto.metadata.MetadataUtil.checkSchemaName;
 import static com.facebook.presto.metadata.MetadataUtil.checkTableName;
@@ -37,9 +39,11 @@ public class QualifiedTablePrefix
     private final String catalogName;
     private final Optional<String> schemaName;
     private final Optional<String> tableName;
+    private boolean enableMixedCaseSupport;
 
     public QualifiedTablePrefix(String catalogName)
     {
+        this.enableMixedCaseSupport = ConfigUtil.getConfig(ENABLE_MIXED_CASE_SUPPORT);
         this.catalogName = checkCatalogName(catalogName);
         this.schemaName = Optional.empty();
         this.tableName = Optional.empty();
@@ -47,16 +51,18 @@ public class QualifiedTablePrefix
 
     public QualifiedTablePrefix(String catalogName, String schemaName)
     {
+        this.enableMixedCaseSupport = ConfigUtil.getConfig(ENABLE_MIXED_CASE_SUPPORT);
         this.catalogName = checkCatalogName(catalogName);
-        this.schemaName = Optional.of(checkSchemaName(schemaName));
+        this.schemaName = enableMixedCaseSupport ? Optional.of(schemaName) : Optional.of(checkSchemaName(schemaName));
         this.tableName = Optional.empty();
     }
 
     public QualifiedTablePrefix(String catalogName, String schemaName, String tableName)
     {
+        this.enableMixedCaseSupport = ConfigUtil.getConfig(ENABLE_MIXED_CASE_SUPPORT);
         this.catalogName = checkCatalogName(catalogName);
-        this.schemaName = Optional.of(checkSchemaName(schemaName));
-        this.tableName = Optional.of(checkTableName(tableName));
+        this.schemaName = enableMixedCaseSupport ? Optional.of(schemaName) : Optional.of(checkSchemaName(schemaName));
+        this.tableName = enableMixedCaseSupport ? Optional.of(tableName) : Optional.of(checkTableName(tableName));
     }
 
     @JsonCreator
@@ -66,6 +72,7 @@ public class QualifiedTablePrefix
             @JsonProperty("schemaName") Optional<String> schemaName,
             @JsonProperty("tableName") Optional<String> tableName)
     {
+        this.enableMixedCaseSupport = ConfigUtil.getConfig(ENABLE_MIXED_CASE_SUPPORT);
         checkTableName(catalogName, schemaName, tableName);
         this.catalogName = catalogName;
         this.schemaName = schemaName;
