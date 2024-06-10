@@ -14,6 +14,7 @@
 package com.facebook.presto.iceberg.nessie;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.iceberg.IcebergConfig;
 import com.facebook.presto.iceberg.IcebergPlugin;
 import com.facebook.presto.iceberg.TestIcebergSystemTables;
 import com.facebook.presto.testing.MaterializedResult;
@@ -30,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
+import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
 import static com.facebook.presto.iceberg.nessie.NessieTestUtil.nessieConnectorProperties;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -68,7 +70,8 @@ public class TestIcebergSystemTablesNessie
                 .build();
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
 
-        Path catalogDirectory = queryRunner.getCoordinator().getDataDirectory().resolve("iceberg_data").resolve("catalog");
+        Path dataDirectory = queryRunner.getCoordinator().getDataDirectory();
+        Path catalogDirectory = getIcebergDataDirectoryPath(dataDirectory, "NESSIE", new IcebergConfig().getFileFormat(), false);
 
         queryRunner.installPlugin(new IcebergPlugin());
         Map<String, String> icebergProperties = ImmutableMap.<String, String>builder()
