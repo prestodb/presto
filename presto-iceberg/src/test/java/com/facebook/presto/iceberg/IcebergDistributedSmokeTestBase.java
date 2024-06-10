@@ -39,8 +39,7 @@ import static com.facebook.presto.SystemSessionProperties.LEGACY_TIMESTAMP;
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
-import static com.facebook.presto.iceberg.IcebergQueryRunner.TEST_CATALOG_DIRECTORY;
-import static com.facebook.presto.iceberg.IcebergQueryRunner.TEST_DATA_DIRECTORY;
+import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
 import static com.facebook.presto.iceberg.IcebergUtil.MIN_FORMAT_VERSION_FOR_DELETE;
 import static com.facebook.presto.iceberg.procedure.RegisterTableProcedure.METADATA_FOLDER_NAME;
 import static com.facebook.presto.iceberg.procedure.TestIcebergRegisterProcedure.getMetadataFileLocation;
@@ -1110,8 +1109,8 @@ public class IcebergDistributedSmokeTestBase
 
     protected Path getCatalogDirectory()
     {
-        Path dataDirectory = getDistributedQueryRunner().getCoordinator().getDataDirectory().resolve(TEST_DATA_DIRECTORY);
-        return dataDirectory.getParent().resolve(TEST_CATALOG_DIRECTORY);
+        Path dataDirectory = getDistributedQueryRunner().getCoordinator().getDataDirectory();
+        return getIcebergDataDirectoryPath(dataDirectory, catalogType.name(), new IcebergConfig().getFileFormat(), false);
     }
 
     protected Table getIcebergTable(ConnectorSession session, String namespace, String tableName)

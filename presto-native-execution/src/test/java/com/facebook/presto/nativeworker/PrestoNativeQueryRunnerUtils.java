@@ -156,7 +156,7 @@ public class PrestoNativeQueryRunnerUtils
     public static QueryRunner createJavaIcebergQueryRunner(String storageFormat)
             throws Exception
     {
-        return createJavaIcebergQueryRunner(Optional.of(getNativeQueryRunnerParameters().dataDirectory), storageFormat, true);
+        return createJavaIcebergQueryRunner(Optional.of(getNativeQueryRunnerParameters().dataDirectory), storageFormat, false);
     }
 
     public static QueryRunner createJavaIcebergQueryRunner(Optional<Path> baseDataDirectory, String storageFormat, boolean addStorageFormatToPath)
@@ -164,8 +164,6 @@ public class PrestoNativeQueryRunnerUtils
     {
         ImmutableMap.Builder<String, String> icebergPropertiesBuilder = new ImmutableMap.Builder<>();
         icebergPropertiesBuilder.put("hive.parquet.writer.version", "PARQUET_1_0");
-
-        Optional<Path> dataDirectory = addStorageFormatToPath ? baseDataDirectory.map(path -> Paths.get(path.toString() + '/' + storageFormat)) : baseDataDirectory;
 
         DistributedQueryRunner queryRunner = createIcebergQueryRunner(
                 ImmutableMap.of(
@@ -179,7 +177,8 @@ public class PrestoNativeQueryRunnerUtils
                 false,
                 OptionalInt.empty(),
                 Optional.empty(),
-                dataDirectory);
+                baseDataDirectory,
+                addStorageFormatToPath);
 
         return queryRunner;
     }
@@ -190,6 +189,12 @@ public class PrestoNativeQueryRunnerUtils
         return createNativeIcebergQueryRunner(useThrift, ICEBERG_DEFAULT_STORAGE_FORMAT, Optional.empty());
     }
 
+    public static QueryRunner createNativeIcebergQueryRunner(boolean useThrift, boolean addStorageFormatToPath)
+            throws Exception
+    {
+        return createNativeIcebergQueryRunner(useThrift, ICEBERG_DEFAULT_STORAGE_FORMAT, Optional.empty(), addStorageFormatToPath);
+    }
+
     public static QueryRunner createNativeIcebergQueryRunner(boolean useThrift, String storageFormat)
             throws Exception
     {
@@ -197,6 +202,12 @@ public class PrestoNativeQueryRunnerUtils
     }
 
     public static QueryRunner createNativeIcebergQueryRunner(boolean useThrift, String storageFormat, Optional<String> remoteFunctionServerUds)
+            throws Exception
+    {
+        return createNativeIcebergQueryRunner(useThrift, storageFormat, remoteFunctionServerUds, false);
+    }
+
+    public static QueryRunner createNativeIcebergQueryRunner(boolean useThrift, String storageFormat, Optional<String> remoteFunctionServerUds, boolean addStorageFormatToPath)
             throws Exception
     {
         int cacheMaxSize = 0;
@@ -209,7 +220,7 @@ public class PrestoNativeQueryRunnerUtils
                 useThrift,
                 remoteFunctionServerUds,
                 storageFormat,
-                true);
+                addStorageFormatToPath);
     }
 
     public static QueryRunner createNativeIcebergQueryRunner(
@@ -241,7 +252,8 @@ public class PrestoNativeQueryRunnerUtils
                 false,
                 OptionalInt.of(workerCount.orElse(4)),
                 getExternalWorkerLauncher("iceberg", prestoServerPath, cacheMaxSize, remoteFunctionServerUds),
-                addStorageFormatToPath ? dataDirectory.map(path -> Paths.get(path.toString() + '/' + storageFormat)) : dataDirectory);
+                dataDirectory,
+                addStorageFormatToPath);
     }
 
     public static QueryRunner createNativeQueryRunner(
