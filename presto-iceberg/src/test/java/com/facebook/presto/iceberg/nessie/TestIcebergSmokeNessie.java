@@ -35,11 +35,13 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Optional;
 
 import static com.facebook.presto.iceberg.CatalogType.NESSIE;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
+import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
 import static com.facebook.presto.iceberg.nessie.NessieTestUtil.nessieConnectorProperties;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -78,11 +80,12 @@ public class TestIcebergSmokeNessie
     {
         QueryRunner queryRunner = getQueryRunner();
 
-        Optional<File> tempTableLocation = Arrays.stream(requireNonNull(((DistributedQueryRunner) queryRunner)
-                        .getCoordinator().getDataDirectory().resolve(schema).toFile().listFiles()))
+        Path dataDirectory = ((DistributedQueryRunner) queryRunner).getCoordinator().getDataDirectory();
+        Path icebergDataDirectory = getIcebergDataDirectoryPath(dataDirectory, NESSIE.name(), new IcebergConfig().getFileFormat(), false);
+        Optional<File> tempTableLocation = Arrays.stream(requireNonNull(icebergDataDirectory.resolve(schema).toFile().listFiles()))
                 .filter(file -> file.toURI().toString().contains(table)).findFirst();
 
-        String dataLocation = ((DistributedQueryRunner) queryRunner).getCoordinator().getDataDirectory().toFile().toURI().toString();
+        String dataLocation = icebergDataDirectory.toFile().toURI().toString();
         String relativeTableLocation = tempTableLocation.get().toURI().toString().replace(dataLocation, "");
 
         return format("%s%s", dataLocation, relativeTableLocation.substring(0, relativeTableLocation.length() - 1));
