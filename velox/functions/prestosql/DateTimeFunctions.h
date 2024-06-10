@@ -915,15 +915,25 @@ struct DateTruncFunction : public TimestampWithTimezoneSupport<T> {
       unit = getTimestampUnit(unitString).value();
     }
 
-    if (unit == DateTimeUnit::kSecond) {
-      result = Timestamp(timestamp.getSeconds(), 0);
-      return;
+    switch (unit) {
+      case DateTimeUnit::kSecond:
+        result = Timestamp(timestamp.getSeconds(), 0);
+        return;
+      case DateTimeUnit::kMinute:
+        result = adjustEpoch(getSeconds(timestamp, timeZone_), 60);
+        break;
+      case DateTimeUnit::kHour:
+        result = adjustEpoch(getSeconds(timestamp, timeZone_), 60 * 60);
+        break;
+      case DateTimeUnit::kDay:
+        result = adjustEpoch(getSeconds(timestamp, timeZone_), 24 * 60 * 60);
+        break;
+      default:
+        auto dateTime = getDateTime(timestamp, timeZone_);
+        adjustDateTime(dateTime, unit);
+        result = Timestamp(timegm(&dateTime), 0);
     }
 
-    auto dateTime = getDateTime(timestamp, timeZone_);
-    adjustDateTime(dateTime, unit);
-
-    result = Timestamp(timegm(&dateTime), 0);
     if (timeZone_ != nullptr) {
       result.toGMT(*timeZone_);
     }
@@ -974,6 +984,20 @@ struct DateTruncFunction : public TimestampWithTimezoneSupport<T> {
     timestamp.toGMT(unpackZoneKeyId(timestampWithTimezone));
 
     result = pack(timestamp.toMillis(), unpackZoneKeyId(timestampWithTimezone));
+  }
+
+ private:
+  /// For fixed interval like second, minute, hour, day and week
+  /// we can truncate date by a simple arithmetic expression:
+  /// floor(seconds / intervalSeconds) * intervalSeconds.
+  FOLLY_ALWAYS_INLINE Timestamp
+  adjustEpoch(int64_t seconds, int64_t intervalSeconds) {
+    int64_t s = seconds / intervalSeconds;
+    if (seconds < 0 && seconds % intervalSeconds) {
+      s = s - 1;
+    }
+    int64_t truncedSeconds = s * intervalSeconds;
+    return Timestamp(truncedSeconds, 0);
   }
 };
 

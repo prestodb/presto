@@ -1513,11 +1513,45 @@ TEST_F(DateTimeFunctionsTest, dateTrunc) {
         fmt::format("date_trunc('{}', c0)", unit), timestamp);
   };
 
+  disableAdjustTimestampToTimezone();
+
+  EXPECT_EQ(std::nullopt, dateTrunc("second", std::nullopt));
+  EXPECT_EQ(Timestamp(0, 0), dateTrunc("second", Timestamp(0, 0)));
+  EXPECT_EQ(Timestamp(0, 0), dateTrunc("second", Timestamp(0, 123)));
+  EXPECT_EQ(Timestamp(-1, 0), dateTrunc("second", Timestamp(-1, 0)));
+  EXPECT_EQ(Timestamp(-1, 0), dateTrunc("second", Timestamp(-1, 123)));
+  EXPECT_EQ(Timestamp(0, 0), dateTrunc("day", Timestamp(0, 123)));
+  EXPECT_EQ(
+      Timestamp(998474645, 0),
+      dateTrunc("second", Timestamp(998'474'645, 321'001'234)));
+  EXPECT_EQ(
+      Timestamp(998474640, 0),
+      dateTrunc("minute", Timestamp(998'474'645, 321'001'234)));
+  EXPECT_EQ(
+      Timestamp(998474400, 0),
+      dateTrunc("hour", Timestamp(998'474'645, 321'001'234)));
+  EXPECT_EQ(
+      Timestamp(998438400, 0),
+      dateTrunc("day", Timestamp(998'474'645, 321'001'234)));
+  EXPECT_EQ(
+      Timestamp(998265600, 0),
+      dateTrunc("week", Timestamp(998'474'645, 321'001'234)));
+  EXPECT_EQ(
+      Timestamp(996624000, 0),
+      dateTrunc("month", Timestamp(998'474'645, 321'001'234)));
+  EXPECT_EQ(
+      Timestamp(993945600, 0),
+      dateTrunc("quarter", Timestamp(998'474'645, 321'001'234)));
+  EXPECT_EQ(
+      Timestamp(978307200, 0),
+      dateTrunc("year", Timestamp(998'474'645, 321'001'234)));
+
   setQueryTimeZone("America/Los_Angeles");
 
   EXPECT_EQ(std::nullopt, dateTrunc("second", std::nullopt));
   EXPECT_EQ(Timestamp(0, 0), dateTrunc("second", Timestamp(0, 0)));
   EXPECT_EQ(Timestamp(0, 0), dateTrunc("second", Timestamp(0, 123)));
+  EXPECT_EQ(Timestamp(-57600, 0), dateTrunc("day", Timestamp(0, 0)));
   EXPECT_EQ(
       Timestamp(998474645, 0),
       dateTrunc("second", Timestamp(998'474'645, 321'001'234)));
@@ -1530,6 +1564,9 @@ TEST_F(DateTimeFunctionsTest, dateTrunc) {
   EXPECT_EQ(
       Timestamp(998463600, 0),
       dateTrunc("day", Timestamp(998'474'645, 321'001'234)));
+  EXPECT_EQ(
+      Timestamp(998290800, 0),
+      dateTrunc("week", Timestamp(998'474'645, 321'001'234)));
   EXPECT_EQ(
       Timestamp(996649200, 0),
       dateTrunc("month", Timestamp(998'474'645, 321'001'234)));
@@ -1545,6 +1582,7 @@ TEST_F(DateTimeFunctionsTest, dateTrunc) {
   EXPECT_EQ(std::nullopt, dateTrunc("second", std::nullopt));
   EXPECT_EQ(Timestamp(0, 0), dateTrunc("second", Timestamp(0, 0)));
   EXPECT_EQ(Timestamp(0, 0), dateTrunc("second", Timestamp(0, 123)));
+  EXPECT_EQ(Timestamp(-19800, 0), dateTrunc("day", Timestamp(0, 0)));
   EXPECT_EQ(
       Timestamp(998474645, 0),
       dateTrunc("second", Timestamp(998'474'645, 321'001'234)));
@@ -1557,6 +1595,9 @@ TEST_F(DateTimeFunctionsTest, dateTrunc) {
   EXPECT_EQ(
       Timestamp(998418600, 0),
       dateTrunc("day", Timestamp(998'474'645, 321'001'234)));
+  EXPECT_EQ(
+      Timestamp(998245800, 0),
+      dateTrunc("week", Timestamp(998'474'645, 321'001'234)));
   EXPECT_EQ(
       Timestamp(996604200, 0),
       dateTrunc("month", Timestamp(998'474'645, 321'001'234)));
