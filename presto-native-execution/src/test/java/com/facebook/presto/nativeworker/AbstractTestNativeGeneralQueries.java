@@ -1579,31 +1579,32 @@ public abstract class AbstractTestNativeGeneralQueries
                 "    (false, BIGINT '1', DOUBLE '2.3', TIMESTAMP '2012-09-09 00:00', CAST('cba2' AS VARCHAR), to_ieee754_64(4)) " +
                 ") AS x (c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_varbinary)", tmpTableName), 5);
 
-        // NOTE: The query below does not list the c_timestamp field because Velox uses the America/Los_Angeles
-        // time zone when reading and writing TIMESTAMP type data in DWRF/ORC format (see https://github.com/facebookincubator/velox/issues/8127),
-        // while Presto Java uses the America/Bahia_Banderas time zone when reading TIMESTAMP during the test (see com.facebook.presto.hive.HiveQueryRunner),
-        // Therefore, the data read by the two engines will be inconsistent.
-
-        // BOOLEAN column filter
+        // Filter on BOOLEAN column.
         assertQuery(format("SELECT c_boolean, c_bigint, c_double, c_varchar, c_varbinary FROM %s WHERE c_boolean", tmpTableName));
 
-        // BIGINT column filter
+        // Filter on BIGINT column.
         assertQuery(format("SELECT c_boolean, c_bigint, c_double, c_varchar, c_varbinary FROM %s WHERE c_bigint = 0", tmpTableName));
 
-        // DOUBLE column filter
+        // Filter on DOUBLE column.
         assertQuery(format("SELECT c_boolean, c_bigint, c_double, c_varchar, c_varbinary FROM %s WHERE c_double = 1.2", tmpTableName));
 
-        // VARCHAR column filter
+        // Filter on VARCHAR column.
         assertQuery(format("SELECT c_boolean, c_bigint, c_double, c_varchar, c_varbinary FROM %s WHERE c_varchar = CAST('cba2' AS VARCHAR)", tmpTableName));
 
-        // TIMESTAMP column filter
+        // Filter on TIMESTAMP column.
+        // NOTE: c_timestamp field in Velox uses the America/Los_Angeles time zone when reading and writing
+        // TIMESTAMP type data in DWRF/ORC format (see https://github.com/facebookincubator/velox/issues/8127),
+        // while Presto Java uses the America/Bahia_Banderas time zone when reading TIMESTAMP during the test
+        // (see com.facebook.presto.hive.HiveQueryRunner),
+        // Therefore, the data read by the two engines will be inconsistent. So using a VALUES list for the
+        // validation.
         assertQuery(format("SELECT * FROM %s WHERE c_TIMESTAMP = TIMESTAMP '2012-09-09 00:00'", tmpTableName), "VALUES(false, BIGINT '1', DOUBLE '2.3', TIMESTAMP '2012-09-09 00:00', CAST('cba2' AS VARCHAR), to_ieee754_64(4))");
 
         // NOTE: Presto Java's DWRF format does not support pushing down VARBINARY type filters to TableScan, so we need to disable filter pushdown.
         Session session = Session.builder(getSession())
                 .setCatalogSessionProperty("hive", "pushdown_filter_enabled", "false")
                 .build();
-        // VARBINARY column filter
+        // Filter on VARBINARY column.
         assertQuery(session, format("SELECT c_boolean, c_bigint, c_double, c_varchar, c_varbinary FROM %s WHERE c_varbinary = to_ieee754_64(1)", tmpTableName));
     }
 
