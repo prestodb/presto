@@ -14,7 +14,6 @@
 #include <gtest/gtest.h>
 #include "presto_cpp/main/common/Exception.h"
 #include "presto_cpp/main/common/Utils.h"
-#include "presto_cpp/presto_protocol/presto_protocol.h"
 #include "velox/common/base/Exceptions.h"
 
 using namespace facebook::velox;
