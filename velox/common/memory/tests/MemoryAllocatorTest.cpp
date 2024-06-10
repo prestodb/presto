@@ -34,7 +34,6 @@
 #include <fstream>
 #endif // linux
 
-DECLARE_int32(velox_memory_pool_mb);
 DECLARE_bool(velox_memory_leak_check_enabled);
 
 using namespace facebook::velox::common::testutil;

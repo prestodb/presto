@@ -30,7 +30,6 @@
 #include "velox/common/memory/Allocation.h"
 #include "velox/common/time/Timer.h"
 
-DECLARE_int32(velox_memory_pool_mb);
 DECLARE_bool(velox_time_allocations);
 
 namespace facebook::velox::memory {
