@@ -654,6 +654,7 @@ public final class MathFunctions
     @Description("a pseudo-random value")
     @ScalarFunction(alias = "rand", deterministic = false)
     @SqlType(StandardTypes.DOUBLE)
+    @ScalarFunctionConstantStats(avgRowSize = 8, nullFraction = 0.0, minValue = 0, maxValue = 1.0, distinctValuesCount = -1) // ndv of -1 = row count
     public static double random()
     {
         return ThreadLocalRandom.current().nextDouble();

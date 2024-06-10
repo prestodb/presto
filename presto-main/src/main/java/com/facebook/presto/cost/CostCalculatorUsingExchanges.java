@@ -106,7 +106,6 @@ public class CostCalculatorUsingExchanges
         public PlanCostEstimate visitPlan(PlanNode node, Void context)
         {
             // TODO implement cost estimates for all plan nodes
-            System.out.println("visitPlan = " + node + " cost unknown!");
             return PlanCostEstimate.unknown();
         }
 

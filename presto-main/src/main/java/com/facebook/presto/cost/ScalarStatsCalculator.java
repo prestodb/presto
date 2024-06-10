@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.cost;
 
+import com.facebook.presto.FullConnectorSession;
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
@@ -127,13 +129,12 @@ public class ScalarStatsCalculator
             }
 
             FunctionMetadata functionMetadata = metadata.getFunctionAndTypeManager().getFunctionMetadata(call.getFunctionHandle());
-            System.out.println("functionMetadata arg types = " + functionMetadata.getArgumentTypes() + " functionMetadata getReturnType= " + functionMetadata.getReturnType());
             if (functionMetadata.getOperatorType().map(OperatorType::isArithmeticOperator).orElse(false)) {
                 return computeArithmeticBinaryStatistics(call, context);
             }
 
             RowExpression value = new RowExpressionOptimizer(metadata).optimize(call, OPTIMIZED, session);
-            System.out.println("RowExpression = " + value);
+
             if (isNull(value)) {
                 return nullStatsEstimate();
             }
@@ -147,13 +148,15 @@ public class ScalarStatsCalculator
                 return computeCastStatistics(call, context);
             }
 
-            if (functionMetadata.getStatsHeader().isPresent()) {
+            if (functionMetadata.getStatsHeader().isPresent() &&
+                    SystemSessionProperties.shouldEnableScalarFunctionStatsPropagation(((FullConnectorSession) session).getSession())) {
                 return computeCallStatistics(call, context, functionMetadata.getStatsHeader().get());
             }
             else {
                 System.out.println("Stats not found for func: " + functionMetadata.getName() + " " + call);
             }
             // by default propagate source stats of first col.
+            // return propagateCallSourceStatistics(call, context);
             return VariableStatsEstimate.unknown();
         }
 
@@ -232,10 +235,22 @@ public class ScalarStatsCalculator
         private StatisticRange processDistinctValueCountAndRange(CallExpression call, Void context, PropagateSourceStats op)
         {
             StatisticRange s = StatisticRange.empty();
+            double ndv = -1;
             for (int i = 0; i < call.getArguments().size(); i++) {
                 VariableStatsEstimate sourceStats = call.getArguments().get(i).accept(this, context);
-                if (!sourceStats.isUnknown() && !Double.isNaN(sourceStats.getDistinctValuesCount())) {
+                if (!sourceStats.isUnknown() && isFinite(sourceStats.getDistinctValuesCount())) {
                     switch (op) {
+                        case MAX_TYPE_WIDTH:
+                            TypeSignature typeSignature = call.getArguments().get(i).getType().getTypeSignature();
+                            if (typeSignature.getTypeSignatureBase().hasStandardType() && typeSignature.getTypeSignatureBase().getStandardTypeBase().equals(StandardTypes.VARCHAR)) {
+                                for (TypeSignatureParameter t : typeSignature.getParameters()) {
+                                    Long longLiteral = t.getLongLiteral();
+                                    if (longLiteral > 0) {
+                                        ndv = Math.max(ndv, longLiteral);
+                                    }
+                                }
+                            }
+                            break;
                         case MAX:
                             s = s.addAndMaxDistinctValues(sourceStats.statisticRange());
                             break;
@@ -245,15 +260,18 @@ public class ScalarStatsCalculator
                     }
                 }
             }
+            if (s.isEmpty() && isFinite(ndv) && ndv > 0.0) {
+                s = new StatisticRange(0, ndv, ndv); // This would be the case of MAX_TYPE_WIDTH
+            }
             return s;
         }
 
         private double processNullFraction(CallExpression call, Void context, PropagateSourceStats op)
         {
-            double s = NaN;
+            double s = -10;
             for (int i = 0; i < call.getArguments().size(); i++) {
                 VariableStatsEstimate sourceStats = call.getArguments().get(i).accept(this, context);
-                if (!sourceStats.isUnknown() && !Double.isNaN(sourceStats.getNullsFraction())) {
+                if (!sourceStats.isUnknown() && isFinite(sourceStats.getNullsFraction())) {
                     switch (op) {
                         case MAX:
                             s = max(s, sourceStats.getNullsFraction());
@@ -264,15 +282,18 @@ public class ScalarStatsCalculator
                     }
                 }
             }
-            return s;
+            if (s > 0.0) {
+                return s;
+            }
+            return NaN;
         }
 
         private double processAvgRowSize(CallExpression call, Void context, PropagateSourceStats op)
         {
-            double s = NaN;
+            double s = -10;
             for (int i = 0; i < call.getArguments().size(); i++) {
                 VariableStatsEstimate sourceStats = call.getArguments().get(i).accept(this, context);
-                if (!sourceStats.isUnknown() && !Double.isNaN(sourceStats.getAverageRowSize())) {
+                if (!sourceStats.isUnknown() && isFinite(sourceStats.getAverageRowSize())) {
                     switch (op) {
                         case MAX:
                             s = max(s, sourceStats.getAverageRowSize());
@@ -283,7 +304,10 @@ public class ScalarStatsCalculator
                     }
                 }
             }
-            return s;
+            if (s > 0.0) {
+                return s;
+            }
+            return NaN;
         }
 
         private VariableStatsEstimate computeCallStatistics(CallExpression call, Void context, ScalarStatsHeader statsHeader)
@@ -299,8 +323,8 @@ public class ScalarStatsCalculator
             // TODO: handle histograms.
             for (Map.Entry<Integer, ScalarPropagateSourceStats> entry : statsHeader.getStatsResolver().entrySet()) {
                 ScalarPropagateSourceStats scalarPropagateSourceStats = entry.getValue();
+                VariableStatsEstimate sourceStats = call.getArguments().get(entry.getKey()).accept(this, context);
                 if (scalarPropagateSourceStats.propagateAllStats()) {
-                    VariableStatsEstimate sourceStats = call.getArguments().get(entry.getKey()).accept(this, context);
                     distinctValuesCount = sourceStats.getDistinctValuesCount();
                     min = sourceStats.getLowValue();
                     max = sourceStats.getHighValue();
@@ -310,28 +334,12 @@ public class ScalarStatsCalculator
                 // distinct value count
                 switch (scalarPropagateSourceStats.distinctValueCount()) {
                     case SOURCE_STATS:
-                        VariableStatsEstimate sourceStats = call.getArguments().get(entry.getKey()).accept(this, context);
                         distinctValuesCount = sourceStats.getDistinctValuesCount();
                         break;
                     case ROW_COUNT:
                         distinctValuesCount = input.getOutputRowCount();
                         break;
                     case MAX_TYPE_WIDTH:
-                        TypeSignature typeSignature = call.getArguments().get(entry.getKey()).getType().getTypeSignature();
-                        if (typeSignature.getTypeSignatureBase().hasStandardType() && typeSignature.getTypeSignatureBase().getStandardTypeBase().equals(StandardTypes.VARCHAR)) {
-                            double varcharTypeWidth = 0.0;
-                            for (TypeSignatureParameter t : typeSignature.getParameters()) {
-                                Long longLiteral = t.getLongLiteral();
-                                varcharTypeWidth = Math.max(longLiteral, varcharTypeWidth);
-                            }
-                            if (varcharTypeWidth != 0) {
-                                distinctValuesCount = varcharTypeWidth;
-                            }
-                        }
-                        if (!isFinite(distinctValuesCount) || distinctValuesCount == 0) {
-                            distinctValuesCount = input.getOutputRowCount();
-                        }
-                        break;
                     case MAX:
                     case SUM:
                         statisticRange = processDistinctValueCountAndRange(call, context, scalarPropagateSourceStats.distinctValueCount());
@@ -339,7 +347,6 @@ public class ScalarStatsCalculator
                 // min, max can be estimated by distinct value count as well, but user provided hints/values override those.
                 switch (scalarPropagateSourceStats.minValue()) {
                     case SOURCE_STATS:
-                        VariableStatsEstimate sourceStats = call.getArguments().get(entry.getKey()).accept(this, context);
                         min = sourceStats.getLowValue();
                         break;
                     case MAX:
@@ -348,21 +355,9 @@ public class ScalarStatsCalculator
                 }
                 switch (scalarPropagateSourceStats.maxValue()) {
                     case SOURCE_STATS:
-                        VariableStatsEstimate sourceStats = call.getArguments().get(entry.getKey()).accept(this, context);
                         max = sourceStats.getHighValue();
                         break;
-                    case MAX_TYPE_WIDTH:
-                        TypeSignature typeSignature = call.getArguments().get(entry.getKey()).getType().getTypeSignature();
-                        if (typeSignature.getTypeSignatureBase().hasStandardType() && typeSignature.getTypeSignatureBase().getStandardTypeBase().equals(StandardTypes.VARCHAR)) {
-                            double varcharTypeWidth = 0.0;
-                            for (TypeSignatureParameter t : typeSignature.getParameters()) {
-                                Long longLiteral = t.getLongLiteral();
-                                varcharTypeWidth = Math.max(longLiteral, varcharTypeWidth);
-                            }
-                            if (varcharTypeWidth != 0) {
-                                max = varcharTypeWidth;
-                            }
-                        }
+                    case MAX_TYPE_WIDTH: // Handled as part of distinct value count
                         break;
                     case MAX:
                     case SUM:
@@ -371,7 +366,6 @@ public class ScalarStatsCalculator
                 // Average row size
                 switch (scalarPropagateSourceStats.avgRowSize()) {
                     case SOURCE_STATS:
-                        VariableStatsEstimate sourceStats = call.getArguments().get(entry.getKey()).accept(this, context);
                         avgRowSize = sourceStats.getAverageRowSize();
                         break;
                     case MAX:
@@ -381,7 +375,6 @@ public class ScalarStatsCalculator
                 // Null fraction
                 switch (scalarPropagateSourceStats.nullFraction()) {
                     case SOURCE_STATS:
-                        VariableStatsEstimate sourceStats = call.getArguments().get(entry.getKey()).accept(this, context);
                         nullFraction = sourceStats.getNullsFraction();
                         break;
                     case MAX:
@@ -389,7 +382,11 @@ public class ScalarStatsCalculator
                         nullFraction = processNullFraction(call, context, scalarPropagateSourceStats.nullFraction());
                 }
             }
-
+            // If min and max are set via propagate stats
+            if (isFinite(min) && isFinite(max)) {
+                statisticRange = new StatisticRange(min, max, distinctValuesCount);
+            }
+            // Constant values override any values.
             if (isFinite(statsHeader.getNullFraction())) {
                 nullFraction = statsHeader.getNullFraction();
             }
@@ -397,10 +394,15 @@ public class ScalarStatsCalculator
                 avgRowSize = statsHeader.getAvgRowSize();
             }
             if (isFinite(statsHeader.getDistinctValuesCount())) {
-                distinctValuesCount = statsHeader.getDistinctValuesCount();
+                if (statsHeader.getDistinctValuesCount() == -1.0) {
+                    distinctValuesCount = input.getOutputRowCount();
+                }
+                else {
+                    distinctValuesCount = statsHeader.getDistinctValuesCount();
+                }
             }
-            if (isFinite(min) && isFinite(max)) {
-                statisticRange = new StatisticRange(min, max, distinctValuesCount);
+            if (isFinite(statsHeader.getMin()) && isFinite(statsHeader.getMax())) {
+                statisticRange = new StatisticRange(statsHeader.getMin(), statsHeader.getMax(), distinctValuesCount);
             }
             sourceStatsSum = VariableStatsEstimate.builder().setStatisticsRange(statisticRange)
                     .setAverageRowSize(avgRowSize)

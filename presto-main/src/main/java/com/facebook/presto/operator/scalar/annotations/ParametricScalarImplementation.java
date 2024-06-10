@@ -170,7 +170,6 @@ public class ParametricScalarImplementation
                     boundConstructor));
         }
         BuiltInScalarFunctionImplementation value = new BuiltInScalarFunctionImplementation(implementationChoices);
-        System.out.println("post parsing:" + value.getArgumentProperty(0).getArgumentType() + " " + value.getMethodHandle().toString());
         return Optional.of(value);
     }
 

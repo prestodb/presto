@@ -272,6 +272,7 @@ public class TestFeaturesConfig
                 .setLegacyJsonCast(true)
                 .setPrintEstimatedStatsFromCache(false)
                 .setUseHistograms(false)
+                .setEnabledScalarFunctionStatsPropagation(false)
                 .setUseNewNanDefinition(true));
     }
 
@@ -702,6 +703,7 @@ public class TestFeaturesConfig
                 .setLegacyJsonCast(false)
                 .setPrintEstimatedStatsFromCache(true)
                 .setUseHistograms(true)
+                .setEnabledScalarFunctionStatsPropagation(true)
                 .setUseNewNanDefinition(false);
         assertFullMapping(properties, expected);
     }

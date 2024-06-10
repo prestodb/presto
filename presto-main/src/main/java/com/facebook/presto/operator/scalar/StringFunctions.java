@@ -62,7 +62,7 @@ import static java.lang.Character.SURROGATE;
 import static java.lang.Math.toIntExact;
 /**
  * Current implementation is based on code points from Unicode and does ignore grapheme cluster boundaries.
- * Therefore only some methods work correctly with grapheme cluster boundaries.
+ * Therefore, only some methods work correctly with grapheme cluster boundaries.
  */
 public final class StringFunctions
 {
@@ -210,7 +210,10 @@ public final class StringFunctions
     @ScalarFunction("strpos")
     @LiteralParameters({"x", "y"})
     @SqlType(StandardTypes.BIGINT)
-    public static long stringPosition(@SqlType("varchar(x)") Slice string, @SqlType("varchar(y)") Slice substring)
+    @ScalarFunctionConstantStats(avgRowSize = 8, minValue = 0)
+    public static long stringPosition(
+            @ScalarPropagateSourceStats(propagateAllStats = true, distinctValueCount = MAX_TYPE_WIDTH) @SqlType("varchar(x)") Slice string,
+            @SqlType("varchar(y)") Slice substring)
     {
         return stringPositionFromStart(string, substring, 1);
     }
@@ -219,7 +222,11 @@ public final class StringFunctions
     @ScalarFunction("strpos")
     @LiteralParameters({"x", "y"})
     @SqlType(StandardTypes.BIGINT)
-    public static long stringPosition(@SqlType("varchar(x)") Slice string, @SqlType("varchar(y)") Slice substring, @SqlType(StandardTypes.BIGINT) long instance)
+    @ScalarFunctionConstantStats(avgRowSize = 8, minValue = 0)
+    public static long stringPosition(
+            @ScalarPropagateSourceStats(propagateAllStats = true, distinctValueCount = MAX_TYPE_WIDTH) @SqlType("varchar(x)") Slice string,
+            @SqlType("varchar(y)") Slice substring,
+            @SqlType(StandardTypes.BIGINT) long instance)
     {
         return stringPositionFromStart(string, substring, instance);
     }
@@ -228,7 +235,10 @@ public final class StringFunctions
     @ScalarFunction("strrpos")
     @LiteralParameters({"x", "y"})
     @SqlType(StandardTypes.BIGINT)
-    public static long stringReversePosition(@SqlType("varchar(x)") Slice string, @SqlType("varchar(y)") Slice substring)
+    @ScalarFunctionConstantStats(avgRowSize = 8, minValue = 0)
+    public static long stringReversePosition(
+            @ScalarPropagateSourceStats(propagateAllStats = true, distinctValueCount = MAX_TYPE_WIDTH) @SqlType("varchar(x)") Slice string,
+            @SqlType("varchar(y)") Slice substring)
     {
         return stringPositionFromEnd(string, substring, 1);
     }
@@ -237,7 +247,11 @@ public final class StringFunctions
     @ScalarFunction("strrpos")
     @LiteralParameters({"x", "y"})
     @SqlType(StandardTypes.BIGINT)
-    public static long stringReversePosition(@SqlType("varchar(x)") Slice string, @SqlType("varchar(y)") Slice substring, @SqlType(StandardTypes.BIGINT) long instance)
+    @ScalarFunctionConstantStats(avgRowSize = 8, minValue = 0)
+    public static long stringReversePosition(
+            @ScalarPropagateSourceStats(propagateAllStats = true, distinctValueCount = MAX_TYPE_WIDTH) @SqlType("varchar(x)") Slice string,
+            @SqlType("varchar(y)") Slice substring,
+            @SqlType(StandardTypes.BIGINT) long instance)
     {
         return stringPositionFromEnd(string, substring, instance);
     }
@@ -298,7 +312,9 @@ public final class StringFunctions
     @ScalarFunction
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice substr(@ScalarPropagateSourceStats(propagateAllStats = true) @SqlType("varchar(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start)
+    public static Slice substr(
+            @ScalarPropagateSourceStats(propagateAllStats = true) @SqlType("varchar(x)") Slice utf8,
+            @SqlType(StandardTypes.BIGINT) long start)
     {
         if ((start == 0) || utf8.length() == 0) {
             return Slices.EMPTY_SLICE;
@@ -345,7 +361,10 @@ public final class StringFunctions
     @ScalarFunction
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice substr(@ScalarPropagateSourceStats(propagateAllStats = true) @SqlType("varchar(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start, @SqlType(StandardTypes.BIGINT) long length)
+    public static Slice substr(
+            @ScalarPropagateSourceStats(propagateAllStats = true) @SqlType("varchar(x)") Slice utf8,
+            @SqlType(StandardTypes.BIGINT) long start,
+            @SqlType(StandardTypes.BIGINT) long length)
     {
         if (start == 0 || (length <= 0) || (utf8.length() == 0)) {
             return Slices.EMPTY_SLICE;

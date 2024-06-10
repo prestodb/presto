@@ -21,23 +21,32 @@ public class ScalarStatsHeader
     private double distinctValuesCount;
     private double nullFraction;
     private double avgRowSize;
+    private double min;
+    private double max;
 
-    private ScalarStatsHeader(Map<Integer, ScalarPropagateSourceStats> statsResolver, double distinctValuesCount, double nullFraction, double avgRowSize)
+    private ScalarStatsHeader(Map<Integer, ScalarPropagateSourceStats> statsResolver,
+            double distinctValuesCount,
+            double nullFraction,
+            double avgRowSize,
+            double min,
+            double max)
     {
         this.statsResolver = statsResolver;
         this.distinctValuesCount = distinctValuesCount;
         this.nullFraction = nullFraction;
         this.avgRowSize = avgRowSize;
+        this.min = min;
+        this.max = max;
     }
 
     public ScalarStatsHeader(ScalarFunctionConstantStats statsHeader, Map<Integer, ScalarPropagateSourceStats> statsResolver)
     {
-        this(statsResolver, statsHeader.distinctValuesCount(), statsHeader.nullFraction(), statsHeader.avgRowSize());
+        this(statsResolver, statsHeader.distinctValuesCount(), statsHeader.nullFraction(), statsHeader.avgRowSize(), statsHeader.minValue(), statsHeader.maxValue());
     }
 
     public ScalarStatsHeader(Map<Integer, ScalarPropagateSourceStats> statsResolver)
     {
-        this(statsResolver, Double.NaN, Double.NaN, Double.NaN);
+        this(statsResolver, Double.NaN, Double.NaN, Double.NaN, Double.NaN, Double.NaN);
     }
 
     public double getAvgRowSize()
@@ -53,6 +62,16 @@ public class ScalarStatsHeader
     public double getDistinctValuesCount()
     {
         return distinctValuesCount;
+    }
+
+    public double getMin()
+    {
+        return min;
+    }
+
+    public double getMax()
+    {
+        return max;
     }
 
     public Map<Integer, ScalarPropagateSourceStats> getStatsResolver()

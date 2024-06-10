@@ -132,9 +132,7 @@ public class Optimizer
         }
 
         TypeProvider types = TypeProvider.viewOf(variableAllocator.getVariables());
-        StatsAndCosts statsAndCosts = computeStats(root, types);
-        System.out.println("root = " + root + ", stage = " + stage + " statsAndCosts = " + statsAndCosts);
-        return new Plan(root, types, statsAndCosts);
+        return new Plan(root, types, computeStats(root, types));
     }
 
     private boolean trackOptimizerRuntime(Session session, PlanOptimizer optimizer)

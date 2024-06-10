@@ -86,7 +86,6 @@ public class ScalarImplementationHeader
         Optional<ScalarStatsHeader> scalarStatsHeader = Optional.empty();
         ImmutableList.Builder<ScalarImplementationHeader> builder = ImmutableList.builder();
         if (annotated instanceof Method) {
-            System.out.println("Annotated: " + annotated);
             java.lang.reflect.Parameter[] params = ((Method) annotated).getParameters();
             Map<Integer, ScalarPropagateSourceStats> paramsStats = new HashMap<>();
             IntStream.range(0, params.length).filter(x -> params[x].getAnnotation(ScalarPropagateSourceStats.class) != null)

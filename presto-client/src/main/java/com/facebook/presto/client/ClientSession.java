@@ -245,7 +245,7 @@ public class ClientSession
 
     public Duration getClientRequestTimeout()
     {
-        return Duration.valueOf("1h");
+        return clientRequestTimeout;
     }
 
     public boolean isCompressionDisabled()

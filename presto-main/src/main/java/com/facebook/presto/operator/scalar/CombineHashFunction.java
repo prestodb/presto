@@ -15,8 +15,11 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.ScalarFunctionConstantStats;
+import com.facebook.presto.spi.function.ScalarPropagateSourceStats;
 import com.facebook.presto.spi.function.SqlType;
 
+import static com.facebook.presto.spi.function.PropagateSourceStats.SOURCE_STATS;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
 
 public final class CombineHashFunction
@@ -25,7 +28,10 @@ public final class CombineHashFunction
 
     @ScalarFunction(value = "combine_hash", visibility = HIDDEN)
     @SqlType(StandardTypes.BIGINT)
-    public static long getHash(@SqlType(StandardTypes.BIGINT) long previousHashValue, @SqlType(StandardTypes.BIGINT) long value)
+    @ScalarFunctionConstantStats(avgRowSize = 8, distinctValuesCount = -1)
+    public static long getHash(
+            @ScalarPropagateSourceStats(nullFraction = SOURCE_STATS) @SqlType(StandardTypes.BIGINT) long previousHashValue,
+            @SqlType(StandardTypes.BIGINT) long value)
     {
         return (31 * previousHashValue + value);
     }
