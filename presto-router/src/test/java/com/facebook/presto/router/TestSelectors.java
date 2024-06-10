@@ -87,6 +87,7 @@ public class TestSelectors
 
         FileOutputStream fileOutputStream = new FileOutputStream(configFile);
         fileOutputStream.write(configTemplate.getBytes(UTF_8));
+
         fileOutputStream.close();
 
         Bootstrap app = new Bootstrap(ImmutableList.<Module>builder()
@@ -116,31 +117,63 @@ public class TestSelectors
     @Test
     public void testSelectorRules()
     {
-        String[][] headers = {
-                {"user1", "source1", "[tag1]"},
-                {"user2", "source2", "[tag2]"},
-                {"user3", "source3", "[tag3]"},
-        };
+        synchronized (prestoServers) {
+            String[][] headers = {
+                    {"user1", "source1", "[tag1]"},
+                    {"user2", "source2", "[tag2]"},
+                    {"user3", "source3", "[tag3]"},
+            };
 
-        int groupIndex = 0;
-        for (String[] header : headers) {
-            HttpServletRequest request = new MockHttpServletRequest(
-                    ImmutableListMultimap.<String, String>builder()
-                            .put(PRESTO_USER, header[0])
-                            .put(PRESTO_SOURCE, header[1])
-                            .put(PRESTO_CLIENT_TAGS, header[2])
-                            .build(),
-                    "testRemote",
-                    ImmutableMap.of());
-            Optional<URI> destinationWrapper = clusterManager.getDestination(new RequestInfo(request, ""));
-            if (destinationWrapper.isPresent()) {
-                URI destination = destinationWrapper.get();
-                assertEquals(destination.getPort(), prestoServers.get(groupIndex).getBaseUrl().getPort());
+            int groupIndex = 0;
+            for (String[] header : headers) {
+                Optional<URI> destinationWrapper = getDestinationWrapper(header[0], header[1], header[2]);
+                if (destinationWrapper.isPresent()) {
+                    URI destination = destinationWrapper.get();
+                    assertEquals(destination.getPort(), prestoServers.get(groupIndex).getBaseUrl().getPort());
+                }
+                else {
+                    Assert.fail();
+                }
+                groupIndex++;
             }
-            else {
-                Assert.fail();
-            }
-            groupIndex++;
         }
+    }
+
+    @Test
+    public void testMissingSelectorRules()
+    {
+        synchronized (prestoServers) {
+            String[][] headers = {
+                    {"NA", "source4", "[]"},
+                    {"NA", "source5", "[]"},
+                    {"NA", "source6", "[]"},
+            };
+
+            int groupIndex = 3;
+            for (String[] header : headers) {
+                Optional<URI> destinationWrapper = getDestinationWrapper(header[0], header[1], header[2]);
+                if (destinationWrapper.isPresent()) {
+                    URI destination = destinationWrapper.get();
+                    assertEquals(destination.getPort(), prestoServers.get(groupIndex).getBaseUrl().getPort());
+                }
+                else {
+                    Assert.fail();
+                }
+                groupIndex++;
+            }
+        }
+    }
+
+    private Optional<URI> getDestinationWrapper(String user, String source, String clientTags)
+    {
+        HttpServletRequest request = new MockRouterHttpServletRequest(
+                ImmutableListMultimap.<String, String>builder()
+                        .put(PRESTO_USER, user)
+                        .put(PRESTO_SOURCE, source)
+                        .put(PRESTO_CLIENT_TAGS, clientTags)
+                        .build(),
+                "testRemote",
+                ImmutableMap.of());
+        return clusterManager.getDestination(new RequestInfo(request, ""));
     }
 }

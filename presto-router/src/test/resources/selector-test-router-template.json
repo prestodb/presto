@@ -3,15 +3,27 @@
     {
       "name": "group1",
       "members": ${SERVERS}
-  },
+    },
     {
       "name": "group2",
       "members": ${SERVERS}
-  },
+    },
     {
       "name": "group3",
       "members": ${SERVERS}
-  }
+    },
+    {
+      "name": "group4",
+      "members": ${SERVERS}
+    },
+    {
+      "name": "group5",
+      "members": ${SERVERS}
+    },
+    {
+      "name": "group6",
+      "members": ${SERVERS}
+    }
   ],
   "selectors": [
     {

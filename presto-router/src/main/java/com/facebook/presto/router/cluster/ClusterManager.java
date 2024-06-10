@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.router.cluster;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.router.RouterConfig;
+import com.facebook.presto.router.RouterModule;
 import com.facebook.presto.router.scheduler.Scheduler;
 import com.facebook.presto.router.scheduler.SchedulerFactory;
 import com.facebook.presto.router.scheduler.SchedulerType;
@@ -43,11 +45,20 @@ import static java.util.stream.Collectors.toMap;
 
 public class ClusterManager
 {
-    private final Map<String, GroupSpec> groups;
-    private final List<SelectorRuleSpec> groupSelectors;
-    private final SchedulerType schedulerType;
-    private final Scheduler scheduler;
-    private final HashMap<String, HashMap<URI, Integer>> serverWeights = new HashMap<>();
+    private final RouterConfig routerConfig;
+    private Map<String, GroupSpec> groups;
+    private List<SelectorRuleSpec> groupSelectors;
+    private SchedulerType schedulerType;
+    private final ScheduledExecutorService scheduledExecutorService;
+    private Scheduler scheduler;
+    private HashMap<String, HashMap<URI, Integer>> serverWeights = new HashMap<>();
+    private final AtomicLong lastConfigUpdate = new AtomicLong();
+    private final RemoteInfoFactory remoteInfoFactory;
+    private final Logger log = Logger.get(RouterModule.class);
+
+    // Cluster status
+    private final ConcurrentHashMap<URI, RemoteClusterInfo> remoteClusterInfos = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<URI, RemoteQueryInfo> remoteQueryInfos = new ConcurrentHashMap<>();
 
     @Inject
     public ClusterManager(RouterConfig config)
