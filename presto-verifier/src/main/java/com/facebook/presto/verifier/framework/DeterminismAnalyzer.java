@@ -144,7 +144,7 @@ public class DeterminismAnalyzer
                         stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(run::setQueryId));
 
                 // Run checksum query
-                Query checksumQuery = checksumValidator.generateChecksumQuery(queryBundle.getObjectName(), columns);
+                Query checksumQuery = checksumValidator.generateChecksumQuery(queryBundle.getObjectName(), columns, Optional.empty());
                 ChecksumResult testChecksum = getOnlyElement(callAndConsume(
                         () -> prestoAction.execute(checksumQuery, DETERMINISM_ANALYSIS_CHECKSUM, ChecksumResult::fromResultSet),
                         stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(run::setChecksumQueryId)).getResults());
