@@ -16,6 +16,7 @@ package com.facebook.presto.iceberg.procedure;
 import com.facebook.presto.Session;
 import com.facebook.presto.Session.SessionBuilder;
 import com.facebook.presto.common.type.TimeZoneKey;
+import com.facebook.presto.iceberg.IcebergConfig;
 import com.facebook.presto.iceberg.IcebergQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
@@ -41,6 +42,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.SystemSessionProperties.LEGACY_TIMESTAMP;
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
+import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -259,7 +261,8 @@ public class TestExpireSnapshotProcedure
     private File getCatalogDirectory()
     {
         Path dataDirectory = getDistributedQueryRunner().getCoordinator().getDataDirectory();
-        return dataDirectory.toFile();
+        Path catalogDirectory = getIcebergDataDirectoryPath(dataDirectory, HADOOP.name(), new IcebergConfig().getFileFormat(), false);
+        return catalogDirectory.toFile();
     }
 
     private long waitUntilAfter(long snapshotTimeMillis)
