@@ -263,6 +263,8 @@ class TpchBenchmark {
     configurationValues
         [connector::hive::HiveConfig::kMaxCoalescedDistanceBytes] =
             std::to_string(FLAGS_max_coalesced_distance_bytes);
+    configurationValues[connector::hive::HiveConfig::kPrefetchRowGroups] =
+        std::to_string(FLAGS_parquet_prefetch_rowgroups);
     auto properties =
         std::make_shared<const core::MemConfig>(configurationValues);
 
