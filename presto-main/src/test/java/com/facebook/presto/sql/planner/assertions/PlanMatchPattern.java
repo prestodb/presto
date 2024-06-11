@@ -38,6 +38,8 @@ import com.facebook.presto.spi.plan.SortNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.ValuesNode;
+import com.facebook.presto.spi.statistics.SourceInfo;
+import com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -781,6 +783,18 @@ public final class PlanMatchPattern
     public PlanMatchPattern withOutputRowCount(double expectedOutputRowCount)
     {
         matchers.add(new StatsOutputRowCountMatcher(expectedOutputRowCount));
+        return this;
+    }
+
+    public PlanMatchPattern withSourceInfo(SourceInfo sourceInfo)
+    {
+        matchers.add(new StatsSourceInfoMatcher(sourceInfo));
+        return this;
+    }
+
+    public PlanMatchPattern withConfidenceLevel(ConfidenceLevel confidenceLevel)
+    {
+        matchers.add(new StatsConfidenceLevelMatcher(confidenceLevel));
         return this;
     }
 
