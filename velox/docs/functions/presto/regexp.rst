@@ -92,3 +92,10 @@ limited to 20 different expressions per instance and thread of execution.
     backslash (``\$``)::
 
         SELECT regexp_replace('1a 2b 14m', '(\d+)([ab]) ', '3c$2 '); -- '3ca 3cb 14m'
+
+.. function:: regexp_split(string, pattern) -> array(varchar):
+
+    Splits ``string`` using the regular expression ``pattern`` and returns an
+    array. Trailing empty strings are preserved::
+
+        SELECT regexp_split('1a 2b 14m', '\s*[a-z]+\s*'); -- [1, 2, 14, ]

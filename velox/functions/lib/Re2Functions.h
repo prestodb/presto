@@ -358,6 +358,51 @@ struct Re2RegexpReplace {
   std::string result_;
 };
 
+template <typename TExec>
+struct Re2RegexpSplit {
+  VELOX_DEFINE_FUNCTION_TYPES(TExec);
+
+  static constexpr int32_t reuse_strings_from_arg = 0;
+
+  void call(
+      out_type<Array<Varchar>>& out,
+      const arg_type<Varchar>& string,
+      const arg_type<Varchar>& pattern) {
+    auto* re = cache_.findOrCompile(pattern);
+
+    const auto re2String = re2::StringPiece(string.data(), string.size());
+
+    size_t pos = 0;
+    const char* start = string.data();
+
+    re2::StringPiece subMatches[1];
+    while (re->Match(
+        re2String,
+        pos,
+        string.size(),
+        RE2::Anchor::UNANCHORED,
+        subMatches,
+        1)) {
+      const auto fullMatch = subMatches[0];
+      const auto offset = fullMatch.data() - start;
+      const auto size = fullMatch.size();
+
+      out.add_item().setNoCopy(StringView(string.data() + pos, offset - pos));
+
+      pos = offset + size;
+      if (UNLIKELY(size == 0)) {
+        ++pos;
+      }
+    }
+
+    out.add_item().setNoCopy(
+        StringView(string.data() + pos, string.size() - pos));
+  }
+
+ private:
+  detail::ReCache cache_;
+};
+
 } // namespace facebook::velox::functions
 
 template <>

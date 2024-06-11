@@ -65,6 +65,7 @@ int main(int argc, char** argv) {
       "regexp_extract_all",
       "regexp_like",
       "regexp_replace",
+      "regexp_split",
   };
   size_t initialSeed = FLAGS_seed == 0 ? std::time(nullptr) : FLAGS_seed;
   return FuzzerRunner::run(initialSeed, skipFunctions, {{}});
