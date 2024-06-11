@@ -165,6 +165,7 @@ public class TestHiveClientConfig
                 .setMaxConcurrentQuickStatsCalls(100)
                 .setMaxConcurrentParquetQuickStatsCalls(500)
                 .setCteVirtualBucketCount(128)
+                .setSkipEmptyFilesEnabled(false)
                 .setAffinitySchedulingFileSectionSize(new DataSize(256, MEGABYTE)));
     }
 
@@ -414,7 +415,7 @@ public class TestHiveClientConfig
                 .setMaxConcurrentParquetQuickStatsCalls(399)
                 .setMaxConcurrentQuickStatsCalls(101)
                 .setAffinitySchedulingFileSectionSize(new DataSize(512, MEGABYTE))
-                .setSkipEmptyFilesEnabled(true);
+                .setSkipEmptyFilesEnabled(true)
                 .setCteVirtualBucketCount(256)
                 .setAffinitySchedulingFileSectionSize(new DataSize(512, MEGABYTE));
 
