@@ -20,6 +20,7 @@ target_link_libraries(
   velox_core
   velox_exec_test_lib
   cpr::cpr
+  Boost::regex
   velox_type_parser
   Folly::folly
   velox_hive_connector

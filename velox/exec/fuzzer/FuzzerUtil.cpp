@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/exec/fuzzer/FuzzerUtil.h"
+#include <re2/re2.h>
 #include <filesystem>
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
@@ -35,6 +36,13 @@ std::pair<std::string, std::string> extractPartition(
   auto partitionValue = FileUtils::unescapePathName(
       directoryName.substr(directoryName.find(kPartitionDelimiter) + 1));
   return std::pair(partitionColumn, partitionValue);
+}
+
+std::optional<int32_t> getBucketNum(const std::string& fileName) {
+  if (RE2::FullMatch(fileName, "0[0-9]+_0_TaskCursorQuery_[0-9]+")) {
+    return std::optional(stoi(fileName.substr(0, fileName.find("+"))));
+  }
+  return std::nullopt;
 }
 
 void writeToFile(
@@ -77,8 +85,10 @@ void makeSplitsWithSchema(
       makeSplitsWithSchema(directoryName, partitionKeys, splits);
       partitionKeys.erase(partition.first);
     } else {
+      const auto bucketNum =
+          getBucketNum(entry.path().string().substr(directory.size() + 1));
       splits.emplace_back(
-          makeSplit(entry.path().string(), partitionKeys, std::nullopt));
+          makeSplit(entry.path().string(), partitionKeys, bucketNum));
     }
   }
 }

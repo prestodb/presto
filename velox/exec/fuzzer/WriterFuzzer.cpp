@@ -120,12 +120,13 @@ class WriterFuzzer {
       const std::vector<std::string>& partitionKeys,
       const std::string& outputDirectoryPath);
 
-  // Generate table column handles based on table column properties
+  // Generates table column handles based on table column properties
   std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
   getTableColumnHandles(
       const std::vector<std::string>& names,
       const std::vector<TypePtr>& types,
-      int32_t partitionOffset);
+      int32_t partitionOffset,
+      const int32_t bucketCount);
 
   // Executes velox query plan and returns the result.
   RowVectorPtr execute(
@@ -148,6 +149,18 @@ class WriterFuzzer {
   // Returns all the partition name and how many files in each partition.
   std::map<std::string, int32_t> getPartitionNameAndFilecount(
       const std::string& tableDirectoryPath);
+
+  // Generates output data type based on table column properties.
+  RowTypePtr generateOutputType(
+      const std::vector<std::string>& names,
+      const std::vector<TypePtr>& types,
+      const int32_t partitionCount,
+      const int32_t bucketCount);
+
+  // Check the table properties and see if the table is bucketed.
+  bool isBucketed(const int32_t partitionCount, const int32_t bucketCount) {
+    return partitionCount > 0 && bucketCount > 0;
+  }
 
   const std::vector<TypePtr> kRegularColumnTypes_{
       BOOLEAN(),
@@ -390,20 +403,21 @@ void WriterFuzzer::verifyWriter(
 
   // 3. Verifies data itself.
   auto splits = makeSplits(outputDirectoryPath);
-  const auto columnHandles =
-      getTableColumnHandles(names, types, partitionOffset);
+  auto columnHandles =
+      getTableColumnHandles(names, types, partitionOffset, bucketCount);
+  const auto rowType =
+      generateOutputType(names, types, partitionKeys.size(), bucketCount);
+
   auto readPlan = PlanBuilder()
-                      .tableScan(
-                          asRowType(input[0]->type()),
-                          {},
-                          "",
-                          asRowType(input[0]->type()),
-                          columnHandles)
-                      .project(names)
+                      .tableScan(rowType, {}, "", rowType, columnHandles)
                       .planNode();
   auto actual = execute(readPlan, maxDrivers, splits);
-  auto reference_data =
-      referenceQueryRunner_->execute("SELECT * FROM tmp_write");
+  std::string bucketSql = "";
+  if (isBucketed(partitionKeys.size(), bucketCount)) {
+    bucketSql = ", \"$bucket\"";
+  }
+  auto reference_data = referenceQueryRunner_->execute(
+      "SELECT *" + bucketSql + " FROM tmp_write");
   VELOX_CHECK(
       assertEqualResults(reference_data, {actual}),
       "Velox and reference DB results don't match");
@@ -415,7 +429,8 @@ std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
 WriterFuzzer::getTableColumnHandles(
     const std::vector<std::string>& names,
     const std::vector<TypePtr>& types,
-    const int32_t partitionOffset) {
+    const int32_t partitionOffset,
+    const int32_t bucketCount) {
   std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
       columnHandle;
   for (int i = 0; i < names.size(); ++i) {
@@ -429,6 +444,16 @@ WriterFuzzer::getTableColumnHandles(
         {names.at(i),
          std::make_shared<HiveColumnHandle>(
              names.at(i), columnType, types.at(i), types.at(i))});
+  }
+  // If table is bucketed, add synthesized $bucket column.
+  if (isBucketed(names.size() - partitionOffset, bucketCount)) {
+    columnHandle.insert(
+        {"$bucket",
+         std::make_shared<HiveColumnHandle>(
+             "$bucket",
+             HiveColumnHandle::ColumnType::kSynthesized,
+             INTEGER(),
+             INTEGER())});
   }
   return columnHandle;
 }
@@ -551,6 +576,24 @@ std::map<std::string, int32_t> WriterFuzzer::getPartitionNameAndFilecount(
   }
 
   return partitionNameAndFileCount;
+}
+
+RowTypePtr WriterFuzzer::generateOutputType(
+    const std::vector<std::string>& names,
+    const std::vector<TypePtr>& types,
+    const int32_t partitionCount,
+    const int32_t bucketCount) {
+  std::vector<std::string> outputNames{names};
+  std::vector<TypePtr> outputTypes;
+  for (auto type : types) {
+    outputTypes.emplace_back(type);
+  }
+  if (isBucketed(partitionCount, bucketCount)) {
+    outputNames.emplace_back("$bucket");
+    outputTypes.emplace_back(INTEGER());
+  }
+
+  return {ROW(std::move(outputNames), std::move(outputTypes))};
 }
 
 } // namespace
