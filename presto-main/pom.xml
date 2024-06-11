@@ -592,6 +592,7 @@
                 <dependency>
                     <groupId>com.facebook.presto</groupId>
                     <artifactId>presto-ui</artifactId>
+                    <version>${project.version}</version>
                     <scope>runtime</scope>
                 </dependency>
             </dependencies>

@@ -2633,5 +2633,52 @@
                 </plugins>
             </build>
         </profile>
+        <profile>
+            <id>prestoJava19</id>
+            <activation>
+                <jdk>19</jdk>
+            </activation>
+            <dependencyManagement>
+                <dependencies>
+                    <!-- Google Guice -->
+                    <dependency>
+                        <groupId>com.google.inject</groupId>
+                        <artifactId>guice</artifactId>
+                        <version>5.0.1</version>
+                    </dependency>
+                    <!-- ASM version updates -->
+                    <dependency>
+                        <groupId>org.ow2.asm</groupId>
+                        <artifactId>asm-tree</artifactId>
+                        <version>9.3</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.ow2.asm</groupId>
+                        <artifactId>asm-util</artifactId>
+                        <version>9.3</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.ow2.asm</groupId>
+                        <artifactId>asm-analysis</artifactId>
+                        <version>9.3</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.ow2.asm</groupId>
+                        <artifactId>asm</artifactId>
+                        <version>9.3</version>
+                    </dependency>
+                </dependencies>
+            </dependencyManagement>
+
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>com.github.spotbugs</groupId>
+                        <artifactId>spotbugs-maven-plugin</artifactId>
+                        <version>4.8.2.0</version>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
     </profiles>
 </project>
