@@ -16,31 +16,55 @@
 
 #include "velox/dwio/dwrf/writer/FlushPolicy.h"
 
+namespace {
+static constexpr size_t kNumDictioanryTestsPerStripe = 3UL;
+} // namespace
+
 namespace facebook::velox::dwrf {
 
 DefaultFlushPolicy::DefaultFlushPolicy(
     uint64_t stripeSizeThreshold,
     uint64_t dictionarySizeThreshold)
     : stripeSizeThreshold_{stripeSizeThreshold},
-      dictionarySizeThreshold_{dictionarySizeThreshold} {}
+      dictionarySizeThreshold_{dictionarySizeThreshold},
+      dictionaryAssessmentThreshold_{getDictionaryAssessmentIncrement()} {}
+
+uint64_t DefaultFlushPolicy::getDictionaryAssessmentIncrement() const {
+  return stripeSizeThreshold_ / kNumDictioanryTestsPerStripe;
+}
 
 FlushDecision DefaultFlushPolicy::shouldFlushDictionary(
-    bool stripeProgressDecision,
+    bool flushStripe,
     bool overMemoryBudget,
+    const dwio::common::StripeProgress& stripeProgress,
     int64_t dictionaryMemoryUsage) {
+  if (flushStripe) {
+    return FlushDecision::SKIP;
+  }
+
   if (dictionaryMemoryUsage > dictionarySizeThreshold_) {
     return FlushDecision::FLUSH_DICTIONARY;
+  }
+  if (stripeProgress.stripeSizeEstimate >= dictionaryAssessmentThreshold_) {
+    // In the current implementation, since we don't ever change encoding
+    // decision after the first stripe, we don't need to ever reset this
+    // threshold.
+    dictionaryAssessmentThreshold_ +=
+        stripeSizeThreshold_ / kNumDictioanryTestsPerStripe;
+    return FlushDecision::EVALUATE_DICTIONARY;
   }
   return FlushDecision::SKIP;
 }
 
 FlushDecision DefaultFlushPolicy::shouldFlushDictionary(
-    bool stripeProgressDecision,
+    bool flushStripe,
     bool overMemoryBudget,
+    const dwio::common::StripeProgress& stripeProgress,
     const WriterContext& context) {
   return shouldFlushDictionary(
-      stripeProgressDecision,
+      flushStripe,
       overMemoryBudget,
+      stripeProgress,
       context.getMemoryUsage(MemoryUsageCategory::DICTIONARY));
 }
 
@@ -81,5 +105,4 @@ bool RowsPerStripeFlushPolicy::shouldFlush(
 
   return stripeRowCount == rowsPerStripe_.at(stripeIndex);
 }
-
 } // namespace facebook::velox::dwrf

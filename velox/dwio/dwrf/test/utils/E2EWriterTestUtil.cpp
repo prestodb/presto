@@ -57,6 +57,8 @@ namespace facebook::velox::dwrf {
   }
 
   writer->close();
+  LOG(INFO) << "writer root pool usage: "
+            << writer->getContext().testingGetWriterMemoryStats();
   return writer;
 }
 
@@ -117,12 +119,31 @@ namespace facebook::velox::dwrf {
   auto reader = std::make_unique<DwrfReader>(readerOpts, std::move(input));
   EXPECT_GE(numStripesUpper, reader->getNumberOfStripes());
   EXPECT_LE(numStripesLower, reader->getNumberOfStripes());
-  if (!verifyContent) {
-    return;
-  }
 
   auto rowReader = reader->createRowReader(rowReaderOpts);
   auto dwrfRowReader = dynamic_cast<DwrfRowReader*>(rowReader.get());
+
+  size_t dictEncodingCount = 0;
+  size_t totalEncodingCount = 0;
+  for (size_t i = 0; i < reader->getNumberOfStripes(); ++i) {
+    bool preload;
+    auto stripeMetadata = dwrfRowReader->fetchStripe(i, preload);
+    const auto& stripeFooter = *stripeMetadata->footer;
+    totalEncodingCount += stripeFooter.encoding_size();
+    for (const auto& encoding : stripeFooter.encoding()) {
+      if (encoding.kind() == proto::ColumnEncoding_Kind_DICTIONARY) {
+        ++dictEncodingCount;
+      }
+    }
+  }
+  LOG(INFO) << fmt::format(
+      "dict encoding distribution: {}/{}",
+      dictEncodingCount,
+      totalEncodingCount);
+
+  if (!verifyContent) {
+    return;
+  }
 
   auto batchIndex = 0;
   auto rowIndex = 0;

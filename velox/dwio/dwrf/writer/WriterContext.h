@@ -182,6 +182,10 @@ class WriterContext : public CompressionBufferPool {
 
   int64_t getMemoryUsage(const MemoryUsageCategory& category) const;
 
+  std::string testingGetWriterMemoryStats() {
+    return pool_->treeMemoryUsage();
+  }
+
   int64_t getTotalMemoryUsage() const;
 
   int64_t getMemoryBudget() const {

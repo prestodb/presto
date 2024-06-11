@@ -23,6 +23,7 @@
 namespace facebook::velox::dwrf {
 enum class FlushDecision {
   SKIP,
+  EVALUATE_DICTIONARY,
   FLUSH_DICTIONARY,
   ABANDON_DICTIONARY,
 };
@@ -36,10 +37,11 @@ class DWRFFlushPolicy : virtual public dwio::common::FlushPolicy {
 
   /// Checks additional flush criteria based on dictionary encoding.
   /// Different actions can also be taken based on the additional checks.
-  /// e.g. abandon dictionary encodings.
+  /// e.g. abandon or evaluate dictionary encodings.
   virtual FlushDecision shouldFlushDictionary(
-      bool stripeProgressDecision,
+      bool flushStripe,
       bool overMemoryBudget,
+      const dwio::common::StripeProgress& stripeProgress,
       const WriterContext& context) = 0;
 
   /// This method needs to be safe to call *after* WriterBase::close().
@@ -60,20 +62,25 @@ class DefaultFlushPolicy : public DWRFFlushPolicy {
   }
 
   FlushDecision shouldFlushDictionary(
-      bool stripeProgressDecision,
+      bool flushStripe,
       bool overMemoryBudget,
+      const dwio::common::StripeProgress& stripeProgress,
       int64_t dictionaryMemoryUsage);
 
   FlushDecision shouldFlushDictionary(
-      bool stripeProgressDecision,
+      bool flushStripe,
       bool overMemoryBudget,
+      const dwio::common::StripeProgress& stripeProgress,
       const WriterContext& context) override;
 
   void onClose() override {}
 
  private:
+  uint64_t getDictionaryAssessmentIncrement() const;
+
   const uint64_t stripeSizeThreshold_;
   const uint64_t dictionarySizeThreshold_;
+  uint64_t dictionaryAssessmentThreshold_;
 };
 
 class RowsPerStripeFlushPolicy : public DWRFFlushPolicy {
@@ -85,8 +92,9 @@ class RowsPerStripeFlushPolicy : public DWRFFlushPolicy {
   bool shouldFlush(const dwio::common::StripeProgress& stripeProgress) override;
 
   FlushDecision shouldFlushDictionary(
-      bool /* stripeProgressDecision */,
+      bool /* flushStripe */,
       bool /* overMemoryBudget */,
+      const dwio::common::StripeProgress& /* stripeProgress */,
       const WriterContext& /* context */) override {
     return FlushDecision::SKIP;
   }
@@ -110,8 +118,9 @@ class RowThresholdFlushPolicy : public DWRFFlushPolicy {
   }
 
   FlushDecision shouldFlushDictionary(
-      bool /* stripeProgressDecision */,
+      bool /* flushStripe */,
       bool /* overMemoryBudget */,
+      const dwio::common::StripeProgress& /* stripeProgress */,
       const WriterContext& /* context */) override {
     return FlushDecision::SKIP;
   }
@@ -133,8 +142,9 @@ class LambdaFlushPolicy : public DWRFFlushPolicy {
   }
 
   FlushDecision shouldFlushDictionary(
-      bool /* unused */,
-      bool /* unused */,
+      bool /* flushStripe */,
+      bool /* overMemoryBudget */,
+      const dwio::common::StripeProgress& /* stripeProgress */,
       const WriterContext& /* unused */) override {
     return FlushDecision::SKIP;
   }
