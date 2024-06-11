@@ -52,4 +52,8 @@ Here is a full list of supported command line arguments.
 
 * ``--req_timeout_ms`` Timeout in milliseconds of an HTTP request to the PrestoQueryRunner.
 
+* ``--arbitrator_capacity``: Arbitrator capacity in bytes. Default is 6L << 30.
+
+* ``--allocator_capacity``: Allocator capacity in bytes. Default is 8L << 30.
+
 If running from CLion IDE, add ``--logtostderr=1`` to see the full output.

@@ -21,6 +21,7 @@
 #include "velox/common/memory/SharedArbitrator.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/exec/MemoryReclaimer.h"
+#include "velox/exec/fuzzer/FuzzerUtil.h"
 #include "velox/exec/fuzzer/MemoryArbitrationFuzzerRunner.h"
 #include "velox/exec/fuzzer/PrestoQueryRunner.h"
 #include "velox/exec/fuzzer/ReferenceQueryRunner.h"
@@ -37,22 +38,6 @@ DEFINE_int64(
 
 using namespace facebook::velox::exec;
 
-namespace {
-// Invoked to set up memory system with arbitration.
-void setupMemory() {
-  FLAGS_velox_enable_memory_usage_track_in_default_memory_pool = true;
-  FLAGS_velox_memory_leak_check_enabled = true;
-  facebook::velox::memory::SharedArbitrator::registerFactory();
-  facebook::velox::memory::MemoryManagerOptions options;
-  options.allocatorCapacity = FLAGS_allocator_capacity;
-  options.arbitratorCapacity = FLAGS_arbitrator_capacity;
-  options.arbitratorKind = "SHARED";
-  options.checkUsageLeak = true;
-  options.arbitrationStateCheckCb = memoryArbitrationStateCheck;
-  facebook::velox::memory::MemoryManager::initialize(options);
-}
-} // namespace
-
 int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
 
@@ -60,7 +45,7 @@ int main(int argc, char** argv) {
   // singletons, installing proper signal handlers for better debugging
   // experience, and initialize glog and gflags.
   folly::Init init(&argc, &argv);
-  setupMemory();
+  test::setupMemory(FLAGS_allocator_capacity, FLAGS_arbitrator_capacity);
   const size_t initialSeed = FLAGS_seed == 0 ? std::time(nullptr) : FLAGS_seed;
   return test::MemoryArbitrationFuzzerRunner::run(initialSeed);
 }

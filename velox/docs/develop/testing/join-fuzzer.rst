@@ -15,7 +15,7 @@ combined with randomly generated payload. When generating the join plan node,
 fuzzer shuffles join keys and output columns and randomly drops some columns
 from the output.
 
-The fuzzer runs the query plan and compares the results with DuckDB.
+The fuzzer runs the query plan and compares the results with the reference (DuckDB or Presto) as the expected result.
 
 The fuzzer then generates a set of different but logically equivalent plans,
 runs them and verifies that results are the same. Each plan runs twice: with
@@ -64,5 +64,9 @@ Here is a full list of supported command line arguments.
   generate. Default is 5.
 
 * ``--enable_spill``: Whether to test with spilling or not. Default is true.
+
+* ``--arbitrator_capacity``: Arbitrator capacity in bytes. Default is 6L << 30.
+
+* ``--allocator_capacity``: Allocator capacity in bytes. Default is 8L << 30.
 
 If running from CLion IDE, add ``--logtostderr=1`` to see the full output.

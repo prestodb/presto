@@ -16,7 +16,10 @@
 #pragma once
 
 #include <cstddef>
+#include "velox/exec/fuzzer/ReferenceQueryRunner.h"
 
 namespace facebook::velox::exec::test {
-void joinFuzzer(size_t seed);
+void joinFuzzer(
+    size_t seed,
+    std::unique_ptr<ReferenceQueryRunner> referenceQueryRunner);
 }

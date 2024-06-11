@@ -16,6 +16,7 @@
 #include "velox/exec/fuzzer/FuzzerUtil.h"
 #include <re2/re2.h>
 #include <filesystem>
+#include "velox/common/memory/SharedArbitrator.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/dwio/catalog/fbhive/FileUtils.h"
@@ -210,5 +211,18 @@ bool containsUnsupportedTypes(const TypePtr& type) {
   return containsTypeKind(type, TypeKind::TIMESTAMP) ||
       containsTypeKind(type, TypeKind::VARBINARY) ||
       containsType(type, INTERVAL_DAY_TIME());
+}
+
+void setupMemory(int64_t allocatorCapacity, int64_t arbitratorCapacity) {
+  FLAGS_velox_enable_memory_usage_track_in_default_memory_pool = true;
+  FLAGS_velox_memory_leak_check_enabled = true;
+  facebook::velox::memory::SharedArbitrator::registerFactory();
+  facebook::velox::memory::MemoryManagerOptions options;
+  options.allocatorCapacity = allocatorCapacity;
+  options.arbitratorCapacity = arbitratorCapacity;
+  options.arbitratorKind = "SHARED";
+  options.checkUsageLeak = true;
+  options.arbitrationStateCheckCb = memoryArbitrationStateCheck;
+  facebook::velox::memory::MemoryManager::initialize(options);
 }
 } // namespace facebook::velox::exec::test

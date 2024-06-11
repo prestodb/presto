@@ -63,6 +63,12 @@ class PrestoQueryRunner : public velox::exec::test::ReferenceQueryRunner {
       const std::vector<velox::RowVectorPtr>& input,
       const velox::RowTypePtr& resultType) override;
 
+  std::multiset<std::vector<velox::variant>> execute(
+      const std::string& sql,
+      const std::vector<RowVectorPtr>& probeInput,
+      const std::vector<RowVectorPtr>& buildInput,
+      const RowTypePtr& resultType) override;
+
   /// Executes Presto SQL query and returns the results. Tables referenced by
   /// the query must already exist.
   std::vector<velox::RowVectorPtr> execute(const std::string& sql) override;
@@ -72,6 +78,12 @@ class PrestoQueryRunner : public velox::exec::test::ReferenceQueryRunner {
   std::vector<RowVectorPtr> executeVector(
       const std::string& sql,
       const std::vector<RowVectorPtr>& input,
+      const RowTypePtr& resultType) override;
+
+  std::vector<RowVectorPtr> executeVector(
+      const std::string& sql,
+      const std::vector<RowVectorPtr>& probeInput,
+      const std::vector<RowVectorPtr>& buildInput,
       const RowTypePtr& resultType) override;
 
  private:
@@ -99,9 +111,19 @@ class PrestoQueryRunner : public velox::exec::test::ReferenceQueryRunner {
   std::optional<std::string> toSql(
       const std::shared_ptr<const core::TableWriteNode>& tableWriteNode);
 
+  std::optional<std::string> toSql(
+      const std::shared_ptr<const velox::core::HashJoinNode>& joinNode);
+
+  std::optional<std::string> toSql(
+      const std::shared_ptr<const core::NestedLoopJoinNode>& joinNode);
+
   std::string startQuery(const std::string& sql);
 
   std::string fetchNext(const std::string& nextUri);
+
+  // Creates an empty table with given data type and table name. The function
+  // returns the root directory of table files.
+  std::string createTable(const std::string& name, const TypePtr& type);
 
   const std::string coordinatorUri_;
   const std::string user_;

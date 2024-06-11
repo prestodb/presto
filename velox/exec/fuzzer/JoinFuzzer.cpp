@@ -23,6 +23,7 @@
 #include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/exec/OperatorUtils.h"
 #include "velox/exec/fuzzer/FuzzerUtil.h"
+#include "velox/exec/fuzzer/ReferenceQueryRunner.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
@@ -66,7 +67,9 @@ namespace {
 
 class JoinFuzzer {
  public:
-  explicit JoinFuzzer(size_t initialSeed);
+  JoinFuzzer(
+      size_t initialSeed,
+      std::unique_ptr<ReferenceQueryRunner> referenceQueryRunner);
 
   void go();
 
@@ -260,11 +263,10 @@ class JoinFuzzer {
 
   RowVectorPtr execute(const PlanWithSplits& plan, bool injectSpill);
 
-  template <typename TNode>
-  std::optional<MaterializedRowMultiset> computeDuckDbResult(
+  std::optional<MaterializedRowMultiset> computeReferenceResults(
+      const core::PlanNodePtr& plan,
       const std::vector<RowVectorPtr>& probeInput,
-      const std::vector<RowVectorPtr>& buildInput,
-      const core::PlanNodePtr& plan);
+      const std::vector<RowVectorPtr>& buildInput);
 
   // Generates and executes plans using NestedLoopJoin without filters. The
   // result is compared to DuckDB. Returns the result vector of the cross
@@ -298,10 +300,14 @@ class JoinFuzzer {
       exec::MemoryReclaimer::create())};
 
   VectorFuzzer vectorFuzzer_;
+  std::unique_ptr<ReferenceQueryRunner> referenceQueryRunner_;
 };
 
-JoinFuzzer::JoinFuzzer(size_t initialSeed)
-    : vectorFuzzer_{getFuzzerOptions(), pool_.get()} {
+JoinFuzzer::JoinFuzzer(
+    size_t initialSeed,
+    std::unique_ptr<ReferenceQueryRunner> referenceQueryRunner)
+    : vectorFuzzer_{getFuzzerOptions(), pool_.get()},
+      referenceQueryRunner_{std::move(referenceQueryRunner)} {
   filesystems::registerLocalFileSystem();
 
   // Make sure not to run out of open file descriptors.
@@ -610,11 +616,10 @@ core::PlanNodePtr tryFlipJoinSides(const core::NestedLoopJoinNode& joinNode) {
       joinNode.outputType());
 }
 
-template <typename TNode>
-std::optional<MaterializedRowMultiset> JoinFuzzer::computeDuckDbResult(
+std::optional<MaterializedRowMultiset> JoinFuzzer::computeReferenceResults(
+    const core::PlanNodePtr& plan,
     const std::vector<RowVectorPtr>& probeInput,
-    const std::vector<RowVectorPtr>& buildInput,
-    const core::PlanNodePtr& plan) {
+    const std::vector<RowVectorPtr>& buildInput) {
   if (containsUnsupportedTypes(probeInput[0]->type())) {
     return std::nullopt;
   }
@@ -623,111 +628,13 @@ std::optional<MaterializedRowMultiset> JoinFuzzer::computeDuckDbResult(
     return std::nullopt;
   }
 
-  DuckDbQueryRunner queryRunner;
-  queryRunner.createTable("t", probeInput);
-  queryRunner.createTable("u", buildInput);
-
-  auto* joinNode = dynamic_cast<const TNode*>(plan.get());
-  VELOX_CHECK_NOT_NULL(joinNode);
-
-  const auto joinKeysToSql = [](auto keys) {
-    std::stringstream out;
-    for (auto i = 0; i < keys.size(); ++i) {
-      if (i > 0) {
-        out << ", ";
-      }
-      out << keys[i]->name();
-    }
-    return out.str();
-  };
-
-  const auto& outputNames = plan->outputType()->names();
-  std::stringstream sql;
-
-  if constexpr (std::is_same_v<TNode, core::HashJoinNode>) {
-    const auto equiClausesToSql = [](auto joinNode) {
-      std::stringstream out;
-      for (auto i = 0; i < joinNode->leftKeys().size(); ++i) {
-        if (i > 0) {
-          out << " AND ";
-        }
-        out << joinNode->leftKeys()[i]->name() << " = "
-            << joinNode->rightKeys()[i]->name();
-      }
-      return out.str();
-    };
-
-    if (joinNode->isLeftSemiProjectJoin()) {
-      sql << "SELECT "
-          << folly::join(", ", outputNames.begin(), --outputNames.end());
-    } else {
-      sql << "SELECT " << folly::join(", ", outputNames);
-    }
-
-    switch (joinNode->joinType()) {
-      case core::JoinType::kInner:
-        sql << " FROM t INNER JOIN u ON " << equiClausesToSql(joinNode);
-        break;
-      case core::JoinType::kLeft:
-        sql << " FROM t LEFT JOIN u ON " << equiClausesToSql(joinNode);
-        break;
-      case core::JoinType::kFull:
-        sql << " FROM t FULL OUTER JOIN u ON " << equiClausesToSql(joinNode);
-        break;
-      case core::JoinType::kLeftSemiFilter:
-        if (joinNode->leftKeys().size() > 1) {
-          return std::nullopt;
-        }
-        sql << " FROM t WHERE " << joinKeysToSql(joinNode->leftKeys())
-            << " IN (SELECT " << joinKeysToSql(joinNode->rightKeys())
-            << " FROM u)";
-        break;
-      case core::JoinType::kLeftSemiProject:
-        if (joinNode->isNullAware()) {
-          sql << ", " << joinKeysToSql(joinNode->leftKeys()) << " IN (SELECT "
-              << joinKeysToSql(joinNode->rightKeys()) << " FROM u) FROM t";
-        } else {
-          sql << ", EXISTS (SELECT * FROM u WHERE "
-              << equiClausesToSql(joinNode) << ") FROM t";
-        }
-        break;
-      case core::JoinType::kAnti:
-        if (joinNode->isNullAware()) {
-          sql << " FROM t WHERE " << joinKeysToSql(joinNode->leftKeys())
-              << " NOT IN (SELECT " << joinKeysToSql(joinNode->rightKeys())
-              << " FROM u)";
-        } else {
-          sql << " FROM t WHERE NOT EXISTS (SELECT * FROM u WHERE "
-              << equiClausesToSql(joinNode) << ")";
-        }
-        break;
-      default:
-        VELOX_UNREACHABLE(
-            "Unknown join type: {}", static_cast<int>(joinNode->joinType()));
-    }
-  } else {
-    // Nested loop join without filter.
-    VELOX_CHECK(
-        joinNode->joinCondition() == nullptr,
-        "This code path should be called only for nested loop join without filter");
-    const std::string joinCondition{"(1 = 1)"};
-    switch (joinNode->joinType()) {
-      case core::JoinType::kInner:
-        sql << " FROM t INNER JOIN u ON " << joinCondition;
-        break;
-      case core::JoinType::kLeft:
-        sql << " FROM t LEFT JOIN u ON " << joinCondition;
-        break;
-      case core::JoinType::kFull:
-        sql << " FROM t FULL OUTER JOIN u ON " << joinCondition;
-        break;
-      default:
-        VELOX_UNREACHABLE(
-            "Unknown join type: {}", static_cast<int>(joinNode->joinType()));
-    }
+  if (auto sql = referenceQueryRunner_->toSql(plan)) {
+    return referenceQueryRunner_->execute(
+        sql.value(), probeInput, buildInput, plan->outputType());
   }
 
-  return queryRunner.execute(sql.str(), plan->outputType());
+  LOG(INFO) << "Query not supported by the reference DB";
+  return std::nullopt;
 }
 
 std::vector<std::string> fieldNames(
@@ -1021,13 +928,14 @@ RowVectorPtr JoinFuzzer::testCrossProduct(
       /*withFilter*/ false);
   const auto expected = execute(plan, /*injectSpill=*/false);
 
-  // If OOM injection is not enabled verify the results against DuckDB.
+  // If OOM injection is not enabled verify the results against Reference query
+  // runner.
   if (!FLAGS_enable_oom_injection) {
-    if (auto duckDbResult = computeDuckDbResult<core::NestedLoopJoinNode>(
-            probeInput, buildInput, plan.plan)) {
+    if (auto referenceResult =
+            computeReferenceResults(plan.plan, probeInput, buildInput)) {
       VELOX_CHECK(
           assertEqualResults(
-              duckDbResult.value(), plan.plan->outputType(), {expected}),
+              referenceResult.value(), plan.plan->outputType(), {expected}),
           "Velox and DuckDB results don't match");
     }
   }
@@ -1153,14 +1061,17 @@ void JoinFuzzer::verify(core::JoinType joinType) {
 
   const auto expected = execute(defaultPlan, /*injectSpill=*/false);
 
-  // If OOM injection is not enabled verify the results against DuckDB.
+  // If OOM injection is not enabled verify the results against Reference query
+  // runner.
   if (!FLAGS_enable_oom_injection) {
-    if (auto duckDbResult = computeDuckDbResult<core::HashJoinNode>(
-            probeInput, buildInput, defaultPlan.plan)) {
+    if (auto referenceResult =
+            computeReferenceResults(defaultPlan.plan, probeInput, buildInput)) {
       VELOX_CHECK(
           assertEqualResults(
-              duckDbResult.value(), defaultPlan.plan->outputType(), {expected}),
-          "Velox and DuckDB results don't match");
+              referenceResult.value(),
+              defaultPlan.plan->outputType(),
+              {expected}),
+          "Velox and Reference results don't match");
     }
   }
 
@@ -1548,7 +1459,9 @@ void JoinFuzzer::go() {
 
 } // namespace
 
-void joinFuzzer(size_t seed) {
-  JoinFuzzer(seed).go();
+void joinFuzzer(
+    size_t seed,
+    std::unique_ptr<test::ReferenceQueryRunner> referenceQueryRunner) {
+  JoinFuzzer(seed, std::move(referenceQueryRunner)).go();
 }
 } // namespace facebook::velox::exec::test

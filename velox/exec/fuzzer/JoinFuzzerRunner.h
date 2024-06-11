@@ -21,6 +21,7 @@
 #include "velox/common/memory/SharedArbitrator.h"
 #include "velox/exec/MemoryReclaimer.h"
 #include "velox/exec/fuzzer/JoinFuzzer.h"
+#include "velox/exec/fuzzer/ReferenceQueryRunner.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/parse/TypeResolver.h"
 #include "velox/serializers/PrestoSerializer.h"
@@ -57,33 +58,20 @@
 ///         --seed 123 \
 ///         --v=1
 
+namespace facebook::velox::exec::test {
+
 class JoinFuzzerRunner {
  public:
-  static int run(size_t seed) {
-    setupMemory();
-    facebook::velox::serializer::presto::PrestoVectorSerde::
-        registerVectorSerde();
-    facebook::velox::filesystems::registerLocalFileSystem();
-    facebook::velox::functions::prestosql::registerAllScalarFunctions();
-    facebook::velox::parse::registerTypeResolver();
-
-    facebook::velox::exec::test::joinFuzzer(seed);
+  static int run(
+      size_t seed,
+      std::unique_ptr<ReferenceQueryRunner> referenceQueryRunner) {
+    serializer::presto::PrestoVectorSerde::registerVectorSerde();
+    filesystems::registerLocalFileSystem();
+    functions::prestosql::registerAllScalarFunctions();
+    parse::registerTypeResolver();
+    joinFuzzer(seed, std::move(referenceQueryRunner));
     return RUN_ALL_TESTS();
   }
-
- private:
-  // Invoked to set up memory system with arbitration.
-  static void setupMemory() {
-    FLAGS_velox_enable_memory_usage_track_in_default_memory_pool = true;
-    FLAGS_velox_memory_leak_check_enabled = true;
-    facebook::velox::memory::SharedArbitrator::registerFactory();
-    facebook::velox::memory::MemoryManagerOptions options;
-    options.allocatorCapacity = 8L << 30;
-    options.arbitratorCapacity = 6L << 30;
-    options.arbitratorKind = "SHARED";
-    options.checkUsageLeak = true;
-    options.arbitrationStateCheckCb =
-        facebook::velox::exec::memoryArbitrationStateCheck;
-    facebook::velox::memory::MemoryManager::initialize(options);
-  }
 };
+
+} // namespace facebook::velox::exec::test

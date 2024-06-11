@@ -22,6 +22,7 @@
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/exec/MemoryReclaimer.h"
 #include "velox/exec/fuzzer/DuckQueryRunner.h"
+#include "velox/exec/fuzzer/FuzzerUtil.h"
 #include "velox/exec/fuzzer/PrestoQueryRunner.h"
 #include "velox/exec/fuzzer/ReferenceQueryRunner.h"
 #include "velox/exec/fuzzer/RowNumberFuzzerRunner.h"
@@ -45,6 +46,10 @@ DEFINE_uint32(
     "Timeout in milliseconds for HTTP requests made to reference DB, "
     "such as Presto. Example: --req_timeout_ms=2000");
 
+DEFINE_int64(allocator_capacity, 8L << 30, "Allocator capacity in bytes.");
+
+DEFINE_int64(arbitrator_capacity, 6L << 30, "Arbitrator capacity in bytes.");
+
 using namespace facebook::velox::exec;
 
 namespace {
@@ -64,20 +69,6 @@ std::unique_ptr<test::ReferenceQueryRunner> setupReferenceQueryRunner(
       runnerName,
       static_cast<std::chrono::milliseconds>(reqTimeoutMs));
 }
-
-// Invoked to set up memory system with arbitration.
-void setupMemory() {
-  FLAGS_velox_enable_memory_usage_track_in_default_memory_pool = true;
-  FLAGS_velox_memory_leak_check_enabled = true;
-  facebook::velox::memory::SharedArbitrator::registerFactory();
-  facebook::velox::memory::MemoryManagerOptions options;
-  options.allocatorCapacity = 8L << 30;
-  options.arbitratorCapacity = 6L << 30;
-  options.arbitratorKind = "SHARED";
-  options.checkUsageLeak = true;
-  options.arbitrationStateCheckCb = memoryArbitrationStateCheck;
-  facebook::velox::memory::MemoryManager::initialize(options);
-}
 } // namespace
 
 int main(int argc, char** argv) {
@@ -87,7 +78,7 @@ int main(int argc, char** argv) {
   // singletons, installing proper signal handlers for better debugging
   // experience, and initialize glog and gflags.
   folly::Init init(&argc, &argv);
-  setupMemory();
+  test::setupMemory(FLAGS_allocator_capacity, FLAGS_arbitrator_capacity);
   auto referenceQueryRunner = setupReferenceQueryRunner(
       FLAGS_presto_url, "row_number_fuzzer", FLAGS_req_timeout_ms);
   const size_t initialSeed = FLAGS_seed == 0 ? std::time(nullptr) : FLAGS_seed;

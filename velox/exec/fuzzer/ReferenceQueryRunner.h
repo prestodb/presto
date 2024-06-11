@@ -36,6 +36,15 @@ class ReferenceQueryRunner {
       const std::vector<RowVectorPtr>& input,
       const RowTypePtr& resultType) = 0;
 
+  /// Executes SQL query returned by the 'toSql' method using 'probeInput' and
+  /// 'buildInput' data for join node.
+  /// Converts results using 'resultType' schema.
+  virtual std::multiset<std::vector<velox::variant>> execute(
+      const std::string& sql,
+      const std::vector<RowVectorPtr>& probeInput,
+      const std::vector<RowVectorPtr>& buildInput,
+      const RowTypePtr& resultType) = 0;
+
   /// Returns true if 'executeVector' can be called to get results as Velox
   /// Vector.
   virtual bool supportsVeloxVectorResults() const {
@@ -47,6 +56,15 @@ class ReferenceQueryRunner {
   virtual std::vector<RowVectorPtr> executeVector(
       const std::string& sql,
       const std::vector<RowVectorPtr>& input,
+      const RowTypePtr& resultType) {
+    VELOX_UNSUPPORTED();
+  }
+
+  /// Similar to above but for join node with 'probeInput' and 'buildInput'.
+  virtual std::vector<RowVectorPtr> executeVector(
+      const std::string& sql,
+      const std::vector<RowVectorPtr>& probeInput,
+      const std::vector<RowVectorPtr>& buildInput,
       const RowTypePtr& resultType) {
     VELOX_UNSUPPORTED();
   }

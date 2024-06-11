@@ -68,4 +68,7 @@ RowTypePtr concat(const RowTypePtr& a, const RowTypePtr& b);
 ///
 /// TODO Investigate mismatches reported when comparing Varbinary.
 bool containsUnsupportedTypes(const TypePtr& type);
+
+// Invoked to set up memory system with arbitration.
+void setupMemory(int64_t allocatorCapacity, int64_t arbitratorCapacity);
 } // namespace facebook::velox::exec::test
