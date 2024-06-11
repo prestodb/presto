@@ -359,6 +359,9 @@ public class ScalarStatsCalculator
                         break;
                     case MAX_TYPE_WIDTH: // Handled as part of distinct value count
                         break;
+                    case ROW_COUNT:
+                        max = input.getOutputRowCount();
+                        break;
                     case MAX:
                     case SUM:
                         throw new UnsupportedOperationException();

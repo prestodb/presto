@@ -359,7 +359,9 @@ public final class MathFunctions
     @Description("truncate to double by dropping digits after decimal point")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
-    public static double truncate(@SqlType(StandardTypes.DOUBLE) double num, @SqlType(StandardTypes.INTEGER) long decimals)
+    @ScalarFunctionConstantStats(avgRowSize = 8.0)
+    public static double truncate(@ScalarPropagateSourceStats(propagateAllStats = true) @SqlType(StandardTypes.DOUBLE) double num,
+            @SqlType(StandardTypes.INTEGER) long decimals)
     {
         if (Double.isNaN(num) || Double.isInfinite(num)) {
             // compatible with truncate(DOUBLE)
@@ -402,7 +404,7 @@ public final class MathFunctions
     @Description("cosine")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
-    public static double cos(@SqlType(StandardTypes.DOUBLE) double num)
+    public static double cos(@ScalarPropagateSourceStats(propagateAllStats = true) @SqlType(StandardTypes.DOUBLE) double num)
     {
         return Math.cos(num);
     }
@@ -410,7 +412,7 @@ public final class MathFunctions
     @Description("hyperbolic cosine")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
-    public static double cosh(@SqlType(StandardTypes.DOUBLE) double num)
+    public static double cosh(@ScalarPropagateSourceStats(propagateAllStats = true) @SqlType(StandardTypes.DOUBLE) double num)
     {
         return Math.cosh(num);
     }
@@ -418,7 +420,7 @@ public final class MathFunctions
     @Description("converts an angle in radians to degrees")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
-    public static double degrees(@SqlType(StandardTypes.DOUBLE) double radians)
+    public static double degrees(@ScalarPropagateSourceStats(propagateAllStats = true) @SqlType(StandardTypes.DOUBLE) double radians)
     {
         return Math.toDegrees(radians);
     }
@@ -426,6 +428,7 @@ public final class MathFunctions
     @Description("Euler's number")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
+    @ScalarFunctionConstantStats(avgRowSize = 8.0, nullFraction = 0.0, distinctValuesCount = 1.0, minValue = Math.E, maxValue = Math.E)
     public static double e()
     {
         return Math.E;
@@ -629,7 +632,7 @@ public final class MathFunctions
     @Description("the constant Pi")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
-    @ScalarFunctionConstantStats(avgRowSize = 8.0, nullFraction = 0.0, distinctValuesCount = 1.0)
+    @ScalarFunctionConstantStats(avgRowSize = 8.0, nullFraction = 0.0, distinctValuesCount = 1.0, minValue = Math.PI, maxValue = Math.PI)
     public static double pi()
     {
         return Math.PI;
@@ -646,7 +649,7 @@ public final class MathFunctions
     @Description("converts an angle in degrees to radians")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
-    public static double radians(@SqlType(StandardTypes.DOUBLE) double degrees)
+    public static double radians(@ScalarPropagateSourceStats(propagateAllStats = true) @SqlType(StandardTypes.DOUBLE) double degrees)
     {
         return Math.toRadians(degrees);
     }
@@ -1440,7 +1443,7 @@ public final class MathFunctions
     @Description("sine")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
-    public static double sin(@SqlType(StandardTypes.DOUBLE) double num)
+    public static double sin(@ScalarPropagateSourceStats(propagateAllStats = true) @SqlType(StandardTypes.DOUBLE) double num)
     {
         return Math.sin(num);
     }
@@ -1448,7 +1451,7 @@ public final class MathFunctions
     @Description("square root")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
-    public static double sqrt(@SqlType(StandardTypes.DOUBLE) double num)
+    public static double sqrt(@ScalarPropagateSourceStats(propagateAllStats = true) @SqlType(StandardTypes.DOUBLE) double num)
     {
         return Math.sqrt(num);
     }
@@ -1456,7 +1459,7 @@ public final class MathFunctions
     @Description("tangent")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
-    public static double tan(@SqlType(StandardTypes.DOUBLE) double num)
+    public static double tan(@ScalarPropagateSourceStats(propagateAllStats = true) @SqlType(StandardTypes.DOUBLE) double num)
     {
         return Math.tan(num);
     }
@@ -1464,7 +1467,7 @@ public final class MathFunctions
     @Description("hyperbolic tangent")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
-    public static double tanh(@SqlType(StandardTypes.DOUBLE) double num)
+    public static double tanh(@ScalarPropagateSourceStats(propagateAllStats = true) @SqlType(StandardTypes.DOUBLE) double num)
     {
         return Math.tanh(num);
     }

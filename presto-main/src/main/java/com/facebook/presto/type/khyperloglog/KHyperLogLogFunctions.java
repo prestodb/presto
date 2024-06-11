@@ -19,6 +19,8 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.ScalarFunctionConstantStats;
+import com.facebook.presto.spi.function.ScalarPropagateSourceStats;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
@@ -37,7 +39,8 @@ public final class KHyperLogLogFunctions
 
     @ScalarFunction
     @SqlType(StandardTypes.BIGINT)
-    public static long cardinality(@SqlType(KHyperLogLogType.NAME) Slice khll)
+    @ScalarFunctionConstantStats(avgRowSize = 8.0, minValue = 0)
+    public static long cardinality(@ScalarPropagateSourceStats(propagateAllStats = true) @SqlType(KHyperLogLogType.NAME) Slice khll)
     {
         return KHyperLogLog.newInstance(khll).cardinality();
     }

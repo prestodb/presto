@@ -17,8 +17,12 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.ScalarFunctionConstantStats;
+import com.facebook.presto.spi.function.ScalarPropagateSourceStats;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
+
+import static com.facebook.presto.spi.function.PropagateSourceStats.ROW_COUNT;
 
 @ScalarFunction("cardinality")
 @Description("Returns the cardinality (the number of key-value pairs) of the map")
@@ -29,7 +33,8 @@ public final class MapCardinalityFunction
     @TypeParameter("K")
     @TypeParameter("V")
     @SqlType(StandardTypes.BIGINT)
-    public static long mapCardinality(@SqlType("map(K,V)") Block block)
+    @ScalarFunctionConstantStats(avgRowSize = 8.0, nullFraction = 0.0, minValue = 0)
+    public static long mapCardinality(@ScalarPropagateSourceStats(distinctValueCount = ROW_COUNT, maxValue = ROW_COUNT) @SqlType("map(K,V)") Block block)
     {
         return block.getPositionCount() / 2;
     }

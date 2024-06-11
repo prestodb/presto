@@ -19,6 +19,8 @@ import com.facebook.presto.operator.aggregation.noisyaggregation.SfmSketchAggreg
 import com.facebook.presto.operator.aggregation.noisyaggregation.sketch.SfmSketch;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.ScalarFunctionConstantStats;
+import com.facebook.presto.spi.function.ScalarPropagateSourceStats;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.type.SfmSketchType;
@@ -31,7 +33,8 @@ public final class SfmSketchFunctions
     @ScalarFunction
     @Description("estimated cardinality of an SfmSketch object")
     @SqlType(StandardTypes.BIGINT)
-    public static long cardinality(@SqlType(SfmSketchType.NAME) Slice serializedSketch)
+    @ScalarFunctionConstantStats(avgRowSize = 8.0, nullFraction = 0.0, minValue = 0)
+    public static long cardinality(@ScalarPropagateSourceStats(propagateAllStats = true) @SqlType(SfmSketchType.NAME) Slice serializedSketch)
     {
         return SfmSketch.deserialize(serializedSketch).cardinality();
     }

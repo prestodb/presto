@@ -86,16 +86,17 @@ public class ScalarImplementationHeader
         Optional<ScalarStatsHeader> scalarStatsHeader = Optional.empty();
         ImmutableList.Builder<ScalarImplementationHeader> builder = ImmutableList.builder();
         if (annotated instanceof Method) {
-            java.lang.reflect.Parameter[] params = ((Method) annotated).getParameters();
-            Map<Integer, ScalarPropagateSourceStats> paramsStats = new HashMap<>();
-            IntStream.range(0, params.length).filter(x -> params[x].getAnnotation(ScalarPropagateSourceStats.class) != null)
-                    .forEachOrdered(x -> paramsStats.put(x, params[x].getAnnotation(ScalarPropagateSourceStats.class)));
-            scalarStatsHeader = Optional.ofNullable(statsCalculator).map(x -> new ScalarStatsHeader(x, paramsStats));
-            if (!paramsStats.isEmpty() && !scalarStatsHeader.isPresent()) {
-                scalarStatsHeader = Optional.of(new ScalarStatsHeader(paramsStats));
+            scalarStatsHeader = getScalarStatsHeader((Method) annotated, statsCalculator);
+        }
+        if (annotated instanceof Class<?>) {
+            // in case scalar function is a class with multiple methods handling different variants.
+            // For the purpose of POC, just use the first method's annotations
+            // But in reality it will differ since each method can have different args.
+            Method[] methods = ((Class<?>) annotated).getMethods();
+            if (methods.length > 0) {
+                scalarStatsHeader = getScalarStatsHeader(methods[0], statsCalculator);
             }
         }
-
         if (scalarFunction != null) {
             String baseName = scalarFunction.value().isEmpty() ? camelToSnake(annotatedName(annotated)) : scalarFunction.value();
             builder.add(new ScalarImplementationHeader(baseName, new ScalarHeader(description, scalarFunction.visibility(), scalarFunction.deterministic(),
@@ -113,6 +114,23 @@ public class ScalarImplementationHeader
         List<ScalarImplementationHeader> result = builder.build();
         checkArgument(!result.isEmpty());
         return result;
+    }
+
+    private static Optional<ScalarStatsHeader> getScalarStatsHeader(Method annotated, ScalarFunctionConstantStats statsCalculator)
+    {
+        Optional<ScalarStatsHeader> scalarStatsHeader;
+        java.lang.reflect.Parameter[] params = annotated.getParameters();
+        Map<Integer, ScalarPropagateSourceStats> paramsStats = new HashMap<>();
+
+        IntStream.range(0, params.length)
+                .filter(x -> params[x].getAnnotation(ScalarPropagateSourceStats.class) != null)
+                .forEachOrdered(x -> paramsStats.put(x, params[x].getAnnotation(ScalarPropagateSourceStats.class)));
+
+        scalarStatsHeader = Optional.ofNullable(statsCalculator).map(x -> new ScalarStatsHeader(x, paramsStats));
+        if (!paramsStats.isEmpty() && !scalarStatsHeader.isPresent()) {
+            scalarStatsHeader = Optional.of(new ScalarStatsHeader(paramsStats));
+        }
+        return scalarStatsHeader;
     }
 
     public QualifiedObjectName getName()

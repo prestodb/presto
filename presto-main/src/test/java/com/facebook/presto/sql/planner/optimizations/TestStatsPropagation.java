@@ -14,18 +14,12 @@
 
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.testng.annotations.Ignore;
+import org.testng.annotations.Test;
 
 import static com.facebook.presto.SystemSessionProperties.ENABLE_SCALAR_FUNCTION_STATS_PROPAGATION;
-import static com.facebook.presto.spi.plan.JoinType.INNER;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 
 public class TestStatsPropagation
         extends BasePlanTest
@@ -35,12 +29,19 @@ public class TestStatsPropagation
         super(ImmutableMap.of(ENABLE_SCALAR_FUNCTION_STATS_PROPAGATION, "true"));
     }
 
-    @Ignore
-    public void testStatsPropagationRandomFunction()
+    @Test
+    public void testStatsPropagationFunction()
     {
-        assertPlan("SELECT 1 FROM lineitem l, orders o WHERE l.orderkey=o.orderkey and l.discount = (SELECT random() FROM nation n where n.nationkey=1)",
-                anyTree(project(join(INNER, ImmutableList.of(equiJoinClause("orderkey", "discount")),
-                        anyTree(tableScan("orders")), anyTree(anyTree(join(INNER, ImmutableList.of(equiJoinClause("discount", "random")),
-                                anyTree(), anyTree())))))));
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty(ENABLE_SCALAR_FUNCTION_STATS_PROPAGATION, "true")
+                .build();
+        assertPlanHasVariableStats("SELECT 1 FROM lineitem l, orders o WHERE l.orderkey=o.orderkey and l.discount = (SELECT random() FROM nation n where n.nationkey=1)",
+                session);
+        assertPlanHasVariableStats("select * FROM orders o, lineitem as l WHERE o.orderkey = l.orderkey and l.comment LIKE '%u%'",
+                session);
+        assertPlanHasVariableStats("select * FROM orders o, lineitem as l WHERE o.orderkey = l.orderkey and upper(l.comment) LIKE '%US%'",
+                session);
+        assertPlanHasVariableStats("select * FROM orders o, lineitem as l WHERE o.orderkey = l.orderkey and substr(lower(l.comment), 2) LIKE '%us%'",
+                session);
     }
 }

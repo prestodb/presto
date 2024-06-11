@@ -38,6 +38,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.SystemSessionProperties.ENABLE_SCALAR_FUNCTION_STATS_PROPAGATION;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZER_USE_HISTOGRAMS;
 import static com.facebook.presto.spi.plan.JoinDistributionType.REPLICATED;
 import static com.facebook.presto.spi.plan.JoinType.INNER;
@@ -75,7 +76,10 @@ public abstract class AbstractCostBasedPlanTest
     @Test(dataProvider = "getQueriesDataProvider")
     public void test(String queryResourcePath)
     {
-        assertEquals(generateQueryPlan(read(queryResourcePath)), read(getQueryPlanResourcePath(queryResourcePath)));
+        Session s = Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty(ENABLE_SCALAR_FUNCTION_STATS_PROPAGATION, "true")
+                .build();
+        assertEquals(generateQueryPlan(read(queryResourcePath), s), read(getQueryPlanResourcePath(queryResourcePath)));
     }
 
     @Test(dataProvider = "getQueriesDataProvider")

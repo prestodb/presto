@@ -21,6 +21,7 @@ import com.facebook.presto.common.block.TestingBlockJsonSerde;
 import com.facebook.presto.common.type.TestingTypeDeserializer;
 import com.facebook.presto.common.type.TestingTypeManager;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.WarningCollector;
@@ -36,6 +37,7 @@ import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PruneUnreferencedOutputs;
 import com.facebook.presto.sql.planner.optimizations.UnaliasSymbolReferences;
 import com.facebook.presto.testing.LocalQueryRunner;
+import com.facebook.presto.testing.assertions.Assert;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
@@ -189,6 +191,22 @@ public class BasePlanTest
                     stage,
                     WarningCollector.NOOP);
             PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getStatsCalculator(), actualPlan, pattern);
+            return null;
+        });
+    }
+
+    protected void assertPlanHasVariableStats(String sql, Session session)
+    {
+        List<PlanOptimizer> optimizers = queryRunner.getPlanOptimizers(true);
+        queryRunner.inTransaction(session, transactionSession -> {
+            Plan actualPlan = queryRunner.createPlan(
+                    transactionSession,
+                    sql,
+                    optimizers,
+                    Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED,
+                    WarningCollector.NOOP);
+            Assert.assertTrue(actualPlan.getStatsAndCosts().getStats().values().stream().noneMatch(PlanNodeStatsEstimate::isOutputRowCountUnknown));
+            Assert.assertTrue(actualPlan.getStatsAndCosts().getStats().values().stream().noneMatch(x -> x.getVariableStatistics().values().stream().anyMatch(y -> y.isUnknown())));
             return null;
         });
     }

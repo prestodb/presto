@@ -19,6 +19,8 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.ScalarFunctionConstantStats;
+import com.facebook.presto.spi.function.ScalarPropagateSourceStats;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import io.airlift.slice.Slice;
@@ -37,7 +39,8 @@ public final class SetDigestFunctions
 
     @ScalarFunction
     @SqlType(StandardTypes.BIGINT)
-    public static long cardinality(@SqlType(SetDigestType.NAME) Slice digest)
+    @ScalarFunctionConstantStats(avgRowSize = 8.0, nullFraction = 0.0, minValue = 0)
+    public static long cardinality(@ScalarPropagateSourceStats(propagateAllStats = true) @SqlType(SetDigestType.NAME) Slice digest)
     {
         return SetDigest.newInstance(digest).cardinality();
     }
