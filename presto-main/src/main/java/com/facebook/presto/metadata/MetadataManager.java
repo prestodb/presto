@@ -167,6 +167,30 @@ public class MetadataManager
             TransactionManager transactionManager)
     {
         this(
+                functionAndTypeManager,
+                blockEncodingSerde,
+                sessionPropertyManager,
+                schemaPropertyManager,
+                tablePropertyManager,
+                columnPropertyManager,
+                analyzePropertyManager,
+                transactionManager,
+                new ProcedureRegistry(functionAndTypeManager));
+    }
+
+    @VisibleForTesting
+    public MetadataManager(
+            FunctionAndTypeManager functionAndTypeManager,
+            BlockEncodingSerde blockEncodingSerde,
+            SessionPropertyManager sessionPropertyManager,
+            SchemaPropertyManager schemaPropertyManager,
+            TablePropertyManager tablePropertyManager,
+            ColumnPropertyManager columnPropertyManager,
+            AnalyzePropertyManager analyzePropertyManager,
+            TransactionManager transactionManager,
+            IProcedureRegistry procedureRegistry)
+    {
+        this(
                 createTestingViewCodec(functionAndTypeManager),
                 blockEncodingSerde,
                 sessionPropertyManager,
@@ -176,7 +200,7 @@ public class MetadataManager
                 analyzePropertyManager,
                 transactionManager,
                 functionAndTypeManager,
-                new ProcedureRegistry(functionAndTypeManager));
+                procedureRegistry);
     }
 
     @Inject
@@ -238,6 +262,21 @@ public class MetadataManager
                 new ColumnPropertyManager(),
                 new AnalyzePropertyManager(),
                 transactionManager);
+    }
+
+    public static MetadataManager createTestMetadataManager(TransactionManager transactionManager, FeaturesConfig featuresConfig, IProcedureRegistry procedureRegistry)
+    {
+        BlockEncodingManager blockEncodingManager = new BlockEncodingManager();
+        return new MetadataManager(
+                new FunctionAndTypeManager(transactionManager, blockEncodingManager, featuresConfig, new HandleResolver(), ImmutableSet.of()),
+                blockEncodingManager,
+                new SessionPropertyManager(),
+                new SchemaPropertyManager(),
+                new TablePropertyManager(),
+                new ColumnPropertyManager(),
+                new AnalyzePropertyManager(),
+                transactionManager,
+                procedureRegistry);
     }
 
     @Override

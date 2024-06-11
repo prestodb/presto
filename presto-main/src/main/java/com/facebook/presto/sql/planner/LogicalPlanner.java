@@ -19,6 +19,8 @@ import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NewTableLayout;
+import com.facebook.presto.metadata.TableLayout;
+import com.facebook.presto.metadata.TableLayout.TablePartitioning;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
@@ -46,15 +48,18 @@ import com.facebook.presto.sql.analyzer.RelationType;
 import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.StatisticsAggregationPlanner.TableStatisticAggregation;
+import com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.StatisticAggregations;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
+import com.facebook.presto.sql.planner.plan.TableWriterNode.CallDistributedProcedureTarget;
 import com.facebook.presto.sql.planner.plan.TableWriterNode.DeleteHandle;
 import com.facebook.presto.sql.planner.plan.UpdateNode;
 import com.facebook.presto.sql.tree.Analyze;
+import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.Delete;
@@ -68,6 +73,7 @@ import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.Query;
+import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.RefreshMaterializedView;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.Update;
@@ -167,6 +173,9 @@ public class LogicalPlanner
         else if (statement instanceof Analyze) {
             return createAnalyzePlan(analysis, (Analyze) statement);
         }
+        else if (statement instanceof Call) {
+            return createCallDistributedProcedurePlan(analysis, (Call) statement);
+        }
         else if (statement instanceof Insert) {
             checkState(analysis.getInsert().isPresent(), "Insert handle is missing");
             return createInsertPlan(analysis, (Insert) statement);
@@ -205,6 +214,79 @@ public class LogicalPlanner
                 .orElse(TEXT);
         root = new ExplainAnalyzeNode(getSourceLocation(statement), idAllocator.getNextId(), root, outputVariable, statement.isVerbose(), type);
         return new RelationPlan(root, scope, ImmutableList.of(outputVariable));
+    }
+
+    private RelationPlan createCallDistributedProcedurePlan(Analysis analysis, Call statement)
+    {
+        TableHandle targetTable = analysis.getCallTarget()
+                .orElseThrow(() -> new PrestoException(NOT_FOUND, "Target table does not exist"));
+        Optional<QualifiedObjectName> procedureName = analysis.getProcedureName();
+        Optional<Object[]> procedureArguments = analysis.getProcedureArguments();
+
+        QuerySpecification querySpecification = analysis.getTargetQuery()
+                .orElseThrow(() -> new PrestoException(NOT_FOUND, "The query for target table does not exist"));
+        RelationPlan plan = createRelationPlan(analysis, querySpecification, new SqlPlannerContext(0));
+
+        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(session, targetTable).getMetadata();
+        List<String> columnNames = tableMetadata.getColumns().stream()
+                .filter(column -> !column.isHidden())
+                .map(ColumnMetadata::getName)
+                .collect(toImmutableList());
+
+        TableLayout tableLayout = metadata.getLayout(session, targetTable);
+        List<VariableReferenceExpression> outputLayout = plan.getRoot().getOutputVariables();
+
+        Optional<PartitioningScheme> partitioningScheme = Optional.empty();
+        Optional<PartitioningHandle> partitioningHandle = tableLayout.getTablePartitioning().map(TablePartitioning::getPartitioningHandle);
+        if (partitioningHandle.isPresent()) {
+            List<VariableReferenceExpression> partitionFunctionArguments = new ArrayList<>();
+            tableLayout.getTablePartitioning().get().getPartitioningColumns().stream()
+                    .mapToInt(columnNames::indexOf)
+                    .mapToObj(outputLayout::get)
+                    .forEach(partitionFunctionArguments::add);
+            partitioningScheme = Optional.of(new PartitioningScheme(
+                    Partitioning.create(partitioningHandle.get(), partitionFunctionArguments),
+                    outputLayout));
+        }
+
+        verify(columnNames.size() == outputLayout.size(), "columnNames.size() != outputLayout.size(): %s and %s", columnNames, outputLayout);
+        List<VariableReferenceExpression> variables = plan.getFieldMappings();
+        verify(columnNames.size() == variables.size(), "columnNames.size() != variables.size(): %s and %s", columnNames, variables);
+        Map<String, VariableReferenceExpression> columnToVariableMap = zip(columnNames.stream(), plan.getFieldMappings().stream(), SimpleImmutableEntry::new)
+                .collect(toImmutableMap(Entry::getKey, Entry::getValue));
+
+        Set<VariableReferenceExpression> notNullColumnVariables = tableMetadata.getColumns().stream()
+                .filter(column -> !column.isNullable())
+                .map(ColumnMetadata::getName)
+                .map(columnToVariableMap::get)
+                .collect(toImmutableSet());
+
+        CallDistributedProcedureTarget callDistributedProcedureTarget = new CallDistributedProcedureTarget(
+                procedureName.get(),
+                procedureArguments.get(),
+                Optional.of(targetTable),
+                tableMetadata.getTable());
+        TableFinishNode commitNode = new TableFinishNode(
+                Optional.empty(),
+                idAllocator.getNextId(),
+                new CallDistributedProcedureNode(
+                        Optional.empty(),
+                        idAllocator.getNextId(),
+                        Optional.empty(),
+                        plan.getRoot(),
+                        Optional.of(callDistributedProcedureTarget),
+                        variableAllocator.newVariable("rows", BIGINT),
+                        variableAllocator.newVariable("fragment", VARBINARY),
+                        variableAllocator.newVariable("commitcontext", VARBINARY),
+                        plan.getRoot().getOutputVariables(),
+                        columnNames,
+                        notNullColumnVariables,
+                        partitioningScheme),
+                Optional.of(callDistributedProcedureTarget),
+                variableAllocator.newVariable("rows", BIGINT),
+                Optional.empty(),
+                Optional.empty());
+        return new RelationPlan(commitNode, analysis.getScope(statement), commitNode.getOutputVariables());
     }
 
     private RelationPlan createAnalyzePlan(Analysis analysis, Analyze analyzeStatement)
@@ -557,6 +639,12 @@ public class LogicalPlanner
     }
 
     private RelationPlan createRelationPlan(Analysis analysis, Query query, SqlPlannerContext context)
+    {
+        return new RelationPlanner(analysis, variableAllocator, idAllocator, buildLambdaDeclarationToVariableMap(analysis, variableAllocator), metadata, session, sqlParser)
+                .process(query, context);
+    }
+
+    private RelationPlan createRelationPlan(Analysis analysis, QuerySpecification query, SqlPlannerContext context)
     {
         return new RelationPlanner(analysis, variableAllocator, idAllocator, buildLambdaDeclarationToVariableMap(analysis, variableAllocator), metadata, session, sqlParser)
                 .process(query, context);
