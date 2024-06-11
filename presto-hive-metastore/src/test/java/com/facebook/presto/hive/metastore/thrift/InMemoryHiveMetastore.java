@@ -36,7 +36,6 @@ import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.Partition;
@@ -184,7 +183,7 @@ public class InMemoryHiveMetastore
             checkArgument(table.getSd().getLocation() == null, "Storage location for view must be null");
         }
         else {
-            File directory = new File(new Path(table.getSd().getLocation()).toUri());
+            File directory = new File(URI.create(table.getSd().getLocation()));
             checkArgument(directory.exists(), "Table directory does not exist: %s", directory);
             if (tableType == MANAGED_TABLE) {
                 checkArgument(isAncestor(directory, baseDirectory), format("Table directory %s must be inside of the metastore base directory %s", directory, baseDirectory));
@@ -227,7 +226,7 @@ public class InMemoryHiveMetastore
         if (deleteData && table.getTableType().equals(MANAGED_TABLE.name())) {
             for (String location : locations) {
                 if (location != null) {
-                    File directory = new File(new Path(location).toUri());
+                    File directory = new File(URI.create(location));
                     checkArgument(isAncestor(directory, baseDirectory), format("Table directory %s must be inside of the metastore base directory %s", directory, baseDirectory));
                     deleteDirectory(directory);
                 }
