@@ -163,6 +163,8 @@ namespace {
 
 constexpr int kTmYearBase = 1900;
 constexpr int64_t kLeapYearOffset = 4000000000ll;
+constexpr int64_t kSecondsPerHour = 3600;
+constexpr int64_t kSecondsPerDay = 24 * kSecondsPerHour;
 
 inline bool isLeap(int64_t y) {
   return y % 4 == 0 && (y % 100 != 0 || y % 400 == 0);
@@ -175,9 +177,13 @@ inline int64_t leapThroughEndOf(int64_t y) {
   return y / 4 - y / 100 + y / 400;
 }
 
-const int monthLengths[][12] = {
-    {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31},
-    {31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31},
+inline int64_t daysBetweenYears(int64_t y1, int64_t y2) {
+  return 365 * (y2 - y1) + leapThroughEndOf(y2 - 1) - leapThroughEndOf(y1 - 1);
+}
+
+const int16_t daysBeforeFirstDayOfMonth[][12] = {
+    {0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334},
+    {0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335},
 };
 
 // clang-format off
@@ -196,11 +202,10 @@ void appendSmallInt(int n, std::string& out) {
   VELOX_DCHECK_LE(n, 61);
   out.append(intToStr[n], 2);
 }
+
 } // namespace
 
-bool Timestamp::epochToUtc(int64_t epoch, std::tm& tm) {
-  constexpr int kSecondsPerHour = 3600;
-  constexpr int kSecondsPerDay = 24 * kSecondsPerHour;
+bool Timestamp::epochToCalendarUtc(int64_t epoch, std::tm& tm) {
   constexpr int kDaysPerYear = 365;
   int64_t days = epoch / kSecondsPerDay;
   int64_t rem = epoch % kSecondsPerDay;
@@ -223,8 +228,7 @@ bool Timestamp::epochToUtc(int64_t epoch, std::tm& tm) {
   bool leapYear;
   while (days < 0 || days >= kDaysPerYear + (leapYear = isLeap(y))) {
     auto newy = y + days / kDaysPerYear - (days < 0);
-    days -= (newy - y) * kDaysPerYear + leapThroughEndOf(newy - 1) -
-        leapThroughEndOf(y - 1);
+    days -= daysBetweenYears(y, newy);
     y = newy;
   }
   y -= kTmYearBase;
@@ -234,13 +238,34 @@ bool Timestamp::epochToUtc(int64_t epoch, std::tm& tm) {
   }
   tm.tm_year = y;
   tm.tm_yday = days;
-  auto* ip = monthLengths[leapYear];
-  for (tm.tm_mon = 0; days >= ip[tm.tm_mon]; ++tm.tm_mon) {
-    days = days - ip[tm.tm_mon];
-  }
-  tm.tm_mday = days + 1;
+  auto* months = daysBeforeFirstDayOfMonth[leapYear];
+  tm.tm_mon = std::upper_bound(months, months + 12, days) - months - 1;
+  tm.tm_mday = days - months[tm.tm_mon] + 1;
   tm.tm_isdst = 0;
   return true;
+}
+
+// static
+int64_t Timestamp::calendarUtcToEpoch(const std::tm& tm) {
+  static_assert(sizeof(decltype(tm.tm_year)) == 4);
+  // tm_year stores number of years since 1900.
+  int64_t year = tm.tm_year + 1900LL;
+  int64_t month = tm.tm_mon;
+  if (FOLLY_UNLIKELY(month > 11)) {
+    year += month / 12;
+    month %= 12;
+  } else if (FOLLY_UNLIKELY(month < 0)) {
+    auto yearsDiff = (-month + 11) / 12;
+    year -= yearsDiff;
+    month += 12 * yearsDiff;
+  }
+  // Getting number of days since beginning of the year.
+  auto dayOfYear =
+      -1ll + daysBeforeFirstDayOfMonth[isLeap(year)][month] + tm.tm_mday;
+  // Number of days since 1970-01-01.
+  auto daysSinceEpoch = daysBetweenYears(1970, year) + dayOfYear;
+  return kSecondsPerDay * daysSinceEpoch + kSecondsPerHour * tm.tm_hour +
+      60ll * tm.tm_min + tm.tm_sec;
 }
 
 StringView Timestamp::tmToStringView(
@@ -370,7 +395,7 @@ StringView Timestamp::tsToStringView(
     char* const startPosition) {
   std::tm tmValue;
   VELOX_USER_CHECK(
-      epochToUtc(ts.getSeconds(), tmValue),
+      epochToCalendarUtc(ts.getSeconds(), tmValue),
       "Can't convert seconds to time: {}",
       ts.getSeconds());
   const uint64_t nanos = ts.getNanos();

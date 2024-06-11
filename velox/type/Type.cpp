@@ -990,7 +990,7 @@ std::string DateType::toIso8601(int32_t days) {
   int64_t daySeconds = days * (int64_t)(86400);
   std::tm tmValue;
   VELOX_CHECK(
-      Timestamp::epochToUtc(daySeconds, tmValue),
+      Timestamp::epochToCalendarUtc(daySeconds, tmValue),
       "Can't convert days to dates: {}",
       days);
   TimestampToStringOptions options;

@@ -52,7 +52,7 @@ std::tm getDateTime(Timestamp timestamp, const date::time_zone* timeZone) {
   int64_t seconds = getSeconds(timestamp, timeZone);
   std::tm dateTime;
   VELOX_USER_CHECK(
-      Timestamp::epochToUtc(seconds, dateTime),
+      Timestamp::epochToCalendarUtc(seconds, dateTime),
       "Timestamp is too large: {} seconds since epoch",
       seconds);
   return dateTime;
@@ -64,7 +64,7 @@ std::tm getDateTime(int32_t days) {
   int64_t seconds = days * kSecondsInDay;
   std::tm dateTime;
   VELOX_USER_CHECK(
-      Timestamp::epochToUtc(seconds, dateTime),
+      Timestamp::epochToCalendarUtc(seconds, dateTime),
       "Date is too large: {} days",
       days);
   return dateTime;

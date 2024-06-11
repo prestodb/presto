@@ -282,7 +282,13 @@ struct Timestamp {
   /// concurrency (71% of time is on __tz_convert for some queries).
   ///
   /// Return whether the epoch second can be converted to a valid std::tm.
-  static bool epochToUtc(int64_t seconds, std::tm& out);
+  static bool epochToCalendarUtc(int64_t seconds, std::tm& out);
+
+  /// Our own version of timegm to avoid expensive calls to __tz_convert.
+  ///
+  /// This function is guaranteed to give same result as std::timegm when it is
+  /// successful.
+  static int64_t calendarUtcToEpoch(const std::tm& tm);
 
   /// Converts a std::tm to a time/date/timestamp string in ISO 8601 format
   /// according to TimestampToStringOptions.
@@ -390,7 +396,7 @@ struct Timestamp {
   std::string toString(const TimestampToStringOptions& options = {}) const {
     std::tm tm;
     VELOX_USER_CHECK(
-        epochToUtc(seconds_, tm),
+        epochToCalendarUtc(seconds_, tm),
         "Can't convert seconds to time: {}",
         seconds_);
     std::string result;

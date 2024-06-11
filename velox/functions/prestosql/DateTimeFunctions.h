@@ -931,7 +931,7 @@ struct DateTruncFunction : public TimestampWithTimezoneSupport<T> {
       default:
         auto dateTime = getDateTime(timestamp, timeZone_);
         adjustDateTime(dateTime, unit);
-        result = Timestamp(timegm(&dateTime), 0);
+        result = Timestamp(Timestamp::calendarUtcToEpoch(dateTime), 0);
     }
 
     if (timeZone_ != nullptr) {
@@ -955,7 +955,7 @@ struct DateTruncFunction : public TimestampWithTimezoneSupport<T> {
     auto dateTime = getDateTime(date);
     adjustDateTime(dateTime, unit);
 
-    result = timegm(&dateTime) / kSecondsInDay;
+    result = Timestamp::calendarUtcToEpoch(dateTime) / kSecondsInDay;
   }
 
   FOLLY_ALWAYS_INLINE void call(
@@ -980,7 +980,8 @@ struct DateTruncFunction : public TimestampWithTimezoneSupport<T> {
     auto timestamp = this->toTimestamp(timestampWithTimezone);
     auto dateTime = getDateTime(timestamp, nullptr);
     adjustDateTime(dateTime, unit);
-    timestamp = Timestamp::fromMillis(timegm(&dateTime) * 1000);
+    timestamp =
+        Timestamp::fromMillis(Timestamp::calendarUtcToEpoch(dateTime) * 1000);
     timestamp.toGMT(unpackZoneKeyId(timestampWithTimezone));
 
     result = pack(timestamp.toMillis(), unpackZoneKeyId(timestampWithTimezone));

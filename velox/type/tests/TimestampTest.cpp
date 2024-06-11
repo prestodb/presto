@@ -28,7 +28,7 @@ std::string timestampToString(
     Timestamp ts,
     const TimestampToStringOptions& options) {
   std::tm tm;
-  Timestamp::epochToUtc(ts.getSeconds(), tm);
+  Timestamp::epochToCalendarUtc(ts.getSeconds(), tm);
   std::string result;
   result.resize(getMaxStringLength(options));
   const auto view = Timestamp::tsToStringView(ts, options, result.data());
@@ -234,6 +234,17 @@ TEST(TimestampTest, toStringPrestoCastBehavior) {
 }
 
 namespace {
+
+uint64_t randomSeed() {
+  if (const char* env = getenv("VELOX_TEST_USE_RANDOM_SEED")) {
+    auto seed = std::random_device{}();
+    LOG(INFO) << "Random seed: " << seed;
+    return seed;
+  } else {
+    return 42;
+  }
+}
+
 std::string toStringAlt(
     const Timestamp& t,
     TimestampToStringOptions::Precision precision) {
@@ -249,12 +260,31 @@ std::string toStringAlt(
   oss << '.' << std::setfill('0') << std::setw(width) << value;
   return oss.str();
 }
+
+bool checkUtcToEpoch(int year, int mon, int mday, int hour, int min, int sec) {
+  SCOPED_TRACE(fmt::format(
+      "{}-{:02}-{:02} {:02}:{:02}:{:02}", year, mon, mday, hour, min, sec));
+  std::tm tm{};
+  tm.tm_sec = sec;
+  tm.tm_min = min;
+  tm.tm_hour = hour;
+  tm.tm_mday = mday;
+  tm.tm_mon = mon;
+  tm.tm_year = year;
+  errno = 0;
+  auto expected = timegm(&tm);
+  bool error = expected == -1 && errno != 0;
+  auto actual = Timestamp::calendarUtcToEpoch(tm);
+  if (!error) {
+    EXPECT_EQ(actual, expected);
+  }
+  return !error;
+}
+
 } // namespace
 
 TEST(TimestampTest, compareWithToStringAlt) {
-  uint64_t seed = 42;
-  // seed = std::random_device{}();
-  std::default_random_engine gen(seed);
+  std::default_random_engine gen(randomSeed());
   std::uniform_int_distribution<int64_t> distSec(
       Timestamp::kMinSeconds, Timestamp::kMaxSeconds);
   std::uniform_int_distribution<uint64_t> distNano(0, Timestamp::kMaxNanos);
@@ -268,6 +298,38 @@ TEST(TimestampTest, compareWithToStringAlt) {
       ASSERT_EQ(t.toString(options), toStringAlt(t, precision))
           << t.getSeconds() << ' ' << t.getNanos();
     }
+  }
+}
+
+TEST(TimestampTest, utcToEpoch) {
+  ASSERT_TRUE(checkUtcToEpoch(1970, 1, 1, 0, 0, 0));
+  ASSERT_TRUE(checkUtcToEpoch(2001, 11, 12, 18, 31, 1));
+  ASSERT_TRUE(checkUtcToEpoch(1969, 12, 31, 23, 59, 59));
+  ASSERT_TRUE(checkUtcToEpoch(1969, 12, 31, 23, 59, 58));
+  ASSERT_TRUE(checkUtcToEpoch(INT32_MAX, 11, 30, 23, 59, 59));
+  ASSERT_TRUE(checkUtcToEpoch(INT32_MIN, 1, 1, 0, 0, 0));
+  ASSERT_TRUE(checkUtcToEpoch(
+      INT32_MAX - INT32_MAX / 11,
+      INT32_MAX,
+      INT32_MAX,
+      INT32_MAX,
+      INT32_MAX,
+      INT32_MAX));
+  ASSERT_TRUE(checkUtcToEpoch(
+      INT32_MIN - INT32_MIN / 11,
+      INT32_MIN,
+      INT32_MIN,
+      INT32_MIN,
+      INT32_MIN,
+      INT32_MIN));
+}
+
+TEST(TimestampTest, utcToEpochRandomInputs) {
+  std::default_random_engine gen(randomSeed());
+  std::uniform_int_distribution<int32_t> dist(INT32_MIN, INT32_MAX);
+  for (int i = 0; i < 10'000; ++i) {
+    checkUtcToEpoch(
+        dist(gen), dist(gen), dist(gen), dist(gen), dist(gen), dist(gen));
   }
 }
 
@@ -377,8 +439,8 @@ std::string tmToString(
 
 TEST(TimestampTest, epochToUtc) {
   std::tm tm{};
-  ASSERT_FALSE(Timestamp::epochToUtc(-(1ll << 60), tm));
-  ASSERT_FALSE(Timestamp::epochToUtc(1ll << 60, tm));
+  ASSERT_FALSE(Timestamp::epochToCalendarUtc(-(1ll << 60), tm));
+  ASSERT_FALSE(Timestamp::epochToCalendarUtc(1ll << 60, tm));
 }
 
 TEST(TimestampTest, randomEpochToUtc) {
@@ -392,10 +454,10 @@ TEST(TimestampTest, randomEpochToUtc) {
     auto epoch = dist(gen);
     SCOPED_TRACE(fmt::format("epoch={}", epoch));
     if (gmtime_r(&epoch, &expected)) {
-      ASSERT_TRUE(Timestamp::epochToUtc(epoch, actual));
+      ASSERT_TRUE(Timestamp::epochToCalendarUtc(epoch, actual));
       checkTm(actual, expected);
     } else {
-      ASSERT_FALSE(Timestamp::epochToUtc(epoch, actual));
+      ASSERT_FALSE(Timestamp::epochToCalendarUtc(epoch, actual));
     }
   }
 }
@@ -432,7 +494,7 @@ void testTmToString(
           mode,
           precision));
       if (gmtime_r(&epoch, &expected)) {
-        ASSERT_TRUE(Timestamp::epochToUtc(epoch, actual));
+        ASSERT_TRUE(Timestamp::epochToCalendarUtc(epoch, actual));
         checkTm(actual, expected);
 
         std::string actualString;
@@ -443,7 +505,7 @@ void testTmToString(
         auto expectedString = tmToString(expected, nanos, format, options);
         ASSERT_EQ(expectedString, actualString);
       } else {
-        ASSERT_FALSE(Timestamp::epochToUtc(epoch, actual));
+        ASSERT_FALSE(Timestamp::epochToCalendarUtc(epoch, actual));
       }
     }
   }
