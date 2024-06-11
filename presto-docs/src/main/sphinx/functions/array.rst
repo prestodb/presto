@@ -58,6 +58,10 @@ Array Functions
 .. function:: array_duplicates(array(T)) -> array(bigint/varchar)
 
     Returns a set of elements that occur more than once in ``array``.
+    Throws an exception if any of the elements are rows or arrays that contain nulls. ::
+
+        SELECT array_duplicates(ARRAY[1, 2, null, 1, null, 3]) -- ARRAY[1, null]
+        SELECT array_duplicates(ARRAY[ROW(1, null), ROW(1, null)]) -- "map key cannot be null or contain nulls"
 
 .. function:: array_except(x, y) -> array
 
@@ -99,16 +103,22 @@ Array Functions
 
 .. function:: array_least_frequent(array(T)) -> array(T)
 
-    Returns the least frequent element of an array. If there are multiple elements with same frequency, the function returns the smallest element. ::
+    Returns the least frequent non-null element of an array. If there are multiple elements with the same frequency, the function returns the smallest element.
+    If the array has more than one element and any elements are ``ROWS`` with null fields or ``ARRAYS`` with null elements, an exception is returned. ::
 
         SELECT array_least_frequent(ARRAY[1, 0 , 5])  -- ARRAY[0]
+        select array_least_frequent(ARRAY[1, null, 1]) -- ARRAY[1]
+        select array_least_frequent(ARRAY[ROW(1,null), ROW(1, null)]) -- "map key cannot be null or contain nulls"
 
 .. function:: array_least_frequent(array(T), n) -> array(T)
 
-    Returns ``n`` least frequent elements of an array. The elements are ordered in increasing order of their frequencies.
-    If two elements have same frequency, smaller elements will appear first. ::
+    Returns ``n`` least frequent non-null elements of an array. The elements are ordered in increasing order of their frequencies.
+    If two elements have the same frequency, smaller elements will appear first.
+    If the array has more than one element and any elements are ``ROWS`` with null fields or ``ARRAYS`` with null elements, an exception is returned. ::
 
         SELECT array_least_frequent(ARRAY[3, 2, 2, 6, 6, 1, 1], 3) -- ARRAY[3, 1, 2]
+        select array_least_frequent(ARRAY[1, null, 1], 2) -- ARRAY[1]
+        select array_least_frequent(ARRAY[ROW(1,null), ROW(1, null)], 2) -- "map key cannot be null or contain nulls"
 
 .. function:: array_max(x) -> x
 
@@ -156,7 +166,7 @@ Array Functions
 .. function:: array_sort(x) -> array
 
     Sorts and returns the array ``x``. The elements of ``x`` must be orderable.
-    Null elements will be placed at the end of the returned array.
+    Null elements are placed at the end of the returned array.
 
 .. function:: array_sort(array(T), function(T,T,int)) -> array(T)
 
@@ -191,7 +201,7 @@ Array Functions
 .. function:: array_sort_desc(x) -> array
 
     Returns the ``array`` sorted in the descending order. Elements of the ``array`` must be orderable.
-    Null elements will be placed at the end of the returned array.::
+    Null elements are placed at the end of the returned array. ::
 
         SELECT array_sort_desc(ARRAY [100, 1, 10, 50]); -- [100, 50, 10, 1]
         SELECT array_sort_desc(ARRAY [null, 100, null, 1, 10, 50]); -- [100, 50, 10, 1, null, null]
@@ -218,6 +228,12 @@ Array Functions
 
     Tests if arrays ``x`` and ``y`` have any non-null elements in common.
     Returns null if there are no non-null elements in common but either array contains null.
+    Throws a ``NOT_SUPPORTED`` exception on elements of ``ROW`` or ``ARRAY`` type that contain null values. ::
+
+        SELECT arrays_overlap(ARRAY [1, 2, null], ARRAY [2, 3, null]) -- true
+        SELECT arrays_overlap(ARRAY [1, 2], ARRAY [3, 4]) -- false
+        SELECT arrays_overlap(ARRAY [1, null], ARRAY[2]) -- null
+        SELECT arrays_overlap(ARRAY[ROW(1, null)], ARRAY[1, 2]) -- "ROW comparison not supported for fields with null elements"
 
 .. function:: array_union(x, y) -> array
 
