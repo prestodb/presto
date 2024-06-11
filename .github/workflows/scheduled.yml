@@ -364,7 +364,7 @@ jobs:
 
       - name: Run Presto Fuzzer
         run: |
-          mkdir -p /tmp/fuzzer_repro/
+          mkdir -p /tmp/fuzzer_repro/logs/
           chmod -R 777 /tmp/fuzzer_repro
           chmod +x velox_expression_fuzzer_test
           ./velox_expression_fuzzer_test \
@@ -378,8 +378,9 @@ jobs:
                 --retry_with_try \
                 --enable_dereference \
                 --duration_sec $DURATION \
-                --logtostderr=1 \
-                --minloglevel=1 \
+                --minloglevel=0 \
+                --stderrthreshold=2 \
+                --log_dir=/tmp/fuzzer_repro/logs \
                 --repro_persist_path=/tmp/fuzzer_repro \
           && echo -e "\n\nFuzzer run finished successfully."
 
@@ -414,8 +415,8 @@ jobs:
       - name: Run Presto Expression Fuzzer
         run: |
           ls /tmp/signatures
-          mkdir -p /tmp/presto_fuzzer_repro/
-            chmod -R 777 /tmp/presto_fuzzer_repro
+          mkdir -p /tmp/presto_bias_fuzzer_repro/logs/
+            chmod -R 777 /tmp/presto_bias_fuzzer_repro
             chmod +x velox_expression_fuzzer_test
             ./velox_expression_fuzzer_test \
                 --seed ${RANDOM} \
@@ -429,9 +430,10 @@ jobs:
                 --max_expression_trees_per_step 2 \
                 --retry_with_try \
                 --enable_dereference \
-                --logtostderr=1 \
-                --minloglevel=1 \
-                --repro_persist_path=/tmp/presto_fuzzer_repro \
+                --minloglevel=0 \
+                --stderrthreshold=2 \
+                --log_dir=/tmp/presto_bias_fuzzer_repro/logs \
+                --repro_persist_path=/tmp/presto_bias_fuzzer_repro \
             && echo -e "\n\nPresto Fuzzer run finished successfully."
 
       - name: Archive Spark expression production artifacts
@@ -457,14 +459,15 @@ jobs:
 
       - name: Run Spark Aggregate Fuzzer
         run: |
-          mkdir -p /tmp/spark_aggregate_fuzzer_repro/
+          mkdir -p /tmp/spark_aggregate_fuzzer_repro/logs/
           chmod -R 777 /tmp/spark_aggregate_fuzzer_repro
           chmod +x spark_aggregation_fuzzer_test
           ./spark_aggregation_fuzzer_test \
                 --seed ${RANDOM} \
                 --duration_sec $DURATION \
-                --logtostderr=1 \
-                --minloglevel=1 \
+                --minloglevel=0 \
+                --stderrthreshold=2 \
+                --log_dir=/tmp/spark_aggregate_fuzzer_repro/logs \
                 --repro_persist_path=/tmp/spark_aggregate_fuzzer_repro \
           && echo -e "\n\nSpark Aggregation Fuzzer run finished successfully."
 
@@ -499,16 +502,17 @@ jobs:
       - name: Run Spark Expression Fuzzer
         run: |
           ls /tmp/signatures
-          mkdir -p /tmp/spark_fuzzer_repro/
-            chmod -R 777 /tmp/spark_fuzzer_repro
+          mkdir -p /tmp/spark_bias_fuzzer_repro/logs/
+            chmod -R 777 /tmp/spark_bias_fuzzer_repro
             chmod +x spark_expression_fuzzer_test
             ./spark_expression_fuzzer_test \
                 --seed ${RANDOM} \
                 --duration_sec $DURATION \
-                --logtostderr=1 \
-                --minloglevel=1 \
+                --minloglevel=0 \
+                --stderrthreshold=2 \
+                --log_dir=/tmp/spark_bias_fuzzer_repro/logs \
                 --assign_function_tickets  $(cat /tmp/signatures/spark_bias_functions) \
-                --repro_persist_path=/tmp/spark_fuzzer_repro \
+                --repro_persist_path=/tmp/spark_bias_fuzzer_repro \
             && echo -e "\n\nSpark Fuzzer run finished successfully."
 
       - name: Archive Spark expression production artifacts
@@ -535,7 +539,7 @@ jobs:
 
       - name: Run Spark Expression Fuzzer
         run: |
-          mkdir -p /tmp/spark_fuzzer_repro/
+          mkdir -p /tmp/spark_fuzzer_repro/logs/
             chmod -R 777 /tmp/spark_fuzzer_repro
             chmod +x spark_expression_fuzzer_test
             ./spark_expression_fuzzer_test \
@@ -548,8 +552,9 @@ jobs:
                 --retry_with_try \
                 --enable_dereference \
                 --duration_sec $DURATION \
-                --logtostderr=1 \
-                --minloglevel=1 \
+                --minloglevel=0 \
+                --stderrthreshold=2 \
+                --log_dir=/tmp/spark_fuzzer_repro/logs \
                 --repro_persist_path=/tmp/spark_fuzzer_repro \
             && echo -e "\n\nSpark Fuzzer run finished successfully."
 
@@ -576,15 +581,15 @@ jobs:
 
       - name: Run Join Fuzzer
         run: |
-          mkdir -p /tmp/join_fuzzer_repro/
-          rm -rfv /tmp/join_fuzzer_repro/*
+          mkdir -p /tmp/join_fuzzer_repro/logs/
           chmod -R 777 /tmp/join_fuzzer_repro
           chmod +x velox_join_fuzzer_test
           ./velox_join_fuzzer_test \
                 --seed ${RANDOM} \
                 --duration_sec $DURATION \
-                --logtostderr=1 \
-                --minloglevel=1 \
+                --minloglevel=0 \
+                --stderrthreshold=2 \
+                --log_dir=/tmp/join_fuzzer_repro/logs \
             && echo -e "\n\nJoin fuzzer run finished successfully."
 
       - name: Archive aggregate production artifacts
@@ -611,15 +616,15 @@ jobs:
       - name: Run exchange Fuzzer
         run: |
           cat /proc/sys/vm/max_map_count
-          mkdir -p /tmp/exchange_fuzzer_repro/
-          rm -rfv /tmp/exchange_fuzzer_repro/*
+          mkdir -p /tmp/exchange_fuzzer_repro/logs/
           chmod -R 777 /tmp/exchange_fuzzer_repro
           chmod +x velox_exchange_fuzzer_test
           ./velox_exchange_fuzzer_test \
                 --seed ${RANDOM} \
-                --duration_sec ${{ env.DURATION }} \
-                --logtostderr=1 \
-                --minloglevel=1 \
+                --duration_sec $DURATION \
+                --minloglevel=0 \
+                --stderrthreshold=2 \
+                --log_dir=/tmp/exchange_fuzzer_repro/logs \
                 --repro_path=/tmp/exchange_fuzzer_repro \
             && echo -e "\n\Exchange fuzzer run finished successfully."
 
@@ -647,14 +652,24 @@ jobs:
       - name: Run RowNumber Fuzzer
         run: |
           cat /proc/sys/vm/max_map_count
+          mkdir -p /tmp/row_fuzzer_repro/logs/
+          chmod -R 777 /tmp/row_fuzzer_repro
           chmod +x velox_row_number_fuzzer_test
           ./velox_row_number_fuzzer_test \
                 --seed ${RANDOM} \
-                --duration_sec ${{ env.DURATION }} \
-                --logtostderr=1 \
-                --minloglevel=1 \
+                --duration_sec $DURATION \
+                --minloglevel=0 \
+                --stderrthreshold=2 \
+                --log_dir=/tmp/row_fuzzer_repro/logs \
             && echo -e "\n\Row number fuzzer run finished successfully."
 
+      - name: Archive row number production artifacts
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+            name: row-fuzzer-failure-artifacts
+            path: |
+              /tmp/row_fuzzer_repro
   presto-java-aggregation-fuzzer-run:
     name: Aggregation Fuzzer with Presto as source of truth
     needs: compile
@@ -694,15 +709,15 @@ jobs:
           sleep 60
           /opt/presto-cli --server 127.0.0.1:8080 --execute 'CREATE SCHEMA hive.tpch;'
           cd -
-          mkdir -p /tmp/aggregate_fuzzer_repro/
-          rm -rfv /tmp/aggregate_fuzzer_repro/*
+          mkdir -p /tmp/aggregate_fuzzer_repro/logs/
           chmod -R 777 /tmp/aggregate_fuzzer_repro
           chmod +x velox_aggregation_fuzzer_test
           ./velox_aggregation_fuzzer_test \
                 --seed ${RANDOM} \
                 --duration_sec $DURATION \
-                --logtostderr=1 \
-                --minloglevel=1 \
+                --minloglevel=0 \
+                --stderrthreshold=2 \
+                --log_dir=/tmp/aggregate_fuzzer_repro/logs \
                 --repro_persist_path=/tmp/aggregate_fuzzer_repro \
                 --enable_sorted_aggregations=true \
                 --presto_url=http://127.0.0.1:8080 \
@@ -763,8 +778,7 @@ jobs:
           sleep 60
           /opt/presto-cli --server 127.0.0.1:8080 --execute 'CREATE SCHEMA hive.tpch;'
           cd -
-          mkdir -p /tmp/aggregate_fuzzer_repro/
-          rm -rfv /tmp/aggregate_fuzzer_repro/*
+          mkdir -p /tmp/aggregate_fuzzer_repro/logs/
           chmod -R 777 /tmp/aggregate_fuzzer_repro
           chmod +x velox_aggregation_fuzzer_test
           echo "signatures folder"
@@ -775,8 +789,9 @@ jobs:
           ./velox_aggregation_fuzzer_test \
                 --seed ${RANDOM} \
                 --duration_sec $DURATION \
-                --logtostderr=1 \
-                --minloglevel=1 \
+                --minloglevel=0 \
+                --stderrthreshold=2 \
+                --log_dir=/tmp/aggregate_fuzzer_repro/logs \
                 --repro_persist_path=/tmp/aggregate_fuzzer_repro \
                 --enable_sorted_aggregations=true \
                 --only=$(cat /tmp/signatures/presto_aggregate_bias_functions) \
@@ -855,15 +870,15 @@ jobs:
           sleep 60
           /opt/presto-cli --server 127.0.0.1:8080 --execute 'CREATE SCHEMA hive.tpch;'
           cd -
-          mkdir -p /tmp/window_fuzzer_repro/
-          rm -rfv /tmp/window_fuzzer_repro/*
+          mkdir -p /tmp/window_fuzzer_repro/logs/
           chmod -R 777 /tmp/window_fuzzer_repro
           chmod +x velox_window_fuzzer_test
           ./velox_window_fuzzer_test \
                 --seed ${RANDOM} \
                 --duration_sec $DURATION \
-                --logtostderr=1 \
                 --minloglevel=0 \
+                --stderrthreshold=2 \
+                --log_dir=/tmp/window_fuzzer_repro/logs \
                 --repro_persist_path=/tmp/window_fuzzer_repro \
                 --enable_window_reference_verification \
                 --presto_url=http://127.0.0.1:8080 \
