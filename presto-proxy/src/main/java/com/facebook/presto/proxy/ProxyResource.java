@@ -239,7 +239,7 @@ public class ProxyResource
                 .withTimeout(asyncTimeout, () -> Response
                         .status(BAD_GATEWAY)
                         .type(TEXT_PLAIN_TYPE)
-                        .entity("Request to remote Presto server timed out after" + asyncTimeout)
+                        .entity("Request to remote Presto server timed out after " + asyncTimeout)
                         .build());
     }
 
