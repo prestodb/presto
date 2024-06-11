@@ -550,7 +550,8 @@ struct CacheStats {
 /// and other housekeeping.
 class CacheShard {
  public:
-  explicit CacheShard(AsyncDataCache* cache) : cache_(cache) {}
+  CacheShard(AsyncDataCache* cache, double maxWriteRatio)
+      : cache_(cache), maxWriteRatio_(maxWriteRatio) {}
 
   /// See AsyncDataCache::findOrCreate.
   CachePin findOrCreate(
@@ -640,6 +641,7 @@ class CacheShard {
   void tryAddFreeEntry(std::unique_ptr<AsyncDataCacheEntry>&& entry);
 
   AsyncDataCache* const cache_;
+  const double maxWriteRatio_;
 
   mutable std::mutex mutex_;
   folly::F14FastMap<RawFileCacheKey, AsyncDataCacheEntry*> entryMap_;
@@ -682,6 +684,39 @@ class CacheShard {
 
 class AsyncDataCache : public memory::Cache {
  public:
+  struct Options {
+    Options(
+        double _maxWriteRatio = 0.7,
+        double _ssdSavableRatio = 0.125,
+        int32_t _minSsdSavableBytes = 1 << 24)
+        : maxWriteRatio(_maxWriteRatio),
+          ssdSavableRatio(_ssdSavableRatio),
+          minSsdSavableBytes(_minSsdSavableBytes){};
+
+    /// The max ratio of the number of in-memory cache entries being written to
+    /// SSD cache over the total number of cache entries. This is to control SSD
+    /// cache write rate, and once the ratio exceeds this threshold, then we
+    /// stop writing to SSD cache.
+    double maxWriteRatio;
+
+    /// The min ratio of SSD savable (in-memory) cache space over the total
+    /// cache space. Once the ratio exceeds this limit, we start writing SSD
+    /// savable cache entries into SSD cache.
+    double ssdSavableRatio;
+
+    /// Min SSD savable (in-memory) cache space to start writing SSD savable
+    /// cache entries into SSD cache.
+    ///
+    /// NOTE: we only write to SSD cache when both above conditions satisfy. The
+    /// default is 16MB.
+    int32_t minSsdSavableBytes;
+  };
+
+  AsyncDataCache(
+      const Options& options,
+      memory::MemoryAllocator* allocator,
+      std::unique_ptr<SsdCache> ssdCache = nullptr);
+
   AsyncDataCache(
       memory::MemoryAllocator* allocator,
       std::unique_ptr<SsdCache> ssdCache = nullptr);
@@ -690,7 +725,8 @@ class AsyncDataCache : public memory::Cache {
 
   static std::shared_ptr<AsyncDataCache> create(
       memory::MemoryAllocator* allocator,
-      std::unique_ptr<SsdCache> ssdCache = nullptr);
+      std::unique_ptr<SsdCache> ssdCache = nullptr,
+      const AsyncDataCache::Options& = {});
 
   static AsyncDataCache* getInstance();
 
@@ -838,6 +874,7 @@ class AsyncDataCache : public memory::Cache {
   // Waits a pseudorandom delay times 'counter'.
   void backoff(int32_t counter);
 
+  const Options opts_;
   memory::MemoryAllocator* const allocator_;
   std::unique_ptr<SsdCache> ssdCache_;
   std::vector<std::unique_ptr<CacheShard>> shards_;
