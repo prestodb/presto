@@ -211,4 +211,12 @@ void PeriodicMemoryChecker::pushbackMemory() {
       kCounterMemoryPushbackLatencyMs, latencyMs * 1000);
   LOG(INFO) << "Shrunk " << velox::succinctBytes(freedBytes);
 }
+
+#ifndef PRESTO_MEMORY_CHECKER_TYPE
+// Initialize singleton for the checker to be nullptr if
+// PRESTO_MEMORY_CHECKER_TYPE is not defined.
+folly::Singleton<facebook::presto::PeriodicMemoryChecker> checker([]() {
+  return nullptr;
+});
+#endif
 } // namespace facebook::presto
