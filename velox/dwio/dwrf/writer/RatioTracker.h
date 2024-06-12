@@ -19,7 +19,7 @@
 #include <glob.h>
 
 constexpr float kCompressionRatioInitialGuess = 0.3f;
-constexpr float kFlushOverheadRatioInitialGuess = 1.0f;
+constexpr float kFlushOverheadRatioInitialGuess = 0.1f;
 // TODO(T79660637): make write cost estimate more granular.
 constexpr float kAverageRowSizeInitialGuess = 0.0f;
 

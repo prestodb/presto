@@ -53,7 +53,7 @@ TEST(RatioTrackerTest, BasicTests) {
           {{10, 11}, {20, 1}, {30, 1}, {40, 1}, {50, 1}},
           0.1f},
       TestCase{std::make_shared<CompressionRatioTracker>(), {}, 0.3f},
-      TestCase{std::make_shared<FlushOverheadRatioTracker>(), {}, 1.0f},
+      TestCase{std::make_shared<FlushOverheadRatioTracker>(), {}, 0.1f},
       TestCase{std::make_shared<AverageRowSizeTracker>(), {}, 0.0f},
   };
 
