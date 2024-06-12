@@ -66,6 +66,7 @@ public class OrcReader
     public static final int MAX_BATCH_SIZE = 1024;
     public static final int INITIAL_BATCH_SIZE = 1;
     public static final int BATCH_SIZE_GROWTH_FACTOR = 2;
+    public static final String ORC_USE_VECTOR_FILTER = "OrcUseVectorFilter";
 
     private final OrcDataSource orcDataSource;
     private final ExceptionWrappingMetadataReader metadataReader;
@@ -384,6 +385,62 @@ public class OrcReader
             DateTimeZone hiveStorageTimeZone,
             OrcAggregatedMemoryContext systemMemoryUsage,
             Optional<OrcWriteValidation> writeValidation,
+            int initialBatchSize,
+            Map<String, Boolean> orcReaderUserOptions)
+    {
+        return new OrcSelectiveRecordReader(
+                includedColumns,
+                outputColumns,
+                filters,
+                filterFunctions,
+                filterFunctionInputs,
+                requiredSubfields,
+                constantValues,
+                coercers,
+                predicate,
+                footer.getNumberOfRows(),
+                footer.getStripes(),
+                footer.getFileStats(),
+                metadata.getStripeStatsList(),
+                getOrcDataSource(),
+                offset,
+                length,
+                footer.getTypes(),
+                decompressor,
+                encryptionLibrary,
+                dwrfEncryptionGroupMap,
+                columnsToIntermediateKeys,
+                footer.getRowsInRowGroup(),
+                hiveStorageTimeZone,
+                new OrcRecordReaderOptions(orcReaderOptions),
+                hiveWriterVersion,
+                metadataReader,
+                footer.getUserMetadata(),
+                systemMemoryUsage.newOrcAggregatedMemoryContext(),
+                writeValidation,
+                initialBatchSize,
+                stripeMetadataSource,
+                cacheable,
+                runtimeStats,
+                fileIntrospector,
+                orcReaderUserOptions);
+    }
+
+    public OrcSelectiveRecordReader createSelectiveRecordReader(
+            Map<Integer, Type> includedColumns,
+            List<Integer> outputColumns,
+            Map<Integer, Map<Subfield, TupleDomainFilter>> filters,
+            List<FilterFunction> filterFunctions,
+            Map<Integer, Integer> filterFunctionInputs,
+            Map<Integer, List<Subfield>> requiredSubfields,
+            Map<Integer, Object> constantValues,
+            Map<Integer, Function<Block, Block>> coercers,
+            OrcPredicate predicate,
+            long offset,
+            long length,
+            DateTimeZone hiveStorageTimeZone,
+            OrcAggregatedMemoryContext systemMemoryUsage,
+            Optional<OrcWriteValidation> writeValidation,
             int initialBatchSize)
     {
         return new OrcSelectiveRecordReader(
@@ -420,7 +477,8 @@ public class OrcReader
                 stripeMetadataSource,
                 cacheable,
                 runtimeStats,
-                fileIntrospector);
+                fileIntrospector,
+                null);
     }
 
     private static OrcDataSource wrapWithCacheIfTiny(OrcDataSource dataSource, DataSize maxCacheSize, OrcAggregatedMemoryContext systemMemoryContext)

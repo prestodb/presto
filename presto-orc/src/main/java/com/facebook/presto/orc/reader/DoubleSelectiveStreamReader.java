@@ -56,29 +56,29 @@ public class DoubleSelectiveStreamReader
 
     private final StreamDescriptor streamDescriptor;
     @Nullable
-    private final TupleDomainFilter filter;
-    private final boolean nonDeterministicFilter;
-    private final boolean nullsAllowed;
-    private final boolean outputRequired;
+    protected final TupleDomainFilter filter;
+    protected final boolean nonDeterministicFilter;
+    protected final boolean nullsAllowed;
+    protected final boolean outputRequired;
     private final OrcLocalMemoryContext systemMemoryContext;
 
     private InputStreamSource<BooleanInputStream> presentStreamSource = getBooleanMissingStreamSource();
     @Nullable
-    private BooleanInputStream presentStream;
+    protected BooleanInputStream presentStream;
 
     private InputStreamSource<DoubleInputStream> dataStreamSource = getDoubleMissingStreamSource();
     @Nullable
-    private DoubleInputStream dataStream;
+    protected DoubleInputStream dataStream;
 
     private boolean rowGroupOpen;
     private int readOffset;
     @Nullable
-    private long[] values;
+    protected long[] values;
     @Nullable
-    private boolean[] nulls;
+    protected boolean[] nulls;
     @Nullable
-    private int[] outputPositions;
-    private int outputPositionCount;
+    protected int[] outputPositions;
+    protected int outputPositionCount;
     private boolean allNulls;
     private boolean valuesInUse;
 
@@ -244,7 +244,7 @@ public class DoubleSelectiveStreamReader
         return streamPosition;
     }
 
-    private int readWithFilter(int[] positions, int positionCount)
+    protected int readWithFilter(int[] positions, int positionCount)
             throws IOException
     {
         int streamPosition = 0;

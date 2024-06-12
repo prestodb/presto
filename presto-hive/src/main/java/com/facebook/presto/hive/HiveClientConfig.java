@@ -223,6 +223,7 @@ public class HiveClientConfig
     private int quickStatsMaxConcurrentCalls = 100;
     private DataSize affinitySchedulingFileSectionSize = new DataSize(256, MEGABYTE);
     private boolean legacyTimestampBucketing;
+    private boolean orcUseVectorFilter;
 
     @Min(0)
     public int getMaxInitialSplits()
@@ -1861,5 +1862,18 @@ public class HiveClientConfig
     {
         this.legacyTimestampBucketing = legacyTimestampBucketing;
         return this;
+    }
+
+    @Config("hive.orc-use-vector-filter")
+    @ConfigDescription("Experimental: enable vector path for orc filters")
+    public HiveClientConfig setOrcUseVectorFilter(boolean orcUseVectorFilter)
+    {
+        this.orcUseVectorFilter = orcUseVectorFilter;
+        return this;
+    }
+
+    public boolean getOrcUseVectorFilter()
+    {
+        return orcUseVectorFilter;
     }
 }
