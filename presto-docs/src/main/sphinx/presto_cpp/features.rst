@@ -153,6 +153,15 @@ is valid.
 If the time period exceeds the parameter value, the request is rejected as
 authentication failure (HTTP 401).
 
+LinuxMemoryChecker
+------------------
+
+The LinuxMemoryChecker extends from PeriodicMemoryChecker and periodically checks 
+memory usage using memory calculation from inactive_anon + active_anon in the memory stat 
+file from Linux cgroups V1 or V2. The LinuxMemoryChecker is used for Linux systems only.
+
+The LinuxMemoryChecker can be enabled by setting the CMake flag ``PRESTO_MEMORY_CHECKER_TYPE=LINUX_MEMORY_CHECKER``. 
+
 Async Data Cache and Prefetching
 --------------------------------
 

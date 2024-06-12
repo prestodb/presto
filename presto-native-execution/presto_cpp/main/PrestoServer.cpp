@@ -18,6 +18,7 @@
 #include <glog/logging.h>
 #include "CoordinatorDiscoverer.h"
 #include "presto_cpp/main/Announcer.h"
+#include "presto_cpp/main/PeriodicMemoryChecker.h"
 #include "presto_cpp/main/PeriodicTaskManager.h"
 #include "presto_cpp/main/SignalHandler.h"
 #include "presto_cpp/main/SystemConnector.h"
@@ -565,6 +566,8 @@ void PrestoServer::run() {
   addAdditionalPeriodicTasks();
   periodicTaskManager_->start();
 
+  addMemoryCheckerPeriodicTask();
+
   // Start everything. After the return from the following call we are shutting
   // down.
   httpServer_->start(getHttpServerFilters());
@@ -583,6 +586,8 @@ void PrestoServer::run() {
   periodicTaskManager_->stop();
 
   stopAdditionalPeriodicTasks();
+
+  stopMemoryCheckerPeriodicTask();
 
   // Destroy entities here to ensure we won't get any messages after Server
   // object is gone and to have nice log in case shutdown gets stuck.
@@ -963,6 +968,18 @@ void PrestoServer::updateAnnouncerDetails() {
   if (announcer_ != nullptr) {
     announcer_->setDetails(
         fmt::format("State: {}.", nodeState2String(nodeState_)));
+  }
+}
+
+void PrestoServer::addMemoryCheckerPeriodicTask() {
+  if (folly::Singleton<PeriodicMemoryChecker>::try_get()) {
+    folly::Singleton<PeriodicMemoryChecker>::try_get()->start();
+  }
+}
+
+void PrestoServer::stopMemoryCheckerPeriodicTask() {
+  if (folly::Singleton<PeriodicMemoryChecker>::try_get()) {
+    folly::Singleton<PeriodicMemoryChecker>::try_get()->stop();
   }
 }
 
