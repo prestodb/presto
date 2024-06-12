@@ -1112,10 +1112,10 @@ TEST_P(AsyncDataCacheTest, shutdown) {
     if (!asyncShutdown) {
       waitForSsdWriteToFinish(cache_->ssdCache());
     }
-    const auto bytesWrittenBeforeShutdown =
+    const uint64_t bytesWrittenBeforeShutdown =
         cache_->ssdCache()->stats().bytesWritten;
     cache_->ssdCache()->shutdown();
-    const auto bytesWrittenAfterShutdown =
+    const uint64_t bytesWrittenAfterShutdown =
         cache_->ssdCache()->stats().bytesWritten;
 
     if (asyncShutdown) {
