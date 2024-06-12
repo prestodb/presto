@@ -2389,6 +2389,20 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.0.0-M7</version>
                 <configuration combine.children="append">
+                    <argLine>
+                        --add-opens=java.base/jdk.internal.loader=ALL-UNNAMED
+                        --add-opens=java.base/jdk.internal.math=ALL-UNNAMED
+                        --add-opens=java.base/jdk.internal.module=ALL-UNNAMED
+                        --add-opens=java.base/jdk.internal.perf=ALL-UNNAMED
+                        --add-opens=java.base/jdk.internal.ref=ALL-UNNAMED
+                        --add-opens=java.base/jdk.internal.reflect=ALL-UNNAMED
+                        --add-opens=java.base/jdk.internal.util.jar=ALL-UNNAMED
+                        --add-opens=java.base/java.lang.module=ALL-UNNAMED
+                        --add-opens=java.base/java.util.*=ALL-UNNAMED
+                        --add-opens=jdk.management/com.sun.management.internal=ALL-UNNAMED
+                        --add-opens=jdk.management.jfr/jdk.management.jfr=ALL-UNNAMED
+                        --illegal-access=warn
+                    </argLine>
                     <includes>
                         <include>**/Test*.java</include>
                         <include>**/Benchmark*.java</include>

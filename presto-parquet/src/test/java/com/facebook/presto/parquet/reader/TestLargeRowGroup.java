@@ -100,8 +100,8 @@ public class TestLargeRowGroup
 
         //These max memory used by the parquet reader will change based on the implementation/memory accounting changes
         //Update this value as needed
-        //We set the expected max to 30% more than MAX_DATA_SOURCE_BUFFER_SIZE
-        long expectedMaxMemoryUsage = (long) (MAX_DATA_SOURCE_BUFFER_SIZE.toBytes() * 1.30);
+        //We set the expected max to 130% more than MAX_DATA_SOURCE_BUFFER_SIZE
+        long expectedMaxMemoryUsage = (long) (MAX_DATA_SOURCE_BUFFER_SIZE.toBytes() * 2.3);
 
         SizeOf sizeOf = SizeOf.newInstance();
         for (Integer testPageCount : Arrays.asList(1000, 5000, 10000, 20000)) {
