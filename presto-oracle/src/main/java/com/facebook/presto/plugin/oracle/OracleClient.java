@@ -15,6 +15,7 @@ package com.facebook.presto.plugin.oracle;
 
 import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.common.util.ConfigUtil;
 import com.facebook.presto.plugin.jdbc.BaseJdbcClient;
 import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
 import com.facebook.presto.plugin.jdbc.ConnectionFactory;
@@ -36,6 +37,7 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.util.Optional;
 
+import static com.facebook.presto.common.constant.ConfigConstants.ENABLE_MIXED_CASE_SUPPORT;
 import static com.facebook.presto.common.type.DecimalType.createDecimalType;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
@@ -58,7 +60,7 @@ public class OracleClient
 
     private final boolean synonymsEnabled;
     private final int numberDefaultScale;
-
+    private final boolean enableMixedCaseSupport;
     @Inject
     public OracleClient(
             JdbcConnectorId connectorId,
@@ -71,6 +73,7 @@ public class OracleClient
         requireNonNull(oracleConfig, "oracle config is null");
         this.synonymsEnabled = oracleConfig.isSynonymsEnabled();
         this.numberDefaultScale = oracleConfig.getNumberDefaultScale();
+        this.enableMixedCaseSupport = ConfigUtil.getConfig(ENABLE_MIXED_CASE_SUPPORT);
     }
 
     private String[] getTableTypes()
@@ -92,6 +95,15 @@ public class OracleClient
                 escapeNamePattern(schemaName, Optional.of(escape)).orElse(null),
                 escapeNamePattern(tableName, Optional.of(escape)).orElse(null),
                 getTableTypes());
+    }
+    @Override
+    protected String quoted(String name)
+    {
+        if (!enableMixedCaseSupport) {
+            return name;
+        }
+        name = name.replace(identifierQuote, identifierQuote + identifierQuote);
+        return identifierQuote + name + identifierQuote;
     }
     @Override
     public PreparedStatement getPreparedStatement(ConnectorSession session, Connection connection, String sql)
