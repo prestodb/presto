@@ -13,7 +13,7 @@
 # limitations under the License.
 # Build the test and build container for presto_cpp
 #
-FROM ghcr.io/facebookincubator/velox-dev:centos8 
+FROM ghcr.io/facebookincubator/velox-dev:centos9 
 
 ARG PRESTO_VERSION=0.286
 

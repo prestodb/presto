@@ -89,7 +89,7 @@ jobs:
     # prevent errors when forks ff their main branch
     if: ${{ github.repository == 'facebookincubator/velox' }}
     runs-on: 16-core-ubuntu
-    container: ghcr.io/facebookincubator/velox-dev:centos8
+    container: ghcr.io/facebookincubator/velox-dev:centos9
     timeout-minutes: 120
     env:
       CCACHE_DIR: "/__w/velox/velox/.ccache"
@@ -323,7 +323,7 @@ jobs:
     name: Presto Fuzzer
     if: ${{ needs.compile.outputs.presto_bias  != 'true' }}
     runs-on: ubuntu-latest
-    container: ghcr.io/facebookincubator/velox-dev:centos8
+    container: ghcr.io/facebookincubator/velox-dev:centos9
     needs: compile
     timeout-minutes: 120
     steps:
@@ -395,7 +395,7 @@ jobs:
   presto-bias-fuzzer:
     name: Presto Bias Fuzzer
     runs-on: ubuntu-latest
-    container: ghcr.io/facebookincubator/velox-dev:centos8
+    container: ghcr.io/facebookincubator/velox-dev:centos9
     needs: compile
     if: ${{ needs.compile.outputs.presto_bias  == 'true' }}
     timeout-minutes: 120
@@ -447,7 +447,7 @@ jobs:
   spark-aggregate-fuzzer-run:
     name: Spark Aggregate Fuzzer
     runs-on: ubuntu-latest
-    container: ghcr.io/facebookincubator/velox-dev:centos8
+    container: ghcr.io/facebookincubator/velox-dev:centos9
     needs: compile
     timeout-minutes: 60
     steps:
@@ -482,7 +482,7 @@ jobs:
   spark-bias-fuzzer:
     name: Spark Bias Fuzzer
     runs-on: ubuntu-latest
-    container: ghcr.io/facebookincubator/velox-dev:centos8
+    container: ghcr.io/facebookincubator/velox-dev:centos9
     needs: compile
     if: ${{ needs.compile.outputs.spark_bias  == 'true' }}
     timeout-minutes: 120
@@ -527,7 +527,7 @@ jobs:
     name: Spark Fuzzer
     if: ${{ needs.compile.outputs.spark_bias  != 'true' }}
     runs-on: ubuntu-latest
-    container: ghcr.io/facebookincubator/velox-dev:centos8
+    container: ghcr.io/facebookincubator/velox-dev:centos9
     needs: compile
     timeout-minutes: 120
     steps:
@@ -569,7 +569,7 @@ jobs:
   join-fuzzer-run:
     name: Join Fuzzer
     runs-on: ubuntu-latest
-    container: ghcr.io/facebookincubator/velox-dev:centos8
+    container: ghcr.io/facebookincubator/velox-dev:centos9
     needs: compile
     timeout-minutes: 120
     steps:
@@ -603,7 +603,7 @@ jobs:
   exchange-fuzzer-run:
     name: Exchange Fuzzer
     runs-on: ubuntu-latest
-    container: ghcr.io/facebookincubator/velox-dev:centos8
+    container: ghcr.io/facebookincubator/velox-dev:centos9
     needs: compile
     timeout-minutes: 120
     steps:
@@ -639,7 +639,7 @@ jobs:
   row-number-fuzzer-run:
     name: RowNumber Fuzzer
     runs-on: ubuntu-latest
-    container: ghcr.io/facebookincubator/velox-dev:centos8
+    container: ghcr.io/facebookincubator/velox-dev:centos9
     needs: compile
     timeout-minutes: 120
     steps:

@@ -33,6 +33,32 @@ services:
       - .:/velox:delegated
     command: scripts/docker-command.sh
 
+  adapters-cpp:
+    # Usage:
+    #   docker-compose pull adapters-cpp or docker-compose build adapters-cpp
+    #   or
+    #   docker-compose run --rm adapters-cpp
+    #   or
+    #   docker-compose run -e NUM_THREADS=<NUMBER_OF_THREADS_TO_USE> --rm adapters-cpp
+    #   to set the number of threads used during compilation
+    # scripts/adapters.dockerfile uses SHELL which is not supported for OCI image format.
+    # podman users must specify "--podman-build-args='--format docker'" argument.
+    image: ghcr.io/facebookincubator/velox-dev:adapters
+    build:
+      context: .
+      dockerfile: scripts/adapters.dockerfile
+      args:
+        image: ghcr.io/facebookincubator/velox-dev:centos9
+    environment:
+      NUM_THREADS: 8 # default value for NUM_THREADS
+      CCACHE_DIR: "/velox/.ccache"
+      EXTRA_CMAKE_FLAGS: -DVELOX_ENABLE_PARQUET=ON 
+                         -DVELOX_ENABLE_S3=ON
+    volumes:
+      - .:/velox:delegated
+    working_dir: /velox
+    command: /velox/scripts/docker-command.sh
+
   centos-cpp:
     # Usage:
     #   docker-compose pull centos-cpp or docker-compose build centos-cpp
@@ -40,12 +66,12 @@ services:
     #   or
     #   docker-compose run -e NUM_THREADS=<NUMBER_OF_THREADS_TO_USE> --rm centos-cpp
     #   to set the number of threads used during compilation
-    image: ghcr.io/facebookincubator/velox-dev:centos8
+    image: ghcr.io/facebookincubator/velox-dev:centos9
     build:
       context: .
       dockerfile: scripts/centos.dockerfile
       args:
-        image: quay.io/centos/centos:stream8 
+        image: quay.io/centos/centos:stream9
     environment:
       NUM_THREADS: 8 # default value for NUM_THREADS
       CCACHE_DIR: "/velox/.ccache"

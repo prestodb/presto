@@ -61,7 +61,7 @@ function install_gcs-sdk-cpp {
   github_checkout abseil/abseil-cpp 20240116.2 --depth 1
   cmake_install \
     -DABSL_BUILD_TESTING=OFF \
-    -DCMAKE_CXX_STANDARD=14 \
+    -DCMAKE_CXX_STANDARD=17 \
     -DABSL_PROPAGATE_CXX_STD=ON \
     -DABSL_ENABLE_INSTALL=ON
 
@@ -169,12 +169,12 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
       # Dependencies of Azure Storage Blob cpp
       apt install -y openssl
    else # Assume Fedora/CentOS
-      yum -y install libxml2-devel libgsasl-devel libuuid-devel
+      dnf -y install libxml2-devel libgsasl-devel libuuid-devel krb5-devel
       # Dependencies of GCS, probably a workaround until the docker image is rebuilt
-      yum -y install curl-devel c-ares-devel
+      dnf -y install npm curl-devel c-ares-devel
       # Dependencies of Azure Storage Blob Cpp
-      yum -y install perl-IPC-Cmd
-      yum -y install openssl
+      dnf -y install perl-IPC-Cmd
+      dnf -y install openssl
    fi
 fi
 

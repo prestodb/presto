@@ -17,6 +17,7 @@
 #pragma once
 
 #include <memory>
+#include <string>
 #include "velox/experimental/wave/common/Buffer.h"
 #include "velox/experimental/wave/common/HashTable.h"
 

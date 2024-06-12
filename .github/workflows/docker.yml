@@ -48,10 +48,10 @@ jobs:
             file: "scripts/check-container.dockfile"
             args: "cpu_target=avx"
             tags: "ghcr.io/facebookincubator/velox-dev:check-avx"
-          - name: Centos 8
+          - name: Centos 9
             file: "scripts/centos.dockerfile"
             args: "cpu_target=avx"
-            tags: "ghcr.io/facebookincubator/velox-dev:centos8"
+            tags: "ghcr.io/facebookincubator/velox-dev:centos9"
           - name: Dev
             file: "scripts/ubuntu-22.04-cpp.dockerfile"
             args: ""
