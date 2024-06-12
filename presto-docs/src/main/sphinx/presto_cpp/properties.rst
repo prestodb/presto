@@ -298,3 +298,38 @@ The configuration properties of Presto C++ workers are described here, in alphab
 * **Default value:** ``0.25``
 
   See description for ``shared-arbitrator.memory-pool-min-free-capacity``
+
+Memory Checker Properties
+-------------------------
+
+The LinuxMemoryChecker extends from PeriodicMemoryChecker and is used for Linux systems only. 
+The LinuxMemoryChecker can be enabled by setting the CMake flag ``PRESTO_MEMORY_CHECKER_TYPE=LINUX_MEMORY_CHECKER``. 
+The following properties for PeriodicMemoryChecker are as follows:
+
+``system-mem-pushback-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+If set to ``true``, starts memory limit checker to trigger memory pushback when
+server is under low memory pressure.
+
+``system-mem-limit-gb``
+^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``55``
+
+Specifies the system memory limit that triggers the memory pushback or heap dump if
+the server memory usage is beyond this limit. A value of zero means no limit is set. 
+This only applies if ``system-mem-pushback-enabled`` is ``true``.
+
+``system-mem-shrink-gb``
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``8``
+
+Specifies the amount of memory to shrink when the memory pushback is
+triggered. This only applies if ``system-mem-pushback-enabled`` is ``true``.
