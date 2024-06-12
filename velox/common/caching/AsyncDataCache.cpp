@@ -201,6 +201,7 @@ CachePin CacheShard::findOrCreate(
       // The old entry is superseded. Possible readers of the old entry still
       // retain a valid read pin.
       foundEntry->key_.fileNum.clear();
+      entryMap_.erase(it);
     }
 
     auto newEntry = getFreeEntry();
@@ -331,14 +332,13 @@ std::unique_ptr<folly::SharedPromise<bool>> CacheShard::removeEntry(
 }
 
 void CacheShard::removeEntryLocked(AsyncDataCacheEntry* entry) {
-  if (!entry->key_.fileNum.hasValue()) {
-    return;
+  if (entry->key_.fileNum.hasValue()) {
+    const auto it = entryMap_.find(
+        RawFileCacheKey{entry->key_.fileNum.id(), entry->key_.offset});
+    VELOX_CHECK(it != entryMap_.end());
+    entryMap_.erase(it);
+    entry->key_.fileNum.clear();
   }
-  const auto it = entryMap_.find(
-      RawFileCacheKey{entry->key_.fileNum.id(), entry->key_.offset});
-  VELOX_CHECK(it != entryMap_.end());
-  entryMap_.erase(it);
-  entry->key_.fileNum.clear();
   entry->setSsdFile(nullptr, 0);
   if (entry->isPrefetch()) {
     entry->setPrefetch(false);
