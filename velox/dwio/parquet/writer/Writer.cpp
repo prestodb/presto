@@ -175,7 +175,7 @@ std::shared_ptr<::arrow::Field> updateFieldNameRecursive(
     const Type& type,
     const std::string& name = "") {
   if (type.isRow()) {
-    auto rowType = type.asRow();
+    auto& rowType = type.asRow();
     auto newField = field->WithName(name);
     auto structType =
         std::dynamic_pointer_cast<::arrow::StructType>(newField->type());

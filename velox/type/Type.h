@@ -913,6 +913,8 @@ class RowType : public TypeBase<TypeKind::ROW> {
       std::vector<std::string>&& names,
       std::vector<std::shared_ptr<const Type>>&& types);
 
+  ~RowType() override;
+
   uint32_t size() const override;
 
   const std::shared_ptr<const Type>& childAt(uint32_t idx) const override;
@@ -959,13 +961,24 @@ class RowType : public TypeBase<TypeKind::ROW> {
   }
 
   const std::vector<TypeParameter>& parameters() const override {
-    return parameters_;
+    auto* parameters = parameters_.load();
+    if (FOLLY_UNLIKELY(!parameters)) {
+      parameters = makeParameters().release();
+      std::vector<TypeParameter>* oldParameters = nullptr;
+      if (!parameters_.compare_exchange_strong(oldParameters, parameters)) {
+        delete parameters;
+        parameters = oldParameters;
+      }
+    }
+    return *parameters;
   }
 
  private:
+  std::unique_ptr<std::vector<TypeParameter>> makeParameters() const;
+
   const std::vector<std::string> names_;
   const std::vector<std::shared_ptr<const Type>> children_;
-  const std::vector<TypeParameter> parameters_;
+  mutable std::atomic<std::vector<TypeParameter>*> parameters_{nullptr};
 };
 
 using RowTypePtr = std::shared_ptr<const RowType>;

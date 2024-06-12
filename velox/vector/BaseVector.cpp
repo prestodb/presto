@@ -300,7 +300,7 @@ VectorPtr BaseVector::createInternal(
   switch (kind) {
     case TypeKind::ROW: {
       std::vector<VectorPtr> children;
-      auto rowType = type->as<TypeKind::ROW>();
+      auto& rowType = type->as<TypeKind::ROW>();
       // Children are reserved the parent size and accessible for those rows.
       for (int32_t i = 0; i < rowType.size(); ++i) {
         children.push_back(create(rowType.childAt(i), size, pool));

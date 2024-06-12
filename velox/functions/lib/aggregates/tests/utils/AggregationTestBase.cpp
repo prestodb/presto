@@ -756,7 +756,7 @@ std::vector<VectorPtr> extractArgColumns(
     const core::CallTypedExprPtr& aggregateExpr,
     const RowVectorPtr& input,
     memory::MemoryPool* pool) {
-  auto type = input->type()->asRow();
+  auto& type = input->type()->asRow();
   std::vector<VectorPtr> columns;
   for (const auto& arg : aggregateExpr->inputs()) {
     if (auto field = core::TypedExprs::asFieldAccess(arg)) {

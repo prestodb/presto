@@ -152,7 +152,7 @@ class OrderByTest : public OperatorTestBase {
       const std::vector<RowVectorPtr>& input,
       const std::string& key1,
       const std::string& key2) {
-    auto rowType = input[0]->type()->asRow();
+    auto& rowType = input[0]->type()->asRow();
     auto keyIndices = {rowType.getChildIdx(key1), rowType.getChildIdx(key2)};
 
     std::vector<core::SortOrder> sortOrders = {

@@ -875,7 +875,7 @@ std::vector<MaterializedRow> materialize(const RowVectorPtr& vector) {
   std::vector<MaterializedRow> rows;
   rows.reserve(size);
 
-  auto rowType = vector->type()->as<TypeKind::ROW>();
+  auto& rowType = vector->type()->as<TypeKind::ROW>();
 
   for (size_t i = 0; i < size; ++i) {
     auto numColumns = rowType.size();
@@ -896,7 +896,7 @@ void DuckDbQueryRunner::createTable(
   auto query = fmt::format("DROP TABLE IF EXISTS {}", name);
   execute(query);
 
-  auto rowType = data[0]->type()->as<TypeKind::ROW>();
+  auto& rowType = data[0]->type()->as<TypeKind::ROW>();
   ::duckdb::Connection con(db_);
   auto sql = duckdb::makeCreateTableSql(name, rowType);
   auto res = con.Query(sql);

@@ -340,9 +340,7 @@ std::string namesAndTypesToString(
 } // namespace
 
 RowType::RowType(std::vector<std::string>&& names, std::vector<TypePtr>&& types)
-    : names_{std::move(names)},
-      children_{std::move(types)},
-      parameters_{createTypeParameters(children_)} {
+    : names_{std::move(names)}, children_{std::move(types)} {
   VELOX_CHECK_EQ(
       names_.size(),
       children_.size(),
@@ -354,6 +352,17 @@ RowType::RowType(std::vector<std::string>&& names, std::vector<TypePtr>&& types)
         "Child types cannot be null: {}",
         namesAndTypesToString(names_, children_));
   }
+}
+
+RowType::~RowType() {
+  if (auto* parameters = parameters_.load()) {
+    delete parameters;
+  }
+}
+
+std::unique_ptr<std::vector<TypeParameter>> RowType::makeParameters() const {
+  return std::make_unique<std::vector<TypeParameter>>(
+      createTypeParameters(children_));
 }
 
 uint32_t RowType::size() const {

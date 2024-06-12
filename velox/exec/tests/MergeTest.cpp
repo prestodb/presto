@@ -71,7 +71,7 @@ class MergeTest : public OperatorTestBase {
       const std::vector<RowVectorPtr>& inputVectors,
       const std::string& key1,
       const std::string& key2) {
-    auto rowType = inputVectors[0]->type()->asRow();
+    auto& rowType = inputVectors[0]->type()->asRow();
     auto sortingKeys = {rowType.getChildIdx(key1), rowType.getChildIdx(key2)};
 
     std::vector<core::SortOrder> sortOrders = {

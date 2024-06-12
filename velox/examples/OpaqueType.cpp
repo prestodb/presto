@@ -314,7 +314,7 @@ VectorPtr evaluate(
   std::vector<VectorPtr> result{nullptr};
   SelectivityVector rows{rowVector->size()};
 
-  auto rowType = rowVector->type()->as<TypeKind::ROW>();
+  auto& rowType = rowVector->type()->as<TypeKind::ROW>();
 
   auto fieldAccessExprNode1 = std::make_shared<core::FieldAccessTypedExpr>(
       rowType.findChild(argName1), argName1);

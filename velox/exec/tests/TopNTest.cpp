@@ -77,7 +77,7 @@ class TopNTest : public OperatorTestBase {
       const std::string& key1,
       const std::string& key2,
       int32_t limit) {
-    auto rowType = input[0]->type()->asRow();
+    auto& rowType = input[0]->type()->asRow();
     auto keyIndices = {rowType.getChildIdx(key1), rowType.getChildIdx(key2)};
 
     auto sortOrderSqls = getSortOrderSqls();

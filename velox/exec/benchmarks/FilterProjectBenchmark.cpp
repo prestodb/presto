@@ -181,7 +181,7 @@ class FilterProjectBenchmark : public VectorTestBase {
       bool shareStringDicts,
       bool stringNulls) {
     assert(!rows.empty());
-    auto type = rows[0]->type()->as<TypeKind::ROW>();
+    auto& type = rows[0]->type()->as<TypeKind::ROW>();
     auto numColumns = rows[0]->type()->size();
     for (auto column = 0; column < numColumns; ++column) {
       if (type.childAt(column)->kind() == TypeKind::VARCHAR) {
