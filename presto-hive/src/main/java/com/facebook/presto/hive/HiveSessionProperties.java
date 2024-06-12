@@ -133,6 +133,7 @@ public final class HiveSessionProperties
     public static final String DYNAMIC_SPLIT_SIZES_ENABLED = "dynamic_split_sizes_enabled";
     public static final String AFFINITY_SCHEDULING_FILE_SECTION_SIZE = "affinity_scheduling_file_section_size";
     public static final String SKIP_EMPTY_FILES = "skip_empty_files";
+    public static final String LEGACY_TIMESTAMP_BUCKETING = "legacy_timestamp_bucketing";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -647,6 +648,11 @@ public final class HiveSessionProperties
                         SKIP_EMPTY_FILES,
                         "If it is required empty files will be skipped",
                         hiveClientConfig.isSkipEmptyFilesEnabled(),
+                        false),
+                booleanProperty(
+                        LEGACY_TIMESTAMP_BUCKETING,
+                        "Use legacy timestamp bucketing algorithm (which is not Hive compatible) for table bucketed by timestamp type.",
+                        hiveClientConfig.isLegacyTimestampBucketing(),
                         false));
     }
 
@@ -1128,5 +1134,10 @@ public final class HiveSessionProperties
     public static boolean isSkipEmptyFilesEnabled(ConnectorSession session)
     {
         return session.getProperty(SKIP_EMPTY_FILES, Boolean.class);
+    }
+
+    public static boolean isLegacyTimestampBucketing(ConnectorSession session)
+    {
+        return session.getProperty(LEGACY_TIMESTAMP_BUCKETING, Boolean.class);
     }
 }

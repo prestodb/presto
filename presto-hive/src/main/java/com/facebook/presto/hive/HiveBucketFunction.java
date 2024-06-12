@@ -36,26 +36,30 @@ public class HiveBucketFunction
     private final BucketFunctionType bucketFunctionType;
     private final Optional<List<TypeInfo>> typeInfos;
     private final Optional<List<Type>> types;
+    private final boolean useLegacyTimestampBucketing;
 
     public static HiveBucketFunction createHiveCompatibleBucketFunction(
             int bucketCount,
-            List<HiveType> hiveTypes)
+            List<HiveType> hiveTypes,
+            boolean useLegacyTimestampBucketing)
     {
-        return new HiveBucketFunction(bucketCount, HIVE_COMPATIBLE, Optional.of(hiveTypes), Optional.empty());
+        return new HiveBucketFunction(bucketCount, HIVE_COMPATIBLE, Optional.of(hiveTypes), Optional.empty(), useLegacyTimestampBucketing);
     }
 
     public static HiveBucketFunction createPrestoNativeBucketFunction(
             int bucketCount,
-            List<Type> types)
+            List<Type> types,
+            boolean useLegacyTimestampBucketing)
     {
-        return new HiveBucketFunction(bucketCount, PRESTO_NATIVE, Optional.empty(), Optional.of(types));
+        return new HiveBucketFunction(bucketCount, PRESTO_NATIVE, Optional.empty(), Optional.of(types), useLegacyTimestampBucketing);
     }
 
     private HiveBucketFunction(
             int bucketCount,
             BucketFunctionType bucketFunctionType,
             Optional<List<HiveType>> hiveTypes,
-            Optional<List<Type>> types)
+            Optional<List<Type>> types,
+            boolean useLegacyTimestampBucketing)
     {
         this.bucketCount = bucketCount;
         this.bucketFunctionType = requireNonNull(bucketFunctionType, "bucketFunctionType is null");
@@ -66,6 +70,7 @@ public class HiveBucketFunction
                 .map(HiveType::getTypeInfo)
                 .collect(toImmutableList()));
         this.types = requireNonNull(types, "types is null");
+        this.useLegacyTimestampBucketing = useLegacyTimestampBucketing;
     }
 
     @Override
@@ -73,7 +78,7 @@ public class HiveBucketFunction
     {
         switch (bucketFunctionType) {
             case HIVE_COMPATIBLE:
-                return getHiveBucket(bucketCount, typeInfos.get(), page, position);
+                return getHiveBucket(bucketCount, typeInfos.get(), page, position, useLegacyTimestampBucketing);
             case PRESTO_NATIVE:
                 return HiveBucketing.getBucket(bucketCount, types.get(), page, position);
             default:

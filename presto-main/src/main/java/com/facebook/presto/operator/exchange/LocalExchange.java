@@ -180,7 +180,7 @@ public class LocalExchange
 
         BucketFunction bucketFunction = partitioningProvider.getBucketFunction(
                 partitioning.getTransactionHandle().orElse(null),
-                session.toConnectorSession(),
+                session.toConnectorSession(partitioning.getConnectorId().get()),
                 partitioning.getConnectorHandle(),
                 partitioningChannelTypes,
                 bucketCount);
