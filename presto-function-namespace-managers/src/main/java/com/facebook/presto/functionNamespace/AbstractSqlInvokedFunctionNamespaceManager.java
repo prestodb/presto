@@ -357,6 +357,7 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
                         getClass().getSimpleName(),
                         implementationType));
             case CPP:
+            case REST:
                 checkArgument(
                         function.getAggregationMetadata().isPresent(),
                         "Need aggregationMetadata to get aggregation function implementation");

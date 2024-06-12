@@ -28,6 +28,7 @@ import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutors;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.AggregationFunctionImplementation;
+import com.facebook.presto.spi.function.AggregationFunctionMetadata;
 import com.facebook.presto.spi.function.AlterRoutineCharacteristics;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
@@ -40,6 +41,7 @@ import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.function.SqlFunctionHandle;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlFunctionSupplier;
+import com.facebook.presto.spi.function.SqlInvokedAggregationFunctionImplementation;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.function.TypeVariableConstraint;
 import com.google.common.base.Suppliers;
@@ -59,7 +61,9 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
+import static com.facebook.presto.common.type.TypeSignatureUtils.resolveIntermediateType;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
@@ -141,19 +145,52 @@ public class NativeFunctionNamespaceManager
         checkArgument(functionHandle instanceof SqlFunctionHandle, "Unsupported FunctionHandle type '%s'", functionHandle.getClass().getSimpleName());
 
         SqlFunctionHandle sqlFunctionHandle = (SqlFunctionHandle) functionHandle;
+        if (functionHandle instanceof NativeFunctionHandle) {
+            NativeFunctionHandle nativeFunctionHandle = (NativeFunctionHandle) functionHandle;
+            return processNativeFunctionHandle(nativeFunctionHandle, typeManager);
+        }
+        else {
+            return processSqlFunctionHandle(sqlFunctionHandle, typeManager);
+        }
+    }
 
-        // Cache results if applicable
+    private AggregationFunctionImplementation processNativeFunctionHandle(NativeFunctionHandle nativeFunctionHandle, TypeManager typeManager)
+    {
+        if (!aggregationImplementationByHandle.containsKey(nativeFunctionHandle)) {
+            Signature signature = nativeFunctionHandle.getSignature();
+            SqlFunction function = getSqlFunctionFromSignature(signature);
+            SqlInvokedFunction sqlFunction = (SqlInvokedFunction) function;
+
+            checkArgument(
+                    sqlFunction.getAggregationMetadata().isPresent(),
+                    "Need aggregationMetadata to get aggregation function implementation");
+
+            AggregationFunctionMetadata aggregationMetadata = sqlFunction.getAggregationMetadata().get();
+            TypeSignature intermediateType = aggregationMetadata.getIntermediateType();
+            List<TypeSignature> typeSignatures = sqlFunction.getParameters().stream().map(Parameter::getType).collect(Collectors.toList());
+            TypeSignature resolvedIntermediateType = resolveIntermediateType(intermediateType, typeSignatures, signature.getArgumentTypes());
+            aggregationImplementationByHandle.put(
+                    nativeFunctionHandle,
+                    new SqlInvokedAggregationFunctionImplementation(
+                            typeManager.getType(resolvedIntermediateType),
+                            typeManager.getType(signature.getReturnType()),
+                            aggregationMetadata.isOrderSensitive()));
+        }
+        return aggregationImplementationByHandle.get(nativeFunctionHandle);
+    }
+
+    private AggregationFunctionImplementation processSqlFunctionHandle(SqlFunctionHandle sqlFunctionHandle, TypeManager typeManager)
+    {
         if (!aggregationImplementationByHandle.containsKey(sqlFunctionHandle)) {
             SqlFunctionId functionId = sqlFunctionHandle.getFunctionId();
-            if (!latestFunctions.containsKey(functionId)) {
+            if (!memoizedFunctionsSupplier.get().containsKey(functionId)) {
                 throw new PrestoException(GENERIC_USER_ERROR, format("Function '%s' is missing from cache", functionId.getId()));
             }
 
             aggregationImplementationByHandle.put(
                     sqlFunctionHandle,
-                    sqlInvokedFunctionToAggregationImplementation(latestFunctions.get(functionId), typeManager));
+                    sqlInvokedFunctionToAggregationImplementation(memoizedFunctionsSupplier.get().get(functionId), typeManager));
         }
-
         return aggregationImplementationByHandle.get(sqlFunctionHandle);
     }
 
@@ -303,18 +340,23 @@ public class NativeFunctionNamespaceManager
         return functionHandle;
     }
 
-    private FunctionMetadata getMetadataFromNativeFunctionHandle(SqlFunctionHandle functionHandle)
+    private SqlFunction getSqlFunctionFromSignature(Signature signature)
     {
-        NativeFunctionHandle nativeFunctionHandle = (NativeFunctionHandle) functionHandle;
-        Signature signature = nativeFunctionHandle.getSignature();
         SqlFunctionSupplier functionKey;
         try {
             functionKey = specializedFunctionKeyCache.getUnchecked(signature);
         }
         catch (UncheckedExecutionException e) {
-            throw convertToPrestoException(e, format("Error getting FunctionMetadata for handle: %s", functionHandle));
+            throw convertToPrestoException(e, format("Error getting FunctionMetadata for signature: %s", signature));
         }
-        SqlFunction function = functionKey.getFunction();
+        return functionKey.getFunction();
+    }
+
+    private FunctionMetadata getMetadataFromNativeFunctionHandle(SqlFunctionHandle functionHandle)
+    {
+        NativeFunctionHandle nativeFunctionHandle = (NativeFunctionHandle) functionHandle;
+        Signature signature = nativeFunctionHandle.getSignature();
+        SqlFunction function = getSqlFunctionFromSignature(signature);
 
         // todo: verify this metadata return
         SqlInvokedFunction sqlFunction = (SqlInvokedFunction) function;
