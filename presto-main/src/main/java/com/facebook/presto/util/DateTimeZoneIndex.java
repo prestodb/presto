@@ -19,6 +19,10 @@ import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.chrono.ISOChronology;
 
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+
 import static com.facebook.presto.common.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.common.type.DateTimeEncoding.unpackZoneKey;
 import static com.facebook.presto.common.type.TimeZoneKey.MAX_TIME_ZONE_KEY;
@@ -31,6 +35,7 @@ public final class DateTimeZoneIndex
     }
 
     private static final DateTimeZone[] DATE_TIME_ZONES;
+    private static final ZoneId[] ZONE_IDS;
     private static final ISOChronology[] CHRONOLOGIES;
     private static final int[] FIXED_ZONE_OFFSET;
 
@@ -38,12 +43,15 @@ public final class DateTimeZoneIndex
 
     static {
         DATE_TIME_ZONES = new DateTimeZone[MAX_TIME_ZONE_KEY + 1];
+        ZONE_IDS = new ZoneId[MAX_TIME_ZONE_KEY + 1];
         CHRONOLOGIES = new ISOChronology[MAX_TIME_ZONE_KEY + 1];
         FIXED_ZONE_OFFSET = new int[MAX_TIME_ZONE_KEY + 1];
         for (TimeZoneKey timeZoneKey : getTimeZoneKeys()) {
             short zoneKey = timeZoneKey.getKey();
             DateTimeZone dateTimeZone = DateTimeZone.forID(timeZoneKey.getId());
             DATE_TIME_ZONES[zoneKey] = dateTimeZone;
+            ZoneId zoneId = dateTimeZone.toTimeZone().toZoneId();
+            ZONE_IDS[zoneKey] = zoneId;
             CHRONOLOGIES[zoneKey] = ISOChronology.getInstance(dateTimeZone);
             if (dateTimeZone.isFixed() && dateTimeZone.getOffset(0) % 60_000 == 0) {
                 FIXED_ZONE_OFFSET[zoneKey] = dateTimeZone.getOffset(0) / 60_000;
@@ -67,6 +75,14 @@ public final class DateTimeZoneIndex
     public static DateTimeZone getDateTimeZone(TimeZoneKey zoneKey)
     {
         return DATE_TIME_ZONES[zoneKey.getKey()];
+    }
+
+    public static ZoneOffset getZoneOffset(Instant instant, TimeZoneKey zoneKey)
+    {
+        if (instant == null) {
+            return null;
+        }
+        return ZONE_IDS[zoneKey.getKey()].getRules().getOffset(instant);
     }
 
     public static DateTimeZone unpackDateTimeZone(long dateTimeWithTimeZone)
