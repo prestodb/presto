@@ -75,6 +75,12 @@ public enum OperatorType
         return calledOnNullInput;
     }
 
+    public boolean isHashOperator()
+    {
+        return this.equals(HASH_CODE) ||
+                this.equals(XX_HASH_64);
+    }
+
     public boolean isComparisonOperator()
     {
         return this.equals(EQUAL) ||

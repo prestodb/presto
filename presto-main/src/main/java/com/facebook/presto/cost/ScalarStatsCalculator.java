@@ -133,6 +133,14 @@ public class ScalarStatsCalculator
                 return computeArithmeticBinaryStatistics(call, context);
             }
 
+            if (functionMetadata.getOperatorType().map(OperatorType::isHashOperator).orElse(false)) {
+                return computeHashCodeOperatorStatistics(call, context);
+            }
+
+            if (functionMetadata.getOperatorType().map(OperatorType::isComparisonOperator).orElse(false)) {
+                return computeComparisonOperatorStatistics(call, context);
+            }
+
             RowExpression value = new RowExpressionOptimizer(metadata).optimize(call, OPTIMIZED, session);
 
             if (isNull(value)) {
@@ -148,15 +156,21 @@ public class ScalarStatsCalculator
                 return computeCastStatistics(call, context);
             }
 
+            boolean isStatsPropagationEnabled =
+                    SystemSessionProperties.shouldEnableScalarFunctionStatsPropagation(((FullConnectorSession) session).getSession());
+
             if (functionMetadata.getStatsHeader().isPresent() &&
-                    SystemSessionProperties.shouldEnableScalarFunctionStatsPropagation(((FullConnectorSession) session).getSession())) {
+                    isStatsPropagationEnabled) {
+                // casting session to FullConnectorSession is not ideal. But should be okay for POC, ideally should evolve the RowExpressionStatsVisitor.
                 return computeCallStatistics(call, context, functionMetadata.getStatsHeader().get());
             }
             else {
-                System.out.println("Stats not found for func: " + functionMetadata.getName() + " " + call);
+                if (isStatsPropagationEnabled) {
+                    System.out.println("Stats not found for func: " + functionMetadata.getName() + " " + call);
+                }
             }
             // by default propagate source stats of first col.
-            // return propagateCallSourceStatistics(call, context);
+            // return propagateCallSourceStatistics(call, context); TODO: add a flag to enable this?
             return VariableStatsEstimate.unknown();
         }
 
@@ -176,6 +190,7 @@ public class ScalarStatsCalculator
 
             return sourceStatsFinal;
         }
+
         @Override
         public VariableStatsEstimate visitInputReference(InputReferenceExpression reference, Void context)
         {
@@ -324,7 +339,7 @@ public class ScalarStatsCalculator
             for (Map.Entry<Integer, ScalarPropagateSourceStats> entry : statsHeader.getStatsResolver().entrySet()) {
                 ScalarPropagateSourceStats scalarPropagateSourceStats = entry.getValue();
                 VariableStatsEstimate sourceStats = call.getArguments().get(entry.getKey()).accept(this, context);
-                if (scalarPropagateSourceStats.propagateAllStats()) {
+                if (scalarPropagateSourceStats.propagateAllStats() && !sourceStats.isUnknown()) {
                     distinctValuesCount = sourceStats.getDistinctValuesCount();
                     min = sourceStats.getLowValue();
                     max = sourceStats.getHighValue();
@@ -334,7 +349,9 @@ public class ScalarStatsCalculator
                 // distinct value count
                 switch (scalarPropagateSourceStats.distinctValueCount()) {
                     case SOURCE_STATS:
-                        distinctValuesCount = sourceStats.getDistinctValuesCount();
+                        if (isFinite(sourceStats.getDistinctValuesCount())) {
+                            distinctValuesCount = sourceStats.getDistinctValuesCount();
+                        }
                         break;
                     case ROW_COUNT:
                         distinctValuesCount = input.getOutputRowCount();
@@ -347,7 +364,9 @@ public class ScalarStatsCalculator
                 // min, max can be estimated by distinct value count as well, but user provided hints/values override those.
                 switch (scalarPropagateSourceStats.minValue()) {
                     case SOURCE_STATS:
-                        min = sourceStats.getLowValue();
+                        if (isFinite(sourceStats.getLowValue())) {
+                            min = sourceStats.getLowValue();
+                        }
                         break;
                     case MAX:
                     case SUM:
@@ -355,7 +374,9 @@ public class ScalarStatsCalculator
                 }
                 switch (scalarPropagateSourceStats.maxValue()) {
                     case SOURCE_STATS:
-                        max = sourceStats.getHighValue();
+                        if (isFinite(sourceStats.getHighValue())) {
+                            max = sourceStats.getHighValue();
+                        }
                         break;
                     case MAX_TYPE_WIDTH: // Handled as part of distinct value count
                         break;
@@ -369,7 +390,9 @@ public class ScalarStatsCalculator
                 // Average row size
                 switch (scalarPropagateSourceStats.avgRowSize()) {
                     case SOURCE_STATS:
-                        avgRowSize = sourceStats.getAverageRowSize();
+                        if (isFinite(sourceStats.getAverageRowSize())) {
+                            avgRowSize = sourceStats.getAverageRowSize();
+                        }
                         break;
                     case MAX:
                     case SUM:
@@ -378,7 +401,9 @@ public class ScalarStatsCalculator
                 // Null fraction
                 switch (scalarPropagateSourceStats.nullFraction()) {
                     case SOURCE_STATS:
-                        nullFraction = sourceStats.getNullsFraction();
+                        if (isFinite(sourceStats.getNullsFraction())) {
+                            nullFraction = sourceStats.getNullsFraction();
+                        }
                         break;
                     case MAX:
                     case SUM:
@@ -461,6 +486,32 @@ public class ScalarStatsCalculator
                         .build();
             }
             throw new IllegalStateException(format("Unexpected sign: %s(%s)", call.getDisplayName(), call.getFunctionHandle()));
+        }
+
+        private VariableStatsEstimate computeHashCodeOperatorStatistics(CallExpression call, Void context)
+        {
+            requireNonNull(call, "call is null");
+            VariableStatsEstimate argStats = call.getArguments().get(0).accept(this, context);
+            VariableStatsEstimate.Builder result =
+                    VariableStatsEstimate.builder()
+                            .setAverageRowSize(8.0)
+                            .setNullsFraction(argStats.getNullsFraction())
+                            .setDistinctValuesCount(min(argStats.getDistinctValuesCount(), input.getOutputRowCount()));
+            return result.build();
+        }
+
+        private VariableStatsEstimate computeComparisonOperatorStatistics(CallExpression call, Void context)
+        {
+            requireNonNull(call, "call is null");
+            VariableStatsEstimate argStats = call.getArguments().get(0).accept(this, context);
+            VariableStatsEstimate.Builder result =
+                    VariableStatsEstimate.builder()
+                            .setAverageRowSize(1.0)
+                            .setNullsFraction(0.0)
+                            .setLowValue(0.0)
+                            .setHighValue(1.0)
+                            .setDistinctValuesCount(2.0);
+            return result.build();
         }
 
         private VariableStatsEstimate computeArithmeticBinaryStatistics(CallExpression call, Void context)
