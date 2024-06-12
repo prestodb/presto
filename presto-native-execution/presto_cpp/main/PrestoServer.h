@@ -67,6 +67,9 @@ class SignalHandler;
 class TaskManager;
 class TaskResource;
 class PeriodicTaskManager;
+#ifdef PRESTO_ENABLE_LINUX_MEMORY_CHECKER
+class LinuxMemoryChecker;
+#endif // PRESTO_ENABLE_LINUX_MEMORY_CHECKER
 class SystemConfig;
 
 class PrestoServer {
@@ -182,6 +185,8 @@ class PrestoServer {
 
   void registerStatsCounters();
 
+  void startLinuxMemoryChecker();
+
  protected:
   void updateAnnouncerDetails();
 
@@ -248,6 +253,9 @@ class PrestoServer {
   folly::Synchronized<bool> shuttingDown_{false};
   std::chrono::steady_clock::time_point start_;
   std::unique_ptr<PeriodicTaskManager> periodicTaskManager_;
+#ifdef PRESTO_ENABLE_LINUX_MEMORY_CHECKER
+  std::unique_ptr<LinuxMemoryChecker> linuxMemoryChecker_;
+#endif // PRESTO_ENABLE_LINUX_MEMORY_CHECKER
   std::unique_ptr<PrestoServerOperations> prestoServerOperations_;
 
   // We update these members asynchronously and return in http requests w/o

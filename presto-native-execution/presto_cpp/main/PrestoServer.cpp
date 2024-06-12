@@ -64,6 +64,10 @@
 #include <sched.h>
 #endif
 
+#ifdef PRESTO_ENABLE_LINUX_MEMORY_CHECKER
+#include "presto_cpp/main/LinuxMemoryChecker.h"
+#endif // PRESTO_ENABLE_LINUX_MEMORY_CHECKER
+
 namespace facebook::presto {
 using namespace facebook::velox;
 
@@ -546,6 +550,9 @@ void PrestoServer::run() {
   addAdditionalPeriodicTasks();
   periodicTaskManager_->start();
 
+  // Start LinuxMemoryChecker.
+  startLinuxMemoryChecker();
+
   // Start everything. After the return from the following call we are shutting
   // down.
   httpServer_->start(getHttpServerFilters());
@@ -654,6 +661,27 @@ void PrestoServer::run() {
     PRESTO_SHUTDOWN_LOG(INFO) << "Shutdown AsyncDataCache";
     cache_->shutdown();
   }
+}
+
+void PrestoServer::startLinuxMemoryChecker() {
+#ifdef PRESTO_ENABLE_LINUX_MEMORY_CHECKER
+  uint64_t systemMemLimitBytes = systemConfig->systemMemLimitGb();
+  uint64_t systemMemShrinkBytes = systemConfig->systemMemShrinkGb();
+  linuxMemoryChecker_ =
+      std::make_unique<LinuxMemoryChecker>(PeriodicMemoryChecker::Config{
+          1'000,
+          systemConfig->systemMemPushbackEnabled(),
+          systemMemLimitBytes << 30,
+          systemMemShrinkBytes << 30,
+          systemConfig->mallocMemHeapDumpEnabled(),
+          systemConfig->mallocMemMinHeapDumpInterval(),
+          "/path/to/dir",
+          "prefix",
+          systemConfig->mallocMemMaxHeapDumpFiles(),
+          20UL * 1024 * 1024 * 1024});
+
+  linuxMemoryChecker_->start();
+#endif // PRESTO_ENABLE_LINUX_MEMORY_CHECKER
 }
 
 void PrestoServer::yieldTasks() {
