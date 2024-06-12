@@ -93,7 +93,7 @@ public class NodePartitioningManager
 
             bucketFunction = partitioningProvider.getBucketFunction(
                     partitioningHandle.getTransactionHandle().orElse(null),
-                    session.toConnectorSession(),
+                    session.toConnectorSession(partitioningHandle.getConnectorId().get()),
                     partitioningHandle.getConnectorHandle(),
                     partitionChannelTypes,
                     bucketToPartition.get().length);

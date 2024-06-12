@@ -41,6 +41,7 @@ public class HiveBucketAdapterRecordCursor
     private final int bucketToKeep;
 
     private final Object[] scratch;
+    private final boolean useLegacyTimestampBucketing;
 
     public HiveBucketAdapterRecordCursor(
             int[] bucketColumnIndices,
@@ -49,7 +50,8 @@ public class HiveBucketAdapterRecordCursor
             int partitionBucketCount,
             int bucketToKeep,
             TypeManager typeManager,
-            RecordCursor delegate)
+            RecordCursor delegate,
+            boolean useLegacyTimestampBucketing)
     {
         this.bucketColumnIndices = requireNonNull(bucketColumnIndices, "bucketColumnIndices is null");
         this.delegate = requireNonNull(delegate, "delegate is null");
@@ -67,6 +69,7 @@ public class HiveBucketAdapterRecordCursor
         this.bucketToKeep = bucketToKeep;
 
         this.scratch = new Object[bucketColumnHiveTypes.size()];
+        this.useLegacyTimestampBucketing = useLegacyTimestampBucketing;
     }
 
     @Override
@@ -121,7 +124,7 @@ public class HiveBucketAdapterRecordCursor
                     throw new UnsupportedOperationException("unknown java type");
                 }
             }
-            int bucket = HiveBucketing.getHiveBucket(tableBucketCount, typeInfoList, scratch);
+            int bucket = HiveBucketing.getHiveBucket(tableBucketCount, typeInfoList, scratch, useLegacyTimestampBucketing);
             if ((bucket - bucketToKeep) % partitionBucketCount != 0) {
                 throw new PrestoException(HIVE_INVALID_BUCKET_FILES, format(
                         "A row that is supposed to be in bucket %s is encountered. Only rows in bucket %s (modulo %s) are expected",
