@@ -208,7 +208,8 @@ public class TestTpcdsMetadataStatistics
                 "        \"max\" : 30.0\n" +
                 "      }\n" +
                 "    }\n" +
-                "  }\n" +
+                "  },\n" +
+                "  \"confidence\" : \"HIGH\"\n" +
                 "}");
     }
 

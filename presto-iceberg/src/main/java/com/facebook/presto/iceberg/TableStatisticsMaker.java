@@ -90,6 +90,7 @@ import static com.facebook.presto.iceberg.Partition.toMap;
 import static com.facebook.presto.iceberg.util.StatisticsUtil.calculateAndSetTableSize;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.TOTAL_SIZE_IN_BYTES;
+import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel.HIGH;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.Long.parseLong;
@@ -149,6 +150,7 @@ public class TableStatisticsMaker
         if (intersection.isNone()) {
             return TableStatistics.builder()
                     .setRowCount(Estimate.of(0))
+                    .setConfidenceLevel(HIGH)
                     .build();
         }
 
