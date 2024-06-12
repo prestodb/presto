@@ -17,9 +17,9 @@
 
 #include <functional>
 #include <limits>
-#include "CheckedArithmeticImpl.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/functions/Macros.h"
+#include "velox/functions/lib/CheckedArithmeticImpl.h"
 
 namespace facebook::velox::functions {
 

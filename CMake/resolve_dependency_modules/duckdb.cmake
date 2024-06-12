@@ -33,7 +33,8 @@ FetchContent_Declare(
   URL_HASH ${VELOX_DUCKDB_BUILD_SHA256_CHECKSUM}
   PATCH_COMMAND
     git apply ${CMAKE_CURRENT_LIST_DIR}/duckdb/remove-ccache.patch && git apply
-    ${CMAKE_CURRENT_LIST_DIR}/duckdb/fix-duckdbversion.patch)
+    ${CMAKE_CURRENT_LIST_DIR}/duckdb/fix-duckdbversion.patch && git apply
+    ${CMAKE_CURRENT_LIST_DIR}/duckdb/re2.patch)
 
 set(BUILD_UNITTESTS OFF)
 set(ENABLE_SANITIZER OFF)

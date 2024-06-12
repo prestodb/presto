@@ -1,0 +1,11 @@
+--- a/third_party/re2/CMakeLists.txt
++++ b/third_party/re2/CMakeLists.txt
+@@ -90,7 +90,7 @@
+ 
+ target_include_directories(
+   duckdb_re2
+-  PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
++  PRIVATE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
+ 
+ install(TARGETS duckdb_re2
+         EXPORT "${DUCKDB_EXPORT_SET}"

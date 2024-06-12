@@ -90,7 +90,7 @@ jobs:
 
       - name: "Install dependencies"
         if: ${{ github.event_name == 'pull_request' }}
-        run: source velox/scripts/setup-ubuntu.sh && install_apt_deps
+        run: source velox/scripts/setup-ubuntu.sh && install_apt_deps && install_duckdb
 
       - name: Build Baseline Benchmarks
         if: ${{ github.event_name == 'pull_request' }}
