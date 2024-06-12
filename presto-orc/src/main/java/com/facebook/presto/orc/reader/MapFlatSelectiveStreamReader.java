@@ -679,7 +679,8 @@ public class MapFlatSelectiveStreamReader
                     hiveStorageTimeZone,
                     options,
                     systemMemoryContext.newOrcAggregatedMemoryContext(),
-                    true);
+                    true,
+                    null);
             valueStreamReader.startStripe(stripe);
             valueStreamReaders.add(valueStreamReader);
         }

@@ -167,7 +167,8 @@ public class TestHiveClientConfig
                 .setCteVirtualBucketCount(128)
                 .setSkipEmptyFilesEnabled(false)
                 .setAffinitySchedulingFileSectionSize(new DataSize(256, MEGABYTE))
-                .setLegacyTimestampBucketing(false));
+                .setLegacyTimestampBucketing(false)
+                .setOrcUseVectorFilter(false));
     }
 
     @Test
@@ -296,6 +297,7 @@ public class TestHiveClientConfig
                 .put("hive.affinity-scheduling-file-section-size", "512MB")
                 .put("hive.skip-empty-files", "true")
                 .put("hive.legacy-timestamp-bucketing", "true")
+                .put("hive.orc-use-vector-filter", "true")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -420,7 +422,8 @@ public class TestHiveClientConfig
                 .setSkipEmptyFilesEnabled(true)
                 .setCteVirtualBucketCount(256)
                 .setAffinitySchedulingFileSectionSize(new DataSize(512, MEGABYTE))
-                .setLegacyTimestampBucketing(true);
+                .setLegacyTimestampBucketing(true)
+                .setOrcUseVectorFilter(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

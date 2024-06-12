@@ -427,6 +427,21 @@ public final class OrcInputStream
         return ByteArrays.getFloat(buffer, readPosition);
     }
 
+    public byte[] getDataInBytes(int count)
+            throws IOException
+    {
+        int readPosition = ensureContiguousBytesAndAdvance(SIZE_OF_DOUBLE * count);
+        if (readPosition < 0) {
+            return temporaryBuffer;
+        }
+        return buffer;
+    }
+
+    public boolean isDataCompressedOrEncrypted()
+    {
+        return (decompressor.isPresent() || dwrfDecryptor.isPresent());
+    }
+
     private int ensureContiguousBytesAndAdvance(int bytes)
             throws IOException
     {

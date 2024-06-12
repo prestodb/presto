@@ -198,6 +198,8 @@ Property Name                                      Description                  
 
 ``hive.skip-empty-files``                          Enable skipping empty files. Otherwise, it will produce an   ``false``
                                                    error iterating through empty files.
+
+``hive.orc-use-vector-filter``                     Enable use of vector ORC readers in compilation and execution ``false``
 ================================================== ============================================================ ============
 
 Metastore Configuration Properties

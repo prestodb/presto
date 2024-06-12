@@ -58,6 +58,7 @@ public final class HiveSessionProperties
     private static final String ORC_OPTIMIZED_WRITER_STRING_DICTIONARY_SORTING_ENABLED = "orc_optimized_writer_string_dictionary_sorting_enabled";
     private static final String ORC_OPTIMIZED_WRITER_FLAT_MAP_WRITER_ENABLED = "orc_optimized_writer_flat_map_writer_enabled";
     private static final String ORC_OPTIMIZED_WRITER_COMPRESSION_LEVEL = "orc_optimized_writer_compression_level";
+    private static final String ORC_USE_VECTOR_FILTER = "orc_use_vector_filter";
     private static final String PAGEFILE_WRITER_MAX_STRIPE_SIZE = "pagefile_writer_max_stripe_size";
     public static final String HIVE_STORAGE_FORMAT = "hive_storage_format";
     private static final String COMPRESSION_CODEC = "compression_codec";
@@ -214,6 +215,11 @@ public final class HiveSessionProperties
                         ORC_OPTIMIZED_WRITER_COMPRESSION_LEVEL,
                         "Experimental: ORC: Compression level, works only for ZSTD and ZLIB compression kinds",
                         orcFileWriterConfig.getCompressionLevel(),
+                        false),
+                booleanProperty(
+                        ORC_USE_VECTOR_FILTER,
+                        "Experimental: enable vector path for orc filters",
+                        hiveClientConfig.getOrcUseVectorFilter(),
                         false),
                 dataSizeSessionProperty(
                         PAGEFILE_WRITER_MAX_STRIPE_SIZE,
@@ -1139,5 +1145,10 @@ public final class HiveSessionProperties
     public static boolean isLegacyTimestampBucketing(ConnectorSession session)
     {
         return session.getProperty(LEGACY_TIMESTAMP_BUCKETING, Boolean.class);
+    }
+
+    public static boolean getOrcUseVectorFilter(ConnectorSession session)
+    {
+        return session.getProperty(ORC_USE_VECTOR_FILTER, Boolean.class);
     }
 }
