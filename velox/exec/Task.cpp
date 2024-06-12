@@ -344,6 +344,12 @@ Task::~Task() {
   CLEAR(pool_.reset());
   CLEAR(planFragment_ = core::PlanFragment());
   clearStage = "exiting ~Task()";
+
+  // Ful-fill the task deletion promises at the end.
+  auto taskDeletionPromises = std::move(taskDeletionPromises_);
+  for (auto& promise : taskDeletionPromises) {
+    promise.setValue();
+  }
 }
 
 uint64_t Task::timeSinceStartMsLocked() const {
@@ -2232,6 +2238,14 @@ ContinueFuture Task::taskCompletionFuture() {
   auto [promise, future] = makeVeloxContinuePromiseContract(
       fmt::format("Task::taskCompletionFuture {}", taskId_));
   taskCompletionPromises_.emplace_back(std::move(promise));
+  return std::move(future);
+}
+
+ContinueFuture Task::taskDeletionFuture() {
+  std::lock_guard<std::timed_mutex> l(mutex_);
+  auto [promise, future] = makeVeloxContinuePromiseContract(
+      fmt::format("Task::taskDeletionFuture {}", taskId_));
+  taskDeletionPromises_.emplace_back(std::move(promise));
   return std::move(future);
 }
 

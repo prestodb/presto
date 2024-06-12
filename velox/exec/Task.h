@@ -269,6 +269,10 @@ class Task : public std::enable_shared_from_this<Task> {
   /// immediately realized.
   ContinueFuture taskCompletionFuture();
 
+  /// Returns a future which is realized when the task has been deleted, and all
+  /// the background activities have finished at that point.
+  ContinueFuture taskDeletionFuture();
+
   /// Returns task execution error or nullptr if no error occurred.
   std::exception_ptr error() const {
     std::lock_guard<std::timed_mutex> l(mutex_);
@@ -1038,74 +1042,77 @@ class Task : public std::enable_shared_from_this<Task> {
 
   std::vector<std::unique_ptr<DriverFactory>> driverFactories_;
   std::vector<std::shared_ptr<Driver>> drivers_;
-  /// When Drivers are closed by the Task, there is a chance that race and/or
-  /// bugs can cause such Drivers to be held forever, in turn holding a pointer
-  /// to the Task making it a zombie Tasks. This vector is used to keep track of
-  /// such drivers to assist debugging zombie Tasks.
+  // When Drivers are closed by the Task, there is a chance that race and/or
+  // bugs can cause such Drivers to be held forever, in turn holding a pointer
+  // to the Task making it a zombie Tasks. This vector is used to keep track of
+  // such drivers to assist debugging zombie Tasks.
   std::vector<std::weak_ptr<Driver>> driversClosedByTask_;
-  /// The total number of running drivers in all pipelines.
-  /// This number changes over time as drivers finish their work and maybe new
-  /// get created.
+  // The total number of running drivers in all pipelines.
+  // This number changes over time as drivers finish their work and maybe new
+  // get created.
   uint32_t numRunningDrivers_{0};
-  /// The total number of drivers we need to run in all pipelines. It is sum of
-  /// the Ungrouped Execution drivers plus the number of Grouped Execution
-  /// drivers per split group times the number of split groups. In practice for
-  /// tasks with Grouped Execution the final number would be much less (roughly
-  /// divided by the number of workers), so this will be adjusted in the end of
-  /// task's work.
+  // The total number of drivers we need to run in all pipelines. It is sum of
+  // the Ungrouped Execution drivers plus the number of Grouped Execution
+  // drivers per split group times the number of split groups. In practice for
+  // tasks with Grouped Execution the final number would be much less (roughly
+  // divided by the number of workers), so this will be adjusted in the end of
+  // task's work.
   uint32_t numTotalDrivers_{0};
-  /// The number of completed drivers so far.
-  /// This number increases over time as drivers finish their work.
-  /// We use this number to detect when the Task is completed.
+  // The number of completed drivers so far. This number increases over time as
+  // drivers finish their work. We use this number to detect when the Task is
+  // completed.
   uint32_t numFinishedDrivers_{0};
-  /// Reflects number of drivers required to process single split group during
-  /// grouped execution. Zero for a completely ungrouped execution.
+  // Reflects number of drivers required to process single split group during
+  // grouped execution. Zero for a completely ungrouped execution.
   uint32_t numDriversPerSplitGroup_{0};
-  /// Reflects number of drivers required to run ungrouped execution in the
-  /// fragment. Zero for a completely grouped execution.
+  // Reflects number of drivers required to run ungrouped execution in the
+  // fragment. Zero for a completely grouped execution.
   uint32_t numDriversUngrouped_{0};
-  /// Number of drivers running in the pipeline hosting the Partitioned Output
-  /// (in a single split group). We use it to recalculate the number of
-  /// producing drivers at the end during the Grouped Execution mode.
+  // Number of drivers running in the pipeline hosting the Partitioned Output
+  // (in a single split group). We use it to recalculate the number of producing
+  // drivers at the end during the Grouped Execution mode.
   uint32_t numDriversInPartitionedOutput_{0};
-  /// True if the pipeline hosting the Partitioned Output runs in the Grouped
-  /// Execution mode. In this case we will need to update the number of output
-  /// drivers in the end. False otherwise.
+  // True if the pipeline hosting the Partitioned Output runs in the Grouped
+  // Execution mode. In this case we will need to update the number of output
+  // drivers in the end. False otherwise.
   bool groupedPartitionedOutput_{false};
-  /// The number of splits groups we run concurrently.
+  // The number of splits groups we run concurrently.
   uint32_t concurrentSplitGroups_{1};
 
-  /// Have we already initialized stats of operators in the drivers for Grouped
-  /// Execution?
+  // Have we already initialized stats of operators in the drivers for Grouped
+  // Execution?
   bool initializedGroupedOpStats_{false};
-  /// Have we already initialized stats of operators in the drivers for
-  /// Ungrouped Execution?
+  // Have we already initialized stats of operators in the drivers for Ungrouped
+  // Execution?
   bool initializedUngroupedOpStats_{false};
 
-  /// How many splits groups we are processing at the moment. Used to control
-  /// split group concurrency. Ungrouped Split Group is not included here.
+  // How many splits groups we are processing at the moment. Used to control
+  // split group concurrency. Ungrouped Split Group is not included here.
   uint32_t numRunningSplitGroups_{0};
-  /// Split groups for which we have received at least one split - meaning our
-  /// task is to process these. This set only grows. Used to deduplicate split
-  /// groups for different nodes and to determine how many split groups we to
-  /// process in total.
+  // Split groups for which we have received at least one split - meaning our
+  // task is to process these. This set only grows. Used to deduplicate split
+  // groups for different nodes and to determine how many split groups we to
+  // process in total.
   std::unordered_set<uint32_t> seenSplitGroups_;
-  /// Split groups for which we have received splits but haven't started
-  /// processing. It grows with arrival of the 1st split of a previously not
-  /// seen split group and depletes with creating new sets of drivers to process
-  /// queued split groups.
+  // Split groups for which we have received splits but haven't started
+  // processing. It grows with arrival of the 1st split of a previously not seen
+  // split group and depletes with creating new sets of drivers to process
+  // queued split groups.
   std::queue<uint32_t> queuedSplitGroups_;
 
   TaskState state_ = TaskState::kRunning;
 
-  /// Stores splits state structure for each plan node.
-  /// At construction populated with all leaf plan nodes that require splits.
-  /// Afterwards accessed with getPlanNodeSplitsStateLocked() to ensure we only
-  /// manage splits of the plan nodes that expect splits.
+  // Stores splits state structure for each plan node. At construction populated
+  // with all leaf plan nodes that require splits. Afterwards accessed with
+  // getPlanNodeSplitsStateLocked() to ensure we only manage splits of the plan
+  // nodes that expect splits.
   std::unordered_map<core::PlanNodeId, SplitsState> splitsStates_;
 
   // Promises that are fulfilled when the task is completed (terminated).
   std::vector<ContinuePromise> taskCompletionPromises_;
+
+  // Promises that are fulfilled when the task is destroyed.
+  std::vector<ContinuePromise> taskDeletionPromises_;
 
   // Promises that are fulfilled when the task's state has changed and ready to
   // report some progress (such as split group finished or task is completed).
@@ -1113,14 +1120,14 @@ class Task : public std::enable_shared_from_this<Task> {
 
   TaskStats taskStats_;
 
-  /// Stores inter-operator state (exchange, bridges) per split group.
-  /// During ungrouped execution we use the [0] entry in this vector.
+  // Stores inter-operator state (exchange, bridges) per split group. During
+  // ungrouped execution we use the [0] entry in this vector.
   std::unordered_map<uint32_t, SplitGroupState> splitGroupStates_;
 
   std::weak_ptr<OutputBufferManager> bufferManager_;
 
-  /// Boolean indicating that we have already received no-more-output-buffers
-  /// message. Subsequent messages will be ignored.
+  // Boolean indicating that we have already received no-more-output-buffers
+  // message. Subsequent messages will be ignored.
   bool noMoreOutputBuffers_{false};
 
   // Thread counts and cancellation -related state.

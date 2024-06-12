@@ -2095,4 +2095,47 @@ DEBUG_ONLY_TEST_F(TaskTest, taskReclaimFailure) {
               "SELECT c0, c1, array_agg(c2) FROM tmp GROUP BY c0, c1"),
       spillTableError);
 }
+
+DEBUG_ONLY_TEST_F(TaskTest, taskDeletionPromise) {
+  const auto rowType =
+      ROW({"c0", "c1", "c2"}, {INTEGER(), DOUBLE(), INTEGER()});
+  const auto inputVectors = makeVectors(rowType, 128, 256);
+  createDuckDbTable(inputVectors);
+
+  std::atomic_bool terminateWaitFlag{true};
+  folly::EventCount terminateWait;
+  std::atomic<Task*> task{nullptr};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Task::terminate",
+      std::function<void(Task*)>(([&](Task* _task) {
+        task = _task;
+        terminateWait.await([&]() { return !terminateWaitFlag.load(); });
+      })));
+
+  std::thread queryThread([&]() {
+    AssertQueryBuilder(duckDbQueryRunner_)
+        .maxDrivers(1)
+        .plan(PlanBuilder()
+                  .values(inputVectors)
+                  .singleAggregation({"c0", "c1"}, {"array_agg(c2)"})
+                  .planNode())
+        .assertResults("SELECT c0, c1, array_agg(c2) FROM tmp GROUP BY c0, c1");
+  });
+
+  while (task == nullptr) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
+  // The task deletion future is not ful-filled as the task is not deleted.
+  ASSERT_FALSE(task.load()
+                   ->taskDeletionFuture()
+                   .within(std::chrono::microseconds(1'000'000))
+                   .wait()
+                   .hasValue());
+  auto deleteFuture = task.load()->taskDeletionFuture();
+  terminateWaitFlag = false;
+  terminateWait.notifyAll();
+  // The task deletion future is ful-filled after the wait.
+  ASSERT_TRUE(deleteFuture.wait().hasValue());
+  queryThread.join();
+}
 } // namespace facebook::velox::exec::test
