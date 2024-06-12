@@ -571,6 +571,25 @@ public class TestQueryRewriter
                         "FROM test_table");
     }
 
+    @Test
+    public void testRewriteCasts()
+    {
+        VerifierConfig verifierConfig = new VerifierConfig().setFunctionSubstitutes(
+                "/cast(x as varchar)/cast(floor(x) as varchar)/");
+        QueryRewriter queryRewriter = getQueryRewriter(new QueryRewriteConfig(), verifierConfig);
+
+        // Test rewriting cast.
+        assertCreateTableAs(
+                queryRewriter.rewriteQuery(
+                        "SELECT\n" +
+                                "    CAST(a AS VARCHAR)\n" +
+                                "FROM test_table",
+                        CONTROL).getQuery(),
+                "SELECT\n" +
+                        "    CAST(FLOOR(a) AS VARCHAR)\n" +
+                        "FROM test_table");
+    }
+
     private void assertShadowed(
             QueryRewriter queryRewriter,
             @Language("SQL") String query,

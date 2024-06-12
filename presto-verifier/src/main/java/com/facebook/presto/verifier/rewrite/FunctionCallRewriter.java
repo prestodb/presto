@@ -22,6 +22,7 @@ import com.facebook.presto.sql.ExpressionFormatter;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.ArrayConstructor;
+import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CurrentTime;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
@@ -60,8 +61,8 @@ import static java.util.Objects.requireNonNull;
 
 public class FunctionCallRewriter
 {
-    private static final List<Class<?>> SUPPORTED_ORIGINAL_FUNCTIONS = ImmutableList.of(FunctionCall.class, CurrentTime.class);
-    private static final List<Class<?>> SUPPORTED_SUBSTITUTE_EXPRESSIONS = ImmutableList.of(FunctionCall.class, IfExpression.class, SimpleCaseExpression.class,
+    private static final List<Class<?>> SUPPORTED_ORIGINAL_EXPRESSIONS = ImmutableList.of(FunctionCall.class, Cast.class, CurrentTime.class);
+    private static final List<Class<?>> SUPPORTED_SUBSTITUTE_EXPRESSIONS = ImmutableList.of(Cast.class, FunctionCall.class, IfExpression.class, SimpleCaseExpression.class,
             SearchedCaseExpression.class, Identifier.class, Literal.class, ArrayConstructor.class);
     private static final String OMIT_IDENTIFIER = "_";
 
@@ -95,19 +96,12 @@ public class FunctionCallRewriter
         for (String substitute : commaSplitter.split(functionCallSubstitutes)) {
             List<String> specs = slashSplitter.splitToList(substitute);
             if (specs.size() != 2) {
-                throw new IllegalArgumentException(String.format("Original function call and substitute must both be specified, %s.", substitute));
+                throw new IllegalArgumentException("Original function call and substitute must both be specified, " + substitute + ".");
             }
-            Expression originalExpression = parseOriginalFunctionCall(specs.get(0));
+            Expression originalExpression = parseOriginalExpression(specs.get(0));
             Expression substituteExpression = parseSubstituteExpression(specs.get(1));
 
-            if (originalExpression instanceof FunctionCall) {
-                FunctionCall originalFunction = (FunctionCall) originalExpression;
-                map.put(originalFunction.getName().getSuffix(), new FunctionCallSubstitute(originalExpression, substituteExpression));
-            }
-            else if (originalExpression instanceof CurrentTime) {
-                CurrentTime originalFunction = (CurrentTime) originalExpression;
-                map.put(originalFunction.getFunction().getName(), new FunctionCallSubstitute(originalExpression, substituteExpression));
-            }
+            map.put(makeFunctionCallSubstituteMapKey(originalExpression), new FunctionCallSubstitute(originalExpression, substituteExpression));
         }
 
         return map.build();
@@ -210,7 +204,7 @@ public class FunctionCallRewriter
                     }
 
                     Map<Identifier, Expression> identifierToArgumentMap = getIdentifierToOriginalArgumentMap((FunctionCall) substituteInfo.get().originalExpression, defaultRewrite);
-                    Expression rewritten = buildSubstitute(substituteInfo.get().substituteExpression, identifierToArgumentMap, defaultRewrite);
+                    Expression rewritten = buildSubstitute(substituteInfo.get().substituteExpression, identifierToArgumentMap, Optional.of(defaultRewrite));
 
                     context.rewrittenFunctionCalls.add(new FunctionCallSubstitute(original, rewritten));
                     return rewritten;
@@ -242,12 +236,28 @@ public class FunctionCallRewriter
 
                     return new SubqueryExpression((Query) query);
                 }
+
+                @Override
+                public Expression rewriteCast(Cast original, Void voidContext, ExpressionTreeRewriter<Void> treeRewriter)
+                {
+                    Cast defaultRewrite = treeRewriter.defaultRewrite(original, voidContext);
+                    Optional<FunctionCallSubstitute> substituteInfo = getSubstitution(original);
+                    if (!substituteInfo.isPresent()) {
+                        return defaultRewrite;
+                    }
+
+                    Map<Identifier, Expression> identifierToArgumentMap = getIdentifierToOriginalArgumentMap((Cast) substituteInfo.get().originalExpression, defaultRewrite);
+                    Expression rewritten = buildSubstitute(substituteInfo.get().substituteExpression, identifierToArgumentMap, Optional.empty());
+
+                    context.rewrittenFunctionCalls.add(new FunctionCallSubstitute(original, rewritten));
+                    return rewritten;
+                }
             }, node);
         }
 
         private Optional<FunctionCallSubstitute> getSubstitution(FunctionCall instance)
         {
-            for (FunctionCallSubstitute substitution : functionCallSubstituteMap.get(instance.getName().getSuffix())) {
+            for (FunctionCallSubstitute substitution : functionCallSubstituteMap.get(makeFunctionCallSubstituteMapKey(instance))) {
                 if (!(substitution.originalExpression instanceof FunctionCall)) {
                     continue;
                 }
@@ -286,13 +296,29 @@ public class FunctionCallRewriter
 
         private Optional<FunctionCallSubstitute> getSubstitution(CurrentTime instance)
         {
-            for (FunctionCallSubstitute substitution : functionCallSubstituteMap.get(instance.getFunction().getName())) {
+            for (FunctionCallSubstitute substitution : functionCallSubstituteMap.get(makeFunctionCallSubstituteMapKey(instance))) {
                 if (substitution.originalExpression instanceof CurrentTime) {
                     return Optional.of(substitution);
                 }
             }
 
             return Optional.empty();
+        }
+
+        private Optional<FunctionCallSubstitute> getSubstitution(Cast instance)
+        {
+            for (FunctionCallSubstitute substitution : functionCallSubstituteMap.get(makeFunctionCallSubstituteMapKey(instance))) {
+                if (substitution.originalExpression instanceof Cast) {
+                    return Optional.of(substitution);
+                }
+            }
+
+            return Optional.empty();
+        }
+
+        private static Map<Identifier, Expression> getIdentifierToOriginalArgumentMap(Cast originalPattern, Cast originalInstance)
+        {
+            return ImmutableMap.of((Identifier) originalPattern.getExpression(), originalInstance.getExpression());
         }
 
         private static Map<Identifier, Expression> getIdentifierToOriginalArgumentMap(FunctionCall originalPattern, FunctionCall originalInstance)
@@ -344,9 +370,10 @@ public class FunctionCallRewriter
             return identifierToArgumentMap.build();
         }
 
-        private Expression buildSubstitute(Expression substitutePattern, Map<Identifier, Expression> identifierToArgumentMap, FunctionCall originalInstance)
+        private Expression buildSubstitute(Expression substitutePattern, Map<Identifier, Expression> identifierToArgumentMap, Optional<FunctionCall> originalInstance)
         {
-            return substituteIdentifierResolver.resolve(substitutePattern, identifierToArgumentMap, originalInstance);
+            return originalInstance.isPresent() ? substituteIdentifierResolver.resolve(substitutePattern, identifierToArgumentMap, originalInstance.get()) :
+                    substituteIdentifierResolver.resolve(substitutePattern, identifierToArgumentMap);
         }
     }
 
@@ -428,6 +455,21 @@ public class FunctionCallRewriter
             }, substitutePattern);
         }
 
+        public Expression resolve(Expression substitutePattern, Map<Identifier, Expression> identifierToArgumentMap)
+        {
+            return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
+            {
+                @Override
+                public Expression rewriteIdentifier(Identifier identifier, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+                {
+                    if (!identifierToArgumentMap.containsKey(identifier)) {
+                        return identifier;
+                    }
+                    return identifierToArgumentMap.get(identifier);
+                }
+            }, substitutePattern);
+        }
+
         private boolean isAggregateOrWindowFunction(FunctionCall functionCall)
         {
             Collection<SqlFunction> allFunctions = functionAndTypeManager.listBuiltInFunctions();
@@ -443,19 +485,19 @@ public class FunctionCallRewriter
         }
     }
 
-    private static Expression parseOriginalFunctionCall(String functionCallSpec)
+    private static Expression parseOriginalExpression(String expressionSpec)
     {
         SqlParser sqlParser = new SqlParser();
         Expression expression;
         try {
-            expression = sqlParser.createExpression(functionCallSpec, PARSING_OPTIONS);
+            expression = sqlParser.createExpression(expressionSpec, PARSING_OPTIONS);
         }
         catch (ParsingException e) {
-            throw new IllegalArgumentException(String.format("Function call spec %s is not in a valid format.", functionCallSpec), e);
+            throw new IllegalArgumentException("Function call spec " + expressionSpec + " is not in a valid format.", e);
         }
 
-        if (SUPPORTED_ORIGINAL_FUNCTIONS.stream().noneMatch(clazz -> clazz.equals(expression.getClass()))) {
-            throw new IllegalArgumentException(String.format("Substituting %s in %s is not supported.", expression.getClass().getSimpleName(), functionCallSpec));
+        if (SUPPORTED_ORIGINAL_EXPRESSIONS.stream().noneMatch(clazz -> clazz.equals(expression.getClass()))) {
+            throw new IllegalArgumentException("Substituting " + expression.getClass().getSimpleName() + " in " + expressionSpec + " is not supported.");
         }
 
         if (expression instanceof FunctionCall) {
@@ -475,8 +517,17 @@ public class FunctionCallRewriter
                         return;
                     }
                 }
-                throw new IllegalArgumentException(String.format("Argument of type %s from %s is not supported.", argument.getClass().getSimpleName(), functionCallSpec));
+                throw new IllegalArgumentException("Argument of type " + argument.getClass().getSimpleName() + " from " + expressionSpec + " is not supported.");
             });
+        }
+        else if (expression instanceof Cast) {
+            Cast cast = (Cast) expression;
+            if (!(cast.getExpression() instanceof Identifier)) {
+                throw new IllegalArgumentException("Argument of type " + cast.getExpression().getClass().getSimpleName() + " from " + expressionSpec + " is not supported.");
+            }
+            if (OMIT_IDENTIFIER.equals(((Identifier) cast.getExpression()).getValue())) {
+                throw new IllegalArgumentException("Argument of Cast cannot be '" + OMIT_IDENTIFIER + "' in " + expressionSpec);
+            }
         }
         return expression;
     }
@@ -489,11 +540,11 @@ public class FunctionCallRewriter
             expression = sqlParser.createExpression(expressionSpec, PARSING_OPTIONS);
         }
         catch (ParsingException e) {
-            throw new IllegalArgumentException(String.format("Expression spec %s is not in a valid format.", expressionSpec), e);
+            throw new IllegalArgumentException("Expression spec " + expressionSpec + " is not in a valid format.", e);
         }
 
         if (SUPPORTED_SUBSTITUTE_EXPRESSIONS.stream().noneMatch(clazz -> clazz.isAssignableFrom(expression.getClass()))) {
-            throw new IllegalArgumentException(String.format("Substitution of with from %s is not supported.", expression.getClass().getSimpleName()));
+            throw new IllegalArgumentException("Substitution of with from " + expression.getClass().getSimpleName() + " is not supported.");
         }
 
         return expression;
@@ -505,5 +556,19 @@ public class FunctionCallRewriter
             return (Identifier) expression;
         }
         return new Identifier(String.valueOf(expression.toString().hashCode()));
+    }
+
+    private static String makeFunctionCallSubstituteMapKey(Expression originalExpression)
+    {
+        if (originalExpression instanceof FunctionCall) {
+            return ((FunctionCall) originalExpression).getName().getSuffix();
+        }
+        else if (originalExpression instanceof CurrentTime) {
+            return ((CurrentTime) originalExpression).getFunction().getName();
+        }
+        else if (originalExpression instanceof Cast) {
+            return "cast_" + ((Cast) originalExpression).getType();
+        }
+        throw new IllegalStateException("Substituting " + originalExpression.getClass().getSimpleName() + " is not supported.");
     }
 }
