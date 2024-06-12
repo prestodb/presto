@@ -22,6 +22,7 @@
 #include <velox/expression/Expr.h>
 #include "presto_cpp/main/CPUMon.h"
 #include "presto_cpp/main/CoordinatorDiscoverer.h"
+#include "presto_cpp/main/LinuxMemoryChecker.h"
 #include "presto_cpp/main/PeriodicHeartbeatManager.h"
 #include "presto_cpp/main/PrestoExchangeSource.h"
 #include "presto_cpp/main/PrestoServerOperations.h"
@@ -67,6 +68,7 @@ class SignalHandler;
 class TaskManager;
 class TaskResource;
 class PeriodicTaskManager;
+class LinuxMemoryChecker;
 class SystemConfig;
 
 class PrestoServer {
@@ -245,6 +247,7 @@ class PrestoServer {
   folly::Synchronized<bool> shuttingDown_{false};
   std::chrono::steady_clock::time_point start_;
   std::unique_ptr<PeriodicTaskManager> periodicTaskManager_;
+  std::unique_ptr<LinuxMemoryChecker> linuxMemoryChecker_;
   std::unique_ptr<PrestoServerOperations> prestoServerOperations_;
 
   // We update these members asynchronously and return in http requests w/o
