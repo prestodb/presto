@@ -61,6 +61,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TOO_MANY_OPEN_PARTITIONS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static com.facebook.presto.hive.HiveSessionProperties.isFileRenamingEnabled;
+import static com.facebook.presto.hive.HiveSessionProperties.isLegacyTimestampBucketing;
 import static com.facebook.presto.hive.HiveSessionProperties.isOptimizedPartitionUpdateSerializationEnabled;
 import static com.facebook.presto.hive.HiveUtil.serializeZstdCompressed;
 import static com.facebook.presto.hive.PartitionUpdate.FileWriteInfo;
@@ -183,10 +184,10 @@ public class HivePageSink
                     List<HiveType> bucketColumnHiveTypes = bucketProperty.get().getBucketedBy().stream()
                             .map(dataColumnNameToHiveTypeMap::get)
                             .collect(toImmutableList());
-                    bucketFunction = createHiveCompatibleBucketFunction(bucketCount, bucketColumnHiveTypes);
+                    bucketFunction = createHiveCompatibleBucketFunction(bucketCount, bucketColumnHiveTypes, isLegacyTimestampBucketing(session));
                     break;
                 case PRESTO_NATIVE:
-                    bucketFunction = createPrestoNativeBucketFunction(bucketCount, bucketProperty.get().getTypes().get());
+                    bucketFunction = createPrestoNativeBucketFunction(bucketCount, bucketProperty.get().getTypes().get(), isLegacyTimestampBucketing(session));
                     break;
                 default:
                     throw new IllegalArgumentException("Unsupported bucket function type " + bucketFunctionType);

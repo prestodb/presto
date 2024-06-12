@@ -73,6 +73,7 @@ import static com.facebook.presto.hive.HiveColumnHandle.isRowIdColumnHandle;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HivePageSourceProvider.ColumnMapping.toColumnHandles;
+import static com.facebook.presto.hive.HiveSessionProperties.isLegacyTimestampBucketing;
 import static com.facebook.presto.hive.HiveSessionProperties.isUseRecordPageSourceForCustomSplit;
 import static com.facebook.presto.hive.HiveUtil.getPrefilledColumnValue;
 import static com.facebook.presto.hive.HiveUtil.parsePartitionValue;
@@ -208,7 +209,7 @@ public class HivePageSourceProvider
                 .transform(Subfield::getRootName)
                 .transform(hiveLayout.getPredicateColumns()::get);
 
-        if (shouldSkipBucket(hiveLayout, hiveSplit, splitContext)) {
+        if (shouldSkipBucket(hiveLayout, hiveSplit, splitContext, isLegacyTimestampBucketing(session))) {
             return new HiveEmptySplitPageSource();
         }
 
@@ -343,7 +344,7 @@ public class HivePageSourceProvider
                 split.getFileSplit(),
                 split.getTableBucketNumber());
 
-        Optional<BucketAdaptation> bucketAdaptation = split.getBucketConversion().map(conversion -> toBucketAdaptation(conversion, columnMappings, split.getTableBucketNumber(), mapping -> mapping.getHiveColumnHandle().getHiveColumnIndex()));
+        Optional<BucketAdaptation> bucketAdaptation = split.getBucketConversion().map(conversion -> toBucketAdaptation(conversion, columnMappings, split.getTableBucketNumber(), mapping -> mapping.getHiveColumnHandle().getHiveColumnIndex(), isLegacyTimestampBucketing(session)));
 
         Map<Integer, String> prefilledValues = columnMappings.stream()
                 .filter(mapping -> mapping.getKind() == ColumnMappingKind.PREFILLED)
@@ -361,7 +362,7 @@ public class HivePageSourceProvider
 
         RowExpression optimizedRemainingPredicate = rowExpressionCache.getUnchecked(new RowExpressionCacheKey(layout.getRemainingPredicate(), session));
 
-        if (shouldSkipBucket(layout, split, splitContext)) {
+        if (shouldSkipBucket(layout, split, splitContext, isLegacyTimestampBucketing(session))) {
             return Optional.of(new HiveEmptySplitPageSource());
         }
 
@@ -462,7 +463,12 @@ public class HivePageSourceProvider
         // Finds the non-synthetic columns.
         List<ColumnMapping> regularAndInterimColumnMappings = ColumnMapping.extractRegularAndInterimColumnMappings(columnMappings);
 
-        Optional<BucketAdaptation> bucketAdaptation = bucketConversion.map(conversion -> toBucketAdaptation(conversion, regularAndInterimColumnMappings, tableBucketNumber, ColumnMapping::getIndex));
+        Optional<BucketAdaptation> bucketAdaptation = bucketConversion.map(conversion -> toBucketAdaptation(
+                conversion,
+                regularAndInterimColumnMappings,
+                tableBucketNumber,
+                ColumnMapping::getIndex,
+                isLegacyTimestampBucketing(session)));
 
         if (isUseRecordPageSourceForCustomSplit(session) && shouldUseRecordReaderFromInputFormat(configuration, storage, fileSplit.getCustomSplitInfo())) {
             return getPageSourceFromCursorProvider(
@@ -623,7 +629,8 @@ public class HivePageSourceProvider
                             bucketAdaptation.get().getPartitionBucketCount(),
                             bucketAdaptation.get().getBucketToKeep(),
                             typeManager,
-                            delegate);
+                            delegate,
+                            isLegacyTimestampBucketing(session));
                 }
 
                 // Need to wrap RcText and RcBinary into a wrapper, which will do the coercion for mismatch columns
@@ -659,7 +666,7 @@ public class HivePageSourceProvider
         return Optional.empty();
     }
 
-    private static boolean shouldSkipBucket(HiveTableLayoutHandle hiveLayout, HiveSplit hiveSplit, SplitContext splitContext)
+    private static boolean shouldSkipBucket(HiveTableLayoutHandle hiveLayout, HiveSplit hiveSplit, SplitContext splitContext, boolean useLegacyTimestampBucketing)
     {
         if (!splitContext.getDynamicFilterPredicate().isPresent()
                 || !hiveSplit.getReadBucketNumber().isPresent()
@@ -668,7 +675,7 @@ public class HivePageSourceProvider
         }
 
         TupleDomain<ColumnHandle> dynamicFilter = splitContext.getDynamicFilterPredicate().get();
-        Optional<HiveBucketing.HiveBucketFilter> hiveBucketFilter = getHiveBucketFilter(hiveSplit.getStorage().getBucketProperty(), hiveLayout.getDataColumns(), dynamicFilter);
+        Optional<HiveBucketing.HiveBucketFilter> hiveBucketFilter = getHiveBucketFilter(hiveSplit.getStorage().getBucketProperty(), hiveLayout.getDataColumns(), dynamicFilter, useLegacyTimestampBucketing);
 
         return hiveBucketFilter.map(filter -> !filter.getBucketsToKeep().contains(hiveSplit.getReadBucketNumber().getAsInt())).orElse(false);
     }
@@ -705,7 +712,12 @@ public class HivePageSourceProvider
         return false;
     }
 
-    private static BucketAdaptation toBucketAdaptation(BucketConversion conversion, List<ColumnMapping> columnMappings, OptionalInt tableBucketNumber, Function<ColumnMapping, Integer> bucketColumnIndexProducer)
+    private static BucketAdaptation toBucketAdaptation(
+            BucketConversion conversion,
+            List<ColumnMapping> columnMappings,
+            OptionalInt tableBucketNumber,
+            Function<ColumnMapping, Integer> bucketColumnIndexProducer,
+            boolean useLegacyTimestamp)
     {
         Map<Integer, ColumnMapping> hiveIndexToBlockIndex = uniqueIndex(columnMappings, columnMapping -> columnMapping.getHiveColumnHandle().getHiveColumnIndex());
         int[] bucketColumnIndices = conversion.getBucketColumnHandles().stream()
@@ -720,7 +732,13 @@ public class HivePageSourceProvider
                 .map(ColumnMapping::getHiveColumnHandle)
                 .map(HiveColumnHandle::getHiveType)
                 .collect(toImmutableList());
-        return new BucketAdaptation(bucketColumnIndices, bucketColumnHiveTypes, conversion.getTableBucketCount(), conversion.getPartitionBucketCount(), tableBucketNumber.getAsInt());
+        return new BucketAdaptation(
+                bucketColumnIndices,
+                bucketColumnHiveTypes,
+                conversion.getTableBucketCount(),
+                conversion.getPartitionBucketCount(),
+                tableBucketNumber.getAsInt(),
+                useLegacyTimestamp);
     }
 
     public static class ColumnMapping
