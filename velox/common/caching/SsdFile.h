@@ -455,6 +455,11 @@ class SsdFile {
   // the files for making new checkpoints.
   void initializeCheckpoint();
 
+  // Writes 'iovecs' to the SSD file at the 'offset'. Returns true if the write
+  // succeeds; otherwise, log the error and return false.
+  bool
+  write(uint64_t offset, uint64_t length, const std::vector<iovec>& iovecs);
+
   // Synchronously logs that 'regions' are no longer valid in a possibly
   // existing checkpoint.
   void logEviction(const std::vector<int32_t>& regions);
