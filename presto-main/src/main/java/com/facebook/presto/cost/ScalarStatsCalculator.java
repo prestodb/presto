@@ -21,6 +21,7 @@ import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
+import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.WarningCollector;
@@ -132,12 +133,15 @@ public class ScalarStatsCalculator
             if (functionMetadata.getOperatorType().map(OperatorType::isArithmeticOperator).orElse(false)) {
                 return computeArithmeticBinaryStatistics(call, context);
             }
+            // casting session to FullConnectorSession is not ideal.
+            boolean isStatsPropagationEnabled =
+                    SystemSessionProperties.shouldEnableScalarFunctionStatsPropagation(((FullConnectorSession) session).getSession());
 
-            if (functionMetadata.getOperatorType().map(OperatorType::isHashOperator).orElse(false)) {
+            if (functionMetadata.getOperatorType().map(OperatorType::isHashOperator).orElse(false) && isStatsPropagationEnabled) {
                 return computeHashCodeOperatorStatistics(call, context);
             }
 
-            if (functionMetadata.getOperatorType().map(OperatorType::isComparisonOperator).orElse(false)) {
+            if (functionMetadata.getOperatorType().map(OperatorType::isComparisonOperator).orElse(false) && isStatsPropagationEnabled) {
                 return computeComparisonOperatorStatistics(call, context);
             }
 
@@ -156,12 +160,11 @@ public class ScalarStatsCalculator
                 return computeCastStatistics(call, context);
             }
 
-            boolean isStatsPropagationEnabled =
-                    SystemSessionProperties.shouldEnableScalarFunctionStatsPropagation(((FullConnectorSession) session).getSession());
-
+            if (call.getDisplayName().equals("concat")) {
+                return computeConcatStatistics(call, context);
+            }
             if (functionMetadata.getStatsHeader().isPresent() &&
                     isStatsPropagationEnabled) {
-                // casting session to FullConnectorSession is not ideal. But should be okay for POC, ideally should evolve the RowExpressionStatsVisitor.
                 return computeCallStatistics(call, context, functionMetadata.getStatsHeader().get());
             }
             else {
@@ -283,7 +286,7 @@ public class ScalarStatsCalculator
 
         private double processNullFraction(CallExpression call, Void context, PropagateSourceStats op)
         {
-            double s = -10;
+            double s = 0;
             for (int i = 0; i < call.getArguments().size(); i++) {
                 VariableStatsEstimate sourceStats = call.getArguments().get(i).accept(this, context);
                 if (!sourceStats.isUnknown() && isFinite(sourceStats.getNullsFraction())) {
@@ -303,18 +306,49 @@ public class ScalarStatsCalculator
             return NaN;
         }
 
+        private double getReturnTypeWidth(CallExpression call)
+        {
+            if (call.getType() instanceof VarcharType) {
+                VarcharType returnType = (VarcharType) call.getType();
+                if (!returnType.isUnbounded()) {
+                    return returnType.getLengthSafe();
+                }
+                else if (call.getDisplayName().equals("concat")) {
+                    // since return type is a varchar and length is unknown, if function is concat.
+                    // try to get an upper bound.
+                    double sum = 0;
+                    for (RowExpression r : call.getArguments()) {
+                        if (r instanceof CallExpression) {
+                            sum += getReturnTypeWidth((CallExpression) r);
+                        }
+                        if (r.getType() instanceof VarcharType) {
+                            VarcharType argType = (VarcharType) r.getType();
+                            if (!argType.isUnbounded()) {
+                                sum += argType.getLengthSafe();
+                            }
+                        }
+                    }
+                    if (sum > 0) {
+                        return sum;
+                    }
+                }
+            }
+            return NaN;
+        }
+
         private double processAvgRowSize(CallExpression call, Void context, PropagateSourceStats op)
         {
-            double s = -10;
+            double s = 0;
             for (int i = 0; i < call.getArguments().size(); i++) {
                 VariableStatsEstimate sourceStats = call.getArguments().get(i).accept(this, context);
                 if (!sourceStats.isUnknown() && isFinite(sourceStats.getAverageRowSize())) {
+                    double s1 = sourceStats.getAverageRowSize();
                     switch (op) {
                         case MAX:
-                            s = max(s, sourceStats.getAverageRowSize());
+                            s = max(s, s1);
                             break;
                         case SUM:
-                            s = s + sourceStats.getAverageRowSize();
+                            s = s + s1;
                             break;
                     }
                 }
@@ -414,6 +448,9 @@ public class ScalarStatsCalculator
             if (isFinite(min) && isFinite(max)) {
                 statisticRange = new StatisticRange(min, max, distinctValuesCount);
             }
+            if (isFinite(getReturnTypeWidth(call)) && !isFinite(avgRowSize)) {
+                avgRowSize = getReturnTypeWidth(call);
+            }
             // Constant values override any values.
             if (isFinite(statsHeader.getNullFraction())) {
                 nullFraction = statsHeader.getNullFraction();
@@ -439,6 +476,34 @@ public class ScalarStatsCalculator
                     .build();
             System.out.println("call=" + call + " StatsEstimate=" + sourceStatsSum);
             return sourceStatsSum;
+        }
+
+        private VariableStatsEstimate computeConcatStatistics(CallExpression call, Void context)
+        {
+            double nullFraction = 0.0;
+            double ndv = NaN;
+            double avgRowSize = 0.0;
+            for (RowExpression r : call.getArguments()) {
+                VariableStatsEstimate sourceStats = r.accept(this, context);
+                if (isFinite(sourceStats.getNullsFraction())) {
+                    // concat function returns null if any of the argument is null. So null fraction should add up.
+                    nullFraction += sourceStats.getNullsFraction();
+                }
+                if (isFinite(sourceStats.getDistinctValuesCount())) {
+                    ndv = max(ndv, sourceStats.getDistinctValuesCount());
+                }
+                if (isFinite(sourceStats.getAverageRowSize())) {
+                    avgRowSize += sourceStats.getAverageRowSize();
+                }
+            }
+            if (avgRowSize == 0.0) {
+                avgRowSize = NaN;
+            }
+            return VariableStatsEstimate.builder()
+                    .setNullsFraction(nullFraction)
+                    .setDistinctValuesCount(min(ndv, input.getOutputRowCount()))
+                    .setAverageRowSize(min(getReturnTypeWidth(call), avgRowSize))
+                    .build();
         }
 
         private VariableStatsEstimate computeCastStatistics(CallExpression call, Void context)

@@ -14,7 +14,6 @@
 
 package com.facebook.presto.sql.planner.optimizations;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -30,18 +29,29 @@ public class TestStatsPropagation
     }
 
     @Test
-    public void testStatsPropagationFunction()
+    public void testStatsPropagationScalarRandomFunction()
     {
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setSystemProperty(ENABLE_SCALAR_FUNCTION_STATS_PROPAGATION, "true")
-                .build();
         assertPlanHasVariableStats("SELECT 1 FROM lineitem l, orders o WHERE l.orderkey=o.orderkey and l.discount = (SELECT random() FROM nation n where n.nationkey=1)",
-                session);
-        assertPlanHasVariableStats("select * FROM orders o, lineitem as l WHERE o.orderkey = l.orderkey and l.comment LIKE '%u%'",
-                session);
+                getQueryRunner().getDefaultSession());
+        assertPlanHasVariableStats("select * FROM orders o, lineitem as l WHERE o.orderkey = l.orderkey and substr(lower(l.comment), 2) = 'us'",
+                getQueryRunner().getDefaultSession());
+    }
+
+    @Test
+    public void testStatsPropagationWithLike()
+    {
+        assertPlanHasVariableStats("select * FROM orders o, lineitem as l WHERE o.orderkey = l.orderkey and l.comment LIKE '%u'",
+                getQueryRunner().getDefaultSession());
         assertPlanHasVariableStats("select * FROM orders o, lineitem as l WHERE o.orderkey = l.orderkey and upper(l.comment) LIKE '%US%'",
-                session);
-        assertPlanHasVariableStats("select * FROM orders o, lineitem as l WHERE o.orderkey = l.orderkey and substr(lower(l.comment), 2) LIKE '%us%'",
-                session);
+                getQueryRunner().getDefaultSession());
+    }
+
+    @Test
+    public void testStatsPropagationWithConcatFunction()
+    {
+        assertPlanHasVariableStats("SELECT 1 FROM orders o, lineitem as l WHERE o.orderkey = l.orderkey and concat(l.shipmode, l.shipinstruct) = 'MAILNONE'" ,
+                getQueryRunner().getDefaultSession());
+        assertPlanHasVariableStats("SELECT 1 FROM orders o, lineitem as l WHERE o.orderkey = l.orderkey and concat(l.comment, 'us') = 'testus'" ,
+                getQueryRunner().getDefaultSession());
     }
 }
