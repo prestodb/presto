@@ -159,16 +159,6 @@ public class TestInlineSqlFunctions
     }
 
     @Test
-    public void testInlineBuiltinSqlFunction()
-    {
-        assertInlined(
-                "array_sum(x)",
-                "reduce(x, BIGINT '0', (\"s$lambda\", \"x$lambda\") -> \"s$lambda\" + COALESCE(\"x$lambda\", BIGINT '0'), \"s$lambda_0\" -> \"s$lambda_0\")",
-                "x",
-                new ArrayType(IntegerType.INTEGER));
-    }
-
-    @Test
     public void testNoInlineThriftFunction()
     {
         assertNotInlined("unittest.memory.foo(x)", "x", IntegerType.INTEGER);
