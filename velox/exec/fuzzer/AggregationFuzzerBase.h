@@ -205,6 +205,7 @@ class AggregationFuzzerBase {
   std::vector<RowVectorPtr> generateInputDataWithRowNumber(
       std::vector<std::string> names,
       std::vector<TypePtr> types,
+      const std::vector<std::string>& partitionKeys,
       const CallableSignature& signature);
 
   std::pair<std::optional<MaterializedRowMultiset>, ReferenceQueryErrorCode>

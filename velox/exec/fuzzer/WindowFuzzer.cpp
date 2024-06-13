@@ -243,8 +243,8 @@ void WindowFuzzer::go() {
     }
     const auto partitionKeys = generateSortingKeys("p", argNames, argTypes);
     const auto [frameClause, isRowsFrame] = generateFrameClause();
-    const auto input =
-        generateInputDataWithRowNumber(argNames, argTypes, signature);
+    const auto input = generateInputDataWithRowNumber(
+        argNames, argTypes, partitionKeys, signature);
     // If the function is order-dependent or uses "rows" frame, sort all input
     // rows by row_number additionally.
     if (requireSortedInput || isRowsFrame) {

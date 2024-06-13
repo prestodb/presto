@@ -360,8 +360,8 @@ void AggregationFuzzer::go() {
 
         auto partitionKeys = generateKeys("p", argNames, argTypes);
         auto sortingKeys = generateSortingKeys("s", argNames, argTypes);
-        auto input =
-            generateInputDataWithRowNumber(argNames, argTypes, signature);
+        auto input = generateInputDataWithRowNumber(
+            argNames, argTypes, partitionKeys, signature);
 
         bool failed = verifyWindow(
             partitionKeys,
