@@ -30,22 +30,10 @@ struct Split {
       int32_t groupId = -1)
       : connectorSplit(std::move(connectorSplit)), groupId(groupId) {}
 
-  Split(Split&& other)
-      : connectorSplit(std::move(other.connectorSplit)),
-        groupId(other.groupId) {}
-
-  Split(const Split& other)
-      : connectorSplit(other.connectorSplit), groupId(other.groupId) {}
-
-  void operator=(Split&& other) {
-    connectorSplit = std::move(other.connectorSplit);
-    groupId = other.groupId;
-  }
-
-  void operator=(const Split& other) {
-    connectorSplit = other.connectorSplit;
-    groupId = other.groupId;
-  }
+  Split(Split&& other) = default;
+  Split(const Split& other) = default;
+  Split& operator=(Split&& other) = default;
+  Split& operator=(const Split& other) = default;
 
   inline bool hasConnectorSplit() const {
     return connectorSplit != nullptr;

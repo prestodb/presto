@@ -26,7 +26,7 @@ namespace facebook::velox::exec {
 TableScan::TableScan(
     int32_t operatorId,
     DriverCtx* driverCtx,
-    std::shared_ptr<const core::TableScanNode> tableScanNode)
+    const std::shared_ptr<const core::TableScanNode>& tableScanNode)
     : SourceOperator(
           driverCtx,
           tableScanNode->outputType(),
@@ -251,7 +251,7 @@ RowVectorPtr TableScan::getOutput() {
       curStatus_ = "getOutput: updating stats_.rawInput";
       lockedStats->rawInputPositions = dataSource_->getCompletedRows();
       lockedStats->rawInputBytes = dataSource_->getCompletedBytes();
-      RowVectorPtr data = dataOptional.value();
+      RowVectorPtr data = std::move(dataOptional).value();
       if (data != nullptr) {
         if (data->size() > 0) {
           lockedStats->addInputVector(data->estimateFlatSize(), data->size());
@@ -287,7 +287,8 @@ RowVectorPtr TableScan::getOutput() {
   }
 }
 
-void TableScan::preload(std::shared_ptr<connector::ConnectorSplit> split) {
+void TableScan::preload(
+    const std::shared_ptr<connector::ConnectorSplit>& split) {
   // The AsyncSource returns a unique_ptr to the shared_ptr of the
   // DataSource. The callback may outlive the Task, hence it captures
   // a shared_ptr to it. This is required to keep memory pools live

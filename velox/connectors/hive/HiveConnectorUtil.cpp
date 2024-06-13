@@ -562,7 +562,7 @@ void configureRowReaderOptions(
     dwio::common::RowReaderOptions& rowReaderOptions,
     const std::unordered_map<std::string, std::string>& tableParameters,
     const std::shared_ptr<common::ScanSpec>& scanSpec,
-    const std::shared_ptr<common::MetadataFilter>& metadataFilter,
+    std::shared_ptr<common::MetadataFilter> metadataFilter,
     const RowTypePtr& rowType,
     const std::shared_ptr<const HiveConnectorSplit>& hiveSplit) {
   auto skipRowsIt =
@@ -571,7 +571,7 @@ void configureRowReaderOptions(
     rowReaderOptions.setSkipRows(folly::to<uint64_t>(skipRowsIt->second));
   }
   rowReaderOptions.setScanSpec(scanSpec);
-  rowReaderOptions.setMetadataFilter(metadataFilter);
+  rowReaderOptions.setMetadataFilter(std::move(metadataFilter));
   rowReaderOptions.select(
       dwio::common::ColumnSelector::fromScanSpec(*scanSpec, rowType));
   rowReaderOptions.range(hiveSplit->start, hiveSplit->length);
@@ -700,7 +700,7 @@ std::unique_ptr<dwio::common::BufferedInput> createBufferedInput(
       Connector::getTracker(
           connectorQueryCtx->scanId(), readerOpts.loadQuantum()),
       fileHandle.groupId.id(),
-      ioStats,
+      std::move(ioStats),
       executor,
       readerOpts);
 }

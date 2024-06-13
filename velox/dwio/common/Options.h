@@ -578,7 +578,7 @@ class ReaderOptions : public io::ReaderOptions {
   }
 
   void setRandomSkip(std::shared_ptr<random::RandomSkipTracker> randomSkip) {
-    randomSkip_ = randomSkip;
+    randomSkip_ = std::move(randomSkip);
   }
 
   bool noCacheRetention() const {

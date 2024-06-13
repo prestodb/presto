@@ -135,7 +135,7 @@ DriverCtx::DriverCtx(
       pipelineId(_pipelineId),
       splitGroupId(_splitGroupId),
       partitionId(_partitionId),
-      task(_task),
+      task(std::move(_task)),
       threadDebugInfo({task->queryCtx()->queryId(), task->taskId(), nullptr}) {}
 
 const core::QueryConfig& DriverCtx::queryConfig() const {

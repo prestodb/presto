@@ -151,7 +151,7 @@ void SplitReader::prepareSplit(
     return;
   }
 
-  createRowReader(metadataFilter, rowIndexColumn);
+  createRowReader(std::move(metadataFilter), rowIndexColumn);
 }
 
 uint64_t SplitReader::next(uint64_t size, VectorPtr& output) {
@@ -205,10 +205,9 @@ void SplitReader::setConnectorQueryCtx(
 std::string SplitReader::toString() const {
   std::string partitionKeys;
   std::for_each(
-      partitionKeys_->begin(),
-      partitionKeys_->end(),
-      [&](std::pair<const std::string, std::shared_ptr<const HiveColumnHandle>>
-              column) { partitionKeys += " " + column.second->toString(); });
+      partitionKeys_->begin(), partitionKeys_->end(), [&](const auto& column) {
+        partitionKeys += " " + column.second->toString();
+      });
   return fmt::format(
       "SplitReader: hiveSplit_{} scanSpec_{} readerOutputType_{} partitionKeys_{} reader{} rowReader{}",
       hiveSplit_->toString(),
@@ -301,7 +300,7 @@ void SplitReader::createRowReader(
       baseRowReaderOpts_,
       hiveTableHandle_->tableParameters(),
       scanSpec_,
-      metadataFilter,
+      std::move(metadataFilter),
       ROW(std::move(columnNames), std::move(columnTypes)),
       hiveSplit_);
   // NOTE: we firstly reset the finished 'baseRowReader_' of previous split

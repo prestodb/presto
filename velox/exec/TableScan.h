@@ -25,7 +25,7 @@ class TableScan : public SourceOperator {
   TableScan(
       int32_t operatorId,
       DriverCtx* driverCtx,
-      std::shared_ptr<const core::TableScanNode> tableScanNode);
+      const std::shared_ptr<const core::TableScanNode>& tableScanNode);
 
   folly::dynamic toJson() const override;
 
@@ -68,7 +68,7 @@ class TableScan : public SourceOperator {
   // read 'split'. This source will be prepared in the background on the
   // executor of the connector. If the DataSource is needed before prepare is
   // done, it will be made when needed.
-  void preload(std::shared_ptr<connector::ConnectorSplit> split);
+  void preload(const std::shared_ptr<connector::ConnectorSplit>& split);
 
   const std::shared_ptr<connector::ConnectorTableHandle> tableHandle_;
   const std::
@@ -77,7 +77,7 @@ class TableScan : public SourceOperator {
   DriverCtx* const driverCtx_;
   memory::MemoryPool* const connectorPool_;
   ContinueFuture blockingFuture_{ContinueFuture::makeEmpty()};
-  BlockingReason blockingReason_;
+  BlockingReason blockingReason_{BlockingReason::kNotBlocked};
   int64_t currentSplitWeight_{0};
   bool needNewSplit_ = true;
   std::shared_ptr<connector::Connector> connector_;
