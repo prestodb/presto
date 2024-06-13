@@ -163,6 +163,10 @@ Date and Time Functions
         SELECT to_iso8601(now()); -- 2024-06-06T20:25:46.726-07:00
         SELECT to_iso8601(now() + interval '6' month); -- 2024-12-06T20:27:11.992-08:00
 
+.. function:: to_milliseconds(interval) -> bigint
+
+    Returns the day-to-second ``interval`` as milliseconds.
+
 .. function:: to_unixtime(timestamp) -> double
 
     Returns ``timestamp`` as a UNIX timestamp.

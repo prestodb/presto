@@ -1748,4 +1748,15 @@ struct AtTimezoneFunction : public TimestampWithTimezoneSupport<T> {
   }
 };
 
+template <typename TExec>
+struct ToMillisecondFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(TExec);
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<int64_t>& result,
+      const arg_type<IntervalDayTime>& millis) {
+    result = millis;
+  }
+};
+
 } // namespace facebook::velox::functions

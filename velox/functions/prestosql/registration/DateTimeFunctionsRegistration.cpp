@@ -258,6 +258,9 @@ void registerSimpleFunctions(const std::string& prefix) {
       TimestampWithTimezone,
       TimestampWithTimezone,
       Varchar>({prefix + "at_timezone"});
+
+  registerFunction<ToMillisecondFunction, int64_t, IntervalDayTime>(
+      {prefix + "to_milliseconds"});
 }
 } // namespace
 

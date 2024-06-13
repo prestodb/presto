@@ -4429,3 +4429,12 @@ TEST_F(DateTimeFunctionsTest, atTimezoneTest) {
 
   EXPECT_EQ(at_timezone(std::nullopt, "Pacific/Fiji"), std::nullopt);
 }
+
+TEST_F(DateTimeFunctionsTest, toMilliseconds) {
+  EXPECT_EQ(
+      123,
+      evaluateOnce<int64_t>(
+          "to_milliseconds(c0)",
+          INTERVAL_DAY_TIME(),
+          std::optional<int64_t>(123)));
+}
