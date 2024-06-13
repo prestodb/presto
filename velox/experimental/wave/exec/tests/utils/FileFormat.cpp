@@ -15,6 +15,7 @@
  */
 
 #include "velox/experimental/wave/exec/tests/utils/FileFormat.h"
+#include <iostream>
 
 namespace facebook::velox::wave::test {
 
@@ -165,6 +166,15 @@ struct StringWithId {
   int32_t id;
 };
 
+void printSums(uint64_t* bits, int32_t numBits) {
+  std::cout << "***Flags\n";
+  int32_t cnt = 0;
+  for (auto i = 0; i < bits::nwords(numBits) - 16; i += 16) {
+    cnt += bits::countBits(bits, i * 64, (i + 16) * 64);
+    std::cout << fmt::format("{}: {}\n", (i + 16) * 64, cnt);
+  }
+}
+
 std::unique_ptr<Column>
 encodeBits(uint64_t* bits, int32_t numBits, memory::MemoryPool* pool) {
   auto column = std::make_unique<Column>();
@@ -174,6 +184,7 @@ encodeBits(uint64_t* bits, int32_t numBits, memory::MemoryPool* pool) {
   column->values = AlignedBuffer::allocate<bool>(numBits, pool);
   memcpy(column->values->asMutable<char>(), bits, bits::nbytes(numBits));
   column->bitWidth = 1;
+  printSums(bits, numBits);
   return column;
 }
 
@@ -309,8 +320,8 @@ void Encoder<T>::addNull() {
   auto n = bits::nwords(count_);
   if (nulls_.size() < n) {
     nulls_.resize(n, bits::kNotNull64);
-    bits::setBit(nulls_.data(), count_ - 1, bits::kNull);
   }
+  bits::setBit(nulls_.data(), count_ - 1, bits::kNull);
 }
 
 template <typename T>

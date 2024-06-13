@@ -197,6 +197,7 @@ struct ColumnOp {
   ColumnReader* reader{nullptr};
   // Vector completed by arrival of this. nullptr if no vector.
   WaveVector* waveVector{nullptr};
+
   // Host side result size. 0 for unconditional decoding. Can be buffer size for
   // passing rows, length/offset array etc.
   int32_t resultSize{0};
@@ -204,6 +205,7 @@ struct ColumnOp {
   // Device side non-vector result, like set of passing rows, array of
   // lengths/starts etc.
   int32_t* deviceResult{nullptr};
+
   // Id of 'deviceResult' from resultStaging. A subsequent op must refer to the
   // result of the previous one before the former is allocated.
   BufferId deviceResultId{kNoBufferId};
@@ -211,6 +213,7 @@ struct ColumnOp {
   // Id of extra filter passing row count. Needed for aligning values from
   // non-last filtered columns to final.
   int32_t* extraRowCount{nullptr};
+
   BufferId extraRowCountId{kNoBufferId};
 
   int32_t* hostResult{nullptr};

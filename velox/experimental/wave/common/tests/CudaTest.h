@@ -31,6 +31,19 @@ struct WideParams {
   void* result;
 };
 
+enum class Add64Mode {
+  k1Add,
+  k4Add,
+  k4Seq,
+  k4Coa,
+  k4Reg,
+  k4SMem,
+  k4Branch,
+  k4Func,
+  k4SMemFunc,
+  k1Func
+};
+
 class TestStream : public Stream {
  public:
   // Queues a kernel to add 1 to numbers[0...size - 1]. The kernel repeats
@@ -62,6 +75,40 @@ class TestStream : public Stream {
       int32_t size,
       int32_t repeat = 1,
       int32_t width = 10240);
+
+  /// Like addOneReg but does an indirect function call in the inner loop.
+  void addOneFunc(
+      int32_t* numbers,
+      int32_t size,
+      int32_t repeat = 1,
+      int32_t width = 10240);
+
+  void addOneFuncStore(
+      int32_t* numbers,
+      int32_t size,
+      int32_t repeat = 1,
+      int32_t width = 10240);
+
+  /// addOne with indirect jump.
+  void addOneBranch(
+      int32_t* numbers,
+      int32_t size,
+      int32_t repeat = 1,
+      int32_t width = 10240);
+
+  /// addOne with switch.
+  void addOneSwitch(
+      int32_t* numbers,
+      int32_t size,
+      int32_t repeat = 1,
+      int32_t width = 10240);
+
+  void addOne4x64(
+      int64_t* numbers,
+      int32_t size,
+      int32_t repeats,
+      int32_t width,
+      Add64Mode mode);
 
   /// Increments each of 'numbers by a deterministic pseudorandom
   /// increment from 'lookup'. If 'numLocal is non-0, also accesses

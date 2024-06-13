@@ -191,7 +191,7 @@ struct KernelInfo {
   int32_t maxThreadsPerBlock;
   int32_t sharedMemory{0};
   int32_t maxOccupancy0{0};
-  int32_t maxOccupancy16{0};
+  int32_t maxOccupancy32{0};
 
   std::string toString() const;
 };

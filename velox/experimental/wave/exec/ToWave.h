@@ -105,6 +105,7 @@ class CompileState {
 
   void setConditionalNullable(AbstractBinary& binary);
 
+  // Adds 'op->id' to 'nullableIf' if not already there.
   void addNullableIf(
       const AbstractOperand* op,
       std::vector<OperandId>& nullableIf);

@@ -157,8 +157,8 @@ __device__ inline void decodeDictionaryOnBitpack(GpuDecode& plan) {
       break;
     default:
       if (threadIdx.x == 0) {
-        printf("ERROR: Unsupported data type for DictionaryOnBitpack\n");
         assert(false);
+        printf("ERROR: Unsupported data type for DictionaryOnBitpack\n");
       }
   }
 }
@@ -568,6 +568,11 @@ __device__ void makeResult(
       }
     }
   } else {
+    if (!filterPass) {
+      // In the no filter case, filterPass is false for lanes that are after the
+      // last row.
+      return;
+    }
     auto resultIdx = base + threadIdx.x;
     reinterpret_cast<T*>(op->result)[resultIdx] = data;
     if (op->resultNulls) {
@@ -613,34 +618,37 @@ __device__ void decodeSelective(GpuDecode* op) {
             op, data, row, filterPass, nthLoop, kNotNull, op->temp);
       } while (++nthLoop < op->numRowsPerThread);
       break;
-
     case NullMode::kDenseNullable: {
       int32_t maxRow = op->maxRow;
       int32_t dataIdx = 0;
-      auto* temp = op->temp;
+      auto* state = reinterpret_cast<NonNullState*>(op->temp);
       if (threadIdx.x == 0) {
-        temp[0] = op->nonNullBases[op->nthBlock];
+        state->nonNullsBelow =
+            op->nthBlock == 0 ? 0 : op->nonNullBases[op->nthBlock - 1];
+        state->nonNullsBelowRow =
+            op->numRowsPerThread * op->nthBlock * kBlockSize;
       }
       __syncthreads();
       do {
         int32_t base = op->baseRow + nthLoop * kBlockSize;
-        dataIdx = nonNullIndex256(
-            op->nulls,
-            base,
-            min(base + kBlockSize, maxRow),
-            &temp[0],
-            temp + 1);
-        bool filterPass = base + threadIdx.x < maxRow;
+        bool filterPass = false;
+        int32_t dataIdx;
         T data{};
-        if (dataIdx == -1) {
-          if (!op->nullsAllowed) {
-            filterPass = false;
+        if (base < maxRow) {
+          dataIdx = nonNullIndex256(
+              op->nulls, base, min(kBlockSize, maxRow - base), state);
+          filterPass = base + threadIdx.x < maxRow;
+          if (filterPass) {
+            if (dataIdx == -1) {
+              if (!op->nullsAllowed) {
+                filterPass = false;
+              }
+            } else {
+              data = randomAccessDecode<T>(op, dataIdx);
+              filterPass =
+                  testFilter<T, WaveFilterKind::kAlwaysTrue, false>(op, data);
+            }
           }
-        } else {
-          dataIdx += op->nonNullBases[op->nthBlock];
-          data = randomAccessDecode<T>(op, dataIdx);
-          filterPass =
-              testFilter<T, WaveFilterKind::kAlwaysTrue, false>(op, data);
         }
         makeResult<T, kBlockSize>(
             op,
@@ -649,56 +657,60 @@ __device__ void decodeSelective(GpuDecode* op) {
             filterPass,
             nthLoop,
             dataIdx == -1 ? kNull : kNotNull,
-            temp + 2);
+            state->temp);
       } while (++nthLoop < op->numRowsPerThread);
       break;
     }
-    case NullMode::kSparseNullable:
-      auto temp = op->temp;
+    case NullMode::kSparseNullable: {
+      auto state = reinterpret_cast<NonNullState*>(op->temp);
       if (threadIdx.x == 0) {
-        temp[0] = op->nonNullBases[op->nthBlock];
-        temp[1] = 0;
+        state->nonNullsBelow =
+            op->nthBlock == 0 ? 0 : op->nonNullBases[op->nthBlock - 1];
+        state->nonNullsBelowRow =
+            op->numRowsPerThread * op->nthBlock * kBlockSize;
       }
       __syncthreads();
       do {
         int32_t base = kBlockSize * nthLoop;
         int32_t numRows = op->blockStatus[nthLoop].numRows;
-        bool filterPass = true;
-        T data{};
-        dataIdx = nonNullIndex256Sparse(
-            op->nulls,
-            op->rows,
-            base,
-            base + numRows,
-            &temp[0],
-            &temp[1],
-            temp + 2);
-        if (dataIdx == -1) {
-          if (!op->nullsAllowed) {
-            filterPass = false;
-          }
+        if (numRows == 0) {
         } else {
-          data = randomAccessDecode<T>(op, dataIdx);
-          filterPass =
-              testFilter<T, WaveFilterKind::kAlwaysTrue, false>(op, data);
+          bool filterPass = true;
+          T data{};
+          dataIdx =
+              nonNullIndex256Sparse(op->nulls, op->rows + base, numRows, state);
+          filterPass = threadIdx.x < numRows;
+          if (filterPass) {
+            if (dataIdx == -1) {
+              if (!op->nullsAllowed) {
+                filterPass = false;
+              }
+            } else {
+              data = randomAccessDecode<T>(op, dataIdx);
+              filterPass =
+                  testFilter<T, WaveFilterKind::kAlwaysTrue, false>(op, data);
+            }
+          }
+          makeResult<T, kBlockSize>(
+              op,
+              data,
+              op->rows[base + threadIdx.x],
+              filterPass,
+              nthLoop,
+              dataIdx == -1 ? kNull : kNotNull,
+              state->temp);
         }
-        makeResult<T, kBlockSize>(
-            op,
-            data,
-            op->rows[base + threadIdx.x],
-            filterPass,
-            nthLoop,
-            dataIdx == -1 ? kNull : kNotNull,
-            temp + 2);
       } while (++nthLoop < op->numRowsPerThread);
       break;
+    }
   }
   __syncthreads();
 }
 
 // Returns the position of 'target' in 'data' to 'data + size'. Not finding the
 // value is an error and the values are expected to be unique.
-inline __device__ int findRow(const int32_t* rows, int32_t size, int32_t row) {
+inline __device__ int
+findRow(const int32_t* rows, int32_t size, int32_t row, GpuDecode* op) {
   int lo = 0, hi = size;
   while (lo < hi) {
     int i = (lo + hi) / 2;
@@ -711,7 +723,7 @@ inline __device__ int findRow(const int32_t* rows, int32_t size, int32_t row) {
       hi = i;
     }
   }
-  printf("Expecting to find the row in findRow()\n");
+  printf("Expecting to find  row %d in findRow() size %d %p\n", row, size, op);
   assert(false);
 }
 
@@ -728,7 +740,7 @@ __device__ void compactValues(GpuDecode* op) {
       base = nthLoop * kBlockSize;
       auto row = compact.finalRows[base + threadIdx.x];
       auto numSource = compact.sourceNumRows[nthLoop];
-      auto sourceRow = findRow(compact.sourceRows + base, numSource, row);
+      auto sourceRow = findRow(compact.sourceRows + base, numSource, row, op);
       sourceValue =
           reinterpret_cast<const T*>(compact.source)[base + sourceRow];
       if (compact.sourceNull) {

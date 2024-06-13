@@ -347,7 +347,7 @@ void ReadStream::makeControl() {
   control->deviceData = waveStream->arena().allocate<char>(deviceBytes);
   control->status = control->deviceData->as<BlockStatus>();
   for (auto& reader : reader_->children()) {
-    if (!reader->formatData()->hasNulls()) {
+    if (!reader->formatData()->hasNulls() || reader->hasNonNullFilter()) {
       auto* operand = reader->operand();
       if (operand) {
         waveStream->operandNullable()[operand->id] = false;

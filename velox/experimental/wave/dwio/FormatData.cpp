@@ -163,6 +163,7 @@ std::unique_ptr<GpuDecode> FormatData::makeStep(
   auto step = std::make_unique<GpuDecode>();
   if (grid_.nulls) {
     step->nonNullBases = grid_.numNonNull;
+    step->nulls = grid_.nulls;
   }
   step->numRowsPerThread = rowsPerBlock / kBlockSize;
   setFilter(step.get(), op.reader, nullptr);
@@ -202,12 +203,12 @@ std::unique_ptr<GpuDecode> FormatData::makeStep(
 
   if (op.waveVector) {
     if (blockIdx == 0) {
-      op.waveVector->resize(op.rows.size(), false);
+      VELOX_CHECK_GE(op.waveVector->size(), op.rows.size());
     }
     step->result =
         op.waveVector->values<char>() + kindSize * blockIdx * rowsPerBlock;
     step->resultNulls = op.waveVector->nulls()
-        ? op.waveVector->nulls() + rowsPerBlock + blockIdx
+        ? op.waveVector->nulls() + blockIdx * rowsPerBlock
         : nullptr;
 
     if (previousFilter) {

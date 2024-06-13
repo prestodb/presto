@@ -24,7 +24,7 @@
 namespace facebook::velox::wave {
 
 uint64_t GpuSlab::roundBytes(uint64_t bytes) {
-  return bits::nextPowerOfTwo(bytes);
+  return bits::nextPowerOfTwo(std::max<int64_t>(16, bytes));
 }
 
 GpuSlab::GpuSlab(void* ptr, size_t capacityBytes, GpuAllocator* allocator)

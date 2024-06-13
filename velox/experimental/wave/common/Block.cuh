@@ -88,16 +88,17 @@ bool256ToIndices(Getter8 getter8, T start, T* indices, T& size, char* smem) {
   uint64_t bits = getter8(group) & 0x0101010101010101;
   if ((threadIdx.x & 7) == 0) {
     smem16[group] = __popcll(bits);
-    if (threadIdx.x == blockDim.x - 8) {
-      smem16[32] = smem16[31];
-    }
   }
   __syncthreads();
   if (threadIdx.x < 32) {
     auto* temp = reinterpret_cast<typename Scan::TempStorage*>((smem + 72));
     uint16_t data = smem16[threadIdx.x];
-    Scan(*temp).ExclusiveSum(data, data);
-    smem16[threadIdx.x] = data;
+    uint16_t result;
+    Scan(*temp).ExclusiveSum(data, result);
+    smem16[threadIdx.x] = result;
+    if (threadIdx.x == 31) {
+      size = data + result;
+    }
   }
   __syncthreads();
   int32_t tidInGroup = threadIdx.x & 7;
@@ -105,9 +106,6 @@ bool256ToIndices(Getter8 getter8, T start, T* indices, T& size, char* smem) {
     int32_t base =
         smem16[group] + __popcll(bits & lowMask<uint64_t>(tidInGroup * 8));
     indices[base] = threadIdx.x + start;
-  }
-  if (threadIdx.x == 0) {
-    size = smem16[31] + smem16[32];
   }
   __syncthreads();
 }

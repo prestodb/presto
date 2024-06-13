@@ -466,6 +466,9 @@ class WaveStream {
     return arena_;
   }
 
+  /// Sets nullability of a source column. This is runtime, since may depend on
+  /// the actual presence of nulls in the source, e.g. file. Nullability
+  /// defaults to nullable.
   void setNullable(const AbstractOperand& op, bool nullable) {
     operandNullable_[op.id] = nullable;
   }

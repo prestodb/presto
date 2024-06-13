@@ -86,7 +86,9 @@ class TableScanTest : public virtual HiveConnectorTestBase {
           ints->set(i, ints->valueAt(i) % mod);
         }
       }
-      child->clearNulls(0, row->size());
+      if (notNull) {
+        child->clearNulls(0, row->size());
+      }
     }
   }
 
@@ -175,8 +177,14 @@ TEST_F(TableScanTest, filter) {
   auto type =
       ROW({"c0", "c1", "c2", "c3"}, {BIGINT(), BIGINT(), BIGINT(), BIGINT()});
   auto vectors = makeVectors(type, 1, 1'500);
+  int32_t cnt = 0;
   for (auto& vector : vectors) {
     makeRange(vector, 1000000000);
+    auto rn = vector->childAt(3)->as<FlatVector<int64_t>>();
+    for (auto i = 0; i < rn->size(); ++i) {
+      rn->set(i, cnt++);
+    }
+    std::cout << vector->toString(0, vector->size(), "\n", true) << std::endl;
   }
   auto splits = makeTable("test", vectors);
   createDuckDbTable(vectors);
@@ -213,4 +221,38 @@ TEST_F(TableScanTest, filterInScan) {
       plan,
       splits,
       "SELECT c0, c1 + 100000000, c2 + 1, c3, c3 + 2 FROM tmp where c0 < 500000000 and c1 + 100000000 < 500000000");
+}
+
+TEST_F(TableScanTest, filterInScanNull) {
+  auto type =
+      ROW({"c0", "c1", "c2", "c3", "rn"},
+          {BIGINT(), BIGINT(), BIGINT(), BIGINT(), BIGINT()});
+  auto vectors = makeVectors(type, 1, 20'000, 0.1);
+  int32_t cnt = 0;
+  for (auto& vector : vectors) {
+    makeRange(vector, 1000000000, false);
+    auto rn = vector->childAt(4)->as<FlatVector<int64_t>>();
+    for (auto i = 0; i < rn->size(); ++i) {
+      rn->set(i, cnt++);
+    }
+  }
+  auto splits = makeTable("test", vectors);
+  createDuckDbTable(vectors);
+
+  auto plan =
+      PlanBuilder(pool_.get())
+          .tableScan(type, {"c0 < 500000000", "c1 < 400000000"})
+          .project(
+              {"c0",
+               "c1",
+               "c1 + 100000000 as c1f",
+               "c2 as c2p",
+               "c3 as c3p",
+               "rn"})
+          .project({"c0", "c1", "c1f", "c2p + 1", "c3p", "c3p + 2", "rn"})
+          .planNode();
+  auto task = assertQuery(
+      plan,
+      splits,
+      "SELECT c0, c1, c1 + 100000000, c2 + 1, c3, c3 + 2, rn FROM tmp where c0 < 500000000 and c1 + 100000000 < 500000000");
 }

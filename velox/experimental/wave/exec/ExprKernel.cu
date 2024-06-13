@@ -60,29 +60,45 @@ __device__ void filterKernel(
     int32_t& numRows) {
   auto* flags = operands[filter.flags];
   auto* indices = operands[filter.indices];
+  __syncthreads();
   if (flags->nulls) {
-    boolBlockToIndices<kBlockSize>(
-        [&]() -> uint8_t {
-          return threadIdx.x >= numRows
-              ? 0
-              : flatValue<uint8_t>(flags->base, blockBase) &
-                  flatValue<uint8_t>(flags->nulls, blockBase);
+    bool256ToIndices<int32_t>(
+        [&](int32_t group) -> uint64_t {
+          int32_t offset = group * 8;
+          int32_t base = blockBase + offset;
+          if (offset + 8 <= numRows) {
+            return *addCast<uint64_t>(flags->base, base) &
+                *addCast<uint64_t>(flags->nulls, base);
+          }
+          if (offset >= numRows) {
+            return 0;
+          }
+          return lowMask<uint64_t>((offset + 8 - numRows) * 8) &
+              *addCast<uint64_t>(flags->base, base) &
+              *addCast<uint64_t>(flags->nulls, base);
         },
         blockBase,
         reinterpret_cast<int32_t*>(indices->base) + blockBase,
-        shared,
-        numRows);
+        numRows,
+        shared);
   } else {
-    boolBlockToIndices<kBlockSize>(
-        [&]() -> uint8_t {
-          return threadIdx.x >= numRows
-              ? 0
-              : flatValue<uint8_t>(flags->base, blockBase);
+    bool256ToIndices<int32_t>(
+        [&](int32_t group) -> uint64_t {
+          int32_t offset = group * 8;
+          int32_t base = blockBase + offset;
+          if (offset + 8 <= numRows) {
+            return *addCast<uint64_t>(flags->base, base);
+          }
+          if (offset >= numRows) {
+            return 0;
+          }
+          return lowMask<uint64_t>((numRows - offset) * 8) &
+              *addCast<uint64_t>(flags->base, base);
         },
         blockBase,
         reinterpret_cast<int32_t*>(indices->base) + blockBase,
-        shared,
-        numRows);
+        numRows,
+        shared);
   }
 }
 
@@ -90,35 +106,47 @@ __device__ void wrapKernel(
     const IWrap& wrap,
     Operand** operands,
     int32_t blockBase,
-    int32_t numRows) {
+    int32_t numRows,
+    void* shared) {
   Operand* op = operands[wrap.indices];
   auto* filterIndices = reinterpret_cast<int32_t*>(op->base);
   if (filterIndices[blockBase + numRows - 1] == numRows + blockBase - 1) {
     // There is no cardinality change.
     return;
   }
+
+  struct WrapState {
+    int32_t* indices;
+  };
+
+  auto* state = reinterpret_cast<WrapState*>(shared);
   bool rowActive = threadIdx.x < numRows;
   for (auto column = 0; column < wrap.numColumns; ++column) {
-    int32_t newIndex;
-    int32_t** opIndices;
-    bool remap = false;
-    if (rowActive) {
+    if (threadIdx.x == 0) {
       auto opIndex = wrap.columns[column];
       auto* op = operands[opIndex];
-      opIndices = &op->indices[blockBase / kBlockSize];
-      remap = *opIndices != nullptr;
-      if (remap) {
-        newIndex =
-            (*opIndices)[filterIndices[blockBase + threadIdx.x] - blockBase];
-      } else if (threadIdx.x == 0) {
+      int32_t** opIndices = &op->indices[blockBase / kBlockSize];
+      if (!*opIndices) {
         *opIndices = filterIndices + blockBase;
+        state->indices = nullptr;
+      } else {
+        state->indices = *opIndices;
       }
+    }
+    __syncthreads();
+    // Every thread sees the decision on thred 0 above.
+    if (!state->indices) {
+      continue;
+    }
+    int32_t newIndex;
+    if (rowActive) {
+      newIndex =
+          state->indices[filterIndices[blockBase + threadIdx.x] - blockBase];
     }
     // All threads hit this.
     __syncthreads();
-    if (remap) {
-      // remap can b true only on activ rows.
-      (*opIndices)[threadIdx.x] = newIndex;
+    if (rowActive) {
+      state->indices[threadIdx.x] = newIndex;
     }
   }
   __syncthreads();
@@ -141,9 +169,7 @@ __global__ void waveBaseKernel(
     ThreadBlockProgram** programs,
     Operand*** programOperands,
     BlockStatus* blockStatusArray) {
-  using ScanAlgorithm = cub::BlockScan<int, 256, cub::BLOCK_SCAN_RAKING>;
-  extern __shared__ __align__(
-      alignof(typename ScanAlgorithm::TempStorage)) char shared[];
+  extern __shared__ __align__(16) char shared[];
   int programIndex = programIndices[blockIdx.x];
   auto* program = programs[programIndex];
   auto* operands = programOperands[programIndex];
@@ -165,7 +191,8 @@ __global__ void waveBaseKernel(
         break;
 
       case OpCode::kWrap:
-        wrapKernel(instruction->_.wrap, operands, blockBase, status->numRows);
+        wrapKernel(
+            instruction->_.wrap, operands, blockBase, status->numRows, shared);
         break;
 
         BINARY_TYPES(OpCode::kPlus, +);
@@ -176,11 +203,9 @@ __global__ void waveBaseKernel(
 }
 
 int32_t instructionSharedMemory(const Instruction& instruction) {
-  using ScanAlgorithm = cub::BlockScan<int, 256, cub::BLOCK_SCAN_RAKING>;
-
   switch (instruction.opCode) {
     case OpCode::kFilter:
-      return sizeof(ScanAlgorithm::TempStorage);
+      return (2 + (kBlockSize / kWarpThreads)) * sizeof(int32_t);
     default:
       return 0;
   }
@@ -205,5 +230,6 @@ void WaveKernelStream::call(
     (alias ? alias : this)->wait();
   }
 }
+REGISTER_KERNEL("expr", waveBaseKernel);
 
 } // namespace facebook::velox::wave
