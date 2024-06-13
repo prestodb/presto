@@ -154,6 +154,7 @@ public class IcebergCommonModule
         procedures.addBinding().toProvider(RegisterTableProcedure.class).in(Scopes.SINGLETON);
         procedures.addBinding().toProvider(UnregisterTableProcedure.class).in(Scopes.SINGLETON);
         procedures.addBinding().toProvider(ExpireSnapshotsProcedure.class).in(Scopes.SINGLETON);
+        procedures.addBinding().toProvider(RewriteDataFilesProcedure.class).in(Scopes.SINGLETON);
 
         // for orc
         binder.bind(EncryptionLibrary.class).annotatedWith(HiveDwrfEncryptionProvider.ForCryptoService.class).to(UnsupportedEncryptionLibrary.class).in(Scopes.SINGLETON);
