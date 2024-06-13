@@ -248,6 +248,8 @@ class ReCache {
  public:
   RE2* findOrCompile(const StringView& pattern);
 
+  Expected<RE2*> tryFindOrCompile(const StringView& pattern);
+
  private:
   folly::F14FastMap<std::string, std::unique_ptr<RE2>> cache_;
 };
@@ -402,6 +404,14 @@ struct Re2RegexpSplit {
  private:
   detail::ReCache cache_;
 };
+
+std::shared_ptr<exec::VectorFunction> makeRegexpReplaceWithLambda(
+    const std::string& name,
+    const std::vector<exec::VectorFunctionArg>& inputArgs,
+    const core::QueryConfig& config);
+
+std::vector<std::shared_ptr<exec::FunctionSignature>>
+regexpReplaceWithLambdaSignatures();
 
 } // namespace facebook::velox::functions
 

@@ -182,6 +182,11 @@ add_executable(velox_functions_prestosql_benchmarks_map_subscript
 target_link_libraries(velox_functions_prestosql_benchmarks_map_subscript
                       ${BENCHMARK_DEPENDENCIES})
 
+add_executable(velox_functions_prestosql_benchmarks_regexp_replace
+               RegexpReplaceBenchmark.cpp)
+target_link_libraries(velox_functions_prestosql_benchmarks_regexp_replace
+                      ${BENCHMARK_DEPENDENCIES})
+
 add_executable(velox_functions_prestosql_benchmarks_generic
                GenericBenchmark.cpp)
 target_link_libraries(velox_functions_prestosql_benchmarks_generic

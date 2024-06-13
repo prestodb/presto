@@ -15,8 +15,7 @@
  */
 #include "velox/functions/lib/Re2Functions.h"
 #include "velox/functions/lib/string/StringImpl.h"
-
-#include <re2/re2.h>
+#include "velox/vector/FunctionVector.h"
 
 namespace facebook::velox::functions {
 namespace {
@@ -36,7 +35,7 @@ re2::StringPiece toStringPiece(const T& s) {
 
 namespace detail {
 
-RE2* ReCache::findOrCompile(const StringView& pattern) {
+Expected<RE2*> ReCache::tryFindOrCompile(const StringView& pattern) {
   const std::string key = pattern;
 
   auto reIt = cache_.find(key);
@@ -44,16 +43,27 @@ RE2* ReCache::findOrCompile(const StringView& pattern) {
     return reIt->second.get();
   }
 
-  VELOX_USER_CHECK_LT(
-      cache_.size(), kMaxCompiledRegexes, "Max number of regex reached");
+  if (cache_.size() >= kMaxCompiledRegexes) {
+    return folly::makeUnexpected(
+        Status::UserError("Max number of regex reached"));
+  }
 
   auto re = std::make_unique<RE2>(toStringPiece(pattern), RE2::Quiet);
-  checkForBadPattern(*re);
+  if (!re->ok()) {
+    return folly::makeUnexpected(
+        Status::UserError("invalid regular expression:{}", re->error()));
+  }
 
   auto [it, inserted] = cache_.emplace(key, std::move(re));
   VELOX_CHECK(inserted);
 
   return it->second.get();
+}
+
+RE2* ReCache::findOrCompile(const StringView& pattern) {
+  return tryFindOrCompile(pattern).thenOrThrow(
+      folly::identity,
+      [&](const Status& status) { VELOX_USER_FAIL("{}", status.message()); });
 }
 
 } // namespace detail
@@ -1193,6 +1203,370 @@ std::shared_ptr<exec::VectorFunction> makeRe2MatchImpl(
   return std::make_shared<Re2Match<Fn>>();
 }
 
+class RegexpReplaceWithLambdaFunction : public exec::VectorFunction {
+ public:
+  void apply(
+      const SelectivityVector& rows,
+      std::vector<VectorPtr>& args,
+      const TypePtr& outputType,
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
+    exec::LocalDecodedVector strings(context, *args[0], rows);
+    exec::LocalDecodedVector patterns(context, *args[1], rows);
+
+    auto resultWriter = createResultWriter(rows, context, result);
+
+    auto* transforms = args[2]->asUnchecked<FunctionVector>();
+
+    // Exclude rows with NULL string or pattern from evaluation.
+    exec::LocalSelectivityVector nonNullRows(context, rows);
+    if (strings->mayHaveNulls()) {
+      nonNullRows->deselectNulls(strings->nulls(), 0, rows.end());
+    }
+    if (patterns->mayHaveNulls()) {
+      nonNullRows->deselectNulls(patterns->nulls(), 0, rows.end());
+    }
+
+    auto it = transforms->iterator(nonNullRows.get());
+    while (auto entry = it.next()) {
+      // For each input row, apply regex pattern to the string and identify
+      // matches and matching groups. Total number of matches may be less or
+      // more than number of input rows. Some strings may have no matches, some
+      // may have more than one match.
+      exec::LocalSelectivityVector remainingRows(context, *entry.rows);
+      const auto matches =
+          findMatches(*strings, *patterns, *remainingRows, context);
+
+      // Exclude rows with invalid regex from further processing.
+      context.deselectErrors(*remainingRows);
+
+      // Total number of matches across all input rows. Each match has a list of
+      // matching groups.
+      const auto totalMatches = matches.matches->size();
+
+      // Number of matches per input row.
+      auto* rawNumMatches = matches.rawNumMatches;
+
+      // If lambda is using captures, make sure to 'replicate' captures for all
+      // matches of a given input row.
+      BufferPtr wrapCapture = makeWrapCapture(
+          *remainingRows, totalMatches, rawNumMatches, context.pool());
+
+      // Lambda is applied to an ArrayVector, where each row contains a list of
+      // matching groups from a single match.
+      const std::vector<VectorPtr> lambdaArgs = {matches.matches};
+
+      // Lambda function takes an array of matching groups and returns a single
+      // replacement string.
+      auto replacements =
+          BaseVector::create(VARCHAR(), totalMatches, context.pool());
+
+      SelectivityVector matchesRows(totalMatches);
+
+      entry.callable->apply(
+          matchesRows,
+          nullptr, // No need to preserve any values in 'replacements'.
+          wrapCapture,
+          &context,
+          lambdaArgs,
+          wrapCapture,
+          &replacements);
+
+      exec::LocalDecodedVector decodedReplacements(
+          context, *replacements, matchesRows);
+      auto* rawOffsets = matches.rawOffsets;
+      auto* rawSizes = matches.rawSizes;
+
+      vector_size_t matchRow = 0;
+      remainingRows->applyToSelected([&](auto row) {
+        const auto original = strings->valueAt<StringView>(row);
+
+        bool resultIsNull = false;
+
+        // Calculate string length after replacing all matches.
+        size_t resultSize = original.size();
+        for (auto i = 0; i < rawNumMatches[row]; ++i) {
+          if (decodedReplacements->isNullAt(matchRow + i)) {
+            // If one of the replacements is NULL, the result is NULL.
+            resultIsNull = true;
+            break;
+          }
+
+          const auto replacementSize =
+              decodedReplacements->valueAt<StringView>(matchRow + i).size();
+
+          resultSize -= rawSizes[matchRow + i];
+          resultSize += replacementSize;
+        }
+
+        resultWriter.setOffset(row);
+        if (resultIsNull) {
+          resultWriter.commitNull();
+          matchRow += rawNumMatches[row];
+        } else {
+          auto stringWriter = resultWriter.current();
+          stringWriter.resize(resultSize);
+
+          Replacer replacer{original, stringWriter};
+          for (auto i = 0; i < rawNumMatches[row]; ++i) {
+            replacer.replace(
+                rawOffsets[matchRow],
+                rawSizes[matchRow],
+                decodedReplacements->valueAt<StringView>(matchRow));
+            ++matchRow;
+          }
+          replacer.finalize();
+        }
+      });
+    }
+
+    resultWriter.finish();
+
+    // Set NULL results for 'rows' that have NULL 'string' or 'pattern'.
+    if (strings->mayHaveNulls()) {
+      exec::EvalCtx::addNulls(
+          rows, strings->nulls(&rows), context, outputType, result);
+    }
+    if (patterns->mayHaveNulls()) {
+      exec::EvalCtx::addNulls(
+          rows, patterns->nulls(&rows), context, outputType, result);
+    }
+  }
+
+ private:
+  static exec::VectorWriter<Varchar> createResultWriter(
+      const SelectivityVector& rows,
+      exec::EvalCtx& context,
+      VectorPtr& result) {
+    context.ensureWritable(rows, VARCHAR(), result);
+    auto* flatResult = result->asFlatVector<StringView>();
+
+    exec::VectorWriter<Varchar> resultWriter;
+    resultWriter.init(*flatResult);
+    return resultWriter;
+  }
+
+  // Helper struct to replace sections of an input string.
+  // The caller must call 'replace' for each section in the order of their
+  // appearance in the string, then call 'finalize'.
+  // Sections being replaced should not overlap.
+  struct Replacer {
+    const StringView& original;
+    exec::StringWriter<false>& writer;
+    char* result;
+    size_t start = 0;
+
+    Replacer(const StringView& _original, exec::StringWriter<false>& _writer)
+        : original{_original}, writer{_writer}, result{writer.data()} {}
+
+    void replace(size_t offset, size_t size, const StringView& replacement) {
+      VELOX_DCHECK_GE(offset, start);
+
+      // Copy 'original' string from 'start' to 'offset' into result. Then
+      // copy replacement.
+      if (offset > start) {
+        std::memcpy(result, original.data() + start, offset - start);
+        result += offset - start;
+      }
+
+      if (replacement.size() > 0) {
+        std::memcpy(result, replacement.data(), replacement.size());
+        result += replacement.size();
+      }
+
+      start = offset + size;
+    }
+
+    void finalize() {
+      // Copy the tail of the 'original' string.
+      if (start < original.size()) {
+        std::memcpy(result, original.data() + start, original.size() - start);
+      }
+
+      writer.finalize();
+    }
+  };
+
+  static BufferPtr makeWrapCapture(
+      const SelectivityVector& rows,
+      vector_size_t totalMatches,
+      const vector_size_t* numMatchesPerRow,
+      memory::MemoryPool* pool) {
+    BufferPtr wrapCapture = allocateIndices(totalMatches, pool);
+    auto* rawWrapCapture = wrapCapture->asMutable<vector_size_t>();
+
+    vector_size_t matchRow = 0;
+    rows.applyToSelected([&](auto row) {
+      for (auto i = 0; i < numMatchesPerRow[row]; ++i) {
+        rawWrapCapture[matchRow++] = row;
+      }
+    });
+    return wrapCapture;
+  }
+
+  // The result of 'findMatches'.
+  //
+  // Example:
+  //
+  // Input to 'findMatches':
+  //  - 2 top-level rows - 'new york' and 'los angeles'.
+  //  - Constant pattern '(\w)(\w*)' that matches whole words and separates each
+  //  word into
+  //    first latter and the rest.
+  //
+  // Result:
+  //
+  // numMatches = [2, 2]
+  // matches = [['n', 'ew'], ['y', 'ork'], ['l', 'os'], ['a', 'ngeles']]
+  // offsets = [0, 4, 0, 4]
+  // sizes   = [3, 4, 3, 7]
+  struct Matches {
+    // Number of matches per top-level row. Each match has one row in 'matches'
+    // vector.
+    BufferPtr numMatches;
+    vector_size_t* rawNumMatches;
+
+    // Each row correctsponds to a single match in a top-level row and contains
+    // an array of matching groups. Number of rows in this vector equals the sum
+    // of matches across all top-level rows.
+    ArrayVectorPtr matches;
+
+    // Starting position of a match in top-level string. Number of
+    // entries is equal to the size of 'matches'.
+    BufferPtr offsets;
+    vector_size_t* rawOffsets;
+
+    // Size of a match in top-level string. Aligned with 'offsets'.
+    BufferPtr sizes;
+    vector_size_t* rawSizes;
+
+    Matches(vector_size_t maxInputStrings, memory::MemoryPool* pool) {
+      // Each input string may have 0..N matches. Each match has 0..M matching
+      // groups. This array has one row per match (N rows), each row is an array
+      // of 0..M matching groups. When regex is non-constant, the number of
+      // matching groups can vary from row to row. Hence, the number of array
+      // elements is not known up front. Even with constant regex, the number of
+      // matches per row can vary. Hence, the number of array rows is not known
+      // up front. We choose number of input strings as the initial size for the
+      // Array vector somewhat arbitrary.
+      const auto initialNumMatches = maxInputStrings;
+      matches = BaseVector::create<ArrayVector>(
+          ARRAY(VARCHAR()), initialNumMatches, pool);
+
+      numMatches = allocateSizes(maxInputStrings, pool);
+      rawNumMatches = numMatches->asMutable<vector_size_t>();
+
+      offsets = allocateOffsets(initialNumMatches, pool);
+      rawOffsets = offsets->asMutable<vector_size_t>();
+
+      sizes = allocateSizes(initialNumMatches, pool);
+      rawSizes = sizes->asMutable<vector_size_t>();
+    }
+
+    void ensureSize(vector_size_t matchRow) {
+      if (matches->size() < matchRow + 1) {
+        const auto newSize = (matchRow + 1) * 2;
+        matches->resize(newSize);
+
+        AlignedBuffer::reallocate<vector_size_t>(&offsets, newSize, 0);
+        rawOffsets = offsets->asMutable<vector_size_t>();
+
+        AlignedBuffer::reallocate<vector_size_t>(&sizes, newSize, 0);
+        rawSizes = sizes->asMutable<vector_size_t>();
+      }
+    }
+
+    void setMatchOffsetAndSize(
+        vector_size_t matchRow,
+        vector_size_t offset,
+        size_t size) {
+      rawOffsets[matchRow] = offset;
+      rawSizes[matchRow] = size;
+    }
+  };
+
+  Matches findMatches(
+      DecodedVector& strings,
+      DecodedVector& patterns,
+      const SelectivityVector& rows,
+      exec::EvalCtx& context) const {
+    auto* pool = context.pool();
+
+    Matches matches(rows.end(), pool);
+
+    exec::VectorWriter<Array<Varchar>> matchesArrayWriter;
+    matchesArrayWriter.init(*matches.matches);
+
+    auto* rawNumMatches = matches.rawNumMatches;
+
+    vector_size_t matchRow = 0;
+
+    rows.applyToSelected([&](auto row) {
+      auto reOrError =
+          cache_.tryFindOrCompile(patterns.valueAt<StringView>(row));
+      if (reOrError.hasError()) {
+        context.setStatus(row, reOrError.error());
+        return;
+      }
+
+      auto* re = reOrError.value();
+
+      const auto numGroups = re->NumberOfCapturingGroups();
+
+      const auto hay = strings.valueAt<StringView>(row);
+
+      vector_size_t numMatchesPerRow = 0;
+
+      size_t pos = 0;
+      re2::StringPiece subMatches[numGroups + 1];
+      while (re->Match(
+          toStringPiece(hay),
+          pos,
+          hay.size(),
+          RE2::Anchor::UNANCHORED,
+          subMatches,
+          numGroups + 1)) {
+        ++numMatchesPerRow;
+        matches.ensureSize(matchRow + 1);
+        matchesArrayWriter.setOffset(matchRow);
+        auto& arrayWriter = matchesArrayWriter.current();
+        for (auto i = 0; i < numGroups; i++) {
+          const auto subMatch = subMatches[i + 1];
+          if (subMatch.data() != nullptr) {
+            arrayWriter.add_item().setNoCopy(
+                StringView(subMatch.data(), subMatch.size()));
+          } else {
+            arrayWriter.add_null();
+          }
+        }
+        matchesArrayWriter.commit();
+
+        const auto fullMatch = subMatches[0];
+
+        const auto offset = fullMatch.data() - hay.data();
+        const auto size = fullMatch.size();
+        matches.setMatchOffsetAndSize(matchRow, offset, size);
+
+        pos = offset + size;
+        if (UNLIKELY(size == 0)) {
+          ++pos;
+        }
+
+        ++matchRow;
+      }
+
+      rawNumMatches[row] = numMatchesPerRow;
+    });
+
+    matchesArrayWriter.finish();
+    matches.matches->resize(matchRow);
+
+    return matches;
+  }
+
+  mutable detail::ReCache cache_;
+};
+
 } // namespace
 
 std::shared_ptr<exec::VectorFunction> makeRe2Match(
@@ -1921,4 +2295,20 @@ re2ExtractAllSignatures() {
   };
 }
 
+std::shared_ptr<exec::VectorFunction> makeRegexpReplaceWithLambda(
+    const std::string& name,
+    const std::vector<exec::VectorFunctionArg>& inputArgs,
+    const core::QueryConfig& config) {
+  return std::make_shared<RegexpReplaceWithLambdaFunction>();
+}
+
+std::vector<std::shared_ptr<exec::FunctionSignature>>
+regexpReplaceWithLambdaSignatures() {
+  return {exec::FunctionSignatureBuilder()
+              .returnType("varchar")
+              .argumentType("varchar")
+              .argumentType("varchar")
+              .argumentType("function(array(varchar), varchar)")
+              .build()};
+}
 } // namespace facebook::velox::functions
