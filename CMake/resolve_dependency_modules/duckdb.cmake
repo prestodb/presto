@@ -43,6 +43,8 @@ set(BUILD_SHELL OFF)
 set(EXPORT_DLL_SYMBOLS OFF)
 set(PREVIOUS_BUILD_TYPE ${CMAKE_BUILD_TYPE})
 set(CMAKE_BUILD_TYPE Release)
+set(PREVIOUS_CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-non-virtual-dtor")
 
 FetchContent_MakeAvailable(duckdb)
 
@@ -50,4 +52,5 @@ if("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
   target_compile_options(duckdb_catalog PRIVATE -Wno-nonnull-compare)
 endif()
 
+set(CMAKE_CXX_FLAGS ${PREVIOUS_CMAKE_CXX_FLAGS})
 set(CMAKE_BUILD_TYPE ${PREVIOUS_BUILD_TYPE})

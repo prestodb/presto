@@ -45,6 +45,8 @@ using namespace Azure::Storage::Files::DataLake::Models;
  */
 class IBlobStorageFileClient {
  public:
+  virtual ~IBlobStorageFileClient() {}
+
   virtual void create() = 0;
   virtual PathProperties getProperties() = 0;
   virtual void append(const uint8_t* buffer, size_t size, uint64_t offset) = 0;
