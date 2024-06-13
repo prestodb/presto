@@ -2538,7 +2538,6 @@
                                 --add-opens=java.base/jdk.internal.reflect=ALL-UNNAMED
                                 --add-opens=java.base/jdk.internal.util.jar=ALL-UNNAMED
                                 --add-opens=java.base/java.lang.module=ALL-UNNAMED
-                                --add-opens=java.base/java.util.*=ALL-UNNAMED
                                 --add-opens=jdk.management/com.sun.management.internal=ALL-UNNAMED
                                 --add-opens=jdk.management.jfr/jdk.management.jfr=ALL-UNNAMED
                                 --illegal-access=warn
