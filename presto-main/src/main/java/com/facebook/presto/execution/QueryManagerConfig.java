@@ -49,8 +49,6 @@ public class QueryManagerConfig
     private int maxQueuedQueries = 5000;
 
     private int hashPartitionCount = 100;
-
-    private int cteHashPartitionCount = 100;
     private String partitioningProviderCatalog = GlobalSystemConnector.NAME;
     private String ctePartitioningProviderCatalog = GlobalSystemConnector.NAME;
     private ExchangeMaterializationStrategy exchangeMaterializationStrategy = ExchangeMaterializationStrategy.NONE;
@@ -154,20 +152,6 @@ public class QueryManagerConfig
     public QueryManagerConfig setMaxQueuedQueries(int maxQueuedQueries)
     {
         this.maxQueuedQueries = maxQueuedQueries;
-        return this;
-    }
-
-    @Min(1)
-    public int getCteHashPartitionCount()
-    {
-        return cteHashPartitionCount;
-    }
-
-    @Config("query.cte-hash-partition-count")
-    @ConfigDescription("Number of writers or buckets allocated per materialized CTE. (Recommended value: 4 - 10x times the size of the cluster)")
-    public QueryManagerConfig setCteHashPartitionCount(int cteHashPartitionCount)
-    {
-        this.cteHashPartitionCount = cteHashPartitionCount;
         return this;
     }
 

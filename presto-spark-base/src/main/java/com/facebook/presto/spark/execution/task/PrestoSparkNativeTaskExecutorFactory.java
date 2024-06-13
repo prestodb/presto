@@ -650,7 +650,7 @@ public class PrestoSparkNativeTaskExecutorFactory
         {
             // Result Tasks only have outputType of PrestoSparkSerializedPage.
             checkArgument(outputType == PrestoSparkSerializedPage.class,
-                    format("PrestoSparkNativeTaskExecutorFactory only outputType=PrestoSparkSerializedPage" +
+                    format("PrestoSparkNativeTaskExecutorFactory only outputType=PrestoSparkSerializedPage " +
                             "But tried to extract outputType=%s", outputType));
 
             // Set partition ID to help match the results to the task on the driver for debugging.

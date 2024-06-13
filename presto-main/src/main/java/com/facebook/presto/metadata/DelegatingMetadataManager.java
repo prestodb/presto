@@ -155,12 +155,6 @@ public abstract class DelegatingMetadataManager
     }
 
     @Override
-    public PartitioningHandle getPartitioningHandleForCteMaterialization(Session session, String catalogName, int partitionCount, List<Type> partitionTypes)
-    {
-        return delegate.getPartitioningHandleForCteMaterialization(session, catalogName, partitionCount, partitionTypes);
-    }
-
-    @Override
     public Optional<Object> getInfo(Session session, TableHandle handle)
     {
         return delegate.getInfo(session, handle);

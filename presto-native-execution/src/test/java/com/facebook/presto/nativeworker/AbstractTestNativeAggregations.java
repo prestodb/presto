@@ -378,6 +378,21 @@ public abstract class AbstractTestNativeAggregations
         assertQuery("SELECT orderkey, array_sort(reduce_agg(linenumber, array[], (s, x) -> s || x, (s, s2) -> s || s2)) FROM lineitem GROUP BY orderkey");
     }
 
+    @Test
+    public void testNaNValueAgg()
+    {
+        // Fix Velox to get these tests passed.
+        // See https://github.com/prestodb/presto/issues/20283
+        String notEqualRowsErrorMsg = "*.not equal.*";
+        assertQuery("SELECT a FROM (VALUES (ARRAY[nan(), 2e0, 3e0]), (ARRAY[nan(), 2e0, 3e0])) t(a) GROUP BY a");
+        assertQueryError("SELECT a, array_agg(a ORDER BY a) FROM (VALUES (0.0e0), (0.0e0), (nan()), (nan())) t(a) GROUP BY 1", notEqualRowsErrorMsg);
+        assertQueryError("SELECT DISTINCT a/a FROM (VALUES (0.0e0), (0.0e0)) x (a)", notEqualRowsErrorMsg);
+        assertQueryError("SELECT * FROM (VALUES nan(), nan(), nan()) GROUP BY 1", notEqualRowsErrorMsg);
+        assertQueryError("SELECT a, b, c FROM (VALUES ROW(nan(), 1, 2), ROW(nan(), 1, 2)) t(a, b, c) GROUP BY 1, 2, 3", notEqualRowsErrorMsg);
+        assertQueryError("SELECT a, SUM(b), SUM(c) FROM (VALUES ROW(nan(), 1, 2), ROW(nan(), 1, 2)) t(a, b, c) GROUP BY 1", notEqualRowsErrorMsg);
+        assertQueryError("SELECT MAP_KEYS(x)[1] FROM (VALUES MAP(ARRAY[nan()], ARRAY[ARRAY[1]]), MAP(ARRAY[nan()], ARRAY[ARRAY[2]])) t(x) GROUP BY 1", notEqualRowsErrorMsg);
+    }
+
     private void assertQueryResultCount(String sql, int expectedResultCount)
     {
         assertEquals(getQueryRunner().execute(sql).getRowCount(), expectedResultCount);

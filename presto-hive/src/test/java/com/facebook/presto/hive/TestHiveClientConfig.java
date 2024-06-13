@@ -164,6 +164,7 @@ public class TestHiveClientConfig
                 .setParquetQuickStatsFileMetadataFetchTimeout(new Duration(60, TimeUnit.SECONDS))
                 .setMaxConcurrentQuickStatsCalls(100)
                 .setMaxConcurrentParquetQuickStatsCalls(500)
+                .setCteVirtualBucketCount(128)
                 .setAffinitySchedulingFileSectionSize(new DataSize(256, MEGABYTE)));
     }
 
@@ -289,6 +290,7 @@ public class TestHiveClientConfig
                 .put("hive.quick-stats.parquet.file-metadata-fetch-timeout", "30s")
                 .put("hive.quick-stats.parquet.max-concurrent-calls", "399")
                 .put("hive.quick-stats.max-concurrent-calls", "101")
+                .put("hive.cte-virtual-bucket-count", "256")
                 .put("hive.affinity-scheduling-file-section-size", "512MB")
                 .build();
 
@@ -410,6 +412,7 @@ public class TestHiveClientConfig
                 .setParquetQuickStatsFileMetadataFetchTimeout(new Duration(30, TimeUnit.SECONDS))
                 .setMaxConcurrentParquetQuickStatsCalls(399)
                 .setMaxConcurrentQuickStatsCalls(101)
+                .setCteVirtualBucketCount(256)
                 .setAffinitySchedulingFileSectionSize(new DataSize(512, MEGABYTE));
 
         ConfigAssertions.assertFullMapping(properties, expected);

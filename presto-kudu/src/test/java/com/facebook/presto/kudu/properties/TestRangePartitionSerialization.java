@@ -22,7 +22,7 @@ import static org.testng.Assert.assertEquals;
 
 public class TestRangePartitionSerialization
 {
-    private String[] testInputs = new String[] {
+    private String[] testInputs = {
             "{\"lower\":1,\"upper\":null}",
             "{\"lower\":12345678901234567890,\"upper\":1.234567890123457E-13}",
             "{\"lower\":\"abc\",\"upper\":\"abf\"}",

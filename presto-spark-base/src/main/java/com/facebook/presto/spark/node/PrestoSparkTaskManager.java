@@ -21,8 +21,8 @@ import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStatus;
-import com.facebook.presto.execution.buffer.BufferInfo;
 import com.facebook.presto.execution.buffer.BufferResult;
+import com.facebook.presto.execution.buffer.OutputBufferInfo;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.memory.MemoryPoolAssignmentsRequest;
@@ -104,7 +104,7 @@ public class PrestoSparkTaskManager
     }
 
     @Override
-    public Optional<BufferInfo> getTaskBufferInfo(TaskId taskId, OutputBuffers.OutputBufferId bufferId)
+    public OutputBufferInfo getOutputBufferInfo(TaskId taskId)
     {
         throw new UnsupportedOperationException();
     }

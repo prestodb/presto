@@ -9,7 +9,7 @@ To address this, Presto supports CTE Materialization allowing intermediate CTEs 
 Materializing CTEs can improve performance when the same CTE is used multiple times in a query by reducing recomputation of the CTE. However, there is also a cost to writing to and reading from disk, so the optimization may not be beneficial for very simple CTEs
 or CTEs that are not used many times in a query.
 
-Materialized CTEs are stored in temporary tables that are bucketed based on the first projection column.
+Materialized CTEs are stored in temporary tables that are bucketed based on random hashing.
 To use this feature, the connector used by the query must support the creation of temporary tables. Currently, only the :doc:`/connector/hive` offers this capability.
 The QueryStats (com.facebook.presto.spi.eventlistener.QueryStatistics#writtenIntermediateBytes) expose a metric to the event listener to monitor the bytes written to intermediate storage by temporary tables.
 
@@ -48,20 +48,6 @@ When ``cte-materialization-strategy`` is set to ``HEURISTIC`` or ``HEURISTIC_COM
 
 Use the ``cte_heuristic_replication_threshold`` session property to set on a per-query basis.
 
-``query.cte-hash-partition-count``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-    * **Type:** ``integer``
-    * **Default value:** ``100``
-
-The number of buckets to be used for materializing CTEs in queries.
-This setting determines how many buckets or writers should be used when materializing the CTEs, potentially affecting the performance of queries involving CTE materialization.
-A higher number of partitions might improve parallelism but also increases overhead in terms of memory and network communication.
-
-Recommended value: 4 - 10x times the size of the cluster.
-
-Use the ``cte_hash_partition_count`` session property to set on a per-query basis.
-
 ``query.cte-partitioning-provider-catalog``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -82,6 +68,20 @@ Use the ``cte_partitioning_provider_catalog`` session property to set on a per-q
 Flag to enable or disable the pushdown of common filters and projects into the materialized CTE.
 
 Use the ``cte_filter_and_projection_pushdown_enabled`` session property to set on a per-query basis.
+
+``hive.cte-virtual-bucket-count``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``integer``
+    * **Default value:** ``128``
+
+The number of buckets to be used for materializing CTEs in queries.
+This setting determines how many buckets should be used when materializing the CTEs, potentially affecting the performance of queries involving CTE materialization.
+A higher number of partitions might improve parallelism but also increases overhead in terms of memory and network communication.
+
+Recommended value: 4 - 10x times the size of the cluster.
+
+Use the ``hive.cte_virtual_bucket_count`` session property to set on a per-query basis.
 
 ``hive.temporary-table-storage-format``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

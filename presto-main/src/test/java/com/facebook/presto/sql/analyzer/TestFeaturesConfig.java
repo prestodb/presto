@@ -270,7 +270,9 @@ public class TestFeaturesConfig
                 .setDefaultViewSecurityMode(DEFINER)
                 .setCteHeuristicReplicationThreshold(4)
                 .setLegacyJsonCast(true)
-                .setPrintEstimatedStatsFromCache(false));
+                .setPrintEstimatedStatsFromCache(false)
+                .setUseHistograms(false)
+                .setUseNewNanDefinition(true));
     }
 
     @Test
@@ -485,6 +487,8 @@ public class TestFeaturesConfig
                 .put("default-view-security-mode", INVOKER.name())
                 .put("cte-heuristic-replication-threshold", "2")
                 .put("optimizer.print-estimated-stats-from-cache", "true")
+                .put("optimizer.use-histograms", "true")
+                .put("use-new-nan-definition", "false")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -696,7 +700,9 @@ public class TestFeaturesConfig
                 .setDefaultViewSecurityMode(INVOKER)
                 .setCteHeuristicReplicationThreshold(2)
                 .setLegacyJsonCast(false)
-                .setPrintEstimatedStatsFromCache(true);
+                .setPrintEstimatedStatsFromCache(true)
+                .setUseHistograms(true)
+                .setUseNewNanDefinition(false);
         assertFullMapping(properties, expected);
     }
 

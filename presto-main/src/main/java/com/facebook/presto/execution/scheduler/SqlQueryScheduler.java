@@ -610,7 +610,7 @@ public class SqlQueryScheduler
             newRoot = optimizer.optimize(newRoot, session, TypeProvider.viewOf(variableAllocator.getVariables()), variableAllocator, idAllocator, warningCollector).getPlanNode();
         }
         if (newRoot != fragment.getRoot()) {
-            StatsAndCosts estimatedStatsAndCosts = fragment.getStatsAndCosts();
+            Optional<StatsAndCosts> estimatedStatsAndCosts = fragment.getStatsAndCosts();
             return Optional.of(
                     // The partitioningScheme should stay the same
                     // even if the root's outputVariable layout is changed.
@@ -624,7 +624,7 @@ public class SqlQueryScheduler
                             fragment.getStageExecutionDescriptor(),
                             fragment.isOutputTableWriterFragment(),
                             estimatedStatsAndCosts,
-                            Optional.of(jsonFragmentPlan(newRoot, fragment.getVariables(), estimatedStatsAndCosts, functionAndTypeManager, session))));
+                            Optional.of(jsonFragmentPlan(newRoot, fragment.getVariables(), estimatedStatsAndCosts.orElse(StatsAndCosts.empty()), functionAndTypeManager, session))));
         }
         return Optional.empty();
     }

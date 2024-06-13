@@ -41,20 +41,26 @@ public class PrestoQuerySourceQuerySupplier
                     resultSet.getString("name"),
                     resultSet.getString("control_query"),
                     resultSet.getString("test_query"),
+                    Optional.ofNullable(resultSet.getString("control_query_id")),
+                    Optional.ofNullable(resultSet.getString("test_query_id")),
                     new QueryConfiguration(
                             resultSet.getString("control_catalog"),
                             resultSet.getString("control_schema"),
                             Optional.ofNullable(resultSet.getString("control_username")),
                             Optional.ofNullable(resultSet.getString("control_password")),
                             Optional.ofNullable(resultSet.getString("control_session_properties"))
-                                    .map(StringToStringMapColumnMapper.CODEC::fromJson)),
+                                    .map(StringToStringMapColumnMapper.CODEC::fromJson),
+                            Optional.ofNullable(resultSet.getString("control_client_tags"))
+                                    .map(StringListColumnMapper.CODEC::fromJson)),
                     new QueryConfiguration(
                             resultSet.getString("test_catalog"),
                             resultSet.getString("test_schema"),
                             Optional.ofNullable(resultSet.getString("test_username")),
                             Optional.ofNullable(resultSet.getString("test_password")),
                             Optional.ofNullable(resultSet.getString("test_session_properties"))
-                                    .map(StringToStringMapColumnMapper.CODEC::fromJson))));
+                                    .map(StringToStringMapColumnMapper.CODEC::fromJson),
+                            Optional.ofNullable(resultSet.getString("test_client_tags"))
+                                    .map(StringListColumnMapper.CODEC::fromJson))));
 
     private final PrestoAction helperAction;
     private final SqlParser sqlParser;
@@ -67,7 +73,7 @@ public class PrestoQuerySourceQuerySupplier
             PrestoQuerySourceQueryConfig config)
     {
         this.helperAction = helperActionFactory.create(
-                new QueryConfiguration(config.getCatalog(), config.getSchema(), config.getUsername(), config.getPassword(), Optional.empty()),
+                new QueryConfiguration(config.getCatalog(), config.getSchema(), config.getUsername(), config.getPassword(), Optional.empty(), Optional.empty()),
                 VerificationContext.create("", ""));
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.query = requireNonNull(config.getQuery(), "query is null");

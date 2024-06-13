@@ -715,7 +715,8 @@ public class IcebergPageSourceProvider
             ConnectorSplit connectorSplit,
             ConnectorTableLayoutHandle layout,
             List<ColumnHandle> desiredColumns,
-            SplitContext splitContext)
+            SplitContext splitContext,
+            RuntimeStats runtimeStats)
     {
         IcebergTableLayoutHandle icebergLayout = (IcebergTableLayoutHandle) layout;
         if (icebergLayout.isPushdownFilterEnabled()) {

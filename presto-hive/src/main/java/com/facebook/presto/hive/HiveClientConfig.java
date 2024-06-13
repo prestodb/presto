@@ -155,6 +155,8 @@ public class HiveClientConfig
     private HiveStorageFormat temporaryTableStorageFormat = ORC;
     private HiveCompressionCodec temporaryTableCompressionCodec = HiveCompressionCodec.SNAPPY;
     private boolean shouldCreateEmptyBucketFilesForTemporaryTable;
+
+    private int cteVirtualBucketCount = 128;
     private boolean usePageFileForHiveUnsupportedType = true;
 
     private boolean pushdownFilterEnabled;
@@ -1332,6 +1334,20 @@ public class HiveClientConfig
     public boolean isParquetPushdownFilterEnabled()
     {
         return parquetPushdownFilterEnabled;
+    }
+
+    @Config("hive.cte-virtual-bucket-count")
+    @ConfigDescription("Number of buckets allocated per materialized CTE. (Recommended value: 4 - 10x times the size of the cluster)")
+    public HiveClientConfig setCteVirtualBucketCount(int cteVirtualBucketCount)
+    {
+        this.cteVirtualBucketCount = cteVirtualBucketCount;
+        return this;
+    }
+
+    @NotNull
+    public int getCteVirtualBucketCount()
+    {
+        return cteVirtualBucketCount;
     }
 
     @Config("hive.parquet.pushdown-filter-enabled")

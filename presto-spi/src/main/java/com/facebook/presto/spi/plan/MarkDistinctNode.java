@@ -81,7 +81,7 @@ public final class MarkDistinctNode
     @Override
     public List<PlanNode> getSources()
     {
-        return unmodifiableList(Collections.singletonList(source));
+        return Collections.singletonList(source);
     }
 
     @JsonProperty

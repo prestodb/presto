@@ -370,7 +370,7 @@ protocol::TaskStatus PrestoTask::updateStatusLocked() {
   }
 
   const auto veloxTaskMemStats = task->pool()->stats();
-  info.taskStatus.memoryReservationInBytes = task->pool()->usedBytes();
+  info.taskStatus.memoryReservationInBytes = veloxTaskMemStats.usedBytes;
   info.taskStatus.systemMemoryReservationInBytes = 0;
   // NOTE: a presto worker may run multiple tasks from the same query.
   // 'peakNodeTotalMemoryReservationInBytes' represents peak memory usage across
@@ -547,7 +547,7 @@ void PrestoTask::updateMemoryInfoLocked(
   protocol::TaskStats& prestoTaskStats = info.stats;
 
   const auto veloxTaskMemStats = task->pool()->stats();
-  const auto currentBytes = task->pool()->usedBytes();
+  const auto currentBytes = veloxTaskMemStats.usedBytes;
   prestoTaskStats.userMemoryReservationInBytes = currentBytes;
   prestoTaskStats.systemMemoryReservationInBytes = 0;
   prestoTaskStats.peakUserMemoryInBytes = veloxTaskMemStats.peakBytes;
@@ -561,7 +561,7 @@ void PrestoTask::updateMemoryInfoLocked(
   const double sinceLastPeriodMs = currentTimeMs - lastTaskStatsUpdateMs;
 
   prestoTaskStats.cumulativeUserMemory +=
-      (averageMemoryForLastPeriod * sinceLastPeriodMs) / 1000;
+      (averageMemoryForLastPeriod * sinceLastPeriodMs);
   // NOTE: velox doesn't differentiate user and system memory usages.
   prestoTaskStats.cumulativeTotalMemory = prestoTaskStats.cumulativeUserMemory;
   prestoTaskStats.peakNodeTotalMemoryInBytes =

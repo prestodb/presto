@@ -23,7 +23,7 @@ import com.facebook.presto.sql.planner.iterative.Lookup;
 
 import java.util.Optional;
 
-import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.addStatsAndIntersect;
+import static com.facebook.presto.SystemSessionProperties.shouldOptimizerUseHistograms;
 import static com.facebook.presto.sql.planner.plan.Patterns.intersect;
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -57,7 +57,8 @@ public class IntersectStatsRule
             PlanNodeStatsEstimate sourceStatsWithMappedSymbols = mapToOutputSymbols(sourceStats, node, i);
 
             if (estimate.isPresent()) {
-                estimate = Optional.of(addStatsAndIntersect(estimate.get(), sourceStatsWithMappedSymbols));
+                PlanNodeStatsEstimateMath calculator = new PlanNodeStatsEstimateMath(shouldOptimizerUseHistograms(session));
+                estimate = Optional.of(calculator.addStatsAndIntersect(estimate.get(), sourceStatsWithMappedSymbols));
             }
             else {
                 estimate = Optional.of(sourceStatsWithMappedSymbols);

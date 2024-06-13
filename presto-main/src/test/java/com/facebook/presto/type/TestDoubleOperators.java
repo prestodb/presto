@@ -20,13 +20,17 @@ import static com.facebook.presto.common.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
+import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static java.lang.Double.doubleToLongBits;
 import static java.lang.Double.doubleToRawLongBits;
 import static java.lang.Double.isNaN;
 import static java.lang.Double.longBitsToDouble;
+import static java.lang.Double.parseDouble;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -110,6 +114,8 @@ public class TestDoubleOperators
         assertFunction("37.7E0 = 17.1E0", BOOLEAN, false);
         assertFunction("17.1E0 = 37.7E0", BOOLEAN, false);
         assertFunction("17.1E0 = 17.1E0", BOOLEAN, true);
+        assertFunction("DOUBLE'-0.0' = DOUBLE'0.0'", BOOLEAN, true);
+        assertFunction("nan() = nan()", BOOLEAN, true);
     }
 
     @Test
@@ -119,6 +125,8 @@ public class TestDoubleOperators
         assertFunction("37.7E0 <> 17.1E0", BOOLEAN, true);
         assertFunction("17.1E0 <> 37.7E0", BOOLEAN, true);
         assertFunction("17.1E0 <> 17.1E0", BOOLEAN, false);
+        assertFunction("DOUBLE'-0.0' <> DOUBLE'0.0'", BOOLEAN, false);
+        assertFunction("nan() <> nan()", BOOLEAN, false);
     }
 
     @Test
@@ -128,6 +136,8 @@ public class TestDoubleOperators
         assertFunction("37.7E0 < 17.1E0", BOOLEAN, false);
         assertFunction("17.1E0 < 37.7E0", BOOLEAN, true);
         assertFunction("17.1E0 < 17.1E0", BOOLEAN, false);
+        assertFunction("DOUBLE '-0.0' < DOUBLE '0.0'", BOOLEAN, false);
+        assertFunction("nan() < nan()", BOOLEAN, false);
     }
 
     @Test
@@ -137,6 +147,8 @@ public class TestDoubleOperators
         assertFunction("37.7E0 <= 17.1E0", BOOLEAN, false);
         assertFunction("17.1E0 <= 37.7E0", BOOLEAN, true);
         assertFunction("17.1E0 <= 17.1E0", BOOLEAN, true);
+        assertFunction("DOUBLE '-0.0' <= DOUBLE '0.0'", BOOLEAN, true);
+        assertFunction("nan() <= nan()", BOOLEAN, true);
     }
 
     @Test
@@ -146,6 +158,8 @@ public class TestDoubleOperators
         assertFunction("37.7E0 > 17.1E0", BOOLEAN, true);
         assertFunction("17.1E0 > 37.7E0", BOOLEAN, false);
         assertFunction("17.1E0 > 17.1E0", BOOLEAN, false);
+        assertFunction("DOUBLE '0.0' > DOUBLE '-0.0'", BOOLEAN, false);
+        assertFunction("nan() > nan()", BOOLEAN, false);
     }
 
     @Test
@@ -155,6 +169,8 @@ public class TestDoubleOperators
         assertFunction("37.7E0 >= 17.1E0", BOOLEAN, true);
         assertFunction("17.1E0 >= 37.7E0", BOOLEAN, false);
         assertFunction("17.1E0 >= 17.1E0", BOOLEAN, true);
+        assertFunction("DOUBLE'-0.0' >= DOUBLE'0.0'", BOOLEAN, true);
+        assertFunction("nan() >= nan()", BOOLEAN, true);
     }
 
     @Test
@@ -171,6 +187,8 @@ public class TestDoubleOperators
 
         assertFunction("17.1E0 BETWEEN 17.1E0 AND 37.7E0", BOOLEAN, true);
         assertFunction("17.1E0 BETWEEN 17.1E0 AND 17.1E0", BOOLEAN, true);
+        assertFunction("DOUBLE'-0.0' BETWEEN DOUBLE'0.0' AND DOUBLE '0.0'", BOOLEAN, true);
+        assertFunction("nan() BETWEEN nan() AND nan()", BOOLEAN, true);
     }
 
     @Test
@@ -210,6 +228,59 @@ public class TestDoubleOperators
     }
 
     @Test
+    public void testCastToInteger()
+    {
+        assertFunction("cast(37.7E0 as integer)", INTEGER, 38);
+        assertFunction("cast(-37.7E0 as integer)", INTEGER, -38);
+        assertFunction("cast(17.1E0 as integer)", INTEGER, 17);
+        assertFunction("cast(-17.1E0 as integer)", INTEGER, -17);
+        assertFunction("cast(9.2E8 as integer)", INTEGER, 920000000);
+        assertFunction("cast(-9.2E8 as integer)", INTEGER, -920000000);
+        assertFunction("cast(2.21E8 as integer)", INTEGER, 221000000);
+        assertFunction("cast(-2.21E8 as integer)", INTEGER, -221000000);
+        assertFunction("cast(17.5E0 as integer)", INTEGER, 18);
+        assertFunction("cast(-17.5E0 as integer)", INTEGER, -18);
+
+        assertFunction("cast(" + Math.nextDown(0x1.0p31f) + " as integer)", INTEGER, (int) Math.nextDown(0x1.0p31f));
+        assertInvalidFunction("cast(" + 0x1.0p31 + " as integer)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(" + Math.nextUp(0x1.0p31f) + " as integer)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(" + Math.nextDown(-0x1.0p31f) + " as integer)", INVALID_CAST_ARGUMENT);
+        assertFunction("cast(" + -0x1.0p31 + " as integer)", INTEGER, (int) -0x1.0p31);
+        assertFunction("cast(" + Math.nextUp(-0x1.0p31f) + " as integer)", INTEGER, (int) Math.nextUp(-0x1.0p31f));
+
+        assertInvalidFunction("cast(9.3E9 as integer)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(-9.3E9 as integer)", INVALID_CAST_ARGUMENT);
+
+        assertInvalidFunction("cast(infinity() as integer)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(-infinity() as integer)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(nan() as integer)", INVALID_CAST_ARGUMENT);
+    }
+
+    @Test
+    public void testCastToSmallInt()
+    {
+        assertFunction("cast(" + (0x1.0p15 - 0.6) + " as smallint)", SMALLINT, Short.MAX_VALUE);
+        assertInvalidFunction("cast(DOUBLE '" + 0x1.0p15 + "' as smallint)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(9.2E9 as smallint)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(-9.2E9 as smallint)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(infinity() as smallint)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(-infinity() as smallint)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(nan() as smallint)", INVALID_CAST_ARGUMENT);
+    }
+
+    @Test
+    public void testCastToTinyInt()
+    {
+        assertFunction("cast(" + (0x1.0p7 - 0.6) + " as tinyint)", TINYINT, Byte.MAX_VALUE);
+        assertInvalidFunction("cast(DOUBLE '" + 0x1.0p7 + "' as tinyint)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(9.2E9 as tinyint)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(-9.2E9 as tinyint)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(infinity() as tinyint)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(-infinity() as tinyint)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(nan() as tinyint)", INVALID_CAST_ARGUMENT);
+    }
+
+    @Test
     public void testCastToBoolean()
     {
         assertFunction("cast(37.7E0 as boolean)", BOOLEAN, true);
@@ -244,6 +315,7 @@ public class TestDoubleOperators
         assertFunction("NULL IS DISTINCT FROM 37.7", BOOLEAN, true);
         assertFunction("37.7 IS DISTINCT FROM NULL", BOOLEAN, true);
         assertFunction("nan() IS DISTINCT FROM nan()", BOOLEAN, false);
+        assertFunction("DOUBLE '-0.0' IS DISTINCT FROM DOUBLE '0.0'", BOOLEAN, false);
     }
 
     @Test
@@ -265,7 +337,13 @@ public class TestDoubleOperators
             assertTrue(nanRepresentation == nanRepresentations[0]
                     || doubleToRawLongBits(longBitsToDouble(nanRepresentation)) != doubleToRawLongBits(longBitsToDouble(nanRepresentations[0])));
 
-            assertEquals(DoubleOperators.hashCode(longBitsToDouble(nanRepresentation)), DoubleOperators.hashCode(longBitsToDouble(nanRepresentations[0])));
+            assertEquals(DoubleComparisonOperators.hashCode(longBitsToDouble(nanRepresentation)), DoubleComparisonOperators.hashCode(longBitsToDouble(nanRepresentations[0])));
         }
+    }
+
+    @Test
+    public void testZeroHash()
+    {
+        assertEquals(DoubleComparisonOperators.hashCode(0), DoubleComparisonOperators.hashCode(parseDouble("-0.0")));
     }
 }

@@ -28,9 +28,6 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 message("Appending CMAKE_CXX_FLAGS with ${SCRIPT_CXX_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SCRIPT_CXX_FLAGS}")
-if("${TREAT_WARNINGS_AS_ERRORS}")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
-endif()
 
 # Known warnings that are benign can be disabled.
 set(DISABLED_WARNINGS
@@ -208,5 +205,11 @@ else()
   set_property(GLOBAL APPEND PROPERTY JOB_POOLS "presto_link_job_pool=8")
 endif()
 set(CMAKE_JOB_POOL_LINK presto_link_job_pool)
+
+# Adding this down here prevents warnings in dependencies from stopping the
+# build
+if("${TREAT_WARNINGS_AS_ERRORS}")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
+endif()
 
 add_subdirectory(presto_cpp)

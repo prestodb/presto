@@ -110,7 +110,8 @@ public class TestHivePushdownFilterQueries
     {
         DistributedQueryRunner queryRunner = HiveQueryRunner.createQueryRunner(getTables(),
                 ImmutableMap.of("experimental.pushdown-subfields-enabled", "true",
-                        "experimental.pushdown-dereference-enabled", "true"),
+                        "experimental.pushdown-dereference-enabled", "true",
+                        "use-new-nan-definition", "true"),
                 "sql-standard",
                 ImmutableMap.of("hive.pushdown-filter-enabled", "true",
                         "hive.enable-parquet-dereference-pushdown", "true",
@@ -1105,6 +1106,8 @@ public class TestHivePushdownFilterQueries
             assertQuery("SELECT double_value FROM test_nan WHERE double_value != 1", "SELECT cast('NaN' as DOUBLE) UNION SELECT 2");
             assertQuery("SELECT float_value FROM test_nan WHERE float_value != 1", "SELECT CAST('NaN' as REAL) UNION SELECT 2");
             assertQuery("SELECT double_value FROM test_nan WHERE double_value NOT IN (1, 2)", "SELECT CAST('NaN' as DOUBLE)");
+            assertQuery("SELECT double_value FROM test_nan WHERE double_value > 1", "SELECT cast('NaN' as DOUBLE) UNION SELECT 2");
+            assertQuery("SELECT float_value FROM test_nan WHERE float_value > 1", "SELECT cast('NaN' as REAL) UNION SELECT 2");
         }
         finally {
             assertUpdate("DROP TABLE test_nan");

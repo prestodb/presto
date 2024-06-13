@@ -26,7 +26,6 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static java.util.Collections.singletonList;
-import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -87,7 +86,7 @@ public final class FilterNode
     @Override
     public List<PlanNode> getSources()
     {
-        return unmodifiableList(singletonList(source));
+        return singletonList(source);
     }
 
     @Override

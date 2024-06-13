@@ -80,7 +80,6 @@ public class TestQueryManagerConfig
                 .setGlobalQueryRetryFailureLimit(150)
                 .setGlobalQueryRetryFailureWindow(new Duration(5, MINUTES))
                 .setRateLimiterBucketMaxSize(100)
-                .setCteHashPartitionCount(100)
                 .setRateLimiterCacheLimit(1000)
                 .setRateLimiterCacheWindowMinutes(5)
                 .setEnableWorkerIsolation(false));
@@ -134,7 +133,6 @@ public class TestQueryManagerConfig
                 .put("query-manager.rate-limiter-bucket-max-size", "200")
                 .put("query-manager.rate-limiter-cache-limit", "10000")
                 .put("query-manager.rate-limiter-cache-window-minutes", "60")
-                .put("query.cte-hash-partition-count", "128")
                 .put("query.cte-partitioning-provider-catalog", "hive")
                 .put("query-manager.enable-worker-isolation", "true")
 
@@ -186,7 +184,6 @@ public class TestQueryManagerConfig
                 .setRateLimiterBucketMaxSize(200)
                 .setRateLimiterCacheLimit(10000)
                 .setRateLimiterCacheWindowMinutes(60)
-                .setCteHashPartitionCount(128)
                 .setCtePartitioningProviderCatalog("hive")
                 .setEnableWorkerIsolation(true);
         ConfigAssertions.assertFullMapping(properties, expected);

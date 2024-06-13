@@ -164,7 +164,7 @@ public abstract class BasePlanFragmenter
                 properties.getPartitioningScheme(),
                 StageExecutionDescriptor.ungroupedExecution(),
                 outputTableWriterFragment,
-                statsAndCosts.getForSubplan(root),
+                Optional.of(statsAndCosts.getForSubplan(root)),
                 Optional.of(jsonFragmentPlan(root, fragmentVariableTypes, statsAndCosts.getForSubplan(root), metadata.getFunctionAndTypeManager(), session)));
 
         return new SubPlan(fragment, properties.getChildren());
@@ -371,7 +371,7 @@ public abstract class BasePlanFragmenter
                 temporaryTableHandle,
                 exchange.getOutputVariables(),
                 variableToColumnMap,
-                partitioningMetadata);
+                Optional.of(partitioningMetadata));
 
         checkArgument(
                 !exchange.getPartitioningScheme().isReplicateNullsAndAny(),

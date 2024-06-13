@@ -24,7 +24,11 @@ Presto aims to accomplish the above goals for users by creating a broad, powerfu
 3. **Composability**: Presto is designed for lakes and lakehouses. As such, it is engineered to fit cohesively in an ecosystem of other tools, and strives to integrate with industry standard specifications and libraries that help accomplish the user goals above.
 4. **Coding excellence**: Presto strives to maintain a high bar for contributions through good design, good abstractions, rigorous tests, and quality documentation.
 
-## Architecture
+## Presto Community
+
+The Presto project believes that, while excellence in the code is table stakes for the project, of even greater importance is *how* the project develops the code.  For more information, see [Presto Community](https://github.com/prestodb/presto/blob/master/CONTRIBUTING.md#presto-community).
+
+## Presto Technical Architecture
 
 Presto follows a distributed system model with a coordinator and multiple worker nodes. [See Presto Concepts for more information.](https://prestodb.io/docs/current/overview/concepts.html#server-types)
 

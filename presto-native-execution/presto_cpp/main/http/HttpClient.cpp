@@ -16,14 +16,18 @@
 #include <jwt-cpp/jwt.h> // @manual
 #include <jwt-cpp/traits/nlohmann-json/traits.h> //@manual
 #endif // PRESTO_ENABLE_JWT
+#include <folly/io/async/EventBaseManager.h>
+#include <folly/synchronization/Latch.h>
 #include <velox/common/base/Exceptions.h>
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/http/HttpClient.h"
 
 namespace facebook::presto::http {
+
 HttpClient::HttpClient(
     folly::EventBase* eventBase,
-    proxygen::SessionPool* sessionPool,
+    HttpClientConnectionPool* connPool,
+    const proxygen::Endpoint& endpoint,
     const folly::SocketAddress& address,
     std::chrono::milliseconds transactionTimeout,
     std::chrono::milliseconds connectTimeout,
@@ -31,18 +35,15 @@ HttpClient::HttpClient(
     folly::SSLContextPtr sslContext,
     std::function<void(int)>&& reportOnBodyStatsFunc)
     : eventBase_(eventBase),
+      connPool_(connPool),
+      endpoint_(endpoint),
       address_(address),
-      transactionTimer_(transactionTimeout, eventBase),
+      transactionTimeout_(transactionTimeout),
       connectTimeout_(connectTimeout),
       pool_(std::move(pool)),
       sslContext_(sslContext),
       reportOnBodyStatsFunc_(std::move(reportOnBodyStatsFunc)),
-      maxResponseAllocBytes_(SystemConfig::instance()->httpMaxAllocateBytes()),
-      sessionPool_(sessionPool) {
-  if (!sessionPool_) {
-    sessionPoolHolder_ = std::make_unique<proxygen::SessionPool>();
-    sessionPool_ = sessionPoolHolder_.get();
-  }
+      maxResponseAllocBytes_(SystemConfig::instance()->httpMaxAllocateBytes()) {
 }
 
 HttpClient::~HttpClient() {
@@ -352,6 +353,168 @@ class ConnectionHandler : public proxygen::HTTPConnector::Callback {
   std::unique_ptr<proxygen::HTTPConnector> connector_;
 };
 
+namespace {
+// Same value as
+// https://github.com/prestodb/presto/blob/831d5947b909fee0d5c0091a3246ddc5b31b2731/presto-main/src/main/java/com/facebook/presto/server/ServerMainModule.java#L547
+constexpr int kMaxConnectionsPerServer = 250;
+} // namespace
+
+std::pair<proxygen::SessionPool*, proxygen::ServerIdleSessionController*>
+HttpClientConnectionPool::getSessionPoolImpl(SessionPools& endpointPools) {
+  auto* evb = folly::EventBaseManager::get()->getExistingEventBase();
+  VELOX_CHECK_NOT_NULL(evb);
+  {
+    auto rlock = endpointPools.byEventBase.rlock();
+    auto it = rlock->find(evb);
+    if (it != rlock->end()) {
+      return {it->second.get(), &endpointPools.idleSessions};
+    }
+  }
+  // NOTE: local event base is unique so only 1 thread can access the same key
+  // entry.
+  auto wlock = endpointPools.byEventBase.wlock();
+  auto& pool = (*wlock)[evb];
+  VELOX_CHECK_NULL(pool);
+  pool = std::make_unique<proxygen::SessionPool>(
+      nullptr,
+      kMaxConnectionsPerServer,
+      std::chrono::seconds(30),
+      std::chrono::milliseconds(0),
+      nullptr,
+      &endpointPools.idleSessions);
+  return {pool.get(), &endpointPools.idleSessions};
+}
+
+std::pair<proxygen::SessionPool*, proxygen::ServerIdleSessionController*>
+HttpClientConnectionPool::getSessionPool(const proxygen::Endpoint& endpoint) {
+  {
+    auto rlock = pools_.rlock();
+    auto it = rlock->find(endpoint);
+    if (it != rlock->end()) {
+      return getSessionPoolImpl(*it->second);
+    }
+  }
+  auto wlock = pools_.wlock();
+  auto it = wlock->find(endpoint);
+  if (it != wlock->end()) {
+    auto rlock = wlock.moveFromWriteToRead();
+    return getSessionPoolImpl(*it->second);
+  }
+  auto& endpointPools = (*wlock)[endpoint];
+  VELOX_CHECK_NULL(endpointPools);
+  endpointPools = std::make_unique<SessionPools>();
+  endpointPools->idleSessions.setMaxIdleCount(kMaxConnectionsPerServer);
+  auto rlock = wlock.moveFromWriteToRead();
+  return getSessionPoolImpl(*endpointPools);
+}
+
+void HttpClientConnectionPool::destroy() {
+  pools_.withWLock([](auto& pools) {
+    for (auto& [_, endpointPools] : pools) {
+      endpointPools->idleSessions.markForDeath();
+      endpointPools->byEventBase.withWLock([](auto& byEventBase) {
+        folly::Latch latch(byEventBase.size());
+        for (auto& [evb, sessionPool] : byEventBase) {
+          evb->runInEventBaseThread(
+              [&, sessionPool = std::move(sessionPool)]() mutable {
+                sessionPool.reset();
+                latch.count_down();
+              });
+        }
+        latch.wait();
+      });
+    }
+    pools.clear();
+  });
+}
+
+void HttpClient::initSessionPool() {
+  eventBase_->dcheckIsInEventBaseThread();
+  if (sessionPool_) {
+    return;
+  }
+  if (connPool_) {
+    std::tie(sessionPool_, idleSessions_) =
+        connPool_->getSessionPool(endpoint_);
+    return;
+  }
+  sessionPoolHolder_ = std::make_unique<proxygen::SessionPool>();
+  sessionPool_ = sessionPoolHolder_.get();
+  idleSessions_ = nullptr;
+}
+
+folly::SemiFuture<proxygen::HTTPTransaction*> HttpClient::createTransaction(
+    proxygen::HTTPTransactionHandler* handler) {
+  eventBase_->dcheckIsInEventBaseThread();
+  if (auto* txn = sessionPool_->getTransaction(handler)) {
+    VLOG(3) << "Reuse same thread connection to " << address_.describe();
+    return folly::makeSemiFuture(txn);
+  }
+  if (!idleSessions_) {
+    return folly::makeSemiFuture<proxygen::HTTPTransaction*>(nullptr);
+  }
+  auto idleSessionFuture = idleSessions_->getIdleSession();
+  auto getFromIdleSession =
+      [self = shared_from_this(), this, handler](
+          proxygen::HTTPSessionBase* session) -> proxygen::HTTPTransaction* {
+    if (!session) {
+      return nullptr;
+    }
+    VLOG(3) << "Reuse idle connection from different thread to "
+            << address_.describe();
+    auto* evb = session->getEventBase();
+    // The event base from idle session should not be the current event base,
+    // otherwise we should have already got it from the local session pool.
+    VELOX_CHECK(!evb || !evb->isInEventBaseThread());
+    session->attachThreadLocals(
+        eventBase_,
+        sslContext_,
+        proxygen::WheelTimerInstance(transactionTimeout_, eventBase_),
+        nullptr,
+        [](auto*) {},
+        nullptr,
+        nullptr);
+    sessionPool_->putSession(session);
+    return sessionPool_->getTransaction(handler);
+  };
+  if (idleSessionFuture.isReady()) {
+    return getFromIdleSession(idleSessionFuture.value());
+  }
+  return idleSessionFuture.via(eventBase_)
+      .thenValue(std::move(getFromIdleSession))
+      .semi();
+}
+
+void HttpClient::sendRequest(std::shared_ptr<ResponseHandler> responseHandler) {
+  initSessionPool();
+  auto txnFuture = createTransaction(responseHandler.get());
+  auto doSend = [this, responseHandler = std::move(responseHandler)](
+                    proxygen::HTTPTransaction* txn) {
+    if (txn) {
+      responseHandler->sendRequest(txn);
+      return;
+    }
+    VLOG(2) << "Create new connection to " << address_.describe();
+    ++numConnectionsCreated_;
+    // NOTE: the connection handler object will be self-deleted when the
+    // connection succeeds or fails,
+    auto connectionHandler = new ConnectionHandler(
+        responseHandler,
+        sessionPool_,
+        proxygen::WheelTimerInstance(transactionTimeout_, eventBase_),
+        connectTimeout_,
+        eventBase_,
+        address_,
+        sslContext_);
+    connectionHandler->connect();
+  };
+  if (txnFuture.isReady()) {
+    doSend(txnFuture.value());
+    return;
+  }
+  std::move(txnFuture).via(eventBase_).thenValue(std::move(doSend));
+}
+
 folly::SemiFuture<std::unique_ptr<HttpResponse>> HttpClient::sendRequest(
     const proxygen::HTTPMessage& request,
     const std::string& body,
@@ -364,32 +527,17 @@ folly::SemiFuture<std::unique_ptr<HttpResponse>> HttpClient::sendRequest(
       shared_from_this());
   auto future = responseHandler->initialize(responseHandler);
 
-  auto send = [this, responseHandler]() {
-    auto txn = sessionPool_->getTransaction(responseHandler.get());
-    if (txn) {
-      responseHandler->sendRequest(txn);
-      return;
-    }
-
-    auto connectionHandler = new ConnectionHandler(
-        responseHandler,
-        sessionPool_,
-        transactionTimer_,
-        connectTimeout_,
-        eventBase_,
-        address_,
-        sslContext_);
-
-    connectionHandler->connect();
+  auto sendCb = [this, responseHandler]() mutable {
+    sendRequest(std::move(responseHandler));
   };
 
   if (delayMs > 0) {
     // schedule() is expected to be run in the event base thread
     eventBase_->runInEventBaseThread([=]() {
-      eventBase_->schedule(send, std::chrono::milliseconds(delayMs));
+      eventBase_->schedule(sendCb, std::chrono::milliseconds(delayMs));
     });
   } else {
-    eventBase_->runInEventBaseThreadAlwaysEnqueue(send);
+    eventBase_->runInEventBaseThreadAlwaysEnqueue(sendCb);
   }
 
   return future;

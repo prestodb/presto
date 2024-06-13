@@ -176,6 +176,12 @@ public abstract class AbstractTestQueryFramework
         QueryAssertions.assertQuery(queryRunner, session, actual, queryRunner, expected, false, false);
     }
 
+    protected void assertQueryOrderedWithSameQueryRunner(@Language("SQL") String actual, @Language("SQL") String expected)
+    {
+        checkArgument(!actual.equals(expected));
+        QueryAssertions.assertQuery(queryRunner, getSession(), actual, queryRunner, expected, true, false);
+    }
+
     protected void assertQueryWithSameQueryRunner(Session actualSession, @Language("SQL") String query, Session expectedSession)
     {
         QueryAssertions.assertQuery(queryRunner, actualSession, query, queryRunner, expectedSession, query, false, false);
@@ -289,6 +295,21 @@ public abstract class AbstractTestQueryFramework
         QueryAssertions.assertQueryFails(queryRunner, session, sql, expectedMessageRegExp);
     }
 
+    protected void assertQueryError(QueryRunner queryRunner, Session session, @Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
+    {
+        try {
+            queryRunner.execute(session, sql);
+        }
+        catch (AssertionError e) {
+            assertErrorMessage(sql, e, expectedMessageRegExp);
+        }
+    }
+
+    protected void assertQueryError(@Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
+    {
+        assertQueryError(queryRunner, getSession(), sql, expectedMessageRegExp);
+    }
+
     protected void assertQueryReturnsEmptyResult(@Language("SQL") String sql)
     {
         QueryAssertions.assertQueryReturnsEmptyResult(queryRunner, getSession(), sql);
@@ -387,6 +408,13 @@ public abstract class AbstractTestQueryFramework
         assertUpdate(session, "DROP TABLE " + table);
 
         assertFalse(getQueryRunner().tableExists(session, table));
+    }
+
+    private static void assertErrorMessage(String sql, AssertionError error, @Language("RegExp") String regex)
+    {
+        if (!nullToEmpty(error.getMessage()).matches(regex)) {
+            fail(format("Expected error message '%s' to match '%s' for query: %s", error.getMessage(), regex, sql), error);
+        }
     }
 
     protected MaterializedResult computeExpected(@Language("SQL") String sql, List<? extends Type> resultTypes)

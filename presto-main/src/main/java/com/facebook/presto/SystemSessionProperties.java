@@ -93,7 +93,6 @@ public final class SystemSessionProperties
     public static final String DISTRIBUTED_JOIN = "distributed_join";
     public static final String DISTRIBUTED_INDEX_JOIN = "distributed_index_join";
     public static final String HASH_PARTITION_COUNT = "hash_partition_count";
-    public static final String CTE_HASH_PARTITION_COUNT = "cte_hash_partition_count";
     public static final String CTE_HEURISTIC_REPLICATION_THRESHOLD = "cte_heuristic_replication_threshold";
 
     public static final String PARTITIONING_PROVIDER_CATALOG = "partitioning_provider_catalog";
@@ -347,6 +346,7 @@ public final class SystemSessionProperties
     public static final String NATIVE_DEBUG_VALIDATE_OUTPUT_FROM_OPERATORS = "native_debug_validate_output_from_operators";
     public static final String DEFAULT_VIEW_SECURITY_MODE = "default_view_security_mode";
     public static final String JOIN_PREFILTER_BUILD_SIDE = "join_prefilter_build_side";
+    public static final String OPTIMIZER_USE_HISTOGRAMS = "optimizer_use_histograms";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -431,11 +431,6 @@ public final class SystemSessionProperties
                         HASH_PARTITION_COUNT,
                         "Number of partitions for distributed joins and aggregations",
                         queryManagerConfig.getHashPartitionCount(),
-                        false),
-                integerProperty(
-                        CTE_HASH_PARTITION_COUNT,
-                        "Number of partitions for materializing CTEs",
-                        queryManagerConfig.getCteHashPartitionCount(),
                         false),
                 stringProperty(
                         PARTITIONING_PROVIDER_CATALOG,
@@ -1622,7 +1617,7 @@ public final class SystemSessionProperties
                         NATIVE_SPILL_COMPRESSION_CODEC,
                         "Native Execution only. The compression algorithm type to compress the spilled data.\n " +
                                 "Supported compression codecs are: ZLIB, SNAPPY, LZO, ZSTD, LZ4 and GZIP. NONE means no compression.",
-                        "snappy",
+                        "zstd",
                         false),
                 longProperty(
                         NATIVE_SPILL_WRITE_BUFFER_SIZE,
@@ -1910,7 +1905,7 @@ public final class SystemSessionProperties
                         GENERATE_DOMAIN_FILTERS,
                         "Infer predicates from column domains during predicate pushdown",
                         featuresConfig.getGenerateDomainFilters(),
-                                false),
+                        false),
                 booleanProperty(
                         REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION,
                         "Rewrite left join with is null check to semi join",
@@ -1938,6 +1933,10 @@ public final class SystemSessionProperties
                         JOIN_PREFILTER_BUILD_SIDE,
                         "Prefiltering the build/inner side of a join with keys from the other side",
                         false,
+                        false),
+                booleanProperty(OPTIMIZER_USE_HISTOGRAMS,
+                        "whether or not to use histograms in the CBO",
+                        featuresConfig.isUseHistograms(),
                         false));
     }
 
@@ -2018,11 +2017,6 @@ public final class SystemSessionProperties
     public static int getHashPartitionCount(Session session)
     {
         return session.getSystemProperty(HASH_PARTITION_COUNT, Integer.class);
-    }
-
-    public static int getCteHashPartitionCount(Session session)
-    {
-        return session.getSystemProperty(CTE_HASH_PARTITION_COUNT, Integer.class);
     }
 
     public static int getCteHeuristicReplicationThreshold(Session session)
@@ -3229,5 +3223,10 @@ public final class SystemSessionProperties
     public static boolean isPrintEstimatedStatsFromCacheEnabled(Session session)
     {
         return session.getSystemProperty(PRINT_ESTIMATED_STATS_FROM_CACHE, Boolean.class);
+    }
+
+    public static boolean shouldOptimizerUseHistograms(Session session)
+    {
+        return session.getSystemProperty(OPTIMIZER_USE_HISTOGRAMS, Boolean.class);
     }
 }

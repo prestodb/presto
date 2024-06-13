@@ -69,6 +69,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.presto.common.ErrorType.USER_ERROR;
+import static com.facebook.presto.common.RuntimeMetricName.GET_PARTITIONS_BY_NAMES_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricName.GET_TABLE_TIME_NANOS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CORRUPTED_COLUMN_STATISTICS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
@@ -200,7 +202,7 @@ public class SemiTransactionalHiveMetastore
         checkReadable();
         Action<TableAndMore> tableAction = tableActions.get(hiveTableHandle.getSchemaTableName());
         if (tableAction == null) {
-            return delegate.getTable(metastoreContext, hiveTableHandle);
+            return metastoreContext.getRuntimeStats().profileNanos(GET_TABLE_TIME_NANOS, () -> delegate.getTable(metastoreContext, hiveTableHandle));
         }
         switch (tableAction.getType()) {
             case ADD:
@@ -759,7 +761,7 @@ public class SemiTransactionalHiveMetastore
                 resultBuilder.put(partitionNameWithVersion.getPartitionName(), getPartitionFromPartitionAction(partitionAction));
             }
         }
-        Map<String, Optional<Partition>> delegateResult = delegate.getPartitionsByNames(metastoreContext, databaseName, tableName, partitionNamesToQuery.build());
+        Map<String, Optional<Partition>> delegateResult = metastoreContext.getRuntimeStats().profileNanos(GET_PARTITIONS_BY_NAMES_TIME_NANOS, () -> delegate.getPartitionsByNames(metastoreContext, databaseName, tableName, partitionNamesToQuery.build()));
         resultBuilder.putAll(delegateResult);
 
         cacheLastDataCommitTimes(delegateResult, databaseName, tableName);

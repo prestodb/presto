@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.planPrinter;
 
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskInfo;
+import com.facebook.presto.operator.DynamicFilterStats;
 import com.facebook.presto.operator.HashCollisionsInfo;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.PipelineStats;
@@ -29,6 +30,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.util.MoreMaps.mergeMaps;
@@ -80,10 +82,16 @@ public class PlanNodeStatsSummarizer
         Map<PlanNodeId, Long> planNodeOutputBytes = new HashMap<>();
         Map<PlanNodeId, Long> planNodeScheduledMillis = new HashMap<>();
         Map<PlanNodeId, Long> planNodeCpuMillis = new HashMap<>();
+        Map<PlanNodeId, Long> planNodePeakMemory = new HashMap<>();
+        Map<PlanNodeId, Long> planNodeBlockedMillis = new HashMap<>();
+        Map<PlanNodeId, Long> planNodeAddInputMillis = new HashMap<>();
+        Map<PlanNodeId, Long> planNodeGetOutputMillis = new HashMap<>();
+        Map<PlanNodeId, Long> planNodeFinishMillis = new HashMap<>();
         Map<PlanNodeId, Long> planNodeNullJoinBuildKeyCount = new HashMap<>();
         Map<PlanNodeId, Long> planNodeJoinBuildKeyCount = new HashMap<>();
         Map<PlanNodeId, Long> planNodeNullJoinProbeKeyCount = new HashMap<>();
         Map<PlanNodeId, Long> planNodeJoinProbeKeyCount = new HashMap<>();
+        Map<PlanNodeId, Optional<DynamicFilterStats>> planNodeIdDynamicFilterStatsMap = new HashMap<>();
 
         Map<PlanNodeId, Map<String, OperatorInputStats>> operatorInputStats = new HashMap<>();
         Map<PlanNodeId, Map<String, OperatorHashCollisionsStats>> operatorHashCollisionsStats = new HashMap<>();
@@ -111,6 +119,11 @@ public class PlanNodeStatsSummarizer
 
                 long cpuMillis = operatorStats.getAddInputCpu().toMillis() + operatorStats.getGetOutputCpu().toMillis() + operatorStats.getFinishCpu().toMillis();
                 planNodeCpuMillis.merge(planNodeId, cpuMillis, Long::sum);
+                planNodeBlockedMillis.merge(planNodeId, operatorStats.getBlockedWall().toMillis(), Long::sum);
+                planNodeAddInputMillis.merge(planNodeId, operatorStats.getAddInputWall().toMillis(), Long::sum);
+                planNodeFinishMillis.merge(planNodeId, operatorStats.getFinishWall().toMillis(), Long::sum);
+                planNodeGetOutputMillis.merge(planNodeId, operatorStats.getGetOutputWall().toMillis(), Long::sum);
+                planNodePeakMemory.merge(planNodeId, operatorStats.getPeakTotalMemoryReservation().toBytes(), Math::max);
 
                 // A pipeline like hash build before join might link to another "internal" pipelines which provide actual input for this plan node
                 if (operatorStats.getPlanNodeId().equals(inputPlanNode) && !pipelineStats.isInputPipeline()) {
@@ -157,6 +170,8 @@ public class PlanNodeStatsSummarizer
                 planNodeJoinBuildKeyCount.merge(planNodeId, operatorStats.getJoinBuildKeyCount(), Long::sum);
                 planNodeNullJoinProbeKeyCount.merge(planNodeId, operatorStats.getNullJoinProbeKeyCount(), Long::sum);
                 planNodeJoinProbeKeyCount.merge(planNodeId, operatorStats.getJoinProbeKeyCount(), Long::sum);
+
+                planNodeIdDynamicFilterStatsMap.merge(planNodeId, Optional.of(operatorStats.getDynamicFilterStats()), PlanNodeStats::mergeDynamicFilterStats);
 
                 processedNodes.add(planNodeId);
             }
@@ -207,17 +222,23 @@ public class PlanNodeStatsSummarizer
                         planNodeId,
                         new Duration(planNodeScheduledMillis.get(planNodeId), MILLISECONDS),
                         new Duration(planNodeCpuMillis.get(planNodeId), MILLISECONDS),
+                        new Duration(planNodeBlockedMillis.get(planNodeId), MILLISECONDS),
+                        new Duration(planNodeAddInputMillis.get(planNodeId), MILLISECONDS),
+                        new Duration(planNodeGetOutputMillis.get(planNodeId), MILLISECONDS),
+                        new Duration(planNodeFinishMillis.get(planNodeId), MILLISECONDS),
                         planNodeInputPositions.get(planNodeId),
                         succinctDataSize(planNodeInputBytes.get(planNodeId), BYTE),
                         planNodeRawInputPositions.get(planNodeId),
                         succinctDataSize(planNodeRawInputBytes.get(planNodeId), BYTE),
                         outputPositions,
                         succinctDataSize(planNodeOutputBytes.getOrDefault(planNodeId, 0L), BYTE),
+                        succinctDataSize(planNodePeakMemory.get(planNodeId), BYTE),
                         operatorInputStats.get(planNodeId),
                         planNodeNullJoinBuildKeyCount.get(planNodeId),
                         planNodeJoinBuildKeyCount.get(planNodeId),
                         planNodeNullJoinProbeKeyCount.get(planNodeId),
                         planNodeJoinProbeKeyCount.get(planNodeId),
+                        planNodeIdDynamicFilterStatsMap.get(planNodeId),
                         operatorHashCollisionsStats.get(planNodeId));
             }
             else if (windowNodeStats.containsKey(planNodeId)) {
@@ -225,17 +246,23 @@ public class PlanNodeStatsSummarizer
                         planNodeId,
                         new Duration(planNodeScheduledMillis.get(planNodeId), MILLISECONDS),
                         new Duration(planNodeCpuMillis.get(planNodeId), MILLISECONDS),
+                        new Duration(planNodeBlockedMillis.get(planNodeId), MILLISECONDS),
+                        new Duration(planNodeAddInputMillis.get(planNodeId), MILLISECONDS),
+                        new Duration(planNodeGetOutputMillis.get(planNodeId), MILLISECONDS),
+                        new Duration(planNodeFinishMillis.get(planNodeId), MILLISECONDS),
                         planNodeInputPositions.get(planNodeId),
                         succinctDataSize(planNodeInputBytes.get(planNodeId), BYTE),
                         planNodeRawInputPositions.get(planNodeId),
                         succinctDataSize(planNodeRawInputBytes.get(planNodeId), BYTE),
                         outputPositions,
                         succinctDataSize(planNodeOutputBytes.getOrDefault(planNodeId, 0L), BYTE),
+                        succinctDataSize(planNodePeakMemory.get(planNodeId), BYTE),
                         operatorInputStats.get(planNodeId),
                         planNodeNullJoinBuildKeyCount.get(planNodeId),
                         planNodeJoinBuildKeyCount.get(planNodeId),
                         planNodeNullJoinProbeKeyCount.get(planNodeId),
                         planNodeJoinProbeKeyCount.get(planNodeId),
+                        planNodeIdDynamicFilterStatsMap.get(planNodeId),
                         windowNodeStats.get(planNodeId));
             }
             else {
@@ -243,17 +270,23 @@ public class PlanNodeStatsSummarizer
                         planNodeId,
                         new Duration(planNodeScheduledMillis.get(planNodeId), MILLISECONDS),
                         new Duration(planNodeCpuMillis.get(planNodeId), MILLISECONDS),
+                        new Duration(planNodeBlockedMillis.get(planNodeId), MILLISECONDS),
+                        new Duration(planNodeAddInputMillis.get(planNodeId), MILLISECONDS),
+                        new Duration(planNodeGetOutputMillis.get(planNodeId), MILLISECONDS),
+                        new Duration(planNodeFinishMillis.get(planNodeId), MILLISECONDS),
                         planNodeInputPositions.get(planNodeId),
                         succinctDataSize(planNodeInputBytes.get(planNodeId), BYTE),
                         planNodeRawInputPositions.get(planNodeId),
                         succinctDataSize(planNodeRawInputBytes.get(planNodeId), BYTE),
                         outputPositions,
                         succinctDataSize(planNodeOutputBytes.getOrDefault(planNodeId, 0L), BYTE),
+                        succinctDataSize(planNodePeakMemory.get(planNodeId), BYTE),
                         operatorInputStats.get(planNodeId),
                         planNodeNullJoinBuildKeyCount.get(planNodeId),
                         planNodeJoinBuildKeyCount.get(planNodeId),
                         planNodeNullJoinProbeKeyCount.get(planNodeId),
-                        planNodeJoinProbeKeyCount.get(planNodeId));
+                        planNodeJoinProbeKeyCount.get(planNodeId),
+                        planNodeIdDynamicFilterStatsMap.get(planNodeId));
             }
 
             stats.add(nodeStats);
