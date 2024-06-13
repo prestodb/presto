@@ -22,27 +22,27 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static java.util.Collections.nCopies;
 
 public class TestArrayFunctions
-                extends AbstractTestFunctions
+    extends AbstractTestFunctions
 {
-        @Test
-        public void testArrayConstructor()
-        {
-                tryEvaluateWithAll("array[" + Joiner.on(", ").join(nCopies(200, "rand()")) + "]",
-                                new ArrayType(DOUBLE));
-                tryEvaluateWithAll("array[" + Joiner.on(", ").join(nCopies(1000, "rand()")) + "]",
-                                new ArrayType(DOUBLE));
-                assertNotSupported(
-                                "array[" + Joiner.on(", ").join(nCopies(254 * 254 + 1, "rand()")) + "]",
-                                "Too many arguments for vararg function");
-        }
+    @Test
+    public void testArrayConstructor()
+    {
+        tryEvaluateWithAll("array[" + Joiner.on(", ").join(nCopies(200, "rand()")) + "]",
+            new ArrayType(DOUBLE));
+        tryEvaluateWithAll("array[" + Joiner.on(", ").join(nCopies(1000, "rand()")) + "]",
+            new ArrayType(DOUBLE));
+        assertNotSupported(
+            "array[" + Joiner.on(", ").join(nCopies(254 * 254 + 1, "rand()")) + "]",
+            "Too many arguments for vararg function");
+    }
 
-        @Test
-        public void testArrayConcat()
-        {
-                assertFunction("CONCAT(" + Joiner.on(", ").join(nCopies(253, "array[1]")) + ")", new ArrayType(INTEGER),
-                                nCopies(253, 1));
-                assertNotSupported(
-                                "CONCAT(" + Joiner.on(", ").join(nCopies(255, "array[1]")) + ")",
-                                "Too many arguments for vararg function");
-        }
+    @Test
+    public void testArrayConcat()
+    {
+        assertFunction("CONCAT(" + Joiner.on(", ").join(nCopies(253, "array[1]")) + ")", new ArrayType(INTEGER),
+            nCopies(253, 1));
+        assertNotSupported(
+            "CONCAT(" + Joiner.on(", ").join(nCopies(255, "array[1]")) + ")",
+            "Too many arguments for vararg function");
+    }
 }
