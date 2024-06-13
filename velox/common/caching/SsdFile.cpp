@@ -268,7 +268,9 @@ CoalesceIoStats SsdFile::load(
     pins[i].checkedEntry()->setSsdFile(this, ssdPins[i].run().offset());
     auto* entry = pins[i].checkedEntry();
     auto ssdRun = ssdPins[i].run();
-    maybeVerifyChecksum(*entry, ssdRun);
+    if (ssdRun.size() == entry->size()) {
+      maybeVerifyChecksum(*entry, ssdRun);
+    }
   }
   return stats;
 }
