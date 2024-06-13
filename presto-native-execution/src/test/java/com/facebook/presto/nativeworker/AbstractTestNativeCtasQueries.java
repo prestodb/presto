@@ -21,6 +21,7 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createLineitem;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createNation;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrders;
+import static org.testng.Assert.assertFalse;
 
 public abstract class AbstractTestNativeCtasQueries
         extends AbstractTestQueryFramework
@@ -103,5 +104,43 @@ public abstract class AbstractTestNativeCtasQueries
         assertExplainAnalyze("EXPLAIN ANALYZE CREATE TABLE analyze_test AS SELECT orderstatus FROM orders");
         assertQuery("SELECT * from analyze_test", "SELECT orderstatus FROM orders");
         assertUpdate("DROP TABLE analyze_test");
+    }
+
+    @Test
+    public void testCreateTableAsSelectBucketedTable()
+    {
+        assertFalse(getQueryRunner().tableExists(getSession(), "nation_bucketed_ctas"));
+        assertUpdate(
+                "CREATE TABLE nation_bucketed_ctas(nationkey, name, comment, regionkey) " +
+                        "WITH ( " +
+                        "   bucket_count = 10, bucketed_by = ARRAY['nationkey'], " +
+                        "   sorted_by = ARRAY['nationkey'] " +
+                        ") " +
+                        "AS " +
+                        "SELECT nationkey, name, comment, regionkey FROM nation",
+                "SELECT count(*) FROM nation");
+        assertTableColumnNames("nation_bucketed_ctas", "nationkey", "name", "comment", "regionkey");
+
+        assertQuery("SELECT * FROM nation_bucketed_ctas");
+        assertQuery("SELECT nationkey, sum(regionkey) FROM nation_bucketed_ctas GROUP BY nationkey");
+        // Check the number of distinct files for orders_bucketed_ctas is the same as the number of buckets.
+        assertQuery("SELECT count(distinct(\"$path\")) FROM nation_bucketed_ctas", "SELECT CAST(10 AS BIGINT)");
+        assertUpdate("DROP TABLE nation_bucketed_ctas");
+        assertFalse(getQueryRunner().tableExists(getSession(), "nation_bucketed_ctas"));
+
+        assertFalse(getQueryRunner().tableExists(getSession(), "empty_bucketed_table"));
+        assertUpdate("" +
+                "CREATE TABLE empty_bucketed_table " +
+                "WITH (" +
+                "   bucketed_by = ARRAY[ 'orderkey' ], " +
+                "   bucket_count = 10 " +
+                ") " +
+                "AS " +
+                "SELECT orderkey, linenumber, quantity " +
+                "FROM lineitem " +
+                "WHERE orderkey < 0", 0);
+        assertQuery("SELECT count(*) FROM empty_bucketed_table", "SELECT CAST(0 AS BIGINT)");
+        assertUpdate("DROP TABLE empty_bucketed_table");
+        assertFalse(getQueryRunner().tableExists(getSession(), "empty_bucketed_table"));
     }
 }

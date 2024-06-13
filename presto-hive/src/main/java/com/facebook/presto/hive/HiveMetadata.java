@@ -3769,7 +3769,7 @@ public class HiveMetadata
                             .orElse("")
                             .equals(columnName.get()))
                     .collect(toImmutableList());
-            if (notNullConstraints.size() == 0 || !notNullConstraints.get(0).getName().isPresent()) {
+            if (notNullConstraints.isEmpty() || !notNullConstraints.get(0).getName().isPresent()) {
                 throw new PrestoException(NOT_FOUND, format("Not Null constraint not found on column %s", columnName.get()));
             }
             constraintToDrop = notNullConstraints.get(0).getName().get();

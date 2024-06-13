@@ -13,9 +13,9 @@ clause to specify the window as follows::
         [frame]
     )
 
-A ``frame`` is one of::
+A ``frame`` is one of:
 
-    {RANGE|ROWS|GROUPS} frame_start
+    {RANGE|ROWS|GROUPS} frame_start 
     {RANGE|ROWS|GROUPS} BETWEEN frame_start AND frame_end
 
 ``frame_start`` and ``frame_end`` can be any of::

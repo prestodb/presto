@@ -26,13 +26,7 @@ Presto aims to accomplish the above goals for users by creating a broad, powerfu
 
 ## Presto Community
 
-The Presto project believes that, while excellence in the code is table stakes for the project, of even greater importance is *how* the project develops the code.  In particular, we value:
-
-* Politeness and professionalism in all public forums (GitHub, Slack, mailing lists).
-* Helping those who come to the project with questions, issues or code.
-* Collaboration and teamwork.
-
-The Presto community is always striving to be a welcoming and inclusive community.  We believe that a diverse community is a stronger community, and we welcome all who wish to contribute to the project.
+The Presto project believes that, while excellence in the code is table stakes for the project, of even greater importance is *how* the project develops the code.  For more information, see [Presto Community](https://github.com/prestodb/presto/blob/master/CONTRIBUTING.md#presto-community).
 
 ## Presto Technical Architecture
 

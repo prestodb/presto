@@ -36,12 +36,19 @@ public class TestIcebergTableVersion
     public static final String tab2 = "test_table_version_tab2";
     public static final String view1 = "test_table_version_view1";
     public static final String view2 = "test_table_version_view2";
+    public static final String view3 = "test_table_version_view3";
+    public static final String view4 = "test_table_version_view4";
+
     private static final String tableName1 = schemaName + "." + tab1;
     private static final String tableName2 = schemaName + "." + tab2;
     private static final String tableName3 = schemaName + "." + "tab1_version1";
     private static final String tableName4 = schemaName + "." + "tab2_version1";
+    private static final String tableName5 = schemaName + "." + "tab1_version2";
+    private static final String tableName6 = schemaName + "." + "tab2_version2";
     private static final String viewName1 = schemaName + "." + view1;
     private static final String viewName2 = schemaName + "." + view2;
+    private static final String viewName3 = schemaName + "." + view3;
+    private static final String viewName4 = schemaName + "." + view4;
 
     private static long tab1VersionId1;
     private static long tab1VersionId2;
@@ -111,10 +118,14 @@ public class TestIcebergTableVersion
     {
         assertQuerySucceeds("DROP VIEW IF EXISTS " + ICEBERG_CATALOG + "." + viewName1);
         assertQuerySucceeds("DROP VIEW IF EXISTS " + ICEBERG_CATALOG + "." + viewName2);
+        assertQuerySucceeds("DROP VIEW IF EXISTS " + ICEBERG_CATALOG + "." + viewName3);
+        assertQuerySucceeds("DROP VIEW IF EXISTS " + ICEBERG_CATALOG + "." + viewName4);
         assertQuerySucceeds("DROP TABLE IF EXISTS " + ICEBERG_CATALOG + "." + tableName1);
         assertQuerySucceeds("DROP TABLE IF EXISTS " + ICEBERG_CATALOG + "." + tableName2);
         assertQuerySucceeds("DROP TABLE IF EXISTS " + ICEBERG_CATALOG + "." + tableName3);
         assertQuerySucceeds("DROP TABLE IF EXISTS " + ICEBERG_CATALOG + "." + tableName4);
+        assertQuerySucceeds("DROP TABLE IF EXISTS " + ICEBERG_CATALOG + "." + tableName5);
+        assertQuerySucceeds("DROP TABLE IF EXISTS " + ICEBERG_CATALOG + "." + tableName6);
         assertQuerySucceeds("DROP SCHEMA IF EXISTS " + ICEBERG_CATALOG + "." + schemaName);
     }
 
@@ -135,19 +146,32 @@ public class TestIcebergTableVersion
         assertQuery("SELECT desc FROM " + tableName1 + " FOR VERSION AS OF " + tab1VersionId1 + " ORDER BY 1", "VALUES 'aaa'");
         assertQuery("SELECT desc FROM " + tableName1 + " FOR VERSION AS OF " + tab1VersionId2 + " ORDER BY 1", "VALUES ('aaa'),('bbb')");
         assertQuery("SELECT desc FROM " + tableName1 + " FOR VERSION AS OF " + tab1VersionId3 + " ORDER BY 1", "VALUES ('aaa'), ('bbb'), ('ccc')");
+        assertQuery("SELECT desc FROM " + tableName1 + " FOR VERSION BEFORE " + tab1VersionId2 + " ORDER BY 1", "VALUES 'aaa'");
+        assertQuery("SELECT desc FROM " + tableName1 + " FOR VERSION BEFORE " + tab1VersionId3 + " ORDER BY 1", "VALUES ('aaa'), ('bbb')");
+
         assertQuery("SELECT desc FROM " + tableName1 + " FOR TIMESTAMP AS OF TIMESTAMP " + "'" + tab1Timestamp1 + "'" + " ORDER BY 1", "VALUES 'aaa'");
         assertQuery("SELECT desc FROM " + tableName1 + " FOR TIMESTAMP AS OF TIMESTAMP " + "'" + tab1Timestamp2 + "'" + " ORDER BY 1", "VALUES ('aaa'),('bbb')");
         assertQuery("SELECT desc FROM " + tableName1 + " FOR TIMESTAMP AS OF TIMESTAMP " + "'" + tab1Timestamp3 + "'" + " ORDER BY 1", "VALUES ('aaa'), ('bbb'), ('ccc')");
+        assertQuery("SELECT desc FROM " + tableName1 + " FOR TIMESTAMP BEFORE TIMESTAMP " + "'" + tab1Timestamp2 + "'" + " ORDER BY 1", "VALUES 'aaa'");
+        assertQuery("SELECT desc FROM " + tableName1 + " FOR TIMESTAMP BEFORE TIMESTAMP " + "'" + tab1Timestamp3 + "'" + " ORDER BY 1", "VALUES ('aaa'), ('bbb')");
 
         assertQuery("SELECT desc FROM " + tableName1 + " FOR TIMESTAMP AS OF TIMESTAMP " + "'" + tab1Timestamp2 + "'" + " ORDER BY 1", "VALUES ('aaa'),('bbb')");
         assertQuery("SELECT desc FROM " + tableName1 + " FOR TIMESTAMP AS OF CURRENT_TIMESTAMP ORDER BY 1", "VALUES ('aaa'), ('bbb'), ('ccc')");
         assertQuery("SELECT desc FROM " + tableName1 + " FOR TIMESTAMP AS OF NOW() ORDER BY 1", "VALUES ('aaa'), ('bbb'), ('ccc')");
         assertQuery("SELECT desc FROM " + tableName1 + " FOR TIMESTAMP AS OF CAST ('" + tab1Timestamp3 + "' AS TIMESTAMP WITH TIME ZONE) ORDER BY 1", "VALUES ('aaa'), ('bbb'), ('ccc')");
+        assertQuery("SELECT desc FROM " + tableName1 + " FOR TIMESTAMP BEFORE TIMESTAMP " + "'" + tab1Timestamp2 + "'" + " ORDER BY 1", "VALUES 'aaa'");
+        assertQuery("SELECT desc FROM " + tableName1 + " FOR TIMESTAMP BEFORE CURRENT_TIMESTAMP ORDER BY 1", "VALUES ('aaa'), ('bbb'), ('ccc')");
+        assertQuery("SELECT desc FROM " + tableName1 + " FOR TIMESTAMP BEFORE NOW() ORDER BY 1", "VALUES ('aaa'), ('bbb'), ('ccc')");
+        assertQuery("SELECT desc FROM " + tableName1 + " FOR TIMESTAMP BEFORE CAST ('" + tab1Timestamp3 + "' AS TIMESTAMP WITH TIME ZONE) ORDER BY 1", "VALUES ('aaa'), ('bbb')");
 
         assertQuery("SELECT desc FROM " + tableName1 + " FOR VERSION AS OF " + tab1VersionId2 + " WHERE id = 2 ORDER BY 1", "VALUES 'bbb'");
         assertQuery("SELECT desc FROM " + tableName1 + " FOR TIMESTAMP AS OF TIMESTAMP " + "'" + tab1Timestamp2 + "'" + " WHERE id = 2 ORDER BY 1", "VALUES 'bbb'");
         assertQuery("SELECT desc FROM " + tableName1 + " FOR VERSION AS OF " + tab1VersionId2 + " AS tab1_v2 WHERE id = 2", "VALUES 'bbb'");
         assertQuery("SELECT desc FROM " + tableName1 + " FOR TIMESTAMP AS OF TIMESTAMP " + "'" + tab1Timestamp2 + "'" + " AS tab1_v2 WHERE id = 2", "VALUES 'bbb'");
+        assertQuery("SELECT desc FROM " + tableName1 + " FOR VERSION BEFORE " + tab1VersionId3 + " WHERE id = 2 ORDER BY 1", "VALUES 'bbb'");
+        assertQuery("SELECT desc FROM " + tableName1 + " FOR TIMESTAMP BEFORE TIMESTAMP " + "'" + tab1Timestamp3 + "'" + " WHERE id = 2 ORDER BY 1", "VALUES 'bbb'");
+        assertQuery("SELECT desc FROM " + tableName1 + " FOR VERSION BEFORE " + tab1VersionId3 + " AS tab1_v2 WHERE id = 2", "VALUES 'bbb'");
+        assertQuery("SELECT desc FROM " + tableName1 + " FOR TIMESTAMP BEFORE TIMESTAMP " + "'" + tab1Timestamp3 + "'" + " AS tab1_v2 WHERE id = 2", "VALUES 'bbb'");
 
         assertQuery("SELECT SUM(id) FROM " + tableName1 + " FOR VERSION AS OF " + tab1VersionId2, "VALUES 3");
         assertQuery("SELECT desc, SUM(id) FROM " + tableName1 + " FOR VERSION AS OF " + tab1VersionId2 + " GROUP BY desc ORDER BY 2", "VALUES ('aaa', 1), ('bbb', 2)");
@@ -168,6 +192,15 @@ public class TestIcebergTableVersion
                 tableName2 + " FOR SYSTEM_VERSION AS OF " + tab2VersionId2, "VALUES 4");
         assertQuery("SELECT count(*) FROM " + tableName1 + " FOR SYSTEM_TIME AS OF TIMESTAMP " + "'" + tab1Timestamp2 + "' , " +
                 tableName2 + " FOR SYSTEM_TIME AS OF TIMESTAMP " + "'" + tab2Timestamp3 + "'" + " WHERE " + tableName1 + ".id = " + tableName2 + ".id", "VALUES 2");
+        assertQuery("SELECT desc FROM " + tableName1 + " FOR SYSTEM_VERSION BEFORE " + tab1VersionId2 + " ORDER BY 1", "VALUES 'aaa'");
+        assertQuery("SELECT desc FROM " + tableName1 + " FOR SYSTEM_TIME BEFORE TIMESTAMP " + "'" + tab1Timestamp2 + "'" + " ORDER BY 1", "VALUES 'aaa'");
+        assertQuery("SELECT desc FROM " + tableName1 + " FOR SYSTEM_TIME BEFORE CURRENT_TIMESTAMP ORDER BY 1", "VALUES ('aaa'), ('bbb'), ('ccc')");
+        assertQuery("SELECT SUM(id) FROM " + tableName1 + " FOR SYSTEM_VERSION BEFORE " + tab1VersionId3, "VALUES 3");
+        assertQuery("SELECT desc, MAX(id) FROM " + tableName1 + " FOR SYSTEM_TIME BEFORE TIMESTAMP " + "'" + tab1Timestamp3 + "' GROUP BY desc ORDER BY 2", "VALUES ('aaa', 1), ('bbb', 2)");
+        assertQuery("SELECT count(*) FROM " + tableName1 + " FOR SYSTEM_VERSION BEFORE " + tab1VersionId3 + " , " +
+                tableName2 + " FOR SYSTEM_VERSION BEFORE " + tab2VersionId3, "VALUES 4");
+        assertQuery("SELECT count(*) FROM " + tableName1 + " FOR SYSTEM_TIME BEFORE TIMESTAMP " + "'" + tab1Timestamp3 + "' , " +
+                tableName2 + " FOR SYSTEM_TIME BEFORE TIMESTAMP " + "'" + tab2Timestamp3 + "'" + " WHERE " + tableName1 + ".id = " + tableName2 + ".id", "VALUES 2");
 
         // Joins, CTE, create table as, union/intersect/except, subquery, view
         assertQuery("SELECT count(*) FROM " + tableName1 + " FOR VERSION AS OF " + tab1VersionId2 + " , " +
@@ -178,19 +211,33 @@ public class TestIcebergTableVersion
                 tableName2 + " FOR TIMESTAMP AS OF TIMESTAMP " + "'" + tab2Timestamp3 + "'" + " WHERE " + tableName1 + ".id = " + tableName2 + ".id", "VALUES 2");
         assertQuery("SELECT count(*) FROM " + tableName1 + " FOR TIMESTAMP AS OF TIMESTAMP " + "'" + tab1Timestamp2 + "'" + " AS tab1_v2 INNER JOIN " +
                 tableName2 + " FOR TIMESTAMP AS OF TIMESTAMP " + "'" + tab2Timestamp2 + "'" + " AS tab2_v2 ON tab1_v2.id = tab2_v2.id", "VALUES 2");
+        assertQuery("SELECT count(*) FROM " + tableName1 + " FOR VERSION BEFORE " + tab1VersionId3 + " , " +
+                tableName2 + " FOR VERSION BEFORE " + tab2VersionId3, "VALUES 4");
+        assertQuery("SELECT count(*) FROM " + tableName1 + " FOR TIMESTAMP BEFORE TIMESTAMP " + "'" + tab1Timestamp3 + "'" + " AS tab1_v2 INNER JOIN " +
+                tableName2 + " FOR TIMESTAMP BEFORE TIMESTAMP " + "'" + tab2Timestamp3 + "'" + " AS tab2_v2 ON tab1_v2.id = tab2_v2.id", "VALUES 2");
 
         assertQuery("WITH CTE1 AS (SELECT id, desc FROM " + tableName2 + " FOR VERSION AS OF " + tab2VersionId2 + ") SELECT desc FROM CTE1", "VALUES ('xxx'), ('yyy')");
         assertQuery("WITH CTE2 AS (SELECT id, desc FROM " + tableName2 + " FOR TIMESTAMP AS OF TIMESTAMP " + "'" + tab2Timestamp2 + "' ) SELECT desc FROM CTE2", "VALUES ('xxx'), ('yyy')");
-
+        assertQuery("WITH CTE3 AS (SELECT id, desc FROM " + tableName2 + " FOR VERSION BEFORE " + tab2VersionId3 + ") SELECT desc FROM CTE3", "VALUES ('xxx'), ('yyy')");
+        assertQuery("WITH CTE4 AS (SELECT id, desc FROM " + tableName2 + " FOR TIMESTAMP BEFORE TIMESTAMP " + "'" + tab2Timestamp3 + "' ) SELECT desc FROM CTE4", "VALUES ('xxx'), ('yyy')");
         assertUpdate("CREATE TABLE " + tableName3 + " AS SELECT * FROM " + tableName1 + " FOR VERSION AS OF " + tab1VersionId2, 2);
         assertQuery("SELECT COUNT(*) FROM " + tableName3, "VALUES 2");
         assertUpdate("CREATE TABLE " + tableName4 + " AS SELECT * FROM " + tableName2 + " FOR TIMESTAMP AS OF TIMESTAMP " + "'" + tab2Timestamp2 + "'", 2);
         assertQuery("SELECT COUNT(*) FROM " + tableName4, "VALUES 2");
+        assertUpdate("CREATE TABLE " + tableName5 + " AS SELECT * FROM " + tableName1 + " FOR VERSION BEFORE " + tab1VersionId3, 2);
+        assertQuery("SELECT COUNT(*) FROM " + tableName5, "VALUES 2");
+        assertUpdate("CREATE TABLE " + tableName6 + " AS SELECT * FROM " + tableName2 + " FOR TIMESTAMP BEFORE TIMESTAMP " + "'" + tab2Timestamp3 + "'", 2);
+        assertQuery("SELECT COUNT(*) FROM " + tableName6, "VALUES 2");
 
         assertQuery("SELECT desc FROM " + tableName1 + " FOR VERSION AS OF " + tab1VersionId1 + " UNION " +
                 " SELECT desc FROM " + tableName1 + " FOR VERSION AS OF " + tab1VersionId2 + " ORDER BY desc", "VALUES ('aaa'), ('bbb')");
         assertQuery("SELECT desc FROM " + tableName1 + " FOR TIMESTAMP AS OF TIMESTAMP " + "'" + tab1Timestamp1 + "'" + " UNION ALL " +
                 " SELECT desc FROM " + tableName1 + " FOR TIMESTAMP AS OF TIMESTAMP " + "'" + tab1Timestamp2 + "'" + " ORDER BY desc", "VALUES ('aaa'), ('aaa'), ('bbb')");
+        assertQuery("SELECT desc FROM " + tableName1 + " FOR VERSION BEFORE " + tab1VersionId2 + " UNION " +
+                " SELECT desc FROM " + tableName1 + " FOR VERSION BEFORE " + tab1VersionId3 + " ORDER BY desc", "VALUES ('aaa'), ('bbb')");
+        assertQuery("SELECT desc FROM " + tableName1 + " FOR TIMESTAMP BEFORE TIMESTAMP " + "'" + tab1Timestamp2 + "'" + " UNION ALL " +
+                " SELECT desc FROM " + tableName1 + " FOR TIMESTAMP BEFORE TIMESTAMP " + "'" + tab1Timestamp3 + "'" + " ORDER BY desc", "VALUES ('aaa'), ('aaa'), ('bbb')");
+
         assertQuery("SELECT desc FROM " + tableName1 + " FOR VERSION AS OF " + tab1VersionId1 + " INTERSECT " +
                 " SELECT desc FROM " + tableName1 + " FOR VERSION AS OF " + tab1VersionId2 + " ORDER BY desc", "VALUES ('aaa')");
         assertQuery("SELECT desc FROM " + tableName1 + " FOR TIMESTAMP AS OF TIMESTAMP " + "'" + tab1Timestamp1 + "'" + " INTERSECT " +
@@ -212,6 +259,11 @@ public class TestIcebergTableVersion
         assertUpdate("CREATE VIEW " + viewName2 + " AS SELECT id, desc FROM " + tableName1 + " FOR TIMESTAMP AS OF TIMESTAMP " + "'" + tab1Timestamp2 + "'");
         assertQuery("SELECT desc FROM " + viewName2 + " ORDER BY 1", "VALUES ('aaa'),('bbb')");
         assertQuery("SELECT count(*) FROM " + viewName1 + " INNER JOIN " + viewName2 + " ON " + viewName1 + ".id = " + viewName2 + ".id", "VALUES 2");
+        assertUpdate("CREATE VIEW " + viewName3 + " AS SELECT id, desc FROM " + tableName1 + " FOR VERSION BEFORE " + tab1VersionId3);
+        assertQuery("SELECT desc FROM " + viewName3 + " ORDER BY 1", "VALUES ('aaa'),('bbb')");
+        assertUpdate("CREATE VIEW " + viewName4 + " AS SELECT id, desc FROM " + tableName1 + " FOR TIMESTAMP BEFORE TIMESTAMP " + "'" + tab1Timestamp3 + "'");
+        assertQuery("SELECT desc FROM " + viewName4 + " ORDER BY 1", "VALUES ('aaa'),('bbb')");
+        assertQuery("SELECT count(*) FROM " + viewName3 + " INNER JOIN " + viewName4 + " ON " + viewName3 + ".id = " + viewName4 + ".id", "VALUES 2");
     }
 
     @Test
@@ -239,9 +291,11 @@ public class TestIcebergTableVersion
         assertQueryFails("SELECT desc FROM " + tableName2 + " FOR TIMESTAMP AS OF CURRENT_DATE", ".* Type date is invalid. Supported table version AS OF/BEFORE expression type is Timestamp with Time Zone.");
         assertQueryFails("SELECT desc FROM " + tableName2 + " FOR TIMESTAMP AS OF TIMESTAMP '2023-01-01 00:00:00.000'", ".* Type timestamp is invalid. Supported table version AS OF/BEFORE expression type is Timestamp with Time Zone.");
 
-        assertQueryFails("SELECT desc FROM " + tableName1 + " FOR VERSION BEFORE " + tab1VersionId1 + " ORDER BY 1", ".*Table version BEFORE expression is not supported for .*");
-        assertQueryFails("SELECT desc FROM " + tableName1 + " FOR SYSTEM_VERSION BEFORE " + tab1VersionId1 + " ORDER BY 1", ".*Table version BEFORE expression is not supported for .*");
-        assertQueryFails("SELECT desc FROM " + tableName1 + " FOR TIMESTAMP BEFORE TIMESTAMP " + "'" + tab1Timestamp1 + "'" + " ORDER BY 1", ".*Table version BEFORE expression is not supported for .*");
-        assertQueryFails("SELECT desc FROM " + tableName1 + " FOR SYSTEM_TIME BEFORE TIMESTAMP " + "'" + tab1Timestamp1 + "'" + " ORDER BY 1", ".*Table version BEFORE expression is not supported for .*");
+        assertQueryFails("SELECT desc FROM " + tableName1 + " FOR VERSION BEFORE " + tab1VersionId1 + " ORDER BY 1", "No history found based on timestamp for table \"test_tt_schema\".\"test_table_version_tab1\"");
+        assertQueryFails("SELECT desc FROM " + tableName2 + " FOR TIMESTAMP BEFORE TIMESTAMP " + "'" + tab2Timestamp1 + "' - INTERVAL '1' MONTH", "No history found based on timestamp for table \"test_tt_schema\".\"test_table_version_tab2\"");
+        assertQueryFails("SELECT desc FROM " + tableName2 + " FOR VERSION BEFORE 100", ".* Type integer is invalid. Supported table version AS OF/BEFORE expression type is BIGINT");
+        assertQueryFails("SELECT desc FROM " + tableName2 + " FOR VERSION BEFORE " + tab2VersionId1 + " - " + tab2VersionId1, "Iceberg snapshot ID does not exists: 0");
+        assertQueryFails("SELECT desc FROM " + tableName2 + " FOR TIMESTAMP BEFORE 'bad'", ".* Type varchar\\(3\\) is invalid. Supported table version AS OF/BEFORE expression type is Timestamp with Time Zone.");
+        assertQueryFails("SELECT desc FROM " + tableName2 + " FOR TIMESTAMP BEFORE NULL", "Table version AS OF/BEFORE expression cannot be NULL for .*");
     }
 }

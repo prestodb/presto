@@ -14,6 +14,7 @@
 #pragma once
 #include <folly/futures/Future.h>
 #include <proxygen/lib/http/HTTPConnector.h>
+#include <proxygen/lib/http/connpool/ServerIdleSessionController.h>
 #include <proxygen/lib/http/connpool/SessionPool.h>
 #include <proxygen/lib/http/session/HTTPUpstreamSession.h>
 #include <velox/common/memory/MemoryPool.h>
@@ -107,6 +108,49 @@ class HttpResponse {
   size_t bodyChainBytes_{0};
 };
 
+/// Connection pool shared by all the http clients.  It is held by presto server
+/// and should outlive all the http clients, and destroyed before we join the
+/// threads backing the event bases.
+class HttpClientConnectionPool {
+ public:
+  ~HttpClientConnectionPool() {
+    destroy();
+  }
+
+  /// Returns the session pool for a given endpoint and local event base.
+  ///
+  /// NOTE: this must be called from a thread context with local event base set.
+  std::pair<proxygen::SessionPool*, proxygen::ServerIdleSessionController*>
+  getSessionPool(const proxygen::Endpoint& endpoint);
+
+  void destroy();
+
+ private:
+  // Session pools for a specific endpoint, grouped by their associated event
+  // bases.  All the operations on the SessionPool must be performed on the
+  // corresponding EventBase.
+  struct SessionPools {
+    proxygen::ServerIdleSessionController idleSessions;
+    folly::Synchronized<folly::F14FastMap<
+        folly::EventBase*,
+        std::unique_ptr<proxygen::SessionPool>>>
+        byEventBase;
+  };
+
+  std::pair<proxygen::SessionPool*, proxygen::ServerIdleSessionController*>
+  getSessionPoolImpl(SessionPools& endpointPools);
+
+  // The map from http end point to the corresponding session pools.
+  folly::Synchronized<folly::F14FastMap<
+      proxygen::Endpoint,
+      std::unique_ptr<SessionPools>,
+      proxygen::EndpointHash,
+      proxygen::EndpointEqual>>
+      pools_;
+};
+
+class ResponseHandler;
+
 // HttpClient uses proxygen::SessionPool which must be destructed on the
 // EventBase thread. Hence, the destructor of HttpClient must run on the
 // EventBase thread as well. Consider running HttpClient's destructor
@@ -115,7 +159,8 @@ class HttpClient : public std::enable_shared_from_this<HttpClient> {
  public:
   HttpClient(
       folly::EventBase* eventBase,
-      proxygen::SessionPool* sessionPool,
+      HttpClientConnectionPool* connPool,
+      const proxygen::Endpoint& endpoint,
       const folly::SocketAddress& address,
       std::chrono::milliseconds transactionTimeout,
       std::chrono::milliseconds connectTimeout,
@@ -135,17 +180,35 @@ class HttpClient : public std::enable_shared_from_this<HttpClient> {
     return pool_;
   }
 
+  static int64_t numConnectionsCreated() {
+    return numConnectionsCreated_;
+  }
+
  private:
+  void initSessionPool();
+
+  folly::SemiFuture<proxygen::HTTPTransaction*> createTransaction(
+      proxygen::HTTPTransactionHandler* handler);
+
+  void sendRequest(std::shared_ptr<ResponseHandler> responseHandler);
+
+  static inline std::atomic_int64_t numConnectionsCreated_ = 0;
+
   folly::EventBase* const eventBase_;
+  HttpClientConnectionPool* const connPool_;
+  const proxygen::Endpoint endpoint_;
   const folly::SocketAddress address_;
-  const proxygen::WheelTimerInstance transactionTimer_;
+  const std::chrono::milliseconds transactionTimeout_;
   const std::chrono::milliseconds connectTimeout_;
   const std::shared_ptr<velox::memory::MemoryPool> pool_;
   const folly::SSLContextPtr sslContext_;
   const std::function<void(int)> reportOnBodyStatsFunc_;
   const uint64_t maxResponseAllocBytes_;
-  proxygen::SessionPool* sessionPool_;
-  // Create if sessionPool_ is not received from the contructor.
+
+  proxygen::SessionPool* sessionPool_ = nullptr;
+  proxygen::ServerIdleSessionController* idleSessions_ = nullptr;
+
+  // Create only if connPool_ is null (disabled).
   std::unique_ptr<proxygen::SessionPool> sessionPoolHolder_;
 };
 

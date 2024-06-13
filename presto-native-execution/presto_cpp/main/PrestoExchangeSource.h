@@ -24,38 +24,6 @@
 
 namespace facebook::presto {
 
-// HTTP connection pool for a specific endpoint with its associated event base.
-// All the operations on the SessionPool must be performed on the corresponding
-// EventBase.
-struct ConnectionPool {
-  folly::EventBase* eventBase;
-  std::unique_ptr<proxygen::SessionPool> sessionPool;
-};
-
-// Connection pools used by HTTP client in PrestoExchangeSource.  It should be
-// held living longer than all the PrestoExchangeSources and will be passed when
-// we creating the exchange sources.
-class ConnectionPools {
- public:
-  ~ConnectionPools() {
-    destroy();
-  }
-
-  const ConnectionPool& get(
-      const proxygen::Endpoint& endpoint,
-      folly::IOThreadPoolExecutor* ioExecutor);
-
-  void destroy();
-
- private:
-  folly::Synchronized<folly::F14FastMap<
-      proxygen::Endpoint,
-      std::unique_ptr<ConnectionPool>,
-      proxygen::EndpointHash,
-      proxygen::EndpointEqual>>
-      pools_;
-};
-
 class PrestoExchangeSource : public velox::exec::ExchangeSource {
  public:
   class RetryState {
@@ -107,7 +75,8 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
       velox::memory::MemoryPool* pool,
       folly::CPUThreadPoolExecutor* driverExecutor,
       folly::EventBase* ioEventBase,
-      proxygen::SessionPool* sessionPool,
+      http::HttpClientConnectionPool* connPool,
+      const proxygen::Endpoint& endpoint,
       folly::SSLContextPtr sslContext);
 
   /// Returns 'true' is there is no request in progress, this source is not at
@@ -145,7 +114,7 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
       velox::memory::MemoryPool* memoryPool,
       folly::CPUThreadPoolExecutor* cpuExecutor,
       folly::IOThreadPoolExecutor* ioExecutor,
-      ConnectionPools* connectionPools,
+      http::HttpClientConnectionPool* connPool,
       folly::SSLContextPtr sslContext);
 
   /// Completes the future returned by 'request()' if it hasn't completed

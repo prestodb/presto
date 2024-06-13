@@ -247,7 +247,7 @@ public final class GraphvizPrinter
                 .append('\n');
 
         PlanNode plan = fragment.getRoot();
-        plan.accept(new NodePrinter(output, idGenerator, fragment.getStatsAndCosts(), functionAndTypeManager, session), null);
+        plan.accept(new NodePrinter(output, idGenerator, fragment.getStatsAndCosts().orElse(StatsAndCosts.empty()), functionAndTypeManager, session), null);
 
         output.append("}")
                 .append('\n');

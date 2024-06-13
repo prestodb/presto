@@ -17,6 +17,7 @@ import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.cache.CacheConfig;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.hive.AbstractTestHiveClient.HiveTransaction;
 import com.facebook.presto.hive.AbstractTestHiveClient.Transaction;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
@@ -480,7 +481,8 @@ public abstract class AbstractTestHiveFileSystem
                     split,
                     tableHandle.getLayout().get(),
                     columnHandles,
-                    NON_CACHEABLE)) {
+                    NON_CACHEABLE,
+                    new RuntimeStats())) {
                 MaterializedResult result = materializeSourceDataStream(session, pageSource, getTypes(columnHandles));
                 assertEqualsIgnoreOrder(result.getMaterializedRows(), data.getMaterializedRows());
             }

@@ -406,7 +406,7 @@ public class TestArrayOperators
         assertInvalidCast("CAST(unchecked_to_json('[1, 2, 3') AS ARRAY<BIGINT>)", "Cannot cast to array(bigint).\n[1, 2, 3");
 
         assertInvalidCast("CAST(JSON '[\"a\", \"b\"]' AS ARRAY<BIGINT>)", "Cannot cast to array(bigint). Cannot cast 'a' to BIGINT\n[\"a\",\"b\"]");
-        assertInvalidCast("CAST(JSON '[1234567890123.456]' AS ARRAY<INTEGER>)", "Cannot cast to array(integer). Out of range for integer: 1.234567890123456E12\n[1.234567890123456E12]");
+        assertInvalidCast("CAST(JSON '[1234567890123.456]' AS ARRAY<INTEGER>)", "Cannot cast to array(integer). Unable to cast 1.234567890123456E12 to integer\n[1.234567890123456E12]");
 
         assertFunction("CAST(JSON '[1, 2.0, 3]' AS ARRAY(DECIMAL(10,5)))", new ArrayType(createDecimalType(10, 5)), ImmutableList.of(decimal("1.00000"), decimal("2.00000"), decimal("3.00000")));
         assertFunction("CAST(CAST(ARRAY [1, 2.0, 3] as JSON) AS ARRAY(DECIMAL(10,5)))", new ArrayType(createDecimalType(10, 5)), ImmutableList.of(decimal("1.00000"), decimal("2.00000"), decimal("3.00000")));
@@ -675,11 +675,11 @@ public class TestArrayOperators
         assertFunction("ARRAY_MIN(ARRAY [NULL, NULL, NULL])", UNKNOWN, null);
         assertFunction("ARRAY_MIN(ARRAY [NaN(), NaN(), NaN()])", DOUBLE, NaN);
         assertFunction("ARRAY_MIN(ARRAY [NULL, 2, 3])", INTEGER, null);
-        assertFunction("ARRAY_MIN(ARRAY [NaN(), 2, 3])", DOUBLE, NaN);
-        assertFunction("ARRAY_MIN(ARRAY [NULL, NaN(), 1])", DOUBLE, NaN);
-        assertFunction("ARRAY_MIN(ARRAY [NaN(), NULL, 3.0])", DOUBLE, NaN);
+        assertFunction("ARRAY_MIN(ARRAY [NaN(), 2, 3])", DOUBLE, 2.0);
+        assertFunction("ARRAY_MIN(ARRAY [NULL, NaN(), 1])", DOUBLE, null);
+        assertFunction("ARRAY_MIN(ARRAY [NaN(), NULL, 3.0])", DOUBLE, null);
         assertFunction("ARRAY_MIN(ARRAY [1.0E0, NULL, 3])", DOUBLE, null);
-        assertFunction("ARRAY_MIN(ARRAY [1.0, NaN(), 3])", DOUBLE, NaN);
+        assertFunction("ARRAY_MIN(ARRAY [1.0, NaN(), 3])", DOUBLE, 1.0);
         assertFunction("ARRAY_MIN(ARRAY ['1', '2', NULL])", createVarcharType(1), null);
         assertFunction("ARRAY_MIN(ARRAY [3, 2, 1])", INTEGER, 1);
         assertFunction("ARRAY_MIN(ARRAY [1, 2, 3])", INTEGER, 1);
@@ -706,8 +706,8 @@ public class TestArrayOperators
         assertFunction("ARRAY_MAX(ARRAY [NaN(), NaN(), NaN()])", DOUBLE, NaN);
         assertFunction("ARRAY_MAX(ARRAY [NULL, 2, 3])", INTEGER, null);
         assertFunction("ARRAY_MAX(ARRAY [NaN(), 2, 3])", DOUBLE, NaN);
-        assertFunction("ARRAY_MAX(ARRAY [NULL, NaN(), 1])", DOUBLE, NaN);
-        assertFunction("ARRAY_MAX(ARRAY [NaN(), NULL, 3.0])", DOUBLE, NaN);
+        assertFunction("ARRAY_MAX(ARRAY [NULL, NaN(), 1])", DOUBLE, null);
+        assertFunction("ARRAY_MAX(ARRAY [NaN(), NULL, 3.0])", DOUBLE, null);
         assertFunction("ARRAY_MAX(ARRAY [1.0E0, NULL, 3])", DOUBLE, null);
         assertFunction("ARRAY_MAX(ARRAY [1.0, NaN(), 3])", DOUBLE, NaN);
         assertFunction("ARRAY_MAX(ARRAY ['1', '2', NULL])", createVarcharType(1), null);
@@ -1632,8 +1632,8 @@ public class TestArrayOperators
         assertFunction("ARRAY_REMOVE(ARRAY [-1.23E0, 3.14E0], 3.14E0)", new ArrayType(DOUBLE), ImmutableList.of(-1.23));
         assertFunction("ARRAY_REMOVE(ARRAY [3.14E0], 0.0E0)", new ArrayType(DOUBLE), ImmutableList.of(3.14));
         assertFunction("ARRAY_REMOVE(ARRAY [sqrt(-1), 3.14E0], 3.14E0)", new ArrayType(DOUBLE), ImmutableList.of(NaN));
-        assertFunction("ARRAY_REMOVE(ARRAY [-1.23E0, sqrt(-1)], nan())", new ArrayType(DOUBLE), ImmutableList.of(-1.23, NaN));
-        assertFunction("ARRAY_REMOVE(ARRAY [-1.23E0, nan()], nan())", new ArrayType(DOUBLE), ImmutableList.of(-1.23, NaN));
+        assertFunction("ARRAY_REMOVE(ARRAY [-1.23E0, sqrt(-1)], nan())", new ArrayType(DOUBLE), ImmutableList.of(-1.23));
+        assertFunction("ARRAY_REMOVE(ARRAY [-1.23E0, nan()], nan())", new ArrayType(DOUBLE), ImmutableList.of(-1.23));
         assertFunction("ARRAY_REMOVE(ARRAY [-1.23E0, infinity()], -1.23E0)", new ArrayType(DOUBLE), ImmutableList.of(POSITIVE_INFINITY));
         assertFunction("ARRAY_REMOVE(ARRAY [infinity(), 3.14E0], infinity())", new ArrayType(DOUBLE), ImmutableList.of(3.14));
         assertFunction("ARRAY_REMOVE(ARRAY [-1.23E0, NULL, 3.14E0], 3.14E0)", new ArrayType(DOUBLE), asList(-1.23, null));

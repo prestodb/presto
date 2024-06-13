@@ -179,6 +179,7 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kMallocHeapDumpThresholdGb, 20),
           NUM_PROP(kMallocMemMinHeapDumpInterval, 10),
           NUM_PROP(kMallocMemMaxHeapDumpFiles, 5),
+          BOOL_PROP(kNativeSidecar, false),
           BOOL_PROP(kAsyncDataCacheEnabled, true),
           NUM_PROP(kAsyncCacheSsdGb, 0),
           NUM_PROP(kAsyncCacheSsdCheckpointGb, 0),
@@ -213,7 +214,7 @@ SystemConfig::SystemConfig() {
           STR_PROP(kExchangeMaxErrorDuration, "3m"),
           STR_PROP(kExchangeRequestTimeout, "10s"),
           STR_PROP(kExchangeConnectTimeout, "20s"),
-          BOOL_PROP(kExchangeEnableConnectionPool, false),
+          BOOL_PROP(kExchangeEnableConnectionPool, true),
           BOOL_PROP(kExchangeImmediateBufferTransfer, true),
           NUM_PROP(kTaskRunTimeSliceMicros, 50'000),
           BOOL_PROP(kIncludeNodeInSpillPath, false),
@@ -382,6 +383,10 @@ int32_t SystemConfig::shutdownOnsetSec() const {
 
 uint32_t SystemConfig::systemMemoryGb() const {
   return optionalProperty<uint32_t>(kSystemMemoryGb).value();
+}
+
+bool SystemConfig::prestoNativeSidecar() const {
+  return optionalProperty<bool>(kNativeSidecar).value();
 }
 
 uint32_t SystemConfig::systemMemLimitGb() const {
@@ -752,7 +757,7 @@ BaseVeloxQueryConfig::BaseVeloxQueryConfig() {
           NUM_PROP(
               QueryConfig::kSpillStartPartitionBit, c.spillStartPartitionBit()),
           NUM_PROP(
-              QueryConfig::kJoinSpillPartitionBits, c.joinSpillPartitionBits()),
+              QueryConfig::kSpillNumPartitionBits, c.spillNumPartitionBits()),
           NUM_PROP(
               QueryConfig::kSpillableReservationGrowthPct,
               c.spillableReservationGrowthPct()),

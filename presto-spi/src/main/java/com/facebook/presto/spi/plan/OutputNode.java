@@ -70,7 +70,7 @@ public class OutputNode
     @Override
     public List<PlanNode> getSources()
     {
-        return unmodifiableList(Collections.singletonList(source));
+        return Collections.singletonList(source);
     }
 
     @Override

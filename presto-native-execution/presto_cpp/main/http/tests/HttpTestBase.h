@@ -29,8 +29,6 @@ using namespace facebook::presto;
 using namespace facebook::velox;
 using namespace facebook::velox::memory;
 
-namespace {
-
 std::string getCertsPath(const std::string& fileName) {
   std::string currentPath = fs::current_path().c_str();
   if (boost::algorithm::ends_with(currentPath, "fbcode")) {
@@ -54,6 +52,15 @@ std::string getCertsPath(const std::string& fileName) {
   boost::algorithm::replace_all(currentPath, "_build/release/", "");
 
   return currentPath + "/certs/" + fileName;
+}
+
+inline folly::SSLContextPtr makeSslContext() {
+  const std::string keyPath = getCertsPath("client_ca.pem");
+  const std::string ciphers = "AES128-SHA,AES128-SHA256,AES256-GCM-SHA384";
+  auto sslContext = std::make_shared<folly::SSLContext>();
+  sslContext->loadCertKeyPairFromFiles(keyPath.c_str(), keyPath.c_str());
+  sslContext->setCiphersOrThrow(ciphers);
+  return sslContext;
 }
 
 class HttpServerWrapper {
@@ -185,7 +192,6 @@ class HttpClientFactory {
   }
 
   ~HttpClientFactory() {
-    eventBase_->runInEventBaseThread([pools = std::move(sessionPools_)] {});
     eventBase_->terminateLoopSoon();
     eventBaseThread_->join();
   }
@@ -197,40 +203,22 @@ class HttpClientFactory {
       bool useHttps,
       std::shared_ptr<MemoryPool> pool,
       std::function<void(int)>&& reportOnBodyStatsFunc = nullptr) {
-    sessionPools_.push_back(
-        std::make_unique<proxygen::SessionPool>(nullptr, 10));
-    if (useHttps) {
-      const std::string keyPath = getCertsPath("client_ca.pem");
-      const std::string ciphers = "AES128-SHA,AES128-SHA256,AES256-GCM-SHA384";
-      auto sslContext = std::make_shared<folly::SSLContext>();
-      sslContext->loadCertKeyPairFromFiles(keyPath.c_str(), keyPath.c_str());
-      sslContext->setCiphersOrThrow(ciphers);
-      return std::make_shared<http::HttpClient>(
-          eventBase_.get(),
-          sessionPools_.back().get(),
-          address,
-          transactionTimeout,
-          connectTimeout,
-          pool,
-          std::move(sslContext),
-          std::move(reportOnBodyStatsFunc));
-    } else {
-      return std::make_shared<http::HttpClient>(
-          eventBase_.get(),
-          sessionPools_.back().get(),
-          address,
-          transactionTimeout,
-          connectTimeout,
-          pool,
-          nullptr,
-          std::move(reportOnBodyStatsFunc));
-    }
+    return std::make_shared<http::HttpClient>(
+        eventBase_.get(),
+        nullptr,
+        proxygen::Endpoint(
+            address.getAddressStr(), address.getPort(), useHttps),
+        address,
+        transactionTimeout,
+        connectTimeout,
+        pool,
+        useHttps ? makeSslContext() : nullptr,
+        std::move(reportOnBodyStatsFunc));
   }
 
  private:
   std::unique_ptr<folly::EventBase> eventBase_;
   std::unique_ptr<std::thread> eventBaseThread_;
-  std::vector<std::unique_ptr<proxygen::SessionPool>> sessionPools_;
 };
 
 folly::SemiFuture<std::unique_ptr<http::HttpResponse>> sendGet(
@@ -341,4 +329,3 @@ http::EndpointRequestHandlerFactory asyncMsg(
         });
   };
 }
-} // namespace

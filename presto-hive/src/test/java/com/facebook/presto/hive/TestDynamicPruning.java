@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.airlift.testing.TempFile;
 import com.facebook.presto.cache.CacheConfig;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.StandardTypes;
@@ -198,7 +199,7 @@ public class TestDynamicPruning
                 getDefaultHiveAggregatedPageSourceFactories(config, metastoreClientConfig),
                 FUNCTION_AND_TYPE_MANAGER,
                 ROW_EXPRESSION_SERVICE);
-        return provider.createPageSource(transaction, getSession(config), split, tableHandle.getLayout().get(), ImmutableList.copyOf(getColumnHandles()), splitContext);
+        return provider.createPageSource(transaction, getSession(config), split, tableHandle.getLayout().get(), ImmutableList.copyOf(getColumnHandles()), splitContext, new RuntimeStats());
     }
 
     private static TupleDomain<ColumnHandle> getToSkipTupleDomain()

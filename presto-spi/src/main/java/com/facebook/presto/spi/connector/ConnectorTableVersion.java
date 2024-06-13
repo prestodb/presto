@@ -51,6 +51,11 @@ public class ConnectorTableVersion
         return versionType;
     }
 
+    public VersionOperator getVersionOperator()
+    {
+        return versionOperator;
+    }
+
     public Type getVersionExpressionType()
     {
         return versionExpressionType;

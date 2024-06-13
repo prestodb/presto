@@ -14,7 +14,6 @@
 #include "presto_cpp/main/ServerOperation.h"
 #include <gtest/gtest.h>
 #include "presto_cpp/main/PrestoServerOperations.h"
-#include "presto_cpp/main/TaskManager.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/memory/Memory.h"

@@ -358,7 +358,7 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitDoubleLiteral(DoubleLiteral node, Context context)
         {
-            return constant(node.getValue(), DOUBLE);
+            return constant(node.getValue(), functionAndTypeManager.getType(DOUBLE.getTypeSignature()));
         }
 
         @Override

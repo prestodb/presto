@@ -112,9 +112,11 @@ class PeriodicTaskManager {
   void addOperatingSystemStatsUpdateTask();
   void updateOperatingSystemStats();
 
-  // Adds task that periodically prints http endpoint latency metrics.
-  void addHttpEndpointLatencyStatsTask();
-  void printHttpEndpointLatencyStats();
+  void addHttpServerStatsTask();
+  void printHttpServerStats();
+
+  void addHttpClientStatsTask();
+  void updateHttpClientStats();
 
   void addWatchdogTask();
 
@@ -140,6 +142,8 @@ class PeriodicTaskManager {
   int64_t lastHardPageFaults_{0};
   int64_t lastVoluntaryContextSwitches_{0};
   int64_t lastForcedContextSwitches_{0};
+
+  int64_t lastHttpClientNumConnectionsCreated_{0};
 
   // NOTE: declare last since the threads access other members of `this`.
   folly::FunctionScheduler oneTimeRunner_;

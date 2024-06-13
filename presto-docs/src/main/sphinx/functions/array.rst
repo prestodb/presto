@@ -139,7 +139,7 @@ Array Functions
 .. function:: array_sort(x) -> array
 
     Sorts and returns the array ``x``. The elements of ``x`` must be orderable.
-    Null elements will be placed at the end of the returned array.::
+    Null elements will be placed at the end of the returned array.
 
 .. function:: array_sort(array(T), function(T,T,int)) -> array(T)
 

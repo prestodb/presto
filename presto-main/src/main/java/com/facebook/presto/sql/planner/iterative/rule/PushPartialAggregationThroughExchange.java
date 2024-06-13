@@ -56,6 +56,8 @@ import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
+import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel;
+import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel.LOW;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.PartialAggregationStrategy.AUTOMATIC;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.PartialAggregationStrategy.NEVER;
 import static com.facebook.presto.sql.planner.PlannerUtils.containsSystemTableScan;
@@ -337,11 +339,11 @@ public class PushPartialAggregationThroughExchange
         double inputSize = exchangeStats.getOutputSizeInBytes(exchangeNode);
         double outputSize = aggregationStats.getOutputSizeInBytes(aggregationNode);
         PartialAggregationStatsEstimate partialAggregationStatsEstimate = aggregationStats.getPartialAggregationStatsEstimate();
-        boolean isConfident = exchangeStats.isConfident();
+        ConfidenceLevel confidenceLevel = exchangeStats.confidenceLevel();
         // keep old behavior of skipping partial aggregation only for single-key aggregations
         boolean numberOfKeyCheck = usePartialAggregationHistory(context.getSession()) || numAggregationKeys == 1;
         if (!isUnknown(partialAggregationStatsEstimate) && usePartialAggregationHistory(context.getSession())) {
-            isConfident = aggregationStats.isConfident();
+            confidenceLevel = aggregationStats.confidenceLevel();
             // use rows instead of bytes when use_partial_aggregation_history flag is on
             inputSize = partialAggregationStatsEstimate.getInputRowCount();
             outputSize = partialAggregationStatsEstimate.getOutputRowCount();
@@ -349,7 +351,7 @@ public class PushPartialAggregationThroughExchange
         double byteReductionThreshold = getPartialAggregationByteReductionThreshold(context.getSession());
 
         // calling this function means we are using a cost-based strategy for this optimization
-        return numberOfKeyCheck && isConfident && outputSize > inputSize * byteReductionThreshold;
+        return numberOfKeyCheck && confidenceLevel != LOW && outputSize > inputSize * byteReductionThreshold;
     }
 
     private static boolean isLambda(RowExpression rowExpression)

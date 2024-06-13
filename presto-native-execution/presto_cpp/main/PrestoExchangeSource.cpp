@@ -75,7 +75,8 @@ PrestoExchangeSource::PrestoExchangeSource(
     memory::MemoryPool* pool,
     folly::CPUThreadPoolExecutor* driverExecutor,
     folly::EventBase* ioEventBase,
-    proxygen::SessionPool* sessionPool,
+    http::HttpClientConnectionPool* connPool,
+    const proxygen::Endpoint& endpoint,
     folly::SSLContextPtr sslContext)
     : ExchangeSource(extractTaskId(baseUri.path()), destination, queue, pool),
       basePath_(baseUri.path()),
@@ -102,7 +103,8 @@ PrestoExchangeSource::PrestoExchangeSource(
   VELOX_CHECK_NOT_NULL(pool_);
   httpClient_ = std::make_shared<http::HttpClient>(
       ioEventBase,
-      sessionPool,
+      connPool,
+      endpoint,
       address,
       requestTimeoutMs,
       connectTimeoutMs,
@@ -516,53 +518,6 @@ std::shared_ptr<PrestoExchangeSource> PrestoExchangeSource::getSelfPtr() {
   return std::dynamic_pointer_cast<PrestoExchangeSource>(shared_from_this());
 }
 
-const ConnectionPool& ConnectionPools::get(
-    const proxygen::Endpoint& endpoint,
-    folly::IOThreadPoolExecutor* ioExecutor) {
-  return *pools_.withULockPtr([&](auto ulock) -> const ConnectionPool* {
-    auto it = ulock->find(endpoint);
-    if (it != ulock->end()) {
-      return it->second.get();
-    }
-    auto wlock = ulock.moveFromUpgradeToWrite();
-    auto& pool = (*wlock)[endpoint];
-    if (!pool) {
-      pool = std::make_unique<ConnectionPool>();
-      pool->eventBase = ioExecutor->getEventBase();
-      pool->sessionPool = std::make_unique<proxygen::SessionPool>(nullptr, 10);
-      // Creation of the timer is not thread safe, so we do it here instead of
-      // in the constructor of HttpClient.
-      pool->eventBase->timer();
-    }
-    return pool.get();
-  });
-}
-
-void ConnectionPools::destroy() {
-  pools_.withWLock([](auto& pools) {
-    for (auto& [_, pool] : pools) {
-      pool->eventBase->runInEventBaseThread(
-          [sessionPool = std::move(pool->sessionPool)] {});
-    }
-    pools.clear();
-  });
-}
-
-namespace {
-
-std::pair<folly::EventBase*, proxygen::SessionPool*> getSessionPool(
-    ConnectionPools* connectionPools,
-    folly::IOThreadPoolExecutor* ioExecutor,
-    const proxygen::Endpoint& ep) {
-  if (!connectionPools) {
-    return {ioExecutor->getEventBase(), nullptr};
-  }
-  auto& connPool = connectionPools->get(ep, ioExecutor);
-  return {connPool.eventBase, connPool.sessionPool.get()};
-}
-
-} // namespace
-
 // static
 std::shared_ptr<PrestoExchangeSource> PrestoExchangeSource::create(
     const std::string& url,
@@ -571,14 +526,13 @@ std::shared_ptr<PrestoExchangeSource> PrestoExchangeSource::create(
     velox::memory::MemoryPool* memoryPool,
     folly::CPUThreadPoolExecutor* cpuExecutor,
     folly::IOThreadPoolExecutor* ioExecutor,
-    ConnectionPools* connectionPools,
+    http::HttpClientConnectionPool* connPool,
     folly::SSLContextPtr sslContext) {
   folly::Uri uri(url);
+  auto* eventBase = ioExecutor->getEventBase();
   if (uri.scheme() == "http") {
     VELOX_CHECK_NULL(sslContext);
     proxygen::Endpoint ep(uri.host(), uri.port(), false);
-    auto [eventBase, sessionPool] =
-        getSessionPool(connectionPools, ioExecutor, ep);
     return std::make_shared<PrestoExchangeSource>(
         uri,
         destination,
@@ -586,14 +540,13 @@ std::shared_ptr<PrestoExchangeSource> PrestoExchangeSource::create(
         memoryPool,
         cpuExecutor,
         eventBase,
-        sessionPool,
+        connPool,
+        ep,
         sslContext);
   }
   if (uri.scheme() == "https") {
     VELOX_CHECK_NOT_NULL(sslContext);
     proxygen::Endpoint ep(uri.host(), uri.port(), true);
-    auto [eventBase, sessionPool] =
-        getSessionPool(connectionPools, ioExecutor, ep);
     return std::make_shared<PrestoExchangeSource>(
         uri,
         destination,
@@ -601,7 +554,8 @@ std::shared_ptr<PrestoExchangeSource> PrestoExchangeSource::create(
         memoryPool,
         cpuExecutor,
         eventBase,
-        sessionPool,
+        connPool,
+        ep,
         std::move(sslContext));
   }
   return nullptr;

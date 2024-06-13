@@ -439,7 +439,7 @@ class PrestoExchangeSourceTest : public ::testing::TestWithParam<Params> {
         pool != nullptr ? pool : pool_.get(),
         exchangeCpuExecutor_.get(),
         exchangeIoExecutor_.get(),
-        &connectionPools_,
+        &connectionPool_,
         useHttps ? sslContext_ : nullptr);
   }
 
@@ -456,7 +456,7 @@ class PrestoExchangeSourceTest : public ::testing::TestWithParam<Params> {
   std::shared_ptr<memory::MemoryPool> pool_;
   std::shared_ptr<folly::CPUThreadPoolExecutor> exchangeCpuExecutor_;
   std::shared_ptr<folly::IOThreadPoolExecutor> exchangeIoExecutor_;
-  ConnectionPools connectionPools_;
+  http::HttpClientConnectionPool connectionPool_;
   folly::SSLContextPtr sslContext_;
 };
 

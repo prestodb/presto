@@ -27,8 +27,8 @@ Resource Groups Changes
 _______________________
 * Fix blocking resource group lock when query queue is full (``QUERY_QUEUE_FULL`` error)
 
-Hive Changes
-____________
+Hive Connector Changes
+______________________
 * Add Amazon S3 Select pushdown for JSON files.
 
 **Credits**

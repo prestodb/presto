@@ -189,7 +189,7 @@ class TaskManagerTest : public testing::Test {
     exec::ExchangeSource::registerFactory(
         [cpuExecutor = exchangeCpuExecutor_,
          ioExecutor = exchangeIoExecutor_,
-         connectionPools = connectionPools_](
+         connPool = connPool_](
             const std::string& taskId,
             int destination,
             std::shared_ptr<exec::ExchangeQueue> queue,
@@ -201,7 +201,7 @@ class TaskManagerTest : public testing::Test {
               pool,
               cpuExecutor.get(),
               ioExecutor.get(),
-              connectionPools.get(),
+              connPool.get(),
               nullptr);
         });
     if (!isRegisteredVectorSerde()) {
@@ -644,8 +644,8 @@ class TaskManagerTest : public testing::Test {
           8,
           std::make_shared<folly::NamedThreadFactory>("HTTPSrvIO"));
   long splitSequenceId_{0};
-  std::shared_ptr<ConnectionPools> connectionPools_ =
-      std::make_shared<ConnectionPools>();
+  std::shared_ptr<http::HttpClientConnectionPool> connPool_ =
+      std::make_shared<http::HttpClientConnectionPool>();
 };
 
 // Runs "select * from t where c0 % 5 = 0" query.
@@ -1383,8 +1383,7 @@ TEST_F(TaskManagerTest, testCumulativeMemory) {
   // The initial reported cumulative memory must be less than the expected value
   // below.
   ASSERT_LE(
-      lastCumulativeTotalMemory,
-      memoryUsage * (lastTimeMs - startTimeMs) / 1'000);
+      lastCumulativeTotalMemory, memoryUsage * (lastTimeMs - startTimeMs));
   // Presto native doesn't differentiate user and system memory.
   ASSERT_EQ(
       lastCumulativeTotalMemory, prestoTaskInfo.stats.cumulativeUserMemory);
@@ -1403,8 +1402,7 @@ TEST_F(TaskManagerTest, testCumulativeMemory) {
   ASSERT_EQ(prestoTaskInfo.stats.systemMemoryReservationInBytes, 0);
   ASSERT_LE(
       prestoTaskInfo.stats.cumulativeTotalMemory,
-      lastCumulativeTotalMemory +
-          memoryUsage * (currentTimeMs - lastTimeMs) / 1'000);
+      lastCumulativeTotalMemory + memoryUsage * (currentTimeMs - lastTimeMs));
   ASSERT_LT(
       lastCumulativeTotalMemory, prestoTaskInfo.stats.cumulativeTotalMemory);
   ASSERT_EQ(

@@ -19,7 +19,7 @@ See [PrestoDB: Mission and Architecture](ARCHITECTURE.md).
 * Python 2.4+ (for running with the launcher script)
 
 <details> <!-- from: https://github.com/prestodb/presto/blob/master/README.md -->
-  <summary><h2>Building Presto</h2></summary>
+  <summary><a id="building-presto"><h2>Building Presto</h2></a></summary>
 
 ### Overview (Java)
 

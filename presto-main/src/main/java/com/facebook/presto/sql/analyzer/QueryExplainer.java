@@ -186,7 +186,7 @@ public class QueryExplainer
                 return jsonLogicalPlan(plan.getRoot(), plan.getTypes(), metadata.getFunctionAndTypeManager(), plan.getStatsAndCosts(), session);
             case DISTRIBUTED:
                 SubPlan subPlan = getDistributedPlan(session, statement, parameters, warningCollector);
-                return jsonDistributedPlan(subPlan, metadata.getFunctionAndTypeManager());
+                return jsonDistributedPlan(subPlan, metadata.getFunctionAndTypeManager(), session);
             default:
                 throw new PrestoException(NOT_SUPPORTED, format("Unsupported explain plan type %s for JSON format", planType));
         }

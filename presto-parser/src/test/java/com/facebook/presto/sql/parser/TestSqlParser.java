@@ -2016,6 +2016,20 @@ public class TestSqlParser
     }
 
     @Test
+    public void testExplainAnalyzeFormatJson()
+    {
+        assertStatement("EXPLAIN ANALYZE (format JSON) SELECT * FROM t",
+                new Explain(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), true, false, ImmutableList.of(new ExplainFormat(ExplainFormat.Type.JSON))));
+    }
+
+    @Test
+    public void testExplainAnalyzeFormatJsonTypeDistributed()
+    {
+        assertStatement("EXPLAIN ANALYZE (format JSON, type DISTRIBUTED) SELECT * FROM t",
+                new Explain(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), true, false, ImmutableList.of(new ExplainFormat(ExplainFormat.Type.JSON), new ExplainType(ExplainType.Type.DISTRIBUTED))));
+    }
+
+    @Test
     public void testExplainAnalyzeVerbose()
     {
         assertStatement("EXPLAIN ANALYZE VERBOSE SELECT * FROM t",
@@ -2027,6 +2041,13 @@ public class TestSqlParser
     {
         assertStatement("EXPLAIN ANALYZE VERBOSE (type DISTRIBUTED) SELECT * FROM t",
                 new Explain(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), true, true, ImmutableList.of(new ExplainType(ExplainType.Type.DISTRIBUTED))));
+    }
+
+    @Test
+    public void testExplainAnalyzeVerboseFormatJson()
+    {
+        assertStatement("EXPLAIN ANALYZE VERBOSE (format JSON) SELECT * FROM t",
+                new Explain(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), true, true, ImmutableList.of(new ExplainFormat(ExplainFormat.Type.JSON))));
     }
 
     @Test

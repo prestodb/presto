@@ -23,6 +23,7 @@ import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStatus;
+import com.facebook.presto.execution.buffer.OutputBufferInfo;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.MetadataUpdates;
@@ -300,11 +301,19 @@ public class TaskResource
         requireNonNull(taskId, "taskId is null");
         requireNonNull(bufferId, "bufferId is null");
 
-        return taskManager.getTaskBufferInfo(taskId, bufferId)
-                .map(bufferInfo -> Response.ok()
-                        .header(PRESTO_BUFFER_REMAINING_BYTES, bufferInfo.getPageBufferInfo().getBufferedBytes())
-                        .header(PRESTO_BUFFER_COMPLETE, bufferInfo.isFinished())
-                        .build())
+        OutputBufferInfo outputBufferInfo = taskManager.getOutputBufferInfo(taskId);
+        return outputBufferInfo.getBuffers().stream()
+                .filter(bufferInfo -> bufferInfo.getBufferId().equals(bufferId))
+                .map(bufferInfo -> {
+                    long bufferedBytes = bufferInfo.getPageBufferInfo().getBufferedBytes();
+                    return Response.ok()
+                            .header(PRESTO_BUFFER_REMAINING_BYTES, bufferedBytes)
+                            .header(PRESTO_BUFFER_COMPLETE, bufferInfo.isFinished()
+                                    // a buffer which has the noMorePages flag set and which is empty is completed
+                                    || (!outputBufferInfo.getState().canAddPages() && bufferedBytes == 0))
+                            .build();
+                })
+                .findFirst()
                 .orElse(Response.status(Response.Status.NOT_FOUND).build());
     }
 

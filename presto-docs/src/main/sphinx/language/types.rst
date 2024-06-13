@@ -65,11 +65,21 @@ Floating-Point
 A real is a 32-bit inexact, variable-precision implementing the
 IEEE Standard 754 for Binary Floating-Point Arithmetic.
 
+Presto strays from the IEEE standard when handling NaNs.
+In Presto, NaN is considered larger than any other value for
+all comparison and sorting operations. Additionally, NaN=NaN will
+be true for all equality and distinctness purposes.
+
 ``DOUBLE``
 ^^^^^^^^^^
 
 A double is a 64-bit inexact, variable-precision implementing the
 IEEE Standard 754 for Binary Floating-Point Arithmetic.
+
+Presto strays from the IEEE standard when handling NaNs.
+In Presto, NaN is considered larger than any other value for
+all comparison and sorting operations. Additionally, NaN=NaN will
+be true for all equality and distinctness purposes.
 
 Fixed-Precision
 ---------------

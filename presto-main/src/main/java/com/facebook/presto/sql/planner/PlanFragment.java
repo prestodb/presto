@@ -54,7 +54,7 @@ public class PlanFragment
 
     // Only true for output table writer and false for temporary table writers
     private final boolean outputTableWriterFragment;
-    private final StatsAndCosts statsAndCosts;
+    private final Optional<StatsAndCosts> statsAndCosts;
     private final Optional<String> jsonRepresentation;
 
     // This is ensured to be lazily populated on the first successful call to #toBytes
@@ -73,7 +73,7 @@ public class PlanFragment
             @JsonProperty("partitioningScheme") PartitioningScheme partitioningScheme,
             @JsonProperty("stageExecutionDescriptor") StageExecutionDescriptor stageExecutionDescriptor,
             @JsonProperty("outputTableWriterFragment") boolean outputTableWriterFragment,
-            @JsonProperty("statsAndCosts") StatsAndCosts statsAndCosts,
+            @JsonProperty("statsAndCosts") Optional<StatsAndCosts> statsAndCosts,
             @JsonProperty("jsonRepresentation") Optional<String> jsonRepresentation)
     {
         this.id = requireNonNull(id, "id is null");
@@ -149,7 +149,7 @@ public class PlanFragment
     }
 
     @JsonProperty
-    public StatsAndCosts getStatsAndCosts()
+    public Optional<StatsAndCosts> getStatsAndCosts()
     {
         return statsAndCosts;
     }
@@ -157,23 +157,38 @@ public class PlanFragment
     @JsonProperty
     public Optional<String> getJsonRepresentation()
     {
-        // @reviewer: I believe this should be a json raw value, but that would make this class have a different deserialization constructor.
-        // workers don't need this, so that should be OK, but it's worth thinking about.
         return jsonRepresentation;
     }
 
     // Serialize this plan fragment with the provided codec, caching the results
-    public synchronized byte[] toBytes(Codec<PlanFragment> codec)
+    // This should be used when serializing the fragment to send to worker nodes.
+    public synchronized byte[] bytesForTaskSerialization(Codec<PlanFragment> codec)
     {
         requireNonNull(codec, "codec is null");
         if (cachedSerialization != null) {
             verify(codec == lastUsedCodec, "Only one Codec may be used to serialize PlanFragments");
         }
         else {
-            cachedSerialization = codec.toBytes(this);
+            cachedSerialization = codec.toBytes(this.forTaskSerialization());
             lastUsedCodec = codec;
         }
         return cachedSerialization;
+    }
+
+    /**
+     * @return an equivalent plan fragment without estimated costs or the cached
+     * JSON representation
+     */
+    private PlanFragment forTaskSerialization()
+    {
+        return new PlanFragment(
+                id, root, variables, partitioning,
+                tableScanSchedulingOrder,
+                partitioningScheme,
+                stageExecutionDescriptor,
+                outputTableWriterFragment,
+                Optional.empty(),
+                Optional.empty());
     }
 
     public List<Type> getTypes()

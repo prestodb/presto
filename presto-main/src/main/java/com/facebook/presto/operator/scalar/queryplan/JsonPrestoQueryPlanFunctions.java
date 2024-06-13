@@ -38,6 +38,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -197,7 +198,7 @@ public final class JsonPrestoQueryPlanFunctions
         List<JsonRenderedNode> newChildren = node.getChildren().stream().map(x -> scrubJsonPlan(x)).collect(Collectors.toList());
         String newDetails = scrubDetails(node.getDetails());
 
-        return new JsonRenderedNode(node.getSourceLocation(), "PLANID", newName, newIdentifier, newDetails, newChildren, node.getRemoteSources(), ImmutableList.of());
+        return new JsonRenderedNode(node.getSourceLocation(), "PLANID", newName, newIdentifier, newDetails, newChildren, node.getRemoteSources(), ImmutableList.of(), Optional.empty());
     }
 
     private static String scrubName(String name)

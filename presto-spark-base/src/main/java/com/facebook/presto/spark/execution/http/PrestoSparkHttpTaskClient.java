@@ -234,7 +234,7 @@ public class PrestoSparkHttpTaskClient
             Session session,
             OutputBuffers outputBuffers)
     {
-        Optional<byte[]> fragment = Optional.of(planFragment.toBytes(planFragmentCodec));
+        Optional<byte[]> fragment = Optional.of(planFragment.bytesForTaskSerialization(planFragmentCodec));
         Optional<TableWriteInfo> writeInfo = Optional.of(tableWriteInfo);
         TaskUpdateRequest updateRequest = new TaskUpdateRequest(
                 session.toSessionRepresentation(),

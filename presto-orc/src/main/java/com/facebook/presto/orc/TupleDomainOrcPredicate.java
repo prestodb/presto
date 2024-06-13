@@ -167,7 +167,7 @@ public class TupleDomainOrcPredicate<C>
             return bloomFilter.testLong(((Number) predicateValue).longValue());
         }
 
-        if (sqlType == DOUBLE) {
+        if (sqlType.equals(DOUBLE)) {
             return bloomFilter.testDouble((Double) predicateValue);
         }
 

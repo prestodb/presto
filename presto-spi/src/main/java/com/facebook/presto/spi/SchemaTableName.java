@@ -40,7 +40,7 @@ public class SchemaTableName
 
     public static SchemaTableName valueOf(String schemaTableName)
     {
-        checkNotEmpty(schemaTableName, "schemaTableName").toLowerCase(ENGLISH);
+        checkNotEmpty(schemaTableName, "schemaTableName");
 
         String[] parts = schemaTableName.split("\\.");
         if (parts.length != 2) {

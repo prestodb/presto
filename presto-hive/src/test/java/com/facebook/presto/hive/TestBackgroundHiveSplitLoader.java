@@ -454,7 +454,7 @@ public class TestBackgroundHiveSplitLoader
             assertEquals(future.get().size(), TEST_FILES.size());
         }
 
-        if (fileStatusCacheTables.length() == 0) {
+        if (fileStatusCacheTables.isEmpty()) {
             assertEquals(cachingDirectoryLister.getRequestCount(), 0);
             assertEquals(cachingDirectoryLister.getHitCount(), 0);
             assertEquals(cachingDirectoryLister.getMissCount(), 0);

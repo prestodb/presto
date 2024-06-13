@@ -1556,7 +1556,7 @@ public class TestExpressionDomainTranslator
 
         public boolean isFractional()
         {
-            return type == DOUBLE || type == REAL || (type instanceof DecimalType && ((DecimalType) type).getScale() > 0);
+            return type.equals(DOUBLE) || type.equals(REAL) || (type instanceof DecimalType && ((DecimalType) type).getScale() > 0);
         }
     }
 }

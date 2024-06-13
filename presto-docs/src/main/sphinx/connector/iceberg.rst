@@ -1240,6 +1240,18 @@ even if the data has changed or been deleted since then.
             10 | united states |         1 | comment
     (1 row)
 
+.. code-block:: sql
+
+    // snapshot ID for second record using BEFORE clause to retrieve previous state
+    SELECT * FROM ctas_nation FOR SYSTEM_VERSION BEFORE 6891257133877048303;
+
+.. code-block:: text
+
+     nationkey |      name     | regionkey | comment
+    -----------+---------------+-----------+---------
+            10 | united states |         1 | comment
+    (1 row)
+
 In above example, SYSTEM_VERSION can be used as an alias for VERSION.
 
 You can access the historical data of a table using FOR TIMESTAMP AS OF TIMESTAMP.
@@ -1279,6 +1291,18 @@ In the following query, the expression CURRENT_TIMESTAMP returns the current tim
             30 | mexico        |         3 | comment
     (3 rows)
 
+.. code-block:: sql
+
+    // In following query, timestamp string is matching with second inserted record.
+    // BEFORE clause returns first record which is less than timestamp of the second record.
+    SELECT * FROM ctas_nation FOR TIMESTAMP BEFORE TIMESTAMP '2023-10-17 13:29:46.822 America/Los_Angeles';
+
+.. code-block:: text
+
+     nationkey |      name     | regionkey | comment
+    -----------+---------------+-----------+---------
+            10 | united states |         1 | comment
+    (1 row)
 
 Type mapping
 ------------

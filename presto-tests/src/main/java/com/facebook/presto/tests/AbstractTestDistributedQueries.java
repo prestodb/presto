@@ -21,6 +21,8 @@ import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.sql.planner.plan.PlanFragmentId;
+import com.facebook.presto.sql.planner.planPrinter.JsonRenderer;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.TestingSession;
@@ -35,6 +37,7 @@ import org.testng.annotations.Test;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
@@ -365,6 +368,24 @@ public abstract class AbstractTestDistributedQueries
         assertExplainAnalyze("EXPLAIN ANALYZE VERBOSE SELECT * FROM orders");
         assertExplainAnalyze("EXPLAIN ANALYZE VERBOSE SELECT rank() OVER (PARTITION BY orderkey ORDER BY clerk DESC) FROM orders");
         assertExplainAnalyze("EXPLAIN ANALYZE VERBOSE SELECT rank() OVER (PARTITION BY orderkey ORDER BY clerk DESC) FROM orders WHERE orderkey < 0");
+    }
+
+    private static void assertJsonNodesHaveStats(JsonRenderer.JsonRenderedNode node)
+    {
+        assertTrue(node.getStats().isPresent());
+        node.getChildren().forEach(AbstractTestDistributedQueries::assertJsonNodesHaveStats);
+    }
+
+    @Test
+    public void testExplainAnalyzeFormatJson()
+    {
+        JsonRenderer renderer = new JsonRenderer(getQueryRunner().getMetadata().getFunctionAndTypeManager());
+        Map<PlanFragmentId, JsonRenderer.JsonPlan> fragments = renderer.deserialize((String) computeActual("EXPLAIN ANALYZE (format JSON) SELECT * FROM orders").getOnlyValue());
+        fragments.values().forEach(planFragment -> assertJsonNodesHaveStats(planFragment.getPlan()));
+        fragments = renderer.deserialize((String) computeActual("EXPLAIN ANALYZE (format JSON) SELECT rank() OVER (PARTITION BY orderkey ORDER BY clerk DESC) FROM orders").getOnlyValue());
+        fragments.values().forEach(planFragment -> assertJsonNodesHaveStats(planFragment.getPlan()));
+        fragments = renderer.deserialize((String) computeActual("EXPLAIN ANALYZE (format JSON) SELECT rank() OVER (PARTITION BY orderkey ORDER BY clerk DESC) FROM orders WHERE orderkey < 0").getOnlyValue());
+        fragments.values().forEach(planFragment -> assertJsonNodesHaveStats(planFragment.getPlan()));
     }
 
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "EXPLAIN ANALYZE doesn't support statement type: DropTable")
