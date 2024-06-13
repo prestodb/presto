@@ -89,7 +89,8 @@ class VeloxQueryPlanConverterBase {
   std::shared_ptr<const velox::core::AggregationNode> toVeloxQueryPlan(
       const std::shared_ptr<const protocol::AggregationNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
-      const protocol::TaskId& taskId);
+      const protocol::TaskId& taskId,
+      bool isStreamingAggAllowed = true);
 
   std::shared_ptr<const velox::core::GroupIdNode> toVeloxQueryPlan(
       const std::shared_ptr<const protocol::GroupIdNode>& node,

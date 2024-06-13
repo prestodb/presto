@@ -957,7 +957,8 @@ std::shared_ptr<const core::AggregationNode>
 VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const std::shared_ptr<const protocol::AggregationNode>& node,
     const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
-    const protocol::TaskId& taskId) {
+    const protocol::TaskId& taskId,
+    bool isStreamingAggAllowed) {
   std::vector<std::string> aggregateNames;
   std::vector<core::AggregationNode::Aggregate> aggregates;
 
@@ -987,7 +988,8 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       VELOX_UNSUPPORTED("Unsupported aggregation step");
   }
 
-  bool streamable = !node->preGroupedVariables.empty() &&
+  bool streamable = isStreamingAggAllowed &&
+      !node->preGroupedVariables.empty() &&
       node->groupingSets.groupingSetCount == 1 &&
       node->groupingSets.globalGroupingSets.empty();
 
@@ -1111,6 +1113,11 @@ core::JoinType toJoinType(protocol::JoinType type) {
   }
 
   VELOX_UNSUPPORTED("Unknown join type");
+}
+
+inline bool isNestedLoopJoin(core::JoinType joinType) {
+  return core::isInnerJoin(joinType) || core::isLeftJoin(joinType) ||
+      core::isRightJoin(joinType) || core::isFullJoin(joinType);
 }
 } // namespace
 
@@ -1638,7 +1645,15 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   }
   if (auto aggregation =
           std::dynamic_pointer_cast<const protocol::AggregationNode>(node)) {
-    return toVeloxQueryPlan(aggregation, tableWriteInfo, taskId);
+    bool isStreamingAggAllowed = true;
+    if (auto joinNode = std::dynamic_pointer_cast<protocol::JoinNode>(
+            aggregation->source)) {
+      // If source is join node and it may resolve to NestedLoopJoin then
+      // disallow streaming.
+      isStreamingAggAllowed = !isNestedLoopJoin(toJoinType(joinNode->type));
+    }
+    return toVeloxQueryPlan(
+        aggregation, tableWriteInfo, taskId, isStreamingAggAllowed);
   }
   if (auto groupId =
           std::dynamic_pointer_cast<const protocol::GroupIdNode>(node)) {
