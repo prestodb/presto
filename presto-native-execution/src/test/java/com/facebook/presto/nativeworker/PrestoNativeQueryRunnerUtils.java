@@ -52,6 +52,7 @@ public class PrestoNativeQueryRunnerUtils
     public static final String REMOTE_FUNCTION_CATALOG_NAME = "remote";
 
     protected static final String ICEBERG_DEFAULT_STORAGE_FORMAT = "PARQUET";
+    protected static final int DEFAULT_CACHE_MAX_SIZE = 4096; // 4GB size cache
 
     private static final Logger log = Logger.get(PrestoNativeQueryRunnerUtils.class);
     private static final String DEFAULT_STORAGE_FORMAT = "DWRF";
@@ -60,15 +61,29 @@ public class PrestoNativeQueryRunnerUtils
     public static QueryRunner createQueryRunner(boolean addStorageFormatToPath)
             throws Exception
     {
-        int cacheMaxSize = 4096; // 4GB size cache
         NativeQueryRunnerParameters nativeQueryRunnerParameters = getNativeQueryRunnerParameters();
         return createQueryRunner(
                 Optional.of(nativeQueryRunnerParameters.serverBinary.toString()),
                 Optional.of(nativeQueryRunnerParameters.dataDirectory),
                 nativeQueryRunnerParameters.workerCount,
-                cacheMaxSize,
+                DEFAULT_CACHE_MAX_SIZE,
                 DEFAULT_STORAGE_FORMAT,
-                addStorageFormatToPath);
+                addStorageFormatToPath,
+                false);
+    }
+
+    public static QueryRunner createQueryRunnerWithSidecar(boolean addStorageFormatToPath)
+            throws Exception
+    {
+        NativeQueryRunnerParameters nativeQueryRunnerParameters = getNativeQueryRunnerParameters();
+        return createQueryRunner(
+                Optional.of(nativeQueryRunnerParameters.serverBinary.toString()),
+                Optional.of(nativeQueryRunnerParameters.dataDirectory),
+                nativeQueryRunnerParameters.workerCount,
+                DEFAULT_CACHE_MAX_SIZE,
+                DEFAULT_STORAGE_FORMAT,
+                addStorageFormatToPath,
+                true);
     }
 
     public static QueryRunner createQueryRunner(
@@ -77,7 +92,8 @@ public class PrestoNativeQueryRunnerUtils
             Optional<Integer> workerCount,
             int cacheMaxSize,
             String storageFormat,
-            boolean addStorageFormatToPath)
+            boolean addStorageFormatToPath,
+            boolean isSidecar)
             throws Exception
     {
         QueryRunner defaultQueryRunner = createJavaQueryRunner(dataDirectory, storageFormat, addStorageFormatToPath);
@@ -88,7 +104,7 @@ public class PrestoNativeQueryRunnerUtils
 
         defaultQueryRunner.close();
 
-        return createNativeQueryRunner(dataDirectory.get().toString(), prestoServerPath.get(), workerCount, cacheMaxSize, true, Optional.empty(), storageFormat, addStorageFormatToPath);
+        return createNativeQueryRunner(dataDirectory.get().toString(), prestoServerPath.get(), workerCount, cacheMaxSize, true, Optional.empty(), storageFormat, addStorageFormatToPath, isSidecar);
     }
 
     public static QueryRunner createJavaQueryRunner()
@@ -163,7 +179,9 @@ public class PrestoNativeQueryRunnerUtils
             throws Exception
     {
         ImmutableMap.Builder<String, String> icebergPropertiesBuilder = new ImmutableMap.Builder<>();
-        icebergPropertiesBuilder.put("hive.parquet.writer.version", "PARQUET_1_0");
+        icebergPropertiesBuilder
+                .put("hive.pushdown-filter-enabled", "true")
+                .put("hive.parquet.writer.version", "PARQUET_1_0");
 
         Optional<Path> dataDirectory = addStorageFormatToPath ? baseDataDirectory.map(path -> Paths.get(path.toString() + '/' + storageFormat)) : baseDataDirectory;
 
@@ -224,7 +242,7 @@ public class PrestoNativeQueryRunnerUtils
             throws Exception
     {
         ImmutableMap<String, String> icebergProperties = ImmutableMap.<String, String>builder()
-                .putAll(getNativeWorkerIcebergProperties())
+                .putAll(getNativeWorkerHiveProperties(storageFormat))
                 .build();
 
         // Make query runner with external workers for tests
@@ -236,7 +254,7 @@ public class PrestoNativeQueryRunnerUtils
                         .putAll(getNativeWorkerSystemProperties())
                         .build(),
                 icebergProperties,
-                FileFormat.valueOf(storageFormat),
+                PARQUET,
                 false,
                 false,
                 OptionalInt.of(workerCount.orElse(4)),
@@ -253,6 +271,21 @@ public class PrestoNativeQueryRunnerUtils
             Optional<String> remoteFunctionServerUds,
             String storageFormat,
             boolean addStorageFormatToPath)
+            throws Exception
+    {
+        return createNativeQueryRunner(dataDirectory, prestoServerPath, workerCount, cacheMaxSize, useThrift, remoteFunctionServerUds, storageFormat, addStorageFormatToPath, false);
+    }
+
+    public static QueryRunner createNativeQueryRunner(
+            String dataDirectory,
+            String prestoServerPath,
+            Optional<Integer> workerCount,
+            int cacheMaxSize,
+            boolean useThrift,
+            Optional<String> remoteFunctionServerUds,
+            String storageFormat,
+            boolean addStorageFormatToPath,
+            boolean isExternalSidecar)
             throws Exception
     {
         // The property "hive.allow-drop-table" needs to be set to true because security is always "legacy" in NativeQueryRunner.
@@ -275,7 +308,9 @@ public class PrestoNativeQueryRunnerUtils
                 hiveProperties,
                 workerCount,
                 Optional.of(Paths.get(addStorageFormatToPath ? dataDirectory + "/" + storageFormat : dataDirectory)),
-                getExternalWorkerLauncher("hive", prestoServerPath, cacheMaxSize, remoteFunctionServerUds));
+                isExternalSidecar ?
+                        getSidecarLauncher("hive", prestoServerPath, cacheMaxSize, remoteFunctionServerUds) :
+                        getExternalWorkerLauncher("hive", prestoServerPath, cacheMaxSize, remoteFunctionServerUds));
     }
 
     public static QueryRunner createNativeQueryRunner(String remoteFunctionServerUds)
@@ -355,73 +390,88 @@ public class PrestoNativeQueryRunnerUtils
 
         return new NativeQueryRunnerParameters(prestoServerPath, dataDirectory, workerCount);
     }
-
-    public static Optional<BiFunction<Integer, URI, Process>> getExternalWorkerLauncher(String catalogName, String prestoServerPath, int cacheMaxSize, Optional<String> remoteFunctionServerUds)
+    public static Optional<BiFunction<Integer, URI, Process>> getExternalProcessLauncherHelper(String catalogName, String prestoServerPath, int cacheMaxSize, Optional<String> remoteFunctionServerUds, boolean isSidecar)
     {
         return
-                Optional.of((workerIndex, discoveryUri) -> {
-                    try {
-                        Path dir = Paths.get("/tmp", PrestoNativeQueryRunnerUtils.class.getSimpleName());
-                        Files.createDirectories(dir);
-                        Path tempDirectoryPath = Files.createTempDirectory(dir, "worker");
-                        log.info("Temp directory for Worker #%d: %s", workerIndex, tempDirectoryPath.toString());
-                        int port = 1234 + workerIndex;
+            Optional.of((workerIndex, discoveryUri) -> {
+                try {
+                    Path dir = Paths.get("/tmp", PrestoNativeQueryRunnerUtils.class.getSimpleName());
+                    Files.createDirectories(dir);
+                    Path tempDirectoryPath = Files.createTempDirectory(dir, "worker");
+                    log.info("Temp directory for Worker #%d: %s", workerIndex, tempDirectoryPath.toString());
+                    int port = 1234 + workerIndex;
 
-                        // Write config file
-                        String configProperties = format("discovery.uri=%s%n" +
-                                "presto.version=testversion%n" +
-                                "system-memory-gb=4%n" +
-                                "http-server.http.port=%d", discoveryUri, port);
+                    // Write config files
+                    Files.write(tempDirectoryPath.resolve("velox.properties"), "".getBytes());
+                    String configProperties = format("discovery.uri=%s%n" +
+                            "presto.version=testversion%n" +
+                            "system-memory-gb=4%n" +
+                            "http-server.http.port=%d", discoveryUri, port);
 
-                        if (remoteFunctionServerUds.isPresent()) {
-                            String jsonSignaturesPath = Resources.getResource(REMOTE_FUNCTION_JSON_SIGNATURES).getFile();
-                            configProperties = format("%s%n" +
-                                    "remote-function-server.catalog-name=%s%n" +
-                                    "remote-function-server.thrift.uds-path=%s%n" +
-                                    "remote-function-server.serde=presto_page%n" +
-                                    "remote-function-server.signature.files.directory.path=%s%n", configProperties, REMOTE_FUNCTION_CATALOG_NAME, remoteFunctionServerUds.get(), jsonSignaturesPath);
-                        }
-                        Files.write(tempDirectoryPath.resolve("config.properties"), configProperties.getBytes());
-                        Files.write(tempDirectoryPath.resolve("node.properties"),
-                                format("node.id=%s%n" +
-                                        "node.internal-address=127.0.0.1%n" +
-                                        "node.environment=testing%n" +
-                                        "node.location=test-location", UUID.randomUUID()).getBytes());
+                    if (remoteFunctionServerUds.isPresent()) {
+                        String jsonSignaturesPath = Resources.getResource(REMOTE_FUNCTION_JSON_SIGNATURES).getFile();
+                        configProperties = format("%s%n" +
+                                "remote-function-server.catalog-name=%s%n" +
+                                "remote-function-server.thrift.uds-path=%s%n" +
+                                "remote-function-server.serde=presto_page%n" +
+                                "remote-function-server.signature.files.directory.path=%s%n", configProperties, REMOTE_FUNCTION_CATALOG_NAME, remoteFunctionServerUds.get(), jsonSignaturesPath);
+                    }
 
-                        Path catalogDirectoryPath = tempDirectoryPath.resolve("catalog");
-                        Files.createDirectory(catalogDirectoryPath);
-                        if (cacheMaxSize > 0) {
-                            Files.write(catalogDirectoryPath.resolve(format("%s.properties", catalogName)),
-                                    format("connector.name=hive%n" +
-                                            "cache.enabled=true%n" +
-                                            "cache.max-cache-size=%s", cacheMaxSize).getBytes());
-                        }
-                        else {
-                            Files.write(catalogDirectoryPath.resolve(format("%s.properties", catalogName)),
-                                    format("connector.name=hive").getBytes());
-                        }
-                        // Add catalog with caching always enabled.
-                        Files.write(catalogDirectoryPath.resolve(format("%scached.properties", catalogName)),
+                    if (isSidecar) {
+                        configProperties = format("%s%n" +
+                                "native.sidecar=true%n" +
+                                "presto.default-namespace=native.default.%n", configProperties);
+                    }
+                    Files.write(tempDirectoryPath.resolve("config.properties"), configProperties.getBytes());
+                    Files.write(tempDirectoryPath.resolve("node.properties"),
+                            format("node.id=%s%n" +
+                                    "node.internal-address=127.0.0.1%n" +
+                                    "node.environment=testing%n" +
+                                    "node.location=test-location", UUID.randomUUID()).getBytes());
+
+                    Path catalogDirectoryPath = tempDirectoryPath.resolve("catalog");
+                    Files.createDirectory(catalogDirectoryPath);
+                    if (cacheMaxSize > 0) {
+                        Files.write(catalogDirectoryPath.resolve(format("%s.properties", catalogName)),
                                 format("connector.name=hive%n" +
                                         "cache.enabled=true%n" +
-                                        "cache.max-cache-size=32").getBytes());
-
-                        // Add a tpch catalog.
-                        Files.write(catalogDirectoryPath.resolve("tpchstandard.properties"),
-                                format("connector.name=tpch%n").getBytes());
-
-                        // Disable stack trace capturing as some queries (using TRY) generate a lot of exceptions.
-                        return new ProcessBuilder(prestoServerPath, "--logtostderr=1", "--v=1")
-                                .directory(tempDirectoryPath.toFile())
-                                .redirectErrorStream(true)
-                                .redirectOutput(ProcessBuilder.Redirect.to(tempDirectoryPath.resolve("worker." + workerIndex + ".out").toFile()))
-                                .redirectError(ProcessBuilder.Redirect.to(tempDirectoryPath.resolve("worker." + workerIndex + ".err").toFile()))
-                                .start();
+                                        "cache.max-cache-size=%s", cacheMaxSize).getBytes());
                     }
-                    catch (IOException e) {
-                        throw new UncheckedIOException(e);
+                    else {
+                        Files.write(catalogDirectoryPath.resolve(format("%s.properties", catalogName)),
+                                format("connector.name=hive").getBytes());
                     }
-                });
+                    // Add catalog with caching always enabled.
+                    Files.write(catalogDirectoryPath.resolve(format("%scached.properties", catalogName)),
+                            format("connector.name=hive%n" +
+                                    "cache.enabled=true%n" +
+                                    "cache.max-cache-size=32").getBytes());
+
+                    // Add a tpch catalog.
+                    Files.write(catalogDirectoryPath.resolve("tpchstandard.properties"),
+                            format("connector.name=tpch%n").getBytes());
+
+                    // Disable stack trace capturing as some queries (using TRY) generate a lot of exceptions.
+                    return new ProcessBuilder(prestoServerPath, "--logtostderr=1", "--v=1")
+                            .directory(tempDirectoryPath.toFile())
+                            .redirectErrorStream(true)
+                            .redirectOutput(ProcessBuilder.Redirect.to(tempDirectoryPath.resolve("worker." + workerIndex + ".out").toFile()))
+                            .redirectError(ProcessBuilder.Redirect.to(tempDirectoryPath.resolve("worker." + workerIndex + ".err").toFile()))
+                            .start();
+                }
+                catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+            });
+    }
+
+    public static Optional<BiFunction<Integer, URI, Process>> getSidecarLauncher(String catalogName, String prestoServerPath, int cacheMaxSize, Optional<String> remoteFunctionServerUds)
+    {
+        return getExternalProcessLauncherHelper(catalogName, prestoServerPath, cacheMaxSize, remoteFunctionServerUds, true);
+    }
+    public static Optional<BiFunction<Integer, URI, Process>> getExternalWorkerLauncher(String catalogName, String prestoServerPath, int cacheMaxSize, Optional<String> remoteFunctionServerUds)
+    {
+        return getExternalProcessLauncherHelper(catalogName, prestoServerPath, cacheMaxSize, remoteFunctionServerUds, false);
     }
 
     public static class NativeQueryRunnerParameters

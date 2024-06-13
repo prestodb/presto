@@ -213,6 +213,11 @@
             <groupId>com.facebook.airlift</groupId>
             <artifactId>testing</artifactId>
         </dependency>
+        <dependency>
+            <groupId>org.jetbrains</groupId>
+            <artifactId>annotations</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>

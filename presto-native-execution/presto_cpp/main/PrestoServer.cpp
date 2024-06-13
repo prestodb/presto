@@ -205,6 +205,7 @@ void PrestoServer::run() {
     }
 
     nodeVersion_ = systemConfig->prestoVersion();
+    sideCar_ = systemConfig->prestoNativeSidecar();
     environment_ = nodeConfig->nodeEnvironment();
     nodeId_ = nodeConfig->nodeId();
     address_ = nodeConfig->nodeInternalAddress(
@@ -280,6 +281,7 @@ void PrestoServer::run() {
         environment_,
         nodeId_,
         nodeLocation_,
+        sideCar_,
         catalogNames,
         systemConfig->announcementMaxFrequencyMs(),
         sslContext_);
@@ -351,6 +353,14 @@ void PrestoServer::run() {
           const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
           proxygen::ResponseHandler* downstream) {
         server->reportNodeStatus(downstream);
+      });
+  httpServer_->registerGet(
+      "/v1/sessionProperties",
+      [server = this](
+          proxygen::HTTPMessage* /*message*/,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+          proxygen::ResponseHandler* downstream) {
+        server->reportSessionProperties(downstream);
       });
   httpServer_->registerHead(
       "/v1/status",
@@ -1176,6 +1186,14 @@ void PrestoServer::reportServerInfo(proxygen::ResponseHandler* downstream) {
       false,
       std::make_shared<protocol::Duration>(getUptime(start_))};
   http::sendOkResponse(downstream, json(serverInfo));
+}
+
+void PrestoServer::reportSessionProperties(
+    proxygen::ResponseHandler* downstream) {
+  SessionPropertyReporter sessionPropertyReporterObject;
+  http::sendOkResponse(
+      downstream,
+      sessionPropertyReporterObject.getJsonMetaDataSessionProperty());
 }
 
 void PrestoServer::reportNodeStatus(proxygen::ResponseHandler* downstream) {
