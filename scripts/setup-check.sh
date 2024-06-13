@@ -18,9 +18,9 @@ set -x
 
 export DEBIAN_FRONTEND=noninteractive
 apt update
-apt install --no-install-recommends -y clang-format-12 python3-pip git make ssh
-pip3 install cmake==3.28.3 cmake_format black regex
+apt install --no-install-recommends -y clang-format-14 python3-pip git make ssh
+pip3 install --break-system-packages cmake==3.28.3 cmake_format black regex
 pip3 cache purge
 apt purge --auto-remove -y python3-pip
-update-alternatives --install /usr/bin/clang-format clang-format "$(command -v clang-format-12)" 12
+update-alternatives --install /usr/bin/clang-format clang-format "$(command -v clang-format-14)" 14
 apt clean
