@@ -1561,6 +1561,40 @@ TEST_F(DateTimeFunctionsTest, millisecondTimestampWithTimezone) {
           "millisecond(c0)", -980, "+05:30"));
 }
 
+TEST_F(DateTimeFunctionsTest, extractFromIntervalDayTime) {
+  const auto millis = 5 * kMillisInDay + 7 * kMillisInHour +
+      11 * kMillisInMinute + 13 * kMillisInSecond + 17;
+
+  auto extract = [&](const std::string& unit, int64_t millis) {
+    return evaluateOnce<int64_t>(
+               fmt::format("{}(c0)", unit),
+               INTERVAL_DAY_TIME(),
+               std::optional(millis))
+        .value();
+  };
+
+  EXPECT_EQ(17, extract("millisecond", millis));
+  EXPECT_EQ(13, extract("second", millis));
+  EXPECT_EQ(11, extract("minute", millis));
+  EXPECT_EQ(7, extract("hour", millis));
+  EXPECT_EQ(5, extract("day", millis));
+}
+
+TEST_F(DateTimeFunctionsTest, extractFromIntervalYearMonth) {
+  const auto months = 3 * 12 + 4;
+
+  auto extract = [&](const std::string& unit, int32_t months) {
+    return evaluateOnce<int64_t>(
+               fmt::format("{}(c0)", unit),
+               INTERVAL_YEAR_MONTH(),
+               std::optional(months))
+        .value();
+  };
+
+  EXPECT_EQ(3, extract("year", months));
+  EXPECT_EQ(4, extract("month", months));
+}
+
 TEST_F(DateTimeFunctionsTest, dateTrunc) {
   const auto dateTrunc = [&](const std::string& unit,
                              std::optional<Timestamp> timestamp) {

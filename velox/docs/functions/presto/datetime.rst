@@ -341,6 +341,8 @@ arbitrary large timestamps.
 .. function:: hour(x) -> bigint
 
     Returns the hour of the day from ``x``. The value ranges from 0 to 23.
+    Supported types for ``x`` are: DATE, TIMESTAMP, TIMESTAMP WITH TIME ZONE,
+    INTERVAL DAY TO SECOND¶.
 
 .. function:: last_day_of_month(x) -> date
 
@@ -348,15 +350,18 @@ arbitrary large timestamps.
 
 .. function:: millisecond(x) -> int64
 
-    Returns the millisecond of the second from ``x``.
+    Returns the millisecond of the second from ``x``. Supported types for ``x`` are:
+    DATE, TIMESTAMP, TIMESTAMP WITH TIME ZONE, INTERVAL DAY TO SECOND¶.
 
 .. function:: minute(x) -> bigint
 
-    Returns the minute of the hour from ``x``.
+    Returns the minute of the hour from ``x``. Supported types for ``x`` are:
+    DATE, TIMESTAMP, TIMESTAMP WITH TIME ZONE, INTERVAL DAY TO SECOND¶.
 
 .. function:: month(x) -> bigint
 
-    Returns the month of the year from ``x``.
+    Returns the month of the year from ``x``. Supported types for ``x`` are:
+    DATE, TIMESTAMP, TIMESTAMP WITH TIME ZONE, INTERVAL YEAR TO MONTH.
 
 .. function:: quarter(x) -> bigint
 
@@ -364,7 +369,8 @@ arbitrary large timestamps.
 
 .. function:: second(x) -> bigint
 
-    Returns the second of the minute from ``x``.
+    Returns the second of the minute from ``x``. Supported types for ``x`` are:
+    DATE, TIMESTAMP, TIMESTAMP WITH TIME ZONE, INTERVAL DAY TO SECOND¶.
 
 .. function:: timezone_hour(timestamp) -> bigint
 
@@ -386,7 +392,8 @@ arbitrary large timestamps.
 
 .. function:: year(x) -> bigint
 
-    Returns the year from ``x``.
+    Returns the year from ``x``. Supported types for ``x`` are:
+    DATE, TIMESTAMP, TIMESTAMP WITH TIME ZONE, INTERVAL YEAR TO MONTH.
 
 .. function:: year_of_week(x) -> bigint
 

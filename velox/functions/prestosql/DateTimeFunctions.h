@@ -239,6 +239,17 @@ struct YearFunction : public InitSessionTimezone<T>,
 };
 
 template <typename T>
+struct YearFromIntervalFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      int64_t& result,
+      const arg_type<IntervalYearMonth>& months) {
+    result = months / 12;
+  }
+};
+
+template <typename T>
 struct QuarterFunction : public InitSessionTimezone<T>,
                          public TimestampWithTimezoneSupport<T> {
   VELOX_DEFINE_FUNCTION_TYPES(T);
@@ -289,6 +300,17 @@ struct MonthFunction : public InitSessionTimezone<T>,
       const arg_type<TimestampWithTimezone>& timestampWithTimezone) {
     auto timestamp = this->toTimestamp(timestampWithTimezone);
     result = getMonth(getDateTime(timestamp, nullptr));
+  }
+};
+
+template <typename T>
+struct MonthFromIntervalFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      int64_t& result,
+      const arg_type<IntervalYearMonth>& months) {
+    result = months % 12;
   }
 };
 
@@ -688,6 +710,17 @@ struct HourFunction : public InitSessionTimezone<T>,
 };
 
 template <typename T>
+struct HourFromIntervalFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      int64_t& result,
+      const arg_type<IntervalDayTime>& millis) {
+    result = (millis % kMillisInDay) / kMillisInHour;
+  }
+};
+
+template <typename T>
 struct MinuteFunction : public InitSessionTimezone<T>,
                         public TimestampWithTimezoneSupport<T> {
   VELOX_DEFINE_FUNCTION_TYPES(T);
@@ -707,6 +740,17 @@ struct MinuteFunction : public InitSessionTimezone<T>,
       const arg_type<TimestampWithTimezone>& timestampWithTimezone) {
     auto timestamp = this->toTimestamp(timestampWithTimezone);
     result = getDateTime(timestamp, nullptr).tm_min;
+  }
+};
+
+template <typename T>
+struct MinuteFromIntervalFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      int64_t& result,
+      const arg_type<IntervalDayTime>& millis) {
+    result = (millis % kMillisInHour) / kMillisInMinute;
   }
 };
 
@@ -733,6 +777,17 @@ struct SecondFunction : public TimestampWithTimezoneSupport<T> {
 };
 
 template <typename T>
+struct SecondFromIntervalFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      int64_t& result,
+      const arg_type<IntervalDayTime>& millis) {
+    result = (millis % kMillisInMinute) / kMillisInSecond;
+  }
+};
+
+template <typename T>
 struct MillisecondFunction : public TimestampWithTimezoneSupport<T> {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
@@ -754,6 +809,17 @@ struct MillisecondFunction : public TimestampWithTimezoneSupport<T> {
       const arg_type<TimestampWithTimezone>& timestampWithTimezone) {
     auto timestamp = this->toTimestamp(timestampWithTimezone);
     result = timestamp.getNanos() / kNanosecondsInMillisecond;
+  }
+};
+
+template <typename T>
+struct MillisecondFromIntervalFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      int64_t& result,
+      const arg_type<IntervalDayTime>& millis) {
+    result = millis % kMillisecondsInSecond;
   }
 };
 
