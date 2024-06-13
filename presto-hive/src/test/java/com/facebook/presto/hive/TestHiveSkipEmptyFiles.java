@@ -61,7 +61,7 @@ public class TestHiveSkipEmptyFiles
     private DistributedQueryRunner queryFailRunner;
     private DistributedQueryRunner queryBucketRunner;
     private DistributedQueryRunner queryBucketFailRunner;
-    File temporaryDirectory;
+    private File temporaryDirectory;
 
     @Override
     protected QueryRunner createQueryRunner()
