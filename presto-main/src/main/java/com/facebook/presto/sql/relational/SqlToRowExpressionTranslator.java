@@ -175,6 +175,7 @@ public final class SqlToRowExpressionTranslator
     private static final Pattern LIKE_PREFIX_MATCH_PATTERN = Pattern.compile("^[^%_]*%$");
     private static final Pattern LIKE_SUFFIX_MATCH_PATTERN = Pattern.compile("^%[^%_]*$");
     private static final Pattern LIKE_SIMPLE_EXISTS_PATTERN = Pattern.compile("^%[^%_]*%$");
+    private static final int MAX_LENGTH = 254;
 
     private SqlToRowExpressionTranslator() {}
 
@@ -1008,10 +1009,10 @@ public final class SqlToRowExpressionTranslator
                     .map(RowExpression::getType)
                     .collect(toImmutableList());
 
-            if (arguments.size() > 200) {
+            if (arguments.size() > MAX_LENGTH) {
                 List<RowExpression> concatenatedArguments = new ArrayList<>();
-                for (int i = 0; i < arguments.size(); i += 200) {
-                    int end = Math.min(i + 200, arguments.size());
+                for (int i = 0; i < arguments.size(); i += MAX_LENGTH) {
+                    int end = Math.min(i + MAX_LENGTH, arguments.size());
                     List<RowExpression> chunk = arguments.subList(i, end);
                     RowExpression chunkArray = call("ARRAY", functionResolution.arrayConstructor(argumentTypes.subList(i, end)), getType(node), chunk);
                     concatenatedArguments.add(chunkArray);
