@@ -155,7 +155,8 @@ public class TestRowExpressionSerde
     public void testLargeArraySplitting()
     {
         // Test array with more than the number of elements a single array constructor can store
-        int numElements = 900, maxLen = 254;
+        int numElements = 900;
+        int maxLen = 254;
         String sql = "ARRAY " + IntStream.rangeClosed(1, numElements)
                 .mapToObj(Integer::toString)
                 .collect(Collectors.joining(", ", "[", "]"));
