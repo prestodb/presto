@@ -989,7 +989,11 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   bool streamable = !node->preGroupedVariables.empty() &&
       node->groupingSets.groupingSetCount == 1 &&
       node->groupingSets.globalGroupingSets.empty();
-
+  // TODO karteekmurthys@ Re-enable after
+  // fixing:https://github.com/prestodb/presto/issues/22585
+  if (streamable) {
+    VELOX_UNSUPPORTED("StreamingAggregation is not supported");
+  }
   // groupIdField and globalGroupingSets are required for producing default
   // output rows for global grouping sets when there are no input rows.
   // Global grouping sets can be present without groupIdField in Final
