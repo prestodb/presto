@@ -44,40 +44,22 @@ class ComparisonsBechmark
     registerVectorFunctions();
   }
 
-  template <TypeKind kind>
-  RowVectorPtr createRowData() {
-    VELOX_CHECK(TypeTraits<kind>::isPrimitiveType);
+  RowVectorPtr createRowData(const TypePtr& type) {
     VectorFuzzer::Options opts;
     opts.nullRatio = 0;
     opts.vectorSize = 10'000;
     VectorFuzzer fuzzer(opts, execCtx_.pool());
-    auto type = TypeTraits<kind>::ImplType::create();
-    auto vectorLeft = fuzzer.fuzzFlat(type);
-    auto vectorRight = fuzzer.fuzzFlat(type);
-    return vectorMaker_.rowVector({vectorLeft, vectorRight});
+
+    return fuzzer.fuzzInputFlatRow(ROW({"c0", "c1"}, {type, type}));
   }
 
-  template <TypeKind kind>
-  void runNonSimdComparison() {
+  void run(const std::string& name, const TypePtr& type) {
     folly::BenchmarkSuspender suspender;
-    auto rowVector = createRowData<kind>();
-    auto exprSet = compileExpression("nonsimd_eq(c0, c1)", rowVector->type());
+    auto rowVector = createRowData(type);
+    auto exprSet =
+        compileExpression(fmt::format("{}(c0, c1)", name), rowVector->type());
     suspender.dismiss();
 
-    doRun(exprSet, rowVector);
-  }
-
-  template <TypeKind kind>
-  void runSimdComparison() {
-    folly::BenchmarkSuspender suspender;
-    registerVectorFunctions();
-    auto rowVector = createRowData<kind>();
-    auto exprSet = compileExpression("eq(c0, c1)", rowVector->type());
-    suspender.dismiss();
-    doRun(exprSet, rowVector);
-  }
-
-  void doRun(ExprSet& exprSet, const RowVectorPtr& rowVector) {
     uint32_t cnt = 0;
     for (auto i = 0; i < 100; i++) {
       cnt += evaluate(exprSet, rowVector)->size();
@@ -86,24 +68,62 @@ class ComparisonsBechmark
   }
 };
 
+std::unique_ptr<ComparisonsBechmark> benchmark;
+
 BENCHMARK(non_simd_bigint_eq) {
-  ComparisonsBechmark benchmark;
-  benchmark.runNonSimdComparison<TypeKind::BIGINT>();
+  benchmark->run("nonsimd_eq", BIGINT());
 }
 
 BENCHMARK_RELATIVE(simd_bigint_eq) {
-  ComparisonsBechmark benchmark;
-  benchmark.runSimdComparison<TypeKind::BIGINT>();
+  benchmark->run("eq", BIGINT());
+}
+
+BENCHMARK(non_simd_integer_eq) {
+  benchmark->run("nonsimd_eq", INTEGER());
+}
+
+BENCHMARK_RELATIVE(simd_integer_eq) {
+  benchmark->run("eq", INTEGER());
+}
+
+BENCHMARK(non_simd_smallint_eq) {
+  benchmark->run("nonsimd_eq", SMALLINT());
+}
+
+BENCHMARK_RELATIVE(simd_smallint_eq) {
+  benchmark->run("eq", SMALLINT());
 }
 
 BENCHMARK(non_simd_tinyint_eq) {
-  ComparisonsBechmark benchmark;
-  benchmark.runNonSimdComparison<TypeKind::TINYINT>();
+  benchmark->run("nonsimd_eq", TINYINT());
 }
 
 BENCHMARK_RELATIVE(simd_tinyint_eq) {
-  ComparisonsBechmark benchmark;
-  benchmark.runSimdComparison<TypeKind::TINYINT>();
+  benchmark->run("eq", TINYINT());
+}
+
+BENCHMARK(non_simd_double_eq) {
+  benchmark->run("nonsimd_eq", DOUBLE());
+}
+
+BENCHMARK_RELATIVE(simd_double_eq) {
+  benchmark->run("eq", DOUBLE());
+}
+
+BENCHMARK(non_simd_real_eq) {
+  benchmark->run("nonsimd_eq", REAL());
+}
+
+BENCHMARK_RELATIVE(simd_real_eq) {
+  benchmark->run("eq", REAL());
+}
+
+BENCHMARK(non_simd_date_eq) {
+  benchmark->run("nonsimd_eq", DATE());
+}
+
+BENCHMARK_RELATIVE(simd_date_eq) {
+  benchmark->run("eq", DATE());
 }
 
 } // namespace
@@ -111,6 +131,11 @@ BENCHMARK_RELATIVE(simd_tinyint_eq) {
 int main(int argc, char** argv) {
   folly::Init init{&argc, &argv};
 
+  facebook::velox::memory::MemoryManager::initialize({});
+
+  benchmark = std::make_unique<ComparisonsBechmark>();
   folly::runBenchmarks();
+
+  benchmark.reset();
   return 0;
 }

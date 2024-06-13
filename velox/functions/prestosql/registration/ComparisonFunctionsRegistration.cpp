@@ -19,6 +19,16 @@
 #include "velox/type/Type.h"
 
 namespace facebook::velox::functions {
+namespace {
+
+template <template <class> class T, typename TReturn>
+void registerNonSimdizableScalar(const std::vector<std::string>& aliases) {
+  registerFunction<T, TReturn, Varchar, Varchar>(aliases);
+  registerFunction<T, TReturn, Varbinary, Varbinary>(aliases);
+  registerFunction<T, TReturn, bool, bool>(aliases);
+  registerFunction<T, TReturn, Timestamp, Timestamp>(aliases);
+}
+} // namespace
 
 void registerComparisonFunctions(const std::string& prefix) {
   // Comparison functions also need TimestampWithTimezoneType,
