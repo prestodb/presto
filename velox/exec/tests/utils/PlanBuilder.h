@@ -444,7 +444,8 @@ class PlanBuilder {
       const dwio::common::FileFormat fileFormat =
           dwio::common::FileFormat::DWRF,
       const std::vector<std::string>& aggregates = {},
-      const std::string& connectorId = "test-hive");
+      const std::string& connectorId = "test-hive",
+      const std::unordered_map<std::string, std::string>& serdeParameters = {});
 
   /// Add a TableWriteMergeNode.
   PlanBuilder& tableWriteMerge(
