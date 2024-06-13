@@ -28,6 +28,10 @@ namespace facebook::velox::functions {
 void registerVectorFunctions() {
   VELOX_REGISTER_VECTOR_FUNCTION(udf_simd_comparison_eq, "eq");
   registerBinaryScalar<EqFunction, bool>({"nonsimd_eq"});
+  registerFunction<EqFunction, bool, IntervalDayTime, IntervalDayTime>(
+      {"nonsimd_eq"});
+  registerFunction<EqFunction, bool, IntervalYearMonth, IntervalYearMonth>(
+      {"nonsimd_eq"});
 }
 
 } // namespace facebook::velox::functions
@@ -124,6 +128,22 @@ BENCHMARK(non_simd_date_eq) {
 
 BENCHMARK_RELATIVE(simd_date_eq) {
   benchmark->run("eq", DATE());
+}
+
+BENCHMARK(non_simd_interval_day_time_eq) {
+  benchmark->run("nonsimd_eq", INTERVAL_DAY_TIME());
+}
+
+BENCHMARK_RELATIVE(simd_interval_day_time_eq) {
+  benchmark->run("eq", INTERVAL_DAY_TIME());
+}
+
+BENCHMARK(non_simd_interval_year_month_eq) {
+  benchmark->run("nonsimd_eq", INTERVAL_YEAR_MONTH());
+}
+
+BENCHMARK_RELATIVE(simd_interval_year_month_eq) {
+  benchmark->run("eq", INTERVAL_YEAR_MONTH());
 }
 
 } // namespace

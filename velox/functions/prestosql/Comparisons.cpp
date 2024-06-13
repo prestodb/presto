@@ -210,14 +210,17 @@ class ComparisonSimdFunction : public exec::VectorFunction {
   static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
     std::vector<std::shared_ptr<exec::FunctionSignature>> signatures;
 
-    for (const auto& inputType :
-         {"tinyint",
-          "smallint",
-          "integer",
-          "bigint",
-          "real",
-          "double",
-          "date"}) {
+    for (const auto& inputType : {
+             "tinyint",
+             "smallint",
+             "integer",
+             "bigint",
+             "real",
+             "double",
+             "date",
+             "interval day to second",
+             "interval year to month",
+         }) {
       signatures.push_back(exec::FunctionSignatureBuilder()
                                .returnType("boolean")
                                .argumentType(inputType)
