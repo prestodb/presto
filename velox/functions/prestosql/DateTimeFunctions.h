@@ -466,6 +466,22 @@ struct TimestampPlusInterval {
       const arg_type<IntervalYearMonth>& interval) {
     result = addToTimestamp(timestamp, DateTimeUnit::kMonth, interval);
   }
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<TimestampWithTimezone>& result,
+      const arg_type<TimestampWithTimezone>& timestampWithTimezone,
+      const arg_type<IntervalDayTime>& interval) {
+    result = addToTimestampWithTimezone(
+        timestampWithTimezone, DateTimeUnit::kMillisecond, interval);
+  }
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<TimestampWithTimezone>& result,
+      const arg_type<TimestampWithTimezone>& timestampWithTimezone,
+      const arg_type<IntervalYearMonth>& interval) {
+    result = addToTimestampWithTimezone(
+        timestampWithTimezone, DateTimeUnit::kMonth, interval);
+  }
 };
 
 template <typename T>
@@ -491,6 +507,22 @@ struct IntervalPlusTimestamp {
       const arg_type<Timestamp>& timestamp) {
     result = addToTimestamp(timestamp, DateTimeUnit::kMonth, interval);
   }
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<TimestampWithTimezone>& result,
+      const arg_type<IntervalDayTime>& interval,
+      const arg_type<TimestampWithTimezone>& timestampWithTimezone) {
+    result = addToTimestampWithTimezone(
+        timestampWithTimezone, DateTimeUnit::kMillisecond, interval);
+  }
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<TimestampWithTimezone>& result,
+      const arg_type<IntervalYearMonth>& interval,
+      const arg_type<TimestampWithTimezone>& timestampWithTimezone) {
+    result = addToTimestampWithTimezone(
+        timestampWithTimezone, DateTimeUnit::kMonth, interval);
+  }
 };
 
 template <typename T>
@@ -515,6 +547,22 @@ struct TimestampMinusInterval {
       const arg_type<Timestamp>& timestamp,
       const arg_type<IntervalYearMonth>& interval) {
     result = addToTimestamp(timestamp, DateTimeUnit::kMonth, -interval);
+  }
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<TimestampWithTimezone>& result,
+      const arg_type<TimestampWithTimezone>& timestampWithTimezone,
+      const arg_type<IntervalDayTime>& interval) {
+    result = addToTimestampWithTimezone(
+        timestampWithTimezone, DateTimeUnit::kMillisecond, -interval);
+  }
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<TimestampWithTimezone>& result,
+      const arg_type<TimestampWithTimezone>& timestampWithTimezone,
+      const arg_type<IntervalYearMonth>& interval) {
+    result = addToTimestampWithTimezone(
+        timestampWithTimezone, DateTimeUnit::kMonth, -interval);
   }
 };
 
@@ -1081,11 +1129,8 @@ struct DateAddFunction : public TimestampWithTimezoneSupport<T> {
       VELOX_UNSUPPORTED("integer overflow");
     }
 
-    auto finalTimeStamp = addToTimestamp(
-        this->toTimestamp(timestampWithTimezone), unit, (int32_t)value);
-    auto tzID = unpackZoneKeyId(timestampWithTimezone);
-    finalTimeStamp.toGMT(tzID);
-    result = pack(finalTimeStamp.toMillis(), tzID);
+    result =
+        addToTimestampWithTimezone(timestampWithTimezone, unit, (int32_t)value);
   }
 
   FOLLY_ALWAYS_INLINE void call(

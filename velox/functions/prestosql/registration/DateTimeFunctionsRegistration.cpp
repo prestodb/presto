@@ -20,6 +20,52 @@
 
 namespace facebook::velox::functions {
 namespace {
+
+// Register timestamp + interval and interval + timestamp
+// functions for specified TTimestamp type and 2 supported interval types
+// (IntervalDayTime and IntervalYearMonth).
+// @tparam TTimestamp Timestamp or TimestampWithTimezone.
+template <typename TTimestamp>
+void registerTimestampPlusInterval(const std::string& name) {
+  registerFunction<
+      TimestampPlusInterval,
+      TTimestamp,
+      TTimestamp,
+      IntervalDayTime>({name});
+  registerFunction<
+      TimestampPlusInterval,
+      TTimestamp,
+      TTimestamp,
+      IntervalYearMonth>({name});
+  registerFunction<
+      IntervalPlusTimestamp,
+      TTimestamp,
+      IntervalDayTime,
+      TTimestamp>({name});
+  registerFunction<
+      IntervalPlusTimestamp,
+      TTimestamp,
+      IntervalYearMonth,
+      TTimestamp>({name});
+}
+
+// Register timestamp - IntervalYearMonth and timestamp - IntervalDayTime
+// functions for specified TTimestamp type.
+// @tparam TTimestamp Timestamp or TimestampWithTimezone.
+template <typename TTimestamp>
+void registerTimestampMinusInterval(const std::string& name) {
+  registerFunction<
+      TimestampMinusInterval,
+      TTimestamp,
+      TTimestamp,
+      IntervalDayTime>({name});
+  registerFunction<
+      TimestampMinusInterval,
+      TTimestamp,
+      TTimestamp,
+      IntervalYearMonth>({name});
+}
+
 void registerSimpleFunctions(const std::string& prefix) {
   // Date time functions.
   registerFunction<ToUnixtimeFunction, double, Timestamp>(
@@ -69,41 +115,18 @@ void registerSimpleFunctions(const std::string& prefix) {
       {prefix + "plus"});
   registerFunction<DatePlusInterval, Date, Date, IntervalYearMonth>(
       {prefix + "plus"});
-  registerFunction<
-      TimestampMinusInterval,
-      Timestamp,
-      Timestamp,
-      IntervalDayTime>({prefix + "minus"});
-  registerFunction<
-      TimestampMinusInterval,
-      Timestamp,
-      Timestamp,
-      IntervalYearMonth>({prefix + "minus"});
-  registerFunction<
-      TimestampPlusInterval,
-      Timestamp,
-      Timestamp,
-      IntervalDayTime>({prefix + "plus"});
-  registerFunction<
-      TimestampPlusInterval,
-      Timestamp,
-      Timestamp,
-      IntervalYearMonth>({prefix + "plus"});
-  registerFunction<
-      IntervalPlusTimestamp,
-      Timestamp,
-      IntervalDayTime,
-      Timestamp>({prefix + "plus"});
-  registerFunction<
-      IntervalPlusTimestamp,
-      Timestamp,
-      IntervalYearMonth,
-      Timestamp>({prefix + "plus"});
+
+  registerTimestampPlusInterval<Timestamp>({prefix + "plus"});
+  registerTimestampMinusInterval<Timestamp>({prefix + "minus"});
+  registerTimestampPlusInterval<TimestampWithTimezone>({prefix + "plus"});
+  registerTimestampMinusInterval<TimestampWithTimezone>({prefix + "minus"});
+
   registerFunction<
       TimestampMinusFunction,
       IntervalDayTime,
       Timestamp,
       Timestamp>({prefix + "minus"});
+
   registerFunction<DayFunction, int64_t, TimestampWithTimezone>(
       {prefix + "day", prefix + "day_of_month"});
   registerFunction<DayOfWeekFunction, int64_t, Timestamp>(

@@ -1048,6 +1048,61 @@ TEST_F(DateTimeFunctionsTest, plusMinusTimestampIntervalDayTime) {
       Timestamp(-1, 0), kLongMin, Timestamp(9223372036854774, 808000000));
 }
 
+TEST_F(DateTimeFunctionsTest, timestampWithTimeZonePlusIntervalDayTime) {
+  auto test = [&](const std::string& timestamp, int64_t interval) {
+    // ts + interval == interval + ts == ts - (-interval) ==
+    // date_add('millisecond', interval, ts).
+    auto plusResult =
+        evaluateOnce<std::string>(
+            "cast(plus(cast(c0 as timestamp with time zone), c1) as varchar)",
+            {VARCHAR(), INTERVAL_DAY_TIME()},
+            std::optional(timestamp),
+            std::optional(interval))
+            .value();
+
+    auto minusResult =
+        evaluateOnce<std::string>(
+            "cast(minus(cast(c0 as timestamp with time zone), c1) as varchar)",
+            {VARCHAR(), INTERVAL_DAY_TIME()},
+            std::optional(timestamp),
+            std::optional(-interval))
+            .value();
+
+    auto otherPlusResult =
+        evaluateOnce<std::string>(
+            "cast(plus(c1, cast(c0 as timestamp with time zone)) as varchar)",
+            {VARCHAR(), INTERVAL_DAY_TIME()},
+            std::optional(timestamp),
+            std::optional(interval))
+            .value();
+
+    auto dateAddResult =
+        evaluateOnce<std::string>(
+            "cast(date_add('millisecond', c1, cast(c0 as timestamp with time zone)) as varchar)",
+            std::optional(timestamp),
+            std::optional(interval))
+            .value();
+
+    VELOX_CHECK_EQ(plusResult, minusResult);
+    VELOX_CHECK_EQ(plusResult, otherPlusResult);
+    VELOX_CHECK_EQ(plusResult, dateAddResult);
+    return plusResult;
+  };
+
+  EXPECT_EQ(
+      "2024-10-04 01:50:00.000 America/Los_Angeles",
+      test("2024-10-03 01:50 America/Los_Angeles", 1 * kMillisInDay));
+  EXPECT_EQ(
+      "2024-10-03 02:50:00.000 America/Los_Angeles",
+      test("2024-10-03 01:50 America/Los_Angeles", 1 * kMillisInHour));
+  EXPECT_EQ(
+      "2024-10-03 01:51:00.000 America/Los_Angeles",
+      test("2024-10-03 01:50 America/Los_Angeles", 1 * kMillisInMinute));
+
+  // TODO Add tests for transitioning to/from DST once
+  // https://github.com/facebookincubator/velox/issues/10163 is fixed.
+}
+
 TEST_F(DateTimeFunctionsTest, minusTimestamp) {
   const auto minus = [&](std::optional<int64_t> t1, std::optional<int64_t> t2) {
     const auto timestamp1 = (t1.has_value()) ? Timestamp(t1.value(), 0)

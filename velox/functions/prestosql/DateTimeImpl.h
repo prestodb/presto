@@ -20,6 +20,7 @@
 
 #include "velox/common/base/Doubles.h"
 #include "velox/external/date/date.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/type/Timestamp.h"
 #include "velox/type/TimestampConversion.h"
 
@@ -196,6 +197,20 @@ FOLLY_ALWAYS_INLINE Timestamp addToTimestamp(
       milliTimestamp.getSeconds(),
       milliTimestamp.getNanos() +
           timestamp.getNanos() % kNanosecondsInMillisecond);
+}
+
+FOLLY_ALWAYS_INLINE int64_t addToTimestampWithTimezone(
+    int64_t timestampWithTimezone,
+    const DateTimeUnit unit,
+    const int32_t value) {
+  auto timestamp = unpackTimestampUtc(timestampWithTimezone);
+  auto tzID = unpackZoneKeyId(timestampWithTimezone);
+  timestamp.toTimezone(tzID);
+
+  auto finalTimestamp = addToTimestamp(timestamp, unit, value);
+
+  finalTimestamp.toGMT(tzID);
+  return pack(finalTimestamp.toMillis(), tzID);
 }
 
 FOLLY_ALWAYS_INLINE int64_t diffTimestamp(
