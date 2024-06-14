@@ -124,6 +124,13 @@ class DwrfRowReader : public StrideIndexProvider,
 
   int64_t nextReadSize(uint64_t size) override;
 
+  std::shared_ptr<const RowType> getType() const {
+    if (columnSelector_) {
+      return columnSelector_->getSchema();
+    }
+    return options_.requestedType();
+  }
+
  private:
   // footer
   std::vector<uint64_t> firstRowOfStripe_;
@@ -175,13 +182,6 @@ class DwrfRowReader : public StrideIndexProvider,
       const FooterWrapper& fileFooter,
       const dwio::common::Statistics& stats,
       uint32_t nodeId) const;
-
-  std::shared_ptr<const RowType> getType() const {
-    if (columnSelector_) {
-      return columnSelector_->getSchema();
-    }
-    return options_.requestedType();
-  }
 
   bool isEmptyFile() const {
     return (stripeCeiling_ == firstStripe_);
