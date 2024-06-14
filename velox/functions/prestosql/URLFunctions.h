@@ -423,7 +423,7 @@ struct UrlExtractParameterFunction {
           auto key = detail::submatch((*it), 2);
           if (param.compare(key) == 0) {
             auto value = detail::submatch((*it), 3);
-            result.setNoCopy(value);
+            detail::urlUnescape(result, value);
             return true;
           }
         }

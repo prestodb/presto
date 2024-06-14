@@ -157,6 +157,10 @@ TEST_F(URLFunctionsTest, extractParameter) {
       extractParam(
           "http://example.com/path1/p.php?k1=v1&k2=v2&k3&k4#Ref1", "k1"),
       "v1");
+  // Tests unescaping functionality.
+  EXPECT_EQ(
+      extractParam("http://example.com/path1/p.php?k1=v1%2Bv2#Ref1", "k1"),
+      "v1+v2");
   EXPECT_EQ(
       extractParam(
           "http://example.com/path1/p.php?k1=v1&k2=v2&k3&k4#Ref1", "k3"),
