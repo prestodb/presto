@@ -146,6 +146,7 @@ public final class SystemSessionProperties
     public static final String OPTIMIZE_METADATA_QUERIES_CALL_THRESHOLD = "optimize_metadata_queries_call_threshold";
     public static final String FAST_INEQUALITY_JOINS = "fast_inequality_joins";
     public static final String QUERY_PRIORITY = "query_priority";
+    public static final String CONFIDENCE_BASED_BROADCAST_ENABLED = "confidence_based_broadcast_enabled";
     public static final String SPILL_ENABLED = "spill_enabled";
     public static final String JOIN_SPILL_ENABLED = "join_spill_enabled";
     public static final String AGGREGATION_SPILL_ENABLED = "aggregation_spill_enabled";
@@ -421,6 +422,11 @@ public final class SystemSessionProperties
                         SIZE_BASED_JOIN_DISTRIBUTION_TYPE,
                         "Consider source table size when determining join distribution type when CBO fails",
                         featuresConfig.isSizeBasedJoinDistributionTypeEnabled(),
+                        false),
+                booleanProperty(
+                        CONFIDENCE_BASED_BROADCAST_ENABLED,
+                        "Enable confidence based broadcasting when enabled",
+                        false,
                         false),
                 booleanProperty(
                         DISTRIBUTED_INDEX_JOIN,
@@ -2012,6 +2018,11 @@ public final class SystemSessionProperties
     public static boolean isDistributedIndexJoinEnabled(Session session)
     {
         return session.getSystemProperty(DISTRIBUTED_INDEX_JOIN, Boolean.class);
+    }
+
+    public static boolean confidenceBasedBroadcastEnabled(Session session)
+    {
+        return session.getSystemProperty(CONFIDENCE_BASED_BROADCAST_ENABLED, Boolean.class);
     }
 
     public static int getHashPartitionCount(Session session)
