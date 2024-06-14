@@ -60,6 +60,12 @@ inline void registerArrayCombinationsFunctions(const std::string& prefix) {
 }
 
 template <typename T>
+inline void registerArrayCumSumFunction(const std::string& prefix) {
+  registerFunction<ParameterBinder<ArrayCumSumFunction, T>, Array<T>, Array<T>>(
+      {prefix + "array_cum_sum"});
+}
+
+template <typename T>
 inline void registerArrayHasDuplicatesFunctions(const std::string& prefix) {
   registerFunction<
       ParameterBinder<ArrayHasDuplicatesFunction, T>,
@@ -273,6 +279,14 @@ void registerArrayFunctions(const std::string& prefix) {
   registerArrayCombinationsFunctions<Varchar>(prefix);
   registerArrayCombinationsFunctions<Timestamp>(prefix);
   registerArrayCombinationsFunctions<Date>(prefix);
+
+  registerArrayCumSumFunction<int8_t>(prefix);
+  registerArrayCumSumFunction<int16_t>(prefix);
+  registerArrayCumSumFunction<int32_t>(prefix);
+  registerArrayCumSumFunction<int64_t>(prefix);
+  registerArrayCumSumFunction<int128_t>(prefix);
+  registerArrayCumSumFunction<float>(prefix);
+  registerArrayCumSumFunction<double>(prefix);
 
   registerArrayHasDuplicatesFunctions<int8_t>(prefix);
   registerArrayHasDuplicatesFunctions<int16_t>(prefix);
