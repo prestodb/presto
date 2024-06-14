@@ -31,47 +31,47 @@ public class ArrowFlightConfig
     private Boolean arrowFlightServerSslEnabled;
     private Integer arrowFlightPort;
     public String getFlightServerName()
-    { // non-static getter
+    {
         return server;
     }
 
     public String getDataSourceHost()
-    { // non-static getter
+    {
         return host;
     }
 
     public String getDataSourceDatabase()
-    { // non-static getter
+    {
         return database;
     }
 
     public String getDataSourceUsername()
-    { // non-static getter
+    {
         return username;
     }
 
     public String getDataSourcePassword()
-    { // non-static getter
+    {
         return password;
     }
 
     public String getDataSourceName()
-    { // non-static getter
+    {
         return name;
     }
 
     public Integer getDataSourcePort()
-    { // non-static getter
+    {
         return port;
     }
 
     public Boolean getDataSourceSSL()
-    { // non-static getter
+    {
         return ssl;
     }
 
     public Boolean getVerifyServer()
-    { // non-static getter
+    {
         return verifyServer;
     }
 

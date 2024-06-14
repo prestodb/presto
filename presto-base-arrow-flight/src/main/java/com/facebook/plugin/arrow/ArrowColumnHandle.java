@@ -24,7 +24,6 @@ import static java.util.Objects.requireNonNull;
 public class ArrowColumnHandle
         implements ColumnHandle
 {
-    //TODO
     private final String columnName;
     private final Type columnType;
     private final ArrowTypeHandle arrowTypeHandle;
