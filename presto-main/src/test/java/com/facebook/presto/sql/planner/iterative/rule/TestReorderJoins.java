@@ -41,6 +41,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.airlift.testing.Closeables.closeAllRuntimeException;
+import static com.facebook.presto.SystemSessionProperties.CONFIDENCE_BASED_BROADCAST_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.HANDLE_COMPLEX_EQUI_JOINS;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_MAX_BROADCAST_TABLE_SIZE;
@@ -54,6 +55,9 @@ import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectN
 import static com.facebook.presto.spi.plan.JoinDistributionType.PARTITIONED;
 import static com.facebook.presto.spi.plan.JoinDistributionType.REPLICATED;
 import static com.facebook.presto.spi.plan.JoinType.INNER;
+import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel.FACT;
+import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel.HIGH;
+import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel.LOW;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.AUTOMATIC;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -158,6 +162,198 @@ public class TestReorderJoins
                         values(ImmutableMap.of("A1", 0, "A2", 1)),
                         values(ImmutableMap.of("B1", 0)))
                         .withExactOutputs("A2"));
+    }
+
+    @Test
+    public void testHighConfidenceLeftAndLowConfidenceRight()
+    {
+        assertReorderJoins()
+                .setSystemProperty(CONFIDENCE_BASED_BROADCAST_ENABLED, "TRUE")
+                .on(p ->
+                        p.join(
+                                INNER,
+                                p.values(new PlanNodeId("valuesA"), ImmutableList.of(p.variable("A1"), p.variable("A2")), TWO_ROWS),
+                                p.values(new PlanNodeId("valuesB"), ImmutableList.of(p.variable("B1")), TWO_ROWS),
+                                ImmutableList.of(new EquiJoinClause(p.variable("A1"), p.variable("B1"))),
+                                ImmutableList.of(p.variable("A1"), p.variable("A2", BIGINT), p.variable("B1")),
+                                Optional.empty()))
+                .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
+                        .setConfidence(HIGH)
+                        .setOutputRowCount(40)
+                        .addVariableStatistics(ImmutableMap.of(variable("A1", BIGINT), new VariableStatsEstimate(0, 100, 0, 6400, 100)))
+                        .build())
+                .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
+                        .setConfidence(LOW)
+                        .setOutputRowCount(10)
+                        .addVariableStatistics(ImmutableMap.of(variable("B1", BIGINT), new VariableStatsEstimate(0, 100, 0, 6400, 100)))
+                        .build())
+                .matches(join(
+                        INNER,
+                        ImmutableList.of(equiJoinClause("B1", "A1")),
+                        Optional.empty(),
+                        Optional.of(REPLICATED),
+                        values(ImmutableMap.of("B1", 0)),
+                        values(ImmutableMap.of("A1", 0, "A2", 1))));
+    }
+
+    @Test
+    public void testFactConfidenceLeftAndHighConfidenceRight()
+    {
+        assertReorderJoins()
+                .setSystemProperty(CONFIDENCE_BASED_BROADCAST_ENABLED, "TRUE")
+                .on(p ->
+                        p.join(
+                                INNER,
+                                p.values(new PlanNodeId("valuesA"), ImmutableList.of(p.variable("A1"), p.variable("A2")), TWO_ROWS),
+                                p.values(new PlanNodeId("valuesB"), ImmutableList.of(p.variable("B1")), TWO_ROWS),
+                                ImmutableList.of(new EquiJoinClause(p.variable("A1"), p.variable("B1"))),
+                                ImmutableList.of(p.variable("A1"), p.variable("A2", BIGINT), p.variable("B1")),
+                                Optional.empty()))
+                .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
+                        .setConfidence(FACT)
+                        .setOutputRowCount(40)
+                        .addVariableStatistics(ImmutableMap.of(variable("A1", BIGINT), new VariableStatsEstimate(0, 100, 0, 6400, 100)))
+                        .build())
+                .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
+                        .setConfidence(HIGH)
+                        .setOutputRowCount(10)
+                        .addVariableStatistics(ImmutableMap.of(variable("B1", BIGINT), new VariableStatsEstimate(0, 100, 0, 6400, 100)))
+                        .build())
+                .matches(join(
+                        INNER,
+                        ImmutableList.of(equiJoinClause("B1", "A1")),
+                        Optional.empty(),
+                        Optional.of(REPLICATED),
+                        values(ImmutableMap.of("B1", 0)),
+                        values(ImmutableMap.of("A1", 0, "A2", 1))));
+    }
+
+    @Test
+    public void testLowConfidenceLeftAndHighConfidenceRight()
+    {
+        assertReorderJoins()
+                .setSystemProperty(CONFIDENCE_BASED_BROADCAST_ENABLED, "TRUE")
+                .on(p ->
+                        p.join(
+                                INNER,
+                                p.values(new PlanNodeId("valuesA"), ImmutableList.of(p.variable("A1"), p.variable("A2")), TWO_ROWS),
+                                p.values(new PlanNodeId("valuesB"), ImmutableList.of(p.variable("B1")), TWO_ROWS),
+                                ImmutableList.of(new EquiJoinClause(p.variable("A1"), p.variable("B1"))),
+                                ImmutableList.of(p.variable("A1"), p.variable("A2", BIGINT), p.variable("B1")),
+                                Optional.empty()))
+                .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
+                        .setConfidence(LOW)
+                        .setOutputRowCount(40)
+                        .addVariableStatistics(ImmutableMap.of(variable("A1", BIGINT), new VariableStatsEstimate(0, 100, 0, 6400, 100)))
+                        .build())
+                .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
+                        .setConfidence(HIGH)
+                        .setOutputRowCount(70)
+                        .addVariableStatistics(ImmutableMap.of(variable("B1", BIGINT), new VariableStatsEstimate(0, 100, 0, 6400, 100)))
+                        .build())
+                .matches(join(
+                        INNER,
+                        ImmutableList.of(equiJoinClause("A1", "B1")),
+                        Optional.empty(),
+                        Optional.of(REPLICATED),
+                        values(ImmutableMap.of("A1", 0, "A2", 1)),
+                        values(ImmutableMap.of("B1", 0))));
+    }
+
+    @Test
+    public void testHighConfidenceLeftAndFactConfidenceRight()
+    {
+        assertReorderJoins()
+                .setSystemProperty(CONFIDENCE_BASED_BROADCAST_ENABLED, "TRUE")
+                .on(p ->
+                        p.join(
+                                INNER,
+                                p.values(new PlanNodeId("valuesA"), ImmutableList.of(p.variable("A1"), p.variable("A2")), TWO_ROWS),
+                                p.values(new PlanNodeId("valuesB"), ImmutableList.of(p.variable("B1")), TWO_ROWS),
+                                ImmutableList.of(new EquiJoinClause(p.variable("A1"), p.variable("B1"))),
+                                ImmutableList.of(p.variable("A1"), p.variable("A2", BIGINT), p.variable("B1")),
+                                Optional.empty()))
+                .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
+                        .setConfidence(HIGH)
+                        .setOutputRowCount(40)
+                        .addVariableStatistics(ImmutableMap.of(variable("A1", BIGINT), new VariableStatsEstimate(0, 100, 0, 6400, 100)))
+                        .build())
+                .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
+                        .setConfidence(FACT)
+                        .setOutputRowCount(70)
+                        .addVariableStatistics(ImmutableMap.of(variable("B1", BIGINT), new VariableStatsEstimate(0, 100, 0, 6400, 100)))
+                        .build())
+                .matches(join(
+                        INNER,
+                        ImmutableList.of(equiJoinClause("A1", "B1")),
+                        Optional.empty(),
+                        Optional.of(REPLICATED),
+                        values(ImmutableMap.of("A1", 0, "A2", 1)),
+                        values(ImmutableMap.of("B1", 0))));
+    }
+
+    @Test
+    public void testLeftAndRightHighConfidenceRightSmaller()
+    {
+        assertReorderJoins()
+                .setSystemProperty(CONFIDENCE_BASED_BROADCAST_ENABLED, "TRUE")
+                .on(p ->
+                        p.join(
+                                INNER,
+                                p.values(new PlanNodeId("valuesA"), ImmutableList.of(p.variable("A1"), p.variable("A2")), TWO_ROWS),
+                                p.values(new PlanNodeId("valuesB"), ImmutableList.of(p.variable("B1")), TWO_ROWS),
+                                ImmutableList.of(new EquiJoinClause(p.variable("A1"), p.variable("B1"))),
+                                ImmutableList.of(p.variable("A1"), p.variable("A2", BIGINT), p.variable("B1")),
+                                Optional.empty()))
+                .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
+                        .setConfidence(HIGH)
+                        .setOutputRowCount(40)
+                        .addVariableStatistics(ImmutableMap.of(variable("A1", BIGINT), new VariableStatsEstimate(0, 100, 0, 100, 100)))
+                        .build())
+                .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
+                        .setConfidence(HIGH)
+                        .setOutputRowCount(30)
+                        .addVariableStatistics(ImmutableMap.of(variable("B1", BIGINT), new VariableStatsEstimate(0, 100, 0, 100, 100)))
+                        .build())
+                .matches(join(
+                        INNER,
+                        ImmutableList.of(equiJoinClause("A1", "B1")),
+                        Optional.empty(),
+                        Optional.of(PARTITIONED),
+                        values(ImmutableMap.of("A1", 0, "A2", 1)),
+                        values(ImmutableMap.of("B1", 0))));
+    }
+
+    @Test
+    public void testLeftAndRightHighConfidenceLeftSmaller()
+    {
+        assertReorderJoins()
+                .setSystemProperty(CONFIDENCE_BASED_BROADCAST_ENABLED, "TRUE")
+                .on(p ->
+                        p.join(
+                                INNER,
+                                p.values(new PlanNodeId("valuesA"), ImmutableList.of(p.variable("A1"), p.variable("A2")), TWO_ROWS),
+                                p.values(new PlanNodeId("valuesB"), ImmutableList.of(p.variable("B1")), TWO_ROWS),
+                                ImmutableList.of(new EquiJoinClause(p.variable("A1"), p.variable("B1"))),
+                                ImmutableList.of(p.variable("A1"), p.variable("A2", BIGINT), p.variable("B1")),
+                                Optional.empty()))
+                .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
+                        .setConfidence(HIGH)
+                        .setOutputRowCount(20)
+                        .addVariableStatistics(ImmutableMap.of(variable("A1", BIGINT), new VariableStatsEstimate(0, 100, 0, 100, 100)))
+                        .build())
+                .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
+                        .setConfidence(HIGH)
+                        .setOutputRowCount(30)
+                        .addVariableStatistics(ImmutableMap.of(variable("B1", BIGINT), new VariableStatsEstimate(0, 100, 0, 100, 100)))
+                        .build())
+                .matches(join(
+                        INNER,
+                        ImmutableList.of(equiJoinClause("B1", "A1")),
+                        Optional.empty(),
+                        Optional.of(PARTITIONED),
+                        values(ImmutableMap.of("B1", 0)),
+                        values(ImmutableMap.of("A1", 0, "A2", 1))));
     }
 
     @Test
