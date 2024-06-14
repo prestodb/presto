@@ -26,13 +26,13 @@ class SelectiveByteRleColumnReader
   using ValueType = int8_t;
 
   SelectiveByteRleColumnReader(
-      const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
+      const TypePtr& requestedType,
       std::shared_ptr<const dwio::common::TypeWithId> fileType,
       DwrfParams& params,
       common::ScanSpec& scanSpec,
       bool isBool)
       : dwio::common::SelectiveByteRleColumnReader(
-            requestedType->type(),
+            requestedType,
             std::move(fileType),
             params,
             scanSpec) {

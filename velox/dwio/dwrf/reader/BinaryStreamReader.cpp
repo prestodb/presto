@@ -37,7 +37,8 @@ BinaryStripeStreams::BinaryStripeStreams(
           stripeReader.fetchStripe(stripeIndex, preload_))},
       stripeStreams_{
           stripeReadState_,
-          selector,
+          &selector,
+          nullptr,
           options_,
           stripeReadState_->stripeMetadata->stripeInfo.offset(),
           static_cast<int64_t>(

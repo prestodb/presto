@@ -145,7 +145,7 @@ class ColumnReaderTestBase {
       }
       makeFieldSpecs("", 0, rowType, scanSpec);
       selectiveColumnReader_ = SelectiveDwrfReader::build(
-          cs.getSchemaWithId(),
+          cs.getSchema(),
           fileTypeWithId,
           streams_,
           labels_,

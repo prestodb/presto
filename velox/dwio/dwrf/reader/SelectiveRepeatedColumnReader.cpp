@@ -45,7 +45,7 @@ FlatMapContext flatMapContextFromEncodingKey(EncodingKey& encodingKey) {
 }
 
 SelectiveListColumnReader::SelectiveListColumnReader(
-    const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
+    const TypePtr& requestedType,
     const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
     DwrfParams& params,
     common::ScanSpec& scanSpec)
@@ -59,11 +59,7 @@ SelectiveListColumnReader::SelectiveListColumnReader(
   EncodingKey encodingKey{fileType_->id(), params.flatMapContext().sequence};
   auto& stripe = params.stripeStreams();
   // count the number of selected sub-columns
-  const auto& cs = stripe.getColumnSelector();
   auto& childType = requestedType_->childAt(0);
-  VELOX_CHECK(
-      cs.shouldReadNode(childType->id()),
-      "SelectiveListColumnReader must select the values stream");
   if (scanSpec_->children().empty()) {
     scanSpec.getOrCreateChild(
         common::Subfield(common::ScanSpec::kArrayElementsFieldName));
@@ -82,7 +78,7 @@ SelectiveListColumnReader::SelectiveListColumnReader(
 }
 
 SelectiveMapColumnReader::SelectiveMapColumnReader(
-    const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
+    const TypePtr& requestedType,
     const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
     DwrfParams& params,
     common::ScanSpec& scanSpec)
@@ -106,11 +102,7 @@ SelectiveMapColumnReader::SelectiveMapColumnReader(
   scanSpec_->children()[1]->setProjectOut(true);
   scanSpec_->children()[1]->setExtractValues(true);
 
-  const auto& cs = stripe.getColumnSelector();
   auto& keyType = requestedType_->childAt(0);
-  VELOX_CHECK(
-      cs.shouldReadNode(keyType->id()),
-      "Map key must be selected in SelectiveMapColumnReader");
   auto keyParams = DwrfParams(
       stripe,
       params.streamLabels(),
@@ -123,9 +115,6 @@ SelectiveMapColumnReader::SelectiveMapColumnReader(
       *scanSpec_->children()[0].get());
 
   auto& valueType = requestedType_->childAt(1);
-  VELOX_CHECK(
-      cs.shouldReadNode(valueType->id()),
-      "Map Values must be selected in SelectiveMapColumnReader");
   auto elementParams = DwrfParams(
       stripe,
       params.streamLabels(),

@@ -28,7 +28,7 @@ class SelectiveIntegerDictionaryColumnReader
   using ValueType = int64_t;
 
   SelectiveIntegerDictionaryColumnReader(
-      const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
+      const TypePtr& requestedType,
       std::shared_ptr<const dwio::common::TypeWithId> fileType,
       DwrfParams& params,
       common::ScanSpec& scanSpec,

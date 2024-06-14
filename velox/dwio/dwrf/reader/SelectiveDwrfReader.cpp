@@ -34,7 +34,7 @@ namespace facebook::velox::dwrf {
 using namespace facebook::velox::dwio::common;
 
 std::unique_ptr<SelectiveColumnReader> buildIntegerReader(
-    const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
+    const TypePtr& requestedType,
     const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
     DwrfParams& params,
     uint32_t numBytes,
@@ -57,7 +57,7 @@ std::unique_ptr<SelectiveColumnReader> buildIntegerReader(
 
 // static
 std::unique_ptr<SelectiveColumnReader> SelectiveDwrfReader::build(
-    const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
+    const TypePtr& requestedType,
     const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
     DwrfParams& params,
     common::ScanSpec& scanSpec,
@@ -66,7 +66,7 @@ std::unique_ptr<SelectiveColumnReader> SelectiveDwrfReader::build(
       !isRoot || fileType->type()->kind() == TypeKind::ROW,
       "The root object can only be a row.");
   dwio::common::typeutils::checkTypeCompatibility(
-      *fileType->type(), *requestedType->type());
+      *fileType->type(), *requestedType);
   EncodingKey ek{fileType->id(), params.flatMapContext().sequence};
   auto& stripe = params.stripeStreams();
   switch (fileType->type()->kind()) {
@@ -76,7 +76,7 @@ std::unique_ptr<SelectiveColumnReader> SelectiveDwrfReader::build(
     case TypeKind::BIGINT:
       if (fileType->type()->isDecimal()) {
         return std::make_unique<SelectiveDecimalColumnReader<int64_t>>(
-            requestedType, params, scanSpec);
+            fileType, params, scanSpec);
       } else {
         return buildIntegerReader(
             requestedType, fileType, params, LONG_BYTE_SIZE, scanSpec);
@@ -96,19 +96,19 @@ std::unique_ptr<SelectiveColumnReader> SelectiveDwrfReader::build(
       return std::make_unique<SelectiveMapColumnReader>(
           requestedType, fileType, params, scanSpec);
     case TypeKind::REAL:
-      if (requestedType->type()->kind() == TypeKind::REAL) {
+      if (requestedType->kind() == TypeKind::REAL) {
         return std::make_unique<
             SelectiveFloatingPointColumnReader<float, float>>(
-            requestedType->type(), fileType, params, scanSpec);
+            requestedType, fileType, params, scanSpec);
       } else {
         return std::make_unique<
             SelectiveFloatingPointColumnReader<float, double>>(
-            requestedType->type(), fileType, params, scanSpec);
+            requestedType, fileType, params, scanSpec);
       }
     case TypeKind::DOUBLE:
       return std::make_unique<
           SelectiveFloatingPointColumnReader<double, double>>(
-          requestedType->type(), fileType, params, scanSpec);
+          requestedType, fileType, params, scanSpec);
     case TypeKind::ROW:
       return std::make_unique<SelectiveStructColumnReader>(
           requestedType, fileType, params, scanSpec, isRoot);
@@ -138,7 +138,7 @@ std::unique_ptr<SelectiveColumnReader> SelectiveDwrfReader::build(
     case TypeKind::HUGEINT:
       if (fileType->type()->isDecimal()) {
         return std::make_unique<SelectiveDecimalColumnReader<int128_t>>(
-            requestedType, params, scanSpec);
+            fileType, params, scanSpec);
       }
       [[fallthrough]];
     default:

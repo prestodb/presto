@@ -18,6 +18,7 @@
 
 #include <memory>
 #include <vector>
+#include "velox/dwio/common/ScanSpec.h"
 #include "velox/type/Type.h"
 
 namespace facebook::velox::dwio::common {
@@ -38,6 +39,13 @@ class TypeWithId : public velox::Tree<std::shared_ptr<const TypeWithId>> {
   static std::unique_ptr<TypeWithId> create(
       const std::shared_ptr<const velox::Type>& root,
       uint32_t next = 0);
+
+  /// Create TypeWithId node but leave all the unselected children as nullptr.
+  /// The ids are set correctly even when some of the previous nodes are not
+  /// selected.
+  static std::unique_ptr<TypeWithId> create(
+      const RowTypePtr& type,
+      const velox::common::ScanSpec& spec);
 
   uint32_t size() const override;
 

@@ -15,6 +15,7 @@
  */
 
 #include "velox/dwio/common/TypeWithId.h"
+
 #include "velox/dwio/common/exception/Exception.h"
 
 namespace facebook::velox::dwio::common {
@@ -47,7 +48,9 @@ TypeWithId::TypeWithId(
       column_{column},
       children_{toShared(std::move(children))} {
   for (auto& child : children_) {
-    const_cast<const TypeWithId*&>(child->parent_) = this;
+    if (child) {
+      const_cast<const TypeWithId*&>(child->parent_) = this;
+    }
   }
 }
 
@@ -55,6 +58,35 @@ std::unique_ptr<TypeWithId> TypeWithId::create(
     const std::shared_ptr<const Type>& root,
     uint32_t next) {
   return create(root, next, 0);
+}
+
+namespace {
+
+int countNodes(const TypePtr& type) {
+  int count = 1;
+  for (auto& child : *type) {
+    count += countNodes(child);
+  }
+  return count;
+}
+
+} // namespace
+
+std::unique_ptr<TypeWithId> TypeWithId::create(
+    const RowTypePtr& type,
+    const velox::common::ScanSpec& spec) {
+  uint32_t next = 1;
+  std::vector<std::unique_ptr<TypeWithId>> children(type->size());
+  for (int i = 0, size = type->size(); i < size; ++i) {
+    auto* childSpec = spec.childByName(type->nameOf(i));
+    if (childSpec && !childSpec->isConstant()) {
+      children[i] = create(type->childAt(i), next, i);
+    } else {
+      next += countNodes(type->childAt(i));
+    }
+  }
+  return std::make_unique<TypeWithId>(
+      type, std::move(children), 0, next - 1, 0);
 }
 
 uint32_t TypeWithId::size() const {

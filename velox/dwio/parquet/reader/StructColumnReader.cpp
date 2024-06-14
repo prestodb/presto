@@ -27,7 +27,7 @@ class ScanSpec;
 namespace facebook::velox::parquet {
 
 StructColumnReader::StructColumnReader(
-    const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
+    const TypePtr& requestedType,
     const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
     ParquetParams& params,
     common::ScanSpec& scanSpec)
@@ -40,7 +40,7 @@ StructColumnReader::StructColumnReader(
     }
     auto childFileType = fileType_->childByName(childSpec->fieldName());
     auto childRequestedType =
-        requestedType_->childByName(childSpec->fieldName());
+        requestedType_->asRow().findChild(childSpec->fieldName());
     addChild(ParquetColumnReader::build(
         childRequestedType, childFileType, params, *childSpec));
 

@@ -72,7 +72,8 @@ class ReaderBase {
           dwio::common::ReaderOptions::kDefaultFilePreloadThreshold,
       dwio::common::FileFormat fileFormat = dwio::common::FileFormat::DWRF,
       bool fileColumnNamesReadAsLowerCase = false,
-      std::shared_ptr<random::RandomSkipTracker> randomSkip = nullptr);
+      std::shared_ptr<random::RandomSkipTracker> randomSkip = nullptr,
+      std::shared_ptr<velox::common::ScanSpec> scanSpec = nullptr);
 
   ReaderBase(
       memory::MemoryPool& pool,
@@ -131,7 +132,11 @@ class ReaderBase {
   const std::shared_ptr<const dwio::common::TypeWithId>& getSchemaWithId()
       const {
     if (!schemaWithId_) {
-      schemaWithId_ = dwio::common::TypeWithId::create(schema_);
+      if (scanSpec_) {
+        schemaWithId_ = dwio::common::TypeWithId::create(schema_, *scanSpec_);
+      } else {
+        schemaWithId_ = dwio::common::TypeWithId::create(schema_);
+      }
     }
     return schemaWithId_;
   }
@@ -257,6 +262,7 @@ class ReaderBase {
 
   std::unique_ptr<dwio::common::BufferedInput> input_;
   const std::shared_ptr<random::RandomSkipTracker> randomSkip_;
+  const std::shared_ptr<velox::common::ScanSpec> scanSpec_;
   RowTypePtr schema_;
   // Lazily populated
   mutable std::shared_ptr<const dwio::common::TypeWithId> schemaWithId_;

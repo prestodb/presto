@@ -25,12 +25,12 @@ class BooleanColumnReader : public dwio::common::SelectiveByteRleColumnReader {
  public:
   using ValueType = bool;
   BooleanColumnReader(
-      const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
+      const TypePtr& requestedType,
       std::shared_ptr<const dwio::common::TypeWithId> fileType,
       ParquetParams& params,
       common::ScanSpec& scanSpec)
       : SelectiveByteRleColumnReader(
-            requestedType->type(),
+            requestedType,
             std::move(fileType),
             params,
             scanSpec) {}

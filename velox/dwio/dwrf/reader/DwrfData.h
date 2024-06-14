@@ -17,7 +17,6 @@
 #pragma once
 
 #include "velox/common/memory/Memory.h"
-#include "velox/dwio/common/ColumnSelector.h"
 #include "velox/dwio/common/FormatData.h"
 #include "velox/dwio/common/TypeWithId.h"
 #include "velox/dwio/common/compression/Compression.h"

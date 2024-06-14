@@ -42,7 +42,7 @@ class ParquetColumnReader {
   /// Builds a reader tree producing 'fileType'. The metadata is in 'params'.
   /// The filters and pruning are in 'scanSpec'.
   static std::unique_ptr<dwio::common::SelectiveColumnReader> build(
-      const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
+      const TypePtr& requestedType,
       const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
       ParquetParams& params,
       common::ScanSpec& scanSpec);

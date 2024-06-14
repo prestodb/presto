@@ -28,13 +28,13 @@ class SelectiveIntegerDirectColumnReader
   using ValueType = int64_t;
 
   SelectiveIntegerDirectColumnReader(
-      const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
+      const TypePtr& requestedType,
       std::shared_ptr<const dwio::common::TypeWithId> fileType,
       DwrfParams& params,
       uint32_t numBytes,
       common::ScanSpec& scanSpec)
       : SelectiveIntegerColumnReader(
-            requestedType->type(),
+            requestedType,
             params,
             scanSpec,
             std::move(fileType)) {

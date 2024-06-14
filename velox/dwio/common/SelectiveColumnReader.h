@@ -19,7 +19,6 @@
 #include "velox/common/memory/Memory.h"
 #include "velox/common/process/ProcessBase.h"
 #include "velox/common/process/TraceHistory.h"
-#include "velox/dwio/common/ColumnSelector.h"
 #include "velox/dwio/common/FormatData.h"
 #include "velox/dwio/common/IntDecoder.h"
 #include "velox/dwio/common/Mutation.h"

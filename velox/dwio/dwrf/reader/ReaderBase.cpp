@@ -96,14 +96,16 @@ ReaderBase::ReaderBase(
     uint64_t filePreloadThreshold,
     FileFormat fileFormat,
     bool fileColumnNamesReadAsLowerCase,
-    std::shared_ptr<random::RandomSkipTracker> randomSkip)
+    std::shared_ptr<random::RandomSkipTracker> randomSkip,
+    std::shared_ptr<velox::common::ScanSpec> scanSpec)
     : pool_{pool},
       arena_(std::make_unique<google::protobuf::Arena>()),
       decryptorFactory_(decryptorFactory),
       footerEstimatedSize_(footerEstimatedSize),
       filePreloadThreshold_(filePreloadThreshold),
       input_(std::move(input)),
-      randomSkip_(std::move(randomSkip)) {
+      randomSkip_(std::move(randomSkip)),
+      scanSpec_(std::move(scanSpec)) {
   process::TraceContext trace("ReaderBase::ReaderBase");
   // read last bytes into buffer to get PostScript
   // If file is small, load the entire file.

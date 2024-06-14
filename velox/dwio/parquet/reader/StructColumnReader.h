@@ -32,7 +32,7 @@ class ParquetParams;
 class StructColumnReader : public dwio::common::SelectiveStructColumnReader {
  public:
   StructColumnReader(
-      const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
+      const TypePtr& requestedType,
       const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
       ParquetParams& params,
       common::ScanSpec& scanSpec);

@@ -23,12 +23,12 @@ namespace facebook::velox::parquet {
 class IntegerColumnReader : public dwio::common::SelectiveIntegerColumnReader {
  public:
   IntegerColumnReader(
-      const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
+      const TypePtr& requestedType,
       std::shared_ptr<const dwio::common::TypeWithId> fileType,
       ParquetParams& params,
       common::ScanSpec& scanSpec)
       : SelectiveIntegerColumnReader(
-            requestedType->type(),
+            requestedType,
             params,
             scanSpec,
             std::move(fileType)) {}

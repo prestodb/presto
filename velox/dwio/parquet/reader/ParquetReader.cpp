@@ -25,8 +25,6 @@
 
 namespace facebook::velox::parquet {
 
-using dwio::common::ColumnSelector;
-
 /// Metadata and options for reading Parquet.
 class ReaderBase {
  public:
@@ -751,7 +749,7 @@ class ParquetRowReader::Impl {
           "Input Table Schema (with partition columns): {}\n",
           readerBase_->bufferedInput().getReadFile()->getName(),
           readerBase_->schema()->toString(),
-          requestedType_->type()->toString());
+          requestedType_->toString());
       return exceptionMessageContext;
     };
 
@@ -760,9 +758,8 @@ class ParquetRowReader::Impl {
     }
     ParquetParams params(
         pool_, columnReaderStats_, readerBase_->fileMetaData());
-    auto columnSelector = std::make_shared<ColumnSelector>(
-        ColumnSelector::apply(options_.getSelector(), readerBase_->schema()));
-    requestedType_ = columnSelector->getSchemaWithId();
+    requestedType_ = options_.requestedType() ? options_.requestedType()
+                                              : readerBase_->schema();
     columnReader_ = ParquetColumnReader::build(
         requestedType_,
         readerBase_->schemaWithId(), // Id is schema id
@@ -913,7 +910,7 @@ class ParquetRowReader::Impl {
 
   std::unique_ptr<dwio::common::SelectiveColumnReader> columnReader_;
 
-  std::shared_ptr<const dwio::common::TypeWithId> requestedType_;
+  TypePtr requestedType_;
 
   dwio::common::ColumnReaderStatistics columnReaderStats_;
 };

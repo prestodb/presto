@@ -1672,7 +1672,7 @@ TEST_F(TableScanTest, validFileNoData) {
                    .length(fs::file_size(filePath) / 2)
                    .build();
 
-  auto op = tableScanNode(rowType);
+  auto op = PlanBuilder().tableScan(rowType, {}, "", rowType).planNode();
   assertQuery(op, split, "");
 }
 

@@ -110,7 +110,7 @@ void ensureRepDefs(
 }
 
 MapColumnReader::MapColumnReader(
-    const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
+    const TypePtr& requestedType,
     const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
     ParquetParams& params,
     common::ScanSpec& scanSpec)
@@ -220,7 +220,7 @@ void MapColumnReader::filterRowGroups(
 }
 
 ListColumnReader::ListColumnReader(
-    const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
+    const TypePtr& requestedType,
     const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
     ParquetParams& params,
     common::ScanSpec& scanSpec)

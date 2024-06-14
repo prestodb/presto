@@ -186,7 +186,8 @@ class E2EWriterTest : public testing::Test {
         dwrf::StripeStreamsImpl stripeStreams(
             std::make_shared<dwrf::StripeReadState>(
                 dwrfRowReader->readerBaseShared(), std::move(stripeMetadata)),
-            dwrfRowReader->getColumnSelector(),
+            &dwrfRowReader->getColumnSelector(),
+            nullptr,
             rowReaderOpts,
             currentStripeInfo.offset(),
             currentStripeInfo.numberOfRows(),

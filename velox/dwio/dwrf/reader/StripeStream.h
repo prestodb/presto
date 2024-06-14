@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "velox/common/base/BitSet.h"
 #include "velox/dwio/common/ColumnSelector.h"
 #include "velox/dwio/common/Options.h"
 #include "velox/dwio/common/SeekableInputStream.h"
@@ -219,8 +220,11 @@ struct StripeReadState {
 class StripeStreamsImpl : public StripeStreamsBase {
  private:
   std::shared_ptr<StripeReadState> readState_;
-  const dwio::common::ColumnSelector& selector_;
+  const dwio::common::ColumnSelector* selector_;
   const dwio::common::RowReaderOptions& opts_;
+  // When selector_ is null, this needs to be passed in constructor; otherwise
+  // leave it as null and it will be populated from selector_.
+  std::shared_ptr<BitSet> projectedNodes_;
   const uint64_t stripeStart_;
   const int64_t stripeNumberOfRows_;
   const StrideIndexProvider& provider_;
@@ -244,7 +248,8 @@ class StripeStreamsImpl : public StripeStreamsBase {
 
   StripeStreamsImpl(
       std::shared_ptr<StripeReadState> readState,
-      const dwio::common::ColumnSelector& selector,
+      const dwio::common::ColumnSelector* selector,
+      std::shared_ptr<BitSet> projectedNodes,
       const dwio::common::RowReaderOptions& opts,
       uint64_t stripeStart,
       int64_t stripeNumberOfRows,
@@ -254,6 +259,7 @@ class StripeStreamsImpl : public StripeStreamsBase {
         readState_(std::move(readState)),
         selector_{selector},
         opts_{opts},
+        projectedNodes_{std::move(projectedNodes)},
         stripeStart_{stripeStart},
         stripeNumberOfRows_{stripeNumberOfRows},
         provider_(provider),
@@ -269,7 +275,7 @@ class StripeStreamsImpl : public StripeStreamsBase {
   }
 
   const dwio::common::ColumnSelector& getColumnSelector() const override {
-    return selector_;
+    return *selector_;
   }
 
   const dwio::common::RowReaderOptions& getRowReaderOptions() const override {

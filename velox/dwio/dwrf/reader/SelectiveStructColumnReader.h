@@ -25,7 +25,7 @@ class SelectiveStructColumnReaderBase
     : public dwio::common::SelectiveStructColumnReaderBase {
  public:
   SelectiveStructColumnReaderBase(
-      const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
+      const TypePtr& requestedType,
       const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
       DwrfParams& params,
       common::ScanSpec& scanSpec,
@@ -80,7 +80,7 @@ class SelectiveStructColumnReaderBase
 
 struct SelectiveStructColumnReader : SelectiveStructColumnReaderBase {
   SelectiveStructColumnReader(
-      const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
+      const TypePtr& requestedType,
       const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
       DwrfParams& params,
       common::ScanSpec& scanSpec,

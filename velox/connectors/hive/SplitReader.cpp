@@ -138,20 +138,21 @@ void SplitReader::configureReaderOptions(
       hiveTableHandle_,
       hiveSplit_);
   baseReaderOpts_.setRandomSkip(std::move(randomSkip));
+  baseReaderOpts_.setScanSpec(scanSpec_);
 }
 
 void SplitReader::prepareSplit(
     std::shared_ptr<common::MetadataFilter> metadataFilter,
     dwio::common::RuntimeStatistics& runtimeStats,
     const std::shared_ptr<HiveColumnHandle>& rowIndexColumn) {
-  createReader();
+  createReader(std::move(metadataFilter), rowIndexColumn);
 
   if (checkIfSplitIsEmpty(runtimeStats)) {
     VELOX_CHECK(emptySplit_);
     return;
   }
 
-  createRowReader(std::move(metadataFilter), rowIndexColumn);
+  createRowReader();
 }
 
 uint64_t SplitReader::next(uint64_t size, VectorPtr& output) {
@@ -218,7 +219,9 @@ std::string SplitReader::toString() const {
       static_cast<const void*>(baseRowReader_.get()));
 }
 
-void SplitReader::createReader() {
+void SplitReader::createReader(
+    std::shared_ptr<common::MetadataFilter> metadataFilter,
+    const std::shared_ptr<HiveColumnHandle>& rowIndexColumn) {
   VELOX_CHECK_NE(
       baseReaderOpts_.fileFormat(), dwio::common::FileFormat::UNKNOWN);
 
@@ -255,6 +258,20 @@ void SplitReader::createReader() {
 
   baseReader_ = dwio::common::getReaderFactory(baseReaderOpts_.fileFormat())
                     ->createReader(std::move(baseFileInput), baseReaderOpts_);
+
+  auto& fileType = baseReader_->rowType();
+  auto columnTypes = adaptColumns(fileType, baseReaderOpts_.fileSchema());
+  auto columnNames = fileType->names();
+  if (rowIndexColumn != nullptr) {
+    setRowIndexColumn(fileType, rowIndexColumn);
+  }
+  configureRowReaderOptions(
+      baseRowReaderOpts_,
+      hiveTableHandle_->tableParameters(),
+      scanSpec_,
+      std::move(metadataFilter),
+      ROW(std::move(columnNames), std::move(columnTypes)),
+      hiveSplit_);
 }
 
 bool SplitReader::checkIfSplitIsEmpty(
@@ -286,23 +303,7 @@ bool SplitReader::checkIfSplitIsEmpty(
   return emptySplit_;
 }
 
-void SplitReader::createRowReader(
-    std::shared_ptr<common::MetadataFilter> metadataFilter,
-    const std::shared_ptr<HiveColumnHandle>& rowIndexColumn) {
-  auto& fileType = baseReader_->rowType();
-  auto columnTypes = adaptColumns(fileType, baseReaderOpts_.fileSchema());
-  auto columnNames = fileType->names();
-  if (rowIndexColumn != nullptr) {
-    setRowIndexColumn(fileType, rowIndexColumn);
-  }
-
-  configureRowReaderOptions(
-      baseRowReaderOpts_,
-      hiveTableHandle_->tableParameters(),
-      scanSpec_,
-      std::move(metadataFilter),
-      ROW(std::move(columnNames), std::move(columnTypes)),
-      hiveSplit_);
+void SplitReader::createRowReader() {
   // NOTE: we firstly reset the finished 'baseRowReader_' of previous split
   // before setting up for the next one to avoid doubling the peak memory usage.
   baseRowReader_.reset();

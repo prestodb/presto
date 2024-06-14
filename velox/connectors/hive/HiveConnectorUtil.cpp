@@ -572,8 +572,7 @@ void configureRowReaderOptions(
   }
   rowReaderOptions.setScanSpec(scanSpec);
   rowReaderOptions.setMetadataFilter(std::move(metadataFilter));
-  rowReaderOptions.select(
-      dwio::common::ColumnSelector::fromScanSpec(*scanSpec, rowType));
+  rowReaderOptions.setRequestedType(rowType);
   rowReaderOptions.range(hiveSplit->start, hiveSplit->length);
 }
 

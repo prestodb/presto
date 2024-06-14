@@ -17,7 +17,6 @@
 #pragma once
 
 #include "velox/common/memory/Memory.h"
-#include "velox/dwio/common/ColumnSelector.h"
 #include "velox/dwio/common/ScanSpec.h"
 #include "velox/dwio/common/SeekableInputStream.h"
 #include "velox/dwio/common/Statistics.h"

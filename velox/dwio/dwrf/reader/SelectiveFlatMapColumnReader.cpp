@@ -45,15 +45,6 @@ std::string toString(const T& x) {
   }
 }
 
-template <typename T>
-dwio::common::flatmap::KeyPredicate<T> prepareKeyPredicate(
-    const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
-    StripeStreams& stripe) {
-  auto& cs = stripe.getColumnSelector();
-  const auto expr = cs.getNode(requestedType->id())->getNode().expression;
-  return dwio::common::flatmap::prepareKeyPredicate<T>(expr);
-}
-
 // Represent a branch of a value node in a flat map.  Represent a keyed value
 // node.
 template <typename T>
@@ -76,7 +67,7 @@ struct KeyNode {
 
 template <typename T>
 std::vector<KeyNode<T>> getKeyNodes(
-    const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
+    const TypePtr& requestedType,
     const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
     DwrfParams& params,
     common::ScanSpec& scanSpec,
@@ -89,7 +80,6 @@ std::vector<KeyNode<T>> getKeyNodes(
   auto& requestedValueType = requestedType->childAt(1);
   auto& dataValueType = fileType->childAt(1);
   auto& stripe = params.stripeStreams();
-  auto keyPredicate = prepareKeyPredicate<T>(requestedType, stripe);
 
   common::ScanSpec* keysSpec = nullptr;
   common::ScanSpec* valuesSpec = nullptr;
@@ -130,10 +120,6 @@ std::vector<KeyNode<T>> getKeyNodes(
         EncodingKey seqEk(dataValueType->id(), sequence);
         const auto& keyInfo = stripe.getEncoding(seqEk).key();
         auto key = extractKey<T>(keyInfo);
-        // Check if we have key filter passed through read schema.
-        if (!keyPredicate(key)) {
-          return;
-        }
         common::ScanSpec* childSpec;
         if (auto it = childSpecs.find(key);
             it != childSpecs.end() && !it->second->isConstant()) {
@@ -183,7 +169,7 @@ template <typename T>
 class SelectiveFlatMapAsStructReader : public SelectiveStructColumnReaderBase {
  public:
   SelectiveFlatMapAsStructReader(
-      const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
+      const TypePtr& requestedType,
       const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
       DwrfParams& params,
       common::ScanSpec& scanSpec)
@@ -212,7 +198,7 @@ template <typename T>
 class SelectiveFlatMapReader : public SelectiveStructColumnReaderBase {
  public:
   SelectiveFlatMapReader(
-      const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
+      const TypePtr& requestedType,
       const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
       DwrfParams& params,
       common::ScanSpec& scanSpec)
@@ -241,7 +227,7 @@ class SelectiveFlatMapReader : public SelectiveStructColumnReaderBase {
 
 template <typename T>
 std::unique_ptr<dwio::common::SelectiveColumnReader> createReader(
-    const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
+    const TypePtr& requestedType,
     const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
     DwrfParams& params,
     common::ScanSpec& scanSpec) {
@@ -258,7 +244,7 @@ std::unique_ptr<dwio::common::SelectiveColumnReader> createReader(
 
 std::unique_ptr<dwio::common::SelectiveColumnReader>
 createSelectiveFlatMapColumnReader(
-    const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
+    const TypePtr& requestedType,
     const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
     DwrfParams& params,
     common::ScanSpec& scanSpec) {

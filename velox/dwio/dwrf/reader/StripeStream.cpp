@@ -17,7 +17,6 @@
 #include <folly/ScopeGuard.h>
 #include <folly/container/F14Set.h>
 
-#include "velox/common/base/BitSet.h"
 #include "velox/dwio/common/exception/Exception.h"
 #include "velox/dwio/dwrf/common/DecoderUtil.h"
 #include "velox/dwio/dwrf/common/wrap/coded-stream-wrapper.h"
@@ -33,9 +32,9 @@ namespace {
 template <typename IsProjected>
 void findProjectedNodes(
     BitSet& projectedNodes,
-    const TypeWithId& expected,
-    const TypeWithId& actual,
-    IsProjected isProjected) {
+    const dwio::common::TypeWithId& expected,
+    const dwio::common::TypeWithId& actual,
+    IsProjected&& isProjected) {
   // we don't need to perform schema compatibility check since reader should
   // have already done that before reaching here.
   // if a leaf node is projected, all the intermediate node from root to the
@@ -53,7 +52,7 @@ void findProjectedNodes(
             projectedNodes,
             *expected.childAt(i),
             *actual.childAt(i),
-            isProjected);
+            std::forward<IsProjected>(isProjected));
       }
       break;
     }
@@ -62,19 +61,19 @@ void findProjectedNodes(
           projectedNodes,
           *expected.childAt(0),
           *actual.childAt(0),
-          isProjected);
+          std::forward<IsProjected>(isProjected));
       break;
     case TypeKind::MAP: {
       findProjectedNodes(
           projectedNodes,
           *expected.childAt(0),
           *actual.childAt(0),
-          isProjected);
+          std::forward<IsProjected>(isProjected));
       findProjectedNodes(
           projectedNodes,
           *expected.childAt(1),
           *actual.childAt(1),
-          isProjected);
+          std::forward<IsProjected>(isProjected));
       break;
     }
     default:
@@ -148,24 +147,29 @@ StripeStreamsBase::getIntDictionaryInitializerForNode(
 void StripeStreamsImpl::loadStreams() {
   auto& stripeFooter = *readState_->stripeMetadata->footer;
 
-  // HACK!!!
-  // Column selector filters based on requested schema (ie, table schema), while
-  // we need filter based on file schema. As a result we cannot call
-  // shouldReadNode directly. Instead, build projected nodes set based on node
-  // id from file schema. Column selector should really be fixed to handle file
-  // schema properly
-  BitSet projectedNodes(0);
-  auto expected = selector_.getSchemaWithId();
-  auto actual = readState_->readerBase->getSchemaWithId();
-  findProjectedNodes(projectedNodes, *expected, *actual, [&](uint32_t node) {
-    return selector_.shouldReadNode(node);
-  });
+  if (selector_) {
+    // HACK!!!
+    //
+    // Column selector filters based on requested schema (ie, table schema),
+    // while we need filter based on file schema. As a result we cannot call
+    // shouldReadNode directly. Instead, build projected nodes set based on node
+    // id from file schema. Column selector should really be fixed to handle
+    // file schema properly.
+    VELOX_CHECK_NULL(projectedNodes_);
+    projectedNodes_ = std::make_shared<BitSet>(0);
+    auto expected = selector_->getSchemaWithId();
+    auto actual = readState_->readerBase->getSchemaWithId();
+    findProjectedNodes(
+        *projectedNodes_, *expected, *actual, [&](uint32_t node) {
+          return selector_->shouldReadNode(node);
+        });
+  }
 
   auto addStream = [&](auto& stream, auto& offset) {
     if (stream.has_offset()) {
       offset = stream.offset();
     }
-    if (projectedNodes.contains(stream.node())) {
+    if (projectedNodes_->contains(stream.node())) {
       streams_[stream] = {offset, stream};
     }
     offset += stream.length();
@@ -180,7 +184,7 @@ void StripeStreamsImpl::loadStreams() {
   for (uint32_t i = 0; i < stripeFooter.encoding_size(); ++i) {
     auto& e = stripeFooter.encoding(i);
     auto node = e.has_node() ? e.node() : i;
-    if (projectedNodes.contains(node)) {
+    if (projectedNodes_->contains(node)) {
       encodings_[{node, e.has_sequence() ? e.sequence() : 0}] = i;
     }
   }
@@ -193,7 +197,10 @@ void StripeStreamsImpl::loadStreams() {
         stripeFooter.encryptiongroups_size());
     folly::F14FastSet<uint32_t> groupIndices;
     bits::forEachSetBit(
-        projectedNodes.bits(), 0, projectedNodes.max() + 1, [&](uint32_t node) {
+        projectedNodes_->bits(),
+        0,
+        projectedNodes_->max() + 1,
+        [&](uint32_t node) {
           if (handler.isEncrypted(node)) {
             groupIndices.insert(handler.getEncryptionGroupIndex(node));
           }
@@ -214,7 +221,7 @@ void StripeStreamsImpl::loadStreams() {
       for (auto& encoding : groupProto->encoding()) {
         DWIO_ENSURE(encoding.has_node(), "node is required");
         auto node = encoding.node();
-        if (projectedNodes.contains(node)) {
+        if (projectedNodes_->contains(node)) {
           decryptedEncodings_[{
               node, encoding.has_sequence() ? encoding.sequence() : 0}] =
               encoding;

@@ -68,22 +68,6 @@ class ReaderOptions {
         autoPreloadLength_(DEFAULT_AUTO_PRELOAD_SIZE),
         prefetchMode_(PrefetchMode::PREFETCH) {}
 
-  ReaderOptions& operator=(const ReaderOptions& other) {
-    memoryPool_ = other.memoryPool_;
-    autoPreloadLength_ = other.autoPreloadLength_;
-    prefetchMode_ = other.prefetchMode_;
-    maxCoalesceDistance_ = other.maxCoalesceDistance_;
-    maxCoalesceBytes_ = other.maxCoalesceBytes_;
-    prefetchRowGroups_ = other.prefetchRowGroups_;
-    loadQuantum_ = other.loadQuantum_;
-    noCacheRetention_ = other.noCacheRetention_;
-    return *this;
-  }
-
-  ReaderOptions(const ReaderOptions& other) {
-    *this = other;
-  }
-
   /// Sets the memory pool for allocation.
   ReaderOptions& setMemoryPool(velox::memory::MemoryPool& pool) {
     memoryPool_ = &pool;

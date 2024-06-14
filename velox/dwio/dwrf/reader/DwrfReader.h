@@ -146,6 +146,8 @@ class DwrfRowReader : public StrideIndexProvider,
   // column selector
   std::shared_ptr<dwio::common::ColumnSelector> columnSelector_;
 
+  std::shared_ptr<BitSet> projectedNodes_;
+
   const uint64_t* stridesToSkip_;
   int stridesToSkipSize_;
   // Record of strides to skip in each visited stripe. Used for diagnostics.
@@ -167,13 +169,18 @@ class DwrfRowReader : public StrideIndexProvider,
 
   // internal methods
 
+  bool shouldReadNode(uint32_t nodeId) const;
+
   std::optional<size_t> estimatedRowSizeHelper(
       const FooterWrapper& fileFooter,
       const dwio::common::Statistics& stats,
       uint32_t nodeId) const;
 
   std::shared_ptr<const RowType> getType() const {
-    return columnSelector_->getSchema();
+    if (columnSelector_) {
+      return columnSelector_->getSchema();
+    }
+    return options_.requestedType();
   }
 
   bool isEmptyFile() const {
