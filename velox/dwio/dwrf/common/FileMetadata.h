@@ -336,6 +336,334 @@ class UserMetadataItemWrapper : public ProtoWrapperBase {
   }
 };
 
+class IntegerStatisticsWrapper : public ProtoWrapperBase {
+ public:
+  explicit IntegerStatisticsWrapper(
+      const proto::IntegerStatistics* intStatistics)
+      : ProtoWrapperBase(DwrfFormat::kDwrf, intStatistics) {}
+
+  explicit IntegerStatisticsWrapper(
+      const proto::orc::IntegerStatistics* intStatistics)
+      : ProtoWrapperBase(DwrfFormat::kOrc, intStatistics) {}
+
+  bool hasMinimum() const {
+    return format_ == DwrfFormat::kDwrf ? dwrfPtr()->has_minimum()
+                                        : orcPtr()->has_minimum();
+  }
+
+  int64_t minimum() const {
+    return format_ == DwrfFormat::kDwrf ? dwrfPtr()->minimum()
+                                        : orcPtr()->minimum();
+  }
+
+  bool hasMaximum() const {
+    return format_ == DwrfFormat::kDwrf ? dwrfPtr()->has_maximum()
+                                        : orcPtr()->has_maximum();
+  }
+
+  int64_t maximum() const {
+    return format_ == DwrfFormat::kDwrf ? dwrfPtr()->maximum()
+                                        : orcPtr()->maximum();
+  }
+
+  bool hasSum() const {
+    return format_ == DwrfFormat::kDwrf ? dwrfPtr()->has_sum()
+                                        : orcPtr()->has_sum();
+  }
+
+  int64_t sum() const {
+    return format_ == DwrfFormat::kDwrf ? dwrfPtr()->sum() : orcPtr()->sum();
+  }
+
+ private:
+  // private helper with no format checking
+  inline const proto::IntegerStatistics* dwrfPtr() const {
+    return reinterpret_cast<const proto::IntegerStatistics*>(rawProtoPtr());
+  }
+  inline const proto::orc::IntegerStatistics* orcPtr() const {
+    return reinterpret_cast<const proto::orc::IntegerStatistics*>(
+        rawProtoPtr());
+  }
+};
+
+class DoubleStatisticsWrapper : public ProtoWrapperBase {
+ public:
+  explicit DoubleStatisticsWrapper(
+      const proto::DoubleStatistics* doubleStatistics)
+      : ProtoWrapperBase(DwrfFormat::kDwrf, doubleStatistics) {}
+
+  explicit DoubleStatisticsWrapper(
+      const proto::orc::DoubleStatistics* doubleStatistics)
+      : ProtoWrapperBase(DwrfFormat::kOrc, doubleStatistics) {}
+
+  bool hasMinimum() const {
+    return format_ == DwrfFormat::kDwrf ? dwrfPtr()->has_minimum()
+                                        : orcPtr()->has_minimum();
+  }
+
+  double minimum() const {
+    return format_ == DwrfFormat::kDwrf ? dwrfPtr()->minimum()
+                                        : orcPtr()->minimum();
+  }
+
+  bool hasMaximum() const {
+    return format_ == DwrfFormat::kDwrf ? dwrfPtr()->has_maximum()
+                                        : orcPtr()->has_maximum();
+  }
+
+  double maximum() const {
+    return format_ == DwrfFormat::kDwrf ? dwrfPtr()->maximum()
+                                        : orcPtr()->maximum();
+  }
+
+  bool hasSum() const {
+    return format_ == DwrfFormat::kDwrf ? dwrfPtr()->has_sum()
+                                        : orcPtr()->has_sum();
+  }
+
+  double sum() const {
+    return format_ == DwrfFormat::kDwrf ? dwrfPtr()->sum() : orcPtr()->sum();
+  }
+
+ private:
+  // private helper with no format checking
+  inline const proto::DoubleStatistics* dwrfPtr() const {
+    return reinterpret_cast<const proto::DoubleStatistics*>(rawProtoPtr());
+  }
+  inline const proto::orc::DoubleStatistics* orcPtr() const {
+    return reinterpret_cast<const proto::orc::DoubleStatistics*>(rawProtoPtr());
+  }
+};
+
+class StringStatisticsWrapper : public ProtoWrapperBase {
+ public:
+  explicit StringStatisticsWrapper(
+      const proto::StringStatistics* stringStatistics)
+      : ProtoWrapperBase(DwrfFormat::kDwrf, stringStatistics) {}
+
+  explicit StringStatisticsWrapper(
+      const proto::orc::StringStatistics* stringStatistics)
+      : ProtoWrapperBase(DwrfFormat::kOrc, stringStatistics) {}
+
+  bool hasMinimum() const {
+    return format_ == DwrfFormat::kDwrf ? dwrfPtr()->has_minimum()
+                                        : orcPtr()->has_minimum();
+  }
+
+  const std::string& minimum() const {
+    return format_ == DwrfFormat::kDwrf ? dwrfPtr()->minimum()
+                                        : orcPtr()->minimum();
+  }
+
+  bool hasMaximum() const {
+    return format_ == DwrfFormat::kDwrf ? dwrfPtr()->has_maximum()
+                                        : orcPtr()->has_maximum();
+  }
+
+  const std::string& maximum() const {
+    return format_ == DwrfFormat::kDwrf ? dwrfPtr()->maximum()
+                                        : orcPtr()->maximum();
+  }
+
+  bool hasSum() const {
+    return format_ == DwrfFormat::kDwrf ? dwrfPtr()->has_sum()
+                                        : orcPtr()->has_sum();
+  }
+
+  int64_t sum() const {
+    return format_ == DwrfFormat::kDwrf ? dwrfPtr()->sum() : orcPtr()->sum();
+  }
+
+ private:
+  // private helper with no format checking
+  inline const proto::StringStatistics* dwrfPtr() const {
+    return reinterpret_cast<const proto::StringStatistics*>(rawProtoPtr());
+  }
+  inline const proto::orc::StringStatistics* orcPtr() const {
+    return reinterpret_cast<const proto::orc::StringStatistics*>(rawProtoPtr());
+  }
+};
+
+class BucketStatisticsWrapper : public ProtoWrapperBase {
+ public:
+  explicit BucketStatisticsWrapper(
+      const proto::BucketStatistics* bucketStatistics)
+      : ProtoWrapperBase(DwrfFormat::kDwrf, bucketStatistics) {}
+
+  explicit BucketStatisticsWrapper(
+      const proto::orc::BucketStatistics* bucketStatistics)
+      : ProtoWrapperBase(DwrfFormat::kOrc, bucketStatistics) {}
+
+  int countSize() const {
+    return format_ == DwrfFormat::kDwrf ? dwrfPtr()->count_size()
+                                        : orcPtr()->count_size();
+  }
+
+  uint64_t count(int index) const {
+    return format_ == DwrfFormat::kDwrf ? dwrfPtr()->count(index)
+                                        : orcPtr()->count(index);
+  }
+
+ private:
+  // private helper with no format checking
+  inline const proto::BucketStatistics* dwrfPtr() const {
+    return reinterpret_cast<const proto::BucketStatistics*>(rawProtoPtr());
+  }
+  inline const proto::orc::BucketStatistics* orcPtr() const {
+    return reinterpret_cast<const proto::orc::BucketStatistics*>(rawProtoPtr());
+  }
+};
+
+class BinaryStatisticsWrapper : public ProtoWrapperBase {
+ public:
+  explicit BinaryStatisticsWrapper(
+      const proto::BinaryStatistics* binaryStatistics)
+      : ProtoWrapperBase(DwrfFormat::kDwrf, binaryStatistics) {}
+
+  explicit BinaryStatisticsWrapper(
+      const proto::orc::BinaryStatistics* binaryStatistics)
+      : ProtoWrapperBase(DwrfFormat::kOrc, binaryStatistics) {}
+
+  bool hasSum() const {
+    return format_ == DwrfFormat::kDwrf ? dwrfPtr()->has_sum()
+                                        : orcPtr()->has_sum();
+  }
+
+  int64_t sum() const {
+    return format_ == DwrfFormat::kDwrf ? dwrfPtr()->sum() : orcPtr()->sum();
+  }
+
+ private:
+  // private helper with no format checking
+  inline const proto::BinaryStatistics* dwrfPtr() const {
+    return reinterpret_cast<const proto::BinaryStatistics*>(rawProtoPtr());
+  }
+  inline const proto::orc::BinaryStatistics* orcPtr() const {
+    return reinterpret_cast<const proto::orc::BinaryStatistics*>(rawProtoPtr());
+  }
+};
+
+class ColumnStatisticsWrapper : public ProtoWrapperBase {
+ public:
+  explicit ColumnStatisticsWrapper(
+      const proto::ColumnStatistics* columnStatistics)
+      : ProtoWrapperBase(DwrfFormat::kDwrf, columnStatistics) {}
+
+  explicit ColumnStatisticsWrapper(
+      const proto::orc::ColumnStatistics* columnStatistics)
+      : ProtoWrapperBase(DwrfFormat::kOrc, columnStatistics) {}
+
+  bool hasNumberOfValues() const {
+    return format_ == DwrfFormat::kDwrf ? dwrfPtr()->has_numberofvalues()
+                                        : orcPtr()->has_numberofvalues();
+  }
+
+  uint64_t numberOfValues() const {
+    return format_ == DwrfFormat::kDwrf ? dwrfPtr()->numberofvalues()
+                                        : orcPtr()->numberofvalues();
+  }
+
+  bool hasHasNull() const {
+    return format_ == DwrfFormat::kDwrf ? dwrfPtr()->has_hasnull()
+                                        : orcPtr()->has_hasnull();
+  }
+
+  bool hasNull() const {
+    return format_ == DwrfFormat::kDwrf ? dwrfPtr()->hasnull()
+                                        : orcPtr()->hasnull();
+  }
+
+  bool hasRawSize() const {
+    return format_ == DwrfFormat::kDwrf ? dwrfPtr()->has_rawsize() : false;
+  }
+
+  uint64_t rawSize() const {
+    return format_ == DwrfFormat::kDwrf ? dwrfPtr()->rawsize() : 0;
+  }
+
+  bool hasSize() const {
+    return format_ == DwrfFormat::kDwrf ? dwrfPtr()->has_size() : false;
+  }
+
+  uint64_t size() const {
+    return format_ == DwrfFormat::kDwrf ? dwrfPtr()->size() : 0;
+  }
+
+  bool hasIntStatistics() const {
+    return format_ == DwrfFormat::kDwrf ? dwrfPtr()->has_intstatistics()
+                                        : orcPtr()->has_intstatistics();
+  }
+
+  IntegerStatisticsWrapper intStatistics() const {
+    return format_ == DwrfFormat::kDwrf
+        ? IntegerStatisticsWrapper(&dwrfPtr()->intstatistics())
+        : IntegerStatisticsWrapper(&orcPtr()->intstatistics());
+  }
+
+  bool hasDoubleStatistics() const {
+    return format_ == DwrfFormat::kDwrf ? dwrfPtr()->has_doublestatistics()
+                                        : orcPtr()->has_doublestatistics();
+  }
+
+  DoubleStatisticsWrapper doubleStatistics() const {
+    return format_ == DwrfFormat::kDwrf
+        ? DoubleStatisticsWrapper(&dwrfPtr()->doublestatistics())
+        : DoubleStatisticsWrapper(&orcPtr()->doublestatistics());
+  }
+
+  bool hasStringStatistics() const {
+    return format_ == DwrfFormat::kDwrf ? dwrfPtr()->has_stringstatistics()
+                                        : orcPtr()->has_stringstatistics();
+  }
+
+  StringStatisticsWrapper stringStatistics() const {
+    return format_ == DwrfFormat::kDwrf
+        ? StringStatisticsWrapper(&dwrfPtr()->stringstatistics())
+        : StringStatisticsWrapper(&orcPtr()->stringstatistics());
+  }
+
+  bool hasBucketStatistics() const {
+    return format_ == DwrfFormat::kDwrf ? dwrfPtr()->has_bucketstatistics()
+                                        : orcPtr()->has_bucketstatistics();
+  }
+
+  BucketStatisticsWrapper bucketStatistics() const {
+    return format_ == DwrfFormat::kDwrf
+        ? BucketStatisticsWrapper(&dwrfPtr()->bucketstatistics())
+        : BucketStatisticsWrapper(&orcPtr()->bucketstatistics());
+  }
+
+  bool hasBinaryStatistics() const {
+    return format_ == DwrfFormat::kDwrf ? dwrfPtr()->has_binarystatistics()
+                                        : orcPtr()->has_binarystatistics();
+  }
+
+  BinaryStatisticsWrapper binaryStatistics() const {
+    return format_ == DwrfFormat::kDwrf
+        ? BinaryStatisticsWrapper(&dwrfPtr()->binarystatistics())
+        : BinaryStatisticsWrapper(&orcPtr()->binarystatistics());
+  }
+
+  bool hasMapStatistics() const {
+    return format_ == DwrfFormat::kDwrf ? dwrfPtr()->has_mapstatistics()
+                                        : false;
+  }
+
+  const ::facebook::velox::dwrf::proto::MapStatistics& mapStatistics() const {
+    VELOX_CHECK_EQ(format_, DwrfFormat::kDwrf);
+    return dwrfPtr()->mapstatistics();
+  }
+
+ private:
+  // private helper with no format checking
+  inline const proto::ColumnStatistics* dwrfPtr() const {
+    return reinterpret_cast<const proto::ColumnStatistics*>(rawProtoPtr());
+  }
+  inline const proto::orc::ColumnStatistics* orcPtr() const {
+    return reinterpret_cast<const proto::orc::ColumnStatistics*>(rawProtoPtr());
+  }
+};
+
 class FooterWrapper : public ProtoWrapperBase {
  public:
   explicit FooterWrapper(const proto::Footer* footer)
@@ -424,9 +752,9 @@ class FooterWrapper : public ProtoWrapperBase {
     return dwrfPtr()->stripecacheoffsets();
   }
 
-  // TODO: ORC has not supported column statistics yet
   int statisticsSize() const {
-    return format_ == DwrfFormat::kDwrf ? dwrfPtr()->statistics_size() : 0;
+    return format_ == DwrfFormat::kDwrf ? dwrfPtr()->statistics_size()
+                                        : orcPtr()->statistics_size();
   }
 
   const ::google::protobuf::RepeatedPtrField<
@@ -436,10 +764,16 @@ class FooterWrapper : public ProtoWrapperBase {
     return dwrfPtr()->statistics();
   }
 
-  const ::facebook::velox::dwrf::proto::ColumnStatistics& statistics(
+  const ::facebook::velox::dwrf::proto::ColumnStatistics& dwrfStatistics(
       int index) const {
     VELOX_CHECK_EQ(format_, DwrfFormat::kDwrf);
     return dwrfPtr()->statistics(index);
+  }
+
+  ColumnStatisticsWrapper statistics(int index) const {
+    return format_ == DwrfFormat::kDwrf
+        ? ColumnStatisticsWrapper(&dwrfPtr()->statistics(index))
+        : ColumnStatisticsWrapper(&orcPtr()->statistics(index));
   }
 
   // TODO: ORC has not supported encryption yet

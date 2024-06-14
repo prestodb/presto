@@ -61,7 +61,8 @@ FooterStatisticsImpl::FooterStatisticsImpl(
         for (uint32_t statsIndex = 0; statsIndex < stats->statistics_size();
              ++statsIndex) {
           colStats_[node + statsIndex] = buildColumnStatisticsFromProto(
-              stats->statistics(statsIndex), statsContext);
+              ColumnStatisticsWrapper(&stats->statistics(statsIndex)),
+              statsContext);
         }
       }
     }
@@ -248,7 +249,7 @@ std::unique_ptr<ColumnStatistics> ReaderBase::getColumnStatistics(
       "column index out of range");
   StatsContext statsContext(getWriterVersion());
   if (!handler_->isEncrypted(index)) {
-    auto& stats = footer_->statistics(index);
+    auto stats = footer_->statistics(index);
     return buildColumnStatisticsFromProto(stats, statsContext);
   }
 
@@ -259,7 +260,7 @@ std::unique_ptr<ColumnStatistics> ReaderBase::getColumnStatistics(
 
   // if key is not loaded, return plaintext stats
   if (!decrypter.isKeyLoaded()) {
-    auto& stats = footer_->statistics(index);
+    auto stats = footer_->statistics(index);
     return buildColumnStatisticsFromProto(stats, statsContext);
   }
 
@@ -275,7 +276,7 @@ std::unique_ptr<ColumnStatistics> ReaderBase::getColumnStatistics(
   auto stats = readProtoFromString<proto::FileStatistics>(
       group.statistics(nodeIndex), &decrypter);
   return buildColumnStatisticsFromProto(
-      stats->statistics(index - root), statsContext);
+      ColumnStatisticsWrapper(&stats->statistics(index - root)), statsContext);
 }
 
 std::shared_ptr<const Type> ReaderBase::convertType(

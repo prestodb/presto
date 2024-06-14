@@ -18,6 +18,7 @@
 
 #include "velox/dwio/common/Statistics.h"
 #include "velox/dwio/dwrf/common/Common.h"
+#include "velox/dwio/dwrf/common/FileMetadata.h"
 #include "velox/dwio/dwrf/common/wrap/dwrf-proto-wrapper.h"
 
 namespace facebook::velox::dwrf {
@@ -39,7 +40,7 @@ struct StatsContext : public dwio::common::StatsContext {
 };
 
 std::unique_ptr<dwio::common::ColumnStatistics> buildColumnStatisticsFromProto(
-    const proto::ColumnStatistics& stats,
+    const ColumnStatisticsWrapper& stats,
     const StatsContext& statsContext);
 
 } // namespace facebook::velox::dwrf

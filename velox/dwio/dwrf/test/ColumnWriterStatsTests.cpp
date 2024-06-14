@@ -127,7 +127,7 @@ void verifyStats(
 
     for (auto count = 0; count < rowIndex->entry_size(); count++) {
       auto stridStatistics = buildColumnStatisticsFromProto(
-          rowIndex->entry(count).statistics(),
+          ColumnStatisticsWrapper(&rowIndex->entry(count).statistics()),
           dwrf::StatsContext(WriterVersion_CURRENT));
       // TODO, take in a lambda to verify the entire statistics instead of Just
       // the rawSize.

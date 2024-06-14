@@ -229,10 +229,10 @@ class E2EWriterTest : public testing::Test {
         }
       }
       auto stats = reader->getFooter().statistics(mapTypeId);
-      ASSERT_TRUE(stats.has_mapstatistics());
-      ASSERT_EQ(featureStreamSizes.size(), stats.mapstatistics().stats_size());
-      for (size_t i = 0; i != stats.mapstatistics().stats_size(); ++i) {
-        const auto& entry = stats.mapstatistics().stats(i);
+      ASSERT_TRUE(stats.hasMapStatistics());
+      ASSERT_EQ(featureStreamSizes.size(), stats.mapStatistics().stats_size());
+      for (size_t i = 0; i != stats.mapStatistics().stats_size(); ++i) {
+        const auto& entry = stats.mapStatistics().stats(i);
         ASSERT_TRUE(entry.stats().has_size());
         EXPECT_EQ(
             featureStreamSizes.at(dwrf::constructKey(entry.key())),

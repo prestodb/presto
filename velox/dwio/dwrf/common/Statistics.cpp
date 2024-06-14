@@ -21,74 +21,75 @@ namespace facebook::velox::dwrf {
 using namespace dwio::common;
 
 std::unique_ptr<ColumnStatistics> buildColumnStatisticsFromProto(
-    const proto::ColumnStatistics& s,
+    const ColumnStatisticsWrapper& stats,
     const StatsContext& statsContext) {
   ColumnStatistics colStats(
-      s.has_numberofvalues() ? std::optional(s.numberofvalues()) : std::nullopt,
-      s.has_hasnull() ? std::optional(s.hasnull()) : std::nullopt,
-      s.has_rawsize() ? std::optional(s.rawsize()) : std::nullopt,
-      s.has_size() ? std::optional(s.size()) : std::nullopt);
+      stats.hasNumberOfValues() ? std::optional(stats.numberOfValues())
+                                : std::nullopt,
+      stats.hasHasNull() ? std::optional(stats.hasNull()) : std::nullopt,
+      stats.hasRawSize() ? std::optional(stats.rawSize()) : std::nullopt,
+      stats.hasSize() ? std::optional(stats.size()) : std::nullopt);
 
   // detailed stats is only defined when has non-null value
-  if (!s.has_numberofvalues() || s.numberofvalues() > 0) {
-    if (s.has_intstatistics()) {
-      const auto& intStats = s.intstatistics();
+  if (!stats.hasNumberOfValues() || stats.numberOfValues() > 0) {
+    if (stats.hasIntStatistics()) {
+      const auto& intStats = stats.intStatistics();
       return std::make_unique<IntegerColumnStatistics>(
           colStats,
-          intStats.has_minimum() ? std::optional(intStats.minimum())
-                                 : std::nullopt,
-          intStats.has_maximum() ? std::optional(intStats.maximum())
-                                 : std::nullopt,
-          intStats.has_sum() ? std::optional(intStats.sum()) : std::nullopt);
-    } else if (s.has_doublestatistics()) {
-      const auto& dStats = s.doublestatistics();
+          intStats.hasMinimum() ? std::optional(intStats.minimum())
+                                : std::nullopt,
+          intStats.hasMaximum() ? std::optional(intStats.maximum())
+                                : std::nullopt,
+          intStats.hasSum() ? std::optional(intStats.sum()) : std::nullopt);
+    } else if (stats.hasDoubleStatistics()) {
+      const auto& dStats = stats.doubleStatistics();
       // Comparing against NaN doesn't make sense, and to prevent downstream
       // from incorrectly using it, need to make sure min/max/sum doens't have
       // NaN.
-      auto hasNan = (dStats.has_minimum() && std::isnan(dStats.minimum())) ||
-          (dStats.has_maximum() && std::isnan(dStats.maximum())) ||
-          (dStats.has_sum() && std::isnan(dStats.sum()));
+      auto hasNan = (dStats.hasMinimum() && std::isnan(dStats.minimum())) ||
+          (dStats.hasMaximum() && std::isnan(dStats.maximum())) ||
+          (dStats.hasSum() && std::isnan(dStats.sum()));
       if (!hasNan) {
         return std::make_unique<DoubleColumnStatistics>(
             colStats,
-            dStats.has_minimum() ? std::optional(dStats.minimum())
-                                 : std::nullopt,
-            dStats.has_maximum() ? std::optional(dStats.maximum())
-                                 : std::nullopt,
-            dStats.has_sum() ? std::optional(dStats.sum()) : std::nullopt);
+            dStats.hasMinimum() ? std::optional(dStats.minimum())
+                                : std::nullopt,
+            dStats.hasMaximum() ? std::optional(dStats.maximum())
+                                : std::nullopt,
+            dStats.hasSum() ? std::optional(dStats.sum()) : std::nullopt);
       }
-    } else if (s.has_stringstatistics()) {
+    } else if (stats.hasStringStatistics()) {
       // DWRF_5_0 is the first version that string stats are saved as UTF8
       // bytes, hence only process string stats for version >= DWRF_5_0
       if (statsContext.writerVersion >= WriterVersion::DWRF_5_0 ||
           statsContext.writerName == kPrestoWriter ||
           statsContext.writerName == kDwioWriter) {
-        const auto& strStats = s.stringstatistics();
+        const auto& strStats = stats.stringStatistics();
         return std::make_unique<StringColumnStatistics>(
             colStats,
-            strStats.has_minimum() ? std::optional(strStats.minimum())
-                                   : std::nullopt,
-            strStats.has_maximum() ? std::optional(strStats.maximum())
-                                   : std::nullopt,
+            strStats.hasMinimum() ? std::optional(strStats.minimum())
+                                  : std::nullopt,
+            strStats.hasMaximum() ? std::optional(strStats.maximum())
+                                  : std::nullopt,
             // In proto, length(sum) is defined as sint. We need to make sure
             // length is not negative
-            (strStats.has_sum() && strStats.sum() >= 0)
+            (strStats.hasSum() && strStats.sum() >= 0)
                 ? std::optional(strStats.sum())
                 : std::nullopt);
       }
-    } else if (s.has_bucketstatistics()) {
-      const auto& bucketStats = s.bucketstatistics();
+    } else if (stats.hasBucketStatistics()) {
+      const auto& bucketStats = stats.bucketStatistics();
       // Need to make sure there is at least one bucket. True count is saved in
       // bucket 0
-      if (bucketStats.count_size() > 0) {
+      if (bucketStats.countSize() > 0) {
         return std::make_unique<BooleanColumnStatistics>(
             colStats, bucketStats.count(0));
       }
-    } else if (s.has_binarystatistics()) {
-      const auto& binStats = s.binarystatistics();
+    } else if (stats.hasBinaryStatistics()) {
+      const auto& binStats = stats.binaryStatistics();
       // In proto, length(sum) is defined as sint. We need to make sure length
       // is not negative
-      if (binStats.has_sum() && binStats.sum() >= 0) {
+      if (binStats.hasSum() && binStats.sum() >= 0) {
         return std::make_unique<BinaryColumnStatistics>(
             colStats, static_cast<uint64_t>(binStats.sum()));
       }

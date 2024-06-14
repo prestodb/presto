@@ -115,7 +115,8 @@ std::unique_ptr<dwio::common::ColumnStatistics> StatisticsBuilder::build()
   proto::ColumnStatistics stats;
   toProto(stats);
   StatsContext context{WriterVersion_CURRENT};
-  return buildColumnStatisticsFromProto(stats, context);
+  return buildColumnStatisticsFromProto(
+      ColumnStatisticsWrapper(&stats), context);
 }
 
 std::unique_ptr<StatisticsBuilder> StatisticsBuilder::create(
