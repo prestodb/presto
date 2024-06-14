@@ -57,6 +57,7 @@ add_executable(
   DateTimeFunctionsTest.cpp
   DecimalArithmeticTest.cpp
   ElementAtTest.cpp
+  FailTest.cpp
   FindFirstTest.cpp
   FromUtf8Test.cpp
   GreatestLeastTest.cpp

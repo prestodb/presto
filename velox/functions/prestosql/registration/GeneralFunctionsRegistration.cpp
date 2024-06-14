@@ -17,13 +17,23 @@
 #include "velox/functions/Registerer.h"
 #include "velox/functions/lib/IsNull.h"
 #include "velox/functions/prestosql/Cardinality.h"
+#include "velox/functions/prestosql/Fail.h"
 #include "velox/functions/prestosql/GreatestLeast.h"
 #include "velox/functions/prestosql/InPredicate.h"
 
 namespace facebook::velox::functions {
 
+namespace {
+
+void registerFailFunction(const std::vector<std::string>& names) {
+  registerFunction<FailFunction, UnknownValue, Varchar>(names);
+  registerFunction<FailFunction, UnknownValue, int32_t, Varchar>(names);
+  registerFunction<FailFromJsonFunction, UnknownValue, Json>(names);
+  registerFunction<FailFromJsonFunction, UnknownValue, int32_t, Json>(names);
+}
+
 template <typename T>
-inline void registerGreatestLeastFunction(const std::string& prefix) {
+void registerGreatestLeastFunction(const std::string& prefix) {
   registerFunction<ParameterBinder<GreatestFunction, T>, T, T, Variadic<T>>(
       {prefix + "greatest"});
 
@@ -31,7 +41,7 @@ inline void registerGreatestLeastFunction(const std::string& prefix) {
       {prefix + "least"});
 }
 
-inline void registerAllGreatestLeastFunctions(const std::string& prefix) {
+void registerAllGreatestLeastFunctions(const std::string& prefix) {
   registerGreatestLeastFunction<bool>(prefix);
   registerGreatestLeastFunction<int8_t>(prefix);
   registerGreatestLeastFunction<int16_t>(prefix);
@@ -45,6 +55,7 @@ inline void registerAllGreatestLeastFunctions(const std::string& prefix) {
   registerGreatestLeastFunction<Date>(prefix);
   registerGreatestLeastFunction<Timestamp>(prefix);
 }
+} // namespace
 
 extern void registerSubscriptFunction(
     const std::string& name,
@@ -81,6 +92,8 @@ void registerGeneralFunctions(const std::string& prefix) {
       {prefix + "cardinality"});
   registerFunction<CardinalityFunction, int64_t, Map<Any, Any>>(
       {prefix + "cardinality"});
+
+  registerFailFunction({prefix + "fail"});
 
   registerAllSpecialFormGeneralFunctions();
 }
