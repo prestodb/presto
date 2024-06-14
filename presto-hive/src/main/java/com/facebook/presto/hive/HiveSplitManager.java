@@ -1004,7 +1004,7 @@ public class HiveSplitManager
     }
 
     /**
-     * Partition the given list in exponentially (power of 2) increasing batch sizes starting at 1 up to maxBatchSize
+     * Partition the given list in exponentially (power of 2) increasing batch sizes starting at minBatchSize up to maxBatchSize
      */
     private static <T> Iterable<List<T>> partitionExponentially(List<T> values, int minBatchSize, int maxBatchSize)
     {
