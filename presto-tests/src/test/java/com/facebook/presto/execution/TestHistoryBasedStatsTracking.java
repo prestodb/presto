@@ -49,6 +49,7 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.SystemSessionProperties.CONFIDENCE_BASED_BROADCAST_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.HISTORY_CANONICAL_PLAN_NODE_LIMIT;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
@@ -491,6 +492,25 @@ public class TestHistoryBasedStatsTracking
                 .withOutputRowCount(1)
                 .withSourceInfo(new CostBasedSourceInfo(FACT))
                 .withConfidenceLevel(FACT));
+    }
+
+    @Test
+    public void testBroadcastHighConfidence()
+    {
+        Session broadcastSession = Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "AUTOMATIC")
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, "NONE")
+                .setSystemProperty(CONFIDENCE_BASED_BROADCAST_ENABLED, "TRUE")
+                .setSystemProperty("prefer_partial_aggregation", "false")
+                .build();
+        String sql = "SELECT COUNT(*) FROM lineitem l JOIN supplier s ON l.suppkey = s.suppkey";
+
+        executeAndTrackHistory(sql, broadcastSession);
+        assertPlan(
+                broadcastSession,
+                sql,
+                anyTree(
+                        node(AggregationNode.class, anyTree(any())).withOutputRowCount(1).withConfidenceLevel(FACT)));
     }
 
     private void executeAndTrackHistory(String sql)
