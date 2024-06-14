@@ -15,6 +15,8 @@
  */
 
 #include "velox/connectors/Connector.h"
+#include "velox/common/base/tests/GTestUtils.h"
+
 #include <gtest/gtest.h>
 
 namespace facebook::velox::connector {
@@ -47,13 +49,33 @@ class TestConnector : public connector::Connector {
   }
 };
 
+class TestConnectorFactory : public connector::ConnectorFactory {
+ public:
+  static constexpr const char* kConnectorFactoryName = "test-factory";
+
+  TestConnectorFactory() : ConnectorFactory(kConnectorFactoryName) {}
+
+  std::shared_ptr<Connector> newConnector(
+      const std::string& id,
+      std::shared_ptr<const Config> /*config*/,
+      folly::Executor* /*executor*/ = nullptr) override {
+    return std::make_shared<TestConnector>(id);
+  }
+};
+
 } // namespace
 
 TEST_F(ConnectorTest, getAllConnectors) {
+  registerConnectorFactory(std::make_shared<TestConnectorFactory>());
+  VELOX_ASSERT_THROW(
+      registerConnectorFactory(std::make_shared<TestConnectorFactory>()),
+      "ConnectorFactory with name 'test-factory' is already registered");
+  EXPECT_TRUE(hasConnectorFactory(TestConnectorFactory::kConnectorFactoryName));
   const int32_t numConnectors = 10;
   for (int32_t i = 0; i < numConnectors; i++) {
     registerConnector(
-        std::make_shared<TestConnector>(fmt::format("connector-{}", i)));
+        getConnectorFactory(TestConnectorFactory::kConnectorFactoryName)
+            ->newConnector(fmt::format("connector-{}", i), {}));
   }
   const auto& connectors = getAllConnectors();
   EXPECT_EQ(connectors.size(), numConnectors);
@@ -64,5 +86,9 @@ TEST_F(ConnectorTest, getAllConnectors) {
     unregisterConnector(fmt::format("connector-{}", i));
   }
   EXPECT_EQ(getAllConnectors().size(), 0);
+  EXPECT_TRUE(
+      unregisterConnectorFactory(TestConnectorFactory::kConnectorFactoryName));
+  EXPECT_FALSE(
+      unregisterConnectorFactory(TestConnectorFactory::kConnectorFactoryName));
 }
 } // namespace facebook::velox::connector
