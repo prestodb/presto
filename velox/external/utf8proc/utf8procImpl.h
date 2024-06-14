@@ -635,7 +635,7 @@ UTF8PROC_DLLEXPORT utf8proc_ssize_t utf8proc_decompose_custom(
       }
       decomp_result = utf8proc_decompose_char(
           uc,
-          buffer + wpos,
+          buffer ? buffer + wpos : buffer,
           (bufsize > wpos) ? (bufsize - wpos) : 0,
           options,
           &boundclass);

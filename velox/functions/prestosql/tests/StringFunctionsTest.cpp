@@ -1947,3 +1947,57 @@ TEST_F(StringFunctionsTest, hammingDistance) {
       hammingDistance("\xFF\x82\xFF", "\xF0\x82"),
       "The input strings to hamming_distance function must have the same length");
 }
+
+TEST_F(StringFunctionsTest, normalize) {
+  const auto normalizeWithoutForm = [&](std::optional<std::string> string) {
+    return evaluateOnce<std::string>("normalize(c0)", string);
+  };
+
+  const auto normalizeWithForm = [&](std::optional<std::string> string,
+                                     const std::string& form) {
+    return evaluateOnce<std::string>(
+        fmt::format("normalize(c0, '{}')", form), string);
+  };
+
+  EXPECT_EQ(normalizeWithoutForm(std::nullopt), std::nullopt);
+  EXPECT_EQ(normalizeWithoutForm(""), "");
+  EXPECT_EQ(normalizeWithoutForm("sch\u00f6n"), "sch\u00f6n");
+  EXPECT_EQ(normalizeWithForm(std::nullopt, "NFD"), std::nullopt);
+  EXPECT_EQ(normalizeWithForm("", "NFKC"), "");
+  EXPECT_EQ(
+      normalizeWithForm(
+          (normalizeWithForm("sch\u00f6n", "NFD"), "scho\u0308n"), "NFC"),
+      "sch\u00f6n");
+  EXPECT_EQ(
+      normalizeWithForm(
+          (normalizeWithForm("sch\u00f6n", "NFKD"), "scho\u0308n"), "NFKC"),
+      "sch\u00f6n");
+  EXPECT_EQ(
+      normalizeWithForm("Hello world from Velox!!", "NFKC"),
+      "Hello world from Velox!!");
+
+  std::string testStringOne =
+      "\u3231\u3327\u3326\u2162\u3231\u3327\u3326\u2162\u3231\u3327\u3326\u2162";
+  std::string testStringTwo =
+      "(\u682a)\u30c8\u30f3\u30c9\u30ebIII(\u682a)\u30c8\u30f3\u30c9\u30ebIII(\u682a)\u30c8\u30f3\u30c9\u30ebIII";
+  EXPECT_EQ(normalizeWithForm(testStringOne, "NFKC"), testStringTwo);
+  EXPECT_EQ(
+      normalizeWithForm((normalizeWithForm(testStringTwo, "NFC")), "NFKC"),
+      testStringTwo);
+
+  std::string testStringThree =
+      "\uff8a\uff9d\uff76\uff78\uff76\uff85\uff8a\uff9d\uff76\uff78\uff76\uff85\uff8a\uff9d\uff76\uff78\uff76\uff85\uff8a\uff9d\uff76\uff78\uff76\uff85";
+  std::string testStringFour =
+      "\u30cf\u30f3\u30ab\u30af\u30ab\u30ca\u30cf\u30f3\u30ab\u30af\u30ab\u30ca\u30cf\u30f3\u30ab\u30af\u30ab\u30ca\u30cf\u30f3\u30ab\u30af\u30ab\u30ca";
+  EXPECT_EQ(normalizeWithForm(testStringThree, "NFKC"), testStringFour);
+  EXPECT_EQ(
+      normalizeWithForm((normalizeWithForm(testStringFour, "NFD")), "NFKC"),
+      testStringFour);
+
+  // Invalid UTF-8 string
+  std::string inValidTestString = "\xEF\xBE\x8";
+  EXPECT_EQ(normalizeWithForm(inValidTestString, "NFKC"), inValidTestString);
+  VELOX_ASSERT_THROW(
+      normalizeWithForm("sch\u00f6n", "NFKE"),
+      "Normalization form must be one of [NFD, NFC, NFKD, NFKC]");
+}

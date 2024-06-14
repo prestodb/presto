@@ -133,6 +133,10 @@ void registerStringFunctions(const std::string& prefix) {
   registerFunction<StrRPosFunction, int64_t, Varchar, Varchar, int64_t>(
       {prefix + "strrpos"});
 
+  registerFunction<NormalizeFunction, Varchar, Varchar>({prefix + "normalize"});
+  registerFunction<NormalizeFunction, Varchar, Varchar, Varchar>(
+      {prefix + "normalize"});
+
   // word_stem function
   registerFunction<WordStemFunction, Varchar, Varchar>({prefix + "word_stem"});
   registerFunction<WordStemFunction, Varchar, Varchar, Varchar>(
