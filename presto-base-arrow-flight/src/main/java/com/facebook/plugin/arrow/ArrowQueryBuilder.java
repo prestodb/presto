@@ -50,7 +50,6 @@ import static java.util.stream.Collectors.joining;
 
 public class ArrowQueryBuilder
 {
-    // not all databases support booleans, so use 1=1 and 1=0 instead
     private static final String ALWAYS_TRUE = "1=1";
     private static final String ALWAYS_FALSE = "1=0";
     private final String quote;
@@ -78,7 +77,6 @@ public class ArrowQueryBuilder
     {
         Type validType = requireNonNull(type, "type is null");
         return validType.equals(BigintType.BIGINT) ||
-//                validType.equals(BLOBType.BLOB) ||
                 validType.equals(TinyintType.TINYINT) ||
                 validType.equals(SmallintType.SMALLINT) ||
                 validType.equals(IntegerType.INTEGER) ||
@@ -89,7 +87,6 @@ public class ArrowQueryBuilder
                 validType.equals(TimeType.TIME) ||
                 validType.equals(TimestampType.TIMESTAMP) ||
                 validType instanceof VarcharType ||
-//                validType instanceof CLOBType ||
                 validType instanceof CharType;
     }
     private List<String> toConjuncts(List<ArrowColumnHandle> columns, TupleDomain<ColumnHandle> tupleDomain, List<TypeAndValue> accumulator)
@@ -97,7 +94,6 @@ public class ArrowQueryBuilder
         ImmutableList.Builder<String> builder = ImmutableList.builder();
         for (ArrowColumnHandle column : columns) {
             Type type = column.getColumnType();
-            //Todo handle tupleDomain null
             if (isAcceptedType(type)) {
                 Domain domain = tupleDomain.getDomains().get().get(column);
                 if (domain != null) {
@@ -123,7 +119,7 @@ public class ArrowQueryBuilder
         List<String> disjuncts = new ArrayList<>();
         List<Object> singleValues = new ArrayList<>();
         for (Range range : domain.getValues().getRanges().getOrderedRanges()) {
-            checkState(!range.isAll()); // Already checked
+            checkState(!range.isAll());
             if (range.isSingleValue()) {
                 singleValues.add(range.getSingleValue());
             }
@@ -135,13 +131,11 @@ public class ArrowQueryBuilder
                 if (!range.isHighUnbounded()) {
                     rangeConjuncts.add(toPredicate(columnName, range.isHighInclusive() ? "<=" : "<", range.getHighBoundedValue(), columnHandle, accumulator));
                 }
-                // If rangeConjuncts is null, then the range was ALL, which should already have been checked for
                 checkState(!rangeConjuncts.isEmpty());
                 disjuncts.add("(" + Joiner.on(" AND ").join(rangeConjuncts) + ")");
             }
         }
 
-        // Add back all of the possible single values either as an equality or an IN predicate
         if (singleValues.size() == 1) {
             disjuncts.add(toPredicate(columnName, "=", getOnlyElement(singleValues), columnHandle, accumulator));
         }
@@ -154,7 +148,6 @@ public class ArrowQueryBuilder
             disjuncts.add(quote(columnName) + " IN (" + values + ")");
         }
 
-        // Add nullability disjuncts
         checkState(!disjuncts.isEmpty());
         if (domain.isNullAllowed()) {
             disjuncts.add(quote(columnName) + " IS NULL");
@@ -169,7 +162,6 @@ public class ArrowQueryBuilder
         return quote(columnName) + " " + operator + " " + parameterValueToString(columnHandle.getColumnType(), value);
     }
 
-    //TODO check this method required
     private String quote(String name)
     {
         return identifierQuote + name + identifierQuote;
@@ -200,7 +192,6 @@ public class ArrowQueryBuilder
             return value.toString();
         }
         else if (javaType == Slice.class) {
-            // TODO How to write varbinary value in SQL string
             return quoteValue(((Slice) value).toStringUtf8());
         }
         else {
@@ -244,7 +235,6 @@ public class ArrowQueryBuilder
         this.identifierQuote = requireNonNull(identifierQuote, "identifierQuote is null");
     }
 
-    //TODO arrow rename this method
     public String buildSql(
             String schema,
             String table,

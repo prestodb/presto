@@ -15,24 +15,21 @@ package com.facebook.plugin.arrow;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigSecuritySensitive;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class ArrowFlightConfig
 {
-    private String server; // non-static field
-    private String host; // non-static field
-    private String database; // non-static field
-    private String username; // non-static field
-    private String password; // non-static field
-    private String name; // non-static field
-    private Integer port; // non-static field
-    private Boolean ssl; // non-static field
-    private Boolean verifyServer; // non-static field
+    private String server;
+    private String host;
+    private String database;
+    private String username;
+    private String password;
+    private String name;
+    private Integer port;
+    private Boolean ssl;
+    private Boolean verifyServer;
     private String flightServerSSLCertificate;
     private Boolean arrowFlightServerSslEnabled;
     private Integer arrowFlightPort;
-    private static final Logger logger = LoggerFactory.getLogger(ArrowFlightConfig.class);
     public String getFlightServerName()
     { // non-static getter
         return server;
@@ -95,32 +92,28 @@ public class ArrowFlightConfig
 
     @Config("arrow-flight.server")
     public ArrowFlightConfig setFlightServerName(String server)
-    { // non-static setter
-        logger.debug("*CONF* Arrow flight server name is: {}", server);
+    {
         this.server = server;
         return this;
     }
 
     @Config("data-source.host")
     public ArrowFlightConfig setDataSourceHost(String host)
-    { // non-static setter
-        logger.debug("*CONF* HOST value is: {}", host);
+    {
         this.host = host;
         return this;
     }
 
     @Config("data-source.database")
     public ArrowFlightConfig setDataSourceDatabase(String database)
-    { // non-static setter
-        logger.debug("*CONF* Database value is: {}", database);
+    {
         this.database = database;
         return this;
     }
 
     @Config("data-source.username")
     public ArrowFlightConfig setDataSourceUsername(String username)
-    { // non-static setter
-        logger.debug("*CONF* Username value is: {}", username);
+    {
         this.username = username;
         return this;
     }
@@ -128,39 +121,35 @@ public class ArrowFlightConfig
     @Config("data-source.password")
     @ConfigSecuritySensitive
     public ArrowFlightConfig setDataSourcePassword(String password)
-    { // non-static setter
+    {
         this.password = password;
         return this;
     }
 
     @Config("data-source.name")
     public ArrowFlightConfig setDataSourceName(String name)
-    { // non-static setter
-        logger.debug("*CONF* Data source name value is: {}", name);
+    {
         this.name = name;
         return this;
     }
 
     @Config("data-source.port")
     public ArrowFlightConfig setDataSourcePort(Integer port)
-    { // non-static setter
-        logger.debug("*CONF* Port value is: {}", port);
+    {
         this.port = port;
         return this;
     }
 
     @Config("data-source.ssl")
     public ArrowFlightConfig setDataSourceSSL(Boolean ssl)
-    { // non-static setter
-        logger.debug("*CONF* SSL value is: {}", ssl);
+    {
         this.ssl = ssl;
         return this;
     }
 
     @Config("arrow-flight.server.verify")
     public ArrowFlightConfig setVerifyServer(Boolean verifyServer)
-    { // non-static setter
-        logger.info("*CONF* verifyServer value is: {}", verifyServer);
+    {
         this.verifyServer = verifyServer;
         return this;
     }

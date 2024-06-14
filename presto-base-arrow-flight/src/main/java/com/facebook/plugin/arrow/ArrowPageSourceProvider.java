@@ -47,6 +47,6 @@ public class ArrowPageSourceProvider
         }
         ArrowSplit arrowSplit = (ArrowSplit) split;
         logger.debug("Processing split");
-        return new ArrowPageSource(arrowSplit, columnHandles.build(), clientHandler, session); // Assuming ArrowRecordSet can handle a null root gracefully
+        return new ArrowPageSource(arrowSplit, columnHandles.build(), clientHandler, session);
     }
 }

@@ -29,7 +29,6 @@ public class ArrowHandleResolver
         return ArrowTableHandle.class;
     }
 
-    //ToDO
     @Override
     public Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
     {

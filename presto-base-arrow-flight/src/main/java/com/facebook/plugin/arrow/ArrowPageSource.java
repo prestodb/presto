@@ -188,7 +188,6 @@ public class ArrowPageSource
                 builder.appendNull();
             }
             else {
-                // Safely assuming type supports writing long values for integer data
                 type.writeLong(builder, vector.get(i));
             }
         }
@@ -203,7 +202,6 @@ public class ArrowPageSource
                 builder.appendNull();
             }
             else {
-                // Safely assuming type supports writing long values for integer data
                 type.writeLong(builder, vector.get(i));
             }
         }
@@ -218,7 +216,6 @@ public class ArrowPageSource
                 builder.appendNull();
             }
             else {
-                // Safely assuming type supports writing long values for integer data
                 type.writeLong(builder, vector.get(i));
             }
         }
@@ -254,11 +251,7 @@ public class ArrowPageSource
             }
             else {
                 BigDecimal decimal = vector.getObject(i); // Get the BigDecimal value
-
-                // Check the precision to decide how to write the value
-                //TODO test
                 if (decimalType.isShort()) {
-                    // For short decimals (fit within 64 bits), write as long
                     builder.writeLong(decimal.unscaledValue().longValue());
                 }
                 else {
@@ -274,7 +267,6 @@ public class ArrowPageSource
     {
         BlockBuilder builder = type.createBlockBuilder(null, vector.getValueCount());
         for (int i = 0; i < vector.getValueCount(); i++) {
-            // Every position in a NullVector is null by definition
             builder.appendNull();
         }
         return builder.build();
@@ -293,8 +285,6 @@ public class ArrowPageSource
             }
             else {
                 long micros = vector.get(i);
-                // Assuming the Presto TimestampType expects milliseconds, convert microseconds to milliseconds.
-                // Note: Adjust the conversion if Presto expects a different unit (e.g., microseconds directly).
                 long millis = TimeUnit.MICROSECONDS.toMillis(micros);
                 type.writeLong(builder, millis);
             }
@@ -357,9 +347,7 @@ public class ArrowPageSource
                 builder.appendNull();
             }
             else {
-                // Get the binary data from the VarBinaryVector
                 byte[] value = vector.get(i);
-                // Write the binary data to the BlockBuilder
                 type.writeSlice(builder, Slices.wrappedBuffer(value));
             }
         }
@@ -368,7 +356,6 @@ public class ArrowPageSource
 
     private Block buildBlockFromVarCharVector(VarCharVector vector, Type type)
     {
-        // Ensure we are dealing with a type that supports string operations.
         if (!(type instanceof VarcharType)) {
             throw new IllegalArgumentException("Expected VarcharType but got " + type.getClass().getName());
         }
@@ -379,7 +366,6 @@ public class ArrowPageSource
                 builder.appendNull();
             }
             else {
-                // Convert the VarCharVector value to a String, then to a Slice, and write it to the BlockBuilder.
                 String value = new String(vector.get(i), StandardCharsets.UTF_8);
                 type.writeSlice(builder, Slices.utf8Slice(value));
             }
@@ -389,7 +375,6 @@ public class ArrowPageSource
 
     private Block buildBlockFromDateDayVector(DateDayVector vector, Type type)
     {
-        // Ensure the provided type is compatible with Date types in Presto
         if (!(type instanceof DateType)) {
             throw new IllegalArgumentException("Expected DateType but got " + type.getClass().getName());
         }
@@ -408,7 +393,6 @@ public class ArrowPageSource
 
     private Block buildBlockFromDateMilliVector(DateMilliVector vector, Type type)
     {
-        // Ensure the provided type is compatible with Date types in Presto
         if (!(type instanceof DateType)) {
             throw new IllegalArgumentException("Expected DateType but got " + type.getClass().getName());
         }
@@ -539,7 +523,6 @@ public class ArrowPageSource
     @Override
     public Page getNextPage()
     {
-        // Close the previous page's root buffer.
         if (vectorSchemaRoot.isPresent()) {
             vectorSchemaRoot.get().close();
             vectorSchemaRoot = Optional.empty();

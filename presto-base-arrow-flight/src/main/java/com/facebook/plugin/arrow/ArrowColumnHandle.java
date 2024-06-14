@@ -37,7 +37,6 @@ public class ArrowColumnHandle
     {
         this.columnName = requireNonNull(columnName, "columnName is null");
         this.columnType = requireNonNull(columnType, "type is null");
-        //todo null check
         this.arrowTypeHandle = arrowTypeHandle;
     }
 

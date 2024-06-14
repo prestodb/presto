@@ -15,6 +15,5 @@ package com.facebook.plugin.arrow;
 
 public interface ArrowFlightRequest
 {
-    ArrowDataSource getDataSource();
     byte[] getCommand();
 }

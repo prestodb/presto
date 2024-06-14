@@ -72,16 +72,13 @@ public abstract class ArrowAbstractMetadata
     @Override
     public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
-        // Check if the schema exists
         if (!listSchemaNames(session).contains(tableName.getSchemaName())) {
             return null;
         }
 
-        // Check if the table exists
         if (!listTables(session, Optional.ofNullable(tableName.getSchemaName())).contains(tableName)) {
             return null;
         }
-        // If both schema and table exist, return the table handle
         return new ArrowTableHandle(tableName.getSchemaName(), tableName.getTableName());
     }
 
@@ -263,7 +260,6 @@ public abstract class ArrowAbstractMetadata
     {
         requireNonNull(prefix, "prefix is null");
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
-        // List tables within the specified schema prefix
         List<SchemaTableName> tables;
         if (prefix.getSchemaName() != null && prefix.getTableName() != null) {
             tables = ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
@@ -274,13 +270,10 @@ public abstract class ArrowAbstractMetadata
 
         for (SchemaTableName tableName : tables) {
             try {
-                // Resolve the ConnectorTableHandle for the current SchemaTableName
                 ConnectorTableHandle tableHandle = getTableHandle(session, tableName);
-                // Retrieve and add the table's column metadata
                 columns.put(tableName, getTableMetadata(session, tableHandle).getColumns());
             }
             catch (ClassCastException | NotFoundException e) {
-                // Handle potential exceptions, e.g., if tableHandle resolution fails
                 throw new ArrowException(ARROW_FLIGHT_ERROR, "The table columns could not be listed for the table " + tableName, e);
             }
             catch (Exception e) {

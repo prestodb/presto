@@ -74,7 +74,7 @@ public abstract class ArrowFlightClientHandler
                 }
             }
 
-            logger.info("location %s", location.getUri().toString());
+            logger.debug("location %s", location.getUri().toString());
 
             FlightClient.Builder flightClientBuilder = FlightClient.builder(allocator, location);
             if (config.getVerifyServer() != null && !config.getVerifyServer()) {
@@ -118,9 +118,9 @@ public abstract class ArrowFlightClientHandler
             ArrowFlightClient client = getClient(Optional.empty());
             CredentialCallOption auth = this.getCallOptions(connectorSession, bearerToken);
             FlightDescriptor descriptor = FlightDescriptor.command(request.getCommand());
-            logger.debug("*** fetching flight info");
+            logger.debug("Fetching flight info");
             FlightInfo flightInfo = client.getFlightClient().getInfo(descriptor, ArrowFlightConstants.CALL_OPTIONS_TIMEOUT, auth);
-            logger.debug("*** got flight info");
+            logger.debug("got flight info");
             return flightInfo;
         }
         catch (Exception e) {
