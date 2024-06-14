@@ -118,6 +118,24 @@ void registerComparisonFunctions(const std::string& prefix) {
       ShortDecimal<P1, S1>,
       ShortDecimal<P1, S1>,
       ShortDecimal<P1, S1>>({prefix + "between"});
+  registerFunction<
+      BetweenFunction,
+      bool,
+      IntervalDayTime,
+      IntervalDayTime,
+      IntervalDayTime>({prefix + "between"});
+  registerFunction<
+      BetweenFunction,
+      bool,
+      IntervalYearMonth,
+      IntervalYearMonth,
+      IntervalYearMonth>({prefix + "between"});
+  registerFunction<
+      BetweenFunctionTimestampWithTimezone,
+      bool,
+      TimestampWithTimezone,
+      TimestampWithTimezone,
+      TimestampWithTimezone>({prefix + "between"});
 }
 
 } // namespace facebook::velox::functions

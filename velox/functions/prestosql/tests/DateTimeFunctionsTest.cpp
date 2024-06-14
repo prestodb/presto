@@ -4116,10 +4116,10 @@ TEST_F(DateTimeFunctionsTest, timeZoneMinute) {
 }
 
 TEST_F(DateTimeFunctionsTest, timestampWithTimezoneComparisons) {
-  auto runAndCompare = [&](std::string expr,
-                           std::shared_ptr<RowVector>& inputs,
-                           VectorPtr expectedResult) {
-    auto actual = evaluate<SimpleVector<bool>>(expr, inputs);
+  auto runAndCompare = [&](const std::string& expr,
+                           const RowVectorPtr& inputs,
+                           const VectorPtr& expectedResult) {
+    auto actual = evaluate(expr, inputs);
     test::assertEqualVectors(expectedResult, actual);
   };
 
@@ -4146,23 +4146,26 @@ TEST_F(DateTimeFunctionsTest, timestampWithTimezoneComparisons) {
   auto inputs =
       makeRowVector({timestampWithTimezoneLhs, timestampWithTimezoneRhs});
 
-  auto expectedEq = makeNullableFlatVector<bool>({true, false, false});
+  auto expectedEq = makeFlatVector<bool>({true, false, false});
   runAndCompare("c0 = c1", inputs, expectedEq);
 
-  auto expectedNeq = makeNullableFlatVector<bool>({false, true, true});
+  auto expectedNeq = makeFlatVector<bool>({false, true, true});
   runAndCompare("c0 != c1", inputs, expectedNeq);
 
-  auto expectedLt = makeNullableFlatVector<bool>({false, true, false});
+  auto expectedLt = makeFlatVector<bool>({false, true, false});
   runAndCompare("c0 < c1", inputs, expectedLt);
 
-  auto expectedGt = makeNullableFlatVector<bool>({false, false, true});
+  auto expectedGt = makeFlatVector<bool>({false, false, true});
   runAndCompare("c0 > c1", inputs, expectedGt);
 
-  auto expectedLte = makeNullableFlatVector<bool>({true, true, false});
+  auto expectedLte = makeFlatVector<bool>({true, true, false});
   runAndCompare("c0 <= c1", inputs, expectedLte);
 
-  auto expectedGte = makeNullableFlatVector<bool>({true, false, true});
+  auto expectedGte = makeFlatVector<bool>({true, false, true});
   runAndCompare("c0 >= c1", inputs, expectedGte);
+
+  auto expectedBetween = makeNullableFlatVector<bool>({true, true, false});
+  runAndCompare("c0 between c0 and c1", inputs, expectedBetween);
 }
 
 TEST_F(DateTimeFunctionsTest, castDateToTimestamp) {
