@@ -8,8 +8,8 @@ Release 0.275
 General Changes
 _______________
 * Fix Disaggregated Coordinator to correctly identify running queries as leaked.
-* Add :func:`trimmed_mean` for :ref:`tdigest <tdigest_type>`.
-* Add :func:`construct_tdigest()` for :ref:`tdigest <tdigest_type>`.
+* Add :func:`!trimmed_mean` for :ref:`tdigest <tdigest_type>`.
+* Add :func:`!construct_tdigest()` for :ref:`tdigest <tdigest_type>`.
 * Add session property ``query_max_output_positions`` and configuration property ``query.max-output-positions`` to control how many rows a query can output. The query might end up returning more rows than the limit as the check is asynchronous.
 
 Hudi Changes

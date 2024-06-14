@@ -7,14 +7,14 @@ General Changes
 
 * Add support for :doc:`/sql/create-table` (in addition to :doc:`/sql/create-table-as`).
 * Add ``IF EXISTS`` support to :doc:`/sql/drop-table` and :doc:`/sql/drop-view`.
-* Add :func:`array_agg` function.
-* Add :func:`array_intersect` function.
-* Add :func:`array_position` function.
-* Add :func:`regexp_split` function.
-* Add support for ``millisecond`` to :func:`date_diff` and :func:`date_add`.
-* Fix excessive memory usage in :func:`map_agg`.
+* Add :func:`!array_agg` function.
+* Add :func:`!array_intersect` function.
+* Add :func:`!array_position` function.
+* Add :func:`!regexp_split` function.
+* Add support for ``millisecond`` to :func:`!date_diff` and :func:`!date_add`.
+* Fix excessive memory usage in :func:`!map_agg`.
 * Fix excessive memory usage in queries that perform partitioned top-N operations
-  with :func:`row_number`.
+  with :func:`!row_number`.
 * Optimize :ref:`array_type` comparison operators.
 * Fix analysis of ``UNION`` queries for tables with hidden columns.
 * Fix ``JOIN`` associativity to be left-associative instead of right-associative.

@@ -13,7 +13,7 @@ Release 0.262
 
 General Changes
 _______________
-* Fix :func:`reduce_agg` to allow ``NULL`` as the result of input/combine functions, while also allowing only constant expressions and not ``NULL`` as the initial value.
+* Fix :func:`!reduce_agg` to allow ``NULL`` as the result of input/combine functions, while also allowing only constant expressions and not ``NULL`` as the initial value.
 * Fix a correctness bug which could be triggered for queries with aggregations on partitioning columns and filters on non-partitioning columns when both optimizing
   metadata queries and filter pushdown are enabled.
 * Add default size limit (100MB) to build side of broadcast join.

@@ -49,7 +49,7 @@ Metadata-Only Query Optimization
 --------------------------------
 
 We now support an optimization that rewrites aggregation queries that are insensitive to the
-cardinality of the input (e.g., :func:`max`, :func:`min`, ``DISTINCT`` aggregates) to execute
+cardinality of the input (e.g., :func:`!max`, :func:`!min`, ``DISTINCT`` aggregates) to execute
 against table metadata.
 
 For example, if ``key``, ``key1`` and ``key2`` are partition keys, the following queries
@@ -87,10 +87,10 @@ General Changes
 * Add property ``task.verbose-stats`` to enable verbose statistics collection for
   tasks. The default is ``false``.
 * Format binary data in the CLI as a hex dump.
-* Add approximate numeric histogram function :func:`numeric_histogram`.
-* Add :func:`array_sort` function.
-* Add :func:`map_keys` and :func:`map_values` functions.
-* Make :func:`row_number` completely streaming.
+* Add approximate numeric histogram function :func:`!numeric_histogram`.
+* Add :func:`!array_sort` function.
+* Add :func:`!map_keys` and :func:`!map_values` functions.
+* Make :func:`!row_number` completely streaming.
 * Add property ``task.max-partial-aggregation-memory`` to configure the memory limit
   for the partial step of aggregations.
 * Fix exception when processing queries with an ``UNNEST`` operation where the output was not used.

@@ -14,7 +14,7 @@ General Changes
 * Fix failures in regular expression functions for certain inputs where the pattern contains word boundaries (e.g. ``\b``).
 * Fix an issue that may cause a crash when using plugins that provide an event listener. (:issue:`11951`)
 * Fix a memory leak that occurs when a query fails with a semantic or permission error.
-* Improve performance for queries with ``FULL OUTER JOIN`` where join keys have the :func:``COALESCE`` function applied.
+* Improve performance for queries with ``FULL OUTER JOIN`` where join keys have the :func:`!`COALESCE`` function applied.
 * Improve cost based optimizer to make decisions based on estimated query peak memory.
 * Improve cost based optimizer for certain queries using ``ORDER BY``.
 * Improve performance for queries with an ``OUTER JOIN`` followed by ``LIMIT``.
@@ -22,9 +22,9 @@ General Changes
 * Add support for using binary encoding for coordinator-to-worker communication.
   This feature is experimental, and it can be enabled with the ``experimental.internal-communication.binary-transport-enabled`` configuration property.
   Enabling this feature may help with coordinator scalability and reduces network, CPU, and memory usage on the coordinator.
-* Add :func:`ST_Area` for the ``SphericalGeography`` type.
+* Add :func:`!ST_Area` for the ``SphericalGeography`` type.
 * Add a system table ``system.metadata.analyze_properties`` that shows the properties supported by the ``ANALYZE`` statement.
-* Add support for resolving key conflicts when using :func:`split_to_map`.
+* Add support for resolving key conflicts when using :func:`!split_to_map`.
 * Add support for role management (see :doc:`/sql/create-role`). Client library version 0.218 is required to use :doc:`/sql/set-role`. (:issue:`11645`)
 * Add support for processing JSON protocol messages by generating bytecode on the coordinator.
   This feature is experimental, and it can be enabled with the ``experimental.json-serde-codegen-enabled`` configuration property.
