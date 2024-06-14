@@ -12,13 +12,13 @@ General Changes
 * Add support for :ref:`complex grouping operations<complex_grouping_operations>`
   - ``CUBE``, ``ROLLUP`` and ``GROUPING SETS``.
 * Add support for ``IF NOT EXISTS`` in ``CREATE TABLE AS`` queries.
-* Add :func:`substring` function.
+* Add :func:`!substring` function.
 * Add ``http.server.authentication.krb5.keytab`` config option to set the location of the Kerberos
   keytab file explicitly.
 * Add ``optimize_metadata_queries`` session property to enable the metadata-only query optimization.
 * Improve support for non-equality predicates in ``JOIN`` criteria.
 * Add support for non-correlated subqueries in aggregation queries.
-* Improve performance of :func:`json_extract`.
+* Improve performance of :func:`!json_extract`.
 
 Hive Changes
 ------------

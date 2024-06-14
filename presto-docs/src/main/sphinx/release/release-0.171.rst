@@ -10,9 +10,9 @@ General Changes
 * Fix issue for data definition queries that prevented firing completion events or purging them from
   the coordinator's memory.
 * Add support for capture in lambda expressions.
-* Add support for ``ARRAY`` and ``ROW`` type as the compared value in :func:`min_by` and :func:`max_by`.
+* Add support for ``ARRAY`` and ``ROW`` type as the compared value in :func:`!min_by` and :func:`!max_by`.
 * Add support for ``CHAR(n)`` data type to common string functions.
-* Add :func:`codepoint`, :func:`skewness` and :func:`kurtosis` functions.
+* Add :func:`!codepoint`, :func:`!skewness` and :func:`!kurtosis` functions.
 * Improve validation of resource group configuration.
 * Fail queries when casting unsupported types to JSON; see :doc:`/functions/json` for supported types.
 

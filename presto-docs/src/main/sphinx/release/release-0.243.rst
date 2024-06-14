@@ -16,8 +16,8 @@ Release 0.243
 
 **Highlights**
 ==============
-* Add :func:`approx_most_frequent` aggregation function.
-* Add support to :func:`truncate` function for specifying the number of digits to the right of the decimal point in the truncated result.
+* Add :func:`!approx_most_frequent` aggregation function.
+* Add support to :func:`!truncate` function for specifying the number of digits to the right of the decimal point in the truncated result.
 * Add support for ignoring access checks on columns that are referenced in the query, but are not required to compute the query results. This can be enabled with the ``check_access_control_on_utilized_columns_only`` session property.
 * Add support in verifier to verify ``CREATE VIEW`` and ``CREATE TABLE`` queries.
 
@@ -27,8 +27,8 @@ Release 0.243
 General Changes
 _______________
 * Fix query failure when using ``EXPLAIN`` with a ``USE`` statement.
-* Add :func:`approx_most_frequent` aggregation function.
-* Add support to :func:`truncate` function for specifying the number of digits to the right of the decimal point in the truncated result.
+* Add :func:`!approx_most_frequent` aggregation function.
+* Add support to :func:`!truncate` function for specifying the number of digits to the right of the decimal point in the truncated result.
 * Remove configuration property ``optimizer.optimize-full-outer-join-with-coalesce`` and the corresponding session property ``optimize_full_outer_join_with_coalesce``. The feature will always be enabled.
 * Remove deprecated configuration properties ``grouped-execution-for-aggregation-enabled`` and ``grouped-execution-for-join-enabled`` and their corresponding session properties ``grouped_execution_for_aggregation`` and ``grouped_execution_for_join``.  These have been replaced by a single configuration property ``grouped-execution-enabled`` and session property ``grouped_execution``.
 * Remove deprecated configuration property ``dynamic-schedule-for-grouped-execution`` and session property ``dynamic_schedule_for_grouped_execution``.

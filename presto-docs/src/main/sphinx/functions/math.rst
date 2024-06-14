@@ -28,7 +28,7 @@ Mathematical Functions
 
 .. function:: ceil(x) -> [same as input]
 
-    This is an alias for :func:`ceiling`.
+    This is an alias for :func:`!ceiling`.
 
 .. function:: ceiling(x) -> [same as input]
 
@@ -82,7 +82,7 @@ Mathematical Functions
 
 .. function:: pow(x, p) -> double
 
-    This is an alias for :func:`power`.
+    This is an alias for :func:`!power`.
 
 .. function:: power(x, p) -> double
 
@@ -94,7 +94,7 @@ Mathematical Functions
 
 .. function:: rand() -> double
 
-    This is an alias for :func:`random()`.
+    This is an alias for :func:`!random()`.
 
 .. function:: random() -> double
 
@@ -106,7 +106,7 @@ Mathematical Functions
 
 .. function:: secure_rand() -> double
 
-    This is an alias for :func:`secure_random()`.
+    This is an alias for :func:`!secure_random()`.
 
 .. function:: secure_random() -> double
 
@@ -313,7 +313,7 @@ Trigonometric Functions
 -----------------------
 
 All trigonometric function arguments are expressed in radians.
-See unit conversion functions :func:`degrees` and :func:`radians`.
+See unit conversion functions :func:`!degrees` and :func:`!radians`.
 
 .. function:: acos(x) -> double
 

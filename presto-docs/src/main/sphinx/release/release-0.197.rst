@@ -13,10 +13,10 @@ General Changes
 * Extend predicate inference and pushdown for queries using a ``<symbol> IN <subquery>`` predicate.
 * Support predicate pushdown for the ``<column> IN <values list>`` predicate
   where values in the ``values list`` require casting to match the type of ``column``.
-* Optimize :func:`min` and :func:`max` to avoid unnecessary object creation in order to reduce GC overhead.
-* Optimize the performance of :func:`ST_XMin`, :func:`ST_XMax`, :func:`ST_YMin`, and :func:`ST_YMax`.
-* Add ``DATE`` variant for :func:`sequence` function.
-* Add :func:`ST_IsSimple` geospatial function.
+* Optimize :func:`!min` and :func:`!max` to avoid unnecessary object creation in order to reduce GC overhead.
+* Optimize the performance of :func:`!ST_XMin`, :func:`!ST_XMax`, :func:`!ST_YMin`, and :func:`!ST_YMax`.
+* Add ``DATE`` variant for :func:`!sequence` function.
+* Add :func:`!ST_IsSimple` geospatial function.
 * Add support for broadcast spatial joins.
 
 Resource Groups Changes

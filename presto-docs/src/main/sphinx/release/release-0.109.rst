@@ -5,7 +5,7 @@ Release 0.109
 General Changes
 ---------------
 
-* Add :func:`slice`, :func:`md5`, :func:`array_min` and :func:`array_max` functions.
+* Add :func:`!slice`, :func:`!md5`, :func:`!array_min` and :func:`!array_max` functions.
 * Fix bug that could cause queries submitted soon after startup to hang forever.
 * Fix bug that could cause ``JOIN`` queries to hang forever, if the right side of
   the ``JOIN`` had too little data or skewed data.

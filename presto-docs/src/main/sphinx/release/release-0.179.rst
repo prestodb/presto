@@ -17,8 +17,8 @@ General Changes
 * Reduce the memory usage of map/array aggregation functions.
 * Redact sensitive config property values in the server log.
 * Update timezone database to version 2017b.
-* Add :func:`repeat` function.
-* Add :func:`crc32` function.
+* Add :func:`!repeat` function.
+* Add :func:`!crc32` function.
 * Add file based global security, which can be configured with the ``etc/access-control.properties``
   and ``security.config-file`` config properties. See :doc:`/security/built-in-system-access-control`
   for more details.

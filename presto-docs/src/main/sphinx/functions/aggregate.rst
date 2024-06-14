@@ -12,14 +12,14 @@ Overview
 
 Aggregate functions operate on a set of values to compute a single result.
 
-Except for :func:`count`, :func:`count_if`, :func:`max_by`, :func:`min_by` and
-:func:`approx_distinct`, all of these aggregate functions ignore null values
+Except for :func:`!count`, :func:`!count_if`, :func:`!max_by`, :func:`!min_by` and
+:func:`!approx_distinct`, all of these aggregate functions ignore null values
 and return null for no input rows or when all values are null. For example,
-:func:`sum` returns null rather than zero and :func:`avg` does not include null
+:func:`!sum` returns null rather than zero and :func:`!avg` does not include null
 values in the count. The ``coalesce`` function can be used to convert null into
 zero.
 
-Some aggregate functions such as :func:`array_agg` produce different results
+Some aggregate functions such as :func:`!array_agg` produce different results
 depending on the order of input values. This ordering can be specified by writing
 an :ref:`order-by-clause` within the aggregate function::
 
@@ -32,7 +32,7 @@ General Aggregate Functions
 
 .. function:: any_value(x) -> [same as input]
 
-    This is an alias for :func:`arbitrary`.
+    This is an alias for :func:`!arbitrary`.
 
 .. function:: arbitrary(x) -> [same as input]
 
@@ -77,7 +77,7 @@ General Aggregate Functions
 
 .. function:: every(boolean) -> boolean
 
-    This is an alias for :func:`bool_and`.
+    This is an alias for :func:`!bool_and`.
 
 .. function:: geometric_mean(bigint) -> double
               geometric_mean(double) -> double
@@ -385,7 +385,7 @@ Approximate Aggregate Functions
 
     Computes an approximate histogram with up to ``buckets`` number of buckets
     for all ``value``\ s. This function is equivalent to the variant of
-    :func:`numeric_histogram` that takes a ``weight``, with a per-item weight of ``1``.
+    :func:`!numeric_histogram` that takes a ``weight``, with a per-item weight of ``1``.
     In this case, the total weight in the returned map is the count of items in the bin.
 
 
@@ -479,7 +479,7 @@ Statistical Aggregate Functions
 
 .. function:: stddev(x) -> double
 
-    This is an alias for :func:`stddev_samp`.
+    This is an alias for :func:`!stddev_samp`.
 
 .. function:: stddev_pop(x) -> double
 
@@ -491,7 +491,7 @@ Statistical Aggregate Functions
 
 .. function:: variance(x) -> double
 
-    This is an alias for :func:`var_samp`.
+    This is an alias for :func:`!var_samp`.
 
 .. function:: var_pop(x) -> double
 
@@ -598,7 +598,7 @@ To find the `ROC curve <https://en.wikipedia.org/wiki/Receiver_operating_charact
 .. function:: classification_miss_rate(buckets, y, x) -> array<double>
 
     This function is equivalent to the variant of
-    :func:`classification_miss_rate` that takes a ``weight``, with a per-item weight of ``1``.
+    :func:`!classification_miss_rate` that takes a ``weight``, with a per-item weight of ``1``.
 
 .. function:: classification_fall_out(buckets, y, x, weight) -> array<double>
 
@@ -627,7 +627,7 @@ To find the `ROC curve <https://en.wikipedia.org/wiki/Receiver_operating_charact
 .. function:: classification_fall_out(buckets, y, x) -> array<double>
 
     This function is equivalent to the variant of
-    :func:`classification_fall_out` that takes a ``weight``, with a per-item weight of ``1``.
+    :func:`!classification_fall_out` that takes a ``weight``, with a per-item weight of ``1``.
 
 .. function:: classification_precision(buckets, y, x, weight) -> array<double>
 
@@ -656,7 +656,7 @@ To find the `ROC curve <https://en.wikipedia.org/wiki/Receiver_operating_charact
 .. function:: classification_precision(buckets, y, x) -> array<double>
 
     This function is equivalent to the variant of
-    :func:`classification_precision` that takes a ``weight``, with a per-item weight of ``1``.
+    :func:`!classification_precision` that takes a ``weight``, with a per-item weight of ``1``.
 
 .. function:: classification_recall(buckets, y, x, weight) -> array<double>
 
@@ -685,7 +685,7 @@ To find the `ROC curve <https://en.wikipedia.org/wiki/Receiver_operating_charact
 .. function:: classification_recall(buckets, y, x) -> array<double>
 
     This function is equivalent to the variant of
-    :func:`classification_recall` that takes a ``weight``, with a per-item weight of ``1``.
+    :func:`!classification_recall` that takes a ``weight``, with a per-item weight of ``1``.
 
 .. function:: classification_thresholds(buckets, y, x) -> array<double>
 
