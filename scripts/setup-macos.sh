@@ -122,7 +122,7 @@ function install_ranges_v3 {
 }
 
 function install_re2 {
-  github_checkout google/re2 2021-04-01
+  github_checkout google/re2 2022-02-01
   cmake_install -DRE2_BUILD_TESTING=OFF
 }
 
