@@ -16,6 +16,9 @@
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <grpc.version>1.53.0</grpc.version>
         <dep.okhttp.version>4.10.0</dep.okhttp.version>
+        <arrow.version>11.0.0</arrow.version>
+        <netty.version>4.1.100.Final</netty.version>
+
     </properties>
 
     <dependencies>
@@ -64,15 +67,12 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>slice</artifactId>
-            <!--            <version>0.38</version>-->
-            <!-- Adjust the scope based on your use case; if it's only needed at compile time, you can leave it as provided or change it to compile if needed at runtime -->
             <scope>provided</scope>
         </dependency>
 
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
-            <!--            <version>2.13.4</version>-->
             <scope>provided</scope>
         </dependency>
 
@@ -97,7 +97,7 @@
         <dependency>
             <groupId>org.apache.arrow</groupId>
             <artifactId>arrow-memory-core</artifactId>
-            <version>11.0.0</version>
+            <version>${arrow.version}</version>
         </dependency>
 
         <dependency>
@@ -113,13 +113,13 @@
         <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-codec-http2</artifactId>
-            <version>4.1.100.Final</version>
+            <version>${netty.version}</version>
         </dependency>
 
         <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-handler-proxy</artifactId>
-            <version>4.1.100.Final</version>
+            <version>${netty.version}</version>
             <exclusions>
                 <exclusion>
                     <groupId>io.netty</groupId>
@@ -137,7 +137,7 @@
         <dependency>
             <groupId>org.apache.arrow</groupId>
             <artifactId>flight-core</artifactId>
-            <version>11.0.0</version>
+            <version>${arrow.version}</version>
             <exclusions>
                 <exclusion>
                     <groupId>io.netty</groupId>
@@ -157,7 +157,7 @@
         <dependency>
             <groupId>org.apache.arrow</groupId>
             <artifactId>arrow-vector</artifactId>
-            <version>11.0.0</version>
+            <version>${arrow.version}</version>
             <exclusions>
                 <exclusion>
                     <groupId>com.fasterxml.jackson.datatype</groupId>
