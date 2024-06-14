@@ -9,7 +9,7 @@ General Changes
   certain combinations of data types (e.g., ``double`` and ``decimal``).
 * Add ``query.max-length`` config flag to set the maximum length of a SQL query.
   The default maximum length is 1MB.
-* Improve performance of :func:`approx_percentile`.
+* Improve performance of :func:`!approx_percentile`.
 
 Hive Changes
 ------------

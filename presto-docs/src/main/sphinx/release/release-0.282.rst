@@ -12,7 +12,7 @@ _______________
 * Improve performance of ``Explain (TYPE VALIDATE)`` by returning immediately after analysis and ACL checks complete without executing a dummy query. The output column is now called ``result`` rather than ``valid``.
 * Improve error handling when using custom ``FunctionNamespaceManagers``.
 * Improve null inferencing for join nodes. ``optimize_nulls_in_join`` session property is deprecated and is instead replaced with a new ``joins_not_null_inference_strategy`` session property (and corresponding configuration property ``optimizer.joins-not-null-inference-strategy``) to control null inferencing.
-* Add a new UDF :func:`array_cum_sum` to return an array whose elements are the cumulative sum of the input array.
+* Add a new UDF :func:`!array_cum_sum` to return an array whose elements are the cumulative sum of the input array.
 * Add a query optimization to rewrite left join with null check on right join key with semi join. It's controlled by session property ``rewrite_left_join_null_filter_to_semi_join`` and the default value is ``true``
 * Add an optimization for queries with empty input. The optimization is controlled by session property ``simplify_plan_with_empty_input`` and the default value is ``true``
 * Add an optimization to convert applicable cross join with an or filter to inner join. It's controlled by session property ``rewrite_cross_join_or_to_inner_join`` and the default value is ``true``

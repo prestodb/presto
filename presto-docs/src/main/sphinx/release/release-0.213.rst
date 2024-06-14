@@ -42,10 +42,10 @@ General Changes
 Geospatial Changes
 ------------------
 
-* Fix :func:`ST_Distance` function to return ``NULL`` if any of the inputs is an
+* Fix :func:`!ST_Distance` function to return ``NULL`` if any of the inputs is an
   empty geometry as required by the SQL/MM specification.
-* Add :func:`ST_MultiPoint` function to construct multi-point geometry from an array of points.
-* Add :func:`geometry_union` function to efficiently union arrays of geometries.
+* Add :func:`!ST_MultiPoint` function to construct multi-point geometry from an array of points.
+* Add :func:`!geometry_union` function to efficiently union arrays of geometries.
 * Add support for distributed spatial joins (:issue:`11072`).
 
 Server RPM Changes

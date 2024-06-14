@@ -13,11 +13,11 @@ General Changes
   the ``parse_decimal_literals_as_double`` session property.
 * Fix ``current_date`` failure when the session time zone has a "gap" at ``1970-01-01 00:00:00``.
   The time zone ``America/Bahia_Banderas`` is one such example.
-* Add variant of :func:`sequence` function for ``DATE`` with an implicit one-day step increment.
-* Increase the maximum number of arguments for the :func:`zip` function from 4 to 5.
-* Add :func:`ST_IsValid`, :func:`geometry_invalid_reason`, :func:`simplify_geometry`, and
-  :func:`great_circle_distance` functions.
-* Support :func:`min` and :func:`max` aggregation functions when the input type is unknown at query analysis time.
+* Add variant of :func:`!sequence` function for ``DATE`` with an implicit one-day step increment.
+* Increase the maximum number of arguments for the :func:`!zip` function from 4 to 5.
+* Add :func:`!ST_IsValid`, :func:`!geometry_invalid_reason`, :func:`!simplify_geometry`, and
+  :func:`!great_circle_distance` functions.
+* Support :func:`!min` and :func:`!max` aggregation functions when the input type is unknown at query analysis time.
   In particular, this allows using the functions with ``NULL`` literals.
 * Add configuration property ``task.max-local-exchange-buffer-size`` for setting local exchange buffer size.
 * Add trace token support to the scheduler and exchange HTTP clients. Each HTTP request sent
@@ -25,14 +25,14 @@ General Changes
   headers, which will be logged in the HTTP request logs. This information can be used to
   correlate the requests and responses during debugging.
 * Improve query performance when dynamic writer scaling is enabled.
-* Improve performance of :func:`ST_Intersects`.
+* Improve performance of :func:`!ST_Intersects`.
 * Improve query latency when tables are known to be empty during query planning.
-* Optimize :func:`array_agg` to avoid excessive object overhead and native memory usage with G1 GC.
+* Optimize :func:`!array_agg` to avoid excessive object overhead and native memory usage with G1 GC.
 * Improve performance for high-cardinality aggregations with ``DISTINCT`` argument qualifiers. This
   is an experimental optimization that can be activated by disabling the `use_mark_distinct` session
   property or the ``optimizer.use-mark-distinct`` config option.
 * Improve parallelism of queries that have an empty grouping set.
-* Improve performance of join queries involving the :func:`ST_Distance` function.
+* Improve performance of join queries involving the :func:`!ST_Distance` function.
 
 Resource Groups Changes
 -----------------------

@@ -210,7 +210,7 @@ Array Functions
 .. function:: array_sum(array(T)) -> bigint/double
 
     Returns the sum of all non-null elements of the ``array``. If there is no non-null elements, returns ``0``.
-    The behavior is similar to aggregation function :func:`sum`.
+    The behavior is similar to aggregation function :func:`!sum`.
 
     ``T`` must be coercible to ``double``.
     Returns ``bigint`` if T is coercible to ``bigint``. Otherwise, returns ``double``.

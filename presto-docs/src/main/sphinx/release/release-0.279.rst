@@ -12,14 +12,14 @@ _______________
 * Fix weighted fair scheduling in disaggregated coordinator.
 * Fix max(x, n) and min(x, n) returning NULL on window aggregations.
 * Add an optimization that removes redundant distinct if the output is already distinct after a group by operation. The optimization is controlled by session property ``remove_redundant_distinct_aggregation`` which is default to false.
-* Add function :func:`array_sort_desc` to sort an array in the descending order.
-* Add function :func:`map_remove_null_values` to remove all the entries where the value is null from a given map.
-* Add function :func:`map_top_n_keys` to returns an array of the top N keys of the provided map. An optional lambda comparator can also be passed to perform a custom comparison of the keys. Returns all the keys if the value N is greater than or equal to size of the map. For N < 0, the function returns keys in the reverse order. For N = 0, the function returns empty array.
-* Add function :func:`map_top_n_values` to return top N values of the provided map. An optional lambda comparator can also be passed as parameter for custom sorting of the values.
-* Add function :func:`map_top_n` to truncate map items, keeping only the top N elements by value.
-* Add function :func:`remove_nulls` to remove null elements from an array.
-* Add functions :func:`array_min_by`, :func:`array_max_by`, to find the smallest or largest element of an array when applying a custom measuring function.
-* Extend functions :func:`array_frequency`, :func:`array_duplicates`, :func:`array_has_duplicates`, :func:`array_intersect(array(array(E))` to accept any type as input instead of only varchar/double.
+* Add function :func:`!array_sort_desc` to sort an array in the descending order.
+* Add function :func:`!map_remove_null_values` to remove all the entries where the value is null from a given map.
+* Add function :func:`!map_top_n_keys` to returns an array of the top N keys of the provided map. An optional lambda comparator can also be passed to perform a custom comparison of the keys. Returns all the keys if the value N is greater than or equal to size of the map. For N < 0, the function returns keys in the reverse order. For N = 0, the function returns empty array.
+* Add function :func:`!map_top_n_values` to return top N values of the provided map. An optional lambda comparator can also be passed as parameter for custom sorting of the values.
+* Add function :func:`!map_top_n` to truncate map items, keeping only the top N elements by value.
+* Add function :func:`!remove_nulls` to remove null elements from an array.
+* Add functions :func:`!array_min_by`, :func:`!array_max_by`, to find the smallest or largest element of an array when applying a custom measuring function.
+* Extend functions :func:`!array_frequency`, :func:`!array_duplicates`, :func:`!array_has_duplicates`, :func:`!array_intersect(array(array(E))` to accept any type as input instead of only varchar/double.
 * Add ``CONTROL`` as a new ``QueryType``. The ``CONTROL`` queryType represents statements of session control and transaction control types.
 * Remove two unused session parameters - ``hash_based_distinct_limit_enabled`` and ``hash_based_distinct_limit_threshold`` and the corresponding implementation in favor of the ``quick_distinct_limit_enabled`` feature.
 
@@ -38,7 +38,7 @@ _________________________
 
 Pinot Connector Changes
 _______________________
-* Add pushdown support for function :func:`STRPOS`.
+* Add pushdown support for function :func:`!STRPOS`.
 
 PostgreSQL Connector Changes
 ____________________________

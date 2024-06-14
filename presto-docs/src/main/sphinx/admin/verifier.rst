@@ -181,7 +181,7 @@ queries.
        * Array checksum of the value set
 * **Row Columns**
     * Checksums row fields recursively according to the type of the fields.
-* For all other column types, generates a simple checksum using the :func:`checksum` function.
+* For all other column types, generates a simple checksum using the :func:`!checksum` function.
 
 Determinism
 -----------

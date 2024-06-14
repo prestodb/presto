@@ -241,7 +241,7 @@ Specifier Description
 
 .. [#f] Timestamp is truncated to milliseconds.
 .. [#y] When parsing, two-digit year format assumes range ``1970`` .. ``2069``, so "70" will result in year ``1970`` but "69" will produce ``2069``.
-.. [#w] This specifier is not supported yet. Consider using :func:`day_of_week` (it uses ``1-7`` instead of ``0-6``).
+.. [#w] This specifier is not supported yet. Consider using :func:`!day_of_week` (it uses ``1-7`` instead of ``0-6``).
 .. [#z] This specifier does not support ``0`` as a month or day.
 
 .. warning:: The following specifiers are not currently supported: ``%D %U %u %V %w %X``
@@ -278,23 +278,23 @@ The ``extract`` function supports the following fields:
 =================== ===========
 Field               Description
 =================== ===========
-``YEAR``            :func:`year`
-``QUARTER``         :func:`quarter`
-``MONTH``           :func:`month`
-``WEEK``            :func:`week`
-``DAY``             :func:`day`
-``DAY_OF_MONTH``    :func:`day`
-``DAY_OF_WEEK``     :func:`day_of_week`
-``DOW``             :func:`day_of_week`
-``DAY_OF_YEAR``     :func:`day_of_year`
-``DOY``             :func:`day_of_year`
-``YEAR_OF_WEEK``    :func:`year_of_week`
-``YOW``             :func:`year_of_week`
-``HOUR``            :func:`hour`
-``MINUTE``          :func:`minute`
-``SECOND``          :func:`second`
-``TIMEZONE_HOUR``   :func:`timezone_hour`
-``TIMEZONE_MINUTE`` :func:`timezone_minute`
+``YEAR``            :func:`!year`
+``QUARTER``         :func:`!quarter`
+``MONTH``           :func:`!month`
+``WEEK``            :func:`!week`
+``DAY``             :func:`!day`
+``DAY_OF_MONTH``    :func:`!day`
+``DAY_OF_WEEK``     :func:`!day_of_week`
+``DOW``             :func:`!day_of_week`
+``DAY_OF_YEAR``     :func:`!day_of_year`
+``DOY``             :func:`!day_of_year`
+``YEAR_OF_WEEK``    :func:`!year_of_week`
+``YOW``             :func:`!year_of_week`
+``HOUR``            :func:`!hour`
+``MINUTE``          :func:`!minute`
+``SECOND``          :func:`!second`
+``TIMEZONE_HOUR``   :func:`!timezone_hour`
+``TIMEZONE_MINUTE`` :func:`!timezone_minute`
 =================== ===========
 
 The types supported by the ``extract`` function vary depending on the
@@ -315,7 +315,7 @@ Convenience Extraction Functions
 
 .. function:: day_of_month(x) -> bigint
 
-    This is an alias for :func:`day`.
+    This is an alias for :func:`!day`.
 
 .. function:: day_of_week(x) -> bigint
 
@@ -329,11 +329,11 @@ Convenience Extraction Functions
 
 .. function:: dow(x) -> bigint
 
-    This is an alias for :func:`day_of_week`.
+    This is an alias for :func:`!day_of_week`.
 
 .. function:: doy(x) -> bigint
 
-    This is an alias for :func:`day_of_year`.
+    This is an alias for :func:`!day_of_year`.
 
 .. function:: hour(x) -> bigint
 
@@ -378,7 +378,7 @@ Convenience Extraction Functions
 
 .. function:: week_of_year(x) -> bigint
 
-    This is an alias for :func:`week`.
+    This is an alias for :func:`!week`.
 
 .. function:: year(x) -> bigint
 
@@ -390,4 +390,4 @@ Convenience Extraction Functions
 
 .. function:: yow(x) -> bigint
 
-    This is an alias for :func:`year_of_week`.
+    This is an alias for :func:`!year_of_week`.

@@ -5,10 +5,10 @@ Release 0.152
 General Changes
 ---------------
 
-* Add :func:`array_union` function.
-* Add :func:`reverse` function for arrays.
+* Add :func:`!array_union` function.
+* Add :func:`!reverse` function for arrays.
 * Fix issue that could cause queries with ``varchar`` literals to fail.
-* Fix categorization of errors from :func:`url_decode`, allowing it to be used with ``TRY``.
+* Fix categorization of errors from :func:`!url_decode`, allowing it to be used with ``TRY``.
 * Fix error reporting for invalid JSON paths provided to JSON functions.
 * Fix view creation for queries containing ``GROUPING SETS``.
 * Fix query failure when referencing a field of a ``NULL`` row.

@@ -80,4 +80,4 @@ functions, the amount to shift is given by the bottom bits of the ``shift`` para
         SELECT bitwise_right_shift_arithmetic(BIGINT '-8', 2); -- -2
         SELECT bitwise_right_shift_arithmetic(SMALLINT '7', 2); -- 1
 
-See also :func:`bitwise_and_agg` and :func:`bitwise_or_agg`.
+See also :func:`!bitwise_and_agg` and :func:`!bitwise_or_agg` in `Bitwise Aggregate Functions <aggregate.html#bitwise-aggregate-functions>`_.

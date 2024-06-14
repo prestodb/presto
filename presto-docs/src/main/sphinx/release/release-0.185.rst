@@ -19,7 +19,7 @@ General Changes
 * Improve performance of joins where the condition is a range over a function.
   For example: ``a JOIN b ON b.x < f(a.x) AND b.x > g(a.x)``
 * Improve performance of certain window functions (e.g., ``LAG``) with similar specifications.
-* Extend :func:`substr` function to work on ``VARBINARY`` in addition to ``CHAR`` and ``VARCHAR``.
+* Extend :func:`!substr` function to work on ``VARBINARY`` in addition to ``CHAR`` and ``VARCHAR``.
 * Add cast from ``JSON`` to ``ROW``.
 * Allow usage of ``TRY`` within lambda expressions.
 
