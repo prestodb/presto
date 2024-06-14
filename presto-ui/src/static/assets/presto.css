@@ -934,6 +934,16 @@ g .operator-stats:hover {
     background-color: #4d4d4d;
 }
 
+.general-revered-title{
+    color:rgb(153, 153, 153);
+    font-size:18px;
+    font-weight:500
+}
+
+.section-table{
+    background-color: rgb(37, 40, 48);
+}
+
 .stack-traces {
     font-size: 11px;
 }
@@ -946,7 +956,11 @@ g .operator-stats:hover {
     font-size:14px
 }
 .dropdown-menu-items{
-background-color:rgb(255, 255, 255);
-color:rgb(51, 51, 51);
-border-color:rgb(204, 204, 204);
-}
+    background-color:rgb(255, 255, 255);
+    color:rgb(51, 51, 51);
+    border-color:rgb(204, 204, 204);
+    }
+
+   .data-text{
+    font-size: 14px;
+   } 

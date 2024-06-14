@@ -198,7 +198,7 @@ export class WorkerStatus extends React.Component {
         if (Object.keys(queries).length === 0) {
             return (
                 <div>
-                    <table className="table table-condensed">
+                    <table className="table table-condensed section-table">
                         <tbody>
                         <tr>
                             <td className="text-queries-pool">
@@ -248,14 +248,14 @@ export class WorkerStatus extends React.Component {
                         <hr className="h3-hr"/>
                         <div className="row">
                             <div className="col-6">
-                                <table className="table">
+                                <table className="table section-table">
                                     <tbody>
                                     <tr>
                                         <td className="info-title">
                                             Node ID
                                         </td>
                                         <td className="info-text wrap-text">
-                                            <span id="node-id">{serverInfo.nodeId}</span>
+                                            <span id="node-id" className="data-text">{serverInfo.nodeId}</span>
                                             &nbsp;&nbsp;
                                             <a href="#" className="copy-button" data-clipboard-target="#node-id" data-bs-toggle="tooltip" data-placement="right"
                                                title="Copy to clipboard">
@@ -268,7 +268,7 @@ export class WorkerStatus extends React.Component {
                                             Heap Memory
                                         </td>
                                         <td className="info-text wrap-text">
-                                            <span id="internal-address">{formatDataSize(serverInfo.heapAvailable)}</span>
+                                            <span id="internal-address" className="data-text">{formatDataSize(serverInfo.heapAvailable)}</span>
                                         </td>
                                     </tr>
                                     <tr>
@@ -276,20 +276,20 @@ export class WorkerStatus extends React.Component {
                                             Processors
                                         </td>
                                         <td className="info-text wrap-text">
-                                            <span id="internal-address">{serverInfo.processors}</span>
+                                            <span id="internal-address" className="data-text">{serverInfo.processors}</span>
                                         </td>
                                     </tr>
                                     </tbody>
                                 </table>
                             </div>
                             <div className="col-6">
-                                <table className="table">
+                                <table className="table section-table">
                                     <tbody>
                                     <tr>
                                         <td className="info-title">
                                             Uptime
                                         </td>
-                                        <td className="info-text wrap-text">
+                                        <td className="info-text wrap-text data-text">
                                             {serverInfo.uptime}
                                         </td>
                                     </tr>
@@ -298,7 +298,7 @@ export class WorkerStatus extends React.Component {
                                             External Address
                                         </td>
                                         <td className="info-text wrap-text">
-                                            <span id="external-address">{serverInfo.externalAddress}</span>
+                                            <span id="external-address" className="data-text">{serverInfo.externalAddress}</span>
                                             &nbsp;&nbsp;
                                             <a href="#" className="copy-button" data-clipboard-target="#external-address" data-bs-toggle="tooltip" data-placement="right"
                                                title="Copy to clipboard">
@@ -311,7 +311,7 @@ export class WorkerStatus extends React.Component {
                                             Internal Address
                                         </td>
                                         <td className="info-text wrap-text">
-                                            <span id="internal-address">{serverInfo.internalAddress}</span>
+                                            <span id="internal-address" className="data-text">{serverInfo.internalAddress}</span>
                                             &nbsp;&nbsp;
                                             <a href="#" className="copy-button" data-clipboard-target="#internal-address" data-bs-toggle="tooltip" data-placement="right"
                                                title="Copy to clipboard">
@@ -330,7 +330,7 @@ export class WorkerStatus extends React.Component {
                                 <div className="row">
 
                                     <div className="col-6">
-                                        <table className="table">
+                                        <table className="table section-table">
                                             <tbody>
                                             <tr>
                                                 <td className="info-title">
@@ -366,7 +366,7 @@ export class WorkerStatus extends React.Component {
                                         </table>
                                     </div>
                                     <div className="col-6">
-                                        <table className="table">
+                                        <table className="table section-table">
                                             <tbody>
                                             <tr>
                                                 <td className="info-title">
@@ -411,11 +411,11 @@ export class WorkerStatus extends React.Component {
                         <h3 className="font-large">Memory Pools</h3>
                         <hr className="h3-hr"/>
                         <div className="row">
-                            <div className="col-6">
+                            <div className="col-6 general-revered-title">
                                 {WorkerStatus.renderPoolBar("General", serverInfo.memoryInfo.pools.general)}
                                 {this.renderPoolQueries(serverInfo.memoryInfo.pools.general)}
                             </div>
-                            <div className="col-6">
+                            <div className="col-6 general-revered-title">
                                 {WorkerStatus.renderPoolBar("Reserved", serverInfo.memoryInfo.pools.reserved)}
                                 {this.renderPoolQueries(serverInfo.memoryInfo.pools.reserved)}
                             </div>

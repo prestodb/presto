@@ -676,7 +676,7 @@ export class QueryList extends React.Component {
                             </div>
                             &nbsp;
                             <div className="input-group-btn">
-                                <button type="button" className="btn btn-dark btn-sm dropdown-toggle bg-white text-dark .query-detail-buttons rounded-0" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style={{fontSize:'12px', height: '31px'}}>
+                                <button type="button" className="btn btn-dark btn-sm dropdown-toggle bg-white text-btn-default .query-detail-buttons rounded-0" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style={{fontSize:'12px', height: '31px'}}>
                                     Sort <span className="caret"/>
                                 </button>
                                 <ul className="dropdown-menu bg-white text-dark rounded-0">
@@ -690,7 +690,7 @@ export class QueryList extends React.Component {
                             </div>
                             &nbsp;
                             <div className="input-group-btn">
-                                <button type="button" className="btn btn-dark btn-sm dropdown-toggle bg-white text-dark rounded-0" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style={{fontSize:'12px', height: '31px'}}>
+                                <button type="button" className="btn btn-dark btn-sm dropdown-toggle bg-white text-btn-default rounded-0" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style={{fontSize:'12px', height: '31px'}}>
                                     Reorder Interval <span className="caret"/>
                                 </button>
                                 <ul className="dropdown-menu bg-white text-dark rounded-0">
