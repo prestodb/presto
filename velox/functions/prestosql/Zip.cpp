@@ -234,24 +234,19 @@ class ZipFunction : public exec::VectorFunction {
     std::vector<std::shared_ptr<exec::FunctionSignature>> signatures;
     signatures.reserve(kAritySize);
 
-    std::vector<std::string> elementTypeNames(kAritySize);
-
-    for (int i = 0; i < kAritySize; i++) {
-      elementTypeNames[i] = fmt::format("E{:02d}", i);
-    }
-
     // Build all signatures from kMinArity to kMaxArity.
-    for (int i = 1; i < kAritySize; i++) {
+    for (int i = kMinArity; i <= kMaxArity; i++) {
       auto builder = exec::FunctionSignatureBuilder();
       std::vector<std::string> allTypeVars;
-      allTypeVars.reserve(i + 1);
+      allTypeVars.reserve(i);
 
-      for (int j = 0; j < i + 1; j++) {
-        allTypeVars.emplace_back(elementTypeNames[j]);
-        builder.typeVariable(elementTypeNames[j]);
-        builder.argumentType(fmt::format("array({})", elementTypeNames[j]));
+      for (int j = 0; j < i; j++) {
+        allTypeVars.emplace_back(fmt::format("E{:02d}", j));
+        builder.typeVariable(allTypeVars.back());
+        builder.argumentType(fmt::format("array({})", allTypeVars.back()));
       }
-      auto returnType = boost::algorithm::join(allTypeVars, ",");
+
+      const auto returnType = folly::join(",", allTypeVars);
       builder.returnType(fmt::format("array(row({}))", returnType));
       signatures.emplace_back(builder.build());
     }

@@ -121,39 +121,60 @@ TEST_F(ZipTest, nullEmptyArray) {
   assertEqualVectors(expected, result);
 }
 
-/// Test if we can pass multiple different array types in one function.
+// Verify that zip takes between 2 and 7 arguments.
 TEST_F(ZipTest, arity) {
-  using S = StringView;
-  auto firstVector =
-      makeArrayVector<int16_t>({{1, 1, 1, 1}, {2, 2, 2}, {3, 3}});
+  std::vector<VectorPtr> inputs;
+  for (auto i = 0; i < 7; i++) {
+    if (i % 2 == 0) {
+      inputs.push_back(makeArrayVectorFromJson<int32_t>({
+          "[1, 1, 1, 1]",
+          "[2, 2, 2]",
+          "[3, 3]",
+      }));
+    } else {
+      inputs.push_back(makeArrayVectorFromJson<double>({
+          "[1.1, 1.1, 1.1, 1.1]",
+          "[2.2, 2.2, 2.2]",
+          "[3.3, 3.3]",
+      }));
+    }
+  }
 
-  auto secondVector =
-      makeArrayVector<int32_t>({{0, 0, 0, 0}, {4, 4, 4}, {5, 5}});
+  std::vector<VectorPtr> inputElements;
+  for (auto i = 0; i < 7; i++) {
+    inputElements.push_back(inputs[i]->as<ArrayVector>()->elements());
+  }
 
-  auto thirdVector =
-      makeArrayVector<int64_t>({{1, 1, 1, 1}, {2, 2, 2}, {3, 3}});
+  for (auto i = 2; i <= 7; ++i) {
+    std::ostringstream expression;
+    expression << "zip(c0";
+    for (auto j = 1; j < i; ++j) {
+      expression << ", c" + std::to_string(j);
+    }
+    expression << ")";
 
-  auto fourthVector = makeArrayVector<StringView>(
-      {{S("a"), S("a"), S("a"), S("a")},
-       {S("b"), S("b"), S("b")},
-       {S("c"), S("c")}});
+    SCOPED_TRACE(expression.str());
+    auto result = evaluate(expression.str(), makeRowVector(inputs));
 
-  auto result = evaluate(
-      "zip(c0, c1, c2, c3)",
-      makeRowVector({firstVector, secondVector, thirdVector, fourthVector}));
+    std::vector<VectorPtr> children;
+    for (auto j = 0; j < i; ++j) {
+      children.push_back(inputElements[j]);
+    }
 
-  auto firstResult =
-      makeNullableFlatVector<int16_t>({1, 1, 1, 1, 2, 2, 2, 3, 3});
-  auto secondResult =
-      makeNullableFlatVector<int32_t>({0, 0, 0, 0, 4, 4, 4, 5, 5});
-  auto thirdResult =
-      makeNullableFlatVector<int64_t>({1, 1, 1, 1, 2, 2, 2, 3, 3});
-  auto fourthResult = makeNullableFlatVector<std::string>(
-      {S("a"), S("a"), S("a"), S("a"), S("b"), S("b"), S("b"), S("c"), S("c")});
-  auto rowVector =
-      makeRowVector({firstResult, secondResult, thirdResult, fourthResult});
-  auto expected = makeArrayVector({0, 4, 7}, rowVector);
-  assertEqualVectors(expected, result);
+    auto expected = makeArrayVector({0, 4, 7}, makeRowVector(children));
+    assertEqualVectors(expected, result);
+  }
+
+  // Verify that 0, 1, or 8 args are not supported.
+  VELOX_ASSERT_THROW(
+      evaluate("zip()", makeRowVector(inputs)),
+      "Scalar function signature is not supported: zip");
+  VELOX_ASSERT_THROW(
+      evaluate("zip(c0)", makeRowVector(inputs)),
+      "Scalar function signature is not supported: zip");
+  VELOX_ASSERT_THROW(
+      evaluate("zip(c0, c1, c2, c3, c0, c1, c2, c3)", makeRowVector(inputs)),
+      "Scalar function signature is not supported: zip");
 }
 
 /// Test if we can zip on complex types
@@ -415,20 +436,6 @@ TEST_F(ZipTest, flatArraysWithGapInElements) {
   auto expected = makeArrayVector({0, 3, 6}, rowVector);
 
   assertEqualVectors(expected, result);
-}
-
-// Single arg not supported.
-TEST_F(ZipTest, singleArgument) {
-  auto vector = makeNullableArrayVector<int64_t>(
-      {{1, 2, 3, 4}, {3, 4, 5}, {std::nullopt}});
-  VELOX_ASSERT_THROW(
-      evaluate<ArrayVector>("zip(c0)", makeRowVector({vector})),
-      "Scalar function signature is not supported: zip(ARRAY<BIGINT>). Supported signatures: "
-      "(array(E00),array(E01)) -> array(row(E00,E01)), (array(E00),array(E01),array(E02)) -> "
-      "array(row(E00,E01,E02)), (array(E00),array(E01),array(E02),array(E03)) -> array(row(E0"
-      "0,E01,E02,E03)), (array(E00),array(E01),array(E02),array(E03),array(E04)) -> array(row"
-      "(E00,E01,E02,E03,E04)), (array(E00),array(E01),array(E02),array(E03),array(E04),array("
-      "E05)) -> array(row(E00,E01,E02,E03,E04,E05))");
 }
 
 } // namespace
