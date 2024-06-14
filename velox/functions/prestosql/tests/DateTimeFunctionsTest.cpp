@@ -1640,6 +1640,7 @@ TEST_F(DateTimeFunctionsTest, dateTrunc) {
   EXPECT_EQ(std::nullopt, dateTrunc("second", std::nullopt));
   EXPECT_EQ(Timestamp(0, 0), dateTrunc("second", Timestamp(0, 0)));
   EXPECT_EQ(Timestamp(0, 0), dateTrunc("second", Timestamp(0, 123)));
+
   EXPECT_EQ(Timestamp(-57600, 0), dateTrunc("day", Timestamp(0, 0)));
   EXPECT_EQ(
       Timestamp(998474645, 0),
@@ -1665,6 +1666,13 @@ TEST_F(DateTimeFunctionsTest, dateTrunc) {
   EXPECT_EQ(
       Timestamp(978336000, 0),
       dateTrunc("year", Timestamp(998'474'645, 321'001'234)));
+
+  // Check that truncation during daylight saving transition where conversions
+  // may be ambiguous return the right values.
+  EXPECT_EQ(
+      Timestamp(1667725200, 0), dateTrunc("hour", Timestamp(1667725200, 0)));
+  EXPECT_EQ(
+      Timestamp(1667725200, 0), dateTrunc("minute", Timestamp(1667725200, 0)));
 
   setQueryTimeZone("Asia/Kolkata");
 
