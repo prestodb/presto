@@ -115,7 +115,7 @@ daysSinceEpochFromDayOfYear(int32_t year, int32_t dayOfYear, int64_t& out);
 /// Cast string to date. Supported date formats vary, depending on input
 /// ParseMode. Refer to ParseMode enum for further info.
 ///
-/// Throws VeloxUserError if the format or date is invalid.
+/// Returns Unexpected with UserError status if the format or date is invalid.
 Expected<int32_t> fromDateString(const char* buf, size_t len, ParseMode mode);
 
 inline Expected<int32_t> fromDateString(const StringView& str, ParseMode mode) {
@@ -203,8 +203,8 @@ inline Expected<Timestamp> fromTimestampString(
 /// "America/Los_Angeles", or a timezone offset, like "+06:00" or "-09:30". The
 /// white space between the hour definition and timestamp is optional.
 ///
-/// -1 means no timezone information was found. Throws VeloxUserError in case of
-/// parsing errors.
+/// -1 means no timezone information was found. Returns Unexpected with
+/// UserError status in case of parsing errors.
 Expected<std::pair<Timestamp, int16_t>> fromTimestampWithTimezoneString(
     const char* buf,
     size_t len,

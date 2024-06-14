@@ -166,7 +166,7 @@ struct UnixTimestampParseFunction {
     auto dateTimeResult =
         format_->parse(std::string_view(input.data(), input.size()));
     // Return null if could not parse.
-    if (!dateTimeResult.has_value()) {
+    if (dateTimeResult.hasError()) {
       return false;
     }
     (*dateTimeResult).timestamp.toGMT(getTimezoneId(*dateTimeResult));
@@ -239,7 +239,7 @@ struct UnixTimestampParseWithFormatFunction
     auto dateTimeResult =
         this->format_->parse(std::string_view(input.data(), input.size()));
     // parsing error returns null
-    if (!dateTimeResult.has_value()) {
+    if (dateTimeResult.hasError()) {
       return false;
     }
     (*dateTimeResult).timestamp.toGMT(this->getTimezoneId(*dateTimeResult));
@@ -394,7 +394,7 @@ struct GetTimestampFunction {
     auto dateTimeResult =
         formatter_->parse(std::string_view(input.data(), input.size()));
     // Null as result for parsing error.
-    if (!dateTimeResult.has_value()) {
+    if (dateTimeResult.hasError()) {
       return false;
     }
     (*dateTimeResult).timestamp.toGMT(getTimezoneId(*dateTimeResult));

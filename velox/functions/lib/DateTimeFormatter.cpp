@@ -16,7 +16,6 @@
 
 #include "velox/functions/lib/DateTimeFormatter.h"
 #include <folly/String.h>
-#include <velox/common/base/Exceptions.h>
 #include <charconv>
 #include <cstring>
 #include <stdexcept>
@@ -295,18 +294,16 @@ bool specAllowsPlusSign(DateTimeFormatSpecifier s, bool specifierNext) {
   }
 }
 
-void parseFail(
-    const std::string_view& input,
-    const char* cur,
-    const char* end,
-    const bool failOnError) {
-  if (failOnError) {
-    VELOX_DCHECK_LE(cur, end);
-    VELOX_USER_FAIL(
-        "Invalid date format: '{}' is malformed at '{}'",
-        input,
-        std::string_view(cur, end - cur));
+Expected<DateTimeResult>
+parseFail(const std::string_view& input, const char* cur, const char* end) {
+  VELOX_DCHECK_LE(cur, end);
+  if (threadSkipErrorDetails()) {
+    return folly::makeUnexpected(Status::UserError());
   }
+  return folly::makeUnexpected(Status::UserError(
+      "Invalid date format: '{}' is malformed at '{}'",
+      input,
+      std::string_view(cur, end - cur)));
 }
 
 // Joda only supports parsing a few three-letter prefixes. The list is available
@@ -1336,9 +1333,8 @@ int32_t DateTimeFormatter::format(
   return resultSize;
 }
 
-std::optional<DateTimeResult> DateTimeFormatter::parse(
-    const std::string_view& input,
-    const bool failOnError) const {
+Expected<DateTimeResult> DateTimeFormatter::parse(
+    const std::string_view& input) const {
   Date date;
   const char* cur = input.data();
   const char* end = cur + input.size();
@@ -1349,8 +1345,7 @@ std::optional<DateTimeResult> DateTimeFormatter::parse(
       case DateTimeToken::Type::kLiteral:
         if (tok.literal.size() > end - cur ||
             std::memcmp(cur, tok.literal.data(), tok.literal.size()) != 0) {
-          parseFail(input, cur, end, failOnError);
-          return std::nullopt;
+          return parseFail(input, cur, end);
         }
         cur += tok.literal.size();
         break;
@@ -1359,14 +1354,12 @@ std::optional<DateTimeResult> DateTimeFormatter::parse(
             tokens_[i + 1].type == DateTimeToken::Type::kPattern) {
           if (parseFromPattern(
                   tok.pattern, input, cur, end, date, true, type_) == -1) {
-            parseFail(input, cur, end, failOnError);
-            return std::nullopt;
+            return parseFail(input, cur, end);
           }
         } else {
           if (parseFromPattern(
                   tok.pattern, input, cur, end, date, false, type_) == -1) {
-            parseFail(input, cur, end, failOnError);
-            return std::nullopt;
+            return parseFail(input, cur, end);
           }
         }
         break;
@@ -1375,8 +1368,7 @@ std::optional<DateTimeResult> DateTimeFormatter::parse(
 
   // Ensure all input was consumed.
   if (cur < end) {
-    parseFail(input, cur, end, failOnError);
-    return std::nullopt;
+    return parseFail(input, cur, end);
   }
 
   // Era is BC and year of era is provided
@@ -1393,32 +1385,32 @@ std::optional<DateTimeResult> DateTimeFormatter::parse(
   // Ensure all day of month values are valid for ending month value
   for (int i = 0; i < date.dayOfMonthValues.size(); i++) {
     if (!util::isValidDate(date.year, date.month, date.dayOfMonthValues[i])) {
-      if (!failOnError) {
-        return std::nullopt;
+      if (threadSkipErrorDetails()) {
+        return folly::makeUnexpected(Status::UserError());
       }
-      VELOX_USER_FAIL(
+      return folly::makeUnexpected(Status::UserError(
           "Value {} for dayOfMonth must be in the range [1,{}] "
           "for year {} and month {}.",
           date.dayOfMonthValues[i],
           util::getMaxDayOfMonth(date.year, date.month),
           date.year,
-          date.month);
+          date.month));
     }
   }
 
   // Ensure all day of year values are valid for ending year value
   for (int i = 0; i < date.dayOfYearValues.size(); i++) {
     if (!util::isValidDayOfYear(date.year, date.dayOfYearValues[i])) {
-      if (!failOnError) {
-        return std::nullopt;
+      if (threadSkipErrorDetails()) {
+        return folly::makeUnexpected(Status::UserError());
       }
-      VELOX_USER_FAIL(
+      return folly::makeUnexpected(Status::UserError(
           "Value {} for dayOfMonth must be in the range [1,{}] "
           "for year {} and month {}.",
           date.dayOfYearValues[i],
           util::isLeapYear(date.year) ? 366 : 365,
           date.year,
-          date.month);
+          date.month));
     }
   }
 
@@ -1437,10 +1429,7 @@ std::optional<DateTimeResult> DateTimeFormatter::parse(
   }
   if (!status.ok()) {
     VELOX_DCHECK(status.isUserError());
-    if (!failOnError) {
-      return std::nullopt;
-    }
-    VELOX_USER_FAIL(status.message());
+    return folly::makeUnexpected(status);
   }
 
   int64_t microsSinceMidnight =

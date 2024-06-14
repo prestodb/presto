@@ -209,8 +209,8 @@ struct Converter<
     bool decimalPoint = false;
     if (v[0] == '-' || v[0] == '+') {
       if (len == 1) {
-        return folly::makeUnexpected(Status::UserError(fmt::format(
-            "Cannot cast an '{}' string to an integral value.", v[0])));
+        return folly::makeUnexpected(Status::UserError(
+            "Cannot cast an '{}' string to an integral value.", v[0]));
       }
       negative = v[0] == '-';
       index = 1;
