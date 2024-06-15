@@ -809,6 +809,36 @@ TEST_F(StringFunctionsTest, concat) {
   }
 }
 
+TEST_F(StringFunctionsTest, concatVarbinary) {
+  auto input = makeRowVector({
+      makeFlatVector<std::string>(
+          {
+              "apple",
+              "orange",
+              "pineapple",
+              "mixed berries",
+              "",
+              "plum",
+          },
+          VARBINARY()),
+  });
+
+  auto result =
+      evaluate("concat(c0, '_'::varbinary, c0, '_'::varbinary, c0)", input);
+  auto expected = makeFlatVector<std::string>(
+      {
+          "apple_apple_apple",
+          "orange_orange_orange",
+          "pineapple_pineapple_pineapple",
+          "mixed berries_mixed berries_mixed berries",
+          "__",
+          "plum_plum_plum",
+      },
+      VARBINARY());
+
+  test::assertEqualVectors(expected, result);
+}
+
 // Test length vector function
 TEST_F(StringFunctionsTest, length) {
   auto lengthUtf8Ref = [](std::string string) {
