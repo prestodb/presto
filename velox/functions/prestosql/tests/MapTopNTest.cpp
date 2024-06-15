@@ -73,8 +73,8 @@ TEST_F(MapTopNTest, equalValues) {
       makeMapVectorFromJson<int32_t, int64_t>(
           {"{6:3, 2:5, 3:1, 4:4, 5:2, 1:3}",
            "{1:3, 2:5, 3:null, 4:4, 5:2, 6:5 }",
-           "{1:null, 2:null, 3:1, 4:4, 5:null}",
-           "{1:null, 2:null, 3:null, 4:null, 5:null}"}),
+           "{5:null, 2:null, 3:1, 4:4, 1:null}",
+           "{1:null, 5:null, 3:null, 4:null, 2:null}"}),
   });
 
   auto result = evaluate("map_top_n(c0, 3)", data);

@@ -42,7 +42,7 @@ struct MapTopNFunction {
 
         return comp > 0;
       } else if (FOLLY_UNLIKELY(
-                     l->second.has_value() && r->second.has_value())) {
+                     !l->second.has_value() && !r->second.has_value())) {
         return l->first.compare(r->first, flags) > 0;
       }
 
