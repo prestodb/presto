@@ -29,19 +29,23 @@ import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hudi.common.config.HoodieMetadataConfig;
 import org.apache.hudi.common.engine.HoodieEngineContext;
 import org.apache.hudi.common.engine.HoodieLocalEngineContext;
-import org.apache.hudi.common.fs.FSUtils;
 import org.apache.hudi.common.model.HoodieBaseFile;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.common.table.view.FileSystemViewManager;
 import org.apache.hudi.common.table.view.HoodieTableFileSystemView;
+import org.apache.hudi.hadoop.fs.HadoopFSUtils;
+import org.apache.hudi.storage.hadoop.HadoopStorageConfiguration;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.hive.HiveFileInfo.createHiveFileInfo;
 import static com.facebook.presto.hive.HiveSessionProperties.isHudiMetadataEnabled;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_DEFAULT_PORT;
+import static org.apache.hudi.hadoop.fs.HadoopFSUtils.convertToHadoopFileStatus;
 
 public class HudiDirectoryLister
         implements DirectoryLister
@@ -65,10 +69,10 @@ public class HudiDirectoryLister
             actualConfig = ((CopyOnFirstWriteConfiguration) actualConfig).getConfig();
         }
         this.metaClient = HoodieTableMetaClient.builder()
-                .setConf(actualConfig)
+                .setConf(new HadoopStorageConfiguration(actualConfig))
                 .setBasePath(table.getStorage().getLocation())
                 .build();
-        HoodieEngineContext engineContext = new HoodieLocalEngineContext(actualConfig);
+        HoodieEngineContext engineContext = new HoodieLocalEngineContext(new HadoopStorageConfiguration(actualConfig));
         HoodieMetadataConfig metadataConfig = HoodieMetadataConfig.newBuilder()
                 .enable(metadataEnabled)
                 .build();
@@ -113,9 +117,11 @@ public class HudiDirectoryLister
                 String tablePath,
                 Path directory)
         {
-            String partition = FSUtils.getRelativePartitionPath(new Path(tablePath), directory);
+            String partition = HadoopFSUtils.getRelativePartitionPath(new Path(tablePath), directory);
             if (fileStatuses.isPresent()) {
-                fileSystemView.addFilesToView(fileStatuses.get());
+                fileSystemView.addFilesToView(Arrays.stream(fileStatuses.get())
+                        .map(HadoopFSUtils::convertToStoragePathInfo)
+                        .collect(Collectors.toList()));
                 this.hoodieBaseFileIterator = fileSystemView.fetchLatestBaseFiles(partition).iterator();
             }
             else {
@@ -133,7 +139,7 @@ public class HudiDirectoryLister
         public HiveFileInfo next()
                 throws IOException
         {
-            FileStatus fileStatus = hoodieBaseFileIterator.next().getFileStatus();
+            FileStatus fileStatus = convertToHadoopFileStatus(hoodieBaseFileIterator.next().getPathInfo());
             String[] name = {"localhost:" + DFS_DATANODE_DEFAULT_PORT};
             String[] host = {"localhost"};
             LocatedFileStatus hoodieFileStatus = new LocatedFileStatus(fileStatus,
