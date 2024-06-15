@@ -95,67 +95,37 @@ struct BitwiseArithmeticShiftRightFunction {
   }
 };
 
-namespace {
-template <typename T, int MAX_SHIFT>
-#if defined(__clang__)
-__attribute__((no_sanitize("integer")))
-#endif
-FOLLY_ALWAYS_INLINE bool
-bitwiseLeftShift(int64_t& result, T number, T shift) {
-  if ((uint64_t)shift >= MAX_SHIFT) {
-    result = 0;
-  } else {
-    result = (number << shift);
-  }
-  return true;
-}
-} // namespace
-
-template <typename T>
+template <typename TExec>
 struct BitwiseLeftShiftFunction {
-  template <typename TInput>
-  FOLLY_ALWAYS_INLINE bool call(int64_t& result, TInput number, TInput shift) {
-    if constexpr (std::is_same_v<TInput, int8_t>) {
-      return bitwiseLeftShift<TInput, 8>(result, number, shift);
-    } else if constexpr (std::is_same_v<TInput, int16_t>) {
-      return bitwiseLeftShift<TInput, 16>(result, number, shift);
-    } else if constexpr (std::is_same_v<TInput, int32_t>) {
-      return bitwiseLeftShift<TInput, 32>(result, number, shift);
+  template <typename T>
+  FOLLY_ALWAYS_INLINE void call(T& result, T number, int32_t shift) {
+    static constexpr uint32_t kMaxShift = sizeof(T) * 8;
+
+    // Return zero if 'shift' is negative or exceeds number of bits in T.
+    if ((uint32_t)shift >= kMaxShift) {
+      result = 0;
     } else {
-      return bitwiseLeftShift<TInput, 64>(result, number, shift);
+      result = (number << shift);
     }
   }
 };
 
-namespace {
-template <typename T, typename UT, int MAX_SHIFT>
-FOLLY_ALWAYS_INLINE bool bitwiseRightShift(int64_t& result, T number, T shift) {
-  if ((uint64_t)shift >= MAX_SHIFT) {
-    result = 0;
-  } else {
-    result = ((UT)number >> shift);
-  }
-  return true;
-}
-} // namespace
-
-template <typename T>
+template <typename TExec>
 struct BitwiseRightShiftFunction {
-  template <typename TInput>
-  FOLLY_ALWAYS_INLINE bool call(int64_t& result, TInput number, TInput shift) {
-    if constexpr (std::is_same_v<TInput, int8_t>) {
-      return bitwiseRightShift<int8_t, uint8_t, 8>(result, number, shift);
-    } else if constexpr (std::is_same_v<TInput, int16_t>) {
-      return bitwiseRightShift<int16_t, uint16_t, 16>(result, number, shift);
-    } else if constexpr (std::is_same_v<TInput, int32_t>) {
-      return bitwiseRightShift<int32_t, uint32_t, 32>(result, number, shift);
+  template <typename T>
+  FOLLY_ALWAYS_INLINE void call(T& result, T number, int32_t shift) {
+    static constexpr uint32_t kMaxShift = sizeof(T) * 8;
+
+    // Return zero if 'shift' is negative or exceeds number of bits in T.
+    if ((uint32_t)shift >= kMaxShift) {
+      result = 0;
     } else {
-      return bitwiseRightShift<int64_t, uint64_t, 64>(result, number, shift);
+      result = ((std::make_unsigned_t<T>)number) >> shift;
     }
   }
 };
 
-namespace {
+namespace detail {
 template <typename T, uint64_t MASK, uint64_t SIGNED_BIT>
 FOLLY_ALWAYS_INLINE int64_t preserveSign(T number) {
   if ((number & SIGNED_BIT) != 0) {
@@ -164,36 +134,34 @@ FOLLY_ALWAYS_INLINE int64_t preserveSign(T number) {
     return (number & MASK);
   }
 }
-} // namespace
+} // namespace detail
 
-template <typename T>
+template <typename TExec>
 struct BitwiseRightShiftArithmeticFunction {
-  template <typename TInput>
-  FOLLY_ALWAYS_INLINE bool call(int64_t& result, TInput number, TInput shift) {
-    if ((uint64_t)shift >= 64) {
+  template <typename T>
+  FOLLY_ALWAYS_INLINE void call(T& result, T number, int32_t shift) {
+    if ((uint32_t)shift >= 64) {
       if (number >= 0) {
         result = 0L;
       } else {
         result = -1L;
       }
-      return true;
+      return;
     }
 
     // clang-format off
-    if constexpr (std::is_same_v<TInput, int8_t>) {
-      result = preserveSign<int8_t, 0b11111111L, 0b10000000L>(number) >> shift;
-    } else if constexpr (std::is_same_v<TInput, int16_t>) {
-      result = preserveSign<int16_t, 0b1111111111111111L, 0b1000000000000000L>(number)
+    if constexpr (std::is_same_v<T, int8_t>) {
+      result = detail::preserveSign<int8_t, 0b11111111L, 0b10000000L>(number) >> shift;
+    } else if constexpr (std::is_same_v<T, int16_t>) {
+      result = detail::preserveSign<int16_t, 0b1111111111111111L, 0b1000000000000000L>(number)
                 >> shift;
-    } else if constexpr (std::is_same_v<TInput, int32_t>) {
-      result = preserveSign<int32_t, 0x00000000ffffffffL, 0x000000000080000000L>(number)
+    } else if constexpr (std::is_same_v<T, int32_t>) {
+      result = detail::preserveSign<int32_t, 0x00000000ffffffffL, 0x000000000080000000L>(number)
                 >> shift;
     } else {
       result = number >> shift;
     }
     // clang-format on
-
-    return true;
   }
 };
 

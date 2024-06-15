@@ -34,6 +34,14 @@ void registerBitwiseUnaryIntegral(const std::vector<std::string>& aliases) {
   registerFunction<T, int64_t, int32_t>(aliases);
   registerFunction<T, int64_t, int64_t>(aliases);
 }
+
+template <template <class> class T>
+void registerShift(const std::vector<std::string>& aliases) {
+  registerFunction<T, int8_t, int8_t, int32_t>(aliases);
+  registerFunction<T, int16_t, int16_t, int32_t>(aliases);
+  registerFunction<T, int32_t, int32_t, int32_t>(aliases);
+  registerFunction<T, int64_t, int64_t, int32_t>(aliases);
+}
 } // namespace
 
 void registerBitwiseFunctions(const std::string& prefix) {
@@ -47,11 +55,9 @@ void registerBitwiseFunctions(const std::string& prefix) {
       int64_t,
       int64_t,
       int64_t>({prefix + "bitwise_arithmetic_shift_right"});
-  registerBitwiseBinaryIntegral<BitwiseLeftShiftFunction>(
-      {prefix + "bitwise_left_shift"});
-  registerBitwiseBinaryIntegral<BitwiseRightShiftFunction>(
-      {prefix + "bitwise_right_shift"});
-  registerBitwiseBinaryIntegral<BitwiseRightShiftArithmeticFunction>(
+  registerShift<BitwiseLeftShiftFunction>({prefix + "bitwise_left_shift"});
+  registerShift<BitwiseRightShiftFunction>({prefix + "bitwise_right_shift"});
+  registerShift<BitwiseRightShiftArithmeticFunction>(
       {prefix + "bitwise_right_shift_arithmetic"});
   registerFunction<
       BitwiseLogicalShiftRightFunction,

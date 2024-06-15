@@ -71,23 +71,22 @@ class BitwiseTest : public functions::test::FunctionBaseTest {
   template <typename T>
   std::optional<int64_t> bitwiseRightShiftArithmetic(
       std::optional<T> a,
-      std::optional<T> b) {
-    return evaluateOnce<int64_t>(
-        "bitwise_right_shift_arithmetic(c0, c1)", a, b);
+      std::optional<int32_t> b) {
+    return evaluateOnce<T>("bitwise_right_shift_arithmetic(c0, c1)", a, b);
   }
 
   template <typename T>
   std::optional<int64_t> bitwiseLeftShift(
       std::optional<T> a,
-      std::optional<T> b) {
-    return evaluateOnce<int64_t>("bitwise_left_shift(c0, c1)", a, b);
+      std::optional<int32_t> b) {
+    return evaluateOnce<T>("bitwise_left_shift(c0, c1)", a, b);
   }
 
   template <typename T>
   std::optional<int64_t> bitwiseRightShift(
       std::optional<T> a,
-      std::optional<T> b) {
-    return evaluateOnce<int64_t>("bitwise_right_shift(c0, c1)", a, b);
+      std::optional<int32_t> b) {
+    return evaluateOnce<T>("bitwise_right_shift(c0, c1)", a, b);
   }
 };
 
@@ -303,7 +302,7 @@ TEST_F(BitwiseTest, rightShiftArithmetic) {
   EXPECT_EQ(bitwiseRightShiftArithmetic<int64_t>(kMax64, kMax64), 0);
   EXPECT_EQ(bitwiseRightShiftArithmetic<int64_t>(kMax64, 1), kMax64 >> 1);
   EXPECT_EQ(bitwiseRightShiftArithmetic<int64_t>(kMin64, 1), kMin64 >> 1);
-  EXPECT_EQ(bitwiseRightShiftArithmetic<int64_t>(1, kMin64), 0);
+  EXPECT_EQ(bitwiseRightShiftArithmetic<int64_t>(1, kMin32), 0);
 }
 
 TEST_F(BitwiseTest, leftShift) {
@@ -319,8 +318,8 @@ TEST_F(BitwiseTest, leftShift) {
 
   EXPECT_EQ(bitwiseLeftShift<int16_t>(kMin16, kMax16), 0);
   EXPECT_EQ(bitwiseLeftShift<int16_t>(kMax16, kMax16), 0);
-  EXPECT_EQ(bitwiseLeftShift<int16_t>(kMax16, 1), kMax16 << 1);
-  EXPECT_EQ(bitwiseLeftShift<int16_t>(kMin16, 1), -65536);
+  EXPECT_EQ(bitwiseLeftShift<int16_t>(kMax16, 1), -2);
+  EXPECT_EQ(bitwiseLeftShift<int16_t>(kMin16, 1), 0);
 
   EXPECT_EQ(bitwiseLeftShift<int32_t>(kMin32, kMax32), 0);
   EXPECT_EQ(bitwiseLeftShift<int32_t>(kMax32, kMax32), 0);
@@ -329,8 +328,7 @@ TEST_F(BitwiseTest, leftShift) {
 
   EXPECT_EQ(bitwiseLeftShift<int64_t>(kMin64, kMax64), 0);
   EXPECT_EQ(bitwiseLeftShift<int64_t>(kMax64, kMax64), 0);
-  EXPECT_EQ(
-      bitwiseLeftShift<int64_t>(5787029258914367756, 6918663727935913984), 0);
+  EXPECT_EQ(bitwiseLeftShift<int64_t>(5787029258914367756, 123456), 0);
   EXPECT_EQ(bitwiseLeftShift<int64_t>(kMax64, 1), kMax64 << 1);
   EXPECT_EQ(bitwiseLeftShift<int64_t>(kMin64, 1), 0);
 }
@@ -353,8 +351,7 @@ TEST_F(BitwiseTest, rightShift) {
 
   EXPECT_EQ(bitwiseRightShift<int64_t>(kMin64, kMax64), 0);
   EXPECT_EQ(bitwiseRightShift<int64_t>(kMax64, kMax64), 0);
-  EXPECT_EQ(
-      bitwiseRightShift<int64_t>(5787029258914367756, 6918663727935913984), 0);
+  EXPECT_EQ(bitwiseRightShift<int64_t>(5787029258914367756, 123456), 0);
   EXPECT_EQ(bitwiseRightShift<int64_t>(kMax64, 1), kMax64 >> 1);
   EXPECT_EQ(bitwiseRightShift<int64_t>(kMin64, 1), (kMax64 >> 1) + 1);
 }
