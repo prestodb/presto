@@ -22,6 +22,14 @@
 namespace facebook::velox::functions {
 
 namespace {
+
+void registerTruncate(const std::vector<std::string>& names) {
+  registerFunction<TruncateFunction, double, double>(names);
+  registerFunction<TruncateFunction, float, float>(names);
+  registerFunction<TruncateFunction, double, double, int32_t>(names);
+  registerFunction<TruncateFunction, float, float, int32_t>(names);
+}
+
 void registerMathFunctions(const std::string& prefix) {
   registerUnaryNumeric<CeilFunction>({prefix + "ceil", prefix + "ceiling"});
   registerUnaryNumeric<FloorFunction>({prefix + "floor"});
@@ -98,9 +106,9 @@ void registerMathFunctions(const std::string& prefix) {
       {prefix + "to_base"});
   registerFunction<PiFunction, double>({prefix + "pi"});
   registerFunction<EulerConstantFunction, double>({prefix + "e"});
-  registerFunction<TruncateFunction, double, double>({prefix + "truncate"});
-  registerFunction<TruncateFunction, double, double, int32_t>(
-      {prefix + "truncate"});
+
+  registerTruncate({prefix + "truncate"});
+
   registerFunction<
       CosineSimilarityFunction,
       double,

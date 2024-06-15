@@ -580,13 +580,21 @@ struct EulerConstantFunction {
   }
 };
 
-template <typename T>
+template <typename TExec>
 struct TruncateFunction {
   FOLLY_ALWAYS_INLINE void call(double& result, double a) {
     result = std::trunc(a);
   }
 
+  FOLLY_ALWAYS_INLINE void call(float& result, float a) {
+    result = std::trunc(a);
+  }
+
   FOLLY_ALWAYS_INLINE void call(double& result, double a, int32_t n) {
+    result = truncate(a, n);
+  }
+
+  FOLLY_ALWAYS_INLINE void call(float& result, float a, int32_t n) {
     result = truncate(a, n);
   }
 };

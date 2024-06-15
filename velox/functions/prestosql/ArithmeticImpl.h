@@ -133,16 +133,14 @@ T ceil(const T& arg) {
   return results;
 }
 
-FOLLY_ALWAYS_INLINE double truncate(
-    const double& number,
-    const int32_t& decimals = 0) {
+FOLLY_ALWAYS_INLINE double truncate(double number, int32_t decimals) {
   const bool decNegative = (decimals < 0);
   const auto log10Size = DoubleUtil::kPowersOfTen.size(); // 309
   if (decNegative && decimals <= -log10Size) {
     return 0.0;
   }
 
-  const uint64_t absDec = decNegative ? -decimals : decimals;
+  const uint64_t absDec = std::abs(decimals);
   const double tmp = (absDec < log10Size) ? DoubleUtil::kPowersOfTen[absDec]
                                           : std::pow(10.0, (double)absDec);
 

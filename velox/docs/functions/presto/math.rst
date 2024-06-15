@@ -159,14 +159,17 @@ Mathematical Functions
 
     Returns the base-``radix`` representation of ``x``. ``radix`` must be between 2 and 36.
 
-.. function:: truncate(x) -> double
+.. function:: truncate(x) -> [same as x]
 
     Returns x rounded to integer by dropping digits after decimal point.
+    Supported types of ``x`` are: REAL and DOUBLE.
 
-.. function:: truncate(x, n) -> double
+.. function:: truncate(x, n) -> [same as x]
    :noindex:
 
     Returns x truncated to n decimal places. n can be negative to truncate n digits left of the decimal point.
+    Supported types of ``x`` are: REAL and DOUBLE.
+    ``n`` is an INTEGER.
 
 .. function:: width_bucket(x, bound1, bound2, n) -> bigint
 

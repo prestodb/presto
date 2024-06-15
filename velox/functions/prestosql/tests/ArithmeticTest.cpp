@@ -776,10 +776,24 @@ TEST_F(ArithmeticTest, clamp) {
   EXPECT_EQ(clamp(123456, 1, -1), -1);
 }
 
-TEST_F(ArithmeticTest, truncate) {
-  const auto truncate = [&](std::optional<double> a,
-                            std::optional<int32_t> n = 0) {
-    return evaluateOnce<double>("truncate(c0,c1)", a, n);
+TEST_F(ArithmeticTest, truncateDouble) {
+  const auto truncate = [&](std::optional<double> d) {
+    const auto r = evaluateOnce<double>("truncate(c0)", d);
+
+    // truncate(d) == truncate(d, 0)
+    if (d.has_value() && std::isfinite(d.value())) {
+      const auto otherResult =
+          evaluateOnce<double>("truncate(c0, 0::integer)", d);
+
+      VELOX_CHECK_EQ(r.value(), otherResult.value());
+    }
+
+    return r;
+  };
+
+  const auto truncateN = [&](std::optional<double> d,
+                             std::optional<int32_t> n) {
+    return evaluateOnce<double>("truncate(c0, c1)", d, n);
   };
 
   EXPECT_EQ(truncate(0), 0);
@@ -789,37 +803,86 @@ TEST_F(ArithmeticTest, truncate) {
   EXPECT_THAT(truncate(kNan), IsNan());
   EXPECT_THAT(truncate(kInf), IsInf());
 
-  EXPECT_EQ(truncate(0, 0), 0);
-  EXPECT_EQ(truncate(1.5, 0), 1);
-  EXPECT_EQ(truncate(-1.5, 0), -1);
-  EXPECT_EQ(truncate(std::nullopt, 0), std::nullopt);
-  EXPECT_EQ(truncate(1.5, std::nullopt), std::nullopt);
-  EXPECT_THAT(truncate(kNan, 0), IsNan());
-  EXPECT_THAT(truncate(kNan, 1), IsNan());
-  EXPECT_THAT(truncate(kInf, 0), IsInf());
-  EXPECT_THAT(truncate(kInf, 1), IsInf());
+  EXPECT_EQ(truncate(0), 0);
+  EXPECT_EQ(truncate(1.5), 1);
+  EXPECT_EQ(truncate(-1.5), -1);
+  EXPECT_EQ(truncate(std::nullopt), std::nullopt);
+  EXPECT_THAT(truncate(kNan), IsNan());
+  EXPECT_THAT(truncate(kInf), IsInf());
 
-  EXPECT_DOUBLE_EQ(truncate(1.5678, 2).value(), 1.56);
-  EXPECT_DOUBLE_EQ(truncate(-1.5678, 2).value(), -1.56);
-  EXPECT_DOUBLE_EQ(truncate(1.333, -1).value(), 0);
-  EXPECT_DOUBLE_EQ(truncate(3.54555, 2).value(), 3.54);
-  EXPECT_DOUBLE_EQ(truncate(1234, 1).value(), 1234);
-  EXPECT_DOUBLE_EQ(truncate(1234, -1).value(), 1230);
-  EXPECT_DOUBLE_EQ(truncate(1234.56, 1).value(), 1234.5);
-  EXPECT_DOUBLE_EQ(truncate(1234.56, -1).value(), 1230.0);
-  EXPECT_DOUBLE_EQ(truncate(1239.999, 2).value(), 1239.99);
-  EXPECT_DOUBLE_EQ(truncate(1239.999, -2).value(), 1200.0);
+  EXPECT_EQ(truncateN(1.5, std::nullopt), std::nullopt);
+  EXPECT_THAT(truncateN(kNan, 1), IsNan());
+  EXPECT_THAT(truncateN(kInf, 1), IsInf());
+
+  EXPECT_DOUBLE_EQ(truncateN(1.5678, 2).value(), 1.56);
+  EXPECT_DOUBLE_EQ(truncateN(-1.5678, 2).value(), -1.56);
+  EXPECT_DOUBLE_EQ(truncateN(1.333, -1).value(), 0);
+  EXPECT_DOUBLE_EQ(truncateN(3.54555, 2).value(), 3.54);
+  EXPECT_DOUBLE_EQ(truncateN(1234, 1).value(), 1234);
+  EXPECT_DOUBLE_EQ(truncateN(1234, -1).value(), 1230);
+  EXPECT_DOUBLE_EQ(truncateN(1234.56, 1).value(), 1234.5);
+  EXPECT_DOUBLE_EQ(truncateN(1234.56, -1).value(), 1230.0);
+  EXPECT_DOUBLE_EQ(truncateN(1239.999, 2).value(), 1239.99);
+  EXPECT_DOUBLE_EQ(truncateN(1239.999, -2).value(), 1200.0);
   EXPECT_DOUBLE_EQ(
-      truncate(123456789012345678901.23, 3).value(), 123456789012345678901.23);
+      truncateN(123456789012345678901.23, 3).value(), 123456789012345678901.23);
   EXPECT_DOUBLE_EQ(
-      truncate(-123456789012345678901.23, 3).value(),
+      truncateN(-123456789012345678901.23, 3).value(),
       -123456789012345678901.23);
   EXPECT_DOUBLE_EQ(
-      truncate(123456789123456.999, 2).value(), 123456789123456.99);
-  EXPECT_DOUBLE_EQ(truncate(123456789012345678901.0, -21).value(), 0.0);
-  EXPECT_DOUBLE_EQ(truncate(123456789012345678901.23, -21).value(), 0.0);
-  EXPECT_DOUBLE_EQ(truncate(123456789012345678901.0, -21).value(), 0.0);
-  EXPECT_DOUBLE_EQ(truncate(123456789012345678901.23, -21).value(), 0.0);
+      truncateN(123456789123456.999, 2).value(), 123456789123456.99);
+  EXPECT_DOUBLE_EQ(truncateN(123456789012345678901.0, -21).value(), 0.0);
+  EXPECT_DOUBLE_EQ(truncateN(123456789012345678901.23, -21).value(), 0.0);
+  EXPECT_DOUBLE_EQ(truncateN(123456789012345678901.0, -21).value(), 0.0);
+  EXPECT_DOUBLE_EQ(truncateN(123456789012345678901.23, -21).value(), 0.0);
+}
+
+TEST_F(ArithmeticTest, truncateReal) {
+  const auto truncate = [&](std::optional<float> d) {
+    const auto r = evaluateOnce<float>("truncate(c0)", d);
+
+    // truncate(d) == truncate(d, 0)
+    if (d.has_value() && std::isfinite(d.value())) {
+      const auto otherResult =
+          evaluateOnce<float>("truncate(c0, 0::integer)", d);
+
+      VELOX_CHECK_EQ(r.value(), otherResult.value());
+    }
+
+    return r;
+  };
+
+  const auto truncateN = [&](std::optional<float> d, std::optional<int32_t> n) {
+    return evaluateOnce<float>("truncate(c0, c1)", d, n);
+  };
+
+  EXPECT_EQ(truncate(0), 0);
+  EXPECT_EQ(truncate(1.5), 1);
+  EXPECT_EQ(truncate(-1.5), -1);
+
+  EXPECT_EQ(truncate(std::nullopt), std::nullopt);
+  EXPECT_THAT(truncate(kNan), IsNan());
+  EXPECT_THAT(truncate(kInf), IsInf());
+
+  EXPECT_FLOAT_EQ(truncateN(123.456, 0).value(), 123);
+  EXPECT_FLOAT_EQ(truncateN(123.456, 1).value(), 123.4);
+  EXPECT_FLOAT_EQ(truncateN(123.456, 2).value(), 123.45);
+  EXPECT_FLOAT_EQ(truncateN(123.456, 3).value(), 123.456);
+  EXPECT_FLOAT_EQ(truncateN(123.456, 4).value(), 123.456);
+
+  EXPECT_FLOAT_EQ(truncateN(123.456, -1).value(), 120);
+  EXPECT_FLOAT_EQ(truncateN(123.456, -2).value(), 100);
+  EXPECT_FLOAT_EQ(truncateN(123.456, -3).value(), 0);
+
+  EXPECT_FLOAT_EQ(truncateN(-123.456, 0).value(), -123);
+  EXPECT_FLOAT_EQ(truncateN(-123.456, 1).value(), -123.4);
+  EXPECT_FLOAT_EQ(truncateN(-123.456, 2).value(), -123.45);
+  EXPECT_FLOAT_EQ(truncateN(-123.456, 3).value(), -123.456);
+  EXPECT_FLOAT_EQ(truncateN(-123.456, 4).value(), -123.456);
+
+  EXPECT_FLOAT_EQ(truncateN(-123.456, -1).value(), -120);
+  EXPECT_FLOAT_EQ(truncateN(-123.456, -2).value(), -100);
+  EXPECT_FLOAT_EQ(truncateN(-123.456, -3).value(), 0);
 }
 
 TEST_F(ArithmeticTest, wilsonIntervalLower) {
