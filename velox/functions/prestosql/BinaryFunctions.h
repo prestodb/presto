@@ -25,6 +25,7 @@
 #include "velox/external/md5/md5.h"
 #include "velox/functions/Udf.h"
 #include "velox/functions/lib/ToHex.h"
+#include "velox/functions/lib/string/StringImpl.h"
 
 namespace facebook::velox::functions {
 
@@ -435,5 +436,32 @@ struct FromIEEE754Bits32 {
     result = folly::Endian::big(result);
   }
 };
+
+/// lpad(binary, size, padbinary) -> varbinary
+///     Left pads input to size characters with padding.  If size is
+///     less than the length of input, the result is truncated to size
+///     characters.  size must not be negative and padding must be non-empty.
+/// rpad(binary, size, padbinary) -> varbinary
+///     Right pads input to size characters with padding.  If size is
+///     less than the length of input, the result is truncated to size
+///     characters.  size must not be negative and padding must be non-empty.
+template <typename T, bool lpad>
+struct PadFunctionVarbinaryBase {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Varbinary>& result,
+      const arg_type<Varbinary>& binary,
+      const arg_type<int64_t>& size,
+      const arg_type<Varbinary>& padbinary) {
+    stringImpl::pad<lpad, false /*isAscii*/>(result, binary, size, padbinary);
+  }
+};
+
+template <typename T>
+struct LPadVarbinaryFunction : public PadFunctionVarbinaryBase<T, true> {};
+
+template <typename T>
+struct RPadVarbinaryFunction : public PadFunctionVarbinaryBase<T, false> {};
 
 } // namespace facebook::velox::functions

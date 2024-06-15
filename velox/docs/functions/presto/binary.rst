@@ -75,10 +75,30 @@ Binary Functions
 
     Returns the length of ``binary`` in bytes.
 
+.. function:: lpad(binary, size, padbinary) -> varbinary
+    :noindex:
+    
+    Left pads ``binary`` to ``size`` bytes with ``padbinary``.
+    If ``size`` is less than the length of ``binary``, the result is
+    truncated to ``size`` characters. ``size`` must not be negative
+    and ``padbinary`` must be non-empty. ``size`` has a maximum value of 1 MiB.
+    In the case of ``size`` being smaller than the length of ``binary``, 
+    ``binary`` will be truncated from the right to fit the ``size``.
+
 .. function:: md5(binary) -> varbinary
 
     Computes the md5 hash of ``binary``.
 
+.. function:: rpad(binary, size, padbinary) -> varbinary
+    :noindex:
+
+    Right pads ``binary`` to ``size`` bytes with ``padbinary``.
+    If ``size`` is less than the length of ``binary``, the result is
+    truncated to ``size`` characters. ``size`` must not be negative
+    and ``padbinary`` must be non-empty. ``size`` has a maximum value of 1 MiB.
+    In the case of ``size`` being smaller than the length of ``binary``, 
+    ``binary`` will be truncated from the right to fit the ``size``.
+    
 .. function:: sha1(binary) -> varbinary
 
     Computes the SHA-1 hash of ``binary``.
