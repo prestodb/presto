@@ -279,6 +279,23 @@ TEST_F(ArrayDistinctTest, stringArrays) {
   testExpr(expected, "array_distinct(C0)", {array});
 }
 
+TEST_F(ArrayDistinctTest, complexTypeArrays) {
+  auto input = makeNestedArrayVectorFromJson<int32_t>({
+      "[[1, 2, 3], [1, 2], [1, 2, 3], [], [1, 2, 3], [1], [1, 2, 3], [2], []]",
+      "[[null, 2, 3], [1, 2], [1, 2, 3], [], [null, 2, 3], [1], [1, 2, 3], [2], null]",
+      "[[1, null, 3], [1, null, 3], [1, null, 3], null, [1, null, 3], [1, null, 3]]",
+  });
+
+  auto result = evaluate("array_distinct(c0)", makeRowVector({input}));
+  auto expected = makeNestedArrayVectorFromJson<int32_t>({
+      "[[1, 2, 3], [1, 2], [], [1], [2]]",
+      "[[null, 2, 3], [1, 2], [1, 2, 3], [], [1], [2], null]",
+      "[[1, null, 3], null]",
+  });
+
+  assertEqualVectors(expected, result);
+}
+
 TEST_F(ArrayDistinctTest, nonContiguousRows) {
   auto c0 = makeFlatVector<int32_t>(4, [](auto row) { return row; });
   auto c1 = makeArrayVector<int32_t>({

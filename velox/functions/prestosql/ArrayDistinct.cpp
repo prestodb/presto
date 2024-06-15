@@ -23,6 +23,53 @@
 namespace facebook::velox::functions {
 namespace {
 
+template <typename T>
+struct ValueSet {
+  util::floating_point::HashSetNaNAware<T> values;
+
+  bool insert(const T& value) {
+    return values.insert(value).second;
+  }
+
+  void reset() {
+    values.clear();
+  }
+};
+
+template <>
+struct ValueSet<ComplexType> {
+  using TKey = std::tuple<uint64_t, const BaseVector*, vector_size_t>;
+
+  struct Hash {
+    size_t operator()(const TKey& key) const {
+      return std::get<0>(key);
+    }
+  };
+
+  struct EqualTo {
+    bool operator()(const TKey& left, const TKey& right) const {
+      return std::get<1>(left)
+          ->equalValueAt(
+              std::get<1>(right),
+              std::get<2>(left),
+              std::get<2>(right),
+              CompareFlags::NullHandlingMode::kNullAsValue)
+          .value();
+    }
+  };
+
+  folly::F14FastSet<TKey, Hash, EqualTo> values;
+
+  bool insert(const BaseVector* vector, vector_size_t index) {
+    const uint64_t hash = vector->hashValueAt(index);
+    return values.insert(std::make_tuple(hash, vector, index)).second;
+  }
+
+  void reset() {
+    values.clear();
+  }
+};
+
 /// See documentation at https://prestodb.io/docs/current/functions/array.html
 ///
 /// array_distinct SQL function.
@@ -69,6 +116,7 @@ class ArrayDistinctFunction : public exec::VectorFunction {
     context.moveOrCopyResult(localResult, rows, result);
   }
 
+ private:
   VectorPtr applyFlat(
       const SelectivityVector& rows,
       const VectorPtr& arg,
@@ -95,7 +143,7 @@ class ArrayDistinctFunction : public exec::VectorFunction {
     auto* rawNewOffsets = newOffsets->asMutable<vector_size_t>();
 
     // Process the rows: store unique values in the hash table.
-    util::floating_point::HashSetNaNAware<T> uniqueSet;
+    ValueSet<T> uniqueSet;
 
     rows.applyToSelected([&](vector_size_t row) {
       auto size = arrayVector->sizeAt(row);
@@ -110,15 +158,21 @@ class ArrayDistinctFunction : public exec::VectorFunction {
             rawNewIndices[indicesCursor++] = i;
           }
         } else {
-          auto value = elements->valueAt<T>(i);
+          bool unique;
+          if constexpr (std::is_same_v<ComplexType, T>) {
+            unique = uniqueSet.insert(elements->base(), elements->index(i));
+          } else {
+            auto value = elements->valueAt<T>(i);
+            unique = uniqueSet.insert(value);
+          }
 
-          if (uniqueSet.insert(value).second) {
+          if (unique) {
             rawNewIndices[indicesCursor++] = i;
           }
         }
       }
 
-      uniqueSet.clear();
+      uniqueSet.reset();
       rawNewSizes[row] = indicesCursor - rawNewOffsets[row];
     });
 
@@ -223,6 +277,10 @@ std::shared_ptr<exec::VectorFunction> create(
     return std::make_shared<ArrayDistinctFunction<UnknownType>>();
   }
 
+  if (elementType->isArray() || elementType->isMap() || elementType->isRow()) {
+    return std::make_shared<ArrayDistinctFunction<ComplexType>>();
+  }
+
   return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
       createTyped, elementType->kind(), inputArgs);
 }
@@ -230,18 +288,13 @@ std::shared_ptr<exec::VectorFunction> create(
 // Define function signature.
 std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
   // array(T) -> array(T)
-  std::vector<std::shared_ptr<exec::FunctionSignature>> signatures;
-  for (const auto& type : exec::primitiveTypeNames()) {
-    signatures.push_back(exec::FunctionSignatureBuilder()
-                             .returnType(fmt::format("array({})", type))
-                             .argumentType(fmt::format("array({})", type))
-                             .build());
-  }
-  signatures.push_back(exec::FunctionSignatureBuilder()
-                           .returnType("array(unknown)")
-                           .argumentType("array(unknown)")
-                           .build());
-  return signatures;
+  return std::vector<std::shared_ptr<exec::FunctionSignature>>{
+      exec::FunctionSignatureBuilder()
+          .typeVariable("T")
+          .returnType("array(T)")
+          .argumentType("array(T)")
+          .build(),
+  };
 }
 
 } // namespace
