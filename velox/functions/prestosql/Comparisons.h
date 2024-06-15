@@ -69,24 +69,25 @@ VELOX_GEN_BINARY_EXPR_TIMESTAMP_WITH_TIME_ZONE(
 #undef VELOX_GEN_BINARY_EXPR
 #undef VELOX_GEN_BINARY_EXPR_TIMESTAMP_WITH_TIME_ZONE
 
-template <typename T>
+template <typename TExec>
 struct DistinctFromFunction {
-  VELOX_DEFINE_FUNCTION_TYPES(T);
-  template <typename TInput>
-  FOLLY_ALWAYS_INLINE void
-  call(bool& result, const TInput& lhs, const TInput& rhs) {
-    result = (lhs != rhs); // Return true if distinct.
-  }
+  VELOX_DEFINE_FUNCTION_TYPES(TExec);
 
-  template <typename TInput>
-  FOLLY_ALWAYS_INLINE void
-  callNullable(bool& result, const TInput* lhs, const TInput* rhs) {
-    if (!lhs and !rhs) { // Both nulls -> not distinct -> false.
+  void callNullable(
+      bool& result,
+      const arg_type<Generic<T1>>* lhs,
+      const arg_type<Generic<T1>>* rhs) {
+    if (!lhs and !rhs) {
+      // Both nulls -> not distinct.
       result = false;
-    } else if (!lhs or !rhs) { // Only one is null -> distinct -> true.
+    } else if (!lhs or !rhs) {
+      // Only one is null -> distinct.
       result = true;
     } else { // Both not nulls - use usual comparison.
-      call(result, *lhs, *rhs);
+      static constexpr CompareFlags kCompareFlags =
+          CompareFlags::equality(CompareFlags::NullHandlingMode::kNullAsValue);
+
+      result = lhs->compare(*rhs, kCompareFlags).value();
     }
   }
 };
