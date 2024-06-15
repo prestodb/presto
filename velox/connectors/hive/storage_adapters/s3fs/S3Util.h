@@ -157,25 +157,31 @@ inline std::string getRequestID(
 } // namespace
 
 /// Only Amazon (amz) and Alibaba (oss) request IDs are supported.
-#define VELOX_CHECK_AWS_OUTCOME(outcome, errorMsgPrefix, bucket, key)                                                          \
-  {                                                                                                                            \
-    if (!outcome.IsSuccess()) {                                                                                                \
-      auto error = outcome.GetError();                                                                                         \
-      auto errMsg = fmt::format(                                                                                               \
-          "{} due to: '{}'. Path:'{}', SDK Error Type:{}, HTTP Status Code:{}, S3 Service:'{}', Message:'{}', RequestID:'{}'", \
-          errorMsgPrefix,                                                                                                      \
-          getErrorStringFromS3Error(error),                                                                                    \
-          s3URI(bucket, key),                                                                                                  \
-          static_cast<int>(error.GetErrorType()),                                                                              \
-          error.GetResponseCode(),                                                                                             \
-          getS3BackendService(error.GetResponseHeaders()),                                                                     \
-          error.GetMessage(),                                                                                                  \
-          getRequestID(error.GetResponseHeaders()));                                                                           \
-      if (error.GetResponseCode() == Aws::Http::HttpResponseCode::NOT_FOUND) {                                                 \
-        VELOX_FILE_NOT_FOUND_ERROR(errMsg);                                                                                    \
-      }                                                                                                                        \
-      VELOX_FAIL(errMsg)                                                                                                       \
-    }                                                                                                                          \
+#define VELOX_CHECK_AWS_OUTCOME(outcome, errorMsgPrefix, bucket, key)                                                           \
+  {                                                                                                                             \
+    if (!outcome.IsSuccess()) {                                                                                                 \
+      auto error = outcome.GetError();                                                                                          \
+      auto errMsg = fmt::format(                                                                                                \
+          "{} due to: '{}'. Path:'{}', SDK Error Type:{}, HTTP Status Code:{}, S3 Service:'{}', Message:'{}', RequestID:'{}'.", \
+          errorMsgPrefix,                                                                                                       \
+          getErrorStringFromS3Error(error),                                                                                     \
+          s3URI(bucket, key),                                                                                                   \
+          static_cast<int>(error.GetErrorType()),                                                                               \
+          error.GetResponseCode(),                                                                                              \
+          getS3BackendService(error.GetResponseHeaders()),                                                                      \
+          error.GetMessage(),                                                                                                   \
+          getRequestID(error.GetResponseHeaders()));                                                                            \
+      if (IsRetryableHttpResponseCode(error.GetResponseCode())) {                                                               \
+        auto retryHint = fmt::format(                                                                                           \
+            " Request failed after retrying {} times. Try increasing the value of 'hive.s3.max-attempts'.",                     \
+            outcome.GetRetryCount());                                                                                           \
+        errMsg.append(retryHint);                                                                                               \
+      }                                                                                                                         \
+      if (error.GetResponseCode() == Aws::Http::HttpResponseCode::NOT_FOUND) {                                                  \
+        VELOX_FILE_NOT_FOUND_ERROR(errMsg);                                                                                     \
+      }                                                                                                                         \
+      VELOX_FAIL(errMsg)                                                                                                        \
+    }                                                                                                                           \
   }
 
 bool isHostExcludedFromProxy(

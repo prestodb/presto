@@ -120,6 +120,16 @@ std::optional<uint32_t> HiveConfig::s3MaxConnections() const {
       config_->get<uint32_t>(kS3MaxConnections));
 }
 
+std::optional<int32_t> HiveConfig::s3MaxAttempts() const {
+  return static_cast<std::optional<std::int32_t>>(
+      config_->get<int32_t>(kS3MaxAttempts));
+}
+
+std::optional<std::string> HiveConfig::s3RetryMode() const {
+  return static_cast<std::optional<std::string>>(
+      config_->get<std::string>(kS3RetryMode));
+}
+
 std::string HiveConfig::gcsEndpoint() const {
   return config_->get<std::string>(kGCSEndpoint, std::string(""));
 }

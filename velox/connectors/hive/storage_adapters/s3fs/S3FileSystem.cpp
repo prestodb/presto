@@ -30,6 +30,8 @@
 
 #include <aws/core/Aws.h>
 #include <aws/core/auth/AWSCredentialsProviderChain.h>
+#include <aws/core/client/AdaptiveRetryStrategy.h>
+#include <aws/core/client/DefaultRetryStrategy.h>
 #include <aws/core/http/HttpResponse.h>
 #include <aws/core/utils/logging/ConsoleLogSystem.h>
 #include <aws/core/utils/stream/PreallocatedStreamBuf.h>
@@ -70,7 +72,6 @@ Aws::IOStreamFactory AwsWriteableStreamFactory(void* data, int64_t nbytes) {
   return [=]() { return Aws::New<StringViewStream>("", data, nbytes); };
 }
 
-// TODO: Implement retry on failure.
 class S3ReadFile final : public ReadFile {
  public:
   S3ReadFile(const std::string& path, Aws::S3::S3Client* client)
@@ -562,6 +563,11 @@ class S3FileSystem::Impl {
       clientConfig.maxConnections = hiveConfig_->s3MaxConnections().value();
     }
 
+    auto retryStrategy = getRetryStrategy();
+    if (retryStrategy.has_value()) {
+      clientConfig.retryStrategy = retryStrategy.value();
+    }
+
     auto credentialsProvider = getCredentialsProvider();
 
     client_ = std::make_shared<Aws::S3::S3Client>(
@@ -638,6 +644,58 @@ class S3FileSystem::Impl {
     }
 
     return getDefaultCredentialsProvider();
+  }
+
+  // Return a client RetryStrategy based on the config.
+  std::optional<std::shared_ptr<Aws::Client::RetryStrategy>> getRetryStrategy()
+      const {
+    auto retryMode = hiveConfig_->s3RetryMode();
+    auto maxAttempts = hiveConfig_->s3MaxAttempts();
+    if (retryMode.has_value()) {
+      if (retryMode.value() == "standard") {
+        if (maxAttempts.has_value()) {
+          VELOX_USER_CHECK_GE(
+              maxAttempts.value(),
+              0,
+              "Invalid configuration: specified 'hive.s3.max-attempts' value {} is < 0.",
+              maxAttempts.value());
+          return std::make_shared<Aws::Client::StandardRetryStrategy>(
+              maxAttempts.value());
+        } else {
+          // Otherwise, use default value 3.
+          return std::make_shared<Aws::Client::StandardRetryStrategy>();
+        }
+      } else if (retryMode.value() == "adaptive") {
+        if (maxAttempts.has_value()) {
+          VELOX_USER_CHECK_GE(
+              maxAttempts.value(),
+              0,
+              "Invalid configuration: specified 'hive.s3.max-attempts' value {} is < 0.",
+              maxAttempts.value());
+          return std::make_shared<Aws::Client::AdaptiveRetryStrategy>(
+              maxAttempts.value());
+        } else {
+          // Otherwise, use default value 3.
+          return std::make_shared<Aws::Client::AdaptiveRetryStrategy>();
+        }
+      } else if (retryMode.value() == "legacy") {
+        if (maxAttempts.has_value()) {
+          VELOX_USER_CHECK_GE(
+              maxAttempts.value(),
+              0,
+              "Invalid configuration: specified 'hive.s3.max-attempts' value {} is < 0.",
+              maxAttempts.value());
+          return std::make_shared<Aws::Client::DefaultRetryStrategy>(
+              maxAttempts.value());
+        } else {
+          // Otherwise, use default value maxRetries = 10, scaleFactor = 25
+          return std::make_shared<Aws::Client::DefaultRetryStrategy>();
+        }
+      } else {
+        VELOX_USER_FAIL("Invalid retry mode for S3: {}", retryMode.value());
+      }
+    }
+    return std::nullopt;
   }
 
   // Make it clear that the S3FileSystem instance owns the S3Client.
