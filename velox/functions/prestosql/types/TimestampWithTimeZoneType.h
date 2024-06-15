@@ -142,6 +142,10 @@ inline int64_t pack(int64_t millisUtc, int16_t timeZoneKey) {
   return (millisUtc << kMillisShift) | (timeZoneKey & kTimezoneMask);
 }
 
+inline int64_t pack(const Timestamp& timestamp, int16_t timeZoneKey) {
+  return pack(timestamp.toMillis(), timeZoneKey);
+}
+
 inline Timestamp unpackTimestampUtc(int64_t dateTimeWithTimeZone) {
   return Timestamp::fromMillis(unpackMillisUtc(dateTimeWithTimeZone));
 }

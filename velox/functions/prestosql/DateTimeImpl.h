@@ -204,13 +204,8 @@ FOLLY_ALWAYS_INLINE int64_t addToTimestampWithTimezone(
     const DateTimeUnit unit,
     const int32_t value) {
   auto timestamp = unpackTimestampUtc(timestampWithTimezone);
-  auto tzID = unpackZoneKeyId(timestampWithTimezone);
-  timestamp.toTimezone(tzID);
-
-  auto finalTimestamp = addToTimestamp(timestamp, unit, value);
-
-  finalTimestamp.toGMT(tzID);
-  return pack(finalTimestamp.toMillis(), tzID);
+  auto finalTimeStamp = addToTimestamp(timestamp, unit, (int32_t)value);
+  return pack(finalTimeStamp, unpackZoneKeyId(timestampWithTimezone));
 }
 
 FOLLY_ALWAYS_INLINE int64_t diffTimestamp(

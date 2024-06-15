@@ -1089,8 +1089,17 @@ TEST_F(DateTimeFunctionsTest, timestampWithTimeZonePlusIntervalDayTime) {
       "2024-10-03 01:51:00.000 America/Los_Angeles",
       test("2024-10-03 01:50 America/Los_Angeles", 1 * kMillisInMinute));
 
-  // TODO Add tests for transitioning to/from DST once
-  // https://github.com/facebookincubator/velox/issues/10163 is fixed.
+  // Testing daylight saving transitions.
+
+  // At the beginning there is a 1 hour gap.
+  EXPECT_EQ(
+      "2024-03-10 01:30:00.000 America/Los_Angeles",
+      test("2024-03-10 03:30 America/Los_Angeles", -1 * kMillisInHour));
+
+  // At the end there is a 1 hour duplication.
+  EXPECT_EQ(
+      "2024-11-03 01:30:00.000 America/Los_Angeles",
+      test("2024-11-03 01:30 America/Los_Angeles", 1 * kMillisInHour));
 }
 
 TEST_F(DateTimeFunctionsTest, minusTimestamp) {
@@ -2403,6 +2412,31 @@ TEST_F(DateTimeFunctionsTest, dateAddTimestampWithTimeZone) {
       "year", 3, "1972-05-20+23:01:02+14:00", "1975-05-20+23:01:02+14:00");
   evaluateDateAddFromStrings(
       "year", 3, "1968-02-20+23:01:02+14:00", "1971-02-20+23:01:02+14:00");
+
+  // Tests date_add() on daylight saving transition boundaries.
+  //
+  // Presto's semantic is to apply the delta to GMT, which means that at times
+  // the observed delta may not be linear, in cases when it hits a daylight
+  // savings boundary.
+  auto dateAddAndCast = [&](std::optional<std::string> unit,
+                            std::optional<int32_t> value,
+                            std::optional<std::string> timestampString) {
+    return evaluateOnce<std::string>(
+        "cast(date_add(c0, c1, cast(c2 as timestamp with time zone)) as VARCHAR)",
+        unit,
+        value,
+        timestampString);
+  };
+
+  EXPECT_EQ(
+      "2024-03-10 03:50:00.000 America/Los_Angeles",
+      dateAddAndCast("hour", 1, "2024-03-10 01:50:00 America/Los_Angeles"));
+  EXPECT_EQ(
+      "2024-11-03 01:50:00.000 America/Los_Angeles",
+      dateAddAndCast("hour", 1, "2024-11-03 01:50:00 America/Los_Angeles"));
+  EXPECT_EQ(
+      "2024-11-03 00:50:00.000 America/Los_Angeles",
+      dateAddAndCast("hour", -1, "2024-11-03 01:50:00 America/Los_Angeles"));
 }
 
 TEST_F(DateTimeFunctionsTest, dateDiffDate) {
