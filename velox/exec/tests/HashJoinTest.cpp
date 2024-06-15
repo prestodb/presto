@@ -7797,4 +7797,38 @@ DEBUG_ONLY_TEST_F(HashJoinTest, spillCheckOnLeftSemiFilterWithDynamicFilters) {
       })
       .run();
 }
+
+TEST_F(HashJoinTest, nanKeys) {
+  // Verify the NaN values with different binary representations are considered
+  // equal.
+  static const double kNan = std::numeric_limits<double>::quiet_NaN();
+  static const double kSNaN = std::numeric_limits<double>::signaling_NaN();
+  auto probeInput = makeRowVector(
+      {makeFlatVector<double>({kNan, kSNaN}), makeFlatVector<int64_t>({1, 2})});
+  auto buildInput = makeRowVector({makeFlatVector<double>({kNan, 1})});
+
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  auto plan = PlanBuilder(planNodeIdGenerator)
+                  .values({probeInput})
+                  .project({"c0 AS t0", "c1 AS t1"})
+                  .hashJoin(
+                      {"t0"},
+                      {"u0"},
+                      PlanBuilder(planNodeIdGenerator)
+                          .values({buildInput})
+                          .project({"c0 AS u0"})
+                          .planNode(),
+                      "",
+                      {"t0", "u0", "t1"},
+                      core::JoinType::kLeft)
+                  .planNode();
+  auto queryCtx = core::QueryCtx::create(executor_.get());
+  auto result =
+      AssertQueryBuilder(plan).queryCtx(queryCtx).copyResults(pool_.get());
+  auto expected = makeRowVector(
+      {makeFlatVector<double>({kNan, kNan}),
+       makeFlatVector<double>({kNan, kNan}),
+       makeFlatVector<int64_t>({1, 2})});
+  facebook::velox::test::assertEqualVectors(expected, result);
+}
 } // namespace

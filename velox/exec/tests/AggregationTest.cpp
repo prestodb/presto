@@ -3671,4 +3671,40 @@ TEST_F(AggregationTest, destroyAfterPartialInitialization) {
   ASSERT_TRUE(agg.destroyCalled);
 }
 
+TEST_F(AggregationTest, nanKeys) {
+  // Some keys are NaNs.
+  auto kNaN = std::numeric_limits<double>::quiet_NaN();
+  auto kSNaN = std::numeric_limits<double>::signaling_NaN();
+  // Columns reused across test cases.
+  auto c0 = makeFlatVector<double>({kNaN, 1, kNaN, 2, kSNaN, 1, 2});
+  auto c1 = makeFlatVector<int32_t>({1, 1, 1, 1, 1, 1, 1});
+  // Expected result columns reused across test cases. A deduplicated version of
+  // c0 and c1.
+  auto e0 = makeFlatVector<double>({1, 2, kNaN});
+  auto e1 = makeFlatVector<int32_t>({1, 1, 1});
+
+  auto testDistinctAgg = [&](std::vector<std::string> aggKeys,
+                             std::vector<VectorPtr> inputCols,
+                             std::vector<VectorPtr> expectedCols) {
+    auto plan = PlanBuilder()
+                    .values({makeRowVector(inputCols)})
+                    .singleAggregation(aggKeys, {}, {})
+                    .planNode();
+    AssertQueryBuilder(plan).assertResults(makeRowVector(expectedCols));
+  };
+
+  // Test with a primitive type key.
+  testDistinctAgg({"c0"}, {c0}, {e0});
+  // Multiple key columns.
+  testDistinctAgg({"c0", "c1"}, {c0, c1}, {e0, e1});
+
+  // Test with a complex type key.
+  testDistinctAgg({"c0"}, {makeRowVector({c0, c1})}, {makeRowVector({e0, e1})});
+  // Multiple key columns.
+  testDistinctAgg(
+      {"c0", "c1"},
+      {makeRowVector({c0, c1}), c1},
+      {makeRowVector({e0, e1}), e1});
+}
+
 } // namespace facebook::velox::exec::test
