@@ -380,6 +380,28 @@ TEST_F(MinMaxTest, minMaxDate) {
       "SELECT c0 % 17, min(c1), max(c1) FROM tmp GROUP BY 1");
 }
 
+TEST_F(MinMaxTest, minMaxUnknown) {
+  auto data = makeRowVector({
+      makeFlatVector<int64_t>({1, 2, 1, 2, 1, 2}),
+      makeAllNullFlatVector<UnknownValue>(6),
+  });
+
+  auto expected = makeRowVector({
+      makeAllNullFlatVector<UnknownValue>(1),
+      makeAllNullFlatVector<UnknownValue>(1),
+  });
+
+  testAggregations({data}, {}, {"min(c1)", "max(c1)"}, {expected});
+
+  expected = makeRowVector({
+      makeFlatVector<int64_t>({1, 2}),
+      makeAllNullFlatVector<UnknownValue>(2),
+      makeAllNullFlatVector<UnknownValue>(2),
+  });
+
+  testAggregations({data}, {"c0"}, {"min(c1)", "max(c1)"}, {expected});
+}
+
 TEST_F(MinMaxTest, initialValue) {
   // Ensures that no groups are default initialized (to 0) in
   // aggregate::SimpleNumericAggregate.

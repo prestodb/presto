@@ -1378,6 +1378,66 @@ TEST_F(MinMaxByComplexTypes, failOnUnorderableType) {
   }
 }
 
+class MinMaxByUnknownTest : public AggregationTestBase {};
+
+TEST_F(MinMaxByUnknownTest, unknown) {
+  auto data = makeRowVector(
+      {"k", "vn", "cn", "v", "c"},
+      {
+          makeFlatVector<int64_t>({1, 2, 1, 2, 1, 2}),
+          makeAllNullFlatVector<UnknownValue>(6), // value
+          makeAllNullFlatVector<UnknownValue>(6), // compare
+          makeFlatVector<int64_t>({1, 2, 3, 4, 5, 6}), // value
+          makeFlatVector<int64_t>({1, 2, 3, 4, 5, 6}), // compare
+      });
+
+  // Global agg.
+  auto expected = makeRowVector({
+      makeAllNullFlatVector<UnknownValue>(1),
+      makeAllNullFlatVector<UnknownValue>(1),
+  });
+
+  // Both value and compare are UNKNOWN.
+  testAggregations(
+      {data}, {}, {"min_by(vn, cn)", "max_by(vn, cn)"}, {expected});
+
+  // Only value is UNKNOWN.
+  testAggregations({data}, {}, {"min_by(vn, c)", "max_by(vn, c)"}, {expected});
+
+  // Only compare is UNKNOWN.
+  expected = makeRowVector({
+      makeAllNullFlatVector<int64_t>(1),
+      makeAllNullFlatVector<int64_t>(1),
+  });
+
+  testAggregations({data}, {}, {"min_by(v, cn)", "max_by(v, cn)"}, {expected});
+
+  // Group by.
+  expected = makeRowVector({
+      makeFlatVector<int64_t>({1, 2}),
+      makeAllNullFlatVector<UnknownValue>(2),
+      makeAllNullFlatVector<UnknownValue>(2),
+  });
+
+  // Both value and compare are UNKNOWN.
+  testAggregations(
+      {data}, {"k"}, {"min_by(vn, cn)", "max_by(vn, cn)"}, {expected});
+
+  // Only value is UNKNOWN.
+  testAggregations(
+      {data}, {"k"}, {"min_by(vn, c)", "max_by(vn, c)"}, {expected});
+
+  // Only compare is UNKNOWN.
+  expected = makeRowVector({
+      makeFlatVector<int64_t>({1, 2}),
+      makeAllNullFlatVector<int64_t>(2),
+      makeAllNullFlatVector<int64_t>(2),
+  });
+
+  testAggregations(
+      {data}, {"k"}, {"min_by(v, cn)", "max_by(v, cn)"}, {expected});
+}
+
 class MinMaxByNTest : public AggregationTestBase {
  protected:
   void SetUp() override {

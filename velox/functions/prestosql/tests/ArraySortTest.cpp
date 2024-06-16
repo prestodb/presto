@@ -17,6 +17,7 @@
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 
 #include <fmt/format.h>
+#include <cstdint>
 
 using namespace facebook::velox;
 using namespace facebook::velox::test;
@@ -371,6 +372,24 @@ void ArraySortTest::SetUp() {
 
 TEST_P(ArraySortTest, basic) {
   runTest(GetParam());
+}
+
+TEST_F(ArraySortTest, unknown) {
+  auto input = makeNullableArrayVector<UnknownValue>({
+      {std::nullopt, std::nullopt},
+      {std::nullopt, std::nullopt, std::nullopt},
+  });
+
+  auto result = evaluate("array_sort(c0)", makeRowVector({input}));
+  assertEqualVectors(input, result);
+
+  input = makeArrayVectorFromJson<int32_t>({
+      "[1, 2, 3]",
+      "[1, 2]",
+  });
+
+  result = evaluate("array_sort(c0, x -> null)", makeRowVector({input}));
+  assertEqualVectors(input, result);
 }
 
 TEST_F(ArraySortTest, constant) {

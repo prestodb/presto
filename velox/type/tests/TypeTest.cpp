@@ -216,6 +216,20 @@ TEST(TypeTest, intervalYearMonth) {
   testTypeSerde(interval);
 }
 
+TEST(TypeTest, unknown) {
+  auto type = UNKNOWN();
+  EXPECT_EQ(type->toString(), "UNKNOWN");
+  EXPECT_EQ(type->size(), 0);
+  EXPECT_THROW(type->childAt(0), std::invalid_argument);
+  EXPECT_EQ(type->kind(), TypeKind::UNKNOWN);
+  EXPECT_STREQ(type->kindName(), "UNKNOWN");
+  EXPECT_EQ(type->begin(), type->end());
+  EXPECT_TRUE(type->isComparable());
+  EXPECT_TRUE(type->isOrderable());
+
+  testTypeSerde(type);
+}
+
 TEST(TypeTest, shortDecimal) {
   auto shortDecimal = DECIMAL(10, 5);
   EXPECT_EQ(shortDecimal->toString(), "DECIMAL(10, 5)");
@@ -820,7 +834,7 @@ TEST(TypeTest, follySformat) {
           "{}", ROW({{"a", BOOLEAN()}, {"b", VARCHAR()}, {"c", BIGINT()}})));
 }
 
-TEST(TypeTest, unknown) {
+TEST(TypeTest, unknownArray) {
   auto unknownArray = ARRAY(UNKNOWN());
   EXPECT_TRUE(unknownArray->containsUnknown());
 

@@ -787,6 +787,14 @@ class UnknownType : public TypeBase<TypeKind::UNKNOWN> {
     return 0;
   }
 
+  bool isOrderable() const override {
+    return true;
+  }
+
+  bool isComparable() const override {
+    return true;
+  }
+
   bool equivalent(const Type& other) const override {
     return Type::hasSameTypeId(other);
   }

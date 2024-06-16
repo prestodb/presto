@@ -599,6 +599,9 @@ std::unique_ptr<exec::Aggregate> create(
     case TypeKind::ROW:
       return std::make_unique<Aggregate<W, ComplexType, isMaxFunc, Comparator>>(
           resultType, throwOnNestedNulls);
+    case TypeKind::UNKNOWN:
+      return std::make_unique<
+          Aggregate<W, UnknownValue, isMaxFunc, Comparator>>(resultType);
     default:
       VELOX_FAIL("{}", errorMessage);
       return nullptr;
@@ -661,6 +664,9 @@ std::unique_ptr<exec::Aggregate> create(
       [[fallthrough]];
     case TypeKind::ROW:
       return create<Aggregate, isMaxFunc, Comparator, ComplexType>(
+          resultType, compareType, errorMessage, throwOnNestedNulls);
+    case TypeKind::UNKNOWN:
+      return create<Aggregate, isMaxFunc, Comparator, UnknownValue>(
           resultType, compareType, errorMessage, throwOnNestedNulls);
     default:
       VELOX_FAIL(errorMessage);
