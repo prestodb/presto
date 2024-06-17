@@ -165,7 +165,9 @@ public class TestHiveClientConfig
                 .setMaxConcurrentQuickStatsCalls(100)
                 .setMaxConcurrentParquetQuickStatsCalls(500)
                 .setCteVirtualBucketCount(128)
-                .setAffinitySchedulingFileSectionSize(new DataSize(256, MEGABYTE)));
+                .setSkipEmptyFilesEnabled(false)
+                .setAffinitySchedulingFileSectionSize(new DataSize(256, MEGABYTE))
+                .setLegacyTimestampBucketing(false));
     }
 
     @Test
@@ -292,6 +294,8 @@ public class TestHiveClientConfig
                 .put("hive.quick-stats.max-concurrent-calls", "101")
                 .put("hive.cte-virtual-bucket-count", "256")
                 .put("hive.affinity-scheduling-file-section-size", "512MB")
+                .put("hive.skip-empty-files", "true")
+                .put("hive.legacy-timestamp-bucketing", "true")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -412,8 +416,11 @@ public class TestHiveClientConfig
                 .setParquetQuickStatsFileMetadataFetchTimeout(new Duration(30, TimeUnit.SECONDS))
                 .setMaxConcurrentParquetQuickStatsCalls(399)
                 .setMaxConcurrentQuickStatsCalls(101)
+                .setAffinitySchedulingFileSectionSize(new DataSize(512, MEGABYTE))
+                .setSkipEmptyFilesEnabled(true)
                 .setCteVirtualBucketCount(256)
-                .setAffinitySchedulingFileSectionSize(new DataSize(512, MEGABYTE));
+                .setAffinitySchedulingFileSectionSize(new DataSize(512, MEGABYTE))
+                .setLegacyTimestampBucketing(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

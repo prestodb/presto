@@ -24,24 +24,6 @@ public class ArraySqlFunctions
 {
     private ArraySqlFunctions() {}
 
-    @SqlInvokedScalarFunction(value = "array_sum", deterministic = true, calledOnNullInput = false)
-    @Description("Returns the sum of all array elements, or 0 if the array is empty. Ignores null elements.")
-    @SqlParameter(name = "input", type = "array<bigint>")
-    @SqlType("bigint")
-    public static String arraySumBigint()
-    {
-        return "RETURN reduce(input, BIGINT '0', (s, x) -> s + coalesce(x, BIGINT '0'), s -> s)";
-    }
-
-    @SqlInvokedScalarFunction(value = "array_sum", deterministic = true, calledOnNullInput = false)
-    @Description("Returns the sum of all array elements, or 0 if the array is empty. Ignores null elements.")
-    @SqlParameter(name = "input", type = "array<double>")
-    @SqlType("double")
-    public static String arraySumDouble()
-    {
-        return "RETURN reduce(input, DOUBLE '0', (s, x) -> s + coalesce(x, DOUBLE '0'), s -> s)";
-    }
-
     @SqlInvokedScalarFunction(value = "array_average", deterministic = true, calledOnNullInput = false)
     @Description("Returns the average of all array elements, or null if the array is empty. Ignores null elements.")
     @SqlParameter(name = "input", type = "array<double>")

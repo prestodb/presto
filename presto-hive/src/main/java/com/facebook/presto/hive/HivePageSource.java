@@ -299,6 +299,7 @@ public class HivePageSource
         public final int tableBucketCount;
         public final int partitionBucketCount; // for sanity check only
         private final List<TypeInfo> typeInfoList;
+        private final boolean useLegacyTimestampBucketing;
 
         public BucketAdapter(BucketAdaptation bucketAdaptation)
         {
@@ -309,6 +310,7 @@ public class HivePageSource
                     .collect(toImmutableList());
             this.tableBucketCount = bucketAdaptation.getTableBucketCount();
             this.partitionBucketCount = bucketAdaptation.getPartitionBucketCount();
+            this.useLegacyTimestampBucketing = bucketAdaptation.useLegacyTimestampBucketing();
         }
 
         @Nullable
@@ -317,7 +319,7 @@ public class HivePageSource
             IntArrayList ids = new IntArrayList(page.getPositionCount());
             Page bucketColumnsPage = page.extractChannels(bucketColumns);
             for (int position = 0; position < page.getPositionCount(); position++) {
-                int bucket = getHiveBucket(tableBucketCount, typeInfoList, bucketColumnsPage, position);
+                int bucket = getHiveBucket(tableBucketCount, typeInfoList, bucketColumnsPage, position, useLegacyTimestampBucketing);
                 if ((bucket - bucketToKeep) % partitionBucketCount != 0) {
                     throw new PrestoException(HIVE_INVALID_BUCKET_FILES, format(
                             "A row that is supposed to be in bucket %s is encountered. Only rows in bucket %s (modulo %s) are expected",

@@ -107,6 +107,7 @@ import static com.facebook.presto.hive.HiveCommonSessionProperties.isOrcBloomFil
 import static com.facebook.presto.hive.HiveCommonSessionProperties.isOrcZstdJniDecompressionEnabled;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
 import static com.facebook.presto.hive.HiveSessionProperties.isAdaptiveFilterReorderingEnabled;
+import static com.facebook.presto.hive.HiveSessionProperties.isLegacyTimestampBucketing;
 import static com.facebook.presto.hive.HiveUtil.getPhysicalHiveColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.typedPartitionKey;
 import static com.facebook.presto.hive.orc.OrcPageSourceFactoryUtils.getOrcDataSource;
@@ -359,7 +360,8 @@ public class OrcSelectivePageSourceFactory
                     adaptation.getBucketColumnHiveTypes(),
                     adaptation.getTableBucketCount(),
                     adaptation.getPartitionBucketCount(),
-                    adaptation.getBucketToKeep()));
+                    adaptation.getBucketToKeep(),
+                    isLegacyTimestampBucketing(session)));
 
             List<FilterFunction> filterFunctions = toFilterFunctions(replaceExpression(remainingPredicate, variableToInput), bucketAdapter, session, rowExpressionService.getDeterminismEvaluator(), rowExpressionService.getPredicateCompiler());
 
@@ -654,8 +656,9 @@ public class OrcSelectivePageSourceFactory
         public final int tableBucketCount;
         public final int partitionBucketCount; // for sanity check only
         private final List<TypeInfo> typeInfoList;
+        private final boolean useLegacyTimestampBucketing;
 
-        public BucketAdapter(int[] bucketColumnIndices, List<HiveType> bucketColumnHiveTypes, int tableBucketCount, int partitionBucketCount, int bucketToKeep)
+        public BucketAdapter(int[] bucketColumnIndices, List<HiveType> bucketColumnHiveTypes, int tableBucketCount, int partitionBucketCount, int bucketToKeep, boolean useLegacyTimestampBucketing)
         {
             this.bucketColumns = requireNonNull(bucketColumnIndices, "bucketColumnIndices is null");
             this.bucketToKeep = bucketToKeep;
@@ -664,6 +667,7 @@ public class OrcSelectivePageSourceFactory
                     .collect(toImmutableList());
             this.tableBucketCount = tableBucketCount;
             this.partitionBucketCount = partitionBucketCount;
+            this.useLegacyTimestampBucketing = useLegacyTimestampBucketing;
         }
 
         @Override
@@ -675,7 +679,7 @@ public class OrcSelectivePageSourceFactory
         @Override
         public boolean evaluate(SqlFunctionProperties properties, Page page, int position)
         {
-            int bucket = getHiveBucket(tableBucketCount, typeInfoList, page, position);
+            int bucket = getHiveBucket(tableBucketCount, typeInfoList, page, position, useLegacyTimestampBucketing);
             if ((bucket - bucketToKeep) % partitionBucketCount != 0) {
                 throw new PrestoException(HIVE_INVALID_BUCKET_FILES, format(
                         "A row that is supposed to be in bucket %s is encountered. Only rows in bucket %s (modulo %s) are expected",

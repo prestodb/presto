@@ -87,14 +87,14 @@ public final class HiveBucketing
         return (getHashCode(types, page, position) & Integer.MAX_VALUE) % bucketCount;
     }
 
-    public static int getHiveBucket(int bucketCount, List<TypeInfo> types, Page page, int position)
+    public static int getHiveBucket(int bucketCount, List<TypeInfo> types, Page page, int position, boolean useLegacyTimestampBucketing)
     {
-        return (getBucketHashCode(types, page, position) & Integer.MAX_VALUE) % bucketCount;
+        return (getBucketHashCode(types, page, position, useLegacyTimestampBucketing) & Integer.MAX_VALUE) % bucketCount;
     }
 
-    public static int getHiveBucket(int bucketCount, List<TypeInfo> types, Object[] values)
+    public static int getHiveBucket(int bucketCount, List<TypeInfo> types, Object[] values, boolean useLegacyTimestampBucketing)
     {
-        return (getBucketHashCode(types, values) & Integer.MAX_VALUE) % bucketCount;
+        return (getBucketHashCode(types, values, useLegacyTimestampBucketing) & Integer.MAX_VALUE) % bucketCount;
     }
 
     private static int getHashCode(List<Type> types, Page page, int position)
@@ -108,29 +108,29 @@ public final class HiveBucketing
         return result;
     }
 
-    private static int getBucketHashCode(List<TypeInfo> types, Page page, int position)
+    private static int getBucketHashCode(List<TypeInfo> types, Page page, int position, boolean useLegacyTimestampBucketing)
     {
         checkArgument(types.size() == page.getChannelCount());
         int result = 0;
         for (int i = 0; i < page.getChannelCount(); i++) {
-            int fieldHash = hash(types.get(i), page.getBlock(i), position);
+            int fieldHash = hash(types.get(i), page.getBlock(i), position, useLegacyTimestampBucketing);
             result = result * 31 + fieldHash;
         }
         return result;
     }
 
-    private static int getBucketHashCode(List<TypeInfo> types, Object[] values)
+    private static int getBucketHashCode(List<TypeInfo> types, Object[] values, boolean useLegacyTimestampBucketing)
     {
         checkArgument(types.size() == values.length);
         int result = 0;
         for (int i = 0; i < values.length; i++) {
-            int fieldHash = hash(types.get(i), values[i]);
+            int fieldHash = hash(types.get(i), values[i], useLegacyTimestampBucketing);
             result = result * 31 + fieldHash;
         }
         return result;
     }
 
-    private static int hash(TypeInfo type, Block block, int position)
+    private static int hash(TypeInfo type, Block block, int position, boolean useLegacyTimestampBucketing)
     {
         // This function mirrors the behavior of function hashCode in
         // HIVE-12025 ba83fd7bff serde/src/java/org/apache/hadoop/hive/serde2/objectinspector/ObjectInspectorUtils.java
@@ -174,20 +174,18 @@ public final class HiveBucketing
                         return toIntExact(days);
                     case TIMESTAMP:
                         long millisSinceEpoch = prestoType.getLong(block, position);
-                        // seconds << 30 + milliseconds
-                        long secondsAndMillis = (Math.floorDiv(millisSinceEpoch, 1000L) << 30) + Math.floorMod(millisSinceEpoch, 1000L);
-                        return (int) ((secondsAndMillis >>> 32) ^ secondsAndMillis);
+                        return getHashForTimestamp(millisSinceEpoch, useLegacyTimestampBucketing);
                     default:
                         throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive primitive category: " + primitiveCategory.toString() + ".");
                 }
             }
             case LIST: {
                 Block elementsBlock = block.getBlock(position);
-                return hashOfList((ListTypeInfo) type, elementsBlock);
+                return hashOfList((ListTypeInfo) type, elementsBlock, useLegacyTimestampBucketing);
             }
             case MAP: {
                 Block elementsBlock = block.getBlock(position);
-                return hashOfMap((MapTypeInfo) type, elementsBlock);
+                return hashOfMap((MapTypeInfo) type, elementsBlock, useLegacyTimestampBucketing);
             }
             default:
                 // TODO: support more types, e.g. ROW
@@ -195,7 +193,7 @@ public final class HiveBucketing
         }
     }
 
-    private static int hash(TypeInfo type, Object value)
+    private static int hash(TypeInfo type, Object value, boolean useLegacyTimestampBucketing)
     {
         if (value == null) {
             return 0;
@@ -233,18 +231,16 @@ public final class HiveBucketing
                         return toIntExact(days);
                     case TIMESTAMP:
                         long millisSinceEpoch = (long) value;
-                        // seconds << 30 + milliseconds
-                        long secondsAndMillis = (Math.floorDiv(millisSinceEpoch, 1000L) << 30) + Math.floorMod(millisSinceEpoch, 1000L);
-                        return (int) ((secondsAndMillis >>> 32) ^ secondsAndMillis);
+                        return getHashForTimestamp(millisSinceEpoch, useLegacyTimestampBucketing);
                     default:
                         throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive primitive category: " + primitiveCategory.toString() + ".");
                 }
             }
             case LIST: {
-                return hashOfList((ListTypeInfo) type, (Block) value);
+                return hashOfList((ListTypeInfo) type, (Block) value, useLegacyTimestampBucketing);
             }
             case MAP: {
-                return hashOfMap((MapTypeInfo) type, (Block) value);
+                return hashOfMap((MapTypeInfo) type, (Block) value, useLegacyTimestampBucketing);
             }
             default:
                 // TODO: support more types, e.g. ROW
@@ -252,23 +248,35 @@ public final class HiveBucketing
         }
     }
 
-    private static int hashOfMap(MapTypeInfo type, Block singleMapBlock)
+    private static int getHashForTimestamp(long millisSinceEpoch, boolean useLegacyTimestampBucketing)
+    {
+        if (useLegacyTimestampBucketing) {
+            // seconds << 30 + milliseconds
+            long secondsAndMillis = (Math.floorDiv(millisSinceEpoch, 1000L) << 30) + Math.floorMod(millisSinceEpoch, 1000L);
+            return (int) ((secondsAndMillis >>> 32) ^ secondsAndMillis);
+        }
+        // seconds << 30 + nanoseconds
+        long secondsAndNanos = (Math.floorDiv(millisSinceEpoch, 1000L) << 30) + Math.floorMod(millisSinceEpoch, 1000L) * 1000L * 1000L;
+        return (int) ((secondsAndNanos >>> 32) ^ secondsAndNanos);
+    }
+
+    private static int hashOfMap(MapTypeInfo type, Block singleMapBlock, boolean useLegacyTimestampBucketing)
     {
         TypeInfo keyTypeInfo = type.getMapKeyTypeInfo();
         TypeInfo valueTypeInfo = type.getMapValueTypeInfo();
         int result = 0;
         for (int i = 0; i < singleMapBlock.getPositionCount(); i += 2) {
-            result += hash(keyTypeInfo, singleMapBlock, i) ^ hash(valueTypeInfo, singleMapBlock, i + 1);
+            result += hash(keyTypeInfo, singleMapBlock, i, useLegacyTimestampBucketing) ^ hash(valueTypeInfo, singleMapBlock, i + 1, useLegacyTimestampBucketing);
         }
         return result;
     }
 
-    private static int hashOfList(ListTypeInfo type, Block singleListBlock)
+    private static int hashOfList(ListTypeInfo type, Block singleListBlock, boolean useLegacyTimestampBucketing)
     {
         TypeInfo elementTypeInfo = type.getListElementTypeInfo();
         int result = 0;
         for (int i = 0; i < singleListBlock.getPositionCount(); i++) {
-            result = result * 31 + hash(elementTypeInfo, singleListBlock, i);
+            result = result * 31 + hash(elementTypeInfo, singleListBlock, i, useLegacyTimestampBucketing);
         }
         return result;
     }
@@ -310,12 +318,16 @@ public final class HiveBucketing
         return Optional.of(new HiveBucketHandle(bucketColumns.build(), bucketCount, bucketCount));
     }
 
-    public static Optional<HiveBucketFilter> getHiveBucketFilter(Table table, TupleDomain<ColumnHandle> effectivePredicate)
+    public static Optional<HiveBucketFilter> getHiveBucketFilter(Table table, TupleDomain<ColumnHandle> effectivePredicate, boolean useLegacyTimestampBucketing)
     {
-        return getHiveBucketFilter(table.getStorage().getBucketProperty(), table.getDataColumns(), effectivePredicate);
+        return getHiveBucketFilter(table.getStorage().getBucketProperty(), table.getDataColumns(), effectivePredicate, useLegacyTimestampBucketing);
     }
 
-    public static Optional<HiveBucketFilter> getHiveBucketFilter(Optional<HiveBucketProperty> hiveBucketProperty, List<Column> dataColumns, TupleDomain<ColumnHandle> effectivePredicate)
+    public static Optional<HiveBucketFilter> getHiveBucketFilter(
+            Optional<HiveBucketProperty> hiveBucketProperty,
+            List<Column> dataColumns,
+            TupleDomain<ColumnHandle> effectivePredicate,
+            boolean useLegacyTimestampBucketing)
     {
         if (!hiveBucketProperty.isPresent()) {
             return Optional.empty();
@@ -331,7 +343,7 @@ public final class HiveBucketing
             return Optional.empty();
         }
 
-        Optional<Set<Integer>> buckets = getHiveBuckets(hiveBucketProperty, dataColumns, bindings.get());
+        Optional<Set<Integer>> buckets = getHiveBuckets(hiveBucketProperty, dataColumns, bindings.get(), useLegacyTimestampBucketing);
         if (buckets.isPresent()) {
             return Optional.of(new HiveBucketFilter(buckets.get()));
         }
@@ -357,7 +369,11 @@ public final class HiveBucketing
         return Optional.of(new HiveBucketFilter(builder.build()));
     }
 
-    private static Optional<Set<Integer>> getHiveBuckets(Optional<HiveBucketProperty> hiveBucketPropertyOptional, List<Column> dataColumns, Map<ColumnHandle, Set<NullableValue>> bindings)
+    private static Optional<Set<Integer>> getHiveBuckets(
+            Optional<HiveBucketProperty> hiveBucketPropertyOptional,
+            List<Column> dataColumns,
+            Map<ColumnHandle, Set<NullableValue>> bindings,
+            boolean useLegacyTimestampBucketing)
     {
         if (bindings.isEmpty() || !hiveBucketPropertyOptional.isPresent()) {
             return Optional.empty();
@@ -400,7 +416,7 @@ public final class HiveBucketing
                 .map(HiveType::getTypeInfo)
                 .collect(toImmutableList());
         ImmutableSet.Builder<Integer> buckets = ImmutableSet.builder();
-        getHiveBuckets(new Object[types.size()], 0, orderedBindings, bucketCount, types, buckets);
+        getHiveBuckets(new Object[types.size()], 0, orderedBindings, bucketCount, types, buckets, useLegacyTimestampBucketing);
         return Optional.of(buckets.build());
     }
 
@@ -410,16 +426,17 @@ public final class HiveBucketing
             List<Set<NullableValue>> bindings,
             int bucketCount,
             List<TypeInfo> typeInfos,
-            ImmutableSet.Builder<Integer> buckets)
+            ImmutableSet.Builder<Integer> buckets,
+            boolean useLegacyTimestampBucketing)
     {
         if (valuesCount == typeInfos.size()) {
-            buckets.add(getHiveBucket(bucketCount, typeInfos, values));
+            buckets.add(getHiveBucket(bucketCount, typeInfos, values, useLegacyTimestampBucketing));
             return;
         }
 
         for (NullableValue value : bindings.get(valuesCount)) {
             values[valuesCount] = value.getValue();
-            getHiveBuckets(values, valuesCount + 1, bindings, bucketCount, typeInfos, buckets);
+            getHiveBuckets(values, valuesCount + 1, bindings, bucketCount, typeInfos, buckets, useLegacyTimestampBucketing);
         }
     }
 

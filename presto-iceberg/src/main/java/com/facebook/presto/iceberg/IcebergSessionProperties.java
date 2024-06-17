@@ -167,7 +167,7 @@ public final class IcebergSessionProperties
                         false))
                 .add(doubleProperty(
                         STATISTIC_SNAPSHOT_RECORD_DIFFERENCE_WEIGHT,
-                        "the amount that the difference in total record count matters" +
+                        "the amount that the difference in total record count matters " +
                                 "when calculating the closest snapshot when picking statistics. A " +
                                 "value of 1 means a single record is equivalent to 1 millisecond of " +
                                 "time difference.",

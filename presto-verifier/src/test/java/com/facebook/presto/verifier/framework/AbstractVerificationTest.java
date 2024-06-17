@@ -62,7 +62,7 @@ public abstract class AbstractVerificationTest
     protected static final String SUITE = "test-suite";
     protected static final String NAME = "test-query";
     protected static final String TEST_ID = "test-id";
-    protected static final QueryConfiguration QUERY_CONFIGURATION = new QueryConfiguration(CATALOG, SCHEMA, Optional.of("user"), Optional.empty(), Optional.empty());
+    protected static final QueryConfiguration QUERY_CONFIGURATION = new QueryConfiguration(CATALOG, SCHEMA, Optional.of("user"), Optional.empty(), Optional.empty(), true);
     protected static final ParsingOptions PARSING_OPTIONS = ParsingOptions.builder().setDecimalLiteralTreatment(AS_DOUBLE).build();
     protected static final String CONTROL_TABLE_PREFIX = "tmp_verifier_c";
     protected static final String TEST_TABLE_PREFIX = "tmp_verifier_t";
@@ -71,6 +71,8 @@ public abstract class AbstractVerificationTest
     protected static VerificationSettings skipControlSettings;
     protected static VerificationSettings saveSnapshotSettings;
     protected static VerificationSettings queryBankModeSettings;
+
+    protected static VerificationSettings reuseTableSettings;
 
     private final StandaloneQueryRunner queryRunner;
 
@@ -98,6 +100,8 @@ public abstract class AbstractVerificationTest
         saveSnapshotSettings.saveSnapshot = Optional.of(true);
         queryBankModeSettings = new VerificationSettings();
         queryBankModeSettings.runningMode = Optional.of("query-bank");
+        reuseTableSettings = new VerificationSettings();
+        reuseTableSettings.reuseTable = Optional.of(true);
     }
 
     @AfterClass
@@ -122,7 +126,12 @@ public abstract class AbstractVerificationTest
 
     protected SourceQuery getSourceQuery(String controlQuery, String testQuery)
     {
-        return new SourceQuery(SUITE, NAME, controlQuery, testQuery, QUERY_CONFIGURATION, QUERY_CONFIGURATION);
+        return new SourceQuery(SUITE, NAME, controlQuery, testQuery, Optional.empty(), Optional.empty(), QUERY_CONFIGURATION, QUERY_CONFIGURATION);
+    }
+
+    protected SourceQuery getSourceQuery(String controlQuery, String testQuery, String controlQueryId, String testQueryId)
+    {
+        return new SourceQuery(SUITE, NAME, controlQuery, testQuery, Optional.of(controlQueryId), Optional.of(testQueryId), QUERY_CONFIGURATION, QUERY_CONFIGURATION);
     }
 
     protected Optional<VerifierQueryEvent> runExplain(String controlQuery, String testQuery)
@@ -143,6 +152,11 @@ public abstract class AbstractVerificationTest
     protected Optional<VerifierQueryEvent> runVerification(String controlQuery, String testQuery, VerificationSettings settings)
     {
         return verify(getSourceQuery(controlQuery, testQuery), false, Optional.empty(), Optional.of(settings));
+    }
+
+    protected Optional<VerifierQueryEvent> runVerification(String controlQuery, String testQuery, String controlQueryId, String testQueryId, VerificationSettings settings)
+    {
+        return verify(getSourceQuery(controlQuery, testQuery, controlQueryId, testQueryId), false, Optional.empty(), Optional.of(settings));
     }
 
     protected Optional<VerifierQueryEvent> verify(SourceQuery sourceQuery, boolean explain)
@@ -191,13 +205,19 @@ public abstract class AbstractVerificationTest
             settings.saveSnapshot.ifPresent(verifierConfig::setSaveSnapshot);
             settings.functionSubstitutes.ifPresent(verifierConfig::setFunctionSubstitutes);
         });
+        QueryRewriteConfig controlRewriteConfig = new QueryRewriteConfig().setTablePrefix(CONTROL_TABLE_PREFIX);
+        QueryRewriteConfig testRewriteConfig = new QueryRewriteConfig().setTablePrefix(TEST_TABLE_PREFIX);
+        verificationSettings.ifPresent(settings -> {
+            settings.reuseTable.ifPresent(controlRewriteConfig::setReuseTable);
+            settings.reuseTable.ifPresent(testRewriteConfig::setReuseTable);
+        });
         TypeManager typeManager = createTypeManager();
         PrestoAction prestoAction = mockPrestoAction.orElseGet(() -> getPrestoAction(Optional.of(sourceQuery.getControlConfiguration())));
         QueryRewriterFactory queryRewriterFactory = new VerificationQueryRewriterFactory(
                 sqlParser,
                 typeManager,
-                new QueryRewriteConfig().setTablePrefix(CONTROL_TABLE_PREFIX),
-                new QueryRewriteConfig().setTablePrefix(TEST_TABLE_PREFIX),
+                controlRewriteConfig,
+                testRewriteConfig,
                 verifierConfig);
 
         VerificationFactory verificationFactory = new VerificationFactory(
@@ -225,14 +245,15 @@ public abstract class AbstractVerificationTest
             runningMode = Optional.empty();
             saveSnapshot = Optional.empty();
             functionSubstitutes = Optional.empty();
+            reuseTable = Optional.empty();
         }
 
         Optional<Boolean> concurrentControlAndTest;
         Optional<Boolean> skipControl;
         Optional<String> runningMode;
         Optional<Boolean> saveSnapshot;
-
         Optional<String> functionSubstitutes;
+        Optional<Boolean> reuseTable;
     }
 
     public static class MockSnapshotSupplierAndConsumer

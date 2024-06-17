@@ -10,11 +10,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM quay.io/centos/centos:stream8
+FROM quay.io/centos/centos:stream9
 
 ENV PROMPT_ALWAYS_RESPOND=n
-ENV CC=/opt/rh/gcc-toolset-9/root/bin/gcc
-ENV CXX=/opt/rh/gcc-toolset-9/root/bin/g++
+ENV CC=/opt/rh/gcc-toolset-12/root/bin/gcc
+ENV CXX=/opt/rh/gcc-toolset-12/root/bin/g++
 
 RUN mkdir -p /scripts /velox/scripts
 COPY scripts /scripts

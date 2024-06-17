@@ -205,6 +205,8 @@ public class HiveClientConfig
 
     private boolean partitionFilteringFromMetastoreEnabled = true;
 
+    private boolean skipEmptyFiles;
+
     private boolean parallelParsingOfPartitionValuesEnabled;
     private int maxParallelParsingConcurrency = 100;
     private boolean quickStatsEnabled;
@@ -219,6 +221,7 @@ public class HiveClientConfig
     private int parquetQuickStatsMaxConcurrentCalls = 500;
     private int quickStatsMaxConcurrentCalls = 100;
     private DataSize affinitySchedulingFileSectionSize = new DataSize(256, MEGABYTE);
+    private boolean legacyTimestampBucketing;
 
     @Min(0)
     public int getMaxInitialSplits()
@@ -1830,6 +1833,32 @@ public class HiveClientConfig
     public HiveClientConfig setAffinitySchedulingFileSectionSize(DataSize affinitySchedulingFileSectionSize)
     {
         this.affinitySchedulingFileSectionSize = affinitySchedulingFileSectionSize;
+        return this;
+    }
+
+    @Config("hive.skip-empty-files")
+    @ConfigDescription("Enables skip of empty files avoiding output error")
+    public HiveClientConfig setSkipEmptyFilesEnabled(boolean skipEmptyFiles)
+    {
+        this.skipEmptyFiles = skipEmptyFiles;
+        return this;
+    }
+
+    public boolean isSkipEmptyFilesEnabled()
+    {
+        return this.skipEmptyFiles;
+    }
+
+    public boolean isLegacyTimestampBucketing()
+    {
+        return legacyTimestampBucketing;
+    }
+
+    @Config("hive.legacy-timestamp-bucketing")
+    @ConfigDescription("Use legacy timestamp bucketing algorithm (which is not Hive compatible) for table bucketed by timestamp type.")
+    public HiveClientConfig setLegacyTimestampBucketing(boolean legacyTimestampBucketing)
+    {
+        this.legacyTimestampBucketing = legacyTimestampBucketing;
         return this;
     }
 }

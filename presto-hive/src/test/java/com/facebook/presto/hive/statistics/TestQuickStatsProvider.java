@@ -65,6 +65,7 @@ import static com.facebook.presto.hive.HiveColumnConverterProvider.DEFAULT_COLUM
 import static com.facebook.presto.hive.HiveSessionProperties.QUICK_STATS_BACKGROUND_BUILD_TIMEOUT;
 import static com.facebook.presto.hive.HiveSessionProperties.QUICK_STATS_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.QUICK_STATS_INLINE_BUILD_TIMEOUT;
+import static com.facebook.presto.hive.HiveSessionProperties.SKIP_EMPTY_FILES;
 import static com.facebook.presto.hive.HiveSessionProperties.USE_LIST_DIRECTORY_CACHE;
 import static com.facebook.presto.hive.HiveStorageFormat.PARQUET;
 import static com.facebook.presto.hive.HiveTestUtils.createTestHdfsEnvironment;
@@ -118,6 +119,11 @@ public class TestQuickStatsProvider
             booleanProperty(
                     USE_LIST_DIRECTORY_CACHE,
                     "Directory list caching",
+                    false,
+                    false),
+            booleanProperty(
+                    SKIP_EMPTY_FILES,
+                    "If it is required empty files will be skipped",
                     false,
                     false));
     public static final ConnectorSession SESSION = new TestingConnectorSession(quickStatsProperties);

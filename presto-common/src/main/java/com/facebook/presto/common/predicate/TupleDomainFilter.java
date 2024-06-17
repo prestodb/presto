@@ -43,9 +43,9 @@ public interface TupleDomainFilter
     TupleDomainFilter IS_NOT_NULL = new IsNotNull();
 
     /**
-     * A filter becomes non-deterministic when applies to nested column,
+     * A filter becomes non-deterministic when applied to a nested column;
      * e.g. a[1] > 10 is non-deterministic because > 10 filter applies only to some
-     * positions, e.g. first entry in a set of entries that correspond to a single
+     * position, e.g. first entry in a set of entries that correspond to a single
      * top-level position.
      */
     boolean isDeterministic();

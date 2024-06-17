@@ -119,6 +119,9 @@ html_add_permalinks = '#'
 html_show_copyright = True
 html_show_sphinx = False
 
+object_description_options = [
+    ("js:.*", dict(toc_icon_class=None, include_fields_in_toc=False)),
+]
 
 html_theme_options = {
 

@@ -52,6 +52,8 @@ public class VerificationQueryRewriterFactory
     private final QualifiedName testTablePrefix;
     private final List<Property> controlTableProperties;
     private final List<Property> testTableProperties;
+    private final boolean controlReuseTable;
+    private final boolean testReuseTable;
 
     private final Multimap<String, FunctionCallSubstitute> functionSubstitutes;
 
@@ -69,6 +71,8 @@ public class VerificationQueryRewriterFactory
         this.testTablePrefix = requireNonNull(testConfig.getTablePrefix(), "testTablePrefix is null");
         this.controlTableProperties = constructProperties(controlConfig.getTableProperties());
         this.testTableProperties = constructProperties(testConfig.getTableProperties());
+        this.controlReuseTable = controlConfig.isReuseTable();
+        this.testReuseTable = testConfig.isReuseTable();
         this.functionSubstitutes = verifierConfig.getFunctionSubstitutes();
     }
 
@@ -81,6 +85,7 @@ public class VerificationQueryRewriterFactory
                 prestoAction,
                 ImmutableMap.of(CONTROL, controlTablePrefix, TEST, testTablePrefix),
                 ImmutableMap.of(CONTROL, controlTableProperties, TEST, testTableProperties),
+                ImmutableMap.of(CONTROL, controlReuseTable, TEST, testReuseTable),
                 functionSubstitutes);
     }
 

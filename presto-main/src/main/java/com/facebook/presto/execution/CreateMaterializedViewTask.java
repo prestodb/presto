@@ -159,6 +159,6 @@ public class CreateMaterializedViewTask
     @Override
     public String explain(CreateMaterializedView statement, List<Expression> parameters)
     {
-        return "CREATE MATERIALIZED VIEW" + statement.getName();
+        return "CREATE MATERIALIZED VIEW " + statement.getName();
     }
 }
