@@ -185,7 +185,7 @@ public abstract class AbstractTestIntegrationSmokeTest
                 "line 1:49: Column name 'orderkey' specified more than once");
     }
 
-    private MaterializedResult getExpectedOrdersTableDescription()
+    protected MaterializedResult getExpectedOrdersTableDescription()
     {
         String orderDateType;
         if (isDateTypeSupported()) {
