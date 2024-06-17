@@ -358,6 +358,8 @@ void CacheInputStream::loadPosition() {
     }
 
     const auto nextLoadRegion = nextQuantizedLoadRegion(position_);
+    // There is no need to update the metric in the loadData method because
+    // loadSync is always executed regardless and updates the metric.
     loadSync(nextLoadRegion);
   }
 
