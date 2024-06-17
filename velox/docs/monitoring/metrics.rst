@@ -443,6 +443,30 @@ Spilling
      - Avg
      - The peak spilling memory usage in bytes.
 
+Exchange
+--------
+
+.. list-table::
+   :widths: 40 10 50
+   :header-rows: 1
+
+   * - Metric Name
+     - Type
+     - Description
+   * - exchange_data_time_ms
+     - Histogram
+     - The distribution of data exchange latency in range of [0, 50s] with 50
+       buckets. It is configured to report latency at P50, P90, P99, and P100
+       percentiles.
+   * - exchange_data_size_time_ms
+     - Histogram
+     - The distribution of data exchange size latency in range of [0, 5s] with 50
+       buckets. It is configured to report latency at P50, P90, P99, and P100
+       percentiles.
+   * - exchange_data_bytes
+     - Sum
+     - The exchange data size in bytes.
+
 Hive Connector
 --------------
 

@@ -457,5 +457,19 @@ void registerVeloxMetrics() {
 
   // The peak spilling memory usage in bytes.
   DEFINE_METRIC(kMetricSpillPeakMemoryBytes, facebook::velox::StatType::AVG);
+
+  // The data exchange time distribution in range of [0, 5s] with 50 buckets. It
+  // is configured to report the latency at P50, P90, P99, and P100 percentiles.
+  DEFINE_HISTOGRAM_METRIC(
+      kMetricExchangeDataTimeMs, 1'00, 0, 5'000, 50, 90, 99, 100);
+
+  // The data exchange size time distribution in range of [0, 5s] with 50
+  // buckets. It is configured to report the latency at P50, P90, P99, and P100
+  // percentiles.
+  DEFINE_HISTOGRAM_METRIC(
+      kMetricExchangeDataSizeTimeMs, 1'00, 0, 5'000, 50, 90, 99, 100);
+
+  // The exchange data size in bytes.
+  DEFINE_METRIC(kMetricExchangeDataBytes, facebook::velox::StatType::SUM);
 }
 } // namespace facebook::velox

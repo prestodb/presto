@@ -15,6 +15,9 @@
  */
 #include "velox/exec/ExchangeClient.h"
 
+#include "velox/common/base/Counters.h"
+#include "velox/common/base/StatsReporter.h"
+
 namespace facebook::velox::exec {
 
 void ExchangeClient::addRemoteTaskId(const std::string& taskId) {
@@ -152,7 +155,19 @@ void ExchangeClient::request(std::vector<RequestSpec>&& requestSpecs) {
     VELOX_CHECK(future.valid());
     std::move(future)
         .via(executor_)
-        .thenValue([self, spec = std::move(spec)](auto&& response) {
+        .thenValue([self,
+                    spec = std::move(spec),
+                    sendTimeMs = getCurrentTimeMs()](auto&& response) {
+          const auto requestTimeMs = getCurrentTimeMs() - sendTimeMs;
+          if (spec.maxBytes == 0) {
+            RECORD_HISTOGRAM_METRIC_VALUE(
+                kMetricExchangeDataSizeTimeMs, requestTimeMs);
+          } else {
+            RECORD_HISTOGRAM_METRIC_VALUE(
+                kMetricExchangeDataTimeMs, requestTimeMs);
+          }
+          RECORD_METRIC_VALUE(kMetricExchangeDataBytes, response.bytes);
+
           std::vector<RequestSpec> requestSpecs;
           {
             std::lock_guard<std::mutex> l(self->queue_->mutex());

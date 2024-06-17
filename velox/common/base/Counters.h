@@ -286,4 +286,13 @@ constexpr folly::StringPiece kMetricSsdCacheCheckpointsWritten{
 
 constexpr folly::StringPiece kMetricSsdCacheRegionsEvicted{
     "velox.ssd_cache_regions_evicted"};
+
+constexpr folly::StringPiece kMetricExchangeDataTimeMs{
+    "velox.exchange_data_time_ms"};
+
+constexpr folly::StringPiece kMetricExchangeDataSizeTimeMs{
+    "velox.exchange_data_size_time_ms"};
+
+constexpr folly::StringPiece kMetricExchangeDataBytes{
+    "velox.exchange_data_bytes"};
 } // namespace facebook::velox
