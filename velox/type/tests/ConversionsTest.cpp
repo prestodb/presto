@@ -44,15 +44,13 @@ class ConversionsTest : public testing::Test {
     auto cast = [&](TFrom input) -> TTo {
       Expected<TTo> result;
       if (truncate & legacyCast) {
-        result = Converter<toTypeKind, void, TruncateLegacyCastPolicy>::tryCast(
-            input);
+        VELOX_NYI("No associated cast policy for truncate and legacy cast.");
       } else if (!truncate & legacyCast) {
         result = Converter<toTypeKind, void, LegacyCastPolicy>::tryCast(input);
       } else if (truncate & !legacyCast) {
-        result =
-            Converter<toTypeKind, void, TruncateCastPolicy>::tryCast(input);
+        result = Converter<toTypeKind, void, SparkCastPolicy>::tryCast(input);
       } else {
-        result = Converter<toTypeKind, void, DefaultCastPolicy>::tryCast(input);
+        result = Converter<toTypeKind, void, PrestoCastPolicy>::tryCast(input);
       }
 
       return result.thenOrThrow(folly::identity, [](const Status& status) {

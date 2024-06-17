@@ -133,4 +133,9 @@ const TimestampToStringOptions& PrestoCastHooks::timestampToStringOptions()
     const {
   return options_;
 }
+
+PolicyType PrestoCastHooks::getPolicy() const {
+  return legacyCast_ ? PolicyType::LegacyCastPolicy
+                     : PolicyType::PrestoCastPolicy;
+}
 } // namespace facebook::velox::exec

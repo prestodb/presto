@@ -42,10 +42,6 @@ class PrestoCastHooks : public CastHooks {
   // or these strings with different letter cases.
   Expected<double> castStringToDouble(const StringView& data) const override;
 
-  bool legacy() const override {
-    return legacyCast_;
-  }
-
   // Returns the input as is.
   StringView removeWhiteSpaces(const StringView& view) const override;
 
@@ -55,6 +51,8 @@ class PrestoCastHooks : public CastHooks {
   bool truncate() const override {
     return false;
   }
+
+  PolicyType getPolicy() const override;
 
  private:
   const bool legacyCast_;

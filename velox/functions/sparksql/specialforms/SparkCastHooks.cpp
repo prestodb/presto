@@ -70,4 +70,8 @@ const TimestampToStringOptions& SparkCastHooks::timestampToStringOptions()
   };
   return options;
 }
+
+exec::PolicyType SparkCastHooks::getPolicy() const {
+  return exec::PolicyType::SparkCastPolicy;
+}
 } // namespace facebook::velox::functions::sparksql

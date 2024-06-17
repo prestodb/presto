@@ -715,30 +715,28 @@ void CastExpr::applyCastPrimitives(
   auto* resultFlatVector = result->as<FlatVector<To>>();
   auto* inputSimpleVector = input.as<SimpleVector<From>>();
 
-  if (!hooks_->truncate()) {
-    if (!hooks_->legacy()) {
-      applyToSelectedNoThrowLocal(context, rows, result, [&](int row) {
-        applyCastKernel<ToKind, FromKind, util::DefaultCastPolicy>(
-            row, context, inputSimpleVector, resultFlatVector);
-      });
-    } else {
+  switch (hooks_->getPolicy()) {
+    case LegacyCastPolicy:
       applyToSelectedNoThrowLocal(context, rows, result, [&](int row) {
         applyCastKernel<ToKind, FromKind, util::LegacyCastPolicy>(
             row, context, inputSimpleVector, resultFlatVector);
       });
-    }
-  } else {
-    if (!hooks_->legacy()) {
+      break;
+    case PrestoCastPolicy:
       applyToSelectedNoThrowLocal(context, rows, result, [&](int row) {
-        applyCastKernel<ToKind, FromKind, util::TruncateCastPolicy>(
+        applyCastKernel<ToKind, FromKind, util::PrestoCastPolicy>(
             row, context, inputSimpleVector, resultFlatVector);
       });
-    } else {
+      break;
+    case SparkCastPolicy:
       applyToSelectedNoThrowLocal(context, rows, result, [&](int row) {
-        applyCastKernel<ToKind, FromKind, util::TruncateLegacyCastPolicy>(
+        applyCastKernel<ToKind, FromKind, util::SparkCastPolicy>(
             row, context, inputSimpleVector, resultFlatVector);
       });
-    }
+      break;
+
+    default:
+      VELOX_NYI("Policy {} not yet implemented.", hooks_->getPolicy());
   }
 }
 

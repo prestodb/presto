@@ -40,10 +40,6 @@ class SparkCastHooks : public exec::CastHooks {
   // strings with different letter cases to double.
   Expected<double> castStringToDouble(const StringView& data) const override;
 
-  bool legacy() const override {
-    return false;
-  }
-
   /// When casting from string to integral, floating-point, decimal, date, and
   /// timestamp types, Spark hook trims all leading and trailing UTF8
   /// whitespaces before cast.
@@ -57,5 +53,7 @@ class SparkCastHooks : public exec::CastHooks {
   bool truncate() const override {
     return true;
   }
+
+  exec::PolicyType getPolicy() const override;
 };
 } // namespace facebook::velox::functions::sparksql

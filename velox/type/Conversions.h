@@ -31,12 +31,12 @@ DECLARE_bool(experimental_enable_legacy_cast);
 
 namespace facebook::velox::util {
 
-struct DefaultCastPolicy {
+struct PrestoCastPolicy {
   static constexpr bool truncate = false;
   static constexpr bool legacyCast = false;
 };
 
-struct TruncateCastPolicy {
+struct SparkCastPolicy {
   static constexpr bool truncate = true;
   static constexpr bool legacyCast = false;
 };
@@ -46,12 +46,7 @@ struct LegacyCastPolicy {
   static constexpr bool legacyCast = true;
 };
 
-struct TruncateLegacyCastPolicy {
-  static constexpr bool truncate = true;
-  static constexpr bool legacyCast = true;
-};
-
-template <TypeKind KIND, typename = void, typename TPolicy = DefaultCastPolicy>
+template <TypeKind KIND, typename = void, typename TPolicy = PrestoCastPolicy>
 struct Converter {
   using TTo = typename TypeTraits<KIND>::NativeType;
 
