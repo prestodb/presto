@@ -9,7 +9,8 @@ make contributions to the project and community.
 
 ## Code of Conduct
 
-First and foremost, the Velox project and all its contributors and maintainers
+First and foremost, the Velox project and all its contributors and
+[maintainers]((https://velox-lib.io/docs/community/components-and-maintainers))
 are governed by a [Code of Conduct](CODE_OF_CONDUCT.md). When participating,
 you are expected to uphold this code.
 
@@ -20,6 +21,12 @@ conversations in GitHub [Issues](https://github.com/facebookincubator/velox/issu
 and [Discussions](https://github.com/facebookincubator/velox/discussions), and join the
 [the Velox-OSS Slack workspace](http://velox-oss.slack.com) - please reach out to 
 **velox@meta.com** to get access.
+
+## Components and Maintainers
+
+Velox is logically organized into components, each maintained by a group of
+individuals.  The list of components and their respective maintainers [can be
+found here](https://velox-lib.io/docs/community/components-and-maintainers).
 
 ## Documentation
 

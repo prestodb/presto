@@ -70,7 +70,7 @@ const config = {
             position: 'left',
           },
           {
-            href: '/docs',
+            href: '/docs/community/',
             label: 'Community',
             position: 'left',
           },

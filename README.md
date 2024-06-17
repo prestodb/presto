@@ -4,8 +4,8 @@ Velox is a C++ database acceleration library which provides reusable,
 extensible, and high-performance data processing components. These components
 can be reused to build compute engines focused on different analytical
 workloads, including batch, interactive, stream processing, and AI/ML.
-Velox was created by Facebook and it is currently developed in partnership with
-Intel, ByteDance, and Ahana.
+Velox was created by Meta and it is currently developed in partnership with
+IBM/Ahana, Intel, Voltron Data, Microsoft, ByteDance and many other companies.
 
 In common usage scenarios, Velox takes a fully optimized query plan as input
 and performs the described computation. Considering Velox does not provide a
@@ -176,12 +176,13 @@ contribute to the project.
 ## Community
 
 Velox's technical governance mechanics is described [in this
-document.](https://velox-lib.io/docs/community/technical-governance)
+document.](https://velox-lib.io/docs/community/technical-governance).
+Components and maintainers [are listed
+here](https://velox-lib.io/docs/community/components-and-maintainers).
 
 The main communication channel with the Velox OSS community is through the
 [the Velox-OSS Slack workspace](http://velox-oss.slack.com).
 Please reach out to **velox@meta.com** to get access to Velox Slack Channel.
-
 
 ## License
 
