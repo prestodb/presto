@@ -188,8 +188,7 @@ public class OrcSelectiveRecordReader
             StripeMetadataSource stripeMetadataSource,
             boolean cacheable,
             RuntimeStats runtimeStats,
-            Optional<OrcFileIntrospector> fileIntrospector,
-            Map<String, Boolean> orcReaderUserOptions)
+            Optional<OrcFileIntrospector> fileIntrospector)
     {
         super(includedColumns,
                 requiredSubfields,
@@ -204,8 +203,7 @@ public class OrcSelectiveRecordReader
                         filterFunctions,
                         filterFunctionInputMapping,
                         requiredSubfields,
-                        systemMemoryUsage.newOrcAggregatedMemoryContext(),
-                        orcReaderUserOptions),
+                        systemMemoryUsage.newOrcAggregatedMemoryContext()),
                 predicate,
                 numberOfRows,
                 fileStripes,
@@ -591,8 +589,7 @@ public class OrcSelectiveRecordReader
             List<FilterFunction> filterFunctions,
             Map<Integer, Integer> filterFunctionInputMapping,
             Map<Integer, List<Subfield>> requiredSubfields,
-            OrcAggregatedMemoryContext systemMemoryContext,
-            Map<String, Boolean> orcReaderUserOptions)
+            OrcAggregatedMemoryContext systemMemoryContext)
     {
         List<StreamDescriptor> streamDescriptors = createStreamDescriptor(types, orcDataSource).getNestedStreams();
 
@@ -619,8 +616,7 @@ public class OrcSelectiveRecordReader
                         hiveStorageTimeZone,
                         options,
                         systemMemoryContext,
-                        false,
-                        orcReaderUserOptions);
+                        false);
             }
         }
         return streamReaders;

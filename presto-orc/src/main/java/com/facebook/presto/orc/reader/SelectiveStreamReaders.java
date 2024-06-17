@@ -34,7 +34,6 @@ import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcLocalMemoryContext;
-import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.OrcRecordReaderOptions;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
@@ -68,8 +67,7 @@ public final class SelectiveStreamReaders
             DateTimeZone hiveStorageTimeZone,
             OrcRecordReaderOptions options,
             OrcAggregatedMemoryContext systemMemoryContext,
-            boolean isLowMemory,
-            Map<String, Boolean> orcReaderUserOptions)
+            boolean isLowMemory)
     {
         OrcTypeKind type = streamDescriptor.getOrcTypeKind();
         switch (type) {
@@ -99,7 +97,7 @@ public final class SelectiveStreamReaders
             case DOUBLE:
                 checkArgument(requiredSubfields.isEmpty(), "Double stream reader doesn't support subfields");
                 verifyStreamType(streamDescriptor, outputType, DoubleType.class::isInstance);
-                return getDoubleSelectiveStreamReader(streamDescriptor, filters, outputType, systemMemoryContext, orcReaderUserOptions, type);
+                return getDoubleSelectiveStreamReader(streamDescriptor, filters, outputType, systemMemoryContext, options.getOrcUseVectorFilter(), type);
             case BINARY:
             case STRING:
             case VARCHAR:
@@ -144,10 +142,10 @@ public final class SelectiveStreamReaders
         }
     }
 
-    private static SelectiveStreamReader getDoubleSelectiveStreamReader(StreamDescriptor streamDescriptor, Map<Subfield, TupleDomainFilter> filters, Optional<Type> outputType, OrcAggregatedMemoryContext systemMemoryContext, Map<String, Boolean> orcReaderUserOptions, OrcTypeKind type)
+    private static SelectiveStreamReader getDoubleSelectiveStreamReader(StreamDescriptor streamDescriptor, Map<Subfield, TupleDomainFilter> filters, Optional<Type> outputType,
+            OrcAggregatedMemoryContext systemMemoryContext, boolean orcUseVectorFilter, OrcTypeKind type)
     {
-        if ((null != orcReaderUserOptions)
-                && (true == orcReaderUserOptions.get(OrcReader.ORC_USE_VECTOR_FILTER))) {
+        if (orcUseVectorFilter) {
             try {
                 Class doubleSelectiveStreamVectorReaderClass = Class.forName("com.facebook.presto.orc.reader.vector.DoubleSelectiveStreamVectorReader",
                         false, SelectiveStreamReaders.class.getClassLoader());
@@ -238,7 +236,7 @@ public final class SelectiveStreamReaders
                     return null;
                 }
 
-                return createStreamReader(streamDescriptor, elementFilters, outputType, requiredSubfields, hiveStorageTimeZone, options, systemMemoryContext.newOrcAggregatedMemoryContext(), isLowMemory, null);
+                return createStreamReader(streamDescriptor, elementFilters, outputType, requiredSubfields, hiveStorageTimeZone, options, systemMemoryContext.newOrcAggregatedMemoryContext(), isLowMemory);
             case LIST:
                 Optional<ListFilter> childFilter = parentFilter.map(HierarchicalFilter::getChild).map(ListFilter.class::cast);
                 return new ListSelectiveStreamReader(streamDescriptor, ImmutableMap.of(), requiredSubfields, childFilter.orElse(null), level, outputType, hiveStorageTimeZone, options, systemMemoryContext.newOrcAggregatedMemoryContext(), isLowMemory);
