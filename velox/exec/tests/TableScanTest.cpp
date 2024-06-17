@@ -2159,7 +2159,8 @@ TEST_F(TableScanTest, statsBasedSkippingNulls) {
   EXPECT_EQ(31'234, stats.rawInputRows);
   EXPECT_EQ(31'234, stats.inputRows);
   EXPECT_EQ(31'234, stats.outputRows);
-  EXPECT_GT(getTableScanRuntimeStats(task)["totalScanTime"].sum, 0);
+  ASSERT_EQ(getTableScanRuntimeStats(task).at("skippedSplits").sum, 0);
+  ASSERT_EQ(getTableScanRuntimeStats(task).at("skippedStrides").sum, 0);
 
   task = assertQuery("c0 IS NULL");
 
@@ -2167,6 +2168,8 @@ TEST_F(TableScanTest, statsBasedSkippingNulls) {
   EXPECT_EQ(0, stats.rawInputRows);
   EXPECT_EQ(0, stats.inputRows);
   EXPECT_EQ(0, stats.outputRows);
+  ASSERT_EQ(getTableScanRuntimeStats(task).at("skippedSplits").sum, 1);
+  ASSERT_EQ(getTableScanRuntimeStats(task).at("skippedStrides").sum, 0);
 
   // c1 IS NULL - first stride should be skipped based on stats
   task = assertQuery("c1 IS NULL");
@@ -2175,6 +2178,8 @@ TEST_F(TableScanTest, statsBasedSkippingNulls) {
   EXPECT_EQ(size - 10'000, stats.rawInputRows);
   EXPECT_EQ(size - 11'111, stats.inputRows);
   EXPECT_EQ(size - 11'111, stats.outputRows);
+  ASSERT_EQ(getTableScanRuntimeStats(task).at("skippedSplits").sum, 0);
+  ASSERT_EQ(getTableScanRuntimeStats(task).at("skippedStrides").sum, 1);
 
   // c1 IS NOT NULL - 3rd and 4th strides should be skipped based on stats
   task = assertQuery("c1 IS NOT NULL");
@@ -2183,6 +2188,8 @@ TEST_F(TableScanTest, statsBasedSkippingNulls) {
   EXPECT_EQ(20'000, stats.rawInputRows);
   EXPECT_EQ(11'111, stats.inputRows);
   EXPECT_EQ(11'111, stats.outputRows);
+  ASSERT_EQ(getTableScanRuntimeStats(task).at("skippedSplits").sum, 0);
+  ASSERT_EQ(getTableScanRuntimeStats(task).at("skippedStrides").sum, 2);
 }
 
 // Test skipping whole compression blocks without decompressing these.
