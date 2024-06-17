@@ -192,12 +192,15 @@ class WriterContext : public CompressionBufferPool {
     return pool_->maxCapacity();
   }
 
-  /// Returns the available memory reservations aggregated from all the memory
-  /// pools.
+  /// Returns the available memory reservations from all the memory pools.
   int64_t availableMemoryReservation() const;
 
-  /// Releases unused memory reservation aggregated from all the memory pools.
-  void releaseMemoryReservation();
+  /// Returns the amount of unused memory reservation that could be released.
+  int64_t releasableMemoryReservation() const;
+
+  /// Releases unused memory reservation from all the memory pools. Returns
+  /// total released bytes.
+  int64_t releaseMemoryReservation();
 
   const encryption::EncryptionHandler& getEncryptionHandler() const {
     return *handler_;
@@ -335,7 +338,9 @@ class WriterContext : public CompressionBufferPool {
   /// O(k * raw data size). The actual coefficient k can differ
   /// from encoding to encoding, and thus should be schema aware.
   size_t getEstimatedFlushOverhead(size_t dataRawSize) const {
-    return ceil(flushOverheadRatioTracker_.getEstimatedRatio() * dataRawSize);
+    return ceil(
+        flushOverheadRatioTracker_.getEstimatedRatio() *
+        (dataRawSize + getMemoryUsage(MemoryUsageCategory::DICTIONARY)));
   }
 
   /// We currently use previous stripe raw size as the proxy for the expected

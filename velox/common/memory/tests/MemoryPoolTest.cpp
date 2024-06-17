@@ -524,6 +524,49 @@ TEST_P(MemoryPoolTest, grow) {
   leaf->free(buf, 1 * MB);
 }
 
+TEST_P(MemoryPoolTest, releasableMemory) {
+  struct TestParam {
+    int64_t usedBytes;
+    int64_t reservedBytes;
+  };
+  std::vector<TestParam> testParams{
+      {2345, 98760},
+      {1, 1024},
+      {4096, 4096},
+      {1 * MB, 16 * MB},
+      {6 * MB, 7 * MB},
+      {123 * MB, 200 * MB},
+      {100 * MB, 50 * MB}};
+  auto root = getMemoryManager()->addRootPool("releasableMemory", 4 * GB);
+  for (auto i = 0; i < testParams.size() - 1; i++) {
+    auto leaf0 = root->addLeafChild("leafPool-0");
+    leaf0->maybeReserve(testParams[i].reservedBytes);
+    void* buffer0 = leaf0->allocate(testParams[i].usedBytes);
+    const auto reservedBytes0 = leaf0->reservedBytes();
+    const auto releasableBytes0 = leaf0->releasableReservation();
+
+    auto leaf1 = root->addLeafChild("leafPool-1");
+    leaf1->maybeReserve(testParams[i + 1].reservedBytes);
+    void* buffer1 = leaf1->allocate(testParams[i + 1].usedBytes);
+    const auto reservedBytes1 = leaf1->reservedBytes();
+    const auto releasableBytes1 = leaf1->releasableReservation();
+
+    const auto releasableBytesRoot = root->releasableReservation();
+    const auto reservedBytesRoot = root->reservedBytes();
+    ASSERT_EQ(releasableBytesRoot, releasableBytes0 + releasableBytes1);
+
+    leaf0->release();
+    ASSERT_EQ(reservedBytes0 - leaf0->reservedBytes(), releasableBytes0);
+    ASSERT_EQ(reservedBytesRoot - root->reservedBytes(), releasableBytes0);
+    leaf1->release();
+    ASSERT_EQ(reservedBytes1 - leaf1->reservedBytes(), releasableBytes1);
+    ASSERT_EQ(reservedBytesRoot - root->reservedBytes(), releasableBytesRoot);
+
+    leaf0->free(buffer0, testParams[i].usedBytes);
+    leaf1->free(buffer1, testParams[i + 1].usedBytes);
+  }
+}
+
 TEST_P(MemoryPoolTest, ReallocTestSameSize) {
   auto manager = getMemoryManager();
   auto root = manager->addRootPool();

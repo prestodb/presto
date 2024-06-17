@@ -703,6 +703,23 @@ int64_t MemoryPoolImpl::usedBytes() const {
   return usedBytes;
 }
 
+int64_t MemoryPoolImpl::releasableReservation() const {
+  if (isLeaf()) {
+    std::lock_guard<std::mutex> l(mutex_);
+    return std::max<int64_t>(
+        0, reservationBytes_ - quantizedSize(usedReservationBytes_));
+  }
+  if (reservedBytes() == 0) {
+    return 0;
+  }
+  int64_t releasableBytes{0};
+  visitChildren([&](MemoryPool* pool) {
+    releasableBytes += pool->releasableReservation();
+    return true;
+  });
+  return releasableBytes;
+}
+
 std::shared_ptr<MemoryPool> MemoryPoolImpl::genChild(
     std::shared_ptr<MemoryPool> parent,
     const std::string& name,

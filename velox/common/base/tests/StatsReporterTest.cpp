@@ -324,6 +324,10 @@ class TestMemoryPool : public memory::MemoryPool {
     return 0;
   }
 
+  int64_t releasableReservation() const override {
+    return 0;
+  }
+
   int64_t reservedBytes() const override {
     return 0;
   }

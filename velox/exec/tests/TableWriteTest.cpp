@@ -3643,16 +3643,34 @@ DEBUG_ONLY_TEST_F(TableWriterArbitrationTest, writerFlushThreshold) {
       createVectors(numBatches, rowType_, options);
   createDuckDbTable(vectors);
 
-  const std::vector<uint64_t> writerFlushThresholds{0, 1UL << 30};
-  for (uint64_t writerFlushThreshold : writerFlushThresholds) {
+  struct TestParam {
+    uint64_t bytesToReserve{0};
+    uint64_t writerFlushThreshold{0};
+  };
+  const std::vector<TestParam> testParams{
+      {0, 0}, {0, 1UL << 30}, {64UL << 20, 1UL << 30}};
+  for (const auto& testParam : testParams) {
     SCOPED_TRACE(fmt::format(
-        "writerFlushThreshold: {}", succinctBytes(writerFlushThreshold)));
+        "bytesToReserve: {}, writerFlushThreshold: {}",
+        succinctBytes(testParam.bytesToReserve),
+        succinctBytes(testParam.writerFlushThreshold)));
 
     auto memoryManager = createMemoryManager();
     auto arbitrator = memoryManager->arbitrator();
     auto queryCtx =
         newQueryCtx(memoryManager.get(), executor_.get(), kMemoryCapacity);
     ASSERT_EQ(queryCtx->pool()->capacity(), kMemoryPoolInitCapacity);
+
+    memory::MemoryPool* compressionPool{nullptr};
+    SCOPED_TESTVALUE_SET(
+        "facebook::velox::dwrf::Writer::write",
+        std::function<void(dwrf::Writer*)>([&](dwrf::Writer* writer) {
+          if (testParam.bytesToReserve == 0 || compressionPool != nullptr) {
+            return;
+          }
+          compressionPool = &(writer->getContext().getMemoryPool(
+              dwrf::MemoryUsageCategory::OUTPUT_STREAM));
+        }));
 
     std::atomic<int> numInputs{0};
     SCOPED_TESTVALUE_SET(
@@ -3665,14 +3683,17 @@ DEBUG_ONLY_TEST_F(TableWriterArbitrationTest, writerFlushThreshold) {
             return;
           }
 
+          if (testParam.bytesToReserve > 0) {
+            ASSERT_TRUE(compressionPool != nullptr);
+            compressionPool->maybeReserve(testParam.bytesToReserve);
+          }
+
           const auto fakeAllocationSize = arbitrator->stats().maxCapacityBytes -
-              op->pool()->parent()->reservedBytes();
-          if (writerFlushThreshold == 0) {
+              op->pool()->parent()->usedBytes();
+          if (testParam.writerFlushThreshold == 0) {
             auto* buffer = op->pool()->allocate(fakeAllocationSize);
             op->pool()->free(buffer, fakeAllocationSize);
           } else {
-            // The injected memory allocation fail if we set very high
-            // memory flush threshold.
             VELOX_ASSERT_THROW(
                 op->pool()->allocate(fakeAllocationSize),
                 "Exceeded memory pool");
@@ -3699,16 +3720,18 @@ DEBUG_ONLY_TEST_F(TableWriterArbitrationTest, writerFlushThreshold) {
         .config(core::QueryConfig::kSpillEnabled, true)
         .config(core::QueryConfig::kWriterSpillEnabled, true)
         .config(
-            core::QueryConfig::kWriterFlushThresholdBytes, writerFlushThreshold)
+            core::QueryConfig::kWriterFlushThresholdBytes,
+            testParam.writerFlushThreshold)
         .plan(std::move(writerPlan))
         .assertResults(fmt::format("SELECT {}", numRows));
 
     ASSERT_EQ(
-
-        arbitrator->stats().numFailures, writerFlushThreshold == 0 ? 0 : 1);
+        arbitrator->stats().numFailures,
+        testParam.writerFlushThreshold == 0 ? 0 : 1);
     // We don't trigger reclaim on a writer if it doesn't meet the writer flush
     // threshold.
     ASSERT_EQ(arbitrator->stats().numNonReclaimableAttempts, 0);
+    ASSERT_GE(arbitrator->stats().numReclaimedBytes, testParam.bytesToReserve);
     waitForAllTasksToBeDeleted(3'000'000);
     queryCtx.reset();
     ASSERT_EQ(arbitrator->stats().numReserves, 1);

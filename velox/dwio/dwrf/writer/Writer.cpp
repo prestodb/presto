@@ -289,11 +289,11 @@ bool Writer::maybeReserveMemory(
   auto& context = getContext();
   auto& pool = context.getMemoryPool(memoryUsageCategory);
   const uint64_t availableReservation = pool.availableReservation();
-  const uint64_t usedReservationBytes = pool.usedBytes();
+  const uint64_t usedBytes = pool.usedBytes();
   const uint64_t minReservationBytes =
-      usedReservationBytes * spillConfig_->minSpillableReservationPct / 100;
+      usedBytes * spillConfig_->minSpillableReservationPct / 100;
   const uint64_t estimatedIncrementBytes =
-      usedReservationBytes * estimatedMemoryGrowthRatio;
+      usedBytes * estimatedMemoryGrowthRatio;
   if ((availableReservation > minReservationBytes) &&
       (availableReservation > 2 * estimatedIncrementBytes)) {
     return true;
@@ -301,15 +301,15 @@ bool Writer::maybeReserveMemory(
 
   const uint64_t bytesToReserve = std::max(
       estimatedIncrementBytes * 2,
-      usedReservationBytes * spillConfig_->spillableReservationGrowthPct / 100);
+      usedBytes * spillConfig_->spillableReservationGrowthPct / 100);
   return pool.maybeReserve(bytesToReserve);
 }
 
-void Writer::releaseMemory() {
+int64_t Writer::releaseMemory() {
   if (!canReclaim()) {
-    return;
+    return 0;
   }
-  getContext().releaseMemoryReservation();
+  return getContext().releaseMemoryReservation();
 }
 
 uint64_t Writer::flushTimeMemoryUsageEstimate(
@@ -406,7 +406,7 @@ void Writer::flushStripe(bool close) {
     createRowIndexEntry();
   }
 
-  const auto preFlushMem = context.getTotalMemoryUsage();
+  const auto preFlushTotalMemBytes = context.getTotalMemoryUsage();
   ensureStripeFlushFits();
   // NOTE: ensureStripeFlushFits() might trigger memory arbitration that have
   // flushed the current stripe.
@@ -434,7 +434,7 @@ void Writer::flushStripe(bool close) {
   metrics.flushOverhead = static_cast<uint64_t>(flushOverhead);
   context.recordFlushOverhead(metrics.flushOverhead);
 
-  const auto postFlushMem = context.getTotalMemoryUsage();
+  const auto postFlushTotalMemBytes = context.getTotalMemoryUsage();
 
   auto& sink = writerBase_->getSink();
   auto stripeOffset = sink.size();
@@ -559,8 +559,8 @@ void Writer::flushStripe(bool close) {
       metrics.stripeIndex,
       metrics.flushOverhead,
       metrics.stripeSize,
-      preFlushMem,
-      postFlushMem,
+      preFlushTotalMemBytes,
+      postFlushTotalMemBytes,
       metrics.close);
   addThreadLocalRuntimeStat(
       "stripeSize",
@@ -721,11 +721,18 @@ bool Writer::MemoryReclaimer::reclaimableBytes(
   if (!writer_->canReclaim()) {
     return false;
   }
-  const uint64_t memoryUsage = writer_->getContext().getTotalMemoryUsage();
-  if (memoryUsage < writer_->spillConfig_->writerFlushThresholdSize) {
+  TestValue::adjust(
+      "facebook::velox::dwrf::Writer::MemoryReclaimer::reclaimableBytes",
+      writer_);
+  const auto& context = writer_->getContext();
+  const auto usedBytes = context.getTotalMemoryUsage();
+  const auto releasableBytes = context.releasableMemoryReservation();
+  const bool flushable =
+      usedBytes >= writer_->spillConfig_->writerFlushThresholdSize;
+  if (releasableBytes == 0 && !flushable) {
     return false;
   }
-  reclaimableBytes = memoryUsage;
+  reclaimableBytes = (flushable ? usedBytes : 0) + releasableBytes;
   return true;
 }
 
@@ -741,7 +748,8 @@ uint64_t Writer::MemoryReclaimer::reclaim(
   if (*writer_->nonReclaimableSection_) {
     RECORD_METRIC_VALUE(kMetricMemoryNonReclaimableCount);
     LOG(WARNING)
-        << "Can't reclaim from dwrf writer which is under non-reclaimable section: "
+        << "Can't reclaim from dwrf writer which is under non-reclaimable "
+           "section: "
         << pool->name();
     ++stats.numNonReclaimableAttempts;
     return 0;
@@ -752,24 +760,34 @@ uint64_t Writer::MemoryReclaimer::reclaim(
     ++stats.numNonReclaimableAttempts;
     return 0;
   }
-  const uint64_t memoryUsage = writer_->getContext().getTotalMemoryUsage();
-  if (memoryUsage < writer_->spillConfig_->writerFlushThresholdSize) {
-    RECORD_METRIC_VALUE(kMetricMemoryNonReclaimableCount);
-    LOG(WARNING)
-        << "Can't reclaim memory from dwrf writer pool " << pool->name()
-        << " which doesn't have sufficient memory to flush, writer memory usage: "
-        << succinctBytes(memoryUsage) << ", writer flush memory threshold: "
-        << succinctBytes(writer_->spillConfig_->writerFlushThresholdSize);
-    ++stats.numNonReclaimableAttempts;
-    return 0;
-  }
 
   return memory::MemoryReclaimer::run(
       [&]() {
         int64_t reclaimedBytes{0};
         {
           memory::ScopedReclaimedBytesRecorder recorder(pool, &reclaimedBytes);
-          writer_->flushInternal(false);
+          const auto& context = writer_->getContext();
+          const auto usedBytes = context.getTotalMemoryUsage();
+          const auto releasedBytes = writer_->releaseMemory();
+          if (releasedBytes == 0 &&
+              usedBytes < writer_->spillConfig_->writerFlushThresholdSize) {
+            RECORD_METRIC_VALUE(kMetricMemoryNonReclaimableCount);
+            LOG(WARNING)
+                << "Can't reclaim memory from dwrf writer pool " << pool->name()
+                << " which doesn't have sufficient memory to release or flush, "
+                   "writer memory usage: "
+                << succinctBytes(usedBytes)
+                << ", writer memory available reservation: "
+                << succinctBytes(context.availableMemoryReservation())
+                << ", writer flush memory threshold: "
+                << succinctBytes(
+                       writer_->spillConfig_->writerFlushThresholdSize);
+            ++stats.numNonReclaimableAttempts;
+          } else {
+            if (usedBytes >= writer_->spillConfig_->writerFlushThresholdSize) {
+              writer_->flushInternal(false);
+            }
+          }
         }
         return reclaimedBytes;
       },

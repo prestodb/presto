@@ -2040,7 +2040,14 @@ DEBUG_ONLY_TEST_F(E2EWriterTest, memoryReclaimDuringInit) {
   }
 }
 
-TEST_F(E2EWriterTest, memoryReclaimThreshold) {
+DEBUG_ONLY_TEST_F(E2EWriterTest, memoryReclaimThreshold) {
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::dwrf::Writer::MemoryReclaimer::reclaimableBytes",
+      std::function<void(dwrf::Writer*)>([&](dwrf::Writer* writer) {
+        // Release before reclaim to make it not able to reclaim from reserved
+        // memory.
+        writer->getContext().releaseMemoryReservation();
+      }));
   const auto type = ROW(
       {{"int_val", INTEGER()},
        {"string_val", VARCHAR()},

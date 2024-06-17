@@ -57,8 +57,12 @@ class MockMemoryPool : public velox::memory::MemoryPool {
     VELOX_NYI("{} unsupported", __FUNCTION__);
   }
 
-  int64_t reservedBytes() const override {
+  int64_t releasableReservation() const override {
     VELOX_NYI("{} unsupported", __FUNCTION__);
+  }
+
+  int64_t reservedBytes() const override {
+    return localMemoryUsage_;
   }
 
   bool maybeReserve(uint64_t size) override {

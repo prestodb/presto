@@ -24,6 +24,7 @@
 #include "velox/common/testutil/TestValue.h"
 #include "velox/core/Config.h"
 #include "velox/dwio/common/Options.h"
+#include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
@@ -621,7 +622,7 @@ TEST_F(HiveDataSinkTest, abort) {
   }
 }
 
-TEST_F(HiveDataSinkTest, memoryReclaim) {
+DEBUG_ONLY_TEST_F(HiveDataSinkTest, memoryReclaim) {
   const int numBatches = 200;
   auto vectors = createVectors(500, 200);
 
@@ -644,7 +645,7 @@ TEST_F(HiveDataSinkTest, memoryReclaim) {
           expectedWriterReclaimed);
     }
   } testSettings[] = {
-      //    {dwio::common::FileFormat::DWRF, true, true, 1 << 30, true, true},
+      {dwio::common::FileFormat::DWRF, true, true, 1 << 30, true, true},
       {dwio::common::FileFormat::DWRF, true, true, 1, true, true},
       {dwio::common::FileFormat::DWRF, true, false, 1 << 30, false, false},
       {dwio::common::FileFormat::DWRF, true, false, 1, false, false},
@@ -664,6 +665,13 @@ TEST_F(HiveDataSinkTest, memoryReclaim) {
       {dwio::common::FileFormat::PARQUET, false, false, 1, false, false}
 #endif
   };
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::dwrf::Writer::MemoryReclaimer::reclaimableBytes",
+      std::function<void(dwrf::Writer*)>([&](dwrf::Writer* writer) {
+        // Release before reclaim to make it not able to reclaim from reserved
+        // memory.
+        writer->getContext().releaseMemoryReservation();
+      }));
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
     setupMemoryPools();

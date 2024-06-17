@@ -127,9 +127,8 @@ int64_t WriterContext::getMemoryUsage(
 }
 
 int64_t WriterContext::getTotalMemoryUsage() const {
-  return getMemoryUsage(MemoryUsageCategory::OUTPUT_STREAM) +
-      getMemoryUsage(MemoryUsageCategory::DICTIONARY) +
-      getMemoryUsage(MemoryUsageCategory::GENERAL);
+  return generalPool_->usedBytes() + dictionaryPool_->usedBytes() +
+      outputStreamPool_->usedBytes();
 }
 
 int64_t WriterContext::availableMemoryReservation() const {
@@ -138,10 +137,20 @@ int64_t WriterContext::availableMemoryReservation() const {
       generalPool_->availableReservation();
 }
 
-void WriterContext::releaseMemoryReservation() {
+int64_t WriterContext::releasableMemoryReservation() const {
+  return generalPool_->parent()->releasableReservation();
+}
+
+int64_t WriterContext::releaseMemoryReservation() {
+  const auto* aggregatePool = dictionaryPool_->parent();
+  const auto beforeTotalReservation = aggregatePool->reservedBytes();
   dictionaryPool_->release();
   outputStreamPool_->release();
   generalPool_->release();
+  const auto releasedMemory =
+      beforeTotalReservation - aggregatePool->reservedBytes();
+  VELOX_CHECK_GE(releasedMemory, 0);
+  return releasedMemory;
 }
 
 void WriterContext::abort() {
