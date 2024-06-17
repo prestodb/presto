@@ -552,6 +552,7 @@ void SsdFile::updateStats(SsdCacheStats& stats) const {
   stats.writeCheckpointErrors += stats_.writeCheckpointErrors;
   stats.readSsdErrors += stats_.readSsdErrors;
   stats.readCheckpointErrors += stats_.readCheckpointErrors;
+  stats.readSsdCorruptions += stats_.readSsdCorruptions;
 }
 
 void SsdFile::testingClear() {
