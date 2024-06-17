@@ -134,7 +134,7 @@ function install_protobuf {
   )
 }
 
-FB_OS_VERSION="v2024.04.01.00"
+FB_OS_VERSION="v2024.05.20.00"
 
 function install_fizz {
   wget_and_untar https://github.com/facebookincubator/fizz/archive/refs/tags/${FB_OS_VERSION}.tar.gz fizz
