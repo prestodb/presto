@@ -26,13 +26,11 @@ namespace {
 
 template <typename K, typename S>
 struct Accumulator {
-  folly::F14FastMap<
+  using ValuesMap = typename util::floating_point::HashMapNaNAwareTypeTraits<
       K,
       S,
-      std::hash<K>,
-      std::equal_to<K>,
-      AlignedStlAllocator<std::pair<const K, S>, 16>>
-      sums;
+      AlignedStlAllocator<std::pair<const K, S>, 16>>::Type;
+  ValuesMap sums;
 
   explicit Accumulator(HashStringAllocator* allocator)
       : sums{AlignedStlAllocator<std::pair<const K, S>, 16>(allocator)} {}

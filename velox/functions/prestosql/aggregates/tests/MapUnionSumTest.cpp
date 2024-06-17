@@ -403,5 +403,40 @@ TEST_F(MapUnionSumTest, floatingPointKeys) {
   testAggregations({data}, {}, {"map_union_sum(c1)"}, {expected});
 }
 
+TEST_F(MapUnionSumTest, nanKeys) {
+  // Verify that NaNs with different binary representations are considered equal
+  // and deduplicated when used as keys in the output map.
+  constexpr double kNan = std::numeric_limits<double>::quiet_NaN();
+  constexpr double kSNaN = std::numeric_limits<double>::signaling_NaN();
+
+  // Global aggregation.
+  auto data = makeRowVector(
+      {makeNullableMapVector<double, int32_t>({
+           {{{kSNaN, 10}, {2, 20}}},
+           {{{kNan, 1}, {3, 30}, {5, 50}}},
+           {{{3, 30}, {kSNaN, 4}, {1, 30}}},
+       }),
+       makeFlatVector<int32_t>({1, 1, 2})});
+
+  auto expected = makeRowVector({
+      makeMapVector<double, int32_t>({
+          {{1, 30}, {2, 20}, {3, 60}, {5, 50}, {kNan, 15}},
+      }),
+  });
+
+  testAggregations({data}, {}, {"map_union_sum(c0)"}, {expected});
+
+  // Group by aggregation.
+  expected = makeRowVector(
+      {makeMapVector<double, int32_t>({
+           {{2, 20}, {3, 30}, {5, 50}, {kNan, 11}},
+           {{1, 30}, {3, 30}, {kNan, 4}},
+       }),
+       makeFlatVector<int32_t>({1, 2})});
+
+  testAggregations(
+      {data}, {"c1"}, {"map_union_sum(c0)"}, {"a0", "c1"}, {expected});
+}
+
 } // namespace
 } // namespace facebook::velox::aggregate::test
