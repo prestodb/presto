@@ -421,7 +421,7 @@ static utf8proc_ssize_t seqindex_write_char_decomposed(
 
     written += utf8proc_decompose_char(
         entry_cp,
-        dst + written,
+        dst ? dst + written : dst,
         (bufsize > written) ? (bufsize - written) : 0,
         options,
         last_boundclass);
