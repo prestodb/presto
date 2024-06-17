@@ -226,6 +226,22 @@ struct MapAccumulatorTypeTraits {
 };
 
 template <>
+struct MapAccumulatorTypeTraits<float> {
+  using AccumulatorType = MapAccumulator<
+      float,
+      util::floating_point::NaNAwareHash<float>,
+      util::floating_point::NaNAwareEquals<float>>;
+};
+
+template <>
+struct MapAccumulatorTypeTraits<double> {
+  using AccumulatorType = MapAccumulator<
+      double,
+      util::floating_point::NaNAwareHash<double>,
+      util::floating_point::NaNAwareEquals<double>>;
+};
+
+template <>
 struct MapAccumulatorTypeTraits<StringView> {
   using AccumulatorType = StringViewMapAccumulator;
 };

@@ -305,5 +305,19 @@ TEST_F(HistogramTest, globalString) {
   testGlobalHistogramWithDuck(data);
 }
 
+TEST_F(HistogramTest, globalNaNs) {
+  // Verify that NaNs with different binary representations are considered equal
+  // and deduplicated.
+  static const auto kNaN = std::numeric_limits<double>::quiet_NaN();
+  static const auto kSNaN = std::numeric_limits<double>::signaling_NaN();
+  auto vector = makeFlatVector<double>({1, kNaN, kSNaN, 2, 3, kNaN, kSNaN, 3});
+
+  auto expected = makeRowVector({makeMapVectorFromJson<double, int64_t>({
+      "{1: 1, 2: 1, 3: 2, NaN: 4}",
+  })});
+
+  testHistogram("histogram(c1)", {}, vector, vector, expected);
+}
+
 } // namespace
 } // namespace facebook::velox::aggregate::test

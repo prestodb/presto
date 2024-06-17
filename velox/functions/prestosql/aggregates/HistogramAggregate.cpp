@@ -28,12 +28,10 @@ namespace {
 
 template <typename T>
 struct Accumulator {
-  using ValueMap = folly::F14FastMap<
+  using ValueMap = typename util::floating_point::HashMapNaNAwareTypeTraits<
       T,
       int64_t,
-      std::hash<T>,
-      std::equal_to<T>,
-      AlignedStlAllocator<std::pair<const T, int64_t>, 16>>;
+      AlignedStlAllocator<std::pair<const T, int64_t>, 16>>::Type;
   ValueMap values;
 
   explicit Accumulator(HashStringAllocator* allocator)
