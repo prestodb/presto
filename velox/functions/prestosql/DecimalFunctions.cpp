@@ -288,6 +288,54 @@ struct DecimalFloorFunction {
   uint8_t scale_;
 };
 
+template <typename TExec>
+struct DecimalTruncateFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(TExec);
+
+  template <typename A>
+  void initialize(
+      const std::vector<TypePtr>& inputTypes,
+      const core::QueryConfig& /*config*/,
+      A* /*a*/) {
+    const auto [precision, scale] = getDecimalPrecisionScale(*inputTypes[0]);
+    precision_ = precision;
+    scale_ = scale;
+  }
+
+  template <typename A>
+  void initialize(
+      const std::vector<TypePtr>& inputTypes,
+      const core::QueryConfig& config,
+      A* a,
+      const int32_t* /*n*/) {
+    initialize(inputTypes, config, a);
+  }
+
+  template <typename R, typename A>
+  void call(R& out, const A& a) {
+    if UNLIKELY (scale_ == 0 || a == 0) {
+      out = a;
+    } else {
+      out = a / DecimalUtil::kPowersOfTen[scale_];
+    }
+  }
+
+  template <typename A>
+  void call(A& out, const A& a, int32_t n) {
+    if UNLIKELY (a == 0 || (n + precision_ - scale_) <= 0) {
+      out = 0;
+    } else if UNLIKELY (scale_ <= n) {
+      out = a;
+    } else {
+      out = a - (a % DecimalUtil::kPowersOfTen[scale_ - n]);
+    }
+  }
+
+ private:
+  uint8_t precision_;
+  uint8_t scale_;
+};
+
 template <template <class> typename Func>
 void registerDecimalBinary(
     const std::string& name,
@@ -571,6 +619,49 @@ void registerDecimalRound(const std::string& prefix) {
         ShortDecimal<P1, S1>,
         int32_t>({prefix + "round"}, constraints);
   }
+}
+
+void registerDecimalTruncate(const std::string& prefix) {
+  // truncate(decimal) -> decimal
+  std::vector<exec::SignatureVariable> constraints = {
+      exec::SignatureVariable(
+          P2::name(),
+          fmt::format(
+              "max({p} - {s}, 1)",
+              fmt::arg("p", P1::name()),
+              fmt::arg("s", S1::name())),
+          exec::ParameterType::kIntegerParameter),
+      exec::SignatureVariable(
+          S2::name(), "0", exec::ParameterType::kIntegerParameter),
+  };
+
+  registerFunction<
+      DecimalTruncateFunction,
+      ShortDecimal<P2, S2>,
+      ShortDecimal<P1, S1>>({prefix + "truncate"}, constraints);
+
+  registerFunction<
+      DecimalTruncateFunction,
+      LongDecimal<P2, S2>,
+      LongDecimal<P1, S1>>({prefix + "truncate"}, constraints);
+
+  registerFunction<
+      DecimalTruncateFunction,
+      ShortDecimal<P2, S2>,
+      LongDecimal<P1, S1>>({prefix + "truncate"}, constraints);
+
+  // truncate(decimal, n) -> decimal
+  registerFunction<
+      DecimalTruncateFunction,
+      ShortDecimal<P1, S1>,
+      ShortDecimal<P1, S1>,
+      int32_t>({prefix + "truncate"});
+
+  registerFunction<
+      DecimalTruncateFunction,
+      LongDecimal<P1, S1>,
+      LongDecimal<P1, S1>,
+      int32_t>({prefix + "truncate"});
 }
 
 } // namespace facebook::velox::functions

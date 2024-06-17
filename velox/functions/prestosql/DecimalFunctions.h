@@ -13,6 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
+
+#include <string>
 
 namespace facebook::velox::functions {
 
@@ -29,5 +32,7 @@ void registerDecimalModulus(const std::string& prefix);
 void registerDecimalFloor(const std::string& prefix);
 
 void registerDecimalRound(const std::string& prefix);
+
+void registerDecimalTruncate(const std::string& prefix);
 
 } // namespace facebook::velox::functions

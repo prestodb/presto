@@ -343,3 +343,28 @@ Decimal Functions
         SELECT round(123.45, -1); -- 120.00
         SELECT round(123.45, -2); -- 100.00
         SELECT round(123.45, -10); -- 0.00
+
+.. function:: truncate(x: decimal(p, s)) -> r: decimal(rp, 0)
+
+    Returns 'x' rounded to integer by dropping digits after decimal point.
+    The scale of the result is 0. The precision is calculated as:
+    ::
+
+        pr = max(p - s, 1)
+
+.. function:: truncate(x: decimal(p, s), d: integer) -> r: decimal(rp, s)
+
+    Returns ``x`` truncated to ``d`` decimal places.
+    The precision and scale of the result are the same as the precision and scale of the input.
+    ``d`` can be positive, zero or negative.
+    When ``d`` is negative truncates ``-d`` digits left of the decimal point.
+    Returns ``x`` unmodified if ``d`` exceeds the scale of the input.
+    ::
+
+        SELECT truncate(999.45, 0); -- 999.00
+        SELECT truncate(999.45, 1); -- 999.40
+        SELECT truncate(999.45, 2); -- 999.45
+        SELECT truncate(999.45, 3); -- 999.45
+        SELECT truncate(999.45, -1); -- 990.00
+        SELECT truncate(999.45, -2); -- 900.00
+        SELECT truncate(999.45, -10); -- 0.00

@@ -124,6 +124,7 @@ void registerMathematicalFunctions(const std::string& prefix = "") {
 
   registerDecimalFloor(prefix);
   registerDecimalRound(prefix);
+  registerDecimalTruncate(prefix);
 }
 
 } // namespace facebook::velox::functions
