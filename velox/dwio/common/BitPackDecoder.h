@@ -21,7 +21,7 @@
 #include "velox/vector/TypeAliases.h"
 
 #include <folly/Range.h>
-#include <xsimd/config/xsimd_config.hpp> // @manual
+#include <xsimd/config/xsimd_config.hpp>
 
 namespace facebook::velox::dwio::common {
 
