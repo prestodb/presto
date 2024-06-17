@@ -460,6 +460,7 @@ folly::SemiFuture<proxygen::HTTPTransaction*> HttpClient::createTransaction(
     if (!session) {
       return nullptr;
     }
+    VELOX_CHECK(session->isReusable());
     VLOG(3) << "Reuse idle connection from different thread to "
             << address_.describe();
     auto* evb = session->getEventBase();
