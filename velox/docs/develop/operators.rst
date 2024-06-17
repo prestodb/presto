@@ -732,7 +732,7 @@ distribution fields.
    * - keys
      - Zero or more input fields to use for calculating a partition for each row.
    * - numPartitions
-     - Number of partitions to split the data into.g
+     - Number of partitions to split the data into.
    * - replicateNullsAndAny
      - Boolean flag indicating whether rows with nulls in the keys should be sent to all partitions and, in case there are no such rows, whether a single arbitrarily chosen row should be sent to all partitions. Used to provide global-scope information necessary to implement anti join semantics on a single node.
    * - partitionFunctionFactory
