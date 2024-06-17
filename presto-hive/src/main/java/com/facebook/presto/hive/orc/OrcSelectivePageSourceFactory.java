@@ -292,12 +292,14 @@ public class OrcSelectivePageSourceFactory
         DataSize maxMergeDistance = getOrcMaxMergeDistance(session);
         DataSize tinyStripeThreshold = getOrcTinyStripeThreshold(session);
         DataSize maxReadBlockSize = getOrcMaxReadBlockSize(session);
+        boolean orcUseVectorFilter = getOrcUseVectorFilter(session);
         OrcReaderOptions orcReaderOptions = OrcReaderOptions.builder()
                 .withMaxMergeDistance(maxMergeDistance)
                 .withTinyStripeThreshold(tinyStripeThreshold)
                 .withMaxBlockSize(maxReadBlockSize)
                 .withZstdJniDecompressionEnabled(isOrcZstdJniDecompressionEnabled(session))
                 .withAppendRowNumber(appendRowNumberEnabled || supplyRowIDs)
+                .withOrcUseVectorFilter(orcUseVectorFilter)
                 .build();
         OrcAggregatedMemoryContext systemMemoryUsage = new HiveOrcAggregatedMemoryContext();
         try {
@@ -366,9 +368,6 @@ public class OrcSelectivePageSourceFactory
 
             List<FilterFunction> filterFunctions = toFilterFunctions(replaceExpression(remainingPredicate, variableToInput), bucketAdapter, session, rowExpressionService.getDeterminismEvaluator(), rowExpressionService.getPredicateCompiler());
 
-            boolean orcUseVectorFilter = getOrcUseVectorFilter(session);
-            Map<String, Boolean> orcReaderUserOptions = new HashMap<String, Boolean>();
-            orcReaderUserOptions.put(OrcReader.ORC_USE_VECTOR_FILTER, orcUseVectorFilter);
             OrcSelectiveRecordReader recordReader = reader.createSelectiveRecordReader(
                     columnTypes,
                     outputIndices,
@@ -384,8 +383,7 @@ public class OrcSelectivePageSourceFactory
                     hiveStorageTimeZone,
                     systemMemoryUsage,
                     Optional.empty(),
-                    INITIAL_BATCH_SIZE,
-                    orcReaderUserOptions);
+                    INITIAL_BATCH_SIZE);
 
             return new OrcSelectivePageSource(
                     recordReader,

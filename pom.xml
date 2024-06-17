@@ -2634,9 +2634,9 @@
             </build>
         </profile>
         <profile>
-            <id>prestoJava19</id>
+            <id>java21Presto</id>
             <activation>
-                <jdk>19</jdk>
+                <jdk>21</jdk>
             </activation>
             <dependencyManagement>
                 <dependencies>
@@ -2650,22 +2650,22 @@
                     <dependency>
                         <groupId>org.ow2.asm</groupId>
                         <artifactId>asm-tree</artifactId>
-                        <version>9.3</version>
+                        <version>9.5</version>
                     </dependency>
                     <dependency>
                         <groupId>org.ow2.asm</groupId>
                         <artifactId>asm-util</artifactId>
-                        <version>9.3</version>
+                        <version>9.5</version>
                     </dependency>
                     <dependency>
                         <groupId>org.ow2.asm</groupId>
                         <artifactId>asm-analysis</artifactId>
-                        <version>9.3</version>
+                        <version>9.5</version>
                     </dependency>
                     <dependency>
                         <groupId>org.ow2.asm</groupId>
                         <artifactId>asm</artifactId>
-                        <version>9.3</version>
+                        <version>9.5</version>
                     </dependency>
                 </dependencies>
             </dependencyManagement>

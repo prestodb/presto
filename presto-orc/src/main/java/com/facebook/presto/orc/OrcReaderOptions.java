@@ -27,6 +27,8 @@ public class OrcReaderOptions
     private final boolean mapNullKeysEnabled;
     // if the option is set to true, OrcSelectiveReader will append a row number block at the end of the page
     private final boolean appendRowNumber;
+    // if the option is set to true ORCSelectiveReader will use vector filter logic if supported
+    private final boolean orcUseVectorFilter;
 
     /**
      * Read column statistics for flat map columns. Usually there are quite a
@@ -41,7 +43,8 @@ public class OrcReaderOptions
             boolean zstdJniDecompressionEnabled,
             boolean mapNullKeysEnabled,
             boolean appendRowNumber,
-            boolean readMapStatistics)
+            boolean readMapStatistics,
+            boolean orcUseVectorFilter)
     {
         this.maxMergeDistance = requireNonNull(maxMergeDistance, "maxMergeDistance is null");
         this.maxBlockSize = requireNonNull(maxBlockSize, "maxBlockSize is null");
@@ -50,6 +53,7 @@ public class OrcReaderOptions
         this.mapNullKeysEnabled = mapNullKeysEnabled;
         this.appendRowNumber = appendRowNumber;
         this.readMapStatistics = readMapStatistics;
+        this.orcUseVectorFilter = orcUseVectorFilter;
     }
 
     public DataSize getMaxMergeDistance()
@@ -82,6 +86,11 @@ public class OrcReaderOptions
         return appendRowNumber;
     }
 
+    public boolean getOrcUseVectorFilter()
+    {
+        return orcUseVectorFilter;
+    }
+
     public boolean readMapStatistics()
     {
         return readMapStatistics;
@@ -98,6 +107,7 @@ public class OrcReaderOptions
                 .add("mapNullKeysEnabled", mapNullKeysEnabled)
                 .add("appendRowNumber", appendRowNumber)
                 .add("readMapStatistics", readMapStatistics)
+                .add("orcUseVectorFilter", orcUseVectorFilter)
                 .toString();
     }
 
@@ -114,6 +124,7 @@ public class OrcReaderOptions
         private boolean zstdJniDecompressionEnabled;
         private boolean mapNullKeysEnabled;
         private boolean appendRowNumber;
+        private boolean orcUseVectorFilter;
         private boolean readMapStatistics;
 
         private Builder() {}
@@ -154,6 +165,12 @@ public class OrcReaderOptions
             return this;
         }
 
+        public Builder withOrcUseVectorFilter(boolean orcUseVectorFilter)
+        {
+            this.orcUseVectorFilter = orcUseVectorFilter;
+            return this;
+        }
+
         public Builder withReadMapStatistics(boolean readMapStatistics)
         {
             this.readMapStatistics = readMapStatistics;
@@ -169,7 +186,8 @@ public class OrcReaderOptions
                     zstdJniDecompressionEnabled,
                     mapNullKeysEnabled,
                     appendRowNumber,
-                    readMapStatistics);
+                    readMapStatistics,
+                    orcUseVectorFilter);
         }
     }
 }

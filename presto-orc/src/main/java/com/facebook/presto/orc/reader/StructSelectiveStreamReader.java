@@ -188,8 +188,7 @@ public class StructSelectiveStreamReader
                                 hiveStorageTimeZone,
                                 options,
                                 systemMemoryContext.newOrcAggregatedMemoryContext(),
-                                isLowMemory,
-                                null);
+                                isLowMemory);
                         nestedReaders.put(fieldName, nestedReader);
                     }
                     else {

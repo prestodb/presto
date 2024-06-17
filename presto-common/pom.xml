@@ -118,9 +118,9 @@
 
     <profiles>
         <profile>
-            <id>jdk19PrestoCommon</id>
+            <id>java21PrestoCommon</id>
             <activation>
-                <jdk>19</jdk>
+                <jdk>21</jdk>
             </activation>
             <build>
                 <plugins>
@@ -182,9 +182,9 @@
             </build>
         </profile>
         <profile>
-            <id>lessThanJava19PrestoCommon</id>
+            <id>lessThanJava21PrestoCommon</id>
             <activation>
-                <jdk>[1.8,19)</jdk>
+                <jdk>[1.8,21)</jdk>
             </activation>
             <build>
                 <plugins>

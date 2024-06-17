@@ -212,9 +212,9 @@
             </build>
         </profile>
         <profile>
-            <id>java19PrestoORC</id>
+            <id>java21PrestoORC</id>
             <activation>
-                <jdk>19</jdk>
+                <jdk>21</jdk>
             </activation>
             <dependencies>
                 <dependency>
@@ -306,9 +306,9 @@
             </build>
         </profile>
         <profile>
-            <id>lessThanJdk19PrestoOrc</id>
+            <id>lessThanJava21PrestoOrc</id>
             <activation>
-                <jdk>[1.8,19)</jdk>
+                <jdk>[1.8,21)</jdk>
             </activation>
             <build>
                 <plugins>
