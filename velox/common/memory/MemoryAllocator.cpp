@@ -18,6 +18,7 @@
 #include "velox/common/memory/MallocAllocator.h"
 
 #include <sys/mman.h>
+#include <sys/resource.h>
 #include <iostream>
 #include <numeric>
 
@@ -371,11 +372,11 @@ std::string Stats::toString() const {
     totalAllocations += sizes[i].numAllocations;
   }
   out << fmt::format(
-      "Alloc: {}MB {} Gigaclocks {} Allocations, {}MB advised\n",
+      "Alloc: {}MB {} Gigaclocks Allocations={}, advised={} MB\n",
       totalBytes >> 20,
       totalClocks >> 30,
-      numAdvise >> 8,
-      totalAllocations);
+      totalAllocations,
+      numAdvise >> 8);
 
   // Sort the size classes by decreasing clocks.
   std::vector<int32_t> indices(sizes.size());
@@ -436,4 +437,66 @@ std::string MemoryAllocator::getAndClearFailureMessage() {
   }
   return allocatorErrMsg;
 }
+
+namespace {
+struct TraceState {
+  struct rusage rusage;
+  Stats allocatorStats;
+  int64_t ioTotal;
+  struct timeval tv;
+};
+
+int64_t toUsec(struct timeval tv) {
+  return tv.tv_sec * 1000000LL + tv.tv_usec;
+}
+
+int32_t elapsedUsec(struct timeval end, struct timeval begin) {
+  return toUsec(end) - toUsec(begin);
+}
+} // namespace
+
+void MemoryAllocator::getTracingHooks(
+    std::function<void()>& init,
+    std::function<std::string()>& report,
+    std::function<int64_t()> ioVolume) {
+  auto allocator = shared_from_this();
+  auto state = std::make_shared<TraceState>();
+  init = [state, allocator, ioVolume]() {
+    getrusage(RUSAGE_SELF, &state->rusage);
+    struct timezone tz;
+    gettimeofday(&state->tv, &tz);
+    state->allocatorStats = allocator->stats();
+    state->ioTotal = ioVolume ? ioVolume() : 0;
+  };
+  report = [state, allocator, ioVolume]() -> std::string {
+    struct rusage rusage;
+    getrusage(RUSAGE_SELF, &rusage);
+    auto newStats = allocator->stats();
+    float u = elapsedUsec(rusage.ru_utime, state->rusage.ru_utime);
+    float s = elapsedUsec(rusage.ru_stime, state->rusage.ru_stime);
+    auto m = allocator->stats() - state->allocatorStats;
+    float flt = rusage.ru_minflt - state->rusage.ru_minflt;
+    struct timeval tv;
+    struct timezone tz;
+    gettimeofday(&tv, &tz);
+    float elapsed = elapsedUsec(tv, state->tv);
+    int64_t io = 0;
+    if (ioVolume) {
+      io = ioVolume() - state->ioTotal;
+    }
+    std::stringstream out;
+    out << std::endl
+        << std::endl
+        << fmt::format(
+               "user%={} sys%={} minflt/s={}, io={} MB/s\n",
+               100 * u / elapsed,
+               100 * s / elapsed,
+               flt / (elapsed / 1000000),
+               io / (elapsed));
+    out << m.toString() << std::endl;
+    out << allocator->toString() << std::endl;
+    return out.str();
+  };
+}
+
 } // namespace facebook::velox::memory

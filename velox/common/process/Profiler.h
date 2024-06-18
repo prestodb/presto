@@ -29,7 +29,10 @@ namespace facebook::velox::process {
 class Profiler {
  public:
   /// Starts periodic production of perf reports.
-  static void start(const std::string& path);
+  static void start(
+      const std::string& path,
+      std::function<void()> extraStart = nullptr,
+      std::function<std::string()> extraReport = nullptr);
 
   // Stops profiling background associated threads. Threads are stopped on
   // return.
@@ -69,6 +72,9 @@ class Profiler {
 
   // CPU time at last periodic check.
   static int64_t cpuAtLastCheck_;
+
+  static std::function<void()> startExtra_;
+  static std::function<std::string()> extraReport_;
 };
 
 } // namespace facebook::velox::process

@@ -28,11 +28,17 @@
 #include <gtest/gtest.h>
 #include <memory>
 
+#include "velox/common/process/Profiler.h"
+
 DEFINE_int64(custom_size, 0, "Custom number of entries");
 DEFINE_int32(custom_hit_rate, 0, "Percentage of hits in custom test");
 DEFINE_int32(custom_key_spacing, 1, "Spacing between key values");
 
 DEFINE_int32(custom_num_ways, 10, "Number of build threads");
+
+DEFINE_bool(profile, false, "Generate perf profiles and memory stats");
+
+DECLARE_bool(velox_time_allocations);
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
@@ -617,7 +623,18 @@ int main(int argc, char** argv) {
   options.useMmapArena = true;
   options.mmapArenaCapacityRatio = 1;
   memory::MemoryManager::initialize(options);
-
+  if (FLAGS_profile) {
+    auto allocator = memory::MemoryManager::getInstance()->allocator();
+    std::function<void()> reportInit;
+    std::function<std::string()> report;
+    allocator->getTracingHooks(reportInit, report, nullptr);
+    FLAGS_profiler_check_interval_seconds = 20;
+    FLAGS_profiler_min_cpu_pct = 50;
+    FLAGS_profiler_max_sample_seconds = 30;
+    FLAGS_velox_time_allocations = true;
+    filesystems::registerLocalFileSystem();
+    process::Profiler::start("/tmp/hashprof", reportInit, report);
+  }
   auto bm = std::make_unique<HashTableBenchmark>();
   std::vector<HashTableBenchmarkRun> results;
 

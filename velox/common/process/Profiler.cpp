@@ -66,6 +66,8 @@ tsan_atomic<bool> Profiler::shouldSaveResult_;
 int64_t Profiler::sampleStartTime_;
 int64_t Profiler::cpuAtSampleStart_;
 int64_t Profiler::cpuAtLastCheck_;
+std::function<void()> Profiler::startExtra_;
+std::function<std::string()> Profiler::extraReport_;
 
 namespace {
 std::string hostname;
@@ -158,6 +160,10 @@ void Profiler::copyToResult(const std::string* data) {
         timeString(now),
         100 * (cpu - cpuAtSampleStart_) / std::max<int64_t>(1, elapsed)));
     out->append(std::string_view(buffer, resultSize));
+    if (extraReport_) {
+      std::string extra = extraReport_();
+      out->append(std::string_view(extra.data(), extra.size()));
+    }
     out->flush();
     LOG(INFO) << "PROFILE: Produced result " << target << " " << resultSize
               << " bytes";
@@ -177,6 +183,9 @@ void Profiler::makeProfileDir(std::string path) {
 }
 
 std::thread Profiler::startSample() {
+  if (startExtra_) {
+    startExtra_();
+  }
   std::thread thread([&]() {
     // We run perf under a shell because running it with fork + rexec
     // and killing it with SIGINT produces a corrupt perf.data
@@ -295,12 +304,17 @@ bool Profiler::isRunning() {
   return profileStarted_;
 }
 
-void Profiler::start(const std::string& path) {
+void Profiler::start(
+    const std::string& path,
+    std::function<void()> extraStart,
+    std::function<std::string()> extraReport) {
   {
 #if !defined(linux)
     VELOX_FAIL("Profiler is only available for Linux");
 #endif
     resultPath_ = path;
+    startExtra_ = extraStart;
+    extraReport_ = extraReport;
     std::lock_guard<std::mutex> l(profileMutex_);
     if (profileStarted_) {
       return;
