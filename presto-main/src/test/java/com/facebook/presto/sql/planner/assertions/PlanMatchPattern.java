@@ -798,6 +798,18 @@ public final class PlanMatchPattern
         return this;
     }
 
+    public PlanMatchPattern withOutputRowCount(double expectedOutputRowCount, String expectedSourceInfo)
+    {
+        matchers.add(new StatsOutputRowCountMatcher(expectedOutputRowCount, expectedSourceInfo));
+        return this;
+    }
+
+    public PlanMatchPattern withOutputRowCount(boolean exactMatch, String expectedSourceInfo)
+    {
+        matchers.add(new StatsOutputRowCountMatcher(exactMatch, expectedSourceInfo));
+        return this;
+    }
+
     public PlanMatchPattern withOutputSize(double expectedOutputSize)
     {
         matchers.add(new StatsOutputSizeMatcher(expectedOutputSize));
