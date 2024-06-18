@@ -15,6 +15,7 @@ package com.facebook.presto;
 
 import com.facebook.presto.common.WarningHandlingLevel;
 import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
+import com.facebook.presto.cost.HistoryBasedOptimizationConfig;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy;
 import com.facebook.presto.execution.TaskManagerConfig;
@@ -362,7 +363,8 @@ public final class SystemSessionProperties
                 new NodeSchedulerConfig(),
                 new NodeSpillConfig(),
                 new TracingConfig(),
-                new CompilerConfig());
+                new CompilerConfig(),
+                new HistoryBasedOptimizationConfig());
     }
 
     @Inject
@@ -376,7 +378,8 @@ public final class SystemSessionProperties
             NodeSchedulerConfig nodeSchedulerConfig,
             NodeSpillConfig nodeSpillConfig,
             TracingConfig tracingConfig,
-            CompilerConfig compilerConfig)
+            CompilerConfig compilerConfig,
+            HistoryBasedOptimizationConfig historyBasedOptimizationConfig)
     {
         sessionProperties = ImmutableList.of(
                 stringProperty(
@@ -1550,11 +1553,15 @@ public final class SystemSessionProperties
                         "Enable history based optimization only for complex queries, i.e. queries with join and aggregation",
                         true,
                         false),
-                doubleProperty(
+                new PropertyMetadata<>(
                         HISTORY_INPUT_TABLE_STATISTICS_MATCHING_THRESHOLD,
                         "When the size difference between current table and history table exceed this threshold, do not match history statistics",
-                        0.0,
-                        true),
+                        DOUBLE,
+                        Double.class,
+                        historyBasedOptimizationConfig.getHistoryMatchingThreshold(),
+                        true,
+                        value -> validateDoubleValueWithinSelectivityRange(value, HISTORY_INPUT_TABLE_STATISTICS_MATCHING_THRESHOLD),
+                        object -> object),
                 stringProperty(
                         HISTORY_BASED_OPTIMIZATION_PLAN_CANONICALIZATION_STRATEGY,
                         format("The plan canonicalization strategies used for history based optimization, the strategies will be applied based on the accuracy of the strategies, from more accurate to less accurate. Options are %s",
