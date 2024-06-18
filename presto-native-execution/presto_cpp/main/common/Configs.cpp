@@ -215,6 +215,7 @@ SystemConfig::SystemConfig() {
           STR_PROP(kExchangeRequestTimeout, "10s"),
           STR_PROP(kExchangeConnectTimeout, "20s"),
           BOOL_PROP(kExchangeEnableConnectionPool, true),
+          BOOL_PROP(kExchangeEnableBufferCopy, true),
           BOOL_PROP(kExchangeImmediateBufferTransfer, true),
           NUM_PROP(kTaskRunTimeSliceMicros, 50'000),
           BOOL_PROP(kIncludeNodeInSpillPath, false),
@@ -586,6 +587,10 @@ std::chrono::duration<double> SystemConfig::exchangeConnectTimeoutMs() const {
 
 bool SystemConfig::exchangeEnableConnectionPool() const {
   return optionalProperty<bool>(kExchangeEnableConnectionPool).value();
+}
+
+bool SystemConfig::exchangeEnableBufferCopy() const {
+  return optionalProperty<bool>(kExchangeEnableBufferCopy).value();
 }
 
 bool SystemConfig::exchangeImmediateBufferTransfer() const {
