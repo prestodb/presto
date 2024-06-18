@@ -382,6 +382,7 @@ std::shared_ptr<common::ScanSpec> makeScanSpec(
     auto& name = rowType->nameOf(i);
     auto& type = rowType->childAt(i);
     if (isRowIndexColumn(name, rowIndexColumn)) {
+      VELOX_CHECK(type->isBigint());
       continue;
     }
     auto it = outputSubfields.find(name);
@@ -423,6 +424,7 @@ std::shared_ptr<common::ScanSpec> makeScanSpec(
   }
 
   for (auto& pair : filters) {
+    const auto name = pair.first.toString();
     // SelectiveColumnReader doesn't support constant columns with filters,
     // hence, we can't have a filter for a $path or $bucket column.
     //
@@ -431,10 +433,10 @@ std::shared_ptr<common::ScanSpec> makeScanSpec(
     // to be removed.
     // TODO Remove this check when Presto is fixed to not specify a filter
     // on $path and $bucket column.
-    if (auto name = pair.first.toString();
-        isSynthesizedColumn(name, infoColumns)) {
+    if (isSynthesizedColumn(name, infoColumns)) {
       continue;
     }
+    VELOX_CHECK(!isRowIndexColumn(name, rowIndexColumn));
     auto fieldSpec = spec->getOrCreateChild(pair.first);
     fieldSpec->addFilter(*pair.second);
   }

@@ -263,7 +263,7 @@ void SplitReader::createReader(
   auto columnTypes = adaptColumns(fileType, baseReaderOpts_.fileSchema());
   auto columnNames = fileType->names();
   if (rowIndexColumn != nullptr) {
-    setRowIndexColumn(fileType, rowIndexColumn);
+    setRowIndexColumn(rowIndexColumn);
   }
   configureRowReaderOptions(
       baseRowReaderOpts_,
@@ -311,15 +311,11 @@ void SplitReader::createRowReader() {
 }
 
 void SplitReader::setRowIndexColumn(
-    const RowTypePtr& fileType,
     const std::shared_ptr<HiveColumnHandle>& rowIndexColumn) {
-  auto rowIndexColumnName = rowIndexColumn->name();
-  auto rowIndexMetaColIdx =
-      readerOutputType_->getChildIdxIfExists(rowIndexColumnName);
   dwio::common::RowNumberColumnInfo rowNumberColumnInfo;
-  VELOX_CHECK(rowIndexMetaColIdx.has_value());
-  rowNumberColumnInfo.insertPosition = rowIndexMetaColIdx.value();
-  rowNumberColumnInfo.name = rowIndexColumnName;
+  rowNumberColumnInfo.insertPosition =
+      readerOutputType_->getChildIdx(rowIndexColumn->name());
+  rowNumberColumnInfo.name = rowIndexColumn->name();
   baseRowReaderOpts_.setRowNumberColumnInfo(std::move(rowNumberColumnInfo));
 }
 

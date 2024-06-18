@@ -134,6 +134,10 @@ class SelectivityVector {
     return MutableRange<bool>(bits_.data(), begin_, end_);
   }
 
+  const uint64_t* allBits() const {
+    return bits_.data();
+  }
+
   vector_size_t begin() const {
     return begin_;
   }

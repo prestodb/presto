@@ -605,9 +605,9 @@ TEST_F(ParquetTableScanTest, filterNullIcebergPartition) {
       std::unordered_map<std::string, std::optional<std::string>>{
           {"c1", std::nullopt}});
 
-  auto c0 = makeColumnHandle(
+  std::shared_ptr<connector::ColumnHandle> c0 = makeColumnHandle(
       "c0", BIGINT(), BIGINT(), {}, HiveColumnHandle::ColumnType::kRegular);
-  auto c1 = makeColumnHandle(
+  std::shared_ptr<connector::ColumnHandle> c1 = makeColumnHandle(
       "c1",
       BIGINT(),
       BIGINT(),

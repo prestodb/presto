@@ -19,9 +19,22 @@
 #include <unordered_map>
 #include "velox/connectors/Connector.h"
 #include "velox/connectors/hive/FileProperties.h"
+#include "velox/connectors/hive/TableHandle.h"
 #include "velox/dwio/common/Options.h"
 
 namespace facebook::velox::connector::hive {
+
+/// A bucket conversion that should happen on the split.  This happens when we
+/// increase the bucket count of a table, but the old partitions are still
+/// generated using the old bucket count, so that multiple new buckets can exist
+/// in the same file, and we need to apply extra filter when we read these files
+/// to make sure we read the rows corresponding to the selected bucket number
+/// only.
+struct HiveBucketConversion {
+  int32_t tableBucketCount;
+  int32_t partitionBucketCount;
+  std::vector<std::unique_ptr<HiveColumnHandle>> bucketColumnHandles;
+};
 
 struct HiveConnectorSplit : public connector::ConnectorSplit {
   const std::string filePath;
@@ -36,6 +49,7 @@ struct HiveConnectorSplit : public connector::ConnectorSplit {
   const std::unordered_map<std::string, std::optional<std::string>>
       partitionKeys;
   std::optional<int32_t> tableBucketNumber;
+  std::optional<HiveBucketConversion> bucketConversion;
   std::unordered_map<std::string, std::string> customSplitInfo;
   std::shared_ptr<std::string> extraFileInfo;
   std::unordered_map<std::string, std::string> serdeParameters;

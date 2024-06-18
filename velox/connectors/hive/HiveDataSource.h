@@ -20,6 +20,7 @@
 #include "velox/connectors/Connector.h"
 #include "velox/connectors/hive/FileHandle.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
+#include "velox/connectors/hive/HivePartitionFunction.h"
 #include "velox/connectors/hive/SplitReader.h"
 #include "velox/connectors/hive/TableHandle.h"
 #include "velox/dwio/common/Statistics.h"
@@ -122,6 +123,11 @@ class HiveDataSource : public DataSource {
   std::shared_ptr<HiveColumnHandle> rowIndexColumn_;
 
  private:
+  std::unique_ptr<HivePartitionFunction> setupBucketConversion();
+  vector_size_t applyBucketConversion(
+      const RowVectorPtr& rowVector,
+      BufferPtr& indices);
+
   // Evaluates remainingFilter_ on the specified vector. Returns number of rows
   // passed. Populates filterEvalCtx_.selectedIndices and selectedBits if only
   // some rows passed the filter. If none or all rows passed
@@ -146,6 +152,9 @@ class HiveDataSource : public DataSource {
   // Column handles for the Split info columns keyed on their column names.
   std::unordered_map<std::string, std::shared_ptr<HiveColumnHandle>>
       infoColumns_;
+  folly::F14FastMap<std::string, std::vector<const common::Subfield*>>
+      subfields_;
+  SubfieldFilters filters_;
   std::shared_ptr<common::MetadataFilter> metadataFilter_;
   std::unique_ptr<exec::ExprSet> remainingFilterExprSet_;
   RowVectorPtr emptyOutput_;
@@ -158,6 +167,10 @@ class HiveDataSource : public DataSource {
   std::vector<column_index_t> multiReferencedFields_;
 
   std::shared_ptr<random::RandomSkipTracker> randomSkip_;
+
+  int64_t numBucketConversion_ = 0;
+  std::unique_ptr<HivePartitionFunction> partitionFunction_;
+  std::vector<uint32_t> partitions_;
 
   // Reusable memory for remaining filter evaluation.
   VectorPtr filterResult_;

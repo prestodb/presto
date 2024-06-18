@@ -131,34 +131,20 @@ bool ScanSpec::hasFilter() const {
 
 void ScanSpec::moveAdaptationFrom(ScanSpec& other) {
   // moves the filters and filter order from 'other'.
-  std::vector<std::shared_ptr<ScanSpec>> newChildren;
-  childByFieldName_.clear();
-  for (auto& otherChild : other.children_) {
-    bool found = false;
-    for (auto& child : children_) {
-      if (child && child->fieldName_ == otherChild->fieldName_) {
-        if (!child->isConstant() && !otherChild->isConstant()) {
-          // If other child is constant, a possible filter on a
-          // constant will have been evaluated at split start time. If
-          // 'child' is constant there is no adaptation that can be
-          // received.
-          child->filter_ = std::move(otherChild->filter_);
-          child->selectivity_ = otherChild->selectivity_;
-        }
-        childByFieldName_[child->fieldName_] = child.get();
-        newChildren.push_back(std::move(child));
-        found = true;
-        break;
-      }
+  for (auto& child : children_) {
+    auto it = other.childByFieldName_.find(child->fieldName_);
+    if (it == other.childByFieldName_.end()) {
+      continue;
     }
-    VELOX_CHECK(found);
-  }
-  children_ = std::move(newChildren);
-  stableChildren_.clear();
-  for (auto& otherChild : other.stableChildren_) {
-    auto child = childByName(otherChild->fieldName_);
-    VELOX_CHECK(child);
-    stableChildren_.push_back(child);
+    auto* otherChild = it->second;
+    if (!child->isConstant() && !otherChild->isConstant()) {
+      // If other child is constant, a possible filter on a
+      // constant will have been evaluated at split start time. If
+      // 'child' is constant there is no adaptation that can be
+      // received.
+      child->filter_ = std::move(otherChild->filter_);
+      child->selectivity_ = otherChild->selectivity_;
+    }
   }
 }
 

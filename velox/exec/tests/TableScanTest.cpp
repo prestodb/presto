@@ -26,6 +26,7 @@
 #include "velox/common/testutil/TestValue.h"
 #include "velox/connectors/hive/HiveConfig.h"
 #include "velox/connectors/hive/HiveConnector.h"
+#include "velox/connectors/hive/HivePartitionFunction.h"
 #include "velox/dwio/common/CacheInputStream.h"
 #include "velox/dwio/common/tests/utils/DataFiles.h"
 #include "velox/exec/Exchange.h"
@@ -2787,6 +2788,136 @@ TEST_F(TableScanTest, bucket) {
         hsplit,
         fmt::format("SELECT * FROM tmp where c0 = {}", bucketValue));
   }
+}
+
+TEST_F(TableScanTest, bucketConversion) {
+  constexpr int kSize = 100;
+  auto vector = makeRowVector({
+      makeFlatVector<int32_t>(kSize, [](auto i) { return 2 * i + 1; }),
+      makeFlatVector<int64_t>(kSize, folly::identity),
+  });
+  auto schema = asRowType(vector->type());
+  auto file = TempFilePath::create();
+  writeToFile(file->getPath(), {vector});
+  constexpr int kNewNumBuckets = 16;
+  const int selectedBuckets[] = {3, 5, 11};
+  auto makeSplits = [&] {
+    std::vector<std::shared_ptr<connector::ConnectorSplit>> splits;
+    for (int bucket : selectedBuckets) {
+      std::vector<std::unique_ptr<HiveColumnHandle>> handles;
+      handles.push_back(makeColumnHandle("c0", INTEGER(), {}));
+      auto split = makeHiveConnectorSplit(file->getPath());
+      split->tableBucketNumber = bucket;
+      split->bucketConversion = {kNewNumBuckets, 2, std::move(handles)};
+      splits.push_back(split);
+    }
+    return splits;
+  };
+  {
+    auto outputType = ROW({"c1"}, {BIGINT()});
+    auto plan = PlanBuilder().tableScan(outputType, {}, "", schema).planNode();
+    std::vector<int64_t> c1;
+    for (int bucket : selectedBuckets) {
+      for (int i = bucket; i < 2 * kSize + 1; i += kNewNumBuckets) {
+        c1.push_back(i / 2);
+      }
+    }
+    auto expected = makeRowVector({makeFlatVector(c1)});
+    AssertQueryBuilder(plan).splits(makeSplits()).assertResults(expected);
+  }
+  {
+    SCOPED_TRACE("With remaining filter");
+    auto outputType = ROW({"c1"}, {BIGINT()});
+    auto plan = PlanBuilder()
+                    .tableScan(outputType, {}, "c1 % 7 != 0", schema)
+                    .planNode();
+    std::vector<int64_t> c1;
+    for (int bucket : selectedBuckets) {
+      for (int i = bucket; i < 2 * kSize + 1; i += kNewNumBuckets) {
+        if ((i / 2) % 7 != 0) {
+          c1.push_back(i / 2);
+        }
+      }
+    }
+    auto expected = makeRowVector({makeFlatVector(c1)});
+    AssertQueryBuilder(plan).splits(makeSplits()).assertResults(expected);
+  }
+  {
+    SCOPED_TRACE("With row number");
+    auto outputType = ROW({"c2", "c1"}, {BIGINT(), BIGINT()});
+    auto plan = PlanBuilder()
+                    .startTableScan()
+                    .outputType(outputType)
+                    .dataColumns(schema)
+                    .assignments({
+                        {"c2",
+                         std::make_shared<HiveColumnHandle>(
+                             "c2",
+                             HiveColumnHandle::ColumnType::kRowIndex,
+                             BIGINT(),
+                             BIGINT())},
+                        {"c1", makeColumnHandle("c1", BIGINT(), {})},
+                    })
+                    .endTableScan()
+                    .planNode();
+    std::vector<int64_t> c1;
+    for (int bucket : selectedBuckets) {
+      for (int i = bucket; i < 2 * kSize + 1; i += kNewNumBuckets) {
+        c1.push_back(i / 2);
+      }
+    }
+    auto data = makeFlatVector(c1);
+    auto expected = makeRowVector({"c2", "c1"}, {data, data});
+    AssertQueryBuilder(plan).splits(makeSplits()).assertResults(expected);
+  }
+}
+
+TEST_F(TableScanTest, bucketConversionWithSubfieldPruning) {
+  constexpr int kSize = 100;
+  auto key = makeRowVector({
+      makeFlatVector<int64_t>(kSize, folly::identity),
+      makeFlatVector<int64_t>(kSize, [](auto i) { return 2 * i; }),
+  });
+  auto vector = makeRowVector({key});
+  auto schema = asRowType(vector->type());
+  auto file = TempFilePath::create();
+  writeToFile(file->getPath(), {vector});
+  constexpr int kNewNumBuckets = 16;
+  const int selectedBuckets[] = {3, 5, 11};
+  std::vector<std::shared_ptr<connector::ConnectorSplit>> splits;
+  for (int bucket : selectedBuckets) {
+    std::vector<std::unique_ptr<HiveColumnHandle>> handles;
+    handles.push_back(makeColumnHandle("c0", key->type(), {}));
+    auto split = makeHiveConnectorSplit(file->getPath());
+    split->tableBucketNumber = bucket;
+    split->bucketConversion = {kNewNumBuckets, 1, std::move(handles)};
+    splits.push_back(split);
+  }
+  auto plan = PlanBuilder()
+                  .startTableScan()
+                  .outputType(schema)
+                  .dataColumns(schema)
+                  .assignments({
+                      {"c0", makeColumnHandle("c0", key->type(), {"c0.c0"})},
+                  })
+                  .endTableScan()
+                  .planNode();
+  auto result =
+      AssertQueryBuilder(plan).splits(splits).copyResults(pool_.get());
+  HivePartitionFunction function(kNewNumBuckets, {0});
+  std::vector<uint32_t> partitions;
+  function.partition(*vector, partitions);
+  int j = 0;
+  for (int bucket : selectedBuckets) {
+    for (int i = 0; i < kSize; ++i) {
+      if (partitions[i] == bucket) {
+        ASSERT_LT(j, result->size());
+        ASSERT_TRUE(result->equalValueAt(vector.get(), j, i));
+        ++j;
+      }
+    }
+  }
+  ASSERT_EQ(j, result->size());
 }
 
 TEST_F(TableScanTest, integerNotEqualFilter) {

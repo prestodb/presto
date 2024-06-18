@@ -167,9 +167,9 @@ void RowReader::readWithRowNumber(
     }
   }
   VectorPtr rowNumVector;
-  auto rowNumberColumnInfo = options.getRowNumberColumnInfo();
-  VELOX_CHECK_EQ(rowNumberColumnInfo.has_value(), true);
-  auto& rowNumberColumnIndex = rowNumberColumnInfo->insertPosition;
+  auto& rowNumberColumnInfo = options.getRowNumberColumnInfo();
+  VELOX_CHECK(rowNumberColumnInfo.has_value());
+  auto rowNumberColumnIndex = rowNumberColumnInfo->insertPosition;
   auto& rowNumberColumnName = rowNumberColumnInfo->name;
   VELOX_CHECK_LE(rowNumberColumnIndex, numChildren);
   if (rowVector->childrenSize() != numChildren) {
