@@ -27,6 +27,7 @@ jobs:
   check-matrix:
     name: ${{ matrix.config.name }}
     runs-on: ubuntu-latest
+    container: ghcr.io/facebookincubator/velox-dev:check-avx
     strategy:
       fail-fast: false
       matrix:
@@ -34,27 +35,23 @@ jobs:
           - { name: "License Header", 
               command: "header-fix",
               message: "Found missing License Header(s)",
-              reqs: "regex" 
             }
           - { name: "Code Format",
               command: "format-fix",
               message: "Found format issues",
-              reqs: "regex cmake-format black" 
             }
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Install Dependencies
-        run: |
-          python -m venv check_env
-          source check_env/bin/activate
-          pip install ${{ matrix.config.reqs }}
+      - name: Fix git permissions
+        # Usually actions/checkout does this but as we run in a container
+        # it doesn't work
+        run: git config --global --add safe.directory /__w/velox/velox
 
       - name: Check ${{ matrix.config.name }} 
         run: |
-          source check_env/bin/activate
           make ${{ matrix.config.command }}
 
           if ! git diff --quiet; then
