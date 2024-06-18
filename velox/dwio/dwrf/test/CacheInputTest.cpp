@@ -17,6 +17,7 @@
 #include <folly/Random.h>
 #include <folly/container/F14Map.h>
 #include <folly/executors/IOThreadPoolExecutor.h>
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/caching/FileIds.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/io/IoStatistics.h"
@@ -829,4 +830,25 @@ TEST_F(CacheTest, noCacheRetention) {
     ASSERT_EQ(stats.numEvict, 0);
     ASSERT_EQ(stats.numEntries, cacheEntries.size());
   }
+}
+
+TEST_F(CacheTest, loadQuotumTooLarge) {
+  initializeCache(64 << 20, 256 << 20);
+  auto fileId = std::make_unique<StringIdLease>(fileIds(), "foo");
+  auto readFile =
+      std::make_shared<TestReadFile>(fileId->id(), 10 << 20, nullptr);
+  auto readOptions = io::ReaderOptions(pool_.get());
+  readOptions.setLoadQuantum(9 << 20 /*9MB*/);
+  VELOX_ASSERT_THROW(
+      std::make_unique<CachedBufferedInput>(
+          readFile,
+          MetricsLog::voidLog(),
+          fileId->id(),
+          cache_.get(),
+          nullptr,
+          0,
+          nullptr,
+          executor_.get(),
+          readOptions),
+      "Load quantum exceeded SSD cache entry size limit");
 }

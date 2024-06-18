@@ -77,7 +77,9 @@ class CachedBufferedInput : public BufferedInput {
         ioStats_(std::move(ioStats)),
         executor_(executor),
         fileSize_(input_->getLength()),
-        options_(readerOptions) {}
+        options_(readerOptions) {
+    checkLoadQuantum();
+  }
 
   CachedBufferedInput(
       std::shared_ptr<ReadFileInputStream> input,
@@ -96,7 +98,9 @@ class CachedBufferedInput : public BufferedInput {
         ioStats_(std::move(ioStats)),
         executor_(executor),
         fileSize_(input_->getLength()),
-        options_(readerOptions) {}
+        options_(readerOptions) {
+    checkLoadQuantum();
+  }
 
   ~CachedBufferedInput() override {
     for (auto& load : allCoalescedLoads_) {
@@ -172,6 +176,17 @@ class CachedBufferedInput : public BufferedInput {
   // 'executor_'. Links the CoalescedLoad to all CacheInputStreams that it
   // concerns.
   void readRegion(const std::vector<CacheRequest*>& requests, bool prefetch);
+
+  // We only support up to 8MB load quantum size on SSD and there is no need for
+  // larger SSD read size performance wise.
+  void checkLoadQuantum() {
+    if (cache_->ssdCache() != nullptr) {
+      VELOX_CHECK_LE(
+          options_.loadQuantum(),
+          1 << cache::SsdRun::kSizeBits,
+          "Load quantum exceeded SSD cache entry size limit.");
+    }
+  }
 
   cache::AsyncDataCache* const cache_;
   const uint64_t fileNum_;
