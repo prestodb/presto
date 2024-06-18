@@ -261,7 +261,8 @@ public class DeltaClient
         catch (TableNotFoundException e) {
             throw new PrestoException(NOT_FOUND,
                     format(TABLE_NOT_FOUND_ERROR_TEMPLATE, tableName.getSchemaName(), tableName.getTableName()));
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             throw new RuntimeException("Could not close columnar batch row", e);
         }
     }
