@@ -1181,3 +1181,37 @@ TEST_F(ParquetReaderTest, testV2PageWithZeroMaxDefRep) {
   assertReadWithReaderAndExpected(
       outputRowType, *rowReader, expected, *leafPool_);
 }
+
+TEST_F(ParquetReaderTest, testLzoDataPage) {
+  const std::string sample(getExampleFilePath("lzo.parquet"));
+
+  facebook::velox::dwio::common::ReaderOptions readerOptions{leafPool_.get()};
+  auto reader = createReader(sample, readerOptions);
+  EXPECT_EQ(reader->numberOfRows(), 23'547ULL);
+
+  auto outputRowType = ROW(
+      {"test"},
+      {ROW({"intfield", "stringarrayfield"}, {INTEGER(), ARRAY(VARCHAR())})});
+  auto rowReaderOpts = getReaderOpts(outputRowType);
+  rowReaderOpts.setScanSpec(makeScanSpec(outputRowType));
+  auto rowReader = reader->createRowReader(rowReaderOpts);
+
+  uint64_t total = 0;
+  VectorPtr result = BaseVector::create(outputRowType, 0, &*leafPool_);
+  rowReader->next(23'547ULL, result);
+  EXPECT_EQ(23'547ULL, result->size());
+  auto values = result->as<RowVector>()->childAt(0)->as<RowVector>();
+  auto intField = values->childAt(0)->asFlatVector<int32_t>();
+  auto stringArray = values->childAt(1)->as<ArrayVector>();
+  EXPECT_EQ(intField->valueAt(0), 1);
+  EXPECT_EQ(intField->valueAt(23'546), 13);
+  EXPECT_EQ(
+      stringArray->elements()->asFlatVector<StringView>()->valueAt(0).str(),
+      "0");
+  EXPECT_EQ(
+      stringArray->elements()
+          ->asFlatVector<StringView>()
+          ->valueAt(31'232)
+          .str(),
+      "31232");
+}
