@@ -300,6 +300,11 @@ std::shared_ptr<const Type> ReaderBase::convertType(
     case TypeKind::INTEGER:
       return INTEGER();
     case TypeKind::BIGINT:
+      if (type.format() == DwrfFormat::kOrc &&
+          type.getOrcPtr()->kind() == proto::orc::Type_Kind_DECIMAL) {
+        return DECIMAL(
+            type.getOrcPtr()->precision(), type.getOrcPtr()->scale());
+      }
       return BIGINT();
     case TypeKind::HUGEINT:
       if (type.format() == DwrfFormat::kOrc &&

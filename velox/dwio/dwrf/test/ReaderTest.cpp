@@ -2029,6 +2029,39 @@ TEST_F(TestReader, testFlatmapAsMapFieldLifeCycle) {
   testFlatmapAsMapFieldLifeCycle(pool(), schema, config, rng, batchSize, true);
 }
 
+TEST_F(TestReader, testOrcDecimal) {
+  const std::string simpleTest(getExampleFilePath("orc_decimal.orc"));
+  const std::shared_ptr<const RowType> expectedType =
+      std::dynamic_pointer_cast<const RowType>(
+          HiveTypeParser().parse("struct<i:decimal(38,6),j:decimal(9,2)>"));
+  dwio::common::ReaderOptions readerOpts{pool()};
+  // To make DwrfReader reads ORC file, setFileFormat to FileFormat::ORC
+  readerOpts.setFileFormat(dwio::common::FileFormat::ORC);
+  auto reader = DwrfReader::create(
+      createFileBufferedInput(simpleTest, readerOpts.memoryPool()), readerOpts);
+  // Check schema
+  auto rowType = reader->rowType();
+  EXPECT_TRUE(rowType->equivalent(*expectedType));
+
+  RowReaderOptions rowReaderOptions;
+  auto rowReader = reader->createRowReader(rowReaderOptions);
+
+  VectorPtr batch;
+  while (rowReader->next(500, batch)) {
+    auto rowVector = batch->as<RowVector>();
+    auto longDecimalCol = rowVector->childAt(0)->as<SimpleVector<int128_t>>();
+    auto shortDecimalCol = rowVector->childAt(1)->as<SimpleVector<int64_t>>();
+    auto longDecimalType = rowVector->type()->childAt(0);
+    auto shortDecimalType = rowVector->type()->childAt(1);
+    EXPECT_EQ(
+        DecimalUtil::toString(longDecimalCol->valueAt(0), longDecimalType),
+        "1242141234.123456");
+    EXPECT_EQ(
+        DecimalUtil::toString(shortDecimalCol->valueAt(0), shortDecimalType),
+        "321423.21");
+  }
+}
+
 TEST_F(TestReader, testOrcReaderSimple) {
   const std::string simpleTest(
       getExampleFilePath("TestStringDictionary.testRowIndex.orc"));
