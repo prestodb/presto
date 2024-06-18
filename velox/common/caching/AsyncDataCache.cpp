@@ -676,11 +676,11 @@ AsyncDataCache** AsyncDataCache::getInstancePtr() {
 }
 
 void AsyncDataCache::shutdown() {
-  for (auto& shard : shards_) {
-    shard->shutdown();
-  }
   if (ssdCache_) {
     ssdCache_->shutdown();
+  }
+  for (auto& shard : shards_) {
+    shard->shutdown();
   }
 }
 
