@@ -659,6 +659,13 @@ class Task : public std::enable_shared_from_this<Task> {
     return numDriversInPartitionedOutput_ > 0;
   }
 
+  /// Returns the cancellation token to check if this task has been terminated
+  /// or not. This helps the Velox integration with query system using folly
+  /// cancellation mechanism.
+  folly::CancellationToken getCancellationToken() {
+    return cancellationSource_.getToken();
+  }
+
   void testingIncrementThreads() {
     std::lock_guard l(mutex_);
     ++numThreads_;
@@ -1162,6 +1169,8 @@ class Task : public std::enable_shared_from_this<Task> {
   // Stores unconsumed preloading splits to ensure they are closed promptly.
   folly::F14FastSet<std::shared_ptr<connector::ConnectorSplit>>
       preloadingSplits_;
+
+  folly::CancellationSource cancellationSource_;
 };
 
 /// Listener invoked on task completion.

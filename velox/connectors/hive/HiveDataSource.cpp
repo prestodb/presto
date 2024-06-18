@@ -19,10 +19,13 @@
 #include <string>
 #include <unordered_map>
 
+#include "velox/common/testutil/TestValue.h"
 #include "velox/connectors/hive/HiveConfig.h"
 #include "velox/connectors/hive/HiveConnectorUtil.h"
 #include "velox/dwio/common/ReaderFactory.h"
 #include "velox/expression/FieldReference.h"
+
+using facebook::velox::common::testutil::TestValue;
 
 namespace facebook::velox::connector::hive {
 
@@ -301,6 +304,9 @@ std::optional<RowVectorPtr> HiveDataSource::next(
     velox::ContinueFuture& /*future*/) {
   VELOX_CHECK(split_ != nullptr, "No split to process. Call addSplit first.");
   VELOX_CHECK_NOT_NULL(splitReader_, "No split reader present");
+
+  TestValue::adjust(
+      "facebook::velox::connector::hive::HiveDataSource::next", this);
 
   if (splitReader_->emptySplit()) {
     resetSplit();

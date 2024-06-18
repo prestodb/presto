@@ -53,18 +53,20 @@ OperatorCtx::createConnectorQueryCtx(
     const std::string& planNodeId,
     memory::MemoryPool* connectorPool,
     const common::SpillConfig* spillConfig) const {
+  const auto& task = driverCtx_->task;
   return std::make_shared<connector::ConnectorQueryCtx>(
       pool_,
       connectorPool,
-      driverCtx_->task->queryCtx()->connectorSessionProperties(connectorId),
+      task->queryCtx()->connectorSessionProperties(connectorId),
       spillConfig,
       std::make_unique<SimpleExpressionEvaluator>(
           execCtx()->queryCtx(), execCtx()->pool()),
-      driverCtx_->task->queryCtx()->cache(),
-      driverCtx_->task->queryCtx()->queryId(),
+      task->queryCtx()->cache(),
+      task->queryCtx()->queryId(),
       taskId(),
       planNodeId,
-      driverCtx_->driverId);
+      driverCtx_->driverId,
+      task->getCancellationToken());
 }
 
 Operator::Operator(

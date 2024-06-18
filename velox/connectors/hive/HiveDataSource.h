@@ -95,6 +95,10 @@ class HiveDataSource : public DataSource {
 
   static void registerWaveDelegateHook(WaveDelegateHookFunction hook);
 
+  const ConnectorQueryCtx* testingConnectorQueryCtx() const {
+    return connectorQueryCtx_;
+  }
+
  protected:
   virtual std::unique_ptr<SplitReader> createSplitReader();
 

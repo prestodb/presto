@@ -26,6 +26,7 @@
 #include "velox/common/testutil/TestValue.h"
 #include "velox/connectors/hive/HiveConfig.h"
 #include "velox/connectors/hive/HiveConnector.h"
+#include "velox/connectors/hive/HiveDataSource.h"
 #include "velox/connectors/hive/HivePartitionFunction.h"
 #include "velox/dwio/common/CacheInputStream.h"
 #include "velox/dwio/common/tests/utils/DataFiles.h"
@@ -4606,4 +4607,57 @@ TEST_F(TableScanTest, noCacheRetention) {
       }
     }
   }
+}
+
+DEBUG_ONLY_TEST_F(TableScanTest, cancellationToken) {
+  const auto vectors = makeVectors(10, 1'000);
+  const auto filePath = TempFilePath::create();
+  writeToFile(filePath->getPath(), vectors);
+  createDuckDbTable(vectors);
+
+  std::atomic_bool cancelled{false};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::connector::hive::HiveDataSource::next",
+      std::function<void(connector::hive::HiveDataSource*)>(
+          [&](connector::hive::HiveDataSource* source) {
+            auto cancellationToken =
+                source->testingConnectorQueryCtx()->cancellationToken();
+            while (true) {
+              cancelled = cancellationToken.isCancellationRequested();
+              if (cancelled) {
+                break;
+              }
+              std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            }
+          }));
+
+  std::atomic<Task*> task{nullptr};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::TableScan::getOutput",
+      std::function<void(Operator*)>([&](Operator* op) {
+        task = op->testingOperatorCtx()->task().get();
+      }));
+
+  std::thread queryThread([&]() {
+    auto split = makeHiveConnectorSplit(
+        filePath->getPath(), 0, fs::file_size(filePath->getPath()));
+    VELOX_ASSERT_THROW(
+        AssertQueryBuilder(tableScanNode(), duckDbQueryRunner_)
+            .split(std::move(split))
+            .assertResults("SELECT * FROM tmp"),
+        "Cancelled");
+    waitForAllTasksToBeDeleted();
+  });
+
+  while (task == nullptr) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
+  std::this_thread::sleep_for(std::chrono::seconds(1));
+  ASSERT_FALSE(cancelled);
+
+  task.load()->requestCancel();
+  while (!cancelled) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
+  queryThread.join();
 }
