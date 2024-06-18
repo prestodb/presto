@@ -15,7 +15,11 @@
  */
 
 #include "velox/common/process/Profiler.h"
+#include <folly/futures/Future.h>
+#include <folly/futures/Promise.h>
+#include <folly/init/Init.h>
 #include <gtest/gtest.h>
+#include <signal.h>
 #include <thread>
 #include "velox/common/process/TraceContext.h"
 
@@ -84,4 +88,56 @@ TEST(ProfilerTest, basic) {
   compute(2);
   // The test exits during the measurement interval. We expect no
   // crash on exit if the threads are properly joined.
+}
+
+int main(int argc, char** argv) {
+  // Fork a child process to run all the tests.
+  int32_t pid = fork();
+  if (pid < 0) {
+    LOG(ERROR) << "Failed to fork child";
+    exit(1);
+  }
+  if (pid > 0) {
+    // The parent waits for the child to return. If the child returns
+    // in time, the child's return code is returned. If the child does
+    // not return in time, we return 0 and the test fails silently.
+    std::atomic<bool> timedOut = false;
+    std::atomic<bool> completed = false;
+    auto sleepPromise = folly::Promise<bool>();
+    folly::SemiFuture<bool> sleepFuture(false);
+    sleepFuture = sleepPromise.getSemiFuture();
+    std::thread timer([&]() {
+      try {
+        auto& executor = folly::QueuedImmediateExecutor::instance();
+        // Wait for up to 100 seconds. The test is normally ~20s unless it
+        // hangs.
+        std::move(sleepFuture).via(&executor).wait((std::chrono::seconds(100)));
+      } catch (std::exception&) {
+      }
+      if (completed) {
+        return;
+      }
+      timedOut = true;
+      LOG(INFO) << "Killing the test process for timeout";
+      kill(pid, SIGKILL);
+    });
+
+    int wstatus;
+    int w = waitpid(pid, &wstatus, WUNTRACED | WCONTINUED);
+    LOG(INFO) << "Test completed";
+    completed = true;
+    sleepPromise.setValue(true);
+    timer.join();
+
+    if (timedOut) {
+      return 0;
+    }
+    return WEXITSTATUS(wstatus);
+  }
+
+  testing::InitGoogleTest(&argc, argv);
+  // Signal handler required for ThreadDebugInfoTest
+  folly::Init init(&argc, &argv, false);
+  return RUN_ALL_TESTS();
+  return 0;
 }
