@@ -692,5 +692,92 @@ TEST_F(SetAggTest, inputOrder) {
   assertQuery(plan, expected);
 }
 
+TEST_F(SetAggTest, nans) {
+  // Verify that NaNs with different binary representations are considered equal
+  // and deduplicated.
+  static const auto kNaN = std::numeric_limits<double>::quiet_NaN();
+  static const auto kSNaN = std::numeric_limits<double>::signaling_NaN();
+
+  // Global aggregation, Primitive type.
+  auto data = makeRowVector({
+      makeFlatVector<double>({1, 2, kNaN, 3, 4, kSNaN, 2, 4, kNaN}),
+      makeFlatVector<int32_t>({1, 1, 1, 2, 2, 2, 2, 2, 2}),
+  });
+
+  auto expected = makeRowVector({
+      makeArrayVector<double>({
+          {1, 2, 3, 4, kNaN},
+      }),
+  });
+
+  testAggregations({data}, {}, {"set_agg(c0)"}, {"array_sort(a0)"}, {expected});
+
+  // Group by aggregation, Primitive type.
+  expected = makeRowVector({
+      makeArrayVector<double>({
+          {1, 2, kNaN},
+          {2, 3, 4, kNaN},
+      }),
+      makeFlatVector<int32_t>({1, 2}),
+  });
+
+  testAggregations(
+      {data}, {"c1"}, {"set_agg(c0)"}, {"array_sort(a0)", "c1"}, {expected});
+
+  // Global aggregation, Complex type key (ROW(String, Double)).
+  // Input Type:  Row(Row(string, double), int)
+  data = makeRowVector({
+      makeRowVector({
+          makeFlatVector<StringView>({
+              "a"_sv,
+              "b"_sv,
+              "c"_sv,
+              "a"_sv,
+              "b"_sv,
+              "c"_sv,
+              "a"_sv,
+              "b"_sv,
+              "c"_sv,
+          }),
+          makeFlatVector<double>({1, 2, kNaN, 1, 2, kSNaN, 1, 2, kNaN}),
+      }),
+      makeFlatVector<int32_t>({1, 1, 1, 2, 2, 2, 2, 2, 2}),
+  });
+
+  // Output Type:  Row(Array(Row(string, double)), int)
+  expected = makeRowVector({makeArrayVector(
+      {0},
+      makeRowVector(
+          {makeFlatVector<StringView>({
+               "a"_sv,
+               "b"_sv,
+               "c"_sv,
+           }),
+           makeFlatVector<double>({1, 2, kNaN})}))});
+
+  testAggregations({data}, {}, {"set_agg(c0)"}, {"array_sort(a0)"}, {expected});
+
+  // Group by aggregation, Complex type.
+  // Ouput Type:  Row(Array(Row(string, double)), int)
+  expected = makeRowVector({
+      makeArrayVector(
+          {0, 3},
+          makeRowVector(
+              {makeFlatVector<StringView>({
+                   "a"_sv,
+                   "b"_sv,
+                   "c"_sv,
+                   "a"_sv,
+                   "b"_sv,
+                   "c"_sv,
+               }),
+               makeFlatVector<double>({1, 2, kNaN, 1, 2, kNaN})})),
+      makeFlatVector<int32_t>({1, 2}),
+  });
+
+  testAggregations(
+      {data}, {"c1"}, {"set_agg(c0)"}, {"array_sort(a0)", "c1"}, {expected});
+}
+
 } // namespace
 } // namespace facebook::velox::aggregate::test

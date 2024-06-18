@@ -153,6 +153,8 @@ TEST_F(CountAggregationTest, mask) {
 }
 
 TEST_F(CountAggregationTest, distinct) {
+  static const auto kNaN = std::numeric_limits<double>::quiet_NaN();
+  static const auto kSNaN = std::numeric_limits<double>::signaling_NaN();
   auto data = makeRowVector({
       makeFlatVector<int16_t>({1, 2, 1, 2, 1, 1, 2, 2}),
       makeFlatVector<int32_t>({1, 1, 1, 2, 1, 1, 1, 2}),
@@ -160,6 +162,8 @@ TEST_F(CountAggregationTest, distinct) {
           {std::nullopt, 1, std::nullopt, 2, std::nullopt, 1, std::nullopt, 1}),
       makeNullConstant(TypeKind::DOUBLE, 8),
       makeFlatVector<int128_t>({1, 2, 1, 2, 1, 2, 1, 1}, DECIMAL(38, 8)),
+      // Test for NaN equivalence
+      makeFlatVector<double>({kNaN, kNaN, kSNaN, kSNaN, 1, 1, 1, 2}),
   });
   createDuckDbTable({data});
 
@@ -264,6 +268,54 @@ TEST_F(CountAggregationTest, distinctMask) {
   AssertQueryBuilder(plan, duckDbQueryRunner_)
       .assertResults(
           "SELECT c0, count(distinct c2) FILTER (WHERE c1) FROM tmp GROUP BY 1");
+}
+
+TEST_F(CountAggregationTest, nans) {
+  // Verify that NaNs with different binary representations are considered
+  // equal.
+  static const auto kNaN = std::numeric_limits<double>::quiet_NaN();
+  static const auto kSNaN = std::numeric_limits<double>::signaling_NaN();
+  auto data = makeRowVector(
+      {makeFlatVector<int16_t>({1, 2, 1, 2, 1, 1, 2, 2}),
+       // Column to verify with primitive type input
+       makeFlatVector<double>({kNaN, kNaN, kSNaN, kSNaN, 1, 1, 1, 2}),
+       // Column to verify with complex type input
+       makeRowVector(
+           {makeFlatVector<double>({kNaN, kNaN, kSNaN, kSNaN, 1, 1, 1, 2}),
+            makeFlatVector<int32_t>({1, 1, 1, 1, 1, 1, 1, 1})})});
+
+  // Global aggregation.
+  auto testGlobal = [&](const std::string& col, const RowVectorPtr& expected) {
+    auto globalAggPlan =
+        PlanBuilder()
+            .values({data})
+            .singleAggregation({}, {fmt::format("count(distinct {})", col)})
+            .planNode();
+    AssertQueryBuilder(globalAggPlan).assertResults(expected);
+  };
+
+  RowVectorPtr expected = makeRowVector({
+      makeFlatVector<int64_t>(std::vector<int64_t>({3})),
+  });
+  testGlobal("c1", expected);
+  testGlobal("c2", expected);
+
+  // Group by.
+  auto testGroupBy = [&](const std::string& col, const RowVectorPtr& expected) {
+    auto groupByPlan =
+        PlanBuilder()
+            .values({data})
+            .singleAggregation({"c0"}, {fmt::format("count(distinct {})", col)})
+            .planNode();
+    AssertQueryBuilder(groupByPlan).assertResults(expected);
+  };
+
+  expected = makeRowVector({
+      makeFlatVector<int16_t>({1, 2}),
+      makeFlatVector<int64_t>({2, 3}),
+  });
+  testGroupBy("c1", expected);
+  testGroupBy("c2", expected);
 }
 
 } // namespace

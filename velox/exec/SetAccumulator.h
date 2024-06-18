@@ -345,6 +345,22 @@ struct SetAccumulatorTypeTraits {
 };
 
 template <>
+struct SetAccumulatorTypeTraits<float> {
+  using AccumulatorType = SetAccumulator<
+      float,
+      util::floating_point::NaNAwareHash<float>,
+      util::floating_point::NaNAwareEquals<float>>;
+};
+
+template <>
+struct SetAccumulatorTypeTraits<double> {
+  using AccumulatorType = SetAccumulator<
+      double,
+      util::floating_point::NaNAwareHash<double>,
+      util::floating_point::NaNAwareEquals<double>>;
+};
+
+template <>
 struct SetAccumulatorTypeTraits<StringView> {
   using AccumulatorType = StringViewSetAccumulator;
 };
