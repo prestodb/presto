@@ -443,9 +443,17 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kExchangeMaxErrorDuration{
       "exchange.max-error-duration"};
 
+  /// If true, copy proxygen iobufs to velox memory pool, otherwise not. The
+  /// presto exchange source builds the serialized presto page from proxygen
+  /// iobufs directly.
+  static constexpr std::string_view kExchangeEnableBufferCopy{
+      "exchange.enable-buffer-copy"};
+
   /// Enable to make immediate buffer memory transfer in the handling IO threads
   /// as soon as exchange gets its response back. Otherwise the memory transfer
   /// will happen later in driver thread pool.
+  ///
+  /// NOTE: this only applies if 'exchange.no-buffer-copy' is false.
   static constexpr std::string_view kExchangeImmediateBufferTransfer{
       "exchange.immediate-buffer-transfer"};
 
@@ -698,6 +706,8 @@ class SystemConfig : public ConfigBase {
   std::chrono::duration<double> exchangeConnectTimeoutMs() const;
 
   bool exchangeEnableConnectionPool() const;
+
+  bool exchangeEnableBufferCopy() const;
 
   bool exchangeImmediateBufferTransfer() const;
 
