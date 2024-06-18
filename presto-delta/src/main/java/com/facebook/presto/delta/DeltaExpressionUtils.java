@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.delta;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.predicate.ValueSet;
@@ -53,6 +54,7 @@ import static java.lang.String.format;
 
 public final class DeltaExpressionUtils
 {
+    private static final Logger logger = Logger.get(DeltaExpressionUtils.class);
     private DeltaExpressionUtils()
     {
     }
@@ -67,15 +69,18 @@ public final class DeltaExpressionUtils
         ImmutableMap.Builder<ColumnHandle, Domain> regularColumnPredicates = ImmutableMap.builder();
 
         Optional<Map<ColumnHandle, Domain>> domains = predicate.getDomains();
-        domains.ifPresent(columnHandleDomainMap -> columnHandleDomainMap.forEach((key, value) -> {
-            DeltaColumnHandle columnHandle = (DeltaColumnHandle) key;
-            if (columnHandle.getColumnType() == PARTITION) {
-                partitionColumnPredicates.put(key, value);
-            }
-            else {
-                regularColumnPredicates.put(key, value);
-            }
-        }));
+        if (domains.isPresent()) {
+            domains.get().entrySet().stream()
+                    .forEach(domainPair -> {
+                        DeltaColumnHandle columnHandle = (DeltaColumnHandle) domainPair.getKey();
+                        if (columnHandle.getColumnType() == PARTITION) {
+                            partitionColumnPredicates.put(domainPair.getKey(), domainPair.getValue());
+                        }
+                        else {
+                            regularColumnPredicates.put(domainPair.getKey(), domainPair.getValue());
+                        }
+                    });
+        }
 
         return ImmutableList.of(
                 TupleDomain.withColumnDomains(partitionColumnPredicates.build()),
@@ -86,19 +91,75 @@ public final class DeltaExpressionUtils
      * Utility method that takes an iterator of {@link FilteredColumnarBatch}s and a predicate and returns an iterator
      * of {@link FilteredColumnarBatch}s that satisfy the predicate (predicate evaluates to a deterministic NO)
      */
-    public static CloseableIterator<FilteredColumnarBatch> iterateWithPartitionPruning(
+    public static CloseableIterator<Row> iterateWithPartitionPruning(
             CloseableIterator<FilteredColumnarBatch> inputIterator,
             TupleDomain<DeltaColumnHandle> predicate,
             TypeManager typeManager)
     {
         TupleDomain<String> partitionPredicate = extractPartitionColumnsPredicate(predicate);
         if (partitionPredicate.isAll()) {
-            return inputIterator; // there is no partition filter, return the input iterator as is.
+            return new CloseableIterator<Row>() {
+                private Row nextItem;
+                private boolean rowsRemaining = false;
+                private CloseableIterator<Row> row;
+
+                @Override
+                public boolean hasNext()
+                {
+                    if (nextItem != null) {
+                        return true;
+                    }
+
+                    if (!rowsRemaining) {
+                        if (!inputIterator.hasNext()) {
+                            return false;
+                        }
+                        FilteredColumnarBatch nextFile = inputIterator.next();
+                        logger.debug("DEUTILS INPUT ITERATOR");
+                        row = nextFile.getRows();
+                    } else {
+                        logger.debug("STILL ROWS REMAINING ON ITERATOR, bypassing....");
+                    }
+                    Row nextRow = null;
+                    rowsRemaining = false;
+                    if (row.hasNext()) {
+                        nextRow = row.next();
+                        nextItem = nextRow;
+                        rowsRemaining = true;
+                    }
+                    if (!rowsRemaining) {
+                        try {
+                            row.close();
+                        } catch (IOException e) {
+                            throw new RuntimeException("Cloud not close row batch", e);
+                        }
+                    }
+                    return nextItem != null;
+                }
+
+                @Override
+                public Row next()
+                {
+                    if (!hasNext()) {
+                        throw new NoSuchElementException("there are no more files");
+                    }
+                    Row toReturn = nextItem;
+                    nextItem = null;
+                    return toReturn;
+                }
+
+                @Override
+                public void close()
+                        throws IOException
+                {
+                    inputIterator.close();
+                }
+            };
         }
 
         if (partitionPredicate.isNone()) {
             // nothing passes the partition predicate, return empty iterator
-            return new CloseableIterator<FilteredColumnarBatch>()
+            return new CloseableIterator<Row>()
             {
                 @Override
                 public boolean hasNext()
@@ -107,7 +168,7 @@ public final class DeltaExpressionUtils
                 }
 
                 @Override
-                public FilteredColumnarBatch next()
+                public Row next()
                 {
                     throw new NoSuchElementException();
                 }
@@ -121,15 +182,17 @@ public final class DeltaExpressionUtils
             };
         }
 
-        Optional<List<TupleDomain.ColumnDomain<DeltaColumnHandle>>> columnDomains = predicate.getColumnDomains();
-        List<DeltaColumnHandle> partitionColumns = columnDomains.map(domains -> domains.stream()
-                .filter(entry -> entry.getColumn().getColumnType() == PARTITION)
-                .map(TupleDomain.ColumnDomain::getColumn)
-                .collect(Collectors.toList())).orElse(Collections.emptyList());
+        List<DeltaColumnHandle> partitionColumns =
+                predicate.getColumnDomains().get().stream()
+                        .filter(entry -> entry.getColumn().getColumnType() == PARTITION)
+                        .map(entry -> entry.getColumn())
+                        .collect(Collectors.toList());
 
-        return new CloseableIterator<FilteredColumnarBatch>()
+        return new CloseableIterator<Row>()
         {
-            private FilteredColumnarBatch nextItem;
+            private Row nextItem;
+            private boolean rowsRemaining = false;
+            private CloseableIterator<Row> row;
 
             @Override
             public boolean hasNext()
@@ -138,24 +201,53 @@ public final class DeltaExpressionUtils
                     return true;
                 }
 
-                while (inputIterator.hasNext()) {
+                if (!rowsRemaining) {
+                    if (!inputIterator.hasNext()) {
+                        return false;
+                    }
                     FilteredColumnarBatch nextFile = inputIterator.next();
-                    if (evaluatePartitionPredicate(partitionPredicate, partitionColumns, typeManager, nextFile)) {
-                        nextItem = nextFile;
+                    logger.debug("DEUTILS INPUT ITERATOR");
+                    row = nextFile.getRows();
+                } else {
+                    logger.debug("STILL ROWS REMAINING ON ITERATOR, bypassing....");
+                }
+                Row nextRow = null;
+                rowsRemaining = false;
+                while (row.hasNext()) {
+                    nextRow = row.next();
+                    if (evaluatePartitionPredicate(partitionPredicate, partitionColumns, typeManager,
+                            nextRow)) {
+                        nextItem = nextRow;
+                        rowsRemaining = true;
                         break;
                     }
                 }
+                //} catch (IOException e) {
+                //    throw new RuntimeException("Error closing batch row", e);
+                //}
+                //if (nextItem == nextRow) {
+                //    break;
+                //}
+                if (!rowsRemaining) {
+                    try {
+                        row.close();
+                    } catch (IOException e) {
+                        throw new RuntimeException("Cloud not close row batch", e);
+                    }
+                }
+                //while (inputIterator.hasNext()) {
+                //}
 
                 return nextItem != null;
             }
 
             @Override
-            public FilteredColumnarBatch next()
+            public Row next()
             {
                 if (!hasNext()) {
                     throw new NoSuchElementException("there are no more files");
                 }
-                FilteredColumnarBatch toReturn = nextItem;
+                Row toReturn = nextItem;
                 nextItem = null;
                 return toReturn;
             }
@@ -184,21 +276,15 @@ public final class DeltaExpressionUtils
             TupleDomain<String> partitionPredicate,
             List<DeltaColumnHandle> partitionColumns,
             TypeManager typeManager,
-            FilteredColumnarBatch addFile)
+            Row row)
     {
         checkArgument(!partitionPredicate.isNone(), "Expecting a predicate with at least one expression");
         for (DeltaColumnHandle partitionColumn : partitionColumns) {
             String columnName = partitionColumn.getName();
-            FilteredColumnarBatch file = new FilteredColumnarBatch(addFile.getData(), addFile.getSelectionVector());
-            Row row = file.getRows().next();
-            String partitionValue = InternalScanFileUtils.getPartitionValues(row).toString();
-            Domain domain = getDomain(partitionColumn, partitionValue, typeManager,
-                    InternalScanFileUtils.getAddFileStatus(row).getPath());
-            if (!partitionPredicate.getDomains().isPresent()) {
-                return false;
-            }
-            Optional<Map<String, Domain>> domains = partitionPredicate.getDomains();
-            Domain columnPredicate = domains.map(stringDomainMap -> stringDomainMap.get(columnName)).orElse(null);
+            String partitionValue = InternalScanFileUtils.getPartitionValues(row).get(columnName);
+            logger.debug("DOMAIN OF FILE: " + InternalScanFileUtils.getAddFileStatus(row).getPath());
+            Domain domain = getDomain(partitionColumn, partitionValue, typeManager, InternalScanFileUtils.getAddFileStatus(row).getPath());
+            Domain columnPredicate = partitionPredicate.getDomains().get().get(columnName);
 
             if (columnPredicate == null) {
                 continue; // there is no predicate on this column

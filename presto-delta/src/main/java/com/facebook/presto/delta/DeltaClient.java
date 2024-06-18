@@ -21,11 +21,11 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import io.delta.kernel.Snapshot;
 import io.delta.kernel.Table;
-import io.delta.kernel.TableNotFoundException;
-import io.delta.kernel.client.TableClient;
 import io.delta.kernel.data.FilteredColumnarBatch;
 import io.delta.kernel.data.Row;
-import io.delta.kernel.defaults.client.DefaultTableClient;
+import io.delta.kernel.defaults.engine.DefaultEngine;
+import io.delta.kernel.engine.Engine;
+import io.delta.kernel.exceptions.TableNotFoundException;
 import io.delta.kernel.internal.InternalScanFileUtils;
 import io.delta.kernel.internal.SnapshotImpl;
 import io.delta.kernel.utils.CloseableIterator;
@@ -84,28 +84,28 @@ public class DeltaClient
             Optional<Long> snapshotAsOfTimestampMillis)
     {
         Path location = new Path(tableLocation);
-        Optional<TableClient> deltaTableClient = loadDeltaTableClient(session, location,
+        Optional<Engine> deltaEngine = loadDeltaTableClient(session, location,
                 schemaTableName);
-        if (!deltaTableClient.isPresent()) {
+        if (!deltaEngine.isPresent()) {
             return Optional.empty();
         }
 
-        Table deltaTable = loadDeltaTable(location.toString(), deltaTableClient.get());
+        Table deltaTable = loadDeltaTable(location.toString(), deltaEngine.get());
         // Fetch the snapshot info for given snapshot version. If no snapshot version is given, get the latest snapshot info.
         // Lock the snapshot version here and use it later in the rest of the query (such as fetching file list etc.).
         // If we don't lock the snapshot version here, the query may end up with schema from one version and data files from another
         // version when the underlying delta table is changing while the query is running.
         Snapshot snapshot;
         if (snapshotId.isPresent()) {
-            snapshot = getSnapshotById(deltaTable, deltaTableClient.get(), snapshotId.get(), schemaTableName);
+            snapshot = getSnapshotById(deltaTable, deltaEngine.get(), snapshotId.get(), schemaTableName);
         }
         else if (snapshotAsOfTimestampMillis.isPresent()) {
-            snapshot = getSnapshotAsOfTimestamp(deltaTable, deltaTableClient.get(),
+            snapshot = getSnapshotAsOfTimestamp(deltaTable, deltaEngine.get(),
                     snapshotAsOfTimestampMillis.get(), schemaTableName);
         }
         else {
             try {
-                snapshot = deltaTable.getLatestSnapshot(deltaTableClient.get()); // get the latest snapshot
+                snapshot = deltaTable.getLatestSnapshot(deltaEngine.get()); // get the latest snapshot
             }
             catch (TableNotFoundException e) {
                 throw new PrestoException(GENERIC_INTERNAL_ERROR,
@@ -126,8 +126,8 @@ public class DeltaClient
                 schemaTableName.getSchemaName(),
                 schemaTableName.getTableName(),
                 tableLocation,
-                Optional.of(snapshot.getVersion(deltaTableClient.get())), // lock the snapshot version
-                getSchema(config, schemaTableName, deltaTable, deltaTableClient.get())));
+                Optional.of(snapshot.getVersion(deltaEngine.get())), // lock the snapshot version
+                getSchema(config, schemaTableName, deltaEngine.get(), snapshot)));
     }
 
     /**
@@ -137,19 +137,20 @@ public class DeltaClient
      */
     public CloseableIterator<FilteredColumnarBatch> listFiles(ConnectorSession session, DeltaTable deltaTable)
     {
-        Optional<TableClient> deltaTableClient = loadDeltaTableClient(session,
+        Optional<Engine> deltaEngine = loadDeltaTableClient(session,
                 new Path(deltaTable.getTableLocation()),
                 new SchemaTableName(deltaTable.getSchemaName(), deltaTable.getTableName()));
-        if (!deltaTableClient.isPresent()) {
+        if (!deltaEngine.isPresent()) {
             throw new PrestoException(GENERIC_INTERNAL_ERROR,
                     format("Could not obtain Delta table client in '%s'", deltaTable.getTableLocation()));
         }
         checkArgument(deltaTable.getSnapshotId().isPresent(), "Snapshot id is missing from the Delta table");
-        Table sourceTable = loadDeltaTable(deltaTable.getTableLocation(), deltaTableClient.get());
+        Table sourceTable = loadDeltaTable(deltaTable.getTableLocation(), deltaEngine.get());
 
         try {
-            return sourceTable.getLatestSnapshot(deltaTableClient.get()).getScanBuilder(deltaTableClient.get()).build()
-                    .getScanFiles(deltaTableClient.get());
+            return sourceTable.getSnapshotAsOfVersion(deltaEngine.get(),
+                            deltaTable.getSnapshotId().get()).getScanBuilder(deltaEngine.get()).build()
+                    .getScanFiles(deltaEngine.get());
         }
         catch (TableNotFoundException e) {
             throw new PrestoException(NOT_FOUND,
@@ -157,7 +158,7 @@ public class DeltaClient
         }
     }
 
-    private Optional<TableClient> loadDeltaTableClient(ConnectorSession session, Path tableLocation,
+    private Optional<Engine> loadDeltaTableClient(ConnectorSession session, Path tableLocation,
                                                        SchemaTableName schemaTableName)
     {
         try {
@@ -171,28 +172,22 @@ public class DeltaClient
             if (!fileSystem.isDirectory(tableLocation)) {
                 return Optional.empty();
             }
-            return Optional.of(DefaultTableClient.create(fileSystem.getConf()));
+            return Optional.of(DefaultEngine.create(fileSystem.getConf()));
         }
         catch (IOException ioException) {
             throw new PrestoException(GENERIC_INTERNAL_ERROR, "Failed to load Delta table: " + ioException.getMessage(), ioException);
         }
     }
 
-    private Table loadDeltaTable(String tableLocation, TableClient deltaTableClient)
+    private Table loadDeltaTable(String tableLocation, Engine deltaEngine)
     {
-        try {
-            return Table.forPath(deltaTableClient, tableLocation);
-        }
-        catch (TableNotFoundException e) {
-            throw new PrestoException(NOT_FOUND,
-                    format("Could not obtain Delta table client in '%s'", tableLocation));
-        }
+        return Table.forPath(deltaEngine, tableLocation);
     }
 
-    private static Snapshot getSnapshotById(Table deltaTable, TableClient deltaTableClient, long snapshotId, SchemaTableName schemaTableName)
+    private static Snapshot getSnapshotById(Table deltaTable, Engine deltaEngine, long snapshotId, SchemaTableName schemaTableName)
     {
         try {
-            return deltaTable.getLatestSnapshot(deltaTableClient);
+            return deltaTable.getSnapshotAsOfVersion(deltaEngine, snapshotId);
         }
         catch (IllegalArgumentException exception) {
             throw new PrestoException(
@@ -207,11 +202,11 @@ public class DeltaClient
         }
     }
 
-    private static Snapshot getSnapshotAsOfTimestamp(Table deltaTable, TableClient deltaTableClient,
+    private static Snapshot getSnapshotAsOfTimestamp(Table deltaTable, Engine deltaEngine,
                                                      long snapshotAsOfTimestampMillis, SchemaTableName schemaTableName)
     {
         try {
-            return deltaTable.getLatestSnapshot(deltaTableClient);
+            return deltaTable.getSnapshotAsOfTimestamp(deltaEngine, snapshotAsOfTimestampMillis);
         }
         catch (IllegalArgumentException exception) {
             throw new PrestoException(
@@ -233,13 +228,12 @@ public class DeltaClient
      * Utility method that returns the columns in given Delta metadata. Returned columns include regular and partition types.
      * Data type from Delta is mapped to appropriate Presto data type.
      */
-    private static List<DeltaColumn> getSchema(DeltaConfig config, SchemaTableName tableName, Table deltaTable,
-                                               TableClient deltaTableClient)
+    private static List<DeltaColumn> getSchema(DeltaConfig config, SchemaTableName tableName, Engine deltaEngine,
+                                               Snapshot snapshot)
     {
         try {
-            Snapshot latestSnapshot = deltaTable.getLatestSnapshot(deltaTableClient);
-            CloseableIterator<FilteredColumnarBatch> columnBatches = latestSnapshot.getScanBuilder(deltaTableClient)
-                    .build().getScanFiles(deltaTableClient);
+            CloseableIterator<FilteredColumnarBatch> columnBatches = snapshot.getScanBuilder(deltaEngine)
+                    .build().getScanFiles(deltaEngine);
             Row row = null;
             while (columnBatches.hasNext()) {
                 CloseableIterator<Row> rows = columnBatches.next().getRows();
@@ -250,7 +244,8 @@ public class DeltaClient
             }
             Map<String, String> partitionValues = row != null ?
                     InternalScanFileUtils.getPartitionValues(row) : new HashMap<>(0);
-            return latestSnapshot.getSchema(deltaTableClient).fields().stream()
+            columnBatches.close();
+            return snapshot.getSchema(deltaEngine).fields().stream()
                     .map(field -> {
                         String columnName = config.isCaseSensitivePartitionsEnabled() ? field.getName() :
                                 field.getName().toLowerCase(US);
@@ -266,6 +261,8 @@ public class DeltaClient
         catch (TableNotFoundException e) {
             throw new PrestoException(NOT_FOUND,
                     format(TABLE_NOT_FOUND_ERROR_TEMPLATE, tableName.getSchemaName(), tableName.getTableName()));
+        } catch (IOException e) {
+            throw new RuntimeException("Could not close columnar batch row", e);
         }
     }
 }

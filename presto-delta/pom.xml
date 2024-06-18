@@ -14,7 +14,7 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <enforcer.skip>true</enforcer.skip>
-        <io.delta.delta-kernel-api.version>3.1.0</io.delta.delta-kernel-api.version>
+        <io.delta.delta-kernel-api.version>3.2.0</io.delta.delta-kernel-api.version>
     </properties>
 
     <dependencies>

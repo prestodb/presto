@@ -192,6 +192,9 @@ public class TestDeltaScanOptimizations
             Map<String, Domain> expectedEnforcedConstraint)
     {
         System.out.println(tableScanWithConstraints(tableName, expectedConstraint, expectedEnforcedConstraint).toString());
+        // make sure to check the query output before the query plan
+        assertQuery(testQuery, expResultsQuery);
+
         // verify the plan contains filter pushed down into scan appropriately
         assertPlan(withDereferencePushdownEnabled(),
                 testQuery,
@@ -199,8 +202,6 @@ public class TestDeltaScanOptimizations
                         tableName,
                         expectedConstraint,
                         expectedEnforcedConstraint)));
-
-        assertQuery(testQuery, expResultsQuery);
     }
 
     /**

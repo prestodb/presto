@@ -72,7 +72,7 @@ public class DeltaSplitManager
             implements ConnectorSplitSource
     {
         private final DeltaTable deltaTable;
-        private final CloseableIterator<FilteredColumnarBatch> fileIterator;
+        private final CloseableIterator<Row> rowIterator;
         private final int maxBatchSize;
         private final ConnectorSession session;
 
@@ -80,7 +80,7 @@ public class DeltaSplitManager
         {
             this.session = requireNonNull(session, "session is null");
             this.deltaTable = deltaTableHandle.getTable().getDeltaTable();
-            this.fileIterator = DeltaExpressionUtils.iterateWithPartitionPruning(
+            this.rowIterator = DeltaExpressionUtils.iterateWithPartitionPruning(
                     deltaClient.listFiles(session, deltaTable),
                     deltaTableHandle.getPredicate(),
                     typeManager);
@@ -92,34 +92,30 @@ public class DeltaSplitManager
         {
             ImmutableList.Builder<ConnectorSplit> splitBuilder = ImmutableList.builder();
             long currentSplitCount = 0;
-            while (fileIterator.hasNext() && currentSplitCount < maxSize && currentSplitCount < maxBatchSize) {
-                FilteredColumnarBatch addFile = fileIterator.next();
-                CloseableIterator<Row> rows = addFile.getRows();
-                while (rows.hasNext()) {
-                    Row row = rows.next();
-                    FileStatus addFileStatus = InternalScanFileUtils.getAddFileStatus(row);
-                    splitBuilder.add(new DeltaSplit(
-                            connectorId,
-                            deltaTable.getSchemaName(),
-                            deltaTable.getTableName(),
-                            addFileStatus.getPath(),
-                            0, /* start */
-                            addFileStatus.getSize() /* split length - default is read the entire file in one split */,
-                            addFileStatus.getSize(),
-                            removeNullPartitionValues(InternalScanFileUtils.getPartitionValues(row)),
-                            getNodeSelectionStrategy(session)));
-                    currentSplitCount++;
-                }
+            while (rowIterator.hasNext() && currentSplitCount < maxSize && currentSplitCount < maxBatchSize) {
+                        Row row = rowIterator.next();
+                        FileStatus addFileStatus = InternalScanFileUtils.getAddFileStatus(row);
+                        splitBuilder.add(new DeltaSplit(
+                                connectorId,
+                                deltaTable.getSchemaName(),
+                                deltaTable.getTableName(),
+                                addFileStatus.getPath(),
+                                0, /* start */
+                                addFileStatus.getSize() /* split length - default is read the entire file in one split */,
+                                addFileStatus.getSize(),
+                                removeNullPartitionValues(InternalScanFileUtils.getPartitionValues(row)),
+                                getNodeSelectionStrategy(session)));
+                        currentSplitCount++;
             }
 
-            return completedFuture(new ConnectorSplitBatch(splitBuilder.build(), !fileIterator.hasNext()));
+            return completedFuture(new ConnectorSplitBatch(splitBuilder.build(), !rowIterator.hasNext()));
         }
 
         @Override
         public void close()
         {
             try {
-                fileIterator.close();
+                rowIterator.close();
             }
             catch (IOException e) {
                 throw new UncheckedIOException(e);
@@ -129,7 +125,7 @@ public class DeltaSplitManager
         @Override
         public boolean isFinished()
         {
-            return !fileIterator.hasNext();
+            return !rowIterator.hasNext();
         }
     }
 
