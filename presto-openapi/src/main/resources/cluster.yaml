@@ -1,0 +1,141 @@
+openapi: 3.0.0
+info:
+  title: Presto Cluster Stats API
+  description: API for retrieving cluster statistics in Presto.
+  version: 1
+servers:
+  - url: http://api.example.com/v1
+    description: Main (production) server
+  - url: http://staging-api.example.com
+    description: Internal staging server for testing
+paths:
+  /v1/cluster:
+    get:
+      summary: Retrieve cluster statistics
+      description: Retrieves statistics about the Presto cluster, such as running queries, blocked queries, and memory usage.
+      parameters:
+        - name: includeLocalInfoOnly
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: Include only local information
+          default: false
+      responses:
+        '200':
+          description: Cluster statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterStats'
+  /v1/cluster/memory:
+    get:
+      summary: Retrieve cluster memory pool information
+      description: Retrieves information about the memory pools in the Presto cluster.
+      responses:
+        '200':
+          description: Cluster memory pool information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterMemoryPoolInfo'
+  /v1/cluster/workerMemory:
+    get:
+      summary: Retrieve worker memory information
+      description: Retrieves information about the memory usage of workers in the Presto cluster.
+      responses:
+        '200':
+          description: Worker memory information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkerMemoryInfo'
+  /v1/cluster/ttl:
+    get:
+      summary: Retrieve cluster TTL information
+      description: Retrieves time-to-live (TTL) information for the Presto cluster.
+      responses:
+        '200':
+          description: Cluster TTL information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterTtl'
+components:
+  schemas:
+    ClusterStats:
+      type: object
+      properties:
+        runningQueries:
+          type: integer
+          description: The number of running queries
+        blockedQueries:
+          type: integer
+          description: The number of blocked queries
+        queuedQueries:
+          type: integer
+          description: The number of queued queries
+        activeWorkers:
+          type: integer
+          description: The number of active workers
+        runningDrivers:
+          type: integer
+          description: The number of running drivers
+        runningTasks:
+          type: integer
+          description: The number of running tasks
+        reservedMemory:
+          type: number
+          format: double
+          description: The amount of reserved memory
+        totalInputRows:
+          type: integer
+          description: The total number of input rows
+        totalInputBytes:
+          type: integer
+          description: The total number of input bytes
+        totalCpuTimeSecs:
+          type: integer
+          description: The total CPU time in seconds
+        adjustedQueueSize:
+          type: integer
+          description: The adjusted queue size
+    ClusterMemoryPoolInfo:
+      type: object
+      properties:
+        pools:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              reserved:
+                type: number
+                format: double
+              free:
+                type: number
+                format: double
+              total:
+                type: number
+                format: double
+    WorkerMemoryInfo:
+      type: object
+      properties:
+        workers:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              memory:
+                type: number
+                format: double
+    ClusterTtl:
+      type: object
+      properties:
+        ttl:
+          type: number
+          format: double
+          description: Time-to-live value for the cluster

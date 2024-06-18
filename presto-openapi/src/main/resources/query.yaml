@@ -4,10 +4,8 @@ info:
   description: Optional multiline or single-line description in [CommonMark](http://commonmark.org/help/) or HTML.
   version: 1
 servers:
-  - url: http://api.example.com/v1
-    description: Optional server description, e.g. Main (production) server
-  - url: http://staging-api.example.com
-    description: Optional server description, e.g. Internal staging server for testing
+  - url: http://localhost:8080
+    description: Presto endpoint when running locally
 paths:
   /v1/query/{queryId}:
     delete:
@@ -66,7 +64,7 @@ paths:
   /v1/query:
     get:
       summary: Returns a list of query resource information
-      description: Retrieves information about all queries with optional filtering and limiting
+      description: Retrieves information about all queries with the ability to filter and limit the result list using optional parameters
       parameters:
         - name: state
           in: query
