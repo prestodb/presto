@@ -583,12 +583,13 @@ TEST_F(StringImplTest, getByteRange) {
     auto expectedEndByteIndex = strlen(unicodeString);
 
     // Find the byte range of unicodeString[i, end]
-    auto range = getByteRange</*isAscii*/ false>(unicodeString, i, 6 - i + 1);
+    auto range =
+        getByteRange</*isAscii*/ false>(unicodeString, 12, i, 6 - i + 1);
 
     EXPECT_EQ(expectedStartByteIndex, range.first);
     EXPECT_EQ(expectedEndByteIndex, range.second);
 
-    range = getByteRange</*isAscii*/ false>(unicodeString, i, 6 - i + 1);
+    range = getByteRange</*isAscii*/ false>(unicodeString, 12, i, 6 - i + 1);
 
     EXPECT_EQ(expectedStartByteIndex, range.first);
     EXPECT_EQ(expectedEndByteIndex, range.second);
@@ -598,13 +599,14 @@ TEST_F(StringImplTest, getByteRange) {
 
   // This exercises bad unicode byte in determining startByteIndex.
   std::string badUnicode = "aa\xff  ";
-  auto range = getByteRange<false>(badUnicode.data(), 4, 3);
+  auto range =
+      getByteRange<false>(badUnicode.data(), badUnicode.length(), 4, 2);
   EXPECT_EQ(range.first, 3);
-  EXPECT_EQ(range.second, 6);
+  EXPECT_EQ(range.second, 5);
 
   // This exercises bad unicode byte in determining endByteIndex.
   badUnicode = "\xff aa";
-  range = getByteRange<false>(badUnicode.data(), 1, 3);
+  range = getByteRange<false>(badUnicode.data(), badUnicode.length(), 1, 3);
   EXPECT_EQ(range.first, 0);
   EXPECT_EQ(range.second, 3);
 }

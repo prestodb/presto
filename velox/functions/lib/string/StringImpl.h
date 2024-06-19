@@ -599,7 +599,8 @@ FOLLY_ALWAYS_INLINE void pad(
   // and return it as the result.
   if (UNLIKELY(stringCharLength >= size)) {
     size_t prefixByteSize =
-        stringCore::getByteRange<isAscii>(string.data(), 1, size).second;
+        stringCore::getByteRange<isAscii>(string.data(), string.size(), 1, size)
+            .second;
     output.resize(prefixByteSize);
     if (LIKELY(prefixByteSize > 0)) {
       std::memcpy(output.data(), string.data(), prefixByteSize);
@@ -615,10 +616,12 @@ FOLLY_ALWAYS_INLINE void pad(
   // If the length of padString does not evenly divide the length of the
   // padding we need to add, how long of a prefix of padString needs to be
   // added at the end of the padding.  Will be 0 if it is evenly divisible.
-  size_t padPrefixByteLength =
-      stringCore::getByteRange<isAscii>(
-          padString.data(), 1, fullPaddingCharLength % padStringCharLength)
-          .second;
+  size_t padPrefixByteLength = stringCore::getByteRange<isAscii>(
+                                   padString.data(),
+                                   padString.size(),
+                                   1,
+                                   fullPaddingCharLength % padStringCharLength)
+                                   .second;
   int64_t fullPaddingByteLength =
       padString.size() * fullPadCopies + padPrefixByteLength;
   // The final size of the output string in bytes.

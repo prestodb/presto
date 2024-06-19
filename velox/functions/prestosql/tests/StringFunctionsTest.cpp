@@ -406,6 +406,81 @@ TEST_F(StringFunctionsTest, substrVariable) {
   }
 }
 
+TEST_F(StringFunctionsTest, substrInvalidUtf8) {
+  const auto substr = [&](std::optional<std::string> str,
+                          std::optional<int32_t> start,
+                          std::optional<int32_t> length) {
+    return evaluateOnce<std::string>("substr(c0, c1, c2)", str, start, length);
+  };
+
+  // The byte \xE7 indicates it should have 2 more bytes to be valid UTF-8, but
+  // it doesn't.
+  EXPECT_EQ(substr("abc\xE7xyz", 2, 4), "bc\xE7x");
+  // The byte \xBF is a UTF-8 continuation character, these aren't preceded by
+  // a valid prefix byte, but they should be ignored and not count towards the
+  // length of the substring or where the substring starts.
+  EXPECT_EQ(
+      substr(
+          "\xBF"
+          "\xBF"
+          "a"
+          "\xBF"
+          "\xBF"
+          "b"
+          "\xBF"
+          "\xBF"
+          "c"
+          "\xBF"
+          "\xBF"
+          "x"
+          "\xBF"
+          "\xBF"
+          "y"
+          "\xBF"
+          "\xBF"
+          "z"
+          "\xBF"
+          "\xBF",
+          2,
+          4),
+      "b"
+      "\xBF"
+      "\xBF"
+      "c"
+      "\xBF"
+      "\xBF"
+      "x"
+      "\xBF"
+      "\xBF"
+      "y"
+      "\xBF"
+      "\xBF");
+  // Check that when the substring goes to the end of the string, and the string
+  // ends with UTF-8 continuation characters, we don't go off the end of the
+  // string.
+  EXPECT_EQ(
+      substr(
+          "\xBF"
+          "\xBF"
+          "a"
+          "\xBF"
+          "\xBF"
+          "b"
+          "\xBF"
+          "\xBF"
+          "c"
+          "\xBF"
+          "\xBF",
+          2,
+          2),
+      "b"
+      "\xBF"
+      "\xBF"
+      "c"
+      "\xBF"
+      "\xBF");
+}
+
 /**
  * The test for one of non-optimized cases (all constant values)
  */

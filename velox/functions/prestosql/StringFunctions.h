@@ -121,8 +121,8 @@ struct SubstrFunction {
       length = numCharacters - start + 1;
     }
 
-    auto byteRange =
-        stringCore::getByteRange<isAscii>(input.data(), start, length);
+    auto byteRange = stringCore::getByteRange<isAscii>(
+        input.data(), input.size(), start, length);
 
     // Generating output string
     result.setNoCopy(StringView(

@@ -222,10 +222,15 @@ lengthUnicode(const char* inputBuffer, size_t bufferLength) {
   auto currentChar = inputBuffer;
   int64_t size = 0;
   while (currentChar < buffEndAddress) {
-    auto chrOffset = utf8proc_char_length(currentChar);
-    // Skip bad byte if we get utf length < 0.
-    currentChar += UNLIKELY(chrOffset < 0) ? 1 : chrOffset;
-    size++;
+    // This function detects bytes that come after the first byte in a
+    // multi-byte UTF-8 character (provided that the string is valid UTF-8). We
+    // increment size only for the first byte so that we treat all bytes as part
+    // of a single character.
+    if (!utf_cont(*currentChar)) {
+      size++;
+    }
+
+    currentChar++;
   }
   return size;
 }
@@ -474,12 +479,30 @@ inline static size_t replace(
 /// If a bad unicode byte is encountered, then we skip that bad byte and
 /// count that as one codepoint.
 template <bool isAscii>
-static inline std::pair<size_t, size_t>
-getByteRange(const char* str, size_t startCharPosition, size_t length) {
-  if (startCharPosition < 1 && length > 0) {
-    throw std::invalid_argument(
-        "start position must be >= 1 and length must be > 0");
+static inline std::pair<size_t, size_t> getByteRange(
+    const char* str,
+    size_t strLength,
+    size_t startCharPosition,
+    size_t length) {
+  // If the length is 0, then we return an empty range directly.
+  if (length == 0) {
+    return std::make_pair(0, 0);
   }
+
+  if (startCharPosition < 1) {
+    throw std::invalid_argument("start position must be >= 1");
+  }
+
+  VELOX_CHECK_GE(
+      strLength,
+      length,
+      "The length of the string must be at least as large as the length of the substring requested.");
+
+  VELOX_CHECK_GE(
+      strLength,
+      startCharPosition,
+      "The offset of the substring requested must be within the string.");
+
   if constexpr (isAscii) {
     return std::make_pair(
         startCharPosition - 1, startCharPosition + length - 1);
@@ -487,19 +510,43 @@ getByteRange(const char* str, size_t startCharPosition, size_t length) {
     size_t startByteIndex = 0;
     size_t nextCharOffset = 0;
 
+    // Skips any Unicode continuation bytes. These are bytes that appear after
+    // the first byte in a multi-byte Unicode character.  They do not count
+    // towards the position in or length of a string.
+    auto skipContBytes = [&]() {
+      while (nextCharOffset < strLength && utf_cont(str[nextCharOffset])) {
+        nextCharOffset++;
+      }
+    };
+
+    // Skip any invalid continuation bytes at the beginning of the string.
+    skipContBytes();
+
     // Find startByteIndex
-    for (auto i = 0; i < startCharPosition - 1; i++) {
-      auto increment = utf8proc_char_length(&str[nextCharOffset]);
-      nextCharOffset += UNLIKELY(increment < 0) ? 1 : increment;
+    for (auto i = 0; nextCharOffset < strLength && i < startCharPosition - 1;
+         i++) {
+      nextCharOffset++;
+
+      skipContBytes();
     }
 
     startByteIndex = nextCharOffset;
+    size_t charCountInRange = 0;
 
     // Find endByteIndex
-    for (auto i = 0; i < length; i++) {
-      auto increment = utf8proc_char_length(&str[nextCharOffset]);
-      nextCharOffset += UNLIKELY(increment < 0) ? 1 : increment;
+    for (auto i = 0; nextCharOffset < strLength && i < length; i++) {
+      nextCharOffset++;
+      charCountInRange++;
+
+      skipContBytes();
     }
+
+    VELOX_CHECK_EQ(
+        charCountInRange,
+        length,
+        "The substring requested at {} of length {} exceeds the bounds of the string.",
+        startCharPosition,
+        length);
 
     return std::make_pair(startByteIndex, nextCharOffset);
   }

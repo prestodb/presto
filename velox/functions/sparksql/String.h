@@ -576,8 +576,8 @@ struct SubstrFunction {
       return;
     }
 
-    auto byteRange =
-        stringCore::getByteRange<isAscii>(input.data(), start, length);
+    auto byteRange = stringCore::getByteRange<isAscii>(
+        input.data(), input.size(), start, length);
 
     // Generating output string
     result.setNoCopy(StringView(
@@ -623,7 +623,7 @@ struct OverlayFunctionBase {
       std::pair<int32_t, int32_t> pair) {
     if constexpr (isVarchar && !isAscii) {
       auto byteRange = stringCore::getByteRange<false>(
-          input.data(), pair.first + 1, pair.second);
+          input.data(), input.size(), pair.first + 1, pair.second);
       result.append(StringView(
           input.data() + byteRange.first, byteRange.second - byteRange.first));
     } else {
@@ -759,8 +759,8 @@ struct LeftFunction {
 
     int32_t start = 1;
 
-    auto byteRange =
-        stringCore::getByteRange<isAscii>(input.data(), start, length);
+    auto byteRange = stringCore::getByteRange<isAscii>(
+        input.data(), input.size(), start, length);
 
     // Generating output string
     result.setNoCopy(StringView(
