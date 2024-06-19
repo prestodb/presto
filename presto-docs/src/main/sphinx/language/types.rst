@@ -310,7 +310,7 @@ HyperLogLog
 -----------
 
 Calculating the approximate distinct count can be done much more cheaply than an exact count using the
-`HyperLogLog <https://en.wikipedia.org/wiki/HyperLogLog>`_ data sketch. See :doc:`/functions/hyperloglog`.
+`HyperLogLog <https://en.wikipedia.org/wiki/HyperLogLog>`__ data sketch. See :doc:`/functions/hyperloglog`.
 
 .. _hyperloglog_type:
 
