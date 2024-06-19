@@ -37,6 +37,13 @@ inline std::string getExampleFilePath(const std::string& fileName) {
       "velox/dwio/dwrf/test", "examples/" + fileName);
 }
 
+std::unique_ptr<dwio::common::BufferedInput> createFileBufferedInput(
+    const std::string& path,
+    memory::MemoryPool& pool) {
+  return std::make_unique<dwio::common::BufferedInput>(
+      std::make_shared<LocalReadFile>(path), pool);
+}
+
 class MockStripeStreams : public StripeStreams {
  public:
   MockStripeStreams() : pool_{memory::memoryManager()->addLeafPool()} {};

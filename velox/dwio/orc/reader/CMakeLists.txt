@@ -11,26 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-add_library(velox_link_libs INTERFACE)
-target_link_libraries(
-  velox_link_libs
-  INTERFACE velox_caching
-            velox_dwio_catalog_fbhive
-            velox_dwio_common
-            velox_dwio_common_exception
-            velox_encode
-            velox_exception
-            velox_memory
-            velox_process
-            velox_serialization
-            velox_type
-            velox_type_fbhive
-            velox_vector
-            Folly::folly
-            fmt::fmt)
 
-add_subdirectory(common)
-add_subdirectory(catalog)
-add_subdirectory(dwrf)
-add_subdirectory(orc)
-add_subdirectory(parquet)
+add_library(velox_dwio_orc_reader OrcReader.cpp)
+
+target_link_libraries(velox_dwio_orc_reader velox_dwio_dwrf_reader)

@@ -36,6 +36,7 @@
 #endif
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
+#include "velox/dwio/orc/reader/OrcReader.h"
 // Meta's buck build system needs this check.
 #ifdef VELOX_ENABLE_PARQUET
 #include "velox/dwio/parquet/RegisterParquetReader.h" // @manual
@@ -133,6 +134,7 @@ void HiveConnectorFactory::initialize() {
     dwio::common::registerFileSinks();
     dwrf::registerDwrfReaderFactory();
     dwrf::registerDwrfWriterFactory();
+    orc::registerOrcReaderFactory();
 // Meta's buck build system needs this check.
 #ifdef VELOX_ENABLE_PARQUET
     parquet::registerParquetReaderFactory();
