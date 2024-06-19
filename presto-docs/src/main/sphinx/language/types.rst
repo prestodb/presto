@@ -310,14 +310,14 @@ HyperLogLog
 -----------
 
 Calculating the approximate distinct count can be done much more cheaply than an exact count using the
-`HyperLogLog <https://en.wikipedia.org/wiki/HyperLogLog>`_ data sketch. See :doc:`/functions/hyperloglog`.
+`HyperLogLog <https://en.wikipedia.org/wiki/HyperLogLog>`__ data sketch. See :doc:`/functions/hyperloglog`.
 
 .. _hyperloglog_type:
 
 ``HyperLogLog``
 ^^^^^^^^^^^^^^^
 
-A HyperLogLog sketch allows efficient computation of :func:`approx_distinct`. It starts as a
+A HyperLogLog sketch allows efficient computation of :func:`!approx_distinct`. It starts as a
 sparse representation, switching to a dense representation when it becomes more efficient.
 
 .. _p4hyperloglog_type:
@@ -373,7 +373,7 @@ SFM Sketch
 ^^^^^^^^^^^^^
 
 The Sketch-Flip-Merge (SFM) data sketch is a noisy, random distinct-counting
-sketch similar to :ref:`hyperloglog_type`. See :func:`noisy_approx_set_sfm`.
+sketch similar to :ref:`hyperloglog_type`. See :func:`!noisy_approx_set_sfm`.
 
 Quantile Digest
 ---------------

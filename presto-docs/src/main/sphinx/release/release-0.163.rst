@@ -11,8 +11,8 @@ General Changes
 * Improve exchange performance by reading from buffers in parallel.
 * Improve performance when only a subset of the columns resulting from a ``JOIN`` are referenced.
 * Make ``ALL``, ``SOME`` and ``ANY`` non-reserved keywords.
-* Add :func:`from_big_endian_64` function.
-* Change :func:`xxhash64` return type from ``BIGINT`` to ``VARBINARY``.
+* Add :func:`!from_big_endian_64` function.
+* Change :func:`!xxhash64` return type from ``BIGINT`` to ``VARBINARY``.
 * Change subscript operator for map types to fail if the key is not present in the map. The former
   behavior (returning ``NULL``) can be restored by setting the ``deprecated.legacy-map-subscript``
   config option.

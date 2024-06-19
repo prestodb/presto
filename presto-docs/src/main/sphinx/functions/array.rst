@@ -78,7 +78,7 @@ Array Functions
 .. function:: array_has_duplicates(array(T)) -> boolean
 
     Returns a boolean: whether ``array`` has any elements that occur more than once.
-    Throws an exception if any of the elements are rows or arrays that contain nulls. ::
+    Throws an exception if any of the elements are rows or arrays that contain nulls. 
 
     SELECT array_has_duplicates(ARRAY[1, 2, null, 1, null, 3]) -- true
     SELECT array_has_duplicates(ARRAY[ROW(1, null), ROW(1, null)]) -- "map key cannot be null or contain nulls"
@@ -210,7 +210,7 @@ Array Functions
 .. function:: array_sum(array(T)) -> bigint/double
 
     Returns the sum of all non-null elements of the ``array``. If there is no non-null elements, returns ``0``.
-    The behavior is similar to aggregation function :func:`sum`.
+    The behavior is similar to aggregation function :func:`!sum`.
 
     ``T`` must be coercible to ``double``.
     Returns ``bigint`` if T is coercible to ``bigint``. Otherwise, returns ``double``.

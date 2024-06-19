@@ -12,4 +12,4 @@ General Changes
 ---------------
 
 * Fix handling of null and out-of-range offsets for
-  :func:`lead`, :func:`lag` and :func:`nth_value` functions.
+  :func:`!lead`, :func:`!lag` and :func:`!nth_value` functions.

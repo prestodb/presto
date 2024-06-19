@@ -14,7 +14,7 @@ _______________
     Streaming aggregation can be enabled with the ``streaming_for_partial_aggregation_enabled`` session property or the ``streaming-for-partial-aggregation-enabled`` configuration property.
 * Add an adaptive stage scheduling policy that switches to phased execution mode once a query's stage count exceeds a configurable upper bound.
     This can be enabled by setting the session property ``execution_policy`` to ``phased`` and the stage count limit can be configured by the session property ``max_stage_count_for_eager_scheduling``.
-* Add :func:`secure_random()` function to return a cryptographically secure random number.
+* Add :func:`!secure_random()` function to return a cryptographically secure random number.
 
 Hive Connector Changes
 ______________________
