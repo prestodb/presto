@@ -24,7 +24,7 @@ execution of queries on a Presto installation.
 
    **Example response**:
 
-   .. sourcecode:: http
+   .. sourcecode:: json
 
       [ {
         "taskId" : "20131222_183944_00011_dk5x2.1.0",
@@ -89,7 +89,7 @@ execution of queries on a Presto installation.
 
    **Example response**:
 
-   .. sourcecode:: http
+   .. sourcecode:: json
 
       {
 	"taskId" : "20140115_170528_00004_dk5x2.0.0",
