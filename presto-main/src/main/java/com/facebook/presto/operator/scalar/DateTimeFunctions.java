@@ -1232,8 +1232,10 @@ public final class DateTimeFunctions
     @Description("year of the given timestamp")
     @ScalarFunction("year")
     @SqlType(StandardTypes.BIGINT)
-    @ScalarFunctionConstantStats(avgRowSize = 8.0, distinctValuesCount = 54)
-    public static long yearFromTimestamp(@ScalarPropagateSourceStats(nullFraction = SOURCE_STATS) SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
+    @ScalarFunctionConstantStats(avgRowSize = 8.0)
+    public static long yearFromTimestamp(
+            SqlFunctionProperties properties,
+            @ScalarPropagateSourceStats(nullFraction = SOURCE_STATS, distinctValueCount = SOURCE_STATS) @SqlType(StandardTypes.TIMESTAMP) long timestamp)
     {
         if (properties.isLegacyTimestamp()) {
             return getChronology(properties.getTimeZoneKey()).year().get(timestamp);
@@ -1246,8 +1248,9 @@ public final class DateTimeFunctions
     @Description("year of the given timestamp")
     @ScalarFunction("year")
     @SqlType(StandardTypes.BIGINT)
-    @ScalarFunctionConstantStats(avgRowSize = 8.0, distinctValuesCount = 54)
-    public static long yearFromTimestampWithTimeZone(@ScalarPropagateSourceStats(nullFraction = SOURCE_STATS) @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
+    @ScalarFunctionConstantStats(avgRowSize = 8.0)
+    public static long yearFromTimestampWithTimeZone(
+            @ScalarPropagateSourceStats(nullFraction = SOURCE_STATS, distinctValueCount = SOURCE_STATS) @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
     {
         return unpackChronology(timestampWithTimeZone).year().get(unpackMillisUtc(timestampWithTimeZone));
     }
@@ -1255,7 +1258,8 @@ public final class DateTimeFunctions
     @Description("year of the given date")
     @ScalarFunction("year")
     @SqlType(StandardTypes.BIGINT)
-    public static long yearFromDate(@SqlType(StandardTypes.DATE) long date)
+    @ScalarFunctionConstantStats(avgRowSize = 8.0)
+    public static long yearFromDate(@ScalarPropagateSourceStats(nullFraction = SOURCE_STATS, distinctValueCount = SOURCE_STATS) @SqlType(StandardTypes.DATE) long date)
     {
         return YEAR.get(DAYS.toMillis(date));
     }

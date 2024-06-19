@@ -1094,7 +1094,8 @@ public final class MathFunctions
     @ScalarFunction
     @SqlType(StandardTypes.BIGINT)
     public static long round(
-            @ScalarPropagateSourceStats(propagateAllStats = true) @SqlType(StandardTypes.BIGINT) long num, @SqlType(StandardTypes.INTEGER) long decimals)
+            @ScalarPropagateSourceStats(propagateAllStats = true) @SqlType(StandardTypes.BIGINT) long num,
+            @SqlType(StandardTypes.INTEGER) long decimals)
     {
         // TODO implement support for `decimals < 0`
         return num;
@@ -1169,7 +1170,7 @@ public final class MathFunctions
         @Constraint(variable = "rs", expression = "0")
         public static long roundShort(
                 @LiteralParameter("s") long numScale,
-                @ScalarPropagateSourceStats(propagateAllStats = true) @SqlType("decimal(p, s)") long num)
+                @SqlType("decimal(p, s)") long num)
         {
             if (num == 0) {
                 return 0;
@@ -1194,7 +1195,7 @@ public final class MathFunctions
         @Constraint(variable = "rs", expression = "0")
         public static Slice roundLongLong(
                 @LiteralParameter("s") long numScale,
-                @ScalarPropagateSourceStats(propagateAllStats = true) @SqlType("decimal(p, s)") Slice num)
+                @SqlType("decimal(p, s)") Slice num)
         {
             if (numScale == 0) {
                 return num;
@@ -1208,7 +1209,7 @@ public final class MathFunctions
         @Constraint(variable = "rs", expression = "0")
         public static long roundLongShort(
                 @LiteralParameter("s") long numScale,
-                @ScalarPropagateSourceStats(propagateAllStats = true) @SqlType("decimal(p, s)") Slice num)
+                @SqlType("decimal(p, s)") Slice num)
         {
             return unscaledDecimalToUnscaledLong(rescale(num, -(int) numScale));
         }
@@ -1224,7 +1225,7 @@ public final class MathFunctions
         public static long roundNShort(
                 @LiteralParameter("p") long numPrecision,
                 @LiteralParameter("s") long numScale,
-                @ScalarPropagateSourceStats(propagateAllStats = true) @SqlType("decimal(p, s)") long num,
+                @SqlType("decimal(p, s)") long num,
                 @SqlType(StandardTypes.INTEGER) long decimals)
         {
             if (num == 0 || numPrecision - numScale + decimals <= 0) {

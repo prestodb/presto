@@ -26,6 +26,8 @@ import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.type.SfmSketchType;
 import io.airlift.slice.Slice;
 
+import static com.facebook.presto.spi.function.PropagateSourceStats.SOURCE_STATS;
+
 public final class SfmSketchFunctions
 {
     private SfmSketchFunctions() {}
@@ -33,8 +35,8 @@ public final class SfmSketchFunctions
     @ScalarFunction
     @Description("estimated cardinality of an SfmSketch object")
     @SqlType(StandardTypes.BIGINT)
-    @ScalarFunctionConstantStats(avgRowSize = 8.0, nullFraction = 0.0, minValue = 0)
-    public static long cardinality(@ScalarPropagateSourceStats(propagateAllStats = true) @SqlType(SfmSketchType.NAME) Slice serializedSketch)
+    @ScalarFunctionConstantStats(avgRowSize = 8.0, minValue = 0)
+    public static long cardinality(@ScalarPropagateSourceStats(nullFraction = SOURCE_STATS) @SqlType(SfmSketchType.NAME) Slice serializedSketch)
     {
         return SfmSketch.deserialize(serializedSketch).cardinality();
     }

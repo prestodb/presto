@@ -370,9 +370,12 @@ public class ScalarStatsCalculator
             double avgRowSize = sourceStatsSum.getAverageRowSize();
             double distinctValuesCount = sourceStatsSum.getDistinctValuesCount();
             // TODO: handle histograms.
-            for (Map.Entry<Integer, ScalarPropagateSourceStats> entry : statsHeader.getStatsResolver().entrySet()) {
-                ScalarPropagateSourceStats scalarPropagateSourceStats = entry.getValue();
-                VariableStatsEstimate sourceStats = call.getArguments().get(entry.getKey()).accept(this, context);
+            for (Map.Entry<Integer, ScalarPropagateSourceStats> paramIndexVsStatsMap : statsHeader.getStatsResolver().entrySet()) {
+                ScalarPropagateSourceStats scalarPropagateSourceStats = paramIndexVsStatsMap.getValue();
+                if (paramIndexVsStatsMap.getKey() >= call.getArguments().size()) {
+                    throw new RuntimeException("Parameter map key " + paramIndexVsStatsMap.getKey() + " >= " + call.getArguments().size() + " No. of arguments for " + call);
+                }
+                VariableStatsEstimate sourceStats = call.getArguments().get(paramIndexVsStatsMap.getKey()).accept(this, context);
                 if (scalarPropagateSourceStats.propagateAllStats() && !sourceStats.isUnknown()) {
                     distinctValuesCount = sourceStats.getDistinctValuesCount();
                     min = sourceStats.getLowValue();

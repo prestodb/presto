@@ -34,7 +34,10 @@ public final class HmacFunctions
     @Description("Compute HMAC with MD5")
     @ScalarFunction
     @SqlType(StandardTypes.VARBINARY)
-    public static Slice hmacMd5(@SqlType(StandardTypes.VARBINARY) Slice slice, @SqlType(StandardTypes.VARBINARY) Slice key)
+    @ScalarFunctionConstantStats(avgRowSize = 32)
+    public static Slice hmacMd5(
+            @ScalarPropagateSourceStats(distinctValueCount = SOURCE_STATS, nullFraction = SOURCE_STATS) @SqlType(StandardTypes.VARBINARY) Slice slice,
+            @SqlType(StandardTypes.VARBINARY) Slice key)
     {
         return computeHash(Hashing.hmacMd5(key.getBytes()), slice);
     }
@@ -42,8 +45,9 @@ public final class HmacFunctions
     @Description("Compute HMAC with SHA1")
     @ScalarFunction
     @SqlType(StandardTypes.VARBINARY)
-    @ScalarFunctionConstantStats(avgRowSize = 32)
-    public static Slice hmacSha1(@ScalarPropagateSourceStats(distinctValueCount = SOURCE_STATS) @SqlType(StandardTypes.VARBINARY) Slice slice,
+    @ScalarFunctionConstantStats(avgRowSize = 20)
+    public static Slice hmacSha1(
+            @ScalarPropagateSourceStats(distinctValueCount = SOURCE_STATS, nullFraction = SOURCE_STATS) @SqlType(StandardTypes.VARBINARY) Slice slice,
             @SqlType(StandardTypes.VARBINARY) Slice key)
     {
         return computeHash(Hashing.hmacSha1(key.getBytes()), slice);
@@ -52,7 +56,10 @@ public final class HmacFunctions
     @Description("Compute HMAC with SHA256")
     @ScalarFunction
     @SqlType(StandardTypes.VARBINARY)
-    public static Slice hmacSha256(@SqlType(StandardTypes.VARBINARY) Slice slice, @SqlType(StandardTypes.VARBINARY) Slice key)
+    @ScalarFunctionConstantStats(avgRowSize = 32)
+    public static Slice hmacSha256(
+            @ScalarPropagateSourceStats(distinctValueCount = SOURCE_STATS, nullFraction = SOURCE_STATS) @SqlType(StandardTypes.VARBINARY) Slice slice,
+            @SqlType(StandardTypes.VARBINARY) Slice key)
     {
         return computeHash(Hashing.hmacSha256(key.getBytes()), slice);
     }

@@ -49,9 +49,9 @@ public class TestStatsPropagation
     @Test
     public void testStatsPropagationWithConcatFunction()
     {
-        assertPlanHasVariableStats("SELECT 1 FROM orders o, lineitem as l WHERE o.orderkey = l.orderkey and concat(l.shipmode, l.shipinstruct) = 'MAILNONE'" ,
+        assertPlanHasVariableStats("SELECT 1 FROM orders o, lineitem as l WHERE o.orderkey = l.orderkey and concat(l.shipmode, l.shipinstruct) = 'MAILNONE'",
                 getQueryRunner().getDefaultSession());
-        assertPlanHasVariableStats("SELECT 1 FROM orders o, lineitem as l WHERE o.orderkey = l.orderkey and concat(l.comment, 'us') = 'testus'" ,
+        assertPlanHasVariableStats("SELECT 1 FROM orders o, lineitem as l WHERE o.orderkey = l.orderkey and concat(l.comment, 'us') = 'testus'",
                 getQueryRunner().getDefaultSession());
     }
 }

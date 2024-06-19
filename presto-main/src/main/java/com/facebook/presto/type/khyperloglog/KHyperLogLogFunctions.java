@@ -30,6 +30,7 @@ import java.util.Map;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.function.PropagateSourceStats.SOURCE_STATS;
 
 public final class KHyperLogLogFunctions
 {
@@ -40,7 +41,7 @@ public final class KHyperLogLogFunctions
     @ScalarFunction
     @SqlType(StandardTypes.BIGINT)
     @ScalarFunctionConstantStats(avgRowSize = 8.0, minValue = 0)
-    public static long cardinality(@ScalarPropagateSourceStats(propagateAllStats = true) @SqlType(KHyperLogLogType.NAME) Slice khll)
+    public static long cardinality(@ScalarPropagateSourceStats(nullFraction = SOURCE_STATS) @SqlType(KHyperLogLogType.NAME) Slice khll)
     {
         return KHyperLogLog.newInstance(khll).cardinality();
     }

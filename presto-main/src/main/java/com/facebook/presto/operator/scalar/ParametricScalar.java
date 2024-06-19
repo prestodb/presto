@@ -71,12 +71,12 @@ public class ParametricScalar
     {
         return details.isCalledOnNullInput();
     }
-//
-//    @Override
-//    public String toString()
-//    {
-//        return String.format("ParametricScalar: Signature:%s ScalarHeader:%s implementations:%s", getSignature(), details, implementations);
-//    }
+
+    @Override
+    public String toString()
+    {
+        return String.format("ParametricScalar: Signature:%s implementations:%s %s", getSignature(), implementations, details);
+    }
 
     @Override
     public String getDescription()

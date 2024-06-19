@@ -87,6 +87,7 @@ public abstract class AbstractCostBasedPlanTest
                 .setSystemProperty(ENABLE_SCALAR_FUNCTION_STATS_PROPAGATION, "true")
                 .build();
         Session baselineSession = Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty(ENABLE_SCALAR_FUNCTION_STATS_PROPAGATION, "false")
                 .build();
         String regularPlan = generateQueryPlan(sql, baselineSession);
         String scalarStatsPropagatePlan = generateQueryPlan(sql, scalarStatsPropagateSession);
@@ -152,6 +153,8 @@ public abstract class AbstractCostBasedPlanTest
                                     .setSystemProperty(OPTIMIZER_USE_HISTOGRAMS, "true")
                                     .build();
                             Session baselineSession = Session.builder(getQueryRunner().getDefaultSession())
+                                    .setSystemProperty(OPTIMIZER_USE_HISTOGRAMS, "false")
+                                    .setSystemProperty(ENABLE_SCALAR_FUNCTION_STATS_PROPAGATION, "false")
                                     .build();
                             Session scalarStatsPropagateSession = Session.builder(getQueryRunner().getDefaultSession())
                                     .setSystemProperty(ENABLE_SCALAR_FUNCTION_STATS_PROPAGATION, "true")

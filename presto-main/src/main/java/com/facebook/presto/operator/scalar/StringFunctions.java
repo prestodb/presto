@@ -413,7 +413,10 @@ public final class StringFunctions
     @ScalarFunction("substr")
     @LiteralParameters("x")
     @SqlType("char(x)")
-    public static Slice charSubstr(@ScalarPropagateSourceStats(propagateAllStats = true) @SqlType("char(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start, @SqlType(StandardTypes.BIGINT) long length)
+    public static Slice charSubstr(
+            @ScalarPropagateSourceStats(propagateAllStats = true) @SqlType("char(x)") Slice utf8,
+            @SqlType(StandardTypes.BIGINT) long start,
+            @SqlType(StandardTypes.BIGINT) long length)
     {
         return trimTrailingSpaces(substr(utf8, start, length));
     }
