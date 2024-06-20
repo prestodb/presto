@@ -73,6 +73,9 @@ dwio::common::FileFormat toVeloxFileFormat(
   if (format.inputFormat == "com.facebook.hive.orc.OrcInputFormat") {
     return dwio::common::FileFormat::DWRF;
   } else if (
+      format.inputFormat == "org.apache.hadoop.hive.ql.io.orc.OrcInputFormat") {
+    return dwio::common::FileFormat::ORC;
+  } else if (
       format.inputFormat ==
       "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat") {
     return dwio::common::FileFormat::PARQUET;

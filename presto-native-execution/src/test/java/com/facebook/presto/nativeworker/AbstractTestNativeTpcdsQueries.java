@@ -21,18 +21,25 @@ import org.testng.annotations.Ignore;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_EXECUTION_TIME;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_RUN_TIME;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.testng.Assert.assertEquals;
 
 public abstract class AbstractTestNativeTpcdsQueries
         extends AbstractTestQueryFramework
 {
     String storageFormat = "DWRF";
     Session session;
-    String[] tpcdsFactTableNames = {"catalog_returns", "catalog_sales", "web_sales", "web_returns",
-            "inventory", "store_sales", "store_returns"};
+    String[] tpcdsTableNames = {"call_center", "catalog_page", "catalog_returns", "catalog_sales",
+            "customer", "customer_address", "customer_demographics", "date_dim", "household_demographics",
+            "income_band", "inventory", "item", "promotion", "reason", "ship_mode", "store",
+            "store_returns", "store_sales", "time_dim", "warehouse", "web_page", "web_returns",
+            "web_sales", "web_site"};
+    Map<String, Long> deletedRowsMap = new HashMap<>();
 
     @Override
     protected void createTables()
@@ -72,7 +79,7 @@ public abstract class AbstractTestNativeTpcdsQueries
 
     private void dropTables()
     {
-        for (String table : tpcdsFactTableNames) {
+        for (String table : tpcdsTableNames) {
             assertUpdate(session, "DROP TABLE IF EXISTS " + table);
         }
     }
@@ -82,6 +89,7 @@ public abstract class AbstractTestNativeTpcdsQueries
         if (!queryRunner.tableExists(session, "call_center")) {
             switch (storageFormat) {
                 case "PARQUET":
+                case "ORC":
                     queryRunner.execute(session, "CREATE TABLE call_center AS " +
                             "SELECT cc_call_center_sk, cast(cc_call_center_id as varchar) as cc_call_center_id, cc_rec_start_date, cc_rec_end_date, " +
                             "   cc_closed_date_sk, cc_open_date_sk, cc_name, cc_class, cc_employees, cc_sq_ft, cast(cc_hours as varchar) as cc_hours, " +
@@ -173,6 +181,7 @@ public abstract class AbstractTestNativeTpcdsQueries
         if (!queryRunner.tableExists(session, "date_dim")) {
             switch (storageFormat) {
                 case "PARQUET":
+                case "ORC":
                     queryRunner.execute(session, "CREATE TABLE date_dim AS " +
                             "SELECT d_date_sk, cast(d_date_id as varchar) as d_date_id, d_date, " +
                             "   d_month_seq, d_week_seq, d_quarter_seq, d_year, d_dow, d_moy, d_dom, d_qoy, d_fy_year, " +
@@ -230,6 +239,7 @@ public abstract class AbstractTestNativeTpcdsQueries
         if (!queryRunner.tableExists(session, "item")) {
             switch (storageFormat) {
                 case "PARQUET":
+                case "ORC":
                     queryRunner.execute(session, "CREATE TABLE item AS " +
                             "SELECT i_item_sk, cast(i_item_id as varchar) as i_item_id, i_rec_start_date, i_rec_end_date, " +
                             "   i_item_desc, i_current_price, i_wholesale_cost, i_brand_id, cast(i_brand as varchar) as i_brand, " +
@@ -293,6 +303,7 @@ public abstract class AbstractTestNativeTpcdsQueries
         if (!queryRunner.tableExists(session, "store")) {
             switch (storageFormat) {
                 case "PARQUET":
+                case "ORC":
                     queryRunner.execute(session, "CREATE TABLE store AS " +
                             "SELECT s_store_sk, cast(s_store_id as varchar) as s_store_id, s_rec_start_date, s_rec_end_date, " +
                             "   s_closed_date_sk, s_store_name, s_number_employees, s_floor_space, cast(s_hours as varchar) as s_hours, " +
@@ -362,6 +373,7 @@ public abstract class AbstractTestNativeTpcdsQueries
         if (!queryRunner.tableExists(session, "web_page")) {
             switch (storageFormat) {
                 case "PARQUET":
+                case "ORC":
                     queryRunner.execute(session, "CREATE TABLE web_page AS " +
                             "SELECT wp_web_page_sk, cast(wp_web_page_id as varchar) as wp_web_page_id, wp_rec_start_date, wp_rec_end_date, " +
                             "   wp_creation_date_sk, wp_access_date_sk, cast(wp_autogen_flag as varchar) as wp_autogen_flag, wp_customer_sk, " +
@@ -401,6 +413,7 @@ public abstract class AbstractTestNativeTpcdsQueries
         if (!queryRunner.tableExists(session, "web_site")) {
             switch (storageFormat) {
                 case "PARQUET":
+                case "ORC":
                     queryRunner.execute(session, "CREATE TABLE web_site AS " +
                             "SELECT web_site_sk, cast(web_site_id as varchar) as web_site_id, web_rec_start_date, web_rec_end_date, web_name, " +
                             "   web_open_date_sk, web_close_date_sk, web_class, web_manager, web_mkt_id, web_mkt_class, web_mkt_desc, web_market_manager, " +
@@ -589,7 +602,11 @@ public abstract class AbstractTestNativeTpcdsQueries
     public void testTpcdsQ21()
             throws Exception
     {
-        assertQuery(session, getTpcdsQuery("21"));
+        // TODO After https://github.com/facebookincubator/velox/pull/11067 merged,
+        // we can enable this test for ORC.
+        if (!storageFormat.equals("ORC")) {
+            assertQuery(session, getTpcdsQuery("21"));
+        }
     }
 
     @Test
@@ -697,7 +714,11 @@ public abstract class AbstractTestNativeTpcdsQueries
     public void testTpcdsQ33()
             throws Exception
     {
-        assertQuery(session, getTpcdsQuery("33"));
+        // TODO After https://github.com/facebookincubator/velox/pull/11067 merged,
+        // we can enable this test for ORC.
+        if (!storageFormat.equals("ORC")) {
+            assertQuery(session, getTpcdsQuery("33"));
+        }
     }
 
     @Test
@@ -725,7 +746,11 @@ public abstract class AbstractTestNativeTpcdsQueries
     public void testTpcdsQ37()
             throws Exception
     {
-        assertQuery(session, getTpcdsQuery("37"));
+        // TODO After https://github.com/facebookincubator/velox/pull/11067 merged,
+        // we can enable this test for ORC.
+        if (!storageFormat.equals("ORC")) {
+            assertQuery(session, getTpcdsQuery("37"));
+        }
     }
 
     @Test
@@ -753,7 +778,11 @@ public abstract class AbstractTestNativeTpcdsQueries
     public void testTpcdsQ40()
             throws Exception
     {
-        assertQuery(session, getTpcdsQuery("40"));
+        // TODO After https://github.com/facebookincubator/velox/pull/11067 merged,
+        // we can enable this test for ORC.
+        if (!storageFormat.equals("ORC")) {
+            assertQuery(session, getTpcdsQuery("40"));
+        }
     }
 
     @Test
@@ -774,7 +803,11 @@ public abstract class AbstractTestNativeTpcdsQueries
     public void testTpcdsQ43()
             throws Exception
     {
-        assertQuery(session, getTpcdsQuery("43"));
+        // TODO After https://github.com/facebookincubator/velox/pull/11067 merged,
+        // we can enable this test for ORC.
+        if (!storageFormat.equals("ORC")) {
+            assertQuery(session, getTpcdsQuery("43"));
+        }
     }
 
     @Test
@@ -816,7 +849,11 @@ public abstract class AbstractTestNativeTpcdsQueries
     public void testTpcdsQ49()
             throws Exception
     {
-        assertQuery(session, getTpcdsQuery("49"));
+        // TODO After https://github.com/facebookincubator/velox/pull/11067 merged,
+        // we can enable this test for ORC.
+        if (!storageFormat.equals("ORC")) {
+            assertQuery(session, getTpcdsQuery("49"));
+        }
     }
 
     @Test
@@ -865,7 +902,11 @@ public abstract class AbstractTestNativeTpcdsQueries
     public void testTpcdsQ56()
             throws Exception
     {
-        assertQuery(session, getTpcdsQuery("56"));
+        // TODO After https://github.com/facebookincubator/velox/pull/11067 merged,
+        // we can enable this test for ORC.
+        if (!storageFormat.equals("ORC")) {
+            assertQuery(session, getTpcdsQuery("56"));
+        }
     }
 
     @Test
@@ -893,14 +934,22 @@ public abstract class AbstractTestNativeTpcdsQueries
     public void testTpcdsQ60()
             throws Exception
     {
-        assertQuery(session, getTpcdsQuery("60"));
+        // TODO After https://github.com/facebookincubator/velox/pull/11067 merged,
+        // we can enable this test for ORC.
+        if (!storageFormat.equals("ORC")) {
+            assertQuery(session, getTpcdsQuery("60"));
+        }
     }
 
     @Test
     public void testTpcdsQ61()
             throws Exception
     {
-        assertQuery(session, getTpcdsQuery("61"));
+        // TODO After https://github.com/facebookincubator/velox/pull/11067 merged,
+        // we can enable this test for ORC.
+        if (!storageFormat.equals("ORC")) {
+            assertQuery(session, getTpcdsQuery("61"));
+        }
     }
 
     @Test
@@ -1035,7 +1084,11 @@ public abstract class AbstractTestNativeTpcdsQueries
     public void testTpcdsQ80()
             throws Exception
     {
-        assertQuery(session, getTpcdsQuery("80"));
+        // TODO After https://github.com/facebookincubator/velox/pull/11067 merged,
+        // we can enable this test for ORC.
+        if (!storageFormat.equals("ORC")) {
+            assertQuery(session, getTpcdsQuery("80"));
+        }
     }
 
     @Test
@@ -1049,7 +1102,11 @@ public abstract class AbstractTestNativeTpcdsQueries
     public void testTpcdsQ82()
             throws Exception
     {
-        assertQuery(session, getTpcdsQuery("82"));
+        // TODO After https://github.com/facebookincubator/velox/pull/11067 merged,
+        // we can enable this test for ORC.
+        if (!storageFormat.equals("ORC")) {
+            assertQuery(session, getTpcdsQuery("82"));
+        }
     }
 
     @Test
@@ -1112,7 +1169,11 @@ public abstract class AbstractTestNativeTpcdsQueries
     public void testTpcdsQ91()
             throws Exception
     {
-        assertQuery(session, getTpcdsQuery("91"));
+        // TODO After https://github.com/facebookincubator/velox/pull/11067 merged,
+        // we can enable this test for ORC.
+        if (!storageFormat.equals("ORC")) {
+            assertQuery(session, getTpcdsQuery("91"));
+        }
     }
 
     @Test
@@ -1169,5 +1230,354 @@ public abstract class AbstractTestNativeTpcdsQueries
             throws Exception
     {
         assertQuery(session, getTpcdsQuery("99"));
+    }
+
+    protected void doDeletes()
+    {
+        DF_CS();
+        DF_SS();
+        DF_WS();
+        DF_I();
+    }
+
+    private void DF_CS()
+    {
+        assertUpdateExpected(session, "DELETE FROM catalog_returns " +
+                        "WHERE  cr_order_number IN (SELECT cs_order_number " +
+                        "                           FROM   catalog_sales, " +
+                        "                                  date_dim " +
+                        "                           WHERE  cs_sold_date_sk = d_date_sk " +
+                        "                                  AND d_date BETWEEN date'2000-05-20' AND " +
+                        "                                                     date'2000-05-21') ",
+                7L);
+
+        assertUpdateExpected(session, "DELETE FROM catalog_sales " +
+                        "WHERE  cs_sold_date_sk >= (SELECT Min(d_date_sk) " +
+                        "                           FROM   date_dim " +
+                        "                           WHERE  d_date BETWEEN date'2000-05-20' AND date'2000-05-21') " +
+                        "       AND cs_sold_date_sk <= (SELECT Max(d_date_sk) " +
+                        "                               FROM   date_dim " +
+                        "                               WHERE  d_date BETWEEN date'2000-05-20' AND " +
+                        "                                                     date'2000-05-21') ",
+                54L);
+
+        assertUpdateExpected(session, "DELETE FROM catalog_returns " +
+                        "WHERE  cr_order_number IN (SELECT cs_order_number " +
+                        "                           FROM   catalog_sales, " +
+                        "                                  date_dim " +
+                        "                           WHERE  cs_sold_date_sk = d_date_sk " +
+                        "                                  AND d_date BETWEEN date'1999-09-18' AND " +
+                        "                                                     date'1999-09-19') ",
+                12L);
+
+        assertUpdateExpected(session, "DELETE FROM catalog_sales " +
+                        "WHERE  cs_sold_date_sk >= (SELECT Min(d_date_sk) " +
+                        "                           FROM   date_dim " +
+                        "                           WHERE  d_date BETWEEN date'1999-09-18' AND date'1999-09-19') " +
+                        "       AND cs_sold_date_sk <= (SELECT Max(d_date_sk) " +
+                        "                               FROM   date_dim " +
+                        "                               WHERE  d_date BETWEEN date'1999-09-18' AND " +
+                        "                                                     date'1999-09-19') ",
+                123L);
+
+        assertUpdateExpected(session, "DELETE FROM catalog_returns " +
+                        "WHERE  cr_order_number IN (SELECT cs_order_number " +
+                        "                           FROM   catalog_sales, " +
+                        "                                  date_dim " +
+                        "                           WHERE  cs_sold_date_sk = d_date_sk " +
+                        "                                  AND d_date BETWEEN date'2002-11-12' AND " +
+                        "                                                     date'2002-11-13') ",
+                15L);
+
+        assertUpdateExpected(session, "DELETE FROM catalog_sales " +
+                        "WHERE  cs_sold_date_sk >= (SELECT Min(d_date_sk) " +
+                        "                           FROM   date_dim " +
+                        "                           WHERE  d_date BETWEEN date'2002-11-12' AND date'2002-11-13') " +
+                        "       AND cs_sold_date_sk <= (SELECT Max(d_date_sk) " +
+                        "                               FROM   date_dim " +
+                        "                               WHERE  d_date BETWEEN date'2002-11-12' AND" +
+                        "                                                     date'2002-11-13') ",
+                197L);
+        deletedRowsMap.put("catalog_sales", 374L);
+        deletedRowsMap.put("catalog_returns", 34L);
+    }
+
+    private void DF_SS()
+    {
+        assertUpdateExpected(session, "DELETE FROM store_returns " +
+                        "WHERE  sr_ticket_number IN (SELECT ss_ticket_number " +
+                        "                            FROM   store_sales, " +
+                        "                                   date_dim " +
+                        "                            WHERE  ss_sold_date_sk = d_date_sk " +
+                        "                                   AND d_date BETWEEN date'2000-05-20' AND " +
+                        "                                                      date'2000-05-21') ",
+                4L);
+
+        assertUpdateExpected(session, "DELETE FROM store_sales " +
+                        "WHERE  ss_sold_date_sk >= (SELECT Min(d_date_sk) " +
+                        "                           FROM   date_dim " +
+                        "                           WHERE  d_date BETWEEN date'2000-05-20' AND date'2000-05-21') " +
+                        "       AND ss_sold_date_sk <= (SELECT Max(d_date_sk) " +
+                        "                               FROM   date_dim " +
+                        "                               WHERE  d_date BETWEEN date'2000-05-20' AND " +
+                        "                                                     date'2000-05-21') ",
+                64L);
+
+        assertUpdateExpected(session, "DELETE FROM store_returns " +
+                        "WHERE  sr_ticket_number IN (SELECT ss_ticket_number " +
+                        "                            FROM   store_sales, " +
+                        "                                   date_dim " +
+                        "                            WHERE  ss_sold_date_sk = d_date_sk " +
+                        "                                   AND d_date BETWEEN date'1999-09-18' AND " +
+                        "                                                      date'1999-09-19') ",
+                13L);
+
+        assertUpdateExpected(session, "DELETE FROM store_sales " +
+                        "WHERE  ss_sold_date_sk >= (SELECT Min(d_date_sk) " +
+                        "                           FROM   date_dim " +
+                        "                           WHERE  d_date BETWEEN date'1999-09-18' AND date'1999-09-19') " +
+                        "       AND ss_sold_date_sk <= (SELECT Max(d_date_sk) " +
+                        "                               FROM   date_dim " +
+                        "                               WHERE  d_date BETWEEN date'1999-09-18' AND " +
+                        "                                                     date'1999-09-19') ",
+                111L);
+
+        assertUpdateExpected(session, "DELETE FROM store_returns " +
+                        "WHERE  sr_ticket_number IN (SELECT ss_ticket_number " +
+                        "                            FROM   store_sales, " +
+                        "                                   date_dim " +
+                        "                            WHERE  ss_sold_date_sk = d_date_sk " +
+                        "                                   AND d_date BETWEEN date'2002-11-12' AND " +
+                        "                                                      date'2002-11-13') ",
+                20L);
+
+        assertUpdateExpected(session, "DELETE FROM store_sales " +
+                        "WHERE  ss_sold_date_sk >= (SELECT Min(d_date_sk) " +
+                        "                           FROM   date_dim " +
+                        "                           WHERE  d_date BETWEEN date'2002-11-12' AND date'2002-11-13') " +
+                        "       AND ss_sold_date_sk <= (SELECT Max(d_date_sk) " +
+                        "                               FROM   date_dim " +
+                        "                               WHERE  d_date BETWEEN date'2002-11-12' AND " +
+                        "                                                     date'2002-11-13') ",
+                185L);
+        deletedRowsMap.put("store_sales", 360L);
+        deletedRowsMap.put("store_returns", 37L);
+    }
+
+    private void DF_WS()
+    {
+        assertUpdateExpected(session, "DELETE FROM web_returns " +
+                        "WHERE  wr_order_number IN (SELECT ws_order_number " +
+                        "                           FROM   web_sales, " +
+                        "                                  date_dim " +
+                        "                           WHERE  ws_sold_date_sk = d_date_sk " +
+                        "                                  AND d_date BETWEEN date'2000-05-20' AND " +
+                        "                                                     date'2000-05-21') ",
+                0L);
+
+        assertUpdateExpected(session, "DELETE FROM web_sales " +
+                        "WHERE  ws_sold_date_sk >= (SELECT Min(d_date_sk) " +
+                        "                           FROM   date_dim " +
+                        "                           WHERE  d_date BETWEEN date'2000-05-20' AND date'2000-05-21') " +
+                        "       AND ws_sold_date_sk <= (SELECT Max(d_date_sk) " +
+                        "                               FROM   date_dim " +
+                        "                               WHERE  d_date BETWEEN date'2000-05-20' AND " +
+                        "                                                     date'2000-05-21') ",
+                0L);
+
+        assertUpdateExpected(session, "DELETE FROM web_returns " +
+                        "WHERE  wr_order_number IN (SELECT ws_order_number " +
+                        "                           FROM   web_sales, " +
+                        "                                  date_dim " +
+                        "                           WHERE  ws_sold_date_sk = d_date_sk " +
+                        "                                  AND d_date BETWEEN date'1999-09-18' AND " +
+                        "                                                     date'1999-09-19') ",
+                0L);
+
+        assertUpdateExpected(session, "DELETE FROM web_sales " +
+                        "WHERE  ws_sold_date_sk >= (SELECT Min(d_date_sk) " +
+                        "                           FROM   date_dim " +
+                        "                           WHERE  d_date BETWEEN date'1999-09-18' AND date'1999-09-19') " +
+                        "       AND ws_sold_date_sk <= (SELECT Max(d_date_sk) " +
+                        "                               FROM   date_dim " +
+                        "                               WHERE  d_date BETWEEN date'1999-09-18' AND " +
+                        "                                                     date'1999-09-19') ",
+                22L);
+
+        assertUpdateExpected(session, "DELETE FROM web_returns " +
+                        "WHERE  wr_order_number IN (SELECT ws_order_number " +
+                        "                           FROM   web_sales, " +
+                        "                                  date_dim " +
+                        "                           WHERE  ws_sold_date_sk = d_date_sk " +
+                        "                                  AND d_date BETWEEN date'2002-11-12' AND " +
+                        "                                                     date'2002-11-13') ",
+                4L);
+
+        assertUpdateExpected(session, "DELETE FROM web_sales " +
+                        "WHERE  ws_sold_date_sk >= (SELECT Min(d_date_sk) " +
+                        "                           FROM   date_dim " +
+                        "                           WHERE  d_date BETWEEN date'2002-11-12' AND date'2002-11-13') " +
+                        "       AND ws_sold_date_sk <= (SELECT Max(d_date_sk) " +
+                        "                               FROM   date_dim " +
+                        "                               WHERE  d_date BETWEEN date'2002-11-12' AND " +
+                        "                                                     date'2002-11-13') ",
+                42L);
+        deletedRowsMap.put("web_sales", 64L);
+        deletedRowsMap.put("web_returns", 4L);
+    }
+
+    private void DF_I()
+    {
+        assertUpdateExpected(session, "DELETE FROM inventory " +
+                "WHERE  inv_date_sk >= (SELECT Min(d_date_sk) " +
+                "FROM   date_dim " +
+                "WHERE  d_date BETWEEN date'2000-05-18' AND date'2000-05-25') " +
+                "AND inv_date_sk <= (SELECT Max(d_date_sk) " +
+                "FROM   date_dim " +
+                "WHERE  d_date BETWEEN date'2000-05-18' AND date'2000-05-25') ", 2002L);
+
+        assertUpdateExpected(session, "DELETE FROM inventory " +
+                "WHERE  inv_date_sk >= (SELECT Min(d_date_sk) " +
+                "                       FROM   date_dim " +
+                "                       WHERE  d_date BETWEEN date'1999-09-16' AND date'1999-09-23') " +
+                "       AND inv_date_sk <= (SELECT Max(d_date_sk) " +
+                "                           FROM   date_dim " +
+                "                           WHERE  d_date BETWEEN date'1999-09-16' AND date'1999-09-23') ", 2002L);
+
+        assertUpdateExpected(session, "DELETE FROM inventory " +
+                "WHERE  inv_date_sk >= (SELECT Min(d_date_sk) " +
+                "                       FROM   date_dim " +
+                "                       WHERE  d_date BETWEEN date'2002-11-14' AND date'2002-11-21') " +
+                "       AND inv_date_sk <= (SELECT Max(d_date_sk) " +
+                "                           FROM   date_dim " +
+                "                           WHERE  d_date BETWEEN date'2002-11-14' AND date'2002-11-21') ", 2002L);
+        deletedRowsMap.put("inventory", 6006L);
+    }
+
+    private String getCountQuery(String tableName)
+    {
+        return "SELECT COUNT(*) FROM " + tableName;
+    }
+
+    protected void verifyDeletes()
+    {
+        Session tpcdsConnSession = Session.builder(session)
+                .setCatalog("tpcds")
+                .setSchema("tiny")
+                .build();
+        for (Map.Entry<String, Long> entry : deletedRowsMap.entrySet()) {
+            String tableName = entry.getKey();
+            Long numDeletedRows = entry.getValue();
+            String countQuery = getCountQuery(tableName);
+            Long originalRowcount = (long) computeScalarExpected(tpcdsConnSession, countQuery);
+            Long postDeleteRowcount = (long) computeScalar(session, countQuery);
+            assertEquals(originalRowcount - postDeleteRowcount, numDeletedRows);
+        }
+    }
+
+    protected void runAllQueries() throws Exception
+    {
+        testTpcdsQ1();
+        testTpcdsQ2();
+        testTpcdsQ3();
+        testTpcdsQ4();
+        testTpcdsQ5();
+        testTpcdsQ6();
+        testTpcdsQ7();
+        testTpcdsQ8();
+        testTpcdsQ9();
+        testTpcdsQ10();
+        testTpcdsQ11();
+        testTpcdsQ12();
+        testTpcdsQ13();
+        testTpcdsQ14_1();
+        testTpcdsQ14_2();
+        testTpcdsQ15();
+        testTpcdsQ16();
+        testTpcdsQ17();
+        testTpcdsQ18();
+        testTpcdsQ19();
+        testTpcdsQ20();
+        testTpcdsQ21();
+        testTpcdsQ22();
+        testTpcdsQ23_1();
+        testTpcdsQ23_2();
+        testTpcdsQ24_1();
+        testTpcdsQ24_2();
+        testTpcdsQ25();
+        testTpcdsQ26();
+        testTpcdsQ27();
+        testTpcdsQ28();
+        testTpcdsQ29();
+        testTpcdsQ30();
+        testTpcdsQ31();
+        testTpcdsQ32();
+        testTpcdsQ33();
+        testTpcdsQ34();
+        testTpcdsQ35();
+        testTpcdsQ36();
+        testTpcdsQ37();
+        testTpcdsQ38();
+        testTpcdsQ39_1();
+        testTpcdsQ39_2();
+        testTpcdsQ40();
+        testTpcdsQ41();
+        testTpcdsQ42();
+        testTpcdsQ43();
+        testTpcdsQ44();
+        testTpcdsQ45();
+        testTpcdsQ46();
+        testTpcdsQ47();
+        testTpcdsQ48();
+        testTpcdsQ49();
+        testTpcdsQ50();
+        testTpcdsQ51();
+        testTpcdsQ52();
+        testTpcdsQ53();
+        testTpcdsQ54();
+        testTpcdsQ55();
+        testTpcdsQ56();
+        testTpcdsQ57();
+        testTpcdsQ58();
+        testTpcdsQ59();
+        testTpcdsQ60();
+        testTpcdsQ61();
+        testTpcdsQ62();
+        testTpcdsQ63();
+        testTpcdsQ65();
+        testTpcdsQ66();
+        testTpcdsQ67();
+        testTpcdsQ68();
+        testTpcdsQ69();
+        testTpcdsQ70();
+        testTpcdsQ71();
+        testTpcdsQ72();
+        testTpcdsQ73();
+        testTpcdsQ74();
+        testTpcdsQ75();
+        testTpcdsQ76();
+        testTpcdsQ77();
+        testTpcdsQ78();
+        testTpcdsQ79();
+        testTpcdsQ80();
+        testTpcdsQ81();
+        testTpcdsQ82();
+        testTpcdsQ83();
+        testTpcdsQ84();
+        testTpcdsQ85();
+        testTpcdsQ86();
+        testTpcdsQ87();
+        testTpcdsQ88();
+        testTpcdsQ89();
+        testTpcdsQ90();
+        testTpcdsQ91();
+        testTpcdsQ92();
+        testTpcdsQ93();
+        testTpcdsQ94();
+        testTpcdsQ95();
+        testTpcdsQ96();
+        testTpcdsQ97();
+        testTpcdsQ98();
+        testTpcdsQ99();
     }
 }
