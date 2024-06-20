@@ -767,8 +767,6 @@ BaseVeloxQueryConfig::BaseVeloxQueryConfig() {
               QueryConfig::kSpillableReservationGrowthPct,
               c.spillableReservationGrowthPct()),
           BOOL_PROP(
-              QueryConfig::kSparkLegacySizeOfNull, c.sparkLegacySizeOfNull()),
-          BOOL_PROP(
               QueryConfig::kPrestoArrayAggIgnoreNulls,
               c.prestoArrayAggIgnoreNulls()),
           NUM_PROP(QueryConfig::kMaxOutputBufferSize, c.maxOutputBufferSize()),
