@@ -40,7 +40,7 @@ class OnDemandUnitLoader : public UnitLoader {
   ~OnDemandUnitLoader() override = default;
 
   LoadUnit& getLoadedUnit(uint32_t unit) override {
-    VELOX_CHECK(unit < loadUnits_.size(), "Unit out of range");
+    VELOX_CHECK_LT(unit, loadUnits_.size(), "Unit out of range");
 
     if (loadedUnit_) {
       if (*loadedUnit_ == unit) {

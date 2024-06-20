@@ -190,13 +190,15 @@ RowVectorPtr TableScan::getOutput() {
         dataSource_->setFromDataSource(std::move(preparedDataSource));
       } else {
         curStatus_ = "getOutput: adding split";
-        const auto addSplitStartMicros = getCurrentTimeMicro();
-        dataSource_->addSplit(connectorSplit);
+        uint64_t addSplitTimeUs{0};
+        {
+          MicrosecondTimer timer(&addSplitTimeUs);
+          dataSource_->addSplit(connectorSplit);
+        }
         stats_.wlock()->addRuntimeStat(
             "dataSourceAddSplitWallNanos",
             RuntimeCounter(
-                (getCurrentTimeMicro() - addSplitStartMicros) * 1'000,
-                RuntimeCounter::Unit::kNanos));
+                addSplitTimeUs * 1'000, RuntimeCounter::Unit::kNanos));
       }
       curStatus_ = "getOutput: updating stats_.numSplits";
       ++stats_.wlock()->numSplits;
@@ -209,7 +211,6 @@ RowVectorPtr TableScan::getOutput() {
           : outputBatchRows(estimatedRowSize);
     }
 
-    const auto ioTimeStartMicros = getCurrentTimeMicro();
     // Check for  cancellation since scans that filter everything out will not
     // hit the check in Driver.
     curStatus_ = "getOutput: task->isCancelled";
@@ -223,25 +224,28 @@ RowVectorPtr TableScan::getOutput() {
          },
          &debugString_});
 
-    int readBatchSize = readBatchSize_;
+    int32_t readBatchSize = readBatchSize_;
     if (maxFilteringRatio_ > 0) {
       readBatchSize = std::min(
           maxReadBatchSize_,
-          static_cast<int>(readBatchSize / maxFilteringRatio_));
+          static_cast<int32_t>(readBatchSize / maxFilteringRatio_));
     }
     curStatus_ = "getOutput: dataSource_->next";
-    auto dataOptional = dataSource_->next(readBatchSize, blockingFuture_);
+    uint64_t ioTimeUs{0};
+    std::optional<RowVectorPtr> dataOptional;
+    {
+      MicrosecondTimer timer(&ioTimeUs);
+      dataOptional = dataSource_->next(readBatchSize, blockingFuture_);
+    }
+
     curStatus_ = "getOutput: checkPreload";
     checkPreload();
-
     {
       curStatus_ = "getOutput: updating stats_.dataSourceReadWallNanos";
       auto lockedStats = stats_.wlock();
       lockedStats->addRuntimeStat(
           "dataSourceReadWallNanos",
-          RuntimeCounter(
-              (getCurrentTimeMicro() - ioTimeStartMicros) * 1'000,
-              RuntimeCounter::Unit::kNanos));
+          RuntimeCounter(ioTimeUs * 1'000, RuntimeCounter::Unit::kNanos));
 
       if (!dataOptional.has_value()) {
         blockingReason_ = BlockingReason::kWaitForConnector;

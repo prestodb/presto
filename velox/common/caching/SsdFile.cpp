@@ -35,6 +35,9 @@
 #include <fstream>
 #include <numeric>
 
+#include "velox/common/base/Counters.h"
+#include "velox/common/base/StatsReporter.h"
+
 DEFINE_bool(ssd_odirect, true, "Use O_DIRECT for SSD cache IO");
 DEFINE_bool(ssd_verify_write, false, "Read back data after writing to SSD");
 
@@ -268,9 +271,7 @@ CoalesceIoStats SsdFile::load(
     pins[i].checkedEntry()->setSsdFile(this, ssdPins[i].run().offset());
     auto* entry = pins[i].checkedEntry();
     auto ssdRun = ssdPins[i].run();
-    if (ssdRun.size() == entry->size()) {
-      maybeVerifyChecksum(*entry, ssdRun);
-    }
+    maybeVerifyChecksum(*entry, ssdRun);
   }
   return stats;
 }
@@ -913,6 +914,16 @@ void SsdFile::maybeVerifyChecksum(
     const AsyncDataCacheEntry& entry,
     const SsdRun& ssdRun) {
   if (!checksumReadVerificationEnabled_) {
+    return;
+  }
+  VELOX_DCHECK_EQ(ssdRun.size(), entry.size());
+  if (ssdRun.size() != entry.size()) {
+    RECORD_METRIC_VALUE(kMetricSsdCacheReadWithoutChecksum);
+    ++stats_.readWithoutChecksumChecks;
+    VELOX_CACHE_LOG_EVERY_MS(WARNING, 1'000)
+        << "SSD read without checksum due to cache request size mismatch, SSD cache size "
+        << ssdRun.size() << " request size " << entry.size()
+        << ", cache request: " << entry.toString();
     return;
   }
 

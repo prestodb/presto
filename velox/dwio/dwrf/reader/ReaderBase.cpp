@@ -105,32 +105,24 @@ ReaderBase::ReaderBase(
       filePreloadThreshold_(filePreloadThreshold),
       input_(std::move(input)),
       randomSkip_(std::move(randomSkip)),
-      scanSpec_(std::move(scanSpec)) {
+      scanSpec_(std::move(scanSpec)),
+      fileLength_(input_->getReadFile()->size()) {
   process::TraceContext trace("ReaderBase::ReaderBase");
-  // read last bytes into buffer to get PostScript
-  // If file is small, load the entire file.
   // TODO: make a config
-  fileLength_ = input_->getReadFile()->size();
   DWIO_ENSURE(fileLength_ > 0, "ORC file is empty");
-
-  auto preloadFile = fileLength_ <= filePreloadThreshold_;
-  uint64_t readSize =
-      preloadFile ? fileLength_ : std::min(fileLength_, footerEstimatedSize_);
-  DWIO_ENSURE_GE(readSize, 4, "File size too small");
-
-  input_->enqueue({fileLength_ - readSize, readSize, "footer"});
-  input_->load(preloadFile ? LogType::FILE : LogType::FOOTER);
+  VELOX_CHECK_GE(fileLength_, 4, "File size too small");
 
   // TODO: read footer from spectrum
   {
     const void* buf;
     int32_t ignored;
     auto lastByteStream = input_->read(fileLength_ - 1, 1, LogType::FOOTER);
-    DWIO_ENSURE(lastByteStream->Next(&buf, &ignored), "failed to read");
+    const bool ret = lastByteStream->Next(&buf, &ignored);
+    VELOX_CHECK(ret, "Failed to read");
     // Make sure 'lastByteStream' is live while dereferencing 'buf'.
     psLength_ = *static_cast<const char*>(buf) & 0xff;
   }
-  DWIO_ENSURE_LE(
+  VELOX_CHECK_LE(
       psLength_ + 4, // 1 byte for post script len, 3 byte "ORC" header.
       fileLength_,
       "Corrupted file, Post script size is invalid");
@@ -145,31 +137,26 @@ ReaderBase::ReaderBase(
     postScript_ = std::make_unique<PostScript>(std::move(postScript));
   }
 
-  uint64_t footerSize = postScript_->footerLength();
-  uint64_t cacheSize =
+  const uint64_t footerSize = postScript_->footerLength();
+  const uint64_t cacheSize =
       postScript_->hasCacheSize() ? postScript_->cacheSize() : 0;
-  uint64_t tailSize = 1 + psLength_ + footerSize + cacheSize;
+  const uint64_t tailSize = 1 + psLength_ + footerSize + cacheSize;
 
   // There are cases in warehouse, where RC/text files are stored
   // in ORC partition. This causes the Reader to SIGSEGV. The following
   // checks catches most of the corrupted files (but not all).
-  DWIO_ENSURE_LT(
+  VELOX_CHECK_LT(
       footerSize, fileLength_, "Corrupted file, footer size is invalid");
-  DWIO_ENSURE_LT(
+  VELOX_CHECK_LT(
       cacheSize, fileLength_, "Corrupted file, cache size is invalid");
-  DWIO_ENSURE_LE(tailSize, fileLength_, "Corrupted file, tail size is invalid");
+  VELOX_CHECK_LE(tailSize, fileLength_, "Corrupted file, tail size is invalid");
 
-  DWIO_ENSURE(
+  VELOX_CHECK(
       (format() == DwrfFormat::kDwrf)
           ? proto::CompressionKind_IsValid(postScript_->compression())
           : proto::orc::CompressionKind_IsValid(postScript_->compression()),
       "Corrupted File, invalid compression kind ",
       postScript_->compression());
-
-  if (tailSize > readSize) {
-    input_->enqueue({fileLength_ - tailSize, tailSize, "footer"});
-    input_->load(LogType::FOOTER);
-  }
 
   auto footerStream = input_->read(
       fileLength_ - psLength_ - footerSize - 1, footerSize, LogType::FOOTER);
@@ -191,28 +178,29 @@ ReaderBase::ReaderBase(
 
   schema_ = std::dynamic_pointer_cast<const RowType>(
       convertType(*footer_, 0, fileColumnNamesReadAsLowerCase));
-  DWIO_ENSURE_NOT_NULL(schema_, "invalid schema");
+  VELOX_CHECK_NOT_NULL(schema_, "invalid schema");
 
   // load stripe index/footer cache
   if (cacheSize > 0) {
-    DWIO_ENSURE_EQ(format(), DwrfFormat::kDwrf);
+    VELOX_CHECK_EQ(format(), DwrfFormat::kDwrf);
+    const uint64_t cacheOffset = fileLength_ - tailSize;
     if (input_->shouldPrefetchStripes()) {
       cache_ = std::make_unique<StripeMetadataCache>(
           postScript_->cacheMode(),
           *footer_,
-          input_->read(fileLength_ - tailSize, cacheSize, LogType::FOOTER));
+          input_->read(cacheOffset, cacheSize, LogType::FOOTER));
       input_->load(LogType::FOOTER);
     } else {
       auto cacheBuffer =
           std::make_shared<dwio::common::DataBuffer<char>>(pool, cacheSize);
-      input_->read(fileLength_ - tailSize, cacheSize, LogType::FOOTER)
+      input_->read(cacheOffset, cacheSize, LogType::FOOTER)
           ->readFully(cacheBuffer->data(), cacheSize);
       cache_ = std::make_unique<StripeMetadataCache>(
           postScript_->cacheMode(), *footer_, std::move(cacheBuffer));
     }
   }
   if (!cache_ && input_->shouldPrefetchStripes()) {
-    auto numStripes = getFooter().stripesSize();
+    const auto numStripes = getFooter().stripesSize();
     for (auto i = 0; i < numStripes; i++) {
       const auto stripe = getFooter().stripes(i);
       input_->enqueue(
@@ -220,7 +208,7 @@ ReaderBase::ReaderBase(
            stripe.footerLength(),
            "stripe_footer"});
     }
-    if (numStripes) {
+    if (numStripes > 0) {
       input_->load(LogType::FOOTER);
     }
   }
@@ -285,7 +273,7 @@ std::shared_ptr<const Type> ReaderBase::convertType(
     const FooterWrapper& footer,
     uint32_t index,
     bool fileColumnNamesReadAsLowerCase) {
-  DWIO_ENSURE_LT(
+  VELOX_CHECK_LT(
       index,
       folly::to<uint32_t>(footer.typesSize()),
       "Corrupted file, invalid types");

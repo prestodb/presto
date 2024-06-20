@@ -27,7 +27,7 @@ std::unique_ptr<const StripeMetadata> StripeReaderBase::fetchStripe(
     uint32_t index,
     bool& preload) const {
   auto& fileFooter = reader_->getFooter();
-  DWIO_ENSURE_LT(index, fileFooter.stripesSize(), "invalid stripe index");
+  VELOX_CHECK_LT(index, fileFooter.stripesSize(), "invalid stripe index");
   auto stripe = fileFooter.stripes(index);
   auto& cache = reader_->getMetadataCache();
 

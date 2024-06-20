@@ -744,7 +744,7 @@ TEST_P(MemoryPoolTest, memoryCapExceptions) {
                     "0 write pins: 0 pinned shared: 0B pinned exclusive: 0B\n "
                     "num write wait: 0 empty entries: 0\nCache access miss: 0 "
                     "hit: 0 hit bytes: 0B eviction: 0 eviction checks: 0 "
-                    "aged out: 0\nPrefetch entries: 0 bytes: 0B\nAlloc Megaclocks 0\n"
+                    "aged out: 0 stales: 0\nPrefetch entries: 0 bytes: 0B\nAlloc Megaclocks 0\n"
                     "Allocated pages: 0 cached pages: 0\n",
                     isLeafThreadSafe_ ? "thread-safe" : "non-thread-safe"),
                 ex.message());
@@ -778,7 +778,7 @@ TEST_P(MemoryPoolTest, memoryCapExceptions) {
                     "read pins: 0 write pins: 0 pinned shared: 0B pinned "
                     "exclusive: 0B\n num write wait: 0 empty entries: 0\nCache "
                     "access miss: 0 hit: 0 hit bytes: 0B eviction: 0 eviction "
-                    "checks: 0 aged out: 0\nPrefetch entries: 0 bytes: 0B\nAlloc Megaclocks"
+                    "checks: 0 aged out: 0 stales: 0\nPrefetch entries: 0 bytes: 0B\nAlloc Megaclocks"
                     " 0\nAllocated pages: 0 cached pages: 0\n",
                     isLeafThreadSafe_ ? "thread-safe" : "non-thread-safe"),
                 ex.message());

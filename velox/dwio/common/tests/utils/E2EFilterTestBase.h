@@ -336,7 +336,7 @@ class E2EFilterTestBase : public testing::Test {
   std::shared_ptr<memory::MemoryPool> rootPool_;
   std::shared_ptr<memory::MemoryPool> leafPool_;
   std::shared_ptr<const RowType> rowType_;
-  std::string_view sinkData_;
+  std::string sinkData_;
   bool useVInts_ = true;
   dwio::common::RuntimeStatistics runtimeStats_;
   // Number of calls to flush policy between starting new stripes.

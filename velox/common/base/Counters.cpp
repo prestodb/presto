@@ -168,6 +168,11 @@ void registerVeloxMetrics() {
   DEFINE_METRIC(
       kMetricMemoryCacheNumAgedOutEntries, facebook::velox::StatType::SUM);
 
+  // Number of AsyncDataCache entries that are stale because of cache request
+  // size mismatch.
+  DEFINE_METRIC(
+      kMetricMemoryCacheNumStaleEntries, facebook::velox::StatType::COUNT);
+
   /// ================== SsdCache Counters ==================
 
   // Number of regions currently cached by SSD.
@@ -235,6 +240,11 @@ void registerVeloxMetrics() {
   // Total number of errors while reading from SSD checkpoint files.
   DEFINE_METRIC(
       kMetricSsdCacheReadCheckpointErrors, facebook::velox::StatType::SUM);
+
+  // Total number of SSD cache reads without checksum verification due to
+  // mismatch in SSD cache request size.
+  DEFINE_METRIC(
+      kMetricSsdCacheReadWithoutChecksum, facebook::velox::StatType::COUNT);
 
   // Total number of checkpoints read.
   DEFINE_METRIC(kMetricSsdCacheCheckpointsRead, facebook::velox::StatType::SUM);
@@ -471,5 +481,11 @@ void registerVeloxMetrics() {
 
   // The exchange data size in bytes.
   DEFINE_METRIC(kMetricExchangeDataBytes, facebook::velox::StatType::SUM);
+
+  // The distribution of exchange data size in range of [0, 128MB] with 128
+  // buckets. It is configured to report the capacity at P50, P90, P99, and P100
+  // percentiles.
+  DEFINE_HISTOGRAM_METRIC(
+      kMetricExchangeDataSize, 1L << 20, 0, 128L << 20, 50, 90, 99, 100);
 }
 } // namespace facebook::velox

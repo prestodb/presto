@@ -626,6 +626,52 @@ TEST_F(SsdFileTest, recoverFromCheckpointWithChecksum) {
   }
 }
 
+TEST_F(SsdFileTest, ssdReadWithoutChecksumCheck) {
+  constexpr int64_t kSsdSize = 16 * SsdFile::kRegionSize;
+
+  // Initialize cache with checksum read/write enabled.
+  initializeCache(kSsdSize, 0, true, true);
+
+  // Test with one SSD cache entry only.
+  auto pins = makePins(fileName_.id(), 0, 4096, 4096, 4096);
+  ssdFile_->write(pins);
+  ASSERT_EQ(pins.size(), 1);
+  pins.back().entry()->setExclusiveToShared();
+  auto stats = ssdFile_->testingStats();
+  ASSERT_EQ(stats.readWithoutChecksumChecks, 0);
+
+  std::vector<TestEntry> entries;
+  for (auto& pin : pins) {
+    ASSERT_EQ(ssdFile_.get(), pin.entry()->ssdFile());
+    entries.emplace_back(
+        pin.entry()->key(), pin.entry()->ssdOffset(), pin.entry()->size());
+  };
+  std::vector<TestEntry> shortEntries;
+  for (auto& pin : pins) {
+    ASSERT_EQ(ssdFile_.get(), pin.entry()->ssdFile());
+    shortEntries.emplace_back(
+        pin.entry()->key(), pin.entry()->ssdOffset(), pin.entry()->size() / 2);
+  };
+
+  pins.clear();
+  cache_->testingClear();
+  ASSERT_EQ(cache_->refreshStats().numEntries, 0);
+
+  ASSERT_EQ(checkEntries(entries), entries.size());
+  ASSERT_EQ(ssdFile_->testingStats().readWithoutChecksumChecks, 0);
+
+  cache_->testingClear();
+  ASSERT_EQ(cache_->refreshStats().numEntries, 0);
+
+#ifndef NDEBUG
+  VELOX_ASSERT_THROW(checkEntries(shortEntries), "");
+  ASSERT_EQ(ssdFile_->testingStats().readWithoutChecksumChecks, 0);
+#else
+  ASSERT_EQ(checkEntries(shortEntries), shortEntries.size());
+  ASSERT_EQ(ssdFile_->testingStats().readWithoutChecksumChecks, 1);
+#endif
+}
+
 #ifdef VELOX_SSD_FILE_TEST_SET_NO_COW_FLAG
 TEST_F(SsdFileTest, disabledCow) {
   constexpr int64_t kSsdSize = 16 * SsdFile::kRegionSize;

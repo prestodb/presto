@@ -59,30 +59,25 @@ class StripeMetadataCache {
   std::unique_ptr<dwio::common::SeekableInputStream> get(
       StripeCacheMode mode,
       uint64_t stripeIndex) const {
-    auto index = getIndex(mode, stripeIndex);
-    if (index != INVALID_INDEX) {
-      auto offset = offsets_[index];
-      if (buffer_) {
-        return std::make_unique<dwio::common::SeekableArrayInputStream>(
-            buffer_->data() + offset, offsets_[index + 1] - offset);
-      } else {
-        auto clone =
-            reinterpret_cast<dwio::common::CacheInputStream*>(input_.get())
-                ->clone();
-        clone->Skip(offset);
-        clone->setRemainingBytes(offsets_[index + 1] - offset);
-        return clone;
-      }
+    const auto index = getIndex(mode, stripeIndex);
+    if (index == INVALID_INDEX) {
+      return {};
     }
-    return {};
+
+    const auto offset = offsets_[index];
+    if (buffer_ != nullptr) {
+      return std::make_unique<dwio::common::SeekableArrayInputStream>(
+          buffer_->data() + offset, offsets_[index + 1] - offset);
+    }
+
+    auto clone = reinterpret_cast<dwio::common::CacheInputStream*>(input_.get())
+                     ->clone();
+    clone->Skip(offset);
+    clone->setRemainingBytes(offsets_[index + 1] - offset);
+    return clone;
   }
 
  private:
-  StripeCacheMode mode_;
-  std::shared_ptr<dwio::common::DataBuffer<char>> buffer_;
-  std::unique_ptr<dwio::common::SeekableInputStream> input_;
-  std::vector<uint32_t> offsets_;
-
   uint64_t getIndex(StripeCacheMode mode, uint64_t stripeIndex) const {
     if (mode_ & mode) {
       uint64_t index =
@@ -103,6 +98,11 @@ class StripeMetadataCache {
     offsets.assign(from.begin(), from.end());
     return offsets;
   }
+
+  const StripeCacheMode mode_;
+  const std::shared_ptr<dwio::common::DataBuffer<char>> buffer_;
+  const std::unique_ptr<dwio::common::SeekableInputStream> input_;
+  const std::vector<uint32_t> offsets_;
 };
 
 } // namespace facebook::velox::dwrf

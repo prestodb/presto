@@ -59,10 +59,11 @@ class ParquetWriterTest : public ParquetTestBase {
   std::unique_ptr<facebook::velox::parquet::ParquetReader> createReaderInMemory(
       const dwio::common::MemorySink& sink,
       const dwio::common::ReaderOptions& opts) {
-    std::string_view data(sink.data(), sink.size());
+    std::string data(sink.data(), sink.size());
     return std::make_unique<facebook::velox::parquet::ParquetReader>(
         std::make_unique<dwio::common::BufferedInput>(
-            std::make_shared<InMemoryReadFile>(data), opts.memoryPool()),
+            std::make_shared<InMemoryReadFile>(std::move(data)),
+            opts.memoryPool()),
         opts);
   };
 

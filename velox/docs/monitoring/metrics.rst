@@ -305,6 +305,10 @@ Cache
      - Sum
      - Number of AsyncDataCache entries that are aged out and evicted.
        given configured TTL.
+   * - memory_cache_num_stale_entries
+     - Count
+     - Number of AsyncDataCache entries that are stale because of cache request
+       size mismatch.
    * - ssd_cache_cached_regions
      - Avg
      - Number of regions currently cached by SSD.
@@ -346,6 +350,10 @@ Cache
    * - ssd_cache_delete_checkpoint_errors
      - Sum
      - Total number of errors while deleting SSD checkpoint files.
+   * - ssd_cache_read_without_checksum
+     - Sum
+     - Total number of SSD cache reads without checksum verification
+       due to SSD cache request size mismatch
    * - ssd_cache_grow_file_errors
      - Sum
      - Total number of errors while growing SSD cache files.
@@ -466,6 +474,11 @@ Exchange
    * - exchange_data_bytes
      - Sum
      - The exchange data size in bytes.
+   * - exchange_data_size
+     - Histogram
+     - The distribution of exchange data size in range of [0, 128MB] with 128
+       buckets. It is configured to report the capacity at P50, P90, P99, and P100
+       percentiles.
 
 Hive Connector
 --------------

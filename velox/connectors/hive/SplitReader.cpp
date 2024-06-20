@@ -304,9 +304,7 @@ bool SplitReader::checkIfSplitIsEmpty(
 }
 
 void SplitReader::createRowReader() {
-  // NOTE: we firstly reset the finished 'baseRowReader_' of previous split
-  // before setting up for the next one to avoid doubling the peak memory usage.
-  baseRowReader_.reset();
+  VELOX_CHECK_NULL(baseRowReader_);
   baseRowReader_ = baseReader_->createRowReader(baseRowReaderOpts_);
 }
 

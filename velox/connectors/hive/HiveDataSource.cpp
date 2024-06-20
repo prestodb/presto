@@ -66,12 +66,13 @@ HiveDataSource::HiveDataSource(
     }
 
     if (handle->columnType() == HiveColumnHandle::ColumnType::kRowIndex) {
+      VELOX_CHECK_NULL(rowIndexColumn_);
       rowIndexColumn_ = handle;
     }
   }
 
-  std::vector<std::string> readerRowNames;
-  auto readerRowTypes = outputType_->children();
+  std::vector<std::string> readColumnNames;
+  auto readColumnTypes = outputType_->children();
   for (const auto& outputName : outputType_->names()) {
     auto it = columnHandles.find(outputName);
     VELOX_CHECK(
@@ -80,7 +81,7 @@ HiveDataSource::HiveDataSource(
         outputName);
 
     auto* handle = static_cast<const HiveColumnHandle*>(it->second.get());
-    readerRowNames.push_back(handle->name());
+    readColumnNames.push_back(handle->name());
     for (auto& subfield : handle->requiredSubfields()) {
       VELOX_USER_CHECK_EQ(
           getColumnName(subfield),
@@ -119,8 +120,8 @@ HiveDataSource::HiveDataSource(
     remainingFilterExprSet_ = expressionEvaluator_->compile(remainingFilter);
     auto& remainingFilterExpr = remainingFilterExprSet_->expr(0);
     folly::F14FastMap<std::string, column_index_t> columnNames;
-    for (int i = 0; i < readerRowNames.size(); ++i) {
-      columnNames[readerRowNames[i]] = i;
+    for (int i = 0; i < readColumnNames.size(); ++i) {
+      columnNames[readColumnNames[i]] = i;
     }
     for (auto& input : remainingFilterExpr->distinctFields()) {
       auto it = columnNames.find(input->field());
@@ -131,8 +132,8 @@ HiveDataSource::HiveDataSource(
       // Remaining filter may reference columns that are not used otherwise,
       // e.g. are not being projected out and are not used in range filters.
       // Make sure to add these columns to readerOutputType_.
-      readerRowNames.push_back(input->field());
-      readerRowTypes.push_back(input->type());
+      readColumnNames.push_back(input->field());
+      readColumnTypes.push_back(input->type());
     }
     remainingFilterSubfields = remainingFilterExpr->extractSubfields();
     if (VLOG_IS_ON(1)) {
@@ -141,7 +142,7 @@ HiveDataSource::HiveDataSource(
           fmt::join(remainingFilterSubfields, ", "));
     }
     for (auto& subfield : remainingFilterSubfields) {
-      auto& name = getColumnName(subfield);
+      const auto& name = getColumnName(subfield);
       auto it = subfields_.find(name);
       if (it != subfields_.end()) {
         // Only subfields of the column are projected out.
@@ -153,7 +154,8 @@ HiveDataSource::HiveDataSource(
     }
   }
 
-  readerOutputType_ = ROW(std::move(readerRowNames), std::move(readerRowTypes));
+  readerOutputType_ =
+      ROW(std::move(readColumnNames), std::move(readColumnTypes));
   scanSpec_ = makeScanSpec(
       readerOutputType_,
       subfields_,

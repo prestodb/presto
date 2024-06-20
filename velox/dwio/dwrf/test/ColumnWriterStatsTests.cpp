@@ -189,8 +189,9 @@ class ColumnWriterStatsTest : public ::testing::Test {
 
     writer.close();
 
-    std::string_view data(sinkPtr->data(), sinkPtr->size());
-    auto readFile = std::make_shared<facebook::velox::InMemoryReadFile>(data);
+    std::string data(sinkPtr->data(), sinkPtr->size());
+    auto readFile =
+        std::make_shared<facebook::velox::InMemoryReadFile>(std::move(data));
     auto input = std::make_unique<BufferedInput>(readFile, *leafPool_);
 
     dwio::common::ReaderOptions readerOpts{leafPool_.get()};

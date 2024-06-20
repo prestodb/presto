@@ -39,11 +39,10 @@ DwrfData::DwrfData(
     notNullDecoder_ = createBooleanRleDecoder(std::move(stream), encodingKey);
   }
 
-  // We always initialize indexStream_ because indices are needed as
-  // soon as there is a single filter that can trigger row group skips
-  // anywhere in the reader tree. This is not known at construct time
-  // because the first filter can come from a hash join or other run
-  // time pushdown.
+  // We always initialize indexStream_ because indices are needed as soon as
+  // there is a single filter that can trigger row group skips anywhere in the
+  // reader tree. This is not known at construct time because the first filter
+  // can come from a hash join or other run time push-down.
   indexStream_ = stripe.getStream(
       encodingKey.forKind(proto::Stream_Kind_ROW_INDEX),
       streamLabels.label(),

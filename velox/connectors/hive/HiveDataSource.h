@@ -166,7 +166,7 @@ class HiveDataSource : public DataSource {
   std::atomic<uint64_t> totalRemainingFilterTime_{0};
   uint64_t completedRows_ = 0;
 
-  // Field indices referenced in both remaining filter and output type.  These
+  // Field indices referenced in both remaining filter and output type. These
   // columns need to be materialized eagerly to avoid missing values in output.
   std::vector<column_index_t> multiReferencedFields_;
 

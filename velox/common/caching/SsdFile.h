@@ -162,6 +162,8 @@ struct SsdCacheStats {
     readSsdErrors = tsanAtomicValue(other.readSsdErrors);
     readCheckpointErrors = tsanAtomicValue(other.readCheckpointErrors);
     readSsdCorruptions = tsanAtomicValue(other.readSsdCorruptions);
+    readWithoutChecksumChecks =
+        tsanAtomicValue(other.readWithoutChecksumChecks);
   }
 
   SsdCacheStats operator-(const SsdCacheStats& other) const {
@@ -190,6 +192,8 @@ struct SsdCacheStats {
     result.readSsdErrors = readSsdErrors - other.readSsdErrors;
     result.readCheckpointErrors =
         readCheckpointErrors - other.readCheckpointErrors;
+    result.readWithoutChecksumChecks =
+        readWithoutChecksumChecks - other.readWithoutChecksumChecks;
     return result;
   }
 
@@ -220,6 +224,7 @@ struct SsdCacheStats {
   tsan_atomic<uint32_t> readSsdErrors{0};
   tsan_atomic<uint32_t> readCheckpointErrors{0};
   tsan_atomic<uint32_t> readSsdCorruptions{0};
+  tsan_atomic<uint32_t> readWithoutChecksumChecks{0};
 };
 
 /// A shard of SsdCache. Corresponds to one file on SSD. The data backed by each

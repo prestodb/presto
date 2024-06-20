@@ -16,6 +16,7 @@
 
 #include <gtest/gtest.h>
 #include <cstring>
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/dwio/common/InputStream.h"
 #include "velox/dwio/common/encryption/TestProvider.h"
 #include "velox/dwio/common/exception/Exception.h"
@@ -210,7 +211,7 @@ std::unique_ptr<ReaderBase> createCorruptedFileReader(
 
   sink.write(std::move(buf));
   auto readFile = std::make_shared<facebook::velox::InMemoryReadFile>(
-      std::string_view(sink.data(), sink.size()));
+      std::string(sink.data(), sink.size()));
   return std::make_unique<ReaderBase>(
       *pool, std::make_unique<BufferedInput>(readFile, *pool));
 }
@@ -223,8 +224,10 @@ class ReaderBaseTest : public Test {
 };
 
 TEST_F(ReaderBaseTest, InvalidPostScriptThrows) {
-  EXPECT_THROW(
-      { createCorruptedFileReader(1'000'000, 0); }, exception::LoggedException);
-  EXPECT_THROW(
-      { createCorruptedFileReader(0, 1'000'000); }, exception::LoggedException);
+  VELOX_ASSERT_THROW(
+      createCorruptedFileReader(1'000'000, 0),
+      "Corrupted file, footer size is invalid");
+  VELOX_ASSERT_THROW(
+      createCorruptedFileReader(0, 1'000'000),
+      "Corrupted file, cache size is invalid");
 }

@@ -165,8 +165,10 @@ void ExchangeClient::request(std::vector<RequestSpec>&& requestSpecs) {
           } else {
             RECORD_HISTOGRAM_METRIC_VALUE(
                 kMetricExchangeDataTimeMs, requestTimeMs);
+            RECORD_METRIC_VALUE(kMetricExchangeDataBytes, response.bytes);
+            RECORD_HISTOGRAM_METRIC_VALUE(
+                kMetricExchangeDataSize, response.bytes);
           }
-          RECORD_METRIC_VALUE(kMetricExchangeDataBytes, response.bytes);
 
           std::vector<RequestSpec> requestSpecs;
           {

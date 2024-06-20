@@ -1735,9 +1735,9 @@ TEST_F(TestReader, testEmptyFile) {
   DataBuffer<char> buf{*pool(), 1};
   buf.data()[0] = psLen;
   sink.write(std::move(buf));
-  std::string_view data(sink.data(), sink.size());
+  std::string data(sink.data(), sink.size());
   auto input = std::make_unique<BufferedInput>(
-      std::make_shared<InMemoryReadFile>(data), *pool());
+      std::make_shared<InMemoryReadFile>(std::move(data)), *pool());
 
   dwio::common::ReaderOptions readerOpts{pool()};
   RowReaderOptions rowReaderOpts;
@@ -1838,9 +1838,9 @@ void testBufferLifeCycle(
   auto writer =
       E2EWriterTestUtil::writeData(std::move(sink), schema, batches, config);
 
-  std::string_view data(sinkPtr->data(), sinkPtr->size());
+  std::string data(sinkPtr->data(), sinkPtr->size());
   auto input = std::make_unique<BufferedInput>(
-      std::make_shared<InMemoryReadFile>(data), *pool);
+      std::make_shared<InMemoryReadFile>(std::move(data)), *pool);
 
   dwio::common::ReaderOptions readerOpts{pool};
   RowReaderOptions rowReaderOpts;
@@ -1896,9 +1896,9 @@ void testFlatmapAsMapFieldLifeCycle(
   auto writer =
       E2EWriterTestUtil::writeData(std::move(sink), schema, batches, config);
 
-  std::string_view data(sinkPtr->data(), sinkPtr->size());
+  std::string data(sinkPtr->data(), sinkPtr->size());
   auto input = std::make_unique<BufferedInput>(
-      std::make_shared<InMemoryReadFile>(data), *pool);
+      std::make_shared<InMemoryReadFile>(std::move(data)), *pool);
 
   dwio::common::ReaderOptions readerOpts{pool};
   RowReaderOptions rowReaderOpts;
@@ -2088,9 +2088,9 @@ createWriterReader(
       batches,
       config,
       std::move(flushPolicy));
-  std::string_view data(sinkPtr->data(), sinkPtr->size());
+  std::string data(sinkPtr->data(), sinkPtr->size());
   auto input = std::make_unique<BufferedInput>(
-      std::make_shared<InMemoryReadFile>(data), *pool);
+      std::make_shared<InMemoryReadFile>(std::move(data)), *pool);
   dwio::common::ReaderOptions readerOpts(pool);
   readerOpts.setFileFormat(FileFormat::DWRF);
   auto reader = DwrfReader::create(std::move(input), readerOpts);

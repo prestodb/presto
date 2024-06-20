@@ -58,8 +58,8 @@ class WriterTest : public Test {
   }
 
   std::unique_ptr<ReaderBase> createReader() {
-    std::string_view data(sinkPtr_->data(), sinkPtr_->size());
-    auto readFile = std::make_shared<InMemoryReadFile>(data);
+    std::string data(sinkPtr_->data(), sinkPtr_->size());
+    auto readFile = std::make_shared<InMemoryReadFile>(std::move(data));
     auto input = std::make_unique<BufferedInput>(std::move(readFile), *pool_);
     return std::make_unique<ReaderBase>(*pool_, std::move(input));
   }

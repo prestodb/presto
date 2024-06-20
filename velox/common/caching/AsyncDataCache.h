@@ -528,7 +528,10 @@ struct CacheStats {
   /// shared mode.
   int64_t numWaitExclusive{0};
   /// Total number of entries that are aged out and beyond TTL.
-  int64_t numAgedOut{};
+  int64_t numAgedOut{0};
+  /// Total number of entries that are stale because of cache request size
+  /// mismatch.
+  int64_t numStales{0};
   /// Cumulative clocks spent in allocating or freeing memory for backing cache
   /// entries.
   uint64_t allocClocks{0};
@@ -673,7 +676,9 @@ class CacheShard {
   // 'numEvict_' measured efficiency of eviction.
   uint64_t numEvictChecks_{0};
   // Cumulative count of entries aged out due to TTL.
-  uint64_t numAgedOut_{};
+  uint64_t numAgedOut_{0};
+  // Cumulative count of stale entries because of cache request size mismatch.
+  uint64_t numStales_{0};
   // Cumulative sum of evict scores. This divided by 'numEvict_' correlates to
   // time data stays in cache.
   uint64_t sumEvictScore_{0};

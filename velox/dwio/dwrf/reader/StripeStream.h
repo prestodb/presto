@@ -218,31 +218,6 @@ struct StripeReadState {
  * StripeStream Implementation
  */
 class StripeStreamsImpl : public StripeStreamsBase {
- private:
-  std::shared_ptr<StripeReadState> readState_;
-  const dwio::common::ColumnSelector* selector_;
-  const dwio::common::RowReaderOptions& opts_;
-  // When selector_ is null, this needs to be passed in constructor; otherwise
-  // leave it as null and it will be populated from selector_.
-  std::shared_ptr<BitSet> projectedNodes_;
-  const uint64_t stripeStart_;
-  const int64_t stripeNumberOfRows_;
-  const StrideIndexProvider& provider_;
-  const uint32_t stripeIndex_;
-  bool readPlanLoaded_;
-
-  void loadStreams();
-
-  // map of stream id -> stream information
-  folly::F14FastMap<
-      DwrfStreamIdentifier,
-      StreamInformationImpl,
-      dwio::common::StreamIdentifierHash>
-      streams_;
-  folly::F14FastMap<EncodingKey, uint32_t, EncodingKeyHash> encodings_;
-  folly::F14FastMap<EncodingKey, proto::ColumnEncoding, EncodingKeyHash>
-      decryptedEncodings_;
-
  public:
   static constexpr int64_t kUnknownStripeRows = -1;
 
@@ -342,7 +317,7 @@ class StripeStreamsImpl : public StripeStreamsBase {
       const bool throwIfNotFound = true) const {
     auto index = streams_.find(si);
     if (index == streams_.end()) {
-      DWIO_ENSURE(!throwIfNotFound, "stream info not found: ", si.toString());
+      VELOX_CHECK(!throwIfNotFound, "stream info not found: ", si.toString());
       return StreamInformationImpl::getNotFound();
     }
 
@@ -359,6 +334,31 @@ class StripeStreamsImpl : public StripeStreamsBase {
         ? std::addressof(handler.getEncryptionProvider(nodeId))
         : nullptr;
   }
+
+  void loadStreams();
+
+  const std::shared_ptr<StripeReadState> readState_;
+  const dwio::common::ColumnSelector* const selector_;
+  const dwio::common::RowReaderOptions& opts_;
+  // When selector_ is null, this needs to be passed in constructor; otherwise
+  // leave it as null and it will be populated from selector_.
+  std::shared_ptr<BitSet> projectedNodes_;
+  const uint64_t stripeStart_;
+  const int64_t stripeNumberOfRows_;
+  const StrideIndexProvider& provider_;
+  const uint32_t stripeIndex_;
+
+  bool readPlanLoaded_;
+
+  // map of stream id -> stream information
+  folly::F14FastMap<
+      DwrfStreamIdentifier,
+      StreamInformationImpl,
+      dwio::common::StreamIdentifierHash>
+      streams_;
+  folly::F14FastMap<EncodingKey, uint32_t, EncodingKeyHash> encodings_;
+  folly::F14FastMap<EncodingKey, proto::ColumnEncoding, EncodingKeyHash>
+      decryptedEncodings_;
 };
 
 /**

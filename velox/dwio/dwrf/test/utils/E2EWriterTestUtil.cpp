@@ -111,7 +111,7 @@ namespace facebook::velox::dwrf {
       writerMemoryCap);
   // read it back and compare
   auto readFile = std::make_shared<InMemoryReadFile>(
-      std::string_view(sinkPtr->data(), sinkPtr->size()));
+      std::string(sinkPtr->data(), sinkPtr->size()));
   auto input = std::make_unique<BufferedInput>(readFile, pool);
 
   dwio::common::ReaderOptions readerOpts{&pool};
@@ -126,7 +126,7 @@ namespace facebook::velox::dwrf {
   size_t dictEncodingCount = 0;
   size_t totalEncodingCount = 0;
   for (size_t i = 0; i < reader->getNumberOfStripes(); ++i) {
-    bool preload;
+    bool preload{false};
     auto stripeMetadata = dwrfRowReader->fetchStripe(i, preload);
     const auto& stripeFooter = *stripeMetadata->footer;
     totalEncodingCount += stripeFooter.encoding_size();

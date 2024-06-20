@@ -305,7 +305,7 @@ DwrfRowReader::DwrfRowReader(
 }
 
 std::unique_ptr<ColumnReader>& DwrfRowReader::getColumnReader() {
-  VELOX_DCHECK(currentUnit_ != nullptr);
+  VELOX_DCHECK_NOT_NULL(currentUnit_);
   return currentUnit_->getColumnReader();
 }
 
@@ -603,7 +603,7 @@ uint64_t DwrfRowReader::next(
     uint64_t size,
     velox::VectorPtr& result,
     const dwio::common::Mutation* mutation) {
-  auto nextRow = nextRowNumber();
+  const auto nextRow = nextRowNumber();
   if (nextRow == kAtEnd) {
     if (!isEmptyFile()) {
       previousRow_ = firstRowOfStripe_[stripeCeiling_ - 1] +

@@ -42,6 +42,8 @@ SsdCache::SsdCache(const Config& config)
       filePrefix_);
   VELOX_CHECK_NOT_NULL(executor_);
 
+  VELOX_SSD_CACHE_LOG(INFO) << "SSD cache config: " << config.toString();
+
   auto checksumReadVerificationEnabled = config.checksumReadVerificationEnabled;
   if (config.checksumReadVerificationEnabled && !config.checksumEnabled) {
     VELOX_SSD_CACHE_LOG(WARNING)
