@@ -207,7 +207,7 @@ pipeline {
                             make submodules
                             docker buildx build --load --platform "linux/amd64" \
                                     -t "${NATIVE_DOCKER_IMAGE_DEPENDENCY}" \
-                                    -f scripts/dockerfiles/centos-8-stream-dependency.dockerfile \
+                                    -f scripts/dockerfiles/centos-dependency.dockerfile \
                                     .
                             docker tag "${NATIVE_DOCKER_IMAGE_DEPENDENCY}" "${AWS_ECR}/presto-native-dependency:latest"
                             docker image ls
