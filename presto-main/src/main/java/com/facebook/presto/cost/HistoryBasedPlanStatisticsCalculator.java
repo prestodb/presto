@@ -42,6 +42,7 @@ import static com.facebook.presto.SystemSessionProperties.useHistoryBasedPlanSta
 import static com.facebook.presto.common.RuntimeMetricName.HISTORY_OPTIMIZER_QUERY_REGISTRATION_GET_PLAN_NODE_HASHES;
 import static com.facebook.presto.common.RuntimeMetricName.HISTORY_OPTIMIZER_QUERY_REGISTRATION_GET_STATISTICS;
 import static com.facebook.presto.common.RuntimeUnit.NANO;
+import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static com.facebook.presto.cost.HistoricalPlanStatisticsUtil.getSelectedHistoricalPlanStatisticsEntry;
 import static com.facebook.presto.cost.HistoryBasedPlanStatisticsManager.historyBasedPlanCanonicalizationStrategyList;
 import static com.facebook.presto.sql.planner.iterative.Plans.resolveGroupReferences;
@@ -168,6 +169,11 @@ public class HistoryBasedPlanStatisticsCalculator
             if (hash.isPresent()) {
                 allHashesBuilder.put(strategy, new PlanNodeWithHash(statsEquivalentPlanNode, hash));
             }
+            else {
+                if (isVerboseRuntimeStatsEnabled(session)) {
+                    session.getRuntimeStats().addMetricValue(String.format("Failed to calculate plan hash for strategy {%s} on node {%s}", strategy, statsEquivalentPlanNode), NONE, 1);
+                }
+            }
         }
 
         return allHashesBuilder.build();
@@ -181,6 +187,7 @@ public class HistoryBasedPlanStatisticsCalculator
 
         PlanNode plan = resolveGroupReferences(planNode, lookup);
         Map<PlanCanonicalizationStrategy, PlanNodeWithHash> allHashes = getPlanNodeHashes(plan, session, true);
+        boolean enableVerboseRuntimeStats = isVerboseRuntimeStatsEnabled(session);
 
         Map<PlanNodeWithHash, HistoricalPlanStatistics> statistics = ImmutableMap.of();
         try {
@@ -191,6 +198,11 @@ public class HistoryBasedPlanStatisticsCalculator
         catch (ExecutionException e) {
             throw new RuntimeException(format("Unable to get plan statistics for %s", planNode), e.getCause());
         }
+
+        if (statistics.isEmpty() && enableVerboseRuntimeStats) {
+            session.getRuntimeStats().addMetricValue("No history available for plan node when strategies were applied", NONE, 1);
+        }
+
         double historyMatchingThreshold = getHistoryInputTableStatisticsMatchingThreshold(session) > 0 ? getHistoryInputTableStatisticsMatchingThreshold(session) : config.getHistoryMatchingThreshold();
         // Return statistics corresponding to first strategy that we find, in order specified by `historyBasedPlanCanonicalizationStrategyList`
         for (PlanCanonicalizationStrategy strategy : historyBasedPlanCanonicalizationStrategyList(session)) {
@@ -207,7 +219,13 @@ public class HistoryBasedPlanStatisticsCalculator
                                         new HistoryBasedSourceInfo(entry.getKey().getHash(), inputTableStatistics, Optional.ofNullable(historicalPlanStatisticsEntry.get().getHistoricalPlanStatisticsEntryInfo())));
                             }
                         }
+                        else if (enableVerboseRuntimeStats) {
+                            session.getRuntimeStats().addMetricValue(String.format("Input statistics don't match for strategy {%s}: expected statistics from history, but none matched current input statistics", strategy), NONE, 1);
+                        }
                     }
+                }
+                else if (enableVerboseRuntimeStats) {
+                    session.getRuntimeStats().addMetricValue(String.format("Mismatched plan hash for strategy {%s}: expected {%s}, got {%s}", strategy, allHashes.get(strategy).getHash().get(), entry.getKey().getHash().get()), NONE, 1);
                 }
             }
         }
