@@ -34,7 +34,7 @@ namespace facebook::velox {
 class TestReporter : public BaseStatsReporter {
  public:
   mutable std::mutex m;
-  mutable std::unordered_map<std::string, size_t> counterMap;
+  mutable std::map<std::string, size_t> counterMap;
   mutable std::unordered_map<std::string, StatType> statTypeMap;
   mutable std::unordered_map<std::string, std::vector<int32_t>>
       histogramPercentilesMap;
@@ -106,6 +106,18 @@ class TestReporter : public BaseStatsReporter {
     std::lock_guard<std::mutex> l(m);
     counterMap[key.str()] = std::max(counterMap[key.str()], value);
   }
+
+  std::string fetchMetrics() override {
+    std::stringstream ss;
+    ss << "[";
+    auto sep = "";
+    for (const auto& [key, value] : counterMap) {
+      ss << sep << key << ":" << value;
+      sep = ",";
+    }
+    ss << "]";
+    return ss.str();
+  }
 };
 
 class StatsReporterTest : public testing::Test {
@@ -149,6 +161,9 @@ TEST_F(StatsReporterTest, trivialReporter) {
   EXPECT_EQ(2201, reporter_->counterMap["key2"]);
   EXPECT_EQ(1101, reporter_->counterMap["key3"]);
   EXPECT_EQ(100, reporter_->counterMap["key4"]);
+
+  EXPECT_EQ(
+      "[key1:36,key2:2201,key3:1101,key4:100]", reporter_->fetchMetrics());
 };
 
 class PeriodicStatsReporterTest : public StatsReporterTest {};
