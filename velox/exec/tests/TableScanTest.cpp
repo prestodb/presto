@@ -275,14 +275,19 @@ TEST_F(TableScanTest, allColumns) {
 }
 
 TEST_F(TableScanTest, directBufferInputRawInputBytes) {
-  auto vectors = makeVectors(10, 1'000);
+  constexpr int kSize = 10;
+  auto vector = makeRowVector({
+      makeFlatVector<int64_t>(kSize, folly::identity),
+      makeFlatVector<int64_t>(kSize, folly::identity),
+      makeFlatVector<int64_t>(kSize, folly::identity),
+  });
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->getPath(), vectors);
-  createDuckDbTable(vectors);
+  createDuckDbTable({vector});
+  writeToFile(filePath->getPath(), {vector});
 
   auto plan = PlanBuilder(pool_.get())
                   .startTableScan()
-                  .outputType(rowType_)
+                  .outputType(ROW({"c0", "c2"}, {BIGINT(), BIGINT()}))
                   .endTableScan()
                   .planNode();
 
@@ -299,7 +304,7 @@ TEST_F(TableScanTest, directBufferInputRawInputBytes) {
                   .plan(plan)
                   .splits(makeHiveConnectorSplits({filePath}))
                   .queryCtx(queryCtx)
-                  .assertResults("SELECT * FROM tmp");
+                  .assertResults("SELECT c0, c2 FROM tmp");
 
   // A quick sanity check for memory usage reporting. Check that peak total
   // memory usage for the project node is > 0.
@@ -307,7 +312,13 @@ TEST_F(TableScanTest, directBufferInputRawInputBytes) {
   auto scanNodeId = plan->id();
   auto it = planStats.find(scanNodeId);
   ASSERT_TRUE(it != planStats.end());
-  ASSERT_GT(it->second.rawInputBytes, 0);
+  auto rawInputBytes = it->second.rawInputBytes;
+  auto overreadBytes = getTableScanRuntimeStats(task).at("overreadBytes").sum;
+  ASSERT_EQ(rawInputBytes, 26);
+  ASSERT_EQ(overreadBytes, 13);
+  ASSERT_EQ(
+      getTableScanRuntimeStats(task).at("storageReadBytes").sum,
+      rawInputBytes + overreadBytes);
   EXPECT_GT(getTableScanRuntimeStats(task)["totalScanTime"].sum, 0);
   EXPECT_GT(getTableScanRuntimeStats(task)["queryThreadIoLatency"].sum, 0);
 }

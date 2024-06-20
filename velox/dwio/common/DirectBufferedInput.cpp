@@ -281,13 +281,13 @@ std::vector<cache::CachePin> DirectCoalescedLoad::loadData(bool prefetch) {
     input_->read(buffers, requests_[0].region.offset, LogType::FILE);
   }
 
-  ioStats_->read().increment(size);
-  ioStats_->incRawBytesRead(size - overread);
+  ioStats_->read().increment(size + overread);
+  ioStats_->incRawBytesRead(size);
   ioStats_->incTotalScanTime(usecs * 1'000);
   ioStats_->queryThreadIoLatency().increment(usecs);
   ioStats_->incRawOverreadBytes(overread);
   if (prefetch) {
-    ioStats_->prefetch().increment(size);
+    ioStats_->prefetch().increment(size + overread);
   }
   return {};
 }
