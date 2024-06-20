@@ -45,5 +45,5 @@ public interface PlanCanonicalInfoProvider
      * @param cacheOnly Only fetch from cache, and return Optional.empty() if set to true and no entry found in cache
      * @return Statistics of leaf input tables to plan node, ordered by a consistent canonicalization strategy.
      */
-    Optional<List<PlanStatistics>> getInputTableStatistics(Session session, PlanNode planNode, boolean cacheOnly);
+    Optional<List<PlanStatistics>> getInputTableStatistics(Session session, PlanNode planNode, PlanCanonicalizationStrategy strategy, boolean cacheOnly);
 }
