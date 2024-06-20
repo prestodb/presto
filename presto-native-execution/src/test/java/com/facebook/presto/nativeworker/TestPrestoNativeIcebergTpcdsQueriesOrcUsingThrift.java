@@ -17,24 +17,24 @@ import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 import org.testng.annotations.Test;
 
-@Test(groups = {"parquet"})
-public class TestPrestoNativeIcebergTpcdsQueriesParquetUsingThrift
+@Test(groups = {"orc"})
+public class TestPrestoNativeIcebergTpcdsQueriesOrcUsingThrift
         extends AbstractTestNativeTpcdsQueries
 {
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.storageFormat = "PARQUET";
-        return PrestoNativeQueryRunnerUtils.createNativeIcebergQueryRunner(true, "PARQUET");
+        this.storageFormat = "ORC";
+        return PrestoNativeQueryRunnerUtils.createNativeIcebergQueryRunner(true, "ORC");
     }
 
     @Override
     protected ExpectedQueryRunner createExpectedQueryRunner()
             throws Exception
     {
-        this.storageFormat = "PARQUET";
-        return PrestoNativeQueryRunnerUtils.createJavaIcebergQueryRunner("PARQUET");
+        this.storageFormat = "ORC";
+        return PrestoNativeQueryRunnerUtils.createJavaIcebergQueryRunner("ORC");
     }
 
     @Test

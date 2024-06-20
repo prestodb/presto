@@ -193,6 +193,9 @@ public class NativeQueryRunnerUtils
         if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "nation")) {
             queryRunner.execute("CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
         }
+        if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "nation")) {
+            queryRunner.execute("CREATE TABLE nation WITH (FORMAT = 'ORC') AS SELECT * FROM tpch.tiny.nation");
+        }
         if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "nation_json")) {
             queryRunner.execute("CREATE TABLE nation_json WITH (FORMAT = 'JSON') AS SELECT * FROM tpch.tiny.nation");
         }
@@ -214,7 +217,7 @@ public class NativeQueryRunnerUtils
         }
 
         if (storageFormat.equals("ORC") && !queryRunner.tableExists(session, "nation")) {
-            queryRunner.execute(session, "CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
+            queryRunner.execute(session, "CREATE TABLE nation WITH (FORMAT = 'ORC') AS SELECT * FROM tpch.tiny.nation");
         }
 
         if (storageFormat.equals("JSON") && !queryRunner.tableExists(session, "nation_json")) {
