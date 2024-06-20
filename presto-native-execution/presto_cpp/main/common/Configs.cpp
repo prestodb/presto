@@ -190,6 +190,7 @@ SystemConfig::SystemConfig() {
           BOOL_PROP(kEnableSerializedPageChecksum, true),
           BOOL_PROP(kUseMmapAllocator, true),
           STR_PROP(kMemoryArbitratorKind, ""),
+          BOOL_PROP(kMemoryArbitratorGlobalArbitrationEnabled, false),
           NUM_PROP(kQueryMemoryGb, 38),
           NUM_PROP(kQueryReservedMemoryGb, 4),
           BOOL_PROP(kEnableVeloxTaskLogging, false),
@@ -476,6 +477,11 @@ bool SystemConfig::useMmapAllocator() const {
 
 std::string SystemConfig::memoryArbitratorKind() const {
   return optionalProperty<std::string>(kMemoryArbitratorKind).value_or("");
+}
+
+bool SystemConfig::memoryArbitratorGlobalArbitrationEnabled() const {
+  return optionalProperty<bool>(kMemoryArbitratorGlobalArbitrationEnabled)
+      .value_or(false);
 }
 
 int32_t SystemConfig::queryMemoryGb() const {
