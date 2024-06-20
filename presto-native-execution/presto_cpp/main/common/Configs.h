@@ -353,6 +353,11 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kMemoryArbitratorKind{
       "memory-arbitrator-kind"};
 
+  /// If true, it allows memory arbitrator to reclaim used memory cross query
+  /// memory pools.
+  static constexpr std::string_view kMemoryArbitratorGlobalArbitrationEnabled{
+      "memory-arbitrator-global-arbitration-enabled"};
+
   /// The initial memory pool capacity in bytes allocated on creation.
   ///
   /// NOTE: this config only applies if the memory arbitration has been enabled.
@@ -658,6 +663,8 @@ class SystemConfig : public ConfigBase {
   bool useMmapAllocator() const;
 
   std::string memoryArbitratorKind() const;
+
+  bool memoryArbitratorGlobalArbitrationEnabled() const;
 
   int32_t queryMemoryGb() const;
 
