@@ -16,25 +16,20 @@ package com.facebook.presto.nativeworker;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 
-import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.createJavaIcebergQueryRunner;
-import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.createNativeIcebergQueryRunner;
-
-public class TestPrestoNativeIcebergPositionDeleteQueriesUsingThrift
-        extends AbstractTestNativeIcebergPositionDeleteQueries
+public class TestPrestoNativeIcebergTpchQueriesOrcUsingThrift
+        extends AbstractTestNativeIcebergTpchQueries
 {
-    private final String storageFormat = "PARQUET";
+    private final String storageFormat = "ORC";
 
     @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
+    protected QueryRunner createQueryRunner() throws Exception
     {
-        return createNativeIcebergQueryRunner(true, storageFormat);
+        return PrestoNativeQueryRunnerUtils.createNativeIcebergQueryRunner(true, storageFormat);
     }
 
     @Override
-    protected ExpectedQueryRunner createExpectedQueryRunner()
-            throws Exception
+    protected ExpectedQueryRunner createExpectedQueryRunner() throws Exception
     {
-        return createJavaIcebergQueryRunner(storageFormat);
+        return PrestoNativeQueryRunnerUtils.createJavaIcebergQueryRunner(storageFormat);
     }
 }
