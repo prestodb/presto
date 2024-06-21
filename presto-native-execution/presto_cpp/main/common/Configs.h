@@ -488,6 +488,13 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kExchangeHttpClientNumIoThreadsHwMultiplier{
       "exchange.http-client.num-io-threads-hw-multiplier"};
 
+  /// Floating point number used in calculating how many threads we would use
+  /// for Exchange HTTP client CPU executor: hw_concurrency x multiplier.
+  /// 1.0 is default.
+  static constexpr std::string_view
+      kExchangeHttpClientNumCpuThreadsHwMultiplier{
+          "exchange.http-client.num-cpu-threads-hw-multiplier"};
+
   /// The maximum timeslice for a task on thread if there are threads queued.
   static constexpr std::string_view kTaskRunTimeSliceMicros{
       "task-run-timeslice-micros"};
@@ -609,6 +616,8 @@ class SystemConfig : public ConfigBase {
   double httpServerNumCpuThreadsHwMultiplier() const;
 
   double exchangeHttpClientNumIoThreadsHwMultiplier() const;
+
+  double exchangeHttpClientNumCpuThreadsHwMultiplier() const;
 
   double connectorNumIoThreadsHwMultiplier() const;
 

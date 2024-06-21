@@ -163,6 +163,7 @@ SystemConfig::SystemConfig() {
           NONE_PROP(kHttpsKeyPath),
           NONE_PROP(kHttpsClientCertAndKeyPath),
           NUM_PROP(kExchangeHttpClientNumIoThreadsHwMultiplier, 1.0),
+          NUM_PROP(kExchangeHttpClientNumCpuThreadsHwMultiplier, 1.0),
           NUM_PROP(kConnectorNumIoThreadsHwMultiplier, 1.0),
           NUM_PROP(kDriverNumCpuThreadsHwMultiplier, 4.0),
           NUM_PROP(kDriverStuckOperatorThresholdMs, 30 * 60 * 1000),
@@ -353,6 +354,11 @@ double SystemConfig::httpServerNumCpuThreadsHwMultiplier() const {
 
 double SystemConfig::exchangeHttpClientNumIoThreadsHwMultiplier() const {
   return optionalProperty<double>(kExchangeHttpClientNumIoThreadsHwMultiplier)
+      .value();
+}
+
+double SystemConfig::exchangeHttpClientNumCpuThreadsHwMultiplier() const {
+  return optionalProperty<double>(kExchangeHttpClientNumCpuThreadsHwMultiplier)
       .value();
 }
 
