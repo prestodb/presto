@@ -1,0 +1,75 @@
+diff --git a/velox/external/date/date.h b/velox/external/date/date.h
+index ccbd4587f..ac6d636dd 100644
+--- a/velox/external/date/date.h
++++ b/velox/external/date/date.h
+@@ -1,5 +1,5 @@
+-#ifndef DATE_H
+-#define DATE_H
++#ifndef VELOX_DATE_H
++#define VELOX_DATE_H
+
+ // The MIT License (MIT)
+ //
+@@ -7949,4 +7949,4 @@ operator<<(std::basic_ostream<CharT, Traits>& os,
+ # pragma GCC diagnostic pop
+ #endif
+
+-#endif  // DATE_H
++#endif  // VELOX_DATE_H
+diff --git a/velox/external/date/ios.h b/velox/external/date/ios.h
+index 467798983..da1af46f6 100644
+--- a/velox/external/date/ios.h
++++ b/velox/external/date/ios.h
+@@ -24,8 +24,8 @@
+ // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ // SOFTWARE.
+
+-#ifndef ios_hpp
+-#define ios_hpp
++#ifndef velox_ios_hpp
++#define velox_ios_hpp
+
+ #if __APPLE__
+ # include <TargetConditionals.h>
+@@ -53,4 +53,4 @@
+ #else   // !__APPLE__
+ # define TARGET_OS_IPHONE 0
+ #endif  // !__APPLE__
+-#endif // ios_hpp
++#endif // velox_ios_hpp
+diff --git a/velox/external/date/tz.h b/velox/external/date/tz.h
+index 9512900b7..a70bda4ad 100644
+--- a/velox/external/date/tz.h
++++ b/velox/external/date/tz.h
+@@ -1,5 +1,5 @@
+-#ifndef TZ_H
+-#define TZ_H
++#ifndef VELOX_TZ_H
++#define VELOX_TZ_H
+
+ // The MIT License (MIT)
+ //
+@@ -2810,4 +2810,4 @@ to_gps_time(const tai_time<Duration>& t)
+ }  // namespace velox
+ }  // namespace facebook
+
+-#endif  // TZ_H
++#endif  // VELOX_TZ_H
+diff --git a/velox/external/date/tz_private.h b/velox/external/date/tz_private.h
+index 3a985d955..b85a617f2 100644
+--- a/velox/external/date/tz_private.h
++++ b/velox/external/date/tz_private.h
+@@ -1,5 +1,5 @@
+-#ifndef TZ_PRIVATE_H
+-#define TZ_PRIVATE_H
++#ifndef VELOX_TZ_PRIVATE_H
++#define VELOX_TZ_PRIVATE_H
+
+ // The MIT License (MIT)
+ //
+@@ -323,4 +323,4 @@ struct transition
+ #include "tz.h"
+ #endif
+
+-#endif  // TZ_PRIVATE_H
++#endif  // VELOX_TZ_PRIVATE_H

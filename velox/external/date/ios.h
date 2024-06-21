@@ -24,8 +24,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef ios_hpp
-#define ios_hpp
+#ifndef velox_ios_hpp
+#define velox_ios_hpp
 
 #if __APPLE__
 # include <TargetConditionals.h>
@@ -53,4 +53,4 @@
 #else   // !__APPLE__
 # define TARGET_OS_IPHONE 0
 #endif  // !__APPLE__
-#endif // ios_hpp
+#endif // velox_ios_hpp

@@ -1,5 +1,5 @@
-#ifndef TZ_H
-#define TZ_H
+#ifndef VELOX_TZ_H
+#define VELOX_TZ_H
 
 // The MIT License (MIT)
 //
@@ -2810,4 +2810,4 @@ to_gps_time(const tai_time<Duration>& t)
 }  // namespace velox
 }  // namespace facebook
 
-#endif  // TZ_H
+#endif  // VELOX_TZ_H
