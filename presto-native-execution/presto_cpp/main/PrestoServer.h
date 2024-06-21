@@ -215,7 +215,10 @@ class PrestoServer {
   std::unique_ptr<folly::IOThreadPoolExecutor> connectorIoExecutor_;
 
   // Executor for exchange data over http.
-  std::shared_ptr<folly::IOThreadPoolExecutor> exchangeHttpExecutor_;
+  std::shared_ptr<folly::IOThreadPoolExecutor> exchangeHttpIoExecutor_;
+
+  // Executor for exchange request processing.
+  std::shared_ptr<folly::CPUThreadPoolExecutor> exchangeHttpCpuExecutor_;
 
   // Executor for HTTP request dispatching
   std::shared_ptr<folly::IOThreadPoolExecutor> httpSrvIOExecutor_;
