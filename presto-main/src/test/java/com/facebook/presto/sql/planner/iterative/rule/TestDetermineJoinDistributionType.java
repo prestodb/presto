@@ -45,6 +45,8 @@ import java.util.Optional;
 import static com.facebook.presto.SystemSessionProperties.CONFIDENCE_BASED_BROADCAST_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_MAX_BROADCAST_TABLE_SIZE;
+import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_BROADCAST_MEMORY;
+import static com.facebook.presto.SystemSessionProperties.TREAT_LOW_CONFIDENCE_ZERO_ESTIMATION_AS_UNKNOWN_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.USE_BROADCAST_WHEN_BUILDSIZE_SMALL_PROBESIDE_UNKNOWN;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
@@ -458,6 +460,259 @@ public class TestDetermineJoinDistributionType
                         Optional.of(REPLICATED),
                         values(ImmutableMap.of("B1", 0)),
                         values(ImmutableMap.of("A1", 0, "A2", 1))));
+    }
+
+    @Test
+    public void testJoinWithRightSideLowConfidenceZeroStatisticsLeftSideHighBroadcast()
+    {
+        int aRows = 50;
+        int bRows = 0;
+        assertDetermineJoinDistributionType()
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
+                .setSystemProperty(TREAT_LOW_CONFIDENCE_ZERO_ESTIMATION_AS_UNKNOWN_ENABLED, "true")
+                .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
+                        .setConfidence(HIGH)
+                        .setOutputRowCount(aRows)
+                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "A1", BIGINT), new VariableStatsEstimate(0, 100, 0, 60, 100)))
+                        .build())
+                .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
+                        .setConfidence(LOW)
+                        .setOutputRowCount(bRows)
+                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "B1", BIGINT), new VariableStatsEstimate(0, 100, 0, 60, 100)))
+                        .build())
+                .on(p ->
+                        p.join(
+                                INNER,
+                                p.values(new PlanNodeId("valuesA"), aRows, p.variable("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), bRows, p.variable("B1", BIGINT)),
+                                ImmutableList.of(new EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
+                                ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
+                                Optional.empty()))
+                .matches(join(
+                        INNER,
+                        ImmutableList.of(equiJoinClause("B1", "A1")),
+                        Optional.empty(),
+                        Optional.of(REPLICATED),
+                        values(ImmutableMap.of("B1", 0)),
+                        values(ImmutableMap.of("A1", 0))));
+    }
+
+    @Test
+    public void testJoinWithLeftSideLowConfidenceZeroStatisticsRightSideHighBroadcast()
+    {
+        int aRows = 0;
+        int bRows = 50;
+        assertDetermineJoinDistributionType()
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
+                .setSystemProperty(TREAT_LOW_CONFIDENCE_ZERO_ESTIMATION_AS_UNKNOWN_ENABLED, "true")
+                .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
+                        .setConfidence(LOW)
+                        .setOutputRowCount(aRows)
+                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "A1", BIGINT), new VariableStatsEstimate(0, 100, 0, 60, 100)))
+                        .build())
+                .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
+                        .setConfidence(HIGH)
+                        .setOutputRowCount(bRows)
+                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "B1", BIGINT), new VariableStatsEstimate(0, 100, 0, 60, 100)))
+                        .build())
+                .on(p ->
+                        p.join(
+                                INNER,
+                                p.values(new PlanNodeId("valuesA"), aRows, p.variable("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), bRows, p.variable("B1", BIGINT)),
+                                ImmutableList.of(new EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
+                                ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
+                                Optional.empty()))
+                .matches(join(
+                        INNER,
+                        ImmutableList.of(equiJoinClause("A1", "B1")),
+                        Optional.empty(),
+                        Optional.of(REPLICATED),
+                        values(ImmutableMap.of("A1", 0)),
+                        values(ImmutableMap.of("B1", 0))));
+    }
+
+    @Test
+    public void testJoinWithLeftSideLowConfidenceZeroStatisticsRightSidePartition()
+    {
+        int aRows = 0;
+        int bRows = 50_000;
+        assertDetermineJoinDistributionType()
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
+                .setSystemProperty(TREAT_LOW_CONFIDENCE_ZERO_ESTIMATION_AS_UNKNOWN_ENABLED, "true")
+                .setSystemProperty(QUERY_MAX_BROADCAST_MEMORY, "5kB")
+                .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "5kB")
+                .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
+                        .setConfidence(LOW)
+                        .setOutputRowCount(aRows)
+                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "A1", BIGINT), new VariableStatsEstimate(0, 100, 0, 60, 100)))
+                        .build())
+                .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
+                        .setConfidence(HIGH)
+                        .setOutputRowCount(bRows)
+                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "B1", BIGINT), new VariableStatsEstimate(0, 100, 0, 60, 100)))
+                        .build())
+                .on(p ->
+                        p.join(
+                                INNER,
+                                p.values(new PlanNodeId("valuesA"), aRows, p.variable("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), bRows, p.variable("B1", BIGINT)),
+                                ImmutableList.of(new EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
+                                ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
+                                Optional.empty()))
+                .matches(join(
+                        INNER,
+                        ImmutableList.of(equiJoinClause("A1", "B1")),
+                        Optional.empty(),
+                        Optional.of(PARTITIONED),
+                        values(ImmutableMap.of("A1", 0)),
+                        values(ImmutableMap.of("B1", 0))));
+    }
+
+    @Test
+    public void testJoinWithRightSideLowConfidenceZeroStatisticsLeftSideBigPartition()
+    {
+        int aRows = 50_000;
+        int bRows = 0;
+        assertDetermineJoinDistributionType()
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
+                .setSystemProperty(TREAT_LOW_CONFIDENCE_ZERO_ESTIMATION_AS_UNKNOWN_ENABLED, "true")
+                .setSystemProperty(QUERY_MAX_BROADCAST_MEMORY, "5kB")
+                .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "5kB")
+                .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
+                        .setConfidence(HIGH)
+                        .setOutputRowCount(aRows)
+                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "A1", BIGINT), new VariableStatsEstimate(0, 100, 0, 60, 100)))
+                        .build())
+                .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
+                        .setConfidence(LOW)
+                        .setOutputRowCount(bRows)
+                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "B1", BIGINT), new VariableStatsEstimate(0, 100, 0, 60, 100)))
+                        .build())
+                .on(p ->
+                        p.join(
+                                INNER,
+                                p.values(new PlanNodeId("valuesA"), aRows, p.variable("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), bRows, p.variable("B1", BIGINT)),
+                                ImmutableList.of(new EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
+                                ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
+                                Optional.empty()))
+                .matches(join(
+                        INNER,
+                        ImmutableList.of(equiJoinClause("A1", "B1")),
+                        Optional.empty(),
+                        Optional.of(PARTITIONED),
+                        values(ImmutableMap.of("A1", 0)),
+                        values(ImmutableMap.of("B1", 0))));
+    }
+
+    @Test
+    public void testJoinWithBothSideLowConfidenceZeroStatisticsPartition()
+    {
+        int aRows = 0;
+        int bRows = 0;
+        assertDetermineJoinDistributionType()
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
+                .setSystemProperty(TREAT_LOW_CONFIDENCE_ZERO_ESTIMATION_AS_UNKNOWN_ENABLED, "true")
+                .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
+                        .setConfidence(LOW)
+                        .setOutputRowCount(aRows)
+                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "A1", BIGINT), new VariableStatsEstimate(0, 100, 0, 60, 100)))
+                        .build())
+                .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
+                        .setConfidence(LOW)
+                        .setOutputRowCount(bRows)
+                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "B1", BIGINT), new VariableStatsEstimate(0, 100, 0, 60, 100)))
+                        .build())
+                .on(p ->
+                        p.join(
+                                INNER,
+                                p.values(new PlanNodeId("valuesA"), aRows, p.variable("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), bRows, p.variable("B1", BIGINT)),
+                                ImmutableList.of(new EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
+                                ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
+                                Optional.empty()))
+                .matches(join(
+                        INNER,
+                        ImmutableList.of(equiJoinClause("A1", "B1")),
+                        Optional.empty(),
+                        Optional.of(PARTITIONED),
+                        values(ImmutableMap.of("A1", 0)),
+                        values(ImmutableMap.of("B1", 0))));
+    }
+
+    @Test
+    public void testJoinWithRightSideLowConfidenceZeroStatisticsLeftSideLowConfidencePartition()
+    {
+        int aRows = 50_000;
+        int bRows = 0;
+        assertDetermineJoinDistributionType()
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
+                .setSystemProperty(TREAT_LOW_CONFIDENCE_ZERO_ESTIMATION_AS_UNKNOWN_ENABLED, "true")
+                .setSystemProperty(QUERY_MAX_BROADCAST_MEMORY, "5kB")
+                .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "5kB")
+                .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
+                        .setConfidence(LOW)
+                        .setOutputRowCount(aRows)
+                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "A1", BIGINT), new VariableStatsEstimate(0, 100, 0, 60, 100)))
+                        .build())
+                .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
+                        .setConfidence(LOW)
+                        .setOutputRowCount(bRows)
+                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "B1", BIGINT), new VariableStatsEstimate(0, 100, 0, 60, 100)))
+                        .build())
+                .on(p ->
+                        p.join(
+                                INNER,
+                                p.values(new PlanNodeId("valuesA"), aRows, p.variable("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), bRows, p.variable("B1", BIGINT)),
+                                ImmutableList.of(new EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
+                                ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
+                                Optional.empty()))
+                .matches(join(
+                        INNER,
+                        ImmutableList.of(equiJoinClause("A1", "B1")),
+                        Optional.empty(),
+                        Optional.of(PARTITIONED),
+                        values(ImmutableMap.of("A1", 0)),
+                        values(ImmutableMap.of("B1", 0))));
+    }
+
+    @Test
+    public void testJoinWithLeftSideLowConfidenceZeroStatisticsRightSideLowConfidencePartition()
+    {
+        int aRows = 50_000;
+        int bRows = 0;
+        assertDetermineJoinDistributionType()
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
+                .setSystemProperty(TREAT_LOW_CONFIDENCE_ZERO_ESTIMATION_AS_UNKNOWN_ENABLED, "true")
+                .setSystemProperty(QUERY_MAX_BROADCAST_MEMORY, "5kB")
+                .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "5kB")
+                .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
+                        .setConfidence(LOW)
+                        .setOutputRowCount(aRows)
+                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "A1", BIGINT), new VariableStatsEstimate(0, 100, 0, 60, 100)))
+                        .build())
+                .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
+                        .setConfidence(LOW)
+                        .setOutputRowCount(bRows)
+                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "B1", BIGINT), new VariableStatsEstimate(0, 100, 0, 60, 100)))
+                        .build())
+                .on(p ->
+                        p.join(
+                                INNER,
+                                p.values(new PlanNodeId("valuesA"), aRows, p.variable("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), bRows, p.variable("B1", BIGINT)),
+                                ImmutableList.of(new EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
+                                ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
+                                Optional.empty()))
+                .matches(join(
+                        INNER,
+                        ImmutableList.of(equiJoinClause("A1", "B1")),
+                        Optional.empty(),
+                        Optional.of(PARTITIONED),
+                        values(ImmutableMap.of("A1", 0)),
+                        values(ImmutableMap.of("B1", 0))));
     }
 
     @Test
