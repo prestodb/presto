@@ -222,6 +222,11 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kDriverNumCpuThreadsHwMultiplier{
       "driver.num-cpu-threads-hw-multiplier"};
 
+  /// Run driver threads with the SCHED_BATCH scheduling policy. Linux only.
+  /// https://man7.org/linux/man-pages/man7/sched.7.html
+  static constexpr std::string_view kDriverThreadsBatchSchedulingEnabled{
+      "driver.threads-batch-scheduling-enabled"};
+
   /// Time duration threshold used to detect if an operator call in driver is
   /// stuck or not.  If any of the driver thread is detected as stuck by this
   /// standard, we take the worker offline and further investigation on the
@@ -622,6 +627,8 @@ class SystemConfig : public ConfigBase {
   double connectorNumIoThreadsHwMultiplier() const;
 
   double driverNumCpuThreadsHwMultiplier() const;
+
+  bool driverThreadsBatchSchedulingEnabled() const;
 
   size_t driverStuckOperatorThresholdMs() const;
 
