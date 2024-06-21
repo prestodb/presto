@@ -367,7 +367,8 @@ Valid examples
 From VARCHAR
 ^^^^^^^^^^^^
 
-There is a set of strings allowed to be casted to boolean. Casting from other strings to boolean throws.
+The strings `t, f, 1, 0, true, false` and their upper case equivalents are allowed to be casted to boolean.
+Casting from other strings to boolean throws.
 
 Valid examples
 
@@ -379,6 +380,8 @@ Valid examples
   SELECT cast('true' as boolean); -- true (case insensitive)
   SELECT cast('f' as boolean); -- false (case insensitive)
   SELECT cast('false' as boolean); -- false (case insensitive)
+  SELECT cast('F' as boolean); -- false (case insensitive)
+  SELECT cast('T' as boolean); -- true (case insensitive)
 
 Invalid examples
 
@@ -391,6 +394,7 @@ Invalid examples
   SELECT cast('-1' as boolean); -- Invalid argument
   SELECT cast('tr' as boolean); -- Invalid argument
   SELECT cast('tru' as boolean); -- Invalid argument
+  SELECT cast('No' as boolean); -- Invalid argument
 
 Cast to Floating-Point Types
 ----------------------------

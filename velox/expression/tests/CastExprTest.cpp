@@ -1033,28 +1033,19 @@ TEST_F(CastExprTest, primitiveInvalidCornerCases) {
   // To boolean.
   {
     testInvalidCast<std::string>(
-        "boolean",
-        {"1.7E308"},
-        "Non-whitespace character found after end of conversion");
+        "boolean", {"1.7E308"}, "Cannot cast VARCHAR '1.7E308' to BOOLEAN");
     testInvalidCast<std::string>(
-        "boolean",
-        {"nan"},
-        "Non-whitespace character found after end of conversion");
+        "boolean", {"nan"}, "Cannot cast VARCHAR 'nan' to BOOLEAN");
     testInvalidCast<std::string>(
-        "boolean", {"infinity"}, "Invalid value for bool");
+        "boolean", {"infinity"}, "Cannot cast VARCHAR 'infinity' to BOOLEAN");
     testInvalidCast<std::string>(
-        "boolean",
-        {"12"},
-        "Integer overflow when parsing bool (must be 0 or 1)");
-    testInvalidCast<std::string>("boolean", {"-1"}, "Invalid value for bool");
+        "boolean", {"12"}, "Cannot cast VARCHAR '12' to BOOLEAN");
     testInvalidCast<std::string>(
-        "boolean",
-        {"tr"},
-        "Non-whitespace character found after end of conversion");
+        "boolean", {"-1"}, "Cannot cast VARCHAR '-1' to BOOLEAN");
     testInvalidCast<std::string>(
-        "boolean",
-        {"tru"},
-        "Non-whitespace character found after end of conversion");
+        "boolean", {"tr"}, "Cannot cast VARCHAR 'tr' to BOOLEAN");
+    testInvalidCast<std::string>(
+        "boolean", {"tru"}, "Cannot cast VARCHAR 'tru' to BOOLEAN");
   }
 }
 
@@ -1100,6 +1091,14 @@ TEST_F(CastExprTest, primitiveValidCornerCases) {
     testCast<std::string, bool>("boolean", {"0"}, {false});
     testCast<std::string, bool>("boolean", {"t"}, {true});
     testCast<std::string, bool>("boolean", {"true"}, {true});
+    testCast<std::string, bool>("boolean", {"false"}, {false});
+    testCast<std::string, bool>("boolean", {"f"}, {false});
+
+    testInvalidCast<std::string>(
+        "boolean", {"NO"}, "Cannot cast NO to BOOLEAN");
+
+    testInvalidCast<std::string>(
+        "boolean", {"off"}, "Cannot cast off to BOOLEAN");
   }
 
   // To string.

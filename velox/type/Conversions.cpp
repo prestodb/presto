@@ -23,3 +23,35 @@ DEFINE_bool(
     " format of type conversions used for casting. This is a temporary solution"
     " that aims to facilitate a seamless transition for users who rely on the"
     " legacy behavior and hence can change in the future.");
+
+namespace facebook::velox::util {
+
+// This is based on Presto java's castToBoolean method.
+Expected<bool> castToBoolean(const char* data, size_t len) {
+  const auto& TU = static_cast<int (*)(int)>(std::toupper);
+
+  if (len == 1) {
+    auto character = TU(data[0]);
+    if (character == 'T' || character == '1') {
+      return true;
+    }
+    if (character == 'F' || character == '0') {
+      return false;
+    }
+  }
+
+  if ((len == 4) && (TU(data[0]) == 'T') && (TU(data[1]) == 'R') &&
+      (TU(data[2]) == 'U') && (TU(data[3]) == 'E')) {
+    return true;
+  }
+
+  if ((len == 5) && (TU(data[0]) == 'F') && (TU(data[1]) == 'A') &&
+      (TU(data[2]) == 'L') && (TU(data[3]) == 'S') && (TU(data[4]) == 'E')) {
+    return false;
+  }
+
+  const std::string errorMessage =
+      fmt::format("Cannot cast {} to BOOLEAN", StringView(data, len));
+  return folly::makeUnexpected(Status::UserError(errorMessage));
+}
+} // namespace facebook::velox::util

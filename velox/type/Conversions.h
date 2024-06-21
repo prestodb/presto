@@ -59,6 +59,12 @@ struct Converter {
   }
 };
 
+/// Presto compatible cast of strings to boolean. There is a set of strings
+/// allowed to be casted to boolean. These strings are `t, f, 1, 0, true, false`
+/// and their upper case equivalents. Casting from other strings to boolean
+/// throws.
+Expected<bool> castToBoolean(const char* data, size_t len);
+
 namespace detail {
 
 template <typename T, typename F>
@@ -93,14 +99,26 @@ struct Converter<TypeKind::BOOLEAN, void, TPolicy> {
   }
 
   static Expected<T> tryCast(folly::StringPiece v) {
+    if (std::is_same_v<TPolicy, PrestoCastPolicy>) {
+      return castToBoolean(v.data(), v.size());
+    }
+
     return detail::callFollyTo<T>(v);
   }
 
   static Expected<T> tryCast(const StringView& v) {
+    if (std::is_same_v<TPolicy, PrestoCastPolicy>) {
+      return castToBoolean(v.data(), v.size());
+    }
+
     return detail::callFollyTo<T>(folly::StringPiece(v));
   }
 
   static Expected<T> tryCast(const std::string& v) {
+    if (std::is_same_v<TPolicy, PrestoCastPolicy>) {
+      return castToBoolean(v.data(), v.length());
+    }
+
     return detail::callFollyTo<T>(v);
   }
 
