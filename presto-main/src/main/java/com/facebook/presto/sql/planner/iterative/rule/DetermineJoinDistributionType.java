@@ -47,11 +47,14 @@ import static com.facebook.presto.SystemSessionProperties.getJoinDistributionTyp
 import static com.facebook.presto.SystemSessionProperties.getJoinMaxBroadcastTableSize;
 import static com.facebook.presto.SystemSessionProperties.isSizeBasedJoinDistributionTypeEnabled;
 import static com.facebook.presto.SystemSessionProperties.isUseBroadcastJoinWhenBuildSizeSmallProbeSizeUnknownEnabled;
+import static com.facebook.presto.SystemSessionProperties.treatLowConfidenceZeroEstimationAsUnknownEnabled;
 import static com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges.calculateJoinCostWithoutOutput;
 import static com.facebook.presto.spi.plan.JoinDistributionType.PARTITIONED;
 import static com.facebook.presto.spi.plan.JoinDistributionType.REPLICATED;
+import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel.LOW;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.AUTOMATIC;
 import static com.facebook.presto.sql.planner.iterative.ConfidenceBasedBroadcastUtil.confidenceBasedBroadcast;
+import static com.facebook.presto.sql.planner.iterative.ConfidenceBasedBroadcastUtil.treatLowConfidenceZeroEstimationsAsUnknown;
 import static com.facebook.presto.sql.planner.iterative.rule.JoinSwappingUtils.isBelowBroadcastLimit;
 import static com.facebook.presto.sql.planner.iterative.rule.JoinSwappingUtils.isSmallerThanThreshold;
 import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
@@ -114,6 +117,11 @@ public class DetermineJoinDistributionType
 
         PlanNode buildSide = joinNode.getRight();
         PlanNodeStatsEstimate buildSideStatsEstimate = context.getStatsProvider().getStats(buildSide);
+
+        if (treatLowConfidenceZeroEstimationAsUnknownEnabled(context.getSession()) && isLowConfidenceZero(buildSide, context)) {
+            return false;
+        }
+
         double buildSideSizeInBytes = buildSideStatsEstimate.getOutputSizeInBytes(buildSide);
         return buildSideSizeInBytes <= joinMaxBroadcastTableSize.toBytes()
                 || (isSizeBasedJoinDistributionTypeEnabled(context.getSession())
@@ -129,6 +137,15 @@ public class DetermineJoinDistributionType
 
         if (isBelowMaxBroadcastSize(joinNode, context) && isBelowMaxBroadcastSize(joinNode.flipChildren(), context) && !mustPartition(joinNode) && confidenceBasedBroadcastEnabled(context.getSession())) {
             Optional<JoinNode> result = confidenceBasedBroadcast(joinNode, context);
+            if (result.isPresent()) {
+                return result.get();
+            }
+        }
+
+        boolean buildSideLowConfidenceZero = isLowConfidenceZero(joinNode.getRight(), context);
+        boolean probeSideLowConfidenceZero = isLowConfidenceZero(joinNode.getLeft(), context);
+        if ((buildSideLowConfidenceZero || probeSideLowConfidenceZero) && treatLowConfidenceZeroEstimationAsUnknownEnabled(context.getSession())) {
+            Optional<JoinNode> result = treatLowConfidenceZeroEstimationsAsUnknown(probeSideLowConfidenceZero, buildSideLowConfidenceZero, joinNode, context);
             if (result.isPresent()) {
                 return result.get();
             }
@@ -294,5 +311,11 @@ public class DetermineJoinDistributionType
                 replicated,
                 estimatedSourceDistributedTaskCount);
         return new PlanNodeWithCost(cost.toPlanCost(), possibleJoinNode);
+    }
+
+    private static boolean isLowConfidenceZero(PlanNode planNode, Context context)
+    {
+        PlanNodeStatsEstimate statsEstimate = context.getStatsProvider().getStats(planNode);
+        return statsEstimate.confidenceLevel() == LOW && statsEstimate.getOutputRowCount() == 0;
     }
 }
