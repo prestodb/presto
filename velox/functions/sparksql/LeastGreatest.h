@@ -27,6 +27,7 @@ namespace facebook::velox::functions::sparksql {
 /// SMALLINT
 /// INTEGER
 /// BIGINT
+/// HUGEINT
 /// REAL
 /// DOUBLE
 /// BOOLEAN

@@ -109,6 +109,7 @@ std::shared_ptr<exec::VectorFunction> makeImpl(
     SCALAR_CASE(SMALLINT)
     SCALAR_CASE(INTEGER)
     SCALAR_CASE(BIGINT)
+    SCALAR_CASE(HUGEINT)
     SCALAR_CASE(REAL)
     SCALAR_CASE(DOUBLE)
     SCALAR_CASE(VARCHAR)
@@ -155,6 +156,14 @@ std::vector<std::shared_ptr<exec::FunctionSignature>> leastSignatures() {
                                 .variableArity()
                                 .build());
   }
+  signatures.emplace_back(exec::FunctionSignatureBuilder()
+                              .integerVariable("p")
+                              .integerVariable("s")
+                              .returnType("decimal(p,s)")
+                              .argumentType("decimal(p,s)")
+                              .argumentType("decimal(p,s)")
+                              .variableArity()
+                              .build());
   return signatures;
 }
 

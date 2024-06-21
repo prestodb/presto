@@ -179,6 +179,14 @@ TEST_F(LeastTest, date) {
   EXPECT_EQ(least<int32_t>(100, 1000, 10000, DATE()), 100);
 }
 
+TEST_F(LeastTest, decimal) {
+  flat<int64_t>(DECIMAL(6, 2));
+  constant<int64_t>(DECIMAL(6, 2));
+
+  flat<int128_t>(DECIMAL(28, 12));
+  constant<int128_t>(DECIMAL(28, 12));
+}
+
 class GreatestTest : public SparkFunctionBaseTest {
  protected:
   template <typename T>
@@ -338,6 +346,14 @@ TEST_F(GreatestTest, timestamp) {
 
 TEST_F(GreatestTest, date) {
   EXPECT_EQ(greatest<int32_t>(100, 1000, 10000, DATE()), 10000);
+}
+
+TEST_F(GreatestTest, decimal) {
+  flat<int64_t>(DECIMAL(6, 2));
+  constant<int64_t>(DECIMAL(6, 2));
+
+  flat<int128_t>(DECIMAL(28, 12));
+  constant<int128_t>(DECIMAL(28, 12));
 }
 
 } // namespace
