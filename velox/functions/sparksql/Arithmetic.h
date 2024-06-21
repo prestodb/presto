@@ -263,6 +263,17 @@ struct Log1pFunction {
 };
 
 template <typename T>
+struct LogarithmFunction {
+  FOLLY_ALWAYS_INLINE bool call(double& result, double a, double b) {
+    if (a <= 0 || b <= 0) {
+      return false;
+    }
+    result = std::log(b) / std::log(a);
+    return true;
+  }
+};
+
+template <typename T>
 struct Expm1Function {
   FOLLY_ALWAYS_INLINE void call(double& result, double a) {
     // The std::expm1 is more accurate than the expression std::exp(num) - 1.0
