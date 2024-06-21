@@ -375,13 +375,27 @@ void PrestoServer::run() {
       systemConfig->exchangeHttpClientNumIoThreadsHwMultiplier() *
           std::thread::hardware_concurrency(),
       1);
-  exchangeHttpExecutor_ = std::make_shared<folly::IOThreadPoolExecutor>(
+  exchangeHttpIoExecutor_ = std::make_shared<folly::IOThreadPoolExecutor>(
       numExchangeHttpClientIoThreads,
-      std::make_shared<folly::NamedThreadFactory>("PrestoWorkerNetwork"));
+      std::make_shared<folly::NamedThreadFactory>("ExchangeIO"));
 
   PRESTO_STARTUP_LOG(INFO) << "Exchange Http IO executor '"
-                           << exchangeHttpExecutor_->getName() << "' has "
-                           << exchangeHttpExecutor_->numThreads()
+                           << exchangeHttpIoExecutor_->getName() << "' has "
+                           << exchangeHttpIoExecutor_->numThreads()
+                           << " threads.";
+
+  const auto numExchangeHttpClientCpuThreads = std::max<size_t>(
+      systemConfig->exchangeHttpClientNumCpuThreadsHwMultiplier() *
+          std::thread::hardware_concurrency(),
+      1);
+
+  exchangeHttpCpuExecutor_ = std::make_shared<folly::CPUThreadPoolExecutor>(
+      numExchangeHttpClientCpuThreads,
+      std::make_shared<folly::NamedThreadFactory>("ExchangeCPU"));
+
+  PRESTO_STARTUP_LOG(INFO) << "Exchange Http CPU executor '"
+                           << exchangeHttpCpuExecutor_->getName() << "' has "
+                           << exchangeHttpCpuExecutor_->numThreads()
                            << " threads.";
 
   if (systemConfig->exchangeEnableConnectionPool()) {
@@ -401,8 +415,8 @@ void PrestoServer::run() {
             destination,
             queue,
             pool,
-            driverExecutor_.get(),
-            exchangeHttpExecutor_.get(),
+            exchangeHttpCpuExecutor_.get(),
+            exchangeHttpIoExecutor_.get(),
             exchangeSourceConnectionPool_.get(),
             sslContext_);
       });
@@ -578,10 +592,17 @@ void PrestoServer::run() {
 
   PRESTO_SHUTDOWN_LOG(INFO)
       << "Joining Exchange Http IO executor '"
-      << exchangeHttpExecutor_->getName()
-      << "': threads: " << exchangeHttpExecutor_->numActiveThreads() << "/"
-      << exchangeHttpExecutor_->numThreads();
-  exchangeHttpExecutor_->join();
+      << exchangeHttpIoExecutor_->getName()
+      << "': threads: " << exchangeHttpIoExecutor_->numActiveThreads() << "/"
+      << exchangeHttpIoExecutor_->numThreads();
+  exchangeHttpIoExecutor_->join();
+
+  PRESTO_SHUTDOWN_LOG(INFO)
+      << "Joining Exchange Http CPU executor '"
+      << exchangeHttpCpuExecutor_->getName()
+      << "': threads: " << exchangeHttpCpuExecutor_->numActiveThreads() << "/"
+      << exchangeHttpCpuExecutor_->numThreads();
+  exchangeHttpCpuExecutor_->join();
 
   PRESTO_SHUTDOWN_LOG(INFO) << "Done joining our executors.";
 
