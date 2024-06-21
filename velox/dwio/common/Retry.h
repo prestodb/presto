@@ -57,10 +57,12 @@ using RetryDuration =
     std::chrono::duration<float, std::chrono::milliseconds::period>;
 
 namespace retrypolicy {
+
 class IRetryPolicy {
  public:
   virtual ~IRetryPolicy() = default;
   virtual folly::Optional<RetryDuration> nextWaitTime() = 0;
+  virtual void start() {}
 };
 
 class KAttempts : public IRetryPolicy {
@@ -68,7 +70,7 @@ class KAttempts : public IRetryPolicy {
   explicit KAttempts(std::vector<RetryDuration> durations)
       : index_(0), durations_(std::move(durations)) {}
 
-  folly::Optional<RetryDuration> nextWaitTime() {
+  folly::Optional<RetryDuration> nextWaitTime() override {
     if (index_ < durations_.size()) {
       return folly::Optional<RetryDuration>(durations_[index_++]);
     } else {
@@ -86,26 +88,32 @@ class ExponentialBackoff : public IRetryPolicy {
   ExponentialBackoff(
       RetryDuration start,
       RetryDuration max,
-      uint64_t maxRetries = std::numeric_limits<uint64_t>::max(),
-      RetryDuration maxTotal = RetryDuration::zero())
+      uint64_t maxRetries,
+      RetryDuration maxTotal,
+      bool countExecutionTime)
       : maxWait_(max),
         maxTotal_(maxTotal),
+        countExecutionTime_(countExecutionTime),
         nextWait_(start),
-        total_(0),
+        totalWait_(0),
         retriesLeft_(maxRetries) {
     DWIO_ENSURE_LE(start.count(), max.count());
     DWIO_ENSURE(maxTotal_.count() == 0 || maxTotal_.count() > start.count());
   }
 
-  folly::Optional<RetryDuration> nextWaitTime() {
-    if (retriesLeft_ == 0 || (maxTotal_.count() > 0 && total_ >= maxTotal_)) {
+  void start() override {
+    startTime_ = std::chrono::system_clock::now();
+  }
+
+  folly::Optional<RetryDuration> nextWaitTime() override {
+    if (retriesLeft_ == 0 || (maxTotal_.count() > 0 && total() >= maxTotal_)) {
       return folly::Optional<RetryDuration>();
     }
 
     RetryDuration waitTime = nextWait_ + jitter();
     nextWait_ = std::min(nextWait_ + nextWait_, maxWait_);
     --retriesLeft_;
-    total_ += waitTime;
+    totalWait_ += waitTime;
     return folly::Optional<RetryDuration>(waitTime);
   }
 
@@ -114,10 +122,17 @@ class ExponentialBackoff : public IRetryPolicy {
     return RetryDuration(rand_.gen(folly::to<int64_t>(nextWait_.count()) / 2));
   }
 
+  RetryDuration total() const {
+    return countExecutionTime_ ? std::chrono::system_clock::now() - startTime_
+                               : totalWait_;
+  }
+
   const RetryDuration maxWait_;
   const RetryDuration maxTotal_;
+  const bool countExecutionTime_;
+  std::chrono::system_clock::time_point startTime_;
   RetryDuration nextWait_;
-  RetryDuration total_;
+  RetryDuration totalWait_;
   uint64_t retriesLeft_;
   RandGen rand_;
 };
@@ -142,27 +157,30 @@ class KAttemptsPolicyFactory : public IRetryPolicyFactory {
 };
 
 class ExponentialBackoffPolicyFactory : public IRetryPolicyFactory {
- private:
-  const RetryDuration start_;
-  const RetryDuration maxWait_;
-  const uint64_t maxRetries_;
-  const RetryDuration maxTotal_;
-
  public:
   ExponentialBackoffPolicyFactory(
       RetryDuration start,
       RetryDuration maxWait,
       uint64_t maxRetries = std::numeric_limits<uint64_t>::max(),
-      RetryDuration maxTotal = RetryDuration::zero())
+      RetryDuration maxTotal = RetryDuration::zero(),
+      bool countExecutionTime = false)
       : start_(start),
         maxWait_(maxWait),
         maxRetries_(maxRetries),
-        maxTotal_(maxTotal) {}
+        maxTotal_(maxTotal),
+        countExecutionTime_(countExecutionTime) {}
 
   std::unique_ptr<IRetryPolicy> getRetryPolicy() const {
     return std::make_unique<ExponentialBackoff>(
-        start_, maxWait_, maxRetries_, maxTotal_);
+        start_, maxWait_, maxRetries_, maxTotal_, countExecutionTime_);
   }
+
+ private:
+  const RetryDuration start_;
+  const RetryDuration maxWait_;
+  const uint64_t maxRetries_;
+  const RetryDuration maxTotal_;
+  const bool countExecutionTime_;
 };
 
 } // namespace retrypolicy
@@ -174,6 +192,7 @@ class RetryModule {
       F func,
       std::unique_ptr<retrypolicy::IRetryPolicy> policy,
       std::function<bool()> abortFunc = nullptr) {
+    policy->start();
     do {
       try {
         // If abort signal is triggered before func, no ops.

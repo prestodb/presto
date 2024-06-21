@@ -21,14 +21,14 @@ using namespace std::chrono_literals;
 using namespace facebook::velox::dwio::common;
 using namespace facebook::velox::dwio::common::retrypolicy;
 
-template <uint8_t ExceptionCount>
 class Raise {
  public:
-  Raise() : count_(0) {}
+  explicit Raise(uint8_t exceptionCount)
+      : exceptionCount_(exceptionCount), count_(0) {}
 
   template <typename T>
   T call(const T& value) {
-    if (count_++ < ExceptionCount) {
+    if (count_++ < exceptionCount_) {
       throw retriable_error(std::runtime_error("Bad!!!"));
     }
 
@@ -42,11 +42,12 @@ class Raise {
   ~Raise() = default;
 
  private:
+  const uint8_t exceptionCount_;
   uint8_t count_;
 };
 
 TEST(RetryModuleTests, retryUntilSuccessDefault) {
-  Raise<4> raise;
+  Raise raise(4);
   std::function<int8_t()> retriable = [&raise]() {
     return raise.call<int8_t>(10);
   };
@@ -64,7 +65,7 @@ TEST(RetryModuleTests, retryUntilSuccessDefault) {
 }
 
 TEST(RetryModuleTests, retryUntilSuccessBackoff) {
-  Raise<4> raise;
+  Raise raise(4);
   std::function<int8_t()> retriable = [&raise]() {
     return raise.call<int8_t>(10);
   };
@@ -82,7 +83,7 @@ TEST(RetryModuleTests, retryUntilSuccessBackoff) {
 }
 
 TEST(RetryModuleTests, retryCapMaxDelay) {
-  Raise<4> raise;
+  Raise raise(4);
   std::function<int8_t()> retriable = [&raise]() {
     return raise.call<int8_t>(10);
   };
@@ -100,7 +101,7 @@ TEST(RetryModuleTests, retryCapMaxDelay) {
 }
 
 TEST(RetryModuleTests, failOnRetriesExceededDefault) {
-  Raise<6> raise;
+  Raise raise(6);
   std::function<int8_t()> retriable = [&raise]() {
     return raise.call<int8_t>(10);
   };
@@ -113,7 +114,7 @@ TEST(RetryModuleTests, failOnRetriesExceededDefault) {
 }
 
 TEST(RetryModuleTests, failOnRetriesExceededBackoff) {
-  Raise<6> raise;
+  Raise raise(6);
   std::function<int8_t()> retriable = [&raise]() {
     return raise.call<int8_t>(10);
   };
@@ -126,7 +127,7 @@ TEST(RetryModuleTests, failOnRetriesExceededBackoff) {
 }
 
 TEST(RetryModuleTests, failOnRetriesExceededTotalBackoff) {
-  Raise<100> raise;
+  Raise raise(100);
   std::function<int8_t()> retriable = [&raise]() {
     return raise.call<int8_t>(10);
   };
@@ -143,7 +144,7 @@ TEST(RetryModuleTests, failOnRetriesExceededTotalBackoff) {
 }
 
 TEST(RetryModuleTests, defineDifferentUnit) {
-  Raise<1> raise;
+  Raise raise(1);
   std::function<int8_t()> retriable = [&raise]() {
     return raise.call<int8_t>(11);
   };
@@ -171,4 +172,16 @@ TEST(RetryModuleTests, testJitter) {
   }
 
   ASSERT_GT(wait.count(), nextWait);
+}
+
+TEST(RetryModuleTests, exponentialBackOffCountExecutionTime) {
+  Raise raise(1);
+  auto retriable = [&raise]() {
+    std::this_thread::sleep_for(20ms);
+    return raise.call<int8_t>(10);
+  };
+  ExponentialBackoffPolicyFactory policyFactory(1ms, 1ms, 5, 10ms, true);
+  ASSERT_THROW(
+      RetryModule::withRetry(retriable, policyFactory.getRetryPolicy()),
+      retries_exhausted);
 }
