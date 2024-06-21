@@ -230,11 +230,11 @@ void CacheInputStream::loadSync(const Region& region) {
     }
 
     auto* entry = pin_.checkedEntry();
+    if (!entry->getAndClearFirstUseFlag()) {
+      // Hit memory cache.
+      ioStats_->ramHit().increment(hitSize);
+    }
     if (!entry->isExclusive()) {
-      if (!entry->getAndClearFirstUseFlag()) {
-        // Hit memory cache.
-        ioStats_->ramHit().increment(hitSize);
-      }
       return;
     }
 

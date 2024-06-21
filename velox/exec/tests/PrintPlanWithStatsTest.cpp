@@ -194,7 +194,7 @@ TEST_F(PrintPlanWithStatsTest, innerJoinWithTableScan) {
        {"          maxSingleIoWaitNanos[ ]*sum: .+, count: 1, min: .+, max: .+"},
        {"          numLocalRead        [ ]* sum: 0, count: 1, min: 0, max: 0"},
        {"          numPrefetch         [ ]* sum: .+, count: 1, min: .+, max: .+"},
-       {"          numRamRead          [ ]* sum: 40, count: 1, min: 40, max: 40"},
+       {"          numRamRead          [ ]* sum: 60, count: 1, min: 60, max: 60"},
        {"          numStorageRead      [ ]* sum: .+, count: 1, min: .+, max: .+"},
        {"          overreadBytes[ ]* sum: 0B, count: 1, min: 0B, max: 0B"},
        {"          prefetchBytes       [ ]* sum: .+, count: 1, min: .+, max: .+"},
@@ -289,7 +289,7 @@ TEST_F(PrintPlanWithStatsTest, partialAggregateWithTableScan) {
          {"        maxSingleIoWaitNanos[ ]*sum: .+, count: 1, min: .+, max: .+"},
          {"        numLocalRead     [ ]* sum: 0, count: 1, min: 0, max: 0"},
          {"        numPrefetch      [ ]* sum: .+, count: .+, min: .+, max: .+"},
-         {"        numRamRead       [ ]* sum: 6, count: 1, min: 6, max: 6"},
+         {"        numRamRead       [ ]* sum: 7, count: 1, min: 7, max: 7"},
          {"        numStorageRead   [ ]* sum: .+, count: 1, min: .+, max: .+"},
          {"        overreadBytes[ ]* sum: 0B, count: 1, min: 0B, max: 0B"},
 
