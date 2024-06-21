@@ -134,6 +134,10 @@ class DirectBufferedInput : public BufferedInput {
       velox::common::Region region,
       const StreamIdentifier* sid) override;
 
+  bool supportSyncLoad() const override {
+    return false;
+  }
+
   void load(const LogType /*unused*/) override;
 
   bool isBuffered(uint64_t offset, uint64_t length) const override;

@@ -112,6 +112,14 @@ ReaderBase::ReaderBase(
   DWIO_ENSURE(fileLength_ > 0, "ORC file is empty");
   VELOX_CHECK_GE(fileLength_, 4, "File size too small");
 
+  const auto preloadFile = fileLength_ <= filePreloadThreshold_;
+  const uint64_t readSize =
+      preloadFile ? fileLength_ : std::min(fileLength_, footerEstimatedSize_);
+  if (input_->supportSyncLoad()) {
+    input_->enqueue({fileLength_ - readSize, readSize, "footer"});
+    input_->load(preloadFile ? LogType::FILE : LogType::FOOTER);
+  }
+
   // TODO: read footer from spectrum
   {
     const void* buf;
@@ -157,6 +165,11 @@ ReaderBase::ReaderBase(
           : proto::orc::CompressionKind_IsValid(postScript_->compression()),
       "Corrupted File, invalid compression kind ",
       postScript_->compression());
+
+  if (input_->supportSyncLoad() && (tailSize > readSize)) {
+    input_->enqueue({fileLength_ - tailSize, tailSize, "footer"});
+    input_->load(LogType::FOOTER);
+  }
 
   auto footerStream = input_->read(
       fileLength_ - psLength_ - footerSize - 1, footerSize, LogType::FOOTER);

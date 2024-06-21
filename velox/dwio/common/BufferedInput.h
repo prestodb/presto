@@ -76,6 +76,11 @@ class BufferedInput {
       velox::common::Region region,
       const StreamIdentifier* sid = nullptr);
 
+  /// Returns true if load synchronously.
+  virtual bool supportSyncLoad() const {
+    return true;
+  }
+
   /// load all regions to be read in an optimized way (IO efficiency)
   virtual void load(const LogType);
 

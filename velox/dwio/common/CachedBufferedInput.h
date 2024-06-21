@@ -112,6 +112,10 @@ class CachedBufferedInput : public BufferedInput {
       velox::common::Region region,
       const StreamIdentifier* sid) override;
 
+  bool supportSyncLoad() const override {
+    return false;
+  }
+
   void load(const LogType /*unused*/) override;
 
   bool isBuffered(uint64_t /*unused*/, uint64_t /*unused*/) const override;
