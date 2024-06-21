@@ -146,6 +146,12 @@ class MemoryArbitrationFuzzer {
       const std::vector<std::string>& keyNames,
       const std::vector<TypePtr>& keyTypes);
 
+  // Reuses the 'generateInput' method to return randomly generated
+  // order by input.
+  std::vector<RowVectorPtr> generateOrderByInput(
+      const std::vector<std::string>& keyNames,
+      const std::vector<TypePtr>& keyTypes);
+
   // Same as generateProbeInput() but copies over 10% of the input in the probe
   // columns to ensure some matches during joining. Also generates an empty
   // input with a 10% chance.
@@ -169,6 +175,8 @@ class MemoryArbitrationFuzzer {
 
   std::vector<PlanWithSplits> rowNumberPlans(const std::string& tableDir);
 
+  std::vector<PlanWithSplits> orderByPlans(const std::string& tableDir);
+
   void verify();
 
   static VectorFuzzer::Options getFuzzerOptions() {
@@ -188,6 +196,7 @@ class MemoryArbitrationFuzzer {
       {core::QueryConfig::kSpillStartPartitionBit, "29"},
       {core::QueryConfig::kAggregationSpillEnabled, "true"},
       {core::QueryConfig::kRowNumberSpillEnabled, "true"},
+      {core::QueryConfig::kOrderBySpillEnabled, "true"},
   };
 
   std::shared_ptr<memory::MemoryPool> rootPool_{
@@ -362,6 +371,12 @@ std::vector<RowVectorPtr> MemoryArbitrationFuzzer::generateAggregateInput(
 }
 
 std::vector<RowVectorPtr> MemoryArbitrationFuzzer::generateRowNumberInput(
+    const std::vector<std::string>& keyNames,
+    const std::vector<TypePtr>& keyTypes) {
+  return generateInput(keyNames, keyTypes);
+}
+
+std::vector<RowVectorPtr> MemoryArbitrationFuzzer::generateOrderByInput(
     const std::vector<std::string>& keyNames,
     const std::vector<TypePtr>& keyTypes) {
   return generateInput(keyNames, keyTypes);
@@ -606,6 +621,38 @@ MemoryArbitrationFuzzer::rowNumberPlans(const std::string& tableDir) {
   return plans;
 }
 
+std::vector<MemoryArbitrationFuzzer::PlanWithSplits>
+MemoryArbitrationFuzzer::orderByPlans(const std::string& tableDir) {
+  const auto [keyNames, keyTypes] = generatePartitionKeys();
+  const auto input = generateOrderByInput(keyNames, keyTypes);
+
+  std::vector<PlanWithSplits> plans;
+
+  auto plan = PlanWithSplits{
+      PlanBuilder().values(input).orderBy(keyNames, false).planNode(), {}};
+  plans.push_back(std::move(plan));
+
+  if (!isTableScanSupported(input[0]->type())) {
+    return plans;
+  }
+
+  const std::vector<Split> splits =
+      makeSplits(input, fmt::format("{}/order_by", tableDir), writerPool_);
+
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  core::PlanNodeId scanId;
+  plan = PlanWithSplits{
+      PlanBuilder(planNodeIdGenerator)
+          .tableScan(asRowType(input[0]->type()))
+          .capturePlanNodeId(scanId)
+          .orderBy(keyNames, false)
+          .planNode(),
+      {{scanId, splits}}};
+  plans.push_back(std::move(plan));
+
+  return plans;
+}
+
 void MemoryArbitrationFuzzer::verify() {
   const auto outputDirectory = TempDirectoryPath::create();
   const auto spillDirectory = exec::test::TempDirectoryPath::create();
@@ -619,6 +666,9 @@ void MemoryArbitrationFuzzer::verify() {
     plans.push_back(plan);
   }
   for (const auto& plan : rowNumberPlans(tableScanDir->getPath())) {
+    plans.push_back(plan);
+  }
+  for (const auto& plan : orderByPlans(tableScanDir->getPath())) {
     plans.push_back(plan);
   }
 
