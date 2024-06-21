@@ -59,6 +59,7 @@ jobs:
     env:
       CCACHE_DIR: "/__w/velox/velox/.ccache"
       VELOX_DEPENDENCY_SOURCE: SYSTEM
+      Protobuf_SOURCE: BUNDLED # can be removed after #10134 is merged
       simdjson_SOURCE: BUNDLED
       xsimd_SOURCE: BUNDLED
       CUDA_VERSION: "12.4"

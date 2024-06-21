@@ -22,7 +22,7 @@ by Velox. See details on bundling below.
 | xz                | default         | No       |
 | zstd              | default         | No       |
 | openssl           | default         | No       |
-| protobuf          | 21 (exact)      | Yes      |
+| protobuf          | 21.7 >= x < 22  | Yes      |
 | boost             | 1.77.0          | Yes      |
 | flex              | 2.5.13          | No       |
 | bison             | 3.0.4           | No       |
