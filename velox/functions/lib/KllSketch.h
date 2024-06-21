@@ -23,6 +23,28 @@
 #include "folly/Range.h"
 
 namespace facebook::velox::functions::kll {
+namespace detail {
+/// Internal API, do not use outside Velox.
+template <typename T>
+struct View {
+  uint32_t k;
+  size_t n;
+  T minValue;
+  T maxValue;
+  folly::Range<const T*> items;
+  folly::Range<const uint32_t*> levels;
+
+  uint8_t numLevels() const {
+    return levels.size() - 1;
+  }
+
+  uint32_t safeLevelSize(uint8_t level) const {
+    return level < numLevels() ? levels[level + 1] - levels[level] : 0;
+  }
+
+  void deserialize(const char* FOLLY_NONNULL);
+};
+} // namespace detail
 
 constexpr uint32_t kDefaultK = 200;
 
@@ -142,30 +164,13 @@ struct KllSketch {
   std::vector<std::pair<T, uint64_t>> getFrequencies() const;
 
   /// Internal API, do not use outside Velox.
-  struct View {
-    uint32_t k;
-    size_t n;
-    T minValue;
-    T maxValue;
-    folly::Range<const T*> items;
-    folly::Range<const uint32_t*> levels;
-
-    uint8_t numLevels() const {
-      return levels.size() - 1;
-    }
-
-    uint32_t safeLevelSize(uint8_t level) const {
-      return level < numLevels() ? levels[level + 1] - levels[level] : 0;
-    }
-
-    void deserialize(const char* FOLLY_NONNULL);
-  };
+  void mergeViews(const folly::Range<const detail::View<T>*>& views);
 
   /// Internal API, do not use outside Velox.
-  void mergeViews(const folly::Range<const View*>& views);
+  detail::View<T> toView() const;
 
-  /// Internal API, do not use outside Velox.
-  View toView() const;
+  static KllSketch<T, Allocator, Compare>
+  fromView(const detail::View<T>&, const Allocator& allocator, uint32_t seed);
 
  private:
   KllSketch(const Allocator&, uint32_t seed);
@@ -186,9 +191,6 @@ struct KllSketch {
   uint32_t safeLevelSize(uint8_t level) const {
     return level < numLevels() ? levels_[level + 1] - levels_[level] : 0;
   }
-
-  static KllSketch<T, Allocator, Compare>
-  fromView(const View&, const Allocator&, uint32_t seed);
 
   using AllocU32 = typename std::allocator_traits<
       Allocator>::template rebind_alloc<uint32_t>;

@@ -253,6 +253,20 @@ void readRange(const char* data, size_t& offset, folly::Range<const T*>& out) {
   offset += bytes;
 }
 
+template <typename T>
+void View<T>::deserialize(const char* data) {
+  size_t i = 0;
+  int16_t version;
+  detail::read(data, i, version);
+  VELOX_CHECK_EQ(version, detail::kVersion, "Unsupported version: {}", version);
+  detail::read(data, i, k);
+  detail::read(data, i, n);
+  detail::read(data, i, minValue);
+  detail::read(data, i, maxValue);
+  detail::readRange(data, i, items);
+  detail::readRange(data, i, levels);
+}
+
 } // namespace detail
 
 template <typename T, typename A, typename C>
@@ -565,7 +579,8 @@ void KllSketch<T, A, C>::estimateQuantiles(
 }
 
 template <typename T, typename A, typename C>
-void KllSketch<T, A, C>::mergeViews(const folly::Range<const View*>& others) {
+void KllSketch<T, A, C>::mergeViews(
+    const folly::Range<const detail::View<T>*>& others) {
   auto newN = n_;
   for (auto& other : others) {
     if (other.n == 0) {
@@ -683,14 +698,14 @@ void KllSketch<T, A, C>::mergeViews(const folly::Range<const View*>& others) {
 
 template <typename T, typename A, typename C>
 void KllSketch<T, A, C>::merge(const KllSketch<T, A, C>& other) {
-  View view = other.toView();
+  detail::View<T> view = other.toView();
   mergeViews(folly::Range(&view, 1));
 }
 
 template <typename T, typename A, typename C>
 template <typename Iter>
 void KllSketch<T, A, C>::merge(const folly::Range<Iter>& others) {
-  std::vector<View> views;
+  std::vector<detail::View<T>> views;
   views.reserve(others.size());
   for (auto& other : others) {
     views.push_back(other.toView());
@@ -700,7 +715,7 @@ void KllSketch<T, A, C>::merge(const folly::Range<Iter>& others) {
 
 template <typename T, typename A, typename C>
 void KllSketch<T, A, C>::mergeDeserialized(const char* data) {
-  View view;
+  detail::View<T> view;
   view.deserialize(data);
   return mergeViews(folly::Range(&view, 1));
 }
@@ -708,7 +723,7 @@ void KllSketch<T, A, C>::mergeDeserialized(const char* data) {
 template <typename T, typename A, typename C>
 template <typename Iter>
 void KllSketch<T, A, C>::mergeDeserialized(const folly::Range<Iter>& others) {
-  std::vector<View> views;
+  std::vector<detail::View<T>> views;
   views.reserve(others.size());
   for (auto& other : others) {
     views.emplace_back();
@@ -718,7 +733,7 @@ void KllSketch<T, A, C>::mergeDeserialized(const folly::Range<Iter>& others) {
 }
 
 template <typename T, typename A, typename C>
-typename KllSketch<T, A, C>::View KllSketch<T, A, C>::toView() const {
+typename detail::View<T> KllSketch<T, A, C>::toView() const {
   return {
       .k = k_,
       .n = n_,
@@ -731,7 +746,7 @@ typename KllSketch<T, A, C>::View KllSketch<T, A, C>::toView() const {
 
 template <typename T, typename A, typename C>
 KllSketch<T, A, C> KllSketch<T, A, C>::fromView(
-    const typename KllSketch<T, A, C>::View& view,
+    const detail::View<T>& view,
     const A& allocator,
     uint32_t seed) {
   KllSketch<T, A, C> ans(allocator, seed);
@@ -771,25 +786,11 @@ void KllSketch<T, A, C>::serialize(char* out) const {
 }
 
 template <typename T, typename A, typename C>
-void KllSketch<T, A, C>::View::deserialize(const char* data) {
-  size_t i = 0;
-  int16_t version;
-  detail::read(data, i, version);
-  VELOX_CHECK_EQ(version, detail::kVersion, "Unsupported version: {}", version);
-  detail::read(data, i, k);
-  detail::read(data, i, n);
-  detail::read(data, i, minValue);
-  detail::read(data, i, maxValue);
-  detail::readRange(data, i, items);
-  detail::readRange(data, i, levels);
-}
-
-template <typename T, typename A, typename C>
 KllSketch<T, A, C> KllSketch<T, A, C>::deserialize(
     const char* data,
     const A& allocator,
     uint32_t seed) {
-  View view;
+  detail::View<T> view;
   view.deserialize(data);
   return fromView(view, allocator, seed);
 }
