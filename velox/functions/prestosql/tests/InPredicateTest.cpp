@@ -258,6 +258,114 @@ class InPredicateTest : public FunctionBaseTest {
 
     return makeFlatVector(timestamps);
   }
+
+  template <typename T>
+  void testNaNs() {
+    const T kNaN = std::numeric_limits<T>::quiet_NaN();
+    const T kSNaN = std::numeric_limits<T>::signaling_NaN();
+    TypePtr columnFloatType = CppToType<T>::create();
+
+    // Constant In-list, primitive input.
+    auto testInWithConstList = [&](std::vector<T> input,
+                                   std::vector<T> inlist,
+                                   std::vector<bool> expected) {
+      auto expr = std::make_shared<core::CallTypedExpr>(
+          BOOLEAN(),
+          std::vector<core::TypedExprPtr>{
+              field(columnFloatType, "c0"),
+              std::make_shared<core::ConstantTypedExpr>(
+                  makeArrayVector<T>({inlist})),
+          },
+          "in");
+      auto data = makeRowVector({
+          makeFlatVector<T>(input),
+      });
+      auto expectedResults = makeFlatVector<bool>(expected);
+      auto result = evaluate(expr, data);
+      assertEqualVectors(expectedResults, result);
+    };
+
+    testInWithConstList({kNaN, kSNaN}, {kNaN, 1}, {true, true});
+    testInWithConstList({kNaN, kSNaN}, {1, 2}, {false, false});
+    // Need to specifically test in-list with a single element as it previously
+    // had a seperate codepath.
+    testInWithConstList({kNaN, kSNaN}, {kNaN}, {true, true});
+    testInWithConstList({kNaN, kSNaN}, {1}, {false, false});
+
+    {
+      // Constant In-list, complex input(row).
+      // In-list is [row{kNaN, 1}].
+      auto inlist = makeArrayVector(
+          {0},
+          makeRowVector(
+              {makeFlatVector<T>(std::vector<T>({kNaN})),
+               makeFlatVector<int32_t>(std::vector<int32_t>({1}))}));
+      auto expr = std::make_shared<core::CallTypedExpr>(
+          BOOLEAN(),
+          std::vector<core::TypedExprPtr>{
+              field(ROW({columnFloatType, INTEGER()}), "c0"),
+              std::make_shared<core::ConstantTypedExpr>(inlist),
+          },
+          "in");
+      // Input is [row{kNaN, 1}, row{kSNaN, 1}, row{kNaN, 2}].
+      auto data = makeRowVector({makeRowVector(
+          {makeFlatVector<T>(std::vector<T>({kNaN, kSNaN, kNaN})),
+           makeFlatVector<int32_t>(std::vector<int32_t>({1, 1, 2}))})});
+      auto expectedResults = makeFlatVector<bool>({true, true, false});
+      auto result = evaluate(expr, data);
+      assertEqualVectors(expectedResults, result);
+    }
+
+    {
+      // Variable In-list, primitive input.
+      auto data = makeRowVector({
+          makeFlatVector<T>({kNaN, kSNaN, kNaN}),
+          makeFlatVector<T>({kNaN, kNaN, 0}),
+          makeFlatVector<T>({1, 1, 1}),
+      });
+      // Expression: c0 in (c1, c2)
+      auto inWithVariableInList = std::make_shared<core::CallTypedExpr>(
+          BOOLEAN(),
+          std::vector<core::TypedExprPtr>{
+              field(columnFloatType, "c0"),
+              field(columnFloatType, "c1"),
+              field(columnFloatType, "c2"),
+          },
+          "in");
+      auto expectedResults = makeFlatVector<bool>({
+          true, // kNaN in (kNaN, 1)
+          true, // kSNaN in (kNaN, 1)
+          false, // kNaN in (kNaN, 0)
+      });
+      auto result = evaluate(inWithVariableInList, data);
+      assertEqualVectors(expectedResults, result);
+    }
+
+    {
+      // Variable In-list, complex input(row).
+      // Input is:
+      // c0: [row{kNaN, 1}, row{kSNaN, 1}, row{kNaN, 2}]
+      // c1: [row{kNaN, 1}, row{kNaN, 1}, row{kNaN, 1}]
+      auto data = makeRowVector(
+          {makeRowVector(
+               {makeFlatVector<T>(std::vector<T>({kNaN, kSNaN, kNaN})),
+                makeFlatVector<int32_t>(std::vector<int32_t>({1, 1, 2}))}),
+           makeRowVector(
+               {makeFlatVector<T>(std::vector<T>({kNaN, kNaN, kNaN})),
+                makeFlatVector<int32_t>(std::vector<int32_t>({1, 1, 1}))})});
+      // Expression: c0 in (c1)
+      auto inWithVariableInList = std::make_shared<core::CallTypedExpr>(
+          BOOLEAN(),
+          std::vector<core::TypedExprPtr>{
+              field(ROW({columnFloatType, INTEGER()}), "c0"),
+              field(ROW({columnFloatType, INTEGER()}), "c1"),
+          },
+          "in");
+      auto expectedResults = makeFlatVector<bool>({true, true, false});
+      auto result = evaluate(inWithVariableInList, data);
+      assertEqualVectors(expectedResults, result);
+    }
+  }
 };
 
 TEST_F(InPredicateTest, bigint) {
@@ -950,6 +1058,12 @@ TEST_F(InPredicateTest, nonConstantInList) {
 
   auto result = evaluate(in, data);
   assertEqualVectors(expected, result);
+}
+
+TEST_F(InPredicateTest, nans) {
+  // Ensure that NaNs with different bit patterns are treated as equal.
+  testNaNs<float>();
+  testNaNs<double>();
 }
 
 } // namespace

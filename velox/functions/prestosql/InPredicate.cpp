@@ -191,16 +191,15 @@ createFloatingPointValuesFilter(
   VELOX_USER_CHECK(
       !values.empty(),
       "IN predicate expects at least one non-null value in the in-list");
-
-  if (values.size() == 1) {
-    return {
-        std::make_unique<common::FloatingPointRange<T>>(
-            values[0], false, false, values[0], false, false, nullAllowed),
-        false};
-  }
-
+  // Avoid using FloatingPointRange for optimization of a single value in-list
+  // as it does not support NaN as a bound for specifying a range.
   std::vector<int64_t> intValues(values.size());
   for (size_t i = 0; i < values.size(); ++i) {
+    if (std::isnan(values[i])) {
+      // We de-normalize NaN values to ensure different binary representations
+      // are treated the same.
+      values[i] = std::numeric_limits<T>::quiet_NaN();
+    }
     if constexpr (std::is_same_v<T, float>) {
       if (values[i] == float{}) {
         values[i] = 0;
@@ -411,26 +410,26 @@ class InPredicate : public exec::VectorFunction {
         break;
       case TypeKind::REAL:
         applyTyped<float>(rows, input, context, result, [&](float value) {
-          auto* derived =
-              dynamic_cast<common::FloatingPointRange<float>*>(filter_.get());
-          if (derived) {
-            return filter_->testFloat(value);
-          }
           if (value == float{}) {
             value = 0;
+          } else if (std::isnan(value)) {
+            // We de-normalize NaN values to ensure different binary
+            // representations
+            // are treated the same.
+            value = std::numeric_limits<float>::quiet_NaN();
           }
           return filter_->testInt64(reinterpret_cast<const int32_t&>(value));
         });
         break;
       case TypeKind::DOUBLE:
         applyTyped<double>(rows, input, context, result, [&](double value) {
-          auto* derived =
-              dynamic_cast<common::FloatingPointRange<double>*>(filter_.get());
-          if (derived) {
-            return filter_->testDouble(value);
-          }
           if (value == double{}) {
             value = 0;
+          } else if (std::isnan(value)) {
+            // We de-normalize NaN values to ensure different binary
+            // representations
+            // are treated the same.
+            value = std::numeric_limits<double>::quiet_NaN();
           }
           return filter_->testInt64(reinterpret_cast<const int64_t&>(value));
         });
