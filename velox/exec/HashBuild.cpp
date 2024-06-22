@@ -1114,7 +1114,7 @@ void HashBuild::reclaim(
   for (auto* op : operators) {
     HashBuild* buildOp = static_cast<HashBuild*>(op);
     spillTasks.push_back(
-        memory::createAsyncMemoryReclaimTask<SpillResult>([buildOp]() {
+        std::make_shared<AsyncSource<SpillResult>>([buildOp]() {
           try {
             buildOp->spiller_->spill();
             buildOp->table_->clear();

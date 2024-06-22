@@ -125,6 +125,7 @@ class StatsReporterTest : public testing::Test {
   void SetUp() override {
     reporter_ = std::dynamic_pointer_cast<TestReporter>(
         folly::Singleton<BaseStatsReporter>::try_get());
+    reporter_->clear();
   }
   void TearDown() override {
     reporter_->clear();

@@ -601,7 +601,7 @@ TEST_F(MockSharedArbitrationTest, asyncArbitrationWork) {
 
           explicit Result(bool _succeeded) : succeeded(_succeeded) {}
         };
-        auto asyncReclaimTask = createAsyncMemoryReclaimTask<Result>([&]() {
+        auto asyncReclaimTask = std::make_shared<AsyncSource<Result>>([&]() {
           memoryOp->allocate(poolCapacity);
           return std::make_unique<Result>(true);
         });

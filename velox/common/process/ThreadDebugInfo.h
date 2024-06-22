@@ -34,6 +34,9 @@ struct ThreadDebugInfo {
 class ScopedThreadDebugInfo {
  public:
   explicit ScopedThreadDebugInfo(const ThreadDebugInfo& localDebugInfo);
+
+  explicit ScopedThreadDebugInfo(const ThreadDebugInfo* localDebugInfo);
+
   ~ScopedThreadDebugInfo();
 
  private:

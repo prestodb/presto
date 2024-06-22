@@ -18,7 +18,6 @@
 
 #include <vector>
 
-#include "velox/common/base/AsyncSource.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/Portability.h"
 #include "velox/common/base/SuccinctPrinter.h"
@@ -462,6 +461,14 @@ struct MemoryArbitrationContext {
 class ScopedMemoryArbitrationContext {
  public:
   explicit ScopedMemoryArbitrationContext(const MemoryPool* requestor);
+
+  // Can be used to restore a previously captured MemoryArbitrationContext.
+  // contextToRestore can be nullptr if there was no context at the time it was
+  // captured, in which case arbitrationCtx is unchanged upon
+  // contruction/destruction of this object.
+  explicit ScopedMemoryArbitrationContext(
+      const MemoryArbitrationContext* contextToRestore);
+
   ~ScopedMemoryArbitrationContext();
 
  private:
@@ -471,27 +478,10 @@ class ScopedMemoryArbitrationContext {
 
 /// Returns the memory arbitration context set by a per-thread local variable if
 /// the running thread is under memory arbitration processing.
-MemoryArbitrationContext* memoryArbitrationContext();
+const MemoryArbitrationContext* memoryArbitrationContext();
 
 /// Returns true if the running thread is under memory arbitration or not.
 bool underMemoryArbitration();
-
-/// Creates an async memory reclaim task with memory arbitration context set.
-/// This is to avoid recursive memory arbitration during memory reclaim.
-///
-/// NOTE: this must be called under memory arbitration.
-template <typename Item>
-std::shared_ptr<AsyncSource<Item>> createAsyncMemoryReclaimTask(
-    std::function<std::unique_ptr<Item>()> task) {
-  auto* arbitrationCtx = memory::memoryArbitrationContext();
-  VELOX_CHECK_NOT_NULL(arbitrationCtx);
-  return std::make_shared<AsyncSource<Item>>(
-      [asyncTask = std::move(task), arbitrationCtx]() -> std::unique_ptr<Item> {
-        VELOX_CHECK_NOT_NULL(arbitrationCtx);
-        memory::ScopedMemoryArbitrationContext ctx(arbitrationCtx->requestor);
-        return asyncTask();
-      });
-}
 
 /// The function triggers memory arbitration by shrinking memory pools from
 /// 'manager' by invoking shrinkPools API. If 'manager' is not set, then it

@@ -53,10 +53,19 @@ static void printCurrentQueryId() {
 const ThreadDebugInfo* GetThreadDebugInfo() {
   return threadDebugInfo;
 }
+
 ScopedThreadDebugInfo::ScopedThreadDebugInfo(
-    const ThreadDebugInfo& localDebugInfo) {
-  prevThreadDebugInfo_ = threadDebugInfo;
+    const ThreadDebugInfo& localDebugInfo)
+    : prevThreadDebugInfo_(threadDebugInfo) {
   threadDebugInfo = &localDebugInfo;
+}
+
+ScopedThreadDebugInfo::ScopedThreadDebugInfo(
+    const ThreadDebugInfo* localDebugInfo)
+    : prevThreadDebugInfo_(threadDebugInfo) {
+  if (localDebugInfo != nullptr) {
+    threadDebugInfo = localDebugInfo;
+  }
 }
 
 ScopedThreadDebugInfo::~ScopedThreadDebugInfo() {

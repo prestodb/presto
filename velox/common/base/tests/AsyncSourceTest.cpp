@@ -23,6 +23,7 @@
 #include <chrono>
 #include <thread>
 #include "velox/common/base/Exceptions.h"
+#include "velox/common/memory/Memory.h"
 
 using namespace facebook::velox;
 using namespace std::chrono_literals;
@@ -243,4 +244,73 @@ TEST(AsyncSourceTest, close) {
   EXPECT_EQ(DataCounter::numCreatedDataCounters(), 1);
   EXPECT_EQ(DataCounter::numDeletedDataCounters(), 1);
   thread1.join();
+}
+
+void verifyContexts(
+    const std::string& expectedPoolName,
+    const std::string& expectedTaskId) {
+  EXPECT_EQ(
+      memory::memoryArbitrationContext()->requestor->name(), expectedPoolName);
+  EXPECT_EQ(process::GetThreadDebugInfo()->taskId_, expectedTaskId);
+}
+
+TEST(AsyncSourceTest, emptyContexts) {
+  memory::MemoryManager::testingSetInstance({});
+
+  EXPECT_EQ(memory::memoryArbitrationContext(), nullptr);
+  EXPECT_EQ(process::GetThreadDebugInfo(), nullptr);
+
+  AsyncSource<bool> src([]() {
+    // The Contexts at the time this was created were null so we should inherit
+    // them from the caller.
+    verifyContexts("test", "task_id");
+
+    return std::make_unique<bool>(true);
+  });
+
+  auto pool = memory::MemoryManager::getInstance()->addRootPool("test");
+  memory::ScopedMemoryArbitrationContext scopedMemoryArbitrationContext(
+      pool.get());
+  process::ThreadDebugInfo debugInfo{"query_id", "task_id", nullptr};
+  process::ScopedThreadDebugInfo scopedDebugInfo(debugInfo);
+
+  verifyContexts("test", "task_id");
+
+  ASSERT_TRUE(*src.move());
+
+  verifyContexts("test", "task_id");
+}
+
+TEST(AsyncSourceTest, setContexts) {
+  memory::MemoryManager::testingSetInstance({});
+
+  auto pool1 = memory::MemoryManager::getInstance()->addRootPool("test1");
+  process::ThreadDebugInfo debugInfo1{"query_id1", "task_id1", nullptr};
+
+  std::unique_ptr<AsyncSource<bool>> src;
+  memory::ScopedMemoryArbitrationContext scopedMemoryArbitrationContext1(
+      pool1.get());
+  process::ScopedThreadDebugInfo scopedDebugInfo1(debugInfo1);
+
+  verifyContexts("test1", "task_id1");
+
+  src = std::make_unique<AsyncSource<bool>>(([]() {
+    // The Contexts at the time this was created were set so we should have
+    // the same contexts when this is executed.
+    verifyContexts("test1", "task_id1");
+
+    return std::make_unique<bool>(true);
+  }));
+
+  auto pool2 = memory::MemoryManager::getInstance()->addRootPool("test2");
+  memory::ScopedMemoryArbitrationContext scopedMemoryArbitrationContext2(
+      pool2.get());
+  process::ThreadDebugInfo debugInfo2{"query_id2", "task_id2", nullptr};
+  process::ScopedThreadDebugInfo scopedDebugInfo2(debugInfo2);
+
+  verifyContexts("test2", "task_id2");
+
+  ASSERT_TRUE(*src->move());
+
+  verifyContexts("test2", "task_id2");
 }
