@@ -28,6 +28,7 @@
 #include "velox/dwio/dwrf/test/TestReadFile.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 
+#include <fcntl.h>
 #include <gtest/gtest.h>
 
 using namespace facebook::velox;
@@ -129,6 +130,14 @@ class CacheTest : public ::testing::Test {
         spacing += 2'000'000;
       }
     }
+  }
+
+  // Corrupts the file by invalidate its content.
+  static void corruptSsdFile(const std::string& path) {
+    const auto fd = ::open(path.c_str(), O_WRONLY);
+    const auto size = ::lseek(fd, 0, SEEK_END);
+    ASSERT_EQ(ftruncate(fd, 0), 0);
+    ASSERT_EQ(ftruncate(fd, size), 0);
   }
 
   static void checkEntry(const cache::AsyncDataCacheEntry& entry) {
@@ -932,4 +941,30 @@ TEST_F(CacheTest, ssdReadVerification) {
   ASSERT_GT(ioStats_->read().sum(), 0);
   ASSERT_GT(ioStats_->ramHit().sum(), 0);
   ASSERT_GT(ioStats_->ssdRead().sum(), 0);
+
+  // Corrupt SSD cache file.
+  corruptSsdFile(fmt::format("{}/cache0", tempDirectory_->getPath()));
+  // Clear memory cache to force ssd read.
+  cache_->testingClear();
+
+  // Record the baseline stats.
+  const auto prevStats = cache_->refreshStats();
+  const auto prevRead = ioStats_->read().sum();
+  const auto prevRamHit = ioStats_->ramHit().sum();
+  const auto prevSsdRead = ioStats_->ssdRead().sum();
+
+  // Read from the corrupted cache.
+  readData(kSsdBytes);
+  waitForWrite();
+  stats = cache_->refreshStats();
+  // Expect all new reads to be recorded as corruptions.
+  ASSERT_GT(ioStats_->read().sum(), prevRead);
+  ASSERT_GT(stats.ssdStats->readSsdCorruptions, 0);
+  ASSERT_EQ(
+      stats.ssdStats->readSsdCorruptions,
+      stats.ssdStats->entriesRead - prevStats.ssdStats->entriesRead);
+  // Expect no new succeeded cache hits.
+  ASSERT_EQ(stats.numHit, prevStats.numHit);
+  ASSERT_EQ(ioStats_->ramHit().sum(), prevRamHit);
+  ASSERT_EQ(ioStats_->ssdRead().sum(), prevSsdRead);
 }

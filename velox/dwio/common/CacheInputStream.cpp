@@ -301,21 +301,18 @@ bool CacheInputStream::loadFromSsd(
     MicrosecondTimer timer(&ssdLoadUs);
     file.load(ssdPins, pins);
   } catch (const std::exception& e) {
-    try {
-      LOG(ERROR) << "IOERR: Failed SSD loadSync " << entry.toString()
-                 << e.what() << process::TraceContext::statusLine()
-                 << fmt::format(
-                        "stream region {} {}b, start of load {} file {}",
-                        region_.offset,
-                        region_.length,
-                        region.offset - region_.offset,
-                        fileIds().string(fileNum_));
-      // Remove the non-loadable entry so that next access goes to storage.
-      file.erase(cache::RawFileCacheKey{fileNum_, region.offset});
-    } catch (const std::exception&) {
-      // Ignore error inside logging the error.
-    }
-    throw;
+    LOG(ERROR) << "IOERR: Failed SSD loadSync " << entry.toString() << ' '
+               << e.what() << process::TraceContext::statusLine()
+               << fmt::format(
+                      "stream region {} {}b, start of load {} file {}",
+                      region_.offset,
+                      region_.length,
+                      region.offset - region_.offset,
+                      fileIds().string(fileNum_));
+    // Remove the non-loadable entry so that next access goes to storage.
+    file.erase(cache::RawFileCacheKey{fileNum_, region.offset});
+    pin_ = std::move(pins[0]);
+    return false;
   }
 
   VELOX_CHECK(pin_.empty());
