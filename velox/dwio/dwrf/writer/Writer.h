@@ -222,8 +222,4 @@ class DwrfWriterFactory : public dwio::common::WriterFactory {
       const dwio::common::WriterOptions& options) override;
 };
 
-void registerDwrfWriterFactory();
-
-void unregisterDwrfWriterFactory();
-
 } // namespace facebook::velox::dwrf

@@ -17,8 +17,6 @@
 
 #include <boost/random/uniform_int_distribution.hpp>
 
-#include "velox/dwio/dwrf/reader/DwrfReader.h"
-
 #include <unordered_set>
 #include "velox/common/base/Fs.h"
 #include "velox/common/encode/Base64.h"

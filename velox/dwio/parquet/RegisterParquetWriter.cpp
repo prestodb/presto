@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#include "velox/dwio/parquet/RegisterParquetWriter.h"
-
 #ifdef VELOX_ENABLE_PARQUET
 #include "velox/dwio/parquet/writer/Writer.h"
 #endif

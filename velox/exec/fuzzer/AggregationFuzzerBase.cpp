@@ -19,7 +19,6 @@
 #include "velox/common/base/Fs.h"
 #include "velox/common/base/VeloxException.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
-#include "velox/dwio/dwrf/reader/DwrfReader.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/exec/fuzzer/DuckQueryRunner.h"
 #include "velox/exec/fuzzer/PrestoQueryRunner.h"

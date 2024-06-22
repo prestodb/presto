@@ -22,8 +22,6 @@
 #include "velox/common/memory/SharedArbitrator.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
-#include "velox/dwio/dwrf/reader/DwrfReader.h"
-#include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/exec/MemoryReclaimer.h"
 #include "velox/exec/TableWriter.h"
 #include "velox/exec/fuzzer/FuzzerUtil.h"

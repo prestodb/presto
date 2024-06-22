@@ -19,7 +19,9 @@
 
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/memory/Memory.h"
-#include "velox/dwio/dwrf/reader/DwrfReader.h"
+#include "velox/dwio/common/Reader.h"
+#include "velox/dwio/common/ReaderFactory.h"
+#include "velox/dwio/dwrf/RegisterDwrfReader.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/vector/BaseVector.h"
 
@@ -48,10 +50,12 @@ int main(int argc, char** argv) {
   dwio::common::ReaderOptions readerOpts{pool.get()};
   // To make DwrfReader reads ORC file, setFileFormat to FileFormat::ORC
   readerOpts.setFileFormat(FileFormat::ORC);
-  auto reader = DwrfReader::create(
-      std::make_unique<BufferedInput>(
-          std::make_shared<LocalReadFile>(filePath), readerOpts.memoryPool()),
-      readerOpts);
+  auto reader = dwio::common::getReaderFactory(FileFormat::ORC)
+                    ->createReader(
+                        std::make_unique<BufferedInput>(
+                            std::make_shared<LocalReadFile>(filePath),
+                            readerOpts.memoryPool()),
+                        readerOpts);
 
   VectorPtr batch;
   RowReaderOptions rowReaderOptions;

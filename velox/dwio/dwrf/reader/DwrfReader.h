@@ -345,8 +345,4 @@ class DwrfReaderFactory : public dwio::common::ReaderFactory {
   }
 };
 
-void registerDwrfReaderFactory();
-
-void unregisterDwrfReaderFactory();
-
 } // namespace facebook::velox::dwrf

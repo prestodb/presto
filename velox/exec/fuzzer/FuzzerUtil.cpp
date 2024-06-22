@@ -20,7 +20,6 @@
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/dwio/catalog/fbhive/FileUtils.h"
-#include "velox/dwio/dwrf/reader/DwrfReader.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
 
 using namespace facebook::velox::dwio::catalog::fbhive;

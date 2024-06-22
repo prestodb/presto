@@ -21,6 +21,9 @@
 #include "velox/connectors/hive/HiveDataSink.h"
 #include "velox/connectors/hive/HiveDataSource.h"
 #include "velox/connectors/hive/HivePartitionFunction.h"
+#include "velox/dwio/dwrf/RegisterDwrfReader.h"
+#include "velox/dwio/dwrf/RegisterDwrfWriter.h"
+
 // Meta's buck build system needs this check.
 #ifdef VELOX_ENABLE_GCS
 #include "velox/connectors/hive/storage_adapters/gcs/RegisterGCSFileSystem.h" // @manual
