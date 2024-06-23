@@ -312,6 +312,7 @@ public class FeaturesConfig
     private boolean useHistograms;
 
     private boolean useNewNanDefinition = true;
+    private boolean warnOnPossibleNans;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -3130,6 +3131,19 @@ public class FeaturesConfig
     public FeaturesConfig setUseNewNanDefinition(boolean useNewNanDefinition)
     {
         this.useNewNanDefinition = useNewNanDefinition;
+        return this;
+    }
+
+    public boolean getWarnOnCommonNanPatterns()
+    {
+        return warnOnPossibleNans;
+    }
+
+    @Config("warn-on-common-nan-patterns")
+    @ConfigDescription("Give warnings for operations on DOUBLE/REAL types where NaN issues are common")
+    public FeaturesConfig setWarnOnCommonNanPatterns(boolean warnOnPossibleNans)
+    {
+        this.warnOnPossibleNans = warnOnPossibleNans;
         return this;
     }
 }
