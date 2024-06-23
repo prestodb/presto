@@ -1,14 +1,14 @@
 version: '2'
 services:
   spark-master:
-    image: spydernaz/spark-master:2.4.3
+    image: prestodb/spark-master:3.5.1
     environment:
       - "TZ=America/Bahia_Banderas"
       - "SPARK_LOCAL_IP=spark-master"
     volumes:
       - ./work:/spark/work
   spark-worker:
-    image: spydernaz/spark-worker:2.4.3
+    image: prestodb/spark-worker:3.5.1
     depends_on:
       - spark-master
     environment:
@@ -20,7 +20,7 @@ services:
     volumes:
       - ./work:/spark/work
   spark-submit:
-    image: spydernaz/spark-submit:2.4.3
+    image: prestodb/spark-submit:3.5.1
     environment:
       - "TZ=America/Bahia_Banderas"
   hadoop-master:
