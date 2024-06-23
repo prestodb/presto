@@ -272,7 +272,8 @@ public class TestFeaturesConfig
                 .setLegacyJsonCast(true)
                 .setPrintEstimatedStatsFromCache(false)
                 .setUseHistograms(false)
-                .setUseNewNanDefinition(true));
+                .setUseNewNanDefinition(true)
+                .setWarnOnCommonNanPatterns(false));
     }
 
     @Test
@@ -489,6 +490,7 @@ public class TestFeaturesConfig
                 .put("optimizer.print-estimated-stats-from-cache", "true")
                 .put("optimizer.use-histograms", "true")
                 .put("use-new-nan-definition", "false")
+                .put("warn-on-common-nan-patterns", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -702,7 +704,8 @@ public class TestFeaturesConfig
                 .setLegacyJsonCast(false)
                 .setPrintEstimatedStatsFromCache(true)
                 .setUseHistograms(true)
-                .setUseNewNanDefinition(false);
+                .setUseNewNanDefinition(false)
+                .setWarnOnCommonNanPatterns(true);
         assertFullMapping(properties, expected);
     }
 
