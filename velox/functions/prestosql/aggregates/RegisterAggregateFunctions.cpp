@@ -184,10 +184,20 @@ void registerAllAggregateFunctions(
   registerVarianceAggregates(prefix, withCompanionFunctions, overwrite);
 }
 
-extern void registerCountDistinctAggregate(const std::string& prefix);
+extern void registerCountDistinctAggregate(
+    const std::string& prefix,
+    bool withCompanionFunctions,
+    bool overwrite);
+extern void registerInternalArrayAggAggregate(
+    const std::string& prefix,
+    bool withCompanionFunctions,
+    bool overwrite);
 
 void registerInternalAggregateFunctions(const std::string& prefix) {
-  registerCountDistinctAggregate(prefix);
+  bool withCompanionFunctions = false;
+  bool overwrite = false;
+  registerCountDistinctAggregate(prefix, withCompanionFunctions, overwrite);
+  registerInternalArrayAggAggregate(prefix, withCompanionFunctions, overwrite);
 }
 
 } // namespace facebook::velox::aggregate::prestosql

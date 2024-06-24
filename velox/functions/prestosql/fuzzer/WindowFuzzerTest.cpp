@@ -94,6 +94,7 @@ int main(int argc, char** argv) {
   static const std::unordered_set<std::string> skipFunctions = {
       // Skip internal functions used only for result verifications.
       "$internal$count_distinct",
+      "$internal$array_agg",
       // https://github.com/facebookincubator/velox/issues/3493
       "stddev_pop",
       // Lambda functions are not supported yet.

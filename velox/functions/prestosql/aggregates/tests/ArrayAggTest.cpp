@@ -18,6 +18,7 @@
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/functions/lib/aggregates/tests/utils/AggregationTestBase.h"
+#include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
 using namespace facebook::velox::exec;
@@ -33,6 +34,7 @@ class ArrayAggTest : public AggregationTestBase {
   void SetUp() override {
     AggregationTestBase::SetUp();
     registerSimpleArrayAggAggregate("simple_array_agg");
+    prestosql::registerInternalAggregateFunctions();
   }
 
   RowVectorPtr fuzzFlat(const RowTypePtr& rowType, size_t size) {
@@ -52,7 +54,9 @@ std::unordered_map<std::string, std::string> makeConfig(bool ignoreNulls) {
 
 TEST_F(ArrayAggTest, groupBy) {
   auto testFunction = [this](
-                          const std::string& functionName, bool ignoreNulls) {
+                          const std::string& functionName,
+                          bool ignoreNulls,
+                          bool testCompanionFunctions = true) {
     constexpr int32_t kNumGroups = 10;
     std::vector<RowVectorPtr> batches;
     // We make 10 groups. each with 10 arrays. Each array consists of n
@@ -92,17 +96,19 @@ TEST_F(ArrayAggTest, groupBy) {
             "SELECT c0, array_sort(array_agg(a) {}) FROM tmp GROUP BY c0",
             filter),
         makeConfig(ignoreNulls));
-    testAggregationsWithCompanion(
-        batches,
-        [](auto& /*builder*/) {},
-        {"c0"},
-        {fmt::format("{}(a)", functionName)},
-        {{ARRAY(VARCHAR())}},
-        {"c0", "array_sort(a0)"},
-        fmt::format(
-            "SELECT c0, array_sort(array_agg(a) {}) FROM tmp GROUP BY c0",
-            filter),
-        makeConfig(ignoreNulls));
+    if (testCompanionFunctions) {
+      testAggregationsWithCompanion(
+          batches,
+          [](auto& /*builder*/) {},
+          {"c0"},
+          {fmt::format("{}(a)", functionName)},
+          {{ARRAY(VARCHAR())}},
+          {"c0", "array_sort(a0)"},
+          fmt::format(
+              "SELECT c0, array_sort(array_agg(a) {}) FROM tmp GROUP BY c0",
+              filter),
+          makeConfig(ignoreNulls));
+    }
 
     // Having one function supporting toIntermediate and one does not, make sure
     // the row container is recreated with only the function without
@@ -120,6 +126,7 @@ TEST_F(ArrayAggTest, groupBy) {
 
   testFunction("array_agg", true);
   testFunction("array_agg", false);
+  testFunction("\"$internal$array_agg\"", false, false);
   testFunction("simple_array_agg", false);
 }
 
@@ -229,7 +236,9 @@ TEST_F(ArrayAggTest, sortedGroupBy) {
 
 TEST_F(ArrayAggTest, global) {
   auto testFunction = [this](
-                          const std::string& functionName, bool ignoreNulls) {
+                          const std::string& functionName,
+                          bool ignoreNulls,
+                          bool testCompanionFunctions = true) {
     vector_size_t size = 10;
 
     std::vector<RowVectorPtr> vectors = {makeRowVector({makeFlatVector<int32_t>(
@@ -244,25 +253,30 @@ TEST_F(ArrayAggTest, global) {
         {"array_sort(a0)"},
         fmt::format("SELECT array_sort(array_agg(c0) {}) FROM tmp", filter),
         makeConfig(ignoreNulls));
-    testAggregationsWithCompanion(
-        vectors,
-        [](auto& /*builder*/) {},
-        {},
-        {fmt::format("{}(c0)", functionName)},
-        {{INTEGER()}},
-        {"array_sort(a0)"},
-        fmt::format("SELECT array_sort(array_agg(c0) {}) FROM tmp", filter),
-        makeConfig(ignoreNulls));
+    if (testCompanionFunctions) {
+      testAggregationsWithCompanion(
+          vectors,
+          [](auto& /*builder*/) {},
+          {},
+          {fmt::format("{}(c0)", functionName)},
+          {{INTEGER()}},
+          {"array_sort(a0)"},
+          fmt::format("SELECT array_sort(array_agg(c0) {}) FROM tmp", filter),
+          makeConfig(ignoreNulls));
+    }
   };
 
   testFunction("array_agg", true);
   testFunction("array_agg", false);
+  testFunction("\"$internal$array_agg\"", false, false);
   testFunction("simple_array_agg", false);
 }
 
 TEST_F(ArrayAggTest, globalNoData) {
   auto testFunction = [this](
-                          const std::string& functionName, bool ignoreNulls) {
+                          const std::string& functionName,
+                          bool ignoreNulls,
+                          bool testCompanionFunctions = true) {
     auto data = makeRowVector(ROW({"c0"}, {INTEGER()}), 0);
     testAggregations(
         {data}, {}, {fmt::format("{}(c0)", functionName)}, "SELECT null");
@@ -279,19 +293,22 @@ TEST_F(ArrayAggTest, globalNoData) {
         {fmt::format("{}(c0)", functionName)},
         fmt::format("SELECT array_agg(c0) {} FROM tmp", filter),
         makeConfig(ignoreNulls));
-    testAggregationsWithCompanion(
-        allNulls,
-        [](auto& /*builder*/) {},
-        {},
-        {fmt::format("{}(c0)", functionName)},
-        {{INTEGER()}},
-        {"array_sort(a0)"},
-        fmt::format("SELECT array_sort(array_agg(c0) {}) FROM tmp", filter),
-        makeConfig(ignoreNulls));
+    if (testCompanionFunctions) {
+      testAggregationsWithCompanion(
+          allNulls,
+          [](auto& /*builder*/) {},
+          {},
+          {fmt::format("{}(c0)", functionName)},
+          {{INTEGER()}},
+          {"array_sort(a0)"},
+          fmt::format("SELECT array_sort(array_agg(c0) {}) FROM tmp", filter),
+          makeConfig(ignoreNulls));
+    }
   };
 
   testFunction("array_agg", true);
   testFunction("array_agg", false);
+  testFunction("\"$internal$array_agg\"", false, false);
   testFunction("simple_array_agg", false);
 }
 

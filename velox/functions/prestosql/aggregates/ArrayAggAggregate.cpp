@@ -269,4 +269,35 @@ void registerArrayAggAggregate(
       overwrite);
 }
 
+void registerInternalArrayAggAggregate(
+    const std::string& prefix,
+    bool withCompanionFunctions,
+    bool overwrite) {
+  std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
+      exec::AggregateFunctionSignatureBuilder()
+          .typeVariable("E")
+          .returnType("array(E)")
+          .intermediateType("array(E)")
+          .argumentType("E")
+          .build()};
+
+  auto name = prefix + "$internal$array_agg";
+  exec::registerAggregateFunction(
+      name,
+      std::move(signatures),
+      [name](
+          core::AggregationNode::Step /*step*/,
+          const std::vector<TypePtr>& argTypes,
+          const TypePtr& resultType,
+          const core::QueryConfig& /*config*/)
+          -> std::unique_ptr<exec::Aggregate> {
+        VELOX_CHECK_EQ(
+            argTypes.size(), 1, "{} takes at most one argument", name);
+        return std::make_unique<ArrayAggAggregate>(
+            resultType, /*ignoreNulls*/ false);
+      },
+      withCompanionFunctions,
+      overwrite);
+}
+
 } // namespace facebook::velox::aggregate::prestosql

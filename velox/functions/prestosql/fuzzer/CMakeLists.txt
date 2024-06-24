@@ -12,12 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+add_library(velox_aggregation_result_verifier MinMaxByResultVerifier.cpp)
+
+target_link_libraries(
+  velox_aggregation_result_verifier velox_core velox_aggregation_fuzzer_base
+  velox_exec_test_lib velox_vector velox_vector_test_lib)
+
 add_executable(velox_aggregation_fuzzer_test AggregationFuzzerTest.cpp)
 
 target_link_libraries(
   velox_aggregation_fuzzer_test
   velox_aggregation_fuzzer
   velox_aggregation_fuzzer_base
+  velox_aggregation_result_verifier
   velox_aggregates
   velox_window
   velox_vector_test_lib

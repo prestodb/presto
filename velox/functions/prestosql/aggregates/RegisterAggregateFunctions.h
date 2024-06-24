@@ -31,8 +31,9 @@ void registerAllAggregateFunctions(
     bool onlyPrestoSignatures = false,
     bool overwrite = true);
 
-/// Register internal aggregation functions only for testing.
-/// @param prefix Prefix for the aggregate functions.
-void registerInternalAggregateFunctions(const std::string& prefix);
+/// Register internal aggregation functions only for testing. Internal
+/// aggregation functions are not registered with companion functions.
+/// @param prefix Prefix for the internal aggregate functions.
+void registerInternalAggregateFunctions(const std::string& prefix = "");
 
 } // namespace facebook::velox::aggregate::prestosql
