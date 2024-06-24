@@ -4,10 +4,8 @@ info:
   description: API for retrieving cluster statistics in Presto.
   version: 1
 servers:
-  - url: http://api.example.com/v1
-    description: Main (production) server
-  - url: http://staging-api.example.com
-    description: Internal staging server for testing
+  - url: http://localhost:8080
+    description: Presto endpoint when running locally
 paths:
   /v1/cluster:
     get:
