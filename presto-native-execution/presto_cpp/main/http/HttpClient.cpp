@@ -462,10 +462,6 @@ folly::SemiFuture<proxygen::HTTPTransaction*> HttpClient::createTransaction(
     }
     VLOG(3) << "Reuse idle connection from different thread to "
             << address_.describe();
-    auto* evb = session->getEventBase();
-    // The event base from idle session should not be the current event base,
-    // otherwise we should have already got it from the local session pool.
-    VELOX_CHECK(!evb || !evb->isInEventBaseThread());
     session->attachThreadLocals(
         eventBase_,
         sslContext_,
