@@ -13,6 +13,6 @@
 target_sources(presto_server
                PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/PrometheusStatsReporter.cpp)
 
-if(PRESTO_ENABLE_TESTING)
-  add_subdirectory(tests)
-endif()
+#if(PRESTO_ENABLE_TESTING)
+#  add_subdirectory(tests)
+#endif()

@@ -63,6 +63,8 @@ void PrometheusStatsReporter::registerMetricExportType(
   // '.' is replaced with '_'.
   std::string sanitizedMetricKey = std::string(key);
   std::replace(sanitizedMetricKey.begin(), sanitizedMetricKey.end(), '.', '_');
+  // '-' is replaced with '_'.
+  std::replace(sanitizedMetricKey.begin(), sanitizedMetricKey.end(), '-', '_');
   switch (statType) {
     case facebook::velox::StatType::COUNT: {
       // A new MetricFamily object is built for every new metric key.

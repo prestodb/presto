@@ -369,7 +369,7 @@ void PrestoServer::run() {
     enableWorkerStatsReporting();
     if (folly::Singleton<velox::BaseStatsReporter>::try_get()) {
       httpServer_->registerGet(
-          "/v1/info/metrics/",
+          "/v1/info/health/metrics",
           [](proxygen::HTTPMessage* /*message*/,
              const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
              proxygen::ResponseHandler* downstream) {
