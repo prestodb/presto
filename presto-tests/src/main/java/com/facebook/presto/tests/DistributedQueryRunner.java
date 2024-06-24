@@ -49,15 +49,16 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.TestingAccessControlManager;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.Closer;
 import com.google.inject.Module;
 import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
@@ -66,15 +67,21 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.facebook.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
 import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
@@ -183,14 +190,13 @@ public class DistributedQueryRunner
             discoveryServer = new TestingDiscoveryServer(environment);
             this.coordinatorCount = coordinatorCount;
             this.resourceManagerCount = resourceManagerCount;
-            closer.register(() -> closeUnchecked(discoveryServer));
             log.info("Created TestingDiscoveryServer in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
             URI discoveryUrl = discoveryServer.getBaseUrl();
             log.info("Discovery URL %s", discoveryUrl);
 
-            ImmutableList.Builder<TestingPrestoServer> servers = ImmutableList.builder();
-            ImmutableList.Builder<TestingPrestoServer> coordinators = ImmutableList.builder();
-            ImmutableList.Builder<TestingPrestoServer> resourceManagers = ImmutableList.builder();
+            ImmutableList.Builder<CompletableFuture<TestingPrestoServer>> servers = ImmutableList.builder();
+            ImmutableList.Builder<CompletableFuture<TestingPrestoServer>> coordinators = ImmutableList.builder();
+            ImmutableList.Builder<CompletableFuture<TestingPrestoServer>> resourceManagers = ImmutableList.builder();
             Map<String, String> extraCoordinatorProperties = new HashMap<>();
 
             if (externalWorkerLauncher.isPresent()) {
@@ -212,11 +218,14 @@ public class DistributedQueryRunner
                 externalWorkers = ImmutableList.of();
 
                 for (int i = (coordinatorCount + (resourceManagerEnabled ? resourceManagerCount : 0)); i < nodeCount; i++) {
-                    // We are simply splitting the nodes into leaf and intermediate for testing purpose
-                    NodePoolType workerPool = i % 2 == 0 ? LEAF : INTERMEDIATE;
-                    Map<String, String> workerProperties = new HashMap<>(extraProperties);
-                    workerProperties.put("pool-type", workerPool.name());
-                    TestingPrestoServer worker = closer.register(createTestingPrestoServer(
+                    final int idx = i;
+                    servers.add(CompletableFuture.supplyAsync(() -> {
+                        // We are simply splitting the nodes into leaf and intermediate for testing purpose
+                        NodePoolType workerPool = idx % 2 == 0 ? LEAF : INTERMEDIATE;
+                        Map<String, String> workerProperties = new HashMap<>(extraProperties);
+                        workerProperties.put("pool-type", workerPool.name());
+                        try {
+                            return closer.register(createTestingPrestoServer(
                                     discoveryUrl,
                                     false,
                                     resourceManagerEnabled,
@@ -228,7 +237,11 @@ public class DistributedQueryRunner
                                     environment,
                                     dataDirectory,
                                     extraModules));
-                    servers.add(worker);
+                        }
+                        catch (Exception e) {
+                            throw new RuntimeException(e);
+                        }
+                    }));
                 }
             }
 
@@ -238,69 +251,97 @@ public class DistributedQueryRunner
 
             if (resourceManagerEnabled) {
                 for (int i = 0; i < resourceManagerCount; i++) {
-                    Map<String, String> rmProperties = new HashMap<>(resourceManagerProperties);
-                    if (resourceManagerProperties.get("raft.isEnabled") != null) {
-                        int raftPort = Integer.valueOf(resourceManagerProperties.get("raft.port")) + i;
-                        rmProperties.replace("raft.port", String.valueOf(raftPort));
-                    }
-                    TestingPrestoServer resourceManager = closer.register(createTestingPrestoServer(
-                            discoveryUrl,
-                            true,
-                            true,
-                            false,
-                            false,
-                            false,
-                            rmProperties,
-                            parserOptions,
-                            environment,
-                            dataDirectory,
-                            extraModules));
+                    final int idx = i;
+                    CompletableFuture<TestingPrestoServer> resourceManager = CompletableFuture.supplyAsync(() -> {
+                        Map<String, String> rmProperties = new HashMap<>(resourceManagerProperties);
+                        if (resourceManagerProperties.get("raft.isEnabled") != null) {
+                            int raftPort = Integer.valueOf(resourceManagerProperties.get("raft.port")) + idx;
+                            rmProperties.replace("raft.port", String.valueOf(raftPort));
+                        }
+                        try {
+                            return closer.register(createTestingPrestoServer(
+                                    discoveryUrl,
+                                    true,
+                                    true,
+                                    false,
+                                    false,
+                                    false,
+                                    rmProperties,
+                                    parserOptions,
+                                    environment,
+                                    dataDirectory,
+                                    extraModules));
+                        }
+                        catch (Exception e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
                     servers.add(resourceManager);
                     resourceManagers.add(resourceManager);
                 }
             }
-
+            Optional<CompletableFuture<TestingPrestoServer>> catalogServerFuture = Optional.empty();
             if (catalogServerEnabled) {
-                catalogServer = Optional.of(closer.register(createTestingPrestoServer(
-                        discoveryUrl,
-                        false,
-                        false,
-                        true,
-                        true,
-                        false,
-                        catalogServerProperties,
-                        parserOptions,
-                        environment,
-                        dataDirectory,
-                        extraModules)));
-                servers.add(catalogServer.get());
+                catalogServerFuture = Optional.of(CompletableFuture.supplyAsync(() -> {
+                    try {
+                        return closer.register(createTestingPrestoServer(
+                                discoveryUrl,
+                                false,
+                                false,
+                                true,
+                                true,
+                                false,
+                                catalogServerProperties,
+                                parserOptions,
+                                environment,
+                                dataDirectory,
+                                extraModules));
+                    }
+                    catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                }));
+                servers.add(catalogServerFuture.get());
             }
 
             for (int i = 0; i < coordinatorCount; i++) {
-                TestingPrestoServer coordinator = closer.register(createTestingPrestoServer(
-                        discoveryUrl,
-                        false,
-                        resourceManagerEnabled,
-                        false,
-                        catalogServerEnabled,
-                        true,
-                        extraCoordinatorProperties,
-                        parserOptions,
-                        environment,
-                        dataDirectory,
-                        extraModules));
+                if (i != 0) {
+                    extraCoordinatorProperties.remove("http-server.http.port");
+                }
+                final Map<String, String> coordProperties = new HashMap<>(extraCoordinatorProperties);
+                CompletableFuture<TestingPrestoServer> coordinator = CompletableFuture.supplyAsync(() -> {
+                    try {
+                        return closer.register(createTestingPrestoServer(
+                                discoveryUrl,
+                                false,
+                                resourceManagerEnabled,
+                                false,
+                                catalogServerEnabled,
+                                true,
+                                coordProperties,
+                                parserOptions,
+                                environment,
+                                dataDirectory,
+                                extraModules));
+                    }
+                    catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
                 servers.add(coordinator);
                 coordinators.add(coordinator);
-                extraCoordinatorProperties.remove("http-server.http.port");
             }
 
-            this.servers = servers.build();
-            this.coordinators = coordinators.build();
-            this.resourceManagers = Optional.of(resourceManagers.build());
+            this.servers = servers.build().stream().map(DistributedQueryRunner::getUnchecked).collect(Collectors.toList());
+            this.coordinators = coordinators.build().stream().map(DistributedQueryRunner::getUnchecked).collect(Collectors.toList());
+            this.resourceManagers = Optional.of(resourceManagers.build().stream().map(DistributedQueryRunner::getUnchecked).collect(Collectors.toList()));
+            this.catalogServer = catalogServerFuture.map(DistributedQueryRunner::getUnchecked);
+            log.info("Started all nodes in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
         }
         catch (Exception e) {
             try {
-                throw closer.rethrow(e, Exception.class);
+                Throwables.propagateIfPossible(e, Exception.class);
+                throw new RuntimeException(e);
             }
             finally {
                 closer.close();
@@ -337,6 +378,16 @@ public class DistributedQueryRunner
             SessionPropertyManager sessionPropertyManager = server.getMetadata().getSessionPropertyManager();
             sessionPropertyManager.addSystemSessionProperties(TEST_SYSTEM_PROPERTIES);
             sessionPropertyManager.addConnectorSessionProperties(bogusTestingCatalog.getConnectorId(), TEST_CATALOG_PROPERTIES);
+        }
+    }
+
+    private static <T> T getUnchecked(CompletableFuture<T> future)
+    {
+        try {
+            return future.get(60, SECONDS);
+        }
+        catch (InterruptedException | ExecutionException | TimeoutException e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -860,6 +911,49 @@ public class DistributedQueryRunner
         catch (Exception e) {
             throwIfUnchecked(e);
             throw new RuntimeException(e);
+        }
+    }
+
+    private static class Closer
+            implements Closeable
+    {
+        ConcurrentLinkedDeque<Closeable> stack = new ConcurrentLinkedDeque<>();
+        Throwable thrown;
+
+        static Closer create()
+        {
+            return new Closer();
+        }
+
+        public <C extends Closeable> C register(C closeable)
+        {
+            if (closeable != null) {
+                stack.push(closeable);
+            }
+            return closeable;
+        }
+
+        @Override
+        public void close()
+                throws IOException
+        {
+            // close closeables in LIFO order
+            Optional<IOException> throwable = stack.stream().map(closeable ->
+                            CompletableFuture.supplyAsync(() -> {
+                                try {
+                                    closeable.close();
+                                    return null;
+                                }
+                                catch (IOException e) {
+                                    return e;
+                                }
+                            })
+                    ).map(DistributedQueryRunner::getUnchecked)
+                    .filter(Objects::nonNull).findFirst();
+            if (throwable.isPresent()) {
+                Throwables.propagateIfPossible(throwable.get(), IOException.class);
+                throw new AssertionError(throwable); // not possible
+            }
         }
     }
 

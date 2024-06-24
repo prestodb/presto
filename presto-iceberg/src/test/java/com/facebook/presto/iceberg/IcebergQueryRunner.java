@@ -36,6 +36,7 @@ import com.facebook.presto.tpcds.TpcdsPlugin;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.tpch.TextPool;
 import io.airlift.tpch.TpchTable;
 
 import java.io.File;
@@ -45,6 +46,7 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 
 import static com.facebook.airlift.log.Level.ERROR;
@@ -151,6 +153,10 @@ public final class IcebergQueryRunner
                 .setSchema("tpch")
                 .build();
 
+        // Amortize the cost of initializing the TPC-H text pool while the cluster is starting
+        if (createTpchTables) {
+            CompletableFuture.runAsync(TextPool::getDefaultTestPool);
+        }
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
                 .setExtraProperties(extraProperties)
                 .setDataDirectory(dataDirectory)
