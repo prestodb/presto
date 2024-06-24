@@ -22,6 +22,7 @@ import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.TypeUtils.realCompare;
 import static com.facebook.presto.common.type.TypeUtils.realEquals;
 import static com.facebook.presto.common.type.TypeUtils.realHashCode;
+import static java.lang.Float.floatToIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -64,7 +65,12 @@ public final class RealType
     @Override
     public long hash(Block block, int position)
     {
-        return realHashCode(intBitsToFloat(block.getInt(position)));
+        float value = intBitsToFloat(block.getInt(position));
+        if (!useNewNanDefinition) {
+            // convert to canonical NaN if necessary
+            return AbstractIntType.hash(floatToIntBits(value));
+        }
+        return realHashCode(value);
     }
 
     @Override
