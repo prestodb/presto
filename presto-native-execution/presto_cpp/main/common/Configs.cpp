@@ -193,6 +193,7 @@ SystemConfig::SystemConfig() {
           BOOL_PROP(kMemoryArbitratorGlobalArbitrationEnabled, false),
           NUM_PROP(kQueryMemoryGb, 38),
           NUM_PROP(kQueryReservedMemoryGb, 4),
+          NUM_PROP(kLargestSizeClassPages, 256),
           BOOL_PROP(kEnableVeloxTaskLogging, false),
           BOOL_PROP(kEnableVeloxExprSetLogging, false),
           NUM_PROP(kLocalShuffleMaxPartitionBytes, 268435456),
@@ -650,6 +651,10 @@ std::chrono::duration<double> SystemConfig::cacheVeloxTtlThreshold() const {
 std::chrono::duration<double> SystemConfig::cacheVeloxTtlCheckInterval() const {
   return velox::core::toDuration(
       optionalProperty(kCacheVeloxTtlCheckInterval).value());
+}
+
+int32_t SystemConfig::largestSizeClassPages() const {
+  return optionalProperty<int32_t>(kLargestSizeClassPages).value();
 }
 
 bool SystemConfig::enableRuntimeMetricsCollection() const {

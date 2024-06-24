@@ -345,6 +345,12 @@ class SystemConfig : public ConfigBase {
       "cache.velox.ttl-check-interval"};
   static constexpr std::string_view kUseMmapAllocator{"use-mmap-allocator"};
 
+  /// Number of pages in largest size class in MallocAllocator. This is used to
+  /// optimize MmapAllocator performance for query workloads with large memory
+  /// allocation size.
+  static constexpr std::string_view kLargestSizeClassPages{
+      "largest-size-class-pages"};
+
   static constexpr std::string_view kEnableRuntimeMetricsCollection{
       "runtime-metrics-collection-enabled"};
 
@@ -739,6 +745,8 @@ class SystemConfig : public ConfigBase {
   std::chrono::duration<double> cacheVeloxTtlThreshold() const;
 
   std::chrono::duration<double> cacheVeloxTtlCheckInterval() const;
+
+  int32_t largestSizeClassPages() const;
 
   bool enableRuntimeMetricsCollection() const;
 
