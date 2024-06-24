@@ -31,7 +31,6 @@ add_library(
   ElementAt.cpp
   FilterFunctions.cpp
   FindFirst.cpp
-  FromUnixTime.cpp
   FromUtf8.cpp
   InPredicate.cpp
   JsonFunctions.cpp

@@ -37,7 +37,7 @@ FOLLY_ALWAYS_INLINE double toUnixtime(const Timestamp& timestamp) {
   return result;
 }
 
-FOLLY_ALWAYS_INLINE std::optional<Timestamp> fromUnixtime(double unixtime) {
+FOLLY_ALWAYS_INLINE Timestamp fromUnixtime(double unixtime) {
   if (FOLLY_UNLIKELY(std::isnan(unixtime))) {
     return Timestamp(0, 0);
   }

@@ -48,16 +48,57 @@ template <typename T>
 struct FromUnixtimeFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
-  FOLLY_ALWAYS_INLINE bool call(
+  // (double) -> timestamp
+  FOLLY_ALWAYS_INLINE void call(
       Timestamp& result,
       const arg_type<double>& unixtime) {
-    auto resultOptional = fromUnixtime(unixtime);
-    if (LIKELY(resultOptional.has_value())) {
-      result = resultOptional.value();
-      return true;
-    }
-    return false;
+    result = fromUnixtime(unixtime);
   }
+
+  // (double, varchar) -> timestamp with time zone
+  FOLLY_ALWAYS_INLINE void initialize(
+      const std::vector<TypePtr>& /*inputTypes*/,
+      const core::QueryConfig& /*config*/,
+      const arg_type<double>* /*unixtime*/,
+      const arg_type<Varchar>* timezone) {
+    if (timezone != nullptr) {
+      tzID_ = util::getTimeZoneID((std::string_view)(*timezone));
+    }
+  }
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<TimestampWithTimezone>& result,
+      const arg_type<double>& unixtime,
+      const arg_type<Varchar>& timezone) {
+    int16_t timezoneId =
+        tzID_.value_or(util::getTimeZoneID((std::string_view)timezone));
+    result = pack(fromUnixtime(unixtime).toMillis(), timezoneId);
+  }
+
+  // (double, bigint, bigint) -> timestamp with time zone
+  FOLLY_ALWAYS_INLINE void initialize(
+      const std::vector<TypePtr>& /*inputTypes*/,
+      const core::QueryConfig& /*config*/,
+      const arg_type<double>* /*unixtime*/,
+      const arg_type<int64_t>* hours,
+      const arg_type<int64_t>* minutes) {
+    if (hours != nullptr && minutes != nullptr) {
+      tzID_ = util::getTimeZoneID(*hours * 60 + *minutes);
+    }
+  }
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<TimestampWithTimezone>& result,
+      const arg_type<double>& unixtime,
+      const arg_type<int64_t>& hours,
+      const arg_type<int64_t>& minutes) {
+    int16_t timezoneId =
+        tzID_.value_or(util::getTimeZoneID(hours * 60 + minutes));
+    result = pack(fromUnixtime(unixtime).toMillis(), timezoneId);
+  }
+
+ private:
+  std::optional<int64_t> tzID_;
 };
 
 namespace {

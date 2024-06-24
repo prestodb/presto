@@ -67,6 +67,20 @@ TEST(TimeZoneMapTest, getTimeZoneID) {
   EXPECT_EQ(1825, getTimeZoneID("aMERICa/los_angeles"));
 }
 
+TEST(TimeZoneMapTest, getTimeZoneIDFromOffset) {
+  auto nameFromOffset = [&](int32_t offset) {
+    return getTimeZoneName(getTimeZoneID(offset));
+  };
+
+  EXPECT_EQ("+00:00", nameFromOffset(0));
+  EXPECT_EQ("+05:30", nameFromOffset(5 * 60 + 30));
+  EXPECT_EQ("-08:00", nameFromOffset(-8 * 60));
+  EXPECT_EQ("+02:17", nameFromOffset(2 * 60 + 17));
+
+  VELOX_ASSERT_THROW(getTimeZoneID(15'000), "Invalid timezone offset");
+  VELOX_ASSERT_THROW(getTimeZoneID(-15'000), "Invalid timezone offset");
+}
+
 TEST(TimeZoneMapTest, invalid) {
   VELOX_ASSERT_THROW(getTimeZoneName(99999999), "Unable to resolve timeZoneID");
   VELOX_ASSERT_THROW(getTimeZoneID("This is a test"), "Unknown time zone");

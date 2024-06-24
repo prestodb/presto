@@ -20,12 +20,16 @@
 
 namespace facebook::velox::util {
 
-// Returns the timezone name associated with timeZoneID.
+/// Returns the timezone name associated with timeZoneID.
 std::string getTimeZoneName(int64_t timeZoneID);
 
-// Returns the timeZoneID for the timezone name.
-// If failOnError = true, throws an exception for unrecognized timezone.
-// Otherwise, returns -1.
+/// Returns the timeZoneID for the timezone name.
+/// If failOnError = true, throws an exception for unrecognized timezone.
+/// Otherwise, returns -1.
 int16_t getTimeZoneID(std::string_view timeZone, bool failOnError = true);
+
+/// Returns the timeZoneID for a given offset in minutes. The offset must be in
+/// [-14:00, +14:00] range.
+int16_t getTimeZoneID(int32_t offsetMinutes);
 
 } // namespace facebook::velox::util

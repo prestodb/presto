@@ -152,6 +152,12 @@ Date and Time Functions
     Returns the UNIX timestamp ``unixtime`` as a timestamp with time zone
     using ``string`` for the time zone.
 
+.. function:: from_unixtime(unixtime, hours, minutes) -> timestamp with time zone
+
+    Returns the UNIX timestamp ``unixtime`` as a timestamp with time zone
+    using ``hours`` and ``minutes`` for the time zone offset.
+    The offset must be in [-14:00, 14:00] range.
+
 .. function:: to_iso8601(x) -> varchar
 
     Formats ``x`` as an ISO 8601 string. Supported types for ``x`` are:

@@ -396,6 +396,27 @@ TEST_F(DateTimeFunctionsTest, fromUnixtimeWithTimeZone) {
         [&](auto row) { return timezonesVector[row]; });
     assertEqualVectors(expected, result);
   }
+
+  auto fromOffset = [&](double epoch, int64_t hours, int64_t minutes) {
+    auto result = evaluateOnce<int64_t>(
+        "from_unixtime(c0, c1, c2)",
+        std::optional(epoch),
+        std::optional(hours),
+        std::optional(minutes));
+
+    auto otherResult = evaluateOnce<int64_t>(
+        fmt::format("from_unixtime(c0, {}, {})", hours, minutes),
+        std::optional(epoch));
+
+    VELOX_CHECK_EQ(result.value(), otherResult.value());
+    return TimestampWithTimezone::unpack(result.value());
+  };
+
+  EXPECT_EQ(TimestampWithTimezone(123'450, "UTC"), fromOffset(123.45, 0, 0));
+  EXPECT_EQ(
+      TimestampWithTimezone(123'450, "+05:30"), fromOffset(123.45, 5, 30));
+  EXPECT_EQ(
+      TimestampWithTimezone(123'450, "-08:00"), fromOffset(123.45, -8, 0));
 }
 
 TEST_F(DateTimeFunctionsTest, fromUnixtime) {

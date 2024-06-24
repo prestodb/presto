@@ -24,7 +24,7 @@
 
 namespace facebook::velox::util {
 
-// Defined on TimeZoneDatabase.cpp
+// Defined in TimeZoneDatabase.cpp
 extern const std::unordered_map<int64_t, std::string>& getTimeZoneDB();
 
 namespace {
@@ -138,6 +138,32 @@ int16_t getTimeZoneID(std::string_view timeZone, bool failOnError) {
     VELOX_USER_FAIL("Unknown time zone: '{}'", timeZone);
   }
   return -1;
+}
+
+int16_t getTimeZoneID(int32_t offsetMinutes) {
+  static constexpr int32_t kMinOffset = -14 * 60;
+  static constexpr int32_t kMaxOffset = 14 * 60;
+
+  if (offsetMinutes == 0) {
+    return 0;
+  }
+
+  VELOX_USER_CHECK_LE(
+      kMinOffset,
+      offsetMinutes,
+      "Invalid timezone offset minutes: {}",
+      offsetMinutes);
+  VELOX_USER_CHECK_LE(
+      offsetMinutes,
+      kMaxOffset,
+      "Invalid timezone offset minutes: {}",
+      offsetMinutes);
+
+  if (offsetMinutes < 0) {
+    return 1 + (offsetMinutes - kMinOffset);
+  } else {
+    return offsetMinutes - kMinOffset;
+  }
 }
 
 } // namespace facebook::velox::util
