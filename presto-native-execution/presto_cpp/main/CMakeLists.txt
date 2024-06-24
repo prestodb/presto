@@ -14,6 +14,7 @@ add_subdirectory(types)
 add_subdirectory(http)
 add_subdirectory(common)
 add_subdirectory(thrift)
+add_subdirectory(connectors)
 
 add_library(
   presto_server_lib
@@ -92,7 +93,7 @@ add_executable(presto_server PrestoMain.cpp)
 # "undefined reference to `vtable for velox::connector::tpch::TpchTableHandle`"
 # TODO: Fix these errors.
 target_link_libraries(presto_server presto_server_lib velox_hive_connector
-                      velox_tpch_connector)
+                      velox_tpch_connector velox_tpcds_connector)
 
 if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
   add_library(presto_server_remote_function JsonSignatureParser.cpp

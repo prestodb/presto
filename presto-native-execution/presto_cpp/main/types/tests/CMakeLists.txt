@@ -86,6 +86,7 @@ target_link_libraries(
   presto_type_converter
   presto_types
   velox_hive_connector
+  velox_tpcds_connector
   velox_tpch_connector
   gtest
   gtest_main)

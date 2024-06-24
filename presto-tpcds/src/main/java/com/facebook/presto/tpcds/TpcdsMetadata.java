@@ -14,7 +14,6 @@
 package com.facebook.presto.tpcds;
 
 import com.facebook.presto.common.predicate.TupleDomain;
-import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.DateType;
 import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.common.type.TimeType;
@@ -45,7 +44,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.common.type.CharType.createCharType;
 import static com.facebook.presto.common.type.DecimalType.createDecimalType;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static java.lang.String.format;
@@ -247,7 +245,6 @@ public class TpcdsMetadata
     {
         switch (tpcdsType.getBase()) {
             case IDENTIFIER:
-                return BigintType.BIGINT;
             case INTEGER:
                 return IntegerType.INTEGER;
             case DATE:
@@ -255,7 +252,6 @@ public class TpcdsMetadata
             case DECIMAL:
                 return createDecimalType(tpcdsType.getPrecision().get(), tpcdsType.getScale().get());
             case CHAR:
-                return createCharType(tpcdsType.getPrecision().get());
             case VARCHAR:
                 return createVarcharType(tpcdsType.getPrecision().get());
             case TIME:
