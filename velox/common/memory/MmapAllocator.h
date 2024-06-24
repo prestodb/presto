@@ -55,6 +55,8 @@ class MmapAllocator : public MemoryAllocator {
     ///  Capacity in bytes, default unlimited.
     uint64_t capacity{kMaxMemory};
 
+    int32_t largestSizeClass{256};
+
     /// If set true, allocations larger than largest size class size will be
     /// delegated to ManagedMmapArena. Otherwise a system mmap call will be
     /// issued for each such allocation.

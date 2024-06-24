@@ -25,7 +25,8 @@
 
 namespace facebook::velox::memory {
 MmapAllocator::MmapAllocator(const Options& options)
-    : kind_(MemoryAllocator::Kind::kMmap),
+    : MemoryAllocator(options.largestSizeClass),
+      kind_(MemoryAllocator::Kind::kMmap),
       useMmapArena_(options.useMmapArena),
       maxMallocBytes_(options.maxMallocBytes),
       mallocReservedBytes_(

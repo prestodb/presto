@@ -29,6 +29,18 @@ DECLARE_bool(velox_memory_use_hugepages);
 
 namespace facebook::velox::memory {
 
+// static
+std::vector<MachinePageCount> MemoryAllocator::makeSizeClassSizes(
+    MachinePageCount largest) {
+  VELOX_CHECK_LE(256, largest);
+  VELOX_CHECK_EQ(largest, bits::nextPowerOfTwo(largest));
+  std::vector<MachinePageCount> sizes;
+  for (auto size = 1; size <= largest; size *= 2) {
+    sizes.push_back(size);
+  }
+  return sizes;
+}
+
 namespace {
 std::string& cacheFailureMessage() {
   thread_local std::string message;

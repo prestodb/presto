@@ -92,6 +92,9 @@ struct MemoryManagerOptions {
   /// std::malloc.
   bool useMmapAllocator{false};
 
+  // Number of pages in largest size class in MmapAllocator.
+  int32_t largestSizeClassPages{256};
+
   /// If true, allocations larger than largest size class size will be delegated
   /// to ManagedMmapArena. Otherwise a system mmap call will be issued for each
   /// such allocation.

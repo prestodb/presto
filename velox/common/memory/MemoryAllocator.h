@@ -406,7 +406,11 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
       std::function<int64_t()> ioVolume = nullptr);
 
  protected:
-  explicit MemoryAllocator() = default;
+  MemoryAllocator(MachinePageCount largestSizeClassPages = 256)
+      : sizeClassSizes_(makeSizeClassSizes(largestSizeClassPages)) {}
+
+  static std::vector<MachinePageCount> makeSizeClassSizes(
+      MachinePageCount largest);
 
   /// Represents a mix of blocks of different sizes for covering a single
   /// allocation.

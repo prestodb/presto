@@ -49,6 +49,7 @@ std::shared_ptr<MemoryAllocator> createAllocator(
   if (options.useMmapAllocator) {
     MmapAllocator::Options mmapOptions;
     mmapOptions.capacity = options.allocatorCapacity;
+    mmapOptions.largestSizeClass = options.largestSizeClassPages;
     mmapOptions.useMmapArena = options.useMmapArena;
     mmapOptions.mmapArenaCapacityRatio = options.mmapArenaCapacityRatio;
     return std::make_shared<MmapAllocator>(mmapOptions);

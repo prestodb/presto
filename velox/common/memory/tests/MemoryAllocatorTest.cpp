@@ -1943,4 +1943,50 @@ VELOX_INSTANTIATE_TEST_SUITE_P(
     MemoryAllocatorTestSuite,
     MemoryAllocatorTest,
     testing::ValuesIn({0, 1, 2}));
+
+class MmapConfigTest : public testing::Test {
+ public:
+ protected:
+  void setupAllocator() {
+    constexpr int64_t kCapacityBytes = 900LL << 20; // 900MB.
+    MemoryManagerOptions options;
+    options.useMmapAllocator = true;
+    options.allocatorCapacity = kCapacityBytes;
+    options.largestSizeClassPages = 4096;
+    options.arbitratorCapacity = kCapacityBytes;
+    options.arbitratorReservedCapacity = 128 << 20;
+    options.memoryPoolReservedCapacity = 1 << 20;
+    options.smallAllocationReservePct = 4;
+    options.maxMallocBytes = 3 * 1024;
+    memoryManager_ = std::make_unique<MemoryManager>(options);
+    allocator_ = memoryManager_->allocator();
+    ASSERT_EQ(
+        AllocationTraits::numPages(memoryManager_->allocator()->capacity()),
+        bits::roundUp(
+            kCapacityBytes * (100 - options.smallAllocationReservePct) / 100 /
+                AllocationTraits::kPageSize,
+            64 * allocator_->sizeClasses().back()));
+  }
+
+  std::unique_ptr<MemoryManager> memoryManager_;
+  MemoryAllocator* allocator_;
+};
+
+TEST_F(MmapConfigTest, sizeClasses) {
+  setupAllocator();
+  Allocation result;
+  ASSERT_TRUE(
+      allocator_->allocateNonContiguous(2 * 4096 - 1, result, nullptr, 0));
+  auto g = folly::makeGuard([&]() { allocator_->freeNonContiguous(result); });
+  // Check that the allocation has one page of each size class, largest to
+  // smallest.
+  EXPECT_EQ(4096 * 2 - 1, result.numPages());
+  EXPECT_EQ(13, result.numRuns());
+  int32_t runPages = 4096;
+  for (auto i = 0; i < result.numRuns(); ++i) {
+    EXPECT_EQ(runPages, result.runAt(i).numPages());
+    runPages = runPages / 2;
+  }
+}
+
 } // namespace facebook::velox::memory
