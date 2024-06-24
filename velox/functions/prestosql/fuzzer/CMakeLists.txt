@@ -42,6 +42,7 @@ target_link_libraries(
   velox_window
   velox_expression_test_utility
   velox_functions_prestosql
+  velox_vector_test_lib
   gtest
   gtest_main)
 
