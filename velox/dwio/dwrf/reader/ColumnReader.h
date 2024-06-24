@@ -30,12 +30,30 @@
 
 namespace facebook::velox::dwrf {
 
+// Foward declaration
+class ColumnReader;
+
+class ColumnReaderFactory {
+ public:
+  virtual ~ColumnReaderFactory() = default;
+  virtual std::unique_ptr<ColumnReader> build(
+      const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
+      const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
+      StripeStreams& stripe,
+      const StreamLabels& streamLabels,
+      folly::Executor* executor,
+      size_t decodingParallelismFactor,
+      FlatMapContext flatMapContext = {});
+
+  static ColumnReaderFactory& defaultFactory();
+};
+
 /**
  * The interface for reading ORC data types.
  */
 class ColumnReader {
  protected:
-  explicit ColumnReader(
+  ColumnReader(
       memory::MemoryPool& memoryPool,
       const std::shared_ptr<const dwio::common::TypeWithId>& type)
       : notNullDecoder_{},
@@ -121,31 +139,8 @@ class ColumnReader {
       const StreamLabels& streamLabels,
       folly::Executor* executor,
       size_t decodingParallelismFactor,
-      FlatMapContext flatMapContext = {});
-};
-
-class ColumnReaderFactory {
- public:
-  virtual ~ColumnReaderFactory() = default;
-  virtual std::unique_ptr<ColumnReader> build(
-      const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
-      const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
-      StripeStreams& stripe,
-      const StreamLabels& streamLabels,
-      folly::Executor* executor,
-      size_t decodingParallelismFactor,
-      FlatMapContext flatMapContext = {}) {
-    return ColumnReader::build(
-        requestedType,
-        fileType,
-        stripe,
-        streamLabels,
-        executor,
-        decodingParallelismFactor,
-        std::move(flatMapContext));
-  }
-
-  static ColumnReaderFactory* baseFactory();
+      FlatMapContext flatMapContext = {},
+      ColumnReaderFactory& factory = ColumnReaderFactory::defaultFactory());
 };
 
 namespace detail {

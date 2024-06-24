@@ -278,6 +278,10 @@ class StripeStreamsImpl : public StripeStreamsBase {
       const DwrfStreamIdentifier& si,
       std::string_view label) const;
 
+  uint64_t getStreamOffset(const DwrfStreamIdentifier& si) const {
+    return getStreamInfo(si).getOffset() + stripeStart_;
+  }
+
   uint64_t getStreamLength(const DwrfStreamIdentifier& si) const {
     return getStreamInfo(si).getLength();
   }

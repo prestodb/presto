@@ -27,6 +27,21 @@ namespace facebook::velox::dwrf {
 class ColumnReader;
 class DwrfUnit;
 
+class DwrfOptions : public dwio::common::FormatSpecificOptions {
+ public:
+  void setColumnReaderFactory(
+      std::shared_ptr<ColumnReaderFactory> columnReaderFactory) {
+    columnReaderFactory_ = std::move(columnReaderFactory);
+  }
+
+  const std::shared_ptr<ColumnReaderFactory>& columnReaderFactory() const {
+    return columnReaderFactory_;
+  }
+
+ private:
+  std::shared_ptr<ColumnReaderFactory> columnReaderFactory_;
+};
+
 class DwrfRowReader : public StrideIndexProvider,
                       public StripeReaderBase,
                       public dwio::common::RowReader {

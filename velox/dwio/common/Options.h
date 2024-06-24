@@ -114,6 +114,11 @@ struct RowNumberColumnInfo {
   std::string name;
 };
 
+class FormatSpecificOptions {
+ public:
+  virtual ~FormatSpecificOptions() = default;
+};
+
 /**
  * Options for creating a RowReader.
  */
@@ -160,6 +165,8 @@ class RowReaderOptions {
   std::shared_ptr<UnitLoaderFactory> unitLoaderFactory_;
 
   TimestampPrecision timestampPrecision_ = TimestampPrecision::kMilliseconds;
+
+  std::shared_ptr<FormatSpecificOptions> formatSpecificOptions_;
 
  public:
   RowReaderOptions() noexcept
@@ -436,6 +443,15 @@ class RowReaderOptions {
 
   void setTimestampPrecision(TimestampPrecision precision) {
     timestampPrecision_ = precision;
+  }
+
+  const std::shared_ptr<FormatSpecificOptions>& formatSpecificOptions() const {
+    return formatSpecificOptions_;
+  }
+
+  void setFormatSpecificOptions(
+      std::shared_ptr<FormatSpecificOptions> options) {
+    formatSpecificOptions_ = std::move(options);
   }
 };
 

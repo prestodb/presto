@@ -113,7 +113,8 @@ std::vector<std::unique_ptr<KeyNode<T>>> getKeyNodesFiltered(
     StripeStreams& stripe,
     const StreamLabels& streamLabels,
     memory::MemoryPool& memoryPool,
-    FlatMapContext& flatMapContext) {
+    FlatMapContext& flatMapContext,
+    ColumnReaderFactory& factory) {
   std::vector<std::unique_ptr<KeyNode<T>>> keyNodes;
 
   auto keySelectionStats =
@@ -150,7 +151,7 @@ std::vector<std::unique_ptr<KeyNode<T>>> getKeyNodesFiltered(
         // build seekable
         auto inMapDecoder = createBooleanRleDecoder(std::move(inMap), seqEk);
 
-        auto valueReader = ColumnReader::build(
+        auto valueReader = factory.build(
             requestedValueType,
             dataValueType,
             stripe,
@@ -213,7 +214,8 @@ FlatMapColumnReader<T>::FlatMapColumnReader(
     const StreamLabels& streamLabels,
     folly::Executor* executor,
     size_t decodingParallelismFactor,
-    FlatMapContext flatMapContext)
+    FlatMapContext flatMapContext,
+    ColumnReaderFactory& factory)
     : ColumnReader(fileType, stripe, streamLabels, std::move(flatMapContext)),
       requestedType_{requestedType},
       returnFlatVector_{stripe.getRowReaderOptions().getReturnFlatVector()},
@@ -229,7 +231,8 @@ FlatMapColumnReader<T>::FlatMapColumnReader(
       stripe,
       streamLabels,
       memoryPool_,
-      flatMapContext_);
+      flatMapContext_,
+      factory);
 
   parallelForOnKeyNodes_ = std::make_unique<dwio::common::ParallelFor>(
       executor_, 0, keyNodes_.size(), decodingParallelismFactor);
@@ -583,7 +586,8 @@ std::vector<std::unique_ptr<KeyNode<T>>> getKeyNodesForStructEncoding(
     StripeStreams& stripe,
     const StreamLabels& streamLabels,
     memory::MemoryPool& memoryPool,
-    FlatMapContext& flatMapContext) {
+    FlatMapContext& flatMapContext,
+    ColumnReaderFactory& factory) {
   // `KeyNode` is ordered based on the projection. So if [3, 2, 1] is
   // projected, the vector of key node will be created [3, 2, 1].
   // If the key is not found in the stripe, the key node will be nullptr.
@@ -597,7 +601,8 @@ std::vector<std::unique_ptr<KeyNode<T>>> getKeyNodesForStructEncoding(
       stripe,
       streamLabels,
       memoryPool,
-      flatMapContext);
+      flatMapContext,
+      factory);
 
   const auto& mapColumnIdAsStruct =
       stripe.getRowReaderOptions().getMapColumnIdAsStruct();
@@ -615,7 +620,8 @@ FlatMapStructEncodingColumnReader<T>::FlatMapStructEncodingColumnReader(
     const StreamLabels& streamLabels,
     folly::Executor* executor,
     size_t decodingParallelismFactor,
-    FlatMapContext flatMapContext)
+    FlatMapContext flatMapContext,
+    ColumnReaderFactory& factory)
     : ColumnReader(
           requestedType,
           stripe,
@@ -628,7 +634,8 @@ FlatMapStructEncodingColumnReader<T>::FlatMapStructEncodingColumnReader(
           stripe,
           streamLabels,
           memoryPool_,
-          flatMapContext_)},
+          flatMapContext_,
+          factory)},
       nullColumnReader_{std::make_unique<NullColumnReader>(
           stripe,
           requestedType_->type()->asMap().valueType())},
@@ -770,7 +777,8 @@ std::unique_ptr<ColumnReader> createFlatMapColumnReader(
     const StreamLabels& streamLabels,
     folly::Executor* executor,
     size_t decodingParallelismFactor,
-    FlatMapContext flatMapContext) {
+    FlatMapContext flatMapContext,
+    ColumnReaderFactory& factory) {
   if (isRequiringStructEncoding(requestedType, stripe.getRowReaderOptions())) {
     return std::make_unique<FlatMapStructEncodingColumnReader<T>>(
         requestedType,
@@ -779,7 +787,8 @@ std::unique_ptr<ColumnReader> createFlatMapColumnReader(
         streamLabels,
         executor,
         decodingParallelismFactor,
-        std::move(flatMapContext));
+        std::move(flatMapContext),
+        factory);
   } else {
     return std::make_unique<FlatMapColumnReader<T>>(
         requestedType,
@@ -788,7 +797,8 @@ std::unique_ptr<ColumnReader> createFlatMapColumnReader(
         streamLabels,
         executor,
         decodingParallelismFactor,
-        std::move(flatMapContext));
+        std::move(flatMapContext),
+        factory);
   }
 }
 
@@ -799,7 +809,8 @@ std::unique_ptr<ColumnReader> createFlatMapColumnReader(
     const StreamLabels& streamLabels,
     folly::Executor* executor,
     size_t decodingParallelismFactor,
-    FlatMapContext flatMapContext) {
+    FlatMapContext flatMapContext,
+    ColumnReaderFactory& factory) {
   // create flat map column reader based on key type
   const auto kind = fileType->childAt(0)->type()->kind();
 
@@ -812,7 +823,8 @@ std::unique_ptr<ColumnReader> createFlatMapColumnReader(
           streamLabels,
           executor,
           decodingParallelismFactor,
-          std::move(flatMapContext));
+          std::move(flatMapContext),
+          factory);
     case TypeKind::SMALLINT:
       return createFlatMapColumnReader<int16_t>(
           requestedType,
@@ -821,7 +833,8 @@ std::unique_ptr<ColumnReader> createFlatMapColumnReader(
           streamLabels,
           executor,
           decodingParallelismFactor,
-          std::move(flatMapContext));
+          std::move(flatMapContext),
+          factory);
     case TypeKind::INTEGER:
       return createFlatMapColumnReader<int32_t>(
           requestedType,
@@ -830,7 +843,8 @@ std::unique_ptr<ColumnReader> createFlatMapColumnReader(
           streamLabels,
           executor,
           decodingParallelismFactor,
-          std::move(flatMapContext));
+          std::move(flatMapContext),
+          factory);
     case TypeKind::BIGINT:
       return createFlatMapColumnReader<int64_t>(
           requestedType,
@@ -839,7 +853,8 @@ std::unique_ptr<ColumnReader> createFlatMapColumnReader(
           streamLabels,
           executor,
           decodingParallelismFactor,
-          std::move(flatMapContext));
+          std::move(flatMapContext),
+          factory);
     case TypeKind::VARBINARY:
     case TypeKind::VARCHAR:
       return createFlatMapColumnReader<StringView>(
@@ -849,7 +864,8 @@ std::unique_ptr<ColumnReader> createFlatMapColumnReader(
           streamLabels,
           executor,
           decodingParallelismFactor,
-          std::move(flatMapContext));
+          std::move(flatMapContext),
+          factory);
     default:
       DWIO_RAISE("Not supported key type: ", kind);
   }

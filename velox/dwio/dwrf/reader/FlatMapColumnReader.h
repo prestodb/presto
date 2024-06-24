@@ -151,7 +151,8 @@ class FlatMapColumnReader : public ColumnReader {
       const StreamLabels& streamLabels,
       folly::Executor* executor,
       size_t decodingParallelismFactor,
-      FlatMapContext flatMapContext);
+      FlatMapContext flatMapContext,
+      ColumnReaderFactory& factory);
   ~FlatMapColumnReader() override = default;
 
   uint64_t skip(uint64_t numValues) override;
@@ -186,7 +187,8 @@ class FlatMapStructEncodingColumnReader : public ColumnReader {
       const StreamLabels& streamLabels,
       folly::Executor* executor,
       size_t decodingParallelismFactor,
-      FlatMapContext flatMapContext);
+      FlatMapContext flatMapContext,
+      ColumnReaderFactory& factory);
   ~FlatMapStructEncodingColumnReader() override = default;
 
   uint64_t skip(uint64_t numValues) override;
@@ -216,7 +218,8 @@ class FlatMapColumnReaderFactory {
       const StreamLabels& streamLabels,
       folly::Executor* executor,
       size_t decodingParallelismFactor,
-      FlatMapContext flatMapContext);
+      FlatMapContext flatMapContext,
+      ColumnReaderFactory& factory);
 };
 
 } // namespace facebook::velox::dwrf

@@ -173,7 +173,12 @@ void DwrfUnit::ensureDecoders() {
         options_.getRowNumberColumnInfo().has_value());
   } else {
     auto requestedType = columnSelector_->getSchemaWithId();
-    columnReader_ = ColumnReader::build( // enqueue streams
+    auto factory = &ColumnReaderFactory::defaultFactory();
+    if (auto formatOptions = std::dynamic_pointer_cast<DwrfOptions>(
+            options_.formatSpecificOptions())) {
+      factory = formatOptions->columnReaderFactory().get();
+    }
+    columnReader_ = factory->build(
         requestedType,
         fileType,
         *stripeStreams_,
