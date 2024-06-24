@@ -400,6 +400,19 @@ void AggregationFuzzerBase::printSignatureStats() {
   }
 }
 
+void AggregationFuzzerBase::logVectors(
+    const std::vector<RowVectorPtr>& vectors) {
+  if (!VLOG_IS_ON(1)) {
+    return;
+  }
+  for (auto i = 0; i < vectors.size(); ++i) {
+    VLOG(1) << "Input batch " << i << ":";
+    for (auto j = 0; j < vectors[i]->size(); ++j) {
+      VLOG(1) << "\tRow " << j << ": " << vectors[i]->toString(j);
+    }
+  }
+}
+
 velox::fuzzer::ResultOrError AggregationFuzzerBase::execute(
     const core::PlanNodePtr& plan,
     const std::vector<exec::Split>& splits,

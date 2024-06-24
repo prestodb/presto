@@ -29,15 +29,6 @@ namespace facebook::velox::exec::test {
 
 namespace {
 
-void logVectors(const std::vector<RowVectorPtr>& vectors) {
-  for (auto i = 0; i < vectors.size(); ++i) {
-    VLOG(1) << "Input batch " << i << ":";
-    for (auto j = 0; j < vectors[i]->size(); ++j) {
-      VLOG(1) << "\tRow " << j << ": " << vectors[i]->toString(j);
-    }
-  }
-}
-
 bool supportIgnoreNulls(const std::string& name) {
   // Below are all functions that support ignore nulls. Aggregation functions in
   // window operations do not support ignore nulls.
