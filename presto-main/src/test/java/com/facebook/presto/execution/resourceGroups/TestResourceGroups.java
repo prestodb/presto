@@ -1046,6 +1046,7 @@ public class TestResourceGroups
                         "1",
                         false,
                         false,
+                        false,
                         false));
         internalNodeManager.addNode(
                 new ConnectorId("dummy"),
@@ -1056,6 +1057,7 @@ public class TestResourceGroups
                         "1",
                         false,
                         false,
+                        false,
                         false));
         internalNodeManager.addNode(
                 new ConnectorId("dummy"),
@@ -1064,6 +1066,7 @@ public class TestResourceGroups
                         URI.create("local://localhost:789/2"),
                         OptionalInt.of(3),
                         "1",
+                        false,
                         false,
                         false,
                         false));

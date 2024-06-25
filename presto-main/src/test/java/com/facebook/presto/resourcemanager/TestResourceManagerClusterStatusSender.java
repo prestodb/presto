@@ -78,6 +78,7 @@ public class TestResourceManagerClusterStatusSender
                         "1",
                         false,
                         true,
+                        false,
                         false));
 
         sender = new ResourceManagerClusterStatusSender(
