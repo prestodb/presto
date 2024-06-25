@@ -52,7 +52,7 @@ namespace detail {
 
 /// Returns true if source nodes must run in a separate pipeline.
 bool mustStartNewPipeline(
-    std::shared_ptr<const core::PlanNode> planNode,
+    const std::shared_ptr<const core::PlanNode>& planNode,
     int sourceId) {
   if (auto localMerge =
           std::dynamic_pointer_cast<const core::LocalMergeNode>(planNode)) {
@@ -70,7 +70,8 @@ bool mustStartNewPipeline(
 
 OperatorSupplier makeConsumerSupplier(ConsumerSupplier consumerSupplier) {
   if (consumerSupplier) {
-    return [consumerSupplier](int32_t operatorId, DriverCtx* ctx) {
+    return [consumerSupplier = std::move(consumerSupplier)](
+               int32_t operatorId, DriverCtx* ctx) {
       return std::make_unique<CallbackSink>(
           operatorId, ctx, consumerSupplier());
     };
@@ -88,7 +89,7 @@ OperatorSupplier makeConsumerSupplier(
 
       auto consumer = [mergeSource](
                           RowVectorPtr input, ContinueFuture* future) {
-        return mergeSource->enqueue(input, future);
+        return mergeSource->enqueue(std::move(input), future);
       };
       return std::make_unique<CallbackSink>(operatorId, ctx, consumer);
     };
@@ -123,7 +124,7 @@ OperatorSupplier makeConsumerSupplier(
       auto source =
           ctx->task->getMergeJoinSource(ctx->splitGroupId, planNodeId);
       auto consumer = [source](RowVectorPtr input, ContinueFuture* future) {
-        return source->enqueue(input, future);
+        return source->enqueue(std::move(input), future);
       };
       return std::make_unique<CallbackSink>(operatorId, ctx, consumer);
     };
@@ -141,11 +142,11 @@ void plan(
   if (!currentPlanNodes) {
     driverFactories->push_back(std::make_unique<DriverFactory>());
     currentPlanNodes = &driverFactories->back()->planNodes;
-    driverFactories->back()->consumerSupplier = consumerSupplier;
+    driverFactories->back()->consumerSupplier = std::move(consumerSupplier);
     driverFactories->back()->consumerNode = consumerNode;
   }
 
-  auto sources = planNode->sources();
+  const auto& sources = planNode->sources();
   if (sources.empty()) {
     driverFactories->back()->inputDriver = true;
   } else {

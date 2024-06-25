@@ -295,7 +295,7 @@ Task::Task(
       queryCtx_(std::move(queryCtx)),
       mode_(mode),
       consumerSupplier_(std::move(consumerSupplier)),
-      onError_(onError),
+      onError_(std::move(onError)),
       splitsStates_(buildSplitStates(planFragment_.planNode)),
       bufferManager_(OutputBufferManager::getInstance()) {
   // NOTE: the executor must not be folly::InlineLikeExecutor for parallel

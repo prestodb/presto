@@ -276,7 +276,7 @@ struct DriverCtx {
   const uint32_t partitionId;
 
   std::shared_ptr<Task> task;
-  Driver* driver;
+  Driver* driver{nullptr};
   facebook::velox::process::ThreadDebugInfo threadDebugInfo;
 
   DriverCtx(
