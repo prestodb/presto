@@ -446,7 +446,7 @@ public class TestMemoryManager
                 .put("experimental.reserved-pool-enabled", "false")
                 .build();
 
-        queryRunner2 = createQueryRunner(rmProperties, extraProperties, coordinatorProperties, extraProperties, 2);
+        queryRunner2 = createQueryRunner(rmProperties, extraProperties, extraProperties, coordinatorProperties, extraProperties, 2);
     }
 
     @AfterGroups(groups = {"reservedPoolDisabledMultiCoordinator"})
@@ -503,7 +503,7 @@ public class TestMemoryManager
                 .put("resource-manager.query-heartbeat-interval", "10ms")
                 .put("resource-manager.node-status-timeout", "5s")
                 .build();
-        queryRunner2 = createQueryRunner(properties, ImmutableMap.of(), ImmutableMap.of(), properties, 2);
+        queryRunner2 = createQueryRunner(properties, ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), properties, 2);
     }
 
     @AfterGroups(groups = {"clusterPoolsMultiCoordinator"})

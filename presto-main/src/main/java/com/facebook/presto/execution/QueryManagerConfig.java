@@ -86,6 +86,7 @@ public class QueryManagerConfig
     private Duration requiredWorkersMaxWait = new Duration(5, TimeUnit.MINUTES);
     private int requiredCoordinators = 1;
     private Duration requiredCoordinatorsMaxWait = new Duration(5, TimeUnit.MINUTES);
+    private Duration requiredCoordinatorSidecarsMaxWait = new Duration(5, TimeUnit.MINUTES);
     private int requiredResourceManagers = 1;
 
     private int querySubmissionMaxThreads = Runtime.getRuntime().availableProcessors() * 2;
@@ -601,6 +602,21 @@ public class QueryManagerConfig
     public QueryManagerConfig setRequiredCoordinatorsMaxWait(Duration requiredCoordinatorsMaxWait)
     {
         this.requiredCoordinatorsMaxWait = requiredCoordinatorsMaxWait;
+        return this;
+    }
+
+    @NotNull
+    public Duration getRequiredCoordinatorSidecarsMaxWait()
+    {
+        return requiredCoordinatorSidecarsMaxWait;
+    }
+
+    @Experimental
+    @Config("query-manager.experimental.required-coordinator-sidecars-max-wait")
+    @ConfigDescription("Maximum time to wait for minimum number of coordinator sidecars before the query is failed")
+    public QueryManagerConfig setRequiredCoordinatorSidecarsMaxWait(Duration requiredCoordinatorSidecarsMaxWait)
+    {
+        this.requiredCoordinatorSidecarsMaxWait = requiredCoordinatorSidecarsMaxWait;
         return this;
     }
 
