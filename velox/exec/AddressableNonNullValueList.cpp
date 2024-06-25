@@ -41,16 +41,22 @@ AddressableNonNullValueList::Entry AddressableNonNullValueList::append(
     const DecodedVector& decoded,
     vector_size_t index,
     HashStringAllocator* allocator) {
+  return append(*decoded.base(), decoded.index(index), allocator);
+}
+
+AddressableNonNullValueList::Entry AddressableNonNullValueList::append(
+    const BaseVector& vector,
+    vector_size_t index,
+    HashStringAllocator* allocator) {
   auto stream = initStream(allocator);
 
-  const auto hash = decoded.base()->hashValueAt(decoded.index(index));
+  const auto hash = vector.hashValueAt(index);
 
   const auto originalSize = stream.size();
 
   // Write value.
   exec::ContainerRowSerdeOptions options{};
-  exec::ContainerRowSerde::serialize(
-      *decoded.base(), decoded.index(index), stream, options);
+  exec::ContainerRowSerde::serialize(vector, index, stream, options);
   ++size_;
 
   auto startAndFinish = allocator->finishWrite(stream, 1024);

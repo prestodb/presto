@@ -58,6 +58,12 @@ class AddressableNonNullValueList {
       vector_size_t index,
       HashStringAllocator* allocator);
 
+  /// Same as above, but takes BaseVector.
+  Entry append(
+      const BaseVector& vector,
+      vector_size_t index,
+      HashStringAllocator* allocator);
+
   /// Append a non-null serialized value to the end of the list.
   /// Returns position that can be used to access the value later.
   HashStringAllocator::Position appendSerialized(
