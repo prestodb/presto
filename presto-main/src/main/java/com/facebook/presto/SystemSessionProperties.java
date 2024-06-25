@@ -325,6 +325,7 @@ public final class SystemSessionProperties
     public static final String GENERATE_DOMAIN_FILTERS = "generate_domain_filters";
     public static final String REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION = "rewrite_expression_with_constant_expression";
     public static final String PRINT_ESTIMATED_STATS_FROM_CACHE = "print_estimated_stats_from_cache";
+    public static final String REMOVE_CROSS_JOIN_WITH_CONSTANT_SINGLE_ROW_INPUT = "remove_cross_join_with_constant_single_row_input";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "native_simplified_expression_evaluation_enabled";
@@ -1927,6 +1928,11 @@ public final class SystemSessionProperties
                                 "get stats from a cache that was populated during query optimization rather than recalculating the stats on the final plan.",
                         featuresConfig.isPrintEstimatedStatsFromCache(),
                         false),
+                booleanProperty(
+                        REMOVE_CROSS_JOIN_WITH_CONSTANT_SINGLE_ROW_INPUT,
+                        "If one input of the cross join is a single row with constant value, remove this cross join and replace with a project node",
+                        featuresConfig.isRemoveCrossJoinWithSingleConstantRow(),
+                        false),
                 new PropertyMetadata<>(
                         DEFAULT_VIEW_SECURITY_MODE,
                         format("Set default view security mode. Options are: %s",
@@ -3238,6 +3244,11 @@ public final class SystemSessionProperties
     public static boolean isPrintEstimatedStatsFromCacheEnabled(Session session)
     {
         return session.getSystemProperty(PRINT_ESTIMATED_STATS_FROM_CACHE, Boolean.class);
+    }
+
+    public static boolean isRemoveCrossJoinWithConstantSingleRowInputEnabled(Session session)
+    {
+        return session.getSystemProperty(REMOVE_CROSS_JOIN_WITH_CONSTANT_SINGLE_ROW_INPUT, Boolean.class);
     }
 
     public static boolean shouldOptimizerUseHistograms(Session session)

@@ -310,6 +310,7 @@ public class FeaturesConfig
     private boolean limitNumberOfGroupsForKHyperLogLogAggregations = true;
     private boolean generateDomainFilters;
     private boolean printEstimatedStatsFromCache;
+    private boolean removeCrossJoinWithSingleConstantRow = true;
     private CreateView.Security defaultViewSecurityMode = DEFINER;
     private boolean useHistograms;
 
@@ -3131,6 +3132,19 @@ public class FeaturesConfig
     public FeaturesConfig setPrintEstimatedStatsFromCache(boolean printEstimatedStatsFromCache)
     {
         this.printEstimatedStatsFromCache = printEstimatedStatsFromCache;
+        return this;
+    }
+
+    public boolean isRemoveCrossJoinWithSingleConstantRow()
+    {
+        return this.removeCrossJoinWithSingleConstantRow;
+    }
+
+    @Config("optimizer.remove-cross-join-with-single-constant-row")
+    @ConfigDescription("If one input of the cross join is a single row with constant value, remove this cross join and replace with a project node")
+    public FeaturesConfig setRemoveCrossJoinWithSingleConstantRow(boolean removeCrossJoinWithSingleConstantRow)
+    {
+        this.removeCrossJoinWithSingleConstantRow = removeCrossJoinWithSingleConstantRow;
         return this;
     }
 
