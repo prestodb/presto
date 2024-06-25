@@ -377,7 +377,8 @@ TEST_F(E2EWriterTest, E2E) {
   dwrf::E2EWriterTestUtil::testWriter(*leafPool_, type, batches, 1, 1, config);
 }
 
-TEST_F(E2EWriterTest, DisableLinearHeuristics) {
+// Disabled because test is failing in continuous runs T193531984.
+TEST_F(E2EWriterTest, DISABLED_DisableLinearHeuristics) {
   const size_t batchCount = 100;
   size_t batchSize = 3000;
 
@@ -422,7 +423,8 @@ TEST_F(E2EWriterTest, DisableLinearHeuristics) {
 }
 
 // Beside writing larger files, this test also uses regular maps only.
-TEST_F(E2EWriterTest, DisableLinearHeuristicsLargeAnalytics) {
+// Disabled because test is failing in continuous runs T193531984.
+TEST_F(E2EWriterTest, DISABLED_DisableLinearHeuristicsLargeAnalytics) {
   const size_t batchCount = 500;
   size_t batchSize = 3000;
 

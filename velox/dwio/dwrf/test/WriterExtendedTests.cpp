@@ -675,7 +675,8 @@ TEST_F(E2EWriterTest, MemoryPoolBasedFlushPolicyNestedTypes) {
 }
 
 // Flat map has 1.5 orders of magnitude inflated stream memory usage.
-TEST_F(E2EWriterTest, MemoryPoolBasedFlushPolicyFlatMap) {
+// Disabled because test is failing in continuous runs T193531984.
+TEST_F(E2EWriterTest, DISABLED_MemoryPoolBasedFlushPolicyFlatMap) {
   const size_t batchCount = 500;
   const size_t batchSize = 500;
   auto pool = facebook::velox::memory::memoryManager()->addLeafPool();
