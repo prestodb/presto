@@ -69,6 +69,7 @@ import static com.facebook.presto.SystemSessionProperties.MAX_LEAF_NODES_IN_PLAN
 import static com.facebook.presto.SystemSessionProperties.OFFSET_CLAUSE_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
 import static com.facebook.presto.SystemSessionProperties.PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID;
+import static com.facebook.presto.SystemSessionProperties.REMOVE_CROSS_JOIN_WITH_CONSTANT_SINGLE_ROW_INPUT;
 import static com.facebook.presto.SystemSessionProperties.SIMPLIFY_PLAN_WITH_EMPTY_INPUT;
 import static com.facebook.presto.SystemSessionProperties.TASK_CONCURRENCY;
 import static com.facebook.presto.SystemSessionProperties.getMaxLeafNodesInPlan;
@@ -1084,6 +1085,14 @@ public class TestLogicalPlanner
                 .setSystemProperty(OPTIMIZE_HASH_GENERATION, Boolean.toString(false))
                 .build();
 
+        Session disableRemoveCrossJoin = Session.builder(broadcastJoin)
+                .setSystemProperty(REMOVE_CROSS_JOIN_WITH_CONSTANT_SINGLE_ROW_INPUT, "false")
+                .build();
+
+        Session enableRemoveCrossJoin = Session.builder(broadcastJoin)
+                .setSystemProperty(REMOVE_CROSS_JOIN_WITH_CONSTANT_SINGLE_ROW_INPUT, "true")
+                .build();
+
         // replicated join with naturally partitioned and distributed probe side is rewritten to partitioned join
         assertPlanWithSession(
                 "SELECT r1.regionkey FROM (SELECT regionkey FROM region GROUP BY regionkey) r1, region r2 WHERE r2.regionkey = r1.regionkey",
@@ -1110,7 +1119,7 @@ public class TestLogicalPlanner
         // replicated join is preserved if probe side is single node
         assertPlanWithSession(
                 "SELECT * FROM (SELECT * FROM (VALUES 1) t(a)) t, region r WHERE r.regionkey = t.a",
-                broadcastJoin,
+                disableRemoveCrossJoin,
                 false,
                 anyTree(
                         node(JoinNode.class,
@@ -1119,6 +1128,12 @@ public class TestLogicalPlanner
                                 anyTree(
                                         exchange(REMOTE_STREAMING, GATHER,
                                                 node(TableScanNode.class))))));
+
+        assertPlanWithSession(
+                "SELECT * FROM (SELECT * FROM (VALUES 1) t(a)) t, region r WHERE r.regionkey = t.a",
+                enableRemoveCrossJoin,
+                false,
+                anyTree(node(TableScanNode.class)));
 
         // replicated join is preserved if there are no equality criteria
         assertPlanWithSession(
