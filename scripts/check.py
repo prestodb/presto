@@ -204,6 +204,7 @@ def get_files(commit, path):
         and "build/fbcode_builder" not in file
         and "build/deps" not in file
         and "cmake-build-debug" not in file
+        and "NOTICE.txt" != file
     ]
 
 

@@ -1,0 +1,9 @@
+The Velox Project
+Copyright © 2024 Meta Platforms, Inc.
+
+This product includes software from the The gRPC project (Apache 2.0).
+* https://github.com/grpc/grpc/blob/v1.64.2/cmake/re2.cmake
+
+This product includes software from the QT project (BSD, 3-clause).
+* https://github.com/qt/qtbase/blob/6.6.3/cmake/FindWrapSystemDoubleConversion.cmake
+
