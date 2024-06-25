@@ -61,9 +61,6 @@ class MemoryManager;
 
 constexpr int64_t kMaxMemory = std::numeric_limits<int64_t>::max();
 
-/// Sets the memory reclaimer to the provided memory pool.
-using SetMemoryReclaimer = std::function<void(MemoryPool*)>;
-
 /// This class provides the memory allocation interfaces for a query execution.
 /// Each query execution entity creates a dedicated memory pool object. The
 /// memory pool objects from a query are organized as a tree with four levels
@@ -575,7 +572,7 @@ std::ostream& operator<<(std::ostream& os, const MemoryPool::Stats& stats);
 class MemoryPoolImpl : public MemoryPool {
  public:
   /// The callback invoked on the root memory pool destruction. It is set by
-  /// memory manager to return back the allocated memory capacity.
+  /// memory manager to removes the pool from 'MemoryManager::pools_'.
   using DestructionCallback = std::function<void(MemoryPool*)>;
   /// The callback invoked when the used memory reservation of the root memory
   /// pool exceed its capacity. It is set by memory manager to grow the memory
