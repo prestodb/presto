@@ -21,6 +21,6 @@ public class TestPrestoSparkSqlFunctions
 {
     public TestPrestoSparkSqlFunctions()
     {
-        super(new FeaturesConfig().setNativeExecutionEnabled(true));
+        super(new FeaturesConfig());
     }
 }

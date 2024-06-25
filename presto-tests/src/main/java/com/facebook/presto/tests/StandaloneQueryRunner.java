@@ -181,6 +181,11 @@ public final class StandaloneQueryRunner
         return server.getAccessControl();
     }
 
+    public void loadSystemSessionPropertyProvider()
+    {
+        throw new UnsupportedOperationException();
+    }
+
     public TestingPrestoServer getServer()
     {
         return server;

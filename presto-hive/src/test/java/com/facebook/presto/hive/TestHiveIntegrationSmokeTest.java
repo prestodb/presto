@@ -84,7 +84,6 @@ import static com.facebook.presto.SystemSessionProperties.COLOCATED_JOIN;
 import static com.facebook.presto.SystemSessionProperties.CONCURRENT_LIFESPANS_PER_NODE;
 import static com.facebook.presto.SystemSessionProperties.EXCHANGE_MATERIALIZATION_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.GROUPED_EXECUTION;
-import static com.facebook.presto.SystemSessionProperties.INLINE_SQL_FUNCTIONS;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.LOG_INVOKED_FUNCTION_NAMES_ENABLED;
@@ -132,6 +131,7 @@ import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPER
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_AND_TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveUtil.columnExtraInfo;
+import static com.facebook.presto.sessionpropertyproviders.JavaWorkerSystemSessionPropertyProvider.INLINE_SQL_FUNCTIONS;
 import static com.facebook.presto.spi.security.SelectedRole.Type.ROLE;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;

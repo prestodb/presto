@@ -22,7 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.SystemSessionProperties.OFFSET_CLAUSE_ENABLED;
+import static com.facebook.presto.sessionpropertyproviders.JavaWorkerSystemSessionPropertyProvider.OFFSET_CLAUSE_ENABLED;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.rowNumber;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.sort;

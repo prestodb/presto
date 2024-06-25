@@ -30,9 +30,9 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.Optional;
 
-import static com.facebook.presto.SystemSessionProperties.isOffsetClauseEnabled;
 import static com.facebook.presto.common.function.OperatorType.GREATER_THAN;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.sessionpropertyproviders.JavaWorkerSystemSessionPropertyProvider.isOffsetClauseEnabled;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.facebook.presto.sql.planner.plan.Patterns.offset;

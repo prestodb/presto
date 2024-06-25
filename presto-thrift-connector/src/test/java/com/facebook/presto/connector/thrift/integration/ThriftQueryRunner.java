@@ -290,6 +290,12 @@ public final class ThriftQueryRunner
         }
 
         @Override
+        public void loadSystemSessionPropertyProvider()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public Lock getExclusiveLock()
         {
             return source.getExclusiveLock();

@@ -139,6 +139,10 @@ import com.facebook.presto.server.thrift.ThriftServerInfoClient;
 import com.facebook.presto.server.thrift.ThriftServerInfoService;
 import com.facebook.presto.server.thrift.ThriftTaskClient;
 import com.facebook.presto.server.thrift.ThriftTaskService;
+import com.facebook.presto.session.sessionpropertyprovidermanagers.SystemSessionPropertyProviderManager;
+import com.facebook.presto.sessionpropertyproviders.BuiltInNativeSystemSessionPropertyProviderFactory;
+import com.facebook.presto.sessionpropertyproviders.JavaWorkerSystemSessionPropertyProvider;
+import com.facebook.presto.sessionpropertyproviders.JavaWorkerSystemSessionPropertyProviderFactory;
 import com.facebook.presto.spi.ConnectorMetadataUpdateHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTypeSerde;
@@ -180,6 +184,7 @@ import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.SingleStreamSpillerChoice;
 import com.facebook.presto.sql.analyzer.ForMetadataExtractor;
+import com.facebook.presto.sql.analyzer.JavaFeaturesConfig;
 import com.facebook.presto.sql.analyzer.MetadataExtractor;
 import com.facebook.presto.sql.analyzer.MetadataExtractorMBean;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
@@ -220,6 +225,7 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
+import com.google.inject.util.Providers;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -302,6 +308,9 @@ public class ServerMainModule
         install(new InternalCommunicationModule());
 
         configBinder(binder).bindConfig(FeaturesConfig.class);
+        if (!serverConfig.isNativeExecutionEnabled()) {
+            configBinder(binder).bindConfig(JavaFeaturesConfig.class);
+        }
 
         binder.bind(PlanChecker.class).in(Scopes.SINGLETON);
 
@@ -321,6 +330,18 @@ public class ServerMainModule
         binder.bind(BuiltInQueryAnalyzer.class).in(Scopes.SINGLETON);
         binder.bind(BuiltInAnalyzerProvider.class).in(Scopes.SINGLETON);
         binder.bind(AnalyzerProviderManager.class).in(Scopes.SINGLETON);
+
+        if (!serverConfig.isNativeExecutionEnabled()) {
+            binder.bind(JavaWorkerSystemSessionPropertyProviderFactory.class).in(Scopes.SINGLETON);
+            binder.bind(JavaWorkerSystemSessionPropertyProvider.class).in(Scopes.SINGLETON);
+        }
+        else {
+            binder.bind(JavaWorkerSystemSessionPropertyProviderFactory.class)
+                    .toProvider(Providers.of(null))
+                    .in(Scopes.SINGLETON);
+        }
+
+        binder.bind(BuiltInNativeSystemSessionPropertyProviderFactory.class).in(Scopes.SINGLETON);
 
         jaxrsBinder(binder).bind(ThrowableMapper.class);
 
@@ -779,6 +800,8 @@ public class ServerMainModule
         //Optional Status Detector
         newOptionalBinder(binder, NodeStatusService.class);
         binder.bind(NodeStatusNotificationManager.class).in(Scopes.SINGLETON);
+
+        binder.bind(SystemSessionPropertyProviderManager.class).in(Scopes.SINGLETON);
     }
 
     @Provides

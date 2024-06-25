@@ -14,6 +14,7 @@
 package com.facebook.presto.server;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.presto.spi.NodePoolType;
 import io.airlift.units.Duration;
 
@@ -40,7 +41,11 @@ public class ServerConfig
     private NodePoolType poolType = DEFAULT;
     private Duration clusterStatsExpirationDuration = new Duration(0, MILLISECONDS);
     private boolean nestedDataSerializationEnabled = true;
+<<<<<<< HEAD
     private Duration clusterResourceGroupStateInfoExpirationDuration = new Duration(0, MILLISECONDS);
+=======
+    private boolean nativeExecutionEnabled;
+>>>>>>> ce607725d4 (Move java related config to JavaFeaturesConfig)
 
     public boolean isResourceManager()
     {
@@ -90,6 +95,33 @@ public class ServerConfig
         return this;
     }
 
+<<<<<<< HEAD
+=======
+    public boolean isCoordinatorSidecar()
+    {
+        return coordinatorSidecar;
+    }
+
+    @Config("coordinator-sidecar")
+    public ServerConfig setCoordinatorSidecar(boolean coordinatorSidecar)
+    {
+        this.coordinatorSidecar = coordinatorSidecar;
+        return this;
+    }
+
+    public boolean isCoordinatorSidecarEnabled()
+    {
+        return coordinatorSidecarEnabled;
+    }
+
+    @Config("coordinator-sidecar-enabled")
+    public ServerConfig setCoordinatorSidecarEnabled(boolean coordinatorSidecarEnabled)
+    {
+        this.coordinatorSidecarEnabled = coordinatorSidecarEnabled;
+        return this;
+    }
+
+>>>>>>> ce607725d4 (Move java related config to JavaFeaturesConfig)
     public boolean isCoordinator()
     {
         return coordinator;
@@ -216,6 +248,7 @@ public class ServerConfig
         return this;
     }
 
+<<<<<<< HEAD
     public Duration getClusterResourceGroupStateInfoExpirationDuration()
     {
         return clusterResourceGroupStateInfoExpirationDuration;
@@ -225,6 +258,18 @@ public class ServerConfig
     public ServerConfig setClusterResourceGroupStateInfoExpirationDuration(Duration clusterResourceGroupStateInfoExpirationDuration)
     {
         this.clusterResourceGroupStateInfoExpirationDuration = clusterResourceGroupStateInfoExpirationDuration;
+=======
+    public boolean isNativeExecutionEnabled()
+    {
+        return this.nativeExecutionEnabled;
+    }
+
+    @Config("native-execution-enabled")
+    @ConfigDescription("Enable execution on native engine")
+    public ServerConfig setNativeExecutionEnabled(boolean nativeExecutionEnabled)
+    {
+        this.nativeExecutionEnabled = nativeExecutionEnabled;
+>>>>>>> ce607725d4 (Move java related config to JavaFeaturesConfig)
         return this;
     }
 }

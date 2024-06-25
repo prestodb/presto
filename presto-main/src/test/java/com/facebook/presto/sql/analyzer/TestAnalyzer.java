@@ -22,6 +22,7 @@ import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.server.security.SecurityConfig;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.StandardWarningCode;
@@ -160,18 +161,22 @@ public class TestAnalyzer
                 "FROM (values (1,10), (2, 10)) AS T(x, y)"), PERFORMANCE_WARNING, "ORDER BY literals/constants with window function:");
 
         // Now test for error when the session param is set to disallow this.
-        Session session = testSessionBuilder(new SessionPropertyManager(new SystemSessionProperties(
-                new QueryManagerConfig(),
-                new TaskManagerConfig(),
-                new MemoryManagerConfig(),
-                new FeaturesConfig().setAllowWindowOrderByLiterals(false),
-                new NodeMemoryConfig(),
-                new WarningCollectorConfig(),
-                new NodeSchedulerConfig(),
-                new NodeSpillConfig(),
-                new TracingConfig(),
-                new CompilerConfig(),
-                new SecurityConfig()))).build();
+        Session session = testSessionBuilder(
+                new SessionPropertyManager(
+                        new SystemSessionProperties(
+                            new QueryManagerConfig(),
+                            new TaskManagerConfig(),
+                            new MemoryManagerConfig(),
+                            new FeaturesConfig().setAllowWindowOrderByLiterals(false),
+                            new NodeMemoryConfig(),
+                            new WarningCollectorConfig(),
+                            new NodeSchedulerConfig(),
+                            new NodeSpillConfig(),
+                            new TracingConfig(),
+                            new CompilerConfig(),
+                            new SecurityConfig(),
+                            new ServerConfig()
+                        ))).build();
         assertFails(session, WINDOW_FUNCTION_ORDERBY_LITERAL,
                 "SELECT SUM(x) OVER (PARTITION BY y ORDER BY 1) AS s\n" +
                         "FROM (values (1,10), (2, 10)) AS T(x, y)");
@@ -555,18 +560,22 @@ public class TestAnalyzer
     @Test
     public void testTooManyGroupingElements()
     {
-        Session session = testSessionBuilder(new SessionPropertyManager(new SystemSessionProperties(
-                new QueryManagerConfig(),
-                new TaskManagerConfig(),
-                new MemoryManagerConfig(),
-                new FeaturesConfig().setMaxGroupingSets(2048),
-                new NodeMemoryConfig(),
-                new WarningCollectorConfig(),
-                new NodeSchedulerConfig(),
-                new NodeSpillConfig(),
-                new TracingConfig(),
-                new CompilerConfig(),
-                new SecurityConfig()))).build();
+        Session session = testSessionBuilder(
+                new SessionPropertyManager(
+                        new SystemSessionProperties(
+                                new QueryManagerConfig(),
+                                new TaskManagerConfig(),
+                                new MemoryManagerConfig(),
+                                new FeaturesConfig().setMaxGroupingSets(2048),
+                                new NodeMemoryConfig(),
+                                new WarningCollectorConfig(),
+                                new NodeSchedulerConfig(),
+                                new NodeSpillConfig(),
+                                new TracingConfig(),
+                                new CompilerConfig(),
+                                new SecurityConfig(),
+                                new ServerConfig()
+                        ))).build();
         analyze(session, "SELECT a, b, c, d, e, f, g, h, i, j, k, SUM(l)" +
                 "FROM (VALUES (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12))\n" +
                 "t (a, b, c, d, e, f, g, h, i, j, k, l)\n" +

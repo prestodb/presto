@@ -31,7 +31,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-import static com.facebook.presto.SystemSessionProperties.isInlineSqlFunctions;
+import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
+import static com.facebook.presto.sessionpropertyproviders.JavaWorkerSystemSessionPropertyProvider.isInlineSqlFunctions;
 import static com.facebook.presto.sql.relational.SqlFunctionUtils.getSqlFunctionRowExpression;
 import static java.util.Objects.requireNonNull;
 
@@ -71,7 +72,7 @@ public class InlineSqlFunctions
 
         public static RowExpression rewrite(RowExpression expression, Session session, Metadata metadata)
         {
-            if (isInlineSqlFunctions(session)) {
+            if (!isNativeExecutionEnabled(session) && isInlineSqlFunctions(session)) {
                 return RowExpressionTreeRewriter.rewriteWith(new Visitor(session, metadata), expression);
             }
             return expression;
