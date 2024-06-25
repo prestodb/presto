@@ -23,7 +23,8 @@ namespace facebook::velox::parquet {
 std::unique_ptr<dwio::common::FormatData> ParquetParams::toFormatData(
     const std::shared_ptr<const dwio::common::TypeWithId>& type,
     const common::ScanSpec& /*scanSpec*/) {
-  return std::make_unique<ParquetData>(type, metaData_, pool());
+  return std::make_unique<ParquetData>(
+      type, metaData_, pool(), sessionTimezone_);
 }
 
 void ParquetData::filterRowGroups(
@@ -116,7 +117,8 @@ dwio::common::PositionProvider ParquetData::seekToRowGroup(uint32_t index) {
       pool_,
       type_,
       metadata.compression(),
-      metadata.totalCompressedSize());
+      metadata.totalCompressedSize(),
+      sessionTimezone_);
   return dwio::common::PositionProvider(empty);
 }
 

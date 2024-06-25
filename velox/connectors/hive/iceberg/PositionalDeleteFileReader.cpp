@@ -88,7 +88,7 @@ PositionalDeleteFileReader::PositionalDeleteFileReader(
   configureReaderOptions(
       deleteReaderOpts,
       hiveConfig_,
-      connectorQueryCtx->sessionProperties(),
+      connectorQueryCtx,
       deleteFileSchema,
       deleteSplit_);
 

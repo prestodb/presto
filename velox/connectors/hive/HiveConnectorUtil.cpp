@@ -510,13 +510,13 @@ std::unique_ptr<dwio::common::SerDeOptions> parseSerdeParameters(
 void configureReaderOptions(
     dwio::common::ReaderOptions& readerOptions,
     const std::shared_ptr<const HiveConfig>& hiveConfig,
-    const Config* sessionProperties,
+    const ConnectorQueryCtx* connectorQueryCtx,
     const std::shared_ptr<const HiveTableHandle>& hiveTableHandle,
     const std::shared_ptr<const HiveConnectorSplit>& hiveSplit) {
   configureReaderOptions(
       readerOptions,
       hiveConfig,
-      sessionProperties,
+      connectorQueryCtx,
       hiveTableHandle->dataColumns(),
       hiveSplit,
       hiveTableHandle->tableParameters());
@@ -525,10 +525,11 @@ void configureReaderOptions(
 void configureReaderOptions(
     dwio::common::ReaderOptions& readerOptions,
     const std::shared_ptr<const HiveConfig>& hiveConfig,
-    const Config* sessionProperties,
+    const ConnectorQueryCtx* connectorQueryCtx,
     const RowTypePtr& fileSchema,
     const std::shared_ptr<const HiveConnectorSplit>& hiveSplit,
     const std::unordered_map<std::string, std::string>& tableParameters) {
+  auto sessionProperties = connectorQueryCtx->sessionProperties();
   readerOptions.setLoadQuantum(hiveConfig->loadQuantum());
   readerOptions.setMaxCoalesceBytes(hiveConfig->maxCoalescedBytes());
   readerOptions.setMaxCoalesceDistance(hiveConfig->maxCoalescedDistanceBytes());
@@ -542,6 +543,11 @@ void configureReaderOptions(
   readerOptions.setPrefetchRowGroups(hiveConfig->prefetchRowGroups());
   readerOptions.setNoCacheRetention(
       hiveConfig->cacheNoRetention(sessionProperties));
+  const auto& sessionTzName = connectorQueryCtx->sessionTimezone();
+  if (!sessionTzName.empty()) {
+    const auto timezone = date::locate_zone(sessionTzName);
+    readerOptions.setSessionTimezone(timezone);
+  }
 
   if (readerOptions.fileFormat() != dwio::common::FileFormat::UNKNOWN) {
     VELOX_CHECK(

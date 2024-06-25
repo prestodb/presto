@@ -66,6 +66,10 @@ class ReaderBase {
     return options_.fileColumnNamesReadAsLowerCase();
   }
 
+  const date::time_zone* sessionTimezone() const {
+    return options_.getSessionTimezone();
+  }
+
   /// Ensures that streams are enqueued and loading for the row group at
   /// 'currentGroup'. May start loading one or more subsequent groups.
   void scheduleRowGroups(
@@ -757,7 +761,10 @@ class ParquetRowReader::Impl {
       return; // TODO
     }
     ParquetParams params(
-        pool_, columnReaderStats_, readerBase_->fileMetaData());
+        pool_,
+        columnReaderStats_,
+        readerBase_->fileMetaData(),
+        readerBase->sessionTimezone());
     requestedType_ = options_.requestedType() ? options_.requestedType()
                                               : readerBase_->schema();
     columnReader_ = ParquetColumnReader::build(

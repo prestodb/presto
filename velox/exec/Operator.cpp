@@ -66,6 +66,7 @@ OperatorCtx::createConnectorQueryCtx(
       taskId(),
       planNodeId,
       driverCtx_->driverId,
+      driverCtx_->queryConfig().sessionTimezone(),
       task->getCancellationToken());
 }
 

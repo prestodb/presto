@@ -134,7 +134,7 @@ void SplitReader::configureReaderOptions(
   hive::configureReaderOptions(
       baseReaderOpts_,
       hiveConfig_,
-      connectorQueryCtx_->sessionProperties(),
+      connectorQueryCtx_,
       hiveTableHandle_,
       hiveSplit_);
   baseReaderOpts_.setRandomSkip(std::move(randomSkip));

@@ -41,7 +41,8 @@ class PageReader {
       memory::MemoryPool& pool,
       ParquetTypeWithIdPtr fileType,
       common::CompressionKind codec,
-      int64_t chunkSize)
+      int64_t chunkSize,
+      const date::time_zone* sessionTimezone)
       : pool_(pool),
         inputStream_(std::move(stream)),
         type_(std::move(fileType)),
@@ -50,7 +51,8 @@ class PageReader {
         isTopLevel_(maxRepeat_ == 0 && maxDefine_ <= 1),
         codec_(codec),
         chunkSize_(chunkSize),
-        nullConcatenation_(pool_) {
+        nullConcatenation_(pool_),
+        sessionTimezone_(sessionTimezone) {
     type_->makeLevelInfo(leafInfo_);
   }
 
@@ -59,7 +61,8 @@ class PageReader {
       std::unique_ptr<dwio::common::SeekableInputStream> stream,
       memory::MemoryPool& pool,
       common::CompressionKind codec,
-      int64_t chunkSize)
+      int64_t chunkSize,
+      const date::time_zone* sessionTimezone = nullptr)
       : pool_(pool),
         inputStream_(std::move(stream)),
         maxRepeat_(0),
@@ -67,7 +70,8 @@ class PageReader {
         isTopLevel_(maxRepeat_ == 0 && maxDefine_ <= 1),
         codec_(codec),
         chunkSize_(chunkSize),
-        nullConcatenation_(pool_) {}
+        nullConcatenation_(pool_),
+        sessionTimezone_(sessionTimezone) {}
 
   /// Advances 'numRows' top level rows.
   void skip(int64_t numRows);
@@ -136,6 +140,10 @@ class PageReader {
   // Parses the PageHeader at 'inputStream_', and move the bufferStart_ and
   // bufferEnd_ to the corresponding positions.
   thrift::PageHeader readPageHeader();
+
+  const date::time_zone* sessionTimezone() const {
+    return sessionTimezone_;
+  }
 
  private:
   // Indicates that we only want the repdefs for the next page. Used when
@@ -472,6 +480,8 @@ class PageReader {
 
   // Base values of dictionary when reading a string dictionary.
   VectorPtr dictionaryValues_;
+
+  const date::time_zone* sessionTimezone_{nullptr};
 
   // Decoders. Only one will be set at a time.
   std::unique_ptr<dwio::common::DirectDecoder<true>> directDecoder_;

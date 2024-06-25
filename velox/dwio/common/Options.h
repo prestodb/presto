@@ -33,6 +33,7 @@
 #include "velox/dwio/common/ScanSpec.h"
 #include "velox/dwio/common/UnitLoader.h"
 #include "velox/dwio/common/encryption/Encryption.h"
+#include "velox/external/date/tz.h"
 #include "velox/type/Timestamp.h"
 
 namespace facebook::velox::dwio::common {
@@ -529,6 +530,11 @@ class ReaderOptions : public io::ReaderOptions {
     return *this;
   }
 
+  ReaderOptions& setSessionTimezone(const date::time_zone* sessionTimezone) {
+    sessionTimezone_ = sessionTimezone;
+    return *this;
+  }
+
   /// Gets the desired tail location.
   uint64_t tailLocation() const {
     return tailLocation_;
@@ -566,6 +572,10 @@ class ReaderOptions : public io::ReaderOptions {
 
   const std::shared_ptr<folly::Executor>& ioExecutor() const {
     return ioExecutor_;
+  }
+
+  const date::time_zone* getSessionTimezone() const {
+    return sessionTimezone_;
   }
 
   bool fileColumnNamesReadAsLowerCase() const {
@@ -613,6 +623,7 @@ class ReaderOptions : public io::ReaderOptions {
   std::shared_ptr<folly::Executor> ioExecutor_;
   std::shared_ptr<random::RandomSkipTracker> randomSkip_;
   std::shared_ptr<velox::common::ScanSpec> scanSpec_;
+  const date::time_zone* sessionTimezone_{nullptr};
 };
 
 struct WriterOptions {

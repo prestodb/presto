@@ -122,7 +122,8 @@ class HiveDataSinkTest : public exec::test::HiveConnectorTestBase {
         "query.HiveDataSinkTest",
         "task.HiveDataSinkTest",
         "planNodeId.HiveDataSinkTest",
-        0);
+        0,
+        "");
   }
 
   std::shared_ptr<connector::hive::HiveInsertTableHandle>
@@ -706,7 +707,8 @@ DEBUG_ONLY_TEST_F(HiveDataSinkTest, memoryReclaim) {
           "query.HiveDataSinkTest",
           "task.HiveDataSinkTest",
           "planNodeId.HiveDataSinkTest",
-          0);
+          0,
+          "");
       setConnectorQueryContext(std::move(connectorQueryCtx));
     } else {
       auto connectorQueryCtx = std::make_unique<connector::ConnectorQueryCtx>(
@@ -719,7 +721,8 @@ DEBUG_ONLY_TEST_F(HiveDataSinkTest, memoryReclaim) {
           "query.HiveDataSinkTest",
           "task.HiveDataSinkTest",
           "planNodeId.HiveDataSinkTest",
-          0);
+          0,
+          "");
       setConnectorQueryContext(std::move(connectorQueryCtx));
     }
 
@@ -843,7 +846,8 @@ TEST_F(HiveDataSinkTest, memoryReclaimAfterClose) {
           "query.HiveDataSinkTest",
           "task.HiveDataSinkTest",
           "planNodeId.HiveDataSinkTest",
-          0);
+          0,
+          "");
       setConnectorQueryContext(std::move(connectorQueryCtx));
     } else {
       auto connectorQueryCtx = std::make_unique<connector::ConnectorQueryCtx>(
@@ -856,7 +860,8 @@ TEST_F(HiveDataSinkTest, memoryReclaimAfterClose) {
           "query.HiveDataSinkTest",
           "task.HiveDataSinkTest",
           "planNodeId.HiveDataSinkTest",
-          0);
+          0,
+          "");
       setConnectorQueryContext(std::move(connectorQueryCtx));
     }
 
@@ -935,7 +940,8 @@ DEBUG_ONLY_TEST_F(HiveDataSinkTest, sortWriterFailureTest) {
       "query.HiveDataSinkTest",
       "task.HiveDataSinkTest",
       "planNodeId.HiveDataSinkTest",
-      0);
+      0,
+      "");
   setConnectorQueryContext(std::move(connectorQueryCtx));
 
   auto dataSink = createDataSink(

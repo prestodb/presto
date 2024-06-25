@@ -300,7 +300,8 @@ void IcebergSplitReaderBenchmark::readSingleColumn(
           "query.IcebergSplitReader",
           "task.IcebergSplitReader",
           "planNodeId.IcebergSplitReader",
-          0);
+          0,
+          "");
 
   FileHandleFactory fileHandleFactory(
       std::make_unique<SimpleLRUCache<std::string, FileHandle>>(

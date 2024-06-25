@@ -19,7 +19,9 @@
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/dwio/common/tests/utils/DataFiles.h"
 #include "velox/dwio/parquet/RegisterParquetReader.h"
+#include "velox/dwio/parquet/reader/PageReader.h"
 #include "velox/dwio/parquet/reader/ParquetReader.h"
+#include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/type/tests/SubfieldFiltersBuilder.h"
@@ -120,6 +122,24 @@ class ParquetTableScanTest : public HiveConnectorTestBase {
                     .planNode();
 
     assertQuery(plan, splits_, sql);
+  }
+
+  void assertSelectWithTimezone(
+      std::vector<std::string>&& outputColumnNames,
+      const std::string& sql,
+      const std::string& sessionTimezone) {
+    auto rowType = getRowType(std::move(outputColumnNames));
+    auto plan = PlanBuilder().tableScan(rowType).planNode();
+    std::vector<exec::Split> splits;
+    splits.reserve(splits_.size());
+    for (const auto& connectorSplit : splits_) {
+      splits.emplace_back(folly::copy(connectorSplit), -1);
+    }
+
+    AssertQueryBuilder(plan, duckDbQueryRunner_)
+        .config(core::QueryConfig::kSessionTimezone, sessionTimezone)
+        .splits(splits)
+        .assertResults(sql);
   }
 
   void loadData(
@@ -629,6 +649,28 @@ TEST_F(ParquetTableScanTest, filterNullIcebergPartition) {
       "SELECT c0, c1 FROM tmp WHERE c1 IS NULL",
       std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>{
           {"c0", c0}, {"c1", c1}});
+}
+
+TEST_F(ParquetTableScanTest, sessionTimezone) {
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::parquet::PageReader::readPageHeader",
+      std::function<void(PageReader*)>(([&](PageReader* reader) {
+        VELOX_CHECK_EQ(reader->sessionTimezone()->name(), "Asia/Shanghai");
+      })));
+
+  // Read sample.parquet to verify if the sessionTimezone in the PageReader
+  // meets expectations.
+  loadData(
+      getExampleFilePath("sample.parquet"),
+      ROW({"a", "b"}, {BIGINT(), DOUBLE()}),
+      makeRowVector(
+          {"a", "b"},
+          {
+              makeFlatVector<int64_t>(20, [](auto row) { return row + 1; }),
+              makeFlatVector<double>(20, [](auto row) { return row + 1; }),
+          }));
+
+  assertSelectWithTimezone({"a"}, "SELECT a FROM tmp", "Asia/Shanghai");
 }
 
 int main(int argc, char** argv) {
