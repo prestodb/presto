@@ -57,6 +57,7 @@ add_library(
   SelectiveStructColumnReader.cpp
   SortingWriter.cpp
   SortingWriter.h
+  Throttler.cpp
   TypeUtils.cpp
   TypeWithId.cpp
   Writer.cpp

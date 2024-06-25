@@ -180,6 +180,10 @@ class CachedFactory {
       const Key& key,
       const Properties* properties = nullptr);
 
+  /// Looks up the cache entry of the given key if it exists, otherwise returns
+  /// null.
+  CachedPtr<Key, Value, Comparator, Hash> get(const Key& key);
+
   /// Advanced function taking in a group of keys. Separates those keys into
   /// one's present in the cache (returning CachedPtrs for them) and those not
   /// in the cache. Does NOT call the Generator for any key.
@@ -422,6 +426,33 @@ CachedFactory<Key, Value, Generator, Properties, Sizer, Comparator, Hash>::
     result = CachedPtr<Key, Value, Comparator, Hash>(rawValue);
   }
   return result;
+}
+
+template <
+    typename Key,
+    typename Value,
+    typename Generator,
+    typename Properties,
+    typename Sizer,
+    typename Comparator,
+    typename Hash>
+CachedPtr<Key, Value, Comparator, Hash>
+CachedFactory<Key, Value, Generator, Properties, Sizer, Comparator, Hash>::get(
+    const Key& key) {
+  if (cache_ == nullptr) {
+    return {};
+  }
+  std::lock_guard<std::mutex> l(cacheMu_);
+  Value* value = getCacheLocked(key);
+  if (value == nullptr) {
+    return {};
+  }
+  return CachedPtr<Key, Value, Comparator, Hash>(
+      /*fromCache=*/true,
+      value,
+      cache_.get(),
+      std::make_unique<Key>(key),
+      &cacheMu_);
 }
 
 template <

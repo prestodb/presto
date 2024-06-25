@@ -371,6 +371,11 @@ TEST(CachedFactoryTest, retrievedCached) {
   std::vector<int> keys(10);
   for (int i = 0; i < 10; ++i) {
     keys[i] = i;
+    if (i % 2 == 0) {
+      ASSERT_EQ(*factory.get(keys[i]), i * 2) << i;
+    } else {
+      ASSERT_EQ(factory.get(keys[i]).get(), nullptr);
+    }
   }
   std::vector<std::pair<int, CachedPtr<int, int>>> cached;
   std::vector<int> missing;

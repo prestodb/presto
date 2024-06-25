@@ -34,6 +34,7 @@ add_executable(
   ReaderTest.cpp
   RetryTests.cpp
   TestBufferedInput.cpp
+  ThrottlerTest.cpp
   TypeTests.cpp
   UnitLoaderToolsTests.cpp
   WriterTest.cpp

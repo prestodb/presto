@@ -304,4 +304,13 @@ constexpr folly::StringPiece kMetricExchangeDataBytes{
 
 constexpr folly::StringPiece kMetricExchangeDataSize{
     "velox.exchange_data_size"};
+
+constexpr folly::StringPiece kMetricStorageThrottledDurationMs{
+    "velox.storage_throttled_duration_ms"};
+
+constexpr folly::StringPiece kMetricStorageLocalThrottled{
+    "velox.storage_local_throttled_count"};
+
+constexpr folly::StringPiece kMetricStorageGlobalThrottled{
+    "velox.storage_global_throttled_count"};
 } // namespace facebook::velox

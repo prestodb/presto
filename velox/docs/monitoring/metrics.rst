@@ -385,6 +385,28 @@ Cache
      - Sum
      - Total number of cache regions evicted.
 
+Storage
+-------
+
+.. list-table::
+   :widths: 40 10 50
+   :header-rows: 1
+
+   * - Metric Name
+     - Type
+     - Description
+   * - storage_throttled_duration_ms
+     - Histogram
+     - The time distribution of storage IO throttled duration in range of [0, 30s]
+       with 30 buckets. It is configured to report the capacity at P50, P90, P99,
+       and P100 percentiles.
+   * - storage_local_throttled_count
+     - Count
+     - The number of times that storage IOs get throttled in a storage directory.
+   * - storage_global_throttled_count
+     - Count
+     - The number of times that storage IOs get throttled in a storage cluster.
+
 Spilling
 --------
 

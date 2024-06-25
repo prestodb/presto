@@ -487,5 +487,20 @@ void registerVeloxMetrics() {
   // percentiles.
   DEFINE_HISTOGRAM_METRIC(
       kMetricExchangeDataSize, 1L << 20, 0, 128L << 20, 50, 90, 99, 100);
+
+  /// ================== Storage Counters =================
+
+  // The time distribution of storage IO throttled duration in range of [0, 30s]
+  // with 30 buckets. It is configured to report the capacity at P50, P90, P99,
+  // and P100 percentiles.
+  DEFINE_HISTOGRAM_METRIC(
+      kMetricStorageThrottledDurationMs, 1'000, 0, 30'000, 50, 90, 99, 100);
+
+  // The number of times that storage IOs get throttled in a storage directory.
+  DEFINE_METRIC(kMetricStorageLocalThrottled, facebook::velox::StatType::COUNT);
+
+  // The number of times that storage IOs get throttled in a storage cluster.
+  DEFINE_METRIC(
+      kMetricStorageGlobalThrottled, facebook::velox::StatType::COUNT);
 }
 } // namespace facebook::velox
