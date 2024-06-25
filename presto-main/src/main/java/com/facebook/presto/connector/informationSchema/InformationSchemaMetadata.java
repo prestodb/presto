@@ -20,6 +20,7 @@ import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.EquatableValueSet;
 import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.util.ConfigUtil;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.spi.ColumnHandle;
@@ -49,6 +50,7 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.common.constant.ConfigConstants.ENABLE_MIXED_CASE_SUPPORT;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.metadata.MetadataUtil.SchemaMetadataBuilder.schemaMetadataBuilder;
@@ -77,6 +79,7 @@ public class InformationSchemaMetadata
     public static final SchemaTableName TABLE_ROLES = new SchemaTableName(INFORMATION_SCHEMA, "roles");
     public static final SchemaTableName TABLE_APPLICABLE_ROLES = new SchemaTableName(INFORMATION_SCHEMA, "applicable_roles");
     public static final SchemaTableName TABLE_ENABLED_ROLES = new SchemaTableName(INFORMATION_SCHEMA, "enabled_roles");
+    private final boolean enableMixedCaseSupport;
 
     public static final Map<SchemaTableName, ConnectorTableMetadata> TABLES = schemaMetadataBuilder()
             .table(tableMetadataBuilder(TABLE_COLUMNS)
@@ -146,6 +149,7 @@ public class InformationSchemaMetadata
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.enableMixedCaseSupport = ConfigUtil.getConfig(ENABLE_MIXED_CASE_SUPPORT);
     }
 
     private InformationSchemaTableHandle checkTableHandle(ConnectorTableHandle tableHandle)
@@ -262,7 +266,13 @@ public class InformationSchemaMetadata
             Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate)
     {
         Optional<Set<String>> schemas = filterString(constraint, SCHEMA_COLUMN_HANDLE);
-        if (schemas.isPresent()) {
+        if (schemas.isPresent() && enableMixedCaseSupport) {
+            return schemas.get().stream()
+                    .filter(this::isLowerCase)
+                    .map(schema -> new QualifiedTablePrefix(catalogName, schema))
+                    .collect(toImmutableSet());
+        }
+        else if (schemas.isPresent() && !enableMixedCaseSupport) {
             return schemas.get().stream()
                     .filter(this::isLowerCase)
                     .map(schema -> new QualifiedTablePrefix(catalogName, schema))
@@ -286,7 +296,15 @@ public class InformationSchemaMetadata
         MetadataResolver metadataResolver = metadata.getMetadataResolver(session);
 
         Optional<Set<String>> tables = filterString(constraint, TABLE_NAME_COLUMN_HANDLE);
-        if (tables.isPresent()) {
+        if (tables.isPresent() && enableMixedCaseSupport) {
+            return prefixes.stream()
+                    .flatMap(prefix -> tables.get().stream()
+                            .map(table -> new QualifiedObjectName(catalogName, prefix.getSchemaName().get(), table)))
+                    .filter(objectName -> metadataResolver.getView(objectName).isPresent() || metadataResolver.getTableHandle(objectName).isPresent())
+                    .map(QualifiedTablePrefix::toQualifiedTablePrefix)
+                    .collect(toImmutableSet());
+        }
+        else if (tables.isPresent() && !enableMixedCaseSupport) {
             return prefixes.stream()
                     .flatMap(prefix -> tables.get().stream()
                             .filter(this::isLowerCase)
@@ -297,13 +315,24 @@ public class InformationSchemaMetadata
                     .collect(toImmutableSet());
         }
 
-        return prefixes.stream()
-                .flatMap(prefix -> Stream.concat(
-                        metadata.listTables(session, prefix).stream(),
-                        metadata.listViews(session, prefix).stream()))
-                .filter(objectName -> !predicate.isPresent() || predicate.get().test(asFixedValues(objectName)))
-                .map(QualifiedTablePrefix::toQualifiedTablePrefix)
-                .collect(toImmutableSet());
+        if (enableMixedCaseSupport) {
+            return prefixes.stream()
+                    .flatMap(prefix -> Stream.concat(
+                            metadata.listTables(session, prefix).stream(),
+                            metadata.listViews(session, prefix).stream()))
+//                .filter(objectName -> !predicate.isPresent() || predicate.get().test(asFixedValues(objectName)))
+                    .map(QualifiedTablePrefix::toQualifiedTablePrefix)
+                    .collect(toImmutableSet());
+        }
+        else {
+            return prefixes.stream()
+                    .flatMap(prefix -> Stream.concat(
+                            metadata.listTables(session, prefix).stream(),
+                            metadata.listViews(session, prefix).stream()))
+                    .filter(objectName -> !predicate.isPresent() || predicate.get().test(asFixedValues(objectName)))
+                    .map(QualifiedTablePrefix::toQualifiedTablePrefix)
+                    .collect(toImmutableSet());
+        }
     }
 
     private <T> Optional<Set<String>> filterString(TupleDomain<T> constraint, T column)

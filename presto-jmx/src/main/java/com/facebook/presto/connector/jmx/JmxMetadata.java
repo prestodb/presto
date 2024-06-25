@@ -14,6 +14,7 @@
 package com.facebook.presto.connector.jmx;
 
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.util.ConfigUtil;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
@@ -53,6 +54,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.common.constant.ConfigConstants.ENABLE_MIXED_CASE_SUPPORT;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
@@ -77,12 +79,14 @@ public class JmxMetadata
 
     private final MBeanServer mbeanServer;
     private final JmxHistoricalData jmxHistoricalData;
+    private final boolean enableMixedCaseSupport;
 
     @Inject
     public JmxMetadata(MBeanServer mbeanServer, JmxHistoricalData jmxHistoricalData)
     {
         this.mbeanServer = requireNonNull(mbeanServer, "mbeanServer is null");
         this.jmxHistoricalData = requireNonNull(jmxHistoricalData, "jmxStatsHolder is null");
+        this.enableMixedCaseSupport = ConfigUtil.getConfig(ENABLE_MIXED_CASE_SUPPORT);
     }
 
     @Override
@@ -124,9 +128,15 @@ public class JmxMetadata
     private JmxTableHandle getJmxTableHandle(SchemaTableName tableName)
     {
         try {
-            String objectNamePattern = toPattern(tableName.getTableName().toLowerCase(ENGLISH));
+            String objectNamePattern = enableMixedCaseSupport
+                    ? toPattern(tableName.getTableName())
+                    : toPattern(tableName.getTableName().toLowerCase(ENGLISH));
             List<ObjectName> objectNames = mbeanServer.queryNames(WILDCARD, null).stream()
-                    .filter(name -> name.getCanonicalName().toLowerCase(ENGLISH).matches(objectNamePattern))
+                    .filter(name -> {
+                        String canonicalName = name.getCanonicalName();
+                        return enableMixedCaseSupport ? canonicalName.matches(objectNamePattern)
+                                : canonicalName.toLowerCase(ENGLISH).matches(objectNamePattern);
+                    })
                     .collect(toImmutableList());
             if (objectNames.isEmpty()) {
                 return null;
@@ -207,7 +217,8 @@ public class JmxMetadata
         Builder<SchemaTableName> tableNames = ImmutableList.builder();
         for (ObjectName objectName : mbeanServer.queryNames(WILDCARD, null)) {
             // todo remove lower case when presto supports mixed case names
-            tableNames.add(new SchemaTableName(JMX_SCHEMA_NAME, objectName.getCanonicalName().toLowerCase(ENGLISH)));
+            String tableName = enableMixedCaseSupport ? objectName.getCanonicalName() : objectName.getCanonicalName().toLowerCase(ENGLISH);
+            tableNames.add(new SchemaTableName(JMX_SCHEMA_NAME, tableName));
         }
         return tableNames.build();
     }
@@ -216,6 +227,9 @@ public class JmxMetadata
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         JmxTableHandle jmxTableHandle = (JmxTableHandle) tableHandle;
+        if (enableMixedCaseSupport) {
+            return ImmutableMap.copyOf(Maps.uniqueIndex(jmxTableHandle.getColumnHandles(), column -> column.getColumnName()));
+        }
         return ImmutableMap.copyOf(Maps.uniqueIndex(jmxTableHandle.getColumnHandles(), column -> column.getColumnName().toLowerCase(ENGLISH)));
     }
 

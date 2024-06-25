@@ -30,15 +30,21 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static java.lang.String.format;
 
 public class RedshiftClient
         extends BaseJdbcClient
 {
+    private static final String ENABLE_MIXED_CASE_SUPPORT = "enable-mixed-case-support";
+    private final boolean enableMixedCaseSupport;
+    private final boolean checkDriverCaseSupport;
     @Inject
     public RedshiftClient(JdbcConnectorId connectorId, BaseJdbcConfig config)
     {
         super(connectorId, config, "\"", new DriverConnectionFactory(new Driver(), config));
+        this.enableMixedCaseSupport = com.facebook.presto.common.util.ConfigUtil.getConfig(ENABLE_MIXED_CASE_SUPPORT);
+        this.checkDriverCaseSupport = config.getCheckDriverCaseSupport() && enableMixedCaseSupport;
     }
 
     @Override
@@ -56,6 +62,9 @@ public class RedshiftClient
     {
         // Redshift does not allow qualifying the target of a rename
         try (Connection connection = connectionFactory.openConnection(identity)) {
+            if (enableMixedCaseSupport && !oldTable.getSchemaName().equals(newTable.getSchemaName())) {
+                throw new PrestoException(NOT_FOUND, "Schema '" + newTable.getSchemaName() + "' does not exist");
+            }
             String sql = format(
                     "ALTER TABLE %s RENAME TO %s",
                     quoted(catalogName, oldTable.getSchemaName(), oldTable.getTableName()),

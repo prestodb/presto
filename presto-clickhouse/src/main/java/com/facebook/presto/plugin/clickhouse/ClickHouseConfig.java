@@ -16,12 +16,14 @@ package com.facebook.presto.plugin.clickhouse;
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.configuration.ConfigSecuritySensitive;
+import com.facebook.presto.common.util.ConfigUtil;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
 import javax.annotation.Nullable;
 import javax.validation.constraints.NotNull;
 
+import static com.facebook.presto.common.constant.ConfigConstants.ENABLE_MIXED_CASE_SUPPORT;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class ClickHouseConfig
@@ -36,6 +38,7 @@ public class ClickHouseConfig
     private boolean mapStringAsVarchar;
     private boolean allowDropTable;
     private int commitBatchSize;
+    private boolean checkDriverCaseSupport;
 
     @NotNull
     public String getConnectionUrl()
@@ -166,6 +169,18 @@ public class ClickHouseConfig
     public ClickHouseConfig setCommitBatchSize(int commitBatchSize)
     {
         this.commitBatchSize = commitBatchSize;
+        return this;
+    }
+
+    public boolean getCheckDriverCaseSupport()
+    {
+        return checkDriverCaseSupport && ConfigUtil.getConfig(ENABLE_MIXED_CASE_SUPPORT);
+    }
+
+    @Config("clickhouse.check-driver-case-support")
+    public ClickHouseConfig setCheckDriverCaseSupport(boolean ignoreDriverCaseSupport)
+    {
+        this.checkDriverCaseSupport = ignoreDriverCaseSupport && ConfigUtil.getConfig(ENABLE_MIXED_CASE_SUPPORT);
         return this;
     }
 }

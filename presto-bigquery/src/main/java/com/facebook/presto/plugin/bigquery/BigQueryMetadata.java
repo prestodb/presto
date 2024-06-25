@@ -14,6 +14,7 @@
 package com.facebook.presto.plugin.bigquery;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.util.ConfigUtil;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
@@ -43,10 +44,12 @@ import com.google.common.collect.Streams;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.common.constant.ConfigConstants.ENABLE_MIXED_CASE_SUPPORT;
 import static com.facebook.presto.plugin.bigquery.BigQueryErrorCode.BIGQUERY_TABLE_DISAPPEAR_DURING_LIST;
 import static com.google.cloud.bigquery.TableDefinition.Type.TABLE;
 import static com.google.cloud.bigquery.TableDefinition.Type.VIEW;
@@ -63,21 +66,33 @@ public class BigQueryMetadata
     private static final Logger log = Logger.get(BigQueryMetadata.class);
     private final BigQueryClient bigQueryClient;
     private final String projectId;
+    private final boolean enableMixedCaseSupport;
 
     @Inject
     public BigQueryMetadata(BigQueryClient bigQueryClient, BigQueryConfig config)
     {
         this.bigQueryClient = bigQueryClient;
         this.projectId = config.getProjectId().orElse(bigQueryClient.getProjectId());
+        this.enableMixedCaseSupport = ConfigUtil.getConfig(ENABLE_MIXED_CASE_SUPPORT);
     }
 
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
-        return Streams.stream(bigQueryClient.listDatasets(projectId))
-                .map(dataset -> dataset.getDatasetId().getDataset())
-                .filter(schemaName -> !schemaName.equalsIgnoreCase(INFORMATION_SCHEMA))
-                .collect(toImmutableList());
+        List<String> schemas;
+        if (enableMixedCaseSupport) {
+            schemas = Streams.stream(bigQueryClient.listDatasets(projectId))
+                    .map(dataset -> dataset.getDatasetId().getDataset())
+                    .filter(schemaName -> !schemaName.equalsIgnoreCase(INFORMATION_SCHEMA))
+                    .collect(toImmutableList());
+        }
+        else {
+            schemas = Streams.stream(bigQueryClient.listDatasets(projectId))
+                    .map(dataset -> dataset.getDatasetId().getDataset().toLowerCase(Locale.ENGLISH))
+                    .filter(schemaName -> !schemaName.equalsIgnoreCase(INFORMATION_SCHEMA))
+                    .collect(toImmutableList());
+        }
+        return ImmutableList.copyOf(schemas);
     }
 
     @Override
@@ -103,9 +118,18 @@ public class BigQueryMetadata
                 .orElseGet(() -> ImmutableSet.copyOf(listSchemaNames(session)));
 
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
-        for (String datasetId : schemaNames) {
-            for (Table table : bigQueryClient.listTables(DatasetId.of(projectId, datasetId), types)) {
-                tableNames.add(new SchemaTableName(datasetId, table.getTableId().getTable()));
+        if (enableMixedCaseSupport) {
+            for (String datasetId : schemaNames) {
+                for (Table table : bigQueryClient.listTables(DatasetId.of(projectId, datasetId), types)) {
+                    tableNames.add(new SchemaTableName(datasetId, table.getTableId().getTable()));
+                }
+            }
+        }
+        else {
+            for (String datasetId : schemaNames) {
+                for (Table table : bigQueryClient.listTables(DatasetId.of(projectId, datasetId), types)) {
+                    tableNames.add(new SchemaTableName(datasetId, table.getTableId().getTable().toLowerCase(Locale.ENGLISH)));
+                }
             }
         }
         return tableNames.build();

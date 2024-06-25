@@ -32,6 +32,7 @@ public class BaseJdbcConfig
     private String passwordCredentialName;
     private boolean caseInsensitiveNameMatching;
     private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
+    private boolean checkDriverCaseSupport;
 
     @NotNull
     public String getConnectionUrl()
@@ -122,6 +123,18 @@ public class BaseJdbcConfig
     public BaseJdbcConfig setCaseInsensitiveNameMatchingCacheTtl(Duration caseInsensitiveNameMatchingCacheTtl)
     {
         this.caseInsensitiveNameMatchingCacheTtl = caseInsensitiveNameMatchingCacheTtl;
+        return this;
+    }
+
+    public boolean getCheckDriverCaseSupport()
+    {
+        return checkDriverCaseSupport;
+    }
+
+    @Config("check-driver-case-support")
+    public BaseJdbcConfig setCheckDriverCaseSupport(boolean ignoreDriverCaseSupport)
+    {
+        this.checkDriverCaseSupport = ignoreDriverCaseSupport;
         return this;
     }
 }

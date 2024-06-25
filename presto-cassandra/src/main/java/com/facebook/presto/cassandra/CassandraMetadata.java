@@ -18,6 +18,7 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.cassandra.util.CassandraCqlUtils;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.util.ConfigUtil;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
@@ -47,14 +48,17 @@ import javax.inject.Inject;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.cassandra.CassandraType.toCassandraType;
 import static com.facebook.presto.cassandra.util.CassandraCqlUtils.validSchemaName;
 import static com.facebook.presto.cassandra.util.CassandraCqlUtils.validTableName;
+import static com.facebook.presto.common.constant.ConfigConstants.ENABLE_MIXED_CASE_SUPPORT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -72,7 +76,7 @@ public class CassandraMetadata
     private final CassandraPartitionManager partitionManager;
     private final boolean allowDropTable;
     private final ProtocolVersion protocolVersion;
-
+    private boolean enableMixedCaseSupport;
     private final JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec;
 
     @Inject
@@ -89,14 +93,17 @@ public class CassandraMetadata
         this.allowDropTable = requireNonNull(config, "config is null").getAllowDropTable();
         this.extraColumnMetadataCodec = requireNonNull(extraColumnMetadataCodec, "extraColumnMetadataCodec is null");
         this.protocolVersion = requireNonNull(config, "config is null").getProtocolVersion();
+        this.enableMixedCaseSupport = ConfigUtil.getConfig(ENABLE_MIXED_CASE_SUPPORT);
     }
 
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
-        return cassandraSession.getCaseSensitiveSchemaNames().stream()
-                .map(name -> name.toLowerCase(ENGLISH))
-                .collect(toImmutableList());
+        Stream<String> schemaNamesStream = cassandraSession.getCaseSensitiveSchemaNames().stream();
+        if (!enableMixedCaseSupport) {
+            schemaNamesStream = schemaNamesStream.map(name -> name.toLowerCase(Locale.ENGLISH));
+        }
+        return schemaNamesStream.collect(toImmutableList());
     }
 
     @Override
@@ -140,7 +147,12 @@ public class CassandraMetadata
         for (String schemaName : listSchemas(session, schemaNameOrNull)) {
             try {
                 for (String tableName : cassandraSession.getCaseSensitiveTableNames(schemaName)) {
-                    tableNames.add(new SchemaTableName(schemaName, tableName.toLowerCase(ENGLISH)));
+                    if (enableMixedCaseSupport) {
+                        tableNames.add(new SchemaTableName(schemaName, tableName));
+                    }
+                    else {
+                        tableNames.add(new SchemaTableName(schemaName, tableName.toLowerCase(ENGLISH)));
+                    }
                 }
             }
             catch (SchemaNotFoundException e) {
@@ -166,7 +178,12 @@ public class CassandraMetadata
         CassandraTable table = cassandraSession.getTable(getTableName(tableHandle));
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (CassandraColumnHandle columnHandle : table.getColumns()) {
-            columnHandles.put(CassandraCqlUtils.cqlNameToSqlName(columnHandle.getName()).toLowerCase(ENGLISH), columnHandle);
+            if (enableMixedCaseSupport) {
+                columnHandles.put(CassandraCqlUtils.cqlNameToSqlName(columnHandle.getName()), columnHandle);
+            }
+            else {
+                columnHandles.put(CassandraCqlUtils.cqlNameToSqlName(columnHandle.getName()).toLowerCase(ENGLISH), columnHandle);
+            }
         }
         return columnHandles.build();
     }
@@ -299,10 +316,15 @@ public class CassandraMetadata
         for (int i = 0; i < columns.size(); i++) {
             String name = columns.get(i);
             Type type = types.get(i);
+
+            String cassandraTypeName = enableMixedCaseSupport ?
+                    toCassandraType(type, protocolVersion).name() :
+                    toCassandraType(type, protocolVersion).name().toLowerCase(ENGLISH);
+
             queryBuilder.append(", ")
                     .append(name)
                     .append(" ")
-                    .append(toCassandraType(type, protocolVersion).name().toLowerCase(ENGLISH));
+                    .append(cassandraTypeName);
         }
         queryBuilder.append(") ");
 

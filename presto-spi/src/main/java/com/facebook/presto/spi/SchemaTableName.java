@@ -16,11 +16,13 @@ package com.facebook.presto.spi;
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
+import com.facebook.presto.common.util.ConfigUtil;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 
+import static com.facebook.presto.common.constant.ConfigConstants.ENABLE_MIXED_CASE_SUPPORT;
 import static com.facebook.presto.spi.SchemaUtil.checkNotEmpty;
 import static java.util.Locale.ENGLISH;
 
@@ -34,8 +36,9 @@ public class SchemaTableName
     @ThriftConstructor
     public SchemaTableName(@JsonProperty("schema") String schemaName, @JsonProperty("table") String tableName)
     {
-        this.schemaName = checkNotEmpty(schemaName, "schemaName").toLowerCase(ENGLISH);
-        this.tableName = checkNotEmpty(tableName, "tableName").toLowerCase(ENGLISH);
+        boolean enableMixedCaseSupport = ConfigUtil.getConfig(ENABLE_MIXED_CASE_SUPPORT);
+        this.schemaName = enableMixedCaseSupport ? checkNotEmpty(schemaName, "schemaName") : checkNotEmpty(schemaName, "schemaName").toLowerCase(ENGLISH);
+        this.tableName = enableMixedCaseSupport ? checkNotEmpty(tableName, "tableName") : checkNotEmpty(tableName, "tableName").toLowerCase(ENGLISH);
     }
 
     public static SchemaTableName valueOf(String schemaTableName)

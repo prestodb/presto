@@ -53,6 +53,7 @@ import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
@@ -141,9 +142,15 @@ public final class HttpRequestSessionContext
     public HttpRequestSessionContext(HttpServletRequest servletRequest, SqlParserOptions sqlParserOptions, TracerProvider tracerProvider, Optional<SessionPropertyManager> sessionPropertyManager)
             throws WebApplicationException
     {
-        catalog = trimEmptyToNull(servletRequest.getHeader(PRESTO_CATALOG));
+        String requestCatalog = trimEmptyToNull(servletRequest.getHeader(PRESTO_CATALOG));
+        if (requestCatalog != null) {
+            catalog = requestCatalog.toLowerCase(Locale.ENGLISH);
+        }
+        else {
+            catalog = requestCatalog;
+        }
         schema = trimEmptyToNull(servletRequest.getHeader(PRESTO_SCHEMA));
-        assertRequest((catalog != null) || (schema == null), "Schema is set but catalog is not");
+        assertRequest((requestCatalog != null) || (schema == null), "Schema is set but catalog is not");
 
         String user = trimEmptyToNull(servletRequest.getHeader(PRESTO_USER));
         assertRequest(user != null, "User must be set");

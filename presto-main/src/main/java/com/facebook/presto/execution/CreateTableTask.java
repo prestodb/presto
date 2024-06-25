@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.util.ConfigUtil;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
@@ -53,6 +54,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.common.constant.ConfigConstants.ENABLE_MIXED_CASE_SUPPORT;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.execution.AddConstraintTask.convertToTableConstraint;
@@ -74,10 +76,18 @@ import static com.facebook.presto.sql.analyzer.utils.ParameterUtils.parameterExt
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 
 public class CreateTableTask
         implements DDLDefinitionTask<CreateTable>
 {
+    private final boolean enableMixedCaseSupport;
+
+    public CreateTableTask()
+    {
+        this.enableMixedCaseSupport = ConfigUtil.getConfig(ENABLE_MIXED_CASE_SUPPORT);
+    }
+
     @Override
     public String getName()
     {
@@ -121,7 +131,7 @@ public class CreateTableTask
         for (TableElement element : statement.getElements()) {
             if (element instanceof ColumnDefinition) {
                 ColumnDefinition column = (ColumnDefinition) element;
-                String name = column.getName().getValue().toLowerCase(Locale.ENGLISH);
+                String name = enableMixedCaseSupport ? column.getName().getValue() : column.getName().getValue().toLowerCase(Locale.ENGLISH);
                 Type type;
                 try {
                     type = metadata.getType(parseTypeSignature(column.getType()));
@@ -132,7 +142,7 @@ public class CreateTableTask
                 if (type.equals(UNKNOWN)) {
                     throw new SemanticException(TYPE_MISMATCH, element, "Unknown type '%s' for column '%s'", column.getType(), column.getName());
                 }
-                if (columns.containsKey(name)) {
+                if ((columns.keySet().stream().anyMatch(name::equalsIgnoreCase) && enableMixedCaseSupport) || (columns.containsKey(name) && !enableMixedCaseSupport)) {
                     throw new SemanticException(DUPLICATE_COLUMN_NAME, column, "Column name '%s' specified more than once", column.getName());
                 }
                 if (!column.isNullable() && !metadata.getConnectorCapabilities(session, connectorId).contains(NOT_NULL_COLUMN_CONSTRAINT)) {
@@ -182,10 +192,10 @@ public class CreateTableTask
                 likeTableMetadata.getColumns().stream()
                         .filter(column -> !column.isHidden())
                         .forEach(column -> {
-                            if (columns.containsKey(column.getName().toLowerCase(Locale.ENGLISH))) {
+                            if ((columns.keySet().stream().anyMatch(column.getName()::equalsIgnoreCase) && enableMixedCaseSupport) || (columns.containsKey(column.getName().toLowerCase(ENGLISH)) && !enableMixedCaseSupport)) {
                                 throw new SemanticException(DUPLICATE_COLUMN_NAME, element, "Column name '%s' specified more than once", column.getName());
                             }
-                            columns.put(column.getName().toLowerCase(Locale.ENGLISH), column);
+                            columns.put(enableMixedCaseSupport ? column.getName() : column.getName().toLowerCase(ENGLISH), column);
                         });
             }
             else if (element instanceof ConstraintSpecification) {
@@ -197,8 +207,7 @@ public class CreateTableTask
             }
         }
 
-        accessControl.checkCanCreateTable(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
-
+        accessControl.checkCanCreateTable(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), enableMixedCaseSupport ? QualifiedObjectName.valueOf(tableName.getCatalogName(), tableName.getSchemaName().toLowerCase(ENGLISH), tableName.getObjectName()) : tableName);
         constraints.stream()
                 .filter(c -> c.getName().isPresent())
                 .collect(Collectors.groupingBy(c -> c.getName().get(), Collectors.counting()))

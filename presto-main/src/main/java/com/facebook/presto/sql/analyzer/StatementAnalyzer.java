@@ -29,6 +29,7 @@ import com.facebook.presto.common.type.RealType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.TimestampWithTimeZoneType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.util.ConfigUtil;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
 import com.facebook.presto.spi.ColumnHandle;
@@ -193,6 +194,7 @@ import static com.facebook.presto.SystemSessionProperties.isMaterializedViewData
 import static com.facebook.presto.SystemSessionProperties.isMaterializedViewPartitionFilteringEnabled;
 import static com.facebook.presto.common.RuntimeMetricName.SKIP_READING_FROM_MATERIALIZED_VIEW_COUNT;
 import static com.facebook.presto.common.RuntimeUnit.NONE;
+import static com.facebook.presto.common.constant.ConfigConstants.ENABLE_MIXED_CASE_SUPPORT;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
@@ -319,6 +321,7 @@ class StatementAnalyzer
     private final AccessControl accessControl;
     private final WarningCollector warningCollector;
     private final MetadataResolver metadataResolver;
+    private final boolean enableMixedCaseSupport;
 
     public StatementAnalyzer(
             Analysis analysis,
@@ -337,6 +340,7 @@ class StatementAnalyzer
         this.metadataResolver = requireNonNull(metadata.getMetadataResolver(session), "metadataResolver is null");
         requireNonNull(metadata.getFunctionAndTypeManager(), "functionAndTypeManager is null");
         this.functionAndTypeResolver = requireNonNull(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(), "functionAndTypeResolver is null");
+        this.enableMixedCaseSupport = ConfigUtil.getConfig(ENABLE_MIXED_CASE_SUPPORT);
     }
 
     public Scope analyze(Node node, Scope outerQueryScope)
@@ -1110,10 +1114,13 @@ class StatementAnalyzer
             }
             Set<String> names = new HashSet<>();
             for (Identifier identifier : columnAliases) {
-                if (names.contains(identifier.getValueLowerCase())) {
+                if (names.stream().anyMatch(identifier.getValue()::equalsIgnoreCase) && enableMixedCaseSupport) {
                     throw new SemanticException(DUPLICATE_COLUMN_NAME, identifier, "Column name '%s' specified more than once", identifier.getValue());
                 }
-                names.add(identifier.getValueLowerCase());
+                else if (names.contains(identifier.getValue().toLowerCase(ENGLISH)) && !enableMixedCaseSupport) {
+                    throw new SemanticException(DUPLICATE_COLUMN_NAME, identifier, "Column name '%s' specified more than once", identifier.getValue());
+                }
+                names.add(enableMixedCaseSupport ? identifier.getValue() : identifier.getValue().toLowerCase(ENGLISH));
             }
         }
 
@@ -2955,7 +2962,7 @@ class StatementAnalyzer
                 Query query = withQuery.getQuery();
                 process(query, withScopeBuilder.build());
 
-                String name = withQuery.getName().getValueLowerCase();
+                String name = enableMixedCaseSupport ? withQuery.getName().getValue() : withQuery.getName().getValue().toLowerCase(ENGLISH);
                 if (withScopeBuilder.containsNamedQuery(name)) {
                     throw new SemanticException(DUPLICATE_RELATION, withQuery, "WITH query name '%s' specified more than once", name);
                 }

@@ -18,6 +18,7 @@ import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.common.util.ConfigUtil;
 import com.facebook.presto.plugin.jdbc.BaseJdbcClient;
 import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
 import com.facebook.presto.plugin.jdbc.DriverConnectionFactory;
@@ -55,6 +56,7 @@ import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -68,6 +70,9 @@ public class PostgreSqlClient
     protected final Type jsonType;
     private static final String DUPLICATE_TABLE_SQLSTATE = "42P07";
     private final Type uuidType;
+    private static final String ENABLE_MIXED_CASE_SUPPORT = "enable-mixed-case-support";
+    private final boolean enableMixedCaseSupport;
+    private final boolean checkDriverCaseSupport;
 
     private static final JsonFactory JSON_FACTORY = new JsonFactoryBuilder().configure(CANONICALIZE_FIELD_NAMES, false).build();
     private static final ObjectMapper SORTED_MAPPER = new JsonObjectMapperProvider().get().configure(ORDER_MAP_ENTRIES_BY_KEYS, true);
@@ -78,6 +83,8 @@ public class PostgreSqlClient
         super(connectorId, config, "\"", new DriverConnectionFactory(new Driver(), config));
         this.jsonType = typeManager.getType(new TypeSignature(StandardTypes.JSON));
         this.uuidType = typeManager.getType(new TypeSignature(StandardTypes.UUID));
+        this.enableMixedCaseSupport = ConfigUtil.getConfig(ENABLE_MIXED_CASE_SUPPORT);
+        this.checkDriverCaseSupport = config.getCheckDriverCaseSupport() && enableMixedCaseSupport;
     }
 
     @Override
@@ -145,6 +152,9 @@ public class PostgreSqlClient
     {
         // PostgreSQL does not allow qualifying the target of a rename
         try (Connection connection = connectionFactory.openConnection(identity)) {
+            if (enableMixedCaseSupport && !oldTable.getSchemaName().equals(newTable.getSchemaName())) {
+                throw new PrestoException(NOT_FOUND, "Schema '" + newTable.getSchemaName() + "' does not exist");
+            }
             String sql = format(
                     "ALTER TABLE %s RENAME TO %s",
                     quoted(catalogName, oldTable.getSchemaName(), oldTable.getTableName()),

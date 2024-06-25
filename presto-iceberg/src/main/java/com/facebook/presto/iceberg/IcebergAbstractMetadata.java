@@ -89,6 +89,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -557,8 +558,8 @@ public abstract class IcebergAbstractMetadata
                 int index = icebergColumns.size();
                 Type type = toIcebergType(column.getType());
                 Types.NestedField field = column.isNullable()
-                        ? Types.NestedField.optional(index, column.getName(), type, column.getComment())
-                        : Types.NestedField.required(index, column.getName(), type, column.getComment());
+                        ? Types.NestedField.optional(index, column.getName().toLowerCase(Locale.ENGLISH), type, column.getComment())
+                        : Types.NestedField.required(index, column.getName().toLowerCase(Locale.ENGLISH), type, column.getComment());
                 icebergColumns.add(field);
             }
         }

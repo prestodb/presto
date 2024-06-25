@@ -14,6 +14,7 @@
 package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.util.ConfigUtil;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
@@ -23,9 +24,11 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Locale;
 import java.util.Map;
 
 import static com.facebook.airlift.testing.Closeables.closeAllSuppress;
+import static com.facebook.presto.common.constant.ConfigConstants.ENABLE_MIXED_CASE_SUPPORT;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -81,9 +84,18 @@ public final class JdbcQueryRunner
 
     public static Session createSession()
     {
-        return testSessionBuilder()
-                .setCatalog("jdbc")
-                .setSchema(TPCH_SCHEMA)
-                .build();
+        boolean enableMixedCaseSupport = ConfigUtil.getConfig(ENABLE_MIXED_CASE_SUPPORT);
+        if (enableMixedCaseSupport) {
+            return testSessionBuilder()
+                    .setCatalog("jdbc")
+                    .setSchema(TPCH_SCHEMA)
+                    .build();
+        }
+        else {
+            return testSessionBuilder()
+                    .setCatalog("jdbc")
+                    .setSchema(TPCH_SCHEMA.toLowerCase(Locale.ENGLISH))
+                    .build();
+        }
     }
 }

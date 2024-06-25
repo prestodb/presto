@@ -16,6 +16,7 @@ package com.facebook.presto.common;
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
+import com.facebook.presto.common.util.ConfigUtil;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
@@ -23,6 +24,7 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.Objects;
 
+import static com.facebook.presto.common.constant.ConfigConstants.ENABLE_MIXED_CASE_SUPPORT;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -61,12 +63,16 @@ public class QualifiedObjectName
     @ThriftConstructor
     public QualifiedObjectName(String catalogName, String schemaName, String objectName)
     {
-        checkLowerCase(catalogName, "catalogName");
-        checkLowerCase(schemaName, "schemaName");
-        checkLowerCase(objectName, "objectName");
-        this.catalogName = catalogName;
-        this.schemaName = schemaName;
-        this.objectName = objectName;
+        boolean enableMixedCaseSupport = ConfigUtil.getConfig(ENABLE_MIXED_CASE_SUPPORT);
+        this.catalogName = catalogName.toLowerCase(ENGLISH);
+        if (enableMixedCaseSupport) {
+            this.schemaName = schemaName;
+            this.objectName = objectName;
+        }
+        else {
+            this.schemaName = schemaName.toLowerCase(ENGLISH);
+            this.objectName = objectName.toLowerCase(ENGLISH);
+        }
     }
 
     public CatalogSchemaName getCatalogSchemaName()

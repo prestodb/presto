@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.util.ConfigUtil;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.MaterializedViewDefinition;
@@ -31,12 +32,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.common.constant.ConfigConstants.ENABLE_MIXED_CASE_SUPPORT;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_ALREADY_EXISTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_COLUMN;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static java.util.Locale.ENGLISH;
 
 public class RenameColumnTask
         implements DDLDefinitionTask<RenameColumn>
@@ -71,6 +74,10 @@ public class RenameColumnTask
 
         String source = statement.getSource().getValueLowerCase();
         String target = statement.getTarget().getValueLowerCase();
+        if (!ConfigUtil.getConfig(ENABLE_MIXED_CASE_SUPPORT)) {
+            source = source.toLowerCase(ENGLISH);
+            target = target.toLowerCase(ENGLISH);
+        }
 
         accessControl.checkCanRenameColumn(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
 
@@ -83,7 +90,8 @@ public class RenameColumnTask
             return immediateFuture(null);
         }
 
-        if (columnHandles.containsKey(target)) {
+        String columnName = target;
+        if (columnHandles.keySet().stream().anyMatch(key -> key.toLowerCase(ENGLISH).equals(columnName.toLowerCase(ENGLISH)))) {
             throw new SemanticException(COLUMN_ALREADY_EXISTS, statement, "Column '%s' already exists", target);
         }
 

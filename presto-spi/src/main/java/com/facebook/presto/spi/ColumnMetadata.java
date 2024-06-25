@@ -14,18 +14,20 @@
 package com.facebook.presto.spi;
 
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.util.ConfigUtil;
 
 import javax.annotation.Nullable;
 
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.facebook.presto.common.constant.ConfigConstants.ENABLE_MIXED_CASE_SUPPORT;
 import static com.facebook.presto.spi.SchemaUtil.checkNotEmpty;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableMap;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class ColumnMetadata
@@ -80,7 +82,7 @@ public class ColumnMetadata
         requireNonNull(type, "type is null");
         requireNonNull(properties, "properties is null");
 
-        this.name = name.toLowerCase(ENGLISH);
+        this.name = ConfigUtil.getConfig(ENABLE_MIXED_CASE_SUPPORT) ? name : name.toLowerCase(Locale.ENGLISH);
         this.type = type;
         this.comment = comment;
         this.extraInfo = extraInfo;

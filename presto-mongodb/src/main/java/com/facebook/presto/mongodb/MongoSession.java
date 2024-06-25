@@ -24,6 +24,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
+import com.facebook.presto.common.util.ConfigUtil;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
@@ -59,6 +60,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.common.constant.ConfigConstants.ENABLE_MIXED_CASE_SUPPORT;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
@@ -108,6 +110,7 @@ public class MongoSession
 
     private final LoadingCache<SchemaTableName, MongoTable> tableCache;
     private final String implicitPrefix;
+    private final boolean enableMixedCaseSupport;
 
     public MongoSession(TypeManager typeManager, MongoClient client, MongoClientConfig config)
     {
@@ -121,6 +124,7 @@ public class MongoSession
                 .expireAfterWrite(1, HOURS)  // TODO: Configure
                 .refreshAfterWrite(1, MINUTES)
                 .build(CacheLoader.from(this::loadTableSchema));
+        this.enableMixedCaseSupport = ConfigUtil.getConfig(ENABLE_MIXED_CASE_SUPPORT);
     }
 
     public void shutdown()
@@ -397,7 +401,7 @@ public class MongoSession
     public boolean collectionExists(MongoDatabase db, String collectionName)
     {
         for (String name : db.listCollectionNames()) {
-            if (name.equalsIgnoreCase(collectionName)) {
+            if (enableMixedCaseSupport ? name.equals(collectionName) : name.equalsIgnoreCase(collectionName)) {
                 return true;
             }
         }

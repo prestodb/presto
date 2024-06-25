@@ -20,6 +20,7 @@ import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.common.util.ConfigUtil;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
@@ -55,6 +56,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
+import static com.facebook.presto.common.constant.ConfigConstants.ENABLE_MIXED_CASE_SUPPORT;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DateType.DATE;
@@ -119,6 +121,9 @@ public class ClickHouseClient
 
     private final boolean mapStringAsVarchar;
 
+    private final boolean checkDriverCaseSupport;
+    private final boolean enableMixedCaseSupport;
+
     @Inject
     public ClickHouseClient(ClickHouseConnectorId connectorId, ClickHouseConfig config, ConnectionFactory connectionFactory)
     {
@@ -132,6 +137,8 @@ public class ClickHouseClient
                 .expireAfterWrite(config.getCaseInsensitiveNameMatchingCacheTtl().toMillis(), MILLISECONDS);
         this.remoteSchemaNames = remoteNamesCacheBuilder.build();
         this.remoteTableNames = remoteNamesCacheBuilder.build();
+        this.enableMixedCaseSupport = ConfigUtil.getConfig(ENABLE_MIXED_CASE_SUPPORT);
+        this.checkDriverCaseSupport = config.getCheckDriverCaseSupport() && enableMixedCaseSupport;
     }
 
     public int getCommitBatchSize()
@@ -174,7 +181,7 @@ public class ClickHouseClient
     {
         try (Connection connection = connectionFactory.openConnection(identity)) {
             return listSchemas(connection).stream()
-                    .map(schemaName -> schemaName.toLowerCase(ENGLISH))
+                    .map(enableMixedCaseSupport ? schemaName -> schemaName : schemaName -> schemaName.toLowerCase(ENGLISH))
                     .collect(toImmutableSet());
         }
         catch (SQLException e) {
@@ -408,11 +415,14 @@ public class ClickHouseClient
 
         try (Connection connection = connectionFactory.openConnection(identity)) {
             DatabaseMetaData metadata = connection.getMetaData();
-            if (metadata.storesUpperCaseIdentifiers()) {
+            if (metadata.storesUpperCaseIdentifiers() && (checkDriverCaseSupport || !enableMixedCaseSupport)) {
                 schema = schema != null ? schema.toUpperCase(ENGLISH) : null;
                 table = table.toUpperCase(ENGLISH);
                 columnName = columnName.toUpperCase(ENGLISH);
             }
+            sql = format("ALTER TABLE %s ADD COLUMN %s",
+                    quoted(handle.getCatalogName(), schema, table),
+                    getColumnDefinitionSql(column, columnName));
             execute(connection, sql);
         }
         catch (SQLException e) {
@@ -536,9 +546,13 @@ public class ClickHouseClient
 
         try (Connection connection = connectionFactory.openConnection(identity)) {
             DatabaseMetaData metadata = connection.getMetaData();
-            if (metadata.storesUpperCaseIdentifiers()) {
+            if (metadata.storesUpperCaseIdentifiers() && (checkDriverCaseSupport || !enableMixedCaseSupport)) {
                 newColumnName = newColumnName.toUpperCase(ENGLISH);
             }
+            sql = format("ALTER TABLE %s RENAME COLUMN %s TO %s",
+                    quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()),
+                    clickHouseColumn.getColumnName(),
+                    newColumnName);
             execute(connection, sql);
         }
         catch (SQLException e) {
@@ -557,10 +571,10 @@ public class ClickHouseClient
         }
 
         try (Connection connection = connectionFactory.openConnection(identity)) {
-            boolean uppercase = connection.getMetaData().storesUpperCaseIdentifiers();
             String remoteSchema = toRemoteSchemaName(identity, connection, schemaTableName.getSchemaName());
             String remoteTable = toRemoteTableName(identity, connection, remoteSchema, schemaTableName.getTableName());
-            if (uppercase) {
+            DatabaseMetaData metadata = connection.getMetaData();
+            if (metadata.storesUpperCaseIdentifiers() && (checkDriverCaseSupport || !enableMixedCaseSupport)) {
                 tableName = tableName.toUpperCase(ENGLISH);
             }
             String catalog = connection.getCatalog();
@@ -570,7 +584,7 @@ public class ClickHouseClient
             ImmutableList.Builder<String> columnList = ImmutableList.builder();
             for (ColumnMetadata column : tableMetadata.getColumns()) {
                 String columnName = column.getName();
-                if (uppercase) {
+                if (metadata.storesUpperCaseIdentifiers() && (checkDriverCaseSupport || !enableMixedCaseSupport)) {
                     columnName = columnName.toUpperCase(ENGLISH);
                 }
                 columnNames.add(columnName);
@@ -602,10 +616,10 @@ public class ClickHouseClient
         }
 
         try (Connection connection = connectionFactory.openConnection(identity)) {
-            boolean uppercase = connection.getMetaData().storesUpperCaseIdentifiers();
             String remoteSchema = toRemoteSchemaName(identity, connection, schemaTableName.getSchemaName());
             String remoteTable = toRemoteTableName(identity, connection, remoteSchema, schemaTableName.getTableName());
-            if (uppercase) {
+            DatabaseMetaData metadata = connection.getMetaData();
+            if (metadata.storesUpperCaseIdentifiers() && (checkDriverCaseSupport || !enableMixedCaseSupport)) {
                 tableName = tableName.toUpperCase(ENGLISH);
             }
             String catalog = connection.getCatalog();
@@ -615,7 +629,7 @@ public class ClickHouseClient
             ImmutableList.Builder<String> columnList = ImmutableList.builder();
             for (ColumnMetadata column : tableMetadata.getColumns()) {
                 String columnName = column.getName();
-                if (uppercase) {
+                if (metadata.storesUpperCaseIdentifiers() && (checkDriverCaseSupport || !enableMixedCaseSupport)) {
                     columnName = columnName.toUpperCase(ENGLISH);
                 }
                 columnNames.add(columnName);
@@ -668,7 +682,7 @@ public class ClickHouseClient
 
         try {
             DatabaseMetaData metadata = connection.getMetaData();
-            if (metadata.storesUpperCaseIdentifiers()) {
+            if (metadata.storesUpperCaseIdentifiers() && (checkDriverCaseSupport || !enableMixedCaseSupport)) {
                 return tableName.toUpperCase(ENGLISH);
             }
             return tableName;
@@ -760,20 +774,20 @@ public class ClickHouseClient
         String tableName = oldTable.getTableName();
         String newSchemaName = newTable.getSchemaName();
         String newTableName = newTable.getTableName();
-        String sql = format("RENAME TABLE %s.%s TO %s.%s",
-                quoted(schemaName),
-                quoted(tableName),
-                quoted(newTable.getSchemaName()),
-                quoted(newTable.getTableName()));
 
         try (Connection connection = connectionFactory.openConnection(identity)) {
             DatabaseMetaData metadata = connection.getMetaData();
-            if (metadata.storesUpperCaseIdentifiers()) {
+            if (metadata.storesUpperCaseIdentifiers() && (checkDriverCaseSupport || !enableMixedCaseSupport)) {
                 schemaName = schemaName.toUpperCase(ENGLISH);
                 tableName = tableName.toUpperCase(ENGLISH);
                 newSchemaName = newSchemaName.toUpperCase(ENGLISH);
                 newTableName = newTableName.toUpperCase(ENGLISH);
             }
+            String sql = format("RENAME TABLE %s.%s TO %s.%s",
+                    quoted(schemaName),
+                    quoted(tableName),
+                    quoted(newSchemaName),
+                    quoted(newTableName));
             execute(connection, sql);
         }
         catch (SQLException e) {
@@ -937,7 +951,7 @@ public class ClickHouseClient
 
         try {
             DatabaseMetaData metadata = connection.getMetaData();
-            if (metadata.storesUpperCaseIdentifiers()) {
+            if (metadata.storesUpperCaseIdentifiers() && (checkDriverCaseSupport || !enableMixedCaseSupport)) {
                 return schemaName.toUpperCase(ENGLISH);
             }
             return schemaName;

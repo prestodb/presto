@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.sqlserver;
 
+import com.facebook.presto.common.util.ConfigUtil;
 import com.facebook.presto.plugin.jdbc.BaseJdbcClient;
 import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
 import com.facebook.presto.plugin.jdbc.DriverConnectionFactory;
@@ -29,20 +30,84 @@ import com.microsoft.sqlserver.jdbc.SQLServerDriver;
 import javax.inject.Inject;
 
 import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 
 public class SqlServerClient
         extends BaseJdbcClient
 {
+    private static final String ENABLE_MIXED_CASE_SUPPORT = "enable-mixed-case-support";
     private static final Joiner DOT_JOINER = Joiner.on(".");
+    private final boolean enableMixedCaseSupport;
+    private final boolean checkDriverCaseSupport;
 
     @Inject
     public SqlServerClient(JdbcConnectorId connectorId, BaseJdbcConfig config)
     {
         super(connectorId, config, "\"", new DriverConnectionFactory(new SQLServerDriver(), config));
+        this.enableMixedCaseSupport = ConfigUtil.getConfig(ENABLE_MIXED_CASE_SUPPORT);
+        this.checkDriverCaseSupport = config.getCheckDriverCaseSupport() && enableMixedCaseSupport;
+    }
+
+    public JdbcTableHandle getTableHandle(ConnectorSession session, JdbcIdentity identity, SchemaTableName schemaTableName)
+    {
+        try (Connection connection = connectionFactory.openConnection(identity)) {
+            if (enableMixedCaseSupport) {
+                try (ResultSet resultSet = getTables(connection, Optional.of(schemaTableName.getSchemaName()), Optional.of(schemaTableName.getTableName()))) {
+                    List<JdbcTableHandle> tableHandles = new ArrayList<>();
+                    while (resultSet.next()) {
+                        if (schemaTableName.getSchemaName().equals(resultSet.getString("TABLE_SCHEM")) && schemaTableName.getTableName().equals(resultSet.getString("TABLE_NAME"))) {
+                            tableHandles.add(new JdbcTableHandle(
+                                    connectorId,
+                                    schemaTableName,
+                                    resultSet.getString("TABLE_CAT"),
+                                    resultSet.getString("TABLE_SCHEM"),
+                                    resultSet.getString("TABLE_NAME")));
+                        }
+                    }
+                    if (tableHandles.isEmpty()) {
+                        return null;
+                    }
+                    if (tableHandles.size() > 1) {
+                        throw new PrestoException(NOT_SUPPORTED, "Multiple tables matched: " + schemaTableName);
+                    }
+                    return getOnlyElement(tableHandles);
+                }
+            }
+            else {
+                String remoteSchema = toRemoteSchemaName(identity, connection, schemaTableName.getSchemaName());
+                String remoteTable = toRemoteTableName(identity, connection, remoteSchema, schemaTableName.getTableName());
+                try (ResultSet resultSet = getTables(connection, Optional.of(remoteSchema), Optional.of(remoteTable))) {
+                    List<JdbcTableHandle> tableHandles = new ArrayList<>();
+                    while (resultSet.next()) {
+                        tableHandles.add(new JdbcTableHandle(
+                                connectorId,
+                                schemaTableName,
+                                resultSet.getString("TABLE_CAT"),
+                                resultSet.getString("TABLE_SCHEM"),
+                                resultSet.getString("TABLE_NAME")));
+                    }
+                    if (tableHandles.isEmpty()) {
+                        return null;
+                    }
+                    if (tableHandles.size() > 1) {
+                        throw new PrestoException(NOT_SUPPORTED, "Multiple tables matched: " + schemaTableName);
+                    }
+                    return getOnlyElement(tableHandles);
+                }
+            }
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
     }
 
     @Override
