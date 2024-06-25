@@ -513,8 +513,8 @@ void WriterFuzzer::verifyWriter(
           partitionKeys,
           sortBy);
 
-      const auto referenceResult =
-          referenceQueryRunner_->execute(singleSplitReferenceSql);
+      const auto referenceResult = referenceQueryRunner_->execute(
+          singleSplitReferenceSql, "task_concurrency=1");
       const auto& referenceData = referenceResult.at(0);
       for (int i = 1; i < referenceResult.size(); ++i) {
         referenceData->append(referenceResult.at(i).get());
@@ -738,7 +738,7 @@ std::string WriterFuzzer::partitionToSql(
     const TypePtr& type,
     std::string partitionValue) {
   if (type->isVarchar()) {
-    RE2::Replace(&partitionValue, "'", "''");
+    RE2::GlobalReplace(&partitionValue, "'", "''");
     return "'" + partitionValue + "'";
   }
   return partitionValue;

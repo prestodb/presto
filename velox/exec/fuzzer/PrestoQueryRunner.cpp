@@ -867,8 +867,14 @@ std::vector<velox::RowVectorPtr> PrestoQueryRunner::executeVector(
 }
 
 std::vector<RowVectorPtr> PrestoQueryRunner::execute(const std::string& sql) {
+  return execute(sql, "");
+}
+
+std::vector<RowVectorPtr> PrestoQueryRunner::execute(
+    const std::string& sql,
+    const std::string& sessionProperty) {
   LOG(INFO) << "Execute presto sql: " << sql;
-  auto response = ServerResponse(startQuery(sql));
+  auto response = ServerResponse(startQuery(sql, sessionProperty));
   response.throwIfFailed();
 
   std::vector<RowVectorPtr> queryResults;
@@ -888,16 +894,18 @@ std::vector<RowVectorPtr> PrestoQueryRunner::execute(const std::string& sql) {
   return queryResults;
 }
 
-std::string PrestoQueryRunner::startQuery(const std::string& sql) {
+std::string PrestoQueryRunner::startQuery(
+    const std::string& sql,
+    const std::string& sessionProperty) {
   auto uri = fmt::format("{}/v1/statement?binaryResults=true", coordinatorUri_);
   cpr::Url url{uri};
   cpr::Body body{sql};
-  cpr::Header header({
-      {"X-Presto-User", user_},
-      {"X-Presto-Catalog", "hive"},
-      {"X-Presto-Schema", "tpch"},
-      {"Content-Type", "text/plain"},
-  });
+  cpr::Header header(
+      {{"X-Presto-User", user_},
+       {"X-Presto-Catalog", "hive"},
+       {"X-Presto-Schema", "tpch"},
+       {"Content-Type", "text/plain"},
+       {"X-Presto-Session", sessionProperty}});
   cpr::Timeout timeout{timeout_};
   cpr::Response response = cpr::Post(url, body, header, timeout);
   VELOX_CHECK_EQ(

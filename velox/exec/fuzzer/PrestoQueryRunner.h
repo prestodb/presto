@@ -73,6 +73,11 @@ class PrestoQueryRunner : public velox::exec::test::ReferenceQueryRunner {
   /// the query must already exist.
   std::vector<velox::RowVectorPtr> execute(const std::string& sql) override;
 
+  /// Executes Presto SQL query with extra presto session property.
+  std::vector<velox::RowVectorPtr> execute(
+      const std::string& sql,
+      const std::string& sessionProperty) override;
+
   bool supportsVeloxVectorResults() const override;
 
   std::vector<RowVectorPtr> executeVector(
@@ -117,7 +122,9 @@ class PrestoQueryRunner : public velox::exec::test::ReferenceQueryRunner {
   std::optional<std::string> toSql(
       const std::shared_ptr<const core::NestedLoopJoinNode>& joinNode);
 
-  std::string startQuery(const std::string& sql);
+  std::string startQuery(
+      const std::string& sql,
+      const std::string& sessionProperty = "");
 
   std::string fetchNext(const std::string& nextUri);
 

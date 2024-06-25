@@ -72,6 +72,12 @@ class ReferenceQueryRunner {
   virtual std::vector<velox::RowVectorPtr> execute(const std::string& sql) {
     VELOX_UNSUPPORTED();
   }
+
+  virtual std::vector<velox::RowVectorPtr> execute(
+      const std::string& sql,
+      const std::string& sessionProperty) {
+    VELOX_UNSUPPORTED();
+  }
 };
 
 } // namespace facebook::velox::exec::test
