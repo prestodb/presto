@@ -105,12 +105,6 @@ class VectorLoader {
       ValueHook* hook,
       vector_size_t resultSize,
       VectorPtr* result) = 0;
-
-  virtual void loadInternal(
-      const SelectivityVector& rows,
-      ValueHook* hook,
-      vector_size_t resultSize,
-      VectorPtr* result);
 };
 
 // Vector class which produces values on first use. This is used for

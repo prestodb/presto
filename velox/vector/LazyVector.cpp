@@ -57,27 +57,9 @@ void VectorLoader::load(
     ValueHook* hook,
     vector_size_t resultSize,
     VectorPtr* result) {
-  {
-    DeltaCpuWallTimer timer([&](auto& delta) { writeIOTiming(delta); });
-    loadInternal(rows, hook, resultSize, result);
-  }
-
-  if (hook) {
-    // Record number of rows loaded directly into ValueHook bypassing
-    // materialization into vector. This counter can be used to understand
-    // whether aggregation pushdown is happening or not.
-    addThreadLocalRuntimeStat("loadedToValueHook", RuntimeCounter(rows.size()));
-  }
-}
-
-void VectorLoader::loadInternal(
-    const SelectivityVector& rows,
-    ValueHook* hook,
-    vector_size_t resultSize,
-    VectorPtr* result) {
   if (rows.isAllSelected()) {
     const auto& indices = DecodedVector::consecutiveIndices();
-    assert(!indices.empty());
+    VELOX_DCHECK(!indices.empty());
     if (rows.end() <= indices.size()) {
       load(
           RowSet(&indices[rows.begin()], rows.end() - rows.begin()),
@@ -88,8 +70,8 @@ void VectorLoader::loadInternal(
     }
   }
   std::vector<vector_size_t> positions(rows.countSelected());
-  int index = 0;
-  rows.applyToSelected([&](vector_size_t row) { positions[index++] = row; });
+  simd::indicesOfSetBits(
+      rows.allBits(), rows.begin(), rows.end(), positions.data());
   load(positions, hook, resultSize, result);
 }
 

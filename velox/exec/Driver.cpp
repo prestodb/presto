@@ -435,43 +435,44 @@ CpuWallTiming Driver::processLazyTiming(
     return timing;
   }
   auto lockStats = op.stats().wlock();
-  uint64_t cpuDelta = 0;
-  uint64_t wallDelta = 0;
   auto it = lockStats->runtimeStats.find(LazyVector::kCpuNanos);
-  if (it != lockStats->runtimeStats.end()) {
-    auto cpu = it->second.sum;
-    cpuDelta = cpu >= lockStats->lastLazyCpuNanos
-        ? cpu - lockStats->lastLazyCpuNanos
-        : 0;
-    if (cpuDelta == 0) {
-      // return early if no change. Checking one counter is enough. If
-      // this did not change and the other did, the change would be
-      // insignificant and tracking would catch up when this counter next
-      // changed.
-      return timing;
-    }
-    lockStats->lastLazyCpuNanos = cpu;
-  } else {
-    // Return early if no lazy activity. Lazy CPU and wall times are recorded
+  if (it == lockStats->runtimeStats.end()) {
+    // Return early if no lazy activity.  Lazy CPU and wall times are recorded
     // together, checking one is enough.
     return timing;
   }
+  int64_t cpu = it->second.sum;
+  auto cpuDelta = std::max<int64_t>(0, cpu - lockStats->lastLazyCpuNanos);
+  if (cpuDelta == 0) {
+    // Return early if no change.  Checking one counter is enough.  If this did
+    // not change and the other did, the change would be insignificant and
+    // tracking would catch up when this counter next changed.
+    return timing;
+  }
+  lockStats->lastLazyCpuNanos = cpu;
+  int64_t wallDelta = 0;
   it = lockStats->runtimeStats.find(LazyVector::kWallNanos);
   if (it != lockStats->runtimeStats.end()) {
-    auto wall = it->second.sum;
-    wallDelta = wall >= lockStats->lastLazyWallNanos
-        ? wall - lockStats->lastLazyWallNanos
-        : 0;
+    int64_t wall = it->second.sum;
+    wallDelta = std::max<int64_t>(0, wall - lockStats->lastLazyWallNanos);
     if (wallDelta > 0) {
       lockStats->lastLazyWallNanos = wall;
     }
   }
-  operators_[0]->stats().wlock()->getOutputTiming.add(
-      CpuWallTiming{1, wallDelta, cpuDelta});
+  lockStats.unlock();
+  cpuDelta = std::min<int64_t>(cpuDelta, timing.cpuNanos);
+  wallDelta = std::min<int64_t>(wallDelta, timing.wallNanos);
+  lockStats = operators_[0]->stats().wlock();
+  lockStats->getOutputTiming.add(CpuWallTiming{
+      1,
+      static_cast<uint64_t>(wallDelta),
+      static_cast<uint64_t>(cpuDelta),
+  });
   return CpuWallTiming{
       1,
-      timing.wallNanos >= wallDelta ? timing.wallNanos - wallDelta : 0,
-      timing.cpuNanos >= cpuDelta ? timing.cpuNanos - cpuDelta : 0};
+      timing.wallNanos - wallDelta,
+      timing.cpuNanos - cpuDelta,
+  };
 }
 
 bool Driver::shouldYield() const {
@@ -627,9 +628,9 @@ StopReason Driver::runInternal(
             RowVectorPtr intermediateResult;
             {
               auto timer = createDeltaCpuWallTimer(
-                  [op, this](const CpuWallTiming& deltaTiming) {
-                    processLazyTiming(*op, deltaTiming);
-                    op->stats().wlock()->getOutputTiming.add(deltaTiming);
+                  [op, this](const CpuWallTiming& elapsedTime) {
+                    auto elapsedSelfTime = processLazyTiming(*op, elapsedTime);
+                    op->stats().wlock()->getOutputTiming.add(elapsedSelfTime);
                   });
               TestValue::adjust(
                   "facebook::velox::exec::Driver::runInternal::getOutput", op);
@@ -658,9 +659,11 @@ StopReason Driver::runInternal(
             pushdownFilters(i);
             if (intermediateResult) {
               auto timer = createDeltaCpuWallTimer(
-                  [nextOp, this](const CpuWallTiming& timing) {
-                    auto selfDelta = processLazyTiming(*nextOp, timing);
-                    nextOp->stats().wlock()->addInputTiming.add(selfDelta);
+                  [nextOp, this](const CpuWallTiming& elapsedTime) {
+                    auto elapsedSelfTime =
+                        processLazyTiming(*nextOp, elapsedTime);
+                    nextOp->stats().wlock()->addInputTiming.add(
+                        elapsedSelfTime);
                   });
               {
                 auto lockedStats = nextOp->stats().wlock();
@@ -714,9 +717,10 @@ StopReason Driver::runInternal(
                   kOpMethodIsFinished);
               if (finished) {
                 auto timer = createDeltaCpuWallTimer(
-                    [op, this](const CpuWallTiming& timing) {
-                      processLazyTiming(*op, timing);
-                      op->stats().wlock()->finishTiming.add(timing);
+                    [op, this](const CpuWallTiming& elapsedTime) {
+                      auto elapsedSelfTime =
+                          processLazyTiming(*op, elapsedTime);
+                      op->stats().wlock()->finishTiming.add(elapsedSelfTime);
                     });
                 TestValue::adjust(
                     "facebook::velox::exec::Driver::runInternal::noMoreInput",
@@ -737,9 +741,9 @@ StopReason Driver::runInternal(
           // will come back here after this is again on thread.
           {
             auto timer = createDeltaCpuWallTimer(
-                [op, this](const CpuWallTiming& timing) {
-                  auto selfDelta = processLazyTiming(*op, timing);
-                  op->stats().wlock()->getOutputTiming.add(selfDelta);
+                [op, this](const CpuWallTiming& elapsedTime) {
+                  auto elapsedSelfTime = processLazyTiming(*op, elapsedTime);
+                  op->stats().wlock()->getOutputTiming.add(elapsedSelfTime);
                 });
             CALL_OPERATOR(
                 result = op->getOutput(),
