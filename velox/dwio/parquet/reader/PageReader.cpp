@@ -289,8 +289,9 @@ void PageReader::prepareDataPageV2(const PageHeader& pageHeader, int64_t row) {
   }
   auto levelsSize = repeatLength + defineLength;
   pageData_ += levelsSize;
-  if (pageHeader.data_page_header_v2.__isset.is_compressed ||
-      pageHeader.data_page_header_v2.is_compressed) {
+  if (pageHeader.data_page_header_v2.__isset.is_compressed &&
+      pageHeader.data_page_header_v2.is_compressed &&
+      (pageHeader.compressed_page_size - levelsSize > 0)) {
     pageData_ = decompressData(
         pageData_,
         pageHeader.compressed_page_size - levelsSize,
