@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 #include "velox/functions/sparksql/RegisterArithmetic.h"
-#include "velox/functions/lib/CheckedArithmetic.h"
 #include "velox/functions/lib/RegistrationHelpers.h"
 #include "velox/functions/prestosql/Arithmetic.h"
 #include "velox/functions/sparksql/Arithmetic.h"
@@ -112,6 +111,11 @@ void registerArithmeticFunctions(const std::string& prefix) {
   VELOX_REGISTER_VECTOR_FUNCTION(udf_decimal_div, prefix + "divide");
   registerFunction<sparksql::IsNanFunction, bool, float>({prefix + "isnan"});
   registerFunction<sparksql::IsNanFunction, bool, double>({prefix + "isnan"});
+
+  registerBinaryNumeric<CheckedAddFunction>({prefix + "checked_add"});
+  registerBinaryNumeric<CheckedSubtractFunction>({prefix + "checked_subtract"});
+  registerBinaryNumeric<CheckedMultiplyFunction>({prefix + "checked_multiply"});
+  registerBinaryNumeric<CheckedDivideFunction>({prefix + "checked_divide"});
 }
 
 } // namespace facebook::velox::functions::sparksql

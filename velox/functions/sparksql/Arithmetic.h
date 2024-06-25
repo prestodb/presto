@@ -22,6 +22,7 @@
 #include <type_traits>
 
 #include "velox/common/base/Doubles.h"
+#include "velox/common/base/Status.h"
 #include "velox/functions/Macros.h"
 #include "velox/functions/lib/ToHex.h"
 
@@ -492,6 +493,92 @@ struct RIntFunction {
 
   FOLLY_ALWAYS_INLINE void call(double& result, double input) {
     result = std::rint(input);
+  }
+};
+
+template <typename TExec>
+struct CheckedAddFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(TExec);
+  template <typename T>
+  FOLLY_ALWAYS_INLINE Status call(T& result, const T& a, const T& b) {
+    if constexpr (std::is_integral_v<T>) {
+      T res;
+      bool overflow = __builtin_add_overflow(a, b, &res);
+      if (UNLIKELY(overflow)) {
+        if (threadSkipErrorDetails()) {
+          return Status::UserError();
+        }
+        return Status::UserError("Arithmetic overflow: {} + {}", a, b);
+      }
+      result = res;
+    } else {
+      result = a + b;
+    }
+    return Status::OK();
+  }
+};
+
+template <typename TExec>
+struct CheckedSubtractFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(TExec);
+  template <typename T>
+  FOLLY_ALWAYS_INLINE Status call(T& result, const T& a, const T& b) {
+    if constexpr (std::is_integral_v<T>) {
+      bool overflow = __builtin_sub_overflow(a, b, &result);
+      if (UNLIKELY(overflow)) {
+        if (threadSkipErrorDetails()) {
+          return Status::UserError();
+        }
+        return Status::UserError("Arithmetic overflow: {} - {}", a, b);
+      }
+    } else {
+      result = a - b;
+    }
+    return Status::OK();
+  }
+};
+
+template <typename TExec>
+struct CheckedMultiplyFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(TExec);
+  template <typename T>
+  FOLLY_ALWAYS_INLINE Status call(T& result, const T& a, const T& b) {
+    if constexpr (std::is_integral_v<T>) {
+      bool overflow = __builtin_mul_overflow(a, b, &result);
+      if (UNLIKELY(overflow)) {
+        if (threadSkipErrorDetails()) {
+          return Status::UserError();
+        }
+        return Status::UserError("Arithmetic overflow: {} * {}", a, b);
+      }
+    } else {
+      result = a * b;
+    }
+    return Status::OK();
+  }
+};
+
+template <typename TExec>
+struct CheckedDivideFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(TExec);
+  template <typename T>
+  FOLLY_ALWAYS_INLINE Status call(T& result, const T& a, const T& b) {
+    if (b == 0) {
+      if (threadSkipErrorDetails()) {
+        return Status::UserError();
+      }
+      return Status::UserError("division by zero");
+    }
+    if constexpr (std::is_integral_v<T>) {
+      if (UNLIKELY(a == std::numeric_limits<T>::min() && b == -1)) {
+        if (threadSkipErrorDetails()) {
+          return Status::UserError();
+        }
+        return Status::UserError("Arithmetic overflow: {} / {}", a, b);
+      }
+    }
+    result = a / b;
+    return Status::OK();
   }
 };
 } // namespace facebook::velox::functions::sparksql
