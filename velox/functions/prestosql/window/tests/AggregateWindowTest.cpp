@@ -388,5 +388,39 @@ TEST_F(AggregateWindowTest, integerOverflowRowsFrame) {
       expected);
 }
 
+TEST_F(AggregateWindowTest, zeroRangeFrame) {
+  auto p0 = makeFlatVector<int32_t>({1, 1, 1, 2, 2});
+  auto s0 = makeFlatVector<int32_t>({1, 2, 3, 4, 5});
+
+  auto test = [&](const std::string& frame,
+                  const FlatVectorPtr<int64_t>& expected) {
+    WindowTestBase::testWindowFunction(
+        // Use s0 for both s0 and k range column since offset = 0.
+        {makeRowVector({"p0", "s0", "k"}, {p0, s0, s0})},
+        "sum(p0)",
+        "partition by p0 order by s0",
+        frame,
+        {makeRowVector({p0, s0, s0, expected})});
+  };
+
+  auto expected = makeFlatVector<int64_t>({1, 2, 3, 2, 4});
+  test("range between unbounded preceding and k preceding", expected);
+
+  // Introduce peer rows in partition=1 data as well.
+  s0 = makeFlatVector<int32_t>({1, 1, 3, 4, 5});
+  expected = makeFlatVector<int64_t>({2, 2, 3, 2, 4});
+  test("range between unbounded preceding and k preceding", expected);
+  test("range between unbounded preceding and k following", expected);
+
+  expected = makeFlatVector<int64_t>({2, 2, 1, 2, 2});
+  test("range between k preceding and k preceding", expected);
+  test("range between k preceding and k following", expected);
+  test("range between k following and k following", expected);
+
+  expected = makeFlatVector<int64_t>({3, 3, 1, 4, 2});
+  test("range between k preceding and unbounded following", expected);
+  test("range between k following and unbounded following", expected);
+}
+
 }; // namespace
 }; // namespace facebook::velox::window::test

@@ -263,20 +263,36 @@ void WindowPartition::updateKRangeFrameBounds(
     const vector_size_t* rawPeerBounds,
     vector_size_t* rawFrameBounds) const {
   column_index_t orderByColumn = sortKeyInfo_[0].first;
-  RowColumn frameRowColumn = columns_[frameColumn];
+  column_index_t mappedFrameColumn = inputMapping_[frameColumn];
 
   vector_size_t start = 0;
   vector_size_t end;
+  RowColumn frameRowColumn = columns_[frameColumn];
+  RowColumn orderByRowColumn = columns_[inputMapping_[orderByColumn]];
   for (auto i = 0; i < numRows; i++) {
     auto currentRow = startRow + i;
-    bool frameIsNull = RowContainer::isNullAt(
-        partition_[currentRow],
-        frameRowColumn.nullByte(),
-        frameRowColumn.nullMask());
+    auto* partitionRow = partition_[currentRow];
 
-    // For NULL values, CURRENT ROW semantics apply. So get frame bound from
-    // peer buffer.
-    if (frameIsNull) {
+    // The user is expected to set the frame column equal to NULL when the
+    // ORDER BY value is NULL and not in any other case. Validate this
+    // assumption.
+    VELOX_DCHECK_EQ(
+        RowContainer::isNullAt(
+            partitionRow, frameRowColumn.nullByte(), frameRowColumn.nullMask()),
+        RowContainer::isNullAt(
+            partitionRow,
+            orderByRowColumn.nullByte(),
+            orderByRowColumn.nullMask()));
+
+    // If the frame is NULL or 0 preceding or 0 following then the current row
+    // has same values for order by and frame column. In that case
+    // the bound matches the peer row for this row.
+    if (data_->compare(
+            partitionRow,
+            partitionRow,
+            orderByColumn,
+            mappedFrameColumn,
+            flags) == 0) {
       rawFrameBounds[i] = rawPeerBounds[i];
     } else {
       // If the search is for a preceding bound then rows between
@@ -295,7 +311,7 @@ void WindowPartition::updateKRangeFrameBounds(
           end,
           currentRow,
           orderByColumn,
-          inputMapping_[frameColumn],
+          mappedFrameColumn,
           flags);
     }
   }
