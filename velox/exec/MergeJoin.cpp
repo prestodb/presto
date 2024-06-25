@@ -37,7 +37,7 @@ MergeJoin::MergeJoin(
   VELOX_USER_CHECK(
       joinNode_->isInnerJoin() || joinNode_->isLeftJoin() ||
           joinNode_->isLeftSemiFilterJoin() ||
-          joinNode_->isRightSemiFilterJoin(),
+          joinNode_->isRightSemiFilterJoin() || joinNode_->isAntiJoin(),
       "Merge join supports only inner, left and left semi joins. Other join types are not supported yet.");
 }
 
@@ -89,10 +89,15 @@ void MergeJoin::initialize() {
   if (joinNode_->filter()) {
     initializeFilter(joinNode_->filter(), leftType, rightType);
 
-    if (joinNode_->isLeftJoin()) {
+    if (joinNode_->isLeftJoin() || joinNode_->isAntiJoin()) {
       leftJoinTracker_ = LeftJoinTracker(outputBatchSize_, pool());
     }
+  } else if (joinNode_->isAntiJoin()) {
+    // Anti join needs to track the left side rows that have no match on the
+    // right.
+    leftJoinTracker_ = LeftJoinTracker(outputBatchSize_, pool());
   }
+
   joinNode_.reset();
 }
 
@@ -321,6 +326,14 @@ void MergeJoin::addOutputRow(
     }
   }
 
+  // Anti join needs to track the left side rows that have no match on the
+  // right.
+  if (isAntiJoin(joinType_)) {
+    VELOX_CHECK(leftJoinTracker_);
+    // Record left-side row with a match on the right-side.
+    leftJoinTracker_->addMatch(left, leftIndex, outputSize_);
+  }
+
   ++outputSize_;
 }
 
@@ -541,6 +554,33 @@ vector_size_t firstNonNull(
 }
 } // namespace
 
+RowVectorPtr MergeJoin::filterOutputForAntiJoin(const RowVectorPtr& output) {
+  auto numRows = output->size();
+  const auto& filterRows = leftJoinTracker_->matchingRows(numRows);
+  auto numPassed = 0;
+
+  BufferPtr indices = allocateIndices(numRows, pool());
+  auto rawIndices = indices->asMutable<vector_size_t>();
+  for (auto i = 0; i < numRows; i++) {
+    if (!filterRows.isValid(i)) {
+      rawIndices[numPassed++] = i;
+    }
+  }
+
+  if (numPassed == 0) {
+    // No rows passed.
+    return nullptr;
+  }
+
+  if (numPassed == numRows) {
+    // All rows passed.
+    return output;
+  }
+
+  // Some, but not all rows passed.
+  return wrap(numPassed, indices, output);
+}
+
 RowVectorPtr MergeJoin::getOutput() {
   // Make sure to have is-blocked or needs-input as true if returning null
   // output. Otherwise, Driver assumes the operator is finished.
@@ -564,6 +604,8 @@ RowVectorPtr MergeJoin::getOutput() {
 
         // No rows survived the filter. Get more rows.
         continue;
+      } else if (isAntiJoin(joinType_)) {
+        return filterOutputForAntiJoin(output);
       } else {
         return output;
       }
@@ -669,7 +711,7 @@ RowVectorPtr MergeJoin::doGetOutput() {
   }
 
   if (!input_ || !rightInput_) {
-    if (isLeftJoin(joinType_)) {
+    if (isLeftJoin(joinType_) || isAntiJoin(joinType_)) {
       if (input_ && noMoreRightInput_) {
         // If output_ is currently wrapping a different buffer, return it
         // first.
@@ -716,7 +758,7 @@ RowVectorPtr MergeJoin::doGetOutput() {
   for (;;) {
     // Catch up input_ with rightInput_.
     while (compareResult < 0) {
-      if (isLeftJoin(joinType_)) {
+      if (isLeftJoin(joinType_) || isAntiJoin(joinType_)) {
         // If output_ is currently wrapping a different buffer, return it
         // first.
         if (prepareOutput(input_, nullptr)) {
@@ -833,11 +875,13 @@ RowVectorPtr MergeJoin::applyFilter(const RowVectorPtr& output) {
     // If all matches for a given left-side row fail the filter, add a row to
     // the output with nulls for the right-side columns.
     auto onMiss = [&](auto row) {
-      rawIndices[numPassed++] = row;
+      if (!isAntiJoin(joinType_)) {
+        rawIndices[numPassed++] = row;
 
-      for (auto& projection : rightProjections_) {
-        auto target = output->childAt(projection.outputChannel);
-        target->setNull(row, true);
+        for (auto& projection : rightProjections_) {
+          auto target = output->childAt(projection.outputChannel);
+          target->setNull(row, true);
+        }
       }
     };
 
@@ -848,8 +892,14 @@ RowVectorPtr MergeJoin::applyFilter(const RowVectorPtr& output) {
 
         leftJoinTracker_->processFilterResult(i, passed, onMiss);
 
-        if (passed) {
-          rawIndices[numPassed++] = i;
+        if (isAntiJoin(joinType_)) {
+          if (!passed) {
+            rawIndices[numPassed++] = i;
+          }
+        } else {
+          if (passed) {
+            rawIndices[numPassed++] = i;
+          }
         }
       } else {
         // This row doesn't have a match on the right side. Keep it

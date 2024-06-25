@@ -224,6 +224,13 @@ class MergeJoin : public Operator {
   /// the result using 'decodedFilterResult_'.
   void evaluateFilter(const SelectivityVector& rows);
 
+  /// An anti join is equivalent to a left join that retains only the rows from
+  /// the left side which do not have a corresponding match on the right side.
+  /// When an anti join includes a filter, it is processed using the applyFilter
+  /// method. For an anti join without a filter, we must specifically exclude
+  /// rows from the left side that have a match on the right.
+  RowVectorPtr filterOutputForAntiJoin(const RowVectorPtr& output);
+
   /// As we populate the results of the left join, we track whether a given
   /// output row is a result of a match between left and right sides or a miss.
   /// We use LeftJoinTracker::addMatch and addMiss methods for that.
