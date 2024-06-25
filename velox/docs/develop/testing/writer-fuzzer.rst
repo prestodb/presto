@@ -3,17 +3,19 @@ Writer Fuzzer
 =============
 
 Writer fuzzer tests table write plan with up to 5 regular columns, up to
-3 partition keys and up to 3 bucket columns.
+3 partition keys, up to 3 bucket columns, up to 3 sorted columns.
 
-At each iteration, fuzzer randomly generate a table write plan with different
-table properties including un-partitioned and partitioned, non-bucketed and bucketed.
+At each iteration, fuzzer randomly generates a table write plan with different
+table properties including un-partitioned and partitioned, non-bucketed and bucketed,
+sorted and unsorted.
 
 The fuzzer then generates inputs and runs the query plan and compares the
 results with PrestoDB.
 As of now, we compare:
 1. How many rows were written.
 2. Output directories have the same directory layout and hierarchy.
-3. Same data were written by velox and prestoDB.
+3. Same data were written by velox and prestoDB including bucket number.
+4. Data of sorted columns is in the same order if table is sorted.
 
 How to run
 ----------

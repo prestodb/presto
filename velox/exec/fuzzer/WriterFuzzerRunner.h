@@ -37,8 +37,8 @@ namespace facebook::velox::exec::test {
 /// automatically generate and execute table writer tests.
 /// It works in following steps:
 ///
-///  1. Pick different table write properties. Eg: partitioned.
-///  (TODO: bucketed, sorted).
+///  1. Pick different table write properties. Eg: partitioned, bucketed,
+///  sorted.
 ///  2. Generate corresponding table write query plan.
 ///  3. Generate a random set of input data (vector).
 ///  4. Execute the query plan.

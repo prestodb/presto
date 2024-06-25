@@ -17,18 +17,22 @@
 
 #include <boost/random/uniform_int_distribution.hpp>
 
+#include <re2/re2.h>
 #include <unordered_set>
 #include "velox/common/base/Fs.h"
 #include "velox/common/encode/Base64.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/connectors/hive/HiveConnector.h"
+#include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/connectors/hive/TableHandle.h"
+#include "velox/dwio/dwrf/reader/DwrfReader.h"
 #include "velox/exec/fuzzer/FuzzerUtil.h"
 #include "velox/exec/fuzzer/PrestoQueryRunner.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/expression/fuzzer/FuzzerToolkit.h"
+#include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/vector/VectorSaver.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
@@ -54,6 +58,7 @@ DEFINE_double(
     "(expressed as double from 0 to 1).");
 
 using namespace facebook::velox::connector::hive;
+using namespace facebook::velox::test;
 
 namespace facebook::velox::exec::test {
 
@@ -113,9 +118,11 @@ class WriterFuzzer {
       const std::vector<std::string>& names,
       const std::vector<TypePtr>& types,
       int32_t partitionOffset,
+      const std::vector<std::string>& partitionKeys,
       int32_t bucketCount,
       const std::vector<std::string>& bucketColumns,
-      const std::vector<std::string>& partitionKeys,
+      int32_t sortColumnOffset,
+      const std::vector<std::shared_ptr<const HiveSortingColumn>>& sortBy,
       const std::string& outputDirectoryPath);
 
   // Generates table column handles based on table column properties
@@ -152,13 +159,27 @@ class WriterFuzzer {
   RowTypePtr generateOutputType(
       const std::vector<std::string>& names,
       const std::vector<TypePtr>& types,
-      const int32_t partitionCount,
       const int32_t bucketCount);
 
-  // Check the table properties and see if the table is bucketed.
-  bool isBucketed(const int32_t partitionCount, const int32_t bucketCount) {
-    return partitionCount > 0 && bucketCount > 0;
-  }
+  // Generates a sql that reads sorted columns from a single split of a bucketed
+  // and sorted table.
+  // For example, for a table sorted by age, reading a split that belongs to ds
+  // = 2022-01-01 and bucket 1:
+  // SELECT age FROM temp_write where ds = '2022-01-01' and "$bucket" = 1
+  std::string sortSql(
+      const std::shared_ptr<HiveConnectorSplit>& split,
+      const std::vector<std::string>& names,
+      const std::vector<TypePtr>& types,
+      int32_t partitionOffset,
+      const std::vector<std::string>& partitionKeys,
+      const std::vector<std::shared_ptr<const HiveSortingColumn>>& sortBy);
+
+  // When concatenating a partition value, if it's non-varchar, no change, eg:
+  // age = 10
+  // If it's varchar, we need to add single quote and also escape the single
+  // quote in partition value, eg:
+  // city = '''SF'''
+  std::string partitionToSql(const TypePtr& type, std::string partitionValue);
 
   const std::vector<TypePtr> kRegularColumnTypes_{
       BOOLEAN(),
@@ -170,8 +191,29 @@ class WriterFuzzer {
       VARBINARY(),
       TIMESTAMP(),
   };
+
+  // Supported sorted column types:
+  const std::vector<TypePtr> kSupportedSortColumnTypes_{
+      BOOLEAN(),
+      TINYINT(),
+      SMALLINT(),
+      INTEGER(),
+      BIGINT(),
+      VARCHAR(),
+      TIMESTAMP(),
+  };
+
+  // Supported order types:
+  // https://github.com/prestodb/presto/blob/c542429ba989887de6208daaed4d7b4e34b49b3b/presto-hive-metastore/src/main/java/com/facebook/presto/hive/metastore/SortingColumn.java#L101
+  // ASCENDING(ASC_NULLS_FIRST, 1),
+  // DESCENDING(DESC_NULLS_LAST, 0);
+  const std::vector<core::SortOrder> kSortOrderTypes_{
+      core::SortOrder{true, true},
+      core::SortOrder{false, false},
+  };
+
   // Supported bucket column types:
-  // https://github.com/prestodb/presto/blob/master/presto-hive/src/main/java/com/facebook/presto/hive/HiveBucketing.java#L142
+  // https://github.com/prestodb/presto/blob/10143be627beb2c61aba5b3d36af473d2a8ef65e/presto-hive/src/main/java/com/facebook/presto/hive/HiveBucketing.java#L133
   const std::vector<TypePtr> kSupportedBucketColumnTypes_{
       BOOLEAN(),
       TINYINT(),
@@ -181,9 +223,10 @@ class WriterFuzzer {
       VARCHAR(),
       TIMESTAMP(),
   };
+
   // Supported partition key column types
   // According to VectorHasher::typeKindSupportsValueIds and
-  // https://github.com/prestodb/presto/blob/master/presto-hive/src/main/java/com/facebook/presto/hive/HiveUtil.java#L575
+  // https://github.com/prestodb/presto/blob/10143be627beb2c61aba5b3d36af473d2a8ef65e/presto-hive/src/main/java/com/facebook/presto/hive/HiveUtil.java#L593
   const std::vector<TypePtr> kPartitionKeyTypes_{
       BOOLEAN(),
       TINYINT(),
@@ -255,24 +298,43 @@ void WriterFuzzer::go() {
 
     std::vector<std::string> names;
     std::vector<TypePtr> types;
-    std::vector<std::string> bucketColumns;
+    int32_t partitionOffset = 0;
     std::vector<std::string> partitionKeys;
+    int32_t bucketCount = 0;
+    std::vector<std::string> bucketColumns;
+    int32_t sortColumnOffset = 0;
+    std::vector<std::shared_ptr<const HiveSortingColumn>> sortBy;
 
     // Regular table columns
     generateColumns(5, "c", kRegularColumnTypes_, 2, names, types);
 
-    // 50% of times test bucketed write.
-    int32_t bucketCount = 0;
-    if (vectorFuzzer_.coinToss(0.5)) {
-      bucketColumns = generateColumns(
-          5, "b", kSupportedBucketColumnTypes_, 1, names, types);
-      bucketCount =
-          boost::random::uniform_int_distribution<int32_t>(1, 3)(rng_);
-    }
-
     // 50% of times test partitioned write.
-    const auto partitionOffset = names.size();
     if (vectorFuzzer_.coinToss(0.5)) {
+      // 50% of times test bucketed write.
+      if (vectorFuzzer_.coinToss(0.5)) {
+        bucketColumns = generateColumns(
+            5, "b", kSupportedBucketColumnTypes_, 1, names, types);
+        bucketCount =
+            boost::random::uniform_int_distribution<int32_t>(1, 3)(rng_);
+
+        // TODO: sort columns can overlap as bucket columns
+        // 50% of times test ordered write.
+        if (vectorFuzzer_.coinToss(0.5)) {
+          sortColumnOffset = names.size();
+          auto sortColumns = generateColumns(
+              3, "s", kSupportedSortColumnTypes_, 1, names, types);
+          sortBy.reserve(sortColumns.size());
+          for (const auto& sortByColumn : sortColumns) {
+            sortBy.push_back(std::make_shared<const HiveSortingColumn>(
+                sortByColumn,
+                kSortOrderTypes_.at(
+                    boost::random::uniform_int_distribution<uint32_t>(
+                        0, 1)(rng_))));
+          }
+        }
+      }
+
+      partitionOffset = names.size();
       partitionKeys =
           generateColumns(3, "p", kPartitionKeyTypes_, 1, names, types);
     }
@@ -284,9 +346,11 @@ void WriterFuzzer::go() {
         names,
         types,
         partitionOffset,
+        partitionKeys,
         bucketCount,
         bucketColumns,
-        partitionKeys,
+        sortColumnOffset,
+        sortBy,
         tempDirPath->getPath());
 
     LOG(INFO) << "==============================> Done with iteration "
@@ -354,16 +418,21 @@ void WriterFuzzer::verifyWriter(
     const std::vector<std::string>& names,
     const std::vector<TypePtr>& types,
     const int32_t partitionOffset,
+    const std::vector<std::string>& partitionKeys,
     const int32_t bucketCount,
     const std::vector<std::string>& bucketColumns,
-    const std::vector<std::string>& partitionKeys,
+    const int32_t sortColumnOffset,
+    const std::vector<std::shared_ptr<const HiveSortingColumn>>& sortBy,
     const std::string& outputDirectoryPath) {
-  const auto plan =
-      PlanBuilder()
-          .values(input)
-          .tableWrite(
-              outputDirectoryPath, partitionKeys, bucketCount, bucketColumns)
-          .planNode();
+  const auto plan = PlanBuilder()
+                        .values(input)
+                        .tableWrite(
+                            outputDirectoryPath,
+                            partitionKeys,
+                            bucketCount,
+                            bucketColumns,
+                            sortBy)
+                        .planNode();
 
   const auto maxDrivers =
       boost::random::uniform_int_distribution<int32_t>(1, 16)(rng_);
@@ -403,22 +472,59 @@ void WriterFuzzer::verifyWriter(
   auto splits = makeSplits(outputDirectoryPath);
   auto columnHandles =
       getTableColumnHandles(names, types, partitionOffset, bucketCount);
-  const auto rowType =
-      generateOutputType(names, types, partitionKeys.size(), bucketCount);
+  const auto rowType = generateOutputType(names, types, bucketCount);
 
   auto readPlan = PlanBuilder()
                       .tableScan(rowType, {}, "", rowType, columnHandles)
                       .planNode();
   auto actual = execute(readPlan, maxDrivers, splits);
   std::string bucketSql = "";
-  if (isBucketed(partitionKeys.size(), bucketCount)) {
+  if (bucketCount > 0) {
     bucketSql = ", \"$bucket\"";
   }
-  auto reference_data = referenceQueryRunner_->execute(
+  auto referenceData = referenceQueryRunner_->execute(
       "SELECT *" + bucketSql + " FROM tmp_write");
   VELOX_CHECK(
-      assertEqualResults(reference_data, {actual}),
+      assertEqualResults(referenceData, {actual}),
       "Velox and reference DB results don't match");
+
+  // 4. Verifies sorting.
+  if (sortBy.size() > 0) {
+    const std::vector<std::string> sortColumnNames = {
+        names.begin() + sortColumnOffset,
+        names.begin() + sortColumnOffset + sortBy.size()};
+    const std::vector<TypePtr> sortColumnTypes = {
+        types.begin() + sortColumnOffset,
+        types.begin() + sortColumnOffset + sortBy.size()};
+
+    // Read from each file and check if data is sorted as presto sorted result.
+    for (const auto& split : splits) {
+      auto splitReadPlan = PlanBuilder()
+                               .tableScan(generateOutputType(
+                                   sortColumnNames, sortColumnTypes, 0))
+                               .planNode();
+      auto singleSplitData = execute(splitReadPlan, 1, {split});
+
+      auto const singleSplitReferenceSql = sortSql(
+          std::dynamic_pointer_cast<HiveConnectorSplit>(split.connectorSplit),
+          names,
+          types,
+          partitionOffset,
+          partitionKeys,
+          sortBy);
+
+      const auto referenceResult =
+          referenceQueryRunner_->execute(singleSplitReferenceSql);
+      const auto& referenceData = referenceResult.at(0);
+      for (int i = 1; i < referenceResult.size(); ++i) {
+        referenceData->append(referenceResult.at(i).get());
+      }
+      fuzzer::compareVectors(
+          singleSplitData, referenceData, "velox", "prestoDB");
+      LOG(INFO) << "Sort Verification succeed for split: "
+                << split.connectorSplit->toString();
+    }
+  }
 
   LOG(INFO) << "Verified results against reference DB";
 }
@@ -444,7 +550,7 @@ WriterFuzzer::getTableColumnHandles(
              names.at(i), columnType, types.at(i), types.at(i))});
   }
   // If table is bucketed, add synthesized $bucket column.
-  if (isBucketed(names.size() - partitionOffset, bucketCount)) {
+  if (bucketCount > 0) {
     columnHandle.insert(
         {"$bucket",
          std::make_shared<HiveColumnHandle>(
@@ -579,19 +685,63 @@ std::map<std::string, int32_t> WriterFuzzer::getPartitionNameAndFilecount(
 RowTypePtr WriterFuzzer::generateOutputType(
     const std::vector<std::string>& names,
     const std::vector<TypePtr>& types,
-    const int32_t partitionCount,
     const int32_t bucketCount) {
   std::vector<std::string> outputNames{names};
   std::vector<TypePtr> outputTypes;
   for (auto type : types) {
     outputTypes.emplace_back(type);
   }
-  if (isBucketed(partitionCount, bucketCount)) {
+  if (bucketCount > 0) {
     outputNames.emplace_back("$bucket");
     outputTypes.emplace_back(INTEGER());
   }
 
   return {ROW(std::move(outputNames), std::move(outputTypes))};
+}
+
+std::string WriterFuzzer::sortSql(
+    const std::shared_ptr<HiveConnectorSplit>& split,
+    const std::vector<std::string>& names,
+    const std::vector<TypePtr>& types,
+    int32_t partitionOffset,
+    const std::vector<std::string>& partitionKeys,
+    const std::vector<std::shared_ptr<const HiveSortingColumn>>& sortBy) {
+  // For a split, extract the partition filters and bucket filters.
+  std::stringstream whereSql;
+  whereSql << "WHERE ";
+  for (int i = partitionOffset; i < partitionOffset + partitionKeys.size();
+       ++i) {
+    const auto& partitionKey = names.at(i);
+    auto partitionValue = split->partitionKeys.at(partitionKey);
+    if (partitionValue.has_value()) {
+      whereSql << partitionKey << " = "
+               << partitionToSql(types.at(i), partitionValue.value());
+    } else {
+      whereSql << partitionKey << " IS NULL";
+    }
+    whereSql << " AND ";
+  }
+  whereSql << "\"$bucket\" = " << split->tableBucketNumber.value();
+
+  std::stringstream selectedColumns;
+  for (int i = 0; i < sortBy.size(); ++i) {
+    if (i > 0) {
+      selectedColumns << ", ";
+    }
+    selectedColumns << sortBy.at(i)->sortColumn();
+  }
+  return "SELECT " + selectedColumns.str() + " FROM tmp_write " +
+      whereSql.str();
+}
+
+std::string WriterFuzzer::partitionToSql(
+    const TypePtr& type,
+    std::string partitionValue) {
+  if (type->isVarchar()) {
+    RE2::Replace(&partitionValue, "'", "''");
+    return "'" + partitionValue + "'";
+  }
+  return partitionValue;
 }
 
 } // namespace

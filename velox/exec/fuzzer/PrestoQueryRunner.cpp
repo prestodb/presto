@@ -573,8 +573,13 @@ std::optional<std::string> PrestoQueryRunner::toSql(
 
   // Returns a CTAS sql with specified table properties from TableWriteNode,
   // example sql:
-  // CREATE TABLE tmp_write WITH (PARTITIONED_BY = ARRAY['p0'], BUCKETED_COUNT =
-  // 20, BUCKETED_BY = ARRAY['b0', 'b1']) AS SELECT * FROM tmp
+  // CREATE TABLE tmp_write WITH (
+  // PARTITIONED_BY = ARRAY['p0'],
+  // BUCKETED_COUNT = 2, BUCKETED_BY = ARRAY['b0', 'b1'],
+  // SORTED_BY = ARRAY['s0 ASC', 's1 DESC'],
+  // FORMAT = 'ORC'
+  // )
+  // AS SELECT * FROM tmp
   std::stringstream sql;
   sql << "CREATE TABLE tmp_write";
   std::vector<std::string> partitionKeys;
@@ -583,31 +588,43 @@ std::optional<std::string> PrestoQueryRunner::toSql(
       partitionKeys.push_back(insertTableHandle->inputColumns()[i]->name());
     }
   }
+  sql << " WITH (";
 
   if (insertTableHandle->isPartitioned()) {
-    sql << " WITH (PARTITIONED_BY = ARRAY[";
+    sql << " PARTITIONED_BY = ARRAY[";
     for (int i = 0; i < partitionKeys.size(); ++i) {
       appendComma(i, sql);
       sql << "'" << partitionKeys[i] << "'";
     }
-    sql << "]";
+    sql << "], ";
 
     if (insertTableHandle->bucketProperty() != nullptr) {
       const auto bucketCount =
           insertTableHandle->bucketProperty()->bucketCount();
       const auto bucketColumns =
           insertTableHandle->bucketProperty()->bucketedBy();
-      sql << ", BUCKET_COUNT = " << bucketCount << ", BUCKETED_BY = ARRAY[";
+      sql << " BUCKET_COUNT = " << bucketCount << ", BUCKETED_BY = ARRAY[";
       for (int i = 0; i < bucketColumns.size(); ++i) {
         appendComma(i, sql);
         sql << "'" << bucketColumns[i] << "'";
       }
-      sql << "]";
+      sql << "], ";
+
+      const auto sortColumns = insertTableHandle->bucketProperty()->sortedBy();
+      if (!sortColumns.empty()) {
+        sql << " SORTED_BY = ARRAY[";
+        for (int i = 0; i < sortColumns.size(); ++i) {
+          appendComma(i, sql);
+          sql << "'" << sortColumns[i]->sortColumn() << " "
+              << (sortColumns[i]->sortOrder().isAscending() ? "ASC" : "DESC")
+              << "'";
+        }
+        sql << "], ";
+      }
     }
-    sql << ")";
   }
 
-  sql << " AS SELECT * FROM tmp";
+  sql << "FORMAT = 'ORC')  AS SELECT * FROM tmp";
   return sql.str();
 }
 

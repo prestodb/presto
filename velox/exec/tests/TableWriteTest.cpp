@@ -3596,7 +3596,15 @@ DEBUG_ONLY_TEST_F(TableWriterArbitrationTest, reclaimFromSortTableWriter) {
       auto writerPlan =
           PlanBuilder()
               .values(vectors)
-              .tableWrite(outputDirectory->getPath(), {"c0"}, 4, {"c1"}, {"c2"})
+              .tableWrite(
+                  outputDirectory->getPath(),
+                  {"c0"},
+                  4,
+                  {"c1"},
+                  {
+                      std::make_shared<HiveSortingColumn>(
+                          "c2", core::SortOrder{false, false}),
+                  })
               .project({TableWriteTraits::rowCountColumnName()})
               .singleAggregation(
                   {},
@@ -3965,7 +3973,15 @@ DEBUG_ONLY_TEST_F(
   auto writerPlan =
       PlanBuilder()
           .values(vectors)
-          .tableWrite(outputDirectory->getPath(), {"c0"}, 4, {"c1"}, {"c2"})
+          .tableWrite(
+              outputDirectory->getPath(),
+              {"c0"},
+              4,
+              {"c1"},
+              {
+                  std::make_shared<HiveSortingColumn>(
+                      "c2", core::SortOrder{false, false}),
+              })
           .project({TableWriteTraits::rowCountColumnName()})
           .singleAggregation(
               {},
