@@ -269,7 +269,7 @@ TEST_F(TableScanTest, allColumns) {
   auto it = planStats.find(scanNodeId);
   ASSERT_TRUE(it != planStats.end());
   ASSERT_TRUE(it->second.peakMemoryBytes > 0);
-  ASSERT_LT(0, it->second.customStats.at("ioWaitNanos").sum);
+  ASSERT_LT(0, it->second.customStats.at("ioWaitWallNanos").sum);
   // Verifies there is no dynamic filter stats.
   ASSERT_TRUE(it->second.dynamicFilterStats.empty());
 }
@@ -319,8 +319,8 @@ TEST_F(TableScanTest, directBufferInputRawInputBytes) {
   ASSERT_EQ(
       getTableScanRuntimeStats(task).at("storageReadBytes").sum,
       rawInputBytes + overreadBytes);
-  EXPECT_GT(getTableScanRuntimeStats(task)["totalScanTime"].sum, 0);
-  EXPECT_GT(getTableScanRuntimeStats(task)["queryThreadIoLatency"].sum, 0);
+  ASSERT_GT(getTableScanRuntimeStats(task)["totalScanTime"].sum, 0);
+  ASSERT_GT(getTableScanRuntimeStats(task)["ioWaitWallNanos"].sum, 0);
 }
 
 TEST_F(TableScanTest, connectorStats) {

@@ -224,6 +224,9 @@ void PeriodicStatsReporter::reportCacheStats() {
         kMetricSsdCacheAgedOutEntries, deltaSsdStats.entriesAgedOut)
     REPORT_IF_NOT_ZERO(
         kMetricSsdCacheAgedOutRegions, deltaSsdStats.regionsAgedOut);
+    REPORT_IF_NOT_ZERO(
+        kMetricSsdCacheReadWithoutChecksum,
+        deltaSsdStats.readWithoutChecksumChecks);
   }
 
   // TTL controler snapshot stats.

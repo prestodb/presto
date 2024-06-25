@@ -918,7 +918,6 @@ void SsdFile::maybeVerifyChecksum(
   }
   VELOX_DCHECK_EQ(ssdRun.size(), entry.size());
   if (ssdRun.size() != entry.size()) {
-    RECORD_METRIC_VALUE(kMetricSsdCacheReadWithoutChecksum);
     ++stats_.readWithoutChecksumChecks;
     VELOX_CACHE_LOG_EVERY_MS(WARNING, 1'000)
         << "SSD read without checksum due to cache request size mismatch, SSD cache size "

@@ -244,7 +244,7 @@ void registerVeloxMetrics() {
   // Total number of SSD cache reads without checksum verification due to
   // mismatch in SSD cache request size.
   DEFINE_METRIC(
-      kMetricSsdCacheReadWithoutChecksum, facebook::velox::StatType::COUNT);
+      kMetricSsdCacheReadWithoutChecksum, facebook::velox::StatType::SUM);
 
   // Total number of checkpoints read.
   DEFINE_METRIC(kMetricSsdCacheCheckpointsRead, facebook::velox::StatType::SUM);

@@ -426,19 +426,17 @@ std::unordered_map<std::string, RuntimeCounter> HiveDataSource::runtimeStats() {
         RuntimeCounter(
             totalRemainingFilterTime_.load(std::memory_order_relaxed),
             RuntimeCounter::Unit::kNanos)},
-       {"ioWaitNanos",
+       {"ioWaitWallNanos",
         RuntimeCounter(
             ioStats_->queryThreadIoLatency().sum() * 1000,
             RuntimeCounter::Unit::kNanos)},
-       {"maxSingleIoWaitNanos",
+       {"maxSingleIoWaitWallNanos",
         RuntimeCounter(
             ioStats_->queryThreadIoLatency().max() * 1000,
             RuntimeCounter::Unit::kNanos)},
        {"overreadBytes",
         RuntimeCounter(
-            ioStats_->rawOverreadBytes(), RuntimeCounter::Unit::kBytes)},
-       {"queryThreadIoLatency",
-        RuntimeCounter(ioStats_->queryThreadIoLatency().count())}});
+            ioStats_->rawOverreadBytes(), RuntimeCounter::Unit::kBytes)}});
   if (numBucketConversion_ > 0) {
     res.insert({"numBucketConversion", RuntimeCounter(numBucketConversion_)});
   }
