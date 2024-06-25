@@ -118,11 +118,28 @@ Array Functions
         SELECT array_sort(array(NULL, 1, NULL)); -- [1, NULL, NULL]
         SELECT array_sort(array(NULL, 2, 1)); -- [1, 2, NULL]
 
+.. spark::function:: arrays_zip(array(T), array(U),..) -> array(row(T,U, ...))
+
+    Returns the merge of the given arrays, element-wise into a single array of rows.
+    The M-th element of the N-th argument will be the N-th field of the M-th output element.
+    If the arguments have an uneven length, missing values are filled with ``NULL`` ::
+
+        SELECT arrays_zip(ARRAY[1, 2], ARRAY['1b', null, '3b']); -- [ROW(1, '1b'), ROW(2, null), ROW(null, '3b')]
+
 .. spark:function:: concat(array(E), array(E1), ..., array(En)) -> array(E, E1, ..., En)
 
     Returns the concatenation of array(E), array(E1), ..., array(En). ::
 
         SELECT concat(array(1, 2, 3), array(4, 5), array(6)); -- [1, 2, 3, 4, 5, 6]
+
+.. spark:function:: exists(array(T), function(T, boolean)) → boolean
+
+    Returns whether at least one element of an array matches the given predicate.
+
+        Returns true if one or more elements match the predicate;
+        Returns false if none of the elements matches (a special case is when the array is empty);
+        Returns NULL if the predicate function returns NULL for one or more elements and false for all other elements.
+        Throws an exception if the predicate fails for one or more elements and returns false or NULL for the rest.
 
 .. spark:function:: filter(array(E), func) -> array(E)
 
@@ -132,7 +149,7 @@ Array Functions
         SELECT filter(array(0, 2, 3), (x, i) -> x > i); -- [2, 3]
         SELECT filter(array(0, null, 2, 3, null), x -> x IS NOT NULL); -- [0, 2, 3]
 
-.. function:: flatten(array(array(E))) -> array(E)
+.. spark:function:: flatten(array(array(E))) -> array(E)
 
     Transforms an array of arrays into a single array.
     Returns NULL if the input is NULL or any of the nested arrays is NULL. ::
@@ -140,6 +157,15 @@ Array Functions
         SELECT flatten(array(array(1, 2), array(3, 4))); -- [1, 2, 3, 4]
         SELECT flatten(array(array(1, 2), array(3, NULL))); -- [1, 2, 3, NULL]
         SELECT flatten(array(array(1, 2), NULL, array(3, 4))); -- NULL
+
+.. spark:function:: forall(array(T), function(T, boolean)) → boolean
+
+    Returns whether all elements of an array match the given predicate.
+
+        Returns true if all the elements match the predicate (a special case is when the array is empty);
+        Returns false if one or more elements don’t match;
+        Returns NULL if the predicate function returns NULL for one or more elements and true for all other elements.
+        Throws an exception if the predicate fails for one or more elements and returns true or NULL for the rest.
 
 .. spark:function:: get(array(E), index) -> E
 
@@ -198,3 +224,14 @@ Array Functions
 
         SELECT transform(array(1, 2, 3), x -> x + 1); -- [2,3,4]
         SELECT transform(array(1, 2, 3), (x, i) -> x + i); -- [1,3,5]
+
+.. spark:function:: zip_with(array(T), array(U), function(T,U,R)) -> array(R)
+
+    Merges the two given arrays, element-wise, into a single array using ``function``.
+    If one array is shorter, nulls are appended at the end to match the length of the
+    longer array, before applying ``function`` ::
+
+        SELECT zip_with(ARRAY[1, 3, 5], ARRAY['a', 'b', 'c'], (x, y) -> (y, x)); -- [ROW('a', 1), ROW('b', 3), ROW('c', 5)]
+        SELECT zip_with(ARRAY[1, 2], ARRAY[3, 4], (x, y) -> x + y); -- [4, 6]
+        SELECT zip_with(ARRAY['a', 'b', 'c'], ARRAY['d', 'e', 'f'], (x, y) -> concat(x, y)); -- ['ad', 'be', 'cf']
+        SELECT zip_with(ARRAY['a'], ARRAY['d', null, 'f'], (x, y) -> coalesce(x, y)); -- ['a', null, 'f']
