@@ -17,6 +17,7 @@ import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.PrestoException;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
 import org.testng.annotations.AfterMethod;
@@ -44,14 +45,18 @@ public class TestClusterSizeMonitor
     public static final int DESIRED_COORDINATOR_COUNT_ACTIVE = 2;
     public static final int DESIRED_RESOURCE_MANAGER_COUNT_ACTIVE = 1;
     public static final int DESIRED_WORKER_COUNT_ACTIVE = 10;
+    public static final int DESIRED_COORDINATOR_SIDECAR_COUNT = 1;
 
     private InMemoryNodeManager nodeManager;
     private ClusterSizeMonitor monitor;
     private CountDownLatch minWorkersLatch;
+    private CountDownLatch minCoordinatorSidecarsLatch;
     private AtomicInteger numWorkers;
     private AtomicInteger numCoordinators;
     private AtomicInteger numResourceManagers;
+    private AtomicInteger numCoordinatorSidecars;
     private AtomicBoolean workersTimeout;
+    private AtomicBoolean coordinatorSidecarsTimeout;
 
     @BeforeMethod
     public void setUp()
@@ -59,7 +64,10 @@ public class TestClusterSizeMonitor
         numWorkers = new AtomicInteger(0);
         numCoordinators = new AtomicInteger(0);
         numResourceManagers = new AtomicInteger(0);
+        numCoordinatorSidecars = new AtomicInteger(0);
+
         workersTimeout = new AtomicBoolean();
+        coordinatorSidecarsTimeout = new AtomicBoolean();
 
         nodeManager = new InMemoryNodeManager();
         monitor = new ClusterSizeMonitor(
@@ -71,9 +79,12 @@ public class TestClusterSizeMonitor
                 DESIRED_COORDINATOR_COUNT,
                 DESIRED_COORDINATOR_COUNT_ACTIVE,
                 new Duration(4, SECONDS),
-                DESIRED_RESOURCE_MANAGER_COUNT_ACTIVE);
+                new Duration(4, SECONDS),
+                DESIRED_RESOURCE_MANAGER_COUNT_ACTIVE,
+                true);
 
         minWorkersLatch = new CountDownLatch(1);
+        minCoordinatorSidecarsLatch = new CountDownLatch(1);
 
         monitor.start();
     }
@@ -121,6 +132,55 @@ public class TestClusterSizeMonitor
         assertEquals(minWorkersLatch.getCount(), 0);
     }
 
+    @Test(timeOut = 60_000)
+    public void testWaitForMinimumCoordinatorSidecars()
+            throws InterruptedException
+    {
+        ListenableFuture<?> coordinatorSidecarsFuture = waitForMinimumCoordinatorSidecars();
+        assertFalse(monitor.hasRequiredCoordinatorSidecars());
+        assertFalse(coordinatorSidecarsTimeout.get());
+        assertEquals(minCoordinatorSidecarsLatch.getCount(), 1);
+        addCoordinatorSidecar(nodeManager);
+        minCoordinatorSidecarsLatch.await(1, SECONDS);
+        assertTrue(coordinatorSidecarsFuture.isDone());
+        assertFalse(coordinatorSidecarsTimeout.get());
+        assertTrue(monitor.hasRequiredCoordinatorSidecars());
+    }
+
+    @Test(timeOut = 10_000)
+    public void testTimeoutWaitingForCoordinatorSidecars()
+            throws InterruptedException
+    {
+        waitForMinimumCoordinatorSidecars();
+        assertFalse(coordinatorSidecarsTimeout.get());
+        assertEquals(minCoordinatorSidecarsLatch.getCount(), 1);
+        Thread.sleep(SECONDS.toMillis(5));
+        assertTrue(coordinatorSidecarsTimeout.get());
+        assertEquals(minCoordinatorSidecarsLatch.getCount(), 0);
+    }
+
+    @Test
+    public void testHasRequiredCoordinatorSidecars()
+            throws InterruptedException
+    {
+        assertFalse(monitor.hasRequiredCoordinatorSidecars());
+        for (int i = numCoordinatorSidecars.get(); i < DESIRED_COORDINATOR_SIDECAR_COUNT; i++) {
+            addCoordinatorSidecar(nodeManager);
+        }
+        assertTrue(monitor.hasRequiredCoordinatorSidecars());
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Expected a single active coordinator sidecar. Found 2 active coordinator sidecars")
+    public void testHasRequiredCoordinatorSidecarsMoreThanOne()
+            throws InterruptedException
+    {
+        assertFalse(monitor.hasRequiredCoordinatorSidecars());
+        for (int i = numCoordinatorSidecars.get(); i < DESIRED_COORDINATOR_SIDECAR_COUNT + 1; i++) {
+            addCoordinatorSidecar(nodeManager);
+        }
+        assertFalse(monitor.hasRequiredCoordinatorSidecars());
+    }
+
     @Test
     public void testHasRequiredResourceManagers()
             throws InterruptedException
@@ -157,6 +217,20 @@ public class TestClusterSizeMonitor
         return workersFuture;
     }
 
+    private ListenableFuture<?> waitForMinimumCoordinatorSidecars()
+    {
+        ListenableFuture<?> coordinatorSidecarsFuture = monitor.waitForMinimumCoordinatorSidecars();
+        addSuccessCallback(coordinatorSidecarsFuture, () -> {
+            assertFalse(coordinatorSidecarsTimeout.get());
+            minCoordinatorSidecarsLatch.countDown();
+        });
+        addExceptionCallback(coordinatorSidecarsFuture, () -> {
+            assertTrue(coordinatorSidecarsTimeout.compareAndSet(false, true));
+            minCoordinatorSidecarsLatch.countDown();
+        });
+        return coordinatorSidecarsFuture;
+    }
+
     private void addWorker(InMemoryNodeManager nodeManager)
     {
         String identifier = "worker/" + numWorkers.incrementAndGet();
@@ -180,6 +254,22 @@ public class TestClusterSizeMonitor
                         new NodeVersion("1"),
                         false,
                         true,
+                        false,
                         false));
+    }
+
+    private void addCoordinatorSidecar(InMemoryNodeManager nodeManager)
+    {
+        String identifier = "coordinator_sidecar/" + numCoordinatorSidecars.incrementAndGet();
+        nodeManager.addNode(
+                CONNECTOR_ID,
+                new InternalNode(
+                        identifier,
+                        URI.create("localhost/" + identifier),
+                        new NodeVersion("1"),
+                        false,
+                        false,
+                        false,
+                        true));
     }
 }
