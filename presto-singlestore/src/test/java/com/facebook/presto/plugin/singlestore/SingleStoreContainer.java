@@ -21,7 +21,7 @@ public class SingleStoreContainer
         extends JdbcDatabaseContainer<SingleStoreContainer>
 {
     private static final String DEFAULT_DOCKER_IMAGE_NAME = "ghcr.io/singlestore-labs/singlestoredb-dev";
-    private static final String DEFAULT_DOCKER_IMAGE_TAG = "0.2.25";
+    private static final String DEFAULT_DOCKER_IMAGE_TAG = "0.2.24";
     private static final String DEFAULT_ROOT_PASSWORD = "root";
     private static final String DEFAULT_ROOT = "root";
     private static final int PORT = 3306;
