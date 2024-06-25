@@ -190,8 +190,10 @@ SystemConfig::SystemConfig() {
           BOOL_PROP(kEnableSerializedPageChecksum, true),
           BOOL_PROP(kUseMmapAllocator, true),
           STR_PROP(kMemoryArbitratorKind, ""),
+          BOOL_PROP(kMemoryArbitratorGlobalArbitrationEnabled, false),
           NUM_PROP(kQueryMemoryGb, 38),
           NUM_PROP(kQueryReservedMemoryGb, 4),
+          NUM_PROP(kLargestSizeClassPages, 256),
           BOOL_PROP(kEnableVeloxTaskLogging, false),
           BOOL_PROP(kEnableVeloxExprSetLogging, false),
           NUM_PROP(kLocalShuffleMaxPartitionBytes, 268435456),
@@ -215,6 +217,7 @@ SystemConfig::SystemConfig() {
           STR_PROP(kExchangeRequestTimeout, "10s"),
           STR_PROP(kExchangeConnectTimeout, "20s"),
           BOOL_PROP(kExchangeEnableConnectionPool, true),
+          BOOL_PROP(kExchangeEnableBufferCopy, true),
           BOOL_PROP(kExchangeImmediateBufferTransfer, true),
           NUM_PROP(kTaskRunTimeSliceMicros, 50'000),
           BOOL_PROP(kIncludeNodeInSpillPath, false),
@@ -477,6 +480,11 @@ std::string SystemConfig::memoryArbitratorKind() const {
   return optionalProperty<std::string>(kMemoryArbitratorKind).value_or("");
 }
 
+bool SystemConfig::memoryArbitratorGlobalArbitrationEnabled() const {
+  return optionalProperty<bool>(kMemoryArbitratorGlobalArbitrationEnabled)
+      .value_or(false);
+}
+
 int32_t SystemConfig::queryMemoryGb() const {
   return optionalProperty<int32_t>(kQueryMemoryGb).value();
 }
@@ -588,6 +596,10 @@ bool SystemConfig::exchangeEnableConnectionPool() const {
   return optionalProperty<bool>(kExchangeEnableConnectionPool).value();
 }
 
+bool SystemConfig::exchangeEnableBufferCopy() const {
+  return optionalProperty<bool>(kExchangeEnableBufferCopy).value();
+}
+
 bool SystemConfig::exchangeImmediateBufferTransfer() const {
   return optionalProperty<bool>(kExchangeImmediateBufferTransfer).value();
 }
@@ -639,6 +651,10 @@ std::chrono::duration<double> SystemConfig::cacheVeloxTtlThreshold() const {
 std::chrono::duration<double> SystemConfig::cacheVeloxTtlCheckInterval() const {
   return velox::core::toDuration(
       optionalProperty(kCacheVeloxTtlCheckInterval).value());
+}
+
+int32_t SystemConfig::largestSizeClassPages() const {
+  return optionalProperty<int32_t>(kLargestSizeClassPages).value();
 }
 
 bool SystemConfig::enableRuntimeMetricsCollection() const {
@@ -761,8 +777,6 @@ BaseVeloxQueryConfig::BaseVeloxQueryConfig() {
           NUM_PROP(
               QueryConfig::kSpillableReservationGrowthPct,
               c.spillableReservationGrowthPct()),
-          BOOL_PROP(
-              QueryConfig::kSparkLegacySizeOfNull, c.sparkLegacySizeOfNull()),
           BOOL_PROP(
               QueryConfig::kPrestoArrayAggIgnoreNulls,
               c.prestoArrayAggIgnoreNulls()),

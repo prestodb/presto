@@ -830,6 +830,25 @@ public abstract class AbstractTestNativeGeneralQueries
 
         // Reverse
         assertQuery("SELECT comment, reverse(comment) FROM orders");
+
+        // Normalize
+        String tmpTableName = generateRandomTableName();
+        try {
+            getQueryRunner().execute(String.format("CREATE TABLE %s (c0 VARCHAR)", tmpTableName));
+            getQueryRunner().execute(String.format("INSERT INTO %s VALUES " +
+                    "('\\u3231\\u3327\\u3326\\u2162\\u3231\\u3327\\u3326\\u2162\\u3231\\u3327\\u3326\\u2162'), " +
+                    "('\\xEF\\xBE\\x8'), " +
+                    "('sch\\u00f6n') ", tmpTableName));
+
+            assertQuery("SELECT normalize(comment) FROM orders");
+            assertQuery("SELECT normalize(comment, NFKC) FROM nation");
+            assertQuery("SELECT normalize(comment, NFD) FROM nation");
+            assertQuery(String.format("SELECT normalize(c0) from %s", tmpTableName));
+            assertQuery(String.format("SELECT normalize(c0, NFKD) from %s", tmpTableName));
+        }
+        finally {
+            dropTableIfExists(tmpTableName);
+        }
     }
 
     @Test

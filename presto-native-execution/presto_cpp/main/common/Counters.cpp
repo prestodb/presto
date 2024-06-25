@@ -45,16 +45,6 @@ void registerPrestoMetrics() {
       100);
   DEFINE_METRIC(
       kCounterHttpClientNumConnectionsCreated, facebook::velox::StatType::SUM);
-  DEFINE_HISTOGRAM_METRIC(
-      kCounterPrestoExchangeSerializedPageSize,
-      10000,
-      0,
-      10000000,
-      50,
-      90,
-      95,
-      99,
-      100);
   DEFINE_METRIC(kCounterNumQueryContexts, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterNumTasks, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterNumTasksRunning, facebook::velox::StatType::AVG);
@@ -114,6 +104,10 @@ void registerPrestoMetrics() {
       1l * 1024 * 1024 * 1024,
       0,
       62l * 1024 * 1024 * 1024, // max bucket value: 62GB
+      50,
+      90,
+      95,
+      99,
       100);
 
   // NOTE: Metrics type exporting for file handle cache counters are in

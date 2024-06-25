@@ -135,3 +135,33 @@ TEST_F(PrestoToVeloxSplitTest, serdeParameters) {
           dwio::common::SerDeOptions::kMapKeyDelim),
       "|");
 }
+
+TEST_F(PrestoToVeloxSplitTest, bucketConversion) {
+  auto scheduledSplit = makeHiveScheduledSplit();
+  auto& hiveSplit =
+      static_cast<protocol::HiveSplit&>(*scheduledSplit.split.connectorSplit);
+  hiveSplit.tableBucketNumber = std::make_shared<int>(42);
+  hiveSplit.bucketConversion = std::make_shared<protocol::BucketConversion>();
+  hiveSplit.bucketConversion->tableBucketCount = 4096;
+  hiveSplit.bucketConversion->partitionBucketCount = 512;
+  auto& column = hiveSplit.bucketConversion->bucketColumnHandles.emplace_back();
+  column.name = "c0";
+  column.hiveType = "bigint";
+  column.typeSignature = "bigint";
+  column.columnType = protocol::ColumnType::REGULAR;
+  auto veloxSplit = toVeloxSplit(scheduledSplit);
+  const auto& veloxHiveSplit =
+      static_cast<const connector::hive::HiveConnectorSplit&>(
+          *veloxSplit.connectorSplit);
+  ASSERT_TRUE(veloxHiveSplit.bucketConversion.has_value());
+  ASSERT_EQ(veloxHiveSplit.bucketConversion->tableBucketCount, 4096);
+  ASSERT_EQ(veloxHiveSplit.bucketConversion->partitionBucketCount, 512);
+  ASSERT_EQ(veloxHiveSplit.bucketConversion->bucketColumnHandles.size(), 1);
+  auto& veloxColumn = veloxHiveSplit.bucketConversion->bucketColumnHandles[0];
+  ASSERT_EQ(veloxColumn->name(), "c0");
+  ASSERT_EQ(*veloxColumn->dataType(), *BIGINT());
+  ASSERT_EQ(*veloxColumn->hiveType(), *BIGINT());
+  ASSERT_EQ(
+      veloxColumn->columnType(),
+      connector::hive::HiveColumnHandle::ColumnType::kRegular);
+}

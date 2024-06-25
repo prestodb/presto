@@ -715,6 +715,9 @@ void PrestoServer::initializeVeloxMemory() {
     options.memoryPoolTransferCapacity =
         systemConfig->memoryPoolTransferCapacity();
     options.memoryReclaimWaitMs = systemConfig->memoryReclaimWaitMs();
+    options.globalArbitrationEnabled =
+        systemConfig->memoryArbitratorGlobalArbitrationEnabled();
+    options.largestSizeClassPages = systemConfig->largestSizeClassPages();
     options.arbitrationStateCheckCb = velox::exec::memoryArbitrationStateCheck;
   }
   memory::initializeMemoryManager(options);

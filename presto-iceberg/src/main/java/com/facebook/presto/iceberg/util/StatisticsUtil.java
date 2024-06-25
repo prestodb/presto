@@ -89,7 +89,7 @@ public final class StatisticsUtil
             }
             statsBuilder.setColumnStatistics(columnHandle, mergedStats.build());
         });
-        return calculateAndSetTableSize(statsBuilder).build();
+        return calculateAndSetTableSize(statsBuilder).setConfidenceLevel(icebergStatistics.getConfidence()).build();
     }
 
     public static EnumSet<ColumnStatisticType> decodeMergeFlags(String input)

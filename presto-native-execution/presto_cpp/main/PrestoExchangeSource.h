@@ -250,6 +250,16 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
   const std::string host_;
   const uint16_t port_;
   const folly::SSLContextPtr sslContext_;
+  // If true, we copy the iobufs allocated by proxygen to velox memory pool.
+  // Otherwise, we build serialized presto page from the proxygen iobufs
+  // directly.
+  const bool enableBufferCopy_;
+  // If true, copy proxygen iobufs to velox memory pool in http response handler
+  // immediately. This is to track the shuffle memory usage under velox memory
+  // control to prevent server OOM from the unexpected spiky shuffle memory
+  // usage from jemalloc. If false, does the copy later in driver executor
+  // context after the http client receives the whole response. This only
+  // applies if 'enableBufferCopy_' is true
   const bool immediateBufferTransfer_;
 
   folly::CPUThreadPoolExecutor* const driverExecutor_;

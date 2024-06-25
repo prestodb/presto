@@ -946,10 +946,7 @@ TEST_F(TaskManagerTest, emptyFile) {
     if (not taskStatus->failures.empty()) {
       EXPECT_EQ(1, taskStatus->failures.size());
       const auto& failure = taskStatus->failures.front();
-      EXPECT_THAT(
-          failure.message,
-          testing::ContainsRegex(
-              "fileLength_ > 0 ORC file is empty Split \\[.*\\] Task scan\\.0\\.0\\.1\\.0"));
+      EXPECT_THAT(failure.message, testing::ContainsRegex("ORC file is empty"));
       EXPECT_EQ("VeloxException", failure.type);
       break;
     }

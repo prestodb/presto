@@ -1166,6 +1166,18 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testCountOverGlobalAggregation()
+    {
+        assertQuery("SELECT COUNT(*) FROM (SELECT COUNT(*) FROM nation)");
+    }
+
+    @Test
+    public void testCountOverGroupedAggregation()
+    {
+        assertQuery("SELECT COUNT(*) FROM (SELECT COUNT(*) FROM nation GROUP BY GROUPING SETS (nationkey, ()))", "SELECT 26");
+    }
+
+    @Test
     public void testWildcard()
     {
         assertQuery("SELECT * FROM orders");

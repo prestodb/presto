@@ -130,6 +130,7 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
+import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel.LOW;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -474,7 +475,7 @@ public class IcebergHiveMetadata
                 }
             }
             return filterStatsCalculatorService.filterStats(
-                    calculateAndSetTableSize(filteredStatsBuilder).build(),
+                    calculateAndSetTableSize(filteredStatsBuilder).setConfidenceLevel(LOW).build(),
                     translatedPredicate,
                     session,
                     columnHandles.stream().map(IcebergColumnHandle.class::cast).collect(toImmutableMap(

@@ -61,7 +61,7 @@ executors:
   build:
     docker:
       # These images are managed by the Presto Release team.
-      - image: public.ecr.aws/oss-presto/presto-native-dependency:0.288-20240530103355-3ad2e31
+      - image: prestodb/presto-native-dependency:latest
     resource_class: 2xlarge
     environment:
       MAVEN_OPTS: "-Xmx4G -XX:+ExitOnOutOfMemoryError -XX:CompressedClassSpaceSize=3g"
@@ -107,7 +107,7 @@ jobs:
                   mkdir -p .ccache
                   export CCACHE_DIR=$(realpath .ccache)
                   ccache -sz -M 8Gi
-                  source /opt/rh/gcc-toolset-9/enable
+                  source /opt/rh/gcc-toolset-12/enable
                   cd presto-native-execution
                   cmake \
                     -B _build/debug \
@@ -131,6 +131,7 @@ jobs:
             - run:
                 name: 'Run Unit Tests'
                 command: |
+                  export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/usr/local/lib:/usr/local/lib64"
                   cd presto-native-execution/_build/debug
                   ctest -j 10 -VV --output-on-failure --no-tests=error
             - persist_to_workspace:
@@ -160,6 +161,7 @@ jobs:
             - run:
                 name: 'Run presto-native e2e tests'
                 command: |
+                  export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/usr/local/lib:/usr/local/lib64"
                   export PRESTO_SERVER_PATH="${HOME}/project/presto-native-execution/_build/debug/presto_cpp/main/presto_server"
                   export TEMP_PATH="/tmp"
                   TESTFILES=$(circleci tests glob "presto-native-execution/src/test/**/TestPrestoNative*.java" | circleci tests split --split-by=timings)
@@ -211,6 +213,7 @@ jobs:
             - run:
                 name: 'Run spark e2e tests'
                 command: |
+                  export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/usr/local/lib:/usr/local/lib64"
                   export PRESTO_SERVER_PATH="${HOME}/project/presto-native-execution/_build/debug/presto_cpp/main/presto_server"
                   export TEMP_PATH="/tmp"
                   TESTFILES=$(circleci tests glob "presto-native-execution/src/test/**/TestPrestoSpark*.java" | circleci tests split --split-by=timings)
@@ -247,14 +250,14 @@ jobs:
           name: "Install all adapter dependencies"
           command: |
             mkdir -p ${HOME}/adapter-deps/install
-            source /opt/rh/gcc-toolset-9/enable
+            source /opt/rh/gcc-toolset-12/enable
             set -xu
             cd presto-native-execution
             DEPENDENCY_DIR=${HOME}/adapter-deps PROMPT_ALWAYS_RESPOND=n ./scripts/setup-adapters.sh jwt
       - run:
           name: "Build All"
           command: |
-            source /opt/rh/gcc-toolset-9/enable
+            source /opt/rh/gcc-toolset-12/enable
             cd presto-native-execution
             cmake \
               -B _build/release \

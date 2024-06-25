@@ -274,7 +274,7 @@ public final class TypeUtils
         // canonicalize +0 and -0 to a single value
         value = value == -0 ? 0 : value;
         // floatToIntBits converts all NaNs to the same representation
-        return AbstractLongType.hash(floatToIntBits(value));
+        return AbstractIntType.hash(floatToIntBits(value));
     }
 
     public static int realCompare(float a, float b)

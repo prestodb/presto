@@ -83,7 +83,9 @@ PrestoExchangeSource::PrestoExchangeSource(
       host_(baseUri.host()),
       port_(baseUri.port()),
       sslContext_(std::move(sslContext)),
+      enableBufferCopy_(SystemConfig::instance()->exchangeEnableBufferCopy()),
       immediateBufferTransfer_(
+          enableBufferCopy_ &&
           SystemConfig::instance()->exchangeImmediateBufferTransfer()),
       driverExecutor_(driverExecutor) {
   folly::SocketAddress address;
@@ -307,7 +309,7 @@ void PrestoExchangeSource::processDataResponse(
   const bool empty = response->empty();
   if (!empty) {
     std::vector<std::unique_ptr<folly::IOBuf>> iobufs;
-    if (immediateBufferTransfer_) {
+    if (immediateBufferTransfer_ || !enableBufferCopy_) {
       iobufs = response->consumeBody();
     } else {
       iobufs.emplace_back(response->consumeBody(pool_.get()));
@@ -324,59 +326,60 @@ void PrestoExchangeSource::processDataResponse(
     }
     PrestoExchangeSource::updateMemoryUsage(totalBytes);
 
-    page = std::make_unique<exec::SerializedPage>(
-        std::move(singleChain), [pool = pool_](folly::IOBuf& iobuf) {
-          int64_t freedBytes{0};
-          // Free the backed memory from MemoryAllocator on page dtor
-          folly::IOBuf* start = &iobuf;
-          auto curr = start;
-          do {
-            freedBytes += curr->capacity();
-            pool->free(curr->writableData(), curr->capacity());
-            curr = curr->next();
-          } while (curr != start);
-          PrestoExchangeSource::updateMemoryUsage(-freedBytes);
-        });
+    if (enableBufferCopy_) {
+      page = std::make_unique<exec::SerializedPage>(
+          std::move(singleChain), [pool = pool_](folly::IOBuf& iobuf) {
+            int64_t freedBytes{0};
+            // Free the backed memory from MemoryAllocator on page dtor
+            folly::IOBuf* start = &iobuf;
+            auto curr = start;
+            do {
+              freedBytes += curr->capacity();
+              pool->free(curr->writableData(), curr->capacity());
+              curr = curr->next();
+            } while (curr != start);
+            PrestoExchangeSource::updateMemoryUsage(-freedBytes);
+          });
+    } else {
+      page = std::make_unique<exec::SerializedPage>(
+          std::move(singleChain), [totalBytes](folly::IOBuf& iobuf) {
+            PrestoExchangeSource::updateMemoryUsage(-totalBytes);
+          });
+    }
   }
 
   const int64_t pageSize = empty ? 0 : page->size();
-
-  RECORD_HISTOGRAM_METRIC_VALUE(
-      kCounterPrestoExchangeSerializedPageSize, pageSize);
-
+  VeloxPromise<Response> requestPromise;
+  std::vector<ContinuePromise> queuePromises;
   {
-    VeloxPromise<Response> requestPromise;
-    std::vector<ContinuePromise> queuePromises;
-    {
-      std::lock_guard<std::mutex> l(queue_->mutex());
-      if (page) {
-        VLOG(1) << "Enqueuing page for " << basePath_ << "/" << sequence_
-                << ": " << pageSize << " bytes";
-        ++numPages_;
-        totalBytes_ += pageSize;
-        queue_->enqueueLocked(std::move(page), queuePromises);
-      }
-      if (complete) {
-        VLOG(1) << "Enqueuing empty page for " << basePath_ << "/" << sequence_;
-        atEnd_ = true;
-        queue_->enqueueLocked(nullptr, queuePromises);
-      }
-
-      sequence_ = ackSequence;
-      requestPending_ = false;
-      requestPromise = std::move(promise_);
+    std::lock_guard<std::mutex> l(queue_->mutex());
+    if (page) {
+      VLOG(1) << "Enqueuing page for " << basePath_ << "/" << sequence_ << ": "
+              << pageSize << " bytes";
+      ++numPages_;
+      totalBytes_ += pageSize;
+      queue_->enqueueLocked(std::move(page), queuePromises);
     }
-    for (auto& promise : queuePromises) {
-      promise.setValue();
+    if (complete) {
+      VLOG(1) << "Enqueuing empty page for " << basePath_ << "/" << sequence_;
+      atEnd_ = true;
+      queue_->enqueueLocked(nullptr, queuePromises);
     }
 
-    if (requestPromise.valid() && !requestPromise.isFulfilled()) {
-      requestPromise.setValue(
-          Response{pageSize, complete, std::move(remainingBytes)});
-    } else {
-      // The source must have been closed.
-      VELOX_CHECK(closed_.load());
-    }
+    sequence_ = ackSequence;
+    requestPending_ = false;
+    requestPromise = std::move(promise_);
+  }
+  for (auto& promise : queuePromises) {
+    promise.setValue();
+  }
+
+  if (requestPromise.valid() && !requestPromise.isFulfilled()) {
+    requestPromise.setValue(
+        Response{pageSize, complete, std::move(remainingBytes)});
+  } else {
+    // The source must have been closed.
+    VELOX_CHECK(closed_.load());
   }
 
   if (complete) {

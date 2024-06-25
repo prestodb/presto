@@ -20,7 +20,7 @@ The primary mission of PrestoDB is to enable efficient and high-speed data proce
 Presto aims to accomplish the above goals for users by creating a broad, powerful, and collaborative open source community that strives for high standards in database engineering and design.
 
 1. **Open Source:** Develop and maintain an open-source project, encouraging community contributions and collaboration.
-2. **Broad and open community:** Foster a large and active community to drive the project’s adoption and direction.
+2. **Broad and open community:** Foster a large and active community to drive the project’s adoption and direction.  We believe that Presto should survive any single individual or company, and strive to make the project as diverse as possible among committers and their respective employers.
 3. **Composability**: Presto is designed for lakes and lakehouses. As such, it is engineered to fit cohesively in an ecosystem of other tools, and strives to integrate with industry standard specifications and libraries that help accomplish the user goals above.
 4. **Coding excellence**: Presto strives to maintain a high bar for contributions through good design, good abstractions, rigorous tests, and quality documentation.
 

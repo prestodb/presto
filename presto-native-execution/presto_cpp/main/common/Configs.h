@@ -345,6 +345,12 @@ class SystemConfig : public ConfigBase {
       "cache.velox.ttl-check-interval"};
   static constexpr std::string_view kUseMmapAllocator{"use-mmap-allocator"};
 
+  /// Number of pages in largest size class in MallocAllocator. This is used to
+  /// optimize MmapAllocator performance for query workloads with large memory
+  /// allocation size.
+  static constexpr std::string_view kLargestSizeClassPages{
+      "largest-size-class-pages"};
+
   static constexpr std::string_view kEnableRuntimeMetricsCollection{
       "runtime-metrics-collection-enabled"};
 
@@ -352,6 +358,11 @@ class SystemConfig : public ConfigBase {
   /// memory arbitration.
   static constexpr std::string_view kMemoryArbitratorKind{
       "memory-arbitrator-kind"};
+
+  /// If true, it allows memory arbitrator to reclaim used memory cross query
+  /// memory pools.
+  static constexpr std::string_view kMemoryArbitratorGlobalArbitrationEnabled{
+      "memory-arbitrator-global-arbitration-enabled"};
 
   /// The initial memory pool capacity in bytes allocated on creation.
   ///
@@ -443,9 +454,17 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kExchangeMaxErrorDuration{
       "exchange.max-error-duration"};
 
+  /// If true, copy proxygen iobufs to velox memory pool, otherwise not. The
+  /// presto exchange source builds the serialized presto page from proxygen
+  /// iobufs directly.
+  static constexpr std::string_view kExchangeEnableBufferCopy{
+      "exchange.enable-buffer-copy"};
+
   /// Enable to make immediate buffer memory transfer in the handling IO threads
   /// as soon as exchange gets its response back. Otherwise the memory transfer
   /// will happen later in driver thread pool.
+  ///
+  /// NOTE: this only applies if 'exchange.no-buffer-copy' is false.
   static constexpr std::string_view kExchangeImmediateBufferTransfer{
       "exchange.immediate-buffer-transfer"};
 
@@ -651,6 +670,8 @@ class SystemConfig : public ConfigBase {
 
   std::string memoryArbitratorKind() const;
 
+  bool memoryArbitratorGlobalArbitrationEnabled() const;
+
   int32_t queryMemoryGb() const;
 
   int32_t queryReservedMemoryGb() const;
@@ -699,6 +720,8 @@ class SystemConfig : public ConfigBase {
 
   bool exchangeEnableConnectionPool() const;
 
+  bool exchangeEnableBufferCopy() const;
+
   bool exchangeImmediateBufferTransfer() const;
 
   int32_t taskRunTimeSliceMicros() const;
@@ -722,6 +745,8 @@ class SystemConfig : public ConfigBase {
   std::chrono::duration<double> cacheVeloxTtlThreshold() const;
 
   std::chrono::duration<double> cacheVeloxTtlCheckInterval() const;
+
+  int32_t largestSizeClassPages() const;
 
   bool enableRuntimeMetricsCollection() const;
 

@@ -30,7 +30,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel.FACT;
 import static com.facebook.presto.sql.planner.plan.Patterns.tableScan;
 import static java.util.Objects.requireNonNull;
 
@@ -70,9 +69,7 @@ public class TableScanStatsRule
         return Optional.of(PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(tableStatistics.getRowCount().getValue())
                 .setTotalSize(tableStatistics.getTotalSize().getValue())
-
-                // TODO Handle the confidence level properly when filters are pushed into the tablescan
-                .setConfidence(FACT)
+                .setConfidence(tableStatistics.getConfidence())
                 .addVariableStatistics(outputVariableStats)
                 .build());
     }

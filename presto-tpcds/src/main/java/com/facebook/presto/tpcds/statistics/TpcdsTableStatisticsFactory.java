@@ -40,6 +40,7 @@ import static com.facebook.presto.common.type.Decimals.isShortDecimal;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TimeType.TIME;
+import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel.HIGH;
 import static java.lang.Double.parseDouble;
 
 public class TpcdsTableStatisticsFactory
@@ -67,7 +68,7 @@ public class TpcdsTableStatisticsFactory
             }
         }
 
-        return tableStatistics.build();
+        return tableStatistics.setConfidenceLevel(HIGH).build();
     }
 
     private ColumnStatistics toColumnStatistics(ColumnStatisticsData columnStatisticsData, Type type, long rowCount)

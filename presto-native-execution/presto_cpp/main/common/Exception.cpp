@@ -22,12 +22,15 @@ protocol::ExecutionFailureInfo VeloxToPrestoExceptionTranslator::translate(
   error.errorLocation.lineNumber = e.line() >= 1 ? e.line() : 1;
   error.errorLocation.columnNumber = 1;
   error.type = e.exceptionName();
-  if (e.context().empty()) {
-    error.message = fmt::format("{} {}", e.failingExpression(), e.message());
-  } else {
-    error.message = fmt::format(
-        "{} {} {}", e.failingExpression(), e.message(), e.context());
+  std::stringstream msg;
+  msg << e.failingExpression() << " " << e.message();
+  if (!e.context().empty()) {
+    msg << " " << e.context();
   }
+  if (!e.additionalContext().empty()) {
+    msg << " " << e.additionalContext();
+  }
+  error.message = msg.str();
   // Stack trace may not be available if stack trace capturing is disabled or
   // rate limited.
   if (e.stackTrace()) {
