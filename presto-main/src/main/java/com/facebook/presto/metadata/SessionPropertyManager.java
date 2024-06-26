@@ -26,9 +26,11 @@ import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.session.sessionpropertyprovidermanagers.SystemSessionPropertyProviderManager;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.session.PropertyMetadata;
+import com.facebook.presto.spi.session.SystemSessionPropertyProvider;
 import com.facebook.presto.sql.planner.ParameterRewriter;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
@@ -61,16 +63,24 @@ public final class SessionPropertyManager
     private static final JsonCodecFactory JSON_CODEC_FACTORY = new JsonCodecFactory();
     private final ConcurrentMap<String, PropertyMetadata<?>> systemSessionProperties = new ConcurrentHashMap<>();
     private final ConcurrentMap<ConnectorId, Map<String, PropertyMetadata<?>>> connectorSessionProperties = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, PropertyMetadata<?>> workerSessionProperties = new ConcurrentHashMap<>();
+    private Optional<SystemSessionPropertyProviderManager> providerManager = Optional.empty();
 
     public SessionPropertyManager()
     {
         this(new SystemSessionProperties());
     }
 
-    @Inject
     public SessionPropertyManager(SystemSessionProperties systemSessionProperties)
     {
         this(systemSessionProperties.getSessionProperties());
+    }
+
+    @Inject
+    public SessionPropertyManager(SystemSessionProperties systemSessionProperties, SystemSessionPropertyProviderManager providerManager)
+    {
+        this(systemSessionProperties.getSessionProperties());
+        this.providerManager = Optional.ofNullable(providerManager);
     }
 
     public SessionPropertyManager(List<PropertyMetadata<?>> systemSessionProperties)
@@ -91,6 +101,19 @@ public final class SessionPropertyManager
                 "System session property '%s' are already registered", sessionProperty.getName());
     }
 
+    private void updateWorkerSessionProperties()
+    {
+        if (providerManager.isPresent()) {
+            SystemSessionPropertyProvider sessionPropertyProvider = providerManager.get().getSessionPropertyProvider();
+            List<PropertyMetadata<?>> nativeSystemSessionProperties = sessionPropertyProvider.getSessionProperties();
+            nativeSystemSessionProperties.forEach(sessionProperty -> {
+                requireNonNull(sessionProperty, "sessionProperty is null");
+                // TODO: Implement fail fast in case of duplicate entries.
+                workerSessionProperties.put(sessionProperty.getName(), sessionProperty);
+            });
+        }
+    }
+
     public void addConnectorSessionProperties(ConnectorId connectorId, List<PropertyMetadata<?>> properties)
     {
         requireNonNull(connectorId, "connectorId is null");
@@ -108,7 +131,10 @@ public final class SessionPropertyManager
     public Optional<PropertyMetadata<?>> getSystemSessionPropertyMetadata(String name)
     {
         requireNonNull(name, "name is null");
-
+        if (systemSessionProperties.get(name) == null) {
+            updateWorkerSessionProperties();
+            return Optional.ofNullable(workerSessionProperties.get(name));
+        }
         return Optional.ofNullable(systemSessionProperties.get(name));
     }
 
@@ -130,6 +156,8 @@ public final class SessionPropertyManager
 
         ImmutableList.Builder<SessionPropertyValue> sessionPropertyValues = ImmutableList.builder();
         Map<String, String> systemProperties = session.getSystemProperties();
+        updateWorkerSessionProperties();
+
         for (PropertyMetadata<?> property : new TreeMap<>(systemSessionProperties).values()) {
             String defaultValue = firstNonNull(property.getDefaultValue(), "").toString();
             String value = systemProperties.getOrDefault(property.getName(), defaultValue);
@@ -163,6 +191,20 @@ public final class SessionPropertyManager
                         property.getSqlType().getDisplayName(),
                         property.isHidden()));
             }
+        }
+
+        for (PropertyMetadata<?> property : new TreeMap<>(workerSessionProperties).values()) {
+            String defaultValue = firstNonNull(property.getDefaultValue(), "").toString();
+            String value = systemProperties.getOrDefault(property.getName(), defaultValue);
+            sessionPropertyValues.add(new SessionPropertyValue(
+                    value,
+                    defaultValue,
+                    property.getName(),
+                    Optional.empty(),
+                    property.getName(),
+                    property.getDescription(),
+                    property.getSqlType().getDisplayName(),
+                    property.isHidden()));
         }
 
         return sessionPropertyValues.build();

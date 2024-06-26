@@ -216,5 +216,9 @@
             <directory>${project.build.directory}/dependency/presto-clickhouse-${project.version}</directory>
             <outputDirectory>plugin/clickhouse</outputDirectory>
         </fileSet>
+        <fileSet>
+            <directory>${project.build.directory}/dependency/presto-session-property-providers-${project.version}</directory>
+            <outputDirectory>plugin/session-property-providers</outputDirectory>
+        </fileSet>
     </fileSets>
 </assembly>

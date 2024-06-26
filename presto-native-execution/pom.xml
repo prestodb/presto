@@ -213,6 +213,13 @@
             <groupId>com.facebook.airlift</groupId>
             <artifactId>testing</artifactId>
         </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-session-property-providers</artifactId>
+            <scope>test</scope>
+        </dependency>
+
     </dependencies>
 
     <build>

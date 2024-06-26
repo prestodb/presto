@@ -73,6 +73,8 @@ public interface QueryRunner
         throw new UnsupportedOperationException();
     }
 
+    void loadSystemSessionPropertyProvider();
+
     default Plan createPlan(Session session, @Language("SQL") String sql, WarningCollector warningCollector)
     {
         throw new UnsupportedOperationException();
