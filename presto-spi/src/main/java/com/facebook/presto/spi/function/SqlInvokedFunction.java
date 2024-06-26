@@ -53,12 +53,6 @@ public class SqlInvokedFunction
     private final FunctionVersion functionVersion;
     private final Optional<SqlFunctionHandle> functionHandle;
 
-    public Optional<ScalarStatsHeader> getScalarStatsHeader()
-    {
-        return scalarStatsHeader;
-    }
-
-    private final Optional<ScalarStatsHeader> scalarStatsHeader;
     /**
      * Metadata required for Aggregation Functions
      */
@@ -83,7 +77,6 @@ public class SqlInvokedFunction
         this.functionVersion = notVersioned();
         this.functionHandle = Optional.empty();
         this.aggregationMetadata = Optional.empty();
-        this.scalarStatsHeader = Optional.empty();
     }
 
     // This constructor creates a SCALAR SqlInvokedFunction
@@ -125,22 +118,6 @@ public class SqlInvokedFunction
             FunctionKind kind,
             Optional<AggregationFunctionMetadata> aggregationMetadata)
     {
-        this(functionName, parameters, typeVariableConstraints, returnType, description, routineCharacteristics, body, version, kind, aggregationMetadata, Optional.empty());
-    }
-
-    public SqlInvokedFunction(
-            QualifiedObjectName functionName,
-            List<Parameter> parameters,
-            List<TypeVariableConstraint> typeVariableConstraints,
-            TypeSignature returnType,
-            String description,
-            RoutineCharacteristics routineCharacteristics,
-            String body,
-            FunctionVersion version,
-            FunctionKind kind,
-            Optional<AggregationFunctionMetadata> aggregationMetadata,
-            Optional<ScalarStatsHeader> scalarStatsHeader)
-    {
         this.parameters = requireNonNull(parameters, "parameters is null");
         this.description = requireNonNull(description, "description is null");
         this.routineCharacteristics = requireNonNull(routineCharacteristics, "routineCharacteristics is null");
@@ -159,7 +136,6 @@ public class SqlInvokedFunction
         if ((kind == AGGREGATE && !aggregationMetadata.isPresent()) || (kind != AGGREGATE && aggregationMetadata.isPresent())) {
             throw new IllegalArgumentException("aggregationMetadata must be present for aggregation functions and absent otherwise");
         }
-        this.scalarStatsHeader = scalarStatsHeader;
     }
 
     public SqlInvokedFunction withVersion(String version)

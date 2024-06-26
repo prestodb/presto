@@ -151,6 +151,7 @@ public abstract class AbstractCostBasedPlanTest
                             createParentDirs(queryPlanWritePath.toFile());
                             Session histogramSession = Session.builder(getQueryRunner().getDefaultSession())
                                     .setSystemProperty(OPTIMIZER_USE_HISTOGRAMS, "true")
+                                    .setSystemProperty(ENABLE_SCALAR_FUNCTION_STATS_PROPAGATION, "false")
                                     .build();
                             Session baselineSession = Session.builder(getQueryRunner().getDefaultSession())
                                     .setSystemProperty(OPTIMIZER_USE_HISTOGRAMS, "false")
@@ -158,6 +159,7 @@ public abstract class AbstractCostBasedPlanTest
                                     .build();
                             Session scalarStatsPropagateSession = Session.builder(getQueryRunner().getDefaultSession())
                                     .setSystemProperty(ENABLE_SCALAR_FUNCTION_STATS_PROPAGATION, "true")
+                                    .setSystemProperty(OPTIMIZER_USE_HISTOGRAMS, "false")
                                     .build();
                             String sql = read(queryResourcePath);
                             String regularPlan = generateQueryPlan(sql, baselineSession);

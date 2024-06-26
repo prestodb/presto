@@ -25,6 +25,7 @@ import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.sql.Optimizer;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -44,6 +45,7 @@ import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -207,6 +209,33 @@ public class BasePlanTest
                     WarningCollector.NOOP);
             Assert.assertTrue(actualPlan.getStatsAndCosts().getStats().values().stream().noneMatch(PlanNodeStatsEstimate::isOutputRowCountUnknown));
             Assert.assertTrue(actualPlan.getStatsAndCosts().getStats().values().stream().noneMatch(x -> x.getVariableStatistics().values().stream().anyMatch(y -> y.isUnknown())));
+            return null;
+        });
+    }
+
+    protected void assertPlanHasExpectedStats(String expectedStatsSql, String sql, Session session)
+    {
+        List<PlanOptimizer> optimizers = queryRunner.getPlanOptimizers(true);
+        queryRunner.inTransaction(session, transactionSession -> {
+            Plan actualPlanExpected = queryRunner.createPlan(
+                    transactionSession,
+                    expectedStatsSql,
+                    optimizers,
+                    Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED,
+                    WarningCollector.NOOP);
+            Plan actualPlanResult = queryRunner.createPlan(
+                    transactionSession,
+                    sql,
+                    optimizers,
+                    Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED,
+                    WarningCollector.NOOP);
+            //Assert.assertEquals(actualPlanExpected.getStatsAndCosts().getStats().size(), actualPlanResult.getStatsAndCosts().getStats().size());
+            Assert.assertTrue(actualPlanExpected.getStatsAndCosts().getStats().values().stream().noneMatch(PlanNodeStatsEstimate::isOutputRowCountUnknown));
+            Assert.assertTrue(actualPlanExpected.getStatsAndCosts().getStats().values().stream().noneMatch(x -> x.getVariableStatistics().values().stream().anyMatch(y -> y.isUnknown())));
+
+            Map<PlanNodeId, PlanNodeStatsEstimate> statsEstimateMapExpected = actualPlanExpected.getStatsAndCosts().getStats();
+            Map<PlanNodeId, PlanNodeStatsEstimate> statsEstimateMapResult = actualPlanResult.getStatsAndCosts().getStats();
+            Assert.assertTrue(Maps.difference(statsEstimateMapExpected, statsEstimateMapResult).areEqual());
             return null;
         });
     }

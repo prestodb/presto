@@ -74,7 +74,11 @@ public class ScalarStatsHeader
         return max;
     }
 
-    public Map<Integer, ScalarPropagateSourceStats> getStatsResolver()
+    /*
+     * Get stats annotation for each of the scalar function argument, where key is the index of the position
+     * of functions' argument and value is the ScalarPropagateSourceStats annotation.
+     */
+    public Map<Integer, ScalarPropagateSourceStats> getArgumentStats()
     {
         return statsResolver;
     }

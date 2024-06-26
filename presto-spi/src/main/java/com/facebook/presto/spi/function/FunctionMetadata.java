@@ -19,7 +19,9 @@ import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.function.RoutineCharacteristics.Language;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -42,7 +44,8 @@ public class FunctionMetadata
     private final boolean calledOnNullInput;
     private final FunctionVersion version;
     private final ComplexTypeFunctionDescriptor descriptor;
-    private final Optional<ScalarStatsHeader> statsHeader;
+    private final Map<Signature, ScalarStatsHeader> statsHeader;
+
     public FunctionMetadata(
             QualifiedObjectName name,
             List<TypeSignature> argumentTypes,
@@ -53,7 +56,7 @@ public class FunctionMetadata
             boolean calledOnNullInput)
     {
         this(name, Optional.empty(), argumentTypes, Optional.empty(), returnType, functionKind, Optional.empty(), implementationType,
-                deterministic, calledOnNullInput, notVersioned(), Optional.empty());
+                deterministic, calledOnNullInput, notVersioned(), Collections.emptyMap());
     }
 
     public FunctionMetadata(
@@ -64,10 +67,10 @@ public class FunctionMetadata
             FunctionImplementationType implementationType,
             boolean deterministic,
             boolean calledOnNullInput,
-            ScalarStatsHeader scalarStatsHeader)
+            Map<Signature, ScalarStatsHeader> scalarStatsHeader)
     {
         this(name, Optional.empty(), argumentTypes, Optional.empty(), returnType, functionKind, Optional.empty(), implementationType,
-                deterministic, calledOnNullInput, notVersioned(), Optional.of(scalarStatsHeader));
+                deterministic, calledOnNullInput, notVersioned(), scalarStatsHeader);
     }
 
     public FunctionMetadata(
@@ -81,7 +84,7 @@ public class FunctionMetadata
             ComplexTypeFunctionDescriptor functionDescriptor)
     {
         this(name, Optional.empty(), argumentTypes, Optional.empty(), returnType, functionKind, Optional.empty(), implementationType,
-                deterministic, calledOnNullInput, notVersioned(), functionDescriptor, Optional.empty());
+                deterministic, calledOnNullInput, notVersioned(), functionDescriptor, Collections.emptyMap());
     }
 
     public FunctionMetadata(
@@ -93,7 +96,7 @@ public class FunctionMetadata
             boolean deterministic,
             boolean calledOnNullInput,
             ComplexTypeFunctionDescriptor functionDescriptor,
-            Optional<ScalarStatsHeader> scalarStatsHeader)
+            Map<Signature, ScalarStatsHeader> scalarStatsHeader)
     {
         this(name, Optional.empty(), argumentTypes, Optional.empty(), returnType, functionKind, Optional.empty(), implementationType,
                 deterministic, calledOnNullInput, notVersioned(), functionDescriptor, scalarStatsHeader);
@@ -112,7 +115,7 @@ public class FunctionMetadata
             FunctionVersion version)
     {
         this(name, Optional.empty(), argumentTypes, Optional.of(argumentNames), returnType, functionKind, Optional.of(language), implementationType, deterministic,
-                calledOnNullInput, version, Optional.empty());
+                calledOnNullInput, version, Collections.emptyMap());
     }
 
     public FunctionMetadata(
@@ -129,7 +132,7 @@ public class FunctionMetadata
             ComplexTypeFunctionDescriptor functionDescriptor)
     {
         this(name, Optional.empty(), argumentTypes, Optional.of(argumentNames), returnType, functionKind, Optional.of(language), implementationType, deterministic,
-                calledOnNullInput, version, functionDescriptor, Optional.empty());
+                calledOnNullInput, version, functionDescriptor, Collections.emptyMap());
     }
 
     public FunctionMetadata(
@@ -144,7 +147,7 @@ public class FunctionMetadata
             boolean calledOnNullInput,
             FunctionVersion version,
             ComplexTypeFunctionDescriptor functionDescriptor,
-            Optional<ScalarStatsHeader> scalarStatsHeader)
+            Map<Signature, ScalarStatsHeader> scalarStatsHeader)
     {
         this(name, Optional.empty(), argumentTypes, Optional.of(argumentNames), returnType, functionKind, Optional.of(language), implementationType, deterministic,
                 calledOnNullInput, version, functionDescriptor, scalarStatsHeader);
@@ -160,7 +163,7 @@ public class FunctionMetadata
             boolean calledOnNullInput)
     {
         this(operatorType.getFunctionName(), Optional.of(operatorType), argumentTypes, Optional.empty(), returnType, functionKind, Optional.empty(),
-                implementationType, deterministic, calledOnNullInput, notVersioned(), Optional.empty());
+                implementationType, deterministic, calledOnNullInput, notVersioned(), Collections.emptyMap());
     }
 
     public FunctionMetadata(
@@ -174,7 +177,7 @@ public class FunctionMetadata
             ComplexTypeFunctionDescriptor functionDescriptor)
     {
         this(operatorType.getFunctionName(), Optional.of(operatorType), argumentTypes, Optional.empty(), returnType, functionKind, Optional.empty(),
-                implementationType, deterministic, calledOnNullInput, notVersioned(), functionDescriptor, Optional.empty());
+                implementationType, deterministic, calledOnNullInput, notVersioned(), functionDescriptor, Collections.emptyMap());
     }
 
     private FunctionMetadata(
@@ -189,7 +192,7 @@ public class FunctionMetadata
             boolean deterministic,
             boolean calledOnNullInput,
             FunctionVersion version,
-            Optional<ScalarStatsHeader> scalarStatsHeader)
+            Map<Signature, ScalarStatsHeader> scalarStatsHeader)
     {
         this(
                 name,
@@ -220,7 +223,7 @@ public class FunctionMetadata
             boolean calledOnNullInput,
             FunctionVersion version,
             ComplexTypeFunctionDescriptor functionDescriptor,
-            Optional<ScalarStatsHeader> scalarStatsHeader)
+            Map<Signature, ScalarStatsHeader> scalarStatsHeader)
     {
         this.name = requireNonNull(name, "name is null");
         this.operatorType = requireNonNull(operatorType, "operatorType is null");
@@ -303,9 +306,14 @@ public class FunctionMetadata
         return descriptor;
     }
 
-    public Optional<ScalarStatsHeader> getStatsHeader()
+    public boolean hasStatsHeader()
     {
-        return statsHeader;
+        return !statsHeader.isEmpty();
+    }
+
+    public Optional<ScalarStatsHeader> getStatsHeader(Signature signature)
+    {
+        return Optional.ofNullable(statsHeader.get(signature));
     }
 
     @Override

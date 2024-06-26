@@ -13,12 +13,28 @@
  */
 package com.facebook.presto.spi.function;
 
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
+
 public enum PropagateSourceStats
 {
     MAX,
     SUM,
     SOURCE_STATS,
     ROW_COUNT,
-    MAX_TYPE_WIDTH,
-    UNKNOWN,
+    ROW_COUNT_TIMES_INV_NULL_FRACTION, // row_count * (1 - null_fraction)
+    TYPE_WIDTH_VARCHAR,
+    MAX_TYPE_WIDTH_VARCHAR,
+    UNKNOWN;
+
+    /*
+     * Stats are simple when their value is calculated by operating on stats from source stats of the argument which
+     * is annotated.
+     */
+    public static boolean isSimpleStatsFunction(PropagateSourceStats op)
+    {
+        Set<PropagateSourceStats> s = new HashSet<>(Arrays.asList(UNKNOWN, ROW_COUNT, ROW_COUNT_TIMES_INV_NULL_FRACTION, TYPE_WIDTH_VARCHAR, SOURCE_STATS));
+        return s.contains(op);
+    }
 }

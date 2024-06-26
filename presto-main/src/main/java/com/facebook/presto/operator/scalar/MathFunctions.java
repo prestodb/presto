@@ -1195,7 +1195,7 @@ public final class MathFunctions
         @Constraint(variable = "rs", expression = "0")
         public static Slice roundLongLong(
                 @LiteralParameter("s") long numScale,
-                @SqlType("decimal(p, s)") Slice num)
+                @ScalarPropagateSourceStats(propagateAllStats = true) @SqlType("decimal(p, s)") Slice num)
         {
             if (numScale == 0) {
                 return num;
@@ -1209,7 +1209,7 @@ public final class MathFunctions
         @Constraint(variable = "rs", expression = "0")
         public static long roundLongShort(
                 @LiteralParameter("s") long numScale,
-                @SqlType("decimal(p, s)") Slice num)
+                @ScalarPropagateSourceStats(propagateAllStats = true) @SqlType("decimal(p, s)") Slice num)
         {
             return unscaledDecimalToUnscaledLong(rescale(num, -(int) numScale));
         }
@@ -1225,7 +1225,7 @@ public final class MathFunctions
         public static long roundNShort(
                 @LiteralParameter("p") long numPrecision,
                 @LiteralParameter("s") long numScale,
-                @SqlType("decimal(p, s)") long num,
+                @ScalarPropagateSourceStats(propagateAllStats = true) @SqlType("decimal(p, s)") long num,
                 @SqlType(StandardTypes.INTEGER) long decimals)
         {
             if (num == 0 || numPrecision - numScale + decimals <= 0) {
@@ -1250,7 +1250,7 @@ public final class MathFunctions
         public static Slice roundNLong(
                 @LiteralParameter("s") long numScale,
                 @LiteralParameter("rp") long resultPrecision,
-                @SqlType("decimal(p, s)") Slice num,
+                @ScalarPropagateSourceStats(propagateAllStats = true) @SqlType("decimal(p, s)") Slice num,
                 @SqlType(StandardTypes.INTEGER) long decimals)
         {
             if (decimals >= numScale) {
@@ -1273,7 +1273,7 @@ public final class MathFunctions
         public static Slice roundNShortLong(
                 @LiteralParameter("s") long numScale,
                 @LiteralParameter("rp") long resultPrecision,
-                @SqlType("decimal(p, s)") long num,
+                @ScalarPropagateSourceStats(propagateAllStats = true) @SqlType("decimal(p, s)") long num,
                 @SqlType(StandardTypes.INTEGER) long decimals)
         {
             return roundNLong(numScale, resultPrecision, unscaledDecimal(num), decimals);
@@ -1287,7 +1287,9 @@ public final class MathFunctions
         @LiteralParameters({"p", "s", "rp"})
         @SqlType("decimal(rp,0)")
         @Constraint(variable = "rp", expression = "max(1, p - s)")
-        public static long truncateShort(@LiteralParameter("s") long numScale, @SqlType("decimal(p, s)") long num)
+        public static long truncateShort(
+                @LiteralParameter("s") long numScale,
+                @ScalarPropagateSourceStats(propagateAllStats = true) @SqlType("decimal(p, s)") long num)
         {
             if (num == 0) {
                 return 0;
@@ -1303,7 +1305,9 @@ public final class MathFunctions
         @LiteralParameters({"p", "s", "rp"})
         @SqlType("decimal(rp,0)")
         @Constraint(variable = "rp", expression = "max(1, p - s)")
-        public static Slice truncateLong(@LiteralParameter("s") long numScale, @SqlType("decimal(p, s)") Slice num)
+        public static Slice truncateLong(
+                @LiteralParameter("s") long numScale,
+                @ScalarPropagateSourceStats(propagateAllStats = true) @SqlType("decimal(p, s)") Slice num)
         {
             if (numScale == 0) {
                 return num;
@@ -1314,7 +1318,9 @@ public final class MathFunctions
         @LiteralParameters({"p", "s", "rp"})
         @SqlType("decimal(rp,0)")
         @Constraint(variable = "rp", expression = "max(1, p - s)")
-        public static long truncateLongShort(@LiteralParameter("s") long numScale, @SqlType("decimal(p, s)") Slice num)
+        public static long truncateLongShort(
+                @LiteralParameter("s") long numScale,
+                @ScalarPropagateSourceStats(propagateAllStats = true) @SqlType("decimal(p, s)") Slice num)
         {
             return unscaledDecimalToUnscaledLong(rescaleTruncate(num, -(int) numScale));
         }
@@ -1331,7 +1337,7 @@ public final class MathFunctions
         public static long truncateShort(
                 @LiteralParameter("p") long numPrecision,
                 @LiteralParameter("s") long numScale,
-                @SqlType("decimal(p, s)") long num,
+                @ScalarPropagateSourceStats(propagateAllStats = true) @SqlType("decimal(p, s)") long num,
                 @SqlType(StandardTypes.INTEGER) long roundScale)
         {
             if (num == 0 || numPrecision - numScale + roundScale <= 0) {
@@ -1351,7 +1357,7 @@ public final class MathFunctions
         public static Slice truncateLong(
                 @LiteralParameter("p") long numPrecision,
                 @LiteralParameter("s") long numScale,
-                @SqlType("decimal(p, s)") Slice num,
+                @ScalarPropagateSourceStats(propagateAllStats = true) @SqlType("decimal(p, s)") Slice num,
                 @SqlType(StandardTypes.INTEGER) long roundScale)
         {
             if (numPrecision - numScale + roundScale <= 0) {

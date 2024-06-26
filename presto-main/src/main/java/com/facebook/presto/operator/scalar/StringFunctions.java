@@ -44,9 +44,10 @@ import static com.facebook.presto.common.type.Chars.trimTrailingSpaces;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.function.PropagateSourceStats.MAX;
-import static com.facebook.presto.spi.function.PropagateSourceStats.MAX_TYPE_WIDTH;
+import static com.facebook.presto.spi.function.PropagateSourceStats.MAX_TYPE_WIDTH_VARCHAR;
 import static com.facebook.presto.spi.function.PropagateSourceStats.ROW_COUNT;
 import static com.facebook.presto.spi.function.PropagateSourceStats.SUM;
+import static com.facebook.presto.spi.function.PropagateSourceStats.TYPE_WIDTH_VARCHAR;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.airlift.slice.SliceUtf8.getCodePointAt;
@@ -212,7 +213,7 @@ public final class StringFunctions
     @SqlType(StandardTypes.BIGINT)
     @ScalarFunctionConstantStats(avgRowSize = 8, minValue = 0)
     public static long stringPosition(
-            @ScalarPropagateSourceStats(propagateAllStats = true, distinctValueCount = MAX_TYPE_WIDTH) @SqlType("varchar(x)") Slice string,
+            @ScalarPropagateSourceStats(propagateAllStats = true, distinctValueCount = TYPE_WIDTH_VARCHAR) @SqlType("varchar(x)") Slice string,
             @SqlType("varchar(y)") Slice substring)
     {
         return stringPositionFromStart(string, substring, 1);
@@ -224,7 +225,7 @@ public final class StringFunctions
     @SqlType(StandardTypes.BIGINT)
     @ScalarFunctionConstantStats(avgRowSize = 8, minValue = 0)
     public static long stringPosition(
-            @ScalarPropagateSourceStats(propagateAllStats = true, distinctValueCount = MAX_TYPE_WIDTH) @SqlType("varchar(x)") Slice string,
+            @ScalarPropagateSourceStats(propagateAllStats = true, distinctValueCount = TYPE_WIDTH_VARCHAR) @SqlType("varchar(x)") Slice string,
             @SqlType("varchar(y)") Slice substring,
             @SqlType(StandardTypes.BIGINT) long instance)
     {
@@ -237,7 +238,7 @@ public final class StringFunctions
     @SqlType(StandardTypes.BIGINT)
     @ScalarFunctionConstantStats(avgRowSize = 8, minValue = 0)
     public static long stringReversePosition(
-            @ScalarPropagateSourceStats(propagateAllStats = true, distinctValueCount = MAX_TYPE_WIDTH) @SqlType("varchar(x)") Slice string,
+            @ScalarPropagateSourceStats(propagateAllStats = true, distinctValueCount = TYPE_WIDTH_VARCHAR) @SqlType("varchar(x)") Slice string,
             @SqlType("varchar(y)") Slice substring)
     {
         return stringPositionFromEnd(string, substring, 1);
@@ -249,7 +250,7 @@ public final class StringFunctions
     @SqlType(StandardTypes.BIGINT)
     @ScalarFunctionConstantStats(avgRowSize = 8, minValue = 0)
     public static long stringReversePosition(
-            @ScalarPropagateSourceStats(propagateAllStats = true, distinctValueCount = MAX_TYPE_WIDTH) @SqlType("varchar(x)") Slice string,
+            @ScalarPropagateSourceStats(propagateAllStats = true, distinctValueCount = TYPE_WIDTH_VARCHAR) @SqlType("varchar(x)") Slice string,
             @SqlType("varchar(y)") Slice substring,
             @SqlType(StandardTypes.BIGINT) long instance)
     {
@@ -791,7 +792,7 @@ public final class StringFunctions
     @SqlType(StandardTypes.BIGINT)
     @ScalarFunctionConstantStats(avgRowSize = 8, minValue = 0)
     public static long levenshteinDistance(
-            @ScalarPropagateSourceStats(propagateAllStats = true, maxValue = MAX_TYPE_WIDTH, distinctValueCount = MAX_TYPE_WIDTH) @SqlType("varchar(x)") Slice left,
+            @ScalarPropagateSourceStats(propagateAllStats = true, maxValue = MAX_TYPE_WIDTH_VARCHAR, distinctValueCount = MAX_TYPE_WIDTH_VARCHAR) @SqlType("varchar(x)") Slice left,
             @SqlType("varchar(y)") Slice right)
     {
         int[] leftCodePoints = castToCodePoints(left);
@@ -846,7 +847,7 @@ public final class StringFunctions
     @SqlType(StandardTypes.BIGINT)
     @ScalarFunctionConstantStats(avgRowSize = 8, minValue = 0)
     public static long hammingDistance(
-            @ScalarPropagateSourceStats(propagateAllStats = true, distinctValueCount = MAX_TYPE_WIDTH) @SqlType("varchar(x)") Slice left,
+            @ScalarPropagateSourceStats(propagateAllStats = true, distinctValueCount = MAX_TYPE_WIDTH_VARCHAR) @SqlType("varchar(x)") Slice left,
             @SqlType("varchar(y)") Slice right)
     {
         int distance = 0;
