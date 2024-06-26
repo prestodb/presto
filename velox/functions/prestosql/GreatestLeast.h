@@ -17,6 +17,7 @@
 
 #include <cmath>
 #include "velox/functions/Macros.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 
 namespace facebook::velox::functions {
 namespace details {
@@ -90,12 +91,79 @@ struct ExtremeValueFunction {
     return lhs < rhs;
   }
 };
+
+template <typename TExec, bool isLeast>
+struct ExtremeValueFunctionTimestampWithTimezone {
+  VELOX_DEFINE_FUNCTION_TYPES(TExec);
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<TimestampWithTimezone>& result,
+      const arg_type<TimestampWithTimezone>& firstElement,
+      const arg_type<Variadic<TimestampWithTimezone>>& remainingElement) {
+    auto currentValue = firstElement;
+
+    for (auto element : remainingElement) {
+      auto candidateValue = element.value();
+
+      if constexpr (isLeast) {
+        if (unpackMillisUtc(candidateValue) < unpackMillisUtc(currentValue)) {
+          currentValue = candidateValue;
+        }
+      } else {
+        if (unpackMillisUtc(candidateValue) > unpackMillisUtc(currentValue)) {
+          currentValue = candidateValue;
+        }
+      }
+    }
+
+    result = currentValue;
+  }
+
+ private:
+  template <typename K>
+  bool greaterThan(const K& lhs, const K& rhs) const {
+    if constexpr (std::is_same_v<K, double> || std::is_same_v<K, float>) {
+      if (std::isnan(lhs)) {
+        return true;
+      }
+
+      if (std::isnan(rhs)) {
+        return false;
+      }
+    }
+
+    return lhs > rhs;
+  }
+
+  template <typename K>
+  bool smallerThan(const K& lhs, const K& rhs) const {
+    if constexpr (std::is_same_v<K, double> || std::is_same_v<K, float>) {
+      if (std::isnan(lhs)) {
+        return false;
+      }
+
+      if (std::isnan(rhs)) {
+        return true;
+      }
+    }
+
+    return lhs < rhs;
+  }
+};
 } // namespace details
 
 template <typename TExec, typename T>
 using LeastFunction = details::ExtremeValueFunction<TExec, T, true>;
 
+template <typename TExec>
+using LeastFunctionTimestampWithTimezone =
+    details::ExtremeValueFunctionTimestampWithTimezone<TExec, true>;
+
 template <typename TExec, typename T>
 using GreatestFunction = details::ExtremeValueFunction<TExec, T, false>;
+
+template <typename TExec>
+using GreatestFunctionTimestampWithTimezone =
+    details::ExtremeValueFunctionTimestampWithTimezone<TExec, false>;
 
 } // namespace facebook::velox::functions

@@ -225,6 +225,43 @@ TEST_F(GreatestLeastTest, leastTimeStamp) {
       {Timestamp(0, 0), Timestamp(10, 1), Timestamp(1, 10)});
 }
 
+TEST_F(GreatestLeastTest, greatestTimestampWithTimezone) {
+  auto greatest = [&](const std::string& a,
+                      const std::string& b,
+                      const std::string& c) {
+    auto result = evaluateOnce<std::string>(
+        "cast(greatest(cast(c0 as timestamp with time zone), cast(c1 as timestamp with time zone), cast(c2 as timestamp with time zone)) as varchar)",
+        std::optional(a),
+        std::optional(b),
+        std::optional(c));
+    return result.value();
+  };
+
+  auto least = [&](const std::string& a,
+                   const std::string& b,
+                   const std::string& c) {
+    auto result = evaluateOnce<std::string>(
+        "cast(least(cast(c0 as timestamp with time zone), cast(c1 as timestamp with time zone), cast(c2 as timestamp with time zone)) as varchar)",
+        std::optional(a),
+        std::optional(b),
+        std::optional(c));
+    return result.value();
+  };
+
+  EXPECT_EQ(
+      "2024-04-10 08:11:22.010 America/Los_Angeles",
+      greatest(
+          "2024-04-10 10:11:22.01 America/New_York",
+          "2024-02-10 10:11:22.01 America/New_York",
+          "2024-04-10 08:11:22.01 America/Los_Angeles"));
+  EXPECT_EQ(
+      "2024-02-10 10:11:22.010 America/New_York",
+      least(
+          "2024-04-10 10:11:22.01 America/New_York",
+          "2024-02-10 10:11:22.01 America/New_York",
+          "2024-04-10 08:11:22.01 America/Los_Angeles"));
+}
+
 TEST_F(GreatestLeastTest, greatestDate) {
   runTest<int32_t>(
       "greatest(c0, c1, c2)",

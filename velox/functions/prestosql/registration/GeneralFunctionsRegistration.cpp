@@ -54,6 +54,18 @@ void registerAllGreatestLeastFunctions(const std::string& prefix) {
   registerGreatestLeastFunction<ShortDecimal<P1, S1>>(prefix);
   registerGreatestLeastFunction<Date>(prefix);
   registerGreatestLeastFunction<Timestamp>(prefix);
+
+  registerFunction<
+      GreatestFunctionTimestampWithTimezone,
+      TimestampWithTimezone,
+      TimestampWithTimezone,
+      Variadic<TimestampWithTimezone>>({prefix + "greatest"});
+
+  registerFunction<
+      LeastFunctionTimestampWithTimezone,
+      TimestampWithTimezone,
+      TimestampWithTimezone,
+      Variadic<TimestampWithTimezone>>({prefix + "least"});
 }
 } // namespace
 
