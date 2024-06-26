@@ -47,7 +47,17 @@
 #include "velox/common/memory/SharedArbitrator.h"
 #include "velox/connectors/Connector.h"
 #include "velox/connectors/hive/HiveConnector.h"
+#include "velox/connectors/hive/HiveDataSink.h"
+#include "velox/connectors/hive/storage_adapters/abfs/RegisterAbfsFileSystem.h"
+#include "velox/connectors/hive/storage_adapters/gcs/RegisterGCSFileSystem.h"
+#include "velox/connectors/hive/storage_adapters/hdfs/RegisterHdfsFileSystem.h"
+#include "velox/connectors/hive/storage_adapters/s3fs/RegisterS3FileSystem.h"
+#include "velox/connectors/tpch/TpchConnector.h"
 #include "velox/core/Config.h"
+#include "velox/dwio/dwrf/RegisterDwrfReader.h"
+#include "velox/dwio/dwrf/RegisterDwrfWriter.h"
+#include "velox/dwio/parquet/RegisterParquetReader.h"
+#include "velox/dwio/parquet/RegisterParquetWriter.h"
 #include "velox/exec/OutputBufferManager.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
@@ -224,6 +234,28 @@ void PrestoServer::run() {
   registerMemoryArbitrators();
   registerShuffleInterfaceFactories();
   registerCustomOperators();
+
+  // These checks for connector factories can be removed after we remove the
+  // registrations from the Velox library.
+  if (!connector::hasConnectorFactory(
+          connector::hive::HiveConnectorFactory::kHiveConnectorName)) {
+    connector::registerConnectorFactory(
+        std::make_shared<connector::hive::HiveConnectorFactory>());
+    dwio::common::registerFileSinks();
+    dwrf::registerDwrfReaderFactory();
+    dwrf::registerDwrfWriterFactory();
+    parquet::registerParquetReaderFactory();
+    parquet::registerParquetWriterFactory();
+    filesystems::registerS3FileSystem();
+    filesystems::registerHdfsFileSystem();
+    filesystems::registerGCSFileSystem();
+    filesystems::abfs::registerAbfsFileSystem();
+  }
+  if (!connector::hasConnectorFactory(
+          connector::tpch::TpchConnectorFactory::kTpchConnectorName)) {
+    connector::registerConnectorFactory(
+        std::make_shared<connector::tpch::TpchConnectorFactory>());
+  }
 
   // Register Velox connector factory for iceberg.
   // The iceberg catalog is handled by the hive connector factory.
