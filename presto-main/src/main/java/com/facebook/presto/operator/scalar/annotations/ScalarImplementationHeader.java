@@ -76,9 +76,7 @@ public class ScalarImplementationHeader
         ScalarFunction scalarFunction = annotated.getAnnotation(ScalarFunction.class);
         ScalarOperator scalarOperator = annotated.getAnnotation(ScalarOperator.class);
         Optional<String> description = parseDescription(annotated);
-
         ImmutableList.Builder<ScalarImplementationHeader> builder = ImmutableList.builder();
-
         if (scalarFunction != null) {
             String baseName = scalarFunction.value().isEmpty() ? camelToSnake(annotatedName(annotated)) : scalarFunction.value();
             builder.add(new ScalarImplementationHeader(baseName, new ScalarHeader(description, scalarFunction.visibility(), scalarFunction.deterministic(), scalarFunction.calledOnNullInput())));
@@ -91,7 +89,6 @@ public class ScalarImplementationHeader
         if (scalarOperator != null) {
             builder.add(new ScalarImplementationHeader(scalarOperator.value(), new ScalarHeader(description, HIDDEN, true, scalarOperator.value().isCalledOnNullInput())));
         }
-
         List<ScalarImplementationHeader> result = builder.build();
         checkArgument(!result.isEmpty());
         return result;

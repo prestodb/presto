@@ -184,6 +184,7 @@ import com.facebook.presto.operator.scalar.MapValues;
 import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.operator.scalar.MathFunctions.LegacyLogFunction;
 import com.facebook.presto.operator.scalar.MultimapFromEntriesFunction;
+import com.facebook.presto.operator.scalar.ParametricScalar;
 import com.facebook.presto.operator.scalar.QuantileDigestFunctions;
 import com.facebook.presto.operator.scalar.Re2JRegexpFunctions;
 import com.facebook.presto.operator.scalar.Re2JRegexpReplaceLambdaFunction;
@@ -230,6 +231,7 @@ import com.facebook.presto.spi.function.FunctionNamespaceManager;
 import com.facebook.presto.spi.function.FunctionNamespaceTransactionHandle;
 import com.facebook.presto.spi.function.Parameter;
 import com.facebook.presto.spi.function.ScalarFunctionImplementation;
+import com.facebook.presto.spi.function.ScalarStatsHeader;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
@@ -550,6 +552,8 @@ public class BuiltInTypeAndFunctionNamespaceManager
     private final LoadingCache<SpecializedFunctionKey, AggregationFunctionImplementation> specializedAggregationCache;
     private final LoadingCache<SpecializedFunctionKey, WindowFunctionSupplier> specializedWindowCache;
     private final LoadingCache<ExactTypeSignature, Type> parametricTypeCache;
+    private final ConcurrentMap<Signature, ScalarStatsHeader> scalarFunctionStatsCache = new ConcurrentHashMap<>();
+
     private final MagicLiteralFunction magicLiteralFunction;
 
     private volatile FunctionMap functions = new FunctionMap();
@@ -614,7 +618,6 @@ public class BuiltInTypeAndFunctionNamespaceManager
 
         registerBuiltInFunctions(getBuiltInFunctions(featuresConfig));
         registerBuiltInTypes(featuresConfig);
-
         for (Type type : requireNonNull(types, "types is null")) {
             addType(type);
         }
@@ -1180,6 +1183,19 @@ public class BuiltInTypeAndFunctionNamespaceManager
                     function.isCalledOnNullInput(),
                     sqlFunction.getVersion(),
                     sqlFunction.getComplexTypeFunctionDescriptor());
+        }
+        else if (function instanceof ParametricScalar) {
+            ParametricScalar sqlFunction = (ParametricScalar) function;
+            return new FunctionMetadata(
+                    signature.getName(),
+                    signature.getArgumentTypes(),
+                    signature.getReturnType(),
+                    signature.getKind(),
+                    JAVA,
+                    function.isDeterministic(),
+                    function.isCalledOnNullInput(),
+                    sqlFunction.getComplexTypeFunctionDescriptor(),
+                    sqlFunction.getDetails().getScalarStatsHeader());
         }
         else {
             return new FunctionMetadata(

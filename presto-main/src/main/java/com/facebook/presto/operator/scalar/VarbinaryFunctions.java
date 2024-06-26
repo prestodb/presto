@@ -18,6 +18,8 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.ScalarFunctionConstantStats;
+import com.facebook.presto.spi.function.ScalarPropagateSourceStats;
 import com.facebook.presto.spi.function.SqlType;
 import com.google.common.hash.Hashing;
 import com.google.common.io.BaseEncoding;
@@ -32,6 +34,7 @@ import java.util.zip.CRC32;
 
 import static com.facebook.presto.operator.scalar.HmacFunctions.computeHash;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.function.PropagateSourceStats.SOURCE_STATS;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 
@@ -294,7 +297,9 @@ public final class VarbinaryFunctions
     @Description("compute md5 hash")
     @ScalarFunction
     @SqlType(StandardTypes.VARBINARY)
-    public static Slice md5(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    @ScalarFunctionConstantStats(avgRowSize = 16)
+    public static Slice md5(
+            @ScalarPropagateSourceStats(propagateAllStats = true) @SqlType(StandardTypes.VARBINARY) Slice slice)
     {
         return computeHash(Hashing.md5(), slice);
     }
@@ -302,7 +307,9 @@ public final class VarbinaryFunctions
     @Description("compute a hash equivalent to MurmurHash3_x64_128 (Murmur3F) in C++")
     @ScalarFunction("murmur3_x64_128")
     @SqlType(StandardTypes.VARBINARY)
-    public static Slice murmur3X64128(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    @ScalarFunctionConstantStats(avgRowSize = 16)
+    public static Slice murmur3X64128(
+            @ScalarPropagateSourceStats(distinctValueCount = SOURCE_STATS, nullFraction = SOURCE_STATS) @SqlType(StandardTypes.VARBINARY) Slice slice)
     {
         return computeHash(Hashing.murmur3_128(), slice);
     }
@@ -310,7 +317,9 @@ public final class VarbinaryFunctions
     @Description("compute sha1 hash")
     @ScalarFunction
     @SqlType(StandardTypes.VARBINARY)
-    public static Slice sha1(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    @ScalarFunctionConstantStats(avgRowSize = 20)
+    public static Slice sha1(
+            @ScalarPropagateSourceStats(distinctValueCount = SOURCE_STATS, nullFraction = SOURCE_STATS) @SqlType(StandardTypes.VARBINARY) Slice slice)
     {
         return computeHash(Hashing.sha1(), slice);
     }
@@ -318,7 +327,9 @@ public final class VarbinaryFunctions
     @Description("compute sha256 hash")
     @ScalarFunction
     @SqlType(StandardTypes.VARBINARY)
-    public static Slice sha256(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    @ScalarFunctionConstantStats(avgRowSize = 32)
+    public static Slice sha256(
+            @ScalarPropagateSourceStats(distinctValueCount = SOURCE_STATS, nullFraction = SOURCE_STATS) @SqlType(StandardTypes.VARBINARY) Slice slice)
     {
         return computeHash(Hashing.sha256(), slice);
     }
@@ -326,7 +337,9 @@ public final class VarbinaryFunctions
     @Description("compute sha512 hash")
     @ScalarFunction
     @SqlType(StandardTypes.VARBINARY)
-    public static Slice sha512(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    @ScalarFunctionConstantStats(avgRowSize = 64)
+    public static Slice sha512(
+            @ScalarPropagateSourceStats(distinctValueCount = SOURCE_STATS, nullFraction = SOURCE_STATS) @SqlType(StandardTypes.VARBINARY) Slice slice)
     {
         return computeHash(Hashing.sha512(), slice);
     }
@@ -428,7 +441,9 @@ public final class VarbinaryFunctions
     @Description("suffix starting at given index")
     @ScalarFunction
     @SqlType(StandardTypes.VARBINARY)
-    public static Slice substr(@SqlType(StandardTypes.VARBINARY) Slice slice, @SqlType(StandardTypes.BIGINT) long start)
+    public static Slice substr(
+            @ScalarPropagateSourceStats(propagateAllStats = true) @SqlType(StandardTypes.VARBINARY) Slice slice,
+            @SqlType(StandardTypes.BIGINT) long start)
     {
         return substr(slice, start, slice.length() - start + 1);
     }
@@ -436,7 +451,10 @@ public final class VarbinaryFunctions
     @Description("substring of given length starting at an index")
     @ScalarFunction
     @SqlType(StandardTypes.VARBINARY)
-    public static Slice substr(@SqlType(StandardTypes.VARBINARY) Slice slice, @SqlType(StandardTypes.BIGINT) long start, @SqlType(StandardTypes.BIGINT) long length)
+    public static Slice substr(
+            @ScalarPropagateSourceStats(propagateAllStats = true) @SqlType(StandardTypes.VARBINARY) Slice slice,
+            @SqlType(StandardTypes.BIGINT) long start,
+            @SqlType(StandardTypes.BIGINT) long length)
     {
         if (start == 0 || length <= 0 || slice.length() == 0) {
             return EMPTY_SLICE;

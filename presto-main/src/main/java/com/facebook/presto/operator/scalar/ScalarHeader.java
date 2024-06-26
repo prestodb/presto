@@ -13,8 +13,12 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.spi.function.ScalarStatsHeader;
+import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
+import com.google.common.collect.ImmutableMap;
 
+import java.util.Map;
 import java.util.Optional;
 
 public class ScalarHeader
@@ -23,6 +27,7 @@ public class ScalarHeader
     private final SqlFunctionVisibility visibility;
     private final boolean deterministic;
     private final boolean calledOnNullInput;
+    private final Map<Signature, ScalarStatsHeader> scalarStatsHeader;
 
     public ScalarHeader(Optional<String> description, SqlFunctionVisibility visibility, boolean deterministic, boolean calledOnNullInput)
     {
@@ -30,6 +35,24 @@ public class ScalarHeader
         this.visibility = visibility;
         this.deterministic = deterministic;
         this.calledOnNullInput = calledOnNullInput;
+        this.scalarStatsHeader = ImmutableMap.of();
+    }
+
+    public ScalarHeader(Optional<String> description, SqlFunctionVisibility visibility, boolean deterministic, boolean calledOnNullInput,
+            Map<Signature, ScalarStatsHeader> scalarStatsHeader)
+    {
+        this.description = description;
+        this.visibility = visibility;
+        this.deterministic = deterministic;
+        this.calledOnNullInput = calledOnNullInput;
+        this.scalarStatsHeader = scalarStatsHeader;
+    }
+
+    @Override
+    public String toString()
+    {
+        return String.format("ScalarHeader: description: %s visibility:%s deterministic: %b calledOnNullInput %b scalarStatsHeader %s",
+                description, visibility, deterministic, calledOnNullInput, scalarStatsHeader);
     }
 
     public Optional<String> getDescription()
@@ -50,5 +73,10 @@ public class ScalarHeader
     public boolean isCalledOnNullInput()
     {
         return calledOnNullInput;
+    }
+
+    public Map<Signature, ScalarStatsHeader> getScalarStatsHeader()
+    {
+        return scalarStatsHeader;
     }
 }

@@ -33,6 +33,7 @@ import com.facebook.presto.spi.function.BlockIndex;
 import com.facebook.presto.spi.function.BlockPosition;
 import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.LongVariableConstraint;
+import com.facebook.presto.spi.function.ScalarStatsHeader;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
@@ -98,6 +99,7 @@ public class ParametricScalarImplementation
     private final Map<String, Class<?>> specializedTypeParameters;
     private final Class<?> returnNativeContainerType;
     private final List<ParametricScalarImplementationChoice> choices;
+    private final Optional<ScalarStatsHeader> scalarStatsHeader = Optional.empty();
 
     private ParametricScalarImplementation(
             Signature signature,
@@ -169,7 +171,8 @@ public class ParametricScalarImplementation
                     boundMethodHandle.asType(javaMethodType(choice, boundSignature, functionAndTypeManager)),
                     boundConstructor));
         }
-        return Optional.of(new BuiltInScalarFunctionImplementation(implementationChoices));
+        BuiltInScalarFunctionImplementation value = new BuiltInScalarFunctionImplementation(implementationChoices);
+        return Optional.of(value);
     }
 
     @Override
