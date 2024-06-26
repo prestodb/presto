@@ -154,8 +154,10 @@ void readData(ReadFile* readFile) {
 
   std::vector<folly::IOBuf> iobufs(2);
   std::vector<Region> regions = {{0, 10}, {10, 5}};
-  readFile->preadv(
-      {regions.data(), regions.size()}, {iobufs.data(), iobufs.size()});
+  ASSERT_EQ(
+      10 + 5,
+      readFile->preadv(
+          {regions.data(), regions.size()}, {iobufs.data(), iobufs.size()}));
   ASSERT_EQ(
       std::string_view(
           reinterpret_cast<const char*>(iobufs[0].writableData()),

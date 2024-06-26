@@ -116,6 +116,7 @@ class AbfsReadFile::Impl {
   uint64_t preadv(
       folly::Range<const common::Region*> regions,
       folly::Range<folly::IOBuf*> iobufs) const {
+    size_t length = 0;
     VELOX_CHECK_EQ(regions.size(), iobufs.size());
     for (size_t i = 0; i < regions.size(); ++i) {
       const auto& region = regions[i];
@@ -123,7 +124,10 @@ class AbfsReadFile::Impl {
       output = folly::IOBuf(folly::IOBuf::CREATE, region.length);
       pread(region.offset, region.length, output.writableData());
       output.append(region.length);
+      length += region.length;
     }
+
+    return length;
   }
 
   uint64_t size() const {
