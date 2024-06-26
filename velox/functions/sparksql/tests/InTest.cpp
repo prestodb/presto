@@ -143,6 +143,7 @@ TEST_F(InTest, Float) {
   EXPECT_EQ(in<float>(-0.0, {-1.0, 0.0, 1.0}), true);
   EXPECT_EQ(in<float>(kNan, {-1.0, 0.0, 1.0}), false);
   EXPECT_EQ(in<float>(kNan, {kNan, -1.0, 0.0, 1.0}), true);
+  EXPECT_EQ(in<float>(std::nanf("1"), {kNan, -1.0, 0.0, 1.0}), true);
 }
 
 TEST_F(InTest, Double) {
@@ -151,6 +152,7 @@ TEST_F(InTest, Double) {
   EXPECT_EQ(in<double>(-0.0, {-1.0, 0.0, 1.0}), true);
   EXPECT_EQ(in<double>(kNan, {-1.0, 0.0, 1.0}), false);
   EXPECT_EQ(in<double>(kNan, {kNan, -1.0, 0.0, 1.0}), true);
+  EXPECT_EQ(in<double>(std::nan("1"), {kNan, -1.0, 0.0, 1.0}), true);
   EXPECT_EQ(in<double>(kInf, {kNan, -1.0, 0.0, 1.0}), false);
   EXPECT_EQ(in<double>(kInf, {kNan, -1.0, 0.0, 1.0, kInf}), true);
   EXPECT_EQ(in<double>(-kInf, {kNan, -1.0, 0.0, 1.0}), false);

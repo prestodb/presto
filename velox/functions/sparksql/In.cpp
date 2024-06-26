@@ -30,6 +30,18 @@ template <typename T>
 class Set : public folly::F14FastSet<T, folly::hasher<T>, Equal<T>> {};
 
 template <>
+class Set<float> : public folly::F14FastSet<
+                       float,
+                       util::floating_point::NaNAwareHash<float>,
+                       util::floating_point::NaNAwareEquals<float>> {};
+
+template <>
+class Set<double> : public folly::F14FastSet<
+                        double,
+                        util::floating_point::NaNAwareHash<double>,
+                        util::floating_point::NaNAwareEquals<double>> {};
+
+template <>
 class Set<StringView> {
  public:
   using value_type = std::string_view;
