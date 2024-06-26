@@ -63,7 +63,7 @@ std::string Profiler::resultPath_;
 tsan_atomic<bool> Profiler::shouldStop_;
 folly::Promise<bool> Profiler::sleepPromise_;
 tsan_atomic<bool> Profiler::shouldSaveResult_;
-int64_t Profiler::sampleStartTime_;
+tsan_atomic<int64_t> Profiler::sampleStartTime_;
 int64_t Profiler::cpuAtSampleStart_;
 int64_t Profiler::cpuAtLastCheck_;
 std::function<void()> Profiler::startExtra_;

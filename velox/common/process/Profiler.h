@@ -65,7 +65,7 @@ class Profiler {
   static tsan_atomic<bool> shouldSaveResult_;
 
   // Time of starting the profile. Seconds from epoch.
-  static int64_t sampleStartTime_;
+  static tsan_atomic<int64_t> sampleStartTime_;
 
   // CPU time at start of profile.
   static int64_t cpuAtSampleStart_;
