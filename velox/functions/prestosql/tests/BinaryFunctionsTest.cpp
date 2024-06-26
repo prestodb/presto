@@ -411,7 +411,20 @@ TEST_F(BinaryFunctionsTest, toBase64Url) {
 
 TEST_F(BinaryFunctionsTest, fromBase64) {
   const auto fromBase64 = [&](std::optional<std::string> value) {
-    return evaluateOnce<std::string>("from_base64(c0)", value);
+    // from_base64 allows VARCHAR and VARBINARY inputs.
+    auto result =
+        evaluateOnce<std::string>("from_base64(c0)", VARCHAR(), value);
+    auto otherResult =
+        evaluateOnce<std::string>("from_base64(c0)", VARBINARY(), value);
+
+    VELOX_CHECK_EQ(result.has_value(), otherResult.has_value());
+
+    if (!result.has_value()) {
+      return result;
+    }
+
+    VELOX_CHECK_EQ(result.value(), otherResult.value());
+    return result;
   };
 
   EXPECT_EQ(std::nullopt, fromBase64(std::nullopt));
@@ -424,8 +437,12 @@ TEST_F(BinaryFunctionsTest, fromBase64) {
       "Hello World from Velox!",
       fromBase64("SGVsbG8gV29ybGQgZnJvbSBWZWxveCE="));
 
-  EXPECT_THROW(fromBase64("YQ="), VeloxUserError);
-  EXPECT_THROW(fromBase64("YQ==="), VeloxUserError);
+  VELOX_ASSERT_USER_THROW(
+      fromBase64("YQ="),
+      "Base64::decode() - invalid input string: string length is not a multiple of 4.");
+  VELOX_ASSERT_USER_THROW(
+      fromBase64("YQ==="),
+      "Base64::decode() - invalid input string: string length is not a multiple of 4.");
 
   // Check encoded strings without padding
   EXPECT_EQ("a", fromBase64("YQ"));

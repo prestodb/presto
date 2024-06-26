@@ -282,21 +282,19 @@ struct ToBase64Function {
   }
 };
 
-template <typename T>
+template <typename TExec>
 struct FromBase64Function {
-  VELOX_DEFINE_FUNCTION_TYPES(T);
-  FOLLY_ALWAYS_INLINE void call(
-      out_type<Varbinary>& result,
-      const arg_type<Varchar>& input) {
-    try {
-      auto inputSize = input.size();
-      result.resize(
-          encoding::Base64::calculateDecodedSize(input.data(), inputSize));
-      encoding::Base64::decode(
-          input.data(), inputSize, result.data(), result.size());
-    } catch (const encoding::Base64Exception& e) {
-      VELOX_USER_FAIL(e.what());
-    }
+  VELOX_DEFINE_FUNCTION_TYPES(TExec);
+
+  // T can be either arg_type<Varchar> or arg_type<Varbinary>. These are the
+  // same, but hard-coding one of them might be confusing.
+  template <typename T>
+  FOLLY_ALWAYS_INLINE void call(out_type<Varbinary>& result, const T& input) {
+    auto inputSize = input.size();
+    result.resize(
+        encoding::Base64::calculateDecodedSize(input.data(), inputSize));
+    encoding::Base64::decode(
+        input.data(), inputSize, result.data(), result.size());
   }
 };
 
