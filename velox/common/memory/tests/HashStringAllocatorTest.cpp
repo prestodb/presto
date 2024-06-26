@@ -678,5 +678,31 @@ TEST_F(HashStringAllocatorTest, clear) {
   EXPECT_EQ(allocator_->retainedSize(), 0);
 }
 
+TEST_F(HashStringAllocatorTest, freezeAndExecute) {
+  std::string str = "abc";
+  StringView view(str.data(), str.size());
+  allocator_->copyMultipart(view, reinterpret_cast<char*>(&view), 0);
+
+  str.clear();
+
+  // Freeing memory requires the HashStringAllocator to be mutable.
+  VELOX_ASSERT_THROW(
+      allocator_->freezeAndExecute([&]() {
+        allocator_->free(HashStringAllocator::headerOf(view.data()));
+      }),
+      "The HashStringAllocator is immutable.");
+
+  HashStringAllocator::Header* header;
+
+  // Allocating memory requires the HashStringAllocator to be mutable.
+  VELOX_ASSERT_THROW(
+      allocator_->freezeAndExecute(
+          [&]() { header = allocator_->allocate(24); }),
+      "The HashStringAllocator is immutable.");
+
+  // Simply fetching state should not require the HashStringAllocator to be
+  // mutable.
+  allocator_->freezeAndExecute([&]() { allocator_->cumulativeBytes(); });
+}
 } // namespace
 } // namespace facebook::velox

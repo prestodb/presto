@@ -962,8 +962,8 @@ void GroupingSet::spill() {
     return;
   }
 
+  auto* rows = table_->rows();
   if (!hasSpilled()) {
-    auto rows = table_->rows();
     VELOX_DCHECK(pool_.trackUsage());
     VELOX_CHECK(numDistinctSpillFilesPerPartition_.empty());
     spiller_ = std::make_unique<Spiller>(
@@ -980,7 +980,12 @@ void GroupingSet::spill() {
     VELOX_CHECK_EQ(
         spiller_->state().maxPartitions(), 1 << spillConfig_->numPartitionBits);
   }
-  spiller_->spill();
+  // Spilling may execute on multiple partitions in parallel, and
+  // HashStringAllocator is not thread safe. If any aggregations
+  // allocate/deallocate memory during spilling it can lead to concurrency bugs.
+  // Freeze the HashStringAllocator to make it effectively immutable and
+  // guarantee we don't accidentally enter an unsafe situation.
+  rows->stringAllocator().freezeAndExecute([&]() { spiller_->spill(); });
   if (isDistinct() && numDistinctSpillFilesPerPartition_.empty()) {
     size_t totalNumDistinctSpilledFiles{0};
     numDistinctSpillFilesPerPartition_.resize(
@@ -1015,7 +1020,13 @@ void GroupingSet::spill(const RowContainerIterator& rowIterator) {
       spillConfig_,
       spillStats_);
 
-  spiller_->spill(rowIterator);
+  // Spilling may execute on multiple partitions in parallel, and
+  // HashStringAllocator is not thread safe. If any aggregations
+  // allocate/deallocate memory during spilling it can lead to concurrency bugs.
+  // Freeze the HashStringAllocator to make it effectively immutable and
+  // guarantee we don't accidentally enter an unsafe situation.
+  rows->stringAllocator().freezeAndExecute(
+      [&]() { spiller_->spill(rowIterator); });
   table_->clear();
 }
 

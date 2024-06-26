@@ -175,7 +175,7 @@ class HashStringAllocator : public StreamArena {
   };
 
   explicit HashStringAllocator(memory::MemoryPool* pool)
-      : StreamArena(pool), pool_(pool) {}
+      : StreamArena(pool), state_(pool) {}
 
   ~HashStringAllocator();
 
@@ -203,7 +203,8 @@ class HashStringAllocator : public StreamArena {
   /// address of Header.
   Header* allocate(int32_t size) {
     VELOX_CHECK_NULL(
-        currentHeader_, "Do not call allocate() when a write is in progress");
+        state_.currentHeader(),
+        "Do not call allocate() when a write is in progress");
     return allocate(std::max(size, kMinAlloc), true);
   }
 
@@ -293,7 +294,7 @@ class HashStringAllocator : public StreamArena {
 
   /// Returns the total memory footprint of 'this'.
   int64_t retainedSize() const {
-    return pool_.allocatedBytes() + sizeFromPool_;
+    return state_.pool().allocatedBytes() + state_.sizeFromPool();
   }
 
   /// Adds the allocation of 'header' and any extensions (if header has
@@ -305,7 +306,8 @@ class HashStringAllocator : public StreamArena {
   /// the pointer because in the worst case we would have one allocation that
   /// chains many small free blocks together via kContinued.
   uint64_t freeSpace() const {
-    int64_t minFree = freeBytes_ - numFree_ * (sizeof(Header) + sizeof(void*));
+    int64_t minFree = state_.freeBytes() -
+        state_.numFree() * (sizeof(Header) + sizeof(void*));
     VELOX_CHECK_GE(minFree, 0, "Guaranteed free space cannot be negative");
     return minFree;
   }
@@ -314,11 +316,11 @@ class HashStringAllocator : public StreamArena {
   void clear() override;
 
   memory::MemoryPool* pool() const {
-    return pool_.pool();
+    return state_.pool().pool();
   }
 
   uint64_t cumulativeBytes() const {
-    return cumulativeBytes_;
+    return state_.cumulativeBytes();
   }
 
   /// Checks the free space accounting and consistency of Headers. Throws when
@@ -337,6 +339,20 @@ class HashStringAllocator : public StreamArena {
   void checkEmpty() const;
 
   std::string toString() const;
+
+  /// Effectively makes this immutable while executing f, any attempt to access
+  /// state_ in a mutable way while f is executing will cause an exception to be
+  /// thrown.
+  template <typename F>
+  void freezeAndExecute(F&& f) {
+    state_.freeze();
+
+    SCOPE_EXIT {
+      state_.unfreeze();
+    };
+
+    f();
+  }
 
  private:
   static constexpr int32_t kUnitSize = 16 * memory::AllocationTraits::kPageSize;
@@ -392,38 +408,108 @@ class HashStringAllocator : public StreamArena {
   // Returns the free list index for 'size'.
   int32_t freeListIndex(int size);
 
-  // Circular list of free blocks.
-  CompactDoubleList free_[kNumFreeLists];
+  /// A class that wraps any fields in the HashStringAllocator, it's main
+  /// purpose is to simplify the freeze/unfreeze mechanic.  Fields are exposed
+  /// via accessor methods, attempting to invoke a non-const accessor when the
+  /// HashStringAllocator is frozen will cause an exception to be thrown.
+  class State {
+   public:
+    explicit State(memory::MemoryPool* pool) : pool_(pool) {}
 
-  // Bitmap with a 1 if the corresponding list in 'free_' is not empty.
-  uint64_t freeNonEmpty_[bits::nwords(kNumFreeLists)]{};
+    void freeze() {
+      VELOX_CHECK(
+          mutable_,
+          "Attempting to freeze an already frozen HashStringAllocator.");
+      mutable_ = false;
+    }
 
-  // Count of elements in 'free_'. This is 0 when all free_[i].next() ==
-  // &free_[i].
-  uint64_t numFree_ = 0;
+    void unfreeze() {
+      VELOX_CHECK(
+          !mutable_,
+          "Attempting to unfreeze an already unfrozen HashStringAllocator.");
+      mutable_ = true;
+    }
 
-  // Sum of the size of blocks in 'free_', excluding headers.
-  uint64_t freeBytes_ = 0;
+   private:
+// Every field has two accessors, one that returns a reference and one that
+// returns a const reference.  The one that returns a reference ensures that the
+// HashStringAllocator isn't frozen first.
+#define DECLARE_GETTERS(TYPE, NAME) \
+ public:                            \
+  inline TYPE& NAME() {             \
+    assertMutability();             \
+    return NAME##_;                 \
+  }                                 \
+                                    \
+  inline TYPE const& NAME() const { \
+    return NAME##_;                 \
+  }
 
-  // Counter of allocated bytes. The difference of two point in time values
-  // tells how much memory has been consumed by activity between these points in
-  // time. Incremented by allocation and decremented by free. Used for tracking
-  // the row by row space usage in a RowContainer.
-  uint64_t cumulativeBytes_{0};
+// Declare a default initialized field.
+#define DECLARE_FIELD(TYPE, NAME) \
+  DECLARE_GETTERS(TYPE, NAME)     \
+                                  \
+ private:                         \
+  TYPE NAME##_;
 
-  // Pointer to Header for the range being written. nullptr if a write is not in
-  // progress.
-  Position startPosition_;
-  Header* currentHeader_{nullptr};
+// Declare a field initialized with a specific value.
+#define DECLARE_FIELD_WITH_INIT_VALUE(TYPE, NAME, VALUE) \
+  DECLARE_GETTERS(TYPE, NAME)                            \
+                                                         \
+ private:                                                \
+  TYPE NAME##_{VALUE};
 
-  // Pool for getting new slabs.
-  memory::AllocationPool pool_;
+    typedef CompactDoubleList FreeList[kNumFreeLists];
+    typedef uint64_t FreeNonEmptyBitMap[bits::nwords(kNumFreeLists)];
+    typedef folly::F14FastMap<void*, size_t> AllocationsFromPool;
 
-  // Map from pointer to size for large blocks allocated from pool().
-  folly::F14FastMap<void*, size_t> allocationsFromPool_;
+    // Circular list of free blocks.
+    DECLARE_FIELD(FreeList, freeLists);
 
-  // Sum of sizes in 'allocationsFromPool_'.
-  int64_t sizeFromPool_{0};
+    // Bitmap with a 1 if the corresponding list in 'free_' is not empty.
+    DECLARE_FIELD_WITH_INIT_VALUE(FreeNonEmptyBitMap, freeNonEmpty, {});
+
+    // Count of elements in 'free_'. This is 0 when all free_[i].next() ==
+    // &free_[i].
+    DECLARE_FIELD_WITH_INIT_VALUE(uint64_t, numFree, 0);
+
+    // Sum of the size of blocks in 'free_', excluding headers.
+    DECLARE_FIELD_WITH_INIT_VALUE(uint64_t, freeBytes, 0);
+
+    // Counter of allocated bytes. The difference of two point in time values
+    // tells how much memory has been consumed by activity between these points
+    // in time. Incremented by allocation and decremented by free. Used for
+    // tracking the row by row space usage in a RowContainer.
+    DECLARE_FIELD_WITH_INIT_VALUE(uint64_t, cumulativeBytes, 0);
+
+    // Pointer to Header for the range being written. nullptr if a write is not
+    // in progress.
+    DECLARE_FIELD(Position, startPosition);
+    DECLARE_FIELD_WITH_INIT_VALUE(Header*, currentHeader, nullptr);
+
+    // Pool for getting new slabs.
+    DECLARE_FIELD(memory::AllocationPool, pool);
+
+    // Map from pointer to size for large blocks allocated from pool().
+    DECLARE_FIELD(AllocationsFromPool, allocationsFromPool);
+
+    // Sum of sizes in 'allocationsFromPool_'.
+    DECLARE_FIELD_WITH_INIT_VALUE(int64_t, sizeFromPool, 0);
+
+#undef DECLARE_FIELD_WITH_INIT_VALUE
+#undef DECLARE_FIELD
+#undef DECLARE_GETTERS
+
+    void assertMutability() const {
+      VELOX_CHECK(mutable_, "The HashStringAllocator is immutable.");
+    }
+
+    tsan_atomic<bool> mutable_ = true;
+  };
+
+  // This should be the only field in HashStringAllocator, any additional fields
+  // should be added as private members of State exposed through accessors.
+  State state_;
 };
 
 // Utility for keeping track of allocation between two points in

@@ -86,40 +86,41 @@ HashStringAllocator::~HashStringAllocator() {
 }
 
 void HashStringAllocator::clear() {
-  numFree_ = 0;
-  freeBytes_ = 0;
-  std::fill(std::begin(freeNonEmpty_), std::end(freeNonEmpty_), 0);
-  for (auto& pair : allocationsFromPool_) {
+  state_.numFree() = 0;
+  state_.freeBytes() = 0;
+  std::fill(
+      std::begin(state_.freeNonEmpty()), std::end(state_.freeNonEmpty()), 0);
+  for (auto& pair : state_.allocationsFromPool()) {
     const auto size = pair.second;
     pool()->free(pair.first, size);
-    sizeFromPool_ -= size;
-    cumulativeBytes_ -= size;
+    state_.sizeFromPool() -= size;
+    state_.cumulativeBytes() -= size;
   }
-  allocationsFromPool_.clear();
+  state_.allocationsFromPool().clear();
   for (auto i = 0; i < kNumFreeLists; ++i) {
-    new (&free_[i]) CompactDoubleList();
+    new (&state_.freeLists()[i]) CompactDoubleList();
   }
-  pool_.clear();
+  state_.pool().clear();
 }
 
 void* HashStringAllocator::allocateFromPool(size_t size) {
   auto* ptr = pool()->allocate(size);
-  cumulativeBytes_ += size;
-  allocationsFromPool_[ptr] = size;
-  sizeFromPool_ += size;
+  state_.cumulativeBytes() += size;
+  state_.allocationsFromPool()[ptr] = size;
+  state_.sizeFromPool() += size;
   return ptr;
 }
 
 void HashStringAllocator::freeToPool(void* ptr, size_t size) {
-  auto it = allocationsFromPool_.find(ptr);
+  auto it = state_.allocationsFromPool().find(ptr);
   VELOX_CHECK(
-      it != allocationsFromPool_.end(),
+      it != state_.allocationsFromPool().end(),
       "freeToPool for block not allocated from pool of HashStringAllocator");
   VELOX_CHECK_EQ(
       size, it->second, "Bad size in HashStringAllocator::freeToPool()");
-  allocationsFromPool_.erase(it);
-  sizeFromPool_ -= size;
-  cumulativeBytes_ -= size;
+  state_.allocationsFromPool().erase(it);
+  state_.sizeFromPool() -= size;
+  state_.cumulativeBytes() -= size;
   pool()->free(ptr, size);
 }
 
@@ -152,21 +153,21 @@ HashStringAllocator::Position HashStringAllocator::newWrite(
     ByteOutputStream& stream,
     int32_t preferredSize) {
   VELOX_CHECK_NULL(
-      currentHeader_,
+      state_.currentHeader(),
       "Do not call newWrite before finishing the previous write to "
       "HashStringAllocator");
-  currentHeader_ = allocate(preferredSize, false);
+  state_.currentHeader() = allocate(preferredSize, false);
 
   stream.setRange(
       ByteRange{
-          reinterpret_cast<uint8_t*>(currentHeader_->begin()),
-          currentHeader_->size(),
+          reinterpret_cast<uint8_t*>(state_.currentHeader()->begin()),
+          state_.currentHeader()->size(),
           0},
       0);
 
-  startPosition_ = Position::atOffset(currentHeader_, 0);
+  state_.startPosition() = Position::atOffset(state_.currentHeader(), 0);
 
-  return startPosition_;
+  return state_.startPosition();
 }
 
 void HashStringAllocator::extendWrite(
@@ -192,8 +193,8 @@ void HashStringAllocator::extendWrite(
           position.header->size(),
           static_cast<int32_t>(position.position - position.header->begin())},
       0);
-  currentHeader_ = header;
-  startPosition_ = position;
+  state_.currentHeader() = header;
+  state_.startPosition() = position;
 }
 
 std::pair<HashStringAllocator::Position, HashStringAllocator::Position>
@@ -201,61 +202,64 @@ HashStringAllocator::finishWrite(
     ByteOutputStream& stream,
     int32_t numReserveBytes) {
   VELOX_CHECK_NOT_NULL(
-      currentHeader_, "Must call newWrite or extendWrite before finishWrite");
+      state_.currentHeader(),
+      "Must call newWrite or extendWrite before finishWrite");
   auto* writePosition = stream.writePosition();
-  const auto offset = writePosition - currentHeader_->begin();
+  const auto offset = writePosition - state_.currentHeader()->begin();
 
   VELOX_CHECK_GE(
       offset, 0, "finishWrite called with writePosition out of range");
   VELOX_CHECK_LE(
       offset,
-      currentHeader_->usableSize(),
+      state_.currentHeader()->usableSize(),
       "finishWrite called with writePosition out of range");
 
-  const Position currentPosition = Position::atOffset(currentHeader_, offset);
-  if (currentHeader_->isContinued()) {
-    free(currentHeader_->nextContinued());
-    currentHeader_->clearContinued();
+  const Position currentPosition =
+      Position::atOffset(state_.currentHeader(), offset);
+  if (state_.currentHeader()->isContinued()) {
+    free(state_.currentHeader()->nextContinued());
+    state_.currentHeader()->clearContinued();
   }
   // Free remainder of block if there is a lot left over.
   freeRestOfBlock(
-      currentHeader_,
-      writePosition - currentHeader_->begin() + numReserveBytes);
-  currentHeader_ = nullptr;
+      state_.currentHeader(),
+      writePosition - state_.currentHeader()->begin() + numReserveBytes);
+  state_.currentHeader() = nullptr;
 
   // The starting position may have shifted if it was at the end of the block
   // and the block was extended. Calculate the new position.
-  if (startPosition_.header->isContinued()) {
-    auto* header = startPosition_.header;
-    const auto offset = startPosition_.offset();
+  if (state_.startPosition().header->isContinued()) {
+    auto* header = state_.startPosition().header;
+    const auto offset = state_.startPosition().offset();
     const auto extra = offset - header->usableSize();
     if (extra > 0) {
       auto* newHeader = header->nextContinued();
       auto* newPosition = newHeader->begin() + extra;
-      startPosition_ = {newHeader, newPosition};
+      state_.startPosition() = {newHeader, newPosition};
     }
   }
-  return {startPosition_, currentPosition};
+  return {state_.startPosition(), currentPosition};
 }
 
 void HashStringAllocator::newSlab() {
   constexpr int32_t kSimdPadding = simd::kPadding - sizeof(Header);
-  const int64_t needed = pool_.allocatedBytes() >= pool_.hugePageThreshold()
+  const int64_t needed =
+      state_.pool().allocatedBytes() >= state_.pool().hugePageThreshold()
       ? memory::AllocationTraits::kHugePageSize
       : kUnitSize;
-  auto* run = pool_.allocateFixed(needed);
+  auto* run = state_.pool().allocateFixed(needed);
   VELOX_CHECK_NOT_NULL(run);
   // We check we got exactly the requested amount. checkConsistency() depends on
   // slabs made here coinciding with ranges from AllocationPool::rangeAt().
   // Sometimes the last range can be several huge pages for severl huge page
   // sized arenas but checkConsistency() can interpret that.
-  VELOX_CHECK_EQ(pool_.freeBytes(), 0);
+  VELOX_CHECK_EQ(state_.pool().freeBytes(), 0);
   const auto available = needed - sizeof(Header) - kSimdPadding;
   VELOX_CHECK_GT(available, 0);
 
   // Write end marker.
   *reinterpret_cast<uint32_t*>(run + available) = Header::kArenaEnd;
-  cumulativeBytes_ += available;
+  state_.cumulativeBytes() += available;
 
   // Add the new memory to the free list: Placement construct a header that
   // covers the space from start to the end marker and add this to free list.
@@ -270,18 +274,18 @@ void HashStringAllocator::newRange(
   // Allocates at least kMinContiguous or to the end of the current run. At the
   // end of the write, the unused space will be made free.
   VELOX_CHECK_NOT_NULL(
-      currentHeader_,
+      state_.currentHeader(),
       "Must have called newWrite or extendWrite before newRange");
   auto* newHeader = allocate(bytes, contiguous);
 
   // Copy the last word of the current range to the head of new range, and then
   // used the space to store the new range pointer.
   auto** lastWordPtr = reinterpret_cast<void**>(
-      currentHeader_->end() - Header::kContinuedPtrSize);
+      state_.currentHeader()->end() - Header::kContinuedPtrSize);
   *reinterpret_cast<void**>(newHeader->begin()) = *lastWordPtr;
   *lastWordPtr = newHeader;
-  currentHeader_->setContinued();
-  currentHeader_ = newHeader;
+  state_.currentHeader()->setContinued();
+  state_.currentHeader() = newHeader;
   if (lastRange) {
     // The last bytes of the last range are no longer payload. So do not count
     // them in size and do not overwrite them if overwriting the multi-range
@@ -290,8 +294,8 @@ void HashStringAllocator::newRange(
     lastRange->position = std::min(lastRange->size, lastRange->position);
   }
   *range = ByteRange{
-      reinterpret_cast<uint8_t*>(currentHeader_->begin()),
-      currentHeader_->size(),
+      reinterpret_cast<uint8_t*>(state_.currentHeader()->begin()),
+      state_.currentHeader()->size(),
       Header::kContinuedPtrSize};
 }
 
@@ -345,8 +349,8 @@ void HashStringAllocator::removeFromFreeList(Header* header) {
   header->clearFree();
   const auto index = freeListIndex(header->size());
   reinterpret_cast<CompactDoubleList*>(header->begin())->remove();
-  if (free_[index].empty()) {
-    bits::clearBit(freeNonEmpty_, index);
+  if (state_.freeLists()[index].empty()) {
+    bits::clearBit(state_.freeNonEmpty(), index);
   }
 }
 
@@ -375,14 +379,15 @@ HashStringAllocator::Header* HashStringAllocator::allocateFromFreeLists(
     int32_t preferredSize,
     bool mustHaveSize,
     bool isFinalSize) {
-  if (numFree_ == 0) {
+  if (state_.numFree() == 0) {
     return nullptr;
   }
   preferredSize = std::max(kMinAlloc, preferredSize);
   const auto index = freeListIndex(preferredSize);
-  auto available = bits::findFirstBit(freeNonEmpty_, index, kNumFreeLists);
+  auto available =
+      bits::findFirstBit(state_.freeNonEmpty(), index, kNumFreeLists);
   if (!mustHaveSize && available == -1) {
-    available = bits::findLastBit(freeNonEmpty_, 0, index);
+    available = bits::findLastBit(state_.freeNonEmpty(), 0, index);
   }
   if (available == -1) {
     return nullptr;
@@ -398,21 +403,21 @@ HashStringAllocator::Header* HashStringAllocator::allocateFromFreeList(
     bool mustHaveSize,
     bool isFinalSize,
     int32_t freeListIndex) {
-  auto* item = free_[freeListIndex].next();
-  if (item == &free_[freeListIndex]) {
+  auto* item = state_.freeLists()[freeListIndex].next();
+  if (item == &state_.freeLists()[freeListIndex]) {
     return nullptr;
   }
   auto* found = headerOf(item);
   VELOX_CHECK(
       found->isFree() && (!mustHaveSize || found->size() >= preferredSize));
-  --numFree_;
-  freeBytes_ -= found->size() + sizeof(Header);
+  --state_.numFree();
+  state_.freeBytes() -= found->size() + sizeof(Header);
   removeFromFreeList(found);
   auto* next = found->next();
   if (next != nullptr) {
     next->clearPreviousFree();
   }
-  cumulativeBytes_ += found->size();
+  state_.cumulativeBytes() += found->size();
   if (isFinalSize) {
     freeRestOfBlock(found, preferredSize);
   }
@@ -428,18 +433,19 @@ void HashStringAllocator::free(Header* header) {
       headerToFree->clearContinued();
     }
     if (headerToFree->size() > kMaxAlloc &&
-        !pool_.isInCurrentRange(headerToFree) &&
-        allocationsFromPool_.find(headerToFree) != allocationsFromPool_.end()) {
+        !state_.pool().isInCurrentRange(headerToFree) &&
+        state_.allocationsFromPool().find(headerToFree) !=
+            state_.allocationsFromPool().end()) {
       freeToPool(headerToFree, headerToFree->size() + sizeof(Header));
     } else {
       VELOX_CHECK(!headerToFree->isFree());
-      freeBytes_ += headerToFree->size() + sizeof(Header);
-      cumulativeBytes_ -= headerToFree->size();
+      state_.freeBytes() += headerToFree->size() + sizeof(Header);
+      state_.cumulativeBytes() -= headerToFree->size();
       Header* next = headerToFree->next();
       if (next != nullptr) {
         VELOX_CHECK(!next->isPreviousFree());
         if (next->isFree()) {
-          --numFree_;
+          --state_.numFree();
           removeFromFreeList(next);
           headerToFree->setSize(
               headerToFree->size() + next->size() + sizeof(Header));
@@ -455,12 +461,12 @@ void HashStringAllocator::free(Header* header) {
 
         headerToFree = previousFree;
       } else {
-        ++numFree_;
+        ++state_.numFree();
       }
       const auto freedSize = headerToFree->size();
       const auto freeIndex = freeListIndex(freedSize);
-      bits::setBit(freeNonEmpty_, freeIndex);
-      free_[freeIndex].insert(
+      bits::setBit(state_.freeNonEmpty(), freeIndex);
+      state_.freeLists()[freeIndex].insert(
           reinterpret_cast<CompactDoubleList*>(headerToFree->begin()));
       markAsFree(headerToFree);
     }
@@ -549,20 +555,20 @@ inline bool HashStringAllocator::storeStringFast(
   const auto roundedBytes = std::max(numBytes, kMinAlloc);
 
   Header* header = nullptr;
-  if (free_[kNumFreeLists - 1].empty()) {
+  if (state_.freeLists()[kNumFreeLists - 1].empty()) {
     if (roundedBytes >= kMaxAlloc) {
       return false;
     }
     const auto index = freeListIndex(roundedBytes);
     const auto available =
-        bits::findFirstBit(freeNonEmpty_, index, kNumFreeLists);
+        bits::findFirstBit(state_.freeNonEmpty(), index, kNumFreeLists);
     if (available < 0) {
       return false;
     }
     header = allocateFromFreeList(roundedBytes, true, true, available);
     VELOX_CHECK_NOT_NULL(header);
   } else {
-    auto& freeList = free_[kNumFreeLists - 1];
+    auto& freeList = state_.freeLists()[kNumFreeLists - 1];
     header = headerOf(freeList.next());
     const auto spaceTaken = roundedBytes + sizeof(Header);
     if (spaceTaken > header->size()) {
@@ -580,8 +586,8 @@ inline bool HashStringAllocator::storeStringFast(
       freeList.nextMoved(
           reinterpret_cast<CompactDoubleList*>(freeHeader->begin()));
       header->setSize(roundedBytes);
-      freeBytes_ -= spaceTaken;
-      cumulativeBytes_ += roundedBytes;
+      state_.freeBytes() -= spaceTaken;
+      state_.cumulativeBytes() += roundedBytes;
     } else {
       header =
           allocateFromFreeList(roundedBytes, true, true, kNumFreeLists - 1);
@@ -620,17 +626,17 @@ void HashStringAllocator::copyMultipartNoInline(
 std::string HashStringAllocator::toString() const {
   std::ostringstream out;
 
-  out << "allocated: " << cumulativeBytes_ << " bytes" << std::endl;
-  out << "free: " << freeBytes_ << " bytes in " << numFree_ << " blocks"
-      << std::endl;
-  out << "standalone allocations: " << sizeFromPool_ << " bytes in "
-      << allocationsFromPool_.size() << " allocations" << std::endl;
-  out << "ranges: " << pool_.numRanges() << std::endl;
+  out << "allocated: " << state_.cumulativeBytes() << " bytes" << std::endl;
+  out << "free: " << state_.freeBytes() << " bytes in " << state_.numFree()
+      << " blocks" << std::endl;
+  out << "standalone allocations: " << state_.sizeFromPool() << " bytes in "
+      << state_.allocationsFromPool().size() << " allocations" << std::endl;
+  out << "ranges: " << state_.pool().numRanges() << std::endl;
 
   static const auto kHugePageSize = memory::AllocationTraits::kHugePageSize;
 
-  for (auto i = 0; i < pool_.numRanges(); ++i) {
-    auto topRange = pool_.rangeAt(i);
+  for (auto i = 0; i < state_.pool().numRanges(); ++i) {
+    auto topRange = state_.pool().rangeAt(i);
     auto topRangeSize = topRange.size();
 
     out << "range " << i << ": " << topRangeSize << " bytes" << std::endl;
@@ -662,8 +668,8 @@ int64_t HashStringAllocator::checkConsistency() const {
   uint64_t numFree = 0;
   uint64_t freeBytes = 0;
   int64_t allocatedBytes = 0;
-  for (auto i = 0; i < pool_.numRanges(); ++i) {
-    auto topRange = pool_.rangeAt(i);
+  for (auto i = 0; i < state_.pool().numRanges(); ++i) {
+    auto topRange = state_.pool().rangeAt(i);
     auto topRangeSize = topRange.size();
     if (topRangeSize >= kHugePageSize) {
       VELOX_CHECK_EQ(0, topRangeSize % kHugePageSize);
@@ -713,15 +719,17 @@ int64_t HashStringAllocator::checkConsistency() const {
     }
   }
 
-  VELOX_CHECK_EQ(numFree, numFree_);
-  VELOX_CHECK_EQ(freeBytes, freeBytes_);
+  VELOX_CHECK_EQ(numFree, state_.numFree());
+  VELOX_CHECK_EQ(freeBytes, state_.freeBytes());
   uint64_t numInFreeList = 0;
   uint64_t bytesInFreeList = 0;
   for (auto i = 0; i < kNumFreeLists; ++i) {
-    const bool hasData = bits::isBitSet(freeNonEmpty_, i);
-    const bool listNonEmpty = !free_[i].empty();
+    const bool hasData = bits::isBitSet(state_.freeNonEmpty(), i);
+    const bool listNonEmpty = !state_.freeLists()[i].empty();
     VELOX_CHECK_EQ(hasData, listNonEmpty);
-    for (auto* free = free_[i].next(); free != &free_[i]; free = free->next()) {
+    for (auto* free = state_.freeLists()[i].next();
+         free != &state_.freeLists()[i];
+         free = free->next()) {
       ++numInFreeList;
       VELOX_CHECK(
           free->next()->previous() == free,
@@ -737,17 +745,17 @@ int64_t HashStringAllocator::checkConsistency() const {
     }
   }
 
-  VELOX_CHECK_EQ(numInFreeList, numFree_);
-  VELOX_CHECK_EQ(bytesInFreeList, freeBytes_);
+  VELOX_CHECK_EQ(numInFreeList, state_.numFree());
+  VELOX_CHECK_EQ(bytesInFreeList, state_.freeBytes());
   return allocatedBytes;
 }
 
 bool HashStringAllocator::isEmpty() const {
-  return sizeFromPool_ == 0 && checkConsistency() == 0;
+  return state_.sizeFromPool() == 0 && checkConsistency() == 0;
 }
 
 void HashStringAllocator::checkEmpty() const {
-  VELOX_CHECK_EQ(0, sizeFromPool_);
+  VELOX_CHECK_EQ(0, state_.sizeFromPool());
   VELOX_CHECK_EQ(0, checkConsistency());
 }
 
