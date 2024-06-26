@@ -15,9 +15,13 @@ package com.facebook.presto.server.security;
 
 import com.facebook.airlift.http.server.AuthenticationException;
 import com.facebook.airlift.http.server.Authenticator;
+import com.facebook.presto.ClientRequestFilterManager;
+import com.facebook.presto.spi.ClientRequestFilter;
+import com.facebook.presto.spi.PrestoException;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HttpHeaders;
 
 import javax.inject.Inject;
@@ -35,10 +39,18 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
 import java.security.Principal;
+import java.util.Collections;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
+import static com.facebook.presto.spi.StandardErrorCode.HEADER_MODIFICATION_ATTEMPT;
 import static com.google.common.io.ByteStreams.copy;
 import static com.google.common.io.ByteStreams.nullOutputStream;
 import static com.google.common.net.HttpHeaders.WWW_AUTHENTICATE;
@@ -52,12 +64,15 @@ public class AuthenticationFilter
     private static final String HTTPS_PROTOCOL = "https";
     private final List<Authenticator> authenticators;
     private final boolean allowForwardedHttps;
+    private final ClientRequestFilterManager clientRequestFilterManager;
+    private final List<String> headersBlockList = ImmutableList.of("X-Presto-Transaction-Id", "X-Presto-Started-Transaction-Id", "X-Presto-Clear-Transaction-Id", "X-Presto-Trace-Token");
 
     @Inject
-    public AuthenticationFilter(List<Authenticator> authenticators, SecurityConfig securityConfig)
+    public AuthenticationFilter(List<Authenticator> authenticators, SecurityConfig securityConfig, ClientRequestFilterManager clientRequestFilterManager)
     {
         this.authenticators = ImmutableList.copyOf(requireNonNull(authenticators, "authenticators is null"));
         this.allowForwardedHttps = requireNonNull(securityConfig, "securityConfig is null").getAllowForwardedHttps();
+        this.clientRequestFilterManager = requireNonNull(clientRequestFilterManager, "clientRequestFilterManager is null");
     }
 
     @Override
@@ -95,9 +110,9 @@ public class AuthenticationFilter
                 e.getAuthenticateHeader().ifPresent(authenticateHeaders::add);
                 continue;
             }
-
             // authentication succeeded
-            nextFilter.doFilter(withPrincipal(request, principal), response);
+            CustomHttpServletRequestWrapper wrappedRequest = mergeExtraHeaders(request, principal);
+            nextFilter.doFilter(withPrincipal(wrappedRequest, principal), response);
             return;
         }
 
@@ -126,6 +141,43 @@ public class AuthenticationFilter
         }
     }
 
+    public CustomHttpServletRequestWrapper mergeExtraHeaders(HttpServletRequest request, Principal principal)
+    {
+        CustomHttpServletRequestWrapper wrappedRequest = new CustomHttpServletRequestWrapper(request);
+        Map<String, String> extraHeadersMap = new HashMap<>();
+        Set<String> globallyAddedHeaders = new HashSet<>();
+
+        for (ClientRequestFilter requestFilter : clientRequestFilterManager.getClientRequestFilters()) {
+            boolean headersPresent = requestFilter.getHeaderNames().stream()
+                    .allMatch(headerName -> request.getHeader(headerName) != null);
+
+            if (!headersPresent) {
+                Optional<Map<String, String>> extraHeaderValueMap = requestFilter.getExtraHeaders(principal);
+
+                extraHeaderValueMap.ifPresent(map -> {
+                    for (Map.Entry<String, String> extraHeaderEntry : map.entrySet()) {
+                        String headerKey = extraHeaderEntry.getKey();
+                        if (headersBlockList.contains(headerKey)) {
+                            throw new PrestoException(HEADER_MODIFICATION_ATTEMPT,
+                                    "Modification attempt detected: The header " + headerKey + " is not allowed to be modified. The following headers cannot be modified: " +
+                                            String.join(", ", headersBlockList));
+                        }
+                        if (globallyAddedHeaders.contains(headerKey)) {
+                            throw new PrestoException(HEADER_MODIFICATION_ATTEMPT, "Header conflict detected: " + headerKey + " already added by another filter.");
+                        }
+                        if (request.getHeader(headerKey) == null && requestFilter.getHeaderNames().contains(headerKey)) {
+                            extraHeadersMap.putIfAbsent(headerKey, extraHeaderEntry.getValue());
+                            globallyAddedHeaders.add(headerKey);
+                        }
+                    }
+                });
+            }
+        }
+
+        wrappedRequest.setHeaders(extraHeadersMap);
+        return wrappedRequest;
+    }
+
     private boolean doesRequestSupportAuthentication(HttpServletRequest request)
     {
         if (authenticators.isEmpty()) {
@@ -140,7 +192,7 @@ public class AuthenticationFilter
         return false;
     }
 
-    private static ServletRequest withPrincipal(HttpServletRequest request, Principal principal)
+    public static ServletRequest withPrincipal(HttpServletRequest request, Principal principal)
     {
         requireNonNull(principal, "principal is null");
         return new HttpServletRequestWrapper(request)
@@ -164,6 +216,53 @@ public class AuthenticationFilter
         // unauthenticated request before sending the response.
         try (InputStream inputStream = request.getInputStream()) {
             copy(inputStream, nullOutputStream());
+        }
+    }
+
+    public static class CustomHttpServletRequestWrapper
+            extends HttpServletRequestWrapper
+    {
+        private final Map<String, String> customHeaders = new ConcurrentHashMap<>();
+
+        public CustomHttpServletRequestWrapper(HttpServletRequest request)
+        {
+            super(request);
+        }
+
+        @Override
+        public String getHeader(String name)
+        {
+            String headerValue = customHeaders.get(name);
+            if (headerValue != null) {
+                return headerValue;
+            }
+            return super.getHeader(name);
+        }
+
+        @Override
+        public Enumeration<String> getHeaderNames()
+        {
+            ImmutableSet.Builder<String> headerNamesBuilder = ImmutableSet.builder();
+            headerNamesBuilder.addAll(customHeaders.keySet());
+            Enumeration<String> originalHeaderNames = super.getHeaderNames();
+            while (originalHeaderNames.hasMoreElements()) {
+                headerNamesBuilder.add(originalHeaderNames.nextElement());
+            }
+            return Collections.enumeration(headerNamesBuilder.build());
+        }
+
+        @Override
+        public Enumeration<String> getHeaders(String name)
+        {
+            if (customHeaders.containsKey(name)) {
+                return Collections.enumeration(Collections.singleton(customHeaders.get(name)));
+            }
+            return super.getHeaders(name);
+        }
+
+        public void setHeaders(Map<String, String> headers)
+        {
+            this.customHeaders.putAll(headers);
         }
     }
 }
