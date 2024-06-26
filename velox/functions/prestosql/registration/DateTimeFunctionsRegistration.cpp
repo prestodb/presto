@@ -152,6 +152,12 @@ void registerSimpleFunctions(const std::string& prefix) {
       Timestamp,
       Timestamp>({prefix + "minus"});
 
+  registerFunction<
+      TimestampMinusFunction,
+      IntervalDayTime,
+      TimestampWithTimezone,
+      TimestampWithTimezone>({prefix + "minus"});
+
   registerFunction<DayFunction, int64_t, TimestampWithTimezone>(
       {prefix + "day", prefix + "day_of_month"});
   registerFunction<DayOfWeekFunction, int64_t, Timestamp>(

@@ -504,6 +504,13 @@ struct TimestampMinusFunction {
       const arg_type<Timestamp>& b) {
     result = a.toMillis() - b.toMillis();
   }
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<IntervalDayTime>& result,
+      const arg_type<TimestampWithTimezone>& a,
+      const arg_type<TimestampWithTimezone>& b) {
+    result = unpackMillisUtc(a) - unpackMillisUtc(b);
+  }
 };
 
 template <typename T>
