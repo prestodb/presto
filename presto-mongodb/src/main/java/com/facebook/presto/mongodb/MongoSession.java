@@ -24,6 +24,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
+import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
@@ -46,6 +47,7 @@ import com.mongodb.client.model.IndexOptions;
 import com.mongodb.client.result.DeleteResult;
 import io.airlift.slice.Slice;
 import org.bson.Document;
+import org.bson.types.Binary;
 import org.bson.types.ObjectId;
 
 import java.util.ArrayList;
@@ -518,6 +520,9 @@ public class MongoSession
         }
         else if (value instanceof ObjectId) {
             typeSignature = OBJECT_ID.getTypeSignature();
+        }
+        else if (value instanceof Binary) {
+            typeSignature = VarbinaryType.VARBINARY.getTypeSignature();
         }
         else if (value instanceof List) {
             List<Optional<TypeSignature>> subTypes = ((List<?>) value).stream()
