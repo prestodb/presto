@@ -3142,7 +3142,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimEmptyOutput) {
 TEST_F(AggregationTest, maxSpillBytes) {
   const auto rowType =
       ROW({"c0", "c1", "c2"}, {INTEGER(), INTEGER(), VARCHAR()});
-  const auto vectors = createVectors(rowType, 1024, 15 << 20);
+  const auto vectors = createVectors(rowType, 128, 1 << 20);
 
   auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   core::PlanNodeId aggregationNodeId;
