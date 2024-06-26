@@ -82,7 +82,7 @@ _________________________
 * Add year/month/day/hour transforms both on legacy and non-legacy TimestampType column. :pr:`21959`
 * Fix error encountered when attempting to execute an ``INSERT INTO`` statement where column names contain white spaces. :pr:`21827`
 * Add support for row-level deletes on Iceberg V2 tables. The delete mode can be changed from ``merge-on-read`` to ``copy-on-write`` by setting table property ``delete_mode``. :pr:`21571`
-* Add support for Iceberg V1 tables in Prestissimo. :pr:`22013`
+* Add support for Iceberg V1 tables in Prestissimo. :pr:`21584`
 * Add support to read Iceberg V2 tables with Position Deletes in Prestissimo. :pr:`21980`
 * Add support for Iceberg concurrent insertions. :pr:`21250`
 
