@@ -95,8 +95,8 @@ class AsyncDataCacheTest : public ::testing::TestWithParam<TestParam> {
         ssdCache->testingDeleteFiles();
       }
     }
-    if (executor_) {
-      executor_->join();
+    if (loadExecutor_ != nullptr) {
+      loadExecutor_->join();
     }
     filenames_.clear();
     CacheTTLController::testingClear();
@@ -133,7 +133,7 @@ class AsyncDataCacheTest : public ::testing::TestWithParam<TestParam> {
           fmt::format("{}/cache", tempDirectory_->getPath()),
           ssdBytes,
           4,
-          executor(),
+          ssdExecutor(),
           checkpointIntervalBytes > 0 ? checkpointIntervalBytes : ssdBytes / 20,
           false,
           GetParam().checksumEnabled,
@@ -261,15 +261,26 @@ class AsyncDataCacheTest : public ::testing::TestWithParam<TestParam> {
     };
   }
 
-  folly::IOThreadPoolExecutor* executor() {
+  folly::IOThreadPoolExecutor* loadExecutor() {
     static std::mutex mutex;
     std::lock_guard<std::mutex> l(mutex);
-    if (!executor_) {
+    if (loadExecutor_ == nullptr) {
       // We have up to 20 threads. Some tests run at max 16 threads so
       // that there are threads left over for SSD background write.
-      executor_ = std::make_unique<folly::IOThreadPoolExecutor>(20);
+      loadExecutor_ = std::make_unique<folly::IOThreadPoolExecutor>(20);
     }
-    return executor_.get();
+    return loadExecutor_.get();
+  }
+
+  folly::IOThreadPoolExecutor* ssdExecutor() {
+    static std::mutex mutex;
+    std::lock_guard<std::mutex> l(mutex);
+    if (ssdExecutor_ == nullptr) {
+      // We have up to 20 threads. Some tests run at max 16 threads so
+      // that there are threads left over for SSD background write.
+      ssdExecutor_ = std::make_unique<folly::IOThreadPoolExecutor>(20);
+    }
+    return ssdExecutor_.get();
   }
 
   void clearAllocations(std::deque<memory::Allocation>& allocations) {
@@ -284,7 +295,8 @@ class AsyncDataCacheTest : public ::testing::TestWithParam<TestParam> {
   memory::MemoryAllocator* allocator_;
   std::shared_ptr<AsyncDataCache> cache_;
   std::vector<StringIdLease> filenames_;
-  std::unique_ptr<folly::IOThreadPoolExecutor> executor_;
+  std::unique_ptr<folly::IOThreadPoolExecutor> loadExecutor_;
+  std::unique_ptr<folly::IOThreadPoolExecutor> ssdExecutor_;
   int32_t numLargeRetries_{0};
   std::atomic_int64_t numPendingLoads_{0};
 };
@@ -474,7 +486,7 @@ void AsyncDataCacheTest::loadBatch(
     auto load = std::make_shared<TestingCoalescedLoad>(
         std::move(keys), std::move(sizes), cache_, injectError);
     ++numPendingLoads_;
-    executor()->add([this, load, semaphore]() {
+    loadExecutor()->add([this, load, semaphore]() {
       SCOPE_EXIT {
         --numPendingLoads_;
       };
@@ -507,7 +519,7 @@ void AsyncDataCacheTest::loadBatch(
         cache_,
         injectError);
     ++numPendingLoads_;
-    executor()->add([this, load, semaphore]() {
+    loadExecutor()->add([this, load, semaphore]() {
       SCOPE_EXIT {
         --numPendingLoads_;
       };
@@ -688,8 +700,8 @@ TEST_P(AsyncDataCacheTest, replace) {
   initializeCache(kMaxBytes);
   // Load 10x the max size, inject an error every 21 batches.
   loadLoop(0, kMaxBytes * 10, 21);
-  if (executor_) {
-    executor_->join();
+  if (loadExecutor_ != nullptr) {
+    loadExecutor_->join();
   }
   auto stats = cache_->refreshStats();
   EXPECT_LT(0, stats.numHit);
@@ -733,8 +745,8 @@ TEST_P(AsyncDataCacheTest, largeEvict) {
   runThreads(kNumThreads, [&](int32_t /*i*/) {
     loadLoop(0, kMaxBytes * 1.2, 0, 1, kMaxBytes / 4);
   });
-  if (executor_) {
-    executor_->join();
+  if (loadExecutor_ != nullptr) {
+    loadExecutor_->join();
   }
   auto stats = cache_->refreshStats();
   EXPECT_LT(0, stats.numEvict);
@@ -819,8 +831,8 @@ TEST_P(AsyncDataCacheTest, DISABLED_ssd) {
   // data may not get written if reading is faster than writing. Error out once
   // every 11 load batches.
   //
-  // Note that executor() must have more threads so that background
-  // write does not wait for the workload.
+  // NOTE: loadExecutor() must have more threads so that background write does
+  // not wait for the workload.
   runThreads(16, [&](int32_t /*i*/) { loadLoop(0, kSsdBytes, 11); });
   LOG(INFO) << "Stats after first pass: " << cache_->toString();
   auto ssdStats = cache_->ssdCache()->stats();
@@ -873,7 +885,7 @@ TEST_P(AsyncDataCacheTest, DISABLED_ssd) {
 TEST_P(AsyncDataCacheTest, invalidSsdPath) {
   auto testPath = "hdfs:/test/prefix_";
   uint64_t ssdBytes = 256UL << 20;
-  SsdCache::Config config(testPath, ssdBytes, 4, executor(), ssdBytes / 20);
+  SsdCache::Config config(testPath, ssdBytes, 4, ssdExecutor(), ssdBytes / 20);
   VELOX_ASSERT_THROW(
       SsdCache(config),
       fmt::format(
@@ -1177,6 +1189,12 @@ TEST_P(AsyncDataCacheTest, shutdown) {
     // Shutdown cache.
     if (!asyncShutdown) {
       waitForSsdWriteToFinish(cache_->ssdCache());
+    }
+    // NOTE: we need to wait for async load to complete before shutdown as async
+    // data cache doesn't handle the cache access after the cache shutdown.
+    if (loadExecutor_ != nullptr) {
+      loadExecutor_->join();
+      loadExecutor_.reset();
     }
     const uint64_t bytesWrittenBeforeShutdown =
         cache_->ssdCache()->stats().bytesWritten;
