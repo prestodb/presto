@@ -1,3 +1,3 @@
-{"commitInfo":{"timestamp":1713871991623,"operation":"SET TBLPROPERTIES","operationParameters":{"properties":"{\"delta.minReaderVersion\":\"3\",\"delta.minWriterVersion\":\"7\"}"},"readVersion":0,"isolationLevel":"Serializable","isBlindAppend":true,"operationMetrics":{},"engineInfo":"Apache-Spark/3.5.1 Delta-Lake/3.1.0","txnId":"d0669f9e-d13a-4f1a-b7c3-2eec3494181c"}}
-{"metaData":{"id":"4f70ad2b-91de-48a9-b2b1-9e78f044ea7f","format":{"provider":"parquet","options":{}},"schemaString":"{\"type\":\"struct\",\"fields\":[{\"name\":\"col1\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}},{\"name\":\"col2\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}]}","partitionColumns":[],"configuration":{},"createdTime":1713871985500}}
-{"protocol":{"minReaderVersion":3,"minWriterVersion":7,"readerFeatures":[],"writerFeatures":["appendOnly","invariants"]}}
+{"commitInfo":{"timestamp":1603723969055,"operation":"WRITE","operationParameters":{"mode":"Append","partitionBy":"[]"},"readVersion":0,"isBlindAppend":true}}
+{"add":{"path":"part-00000-64680d94-9e18-4fa1-9ca9-f0cd8a9cfd11-c000.snappy.parquet","partitionValues":{},"size":649,"modificationTime":1603723969000,"dataChange":true}}
+{"add":{"path":"part-00001-b8249b87-0b7a-4461-8a8a-fa958802b523-c000.snappy.parquet","partitionValues":{},"size":649,"modificationTime":1603723969000,"dataChange":true}}
