@@ -37,6 +37,9 @@ struct AllocationTraits {
   /// Size of huge page as intended with MADV_HUGEPAGE.
   static constexpr uint64_t kHugePageSize = 2 << 20; // 2MB
 
+  static_assert(kHugePageSize >= kPageSize);
+  static_assert(kHugePageSize % kPageSize == 0);
+
   /// Returns the bytes of the given number pages.
   FOLLY_ALWAYS_INLINE static uint64_t pageBytes(MachinePageCount numPages) {
     return numPages * kPageSize;
@@ -52,9 +55,7 @@ struct AllocationTraits {
   }
 
   /// The number of pages in a huge page.
-  FOLLY_ALWAYS_INLINE static MachinePageCount numPagesInHugePage() {
-    VELOX_DCHECK_GE(kHugePageSize, kPageSize);
-    VELOX_DCHECK_EQ(kHugePageSize % kPageSize, 0);
+  static constexpr MachinePageCount numPagesInHugePage() {
     return kHugePageSize / kPageSize;
   }
 };
@@ -249,6 +250,7 @@ class ContiguousAllocation {
     VELOX_CHECK_NULL(pool_);
     pool_ = pool;
   }
+
   MemoryPool* pool() const {
     return pool_;
   }
