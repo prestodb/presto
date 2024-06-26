@@ -35,10 +35,8 @@ namespace facebook::velox::functions::test {
 class SortBufferTest : public OperatorTestBase {
  protected:
   void SetUp() override {
+    OperatorTestBase::SetUp();
     filesystems::registerLocalFileSystem();
-    if (!isRegisteredVectorSerde()) {
-      this->registerVectorSerde();
-    }
     rng_.seed(123);
   }
 

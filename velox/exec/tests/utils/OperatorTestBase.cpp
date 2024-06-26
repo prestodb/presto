@@ -15,12 +15,12 @@
  */
 
 #include "velox/exec/tests/utils/OperatorTestBase.h"
+#include "velox/common/base/PeriodicStatsReporter.h"
 #include "velox/common/caching/AsyncDataCache.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/memory/MallocAllocator.h"
 #include "velox/common/memory/SharedArbitrator.h"
 #include "velox/common/testutil/TestValue.h"
-#include "velox/exec/Exchange.h"
 #include "velox/exec/OutputBufferManager.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/LocalExchangeSource.h"
@@ -113,11 +113,22 @@ void OperatorTestBase::SetUp() {
   }
   driverExecutor_ = std::make_unique<folly::CPUThreadPoolExecutor>(3);
   ioExecutor_ = std::make_unique<folly::IOThreadPoolExecutor>(3);
+  PeriodicStatsReporter::Options options;
+  options.allocator = memory::memoryManager()->allocator();
+  options.allocatorStatsIntervalMs = 2'000;
+  options.cache = asyncDataCache_.get();
+  options.cacheStatsIntervalMs = 2'000;
+  options.arbitrator = memory::memoryManager()->arbitrator();
+  options.arbitratorStatsIntervalMs = 2'000;
+  options.spillMemoryPool = memory::spillMemoryPool();
+  options.spillStatsIntervalMs = 2'000;
+  startPeriodicStatsReporter(options);
   testingStartLocalExchangeSource();
 }
 
 void OperatorTestBase::TearDown() {
   waitForAllTasksToBeDeleted();
+  stopPeriodicStatsReporter();
   // There might be lingering exchange source on executor even after all tasks
   // are deleted. This can cause memory leak because exchange source holds
   // reference to memory pool. We need to make sure they are properly cleaned.

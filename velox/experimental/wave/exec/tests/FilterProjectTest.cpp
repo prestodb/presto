@@ -30,6 +30,7 @@ using facebook::velox::test::BatchMaker;
 class FilterProjectTest : public OperatorTestBase {
  protected:
   void SetUp() override {
+    OperatorTestBase::SetUp();
     if (int device; cudaGetDevice(&device) != cudaSuccess) {
       GTEST_SKIP() << "No CUDA detected, skipping all tests";
     }

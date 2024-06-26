@@ -34,10 +34,10 @@ using namespace facebook::velox::exec::test;
 class TableScanTest : public virtual HiveConnectorTestBase {
  protected:
   void SetUp() override {
+    HiveConnectorTestBase::SetUp();
     if (int device; cudaGetDevice(&device) != cudaSuccess) {
       GTEST_SKIP() << "No CUDA detected, skipping all tests";
     }
-    HiveConnectorTestBase::SetUp();
     wave::registerWave();
     wave::WaveHiveDataSource::registerConnector();
     wave::test::WaveTestSplitReader::registerTestSplitReader();

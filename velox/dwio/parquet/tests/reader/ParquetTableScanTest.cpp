@@ -39,6 +39,7 @@ class ParquetTableScanTest : public HiveConnectorTestBase {
   using OperatorTestBase::assertQuery;
 
   void SetUp() {
+    OperatorTestBase::SetUp();
     registerParquetReaderFactory();
 
     auto hiveConnector =
