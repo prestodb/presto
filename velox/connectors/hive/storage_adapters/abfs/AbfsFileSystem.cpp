@@ -113,7 +113,7 @@ class AbfsReadFile::Impl {
     return length;
   }
 
-  void preadv(
+  uint64_t preadv(
       folly::Range<const common::Region*> regions,
       folly::Range<folly::IOBuf*> iobufs) const {
     VELOX_CHECK_EQ(regions.size(), iobufs.size());
@@ -192,7 +192,7 @@ uint64_t AbfsReadFile::preadv(
   return impl_->preadv(offset, buffers);
 }
 
-void AbfsReadFile::preadv(
+uint64_t AbfsReadFile::preadv(
     folly::Range<const common::Region*> regions,
     folly::Range<folly::IOBuf*> iobufs) const {
   return impl_->preadv(regions, iobufs);

@@ -35,7 +35,7 @@ class AbfsReadFile final : public ReadFile {
       uint64_t offset,
       const std::vector<folly::Range<char*>>& buffers) const final;
 
-  void preadv(
+  uint64_t preadv(
       folly::Range<const common::Region*> regions,
       folly::Range<folly::IOBuf*> iobufs) const final;
 

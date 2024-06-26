@@ -74,9 +74,11 @@ class ReadFile {
   // array must be pre-allocated by the caller, with the same size as `regions`,
   // but don't need to be initialized, since each iobuf will be copy-constructed
   // by the preadv.
+  // Returns the total number of bytes read, which might be different than the
+  // sum of all buffer sizes (for example, if coalescing was used).
   //
   // This method should be thread safe.
-  virtual void preadv(
+  virtual uint64_t preadv(
       folly::Range<const common::Region*> regions,
       folly::Range<folly::IOBuf*> iobufs) const;
 
