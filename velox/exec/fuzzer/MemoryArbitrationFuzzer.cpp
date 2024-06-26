@@ -679,21 +679,23 @@ void MemoryArbitrationFuzzer::verify() {
   std::vector<std::thread> queryThreads;
   queryThreads.reserve(numThreads);
   for (int i = 0; i < numThreads; ++i) {
-    queryThreads.emplace_back([&, i]() {
+    auto seed = rng_();
+    queryThreads.emplace_back([&, i, seed]() {
+      FuzzerGenerator rng(seed);
       while (!stop) {
         try {
           const auto queryCtx = newQueryCtx(
               memory::memoryManager(),
               executor_.get(),
               FLAGS_arbitrator_capacity);
-          const auto plan = plans.at(randInt(0, plans.size() - 1));
+          const auto plan = plans.at(getRandomIndex(rng, plans.size() - 1));
           AssertQueryBuilder builder(plan.plan);
           builder.queryCtx(queryCtx);
           for (const auto& [planNodeId, nodeSplits] : plan.splits) {
             builder.splits(planNodeId, nodeSplits);
           }
 
-          if (vectorFuzzer_.coinToss(0.3)) {
+          if (coinToss(rng, 0.3)) {
             builder.queryCtx(queryCtx).copyResults(pool_.get());
           } else {
             auto res =
