@@ -62,8 +62,8 @@ inline AccessTime accessTime() {
 }
 
 struct AccessStats {
-  AccessTime lastUse{0};
-  int32_t numUses{0};
+  tsan_atomic<AccessTime> lastUse{0};
+  tsan_atomic<int32_t> numUses{0};
 
   // Retention score. A higher number means less worth retaining. This
   // works well with a typical formula of time over use count going to
