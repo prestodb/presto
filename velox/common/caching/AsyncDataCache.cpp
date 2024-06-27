@@ -25,6 +25,15 @@
 #include "velox/common/base/SuccinctPrinter.h"
 #include "velox/common/caching/FileIds.h"
 
+#define VELOX_CACHE_ERROR(errorMessage)                             \
+  _VELOX_THROW(                                                     \
+      ::facebook::velox::VeloxRuntimeError,                         \
+      ::facebook::velox::error_source::kErrorSourceRuntime.c_str(), \
+      ::facebook::velox::error_code::kNoCacheSpace.c_str(),         \
+      /* isRetriable */ true,                                       \
+      "{}",                                                         \
+      errorMessage);
+
 namespace facebook::velox::cache {
 
 using memory::MachinePageCount;
@@ -120,13 +129,10 @@ void AsyncDataCacheEntry::initialize(FileCacheKey key) {
     } else {
       // No memory to cover 'this'.
       release();
-      _VELOX_THROW(
-          VeloxRuntimeError,
-          error_source::kErrorSourceRuntime.c_str(),
-          error_code::kNoCacheSpace.c_str(),
-          /* isRetriable */ true,
-          "Failed to allocate {} bytes for cache",
-          size_);
+      VELOX_CACHE_ERROR(fmt::format(
+          "Failed to allocate {} bytes for cache: {}",
+          size_,
+          cache->allocator()->getAndClearFailureMessage()));
     }
   }
 }
