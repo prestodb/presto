@@ -227,7 +227,7 @@ class OperatorDetail extends React.Component {
             <div className="row">
                 <div className="col-12">
                     <div className="modal-header">
-                        <button type="button" className="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                        <button type="button" className="close" data-bs-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
                         <h3>
                             <small>Pipeline {operator.pipelineId}</small>
                             <br/>
@@ -355,10 +355,11 @@ class StageOperatorGraph extends React.Component {
     }
 
     handleOperatorClick(operatorCssId) {
-        $('#operator-detail-modal').modal();
+        $('#operator-detail-modal').modal("show")
 
-        const pipelineId = parseInt(operatorCssId.split('-')[1]);
-        const operatorId = parseInt(operatorCssId.split('-')[2]);
+        const pipelineId = (operatorCssId?.target?.__data__ || "").split('-').length > 0 ? parseInt(operatorCssId?.target?.__data__|| "").split('-')[1] : 0 ;
+        const operatorId =(operatorCssId?.target?.__data__ || "").split('-').length > 0 ? parseInt(operatorCssId?.target?.__data__|| "").split('-')[2] : 0 ;
+
         const stage = this.props.stage;
 
         let operatorStageSummary = null;
