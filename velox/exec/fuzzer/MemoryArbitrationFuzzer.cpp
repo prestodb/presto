@@ -202,10 +202,10 @@ class MemoryArbitrationFuzzer {
           "memoryArbitrationFuzzer",
           memory::kMaxMemory,
           memory::MemoryReclaimer::create())};
-  std::shared_ptr<memory::MemoryPool> pool_{rootPool_->addLeafChild(
-      "memoryArbitrationFuzzerLeaf",
-      true,
-      exec::MemoryReclaimer::create())};
+  std::shared_ptr<memory::MemoryPool> pool_{
+      memory::memoryManager()->testingDefaultRoot().addLeafChild(
+          "memoryArbitrationFuzzerLeaf",
+          true)};
   std::shared_ptr<memory::MemoryPool> writerPool_{rootPool_->addAggregateChild(
       "joinFuzzerWriter",
       exec::MemoryReclaimer::create())};
@@ -739,9 +739,15 @@ void MemoryArbitrationFuzzer::go() {
   const auto startTime = std::chrono::system_clock::now();
   size_t iteration = 0;
 
+  bool enableGlobalArbitration = true;
   while (!isDone(iteration, startTime)) {
     LOG(WARNING) << "==============================> Started iteration "
                  << iteration << " (seed: " << currentSeed_ << ")";
+
+    // Test enable/disable global arbitration.
+    dynamic_cast<memory::SharedArbitrator*>(
+        memory::memoryManager()->arbitrator())
+        ->testingSetGlobalArbitration(enableGlobalArbitration);
 
     verify();
 
@@ -751,6 +757,8 @@ void MemoryArbitrationFuzzer::go() {
 
     reSeed();
     ++iteration;
+    // Revert the flag.
+    enableGlobalArbitration = !enableGlobalArbitration;
   }
 }
 

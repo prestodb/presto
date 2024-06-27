@@ -250,6 +250,11 @@ class MemoryArbitrator {
   /// Returns the debug string of this memory arbitrator.
   virtual std::string toString() const = 0;
 
+  /// Enables/disables global arbitration accordingly.
+  void testingSetGlobalArbitration(bool enableGlobalArbitration) {
+    *const_cast<bool*>(&globalArbitrationEnabled_) = enableGlobalArbitration;
+  }
+
  protected:
   explicit MemoryArbitrator(const Config& config)
       : capacity_(config.capacity),

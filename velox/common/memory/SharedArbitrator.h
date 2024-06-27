@@ -79,6 +79,11 @@ class SharedArbitrator : public memory::MemoryArbitrator {
 
   uint64_t testingNumRequests() const;
 
+  /// Enables/disables global arbitration accordingly.
+  void testingSetGlobalArbitration(bool enableGlobalArbitration) {
+    *const_cast<bool*>(&globalArbitrationEnabled_) = enableGlobalArbitration;
+  }
+
   /// Operator level runtime stats that are reported during a shared arbitration
   /// attempt.
   static inline const std::string kMemoryArbitrationWallNanos{
