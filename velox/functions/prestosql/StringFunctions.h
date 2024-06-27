@@ -130,6 +130,42 @@ struct SubstrFunction {
   }
 };
 
+template <typename TExec>
+struct SubstrVarbinaryFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(TExec);
+
+  // Results refer to strings in the first argument.
+  static constexpr int32_t reuse_strings_from_arg = 0;
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Varchar>& result,
+      const arg_type<Varchar>& input,
+      int64_t start,
+      int64_t length = std::numeric_limits<int64_t>::max()) {
+    if (start == 0 || length <= 0) {
+      result.setEmpty();
+      return;
+    }
+
+    int64_t size = input.size();
+
+    if (start < 0) {
+      start = size + start + 1;
+    }
+
+    if (start <= 0 || start > size) {
+      result.setEmpty();
+      return;
+    }
+
+    if (size - start + 1 < length) {
+      length = size - start + 1;
+    }
+
+    result.setNoCopy(StringView(input.data() + start - 1, length));
+  }
+};
+
 /// Trim functions
 /// ltrim(string) -> varchar
 ///    Removes leading whitespaces from the string.

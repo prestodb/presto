@@ -666,6 +666,54 @@ TEST_F(StringFunctionsTest, substrWithConditionalSingleBuffer) {
   }
 }
 
+TEST_F(StringFunctionsTest, substrVarbinary) {
+  auto substr = [&](const std::string& input,
+                    int64_t start,
+                    std::optional<int64_t> length = {}) {
+    if (length.has_value()) {
+      return evaluateOnce<std::string>(
+          "substr(c0, c1, c2)",
+          {VARBINARY(), BIGINT(), BIGINT()},
+          std::optional(input),
+          std::optional(start),
+          length);
+    } else {
+      return evaluateOnce<std::string>(
+          "substr(c0, c1)",
+          {VARBINARY(), BIGINT()},
+          std::optional(input),
+          std::optional(start));
+    }
+  };
+
+  EXPECT_EQ(substr("Apple", 0), "");
+  EXPECT_EQ(substr("Apple", 1), "Apple");
+  EXPECT_EQ(substr("Apple", 3), "ple");
+  EXPECT_EQ(substr("Apple", 5), "e");
+  EXPECT_EQ(substr("Apple", 100), "");
+
+  EXPECT_EQ(substr("Apple", -1), "e");
+  EXPECT_EQ(substr("Apple", -4), "pple");
+  EXPECT_EQ(substr("Apple", -5), "Apple");
+  EXPECT_EQ(substr("Apple", -100), "");
+
+  EXPECT_EQ(substr("", 0), "");
+  EXPECT_EQ(substr("", 1), "");
+  EXPECT_EQ(substr("", -1), "");
+
+  EXPECT_EQ(substr("Apple", 1, 1), "A");
+  EXPECT_EQ(substr("Apple", 2, 3), "ppl");
+  EXPECT_EQ(substr("Apple", 2, 4), "pple");
+  EXPECT_EQ(substr("Apple", 2, 10), "pple");
+
+  EXPECT_EQ(substr("Apple", -1, 1), "e");
+  EXPECT_EQ(substr("Apple", -3, 2), "pl");
+  EXPECT_EQ(substr("Apple", -3, 5), "ple");
+  EXPECT_EQ(substr("Apple", -5, 4), "Appl");
+  EXPECT_EQ(substr("Apple", -5, 10), "Apple");
+  EXPECT_EQ(substr("Apple", -6, 1), "");
+}
+
 namespace {
 std::vector<std::tuple<std::string, std::string>> getUpperAsciiTestData() {
   return {

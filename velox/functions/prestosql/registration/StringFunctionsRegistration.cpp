@@ -56,10 +56,22 @@ void registerSimpleFunctions(const std::string& prefix) {
       {prefix + "substr"});
   registerFunction<SubstrFunction, Varchar, Varchar, int64_t, int64_t>(
       {prefix + "substr"});
+
+  // TODO Presto doesn't allow INTEGER types for 2nd and 3rd arguments. Remove
+  // these signatures.
   registerFunction<SubstrFunction, Varchar, Varchar, int32_t>(
       {prefix + "substr"});
   registerFunction<SubstrFunction, Varchar, Varchar, int32_t, int32_t>(
       {prefix + "substr"});
+
+  registerFunction<SubstrVarbinaryFunction, Varbinary, Varbinary, int64_t>(
+      {prefix + "substr"});
+  registerFunction<
+      SubstrVarbinaryFunction,
+      Varbinary,
+      Varbinary,
+      int64_t,
+      int64_t>({prefix + "substr"});
 
   registerFunction<SplitPart, Varchar, Varchar, Varchar, int64_t>(
       {prefix + "split_part"});
