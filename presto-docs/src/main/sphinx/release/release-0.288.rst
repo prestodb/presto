@@ -73,6 +73,8 @@ ___________
 Hive Changes
 ____________
 * Introduce AWS Security Mapping to allow flexible mapping of Presto Users to AWS Credentials or IAM Roles for different AWS Services. :pr:`21622`
+* Fix hash calculation for Timestamp column to be hive compatible when writing to a table bucketed by Timestamp. :pr:`22890`
+* Add config `hive.legacy-timestamp-bucketing` and session property ``hive.legacy_timestamp_bucketing`` to use the original hash function for Timestamp column, which is not hive compatible. :pr:`22890`
 
 Iceberg Changes
 _______________
