@@ -222,6 +222,11 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kDriverNumCpuThreadsHwMultiplier{
       "driver.num-cpu-threads-hw-multiplier"};
 
+  /// Run driver threads with the SCHED_BATCH scheduling policy. Linux only.
+  /// https://man7.org/linux/man-pages/man7/sched.7.html
+  static constexpr std::string_view kDriverThreadsBatchSchedulingEnabled{
+      "driver.threads-batch-scheduling-enabled"};
+
   /// Time duration threshold used to detect if an operator call in driver is
   /// stuck or not.  If any of the driver thread is detected as stuck by this
   /// standard, we take the worker offline and further investigation on the
@@ -488,6 +493,13 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kExchangeHttpClientNumIoThreadsHwMultiplier{
       "exchange.http-client.num-io-threads-hw-multiplier"};
 
+  /// Floating point number used in calculating how many threads we would use
+  /// for Exchange HTTP client CPU executor: hw_concurrency x multiplier.
+  /// 1.0 is default.
+  static constexpr std::string_view
+      kExchangeHttpClientNumCpuThreadsHwMultiplier{
+          "exchange.http-client.num-cpu-threads-hw-multiplier"};
+
   /// The maximum timeslice for a task on thread if there are threads queued.
   static constexpr std::string_view kTaskRunTimeSliceMicros{
       "task-run-timeslice-micros"};
@@ -610,9 +622,13 @@ class SystemConfig : public ConfigBase {
 
   double exchangeHttpClientNumIoThreadsHwMultiplier() const;
 
+  double exchangeHttpClientNumCpuThreadsHwMultiplier() const;
+
   double connectorNumIoThreadsHwMultiplier() const;
 
   double driverNumCpuThreadsHwMultiplier() const;
+
+  bool driverThreadsBatchSchedulingEnabled() const;
 
   size_t driverStuckOperatorThresholdMs() const;
 
