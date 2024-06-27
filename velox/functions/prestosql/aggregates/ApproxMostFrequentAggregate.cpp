@@ -15,6 +15,7 @@
  */
 
 #include "velox/exec/Aggregate.h"
+#include "velox/exec/SimpleAggregateAdapter.h"
 #include "velox/exec/Strings.h"
 #include "velox/expression/FunctionSignature.h"
 #include "velox/functions/lib/ApproxMostFrequentStreamSummary.h"
@@ -330,6 +331,110 @@ struct ApproxMostFrequentAggregate : exec::Aggregate {
   int64_t capacity_ = kMissingArgument;
 };
 
+class ApproxMostFrequentBooleanAggregate {
+ public:
+  using InputType =
+      Row</*buckets*/ int64_t, /*value*/ bool, /*capacity*/ int64_t>;
+
+  using IntermediateType =
+      Row</*buckets*/ int64_t,
+          /*capacity*/ int64_t,
+          /*values*/ Array<bool>,
+          /*counts*/ Array<int64_t>>;
+
+  using OutputType = Map<bool, int64_t>;
+
+  static bool toIntermediate(
+      exec::out_type<IntermediateType>& out,
+      int64_t buckets,
+      bool value,
+      int64_t capacity) {
+    out.get_writer_at<0>() = buckets;
+    out.get_writer_at<1>() = capacity;
+
+    auto& valuesWriter = out.get_writer_at<2>();
+    valuesWriter.add_item() = true;
+    valuesWriter.add_item() = false;
+
+    auto& countsWriter = out.get_writer_at<3>();
+    countsWriter.add_item() = value ? 1 : 0;
+    countsWriter.add_item() = value ? 0 : 1;
+
+    return true;
+  }
+
+  struct AccumulatorType {
+    int64_t numTrue{0};
+    int64_t numFalse{0};
+
+    explicit AccumulatorType(HashStringAllocator* /*allocator*/) {}
+
+    void addInput(
+        HashStringAllocator* /*allocator*/,
+        int64_t /*buckets*/,
+        bool value,
+        int64_t /*capacity*/) {
+      if (value) {
+        ++numTrue;
+      } else {
+        ++numFalse;
+      }
+    }
+
+    void combine(
+        HashStringAllocator* /*allocator*/,
+        exec::arg_type<IntermediateType> other) {
+      VELOX_CHECK(other.at<2>().has_value());
+      VELOX_CHECK(other.at<3>().has_value());
+
+      const auto& values = *other.at<2>();
+      VELOX_CHECK_EQ(2, values.size());
+
+      VELOX_CHECK_EQ(values[0].value(), true);
+      VELOX_CHECK_EQ(values[1].value(), false);
+
+      const auto& counts = *other.at<3>();
+      VELOX_CHECK_EQ(2, counts.size());
+
+      numTrue += counts[0].value();
+      numFalse += counts[1].value();
+    }
+
+    bool writeFinalResult(exec::out_type<OutputType>& out) {
+      if (numTrue > 0) {
+        auto [keyWriter, valueWriter] = out.add_item();
+        keyWriter = true;
+        valueWriter = numTrue;
+      }
+
+      if (numFalse > 0) {
+        auto [keyWriter, valueWriter] = out.add_item();
+        keyWriter = false;
+        valueWriter = numFalse;
+      }
+
+      return true;
+    }
+
+    bool writeIntermediateResult(exec::out_type<IntermediateType>& out) {
+      // Write some hard-coded values for 'buckets' and 'capacity'. These are
+      // not used.
+      out.get_writer_at<0>() = 2;
+      out.get_writer_at<1>() = 2;
+
+      auto& valuesWriter = out.get_writer_at<2>();
+      valuesWriter.add_item() = true;
+      valuesWriter.add_item() = false;
+
+      auto& countsWriter = out.get_writer_at<3>();
+      countsWriter.add_item() = numTrue;
+      countsWriter.add_item() = numFalse;
+
+      return true;
+    }
+  };
+};
+
 template <TypeKind kKind>
 std::unique_ptr<exec::Aggregate> makeApproxMostFrequentAggregate(
     const TypePtr& resultType,
@@ -342,12 +447,18 @@ std::unique_ptr<exec::Aggregate> makeApproxMostFrequentAggregate(
     return std::make_unique<
         ApproxMostFrequentAggregate<typename TypeTraits<kKind>::NativeType>>(
         resultType);
-  } else {
-    VELOX_USER_FAIL(
-        "Unsupported value type for {} aggregation {}",
-        name,
-        valueType->toString());
   }
+
+  if (kKind == TypeKind::BOOLEAN) {
+    return std::make_unique<
+        exec::SimpleAggregateAdapter<ApproxMostFrequentBooleanAggregate>>(
+        resultType);
+  }
+
+  VELOX_USER_FAIL(
+      "Unsupported value type for {} aggregation {}",
+      name,
+      valueType->toString());
 }
 
 } // namespace
@@ -358,7 +469,7 @@ void registerApproxMostFrequentAggregate(
     bool overwrite) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
   for (const auto& valueType :
-       {"tinyint", "smallint", "integer", "bigint", "varchar"}) {
+       {"boolean", "tinyint", "smallint", "integer", "bigint", "varchar"}) {
     signatures.push_back(
         exec::AggregateFunctionSignatureBuilder()
             .returnType(fmt::format("map({},bigint)", valueType))

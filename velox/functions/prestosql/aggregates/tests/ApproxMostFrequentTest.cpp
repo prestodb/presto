@@ -181,5 +181,105 @@ TEST_F(ApproxMostFrequentTestStringView, stringLifeCycle) {
       {rows, rows}, {}, {"approx_most_frequent(3, c0, 31)"}, {expected});
 }
 
+class ApproxMostFrequentTestBoolean : public AggregationTestBase {
+ protected:
+  void SetUp() override {
+    AggregationTestBase::SetUp();
+  }
+};
+
+TEST_F(ApproxMostFrequentTestBoolean, basic) {
+  auto input = makeRowVector({
+      makeFlatVector<int32_t>({0, 1, 0, 1, 0, 1, 0, 1}),
+      makeFlatVector<bool>(
+          {true, false, true, true, false, false, false, false}),
+      makeConstant(true, 8),
+      makeConstant(false, 8),
+      makeAllNullFlatVector<bool>(8),
+      makeNullableFlatVector<bool>(
+          {true, false, std::nullopt, true, false, std::nullopt, false, false}),
+  });
+
+  auto expected = makeRowVector({
+      makeMapVector<bool, int64_t>({
+          {{true, 3}, {false, 5}},
+      }),
+  });
+
+  testAggregations(
+      {input}, {}, {"approx_most_frequent(3, c1, 31)"}, {expected});
+
+  expected = makeRowVector({
+      makeFlatVector<int32_t>({0, 1}),
+      makeMapVector<bool, int64_t>({
+          {{true, 2}, {false, 2}},
+          {{true, 1}, {false, 3}},
+      }),
+  });
+
+  testAggregations(
+      {input}, {"c0"}, {"approx_most_frequent(3, c1, 31)"}, {expected});
+
+  // All 'true'.
+  expected = makeRowVector({makeMapVector<bool, int64_t>({{{true, 8}}})});
+  testAggregations(
+      {input}, {}, {"approx_most_frequent(3, c2, 31)"}, {expected});
+
+  expected = makeRowVector({
+      makeFlatVector<int32_t>({0, 1}),
+      makeMapVector<bool, int64_t>({
+          {{true, 4}},
+          {{true, 4}},
+      }),
+  });
+
+  testAggregations(
+      {input}, {"c0"}, {"approx_most_frequent(3, c2, 31)"}, {expected});
+
+  // All 'false'.
+  expected = makeRowVector({makeMapVector<bool, int64_t>({{{false, 8}}})});
+  testAggregations(
+      {input}, {}, {"approx_most_frequent(3, c3, 31)"}, {expected});
+
+  expected = makeRowVector({
+      makeFlatVector<int32_t>({0, 1}),
+      makeMapVector<bool, int64_t>({
+          {{false, 4}},
+          {{false, 4}},
+      }),
+  });
+
+  testAggregations(
+      {input}, {"c0"}, {"approx_most_frequent(3, c3, 31)"}, {expected});
+
+  // All nulls.
+  expected = makeRowVector({
+      BaseVector::createNullConstant(MAP(BOOLEAN(), BIGINT()), 1, pool()),
+  });
+  testAggregations(
+      {input}, {}, {"approx_most_frequent(3, c4, 31)"}, {expected});
+
+  // Some nulls.
+  expected = makeRowVector({
+      makeMapVector<bool, int64_t>({
+          {{true, 2}, {false, 4}},
+      }),
+  });
+
+  testAggregations(
+      {input}, {}, {"approx_most_frequent(3, c5, 31)"}, {expected});
+
+  expected = makeRowVector({
+      makeFlatVector<int32_t>({0, 1}),
+      makeMapVector<bool, int64_t>({
+          {{true, 1}, {false, 2}},
+          {{true, 1}, {false, 2}},
+      }),
+  });
+
+  testAggregations(
+      {input}, {"c0"}, {"approx_most_frequent(3, c5, 31)"}, {expected});
+}
+
 } // namespace
 } // namespace facebook::velox::aggregate::test

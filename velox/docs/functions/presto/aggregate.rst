@@ -334,6 +334,9 @@ Approximate Aggregate Functions
     value is a map containing the top elements with corresponding estimated
     frequency.
 
+    For BOOLEAN 'value', this function always returns 'perfect' result.
+    'bucket' and 'capacity' arguments are ignored in this case.
+
     The error of the function depends on the permutation of the values and its
     cardinality.  We can set the capacity same as the cardinality of the
     underlying data to achieve the least error.
