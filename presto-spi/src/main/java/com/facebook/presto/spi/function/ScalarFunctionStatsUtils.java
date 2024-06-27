@@ -16,6 +16,5 @@ package com.facebook.presto.spi.function;
 public final class ScalarFunctionStatsUtils
 {
     public static final double ROW_COUNT_TIMES_INV_NULL_FRACTION = -1.0;
-
     private ScalarFunctionStatsUtils() {}
 }

@@ -359,7 +359,6 @@ public final class MathFunctions
     @Description("truncate to double by dropping digits after decimal point")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
-    @ScalarFunctionConstantStats(avgRowSize = 8.0)
     public static double truncate(@ScalarPropagateSourceStats(propagateAllStats = true) @SqlType(StandardTypes.DOUBLE) double num,
             @SqlType(StandardTypes.INTEGER) long decimals)
     {
@@ -428,7 +427,7 @@ public final class MathFunctions
     @Description("Euler's number")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
-    @ScalarFunctionConstantStats(avgRowSize = 8.0, nullFraction = 0.0, distinctValuesCount = 1.0, minValue = Math.E, maxValue = Math.E)
+    @ScalarFunctionConstantStats(nullFraction = 0.0, distinctValuesCount = 1.0, minValue = Math.E, maxValue = Math.E)
     public static double e()
     {
         return Math.E;
@@ -632,7 +631,7 @@ public final class MathFunctions
     @Description("the constant Pi")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
-    @ScalarFunctionConstantStats(avgRowSize = 8.0, nullFraction = 0.0, distinctValuesCount = 1.0, minValue = Math.PI, maxValue = Math.PI)
+    @ScalarFunctionConstantStats(nullFraction = 0.0, distinctValuesCount = 1.0, minValue = Math.PI, maxValue = Math.PI)
     public static double pi()
     {
         return Math.PI;
@@ -657,7 +656,7 @@ public final class MathFunctions
     @Description("a pseudo-random value")
     @ScalarFunction(alias = "rand", deterministic = false)
     @SqlType(StandardTypes.DOUBLE)
-    @ScalarFunctionConstantStats(avgRowSize = 8, nullFraction = 0.0, minValue = 0, maxValue = 1.0, distinctValuesCount = -1) // ndv of -1 = row count
+    @ScalarFunctionConstantStats(nullFraction = 0.0, minValue = 0, maxValue = 1.0, distinctValuesCount = -1) // ndv of -1 = row count
     public static double random()
     {
         return ThreadLocalRandom.current().nextDouble();
@@ -666,7 +665,7 @@ public final class MathFunctions
     @Description("a pseudo-random number between 0 and value (exclusive)")
     @ScalarFunction(value = "random", alias = "rand", deterministic = false)
     @SqlType(StandardTypes.TINYINT)
-    @ScalarFunctionConstantStats(avgRowSize = 4, nullFraction = 0.0, minValue = 0.0, maxValue = Integer.MAX_VALUE)
+    @ScalarFunctionConstantStats(nullFraction = 0.0, minValue = 0.0, maxValue = Integer.MAX_VALUE)
     public static long randomTinyint(@ScalarPropagateSourceStats(distinctValueCount = ROW_COUNT) @SqlType(StandardTypes.TINYINT) long value)
     {
         checkCondition(value > 0, INVALID_FUNCTION_ARGUMENT, "bound must be positive");
@@ -676,7 +675,7 @@ public final class MathFunctions
     @Description("a pseudo-random number between 0 and value (exclusive)")
     @ScalarFunction(value = "random", alias = "rand", deterministic = false)
     @SqlType(StandardTypes.SMALLINT)
-    @ScalarFunctionConstantStats(avgRowSize = 4, nullFraction = 0.0, minValue = 0.0, maxValue = Integer.MAX_VALUE)
+    @ScalarFunctionConstantStats(nullFraction = 0.0, minValue = 0.0, maxValue = Integer.MAX_VALUE)
     public static long randomSmallint(@ScalarPropagateSourceStats(distinctValueCount = ROW_COUNT) @SqlType(StandardTypes.SMALLINT) long value)
     {
         checkCondition(value > 0, INVALID_FUNCTION_ARGUMENT, "bound must be positive");
@@ -686,7 +685,7 @@ public final class MathFunctions
     @Description("a pseudo-random number between 0 and value (exclusive)")
     @ScalarFunction(value = "random", alias = "rand", deterministic = false)
     @SqlType(StandardTypes.INTEGER)
-    @ScalarFunctionConstantStats(avgRowSize = 4, nullFraction = 0.0, minValue = 0.0, maxValue = Integer.MAX_VALUE)
+    @ScalarFunctionConstantStats(nullFraction = 0.0, minValue = 0.0, maxValue = Integer.MAX_VALUE)
     public static long randomInteger(@ScalarPropagateSourceStats(distinctValueCount = ROW_COUNT) @SqlType(StandardTypes.INTEGER) long value)
     {
         checkCondition(value > 0, INVALID_FUNCTION_ARGUMENT, "bound must be positive");
@@ -696,7 +695,7 @@ public final class MathFunctions
     @Description("a pseudo-random number between 0 and value (exclusive)")
     @ScalarFunction(alias = "rand", deterministic = false)
     @SqlType(StandardTypes.BIGINT)
-    @ScalarFunctionConstantStats(avgRowSize = 8, nullFraction = 0.0, minValue = 0.0, maxValue = Long.MAX_VALUE)
+    @ScalarFunctionConstantStats(nullFraction = 0.0, minValue = 0.0, maxValue = Long.MAX_VALUE)
     public static long random(@ScalarPropagateSourceStats(distinctValueCount = ROW_COUNT) @SqlType(StandardTypes.BIGINT) long value)
     {
         checkCondition(value > 0, INVALID_FUNCTION_ARGUMENT, "bound must be positive");
@@ -706,7 +705,7 @@ public final class MathFunctions
     @Description("a cryptographically secure random number between 0 and 1 (exclusive)")
     @ScalarFunction(value = "secure_random", alias = "secure_rand", deterministic = false)
     @SqlType(StandardTypes.DOUBLE)
-    @ScalarFunctionConstantStats(avgRowSize = 8.0, nullFraction = 0.0, minValue = 0.0, maxValue = 1.0)
+    @ScalarFunctionConstantStats(nullFraction = 0.0, minValue = 0.0, maxValue = 1.0)
     public static double secure_random()
     {
         SecureRandom random = SecureRandomGeneration.getNonBlocking();
@@ -716,7 +715,7 @@ public final class MathFunctions
     @Description("a cryptographically secure random number between lower and upper (exclusive)")
     @ScalarFunction(value = "secure_random", alias = "secure_rand", deterministic = false)
     @SqlType(StandardTypes.DOUBLE)
-    @ScalarFunctionConstantStats(avgRowSize = 8, nullFraction = 0.0)
+    @ScalarFunctionConstantStats(nullFraction = 0.0)
     public static double secure_random(
             @ScalarPropagateSourceStats(minValue = SOURCE_STATS, distinctValueCount = ROW_COUNT) @SqlType(StandardTypes.DOUBLE) double lower,
             @SqlType(StandardTypes.DOUBLE) double upper)
@@ -731,7 +730,7 @@ public final class MathFunctions
     @Description("a cryptographically secure random number between lower and upper (exclusive)")
     @ScalarFunction(value = "secure_random", alias = "secure_rand", deterministic = false)
     @SqlType(StandardTypes.TINYINT)
-    @ScalarFunctionConstantStats(avgRowSize = 4, nullFraction = 0.0)
+    @ScalarFunctionConstantStats(nullFraction = 0.0)
     public static long secureRandomTinyint(
             @ScalarPropagateSourceStats(minValue = SOURCE_STATS, distinctValueCount = ROW_COUNT) @SqlType(StandardTypes.TINYINT) long lower,
             @SqlType(StandardTypes.TINYINT) long upper)
@@ -746,7 +745,7 @@ public final class MathFunctions
     @Description("a cryptographically secure random number between lower and upper (exclusive)")
     @ScalarFunction(value = "secure_random", alias = "secure_rand", deterministic = false)
     @SqlType(StandardTypes.SMALLINT)
-    @ScalarFunctionConstantStats(avgRowSize = 4.0, nullFraction = 0.0)
+    @ScalarFunctionConstantStats(nullFraction = 0.0)
     public static long secureRandomSmallint(@ScalarPropagateSourceStats(distinctValueCount = ROW_COUNT) @SqlType(StandardTypes.SMALLINT) long lower, @SqlType(StandardTypes.SMALLINT) long upper)
     {
         checkCondition(lower < upper, INVALID_FUNCTION_ARGUMENT, "upper bound must be greater than lower bound");

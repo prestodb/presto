@@ -32,9 +32,11 @@ public enum PropagateSourceStats
      * Stats are simple when their value is calculated by operating on stats from source stats of the argument which
      * is annotated.
      */
-    public static boolean isSimpleStatsFunction(PropagateSourceStats op)
+    public static final Set<PropagateSourceStats> SIMPLE_STATS =
+            new HashSet<>(Arrays.asList(UNKNOWN, ROW_COUNT, ROW_COUNT_TIMES_INV_NULL_FRACTION, TYPE_WIDTH_VARCHAR, SOURCE_STATS));
+
+    public boolean isSimpleStatsFunction()
     {
-        Set<PropagateSourceStats> s = new HashSet<>(Arrays.asList(UNKNOWN, ROW_COUNT, ROW_COUNT_TIMES_INV_NULL_FRACTION, TYPE_WIDTH_VARCHAR, SOURCE_STATS));
-        return s.contains(op);
+        return SIMPLE_STATS.contains(this);
     }
 }

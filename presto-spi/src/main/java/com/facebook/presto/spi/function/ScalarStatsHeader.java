@@ -17,21 +17,21 @@ import java.util.Map;
 
 public class ScalarStatsHeader
 {
-    private Map<Integer, ScalarPropagateSourceStats> statsResolver;
+    private Map<Integer, ScalarPropagateSourceStats> argumentStatsResolver;
     private double distinctValuesCount;
     private double nullFraction;
     private double avgRowSize;
     private double min;
     private double max;
 
-    private ScalarStatsHeader(Map<Integer, ScalarPropagateSourceStats> statsResolver,
+    private ScalarStatsHeader(Map<Integer, ScalarPropagateSourceStats> argumentStatsResolver,
             double distinctValuesCount,
             double nullFraction,
             double avgRowSize,
             double min,
             double max)
     {
-        this.statsResolver = statsResolver;
+        this.argumentStatsResolver = argumentStatsResolver;
         this.distinctValuesCount = distinctValuesCount;
         this.nullFraction = nullFraction;
         this.avgRowSize = avgRowSize;
@@ -39,14 +39,19 @@ public class ScalarStatsHeader
         this.max = max;
     }
 
-    public ScalarStatsHeader(ScalarFunctionConstantStats statsHeader, Map<Integer, ScalarPropagateSourceStats> statsResolver)
+    public ScalarStatsHeader(ScalarFunctionConstantStats methodConstantStats, Map<Integer, ScalarPropagateSourceStats> argumentStatsResolver)
     {
-        this(statsResolver, statsHeader.distinctValuesCount(), statsHeader.nullFraction(), statsHeader.avgRowSize(), statsHeader.minValue(), statsHeader.maxValue());
+        this(argumentStatsResolver,
+                methodConstantStats.distinctValuesCount(),
+                methodConstantStats.nullFraction(),
+                methodConstantStats.avgRowSize(),
+                methodConstantStats.minValue(),
+                methodConstantStats.maxValue());
     }
 
-    public ScalarStatsHeader(Map<Integer, ScalarPropagateSourceStats> statsResolver)
+    public ScalarStatsHeader(Map<Integer, ScalarPropagateSourceStats> argumentStatsResolver)
     {
-        this(statsResolver, Double.NaN, Double.NaN, Double.NaN, Double.NaN, Double.NaN);
+        this(argumentStatsResolver, Double.NaN, Double.NaN, Double.NaN, Double.NaN, Double.NaN);
     }
 
     public double getAvgRowSize()
@@ -80,6 +85,6 @@ public class ScalarStatsHeader
      */
     public Map<Integer, ScalarPropagateSourceStats> getArgumentStats()
     {
-        return statsResolver;
+        return argumentStatsResolver;
     }
 }

@@ -29,7 +29,7 @@ public final class CombineHashFunction
 
     @ScalarFunction(value = "combine_hash", visibility = HIDDEN)
     @SqlType(StandardTypes.BIGINT)
-    @ScalarFunctionConstantStats(avgRowSize = 8, distinctValuesCount = ScalarFunctionStatsUtils.ROW_COUNT_TIMES_INV_NULL_FRACTION)
+    @ScalarFunctionConstantStats(distinctValuesCount = ScalarFunctionStatsUtils.ROW_COUNT_TIMES_INV_NULL_FRACTION)
     public static long getHash(
             @ScalarPropagateSourceStats(nullFraction = MAX) @SqlType(StandardTypes.BIGINT) long previousHashValue,
             @SqlType(StandardTypes.BIGINT) long value)

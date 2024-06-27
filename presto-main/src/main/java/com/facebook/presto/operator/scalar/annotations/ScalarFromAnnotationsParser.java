@@ -111,16 +111,16 @@ public final class ScalarFromAnnotationsParser
         Optional<ScalarStatsHeader> scalarStatsHeader;
         ScalarFunctionConstantStats statsCalculator = annotated.getAnnotation(ScalarFunctionConstantStats.class);
         List<java.lang.reflect.Parameter> params = Arrays.stream(annotated.getParameters()).filter(x -> x.getAnnotation(SqlType.class) != null).collect(Collectors.toList());
-        // Map of (parameter's index) -> (ScalarPropagateSourceStats annotation)
-        Map<Integer, ScalarPropagateSourceStats> paramsStats = new HashMap<>();
+        // Map of (function argument position index) -> (ScalarPropagateSourceStats annotation)
+        Map<Integer, ScalarPropagateSourceStats> argumentStatsResolver = new HashMap<>();
 
         IntStream.range(0, params.size())
                 .filter(x -> params.get(x).getAnnotation(ScalarPropagateSourceStats.class) != null)
-                .forEachOrdered(x -> paramsStats.put(x, params.get(x).getAnnotation(ScalarPropagateSourceStats.class)));
+                .forEachOrdered(x -> argumentStatsResolver.put(x, params.get(x).getAnnotation(ScalarPropagateSourceStats.class)));
 
-        scalarStatsHeader = Optional.ofNullable(statsCalculator).map(x -> new ScalarStatsHeader(x, paramsStats));
-        if (!paramsStats.isEmpty() && !scalarStatsHeader.isPresent()) {
-            scalarStatsHeader = Optional.of(new ScalarStatsHeader(paramsStats));
+        scalarStatsHeader = Optional.ofNullable(statsCalculator).map(x -> new ScalarStatsHeader(x, argumentStatsResolver));
+        if (!argumentStatsResolver.isEmpty() && !scalarStatsHeader.isPresent()) {
+            scalarStatsHeader = Optional.of(new ScalarStatsHeader(argumentStatsResolver));
         }
         return scalarStatsHeader;
     }

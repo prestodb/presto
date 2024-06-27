@@ -23,7 +23,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
-import com.facebook.presto.spi.function.ScalarFunctionConstantStats;
 import com.facebook.presto.spi.function.ScalarPropagateSourceStats;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.type.TimestampOperators;
@@ -1232,7 +1231,6 @@ public final class DateTimeFunctions
     @Description("year of the given timestamp")
     @ScalarFunction("year")
     @SqlType(StandardTypes.BIGINT)
-    @ScalarFunctionConstantStats(avgRowSize = 8.0)
     public static long yearFromTimestamp(
             SqlFunctionProperties properties,
             @ScalarPropagateSourceStats(nullFraction = SOURCE_STATS, distinctValueCount = SOURCE_STATS) @SqlType(StandardTypes.TIMESTAMP) long timestamp)
@@ -1248,7 +1246,6 @@ public final class DateTimeFunctions
     @Description("year of the given timestamp")
     @ScalarFunction("year")
     @SqlType(StandardTypes.BIGINT)
-    @ScalarFunctionConstantStats(avgRowSize = 8.0)
     public static long yearFromTimestampWithTimeZone(
             @ScalarPropagateSourceStats(nullFraction = SOURCE_STATS, distinctValueCount = SOURCE_STATS) @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
     {
@@ -1258,7 +1255,6 @@ public final class DateTimeFunctions
     @Description("year of the given date")
     @ScalarFunction("year")
     @SqlType(StandardTypes.BIGINT)
-    @ScalarFunctionConstantStats(avgRowSize = 8.0)
     public static long yearFromDate(@ScalarPropagateSourceStats(nullFraction = SOURCE_STATS, distinctValueCount = SOURCE_STATS) @SqlType(StandardTypes.DATE) long date)
     {
         return YEAR.get(DAYS.toMillis(date));

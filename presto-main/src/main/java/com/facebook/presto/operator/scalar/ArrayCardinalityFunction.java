@@ -32,7 +32,7 @@ public final class ArrayCardinalityFunction
 
     @TypeParameter("E")
     @SqlType(StandardTypes.BIGINT)
-    @ScalarFunctionConstantStats(avgRowSize = 8.0, minValue = 0)
+    @ScalarFunctionConstantStats(minValue = 0)
     public static long arrayCardinality(
             @ScalarPropagateSourceStats(nullFraction = SOURCE_STATS) @SqlType("array(E)") Block block)
     {

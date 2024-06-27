@@ -40,7 +40,7 @@ public final class KHyperLogLogFunctions
 
     @ScalarFunction
     @SqlType(StandardTypes.BIGINT)
-    @ScalarFunctionConstantStats(avgRowSize = 8.0, minValue = 0)
+    @ScalarFunctionConstantStats(minValue = 0)
     public static long cardinality(@ScalarPropagateSourceStats(nullFraction = SOURCE_STATS) @SqlType(KHyperLogLogType.NAME) Slice khll)
     {
         return KHyperLogLog.newInstance(khll).cardinality();

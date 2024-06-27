@@ -30,11 +30,13 @@ public class TestStatsPropagation
     }
 
     @Test
-    public void testStatsPropagationScalarRandomFunction()
+    public void testStatsPropagationScalarFunction()
     {
         assertPlanHasVariableStats("SELECT 1 FROM lineitem l, orders o WHERE l.orderkey=o.orderkey and l.discount = (SELECT random() FROM nation n where n.nationkey=1)",
                 getQueryRunner().getDefaultSession());
         assertPlanHasVariableStats("select * FROM orders o, lineitem as l WHERE o.orderkey = l.orderkey and substr(lower(l.comment), 2) = 'us'",
+                getQueryRunner().getDefaultSession());
+        assertPlanHasVariableStats("select * FROM orders o, lineitem as l WHERE o.orderkey = l.orderkey and strpos(lower(l.comment), 'us') > 1",
                 getQueryRunner().getDefaultSession());
     }
 

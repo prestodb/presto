@@ -39,7 +39,7 @@ public final class HyperLogLogFunctions
     @ScalarFunction
     @Description("compute the cardinality of a HyperLogLog instance")
     @SqlType(StandardTypes.BIGINT)
-    @ScalarFunctionConstantStats(avgRowSize = 8.0, minValue = 0)
+    @ScalarFunctionConstantStats(minValue = 0)
     public static long cardinality(@ScalarPropagateSourceStats(nullFraction = SOURCE_STATS) @SqlType(StandardTypes.HYPER_LOG_LOG) Slice serializedHll)
     {
         return HyperLogLog.newInstance(serializedHll).cardinality();
