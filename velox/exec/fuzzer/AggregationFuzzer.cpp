@@ -17,6 +17,7 @@
 
 #include <boost/random/uniform_int_distribution.hpp>
 
+#include "velox/common/base/Portability.h"
 #include "velox/connectors/hive/TableHandle.h"
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
 
@@ -515,10 +516,18 @@ void makeAlternativePlansWithValues(
                           .partialAggregation(groupingKeys, aggregates, masks)
                           .planNode());
   }
+
+// There is a known issue where LocalPartition will send DictionaryVectors
+// with the same underlying base Vector to multiple threads.  This triggers
+// TSAN to report data races, particularly if that base Vector is from the
+// TableScan and reused.  Don't run these tests when TSAN is enabled to avoid
+// the false negatives.
+#ifndef TSAN_BUILD
   plans.push_back(PlanBuilder(planNodeIdGenerator)
                       .localPartition(groupingKeys, sources)
                       .finalAggregation()
                       .planNode());
+#endif
 }
 
 void makeAlternativePlansWithTableScan(
@@ -527,6 +536,12 @@ void makeAlternativePlansWithTableScan(
     const std::vector<std::string>& masks,
     const RowTypePtr& inputRowType,
     std::vector<core::PlanNodePtr>& plans) {
+// There is a known issue where LocalPartition will send DictionaryVectors
+// with the same underlying base Vector to multiple threads.  This triggers
+// TSAN to report data races, particularly if that base Vector is from the
+// TableScan and reused.  Don't run these tests when TSAN is enabled to avoid
+// the false negatives.
+#ifndef TSAN_BUILD
   // Partial -> final aggregation plan.
   plans.push_back(PlanBuilder()
                       .tableScan(inputRowType)
@@ -543,6 +558,7 @@ void makeAlternativePlansWithTableScan(
                       .intermediateAggregation()
                       .finalAggregation()
                       .planNode());
+#endif
 }
 
 void makeStreamingPlansWithValues(

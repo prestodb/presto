@@ -17,6 +17,7 @@
 #include "velox/exec/fuzzer/WindowFuzzer.h"
 
 #include <boost/random/uniform_int_distribution.hpp>
+#include "velox/common/base/Portability.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 
@@ -319,6 +320,12 @@ void WindowFuzzer::testAlternativePlans(
   if (isTableScanSupported(inputRowType)) {
     auto splits = makeSplits(input, directory->getPath(), writerPool_);
 
+// There is a known issue where LocalPartition will send DictionaryVectors
+// with the same underlying base Vector to multiple threads.  This triggers
+// TSAN to report data races, particularly if that base Vector is from the
+// TableScan and reused.  Don't run these tests when TSAN is enabled to avoid
+// the false negatives.
+#ifndef TSAN_BUILD
     plans.push_back(
         {PlanBuilder()
              .tableScan(inputRowType)
@@ -326,6 +333,7 @@ void WindowFuzzer::testAlternativePlans(
              .window({fmt::format("{} over ({})", functionCall, frame)})
              .planNode(),
          splits});
+#endif
 
     if (!allKeys.empty()) {
       plans.push_back(
@@ -373,12 +381,6 @@ bool WindowFuzzer::verifyWindow(
       customVerifier->reset();
     }
   };
-
-  // There is a known issue where LocalPartition will send DictionaryVectors
-  // with the same underlying base Vector to multiple threads.  This triggers
-  // TSAN to report data races, particularly if that base Vector is from the
-  // TableScan and reused.  Ignore TSAN issues in these tests for now.
-  folly::annotate_ignore_thread_sanitizer_guard g(__FILE__, __LINE__);
 
   auto frame = getFrame(partitionKeys, sortingKeysAndOrders, frameClause);
   auto plan = PlanBuilder()
