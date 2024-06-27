@@ -474,7 +474,7 @@ bool OutputBuffer::enqueue(
         VELOX_UNREACHABLE(PartitionedOutputNode::kindString(kind_));
     }
 
-    if (bufferedBytes_ > maxSize_ && future) {
+    if (bufferedBytes_ >= maxSize_ && future) {
       promises_.emplace_back("OutputBuffer::enqueue");
       *future = promises_.back().getSemiFuture();
       blocked = true;

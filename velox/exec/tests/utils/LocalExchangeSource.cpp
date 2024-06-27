@@ -116,7 +116,6 @@ class LocalExchangeSource : public exec::ExchangeSource {
         return;
       }
 
-      int64_t ackSequence;
       VeloxPromise<Response> requestPromise;
       {
         std::vector<ContinuePromise> queuePromises;
@@ -132,7 +131,7 @@ class LocalExchangeSource : public exec::ExchangeSource {
             atEnd_ = true;
           }
           if (!data.empty()) {
-            ackSequence = sequence_ = sequence + pages.size();
+            sequence_ = sequence + pages.size();
           }
         }
         for (auto& promise : queuePromises) {
@@ -142,8 +141,6 @@ class LocalExchangeSource : public exec::ExchangeSource {
       // Outside of queue mutex.
       if (atEnd_) {
         buffers->deleteResults(taskId_, destination_);
-      } else if (!data.empty()) {
-        buffers->acknowledge(taskId_, destination_, ackSequence);
       }
 
       if (!requestPromise.isFulfilled()) {
@@ -162,6 +159,19 @@ class LocalExchangeSource : public exec::ExchangeSource {
   folly::SemiFuture<Response> requestDataSizes(
       std::chrono::microseconds maxWait) override {
     return request(0, maxWait);
+  }
+
+  void pause() override {
+    common::testutil::TestValue::adjust(
+        "facebook::velox::exec::test::LocalExchangeSource::pause", nullptr);
+    auto buffers = OutputBufferManager::getInstance().lock();
+    VELOX_CHECK_NOT_NULL(buffers, "invalid OutputBufferManager");
+    int64_t ackSequence;
+    {
+      std::lock_guard<std::mutex> l(queue_->mutex());
+      ackSequence = sequence_;
+    }
+    buffers->acknowledge(taskId_, destination_, ackSequence);
   }
 
   void close() override {
