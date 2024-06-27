@@ -184,13 +184,11 @@ class ApproxPercentileResultVerifier : public ResultVerifier {
     VELOX_CHECK(!input.empty())
     const auto rowType = asRowType(input[0]->type());
 
-    const bool weighted = weightField.has_value();
-
     std::vector<std::string> projections = groupingKeys_;
     projections.push_back(fmt::format("{} as x", valueField));
-    if (weighted) {
-      projections.push_back(fmt::format("{} as w", weightField.value()));
-    }
+    projections.push_back(fmt::format(
+        "{} as w",
+        weightField.has_value() ? weightField.value() : "1::bigint"));
 
     PlanBuilder planBuilder;
     planBuilder.values(input);
@@ -199,12 +197,7 @@ class ApproxPercentileResultVerifier : public ResultVerifier {
       planBuilder.filter(mask->name());
     }
 
-    planBuilder.project(projections).filter("x IS NOT NULL");
-
-    if (weighted) {
-      planBuilder.appendColumns({"sequence(1, w) as repeats"})
-          .unnest(append(groupingKeys_, {"x"}), {"repeats"});
-    }
+    planBuilder.project(projections).filter("x IS NOT NULL AND w > 0");
 
     std::string partitionByClause;
     if (!groupingKeys_.empty()) {
@@ -213,18 +206,31 @@ class ApproxPercentileResultVerifier : public ResultVerifier {
     }
 
     std::vector<std::string> windowCalls = {
+        // Compute the sum of all the weights.
         fmt::format(
-            "row_number() OVER ({} order by x) as rn", partitionByClause),
+            "sum(w) OVER ({} order by x range between unbounded preceding and unbounded following) as total",
+            partitionByClause),
+        // Compute the sum of the weights in the current frame.
         fmt::format(
-            "count(1) OVER ({} order by x range between unbounded preceding and unbounded following) "
-            "as total",
+            "sum(w) OVER ({} order by x range between current row and current row) "
+            "as sum",
+            partitionByClause),
+        // Compute the sum of the weights of all frames up to and including the
+        // current frame.
+        fmt::format(
+            "sum(w) OVER ({} order by x range between unbounded preceding and current row) "
+            "as prefix_sum",
             partitionByClause),
     };
 
     planBuilder.window(windowCalls)
         .appendColumns({
-            "(rn::double - 1.0) / total::double as lower",
-            "rn::double / total::double as upper",
+            // The sum of the weights of all frames before the current frame
+            // over the total sum.
+            "(prefix_sum::double - sum::double) / total::double as lower",
+            // The sum of the weights of all frames up to and including the
+            // current frame over the total sum.
+            "(prefix_sum::double) / total::double as upper",
         })
         .singleAggregation(
             append(groupingKeys_, {"x"}),
@@ -312,7 +318,8 @@ class ApproxPercentileResultVerifier : public ResultVerifier {
                   {"s"},
                   "pct_index")
               .project(append(
-                  groupingKeys_, {name_, "min_pct", "max_pct", "pct_index"}))
+                  groupingKeys_,
+                  {name_, "min_pct", "max_pct", "pct_index - 1 as pct_index"}))
               .planNode();
 
       actualSource = PlanBuilder(planNodeIdGenerator)
