@@ -400,7 +400,7 @@ TEST_F(ApproxPercentileTest, finalAggregateAccuracy) {
   assertQuery(op, "SELECT 5");
 }
 
-TEST_F(ApproxPercentileTest, invalidEncoding) {
+TEST_F(ApproxPercentileTest, nonFlatPercentileArray) {
   auto indices = AlignedBuffer::allocate<vector_size_t>(3, pool());
   auto rawIndices = indices->asMutable<vector_size_t>();
   std::iota(rawIndices, rawIndices + indices->size(), 0);
@@ -421,10 +421,8 @@ TEST_F(ApproxPercentileTest, invalidEncoding) {
                   .values({rows})
                   .singleAggregation({}, {"approx_percentile(c0, c1)"})
                   .planNode();
-  AssertQueryBuilder assertQuery(plan);
-  VELOX_ASSERT_THROW(
-      assertQuery.copyResults(pool()),
-      "Only flat encoding is allowed for percentile array elements");
+  auto expected = makeRowVector({makeArrayVector<int32_t>({{0, 5, 9}})});
+  AssertQueryBuilder(plan).assertResults(expected);
 }
 
 TEST_F(ApproxPercentileTest, invalidWeight) {
