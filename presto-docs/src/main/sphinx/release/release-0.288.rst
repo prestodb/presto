@@ -28,6 +28,11 @@ _______________
 * Improve logging for RowExpressionRewriteRuleSet and StatsRecordingPlanOptimizer optimizers to include more information. :pr:`22765`
 * Improve session property ``property-use_broadcast_when_buildsize_small_probeside_unknown`` to do broadcast join when probe side size is unknown and build side estimation from HBO is small. :pr:`22681`
 * Improve the estimation stats recorded during query optimization. :pr:`22769`
+* Improve Presto C++ documentation. :pr:`22717`
+* Improve error code for cast from DOUBLE or REAL to BIGINT, INTEGER, SMALLINT or TINYINT for out of range values from NUMERIC_VALUE_OUT_OF_RANGE to INVALID_CAST_ARGUMENT. :pr:`22917`
+* Improve handling of floating point numbers in Presto to consistently treat NaNs as larger than any other number and equal to itself. It also changes the handling of positive and negative zero to always be considered equal to each other. Read more here: https://github.com/prestodb/rfcs/blob/main/RFC-0001-nan-definition.md. The new nan behavior can be disabled by setting the configuration property use-new-nan-definition to false. This configuration property is intended to be temporary to ease migration in the short term, and will be removed in a future release. :pr:`22386`
+* Add HBO for CTE materialized query. :pr:`22606`
+* Add Prestissimo support for CTAS into bucketed (but not partitioned) tables. :pr:`22737`
 * Add :doc:`/presto_cpp/properties` documentation. :pr:`22885`
 * Add PR number to the release note entry examples in pull_request_template.md. :pr:`22665`
 * Add ``http-server.authentication.allow-forwarded-https`` configuration property to recognize X-Forwarded-Proto header. :pr:`22492`
@@ -38,19 +43,17 @@ _______________
 * Add support for non default keystore and truststore type in presto CLI and JDBC. :pr:`22556`
 * Add support for querying system.runtime.tasks table in native clusters. :pr:`21416`
 * Remove deprecated feature and configuration property ``deprecated.group-by-uses-equal``, which allowed group by to use equal to rather than distinct semantics. :pr:`22888`
-* ... Improve :doc:`/presto-cpp` documentation. :pr:`22717`
-* Change error code for cast from DOUBLE or REAL to BIGINT, INTEGER, SMALLINT or TINYINT for out of range values from ``NUMERIC_VALUE_OUT_OF_RANGE`` to ``INVALID_CAST_ARGUMENT``. :pr:`22917`
-* Change handling of floating point numbers in Presto to consistently treat NaNs as larger than any other number and equal to itself.  It also changes the handling of positive and negative zero to always be considered equal to each other.  Read more here: https://github.com/prestodb/rfcs/blob/main/RFC-0001-nan-definition.md. The new nan behavior can be disabled by setting the configuration property ``use-new-nan-definition`` to ``false``. This configuration property is intended to be temporary to ease migration in the short term, and will be removed in a future release. :pr:`22386`
-* Enable HBO for CTE materialized query. :pr:`22606`
-* Prestissimo support for CTAS into bucketed (but not partitioned) tables. pr:`22737`
-* Update CI pipeline to build and publish native worker docker image. :pr:`22806`
+* Upgrade CI pipeline to build and publish native worker docker image. :pr:`22806`
 * Upgrade Alluxio to 313. :pr:`22958`
 * Upgrade io.jsonwebtoken artifacts to 0.11.5. :pr:`22762`
 * Upgrade fasterxml.jackson artifacts to 2.11. :pr:`22417`
 
 Hive Connector Changes
 ______________________
+* Fix hash calculation for Timestamp column to be hive compatible when writing to a table bucketed by Timestamp. :pr:`22980`
 * Improve affinity scheduling granularity from a file to a section of a file by adding a ``hive.affinity-scheduling-file-section-size`` configuration property and ``affinity_scheduling_file_section_size`` session property. The default file size is 256MB. :pr:`22563`
+* Add AWS Security Mapping to allow flexible mapping of Presto Users to AWS Credentials or IAM Roles for different AWS Services. :pr:`21622`
+* Add config property ``hive.legacy-timestamp-bucketing`` and session property ``hive.legacy_timestamp_bucketing`` to use the original hash function for Timestamp column, which is not hive compatible. :pr:`22980`
 
 Iceberg Connector Changes
 _________________________
@@ -60,25 +63,16 @@ _________________________
 * Add procedure `expire_snapshots` to remove old snapshots in Iceberg. :pr:`22609`
 * Add support for Iceberg REST catalog. :pr:`22417`
 * Add time travel ``BEFORE`` syntax for Iceberg tables to return historical data. :pr:`22851`
-* Disable timestamp with time zone in ``CREATE``, ``ALTER``, and ``INSERT`` statements. :pr:`22926`
+* Add support for metadata delete with predicate on non-identity partition columns when they align with partitioning boundaries. :pr:`22554`
+* Remove timestamp with time zone in ``CREATE``, ``ALTER``, and ``INSERT`` statements. :pr:`22926`
 
 Verifier Changes
 ________________
-* Support function call substitution based on the specified substitution pattern passed by the parameter --function-substitutes. :pr:`22783`
+* Add support for function call substitution based on the specified substitution pattern passed by the parameter --function-substitutes. :pr:`22783`
 
 SPI Changes
 ___________
 * Add runtime stats as parameter to ``ConnectorPageSourceProvider``. :pr:`22960`
-
-Hive Changes
-____________
-* Introduce AWS Security Mapping to allow flexible mapping of Presto Users to AWS Credentials or IAM Roles for different AWS Services. :pr:`21622`
-* Fix hash calculation for Timestamp column to be hive compatible when writing to a table bucketed by Timestamp. :pr:`22890`
-* Add config `hive.legacy-timestamp-bucketing` and session property ``hive.legacy_timestamp_bucketing`` to use the original hash function for Timestamp column, which is not hive compatible. :pr:`22890`
-
-Iceberg Changes
-_______________
-* Support metadata delete with predicate on non-identity partition columns when they align with partitioning boundaries. :pr:`22554`
 
 **Credits**
 ===========
