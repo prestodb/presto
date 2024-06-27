@@ -25,7 +25,7 @@ namespace facebook::velox::exec {
 class ExchangeClient : public std::enable_shared_from_this<ExchangeClient> {
  public:
   static constexpr int32_t kDefaultMaxQueuedBytes = 32 << 20; // 32 MB.
-  static constexpr std::chrono::seconds kRequestDataSizesMaxWait{2};
+  static constexpr std::chrono::seconds kRequestDataSizesMaxWait{10};
   static constexpr std::chrono::milliseconds kRequestDataMaxWait{100};
   static inline const std::string kBackgroundCpuTimeMs = "backgroundCpuTimeMs";
 
