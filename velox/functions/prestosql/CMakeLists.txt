@@ -47,6 +47,7 @@ add_library(
   SimpleComparisonMatcher.cpp
   Slice.cpp
   Split.cpp
+  SplitToMap.cpp
   StringFunctions.cpp
   Subscript.cpp
   ToUtf8.cpp

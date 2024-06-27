@@ -69,6 +69,11 @@ TEST_F(ScalarFunctionRegTest, prefix) {
     if (funcName == "in") {
       continue;
     }
+
+    // Skip internal functions. They don't have any prefix.
+    if (funcName.find("$internal$") == 0) {
+      continue;
+    }
     EXPECT_EQ(prefix, funcName.substr(0, prefixSize));
     EXPECT_EQ(1, scalarSimpleFuncBaseNames.count(funcName.substr(prefixSize)));
   }

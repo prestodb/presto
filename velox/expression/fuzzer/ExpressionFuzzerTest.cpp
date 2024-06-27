@@ -54,6 +54,7 @@ int main(int argc, char** argv) {
       "width_bucket",
       // Fuzzer cannot generate valid 'comparator' lambda.
       "array_sort(array(T),constant function(T,T,bigint)) -> array(T)",
+      "split_to_map(varchar,varchar,varchar,function(varchar,varchar,varchar,varchar)) -> map(varchar,varchar)",
       // https://github.com/facebookincubator/velox/issues/8919
       "plus(date,interval year to month) -> date",
       "minus(date,interval year to month) -> date",

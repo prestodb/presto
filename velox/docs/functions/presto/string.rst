@@ -166,6 +166,20 @@ String Functions
 
     Raises an error if there are duplicate keys.
 
+.. function:: split_to_map(string, entryDelimiter, keyValueDelimiter, function(K,V1,V2,R)) -> map<varchar, varchar>
+
+    Splits ``string`` by ``entryDelimiter`` and ``keyValueDelimiter`` and returns a map.
+    ``entryDelimiter`` splits ``string`` into key-value pairs. ``keyValueDelimiter`` splits
+    each pair into key and value. Note that ``entryDelimiter`` and ``keyValueDelimiter`` are
+    interpreted literally, i.e., as full string matches.
+
+    ``function(K,V1,V2,R)`` is used to decide whether to keep first or last value for
+    duplicate keys. (k, v1, v2) -> v1 keeps first value. (k, v1, v2) -> v2 keeps last
+    value. Arbitrary functions are not supported. ::
+
+        SELECT(split_to_map('a:1;b:2;a:3', ';', ':', (k, v1, v2) -> v1)); -- {"a": "1", "b": "2"}
+        SELECT(split_to_map('a:1;b:2;a:3', ';', ':', (k, v1, v2) -> v2)); -- {"a": "3", "b": "2"}
+
 .. function:: starts_with(string, substring) -> boolean
 
     Returns whether ``string`` starts with ``substring``.

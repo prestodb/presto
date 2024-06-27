@@ -33,6 +33,51 @@ struct SplitToMapFunction {
       const arg_type<Varchar>& input,
       const arg_type<Varchar>& entryDelimiter,
       const arg_type<Varchar>& keyValueDelimiter) {
+    return callImpl(
+        out,
+        toStringView(input),
+        toStringView(entryDelimiter),
+        toStringView(keyValueDelimiter),
+        OnDuplicateKey::kFail);
+  }
+
+  Status call(
+      out_type<Map<Varchar, Varchar>>& out,
+      const arg_type<Varchar>& input,
+      const arg_type<Varchar>& entryDelimiter,
+      const arg_type<Varchar>& keyValueDelimiter,
+      const arg_type<bool>& keepFirstOrLast) {
+    return callImpl(
+        out,
+        toStringView(input),
+        toStringView(entryDelimiter),
+        toStringView(keyValueDelimiter),
+        keepFirstOrLast ? OnDuplicateKey::kKeepFirst
+                        : OnDuplicateKey::kKeepLast);
+  }
+
+ private:
+  static std::string_view toStringView(const arg_type<Varchar>& input) {
+    return std::string_view(input.data(), input.size());
+  }
+
+  enum class OnDuplicateKey {
+    // Raise an error if there are duplicate keys.
+    kFail,
+
+    // Keep the first value for each key.
+    kKeepFirst,
+
+    // Keep the last value for each key.
+    kKeepLast,
+  };
+
+  Status callImpl(
+      out_type<Map<Varchar, Varchar>>& out,
+      std::string_view input,
+      std::string_view entryDelimiter,
+      std::string_view keyValueDelimiter,
+      OnDuplicateKey onDuplicateKey) const {
     VELOX_RETURN_IF(
         entryDelimiter.empty(), Status::UserError("entryDelimiter is empty"));
     VELOX_RETURN_IF(
@@ -48,34 +93,17 @@ struct SplitToMapFunction {
       return Status::OK();
     }
 
-    return callImpl(
-        out,
-        toStringView(input),
-        toStringView(entryDelimiter),
-        toStringView(keyValueDelimiter));
-  }
-
- private:
-  static std::string_view toStringView(const arg_type<Varchar>& input) {
-    return std::string_view(input.data(), input.size());
-  }
-
-  Status callImpl(
-      out_type<Map<Varchar, Varchar>>& out,
-      std::string_view input,
-      std::string_view entryDelimiter,
-      std::string_view keyValueDelimiter) const {
     size_t pos = 0;
 
-    folly::F14FastSet<std::string_view> keys;
+    folly::F14FastMap<std::string_view, std::string_view> keyValuePairs;
 
     auto nextEntryPos = input.find(entryDelimiter, pos);
     while (nextEntryPos != std::string::npos) {
       VELOX_RETURN_NOT_OK(processEntry(
-          out,
           std::string_view(input.data() + pos, nextEntryPos - pos),
           keyValueDelimiter,
-          keys));
+          onDuplicateKey,
+          keyValuePairs));
 
       pos = nextEntryPos + 1;
       nextEntryPos = input.find(entryDelimiter, pos);
@@ -85,20 +113,28 @@ struct SplitToMapFunction {
     // there is no last entry to process.
     if (pos < input.size()) {
       VELOX_RETURN_NOT_OK(processEntry(
-          out,
           std::string_view(input.data() + pos, input.size() - pos),
           keyValueDelimiter,
-          keys));
+          onDuplicateKey,
+          keyValuePairs));
+    }
+
+    out.reserve(keyValuePairs.size());
+    for (auto& [key, value] : keyValuePairs) {
+      auto [keyWriter, valueWriter] = out.add_item();
+      keyWriter.setNoCopy(StringView(key));
+      valueWriter.setNoCopy(StringView(value));
     }
 
     return Status::OK();
   }
 
   Status processEntry(
-      out_type<Map<Varchar, Varchar>>& out,
       std::string_view entry,
       std::string_view keyValueDelimiter,
-      folly::F14FastSet<std::string_view>& keys) const {
+      OnDuplicateKey onDuplicateKey,
+      folly::F14FastMap<std::string_view, std::string_view>& keyValuePairs)
+      const {
     const auto delimiterPos = entry.find(keyValueDelimiter, 0);
 
     VELOX_RETURN_IF(
@@ -108,19 +144,47 @@ struct SplitToMapFunction {
             entry));
 
     const auto key = std::string_view(entry.data(), delimiterPos);
-    VELOX_RETURN_IF(
-        !keys.insert(key).second,
-        Status::UserError("Duplicate keys ({}) are not allowed.", key));
-
-    const auto value = StringView(
+    const auto value = std::string_view(
         entry.data() + delimiterPos + 1, entry.size() - delimiterPos - 1);
 
-    auto [keyWriter, valueWriter] = out.add_item();
-    keyWriter.setNoCopy(StringView(key));
-    valueWriter.setNoCopy(value);
+    switch (onDuplicateKey) {
+      case OnDuplicateKey::kFail: {
+        if (!keyValuePairs.emplace(key, value).second) {
+          return Status::UserError("Duplicate keys ({}) are not allowed.", key);
+        }
+        break;
+      }
+      case OnDuplicateKey::kKeepFirst:
+        keyValuePairs.try_emplace(key, value);
+        break;
+      case OnDuplicateKey::kKeepLast:
+        keyValuePairs[key] = value;
+        break;
+    }
 
     return Status::OK();
   }
 };
+
+/// Analyzes split_to_map(string, entryDelim, keyDelim, lambda) call
+/// to determine whether 'lambda' indicates keeping first or last value
+/// for each key. If so, rewrites the call using $internal$split_to_map.
+///
+/// For example,
+///
+/// Rewrites
+///     split_to_map(s, ed, kd, (k, v1, v2) -> v1
+/// into
+///     $internal$split_to_map(s, ed, kd, true) -- keep first
+///
+/// and
+///     split_to_map(s, ed, kd, (k, v1, v2) -> v2
+/// into
+///     $internal$split_to_map(s, ed, kd, false) -- keep last
+///
+/// Returns new expression or nullptr if rewrite is not possible.
+core::TypedExprPtr rewriteSplitToMapCall(
+    const std::string& prefix,
+    const core::TypedExprPtr& expr);
 
 } // namespace facebook::velox::functions

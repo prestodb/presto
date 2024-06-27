@@ -106,6 +106,38 @@ void registerSimpleFunctions(const std::string& prefix) {
   registerFunction<Re2RegexpSplit, Array<Varchar>, Varchar, Varchar>(
       {prefix + "regexp_split"});
 }
+
+void registerSplitToMap(const std::string& prefix) {
+  registerFunction<
+      SplitToMapFunction,
+      Map<Varchar, Varchar>,
+      Varchar,
+      Varchar,
+      Varchar>({prefix + "split_to_map"});
+
+  exec::registerVectorFunction(
+      prefix + "split_to_map",
+      {
+          exec::FunctionSignatureBuilder()
+              .returnType("map(varchar,varchar)")
+              .argumentType("varchar")
+              .argumentType("varchar")
+              .argumentType("varchar")
+              .argumentType("function(varchar,varchar,varchar,varchar)")
+              .build(),
+      },
+      std::make_unique<exec::ApplyNeverCalled>());
+  registerFunction<
+      SplitToMapFunction,
+      Map<Varchar, Varchar>,
+      Varchar,
+      Varchar,
+      Varchar,
+      bool>({"$internal$split_to_map"});
+  exec::registerExpressionRewrite([prefix](const auto& expr) {
+    return rewriteSplitToMapCall(prefix, expr);
+  });
+}
 } // namespace
 
 void registerStringFunctions(const std::string& prefix) {
@@ -114,12 +146,9 @@ void registerStringFunctions(const std::string& prefix) {
   VELOX_REGISTER_VECTOR_FUNCTION(udf_lower, prefix + "lower");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_upper, prefix + "upper");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_split, prefix + "split");
-  registerFunction<
-      SplitToMapFunction,
-      Map<Varchar, Varchar>,
-      Varchar,
-      Varchar,
-      Varchar>({prefix + "split_to_map"});
+
+  registerSplitToMap(prefix);
+
   VELOX_REGISTER_VECTOR_FUNCTION(udf_concat, prefix + "concat");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_replace, prefix + "replace");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_reverse, prefix + "reverse");

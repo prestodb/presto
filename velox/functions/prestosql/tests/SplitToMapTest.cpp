@@ -129,5 +129,41 @@ TEST_F(SplitToMapTest, invalidInput) {
   trySplitToMap(",", ":");
 }
 
+TEST_F(SplitToMapTest, lambda) {
+  auto splitToMap = [&](const std::string& input, const std::string& lambda) {
+    auto rowVector = makeRowVector({
+        makeFlatVector<std::string>({input}),
+    });
+
+    return evaluate(
+        fmt::format("split_to_map(c0, ',', ':', {})", lambda), rowVector);
+  };
+
+  // No duplicate keys.
+  auto result = splitToMap("1:a,2:b,3:c", "(k, v1, v2) -> v1");
+  auto expected = makeMapVector<std::string, std::string>({
+      {{"1", "a"}, {"2", "b"}, {"3", "c"}},
+  });
+  velox::test::assertEqualVectors(expected, result);
+
+  // Duplicate keys. Keep first.
+  result = splitToMap("1:a,2:b,1:c,2:d,3:e", "(k, v1, v2) -> v1");
+  expected = makeMapVector<std::string, std::string>({
+      {{"1", "a"}, {"2", "b"}, {"3", "e"}},
+  });
+  velox::test::assertEqualVectors(expected, result);
+
+  // Duplicate keys. Keep last.
+  result = splitToMap("1:a,2:b,1:c,2:d,3:e", "(k, v1, v2) -> v2");
+  expected = makeMapVector<std::string, std::string>({
+      {{"1", "c"}, {"2", "d"}, {"3", "e"}},
+  });
+  velox::test::assertEqualVectors(expected, result);
+
+  VELOX_ASSERT_USER_THROW(
+      splitToMap("1:a,2:b,1:c,2:d,3:e", "(k, v1, v2) -> concat(v1, v2)"),
+      "split_to_map with arbitrary lambda is not supported");
+}
+
 } // namespace
 } // namespace facebook::velox::functions
