@@ -19,14 +19,14 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Ignore;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.SystemSessionProperties.ENABLE_SCALAR_FUNCTION_STATS_PROPAGATION;
+import static com.facebook.presto.SystemSessionProperties.SCALAR_FUNCTION_STATS_PROPAGATION_ENABLED;
 
 public class TestStatsPropagation
         extends BasePlanTest
 {
     public TestStatsPropagation()
     {
-        super(ImmutableMap.of(ENABLE_SCALAR_FUNCTION_STATS_PROPAGATION, "true"));
+        super(ImmutableMap.of(SCALAR_FUNCTION_STATS_PROPAGATION_ENABLED, "true"));
     }
 
     @Test

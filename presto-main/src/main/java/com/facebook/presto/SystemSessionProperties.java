@@ -347,7 +347,7 @@ public final class SystemSessionProperties
     public static final String DEFAULT_VIEW_SECURITY_MODE = "default_view_security_mode";
     public static final String JOIN_PREFILTER_BUILD_SIDE = "join_prefilter_build_side";
     public static final String OPTIMIZER_USE_HISTOGRAMS = "optimizer_use_histograms";
-    public static final String ENABLE_SCALAR_FUNCTION_STATS_PROPAGATION = "enable_scalar_function_stats_propagation";
+    public static final String SCALAR_FUNCTION_STATS_PROPAGATION_ENABLED = "scalar_function_stats_propagation_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1939,7 +1939,7 @@ public final class SystemSessionProperties
                         "whether or not to use histograms in the CBO",
                         featuresConfig.isUseHistograms(),
                         false),
-                booleanProperty(ENABLE_SCALAR_FUNCTION_STATS_PROPAGATION,
+                booleanProperty(SCALAR_FUNCTION_STATS_PROPAGATION_ENABLED,
                         "whether or not to respect stats propagation annotation for scalar functions (or UDF)",
                         featuresConfig.isEnabledScalarFunctionStatsPropagation(),
                         false));
@@ -3237,6 +3237,6 @@ public final class SystemSessionProperties
 
     public static boolean shouldEnableScalarFunctionStatsPropagation(Session session)
     {
-        return session.getSystemProperty(ENABLE_SCALAR_FUNCTION_STATS_PROPAGATION, Boolean.class);
+        return session.getSystemProperty(SCALAR_FUNCTION_STATS_PROPAGATION_ENABLED, Boolean.class);
     }
 }

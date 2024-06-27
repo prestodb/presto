@@ -38,8 +38,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.SystemSessionProperties.ENABLE_SCALAR_FUNCTION_STATS_PROPAGATION;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZER_USE_HISTOGRAMS;
+import static com.facebook.presto.SystemSessionProperties.SCALAR_FUNCTION_STATS_PROPAGATION_ENABLED;
 import static com.facebook.presto.spi.plan.JoinDistributionType.REPLICATED;
 import static com.facebook.presto.spi.plan.JoinType.INNER;
 import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED;
@@ -84,10 +84,10 @@ public abstract class AbstractCostBasedPlanTest
     {
         String sql = read(queryResourcePath);
         Session scalarStatsPropagateSession = Session.builder(getQueryRunner().getDefaultSession())
-                .setSystemProperty(ENABLE_SCALAR_FUNCTION_STATS_PROPAGATION, "true")
+                .setSystemProperty(SCALAR_FUNCTION_STATS_PROPAGATION_ENABLED, "true")
                 .build();
         Session baselineSession = Session.builder(getQueryRunner().getDefaultSession())
-                .setSystemProperty(ENABLE_SCALAR_FUNCTION_STATS_PROPAGATION, "false")
+                .setSystemProperty(SCALAR_FUNCTION_STATS_PROPAGATION_ENABLED, "false")
                 .build();
         String regularPlan = generateQueryPlan(sql, baselineSession);
         String scalarStatsPropagatePlan = generateQueryPlan(sql, scalarStatsPropagateSession);
@@ -151,14 +151,14 @@ public abstract class AbstractCostBasedPlanTest
                             createParentDirs(queryPlanWritePath.toFile());
                             Session histogramSession = Session.builder(getQueryRunner().getDefaultSession())
                                     .setSystemProperty(OPTIMIZER_USE_HISTOGRAMS, "true")
-                                    .setSystemProperty(ENABLE_SCALAR_FUNCTION_STATS_PROPAGATION, "false")
+                                    .setSystemProperty(SCALAR_FUNCTION_STATS_PROPAGATION_ENABLED, "false")
                                     .build();
                             Session baselineSession = Session.builder(getQueryRunner().getDefaultSession())
                                     .setSystemProperty(OPTIMIZER_USE_HISTOGRAMS, "false")
-                                    .setSystemProperty(ENABLE_SCALAR_FUNCTION_STATS_PROPAGATION, "false")
+                                    .setSystemProperty(SCALAR_FUNCTION_STATS_PROPAGATION_ENABLED, "false")
                                     .build();
                             Session scalarStatsPropagateSession = Session.builder(getQueryRunner().getDefaultSession())
-                                    .setSystemProperty(ENABLE_SCALAR_FUNCTION_STATS_PROPAGATION, "true")
+                                    .setSystemProperty(SCALAR_FUNCTION_STATS_PROPAGATION_ENABLED, "true")
                                     .setSystemProperty(OPTIMIZER_USE_HISTOGRAMS, "false")
                                     .build();
                             String sql = read(queryResourcePath);
