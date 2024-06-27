@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.delta;
 
+import com.facebook.presto.common.GenericInternalException;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
@@ -263,7 +264,7 @@ public class DeltaClient
                     format(TABLE_NOT_FOUND_ERROR_TEMPLATE, tableName.getSchemaName(), tableName.getTableName()));
         }
         catch (IOException e) {
-            throw new RuntimeException("Could not close columnar batch row", e);
+            throw new GenericInternalException("Could not close columnar batch row", e);
         }
     }
 }

@@ -141,10 +141,9 @@ public class TestDeltaIntegration
 
         // read snapshot as of 2020-10-26 02:50:00 - this should fail as there are no snapshots before this timestamp
         @Language("SQL") String testQueryTs1 = format(testQueryTemplate, "t2020-10-27 02:50:00");
-        // TODO update expected error
-        //assertQueryFails(
-        //        testQueryTs1,
-        //        "The provided timestamp 1603767000000 ms .2020.10.27T02.50.00Z. is before the earliest available version 0. Please use a timestamp greater than or equal to 1637231401000 ms .2021.11.18T10.30.01Z..");
+        assertQueryFails(
+                testQueryTs1,
+                ".*The provided timestamp 1603767000000 ms \\(2020-10-27T02:50:00Z\\) is before the earliest available version 0\\. Please use a timestamp greater than or equal to 1637231401000 ms \\(2021-11-18T10:30:01Z\\)\\.");
 
         // read snapshot as of 2021-11-18 10:30:02 - this should read the data from commit id 1.
         @Language("SQL") String testQueryTs2 = format(testQueryTemplate, "t2021-11-18 10:30:02");

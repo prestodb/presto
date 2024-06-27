@@ -22,11 +22,8 @@ import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
 import org.testng.ITest;
 import org.testng.annotations.AfterClass;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 
-import java.lang.reflect.Method;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.util.Map;
@@ -85,23 +82,6 @@ public abstract class AbstractDeltaDistributedQueryTestBase
     protected static Object[][] deltaReaderVersions()
     {
         return new Object[][] {{DELTA_V1}, {DELTA_V3}};
-    }
-
-    @BeforeMethod
-    protected void setUpMethodNameForReporting(Method method, Object[] testData)
-    {
-        if (testData != null && testData.length > 0) {
-            this.testName.set(method.getName() + "_" + testData[0]);
-        }
-        else {
-            this.testName.set(method.getName());
-        }
-    }
-
-    @AfterMethod
-    protected void cleanUpMethodNameForReporting(Method method, Object[] testData)
-    {
-        this.testName.remove();
     }
 
     @Override
