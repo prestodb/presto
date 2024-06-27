@@ -216,7 +216,7 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kAnnouncementMaxFrequencyMs, 30'000), // 30s
           NUM_PROP(kHeartbeatFrequencyMs, 0),
           STR_PROP(kExchangeMaxErrorDuration, "3m"),
-          STR_PROP(kExchangeRequestTimeout, "10s"),
+          STR_PROP(kExchangeRequestTimeout, "20s"),
           STR_PROP(kExchangeConnectTimeout, "20s"),
           BOOL_PROP(kExchangeEnableConnectionPool, true),
           BOOL_PROP(kExchangeEnableBufferCopy, true),
