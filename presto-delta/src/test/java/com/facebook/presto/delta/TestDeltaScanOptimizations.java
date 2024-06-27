@@ -43,6 +43,7 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.delta.DeltaSessionProperties.PARQUET_DEREFERENCE_PUSHDOWN_ENABLED;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
 
@@ -56,9 +57,8 @@ public class TestDeltaScanOptimizations
     @Test(dataProvider = "deltaReaderVersions")
     public void filterOnRegularColumn(String version)
     {
-        String tableName = "data-reader-primitives";
-        String testQuery = format("SELECT as_int, as_string FROM \"%s\" WHERE as_int = 1",
-                getVersionPrefix(version) + tableName);
+        String tableName = getVersionPrefix(version) + "data-reader-primitives";
+        String testQuery = format("SELECT as_int, as_string FROM \"%s\" WHERE as_int = 1", tableName);
         String expResultsQuery = "SELECT 1, cast('1' as varchar)";
 
         assertDeltaQueryOptimized(
@@ -72,9 +72,8 @@ public class TestDeltaScanOptimizations
     @Test(dataProvider = "deltaReaderVersions")
     public void filterOnPartitionColumn(String version)
     {
-        String tableName = "deltatbl-partition-prune";
-        String testQuery = format("SELECT date, name, city, cnt FROM \"%s\" WHERE city in ('sh', 'sz')",
-                getVersionPrefix(version) + tableName);
+        String tableName = getVersionPrefix(version) + "deltatbl-partition-prune";
+        String testQuery = format("SELECT date, name, city, cnt FROM \"%s\" WHERE city in ('sh', 'sz')", tableName);
         String expResultsQuery = "SELECT * FROM VALUES('20180512', 'Jay', 'sh', 4),('20181212', 'Linda', 'sz', 8)";
 
         assertDeltaQueryOptimized(
@@ -88,10 +87,10 @@ public class TestDeltaScanOptimizations
     @Test(dataProvider = "deltaReaderVersions")
     public void filterOnMultiplePartitionColumns(String version)
     {
-        String tableName = "deltatbl-partition-prune";
+        String tableName = getVersionPrefix(version) + "deltatbl-partition-prune";
         String testQuery =
                 format("SELECT date, name, city, cnt FROM \"%s\" WHERE city in ('sh', 'sz') AND \"date\" = '20180512'",
-                        getVersionPrefix(version) + tableName);
+                        tableName);
         String expResultsQuery = "SELECT * FROM VALUES('20180512', 'Jay', 'sh', 4)";
 
         assertDeltaQueryOptimized(
@@ -109,9 +108,9 @@ public class TestDeltaScanOptimizations
     @Test(dataProvider = "deltaReaderVersions")
     public void filterOnPartitionColumnAndRegularColumns(String version)
     {
-        String tableName = "deltatbl-partition-prune";
+        String tableName = getVersionPrefix(version) + "deltatbl-partition-prune";
         String testQuery = format("SELECT date, name, city, cnt FROM \"%s\" WHERE city in ('sh', 'sz') AND name = 'Linda'",
-                getVersionPrefix(version) + tableName);
+                tableName);
         String expResultsQuery = "SELECT * FROM VALUES('20181212', 'Linda', 'sz', 8)";
 
         assertDeltaQueryOptimized(
@@ -191,16 +190,17 @@ public class TestDeltaScanOptimizations
             Map<String, Domain> expectedEnforcedConstraint)
     {
         System.out.println(tableScanWithConstraints(tableName, expectedConstraint, expectedEnforcedConstraint).toString());
+
         // make sure to check the query output before the query plan
         assertQuery(testQuery, expResultsQuery);
 
         // verify the plan contains filter pushed down into scan appropriately
-        //assertPlan(withDereferencePushdownEnabled(),
-        //        testQuery,
-        //        anyTree(tableScanWithConstraints(
-        //                tableName,
-        //                expectedConstraint,
-        //                expectedEnforcedConstraint)));
+        assertPlan(withDereferencePushdownEnabled(),
+                testQuery,
+                anyTree(tableScanWithConstraints(
+                        tableName,
+                        expectedConstraint,
+                        expectedEnforcedConstraint)));
     }
 
     /**
