@@ -54,6 +54,26 @@ namespace facebook::presto {
 
 namespace {
 
+// Repeatedly calls for cleanOldTasks() for a while to ensure that we overcome a
+// potential race condition where we call cleanOldTasks() before some Tasks are
+// ready to be cleaned.
+void waitForAllOldTasksToBeCleaned(
+    TaskManager* taskManager,
+    uint64_t maxWaitUs) {
+  taskManager->cleanOldTasks();
+
+  uint64_t waitUs = 0;
+  while (taskManager->getNumTasks() > 0) {
+    constexpr uint64_t kWaitInternalUs = 1'000;
+    std::this_thread::sleep_for(std::chrono::microseconds(kWaitInternalUs));
+    waitUs += kWaitInternalUs;
+    taskManager->cleanOldTasks();
+    if (waitUs >= maxWaitUs) {
+      break;
+    }
+  }
+}
+
 // Generates task ID in Presto-compatible format.
 class TaskIdGenerator {
  public:
@@ -1531,7 +1551,7 @@ TEST_F(TaskManagerTest, buildSpillDirectoryFailure) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
       }
     }
-    taskManager_->cleanOldTasks();
+    waitForAllOldTasksToBeCleaned(taskManager_.get(), 3'000'000);
     velox::exec::test::waitForAllTasksToBeDeleted(3'000'000);
     ASSERT_TRUE(taskManager_->tasks().empty());
   }
