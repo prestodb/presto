@@ -13,21 +13,26 @@
  */
 package com.facebook.presto.iceberg.util;
 
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.FixedWidthType;
 import com.facebook.presto.hive.metastore.HiveColumnStatistics;
 import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.facebook.presto.iceberg.IcebergColumnHandle;
+import com.facebook.presto.iceberg.IcebergTableLayoutHandle;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.apache.iceberg.PartitionSpec;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -36,6 +41,7 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.TOTAL_SIZE_IN_BYTES;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 public final class StatisticsUtil
 {
@@ -131,5 +137,39 @@ public final class StatisticsUtil
                 }
             });
         }).reduce(Estimate.of(0.0), (currentSize, newSize) -> currentSize.flatMap(current -> newSize.map(add -> current + add)))));
+    }
+
+    /**
+     * Used to determine the column set which should be passed to the {@link com.facebook.presto.iceberg.TableStatisticsMaker}.
+     *
+     * @param selectedColumns the columns selected by the query before the {@code FROM} clause.
+     * @param layoutHandle handle containing the predicate on the table scan.
+     * @return the entire set of columns which should be passed to the {@link com.facebook.presto.iceberg.TableStatisticsMaker}
+     */
+    public static List<IcebergColumnHandle> combineSelectedAndPredicateColumns(List<IcebergColumnHandle> selectedColumns, Optional<IcebergTableLayoutHandle> layoutHandle)
+    {
+        Set<Integer> columnIds = selectedColumns.stream()
+                .map(IcebergColumnHandle::getId)
+                .collect(toImmutableSet());
+        return ImmutableList.<IcebergColumnHandle>builder()
+                .addAll(selectedColumns)
+                .addAll(layoutHandle
+                        .map(IcebergTableLayoutHandle.class::cast)
+                        .flatMap(handle -> Optional.of(handle.getPredicateColumns().values()))
+                        .orElse(Collections.emptyList())
+                        .stream()
+                        .filter(predicateHandle -> !columnIds.contains(predicateHandle.getId()))
+                        .iterator())
+                .addAll(layoutHandle
+                        .filter(IcebergTableLayoutHandle::isPushdownFilterEnabled)
+                        .map(IcebergTableLayoutHandle::getPartitionColumnPredicate)
+                        .flatMap(TupleDomain::getDomains)
+                        .map(Map::keySet)
+                        .orElse(ImmutableSet.of())
+                        .stream()
+                        .map(IcebergColumnHandle.class::cast)
+                        .filter(predicateColumn -> !columnIds.contains(predicateColumn.getId()))
+                        .iterator())
+                .build();
     }
 }
