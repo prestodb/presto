@@ -73,10 +73,58 @@ class ComparisonsTest : public SparkFunctionBaseTest {
     auto actual = evaluate<SimpleVector<bool>>(
         fmt::format("{}(c0, c1)", functionName), makeRowVector(input));
     facebook::velox::test::assertEqualVectors(expectedResult, actual);
-  };
+  }
+
+  RowVectorPtr constructRowVector(
+      const std::optional<int64_t>& value,
+      const bool rowIsNull = false) {
+    auto child = makeNullableFlatVector<int64_t>({value});
+    if (rowIsNull) {
+      return makeRowVector({child}, nullEvery(1));
+    }
+    return makeRowVector({child});
+  }
+
+  void runAndCompareForArrayInput(
+      const std::string& functionName,
+      const std::string& array1,
+      const std::string& array2,
+      std::optional<bool> expectedResult) {
+    auto vector1 = makeArrayVectorFromJson<double>({array1});
+    auto vector2 = makeArrayVectorFromJson<double>({array2});
+    runAndCompare(
+        functionName,
+        {vector1, vector2},
+        makeNullableFlatVector<bool>({expectedResult}));
+  }
+
+  void runAndCompareForRowInput(
+      const std::string& functionName,
+      const RowVectorPtr& vector1,
+      const RowVectorPtr& vector2,
+      const VectorPtr& expectedResult) {
+    runAndCompare(functionName, {vector1, vector2}, expectedResult);
+  }
 };
 
 TEST_F(ComparisonsTest, equaltonullsafe) {
+  const auto funcName = "equalnullsafe";
+  auto testArrayInput = [&](const std::string& array1,
+                            const std::string& array2,
+                            std::optional<bool> expectedResult) {
+    runAndCompareForArrayInput(funcName, array1, array2, expectedResult);
+  };
+
+  auto testRowInput = [&](const std::optional<int64_t>& value1,
+                          const std::optional<int64_t>& value2,
+                          std::optional<bool> expectedResult) {
+    runAndCompareForRowInput(
+        funcName,
+        constructRowVector(value1),
+        constructRowVector(value2),
+        makeNullableFlatVector<bool>({expectedResult}));
+  };
+
   EXPECT_EQ(equaltonullsafe<int64_t>(1, 1), true);
   EXPECT_EQ(equaltonullsafe<int32_t>(1, 2), false);
   EXPECT_EQ(equaltonullsafe<float>(std::nullopt, std::nullopt), true);
@@ -86,9 +134,67 @@ TEST_F(ComparisonsTest, equaltonullsafe) {
   EXPECT_EQ(equaltonullsafe<double>(kNaN, std::nullopt), false);
   EXPECT_EQ(equaltonullsafe<double>(kNaN, 1), false);
   EXPECT_EQ(equaltonullsafe<double>(kNaN, kNaN), true);
+
+  testArrayInput("null", "null", true);
+  testArrayInput("null", "[1.0]", false);
+  testArrayInput("[1.0]", "null", false);
+
+  testArrayInput("[]", "[]", true);
+
+  testArrayInput("[1.0, 2.0, 3.0]", "[1.0, 2.0, 3.0]", true);
+  testArrayInput("[1.0, 2.0, 3.0]", "[1.0, 2.0, 4.0]", false);
+
+  testArrayInput("[1.0, null]", "[6.0, 2.0]", false);
+  testArrayInput("[1.0, null]", "[1.0, 2.0]", false);
+  testArrayInput("[1.0, NaN]", "[1.0, NaN]", true);
+
+  testArrayInput("[]", "[null, null]", false);
+  testArrayInput("[1.0, 2.0]", "[1.0, 2.0, null]", false);
+  testArrayInput("[null, null]", "[null, null, null]", false);
+
+  testArrayInput("[null, null]", "[null, null]", true);
+
+  testRowInput(std::nullopt, std::nullopt, true);
+  testRowInput(std::nullopt, 1, false);
+  testRowInput(1, std::nullopt, false);
+
+  testRowInput(1, 2, false);
+  testRowInput(1, 1, true);
+
+  runAndCompareForRowInput(
+      funcName,
+      constructRowVector(std::nullopt, true),
+      constructRowVector(std::nullopt, true),
+      makeNullableFlatVector<bool>({true}));
+  runAndCompareForRowInput(
+      funcName,
+      constructRowVector(std::nullopt, true),
+      constructRowVector(1, false),
+      makeNullableFlatVector<bool>({false}));
+  runAndCompareForRowInput(
+      funcName,
+      constructRowVector(1, false),
+      constructRowVector(std::nullopt, true),
+      makeNullableFlatVector<bool>({false}));
 }
 
 TEST_F(ComparisonsTest, equalto) {
+  const auto funcName = "equalto";
+  auto testArrayInput = [&](const std::string& array1,
+                            const std::string& array2,
+                            std::optional<bool> expectedResult) {
+    runAndCompareForArrayInput(funcName, array1, array2, expectedResult);
+  };
+
+  auto testRowInput = [&](const std::optional<int64_t>& value1,
+                          const std::optional<int64_t>& value2,
+                          std::optional<bool> expectedResult) {
+    runAndCompareForRowInput(
+        funcName,
+        constructRowVector(value1),
+        constructRowVector(value2),
+        makeNullableFlatVector<bool>({expectedResult}));
+  };
   EXPECT_EQ(equalto<Timestamp>(Timestamp(2, 2), Timestamp(2, 2)), true);
   EXPECT_EQ(equalto<StringView>("test"_sv, "test"_sv), true);
   EXPECT_EQ(equalto<StringView>("test"_sv, std::nullopt), std::nullopt);
@@ -110,6 +216,48 @@ TEST_F(ComparisonsTest, equalto) {
   EXPECT_EQ(equalto<float>(-kInfF, 1.0), false);
   EXPECT_EQ(equalto<float>(kInfF, -kInfF), false);
   EXPECT_EQ(equalto<double>(kInf, kNaN), false);
+
+  testArrayInput("null", "null", std::nullopt);
+  testArrayInput("null", "[1.0]", std::nullopt);
+  testArrayInput("[1.0]", "null", std::nullopt);
+
+  testArrayInput("[]", "[]", true);
+
+  testArrayInput("[1.0, 2.0, 3.0]", "[1.0, 2.0, 3.0]", true);
+  testArrayInput("[1.0, 2.0, 3.0]", "[1.0, 2.0, 4.0]", false);
+
+  testArrayInput("[1.0, null]", "[6.0, 2.0]", false);
+  testArrayInput("[1.0, null]", "[1.0, 2.0]", false);
+  testArrayInput("[1.0, NaN]", "[1.0, NaN]", true);
+
+  testArrayInput("[]", "[null, null]", false);
+  testArrayInput("[1.0, 2.0]", "[1.0, 2.0, null]", false);
+  testArrayInput("[null, null]", "[null, null, null]", false);
+
+  testArrayInput("[null, null]", "[null, null]", true);
+
+  testRowInput(std::nullopt, std::nullopt, true);
+  testRowInput(std::nullopt, 1, false);
+  testRowInput(1, std::nullopt, false);
+
+  testRowInput(1, 2, false);
+  testRowInput(1, 1, true);
+
+  runAndCompareForRowInput(
+      funcName,
+      constructRowVector(std::nullopt, true),
+      constructRowVector(std::nullopt, true),
+      makeNullableFlatVector<bool>({std::nullopt}));
+  runAndCompareForRowInput(
+      funcName,
+      constructRowVector(std::nullopt, true),
+      constructRowVector(1, false),
+      makeNullableFlatVector<bool>({std::nullopt}));
+  runAndCompareForRowInput(
+      funcName,
+      constructRowVector(1, false),
+      constructRowVector(std::nullopt, true),
+      makeNullableFlatVector<bool>({std::nullopt}));
 }
 
 TEST_F(ComparisonsTest, between) {
@@ -409,12 +557,7 @@ TEST_F(ComparisonsTest, dateTypes) {
 
 TEST_F(ComparisonsTest, notSupportedTypes) {
   const auto candidataFuncs = {
-      "equalnullsafe",
-      "equalto",
-      "lessthan",
-      "lessthanorequal",
-      "greaterthan",
-      "greaterthanorequal"};
+      "lessthan", "lessthanorequal", "greaterthan", "greaterthanorequal"};
   auto arrayData = makeArrayVectorFromJson<int64_t>({"[1, 2, 3]"});
   auto mapData = makeMapVectorFromJson<int64_t, int64_t>({"{1: 1}"});
   auto rowData = makeRowVector({arrayData});
