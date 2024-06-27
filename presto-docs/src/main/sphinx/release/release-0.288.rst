@@ -15,7 +15,7 @@ _______________
 * Fix a bug where :func:`map_top_n` could return wrong results if there is any NaN input. :pr:`22386`
 * Fix a bug with array_min/array_max where it would return NaN rather than null when there was both NaN and null input. :pr:`22386`
 * Fix an error for some queries using a mix of joins and semi-joins when grouped execution is enabled. :pr:`22538`
-* Fix :func:`array_join` to not add a trailing delimeter when the last element in the array is NULL. :pr:`22652`
+* Fix :func:`!array_join` to not add a trailing delimeter when the last element in the array is NULL. :pr:`22652`
 * Fix cast of NaN and Infinity from DOUBLE or REAL to  BIGINT, INTEGER, SMALLINT, and TINYINT. It will now return an exception with the INVALID_CAST_ARGUMENT error code. Previously it would return zero. :pr:`22917`
 * Fix compilation error for queries with lambda in aggregation function. :pr:`22539`
 * Fix incorrect behaviors when defining duplicate field names in RowType and throw exception uniformly. :pr:`22618`
@@ -37,8 +37,8 @@ _______________
 * Add PR number to the release note entry examples in pull_request_template.md. :pr:`22665`
 * Add ``http-server.authentication.allow-forwarded-https`` configuration property to recognize X-Forwarded-Proto header. :pr:`22492`
 * Add ``node-scheduler.max-preferred-nodes`` configuration property to allow changing number of preferred nodes when soft affinity scheduling is enabled. :pr:`22562`
-* Add documentation for :func:`noisy_approx_set_sfm_from_index_and_zeros`. :pr:`22799`
-* Add documentation for noisy aggregate functions at :doc:`/functions/noisy`, including :func:`noisy_approx_distinct_sfm` and :func:`noisy_approx_set_sfm`. :pr:`22715`
+* Add documentation for :func:`!noisy_approx_set_sfm_from_index_and_zeros`. :pr:`22799`
+* Add documentation for noisy aggregate functions at :doc:`/functions/noisy`, including :func:`!noisy_approx_distinct_sfm` and :func:`!noisy_approx_set_sfm`. :pr:`22715`
 * Add support for memoizing in resource group state info endpoint. This can be enabled by setting ``cluster-resource-group-state-info-expiration-duration`` to a non-zero duration. :pr:`22764`
 * Add support for non default keystore and truststore type in presto CLI and JDBC. :pr:`22556`
 * Add support for querying system.runtime.tasks table in native clusters. :pr:`21416`
