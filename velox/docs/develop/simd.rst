@@ -178,4 +178,4 @@ mask.
 
 Note when the data type is 16 bits long, we need to do the process in 2 batches
 (``loadIndices(0)`` and ``loadIndices(1)``), because the indices are 32 bits
-long and one SIME vector is not large enough to contain all the indices needed.
+long and one SIMD vector is not large enough to contain all the indices needed.
