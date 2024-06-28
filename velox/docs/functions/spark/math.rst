@@ -246,6 +246,7 @@ Mathematical Functions
 .. spark:function:: remainder(n, m) -> [same as n]
 
     Returns the modulus (remainder) of ``n`` divided by ``m``. Corresponds to Spark's operator ``%``.
+    Supported types are: TINYINT, SMALLINT, INTEGER, BIGINT, REAL and DOUBLE.
 
 .. spark:function:: rint(x) -> double
 

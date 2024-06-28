@@ -30,7 +30,9 @@ namespace facebook::velox::functions::sparksql {
 
 template <typename T>
 struct RemainderFunction {
-  template <typename TInput>
+  template <
+      typename TInput,
+      typename std::enable_if_t<!std::is_floating_point_v<TInput>, int> = 0>
   FOLLY_ALWAYS_INLINE bool
   call(TInput& result, const TInput a, const TInput n) {
     if (UNLIKELY(n == 0)) {
@@ -43,6 +45,29 @@ struct RemainderFunction {
       result = 0;
     } else {
       result = a % n;
+    }
+    return true;
+  }
+
+  // Specialization for floating point types.
+  template <
+      typename TInput,
+      typename std::enable_if_t<std::is_floating_point_v<TInput>, int> = 0>
+  FOLLY_ALWAYS_INLINE bool
+  call(TInput& result, const TInput a, const TInput n) {
+    if (UNLIKELY(n == 0)) {
+      return false;
+    }
+    // If either the dividend or the divisor is NaN, or if the dividend is
+    // infinity, the result is set to NaN.
+    if (UNLIKELY(std::isnan(a) || std::isnan(n) || std::isinf(a))) {
+      result = std::numeric_limits<TInput>::quiet_NaN();
+    }
+    // If the divisor is infinity, the result is equal to the dividend.
+    else if (UNLIKELY(std::isinf(n))) {
+      result = a;
+    } else {
+      result = std::fmod(a, n);
     }
     return true;
   }
