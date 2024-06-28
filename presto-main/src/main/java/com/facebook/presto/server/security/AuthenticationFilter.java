@@ -105,7 +105,7 @@ public class AuthenticationFilter
             }
 
             // authentication succeeded
-            CustomHttpServletRequestWrapper wrappedRequest = wrapWithHeader(request, principal);
+            CustomHttpServletRequestWrapper wrappedRequest = withPrincipalAndCustomHeaders(request, principal);
             Map<String, String> extraHeadersMap = new HashMap<>();
             for (RequestModifier modifier : requestModifierManager.getRequestModifiers()) {
                 if (request.getHeader(modifier.getHeaderName()) == null) {
@@ -176,7 +176,7 @@ public class AuthenticationFilter
         }
     }
 
-    public static CustomHttpServletRequestWrapper wrapWithHeader(HttpServletRequest request, Principal principal)
+    public static CustomHttpServletRequestWrapper withPrincipalAndCustomHeaders(HttpServletRequest request, Principal principal)
     {
         return new CustomHttpServletRequestWrapper(request, principal);
     }
