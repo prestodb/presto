@@ -105,7 +105,7 @@ public class AuthenticationFilter
             }
 
             // authentication succeeded
-            CustomHttpServletRequestWrapper wrappedRequest = new CustomHttpServletRequestWrapper(request);
+            CustomHttpServletRequestWrapper wrappedRequest = wrapWithHeader(request, principal);
             Map<String, String> extraHeadersMap = new HashMap<>();
             for (RequestModifier modifier : requestModifierManager.getRequestModifiers()) {
                 if (request.getHeader(modifier.getHeaderName()) == null) {
@@ -118,7 +118,7 @@ public class AuthenticationFilter
                 }
             }
             wrappedRequest.setHeaders(extraHeadersMap);
-            nextFilter.doFilter(withPrincipal(wrappedRequest, principal), response);
+            nextFilter.doFilter(wrappedRequest, response);
             return;
         }
 
@@ -176,14 +176,22 @@ public class AuthenticationFilter
         }
     }
 
-    private static class CustomHttpServletRequestWrapper
+    public static CustomHttpServletRequestWrapper wrapWithHeader(HttpServletRequest request, Principal principal)
+    {
+        return new CustomHttpServletRequestWrapper(request, principal);
+    }
+
+    public static class CustomHttpServletRequestWrapper
             extends HttpServletRequestWrapper
     {
         private final Map<String, String> customHeaders;
 
-        public CustomHttpServletRequestWrapper(HttpServletRequest request)
+        private final Principal principal;
+
+        public CustomHttpServletRequestWrapper(HttpServletRequest request, Principal principal)
         {
             super(request);
+            this.principal = principal;
             this.customHeaders = new HashMap<>();
         }
 
@@ -225,6 +233,12 @@ public class AuthenticationFilter
                 return Collections.enumeration(Collections.singleton(customHeaders.get(name)));
             }
             return super.getHeaders(name);
+        }
+
+        @Override
+        public Principal getUserPrincipal()
+        {
+            return principal;
         }
     }
 }
