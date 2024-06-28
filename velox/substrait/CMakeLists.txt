@@ -30,14 +30,17 @@ set_source_files_properties(${PROTO_OUTPUT_FILES} PROPERTIES GENERATED TRUE)
 
 get_filename_component(PROTO_DIR ${substrait_proto_directory}/, DIRECTORY)
 
+# Ensure that the option --proto_path is not given an empty argument
+foreach(PROTO_PATH ${PROJECT_SOURCE_DIR} ${Protobuf_INCLUDE_DIRS})
+  list(APPEND PROTO_PATH_ARGS --proto_path=${PROTO_PATH})
+endforeach()
+
 # Generate Substrait hearders
 add_custom_command(
   OUTPUT ${PROTO_OUTPUT_FILES}
-  COMMAND
-    ${Protobuf_PROTOC_EXECUTABLE} --proto_path ${PROJECT_SOURCE_DIR}/
-    --proto_path ${Protobuf_INCLUDE_DIRS} --cpp_out ${PROJECT_SOURCE_DIR}
-    ${PROTO_FILES}
-  DEPENDS ${PROTO_DIR} ${Protobuf_PROTOC_EXECUTABLE}
+  COMMAND protobuf::protoc ${PROTO_PATH_ARGS} --cpp_out ${PROJECT_SOURCE_DIR}
+          ${PROTO_FILES}
+  DEPENDS ${PROTO_DIR} protobuf::protoc
   COMMENT "Running PROTO compiler"
   VERBATIM)
 add_custom_target(substrait_proto ALL DEPENDS ${PROTO_OUTPUT_FILES})

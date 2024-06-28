@@ -13,6 +13,9 @@
 # limitations under the License.
 include_guard(GLOBAL)
 
+set_source(absl)
+resolve_dependency(absl CONFIG REQUIRED)
+
 set(VELOX_GRPC_BUILD_VERSION 1.48.1)
 set(VELOX_GRPC_BUILD_SHA256_CHECKSUM
     320366665d19027cda87b2368c03939006a37e0388bfd1091c8d2a96fbc93bd8)

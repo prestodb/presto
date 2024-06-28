@@ -30,12 +30,16 @@ endforeach()
 set(PROTO_OUTPUT_FILES ${PROTO_HDRS} ${PROTO_SRCS})
 set_source_files_properties(${PROTO_OUTPUT_FILES} PROPERTIES GENERATED TRUE)
 
+# Ensure that the option --proto_path is not given an empty argument
+foreach(PROTO_PATH ${CMAKE_SOURCE_DIR} ${Protobuf_INCLUDE_DIRS})
+  list(APPEND PROTO_PATH_ARGS --proto_path=${PROTO_PATH})
+endforeach()
+
 add_custom_command(
   OUTPUT ${PROTO_OUTPUT_FILES}
-  COMMAND
-    ${Protobuf_PROTOC_EXECUTABLE} --proto_path ${CMAKE_SOURCE_DIR}/ --proto_path
-    ${Protobuf_INCLUDE_DIRS} --cpp_out ${CMAKE_BINARY_DIR} ${PROTO_FILES_FULL}
-  DEPENDS ${Protobuf_PROTOC_EXECUTABLE}
+  COMMAND protobuf::protoc ${PROTO_PATH_ARGS} --cpp_out ${CMAKE_BINARY_DIR}
+          ${PROTO_FILES_FULL}
+  DEPENDS protobuf::protoc
   COMMENT "Running PROTO compiler"
   VERBATIM)
 add_custom_target(dwio_proto ALL DEPENDS ${PROTO_OUTPUT_FILES})

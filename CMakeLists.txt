@@ -442,7 +442,7 @@ if(${VELOX_BUILD_MINIMAL_WITH_DWIO}
 
   # Locate or build protobuf.
   set_source(Protobuf)
-  resolve_dependency(Protobuf 3.21.7...<4)
+  resolve_dependency(Protobuf CONFIG 3.21.7 REQUIRED)
   include_directories(${Protobuf_INCLUDE_DIRS})
 endif()
 
@@ -470,7 +470,7 @@ endif()
 
 if(VELOX_ENABLE_GCS)
   set_source(google_cloud_cpp_storage)
-  resolve_dependency(google_cloud_cpp_storage 2.22.0 EXACT)
+  resolve_dependency(google_cloud_cpp_storage CONFIG 2.22.0 REQUIRED)
   add_definitions(-DVELOX_ENABLE_GCS)
 endif()
 

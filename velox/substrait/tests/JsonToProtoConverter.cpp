@@ -33,5 +33,5 @@ void JsonToProtoConverter::readFromFile(
   VELOX_CHECK(
       status.ok(),
       "Failed to parse Substrait JSON: {}",
-      status.message().ToString());
+      std::string_view(status.message().data(), status.message().size()));
 }

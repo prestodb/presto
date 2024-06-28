@@ -13,11 +13,8 @@
 # limitations under the License.
 include_guard(GLOBAL)
 
-set_source(absl)
-resolve_dependency(absl 20240116 EXACT)
-
 set_source(gRPC)
-resolve_dependency(gRPC 1.48.1 EXACT)
+resolve_dependency(gRPC CONFIG 1.48.1 REQUIRED)
 
 set(VELOX_GOOGLE_CLOUD_CPP_BUILD_VERSION 2.22.0)
 set(VELOX_GOOGLE_CLOUD_CPP_BUILD_SHA256_CHECKSUM
