@@ -33,6 +33,8 @@
  * Contributors:
  * Gradient Systems
  */
+#include "dist.h"
+#include "porting.h"
 #ifndef W_WEB_RETURNS_H
 #define W_WEB_RETURNS_H
 /*

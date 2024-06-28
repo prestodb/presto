@@ -476,39 +476,15 @@ RowTypePtr getTableSchema(Table table) {
               "s_zip",
               "s_country",
               "s_gmt_offset",
-              "s_tax_percentage",
+              "s_tax_precentage",
           },
           {
-              INTEGER(),
-              VARCHAR(),
-              DATE(),
-              DATE(),
-              INTEGER(),
-              VARCHAR(),
-              INTEGER(),
-              INTEGER(),
-              VARCHAR(),
-              VARCHAR(),
-              INTEGER(),
-              VARCHAR(),
-              VARCHAR(),
-              VARCHAR(),
-              INTEGER(),
-              VARCHAR(),
-              INTEGER(),
-              VARCHAR(),
-              INTEGER(),
-              VARCHAR(),
-              VARCHAR(),
-              VARCHAR(),
-              VARCHAR(),
-              VARCHAR(),
-              VARCHAR(),
-              VARCHAR(),
-              VARCHAR(),
-              // todo: change to DECIMAL(5, 2)
-              INTEGER(),
-              DECIMAL(5, 2),
+              INTEGER(), VARCHAR(), DATE(),        DATE(),        INTEGER(),
+              VARCHAR(), INTEGER(), INTEGER(),     VARCHAR(),     VARCHAR(),
+              INTEGER(), VARCHAR(), VARCHAR(),     VARCHAR(),     INTEGER(),
+              VARCHAR(), INTEGER(), VARCHAR(),     VARCHAR(),     VARCHAR(),
+              VARCHAR(), VARCHAR(), VARCHAR(),     VARCHAR(),     VARCHAR(),
+              VARCHAR(), VARCHAR(), DECIMAL(5, 2), DECIMAL(5, 2),
           });
       return type;
     }
@@ -879,6 +855,7 @@ RowVectorPtr genTpcdsCallCenter(
       offset);
   auto children = allocateVectors(callCenterRowType, vectorSize, pool);
   auto table_id = static_cast<int>(Table::TBL_CALL_CENTER);
+  dsdGenIterator.initTableOffset(table_id, offset);
   dsdGenIterator.initializeTable(children, table_id);
   auto& tableDef = dsdGenIterator.getTableDefs();
   for (size_t i = 0; i < vectorSize; ++i) {
@@ -907,6 +884,7 @@ RowVectorPtr genTpcdsCatalogPage(
       offset);
   auto children = allocateVectors(catalogPageRowType, vectorSize, pool);
   auto table_id = static_cast<int>(Table::TBL_CATALOG_PAGE);
+  dsdGenIterator.initTableOffset(table_id, offset);
   dsdGenIterator.initializeTable(children, table_id);
   auto& tableDef = dsdGenIterator.getTableDefs();
   for (size_t i = 0; i < vectorSize; ++i) {
@@ -1032,6 +1010,7 @@ RowVectorPtr genTpcdsCustomer(
   auto children = allocateVectors(customerRowType, vectorSize, pool);
 
   auto table_id = static_cast<int>(Table::TBL_CUSTOMER);
+  dsdGenIterator.initTableOffset(table_id, offset);
   dsdGenIterator.initializeTable(children, table_id);
 
   auto& tableDef = dsdGenIterator.getTableDefs();
@@ -1126,7 +1105,7 @@ RowVectorPtr genTpcdsDateDim(
   auto children = allocateVectors(dateDimRowType, vectorSize, pool);
 
   auto table_id = static_cast<int>(Table::TBL_DATE_DIM);
-
+  dsdGenIterator.initTableOffset(table_id, offset);
   dsdGenIterator.initializeTable(children, table_id);
 
   auto& tableDef = dsdGenIterator.getTableDefs();
@@ -1377,7 +1356,7 @@ RowVectorPtr genTpcdsStore(
   auto children = allocateVectors(storeRowType, vectorSize, pool);
 
   auto table_id = static_cast<int>(Table::TBL_STORE);
-
+  dsdGenIterator.initTableOffset(table_id, offset);
   dsdGenIterator.initializeTable(children, table_id);
 
   auto& tableDef = dsdGenIterator.getTableDefs();
@@ -1421,7 +1400,8 @@ RowVectorPtr genTpcdsStoreReturns(
 
   auto table_id = static_cast<int>(Table::TBL_STORE_SALES);
   auto child_table_id = static_cast<int>(Table::TBL_STORE_RETURNS);
-
+  
+  dsdGenIterator.initTableOffset(table_id, offset);
   dsdGenIterator.initializeTable(children, table_id);
   dsdGenIterator.initializeTable(childChildren, child_table_id);
   auto& tableDef = dsdGenIterator.getTableDefs();
@@ -1471,7 +1451,7 @@ RowVectorPtr genTpcdsStoreSales(
 
   auto table_id = static_cast<int>(Table::TBL_STORE_SALES);
   auto child_table_id = static_cast<int>(Table::TBL_STORE_RETURNS);
-
+  dsdGenIterator.initTableOffset(table_id, offset);
   dsdGenIterator.initializeTable(children, table_id);
   dsdGenIterator.initializeTable(childChildren, child_table_id);
   auto& tableDef = dsdGenIterator.getTableDefs();

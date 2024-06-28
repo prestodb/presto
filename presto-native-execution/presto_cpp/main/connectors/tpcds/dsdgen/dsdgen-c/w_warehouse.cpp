@@ -62,7 +62,7 @@ int mk_w_warehouse(
     DSDGenContext& dsdGenContext) {
   /* begin locals declarations */
   struct W_WAREHOUSE_TBL* r;
-  tdef* pT = getSimpleTdefsByNumber(WAREHOUSE);
+  tdef* pT = getSimpleTdefsByNumber(WAREHOUSE, dsdGenContext);
 
   r = &g_w_warehouse;
 

@@ -69,7 +69,7 @@ int mk_w_ship_mode(
     DSDGenContext& dsdGenContext) {
   struct W_SHIP_MODE_TBL* r;
   ds_key_t nTemp;
-  tdef* pTdef = getSimpleTdefsByNumber(SHIP_MODE);
+  tdef* pTdef = getSimpleTdefsByNumber(SHIP_MODE, dsdGenContext);
 
   r = &g_w_ship_mode;
 

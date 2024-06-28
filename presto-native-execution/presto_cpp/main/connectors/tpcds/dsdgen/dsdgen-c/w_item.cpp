@@ -66,7 +66,7 @@ int mk_w_item(void* info_arr, ds_key_t index, DSDGenContext& dsdGenContext) {
   struct W_ITEM_TBL* r;
   struct W_ITEM_TBL* rOldValues = &g_OldValues;
   char *szMinPrice = NULL, *szMaxPrice = NULL;
-  tdef* pT = getSimpleTdefsByNumber(ITEM);
+  tdef* pT = getSimpleTdefsByNumber(ITEM, dsdGenContext);
 
   r = &g_w_item;
 

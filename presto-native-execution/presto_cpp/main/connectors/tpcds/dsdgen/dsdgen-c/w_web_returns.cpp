@@ -73,7 +73,7 @@ int mk_w_web_returns(void* row, ds_key_t index, DSDGenContext& dsdGenContext) {
   static decimal_t dMin, dMax;
   static struct W_WEB_SALES_TBL* sale;
   struct W_WEB_RETURNS_TBL* r;
-  tdef* pT = getSimpleTdefsByNumber(WEB_RETURNS);
+  tdef* pT = getSimpleTdefsByNumber(WEB_RETURNS, dsdGenContext);
 
   if (row == NULL)
     r = &g_w_web_returns;

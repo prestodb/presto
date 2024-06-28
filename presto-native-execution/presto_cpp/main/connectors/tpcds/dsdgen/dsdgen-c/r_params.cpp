@@ -446,11 +446,10 @@ int set_option(const char* name, const char* param) {
   //	switch (o->flags & TYPE_MASK) {
   //	case OPT_FLG:
   //		if ((param && (*param == 'Y' || *param == 'Y' || *param ==
-  //OPTION_START)) || (param == NULL)) { 			if (o->action) 				if (o->action((char
-  //*)o->name, NULL) < 0) 					usage((char *)o->name, "Cannot process option");
-  //			set_flg(name);
-  //		} else
-  //			clr_flg(name);
+  // OPTION_START)) || (param == NULL)) { 			if (o->action)
+  // if (o->action((char
+  //*)o->name, NULL) < 0) 					usage((char
+  //*)o->name, "Cannot process option"); 			set_flg(name); 		} else 			clr_flg(name);
   //		res = 1;
   //		break;
   //	case OPT_INT:
@@ -483,7 +482,7 @@ int set_option(const char* name, const char* param) {
   //		break;
   //	default:
   //		fprintf(stderr, "Invalid option/type (%d/%s)\n", o->flags &
-  //TYPE_MASK, o->name); 		exit(0); 		break;
+  // TYPE_MASK, o->name); 		exit(0); 		break;
   //	}
   //
   //	o->flags |= OPT_SET; /* marked as set */

@@ -59,7 +59,7 @@ int mk_w_time(void* info_arr, ds_key_t index, DSDGenContext& dsdGenContext) {
   /* begin locals declarations */
   int nTemp;
   struct W_TIME_TBL* r;
-  tdef* pT = getSimpleTdefsByNumber(TIME);
+  tdef* pT = getSimpleTdefsByNumber(TIME, dsdGenContext);
 
   r = &g_w_time;
 

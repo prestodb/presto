@@ -141,7 +141,7 @@ mk_detail(void* info_arr, int bPrint, DSDGenContext& dsdGenContext) {
   struct W_WEB_SALES_TBL* r;
   int nShipLag, nTemp;
   struct W_WEB_RETURNS_TBL w_web_returns;
-  tdef* pT = getSimpleTdefsByNumber(WEB_SALES);
+  tdef* pT = getSimpleTdefsByNumber(WEB_SALES, dsdGenContext);
 
   if (dsdGenContext.mk_detail_init) {
     jDate = skipDays(WEB_SALES, &kNewDateIndex, dsdGenContext);

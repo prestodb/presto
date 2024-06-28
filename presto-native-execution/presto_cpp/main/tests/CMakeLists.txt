@@ -37,6 +37,7 @@ target_link_libraries(
   $<TARGET_OBJECTS:presto_type_converter>
   $<TARGET_OBJECTS:presto_types>
   velox_hive_connector
+  presto_tpcds_connector
   velox_tpch_connector
   velox_presto_serializer
   velox_functions_prestosql

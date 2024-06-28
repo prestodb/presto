@@ -79,7 +79,7 @@ int mk_w_web_site(
   /* begin locals declarations */
   char szTemp[16], *sName1, *sName2;
   struct W_WEB_SITE_TBL *r, *rOldValues = &g_OldValues;
-  tdef* pT = getSimpleTdefsByNumber(WEB_SITE);
+  tdef* pT = getSimpleTdefsByNumber(WEB_SITE, dsdGenContext);
 
   r = &g_w_web_site;
 

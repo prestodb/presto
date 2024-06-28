@@ -16,6 +16,6 @@ add_library(presto_tpcds_connector OBJECT tpcds/TpcdsConnector.cpp)
 
 target_link_libraries(presto_tpcds_connector velox_connector tpcds_gen fmt::fmt)
 
-if(${VELOX_ENABLE_TPCDS_CONNECTOR}) # make this change to a presto flag
-  add_subdirectory(tpcds)
-endif()
+# if(${VELOX_ENABLE_TPCDS_CONNECTOR}) # make this change to a presto flag
+add_subdirectory(tpcds)
+# endif()

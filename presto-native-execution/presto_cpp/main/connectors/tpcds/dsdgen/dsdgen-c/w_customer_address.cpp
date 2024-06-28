@@ -58,7 +58,7 @@ int mk_w_customer_address(
     DSDGenContext& dsdGenContext) {
   /* begin locals declarations */
   struct W_CUSTOMER_ADDRESS_TBL* r;
-  tdef* pTdef = getSimpleTdefsByNumber(CUSTOMER_ADDRESS);
+  tdef* pTdef = getSimpleTdefsByNumber(CUSTOMER_ADDRESS, dsdGenContext);
 
   r = &dsdGenContext.g_w_customer_address;
 

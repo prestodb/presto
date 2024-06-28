@@ -81,7 +81,7 @@ int mk_w_call_center(
   int32_t nSuffix, bFirstRecord = 0, nFieldChangeFlags, jDateEnd, nDateRange;
   char *cp, *sName1, *sName2;
   static decimal_t dMinTaxPercentage, dMaxTaxPercentage;
-  tdef* pTdef = getSimpleTdefsByNumber(CALL_CENTER);
+  tdef* pTdef = getSimpleTdefsByNumber(CALL_CENTER, dsdGenContext);
 
   row_skip(CALL_CENTER, index - 1, dsdGenContext);
   /* begin locals declarations */

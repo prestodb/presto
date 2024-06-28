@@ -82,7 +82,7 @@ int mk_w_web_page(
   int32_t nTemp, nAccess;
   char szTemp[16];
   struct W_WEB_PAGE_TBL *r, *rOldValues = &g_OldValues;
-  tdef* pT = getSimpleTdefsByNumber(WEB_PAGE);
+  tdef* pT = getSimpleTdefsByNumber(WEB_PAGE, dsdGenContext);
 
   r = &g_w_web_page;
 

@@ -68,13 +68,12 @@ int mk_w_date(void* info_arr, ds_key_t index, DSDGenContext& dsdGenContext) {
   int res = 0;
 
   /* begin locals declarations */
-  static date_t base_date;
+  date_t base_date;
   int day_index, nTemp;
   date_t temp_date, dTemp2;
   struct W_DATE_TBL* r;
-  tdef* pT = getSimpleTdefsByNumber(DATET);
+  tdef* pT = getSimpleTdefsByNumber(DATET, dsdGenContext);
 
-  row_skip(DATET, index - 1, dsdGenContext);
   r = &dsdGenContext.g_w_date;
 
   if (!dsdGenContext.mk_w_date_init) {
@@ -87,6 +86,8 @@ int mk_w_date(void* info_arr, ds_key_t index, DSDGenContext& dsdGenContext) {
     strtodt(&base_date, "1900-01-01");
     /* Make exceptions to the 1-rng-call-per-row rule */
     dsdGenContext.mk_w_date_init = 1;
+  } else {
+    strtodt(&base_date, "1900-01-01");
   }
 
   nullSet(&pT->kNullBitMap, D_NULLS, dsdGenContext);

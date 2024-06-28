@@ -80,7 +80,7 @@ int mk_w_catalog_page(
   int nDuration, nOffset, nType;
   struct CATALOG_PAGE_TBL* r;
   int nCatalogInterval;
-  tdef* pTdef = getSimpleTdefsByNumber(CATALOG_PAGE);
+  tdef* pTdef = getSimpleTdefsByNumber(CATALOG_PAGE, dsdGenContext);
 
   r = &dsdGenContext.g_w_catalog_page;
 

@@ -60,11 +60,7 @@ DSDGenIterator::DSDGenIterator(
     double scaleFactor,
     vector_size_t parallel,
     vector_size_t child) {
-  auto dsdgenBackend = DSDGenBackendSingleton.try_get();
-
   table_defs.resize(DBGEN_VERSION); // there are 24 TPC-DS tables
-
-  VELOX_CHECK_NOT_NULL(dsdgenBackend, "Unable to initialize dbgen's dbgunk.");
   VELOX_CHECK_GE(scaleFactor, 0, "Tpch scale factor must be non-negative");
   dsdgenCtx_.scaleFactor = scaleFactor;
   InitializeDSDgen(scaleFactor, parallel, child, dsdgenCtx_);
@@ -73,7 +69,7 @@ DSDGenIterator::DSDGenIterator(
 void DSDGenIterator::initializeTable(
     std::vector<VectorPtr> children,
     int table_id) {
-  auto tdef = getSimpleTdefsByNumber(table_id);
+  auto tdef = getSimpleTdefsByNumber(table_id, dsdgenCtx_);
   tpcds_table_def table_def;
   table_def.name = tdef->name;
   table_def.fl_child = tdef->flags & FL_CHILD ? 1 : 0;
@@ -81,6 +77,7 @@ void DSDGenIterator::initializeTable(
   table_def.first_column = tdef->nFirstColumn;
   table_def.children = children;
   table_defs[table_id] = std::make_unique<tpcds_table_def>(table_def);
+  table_def.dsdGenContext = &dsdgenCtx_;
 }
 
 std::vector<std::unique_ptr<tpcds_table_def>>& DSDGenIterator::getTableDefs() {
@@ -92,6 +89,9 @@ tpcds_builder_func DSDGenIterator::GetTDefFunctionByNumber(int table_id) {
   return table_funcs->builder;
 }
 
+void DSDGenIterator::initTableOffset(int32_t table_id, size_t offset) {
+  row_skip(table_id, offset, dsdgenCtx_);
+}
 void DSDGenIterator::genRow(int32_t table_id, size_t index) {
   auto builder_func = GetTDefFunctionByNumber(table_id);
   builder_func((void*)&table_defs, index, dsdgenCtx_);

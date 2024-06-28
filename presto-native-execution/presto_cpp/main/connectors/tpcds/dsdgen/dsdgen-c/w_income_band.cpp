@@ -57,7 +57,7 @@ int mk_w_income_band(
     ds_key_t index,
     DSDGenContext& dsdGenContext) {
   struct W_INCOME_BAND_TBL* r;
-  tdef* pTdef = getSimpleTdefsByNumber(INCOME_BAND);
+  tdef* pTdef = getSimpleTdefsByNumber(INCOME_BAND, dsdGenContext);
 
   r = &g_w_income_band;
 

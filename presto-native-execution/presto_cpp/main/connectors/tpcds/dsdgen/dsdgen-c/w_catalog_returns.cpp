@@ -75,7 +75,7 @@ int mk_w_catalog_returns(
   struct W_CATALOG_RETURNS_TBL* r;
   struct W_CATALOG_SALES_TBL* sale = &dsdGenContext.g_w_catalog_sales;
   static int bStandAlone = 0;
-  tdef* pTdef = getSimpleTdefsByNumber(CATALOG_RETURNS);
+  tdef* pTdef = getSimpleTdefsByNumber(CATALOG_RETURNS, dsdGenContext);
 
   if (row == NULL)
     r = &dsdGenContext.g_w_catalog_returns;

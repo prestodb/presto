@@ -92,7 +92,7 @@ int setSCDKeys(
     dsdGenContext.setSCDKeys_init = 1;
   }
 
-  nTableID = getTableFromColumn(nColumnID);
+  nTableID = getTableFromColumn(nColumnID, dsdGenContext);
   nModulo = (int)(kIndex % 6);
   switch (nModulo) {
     case 1: /* 1 revision */

@@ -78,7 +78,7 @@ int mk_w_inventory(
   date_t base_date_storage;
   date_t* base_date = &base_date_storage;
   int nTemp;
-  tdef* pTdef = getSimpleTdefsByNumber(INVENTORY);
+  tdef* pTdef = getSimpleTdefsByNumber(INVENTORY, dsdGenContext);
 
   r = &g_w_inventory;
 

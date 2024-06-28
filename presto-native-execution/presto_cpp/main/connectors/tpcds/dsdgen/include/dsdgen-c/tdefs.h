@@ -40,70 +40,15 @@
 #include "columns.h"
 #include "tables.h"
 #include "tdef_functions.h"
-
-/*
- * Flag field definitions used in tdefs[]
- */
-#define FL_NONE 0x0000 /* this table is not defined */
-#define FL_NOP 0x0001 /* this table is not defined */
-#define FL_DATE_BASED 0x0002 /* this table is produced in date order */
-#define FL_CHILD 0x0004 /* this table is the child in a parent/child link */
-#define FL_OPEN 0x0008 /* this table has a valid output destination */
-#define FL_DUP_NAME 0x0010 /* to keep find_table() from complaining twice */
-#define FL_TYPE_2                                                          \
-  0x0020 /* this dimension keeps history -- rowcount shows unique entities \
-            (not including revisions) */
-#define FL_SMALL 0x0040 /* this table has low rowcount; used by address.c */
-#define FL_SPARSE 0x0080
-/* unused 0x0100 */
-#define FL_NO_UPDATE \
-  0x0200 /* this table is not altered by the update process */
-#define FL_SOURCE_DDL 0x0400 /* table in the souce schema */
-#define FL_JOIN_ERROR 0x0800 /* join called without an explicit rule */
-#define FL_PARENT 0x1000 /* this table has a child in nParam */
-#define FL_FACT_TABLE 0x2000
-#define FL_PASSTHRU 0x4000 /* verify routine uses warehouse without change */
-#define FL_VPRINT 0x8000 /* verify routine includes print function */
-
-/*
- * general table descriptions.
- * NOTE: This table contains the constant elements in the table descriptions; it
- * must be kept in sync with the declararions of assocaited functions, found in
- * tdef_functions.h
- */
-typedef struct TDEF_T {
-  char* name; /* -- name of the table; */
-  char* abreviation; /* -- shorthand name of the table */
-  int flags; /* -- control table options */
-  int nFirstColumn; /* -- first column/RNG for this table */
-  int nLastColumn; /* -- last column/RNG for this table */
-  int nTableIndex; /* used for rowcount calculations */
-  int nParam; /* -- additional table param (revision count, child number,
-                 etc.) */
-  FILE* outfile; /* -- output destination */
-  int nUpdateSize; /* -- percentage of base rowcount in each update set (basis
-                      points) */
-  int nNewRowPct;
-  int nNullPct; /* percentage of rows with nulls (basis points) */
-  ds_key_t kNullBitMap; /* colums that should be NULL in the current row */
-  ds_key_t kNotNullBitMap; /* columns that are defined NOT NULL */
-  ds_key_t*
-      arSparseKeys; /* sparse key set for table; used if FL_SPARSE is set */
-} tdef;
-
-/*
-extern tdef *tdefs;
-extern tdef w_tdefs[];
-extern tdef s_tdefs[];
-*/
+#include "dist.h"
 
 #define tdefIsFlagSet(t, f) (tdefs[t].flags & f)
 ds_key_t GetRowcountByName(char* szName, DSDGenContext& dsdGenContext);
 int GetTableNumber(char* szName, DSDGenContext& dsdGenContext);
-char* getTableNameByID(int id);
-int getTableFromColumn(int id);
+const char* getTableNameByID(int id, DSDGenContext& dsdGenContext);
+int getTableFromColumn(int id, DSDGenContext& dsdGenContext);
 int initSpareKeys(int id, DSDGenContext& dsdGenContext);
-tdef* getSimpleTdefsByNumber(int nTable);
+tdef* getSimpleTdefsByNumber(int nTable, DSDGenContext& dsdGenContext);
 tdef* getTdefsByNumber(int nTable, DSDGenContext& dsdGenContext);
 
 #endif

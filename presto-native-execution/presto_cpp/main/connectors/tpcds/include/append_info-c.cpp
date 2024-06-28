@@ -15,7 +15,7 @@ append_info* append_info_get(void* info_list, int table_id) {
 }
 
 bool facebook::velox::tpcds::tpcds_table_def::IsNull() {
-  return nullCheck(first_column + colIndex);
+  return nullCheck(first_column + colIndex, *dsdGenContext);
 }
 
 void append_row_start(append_info info) {
@@ -30,19 +30,13 @@ void append_row_end(append_info info) {
 
 void append_varchar(append_info info, const char* value) {
   auto append_info = (tpcds::tpcds_table_def*)info;
-  if (append_info->IsNull()) {
+  if ((append_info->IsNull()) || (*value == '\0') || (!value)) {
     append_info->children[append_info->colIndex]->setNull(
         append_info->rowIndex, true);
   } else {
-    if (value) {
       append_info->children[append_info->colIndex]
           ->asFlatVector<StringView>()
           ->set(append_info->rowIndex, value);
-    } else {
-      append_info->children[append_info->colIndex]
-          ->asFlatVector<StringView>()
-          ->setNull(append_info->rowIndex, true);
-    }
   }
   append_info->colIndex++;
 }
@@ -122,6 +116,18 @@ void append_decimal(append_info info, decimal_t* val) {
           ->asFlatVector<int128_t>()
           ->set(append_info->rowIndex, val->number);
     }
+  }
+  append_info->colIndex++;
+}
+
+void append_integer_decimal(append_info info, int32_t value) {
+  auto append_info = (tpcds::tpcds_table_def*)info;
+  if (append_info->IsNull()) {
+    append_info->children[append_info->colIndex]->setNull(
+        append_info->rowIndex, true);
+  } else {
+    append_info->children[append_info->colIndex]->asFlatVector<int64_t>()->set(
+        append_info->rowIndex, (int64_t)value);
   }
   append_info->colIndex++;
 }

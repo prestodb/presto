@@ -40,16 +40,9 @@
 #include "genrand.h"
 #include "porting.h"
 #include "r_params.h"
-#include "s_tdefs.h"
 #include "scaling.h"
 #include "tables.h"
 #include "tdef_functions.h"
-#include "w_tdefs.h"
-
-extern tdef w_tdefs[];
-extern tdef s_tdefs[];
-extern table_func_t s_tdef_funcs[];
-extern table_func_t w_tdef_funcs[];
 
 /*
  * Routine: get_rowcount(int table)
@@ -140,15 +133,15 @@ getTdefsByNumber(int nTable)
         return(&w_tdefs[nTable]);
 }
 */
-tdef* getSimpleTdefsByNumber(int nTable) {
+tdef* getSimpleTdefsByNumber(int nTable, DSDGenContext& dsdGenContext) {
   if (nTable >= S_BRAND)
-    return (&s_tdefs[nTable - S_BRAND]);
-  return (&w_tdefs[nTable]);
+    return (&dsdGenContext.s_tdefs[nTable - S_BRAND]);
+  return (&dsdGenContext.w_tdefs[nTable]);
 }
 
 tdef* getTdefsByNumber(int nTable, DSDGenContext& dsdGenContext) {
   if (is_set("UPDATE", dsdGenContext) && is_set("VALIDATE", dsdGenContext)) {
-    if (s_tdefs[nTable].flags & FL_PASSTHRU) {
+    if (dsdGenContext.s_tdefs[nTable].flags & FL_PASSTHRU) {
       switch (nTable + S_BRAND) {
         case S_CATALOG_PAGE:
           nTable = CATALOG_PAGE;
@@ -160,12 +153,12 @@ tdef* getTdefsByNumber(int nTable, DSDGenContext& dsdGenContext) {
           nTable = PROMOTION;
           break;
       }
-      return (&w_tdefs[nTable]);
+      return (&dsdGenContext.w_tdefs[nTable]);
     } else
-      return (&s_tdefs[nTable]);
+      return (&dsdGenContext.s_tdefs[nTable]);
   }
 
-  return (getSimpleTdefsByNumber(nTable));
+  return (getSimpleTdefsByNumber(nTable, dsdGenContext));
 }
 
 /*
@@ -182,8 +175,8 @@ tdef* getTdefsByNumber(int nTable, DSDGenContext& dsdGenContext) {
  * Side Effects:
  * TODO: None
  */
-char* getTableNameByID(int i) {
-  tdef* pT = getSimpleTdefsByNumber(i);
+const char* getTableNameByID(int i, DSDGenContext& dsdGenContext) {
+  tdef* pT = getSimpleTdefsByNumber(i, dsdGenContext);
 
   return (pT->name);
 }
@@ -202,12 +195,12 @@ char* getTableNameByID(int i) {
  * Side Effects:
  * TODO: None
  */
-int getTableFromColumn(int nColumn) {
+int getTableFromColumn(int nColumn, DSDGenContext& dsdGenContext) {
   int i;
   tdef* pT;
 
   for (i = 0; i <= MAX_TABLE; i++) {
-    pT = getSimpleTdefsByNumber(i);
+    pT = getSimpleTdefsByNumber(i, dsdGenContext);
     if ((nColumn >= pT->nFirstColumn) && (nColumn <= pT->nLastColumn))
       return (i);
   }

@@ -53,6 +53,7 @@ class DSDGenIterator {
 
   // Generate different types of records.
   void genRow(int32_t table_id, size_t index);
+  void initTableOffset(int32_t table_id, size_t offset);
   ds_key_t getRowCount(int32_t table_id);
 
   tpcds_builder_func GetTDefFunctionByNumber(int table_id);

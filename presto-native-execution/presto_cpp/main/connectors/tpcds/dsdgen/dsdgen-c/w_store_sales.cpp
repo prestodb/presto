@@ -115,7 +115,7 @@ static void
 mk_detail(void* info_arr, int bPrint, DSDGenContext& dsdGenContext) {
   int nTemp;
   struct W_STORE_SALES_TBL* r;
-  tdef* pT = getSimpleTdefsByNumber(STORE_SALES);
+  tdef* pT = getSimpleTdefsByNumber(STORE_SALES, dsdGenContext);
 
   r = &dsdGenContext.g_w_store_sales;
 

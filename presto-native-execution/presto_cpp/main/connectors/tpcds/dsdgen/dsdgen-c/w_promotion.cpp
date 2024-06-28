@@ -76,7 +76,7 @@ int mk_w_promotion(
   static date_t start_date;
   ds_key_t nTemp;
   int nFlags;
-  tdef* pTdef = getSimpleTdefsByNumber(PROMOTION);
+  tdef* pTdef = getSimpleTdefsByNumber(PROMOTION, dsdGenContext);
 
   r = &g_w_promotion;
 

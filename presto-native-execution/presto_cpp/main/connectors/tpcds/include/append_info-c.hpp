@@ -4,6 +4,7 @@
 #include <memory>
 #include <cassert>
 #include "velox/vector/tests/utils/VectorMaker.h"
+#include "presto_cpp/main/connectors/tpcds/dsdgen/include/dsdgen-c/dist.h"
 
 using namespace facebook::velox;
 namespace facebook::velox::tpcds {
@@ -15,8 +16,8 @@ struct tpcds_table_def {
 	int first_column;
 	int colIndex = 0;
 	int rowIndex = 0;
-        std::vector<VectorPtr> children;
-
-        bool IsNull();
+    std::vector<VectorPtr> children;
+	bool IsNull();
+	DSDGenContext* dsdGenContext;
 };
 } // namespace facebook::velox::tpcds

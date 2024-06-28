@@ -171,10 +171,10 @@ int checkSeeds(tdef* pTdef, DSDGenContext& dsdGenContext) {
 int row_stop(int tbl, DSDGenContext& dsdGenContext) {
   tdef* pTdef;
 
-  pTdef = getSimpleTdefsByNumber(tbl);
+  pTdef = getSimpleTdefsByNumber(tbl, dsdGenContext);
   checkSeeds(pTdef, dsdGenContext);
   if (pTdef->flags & FL_PARENT) {
-    pTdef = getSimpleTdefsByNumber(pTdef->nParam);
+    pTdef = getSimpleTdefsByNumber(pTdef->nParam, dsdGenContext);
     checkSeeds(pTdef, dsdGenContext);
   }
   return (0);

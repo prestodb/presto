@@ -287,8 +287,8 @@ ds_key_t web_join(int col, ds_key_t join_key, DSDGenContext& dsdGenContext) {
   static date_t dSiteOpen, /* open/close dates for current web site */
       dSiteClose;
   int nTemp;
-  tdef* pWS = getSimpleTdefsByNumber(WEB_SITE);
-  tdef* pWP = getSimpleTdefsByNumber(WEB_PAGE);
+  tdef* pWS = getSimpleTdefsByNumber(WEB_SITE, dsdGenContext);
+  tdef* pWP = getSimpleTdefsByNumber(WEB_PAGE, dsdGenContext);
 
   if (!dsdGenContext.web_join_init) {
     strtodt(&dSiteClose, WEB_END_DATE);
@@ -424,13 +424,13 @@ ds_key_t mk_join(
   int nYear, nFromTable = 0, nTableIndex = to_tbl;
   tdef* pTdef;
 
-  nFromTable = getTableFromColumn(from_col);
+  nFromTable = getTableFromColumn(from_col, dsdGenContext);
 
   /*
    * if the table being joined to employs sparse keys, the join gets handled
    * in sparse.c
    */
-  pTdef = getSimpleTdefsByNumber(to_tbl);
+  pTdef = getSimpleTdefsByNumber(to_tbl, dsdGenContext);
   if (pTdef->flags & FL_SPARSE) {
     if (pTdef->arSparseKeys == NULL)
       initSparseKeys(to_tbl, dsdGenContext);

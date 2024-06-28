@@ -70,29 +70,24 @@ int mk_w_customer(
     DSDGenContext& dsdGenContext) {
   int nTemp;
 
-  static int nBaseDate;
+  int nBaseDate;
   /* begin locals declarations */
   int nNameIndex, nGender;
   struct W_CUSTOMER_TBL* r;
   date_t dtTemp;
-  static date_t dtBirthMin, dtBirthMax, dtToday, dt1YearAgo, dt10YearsAgo;
-  tdef* pT = getSimpleTdefsByNumber(CUSTOMER);
-  row_skip(CUSTOMER, index - 1, dsdGenContext);
+  date_t dtBirthMin, dtBirthMax, dtToday, dt1YearAgo, dt10YearsAgo;
+  tdef* pT = getSimpleTdefsByNumber(CUSTOMER, dsdGenContext);
   r = &dsdGenContext.g_w_customer;
 
-  if (!dsdGenContext.mk_w_customer_init) {
-    date_t min_date;
-    strtodt(&min_date, DATE_MINIMUM);
-    nBaseDate = dttoj(&min_date);
+  date_t min_date;
+  strtodt(&min_date, DATE_MINIMUM);
+  nBaseDate = dttoj(&min_date);
 
-    strtodt(&dtBirthMax, "1992-12-31");
-    strtodt(&dtBirthMin, "1924-01-01");
-    strtodt(&dtToday, TODAYS_DATE);
-    jtodt(&dt1YearAgo, dtToday.julian - 365);
-    jtodt(&dt10YearsAgo, dtToday.julian - 3650);
-
-    dsdGenContext.mk_w_customer_init = 1;
-  }
+  strtodt(&dtBirthMax, "1992-12-31");
+  strtodt(&dtBirthMin, "1924-01-01");
+  strtodt(&dtToday, TODAYS_DATE);
+  jtodt(&dt1YearAgo, dtToday.julian - 365);
+  jtodt(&dt10YearsAgo, dtToday.julian - 3650);
 
   nullSet(&pT->kNullBitMap, C_NULLS, dsdGenContext);
   r->c_customer_sk = index;

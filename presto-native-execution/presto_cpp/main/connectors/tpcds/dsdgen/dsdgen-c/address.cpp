@@ -105,11 +105,11 @@ int mk_address(ds_addr_t* pAddr, int nColumn, DSDGenContext& dsdGenContext) {
     sprintf(pAddr->suite_num, "Suite %c", ((i >> 1) % 25) + 'A');
   }
 
-  pTdef = getTdefsByNumber(getTableFromColumn(nColumn), dsdGenContext);
+  pTdef = getTdefsByNumber(getTableFromColumn(nColumn, dsdGenContext), dsdGenContext);
 
   /* city is picked from a distribution which maps to large/medium/small */
   if (pTdef->flags & FL_SMALL) {
-    i = (int)get_rowcount(getTableFromColumn(nColumn), dsdGenContext);
+    i = (int)get_rowcount(getTableFromColumn(nColumn, dsdGenContext), dsdGenContext);
     genrand_integer(
         &i,
         DIST_UNIFORM,
@@ -125,7 +125,7 @@ int mk_address(ds_addr_t* pAddr, int nColumn, DSDGenContext& dsdGenContext) {
   /* county is picked from a distribution, based on population and keys the
    * rest */
   if (pTdef->flags & FL_SMALL) {
-    i = (int)get_rowcount(getTableFromColumn(nColumn), dsdGenContext);
+    i = (int)get_rowcount(getTableFromColumn(nColumn, dsdGenContext), dsdGenContext);
     genrand_integer(
         &nRegion,
         DIST_UNIFORM,

@@ -54,7 +54,7 @@ struct W_REASON_TBL g_w_reason;
  */
 int mk_w_reason(void* info_arr, ds_key_t index, DSDGenContext& dsdGenContext) {
   struct W_REASON_TBL* r;
-  tdef* pTdef = getSimpleTdefsByNumber(REASON);
+  tdef* pTdef = getSimpleTdefsByNumber(REASON, dsdGenContext);
 
   r = &g_w_reason;
 

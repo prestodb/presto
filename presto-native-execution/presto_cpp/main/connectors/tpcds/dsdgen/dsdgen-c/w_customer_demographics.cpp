@@ -58,7 +58,7 @@ int mk_w_customer_demographics(
     DSDGenContext& dsdGenContext) {
   struct W_CUSTOMER_DEMOGRAPHICS_TBL* r;
   ds_key_t kTemp;
-  tdef* pTdef = getSimpleTdefsByNumber(CUSTOMER_DEMOGRAPHICS);
+  tdef* pTdef = getSimpleTdefsByNumber(CUSTOMER_DEMOGRAPHICS, dsdGenContext);
 
   r = &dsdGenContext.g_w_customer_demographics;
 

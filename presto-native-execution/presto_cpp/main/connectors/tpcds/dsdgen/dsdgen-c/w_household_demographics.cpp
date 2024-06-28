@@ -60,7 +60,7 @@ int mk_w_household_demographics(
   /* begin locals declarations */
   ds_key_t nTemp;
   struct W_HOUSEHOLD_DEMOGRAPHICS_TBL* r;
-  tdef* pTdef = getSimpleTdefsByNumber(HOUSEHOLD_DEMOGRAPHICS);
+  tdef* pTdef = getSimpleTdefsByNumber(HOUSEHOLD_DEMOGRAPHICS, dsdGenContext);
 
   r = &g_w_household_demographics;
 

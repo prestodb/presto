@@ -40,7 +40,7 @@
 #include "tdefs.h"
 
 /*
- * Routine: nullCheck(int nColumn)
+ * Routine: nullCheck(int nColumn, DSDGenContext& dsdGenContext)
  * Purpose:
  * Algorithm:
  * Data Structures:
@@ -53,13 +53,13 @@
  * Side Effects:
  * TODO: None
  */
-int nullCheck(int nColumn) {
-  static int nLastTable = 0;
+int nullCheck(int nColumn, DSDGenContext& dsdGenContext) {
+  int nLastTable = 0;
   tdef* pTdef;
   ds_key_t kBitMask = 1;
 
-  nLastTable = getTableFromColumn(nColumn);
-  pTdef = getSimpleTdefsByNumber(nLastTable);
+  nLastTable = getTableFromColumn(nColumn, dsdGenContext);
+  pTdef = getSimpleTdefsByNumber(nLastTable, dsdGenContext);
 
   kBitMask <<= nColumn - pTdef->nFirstColumn;
 
@@ -86,11 +86,11 @@ int nullCheck(int nColumn) {
 void nullSet(ds_key_t* pDest, int nStream, DSDGenContext& dsdGenContext) {
   int nThreshold;
   ds_key_t kBitMap;
-  static int nLastTable = 0;
+  int nLastTable = 0;
   tdef* pTdef;
 
-  nLastTable = getTableFromColumn(nStream);
-  pTdef = getSimpleTdefsByNumber(nLastTable);
+  nLastTable = getTableFromColumn(nStream, dsdGenContext);
+  pTdef = getSimpleTdefsByNumber(nLastTable, dsdGenContext);
 
   /* burn the RNG calls */
   genrand_integer(

@@ -186,7 +186,7 @@ ds_key_t getIDCount(int nTable, DSDGenContext& dsdGenContext) {
   kRowcount = get_rowcount(nTable, dsdGenContext);
   if (nTable >= PSEUDO_TABLE_START)
     return (kRowcount);
-  pTdef = getSimpleTdefsByNumber(nTable);
+  pTdef = getSimpleTdefsByNumber(nTable, dsdGenContext);
   if (pTdef->flags & FL_TYPE_2) {
     kUniqueCount = (kRowcount / 6) * 3;
     switch (kRowcount % 6) {
@@ -337,7 +337,7 @@ ds_key_t get_rowcount(int table, DSDGenContext& dsdGenContext) {
       /* now adjust for the multiplier */
       nMultiplier = 1;
       if (nTable < PSEUDO_TABLE_START) {
-        pTdef = getSimpleTdefsByNumber(nTable);
+        pTdef = getSimpleTdefsByNumber(nTable, dsdGenContext);
         nMultiplier = (pTdef->flags & FL_TYPE_2) ? 2 : 1;
       }
       for (i = 1;
@@ -715,7 +715,7 @@ ds_key_t dateScaling(int nTable, ds_key_t jDate, DSDGenContext& dsdGenContext) {
   date_t Date;
   int nDateWeight = 1, nCalendarTotal, nDayWeight;
   ds_key_t kRowCount = -1;
-  tdef* pTdef = getSimpleTdefsByNumber(nTable);
+  tdef* pTdef = getSimpleTdefsByNumber(nTable, dsdGenContext);
 
   if (!dsdGenContext.dateScaling_init) {
     pDistIndex = find_dist("calendar");
@@ -812,7 +812,7 @@ void setUpdateScaling(int nTable, DSDGenContext& dsdGenContext) {
   int i, nBaseTable;
   ds_key_t kNewRowcount = 0;
 
-  pTdef = getSimpleTdefsByNumber(nTable);
+  pTdef = getSimpleTdefsByNumber(nTable, dsdGenContext);
   if (!(pTdef->flags & FL_SOURCE_DDL) || !(pTdef->flags & FL_DATE_BASED) ||
       (pTdef->flags & FL_NOP))
     return;

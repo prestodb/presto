@@ -168,7 +168,7 @@ mk_detail(void* info_arr, int bPrint, DSDGenContext& dsdGenContext) {
   static ds_key_t kNewDateIndex = 0;
   static ds_key_t jDate;
   struct W_CATALOG_SALES_TBL* r;
-  tdef* pTdef = getSimpleTdefsByNumber(CATALOG_SALES);
+  tdef* pTdef = getSimpleTdefsByNumber(CATALOG_SALES, dsdGenContext);
 
   r = &dsdGenContext.g_w_catalog_sales;
 

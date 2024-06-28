@@ -39,7 +39,7 @@
 
 #include "dist.h"
 
-int nullCheck(int nColumn);
+int nullCheck(int nColumn, DSDGenContext& dsdGenContext);
 void nullSet(ds_key_t* pDest, int nStream, DSDGenContext& dsdGenContext);
 
 #endif

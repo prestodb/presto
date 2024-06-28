@@ -52,6 +52,7 @@
 #include "tdefs.h"
 
 #include <stdio.h>
+#include <string>
 
 /*
  * mk_store
@@ -67,7 +68,7 @@ int mk_w_store(void* info_arr, ds_key_t index, DSDGenContext& dsdGenContext) {
   static decimal_t min_rev_growth, max_rev_growth, dMinTaxPercentage,
       dMaxTaxPercentage;
   struct W_STORE_TBL *r, *rOldValues = &dsdGenContext.g_store_OldValues;
-  tdef* pT = getSimpleTdefsByNumber(STORE);
+  tdef* pT = getSimpleTdefsByNumber(STORE, dsdGenContext);
 
   row_skip(STORE, index - 1, dsdGenContext);
   r = &dsdGenContext.g_w_store;
@@ -380,7 +381,7 @@ int mk_w_store(void* info_arr, ds_key_t index, DSDGenContext& dsdGenContext) {
   append_varchar(info, r->division_name);
   append_key(info, r->company_id);
   append_varchar(info, r->company_name);
-  append_integer(info, r->address.street_num);
+  append_varchar(info, std::to_string(r->address.street_num));
   if (r->address.street_name2) {
     sprintf(szTemp2, "%s %s", r->address.street_name1, r->address.street_name2);
     append_varchar(info, szTemp2);
@@ -394,7 +395,7 @@ int mk_w_store(void* info_arr, ds_key_t index, DSDGenContext& dsdGenContext) {
   sprintf(szTemp2, "%05d", r->address.zip);
   append_varchar(info, szTemp2);
   append_varchar(info, r->address.country);
-  append_integer(info, r->address.gmt_offset);
+  append_integer_decimal(info, r->address.gmt_offset);
   append_decimal(info, &r->dTaxPercentage);
 
   append_row_end(info);

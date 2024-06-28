@@ -68,7 +68,7 @@ int mk_w_store_returns(
   int res = 0, nTemp;
   struct W_STORE_RETURNS_TBL* r;
   struct W_STORE_SALES_TBL* sale = &dsdGenContext.g_w_store_sales;
-  tdef* pT = getSimpleTdefsByNumber(STORE_RETURNS);
+  tdef* pT = getSimpleTdefsByNumber(STORE_RETURNS, dsdGenContext);
 
   static decimal_t dMin, dMax;
   /* begin locals declarations */

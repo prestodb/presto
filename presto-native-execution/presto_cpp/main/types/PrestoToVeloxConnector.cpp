@@ -14,14 +14,14 @@
 
 #include "presto_cpp/main/types/PrestoToVeloxConnector.h"
 #include <velox/type/fbhive/HiveTypeParser.h>
+#include "presto_cpp/main/connectors/tpcds/TpcdsConnector.h"
+#include "presto_cpp/main/connectors/tpcds/TpcdsConnectorSplit.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/connectors/hive/HiveDataSink.h"
 #include "velox/connectors/hive/TableHandle.h"
 #include "velox/connectors/hive/iceberg/IcebergDeleteFile.h"
 #include "velox/connectors/hive/iceberg/IcebergSplit.h"
-#include "velox/connectors/tpcds/TpcdsConnector.h"
-#include "velox/connectors/tpcds/TpcdsConnectorSplit.h"
 #include "velox/connectors/tpch/TpchConnector.h"
 #include "velox/connectors/tpch/TpchConnectorSplit.h"
 

@@ -395,10 +395,10 @@ int itodt(date_t* dest, int src) {
  * Side Effects:
  * TODO:
  */
-static int doomsday[4] = {3, 2, 0, 5};
-static int known[13] = {0, 3, 0, 0, 4, 9, 6, 11, 8, 5, 10, 7, 12};
 int set_dow(date_t* d) {
-  static int last_year = -1, dday;
+  int doomsday[4] = {3, 2, 0, 5};
+  int known[13] = {0, 3, 0, 0, 4, 9, 6, 11, 8, 5, 10, 7, 12};
+  int last_year = -1, dday;
   int res, q, r, s;
 
   if (d->year != last_year) {
