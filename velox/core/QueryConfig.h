@@ -289,10 +289,6 @@ class QueryConfig {
   static constexpr const char* kPrestoArrayAggIgnoreNulls =
       "presto.array_agg.ignore_nulls";
 
-  /// If false, size function returns null for null input.
-  static constexpr const char* kSparkLegacySizeOfNull =
-      "spark.legacy_size_of_null";
-
   // The default number of expected items for the bloomfilter.
   static constexpr const char* kSparkBloomFilterExpectedNumItems =
       "spark.bloom_filter.expected_num_items";
@@ -621,11 +617,6 @@ class QueryConfig {
   int32_t spillableReservationGrowthPct() const {
     constexpr int32_t kDefaultPct = 10;
     return get<int32_t>(kSpillableReservationGrowthPct, kDefaultPct);
-  }
-
-  bool sparkLegacySizeOfNull() const {
-    constexpr bool kDefault{true};
-    return get<bool>(kSparkLegacySizeOfNull, kDefault);
   }
 
   bool prestoArrayAggIgnoreNulls() const {

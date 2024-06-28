@@ -19,7 +19,6 @@ add_executable(
   ArrayGetTest.cpp
   ArrayMaxTest.cpp
   ArrayMinTest.cpp
-  ArraySizeTest.cpp
   ArraySortTest.cpp
   ArrayShuffleTest.cpp
   ArgGeneratorTest.cpp

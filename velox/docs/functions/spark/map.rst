@@ -56,9 +56,12 @@ Map Functions
                             MAP(ARRAY['a', 'b', 'c'], ARRAY[1, 2, 3]),
                             (k, v1, v2) -> k || CAST(v1/v2 AS VARCHAR));
 
-.. spark:function:: size(map(K,V)) -> bigint
+.. spark:function:: size(map(K,V), legacySizeOfNull) -> integer
    :noindex:
 
-    Returns the size of the input map. Returns null for null input
-    if :doc:`spark.legacy_size_of_null <../../configs>` is set to false.
-    Otherwise, returns -1 for null input.
+    Returns the size of the input map. Returns null for null input if ``legacySizeOfNull``
+    is set to false. Otherwise, returns -1 for null input. ::
+
+        SELECT size(map(array(1, 2), array(3, 4)), true); -- 2
+        SELECT size(NULL, true); -- -1
+        SELECT size(NULL, false); -- NULL

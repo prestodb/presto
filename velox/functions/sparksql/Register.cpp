@@ -30,7 +30,6 @@
 #include "velox/functions/prestosql/URLFunctions.h"
 #include "velox/functions/sparksql/ArrayFlattenFunction.h"
 #include "velox/functions/sparksql/ArrayMinMaxFunction.h"
-#include "velox/functions/sparksql/ArraySizeFunction.h"
 #include "velox/functions/sparksql/ArraySort.h"
 #include "velox/functions/sparksql/Bitwise.h"
 #include "velox/functions/sparksql/DateTimeFunctions.h"
@@ -169,9 +168,6 @@ inline void registerArrayMinMaxFunctions(const std::string& prefix) {
 
 void registerFunctions(const std::string& prefix) {
   registerAllSpecialFormGeneralFunctions();
-
-  registerFunction<sparksql::ArraySizeFunction, int32_t, Array<Any>>(
-      {prefix + "array_size"});
 
   // Register size functions
   registerSize(prefix + "size");
