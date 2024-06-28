@@ -31,8 +31,10 @@ _______________
 * Improve Presto C++ documentation. :pr:`22717`
 * Improve error code for cast from DOUBLE or REAL to BIGINT, INTEGER, SMALLINT or TINYINT for out of range values from NUMERIC_VALUE_OUT_OF_RANGE to INVALID_CAST_ARGUMENT. :pr:`22917`
 * Improve handling of floating point numbers in Presto to consistently treat NaNs as larger than any other number and equal to itself. It also changes the handling of positive and negative zero to always be considered equal to each other. Read more here: https://github.com/prestodb/rfcs/blob/main/RFC-0001-nan-definition.md. The new nan behavior can be disabled by setting the configuration property use-new-nan-definition to false. This configuration property is intended to be temporary to ease migration in the short term, and will be removed in a future release. :pr:`22386`
+* Improve the performance of reading common table expressions (CTE). :pr:`22478`
 * Add HBO for CTE materialized query. :pr:`22606`
 * Add Prestissimo support for CTAS into bucketed (but not partitioned) tables. :pr:`22737`
+* Add support for ``NOT NULL`` column constraints in the CREATE TABLE and ALTER TABLE statements. This only takes effect for Hive connector now. :pr:`22064`
 * Add :doc:`/presto_cpp/properties` documentation. :pr:`22885`
 * Add PR number to the release note entry examples in pull_request_template.md. :pr:`22665`
 * Add ``http-server.authentication.allow-forwarded-https`` configuration property to recognize X-Forwarded-Proto header. :pr:`22492`
@@ -65,6 +67,7 @@ _________________________
 * Add time travel ``BEFORE`` syntax for Iceberg tables to return historical data. :pr:`22851`
 * Add support for metadata delete with predicate on non-identity partition columns when they align with partitioning boundaries. :pr:`22554`
 * Remove timestamp with time zone in ``CREATE``, ``ALTER``, and ``INSERT`` statements. :pr:`22926`
+* Add configuration of Iceberg split manager threads using the iceberg.split-manager-threads configuration property. :pr:`22754`
 
 Verifier Changes
 ________________
