@@ -264,10 +264,10 @@ public class TestDetermineJoinDistributionType
                 .on(p ->
                         p.join(
                                 INNER,
-                                p.values(new PlanNodeId("valuesA"), aRows, p.variable("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesA"), aRows, p.variable("A1", BIGINT), p.variable("A2", BIGINT)),
                                 p.values(new PlanNodeId("valuesB"), bRows, p.variable("B1", BIGINT)),
                                 ImmutableList.of(new EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
-                                ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
+                                ImmutableList.of(p.variable("A1", BIGINT), p.variable("A2", BIGINT), p.variable("B1", BIGINT)),
                                 Optional.empty()))
                 .matches(join(
                         INNER,
@@ -275,7 +275,7 @@ public class TestDetermineJoinDistributionType
                         Optional.empty(),
                         Optional.of(REPLICATED),
                         values(ImmutableMap.of("B1", 0)),
-                        values(ImmutableMap.of("A1", 0))));
+                        values(ImmutableMap.of("A1", 0, "A2", 1))));
     }
 
     @Test
@@ -305,11 +305,11 @@ public class TestDetermineJoinDistributionType
                                 Optional.empty()))
                 .matches(join(
                         INNER,
-                        ImmutableList.of(equiJoinClause("B1", "A1")),
+                        ImmutableList.of(equiJoinClause("A1", "B1")),
                         Optional.empty(),
                         Optional.of(REPLICATED),
-                        values(ImmutableMap.of("B1", 0)),
-                        values(ImmutableMap.of("A1", 0))));
+                        values(ImmutableMap.of("A1", 0)),
+                        values(ImmutableMap.of("B1", 0))));
     }
 
     @Test
