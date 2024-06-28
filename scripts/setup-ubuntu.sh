@@ -157,6 +157,29 @@ function install_duckdb {
   fi
 }
 
+ARROW_VERSION=15.0.0
+
+function install_arrow {
+  wget_and_untar https://archive.apache.org/dist/arrow/arrow-${ARROW_VERSION}/apache-arrow-${ARROW_VERSION}.tar.gz arrow
+  cd arrow/cpp
+  cmake_install \
+    -DARROW_PARQUET=OFF \
+    -DARROW_WITH_THRIFT=ON \
+    -DARROW_WITH_LZ4=ON \
+    -DARROW_WITH_SNAPPY=ON \
+    -DARROW_WITH_ZLIB=ON \
+    -DARROW_WITH_ZSTD=ON \
+    -DARROW_JEMALLOC=OFF \
+    -DARROW_SIMD_LEVEL=NONE \
+    -DARROW_RUNTIME_SIMD_LEVEL=NONE \
+    -DARROW_WITH_UTF8PROC=OFF \
+    -DARROW_TESTING=ON \
+    -DCMAKE_INSTALL_PREFIX=/usr/local \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DARROW_BUILD_STATIC=ON \
+    -DThrift_SOURCE=BUNDLED
+}
+
 function install_cuda {
   # See https://developer.nvidia.com/cuda-downloads
   if ! dpkg -l cuda-keyring 1>/dev/null; then
@@ -179,6 +202,7 @@ function install_velox_deps {
   run_and_time install_fbthrift
   run_and_time install_conda
   run_and_time install_duckdb
+  run_and_time install_arrow
 }
 
 function install_apt_deps {

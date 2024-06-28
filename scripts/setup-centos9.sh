@@ -187,6 +187,29 @@ function install_duckdb {
   fi
 }
 
+ARROW_VERSION=15.0.0
+
+function install_arrow {
+  wget_and_untar https://archive.apache.org/dist/arrow/arrow-${ARROW_VERSION}/apache-arrow-${ARROW_VERSION}.tar.gz arrow
+  cd arrow/cpp
+  cmake_install \
+    -DARROW_PARQUET=OFF \
+    -DARROW_WITH_THRIFT=ON \
+    -DARROW_WITH_LZ4=ON \
+    -DARROW_WITH_SNAPPY=ON \
+    -DARROW_WITH_ZLIB=ON \
+    -DARROW_WITH_ZSTD=ON \
+    -DARROW_JEMALLOC=OFF \
+    -DARROW_SIMD_LEVEL=NONE \
+    -DARROW_RUNTIME_SIMD_LEVEL=NONE \
+    -DARROW_WITH_UTF8PROC=OFF \
+    -DARROW_TESTING=ON \
+    -DCMAKE_INSTALL_PREFIX=/usr/local \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DARROW_BUILD_STATIC=ON \
+    -DThrift_SOURCE=BUNDLED
+}
+
 function install_cuda {
   # See https://developer.nvidia.com/cuda-downloads
   dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo
@@ -209,6 +232,7 @@ function install_velox_deps {
   run_and_time install_mvfst
   run_and_time install_fbthrift
   run_and_time install_duckdb
+  run_and_time install_arrow
 }
 
 (return 2> /dev/null) && return # If script was sourced, don't run commands.
