@@ -4,6 +4,9 @@ Release 0.288
 
 **Highlights**
 ==============
+* Improve handling of floating point numbers in Presto to consistently treat NaNs as larger than any other number and equal to itself. It also changes the handling of positive and negative zero to always be considered equal to each other. Read more here: https://github.com/prestodb/rfcs/blob/main/RFC-0001-nan-definition.md. The new nan behavior can be disabled by setting the configuration property use-new-nan-definition to false. This configuration property is intended to be temporary to ease migration in the short term, and will be removed in a future release. :pr:`22386`
+* Add procedure `expire_snapshots` to remove old snapshots in Iceberg. :pr:`22609`
+* Add support for Iceberg REST catalog. :pr:`22417`
 
 **Details**
 ===========
