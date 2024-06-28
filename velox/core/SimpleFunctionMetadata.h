@@ -666,15 +666,19 @@ class UDFHolder {
   DECLARE_METHOD_RESOLVER(callAscii_method_resolver, callAscii);
   DECLARE_METHOD_RESOLVER(initialize_method_resolver, initialize);
 
-  // Check which flavor of the call() method is provided by the UDF object. UDFs
-  // are required to provide at least one of the following methods:
+  // Check which flavor of the call()/callNullable()/callNullFree() method is
+  // provided by the UDF object. UDFs are required to provide at least one of
+  // the following methods:
   //
-  // - bool|void call(...)
-  // - bool|void callNullable(...)
-  // - bool|void callNullFree(...)
+  // - bool|void|Status call(...)
+  // - bool|void|Status callNullable(...)
+  // - bool|void|Status callNullFree(...)
   //
-  // Each of these methods can return either bool or void. Returning void means
-  // that the UDF is assumed never to return null values.
+  // Each of these methods can return bool, void or Status. Returning void
+  // means that the UDF is assumed never to return null values. Returning
+  // Status to hold success or error outcome of the function call, and it
+  // implies result is not null. If you need to return null as result, please
+  // use bool return type.
   //
   // Optionally, UDFs can also provide the following methods:
   //
@@ -707,14 +711,10 @@ class UDFHolder {
       udf_has_call_return_void | udf_has_call_return_status;
 
   static_assert(
-      !(udf_has_call_return_bool && udf_has_call_return_void),
-      "Provided call() methods need to return either void OR bool OR status.");
-  static_assert(
-      !(udf_has_call_return_bool && udf_has_call_return_status),
-      "Provided call() methods need to return either void OR bool OR status.");
-  static_assert(
-      !(udf_has_call_return_void && udf_has_call_return_status),
-      "Provided call() methods need to return either void OR bool OR status.");
+      udf_has_call_return_void + udf_has_call_return_bool +
+              udf_has_call_return_status <=
+          1,
+      "Provided call() methods need to only return void, bool OR Status.");
 
   // callNullable():
   static constexpr bool udf_has_callNullable_return_bool = util::has_method<
@@ -729,11 +729,21 @@ class UDFHolder {
       void,
       exec_return_type,
       const exec_arg_type<TArgs>*...>::value;
+  static constexpr bool udf_has_callNullable_return_status = util::has_method<
+      Fun,
+      callNullable_method_resolver,
+      Status,
+      exec_return_type,
+      const exec_arg_type<TArgs>*...>::value;
   static constexpr bool udf_has_callNullable =
-      udf_has_callNullable_return_bool | udf_has_callNullable_return_void;
+      udf_has_callNullable_return_bool | udf_has_callNullable_return_void |
+      udf_has_callNullable_return_status;
+
   static_assert(
-      !(udf_has_callNullable_return_bool && udf_has_callNullable_return_void),
-      "Provided callNullable() methods need to return either void OR bool.");
+      udf_has_callNullable_return_void + udf_has_callNullable_return_bool +
+              udf_has_callNullable_return_status <=
+          1,
+      "Provided callNullable() methods need to only return void, bool OR Status.");
 
   // callNullFree():
   static constexpr bool udf_has_callNullFree_return_bool = util::has_method<
@@ -748,11 +758,21 @@ class UDFHolder {
       void,
       exec_return_type,
       const exec_no_nulls_arg_type<TArgs>&...>::value;
+  static constexpr bool udf_has_callNullFree_return_status = util::has_method<
+      Fun,
+      callNullFree_method_resolver,
+      Status,
+      exec_return_type,
+      const exec_no_nulls_arg_type<TArgs>&...>::value;
   static constexpr bool udf_has_callNullFree =
-      udf_has_callNullFree_return_bool | udf_has_callNullFree_return_void;
+      udf_has_callNullFree_return_bool | udf_has_callNullFree_return_void |
+      udf_has_callNullFree_return_status;
+
   static_assert(
-      !(udf_has_callNullFree_return_bool && udf_has_callNullFree_return_void),
-      "Provided callNullFree() methods need to return either void OR bool.");
+      udf_has_callNullFree_return_void + udf_has_callNullFree_return_bool +
+              udf_has_callNullFree_return_status <=
+          1,
+      "Provided callNullFree() methods need to only return void, bool OR Status.");
 
   // callAscii():
   static constexpr bool udf_has_callAscii_return_bool = util::has_method<
@@ -966,7 +986,11 @@ class UDFHolder {
       bool& notNull,
       const typename Exec::template resolver<TArgs>::in_type*... args) {
     static_assert(udf_has_callNullable);
-    if constexpr (udf_has_callNullable_return_bool) {
+
+    if constexpr (udf_has_callNullable_return_status) {
+      notNull = true;
+      return instance_.callNullable(out, args...);
+    } else if constexpr (udf_has_callNullable_return_bool) {
       notNull = instance_.callNullable(out, args...);
       return Status::OK();
     } else {
@@ -995,7 +1019,10 @@ class UDFHolder {
       bool& notNull,
       const exec_no_nulls_arg_type<TArgs>&... args) {
     static_assert(udf_has_callNullFree);
-    if constexpr (udf_has_callNullFree_return_bool) {
+    if constexpr (udf_has_callNullFree_return_status) {
+      notNull = true;
+      return instance_.callNullFree(out, args...);
+    } else if constexpr (udf_has_callNullFree_return_bool) {
       notNull = instance_.callNullFree(out, args...);
     } else {
       instance_.callNullFree(out, args...);
