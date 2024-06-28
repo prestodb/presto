@@ -37,12 +37,27 @@ public class SourceQuery
     private final QueryConfiguration controlConfiguration;
     private final QueryConfiguration testConfiguration;
 
+    public SourceQuery(
+            String suite,
+            String name,
+            String controlQuery,
+            String testQuery,
+            Optional<String> controlQueryId,
+            Optional<String> testQueryId,
+            QueryConfiguration controlConfiguration,
+            QueryConfiguration testConfiguration)
+    {
+        this(suite, name, controlQuery, null, testQuery, null, controlQueryId, testQueryId, controlConfiguration, testConfiguration);
+    }
+
     @JdbiConstructor
     public SourceQuery(
             @ColumnName("suite") String suite,
             @ColumnName("name") String name,
             @ColumnName("controlQuery") String controlQuery,
+            @ColumnName("controlQueryUtf8") String controlQueryUtf8,
             @ColumnName("testQuery") String testQuery,
+            @ColumnName("testQueryUtf8") String testQueryUtf8,
             @ColumnName("controlQueryId") Optional<String> controlQueryId,
             @ColumnName("testQueryId") Optional<String> testQueryId,
             @Nested("control") QueryConfiguration controlConfiguration,
@@ -50,8 +65,8 @@ public class SourceQuery
     {
         this.suite = requireNonNull(suite, "suite is null");
         this.name = requireNonNull(name, "name is null");
-        this.controlQuery = clean(controlQuery);
-        this.testQuery = clean(testQuery);
+        this.controlQuery = clean((controlQueryUtf8 == null || controlQueryUtf8.trim().isEmpty()) ? controlQuery : controlQueryUtf8);
+        this.testQuery = clean((testQueryUtf8 == null || testQueryUtf8.trim().isEmpty()) ? testQuery : testQueryUtf8);
         this.controlQueryId = requireNonNull(controlQueryId, "controlQueryId is null");
         this.testQueryId = requireNonNull(testQueryId, "testQueryId is null");
         this.controlConfiguration = requireNonNull(controlConfiguration, "controlConfiguration is null");
