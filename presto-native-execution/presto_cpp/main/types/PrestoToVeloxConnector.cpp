@@ -860,6 +860,10 @@ connector::hive::LocationHandle::TableType toTableType(
     protocol::TableType tableType) {
   switch (tableType) {
     case protocol::TableType::NEW:
+    // Temporary tables are written and read by the SPI in a single pipeline.
+    // So they can be treated as New. They do not require Append or Overwrite
+    // semantics as applicable for regular tables.
+    case protocol::TableType::TEMPORARY:
       return connector::hive::LocationHandle::TableType::kNew;
     case protocol::TableType::EXISTING:
       return connector::hive::LocationHandle::TableType::kExisting;
