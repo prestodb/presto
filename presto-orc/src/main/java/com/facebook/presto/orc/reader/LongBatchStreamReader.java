@@ -26,6 +26,7 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.time.ZoneId;
 
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
@@ -66,7 +67,7 @@ public class LongBatchStreamReader
     }
 
     @Override
-    public void startStripe(Stripe stripe)
+    public void startStripe(ZoneId timeZone, Stripe stripe)
             throws IOException
     {
         ColumnEncodingKind kind = stripe.getColumnEncodings().get(streamDescriptor.getStreamId())
@@ -82,7 +83,7 @@ public class LongBatchStreamReader
             throw new IllegalArgumentException("Unsupported encoding " + kind);
         }
 
-        currentReader.startStripe(stripe);
+        currentReader.startStripe(timeZone, stripe);
     }
 
     @Override
