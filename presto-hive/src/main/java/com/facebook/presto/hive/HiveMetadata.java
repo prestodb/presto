@@ -3509,7 +3509,7 @@ public class HiveMetadata
             }
 
             if (seenColumns.contains(columnWithSubfield.toString())) {
-                throw new PrestoException(INVALID_TABLE_PROPERTY, format("The same column/subfield cannot have 2 encryption keys"));
+                throw new PrestoException(INVALID_TABLE_PROPERTY, "The same column/subfield cannot have 2 encryption keys");
             }
 
             if (columnWithSubfield.getSubfieldPath().isPresent()) {
