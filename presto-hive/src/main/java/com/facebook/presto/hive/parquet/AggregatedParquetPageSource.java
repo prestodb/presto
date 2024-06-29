@@ -162,7 +162,7 @@ public class AggregatedParquetPageSource
     {
         org.apache.parquet.schema.Type parquetType = parquetMetadata.getFileMetaData().getSchema().getType(columnIndex);
         if (parquetType instanceof GroupType) {
-            throw new IllegalArgumentException("Unsupported type : " + parquetType.toString());
+            throw new IllegalArgumentException("Unsupported type : " + parquetType);
         }
 
         Object value = null;
