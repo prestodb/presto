@@ -114,6 +114,7 @@ public class V9SegmentIndexSource
 
         Indexed<String> indexed = new ListIndexed<>(availableDimensions);
         // TODO: get rid of the time column by creating Presto's SimpleQueryableIndex impl
+        // TODO: deprecate Joda time usage in this class once this code gets updated without the usage of Joda time libraries.
         return new SimpleQueryableIndex(
                 dataInterval,
                 indexed,
