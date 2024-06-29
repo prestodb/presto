@@ -16,6 +16,7 @@ package com.facebook.presto.iceberg;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
+import com.facebook.presto.spi.ConnectorDistributedProcedureHandle;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
@@ -71,6 +72,21 @@ public class IcebergPageSinkProvider
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, PageSinkContext pageSinkContext)
     {
         return createPageSink(session, (IcebergWritableTableHandle) insertTableHandle);
+    }
+
+    @Override
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorDistributedProcedureHandle procedureHandle, PageSinkContext pageSinkContext)
+    {
+        IcebergDistributedProcedureHandle distributedProcedureHandle = (IcebergDistributedProcedureHandle) procedureHandle;
+        return createPageSink(session, new IcebergWritableTableHandle(
+                distributedProcedureHandle.getSchemaName(),
+                distributedProcedureHandle.getTableName(),
+                distributedProcedureHandle.getSchemaAsJson(),
+                distributedProcedureHandle.getPartitionSpecAsJson(),
+                distributedProcedureHandle.getInputColumns(),
+                distributedProcedureHandle.getOutputPath(),
+                distributedProcedureHandle.getFileFormat(),
+                distributedProcedureHandle.getStorageProperties()));
     }
 
     private ConnectorPageSink createPageSink(ConnectorSession session, IcebergWritableTableHandle tableHandle)
