@@ -254,6 +254,13 @@ public class ClickHouseMetadata
     }
 
     @Override
+    public void setTableProperties(ConnectorSession session, ConnectorTableHandle table, Map<String, Object> properties)
+    {
+        ClickHouseTableHandle tableHandle = (ClickHouseTableHandle) table;
+        clickHouseClient.setTableProperties(ClickHouseIdentity.from(session), tableHandle, properties);
+    }
+
+    @Override
     public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<ConnectorTableLayoutHandle> tableLayoutHandle, List<ColumnHandle> columnHandles, Constraint<ColumnHandle> constraint)
     {
         ClickHouseTableHandle handle = (ClickHouseTableHandle) tableHandle;
