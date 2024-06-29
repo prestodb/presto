@@ -67,7 +67,6 @@ public class TableFinishNode
     {
         super(sourceLocation, id, statsEquivalentPlanNode);
 
-        checkArgument(target != null || source instanceof TableWriterNode);
         this.source = requireNonNull(source, "source is null");
         this.target = requireNonNull(target, "target is null");
         this.rowCountVariable = requireNonNull(rowCountVariable, "rowCountVariable is null");
