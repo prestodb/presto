@@ -41,6 +41,7 @@ public class MongoClientConfig
     private static final Splitter TAG_SPLITTER = Splitter.on(':').trimResults().omitEmptyStrings();
 
     private String schemaCollection = "_schema";
+    private boolean caseInsensitiveNameMatching;
     private List<ServerAddress> seeds = ImmutableList.of();
     private List<MongoCredential> credentials = ImmutableList.of();
 
@@ -71,6 +72,18 @@ public class MongoClientConfig
     public MongoClientConfig setSchemaCollection(String schemaCollection)
     {
         this.schemaCollection = schemaCollection;
+        return this;
+    }
+
+    public boolean isCaseInsensitiveNameMatching()
+    {
+        return caseInsensitiveNameMatching;
+    }
+
+    @Config("mongodb.case-insensitive-name-matching")
+    public MongoClientConfig setCaseInsensitiveNameMatching(boolean caseInsensitiveNameMatching)
+    {
+        this.caseInsensitiveNameMatching = caseInsensitiveNameMatching;
         return this;
     }
 
