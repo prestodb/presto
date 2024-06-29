@@ -51,6 +51,16 @@ Bitwise Functions
         SELECT bitwise_arithmetic_shift_right(-8, 2); -- -2
         SELECT bitwise_arithmetic_shift_right(7, 2); -- 1
 
+.. function:: bitwise_trailing_zeros(x) -> bigint
+
+    Count the number of trailing zero bits set in ``x`` (treated as
+    64-bit signed integer) in 2's complement big-endian representation::
+
+        SELECT bitwise_trailing_zeros(8); -- 3
+        SELECT bitwise_trailing_zeros(9); -- 0
+        SELECT bitwise_trailing_zeros(-1); -- 0
+        SELECT bitwise_trailing_zeros(-64); -- 6
+
 Generic Shift Functions
 -----------------------
 

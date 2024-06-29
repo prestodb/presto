@@ -52,6 +52,14 @@ public final class BitwiseFunctions
         return Long.bitCount(num & mask);
     }
 
+    @Description("count number of trailing zero bits in 2's complement representation")
+    @ScalarFunction
+    @SqlType(StandardTypes.BIGINT)
+    public static long bitwiseTrailingZeros(@SqlType(StandardTypes.BIGINT) long num)
+    {
+        return Long.numberOfTrailingZeros(num);
+    }
+
     @Description("bitwise NOT in 2's complement arithmetic")
     @ScalarFunction
     @SqlType(StandardTypes.BIGINT)
