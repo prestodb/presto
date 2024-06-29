@@ -99,7 +99,7 @@ public final class PartitionFields
     }
 
     // Keep consistency with PartitionSpec.Builder
-    protected static String getPartitionColumnName(String columnName, String transform)
+    private static String getPartitionColumnName(String columnName, String transform)
     {
         switch (transform) {
             case "identity":
@@ -124,7 +124,7 @@ public final class PartitionFields
         throw new UnsupportedOperationException("Unknown partition transform: " + transform);
     }
 
-    protected static Term getTransformTerm(String columnName, String transform)
+    static Term getTransformTerm(String columnName, String transform)
     {
         switch (transform) {
             case "identity":
