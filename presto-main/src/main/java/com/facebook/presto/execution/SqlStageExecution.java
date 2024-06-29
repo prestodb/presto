@@ -72,6 +72,7 @@ import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -385,7 +386,7 @@ public final class SqlStageExecution
         requireNonNull(sourceTasks, "sourceTasks is null");
 
         RemoteSourceNode remoteSource = exchangeSources.get(fragmentId);
-        checkArgument(remoteSource != null, "Unknown remote source %s. Known sources are %s", fragmentId, exchangeSources.keySet());
+        checkNotNull(remoteSource, "Unknown remote source %s. Known sources are %s", fragmentId, exchangeSources.keySet());
 
         this.sourceTasks.putAll(remoteSource.getId(), sourceTasks);
 

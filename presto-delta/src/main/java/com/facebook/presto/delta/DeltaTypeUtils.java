@@ -79,6 +79,7 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.parseFloat;
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Contains utility methods to convert Delta data types (and data values) to Presto data types (and data values)
@@ -99,7 +100,7 @@ public class DeltaTypeUtils
      */
     public static TypeSignature convertDeltaDataTypePrestoDataType(SchemaTableName tableName, String columnName, DataType deltaType)
     {
-        checkArgument(deltaType != null);
+        requireNonNull(deltaType);
 
         if (deltaType instanceof StructType) {
             StructType deltaStructType = (StructType) deltaType;

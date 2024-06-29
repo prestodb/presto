@@ -55,6 +55,7 @@ import static com.facebook.presto.metadata.MetadataUtil.SchemaMetadataBuilder.sc
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.metadata.MetadataUtil.findColumnMetadata;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.compose;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -200,7 +201,7 @@ public class InformationSchemaMetadata
         String columnName = ((InformationSchemaColumnHandle) columnHandle).getColumnName();
 
         ColumnMetadata columnMetadata = findColumnMetadata(tableMetadata, columnName);
-        checkArgument(columnMetadata != null, "Column %s on table %s does not exist", columnName, tableMetadata.getTable());
+        checkNotNull(columnMetadata, "Column %s on table %s does not exist", columnName, tableMetadata.getTable());
         return columnMetadata;
     }
 

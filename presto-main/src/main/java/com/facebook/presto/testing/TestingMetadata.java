@@ -60,6 +60,7 @@ import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewSta
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.testing.TestingHandle.INSTANCE;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -116,7 +117,7 @@ public class TestingMetadata
         requireNonNull(tableHandle, "tableHandle is null");
         SchemaTableName tableName = getTableName(tableHandle);
         ConnectorTableMetadata tableMetadata = tables.get(tableName);
-        checkArgument(tableMetadata != null, "Table %s does not exist", tableName);
+        checkNotNull(tableMetadata, "Table %s does not exist", tableName);
         return tableMetadata;
     }
 

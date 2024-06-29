@@ -26,6 +26,7 @@ import java.util.Map;
 
 import static com.facebook.presto.common.type.TypeUtils.writeNativeValue;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.Objects.requireNonNull;
 
 public class InternalTable
@@ -42,7 +43,7 @@ public class InternalTable
     public int getColumnIndex(String columnName)
     {
         Integer index = columnIndexes.get(columnName);
-        checkArgument(index != null, "Column %s not found", columnName);
+        checkNotNull(index, "Column %s not found", columnName);
         return index;
     }
 

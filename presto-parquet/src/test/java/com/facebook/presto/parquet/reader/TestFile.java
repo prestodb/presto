@@ -21,6 +21,7 @@ import java.io.IOException;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static java.util.Objects.requireNonNull;
 
 public class TestFile
 {
@@ -31,7 +32,8 @@ public class TestFile
     {
         checkArgument(!isNullOrEmpty(fileName), "file name cannot be null or empty");
         this.fileName = fileName;
-        checkArgument(fileContent != null && fileContent.length > 0, "file content cannot be null or empty");
+        requireNonNull(fileContent, "file content cannot be null or empty");
+        checkArgument(fileContent.length > 0, "file content cannot be empty");
         this.fileContent = fileContent;
     }
 

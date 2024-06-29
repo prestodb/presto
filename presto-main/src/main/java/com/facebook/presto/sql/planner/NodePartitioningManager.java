@@ -52,6 +52,7 @@ import static com.facebook.presto.SystemSessionProperties.getMaxTasksPerStage;
 import static com.facebook.presto.metadata.InternalNode.NodeStatus.DEAD;
 import static com.facebook.presto.spi.StandardErrorCode.NODE_SELECTION_NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -98,7 +99,7 @@ public class NodePartitioningManager
                     partitionChannelTypes,
                     bucketToPartition.get().length);
 
-            checkArgument(bucketFunction != null, "No function %s", partitioningHandle);
+            checkNotNull(bucketFunction, "No function %s", partitioningHandle);
         }
         return new BucketPartitionFunction(bucketFunction, partitioningScheme.getBucketToPartition().get());
     }
@@ -226,7 +227,7 @@ public class NodePartitioningManager
                 partitioningHandle.getConnectorHandle(),
                 nodes);
 
-        checkArgument(connectorBucketNodeMap != null, "No partition map %s", partitioningHandle);
+        checkNotNull(connectorBucketNodeMap, "No partition map %s", partitioningHandle);
         return connectorBucketNodeMap;
     }
 
@@ -238,7 +239,7 @@ public class NodePartitioningManager
                 partitioningHandle.getTransactionHandle().orElse(null),
                 session.toConnectorSession(),
                 partitioningHandle.getConnectorHandle());
-        checkArgument(splitBucketFunction != null, "No partitioning %s", partitioningHandle);
+        checkNotNull(splitBucketFunction, "No partitioning %s", partitioningHandle);
 
         return split -> {
             int bucket;
