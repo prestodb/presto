@@ -94,7 +94,7 @@ public class ClusterMemoryLeakDetector
 
     synchronized int getNumberOfLeakedQueries()
     {
-        return leakedQueries.size();
+        return leakedQueries == null ? 0 : leakedQueries.size();
     }
 
     synchronized long getLeakedBytes()
