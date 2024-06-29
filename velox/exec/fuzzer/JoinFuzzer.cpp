@@ -861,7 +861,7 @@ void JoinFuzzer::makeAlternativePlans(
   // Use OrderBy + MergeJoin
   if (joinNode->isInnerJoin() || joinNode->isLeftJoin() ||
       joinNode->isLeftSemiFilterJoin() || joinNode->isRightSemiFilterJoin() ||
-      joinNode->isAntiJoin()) {
+      joinNode->isAntiJoin() || joinNode->isRightJoin()) {
     auto planWithSplits = makeMergeJoinPlan(
         joinType, probeKeys, buildKeys, probeInput, buildInput, outputColumns);
     plans.push_back(planWithSplits);

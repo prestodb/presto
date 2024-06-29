@@ -215,6 +215,13 @@ class MergeJoin : public Operator {
       const RowVectorPtr& left,
       vector_size_t leftIndex);
 
+  /// Adds one row of output for a right-side row with no left-side match.
+  /// Copies values from the 'rightIndex' row of 'right' and fills in nulls
+  /// for columns that correspond to the right side.
+  void addOutputRowForRightJoin(
+      const RowVectorPtr& right,
+      vector_size_t rightIndex);
+
   /// Evaluates join filter on 'filterInput_' and returns 'output' that contains
   /// a subset of rows on which the filter passed. Returns nullptr if no rows
   /// passed the filter.
@@ -231,9 +238,9 @@ class MergeJoin : public Operator {
   /// rows from the left side that have a match on the right.
   RowVectorPtr filterOutputForAntiJoin(const RowVectorPtr& output);
 
-  /// As we populate the results of the left join, we track whether a given
+  /// As we populate the results of the join, we track whether a given
   /// output row is a result of a match between left and right sides or a miss.
-  /// We use LeftJoinTracker::addMatch and addMiss methods for that.
+  /// We use JoinTracker::addMatch and addMiss methods for that.
   ///
   /// The semantic of the filter is to include at least one left side row in the
   /// output after filters are applied. Therefore:
@@ -256,8 +263,8 @@ class MergeJoin : public Operator {
   /// block, we keep the subset of passing rows. However, if the filter failed
   /// on all rows in such a block, we add one of these rows back and update
   /// build-side columns to null.
-  struct LeftJoinTracker {
-    LeftJoinTracker(vector_size_t numRows, memory::MemoryPool* pool)
+  struct JoinTracker {
+    JoinTracker(vector_size_t numRows, memory::MemoryPool* pool)
         : matchingRows_{numRows, false} {
       leftRowNumbers_ = AlignedBuffer::allocate<vector_size_t>(numRows, pool);
       rawLeftRowNumbers_ = leftRowNumbers_->asMutable<vector_size_t>();
@@ -391,7 +398,8 @@ class MergeJoin : public Operator {
     bool currentRowPassed_{false};
   };
 
-  std::optional<LeftJoinTracker> leftJoinTracker_{std::nullopt};
+  /// Used to record both left and right join.
+  std::optional<JoinTracker> joinTracker_{std::nullopt};
 
   // Indices buffer used by the output dictionaries. All projection from the
   // left share `leftIndices_`, and projections in the right share

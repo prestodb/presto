@@ -155,34 +155,69 @@ class MergeJoinTest : public HiveConnectorTestBase {
 
     // Test LEFT join.
     planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
-    plan = PlanBuilder(planNodeIdGenerator)
-               .values(left)
-               .mergeJoin(
-                   {"c0"},
-                   {"u_c0"},
-                   PlanBuilder(planNodeIdGenerator)
-                       .values(right)
-                       .project({"c1 as u_c1", "c0 as u_c0"})
-                       .planNode(),
-                   "",
-                   {"c0", "c1", "u_c1"},
-                   core::JoinType::kLeft)
-               .planNode();
+    auto leftPlan = PlanBuilder(planNodeIdGenerator)
+                        .values(left)
+                        .mergeJoin(
+                            {"c0"},
+                            {"u_c0"},
+                            PlanBuilder(planNodeIdGenerator)
+                                .values(right)
+                                .project({"c1 as u_c1", "c0 as u_c0"})
+                                .planNode(),
+                            "",
+                            {"c0", "c1", "u_c1"},
+                            core::JoinType::kLeft)
+                        .planNode();
 
     // Use very small output batch size.
     assertQuery(
-        makeCursorParameters(plan, 16),
+        makeCursorParameters(leftPlan, 16),
         "SELECT t.c0, t.c1, u.c1 FROM t LEFT JOIN u ON t.c0 = u.c0");
 
     // Use regular output batch size.
     assertQuery(
-        makeCursorParameters(plan, 1024),
+        makeCursorParameters(leftPlan, 1024),
         "SELECT t.c0, t.c1, u.c1 FROM t LEFT JOIN u ON t.c0 = u.c0");
 
     // Use very large output batch size.
     assertQuery(
-        makeCursorParameters(plan, 10'000),
+        makeCursorParameters(leftPlan, 10'000),
         "SELECT t.c0, t.c1, u.c1 FROM t LEFT JOIN u ON t.c0 = u.c0");
+
+    // Test RIGHT join.
+    planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+    auto rightPlan = PlanBuilder(planNodeIdGenerator)
+                         .values(right)
+                         .mergeJoin(
+                             {"c0"},
+                             {"u_c0"},
+                             PlanBuilder(planNodeIdGenerator)
+                                 .values(left)
+                                 .project({"c1 as u_c1", "c0 as u_c0"})
+                                 .planNode(),
+                             "",
+                             {"u_c0", "u_c1", "c1"},
+                             core::JoinType::kRight)
+                         .planNode();
+
+    // Use very small output batch size.
+    assertQuery(
+        makeCursorParameters(rightPlan, 16),
+        "SELECT t.c0, t.c1, u.c1 FROM u RIGHT JOIN t ON t.c0 = u.c0");
+
+    // Use regular output batch size.
+    assertQuery(
+        makeCursorParameters(rightPlan, 1024),
+        "SELECT t.c0, t.c1, u.c1 FROM u RIGHT JOIN t ON t.c0 = u.c0");
+
+    // Use very large output batch size.
+    assertQuery(
+        makeCursorParameters(rightPlan, 10'000),
+        "SELECT t.c0, t.c1, u.c1 FROM u RIGHT JOIN t ON t.c0 = u.c0");
+
+    // Test right join and left join with same result.
+    auto expectedResult = AssertQueryBuilder(leftPlan).copyResults(pool_.get());
+    AssertQueryBuilder(rightPlan).assertResults(expectedResult);
   }
 };
 
@@ -346,7 +381,7 @@ TEST_F(MergeJoinTest, innerJoinFilter) {
       "SELECT t_c0, u_c0, u_c1 FROM t, u WHERE t_c0 = u_c0 AND (t_c1 + u_c1) % 2 = 0");
 }
 
-TEST_F(MergeJoinTest, leftJoinFilter) {
+TEST_F(MergeJoinTest, leftAndRightJoinFilter) {
   // Each row on the left side has at most one match on the right side.
   auto left = makeRowVector(
       {"t_c0", "t_c1"},
@@ -366,7 +401,7 @@ TEST_F(MergeJoinTest, leftJoinFilter) {
   createDuckDbTable("u", {right});
 
   auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
-  auto plan = [&](const std::string& filter) {
+  auto leftPlan = [&](const std::string& filter) {
     return PlanBuilder(planNodeIdGenerator)
         .values({left})
         .mergeJoin(
@@ -379,11 +414,28 @@ TEST_F(MergeJoinTest, leftJoinFilter) {
         .planNode();
   };
 
+  auto rightPlan = [&](const std::string& filter) {
+    return PlanBuilder(planNodeIdGenerator)
+        .values({right})
+        .mergeJoin(
+            {"u_c0"},
+            {"t_c0"},
+            PlanBuilder(planNodeIdGenerator).values({left}).planNode(),
+            filter,
+            {"t_c0", "t_c1", "u_c1"},
+            core::JoinType::kRight)
+        .planNode();
+  };
+
   // Test with different output batch sizes.
   for (auto batchSize : {1, 3, 16}) {
     assertQuery(
-        makeCursorParameters(plan("(t_c1 + u_c1) % 2 = 0"), batchSize),
+        makeCursorParameters(leftPlan("(t_c1 + u_c1) % 2 = 0"), batchSize),
         "SELECT t_c0, t_c1, u_c1 FROM t LEFT JOIN u ON t_c0 = u_c0 AND (t_c1 + u_c1) % 2 = 0");
+
+    assertQuery(
+        makeCursorParameters(rightPlan("(t_c1 + u_c1) % 2 = 0"), batchSize),
+        "SELECT t_c0, t_c1, u_c1 FROM u RIGHT JOIN t ON t_c0 = u_c0 AND (t_c1 + u_c1) % 2 = 0");
   }
 
   // A left-side row with multiple matches on the right side.
@@ -412,9 +464,14 @@ TEST_F(MergeJoinTest, leftJoinFilter) {
           "t_c1 + u_c1 > 100",
           "t_c1 + u_c1 < 100"}) {
       assertQuery(
-          makeCursorParameters(plan(filter), batchSize),
+          makeCursorParameters(leftPlan(filter), batchSize),
           fmt::format(
               "SELECT t_c0, t_c1, u_c1 FROM t LEFT JOIN u ON t_c0 = u_c0 AND {}",
+              filter));
+      assertQuery(
+          makeCursorParameters(rightPlan(filter), batchSize),
+          fmt::format(
+              "SELECT t_c0, t_c1, u_c1 FROM u RIGHT JOIN t ON t_c0 = u_c0 AND {}",
               filter));
     }
   }
@@ -590,6 +647,52 @@ TEST_F(MergeJoinTest, semiJoin) {
       "SELECT u0 FROM u where u0 IN (SELECT t0 from t) and u0 > 1",
       {"u0"},
       core::JoinType::kRightSemiFilter);
+}
+
+TEST_F(MergeJoinTest, rightJoin) {
+  auto left = makeRowVector(
+      {"t0"},
+      {makeNullableFlatVector<int64_t>(
+          {1, 2, std::nullopt, 5, 6, std::nullopt})});
+
+  auto right = makeRowVector(
+      {"u0"},
+      {makeNullableFlatVector<int64_t>(
+          {1, 5, 6, 8, std::nullopt, std::nullopt})});
+
+  createDuckDbTable("t", {left});
+  createDuckDbTable("u", {right});
+
+  // Right join.
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  auto rightPlan =
+      PlanBuilder(planNodeIdGenerator)
+          .values({left})
+          .mergeJoin(
+              {"t0"},
+              {"u0"},
+              PlanBuilder(planNodeIdGenerator).values({right}).planNode(),
+              "t0 > 2",
+              {"t0", "u0"},
+              core::JoinType::kRight)
+          .planNode();
+  AssertQueryBuilder(rightPlan, duckDbQueryRunner_)
+      .assertResults(
+          "SELECT * FROM t RIGHT JOIN u ON t.t0 = u.u0 AND t.t0 > 2");
+
+  auto leftPlan =
+      PlanBuilder(planNodeIdGenerator)
+          .values({right})
+          .mergeJoin(
+              {"u0"},
+              {"t0"},
+              PlanBuilder(planNodeIdGenerator).values({left}).planNode(),
+              "t0 > 2",
+              {"t0", "u0"},
+              core::JoinType::kLeft)
+          .planNode();
+  auto expectedResult = AssertQueryBuilder(leftPlan).copyResults(pool_.get());
+  AssertQueryBuilder(rightPlan).assertResults(expectedResult);
 }
 
 TEST_F(MergeJoinTest, nullKeys) {
