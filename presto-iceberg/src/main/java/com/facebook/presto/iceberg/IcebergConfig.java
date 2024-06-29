@@ -52,6 +52,7 @@ public class IcebergConfig
     private double statisticSnapshotRecordDifferenceWeight;
     private boolean pushdownFilterEnabled;
     private boolean deleteAsJoinRewriteEnabled = true;
+    private boolean sortedWritingEnabled = true;
     private int rowsForMetadataOptimizationThreshold = 1000;
 
     private EnumSet<ColumnStatisticType> hiveStatisticsMergeFlags = EnumSet.noneOf(ColumnStatisticType.class);
@@ -347,6 +348,19 @@ public class IcebergConfig
     public IcebergConfig setSplitManagerThreads(int splitManagerThreads)
     {
         this.splitManagerThreads = splitManagerThreads;
+        return this;
+    }
+
+    public boolean isSortedWritingEnabled()
+    {
+        return sortedWritingEnabled;
+    }
+
+    @Config("iceberg.sorted-writing-enabled")
+    @ConfigDescription("Enable sorted writing to tables with a specified sort order")
+    public IcebergConfig setSortedWritingEnabled(boolean sortedWritingEnabled)
+    {
+        this.sortedWritingEnabled = sortedWritingEnabled;
         return this;
     }
 }
