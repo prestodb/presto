@@ -25,6 +25,7 @@ import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.util.PeriodicTaskExecutor;
 import io.airlift.units.Duration;
+import org.weakref.jmx.Managed;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -171,5 +172,23 @@ public class ResourceManagerClusterStatusSender
         List resourceGroupRuntimeInfos = resourceGroupManager.getResourceGroupRuntimeInfos();
         getResourceManagers().forEach(hostAndPort ->
                 resourceManagerClient.get(Optional.of(hostAndPort.toString())).resourceGroupRuntimeHeartbeat(internalNodeManager.getCurrentNode().getNodeIdentifier(), resourceGroupRuntimeInfos));
+    }
+
+    /**
+     * Metric indicates node heartbeat delay
+     */
+    @Managed
+    public long getNodeHeartbeatLastRunDelayMs()
+    {
+        return nodeHeartbeatSender.getLastRunDelayMs();
+    }
+
+    /**
+     * Metric indicates ResourceGroupRuntime heartbeat delay
+     */
+    @Managed
+    public long getResourceGroupRuntimeHeartbeatLastRunDelayMs()
+    {
+        return resourceRuntimeHeartbeatSender.map(PeriodicTaskExecutor::getLastRunDelayMs).orElse(-1L);
     }
 }
