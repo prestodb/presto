@@ -13,4 +13,9 @@ Description
 -----------
 
 List the available catalogs.
-The ``LIKE`` clause can be used to restrict the list of catalog names.
+
+:ref:`Specify a pattern <like_operator>` in the optional ``LIKE`` clause to
+filter the results to the desired subset. For example, the following query
+allows you to find catalogs that begin with ``t``::
+
+    SHOW CATALOGS LIKE 't%';
