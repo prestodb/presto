@@ -76,6 +76,7 @@ import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.DecimalType.createDecimalType;
 import static com.facebook.presto.common.type.Decimals.MAX_PRECISION;
+import static com.facebook.presto.common.type.Decimals.MAX_SHORT_PRECISION;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
@@ -938,24 +939,63 @@ public abstract class AbstractTestParquetReader
         }
     }
 
+    private void testDecimal(int precision, int scale, Optional<MessageType> parquetSchema)
+            throws Exception
+    {
+        ContiguousSet<BigInteger> values = bigIntegersBetween(BigDecimal.valueOf(Math.pow(10, precision - 1)).toBigInteger(), BigDecimal.valueOf(Math.pow(10, precision)).toBigInteger());
+        ImmutableList.Builder<SqlDecimal> expectedValues = new ImmutableList.Builder<>();
+        ImmutableList.Builder<HiveDecimal> writeValues = new ImmutableList.Builder<>();
+        for (BigInteger value : limit(values, 1_000)) {
+            writeValues.add(HiveDecimal.create(value, scale));
+            expectedValues.add(new SqlDecimal(value, precision, scale));
+        }
+        tester.testRoundTrip(new JavaHiveDecimalObjectInspector(new DecimalTypeInfo(precision, scale)),
+                writeValues.build(),
+                expectedValues.build(),
+                createDecimalType(precision, scale),
+                parquetSchema);
+    }
+
     @Test
-    public void testDecimalBackedByFixedLenByteArray()
+    public void testShortDecimalBackedByFixedLenByteArray()
+            throws Exception
+    {
+        for (int precision = 1; precision <= MAX_SHORT_PRECISION; precision++) {
+            int scale = ThreadLocalRandom.current().nextInt(precision);
+            testDecimal(precision, scale, Optional.empty());
+        }
+    }
+
+    @Test
+    public void testLongDecimalBackedByFixedLenByteArray()
             throws Exception
     {
         int[] scales = {7, 13, 14, 8, 16, 20, 8, 4, 19, 25, 15, 23, 17, 2, 23, 0, 33, 8, 3, 12};
         for (int precision = MAX_PRECISION_INT64 + 1; precision < MAX_PRECISION; precision++) {
             int scale = scales[precision - MAX_PRECISION_INT64 - 1];
-            ContiguousSet<BigInteger> values = bigIntegersBetween(BigDecimal.valueOf(Math.pow(10, precision - 1)).toBigInteger(), BigDecimal.valueOf(Math.pow(10, precision)).toBigInteger());
-            ImmutableList.Builder<SqlDecimal> expectedValues = new ImmutableList.Builder<>();
-            ImmutableList.Builder<HiveDecimal> writeValues = new ImmutableList.Builder<>();
-            for (BigInteger value : limit(values, 1_000)) {
-                writeValues.add(HiveDecimal.create(value, scale));
-                expectedValues.add(new SqlDecimal(value, precision, scale));
-            }
-            tester.testRoundTrip(new JavaHiveDecimalObjectInspector(new DecimalTypeInfo(precision, scale)),
-                    writeValues.build(),
-                    expectedValues.build(),
-                    createDecimalType(precision, scale));
+            testDecimal(precision, scale, Optional.empty());
+        }
+    }
+
+    @Test
+    public void testShortDecimalBackedByBinary()
+            throws Exception
+    {
+        for (int precision = 1; precision <= MAX_SHORT_PRECISION; precision++) {
+            int scale = ThreadLocalRandom.current().nextInt(precision);
+            MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional BINARY test (DECIMAL(%d, %d)); }", precision, scale));
+            testDecimal(precision, scale, Optional.of(parquetSchema));
+        }
+    }
+
+    @Test
+    public void testLongDecimalBackedByBinary()
+            throws Exception
+    {
+        for (int precision = MAX_PRECISION_INT64 + 1; precision < MAX_PRECISION; precision++) {
+            int scale = ThreadLocalRandom.current().nextInt(precision);
+            MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional BINARY test (DECIMAL(%d, %d)); }", precision, scale));
+            testDecimal(precision, scale, Optional.of(parquetSchema));
         }
     }
 
