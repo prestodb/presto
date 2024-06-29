@@ -57,8 +57,16 @@ option(PRESTO_ENABLE_TESTING "Enable tests" ON)
 
 option(PRESTO_ENABLE_JWT "Enable JWT (JSON Web Token) authentication" OFF)
 
+
+option(PRESTO_ENABLE_PROMETHEUS_REPORTER
+        "Enables capturing of runtime metrics using prometheus client" OFF)
+
 # Set all Velox options below
 add_compile_definitions(FOLLY_HAVE_INT128_T=1)
+
+if(PRESTO_ENABLE_PROMETHEUS_REPORTER)
+  add_compile_definitions(PRESTO_ENABLE_PROMETHEUS_REPORTER)
+endif()
 
 if(PRESTO_ENABLE_S3)
   set(VELOX_ENABLE_S3
@@ -134,6 +142,10 @@ find_library(ZSTD zstd)
 find_package(ZLIB)
 find_library(SNAPPY snappy)
 
+if(PRESTO_ENABLE_PROMETHEUS_REPORTER)
+  find_package(prometheus-cpp CONFIG REQUIRED)
+endif()
+
 find_package(folly CONFIG REQUIRED)
 set(FOLLY_WITH_DEPENDENCIES
     ${FOLLY_LIBRARIES}
@@ -145,6 +157,13 @@ set(FOLLY_WITH_DEPENDENCIES
     ${LZ4}
     ${ZSTD}
     ${ZLIB_LIBRARIES})
+
+
+if(PRESTO_ENABLE_PROMETHEUS_REPORTER)
+  list(APPEND FOLLY_WITH_DEPENDENCIES
+          prometheus-cpp::core
+          prometheus-cpp::pull)
+endif()
 
 find_package(BZip2 MODULE)
 if(BZIP2_FOUND)
@@ -164,6 +183,7 @@ find_library(FIZZ fizz)
 find_library(WANGLE wangle)
 
 find_library(RE2 re2)
+
 
 find_package(fizz CONFIG)
 find_package(wangle CONFIG)

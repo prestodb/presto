@@ -9,10 +9,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-add_subdirectory(main)
-add_subdirectory(presto_protocol)
 
-if(PRESTO_ENABLE_PROMETHEUS_REPORTER)
-    add_subdirectory(metrics)
+add_library(presto_metrics OBJECT PrometheusStatsReporter.cpp)
+
+target_link_libraries(presto_metrics presto_common velox_config velox_core velox_exception prometheus-cpp::core prometheus-cpp::pull)
+
+if(PRESTO_ENABLE_TESTING)
+    add_subdirectory(tests)
 endif()
-

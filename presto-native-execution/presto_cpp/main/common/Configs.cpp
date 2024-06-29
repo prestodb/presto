@@ -680,6 +680,7 @@ NodeConfig::NodeConfig() {
           NONE_PROP(kNodeIp),
           NONE_PROP(kNodeInternalAddress),
           NONE_PROP(kNodeLocation),
+          NONE_PROP(KNodeMetricPort),
       };
 }
 
@@ -701,6 +702,16 @@ std::string NodeConfig::nodeId() const {
   static auto nodeId =
       boost::lexical_cast<std::string>(boost::uuids::random_generator()());
   return nodeId;
+}
+
+std::string NodeConfig::nodeMetricPort(std::string& defaultPort) const {
+  auto resultOpt = optionalProperty(KNodeMetricPort);
+  if (resultOpt.has_value()) {
+    return resultOpt.value();
+  } else {
+    return defaultPort;
+  }
+  return requiredProperty(KNodeMetricPort);
 }
 
 std::string NodeConfig::nodeLocation() const {
