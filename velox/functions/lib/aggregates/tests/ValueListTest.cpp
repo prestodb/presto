@@ -120,11 +120,11 @@ TEST_F(ValueListTest, arrays) {
         [](auto row) { return row % 7; },
         [](auto row) { return row % 11; });
 
-    auto previousBytes = allocator()->cumulativeBytes();
+    auto previousBytes = allocator()->currentBytes();
     testRoundTrip(data);
     if (counter < sizeof(kSizeCaps) / sizeof(kSizeCaps[0])) {
       auto cap = kSizeCaps[counter++];
-      EXPECT_GT(cap, allocator()->cumulativeBytes() - previousBytes);
+      EXPECT_GT(cap, allocator()->currentBytes() - previousBytes);
     }
   }
 

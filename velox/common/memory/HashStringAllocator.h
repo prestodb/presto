@@ -130,7 +130,7 @@ class HashStringAllocator : public StreamArena {
     /// Returns the Header of the block that is physically next to this block or
     /// null if this is the last block of the arena.
     Header* next() {
-      auto* next = reinterpret_cast<Header*>(end());
+      auto* next = castToHeader(end());
       return next->data_ == kArenaEnd ? nullptr : next;
     }
 
@@ -219,9 +219,18 @@ class HashStringAllocator : public StreamArena {
 
   /// Returns the header immediately below 'data'.
   static Header* headerOf(const void* data) {
+    return castToHeader(data) - 1;
+  }
+
+  /// Returns the header below 'data'.
+  static Header* castToHeader(const void* data) {
     return reinterpret_cast<Header*>(
-               const_cast<char*>(reinterpret_cast<const char*>(data))) -
-        1;
+        const_cast<char*>(reinterpret_cast<const char*>(data)));
+  }
+
+  /// Returns the byte size of block pointed by 'header'.
+  inline size_t blockBytes(const Header* header) const {
+    return header->size() + kHeaderSize;
   }
 
   /// Returns ByteInputStream over the data in the range of 'header' and
@@ -306,8 +315,8 @@ class HashStringAllocator : public StreamArena {
   /// the pointer because in the worst case we would have one allocation that
   /// chains many small free blocks together via kContinued.
   uint64_t freeSpace() const {
-    int64_t minFree = state_.freeBytes() -
-        state_.numFree() * (sizeof(Header) + sizeof(void*));
+    const int64_t minFree = state_.freeBytes() -
+        state_.numFree() * (kHeaderSize + Header::kContinuedPtrSize);
     VELOX_CHECK_GE(minFree, 0, "Guaranteed free space cannot be negative");
     return minFree;
   }
@@ -319,8 +328,8 @@ class HashStringAllocator : public StreamArena {
     return state_.pool().pool();
   }
 
-  uint64_t cumulativeBytes() const {
-    return state_.cumulativeBytes();
+  uint64_t currentBytes() const {
+    return state_.currentBytes();
   }
 
   /// Checks the free space accounting and consistency of Headers. Throws when
@@ -358,6 +367,7 @@ class HashStringAllocator : public StreamArena {
   static constexpr int32_t kUnitSize = 16 * memory::AllocationTraits::kPageSize;
   static constexpr int32_t kMinContiguous = 48;
   static constexpr int32_t kNumFreeLists = kMaxAlloc - kMinAlloc + 2;
+  static constexpr uint32_t kHeaderSize = sizeof(Header);
 
   void newRange(
       int32_t bytes,
@@ -480,7 +490,7 @@ class HashStringAllocator : public StreamArena {
     // tells how much memory has been consumed by activity between these points
     // in time. Incremented by allocation and decremented by free. Used for
     // tracking the row by row space usage in a RowContainer.
-    DECLARE_FIELD_WITH_INIT_VALUE(uint64_t, cumulativeBytes, 0);
+    DECLARE_FIELD_WITH_INIT_VALUE(uint64_t, currentBytes, 0);
 
     // Pointer to Header for the range being written. nullptr if a write is not
     // in progress.
@@ -512,23 +522,22 @@ class HashStringAllocator : public StreamArena {
   State state_;
 };
 
-// Utility for keeping track of allocation between two points in
-// time. A counter on a row supplied at construction is incremented
-// by the change in allocation between construction and
-// destruction. This is a scoped guard to use around setting
-// variable length data in a RowContainer or similar.
+/// Utility for keeping track of allocation between two points in time. A
+/// counter on a row supplied at construction is incremented by the change in
+/// allocation between construction and destruction. This is a scoped guard to
+/// use around setting variable length data in a RowContainer or similar.
 template <typename T, typename TCounter = uint32_t>
 class RowSizeTracker {
  public:
-  //  Will update the counter at pointer cast to TCounter*
-  //  with the change in allocation during the lifetime of 'this'
+  ///  Will update the counter at pointer cast to TCounter* with the change in
+  ///  allocation during the lifetime of 'this'
   RowSizeTracker(T& counter, HashStringAllocator& allocator)
-      : allocator_(allocator),
-        size_(allocator_.cumulativeBytes()),
+      : allocator_(&allocator),
+        size_(allocator_->currentBytes()),
         counter_(counter) {}
 
   ~RowSizeTracker() {
-    auto delta = allocator_.cumulativeBytes() - size_;
+    auto delta = allocator_->currentBytes() - size_;
     if (delta) {
       saturatingIncrement(&counter_, delta);
     }
@@ -542,7 +551,7 @@ class RowSizeTracker {
         std::min<uint64_t>(value, std::numeric_limits<TCounter>::max());
   }
 
-  HashStringAllocator& allocator_;
+  HashStringAllocator* const allocator_;
   const uint64_t size_;
   T& counter_;
 };

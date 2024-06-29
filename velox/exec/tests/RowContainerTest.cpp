@@ -261,7 +261,7 @@ class RowContainerTest : public exec::test::RowContainerTestBase {
     for (auto row : rows) {
       sum += data.rowSize(row) - data.fixedRowSize();
     }
-    auto usage = data.stringAllocator().cumulativeBytes();
+    auto usage = data.stringAllocator().currentBytes();
     EXPECT_EQ(usage, sum);
   }
 
