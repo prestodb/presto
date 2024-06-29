@@ -29,7 +29,7 @@ public class IcebergExternalWorkerQueryRunner
         Logging.initialize();
 
         // Create tables before launching distributed runner.
-        QueryRunner javaQueryRunner = PrestoNativeQueryRunnerUtils.createJavaIcebergQueryRunner(true);
+        QueryRunner javaQueryRunner = PrestoNativeQueryRunnerUtils.createJavaIcebergQueryRunner(false);
         NativeQueryRunnerUtils.createAllIcebergTables(javaQueryRunner);
         javaQueryRunner.close();
 

@@ -188,8 +188,13 @@ public final class IcebergQueryRunner
                     .getParent()
                     .resolve(TEST_CATALOG_DIRECTORY);
             ExtendedHiveMetastore metastore = getFileHiveMetastore(icebergDir);
+
+            System.out.println("dataDirectory=" + dataDirectory + " createTpchTables=" + createTpchTables + " databases= " + metastore.getAllDatabases(METASTORE_CONTEXT).toString() + " tpch=" + metastore.getDatabase(METASTORE_CONTEXT, "tpch").isPresent() + " tables=" + metastore.getAllTables(METASTORE_CONTEXT, "tpch") + " nation=" + metastore.getTable(METASTORE_CONTEXT, "tpch", "nation").isPresent());
             if (!metastore.getDatabase(METASTORE_CONTEXT, "tpch").isPresent()) {
                 queryRunner.execute("CREATE SCHEMA tpch");
+                if (createTpchTables) {
+                    copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, session, TpchTable.getTables());
+                }
             }
             if (!metastore.getDatabase(METASTORE_CONTEXT, "tpcds").isPresent()) {
                 queryRunner.execute("CREATE SCHEMA tpcds");
@@ -198,10 +203,9 @@ public final class IcebergQueryRunner
         else {
             queryRunner.execute("CREATE SCHEMA tpch");
             queryRunner.execute("CREATE SCHEMA tpcds");
-        }
-
-        if (createTpchTables) {
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, session, TpchTable.getTables());
+            if (createTpchTables) {
+                copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, session, TpchTable.getTables());
+            }
         }
 
         return queryRunner;

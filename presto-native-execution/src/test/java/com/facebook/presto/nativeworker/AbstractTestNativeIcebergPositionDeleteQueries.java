@@ -39,6 +39,11 @@ public abstract class AbstractTestNativeIcebergPositionDeleteQueries
         QueryRunner javaIcebergQueryRunner = (QueryRunner) getExpectedQueryRunner();
 
         try {
+//            javaIcebergQueryRunner.execute("SELECT \"$path\" FROM nation");
+//            assertQueryResultCount("show tables", 1);
+//            assertQueryResultCount("SELECT * FROM nation", 25);
+
+            javaIcebergQueryRunner.execute("DROP TABLE IF EXISTS iceberg_native_position_delete_test");
             javaIcebergQueryRunner.execute("CREATE TABLE iceberg_native_position_delete_test AS SELECT * FROM nation");
 
             // ASSERT number of rows in the table before delete is executed
