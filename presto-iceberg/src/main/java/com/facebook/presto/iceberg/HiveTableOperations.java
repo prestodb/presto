@@ -388,7 +388,6 @@ public class HiveTableOperations
         Tasks.foreach(newLocation)
                 .retry(20)
                 .exponentialBackoff(100, 5000, 600000, 4.0)
-                .suppressFailureWhenFinished()
                 .run(metadataLocation -> newMetadata.set(
                         TableMetadataParser.read(fileIO, io().newInputFile(metadataLocation))));
 
