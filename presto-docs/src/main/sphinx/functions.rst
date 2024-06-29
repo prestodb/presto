@@ -26,6 +26,7 @@ Functions and Operators
     functions/url
     functions/ip
     functions/geospatial
+    functions/hive
     functions/hyperloglog
     functions/khyperloglog
     functions/qdigest
