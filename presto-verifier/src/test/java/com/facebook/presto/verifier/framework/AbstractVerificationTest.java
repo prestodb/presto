@@ -15,6 +15,8 @@ package com.facebook.presto.verifier.framework;
 
 import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.airlift.bootstrap.LifeCycleManager;
+import com.facebook.presto.common.block.BlockEncodingManager;
+import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -62,7 +64,8 @@ public abstract class AbstractVerificationTest
     protected static final String SUITE = "test-suite";
     protected static final String NAME = "test-query";
     protected static final String TEST_ID = "test-id";
-    protected static final QueryConfiguration QUERY_CONFIGURATION = new QueryConfiguration(CATALOG, SCHEMA, Optional.of("user"), Optional.empty(), Optional.empty(), true);
+    protected static final QueryConfiguration QUERY_CONFIGURATION = new QueryConfiguration(CATALOG, SCHEMA, Optional.of("user"), Optional.empty(),
+            Optional.empty(), true, Optional.empty());
     protected static final ParsingOptions PARSING_OPTIONS = ParsingOptions.builder().setDecimalLiteralTreatment(AS_DOUBLE).build();
     protected static final String CONTROL_TABLE_PREFIX = "tmp_verifier_c";
     protected static final String TEST_TABLE_PREFIX = "tmp_verifier_t";
@@ -78,6 +81,7 @@ public abstract class AbstractVerificationTest
 
     private final Injector injector;
     private final SqlParser sqlParser = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(COLON, AT_SIGN));
+    private final BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager();
     private final PrestoExceptionClassifier exceptionClassifier = PrestoExceptionClassifier.defaultBuilder().build();
     private final DeterminismAnalyzerConfig determinismAnalyzerConfig = new DeterminismAnalyzerConfig().setMaxAnalysisRuns(3).setRunTeardown(true);
     private final FailureResolverManagerFactory failureResolverManagerFactory;
@@ -134,6 +138,11 @@ public abstract class AbstractVerificationTest
         return new SourceQuery(SUITE, NAME, controlQuery, testQuery, Optional.of(controlQueryId), Optional.of(testQueryId), QUERY_CONFIGURATION, QUERY_CONFIGURATION);
     }
 
+    protected SourceQuery getSourceQuery(String controlQuery, String testQuery, String controlQueryId, String testQueryId, QueryConfiguration controlQueryConfiguration, QueryConfiguration testQueryConfiguration)
+    {
+        return new SourceQuery(SUITE, NAME, controlQuery, testQuery, Optional.of(controlQueryId), Optional.of(testQueryId), controlQueryConfiguration, testQueryConfiguration);
+    }
+
     protected Optional<VerifierQueryEvent> runExplain(String controlQuery, String testQuery)
     {
         return verify(getSourceQuery(controlQuery, testQuery), true, Optional.empty(), Optional.empty());
@@ -157,6 +166,11 @@ public abstract class AbstractVerificationTest
     protected Optional<VerifierQueryEvent> runVerification(String controlQuery, String testQuery, String controlQueryId, String testQueryId, VerificationSettings settings)
     {
         return verify(getSourceQuery(controlQuery, testQuery, controlQueryId, testQueryId), false, Optional.empty(), Optional.of(settings));
+    }
+
+    protected Optional<VerifierQueryEvent> runVerification(String controlQuery, String testQuery, String controlQueryId, String testQueryId, QueryConfiguration controlQueryConfiguration, QueryConfiguration testQueryConfiguration, VerificationSettings settings)
+    {
+        return verify(getSourceQuery(controlQuery, testQuery, controlQueryId, testQueryId, controlQueryConfiguration, testQueryConfiguration), false, Optional.empty(), Optional.of(settings));
     }
 
     protected Optional<VerifierQueryEvent> verify(SourceQuery sourceQuery, boolean explain)
@@ -216,6 +230,7 @@ public abstract class AbstractVerificationTest
         QueryRewriterFactory queryRewriterFactory = new VerificationQueryRewriterFactory(
                 sqlParser,
                 typeManager,
+                blockEncodingSerde,
                 controlRewriteConfig,
                 testRewriteConfig,
                 verifierConfig);
