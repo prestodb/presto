@@ -193,8 +193,6 @@ TEST_F(RowNumberTest, largeInput) {
 TEST_F(RowNumberTest, spill) {
   std::vector<RowVectorPtr> vectors = createVectors(8, rowType_, fuzzerOpts_);
   createDuckDbTable(vectors);
-  const auto spillDirectory = exec::test::TempDirectoryPath::create();
-  auto queryCtx = core::QueryCtx::create(executor_.get());
 
   struct {
     uint32_t spillPartitionBits;
@@ -206,7 +204,9 @@ TEST_F(RowNumberTest, spill) {
 
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
-    TestScopedSpillInjection scopedSpillInjection(100);
+    const auto spillDirectory = exec::test::TempDirectoryPath::create();
+    auto queryCtx = core::QueryCtx::create(executor_.get());
+    TestScopedSpillInjection scopedSpillInjection(100, ".*", 1);
 
     core::PlanNodeId rowNumberPlanNodeId;
     auto task =
@@ -271,7 +271,7 @@ TEST_F(RowNumberTest, maxSpillBytes) {
     auto spillDirectory = exec::test::TempDirectoryPath::create();
     auto queryCtx = core::QueryCtx::create(executor_.get());
     try {
-      TestScopedSpillInjection scopedSpillInjection(100);
+      TestScopedSpillInjection scopedSpillInjection(100, ".*", 1);
       AssertQueryBuilder(plan)
           .spillDirectory(spillDirectory->getPath())
           .queryCtx(queryCtx)
@@ -304,39 +304,266 @@ TEST_F(RowNumberTest, memoryUsage) {
                   .project({"c0", "c1"})
                   .planNode();
 
-  int64_t peakBytesWithSpilling = 0;
-  int64_t peakBytesWithOutSpilling = 0;
+  struct {
+    uint8_t numSpills;
 
-  for (const auto& spillEnable : {false, true}) {
-    auto queryCtx = core::QueryCtx::create(executor_.get());
-    auto spillDirectory = exec::test::TempDirectoryPath::create();
-    const std::string spillEnableConfig = std::to_string(spillEnable);
-
-    std::shared_ptr<Task> task;
-    TestScopedSpillInjection scopedSpillInjection(100);
-    AssertQueryBuilder(plan)
-        .spillDirectory(spillDirectory->getPath())
-        .queryCtx(queryCtx)
-        .config(core::QueryConfig::kSpillEnabled, spillEnableConfig)
-        .config(core::QueryConfig::kRowNumberSpillEnabled, spillEnableConfig)
-        .spillDirectory(spillDirectory->getPath())
-        .copyResults(pool_.get(), task);
-
-    if (spillEnable) {
-      peakBytesWithSpilling = queryCtx->pool()->peakBytes();
-      auto taskStats = exec::toPlanStats(task->taskStats());
-      const auto& stats = taskStats.at(rowNumberId);
-
-      ASSERT_GT(stats.spilledBytes, 0);
-      ASSERT_GT(stats.spilledRows, 0);
-      ASSERT_GT(stats.spilledFiles, 0);
-      ASSERT_GT(stats.spilledPartitions, 0);
-    } else {
-      peakBytesWithOutSpilling = queryCtx->pool()->peakBytes();
+    std::string debugString() const {
+      return fmt::format("numSpills {}", numSpills);
     }
-  }
+  } testSettings[] = {{1}, {3}};
 
-  ASSERT_GE(peakBytesWithOutSpilling / peakBytesWithSpilling, 2);
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+
+    int64_t peakBytesWithSpilling = 0;
+    int64_t peakBytesWithOutSpilling = 0;
+
+    for (const auto& spillEnable : {false, true}) {
+      auto queryCtx = core::QueryCtx::create(executor_.get());
+      auto spillDirectory = exec::test::TempDirectoryPath::create();
+      const std::string spillEnableConfig = std::to_string(spillEnable);
+
+      std::shared_ptr<Task> task;
+      TestScopedSpillInjection scopedSpillInjection(
+          100, ".*", testData.numSpills);
+      AssertQueryBuilder(plan)
+          .spillDirectory(spillDirectory->getPath())
+          .queryCtx(queryCtx)
+          .config(core::QueryConfig::kSpillEnabled, spillEnableConfig)
+          .config(core::QueryConfig::kRowNumberSpillEnabled, spillEnableConfig)
+          .spillDirectory(spillDirectory->getPath())
+          .copyResults(pool_.get(), task);
+
+      if (spillEnable) {
+        peakBytesWithSpilling = queryCtx->pool()->peakBytes();
+        auto taskStats = exec::toPlanStats(task->taskStats());
+        const auto& stats = taskStats.at(rowNumberId);
+
+        ASSERT_GT(stats.spilledBytes, 0);
+        ASSERT_GT(stats.spilledRows, 0);
+        ASSERT_GT(stats.spilledFiles, 0);
+        ASSERT_GT(stats.spilledPartitions, 0);
+      } else {
+        peakBytesWithOutSpilling = queryCtx->pool()->peakBytes();
+      }
+    }
+
+    ASSERT_GE(peakBytesWithOutSpilling / peakBytesWithSpilling, 2);
+  }
+}
+
+DEBUG_ONLY_TEST_F(RowNumberTest, spillOnlyDuringInputOrOutput) {
+  std::vector<RowVectorPtr> vectors = createVectors(8, rowType_, fuzzerOpts_);
+  createDuckDbTable(vectors);
+
+  struct {
+    std::string spillInjectionPoint;
+    uint32_t spillPartitionBits;
+
+    std::string debugString() const {
+      return fmt::format(
+          "Spill during {}, spillPartitionBits {}",
+          spillInjectionPoint,
+          spillPartitionBits);
+    }
+  } testSettings[] = {
+      {"facebook::velox::exec::Driver::runInternal::addInput", 2},
+      {"facebook::velox::exec::Driver::runInternal::getOutput", 2},
+      {"facebook::velox::exec::Driver::runInternal::addInput", 3},
+      {"facebook::velox::exec::Driver::runInternal::getOutput", 3}};
+
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+    const auto spillDirectory = exec::test::TempDirectoryPath::create();
+    auto queryCtx = core::QueryCtx::create(executor_.get());
+
+    std::atomic_int numRound{0};
+    SCOPED_TESTVALUE_SET(
+        testData.spillInjectionPoint,
+        std::function<void(Operator*)>(([&](Operator* op) {
+          if (op->operatorType() != "RowNumber") {
+            return;
+          }
+
+          if (++numRound != 8) {
+            return;
+          }
+
+          testingRunArbitration(op->pool(), 0);
+        })));
+
+    core::PlanNodeId rowNumberPlanNodeId;
+    auto task =
+        AssertQueryBuilder(duckDbQueryRunner_)
+            .spillDirectory(spillDirectory->getPath())
+            .config(core::QueryConfig::kSpillEnabled, true)
+            .config(core::QueryConfig::kRowNumberSpillEnabled, true)
+            .config(
+                core::QueryConfig::kSpillNumPartitionBits,
+                testData.spillPartitionBits)
+            .queryCtx(queryCtx)
+            .plan(PlanBuilder()
+                      .values(vectors)
+                      .rowNumber({"c0"})
+                      .capturePlanNodeId(rowNumberPlanNodeId)
+                      .planNode())
+            .assertResults(
+                "SELECT *, row_number() over (partition by c0) FROM tmp");
+    auto taskStats = toPlanStats(task->taskStats());
+    auto& planStats = taskStats.at(rowNumberPlanNodeId);
+    ASSERT_GT(planStats.spilledBytes, 0);
+    ASSERT_EQ(
+        planStats.spilledPartitions,
+        (static_cast<uint32_t>(1) << testData.spillPartitionBits) * 2);
+    ASSERT_GT(planStats.spilledFiles, 0);
+    ASSERT_GT(planStats.spilledRows, 0);
+
+    task.reset();
+    waitForAllTasksToBeDeleted();
+  }
+}
+
+DEBUG_ONLY_TEST_F(RowNumberTest, recursiveSpill) {
+  std::vector<RowVectorPtr> vectors = createVectors(32, rowType_, fuzzerOpts_);
+  createDuckDbTable(vectors);
+
+  struct {
+    int32_t numSpills;
+    int32_t maxSpillLevel;
+
+    std::string debugString() const {
+      return fmt::format(
+          "numSpills {}, maxSpillLevel {}", numSpills, maxSpillLevel);
+    }
+  } testSettings[] = {{2, 3}, {8, 4}};
+
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+    const auto spillDirectory = exec::test::TempDirectoryPath::create();
+    auto queryCtx = core::QueryCtx::create(executor_.get());
+
+    std::atomic_int numSpills{0};
+    std::atomic_int numInputs{0};
+    SCOPED_TESTVALUE_SET(
+        "facebook::velox::exec::Driver::runInternal::addInput",
+        std::function<void(Operator*)>(([&](Operator* op) {
+          if (op->operatorType() != "RowNumber") {
+            return;
+          }
+
+          if (++numInputs != 5) {
+            return;
+          }
+
+          ++numSpills;
+          testingRunArbitration(op->pool(), 0);
+        })));
+
+    SCOPED_TESTVALUE_SET(
+        "facebook::velox::exec::Driver::runInternal::getOutput",
+        std::function<void(Operator*)>(([&](Operator* op) {
+          if (op->operatorType() != "RowNumber") {
+            return;
+          }
+
+          if (!op->testingNoMoreInput()) {
+            return;
+          }
+
+          if (numSpills++ >= testData.numSpills) {
+            return;
+          }
+
+          testingRunArbitration(op->pool(), 0);
+        })));
+
+    core::PlanNodeId rowNumberPlanNodeId;
+    auto task =
+        AssertQueryBuilder(duckDbQueryRunner_)
+            .spillDirectory(spillDirectory->getPath())
+            .config(core::QueryConfig::kSpillEnabled, true)
+            .config(core::QueryConfig::kRowNumberSpillEnabled, true)
+            .config(
+                core::QueryConfig::kMaxSpillLevel, testData.maxSpillLevel - 1)
+            .queryCtx(queryCtx)
+            .plan(PlanBuilder()
+                      .values(vectors)
+                      .rowNumber({"c0"})
+                      .capturePlanNodeId(rowNumberPlanNodeId)
+                      .planNode())
+            .assertResults(
+                "SELECT *, row_number() over (partition by c0) FROM tmp");
+    auto taskStats = toPlanStats(task->taskStats());
+    auto& planStats = taskStats.at(rowNumberPlanNodeId);
+    ASSERT_GT(planStats.spilledBytes, 0);
+    ASSERT_EQ(
+        planStats.spilledPartitions,
+        8 * 2 * std::min(testData.numSpills, testData.maxSpillLevel));
+    ASSERT_GT(planStats.spilledFiles, 0);
+    ASSERT_GT(planStats.spilledRows, 0);
+
+    auto runTimeStats =
+        task->taskStats().pipelineStats.back().operatorStats.at(1).runtimeStats;
+    if (testData.numSpills > testData.maxSpillLevel) {
+      ASSERT_GT(runTimeStats["exceededMaxSpillLevel"].sum, 0);
+    } else {
+      ASSERT_EQ(runTimeStats.count("exceededMaxSpillLevel"), 0);
+    }
+
+    task.reset();
+    waitForAllTasksToBeDeleted();
+  }
+}
+
+TEST_F(RowNumberTest, spillWithYield) {
+  std::vector<RowVectorPtr> vectors = createVectors(8, rowType_, fuzzerOpts_);
+  createDuckDbTable(vectors);
+
+  struct {
+    uint32_t numSpills;
+    uint32_t cpuTimeSliceLimitMs;
+
+    std::string debugString() const {
+      return fmt::format(
+          "numSpills {}, cpuTimeSliceLimitMs {}",
+          numSpills,
+          cpuTimeSliceLimitMs);
+    }
+  } testSettings[] = {{2, 0}, {2, 10}, {3, 0}, {3, 10}, {8, 10}};
+
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+    TestScopedSpillInjection scopedSpillInjection(
+        100, ".*", testData.numSpills);
+    const auto spillDirectory = exec::test::TempDirectoryPath::create();
+    auto queryCtx = core::QueryCtx::create(executor_.get());
+
+    core::PlanNodeId rowNumberPlanNodeId;
+    auto task =
+        AssertQueryBuilder(duckDbQueryRunner_)
+            .spillDirectory(spillDirectory->getPath())
+            .config(core::QueryConfig::kSpillEnabled, true)
+            .config(core::QueryConfig::kRowNumberSpillEnabled, true)
+            .config(
+                core::QueryConfig::kDriverCpuTimeSliceLimitMs,
+                testData.cpuTimeSliceLimitMs)
+            .queryCtx(queryCtx)
+            .plan(PlanBuilder()
+                      .values(vectors)
+                      .rowNumber({"c0"})
+                      .capturePlanNodeId(rowNumberPlanNodeId)
+                      .planNode())
+            .assertResults(
+                "SELECT *, row_number() over (partition by c0) FROM tmp");
+    auto taskStats = toPlanStats(task->taskStats());
+    auto& planStats = taskStats.at(rowNumberPlanNodeId);
+    ASSERT_GT(planStats.spilledBytes, 0);
+    ASSERT_GT(planStats.spilledFiles, 0);
+    ASSERT_GT(planStats.spilledRows, 0);
+
+    task.reset();
+    waitForAllTasksToBeDeleted();
+  }
 }
 
 } // namespace facebook::velox::exec::test

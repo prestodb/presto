@@ -70,8 +70,7 @@ struct SpillConfig {
   /// the next level of recursive spilling.
   int32_t spillLevel(uint8_t startBitOffset) const;
 
-  /// Checks if the given 'startBitOffset' and 'numPartitionBits' has exceeded
-  /// the max hash join spill limit.
+  /// Checks if the given 'startBitOffset' has exceeded the max spill limit.
   bool exceedSpillLevelLimit(uint8_t startBitOffset) const;
 
   /// A callback function that returns the spill directory path. Implementations

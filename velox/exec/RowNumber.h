@@ -78,6 +78,23 @@ class RowNumber : public Operator {
 
   FlatVector<int64_t>& getOrCreateRowNumberVector(vector_size_t size);
 
+  // Used by recursive spill processing to read the spilled input data from the
+  // previous spill run through 'spillInputReader_' and then spill them back
+  // into a number of sub-partitions. After that, the function restores one of
+  // the newly spilled partitions and resets 'spillInputReader_' accordingly.
+  void recursiveSpillInput();
+
+  // Set 'spillPartitionBits_' for (recursive) spill. If 'restoredPartitionId'
+  // is not null, use it to set 'spillPartitionBits_', otherwise use
+  // 'spillConfig_'. If the new 'spillPartitionBits_' exceeds the
+  // 'maxSpillLevel', set 'exceededMaxSpillLevelLimit_' to true.
+  //
+  // NOTE: we don't increment 'spillMaxLevelExceededCount' here, as the actual
+  // increment happens in the 'reclaim()' method if
+  // 'exceededMaxSpillLevelLimit_' is true.
+  void setSpillPartitionBits(
+      const SpillPartitionId* restoredPartitionId = nullptr);
+
   const std::optional<int32_t> limit_;
   const bool generateRowNumber_;
 
@@ -117,5 +134,11 @@ class RowNumber : public Operator {
 
   // Used to calculate the spill partition numbers of the inputs.
   std::unique_ptr<HashPartitionFunction> spillHashFunction_;
+
+  // The cpu may be voluntarily yield after running too long when processing
+  // input from spilled file.
+  bool yield_{false};
+
+  bool exceededMaxSpillLevelLimit_{false};
 };
 } // namespace facebook::velox::exec
