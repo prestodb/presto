@@ -1,0 +1,125 @@
+From 5c6995b857742eb028932693d55ca8feccbc8f8b Mon Sep 17 00:00:00 2001
+From: Zac Blanco <zac@ibm.com>
+Date: Wed, 29 May 2024 13:17:10 -0700
+Subject: [PATCH] Add openAPI module for documentation generation
+
+---
+ pom.xml                                      |  1 +
+ presto-openapi/.gitignore                    |  1 +
+ presto-openapi/pom.xml                       | 54 ++++++++++++++++++++
+ presto-openapi/src/main/resources/query.yaml | 24 +++++++++
+ 4 files changed, 80 insertions(+)
+ create mode 100644 presto-openapi/.gitignore
+ create mode 100644 presto-openapi/pom.xml
+ create mode 100644 presto-openapi/src/main/resources/query.yaml
+
+diff --git a/pom.xml b/pom.xml
+index 6cb7ad8eba03..e6bfd69d2dc0 100644
+--- a/pom.xml
++++ b/pom.xml
+@@ -193,6 +193,7 @@
+         <module>presto-singlestore</module>
+         <module>presto-hana</module>
+         <module>presto-ui</module>
++        <module>presto-openapi</module>
+     </modules>
+ 
+     <dependencyManagement>
+diff --git a/presto-openapi/.gitignore b/presto-openapi/.gitignore
+new file mode 100644
+index 000000000000..c2ad0d10e271
+--- /dev/null
++++ b/presto-openapi/.gitignore
+@@ -0,0 +1 @@
++src/main/resources/_full_spec.yaml
+diff --git a/presto-openapi/pom.xml b/presto-openapi/pom.xml
+new file mode 100644
+index 000000000000..7469814f9ef3
+--- /dev/null
++++ b/presto-openapi/pom.xml
+@@ -0,0 +1,54 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
++    <modelVersion>4.0.0</modelVersion>
++
++    <parent>
++        <groupId>com.facebook.presto</groupId>
++        <artifactId>presto-root</artifactId>
++        <version>0.288-SNAPSHOT</version>
++    </parent>
++
++    <artifactId>presto-openapi</artifactId>
++    <name>presto-openapi</name>
++
++    <properties>
++        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
++    </properties>
++
++    <build>
++        <pluginManagement>
++            <plugins>
++                <plugin>
++                    <groupId>org.openapitools</groupId>
++                    <artifactId>openapi-generator-maven-plugin</artifactId>
++                    <!-- last version with Java 8 support -->
++                    <version>6.6.0</version>
++                </plugin>
++            </plugins>
++        </pluginManagement>
++
++        <plugins>
++            <plugin>
++                <groupId>org.openapitools</groupId>
++                <artifactId>openapi-generator-maven-plugin</artifactId>
++                <executions>
++                    <execution>
++                        <id>generate openapi assets</id>
++                        <goals>
++                            <goal>generate</goal>
++                        </goals>
++                        <configuration>
++                            <!-- required to be set, even though it isn't used-->
++                            <inputSpec>${project.basedir}/src/main/resources</inputSpec>
++                            <inputSpecRootDirectory>${project.basedir}/src/main/resources</inputSpecRootDirectory>
++                            <mergedFileName>_full_spec</mergedFileName>
++                            <generatorName>html</generatorName>
++                            <configOptions>
++                            </configOptions>
++                        </configuration>
++                    </execution>
++                </executions>
++            </plugin>
++        </plugins>
++    </build>
++</project>
+diff --git a/presto-openapi/src/main/resources/query.yaml b/presto-openapi/src/main/resources/query.yaml
+new file mode 100644
+index 000000000000..023c731f9f3f
+--- /dev/null
++++ b/presto-openapi/src/main/resources/query.yaml
+@@ -0,0 +1,24 @@
++openapi: 3.0.0
++info:
++  title: Presto Query Info 
++  description: Optional multiline or single-line description in [CommonMark](http://commonmark.org/help/) or HTML.
++  version: 1
++servers:
++  - url: http://api.example.com/v1
++    description: Optional server description, e.g. Main (production) server
++  - url: http://staging-api.example.com
++    description: Optional server description, e.g. Internal staging server for testing
++paths:
++  /users:
++    get:
++      summary: Returns a list of users.
++      description: Optional extended description in CommonMark or HTML.
++      responses:
++        '200':    # status code
++          description: A JSON array of user names
++          content:
++            application/json:
++              schema: 
++                type: array
++                items: 
++                  type: string
+\ No newline at end of file
