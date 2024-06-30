@@ -105,7 +105,7 @@ public class AuthenticationFilter
             }
 
             // authentication succeeded
-            CustomHttpServletRequestWrapper wrappedRequest = withPrincipalAndCustomHeaders(request, principal);
+            CustomHttpServletRequestWrapper wrappedRequest = withPrincipal(request, principal);
             Map<String, String> extraHeadersMap = new HashMap<>();
             for (RequestModifier modifier : requestModifierManager.getRequestModifiers()) {
                 if (request.getHeader(modifier.getHeaderName()) == null) {
@@ -149,17 +149,10 @@ public class AuthenticationFilter
         return false;
     }
 
-    private static ServletRequest withPrincipal(HttpServletRequest request, Principal principal)
+    private static CustomHttpServletRequestWrapper withPrincipal(HttpServletRequest request, Principal principal)
     {
         requireNonNull(principal, "principal is null");
-        return new HttpServletRequestWrapper(request)
-        {
-            @Override
-            public Principal getUserPrincipal()
-            {
-                return principal;
-            }
-        };
+        return new CustomHttpServletRequestWrapper(request, principal);
     }
 
     private static void skipRequestBody(HttpServletRequest request)
@@ -174,11 +167,6 @@ public class AuthenticationFilter
         try (InputStream inputStream = request.getInputStream()) {
             copy(inputStream, nullOutputStream());
         }
-    }
-
-    public static CustomHttpServletRequestWrapper withPrincipalAndCustomHeaders(HttpServletRequest request, Principal principal)
-    {
-        return new CustomHttpServletRequestWrapper(request, principal);
     }
 
     public static class CustomHttpServletRequestWrapper
