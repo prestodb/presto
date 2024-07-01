@@ -272,4 +272,15 @@ using SystemConnectorProtocol = ConnectorProtocolTemplate<
     SystemTransactionHandle,
     NotImplemented>;
 
+using TpcdsConnectorProtocol = ConnectorProtocolTemplate<
+    TpcdsTableHandle,
+    TpcdsTableLayoutHandle,
+    TpcdsColumnHandle,
+    NotImplemented,
+    NotImplemented,
+    TpcdsSplit,
+    TpcdsPartitioningHandle,
+    TpcdsTransactionHandle,
+    NotImplemented>;
+
 } // namespace facebook::presto::protocol

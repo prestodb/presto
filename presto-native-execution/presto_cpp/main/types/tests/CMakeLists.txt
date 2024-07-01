@@ -21,6 +21,7 @@ target_link_libraries(
   presto_operators
   presto_protocol
   velox_hive_connector
+  presto_tpcds_connector
   velox_tpch_connector
   velox_exec
   velox_dwio_common_exception
@@ -56,6 +57,7 @@ target_link_libraries(
   velox_functions_prestosql
   velox_functions_lib
   velox_hive_connector
+  presto_tpcds_connector
   velox_tpch_connector
   velox_hive_partition_function
   velox_presto_serializer
@@ -86,6 +88,7 @@ target_link_libraries(
   presto_type_converter
   presto_types
   velox_hive_connector
+  presto_tpcds_connector
   velox_tpch_connector
   gtest
   gtest_main)
