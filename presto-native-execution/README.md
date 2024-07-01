@@ -67,6 +67,7 @@ Compilers (and versions) not mentioned are known to not work or have not been tr
 | CentOS 9/RHEL 9 | `gcc12` |
 
 ### Build Prestissimo
+#### Parquet and S3 Supprt
 To enable Parquet and S3 support, set `PRESTO_ENABLE_PARQUET = "ON"`,
 `PRESTO_ENABLE_S3 = "ON"` in the environment.
 
@@ -76,6 +77,7 @@ This dependency can be installed by running the script below from the
 
 `./velox/scripts/setup-adapters.sh aws`
 
+#### JWT Authentication
 To enable JWT authentication support, set `PRESTO_ENABLE_JWT = "ON"` in
 the environment.
 
@@ -84,6 +86,17 @@ This dependency can be installed by running the script below from the
 `presto/presto-native-execution` directory.
 
 `./scripts/setup-adapters.sh jwt`
+
+#### Worker Metrics Collection
+
+To enable worker level metrics collection and to enable the REST API `v1/info/metrics`
+follow these steps:
+
+*Pre-build setup:* `./scripts/setup-adapters.sh prometheus`
+
+*CMake flags:* `PRESTO_STATS_REPORTER_TYPE=PROMETHEUS`
+
+*Runtime configuration:* `runtime-metrics-collection-enabled=true`
 
 * After installing the above dependencies, from the
 `presto/presto-native-execution` directory, run `make`
