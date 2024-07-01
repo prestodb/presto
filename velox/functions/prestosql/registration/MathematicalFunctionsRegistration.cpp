@@ -100,6 +100,10 @@ void registerMathFunctions(const std::string& prefix) {
   registerFunction<NanFunction, double>({prefix + "nan"});
   registerFunction<RandFunction, double>({prefix + "rand", prefix + "random"});
   registerUnaryIntegral<RandFunction>({prefix + "rand", prefix + "random"});
+  registerFunction<SecureRandFunction, double>(
+      {prefix + "secure_rand", prefix + "secure_random"});
+  registerBinaryNumeric<SecureRandFunction>(
+      {prefix + "secure_rand", prefix + "secure_random"});
   registerFunction<FromBaseFunction, int64_t, Varchar, int64_t>(
       {prefix + "from_base"});
   registerFunction<ToBaseFunction, Varchar, int64_t, int64_t>(
