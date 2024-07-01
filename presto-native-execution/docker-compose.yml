@@ -16,7 +16,7 @@ services:
     # Usage:
     #   docker-compose build ubuntu-native-dependency
     #   podman compose build ubuntu-native-dependency
-    image: presto/prestissimo-dependency:amd64-ubuntu-22.04
+    image: presto/prestissimo-dependency:ubuntu-22.04
     build:
       context: .
       dockerfile: scripts/dockerfiles/ubuntu-22.04-dependency.dockerfile
@@ -25,11 +25,11 @@ services:
     # Usage:
     #   docker-compose build ubuntu-native-runtime
     #   podman compose build ubuntu-native-runtime
-    image: presto/prestissimo-runtime:amd64-ubuntu-22.04
+    image: presto/prestissimo-runtime:ubuntu-22.04
     build:
       args:
-        - DEPENDENCY_IMAGE=presto/prestissimo-dependency:amd64-ubuntu-22.04
-        - BASE_IMAGE=amd64/ubuntu:22.04
+        - DEPENDENCY_IMAGE=presto/prestissimo-dependency:ubuntu-22.04
+        - BASE_IMAGE=ubuntu:22.04
         - OSNAME=ubuntu
         - EXTRA_CMAKE_FLAGS=-DPRESTO_ENABLE_TESTING=OFF \
                             -DPRESTO_ENABLE_PARQUET=ON \
@@ -37,7 +37,7 @@ services:
       context: .
       dockerfile: scripts/dockerfiles/prestissimo-runtime.dockerfile
     environment:
-      NUM_THREADS: 8 # default value for NUM_THREADS
+      NUM_THREADS: 2 # default value for NUM_THREADS
 
   centos-native-dependency:
     # Usage:

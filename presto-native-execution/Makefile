@@ -16,7 +16,7 @@ BUILD_DIR=release
 BUILD_TYPE=Release
 TREAT_WARNINGS_AS_ERRORS ?= 1
 ENABLE_WALL ?= 1
-NUM_THREADS ?= $(shell getconf _NPROCESSORS_CONF 2>/dev/null || echo 1)
+NUM_THREADS ?= 2
 CPU_TARGET ?= "avx"
 CMAKE_PREFIX_PATH ?= "/usr/local"
 PRESTOCPP_ROOT_DIR="$(shell pwd)"
@@ -66,8 +66,9 @@ clean:					#: Delete all build artifacts
 	rm -rf $(BUILD_BASE_DIR)
 
 velox-submodule:		#: Check out code for velox submodule
-	git submodule sync --recursive
-	git submodule update --init --recursive
+	rm -rf velox
+	git clone https://github.com/majetideepak/velox.git
+	cd velox && git checkout fix-docker
 
 submodules: velox-submodule
 
