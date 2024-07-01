@@ -35,12 +35,12 @@ jobs:
     needs: changes
     if: needs.changes.outputs.codechange == 'true'
     timeout-minutes: 60
-    concurrency:
-      group: ${{ github.workflow }}-hive-tests-${{ github.event.pull_request.number }}
-      cancel-in-progress: true
     strategy:
       matrix:
-        java-version: [ 21.0.3 ]
+        java-version: [ 8,21.0.3 ]
+    concurrency:
+      group: ${{ github.workflow }}-hive-tests-${{ github.event.pull_request.number }}-${{ matrix.java-version }}
+      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
         with:
@@ -100,12 +100,12 @@ jobs:
     needs: changes
     if: needs.changes.outputs.codechange == 'true'
     timeout-minutes: 20
-    concurrency:
-      group: ${{ github.workflow }}-hive-dockerized-tests-${{ github.event.pull_request.number }}
-      cancel-in-progress: true
     strategy:
       matrix:
-        java-version: [ 21.0.3 ]
+        java-version: [ 8,21.0.3 ]
+    concurrency:
+      group: ${{ github.workflow }}-hive-dockerized-tests-${{ github.event.pull_request.number }}-${{ matrix.java-version }}
+      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
         with:
@@ -115,7 +115,6 @@ jobs:
         with:
           java-version: ${{matrix.java-version}}
           distribution: 'temurin'
-
       - run: |
         if: matrix.java-version == '21.0.3'
         # Set environment variables specific to JDK 21 here
