@@ -310,7 +310,7 @@ bool MemoryAllocator::growContiguous(
     return true;
   }
   if (reservationCB != nullptr) {
-    // May throw. If does, there is nothing to revert.
+    // May throw. If it does, there is nothing to revert.
     reservationCB(AllocationTraits::pageBytes(increment), true);
   }
   bool success = false;

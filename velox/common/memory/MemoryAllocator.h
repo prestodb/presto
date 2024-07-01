@@ -140,7 +140,7 @@ struct Stats {
 
 class MemoryAllocator;
 
-/// A general cache interface using 'MemroyAllocator' to allocate memory, that
+/// A general cache interface using 'MemoryAllocator' to allocate memory, that
 /// is also able to free up memory upon request by shrinking itself.
 class Cache {
  public:
@@ -173,7 +173,7 @@ class Cache {
 void setCacheFailureMessage(std::string message);
 
 /// Returns and clears a thread local message set with
-/// setCacheFailuremessage().
+/// setCacheFailureMessage().
 std::string getAndClearCacheFailureMessage();
 
 /// This class provides interface for the actual memory allocations from memory
@@ -198,7 +198,7 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
     kMalloc,
     /// The memory allocator kind which is implemented by MmapAllocator. It
     /// manages the large chunk of memory allocations on its own by leveraging
-    /// mmap and madvice, to optimize the memory fragmentation in the long
+    /// mmap and madvise, to optimize the memory fragmentation in the long
     /// running service such as Prestissimo.
     kMmap,
   };
