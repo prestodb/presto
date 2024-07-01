@@ -149,6 +149,16 @@ public abstract class AbstractTestQueryFramework
         return computeActual(session, sql).getOnlyValue();
     }
 
+    protected MaterializedResult computeActual(QueryRunner queryRunner, Session session, @Language("SQL") String sql)
+    {
+        return queryRunner.execute(session, sql).toTestTypes();
+    }
+
+    protected Object computeScalarExpected(Session session, @Language("SQL") String sql)
+    {
+        return computeActual((QueryRunner) expectedQueryRunner, session, sql).getOnlyValue();
+    }
+
     protected void assertQuery(@Language("SQL") String sql)
     {
         assertQuery(getSession(), sql);
@@ -268,6 +278,11 @@ public abstract class AbstractTestQueryFramework
     protected void assertUpdate(Session session, @Language("SQL") String sql, long count, Consumer<Plan> planAssertion)
     {
         QueryAssertions.assertUpdate(queryRunner, session, sql, OptionalLong.of(count), Optional.of(planAssertion));
+    }
+
+    protected void assertUpdateExpected(Session session, @Language("SQL") String sql, long count)
+    {
+        QueryAssertions.assertUpdate((QueryRunner) expectedQueryRunner, session, sql, OptionalLong.of(count), Optional.empty());
     }
 
     protected void assertQuerySucceeds(Session session, @Language("SQL") String sql)
