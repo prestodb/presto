@@ -271,6 +271,7 @@ public class TestFeaturesConfig
                 .setCteHeuristicReplicationThreshold(4)
                 .setLegacyJsonCast(true)
                 .setPrintEstimatedStatsFromCache(false)
+                .setRemoveCrossJoinWithSingleConstantRow(true)
                 .setUseHistograms(false)
                 .setUseNewNanDefinition(true)
                 .setWarnOnCommonNanPatterns(false));
@@ -488,6 +489,7 @@ public class TestFeaturesConfig
                 .put("default-view-security-mode", INVOKER.name())
                 .put("cte-heuristic-replication-threshold", "2")
                 .put("optimizer.print-estimated-stats-from-cache", "true")
+                .put("optimizer.remove-cross-join-with-single-constant-row", "false")
                 .put("optimizer.use-histograms", "true")
                 .put("use-new-nan-definition", "false")
                 .put("warn-on-common-nan-patterns", "true")
@@ -703,6 +705,7 @@ public class TestFeaturesConfig
                 .setCteHeuristicReplicationThreshold(2)
                 .setLegacyJsonCast(false)
                 .setPrintEstimatedStatsFromCache(true)
+                .setRemoveCrossJoinWithSingleConstantRow(false)
                 .setUseHistograms(true)
                 .setUseNewNanDefinition(false)
                 .setWarnOnCommonNanPatterns(true);

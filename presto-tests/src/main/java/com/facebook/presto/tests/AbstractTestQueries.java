@@ -76,6 +76,7 @@ import static com.facebook.presto.SystemSessionProperties.PUSH_REMOTE_EXCHANGE_T
 import static com.facebook.presto.SystemSessionProperties.QUICK_DISTINCT_LIMIT_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.RANDOMIZE_OUTER_JOIN_NULL_KEY;
 import static com.facebook.presto.SystemSessionProperties.RANDOMIZE_OUTER_JOIN_NULL_KEY_STRATEGY;
+import static com.facebook.presto.SystemSessionProperties.REMOVE_CROSS_JOIN_WITH_CONSTANT_SINGLE_ROW_INPUT;
 import static com.facebook.presto.SystemSessionProperties.REMOVE_MAP_CAST;
 import static com.facebook.presto.SystemSessionProperties.REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN;
 import static com.facebook.presto.SystemSessionProperties.REWRITE_CASE_TO_MAP_ENABLED;
@@ -7640,6 +7641,23 @@ public abstract class AbstractTestQueries
         assertTrue(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("SemiJoin") != -1);
         result = computeActual(session, testQuery);
         assertTrue(result.getRowCount() == 25);
+    }
+
+    @Test
+    public void testRemoveCrossJoinWithSingleRowConstantInput()
+    {
+        Session enableOptimization = Session.builder(getSession())
+                .setSystemProperty(REMOVE_CROSS_JOIN_WITH_CONSTANT_SINGLE_ROW_INPUT, "true")
+                .build();
+        assertQuery(enableOptimization, "SELECT * FROM (SELECT EXTRACT(DAY FROM DATE '2017-01-01')) t CROSS JOIN (VALUES 1)",
+                "values (1, 1)");
+        assertQuery(enableOptimization, "SELECT * FROM (SELECT * FROM (VALUES 1) t(a)) t, region r WHERE r.regionkey = t.a");
+        assertQuery(enableOptimization, "WITH t(msg) AS (SELECT * FROM (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))) SELECT b.msg.x FROM t a, t b WHERE a.msg.y = b.msg.y",
+                "values 1");
+        assertQuery(enableOptimization, "WITH t(msg) AS (SELECT * FROM (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))) SELECT a.msg.y, b.msg.x from t a cross join t b where a.msg.x = 7 or is_finite(b.msg.y)",
+                "values (2.0, 1)");
+        assertQuery(enableOptimization, "WITH t(msg) AS (SELECT * FROM (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))) SELECT b.msg.x FROM t a, t b WHERE a.msg.y = b.msg.y limit 100",
+                "values 1");
     }
 
     /**
