@@ -213,6 +213,17 @@
             <groupId>com.facebook.airlift</groupId>
             <artifactId>testing</artifactId>
         </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-api</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
     </dependencies>
 
     <build>
@@ -295,6 +306,87 @@
                         <configuration>
                             <excludedGroups combine.self="override">parquet,remote-function</excludedGroups>
                         </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>docker-build</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-resources-plugin</artifactId>
+                        <version>3.3.1</version>
+                        <executions>
+                            <execution>
+                                <id>copy-presto-cli-executable</id>
+                                <phase>prepare-package</phase>
+                                <goals>
+                                    <goal>copy-resources</goal>
+                                </goals>
+                                <configuration>
+                                    <outputDirectory>${project.parent.basedir}/docker/</outputDirectory>
+                                    <resources>
+                                        <resource>
+                                            <directory>${project.parent.basedir}/presto-cli/target</directory>
+                                            <includes>
+                                                <include>presto-cli-*-executable.jar</include>
+                                            </includes>
+                                        </resource>
+                                        <resource>
+                                            <directory>${project.parent.basedir}/presto-server/target</directory>
+                                            <includes>
+                                                <include>presto-server-*.tar.gz</include>
+                                            </includes>
+                                        </resource>
+                                    </resources>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>com.spotify</groupId>
+                        <artifactId>dockerfile-maven-plugin</artifactId>
+                        <version>1.4.13</version>
+                        <executions>
+                            <execution>
+                                <id>coordinator</id>
+                                <phase>install</phase>
+                                <goals>
+                                    <goal>build</goal>
+                                </goals>
+                                <configuration>
+                                    <repository>presto-coordinator</repository>
+                                    <tag>latest</tag>
+                                    <contextDirectory>${project.parent.basedir}/docker/</contextDirectory>
+                                    <dockerfile>${project.parent.basedir}/docker/Dockerfile</dockerfile>
+                                    <buildArgs>
+                                        <PRESTO_VERSION>0.289-SNAPSHOT</PRESTO_VERSION>
+                                    </buildArgs>
+                                    <writeTestMetadata>false</writeTestMetadata>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>worker</id>
+                                <phase>install</phase>
+                                <goals>
+                                    <goal>build</goal>
+                                </goals>
+                                <configuration>
+                                    <repository>presto-worker</repository>
+                                    <tag>latest</tag>
+                                    <contextDirectory>${project.basedir}</contextDirectory>
+                                    <dockerfile>${project.basedir}/scripts/dockerfiles/prestissimo-runtime.dockerfile</dockerfile>
+                                    <buildArgs>
+                                        <BUILD_TYPE>Release</BUILD_TYPE>
+                                        <DEPENDENCY_IMAGE>public.ecr.aws/oss-presto/presto-native-dependency:latest</DEPENDENCY_IMAGE>
+                                        <EXTRA_CMAKE_FLAGS>-DPRESTO_ENABLE_PARQUET=ON -DPRESTO_ENABLE_S3=ON</EXTRA_CMAKE_FLAGS>
+                                    </buildArgs>
+                                    <writeTestMetadata>false</writeTestMetadata>
+                                </configuration>
+                            </execution>
+                        </executions>
                     </plugin>
                 </plugins>
             </build>
