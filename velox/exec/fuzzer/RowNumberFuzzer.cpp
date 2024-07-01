@@ -50,6 +50,11 @@ DEFINE_double(
 
 DEFINE_bool(enable_spill, true, "Whether to test plans with spilling enabled.");
 
+DEFINE_int32(
+    max_spill_level,
+    -1,
+    "Max spill level, -1 means random [0, 7], otherwise the actual level.");
+
 DEFINE_bool(
     enable_oom_injection,
     false,
@@ -280,7 +285,10 @@ RowVectorPtr RowNumberFuzzer::execute(
   int32_t spillPct{0};
   if (injectSpill) {
     spillDirectory = exec::test::TempDirectoryPath::create();
+    const auto maxSpillLevel =
+        FLAGS_max_spill_level == -1 ? randInt(0, 7) : FLAGS_max_spill_level;
     builder.config(core::QueryConfig::kSpillEnabled, true)
+        .config(core::QueryConfig::kMaxSpillLevel, maxSpillLevel)
         .config(core::QueryConfig::kRowNumberSpillEnabled, true)
         .spillDirectory(spillDirectory->getPath());
     spillPct = 10;
