@@ -126,6 +126,7 @@ public class IcebergTableLayoutHandle
         if (isPushdownFilterEnabled()) {
             predicate = predicate.intersect(getPartitionColumnPredicate().transform(IcebergColumnHandle.class::cast));
         }
+
         return predicate;
     }
 

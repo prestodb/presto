@@ -87,7 +87,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TimeZone;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.hive.HiveStatisticsUtil.createPartitionStatistics;
@@ -443,16 +442,12 @@ public class IcebergHiveMetadata
         return ImmutableList.of(schemaNameOrNull);
     }
 
+    @Override
     public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<ConnectorTableLayoutHandle> tableLayoutHandle, List<ColumnHandle> columnHandles, Constraint<ColumnHandle> constraint)
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         org.apache.iceberg.Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
-        TableStatistics icebergStatistics = TableStatisticsMaker.getTableStatistics(session, typeManager,
-                tableLayoutHandle
-                        .map(IcebergTableLayoutHandle.class::cast)
-                        .map(IcebergTableLayoutHandle::getValidPredicate),
-                constraint, handle, icebergTable,
-                columnHandles.stream().map(IcebergColumnHandle.class::cast).collect(Collectors.toList()));
+        TableStatistics icebergStatistics = super.getTableStatistics(session, tableHandle, tableLayoutHandle, columnHandles, constraint);
         EnumSet<ColumnStatisticType> mergeFlags = getHiveStatisticsMergeStrategy(session);
         return tableLayoutHandle.map(IcebergTableLayoutHandle.class::cast).map(layoutHandle -> {
             TupleDomain<VariableReferenceExpression> predicate = layoutHandle.getValidPredicate()
@@ -467,7 +462,7 @@ public class IcebergHiveMetadata
                     .orElse(icebergStatistics);
             TableStatistics.Builder filteredStatsBuilder = TableStatistics.builder()
                     .setRowCount(mergedStatistics.getRowCount());
-            for (ColumnHandle colHandle : columnHandles) {
+            for (ColumnHandle colHandle : icebergStatistics.getColumnStatistics().keySet()) {
                 IcebergColumnHandle icebergHandle = (IcebergColumnHandle) colHandle;
                 if (mergedStatistics.getColumnStatistics().containsKey(icebergHandle)) {
                     ColumnStatistics stats = mergedStatistics.getColumnStatistics().get(icebergHandle);
@@ -478,12 +473,14 @@ public class IcebergHiveMetadata
                     calculateAndSetTableSize(filteredStatsBuilder).setConfidenceLevel(LOW).build(),
                     translatedPredicate,
                     session,
-                    columnHandles.stream().map(IcebergColumnHandle.class::cast).collect(toImmutableMap(
-                            col -> col,
-                            IcebergColumnHandle::getName)),
-                    columnHandles.stream().map(IcebergColumnHandle.class::cast).collect(toImmutableMap(
-                            IcebergColumnHandle::getName,
-                            IcebergColumnHandle::getType)));
+                    icebergStatistics.getColumnStatistics().keySet().stream()
+                            .map(IcebergColumnHandle.class::cast).collect(toImmutableMap(
+                                    col -> col,
+                                    IcebergColumnHandle::getName)),
+                    icebergStatistics.getColumnStatistics().keySet()
+                            .stream().map(IcebergColumnHandle.class::cast).collect(toImmutableMap(
+                                    IcebergColumnHandle::getName,
+                                    IcebergColumnHandle::getType)));
         }).orElseGet(() -> {
             if (!mergeFlags.isEmpty()) {
                 PartitionStatistics hiveStats = metastore.getTableStatistics(getMetastoreContext(session), handle.getSchemaName(), handle.getIcebergTableName().getTableName());

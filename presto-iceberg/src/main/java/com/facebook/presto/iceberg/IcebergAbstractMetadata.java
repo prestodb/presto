@@ -147,6 +147,7 @@ import static com.facebook.presto.iceberg.TypeConverter.toIcebergType;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.facebook.presto.iceberg.changelog.ChangelogUtil.getRowTypeFromColumnMeta;
 import static com.facebook.presto.iceberg.optimizer.IcebergPlanOptimizer.getEnforcedColumns;
+import static com.facebook.presto.iceberg.util.StatisticsUtil.combineSelectedAndPredicateColumns;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.google.common.base.Verify.verify;
@@ -709,12 +710,17 @@ public abstract class IcebergAbstractMetadata
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
+
+        List<IcebergColumnHandle> handles = combineSelectedAndPredicateColumns(
+                columnHandles.stream()
+                        .map(IcebergColumnHandle.class::cast)
+                        .collect(toImmutableList()),
+                tableLayoutHandle.map(IcebergTableLayoutHandle.class::cast));
         return TableStatisticsMaker.getTableStatistics(session, typeManager,
                 tableLayoutHandle
                         .map(IcebergTableLayoutHandle.class::cast)
                         .map(IcebergTableLayoutHandle::getValidPredicate),
-                constraint, handle, icebergTable,
-                columnHandles.stream().map(IcebergColumnHandle.class::cast).collect(Collectors.toList()));
+                constraint, handle, icebergTable, handles);
     }
 
     @Override
