@@ -754,7 +754,7 @@ public class TestDetermineJoinDistributionType
 
     @Test
     public void testFlipAndReplicateRightOuterJoinWhenJoinCardinalityUnknown()
-    {
+    { 
         int aRows = 10;
         int bRows = 1_000_000;
         assertDetermineJoinDistributionType(new CostComparator(75, 10, 15))
