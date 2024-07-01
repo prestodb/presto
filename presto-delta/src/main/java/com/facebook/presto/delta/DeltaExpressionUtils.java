@@ -34,17 +34,16 @@ import io.delta.kernel.utils.CloseableIterator;
 import java.io.IOException;
 import java.sql.Date;
 import java.sql.Timestamp;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.delta.DeltaColumnHandle.ColumnType.PARTITION;
 import static com.facebook.presto.delta.DeltaErrorCode.DELTA_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.delta.DeltaErrorCode.DELTA_UNSUPPORTED_COLUMN_TYPE;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Double.doubleToRawLongBits;
 import static java.lang.Double.parseDouble;
@@ -108,7 +107,7 @@ public final class DeltaExpressionUtils
         List<DeltaColumnHandle> partitionColumns = columnDomains.map(domains -> domains.stream()
                 .filter(entry -> entry.getColumn().getColumnType() == PARTITION)
                 .map(TupleDomain.ColumnDomain::getColumn)
-                .collect(Collectors.toList())).orElse(Collections.emptyList());
+                .collect(toImmutableList())).orElse(ImmutableList.of());
 
         return new FilteredByPredicateIterator(inputIterator, partitionPredicate, partitionColumns, typeManager);
     }
@@ -148,11 +147,7 @@ public final class DeltaExpressionUtils
                     return false;
                 }
                 FilteredColumnarBatch nextFile = inputIterator.next();
-                logger.debug("Advancing input iterator");
                 row = nextFile.getRows();
-            }
-            else {
-                logger.debug("There are still rows remaining int the iterator, not advancing the iterator");
             }
             Row nextRow;
             rowsRemaining = false;
@@ -166,7 +161,7 @@ public final class DeltaExpressionUtils
                     row.close();
                 }
                 catch (IOException e) {
-                    throw new GenericInternalException("Cloud not close row batch", e);
+                    throw new GenericInternalException("Could not close row batch", e);
                 }
             }
             return nextItem != null;
@@ -254,11 +249,7 @@ public final class DeltaExpressionUtils
                     return false;
                 }
                 FilteredColumnarBatch nextFile = inputIterator.next();
-                logger.debug("Advancing input iterator");
                 row = nextFile.getRows();
-            }
-            else {
-                logger.debug("There are still rows remaining in the iterator, not advancing the iterator");
             }
             Row nextRow;
             rowsRemaining = false;

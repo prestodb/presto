@@ -186,7 +186,7 @@ public abstract class AbstractDeltaDistributedQueryTestBase
      * @param deltaTableName Name of the delta table which is on the classpath.
      * @param hiveTableName Name of the Hive table that the Delta table is to be registered as in HMS
      */
-    protected static void registerDeltaTableInHMS(QueryRunner queryRunner, String deltaTableName, String hiveTableName)
+    private static void registerDeltaTableInHMS(QueryRunner queryRunner, String deltaTableName, String hiveTableName)
     {
         queryRunner.execute(format(
                 "CREATE TABLE %s.\"%s\".\"%s\" (dummyColumn INT) WITH (external_location = '%s')",

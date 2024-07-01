@@ -85,28 +85,44 @@ public class DeltaClient
             Optional<Long> snapshotAsOfTimestampMillis)
     {
         Path location = new Path(tableLocation);
-        Optional<Engine> deltaEngine = loadDeltaTableClient(session, location,
-                schemaTableName);
+        Optional<Engine> deltaEngine = loadDeltaTableClient(session, location, schemaTableName);
         if (!deltaEngine.isPresent()) {
             return Optional.empty();
         }
 
         Table deltaTable = loadDeltaTable(location.toString(), deltaEngine.get());
+        Snapshot snapshot = getSnapshot(deltaTable, deltaEngine.get(), schemaTableName, snapshotId,
+                snapshotAsOfTimestampMillis);
+        return Optional.of(new DeltaTable(
+                schemaTableName.getSchemaName(),
+                schemaTableName.getTableName(),
+                tableLocation,
+                Optional.of(snapshot.getVersion(deltaEngine.get())), // lock the snapshot version
+                getSchema(config, schemaTableName, deltaEngine.get(), snapshot)));
+    }
+
+    private Snapshot getSnapshot(
+            Table deltaTable,
+            Engine deltaEngine,
+            SchemaTableName schemaTableName,
+            Optional<Long> snapshotId,
+            Optional<Long> snapshotAsOfTimestampMillis)
+    {
         // Fetch the snapshot info for given snapshot version. If no snapshot version is given, get the latest snapshot info.
         // Lock the snapshot version here and use it later in the rest of the query (such as fetching file list etc.).
         // If we don't lock the snapshot version here, the query may end up with schema from one version and data files from another
         // version when the underlying delta table is changing while the query is running.
         Snapshot snapshot;
         if (snapshotId.isPresent()) {
-            snapshot = getSnapshotById(deltaTable, deltaEngine.get(), snapshotId.get(), schemaTableName);
+            snapshot = getSnapshotById(deltaTable, deltaEngine, snapshotId.get(), schemaTableName);
         }
         else if (snapshotAsOfTimestampMillis.isPresent()) {
-            snapshot = getSnapshotAsOfTimestamp(deltaTable, deltaEngine.get(),
+            snapshot = getSnapshotAsOfTimestamp(deltaTable, deltaEngine,
                     snapshotAsOfTimestampMillis.get(), schemaTableName);
         }
         else {
             try {
-                snapshot = deltaTable.getLatestSnapshot(deltaEngine.get()); // get the latest snapshot
+                snapshot = deltaTable.getLatestSnapshot(deltaEngine); // get the latest snapshot
             }
             catch (TableNotFoundException e) {
                 throw new PrestoException(GENERIC_INTERNAL_ERROR,
@@ -122,13 +138,7 @@ public class DeltaClient
                         format("Delta table %s has unsupported data format: %s. Currently only Parquet data format is supported", schemaTableName, format));
             }
         }
-
-        return Optional.of(new DeltaTable(
-                schemaTableName.getSchemaName(),
-                schemaTableName.getTableName(),
-                tableLocation,
-                Optional.of(snapshot.getVersion(deltaEngine.get())), // lock the snapshot version
-                getSchema(config, schemaTableName, deltaEngine.get(), snapshot)));
+        return snapshot;
     }
 
     /**
@@ -138,6 +148,8 @@ public class DeltaClient
      */
     public CloseableIterator<FilteredColumnarBatch> listFiles(ConnectorSession session, DeltaTable deltaTable)
     {
+        requireNonNull(deltaTable, "deltaTable is null");
+        checkArgument(deltaTable.getSnapshotId().isPresent(), "Snapshot id is missing from the Delta table");
         Optional<Engine> deltaEngine = loadDeltaTableClient(session,
                 new Path(deltaTable.getTableLocation()),
                 new SchemaTableName(deltaTable.getSchemaName(), deltaTable.getTableName()));
@@ -145,7 +157,6 @@ public class DeltaClient
             throw new PrestoException(GENERIC_INTERNAL_ERROR,
                     format("Could not obtain Delta table client in '%s'", deltaTable.getTableLocation()));
         }
-        checkArgument(deltaTable.getSnapshotId().isPresent(), "Snapshot id is missing from the Delta table");
         Table sourceTable = loadDeltaTable(deltaTable.getTableLocation(), deltaEngine.get());
 
         try {
@@ -232,9 +243,8 @@ public class DeltaClient
     private static List<DeltaColumn> getSchema(DeltaConfig config, SchemaTableName tableName, Engine deltaEngine,
                                                Snapshot snapshot)
     {
-        try {
-            CloseableIterator<FilteredColumnarBatch> columnBatches = snapshot.getScanBuilder(deltaEngine)
-                    .build().getScanFiles(deltaEngine);
+        try (CloseableIterator<FilteredColumnarBatch> columnBatches = snapshot.getScanBuilder(deltaEngine).build()
+                    .getScanFiles(deltaEngine)) {
             Row row = null;
             while (columnBatches.hasNext()) {
                 CloseableIterator<Row> rows = columnBatches.next().getRows();
@@ -245,7 +255,6 @@ public class DeltaClient
             }
             Map<String, String> partitionValues = row != null ?
                     InternalScanFileUtils.getPartitionValues(row) : new HashMap<>(0);
-            columnBatches.close();
             return snapshot.getSchema(deltaEngine).fields().stream()
                     .map(field -> {
                         String columnName = config.isCaseSensitivePartitionsEnabled() ? field.getName() :

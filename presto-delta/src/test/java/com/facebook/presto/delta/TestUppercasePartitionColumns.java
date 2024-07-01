@@ -21,7 +21,6 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
-import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.nio.file.FileSystems;
@@ -109,9 +108,9 @@ public class TestUppercasePartitionColumns
     @Test(dataProvider = "deltaReaderVersions")
     public void readDeltaTableWithUpperCasePartitionValuesTest(String version)
     {
-        @Language("SQL") String controlTableQuery = format("select * from \"%s\".\"%s\" order by id asc",
+        String controlTableQuery = format("select * from \"%s\".\"%s\" order by id asc",
                 PATH_SCHEMA, goldenTablePathWithPrefix(version, "test-partitions-lowercase"));
-        @Language("SQL") String testTableQuery = format("select * from \"%s\".\"%s\" order by id asc", PATH_SCHEMA,
+        String testTableQuery = format("select * from \"%s\".\"%s\" order by id asc", PATH_SCHEMA,
                 goldenTablePathWithPrefix(version, "test-partitions-uppercase"));
         MaterializedResult expectedResult = getQueryRunner().execute(controlTableQuery);
         MaterializedResult testResult = getQueryRunner().execute(testTableQuery);

@@ -14,7 +14,6 @@
 package com.facebook.presto.delta;
 
 import com.google.common.base.Joiner;
-import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.net.URI;
@@ -39,10 +38,10 @@ public class TestDeltaIntegration
     {
         // Test reading following primitive types from a Delta table
         // (all integers, float, double, decimal, boolean, varchar, varbinary)
-        @Language("SQL") String testQuery =
+        String testQuery =
                 format("SELECT * FROM \"%s\".\"%s\"", PATH_SCHEMA, goldenTablePathWithPrefix(version,
                         "data-reader-primitives"));
-        @Language("SQL") String expResultsQuery = getPrimitiveTypeTableData();
+        String expResultsQuery = getPrimitiveTypeTableData();
         assertQuery(testQuery, expResultsQuery);
     }
 
@@ -51,7 +50,7 @@ public class TestDeltaIntegration
     {
         // Test reading following array elements with type
         // (all integers, float, double, decimal, boolean, varchar, varbinary)
-        @Language("SQL") String testQuery =
+        String testQuery =
                 format("SELECT * FROM \"%s\".\"%s\"", PATH_SCHEMA, goldenTablePathWithPrefix(version,
                         "data-reader-array-primitives"));
 
@@ -70,7 +69,7 @@ public class TestDeltaIntegration
                     "   array[cast(X'0%s0%s' as varbinary)], " +
                     "   array[cast(%s as decimal)]", i, i, i, i, (i % 2 == 0 ? "true" : "false"), i, i, i, i, i, i));
         }
-        @Language("SQL") String expResultsQuery = Joiner.on(" UNION ").join(expRows);
+        String expResultsQuery = Joiner.on(" UNION ").join(expRows);
 
         assertQuery(testQuery, expResultsQuery);
     }
@@ -79,7 +78,7 @@ public class TestDeltaIntegration
     public void readMapTypeData(String version)
     {
         // Test reading MAP data type columns from Delta table
-        @Language("SQL") String testQuery =
+        String testQuery =
                 format("SELECT map_keys(a), map_values(e) FROM \"%s\".\"%s\"", PATH_SCHEMA,
                         goldenTablePathWithPrefix(version, "data-reader-map"));
 
@@ -89,7 +88,7 @@ public class TestDeltaIntegration
                     "   ARRAY[cast(" + i + " as integer)]," +
                     "   ARRAY[cast(" + i + " as decimal)]");
         }
-        @Language("SQL") String expResultsQuery = Joiner.on(" UNION ").join(expRows);
+        String expResultsQuery = Joiner.on(" UNION ").join(expRows);
 
         assertQuery(testQuery, expResultsQuery);
     }
@@ -97,7 +96,7 @@ public class TestDeltaIntegration
     @Test(dataProvider = "deltaReaderVersions")
     public void readTableRegisteredInHMS(String version)
     {
-        @Language("SQL") String expResultsQuery = getPrimitiveTypeTableData();
+        String expResultsQuery = getPrimitiveTypeTableData();
         assertQuery("SELECT * FROM \"" + getVersionPrefix(version) +
                 "data-reader-primitives\"", expResultsQuery);
     }
@@ -109,13 +108,13 @@ public class TestDeltaIntegration
                 "snapshot-data3@%s\" WHERE col1 = 0";
 
         // read snapshot version 2
-        @Language("SQL") String testQueryV2 = format(testQueryTemplate, "v2");
-        @Language("SQL") String expResultsQueryV2 = "SELECT * FROM VALUES(0, 'data-2-0')";
+        String testQueryV2 = format(testQueryTemplate, "v2");
+        String expResultsQueryV2 = "SELECT * FROM VALUES(0, 'data-2-0')";
         assertQuery(testQueryV2, expResultsQueryV2);
 
         // read snapshot version 3
-        @Language("SQL") String testQueryV3 = format(testQueryTemplate, "v3");
-        @Language("SQL") String expResultsQueryV3 = "SELECT * FROM VALUES(0, 'data-2-0'), (0, 'data-3-0')";
+        String testQueryV3 = format(testQueryTemplate, "v3");
+        String expResultsQueryV3 = "SELECT * FROM VALUES(0, 'data-2-0'), (0, 'data-3-0')";
         assertQuery(testQueryV3, expResultsQueryV3);
     }
 
@@ -140,19 +139,19 @@ public class TestDeltaIntegration
         setCommitFileModificationTime(deltaTableLocation, 3, 1637231407000L);
 
         // read snapshot as of 2020-10-26 02:50:00 - this should fail as there are no snapshots before this timestamp
-        @Language("SQL") String testQueryTs1 = format(testQueryTemplate, "t2020-10-27 02:50:00");
+        String testQueryTs1 = format(testQueryTemplate, "t2020-10-27 02:50:00");
         assertQueryFails(
                 testQueryTs1,
                 ".*The provided timestamp 1603767000000 ms \\(2020-10-27T02:50:00Z\\) is before the earliest available version 0\\. Please use a timestamp greater than or equal to 1637231401000 ms \\(2021-11-18T10:30:01Z\\)\\.");
 
         // read snapshot as of 2021-11-18 10:30:02 - this should read the data from commit id 1.
-        @Language("SQL") String testQueryTs2 = format(testQueryTemplate, "t2021-11-18 10:30:02");
-        @Language("SQL") String expResultsQueryTs2 = "SELECT * FROM VALUES(0, 'data-0-0'), (0, 'data-1-0')";
+        String testQueryTs2 = format(testQueryTemplate, "t2021-11-18 10:30:02");
+        String expResultsQueryTs2 = "SELECT * FROM VALUES(0, 'data-0-0'), (0, 'data-1-0')";
         assertQuery(testQueryTs2, expResultsQueryTs2);
 
         // read snapshot as of 2021-11-18 10:30:07 - this should read the data from the latest commit
-        @Language("SQL") String testQueryTs3 = format(testQueryTemplate, "t2021-11-18 10:30:07");
-        @Language("SQL") String expResultsQueryTs3 = "SELECT * FROM VALUES(0, 'data-2-0'), (0, 'data-3-0')";
+        String testQueryTs3 = format(testQueryTemplate, "t2021-11-18 10:30:07");
+        String expResultsQueryTs3 = "SELECT * FROM VALUES(0, 'data-2-0'), (0, 'data-3-0')";
         assertQuery(testQueryTs3, expResultsQueryTs3);
     }
 
@@ -167,7 +166,7 @@ public class TestDeltaIntegration
                 "checkpointed-delta-table%s\" WHERE col1 in (0, 10, 15)";
 
         // read snapshot version 3 - expect can't time travel error
-        @Language("SQL") String testQueryV3 = format(testQueryTemplate, "@v3");
+        String testQueryV3 = format(testQueryTemplate, "@v3");
         assertQueryFails(
                 testQueryV3,
                 "Can not find snapshot \\(3\\) in Delta table 'deltatables." +
@@ -175,37 +174,37 @@ public class TestDeltaIntegration
                         "checkpointed-delta-table\\@v3': No reproducible commits found at .*");
 
         // read latest data
-        @Language("SQL") String testQueryLatest = format(testQueryTemplate, "");
-        @Language("SQL") String expResultsQueryLatest = "SELECT * FROM VALUES(0, 'data-0-0'), (10, 'data-0-10'), (15, 'data-0-15')";
+        String testQueryLatest = format(testQueryTemplate, "");
+        String expResultsQueryLatest = "SELECT * FROM VALUES(0, 'data-0-0'), (10, 'data-0-10'), (15, 'data-0-15')";
         assertQuery(testQueryLatest, expResultsQueryLatest);
 
         // read snapshot version 13
-        @Language("SQL") String testQueryV13 = format(testQueryTemplate, "@v13");
-        @Language("SQL") String expResultsQueryV13 = "SELECT * FROM VALUES(0, 'data-0-0'), (10, 'data-0-10')";
+        String testQueryV13 = format(testQueryTemplate, "@v13");
+        String expResultsQueryV13 = "SELECT * FROM VALUES(0, 'data-0-0'), (10, 'data-0-10')";
         assertQuery(testQueryV13, expResultsQueryV13);
     }
 
     @Test(dataProvider = "deltaReaderVersions")
     public void readPartitionedTable(String version)
     {
-        @Language("SQL") String testQuery1 = "SELECT * FROM \"" + getVersionPrefix(version) +
+        String testQuery1 = "SELECT * FROM \"" + getVersionPrefix(version) +
                 "time-travel-partition-changes-b\" WHERE id in (10, 15, 12, 13)";
-        @Language("SQL") String expResultsQuery1 = "SELECT * FROM VALUES(10, 0),(15, 1),(12, 0),(13, 1)";
+        String expResultsQuery1 = "SELECT * FROM VALUES(10, 0),(15, 1),(12, 0),(13, 1)";
         assertQuery(testQuery1, expResultsQuery1);
 
         // reorder the columns in output and query the partitioned table
-        @Language("SQL") String testQuery2 = "SELECT part2, id FROM \"" + getVersionPrefix(version) +
+        String testQuery2 = "SELECT part2, id FROM \"" + getVersionPrefix(version) +
                 "time-travel-partition-changes-b\" WHERE id in (16, 14, 19)";
-        @Language("SQL") String expResultsQuery2 = "SELECT * FROM VALUES(0, 16),(0, 14),(1, 19)";
+        String expResultsQuery2 = "SELECT * FROM VALUES(0, 16),(0, 14),(1, 19)";
         assertQuery(testQuery2, expResultsQuery2);
     }
 
     @Test(dataProvider = "deltaReaderVersions")
     public void readPartitionedTableAllDataTypes(String version)
     {
-        @Language("SQL") String testQuery = "SELECT * FROM \"" + getVersionPrefix(version) +
+        String testQuery = "SELECT * FROM \"" + getVersionPrefix(version) +
                 "data-reader-partition-values\"";
-        @Language("SQL") String expResultsQuery = "SELECT * FROM VALUES" +
+        String expResultsQuery = "SELECT * FROM VALUES" +
                 "( 0," +
                 "  cast(0 as bigint)," +
                 "  cast(0 as smallint), " +
