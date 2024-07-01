@@ -36,7 +36,7 @@ _______________
 * Improve handling of floating point numbers in Presto to consistently treat NaNs as larger than any other number and equal to itself. It also changes the handling of positive and negative zero to always be considered equal to each other. Read more here: https://github.com/prestodb/rfcs/blob/main/RFC-0001-nan-definition.md. The new nan behavior can be disabled by setting the configuration property use-new-nan-definition to false. This configuration property is intended to be temporary to ease migration in the short term, and will be removed in a future release. :pr:`22386`
 * Improve the performance of reading common table expressions (CTE). :pr:`22478`
 * Add HBO for CTE materialized query. :pr:`22606`
-* Add Prestissimo support for CTAS into bucketed (but not partitioned) tables. :pr:`22737`
+* Add support for CTAS on bucketed (but not partitioned) tables for Presto C++ clusters. :pr:`22737`
 * Add support for ``NOT NULL`` column constraints in the CREATE TABLE and ALTER TABLE statements. This only takes effect for Hive connector now. :pr:`22064`
 * Add :doc:`/presto_cpp/properties` documentation. :pr:`22885`
 * Add PR number to the release note entry examples in pull_request_template.md. :pr:`22665`
