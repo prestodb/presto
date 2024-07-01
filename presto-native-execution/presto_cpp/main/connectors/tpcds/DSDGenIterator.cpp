@@ -76,8 +76,8 @@ void DSDGenIterator::initializeTable(
   table_def.fl_small = tdef->flags & FL_SMALL ? 1 : 0;
   table_def.first_column = tdef->nFirstColumn;
   table_def.children = children;
-  table_defs[table_id] = std::make_unique<tpcds_table_def>(table_def);
   table_def.dsdGenContext = &dsdgenCtx_;
+  table_defs[table_id] = std::make_unique<tpcds_table_def>(table_def);
 }
 
 std::vector<std::unique_ptr<tpcds_table_def>>& DSDGenIterator::getTableDefs() {

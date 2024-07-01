@@ -143,14 +143,13 @@ void set_pricing(
     int nTabId,
     ds_pricing_t* pPricing,
     DSDGenContext& dsdGenContext) {
-  static int nLastId = -1, nQuantityMax, nQuantityMin = 1;
-  static decimal_t dQuantity, dMarkupMin, dDiscountMin, dWholesaleMin,
+  int nLastId = -1, nQuantityMax, nQuantityMin = 1;
+  decimal_t dQuantity, dMarkupMin, dDiscountMin, dWholesaleMin,
       dMarkupMax, dDiscountMax, dWholesaleMax, dCouponMin, dCouponMax, dZero,
       dOneHalf, d9pct, dOne, dTemp, dHundred;
   decimal_t dMarkup, dCoupon, dShipping, dDiscount, dTemp2;
   int i, nCashPct, nCreditPct, nCouponUsage;
 
-  if (!dsdGenContext.set_pricing_init) {
     strtodec(&dMarkupMin, "0.00");
     strtodec(&dDiscountMin, "0.00");
     strtodec(&dWholesaleMin, "1.00");
@@ -162,8 +161,6 @@ void set_pricing(
     strtodec(&dHundred, "100.00");
     strtodec(&dOne, "1.00");
 
-    dsdGenContext.set_pricing_init = 1;
-  }
 
   if (nTabId != nLastId) {
     nLastId = -1;

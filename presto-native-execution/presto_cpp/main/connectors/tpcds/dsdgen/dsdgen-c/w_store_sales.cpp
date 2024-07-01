@@ -58,13 +58,12 @@ skipDays(int nTable, ds_key_t* pRemainder, DSDGenContext& dsdGenContext);
 /*
  * mk_store_sales
  */
-static void
+W_STORE_SALES_TBL*
 mk_master(void* info_arr, ds_key_t index, DSDGenContext& dsdGenContext) {
-  struct W_STORE_SALES_TBL* r;
-  static decimal_t dMin, dMax;
-  static int nMaxItemCount;
+  decimal_t dMin, dMax;
+  int nMaxItemCount;
   static ds_key_t kNewDateIndex = 0;
-
+  struct W_STORE_SALES_TBL* r;
   r = &dsdGenContext.g_w_store_sales;
 
   if (!dsdGenContext.mk_master_store_sales_init) {
@@ -79,6 +78,9 @@ mk_master(void* info_arr, ds_key_t index, DSDGenContext& dsdGenContext) {
         dsdGenContext);
 
     dsdGenContext.mk_master_store_sales_init = 1;
+  } else {
+    strtodec(&dMin, "1.00");
+    strtodec(&dMax, "100000.00");
   }
 
   while (index > kNewDateIndex) /* need to move to a new date */
@@ -108,16 +110,14 @@ mk_master(void* info_arr, ds_key_t index, DSDGenContext& dsdGenContext) {
       SS_SOLD_ITEM_SK,
       dsdGenContext);
 
-  return;
+  return r;
 }
 
-static void
-mk_detail(void* info_arr, int bPrint, DSDGenContext& dsdGenContext) {
+void
+mk_detail(void* info_arr, int bPrint, struct W_STORE_SALES_TBL* r, DSDGenContext& dsdGenContext) {
   int nTemp;
-  struct W_STORE_SALES_TBL* r;
   tdef* pT = getSimpleTdefsByNumber(STORE_SALES, dsdGenContext);
 
-  r = &dsdGenContext.g_w_store_sales;
 
   nullSet(&pT->kNullBitMap, SS_NULLS, dsdGenContext);
   /*
@@ -212,14 +212,16 @@ int mk_w_store_sales(
   int nLineitems, i;
   row_skip(STORE_SALES, (index - 1), dsdGenContext);
   row_skip(STORE_RETURNS, (index - 1), dsdGenContext);
+
   /* build the static portion of an order */
-  mk_master(info_arr, index, dsdGenContext);
+  struct W_STORE_SALES_TBL* r;
+  r = mk_master(info_arr, index, dsdGenContext);
 
   /* set the number of lineitems and build them */
   genrand_integer(
       &nLineitems, DIST_UNIFORM, 8, 16, 0, SS_TICKET_NUMBER, dsdGenContext);
   for (i = 1; i <= nLineitems; i++) {
-    mk_detail(info_arr, 1, dsdGenContext);
+    mk_detail(info_arr, 1, r, dsdGenContext);
   }
 
   /**
@@ -253,7 +255,9 @@ int vld_w_store_sales(
   row_skip(STORE_RETURNS, kRow - 1, dsdGenContext);
   dsdGenContext.jDate =
       skipDays(STORE_SALES, &dsdGenContext.kNewDateIndex, dsdGenContext);
-  mk_master(NULL, kRow, dsdGenContext);
+
+  struct W_STORE_SALES_TBL* r;
+  r = mk_master(NULL, kRow, dsdGenContext);
   genrand_integer(
       &nMaxLineitem, DIST_UNIFORM, 8, 16, 9, SS_TICKET_NUMBER, dsdGenContext);
   genrand_integer(
@@ -265,9 +269,9 @@ int vld_w_store_sales(
       SS_PRICING_QUANTITY,
       dsdGenContext);
   for (i = 1; i < nLineitem; i++) {
-    mk_detail(NULL, 0, dsdGenContext);
+    mk_detail(NULL, 0, r, dsdGenContext);
   }
-  mk_detail(NULL, 1, dsdGenContext);
+  mk_detail(NULL, 1, r, dsdGenContext);
 
   return (0);
 }

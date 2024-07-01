@@ -70,18 +70,15 @@ int mk_w_store_returns(
   struct W_STORE_SALES_TBL* sale = &dsdGenContext.g_w_store_sales;
   tdef* pT = getSimpleTdefsByNumber(STORE_RETURNS, dsdGenContext);
 
-  static decimal_t dMin, dMax;
+  decimal_t dMin, dMax;
   /* begin locals declarations */
   if (row == NULL)
     r = &dsdGenContext.g_w_store_returns;
   else
     r = (W_STORE_RETURNS_TBL*)row;
 
-  if (!dsdGenContext.mk_w_store_returns_init) {
     strtodec(&dMin, "1.00");
     strtodec(&dMax, "100000.00");
-    dsdGenContext.mk_w_store_returns_init = 1;
-  }
 
   nullSet(&pT->kNullBitMap, SR_NULLS, dsdGenContext);
   /*

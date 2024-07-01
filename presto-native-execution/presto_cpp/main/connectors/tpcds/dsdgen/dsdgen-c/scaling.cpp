@@ -710,20 +710,16 @@ Date.julian); *pnOrderNumber += nRowcount; row_skip(nParent, nRowcount);
  * TODO: None
  */
 ds_key_t dateScaling(int nTable, ds_key_t jDate, DSDGenContext& dsdGenContext) {
-  static dist_t* pDist;
+  dist_t* pDist;
   const d_idx_t* pDistIndex;
   date_t Date;
   int nDateWeight = 1, nCalendarTotal, nDayWeight;
   ds_key_t kRowCount = -1;
   tdef* pTdef = getSimpleTdefsByNumber(nTable, dsdGenContext);
-
-  if (!dsdGenContext.dateScaling_init) {
     pDistIndex = find_dist("calendar");
     pDist = pDistIndex->dist;
     if (!pDist)
       ReportError(QERR_NO_MEMORY, "dateScaling()", 1);
-    dsdGenContext.dateScaling_init = 1;
-  }
 
   jtodt(&Date, (int)jDate);
 

@@ -7,7 +7,7 @@
 
 ds_key_t
 skipDays(int nTable, ds_key_t* pRemainder, DSDGenContext& dsdGenContext) {
-  static date_t BaseDate;
+  date_t BaseDate;
   ds_key_t jDate;
   ds_key_t kRowCount, kFirstRow, kDayCount, index = 1;
 
@@ -15,6 +15,8 @@ skipDays(int nTable, ds_key_t* pRemainder, DSDGenContext& dsdGenContext) {
     strtodt(&BaseDate, DATA_START_DATE);
     dsdGenContext.skipDays_init = 1;
     *pRemainder = 0;
+  } else {
+    strtodt(&BaseDate, DATA_START_DATE);
   }
 
   // set initial conditions
