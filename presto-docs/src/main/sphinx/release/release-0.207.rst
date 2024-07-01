@@ -30,7 +30,7 @@ General Changes
 * Add support for column properties.
 * Add ``optimizer.max-reordered-joins`` configuration property to set the maximum number of joins that
   can be reordered at once using cost-based join reordering.
-* Add support for ``char`` type to :func:`approx_distinct`.
+* Add support for ``char`` type to :func:`!approx_distinct`.
 
 Security Changes
 ----------------

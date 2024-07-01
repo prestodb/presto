@@ -21,12 +21,12 @@ General Changes
 ---------------
 
 * Show column comments in ``DESCRIBE``
-* Add :func:`try_cast` which works like :func:`cast` but returns ``null`` if the cast fails
+* Add :func:`!try_cast` which works like :func:`!cast` but returns ``null`` if the cast fails
 * ``nullif`` now correctly returns a value with the type of the first argument
-* Fix an issue with :func:`timezone_hour` returning results in milliseconds instead of hours
+* Fix an issue with :func:`!timezone_hour` returning results in milliseconds instead of hours
 * Show a proper error message when analyzing queries with non-equijoin clauses
 * Improve "too many failures" error message when coordinator can't talk to workers
-* Minor optimization of :func:`json_size` function
+* Minor optimization of :func:`!json_size` function
 * Improve feature normalization algorithm for machine learning functions
 * Add exponential back-off to the S3 FileSystem retry logic
 * Improve CPU efficiency of semi-joins

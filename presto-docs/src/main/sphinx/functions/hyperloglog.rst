@@ -2,7 +2,7 @@
 HyperLogLog Functions
 =====================
 
-Presto implements the :func:`approx_distinct` function using the
+Presto implements the :func:`!approx_distinct` function using the
 `HyperLogLog <https://en.wikipedia.org/wiki/HyperLogLog>`_ data structure.
 
 Data Structures
@@ -25,14 +25,14 @@ Serialization
 
 Data sketches can be serialized to and deserialized from ``varbinary``. This
 allows them to be stored for later use.  Combined with the ability to merge
-multiple sketches, this allows one to calculate :func:`approx_distinct` of the
+multiple sketches, this allows one to calculate :func:!approx_distinct` of the
 elements of a partition of a query, then for the entirety of a query with very
 little cost.
 
 For example, calculating the ``HyperLogLog`` for daily unique users will allow
 weekly or monthly unique users to be calculated incrementally by combining the
 dailies. This is similar to computing weekly revenue by summing daily revenue.
-Uses of :func:`approx_distinct` with ``GROUPING SETS`` can be converted to use
+Uses of :func:`!approx_distinct` with ``GROUPING SETS`` can be converted to use
 ``HyperLogLog``.  Examples::
 
     CREATE TABLE visit_summaries (
@@ -56,7 +56,7 @@ Functions
 
     Returns the ``HyperLogLog`` sketch of the input data set of ``x``.
     The value of the maximum standard error is defaulted to ``0.01625``.
-    This data sketch underlies :func:`approx_distinct` and can be stored and
+    This data sketch underlies :func:`!approx_distinct` and can be stored and
     used later by calling ``cardinality()``.
 
 .. function:: approx_set(x, e) -> HyperLogLog
@@ -64,13 +64,13 @@ Functions
     Returns the ``HyperLogLog`` sketch of the input data set of ``x``, with
     a maximum standard error of ``e``. The current implementation of this
     function requires that ``e`` be in the range of ``[0.0040625, 0.26000]``.
-    This data sketch underlies :func:`approx_distinct` and can be stored and
+    This data sketch underlies :func:`!approx_distinct` and can be stored and
     used later by calling ``cardinality()``.
 
 .. function:: cardinality(hll) -> bigint
     :noindex:
 
-    This will perform :func:`approx_distinct` on the data summarized by the
+    This will perform :func:`!approx_distinct` on the data summarized by the
     ``hll`` HyperLogLog data sketch.
 
 .. function:: empty_approx_set() -> HyperLogLog

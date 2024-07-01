@@ -12,7 +12,7 @@ General Changes
   polling for task information update.
   ``experimental.task.info-update-refresh-max-wait`` is the configuration
   property to enable this.
-* Add support for multibyte characters in :func:`date_format`.
+* Add support for multibyte characters in :func:`!date_format`.
 
 Web UI Changes
 --------------

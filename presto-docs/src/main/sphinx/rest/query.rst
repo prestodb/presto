@@ -3,9 +3,9 @@ Query Resource
 ==============
 
 The Query REST service is the most complex of the rest services. It
-contains detailed information about nodes, and other
-details that capture the state and history of a query being executed
-on a Presto installation.
+contains detailed information about nodes, and other details that 
+capture the state and history of a query being executed on a Presto 
+installation.
 
 .. function:: GET /v1/query
 
@@ -69,6 +69,6 @@ on a Presto installation.
     	   "outputDataSize" : "32B",
     	   "outputPositions" : 1
        },
-       "outputStage" : ...
+       "outputStage" : { }
      }
 

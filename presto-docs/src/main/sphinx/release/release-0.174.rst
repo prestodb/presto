@@ -6,11 +6,11 @@ General Changes
 ---------------
 
 * Fix correctness issue for correlated subqueries containing a ``LIMIT`` clause.
-* Fix query failure when :func:`reduce` function is used with lambda expressions
-  containing :func:`array_sort`, :func:`shuffle`, :func:`reverse`, :func:`array_intersect`,
-  :func:`arrays_overlap`, :func:`concat` (for arrays) or :func:`map_concat`.
-* Fix a bug that causes underestimation of the amount of memory used by :func:`max_by`,
-  :func:`min_by`, :func:`max`, :func:`min`, and :func:`arbitrary` aggregations over
+* Fix query failure when :func:`!reduce` function is used with lambda expressions
+  containing :func:`!array_sort`, :func:`!shuffle`, :func:`!reverse`, :func:`!array_intersect`,
+  :func:`!arrays_overlap`, :func:`!concat` (for arrays) or :func:`!map_concat`.
+* Fix a bug that causes underestimation of the amount of memory used by :func:`!max_by`,
+  :func:`!min_by`, :func:`!max`, :func:`!min`, and :func:`!arbitrary` aggregations over
   varchar/varbinary columns.
 * Fix a memory leak in the coordinator that causes long-running queries in highly loaded
   clusters to consume unnecessary memory.

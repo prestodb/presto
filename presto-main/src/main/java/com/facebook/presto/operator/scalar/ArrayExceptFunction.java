@@ -17,10 +17,14 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.aggregation.OptimizedTypedSet;
 import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.OperatorDependency;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 
+import java.lang.invoke.MethodHandle;
+
+import static com.facebook.presto.common.function.OperatorType.IS_DISTINCT_FROM;
 import static java.lang.Math.max;
 
 @ScalarFunction("array_except")
@@ -33,6 +37,7 @@ public final class ArrayExceptFunction
     @SqlType("array(E)")
     public static Block except(
             @TypeParameter("E") Type type,
+            @OperatorDependency(operator = IS_DISTINCT_FROM, argumentTypes = {"E", "E"}) MethodHandle elementIsDistinctFrom,
             @SqlType("array(E)") Block leftArray,
             @SqlType("array(E)") Block rightArray)
     {
@@ -43,7 +48,7 @@ public final class ArrayExceptFunction
             return leftArray;
         }
 
-        OptimizedTypedSet typedSet = new OptimizedTypedSet(type, max(leftPositionCount, rightPositionCount));
+        OptimizedTypedSet typedSet = new OptimizedTypedSet(type, elementIsDistinctFrom, max(leftPositionCount, rightPositionCount));
         typedSet.union(rightArray);
         typedSet.except(leftArray);
 

@@ -203,6 +203,7 @@ public class DynamicFilterSourceOperator
             this.blockBuilders[channelIndex] = type.createBlockBuilder(null, EXPECTED_BLOCK_BUILDER_SIZE);
             this.valueSets[channelIndex] = new TypedSet(
                     type,
+                    Optional.empty(),
                     blockBuilders[channelIndex],
                     EXPECTED_BLOCK_BUILDER_SIZE,
                     String.format("DynamicFilterSourceOperator_%s_%d", planNodeId, channelIndex),

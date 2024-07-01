@@ -23,6 +23,7 @@ import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.CachingPlanCanonicalInfoProvider;
 import com.facebook.presto.sql.planner.PlanCanonicalInfoProvider;
+import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.google.inject.Inject;
@@ -51,7 +52,7 @@ public class HistoryBasedPlanStatisticsManager
         requireNonNull(objectMapper, "objectMapper is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.historyBasedStatisticsCacheManager = new HistoryBasedStatisticsCacheManager();
-        ObjectMapper newObjectMapper = objectMapper.copy().configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true);
+        ObjectMapper newObjectMapper = objectMapper.copy().configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true).configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY, true);
         this.planCanonicalInfoProvider = new CachingPlanCanonicalInfoProvider(historyBasedStatisticsCacheManager, newObjectMapper, metadata);
         this.config = requireNonNull(config, "config is null");
         this.isNativeExecution = featuresConfig.isNativeExecutionEnabled();
