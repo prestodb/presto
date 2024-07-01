@@ -53,9 +53,10 @@ jobs:
 
       - run: |
         if: matrix.java-version == '21.0.3'
-        env:
         # Set environment variables specific to JDK 21 here
-          MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError --add-opens java.base/java.util=ALL-UNNAMED --add-opens java.base/java.lang.reflect=ALL-UNNAMED --add-opens java.base/java.text=ALL-UNNAMED --add-opens java.base/java.awt.font=ALL-UNNAMED --add-opens java.desktop/java.awt.font=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-modules=jdk.incubator.vector --enable-preview"
+          export MAVEN_INSTALL_OPTS = "-Xmx2G -XX:+ExitOnOutOfMemoryError --add-opens java.base/java.util=ALL-UNNAMED --add-opens java.base/java.lang.reflect=ALL-UNNAMED --add-opens java.base/java.text=ALL-UNNAMED --add-opens java.base/java.awt.font=ALL-UNNAMED --add-opens java.desktop/java.awt.font=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-modules=jdk.incubator.vector --enable-preview"
+          echo " MAVEN_INSTALL_OPTS jdk 21 options "
+          echo $MAVEN_INSTALL_OPTS
       - name: Cache local Maven repository
         id: cache-maven
         uses: actions/cache@v2
@@ -117,9 +118,10 @@ jobs:
 
       - run: |
         if: matrix.java-version == '21.0.3'
-        env:
-          # Set environment variables specific to JDK 21 here
-          MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError --add-opens java.base/java.util=ALL-UNNAMED --add-opens java.base/java.lang.reflect=ALL-UNNAMED --add-opens java.base/java.text=ALL-UNNAMED --add-opens java.base/java.awt.font=ALL-UNNAMED --add-opens java.desktop/java.awt.font=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-modules=jdk.incubator.vector --enable-preview"
+        # Set environment variables specific to JDK 21 here
+          export MAVEN_INSTALL_OPTS = "-Xmx2G -XX:+ExitOnOutOfMemoryError --add-opens java.base/java.util=ALL-UNNAMED --add-opens java.base/java.lang.reflect=ALL-UNNAMED --add-opens java.base/java.text=ALL-UNNAMED --add-opens java.base/java.awt.font=ALL-UNNAMED --add-opens java.desktop/java.awt.font=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-modules=jdk.incubator.vector --enable-preview"
+          echo " MAVEN_INSTALL_OPTS jdk 21 options "
+          echo $MAVEN_INSTALL_OPTS
       - name: Cache local Maven repository
         id: cache-maven
         uses: actions/cache@v2
