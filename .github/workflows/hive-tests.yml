@@ -70,6 +70,8 @@ jobs:
       - name: Install Hive Module
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          echo "jdk 21 options "
+          echo $MAVEN_OPTS
           ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl :presto-hive-hadoop2
       - name: Run Hive Tests
         run: presto-hive-hadoop2/bin/run_hive_tests.sh
@@ -132,6 +134,8 @@ jobs:
       - name: Install Hive Module
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          echo "jdk 21 options "
+          echo $MAVEN_OPTS
           ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl :presto-hive
       - name: Run Hive Dockerized Tests
         run: ./mvnw test ${MAVEN_TEST} -pl :presto-hive -P test-hive-insert-overwrite
