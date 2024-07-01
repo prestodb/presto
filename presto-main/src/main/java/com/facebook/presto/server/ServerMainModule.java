@@ -139,6 +139,7 @@ import com.facebook.presto.server.thrift.ThriftServerInfoClient;
 import com.facebook.presto.server.thrift.ThriftServerInfoService;
 import com.facebook.presto.server.thrift.ThriftTaskClient;
 import com.facebook.presto.server.thrift.ThriftTaskService;
+import com.facebook.presto.session.sessionpropertyprovidermanagers.SystemSessionPropertyProviderManager;
 import com.facebook.presto.spi.ConnectorMetadataUpdateHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTypeSerde;
@@ -779,6 +780,8 @@ public class ServerMainModule
         //Optional Status Detector
         newOptionalBinder(binder, NodeStatusService.class);
         binder.bind(NodeStatusNotificationManager.class).in(Scopes.SINGLETON);
+
+        binder.bind(SystemSessionPropertyProviderManager.class).in(Scopes.SINGLETON);
     }
 
     @Provides
