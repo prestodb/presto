@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#include <boost/lexical_cast.hpp>
+#include <boost/uuid/uuid.hpp>
+#include <boost/uuid/uuid_io.hpp>
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 
@@ -50,18 +53,35 @@ TEST_F(UuidFunctionsTest, typeof) {
 }
 
 TEST_F(UuidFunctionsTest, castAsVarchar) {
+  const vector_size_t size = 1'000;
+  auto uuids =
+      evaluate<FlatVector<int128_t>>("uuid()", makeRowVector(ROW({}), size));
+
   auto result = evaluate<FlatVector<StringView>>(
-      "cast(uuid() as varchar)", makeRowVector(ROW({}), 10));
+      "cast(c0 as varchar)", makeRowVector({uuids}));
+
+  // Verify that CAST results as the same as boost::lexical_cast. We do not use
+  // boost::lexical_cast to implement CAST because it is too slow.
+  auto expected = makeFlatVector<std::string>(size, [&](auto row) {
+    const auto uuid = uuids->valueAt(row);
+
+    boost::uuids::uuid u;
+    memcpy(&u, &uuid, 16);
+
+    return boost::lexical_cast<std::string>(u);
+  });
+
+  velox::test::assertEqualVectors(expected, result);
 
   // Sanity check results. All strings are unique. Each string is 36 bytes
   // long.
-  std::unordered_set<std::string> uuids;
-  for (auto i = 0; i < 10; ++i) {
+  std::unordered_set<std::string> uniqueUuids;
+  for (auto i = 0; i < size; ++i) {
     const auto uuid = result->valueAt(i).str();
     ASSERT_EQ(36, uuid.size());
-    ASSERT_TRUE(uuids.insert(uuid).second);
+    ASSERT_TRUE(uniqueUuids.insert(uuid).second);
   }
-  ASSERT_EQ(10, uuids.size());
+  ASSERT_EQ(size, uniqueUuids.size());
 }
 
 TEST_F(UuidFunctionsTest, castRoundTrip) {

@@ -191,3 +191,8 @@ add_executable(velox_functions_prestosql_benchmarks_generic
                GenericBenchmark.cpp)
 target_link_libraries(velox_functions_prestosql_benchmarks_generic
                       ${BENCHMARK_DEPENDENCIES})
+
+add_executable(velox_functions_prestosql_benchmarks_uuid_cast
+               UuidCastBenchmark.cpp)
+target_link_libraries(velox_functions_prestosql_benchmarks_uuid_cast
+                      ${BENCHMARK_DEPENDENCIES})
