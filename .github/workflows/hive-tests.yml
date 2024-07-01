@@ -38,6 +38,9 @@ jobs:
     concurrency:
       group: ${{ github.workflow }}-hive-tests-${{ github.event.pull_request.number }}
       cancel-in-progress: true
+    strategy:
+      matrix:
+        java-version: [ 8,21.0.3 ]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -99,14 +102,26 @@ jobs:
     concurrency:
       group: ${{ github.workflow }}-hive-dockerized-tests-${{ github.event.pull_request.number }}
       cancel-in-progress: true
+    strategy:
+      matrix:
+        java-version: [ 8,21.0.3 ]
     steps:
       - uses: actions/checkout@v4
         with:
           show-progress: false
-      - uses: actions/setup-java@v2
+      - name: Set up JDK ${{matrix.java-version}}
+        uses: actions/setup-java@v2
         with:
+          java-version: ${{matrix.java-version}}
           distribution: 'temurin'
-          java-version: 8
+
+      - run: |
+        if: matrix.java-version == '21.0.3'
+        env:
+          # Set environment variables specific to JDK 21 here
+          MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError --add-opens java.base/java.util=ALL-UNNAMED --add-opens java.base/java.lang.reflect=ALL-UNNAMED 
+          --add-opens java.base/java.text=ALL-UNNAMED --add-opens java.base/java.awt.font=ALL-UNNAMED --add-opens java.desktop/java.awt.font=ALL-UNNAMED 
+          --add-opens=java.base/java.nio=ALL-UNNAMED --add-modules=jdk.incubator.vector --enable-preview"
       - name: Cache local Maven repository
         id: cache-maven
         uses: actions/cache@v2
