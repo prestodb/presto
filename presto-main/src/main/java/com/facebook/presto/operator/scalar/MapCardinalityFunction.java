@@ -22,7 +22,7 @@ import com.facebook.presto.spi.function.ScalarPropagateSourceStats;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 
-import static com.facebook.presto.spi.function.PropagateSourceStats.SOURCE_STATS;
+import static com.facebook.presto.spi.function.StatsPropagationBehavior.USE_SOURCE_STATS;
 
 @ScalarFunction("cardinality")
 @Description("Returns the cardinality (the number of key-value pairs) of the map")
@@ -34,7 +34,7 @@ public final class MapCardinalityFunction
     @TypeParameter("V")
     @SqlType(StandardTypes.BIGINT)
     @ScalarFunctionConstantStats(minValue = 0)
-    public static long mapCardinality(@ScalarPropagateSourceStats(nullFraction = SOURCE_STATS) @SqlType("map(K,V)") Block block)
+    public static long mapCardinality(@ScalarPropagateSourceStats(nullFraction = USE_SOURCE_STATS) @SqlType("map(K,V)") Block block)
     {
         return block.getPositionCount() / 2;
     }

@@ -163,6 +163,7 @@ public final class SqlInvokedScalarFromAnnotationsParser
         List<TypeVariableConstraint> typeVariableConstraints = stream(method.getAnnotationsByType(TypeParameter.class))
                 .map(t -> withVariadicBound(t.value(), t.boundedBy().isEmpty() ? null : t.boundedBy()))
                 .collect(toImmutableList());
+
         return Stream.concat(Stream.of(functionHeader.value()), stream(functionHeader.alias()))
                 .map(name -> new SqlInvokedFunction(
                         QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, name),

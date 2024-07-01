@@ -1941,7 +1941,7 @@ public final class SystemSessionProperties
                         false),
                 booleanProperty(SCALAR_FUNCTION_STATS_PROPAGATION_ENABLED,
                         "whether or not to respect stats propagation annotation for scalar functions (or UDF)",
-                        featuresConfig.isEnabledScalarFunctionStatsPropagation(),
+                        featuresConfig.isScalarFunctionStatsPropagationEnabled(),
                         false));
     }
 

@@ -27,11 +27,11 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionMetadata;
-import com.facebook.presto.spi.function.PropagateSourceStats;
 import com.facebook.presto.spi.function.ScalarFunctionStatsUtils;
 import com.facebook.presto.spi.function.ScalarPropagateSourceStats;
 import com.facebook.presto.spi.function.ScalarStatsHeader;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.function.StatsPropagationBehavior;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
@@ -72,11 +72,11 @@ import java.util.OptionalDouble;
 import static com.facebook.presto.common.function.OperatorType.DIVIDE;
 import static com.facebook.presto.common.function.OperatorType.MODULUS;
 import static com.facebook.presto.cost.StatsUtil.toStatsRepresentation;
-import static com.facebook.presto.spi.function.PropagateSourceStats.MAX_TYPE_WIDTH_VARCHAR;
-import static com.facebook.presto.spi.function.PropagateSourceStats.ROW_COUNT;
-import static com.facebook.presto.spi.function.PropagateSourceStats.SOURCE_STATS;
-import static com.facebook.presto.spi.function.PropagateSourceStats.TYPE_WIDTH_VARCHAR;
-import static com.facebook.presto.spi.function.PropagateSourceStats.UNKNOWN;
+import static com.facebook.presto.spi.function.StatsPropagationBehavior.MAX_TYPE_WIDTH_VARCHAR;
+import static com.facebook.presto.spi.function.StatsPropagationBehavior.ROW_COUNT;
+import static com.facebook.presto.spi.function.StatsPropagationBehavior.UNKNOWN;
+import static com.facebook.presto.spi.function.StatsPropagationBehavior.USE_SOURCE_STATS;
+import static com.facebook.presto.spi.function.StatsPropagationBehavior.USE_TYPE_WIDTH_VARCHAR;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.COALESCE;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLocation;
@@ -145,17 +145,6 @@ public class ScalarStatsCalculator
             if (functionMetadata.getOperatorType().map(OperatorType::isArithmeticOperator).orElse(false)) {
                 return computeArithmeticBinaryStatistics(call, context);
             }
-            // casting session to FullConnectorSession is not ideal.
-            boolean isStatsPropagationEnabled =
-                    SystemSessionProperties.shouldEnableScalarFunctionStatsPropagation(((FullConnectorSession) session).getSession());
-
-            if (functionMetadata.getOperatorType().map(OperatorType::isHashOperator).orElse(false) && isStatsPropagationEnabled) {
-                return computeHashCodeOperatorStatistics(call, context);
-            }
-
-            if (functionMetadata.getOperatorType().map(OperatorType::isComparisonOperator).orElse(false) && isStatsPropagationEnabled) {
-                return computeComparisonOperatorStatistics(call, context);
-            }
 
             RowExpression value = new RowExpressionOptimizer(metadata).optimize(call, OPTIMIZED, session);
 
@@ -172,18 +161,35 @@ public class ScalarStatsCalculator
                 return computeCastStatistics(call, context);
             }
 
-            if (call.getDisplayName().equals("concat")) {
-                return computeConcatStatistics(call, context);
-            }
-            if (functionMetadata.hasStatsHeader() && isStatsPropagationEnabled && call.getFunctionHandle() instanceof BuiltInFunctionHandle) {
-                Signature signature = ((BuiltInFunctionHandle) call.getFunctionHandle()).getSignature().canonicalization();
-                Optional<ScalarStatsHeader> statsHeader = functionMetadata.getStatsHeader(signature);
-                if (statsHeader.isPresent()) {
-                    return computeCallStatistics(call, context, statsHeader.get());
+            return computeStatsViaAnnotations(call, context, functionMetadata);
+        }
+
+        private VariableStatsEstimate computeStatsViaAnnotations(CallExpression call, Void context, FunctionMetadata functionMetadata)
+        {
+            // casting session to FullConnectorSession is not ideal.
+            boolean isStatsPropagationEnabled =
+                    SystemSessionProperties.shouldEnableScalarFunctionStatsPropagation(((FullConnectorSession) session).getSession());
+
+            if (isStatsPropagationEnabled) {
+                if (functionMetadata.getOperatorType().map(OperatorType::isHashOperator).orElse(false)) {
+                    return computeHashCodeOperatorStatistics(call, context);
                 }
-            }
-            else {
-                if (isStatsPropagationEnabled) {
+
+                if (functionMetadata.getOperatorType().map(OperatorType::isComparisonOperator).orElse(false)) {
+                    return computeComparisonOperatorStatistics(call, context);
+                }
+
+                if (call.getDisplayName().equals("concat")) {
+                    return computeConcatStatistics(call, context);
+                }
+                if (functionMetadata.hasStatsHeader() && call.getFunctionHandle() instanceof BuiltInFunctionHandle) {
+                    Signature signature = ((BuiltInFunctionHandle) call.getFunctionHandle()).getSignature().canonicalization();
+                    Optional<ScalarStatsHeader> statsHeader = functionMetadata.getStatsHeader(signature);
+                    if (statsHeader.isPresent()) {
+                        return computeCallStatistics(call, context, statsHeader.get());
+                    }
+                }
+                else {
                     System.out.println("Stats not found for func: " + functionMetadata.getName() + " " + call);
                 }
             }
@@ -258,12 +264,10 @@ public class ScalarStatsCalculator
             if (isFinite(statsHeader.getMin())) {
                 return statsHeader.getMin();
             }
-            else {
-                for (Map.Entry<Integer, ScalarPropagateSourceStats> paramIndexVsStatsMap : statsHeader.getArgumentStats().entrySet()) {
-                    ScalarPropagateSourceStats scalarPropagateSourceStats = paramIndexVsStatsMap.getValue();
-                    if (scalarPropagateSourceStats.propagateAllStats() || scalarPropagateSourceStats.minValue() == SOURCE_STATS) {
-                        return getSourceStats(call, context, paramIndexVsStatsMap.getKey()).getLowValue();
-                    }
+            for (Map.Entry<Integer, ScalarPropagateSourceStats> paramIndexVsStatsMap : statsHeader.getArgumentStats().entrySet()) {
+                ScalarPropagateSourceStats scalarPropagateSourceStats = paramIndexVsStatsMap.getValue();
+                if (scalarPropagateSourceStats.propagateAllStats() || scalarPropagateSourceStats.minValue() == USE_SOURCE_STATS) {
+                    return getSourceStats(call, context, paramIndexVsStatsMap.getKey()).getLowValue();
                 }
             }
             return NaN;
@@ -271,17 +275,16 @@ public class ScalarStatsCalculator
 
         private double typeWidthVarchar(CallExpression call, int argumentIndex)
         {
-            double typeWidth = NaN;
             TypeSignature typeSignature = call.getArguments().get(argumentIndex).getType().getTypeSignature();
             if (typeSignature.getTypeSignatureBase().hasStandardType() && typeSignature.getTypeSignatureBase().getStandardTypeBase().equals(StandardTypes.VARCHAR)) {
                 if (typeSignature.getParameters().size() == 1) { // Varchar type should have 1 parameter i.e. size.;
                     Long longLiteral = typeSignature.getParameters().get(0).getLongLiteral();
                     if (longLiteral > 0 && longLiteral != VarcharType.UNBOUNDED_LENGTH) {
-                        typeWidth = Math.max(typeWidth, longLiteral);
+                        return longLiteral;
                     }
                 }
             }
-            return typeWidth;
+            return NaN;
         }
 
         private double processMaxValue(CallExpression call, Void context, ScalarStatsHeader statsHeader)
@@ -289,13 +292,13 @@ public class ScalarStatsCalculator
             if (isFinite(statsHeader.getMax())) {
                 return statsHeader.getMax();
             }
-            for (Map.Entry<Integer, ScalarPropagateSourceStats> paramIndexVsStatsMap : statsHeader.getArgumentStats().entrySet()) {
-                ScalarPropagateSourceStats scalarPropagateSourceStats = paramIndexVsStatsMap.getValue();
+            for (Map.Entry<Integer, ScalarPropagateSourceStats> paramIndexToSourceStatsMap : statsHeader.getArgumentStats().entrySet()) {
+                ScalarPropagateSourceStats scalarPropagateSourceStats = paramIndexToSourceStatsMap.getValue();
                 if (scalarPropagateSourceStats.maxValue() == ROW_COUNT) {
                     return input.getOutputRowCount();
                 }
 
-                Integer argumentIndex = paramIndexVsStatsMap.getKey();
+                Integer argumentIndex = paramIndexToSourceStatsMap.getKey();
                 if (scalarPropagateSourceStats.maxValue() == MAX_TYPE_WIDTH_VARCHAR) {
                     double maxTypeWidthVarchar = NaN;
                     for (int i = 0; i < call.getArguments().size(); i++) {
@@ -303,10 +306,10 @@ public class ScalarStatsCalculator
                     }
                     return maxTypeWidthVarchar;
                 }
-                else if (scalarPropagateSourceStats.maxValue() == TYPE_WIDTH_VARCHAR) {
+                else if (scalarPropagateSourceStats.maxValue() == USE_TYPE_WIDTH_VARCHAR) {
                     return typeWidthVarchar(call, argumentIndex);
                 }
-                else if (scalarPropagateSourceStats.propagateAllStats() || scalarPropagateSourceStats.maxValue() == SOURCE_STATS) {
+                else if (scalarPropagateSourceStats.propagateAllStats() || scalarPropagateSourceStats.maxValue() == USE_SOURCE_STATS) {
                     return getSourceStats(call, context, argumentIndex).getHighValue();
                 }
                 // Other operations are unsupported
@@ -335,20 +338,20 @@ public class ScalarStatsCalculator
             }
             for (Map.Entry<Integer, ScalarPropagateSourceStats> paramIndexVsStatsMap : statsHeader.getArgumentStats().entrySet()) {
                 ScalarPropagateSourceStats scalarPropagateSourceStats = paramIndexVsStatsMap.getValue();
-                PropagateSourceStats op = scalarPropagateSourceStats.distinctValueCount();
-                if (op.isSimpleStatsFunction()) {
+                StatsPropagationBehavior operation = scalarPropagateSourceStats.distinctValueCount();
+                if (!operation.isSingleArgumentStats()) {
                     for (int i = 0; i < call.getArguments().size(); i++) {
                         VariableStatsEstimate sourceStats = getSourceStats(call, context, i);
                         if (!sourceStats.isUnknown() && isFinite(sourceStats.getDistinctValuesCount())) {
-                            switch (op) {
+                            switch (operation) {
                                 case MAX_TYPE_WIDTH_VARCHAR:
                                     distinctValuesCount = maxWithNaNs(distinctValuesCount, typeWidthVarchar(call, i));
                                     break;
                                 // min and max are handled differently when distinctValuesCount is max or sum.
-                                case MAX:
+                                case USE_MAX_ARGUMENT:
                                     statisticRange = statisticRange.addAndMaxDistinctValues(sourceStats.statisticRange());
                                     break;
-                                case SUM:
+                                case SUM_ARGUMENTS:
                                     statisticRange = statisticRange.addAndSumDistinctValues(sourceStats.statisticRange());
                                     break;
                             }
@@ -357,13 +360,13 @@ public class ScalarStatsCalculator
                 }
                 else {
                     VariableStatsEstimate sourceStats = getSourceStats(call, context, paramIndexVsStatsMap.getKey());
-                    switch (op) {
+                    switch (operation) {
                         case UNKNOWN:
                             if (scalarPropagateSourceStats.propagateAllStats()) {
                                 statisticRange = sourceStats.statisticRange();
                             }
                             break;
-                        case SOURCE_STATS:
+                        case USE_SOURCE_STATS:
                             statisticRange = sourceStats.statisticRange();
                             break;
                         case ROW_COUNT:
@@ -372,7 +375,7 @@ public class ScalarStatsCalculator
                         case ROW_COUNT_TIMES_INV_NULL_FRACTION:
                             statisticRange = new StatisticRange(min, max, input.getOutputRowCount() * (1 - nullFraction));
                             break;
-                        case TYPE_WIDTH_VARCHAR:
+                        case USE_TYPE_WIDTH_VARCHAR:
                             statisticRange = new StatisticRange(min, max, typeWidthVarchar(call, paramIndexVsStatsMap.getKey()));
                             break;
                     }
@@ -387,27 +390,27 @@ public class ScalarStatsCalculator
 
         private double processNullFraction(CallExpression call, Void context, ScalarStatsHeader statsHeader)
         {
-            double s = NaN;
+            double nullFraction = NaN;
             if (isFinite(statsHeader.getNullFraction())) {
                 return statsHeader.getNullFraction();
             }
             else {
                 for (Map.Entry<Integer, ScalarPropagateSourceStats> paramIndexVsStatsMap : statsHeader.getArgumentStats().entrySet()) {
                     ScalarPropagateSourceStats scalarPropagateSourceStats = paramIndexVsStatsMap.getValue();
-                    PropagateSourceStats op = scalarPropagateSourceStats.nullFraction();
-                    if (op.isSimpleStatsFunction()) {
+                    StatsPropagationBehavior operation = scalarPropagateSourceStats.nullFraction();
+                    if (!operation.isSingleArgumentStats()) {
                         for (int i = 0; i < call.getArguments().size(); i++) {
                             VariableStatsEstimate sourceStats = getSourceStats(call, context, i);
                             if (!sourceStats.isUnknown() && isFinite(sourceStats.getNullsFraction())) {
-                                switch (op) {
-                                    case MAX:
-                                        s = maxWithNaNs(s, sourceStats.getNullsFraction());
+                                switch (operation) {
+                                    case USE_MAX_ARGUMENT:
+                                        nullFraction = maxWithNaNs(nullFraction, sourceStats.getNullsFraction());
                                         break;
-                                    case SUM:
-                                        if (isNaN(s)) {
-                                            s = 0.0;
+                                    case SUM_ARGUMENTS:
+                                        if (isNaN(nullFraction)) {
+                                            nullFraction = 0.0;
                                         }
-                                        s = s + sourceStats.getNullsFraction();
+                                        nullFraction = nullFraction + sourceStats.getNullsFraction();
                                         break;
                                 }
                             }
@@ -415,17 +418,20 @@ public class ScalarStatsCalculator
                     }
                     else {
                         VariableStatsEstimate sourceStats = getSourceStats(call, context, paramIndexVsStatsMap.getKey());
-                        if (op == SOURCE_STATS || (op == UNKNOWN && scalarPropagateSourceStats.propagateAllStats())) {
-                            s = sourceStats.getNullsFraction();
+                        if (operation == USE_SOURCE_STATS || (operation == UNKNOWN && scalarPropagateSourceStats.propagateAllStats())) {
+                            nullFraction = sourceStats.getNullsFraction();
                         }
                     }
                 }
             }
-            return s;
+            return nullFraction;
         }
 
         private double getReturnTypeWidth(CallExpression call)
         {
+            if (call.getType() instanceof FixedWidthType) {
+                return ((FixedWidthType) call.getType()).getFixedSize();
+            }
             if (call.getType() instanceof VarcharType) {
                 VarcharType returnType = (VarcharType) call.getType();
                 if (!returnType.isUnbounded()) {
@@ -451,9 +457,6 @@ public class ScalarStatsCalculator
                     }
                 }
             }
-            else if (call.getType() instanceof FixedWidthType) {
-                return ((FixedWidthType) call.getType()).getFixedSize();
-            }
             return NaN;
         }
 
@@ -466,17 +469,17 @@ public class ScalarStatsCalculator
 
             for (Map.Entry<Integer, ScalarPropagateSourceStats> paramIndexVsStatsMap : statsHeader.getArgumentStats().entrySet()) {
                 ScalarPropagateSourceStats scalarPropagateSourceStats = paramIndexVsStatsMap.getValue();
-                PropagateSourceStats op = scalarPropagateSourceStats.avgRowSize();
-                if (op.isSimpleStatsFunction()) {
+                StatsPropagationBehavior operation = scalarPropagateSourceStats.avgRowSize();
+                if (!operation.isSingleArgumentStats()) {
                     for (int i = 0; i < call.getArguments().size(); i++) {
                         VariableStatsEstimate sourceStats = getSourceStats(call, context, i);
                         if (!sourceStats.isUnknown() && isFinite(sourceStats.getAverageRowSize())) {
                             double s1 = sourceStats.getAverageRowSize();
-                            switch (op) {
-                                case MAX:
+                            switch (operation) {
+                                case USE_MAX_ARGUMENT:
                                     avgRowSize = maxWithNaNs(avgRowSize, s1);
                                     break;
-                                case SUM:
+                                case SUM_ARGUMENTS:
                                     if (isNaN(avgRowSize)) {
                                         avgRowSize = 0;
                                     }
@@ -488,7 +491,7 @@ public class ScalarStatsCalculator
                 }
                 else {
                     VariableStatsEstimate sourceStats = getSourceStats(call, context, paramIndexVsStatsMap.getKey());
-                    if (op == SOURCE_STATS || (op == UNKNOWN && scalarPropagateSourceStats.propagateAllStats())) {
+                    if (operation == USE_SOURCE_STATS || (operation == UNKNOWN && scalarPropagateSourceStats.propagateAllStats())) {
                         avgRowSize = sourceStats.getAverageRowSize();
                     }
                 }
@@ -513,14 +516,15 @@ public class ScalarStatsCalculator
         }
 
         private VariableStatsEstimate computeConcatStatistics(CallExpression call, Void context)
-        {
-            double nullFraction = 0.0;
+        {  // Concat function is specially handled since it is a generated function for all arity.
+            double nullFraction = NaN;
             double ndv = NaN;
             double avgRowSize = 0.0;
             for (RowExpression r : call.getArguments()) {
                 VariableStatsEstimate sourceStats = r.accept(this, context);
                 if (isFinite(sourceStats.getNullsFraction())) {
                     // concat function returns null if any of the argument is null. So null fraction should add up.
+                    nullFraction = maxWithNaNs(nullFraction, 0.0);
                     nullFraction += sourceStats.getNullsFraction();
                 }
                 if (isFinite(sourceStats.getDistinctValuesCount())) {
@@ -602,13 +606,12 @@ public class ScalarStatsCalculator
         private VariableStatsEstimate computeComparisonOperatorStatistics(CallExpression call, Void context)
         {
             requireNonNull(call, "call is null");
-            VariableStatsEstimate argStats = getSourceStats(call, context, 0);
+            VariableStatsEstimate left = getSourceStats(call, context, 0);
+            VariableStatsEstimate right = getSourceStats(call, context, 1);
             VariableStatsEstimate.Builder result =
                     VariableStatsEstimate.builder()
                             .setAverageRowSize(1.0)
-                            .setNullsFraction(0.0)
-                            .setLowValue(0.0)
-                            .setHighValue(1.0)
+                            .setNullsFraction(left.getNullsFraction() + right.getNullsFraction() - left.getNullsFraction() * right.getNullsFraction())
                             .setDistinctValuesCount(2.0);
             return result.build();
         }
@@ -833,7 +836,7 @@ public class ScalarStatsCalculator
             VariableStatsEstimate right = process(node.getRight());
 
             VariableStatsEstimate.Builder result = VariableStatsEstimate.builder()
-                    .setAverageRowSize(Math.max(left.getAverageRowSize(), right.getAverageRowSize()))
+                    .setAverageRowSize(maxWithNaNs(left.getAverageRowSize(), right.getAverageRowSize()))
                     .setNullsFraction(left.getNullsFraction() + right.getNullsFraction() - left.getNullsFraction() * right.getNullsFraction())
                     .setDistinctValuesCount(minWithNaNs(left.getDistinctValuesCount() * right.getDistinctValuesCount(), input.getOutputRowCount()));
 

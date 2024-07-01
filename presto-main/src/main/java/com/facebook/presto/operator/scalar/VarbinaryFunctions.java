@@ -34,7 +34,7 @@ import java.util.zip.CRC32;
 
 import static com.facebook.presto.operator.scalar.HmacFunctions.computeHash;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.spi.function.PropagateSourceStats.SOURCE_STATS;
+import static com.facebook.presto.spi.function.StatsPropagationBehavior.USE_SOURCE_STATS;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 
@@ -309,7 +309,7 @@ public final class VarbinaryFunctions
     @SqlType(StandardTypes.VARBINARY)
     @ScalarFunctionConstantStats(avgRowSize = 16)
     public static Slice murmur3X64128(
-            @ScalarPropagateSourceStats(distinctValueCount = SOURCE_STATS, nullFraction = SOURCE_STATS) @SqlType(StandardTypes.VARBINARY) Slice slice)
+            @ScalarPropagateSourceStats(distinctValueCount = USE_SOURCE_STATS, nullFraction = USE_SOURCE_STATS) @SqlType(StandardTypes.VARBINARY) Slice slice)
     {
         return computeHash(Hashing.murmur3_128(), slice);
     }
@@ -319,7 +319,7 @@ public final class VarbinaryFunctions
     @SqlType(StandardTypes.VARBINARY)
     @ScalarFunctionConstantStats(avgRowSize = 20)
     public static Slice sha1(
-            @ScalarPropagateSourceStats(distinctValueCount = SOURCE_STATS, nullFraction = SOURCE_STATS) @SqlType(StandardTypes.VARBINARY) Slice slice)
+            @ScalarPropagateSourceStats(distinctValueCount = USE_SOURCE_STATS, nullFraction = USE_SOURCE_STATS) @SqlType(StandardTypes.VARBINARY) Slice slice)
     {
         return computeHash(Hashing.sha1(), slice);
     }
@@ -329,7 +329,7 @@ public final class VarbinaryFunctions
     @SqlType(StandardTypes.VARBINARY)
     @ScalarFunctionConstantStats(avgRowSize = 32)
     public static Slice sha256(
-            @ScalarPropagateSourceStats(distinctValueCount = SOURCE_STATS, nullFraction = SOURCE_STATS) @SqlType(StandardTypes.VARBINARY) Slice slice)
+            @ScalarPropagateSourceStats(distinctValueCount = USE_SOURCE_STATS, nullFraction = USE_SOURCE_STATS) @SqlType(StandardTypes.VARBINARY) Slice slice)
     {
         return computeHash(Hashing.sha256(), slice);
     }
@@ -339,7 +339,7 @@ public final class VarbinaryFunctions
     @SqlType(StandardTypes.VARBINARY)
     @ScalarFunctionConstantStats(avgRowSize = 64)
     public static Slice sha512(
-            @ScalarPropagateSourceStats(distinctValueCount = SOURCE_STATS, nullFraction = SOURCE_STATS) @SqlType(StandardTypes.VARBINARY) Slice slice)
+            @ScalarPropagateSourceStats(distinctValueCount = USE_SOURCE_STATS, nullFraction = USE_SOURCE_STATS) @SqlType(StandardTypes.VARBINARY) Slice slice)
     {
         return computeHash(Hashing.sha512(), slice);
     }

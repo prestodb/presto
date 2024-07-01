@@ -14,29 +14,30 @@
 package com.facebook.presto.spi.function;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
-public enum PropagateSourceStats
+public enum StatsPropagationBehavior
 {
-    MAX,
-    SUM,
-    SOURCE_STATS,
+    USE_MAX_ARGUMENT,
+    SUM_ARGUMENTS,
+    USE_SOURCE_STATS,
     ROW_COUNT,
     ROW_COUNT_TIMES_INV_NULL_FRACTION, // row_count * (1 - null_fraction)
-    TYPE_WIDTH_VARCHAR,
+    USE_TYPE_WIDTH_VARCHAR,
     MAX_TYPE_WIDTH_VARCHAR,
     UNKNOWN;
 
     /*
-     * Stats are simple when their value is calculated by operating on stats from source stats of the argument which
+     * Stats are single argument when their value is calculated by operating on stats from source stats of the argument which
      * is annotated.
      */
-    public static final Set<PropagateSourceStats> SIMPLE_STATS =
-            new HashSet<>(Arrays.asList(UNKNOWN, ROW_COUNT, ROW_COUNT_TIMES_INV_NULL_FRACTION, TYPE_WIDTH_VARCHAR, SOURCE_STATS));
+    public static final Set<StatsPropagationBehavior> SINGLE_ARGUMENT_STATS =
+            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(UNKNOWN, ROW_COUNT, ROW_COUNT_TIMES_INV_NULL_FRACTION, USE_TYPE_WIDTH_VARCHAR, USE_SOURCE_STATS)));
 
-    public boolean isSimpleStatsFunction()
+    public boolean isSingleArgumentStats()
     {
-        return SIMPLE_STATS.contains(this);
+        return SINGLE_ARGUMENT_STATS.contains(this);
     }
 }

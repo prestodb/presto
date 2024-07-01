@@ -65,8 +65,8 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
-import static com.facebook.presto.spi.function.PropagateSourceStats.ROW_COUNT;
-import static com.facebook.presto.spi.function.PropagateSourceStats.SOURCE_STATS;
+import static com.facebook.presto.spi.function.StatsPropagationBehavior.ROW_COUNT;
+import static com.facebook.presto.spi.function.StatsPropagationBehavior.USE_SOURCE_STATS;
 import static com.facebook.presto.type.DecimalOperators.modulusScalarFunction;
 import static com.facebook.presto.type.DecimalOperators.modulusSignatureBuilder;
 import static com.facebook.presto.util.Failures.checkCondition;
@@ -717,7 +717,7 @@ public final class MathFunctions
     @SqlType(StandardTypes.DOUBLE)
     @ScalarFunctionConstantStats(nullFraction = 0.0)
     public static double secure_random(
-            @ScalarPropagateSourceStats(minValue = SOURCE_STATS, distinctValueCount = ROW_COUNT) @SqlType(StandardTypes.DOUBLE) double lower,
+            @ScalarPropagateSourceStats(minValue = USE_SOURCE_STATS, distinctValueCount = ROW_COUNT) @SqlType(StandardTypes.DOUBLE) double lower,
             @SqlType(StandardTypes.DOUBLE) double upper)
     {
         checkCondition(lower < upper, INVALID_FUNCTION_ARGUMENT, "upper bound must be greater than lower bound");
@@ -732,7 +732,7 @@ public final class MathFunctions
     @SqlType(StandardTypes.TINYINT)
     @ScalarFunctionConstantStats(nullFraction = 0.0)
     public static long secureRandomTinyint(
-            @ScalarPropagateSourceStats(minValue = SOURCE_STATS, distinctValueCount = ROW_COUNT) @SqlType(StandardTypes.TINYINT) long lower,
+            @ScalarPropagateSourceStats(minValue = USE_SOURCE_STATS, distinctValueCount = ROW_COUNT) @SqlType(StandardTypes.TINYINT) long lower,
             @SqlType(StandardTypes.TINYINT) long upper)
     {
         checkCondition(lower < upper, INVALID_FUNCTION_ARGUMENT, "upper bound must be greater than lower bound");

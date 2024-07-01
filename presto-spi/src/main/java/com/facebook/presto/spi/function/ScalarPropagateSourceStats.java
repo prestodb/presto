@@ -25,10 +25,10 @@ public @interface ScalarPropagateSourceStats
 {
     boolean propagateAllStats() default false;
 
-    PropagateSourceStats minValue() default PropagateSourceStats.UNKNOWN;
-    PropagateSourceStats maxValue() default PropagateSourceStats.UNKNOWN;
-    PropagateSourceStats distinctValueCount() default PropagateSourceStats.UNKNOWN;
-    PropagateSourceStats avgRowSize() default PropagateSourceStats.UNKNOWN;
-    PropagateSourceStats nullFraction() default PropagateSourceStats.UNKNOWN;
-    PropagateSourceStats histogram() default PropagateSourceStats.UNKNOWN;
+    StatsPropagationBehavior minValue() default StatsPropagationBehavior.UNKNOWN;
+    StatsPropagationBehavior maxValue() default StatsPropagationBehavior.UNKNOWN;
+    StatsPropagationBehavior distinctValueCount() default StatsPropagationBehavior.UNKNOWN;
+    StatsPropagationBehavior avgRowSize() default StatsPropagationBehavior.UNKNOWN;
+    StatsPropagationBehavior nullFraction() default StatsPropagationBehavior.UNKNOWN;
+    StatsPropagationBehavior histogram() default StatsPropagationBehavior.UNKNOWN;
 }

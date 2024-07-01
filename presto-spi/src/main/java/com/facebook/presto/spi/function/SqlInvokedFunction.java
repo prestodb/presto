@@ -105,7 +105,6 @@ public class SqlInvokedFunction
     {
         this(functionName, parameters, emptyList(), returnType, description, routineCharacteristics, body, version, kind, aggregationMetadata);
     }
-
     public SqlInvokedFunction(
             QualifiedObjectName functionName,
             List<Parameter> parameters,

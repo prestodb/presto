@@ -14,11 +14,11 @@ remote exchange (GATHER, SINGLE, [])
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, [custkey])
                                         cross join:
-                                            scan customer
+                                            final aggregation over ()
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (GATHER, SINGLE, [])
+                                                        partial aggregation over ()
+                                                            scan customer
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPLICATE, BROADCAST, [])
-                                                    final aggregation over ()
-                                                        local exchange (GATHER, SINGLE, [])
-                                                            remote exchange (GATHER, SINGLE, [])
-                                                                partial aggregation over ()
-                                                                    scan customer
+                                                remote exchange (GATHER, SINGLE, [])
+                                                    scan customer

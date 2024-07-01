@@ -24,7 +24,7 @@ import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hashing;
 import io.airlift.slice.Slice;
 
-import static com.facebook.presto.spi.function.PropagateSourceStats.SOURCE_STATS;
+import static com.facebook.presto.spi.function.StatsPropagationBehavior.USE_SOURCE_STATS;
 import static io.airlift.slice.Slices.wrappedBuffer;
 
 public final class HmacFunctions
@@ -36,7 +36,7 @@ public final class HmacFunctions
     @SqlType(StandardTypes.VARBINARY)
     @ScalarFunctionConstantStats(avgRowSize = 32)
     public static Slice hmacMd5(
-            @ScalarPropagateSourceStats(distinctValueCount = SOURCE_STATS, nullFraction = SOURCE_STATS) @SqlType(StandardTypes.VARBINARY) Slice slice,
+            @ScalarPropagateSourceStats(distinctValueCount = USE_SOURCE_STATS, nullFraction = USE_SOURCE_STATS) @SqlType(StandardTypes.VARBINARY) Slice slice,
             @SqlType(StandardTypes.VARBINARY) Slice key)
     {
         return computeHash(Hashing.hmacMd5(key.getBytes()), slice);
@@ -47,7 +47,7 @@ public final class HmacFunctions
     @SqlType(StandardTypes.VARBINARY)
     @ScalarFunctionConstantStats(avgRowSize = 20)
     public static Slice hmacSha1(
-            @ScalarPropagateSourceStats(distinctValueCount = SOURCE_STATS, nullFraction = SOURCE_STATS) @SqlType(StandardTypes.VARBINARY) Slice slice,
+            @ScalarPropagateSourceStats(distinctValueCount = USE_SOURCE_STATS, nullFraction = USE_SOURCE_STATS) @SqlType(StandardTypes.VARBINARY) Slice slice,
             @SqlType(StandardTypes.VARBINARY) Slice key)
     {
         return computeHash(Hashing.hmacSha1(key.getBytes()), slice);
@@ -58,7 +58,7 @@ public final class HmacFunctions
     @SqlType(StandardTypes.VARBINARY)
     @ScalarFunctionConstantStats(avgRowSize = 32)
     public static Slice hmacSha256(
-            @ScalarPropagateSourceStats(distinctValueCount = SOURCE_STATS, nullFraction = SOURCE_STATS) @SqlType(StandardTypes.VARBINARY) Slice slice,
+            @ScalarPropagateSourceStats(distinctValueCount = USE_SOURCE_STATS, nullFraction = USE_SOURCE_STATS) @SqlType(StandardTypes.VARBINARY) Slice slice,
             @SqlType(StandardTypes.VARBINARY) Slice key)
     {
         return computeHash(Hashing.hmacSha256(key.getBytes()), slice);

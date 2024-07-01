@@ -79,6 +79,7 @@ public final class CachingStatsProvider
                 session.getPlanNodeStatsMap().put(node.getId(), stats);
                 return stats;
             }
+
             stats = statsCalculator.calculateStats(node, this, lookup, session, types);
             verify(cache.put(node, stats) == null, "Stats already set");
             session.getPlanNodeStatsMap().put(node.getId(), stats);

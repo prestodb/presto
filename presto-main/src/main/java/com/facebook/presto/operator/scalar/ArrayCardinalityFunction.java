@@ -22,7 +22,7 @@ import com.facebook.presto.spi.function.ScalarPropagateSourceStats;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 
-import static com.facebook.presto.spi.function.PropagateSourceStats.SOURCE_STATS;
+import static com.facebook.presto.spi.function.StatsPropagationBehavior.USE_SOURCE_STATS;
 
 @Description("Returns the cardinality (length) of the array")
 @ScalarFunction("cardinality")
@@ -33,8 +33,7 @@ public final class ArrayCardinalityFunction
     @TypeParameter("E")
     @SqlType(StandardTypes.BIGINT)
     @ScalarFunctionConstantStats(minValue = 0)
-    public static long arrayCardinality(
-            @ScalarPropagateSourceStats(nullFraction = SOURCE_STATS) @SqlType("array(E)") Block block)
+    public static long arrayCardinality(@ScalarPropagateSourceStats(nullFraction = USE_SOURCE_STATS) @SqlType("array(E)") Block block)
     {
         return block.getPositionCount();
     }

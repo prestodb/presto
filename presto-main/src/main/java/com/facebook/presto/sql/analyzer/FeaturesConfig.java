@@ -3107,16 +3107,16 @@ public class FeaturesConfig
         return this;
     }
 
-    public boolean isEnabledScalarFunctionStatsPropagation()
+    public boolean isScalarFunctionStatsPropagationEnabled()
     {
         return isScalarFunctionStatsPropagationEnabled;
     }
 
-    @Config("optimizer.enable-scalar-function-stats-propagation")
+    @Config("optimizer.scalar-function-stats-propagation-enabled")
     @ConfigDescription("Respect scalar function statistics annotation for cost-based calculations in the optimizer")
-    public FeaturesConfig setEnabledScalarFunctionStatsPropagation(boolean enableScalarFunctionStatsPropagation)
+    public FeaturesConfig setScalarFunctionStatsPropagationEnabled(boolean scalarFunctionStatsPropagation)
     {
-        this.isScalarFunctionStatsPropagationEnabled = enableScalarFunctionStatsPropagation;
+        this.isScalarFunctionStatsPropagationEnabled = scalarFunctionStatsPropagation;
         return this;
     }
 
