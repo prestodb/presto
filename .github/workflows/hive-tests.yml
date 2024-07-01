@@ -40,7 +40,7 @@ jobs:
       cancel-in-progress: true
     strategy:
       matrix:
-        java-version: [ 8,21.0.3 ]
+        java-version: [ 21.0.3 ]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -102,7 +102,7 @@ jobs:
       cancel-in-progress: true
     strategy:
       matrix:
-        java-version: [ 8,21.0.3 ]
+        java-version: [ 21.0.3 ]
     steps:
       - uses: actions/checkout@v4
         with:
