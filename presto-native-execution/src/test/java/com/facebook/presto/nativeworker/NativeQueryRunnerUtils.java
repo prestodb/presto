@@ -62,8 +62,13 @@ public class NativeQueryRunnerUtils
      */
     public static void createAllTables(QueryRunner queryRunner)
     {
-        createLineitem(queryRunner);
-        createOrders(queryRunner);
+        createAllTables(queryRunner, true);
+    }
+
+    public static void createAllTables(QueryRunner queryRunner, boolean castDateToVarchar)
+    {
+        createLineitem(queryRunner, castDateToVarchar);
+        createOrders(queryRunner, castDateToVarchar);
         createOrdersEx(queryRunner);
         createOrdersHll(queryRunner);
         createNation(queryRunner);
@@ -97,11 +102,19 @@ public class NativeQueryRunnerUtils
 
     public static void createLineitem(QueryRunner queryRunner)
     {
+        createLineitem(queryRunner, true);
+    }
+
+    public static void createLineitem(QueryRunner queryRunner, boolean castDateToVarchar)
+    {
         if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "lineitem")) {
+            String shipDate = castDateToVarchar ? "cast(shipdate as varchar) as shipdate" : "shipdate";
+            String commitDate = castDateToVarchar ? "cast(commitdate as varchar) as commitdate" : "commitdate";
+            String receiptDate = castDateToVarchar ? "cast(receiptdate as varchar) as receiptdate" : "receiptdate";
             queryRunner.execute("CREATE TABLE lineitem AS " +
                     "SELECT orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax, " +
-                    "   returnflag, linestatus, cast(shipdate as varchar) as shipdate, cast(commitdate as varchar) as commitdate, " +
-                    "   cast(receiptdate as varchar) as receiptdate, shipinstruct, shipmode, comment, " +
+                    "   returnflag, linestatus, " + shipDate + ", " + commitDate + ", " + receiptDate + ", " +
+                    "   shipinstruct, shipmode, comment, " +
                     "   linestatus = 'O' as is_open, returnflag = 'R' as is_returned, " +
                     "   cast(tax as real) as tax_as_real, cast(discount as real) as discount_as_real, " +
                     "   cast(linenumber as smallint) as linenumber_as_smallint, " +
@@ -123,9 +136,15 @@ public class NativeQueryRunnerUtils
 
     public static void createOrders(QueryRunner queryRunner)
     {
+        createOrders(queryRunner, true);
+    }
+
+    public static void createOrders(QueryRunner queryRunner, boolean castDateToVarchar)
+    {
         if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "orders")) {
+            String orderDate = castDateToVarchar ? "cast(orderdate as varchar) as orderdate" : "orderdate";
             queryRunner.execute("CREATE TABLE orders AS " +
-                    "SELECT orderkey, custkey, orderstatus, totalprice, cast(orderdate as varchar) as orderdate, " +
+                    "SELECT orderkey, custkey, orderstatus, totalprice, " + orderDate + ", " +
                     "   orderpriority, clerk, shippriority, comment " +
                     "FROM tpch.tiny.orders");
         }
