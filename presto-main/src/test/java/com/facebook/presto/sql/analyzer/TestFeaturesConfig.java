@@ -273,7 +273,8 @@ public class TestFeaturesConfig
                 .setPrintEstimatedStatsFromCache(false)
                 .setUseHistograms(false)
                 .setUseNewNanDefinition(true)
-                .setWarnOnCommonNanPatterns(false));
+                .setWarnOnCommonNanPatterns(false)
+                .setRemoveNullRowInAggregation(false));
     }
 
     @Test
@@ -491,6 +492,7 @@ public class TestFeaturesConfig
                 .put("optimizer.use-histograms", "true")
                 .put("use-new-nan-definition", "false")
                 .put("warn-on-common-nan-patterns", "true")
+                .put("use-remove-null-row-in-aggregation", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -705,7 +707,8 @@ public class TestFeaturesConfig
                 .setPrintEstimatedStatsFromCache(true)
                 .setUseHistograms(true)
                 .setUseNewNanDefinition(false)
-                .setWarnOnCommonNanPatterns(true);
+                .setWarnOnCommonNanPatterns(true)
+                .setRemoveNullRowInAggregation(true);
         assertFullMapping(properties, expected);
     }
 

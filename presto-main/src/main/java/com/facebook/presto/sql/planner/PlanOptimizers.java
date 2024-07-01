@@ -101,6 +101,7 @@ import com.facebook.presto.sql.planner.iterative.rule.RemoveEmptyDelete;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveFullSample;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveIdentityProjectionsBelowProjection;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveMapCastRule;
+import com.facebook.presto.sql.planner.iterative.rule.RemoveNullRowInAggregation;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantAggregateDistinct;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantCastToVarcharInJoinClause;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantDistinct;
@@ -291,6 +292,15 @@ public class PlanOptimizers
                 new PruneTableScanColumns());
 
         builder.add(new LogicalCteOptimizer(metadata));
+
+        builder.add(new IterativeOptimizer(
+                metadata,
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                ImmutableSet.<Rule<?>>builder()
+                        .add(new RemoveNullRowInAggregation(metadata.getFunctionAndTypeManager()))
+                        .build()));
 
         IterativeOptimizer inlineProjections = new IterativeOptimizer(
                 metadata,
