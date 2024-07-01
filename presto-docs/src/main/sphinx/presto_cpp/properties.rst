@@ -124,6 +124,13 @@ The configuration properties of Presto C++ workers are described here, in alphab
   1) the non-reserved space in ``query-memory-gb`` is used up; and 2) the amount
   it tries to get is less than ``memory-pool-reserved-capacity``.
 
+``runtime-metrics-collection-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+  Enables collection of worker level metrics.
+
 ``system-memory-gb``
 ^^^^^^^^^^^^^^^^^^^^
 
