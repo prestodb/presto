@@ -507,7 +507,7 @@ export class StageDetail extends React.Component {
     refreshLoop() {
         clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
         const queryString = getFirstParameter(window.location.search).split('.');
-        const queryId = queryString[0];
+        const queryId = queryString.length > 0 ? queryString[0] : "undefined";
 
         let selectedStageId = this.state.selectedStageId;
         if (selectedStageId === null) {
