@@ -24,6 +24,8 @@ Other HTTP endpoints include:
 
 * POST: v1/memory
   * Reports memory, but no assignments are adjusted unlike in Java workers.
+* GET: v1/info/metrics
+  * Returns worker metrics in prometheus format.
 * GET: v1/info
 * GET: v1/status
 
@@ -184,6 +186,20 @@ for cleanup. Only applicable when ``enable-old-task-cleanup`` is ``true``.
 Old task is defined as a PrestoTask which has not received heartbeat for at least
 ``old-task-cleanup-ms``, or is not running and has an end time more than
 ``old-task-cleanup-ms`` ago.
+
+Worker metrics collection
+-------------------------
+
+Users can enable collection of worker level metrics by setting the property:
+
+``runtime-metrics-collection-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+  If the Presto C++ server was compiled with
+  PRESTO_ENABLE_PROMETHEUS_REPORTER set to ON, the server exposes an endpoint ``/v1/info/metrics`` to collect
+  metrics in prometheus format.
 
 
 Session Properties

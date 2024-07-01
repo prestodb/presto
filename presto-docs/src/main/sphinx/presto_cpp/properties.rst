@@ -127,6 +127,13 @@ The configuration properties of Presto C++ workers are described here, in alphab
   
   The exceeding capacity must allocate from the non-reserved query memory.
 
+``runtime-metrics-collection-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+  Enables collection of worker level metrics.
+
 ``system-memory-gb``
 ^^^^^^^^^^^^^^^^^^^^
 
