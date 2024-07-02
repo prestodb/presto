@@ -67,7 +67,7 @@ jobs:
             export MAVEN_OPTS="-Xmx2G -XX:+ExitOnOutOfMemoryError --add-opens java.base/java.util=ALL-UNNAMED --add-opens java.base/java.lang.reflect=ALL-UNNAMED --add-opens java.base/java.text=ALL-UNNAMED --add-opens java.base/java.awt.font=ALL-UNNAMED --add-opens java.desktop/java.awt.font=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-modules=jdk.incubator.vector --enable-preview"
             echo "jdk 21 options "
             echo $MAVEN_OPTS
-            ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl :presto-hive-hadoop2
+            ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl :presto-main,:presto-hive-hadoop2
           else
             export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
             echo $MAVEN_OPTS
@@ -131,10 +131,9 @@ jobs:
             export MAVEN_OPTS="-Xmx2G -XX:+ExitOnOutOfMemoryError --add-opens java.base/java.util=ALL-UNNAMED --add-opens java.base/java.lang.reflect=ALL-UNNAMED --add-opens java.base/java.text=ALL-UNNAMED --add-opens java.base/java.awt.font=ALL-UNNAMED --add-opens java.desktop/java.awt.font=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-modules=jdk.incubator.vector --enable-preview"
             echo "jdk 21 options "
             echo $MAVEN_OPTS
-            ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl :presto-hive
+            ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl :presto-main,:presto-hive
           else
             export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-            echo "jdk 21 options "
             echo $MAVEN_OPTS
             ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl :presto-hive
           fi
