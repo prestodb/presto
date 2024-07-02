@@ -427,7 +427,7 @@ public final class SystemSessionProperties
                 booleanProperty(
                         CONFIDENCE_BASED_BROADCAST_ENABLED,
                         "Enable confidence based broadcasting when enabled",
-                        false,
+                        featuresConfig.isConfidenceBasedBroadcastEnabled(),
                         false),
                 booleanProperty(
                         DISTRIBUTED_INDEX_JOIN,

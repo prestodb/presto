@@ -217,6 +217,7 @@ public class FeaturesConfig
     private boolean preferDistributedUnion = true;
     private boolean optimizeNullsInJoin;
     private boolean optimizePayloadJoins;
+    private boolean confidenceBasedBroadcastEnabled;
     private boolean pushdownDereferenceEnabled;
     private boolean inlineSqlFunctions = true;
     private boolean checkAccessControlOnUtilizedColumnsOnly;
@@ -1247,6 +1248,18 @@ public class FeaturesConfig
     public FeaturesConfig setDictionaryAggregation(boolean dictionaryAggregation)
     {
         this.dictionaryAggregation = dictionaryAggregation;
+        return this;
+    }
+
+    public boolean isConfidenceBasedBroadcastEnabled()
+    {
+        return confidenceBasedBroadcastEnabled;
+    }
+
+    @Config("optimizer.confidence-based-broadcast")
+    public FeaturesConfig setConfidenceBasedBroadcastEnabled(boolean confidenceBasedBroadcastEnabled)
+    {
+        this.confidenceBasedBroadcastEnabled = confidenceBasedBroadcastEnabled;
         return this;
     }
 
