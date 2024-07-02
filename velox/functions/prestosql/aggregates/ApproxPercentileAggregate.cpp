@@ -213,6 +213,7 @@ class ApproxPercentileAggregate : public exec::Aggregate {
               vector_size_t index) {
             digest.estimateQuantiles(percentiles, rawValues + elementsCount);
             result->setOffsetAndSize(index, elementsCount, percentiles.size());
+            result->setNull(index, false);
             elementsCount += percentiles.size();
           });
     } else {
