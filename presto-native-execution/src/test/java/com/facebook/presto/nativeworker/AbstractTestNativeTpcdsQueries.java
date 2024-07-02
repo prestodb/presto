@@ -73,6 +73,7 @@ public abstract class AbstractTestNativeTpcdsQueries
         if (!queryRunner.tableExists(session, "call_center")) {
             switch (storageFormat) {
                 case "PARQUET":
+                case "ORC":
                     queryRunner.execute(session, "CREATE TABLE call_center AS " +
                             "SELECT cc_call_center_sk, cast(cc_call_center_id as varchar) as cc_call_center_id, cc_rec_start_date, cc_rec_end_date, " +
                             "   cc_closed_date_sk, cc_open_date_sk, cc_name, cc_class, cc_employees, cc_sq_ft, cast(cc_hours as varchar) as cc_hours, " +
@@ -164,6 +165,7 @@ public abstract class AbstractTestNativeTpcdsQueries
         if (!queryRunner.tableExists(session, "date_dim")) {
             switch (storageFormat) {
                 case "PARQUET":
+                case "ORC":
                     queryRunner.execute(session, "CREATE TABLE date_dim AS " +
                             "SELECT d_date_sk, cast(d_date_id as varchar) as d_date_id, d_date, " +
                             "   d_month_seq, d_week_seq, d_quarter_seq, d_year, d_dow, d_moy, d_dom, d_qoy, d_fy_year, " +
@@ -221,6 +223,7 @@ public abstract class AbstractTestNativeTpcdsQueries
         if (!queryRunner.tableExists(session, "item")) {
             switch (storageFormat) {
                 case "PARQUET":
+                case "ORC":
                     queryRunner.execute(session, "CREATE TABLE item AS " +
                             "SELECT i_item_sk, cast(i_item_id as varchar) as i_item_id, i_rec_start_date, i_rec_end_date, " +
                             "   i_item_desc, i_current_price, i_wholesale_cost, i_brand_id, cast(i_brand as varchar) as i_brand, " +
@@ -284,6 +287,7 @@ public abstract class AbstractTestNativeTpcdsQueries
         if (!queryRunner.tableExists(session, "store")) {
             switch (storageFormat) {
                 case "PARQUET":
+                case "ORC":
                     queryRunner.execute(session, "CREATE TABLE store AS " +
                             "SELECT s_store_sk, cast(s_store_id as varchar) as s_store_id, s_rec_start_date, s_rec_end_date, " +
                             "   s_closed_date_sk, s_store_name, s_number_employees, s_floor_space, cast(s_hours as varchar) as s_hours, " +
@@ -353,6 +357,7 @@ public abstract class AbstractTestNativeTpcdsQueries
         if (!queryRunner.tableExists(session, "web_page")) {
             switch (storageFormat) {
                 case "PARQUET":
+                case "ORC":
                     queryRunner.execute(session, "CREATE TABLE web_page AS " +
                             "SELECT wp_web_page_sk, cast(wp_web_page_id as varchar) as wp_web_page_id, wp_rec_start_date, wp_rec_end_date, " +
                             "   wp_creation_date_sk, wp_access_date_sk, cast(wp_autogen_flag as varchar) as wp_autogen_flag, wp_customer_sk, " +
@@ -392,6 +397,7 @@ public abstract class AbstractTestNativeTpcdsQueries
         if (!queryRunner.tableExists(session, "web_site")) {
             switch (storageFormat) {
                 case "PARQUET":
+                case "ORC":
                     queryRunner.execute(session, "CREATE TABLE web_site AS " +
                             "SELECT web_site_sk, cast(web_site_id as varchar) as web_site_id, web_rec_start_date, web_rec_end_date, web_name, " +
                             "   web_open_date_sk, web_close_date_sk, web_class, web_manager, web_mkt_id, web_mkt_class, web_mkt_desc, web_market_manager, " +
