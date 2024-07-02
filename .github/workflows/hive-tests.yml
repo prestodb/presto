@@ -138,4 +138,4 @@ jobs:
             ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl :presto-hive
           fi
       - name: Run Hive Dockerized Tests
-        run: ./mvnw test ${MAVEN_TEST} -pl :presto-hive -P test-hive-insert-overwrite
+        run: ./mvnw test ${MAVEN_TEST} -pl :presto-hive -P test-hive-insert-overwrite,'!ui'
