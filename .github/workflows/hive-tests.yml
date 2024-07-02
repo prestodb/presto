@@ -50,9 +50,9 @@ jobs:
         with:
           java-version: ${{matrix.java-version}}
           distribution: 'temurin'
-      - run: |
+      - name: Set additional maven options for ${{matrix.java-version}}
         if: matrix.java-version == '21.0.3'
-        # Set environment variables specific to JDK 21 here
+        run: |
           export MAVEN_INSTALL_OPTS = "-Xmx2G -XX:+ExitOnOutOfMemoryError --add-opens java.base/java.util=ALL-UNNAMED --add-opens java.base/java.lang.reflect=ALL-UNNAMED --add-opens java.base/java.text=ALL-UNNAMED --add-opens java.base/java.awt.font=ALL-UNNAMED --add-opens java.desktop/java.awt.font=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-modules=jdk.incubator.vector --enable-preview"
           echo " MAVEN_INSTALL_OPTS jdk 21 options "
           echo $MAVEN_INSTALL_OPTS
@@ -114,9 +114,9 @@ jobs:
         with:
           java-version: ${{matrix.java-version}}
           distribution: 'temurin'
-      - run: |
+      - name: Set additional maven options for ${{matrix.java-version}}
         if: matrix.java-version == '21.0.3'
-        # Set environment variables specific to JDK 21 here
+        run: |
           export MAVEN_INSTALL_OPTS = "-Xmx2G -XX:+ExitOnOutOfMemoryError --add-opens java.base/java.util=ALL-UNNAMED --add-opens java.base/java.lang.reflect=ALL-UNNAMED --add-opens java.base/java.text=ALL-UNNAMED --add-opens java.base/java.awt.font=ALL-UNNAMED --add-opens java.desktop/java.awt.font=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-modules=jdk.incubator.vector --enable-preview"
           echo " MAVEN_INSTALL_OPTS jdk 21 options "
           echo $MAVEN_INSTALL_OPTS
