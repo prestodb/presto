@@ -912,7 +912,7 @@ class GroupIdNode : public PlanNode {
     return aggregationInputs_;
   }
 
-  const std::string& groupIdName() {
+  const std::string& groupIdName() const {
     return groupIdName_;
   }
 
