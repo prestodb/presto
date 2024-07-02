@@ -15,36 +15,53 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.SqlVarbinary;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.operator.aggregation.sketch.kll.KllSketchAggregationState;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
-import org.apache.datasketches.common.ArrayOfBooleansSerDe;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.apache.datasketches.common.ArrayOfDoublesSerDe;
-import org.apache.datasketches.common.ArrayOfLongsSerDe;
-import org.apache.datasketches.common.ArrayOfStringsSerDe;
 import org.apache.datasketches.kll.KllItemsSketch;
-import org.apache.datasketches.memory.Memory;
 import org.apache.datasketches.memory.WritableMemory;
 import org.intellij.lang.annotations.Language;
 import org.testng.Assert.ThrowingRunnable;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.BiConsumer;
+import java.util.stream.Collectors;
 import java.util.stream.DoubleStream;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.DecimalType.createDecimalType;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.RealType.REAL;
+import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.TimeType.TIME;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -54,11 +71,10 @@ public class TestKllSketchAggregationFunction
 {
     private static final MetadataManager metadata = MetadataManager.createTestMetadataManager();
     private static final FunctionAndTypeManager FUNCTION_AND_TYPE_MANAGER = metadata.getFunctionAndTypeManager();
+    private static final DecimalType SHORT_DECIMAL = createDecimalType(7, 2);
+    private static final DecimalType LONG_DECIMAL = createDecimalType(19, 2);
     private static final JavaAggregationFunctionImplementation DOUBLE_FUNCTION = getFunction(DOUBLE);
     private static final JavaAggregationFunctionImplementation DOUBLE_WITH_K_FUNCTION = getFunction("sketch_kll_with_k", DOUBLE, BIGINT);
-    private static final JavaAggregationFunctionImplementation BIGINT_FUNCTION = getFunction(BIGINT);
-    private static final JavaAggregationFunctionImplementation VARCHAR_FUNCTION = getFunction(VARCHAR);
-    private static final JavaAggregationFunctionImplementation BOOLEAN_FUNCTION = getFunction(BOOLEAN);
 
     @Test
     public void testDouble()
@@ -75,7 +91,7 @@ public class TestKllSketchAggregationFunction
                 DOUBLE_FUNCTION,
                 input);
         KllItemsSketch<Double> recreated = KllItemsSketch.wrap(WritableMemory.writableWrap((result.getBytes())), Double::compareTo, new ArrayOfDoublesSerDe());
-        checkSketchesEqual(DoubleStream.of(items).boxed().toArray(Double[]::new), sketch, recreated);
+        checkSketchesEqual(Arrays.stream(items).boxed().collect(toImmutableList()), sketch, recreated);
     }
 
     @Test
@@ -97,7 +113,7 @@ public class TestKllSketchAggregationFunction
                 input,
                 kBlock.build());
         KllItemsSketch<Double> recreated = KllItemsSketch.wrap(WritableMemory.writableWrap((result.getBytes())), Double::compareTo, new ArrayOfDoublesSerDe());
-        checkSketchesEqual(DoubleStream.of(items).boxed().toArray(Double[]::new), sketch, recreated);
+        checkSketchesEqual(DoubleStream.of(items).boxed().collect(Collectors.toList()), sketch, recreated);
     }
 
     @Test
@@ -126,66 +142,76 @@ public class TestKllSketchAggregationFunction
                 kBlockHigh.build()), PrestoException.class, "k value must satisfy 8 <= k <= 65535: 65536");
     }
 
-    @Test
-    public void testBigint()
+    @DataProvider(name = "testTypes")
+    public Object[][] testTypesProvider()
     {
-        Long[] items = LongStream.iterate(0, i -> i + ThreadLocalRandom.current().nextLong(0, 100)).limit(100).boxed().toArray(Long[]::new);
-        BlockBuilder out = BIGINT.createBlockBuilder(null, items.length);
-        KllItemsSketch<Long> sketch = KllItemsSketch.newHeapInstance(Long::compareTo, new ArrayOfLongsSerDe());
-        Arrays.stream(items).forEach(item -> {
-            BIGINT.writeLong(out, item);
-            sketch.update(item);
-        });
-        Block input = out.build();
-        SqlVarbinary result = (SqlVarbinary) AggregationTestUtils.executeAggregation(
-                BIGINT_FUNCTION,
-                input);
-        KllItemsSketch<Long> recreated = KllItemsSketch.wrap(WritableMemory.writableWrap((result.getBytes())), Long::compareTo, new ArrayOfLongsSerDe());
-        checkSketchesEqual(items, sketch, recreated);
+        return new Object[][] {
+                {BIGINT, LongStream.iterate(0, i -> i + ThreadLocalRandom.current().nextLong()).boxed(), (BiConsumer<BlockBuilder, Long>) BIGINT::writeLong},
+                {INTEGER, IntStream.iterate(0, i -> i + ThreadLocalRandom.current().nextInt()).mapToLong(x -> (long) x).boxed(),
+                        (BiConsumer<BlockBuilder, Long>) INTEGER::writeLong},
+                {SMALLINT, IntStream.iterate(0, i -> i + ThreadLocalRandom.current().nextInt(0, Short.MAX_VALUE - i)).mapToLong(x -> (long) x).boxed(),
+                        (BiConsumer<BlockBuilder, Long>) SMALLINT::writeLong},
+                {TINYINT, IntStream.iterate(0, i -> i + ThreadLocalRandom.current().nextInt(0, Byte.MAX_VALUE - i)).mapToLong(x -> (long) x).boxed(),
+                        (BiConsumer<BlockBuilder, Long>) TINYINT::writeLong},
+                {INTEGER, IntStream.iterate(0, i -> i + ThreadLocalRandom.current().nextInt()).mapToLong(x -> (long) x).boxed(),
+                        (BiConsumer<BlockBuilder, Long>) INTEGER::writeLong},
+                {DOUBLE, DoubleStream.iterate(0, i -> i + ThreadLocalRandom.current().nextDouble()).boxed(), (BiConsumer<BlockBuilder, Double>) DOUBLE::writeDouble},
+                {REAL, DoubleStream.iterate(0, i -> i + ThreadLocalRandom.current().nextFloat()).boxed().map(x -> (long) Float.floatToIntBits((float) (double) x)),
+                        (BiConsumer<BlockBuilder, Long>) REAL::writeLong},
+                {SHORT_DECIMAL, LongStream.iterate(0, i -> i + ThreadLocalRandom.current().nextLong()).boxed(), (BiConsumer<BlockBuilder, Long>) SHORT_DECIMAL::writeLong},
+                {LONG_DECIMAL, LongStream.iterate(0, i -> i + ThreadLocalRandom.current().nextLong()).boxed().map(Decimals::encodeUnscaledValue),
+                        (BiConsumer<BlockBuilder, Slice>) LONG_DECIMAL::writeSlice},
+                {VARCHAR, Arrays.stream("abcdefghijklmnopqrstuvwxyz".split("")).map(Slices::utf8Slice), (BiConsumer<BlockBuilder, Slice>) VARCHAR::writeSlice},
+                {BOOLEAN, IntStream.iterate(0, i -> i + 1).limit(10).mapToObj(i -> i % 2 == 0), (BiConsumer<BlockBuilder, Boolean>) BOOLEAN::writeBoolean},
+                {DATE, LongStream.iterate(0, i -> i + 1).boxed(), (BiConsumer<BlockBuilder, Long>) DATE::writeLong},
+                {TIME, LongStream.iterate(0, i -> i + 1).boxed(), (BiConsumer<BlockBuilder, Long>) TIME::writeLong},
+                {TIMESTAMP, LongStream.iterate(0, i -> i + 1).boxed(), (BiConsumer<BlockBuilder, Long>) TIMESTAMP::writeLong},
+                {TIMESTAMP_WITH_TIME_ZONE, LongStream.iterate(0, i -> i + 1).boxed(), (BiConsumer<BlockBuilder, Long>) TIMESTAMP_WITH_TIME_ZONE::writeLong}
+        };
     }
 
-    @Test
-    public void testVarchar()
+    @Test(dataProvider = "testTypes")
+    public void testTypes(Type type, Stream<Object> values, BiConsumer<BlockBuilder, Object> writeBlockValue)
     {
-        String[] items = "abcdefghijklmnopqrstuvwxyz".split("");
-        BlockBuilder out = VARCHAR.createBlockBuilder(null, items.length);
-        KllItemsSketch<String> sketch = KllItemsSketch.newHeapInstance(String::compareTo, new ArrayOfStringsSerDe());
-        Arrays.stream(items).forEach(item -> {
-            VARCHAR.writeString(out, item);
-            sketch.update(item);
-        });
+        int length = 100;
+        JavaAggregationFunctionImplementation function = getFunction(type);
+        BlockBuilder out = type.createBlockBuilder(null, length);
+        KllSketchAggregationState.SketchParameters parameters = KllSketchAggregationState.getSketchParameters(type);
+        KllItemsSketch sketch = KllItemsSketch.<Object>newHeapInstance(parameters.getComparator(), parameters.getSerde());
+        List addedValues = values.limit(length)
+                .map(item -> {
+                    writeBlockValue.accept(out, item);
+                    sketch.update(parameters.getConversion().apply(item));
+                    return item;
+                })
+                .collect(Collectors.toList());
         Block input = out.build();
         SqlVarbinary result = (SqlVarbinary) AggregationTestUtils.executeAggregation(
-                VARCHAR_FUNCTION,
+                function,
                 input);
-        KllItemsSketch<String> recreated = KllItemsSketch.wrap(Memory.wrap(result.getBytes()), String::compareTo, new ArrayOfStringsSerDe());
-        checkSketchesEqual(items, sketch, recreated);
-    }
-
-    @Test
-    public void testBoolean()
-    {
-        Boolean[] items = IntStream.iterate(0, i -> i + 1).limit(10).mapToObj(i -> i % 2 == 0).toArray(Boolean[]::new);
-        BlockBuilder out = BOOLEAN.createBlockBuilder(null, items.length);
-        KllItemsSketch<Boolean> sketch = KllItemsSketch.newHeapInstance(Boolean::compareTo, new ArrayOfBooleansSerDe());
-        Arrays.stream(items).forEach(item -> {
-            sketch.update(item);
-            BOOLEAN.writeBoolean(out, item);
-        });
-        Block input = out.build();
-        SqlVarbinary result = (SqlVarbinary) AggregationTestUtils.executeAggregation(
-                BOOLEAN_FUNCTION,
-                input);
-        KllItemsSketch<Boolean> recreated = KllItemsSketch.wrap(Memory.wrap(result.getBytes()), Boolean::compareTo, new ArrayOfBooleansSerDe());
-        checkSketchesEqual(items, sketch, recreated);
+        KllItemsSketch recreated = KllItemsSketch.wrap(WritableMemory.writableWrap((result.getBytes())), parameters.getComparator(), parameters.getSerde());
+        List sketchItems = (List<Object>) addedValues.stream().map(parameters.getConversion()::apply).collect(Collectors.toList());
+        checkSketchesEqual(sketchItems, sketch, recreated);
     }
 
     @Test
     public void testEmptyInput()
     {
-        AggregationTestUtils.assertAggregation(DOUBLE_FUNCTION,
+        assertAggregation(DOUBLE_FUNCTION,
                 null,
                 DOUBLE.createBlockBuilder(null, 0).build());
+    }
+
+    @Test
+    public void testNulls()
+    {
+        // test no exception is thrown
+        assertAggregation(DOUBLE_FUNCTION,
+                null,
+                DOUBLE.createBlockBuilder(null, 2)
+                        .appendNull()
+                        .appendNull()
+                        .build());
     }
 
     private static void assertThrows(ThrowingRunnable runnable, Class<?> exceptionType, @Language("regexp") String regex)
@@ -200,9 +226,9 @@ public class TestKllSketchAggregationFunction
         }
     }
 
-    private static <T> void checkSketchesEqual(T[] items, KllItemsSketch<T> expected, KllItemsSketch<T> actual)
+    private static <T> void checkSketchesEqual(List<T> items, KllItemsSketch<T> expected, KllItemsSketch<T> actual)
     {
-        Arrays.stream(items).forEach(item -> assertEquals(actual.getRank(item), expected.getRank(item), 1E-8));
+        items.forEach(item -> assertEquals(actual.getRank(item), expected.getRank(item), 1E-8));
 
         assertEquals(actual.getSortedView().getCumulativeWeights(), expected.getSortedView().getCumulativeWeights(), "weights are not equal");
         assertEquals(actual.getSortedView().getQuantiles(), expected.getSortedView().getQuantiles(), "quantiles are not equal");

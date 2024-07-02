@@ -14,6 +14,12 @@
 package com.facebook.presto.operator.aggregation.sketch.kll;
 
 import com.facebook.presto.common.array.ObjectBigArray;
+import com.facebook.presto.common.type.AbstractIntType;
+import com.facebook.presto.common.type.AbstractLongType;
+import com.facebook.presto.common.type.AbstractVarcharType;
+import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.common.type.Decimals;
+import com.facebook.presto.common.type.SqlDecimal;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.aggregation.sketch.theta.ThetaSketchStateFactory;
 import com.facebook.presto.operator.aggregation.state.AbstractGroupedAccumulatorState;
@@ -32,10 +38,19 @@ import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
+import java.math.BigInteger;
 import java.util.Comparator;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.Decimals.isLongDecimal;
+import static com.facebook.presto.common.type.Decimals.isShortDecimal;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.RealType.REAL;
+import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static java.util.Objects.requireNonNull;
@@ -67,15 +82,26 @@ public interface KllSketchAggregationState
 
     <T> void setSketch(KllItemsSketch<T> sketch);
 
+    void setConversion(Function<Object, Object> conversion);
+
+    <T> void update(T item);
+
     class SketchParameters<T>
     {
         private final Comparator<T> comparator;
         private final ArrayOfItemsSerDe<T> serde;
+        private final Function<Object, Object> conversion;
 
-        public SketchParameters(Comparator<T> comparator, ArrayOfItemsSerDe<T> serde)
+        public SketchParameters(Comparator<T> comparator, ArrayOfItemsSerDe<T> serde, Function<Object, Object> conversion)
         {
             this.comparator = comparator;
             this.serde = serde;
+            this.conversion = conversion;
+        }
+
+        public SketchParameters(Comparator<T> comparator, ArrayOfItemsSerDe<T> serde)
+        {
+            this(comparator, serde, Function.identity());
         }
 
         public Comparator<T> getComparator()
@@ -87,6 +113,11 @@ public interface KllSketchAggregationState
         {
             return serde;
         }
+
+        public Function<Object, Object> getConversion()
+        {
+            return conversion;
+        }
     }
 
     class Single
@@ -96,6 +127,7 @@ public interface KllSketchAggregationState
         @Nullable
         private KllItemsSketch sketch;
         private final Type type;
+        private Function<Object, Object> conversion = Function.identity();
 
         public Single(Type type)
         {
@@ -113,6 +145,18 @@ public interface KllSketchAggregationState
         public <T> void setSketch(KllItemsSketch<T> sketch)
         {
             this.sketch = sketch;
+        }
+
+        @Override
+        public void setConversion(Function<Object, Object> conversion)
+        {
+            this.conversion = conversion;
+        }
+
+        @Override
+        public <T> void update(T item)
+        {
+            sketch.update(conversion.apply(item));
         }
 
         @Override
@@ -149,6 +193,7 @@ public interface KllSketchAggregationState
         private long accumulatedSizeInBytes;
 
         private final Type type;
+        private Function<Object, Object> conversion = Function.identity();
 
         public Grouped(Type type)
         {
@@ -180,6 +225,18 @@ public interface KllSketchAggregationState
         }
 
         @Override
+        public void setConversion(Function<Object, Object> conversion)
+        {
+            this.conversion = conversion;
+        }
+
+        @Override
+        public <T> void update(T item)
+        {
+            getSketch().update(conversion.apply(item));
+        }
+
+        @Override
         public long getEstimatedSize()
         {
             return sketches.sizeOf() + INSTANCE_SIZE + accumulatedSizeInBytes;
@@ -208,20 +265,36 @@ public interface KllSketchAggregationState
 
     static SketchParameters<?> getSketchParameters(Type type)
     {
-        if (type.getJavaType().equals(double.class)) {
+        // catch specific cases first (e.g. real and short decimal), moving to wider comparisons
+        // later
+        if (type.equals(REAL)) {
+            return new SketchParameters<>(Double::compareTo, new ArrayOfDoublesSerDe(),
+                    (Object intValue) -> (double) Float.intBitsToFloat(((Long) intValue).intValue()));
+        }
+        else if (isShortDecimal(type)) {
+            DecimalType decimalType = (DecimalType) type;
+            return new SketchParameters<>(Double::compareTo, new ArrayOfDoublesSerDe(),
+                    (Object longValue) -> new SqlDecimal(BigInteger.valueOf((long) longValue), decimalType.getScale(), decimalType.getScale()).toBigDecimal().doubleValue());
+        }
+        else if (isLongDecimal(type)) {
+            DecimalType decimalType = (DecimalType) type;
+            return new SketchParameters<>(Double::compareTo, new ArrayOfDoublesSerDe(),
+                    (Object encodedDecimal) -> new SqlDecimal(Decimals.decodeUnscaledValue((Slice) encodedDecimal), decimalType.getScale(), decimalType.getPrecision()).toBigDecimal().doubleValue());
+        }
+        else if (type.equals(DOUBLE)) {
             return new SketchParameters<>(Double::compareTo, new ArrayOfDoublesSerDe());
         }
-        else if (type.getJavaType().equals(long.class)) {
-            return new SketchParameters<>(Long::compareTo, new ArrayOfLongsSerDe());
-        }
-        else if (type.getJavaType().equals(Slice.class)) {
-            return new SketchParameters<>(String::compareTo, new ArrayOfStringsSerDe());
-        }
-        else if (type.getJavaType().equals(boolean.class)) {
+        else if (type.equals(BOOLEAN)) {
             return new SketchParameters<>(Boolean::compareTo, new ArrayOfBooleansSerDe());
         }
+        else if (type instanceof AbstractIntType || type instanceof AbstractLongType || type.equals(SMALLINT) || type.equals(TINYINT)) {
+            return new SketchParameters<>(Long::compareTo, new ArrayOfLongsSerDe());
+        }
+        else if (type instanceof AbstractVarcharType) {
+            return new SketchParameters<>(String::compareTo, new ArrayOfStringsSerDe(), (Object slice) -> ((Slice) slice).toStringUtf8());
+        }
         else {
-            throw new PrestoException(INVALID_ARGUMENTS, "failed to deserialize KLL Sketch. No suitable type found for " + type);
+            throw new PrestoException(INVALID_ARGUMENTS, "Unsupported type for KLL sketch: " + type);
         }
     }
 }
