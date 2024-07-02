@@ -203,7 +203,11 @@ public class MockConnectorFactory
             }
 
             @Override
-            public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
+            public ConnectorTableLayoutResult getTableLayoutForConstraint(
+                    ConnectorSession session,
+                    ConnectorTableHandle table,
+                    Constraint<ColumnHandle> constraint,
+                    Optional<Set<ColumnHandle>> desiredColumns)
             {
                 throw new UnsupportedOperationException();
             }
