@@ -630,6 +630,12 @@ public class OrcSelectiveRecordReader
     public Page getNextPage()
             throws IOException
     {
+        return getNextPage(this.appendRowNumber);
+    }
+
+    public Page getNextPage(boolean withRowNumbers)
+            throws IOException
+    {
         if (constantFilterIsFalse) {
             return null;
         }
@@ -721,7 +727,7 @@ public class OrcSelectiveRecordReader
             }
         }
 
-        Block[] blocks = new Block[ appendRowNumber ? outputColumns.size() + 1 : outputColumns.size()];
+        Block[] blocks = new Block[ withRowNumbers ? outputColumns.size() + 1 : outputColumns.size()];
         for (int i = 0; i < outputColumns.size(); i++) {
             int columnIndex = outputColumns.get(i);
             if (constantValues[columnIndex] != null) {
@@ -742,7 +748,7 @@ public class OrcSelectiveRecordReader
             }
         }
 
-        if (appendRowNumber) {
+        if (withRowNumbers) {
             blocks[outputColumns.size()] = createRowNumbersBlock(positionsToRead, positionCount, this.getFilePosition());
         }
         Page page = new Page(positionCount, blocks);

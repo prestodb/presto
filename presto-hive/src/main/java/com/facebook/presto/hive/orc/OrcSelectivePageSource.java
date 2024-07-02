@@ -47,8 +47,8 @@ public class OrcSelectivePageSource
     private final OrcAggregatedMemoryContext systemMemoryContext;
     private final FileFormatDataSourceStats stats;
     private final RuntimeStats runtimeStats;
-    private final boolean appendRowNumberEnabled;
     private final RowIDCoercer coercer;
+    private final boolean appendRowNumbers;
     private final boolean supplyRowIDs;
     private final OptionalInt rowIDColumnIndex;
     private boolean closed;
@@ -59,7 +59,7 @@ public class OrcSelectivePageSource
             OrcAggregatedMemoryContext systemMemoryContext,
             FileFormatDataSourceStats stats,
             RuntimeStats runtimeStats,
-            boolean appendRowNumberEnabled,
+            boolean appendRowNumbers,
             byte[] rowIDPartitionComponent,
             String rowGroupId,
             boolean supplyRowIDs)
@@ -69,8 +69,8 @@ public class OrcSelectivePageSource
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.runtimeStats = runtimeStats;
-        this.appendRowNumberEnabled = appendRowNumberEnabled;
         this.coercer = new RowIDCoercer(rowIDPartitionComponent, rowGroupId);
+        this.appendRowNumbers = appendRowNumbers;
         // TODO can we combine supplyRowIDs and rowIDColumnIndex by using
         // rowIDColumnIndex.isPresent() instead of a separate supplyRowIDs argument?
         this.supplyRowIDs = supplyRowIDs;
@@ -111,12 +111,17 @@ public class OrcSelectivePageSource
     public Page getNextPage()
     {
         try {
-            Page page = recordReader.getNextPage();
+            Page page;
+            if (supplyRowIDs) {
+                page = recordReader.getNextPage(true);
+                page = fillInRowIDs(page);
+            }
+            else {
+                page = recordReader.getNextPage();
+            }
+
             if (page == null) {
                 close();
-            }
-            else if (supplyRowIDs) { // If we need a row ID block, synthesize it here.
-                page = fillInRowIDs(page);
             }
             return page;
         }
@@ -147,7 +152,7 @@ public class OrcSelectivePageSource
         // figure out which block is the row ID and replace it
         page = page.replaceColumn(rowIDColumnIndex.getAsInt(), rowIDs);
 
-        if (!appendRowNumberEnabled) {
+        if (!this.appendRowNumbers) {
             // remove the row number block now that the row IDs have been constructed unless it was also requested
             page = page.dropColumn(page.getChannelCount() - 1);
         }
