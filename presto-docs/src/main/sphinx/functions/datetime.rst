@@ -168,6 +168,12 @@ Unit              Description
 
     Returns ``timestamp2 - timestamp1`` expressed in terms of ``unit``.
 
+.. function:: date_diff(unit, unixtime1, unixtime2) -> bigint
+
+    Returns ``unixtime2 - unixtime1`` expressed in terms of ``unit``.
+
+    Unsupported units for this function are  ``millisecond``, ``month``, ``quarter``, and ``year``.
+
 Duration Function
 -----------------
 
