@@ -17,7 +17,6 @@
 #include "velox/dwio/common/WriterFactory.h"
 
 namespace facebook::velox::dwio::common {
-
 namespace {
 
 using WriterFactoriesMap =

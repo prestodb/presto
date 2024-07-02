@@ -16,12 +16,9 @@
 
 #include "velox/dwio/common/Options.h"
 
-namespace facebook {
-namespace velox {
-namespace dwio {
-namespace common {
+namespace facebook::velox::dwio::common {
 
-FileFormat toFileFormat(std::string s) {
+FileFormat toFileFormat(std::string_view s) {
   if (s == "dwrf") {
     return FileFormat::DWRF;
   } else if (s == "rc") {
@@ -44,7 +41,7 @@ FileFormat toFileFormat(std::string s) {
   return FileFormat::UNKNOWN;
 }
 
-std::string toString(FileFormat fmt) {
+std::string_view toString(FileFormat fmt) {
   switch (fmt) {
     case FileFormat::DWRF:
       return "dwrf";
@@ -69,7 +66,4 @@ std::string toString(FileFormat fmt) {
   }
 }
 
-} // namespace common
-} // namespace dwio
-} // namespace velox
-} // namespace facebook
+} // namespace facebook::velox::dwio::common

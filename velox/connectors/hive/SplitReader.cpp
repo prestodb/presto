@@ -28,6 +28,7 @@
 
 namespace facebook::velox::connector::hive {
 namespace {
+
 template <TypeKind kind>
 VectorPtr newConstantFromString(
     const TypePtr& type,
@@ -417,14 +418,3 @@ void SplitReader::setPartitionValue(
 }
 
 } // namespace facebook::velox::connector::hive
-
-template <>
-struct fmt::formatter<facebook::velox::dwio::common::FileFormat>
-    : formatter<std::string> {
-  auto format(
-      facebook::velox::dwio::common::FileFormat fmt,
-      format_context& ctx) {
-    return formatter<std::string>::format(
-        facebook::velox::dwio::common::toString(fmt), ctx);
-  }
-};

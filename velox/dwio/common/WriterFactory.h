@@ -24,38 +24,30 @@
 
 namespace facebook::velox::dwio::common {
 
-/**
- * Writer factory interface.
- *
- * Implement this interface to provide a factory of writers
- * for a particular file format. Factory objects should be
- * registered using registerWriteFactory method to become
- * available for connectors. Only a single writer factory
- * per file format is allowed.
- */
+/// Writer factory interface.
+///
+/// Implement this interface to provide a factory of writers
+/// for a particular file format. Factory objects should be
+/// registered using registerWriteFactory method to become
+/// available for connectors. Only a single writer factory
+/// per file format is allowed.
 class WriterFactory {
  public:
-  /**
-   * Constructor.
-   * @param format File format this factory is designated to.
-   */
+  /// Constructor.
+  /// @param format File format this factory is designated to.
   explicit WriterFactory(FileFormat format) : format_(format) {}
 
   virtual ~WriterFactory() = default;
 
-  /**
-   * Get the file format ths factory is designated to.
-   */
+  /// Get the file format ths factory is designated to.
   FileFormat fileFormat() const {
     return format_;
   }
 
-  /**
-   * Create a writer object.
-   * @param sink output sink
-   * @param options writer options
-   * @return writer object
-   */
+  /// Create a writer object.
+  /// @param sink output sink
+  /// @param options writer options
+  /// @return writer object
   virtual std::unique_ptr<Writer> createWriter(
       std::unique_ptr<dwio::common::FileSink> sink,
       const dwio::common::WriterOptions& options) = 0;
@@ -64,34 +56,26 @@ class WriterFactory {
   const FileFormat format_;
 };
 
-/**
- * Register a writer factory. Only a single factory can be registered
- * for each file format. An attempt to register multiple factories for
- * a single file format would cause a failure.
- * @return true
- */
+/// Register a writer factory. Only a single factory can be registered
+/// for each file format. An attempt to register multiple factories for
+/// a single file format would cause a failure.
+// @return true
 bool registerWriterFactory(std::shared_ptr<WriterFactory> factory);
 
-/**
- * Unregister a writer factory for a specified file format.
- * @return true for unregistered factory and false for a
- * missing factory for the specified format.
- */
+/// Unregister a writer factory for a specified file format.
+/// @return true for unregistered factory and false for a
+/// missing factory for the specified format.
 bool unregisterWriterFactory(FileFormat format);
 
-/**
- * Get writer factory object for a specified file format. Results in
- * a failure if there is no registered factory for this format.
- * @return WriterFactory object
- */
+/// Get writer factory object for a specified file format. Results in
+/// a failure if there is no registered factory for this format.
+/// @return WriterFactory object
 std::shared_ptr<WriterFactory> getWriterFactory(FileFormat format);
 
-/**
- * Check if a writer factory object exists for a specified file format.
- * Returns true if there is a registered factory for this format, false
- * otherwise.
- * @return true
- */
+/// Check if a writer factory object exists for a specified file format.
+/// Returns true if there is a registered factory for this format, false
+/// otherwise.
+/// @return true
 bool hasWriterFactory(FileFormat format);
 
 } // namespace facebook::velox::dwio::common

@@ -25,14 +25,12 @@
 
 namespace facebook::velox::dwio::common {
 
-/**
- * Abstract writer class.
- *
- * Writer object is used to write a single file.
- *
- * Writer objects are created through factories implementing
- * WriterFactory interface.
- */
+/// Abstract writer class.
+///
+/// Writer object is used to write a single file.
+///
+/// Writer objects are created through factories implementing
+/// WriterFactory interface.
 class Writer {
  public:
   /// Defines the states of a file writer.
@@ -50,28 +48,20 @@ class Writer {
     return state_;
   }
 
-  /**
-   * Appends 'data' to writer. Data might still be in memory and not
-   * yet written to the file.
-   */
+  /// Appends 'data' to writer. Data might still be in memory and not
+  /// yet written to the file.
   virtual void write(const VectorPtr& data) = 0;
 
-  /**
-   * Forces the writer to flush data to the file.
-   * Does not close the writer.
-   */
+  /// Forces the writer to flush data to the file.
+  /// Does not close the writer.
   virtual void flush() = 0;
 
-  /**
-   *  Invokes flush and closes the writer.
-   *  Data can no longer be written.
-   */
+  /// Invokes flush and closes the writer.
+  ///  Data can no longer be written.
   virtual void close() = 0;
 
-  /**
-   *  Aborts the writing by closing the writer and dropping everything.
-   *  Data can no longer be written.
-   */
+  /// Aborts the writing by closing the writer and dropping everything.
+  /// Data can no longer be written.
   virtual void abort() = 0;
 
  protected:
@@ -94,4 +84,5 @@ FOLLY_ALWAYS_INLINE std::ostream& operator<<(
   os << Writer::stateString(state);
   return os;
 }
+
 } // namespace facebook::velox::dwio::common

@@ -17,6 +17,7 @@
 #include "velox/dwio/common/Writer.h"
 
 namespace facebook::velox::dwio::common {
+
 void Writer::checkStateTransition(State oldState, State newState) {
   switch (oldState) {
     case State::kInit:
@@ -73,4 +74,5 @@ void Writer::setState(State state) {
   checkStateTransition(state_, state);
   state_ = state;
 }
+
 } // namespace facebook::velox::dwio::common
