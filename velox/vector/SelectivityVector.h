@@ -437,7 +437,8 @@ class SelectivityIterator {
 template <typename Callable>
 inline void SelectivityVector::applyToSelected(Callable func) const {
   if (isAllSelected()) {
-    for (vector_size_t row = begin_; row < end_; ++row) {
+    const auto end = end_;
+    for (vector_size_t row = begin_; row < end; ++row) {
       func(row);
     }
   } else {

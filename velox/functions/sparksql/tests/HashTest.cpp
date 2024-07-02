@@ -33,6 +33,31 @@ class HashTest : public SparkFunctionBaseTest {
   VectorPtr hash(VectorPtr vector) {
     return evaluate("hash(c0)", makeRowVector({vector}));
   }
+
+  template <typename T>
+  void runSIMDHashAndAssert(
+      const T value,
+      const int32_t expectedResult,
+      const int32_t size,
+      int unSelectedRows = 0) {
+    // Generate 'size' flat vector to test SIMD code path.
+    // We use same value in the vector to make comparing the results easier.
+    std::vector<T> inputData;
+    inputData.reserve(size);
+    std::vector<int32_t> resultData;
+    resultData.reserve(size);
+    for (auto i = 0; i < size; ++i) {
+      inputData.emplace_back(value);
+      resultData.emplace_back(expectedResult);
+    }
+    auto input = makeFlatVector<T>(inputData);
+    SelectivityVector rows(size);
+    rows.setValidRange(0, unSelectedRows, false);
+    auto result =
+        evaluate<SimpleVector<int32_t>>("hash(c0)", makeRowVector({input}));
+    velox::test::assertEqualVectors(
+        makeFlatVector<int32_t>(resultData), result, rows);
+  }
 };
 
 TEST_F(HashTest, String) {
@@ -225,6 +250,22 @@ TEST_F(HashTest, row) {
 
   row->setNull(1, true);
   assertEqualVectors(makeFlatVector<int32_t>({42, 42}), hash(row));
+}
+
+TEST_F(HashTest, simd) {
+  runSIMDHashAndAssert<int8_t>(1, -559580957, 1024, 10);
+  runSIMDHashAndAssert<int16_t>(-1, -1604776387, 4096);
+  runSIMDHashAndAssert<int32_t>(0xcafecafe, 638354558, 33);
+  runSIMDHashAndAssert<int64_t>(-1, -939490007, 34);
+  runSIMDHashAndAssert<std::string>("Spark", 228093765, 33);
+  runSIMDHashAndAssert<float>(1, -466301895, 77);
+  runSIMDHashAndAssert<double>(1, -460888942, 1000, 32);
+  runSIMDHashAndAssert<Timestamp>(
+      Timestamp::fromMicros(12345678), 1402875301, 1000);
+
+  runSIMDHashAndAssert<int64_t>(-1, -939490007, 1024, 1023);
+  runSIMDHashAndAssert<int64_t>(-1, -939490007, 1024, 512);
+  runSIMDHashAndAssert<int64_t>(-1, -939490007, 1024, 3);
 }
 
 } // namespace

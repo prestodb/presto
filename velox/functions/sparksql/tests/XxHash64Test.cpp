@@ -32,6 +32,31 @@ class XxHash64Test : public SparkFunctionBaseTest {
   VectorPtr xxhash64(VectorPtr vector) {
     return evaluate("xxhash64(c0)", makeRowVector({vector}));
   }
+
+  template <typename T>
+  void runSIMDHashAndAssert(
+      const T value,
+      const int64_t expectedResult,
+      const int32_t size,
+      int unSelectedRows = 0) {
+    // Generate 'size' flat vector to test SIMD code path.
+    // We use same value in the vector to make comparing the results easier.
+    std::vector<T> inputData;
+    inputData.reserve(size);
+    std::vector<int64_t> resultData;
+    resultData.reserve(size);
+    for (auto i = 0; i < size; ++i) {
+      inputData.emplace_back(value);
+      resultData.emplace_back(expectedResult);
+    }
+    auto input = makeFlatVector<T>(inputData);
+    SelectivityVector rows(size);
+    rows.setValidRange(0, unSelectedRows, false);
+    auto result =
+        evaluate<SimpleVector<int64_t>>("xxhash64(c0)", makeRowVector({input}));
+    velox::test::assertEqualVectors(
+        makeFlatVector<int64_t>(resultData), result, rows);
+  }
 };
 
 // The expected result was obtained by running SELECT xxhash64("Spark") query
@@ -281,6 +306,22 @@ TEST_F(XxHash64Test, hashSeedVarcharArgs) {
   EXPECT_EQ(xxhash64WithSeed(42L, "hello", ""), -5179011742163812830);
   EXPECT_EQ(xxhash64WithSeed(0L, std::nullopt, "hello"), 2794345569481354659);
   EXPECT_EQ(xxhash64WithSeed(0L, "", "hello"), 1992633642622160295);
+}
+
+TEST_F(XxHash64Test, simd) {
+  runSIMDHashAndAssert<int8_t>(1, -6698625589789238999, 1024);
+  runSIMDHashAndAssert<int16_t>(-1, 2017008487422258757, 4096);
+  runSIMDHashAndAssert<int32_t>(0xcafecafe, 3599843564351570672, 33);
+  runSIMDHashAndAssert<int64_t>(-1, 3858142552250413010, 34);
+  runSIMDHashAndAssert<std::string>("Spark", -4294468057691064905, 33);
+  runSIMDHashAndAssert<float>(1, 700633588856507837, 77);
+  runSIMDHashAndAssert<double>(1, -2162451265447482029, 1000);
+  runSIMDHashAndAssert<Timestamp>(
+      Timestamp::fromMicros(12345678), 782671362992292307, 1000);
+
+  runSIMDHashAndAssert<int64_t>(-1, 3858142552250413010, 1024, 1023);
+  runSIMDHashAndAssert<int64_t>(-1, 3858142552250413010, 1024, 512);
+  runSIMDHashAndAssert<int64_t>(-1, 3858142552250413010, 1024, 3);
 }
 
 } // namespace
