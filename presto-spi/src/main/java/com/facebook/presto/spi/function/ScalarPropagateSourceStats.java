@@ -27,7 +27,7 @@ public @interface ScalarPropagateSourceStats
 
     StatsPropagationBehavior minValue() default StatsPropagationBehavior.UNKNOWN;
     StatsPropagationBehavior maxValue() default StatsPropagationBehavior.UNKNOWN;
-    StatsPropagationBehavior distinctValueCount() default StatsPropagationBehavior.UNKNOWN;
+    StatsPropagationBehavior distinctValuesCount() default StatsPropagationBehavior.UNKNOWN;
     StatsPropagationBehavior avgRowSize() default StatsPropagationBehavior.UNKNOWN;
     StatsPropagationBehavior nullFraction() default StatsPropagationBehavior.UNKNOWN;
     StatsPropagationBehavior histogram() default StatsPropagationBehavior.UNKNOWN;

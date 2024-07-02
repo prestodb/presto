@@ -338,7 +338,7 @@ public class ScalarStatsCalculator
             }
             for (Map.Entry<Integer, ScalarPropagateSourceStats> paramIndexVsStatsMap : statsHeader.getArgumentStats().entrySet()) {
                 ScalarPropagateSourceStats scalarPropagateSourceStats = paramIndexVsStatsMap.getValue();
-                StatsPropagationBehavior operation = scalarPropagateSourceStats.distinctValueCount();
+                StatsPropagationBehavior operation = scalarPropagateSourceStats.distinctValuesCount();
                 if (!operation.isSingleArgumentStats()) {
                     for (int i = 0; i < call.getArguments().size(); i++) {
                         VariableStatsEstimate sourceStats = getSourceStats(call, context, i);

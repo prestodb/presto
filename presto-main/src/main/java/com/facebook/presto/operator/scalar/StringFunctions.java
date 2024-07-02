@@ -214,7 +214,7 @@ public final class StringFunctions
     @SqlType(StandardTypes.BIGINT)
     @ScalarFunctionConstantStats(minValue = 0)
     public static long stringPosition(
-            @ScalarPropagateSourceStats(propagateAllStats = true, maxValue = USE_TYPE_WIDTH_VARCHAR, distinctValueCount = USE_TYPE_WIDTH_VARCHAR) @SqlType("varchar(x)") Slice string,
+            @ScalarPropagateSourceStats(propagateAllStats = true, maxValue = USE_TYPE_WIDTH_VARCHAR, distinctValuesCount = USE_TYPE_WIDTH_VARCHAR) @SqlType("varchar(x)") Slice string,
             @SqlType("varchar(y)") Slice substring)
     {
         return stringPositionFromStart(string, substring, 1);
@@ -226,7 +226,7 @@ public final class StringFunctions
     @SqlType(StandardTypes.BIGINT)
     @ScalarFunctionConstantStats(minValue = 0)
     public static long stringPosition(
-            @ScalarPropagateSourceStats(propagateAllStats = true, maxValue = USE_TYPE_WIDTH_VARCHAR, distinctValueCount = USE_TYPE_WIDTH_VARCHAR) @SqlType("varchar(x)") Slice string,
+            @ScalarPropagateSourceStats(propagateAllStats = true, maxValue = USE_TYPE_WIDTH_VARCHAR, distinctValuesCount = USE_TYPE_WIDTH_VARCHAR) @SqlType("varchar(x)") Slice string,
             @SqlType("varchar(y)") Slice substring,
             @SqlType(StandardTypes.BIGINT) long instance)
     {
@@ -239,7 +239,7 @@ public final class StringFunctions
     @SqlType(StandardTypes.BIGINT)
     @ScalarFunctionConstantStats(minValue = 0)
     public static long stringReversePosition(
-            @ScalarPropagateSourceStats(propagateAllStats = true, maxValue = USE_TYPE_WIDTH_VARCHAR, distinctValueCount = USE_TYPE_WIDTH_VARCHAR) @SqlType("varchar(x)") Slice string,
+            @ScalarPropagateSourceStats(propagateAllStats = true, maxValue = USE_TYPE_WIDTH_VARCHAR, distinctValuesCount = USE_TYPE_WIDTH_VARCHAR) @SqlType("varchar(x)") Slice string,
             @SqlType("varchar(y)") Slice substring)
     {
         return stringPositionFromEnd(string, substring, 1);
@@ -251,7 +251,7 @@ public final class StringFunctions
     @SqlType(StandardTypes.BIGINT)
     @ScalarFunctionConstantStats(minValue = 0)
     public static long stringReversePosition(
-            @ScalarPropagateSourceStats(propagateAllStats = true, maxValue = USE_TYPE_WIDTH_VARCHAR, distinctValueCount = USE_TYPE_WIDTH_VARCHAR) @SqlType("varchar(x)") Slice string,
+            @ScalarPropagateSourceStats(propagateAllStats = true, maxValue = USE_TYPE_WIDTH_VARCHAR, distinctValuesCount = USE_TYPE_WIDTH_VARCHAR) @SqlType("varchar(x)") Slice string,
             @SqlType("varchar(y)") Slice substring,
             @SqlType(StandardTypes.BIGINT) long instance)
     {
@@ -793,7 +793,7 @@ public final class StringFunctions
     @SqlType(StandardTypes.BIGINT)
     @ScalarFunctionConstantStats(minValue = 0)
     public static long levenshteinDistance(
-            @ScalarPropagateSourceStats(propagateAllStats = true, maxValue = MAX_TYPE_WIDTH_VARCHAR, distinctValueCount = MAX_TYPE_WIDTH_VARCHAR) @SqlType("varchar(x)") Slice left,
+            @ScalarPropagateSourceStats(propagateAllStats = true, maxValue = MAX_TYPE_WIDTH_VARCHAR, distinctValuesCount = MAX_TYPE_WIDTH_VARCHAR) @SqlType("varchar(x)") Slice left,
             @SqlType("varchar(y)") Slice right)
     {
         int[] leftCodePoints = castToCodePoints(left);
@@ -848,7 +848,7 @@ public final class StringFunctions
     @SqlType(StandardTypes.BIGINT)
     @ScalarFunctionConstantStats(minValue = 0)
     public static long hammingDistance(
-            @ScalarPropagateSourceStats(propagateAllStats = true, distinctValueCount = MAX_TYPE_WIDTH_VARCHAR) @SqlType("varchar(x)") Slice left,
+            @ScalarPropagateSourceStats(propagateAllStats = true, maxValue = MAX_TYPE_WIDTH_VARCHAR, distinctValuesCount = MAX_TYPE_WIDTH_VARCHAR) @SqlType("varchar(x)") Slice left,
             @SqlType("varchar(y)") Slice right)
     {
         int distance = 0;
@@ -960,7 +960,7 @@ public final class StringFunctions
     @Constraint(variable = "u", expression = "x + y")
     @SqlType("char(u)")
     public static Slice concat(@LiteralParameter("x") Long x,
-            @ScalarPropagateSourceStats(propagateAllStats = true, nullFraction = USE_MAX_ARGUMENT, avgRowSize = SUM_ARGUMENTS, distinctValueCount = ROW_COUNT) @SqlType("char(x)") Slice left,
+            @ScalarPropagateSourceStats(propagateAllStats = true, nullFraction = USE_MAX_ARGUMENT, avgRowSize = SUM_ARGUMENTS, distinctValuesCount = ROW_COUNT) @SqlType("char(x)") Slice left,
             @SqlType("char(y)") Slice right)
     {
         int rightLength = right.length();

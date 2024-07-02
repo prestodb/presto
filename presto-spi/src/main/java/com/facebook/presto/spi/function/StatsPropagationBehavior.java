@@ -20,13 +20,21 @@ import java.util.Set;
 
 public enum StatsPropagationBehavior
 {
+    /** Use the max value across all arguments to derive the new stats value */
     USE_MAX_ARGUMENT,
+    /** Sum the stats value of all arguments to derive the new stats value */
     SUM_ARGUMENTS,
+    /** Propagate the source stats as-is */
     USE_SOURCE_STATS,
+    /** Use the value of output row count. */
     ROW_COUNT,
-    ROW_COUNT_TIMES_INV_NULL_FRACTION, // row_count * (1 - null_fraction)
+    /** Use the value of row_count * (1 - null_fraction). */
+    ROW_COUNT_TIMES_INV_NULL_FRACTION,
+    /** use the value of TYPE_WIDTH in varchar(TYPE_WIDTH) */
     USE_TYPE_WIDTH_VARCHAR,
+    /** Take max of type width of arguments with varchar type. */
     MAX_TYPE_WIDTH_VARCHAR,
+    /** Stats are unknown and thus no action is performed. */
     UNKNOWN;
 
     /*
