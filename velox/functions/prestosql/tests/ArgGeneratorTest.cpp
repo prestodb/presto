@@ -19,6 +19,7 @@
 #include "velox/functions/prestosql/fuzzer/ModulusArgGenerator.h"
 #include "velox/functions/prestosql/fuzzer/MultiplyArgGenerator.h"
 #include "velox/functions/prestosql/fuzzer/PlusMinusArgGenerator.h"
+#include "velox/functions/prestosql/fuzzer/TruncateArgGenerator.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 
 using namespace facebook::velox;
@@ -131,6 +132,22 @@ TEST_F(ArgGeneratorTest, modulus) {
   assertReturnType(generator, signature, DECIMAL(38, 20));
   assertReturnType(generator, signature, DECIMAL(38, 38));
   assertReturnType(generator, signature, DECIMAL(38, 0));
+}
+
+TEST_F(ArgGeneratorTest, truncate) {
+  const auto signatures = getSignatures("truncate", "decimal");
+  VELOX_CHECK_EQ(signatures.size(), 2);
+  const auto& signature = signatures[0]->argumentTypes().size() == 1
+      ? *signatures[0]
+      : *signatures[1];
+  const auto generator = std::make_shared<exec::test::TruncateArgGenerator>();
+
+  assertReturnType(generator, signature, DECIMAL(1, 0));
+  assertReturnType(generator, signature, DECIMAL(10, 0));
+  assertReturnType(generator, signature, DECIMAL(18, 0));
+  assertReturnType(generator, signature, DECIMAL(32, 0));
+  assertReturnType(generator, signature, DECIMAL(38, 0));
+  assertEmptyArgs(generator, signature, DECIMAL(10, 2));
 }
 
 } // namespace
