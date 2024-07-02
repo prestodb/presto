@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.spi;
 
-import java.security.Principal;
 import java.util.Map;
 import java.util.Optional;
 
@@ -21,5 +20,5 @@ public interface RequestModifier
 {
     String getHeaderName();
 
-    Optional<Map.Entry<String, String>> getExtraHeaders(Principal principal);
+    <T> Optional<Map.Entry<String, String>> getExtraHeaders(T additionalInfo);
 }
