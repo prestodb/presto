@@ -27,7 +27,7 @@
 
 namespace facebook::velox {
 
-/// Implements an arena backed by MappedMemory::Allocation. This is for backing
+/// Implements an arena backed by memory::Allocation. This is for backing
 /// ByteOutputStream or for allocating single blocks. Blocks can be individually
 /// freed. Adjacent frees are coalesced and free blocks are kept in a free list.
 /// Allocated blocks are prefixed with a Header. This has a size and flags.

@@ -16,7 +16,7 @@
 
 #include <gflags/gflags.h>
 
-// Used in velox/common/memory/MappedMemory.cpp
+// Used in velox/common/memory/Memory.cpp
 
 DEFINE_int32(
     velox_memory_num_shared_leaf_pools,

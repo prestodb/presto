@@ -2,7 +2,7 @@
 Arena Allocation
 ================
 
-exec::HashStringAllocator implements an arena backed by MappedMemory::Allocation
+exec::HashStringAllocator implements an arena backed by memory::Allocation
 and supports contiguous and non-contiguous allocations. It is used to store
 variable width accumulators for the aggregate functions, hash tables for joins
 and aggregations. It is also used to back byte streams used to serialize and
