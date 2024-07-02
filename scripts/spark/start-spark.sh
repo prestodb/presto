@@ -15,5 +15,4 @@
 
 set -e
 
-cd $SPARK_HOME
-./sbin/start-connect-server.sh --jars $SPARK_HOME/jars/spark-connect_2.12-3.5.1.jar
+$SPARK_HOME/sbin/start-connect-server.sh --jars $SPARK_HOME/misc/spark-connect_2.12-3.5.1.jar

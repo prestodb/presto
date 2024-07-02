@@ -30,7 +30,8 @@ RUN dnf install -y java-11-openjdk less procps python3 tzdata \
     && ln -s $(which python3) /usr/bin/python \
     && tar -zxf $SPARK_PKG \
     && mv ./spark-${SPARK_VERSION}-bin-hadoop3 $SPARK_HOME \
-    && mv ./$SPARK_CONNECT_JAR ${SPARK_HOME}/jars/
+    && mkdir ${SPARK_HOME}/misc/ \
+    && mv ./$SPARK_CONNECT_JAR ${SPARK_HOME}/misc/
 
 # We set the timezone to America/Los_Angeles due to issue
 # detailed here : https://github.com/facebookincubator/velox/issues/8127
