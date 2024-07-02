@@ -19,6 +19,7 @@
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/connectors/hive/PartitionIdGenerator.h"
+#include "velox/exec/MergeJoin.h"
 #include "velox/exec/OperatorUtils.h"
 #include "velox/exec/fuzzer/FuzzerUtil.h"
 #include "velox/exec/fuzzer/ReferenceQueryRunner.h"
@@ -859,9 +860,7 @@ void JoinFuzzer::makeAlternativePlans(
           .planNode()});
 
   // Use OrderBy + MergeJoin
-  if (joinNode->isInnerJoin() || joinNode->isLeftJoin() ||
-      joinNode->isLeftSemiFilterJoin() || joinNode->isRightSemiFilterJoin() ||
-      joinNode->isAntiJoin() || joinNode->isRightJoin()) {
+  if (exec::MergeJoin::isSupported(joinNode->joinType())) {
     auto planWithSplits = makeMergeJoinPlan(
         joinType, probeKeys, buildKeys, probeInput, buildInput, outputColumns);
     plans.push_back(planWithSplits);

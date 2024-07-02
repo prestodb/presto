@@ -68,6 +68,9 @@ class MergeJoin : public Operator {
     Operator::close();
   }
 
+  /// If merge join supports this join type.
+  static bool isSupported(core::JoinType joinType);
+
  private:
   // Sets up 'filter_' and related member variables.
   void initializeFilter(

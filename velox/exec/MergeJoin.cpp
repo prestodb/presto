@@ -20,13 +20,6 @@
 
 namespace facebook::velox::exec {
 
-namespace {
-bool supportsMergeJoin(std::shared_ptr<const core::MergeJoinNode> joinNode) {
-  return joinNode->isInnerJoin() || joinNode->isLeftJoin() ||
-      joinNode->isLeftSemiFilterJoin() || joinNode->isRightSemiFilterJoin() ||
-      joinNode->isAntiJoin() || joinNode->isRightJoin();
-}
-} // namespace
 MergeJoin::MergeJoin(
     int32_t operatorId,
     DriverCtx* driverCtx,
@@ -42,9 +35,25 @@ MergeJoin::MergeJoin(
       numKeys_{joinNode->leftKeys().size()},
       joinNode_(joinNode) {
   VELOX_USER_CHECK(
-      supportsMergeJoin(joinNode_),
+      isSupported(joinNode_->joinType()),
       "The join type is not supported by merge join: ",
       joinTypeName(joinNode_->joinType()));
+}
+
+// static
+bool MergeJoin::isSupported(core::JoinType joinType) {
+  switch (joinType) {
+    case core::JoinType::kInner:
+    case core::JoinType::kLeft:
+    case core::JoinType::kRight:
+    case core::JoinType::kLeftSemiFilter:
+    case core::JoinType::kRightSemiFilter:
+    case core::JoinType::kAnti:
+      return true;
+
+    default:
+      return false;
+  }
 }
 
 void MergeJoin::initialize() {
