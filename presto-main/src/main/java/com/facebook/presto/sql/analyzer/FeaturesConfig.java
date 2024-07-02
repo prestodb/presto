@@ -308,6 +308,7 @@ public class FeaturesConfig
     private boolean limitNumberOfGroupsForKHyperLogLogAggregations = true;
     private boolean generateDomainFilters;
     private boolean printEstimatedStatsFromCache;
+    private boolean delegatingRowOptimizerEnabled;
     private CreateView.Security defaultViewSecurityMode = DEFINER;
     private boolean useHistograms;
 
@@ -3144,6 +3145,19 @@ public class FeaturesConfig
     public FeaturesConfig setWarnOnCommonNanPatterns(boolean warnOnPossibleNans)
     {
         this.warnOnPossibleNans = warnOnPossibleNans;
+        return this;
+    }
+
+    public boolean isDelegatingRowExpressionOptimizerEnabled()
+    {
+        return delegatingRowOptimizerEnabled;
+    }
+
+    @Config("optimizer.delegating-row-expression-optimizer-enabled")
+    @ConfigDescription("Enable delegating row optimizer")
+    public FeaturesConfig setDelegatingRowExpressionOptimizerEnabled(boolean delegatingRowOptimizerEnabled)
+    {
+        this.delegatingRowOptimizerEnabled = delegatingRowOptimizerEnabled;
         return this;
     }
 }

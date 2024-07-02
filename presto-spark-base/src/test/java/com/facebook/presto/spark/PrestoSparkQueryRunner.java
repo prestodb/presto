@@ -64,6 +64,7 @@ import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
+import com.facebook.presto.sql.expressions.ExpressionManager;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
@@ -493,6 +494,12 @@ public class PrestoSparkQueryRunner
     public TestingAccessControlManager getAccessControl()
     {
         return testingAccessControlManager;
+    }
+
+    @Override
+    public ExpressionManager getExpressionManager()
+    {
+        throw new UnsupportedOperationException();
     }
 
     public HistoryBasedPlanStatisticsManager getHistoryBasedPlanStatisticsManager()

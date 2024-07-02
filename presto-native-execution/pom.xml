@@ -213,6 +213,11 @@
             <groupId>com.facebook.airlift</groupId>
             <artifactId>testing</artifactId>
         </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-native-batch-expressions</artifactId>
+        </dependency>
     </dependencies>
 
     <build>

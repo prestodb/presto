@@ -26,6 +26,7 @@ import com.facebook.presto.spi.plan.LogicalPropertiesProvider;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
+import com.facebook.presto.sql.expressions.ExpressionManager;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.assertions.OptimizerAssert;
@@ -38,6 +39,8 @@ import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableMap;
 
 import java.io.Closeable;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -60,6 +63,7 @@ public class RuleTester
     private final PageSourceManager pageSourceManager;
     private final AccessControl accessControl;
     private final SqlParser sqlParser;
+    private ExpressionManager expressionManager;
 
     public RuleTester()
     {
@@ -106,6 +110,8 @@ public class RuleTester
                 connectorFactory,
                 ImmutableMap.of());
         plugins.stream().forEach(queryRunner::installPlugin);
+        expressionManager = queryRunner.getExpressionManager();
+        loadExpressions();
 
         this.metadata = queryRunner.getMetadata();
         this.transactionManager = queryRunner.getTransactionManager();
@@ -113,6 +119,16 @@ public class RuleTester
         this.pageSourceManager = queryRunner.getPageSourceManager();
         this.accessControl = queryRunner.getAccessControl();
         this.sqlParser = queryRunner.getSqlParser();
+    }
+
+    private void loadExpressions()
+    {
+        try {
+            expressionManager.loadExpressions();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     public RuleAssert assertThat(Rule rule)
@@ -195,5 +211,10 @@ public class RuleTester
             metadata.getCatalogHandle(transactionSession, session.getCatalog().get());
             return metadata.getTableMetadata(transactionSession, tableHandle).getMetadata().getTableConstraintsHolder().getTableConstraintsWithColumnHandles();
         });
+    }
+
+    public ExpressionManager getExpressionManager()
+    {
+        return expressionManager;
     }
 }

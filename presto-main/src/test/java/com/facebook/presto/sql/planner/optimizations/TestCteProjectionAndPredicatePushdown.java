@@ -144,7 +144,7 @@ public class TestCteProjectionAndPredicatePushdown
                                 new RemoveIdentityProjectionsBelowProjection(),
                                 new PruneRedundantProjectionAssignments())),
                 new PruneUnreferencedOutputs(),
-                new CteProjectionAndPredicatePushDown(metadata));
+                new CteProjectionAndPredicatePushDown(metadata, getQueryRunner().getExpressionManager()));
         assertPlan(sql, getSession(), Optimizer.PlanStage.OPTIMIZED, pattern, optimizers);
     }
 

@@ -13,21 +13,28 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.airlift.node.NodeInfo;
+import com.facebook.presto.Session;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.expressions.RowExpressionRewriter;
 import com.facebook.presto.expressions.RowExpressionTreeRewriter;
+import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
+import com.facebook.presto.sql.expressions.JsonCodecRowExpressionSerde;
+import com.facebook.presto.sql.expressions.ExpressionManager;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.Streams;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -35,7 +42,9 @@ import java.util.function.Function;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.SystemSessionProperties.DELEGATING_ROW_EXPRESSION_OPTIMIZER_ENABLED;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
@@ -43,6 +52,8 @@ import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.OR;
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static com.facebook.presto.sql.relational.Expressions.specialForm;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
@@ -179,14 +190,32 @@ public class TestSimplifyRowExpressions
 
     private static void assertSimplifies(String expression, String rowExpressionExpected)
     {
-        Expression actualExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expression));
+        try {
+            Expression actualExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expression));
 
-        TestingRowExpressionTranslator translator = new TestingRowExpressionTranslator(METADATA);
-        RowExpression actualRowExpression = translator.translate(actualExpression, TypeProvider.viewOf(TYPES));
-        RowExpression simplifiedRowExpression = SimplifyRowExpressions.rewrite(actualRowExpression, METADATA, TEST_SESSION.toConnectorSession());
-        Expression expectedByRowExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(rowExpressionExpected));
-        RowExpression simplifiedByExpression = translator.translate(expectedByRowExpression, TypeProvider.viewOf(TYPES));
-        assertEquals(normalize(simplifiedRowExpression), normalize(simplifiedByExpression));
+            InMemoryNodeManager nodeManager = new InMemoryNodeManager();
+            // TODO: @tdm double check this works, run the test
+            ExpressionManager expressionManager = new ExpressionManager(nodeManager, METADATA.getFunctionAndTypeManager(), new NodeInfo("test"), new JsonCodecRowExpressionSerde(jsonCodec(RowExpression.class)));
+            expressionManager.loadExpressions();
+
+            TestingRowExpressionTranslator translator = new TestingRowExpressionTranslator(METADATA);
+            RowExpression actualRowExpression = translator.translate(actualExpression, TypeProvider.viewOf(TYPES));
+            RowExpression simplifiedRowExpression = SimplifyRowExpressions.rewrite(actualRowExpression, METADATA, TEST_SESSION, expressionManager);
+            Expression expectedByRowExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(rowExpressionExpected));
+            RowExpression simplifiedByExpression = translator.translate(expectedByRowExpression, TypeProvider.viewOf(TYPES));
+            assertEquals(normalize(simplifiedRowExpression), normalize(simplifiedByExpression));
+
+            Session session = testSessionBuilder()
+                    .setCatalog("tpch")
+                    .setSchema(TINY_SCHEMA_NAME)
+                    .setSystemProperty(DELEGATING_ROW_EXPRESSION_OPTIMIZER_ENABLED, "true")
+                    .build();
+            RowExpression sidecarSimplifiedExpressions = SimplifyRowExpressions.rewrite(simplifiedRowExpression, METADATA, session, expressionManager);
+            assertEquals(normalize(sidecarSimplifiedExpressions), normalize(simplifiedByExpression));
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     private static RowExpression normalize(RowExpression expression)
