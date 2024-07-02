@@ -21,6 +21,9 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.common.type.FixedWidthType;
 import com.facebook.presto.common.type.TimeZoneKey;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeParameter;
+import com.facebook.presto.hive.BaseHiveColumnHandle;
 import com.facebook.presto.hive.HdfsConfiguration;
 import com.facebook.presto.hive.HdfsConfigurationInitializer;
 import com.facebook.presto.hive.HdfsContext;
@@ -38,15 +41,19 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
+import com.facebook.presto.spi.statistics.ConnectorHistogram;
+import com.facebook.presto.spi.statistics.DoubleRange;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import org.apache.commons.math3.distribution.NormalDistribution;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.iceberg.BaseTable;
@@ -87,9 +94,11 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -98,6 +107,8 @@ import static com.facebook.presto.SystemSessionProperties.ITERATIVE_OPTIMIZER_TI
 import static com.facebook.presto.SystemSessionProperties.LEGACY_TIMESTAMP;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZER_USE_HISTOGRAMS;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -109,19 +120,27 @@ import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirec
 import static com.facebook.presto.iceberg.IcebergSessionProperties.DELETE_AS_JOIN_REWRITE_ENABLED;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.STATISTIC_SNAPSHOT_RECORD_DIFFERENCE_WEIGHT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.output;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static com.facebook.presto.testing.TestingAccessControlManager.privilege;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.sql.TestTable.randomTableSuffix;
+import static com.facebook.presto.type.DecimalParametricType.DECIMAL;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.apache.iceberg.SnapshotSummary.TOTAL_DATA_FILES_PROP;
 import static org.apache.iceberg.SnapshotSummary.TOTAL_DELETE_FILES_PROP;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
@@ -1461,6 +1480,53 @@ public abstract class IcebergDistributedTestBase
         }
     }
 
+    @DataProvider(name = "validHistogramTypes")
+    public Object[][] validHistogramTypesDataProvider()
+    {
+        return new Object[][] {
+                // types not supported in Iceberg connector, but that histogram could support
+                // {TINYINT, new String[]{"1", "2", "10"}},
+                // {SMALLINT, new String[]{"1", "2", "10"}},
+                // {TIMESTAMP_WITH_TIME_ZONE, new String[]{"now() + interval '1' hour", "now() + interval '2' hour"}},
+                // requires update to Kll sketch function because real are stored as ints but converted to float bits
+                // {REAL, new String[] {"1.0", "2.0", "3.0"}},
+                // iceberg stores microsecond precision but presto calculates on millisecond precision
+                // need a fix to properly convert for the optimizer.
+                // {TIMESTAMP, new String[] {"localtimestamp + interval '1' hour", "localtimestamp + interval '2' hour"}},
+                // {TIME, new String[] {"localtime", "localtime + interval '1' hour"}}
+                {INTEGER, new String[] {"1", "5", "9"}},
+                {BIGINT, new String[] {"2", "4", "6"}},
+                {DOUBLE, new String[] {"1.0", "3.1", "4.6"}},
+                {DECIMAL.createType(ImmutableList.of(TypeParameter.of(2L), TypeParameter.of(1L))), new String[] {"0.0", "3.0", "4.0"}},
+                {DATE, new String[] {"date '2024-01-01'", "date '2024-03-30'", "date '2024-05-30'"}},
+        };
+    }
+
+    /**
+     * Verifies that the histogram is returned after ANALYZE for a variety of types
+     */
+    @Test(dataProvider = "validHistogramTypes")
+    public void testHistogramStorage(Type type, Object[] values)
+    {
+        try {
+            assertQuerySucceeds("DROP TABLE IF EXISTS create_histograms");
+            assertQuerySucceeds(String.format("CREATE TABLE create_histograms (c %s)", type.getDisplayName()));
+            assertQuerySucceeds(String.format("INSERT INTO create_histograms VALUES %s", Joiner.on(", ").join(values)));
+            assertQuerySucceeds("ANALYZE create_histograms");
+            TableStatistics tableStatistics = getTableStats("create_histograms");
+            Map<String, IcebergColumnHandle> nameToHandle = tableStatistics.getColumnStatistics().keySet()
+                    .stream().map(IcebergColumnHandle.class::cast)
+                    .collect(Collectors.toMap(BaseHiveColumnHandle::getName, identity()));
+            assertNotNull(nameToHandle.get("c"));
+            IcebergColumnHandle handle = nameToHandle.get("c");
+            ColumnStatistics statistics = tableStatistics.getColumnStatistics().get(handle);
+            assertTrue(statistics.getHistogram().isPresent());
+        }
+        finally {
+            assertQuerySucceeds("DROP TABLE IF EXISTS create_histograms");
+        }
+    }
+
     @Test
     public void testMetadataDeleteOnPartitionedTableWithDeleteFiles()
     {
@@ -1571,6 +1637,145 @@ public abstract class IcebergDistributedTestBase
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    public void testAllNullHistogramColumn()
+    {
+        try {
+            assertQuerySucceeds("DROP TABLE IF EXISTS histogram_all_nulls");
+            assertQuerySucceeds("CREATE TABLE histogram_all_nulls (c bigint)");
+            TableStatistics stats = getTableStats("histogram_all_nulls");
+            assertFalse(stats.getColumnStatistics().values().stream().findFirst().isPresent());
+            assertUpdate("INSERT INTO histogram_all_nulls VALUES NULL, NULL, NULL, NULL, NULL", 5);
+            stats = getTableStats("histogram_all_nulls");
+            assertFalse(stats.getColumnStatistics().values().stream().findFirst()
+                    .get().getHistogram().isPresent());
+            assertQuerySucceeds("ANALYZE histogram_all_nulls");
+            stats = getTableStats("histogram_all_nulls");
+            assertFalse(stats.getColumnStatistics().values().stream().findFirst()
+                    .get().getHistogram().isPresent());
+        }
+        finally {
+            assertQuerySucceeds("DROP TABLE IF EXISTS histogram_all_nulls");
+        }
+    }
+
+    @Test(dataProvider = "validHistogramTypes")
+    public void testHistogramShowStats(Type type, Object[] values)
+    {
+        try {
+            assertQuerySucceeds("DROP TABLE IF EXISTS create_histograms");
+            assertQuerySucceeds(String.format("CREATE TABLE show_histograms (c %s)", type.getDisplayName()));
+            assertQuerySucceeds(String.format("INSERT INTO show_histograms VALUES %s", Joiner.on(", ").join(values)));
+            assertQuerySucceeds("ANALYZE show_histograms");
+            TableStatistics tableStatistics = getTableStats("show_histograms");
+            Map<String, Optional<ConnectorHistogram>> histogramByColumnName = tableStatistics.getColumnStatistics()
+                    .entrySet()
+                    .stream()
+                    .collect(toImmutableMap(
+                            entry -> ((IcebergColumnHandle) entry.getKey()).getName(),
+                            entry -> entry.getValue().getHistogram()));
+            MaterializedResult stats = getQueryRunner().execute("SHOW STATS for show_histograms");
+            stats.getMaterializedRows()
+                    .forEach(row -> {
+                        String name = (String) row.getField(0);
+                        String histogram = (String) row.getField(7);
+                        assertEquals(Optional.ofNullable(histogramByColumnName.get(name))
+                                        .flatMap(identity())
+                                        .map(Objects::toString).orElse(null),
+                                histogram);
+                    });
+        }
+        finally {
+            assertQuerySucceeds("DROP TABLE IF EXISTS show_histograms");
+        }
+    }
+
+    /**
+     * Verifies that when the users opts-in to using histograms  that the
+     * optimizer estimates reflect the actual dataset for a variety of filter
+     * types (LTE, GT, EQ, NE) on a non-uniform data distribution
+     */
+    @Test
+    public void testHistogramsUsedInOptimization()
+    {
+        Session histogramSession = Session.builder(getSession())
+                .setSystemProperty("optimizer_use_histograms", "true")
+                .build();
+        // standard-normal distribution should have vastly different estimates than uniform at the tails (e.g. -3, +3)
+        NormalDistribution dist = new NormalDistribution(0, 1);
+        double[] values = dist.sample(1000);
+        Arrays.sort(values);
+
+        try {
+            assertQuerySucceeds("DROP TABLE IF EXISTS histogram_validation");
+            assertQuerySucceeds("CREATE TABLE histogram_validation (c double)");
+            assertQuerySucceeds(String.format("INSERT INTO histogram_validation VALUES %s", Joiner.on(", ").join(Arrays.stream(values).iterator())));
+            assertQuerySucceeds("ANALYZE histogram_validation");
+            double min = values[0];
+            double max = values[values.length - 1];
+            Function<Double, Double> cumulativeUniformProb = (value) -> Math.max(0.0, Math.min(1.0, (value - min) / (max - min)));
+            Consumer<Double> assertFilters = (value) -> {
+                // use Math.abs because if the value isn't found, the returned value of binary
+                // search is (- insert index). The absolute value index tells us roughly how
+                // many records would have been returned regardless of if the actual value is in the
+                // dataset
+                double estimatedRowCount = Math.abs(Arrays.binarySearch(values, value));
+                assertPlan(histogramSession, "SELECT * FROM histogram_validation WHERE c <= " + value,
+                        output(anyTree(tableScan("histogram_validation"))).withApproximateOutputRowCount(estimatedRowCount, 25));
+                // check that inverse filter equals roughly the inverse number of rows
+                assertPlan(histogramSession, "SELECT * FROM histogram_validation WHERE c > " + value,
+                        output(anyTree(tableScan("histogram_validation"))).withApproximateOutputRowCount(Math.max(0.0, values.length - estimatedRowCount), 25));
+                // having an exact random double value from the distribution exist more than once is exceedingly rare.
+                // the histogram calculation should return 1 (and the inverse) in both situations
+                assertPlan(histogramSession, "SELECT * FROM histogram_validation WHERE c = " + value,
+                        output(anyTree(tableScan("histogram_validation"))).withApproximateOutputRowCount(1.0, 25));
+                assertPlan(histogramSession, "SELECT * FROM histogram_validation WHERE c != " + value,
+                        output(anyTree(tableScan("histogram_validation"))).withApproximateOutputRowCount(values.length - 1, 25));
+            };
+
+            assertFilters.accept(values[1]); // choose 1 greater than the min value
+            assertFilters.accept(-2.0); // should be very unlikely to generate a distribution where all values > -2.0
+            assertFilters.accept(-1.0);
+            assertFilters.accept(0.0);
+            assertFilters.accept(1.0);
+            assertFilters.accept(2.0); // should be very unlikely to generate a distribution where all values < 2.0
+            assertFilters.accept(values[values.length - 2]); // choose 1 less than the max value
+        }
+        finally {
+            assertQuerySucceeds("DROP TABLE IF EXISTS histogram_validation");
+        }
+    }
+
+    /**
+     * Verifies that the data in the histogram matches the mins/maxs of the values
+     * in the table when created
+     */
+    @Test(dataProvider = "validHistogramTypes")
+    public void testHistogramReconstruction(Type type, Object[] values)
+    {
+        try {
+            assertQuerySucceeds("DROP TABLE IF EXISTS verify_histograms");
+            assertQuerySucceeds(String.format("CREATE TABLE verify_histograms (c %s)", type.getDisplayName()));
+            assertQuerySucceeds(String.format("INSERT INTO verify_histograms VALUES %s", Joiner.on(", ").join(values)));
+            assertQuerySucceeds("ANALYZE verify_histograms");
+            TableStatistics tableStatistics = getTableStats("verify_histograms");
+            Map<String, IcebergColumnHandle> nameToHandle = tableStatistics.getColumnStatistics().keySet()
+                    .stream().map(IcebergColumnHandle.class::cast)
+                    .collect(Collectors.toMap(BaseHiveColumnHandle::getName, identity()));
+            assertNotNull(nameToHandle.get("c"));
+            IcebergColumnHandle handle = nameToHandle.get("c");
+            ColumnStatistics statistics = tableStatistics.getColumnStatistics().get(handle);
+            ConnectorHistogram histogram = statistics.getHistogram().get();
+            DoubleRange range = statistics.getRange().get();
+            double min = range.getMin();
+            double max = range.getMax();
+            assertEquals(histogram.inverseCumulativeProbability(0.0).getValue(), min);
+            assertEquals(histogram.inverseCumulativeProbability(1.0).getValue(), max);
+        }
+        finally {
+            assertQuerySucceeds("DROP TABLE IF EXISTS verify_histograms");
         }
     }
 

@@ -51,11 +51,13 @@ public class StatisticsAggregationPlanner
 {
     private final VariableAllocator variableAllocator;
     private final FunctionAndTypeResolver functionAndTypeResolver;
+    private final boolean useHistograms;
 
-    public StatisticsAggregationPlanner(VariableAllocator variableAllocator, FunctionAndTypeResolver functionAndTypeResolver)
+    public StatisticsAggregationPlanner(VariableAllocator variableAllocator, FunctionAndTypeResolver functionAndTypeResolver, boolean useHistograms)
     {
         this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
         this.functionAndTypeResolver = requireNonNull(functionAndTypeResolver, "functionAndTypeResolver is null");
+        this.useHistograms = useHistograms;
     }
 
     public TableStatisticAggregation createStatisticsAggregation(TableStatisticsMetadata statisticsMetadata, Map<String, VariableReferenceExpression> columnToVariableMap)
@@ -93,6 +95,9 @@ public class StatisticsAggregationPlanner
         }
 
         for (ColumnStatisticMetadata columnStatisticMetadata : statisticsMetadata.getColumnStatistics()) {
+            if (!useHistograms && columnStatisticMetadata.getStatisticType() == ColumnStatisticType.HISTOGRAM) {
+                continue;
+            }
             String columnName = columnStatisticMetadata.getColumnName();
             ColumnStatisticType statisticType = columnStatisticMetadata.getStatisticType();
             VariableReferenceExpression inputVariable = columnToVariableMap.get(columnName);

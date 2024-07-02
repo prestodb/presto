@@ -12,16 +12,13 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.cost;
+package com.facebook.presto.spi.statistics;
 
-import com.facebook.presto.spi.statistics.ConnectorHistogram;
-import com.facebook.presto.spi.statistics.Estimate;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Verify.verify;
+import static com.facebook.presto.common.Utils.checkArgument;
+import static com.facebook.presto.common.Utils.toStringHelper;
 import static java.lang.Double.isInfinite;
 import static java.lang.Double.isNaN;
 import static java.lang.Math.max;
@@ -46,7 +43,7 @@ public class UniformDistributionHistogram
             @JsonProperty("lowValue") double lowValue,
             @JsonProperty("highValue") double highValue)
     {
-        verify(isNaN(lowValue) || isNaN(highValue) || (lowValue <= highValue), "lowValue must be <= highValue");
+        checkArgument(isNaN(lowValue) || isNaN(highValue) || (lowValue <= highValue), "lowValue must be <= highValue");
         this.lowValue = lowValue;
         this.highValue = highValue;
     }
