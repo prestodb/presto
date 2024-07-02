@@ -255,21 +255,21 @@ class SystemConfig : public ConfigBase {
 
   /// Indicates if the process is configured as a sidecar.
   static constexpr std::string_view kNativeSidecar{"native-sidecar"};
-  /// Specifies the total memory capacity that can be used by query execution in
-  /// GB. The query memory capacity should be configured less than the system
-  /// memory capacity ('system-memory-gb') to reserve memory for system usage
-  /// such as disk spilling and cache prefetch which are not counted in query
-  /// memory usage.
+
+  /// Specifies the total amount of memory in GB that the queries can use on a
+  /// single worker node. It should be configured to be less than the total
+  /// system memory capacity ('system-memory-gb') such that there is enough room
+  /// left for the system (as opposed to for the queries), such as disk spilling
+  /// and cache prefetch.
   ///
   /// NOTE: the query memory capacity is enforced by memory arbitrator so that
   /// this config only applies if the memory arbitration has been enabled.
   static constexpr std::string_view kQueryMemoryGb{"query-memory-gb"};
 
-  /// Specifies the amount of query memory capacity reserved to ensure that each
-  /// query has minimal memory capacity to run. A query can only allocate from
-  /// the reserved query memory if its current capacity is less than the minimal
-  /// memory capacity as specified by 'memory-pool-reserved-capacity'. The
-  /// exceeding capacity has to allocate from the non-reserved query memory.
+  /// Specifies the total amount of memory in GB reserved for the queries on
+  /// a single worker node. A query can only allocate from this reserved space
+  /// if 1) the non-reserved space in "query-memory-gb" is used up; and 2) the
+  /// amount it tries to get is less than 'memory-pool-reserved-capacity'.
   ///
   /// NOTE: the reserved query memory capacity is enforced by memory arbitrator
   /// so that this config only applies if the memory arbitration has been
@@ -375,8 +375,10 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kMemoryPoolInitCapacity{
       "memory-pool-init-capacity"};
 
-  /// The minimal amount of memory capacity in bytes reserved for each query
-  /// memory pool.
+  /// The amount of memory in bytes reserved for each query memory pool. When
+  /// a query tries to allocate memory from the reserved space whose size is
+  /// specified by 'query-reserved-memory-gb', it cannot allocate more than the
+  /// value specified in 'memory-pool-reserved-capacity'.
   static constexpr std::string_view kMemoryPoolReservedCapacity{
       "memory-pool-reserved-capacity"};
 
