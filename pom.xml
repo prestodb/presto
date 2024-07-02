@@ -74,7 +74,10 @@
         <dep.docker-java.version>3.3.0</dep.docker-java.version>
         <dep.jayway.version>2.6.0</dep.jayway.version>
         <dep.ratis.version>2.2.0</dep.ratis.version>
+        <dep.errorprone.version>2.18.0</dep.errorprone.version>
+        <dep.guava.version>32.1.0-jre</dep.guava.version>
         <dep.jackson.version>2.11.0</dep.jackson.version>
+        <dep.j2objc.version>2.8</dep.j2objc.version>
         <!--
           America/Bahia_Banderas has:
            - offset change since 1970 (offset Jan 1970: -08:00, offset Jan 2018: -06:00)
@@ -2240,12 +2243,19 @@
                 <artifactId>datasketches-java</artifactId>
                 <version>5.0.1</version>
             </dependency>
-            
+
+            <dependency>
+                <groupId>com.google.errorprone</groupId>
+                <artifactId>error_prone_annotations</artifactId>
+                <version>${dep.errorprone.version}</version>
+            </dependency>
+
             <dependency>
                 <groupId>com.google.j2objc</groupId>
                 <artifactId>j2objc-annotations</artifactId>
-                <version>1.3</version>
+                <version>${dep.j2objc.version}</version>
             </dependency>
+
         </dependencies>
     </dependencyManagement>
 
