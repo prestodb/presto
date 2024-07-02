@@ -50,7 +50,6 @@ jobs:
         with:
           java-version: ${{matrix.java-version}}
           distribution: 'temurin'
-
       - run: |
         if: matrix.java-version == '21.0.3'
         # Set environment variables specific to JDK 21 here
