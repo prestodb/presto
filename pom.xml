@@ -2489,7 +2489,9 @@
         <profile>
             <id>ui</id>
             <activation>
-                <activeByDefault>true</activeByDefault>
+                <property>
+                    <name>!skipUI</name>
+                </property>
             </activation>
             <modules>
                 <module>presto-ui</module>
