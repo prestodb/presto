@@ -103,18 +103,21 @@ public class AuthenticationFilter
                 e.getAuthenticateHeader().ifPresent(authenticateHeaders::add);
                 continue;
             }
-
             // authentication succeeded
             CustomHttpServletRequestWrapper wrappedRequest = withPrincipal(request, principal);
             Map<String, String> extraHeadersMap = new HashMap<>();
             for (RequestModifier modifier : requestModifierManager.getRequestModifiers()) {
-                if (request.getHeader(modifier.getHeaderName()) == null) {
-                    Optional<Map.Entry<String, String>> extraHeaderValueMap = modifier.getExtraHeaders(principal);
-                    // Check if a value is present
-                    if (extraHeaderValueMap.isPresent()) {
-                        Map.Entry<String, String> extraHeaderValueEntry = extraHeaderValueMap.get();
-                        extraHeadersMap.put(extraHeaderValueEntry.getKey(), extraHeaderValueEntry.getValue());
-                    }
+                boolean headersPresent = modifier.getHeaderNames().stream()
+                        .allMatch(headerName -> request.getHeaders(headerName) != null);
+                if (!headersPresent) {
+                    Optional<Map<String, String>> extraHeaderValueMap = modifier.getExtraHeaders(principal);
+                    extraHeaderValueMap.ifPresent(map -> {
+                        for (Map.Entry<String, String> extraHeaderEntry : map.entrySet()) {
+                            if (request.getHeaders(extraHeaderEntry.getKey()) == null) {
+                                extraHeadersMap.putIfAbsent(extraHeaderEntry.getKey(), extraHeaderEntry.getValue());
+                            }
+                        }
+                    });
                 }
             }
             wrappedRequest.setHeaders(extraHeadersMap);

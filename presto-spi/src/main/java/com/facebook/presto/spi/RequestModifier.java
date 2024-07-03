@@ -13,12 +13,13 @@
  */
 package com.facebook.presto.spi;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 public interface RequestModifier
 {
-    String getHeaderName();
+    List<String> getHeaderNames();
 
-    <T> Optional<Map.Entry<String, String>> getExtraHeaders(T additionalInfo);
+    <T> Optional<Map<String, String>> getExtraHeaders(T additionalInfo);
 }
