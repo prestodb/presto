@@ -255,12 +255,13 @@ void CacheFuzzer::readCache() {
   threads.reserve(FLAGS_num_threads);
   for (int32_t i = 0; i < FLAGS_num_threads; ++i) {
     threads.emplace_back([&]() {
+      FuzzerGenerator rng(currentSeed_ + i);
       while (!readStopped) {
         const auto fileIdx = boost::random::uniform_int_distribution<int32_t>(
-            0, FLAGS_num_source_files - 1)(rng_);
+            0, FLAGS_num_source_files - 1)(rng);
         const auto fragmentIdx =
             boost::random::uniform_int_distribution<int32_t>(
-                0, fileFragments_[fileIdx].size() - 1)(rng_);
+                0, fileFragments_[fileIdx].size() - 1)(rng);
         read(fileIdx, fragmentIdx);
       }
     });
