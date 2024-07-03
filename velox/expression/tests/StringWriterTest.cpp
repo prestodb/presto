@@ -18,9 +18,11 @@
 #include <glog/logging.h>
 #include "folly/Range.h"
 #include "gtest/gtest.h"
+#include "velox/expression/VectorWriters.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 
 namespace facebook::velox::expressions::test {
+using namespace facebook::velox::test;
 
 class StringWriterTest : public functions::test::FunctionBaseTest {};
 
@@ -102,5 +104,27 @@ TEST_F(StringWriterTest, copyFromCString) {
   writer.finalize();
 
   ASSERT_EQ(vector->valueAt(0), "1 2 3 4 5 "_sv);
+}
+
+TEST_F(StringWriterTest, vectorWriter) {
+  auto vector = makeFlatVector<StringView>(3);
+  exec::VectorWriter<Varchar> writer;
+  writer.init(*vector);
+  writer.setOffset(0);
+  writer.current().copy_from("1 2 3");
+  writer.commitNull();
+
+  writer.setOffset(1);
+  writer.current().copy_from("4 5 6");
+  writer.commit(true);
+
+  writer.setOffset(2);
+  writer.current().copy_from("7 8 9");
+  writer.commit(false);
+  writer.finish();
+
+  auto expected = std::vector<std::optional<std::string>>{
+      std::nullopt, "4 5 6", std::nullopt};
+  assertEqualVectors(vector, makeNullableFlatVector(expected));
 }
 } // namespace facebook::velox::expressions::test

@@ -50,6 +50,8 @@ class VectorWriterBase {
   virtual void commit(bool isSet) = 0;
   virtual void ensureSize(size_t size) = 0;
   virtual void finish() {}
+  // Implementations that write variable length data or complex types should
+  // override this to reset their state and that of their children.
   virtual void finalizeNull() {}
   virtual ~VectorWriterBase() {}
   vector_size_t offset_ = 0;
