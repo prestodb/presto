@@ -58,7 +58,9 @@ public abstract class AbstractDeltaDistributedQueryTestBase
             "deltatbl-partition-prune",
             "data-reader-partition-values",
             "data-reader-nested-struct",
+            "test-lowercase",
             "test-partitions-lowercase",
+            "test-uppercase",
             "test-partitions-uppercase"
     };
 
@@ -158,6 +160,7 @@ public abstract class AbstractDeltaDistributedQueryTestBase
         Map<String, String> deltaProperties = ImmutableMap.<String, String>builder()
                 .put("hive.metastore", "file")
                 .put("hive.metastore.catalog.dir", catalogDirectory.toFile().toURI().toString())
+                .put("delta.case-sensitive-partitions-enabled", "false")
                 .build();
         queryRunner.createCatalog(DELTA_CATALOG, "delta", deltaProperties);
 
