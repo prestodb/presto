@@ -162,12 +162,14 @@ void ExchangeClient::request(std::vector<RequestSpec>&& requestSpecs) {
           if (spec.maxBytes == 0) {
             RECORD_HISTOGRAM_METRIC_VALUE(
                 kMetricExchangeDataSizeTimeMs, requestTimeMs);
+            RECORD_METRIC_VALUE(kMetricExchangeDataSizeCount);
           } else {
             RECORD_HISTOGRAM_METRIC_VALUE(
                 kMetricExchangeDataTimeMs, requestTimeMs);
             RECORD_METRIC_VALUE(kMetricExchangeDataBytes, response.bytes);
             RECORD_HISTOGRAM_METRIC_VALUE(
                 kMetricExchangeDataSize, response.bytes);
+            RECORD_METRIC_VALUE(kMetricExchangeDataCount);
           }
 
           bool pauseCurrentSource = false;

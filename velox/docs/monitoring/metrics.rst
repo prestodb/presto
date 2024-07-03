@@ -488,11 +488,6 @@ Exchange
      - The distribution of data exchange latency in range of [0, 50s] with 50
        buckets. It is configured to report latency at P50, P90, P99, and P100
        percentiles.
-   * - exchange_data_size_time_ms
-     - Histogram
-     - The distribution of data exchange size latency in range of [0, 5s] with 50
-       buckets. It is configured to report latency at P50, P90, P99, and P100
-       percentiles.
    * - exchange_data_bytes
      - Sum
      - The exchange data size in bytes.
@@ -501,6 +496,17 @@ Exchange
      - The distribution of exchange data size in range of [0, 128MB] with 128
        buckets. It is configured to report the capacity at P50, P90, P99, and P100
        percentiles.
+   * - exchange_data_count
+     - Count
+     - The number of data exchange requests.
+   * - exchange_data_size_time_ms
+     - Histogram
+     - The distribution of data exchange size latency in range of [0, 5s] with 50
+       buckets. It is configured to report latency at P50, P90, P99, and P100
+       percentiles.
+   * - exchange_data_size_count
+     - Count
+     - The number of data size exchange requests.
 
 Hive Connector
 --------------

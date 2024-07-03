@@ -473,20 +473,26 @@ void registerVeloxMetrics() {
   DEFINE_HISTOGRAM_METRIC(
       kMetricExchangeDataTimeMs, 1'00, 0, 5'000, 50, 90, 99, 100);
 
+  // The exchange data size in bytes.
+  DEFINE_METRIC(kMetricExchangeDataBytes, facebook::velox::StatType::SUM);
+
+  // The number of data exchange requests.
+  DEFINE_METRIC(kMetricExchangeDataCount, facebook::velox::StatType::COUNT);
+
   // The data exchange size time distribution in range of [0, 5s] with 50
   // buckets. It is configured to report the latency at P50, P90, P99, and P100
   // percentiles.
   DEFINE_HISTOGRAM_METRIC(
       kMetricExchangeDataSizeTimeMs, 1'00, 0, 5'000, 50, 90, 99, 100);
 
-  // The exchange data size in bytes.
-  DEFINE_METRIC(kMetricExchangeDataBytes, facebook::velox::StatType::SUM);
-
   // The distribution of exchange data size in range of [0, 128MB] with 128
   // buckets. It is configured to report the capacity at P50, P90, P99, and P100
   // percentiles.
   DEFINE_HISTOGRAM_METRIC(
       kMetricExchangeDataSize, 1L << 20, 0, 128L << 20, 50, 90, 99, 100);
+
+  // The number of data size exchange requests.
+  DEFINE_METRIC(kMetricExchangeDataSizeCount, facebook::velox::StatType::COUNT);
 
   /// ================== Storage Counters =================
 

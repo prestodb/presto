@@ -296,14 +296,20 @@ constexpr folly::StringPiece kMetricSsdCacheRegionsEvicted{
 constexpr folly::StringPiece kMetricExchangeDataTimeMs{
     "velox.exchange_data_time_ms"};
 
-constexpr folly::StringPiece kMetricExchangeDataSizeTimeMs{
-    "velox.exchange_data_size_time_ms"};
-
 constexpr folly::StringPiece kMetricExchangeDataBytes{
     "velox.exchange_data_bytes"};
 
 constexpr folly::StringPiece kMetricExchangeDataSize{
     "velox.exchange_data_size"};
+
+constexpr folly::StringPiece kMetricExchangeDataCount{
+    "velox.exchange_data_count"};
+
+constexpr folly::StringPiece kMetricExchangeDataSizeTimeMs{
+    "velox.exchange_data_size_time_ms"};
+
+constexpr folly::StringPiece kMetricExchangeDataSizeCount{
+    "velox.exchange_data_size_count"};
 
 constexpr folly::StringPiece kMetricStorageThrottledDurationMs{
     "velox.storage_throttled_duration_ms"};
