@@ -62,6 +62,13 @@ VectorFunctionMap& vectorFunctionFactories() {
   return factories;
 }
 
+std::optional<VectorFunctionMetadata> getVectorFunctionMetadata(
+    const std::string& name) {
+  return applyToVectorFunctionEntry<VectorFunctionMetadata>(
+      name,
+      [&](const auto& /*name*/, const auto& entry) { return entry.metadata; });
+}
+
 std::optional<std::vector<FunctionSignaturePtr>> getVectorFunctionSignatures(
     const std::string& name) {
   return applyToVectorFunctionEntry<std::vector<FunctionSignaturePtr>>(

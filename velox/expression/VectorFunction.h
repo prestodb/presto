@@ -170,6 +170,11 @@ class SimpleFunctionAdapterFactory {
   virtual ~SimpleFunctionAdapterFactory() = default;
 };
 
+/// Returns the function metadata with the specified name. Returns std::nullopt
+/// if there is no function with the specified name.
+std::optional<VectorFunctionMetadata> getVectorFunctionMetadata(
+    const std::string& name);
+
 /// Returns a list of signatures supported by VectorFunction with the specified
 /// name. Returns std::nullopt if there is no function with the specified name.
 std::optional<std::vector<FunctionSignaturePtr>> getVectorFunctionSignatures(

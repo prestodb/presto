@@ -76,6 +76,25 @@ void clearFunctionRegistry() {
       [](auto& functionMap) { functionMap.clear(); });
 }
 
+std::optional<bool> isDeterministic(const std::string& functionName) {
+  const auto simpleFunctions =
+      exec::simpleFunctions().getFunctionSignaturesAndMetadata(functionName);
+  const auto metadata = exec::getVectorFunctionMetadata(functionName);
+  if (simpleFunctions.empty() && !metadata.has_value()) {
+    return std::nullopt;
+  }
+
+  for (const auto& [metadata, _] : simpleFunctions) {
+    if (!metadata.deterministic) {
+      return false;
+    }
+  }
+  if (metadata.has_value() && !metadata.value().deterministic) {
+    return false;
+  }
+  return true;
+}
+
 TypePtr resolveFunction(
     const std::string& functionName,
     const std::vector<TypePtr>& argTypes) {
