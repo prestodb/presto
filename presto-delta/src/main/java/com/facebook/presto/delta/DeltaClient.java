@@ -47,6 +47,7 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.delta.DeltaTable.DataFormat.PARQUET;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
+import static java.util.Locale.US;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -259,7 +260,8 @@ public class DeltaClient
                     InternalScanFileUtils.getPartitionValues(row) : new HashMap<>(0);
             return snapshot.getSchema(deltaEngine).fields().stream()
                     .map(field -> {
-                        String columnName = field.getName();
+                        String columnName = config.isCaseSensitivePartitionsEnabled() ? field.getName() :
+                                field.getName().toLowerCase(US);
                         TypeSignature prestoType = DeltaTypeUtils.convertDeltaDataTypePrestoDataType(tableName,
                                 columnName, field.getDataType());
                         return new DeltaColumn(
