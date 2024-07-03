@@ -105,7 +105,8 @@ TEST_F(PlanFragmentTest, orderByCanSpill) {
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
 
-    const std::vector<FieldAccessTypedExprPtr> sortingKeys{nullptr};
+    const std::vector<FieldAccessTypedExprPtr> sortingKeys{
+        std::make_shared<core::FieldAccessTypedExpr>(BIGINT(), "c0")};
     const std::vector<SortOrder> sortingOrders{{true, true}};
     auto orderBy = std::make_shared<OrderByNode>(
         "orderBy", sortingKeys, sortingOrders, false, valueNode_);

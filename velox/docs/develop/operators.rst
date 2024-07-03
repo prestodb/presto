@@ -592,7 +592,7 @@ identified sort fields as well as a sorting order.
    * - Property
      - Description
    * - sortingKeys
-     - List of one of more input columns to sort by.
+     - List of one of more input columns to sort by. Sorting keys must be unique.
    * - sortingOrders
      - Sorting order for each of the soring keys. The supported orders are: ascending nulls first, ascending nulls last, descending nulls first, descending nulls last.
    * - isPartial

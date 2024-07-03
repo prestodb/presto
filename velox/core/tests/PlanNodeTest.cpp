@@ -15,6 +15,7 @@
  */
 #include <gtest/gtest.h>
 
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/core/PlanNode.h"
 
 using namespace ::facebook::velox;
@@ -96,4 +97,18 @@ TEST(TestPlanNode, sortOrder) {
       ASSERT_NE(testData.order1, testData.order2);
     }
   }
+}
+
+TEST(TestPlanNode, duplicateSortKeys) {
+  auto sortingKeys = std::vector<FieldAccessTypedExprPtr>{
+      std::make_shared<core::FieldAccessTypedExpr>(BIGINT(), "c0"),
+      std::make_shared<core::FieldAccessTypedExpr>(BIGINT(), "c1"),
+      std::make_shared<core::FieldAccessTypedExpr>(BIGINT(), "c0"),
+  };
+  auto sortingOrders =
+      std::vector<SortOrder>{{true, true}, {false, false}, {true, true}};
+  VELOX_ASSERT_USER_THROW(
+      std::make_shared<OrderByNode>(
+          "orderBy", sortingKeys, sortingOrders, false, nullptr),
+      "Duplicate sorting keys are not allowed: c0");
 }
