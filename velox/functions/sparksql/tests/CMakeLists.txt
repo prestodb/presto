@@ -38,6 +38,7 @@ add_executable(
   MapTest.cpp
   MightContainTest.cpp
   MonotonicallyIncreasingIdTest.cpp
+  RaiseErrorTest.cpp
   RandTest.cpp
   RegexFunctionsTest.cpp
   SizeTest.cpp
