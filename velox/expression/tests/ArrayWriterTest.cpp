@@ -1063,5 +1063,43 @@ TEST_F(ArrayWriterTest, copyFromNestedArrayOfOpaqueUDT) {
   }
 }
 
+// Throws an error if n is even, otherwise creates a 3x3 array filled with n.
+template <typename T>
+struct ThrowsErrorsFunc {
+  template <typename TOut>
+  void call(TOut& out, const int64_t& n) {
+    for (auto i = 0; i < 3; i++) {
+      auto& innerArray = out.add_item();
+      for (auto j = 0; j < 3; j++) {
+        // If commit isn't called as part of error handling, the first inner
+        // array in odd number rows will pick up the elements from the last
+        // inner array of the previous row.
+        innerArray.push_back(n);
+      }
+    }
+
+    VELOX_USER_CHECK_EQ(n % 2, 1);
+  }
+};
+
+TEST_F(ArrayWriterTest, errorHandlingE2E) {
+  registerFunction<ThrowsErrorsFunc, Array<Array<int64_t>>, int64_t>(
+      {"throws_errors"});
+
+  auto result = evaluate(
+      "try(throws_errors(c0))",
+      makeRowVector({makeFlatVector<int64_t>({1, 2, 3, 4, 5, 6})}));
+
+  assertEqualVectors(
+      result,
+      makeNestedArrayVectorFromJson<int64_t>(
+          {"[[1, 1, 1], [1, 1, 1], [1, 1, 1]]",
+           "null",
+           "[[3, 3, 3], [3, 3, 3], [3, 3, 3]]",
+           "null",
+           "[[5, 5, 5], [5, 5, 5], [5, 5, 5]]",
+           "null"}));
+}
+
 } // namespace
 } // namespace facebook::velox

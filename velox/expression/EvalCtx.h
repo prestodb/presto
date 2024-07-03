@@ -278,11 +278,20 @@ class EvalCtx {
       const SelectivityVector& rows,
       const std::exception_ptr& exceptionPtr);
 
-  /// Invokes a function on each selected row. Records per-row exceptions by
-  /// calling 'setError'. The function must take a single "row" argument of type
-  /// vector_size_t and return void.
   template <typename Callable>
   void applyToSelectedNoThrow(const SelectivityVector& rows, Callable func) {
+    applyToSelectedNoThrow(rows, func, [](auto /* row */) INLINE_LAMBDA {});
+  }
+
+  /// Invokes a function on each selected row. Records per-row exceptions by
+  /// calling 'setError'. The function onErrorFunc is called before 'setError'
+  /// when exceptions are thrown. The functions Callable and OnError must take a
+  /// single "row" argument of type vector_size_t and return void.
+  template <typename Callable, typename OnError>
+  void applyToSelectedNoThrow(
+      const SelectivityVector& rows,
+      Callable func,
+      OnError onErrorFunc) {
     rows.template applyToSelected([&](auto row) INLINE_LAMBDA {
       try {
         func(row);
@@ -290,9 +299,13 @@ class EvalCtx {
         if (!e.isUserError()) {
           throw;
         }
+
+        onErrorFunc(row);
+
         // Avoid double throwing.
         setVeloxExceptionError(row, std::current_exception());
       } catch (const std::exception&) {
+        onErrorFunc(row);
         setError(row, std::current_exception());
       }
     });

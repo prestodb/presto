@@ -308,7 +308,7 @@ class VectorTestBase {
       if (!vector.has_value()) {
         bits::setNull(rawNulls, i, true);
         rawSizes[i] = 0;
-        rawOffsets[i] = 0;
+        rawOffsets[i] = (i == 0) ? 0 : rawOffsets[i - 1] + rawSizes[i - 1];
       } else {
         flattenedData.insert(
             flattenedData.end(), vector->begin(), vector->end());
