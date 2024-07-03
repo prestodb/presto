@@ -18,18 +18,23 @@
 #include "velox/common/base/CompareFlags.h"
 #include "velox/functions/Macros.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
+#include "velox/type/FloatingPointUtil.h"
 
 namespace facebook::velox::functions {
 
-#define VELOX_GEN_BINARY_EXPR(Name, Expr, TResult)                \
-  template <typename T>                                           \
-  struct Name {                                                   \
-    VELOX_DEFINE_FUNCTION_TYPES(T);                               \
-    template <typename TInput>                                    \
-    FOLLY_ALWAYS_INLINE void                                      \
-    call(TResult& result, const TInput& lhs, const TInput& rhs) { \
-      result = (Expr);                                            \
-    }                                                             \
+#define VELOX_GEN_BINARY_EXPR(Name, Expr, ExprForFloats)       \
+  template <typename T>                                        \
+  struct Name {                                                \
+    VELOX_DEFINE_FUNCTION_TYPES(T);                            \
+    template <typename TInput>                                 \
+    FOLLY_ALWAYS_INLINE void                                   \
+    call(bool& result, const TInput& lhs, const TInput& rhs) { \
+      if constexpr (std::is_floating_point_v<TInput>) {        \
+        result = (ExprForFloats);                              \
+        return;                                                \
+      }                                                        \
+      result = (Expr);                                         \
+    }                                                          \
   };
 
 #define VELOX_GEN_BINARY_EXPR_TIMESTAMP_WITH_TIME_ZONE(Name, tsExpr, TResult) \
@@ -44,10 +49,22 @@ namespace facebook::velox::functions {
     }                                                                         \
   };
 
-VELOX_GEN_BINARY_EXPR(LtFunction, lhs < rhs, bool);
-VELOX_GEN_BINARY_EXPR(GtFunction, lhs > rhs, bool);
-VELOX_GEN_BINARY_EXPR(LteFunction, lhs <= rhs, bool);
-VELOX_GEN_BINARY_EXPR(GteFunction, lhs >= rhs, bool);
+VELOX_GEN_BINARY_EXPR(
+    LtFunction,
+    lhs < rhs,
+    util::floating_point::NaNAwareLessThan<TInput>{}(lhs, rhs));
+VELOX_GEN_BINARY_EXPR(
+    GtFunction,
+    lhs > rhs,
+    util::floating_point::NaNAwareGreaterThan<TInput>{}(lhs, rhs));
+VELOX_GEN_BINARY_EXPR(
+    LteFunction,
+    lhs <= rhs,
+    util::floating_point::NaNAwareLessThanEqual<TInput>{}(lhs, rhs));
+VELOX_GEN_BINARY_EXPR(
+    GteFunction,
+    lhs >= rhs,
+    util::floating_point::NaNAwareGreaterThanEqual<TInput>{}(lhs, rhs));
 
 VELOX_GEN_BINARY_EXPR_TIMESTAMP_WITH_TIME_ZONE(
     LtFunction,
@@ -99,6 +116,10 @@ struct EqFunction {
   // Used for primitive inputs.
   template <typename TInput>
   void call(bool& out, const TInput& lhs, const TInput& rhs) {
+    if constexpr (std::is_floating_point_v<TInput>) {
+      out = util::floating_point::NaNAwareEquals<TInput>{}(lhs, rhs);
+      return;
+    }
     out = (lhs == rhs);
   }
 
@@ -138,6 +159,10 @@ struct NeqFunction {
   // Used for primitive inputs.
   template <typename TInput>
   void call(bool& out, const TInput& lhs, const TInput& rhs) {
+    if constexpr (std::is_floating_point_v<TInput>) {
+      out = !util::floating_point::NaNAwareEquals<TInput>{}(lhs, rhs);
+      return;
+    }
     out = (lhs != rhs);
   }
 
@@ -172,6 +197,12 @@ struct BetweenFunction {
   template <typename T>
   FOLLY_ALWAYS_INLINE void
   call(bool& result, const T& value, const T& low, const T& high) {
+    if constexpr (std::is_floating_point_v<T>) {
+      result =
+          util::floating_point::NaNAwareGreaterThanEqual<T>{}(value, low) &&
+          util::floating_point::NaNAwareLessThanEqual<T>{}(value, high);
+      return;
+    }
     result = value >= low && value <= high;
   }
 };

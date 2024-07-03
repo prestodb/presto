@@ -61,12 +61,36 @@ struct NaNAwareLessThan {
 template <
     typename FLOAT,
     std::enable_if_t<std::is_floating_point<FLOAT>::value, bool> = true>
+struct NaNAwareLessThanEqual {
+  bool operator()(const FLOAT& lhs, const FLOAT& rhs) const {
+    if (std::isnan(rhs)) {
+      return true;
+    }
+    return lhs <= rhs;
+  }
+};
+
+template <
+    typename FLOAT,
+    std::enable_if_t<std::is_floating_point<FLOAT>::value, bool> = true>
 struct NaNAwareGreaterThan {
   bool operator()(const FLOAT& lhs, const FLOAT& rhs) const {
     if (std::isnan(lhs) && !std::isnan(rhs)) {
       return true;
     }
     return lhs > rhs;
+  }
+};
+
+template <
+    typename FLOAT,
+    std::enable_if_t<std::is_floating_point<FLOAT>::value, bool> = true>
+struct NaNAwareGreaterThanEqual {
+  bool operator()(const FLOAT& lhs, const FLOAT& rhs) const {
+    if (std::isnan(lhs)) {
+      return true;
+    }
+    return lhs >= rhs;
   }
 };
 

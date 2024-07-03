@@ -39,10 +39,24 @@ void testFloatingPoint() {
   ASSERT_FALSE(NaNAwareLessThan<T>{}(kNaN, kInf));
   ASSERT_TRUE(NaNAwareLessThan<T>{}(kInf, kNaN));
 
+  ASSERT_TRUE(NaNAwareLessThanEqual<T>{}(kNaN, kNaN));
+  ASSERT_TRUE(NaNAwareLessThanEqual<T>{}(kNaN, kSNAN));
+  ASSERT_TRUE(NaNAwareLessThanEqual<T>{}(kInf, kNaN));
+  ASSERT_TRUE(NaNAwareLessThanEqual<T>{}(0.0, kInf));
+  ASSERT_FALSE(NaNAwareLessThanEqual<T>{}(kNaN, kInf));
+  ASSERT_FALSE(NaNAwareLessThanEqual<T>{}(kNaN, 0.0));
+
   ASSERT_FALSE(NaNAwareGreaterThan<T>{}(kNaN, kNaN));
   ASSERT_FALSE(NaNAwareGreaterThan<T>{}(kNaN, kSNAN));
   ASSERT_FALSE(NaNAwareGreaterThan<T>{}(kInf, kNaN));
   ASSERT_TRUE(NaNAwareGreaterThan<T>{}(kNaN, kInf));
+
+  ASSERT_TRUE(NaNAwareGreaterThanEqual<T>{}(kNaN, kNaN));
+  ASSERT_TRUE(NaNAwareGreaterThanEqual<T>{}(kNaN, kSNAN));
+  ASSERT_FALSE(NaNAwareGreaterThanEqual<T>{}(kInf, kNaN));
+  ASSERT_FALSE(NaNAwareGreaterThanEqual<T>{}(0.0, kInf));
+  ASSERT_TRUE(NaNAwareGreaterThanEqual<T>{}(kNaN, kInf));
+  ASSERT_TRUE(NaNAwareGreaterThanEqual<T>{}(kNaN, 0.0));
 
   ASSERT_EQ(NaNAwareHash<T>{}(kNaN), NaNAwareHash<T>{}(kSNAN));
   ASSERT_EQ(NaNAwareHash<T>{}(kNaN), NaNAwareHash<T>{}(kNaN));

@@ -21,6 +21,13 @@
 
 namespace facebook::velox::functions {
 
+using Eq = std::equal_to<>;
+using Neq = std::not_equal_to<>;
+using Lt = std::less<>;
+using Lte = std::less_equal<>;
+using Gt = std::greater<>;
+using Gte = std::greater_equal<>;
+
 namespace {
 
 /// This class implements comparison for vectors of primitive types using SIMD.
@@ -94,6 +101,29 @@ struct SimdComparator {
     }
   }
 
+  template <typename T>
+  inline bool compare(T& l, T& r) const {
+    if constexpr (std::is_floating_point_v<T>) {
+      bool filtered = false;
+      if constexpr (std::is_same_v<ComparisonOp, Eq>) {
+        filtered = util::floating_point::NaNAwareEquals<T>{}(l, r);
+      } else if constexpr (std::is_same_v<ComparisonOp, Neq>) {
+        filtered = !util::floating_point::NaNAwareEquals<T>{}(l, r);
+      } else if constexpr (std::is_same_v<ComparisonOp, Lt>) {
+        filtered = util::floating_point::NaNAwareLessThan<T>{}(l, r);
+      } else if constexpr (std::is_same_v<ComparisonOp, Lte>) {
+        filtered = util::floating_point::NaNAwareLessThanEqual<T>{}(l, r);
+      } else if constexpr (std::is_same_v<ComparisonOp, Gt>) {
+        filtered = util::floating_point::NaNAwareGreaterThan<T>{}(l, r);
+      } else if constexpr (std::is_same_v<ComparisonOp, Gte>) {
+        filtered = util::floating_point::NaNAwareGreaterThanEqual<T>{}(l, r);
+      }
+      return filtered;
+    } else {
+      return ComparisonOp()(l, r);
+    }
+  }
+
   template <
       TypeKind kind,
       typename std::enable_if_t<
@@ -113,24 +143,27 @@ struct SimdComparator {
     auto resultVector = result->asUnchecked<FlatVector<bool>>();
     auto rawResult = resultVector->mutableRawValues<uint8_t>();
 
-    auto isSimdizable = (lhs.isConstantEncoding() || lhs.isFlatEncoding()) &&
+    bool isSimdizable = (lhs.isConstantEncoding() || lhs.isFlatEncoding()) &&
         (rhs.isConstantEncoding() || rhs.isFlatEncoding()) &&
         rows.isAllSelected();
 
-    if (!isSimdizable || std::is_same_v<T, int128_t>) {
+    static const bool isTypeNotSupported =
+        std::is_same_v<T, int128_t> || std::is_floating_point_v<T>;
+
+    if (!isSimdizable || isTypeNotSupported) {
       exec::LocalDecodedVector lhsDecoded(context, lhs, rows);
       exec::LocalDecodedVector rhsDecoded(context, rhs, rows);
 
       context.template applyToSelectedNoThrow(rows, [&](auto row) {
         auto l = lhsDecoded->template valueAt<T>(row);
         auto r = rhsDecoded->template valueAt<T>(row);
-        auto filtered = ComparisonOp()(l, r);
+        auto filtered = compare(l, r);
         resultVector->set(row, filtered);
       });
       return;
     }
 
-    if constexpr (!std::is_same_v<T, int128_t>) {
+    if constexpr (!isTypeNotSupported) {
       if (lhs.isConstantEncoding() && rhs.isConstantEncoding()) {
         auto l = lhs.asUnchecked<ConstantVector<T>>()->valueAt(0);
         auto r = rhs.asUnchecked<ConstantVector<T>>()->valueAt(0);
@@ -242,7 +275,7 @@ class ComparisonSimdFunction : public exec::VectorFunction {
   }
 
   exec::FunctionCanonicalName getCanonicalName() const override {
-    return std::is_same_v<ComparisonOp, std::less<>>
+    return std::is_same_v<ComparisonOp, Lt>
         ? exec::FunctionCanonicalName::kLt
         : exec::FunctionCanonicalName::kUnknown;
   }
@@ -252,32 +285,32 @@ class ComparisonSimdFunction : public exec::VectorFunction {
 
 VELOX_DECLARE_VECTOR_FUNCTION(
     udf_simd_comparison_eq,
-    (ComparisonSimdFunction<std::equal_to<>>::signatures()),
-    (std::make_unique<ComparisonSimdFunction<std::equal_to<>>>()));
+    (ComparisonSimdFunction<Eq>::signatures()),
+    (std::make_unique<ComparisonSimdFunction<Eq>>()));
 
 VELOX_DECLARE_VECTOR_FUNCTION(
     udf_simd_comparison_neq,
-    (ComparisonSimdFunction<std::not_equal_to<>>::signatures()),
-    (std::make_unique<ComparisonSimdFunction<std::not_equal_to<>>>()));
+    (ComparisonSimdFunction<Neq>::signatures()),
+    (std::make_unique<ComparisonSimdFunction<Neq>>()));
 
 VELOX_DECLARE_VECTOR_FUNCTION(
     udf_simd_comparison_lt,
-    (ComparisonSimdFunction<std::less<>>::signatures()),
-    (std::make_unique<ComparisonSimdFunction<std::less<>>>()));
+    (ComparisonSimdFunction<Lt>::signatures()),
+    (std::make_unique<ComparisonSimdFunction<Lt>>()));
 
 VELOX_DECLARE_VECTOR_FUNCTION(
     udf_simd_comparison_gt,
-    (ComparisonSimdFunction<std::greater<>>::signatures()),
-    (std::make_unique<ComparisonSimdFunction<std::greater<>>>()));
+    (ComparisonSimdFunction<Gt>::signatures()),
+    (std::make_unique<ComparisonSimdFunction<Gt>>()));
 
 VELOX_DECLARE_VECTOR_FUNCTION(
     udf_simd_comparison_lte,
-    (ComparisonSimdFunction<std::less_equal<>>::signatures()),
-    (std::make_unique<ComparisonSimdFunction<std::less_equal<>>>()));
+    (ComparisonSimdFunction<Lte>::signatures()),
+    (std::make_unique<ComparisonSimdFunction<Lte>>()));
 
 VELOX_DECLARE_VECTOR_FUNCTION(
     udf_simd_comparison_gte,
-    (ComparisonSimdFunction<std::greater_equal<>>::signatures()),
-    (std::make_unique<ComparisonSimdFunction<std::greater_equal<>>>()));
+    (ComparisonSimdFunction<Gte>::signatures()),
+    (std::make_unique<ComparisonSimdFunction<Gte>>()));
 
 } // namespace facebook::velox::functions

@@ -13,9 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "velox/functions/prestosql/Comparisons.h"
 #include <string>
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/Udf.h"
+#include "velox/functions/lib/RegistrationHelpers.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 
 using namespace facebook::velox;
@@ -33,6 +35,16 @@ class ComparisonsTest : public functions::test::FunctionBaseTest {
       const VectorPtr& expectedResult) {
     auto actual = evaluate(exprStr, makeRowVector(input));
     test::assertEqualVectors(expectedResult, actual);
+  }
+
+  void registerSimpleComparisonFunctions() {
+    using namespace facebook::velox::functions;
+    registerBinaryScalar<EqFunction, bool>({"simple_eq"});
+    registerBinaryScalar<NeqFunction, bool>({"simple_neq"});
+    registerBinaryScalar<LtFunction, bool>({"simple_lt"});
+    registerBinaryScalar<LteFunction, bool>({"simple_lte"});
+    registerBinaryScalar<GtFunction, bool>({"simple_gt"});
+    registerBinaryScalar<GteFunction, bool>({"simple_gte"});
   }
 };
 
@@ -641,6 +653,91 @@ TEST_F(ComparisonsTest, overflowTest) {
   }
 }
 
+TEST_F(ComparisonsTest, nanComparison) {
+  registerSimpleComparisonFunctions();
+  static const auto kNaN = std::numeric_limits<double>::quiet_NaN();
+  static const auto kSNaN = std::numeric_limits<double>::signaling_NaN();
+  static const auto kInf = std::numeric_limits<double>::infinity();
+
+  auto testNaN =
+      [&](std::string prefix, RowVectorPtr rowVector, bool primitiveInput) {
+        auto eval = [&](const std::string& expr,
+                        const std::string& lhs,
+                        const std::string& rhs) {
+          return evaluate<SimpleVector<bool>>(
+              fmt::format("{}({}, {})", expr, lhs, rhs), rowVector);
+        };
+
+        auto allFalse = makeFlatVector<bool>({false, false});
+        auto allTrue = makeFlatVector<bool>({true, true});
+
+        // NaN compared with NaN (multiple binary representations)
+        test::assertEqualVectors(eval(prefix + "eq", "c0", "c1"), allTrue);
+        test::assertEqualVectors(eval(prefix + "neq", "c0", "c1"), allFalse);
+        if (primitiveInput) {
+          test::assertEqualVectors(eval(prefix + "lt", "c0", "c1"), allFalse);
+          test::assertEqualVectors(eval(prefix + "gt", "c0", "c1"), allFalse);
+          test::assertEqualVectors(eval(prefix + "lte", "c0", "c1"), allTrue);
+          test::assertEqualVectors(eval(prefix + "gte", "c0", "c1"), allTrue);
+          // NaN between Infinity and NaN
+          test::assertEqualVectors(
+              evaluate<SimpleVector<bool>>("c0 BETWEEN c2 and c1", rowVector),
+              allTrue);
+          // NaN distinct from NaN
+          test::assertEqualVectors(
+              evaluate<SimpleVector<bool>>("c0 IS DISTINCT FROM c1", rowVector),
+              allFalse);
+        }
+
+        // NaN compared with Inf
+        test::assertEqualVectors(eval(prefix + "eq", "c0", "c2"), allFalse);
+        test::assertEqualVectors(eval(prefix + "neq", "c0", "c2"), allTrue);
+        if (primitiveInput) {
+          test::assertEqualVectors(eval(prefix + "lt", "c0", "c2"), allFalse);
+          test::assertEqualVectors(eval(prefix + "gt", "c0", "c2"), allTrue);
+          test::assertEqualVectors(eval(prefix + "lte", "c0", "c2"), allFalse);
+          test::assertEqualVectors(eval(prefix + "gte", "c0", "c2"), allTrue);
+          // NaN between 0 and Infinity
+          test::assertEqualVectors(
+              evaluate<SimpleVector<bool>>(
+                  "c0 BETWEEN cast(0 as double) and c2", rowVector),
+              allFalse);
+          // NaN distinct from Infinity
+          test::assertEqualVectors(
+              evaluate<SimpleVector<bool>>("c0 IS DISTINCT FROM c2", rowVector),
+              allTrue);
+        }
+      };
+
+  // Primitive type input
+  auto input = makeRowVector(
+      {makeFlatVector<double>({kNaN, kSNaN}),
+       makeFlatVector<double>({kNaN, kNaN}),
+       makeFlatVector<double>({kInf, kInf})});
+  // Test the Vector function ComparisonSimdFunction.
+  testNaN("", input, true);
+  // Test the Simple functions.
+  testNaN("simple_", input, true);
+
+  // Complex type input
+  input = makeRowVector({
+      makeRowVector({
+          makeFlatVector<double>({kNaN, kSNaN}),
+          makeFlatVector<int32_t>({1, 1}),
+      }),
+      makeRowVector({
+          makeFlatVector<double>({kNaN, kNaN}),
+          makeFlatVector<int32_t>({1, 1}),
+      }),
+      makeRowVector({
+          makeFlatVector<double>({kInf, kInf}),
+          makeFlatVector<int32_t>({1, 1}),
+      }),
+  });
+  // Note: Complex comparison functions are only registered as simple functions.
+  testNaN("", input, false);
+}
+
 namespace {
 template <typename Tp, typename Op, const char* fnName>
 struct ComparisonTypeOp {
@@ -766,29 +863,6 @@ class SimdComparisonsTest : public functions::test::FunctionBaseTest {
         rhsVector.begin(), rhsVector.end(), std::numeric_limits<T>::min());
 
     testVectorComparison(lhsVector, rhsVector);
-
-    // Add tests against Nan and other edge cases.
-    if constexpr (std::is_floating_point_v<T>) {
-      lhsVector = std::vector<T>(47);
-      rhsVector = std::vector<T>(47);
-
-      std::fill(
-          lhsVector.begin(),
-          lhsVector.end(),
-          std::numeric_limits<T>::signaling_NaN());
-      std::fill(
-          rhsVector.begin(),
-          rhsVector.end(),
-          std::numeric_limits<T>::signaling_NaN());
-      testVectorComparison(lhsVector, rhsVector);
-
-      std::fill(
-          lhsVector.begin(),
-          lhsVector.end(),
-          std::numeric_limits<T>::signaling_NaN());
-      std::fill(rhsVector.begin(), rhsVector.end(), 1);
-      testVectorComparison(lhsVector, rhsVector);
-    }
   }
 
   void testDictionary() {
