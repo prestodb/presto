@@ -67,7 +67,8 @@ class LocalExchangeQueue {
   /// Used by a producer to add data. Returning kNotBlocked if can accept more
   /// data. Otherwise returns kWaitForConsumer and sets future that will be
   /// completed when ready to accept more data.
-  BlockingReason enqueue(RowVectorPtr input, ContinueFuture* future);
+  BlockingReason
+  enqueue(RowVectorPtr input, int64_t inputBytes, ContinueFuture* future);
 
   /// Called by a producer to indicate that no more data will be added.
   void noMoreData();
@@ -89,11 +90,13 @@ class LocalExchangeQueue {
   void close();
 
  private:
-  bool isFinishedLocked(const std::queue<RowVectorPtr>& queue) const;
+  using Queue = std::queue<std::pair<RowVectorPtr, int64_t>>;
+
+  bool isFinishedLocked(const Queue& queue) const;
 
   std::shared_ptr<LocalExchangeMemoryManager> memoryManager_;
   const int partition_;
-  folly::Synchronized<std::queue<RowVectorPtr>> queue_;
+  folly::Synchronized<Queue> queue_;
   // Satisfied when data becomes available or all producers report that they
   // finished producing, e.g. queue_ is not empty or noMoreProducers_ is true
   // and pendingProducers_ is zero.

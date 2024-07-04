@@ -338,9 +338,13 @@ TEST_F(LocalPartitionTest, blockingOnLocalExchangeQueue) {
   auto localExchangeBufferSize = "1024";
   auto baseVector = vectorMaker_.flatVector<int64_t>(
       10240, [](auto row) { return row / 10; });
-  // Make a small dictionary vector of one row and roughly 8 bytes that is
+  // Make a small flat vector of one row and roughly 8 bytes that is
   // smaller than the localExchangeBufferSize.
   auto smallInput = vectorMaker_.rowVector(
+      {"c0"}, {makeFlatVector<int64_t>(1, folly::identity)});
+  // Make a small dictionary vector of one row with a base vector larger than
+  // the localExchangeBufferSize.
+  auto dictionaryInput = vectorMaker_.rowVector(
       {"c0"}, {wrapInDictionary(makeIndices({0}), baseVector)});
   // Make a large dictionary vector of 1024 rows and roughly 8KB that is larger
   // than the localExchangeBufferSize.
@@ -362,6 +366,8 @@ TEST_F(LocalPartitionTest, blockingOnLocalExchangeQueue) {
     }
   } testSettings[] = {
       {smallInput, 0}, // Small input will not make LocalPartition blocked.
+      {dictionaryInput, 1}, // Large dictiionary values will make LocalPartition
+                            // blocked.
       {largeInput, 1}}; // Large input will make LocalPartition blocked.
 
   for (const auto& test : testSettings) {

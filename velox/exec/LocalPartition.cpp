@@ -77,16 +77,15 @@ void LocalExchangeQueue::noMoreProducers() {
 
 BlockingReason LocalExchangeQueue::enqueue(
     RowVectorPtr input,
+    int64_t inputBytes,
     ContinueFuture* future) {
-  auto inputBytes = input->estimateFlatSize();
-
   std::vector<ContinuePromise> consumerPromises;
   bool blockedOnConsumer = false;
   bool isClosed = queue_.withWLock([&](auto& queue) {
     if (closed_) {
       return true;
     }
-    queue.push(std::move(input));
+    queue.emplace(std::move(input), inputBytes);
     consumerPromises = std::move(consumerPromises_);
 
     if (memoryManager_->increaseMemoryUsage(future, inputBytes)) {
@@ -139,11 +138,11 @@ BlockingReason LocalExchangeQueue::next(
       return BlockingReason::kWaitForProducer;
     }
 
-    *data = queue.front();
+    int64_t size;
+    std::tie(*data, size) = queue.front();
     queue.pop();
 
-    memoryPromises =
-        memoryManager_->decreaseMemoryUsage((*data)->estimateFlatSize());
+    memoryPromises = memoryManager_->decreaseMemoryUsage(size);
 
     return BlockingReason::kNotBlocked;
   });
@@ -151,8 +150,7 @@ BlockingReason LocalExchangeQueue::next(
   return blockingReason;
 }
 
-bool LocalExchangeQueue::isFinishedLocked(
-    const std::queue<RowVectorPtr>& queue) const {
+bool LocalExchangeQueue::isFinishedLocked(const Queue& queue) const {
   if (closed_) {
     return true;
   }
@@ -174,7 +172,7 @@ void LocalExchangeQueue::close() {
   queue_.withWLock([&](auto& queue) {
     uint64_t freedBytes = 0;
     while (!queue.empty()) {
-      freedBytes += queue.front()->estimateFlatSize();
+      freedBytes += queue.front().second;
       queue.pop();
     }
 
@@ -308,7 +306,8 @@ void LocalPartition::addInput(RowVectorPtr input) {
 
   if (numPartitions_ == 1) {
     ContinueFuture future;
-    auto blockingReason = queues_[0]->enqueue(input, &future);
+    auto blockingReason =
+        queues_[0]->enqueue(input, input->retainedSize(), &future);
     if (blockingReason != BlockingReason::kNotBlocked) {
       blockingReasons_.push_back(blockingReason);
       futures_.push_back(std::move(future));
@@ -320,8 +319,8 @@ void LocalPartition::addInput(RowVectorPtr input) {
       partitionFunction_->partition(*input, partitions_);
   if (singlePartition.has_value()) {
     ContinueFuture future;
-    auto blockingReason =
-        queues_[singlePartition.value()]->enqueue(input, &future);
+    auto blockingReason = queues_[singlePartition.value()]->enqueue(
+        input, input->retainedSize(), &future);
     if (blockingReason != BlockingReason::kNotBlocked) {
       blockingReasons_.push_back(blockingReason);
       futures_.push_back(std::move(future));
@@ -344,6 +343,7 @@ void LocalPartition::addInput(RowVectorPtr input) {
     ++maxIndex[partition];
   }
 
+  const int64_t totalSize = input->retainedSize();
   for (auto i = 0; i < numPartitions_; i++) {
     auto partitionSize = maxIndex[i];
     if (partitionSize == 0) {
@@ -352,9 +352,9 @@ void LocalPartition::addInput(RowVectorPtr input) {
     }
     auto partitionData =
         wrapChildren(input, partitionSize, std::move(indexBuffers[i]));
-
     ContinueFuture future;
-    auto reason = queues_[i]->enqueue(partitionData, &future);
+    auto reason = queues_[i]->enqueue(
+        partitionData, totalSize * partitionSize / numInput, &future);
     if (reason != BlockingReason::kNotBlocked) {
       blockingReasons_.push_back(reason);
       futures_.push_back(std::move(future));
