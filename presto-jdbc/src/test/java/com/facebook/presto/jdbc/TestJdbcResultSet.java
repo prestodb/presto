@@ -363,6 +363,22 @@ public class TestJdbcResultSet
             assertEquals(rs.getStatement(), statement);
         }
     }
+    
+    @Test
+    public void testGetColumnTypeConsistency() throws SQLException {
+        // Create a statement and execute a query
+        try (Statement stmt = connection.createStatement();
+         ResultSet rs = stmt.executeQuery("SELECT INTERVAL '1-2' YEAR TO MONTH AS testInterval")) {
+
+        // Get metadata and column type
+        ResultSetMetaData metaData = rs.getMetaData();
+
+        // Verify that the column type name is in the expected case (lowercase in this example)
+        String columnTypeName = metaData.getColumnTypeName(1);
+        assertEquals(columnTypeName, "interval year to month"); // Adjust based on the expected type name
+        }
+    }
+
 
     private Connection createConnection()
             throws SQLException
