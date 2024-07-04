@@ -74,7 +74,13 @@ jobs:
             ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl :presto-hive-hadoop2
           fi
       - name: Run Hive Tests
-        run: presto-hive-hadoop2/bin/run_hive_tests.sh
+        run: |
+          if [ "${{ matrix.java-version }}" == "21.0.3" ]; then
+            export MAVEN_OPTS="-Xmx2G -XX:+ExitOnOutOfMemoryError --add-opens java.base/java.util=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.lang.reflect=ALL-UNNAMED --add-opens java.base/java.text=ALL-UNNAMED --add-opens java.base/java.awt.font=ALL-UNNAMED --add-opens java.desktop/java.awt.font=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-modules=jdk.incubator.vector --enable-preview"
+          else
+            export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          fi
+          presto-hive-hadoop2/bin/run_hive_tests.sh
       - name: Run Hive S3 Tests
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.HIVE_AWS_ACCESSKEY }}
@@ -82,6 +88,11 @@ jobs:
           S3_BUCKET: "presto-ci-test"
           S3_BUCKET_ENDPOINT: "s3.us-east-2.amazonaws.com"
         run: |
+          if [ "${{ matrix.java-version }}" == "21.0.3" ]; then
+            export MAVEN_OPTS="-Xmx2G -XX:+ExitOnOutOfMemoryError --add-opens java.base/java.util=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.lang.reflect=ALL-UNNAMED --add-opens java.base/java.text=ALL-UNNAMED --add-opens java.base/java.awt.font=ALL-UNNAMED --add-opens java.desktop/java.awt.font=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-modules=jdk.incubator.vector --enable-preview"
+          else
+            export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          fi
           if [ "${AWS_ACCESS_KEY_ID}" != "" ]; then
               presto-hive-hadoop2/bin/run_hive_s3_tests.sh
           fi
@@ -90,6 +101,11 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.HIVE_AWS_ACCESSKEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.HIVE_AWS_SECRETKEY }}
         run: |
+          if [ "${{ matrix.java-version }}" == "21.0.3" ]; then
+            export MAVEN_OPTS="-Xmx2G -XX:+ExitOnOutOfMemoryError --add-opens java.base/java.util=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.lang.reflect=ALL-UNNAMED --add-opens java.base/java.text=ALL-UNNAMED --add-opens java.base/java.awt.font=ALL-UNNAMED --add-opens java.desktop/java.awt.font=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-modules=jdk.incubator.vector --enable-preview"
+          else
+            export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          fi
           if [ "${HIVE_AWS_ACCESS_KEY_ID}" != "" ]; then
               ./mvnw test ${MAVEN_TEST} -pl :presto-hive -P test-hive-glue
           fi
@@ -130,13 +146,18 @@ jobs:
           if [ "${{ matrix.java-version }}" == "21.0.3" ]; then
             export MAVEN_OPTS="-Xmx2G -XX:+ExitOnOutOfMemoryError --add-opens java.base/java.util=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.lang.reflect=ALL-UNNAMED --add-opens java.base/java.text=ALL-UNNAMED --add-opens java.base/java.awt.font=ALL-UNNAMED --add-opens java.desktop/java.awt.font=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-modules=jdk.incubator.vector --enable-preview"
             echo "jdk 21 options "
-            echo $MAVEN_OPTS
           else
             export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-            echo $MAVEN_OPTS
           fi
+          echo $MAVEN_OPTS
           ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl :presto-hive -DskipUI
       - name: Run Hive Dockerized Tests
         run: |
+          if [ "${{ matrix.java-version }}" == "21.0.3" ]; then
+            export MAVEN_OPTS="-Xmx2G -XX:+ExitOnOutOfMemoryError --add-opens java.base/java.util=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.lang.reflect=ALL-UNNAMED --add-opens java.base/java.text=ALL-UNNAMED --add-opens java.base/java.awt.font=ALL-UNNAMED --add-opens java.desktop/java.awt.font=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-modules=jdk.incubator.vector --enable-preview"
+            echo "jdk 21 options "
+          else
+            export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          fi
           echo $MAVEN_OPTS
           ./mvnw test ${MAVEN_TEST} -pl :presto-hive -P test-hive-insert-overwrite -DskipUI
