@@ -31,6 +31,8 @@ public abstract class AbstractTestNativeTpcdsQueries
 {
     String storageFormat = "DWRF";
     Session session;
+    String[] tpcdsFactTableNames = {"catalog_returns", "catalog_sales", "web_sales", "web_returns",
+            "inventory", "store_sales", "store_returns"};
 
     @Override
     protected void createTables()
@@ -41,7 +43,7 @@ public abstract class AbstractTestNativeTpcdsQueries
                 .setSystemProperty(QUERY_MAX_RUN_TIME, "2m")
                 .setSystemProperty(QUERY_MAX_EXECUTION_TIME, "2m")
                 .build();
-
+        dropTables();
         createTpcdsCallCenter(queryRunner, session, storageFormat);
         createTpcdsCatalogPage(queryRunner, session);
         createTpcdsCatalogReturns(queryRunner, session);
@@ -66,6 +68,13 @@ public abstract class AbstractTestNativeTpcdsQueries
         createTpcdsWebReturns(queryRunner, session);
         createTpcdsWebSales(queryRunner, session);
         createTpcdsWebSite(queryRunner, session, storageFormat);
+    }
+
+    private void dropTables()
+    {
+        for (String table : tpcdsFactTableNames) {
+            assertUpdate(session, "DROP TABLE IF EXISTS " + table);
+        }
     }
 
     private static void createTpcdsCallCenter(QueryRunner queryRunner, Session session, String storageFormat)
