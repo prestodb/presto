@@ -242,8 +242,9 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <excludes combine.self="override" />
-                            <argLine>--add-opens java.base/java.util=ALL-UNNAMED --add-opens java.base/java.text=ALL-UNNAMED --add-opens java.base/java.net=ALL-UNNAMED
-                                --add-opens java.base/java.nio=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-modules=jdk.incubator.vector</argLine>
+                            <!--<argLine>&#45;&#45;add-opens java.base/java.util=ALL-UNNAMED &#45;&#45;add-opens java.base/java.text=ALL-UNNAMED &#45;&#45;add-opens java.base/java.net=ALL-UNNAMED
+                                &#45;&#45;add-opens java.base/java.nio=ALL-UNNAMED &#45;&#45;add-opens java.base/java.lang=ALL-UNNAMED &#45;&#45;add-opens java.base/java.lang.reflect=ALL-UNNAMED
+                                &#45;&#45;add-modules=jdk.incubator.vector</argLine>-->
                         </configuration>
                     </plugin>
                 </plugins>
