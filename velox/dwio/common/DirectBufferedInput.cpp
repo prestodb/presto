@@ -221,6 +221,23 @@ std::shared_ptr<DirectCoalescedLoad> DirectBufferedInput::coalescedLoad(
       });
 }
 
+std::unique_ptr<SeekableInputStream> DirectBufferedInput::read(
+    uint64_t offset,
+    uint64_t length,
+    LogType /*logType*/) const {
+  VELOX_CHECK_LE(offset + length, fileSize_);
+  return std::make_unique<DirectInputStream>(
+      const_cast<DirectBufferedInput*>(this),
+      ioStats_.get(),
+      Region{offset, length},
+      input_,
+      fileNum_,
+      nullptr,
+      TrackingId(),
+      0,
+      options_.loadQuantum());
+}
+
 namespace {
 void appendRanges(
     memory::Allocation& allocation,
