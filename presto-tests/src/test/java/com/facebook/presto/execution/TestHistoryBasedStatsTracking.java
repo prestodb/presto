@@ -27,10 +27,12 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.SortNode;
 import com.facebook.presto.spi.plan.TopNNode;
+import com.facebook.presto.spi.statistics.CostBasedSourceInfo;
 import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.sql.planner.assertions.MatchResult;
 import com.facebook.presto.sql.planner.assertions.Matcher;
 import com.facebook.presto.sql.planner.assertions.SymbolAliases;
+import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
@@ -47,6 +49,7 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.SystemSessionProperties.CONFIDENCE_BASED_BROADCAST_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.HISTORY_CANONICAL_PLAN_NODE_LIMIT;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
@@ -55,6 +58,7 @@ import static com.facebook.presto.SystemSessionProperties.TRACK_HISTORY_BASED_PL
 import static com.facebook.presto.SystemSessionProperties.TRACK_HISTORY_STATS_FROM_FAILED_QUERIES;
 import static com.facebook.presto.SystemSessionProperties.USE_HISTORY_BASED_PLAN_STATISTICS;
 import static com.facebook.presto.SystemSessionProperties.USE_PERFECTLY_CONSISTENT_HISTORIES;
+import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel.FACT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.any;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
@@ -469,6 +473,44 @@ public class TestHistoryBasedStatsTracking
                 anyTree(
                         node(ProjectNode.class, anyTree(any())).withOutputRowCount(60175.0),
                         anyTree(any())));
+    }
+
+    @Test
+    public void testFactPrioritization()
+    {
+        String query1 = "SELECT (SELECT nationkey FROM nation WHERE name = 'UNITED STATES') AS us_nationkey";
+        executeAndTrackHistory(query1);
+        assertPlan(query1, anyTree(node(EnforceSingleRowNode.class, anyTree(any()))
+                .withOutputRowCount(1)
+                .withSourceInfo(new CostBasedSourceInfo(FACT)))
+                .withConfidenceLevel(FACT));
+
+        Session session = Session.builder(createSession()).setSystemProperty("prefer_partial_aggregation", "false").build();
+        String query2 = "SELECT COUNT(*) FROM orders";
+        executeAndTrackHistory(query2);
+        assertPlan(session, query2, anyTree(node(AggregationNode.class, anyTree(any())))
+                .withOutputRowCount(1)
+                .withSourceInfo(new CostBasedSourceInfo(FACT))
+                .withConfidenceLevel(FACT));
+    }
+
+    @Test
+    public void testBroadcastHighConfidence()
+    {
+        Session broadcastSession = Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "AUTOMATIC")
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, "NONE")
+                .setSystemProperty(CONFIDENCE_BASED_BROADCAST_ENABLED, "TRUE")
+                .setSystemProperty("prefer_partial_aggregation", "false")
+                .build();
+        String sql = "SELECT COUNT(*) FROM lineitem l JOIN supplier s ON l.suppkey = s.suppkey";
+
+        executeAndTrackHistory(sql, broadcastSession);
+        assertPlan(
+                broadcastSession,
+                sql,
+                anyTree(
+                        node(AggregationNode.class, anyTree(any())).withOutputRowCount(1).withConfidenceLevel(FACT)));
     }
 
     private void executeAndTrackHistory(String sql)

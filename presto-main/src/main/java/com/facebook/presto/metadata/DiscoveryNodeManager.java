@@ -128,6 +128,9 @@ public final class DiscoveryNodeManager
     private Set<InternalNode> catalogServers;
 
     @GuardedBy("this")
+    private Set<InternalNode> coordinatorSidecar;
+
+    @GuardedBy("this")
     private final List<Consumer<AllNodes>> listeners = new ArrayList<>();
 
     @Inject
@@ -179,6 +182,7 @@ public final class DiscoveryNodeManager
                         isCoordinator(service),
                         isResourceManager(service),
                         isCatalogServer(service),
+                        isCoordinatorSidecar(service),
                         ALIVE,
                         raftPort,
                         poolType);
@@ -290,6 +294,7 @@ public final class DiscoveryNodeManager
         ImmutableSet.Builder<InternalNode> coordinatorsBuilder = ImmutableSet.builder();
         ImmutableSet.Builder<InternalNode> resourceManagersBuilder = ImmutableSet.builder();
         ImmutableSet.Builder<InternalNode> catalogServersBuilder = ImmutableSet.builder();
+        ImmutableSet.Builder<InternalNode> coordinatorSidecarBuilder = ImmutableSet.builder();
         ImmutableSetMultimap.Builder<ConnectorId, InternalNode> byConnectorIdBuilder = ImmutableSetMultimap.builder();
         Map<String, InternalNode> nodes = new HashMap<>();
         SetMultimap<String, ConnectorId> connectorIdsByNodeId = HashMultimap.create();
@@ -313,11 +318,11 @@ public final class DiscoveryNodeManager
             boolean coordinator = isCoordinator(service);
             boolean resourceManager = isResourceManager(service);
             boolean catalogServer = isCatalogServer(service);
+            boolean coordinatorSidecar = isCoordinatorSidecar(service);
             OptionalInt raftPort = getRaftPort(service);
             if (uri != null && nodeVersion != null) {
-                InternalNode node = new InternalNode(service.getNodeId(), uri, thriftPort, nodeVersion, coordinator, resourceManager, catalogServer, ALIVE, raftPort, getPoolType(service));
+                InternalNode node = new InternalNode(service.getNodeId(), uri, thriftPort, nodeVersion, coordinator, resourceManager, catalogServer, coordinatorSidecar, ALIVE, raftPort, getPoolType(service));
                 NodeState nodeState = getNodeState(node);
-
                 switch (nodeState) {
                     case ACTIVE:
                         activeNodesBuilder.add(node);
@@ -329,6 +334,9 @@ public final class DiscoveryNodeManager
                         }
                         if (catalogServer) {
                             catalogServersBuilder.add(node);
+                        }
+                        if (coordinatorSidecar) {
+                            coordinatorSidecarBuilder.add(node);
                         }
 
                         nodes.put(node.getNodeIdentifier(), node);
@@ -382,7 +390,7 @@ public final class DiscoveryNodeManager
                 InternalNode deadNode = nodes.get(nodeId);
                 Set<ConnectorId> deadNodeConnectorIds = connectorIdsByNodeId.get(nodeId);
                 for (ConnectorId id : deadNodeConnectorIds) {
-                    byConnectorIdBuilder.put(id, new InternalNode(deadNode.getNodeIdentifier(), deadNode.getInternalUri(), deadNode.getThriftPort(), deadNode.getNodeVersion(), deadNode.isCoordinator(), deadNode.isResourceManager(), deadNode.isCatalogServer(), DEAD, deadNode.getRaftPort(), deadNode.getPoolType()));
+                    byConnectorIdBuilder.put(id, new InternalNode(deadNode.getNodeIdentifier(), deadNode.getInternalUri(), deadNode.getThriftPort(), deadNode.getNodeVersion(), deadNode.isCoordinator(), deadNode.isResourceManager(), deadNode.isCatalogServer(), deadNode.isCoordinatorSidecar(), DEAD, deadNode.getRaftPort(), deadNode.getPoolType()));
                 }
             }
         }
@@ -396,7 +404,8 @@ public final class DiscoveryNodeManager
                 shuttingDownNodesBuilder.build(),
                 coordinatorsBuilder.build(),
                 resourceManagersBuilder.build(),
-                catalogServersBuilder.build());
+                catalogServersBuilder.build(),
+                coordinatorSidecarBuilder.build());
         // only update if all nodes actually changed (note: this does not include the connectors registered with the nodes)
         if (!allNodes.equals(this.allNodes)) {
             // assign allNodes to a local variable for use in the callback below
@@ -404,6 +413,7 @@ public final class DiscoveryNodeManager
             coordinators = coordinatorsBuilder.build();
             resourceManagers = resourceManagersBuilder.build();
             catalogServers = catalogServersBuilder.build();
+            coordinatorSidecar = coordinatorSidecarBuilder.build();
 
             // notify listeners
             List<Consumer<AllNodes>> listeners = ImmutableList.copyOf(this.listeners);
@@ -527,6 +537,12 @@ public final class DiscoveryNodeManager
     }
 
     @Override
+    public synchronized Set<InternalNode> getCoordinatorSidecars()
+    {
+        return coordinatorSidecar;
+    }
+
+    @Override
     public synchronized void addNodeChangeListener(Consumer<AllNodes> listener)
     {
         listeners.add(requireNonNull(listener, "listener is null"));
@@ -601,6 +617,11 @@ public final class DiscoveryNodeManager
         return Boolean.parseBoolean(service.getProperties().get("catalog_server"));
     }
 
+    private static boolean isCoordinatorSidecar(ServiceDescriptor service)
+    {
+        return Boolean.parseBoolean(service.getProperties().get("sidecar"));
+    }
+
     /**
      * The predicate filters out the services to allow selecting relevant nodes
      * for discovery and sending heart beat.
@@ -613,14 +634,15 @@ public final class DiscoveryNodeManager
      */
     private Predicate<ServiceDescriptor> filterRelevantNodes()
     {
-        if (currentNode.isCoordinator() || currentNode.isResourceManager() || currentNode.isCatalogServer()) {
+        if (currentNode.isCoordinator() || currentNode.isResourceManager() || currentNode.isCatalogServer() || currentNode.isCoordinatorSidecar()) {
             // Allowing coordinator node in the list of services, even if it's not allowed by nodeStatusService with currentNode check
             return service ->
                     !nodeStatusService.isPresent()
                             || nodeStatusService.get().isAllowed(service.getLocation())
-                            || isCatalogServer(service);
+                            || isCatalogServer(service)
+                            || isCoordinatorSidecar(service);
         }
 
-        return service -> isResourceManager(service) || isCatalogServer(service);
+        return service -> isResourceManager(service) || isCatalogServer(service) || isCoordinatorSidecar(service);
     }
 }

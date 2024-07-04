@@ -9,12 +9,12 @@ General Changes
 * Improve performance of correlated subqueries when filters from outer query
   can be propagated to the subquery.
 * Improve performance for correlated subqueries that contain inequalities.
-* Add support for all geometry types in :func:`ST_Area`.
-* Add :func:`ST_EnvelopeAsPts` function.
-* Add :func:`to_big_endian_32` and :func:`from_big_endian_32` functions.
+* Add support for all geometry types in :func:`!ST_Area`.
+* Add :func:`!ST_EnvelopeAsPts` function.
+* Add :func:`!to_big_endian_32` and :func:`!from_big_endian_32` functions.
 * Add cast between ``VARBINARY`` type and ``IPADDRESS`` type.
-* Make :func:`lpad` and :func:`rpad` functions support ``VARBINARY`` in addition to ``VARCHAR``.
-* Allow using arrays of mismatched lengths with :func:`zip_with`.
+* Make :func:`!lpad` and :func:`!rpad` functions support ``VARBINARY`` in addition to ``VARCHAR``.
+* Allow using arrays of mismatched lengths with :func:`!zip_with`.
   The missing positions are filled with ``NULL``.
 * Track execution statistics of ``AddExchanges`` and ``PredicatePushdown`` optimizer rules.
 

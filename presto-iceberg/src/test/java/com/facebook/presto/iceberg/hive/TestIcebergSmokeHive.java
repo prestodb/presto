@@ -22,6 +22,7 @@ import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
+import com.facebook.presto.iceberg.IcebergConfig;
 import com.facebook.presto.iceberg.IcebergDistributedSmokeTestBase;
 import com.facebook.presto.iceberg.IcebergUtil;
 import com.facebook.presto.spi.ConnectorSession;
@@ -31,9 +32,11 @@ import com.google.common.collect.ImmutableSet;
 import org.apache.iceberg.Table;
 
 import java.io.File;
+import java.nio.file.Path;
 
 import static com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore.memoizeMetastore;
 import static com.facebook.presto.iceberg.CatalogType.HIVE;
+import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
 import static java.lang.String.format;
 
 public class TestIcebergSmokeHive
@@ -47,8 +50,9 @@ public class TestIcebergSmokeHive
     @Override
     protected String getLocation(String schema, String table)
     {
-        File tempLocation = ((DistributedQueryRunner) getQueryRunner()).getCoordinator().getDataDirectory().toFile();
-        return format("%scatalog/%s/%s", tempLocation.toURI(), schema, table);
+        Path dataDirectory = ((DistributedQueryRunner) getQueryRunner()).getCoordinator().getDataDirectory();
+        File tempLocation = getIcebergDataDirectoryPath(dataDirectory, HIVE.name(), new IcebergConfig().getFileFormat(), false).toFile();
+        return format("%s%s/%s", tempLocation.toURI(), schema, table);
     }
 
     protected static HdfsEnvironment getHdfsEnvironment()

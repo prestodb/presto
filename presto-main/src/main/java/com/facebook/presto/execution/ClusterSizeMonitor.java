@@ -16,9 +16,10 @@ package com.facebook.presto.execution;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.metadata.AllNodes;
 import com.facebook.presto.metadata.InternalNodeManager;
+import com.facebook.presto.server.ServerConfig;
+import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.Duration;
@@ -29,13 +30,17 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.function.Consumer;
 
 import static com.facebook.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
+import static com.facebook.presto.spi.StandardErrorCode.NO_CPP_SIDECARS;
+import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_SIDECARS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.lang.String.format;
@@ -53,10 +58,13 @@ public class ClusterSizeMonitor
     private final int coordinatorMinCount;
     private final int coordinatorMinCountActive;
     private final Duration coordinatorMaxWait;
+
+    private final Duration coordinatorSidecarMaxWait;
     private final int resourceManagerMinCountActive;
     private final ScheduledExecutorService executor;
 
     private final Consumer<AllNodes> listener = this::updateAllNodes;
+    private final boolean isCoordinatorSidecarEnabled;
 
     @GuardedBy("this")
     private int currentWorkerCount;
@@ -68,13 +76,19 @@ public class ClusterSizeMonitor
     private int currentResourceManagerCount;
 
     @GuardedBy("this")
+    private int currentCoordinatorSidecarCount;
+
+    @GuardedBy("this")
     private final List<SettableFuture<?>> workerSizeFutures = new ArrayList<>();
 
     @GuardedBy("this")
     private final List<SettableFuture<?>> coordinatorSizeFutures = new ArrayList<>();
 
+    @GuardedBy("this")
+    private final List<SettableFuture<?>> coordinatorSidecarSizeFutures = new ArrayList<>();
+
     @Inject
-    public ClusterSizeMonitor(InternalNodeManager nodeManager, NodeSchedulerConfig nodeSchedulerConfig, QueryManagerConfig queryManagerConfig, NodeResourceStatusConfig nodeResourceStatusConfig)
+    public ClusterSizeMonitor(InternalNodeManager nodeManager, NodeSchedulerConfig nodeSchedulerConfig, QueryManagerConfig queryManagerConfig, NodeResourceStatusConfig nodeResourceStatusConfig, ServerConfig serverConfig)
     {
         this(
                 nodeManager,
@@ -85,7 +99,9 @@ public class ClusterSizeMonitor
                 queryManagerConfig.getRequiredCoordinators(),
                 nodeResourceStatusConfig.getRequiredCoordinatorsActive(),
                 queryManagerConfig.getRequiredCoordinatorsMaxWait(),
-                nodeResourceStatusConfig.getRequiredResourceManagersActive());
+                queryManagerConfig.getRequiredCoordinatorSidecarsMaxWait(),
+                nodeResourceStatusConfig.getRequiredResourceManagersActive(),
+                serverConfig.isCoordinatorSidecarEnabled());
     }
 
     public ClusterSizeMonitor(
@@ -97,7 +113,9 @@ public class ClusterSizeMonitor
             int coordinatorMinCount,
             int coordinatorMinCountActive,
             Duration coordinatorMaxWait,
-            int resourceManagerMinCountActive)
+            Duration coordinatorSidecarMaxWait,
+            int resourceManagerMinCountActive,
+            boolean isCoordinatorSidecarEnabled)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.includeCoordinator = includeCoordinator;
@@ -111,9 +129,11 @@ public class ClusterSizeMonitor
         checkArgument(coordinatorMinCountActive >= 0, "coordinatorMinCountActive is negative");
         this.coordinatorMinCountActive = coordinatorMinCountActive;
         this.coordinatorMaxWait = requireNonNull(coordinatorMaxWait, "coordinatorMaxWait is null");
+        this.coordinatorSidecarMaxWait = requireNonNull(coordinatorSidecarMaxWait, "coordinatorSidecarMaxWait is null");
         checkArgument(resourceManagerMinCountActive >= 0, "resourceManagerMinCountActive is negative");
         this.resourceManagerMinCountActive = resourceManagerMinCountActive;
         this.executor = newSingleThreadScheduledExecutor(threadsNamed("node-monitor-%s"));
+        this.isCoordinatorSidecarEnabled = isCoordinatorSidecarEnabled;
     }
 
     @PostConstruct
@@ -140,7 +160,6 @@ public class ClusterSizeMonitor
     }
 
     /**
-     *
      * @return true when the current resource manager count is greater or equals to
      * minimum resource manager count for Coordinator.
      */
@@ -150,13 +169,25 @@ public class ClusterSizeMonitor
     }
 
     /**
-     *
      * @return true when the current coordinator count in a cluster is greater or equals to
      * minimum coordinator count for a given Coordinator.
      */
     public boolean hasRequiredCoordinators()
     {
         return currentCoordinatorCount >= coordinatorMinCountActive;
+    }
+
+    /**
+     * @return true when the current coordinator sidecars count in a cluster is greater or equals to
+     * minimum coordinator sidecars count for a given Coordinator.
+     */
+    public boolean hasRequiredCoordinatorSidecars()
+    {
+        if (currentCoordinatorSidecarCount > 1) {
+            throw new PrestoException(TOO_MANY_SIDECARS,
+                    format("Expected a single active coordinator sidecar. Found %s active coordinator sidecars", currentCoordinatorSidecarCount));
+        }
+        return currentCoordinatorSidecarCount == 1;
     }
 
     /**
@@ -224,6 +255,36 @@ public class ClusterSizeMonitor
         return future;
     }
 
+    public synchronized ListenableFuture<?> waitForMinimumCoordinatorSidecars()
+    {
+        if (currentCoordinatorSidecarCount == 1 || !isCoordinatorSidecarEnabled) {
+            return immediateFuture(null);
+        }
+
+        SettableFuture<?> future = SettableFuture.create();
+        coordinatorSidecarSizeFutures.add(future);
+
+        // if future does not finish in wait period, complete with an exception
+        ScheduledFuture<?> timeoutTask = executor.schedule(
+                () -> {
+                    synchronized (this) {
+                        future.setException(new PrestoException(
+                                NO_CPP_SIDECARS,
+                                format("Insufficient active coordinator sidecar nodes. Waited %s for at least 1 coordinator sidecars, but only 0 coordinator sidecars are active", coordinatorSidecarMaxWait)));
+                    }
+                },
+                coordinatorSidecarMaxWait.toMillis(),
+                MILLISECONDS);
+
+        // remove future if finished (e.g., canceled, timed out)
+        future.addListener(() -> {
+            timeoutTask.cancel(true);
+            removeCoordinatorSidecarFuture(future);
+        }, executor);
+
+        return future;
+    }
+
     private synchronized void removeWorkerFuture(SettableFuture<?> future)
     {
         workerSizeFutures.remove(future);
@@ -234,20 +295,26 @@ public class ClusterSizeMonitor
         coordinatorSizeFutures.remove(future);
     }
 
+    private synchronized void removeCoordinatorSidecarFuture(SettableFuture<?> future)
+    {
+        coordinatorSidecarSizeFutures.remove(future);
+    }
+
     private synchronized void updateAllNodes(AllNodes allNodes)
     {
         if (includeCoordinator) {
             currentWorkerCount = allNodes.getActiveNodes().size();
         }
         else {
-            currentWorkerCount = Sets.difference(
-                    Sets.difference(
-                            allNodes.getActiveNodes(),
-                            allNodes.getActiveCoordinators()),
-                    allNodes.getActiveResourceManagers()).size();
+            Set<Node> activeNodes = new HashSet<>(allNodes.getActiveNodes());
+            activeNodes.removeAll(allNodes.getActiveCoordinators());
+            activeNodes.removeAll(allNodes.getActiveResourceManagers());
+            activeNodes.removeAll(allNodes.getActiveCoordinatorSidecars());
+            currentWorkerCount = activeNodes.size();
         }
         currentCoordinatorCount = allNodes.getActiveCoordinators().size();
         currentResourceManagerCount = allNodes.getActiveResourceManagers().size();
+        currentCoordinatorSidecarCount = allNodes.getActiveCoordinatorSidecars().size();
         if (currentWorkerCount >= workerMinCount) {
             List<SettableFuture<?>> listeners = ImmutableList.copyOf(workerSizeFutures);
             workerSizeFutures.clear();
@@ -256,6 +323,11 @@ public class ClusterSizeMonitor
         if (currentCoordinatorCount >= coordinatorMinCount) {
             List<SettableFuture<?>> listeners = ImmutableList.copyOf(coordinatorSizeFutures);
             coordinatorSizeFutures.clear();
+            executor.submit(() -> listeners.forEach(listener -> listener.set(null)));
+        }
+        if (currentCoordinatorSidecarCount == 1) {
+            List<SettableFuture<?>> listeners = ImmutableList.copyOf(coordinatorSidecarSizeFutures);
+            coordinatorSidecarSizeFutures.clear();
             executor.submit(() -> listeners.forEach(listener -> listener.set(null)));
         }
     }

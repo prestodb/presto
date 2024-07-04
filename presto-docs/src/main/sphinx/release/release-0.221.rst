@@ -8,12 +8,12 @@ General Changes
 * Fix a performance regression for some outer joins without equality predicates when
   ``join_distribution_type`` is set to ``AUTOMATIC``.
 * Improve performance for queries that have constant ``VARCHAR`` predicates on join columns.
-* Add a variant of :func:`strpos` that returns the position of the N-th instance of the substring.
-* Add :func:`strrpos` that returns the position of the N-th instance of a substring from the back of a string.
-* Add aggregation function :func:`entropy`.
-* Add classification aggregation functions :func:`classification_miss_rate`, :func:`classification_precision`,
-  :func:`classification_recall`, :func:`classification_thresholds`.
-* Add overload of :func:`approx_set` which takes in the maximum standard error.
+* Add a variant of :func:`!strpos` that returns the position of the N-th instance of the substring.
+* Add :func:`!strrpos` that returns the position of the N-th instance of a substring from the back of a string.
+* Add aggregation function :func:`!entropy`.
+* Add classification aggregation functions :func:`!classification_miss_rate`, :func:`!classification_precision`,
+  :func:`!classification_recall`, :func:`!classification_thresholds`.
+* Add overload of :func:`!approx_set` which takes in the maximum standard error.
 * Add ``max_tasks_per_stage`` session property and ``stage.max-tasks-per-stage`` config property to
   limit the number of tasks per stage for grouped execution.  Setting this session property allows queries
   running with grouped execution to use a predictable amount of memory independent of the cluster size.

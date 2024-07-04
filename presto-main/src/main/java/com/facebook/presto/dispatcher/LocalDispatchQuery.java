@@ -31,6 +31,7 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.prerequisites.QueryPrerequisites;
 import com.facebook.presto.spi.prerequisites.QueryPrerequisitesContext;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
@@ -185,21 +186,22 @@ public class LocalDispatchQuery
     public void startWaitingForResources()
     {
         if (stateMachine.transitionToWaitingForResources()) {
-            waitForMinimumWorkers();
+            waitForMinimumCoordinatorSidecarsAndWorkers();
         }
     }
 
-    private void waitForMinimumWorkers()
+    private void waitForMinimumCoordinatorSidecarsAndWorkers()
     {
-        ListenableFuture<?> minimumWorkerFuture = clusterSizeMonitor.waitForMinimumWorkers();
-        // when worker requirement is met, wait for query execution to finish construction and then start the execution
-        addSuccessCallback(minimumWorkerFuture, () -> {
+        ListenableFuture<?> minimumResourcesFuture = Futures.allAsList(
+                clusterSizeMonitor.waitForMinimumCoordinatorSidecars(),
+                clusterSizeMonitor.waitForMinimumWorkers());
+        // when worker and sidecar requirement is met, wait for query execution to finish construction and then start the execution
+        addSuccessCallback(minimumResourcesFuture, () -> {
             // It's the time to end waiting for resources
             boolean isDispatching = stateMachine.transitionToDispatching();
             addSuccessCallback(queryExecutionFuture, queryExecution -> startExecution(queryExecution, isDispatching));
         });
-
-        addExceptionCallback(minimumWorkerFuture, throwable -> queryExecutor.execute(() -> fail(throwable)));
+        addExceptionCallback(minimumResourcesFuture, throwable -> queryExecutor.execute(() -> fail(throwable)));
     }
 
     private void startExecution(QueryExecution queryExecution, boolean isDispatching)
