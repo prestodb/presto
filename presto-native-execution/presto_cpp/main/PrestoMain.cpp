@@ -17,7 +17,6 @@
 #include <glog/logging.h>
 #include "presto_cpp/main/PrestoServer.h"
 #include "presto_cpp/main/common/Utils.h"
-#include "velox/common/base/StatsReporter.h"
 
 DEFINE_string(etc_dir, ".", "etc directory for presto configuration");
 
@@ -30,8 +29,3 @@ int main(int argc, char* argv[]) {
   presto.run();
   PRESTO_SHUTDOWN_LOG(INFO) << "Exiting main()";
 }
-
-// Initialize singleton for the reporter.
-folly::Singleton<facebook::velox::BaseStatsReporter> reporter([]() {
-  return new facebook::velox::DummyStatsReporter();
-});

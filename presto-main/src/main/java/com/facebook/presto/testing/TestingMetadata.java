@@ -99,9 +99,13 @@ public class TestingMetadata
     }
 
     @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
+    public ConnectorTableLayoutResult getTableLayoutForConstraint(
+            ConnectorSession session,
+            ConnectorTableHandle table,
+            Constraint<ColumnHandle> constraint,
+            Optional<Set<ColumnHandle>> desiredColumns)
     {
-        return ImmutableList.of(new ConnectorTableLayoutResult(new ConnectorTableLayout(INSTANCE), TupleDomain.all()));
+        return new ConnectorTableLayoutResult(new ConnectorTableLayout(INSTANCE), TupleDomain.all());
     }
 
     @Override

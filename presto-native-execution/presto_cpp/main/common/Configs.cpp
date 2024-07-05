@@ -163,8 +163,10 @@ SystemConfig::SystemConfig() {
           NONE_PROP(kHttpsKeyPath),
           NONE_PROP(kHttpsClientCertAndKeyPath),
           NUM_PROP(kExchangeHttpClientNumIoThreadsHwMultiplier, 1.0),
+          NUM_PROP(kExchangeHttpClientNumCpuThreadsHwMultiplier, 1.0),
           NUM_PROP(kConnectorNumIoThreadsHwMultiplier, 1.0),
           NUM_PROP(kDriverNumCpuThreadsHwMultiplier, 4.0),
+          BOOL_PROP(kDriverThreadsBatchSchedulingEnabled, false),
           NUM_PROP(kDriverStuckOperatorThresholdMs, 30 * 60 * 1000),
           NUM_PROP(kSpillerNumCpuThreadsHwMultiplier, 1.0),
           STR_PROP(kSpillerFileCreateConfig, ""),
@@ -214,7 +216,7 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kAnnouncementMaxFrequencyMs, 30'000), // 30s
           NUM_PROP(kHeartbeatFrequencyMs, 0),
           STR_PROP(kExchangeMaxErrorDuration, "3m"),
-          STR_PROP(kExchangeRequestTimeout, "10s"),
+          STR_PROP(kExchangeRequestTimeout, "20s"),
           STR_PROP(kExchangeConnectTimeout, "20s"),
           BOOL_PROP(kExchangeEnableConnectionPool, true),
           BOOL_PROP(kExchangeEnableBufferCopy, true),
@@ -356,12 +358,21 @@ double SystemConfig::exchangeHttpClientNumIoThreadsHwMultiplier() const {
       .value();
 }
 
+double SystemConfig::exchangeHttpClientNumCpuThreadsHwMultiplier() const {
+  return optionalProperty<double>(kExchangeHttpClientNumCpuThreadsHwMultiplier)
+      .value();
+}
+
 double SystemConfig::connectorNumIoThreadsHwMultiplier() const {
   return optionalProperty<double>(kConnectorNumIoThreadsHwMultiplier).value();
 }
 
 double SystemConfig::driverNumCpuThreadsHwMultiplier() const {
   return optionalProperty<double>(kDriverNumCpuThreadsHwMultiplier).value();
+}
+
+bool SystemConfig::driverThreadsBatchSchedulingEnabled() const {
+  return optionalProperty<bool>(kDriverThreadsBatchSchedulingEnabled).value();
 }
 
 size_t SystemConfig::driverStuckOperatorThresholdMs() const {

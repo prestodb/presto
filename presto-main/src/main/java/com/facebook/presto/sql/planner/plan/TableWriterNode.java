@@ -443,12 +443,11 @@ public class TableWriterNode
         private final List<String> updatedColumns;
         private final List<ColumnHandle> updatedColumnHandles;
 
-        @JsonCreator
         public UpdateTarget(
-                @JsonProperty("handle") TableHandle handle,
-                @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
-                @JsonProperty("updatedColumns") List<String> updatedColumns,
-                @JsonProperty("updatedColumnHandles") List<ColumnHandle> updatedColumnHandles)
+                TableHandle handle,
+                SchemaTableName schemaTableName,
+                List<String> updatedColumns,
+                List<ColumnHandle> updatedColumnHandles)
         {
             this.handle = requireNonNull(handle, "handle is null");
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
@@ -457,31 +456,26 @@ public class TableWriterNode
             this.updatedColumnHandles = requireNonNull(updatedColumnHandles, "updatedColumnHandles is null");
         }
 
-        @JsonProperty
         public TableHandle getHandle()
         {
             return handle;
         }
 
-        @Override
         public ConnectorId getConnectorId()
         {
             return handle.getConnectorId();
         }
 
-        @JsonProperty
         public SchemaTableName getSchemaTableName()
         {
             return schemaTableName;
         }
 
-        @JsonProperty
         public List<String> getUpdatedColumns()
         {
             return updatedColumns;
         }
 
-        @JsonProperty
         public List<ColumnHandle> getUpdatedColumnHandles()
         {
             return updatedColumnHandles;

@@ -40,7 +40,9 @@ import io.airlift.units.DataSize;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.confidenceBasedBroadcastEnabled;
 import static com.facebook.presto.SystemSessionProperties.getJoinDistributionType;
 import static com.facebook.presto.SystemSessionProperties.getJoinMaxBroadcastTableSize;
 import static com.facebook.presto.SystemSessionProperties.isSizeBasedJoinDistributionTypeEnabled;
@@ -49,6 +51,7 @@ import static com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges.calc
 import static com.facebook.presto.spi.plan.JoinDistributionType.PARTITIONED;
 import static com.facebook.presto.spi.plan.JoinDistributionType.REPLICATED;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.AUTOMATIC;
+import static com.facebook.presto.sql.planner.iterative.ConfidenceBasedBroadcastUtil.confidenceBasedBroadcast;
 import static com.facebook.presto.sql.planner.iterative.rule.JoinSwappingUtils.isBelowBroadcastLimit;
 import static com.facebook.presto.sql.planner.iterative.rule.JoinSwappingUtils.isSmallerThanThreshold;
 import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
@@ -123,6 +126,13 @@ public class DetermineJoinDistributionType
 
         addJoinsWithDifferentDistributions(joinNode, possibleJoinNodes, context);
         addJoinsWithDifferentDistributions(joinNode.flipChildren(), possibleJoinNodes, context);
+
+        if (isBelowMaxBroadcastSize(joinNode, context) && isBelowMaxBroadcastSize(joinNode.flipChildren(), context) && !mustPartition(joinNode) && confidenceBasedBroadcastEnabled(context.getSession())) {
+            Optional<JoinNode> result = confidenceBasedBroadcast(joinNode, context);
+            if (result.isPresent()) {
+                return result.get();
+            }
+        }
 
         if (possibleJoinNodes.stream().anyMatch(result -> result.getCost().hasUnknownComponents()) || possibleJoinNodes.isEmpty()) {
             // TODO: currently this session parameter is added so as to roll out the plan change gradually, after proved to be a better choice, make it default and get rid of the session parameter here.
@@ -236,7 +246,7 @@ public class DetermineJoinDistributionType
         return joinNode.withDistributionType(REPLICATED);
     }
 
-    private boolean mustPartition(JoinNode joinNode)
+    public static boolean mustPartition(JoinNode joinNode)
     {
         return joinNode.getType().mustPartition();
     }

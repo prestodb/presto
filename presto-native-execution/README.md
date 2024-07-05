@@ -125,22 +125,30 @@ From the Presto repo run the commands below:
 * `mvn clean install -DskipTests -T1C -pl -presto-docs`
 
 Run IntelliJ IDEA:
-* Edit/Create `HiveQueryRunnerExternal` Application Run/Debug Configuration (alter paths accordingly).
+
+Run HiveExternalWorkerQueryRunner,
+* Edit/Create `HiveExternalWorkerQueryRunner` Application Run/Debug Configuration (alter paths accordingly).
   * Main class: `com.facebook.presto.nativeworker.HiveExternalWorkerQueryRunner`.
   * VM options: `-ea -Xmx5G -XX:+ExitOnOutOfMemoryError -Duser.timezone=America/Bahia_Banderas -Dhive.security=legacy`.
   * Working directory: `$MODULE_DIR$`
   * Environment variables: `PRESTO_SERVER=/Users/<user>/git/presto/presto-native-execution/cmake-build-debug/presto_cpp/main/presto_server;DATA_DIR=/Users/<user>/Desktop/data;WORKER_COUNT=0`
   * Use classpath of module: choose `presto-native-execution` module.
-* Edit/Create `TestPrestoNativeGeneralQueriesJSON` Test Run/Debug Configuration (alter paths accordingly).
-  * Class: `com.facebook.presto.nativeworker.TestPrestoNativeGeneralQueriesJSON`
-  * VM Options: `-ea -DPRESTO_SERVER=/Users/<user>/git/presto_cpp/cmake-build-debug/presto_cpp/main/presto_server -DDATA_DIR=/Users/<user>/Desktop/data`
-  * Working directory: `$MODULE_WORKING_DIR$`
-  * On Apple Silicon
-    * Environment Variables: `DYLD_LIBRARY_PATH=/usr/local/lib`
-* Edit/Create `Presto Client` Application Run/Debug Configuration (alter paths accordingly).
-  * Main class: `com.facebook.presto.cli.Presto`
-  * Program arguments: `--catalog hive --schema tpch`
-  * Use classpath of module: choose `presto-cli` module.
+
+Run IcebergExternalWorkerQueryRunner,
+* Edit/Create `IcebergExternalWorkerQueryRunner` Application Run/Debug Configuration (alter paths accordingly).
+  * Main class: `com.facebook.presto.nativeworker.IcebergExternalWorkerQueryRunner`.
+  * VM options: `-ea -Xmx5G -XX:+ExitOnOutOfMemoryError -Duser.timezone=America/Bahia_Banderas -Dhive.security=legacy`.
+  * Working directory: `$MODULE_DIR$`
+  * Environment variables: `PRESTO_SERVER=/Users/<user>/git/presto/presto-native-execution/cmake-build-debug/presto_cpp/main/presto_server;DATA_DIR=/Users/<user>/Desktop/data;WORKER_COUNT=0`
+    * When `addStorageFormatToPath = false` **(Default)**,
+    
+      `$DATA_DIR/iceberg_data/<catalog_type>`. Here `catalog_type` could be `HIVE | HADOOP | NESSIE | REST`.
+    
+      `addStorageFormatToPath` is `false` by default because Java `HiveQueryRunner` and `IcebergQueryRunner` do not add the file format to the path.
+    * When `addStorageFormatToPath = true`,
+
+      `$DATA_DIR/iceberg_data/<file_format>/<catalog_type>`. Here `file_format` could be `PARQUET | ORC | AVRO` and `catalog_type` could be `HIVE | HADOOP | NESSIE | REST`.
+  * Use classpath of module: choose `presto-native-execution` module.
 
 Run CLion:
 * File->Close Project if any is open.
@@ -160,8 +168,10 @@ Run CLion:
     ![ScreenShot](cl_clangformat_switcherenable.png)
 
 ### Run Presto Coordinator + Worker
-* Note that everything below can be done w/o using IDEs by running command line commands (not in this readme).
-* Run 'HiveQueryRunnerExternal' from IntelliJ and wait until it started (`======== SERVER STARTED ========` in the log output).
+* Note that everything below can be done without using IDEs by running command line commands (not in this readme).
+* Run QueryRunner as per your choice,
+  * For Hive, Run `HiveExternalWorkerQueryRunner` from IntelliJ and wait until it starts (`======== SERVER STARTED ========` is displayed in the log output).
+  * For Iceberg, Run `IcebergExternalWorkerQueryRunner` from IntelliJ and wait until it starts (`======== SERVER STARTED ========` is displayed in the log output).
 * Scroll up the log output and find `Discovery URL http://127.0.0.1:50555`. The port is 'random' with every start.
 * Copy that port (or the whole URL) to the `discovery.uri` field in `presto/presto-native-execution/etc/config.properties` for the worker to discover the Coordinator.
 * In CLion run "presto_server" module. Connection success will be indicated by `Announcement succeeded: 202` line in the log output.
