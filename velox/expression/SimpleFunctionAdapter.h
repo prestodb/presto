@@ -197,12 +197,6 @@ class SimpleFunctionAdapter : public VectorFunction {
       context.template applyToSelectedNoThrow<Callable>(*rows, func);
     }
 
-    template <typename Callable, typename OnError>
-    void applyToSelectedNoThrow(Callable func, OnError onErrorFunc) {
-      context.template applyToSelectedNoThrow<Callable>(
-          *rows, func, onErrorFunc);
-    }
-
     void setError(vector_size_t row, Status status) {
       context.setStatus(row, status);
     }
@@ -748,20 +742,37 @@ class SimpleFunctionAdapter : public VectorFunction {
 
   template <typename Func>
   void applyUdf(ApplyContext& applyContext, Func func) const {
-    applyContext.applyToSelectedNoThrow(
-        [&](auto row) INLINE_LAMBDA {
-          applyContext.resultWriter.setOffset(row);
-          bool notNull;
-          auto status = func(applyContext.resultWriter.current(), notNull, row);
-          if UNLIKELY (!status.ok()) {
-            applyContext.setError(row, status);
-            applyContext.resultWriter.commitNull();
-          } else {
-            applyContext.resultWriter.commit(notNull);
-          }
-        },
-        [&](auto /* row */)
-            INLINE_LAMBDA { applyContext.resultWriter.commitNull(); });
+    if constexpr (IsArrayWriter<T>::value || IsMapWriter<T>::value) {
+      // An optimization for arrayProxy and mapWriter that force the
+      // localization of the writer.
+      auto& currentWriter = applyContext.resultWriter.writer_;
+
+      applyContext.applyToSelectedNoThrow([&](auto row) INLINE_LAMBDA {
+        applyContext.resultWriter.setOffset(row);
+        // Force local copy of proxy.
+        auto localWriter = currentWriter;
+        bool notNull;
+        auto status = func(localWriter, notNull, row);
+        if UNLIKELY (!status.ok()) {
+          applyContext.setError(row, status);
+        } else {
+          currentWriter = localWriter;
+          applyContext.resultWriter.commit(notNull);
+        }
+      });
+      applyContext.resultWriter.finish();
+    } else {
+      applyContext.applyToSelectedNoThrow([&](auto row) INLINE_LAMBDA {
+        applyContext.resultWriter.setOffset(row);
+        bool notNull;
+        auto status = func(applyContext.resultWriter.current(), notNull, row);
+        if UNLIKELY (!status.ok()) {
+          applyContext.setError(row, status);
+        } else {
+          applyContext.resultWriter.commit(notNull);
+        }
+      });
+    }
   }
 
   // == NULLABLE VARIANTS ==
