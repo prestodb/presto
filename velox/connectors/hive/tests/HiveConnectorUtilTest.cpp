@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
+#include "velox/connectors/hive/HiveConnectorUtil.h"
 #include <gtest/gtest.h>
-#include "velox/exec/tests/utils/HiveConnectorTestBase.h"
-
 #include "velox/connectors/hive/HiveConfig.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
-#include "velox/connectors/hive/HiveConnectorUtil.h"
 #include "velox/connectors/hive/TableHandle.h"
 #include "velox/core/Config.h"
+#include "velox/exec/tests/utils/HiveConnectorTestBase.h"
+#include "velox/exec/tests/utils/PrefixSortUtils.h"
 
 namespace facebook::velox::connector {
 
@@ -48,6 +48,7 @@ TEST_F(HiveConnectorUtilTest, configureReaderOptions) {
       pool_.get(),
       &sessionProperties,
       nullptr,
+      exec::test::defaultPrefixSortConfig(),
       nullptr,
       nullptr,
       "query.HiveConnectorUtilTest",

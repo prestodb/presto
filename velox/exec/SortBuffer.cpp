@@ -25,12 +25,14 @@ SortBuffer::SortBuffer(
     const std::vector<CompareFlags>& sortCompareFlags,
     velox::memory::MemoryPool* pool,
     tsan_atomic<bool>* nonReclaimableSection,
+    common::PrefixSortConfig prefixSortConfig,
     const common::SpillConfig* spillConfig,
     folly::Synchronized<velox::common::SpillStats>* spillStats)
     : input_(input),
       sortCompareFlags_(sortCompareFlags),
       pool_(pool),
       nonReclaimableSection_(nonReclaimableSection),
+      prefixSortConfig_(prefixSortConfig),
       spillConfig_(spillConfig),
       spillStats_(spillStats) {
   VELOX_CHECK_GE(input_->size(), sortCompareFlags_.size());
@@ -112,19 +114,8 @@ void SortBuffer::noMoreInput() {
     sortedRows_.resize(numInputRows_);
     RowContainerIterator iter;
     data_->listRows(&iter, numInputRows_, sortedRows_.data());
-    std::sort(
-        sortedRows_.begin(),
-        sortedRows_.end(),
-        [this](const char* leftRow, const char* rightRow) {
-          for (vector_size_t index = 0; index < sortCompareFlags_.size();
-               ++index) {
-            if (auto result = data_->compare(
-                    leftRow, rightRow, index, sortCompareFlags_[index])) {
-              return result < 0;
-            }
-          }
-          return false;
-        });
+    PrefixSort::sort(
+        sortedRows_, pool_, data_.get(), sortCompareFlags_, prefixSortConfig_);
   } else {
     // Spill the remaining in-memory state to disk if spilling has been
     // triggered on this sort buffer. This is to simplify query OOM prevention

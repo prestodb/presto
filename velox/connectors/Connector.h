@@ -17,6 +17,7 @@
 
 #include "folly/CancellationToken.h"
 #include "velox/common/base/AsyncSource.h"
+#include "velox/common/base/PrefixSortConfig.h"
 #include "velox/common/base/RuntimeMetrics.h"
 #include "velox/common/base/SpillConfig.h"
 #include "velox/common/base/SpillStats.h"
@@ -255,6 +256,7 @@ class ConnectorQueryCtx {
       memory::MemoryPool* connectorPool,
       const Config* sessionProperties,
       const common::SpillConfig* spillConfig,
+      common::PrefixSortConfig prefixSortConfig,
       std::unique_ptr<core::ExpressionEvaluator> expressionEvaluator,
       cache::AsyncDataCache* cache,
       const std::string& queryId,
@@ -267,6 +269,7 @@ class ConnectorQueryCtx {
         connectorPool_(connectorPool),
         sessionProperties_(sessionProperties),
         spillConfig_(spillConfig),
+        prefixSortConfig_(prefixSortConfig),
         expressionEvaluator_(std::move(expressionEvaluator)),
         cache_(cache),
         scanId_(fmt::format("{}.{}", taskId, planNodeId)),
@@ -298,6 +301,10 @@ class ConnectorQueryCtx {
 
   const common::SpillConfig* spillConfig() const {
     return spillConfig_;
+  }
+
+  const common::PrefixSortConfig& prefixSortConfig() const {
+    return prefixSortConfig_;
   }
 
   core::ExpressionEvaluator* expressionEvaluator() const {
@@ -349,6 +356,7 @@ class ConnectorQueryCtx {
   memory::MemoryPool* const connectorPool_;
   const Config* const sessionProperties_;
   const common::SpillConfig* const spillConfig_;
+  const common::PrefixSortConfig prefixSortConfig_;
   std::unique_ptr<core::ExpressionEvaluator> expressionEvaluator_;
   cache::AsyncDataCache* cache_;
   const std::string scanId_;

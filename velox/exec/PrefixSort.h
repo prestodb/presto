@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include "velox/common/base/PrefixSortConfig.h"
 #include "velox/common/memory/MemoryAllocator.h"
 #include "velox/exec/RowContainer.h"
 #include "velox/exec/prefixsort/PrefixSortAlgorithm.h"
@@ -40,20 +41,6 @@ FOLLY_ALWAYS_INLINE void stdSort(
       });
 }
 }; // namespace detail
-
-struct PrefixSortConfig {
-  PrefixSortConfig(uint32_t maxNormalizedKeySize, uint32_t threshold = 130)
-      : maxNormalizedKeySize(maxNormalizedKeySize), threshold(threshold) {}
-
-  /// Max number of bytes can store normalized keys in prefix-sort buffer per
-  /// entry.
-  const uint32_t maxNormalizedKeySize;
-
-  /// PrefixSort will have performance regression when the dateset is too small.
-  /// The threshold is set to 100 according to the benchmark test results by
-  /// default.
-  const int64_t threshold;
-};
 
 /// The layout of prefix-sort buffer, a prefix entry includes:
 /// 1. normalized keys
@@ -107,8 +94,6 @@ class PrefixSort {
   PrefixSort(
       memory::MemoryPool* pool,
       RowContainer* rowContainer,
-      const std::vector<CompareFlags>& keyCompareFlags,
-      const PrefixSortConfig& config,
       const PrefixSortLayout& sortLayout);
 
   /// Follow the steps below to sort the data in RowContainer:
@@ -139,7 +124,7 @@ class PrefixSort {
       memory::MemoryPool* pool,
       RowContainer* rowContainer,
       const std::vector<CompareFlags>& compareFlags,
-      const PrefixSortConfig& config) {
+      const velox::common::PrefixSortConfig& config) {
     if (rowContainer->numRows() < config.threshold) {
       detail::stdSort(rows, rowContainer, compareFlags);
       return;
@@ -154,7 +139,7 @@ class PrefixSort {
       return;
     }
 
-    PrefixSort prefixSort(pool, rowContainer, compareFlags, config, sortLayout);
+    PrefixSort prefixSort(pool, rowContainer, sortLayout);
     prefixSort.sortInternal(rows);
   }
 

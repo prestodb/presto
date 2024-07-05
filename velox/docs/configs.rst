@@ -129,6 +129,14 @@ Generic Configuration
      - 0
      - If it is not zero, specifies the time limit that a driver can continuously
        run on a thread before yield. If it is zero, then it no limit.
+   * - prefixsort_normalized_key_max_bytes
+     - integer
+     - 128
+     - Maximum number of bytes to use for the normalized key in prefix-sort. Use 0 to disable prefix-sort.
+   * - prefixsort_min_rows
+     - integer
+     - 130
+     - Minimum number of rows to use prefix-sort. The default value has been derived using micro-benchmarking.
 
 .. _expression-evaluation-conf:
 

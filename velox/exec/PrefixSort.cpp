@@ -183,8 +183,6 @@ int PrefixSort::comparePartNormalizedKeys(char* left, char* right) {
 PrefixSort::PrefixSort(
     memory::MemoryPool* pool,
     RowContainer* rowContainer,
-    const std::vector<CompareFlags>& keyCompareFlags,
-    const PrefixSortConfig& config,
     const PrefixSortLayout& sortLayout)
     : pool_(pool), sortLayout_(sortLayout), rowContainer_(rowContainer) {}
 

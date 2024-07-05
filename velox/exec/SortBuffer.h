@@ -19,6 +19,7 @@
 #include "velox/exec/ContainerRowSerde.h"
 #include "velox/exec/Operator.h"
 #include "velox/exec/OperatorUtils.h"
+#include "velox/exec/PrefixSort.h"
 #include "velox/exec/RowContainer.h"
 #include "velox/exec/Spill.h"
 #include "velox/vector/BaseVector.h"
@@ -36,6 +37,7 @@ class SortBuffer {
       const std::vector<CompareFlags>& sortCompareFlags,
       velox::memory::MemoryPool* pool,
       tsan_atomic<bool>* nonReclaimableSection,
+      common::PrefixSortConfig prefixSortConfig,
       const common::SpillConfig* spillConfig = nullptr,
       folly::Synchronized<velox::common::SpillStats>* spillStats = nullptr);
 
@@ -87,6 +89,8 @@ class SortBuffer {
   // TableWriter to indicate if this sort buffer object is under non-reclaimable
   // execution section or not.
   tsan_atomic<bool>* const nonReclaimableSection_;
+  // Configuration settings for prefix-sort.
+  const common::PrefixSortConfig prefixSortConfig_;
   const common::SpillConfig* const spillConfig_;
   folly::Synchronized<common::SpillStats>* const spillStats_;
 

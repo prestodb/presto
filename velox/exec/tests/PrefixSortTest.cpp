@@ -65,9 +65,10 @@ class PrefixSortTest : public exec::test::OperatorTestBase {
         pool_.get(),
         &rowContainer,
         compareFlags,
-        {1024,
-         // Set threshold to 0 to enable prefix-sort in small dataset.
-         0});
+        common::PrefixSortConfig{
+            1024,
+            // Set threshold to 0 to enable prefix-sort in small dataset.
+            0});
 
     // Extract data from the RowContainer in order.
     const RowVectorPtr actual =

@@ -59,6 +59,7 @@ OperatorCtx::createConnectorQueryCtx(
       connectorPool,
       task->queryCtx()->connectorSessionProperties(connectorId),
       spillConfig,
+      driverCtx_->prefixSortConfig(),
       std::make_unique<SimpleExpressionEvaluator>(
           execCtx()->queryCtx(), execCtx()->pool()),
       task->queryCtx()->cache(),

@@ -65,6 +65,7 @@ OrderBy::OrderBy(
       sortCompareFlags,
       pool(),
       &nonReclaimableSection_,
+      driverCtx->prefixSortConfig(),
       spillConfig_.has_value() ? &(spillConfig_.value()) : nullptr,
       &spillStats_);
 }

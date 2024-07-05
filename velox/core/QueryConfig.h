@@ -355,6 +355,15 @@ class QueryConfig {
   static constexpr const char* kDriverCpuTimeSliceLimitMs =
       "driver_cpu_time_slice_limit_ms";
 
+  /// Maximum number of bytes to use for the normalized key in prefix-sort. Use
+  /// 0 to disable prefix-sort.
+  static constexpr const char* kPrefixSortNormalizedKeyMaxBytes =
+      "prefixsort_normalized_key_max_bytes";
+
+  /// Minimum number of rows to use prefix-sort. The default value has been
+  /// derived using micro-benchmarking.
+  static constexpr const char* kPrefixSortMinRows = "prefixsort_min_rows";
+
   uint64_t queryMaxMemoryPerNode() const {
     return toCapacity(
         get<std::string>(kQueryMaxMemoryPerNode, "0B"), CapacityUnit::BYTE);
@@ -709,6 +718,14 @@ class QueryConfig {
 
   uint32_t driverCpuTimeSliceLimitMs() const {
     return get<uint32_t>(kDriverCpuTimeSliceLimitMs, 0);
+  }
+
+  int64_t prefixSortNormalizedKeyMaxBytes() const {
+    return get<int64_t>(kPrefixSortNormalizedKeyMaxBytes, 128);
+  }
+
+  int32_t prefixSortMinRows() const {
+    return get<int32_t>(kPrefixSortMinRows, 130);
   }
 
   template <typename T>

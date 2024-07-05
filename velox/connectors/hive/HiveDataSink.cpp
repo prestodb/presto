@@ -748,6 +748,7 @@ HiveDataSink::maybeCreateBucketSortWriter(
       sortCompareFlags_,
       sortPool,
       writerInfo_.back()->nonReclaimableSectionHolder.get(),
+      connectorQueryCtx_->prefixSortConfig(),
       spillConfig_,
       writerInfo_.back()->spillStats.get());
   return std::make_unique<dwio::common::SortingWriter>(
