@@ -32,7 +32,9 @@ struct ServerOperation {
 
   /// The action this operation is trying to take
   enum class Action {
-    /// Applicable to kConnector. Clears the connector cache.
+    /// Applicable to kConnector and kServer. If it is for kConnector, it clears
+    /// the connector cache. If it is for kServer, it clears the memory (and
+    /// ssd) cache.
     kClearCache,
     /// Applicable to kConnector. Returns stats of the connector cache.
     kGetCacheStats,
@@ -52,6 +54,8 @@ struct ServerOperation {
     kSetState,
     /// Applicable to kServer. Enable/disable Presto Announcer.
     kAnnouncer,
+    /// Applicable to kServer. Write in-memory cache data to SSD.
+    kWriteSSD,
   };
 
   static const folly::F14FastMap<std::string, Target> kTargetLookup;
