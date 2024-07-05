@@ -52,12 +52,13 @@ class IcebergSplitReader : public SplitReader {
   // The read offset to the beginning of the split in number of rows for the
   // current batch for the base data file
   uint64_t baseReadOffset_;
-
   // The file position for the first row in the split
   uint64_t splitOffset_;
-
   std::list<std::unique_ptr<PositionalDeleteFileReader>>
       positionalDeleteFileReaders_;
   BufferPtr deleteBitmap_;
+  // The offset in bits of the deleteBitmap_ starting from where the bits shall
+  // be consumed
+  uint64_t deleteBitmapBitOffset_;
 };
 } // namespace facebook::velox::connector::hive::iceberg

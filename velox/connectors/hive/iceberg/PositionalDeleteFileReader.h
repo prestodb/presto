@@ -50,16 +50,16 @@ class PositionalDeleteFileReader {
   void readDeletePositions(
       uint64_t baseReadOffset,
       uint64_t size,
-      int8_t* deleteBitmap);
+      BufferPtr deleteBitmap);
 
-  bool endOfFile();
+  bool noMoreData();
 
  private:
   void updateDeleteBitmap(
       VectorPtr deletePositionsVector,
       uint64_t baseReadOffset,
       int64_t rowNumberUpperBound,
-      int8_t* deleteBitmap);
+      BufferPtr deleteBitmapBuffer);
 
   bool readFinishedForBatch(int64_t rowNumberUpperBound);
 
@@ -77,9 +77,17 @@ class PositionalDeleteFileReader {
 
   std::shared_ptr<HiveConnectorSplit> deleteSplit_;
   std::unique_ptr<dwio::common::RowReader> deleteRowReader_;
+  // The vector to hold the delete positions read from the positional delete
+  // file. These positions are relative to the start of the whole base data
+  // file.
   VectorPtr deletePositionsOutput_;
+  // The index of deletePositionsOutput_ that indicates up to where the delete
+  // positions have been converted into the bitmap
   uint64_t deletePositionsOffset_;
-  bool endOfFile_;
+  // Total number of rows read from this positional delete file reader,
+  // including the rows filtered out from filters on both filePathColumn_ and
+  // posColumn_.
+  uint64_t totalNumRowsScanned_;
 };
 
 } // namespace facebook::velox::connector::hive::iceberg
