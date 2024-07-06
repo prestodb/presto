@@ -998,8 +998,7 @@ void SsdFile::readCheckpoint(std::ifstream& state) {
     std::string name;
     name.resize(readNumber<int32_t>(state));
     state.read(name.data(), name.size());
-    auto lease = StringIdLease(fileIds(), name);
-    idMap[id] = std::move(lease);
+    idMap[id] = StringIdLease(fileIds(), id, name);
   }
 
   const auto logSize = ::lseek(evictLogFd_, 0, SEEK_END);

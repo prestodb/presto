@@ -77,10 +77,41 @@ uint64_t StringIdMap::makeId(std::string_view string) {
   } while (idToEntry_.find(entry.id) != idToEntry_.end());
   entry.numInUse = 1;
   pinnedSize_ += string.size();
-  auto id = entry.id;
+  const auto id = entry.id;
   idToEntry_[id] = std::move(entry);
   stringToId_[string] = id;
   return lastId_;
 }
 
+uint64_t StringIdMap::recoverId(uint64_t id, std::string_view string) {
+  std::lock_guard<std::mutex> l(mutex_);
+  auto it = stringToId_.find(string);
+  if (it != stringToId_.end()) {
+    VELOX_CHECK_EQ(
+        id, it->second, "Multiple recover ids assigned to {}", string);
+    auto entry = idToEntry_.find(it->second);
+    VELOX_CHECK(entry != idToEntry_.end());
+    if (++entry->second.numInUse == 1) {
+      pinnedSize_ += entry->second.string.size();
+    }
+    return id;
+  }
+
+  VELOX_CHECK_EQ(
+      idToEntry_.count(id),
+      0,
+      "Reused recover id {} assigned to {}",
+      id,
+      string);
+
+  Entry entry;
+  entry.string = string;
+  entry.id = id;
+  lastId_ = std::max(lastId_, id);
+  entry.numInUse = 1;
+  pinnedSize_ += string.size();
+  idToEntry_[id] = std::move(entry);
+  stringToId_[string] = id;
+  return id;
+}
 } // namespace facebook::velox

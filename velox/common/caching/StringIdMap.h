@@ -35,41 +35,59 @@ class StringIdMap {
   void operator=(const StringIdMap& other) = delete;
   void operator=(StringIdMap&& other) = delete;
 
-  // Returns the id of 'string' or kNoId if the string is not known.
+  /// Returns the id of 'string' or kNoId if the string is not known.
   uint64_t id(std::string_view string);
 
-  // Returns the total length of strings involved in currently referenced
-  // mappings.
+  /// Returns the total length of strings involved in currently referenced
+  /// mappings.
   int64_t pinnedSize() const {
     return pinnedSize_;
   }
 
-  // Returns the id for 'string' and increments its use count. Assigns a
-  // new id if none exists. Must be released with release() when no longer used.
+  /// Returns the id for 'string' and increments its use count. Assigns a
+  /// new id if none exists. Must be released with release() when no longer
+  /// used.
   uint64_t makeId(std::string_view string);
+
+  /// Returns the id for 'string' and increments its use count. Assigns a new id
+  /// if none exists. Must be released with release() when no longer used.
+  /// Recovers string id map by assigning 'id' to 'string' and increments its
+  /// use count. The function returns the recovered 'id'. It throws if 'id' has
+  /// already been assigned to other string or 'string' has already assigned a
+  /// different id. Must be released with release() when no longer used.
+  ///
+  /// NOTE: this is used by SSD cache to recover the file name to file id
+  /// mapping. This is to ensure the same file to be mapped to the same SSD file
+  /// shard after recover.
+  uint64_t recoverId(uint64_t id, std::string_view string);
 
   // Decrements the use count of id and may free the associated memory if no
   // uses remain.
   void release(uint64_t id);
 
-  // Increments the use count of 'id'.
+  /// Increments the use count of 'id'.
   void addReference(uint64_t id);
 
-  // Returns a copy of the string associated with id or empty string if id has
-  // no string.
+  /// Returns a copy of the string associated with id or empty string if id has
+  /// no string.
   std::string string(uint64_t id) {
     std::lock_guard<std::mutex> l(mutex_);
     auto it = idToEntry_.find(id);
     return it == idToEntry_.end() ? "" : it->second.string;
   }
 
-  // Resets StringIdMap.
+  /// Resets StringIdMap.
   void testingReset() {
     std::lock_guard<std::mutex> l(mutex_);
     stringToId_.clear();
     idToEntry_.clear();
     lastId_ = 0;
     pinnedSize_ = 0;
+  }
+
+  uint64_t testingLastId() const {
+    std::lock_guard<std::mutex> l(mutex_);
+    return lastId_;
   }
 
  private:
@@ -79,23 +97,26 @@ class StringIdMap {
     uint32_t numInUse{};
   };
 
-  std::mutex mutex_;
+  mutable std::mutex mutex_;
   folly::F14FastMap<std::string, uint64_t> stringToId_;
   folly::F14FastMap<uint64_t, Entry> idToEntry_;
   uint64_t lastId_{0};
   uint64_t pinnedSize_{0};
 };
 
-// Keeps a string-id association live for the duration of this.
+/// Keeps a string-id association live for the duration of this.
 class StringIdLease {
  public:
   StringIdLease() = default;
 
-  // Makes a lease for 'string' and makes sure it has an id.
+  /// Makes a lease for 'string' and makes sure it has an id.
   StringIdLease(StringIdMap& ids, std::string_view string)
       : ids_(&ids), id_(ids_->makeId(string)) {}
 
-  // Makes a new lease for an id that already references a string.
+  StringIdLease(StringIdMap& ids, uint64_t id, std::string_view string)
+      : ids_(&ids), id_(ids_->recoverId(id, string)) {}
+
+  /// Makes a new lease for an id that already references a string.
   StringIdLease(StringIdMap& ids, uint64_t id) : ids_(&ids), id_(id) {
     ids_->addReference(id_);
   }
