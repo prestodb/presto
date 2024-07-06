@@ -323,7 +323,7 @@ std::shared_ptr<MemoryPool> MemoryPool::addLeafChild(
       0,
       "Leaf child memory pool {} already exists in {}",
       name,
-      toString());
+      name_);
   auto child = genChild(
       shared_from_this(),
       name,
@@ -352,7 +352,7 @@ std::shared_ptr<MemoryPool> MemoryPool::addAggregateChild(
       0,
       "Child memory pool {} already exists in {}",
       name,
-      toString());
+      name_);
   auto child = genChild(
       shared_from_this(),
       name,
