@@ -626,7 +626,7 @@ bool CacheShard::removeFileEntries(
   return true;
 }
 
-CacheStats CacheStats::operator-(CacheStats& other) const {
+CacheStats CacheStats::operator-(const CacheStats& other) const {
   CacheStats result;
   result.numHit = numHit - other.numHit;
   result.hitBytes = hitBytes - other.hitBytes;
@@ -639,9 +639,13 @@ CacheStats CacheStats::operator-(CacheStats& other) const {
   result.numStales = numStales - other.numStales;
   result.allocClocks = allocClocks - other.allocClocks;
   result.sumEvictScore = sumEvictScore - other.sumEvictScore;
-  if (ssdStats != nullptr && other.ssdStats != nullptr) {
-    result.ssdStats =
-        std::make_shared<SsdCacheStats>(*ssdStats - *other.ssdStats);
+  if (ssdStats != nullptr) {
+    if (other.ssdStats != nullptr) {
+      result.ssdStats =
+          std::make_shared<SsdCacheStats>(*ssdStats - *other.ssdStats);
+    } else {
+      result.ssdStats = std::make_shared<SsdCacheStats>(*ssdStats);
+    }
   }
   return result;
 }

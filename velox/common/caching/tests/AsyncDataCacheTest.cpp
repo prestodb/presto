@@ -991,6 +991,26 @@ TEST_P(AsyncDataCacheTest, cacheStats) {
   ASSERT_EQ(cache_->toString(false), expectedShortCacheOutput);
 }
 
+TEST_P(AsyncDataCacheTest, cacheStatsWithSsd) {
+  CacheStats stats;
+  stats.numHit = 234;
+  stats.numEvict = 1024;
+  stats.ssdStats = std::make_shared<SsdCacheStats>();
+  stats.ssdStats->bytesWritten = 1;
+  stats.ssdStats->bytesRead = 1;
+
+  const CacheStats otherStats;
+  const CacheStats deltaStats = stats - otherStats;
+  ASSERT_EQ(deltaStats.numHit, 234);
+  ASSERT_EQ(deltaStats.numEvict, 1024);
+  ASSERT_TRUE(deltaStats.ssdStats != nullptr);
+  ASSERT_EQ(deltaStats.ssdStats->bytesWritten, 1);
+  ASSERT_EQ(deltaStats.ssdStats->bytesRead, 1);
+  const std::string expectedDeltaCacheStats =
+      "Cache size: 0B tinySize: 0B large size: 0B\nCache entries: 0 read pins: 0 write pins: 0 pinned shared: 0B pinned exclusive: 0B\n num write wait: 0 empty entries: 0\nCache access miss: 0 hit: 234 hit bytes: 0B eviction: 1024 savable eviction: 0 eviction checks: 0 aged out: 0 stales: 0\nPrefetch entries: 0 bytes: 0B\nAlloc Megaclocks 0";
+  ASSERT_EQ(deltaStats.toString(), expectedDeltaCacheStats);
+}
+
 TEST_P(AsyncDataCacheTest, staleEntry) {
   constexpr uint64_t kRamBytes = 1UL << 30;
   // Disable SSD cache to test in-memory cache stale entry only.

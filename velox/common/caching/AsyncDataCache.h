@@ -545,7 +545,7 @@ struct CacheStats {
   /// Ssd cache stats that include both snapshot and cumulative stats.
   std::shared_ptr<SsdCacheStats> ssdStats = nullptr;
 
-  CacheStats operator-(CacheStats& other) const;
+  CacheStats operator-(const CacheStats& other) const;
 
   std::string toString() const;
 };
