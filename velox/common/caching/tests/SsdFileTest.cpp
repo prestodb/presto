@@ -654,13 +654,13 @@ TEST_F(SsdFileTest, ssdReadWithoutChecksumCheck) {
   };
 
   pins.clear();
-  cache_->testingClear();
+  cache_->clear();
   ASSERT_EQ(cache_->refreshStats().numEntries, 0);
 
   ASSERT_EQ(checkEntries(entries), entries.size());
   ASSERT_EQ(ssdFile_->testingStats().readWithoutChecksumChecks, 0);
 
-  cache_->testingClear();
+  cache_->clear();
   ASSERT_EQ(cache_->refreshStats().numEntries, 0);
 
 #ifndef NDEBUG

@@ -275,7 +275,7 @@ void CacheFuzzer::readCache() {
 
 void CacheFuzzer::reset() {
   cache_->shutdown();
-  cache_->ssdCache()->testingWaitForWriteToFinish();
+  cache_->ssdCache()->waitForWriteToFinish();
   executor_->join();
   executor_.reset();
   fileNames_.clear();

@@ -149,6 +149,11 @@ void registerVeloxMetrics() {
   // last counter retrieval.
   DEFINE_METRIC(kMetricMemoryCacheNumEvicts, facebook::velox::StatType::SUM);
 
+  // Number of times a valid entry was removed in order to make space but has
+  // not been saved to SSD yet, since last counter retrieval.
+  DEFINE_METRIC(
+      kMetricMemoryCacheNumSavableEvicts, facebook::velox::StatType::SUM);
+
   // Number of entries considered for evicting, since last counter retrieval.
   DEFINE_METRIC(
       kMetricMemoryCacheNumEvictChecks, facebook::velox::StatType::SUM);
@@ -255,6 +260,10 @@ void registerVeloxMetrics() {
 
   // Total number of cache regions evicted.
   DEFINE_METRIC(kMetricSsdCacheRegionsEvicted, facebook::velox::StatType::SUM);
+
+  // Total number of cache entries recovered from checkpoint.
+  DEFINE_METRIC(
+      kMetricSsdCacheRecoveredEntries, facebook::velox::StatType::SUM);
 
   /// ================== Memory Arbitration Counters =================
 

@@ -206,6 +206,9 @@ constexpr folly::StringPiece kMetricMemoryCacheNumNew{
 constexpr folly::StringPiece kMetricMemoryCacheNumEvicts{
     "velox.memory_cache_num_evicts"};
 
+constexpr folly::StringPiece kMetricMemoryCacheNumSavableEvicts{
+    "velox.memory_cache_num_savable_evicts"};
+
 constexpr folly::StringPiece kMetricMemoryCacheNumEvictChecks{
     "velox.memory_cache_num_evict_checks"};
 
@@ -292,6 +295,9 @@ constexpr folly::StringPiece kMetricSsdCacheCheckpointsWritten{
 
 constexpr folly::StringPiece kMetricSsdCacheRegionsEvicted{
     "velox.ssd_cache_regions_evicted"};
+
+constexpr folly::StringPiece kMetricSsdCacheRecoveredEntries{
+    "velox.ssd_cache_recovered_entries"};
 
 constexpr folly::StringPiece kMetricExchangeDataTimeMs{
     "velox.exchange_data_time_ms"};

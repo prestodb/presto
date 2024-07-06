@@ -84,7 +84,7 @@ void OperatorTestBase::setupMemory(
     int64_t memoryPoolInitCapacity,
     int64_t memoryPoolReservedCapacity) {
   if (asyncDataCache_ != nullptr) {
-    asyncDataCache_->testingClear();
+    asyncDataCache_->clear();
     asyncDataCache_.reset();
   }
   MemoryManagerOptions options;

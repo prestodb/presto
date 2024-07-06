@@ -115,9 +115,18 @@ class SsdCache {
 
   /// Stores the entries of 'pins' into the corresponding files. Sets the file
   /// for the successfully stored entries. May evict existing entries from
-  /// unpinned regions. startWrite() must have been called first and it must
-  /// have returned true.
+  /// unpinned regions.
+  ///
+  /// NOTE: startWrite() must have been called first and it must have returned
+  /// true.
   void write(std::vector<CachePin> pins);
+
+  /// Invoked to write checkpoints to all ssd files. This is used by Prestissimo
+  /// worker operation.
+  ///
+  /// NOTE: startWrite() must have been called first and it must have returned
+  /// true.
+  void checkpoint();
 
   /// Removes cached entries from all SsdFiles for files in the fileNum set
   /// 'filesToRemove'. If successful, return true, and 'filesRetained' contains
@@ -147,7 +156,13 @@ class SsdCache {
   /// Drops all entries. Outstanding pins become invalid but reading them will
   /// mostly succeed since the files will not be rewritten until new content is
   /// stored.
-  void testingClear();
+  ///
+  /// NOTE: it is used by test and Prestissimo worker operation.
+  void clear();
+
+  /// Waits until the pending ssd cache writes or checkpoints to finish. Used by
+  /// test and Prestissimo worker operation.
+  void waitForWriteToFinish();
 
   /// Deletes backing files. Used in testing.
   void testingDeleteFiles();
@@ -157,9 +172,6 @@ class SsdCache {
 
   /// Returns the total size of eviction log files. Used by test only.
   uint64_t testingTotalLogEvictionFilesSize();
-
-  /// Waits until the pending ssd cache writes finish. Used by test only.
-  void testingWaitForWriteToFinish();
 
  private:
   void checkNotShutdownLocked() {

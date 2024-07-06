@@ -145,6 +145,16 @@ void SsdCache::write(std::vector<CachePin> pins) {
   writesInProgress_.fetch_sub(numNoStore);
 }
 
+void SsdCache::checkpoint() {
+  VELOX_CHECK_EQ(numShards_, writesInProgress_);
+  for (auto i = 0; i < numShards_; ++i) {
+    executor_->add([this, i]() {
+      files_[i]->checkpoint(/*force=*/true);
+      --writesInProgress_;
+    });
+  }
+}
+
 bool SsdCache::removeFileEntries(
     const folly::F14FastSet<uint64_t>& filesToRemove,
     folly::F14FastSet<uint64_t>& filesRetained) {
@@ -206,9 +216,9 @@ void SsdCache::shutdown() {
   VELOX_SSD_CACHE_LOG(INFO) << "SSD cache has been shutdown";
 }
 
-void SsdCache::testingClear() {
+void SsdCache::clear() {
   for (auto& file : files_) {
-    file->testingClear();
+    file->clear();
   }
 }
 
@@ -233,7 +243,7 @@ uint64_t SsdCache::testingTotalLogEvictionFilesSize() {
   return size;
 }
 
-void SsdCache::testingWaitForWriteToFinish() {
+void SsdCache::waitForWriteToFinish() {
   while (writesInProgress_ != 0) {
     std::this_thread::sleep_for(std::chrono::milliseconds(100)); // NOLINT
   }

@@ -50,7 +50,7 @@ TEST(SsdFileTrackerTest, tracker) {
   EXPECT_EQ(candidates, expected);
 
   // Test large region scores.
-  tracker.testingClear();
+  tracker.clear();
   for (auto region = 0; region < kNumRegions; ++region) {
     tracker.regionRead(region, INT32_MAX);
     tracker.regionRead(region, region * 100'000'000);

@@ -85,7 +85,9 @@ class SsdFileTracker {
   }
 
   /// Resets scores of all regions.
-  void testingClear() {
+  ///
+  /// NOTE: this is only used by test and Prestissimo worker operation.
+  void clear() {
     std::fill(regionScores_.begin(), regionScores_.end(), 0);
   }
 

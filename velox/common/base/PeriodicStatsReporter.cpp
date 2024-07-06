@@ -160,6 +160,8 @@ void PeriodicStatsReporter::reportCacheStats() {
   REPORT_IF_NOT_ZERO(kMetricMemoryCacheNumNew, deltaCacheStats.numNew);
   REPORT_IF_NOT_ZERO(kMetricMemoryCacheNumEvicts, deltaCacheStats.numEvict);
   REPORT_IF_NOT_ZERO(
+      kMetricMemoryCacheNumSavableEvicts, deltaCacheStats.numSavableEvict);
+  REPORT_IF_NOT_ZERO(
       kMetricMemoryCacheNumEvictChecks, deltaCacheStats.numEvictChecks);
   REPORT_IF_NOT_ZERO(
       kMetricMemoryCacheNumWaitExclusive, deltaCacheStats.numWaitExclusive);
@@ -227,6 +229,8 @@ void PeriodicStatsReporter::reportCacheStats() {
     REPORT_IF_NOT_ZERO(
         kMetricSsdCacheReadWithoutChecksum,
         deltaSsdStats.readWithoutChecksumChecks);
+    REPORT_IF_NOT_ZERO(
+        kMetricSsdCacheRecoveredEntries, deltaSsdStats.entriesRecovered);
   }
 
   // TTL controler snapshot stats.

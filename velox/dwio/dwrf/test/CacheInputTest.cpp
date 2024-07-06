@@ -533,7 +533,7 @@ TEST_F(CacheTest, ssd) {
   EXPECT_LT(0, ioStats_->rawOverreadBytes());
   auto fullStripeBytes = ioStats_->rawBytesRead();
   auto bytes = ioStats_->rawBytesRead();
-  cache_->testingClear();
+  cache_->clear();
   // We read 10 stripes with some columns sparsely accessed.
   readLoop("testfile", 30, 70, 10, 10, 1, /*noCacheRetention=*/false, ioStats_);
   auto sparseStripeBytes = (ioStats_->rawBytesRead() - bytes) / 10;
@@ -548,7 +548,7 @@ TEST_F(CacheTest, ssd) {
       "prefix1_", 0, kSsdBytes / bytesPerFile, 30, 100, 1, kStripesPerFile, 4);
 
   waitForWrite();
-  cache_->testingClear();
+  cache_->clear();
   // Read double this to get some eviction from SSD.
   readFiles(
       "prefix1_",
@@ -824,7 +824,7 @@ TEST_F(CacheTest, noCacheRetention) {
     ASSERT_LT(0, ioStats_->rawBytesRead());
     auto* ssdCache = cache_->ssdCache();
     if (ssdCache != nullptr) {
-      ssdCache->testingWaitForWriteToFinish();
+      ssdCache->waitForWriteToFinish();
       if (testData.noCacheRetention) {
         ASSERT_EQ(ssdCache->stats().entriesCached, 0);
       } else {
@@ -945,7 +945,7 @@ TEST_F(CacheTest, ssdReadVerification) {
   // Corrupt SSD cache file.
   corruptSsdFile(fmt::format("{}/cache0", tempDirectory_->getPath()));
   // Clear memory cache to force ssd read.
-  cache_->testingClear();
+  cache_->clear();
 
   // Record the baseline stats.
   const auto prevStats = cache_->refreshStats();

@@ -556,14 +556,14 @@ void SsdFile::updateStats(SsdCacheStats& stats) const {
   stats.readSsdCorruptions += stats_.readSsdCorruptions;
 }
 
-void SsdFile::testingClear() {
+void SsdFile::clear() {
   std::lock_guard<std::shared_mutex> l(mutex_);
   entries_.clear();
   std::fill(regionSizes_.begin(), regionSizes_.end(), 0);
   std::fill(erasedRegionSizes_.begin(), erasedRegionSizes_.end(), 0);
   writableRegions_.resize(numRegions_);
   std::iota(writableRegions_.begin(), writableRegions_.end(), 0);
-  tracker_.testingClear();
+  tracker_.clear();
 }
 
 void SsdFile::testingDeleteFile() {
@@ -835,6 +835,9 @@ void SsdFile::checkpoint(bool force) {
     // log evictions. The latter might lead to data consistent issue.
     checkRc(::ftruncate(evictLogFd_, 0), "Truncate of event log");
     checkRc(::fsync(evictLogFd_), "Sync of evict log");
+
+    VELOX_SSD_CACHE_LOG(INFO)
+        << "Checkpoint persisted with " << entries_.size() << " cache entries";
   } catch (const std::exception& e) {
     try {
       checkpointError(-1, e.what());
@@ -855,10 +858,11 @@ void SsdFile::initializeCheckpoint() {
     hasCheckpoint = false;
     ++stats_.openCheckpointErrors;
     VELOX_SSD_CACHE_LOG(WARNING) << fmt::format(
-        "Starting shard {} without checkpoint, with checksum write {}, read verification {}.",
+        "Starting shard {} without checkpoint, with checksum write {}, read verification {}, checkpoint file {}",
         shardId_,
         checksumEnabled_ ? "enabled" : "disabled",
-        checksumReadVerificationEnabled_ ? "enabled" : "disabled");
+        checksumReadVerificationEnabled_ ? "enabled" : "disabled",
+        getCheckpointFilePath());
   }
   const auto logPath = getEvictLogFilePath();
   evictLogFd_ = ::open(logPath.c_str(), O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
@@ -971,8 +975,9 @@ void SsdFile::readCheckpoint(std::ifstream& state) {
       isChecksumEnabledOnCheckpointVersion(std::string(versionMagic, 4));
   if (checksumEnabled_ && !checkpoinHasChecksum) {
     VELOX_SSD_CACHE_LOG(WARNING) << fmt::format(
-        "Starting shard {} without checkpoint: checksum is enabled but the checkpoint was made without checksum, so skip the checkpoint recovery.",
-        shardId_);
+        "Starting shard {} without checkpoint: checksum is enabled but the checkpoint was made without checksum, so skip the checkpoint recovery, checkpoint file {}",
+        shardId_,
+        getCheckpointFilePath());
     return;
   }
 
@@ -1027,6 +1032,8 @@ void SsdFile::readCheckpoint(std::ifstream& state) {
     }
   }
   ++stats_.checkpointsRead;
+  stats_.entriesRecovered += entries_.size();
+
   // The state is successfully read. Install the access frequency scores and
   // evicted regions.
   VELOX_CHECK_EQ(scores.size(), tracker_.regionScores().size());
@@ -1037,13 +1044,14 @@ void SsdFile::readCheckpoint(std::ifstream& state) {
   }
   tracker_.setRegionScores(scores);
   VELOX_SSD_CACHE_LOG(INFO) << fmt::format(
-      "Starting shard {} from checkpoint with {} entries, {} regions with {} free, with checksum write {}, read verification {}.",
+      "Starting shard {} from checkpoint with {} entries, {} regions with {} free, with checksum write {}, read verification {}, checkpoint file {}",
       shardId_,
       entries_.size(),
       numRegions_,
       writableRegions_.size(),
       checksumEnabled_ ? "enabled" : "disabled",
-      checksumReadVerificationEnabled_ ? "enabled" : "disabled");
+      checksumReadVerificationEnabled_ ? "enabled" : "disabled",
+      getCheckpointFilePath());
 }
 
 } // namespace facebook::velox::cache

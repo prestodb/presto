@@ -522,6 +522,9 @@ struct CacheStats {
   int64_t numNew{0};
   /// Number of times a valid entry was removed in order to make space.
   int64_t numEvict{0};
+  /// Number of times a valid entry was removed in order to make space but has
+  /// not been saved to SSD yet.
+  int64_t numSavableEvict{0};
   /// Number of entries considered for evicting.
   int64_t numEvictChecks{0};
   /// Number of times a user waited for an entry to transit from exclusive to
@@ -602,12 +605,14 @@ class CacheShard {
   /// Adds the stats of 'this' to 'stats'.
   void updateStats(CacheStats& stats);
 
-  /// Appends a batch of non-saved SSD savable entries in 'this' to
-  /// 'pins'. This may have to be called several times since this keeps
-  /// limits on the batch to write at one time. The savable entries
-  /// are pinned for read. 'pins' should be written or dropped before
-  /// calling this a second time.
-  void appendSsdSaveable(std::vector<CachePin>& pins);
+  /// Appends a batch of non-saved SSD savable entries in 'this' to 'pins'. This
+  /// may have to be called several times since this keeps limits on the batch
+  /// to write at one time. The savable entries are pinned for read. 'pins'
+  /// should be written or dropped before calling this a second time. If 'all'
+  /// is true, then appends all the non-savable SSD savable entries without
+  /// limitation check. 'saveAll' is set to true for Prestissimo worker
+  /// operation use case.
+  void appendSsdSaveable(bool saveAll, std::vector<CachePin>& pins);
 
   /// Remove cache entries from this shard for files in the fileNum set
   /// 'filesToRemove'. If successful, return true, and 'filesRetained' contains
@@ -672,6 +677,8 @@ class CacheShard {
   uint64_t numNew_{0};
   // Cumulative count of entries evicted.
   uint64_t numEvict_{0};
+  // Cumulative count of evicted entries which has not been saved to SSD yet.
+  uint64_t numSavableEvict_{0};
   // Cumulative count of entries considered for eviction. This divided by
   // 'numEvict_' measured efficiency of eviction.
   uint64_t numEvictChecks_{0};
@@ -841,8 +848,9 @@ class AsyncDataCache : public memory::Cache {
     }
   }
 
-  // Saves all entries with 'ssdSaveable_' to 'ssdCache_'.
-  void saveToSsd();
+  /// Saves entries in 'ssdSaveable_' to 'ssdCache_'. If 'saveAll' is true, then
+  /// write them all in 'ssdSaveable_'.
+  void saveToSsd(bool saveAll = false);
 
   tsan_atomic<int32_t>& numSkippedSaves() {
     return numSkippedSaves_;
@@ -857,12 +865,18 @@ class AsyncDataCache : public memory::Cache {
       folly::F14FastSet<uint64_t>& filesRetained);
 
   /// Drops all unpinned entries. Pins stay valid.
-  void testingClear();
+  ///
+  /// NOTE: it is used by testing and Prestissimo server operation.
+  void clear();
 
   std::vector<AsyncDataCacheEntry*> testingCacheEntries() const;
 
   uint64_t testingSsdSavable() const {
     return ssdSaveable_;
+  }
+
+  int32_t testingNumShards() const {
+    return shards_.size();
   }
 
  private:
