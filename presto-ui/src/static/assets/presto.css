@@ -905,6 +905,9 @@ g .operator-stats:hover {
     margin-top: 20px;
     text-align: right;
 }
+.header-data{
+    pointer-events: none;
+}
 
 /** ============== **/
 /**   Worker Page  **/
