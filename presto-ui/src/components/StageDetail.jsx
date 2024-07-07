@@ -47,7 +47,7 @@ class OperatorSummary extends React.Component {
         const byteInputRate = totalWallTime === 0 ? 0 : (1.0 * parseDataSize(operator.inputDataSize)) / (totalWallTime / 1000.0);
 
         return (
-            <div>
+            <div className="header-data">
                 <div className="highlight-row">
                     <div className="header-row">
                         {operator.operatorType}
@@ -355,11 +355,12 @@ class StageOperatorGraph extends React.Component {
     }
 
     handleOperatorClick(operatorCssId) {
+        if(operatorCssId.target.hasOwnProperty("__data__") && operatorCssId.target.__data__ !== undefined){
         $('#operator-detail-modal').modal("show")
 
-        const pipelineId = (operatorCssId?.target?.__data__ || "").split('-').length > 0 ? parseInt(operatorCssId?.target?.__data__|| "").split('-')[1] : 0 ;
-        const operatorId =(operatorCssId?.target?.__data__ || "").split('-').length > 0 ? parseInt(operatorCssId?.target?.__data__|| "").split('-')[2] : 0 ;
-
+        const pipelineId = (operatorCssId?.target?.__data__ || "").split('-').length > 0 ? parseInt((operatorCssId?.target?.__data__ || '').split('-')[1] || '0') : 0;
+        const operatorId =(operatorCssId?.target?.__data__ || "").split('-').length > 0 ? parseInt((operatorCssId?.target?.__data__ || '').split('-')[2] || '0') : 0;
+       
         const stage = this.props.stage;
 
         let operatorStageSummary = null;
@@ -372,7 +373,9 @@ class StageOperatorGraph extends React.Component {
         const container = document.getElementById('operator-detail');
         const root = createRoot(container);
         root.render(<OperatorDetail key={operatorCssId} operator={operatorStageSummary} tasks={stage.latestAttemptExecutionInfo.tasks}/>);
-        
+    }else {
+        return;
+    }
     }
 
     computeOperatorGraphs() {
