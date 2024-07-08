@@ -225,7 +225,6 @@ public class LogicalPlanner
             columnNameToVariable.put(column.getName(), variable);
         }
 
-        List<VariableReferenceExpression> tableScanOutputs = tableScanOutputsBuilder.build();
         TableStatisticsMetadata tableStatisticsMetadata = metadata.getStatisticsCollectionMetadata(
                 session,
                 targetTable.getConnectorId().getCatalogName(),
@@ -233,14 +232,18 @@ public class LogicalPlanner
 
         TableStatisticAggregation tableStatisticAggregation = statisticsAggregationPlanner.createStatisticsAggregation(tableStatisticsMetadata, columnNameToVariable.build());
         StatisticAggregations statisticAggregations = tableStatisticAggregation.getAggregations();
-
+        List<VariableReferenceExpression> tableScanOutputs = tableScanOutputsBuilder.build();
+        Assignments assignments = Assignments.builder()
+                .putAll(tableScanOutputs.stream().collect(toImmutableMap(k -> k, k -> k)))
+                .putAll(tableStatisticAggregation.getAdditionalVariables())
+                .build();
         PlanNode planNode = new StatisticsWriterNode(
                 getSourceLocation(analyzeStatement),
                 idAllocator.getNextId(),
                 new AggregationNode(
                         getSourceLocation(analyzeStatement),
                         idAllocator.getNextId(),
-                        new TableScanNode(getSourceLocation(analyzeStatement), idAllocator.getNextId(), targetTable, tableScanOutputs, variableToColumnHandle.build(), TupleDomain.all(), TupleDomain.all()),
+                        new ProjectNode(idAllocator.getNextId(), new TableScanNode(getSourceLocation(analyzeStatement), idAllocator.getNextId(), targetTable, tableScanOutputs, variableToColumnHandle.build(), TupleDomain.all(), TupleDomain.all()), assignments),
                         statisticAggregations.getAggregations(),
                         singleGroupingSet(statisticAggregations.getGroupingVariables()),
                         ImmutableList.of(),

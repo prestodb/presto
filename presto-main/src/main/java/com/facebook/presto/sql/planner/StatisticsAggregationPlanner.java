@@ -21,6 +21,8 @@ import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.statistics.ColumnStatisticMetadata;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
@@ -44,7 +46,6 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
 public class StatisticsAggregationPlanner
@@ -72,6 +73,7 @@ public class StatisticsAggregationPlanner
         for (int i = 0; i < groupingVariables.size(); i++) {
             descriptor.addGrouping(groupingColumns.get(i), groupingVariables.get(i));
         }
+        ImmutableMap.Builder<VariableReferenceExpression, RowExpression> additionalVariables = ImmutableMap.builder();
 
         ImmutableMap.Builder<VariableReferenceExpression, AggregationNode.Aggregation> aggregations = ImmutableMap.builder();
         StandardFunctionResolution functionResolution = new FunctionResolution(functionAndTypeResolver);
@@ -103,22 +105,27 @@ public class StatisticsAggregationPlanner
             VariableReferenceExpression inputVariable = columnToVariableMap.get(columnName);
             verify(inputVariable != null, "inputVariable is null");
             ColumnStatisticsAggregation aggregation = createColumnAggregation(columnStatisticMetadata, inputVariable);
+            additionalVariables.putAll(aggregation.getAdditionalVariables());
             VariableReferenceExpression variable = variableAllocator.newVariable(statisticType + ":" + columnName, aggregation.getOutputType());
             aggregations.put(variable, aggregation.getAggregation());
             descriptor.addColumnStatistic(columnStatisticMetadata, variable);
         }
 
         StatisticAggregations aggregation = new StatisticAggregations(aggregations.build(), groupingVariables);
-        return new TableStatisticAggregation(aggregation, descriptor.build());
+        return new TableStatisticAggregation(aggregation, descriptor.build(), additionalVariables.build());
     }
 
     private ColumnStatisticsAggregation createColumnAggregation(ColumnStatisticMetadata columnStatisticMetadata, VariableReferenceExpression input)
     {
-        FunctionHandle functionHandle = functionAndTypeResolver.lookupFunction(columnStatisticMetadata.getFunctionName(), TypeSignatureProvider.fromTypes(ImmutableList.of(input.getType())));
+        FunctionHandle functionHandle = functionAndTypeResolver.lookupFunction(columnStatisticMetadata.getFunctionName(), TypeSignatureProvider.fromTypes(ImmutableList.<Type>builder()
+                .add(input.getType())
+                .addAll(columnStatisticMetadata.getAdditionalArguments().stream().map(ConstantExpression::getType).iterator())
+                .build()));
         FunctionMetadata functionMeta = functionAndTypeResolver.getFunctionMetadata(functionHandle);
-        Type inputType = functionAndTypeResolver.getType(getOnlyElement(functionMeta.getArgumentTypes()));
+        Type inputType = functionAndTypeResolver.getType(functionMeta.getArgumentTypes().get(0));
         Type outputType = functionAndTypeResolver.getType(functionMeta.getReturnType());
         verify(inputType.equals(input.getType()) || input.getType().equals(UNKNOWN), "resolved function input type does not match the input type: %s != %s", inputType, input.getType());
+        ImmutableMap.Builder<VariableReferenceExpression, ConstantExpression> additionalArgVariables = ImmutableMap.builder();
         return new ColumnStatisticsAggregation(
                 new AggregationNode.Aggregation(
                         new CallExpression(
@@ -126,25 +133,38 @@ public class StatisticsAggregationPlanner
                                 columnStatisticMetadata.getFunctionName(),
                                 functionHandle,
                                 outputType,
-                                ImmutableList.of(input)),
+                                ImmutableList.<RowExpression>builder()
+                                        .add(input)
+                                        .addAll(columnStatisticMetadata.getAdditionalArguments().stream()
+                                                .map(arg -> {
+                                                    VariableReferenceExpression newExpr = variableAllocator.newVariable(arg);
+                                                    additionalArgVariables.put(newExpr, arg);
+                                                    return newExpr;
+                                                })
+                                                .iterator())
+                                        .build()),
                         Optional.empty(),
                         Optional.empty(),
                         false,
                         Optional.empty()),
-                outputType);
+                outputType,
+                additionalArgVariables.build());
     }
 
     public static class TableStatisticAggregation
     {
         private final StatisticAggregations aggregations;
         private final StatisticAggregationsDescriptor<VariableReferenceExpression> descriptor;
+        private final Map<VariableReferenceExpression, RowExpression> additionalVariables;
 
         private TableStatisticAggregation(
                 StatisticAggregations aggregations,
-                StatisticAggregationsDescriptor<VariableReferenceExpression> descriptor)
+                StatisticAggregationsDescriptor<VariableReferenceExpression> descriptor,
+                Map<VariableReferenceExpression, RowExpression> additionalVariables)
         {
             this.aggregations = requireNonNull(aggregations, "statisticAggregations is null");
             this.descriptor = requireNonNull(descriptor, "descriptor is null");
+            this.additionalVariables = requireNonNull(additionalVariables, "additionalVariables is null");
         }
 
         public StatisticAggregations getAggregations()
@@ -156,17 +176,24 @@ public class StatisticsAggregationPlanner
         {
             return descriptor;
         }
+
+        public Map<VariableReferenceExpression, RowExpression> getAdditionalVariables()
+        {
+            return (Map<VariableReferenceExpression, RowExpression>) additionalVariables;
+        }
     }
 
     public static class ColumnStatisticsAggregation
     {
         private final AggregationNode.Aggregation aggregation;
         private final Type outputType;
+        private final Map<VariableReferenceExpression, ConstantExpression> additionalVariables;
 
-        private ColumnStatisticsAggregation(AggregationNode.Aggregation aggregation, Type outputType)
+        private ColumnStatisticsAggregation(AggregationNode.Aggregation aggregation, Type outputType, Map<VariableReferenceExpression, ConstantExpression> additionalVariables)
         {
             this.aggregation = requireNonNull(aggregation, "aggregation is null");
             this.outputType = requireNonNull(outputType, "outputType is null");
+            this.additionalVariables = requireNonNull(additionalVariables, "additionalVariable is null");
         }
 
         public AggregationNode.Aggregation getAggregation()
@@ -177,6 +204,11 @@ public class StatisticsAggregationPlanner
         public Type getOutputType()
         {
             return outputType;
+        }
+
+        public Map<VariableReferenceExpression, ConstantExpression> getAdditionalVariables()
+        {
+            return additionalVariables;
         }
     }
 }

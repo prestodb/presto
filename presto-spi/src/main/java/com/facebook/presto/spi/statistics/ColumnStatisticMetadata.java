@@ -13,9 +13,11 @@
  */
 package com.facebook.presto.spi.statistics;
 
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.List;
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
@@ -26,16 +28,19 @@ public class ColumnStatisticMetadata
     private final ColumnStatisticType statisticType;
 
     private final String functionName;
+    private final List<ConstantExpression> additionalArguments;
 
     @JsonCreator
     public ColumnStatisticMetadata(
             @JsonProperty("columnName") String columnName,
             @JsonProperty("statisticType") ColumnStatisticType statisticType,
-            @JsonProperty("functionName") String functionName)
+            @JsonProperty("functionName") String functionName,
+            @JsonProperty("additionalArguments")List<ConstantExpression> additionalArguments)
     {
         this.columnName = requireNonNull(columnName, "columnName is null");
         this.statisticType = requireNonNull(statisticType, "statisticType is null");
         this.functionName = requireNonNull(functionName, "functionName is null");
+        this.additionalArguments = requireNonNull(additionalArguments, "additionalArguments is null");
     }
 
     @JsonProperty
@@ -56,6 +61,12 @@ public class ColumnStatisticMetadata
         return functionName;
     }
 
+    @JsonProperty
+    public List<ConstantExpression> getAdditionalArguments()
+    {
+        return additionalArguments;
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -68,7 +79,8 @@ public class ColumnStatisticMetadata
         ColumnStatisticMetadata that = (ColumnStatisticMetadata) o;
         return Objects.equals(columnName, that.columnName) &&
                 statisticType == that.statisticType &&
-                Objects.equals(functionName, that.functionName);
+                Objects.equals(functionName, that.functionName) &&
+                Objects.equals(additionalArguments, that.additionalArguments);
     }
 
     @Override
@@ -84,6 +96,7 @@ public class ColumnStatisticMetadata
                 "columnName='" + columnName + '\'' +
                 ", statisticType=" + statisticType +
                 ", functionName=" + functionName +
+                ", additionalArguments=" + additionalArguments +
                 '}';
     }
 }

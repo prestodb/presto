@@ -15,6 +15,7 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.FixedWidthType;
@@ -93,12 +94,14 @@ import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.getHistogramKParameter;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getStatisticSnapshotRecordDifferenceWeight;
 import static com.facebook.presto.iceberg.IcebergUtil.getIdentityPartitions;
 import static com.facebook.presto.iceberg.Partition.toMap;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.facebook.presto.iceberg.statistics.KllHistogram.isKllHistogramSupportedType;
 import static com.facebook.presto.iceberg.util.StatisticsUtil.calculateAndSetTableSize;
+import static com.facebook.presto.spi.relation.ConstantExpression.createConstantExpression;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.HISTOGRAM;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.TOTAL_SIZE_IN_BYTES;
@@ -577,18 +580,19 @@ public class TableStatisticsMaker
         return ImmutableMap.copyOf(result);
     }
 
-    public static List<ColumnStatisticMetadata> getSupportedColumnStatistics(String columnName, com.facebook.presto.common.type.Type type)
+    public static List<ColumnStatisticMetadata> getSupportedColumnStatistics(ConnectorSession session, String columnName, com.facebook.presto.common.type.Type type)
     {
         ImmutableList.Builder<ColumnStatisticMetadata> supportedStatistics = ImmutableList.builder();
         // all types which support being passed to the sketch_theta function
         if (isNumericType(type) || type.equals(DATE) || isVarcharType(type) ||
                 type.equals(TIMESTAMP) ||
                 type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
-            supportedStatistics.add(NUMBER_OF_DISTINCT_VALUES.getColumnStatisticMetadataWithCustomFunction(columnName, "sketch_theta"));
+            supportedStatistics.add(NUMBER_OF_DISTINCT_VALUES.getColumnStatisticMetadataWithCustomFunction(columnName, "sketch_theta", ImmutableList.of()));
         }
 
         if (isKllHistogramSupportedType(type)) {
-            supportedStatistics.add(HISTOGRAM.getColumnStatisticMetadataWithCustomFunction(columnName, "sketch_kll"));
+            supportedStatistics.add(HISTOGRAM.getColumnStatisticMetadataWithCustomFunction(columnName, "sketch_kll_with_k",
+                    ImmutableList.of(createConstantExpression(RunLengthEncodedBlock.create(BIGINT, (long) getHistogramKParameter(session), 1), BIGINT))));
         }
 
         if (!(type instanceof FixedWidthType)) {
