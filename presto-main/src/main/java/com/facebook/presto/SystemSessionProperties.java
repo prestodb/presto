@@ -89,6 +89,7 @@ public final class SystemSessionProperties
     public static final String OPTIMIZE_HASH_GENERATION = "optimize_hash_generation";
     public static final String JOIN_DISTRIBUTION_TYPE = "join_distribution_type";
     public static final String JOIN_MAX_BROADCAST_TABLE_SIZE = "join_max_broadcast_table_size";
+    public static final String RETRY_QUERY_WITH_HISTORY_BASED_OPTIMIZATION = "retry_query_with_history_based_optimization";
     public static final String SIZE_BASED_JOIN_DISTRIBUTION_TYPE = "size_based_join_distribution_type";
     public static final String DISTRIBUTED_JOIN = "distributed_join";
     public static final String DISTRIBUTED_INDEX_JOIN = "distributed_index_join";
@@ -430,6 +431,10 @@ public final class SystemSessionProperties
                         CONFIDENCE_BASED_BROADCAST_ENABLED,
                         "Enable confidence based broadcasting when enabled",
                         featuresConfig.isConfidenceBasedBroadcastEnabled(),
+                        false),
+                booleanProperty(RETRY_QUERY_WITH_HISTORY_BASED_OPTIMIZATION,
+                        "Automatically retry a query if it fails and HBO can change the query plan",
+                        featuresConfig.isRetryQueryWithHistoryBasedOptimizationEnabled(),
                         false),
                 booleanProperty(
                         TREAT_LOW_CONFIDENCE_ZERO_ESTIMATION_AS_UNKNOWN_ENABLED,
@@ -2050,6 +2055,11 @@ public final class SystemSessionProperties
     public static boolean treatLowConfidenceZeroEstimationAsUnknownEnabled(Session session)
     {
         return session.getSystemProperty(TREAT_LOW_CONFIDENCE_ZERO_ESTIMATION_AS_UNKNOWN_ENABLED, Boolean.class);
+    }
+
+    public static boolean retryQueryWithHistoryBasedOptimizationEnabled(Session session)
+    {
+        return session.getSystemProperty(RETRY_QUERY_WITH_HISTORY_BASED_OPTIMIZATION, Boolean.class);
     }
 
     public static int getHashPartitionCount(Session session)
