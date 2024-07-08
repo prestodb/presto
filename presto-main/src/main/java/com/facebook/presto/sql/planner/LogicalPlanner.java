@@ -110,6 +110,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Streams.zip;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 
 public class LogicalPlanner
 {
@@ -131,7 +132,7 @@ public class LogicalPlanner
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
-        this.statisticsAggregationPlanner = new StatisticsAggregationPlanner(this.variableAllocator, metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver());
+        this.statisticsAggregationPlanner = new StatisticsAggregationPlanner(this.variableAllocator, metadata.getFunctionAndTypeManager(), session);
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
     }
 
@@ -224,7 +225,6 @@ public class LogicalPlanner
             columnNameToVariable.put(column.getName(), variable);
         }
 
-        List<VariableReferenceExpression> tableScanOutputs = tableScanOutputsBuilder.build();
         TableStatisticsMetadata tableStatisticsMetadata = metadata.getStatisticsCollectionMetadata(
                 session,
                 targetTable.getConnectorId().getCatalogName(),
@@ -232,14 +232,20 @@ public class LogicalPlanner
 
         TableStatisticAggregation tableStatisticAggregation = statisticsAggregationPlanner.createStatisticsAggregation(tableStatisticsMetadata, columnNameToVariable.build());
         StatisticAggregations statisticAggregations = tableStatisticAggregation.getAggregations();
-
+        List<VariableReferenceExpression> tableScanOutputs = tableScanOutputsBuilder.build();
+        Map<VariableReferenceExpression, RowExpression> assignments = ImmutableMap.<VariableReferenceExpression, RowExpression>builder()
+                .putAll(tableScanOutputs.stream().collect(toImmutableMap(identity(), identity())))
+                .putAll(tableStatisticAggregation.getAdditionalVariables())
+                .build();
+        TableScanNode scanNode = new TableScanNode(getSourceLocation(analyzeStatement), idAllocator.getNextId(), targetTable, tableScanOutputs, variableToColumnHandle.build(), TupleDomain.all(), TupleDomain.all());
+        PlanNode project = PlannerUtils.addProjections(scanNode, idAllocator, assignments);
         PlanNode planNode = new StatisticsWriterNode(
                 getSourceLocation(analyzeStatement),
                 idAllocator.getNextId(),
                 new AggregationNode(
                         getSourceLocation(analyzeStatement),
                         idAllocator.getNextId(),
-                        new TableScanNode(getSourceLocation(analyzeStatement), idAllocator.getNextId(), targetTable, tableScanOutputs, variableToColumnHandle.build(), TupleDomain.all(), TupleDomain.all()),
+                        project,
                         statisticAggregations.getAggregations(),
                         singleGroupingSet(statisticAggregations.getGroupingVariables()),
                         ImmutableList.of(),
