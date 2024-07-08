@@ -168,6 +168,17 @@ public class IcebergCommonModule
         configBinder(binder).bindConfig(ParquetCacheConfig.class, connectorId);
 
         binder.bind(ConnectorPlanOptimizerProvider.class).to(IcebergPlanOptimizerProvider.class).in(Scopes.SINGLETON);
+
+        boolean isManifestFileCachingEnabled = buildConfigObject(IcebergConfig.class).getManifestCachingEnabled();
+        if (isManifestFileCachingEnabled) {
+            binder.bind(PrestoInMemoryContentCacheManager.class).in(Scopes.SINGLETON);
+            binder.requestStaticInjection(PrestoInMemoryContentCacheManager.class);
+//            newExporter(binder).export(PrestoInMemoryContentCacheManager.class).withGeneratedName();
+
+            binder.bind(IcebergFileIOStats.class).in(Scopes.SINGLETON);
+            binder.requestStaticInjection(IcebergFileIOStats.class);
+            newExporter(binder).export(IcebergFileIOStats.class).withGeneratedName();
+        }
     }
 
     @ForCachingHiveMetastore

@@ -68,6 +68,7 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.TABLE_COMMENT;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isPrestoView;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static com.facebook.presto.iceberg.IcebergUtil.isIcebergTable;
+import static com.facebook.presto.iceberg.IcebergUtil.loadCachingProperties;
 import static com.facebook.presto.iceberg.IcebergUtil.toHiveColumns;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.google.common.base.Preconditions.checkState;
@@ -100,6 +101,7 @@ public class HiveTableOperations
 
     private final ExtendedHiveMetastore metastore;
     private final MetastoreContext metastoreContext;
+    private final IcebergConfig icebergConfig;
     private final String database;
     private final String tableName;
     private final Optional<String> owner;
@@ -120,6 +122,7 @@ public class HiveTableOperations
             HdfsEnvironment hdfsEnvironment,
             HdfsContext hdfsContext,
             IcebergHiveTableOperationsConfig config,
+            IcebergConfig icebergConfig,
             String database,
             String table)
     {
@@ -127,6 +130,7 @@ public class HiveTableOperations
                 metastore,
                 metastoreContext,
                 config,
+                icebergConfig,
                 database,
                 table,
                 Optional.empty(),
@@ -139,6 +143,7 @@ public class HiveTableOperations
             HdfsEnvironment hdfsEnvironment,
             HdfsContext hdfsContext,
             IcebergHiveTableOperationsConfig config,
+            IcebergConfig icebergConfig,
             String database,
             String table,
             String owner,
@@ -148,6 +153,7 @@ public class HiveTableOperations
                 metastore,
                 metastoreContext,
                 config,
+                icebergConfig,
                 database,
                 table,
                 Optional.of(requireNonNull(owner, "owner is null")),
@@ -159,6 +165,7 @@ public class HiveTableOperations
             ExtendedHiveMetastore metastore,
             MetastoreContext metastoreContext,
             IcebergHiveTableOperationsConfig config,
+            IcebergConfig icebergConfig,
             String database,
             String table,
             Optional<String> owner,
@@ -167,6 +174,7 @@ public class HiveTableOperations
         this.fileIO = requireNonNull(fileIO, "fileIO is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.metastoreContext = requireNonNull(metastoreContext, "metastore context is null");
+        this.icebergConfig = requireNonNull(icebergConfig, "icebergConfig context is null");
         this.database = requireNonNull(database, "database is null");
         this.tableName = requireNonNull(table, "table is null");
         this.owner = requireNonNull(owner, "owner is null");
@@ -338,6 +346,11 @@ public class HiveTableOperations
     @Override
     public FileIO io()
     {
+        if (icebergConfig.getManifestCachingEnabled()) {
+            Map<String, String> properties = new HashMap<>();
+            loadCachingProperties(properties, icebergConfig);
+            fileIO.initialize(properties);
+        }
         return fileIO;
     }
 

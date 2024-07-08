@@ -168,6 +168,8 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
 import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
+import static org.apache.iceberg.CatalogProperties.FILE_IO_IMPL;
+import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_CONTENT_CACHE_MANAGER_IMPL;
 import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_ENABLED;
 import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_EXPIRATION_INTERVAL_MS;
 import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_MAX_CONTENT_LENGTH;
@@ -222,7 +224,7 @@ public final class IcebergUtil
         return icebergMetadata.getIcebergTable(session, table);
     }
 
-    public static Table getHiveIcebergTable(ExtendedHiveMetastore metastore, HdfsEnvironment hdfsEnvironment, IcebergHiveTableOperationsConfig config, ConnectorSession session, SchemaTableName table)
+    public static Table getHiveIcebergTable(ExtendedHiveMetastore metastore, HdfsEnvironment hdfsEnvironment, IcebergHiveTableOperationsConfig config, IcebergConfig icebergConfig, ConnectorSession session, SchemaTableName table)
     {
         HdfsContext hdfsContext = new HdfsContext(session, table.getSchemaName(), table.getTableName());
         TableOperations operations = new HiveTableOperations(
@@ -231,6 +233,7 @@ public final class IcebergUtil
                 hdfsEnvironment,
                 hdfsContext,
                 config,
+                icebergConfig,
                 table.getSchemaName(),
                 table.getTableName());
         return new BaseTable(operations, quotedTableName(table));
@@ -775,9 +778,11 @@ public final class IcebergUtil
     public static void loadCachingProperties(Map<String, String> properties, IcebergConfig icebergConfig)
     {
         properties.put(IO_MANIFEST_CACHE_ENABLED, "true");
+        properties.put(FILE_IO_IMPL, String.valueOf(icebergConfig.getFileIOImpl()));
         properties.put(IO_MANIFEST_CACHE_MAX_TOTAL_BYTES, String.valueOf(icebergConfig.getMaxManifestCacheSize()));
         properties.put(IO_MANIFEST_CACHE_MAX_CONTENT_LENGTH, String.valueOf(icebergConfig.getManifestCacheMaxContentLength()));
         properties.put(IO_MANIFEST_CACHE_EXPIRATION_INTERVAL_MS, String.valueOf(icebergConfig.getManifestCacheExpireDuration()));
+        properties.put(IO_MANIFEST_CACHE_CONTENT_CACHE_MANAGER_IMPL, String.valueOf(icebergConfig.getFileIOContentCacheManager()));
     }
 
     public static long getDataSequenceNumber(ContentFile<?> file)

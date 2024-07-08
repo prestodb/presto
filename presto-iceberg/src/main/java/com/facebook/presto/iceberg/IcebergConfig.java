@@ -64,6 +64,7 @@ public class IcebergConfig
     private long maxManifestCacheSize = IO_MANIFEST_CACHE_MAX_TOTAL_BYTES_DEFAULT;
     private long manifestCacheExpireDuration = IO_MANIFEST_CACHE_EXPIRATION_INTERVAL_MS_DEFAULT;
     private long manifestCacheMaxContentLength = IO_MANIFEST_CACHE_MAX_CONTENT_LENGTH_DEFAULT;
+    private String fileIOContentCacheManager = PrestoInMemoryContentCacheManager.class.getName();
     private int splitManagerThreads = Runtime.getRuntime().availableProcessors();
 
     @NotNull
@@ -337,6 +338,20 @@ public class IcebergConfig
     public IcebergConfig setManifestCacheMaxContentLength(long manifestCacheMaxContentLength)
     {
         this.manifestCacheMaxContentLength = manifestCacheMaxContentLength;
+        return this;
+    }
+
+    public String getFileIOContentCacheManager()
+    {
+        return fileIOContentCacheManager;
+    }
+
+    @NotNull
+    @Config("iceberg.io.manifest.cache.content-caches-impl")
+    @ConfigDescription("Custom FileIO Content cache manager for file io to use")
+    public IcebergConfig setFileIOContentCacheManager(String fileIOContentCacheManager)
+    {
+        this.fileIOContentCacheManager = fileIOContentCacheManager;
         return this;
     }
 

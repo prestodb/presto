@@ -15,6 +15,7 @@ package com.facebook.presto.iceberg.hive;
 
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
+import com.facebook.presto.iceberg.IcebergConfig;
 import com.facebook.presto.iceberg.IcebergDistributedTestBase;
 import com.facebook.presto.iceberg.IcebergHiveTableOperationsConfig;
 import com.facebook.presto.iceberg.IcebergUtil;
@@ -68,6 +69,7 @@ public class TestIcebergDistributedHive
         return IcebergUtil.getHiveIcebergTable(getFileHiveMetastore(),
                 getHdfsEnvironment(),
                 new IcebergHiveTableOperationsConfig(),
+                new IcebergConfig(),
                 getQueryRunner().getDefaultSession().toConnectorSession(connectorId),
                 SchemaTableName.valueOf("tpch." + tableName));
     }

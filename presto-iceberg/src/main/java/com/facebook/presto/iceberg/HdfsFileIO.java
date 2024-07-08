@@ -16,14 +16,18 @@ package com.facebook.presto.iceberg;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.spi.PrestoException;
+import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.io.InputFile;
 import org.apache.iceberg.io.OutputFile;
+import org.apache.iceberg.util.SerializableMap;
 
 import java.io.IOException;
+import java.util.Map;
 
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class HdfsFileIO
@@ -31,11 +35,24 @@ public class HdfsFileIO
 {
     private final HdfsEnvironment environment;
     private final HdfsContext context;
+    private SerializableMap<String, String> properties = SerializableMap.copyOf(ImmutableMap.of());
 
     public HdfsFileIO(HdfsEnvironment environment, HdfsContext context)
     {
         this.environment = requireNonNull(environment, "environment is null");
         this.context = requireNonNull(context, "context is null");
+    }
+
+    @Override
+    public void initialize(Map<String, String> props)
+    {
+        this.properties = SerializableMap.copyOf(props);
+    }
+
+    @Override
+    public Map<String, String> properties()
+    {
+        return properties.immutableMap();
     }
 
     @Override
@@ -60,5 +77,12 @@ public class HdfsFileIO
         catch (IOException e) {
             throw new PrestoException(ICEBERG_FILESYSTEM_ERROR, "Failed to delete file: " + path, e);
         }
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .toString();
     }
 }

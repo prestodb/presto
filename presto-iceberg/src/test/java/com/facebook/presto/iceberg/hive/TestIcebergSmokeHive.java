@@ -80,6 +80,7 @@ public class TestIcebergSmokeHive
         return IcebergUtil.getHiveIcebergTable(getFileHiveMetastore(),
                 getHdfsEnvironment(),
                 new IcebergHiveTableOperationsConfig(),
+                new IcebergConfig(),
                 session,
                 SchemaTableName.valueOf(schema + "." + tableName));
     }

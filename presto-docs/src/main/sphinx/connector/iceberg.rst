@@ -411,10 +411,6 @@ Manifest File Caching
 As of Iceberg version 1.1.0, Apache Iceberg provides a mechanism to cache the contents of Iceberg manifest files in memory. This feature helps
 to reduce repeated reads of small Iceberg manifest files from remote storage.
 
-.. note::
-
-    Currently, manifest file caching is supported for Hadoop and Nessie catalogs in the Presto Iceberg connector.
-
 The following configuration properties are available:
 
 ====================================================   =============================================================   ============
