@@ -172,4 +172,9 @@ public final class StatisticsUtil
                         .iterator())
                 .build();
     }
+
+    public static String formatIdentifier(String s)
+    {
+        return '"' + s.replace("\"", "\"\"") + '"';
+    }
 }
