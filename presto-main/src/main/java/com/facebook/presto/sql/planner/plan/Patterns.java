@@ -227,6 +227,11 @@ public class Patterns
                 Optional.empty());
     }
 
+    public static Property<SemiJoinNode, PlanNode> filteringSource()
+    {
+        return optionalProperty("filteringSource", node -> Optional.of(node.getFilteringSource()));
+    }
+
     public static Property<PlanNode, List<PlanNode>> sources()
     {
         return property("sources", PlanNode::getSources);

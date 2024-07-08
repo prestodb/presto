@@ -349,6 +349,7 @@ public final class SystemSessionProperties
     public static final String JOIN_PREFILTER_BUILD_SIDE = "join_prefilter_build_side";
     public static final String OPTIMIZER_USE_HISTOGRAMS = "optimizer_use_histograms";
     public static final String WARN_ON_COMMON_NAN_PATTERNS = "warn_on_common_nan_patterns";
+    public static final String TRANSFORM_IN_VALUES_TO_IN_FILTER = "transform_in_values_to_in_filter";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1948,6 +1949,10 @@ public final class SystemSessionProperties
                 booleanProperty(WARN_ON_COMMON_NAN_PATTERNS,
                         "Whether to give a warning for some common issues relating to NaNs",
                         featuresConfig.getWarnOnCommonNanPatterns(),
+                        false),
+                booleanProperty(TRANSFORM_IN_VALUES_TO_IN_FILTER,
+                        "Transform in values to in filter instead of semijoin whenever possible",
+                        featuresConfig.getTransformInValuesToInFilter(),
                         false));
     }
 
@@ -3249,5 +3254,10 @@ public final class SystemSessionProperties
     public static boolean warnOnCommonNanPatterns(Session session)
     {
         return session.getSystemProperty(WARN_ON_COMMON_NAN_PATTERNS, Boolean.class);
+    }
+
+    public static boolean isTransformInValuesToInFilterEnabled(Session session)
+    {
+        return session.getSystemProperty(TRANSFORM_IN_VALUES_TO_IN_FILTER, Boolean.class);
     }
 }
