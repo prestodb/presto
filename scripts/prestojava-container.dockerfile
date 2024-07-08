@@ -15,7 +15,7 @@
 #
 FROM ghcr.io/facebookincubator/velox-dev:centos9 
 
-ARG PRESTO_VERSION=0.286
+ARG PRESTO_VERSION=0.288
 
 ADD scripts /velox/scripts/
 RUN wget https://repo1.maven.org/maven2/com/facebook/presto/presto-server/${PRESTO_VERSION}/presto-server-${PRESTO_VERSION}.tar.gz
