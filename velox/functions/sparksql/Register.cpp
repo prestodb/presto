@@ -465,6 +465,15 @@ void registerFunctions(const std::string& prefix) {
 
   registerFunction<RaiseErrorFunction, UnknownValue, Varchar>(
       {prefix + "raise_error"});
+
+  registerFunction<
+      LevenshteinDistanceFunction,
+      int32_t,
+      Varchar,
+      Varchar,
+      int32_t>({prefix + "levenshtein"});
+  registerFunction<LevenshteinDistanceFunction, int32_t, Varchar, Varchar>(
+      {prefix + "levenshtein"});
 }
 
 } // namespace sparksql

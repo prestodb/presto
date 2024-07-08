@@ -1233,4 +1233,170 @@ struct SoundexFunction {
       '0', '1', '2', '3', '0', '1', '2', '7', '0', '2', '2', '4', '5',
       '5', '0', '1', '2', '6', '2', '3', '0', '1', '7', '2', '0', '2'};
 };
+
+/// Implementation adopted from
+/// org.apache.commons.text.similarity.LevenshteinDistance.limitedCompare and
+/// Velox Presto LevenshteinDistanceFunction.
+template <typename T>
+struct LevenshteinDistanceFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<int32_t>& result,
+      const arg_type<Varchar>& left,
+      const arg_type<Varchar>& right,
+      int32_t threshold) {
+    auto leftCodePoints = stringImpl::stringToCodePoints(left);
+    auto rightCodePoints = stringImpl::stringToCodePoints(right);
+    doCall<int32_t>(
+        result,
+        leftCodePoints.data(),
+        rightCodePoints.data(),
+        leftCodePoints.size(),
+        rightCodePoints.size(),
+        threshold);
+  }
+
+  FOLLY_ALWAYS_INLINE void callAscii(
+      out_type<int32_t>& result,
+      const arg_type<Varchar>& left,
+      const arg_type<Varchar>& right,
+      int32_t threshold) {
+    auto leftCodePoints = reinterpret_cast<const uint8_t*>(left.data());
+    auto rightCodePoints = reinterpret_cast<const uint8_t*>(right.data());
+    doCall<uint8_t>(
+        result,
+        leftCodePoints,
+        rightCodePoints,
+        left.size(),
+        right.size(),
+        threshold);
+  }
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<int32_t>& result,
+      const arg_type<Varchar>& left,
+      const arg_type<Varchar>& right) {
+    call(result, left, right, INT32_MAX);
+  }
+
+  FOLLY_ALWAYS_INLINE void callAscii(
+      out_type<int32_t>& result,
+      const arg_type<Varchar>& left,
+      const arg_type<Varchar>& right) {
+    callAscii(result, left, right, INT32_MAX);
+  }
+
+ private:
+  // This implementation only computes the distance if it's less than or equal
+  // to the threshold value, setting result as -1 if it's greater. Threshold k
+  // allows us to reduce the time complexity from
+  // O(leftCodePointsSize * rightCodePointsSize) to
+  // O(k * rightCodePointsSize) by only computing a diagonal stripe of at most
+  // width 2k + 1 of the cost table.
+  // One example: suppose the two gives strings are of length 5 and 7, and
+  // threshold is 1. In this case we're going to walk through a stripe of
+  // length 3. The matrix would look like so:
+  //
+  // <pre>
+  //    0 1 2 3 4
+  // 0 |#|#| | | | --> lower boundary:0, upper:2;
+  // 1 |#|#|#| | | --> lower boundary:0, upper:3;
+  // 2 | |#|#|#| | --> lower boundary:1, upper:4;
+  // 3 | | |#|#|#| --> lower boundary:2, upper:5;
+  // 4 | | | |#|#| --> lower boundary:3, upper:5;
+  // 5 | | | | |#| --> lower boundary:4, upper:5;
+  // 6 | | | | | |
+  // </pre>
+  template <typename TCodePoint>
+  void doCall(
+      out_type<int32_t>& result,
+      const TCodePoint* leftCodePoints,
+      const TCodePoint* rightCodePoints,
+      size_t leftCodePointsSize,
+      size_t rightCodePointsSize,
+      int32_t threshold) {
+    if (leftCodePointsSize < rightCodePointsSize) {
+      doCall(
+          result,
+          rightCodePoints,
+          leftCodePoints,
+          rightCodePointsSize,
+          leftCodePointsSize,
+          threshold);
+      return;
+    }
+    VELOX_USER_CHECK_LE(
+        leftCodePointsSize,
+        INT32_MAX,
+        "The inputs size exceeded max Levenshtein distance input size,"
+        " the code points size of left is {}, code points size of right is {}",
+        leftCodePointsSize,
+        rightCodePointsSize);
+    if (leftCodePointsSize - rightCodePointsSize > threshold) {
+      result = -1;
+      return;
+    }
+    if (rightCodePointsSize == 0) {
+      result = leftCodePointsSize;
+      return;
+    }
+    std::vector<int32_t> distances;
+    distances.reserve(rightCodePointsSize);
+    // These fills ensure that the value above the rightmost entry of our
+    // stripe will be ignored in following loop iterations.
+    int32_t boundary = std::min<int32_t>(rightCodePointsSize, threshold);
+    auto i = 0;
+    for (; i < boundary; i++) {
+      distances.push_back(i + 1);
+    }
+    for (; i < rightCodePointsSize; i++) {
+      distances.push_back(INT32_MAX);
+    }
+
+    for (auto i = 0; i < leftCodePointsSize; i++) {
+      auto lower = std::max<int32_t>(0, i - threshold);
+      int32_t maxValueWithThreshold;
+      int32_t upper = rightCodePointsSize;
+      if (!__builtin_add_overflow(i + 1, threshold, &maxValueWithThreshold)) {
+        upper = std::min<int32_t>(rightCodePointsSize, maxValueWithThreshold);
+      }
+      if (lower > upper) {
+        result = -1;
+        return;
+      }
+      int32_t leftUpDistance;
+      if (lower == 0) {
+        leftUpDistance = distances[lower];
+        if (leftCodePoints[i] == rightCodePoints[0]) {
+          distances[0] = i;
+        } else {
+          distances[0] = std::min(i, distances[0]) + 1;
+        }
+        lower = 1;
+      } else {
+        leftUpDistance = distances[lower - 1];
+        // Set this as Max value to ignore entry left of leftmost.
+        distances[lower - 1] = INT32_MAX;
+      }
+      for (int j = lower; j < upper; j++) {
+        auto leftUpDistanceNext = distances[j];
+        if (leftCodePoints[i] == rightCodePoints[j]) {
+          distances[j] = leftUpDistance;
+        } else {
+          distances[j] =
+              std::min(
+                  distances[j - 1], std::min(leftUpDistance, distances[j])) +
+              1;
+        }
+        leftUpDistance = leftUpDistanceNext;
+      }
+    }
+    result = distances[rightCodePointsSize - 1];
+    if (result > threshold) {
+      result = -1;
+    }
+  }
+};
+
 } // namespace facebook::velox::functions::sparksql
