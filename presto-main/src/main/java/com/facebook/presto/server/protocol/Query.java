@@ -34,6 +34,7 @@ import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.operator.ExchangeClient;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
@@ -79,6 +80,9 @@ import static com.facebook.presto.SystemSessionProperties.getQueryRetryMaxExecut
 import static com.facebook.presto.SystemSessionProperties.getTargetResultSize;
 import static com.facebook.presto.SystemSessionProperties.isExchangeChecksumEnabled;
 import static com.facebook.presto.SystemSessionProperties.isExchangeCompressionEnabled;
+import static com.facebook.presto.SystemSessionProperties.retryQueryWithHistoryBasedOptimizationEnabled;
+import static com.facebook.presto.SystemSessionProperties.trackHistoryBasedPlanStatisticsEnabled;
+import static com.facebook.presto.SystemSessionProperties.useHistoryBasedPlanStatisticsEnabled;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.WAITING_FOR_PREREQUISITES;
 import static com.facebook.presto.server.protocol.QueryResourceUtil.toStatementStats;
@@ -98,6 +102,9 @@ class Query
 {
     private static final Logger log = Logger.get(Query.class);
     private static final Base64.Encoder BASE64_ENCODER = Base64.getEncoder();
+    private static Optional<QueryId> originalBeforeRetryQueryId = Optional.empty();
+    private static Optional<Integer> previousQueryTopLevelPlanHash = Optional.empty();
+    private static Optional<QueryError> previousQueryFailureError = Optional.empty();
 
     private final QueryManager queryManager;
     private final TransactionManager transactionManager;
@@ -383,26 +390,39 @@ class Query
     private synchronized QueryResults getNextResultWithRetry(long token, UriInfo uriInfo, String scheme, DataSize targetResultSize, boolean binaryResults)
     {
         QueryResults queryResults = getNextResult(token, uriInfo, scheme, targetResultSize, binaryResults);
-        if (queryResults.getError() == null || !queryResults.getError().isRetriable()) {
+
+        if (queryResults.getError() == null) {
             return queryResults;
         }
 
-        // check if we have exceeded the global limit
-        retryCircuitBreaker.incrementFailure();
-        if (!retryCircuitBreaker.isRetryAllowed() || hasProducedResult) {
+        boolean historyBasedOptimizationEnabled = useHistoryBasedPlanStatisticsEnabled(session) && trackHistoryBasedPlanStatisticsEnabled(session);
+        boolean hasNotRetried = queryManager.getQueryRetryCount(queryId) < 1;
+
+        if (historyBasedOptimizationEnabled && hasNotRetried && retryConditionsMet(queryResults) && retryQueryWithHistoryBasedOptimizationEnabled(session)) {
+            originalBeforeRetryQueryId = Optional.of(queryId);
+            previousQueryTopLevelPlanHash = getCurrentTopLevelPlanHash();
+            previousQueryFailureError = Optional.of(queryResults.getError());
+        }
+        else if (queryManager.getQueryRetryCount(queryId) == 1 && retryQueryWithHistoryBasedOptimizationEnabled(session) && retryConditionsMet(queryResults) && historyBasedOptimizationEnabled) {
+            Optional<Integer> currentTopLevelPlanHash = getCurrentTopLevelPlanHash();
+
+            if (previousQueryTopLevelPlanHash.isPresent() && currentTopLevelPlanHash.isPresent() && currentTopLevelPlanHash.equals(previousQueryTopLevelPlanHash)
+                    || (!previousQueryTopLevelPlanHash.isPresent() && !currentTopLevelPlanHash.isPresent())) {
+                queryManager.failQuery(queryId, new PrestoException(GENERIC_INTERNAL_ERROR, "Since the plan hashes did not change, your retry query will not execute." +
+                        "Your original error was " + previousQueryFailureError.get() + ". Original QueryId: " + originalBeforeRetryQueryId +
+                        ". Retry QueryId: " + queryId));
+            }
+
+            originalBeforeRetryQueryId = Optional.empty();
+            previousQueryTopLevelPlanHash = Optional.empty();
+            previousQueryFailureError = Optional.empty();
+
             return queryResults;
         }
-
-        // check if we have exceeded the local limit
-        if (queryManager.getQueryRetryCount(queryId) >= getQueryRetryLimit(session) ||
-                queryManager.getQueryInfo(queryId).getQueryStats().getExecutionTime().toMillis() > getQueryRetryMaxExecutionTime(session).toMillis()) {
-            return queryResults;
-        }
-
-        // no support for transactions
-        if (session.getTransactionId().isPresent() &&
-                !transactionManager.getOptionalTransactionInfo(session.getRequiredTransactionId()).map(TransactionInfo::isAutoCommitContext).orElse(true)) {
-            return queryResults;
+        else {
+            if (!retryConditionsMet(queryResults)) {
+                return queryResults;
+            }
         }
 
         // build a new query with next uri
@@ -685,6 +705,54 @@ class Query
 
         // no matching sub stage, so return this stage
         return stage.getSelf();
+    }
+
+    private boolean retryConditionsMet(QueryResults queryResults)
+    {
+        if (queryResults.getError() == null) {
+            return false;
+        }
+
+        if (!retryQueryWithHistoryBasedOptimizationEnabled(session)) {
+            if (!queryResults.getError().isRetriable()) {
+                return false;
+            }
+
+            // check if we have exceeded the global limit
+            retryCircuitBreaker.incrementFailure();
+            if (!retryCircuitBreaker.isRetryAllowed()) {
+                return false;
+            }
+
+            if (queryManager.getQueryRetryCount(queryId) >= getQueryRetryLimit(session)) {
+                return false;
+            }
+        }
+
+        if (hasProducedResult) {
+            return false;
+        }
+
+        // check if we have exceeded the local limit
+        if (queryManager.getQueryInfo(queryId).getQueryStats().getExecutionTime().toMillis() > getQueryRetryMaxExecutionTime(session).toMillis()) {
+            return false;
+        }
+
+        // no support for transactions
+        if (session.getTransactionId().isPresent() &&
+                !transactionManager.getOptionalTransactionInfo(session.getRequiredTransactionId()).map(TransactionInfo::isAutoCommitContext).orElse(true)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private Optional<Integer> getCurrentTopLevelPlanHash()
+    {
+        if (queryManager.getFullQueryInfo(queryId).getPlanCanonicalInfo().isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(queryManager.getFullQueryInfo(queryId).getPlanCanonicalInfo().get(0).getCanonicalPlan().getPlan().hashCode());
     }
 
     private static QueryError toQueryError(QueryInfo queryInfo)
