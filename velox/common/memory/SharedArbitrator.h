@@ -43,18 +43,18 @@ class SharedArbitrator : public memory::MemoryArbitrator {
 
   static void unregisterFactory();
 
-  uint64_t growCapacity(MemoryPool* pool, uint64_t targetBytes) final;
+  uint64_t growCapacity(MemoryPool* pool, uint64_t requestBytes) final;
 
   bool growCapacity(
       MemoryPool* pool,
       const std::vector<std::shared_ptr<MemoryPool>>& candidatePools,
-      uint64_t targetBytes) final;
+      uint64_t requestBytes) final;
 
-  uint64_t shrinkCapacity(MemoryPool* pool, uint64_t targetBytes) final;
+  uint64_t shrinkCapacity(MemoryPool* pool, uint64_t requestBytes) final;
 
   uint64_t shrinkCapacity(
       const std::vector<std::shared_ptr<MemoryPool>>& pools,
-      uint64_t targetBytes,
+      uint64_t requestBytes,
       bool allowSpill = true,
       bool force = false) override final;
 
@@ -108,7 +108,7 @@ class SharedArbitrator : public memory::MemoryArbitrator {
     MemoryPool* const requestPool;
     MemoryPool* const requestRoot;
     const std::vector<std::shared_ptr<MemoryPool>>& candidatePools;
-    const uint64_t targetBytes;
+    const uint64_t requestBytes;
     // The start time of this arbitration operation.
     const std::chrono::steady_clock::time_point startTime;
 
@@ -125,18 +125,18 @@ class SharedArbitrator : public memory::MemoryArbitrator {
     uint64_t globalArbitrationLockWaitTimeUs{0};
 
     ArbitrationOperation(
-        uint64_t targetBytes,
+        uint64_t requestBytes,
         const std::vector<std::shared_ptr<MemoryPool>>& candidatePools)
-        : ArbitrationOperation(nullptr, targetBytes, candidatePools) {}
+        : ArbitrationOperation(nullptr, requestBytes, candidatePools) {}
 
     ArbitrationOperation(
         MemoryPool* _requestor,
-        uint64_t _targetBytes,
+        uint64_t _requestBytes,
         const std::vector<std::shared_ptr<MemoryPool>>& _candidatePools)
         : requestPool(_requestor),
           requestRoot(_requestor == nullptr ? nullptr : _requestor->root()),
           candidatePools(_candidatePools),
-          targetBytes(_targetBytes),
+          requestBytes(_requestBytes),
           startTime(std::chrono::steady_clock::now()) {}
 
     uint64_t waitTimeUs() const {
@@ -251,15 +251,15 @@ class SharedArbitrator : public memory::MemoryArbitrator {
   //
   // NOTE: the function might sort 'candidates' based on each candidate's
   // reclaimable memory internally.
-  uint64_t reclaimUsedMemoryFromCandidatesBySpill(
+  void reclaimUsedMemoryFromCandidatesBySpill(
       ArbitrationOperation* op,
-      uint64_t reclaimTargetBytes);
+      uint64_t& freedBytes);
 
   // Invoked to reclaim used memory capacity from 'candidates' by aborting the
   // top memory users' queries.
-  uint64_t reclaimUsedMemoryFromCandidatesByAbort(
+  void reclaimUsedMemoryFromCandidatesByAbort(
       ArbitrationOperation* op,
-      uint64_t reclaimTargetBytes);
+      uint64_t& freedBytes);
 
   // Checks if request pool has been aborted or not.
   void checkIfAborted(ArbitrationOperation* op);
