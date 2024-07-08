@@ -309,7 +309,7 @@ FOLLY_ALWAYS_INLINE bool md5_radix(
 
 namespace {
 FOLLY_ALWAYS_INLINE int64_t asciiWhitespaces() {
-  std::vector<int32_t> codes = {9, 10, 11, 12, 13, 28, 29, 30, 31, 32};
+  int8_t codes[] = {9, 10, 11, 12, 13, 28, 29, 30, 31, 32};
   int64_t bitMask = 0;
   for (auto code : codes) {
     bits::setBit(&bitMask, code, true);
@@ -318,7 +318,7 @@ FOLLY_ALWAYS_INLINE int64_t asciiWhitespaces() {
 }
 
 FOLLY_ALWAYS_INLINE int64_t asciiWhitespaceCodes() {
-  std::vector<int32_t> codes = {9, 10, 11, 12, 13, 28, 29, 30, 31, 32};
+  int8_t codes[] = {9, 10, 11, 12, 13, 28, 29, 30, 31, 32};
   int64_t bitMask = 0;
   for (auto code : codes) {
     bits::setBit(&bitMask, code, true);
@@ -327,7 +327,7 @@ FOLLY_ALWAYS_INLINE int64_t asciiWhitespaceCodes() {
 }
 
 FOLLY_ALWAYS_INLINE std::array<int64_t, 2> unicodeWhitespaceCodes() {
-  std::vector<int32_t> codes = {
+  int16_t codes[] = {
       8192,
       8193,
       8194,

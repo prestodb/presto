@@ -359,7 +359,7 @@ inline int64_t findNthInstanceByteIndexFromEnd(
 
 /// Replace replaced with replacement in inputString and write results in
 /// outputString. If inPlace=true inputString and outputString are assumed to
-/// tbe the same. When replaced is empty and ignoreEmptyReplaced is false,
+/// be the same. When replaced is empty and ignoreEmptyReplaced is false,
 /// replacement is added before and after each charecter. When replaced is
 /// empty and ignoreEmptyReplaced is true, the result is the inputString value.
 /// When inputString is empty results is empty.
