@@ -105,6 +105,10 @@ import com.facebook.presto.sql.tree.LikeClause;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
+import com.facebook.presto.sql.tree.Merge;
+import com.facebook.presto.sql.tree.MergeCase;
+import com.facebook.presto.sql.tree.MergeInsert;
+import com.facebook.presto.sql.tree.MergeUpdate;
 import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NodeLocation;
@@ -449,6 +453,51 @@ class AstBuilder
     public Node visitTruncateTable(SqlBaseParser.TruncateTableContext context)
     {
         return new TruncateTable(getLocation(context), getQualifiedName(context.qualifiedName()));
+    }
+
+    @Override
+    public Node visitMergeInto(SqlBaseParser.MergeIntoContext context)
+    {
+        Table table = new Table(getLocation(context), getQualifiedName(context.qualifiedName()));
+        Relation targetRelation = table;
+        if (context.identifier() != null) {
+            targetRelation = new AliasedRelation(table, (Identifier) visit(context.identifier()), null);
+        }
+        return new Merge(
+                getLocation(context),
+                targetRelation,
+                (Relation) visit(context.relation()),
+                (Expression) visit(context.expression()),
+                visit(context.mergeCase(), MergeCase.class));
+    }
+
+    @Override
+    public Node visitMergeInsert(SqlBaseParser.MergeInsertContext context)
+    {
+        return new MergeInsert(
+                getLocation(context),
+                visitIdentifiers(context.columns),
+                visit(context.values, Expression.class));
+    }
+
+    private List<Identifier> visitIdentifiers(List<SqlBaseParser.IdentifierContext> identifiers)
+    {
+        return identifiers.stream()
+                .map(identifier -> (Identifier) visit(identifier))
+                .collect(toImmutableList());
+    }
+
+    @Override
+    public Node visitMergeUpdate(SqlBaseParser.MergeUpdateContext context)
+    {
+        ImmutableList.Builder<MergeUpdate.Assignment> assignments = ImmutableList.builder();
+        for (int i = 0; i < context.targetColumns.size(); i++) {
+            assignments.add(new MergeUpdate.Assignment(
+                    (Identifier) visit(context.targetColumns.get(i)),
+                    (Expression) visit(context.values.get(i))));
+        }
+
+        return new MergeUpdate(getLocation(context), assignments.build());
     }
 
     @Override
