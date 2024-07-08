@@ -254,7 +254,7 @@ void CacheFuzzer::readCache() {
   std::vector<std::thread> threads;
   threads.reserve(FLAGS_num_threads);
   for (int32_t i = 0; i < FLAGS_num_threads; ++i) {
-    threads.emplace_back([&]() {
+    threads.emplace_back([&, i]() {
       FuzzerGenerator rng(currentSeed_ + i);
       while (!readStopped) {
         const auto fileIdx = boost::random::uniform_int_distribution<int32_t>(
