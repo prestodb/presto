@@ -137,7 +137,7 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
     /// tracking and the capacity enforcement on top of that, but are sensitive
     /// to its cpu cost so we provide an options for user to turn it off. We can
     /// only turn on/off this feature at the root memory pool and automatically
-    /// applies to all its child pools , and we don't support to selectively
+    /// applies to all its child pools, and we don't support to selectively
     /// enable it on a subset of memory pools.
     bool trackUsage{true};
 
@@ -174,6 +174,7 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   virtual ~MemoryPool();
 
   /// Tree methods used to access and manage the memory hierarchy.
+
   /// Returns the name of this memory pool.
   virtual const std::string& name() const;
 
@@ -206,10 +207,8 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   }
 
   /// Invoked to visit the memory pool's direct children, and calls 'visitor' on
-  /// each visited child memory pool with the parent pool's 'poolMutex_' reader
-  /// lock held. The 'visitor' must not access the parent memory pool to avoid
-  /// the potential recursive locking issues. Note that the traversal stops if
-  /// 'visitor' returns false.
+  /// each visited child memory pool. Note that the traversal stops if 'visitor'
+  /// returns false.
   virtual void visitChildren(
       const std::function<bool(MemoryPool*)>& visitor) const;
 
@@ -470,8 +469,8 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   virtual std::string toString() const = 0;
 
   /// Invoked to generate a descriptive memory usage summary of the entire tree.
-  /// MemoryPoolImpl::treeMemoryUsage(). If 'skipEmptyPool' is true, then skip
-  /// print out the child memory pools with empty memory usage.
+  /// If 'skipEmptyPool' is true, then skip print out the child memory pools
+  /// with empty memory usage.
   virtual std::string treeMemoryUsage(bool skipEmptyPool = true) const = 0;
 
   /// Indicates if this is a leaf memory pool or not.
