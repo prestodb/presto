@@ -89,6 +89,7 @@ import static com.facebook.presto.SystemSessionProperties.REWRITE_EXPRESSION_WIT
 import static com.facebook.presto.SystemSessionProperties.REWRITE_LEFT_JOIN_ARRAY_CONTAINS_TO_EQUI_JOIN;
 import static com.facebook.presto.SystemSessionProperties.REWRITE_LEFT_JOIN_NULL_FILTER_TO_SEMI_JOIN;
 import static com.facebook.presto.SystemSessionProperties.SIMPLIFY_PLAN_WITH_EMPTY_INPUT;
+import static com.facebook.presto.SystemSessionProperties.TRANSFORM_IN_VALUES_TO_IN_FILTER;
 import static com.facebook.presto.SystemSessionProperties.USE_DEFAULTS_FOR_CORRELATED_AGGREGATION_PUSHDOWN_THROUGH_OUTER_JOINS;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -7873,5 +7874,25 @@ public abstract class AbstractTestQueries
         assertQuery(session,
                 "SELECT a * 2, a - 1 FROM (SELECT x * 2 as a FROM (VALUES 15) t(x))",
                 "SELECT * FROM (VALUES (60, 29))");
+    }
+
+    @Test
+    public void testTransformInValuesToInFilter()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(TRANSFORM_IN_VALUES_TO_IN_FILTER, "true")
+                .setSystemProperty(INLINE_PROJECTIONS_ON_VALUES, "true")
+                .build();
+        assertQuery(session, "SELECT * FROM " +
+                        "(VALUES " +
+                        "(1, 5), " +
+                        "(2, 6), " +
+                        "(3, 7)) " +
+                        "t(k, v) " +
+                        "WHERE k in (Values 1, 2)",
+                "SELECT * FROM " +
+                        "(VALUES " +
+                        "(1, 5), " +
+                        "(2, 6))");
     }
 }
