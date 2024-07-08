@@ -11,36 +11,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.common.resourceGroups;
+package com.facebook.presto.sql.tree;
 
-import com.facebook.drift.annotations.ThriftEnum;
-import com.facebook.drift.annotations.ThriftEnumValue;
+import java.util.List;
+import java.util.Optional;
 
-@ThriftEnum
-public enum QueryType
+public abstract class MergeCase
+        extends Node
 {
-    DATA_DEFINITION(1),
-    DELETE(2),
-    DESCRIBE(3),
-    EXPLAIN(4),
-    ANALYZE(5),
-    INSERT(6),
-    SELECT(7),
-    CONTROL(8),
-    UPDATE(9),
-    MERGE(10)
-    /**/;
-
-    private final int value;
-
-    private QueryType(int value)
+    protected MergeCase(Optional<NodeLocation> location)
     {
-        this.value = value;
+        super(location);
     }
 
-    @ThriftEnumValue
-    public int getValue()
+    @Override
+    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
-        return value;
+        return visitor.visitMergeCase(this, context);
     }
+
+    public abstract List<Identifier> getSetColumns();
 }
