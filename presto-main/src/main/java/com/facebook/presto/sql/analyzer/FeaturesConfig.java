@@ -218,6 +218,7 @@ public class FeaturesConfig
     private boolean optimizeNullsInJoin;
     private boolean optimizePayloadJoins;
     private boolean confidenceBasedBroadcastEnabled;
+    private boolean retryQueryWithHistoryBasedOptimizationEnabled;
     private boolean treatLowConfidenceZeroEstimationAsUnknownEnabled;
     private boolean pushdownDereferenceEnabled;
     private boolean inlineSqlFunctions = true;
@@ -1263,6 +1264,18 @@ public class FeaturesConfig
     public FeaturesConfig setConfidenceBasedBroadcastEnabled(boolean confidenceBasedBroadcastEnabled)
     {
         this.confidenceBasedBroadcastEnabled = confidenceBasedBroadcastEnabled;
+        return this;
+    }
+
+    public boolean isRetryQueryWithHistoryBasedOptimizationEnabled()
+    {
+        return retryQueryWithHistoryBasedOptimizationEnabled;
+    }
+
+    @Config("optimizer.retry-query-with-history-based-optimization")
+    public FeaturesConfig setRetryQueryWithHistoryBasedOptimizationEnabled(boolean retryQueryWithHistoryBasedOptimizationEnabled)
+    {
+        this.retryQueryWithHistoryBasedOptimizationEnabled = retryQueryWithHistoryBasedOptimizationEnabled;
         return this;
     }
 
