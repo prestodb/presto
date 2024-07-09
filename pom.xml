@@ -200,6 +200,7 @@
         <module>presto-singlestore</module>
         <module>presto-hana</module>
         <module>presto-openapi</module>
+        <module>presto-base-arrow-flight</module>
     </modules>
 
     <dependencyManagement>
