@@ -113,6 +113,7 @@ import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPS
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.DATA_SEQUENCE_NUMBER;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.FILE_PATH;
 import static com.facebook.presto.iceberg.IcebergPartitionType.ALL;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isPushdownFilterEnabled;
 import static com.facebook.presto.iceberg.IcebergTableProperties.DELETE_MODE;
 import static com.facebook.presto.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
@@ -431,7 +432,7 @@ public abstract class IcebergAbstractMetadata
         return finishInsert(session, (IcebergWritableTableHandle) tableHandle, fragments, computedStatistics);
     }
 
-    protected ConnectorInsertTableHandle beginIcebergTableInsert(IcebergTableHandle table, Table icebergTable)
+    protected ConnectorInsertTableHandle beginIcebergTableInsert(ConnectorSession session, IcebergTableHandle table, Table icebergTable)
     {
         transaction = icebergTable.newTransaction();
 
@@ -443,6 +444,7 @@ public abstract class IcebergAbstractMetadata
                 getColumns(icebergTable.schema(), icebergTable.spec(), typeManager),
                 icebergTable.location(),
                 getFileFormat(icebergTable),
+                getCompressionCodec(session),
                 icebergTable.properties());
     }
 
@@ -678,7 +680,7 @@ public abstract class IcebergAbstractMetadata
 
         verifyTypeSupported(icebergTable.schema());
 
-        return beginIcebergTableInsert(table, icebergTable);
+        return beginIcebergTableInsert(session, table, icebergTable);
     }
 
     @Override

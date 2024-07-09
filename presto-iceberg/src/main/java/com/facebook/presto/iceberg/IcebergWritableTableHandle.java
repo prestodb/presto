@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.presto.hive.HiveCompressionCodec;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -34,6 +35,7 @@ public class IcebergWritableTableHandle
     private final List<IcebergColumnHandle> inputColumns;
     private final String outputPath;
     private final FileFormat fileFormat;
+    private final HiveCompressionCodec compressionCodec;
     private final Map<String, String> storageProperties;
 
     @JsonCreator
@@ -45,6 +47,7 @@ public class IcebergWritableTableHandle
             @JsonProperty("inputColumns") List<IcebergColumnHandle> inputColumns,
             @JsonProperty("outputPath") String outputPath,
             @JsonProperty("fileFormat") FileFormat fileFormat,
+            @JsonProperty("compressionCodec") HiveCompressionCodec compressionCodec,
             @JsonProperty("storageProperties") Map<String, String> storageProperties)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
@@ -54,6 +57,7 @@ public class IcebergWritableTableHandle
         this.inputColumns = ImmutableList.copyOf(requireNonNull(inputColumns, "inputColumns is null"));
         this.outputPath = requireNonNull(outputPath, "filePrefix is null");
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
+        this.compressionCodec = requireNonNull(compressionCodec, "compressionCodec is null");
         this.storageProperties = requireNonNull(storageProperties, "storageProperties is null");
     }
 
@@ -97,6 +101,12 @@ public class IcebergWritableTableHandle
     public FileFormat getFileFormat()
     {
         return fileFormat;
+    }
+
+    @JsonProperty
+    public HiveCompressionCodec getCompressionCodec()
+    {
+        return compressionCodec;
     }
 
     @JsonProperty
