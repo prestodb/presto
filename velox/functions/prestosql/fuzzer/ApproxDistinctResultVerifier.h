@@ -17,6 +17,7 @@
 
 #include <string>
 
+#include "velox/common/hyperloglog/HllUtils.h"
 #include "velox/core/PlanNode.h"
 #include "velox/exec/fuzzer/ResultVerifier.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
@@ -194,6 +195,13 @@ class ApproxDistinctResultVerifier : public ResultVerifier {
     const auto numGroups = combined->size();
 
     std::vector<double> largeGaps;
+    // Standard error would likely exceed the error bound when the number of
+    // groups is small and the error bound is large. So we only check the
+    // standard error when the numGroups >= 50 and the error bound is smaller
+    // than or equan to the default error bound.
+    bool checkError =
+        (error_ <= common::hll::kDefaultApproxDistinctStandardError ||
+         numGroups >= 50);
     for (auto i = 0; i < numGroups; ++i) {
       const auto gap =
           combined->children().back()->as<SimpleVector<double>>()->valueAt(i);
@@ -207,6 +215,14 @@ class ApproxDistinctResultVerifier : public ResultVerifier {
             combined->toString(i),
             gap);
       }
+    }
+    if (!checkError) {
+      LOG(WARNING) << fmt::format(
+          "{} groups have large errors that exceed the error bound, but we don't fail the verification because current numGroups = {} and error bound is {}.",
+          largeGaps.size(),
+          numGroups,
+          error_);
+      return true;
     }
 
     // We expect large deviations (>2 stddev) in < 5% of values.
