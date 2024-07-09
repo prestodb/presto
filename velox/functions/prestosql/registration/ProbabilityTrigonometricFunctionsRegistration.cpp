@@ -75,6 +75,8 @@ void registerProbTrigFunctions(const std::string& prefix) {
 
   registerFunction<WeibullCDFFunction, double, double, double, double>(
       {prefix + "weibull_cdf"});
+  registerFunction<InverseWeibullCDFFunction, double, double, double, double>(
+      {prefix + "inverse_weibull_cdf"});
 }
 
 } // namespace

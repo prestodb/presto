@@ -263,5 +263,25 @@ struct InverseNormalCDFFunction {
   }
 };
 
+template <typename T>
+struct InverseWeibullCDFFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(double& result, double a, double b, double p) {
+    static constexpr double kInf = std::numeric_limits<double>::infinity();
+
+    VELOX_USER_CHECK((p >= 0) && (p <= 1), "p must be in the interval [0, 1]");
+    VELOX_USER_CHECK_GT(a, 0, "a must be greater than 0");
+    VELOX_USER_CHECK_GT(b, 0, "b must be greater than 0");
+
+    if (b == kInf) {
+      result = kInf;
+    } else {
+      // https://commons.apache.org/proper/commons-math/javadocs/api-3.6.1/org/apache/commons/math3/distribution/WeibullDistribution.html#inverseCumulativeProbability(double)
+      result = b * std::pow(-std::log1p(-p), 1.0 / a);
+    }
+  }
+};
+
 } // namespace
 } // namespace facebook::velox::functions

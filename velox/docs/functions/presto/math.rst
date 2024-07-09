@@ -341,6 +341,11 @@ Probability Functions: inverse_cdf
     probability (p): P(N < n). The a, b parameters must be positive real values (all of type DOUBLE).
     The probability p must lie on the interval [0, 1].
 
+.. function:: inverse_weibull_cdf(a, b, p) -> double
+
+    Compute the inverse of the Weibull cdf with given parameters ``a``, ``b`` for the probability ``p``.
+    The ``a``, ``b`` parameters must be positive double values. The probability ``p`` must be a double
+    on the interval [0, 1].
 
 ====================================
 Statistical Functions
