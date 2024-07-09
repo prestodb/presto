@@ -17,7 +17,7 @@
 #include "velox/experimental/wave/exec/WaveSplitReader.h"
 
 namespace facebook::velox::wave {
-std::unique_ptr<WaveSplitReader> WaveSplitReader::create(
+std::shared_ptr<WaveSplitReader> WaveSplitReader::create(
     const std::shared_ptr<velox::connector::ConnectorSplit>& split,
     const SplitReaderParams& params,
     const DefinesMap* defines) {

@@ -279,15 +279,15 @@ void Aggregation::flush(bool noMoreInput) {
   flushDone_.record(*flushStream_);
 }
 
-int32_t Aggregation::canAdvance(WaveStream& stream) {
+AdvanceResult Aggregation::canAdvance(WaveStream& stream) {
   if (!noMoreInput_ || finished_) {
-    return 0;
+    return {};
   }
   while (!inputs_.empty()) {
     waitFlushDone();
     flush(true);
   }
-  return container_->actualNumGroups;
+  return {.numRows = container_->actualNumGroups};
 }
 
 void Aggregation::schedule(WaveStream& waveStream, int32_t maxRows) {
@@ -343,7 +343,7 @@ void Aggregation::schedule(WaveStream& waveStream, int32_t maxRows) {
             aggregation::ExtractKeys::sharedSize(),
             aggregation::ExtractValues::sharedSize());
         auto control = std::make_unique<LaunchControl>(id_, maxRows);
-        control->status = rowStatus;
+        control->params.status = rowStatus;
         waveStream.addLaunchControl(id_, std::move(control));
         aggregation::call(
             *stream, numColumns, programs, nullptr, status, sharedSize);

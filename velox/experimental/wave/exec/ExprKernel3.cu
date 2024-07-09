@@ -14,22 +14,29 @@
  * limitations under the License.
  */
 
-#include "velox/experimental/wave/dwio/ColumnReader.h"
+#include "velox/experimental/wave/exec/ExprKernel.h"
+
+#include <gflags/gflags.h>
+#include "velox/experimental/wave/common/Block.cuh"
+#include "velox/experimental/wave/common/CudaUtil.cuh"
+#include "velox/experimental/wave/exec/Aggregate.cuh"
+#include "velox/experimental/wave/exec/WaveCore.cuh"
+
+DECLARE_bool(kernel_gdb);
 
 namespace facebook::velox::wave {
 
-void ColumnReader::makeOp(
-    ReadStream* readStream,
-    ColumnAction action,
-    ColumnOp& op) {
-  VELOX_CHECK(action == ColumnAction::kValues, "Only values supported");
-  op.action = action;
-  op.reader = this;
-  op.waveVector = readStream->operandVector(operand_->id, requestedType_);
-};
-
-bool ColumnReader::hasNonNullFilter() const {
-  return scanSpec_->filter() && !scanSpec_->filter()->testNull();
+__global__ void oneFilter(KernelParams params, int32_t pc, int32_t base) {
+  PROGRAM_PREAMBLE(base);
+  filterKernel(
+      instruction[pc]._.filter, operands, blockBase, shared, laneStatus);
+  wrapKernel(
+      instruction[pc + 1]._.wrap,
+      operands,
+      blockBase,
+      shared->numRows,
+      &shared->data);
+  PROGRAM_EPILOGUE();
 }
 
 } // namespace facebook::velox::wave

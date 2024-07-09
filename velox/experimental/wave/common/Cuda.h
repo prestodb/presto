@@ -89,7 +89,7 @@ class Event {
 
   ~Event();
 
-  ///  Recirds event on 'stream'. This must be called before other member
+  ///  Records event on 'stream'. This must be called before other member
   ///  functions.
   void record(Stream&);
 

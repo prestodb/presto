@@ -132,13 +132,22 @@ enum class ErrorCode : uint8_t {
   // All operations completed.
   kOk = 0,
 
+  // Set on entry when continuing, e.g. produce more data from hash probe.
+  kContinue,
+
+  // all codes from here onwards mean the lane is off
   // Catchall for runtime errors.
   kError,
 
   kInsufficientMemory,
+
+  kInactive,
+
 };
 
-/// Contains a count of active lanes and a per lane error code.
+/// Thread block status with count of active lanes and a per lane
+/// error code and continue points for operators that can produce more
+/// data.
 struct BlockStatus {
   int32_t numRows{0};
   ErrorCode errors[kBlockSize];

@@ -19,6 +19,7 @@
 #include <gflags/gflags.h>
 #include "velox/experimental/wave/common/Block.cuh"
 #include "velox/experimental/wave/common/CudaUtil.cuh"
+#include "velox/experimental/wave/exec/Aggregate.cuh"
 #include "velox/experimental/wave/exec/WaveCore.cuh"
 
 DEFINE_bool(kernel_gdb, false, "Run kernels sequentially for debugging");
@@ -31,14 +32,14 @@ __device__ inline T opFunc_kPlus(T left, T right) {
 }
 
 template <typename T, typename OpFunc>
-__device__ inline void binaryOpKernel(
+__device__ __forceinline__ void binaryOpKernel(
     OpFunc func,
     IBinary& instr,
     Operand** operands,
     int32_t blockBase,
-    char* shared,
-    BlockStatus* status) {
-  if (threadIdx.x >= status->numRows) {
+    void* shared,
+    ErrorCode& laneStatus) {
+  if (!laneActive(laneStatus)) {
     return;
   }
   T left;
@@ -52,151 +53,82 @@ __device__ inline void binaryOpKernel(
   }
 }
 
-__device__ void filterKernel(
-    const IFilter& filter,
-    Operand** operands,
-    int32_t blockBase,
-    char* shared,
-    int32_t& numRows) {
-  auto* flags = operands[filter.flags];
-  auto* indices = operands[filter.indices];
-  __syncthreads();
-  if (flags->nulls) {
-    bool256ToIndices<int32_t>(
-        [&](int32_t group) -> uint64_t {
-          int32_t offset = group * 8;
-          int32_t base = blockBase + offset;
-          if (offset + 8 <= numRows) {
-            return *addCast<uint64_t>(flags->base, base) &
-                *addCast<uint64_t>(flags->nulls, base);
-          }
-          if (offset >= numRows) {
-            return 0;
-          }
-          return lowMask<uint64_t>((offset + 8 - numRows) * 8) &
-              *addCast<uint64_t>(flags->base, base) &
-              *addCast<uint64_t>(flags->nulls, base);
-        },
-        blockBase,
-        reinterpret_cast<int32_t*>(indices->base) + blockBase,
-        numRows,
-        shared);
-  } else {
-    bool256ToIndices<int32_t>(
-        [&](int32_t group) -> uint64_t {
-          int32_t offset = group * 8;
-          int32_t base = blockBase + offset;
-          if (offset + 8 <= numRows) {
-            return *addCast<uint64_t>(flags->base, base);
-          }
-          if (offset >= numRows) {
-            return 0;
-          }
-          return lowMask<uint64_t>((numRows - offset) * 8) &
-              *addCast<uint64_t>(flags->base, base);
-        },
-        blockBase,
-        reinterpret_cast<int32_t*>(indices->base) + blockBase,
-        numRows,
-        shared);
-  }
-}
-
-__device__ void wrapKernel(
-    const IWrap& wrap,
-    Operand** operands,
-    int32_t blockBase,
-    int32_t numRows,
-    void* shared) {
-  Operand* op = operands[wrap.indices];
-  auto* filterIndices = reinterpret_cast<int32_t*>(op->base);
-  if (filterIndices[blockBase + numRows - 1] == numRows + blockBase - 1) {
-    // There is no cardinality change.
-    return;
-  }
-
-  struct WrapState {
-    int32_t* indices;
-  };
-
-  auto* state = reinterpret_cast<WrapState*>(shared);
-  bool rowActive = threadIdx.x < numRows;
-  for (auto column = 0; column < wrap.numColumns; ++column) {
-    if (threadIdx.x == 0) {
-      auto opIndex = wrap.columns[column];
-      auto* op = operands[opIndex];
-      int32_t** opIndices = &op->indices[blockBase / kBlockSize];
-      if (!*opIndices) {
-        *opIndices = filterIndices + blockBase;
-        state->indices = nullptr;
-      } else {
-        state->indices = *opIndices;
-      }
-    }
-    __syncthreads();
-    // Every thread sees the decision on thred 0 above.
-    if (!state->indices) {
-      continue;
-    }
-    int32_t newIndex;
-    if (rowActive) {
-      newIndex =
-          state->indices[filterIndices[blockBase + threadIdx.x] - blockBase];
-    }
-    // All threads hit this.
-    __syncthreads();
-    if (rowActive) {
-      state->indices[threadIdx.x] = newIndex;
-    }
-  }
-  __syncthreads();
-}
-
-#define BINARY_TYPES(opCode, OP)                             \
-  case OP_MIX(opCode, WaveTypeKind::BIGINT):                 \
-    binaryOpKernel<int64_t>(                                 \
+#define BINARY_TYPES(opCode, TP, OP)                         \
+  case opCode:                                               \
+    binaryOpKernel<TP>(                                      \
         [](auto left, auto right) { return left OP right; }, \
         instruction->_.binary,                               \
         operands,                                            \
         blockBase,                                           \
-        shared,                                              \
-        status);                                             \
+        &shared->data,                                       \
+        laneStatus);                                         \
     break;
 
-__global__ void waveBaseKernel(
-    int32_t* baseIndices,
-    int32_t* programIndices,
-    ThreadBlockProgram** programs,
-    Operand*** programOperands,
-    BlockStatus* blockStatusArray) {
-  extern __shared__ __align__(16) char shared[];
-  int programIndex = programIndices[blockIdx.x];
-  auto* program = programs[programIndex];
-  auto* operands = programOperands[programIndex];
-  auto* status = &blockStatusArray[blockIdx.x - baseIndices[blockIdx.x]];
-  int32_t blockBase = (blockIdx.x - baseIndices[blockIdx.x]) * blockDim.x;
-  auto instruction = program->instructions;
+__global__ void oneAggregate(KernelParams params, int32_t pc, int32_t base) {
+  PROGRAM_PREAMBLE(base);
+  aggregateKernel(instruction[pc]._.aggregate, shared, laneStatus);
+  PROGRAM_EPILOGUE();
+}
+
+__global__ void oneReadAggregate(KernelParams params, int32_t pc, int32_t base);
+
+template <typename T>
+__global__ void onePlus(KernelParams params, int32_t pc, int32_t base) {
+  PROGRAM_PREAMBLE(base);
+  binaryOpKernel<T>(
+      [](auto left, auto right) { return left + right; },
+      instruction[pc]._.binary,
+      operands,
+      blockBase,
+      &shared->data,
+      laneStatus);
+  PROGRAM_EPILOGUE();
+}
+
+template <typename T>
+__global__ void oneLt(KernelParams params, int32_t pc, int32_t base) {
+  PROGRAM_PREAMBLE(base);
+  binaryOpKernel<T>(
+      [](auto left, auto right) { return left < right; },
+      instruction[pc]._.binary,
+      operands,
+      blockBase,
+      &shared->data,
+      laneStatus);
+  PROGRAM_EPILOGUE();
+}
+
+__global__ void oneFilter(KernelParams params, int32_t pc, int32_t base);
+
+__global__ void waveBaseKernel(KernelParams params) {
+  PROGRAM_PREAMBLE(0);
   for (;;) {
     switch (instruction->opCode) {
       case OpCode::kReturn:
-        __syncthreads();
+        PROGRAM_EPILOGUE();
         return;
+
       case OpCode::kFilter:
         filterKernel(
-            instruction->_.filter,
-            operands,
-            blockBase,
-            shared,
-            status->numRows);
+            instruction->_.filter, operands, blockBase, shared, laneStatus);
         break;
 
       case OpCode::kWrap:
         wrapKernel(
-            instruction->_.wrap, operands, blockBase, status->numRows, shared);
+            instruction->_.wrap,
+            operands,
+            blockBase,
+            shared->numRows,
+            &shared->data);
         break;
-
-        BINARY_TYPES(OpCode::kPlus, +);
-        BINARY_TYPES(OpCode::kLT, <);
+      case OpCode::kAggregate:
+        aggregateKernel(instruction->_.aggregate, shared, laneStatus);
+        break;
+      case OpCode::kReadAggregate:
+        readAggregateKernel(instruction->_.aggregate, shared);
+        break;
+        BINARY_TYPES(OpCode::kPlus_BIGINT, int64_t, +);
+        BINARY_TYPES(OpCode::kLT_BIGINT, int64_t, <);
     }
     ++instruction;
   }
@@ -205,31 +137,106 @@ __global__ void waveBaseKernel(
 int32_t instructionSharedMemory(const Instruction& instruction) {
   switch (instruction.opCode) {
     case OpCode::kFilter:
-      return (2 + (kBlockSize / kWarpThreads)) * sizeof(int32_t);
+      return sizeof(WaveShared) +
+          (2 + (kBlockSize / kWarpThreads)) * sizeof(int32_t);
     default:
-      return 0;
+      return sizeof(WaveShared);
+  }
+}
+
+#define CALL_ONE(k, params, pc, base) \
+  k<<<blocksPerExe,                   \
+      kBlockSize,                     \
+      sharedSize,                     \
+      alias ? alias->stream()->stream : stream()->stream>>>(params, pc, base);
+
+void WaveKernelStream::callOne(
+    Stream* alias,
+    int32_t numBlocks,
+    int32_t sharedSize,
+    KernelParams& params) {
+  int32_t blocksPerExe = 0;
+  auto first = params.programIdx[0];
+  for (; blocksPerExe < numBlocks; ++blocksPerExe) {
+    if (params.programIdx[blocksPerExe] != first) {
+      break;
+    }
+  }
+  std::vector<std::vector<OpCode>> programs;
+  for (auto i = 0; i < numBlocks; i += blocksPerExe) {
+    auto programIdx = programs.size();
+    programs.emplace_back();
+    auto* instructions = params.programs[programIdx]->instructions;
+    for (auto pc = 0; instructions[pc].opCode != OpCode::kReturn; ++pc) {
+      programs.back().push_back(instructions[pc].opCode);
+    }
+  }
+  auto initialStartPC = params.startPC;
+  for (auto programIdx = 0; programIdx < programs.size(); ++programIdx) {
+    auto& program = programs[programIdx];
+    int32_t base = programIdx * blocksPerExe;
+    params.startPC = initialStartPC;
+    int32_t start = 0;
+    if (params.startPC) {
+      start = params.startPC[programIdx];
+    }
+    for (auto pc = start; pc < program.size(); ++pc) {
+      switch (program[pc]) {
+        case OpCode::kFilter:
+          CALL_ONE(oneFilter, params, pc, base)
+          ++pc;
+          break;
+        case OpCode::kAggregate:
+          CALL_ONE(oneAggregate, params, pc, base)
+          break;
+        case OpCode::kReadAggregate:
+          CALL_ONE(oneReadAggregate, params, pc, base)
+          break;
+        case OpCode::kPlus_BIGINT:
+          CALL_ONE(onePlus<int64_t>, params, pc, base);
+          break;
+        case OpCode::kLT_BIGINT:
+          CALL_ONE(oneLt<int64_t>, params, pc, base);
+          break;
+        default:
+          assert(false);
+      }
+    }
+    params.startPC = nullptr;
   }
 }
 
 void WaveKernelStream::call(
     Stream* alias,
     int32_t numBlocks,
-    int32_t* bases,
-    int32_t* programIdx,
-    ThreadBlockProgram** programs,
-    Operand*** operands,
-    BlockStatus* status,
-    int32_t sharedSize) {
+    int32_t sharedSize,
+    KernelParams& params) {
+  if (FLAGS_kernel_gdb) {
+    callOne(alias, numBlocks, sharedSize, params);
+    (alias ? alias : this)->wait();
+    return;
+  }
+
   waveBaseKernel<<<
       numBlocks,
       kBlockSize,
       sharedSize,
-      alias ? alias->stream()->stream : stream()->stream>>>(
-      bases, programIdx, programs, operands, status);
-  if (FLAGS_kernel_gdb) {
-    (alias ? alias : this)->wait();
-  }
+      alias ? alias->stream()->stream : stream()->stream>>>(params);
 }
+
 REGISTER_KERNEL("expr", waveBaseKernel);
+
+void __global__ setupAggregationKernel(AggregationControl op) {
+  //    assert(op.maxTableEntries == 0);
+  auto* data = new (op.head) DeviceAggregation();
+  data->rowSize = op.rowSize;
+  data->singleRow = reinterpret_cast<char*>(data + 1);
+  memset(data->singleRow, 0, op.rowSize);
+}
+
+void WaveKernelStream::setupAggregation(AggregationControl& op) {
+  setupAggregationKernel<<<1, 1, 0, stream_->stream>>>(op);
+  wait();
+}
 
 } // namespace facebook::velox::wave

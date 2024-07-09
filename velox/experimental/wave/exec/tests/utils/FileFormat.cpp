@@ -184,7 +184,7 @@ encodeBits(uint64_t* bits, int32_t numBits, memory::MemoryPool* pool) {
   column->values = AlignedBuffer::allocate<bool>(numBits, pool);
   memcpy(column->values->asMutable<char>(), bits, bits::nbytes(numBits));
   column->bitWidth = 1;
-  printSums(bits, numBits);
+  // printSums(bits, numBits);
   return column;
 }
 
@@ -350,15 +350,24 @@ void Writer::append(RowVectorPtr data) {
   for (auto i = 0; i < encoders_.size(); ++i) {
     encoders_[i]->append(data->childAt(i));
   }
+  rowsInStripe_ += data->size();
+  if (rowsInStripe_ >= stripeSize_) {
+    finishStripe();
+  }
 }
 
 void Writer::finishStripe() {
+  if (encoders_.empty()) {
+    return;
+  }
   std::vector<std::unique_ptr<Column>> columns;
   for (auto& encoder : encoders_) {
     columns.push_back(encoder->toColumn());
   }
   stripes_.push_back(std::make_unique<Stripe>(
       std::move(columns), dwio::common::TypeWithId::create(type_)));
+  encoders_.clear();
+  rowsInStripe_ = 0;
 }
 
 Table* Writer::finalize(std::string tableName) {

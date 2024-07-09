@@ -53,6 +53,7 @@ struct WaveTime {
 };
 
 class WaveTimer {
+ public:
   WaveTimer(WaveTime& accumulator)
       : accumulator_(accumulator), start_(WaveTime::now()) {}
   ~WaveTimer() {
@@ -66,7 +67,7 @@ class WaveTimer {
 
 struct WaveStats {
   /// Count of WaveStreams.
-  int64_t numWaves{1};
+  int64_t numWaves{0};
 
   // Count of kernel launches.
   int64_t numKernels{0};
@@ -98,6 +99,7 @@ struct WaveStats {
   /// Time a host thread waits for device.
   WaveTime waitTime;
 
+  void clear();
   void add(const WaveStats& other);
 };
 
@@ -178,10 +180,29 @@ std::string definesToString(const DefinesMap* map);
 class WaveStream;
 class Program;
 
+/// Represents a device side operator state, like a join/group by hash table or
+/// repartition output. Can be scoped to a WaveStream or to a Program.
+struct OperatorState {
+  int32_t id;
+  /// Owns the device side data. Starting address of first is passed to the
+  /// kernel. Layout depends on operator.
+  std::vector<WaveBufferPtr> buffers;
+};
+
+struct AggregateOperatorState : public OperatorState {
+  AbstractAggregation* instruction;
+  // True after first created.
+  bool isNew{true};
+};
+
+struct OperatorStateMap {
+  folly::F14FastMap<int32_t, std::shared_ptr<OperatorState>> states;
+};
+
 /// Represents a kernel or data transfer. Many executables can be in one kernel
 /// launch on different thread blocks. Owns the output and intermediate memory
 /// for the thread block program or data transfer this represents. Has a
-/// WaveStream level unique id for each output column. be nulllptr if this
+/// WaveStream level unique id for each output column. May be nulllptr if this
 /// represents data movement only.
 struct Executable {
   virtual ~Executable() = default;
@@ -280,6 +301,66 @@ struct Executable {
   std::function<void(std::unique_ptr<Executable>&)> releaser;
 };
 
+/// Describes the OperatorStates touched by a Program.
+struct ProgramState {
+  // Task-wide id.
+  int32_t stateId;
+  // Function for creating a state. nullptr if the state must exist before
+  // creating an executable.
+  std::function<std::shared_ptr<OperatorState>(WaveStream& stream)> create;
+
+  /// The instruction using the state. This is where to continue if
+  /// the return indicates the instruction is not fully processed.
+  int32_t instructionIdx;
+
+  // True if the state is shared across all streams, e.g. hash join build side.
+  bool isGlobal{true};
+  ///
+
+  /// If non-0, size of device memory scratch area per TB.
+  int32_t tempBytesPerTB{0};
+
+  /// If non-0, size of status to return to host for each TB. The device side
+  /// address goes via and the host side address goes to the LaunchControl.
+  int32_t returnBytesPerTB{0};
+};
+
+/// Describes a point to pick up execution of a partially executed program.
+struct ContinuePoint {
+  ContinuePoint() = default;
+  ContinuePoint(int32_t instruction, int32_t rows)
+      : instructionIdx(instruction), sourceRows(rows) {}
+
+  bool empty() const {
+    return laneMask.empty() && sourceRows == 0;
+  }
+
+  /// The index of the instruction where to pick up execution. Must be set if
+  /// !this->empty().
+  int32_t instructionIdx{-1};
+
+  /// If non-zero, the continue makes up to 'sourceRows' new values.
+  int32_t sourceRows{0};
+  /// If non-empty, 'sourceRows' must be 0 and  laneMask gives the lanes in
+  /// the previous invocation that need to be continued.
+  std::vector<uint64_t> laneMask;
+};
+
+/// State of one Program in LaunchControl.
+struct ProgramLaunch {
+  Program* program{nullptr};
+  bool isStaged{false};
+  /// Device side buffer for status returning instructions.
+  std::vector<void*> returnBuffers;
+  /// Host side address 1:1 to 'returnBuffers'.
+  std::vector<void*> hostReturnBuffers;
+  /// Device side temp status for instructions.
+  std::vector<void*> deviceBuffers;
+
+  /// Where to continue if previous execution was incomplete.
+  AdvanceResult advance;
+};
+
 class Program : public std::enable_shared_from_this<Program> {
  public:
   void add(std::unique_ptr<AbstractInstruction> instruction) {
@@ -346,6 +427,31 @@ class Program : public std::enable_shared_from_this<Program> {
   void addLabel(const std::string& label) {
     label_ = label_ + " " + label;
   }
+
+  /// Fills 'ptrs' with device side global/stream states. Creates the states if
+  /// necessary.
+  void getOperatorStates(WaveStream& stream, std::vector<void*>& ptrs);
+
+  /// True if begins with a source instruction, like reading and aggregate
+  /// result or exchange.
+  bool isSource() {
+    return !instructions_.empty() &&
+        instructions_.front()->opCode == OpCode::kReadAggregate;
+  }
+
+  /// If partially executed instructions in the call of 'control',
+  /// returns the point where to pick up. If fully executed or not
+  /// started, returns the number of rows to obtain from the
+  /// source. If no source and no partial execution or source at end
+  /// returns empty. If picking up from a partially executed
+  /// instruction, sets the lanes to continue in the status of
+  /// 'control'.
+  AdvanceResult
+  canAdvance(WaveStream& stream, LaunchControl* control, int32_t programIdx);
+
+  /// True if last non-return instruction is a sink, e.g. build, repartition. No
+  /// output vectors,, synced on 'hostReturnEvent_'.
+  bool isSink() const;
 
   std::string toString() const;
 
@@ -424,10 +530,14 @@ class Program : public std::enable_shared_from_this<Program> {
 
   // a pool of ready to run executables.
   std::vector<std::unique_ptr<Executable>> prepared_;
+
+  // Globals accessed by id from instructions.
+  std::vector<std::unique_ptr<ProgramState>> operatorStates_;
 };
 
 using ProgramPtr = std::shared_ptr<Program>;
 
+class WaveSplitReader;
 struct LaunchControl;
 
 /// Represents consecutive data dependent kernel launches.
@@ -448,8 +558,12 @@ class WaveStream {
   WaveStream(
       GpuArena& arena,
       GpuArena& hostArena,
-      const std::vector<std::unique_ptr<AbstractOperand>>* operands)
-      : arena_(arena), hostArena_(hostArena), operands_(operands) {
+      const std::vector<std::unique_ptr<AbstractOperand>>* operands,
+      OperatorStateMap* stateMap)
+      : arena_(arena),
+        hostArena_(hostArena),
+        operands_(operands),
+        taskStateMap_(stateMap) {
     operandNullable_.resize(operands_->size(), true);
   }
 
@@ -558,6 +672,7 @@ class WaveStream {
   Device* device() const {
     return getDevice();
   }
+
   /// Returns a new stream, assigns it an id and keeps it owned by 'this'. The
   /// Stream will be returned to the static pool of streams on destruction of
   /// 'this'.
@@ -577,13 +692,16 @@ class WaveStream {
   /// row counts. The LaunchControl is in host memory, the arrays
   /// referenced from it are in unified memory, owned by
   /// LaunchControl. 'key' identifies the issuing
-  /// WaveOperator. 'inputRows' is the logical number of input rows,
-  /// not all TBs are necessarily full. 'exes' are the programs
-  /// launched together, e.g. different exprs on different
-  /// columns. 'blocks{PerExe' is the number of TBs running each exe. 'stream'
-  /// enqueus the data transfer.
+  /// WaveOperator. 'nthLaunch' is the serial number of the kernel
+  /// within the operator. Multiple launches can have the same serial
+  /// for continuing partially executed operations. 'inputRows' is the
+  /// logical number of input rows, not all TBs are necessarily
+  /// full. 'exes' are the programs launched together, e.g. different
+  /// exprs on different columns. 'blocks{PerExe' is the number of TBs
+  /// running each exe. 'stream' enqueus the data transfer.
   LaunchControl* prepareProgramLaunch(
       int32_t key,
+      int32_t nthlaunch,
       int32_t inputRows,
       folly::Range<Executable**> exes,
       int32_t blocksPerExe,
@@ -597,6 +715,17 @@ class WaveStream {
 
   void addLaunchControl(int32_t key, std::unique_ptr<LaunchControl> control) {
     launchControl_[key].push_back(std::move(control));
+  }
+
+  void setLaunchControl(
+      int32_t key,
+      int32_t nth,
+      std::unique_ptr<LaunchControl> control) {
+    auto& controls = launchControl_[key];
+    if (controls.size() <= nth) {
+      controls.resize(nth + 1);
+    }
+    controls[nth] = std::move(control);
   }
 
   const AbstractOperand* operandAt(int32_t id) {
@@ -613,12 +742,17 @@ class WaveStream {
     int32_t totalBytes{0};
     folly::F14FastMap<int32_t, int32_t**> inputWrap;
     folly::F14FastMap<int32_t, int32_t**> localWrap;
+    std::vector<void*> operatorStates;
   };
 
   void
   exeLaunchInfo(Executable& exe, int32_t blocksPerExe, ExeLaunchInfo& info);
 
   Operand** fillOperands(Executable& exe, char* start, ExeLaunchInfo& info);
+
+  State state() const {
+    return state_;
+  }
 
   /// Sets the state for stats collection.
   void setState(WaveStream::State state);
@@ -630,6 +764,48 @@ class WaveStream {
   WaveStats& stats() {
     return stats_;
   }
+
+  void setSplitReader(const std::shared_ptr<WaveSplitReader>& reader) {
+    splitReader_ = reader;
+  }
+
+  void clearLaunch(int32_t id) {
+    launchControl_[id].clear();
+  }
+
+  OperatorState* operatorState(int32_t id);
+
+  OperatorState* newState(ProgramState& init);
+
+  /// Initializes 'state' to the device side state for 'inst'. Returns after
+  /// 'state' is ready to use on device.
+  void makeAggregate(AbstractAggregation& inst, AggregateOperatorState& state);
+
+  std::unique_ptr<Executable> recycleExecutable(
+      Program* program,
+      int32_t numRows);
+
+  /// True if ends with a resettable sink like partial aggregation and the sink
+  /// is full.
+  bool isSinkFull() const {
+    return false;
+  }
+
+  /// Clears the state in final sink, e.g. partial agregation. The
+  /// stream can be continuable at this point and the new sink state
+  /// will get the data not produced so far.
+  void resetSink() {}
+
+  // Releases and clears streams and events. Done at destruction or
+  // before reuse. All device side activity is expected to be
+  // complete. Resets conditional nullability info.
+  void releaseStreamsAndEvents();
+
+  void setError() {
+    hasError_ = true;
+  }
+
+  std::string toString() const;
 
  private:
   // true if 'op' is nullable in the context of 'this'.
@@ -654,6 +830,12 @@ class WaveStream {
   // True at '[i]' if in this stream 'operands_[i]' should have null flags.
   std::vector<bool> operandNullable_;
 
+  // Task-wide states like join hash tables.
+  OperatorStateMap* taskStateMap_;
+
+  // Stream level states like small partial aggregates.
+  OperatorStateMap streamStateMap_;
+
   // Number of rows to allocate for top level vectors for the next kernel
   // launch.
   int32_t numRows_{0};
@@ -668,7 +850,7 @@ class WaveStream {
   // The most recent event recorded on the pairwise corresponding element of
   // 'streams_'.
   std::vector<Event*> lastEvent_;
-  // If status return copy has been initiated, then this is th event to sync
+  // If status return copy has been initiated, then this is the event to sync
   // with before accessing the 'hostReturnData_'
   Event* hostReturnEvent_{nullptr};
 
@@ -709,7 +891,11 @@ class WaveStream {
 
   State state_{State::kNotRunning};
 
+  bool hasError_{false};
+
   WaveStats stats_;
+
+  std::shared_ptr<WaveSplitReader> splitReader_;
 };
 
 /// Describes all the control data for launching a kernel executing
@@ -735,27 +921,24 @@ struct LaunchControl {
   // device in prepareProgamLaunch().
   const int32_t inputRows;
 
-  /// The first thread block with the program. Subscript is blockIdx.x.
-  int32_t* blockBase{0};
-  // The ordinal of the program. All blocks with the same program have the same
-  // number here. Subscript is blockIdx.x.
-  int32_t* programIdx{nullptr};
+  KernelParams params;
 
-  // The TB program for each exe. The subscript is programIdx[blockIdx.x].
-  ThreadBlockProgram** programs{nullptr};
-
-  // For each exe, the start of the array of Operand*. Instructions reference
-  // operands via offset in this array. The subscript is
-  // programIndx[blockIdx.x].
-  Operand*** operands{nullptr};
-
-  // the status return block for each TB. The subscript is blockIdx.x -
-  // (blockBase[blockIdx.x] / kBlockSize). Shared between all programs.
-  BlockStatus* status{nullptr};
   int32_t sharedMemorySize{0};
 
   // Storage for all the above in a contiguous unified memory piece.
   WaveBufferPtr deviceData;
+
+  /// Staging for device side temp storage.
+  ResultStaging tempStaging;
+
+  /// Staging for device data to be copied to host.
+  ResultStaging returnStaging;
+
+  /// Staging for host side buffers that receive the data from 'returnStaging'.
+  ResultStaging hostReturnStaging;
+
+  /// Continue info for each Program in the launch.
+  std::vector<ProgramLaunch> programInfo;
 };
 
 } // namespace facebook::velox::wave

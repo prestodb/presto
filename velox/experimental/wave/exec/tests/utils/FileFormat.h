@@ -181,6 +181,7 @@ class Writer {
   TypePtr type_;
   void finishStripe();
   const int32_t stripeSize_;
+  int32_t rowsInStripe_{0};
   std::vector<std::unique_ptr<Stripe>> stripes_;
   std::shared_ptr<memory::MemoryPool> pool_;
   std::vector<std::unique_ptr<EncoderBase>> encoders_;

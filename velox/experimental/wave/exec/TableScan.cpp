@@ -29,12 +29,32 @@ using exec::BlockingReason;
 BlockingReason TableScan::isBlocked(ContinueFuture* future) {
   if (!dataSource_ || needNewSplit_) {
     nextSplit(future);
+    isNewSplit_ = true;
   }
   if (blockingFuture_.valid()) {
     *future = std::move(blockingFuture_);
     return blockingReason_;
   }
   return BlockingReason::kNotBlocked;
+}
+
+AdvanceResult TableScan::canAdvance(WaveStream& stream) {
+  if (!dataSource_ || needNewSplit_) {
+    return {};
+  }
+  if (isNewSplit_) {
+    isNewSplit_ = false;
+    return {.numRows = waveDataSource_->canAdvance(stream)};
+  }
+  return {.numRows = nextAvailableRows_};
+}
+
+void TableScan::schedule(WaveStream& stream, int32_t maxRows) {
+  waveDataSource_->schedule(stream, maxRows);
+  nextAvailableRows_ = waveDataSource_->canAdvance(stream);
+  if (nextAvailableRows_ == 0) {
+    needNewSplit_ = true;
+  }
 }
 
 BlockingReason TableScan::nextSplit(ContinueFuture* future) {
@@ -80,13 +100,13 @@ BlockingReason TableScan::nextSplit(ContinueFuture* future) {
       connectorSplit->connectorId,
       "Got splits with different connector IDs");
 
+  WithSubfieldMap subfields(driver_->subfields());
   if (!dataSource_) {
     connectorQueryCtx_ = driver_->operatorCtx()->createConnectorQueryCtx(
         connectorSplit->connectorId, planNodeId_, connectorPool_);
     dataSource_ = connector_->createDataSource(
         outputType_, tableHandle_, columnHandles_, connectorQueryCtx_.get());
     waveDataSource_ = dataSource_->toWaveDataSource();
-    WithSubfieldMap subfields(driver_->subfields());
     waveDataSource_->setOutputOperands(defines_);
     waveDataSource_->addSplit(connectorSplit);
   } else {

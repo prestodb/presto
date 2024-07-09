@@ -113,17 +113,7 @@ void launchDecode(
   decodeKernel<<<numBlocks, kBlockSize, shared, stream->stream()->stream>>>(
       localParams);
   CUDA_CHECK(cudaGetLastError());
-  if (programs.result) {
-    if (!programs.hostResult) {
-      stream->prefetch(
-          nullptr, programs.result->as<char>(), programs.result->size());
-    } else {
-      stream->deviceToHostAsync(
-          programs.hostResult->as<char>(),
-          programs.result->as<char>(),
-          programs.hostResult->size());
-    }
-  }
+  programs.result.transfer(*stream);
 }
 
 REGISTER_KERNEL("decode", decodeKernel);

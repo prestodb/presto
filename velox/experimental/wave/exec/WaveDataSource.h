@@ -24,10 +24,12 @@
 
 namespace facebook::velox::wave {
 
+class WaveSplitReader;
+
 /// A delegate produced by a regular Velox connector::DataSource for reading its
 /// particular file format on GPU. Same methods, except that Wave schedule() and
 /// related are exposed instead of an iterator model.
-class WaveDataSource {
+class WaveDataSource : public std::enable_shared_from_this<WaveDataSource> {
  public:
   virtual ~WaveDataSource() = default;
 
@@ -49,6 +51,8 @@ class WaveDataSource {
   virtual vector_size_t outputSize(WaveStream& stream) const = 0;
 
   virtual bool isFinished() = 0;
+
+  virtual std::shared_ptr<WaveSplitReader> splitReader() = 0;
 
   virtual uint64_t getCompletedBytes() = 0;
 

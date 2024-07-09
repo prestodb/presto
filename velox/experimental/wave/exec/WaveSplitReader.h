@@ -49,7 +49,7 @@ class WaveSplitReader {
  public:
   virtual ~WaveSplitReader() = default;
 
-  static std::unique_ptr<WaveSplitReader> create(
+  static std::shared_ptr<WaveSplitReader> create(
       const std::shared_ptr<velox::connector::ConnectorSplit>& split,
       const SplitReaderParams& params,
       const DefinesMap* defines);
@@ -86,7 +86,7 @@ class WaveSplitReaderFactory {
 
   /// Returns a new split reader corresponding to 'split' if 'this' recognizes
   /// the split, otherwise returns nullptr.
-  virtual std::unique_ptr<WaveSplitReader> create(
+  virtual std::shared_ptr<WaveSplitReader> create(
       const std::shared_ptr<connector::ConnectorSplit>& split,
       const SplitReaderParams& params,
       const DefinesMap* defines) = 0;

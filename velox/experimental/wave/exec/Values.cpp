@@ -25,14 +25,14 @@ Values::Values(CompileState& state, const core::ValuesNode& values)
       values_(values.values()),
       roundsLeft_(values.repeatTimes()) {}
 
-int32_t Values::canAdvance(WaveStream& stream) {
+AdvanceResult Values::canAdvance(WaveStream& stream) {
   if (current_ < values_.size()) {
-    return values_[current_]->size();
+    return {.numRows = values_[current_]->size()};
   }
   if (roundsLeft_ > 1) {
-    return values_[0]->size();
+    return {.numRows = values_[0]->size()};
   }
-  return 0;
+  return {};
 }
 
 void Values::schedule(WaveStream& stream, int32_t maxRows) {
@@ -61,7 +61,7 @@ void Values::schedule(WaveStream& stream, int32_t maxRows) {
   auto numBlocks = bits::roundUp(data->size(), kBlockSize) / kBlockSize;
   stream.setNumRows(data->size());
   stream.prepareProgramLaunch(
-      id_, data->size(), empty, numBlocks, nullptr, nullptr);
+      id_, 0, data->size(), empty, numBlocks, nullptr, nullptr);
   vectorsToDevice(
       folly::Range(sources.data(), sources.size()), outputIds_, stream);
 }

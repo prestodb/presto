@@ -54,6 +54,10 @@ class WaveHiveDataSource : public WaveDataSource {
 
   bool isFinished() override;
 
+  std::shared_ptr<WaveSplitReader> splitReader() override {
+    return splitReader_;
+  }
+
   uint64_t getCompletedBytes() override;
 
   uint64_t getCompletedRows() override;
@@ -65,7 +69,7 @@ class WaveHiveDataSource : public WaveDataSource {
  private:
   SplitReaderParams params_;
   std::shared_ptr<connector::ConnectorSplit> split_;
-  std::unique_ptr<WaveSplitReader> splitReader_;
+  std::shared_ptr<WaveSplitReader> splitReader_;
   std::shared_ptr<exec::Expr> remainingFilter_;
   dwio::common::RuntimeStatistics runtimeStats_;
   std::shared_ptr<common::MetadataFilter> metadataFilter_;

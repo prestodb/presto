@@ -14,22 +14,25 @@
  * limitations under the License.
  */
 
-#include "velox/experimental/wave/dwio/ColumnReader.h"
+#include "velox/experimental/wave/exec/Wave.h"
 
 namespace facebook::velox::wave {
 
-void ColumnReader::makeOp(
-    ReadStream* readStream,
-    ColumnAction action,
-    ColumnOp& op) {
-  VELOX_CHECK(action == ColumnAction::kValues, "Only values supported");
-  op.action = action;
-  op.reader = this;
-  op.waveVector = readStream->operandVector(operand_->id, requestedType_);
-};
+std::string rowTypeString(const Type& type) {
+  return "";
+}
 
-bool ColumnReader::hasNonNullFilter() const {
-  return scanSpec_->filter() && !scanSpec_->filter()->testNull();
+AdvanceResult AbstractReadAggregation::canAdvance(
+    WaveStream& stream,
+    LaunchControl* control,
+    OperatorState* state,
+    int32_t programIdx) const {
+  auto* aggState = reinterpret_cast<AggregateOperatorState*>(state);
+  if (aggState->isNew) {
+    aggState->isNew = false;
+    return {.numRows = 1};
+  }
+  return {};
 }
 
 } // namespace facebook::velox::wave

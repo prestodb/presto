@@ -21,6 +21,7 @@
 #include "velox/experimental/wave/exec/WaveOperator.h"
 
 namespace facebook::velox::wave {
+enum class Advance { kBlocked, kResult, kFinished };
 
 class WaveDriver : public exec::SourceOperator {
  public:
@@ -33,7 +34,8 @@ class WaveDriver : public exec::SourceOperator {
       std::vector<std::unique_ptr<WaveOperator>> waveOperators,
       std::vector<OperandId> resultOrder_,
       SubfieldMap subfields,
-      std::vector<std::unique_ptr<AbstractOperand>> operands);
+      std::vector<std::unique_ptr<AbstractOperand>> operands,
+      std::vector<std::unique_ptr<AbstractState>> states);
 
   RowVectorPtr getOutput() override;
 
@@ -89,23 +91,72 @@ class WaveDriver : public exec::SourceOperator {
   }
 
  private:
+  struct Pipeline {
+    // Wave operators replacing 'cpuOperators_' on GPU path.
+    std::vector<std::unique_ptr<WaveOperator>> operators;
+
+    // The set of currently pending kernel DAGs for this Pipeline.  If the
+    // source operator can produce multiple consecutive batches before the batch
+    // is executed to completion, multiple such batches can be on device
+    // independently of each other. Limited by max_streams_per_driver.
+    std::vector<std::unique_ptr<WaveStream>> running;
+
+    std::vector<std::unique_ptr<WaveStream>> arrived;
+
+    std::vector<std::unique_ptr<WaveStream>> continuable;
+
+    std::vector<std::unique_ptr<WaveStream>> blocked;
+
+    /// Streams ready to recycle. A stream's device side resources are usually
+    /// reusable for a new batch from the source operator.
+    std::vector<std::unique_ptr<WaveStream>> finished;
+
+    /// True if status copy to host is needed after the last kernel. True if
+    /// returns vectors to host or if can produce multiple batches of output for
+    /// one input.
+    bool needStatus{false};
+    bool sinkFull{false};
+
+    /// True if produces Batches in RowVectors.
+    bool makesHostResult{false};
+    bool canAdvance{false};
+    bool noMoreInput{false};
+  };
+
   // True if all output from 'stream' is fetched.
   bool streamAtEnd(WaveStream& stream);
 
   // Makes a RowVector from the result buffers of the last stage of executables
   // in 'stream'.
   RowVectorPtr makeResult(WaveStream& stream, const OperandSet& outputIds);
+  Advance advance(int pipelineIdx);
+  exec::BlockingReason processArrived(Pipeline& pipeline);
 
-  WaveVectorPtr makeWaveResult(
-      const TypePtr& rowType,
+  // Waits for all streams of 'pipeline' to arrive. used for sink
+  // full, where we need a barrier between updating and processing the
+  // sink, like repartitioning or aggregation.
+  void waitForArrival(Pipeline& pipeline);
+
+  // Runs or continues operators starting at 'from'.
+  void runOperators(
+      Pipeline& pipeline,
       WaveStream& stream,
-      const OperandSet& lastSet);
+      int32_t from,
+      int32_t numRows);
 
-  // Starts another WaveStream if the source operator indicates it has more data
-  // and there is space in the arena.
-  void startMore();
+  // Finishes any pending activity, so that the final result at the
+  // end is ready to consume by another pipeline. This is called once,
+  // after there is guaranteed no more input.
+  void flush(int32_t pipelineIdx);
 
+  // Copies from 'waveStats_' to runtimeStates consumed by
+  // exec::Driver.
   void updateStats();
+
+  bool shouldYield(exec::StopReason taskStopReason, size_t startTimeMs) const;
+
+  // Sets the WaveStreams to error state.
+  void setError();
 
   std::unique_ptr<GpuArena> arena_;
   std::unique_ptr<GpuArena> deviceArena_;
@@ -114,23 +165,14 @@ class WaveDriver : public exec::SourceOperator {
   ContinueFuture blockingFuture_{ContinueFuture::makeEmpty()};
   exec::BlockingReason blockingReason_;
 
+  size_t startTimeMs_;
+  size_t getOutputTimeLimitMs_{0};
   bool finished_{false};
 
-  struct Pipeline {
-    // Wave operators replacing 'cpuOperators_' on GPU path.
-    std::vector<std::unique_ptr<WaveOperator>> operators;
-
-    // The set of currently pending kernel DAGs for this Pipeline.  If the
-    // source operator can produce multiple consecutive batches before the batch
-    // is executed to completion, multiple such batches can be on device
-    // independently of each other.  This is bounded by device memory and the
-    // speed at which the source can produce new batches.
-    std::list<std::unique_ptr<WaveStream>> streams;
-    /// True if status copy to host is needed after the last kernel. True if
-    /// returns vectors to host or if can produce multiple batches of output for
-    /// one input.
-    bool needStatus{false};
-  };
+  void incStats(WaveStats& stats) {
+    waveStats_.add(stats);
+    stats.clear();
+  }
 
   std::vector<Pipeline> pipelines_;
 
@@ -144,7 +186,16 @@ class WaveDriver : public exec::SourceOperator {
   SubfieldMap subfields_;
   // Operands handed over by compilation.
   std::vector<std::unique_ptr<AbstractOperand>> operands_;
+
+  std::vector<std::unique_ptr<AbstractState>> states_;
+
   WaveStats waveStats_;
+
+  // States shared between WaveStreams and WaveDrivers, for example join/group
+  // by tables.
+  OperatorStateMap stateMap_;
+
+  RowVectorPtr result_;
 };
 
 } // namespace facebook::velox::wave

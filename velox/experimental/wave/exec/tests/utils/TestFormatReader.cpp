@@ -136,7 +136,9 @@ void TestFormatData::startOp(
         if (id != kNoBufferId) {
           splitStaging.registerPointer(
               id, &step->data.dictionaryOnBitpack.indices, true);
-          splitStaging.registerPointer(id, &deviceBuffer_, true);
+          if (blockIdx == 0) {
+            splitStaging.registerPointer(id, &deviceBuffer_, true);
+          }
         } else {
           step->data.dictionaryOnBitpack.indices =
               reinterpret_cast<uint64_t*>(deviceBuffer_);

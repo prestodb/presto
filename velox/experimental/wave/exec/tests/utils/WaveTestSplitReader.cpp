@@ -17,6 +17,8 @@
 #include "velox/experimental/wave/exec/tests/utils/WaveTestSplitReader.h"
 #include "velox/experimental/wave/exec/tests/utils/TestFormatReader.h"
 
+DECLARE_int32(wave_max_reader_batch_rows);
+
 namespace facebook::velox::wave::test {
 
 using common::Subfield;
@@ -47,19 +49,28 @@ int32_t WaveTestSplitReader::canAdvance(WaveStream& stream) {
   if (!stripe_) {
     return 0;
   }
-  return available();
+  return std::min<int32_t>(FLAGS_wave_max_reader_batch_rows, available());
 }
 
 void WaveTestSplitReader::schedule(WaveStream& waveStream, int32_t maxRows) {
   auto numRows = std::min<int32_t>(maxRows, available());
   scheduledRows_ = numRows;
   auto rowSet = folly::Range<const int32_t*>(iota(numRows, rows_), numRows);
-  auto readStream = std::make_unique<ReadStream>(
-      reinterpret_cast<StructColumnReader*>(columnReader_.get()),
-      0,
-      rowSet,
-      waveStream);
-  ReadStream::launch(std::move(readStream));
+  std::unique_ptr<ReadStream> exe(reinterpret_cast<ReadStream*>(
+      waveStream.recycleExecutable(nullptr, 0).release()));
+  if (exe) {
+    VELOX_DCHECK_NOT_NULL(
+        dynamic_cast<ReadStream*>(reinterpret_cast<Executable*>(exe.get())));
+    if (reinterpret_cast<ColumnReader*>(exe->reader()) != columnReader_.get()) {
+      // The previous read exe on the WaveStream is a different split. Make new.
+      exe.reset();
+    }
+  }
+  if (!exe) {
+    exe = std::make_unique<ReadStream>(
+        reinterpret_cast<StructColumnReader*>(columnReader_.get()), waveStream);
+  }
+  ReadStream::launch(std::move(exe), nextRow_, rowSet);
   nextRow_ += scheduledRows_;
 }
 
@@ -74,7 +85,7 @@ bool WaveTestSplitReader::isFinished() const {
 namespace {
 class WaveTestSplitReaderFactory : public WaveSplitReaderFactory {
  public:
-  std::unique_ptr<WaveSplitReader> create(
+  std::shared_ptr<WaveSplitReader> create(
       const std::shared_ptr<connector::ConnectorSplit>& split,
       const SplitReaderParams& params,
       const DefinesMap* defines) override {
@@ -85,7 +96,7 @@ class WaveTestSplitReaderFactory : public WaveSplitReaderFactory {
     }
     if (hiveSplit->filePath.size() > 11 &&
         memcmp(hiveSplit->filePath.data(), "wavemock://", 11) == 0) {
-      return std::make_unique<WaveTestSplitReader>(split, params, defines);
+      return std::make_shared<WaveTestSplitReader>(split, params, defines);
     }
     return nullptr;
   }

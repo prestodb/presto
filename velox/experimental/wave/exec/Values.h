@@ -24,7 +24,7 @@ class Values : public WaveSourceOperator {
  public:
   Values(CompileState& state, const core::ValuesNode& values);
 
-  int32_t canAdvance(WaveStream& stream) override;
+  AdvanceResult canAdvance(WaveStream& stream) override;
 
   bool isStreaming() const override {
     return true;

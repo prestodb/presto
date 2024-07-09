@@ -53,8 +53,17 @@ class CompileState {
 
   Value toValue(const exec::Expr& expr);
 
+  Value toValue(const core::FieldAccessTypedExpr& field);
+
   AbstractOperand* addIdentityProjections(AbstractOperand* source);
   AbstractOperand* findCurrentValue(Value value);
+
+  AbstractOperand* findCurrentValue(
+      const std::shared_ptr<const core::FieldAccessTypedExpr>& field) {
+    Value value = toValue(*field);
+    return findCurrentValue(value);
+  }
+
   AbstractOperand* addExpr(const exec::Expr& expr);
 
   void addInstruction(
@@ -84,10 +93,27 @@ class CompileState {
 
   void addFilter(const exec::Expr& expr, const RowTypePtr& outputType);
 
+  AbstractState* newState(
+      StateKind kind,
+      const std::string& idString,
+      const std::string& label);
+
   void addFilterProject(
       exec::Operator* op,
       RowTypePtr& outputType,
       int32_t& nodeIndex);
+
+  /// Adds a projection operator containing programs starting at 'firstProgram'
+  /// for the rest of 'allPrograms_'..
+  void makeProject(int32_t firstProgram, RowTypePtr outputType);
+
+  void makeAggregateLayout(AbstractAggregation& aggregate);
+
+  void setAggregateFromPlan(
+      const core::AggregationNode::Aggregate& planAggregate,
+      AbstractAggInstruction& agg);
+
+  void makeAggregateAccumulate(const core::AggregationNode* node);
 
   bool reserveMemory();
 
@@ -133,8 +159,11 @@ class CompileState {
 
   std::vector<ProgramPtr> allPrograms_;
 
+  std::vector<std::vector<ProgramPtr>> pendingLevels_;
+
   // All AbstractOperands. Handed off to WaveDriver after plan conversion.
   std::vector<std::unique_ptr<AbstractOperand>> operands_;
+  std::vector<std::unique_ptr<AbstractState>> operatorStates_;
 
   // The Wave operators generated so far.
   std::vector<std::unique_ptr<WaveOperator>> operators_;
@@ -148,9 +177,12 @@ class CompileState {
   // Sequence number for operands.
   int32_t operandCounter_{0};
   int32_t wrapCounter_{0};
+  int32_t stateCounter_{0};
 
+  int32_t nthContinuable_{0};
   std::shared_ptr<aggregation::AggregateFunctionRegistry>
       aggregateFunctionRegistry_;
+  folly::F14FastMap<std::string, std::shared_ptr<exec::Expr>> fieldToExpr_;
 };
 
 /// Registers adapter to add Wave operators to Drivers.

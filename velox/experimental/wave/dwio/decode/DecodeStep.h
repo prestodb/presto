@@ -18,6 +18,7 @@
 
 #include "velox/experimental/wave/common/Buffer.h"
 #include "velox/experimental/wave/common/GpuArena.h"
+#include "velox/experimental/wave/common/ResultStaging.h"
 #include "velox/experimental/wave/vector/Operand.h"
 
 namespace facebook::velox::wave {
@@ -381,8 +382,7 @@ struct alignas(16) GpuDecode {
 struct DecodePrograms {
   void clear() {
     programs.clear();
-    result = nullptr;
-    hostResult = nullptr;
+    result.clear();
   }
 
   // Set of decode programs submitted as a unit. Each vector<DecodeStep> is run
@@ -395,12 +395,7 @@ struct DecodePrograms {
   /// filter result counts or length sums come to the host via this buffer. If
   /// nullptr, no data transfer is scheduled. 'result' should be nullptr if all
   /// steps are unconditional, like simple decoding.
-  WaveBufferPtr result;
-  /// Host addressable copy of 'result'. If result is unified memory
-  /// this can be nullptr and we just enqueue a prefetch. to host. If
-  /// 'result' is device memory, this should be pinned host memory
-  /// with the same size.
-  WaveBufferPtr hostResult;
+  ResultBuffer result;
 };
 
 void launchDecode(

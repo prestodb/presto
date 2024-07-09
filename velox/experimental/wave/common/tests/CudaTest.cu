@@ -729,6 +729,11 @@ __device__ TestFunc4 testFuncs4[2];
 
 typedef void (*TestFunc4SMem)(int64_t* params, int32_t index, int64_t* args);
 __device__ void testFunc4SMem(int64_t* smem, int32_t index, long* args) {
+  if ((index & 1) == 1) {
+    for (auto i = index; i < index + 4; ++i) {
+      i += smem[index];
+    }
+  }
   long2 l1 = *addCast<long2>(smem, 0);
   long2 l2 = *addCast<long2>(smem, 16);
   l1.x += 32 & index;

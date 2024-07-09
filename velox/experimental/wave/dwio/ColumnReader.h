@@ -63,15 +63,29 @@ class ColumnReader {
     return operand_;
   }
 
-  virtual void makeOp(
-      ReadStream* readStream,
-      ColumnAction action,
-      int32_t offset,
-      RowSet rows,
-      ColumnOp& op);
+  /// Initializes 'op' for the column of 'this'. The op is made once and used
+  /// for possibly multiple row ranges later.
+  virtual void
+  makeOp(ReadStream* readStream, ColumnAction action, ColumnOp& op);
 
   FormatData* formatData() const {
     return formatData_.get();
+  }
+
+  std::vector<std::unique_ptr<SplitStaging>>& splitStaging() {
+    return staging_;
+  }
+
+  /// Records an event after the first griddize. many decodes may proceed for
+  /// different rows on different streams after the griddize.
+  void recordGriddize(Stream& stream) {
+    VELOX_CHECK_NULL(griddizeEvent_);
+    griddizeEvent_ = std::make_unique<Event>();
+    griddizeEvent_->record(stream);
+  }
+
+  Event* griddizeEvent() const {
+    return griddizeEvent_.get();
   }
 
  protected:
@@ -86,17 +100,18 @@ class ColumnReader {
 
   std::vector<ColumnReader*> children_;
 
-  // Row number after last read row, relative to the ORC stripe or Parquet
-  // Rowgroup start.
-  vector_size_t readOffset_ = 0;
+  // Staging of encoded data on device. Only set in the top struct reader.
+  std::vector<std::unique_ptr<SplitStaging>> staging_;
+
+  // Event realized after griddize completes. Non-first ReadStream launches must
+  // wait for this.
+  std::unique_ptr<Event> griddizeEvent_;
 };
 
 class ReadStream : public Executable {
  public:
   ReadStream(
       StructColumnReader* columnReader,
-      vector_size_t offset,
-      RowSet rows,
       WaveStream& waveStream,
       const OperandSet* firstColumns = nullptr);
 
@@ -104,10 +119,12 @@ class ReadStream : public Executable {
     waveStream->setNullable(op, nullable);
   }
 
-  /// Runs a sequence of kernel invocations until all eagerly produced columns
-  /// have their last kernel in flight. Transfers ownership of 'readStream' to
-  /// its WaveStream.
-  static void launch(std::unique_ptr<ReadStream>&& readStream);
+  /// Runs a sequence of kernel invocations until all eagerly produced
+  /// columns have their last kernel in flight.  Transfers ownership
+  /// of 'readStream' to its WaveStream. 'row' is the start relative
+  /// to split start. 'rows' are offsets relative to 'row'.
+  static void
+  launch(std::unique_ptr<ReadStream> readStream, int32_t row, RowSet rows);
 
   DecodePrograms& programs() {
     return programs_;
@@ -125,6 +142,10 @@ class ReadStream : public Executable {
     return filtersDone_;
   }
 
+  StructColumnReader* reader() const {
+    return reader_;
+  }
+
  private:
   // Computes starting points for multiple TBs per column if more rows are
   // needed than is good per TB.
@@ -135,9 +156,11 @@ class ReadStream : public Executable {
 
   /// Makes column dependencies.
   void makeOps();
+  // Sets the ops to 'offset_' and 'rows_'. Call before each batch.
+  void prepareRead();
   void makeControl();
 
-  // Makes steps to align values from non-last filters to the selction of the
+  // Makes steps to align values from non-last filters to the selection of the
   // last filter.
   void makeCompact(bool isSerial);
 
@@ -150,20 +173,23 @@ class ReadStream : public Executable {
   StructColumnReader* reader_;
   std::vector<AbstractOperand*> abstractOperands_;
 
-  // Offset from end of previous read.
-  int32_t offset_;
+  // Offset in top level rows from start of split.
+  int32_t row_;
 
-  // Row numbers to read starting after skipping 'offset_'.
+  // Row numbers to read relative to 'row_'.
   RowSet rows_;
+
   // Non-filter columns.
   std::vector<ColumnOp> ops_;
+
   // Filter columns in filter order.
   std::vector<ColumnOp> filters_;
-  //
-  int32_t* lastFilterRows_{nullptr};
+
   // Count of KBlockSize blocks in max top level rows.
   int32_t numBlocks_{0};
-  std::vector<std::unique_ptr<SplitStaging>> staging_;
+
+  // Pointer to staging owned by reader tree root. Not owned here because
+  // lifetime is the split, not the batch.
   SplitStaging* currentStaging_;
 
   // Data to be copied from device, e.g. filter selectivities.
@@ -182,6 +208,9 @@ class ReadStream : public Executable {
   //  Sequence number of kernel launch.
   int32_t nthWave_{0};
   LaunchControl* control_{nullptr};
+
+  // Set to true when after first griddize() and akeOps().
+  bool inited_{false};
 };
 
 } // namespace facebook::velox::wave
