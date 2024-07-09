@@ -102,9 +102,9 @@ void registerGeneralFunctions(const std::string& prefix) {
 
   registerAllGreatestLeastFunctions(prefix);
 
-  registerFunction<CardinalityFunction, int64_t, Array<Any>>(
+  registerFunction<CardinalityFunction, int64_t, Array<Generic<T1>>>(
       {prefix + "cardinality"});
-  registerFunction<CardinalityFunction, int64_t, Map<Any, Any>>(
+  registerFunction<CardinalityFunction, int64_t, Map<Generic<T1>, Generic<T2>>>(
       {prefix + "cardinality"});
 
   registerFailFunction({prefix + "fail"});

@@ -57,8 +57,8 @@ TEST_F(HyperLogLogFunctionsTest, cardinalitySignatures) {
   auto signatures = getSignatureStrings("cardinality");
   ASSERT_EQ(3, signatures.size());
 
-  ASSERT_EQ(1, signatures.count("(map(any,any)) -> bigint"));
-  ASSERT_EQ(1, signatures.count("(array(any)) -> bigint"));
+  ASSERT_EQ(1, signatures.count("(map(__user_T1,__user_T2)) -> bigint"));
+  ASSERT_EQ(1, signatures.count("(array(__user_T1)) -> bigint"));
   ASSERT_EQ(1, signatures.count("(hyperloglog) -> bigint"));
 }
 
