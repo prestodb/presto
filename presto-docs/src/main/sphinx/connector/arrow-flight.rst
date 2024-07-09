@@ -77,3 +77,13 @@ Finally, you can access the ``admin`` table in the ``user`` database::
 
 If you used a different name for your catalog properties file, use
 that catalog name instead of ``arrowmariadb`` in the above examples.
+
+
+Arrow-Flight Connector Limitations
+---------------------------------
+
+* It will only support SELECT and DESCRIBE queries.
+
+* Arrow-connector can query against only those datasources which are supported by Flight server.
+
+* Customer should have flight server running out there for the arrow-connector to work with.
