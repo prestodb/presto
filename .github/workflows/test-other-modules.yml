@@ -84,4 +84,5 @@ jobs:
             !presto-test-coverage,
             !presto-iceberg,
             !presto-singlestore,
-            !presto-native-sidecar-plugin'
+            !presto-native-sidecar-plugin,
+            !presto-base-arrow-flight'
