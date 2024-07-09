@@ -13,11 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
 
+#include "velox/core/PlanNode.h"
 #include "velox/exec/Split.h"
 
 namespace facebook::velox::exec::test {
 const std::string kHiveConnectorId = "test-hive";
+
+struct SortingKeyAndOrder {
+  const std::string key_;
+  const core::SortOrder sortOrder_;
+
+  SortingKeyAndOrder(std::string key, core::SortOrder sortOrder)
+      : key_(std::move(key)), sortOrder_(std::move(sortOrder)) {}
+};
 
 /// Write the vector to the path.
 void writeToFile(

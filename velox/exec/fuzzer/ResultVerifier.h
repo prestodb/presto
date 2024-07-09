@@ -18,6 +18,7 @@
 #include <string>
 
 #include "velox/core/PlanNode.h"
+#include "velox/exec/fuzzer/FuzzerUtil.h"
 #include "velox/vector/ComplexVector.h"
 
 namespace facebook::velox::exec::test {
@@ -61,6 +62,7 @@ class ResultVerifier {
   virtual void initializeWindow(
       const std::vector<RowVectorPtr>& /*input*/,
       const std::vector<std::string>& /*partitionByKeys*/,
+      const std::vector<SortingKeyAndOrder>& /*sortingKeysAndOrders*/,
       const core::WindowNode::Function& /*function*/,
       const std::string& /*frame*/,
       const std::string& /*windowName*/) {

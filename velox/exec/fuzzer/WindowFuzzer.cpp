@@ -177,8 +177,7 @@ std::string WindowFuzzer::getFrame(
   return frame.str();
 }
 
-std::vector<WindowFuzzer::SortingKeyAndOrder>
-WindowFuzzer::generateSortingKeysAndOrders(
+std::vector<SortingKeyAndOrder> WindowFuzzer::generateSortingKeysAndOrders(
     const std::string& prefix,
     std::vector<std::string>& names,
     std::vector<TypePtr>& types) {
@@ -359,11 +358,17 @@ void initializeVerifier(
     const std::shared_ptr<ResultVerifier>& customVerifier,
     const std::vector<RowVectorPtr>& input,
     const std::vector<std::string>& partitionKeys,
+    const std::vector<SortingKeyAndOrder>& sortingKeysAndOrders,
     const std::string& frame) {
   const auto& windowNode =
       std::dynamic_pointer_cast<const core::WindowNode>(plan);
   customVerifier->initializeWindow(
-      input, partitionKeys, windowNode->windowFunctions()[0], frame, "w0");
+      input,
+      partitionKeys,
+      sortingKeysAndOrders,
+      windowNode->windowFunctions()[0],
+      frame,
+      "w0");
 }
 } // namespace
 
@@ -424,7 +429,13 @@ bool WindowFuzzer::verifyWindow(
         VELOX_CHECK(
             customVerifier->supportsVerify(),
             "Window fuzzer only uses custom verify() methods.");
-        initializeVerifier(plan, customVerifier, input, partitionKeys, frame);
+        initializeVerifier(
+            plan,
+            customVerifier,
+            input,
+            partitionKeys,
+            sortingKeysAndOrders,
+            frame);
         customVerifier->verify(resultOrError.result);
       }
     }

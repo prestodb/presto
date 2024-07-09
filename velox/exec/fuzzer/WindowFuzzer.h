@@ -18,6 +18,7 @@
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/WindowFunction.h"
 #include "velox/exec/fuzzer/AggregationFuzzerBase.h"
+#include "velox/exec/fuzzer/FuzzerUtil.h"
 #include "velox/exec/fuzzer/PrestoQueryRunner.h"
 #include "velox/exec/fuzzer/ReferenceQueryRunner.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
@@ -76,14 +77,6 @@ class WindowFuzzer : public AggregationFuzzerBase {
   void go(const std::string& planPath);
 
  private:
-  struct SortingKeyAndOrder {
-    const std::string key_;
-    const core::SortOrder sortOrder_;
-
-    SortingKeyAndOrder(std::string key, core::SortOrder sortOrder)
-        : key_(std::move(key)), sortOrder_(std::move(sortOrder)) {}
-  };
-
   void addWindowFunctionSignatures(const WindowFunctionMap& signatureMap);
 
   // Return a randomly generated frame clause string together with a boolean
