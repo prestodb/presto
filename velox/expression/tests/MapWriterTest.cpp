@@ -755,5 +755,53 @@ TEST_F(MapWriterTest, copyFromViewTypeResizedChildren) {
   ASSERT_EQ(outerValues->mapValues()->asFlatVector<int64_t>()->size(), 6);
 }
 
+// Throws an error if n is even, otherwise creates a map of maps.
+template <typename T>
+struct ThrowsErrorsFunc {
+  template <typename TOut>
+  void call(TOut& out, const int64_t& n) {
+    for (auto i = 0; i < 3; i++) {
+      auto [keyWriter, valueWriter] = out.add_item();
+      keyWriter = i + n * 3;
+      for (auto j = 0; j < 3; j++) {
+        // If commit isn't called as part of error handling, the first inner
+        // map in odd number rows will pick up the entries from the last
+        // inner map of the previous row.
+        auto [innerKeyWriter, innerValueWriter] = valueWriter.add_item();
+        innerKeyWriter.copy_from(std::string(1, 'a' + (i * 3 + j)));
+        innerValueWriter = n * 10 + i * 3 + j;
+      }
+    }
+
+    VELOX_USER_CHECK_EQ(n % 2, 1);
+  }
+};
+
+TEST_F(MapWriterTest, errorHandlingE2E) {
+  registerFunction<
+      ThrowsErrorsFunc,
+      Map<int64_t, Map<Varchar, float>>,
+      int64_t>({"throws_errors"});
+
+  auto result = evaluate(
+      "try(throws_errors(c0))",
+      makeRowVector({makeFlatVector<int64_t>({1, 2, 3, 4, 5, 6})}));
+
+  auto innerKeys = makeFlatVector<StringView>(
+      {"a", "b", "c", "d", "e", "f", "g", "h", "i", "a", "b", "c", "d", "e",
+       "f", "g", "h", "i", "a", "b", "c", "d", "e", "f", "g", "h", "i"});
+  auto innerValues = makeFlatVector<float>(
+      {10, 11, 12, 13, 14, 15, 16, 17, 18, 30, 31, 32, 33, 34,
+       35, 36, 37, 38, 50, 51, 52, 53, 54, 55, 56, 57, 58});
+  std::vector<vector_size_t> innerOffsets{0, 3, 6, 9, 12, 15, 18, 21, 24};
+  auto innerMaps = makeMapVector(innerOffsets, innerKeys, innerValues);
+
+  auto outerKeys = makeFlatVector<int64_t>({3, 4, 5, 9, 10, 11, 15, 16, 17});
+  std::vector<vector_size_t> outerOffsets{0, 3, 3, 6, 6, 9};
+  auto expected = makeMapVector(outerOffsets, outerKeys, innerMaps, {1, 3, 5});
+
+  assertEqualVectors(result, expected);
+}
+
 } // namespace
 } // namespace facebook::velox

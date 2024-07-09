@@ -537,5 +537,55 @@ TEST_F(RowWriterTest, finishPostSize) {
       11);
 }
 
+// Throws an error if n is even, otherwise creates a row.
+template <typename T>
+struct ThrowsErrorsFunc {
+  template <typename TOut>
+  void call(TOut& out, const int64_t& n) {
+    out.template get_writer_at<0>() = n;
+    auto& stringWriter = out.template get_writer_at<1>();
+    auto& arrayWriter = out.template get_writer_at<2>();
+    auto& mapWriter = out.template get_writer_at<3>();
+
+    for (auto i = 0; i < 3; i++) {
+      stringWriter.append(std::string(1, 'a' + i + n * 3));
+      arrayWriter.add_item() = n + i;
+      auto [keyWriter, valueWriter] = mapWriter.add_item();
+      keyWriter = n * 10 + i;
+      valueWriter = n * 100 + i;
+    }
+
+    VELOX_USER_CHECK_EQ(n % 2, 1);
+  }
+};
+
+TEST_F(RowWriterTest, errorHandlingE2E) {
+  registerFunction<
+      ThrowsErrorsFunc,
+      Row<int64_t, Varchar, Array<float>, Map<int32_t, double>>,
+      int64_t>({"throws_errors"});
+
+  auto result = evaluate(
+      "try(throws_errors(c0))",
+      makeRowVector({makeFlatVector<int64_t>({1, 2, 3, 4, 5, 6})}));
+
+  auto field1 = makeFlatVector<int64_t>({1, 0, 3, 0, 5, 0});
+  auto field2 = makeFlatVector<StringView>({"def", "", "jkl", "", "pqr", ""});
+  auto field3 =
+      makeArrayVector<float>({{1, 2, 3}, {}, {3, 4, 5}, {}, {5, 6, 7}, {}});
+  auto field4 = makeMapVector<int32_t, double>(
+      {{{10, 100}, {11, 101}, {12, 102}},
+       {},
+       {{30, 300}, {31, 301}, {32, 302}},
+       {},
+       {{50, 500}, {51, 501}, {52, 502}},
+       {}});
+
+  auto expected = makeRowVector(
+      {field1, field2, field3, field4}, [](auto row) { return row % 2 == 1; });
+
+  assertEqualVectors(result, expected);
+}
+
 } // namespace
 } // namespace facebook::velox::exec
