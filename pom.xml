@@ -89,6 +89,7 @@
         <dep.gson.version>2.11.0</dep.gson.version>
         <dep.commons.lang3.version>3.14.0</dep.commons.lang3.version>
         <dep.guice.version>5.1.0</dep.guice.version>
+        <dep.arrow.version>17.0.0</dep.arrow.version>
 
         <!--
           America/Bahia_Banderas has:
@@ -209,6 +210,7 @@
         <module>presto-hana</module>
         <module>presto-openapi</module>
         <module>presto-native-sidecar-plugin</module>
+        <module>presto-base-arrow-flight</module>
     </modules>
 
     <dependencyManagement>
@@ -2440,6 +2442,30 @@
                 <groupId>org.apache.commons</groupId>
                 <artifactId>commons-dbcp2</artifactId>
                 <version>2.12.0</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.arrow</groupId>
+                <artifactId>arrow-memory-core</artifactId>
+                <version>${dep.arrow.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.arrow</groupId>
+                <artifactId>arrow-memory-netty</artifactId>
+                <version>${dep.arrow.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.arrow</groupId>
+                <artifactId>arrow-vector</artifactId>
+                <version>${dep.arrow.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.arrow</groupId>
+                <artifactId>flight-core</artifactId>
+                <version>${dep.arrow.version}</version>
             </dependency>
 
         </dependencies>
