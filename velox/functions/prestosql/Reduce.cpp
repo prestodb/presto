@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "velox/common/base/RuntimeMetrics.h"
 #include "velox/expression/VectorFunction.h"
 #include "velox/functions/lib/LambdaFunctionUtil.h"
 
@@ -230,6 +231,193 @@ class ReduceFunction : public exec::VectorFunction {
     context.moveOrCopyResult(localResult, rows, result);
   }
 };
+
+bool isVariableReference(
+    const core::TypedExprPtr& expr,
+    const std::string& var) {
+  auto* fieldAccess =
+      dynamic_cast<const core::FieldAccessTypedExpr*>(expr.get());
+  return fieldAccess && fieldAccess->isInputColumn() &&
+      fieldAccess->name() == var;
+}
+
+core::TypedExprPtr extractFromAddition(
+    const std::string& prefix,
+    const core::TypedExprPtr& expr,
+    const std::string& s) {
+  auto* plus = dynamic_cast<const core::CallTypedExpr*>(expr.get());
+  if (plus && plus->name() == prefix + "plus") {
+    if (!isVariableReference(plus->inputs()[0], s)) {
+      return nullptr;
+    }
+    return plus->inputs()[1];
+  }
+  if (!isVariableReference(expr, s)) {
+    return nullptr;
+  }
+  variant zero;
+  switch (expr->type()->kind()) {
+    case TypeKind::TINYINT:
+      zero = variant::create<int8_t>(0);
+      break;
+    case TypeKind::SMALLINT:
+      zero = variant::create<int16_t>(0);
+      break;
+    case TypeKind::INTEGER:
+      zero = variant::create<int32_t>(0);
+      break;
+    case TypeKind::BIGINT:
+      zero = variant::create<int64_t>(0);
+      break;
+    case TypeKind::REAL:
+      zero = variant::create<float>(0);
+      break;
+    case TypeKind::DOUBLE:
+      zero = variant::create<double>(0);
+      break;
+    default:
+      return nullptr;
+  }
+  return std::make_shared<core::ConstantTypedExpr>(expr->type(), zero);
+}
+
+bool containsVariableReference(
+    const core::TypedExprPtr& expr,
+    const std::string& var) {
+  if (isVariableReference(expr, var)) {
+    return true;
+  }
+  if (auto* lambda = dynamic_cast<const core::LambdaTypedExpr*>(expr.get())) {
+    return !lambda->signature()->containsChild(var) &&
+        containsVariableReference(lambda->body(), var);
+  }
+  for (auto& input : expr->inputs()) {
+    if (containsVariableReference(input, var)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+core::TypedExprPtr toArraySum(
+    const std::string& prefix,
+    const core::CallTypedExpr& reduce,
+    const RowTypePtr& inputArgs,
+    const core::TypedExprPtr& expr) {
+  if (containsVariableReference(expr, inputArgs->nameOf(0))) {
+    return nullptr;
+  }
+  auto& initial = reduce.inputs()[1];
+  TypePtr sumType;
+  switch (initial->type()->kind()) {
+    case TypeKind::TINYINT:
+    case TypeKind::SMALLINT:
+    case TypeKind::INTEGER:
+    case TypeKind::BIGINT:
+      sumType = BIGINT();
+      break;
+    case TypeKind::REAL:
+    case TypeKind::DOUBLE:
+      sumType = DOUBLE();
+      break;
+    default:
+      return nullptr;
+  }
+  auto lambda = std::make_shared<core::LambdaTypedExpr>(
+      ROW({inputArgs->nameOf(1)}, {inputArgs->childAt(1)}), expr);
+  auto transform = std::make_shared<core::CallTypedExpr>(
+      ARRAY(expr->type()),
+      std::vector<core::TypedExprPtr>({reduce.inputs()[0], lambda}),
+      prefix + "transform");
+  auto arraySum = std::make_shared<core::CallTypedExpr>(
+      sumType,
+      std::vector<core::TypedExprPtr>({transform}),
+      prefix + "array_sum_propagate_element_null");
+  auto cast =
+      std::make_shared<core::CastTypedExpr>(initial->type(), arraySum, false);
+  auto plus = std::make_shared<core::CallTypedExpr>(
+      initial->type(),
+      std::vector<core::TypedExprPtr>({initial, cast}),
+      prefix + "plus");
+  VLOG(1) << "Rewrite expression: " << reduce.toString() << " => "
+          << plus->toString();
+  addThreadLocalRuntimeStat("numReduceRewrite", RuntimeCounter(1));
+  return plus;
+}
+
+core::TypedExprPtr rewriteReduce(
+    const std::string& prefix,
+    const core::TypedExprPtr& expr) {
+  auto* reduce = dynamic_cast<const core::CallTypedExpr*>(expr.get());
+  if (!reduce || reduce->name() != prefix + "reduce" ||
+      reduce->inputs().size() != 4) {
+    return nullptr;
+  }
+  auto* outputFunction =
+      dynamic_cast<const core::LambdaTypedExpr*>(reduce->inputs()[3].get());
+  if (!outputFunction) {
+    return nullptr;
+  }
+  auto& outputArgs = outputFunction->signature();
+  if (outputArgs->size() != 1) {
+    return nullptr;
+  }
+  if (!isVariableReference(outputFunction->body(), outputArgs->nameOf(0))) {
+    return nullptr;
+  }
+  auto* inputFunction =
+      dynamic_cast<const core::LambdaTypedExpr*>(reduce->inputs()[2].get());
+  if (!inputFunction) {
+    return nullptr;
+  }
+  auto& inputArgs = inputFunction->signature();
+  if (inputArgs->size() != 2) {
+    return nullptr;
+  }
+  auto& s = inputArgs->nameOf(0);
+  auto* inputBody =
+      dynamic_cast<const core::CallTypedExpr*>(inputFunction->body().get());
+  if (!inputBody) {
+    return nullptr;
+  }
+  if (inputBody->name() == prefix + "plus") {
+    // s + f(x) => array_sum(transform(array, x -> f(x)))
+    auto fx = extractFromAddition(prefix, inputFunction->body(), s);
+    if (!fx) {
+      return nullptr;
+    }
+    return toArraySum(prefix, *reduce, inputArgs, fx);
+  } else if (inputBody->name() == prefix + "minus") {
+    // (s + f(x)) - g(x) => array_sum(transform(array, x -> f(x) - g(x)))
+    auto fx = extractFromAddition(prefix, inputBody->inputs()[0], s);
+    if (!fx) {
+      return nullptr;
+    }
+    auto minus = std::make_shared<core::CallTypedExpr>(
+        fx->type(),
+        std::vector<core::TypedExprPtr>({fx, inputBody->inputs()[1]}),
+        prefix + "minus");
+    return toArraySum(prefix, *reduce, inputArgs, minus);
+  } else if (inputBody->name() == "if" && inputBody->inputs().size() == 3) {
+    // if(h(x), s + f(x), s + g(x)) =>
+    // array_sum(transform(array, x -> if(h(x), f(x), g(x))))
+    auto fx = extractFromAddition(prefix, inputBody->inputs()[1], s);
+    if (!fx) {
+      return nullptr;
+    }
+    auto gx = extractFromAddition(prefix, inputBody->inputs()[2], s);
+    if (!gx) {
+      return nullptr;
+    }
+    auto ifExpr = std::make_shared<core::CallTypedExpr>(
+        fx->type(),
+        std::vector<core::TypedExprPtr>({inputBody->inputs()[0], fx, gx}),
+        "if");
+    return toArraySum(prefix, *reduce, inputArgs, ifExpr);
+  }
+  return nullptr;
+}
+
 } // namespace
 
 /// reduce is null preserving for the array. But since an
@@ -242,5 +430,10 @@ VELOX_DECLARE_VECTOR_FUNCTION_WITH_METADATA(
     ReduceFunction::signatures(),
     exec::VectorFunctionMetadataBuilder().defaultNullBehavior(false).build(),
     std::make_unique<ReduceFunction>());
+
+void registerReduceRewrites(const std::string& prefix) {
+  exec::registerExpressionRewrite(
+      [prefix](const auto& expr) { return rewriteReduce(prefix, expr); });
+}
 
 } // namespace facebook::velox::functions

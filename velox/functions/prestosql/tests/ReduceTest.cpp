@@ -16,10 +16,32 @@
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 
-using namespace facebook::velox;
+namespace facebook::velox {
+namespace {
+
 using namespace facebook::velox::test;
 
-class ReduceTest : public functions::test::FunctionBaseTest {};
+class ReduceTest : public functions::test::FunctionBaseTest {
+ protected:
+  void testReduceRewrite(
+      const RowVectorPtr& input,
+      const std::string& lambdaBody) {
+    TestRuntimeStatWriter writer;
+    RuntimeStatWriterScopeGuard guard(&writer);
+    auto actual = evaluate(
+        fmt::format("reduce(c0, 10, (s, x) -> {}, s -> s)", lambdaBody), input);
+    ASSERT_EQ(writer.stats().size(), 1);
+    ASSERT_EQ(writer.stats()[0].first, "numReduceRewrite");
+    ASSERT_EQ(writer.stats()[0].second.value, 1);
+    auto expected = evaluate(
+        fmt::format("reduce(c0, 10, (s, x) -> {}, s -> 1 * s)", lambdaBody),
+        input);
+    ASSERT_EQ(writer.stats().size(), 1);
+    ASSERT_EQ(writer.stats()[0].first, "numReduceRewrite");
+    ASSERT_EQ(writer.stats()[0].second.value, 1);
+    assertEqualVectors(expected, actual);
+  }
+};
 
 TEST_F(ReduceTest, basic) {
   vector_size_t size = 1'000;
@@ -251,21 +273,56 @@ TEST_F(ReduceTest, limit) {
       {0, 1'000, 10'000, 100'000, 100'010}, makeConstant(123, 1'000'000))});
 
   VELOX_ASSERT_THROW(
-      evaluate("reduce(c0, 0, (s, x) -> s + x, s -> s)", data),
+      evaluate("reduce(c0, 0, (s, x) -> s + x, s -> 1 * s)", data),
       "reduce lambda function doesn't support arrays with more than 10000 elements");
 
   // Exclude huge arrays.
   SelectivityVector rows(4);
   rows.setValid(2, false);
   rows.updateBounds();
-  auto result = evaluate("reduce(c0, 0, (s, x) -> s + x, s -> s)", data, rows);
+  auto result =
+      evaluate("reduce(c0, 0, (s, x) -> s + x, s -> 1 * s)", data, rows);
   auto expected =
       makeFlatVector<int64_t>({123 * 1'000, 123 * 9'000, -1, 123 * 10});
   assertEqualVectors(expected, result, rows);
 
   // Mask errors with TRY.
-  result = evaluate("TRY(reduce(c0, 0, (s, x) -> s + x, s -> s))", data);
+  result = evaluate("TRY(reduce(c0, 0, (s, x) -> s + x, s -> 1 * s))", data);
   expected = makeNullableFlatVector<int64_t>(
       {123 * 1'000, 123 * 9'000, std::nullopt, 123 * 10, std::nullopt});
   assertEqualVectors(expected, result);
 }
+
+TEST_F(ReduceTest, rewrites) {
+  std::vector<std::optional<std::vector<std::optional<int64_t>>>> data;
+  for (int i = 0; i < 20; ++i) {
+    if (i == 7) {
+      data.push_back(std::nullopt);
+      continue;
+    }
+    auto& array = data.emplace_back(std::vector<std::optional<int64_t>>());
+    for (int j = 0; j < i % 5; ++j) {
+      if (i == 13 && j == 0) {
+        array->push_back(std::nullopt);
+      } else {
+        array->emplace_back(i + j);
+      }
+    }
+  }
+  auto input = makeRowVector({makeNullableArrayVector(data)});
+  {
+    SCOPED_TRACE("plus");
+    testReduceRewrite(input, "s + x * 2");
+  }
+  {
+    SCOPED_TRACE("plus minus");
+    testReduceRewrite(input, "(s + 1) - x");
+  }
+  {
+    SCOPED_TRACE("if");
+    testReduceRewrite(input, "if(x % 2 = 0, s + 1, s)");
+  }
+}
+
+} // namespace
+} // namespace facebook::velox

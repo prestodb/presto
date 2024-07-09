@@ -17,7 +17,6 @@
 #include <gtest/gtest.h>
 
 #include "velox/common/base/RawVector.h"
-#include "velox/common/base/RuntimeMetrics.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
 using namespace facebook::velox;
@@ -624,21 +623,6 @@ TEST_F(LazyVectorTest, reset) {
   lazy.reset(std::make_unique<test::SimpleVectorLoader>(loader), kVectorSize);
   ASSERT_EQ(lazy.nulls(), nullptr);
 }
-
-class TestRuntimeStatWriter : public BaseRuntimeStatWriter {
- public:
-  void addRuntimeStat(const std::string& name, const RuntimeCounter& value)
-      override {
-    stats_.emplace_back(name, value);
-  }
-
-  const std::vector<std::pair<std::string, RuntimeCounter>>& stats() const {
-    return stats_;
-  }
-
- private:
-  std::vector<std::pair<std::string, RuntimeCounter>> stats_;
-};
 
 TEST_F(LazyVectorTest, runtimeStats) {
   TestRuntimeStatWriter writer;

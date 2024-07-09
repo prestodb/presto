@@ -30,7 +30,7 @@ namespace {
 /// See documentation at https://prestodb.io/docs/current/functions/array.html
 ///
 
-template <typename TInput, typename TOutput>
+template <typename TInput, typename TOutput, bool kPropagateElementNull>
 class ArraySumFunction : public exec::VectorFunction {
  public:
   template <bool mayHaveNulls, typename DataAtFunc, typename IsNullFunc>
@@ -38,7 +38,8 @@ class ArraySumFunction : public exec::VectorFunction {
       vector_size_t row,
       const ArrayVector* arrayVector,
       DataAtFunc&& dataAtFunc,
-      IsNullFunc&& isNullFunc) const {
+      IsNullFunc&& isNullFunc,
+      bool& nullResult) const {
     auto start = arrayVector->offsetAt(row);
     auto end = start + arrayVector->sizeAt(row);
     TOutput sum = 0;
@@ -53,13 +54,20 @@ class ArraySumFunction : public exec::VectorFunction {
 
     for (auto i = start; i < end; i++) {
       if constexpr (mayHaveNulls) {
-        bool isNull = isNullFunc(i);
-        if (!isNull) {
+        if (isNullFunc(i)) {
+          if constexpr (kPropagateElementNull) {
+            nullResult = true;
+            return 0;
+          }
+        } else {
           addElement(sum, dataAtFunc(i));
         }
       } else {
         addElement(sum, dataAtFunc(i));
       }
+    }
+    if constexpr (mayHaveNulls && kPropagateElementNull) {
+      nullResult = false;
     }
     return sum;
   }
@@ -73,9 +81,18 @@ class ArraySumFunction : public exec::VectorFunction {
       DataAtFunc&& dataAtFunc,
       IsNullFunc&& isNullFunc) const {
     context.applyToSelectedNoThrow(rows, [&](auto row) {
-      resultValues->set(
-          row,
-          applyCore<mayHaveNulls>(row, arrayVector, dataAtFunc, isNullFunc));
+      bool nullResult;
+      auto sum = applyCore<mayHaveNulls>(
+          row, arrayVector, dataAtFunc, isNullFunc, nullResult);
+      if constexpr (mayHaveNulls && kPropagateElementNull) {
+        if (nullResult) {
+          resultValues->setNull(row, true);
+        } else {
+          resultValues->set(row, sum);
+        }
+      } else {
+        resultValues->set(row, sum);
+      }
     });
   }
 
@@ -132,19 +149,22 @@ class ArraySumFunction : public exec::VectorFunction {
       exec::LocalDecodedVector elements(context, *elementsVector, elementsRows);
 
       TOutput sum;
+      bool nullResult = false;
       try {
         if (elementsVector->mayHaveNulls()) {
           sum = applyCore<true>(
               arrayRow,
               arrayVector,
               [&](auto index) { return elements->valueAt<TInput>(index); },
-              [&](auto index) { return elements->isNullAt(index); });
+              [&](auto index) { return elements->isNullAt(index); },
+              nullResult);
         } else {
           sum = applyCore<false>(
               arrayRow,
               arrayVector,
               [&](auto index) { return elements->valueAt<TInput>(index); },
-              [&](auto index) { return elements->isNullAt(index); });
+              [&](auto index) { return elements->isNullAt(index); },
+              nullResult);
         }
       } catch (...) {
         context.setErrors(rows, std::current_exception());
@@ -154,7 +174,7 @@ class ArraySumFunction : public exec::VectorFunction {
           std::make_shared<ConstantVector<TOutput>>(
               context.pool(),
               rows.end(),
-              false /*isNull*/,
+              nullResult,
               outputType,
               std::move(sum)),
           rows,
@@ -201,6 +221,7 @@ class ArraySumFunction : public exec::VectorFunction {
 };
 
 // Create function.
+template <bool kPropagateElementNull>
 std::shared_ptr<exec::VectorFunction> create(
     const std::string& /* name */,
     const std::vector<exec::VectorFunctionArg>& inputArgs,
@@ -211,30 +232,38 @@ std::shared_ptr<exec::VectorFunction> create(
     case TypeKind::TINYINT: {
       return std::make_shared<ArraySumFunction<
           TypeTraits<TypeKind::TINYINT>::NativeType,
-          int64_t>>();
+          int64_t,
+          kPropagateElementNull>>();
     }
     case TypeKind::SMALLINT: {
       return std::make_shared<ArraySumFunction<
           TypeTraits<TypeKind::SMALLINT>::NativeType,
-          int64_t>>();
+          int64_t,
+          kPropagateElementNull>>();
     }
     case TypeKind::INTEGER: {
       return std::make_shared<ArraySumFunction<
           TypeTraits<TypeKind::INTEGER>::NativeType,
-          int64_t>>();
+          int64_t,
+          kPropagateElementNull>>();
     }
     case TypeKind::BIGINT: {
       return std::make_shared<ArraySumFunction<
           TypeTraits<TypeKind::BIGINT>::NativeType,
-          int64_t>>();
+          int64_t,
+          kPropagateElementNull>>();
     }
     case TypeKind::REAL: {
-      return std::make_shared<
-          ArraySumFunction<TypeTraits<TypeKind::REAL>::NativeType, double>>();
+      return std::make_shared<ArraySumFunction<
+          TypeTraits<TypeKind::REAL>::NativeType,
+          double,
+          kPropagateElementNull>>();
     }
     case TypeKind::DOUBLE: {
-      return std::make_shared<
-          ArraySumFunction<TypeTraits<TypeKind::DOUBLE>::NativeType, double>>();
+      return std::make_shared<ArraySumFunction<
+          TypeTraits<TypeKind::DOUBLE>::NativeType,
+          double,
+          kPropagateElementNull>>();
     }
     default: {
       VELOX_FAIL("Unsupported Type")
@@ -266,6 +295,11 @@ std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
 } // namespace
 
 // Register function.
-VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION(udf_array_sum, signatures(), create);
+void registerVectorFunction_udf_array_sum(const std::string& name) {
+  facebook::velox::exec::registerStatefulVectorFunction(
+      name, signatures(), create<false>);
+  facebook::velox::exec::registerStatefulVectorFunction(
+      name + "_propagate_element_null", signatures(), create<true>);
+}
 
 } // namespace facebook::velox::functions

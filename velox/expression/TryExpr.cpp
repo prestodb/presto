@@ -140,7 +140,9 @@ void TryExpr::nullOutErrors(
     // Wrap in dictionary indices all pointing to index 0.
     auto indices = allocateIndices(size, context.pool());
     result = BaseVector::wrapInDictionary(nulls, indices, size, result);
-  } else if (result.unique() && result->isNullsWritable()) {
+  } else if (
+      result.unique() && result->isNullsWritable() &&
+      result->size() >= rows.end()) {
     auto* rawNulls = result->mutableRawNulls();
     rows.applyToSelected([&](auto row) {
       if (errors->hasErrorAt(row)) {
