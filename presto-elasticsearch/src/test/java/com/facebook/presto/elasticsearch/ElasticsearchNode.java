@@ -21,9 +21,9 @@ public class ElasticsearchNode
 {
     public ElasticsearchNode(Settings preparedSettings)
     {
-        super(InternalSettingsPreparer.prepareEnvironment(preparedSettings, null));
+        super(InternalSettingsPreparer.prepareEnvironment(preparedSettings, null, null, null));
     }
-    @Override
+
     protected void registerDerivedNodeNameWithLogger(String s)
     {
         // Need to provide implementation for the abstract method if required

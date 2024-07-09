@@ -19,10 +19,21 @@ import com.facebook.presto.tests.DistributedQueryRunner;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.io.Resources;
 import com.google.common.net.HostAndPort;
+import org.apache.http.Header;
+import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
 import org.apache.http.entity.ContentType;
 import org.apache.http.message.BasicHeader;
 import org.apache.http.nio.entity.NStringEntity;
+import org.elasticsearch.action.search.ClearScrollRequest;
+import org.elasticsearch.action.search.ClearScrollResponse;
+import org.elasticsearch.action.search.SearchRequest;
+import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.action.search.SearchScrollRequest;
+import org.elasticsearch.client.Node;
+import org.elasticsearch.client.Request;
+import org.elasticsearch.client.RequestOptions;
+import org.elasticsearch.client.Response;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.testcontainers.shaded.com.google.common.collect.ImmutableList;
@@ -32,11 +43,15 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 
 import static com.facebook.presto.elasticsearch.ElasticsearchQueryRunner.createElasticsearchQueryRunner;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.Resources.getResource;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Arrays.stream;
+import static java.util.Objects.requireNonNull;
 
 public class TestPasswordAuthentication
 {
@@ -92,8 +107,7 @@ public class TestPasswordAuthentication
                 .put("value", 42L)
                 .build());
 
-        client.getLowLevelClient()
-                .performRequest(
+        performRequest(
                         "POST",
                         "/test/_doc?refresh",
                         ImmutableMap.of(),
@@ -108,5 +122,63 @@ public class TestPasswordAuthentication
             throws IOException
     {
         return Resources.toString(getResource(file), UTF_8);
+    }
+
+    private void setHosts(HttpHost... hosts)
+    {
+        client.getLowLevelClient().setNodes(stream(hosts)
+                .map(Node::new)
+                .collect(toImmutableList()));
+    }
+
+    public Response performRequest(String method, String endpoint, Header... headers)
+            throws IOException
+    {
+        return client.getLowLevelClient().performRequest(toRequest(method, endpoint, headers));
+    }
+    public Response performRequest(String method, String endpoint, Map<String, String> params, HttpEntity entity, Header... headers)
+            throws IOException
+    {
+        return client.getLowLevelClient().performRequest(toRequest(method, endpoint, params, entity, headers));
+    }
+    private static Request toRequest(String method, String endpoint, Map<String, String> params, HttpEntity entity, Header... headers)
+    {
+        Request request = toRequest(method, endpoint, headers);
+        requireNonNull(params, "parameters cannot be null");
+        for (Map.Entry<String, String> entry : params.entrySet()) {
+            request.addParameter(entry.getKey(), entry.getValue());
+        }
+        request.setEntity(entity);
+        return request;
+    }
+
+    private static Request toRequest(String method, String endpoint, Header... headers)
+    {
+        requireNonNull(headers, "headers cannot be null");
+        Request request = new Request(method, endpoint);
+        RequestOptions.Builder options = request.getOptions().toBuilder();
+        for (Header header : headers) {
+            options.addHeader(header.getName(), header.getValue());
+        }
+        request.setOptions(options);
+        return request;
+    }
+
+    private SearchResponse search(SearchRequest searchRequest)
+            throws IOException
+    {
+        return client.search(searchRequest, RequestOptions.DEFAULT);
+    }
+
+    private SearchResponse searchScroll(SearchScrollRequest searchScrollRequest)
+            throws IOException
+    {
+        return client.scroll(searchScrollRequest, RequestOptions.DEFAULT);
+    }
+
+    public ClearScrollResponse clearScroll(ClearScrollRequest clearScrollRequest)
+            throws IOException
+    {
+        return client.clearScroll(clearScrollRequest, RequestOptions.DEFAULT);
     }
 }

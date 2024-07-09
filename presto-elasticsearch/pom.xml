@@ -13,7 +13,7 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <dep.log4j.version>2.17.1</dep.log4j.version>
-        <dep.elasticsearch.version>6.8.23</dep.elasticsearch.version>
+        <dep.elasticsearch.version>7.17.19</dep.elasticsearch.version>
     </properties>
 
     <dependencies>
@@ -121,7 +121,7 @@
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpcore-nio</artifactId>
-            <version>4.4.5</version>
+            <version>4.4.12</version>
         </dependency>
 
         <dependency>
@@ -143,7 +143,7 @@
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpasyncclient</artifactId>
-            <version>4.1.2</version>
+            <version>4.1.4</version>
 
             <exclusions>
                 <exclusion>
@@ -270,7 +270,6 @@
         <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-all</artifactId>
-            <version>4.1.42.Final</version>
             <scope>test</scope>
         </dependency>
 
