@@ -267,26 +267,23 @@ TEST_F(SparkCastExprTest, primitiveInvalidCornerCases) {
   // To boolean.
   {
     testInvalidCast<std::string>(
-        "boolean",
-        {"1.7E308"},
-        "Non-whitespace character found after end of conversion");
+        "boolean", {"1.7E308"}, "Cannot cast 1.7E308 to BOOLEAN");
     testInvalidCast<std::string>(
-        "boolean",
-        {"nan"},
-        "Non-whitespace character found after end of conversion");
+        "boolean", {"nan"}, "Cannot cast nan to BOOLEAN");
     testInvalidCast<std::string>(
-        "boolean", {"infinity"}, "Invalid value for bool");
+        "boolean", {"infinity"}, "Cannot cast infinity to BOOLEAN");
     testInvalidCast<std::string>(
-        "boolean", {"12"}, "Integer overflow when parsing bool");
-    testInvalidCast<std::string>("boolean", {"-1"}, "Invalid value for bool");
+        "boolean", {"12"}, "Cannot cast 12 to BOOLEAN");
     testInvalidCast<std::string>(
-        "boolean",
-        {"tr"},
-        "Non-whitespace character found after end of conversion");
+        "boolean", {"-1"}, "Cannot cast -1 to BOOLEAN");
     testInvalidCast<std::string>(
-        "boolean",
-        {"tru"},
-        "Non-whitespace character found after end of conversion");
+        "boolean", {"tr"}, "Cannot cast tr to BOOLEAN");
+    testInvalidCast<std::string>(
+        "boolean", {"tru"}, "Cannot cast tru to BOOLEAN");
+    testInvalidCast<std::string>(
+        "boolean", {"on"}, "Cannot cast on to BOOLEAN");
+    testInvalidCast<std::string>(
+        "boolean", {"off"}, "Cannot cast off to BOOLEAN");
   }
 }
 
@@ -352,9 +349,16 @@ TEST_F(SparkCastExprTest, primitiveValidCornerCases) {
     testCast<double, bool>("boolean", {0.0000000000001}, {true});
 
     testCast<std::string, bool>("boolean", {"1"}, {true});
-    testCast<std::string, bool>("boolean", {"0"}, {false});
     testCast<std::string, bool>("boolean", {"t"}, {true});
+    testCast<std::string, bool>("boolean", {"y"}, {true});
+    testCast<std::string, bool>("boolean", {"yes"}, {true});
     testCast<std::string, bool>("boolean", {"true"}, {true});
+
+    testCast<std::string, bool>("boolean", {"0"}, {false});
+    testCast<std::string, bool>("boolean", {"f"}, {false});
+    testCast<std::string, bool>("boolean", {"n"}, {false});
+    testCast<std::string, bool>("boolean", {"no"}, {false});
+    testCast<std::string, bool>("boolean", {"false"}, {false});
   }
 
   // To string.

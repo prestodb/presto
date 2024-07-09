@@ -99,6 +99,42 @@ Valid examples
   SELECT cast(cast(2147483648.90 as DECIMAL(12, 2)) as integer); -- -2147483648
   SELECT cast(cast(2147483648.90 as DECIMAL(12, 2)) as bigint); -- 2147483648
 
+Cast to Boolean
+---------------
+
+From VARCHAR
+^^^^^^^^^^^^
+
+The strings `t, f, y, n, 1, 0, yes, no, true, false` and their upper case equivalents are allowed to be casted to boolean.
+Casting from other strings to boolean throws.
+
+Valid examples
+
+::
+
+  SELECT cast('1' as boolean); -- true
+  SELECT cast('0' as boolean); -- false
+  SELECT cast('t' as boolean); -- true (case insensitive)
+  SELECT cast('true' as boolean); -- true (case insensitive)
+  SELECT cast('f' as boolean); -- false (case insensitive)
+  SELECT cast('false' as boolean); -- false (case insensitive)
+  SELECT cast('y' as boolean); -- true (case insensitive)
+  SELECT cast('yes' as boolean); -- true (case insensitive)
+  SELECT cast('n' as boolean); -- false (case insensitive)
+  SELECT cast('no' as boolean); -- false (case insensitive)
+
+Invalid examples
+
+::
+
+  SELECT cast('1.7E308' as boolean); -- Invalid argument
+  SELECT cast('nan' as boolean); -- Invalid argument
+  SELECT cast('infinity' as boolean); -- Invalid argument
+  SELECT cast('12' as boolean); -- Invalid argument
+  SELECT cast('-1' as boolean); -- Invalid argument
+  SELECT cast('tr' as boolean); -- Invalid argument
+  SELECT cast('tru' as boolean); -- Invalid argument
+
 Cast to String
 --------------
 
