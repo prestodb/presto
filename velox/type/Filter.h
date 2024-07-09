@@ -67,10 +67,8 @@ using FilterPtr = std::unique_ptr<Filter>;
  */
 class Filter : public velox::ISerializable {
  protected:
-  Filter(bool is_deterministic, bool nullAllowed, FilterKind kind)
-      : nullAllowed_(nullAllowed),
-        deterministic_(is_deterministic),
-        kind_(kind) {}
+  Filter(bool deterministic, bool nullAllowed, FilterKind kind)
+      : nullAllowed_(nullAllowed), deterministic_(deterministic), kind_(kind) {}
 
  public:
   virtual ~Filter() = default;
@@ -1275,7 +1273,6 @@ class AbstractRange : public Filter {
     return obj;
   }
 
- protected:
   const bool lowerUnbounded_;
   const bool lowerExclusive_;
   const bool upperUnbounded_;
