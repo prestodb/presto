@@ -50,3 +50,30 @@ Property Name                               Description
 ``arrow-flight.server.verify``              To verify server
 ``arrow-flight.server-ssl-enabled``         Port is ssl enabled
 ========================================== ==============================================================
+
+Querying Arrow-Flight
+---------------------
+
+The Arrow-Flight connector provides schema for every supported *databases*.
+Example for MariaDB is shown below.
+You can see the available schemas by running ``SHOW SCHEMAS``::
+
+    SHOW SCHEMAS FROM arrowmariadb;
+
+If you have a MariaDB database named ``user``, you can view the tables
+in this database by running ``SHOW TABLES``::
+
+    SHOW TABLES FROM arrowmariadb.user;
+
+You can see a list of the columns in the ``admin`` table in the ``user`` database
+using either of the following::
+
+    DESCRIBE arrowmariadb.user.admin;
+    SHOW COLUMNS FROM arrowmariadb.user.admin;
+
+Finally, you can access the ``admin`` table in the ``user`` database::
+
+    SELECT * FROM arrowmariadb.user.admin;
+
+If you used a different name for your catalog properties file, use
+that catalog name instead of ``arrowmariadb`` in the above examples.
