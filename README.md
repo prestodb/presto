@@ -104,8 +104,6 @@ $ export PATH=/opt/homebrew/opt/m4/bin:$PATH
 $ M4=/usr/bin/gm4 make
 ```
 
-You can also produce intel binaries on an M1, use `CPU_TARGET="sse"` for the above.
-
 ### Setting up on Ubuntu (20.04 or later)
 
 The supported architectures are x86_64 (avx, sse), and AArch64 (apple-m1+crc, neoverse-n1).

@@ -14,8 +14,6 @@
 # Build the test and build container for presto_cpp
 ARG image=quay.io/centos/centos:stream9
 FROM $image
-ARG cpu_target=avx
-ENV CPU_TARGET=$cpu_target
 
 COPY scripts/setup-helper-functions.sh /
 COPY scripts/setup-centos9.sh /
@@ -26,7 +24,6 @@ RUN mkdir build && ( cd build && bash /setup-centos9.sh ) && rm -rf build && \
         dnf config-manager --add-repo 'https://cli.github.com/packages/rpm/gh-cli.repo' && \
         dnf install -y -q gh jq && \
         dnf clean all
-
 
 ENV CC=/opt/rh/gcc-toolset-12/root/bin/gcc \
     CXX=/opt/rh/gcc-toolset-12/root/bin/g++

@@ -11,10 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-ARG base=amd64/ubuntu:22.04
-# Set a default timezone, can be overriden via ARG
-ARG tz="Europe/Madrid"
-
+ARG base=ubuntu:22.04
 FROM ${base}
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
@@ -32,6 +29,8 @@ ADD scripts /velox/scripts/
 # are required to avoid tzdata installation
 # to prompt for region selection.
 ARG DEBIAN_FRONTEND="noninteractive"
+# Set a default timezone, can be overriden via ARG
+ARG tz="Etc/UTC"
 ENV TZ=${tz}
 RUN /velox/scripts/setup-ubuntu.sh
 

@@ -32,8 +32,7 @@ source $SCRIPTDIR/setup-helper-functions.sh
 
 # Folly must be built with the same compiler flags so that some low level types
 # are the same size.
-CPU_TARGET="${CPU_TARGET:-avx}"
-COMPILER_FLAGS=$(get_cxx_flags "$CPU_TARGET")
+COMPILER_FLAGS=$(get_cxx_flags)
 export COMPILER_FLAGS
 FB_OS_VERSION=v2024.05.20.00
 FMT_VERSION=10.1.1

@@ -59,7 +59,7 @@ function github_checkout {
 }
 
 # get_cxx_flags [$CPU_ARCH]
-# Sets and exports the variable VELOX_CXX_FLAGS with appropriate compiler flags.
+# Echos appropriate compiler flags.
 # If $CPU_ARCH is set then we use that else we determine best possible set of flags
 # to use based on current cpu architecture.
 # The goal of this function is to consolidate all architecture specific flags to one
@@ -74,65 +74,49 @@ function github_checkout {
 # CXX_FLAGS=$(get_cxx_flags "avx")
 
 function get_cxx_flags {
-  local CPU_ARCH=$1
+  local CPU_ARCH=${1:-""}
+  local OS=$(uname)
+  local MACHINE=$(uname -m)
 
-  local OS
-  OS=$(uname)
-  local MACHINE
-  MACHINE=$(uname -m)
-  ADDITIONAL_FLAGS=""
-
-  if [[ -z "$CPU_ARCH" ]] || [[ $CPU_ARCH == "unknown" ]]; then
-    if [ "$OS" = "Darwin" ]; then
-
-      if [ "$MACHINE" = "x86_64" ]; then
-        local CPU_CAPABILITIES
-        CPU_CAPABILITIES=$(sysctl -a | grep machdep.cpu.features | awk '{print tolower($0)}')
-
-        if [[ $CPU_CAPABILITIES =~ "avx" ]]; then
-          CPU_ARCH="avx"
-        else
-          CPU_ARCH="sse"
-        fi
-
-      elif [[ $(sysctl -a | grep machdep.cpu.brand_string) =~ "Apple" ]]; then
-        # Apple silicon.
-        CPU_ARCH="arm64"
-      fi
-
-    # On MacOs prevent the flood of translation visibility settings warnings.
-    ADDITIONAL_FLAGS="-fvisibility=hidden -fvisibility-inlines-hidden"
-    else [ "$OS" = "Linux" ];
-
-      local CPU_CAPABILITIES
-      CPU_CAPABILITIES=$(cat /proc/cpuinfo | grep flags | head -n 1| awk '{print tolower($0)}')
-
-      if [[ "$CPU_CAPABILITIES" =~ "avx" ]]; then
-            CPU_ARCH="avx"
-      elif [[ "$CPU_CAPABILITIES" =~ "sse" ]]; then
-            CPU_ARCH="sse"
-      elif [ "$MACHINE" = "aarch64" ]; then
-            CPU_ARCH="aarch64"
-      fi
-    fi
+  if [[ -z "$CPU_ARCH" ]]; then
+   if [ "$OS" = "Darwin" ]; then
+     if [ "$MACHINE" = "arm64" ]; then
+       CPU_ARCH="arm64"
+     else
+       CPU_ARCH="avx"
+     fi
+   elif [ "$OS" = "Linux" ]; then
+     if [ "$MACHINE" = "aarch64" ]; then
+           CPU_ARCH="aarch64"
+     else
+       local CPU_CAPABILITIES=$(cat /proc/cpuinfo | grep flags | head -n 1| awk '{print tolower($0)}')
+       # Even though the default is avx, we need this check since avx machines support sse as well.
+       if [[ $CPU_CAPABILITIES =~ "avx" ]]; then
+           CPU_ARCH="avx"
+       elif [[ $CPU_CAPABILITIES =~ "sse" ]]; then
+           CPU_ARCH="sse"
+       fi
+     fi
+   else
+     echo "Unsupported platform $OS"; exit 1;
+   fi
   fi
-
   case $CPU_ARCH in
 
     "arm64")
-      echo -n "-mcpu=apple-m1+crc -std=c++17 -fvisibility=hidden $ADDITIONAL_FLAGS"
+      echo -n "-mcpu=apple-m1+crc -std=c++17 -fvisibility=hidden"
     ;;
 
     "avx")
-      echo -n "-mavx2 -mfma -mavx -mf16c -mlzcnt -std=c++17 -mbmi2 $ADDITIONAL_FLAGS"
+      echo -n "-mavx2 -mfma -mavx -mf16c -mlzcnt -std=c++17 -mbmi2"
     ;;
 
     "sse")
-      echo -n "-msse4.2 -std=c++17 $ADDITIONAL_FLAGS"
+      echo -n "-msse4.2 -std=c++17"
     ;;
 
     "aarch64")
-      echo -n "-mcpu=neoverse-n1 -std=c++17 $ADDITIONAL_FLAGS"
+      echo -n "-mcpu=neoverse-n1 -std=c++17"
     ;;
   *)
     echo -n "Architecture not supported!"
@@ -158,8 +142,7 @@ function cmake_install {
     ${SUDO} rm -rf "${BINARY_DIR}"
   fi
   mkdir -p "${BINARY_DIR}"
-  CPU_TARGET="${CPU_TARGET:-unknown}"
-  COMPILER_FLAGS=$(get_cxx_flags $CPU_TARGET)
+  COMPILER_FLAGS=$(get_cxx_flags)
 
   # CMAKE_POSITION_INDEPENDENT_CODE is required so that Velox can be built into dynamic libraries \
   cmake -Wno-dev -B"${BINARY_DIR}" \
@@ -171,8 +154,8 @@ function cmake_install {
     -DCMAKE_CXX_FLAGS="$COMPILER_FLAGS" \
     -DBUILD_TESTING=OFF \
     "$@"
-
-  cmake --build "${BINARY_DIR}"
+  # Exit if the build fails.
+  cmake --build "${BINARY_DIR}" || { echo 'build failed' ; exit 1; }
   ${SUDO} cmake --install "${BINARY_DIR}"
 }
 
