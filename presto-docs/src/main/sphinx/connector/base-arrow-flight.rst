@@ -26,7 +26,7 @@ Register your connector name by extending the ArrowPlugin class.
 
 Configuration
 -------------
-To configure the Arrow connector, create a catalog c file
+To configure the Arrow connector, create a catalog file
 in ``etc/catalog`` named, for example, ``arrowmariadb.properties``, to
 mount the Arrow-flight connector as the ``arrowmariadb`` catalog.
 Create the file with the following contents, replacing the
