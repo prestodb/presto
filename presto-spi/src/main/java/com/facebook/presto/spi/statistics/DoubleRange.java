@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.statistics;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
 
@@ -25,6 +26,8 @@ import static java.util.Objects.requireNonNull;
 
 public class DoubleRange
 {
+    static final long RANGE_SIZE = ClassLayout.parseClass(DoubleRange.class).instanceSize();
+
     private final double min;
     private final double max;
 

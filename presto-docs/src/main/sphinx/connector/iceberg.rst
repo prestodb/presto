@@ -323,6 +323,8 @@ Property Name                                           Description             
 
 ``iceberg.metrics-max-inferred-column``                 The maximum number of columns for which metrics               ``100``
                                                         are collected.
+``iceberg.max-statistics-file-cache-size``              Maximum size in bytes that should be consumed by the          ``256MB``
+                                                        statistics file cache.
 ======================================================= ============================================================= ============
 
 Table Properties
