@@ -40,8 +40,6 @@ connection properties as appropriate for your setup:
 
         arrow-flight.server=<SERVER_ENDPOINT>
         arrow-flight.server.port=<SERVER_PORT>
-        arrow-flight.apikey=<API_KEY>
-        arrow-flight.cloud.token-url=<URL>
 
         data-source.name=<DATASOURCE_NAME>
         data-source.host=<HOST>
@@ -56,8 +54,6 @@ Property Name                               Description
 ========================================== ==============================================================
 ``arrow-flight.server``                     Endpoint of arrow-flight server
 ``arrow-flight.server.port``                Flight server port
-``arrow-flight.apikey``                     API KEY
-``arrow-flight.cloud.token-url``            Cloud host
 ``data-source.name``                        Datasource name
 ``data-source.host``                        Hostname of the database
 ``data-source.database``                    Database name
