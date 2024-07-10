@@ -2,7 +2,7 @@
 ======================
 Arrow-flight Connector
 ======================
-This connector allows querying multiple datasources that supported by Arrow-flight-server.
+This connector allows querying multiple data sources that are supported by an Arrow Flight server.
 Apache Arrow enhances performance and efficiency in data-intensive applications through its columnar memory layout, zero-copy reads, vectorized execution, cross-language interoperability, rich data type support, and optimization for modern hardware. These features collectively reduce overhead, improve data processing speeds, and facilitate seamless data exchange between different systems and languages.
 
 Getting Started with base-arrow-module: Essential Abstract Methods for Developers
