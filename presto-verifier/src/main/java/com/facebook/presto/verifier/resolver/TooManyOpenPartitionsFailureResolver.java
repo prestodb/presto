@@ -14,7 +14,10 @@
 package com.facebook.presto.verifier.resolver;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.ErrorCode;
+import com.facebook.presto.common.ErrorType;
 import com.facebook.presto.jdbc.QueryStats;
+import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.CreateTable;
@@ -34,8 +37,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_TOO_MANY_OPEN_PARTITIONS;
-import static com.facebook.presto.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static com.facebook.presto.sql.tree.ShowCreate.Type.TABLE;
 import static com.facebook.presto.verifier.framework.QueryStage.DESCRIBE;
@@ -79,14 +80,24 @@ public class TooManyOpenPartitionsFailureResolver
             return Optional.empty();
         }
 
-        return mapMatchingPrestoException(queryException, TEST_MAIN, ImmutableSet.of(HIVE_TOO_MANY_OPEN_PARTITIONS),
+        // Decouple from com.facebook.presto.hive.HiveErrorCode.HIVE_TOO_MANY_OPEN_PARTITIONS
+        ErrorCodeSupplier errorCodeSupplier = new ErrorCodeSupplier() {
+            @Override
+            public ErrorCode toErrorCode()
+            {
+                int errorCodeMask = 0x0100_0000;
+                return new ErrorCode(21 + errorCodeMask, "HIVE_TOO_MANY_OPEN_PARTITIONS", ErrorType.USER_ERROR);
+            }
+        };
+
+        return mapMatchingPrestoException(queryException, TEST_MAIN, ImmutableSet.of(errorCodeSupplier),
                 e -> {
                     try {
                         ShowCreate showCreate = new ShowCreate(TABLE, test.get().getObjectName());
                         String showCreateResult = getOnlyElement(prestoAction.execute(showCreate, DESCRIBE, resultSet -> Optional.of(resultSet.getString(1))).getResults());
                         CreateTable createTable = (CreateTable) sqlParser.createStatement(showCreateResult, ParsingOptions.builder().setDecimalLiteralTreatment(AS_DOUBLE).build());
                         List<Property> bucketCountProperty = createTable.getProperties().stream()
-                                .filter(property -> property.getName().getValue().equals(BUCKET_COUNT_PROPERTY))
+                                .filter(property -> property.getName().getValue().equals("bucket_count"))
                                 .collect(toImmutableList());
                         if (bucketCountProperty.size() != 1) {
                             return Optional.empty();
