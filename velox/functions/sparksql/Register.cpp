@@ -461,6 +461,9 @@ void registerFunctions(const std::string& prefix) {
       Array<Generic<T1>>,
       Array<Array<Generic<T1>>>>({prefix + "flatten"});
 
+  registerFunction<RepeatFunction, Varchar, Varchar, int32_t>(
+      {prefix + "repeat"});
+
   registerFunction<SoundexFunction, Varchar, Varchar>({prefix + "soundex"});
 
   registerFunction<RaiseErrorFunction, UnknownValue, Varchar>(
