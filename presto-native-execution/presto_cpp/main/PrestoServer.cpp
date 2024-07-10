@@ -47,6 +47,16 @@
 #include "velox/common/memory/SharedArbitrator.h"
 #include "velox/connectors/Connector.h"
 #include "velox/connectors/hive/HiveConnector.h"
+#include "velox/connectors/hive/HiveDataSink.h"
+#include "velox/connectors/hive/storage_adapters/abfs/RegisterAbfsFileSystem.h"
+#include "velox/connectors/hive/storage_adapters/gcs/RegisterGCSFileSystem.h"
+#include "velox/connectors/hive/storage_adapters/hdfs/RegisterHdfsFileSystem.h"
+#include "velox/connectors/hive/storage_adapters/s3fs/RegisterS3FileSystem.h"
+#include "velox/connectors/tpch/TpchConnector.h"
+#include "velox/dwio/dwrf/RegisterDwrfReader.h"
+#include "velox/dwio/dwrf/RegisterDwrfWriter.h"
+#include "velox/dwio/parquet/RegisterParquetReader.h"
+#include "velox/dwio/parquet/RegisterParquetWriter.h"
 #include "velox/exec/OutputBufferManager.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
@@ -64,8 +74,6 @@
 #endif
 
 namespace facebook::presto {
-using namespace facebook::velox;
-
 namespace {
 
 constexpr char const* kHttp = "http";
@@ -73,6 +81,7 @@ constexpr char const* kHttps = "https";
 constexpr char const* kTaskUriFormat =
     "{}://{}:{}"; // protocol, address and port
 constexpr char const* kConnectorName = "connector.name";
+constexpr char const* kHiveHadoop2ConnectorName = "hive-hadoop2";
 
 protocol::NodeState convertNodeState(presto::NodeState nodeState) {
   switch (nodeState) {
@@ -230,9 +239,11 @@ void PrestoServer::run() {
 
   registerFileSinks();
   registerFileSystems();
+  registerFileReadersAndWriters();
   registerMemoryArbitrators();
   registerShuffleInterfaceFactories();
   registerCustomOperators();
+  registerConnectorFactories();
 
   // Register Velox connector factory for iceberg.
   // The iceberg catalog is handled by the hive connector factory.
@@ -577,6 +588,8 @@ void PrestoServer::run() {
   PRESTO_SHUTDOWN_LOG(INFO) << "Destroying HTTP Server";
   httpServer_.reset();
 
+  unregisterFileReadersAndWriters();
+  unregisterFileSystems();
   unregisterConnectors();
 
   PRESTO_SHUTDOWN_LOG(INFO)
@@ -1052,6 +1065,24 @@ PrestoServer::getAdditionalHttpServerFilters() {
   return filters;
 }
 
+void PrestoServer::registerConnectorFactories() {
+  // These checks for connector factories can be removed after we remove the
+  // registrations from the Velox library.
+  if (!connector::hasConnectorFactory(
+          connector::hive::HiveConnectorFactory::kHiveConnectorName)) {
+    connector::registerConnectorFactory(
+        std::make_shared<connector::hive::HiveConnectorFactory>());
+    connector::registerConnectorFactory(
+        std::make_shared<connector::hive::HiveConnectorFactory>(
+            kHiveHadoop2ConnectorName));
+  }
+  if (!connector::hasConnectorFactory(
+          connector::tpch::TpchConnectorFactory::kTpchConnectorName)) {
+    connector::registerConnectorFactory(
+        std::make_shared<connector::tpch::TpchConnectorFactory>());
+  }
+}
+
 std::vector<std::string> PrestoServer::registerConnectors(
     const fs::path& configDirectoryPath) {
   static const std::string kPropertiesExtension = ".properties";
@@ -1212,12 +1243,38 @@ void PrestoServer::registerVectorSerdes() {
   }
 }
 
+void PrestoServer::registerFileSinks() {
+  velox::dwio::common::registerFileSinks();
+}
+
 void PrestoServer::registerFileSystems() {
   velox::filesystems::registerLocalFileSystem();
+  velox::filesystems::registerS3FileSystem();
+  velox::filesystems::registerHdfsFileSystem();
+  velox::filesystems::registerGCSFileSystem();
+  velox::filesystems::abfs::registerAbfsFileSystem();
+}
+
+void PrestoServer::unregisterFileSystems() {
+  velox::filesystems::finalizeS3FileSystem();
 }
 
 void PrestoServer::registerMemoryArbitrators() {
   velox::memory::SharedArbitrator::registerFactory();
+}
+
+void PrestoServer::registerFileReadersAndWriters() {
+  velox::dwrf::registerDwrfReaderFactory();
+  velox::dwrf::registerDwrfWriterFactory();
+  velox::parquet::registerParquetReaderFactory();
+  velox::parquet::registerParquetWriterFactory();
+}
+
+void PrestoServer::unregisterFileReadersAndWriters() {
+  velox::dwrf::unregisterDwrfReaderFactory();
+  velox::dwrf::unregisterDwrfWriterFactory();
+  velox::parquet::unregisterParquetReaderFactory();
+  velox::parquet::unregisterParquetWriterFactory();
 }
 
 void PrestoServer::registerStatsCounters() {
