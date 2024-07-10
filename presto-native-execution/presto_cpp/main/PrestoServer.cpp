@@ -798,8 +798,13 @@ void PrestoServer::initializeVeloxMemory() {
     std::unique_ptr<cache::SsdCache> ssd = setupSsdCache();
     std::string cacheStr =
         ssd == nullptr ? "AsyncDataCache" : "AsyncDataCache with SSD";
+
+    cache::AsyncDataCache::Options cacheOptions{
+        systemConfig->asyncCacheMaxSsdWriteRatio(),
+        systemConfig->asyncCacheSsdSavableRatio(),
+        systemConfig->asyncCacheMinSsdSavableBytes()};
     cache_ = cache::AsyncDataCache::create(
-        memory::memoryManager()->allocator(), std::move(ssd));
+        memory::memoryManager()->allocator(), std::move(ssd), cacheOptions);
     cache::AsyncDataCache::setInstance(cache_.get());
     PRESTO_STARTUP_LOG(INFO) << cacheStr << " has been setup";
 
