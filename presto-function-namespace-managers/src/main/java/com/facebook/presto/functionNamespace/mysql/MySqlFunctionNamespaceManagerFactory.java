@@ -14,6 +14,7 @@
 package com.facebook.presto.functionNamespace.mysql;
 
 import com.facebook.airlift.bootstrap.Bootstrap;
+import com.facebook.drift.transport.netty.client.DriftNettyClientModule;
 import com.facebook.presto.functionNamespace.execution.SimpleAddressSqlFunctionExecutorsModule;
 import com.facebook.presto.spi.function.FunctionHandleResolver;
 import com.facebook.presto.spi.function.FunctionNamespaceManager;
@@ -50,6 +51,7 @@ public class MySqlFunctionNamespaceManagerFactory
     {
         try {
             Bootstrap app = new Bootstrap(
+                    new DriftNettyClientModule(),
                     new MySqlFunctionNamespaceManagerModule(catalogName),
                     new MySqlConnectionModule(),
                     new SimpleAddressSqlFunctionExecutorsModule());
