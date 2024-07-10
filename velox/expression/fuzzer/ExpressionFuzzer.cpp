@@ -280,6 +280,28 @@ static std::pair<std::string, std::string> splitSignature(
   return {signature, ""};
 }
 
+// Returns if `functionName` is deterministic. Returns true if the function was
+// not found or determinism cannot be established.
+bool isDeterministic(const std::string& functionName) {
+  // We know that the 'cast', 'and', and 'or' special forms are deterministic.
+  // Hard-code them here because they are not real functions and hence cannot
+  // be resolved by the code below.
+  if (functionName == "and" || functionName == "or" ||
+      functionName == "coalesce" || functionName == "if" ||
+      functionName == "switch" || functionName == "cast") {
+    return true;
+  }
+
+  const auto determinism = velox::isDeterministic(functionName);
+  if (!determinism.has_value()) {
+    // functionName must be a special form.
+    LOG(WARNING) << "Unable to determine if '" << functionName
+                 << "' is deterministic or not. Assuming it is.";
+    return true;
+  }
+  return determinism.value();
+}
+
 // Parse the comma separated list of function names, and use it to filter the
 // input signatures.
 static void filterSignatures(
@@ -322,6 +344,15 @@ static void filterSignatures(
       }
     }
   }
+
+  for (auto it = input.begin(); it != input.end();) {
+    if (!isDeterministic(it->first)) {
+      LOG(WARNING) << "Skipping non-deterministic function: " << it->first;
+      it = input.erase(it);
+    } else {
+      ++it;
+    }
+  }
 }
 
 static void appendSpecialForms(
@@ -339,28 +370,6 @@ static void appendSpecialForms(
     }
     signatureMap.insert({name, std::move(rawSignatures)});
   }
-}
-
-// Returns if `functionName` is deterministic. Returns true if the function was
-// not found or determinism cannot be established.
-bool isDeterministic(const std::string& functionName) {
-  // We know that the 'cast', 'and', and 'or' special forms are deterministic.
-  // Hard-code them here because they are not real functions and hence cannot
-  // be resolved by the code below.
-  if (functionName == "and" || functionName == "or" ||
-      functionName == "coalesce" || functionName == "if" ||
-      functionName == "switch" || functionName == "cast") {
-    return true;
-  }
-
-  const auto determinism = velox::isDeterministic(functionName);
-  if (!determinism.has_value()) {
-    // functionName must be a special form.
-    LOG(WARNING) << "Unable to determine if '" << functionName
-                 << "' is deterministic or not. Assuming it is.";
-    return true;
-  }
-  return determinism.value();
 }
 
 std::optional<CallableSignature> processConcreteSignature(
@@ -559,12 +568,6 @@ ExpressionFuzzer::ExpressionFuzzer(
       }
       if (signature->variableArity() && !options_.enableVariadicSignatures) {
         LOG(WARNING) << "Skipping variadic function signature: "
-                     << function.first << signature->toString();
-        continue;
-      }
-
-      if (!isDeterministic(function.first)) {
-        LOG(WARNING) << "Skipping non-deterministic function: "
                      << function.first << signature->toString();
         continue;
       }
