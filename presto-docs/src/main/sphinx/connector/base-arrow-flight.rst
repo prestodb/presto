@@ -13,7 +13,7 @@ To utilize the base-arrow-module, you need to implement certain abstract methods
 This class is responsible for initializing the Flight client and retrieving Flight information from the Flight server. To authenticate the Flight server, you must implement the abstract method ``getCallOptions`` in ArrowFlightClientHandler, which returns the ``CredentialCallOption`` specific to your Flight server.
 
 2. ``ArrowAbstractFlightRequest.java``
-Implement this class to define the request data, including the data source type, connection properties, the number of partitions and other data to interact with database.
+Implement this class to define the request data, including the data source type, connection properties, the number of partitions and other data required to interact with database.
 
 3. ``ArrowAbstractMetadata.java``
 To retrieve metadata (schema and table information), implement the abstract methods in the ArrowAbstractMetadata class.
