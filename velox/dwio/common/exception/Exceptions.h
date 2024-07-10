@@ -89,7 +89,7 @@ void verify_range(uint64_t v, uint64_t rangeMask);
 
 void verify(bool c, std::string fmt...);
 
-void corrupt(std::string fmt...);
+[[noreturn]] void corrupt(std::string fmt...);
 
 std::string error_string(std::string fmt, va_list ap);
 std::string format_error_string(std::string fmt...);

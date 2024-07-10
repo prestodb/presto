@@ -44,7 +44,7 @@ void verify(bool c, std::string fmt...) {
   }
 }
 
-void corrupt(std::string fmt...) {
+[[noreturn]] void corrupt(std::string fmt...) {
   va_list ap;
   va_start(ap, fmt);
   auto s = error_string(fmt, ap);
