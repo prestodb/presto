@@ -151,8 +151,8 @@ public class IcebergHiveMetadata
     private final ExtendedHiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
     private final DateTimeZone timeZone = DateTimeZone.forTimeZone(TimeZone.getTimeZone(ZoneId.of(TimeZone.getDefault().getID())));
-
     private final FilterStatsCalculatorService filterStatsCalculatorService;
+    private final IcebergHiveTableOperationsConfig hiveTableOeprationsConfig;
 
     public IcebergHiveMetadata(
             ExtendedHiveMetastore metastore,
@@ -162,12 +162,14 @@ public class IcebergHiveMetadata
             RowExpressionService rowExpressionService,
             JsonCodec<CommitTaskData> commitTaskCodec,
             NodeVersion nodeVersion,
-            FilterStatsCalculatorService filterStatsCalculatorService)
+            FilterStatsCalculatorService filterStatsCalculatorService,
+            IcebergHiveTableOperationsConfig hiveTableOeprationsConfig)
     {
         super(typeManager, functionResolution, rowExpressionService, commitTaskCodec, nodeVersion);
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.filterStatsCalculatorService = requireNonNull(filterStatsCalculatorService, "filterStatsCalculatorService is null");
+        this.hiveTableOeprationsConfig = requireNonNull(hiveTableOeprationsConfig, "hiveTableOperationsConfig is null");
     }
 
     public ExtendedHiveMetastore getMetastore()
@@ -178,7 +180,7 @@ public class IcebergHiveMetadata
     @Override
     protected org.apache.iceberg.Table getRawIcebergTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        return getHiveIcebergTable(metastore, hdfsEnvironment, session, schemaTableName);
+        return getHiveIcebergTable(metastore, hdfsEnvironment, hiveTableOeprationsConfig, session, schemaTableName);
     }
 
     @Override
@@ -296,6 +298,7 @@ public class IcebergHiveMetadata
                 getMetastoreContext(session),
                 hdfsEnvironment,
                 hdfsContext,
+                hiveTableOeprationsConfig,
                 schemaName,
                 tableName,
                 session.getUser(),
