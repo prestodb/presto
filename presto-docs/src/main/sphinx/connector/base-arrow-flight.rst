@@ -49,7 +49,7 @@ connection properties as appropriate for your setup:
         data-source.port=<PORT>
         data-source.ssl=<TRUE/FALSE>
 
-        note : You can add other properties that are required for your Flight server to connect.
+        Note : You can add other properties that are required for your Flight server to connect.
 
 ========================================== ==============================================================
 Property Name                               Description
