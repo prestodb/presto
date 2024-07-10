@@ -180,6 +180,18 @@ class HiveConfig {
   static constexpr const char* kOrcWriterMaxDictionaryMemorySession =
       "orc_optimized_writer_max_dictionary_memory";
 
+  /// Configs to control dictionary encoding.
+  static constexpr const char* kOrcWriterIntegerDictionaryEncodingEnabled =
+      "hive.orc.writer.integer-dictionary-encoding-enabled";
+  static constexpr const char*
+      kOrcWriterIntegerDictionaryEncodingEnabledSession =
+          "orc_optimized_writer_integer_dictionary_encoding_enabled";
+  static constexpr const char* kOrcWriterStringDictionaryEncodingEnabled =
+      "hive.orc.writer.string-dictionary-encoding-enabled";
+  static constexpr const char*
+      kOrcWriterStringDictionaryEncodingEnabledSession =
+          "orc_optimized_writer_string_dictionary_encoding_enabled";
+
   /// Enables historical based stripe size estimation after compression.
   static constexpr const char* kOrcWriterLinearStripeSizeHeuristics =
       "hive.orc.writer.linear-stripe-size-heuristics";
@@ -298,6 +310,10 @@ class HiveConfig {
   uint64_t orcWriterMaxStripeSize(const Config* session) const;
 
   uint64_t orcWriterMaxDictionaryMemory(const Config* session) const;
+
+  bool isOrcWriterIntegerDictionaryEncodingEnabled(const Config* session) const;
+
+  bool isOrcWriterStringDictionaryEncodingEnabled(const Config* session) const;
 
   bool orcWriterLinearStripeSizeHeuristics(const Config* session) const;
 

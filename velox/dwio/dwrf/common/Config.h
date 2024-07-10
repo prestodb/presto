@@ -61,6 +61,8 @@ class Config : public common::ConfigBase<Config> {
       MAP_FLAT_COLS_STRUCT_KEYS;
   static Entry<uint32_t> MAP_FLAT_MAX_KEYS;
   static Entry<uint64_t> MAX_DICTIONARY_SIZE;
+  static Entry<bool> INTEGER_DICTIONARY_ENCODING_ENABLED;
+  static Entry<bool> STRING_DICTIONARY_ENCODING_ENABLED;
   static Entry<uint64_t> STRIPE_SIZE;
   static Entry<bool> LINEAR_STRIPE_SIZE_HEURISTICS;
   /// With this config, we don't even try the more memory intensive encodings on

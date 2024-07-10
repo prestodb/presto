@@ -210,6 +210,20 @@ uint64_t HiveConfig::orcWriterMaxDictionaryMemory(const Config* session) const {
       core::CapacityUnit::BYTE);
 }
 
+bool HiveConfig::isOrcWriterIntegerDictionaryEncodingEnabled(
+    const Config* session) const {
+  return session->get<bool>(
+      kOrcWriterIntegerDictionaryEncodingEnabledSession,
+      config_->get<bool>(kOrcWriterIntegerDictionaryEncodingEnabled, true));
+}
+
+bool HiveConfig::isOrcWriterStringDictionaryEncodingEnabled(
+    const Config* session) const {
+  return session->get<bool>(
+      kOrcWriterStringDictionaryEncodingEnabledSession,
+      config_->get<bool>(kOrcWriterStringDictionaryEncodingEnabled, true));
+}
+
 bool HiveConfig::orcWriterLinearStripeSizeHeuristics(
     const Config* session) const {
   return session->get<bool>(

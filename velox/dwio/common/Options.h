@@ -602,6 +602,8 @@ struct WriterOptions {
   std::optional<uint64_t> maxStripeSize{std::nullopt};
   std::optional<bool> orcLinearStripeSizeHeuristics{std::nullopt};
   std::optional<uint64_t> maxDictionaryMemory{std::nullopt};
+  std::optional<bool> orcWriterIntegerDictionaryEncodingEnabled{std::nullopt};
+  std::optional<bool> orcWriterStringDictionaryEncodingEnabled{std::nullopt};
   std::map<std::string, std::string> serdeParameters;
   std::optional<uint8_t> parquetWriteTimestampUnit;
   std::optional<uint8_t> zlibCompressionLevel;

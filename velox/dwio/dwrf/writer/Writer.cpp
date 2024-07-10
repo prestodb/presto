@@ -821,6 +821,18 @@ dwrf::WriterOptions getDwrfOptions(const dwio::common::WriterOptions& options) {
         Config::MAX_DICTIONARY_SIZE.configKey(),
         std::to_string(options.maxDictionaryMemory.value()));
   }
+  if (options.orcWriterIntegerDictionaryEncodingEnabled.has_value()) {
+    configs.emplace(
+        Config::INTEGER_DICTIONARY_ENCODING_ENABLED.configKey(),
+        std::to_string(
+            options.orcWriterIntegerDictionaryEncodingEnabled.value()));
+  }
+  if (options.orcWriterStringDictionaryEncodingEnabled.has_value()) {
+    configs.emplace(
+        Config::STRING_DICTIONARY_ENCODING_ENABLED.configKey(),
+        std::to_string(
+            options.orcWriterStringDictionaryEncodingEnabled.value()));
+  }
   if (options.zlibCompressionLevel.has_value()) {
     configs.emplace(
         Config::ZLIB_COMPRESSION_LEVEL.configKey(),

@@ -269,6 +269,8 @@ class BaseColumnWriter : public ColumnWriter {
   const std::function<void(IndexBuilder&)> onRecordPosition_;
 
   VELOX_FRIEND_TEST(ColumnWriterTest, LowMemoryModeConfig);
+  VELOX_FRIEND_TEST(ColumnWriterTest, IntegerDictionaryEncodingEnabledConfig);
+  VELOX_FRIEND_TEST(ColumnWriterTest, StringDictionaryEncodingEnabledConfig);
   friend class ValueStatisticsBuilder;
   friend class ValueWriter;
 };

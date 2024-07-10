@@ -693,6 +693,12 @@ uint32_t HiveDataSink::appendWriter(const HiveWriterId& id) {
       hiveConfig_->orcWriterMaxStripeSize(connectorSessionProperties));
   options.maxDictionaryMemory = std::optional(
       hiveConfig_->orcWriterMaxDictionaryMemory(connectorSessionProperties));
+  options.orcWriterIntegerDictionaryEncodingEnabled =
+      hiveConfig_->isOrcWriterIntegerDictionaryEncodingEnabled(
+          connectorSessionProperties);
+  options.orcWriterStringDictionaryEncodingEnabled =
+      hiveConfig_->isOrcWriterStringDictionaryEncodingEnabled(
+          connectorSessionProperties);
   options.parquetWriteTimestampUnit =
       hiveConfig_->parquetWriteTimestampUnit(connectorSessionProperties);
   options.orcMinCompressionSize = std::optional(

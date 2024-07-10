@@ -447,6 +447,11 @@ class IntegerColumnWriter : public BaseColumnWriter {
     }
   }
 
+  bool useDictionaryEncoding() const override {
+    return getConfig(Config::INTEGER_DICTIONARY_ENCODING_ENABLED) &&
+        BaseColumnWriter::useDictionaryEncoding();
+  }
+
   void populateDictionaryEncodingStreams();
   void convertToDirectEncoding();
 
@@ -955,14 +960,6 @@ class StringColumnWriter : public BaseColumnWriter {
     return true;
   }
 
- protected:
-  bool useDictionaryEncoding() const override {
-    return (sequence_ == 0 ||
-            !context_.getConfig(
-                Config::MAP_FLAT_DISABLE_DICT_ENCODING_STRING)) &&
-        !context_.isLowMemoryMode();
-  }
-
  private:
   uint64_t writeDict(
       DecodedVector& decodedVector,
@@ -1056,6 +1053,13 @@ class StringColumnWriter : public BaseColumnWriter {
     if (endOfLastStride < rows_.size()) {
       populateData(endOfLastStride, rows_.size(), numStrides);
     }
+  }
+
+  bool useDictionaryEncoding() const override {
+    return getConfig(Config::STRING_DICTIONARY_ENCODING_ENABLED) &&
+        (sequence_ == 0 ||
+         !getConfig(Config::MAP_FLAT_DISABLE_DICT_ENCODING_STRING)) &&
+        !context_.isLowMemoryMode();
   }
 
   void populateDictionaryEncodingStreams();

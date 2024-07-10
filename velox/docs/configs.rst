@@ -478,6 +478,16 @@ Each query can override the config by setting corresponding query session proper
      - string
      - 16M
      - Maximum dictionary memory that can be used in orc writer.
+   * - hive.orc.writer.integer-dictionary-encoding-enabled
+     - orc_optimized_writer_integer_dictionary_encoding_enabled
+     - bool
+     - true
+     - Whether or not dictionary encoding of integer types should be used by the ORC writer.
+   * - hive.orc.writer.string-dictionary-encoding-enabled
+     - orc_optimized_writer_string_dictionary_encoding_enabled
+     - bool
+     - true
+     - Whether or not dictionary encoding of string types should be used by the ORC writer.
    * - hive.parquet.writer.timestamp-unit
      - hive.parquet.writer.timestamp_unit
      - tinyint
@@ -498,7 +508,7 @@ Each query can override the config by setting corresponding query session proper
      - orc_optimized_writer_compression_level
      - tinyint
      - 3 for ZSTD and 4 for ZLIB
-     - The compression level to use with ZLIB and ZSTD. 
+     - The compression level to use with ZLIB and ZSTD.
    * - cache.no_retention
      - cache.no_retention
      - bool
@@ -583,7 +593,7 @@ Each query can override the config by setting corresponding query session proper
      - **Allowed values:** "standard", "adaptive", "legacy". By default it's empty, S3 client will be created with RetryStrategy.
        Legacy mode only enables throttled retry for transient errors.
        Standard mode is built on top of legacy mode and has throttled retry enabled for throttling errors apart from transient errors.
-       Adaptive retry mode dynamically limits the rate of AWS requests to maximize success rate. 
+       Adaptive retry mode dynamically limits the rate of AWS requests to maximize success rate.
 ``Google Cloud Storage Configuration``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. list-table::

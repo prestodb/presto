@@ -188,6 +188,14 @@ Config::Entry<uint64_t> Config::MAX_DICTIONARY_SIZE(
     "hive.exec.orc.max.dictionary.size",
     80L * 1024L * 1024L);
 
+Config::Entry<bool> Config::INTEGER_DICTIONARY_ENCODING_ENABLED(
+    "hive.exec.orc.integer.dictionary.encoding.enabled",
+    true);
+
+Config::Entry<bool> Config::STRING_DICTIONARY_ENCODING_ENABLED(
+    "hive.exec.orc.string.dictionary.encoding.enabled",
+    true);
+
 Config::Entry<uint64_t> Config::STRIPE_SIZE(
     "hive.exec.orc.stripe.size",
     256L * 1024L * 1024L);
