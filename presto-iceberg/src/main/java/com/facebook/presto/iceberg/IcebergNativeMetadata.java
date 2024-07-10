@@ -180,7 +180,7 @@ public class IcebergNativeMetadata
         }
 
         Table icebergTable = transaction.table();
-        return new IcebergWritableTableHandle(
+        return new IcebergOutputTableHandle(
                 schemaName,
                 new IcebergTableName(tableName, DATA, Optional.empty(), Optional.empty()),
                 SchemaParser.toJson(icebergTable.schema()),
