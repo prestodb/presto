@@ -30,12 +30,15 @@ import com.facebook.presto.hive.HiveHdfsConfiguration;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.iceberg.delete.DeleteFile;
+import com.facebook.presto.metadata.CatalogMetadata;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.analyzer.MetadataResolver;
+import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorMetadata;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.Estimate;
@@ -46,9 +49,11 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
+import com.google.common.cache.CacheStats;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
@@ -81,6 +86,7 @@ import org.testng.annotations.Test;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -933,7 +939,7 @@ public abstract class IcebergDistributedTestBase
         Session weightedSession = Session.builder(getSession())
                 .setCatalogSessionProperty("iceberg", STATISTIC_SNAPSHOT_RECORD_DIFFERENCE_WEIGHT, "10000000")
                 .build();
-        Function<Integer, Estimate> ndvs = (x) -> columnStatsFor(getTableStats("test_stat_dist", Optional.of(snapshots.get(x)), weightedSession), "col0")
+        Function<Integer, Estimate> ndvs = (x) -> columnStatsFor(getTableStats("test_stat_dist", Optional.of(snapshots.get(x)), weightedSession, Optional.empty()), "col0")
                 .getDistinctValuesCount();
         assertEquals(ndvs.apply(0).getValue(), 1);
         assertEquals(ndvs.apply(1).getValue(), 1);
@@ -991,10 +997,10 @@ public abstract class IcebergDistributedTestBase
 
     private TableStatistics getTableStats(String name, Optional<Long> snapshot)
     {
-        return getTableStats(name, snapshot, getSession());
+        return getTableStats(name, snapshot, getSession(), Optional.empty());
     }
 
-    private TableStatistics getTableStats(String name, Optional<Long> snapshot, Session session)
+    private TableStatistics getTableStats(String name, Optional<Long> snapshot, Session session, Optional<List<String>> columns)
     {
         TransactionId transactionId = getQueryRunner().getTransactionManager().beginTransaction(false);
         Session metadataSession = session.beginTransactionId(
@@ -1008,7 +1014,9 @@ public abstract class IcebergDistributedTestBase
         TableHandle handle = resolver.getTableHandle(QualifiedObjectName.valueOf(qualifiedName)).get();
         return metadata.getTableStatistics(metadataSession,
                 handle,
-                new ArrayList<>(resolver.getColumnHandles(handle).values()),
+                new ArrayList<>(columns
+                        .map(columnSet -> Maps.filterKeys(resolver.getColumnHandles(handle), columnSet::contains))
+                        .orElse(resolver.getColumnHandles(handle)).values()),
                 Constraint.alwaysTrue());
     }
 
@@ -1827,6 +1835,36 @@ public abstract class IcebergDistributedTestBase
                                     .withOutputRowCount(1)));
         }
         assertQuerySucceeds("DROP TABLE test_filterstats_remaining_predicate");
+    }
+
+    public void testStatisticsFileCache()
+            throws Exception
+    {
+        assertQuerySucceeds("CREATE TABLE test_statistics_file_cache(i int)");
+        assertUpdate("INSERT INTO test_statistics_file_cache VALUES 1, 2, 3, 4, 5", 5);
+        assertQuerySucceeds("ANALYZE test_statistics_file_cache");
+        Session session = Session.builder(getSession())
+                .setTransactionId(getQueryRunner().getTransactionManager().beginTransaction(false))
+                .build();
+        Optional<TableHandle> handle = MetadataUtil.getOptionalTableHandle(session,
+                getQueryRunner().getTransactionManager(),
+                QualifiedObjectName.valueOf(session.getCatalog().get(), session.getSchema().get(), "test_statistics_file_cache"),
+                Optional.empty());
+        CatalogMetadata catalogMetadata = getQueryRunner().getTransactionManager()
+                .getCatalogMetadata(session.getTransactionId().get(), handle.get().getConnectorId());
+        // There isn't an easy way to access the cache internally, so use some reflection to grab it
+        Field delegate = ClassLoaderSafeConnectorMetadata.class.getDeclaredField("delegate");
+        delegate.setAccessible(true);
+        IcebergAbstractMetadata metadata = (IcebergAbstractMetadata) delegate.get(catalogMetadata.getMetadataFor(handle.get().getConnectorId()));
+        CacheStats initial = metadata.statisticsFileCache.stats();
+        assertEquals(metadata.statisticsFileCache.stats().minus(initial).hitCount(), 0);
+        TableStatistics stats = getTableStats("test_statistics_file_cache", Optional.empty(), getSession(), Optional.of(ImmutableList.of("i")));
+        assertEquals(stats.getRowCount().getValue(), 5);
+        assertEquals(metadata.statisticsFileCache.stats().minus(initial).missCount(), 1);
+        getTableStats("test_statistics_file_cache", Optional.empty(), getSession(), Optional.of(ImmutableList.of("i")));
+        assertEquals(metadata.statisticsFileCache.stats().minus(initial).missCount(), 1);
+        assertEquals(metadata.statisticsFileCache.stats().minus(initial).hitCount(), 1);
+        getQueryRunner().execute("DROP TABLE test_statistics_file_cache");
     }
 
     private void testCheckDeleteFiles(Table icebergTable, int expectedSize, List<FileContent> expectedFileContent)

@@ -44,6 +44,8 @@ import com.facebook.presto.iceberg.procedure.RegisterTableProcedure;
 import com.facebook.presto.iceberg.procedure.RemoveOrphanFiles;
 import com.facebook.presto.iceberg.procedure.RollbackToSnapshotProcedure;
 import com.facebook.presto.iceberg.procedure.UnregisterTableProcedure;
+import com.facebook.presto.iceberg.statistics.StatisticsFileCache;
+import com.facebook.presto.iceberg.statistics.StatisticsFileCacheKey;
 import com.facebook.presto.orc.CachingStripeMetadataSource;
 import com.facebook.presto.orc.DwrfAwareStripeMetadataSourceFactory;
 import com.facebook.presto.orc.EncryptionLibrary;
@@ -71,6 +73,7 @@ import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.inject.Binder;
@@ -168,6 +171,20 @@ public class IcebergCommonModule
         configBinder(binder).bindConfig(ParquetCacheConfig.class, connectorId);
 
         binder.bind(ConnectorPlanOptimizerProvider.class).to(IcebergPlanOptimizerProvider.class).in(Scopes.SINGLETON);
+    }
+
+    @Singleton
+    @Provides
+    public StatisticsFileCache createStatisticsFileCache(IcebergConfig config, MBeanExporter exporter)
+    {
+        Cache<StatisticsFileCacheKey, ColumnStatistics> delegate = CacheBuilder.newBuilder()
+                .maximumWeight(config.getMaxStatisticsFileCacheSize().toBytes())
+                .<StatisticsFileCacheKey, ColumnStatistics>weigher((key, entry) -> (int) entry.getEstimatedSize())
+                .recordStats()
+                .build();
+        CacheStatsMBean bean = new CacheStatsMBean(delegate);
+        exporter.export(generatedNameOf(StatisticsFileCache.class, connectorId), bean);
+        return new StatisticsFileCache(delegate);
     }
 
     @ForCachingHiveMetastore

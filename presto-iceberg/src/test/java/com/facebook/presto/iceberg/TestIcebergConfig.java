@@ -30,6 +30,8 @@ import static com.facebook.presto.iceberg.IcebergFileFormat.ORC;
 import static com.facebook.presto.iceberg.IcebergFileFormat.PARQUET;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.TOTAL_SIZE_IN_BYTES;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.airlift.units.DataSize.succinctDataSize;
 import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_EXPIRATION_INTERVAL_MS_DEFAULT;
 import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_MAX_CONTENT_LENGTH_DEFAULT;
 import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_MAX_TOTAL_BYTES_DEFAULT;
@@ -66,7 +68,8 @@ public class TestIcebergConfig
                 .setSplitManagerThreads(Runtime.getRuntime().availableProcessors())
                 .setMetadataPreviousVersionsMax(METADATA_PREVIOUS_VERSIONS_MAX_DEFAULT)
                 .setMetadataDeleteAfterCommit(METADATA_DELETE_AFTER_COMMIT_ENABLED_DEFAULT)
-                .setMetricsMaxInferredColumn(METRICS_MAX_INFERRED_COLUMN_DEFAULTS_DEFAULT));
+                .setMetricsMaxInferredColumn(METRICS_MAX_INFERRED_COLUMN_DEFAULTS_DEFAULT)
+                .setMaxStatisticsFileCacheSize(succinctDataSize(256, MEGABYTE)));
     }
 
     @Test
@@ -97,6 +100,7 @@ public class TestIcebergConfig
                 .put("iceberg.metadata-previous-versions-max", "1")
                 .put("iceberg.metadata-delete-after-commit", "true")
                 .put("iceberg.metrics-max-inferred-column", "16")
+                .put("iceberg.max-statistics-file-cache-size", "512MB")
                 .build();
 
         IcebergConfig expected = new IcebergConfig()
@@ -123,7 +127,8 @@ public class TestIcebergConfig
                 .setSplitManagerThreads(42)
                 .setMetadataPreviousVersionsMax(1)
                 .setMetadataDeleteAfterCommit(true)
-                .setMetricsMaxInferredColumn(16);
+                .setMetricsMaxInferredColumn(16)
+                .setMaxStatisticsFileCacheSize(succinctDataSize(512, MEGABYTE));
 
         assertFullMapping(properties, expected);
     }
