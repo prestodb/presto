@@ -312,7 +312,7 @@ public class IcebergHiveMetadata
         TableMetadata metadata = newTableMetadata(schema, partitionSpec, targetPath, populateTableProperties(tableMetadata, fileFormat, session));
         transaction = createTableTransaction(tableName, operations, metadata);
 
-        return new IcebergWritableTableHandle(
+        return new IcebergOutputTableHandle(
                 schemaName,
                 new IcebergTableName(tableName, DATA, Optional.empty(), Optional.empty()),
                 SchemaParser.toJson(metadata.schema()),

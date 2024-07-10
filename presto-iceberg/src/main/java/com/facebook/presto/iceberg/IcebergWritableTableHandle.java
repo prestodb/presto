@@ -14,9 +14,6 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.presto.hive.HiveCompressionCodec;
-import com.facebook.presto.spi.ConnectorInsertTableHandle;
-import com.facebook.presto.spi.ConnectorOutputTableHandle;
-import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
@@ -26,7 +23,6 @@ import java.util.Map;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergWritableTableHandle
-        implements ConnectorInsertTableHandle, ConnectorOutputTableHandle
 {
     private final String schemaName;
     private final IcebergTableName tableName;
@@ -38,17 +34,16 @@ public class IcebergWritableTableHandle
     private final HiveCompressionCodec compressionCodec;
     private final Map<String, String> storageProperties;
 
-    @JsonCreator
     public IcebergWritableTableHandle(
-            @JsonProperty("schemaName") String schemaName,
-            @JsonProperty("tableName") IcebergTableName tableName,
-            @JsonProperty("schemaAsJson") String schemaAsJson,
-            @JsonProperty("partitionSpecAsJson") String partitionSpecAsJson,
-            @JsonProperty("inputColumns") List<IcebergColumnHandle> inputColumns,
-            @JsonProperty("outputPath") String outputPath,
-            @JsonProperty("fileFormat") FileFormat fileFormat,
-            @JsonProperty("compressionCodec") HiveCompressionCodec compressionCodec,
-            @JsonProperty("storageProperties") Map<String, String> storageProperties)
+            String schemaName,
+            IcebergTableName tableName,
+            String schemaAsJson,
+            String partitionSpecAsJson,
+            List<IcebergColumnHandle> inputColumns,
+            String outputPath,
+            FileFormat fileFormat,
+            HiveCompressionCodec compressionCodec,
+            Map<String, String> storageProperties)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
