@@ -51,7 +51,7 @@ import static java.util.Objects.requireNonNull;
 public class CachingDirectoryLister
         implements DirectoryLister
 {
-    private final Cache<Path, List<HiveFileInfo>> cache;
+    private final Cache<String, List<HiveFileInfo>> cache;
     private final CachedTableChecker cachedTableChecker;
     private final DirectoryLister delegate;
 
@@ -70,7 +70,7 @@ public class CachingDirectoryLister
         this.delegate = requireNonNull(delegate, "delegate is null");
         cache = CacheBuilder.newBuilder()
                 .maximumWeight(maxSize)
-                .weigher((Weigher<Path, List<HiveFileInfo>>) (key, value) -> value.size())
+                .weigher((Weigher<String, List<HiveFileInfo>>) (key, value) -> value.size())
                 .expireAfterWrite(expireAfterWrite.toMillis(), TimeUnit.MILLISECONDS)
                 .recordStats()
                 .build();
@@ -91,7 +91,7 @@ public class CachingDirectoryLister
         if (hiveDirectoryContext.isCacheable()) {
             // DO NOT USE Caching, when cache is disabled.
             // This is useful for debugging issues, when cache is explicitly disabled via session property.
-            List<HiveFileInfo> files = cache.getIfPresent(path);
+            List<HiveFileInfo> files = cache.getIfPresent(path.toString());
             if (files != null) {
                 runtimeStats.addMetricValue(DIRECTORY_LISTING_CACHE_HIT, NONE, 1);
                 runtimeStats.addMetricValue(DIRECTORY_LISTING_TIME_NANOS, NANO, System.nanoTime() - startTime);
@@ -122,7 +122,7 @@ public class CachingDirectoryLister
                 if (!hasNext) {
                     runtimeStats.addMetricValue(FILES_READ_COUNT, NONE, files.size());
                     if (enableCaching) {
-                        cache.put(path, ImmutableList.copyOf(files));
+                        cache.put(path.toString(), ImmutableList.copyOf(files));
                     }
                 }
                 return hasNext;
@@ -144,12 +144,12 @@ public class CachingDirectoryLister
             if (directoryPath.get().isEmpty()) {
                 throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, "Directory path can not be a empty string");
             }
-            Path path = new Path(directoryPath.get());
-            List<HiveFileInfo> files = cache.getIfPresent(path);
+
+            List<HiveFileInfo> files = cache.getIfPresent(directoryPath.get());
             if (files == null) {
                 throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, "Given directory path is not cached : " + directoryPath);
             }
-            cache.invalidate(path);
+            cache.invalidate(directoryPath.get());
         }
         else {
             flushCache();
