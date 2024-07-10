@@ -51,7 +51,7 @@ class HashTableTestHelper {
   }
 
   void allocateTables(uint64_t size) {
-    table_->allocateTables(size);
+    table_->allocateTables(size, BaseHashTable::kNoSpillInputStartPartitionBit);
   }
 
   size_t tableSlotSize() const {
@@ -68,7 +68,8 @@ class HashTableTestHelper {
   }
 
   void setHashMode(BaseHashTable::HashMode mode, int32_t numNew) {
-    table_->setHashMode(mode, numNew);
+    table_->setHashMode(
+        mode, numNew, BaseHashTable::kNoSpillInputStartPartitionBit);
   }
 
  private:
@@ -155,7 +156,10 @@ class HashTableTest : public testing::TestWithParam<bool>,
     const uint64_t estimatedTableSize =
         topTable_->estimateHashTableSize(numRows);
     const uint64_t usedMemoryBytes = topTable_->rows()->pool()->usedBytes();
-    topTable_->prepareJoinTable(std::move(otherTables), executor_.get());
+    topTable_->prepareJoinTable(
+        std::move(otherTables),
+        BaseHashTable::kNoSpillInputStartPartitionBit,
+        executor_.get());
     ASSERT_GE(
         estimatedTableSize,
         topTable_->rows()->pool()->usedBytes() - usedMemoryBytes);
@@ -271,12 +275,13 @@ class HashTableTest : public testing::TestWithParam<bool>,
 
     if (rehash) {
       if (table.hashMode() != BaseHashTable::HashMode::kHash) {
-        table.decideHashMode(input.size());
+        table.decideHashMode(
+            input.size(), BaseHashTable::kNoSpillInputStartPartitionBit);
       }
       insertGroups(input, rows, lookup, table);
       return;
     }
-    table.groupProbe(lookup);
+    table.groupProbe(lookup, BaseHashTable::kNoSpillInputStartPartitionBit);
   }
 
   std::string describeTable() {
@@ -533,7 +538,8 @@ class HashTableTest : public testing::TestWithParam<bool>,
     auto table = HashTable<false>::createForJoin(
         std::move(hashers), {BIGINT()}, true, false, 1'000, pool());
     copyVectorsToTable({batch}, 0, table.get());
-    table->prepareJoinTable({}, executor_.get());
+    table->prepareJoinTable(
+        {}, BaseHashTable::kNoSpillInputStartPartitionBit, executor_.get());
     ASSERT_EQ(table->hashMode(), mode);
     std::vector<char*> rows(nullValues.size());
     BaseHashTable::NullKeyRowsIterator iter;
@@ -762,7 +768,7 @@ TEST_P(HashTableTest, arrayProbeNormalizedKey) {
     rows.setValidRange(5'000, 10'000, true);
     rows.updateBounds();
     insertGroups(*data, rows, *lookup, *table);
-    EXPECT_LE(table->stats().numDistinct, table->rehashSize());
+    EXPECT_LE(table->stats().numDistinct, table->testingRehashSize());
   }
 
   ASSERT_EQ(table->hashMode(), BaseHashTable::HashMode::kNormalizedKey);
@@ -782,9 +788,10 @@ TEST_P(HashTableTest, regularHashingTableSize) {
     std::vector<RowVectorPtr> batches;
     makeRows(1 << 12, 1, 0, type, batches);
     copyVectorsToTable(batches, 0, table.get());
-    table->prepareJoinTable({}, executor_.get());
+    table->prepareJoinTable(
+        {}, BaseHashTable::kNoSpillInputStartPartitionBit, executor_.get());
     ASSERT_EQ(table->hashMode(), mode);
-    EXPECT_GE(table->rehashSize(), table->numDistinct());
+    EXPECT_GE(table->testingRehashSize(), table->numDistinct());
   };
   {
     auto type = ROW({"key"}, {ROW({"k1"}, {BIGINT()})});
@@ -980,7 +987,10 @@ DEBUG_ONLY_TEST_P(HashTableTest, failureInCreateRowPartitions) {
     }
   }
 
-  topTable->prepareJoinTable(std::move(otherTables), executor_.get());
+  topTable->prepareJoinTable(
+      std::move(otherTables),
+      BaseHashTable::kNoSpillInputStartPartitionBit,
+      executor_.get());
   auto topTabletestHelper = HashTableTestHelper<false>::create(topTable.get());
 
   const std::string expectedFailureMessage =
@@ -1068,7 +1078,7 @@ TEST_P(HashTableTest, toStringSingleKey) {
 
   store(*table->rows(), data);
 
-  table->prepareJoinTable({});
+  table->prepareJoinTable({}, BaseHashTable::kNoSpillInputStartPartitionBit);
 
   ASSERT_NO_THROW(table->toString());
   ASSERT_NO_THROW(table->toString(0));
@@ -1099,7 +1109,7 @@ TEST_P(HashTableTest, toStringMultipleKeys) {
 
   store(*table->rows(), data);
 
-  table->prepareJoinTable({});
+  table->prepareJoinTable({}, BaseHashTable::kNoSpillInputStartPartitionBit);
 
   ASSERT_NO_THROW(table->toString());
 }
