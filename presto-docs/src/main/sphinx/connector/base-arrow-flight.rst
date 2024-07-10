@@ -5,6 +5,25 @@ Arrow-flight Connector
 This connector allows querying multiple datasources that supported by Arrow-flight-server.
 Apache Arrow enhances performance and efficiency in data-intensive applications through its columnar memory layout, zero-copy reads, vectorized execution, cross-language interoperability, rich data type support, and optimization for modern hardware. These features collectively reduce overhead, improve data processing speeds, and facilitate seamless data exchange between different systems and languages.
 
+Getting Started with base-arrow-module: Essential Abstract Methods for Developers
+--------------
+To utilize the base-arrow-module, you need to implement certain abstract methods that are specific to your use case. Below are the required classes and their purposes:
+
+1. ``ArrowFlightClientHandler.java``
+This class is responsible for initializing the Flight client and retrieving Flight information from the Flight server. To authenticate the Flight server, you must implement the abstract method ``getCallOptions`` in ArrowFlightClientHandler, which returns the ``CredentialCallOption`` specific to your Flight server.
+
+2. ``ArrowAbstractFlightRequest.java``
+Implement the ArrowAbstractFlightRequest class to define the request data, including the data source type, connection properties, interaction properties, and the number of partitions.
+
+3. ``ArrowAbstractMetadata.java``
+To retrieve metadata (schema and table information), implement the abstract methods in the ArrowAbstractMetadata class.
+
+4. ``ArrowAbstractSplitManager.java``
+Extend the ArrowAbstractSplitManager class to implement the Arrow flight request, defining the Arrow split.
+
+5. ``ArrowPlugin.java``
+Register your connector name by extending the ArrowPlugin class.
+
 Configuration
 -------------
 To configure the Arrow connector, create a catalog properties file
