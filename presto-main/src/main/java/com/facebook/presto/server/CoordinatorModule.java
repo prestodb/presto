@@ -31,6 +31,7 @@ import com.facebook.presto.dispatcher.FailedDispatchQueryFactory;
 import com.facebook.presto.dispatcher.LocalDispatchQueryFactory;
 import com.facebook.presto.event.QueryMonitor;
 import com.facebook.presto.event.QueryMonitorConfig;
+import com.facebook.presto.event.QueryProgressMonitor;
 import com.facebook.presto.execution.ClusterSizeMonitor;
 import com.facebook.presto.execution.ExecutionFactoriesManager;
 import com.facebook.presto.execution.ExplainAnalyzeContext;
@@ -163,6 +164,7 @@ public class CoordinatorModule
         jsonCodecBinder(binder).bindJsonCodec(OperatorInfo.class);
         configBinder(binder).bindConfig(QueryMonitorConfig.class);
         binder.bind(QueryMonitor.class).in(Scopes.SINGLETON);
+        binder.bind(QueryProgressMonitor.class).in(Scopes.SINGLETON);
 
         // query manager
         jaxrsBinder(binder).bind(QueryResource.class);
