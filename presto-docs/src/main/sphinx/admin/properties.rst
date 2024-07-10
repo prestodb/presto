@@ -845,6 +845,15 @@ broadcasting the side of a joinNode which has the highest (``HIGH`` or ``FACT``)
 If both sides have the same confidence statistics, then the original behavior will be followed.
 This can also be specified on a per-query basis using the ``confidence_based_broadcast`` session property.
 
+``optimizer.treat-low-confidence-zero-estimation-as-unknown``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Enable treating ``LOW`` confidence, zero estimations as ``UNKNOWN`` during joins. This can also be specified
+on a per-query basis using the ``treat-low-confidence-zero-estimation-as-unknown`` session property.
+
 Planner Properties
 ------------------
 
