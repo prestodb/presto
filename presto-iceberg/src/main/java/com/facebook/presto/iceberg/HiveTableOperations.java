@@ -101,6 +101,7 @@ public class HiveTableOperations
     private final Optional<String> owner;
     private final Optional<String> location;
     private final FileIO fileIO;
+    private final IcebergHiveTableOperationsConfig config;
 
     private TableMetadata currentMetadata;
     private String currentMetadataLocation;
@@ -114,12 +115,14 @@ public class HiveTableOperations
             MetastoreContext metastoreContext,
             HdfsEnvironment hdfsEnvironment,
             HdfsContext hdfsContext,
+            IcebergHiveTableOperationsConfig config,
             String database,
             String table)
     {
         this(new HdfsFileIO(hdfsEnvironment, hdfsContext),
                 metastore,
                 metastoreContext,
+                config,
                 database,
                 table,
                 Optional.empty(),
@@ -131,6 +134,7 @@ public class HiveTableOperations
             MetastoreContext metastoreContext,
             HdfsEnvironment hdfsEnvironment,
             HdfsContext hdfsContext,
+            IcebergHiveTableOperationsConfig config,
             String database,
             String table,
             String owner,
@@ -139,6 +143,7 @@ public class HiveTableOperations
         this(new HdfsFileIO(hdfsEnvironment, hdfsContext),
                 metastore,
                 metastoreContext,
+                config,
                 database,
                 table,
                 Optional.of(requireNonNull(owner, "owner is null")),
@@ -149,6 +154,7 @@ public class HiveTableOperations
             FileIO fileIO,
             ExtendedHiveMetastore metastore,
             MetastoreContext metastoreContext,
+            IcebergHiveTableOperationsConfig config,
             String database,
             String table,
             Optional<String> owner,
@@ -161,6 +167,7 @@ public class HiveTableOperations
         this.tableName = requireNonNull(table, "table is null");
         this.owner = requireNonNull(owner, "owner is null");
         this.location = requireNonNull(location, "location is null");
+        this.config = requireNonNull(config, "config is null");
         //TODO: duration from config
         initTableLevelLockCache(TimeUnit.MINUTES.toMillis(10));
     }
@@ -385,15 +392,23 @@ public class HiveTableOperations
         }
 
         AtomicReference<TableMetadata> newMetadata = new AtomicReference<>();
-        Tasks.foreach(newLocation)
-                .retry(20)
-                .exponentialBackoff(100, 5000, 600000, 4.0)
-                .suppressFailureWhenFinished()
-                .run(metadataLocation -> newMetadata.set(
-                        TableMetadataParser.read(fileIO, io().newInputFile(metadataLocation))));
+        try {
+            Tasks.foreach(newLocation)
+                    .retry(config.getTableRefreshRetries())
+                    .exponentialBackoff(
+                            config.getTableRefreshBackoffMinSleepTime().toMillis(),
+                            config.getTableRefreshBackoffMaxSleepTime().toMillis(),
+                            config.getTableRefreshMaxRetryTime().toMillis(),
+                            config.getTableRefreshBackoffScaleFactor())
+                    .run(metadataLocation -> newMetadata.set(
+                            TableMetadataParser.read(fileIO, io().newInputFile(metadataLocation))));
+        }
+        catch (RuntimeException e) {
+            throw new TableNotFoundException(getSchemaTableName(), "Table metadata is missing", e);
+        }
 
         if (newMetadata.get() == null) {
-            throw new TableNotFoundException(getSchemaTableName(), "Table metadata is missing.");
+            throw new TableNotFoundException(getSchemaTableName(), "failed to retrieve table metadata from " + newLocation);
         }
 
         String newUUID = newMetadata.get().uuid();

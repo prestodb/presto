@@ -49,6 +49,7 @@ public class IcebergHiveModule
     {
         install(new HiveMetastoreModule(this.connectorId, this.metastore));
         binder.bind(ExtendedHiveMetastore.class).to(InMemoryCachingHiveMetastore.class).in(Scopes.SINGLETON);
+        configBinder(binder).bindConfig(IcebergHiveTableOperationsConfig.class);
 
         configBinder(binder).bindConfig(MetastoreClientConfig.class);
         binder.bind(PartitionMutator.class).to(HivePartitionMutator.class).in(Scopes.SINGLETON);
