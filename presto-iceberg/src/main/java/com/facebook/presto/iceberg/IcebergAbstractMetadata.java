@@ -429,14 +429,14 @@ public abstract class IcebergAbstractMetadata
     @Override
     public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
-        return finishInsert(session, (IcebergWritableTableHandle) tableHandle, fragments, computedStatistics);
+        return finishWrite(session, (IcebergOutputTableHandle) tableHandle, fragments, computedStatistics);
     }
 
     protected ConnectorInsertTableHandle beginIcebergTableInsert(ConnectorSession session, IcebergTableHandle table, Table icebergTable)
     {
         transaction = icebergTable.newTransaction();
 
-        return new IcebergWritableTableHandle(
+        return new IcebergInsertTableHandle(
                 table.getSchemaName(),
                 table.getIcebergTableName(),
                 SchemaParser.toJson(icebergTable.schema()),
@@ -451,12 +451,16 @@ public abstract class IcebergAbstractMetadata
     @Override
     public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
+        return finishWrite(session, (IcebergInsertTableHandle) insertHandle, fragments, computedStatistics);
+    }
+
+    private Optional<ConnectorOutputMetadata> finishWrite(ConnectorSession session, IcebergWritableTableHandle writableTableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    {
         if (fragments.isEmpty()) {
             transaction.commitTransaction();
             return Optional.empty();
         }
 
-        IcebergWritableTableHandle table = (IcebergWritableTableHandle) insertHandle;
         Table icebergTable = transaction.table();
 
         List<CommitTaskData> commitTasks = fragments.stream()
@@ -473,7 +477,7 @@ public abstract class IcebergAbstractMetadata
             DataFiles.Builder builder = DataFiles.builder(icebergTable.spec())
                     .withPath(task.getPath())
                     .withFileSizeInBytes(task.getFileSizeInBytes())
-                    .withFormat(FileFormat.fromString(table.getFileFormat().name()))
+                    .withFormat(FileFormat.fromString(writableTableHandle.getFileFormat().name()))
                     .withMetrics(task.getMetrics().metrics());
 
             if (!icebergTable.spec().fields().isEmpty()) {
