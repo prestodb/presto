@@ -1,5 +1,5 @@
 -server
--Xmx1G
+-Xmx10G
 -XX:+UseG1GC
 -XX:G1HeapRegionSize=32M
 -XX:+UseGCOverheadLimit
