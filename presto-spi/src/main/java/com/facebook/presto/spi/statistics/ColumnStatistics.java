@@ -14,15 +14,21 @@
 package com.facebook.presto.spi.statistics;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.statistics.DoubleRange.RANGE_SIZE;
+import static com.facebook.presto.spi.statistics.Estimate.ESTIMATE_SIZE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class ColumnStatistics
 {
+    private static final long COLUMN_STATISTICS_SIZE = ClassLayout.parseClass(ColumnStatistics.class).instanceSize();
+    private static final long OPTION_SIZE = ClassLayout.parseClass(Optional.class).instanceSize();
+
     private static final ColumnStatistics EMPTY = new ColumnStatistics(Estimate.unknown(), Estimate.unknown(), Estimate.unknown(), Optional.empty(), Optional.empty());
 
     private final Estimate nullsFraction;
@@ -130,6 +136,25 @@ public final class ColumnStatistics
     public static Builder builder()
     {
         return new Builder();
+    }
+
+    public static Builder buildFrom(ColumnStatistics statistics)
+    {
+        return new Builder()
+                .setRange(statistics.getRange())
+                .setDataSize(statistics.getDataSize())
+                .setDistinctValuesCount(statistics.getDistinctValuesCount())
+                .setNullsFraction(statistics.getNullsFraction())
+                .setHistogram(statistics.getHistogram());
+    }
+
+    public long getMemoryUtilization()
+    {
+        return COLUMN_STATISTICS_SIZE +
+                3 * ESTIMATE_SIZE +
+                2 * OPTION_SIZE +
+                histogram.map(ConnectorHistogram::getMemoryUtilization).orElse(0L) +
+                range.map(unused -> RANGE_SIZE).orElse(0L);
     }
 
     /**

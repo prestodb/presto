@@ -19,6 +19,7 @@ import com.facebook.presto.hive.HiveCompressionCodec;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.DataSize;
 import org.apache.iceberg.hadoop.HadoopFileIO;
 
 import javax.validation.constraints.DecimalMax;
@@ -33,6 +34,8 @@ import static com.facebook.presto.hive.HiveCompressionCodec.GZIP;
 import static com.facebook.presto.iceberg.CatalogType.HIVE;
 import static com.facebook.presto.iceberg.IcebergFileFormat.PARQUET;
 import static com.facebook.presto.iceberg.util.StatisticsUtil.decodeMergeFlags;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.airlift.units.DataSize.succinctDataSize;
 import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_EXPIRATION_INTERVAL_MS_DEFAULT;
 import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_MAX_CONTENT_LENGTH_DEFAULT;
 import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_MAX_TOTAL_BYTES_DEFAULT;
@@ -65,6 +68,7 @@ public class IcebergConfig
     private long manifestCacheExpireDuration = IO_MANIFEST_CACHE_EXPIRATION_INTERVAL_MS_DEFAULT;
     private long manifestCacheMaxContentLength = IO_MANIFEST_CACHE_MAX_CONTENT_LENGTH_DEFAULT;
     private int splitManagerThreads = Runtime.getRuntime().availableProcessors();
+    private DataSize maxStatisticsFileCacheSize = succinctDataSize(256, MEGABYTE);
 
     @NotNull
     public FileFormat getFileFormat()
@@ -378,6 +382,19 @@ public class IcebergConfig
     public IcebergConfig setMetadataDeleteAfterCommit(boolean metadataDeleteAfterCommit)
     {
         this.metadataDeleteAfterCommit = metadataDeleteAfterCommit;
+        return this;
+    }
+
+    public DataSize getMaxStatisticsFileCacheSize()
+    {
+        return maxStatisticsFileCacheSize;
+    }
+
+    @Config("iceberg.max-statistics-file-cache-size")
+    @ConfigDescription("The maximum size in bytes the statistics file cache should consume")
+    public IcebergConfig setMaxStatisticsFileCacheSize(DataSize maxStatisticsFileCacheSize)
+    {
+        this.maxStatisticsFileCacheSize = maxStatisticsFileCacheSize;
         return this;
     }
 }
