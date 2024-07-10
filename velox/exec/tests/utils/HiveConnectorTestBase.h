@@ -20,7 +20,6 @@
 #include "velox/connectors/hive/HiveDataSink.h"
 #include "velox/connectors/hive/TableHandle.h"
 #include "velox/dwio/dwrf/common/Config.h"
-#include "velox/dwio/dwrf/writer/FlushPolicy.h"
 #include "velox/exec/Operator.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/TempFilePath.h"
@@ -48,17 +47,13 @@ class HiveConnectorTestBase : public OperatorTestBase {
       const std::string& filePath,
       const std::vector<RowVectorPtr>& vectors,
       std::shared_ptr<dwrf::Config> config =
-          std::make_shared<facebook::velox::dwrf::Config>(),
-      const std::function<std::unique_ptr<dwrf::DWRFFlushPolicy>()>&
-          flushPolicyFactory = nullptr);
+          std::make_shared<facebook::velox::dwrf::Config>());
 
   void writeToFile(
       const std::string& filePath,
       const std::vector<RowVectorPtr>& vectors,
       std::shared_ptr<dwrf::Config> config,
-      const TypePtr& schema,
-      const std::function<std::unique_ptr<dwrf::DWRFFlushPolicy>()>&
-          flushPolicyFactory = nullptr);
+      const TypePtr& schema);
 
   std::vector<RowVectorPtr> makeVectors(
       const RowTypePtr& rowType,
