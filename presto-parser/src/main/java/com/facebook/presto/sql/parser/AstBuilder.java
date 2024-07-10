@@ -532,6 +532,7 @@ class AstBuilder
     @Override
     public Node visitNamedConstraintSpecification(SqlBaseParser.NamedConstraintSpecificationContext context)
     {
+        // abc
         ConstraintSpecification unnamedConstraint = (ConstraintSpecification) visit(context.unnamedConstraintSpecification());
         return new ConstraintSpecification(getLocation(context),
                 Optional.of(visit(context.name).toString()),
