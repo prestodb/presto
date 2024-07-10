@@ -90,6 +90,8 @@ struct TaskStats {
 
   /// Total number of drivers.
   uint64_t numTotalDrivers{0};
+  /// Total number of drivers queued on an executor but not on thread.
+  uint64_t numQueuedDrivers{0};
   /// The number of completed drivers (which slots are null in Task 'drivers_'
   /// list).
   uint64_t numCompletedDrivers{0};

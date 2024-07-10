@@ -1165,6 +1165,7 @@ DEBUG_ONLY_TEST_F(TaskTest, liveStats) {
     EXPECT_EQ(0, liveStats[i].numCompletedDrivers);
     EXPECT_EQ(0, liveStats[i].numTerminatedDrivers);
     EXPECT_EQ(1, liveStats[i].numRunningDrivers);
+    EXPECT_EQ(0, liveStats[i].numQueuedDrivers);
     EXPECT_EQ(0, liveStats[i].numBlockedDrivers.size());
 
     EXPECT_EQ(0, liveStats[i].executionEndTimeMs);
@@ -1173,6 +1174,7 @@ DEBUG_ONLY_TEST_F(TaskTest, liveStats) {
 
   EXPECT_EQ(1, finishStats.numTotalDrivers);
   EXPECT_EQ(1, finishStats.numCompletedDrivers);
+  EXPECT_EQ(0, finishStats.numQueuedDrivers);
   EXPECT_EQ(0, finishStats.numTerminatedDrivers);
   EXPECT_EQ(0, finishStats.numRunningDrivers);
   EXPECT_EQ(0, finishStats.numBlockedDrivers.size());
