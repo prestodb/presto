@@ -739,6 +739,16 @@ bool HashBuild::finishHashBuild() {
       !otherTables.empty() && spillPartitions.empty();
   CpuWallTiming timing;
   {
+    // If there is a chance the join build is parallel, we suspend the driver
+    // while the hash table is being built. This is because off-driver thread
+    // memory allocations inside parallel join build might trigger memory
+    // arbitration.
+    std::unique_ptr<SuspendedSection> suspendedSection;
+    if (allowParallelJoinBuild) {
+      suspendedSection = std::make_unique<SuspendedSection>(
+          driverThreadContext()->driverCtx.driver);
+    }
+
     CpuWallTimer cpuWallTimer{timing};
     table_->prepareJoinTable(
         std::move(otherTables),

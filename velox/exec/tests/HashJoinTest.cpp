@@ -6992,51 +6992,111 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringTableBuild) {
 DEBUG_ONLY_TEST_F(HashJoinTest, arbitrationTriggeredDuringParallelJoinBuild) {
   std::unique_ptr<memory::MemoryManager> memoryManager = createMemoryManager();
   const auto& arbitrator = memoryManager->arbitrator();
-  auto rowType = ROW({
-      {"c0", INTEGER()},
-      {"c1", INTEGER()},
-      {"c2", VARCHAR()},
-  });
-  // Build a large vector to trigger memory arbitration.
-  fuzzerOpts_.vectorSize = 10'000;
-  std::vector<RowVectorPtr> vectors = createVectors(2, rowType, fuzzerOpts_);
-  createDuckDbTable(vectors);
+  const uint64_t numDrivers = 2;
 
-  const int numDrivers = 4;
+  // Large build side key product to bump hash mode to kHash instead of kArray
+  // to trigger parallel join build.
+  const uint64_t numBuildSideRows = 500;
+  auto buildKeyVector = makeFlatVector<int64_t>(
+      numBuildSideRows,
+      [](vector_size_t row) { return folly::Random::rand64(); });
+  auto buildSideVector = makeRowVector(
+      {"b0", "b1", "b2"}, {buildKeyVector, buildKeyVector, buildKeyVector});
+  std::vector<RowVectorPtr> buildSideVectors;
+  for (int i = 0; i < numDrivers; ++i) {
+    buildSideVectors.push_back(buildSideVector);
+  }
+  createDuckDbTable("build", buildSideVectors);
+
+  const uint64_t numProbeSideRows = 10;
+  auto probeKeyVector = makeFlatVector<int64_t>(
+      numProbeSideRows,
+      [&](vector_size_t row) { return buildKeyVector->valueAt(row); });
+  auto probeSideVector = makeRowVector(
+      {"p0", "p1", "p2"}, {probeKeyVector, probeKeyVector, probeKeyVector});
+  std::vector<RowVectorPtr> probeSideVectors;
+  for (int i = 0; i < numDrivers; ++i) {
+    probeSideVectors.push_back(probeSideVector);
+  }
+  createDuckDbTable("probe", probeSideVectors);
+
   std::shared_ptr<core::QueryCtx> joinQueryCtx =
       newQueryCtx(memoryManager.get(), executor_.get(), kMemoryCapacity);
-  // Make sure the parallel build has been triggered.
+
+  const int64_t allocSize = 512LL << 20;
   std::atomic<bool> parallelBuildTriggered{false};
+  std::atomic<memory::MemoryPool*> joinBuildPool{nullptr};
   SCOPED_TESTVALUE_SET(
       "facebook::velox::exec::HashTable::parallelJoinBuild",
-      std::function<void(void*)>(
-          [&](void*) { parallelBuildTriggered = true; }));
+      std::function<void(memory::MemoryPool*)>([&](memory::MemoryPool* pool) {
+        parallelBuildTriggered = true;
+        // Pick the last running driver threads' pool for later memory
+        // allocation. This pick is rather arbitrary, as it is un-important
+        // which pool is going to be allocated from later in a parallel join's
+        // off-driver thread.
+        joinBuildPool = pool;
+      }));
 
-  // TODO: add driver context to test if the memory allocation is triggered in
-  // driver context or not.
+  std::atomic_bool offThreadAllocationTriggered{false};
+  folly::EventCount asyncMoveWait;
+  std::atomic<bool> asyncMoveWaitFlag{true};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::AsyncSource::prepare",
+      std::function<void(void*)>([&](void* /* unused */) {
+        if (!offThreadAllocationTriggered.exchange(true)) {
+          SCOPE_EXIT {
+            asyncMoveWaitFlag = false;
+            asyncMoveWait.notifyAll();
+          };
+          // Executed by the first thread hitting the test value location. This
+          // allocation will trigger arbitration and fail.
+          VELOX_ASSERT_THROW(
+              joinBuildPool.load()->allocate(allocSize),
+              "Exceeded memory pool cap");
+        }
+      }));
+
+  // Wait for allocation (hence arbitration) on the prepare thread to finish
+  // before calling AsyncSource::move(). This is to ensure no other AsyncSource
+  // (hence arbitration) is running on the driver thread (on-thread) before the
+  // ongoing arbitration finishes. Without ensuring this, the on-thread
+  // arbitration (triggered by calling AsyncSource::move() first) has
+  // thread-local driver context by default, defying the purpose of this test.
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::AsyncSource::move",
+      std::function<void(void*)>([&](void* /* unused */) {
+        asyncMoveWait.await([&]() { return !asyncMoveWaitFlag.load(); });
+      }));
+
+  std::vector<RowVectorPtr> probeInput = {probeSideVector};
+  std::vector<RowVectorPtr> buildInput = {buildSideVector};
   auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  const auto spillDirectory = exec::test::TempDirectoryPath::create();
   AssertQueryBuilder(duckDbQueryRunner_)
+      .spillDirectory(spillDirectory->getPath())
+      .config(core::QueryConfig::kSpillEnabled, true)
+      .config(core::QueryConfig::kJoinSpillEnabled, true)
       // Set very low table size threshold to trigger parallel build.
       .config(core::QueryConfig::kMinTableRowsForParallelJoinBuild, 0)
       // Set multiple hash build drivers to trigger parallel build.
-      .maxDrivers(4)
+      .maxDrivers(numDrivers)
       .queryCtx(joinQueryCtx)
       .plan(PlanBuilder(planNodeIdGenerator)
-                .values(vectors, true)
-                .project({"c0 AS t0", "c1 AS t1", "c2 AS t2"})
+                .values(probeInput, true)
                 .hashJoin(
-                    {"t0", "t1"},
-                    {"u1", "u0"},
+                    {"p0", "p1", "p2"},
+                    {"b0", "b1", "b2"},
                     PlanBuilder(planNodeIdGenerator)
-                        .values(vectors, true)
-                        .project({"c0 AS u0", "c1 AS u1", "c2 AS u2"})
+                        .values(buildInput, true)
                         .planNode(),
                     "",
-                    {"t1"},
+                    {"p0", "p1", "b0", "b1"},
                     core::JoinType::kInner)
                 .planNode())
       .assertResults(
-          "SELECT t.c1 FROM tmp as t, tmp AS u WHERE t.c0 == u.c1 AND t.c1 == u.c0");
+          "SELECT probe.p0, probe.p1, build.b0, build.b1 FROM probe "
+          "INNER JOIN build ON probe.p0 = build.b0 AND probe.p1 = build.b1 AND "
+          "probe.p2 = build.b2");
   ASSERT_TRUE(parallelBuildTriggered);
 
   // This test uses on-demand created memory manager instead of the global

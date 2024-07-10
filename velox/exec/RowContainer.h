@@ -72,19 +72,19 @@ using normalized_key_t = uint64_t;
 struct RowContainerIterator {
   int32_t allocationIndex = 0;
   int32_t rowOffset = 0;
-  // Number of unvisited entries that are prefixed by an uint64_t for
-  // normalized key. Set in listRows() on first call.
+  /// Number of unvisited entries that are prefixed by an uint64_t for
+  /// normalized key. Set in listRows() on first call.
   int64_t normalizedKeysLeft = 0;
   int normalizedKeySize = 0;
 
-  // Ordinal position of 'currentRow' in RowContainer.
+  /// Ordinal position of 'currentRow' in RowContainer.
   int32_t rowNumber{0};
   char* rowBegin{nullptr};
-  // First byte after the end of the range containing 'currentRow'.
+  /// First byte after the end of the range containing 'currentRow'.
   char* endOfRun{nullptr};
 
-  // Returns the current row, skipping a possible normalized key below the first
-  // byte of row.
+  /// Returns the current row, skipping a possible normalized key below the
+  /// first byte of row.
   inline char* currentRow() const {
     return (rowBegin && normalizedKeysLeft) ? rowBegin + normalizedKeySize
                                             : rowBegin;
@@ -149,16 +149,16 @@ class RowColumn {
     return packedOffsets_ & 0xff;
   }
 
-  // The null bits and the initialized bits for accumulators start at the
-  // beginning of the first byte following the null bits for the keys.  This
-  // guarantees that they always appear on the same byte for any given
-  // accumulator (since 2 evenly divides 8).
+  /// The null bits and the initialized bits for accumulators start at the
+  /// beginning of the first byte following the null bits for the keys.  This
+  /// guarantees that they always appear on the same byte for any given
+  /// accumulator (since 2 evenly divides 8).
   int32_t initializedByte() const {
     return nullByte();
   }
 
-  // The initialized bit for an accumulator is guaranteed to appear on the same
-  // byte immediately following the null bit for that accumulator.
+  /// The initialized bit for an accumulator is guaranteed to appear on the same
+  /// byte immediately following the null bit for that accumulator.
   int32_t initializedMask() const {
     return nullMask() << 1;
   }
@@ -182,8 +182,8 @@ class RowColumn {
 class RowContainer {
  public:
   static constexpr uint64_t kUnlimited = std::numeric_limits<uint64_t>::max();
-  // The number of flags (bits) per accumulator, one for null and one for
-  // initialized.
+  /// The number of flags (bits) per accumulator, one for null and one for
+  /// initialized.
   static constexpr size_t kNumAccumulatorFlags = 2;
   using Eraser = std::function<void(folly::Range<char**> rows)>;
 
@@ -446,18 +446,18 @@ class RowContainer {
     return 1 << (nullOffset & 7);
   }
 
-  // Only accumulators have initialized flags. accumulatorFlagsOffset is the
-  // offset at which the flags for an accumulator begin. Currently this is the
-  // null flag, followed by the initialized flag.  So it's equivalent to the
-  // nullOffset.
-
-  // It's guaranteed that the flags for an accumulator appear in the same byte.
+  /// Only accumulators have initialized flags. accumulatorFlagsOffset is the
+  /// offset at which the flags for an accumulator begin. Currently this is the
+  /// null flag, followed by the initialized flag. So it's equivalent to the
+  /// nullOffset.
+  ///
+  /// It's guaranteed that the flags for an accumulator appear in the same byte.
   static inline int32_t initializedByte(int32_t accumulatorFlagsOffset) {
     return nullByte(accumulatorFlagsOffset);
   }
 
-  // accumulatorFlagsOffset is the offset at which the flags for an accumulator
-  // begin.
+  /// accumulatorFlagsOffset is the offset at which the flags for an accumulator
+  /// begin.
   static inline int32_t initializedMask(int32_t accumulatorFlagsOffset) {
     return nullMask(accumulatorFlagsOffset) << 1;
   }
@@ -639,9 +639,9 @@ class RowContainer {
     return nextOffset_;
   }
 
-  // Create a next-row-vector if it doesn't exist. Append the row address to
-  // the next-row-vector, and store the address of the next-row-vector in the
-  // nextOffset_ slot for all duplicate rows.
+  /// Creates a next-row-vector if it doesn't exist. Appends the row address to
+  /// the next-row-vector, and store the address of the next-row-vector in the
+  /// 'nextOffset_' slot for all duplicate rows.
   void appendNextRow(char* current, char* nextRow);
 
   NextRowVector*& getNextRowVector(char* row) const {

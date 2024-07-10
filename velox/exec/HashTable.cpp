@@ -936,7 +936,7 @@ void HashTable<ignoreNullKeys>::parallelJoinBuild() {
           partitionRows(*table, *rawRowPartitions);
           return std::make_unique<bool>(true);
         }));
-    assert(!partitionSteps.empty()); // lint
+    VELOX_CHECK(!partitionSteps.empty());
     buildExecutor_->add([step = partitionSteps.back()]() { step->prepare(); });
   }
 
@@ -958,6 +958,7 @@ void HashTable<ignoreNullKeys>::parallelJoinBuild() {
     buildExecutor_->add([step = buildSteps.back()]() { step->prepare(); });
   }
   syncWorkItems(buildSteps, error, offThreadBuildTiming_);
+
   if (error != nullptr) {
     std::rethrow_exception(error);
   }
