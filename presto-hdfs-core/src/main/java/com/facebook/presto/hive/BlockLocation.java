@@ -17,6 +17,7 @@ import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
 import com.google.common.collect.ImmutableList;
+import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
@@ -30,6 +31,8 @@ import static java.util.Objects.requireNonNull;
 @ThriftStruct
 public class BlockLocation
 {
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(BlockLocation.class).instanceSize();
+
     private final List<String> hosts;
     private final long offset;
     private final long length;
@@ -81,6 +84,11 @@ public class BlockLocation
     public long getLength()
     {
         return length;
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + hosts.stream().mapToLong(String::length).reduce(0, Long::sum);
     }
 
     @Override

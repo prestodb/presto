@@ -19,6 +19,7 @@ import com.facebook.drift.annotations.ThriftStruct;
 import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.util.List;
@@ -34,6 +35,8 @@ import static java.util.Objects.requireNonNull;
 public class HiveFileInfo
         implements Comparable
 {
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(HiveFileInfo.class).instanceSize();
+
     private final String path;
     private final boolean isDirectory;
     private final List<BlockLocation> blockLocations;
@@ -128,6 +131,14 @@ public class HiveFileInfo
     public Path getPath()
     {
         return new Path(path);
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        long blockLocationsSizeInBytes = blockLocations.stream().map(BlockLocation::getRetainedSizeInBytes).reduce(0L, Long::sum);
+        long extraFileInfoSizeInBytes = extraFileInfo.map(bytes -> bytes.length).orElse(0);
+        long customSplitInfoSizeInBytes = customSplitInfo.entrySet().stream().mapToLong(e -> e.getKey().length() + e.getValue().length()).reduce(0, Long::sum);
+        return INSTANCE_SIZE + path.length() + blockLocationsSizeInBytes + extraFileInfoSizeInBytes + customSplitInfoSizeInBytes;
     }
 
     @Override
