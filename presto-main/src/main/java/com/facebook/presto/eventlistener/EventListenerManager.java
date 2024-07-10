@@ -19,6 +19,7 @@ import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;
 import com.facebook.presto.spi.eventlistener.QueryCompletedEvent;
 import com.facebook.presto.spi.eventlistener.QueryCreatedEvent;
+import com.facebook.presto.spi.eventlistener.QueryProgressEvent;
 import com.facebook.presto.spi.eventlistener.QueryUpdatedEvent;
 import com.facebook.presto.spi.eventlistener.SplitCompletedEvent;
 import com.google.common.annotations.VisibleForTesting;
@@ -113,6 +114,12 @@ public class EventListenerManager
     {
         configuredEventListener.get()
                 .ifPresent(eventListener -> eventListener.queryUpdated(queryUpdatedEvent));
+    }
+
+    public void publishQueryProgress(QueryProgressEvent queryProgressEvent)
+    {
+        configuredEventListener.get()
+                .ifPresent(eventListener -> eventListener.publishQueryProgress(queryProgressEvent));
     }
 
     public void splitCompleted(SplitCompletedEvent splitCompletedEvent)
