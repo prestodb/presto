@@ -56,7 +56,7 @@ Property Name                               Description
 ========================================== ==============================================================
 ``arrow-flight.server``                     Endpoint of arrow-flight server
 ``arrow-flight.server.port``                Flight server port
-``arrow-flight.apikey``                     API_KEY
+``arrow-flight.apikey``                     API KEY
 ``arrow-flight.cloud.token-url``            Cloud host
 ``data-source.name``                        Datasource name
 ``data-source.host``                        Hostname of the database
