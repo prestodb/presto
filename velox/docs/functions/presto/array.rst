@@ -49,6 +49,10 @@ Array Functions
         SELECT array_distinct(ARRAY [1, 2, 1]); -- [1, 2]
         SELECT array_distinct(ARRAY [1, NULL, NULL]); -- [1, NULL]
 
+.. function:: array_dupes(array(E)) -> boolean
+
+    This is an alias for :func:`array_duplicates(array(E))`
+
 .. function:: array_duplicates(array(E)) -> array(E)
 
     Returns a set of elements that occur more than once in array.
@@ -76,6 +80,10 @@ Array Functions
         SELECT array_frequency(ARRAY [1, 1, NULL, NULL, NULL]); -- {1 -> 2}
         SELECT array_frequency(ARRAY ["knock", "knock", "who", "?"]); -- {"knock" -> 2, "who" -> 1, "?" -> 1}
         SELECT array_frequency(ARRAY []); -- {}
+
+.. function:: array_has_dupes(array(E)) -> boolean
+
+    This is an alias for :func:`array_has_duplicates(array(E))`.
 
 .. function:: array_has_duplicates(array(E)) -> boolean
 

@@ -34,114 +34,139 @@ class ArrayHasDuplicatesTest : public FunctionBaseTest {
         evaluate<SimpleVector<bool>>(expression, makeRowVector(input));
     assertEqualVectors(expected, result);
   }
+
+  void testBigInts(const std::string& funcName) {
+    auto array = makeNullableArrayVector<int64_t>({
+        {},
+        {1,
+         std::numeric_limits<int64_t>::min(),
+         std::numeric_limits<int64_t>::max()},
+        {std::nullopt},
+        {1, 2, 3},
+        {2, 1, 1, -2},
+        {1, 1, 1},
+        {-1, std::nullopt, -1, -1},
+        {std::nullopt, std::nullopt, std::nullopt},
+        {1, -2, -2, 8, -2, 4, 8, 1},
+        {std::numeric_limits<int64_t>::max(),
+         std::numeric_limits<int64_t>::max(),
+         1,
+         std::nullopt,
+         0,
+         1,
+         std::nullopt,
+         0},
+    });
+
+    auto expected = makeNullableFlatVector<bool>(
+        {false, false, false, false, true, true, true, true, true, true});
+
+    testExpr(expected, fmt::format("{}(C0)", funcName), {array});
+  }
+
+  void testInlineStrings(const std::string& funcName) {
+    using S = StringView;
+
+    auto array = makeNullableArrayVector<StringView>({
+        {},
+        {""_sv},
+        {std::nullopt},
+        {S("a"), S("b")},
+        {S("a"), std::nullopt, S("b")},
+        {S("a"), S("a")},
+        {S("b"), S("a"), S("b"), S("a"), S("a")},
+        {std::nullopt, std::nullopt},
+        {S("b"), std::nullopt, S("a"), S("a"), std::nullopt, S("b")},
+    });
+
+    auto expected = makeFlatVector<bool>(
+        {false, false, false, false, false, true, true, true, true});
+
+    testExpr(expected, fmt::format("{}(C0)", funcName), {array});
+  }
+
+  void testLongStrings(const std::string& funcName) {
+    using S = StringView;
+
+    auto array = makeNullableArrayVector<StringView>({
+        {S("red shiny car ahead"), S("blue clear sky above")},
+        {S("blue clear sky above"),
+         S("yellow rose flowers"),
+         std::nullopt,
+         S("blue clear sky above"),
+         S("orange beautiful sunset")},
+        {
+            S("red shiny car ahead"),
+            std::nullopt,
+            S("purple is an elegant color"),
+            S("red shiny car ahead"),
+            S("green plants make us happy"),
+            S("purple is an elegant color"),
+            std::nullopt,
+            S("purple is an elegant color"),
+        },
+    });
+    auto expected = makeFlatVector<bool>({false, true, true});
+    testExpr(expected, fmt::format("{}(C0)", funcName), {array});
+  }
+
+  void testNullFreeBigints(const std::string& funcName) {
+    auto array = makeArrayVector<int64_t>({
+        {1,
+         std::numeric_limits<int64_t>::min(),
+         std::numeric_limits<int64_t>::max()},
+        {2, 1, 1, -2},
+        {1, 1, 1},
+    });
+
+    auto expected = makeNullableFlatVector<bool>({false, true, true});
+
+    testExpr(expected, fmt::format("{}(C0)", funcName), {array});
+  }
+
+  void testNullFreeStrings(const std::string& funcName) {
+    using S = StringView;
+
+    auto array = makeArrayVector<StringView>(
+        {{S("red shiny car ahead"), S("blue clear sky above")},
+         {S("red shiny car ahead"),
+          S("blue clear sky above"),
+          S("blue clear sky above")},
+         {S("a"), S("b")},
+         {S("a"), S("b"), S("b")}
+
+        });
+    auto expected = makeFlatVector<bool>({false, true, false, true});
+    testExpr(expected, fmt::format("{}(C0)", funcName), {array});
+  }
 };
 
 } // namespace
 
 // Test bigint arrays.
 TEST_F(ArrayHasDuplicatesTest, bigints) {
-  auto array = makeNullableArrayVector<int64_t>({
-      {},
-      {1,
-       std::numeric_limits<int64_t>::min(),
-       std::numeric_limits<int64_t>::max()},
-      {std::nullopt},
-      {1, 2, 3},
-      {2, 1, 1, -2},
-      {1, 1, 1},
-      {-1, std::nullopt, -1, -1},
-      {std::nullopt, std::nullopt, std::nullopt},
-      {1, -2, -2, 8, -2, 4, 8, 1},
-      {std::numeric_limits<int64_t>::max(),
-       std::numeric_limits<int64_t>::max(),
-       1,
-       std::nullopt,
-       0,
-       1,
-       std::nullopt,
-       0},
-  });
-
-  auto expected = makeNullableFlatVector<bool>(
-      {false, false, false, false, true, true, true, true, true, true});
-
-  testExpr(expected, "array_has_duplicates(C0)", {array});
+  testBigInts("array_has_duplicates");
+  testBigInts("array_has_dupes");
 }
 
 // Test inline (short) strings.
 TEST_F(ArrayHasDuplicatesTest, inlineStrings) {
-  using S = StringView;
-
-  auto array = makeNullableArrayVector<StringView>({
-      {},
-      {""_sv},
-      {std::nullopt},
-      {S("a"), S("b")},
-      {S("a"), std::nullopt, S("b")},
-      {S("a"), S("a")},
-      {S("b"), S("a"), S("b"), S("a"), S("a")},
-      {std::nullopt, std::nullopt},
-      {S("b"), std::nullopt, S("a"), S("a"), std::nullopt, S("b")},
-  });
-
-  auto expected = makeFlatVector<bool>(
-      {false, false, false, false, false, true, true, true, true});
-
-  testExpr(expected, "array_has_duplicates(C0)", {array});
+  testInlineStrings("array_has_duplicates");
+  testInlineStrings("array_has_dupes");
 }
 
 // Test non-inline (> 12 character length) strings.
 TEST_F(ArrayHasDuplicatesTest, longStrings) {
-  using S = StringView;
-
-  auto array = makeNullableArrayVector<StringView>({
-      {S("red shiny car ahead"), S("blue clear sky above")},
-      {S("blue clear sky above"),
-       S("yellow rose flowers"),
-       std::nullopt,
-       S("blue clear sky above"),
-       S("orange beautiful sunset")},
-      {
-          S("red shiny car ahead"),
-          std::nullopt,
-          S("purple is an elegant color"),
-          S("red shiny car ahead"),
-          S("green plants make us happy"),
-          S("purple is an elegant color"),
-          std::nullopt,
-          S("purple is an elegant color"),
-      },
-  });
-  auto expected = makeFlatVector<bool>({false, true, true});
-  testExpr(expected, "array_has_duplicates(C0)", {array});
+  testLongStrings("array_has_duplicates");
+  testLongStrings("array_has_dupes");
 }
 
 TEST_F(ArrayHasDuplicatesTest, nullFreeBigints) {
-  auto array = makeArrayVector<int64_t>({
-      {1,
-       std::numeric_limits<int64_t>::min(),
-       std::numeric_limits<int64_t>::max()},
-      {2, 1, 1, -2},
-      {1, 1, 1},
-  });
-
-  auto expected = makeNullableFlatVector<bool>({false, true, true});
-
-  testExpr(expected, "array_has_duplicates(C0)", {array});
+  testNullFreeBigints("array_has_duplicates");
+  testNullFreeBigints("array_has_dupes");
 }
 
 TEST_F(ArrayHasDuplicatesTest, nullFreeStrings) {
-  using S = StringView;
-
-  auto array = makeArrayVector<StringView>(
-      {{S("red shiny car ahead"), S("blue clear sky above")},
-       {S("red shiny car ahead"),
-        S("blue clear sky above"),
-        S("blue clear sky above")},
-       {S("a"), S("b")},
-       {S("a"), S("b"), S("b")}
-
-      });
-  auto expected = makeFlatVector<bool>({false, true, false, true});
-  testExpr(expected, "array_has_duplicates(C0)", {array});
+  testNullFreeStrings("array_has_duplicates");
+  testNullFreeStrings("array_has_dupes");
 }
