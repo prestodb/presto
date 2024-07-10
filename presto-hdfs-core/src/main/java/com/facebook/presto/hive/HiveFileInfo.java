@@ -34,7 +34,7 @@ import static java.util.Objects.requireNonNull;
 public class HiveFileInfo
         implements Comparable
 {
-    private final Path path;
+    private final String path;
     private final boolean isDirectory;
     private final List<BlockLocation> blockLocations;
     private final long length;
@@ -74,7 +74,7 @@ public class HiveFileInfo
             Optional<byte[]> extraFileInfo,
             Map<String, String> customSplitInfo)
     {
-        this.path = new Path(requireNonNull(pathString, "pathString is null"));
+        this.path = requireNonNull(pathString, "pathString is null");
         this.isDirectory = directory;
         this.blockLocations = requireNonNull(blockLocations, "blockLocations is null");
         this.length = length;
@@ -127,7 +127,7 @@ public class HiveFileInfo
 
     public Path getPath()
     {
-        return path;
+        return new Path(path);
     }
 
     @Override
