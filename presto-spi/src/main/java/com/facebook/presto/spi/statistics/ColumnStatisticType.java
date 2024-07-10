@@ -13,6 +13,12 @@
  */
 package com.facebook.presto.spi.statistics;
 
+import com.facebook.presto.spi.relation.ConstantExpression;
+
+import java.util.List;
+
+import static java.util.Collections.emptyList;
+
 public enum ColumnStatisticType
 {
     MAX_VALUE("max"),
@@ -32,11 +38,11 @@ public enum ColumnStatisticType
 
     public ColumnStatisticMetadata getColumnStatisticMetadata(String columnName)
     {
-        return new ColumnStatisticMetadata(columnName, this, this.functionName);
+        return new ColumnStatisticMetadata(columnName, this, this.functionName, emptyList());
     }
 
-    public ColumnStatisticMetadata getColumnStatisticMetadataWithCustomFunction(String columnName, String functionName)
+    public ColumnStatisticMetadata getColumnStatisticMetadataWithCustomFunction(String columnName, String functionName, List<ConstantExpression> additionalArgs)
     {
-        return new ColumnStatisticMetadata(columnName, this, functionName);
+        return new ColumnStatisticMetadata(columnName, this, functionName, additionalArgs);
     }
 }

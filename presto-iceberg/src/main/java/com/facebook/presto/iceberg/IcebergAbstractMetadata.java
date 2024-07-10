@@ -579,7 +579,7 @@ public abstract class IcebergAbstractMetadata
     {
         Set<ColumnStatisticMetadata> columnStatistics = tableMetadata.getColumns().stream()
                 .filter(column -> !column.isHidden())
-                .flatMap(meta -> getSupportedColumnStatistics(meta.getName(), meta.getType()).stream())
+                .flatMap(meta -> getSupportedColumnStatistics(session, meta.getName(), meta.getType()).stream())
                 .collect(toImmutableSet());
 
         Set<TableStatisticType> tableStatistics = ImmutableSet.of(ROW_COUNT);

@@ -656,7 +656,7 @@ public final class ValidateDependenciesChecker
             StatisticAggregationsDescriptor<VariableReferenceExpression> descriptor = node.getDescriptor();
             Set<VariableReferenceExpression> dependencies = ImmutableSet.<VariableReferenceExpression>builder()
                     .addAll(descriptor.getGrouping().values())
-                    .addAll(descriptor.getColumnStatistics().values())
+                    .addAll(descriptor.getColumnStatistics().stream().map(StatisticAggregationsDescriptor.ColumnStatisticsDescriptor::getItem).iterator())
                     .addAll(descriptor.getTableStatistics().values())
                     .build();
             List<VariableReferenceExpression> outputVariables = node.getSource().getOutputVariables();

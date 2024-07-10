@@ -23,6 +23,7 @@ import org.apache.iceberg.hadoop.HadoopFileIO;
 
 import javax.validation.constraints.DecimalMax;
 import javax.validation.constraints.DecimalMin;
+import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
@@ -53,6 +54,7 @@ public class IcebergConfig
     private boolean pushdownFilterEnabled;
     private boolean deleteAsJoinRewriteEnabled = true;
     private int rowsForMetadataOptimizationThreshold = 1000;
+    private int histogramKParameter = 4096;
 
     private EnumSet<ColumnStatisticType> hiveStatisticsMergeFlags = EnumSet.noneOf(ColumnStatisticType.class);
     private String fileIOImpl = HadoopFileIO.class.getName();
@@ -347,6 +349,21 @@ public class IcebergConfig
     public IcebergConfig setSplitManagerThreads(int splitManagerThreads)
     {
         this.splitManagerThreads = splitManagerThreads;
+        return this;
+    }
+
+    @Min(8)
+    @Max(65535)
+    public int getHistogramKParameter()
+    {
+        return histogramKParameter;
+    }
+
+    @Config("iceberg.histogram-k-parameter")
+    @ConfigDescription("K parameter for KLL sketch used in histogram statistics")
+    public IcebergConfig setHistogramKParameter(int histogramKParameter)
+    {
+        this.histogramKParameter = histogramKParameter;
         return this;
     }
 }

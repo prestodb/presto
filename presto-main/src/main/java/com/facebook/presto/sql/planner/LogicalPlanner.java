@@ -84,6 +84,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.SystemSessionProperties.shouldOptimizerUseHistograms;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
@@ -131,7 +132,7 @@ public class LogicalPlanner
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
-        this.statisticsAggregationPlanner = new StatisticsAggregationPlanner(this.variableAllocator, metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver());
+        this.statisticsAggregationPlanner = new StatisticsAggregationPlanner(this.variableAllocator, metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(), shouldOptimizerUseHistograms(session));
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
     }
 
@@ -224,7 +225,6 @@ public class LogicalPlanner
             columnNameToVariable.put(column.getName(), variable);
         }
 
-        List<VariableReferenceExpression> tableScanOutputs = tableScanOutputsBuilder.build();
         TableStatisticsMetadata tableStatisticsMetadata = metadata.getStatisticsCollectionMetadata(
                 session,
                 targetTable.getConnectorId().getCatalogName(),
@@ -232,14 +232,18 @@ public class LogicalPlanner
 
         TableStatisticAggregation tableStatisticAggregation = statisticsAggregationPlanner.createStatisticsAggregation(tableStatisticsMetadata, columnNameToVariable.build());
         StatisticAggregations statisticAggregations = tableStatisticAggregation.getAggregations();
-
+        List<VariableReferenceExpression> tableScanOutputs = tableScanOutputsBuilder.build();
+        Assignments assignments = Assignments.builder()
+                .putAll(tableScanOutputs.stream().collect(toImmutableMap(k -> k, k -> k)))
+                .putAll(tableStatisticAggregation.getAdditionalVariables())
+                .build();
         PlanNode planNode = new StatisticsWriterNode(
                 getSourceLocation(analyzeStatement),
                 idAllocator.getNextId(),
                 new AggregationNode(
                         getSourceLocation(analyzeStatement),
                         idAllocator.getNextId(),
-                        new TableScanNode(getSourceLocation(analyzeStatement), idAllocator.getNextId(), targetTable, tableScanOutputs, variableToColumnHandle.build(), TupleDomain.all(), TupleDomain.all()),
+                        new ProjectNode(idAllocator.getNextId(), new TableScanNode(getSourceLocation(analyzeStatement), idAllocator.getNextId(), targetTable, tableScanOutputs, variableToColumnHandle.build(), TupleDomain.all(), TupleDomain.all()), assignments),
                         statisticAggregations.getAggregations(),
                         singleGroupingSet(statisticAggregations.getGroupingVariables()),
                         ImmutableList.of(),
@@ -581,13 +585,13 @@ public class LogicalPlanner
     private RowExpression rowExpression(Expression expression, SqlPlannerContext context, Analysis analysis)
     {
         return toRowExpression(
-            expression,
-            metadata,
-            session,
-            sqlParser,
-            variableAllocator,
-            analysis,
-            context.getTranslatorContext());
+                expression,
+                metadata,
+                session,
+                sqlParser,
+                variableAllocator,
+                analysis,
+                context.getTranslatorContext());
     }
 
     private static List<ColumnMetadata> getOutputTableColumns(RelationPlan plan, Optional<List<Identifier>> columnAliases)
