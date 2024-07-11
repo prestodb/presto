@@ -1809,7 +1809,7 @@ public final class SystemSessionProperties
                         LEGACY_JSON_CAST,
                         "Keep the legacy json cast behavior, do not reserve the case for field names when casting to row type",
                         featuresConfig.isLegacyJsonCast(),
-                        false),
+                        true),
                 booleanProperty(
                         OPTIMIZE_JOIN_PROBE_FOR_EMPTY_BUILD_RUNTIME,
                         "Optimize join probe at runtime if build side is empty",
