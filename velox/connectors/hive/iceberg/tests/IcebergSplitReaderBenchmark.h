@@ -98,6 +98,8 @@ class IcebergSplitReaderBenchmark {
       const std::vector<connector::hive::iceberg::IcebergDeleteFile>&
           deleteFiles = {});
 
+  std::vector<int64_t> makeRandomDeleteRows(int32_t deleteRowsCount);
+
   std::vector<int64_t> makeSequenceRows(int32_t maxRowNumber);
 
   std::string writePositionDeleteFile(
