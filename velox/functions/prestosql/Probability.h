@@ -15,6 +15,8 @@
  */
 #pragma once
 
+#include <boost/math/distributions.hpp>
+#include <boost/math/distributions/cauchy.hpp>
 #include <boost/math/distributions/laplace.hpp>
 #include <boost/math/distributions/weibull.hpp>
 #include "boost/math/distributions/beta.hpp"
@@ -279,6 +281,33 @@ struct InverseWeibullCDFFunction {
     } else {
       // https://commons.apache.org/proper/commons-math/javadocs/api-3.6.1/org/apache/commons/math3/distribution/WeibullDistribution.html#inverseCumulativeProbability(double)
       result = b * std::pow(-std::log1p(-p), 1.0 / a);
+    }
+  }
+};
+
+template <typename T>
+struct InverseCauchyCDFFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+  FOLLY_ALWAYS_INLINE void
+  call(double& result, double median, double scale, double p) {
+    static constexpr double kInf = std::numeric_limits<double>::infinity();
+    static constexpr double kDoubleMax = std::numeric_limits<double>::max();
+    static constexpr double kNan = std::numeric_limits<double>::quiet_NaN();
+
+    VELOX_USER_CHECK(p >= 0 && p <= 1, "p must be in the interval [0, 1]");
+    VELOX_USER_CHECK_GT(scale, 0, "scale must be greater than 0");
+
+    if (p == 1.0) {
+      result = kInf;
+    } else if (scale == kInf) {
+      result = median;
+    } else if (std::isnan(median)) {
+      result = kNan;
+    } else if (median == kInf) {
+      result = kInf;
+    } else {
+      boost::math::cauchy_distribution<> cauchyDist(median, scale);
+      result = boost::math::quantile(cauchyDist, p);
     }
   }
 };

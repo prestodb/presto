@@ -551,5 +551,31 @@ TEST_F(ProbabilityTest, inverseWeibullCDF) {
   VELOX_ASSERT_THROW(inverseWeibullCDF(3, 0, 0.5), "b must be greater than 0");
 }
 
+TEST_F(ProbabilityTest, inverseCauchyCDF) {
+  const auto invCauchyCDF = [&](std::optional<double> median,
+                                std::optional<double> scale,
+                                std::optional<double> p) {
+    return evaluateOnce<double>(
+        "inverse_cauchy_cdf(c0, c1, c2)", median, scale, p);
+  };
+
+  EXPECT_EQ(invCauchyCDF(0.0, 1.0, 0.5), 0.0);
+  EXPECT_EQ(invCauchyCDF(2.5, 1.0, 0.64758361765043326), 3.0);
+
+  EXPECT_EQ(invCauchyCDF(5.0, 2.0, 1.0), kInf);
+  VELOX_ASSERT_THROW(
+      invCauchyCDF(1.0, 1.0, kNan), "p must be in the interval [0, 1]");
+  VELOX_ASSERT_THROW(
+      invCauchyCDF(1.0, 1.0, 9), "p must be in the interval [0, 1]");
+
+  EXPECT_EQ(invCauchyCDF(5.0, kInf, 0.5), 5.0);
+  VELOX_ASSERT_THROW(invCauchyCDF(0, -1, 0.5), "scale must be greater than 0");
+
+  EXPECT_THAT(invCauchyCDF(kNan, 1.0, 0.5), IsNan());
+  EXPECT_EQ(invCauchyCDF(kInf, 2.0, 0.5), kInf);
+  EXPECT_EQ(invCauchyCDF(kDoubleMax, 2.0, 0.5), kDoubleMax);
+  EXPECT_EQ(invCauchyCDF(kDoubleMin, 2.0, 0.5), kDoubleMin);
+}
+
 } // namespace
 } // namespace facebook::velox
