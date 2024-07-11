@@ -48,7 +48,18 @@ class VeloxQueryPlanConverterBase {
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
+  /// Do we fail if we encounter timestamp with timezone in the plan ?
+  /// This is a config to reject queries which use this type due to issue
+  /// https://github.com/facebookincubator/velox/issues/10338
+  static constexpr std::string_view kFailOnTimestampWithTimezone{
+      "fail_on_timestamp_with_timezone"};
+
  protected:
+  velox::core::PlanFragment toVeloxQueryPlanImpl(
+      const protocol::PlanFragment& fragment,
+      const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
+      const protocol::TaskId& taskId);
+
   virtual velox::core::PlanNodePtr toVeloxQueryPlan(
       const std::shared_ptr<const protocol::RemoteSourceNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
@@ -270,6 +281,9 @@ class VeloxBatchQueryPlanConverter : public VeloxQueryPlanConverterBase {
   const std::shared_ptr<std::string> serializedShuffleWriteInfo_;
   const std::shared_ptr<std::string> broadcastBasePath_;
 };
+
+// Visible for testing
+bool planHasTimestampWithTimeZone(const velox::core::PlanNodePtr planNode);
 
 void registerPrestoPlanNodeSerDe();
 } // namespace facebook::presto

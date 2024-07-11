@@ -24,7 +24,12 @@
 #include "presto_cpp/main/types/PrestoToVeloxConnector.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include "velox/connectors/hive/TableHandle.h"
+#include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
+#include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
+#include "velox/functions/prestosql/registration/RegistrationFunctions.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
+#include "velox/parse/TypeResolver.h"
 
 namespace fs = boost::filesystem;
 
@@ -51,7 +56,7 @@ std::string getDataPath(const std::string& fileName) {
   // file not found. Fixing the path so that we can trigger these tests from
   // CLion.
   boost::algorithm::replace_all(currentPath, "cmake-build-release/", "");
-  boost::algorithm::replace_all(currentPath, "cmake-build-debug/", "");
+  boost::algorithm::replace_all(currentPath, "cmake-build-debug6/", "");
 
   return currentPath + "/data/" + fileName;
 }
@@ -105,6 +110,9 @@ class PlanConverterTest : public ::testing::Test {
         std::make_unique<HivePrestoToVeloxConnector>("hive"));
     registerPrestoToVeloxConnector(
         std::make_unique<HivePrestoToVeloxConnector>("hive-plus"));
+    functions::prestosql::registerAllScalarFunctions();
+    aggregate::prestosql::registerAllAggregateFunctions();
+    parse::registerTypeResolver();
   }
 
   void TearDown() override {
@@ -219,4 +227,90 @@ TEST_F(PlanConverterTest, batchPlanConversion) {
   shuffleReadNode =
       std::dynamic_pointer_cast<const operators::ShuffleReadNode>(curNode);
   ASSERT_NE(shuffleReadNode, nullptr);
+}
+
+TEST_F(PlanConverterTest, timestampWithTimeZone) {
+  auto makeEmptyRowVector = [&](const RowTypePtr& rowType) {
+    return std::make_shared<RowVector>(
+        memory::deprecatedAddDefaultLeafMemoryPool().get(),
+        rowType,
+        nullptr,
+        0,
+        std::vector<VectorPtr>{});
+  };
+  // Ensure Physically equivalent types arent filtered out.
+  auto plan = exec::test::PlanBuilder()
+                  .startTableScan()
+                  .outputType(ROW({"a"}, {BIGINT()}))
+                  .endTableScan()
+                  .singleAggregation({}, {"min(a)"})
+                  .planNode();
+
+  ASSERT_FALSE(planHasTimestampWithTimeZone(plan));
+
+  plan = exec::test::PlanBuilder()
+             .startTableScan()
+             .outputType(ROW({"a"}, {TIMESTAMP_WITH_TIME_ZONE()}))
+             .endTableScan()
+             .singleAggregation({}, {"min(a)"})
+             .planNode();
+
+  ASSERT_TRUE(planHasTimestampWithTimeZone(plan));
+
+  auto testHashJoin = [&](std::vector<TypePtr>&& probeTypes,
+                          std::vector<TypePtr>&& buildTypes) {
+    auto probe =
+        makeEmptyRowVector(ROW({"t0", "t1", "t2"}, std::move(probeTypes)));
+
+    auto build =
+        makeEmptyRowVector(ROW({"u0", "u1", "u2"}, std::move(buildTypes)));
+
+    auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+    auto plan = exec::test::PlanBuilder(planNodeIdGenerator)
+                    .values({probe})
+                    .hashJoin(
+                        {"t0"},
+                        {"u0"},
+                        exec::test::PlanBuilder(planNodeIdGenerator)
+                            .values({build})
+                            .planNode(),
+                        "t1 > u1",
+                        {"t0", "t1", "u2", "t2"},
+                        core::JoinType::kInner)
+                    .planNode();
+    return planHasTimestampWithTimeZone(plan);
+  };
+
+  ASSERT_FALSE(testHashJoin(
+      {BIGINT(), INTEGER(), VARCHAR()}, {BIGINT(), INTEGER(), BIGINT()}));
+  ASSERT_TRUE(testHashJoin(
+      {BIGINT(), INTEGER(), VARCHAR()},
+      {BIGINT(), INTEGER(), TIMESTAMP_WITH_TIME_ZONE()}));
+
+  // Project node
+  auto valuesVector = makeEmptyRowVector(
+      ROW({"c0", "c1"}, {BIGINT(), TIMESTAMP_WITH_TIME_ZONE()}));
+  plan = exec::test::PlanBuilder()
+             .values({valuesVector})
+             .project({"c0 * 10", "c1"})
+             .planNode();
+
+  ASSERT_TRUE(planHasTimestampWithTimeZone(plan));
+
+  // Filter node
+  plan = exec::test::PlanBuilder()
+             .values({valuesVector})
+             .filter("c0 > 100")
+             .planNode();
+
+  ASSERT_TRUE(planHasTimestampWithTimeZone(plan));
+
+  // Aggregation Node
+  plan = exec::test::PlanBuilder()
+             .values({valuesVector})
+             .partialAggregation({"c0"}, {"count(1)"})
+             .finalAggregation()
+             .planNode();
+
+  ASSERT_TRUE(planHasTimestampWithTimeZone(plan));
 }
