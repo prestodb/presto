@@ -752,10 +752,10 @@ bool HashBuild::finishHashBuild() {
     CpuWallTimer cpuWallTimer{timing};
     table_->prepareJoinTable(
         std::move(otherTables),
-        isInputFromSpill() ? spillConfig()->startPartitionBit
-                           : BaseHashTable::kNoSpillInputStartPartitionBit,
         allowParallelJoinBuild ? operatorCtx_->task()->queryCtx()->executor()
-                               : nullptr);
+                               : nullptr,
+        isInputFromSpill() ? spillConfig()->startPartitionBit
+                           : BaseHashTable::kNoSpillInputStartPartitionBit);
   }
   stats_.wlock()->addRuntimeStat(
       BaseHashTable::kBuildWallNanos,

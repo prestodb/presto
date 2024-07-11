@@ -228,6 +228,7 @@ void GroupingSet::addInputForActiveRows(
       *lookup_,
       input,
       activeRows_,
+      ignoreNullKeys_,
       BaseHashTable::kNoSpillInputStartPartitionBit);
   if (lookup_->rows.empty()) {
     // No rows to probe. Can happen when ignoreNullKeys_ is true and all rows
@@ -235,7 +236,7 @@ void GroupingSet::addInputForActiveRows(
     return;
   }
 
-  table_->groupProbe(*lookup_, BaseHashTable::kNoSpillInputStartPartitionBit);
+  table_->groupProbe(*lookup_);
   masks_.addInput(input, activeRows_);
 
   auto* groups = lookup_->hits.data();
@@ -399,7 +400,7 @@ void GroupingSet::createHashTable() {
 
   lookup_ = std::make_unique<HashLookup>(table_->hashers());
   if (!isAdaptive_ && table_->hashMode() != BaseHashTable::HashMode::kHash) {
-    table_->forceGenericHashMode(BaseHashTable::kNoSpillInputStartPartitionBit);
+    table_->forceGenericHashMode();
   }
 }
 

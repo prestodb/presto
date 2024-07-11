@@ -195,10 +195,7 @@ class HashTableBenchmark : public VectorTestBase {
       batches_.insert(batches_.end(), batches.begin(), batches.end());
       startOffset += params_.size;
     }
-    topTable_->prepareJoinTable(
-        std::move(otherTables),
-        BaseHashTable::kNoSpillInputStartPartitionBit,
-        executor_.get());
+    topTable_->prepareJoinTable(std::move(otherTables), executor_.get());
     LOG(INFO) << "Made table " << topTable_->toString();
 
     if (topTable_->hashMode() == BaseHashTable::HashMode::kNormalizedKey) {
@@ -272,13 +269,12 @@ class HashTableBenchmark : public VectorTestBase {
 
     if (rehash) {
       if (table.hashMode() != BaseHashTable::HashMode::kHash) {
-        table.decideHashMode(
-            input.size(), BaseHashTable::kNoSpillInputStartPartitionBit);
+        table.decideHashMode(input.size());
       }
       insertGroups(input, rows, lookup, table);
       return;
     }
-    table.groupProbe(lookup, BaseHashTable::kNoSpillInputStartPartitionBit);
+    table.groupProbe(lookup);
   }
 
   void copyVectorsToTable(

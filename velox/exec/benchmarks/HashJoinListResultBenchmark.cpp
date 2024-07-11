@@ -375,10 +375,7 @@ class HashTableListJoinResultBenchmark : public VectorTestBase {
     SelectivityInfo buildClocks;
     {
       SelectivityTimer timer(buildClocks, 0);
-      topTable_->prepareJoinTable(
-          std::move(otherTables),
-          BaseHashTable::kNoSpillInputStartPartitionBit,
-          executor_.get());
+      topTable_->prepareJoinTable(std::move(otherTables), executor_.get());
     }
     buildTime_ = buildClocks.timeToDropValue();
   }

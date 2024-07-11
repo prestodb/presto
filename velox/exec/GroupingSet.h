@@ -263,7 +263,7 @@ class GroupingSet {
   // groups.
   void extractSpillResult(const RowVectorPtr& result);
 
-  // Returns a list of accumulators for 'aggregates_', plus one more accumulator
+  // Return a list of accumulators for 'aggregates_', plus one more accumulator
   // for 'sortedAggregations_', and one for each 'distinctAggregations_'.  When
   // 'excludeToIntermediate' is true, skip the functions that support
   // 'toIntermediate'.

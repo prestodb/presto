@@ -84,8 +84,12 @@ void RowNumber::addInput(RowVectorPtr input) {
 
     SelectivityVector rows(numInput);
     table_->prepareForGroupProbe(
-        *lookup_, input, rows, BaseHashTable::kNoSpillInputStartPartitionBit);
-    table_->groupProbe(*lookup_, BaseHashTable::kNoSpillInputStartPartitionBit);
+        *lookup_,
+        input,
+        rows,
+        false,
+        BaseHashTable::kNoSpillInputStartPartitionBit);
+    table_->groupProbe(*lookup_);
 
     // Initialize new partitions with zeros.
     for (auto i : lookup_->newGroups) {
@@ -108,10 +112,9 @@ void RowNumber::addSpillInput() {
   const auto numInput = input_->size();
   SelectivityVector rows(numInput);
 
-  VELOX_CHECK(spillConfig_.has_value());
   table_->prepareForGroupProbe(
-      *lookup_, input_, rows, spillConfig_->startPartitionBit);
-  table_->groupProbe(*lookup_, spillConfig_->startPartitionBit);
+      *lookup_, input_, rows, false, spillConfig_->startPartitionBit);
+  table_->groupProbe(*lookup_);
 
   // Initialize new partitions with zeros.
   for (auto i : lookup_->newGroups) {
@@ -164,8 +167,8 @@ void RowNumber::restoreNextSpillPartition() {
       const auto numInput = input->size();
       SelectivityVector rows(numInput);
       table_->prepareForGroupProbe(
-          *lookup_, input, rows, spillConfig_->startPartitionBit);
-      table_->groupProbe(*lookup_, spillConfig_->startPartitionBit);
+          *lookup_, input, rows, false, spillConfig_->startPartitionBit);
+      table_->groupProbe(*lookup_);
 
       auto* counts = data->children().back()->as<FlatVector<int64_t>>();
 

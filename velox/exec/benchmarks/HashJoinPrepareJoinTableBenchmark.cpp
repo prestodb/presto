@@ -126,10 +126,7 @@ class HashJoinPrepareJoinTableBenchmark : public VectorTestBase {
 
   // Run 'prepareJoinTable'.
   void run() {
-    topTable_->prepareJoinTable(
-        std::move(otherTables_),
-        BaseHashTable::kNoSpillInputStartPartitionBit,
-        executor_.get());
+    topTable_->prepareJoinTable(std::move(otherTables_), executor_.get());
     VELOX_CHECK_EQ(topTable_->hashMode(), params_.mode);
   }
 
