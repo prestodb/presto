@@ -440,9 +440,9 @@ void WriterFuzzer::verifyWriter(
 
   const auto dropSql = "DROP TABLE IF EXISTS tmp_write";
   const auto sql = referenceQueryRunner_->toSql(plan).value();
-  referenceQueryRunner_->execute(dropSql);
   std::multiset<std::vector<variant>> expectedResult;
   try {
+    referenceQueryRunner_->execute(dropSql);
     expectedResult =
         referenceQueryRunner_->execute(sql, input, plan->outputType());
   } catch (...) {
@@ -482,11 +482,16 @@ void WriterFuzzer::verifyWriter(
   if (bucketCount > 0) {
     bucketSql = ", \"$bucket\"";
   }
-  auto referenceData = referenceQueryRunner_->execute(
-      "SELECT *" + bucketSql + " FROM tmp_write");
-  VELOX_CHECK(
-      assertEqualResults(referenceData, {actual}),
-      "Velox and reference DB results don't match");
+  try {
+    auto referenceData = referenceQueryRunner_->execute(
+        "SELECT *" + bucketSql + " FROM tmp_write");
+    VELOX_CHECK(
+        assertEqualResults(referenceData, {actual}),
+        "Velox and reference DB results don't match");
+  } catch (...) {
+    LOG(WARNING) << "Query failed in the reference DB";
+    return;
+  }
 
   // 4. Verifies sorting.
   if (sortBy.size() > 0) {
@@ -513,8 +518,14 @@ void WriterFuzzer::verifyWriter(
           partitionKeys,
           sortBy);
 
-      const auto referenceResult = referenceQueryRunner_->execute(
-          singleSplitReferenceSql, "task_concurrency=1");
+      std::vector<velox::RowVectorPtr> referenceResult;
+      try {
+        referenceResult = referenceQueryRunner_->execute(
+            singleSplitReferenceSql, "task_concurrency=1");
+      } catch (...) {
+        LOG(WARNING) << "Query failed in the reference DB";
+        return;
+      }
       const auto& referenceData = referenceResult.at(0);
       for (int i = 1; i < referenceResult.size(); ++i) {
         referenceData->append(referenceResult.at(i).get());

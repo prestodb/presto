@@ -319,6 +319,13 @@ jobs:
           path: velox/_build/debug//velox/exec/tests/velox_row_number_fuzzer_test
           retention-days: "${{ env.RETENTION }}"
 
+      - name: Upload writer fuzzer
+        uses: actions/upload-artifact@v4
+        with:
+          name: writer
+          path: velox/_build/debug/velox/functions/prestosql/fuzzer/velox_writer_fuzzer_test
+          retention-days: "${{ env.RETENTION }}"
+
   presto-fuzzer-run:
     name: Presto Fuzzer
     if: ${{ needs.compile.outputs.presto_bias  != 'true' }}
@@ -892,3 +899,69 @@ jobs:
           path: |
             /tmp/window_fuzzer_repro
             /tmp/server.log
+
+  presto-java-writer-fuzzer-run:
+    name: Writer Fuzzer with Presto as source of truth
+    needs: compile
+    runs-on: ubuntu-latest
+    container: ghcr.io/facebookincubator/velox-dev:presto-java
+    timeout-minutes: 120
+    env:
+      CCACHE_DIR: "${{ github.workspace }}/.ccache/"
+      LINUX_DISTRO: "centos"
+    steps:
+
+      - name: Download writer fuzzer
+        uses: actions/download-artifact@v4
+        with:
+          name: writer
+
+      - name: "Checkout Repo"
+        uses: actions/checkout@v4
+        with:
+          path: velox
+          submodules: 'recursive'
+          ref: "${{ inputs.ref }}"
+
+      - name: Fix git permissions
+        # Usually actions/checkout does this but as we run in a container
+        # it doesn't work
+        run: git config --global --add safe.directory /__w/velox/velox/velox
+
+
+      - name: "Run Writer Fuzzer"
+        run: |
+          cd  velox
+          cp ./scripts/presto/etc/hive.properties $PRESTO_HOME/etc/catalog
+          ls -lR $PRESTO_HOME/etc
+          echo "jvm config content:"
+          cat $PRESTO_HOME/etc/jvm.config
+          $PRESTO_HOME/bin/launcher run -v > /tmp/server.log 2>&1 &
+          ls -lR /var/log
+          # Sleep for 60 seconds to allow Presto server to start.
+          sleep 60
+          /opt/presto-cli --version
+          /opt/presto-cli --server 127.0.0.1:8080 --execute 'CREATE SCHEMA hive.tpch;'
+          cd -
+          mkdir -p /tmp/writer_fuzzer_repro/logs/
+          chmod -R 777 /tmp/writer_fuzzer_repro
+          chmod +x velox_writer_fuzzer_test
+          ./velox_writer_fuzzer_test \
+                --seed ${RANDOM} \
+                --duration_sec $DURATION \
+                --minloglevel=0 \
+                --stderrthreshold=2 \
+                --req_timeout_ms 60000 \
+                --log_dir=/tmp/writer_fuzzer_repro/logs \
+                --presto_url=http://127.0.0.1:8080 \
+          && echo -e "\n\Writer fuzzer run finished successfully."
+
+      - name: Archive writer production artifacts
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: presto-sot-writer-fuzzer-failure-artifacts
+          path: |
+            /tmp/writer_fuzzer_repro
+            /tmp/server.log
+            /var/log
