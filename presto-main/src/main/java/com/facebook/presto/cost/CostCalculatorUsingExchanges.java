@@ -172,7 +172,8 @@ public class CostCalculatorUsingExchanges
         @Override
         public PlanCostEstimate visitCteConsumer(CteConsumerNode node, Void context)
         {
-            return node.getOriginalSource().accept(this, context);
+            LocalCostEstimate localCost = LocalCostEstimate.ofCpu(getStats(node).getOutputSizeInBytes(node));
+            return costForSource(node, localCost);
         }
 
         @Override
