@@ -55,10 +55,6 @@ class ExchangeSource : public std::enable_shared_from_this<ExchangeSource> {
   /// threads from issuing the same request.
   virtual bool shouldRequestLocked() = 0;
 
-  virtual bool isRequestPendingLocked() const {
-    return requestPending_;
-  }
-
   struct Response {
     /// Size of the response in bytes. Zero means response didn't contain any
     /// data.
