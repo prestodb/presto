@@ -19,7 +19,6 @@ import com.facebook.presto.hive.HiveCompressionCodec;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import org.apache.iceberg.hadoop.HadoopFileIO;
 
 import javax.validation.constraints.DecimalMax;
 import javax.validation.constraints.DecimalMin;
@@ -33,9 +32,7 @@ import static com.facebook.presto.hive.HiveCompressionCodec.GZIP;
 import static com.facebook.presto.iceberg.CatalogType.HIVE;
 import static com.facebook.presto.iceberg.IcebergFileFormat.PARQUET;
 import static com.facebook.presto.iceberg.util.StatisticsUtil.decodeMergeFlags;
-import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_EXPIRATION_INTERVAL_MS_DEFAULT;
 import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_MAX_CONTENT_LENGTH_DEFAULT;
-import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_MAX_TOTAL_BYTES_DEFAULT;
 import static org.apache.iceberg.TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED_DEFAULT;
 import static org.apache.iceberg.TableProperties.METADATA_PREVIOUS_VERSIONS_MAX_DEFAULT;
 
@@ -59,10 +56,10 @@ public class IcebergConfig
     private boolean metadataDeleteAfterCommit = METADATA_DELETE_AFTER_COMMIT_ENABLED_DEFAULT;
 
     private EnumSet<ColumnStatisticType> hiveStatisticsMergeFlags = EnumSet.noneOf(ColumnStatisticType.class);
-    private String fileIOImpl = HadoopFileIO.class.getName();
-    private boolean manifestCachingEnabled;
-    private long maxManifestCacheSize = IO_MANIFEST_CACHE_MAX_TOTAL_BYTES_DEFAULT;
-    private long manifestCacheExpireDuration = IO_MANIFEST_CACHE_EXPIRATION_INTERVAL_MS_DEFAULT;
+    private String fileIOImpl = HdfsFileIO.class.getName();
+    private boolean manifestCachingEnabled = true;
+    private long maxManifestCacheSize = 1073741824; // 1 GB, default 100 MB
+    private long manifestCacheExpireDuration = 86400000; // 24 hrs
     private long manifestCacheMaxContentLength = IO_MANIFEST_CACHE_MAX_CONTENT_LENGTH_DEFAULT;
     private String fileIOContentCacheManager = PrestoInMemoryContentCacheManager.class.getName();
     private int splitManagerThreads = Runtime.getRuntime().availableProcessors();
