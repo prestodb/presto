@@ -25,7 +25,7 @@
 using namespace facebook::velox;
 
 namespace {
-constexpr char const* kMinioExecutableName{"minio"};
+constexpr char const* kMinioExecutableName{"minio-2022-05-26"};
 constexpr char const* kMinioAccessKey{"minio"};
 constexpr char const* kMinioSecretKey{"miniopass"};
 } // namespace
