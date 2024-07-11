@@ -473,15 +473,11 @@ public class TestCostCalculator
                 new PlanNodeId("cteConsumer"),
                 ts1.getOutputVariables(),
                 "test_cte", ts1);
+        // This just symbolizes that the tablescan(original planNode) was more expensive but we used the stats from the stats store
         Map<String, PlanNodeStatsEstimate> stats = ImmutableMap.of(
-                "ts1", statsEstimate(ts1, 4000));
-        Map<String, PlanCostEstimate> costs = ImmutableMap.of(
-                "ts1", new PlanCostEstimate(1000, 10, 10, 1000));
-        assertCost(cteConsumerNode, costs, stats)
-                .cpu(4500)
-                .memory(0)
-                .network(0);
-        assertCost(cteConsumerNode, costs, stats)
+                "cteConsumer", statsEstimate(ts1, 4000),
+                "ts1", statsEstimate(ts1, 10000000));
+        assertCost(cteConsumerNode, ImmutableMap.of(), stats)
                 .cpu(4500)
                 .memory(0)
                 .network(0);
