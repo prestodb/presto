@@ -34,6 +34,7 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.CteConsumerNode;
 import com.facebook.presto.spi.plan.CteProducerNode;
+import com.facebook.presto.spi.plan.CteReferenceNode;
 import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.JoinDistributionType;
 import com.facebook.presto.spi.plan.JoinType;
@@ -481,6 +482,20 @@ public class TestCostCalculator
                 .cpu(4500)
                 .memory(0)
                 .network(0);
+    }
+
+    @Test
+    public void testCteReferenceCost()
+    {
+        TableScanNode ts1 = tableScan("ts1", "orderkey");
+        CteReferenceNode cteReferenceNode = new CteReferenceNode(
+                Optional.empty(),
+                new PlanNodeId("cteReference"),
+                ts1,
+                "test");
+        Map<String, PlanNodeStatsEstimate> stats = ImmutableMap.of(
+                "ts1", statsEstimate(ts1, 4000));
+        assertCost(cteReferenceNode, ImmutableMap.of(), stats);
     }
 
     @Test

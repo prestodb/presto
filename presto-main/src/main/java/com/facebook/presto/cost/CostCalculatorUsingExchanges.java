@@ -18,6 +18,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.CteConsumerNode;
 import com.facebook.presto.spi.plan.CteProducerNode;
+import com.facebook.presto.spi.plan.CteReferenceNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.JoinDistributionType;
 import com.facebook.presto.spi.plan.LimitNode;
@@ -174,6 +175,12 @@ public class CostCalculatorUsingExchanges
         {
             LocalCostEstimate localCost = LocalCostEstimate.ofCpu(getStats(node).getOutputSizeInBytes(node));
             return costForSource(node, localCost);
+        }
+
+        @Override
+        public PlanCostEstimate visitCteReference(CteReferenceNode node, Void context)
+        {
+            return node.getSource().accept(this, context);
         }
 
         @Override
