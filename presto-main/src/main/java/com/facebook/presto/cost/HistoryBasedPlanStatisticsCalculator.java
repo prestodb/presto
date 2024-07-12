@@ -194,7 +194,7 @@ public class HistoryBasedPlanStatisticsCalculator
         for (PlanCanonicalizationStrategy strategy : historyBasedPlanCanonicalizationStrategyList(session)) {
             for (Map.Entry<PlanNodeWithHash, HistoricalPlanStatistics> entry : statistics.entrySet()) {
                 if (allHashes.containsKey(strategy) && entry.getKey().getHash().isPresent() && allHashes.get(strategy).equals(entry.getKey())) {
-                    Optional<List<PlanStatistics>> inputTableStatistics = getPlanNodeInputTableStatistics(plan, session, true);
+                    Optional<List<PlanStatistics>> inputTableStatistics = getPlanNodeInputTableStatistics(plan, session, strategy, true);
                     if (inputTableStatistics.isPresent()) {
                         Optional<HistoricalPlanStatisticsEntry> historicalPlanStatisticsEntry = getSelectedHistoricalPlanStatisticsEntry(entry.getValue(), inputTableStatistics.get(), historyMatchingThreshold);
                         if (historicalPlanStatisticsEntry.isPresent()) {
@@ -213,13 +213,13 @@ public class HistoryBasedPlanStatisticsCalculator
         return delegateStats;
     }
 
-    private Optional<List<PlanStatistics>> getPlanNodeInputTableStatistics(PlanNode plan, Session session, boolean cacheOnly)
+    private Optional<List<PlanStatistics>> getPlanNodeInputTableStatistics(PlanNode plan, Session session, PlanCanonicalizationStrategy strategy, boolean cacheOnly)
     {
         if (!useHistoryBasedPlanStatisticsEnabled(session) || !plan.getStatsEquivalentPlanNode().isPresent()) {
             return Optional.empty();
         }
 
         PlanNode statsEquivalentPlanNode = plan.getStatsEquivalentPlanNode().get();
-        return planCanonicalInfoProvider.getInputTableStatistics(session, statsEquivalentPlanNode, cacheOnly);
+        return planCanonicalInfoProvider.getInputTableStatistics(session, statsEquivalentPlanNode, strategy, cacheOnly);
     }
 }
