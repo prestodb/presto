@@ -333,6 +333,16 @@ public interface Metadata
     void finishDelete(Session session, TableHandle tableHandle, Collection<Slice> fragments);
 
     /**
+     * Begin call distributed procedure
+     */
+    DistributedProcedureHandle beginCallDistributedProcedure(Session session, QualifiedObjectName procedureName, TableHandle tableHandle, Object[] arguments);
+
+    /**
+     * Finish call distributed procedure
+     */
+    void finishCallDistributedProcedure(Session session, DistributedProcedureHandle procedureHandle, QualifiedObjectName procedureName, Collection<Slice> fragments);
+
+    /**
      * Begin update query
      */
     TableHandle beginUpdate(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns);

@@ -431,7 +431,8 @@ public class LocalQueryRunner
                 new TablePropertyManager(),
                 new ColumnPropertyManager(),
                 new AnalyzePropertyManager(),
-                transactionManager);
+                transactionManager,
+                procedureRegistry);
         this.splitManager = new SplitManager(metadata, new QueryManagerConfig(), nodeSchedulerConfig);
         this.distributedPlanChecker = new PlanChecker(featuresConfig, false);
         this.singleNodePlanChecker = new PlanChecker(featuresConfig, true);

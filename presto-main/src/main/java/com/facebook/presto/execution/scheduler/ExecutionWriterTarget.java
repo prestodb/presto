@@ -14,6 +14,8 @@
 
 package com.facebook.presto.execution.scheduler;
 
+import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.metadata.DistributedProcedureHandle;
 import com.facebook.presto.metadata.InsertTableHandle;
 import com.facebook.presto.metadata.OutputTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
@@ -31,7 +33,9 @@ import static java.util.Objects.requireNonNull;
         @JsonSubTypes.Type(value = ExecutionWriterTarget.InsertHandle.class, name = "InsertHandle"),
         @JsonSubTypes.Type(value = ExecutionWriterTarget.DeleteHandle.class, name = "DeleteHandle"),
         @JsonSubTypes.Type(value = ExecutionWriterTarget.RefreshMaterializedViewHandle.class, name = "RefreshMaterializedViewHandle"),
-        @JsonSubTypes.Type(value = ExecutionWriterTarget.UpdateHandle.class, name = "UpdateHandle")})
+        @JsonSubTypes.Type(value = ExecutionWriterTarget.UpdateHandle.class, name = "UpdateHandle"),
+        @JsonSubTypes.Type(value = ExecutionWriterTarget.ExecuteProcedureHandle.class, name = "TableExecuteHandle")
+})
 @SuppressWarnings({"EmptyClass", "ClassMayBeInterface"})
 public abstract class ExecutionWriterTarget
 {
@@ -196,6 +200,49 @@ public abstract class ExecutionWriterTarget
         public SchemaTableName getSchemaTableName()
         {
             return schemaTableName;
+        }
+
+        @Override
+        public String toString()
+        {
+            return handle.toString();
+        }
+    }
+
+    public static class ExecuteProcedureHandle
+            extends ExecutionWriterTarget
+    {
+        private final DistributedProcedureHandle handle;
+        private final SchemaTableName schemaTableName;
+        private final QualifiedObjectName procedureName;
+
+        @JsonCreator
+        public ExecuteProcedureHandle(
+                @JsonProperty("handle") DistributedProcedureHandle handle,
+                @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
+                @JsonProperty("procedureName") QualifiedObjectName procedureName)
+        {
+            this.handle = requireNonNull(handle, "handle is null");
+            this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
+            this.procedureName = requireNonNull(procedureName, "procedureName is null");
+        }
+
+        @JsonProperty
+        public DistributedProcedureHandle getHandle()
+        {
+            return handle;
+        }
+
+        @JsonProperty
+        public SchemaTableName getSchemaTableName()
+        {
+            return schemaTableName;
+        }
+
+        @JsonProperty
+        public QualifiedObjectName getProcedureName()
+        {
+            return procedureName;
         }
 
         @Override
