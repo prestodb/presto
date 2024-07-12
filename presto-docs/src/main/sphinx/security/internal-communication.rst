@@ -130,7 +130,7 @@ There are multiple ways to enable internal authentication described in below sec
 
 Enable JWT authentication to authenticate all communication between nodes of the cluster.
 Enable JWT and set the shared secret to the same value in
-:ref:`config.properties <config_properties>` on all nodes of the cluster using below configs:
+:ref:`config.properties <config-properties>` on all nodes of the cluster using below configs:
 
 .. code-block:: text
 
