@@ -60,16 +60,15 @@ def get_version():
 
 # -- General configuration -----------------------------------------------------
 
-
-needs_sphinx = '7.2.6'
+needs_sphinx = '3.3.0'
 
 extensions = [
-    'sphinx_immaterial', 'sphinx_copybutton', 'download', 'issue', 'pr'
+    'sphinx_copybutton', 'download', 'issue', 'pr'
 ]
 
 copyright = 'The Presto Foundation. All rights reserved. Presto is a registered trademark of LF Projects, LLC'
 
-templates_path = ['_templates']
+templates_path = ['templates']
 
 source_suffix = '.rst'
 
@@ -97,7 +96,7 @@ latex_engine = 'xelatex'
 
 # -- Options for HTML output ---------------------------------------------------
 
-html_theme = 'sphinx_immaterial'
+html_theme = 'sphinx_material'
 
 # Set link name generated in the top bar.
 html_title = '%s %s Documentation' % (project, release)
@@ -108,63 +107,101 @@ html_favicon = 'images/favicon.ico'
 # html_baseurl = 'overview.html'
 
 html_static_path = ['static']
+html_css_files = [
+    'presto.css',
+]
 
 templates_path = ['_templates']
-
-# Set the primary domain to js because if left as the default python
-# the theme errors when functions aren't available in a python module
-primary_domain = 'js'
 
 html_add_permalinks = '#'
 html_show_copyright = True
 html_show_sphinx = False
 
+html_sidebars = {
+    "**": ['logo-text.html', 'globaltoc.html', 'localtoc.html', 'searchbox.html']
+}
 
+html_show_sourcelink = False
+
+# Material theme options (see theme.conf for more information)
 html_theme_options = {
 
-    # Set your GA account ID to enable tracking
-    "analytics": {
-        "provider": "google",
-        "property": "G-K7GB6F0LBZ"
-    },
-    'features': [
-        'toc.follow',
-        'toc.sticky',
-    ],
-    'palette': [
-        {
-            "media": "(prefers-color-scheme: light)",
-            "scheme": "default",
-            "primary": "black",
-            "accent": "cyan",
-            "toggle": {
-                "icon": "material/toggle-switch-off-outline",
-                "name": "Switch to dark mode",
-            }
-        },
-        {
-            "media": "(prefers-color-scheme: dark)",
-            "scheme": "slate",
-            "primary": "light-blue",
-            "accent": "deep-orange",
-            "toggle": {
-                "icon": "material/toggle-switch",
-                "name": "Switch to light mode",
-            }
-        },
-    ],
-    'edit_uri': 'blob/master/presto-docs/src/main/sphinx',
+# Set the name to appear in the left sidebar/header. If not provided, uses
+# html_short_title if defined, or html_title
+  #  'nav_title': 'Project Name',
 
-    # 'base_url': '/',
+    # Set your GA account ID to enable tracking
+   'google_analytics_account': 'G-K7GB6F0LBZ',
+
+    # Specify a base_url used to generate sitemap.xml. If not
+    # specified, then no sitemap will be built.
+   'base_url': '/',
+
+# Colors
+# The theme color for mobile browsers. Hex color.
+    'theme_color': '374665',
+ # Primary colors:
+# red, pink, purple, deep-purple, indigo, blue, light-blue, cyan,
+# teal, green, light-green, lime, yellow, amber, orange, deep-orange,
+# brown, grey, blue-grey, white. default is blue.
+    'color_primary': 'grey',
+    # Accent colors:
+# red, pink, purple, deep-purple, indigo, blue, light-blue, cyan,
+# teal, green, light-green, lime, yellow, amber, orange, deep-orange
+    'color_accent': 'blue',
+
+# Repository integration
+# Set the repo url for the link to appear
     'repo_url': 'https://github.com/prestodb/presto',
     'repo_name': 'Presto',
+    'repo_type': 'github',
 
-    # If true, TOC entries that are not ancestors of the current page are collapsed
-    'globaltoc_collapse': True,
-    "social": [
-        {
-            "icon": "fontawesome/brands/github",
-            "link": "https://github.com/prestodb/presto",
-        },
-    ],
+
+# TOC Tree generation
+# The maximum depth of the global TOC; set it to -1 to allow unlimited depth
+'globaltoc_depth': 2,
+# If true, TOC entries that are not ancestors of the current page are collapsed
+'globaltoc_collapse': True,
+# If true, the global TOC tree will also contain hidden entries
+'globaltoc_includehidden': False,
+
+
+# Include the master document at the top of the page in the breadcrumb bar.
+# You must also set this to true if you want to override the rootrellink block, in which
+# case the content of the overridden block will appear
+# master_doc = True
+
+# A list of dictionaries where each has three keys:
+#   href: The URL or pagename (str)
+#   title: The title to appear (str)
+#   internal: Flag indicating to use pathto (bool)
+# nav_links =
+
+# Text to appear at the top of the home page in a "hero" div. Must be a
+# dict[str, str] of the form pagename: hero text, e.g., {'index': 'text on index'}
+# heroes =
+
+# Enable the version dropdown feature. See the demo site for the structure
+# of the json file required.
+# 'version_dropdown': 'True',
+
+# Text to use in the dropdown menu
+# version_dropdown_text = Versions
+
+# Optional dictionary that to use when populating the version dropdown.
+# The key is the text that appears, and the value is the absolute path
+# of the alternative versions
+# version_info =
+
+# Relative path to json file. The default is "versions.json" which assumes the
+# file hosted in the root of the site. You can use other file names or locations, e.g.,
+# "_static/old_versions.json"
+# 'version_json': 'static/versions.json',
+
+# Table classes to _not_ strip.  Must be a list. Classes on this list are *not*
+# removed from tables. All other classes are removed, and only tables with outclasses
+# are styled by default.
+# table_classes =
+
+
 }

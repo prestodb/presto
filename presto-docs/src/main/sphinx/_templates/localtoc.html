@@ -1,0 +1,50 @@
+{# there is no extension block in localtoc.html. copy the original localtoc.html #}
+{% set toc_nodes = derender_toc(toc, True, pagename) if display_toc else [] %}
+<nav class="md-nav md-nav--secondary">
+  {# add github links here #}
+  <ul class="md-nav__list" data-md-scrollfix="">
+    <li class="md-nav__item">
+      <a class="md-nav__link" target="_blank" href="{{ pathto(theme_repo_url + '/tree/master/presto-docs/src/main/sphinx/' + pagename + '.rst', true)|e }}">
+        <i class="fa fa-file-text" aria-hidden="true"></i>
+        {{ _('View page source') }}
+      </a>
+    </li>
+    <li class="md-nav__item">
+      <a class="md-nav__link" target="_blank" href="{{ pathto(theme_repo_url + '/edit/master/presto-docs/src/main/sphinx/' + pagename + '.rst', true)|e }}">
+        <i class="fa fa-pencil-square" aria-hidden="true"></i>
+        {{ _('Edit this page') }}
+      </a>
+    </li>
+    <li class="md-nav__item">
+      <a class="md-nav__link" target="_blank" href="{{ pathto(theme_repo_url + '/issues/new?title=Documentation&labels=docs', true)|e }}">
+        <i class="fa fa-list" aria-hidden="true"></i>
+        {{ _('Create docs issue') }}
+      </a>
+    </li>
+    <li class="md-nav__item">
+      <a class="md-nav__link" target="_blank" href="{{ pathto(theme_repo_url + '/issues/new', true)|e }}">
+        <i class="fa fa-list" aria-hidden="true"></i>
+        {{ _('Create project issue') }}
+      </a>
+    </li>
+  </ul>
+  {%- if display_toc and toc_nodes and sidebars and 'localtoc.html' in sidebars %}
+    <label class="md-nav__title" for="__toc">{{ _('Contents') }}</label>
+  {%- endif %}
+  <ul class="md-nav__list" data-md-scrollfix="">
+    {%- if display_toc and sidebars and 'localtoc.html' in sidebars %}
+      {%- for item in toc_nodes recursive %}
+        <li class="md-nav__item"><a href="{{ item.href|e }}" class="md-nav__link" data-md-state="blur">{{ item.contents }}</a>
+          {%- if item.children -%}
+            <nav class="md-nav">
+              <ul class="md-nav__list">{{ loop(item.children) }}</ul>
+            </nav>
+          {%- endif %}
+        </li>
+      {%- endfor %}
+    {%- endif %}
+    {%- if show_source %}
+    {% include "sourcelink.html" %}
+    {%- endif %}
+  </ul>
+</nav>
