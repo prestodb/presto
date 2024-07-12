@@ -99,8 +99,8 @@ that catalog name instead of ``arrowmariadb`` in the above examples.
 Arrow-Flight Connector Limitations
 ---------------------------------
 
-* It will only support SELECT and DESCRIBE queries.
+* SELECT and DESCRIBE queries are supported by this connector template. Implementing modules can add support for additional features.
 
 * Arrow-connector can query against only those datasources which are supported by Flight server.
 
-* Customer should have flight server running out there for the arrow-connector to work with.
+* The customer should have the flight server running for the arrow-connector to work.
