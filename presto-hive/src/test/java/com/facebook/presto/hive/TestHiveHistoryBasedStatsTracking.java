@@ -350,6 +350,39 @@ public class TestHiveHistoryBasedStatsTracking
         assertPlan(cteMaterialization, sql, anyTree(node(ProjectNode.class, anyTree(any())).withOutputRowCount(3)));
     }
 
+    @Test
+    public void testHistoryBasedStatsWithSpecifiedCanonicalizationStrategy()
+    {
+        getQueryRunner().execute("CREATE TABLE test_myt(a int, b varchar)");
+        getQueryRunner().execute("INSERT INTO test_myt values(1, '1001'), (2, '1002'), (3, '1003'), (4, '1004')");
+
+        String query = "SELECT * FROM test_myt where a-1 < 3 ORDER BY b";
+        Session session = Session.builder(defaultSession())
+                .setSystemProperty(HISTORY_BASED_OPTIMIZATION_PLAN_CANONICALIZATION_STRATEGY, "IGNORE_SAFE_CONSTANTS")
+                .build();
+
+        // get cost base stats before completing any query
+        assertPlan(session, query, node(OutputNode.class, anyTree(any())).withOutputRowCount(false, "CBO"));
+        executeAndTrackHistory(query, session);
+
+        // get history base stats after completing a query with the same canonicalization strategy
+        assertPlan(session, query, node(OutputNode.class, anyTree(any())).withOutputRowCount(3, "HBO"));
+
+        Session sessionWithAnotherStrategy = Session.builder(defaultSession())
+                .setSystemProperty(HISTORY_BASED_OPTIMIZATION_PLAN_CANONICALIZATION_STRATEGY, "IGNORE_SCAN_CONSTANTS")
+                .build();
+
+        // could not get history base stats when using a different canonicalization strategy from the one that used to collect the stats
+        assertPlan(sessionWithAnotherStrategy, query, node(OutputNode.class, anyTree(any())).withOutputRowCount(false, "CBO"));
+
+        Session sessionWithMultiStrategy = Session.builder(defaultSession())
+                .setSystemProperty(HISTORY_BASED_OPTIMIZATION_PLAN_CANONICALIZATION_STRATEGY, "DEFAULT,CONNECTOR,IGNORE_SCAN_CONSTANTS,IGNORE_SAFE_CONSTANTS")
+                .build();
+
+        // get history base stats when using multiple canonicalization strategies that contains the one used to collect the stats
+        assertPlan(sessionWithMultiStrategy, query, node(OutputNode.class, anyTree(any())).withOutputRowCount(3, "HBO"));
+    }
+
     @Override
     protected void assertPlan(@Language("SQL") String query, PlanMatchPattern pattern)
     {
