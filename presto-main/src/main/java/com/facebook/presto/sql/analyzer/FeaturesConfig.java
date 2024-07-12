@@ -262,6 +262,7 @@ public class FeaturesConfig
     private boolean pushRemoteExchangeThroughGroupId;
     private boolean isOptimizeMultipleApproxPercentileOnSameFieldEnabled = true;
     private boolean nativeExecutionEnabled;
+    private boolean disableTimeStampWithTimeZoneForNative = true;
     private String nativeExecutionExecutablePath = "./presto_server";
     private String nativeExecutionProgramArguments = "";
     private boolean nativeExecutionProcessReuseEnabled = true;
@@ -2598,6 +2599,19 @@ public class FeaturesConfig
     public boolean isNativeExecutionEnabled()
     {
         return this.nativeExecutionEnabled;
+    }
+
+    @Config("disable-timestamp-with-timezone-for-native-execution")
+    @ConfigDescription("Disable timestamp with timezone type on native engine")
+    public FeaturesConfig setDisableTimeStampWithTimeZoneForNative(boolean disableTimeStampWithTimeZoneForNative)
+    {
+        this.disableTimeStampWithTimeZoneForNative = disableTimeStampWithTimeZoneForNative;
+        return this;
+    }
+
+    public boolean isDisableTimeStampWithTimeZoneForNative()
+    {
+        return this.disableTimeStampWithTimeZoneForNative;
     }
 
     @Config("native-execution-executable-path")
