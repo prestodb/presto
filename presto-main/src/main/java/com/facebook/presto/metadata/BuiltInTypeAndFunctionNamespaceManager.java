@@ -642,7 +642,9 @@ public class BuiltInTypeAndFunctionNamespaceManager
         addType(TIME);
         addType(TIME_WITH_TIME_ZONE);
         addType(TIMESTAMP);
-        addType(TIMESTAMP_WITH_TIME_ZONE);
+        if (!featuresConfig.isNativeExecutionEnabled()) {
+            addType(TIMESTAMP_WITH_TIME_ZONE);
+        }
         addType(INTERVAL_YEAR_MONTH);
         addType(INTERVAL_DAY_TIME);
         addType(HYPER_LOG_LOG);
@@ -819,6 +821,10 @@ public class BuiltInTypeAndFunctionNamespaceManager
                     .scalars(LegacyRealComparisonOperators.class)
                     .scalar(LegacyRealComparisonOperators.RealDistinctFromOperator.class);
         }
+        if (!featuresConfig.isNativeExecutionEnabled()) {
+            builder.scalars(TimestampWithTimeZoneOperators.class)
+                    .scalar(TimestampWithTimeZoneOperators.TimestampWithTimeZoneDistinctFromOperator.class);
+        }
         builder.scalars(VarcharOperators.class)
                 .scalar(VarcharOperators.VarcharDistinctFromOperator.class)
                 .scalars(VarbinaryOperators.class)
@@ -835,8 +841,6 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalar(IntervalYearMonthOperators.IntervalYearMonthDistinctFromOperator.class)
                 .scalars(TimeWithTimeZoneOperators.class)
                 .scalar(TimeWithTimeZoneOperators.TimeWithTimeZoneDistinctFromOperator.class)
-                .scalars(TimestampWithTimeZoneOperators.class)
-                .scalar(TimestampWithTimeZoneOperators.TimestampWithTimeZoneDistinctFromOperator.class)
                 .scalars(DateTimeOperators.class)
                 .scalars(HyperLogLogOperators.class)
                 .scalars(SfmSketchOperators.class)
