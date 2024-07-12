@@ -509,66 +509,6 @@ bool tryParseTimestampString(
   return true;
 }
 
-bool tryParseUTCOffsetString(
-    const char* buf,
-    size_t& pos,
-    size_t len,
-    int& hourOffset,
-    int& minuteOffset) {
-  minuteOffset = 0;
-  size_t curpos = pos;
-
-  // Parse the next 3 characters.
-  if (curpos + 3 > len) {
-    // No characters left to parse.
-    return false;
-  }
-
-  char sign_char = buf[curpos];
-  if (sign_char != '+' && sign_char != '-') {
-    // Expected either + or -
-    return false;
-  }
-
-  curpos++;
-  if (!characterIsDigit(buf[curpos]) || !characterIsDigit(buf[curpos + 1])) {
-    // Expected +HH or -HH
-    return false;
-  }
-
-  hourOffset = (buf[curpos] - '0') * 10 + (buf[curpos + 1] - '0');
-
-  if (sign_char == '-') {
-    hourOffset = -hourOffset;
-  }
-  curpos += 2;
-
-  // Optional minute specifier: expected either "MM" or ":MM".
-  if (curpos >= len) {
-    // Done, nothing left.
-    pos = curpos;
-    return true;
-  }
-  if (buf[curpos] == ':') {
-    curpos++;
-  }
-
-  if (curpos + 2 > len || !characterIsDigit(buf[curpos]) ||
-      !characterIsDigit(buf[curpos + 1])) {
-    // No MM specifier.
-    pos = curpos;
-    return true;
-  }
-
-  // We have an MM specifier: parse it.
-  minuteOffset = (buf[curpos] - '0') * 10 + (buf[curpos + 1] - '0');
-  if (sign_char == '-') {
-    minuteOffset = -minuteOffset;
-  }
-  pos = curpos + 2;
-  return true;
-}
-
 } // namespace
 
 bool isLeapYear(int32_t year) {

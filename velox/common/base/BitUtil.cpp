@@ -39,6 +39,7 @@ void scatterBitsSimple(
   }
 }
 
+#ifdef __BMI2__
 // Fetches 'numBits' bits of data, from data starting at lastBit -
 // numbits (inclusive) and ending at lastBit (exclusive). 'lastBit' is
 // updated to be the bit offset of the lowest returned bit. Successive
@@ -58,6 +59,7 @@ uint64_t getBitField(const char* data, int32_t numBits, int32_t& lastBit) {
   lastBit -= numBits;
   return bits;
 }
+#endif
 
 // Copy bits backward while the remaining data is still larger than size of T.
 template <typename T>

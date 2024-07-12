@@ -64,60 +64,6 @@
 
 #include "dbgen/dss.h" // @manual
 
-/*
- * txt_np() --
- *		generate a noun phrase by
- *		1) selecting a noun phrase form
- *		2) parsing it to select parts of speech
- *		3) selecting appropriate words
- *		4) adding punctuation as required
- *
- *	Returns: length of generated phrase
- *	Called By: txt_sentence()
- *	Calls: pick_str(),
- */
-static int txt_np(char* dest, seed_t* seed) {
-  char syntax[MAX_GRAMMAR_LEN + 1], *cptr, *parse_target;
-  distribution* src;
-  int i, res = 0;
-
-  pick_str(&np, seed, &syntax[0]);
-  parse_target = syntax;
-  while ((cptr = strtok(parse_target, " ")) != NULL) {
-    src = NULL;
-    switch (*cptr) {
-      case 'A':
-        src = &articles;
-        break;
-      case 'J':
-        src = &adjectives;
-        break;
-      case 'D':
-        src = &adverbs;
-        break;
-      case 'N':
-        src = &nouns;
-        break;
-    } /* end of POS switch statement */
-    i = pick_str(src, seed, dest);
-    i = (int)strlen(DIST_MEMBER(src, i));
-    dest += i;
-    res += i;
-    if (*(++cptr)) /* miscelaneous fillagree, like punctuation */
-    {
-      *dest = *cptr;
-      dest += 1;
-      res += 1;
-    }
-    *dest = ' ';
-    dest++;
-    res++;
-    parse_target = NULL;
-  } /* end of while loop */
-
-  return (res);
-}
-
 static char* gen_text(char* dest, seed_t* seed, distribution* s) {
   long i = 0;
   DSS_HUGE j;
