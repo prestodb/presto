@@ -14,19 +14,31 @@
 package com.facebook.presto.parquet.reader;
 
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.parquet.RichColumnDescriptor;
+import com.facebook.presto.spi.PrestoException;
+
+import java.math.BigDecimal;
+import java.math.BigInteger;
 
 import static com.facebook.presto.parquet.ParquetTypeUtils.getShortDecimalValue;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
 
 public class ShortDecimalColumnReader
         extends AbstractColumnReader
 {
+    private final int typeLength;
+
     public ShortDecimalColumnReader(RichColumnDescriptor descriptor)
     {
         super(descriptor);
+        typeLength = descriptor.getPrimitiveType().getTypeLength();
+        checkArgument(typeLength <= 16, "Type length %s should be <= 16 for short decimal column %s", typeLength, descriptor);
     }
 
     @Override
@@ -42,7 +54,15 @@ public class ShortDecimalColumnReader
                 decimalValue = valuesReader.readLong();
             }
             else {
-                decimalValue = getShortDecimalValue(valuesReader.readBytes().getBytes());
+                byte[] bytes = valuesReader.readBytes().getBytes();
+                if (typeLength <= Long.BYTES) {
+                    decimalValue = getShortDecimalValue(bytes);
+                }
+                else {
+                    int startOffset = bytes.length - Long.BYTES;
+                    checkBytesFitInShortDecimal(bytes, startOffset, type);
+                    decimalValue = getShortDecimalValue(bytes, startOffset, Long.BYTES);
+                }
             }
             type.writeLong(blockBuilder, decimalValue);
         }
@@ -63,6 +83,23 @@ public class ShortDecimalColumnReader
             }
             else {
                 valuesReader.readBytes();
+            }
+        }
+    }
+
+    private void checkBytesFitInShortDecimal(byte[] bytes, int endOffset, Type type)
+    {
+        // Equivalent to expectedValue = bytes[endOffset] < 0 ? -1 : 0
+        byte expectedValue = (byte) (bytes[endOffset] >> 7);
+        for (int i = 0; i < endOffset; i++) {
+            if (bytes[i] != expectedValue) {
+                BigDecimal bigDecimal = type instanceof DecimalType ?
+                        new BigDecimal(new BigInteger(bytes), ((DecimalType) type).getScale()) : new BigDecimal(new BigInteger(bytes));
+                throw new PrestoException(NOT_SUPPORTED, format(
+                        "Could not read fixed_len_byte_array(%d) value %s into %s",
+                        typeLength,
+                        bigDecimal,
+                        type));
             }
         }
     }

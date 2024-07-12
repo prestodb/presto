@@ -256,15 +256,20 @@ public final class ParquetTypeUtils
     // copied from presto-hive DecimalUtils
     public static long getShortDecimalValue(byte[] bytes)
     {
+        return getShortDecimalValue(bytes, 0, bytes.length);
+    }
+
+    public static long getShortDecimalValue(byte[] bytes, int startOffset, int length)
+    {
         long value = 0;
-        if ((bytes[0] & 0x80) != 0) {
-            for (int i = 0; i < 8 - bytes.length; ++i) {
+        if (bytes[startOffset] < 0) {
+            for (int i = 0; i < 8 - length; ++i) {
                 value |= 0xFFL << (8 * (7 - i));
             }
         }
 
-        for (int i = 0; i < bytes.length; i++) {
-            value |= ((long) bytes[bytes.length - i - 1] & 0xFFL) << (8 * i);
+        for (int i = 0; i < length; i++) {
+            value |= (bytes[startOffset + length - i - 1] & 0xFFL) << (8 * i);
         }
 
         return value;
