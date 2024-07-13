@@ -40,6 +40,10 @@ Array Functions
     Returns the average of all non-null elements of the ``array``. If there is no non-null elements, returns
     ``null``.
 
+.. function:: array_contains_all(x, y) -> boolean
+
+    Returns true if the array ``x`` contains all the elements of array ``y`` including ``nulls``.
+
 .. function:: array_cum_sum(array(T)) -> array(T)
 
     Returns the array whose elements are the cumulative sum of the input array, i.e. result[i] = input[1]+input[2]+...+input[i].
@@ -78,7 +82,7 @@ Array Functions
 .. function:: array_has_duplicates(array(T)) -> boolean
 
     Returns a boolean: whether ``array`` has any elements that occur more than once.
-    Throws an exception if any of the elements are rows or arrays that contain nulls. 
+    Throws an exception if any of the elements are rows or arrays that contain nulls.
 
     SELECT array_has_duplicates(ARRAY[1, 2, null, 1, null, 3]) -- true
     SELECT array_has_duplicates(ARRAY[ROW(1, null), ROW(1, null)]) -- "map key cannot be null or contain nulls"
