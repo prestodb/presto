@@ -17,6 +17,7 @@
 
 #include "velox/expression/EvalCtx.h"
 #include "velox/expression/Expr.h"
+#include "velox/functions/lib/SIMDComparisonUtil.h"
 #include "velox/functions/sparksql/Comparisons.h"
 #include "velox/type/Type.h"
 
@@ -37,28 +38,45 @@ class ComparisonFunction final : public exec::VectorFunction {
       const TypePtr& outputType,
       exec::EvalCtx& context,
       VectorPtr& result) const override {
-    context.ensureWritable(rows, BOOLEAN(), result);
-    auto* flatResult = result->asUnchecked<FlatVector<bool>>();
     const Cmp cmp;
+    context.ensureWritable(rows, BOOLEAN(), result);
+    result->clearNulls(rows);
+    if ((args[0]->isFlatEncoding() || args[0]->isConstantEncoding()) &&
+        (args[1]->isFlatEncoding() || args[1]->isConstantEncoding())) {
+      if constexpr (
+          kind == TypeKind::TINYINT || kind == TypeKind::SMALLINT ||
+          kind == TypeKind::INTEGER || kind == TypeKind::BIGINT) {
+        if (rows.isAllSelected()) {
+          applySimdComparison<T, Cmp>(rows, args, result);
+          return;
+        }
+      }
+      if (rows.end() - rows.begin() > 64) {
+        applyAutoSimdComparison<T, T, Cmp>(rows, args, result);
+        return;
+      }
+    }
+
+    auto* flatResult = result->asUnchecked<FlatVector<bool>>();
 
     if (args[0]->isFlatEncoding() && args[1]->isFlatEncoding()) {
       // Fast path for (flat, flat).
-      auto rawA = args[0]->asUnchecked<FlatVector<T>>()->mutableRawValues();
-      auto rawB = args[1]->asUnchecked<FlatVector<T>>()->mutableRawValues();
+      const auto* rawA = args[0]->asUnchecked<FlatVector<T>>()->rawValues();
+      const auto* rawB = args[1]->asUnchecked<FlatVector<T>>()->rawValues();
       rows.applyToSelected(
           [&](vector_size_t i) { flatResult->set(i, cmp(rawA[i], rawB[i])); });
     } else if (args[0]->isConstantEncoding() && args[1]->isFlatEncoding()) {
       // Fast path for (const, flat).
       auto constant = args[0]->asUnchecked<ConstantVector<T>>()->valueAt(0);
-      auto rawValues =
-          args[1]->asUnchecked<FlatVector<T>>()->mutableRawValues();
+      const auto* rawValues =
+          args[1]->asUnchecked<FlatVector<T>>()->rawValues();
       rows.applyToSelected([&](vector_size_t i) {
         flatResult->set(i, cmp(constant, rawValues[i]));
       });
     } else if (args[0]->isFlatEncoding() && args[1]->isConstantEncoding()) {
       // Fast path for (flat, const).
-      auto rawValues =
-          args[0]->asUnchecked<FlatVector<T>>()->mutableRawValues();
+      const auto* rawValues =
+          args[0]->asUnchecked<FlatVector<T>>()->rawValues();
       auto constant = args[1]->asUnchecked<ConstantVector<T>>()->valueAt(0);
       rows.applyToSelected([&](vector_size_t i) {
         flatResult->set(i, cmp(rawValues[i], constant));
@@ -136,7 +154,7 @@ class BoolComparisonFunction final : public exec::VectorFunction {
   }
 };
 
-template <template <typename> class Cmp>
+template <template <typename> class Cmp, typename StdCmp>
 std::shared_ptr<exec::VectorFunction> makeImpl(
     const std::string& functionName,
     const std::vector<exec::VectorFunctionArg>& args) {
@@ -150,17 +168,21 @@ std::shared_ptr<exec::VectorFunction> makeImpl(
     return std::make_shared<ComparisonFunction<      \
         Cmp<TypeTraits<TypeKind::kind>::NativeType>, \
         TypeKind::kind>>();
-    SCALAR_CASE(TINYINT)
-    SCALAR_CASE(SMALLINT)
-    SCALAR_CASE(INTEGER)
-    SCALAR_CASE(BIGINT)
-    SCALAR_CASE(HUGEINT)
     SCALAR_CASE(REAL)
     SCALAR_CASE(DOUBLE)
+    SCALAR_CASE(HUGEINT)
     SCALAR_CASE(VARCHAR)
     SCALAR_CASE(VARBINARY)
     SCALAR_CASE(TIMESTAMP)
 #undef SCALAR_CASE
+#define STD_SCALAR_CASE(kind) \
+  case TypeKind::kind:        \
+    return std::make_shared<ComparisonFunction<StdCmp, TypeKind::kind>>();
+    STD_SCALAR_CASE(TINYINT)
+    STD_SCALAR_CASE(SMALLINT)
+    STD_SCALAR_CASE(INTEGER)
+    STD_SCALAR_CASE(BIGINT)
+#undef STDSCALAR_CASE
     case TypeKind::BOOLEAN:
       return std::make_shared<BoolComparisonFunction<
           Cmp<TypeTraits<TypeKind::BOOLEAN>::NativeType>>>();
@@ -240,35 +262,35 @@ std::shared_ptr<exec::VectorFunction> makeEqualTo(
     const std::string& functionName,
     const std::vector<exec::VectorFunctionArg>& args,
     const core::QueryConfig& /*config*/) {
-  return makeImpl<Equal>(functionName, args);
+  return makeImpl<Equal, std::equal_to<>>(functionName, args);
 }
 
 std::shared_ptr<exec::VectorFunction> makeLessThan(
     const std::string& functionName,
     const std::vector<exec::VectorFunctionArg>& args,
     const core::QueryConfig& /*config*/) {
-  return makeImpl<Less>(functionName, args);
+  return makeImpl<Less, std::less<>>(functionName, args);
 }
 
 std::shared_ptr<exec::VectorFunction> makeGreaterThan(
     const std::string& functionName,
     const std::vector<exec::VectorFunctionArg>& args,
     const core::QueryConfig& /*config*/) {
-  return makeImpl<Greater>(functionName, args);
+  return makeImpl<Greater, std::greater<>>(functionName, args);
 }
 
 std::shared_ptr<exec::VectorFunction> makeLessThanOrEqual(
     const std::string& functionName,
     const std::vector<exec::VectorFunctionArg>& args,
     const core::QueryConfig& /*config*/) {
-  return makeImpl<LessOrEqual>(functionName, args);
+  return makeImpl<LessOrEqual, std::less_equal<>>(functionName, args);
 }
 
 std::shared_ptr<exec::VectorFunction> makeGreaterThanOrEqual(
     const std::string& functionName,
     const std::vector<exec::VectorFunctionArg>& args,
     const core::QueryConfig& /*config*/) {
-  return makeImpl<GreaterOrEqual>(functionName, args);
+  return makeImpl<GreaterOrEqual, std::greater_equal<>>(functionName, args);
 }
 
 std::shared_ptr<exec::VectorFunction> makeEqualToNullSafe(

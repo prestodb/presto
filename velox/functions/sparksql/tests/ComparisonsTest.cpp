@@ -66,6 +66,59 @@ class ComparisonsTest : public SparkFunctionBaseTest {
     return evaluateOnce<bool>("greaterthanorequal(c0, c1)", a, b);
   }
 
+  template <TypeKind kind>
+  void runSIMDCompareAndAssert(int size, int unSelectedRows = 0) {
+    using T = typename TypeTraits<kind>::NativeType;
+    auto type = TypeTraits<kind>::ImplType::create();
+    auto expectedResult = std::vector<bool>();
+    expectedResult.resize(size);
+    VectorFuzzer::Options opts;
+    opts.vectorSize = size;
+    VectorFuzzer fuzzer(opts, execCtx_.pool());
+    auto lVector = fuzzer.fuzzFlat(type, size);
+    auto left = lVector->template as<FlatVector<T>>()->rawValues();
+    auto rVector = fuzzer.fuzzFlat(type, size);
+    auto right = rVector->template as<FlatVector<T>>()->rawValues();
+    auto constVector = fuzzer.fuzzConstant(type);
+    auto constant = constVector->template as<ConstantVector<T>>()->value();
+    SelectivityVector rows(size);
+    rows.setValidRange(0, unSelectedRows, false);
+
+    // Flat, Flat
+    std::vector<VectorPtr> childrenVectors = {lVector, rVector};
+    auto rowVector =
+        fuzzer.fuzzRow(std::move(childrenVectors), {"c0", "c1"}, size);
+    auto result =
+        evaluate<SimpleVector<bool>>("greaterthanorequal(c0, c1)", rowVector);
+    for (auto i = unSelectedRows; i < size; i++) {
+      expectedResult[i] = left[i] >= right[i];
+    }
+    velox::test::assertEqualVectors(
+        makeFlatVector<bool>(expectedResult), result, rows);
+
+    // Flat, Const
+    std::vector<VectorPtr> rConstVectors = {lVector, constVector};
+    rowVector = fuzzer.fuzzRow(std::move(rConstVectors), {"c0", "c1"}, size);
+    result =
+        evaluate<SimpleVector<bool>>("greaterthanorequal(c0, c1)", rowVector);
+    for (auto i = unSelectedRows; i < size; i++) {
+      expectedResult[i] = left[i] >= constant;
+    }
+    velox::test::assertEqualVectors(
+        makeFlatVector<bool>(expectedResult), result, rows);
+
+    // Const, Flat
+    std::vector<VectorPtr> lConstVectors = {constVector, rVector};
+    rowVector = fuzzer.fuzzRow(std::move(lConstVectors), {"c0", "c1"}, size);
+    result =
+        evaluate<SimpleVector<bool>>("greaterthanorequal(c0, c1)", rowVector);
+    for (auto i = unSelectedRows; i < size; i++) {
+      expectedResult[i] = constant >= right[i];
+    }
+    velox::test::assertEqualVectors(
+        makeFlatVector<bool>(expectedResult), result, rows);
+  }
+
   void runAndCompare(
       const std::string& functionName,
       const std::vector<VectorPtr>& input,
@@ -386,6 +439,32 @@ TEST_F(ComparisonsTest, testflat) {
   auto actualBoolResult = evaluate<SimpleVector<bool>>(
       "equalto(c0, c1)", makeRowVector({vectorBool0, vectorBool1}));
   facebook::velox::test::assertEqualVectors(vectorBool0, actualBoolResult);
+}
+
+TEST_F(ComparisonsTest, testSIMDComparsion) {
+  runSIMDCompareAndAssert<TypeKind::BIGINT>(64);
+  runSIMDCompareAndAssert<TypeKind::BIGINT>(65);
+  runSIMDCompareAndAssert<TypeKind::BIGINT>(1001);
+  runSIMDCompareAndAssert<TypeKind::BIGINT>(1001, 27);
+  runSIMDCompareAndAssert<TypeKind::BIGINT>(1001, 47);
+  runSIMDCompareAndAssert<TypeKind::BIGINT>(1001, 56);
+  runSIMDCompareAndAssert<TypeKind::BIGINT>(1001, 100);
+  runSIMDCompareAndAssert<TypeKind::BIGINT>(4096);
+  runSIMDCompareAndAssert<TypeKind::BIGINT>(4096, 30);
+  runSIMDCompareAndAssert<TypeKind::BIGINT>(4096, 31);
+  runSIMDCompareAndAssert<TypeKind::BIGINT>(4096, 32);
+  runSIMDCompareAndAssert<TypeKind::BIGINT>(4096, 33);
+  runSIMDCompareAndAssert<TypeKind::BIGINT>(4096, 78);
+
+  runSIMDCompareAndAssert<TypeKind::TINYINT>(675);
+  runSIMDCompareAndAssert<TypeKind::SMALLINT>(10240);
+  runSIMDCompareAndAssert<TypeKind::INTEGER>(7799);
+  runSIMDCompareAndAssert<TypeKind::BIGINT>(8876);
+  runSIMDCompareAndAssert<TypeKind::REAL>(1000);
+  runSIMDCompareAndAssert<TypeKind::DOUBLE>(10000);
+  runSIMDCompareAndAssert<TypeKind::TIMESTAMP>(1024);
+  runSIMDCompareAndAssert<TypeKind::VARCHAR>(686);
+  runSIMDCompareAndAssert<TypeKind::VARBINARY>(777);
 }
 
 TEST_F(ComparisonsTest, lessthan) {
