@@ -17,7 +17,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.functionNamespace.FunctionNamespaceManagerPlugin;
 import com.facebook.presto.functionNamespace.json.JsonFileBasedFunctionNamespaceManagerFactory;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.FilterNode;
@@ -76,7 +75,6 @@ import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_LAST;
 import static com.facebook.presto.common.predicate.Domain.singleValue;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_LIMIT_CLAUSE;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
@@ -137,8 +135,6 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestLogicalPlanner
         extends BasePlanTest
@@ -1366,24 +1362,6 @@ public class TestLogicalPlanner
                 "SELECT * FROM (SELECT regionkey FROM region GROUP BY regionkey) r1, region r2 WHERE r2.regionkey > r1.regionkey LIMIT 0",
                 output(
                         values("expr_8", "expr_9", "expr_10", "expr_11")));
-    }
-
-    @Test
-    public void testInvalidLimit()
-    {
-        try {
-            assertPlan(
-                    "SELECT orderkey FROM orders LIMIT 10000000000000000000000",
-                    output(
-                            values("NOOP")));
-            fail("PrestoException not thrown for invalid limit");
-        }
-        catch (Exception e) {
-            assertTrue(e instanceof PrestoException, format("Expected PrestoException but found %s", e));
-            PrestoException prestoException = (PrestoException) e;
-            assertEquals(prestoException.getErrorCode(), INVALID_LIMIT_CLAUSE.toErrorCode());
-            assertEquals(prestoException.getMessage(), "Invalid limit: 10000000000000000000000");
-        }
     }
 
     @Test

@@ -20,7 +20,6 @@ const folly::F14FastMap<std::string, ServerOperation::Action>
     ServerOperation::kActionLookup{
         {"clearCache", ServerOperation::Action::kClearCache},
         {"getCacheStats", ServerOperation::Action::kGetCacheStats},
-        {"writeSsd", ServerOperation::Action::kWriteSSD},
         {"setProperty", ServerOperation::Action::kSetProperty},
         {"getProperty", ServerOperation::Action::kGetProperty},
         {"getDetail", ServerOperation::Action::kGetDetail},
@@ -33,7 +32,6 @@ const folly::F14FastMap<ServerOperation::Action, std::string>
     ServerOperation::kReverseActionLookup{
         {ServerOperation::Action::kClearCache, "clearCache"},
         {ServerOperation::Action::kGetCacheStats, "getCacheStats"},
-        {ServerOperation::Action::kWriteSSD, "writeSsd"},
         {ServerOperation::Action::kSetProperty, "setProperty"},
         {ServerOperation::Action::kGetProperty, "getProperty"},
         {ServerOperation::Action::kGetDetail, "getDetail"},

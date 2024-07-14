@@ -40,77 +40,48 @@ import static org.testng.Assert.assertNotNull;
 public class TestResourceGroupStateInfoResource
 {
     private HttpClient client;
-    private TestingPrestoServer serverWithResourceGroupInfoExpirationEnabled;
-
-    private TestingPrestoServer serverWithResourceGroupInfoExpirationDisabled;
+    private TestingPrestoServer server;
 
     @BeforeClass
     public void setup()
             throws Exception
     {
         client = new JettyHttpClient();
-
-        DistributedQueryRunner runnerWithExpirationEnabled = createQueryRunner(ImmutableMap.of("query.client.timeout", "20s", "cluster-resource-group-state-info-expiration-duration", "20s"));
-        serverWithResourceGroupInfoExpirationEnabled = runnerWithExpirationEnabled.getCoordinator();
-        serverWithResourceGroupInfoExpirationEnabled.getResourceGroupManager().get().addConfigurationManagerFactory(new FileResourceGroupConfigurationManagerFactory());
-        serverWithResourceGroupInfoExpirationEnabled.getResourceGroupManager().get()
-                .forceSetConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_simple.json")));
-
-        DistributedQueryRunner runnerWithExpirationDisabled = createQueryRunner(ImmutableMap.of("query.client.timeout", "20s"));
-        serverWithResourceGroupInfoExpirationDisabled = runnerWithExpirationDisabled.getCoordinator();
-        serverWithResourceGroupInfoExpirationDisabled.getResourceGroupManager().get().addConfigurationManagerFactory(new FileResourceGroupConfigurationManagerFactory());
-        serverWithResourceGroupInfoExpirationDisabled.getResourceGroupManager().get()
+        DistributedQueryRunner runner = createQueryRunner(ImmutableMap.of("query.client.timeout", "20s", "cluster-resource-group-state-info-expiration-duration", "20s"));
+        server = runner.getCoordinator();
+        server.getResourceGroupManager().get().addConfigurationManagerFactory(new FileResourceGroupConfigurationManagerFactory());
+        server.getResourceGroupManager().get()
                 .forceSetConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_simple.json")));
     }
 
     @AfterClass(alwaysRun = true)
     public void teardown()
     {
-        closeQuietly(serverWithResourceGroupInfoExpirationEnabled);
-        closeQuietly(serverWithResourceGroupInfoExpirationDisabled);
+        closeQuietly(server);
         closeQuietly(client);
-        serverWithResourceGroupInfoExpirationEnabled = null;
-        serverWithResourceGroupInfoExpirationDisabled = null;
+        server = null;
         client = null;
     }
 
     @Test
-    public void testResourceGroupStateInfoWithResourceGroupStateInfoExpirationEnabled()
+    public void testResourceGroupStateInfo()
     {
-        runToExecuting(client, serverWithResourceGroupInfoExpirationEnabled, "SELECT * from tpch.sf101.orders");
+        runToExecuting(client, server, "SELECT * from tpch.sf101.orders");
 
-        ResourceGroupInfo resourceGroupInfo = getGlobalResourceGroupStateInfo(false, serverWithResourceGroupInfoExpirationEnabled);
+        ResourceGroupInfo resourceGroupInfo = getGlobalResourceGroupStateInfo(false);
 
         assertNotNull(resourceGroupInfo);
         assertEquals(resourceGroupInfo.getNumRunningQueries(), 1);
 
-        runToExecuting(client, serverWithResourceGroupInfoExpirationEnabled, "SELECT * from tpch.sf101.orders");
-        resourceGroupInfo = getGlobalResourceGroupStateInfo(false, serverWithResourceGroupInfoExpirationEnabled);
+        runToExecuting(client, server, "SELECT * from tpch.sf101.orders");
+        resourceGroupInfo = getGlobalResourceGroupStateInfo(false);
 
         assertNotNull(resourceGroupInfo);
         //Result will be served from cache so running queries count should remain 1
         assertEquals(resourceGroupInfo.getNumRunningQueries(), 1);
     }
 
-    @Test
-    public void testResourceGroupStateInfoWithResourceGroupStateInfoExpirationDisabled()
-    {
-        runToExecuting(client, serverWithResourceGroupInfoExpirationDisabled, "SELECT * from tpch.sf101.orders");
-
-        ResourceGroupInfo resourceGroupInfo = getGlobalResourceGroupStateInfo(false, serverWithResourceGroupInfoExpirationDisabled);
-
-        assertNotNull(resourceGroupInfo);
-        assertEquals(resourceGroupInfo.getNumRunningQueries(), 1);
-
-        runToExecuting(client, serverWithResourceGroupInfoExpirationDisabled, "SELECT * from tpch.sf101.orders");
-        resourceGroupInfo = getGlobalResourceGroupStateInfo(false, serverWithResourceGroupInfoExpirationDisabled);
-
-        assertNotNull(resourceGroupInfo);
-        //Result will be served realtime so running queries count should be 2
-        assertEquals(resourceGroupInfo.getNumRunningQueries(), 2);
-    }
-
-    private ResourceGroupInfo getGlobalResourceGroupStateInfo(boolean followRedirects, TestingPrestoServer server)
+    private ResourceGroupInfo getGlobalResourceGroupStateInfo(boolean followRedirects)
     {
         Request.Builder builder = prepareGet();
         Request request = builder

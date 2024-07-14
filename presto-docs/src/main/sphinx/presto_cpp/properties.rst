@@ -109,9 +109,9 @@ The configuration properties of Presto C++ workers are described here, in alphab
 * **Type:** ``integer``
 * **Default value:** ``38``
 
-  Specifies the total amount of memory in GB that can be used for all queries on a
-  worker node. Memory for system usage such as disk spilling and cache prefetch are
-  not counted in it.
+  The total memory capacity that can be used across all query executions. 
+  Memory for system usage such as disk spilling and cache prefetch which 
+  are not counted in query memory usage.
 
 ``query-reserved-memory-gb``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -119,10 +119,13 @@ The configuration properties of Presto C++ workers are described here, in alphab
 * **Type:** ``integer``
 * **Default value:** ``4``
 
-  Specifies the total amount of memory in GB reserved for the queries on
-  a worker node. A query can only allocate from this reserved space if
-  1) the non-reserved space in ``query-memory-gb`` is used up; and 2) the amount
-  it tries to get is less than ``memory-pool-reserved-capacity``.
+  Specifies the amount of query memory capacity reserved 
+  to ensure that each query has the minimal memory capacity to run. A query can 
+  only allocate from the reserved query memory if its current capacity is less 
+  than the minimal memory capacity as specified by 
+  ``memory-pool-reserved-capacity``. 
+  
+  The exceeding capacity must allocate from the non-reserved query memory.
 
 ``system-memory-gb``
 ^^^^^^^^^^^^^^^^^^^^
@@ -130,9 +133,7 @@ The configuration properties of Presto C++ workers are described here, in alphab
 * **Type:** ``integer``
 * **Default value:** ``40``
 
-  Memory allocation limit enforced via internal memory allocator. It consists of two parts:
-  1) Memory used by the queries as specified in ``query-memory-gb``; 2) Memory used by the
-  system, such as disk spilling and cache prefetch.
+  Memory allocation limit enforced via internal memory allocator. 
 
   Set ``system-memory-gb`` to the available machine memory of the deployment.
 

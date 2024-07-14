@@ -59,17 +59,20 @@ public class HistoryBasedPlanStatisticsCalculator
     private final HistoryBasedStatisticsCacheManager historyBasedStatisticsCacheManager;
     private final StatsCalculator delegate;
     private final PlanCanonicalInfoProvider planCanonicalInfoProvider;
+    private final HistoryBasedOptimizationConfig config;
 
     public HistoryBasedPlanStatisticsCalculator(
             Supplier<HistoryBasedPlanStatisticsProvider> historyBasedPlanStatisticsProvider,
             HistoryBasedStatisticsCacheManager historyBasedStatisticsCacheManager,
             StatsCalculator delegate,
-            PlanCanonicalInfoProvider planCanonicalInfoProvider)
+            PlanCanonicalInfoProvider planCanonicalInfoProvider,
+            HistoryBasedOptimizationConfig config)
     {
         this.historyBasedPlanStatisticsProvider = requireNonNull(historyBasedPlanStatisticsProvider, "historyBasedPlanStatisticsProvider is null");
         this.historyBasedStatisticsCacheManager = requireNonNull(historyBasedStatisticsCacheManager, "historyBasedStatisticsCacheManager is null");
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.planCanonicalInfoProvider = requireNonNull(planCanonicalInfoProvider, "planHasher is null");
+        this.config = requireNonNull(config, "config is null");
     }
 
     @Override
@@ -189,7 +192,7 @@ public class HistoryBasedPlanStatisticsCalculator
         catch (ExecutionException e) {
             throw new RuntimeException(format("Unable to get plan statistics for %s", planNode), e.getCause());
         }
-        double historyMatchingThreshold = getHistoryInputTableStatisticsMatchingThreshold(session);
+        double historyMatchingThreshold = getHistoryInputTableStatisticsMatchingThreshold(session) > 0 ? getHistoryInputTableStatisticsMatchingThreshold(session) : config.getHistoryMatchingThreshold();
         // Return statistics corresponding to first strategy that we find, in order specified by `historyBasedPlanCanonicalizationStrategyList`
         for (PlanCanonicalizationStrategy strategy : historyBasedPlanCanonicalizationStrategyList(session)) {
             for (Map.Entry<PlanNodeWithHash, HistoricalPlanStatistics> entry : statistics.entrySet()) {

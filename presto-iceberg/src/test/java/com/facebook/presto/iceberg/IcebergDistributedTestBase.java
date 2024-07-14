@@ -941,6 +941,7 @@ public abstract class IcebergDistributedTestBase
             // assert either case as we don't have good control over the timing of when statistics files are written
             ColumnStatistics col0Stats = columnStatsFor(statistics, "col0");
             ColumnStatistics col1Stats = columnStatsFor(statistics, "col1");
+            System.out.printf("distinct @ %s count col0: %s%n", snaps.get(i), col0Stats.getDistinctValuesCount());
             final int idx = i;
             assertEither(
                     () -> assertEquals(col0Stats.getDistinctValuesCount(), Estimate.of(idx)),
