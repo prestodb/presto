@@ -506,12 +506,18 @@ export class StageDetail extends React.Component {
             this.timeoutId = setTimeout(this.refreshLoop, 1000);
         }
     }
+     static getQueryURL(id) {
+        if (!id || typeof id !== 'string' || id.length === 0) {
+            return "/v1/query/undefined";
+        }
+        const sanitizedId = id.replace(/[^a-z0-9_]/gi, '');
+        return sanitizedId.length > 0 ? `/v1/query/${encodeURIComponent(sanitizedId)}` : "/v1/query/undefined";
+     }
 
     refreshLoop() {
         clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
         const queryString = getFirstParameter(window.location.search).split('.');
-        const queryId = queryString.length > 0 ? queryString[0] : "undefined";
-
+        const rawQueryId = queryString.length > 0 ? queryString[0] : "";
         let selectedStageId = this.state.selectedStageId;
         if (selectedStageId === null) {
             selectedStageId = 0;
@@ -520,7 +526,8 @@ export class StageDetail extends React.Component {
             }
         }
 
-        $.get('/v1/query/' + queryId, query => {
+       
+        $.get(StageDetail.getQueryURL(rawQueryId), query => {
             this.setState({
                 initialized: true,
                 ended: query.finalQueryInfo,
