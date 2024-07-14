@@ -18,9 +18,7 @@ import com.facebook.presto.execution.SqlQueryManager;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.JoinDistributionType;
-import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.ProjectNode;
-import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
@@ -42,7 +40,6 @@ import java.util.Map;
 import static com.facebook.presto.SystemSessionProperties.CTE_MATERIALIZATION_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.CTE_PARTITIONING_PROVIDER_CATALOG;
 import static com.facebook.presto.SystemSessionProperties.HISTORY_BASED_OPTIMIZATION_PLAN_CANONICALIZATION_STRATEGY;
-import static com.facebook.presto.SystemSessionProperties.HISTORY_INPUT_TABLE_STATISTICS_MATCHING_THRESHOLD;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.PARTIAL_AGGREGATION_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.RESTRICT_HISTORY_BASED_OPTIMIZATION_TO_COMPLEX_QUERY;
@@ -90,76 +87,6 @@ public class TestHiveHistoryBasedStatsTracking
         DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
         SqlQueryManager sqlQueryManager = (SqlQueryManager) queryRunner.getCoordinator().getQueryManager();
         return (InMemoryHistoryBasedPlanStatisticsProvider) sqlQueryManager.getHistoryBasedPlanStatisticsTracker().getHistoryBasedPlanStatisticsProvider();
-    }
-
-    @Test
-    public void testHistoryMatchingThreshold()
-    {
-        String tableName = "test_history_matching_threshold";
-        try {
-            assertUpdate("create table " + tableName + "(a int, b varchar)");
-            String query = "select * from " + tableName + " where a <= 2 order by b desc";
-
-            // insert 12 rows into table `test_history_matching_threshold`
-            executeAndTrackHistory("insert into " + tableName + " values(1, '1001'), (2, '1002'), (2, '1003'), (2, '1002'), (2, '1003'), (2, '1002'), (2, '1003'), (2, '1002'), (2, '1003'), (2, '1002'), (2, '1003'), (3, '1004')", defaultSession());
-
-            // cost based statistics
-            assertPlan(query, anyTree(node(TableScanNode.class).withOutputRowCount(false, "CBO")));
-            assertPlan(query, node(OutputNode.class, anyTree(any())).withOutputRowCount(false, "CBO"));
-
-            executeAndTrackHistory(query, defaultSession());
-
-            // historical based statistics
-            assertPlan(query, node(OutputNode.class, anyTree(any())).withOutputRowCount(11, "HBO"));
-
-            // insert 1 more row into table `test_history_matching_threshold`,
-            //  so that the change of input table size is less than `0.1`
-            executeAndTrackHistory("insert into " + tableName + " values(1, '1005')", defaultSession());
-
-            // default history threshold is `0.1`, so the old historical statistics could still be used
-            assertPlan(query, node(OutputNode.class, anyTree(any())).withOutputRowCount(11, "HBO"));
-
-            // set history threshold more than the ratio of real data changes explicitly, the old historical statistics could still be used
-            assertPlan(createSessionWithHistoryThreshold(0.1), query, node(OutputNode.class, anyTree(any())).withOutputRowCount(11, "HBO"));
-            assertPlan(createSessionWithHistoryThreshold(0.2), query, node(OutputNode.class, anyTree(any())).withOutputRowCount(11, "HBO"));
-
-            // set history threshold less than the ratio of real data changes explicitly,
-            //  then the historical statistics couldn't be used anymore
-            assertPlan(createSessionWithHistoryThreshold(0.01), query, node(OutputNode.class, anyTree(any())).withOutputRowCount(false, "CBO"));
-            assertPlan(createSessionWithHistoryThreshold(0.0), query, node(OutputNode.class, anyTree(any())).withOutputRowCount(false, "CBO"));
-
-            // insert another 1 more row into table `test_history_matching_threshold`,
-            //  so that the change of input table size is bigger than `0.1` and less than `0.2`
-            executeAndTrackHistory("insert into " + tableName + " values(2, '1006')", defaultSession());
-
-            // default history threshold is `0.1`, so the historical statistics could not be used anymore
-            assertPlan(query, node(OutputNode.class, anyTree(any())).withOutputRowCount(false, "CBO"));
-
-            // set history threshold less than the ratio of real data changes explicitly,
-            //  then the historical statistics couldn't be used anymore
-            assertPlan(createSessionWithHistoryThreshold(0.12), query, node(OutputNode.class, anyTree(any())).withOutputRowCount(false, "CBO"));
-            assertPlan(createSessionWithHistoryThreshold(0.01), query, node(OutputNode.class, anyTree(any())).withOutputRowCount(false, "CBO"));
-            assertPlan(createSessionWithHistoryThreshold(0.0), query, node(OutputNode.class, anyTree(any())).withOutputRowCount(false, "CBO"));
-
-            // set history threshold more than the ratio of real data changes explicitly, the old historical statistics could still be used
-            assertPlan(createSessionWithHistoryThreshold(0.2), query, node(OutputNode.class, anyTree(any())).withOutputRowCount(11, "HBO"));
-
-            executeAndTrackHistory(query, defaultSession());
-
-            assertPlan(query, node(OutputNode.class, anyTree(any())).withOutputRowCount(13, "HBO"));
-            assertPlan(createSessionWithHistoryThreshold(0.0), query, node(OutputNode.class, anyTree(any())).withOutputRowCount(13, "HBO"));
-            assertPlan(createSessionWithHistoryThreshold(0.15), query, node(OutputNode.class, anyTree(any())).withOutputRowCount(13, "HBO"));
-        }
-        finally {
-            assertUpdate("DROP TABLE IF EXISTS " + tableName);
-        }
-    }
-
-    private Session createSessionWithHistoryThreshold(double threshold)
-    {
-        return Session.builder(defaultSession())
-                .setSystemProperty(HISTORY_INPUT_TABLE_STATISTICS_MATCHING_THRESHOLD, String.valueOf(threshold))
-                .build();
     }
 
     @Test

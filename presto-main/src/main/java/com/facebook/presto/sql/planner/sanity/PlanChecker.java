@@ -40,8 +40,8 @@ public final class PlanChecker
 
     public PlanChecker(FeaturesConfig featuresConfig, boolean forceSingleNode)
     {
-        ImmutableListMultimap.Builder<Stage, Checker> builder = ImmutableListMultimap.builder();
-        builder.putAll(
+        checkers = ImmutableListMultimap.<Stage, Checker>builder()
+                .putAll(
                         Stage.INTERMEDIATE,
                         new ValidateDependenciesChecker(),
                         new NoDuplicatePlanNodeIdsChecker(),
@@ -69,11 +69,8 @@ public final class PlanChecker
                         new VerifyNoIntermediateFormExpression(),
                         new VerifyProjectionLocality(),
                         new DynamicFiltersChecker(),
-                        new WarnOnScanWithoutPartitionPredicate(featuresConfig));
-        if (featuresConfig.isNativeExecutionEnabled() && featuresConfig.isDisableTimeStampWithTimeZoneForNative()) {
-            builder.put(Stage.FINAL, new CheckNoTimestampWithTimezoneType());
-        }
-        checkers = builder.build();
+                        new WarnOnScanWithoutPartitionPredicate(featuresConfig))
+                .build();
     }
 
     public void validateFinalPlan(PlanNode planNode, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)

@@ -20,9 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import java.util.HashMap;
-import java.util.Map;
-
 import static com.facebook.presto.common.type.DecimalType.createDecimalType;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
@@ -98,25 +95,6 @@ public class TestMapTopNFunction
     public void testNull()
     {
         assertFunction("MAP_TOP_N(NULL, 1)", mapType(UNKNOWN, UNKNOWN), null);
-
-        // If values are null, then use keys to break ties.
-        Map<Integer, Integer> expected = new HashMap<Integer, Integer>() {{
-                put(4, 4);
-                put(3, 1);
-                put(5, null);
-            }};
-
-        assertFunction("MAP_TOP_N(MAP(ARRAY[1, 2, 3, 4, 5], ARRAY[NULL, NULL, 1, 4, NULL]), 3)", mapType(INTEGER, INTEGER),
-                expected);
-
-        Map<String, Integer> expectedStringKey = new HashMap<String, Integer>() {{
-                put("ef", 6);
-                put("cd", 4);
-                put("ab", -1);
-                put("hi", null);
-            }};
-        assertFunction("MAP_TOP_N(MAP(ARRAY['ab', 'bc', 'ef', 'cd', 'hi'], ARRAY[-1, NULL, 6, 4, NULL]), 4)", mapType(createVarcharType(2), INTEGER),
-                expectedStringKey);
     }
 
     @Test

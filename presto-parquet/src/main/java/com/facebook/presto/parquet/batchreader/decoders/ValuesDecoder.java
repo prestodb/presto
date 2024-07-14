@@ -82,25 +82,5 @@ public interface ValuesDecoder
         void skip(int length);
     }
 
-    interface ShortDecimalValuesDecoder
-            extends ValuesDecoder
-    {
-        void readNext(long[] values, int offset, int length)
-                throws IOException;
-
-        void skip(int length)
-                throws IOException;
-    }
-
-    interface LongDecimalValuesDecoder
-            extends ValuesDecoder
-    {
-        void readNext(long[] values, int offset, int length)
-                throws IOException;
-
-        void skip(int length)
-                throws IOException;
-    }
-
     public long getRetainedSizeInBytes();
 }

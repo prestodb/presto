@@ -91,10 +91,9 @@ resource JAR is included on the classpath of Presto coordinator, it will be able
 resources.
 
 None of the Java code relies on the Presto UI project being compiled, so it is possible to exclude
-this UI when building Presto. Add the property `-DskipUI` to the maven command to disable building
-the `ui` maven module.
+this UI when building Presto. It can be excluded by disabling the `ui` maven profile with `-P \!ui`:
 
-    ./mvnw clean install -DskipUI
+    ./mvnw clean install -P \!ui
 
 You must have [Node.js](https://nodejs.org/en/download/) and [Yarn](https://yarnpkg.com/en/) installed to build the UI. When using  Maven to build
 the project, Node and yarn are installed in the `presto-ui/target` folder. Add the node and yarn

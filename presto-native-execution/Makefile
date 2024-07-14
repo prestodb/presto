@@ -101,18 +101,24 @@ presto_protocol:		#: Build the presto_protocol serde library
 TypeSignature:		#: Build the Presto TypeSignature parser
 	cd presto_cpp/main/types; $(MAKE) TypeSignature
 
-format-fix: 			#: Fix formatting issues in the presto-native-execution directory
-	velox/scripts/check.py format master --fix
+format-fix: 			#: Fix formatting issues in the master branch
+	pushd "$$(pwd)/.." && presto-native-execution/velox/scripts/check.py format master --fix && popd
 
-format-check: 			#: Check for formatting issues in the presto-native-execution directory
+format-check: 			#: Check for formatting issues on the master branch
 	clang-format --version
-	velox/scripts/check.py format master
+	pushd "$$(pwd)/.." && presto-native-execution/velox/scripts/check.py format master && popd
 
-header-fix:			#: Fix license header issues in the presto-native-execution directory
-	velox/scripts/check.py header master --fix
+header-fix:				#: Fix license header issues in the master branch
+	pushd "$$(pwd)/.." && presto-native-execution/velox/scripts/check.py header master --fix && popd
 
-header-check:			#: Check for license header issues in the presto-native-execution directory
-	velox/scripts/check.py header master
+header-check:			#: Check for license header issues on the man branch
+	pushd "$$(pwd)/.." && presto-native-execution/velox/scripts/check.py header master && popd
+
+tidy-fix: cmake			#: Fix clang-tidy issues in the master branch
+	pushd "$$(pwd)/.." && presto-native-execution/velox/scripts/check.py tidy master --fix && popd
+
+tidy-check: cmake		#: Check clang-tidy issues in the master branch
+	pushd "$$(pwd)/.." && presto-native-execution/velox/scripts/check.py tidy master && popd
 
 help:					#: Show the help messages
 	@cat $(firstword $(MAKEFILE_LIST)) | \

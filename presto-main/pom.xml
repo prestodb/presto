@@ -576,13 +576,11 @@
     <profiles>
         <profile>
             <!-- Requires the UI as a dependency by default. If the UI is   -->
-            <!-- not required, turn off this profile (-DskipUI) to prevent  -->
+            <!-- not required, turn off this profile (-P '!ui') to prevent  -->
             <!-- building it      -->
             <id>ui</id>
             <activation>
-                <property>
-                    <name>!skipUI</name>
-                </property>
+                <activeByDefault>true</activeByDefault>
             </activation>
             <dependencies>
                 <dependency>
