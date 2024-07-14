@@ -217,6 +217,7 @@ public class FeaturesConfig
     private boolean preferDistributedUnion = true;
     private boolean optimizeNullsInJoin;
     private boolean optimizePayloadJoins;
+    private boolean confidenceBasedBroadcastEnabled;
     private boolean pushdownDereferenceEnabled;
     private boolean inlineSqlFunctions = true;
     private boolean checkAccessControlOnUtilizedColumnsOnly;
@@ -261,6 +262,7 @@ public class FeaturesConfig
     private boolean pushRemoteExchangeThroughGroupId;
     private boolean isOptimizeMultipleApproxPercentileOnSameFieldEnabled = true;
     private boolean nativeExecutionEnabled;
+    private boolean disableTimeStampWithTimeZoneForNative = true;
     private String nativeExecutionExecutablePath = "./presto_server";
     private String nativeExecutionProgramArguments = "";
     private boolean nativeExecutionProcessReuseEnabled = true;
@@ -1247,6 +1249,18 @@ public class FeaturesConfig
     public FeaturesConfig setDictionaryAggregation(boolean dictionaryAggregation)
     {
         this.dictionaryAggregation = dictionaryAggregation;
+        return this;
+    }
+
+    public boolean isConfidenceBasedBroadcastEnabled()
+    {
+        return confidenceBasedBroadcastEnabled;
+    }
+
+    @Config("optimizer.confidence-based-broadcast")
+    public FeaturesConfig setConfidenceBasedBroadcastEnabled(boolean confidenceBasedBroadcastEnabled)
+    {
+        this.confidenceBasedBroadcastEnabled = confidenceBasedBroadcastEnabled;
         return this;
     }
 
@@ -2586,6 +2600,19 @@ public class FeaturesConfig
     public boolean isNativeExecutionEnabled()
     {
         return this.nativeExecutionEnabled;
+    }
+
+    @Config("disable-timestamp-with-timezone-for-native-execution")
+    @ConfigDescription("Disable timestamp with timezone type on native engine")
+    public FeaturesConfig setDisableTimeStampWithTimeZoneForNative(boolean disableTimeStampWithTimeZoneForNative)
+    {
+        this.disableTimeStampWithTimeZoneForNative = disableTimeStampWithTimeZoneForNative;
+        return this;
+    }
+
+    public boolean isDisableTimeStampWithTimeZoneForNative()
+    {
+        return this.disableTimeStampWithTimeZoneForNative;
     }
 
     @Config("native-execution-executable-path")

@@ -7,3 +7,5 @@ Presto Clients
 
     clients/presto-cli
     clients/presto-console
+    clients/dbeaver
+    clients/superset

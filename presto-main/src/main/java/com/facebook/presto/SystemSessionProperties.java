@@ -15,6 +15,7 @@ package com.facebook.presto;
 
 import com.facebook.presto.common.WarningHandlingLevel;
 import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
+import com.facebook.presto.cost.HistoryBasedOptimizationConfig;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy;
 import com.facebook.presto.execution.TaskManagerConfig;
@@ -23,7 +24,6 @@ import com.facebook.presto.execution.scheduler.NodeSchedulerConfig.ResourceAware
 import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.memory.NodeMemoryConfig;
-import com.facebook.presto.server.security.SecurityConfig;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.eventlistener.CTEInformation;
 import com.facebook.presto.spi.session.PropertyMetadata;
@@ -365,7 +365,7 @@ public final class SystemSessionProperties
                 new NodeSpillConfig(),
                 new TracingConfig(),
                 new CompilerConfig(),
-                new SecurityConfig());
+                new HistoryBasedOptimizationConfig());
     }
 
     @Inject
@@ -380,7 +380,7 @@ public final class SystemSessionProperties
             NodeSpillConfig nodeSpillConfig,
             TracingConfig tracingConfig,
             CompilerConfig compilerConfig,
-            SecurityConfig securityConfig)
+            HistoryBasedOptimizationConfig historyBasedOptimizationConfig)
     {
         sessionProperties = ImmutableList.of(
                 stringProperty(
@@ -427,7 +427,7 @@ public final class SystemSessionProperties
                 booleanProperty(
                         CONFIDENCE_BASED_BROADCAST_ENABLED,
                         "Enable confidence based broadcasting when enabled",
-                        false,
+                        featuresConfig.isConfidenceBasedBroadcastEnabled(),
                         false),
                 booleanProperty(
                         DISTRIBUTED_INDEX_JOIN,
@@ -1554,11 +1554,15 @@ public final class SystemSessionProperties
                         "Enable history based optimization only for complex queries, i.e. queries with join and aggregation",
                         true,
                         false),
-                doubleProperty(
+                new PropertyMetadata<>(
                         HISTORY_INPUT_TABLE_STATISTICS_MATCHING_THRESHOLD,
                         "When the size difference between current table and history table exceed this threshold, do not match history statistics",
-                        0.0,
-                        true),
+                        DOUBLE,
+                        Double.class,
+                        historyBasedOptimizationConfig.getHistoryMatchingThreshold(),
+                        true,
+                        value -> validateDoubleValueWithinSelectivityRange(value, HISTORY_INPUT_TABLE_STATISTICS_MATCHING_THRESHOLD),
+                        object -> object),
                 stringProperty(
                         HISTORY_BASED_OPTIMIZATION_PLAN_CANONICALIZATION_STRATEGY,
                         format("The plan canonicalization strategies used for history based optimization, the strategies will be applied based on the accuracy of the strategies, from more accurate to less accurate. Options are %s",
