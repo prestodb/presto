@@ -30,6 +30,7 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.NotFoundException;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.SortingProperty;
@@ -51,6 +52,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.mongodb.MongoSession.buildQuery;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -59,6 +61,7 @@ import static java.util.stream.Collectors.toList;
 public class MongoMetadata
         implements ConnectorMetadata
 {
+    private static final String COMPLEX_DELETES = "This connector does not support complex deletes";
     private static final Logger log = Logger.get(MongoMetadata.class);
 
     private final MongoSession mongoSession;
@@ -322,7 +325,10 @@ public class MongoMetadata
     @Override
     public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return tableHandle;
+        if (constraint != null) {
+            return tableHandle;
+        }
+        throw new PrestoException(NOT_SUPPORTED, COMPLEX_DELETES);
     }
 
     @Override
