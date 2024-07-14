@@ -912,10 +912,20 @@ export class QueryDetail extends React.Component {
         }
     }
 
+    static getQueryURL(id) {
+            if (!id || typeof id !== 'string' || id.length === 0) {
+                return "/v1/query/undefined";
+            }
+            const sanitizedId = id.replace(/[^a-z0-9_]/gi, '');
+            return sanitizedId.length > 0 ? `/v1/query/${encodeURIComponent(sanitizedId)}` : "/v1/query/undefined";
+         }
+
+
     refreshLoop() {
         clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
-        const queryId = getFirstParameter(window.location.search);
-        $.get('/v1/query/' + queryId, function (query) {
+        const queryId =  getFirstParameter(window.location.search);
+
+        $.get(QueryDetail.getQueryURL(queryId), function (query) {
             let lastSnapshotStages = this.state.lastSnapshotStage;
             if (this.state.stageRefresh) {
                 lastSnapshotStages = query.outputStage;

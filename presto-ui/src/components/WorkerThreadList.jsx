@@ -40,10 +40,15 @@ export class WorkerThreadList extends React.Component {
             selectedThreadState: ALL_THREAD_STATE,
         };
     }
-
+    static getRequestQuery(id){
+            // Node ID does not have a common pattern
+        if (id.length === 0) {
+            return "/v1/worker/undefined/thread";
+        }
+        return `/v1/worker/${encodeURIComponent(id)}/thread`;
+        }
     captureSnapshot() {
-        const nodeId = getFirstParameter(window.location.search);
-        $.get('/v1/worker/' + nodeId + '/thread', function (threads) {
+        $.get(WorkerThreadList.getRequestQuery(getFirstParameter(window.location.search)), function (threads) {
             this.setState({
                 threads: WorkerThreadList.processThreads(threads),
                 snapshotTime: new Date(),
