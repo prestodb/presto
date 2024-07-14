@@ -50,11 +50,18 @@ export class WorkerStatus extends React.Component {
             this.timeoutId = setTimeout(this.refreshLoop, 1000);
         }
     }
+    static getStatusQuery(id){
+        // Node ID does not have a common pattern
+        if (id.length === 0) {
+            return "/v1/worker/undefined/status";
+        }
+        return `/v1/worker/${encodeURIComponent(id)}/status`;
+    }
 
     refreshLoop() {
         clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
-        const nodeId = getFirstParameter(window.location.search);
-        $.get('/v1/worker/' + nodeId + '/status', function (serverInfo) {
+
+        $.get(WorkerStatus.getStatusQuery(getFirstParameter(window.location.search)), function (serverInfo) {
             this.setState({
                 serverInfo: serverInfo,
                 initialized: true,
