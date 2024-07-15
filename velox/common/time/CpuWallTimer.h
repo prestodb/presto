@@ -65,23 +65,28 @@ template <typename F>
 class DeltaCpuWallTimer {
  public:
   explicit DeltaCpuWallTimer(F&& func)
-      : cpuTimeStart_(process::threadCpuNanos()),
-        wallTimeStart_(std::chrono::steady_clock::now()),
+      : wallTimeStart_(std::chrono::steady_clock::now()),
+        cpuTimeStart_(process::threadCpuNanos()),
         func_(std::move(func)) {}
 
   ~DeltaCpuWallTimer() {
-    const CpuWallTiming deltaTiming{
-        1,
-        uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(
-                     std::chrono::steady_clock::now() - wallTimeStart_)
-                     .count()),
-        process::threadCpuNanos() - cpuTimeStart_};
+    // NOTE: End the cpu-time timing first, and then end the wall-time timing,
+    // so as to avoid the counter-intuitive phenomenon that the final calculated
+    // cpu-time is slightly larger than the wall-time.
+    uint64_t cpuTimeDuration = process::threadCpuNanos() - cpuTimeStart_;
+    uint64_t wallTimeDuration =
+        std::chrono::duration_cast<std::chrono::nanoseconds>(
+            std::chrono::steady_clock::now() - wallTimeStart_)
+            .count();
+    const CpuWallTiming deltaTiming{1, wallTimeDuration, cpuTimeDuration};
     func_(deltaTiming);
   }
 
  private:
-  const uint64_t cpuTimeStart_;
+  // NOTE: Put `wallTimeStart_` before `cpuTimeStart_`, so that wall-time starts
+  // counting earlier than cpu-time.
   const std::chrono::steady_clock::time_point wallTimeStart_;
+  const uint64_t cpuTimeStart_;
   F func_;
 };
 
