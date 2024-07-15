@@ -25,6 +25,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.server.testing.TestingPrestoServer;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
@@ -138,6 +139,12 @@ public abstract class AbstractTestingPrestoClient<T>
         for (Entry<String, Map<String, String>> connectorProperties : session.getUnprocessedCatalogProperties().entrySet()) {
             for (Entry<String, String> entry : connectorProperties.getValue().entrySet()) {
                 properties.put(connectorProperties.getKey() + "." + entry.getKey(), entry.getValue());
+            }
+        }
+
+        for (Entry<ConnectorId, Map<String, String>> connectorProperties : session.getConnectorProperties().entrySet()) {
+            for (Entry<String, String> entry : connectorProperties.getValue().entrySet()) {
+                properties.put(connectorProperties.getKey().getCatalogName() + "." + entry.getKey(), entry.getValue());
             }
         }
 
