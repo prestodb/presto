@@ -44,6 +44,8 @@ public class ServerConfig
     private boolean nestedDataSerializationEnabled = true;
     private Duration clusterResourceGroupStateInfoExpirationDuration = new Duration(0, MILLISECONDS);
 
+    private String restUri;
+
     public boolean isResourceManager()
     {
         return resourceManager;
@@ -239,6 +241,18 @@ public class ServerConfig
     public ServerConfig setClusterResourceGroupStateInfoExpirationDuration(Duration clusterResourceGroupStateInfoExpirationDuration)
     {
         this.clusterResourceGroupStateInfoExpirationDuration = clusterResourceGroupStateInfoExpirationDuration;
+        return this;
+    }
+
+    public String getRestUri()
+    {
+        return this.restUri;
+    }
+
+    @Config("rest-uri")
+    public ServerConfig setRestUri(String restUri)
+    {
+        this.restUri = restUri;
         return this;
     }
 }
