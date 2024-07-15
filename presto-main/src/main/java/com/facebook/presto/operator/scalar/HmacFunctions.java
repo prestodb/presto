@@ -36,7 +36,10 @@ public final class HmacFunctions
     @SqlType(StandardTypes.VARBINARY)
     @ScalarFunctionConstantStats(avgRowSize = 32)
     public static Slice hmacMd5(
-            @ScalarPropagateSourceStats(distinctValuesCount = USE_SOURCE_STATS, nullFraction = USE_SOURCE_STATS) @SqlType(StandardTypes.VARBINARY) Slice slice,
+            @ScalarPropagateSourceStats(
+                    propagateAllStats = false,
+                    distinctValuesCount = USE_SOURCE_STATS,
+                    nullFraction = USE_SOURCE_STATS) @SqlType(StandardTypes.VARBINARY) Slice slice,
             @SqlType(StandardTypes.VARBINARY) Slice key)
     {
         return computeHash(Hashing.hmacMd5(key.getBytes()), slice);
@@ -47,7 +50,10 @@ public final class HmacFunctions
     @SqlType(StandardTypes.VARBINARY)
     @ScalarFunctionConstantStats(avgRowSize = 20)
     public static Slice hmacSha1(
-            @ScalarPropagateSourceStats(distinctValuesCount = USE_SOURCE_STATS, nullFraction = USE_SOURCE_STATS) @SqlType(StandardTypes.VARBINARY) Slice slice,
+            @ScalarPropagateSourceStats(
+                    propagateAllStats = false,
+                    distinctValuesCount = USE_SOURCE_STATS,
+                    nullFraction = USE_SOURCE_STATS) @SqlType(StandardTypes.VARBINARY) Slice slice,
             @SqlType(StandardTypes.VARBINARY) Slice key)
     {
         return computeHash(Hashing.hmacSha1(key.getBytes()), slice);
@@ -58,7 +64,10 @@ public final class HmacFunctions
     @SqlType(StandardTypes.VARBINARY)
     @ScalarFunctionConstantStats(avgRowSize = 32)
     public static Slice hmacSha256(
-            @ScalarPropagateSourceStats(distinctValuesCount = USE_SOURCE_STATS, nullFraction = USE_SOURCE_STATS) @SqlType(StandardTypes.VARBINARY) Slice slice,
+            @ScalarPropagateSourceStats(
+                    propagateAllStats = false,
+                    distinctValuesCount = USE_SOURCE_STATS,
+                    nullFraction = USE_SOURCE_STATS) @SqlType(StandardTypes.VARBINARY) Slice slice,
             @SqlType(StandardTypes.VARBINARY) Slice key)
     {
         return computeHash(Hashing.hmacSha256(key.getBytes()), slice);

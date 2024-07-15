@@ -1233,7 +1233,10 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long yearFromTimestamp(
             SqlFunctionProperties properties,
-            @ScalarPropagateSourceStats(nullFraction = USE_SOURCE_STATS, distinctValuesCount = USE_SOURCE_STATS) @SqlType(StandardTypes.TIMESTAMP) long timestamp)
+            @ScalarPropagateSourceStats(
+                    propagateAllStats = false,
+                    nullFraction = USE_SOURCE_STATS,
+                    distinctValuesCount = USE_SOURCE_STATS) @SqlType(StandardTypes.TIMESTAMP) long timestamp) // TODO: ndv = the year of max value of timestamp column.
     {
         if (properties.isLegacyTimestamp()) {
             return getChronology(properties.getTimeZoneKey()).year().get(timestamp);
@@ -1247,7 +1250,10 @@ public final class DateTimeFunctions
     @ScalarFunction("year")
     @SqlType(StandardTypes.BIGINT)
     public static long yearFromTimestampWithTimeZone(
-            @ScalarPropagateSourceStats(nullFraction = USE_SOURCE_STATS, distinctValuesCount = USE_SOURCE_STATS) @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
+            @ScalarPropagateSourceStats(
+                    propagateAllStats = false,
+                    nullFraction = USE_SOURCE_STATS,
+                    distinctValuesCount = USE_SOURCE_STATS) @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
     {
         return unpackChronology(timestampWithTimeZone).year().get(unpackMillisUtc(timestampWithTimeZone));
     }
@@ -1255,7 +1261,11 @@ public final class DateTimeFunctions
     @Description("year of the given date")
     @ScalarFunction("year")
     @SqlType(StandardTypes.BIGINT)
-    public static long yearFromDate(@ScalarPropagateSourceStats(nullFraction = USE_SOURCE_STATS, distinctValuesCount = USE_SOURCE_STATS) @SqlType(StandardTypes.DATE) long date)
+    public static long yearFromDate(
+            @ScalarPropagateSourceStats(
+                    propagateAllStats = false,
+                    nullFraction = USE_SOURCE_STATS,
+                    distinctValuesCount = USE_SOURCE_STATS) @SqlType(StandardTypes.DATE) long date)
     {
         return YEAR.get(DAYS.toMillis(date));
     }

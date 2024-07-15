@@ -29,7 +29,7 @@ public enum StatsPropagationBehavior
     /** Use the value of output row count. */
     ROW_COUNT,
     /** Use the value of row_count * (1 - null_fraction). */
-    ROW_COUNT_TIMES_INV_NULL_FRACTION,
+    NON_NULL_ROW_COUNT,
     /** use the value of TYPE_WIDTH in varchar(TYPE_WIDTH) */
     USE_TYPE_WIDTH_VARCHAR,
     /** Take max of type width of arguments with varchar type. */
@@ -42,7 +42,7 @@ public enum StatsPropagationBehavior
      * is annotated.
      */
     public static final Set<StatsPropagationBehavior> SINGLE_ARGUMENT_STATS =
-            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(UNKNOWN, ROW_COUNT, ROW_COUNT_TIMES_INV_NULL_FRACTION, USE_TYPE_WIDTH_VARCHAR, USE_SOURCE_STATS)));
+            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(UNKNOWN, ROW_COUNT, NON_NULL_ROW_COUNT, USE_TYPE_WIDTH_VARCHAR, USE_SOURCE_STATS)));
 
     public boolean isSingleArgumentStats()
     {

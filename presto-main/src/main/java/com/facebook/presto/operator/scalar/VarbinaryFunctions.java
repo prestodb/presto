@@ -309,7 +309,10 @@ public final class VarbinaryFunctions
     @SqlType(StandardTypes.VARBINARY)
     @ScalarFunctionConstantStats(avgRowSize = 16)
     public static Slice murmur3X64128(
-            @ScalarPropagateSourceStats(distinctValuesCount = USE_SOURCE_STATS, nullFraction = USE_SOURCE_STATS) @SqlType(StandardTypes.VARBINARY) Slice slice)
+            @ScalarPropagateSourceStats(
+                    propagateAllStats = false,
+                    distinctValuesCount = USE_SOURCE_STATS,
+                    nullFraction = USE_SOURCE_STATS) @SqlType(StandardTypes.VARBINARY) Slice slice)
     {
         return computeHash(Hashing.murmur3_128(), slice);
     }
@@ -319,7 +322,10 @@ public final class VarbinaryFunctions
     @SqlType(StandardTypes.VARBINARY)
     @ScalarFunctionConstantStats(avgRowSize = 20)
     public static Slice sha1(
-            @ScalarPropagateSourceStats(distinctValuesCount = USE_SOURCE_STATS, nullFraction = USE_SOURCE_STATS) @SqlType(StandardTypes.VARBINARY) Slice slice)
+            @ScalarPropagateSourceStats(
+                    propagateAllStats = false,
+                    distinctValuesCount = USE_SOURCE_STATS,
+                    nullFraction = USE_SOURCE_STATS) @SqlType(StandardTypes.VARBINARY) Slice slice)
     {
         return computeHash(Hashing.sha1(), slice);
     }
@@ -329,7 +335,10 @@ public final class VarbinaryFunctions
     @SqlType(StandardTypes.VARBINARY)
     @ScalarFunctionConstantStats(avgRowSize = 32)
     public static Slice sha256(
-            @ScalarPropagateSourceStats(distinctValuesCount = USE_SOURCE_STATS, nullFraction = USE_SOURCE_STATS) @SqlType(StandardTypes.VARBINARY) Slice slice)
+            @ScalarPropagateSourceStats(
+                    propagateAllStats = false,
+                    distinctValuesCount = USE_SOURCE_STATS,
+                    nullFraction = USE_SOURCE_STATS) @SqlType(StandardTypes.VARBINARY) Slice slice)
     {
         return computeHash(Hashing.sha256(), slice);
     }
@@ -339,7 +348,10 @@ public final class VarbinaryFunctions
     @SqlType(StandardTypes.VARBINARY)
     @ScalarFunctionConstantStats(avgRowSize = 64)
     public static Slice sha512(
-            @ScalarPropagateSourceStats(distinctValuesCount = USE_SOURCE_STATS, nullFraction = USE_SOURCE_STATS) @SqlType(StandardTypes.VARBINARY) Slice slice)
+            @ScalarPropagateSourceStats(
+                    propagateAllStats = false,
+                    distinctValuesCount = USE_SOURCE_STATS,
+                    nullFraction = USE_SOURCE_STATS) @SqlType(StandardTypes.VARBINARY) Slice slice)
     {
         return computeHash(Hashing.sha512(), slice);
     }

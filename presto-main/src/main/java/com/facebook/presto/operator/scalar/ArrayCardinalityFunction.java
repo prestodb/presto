@@ -33,7 +33,7 @@ public final class ArrayCardinalityFunction
     @TypeParameter("E")
     @SqlType(StandardTypes.BIGINT)
     @ScalarFunctionConstantStats(minValue = 0)
-    public static long arrayCardinality(@ScalarPropagateSourceStats(nullFraction = USE_SOURCE_STATS) @SqlType("array(E)") Block block)
+    public static long arrayCardinality(@ScalarPropagateSourceStats(propagateAllStats = false, nullFraction = USE_SOURCE_STATS) @SqlType("array(E)") Block block)
     {
         return block.getPositionCount();
     }

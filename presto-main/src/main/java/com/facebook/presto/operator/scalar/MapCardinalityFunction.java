@@ -34,7 +34,7 @@ public final class MapCardinalityFunction
     @TypeParameter("V")
     @SqlType(StandardTypes.BIGINT)
     @ScalarFunctionConstantStats(minValue = 0)
-    public static long mapCardinality(@ScalarPropagateSourceStats(nullFraction = USE_SOURCE_STATS) @SqlType("map(K,V)") Block block)
+    public static long mapCardinality(@ScalarPropagateSourceStats(propagateAllStats = false, nullFraction = USE_SOURCE_STATS) @SqlType("map(K,V)") Block block)
     {
         return block.getPositionCount() / 2;
     }

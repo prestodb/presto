@@ -40,7 +40,8 @@ public final class HyperLogLogFunctions
     @Description("compute the cardinality of a HyperLogLog instance")
     @SqlType(StandardTypes.BIGINT)
     @ScalarFunctionConstantStats(minValue = 0)
-    public static long cardinality(@ScalarPropagateSourceStats(nullFraction = USE_SOURCE_STATS) @SqlType(StandardTypes.HYPER_LOG_LOG) Slice serializedHll)
+    public static long cardinality(
+            @ScalarPropagateSourceStats(propagateAllStats = false, nullFraction = USE_SOURCE_STATS) @SqlType(StandardTypes.HYPER_LOG_LOG) Slice serializedHll)
     {
         return HyperLogLog.newInstance(serializedHll).cardinality();
     }

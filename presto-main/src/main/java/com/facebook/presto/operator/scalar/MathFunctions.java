@@ -403,8 +403,9 @@ public final class MathFunctions
     @Description("cosine")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
+    @ScalarFunctionConstantStats(minValue = -1, maxValue = 1)
     public static double cos(
-            @ScalarPropagateSourceStats(distinctValuesCount = USE_SOURCE_STATS, nullFraction = USE_SOURCE_STATS) @SqlType(StandardTypes.DOUBLE) double num)
+            @ScalarPropagateSourceStats(propagateAllStats = false, distinctValuesCount = USE_SOURCE_STATS, nullFraction = USE_SOURCE_STATS) @SqlType(StandardTypes.DOUBLE) double num)
     {
         return Math.cos(num);
     }
@@ -412,7 +413,9 @@ public final class MathFunctions
     @Description("hyperbolic cosine")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
-    public static double cosh(@ScalarPropagateSourceStats(distinctValuesCount = USE_SOURCE_STATS, nullFraction = USE_SOURCE_STATS) @SqlType(StandardTypes.DOUBLE) double num)
+    @ScalarFunctionConstantStats(minValue = -1, maxValue = 1)
+    public static double cosh(
+            @ScalarPropagateSourceStats(propagateAllStats = false, distinctValuesCount = USE_SOURCE_STATS, nullFraction = USE_SOURCE_STATS) @SqlType(StandardTypes.DOUBLE) double num)
     {
         return Math.cosh(num);
     }
@@ -420,7 +423,7 @@ public final class MathFunctions
     @Description("converts an angle in radians to degrees")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
-    public static double degrees(@ScalarPropagateSourceStats(distinctValuesCount = USE_SOURCE_STATS, nullFraction = USE_SOURCE_STATS) @SqlType(StandardTypes.DOUBLE) double radians)
+    public static double degrees(@ScalarPropagateSourceStats(propagateAllStats = false, distinctValuesCount = USE_SOURCE_STATS, nullFraction = USE_SOURCE_STATS) @SqlType(StandardTypes.DOUBLE) double radians)
     {
         return Math.toDegrees(radians);
     }
@@ -667,7 +670,7 @@ public final class MathFunctions
     @ScalarFunction(value = "random", alias = "rand", deterministic = false)
     @SqlType(StandardTypes.TINYINT)
     @ScalarFunctionConstantStats(nullFraction = 0.0, minValue = 0.0, distinctValuesCount = ScalarFunctionStatsUtils.ROW_COUNT)
-    public static long randomTinyint(@ScalarPropagateSourceStats(maxValue = USE_SOURCE_STATS) @SqlType(StandardTypes.TINYINT) long value)
+    public static long randomTinyint(@ScalarPropagateSourceStats(propagateAllStats = false, maxValue = USE_SOURCE_STATS) @SqlType(StandardTypes.TINYINT) long value)
     {
         checkCondition(value > 0, INVALID_FUNCTION_ARGUMENT, "bound must be positive");
         return ThreadLocalRandom.current().nextInt((int) value);
@@ -677,7 +680,7 @@ public final class MathFunctions
     @ScalarFunction(value = "random", alias = "rand", deterministic = false)
     @SqlType(StandardTypes.SMALLINT)
     @ScalarFunctionConstantStats(nullFraction = 0.0, minValue = 0.0, distinctValuesCount = ScalarFunctionStatsUtils.ROW_COUNT)
-    public static long randomSmallint(@ScalarPropagateSourceStats(maxValue = USE_SOURCE_STATS) @SqlType(StandardTypes.SMALLINT) long value)
+    public static long randomSmallint(@ScalarPropagateSourceStats(propagateAllStats = false, maxValue = USE_SOURCE_STATS) @SqlType(StandardTypes.SMALLINT) long value)
     {
         checkCondition(value > 0, INVALID_FUNCTION_ARGUMENT, "bound must be positive");
         return ThreadLocalRandom.current().nextInt((int) value);
@@ -687,7 +690,7 @@ public final class MathFunctions
     @ScalarFunction(value = "random", alias = "rand", deterministic = false)
     @SqlType(StandardTypes.INTEGER)
     @ScalarFunctionConstantStats(nullFraction = 0.0, minValue = 0.0, distinctValuesCount = ScalarFunctionStatsUtils.ROW_COUNT)
-    public static long randomInteger(@ScalarPropagateSourceStats(maxValue = USE_SOURCE_STATS) @SqlType(StandardTypes.INTEGER) long value)
+    public static long randomInteger(@ScalarPropagateSourceStats(propagateAllStats = false, maxValue = USE_SOURCE_STATS) @SqlType(StandardTypes.INTEGER) long value)
     {
         checkCondition(value > 0, INVALID_FUNCTION_ARGUMENT, "bound must be positive");
         return ThreadLocalRandom.current().nextInt((int) value);
@@ -697,7 +700,7 @@ public final class MathFunctions
     @ScalarFunction(alias = "rand", deterministic = false)
     @SqlType(StandardTypes.BIGINT)
     @ScalarFunctionConstantStats(nullFraction = 0.0, minValue = 0.0, distinctValuesCount = ScalarFunctionStatsUtils.ROW_COUNT)
-    public static long random(@ScalarPropagateSourceStats(maxValue = USE_SOURCE_STATS) @SqlType(StandardTypes.BIGINT) long value)
+    public static long random(@ScalarPropagateSourceStats(propagateAllStats = false, maxValue = USE_SOURCE_STATS) @SqlType(StandardTypes.BIGINT) long value)
     {
         checkCondition(value > 0, INVALID_FUNCTION_ARGUMENT, "bound must be positive");
         return ThreadLocalRandom.current().nextLong(value);
@@ -718,7 +721,7 @@ public final class MathFunctions
     @SqlType(StandardTypes.DOUBLE)
     @ScalarFunctionConstantStats(nullFraction = 0.0, distinctValuesCount = ScalarFunctionStatsUtils.ROW_COUNT)
     public static double secure_random(
-            @ScalarPropagateSourceStats(minValue = USE_SOURCE_STATS) @SqlType(StandardTypes.DOUBLE) double lower,
+            @ScalarPropagateSourceStats(propagateAllStats = false, minValue = USE_SOURCE_STATS) @SqlType(StandardTypes.DOUBLE) double lower,
             @ScalarPropagateSourceStats(maxValue = USE_SOURCE_STATS) @SqlType(StandardTypes.DOUBLE) double upper)
     {
         checkCondition(lower < upper, INVALID_FUNCTION_ARGUMENT, "upper bound must be greater than lower bound");
@@ -733,7 +736,7 @@ public final class MathFunctions
     @SqlType(StandardTypes.TINYINT)
     @ScalarFunctionConstantStats(nullFraction = 0.0, distinctValuesCount = ScalarFunctionStatsUtils.ROW_COUNT)
     public static long secureRandomTinyint(
-            @ScalarPropagateSourceStats(minValue = USE_SOURCE_STATS) @SqlType(StandardTypes.TINYINT) long lower,
+            @ScalarPropagateSourceStats(propagateAllStats = false, minValue = USE_SOURCE_STATS) @SqlType(StandardTypes.TINYINT) long lower,
             @ScalarPropagateSourceStats(maxValue = USE_SOURCE_STATS) @SqlType(StandardTypes.TINYINT) long upper)
     {
         checkCondition(lower < upper, INVALID_FUNCTION_ARGUMENT, "upper bound must be greater than lower bound");
@@ -748,7 +751,7 @@ public final class MathFunctions
     @SqlType(StandardTypes.SMALLINT)
     @ScalarFunctionConstantStats(nullFraction = 0.0, distinctValuesCount = ScalarFunctionStatsUtils.ROW_COUNT)
     public static long secureRandomSmallint(
-            @ScalarPropagateSourceStats(minValue = USE_SOURCE_STATS) @SqlType(StandardTypes.SMALLINT) long lower,
+            @ScalarPropagateSourceStats(propagateAllStats = false, minValue = USE_SOURCE_STATS) @SqlType(StandardTypes.SMALLINT) long lower,
             @ScalarPropagateSourceStats(maxValue = USE_SOURCE_STATS) @SqlType(StandardTypes.SMALLINT) long upper)
     {
         checkCondition(lower < upper, INVALID_FUNCTION_ARGUMENT, "upper bound must be greater than lower bound");
@@ -763,7 +766,7 @@ public final class MathFunctions
     @SqlType(StandardTypes.INTEGER)
     @ScalarFunctionConstantStats(nullFraction = 0.0, distinctValuesCount = ScalarFunctionStatsUtils.ROW_COUNT)
     public static long secureRandomInteger(
-            @ScalarPropagateSourceStats(minValue = USE_SOURCE_STATS) @SqlType(StandardTypes.INTEGER) long lower,
+            @ScalarPropagateSourceStats(propagateAllStats = false, minValue = USE_SOURCE_STATS) @SqlType(StandardTypes.INTEGER) long lower,
             @ScalarPropagateSourceStats(maxValue = USE_SOURCE_STATS) @SqlType(StandardTypes.INTEGER) long upper)
     {
         checkCondition(lower < upper, INVALID_FUNCTION_ARGUMENT, "upper bound must be greater than lower bound");
@@ -778,7 +781,7 @@ public final class MathFunctions
     @SqlType(StandardTypes.BIGINT)
     @ScalarFunctionConstantStats(nullFraction = 0.0, distinctValuesCount = ScalarFunctionStatsUtils.ROW_COUNT)
     public static long secureRandomBigint(
-            @ScalarPropagateSourceStats(minValue = USE_SOURCE_STATS) @SqlType(StandardTypes.BIGINT) long lower,
+            @ScalarPropagateSourceStats(propagateAllStats = false, minValue = USE_SOURCE_STATS) @SqlType(StandardTypes.BIGINT) long lower,
             @ScalarPropagateSourceStats(maxValue = USE_SOURCE_STATS) @SqlType(StandardTypes.BIGINT) long upper)
     {
         checkCondition(lower < upper, INVALID_FUNCTION_ARGUMENT, "upper bound must be greater than lower bound");
@@ -1458,7 +1461,7 @@ public final class MathFunctions
     @Description("sine")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
-    public static double sin(@ScalarPropagateSourceStats(propagateAllStats = true) @SqlType(StandardTypes.DOUBLE) double num)
+    public static double sin(@SqlType(StandardTypes.DOUBLE) double num)
     {
         return Math.sin(num);
     }
@@ -1466,7 +1469,7 @@ public final class MathFunctions
     @Description("square root")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
-    public static double sqrt(@ScalarPropagateSourceStats(propagateAllStats = true) @SqlType(StandardTypes.DOUBLE) double num)
+    public static double sqrt(@SqlType(StandardTypes.DOUBLE) double num)
     {
         return Math.sqrt(num);
     }
@@ -1474,7 +1477,7 @@ public final class MathFunctions
     @Description("tangent")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
-    public static double tan(@ScalarPropagateSourceStats(propagateAllStats = true) @SqlType(StandardTypes.DOUBLE) double num)
+    public static double tan(@SqlType(StandardTypes.DOUBLE) double num)
     {
         return Math.tan(num);
     }
@@ -1482,7 +1485,7 @@ public final class MathFunctions
     @Description("hyperbolic tangent")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
-    public static double tanh(@ScalarPropagateSourceStats(propagateAllStats = true) @SqlType(StandardTypes.DOUBLE) double num)
+    public static double tanh(@SqlType(StandardTypes.DOUBLE) double num)
     {
         return Math.tanh(num);
     }
@@ -1490,7 +1493,9 @@ public final class MathFunctions
     @Description("test if value is not-a-number")
     @ScalarFunction("is_nan")
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean isNaN(@SqlType(StandardTypes.DOUBLE) double num)
+    @ScalarFunctionConstantStats(minValue = 0, maxValue = 1, distinctValuesCount = 1)
+    public static boolean isNaN(
+            @ScalarPropagateSourceStats(propagateAllStats = false, nullFraction = USE_SOURCE_STATS) @SqlType(StandardTypes.DOUBLE) double num)
     {
         return Double.isNaN(num);
     }
@@ -1498,7 +1503,9 @@ public final class MathFunctions
     @Description("test if value is finite")
     @ScalarFunction
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean isFinite(@SqlType(StandardTypes.DOUBLE) double num)
+    @ScalarFunctionConstantStats(minValue = 0, maxValue = 1, distinctValuesCount = 1)
+    public static boolean isFinite(
+            @ScalarPropagateSourceStats(propagateAllStats = false, nullFraction = USE_SOURCE_STATS) @SqlType(StandardTypes.DOUBLE) double num)
     {
         return Doubles.isFinite(num);
     }
@@ -1506,7 +1513,9 @@ public final class MathFunctions
     @Description("test if value is infinite")
     @ScalarFunction
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean isInfinite(@SqlType(StandardTypes.DOUBLE) double num)
+    @ScalarFunctionConstantStats(minValue = 0, maxValue = 1, distinctValuesCount = 1)
+    public static boolean isInfinite(
+            @ScalarPropagateSourceStats(propagateAllStats = false, nullFraction = USE_SOURCE_STATS) @SqlType(StandardTypes.DOUBLE) double num)
     {
         return Double.isInfinite(num);
     }
@@ -1514,6 +1523,7 @@ public final class MathFunctions
     @Description("constant representing not-a-number")
     @ScalarFunction("nan")
     @SqlType(StandardTypes.DOUBLE)
+    @ScalarFunctionConstantStats(distinctValuesCount = 1, nullFraction = 0)
     public static double NaN()
     {
         return Double.NaN;
@@ -1522,6 +1532,7 @@ public final class MathFunctions
     @Description("Infinity")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
+    @ScalarFunctionConstantStats(minValue = Double.POSITIVE_INFINITY, maxValue = Double.POSITIVE_INFINITY, distinctValuesCount = 1, nullFraction = 0)
     public static double infinity()
     {
         return Double.POSITIVE_INFINITY;
@@ -1530,7 +1541,9 @@ public final class MathFunctions
     @Description("convert a number to a string in the given base")
     @ScalarFunction
     @SqlType("varchar(64)")
-    public static Slice toBase(@SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.BIGINT) long radix)
+    public static Slice toBase(
+            @ScalarPropagateSourceStats(propagateAllStats = false, nullFraction = USE_SOURCE_STATS, distinctValuesCount = USE_SOURCE_STATS) @SqlType(StandardTypes.BIGINT) long value,
+            @SqlType(StandardTypes.BIGINT) long radix)
     {
         checkRadix(radix);
         return utf8Slice(Long.toString(value, (int) radix));

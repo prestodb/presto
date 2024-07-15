@@ -372,7 +372,7 @@ public class ScalarStatsCalculator
                         case ROW_COUNT:
                             statisticRange = new StatisticRange(min, max, input.getOutputRowCount());
                             break;
-                        case ROW_COUNT_TIMES_INV_NULL_FRACTION:
+                        case NON_NULL_ROW_COUNT:
                             statisticRange = new StatisticRange(min, max, input.getOutputRowCount() * (1 - nullFraction));
                             break;
                         case USE_TYPE_WIDTH_VARCHAR:
