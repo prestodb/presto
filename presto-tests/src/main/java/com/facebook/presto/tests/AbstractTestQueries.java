@@ -77,6 +77,7 @@ import static com.facebook.presto.SystemSessionProperties.QUICK_DISTINCT_LIMIT_E
 import static com.facebook.presto.SystemSessionProperties.RANDOMIZE_OUTER_JOIN_NULL_KEY;
 import static com.facebook.presto.SystemSessionProperties.RANDOMIZE_OUTER_JOIN_NULL_KEY_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.REMOVE_MAP_CAST;
+import static com.facebook.presto.SystemSessionProperties.REMOVE_NULL_ROW_IN_AGGREGATION;
 import static com.facebook.presto.SystemSessionProperties.REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN;
 import static com.facebook.presto.SystemSessionProperties.REWRITE_CASE_TO_MAP_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.REWRITE_CONSTANT_ARRAY_CONTAINS_TO_IN_EXPRESSION;
@@ -7693,5 +7694,25 @@ public abstract class AbstractTestQueries
                 .setSystemProperty(OPTIMIZE_HASH_GENERATION, optimizeHashGeneration)
                 .build();
         assertQuery(session, "SELECT DISTINCT x FROM (VALUES (REAL '0.0'), (REAL '-0.0')) t(x)", "SELECT  CAST(0.0 AS REAL)");
+    }
+
+    @Test
+    public void testRemoveNullRowInAggregationResult()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(REMOVE_NULL_ROW_IN_AGGREGATION, "true")
+                .build();
+        assertQuery(session, "SELECT k, count(v1), count(v2) FROM " +
+                        "(VALUES " +
+                        "   (1, 5, 8), " +
+                        "   (1, 6, 9), " +
+                        "   (2, 7, null)," +
+                        "   (2, null,10)" +
+                        ") t(k, v1, v2) " +
+                        "GROUP BY k",
+                "SELECT * FROM " +
+                        "(VALUES " +
+                        "(1, 2, 2), " +
+                        "(2, 1, 1))");
     }
 }

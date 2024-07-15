@@ -325,6 +325,7 @@ public final class SystemSessionProperties
     public static final String GENERATE_DOMAIN_FILTERS = "generate_domain_filters";
     public static final String REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION = "rewrite_expression_with_constant_expression";
     public static final String PRINT_ESTIMATED_STATS_FROM_CACHE = "print_estimated_stats_from_cache";
+    public static final String REMOVE_NULL_ROW_IN_AGGREGATION = "remove_null_row_in_aggregation";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "native_simplified_expression_evaluation_enabled";
@@ -1952,6 +1953,10 @@ public final class SystemSessionProperties
                 booleanProperty(WARN_ON_COMMON_NAN_PATTERNS,
                         "Whether to give a warning for some common issues relating to NaNs",
                         featuresConfig.getWarnOnCommonNanPatterns(),
+                        false),
+                booleanProperty(REMOVE_NULL_ROW_IN_AGGREGATION,
+                        "whether or not to remove all null rows before aggregation",
+                        featuresConfig.isRemoveNullRowInAggregation(),
                         false));
     }
 
@@ -3253,5 +3258,10 @@ public final class SystemSessionProperties
     public static boolean warnOnCommonNanPatterns(Session session)
     {
         return session.getSystemProperty(WARN_ON_COMMON_NAN_PATTERNS, Boolean.class);
+    }
+
+    public static boolean isRemoveNullRowInAggregation(Session session)
+    {
+        return session.getSystemProperty(REMOVE_NULL_ROW_IN_AGGREGATION, Boolean.class);
     }
 }

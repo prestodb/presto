@@ -295,6 +295,7 @@ public class FeaturesConfig
     private boolean pullUpExpressionFromLambda;
     private boolean rewriteConstantArrayContainsToIn;
     private boolean rewriteExpressionWithConstantVariable = true;
+    private boolean removeNullRowInAggregation;
 
     private boolean preProcessMetadataCalls;
     private boolean handleComplexEquiJoins;
@@ -3171,6 +3172,19 @@ public class FeaturesConfig
     public FeaturesConfig setWarnOnCommonNanPatterns(boolean warnOnPossibleNans)
     {
         this.warnOnPossibleNans = warnOnPossibleNans;
+        return this;
+    }
+
+    public boolean isRemoveNullRowInAggregation()
+    {
+        return removeNullRowInAggregation;
+    }
+
+    @Config("use-remove-null-row-in-aggregation")
+    @ConfigDescription("Remove null rows before aggregation")
+    public FeaturesConfig setRemoveNullRowInAggregation(boolean removeNullRowInAggregation)
+    {
+        this.removeNullRowInAggregation = removeNullRowInAggregation;
         return this;
     }
 }
