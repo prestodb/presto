@@ -103,7 +103,7 @@ public final class TinyintOperators
             return left / right;
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(DIVISION_BY_ZERO, e);
+            throw new PrestoException(DIVISION_BY_ZERO, "Division by zero");
         }
     }
 
@@ -115,7 +115,7 @@ public final class TinyintOperators
             return left % right;
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(DIVISION_BY_ZERO, e);
+            throw new PrestoException(DIVISION_BY_ZERO, "Division by zero");
         }
     }
 
