@@ -186,9 +186,7 @@ FOLLY_ALWAYS_INLINE std::ostream& operator<<(
 class HiveInsertTableHandle;
 using HiveInsertTableHandlePtr = std::shared_ptr<HiveInsertTableHandle>;
 
-/**
- * Represents a request for Hive write.
- */
+/// Represents a request for Hive write.
 class HiveInsertTableHandle : public ConnectorInsertTableHandle {
  public:
   HiveInsertTableHandle(
@@ -198,13 +196,16 @@ class HiveInsertTableHandle : public ConnectorInsertTableHandle {
           dwio::common::FileFormat::DWRF,
       std::shared_ptr<HiveBucketProperty> bucketProperty = nullptr,
       std::optional<common::CompressionKind> compressionKind = {},
-      const std::unordered_map<std::string, std::string>& serdeParameters = {})
+      const std::unordered_map<std::string, std::string>& serdeParameters = {},
+      const std::shared_ptr<dwio::common::WriterOptions>& writerOptions =
+          nullptr)
       : inputColumns_(std::move(inputColumns)),
         locationHandle_(std::move(locationHandle)),
         tableStorageFormat_(tableStorageFormat),
         bucketProperty_(std::move(bucketProperty)),
         compressionKind_(compressionKind),
-        serdeParameters_(serdeParameters) {
+        serdeParameters_(serdeParameters),
+        writerOptions_(writerOptions) {
     if (compressionKind.has_value()) {
       VELOX_CHECK(
           compressionKind.value() != common::CompressionKind_MAX,
@@ -235,6 +236,10 @@ class HiveInsertTableHandle : public ConnectorInsertTableHandle {
     return serdeParameters_;
   }
 
+  const std::shared_ptr<dwio::common::WriterOptions>& writerOptions() const {
+    return writerOptions_;
+  }
+
   bool supportsMultiThreading() const override {
     return true;
   }
@@ -262,6 +267,7 @@ class HiveInsertTableHandle : public ConnectorInsertTableHandle {
   const std::shared_ptr<HiveBucketProperty> bucketProperty_;
   const std::optional<common::CompressionKind> compressionKind_;
   const std::unordered_map<std::string, std::string> serdeParameters_;
+  const std::shared_ptr<dwio::common::WriterOptions> writerOptions_;
 };
 
 /// Parameters for Hive writers.

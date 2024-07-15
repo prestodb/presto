@@ -855,8 +855,8 @@ dwrf::WriterOptions getDwrfOptions(const dwio::common::WriterOptions& options) {
 
 std::unique_ptr<dwio::common::Writer> DwrfWriterFactory::createWriter(
     std::unique_ptr<dwio::common::FileSink> sink,
-    const dwio::common::WriterOptions& options) {
-  auto dwrfOptions = getDwrfOptions(options);
+    const std::shared_ptr<dwio::common::WriterOptions>& options) {
+  auto dwrfOptions = getDwrfOptions(*options);
   return std::make_unique<Writer>(std::move(sink), dwrfOptions);
 }
 

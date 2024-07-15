@@ -23,6 +23,7 @@
 #include "velox/vector/ComplexVector.h"
 
 namespace facebook::velox::exec::test {
+
 template <typename T>
 T extractSingleValue(const std::vector<RowVectorPtr>& data) {
   auto simpleVector = data[0]->childAt(0)->as<SimpleVector<T>>();

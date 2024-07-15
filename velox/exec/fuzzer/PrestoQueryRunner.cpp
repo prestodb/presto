@@ -34,7 +34,6 @@
 using namespace facebook::velox;
 
 namespace facebook::velox::exec::test {
-
 namespace {
 
 void writeToFile(
@@ -43,9 +42,9 @@ void writeToFile(
     memory::MemoryPool* pool) {
   VELOX_CHECK_GT(data.size(), 0);
 
-  dwio::common::WriterOptions options;
-  options.schema = data[0]->type();
-  options.memoryPool = pool;
+  auto options = std::make_shared<dwio::common::WriterOptions>();
+  options->schema = data[0]->type();
+  options->memoryPool = pool;
 
   auto writeFile = std::make_unique<LocalWriteFile>(path, true, false);
   auto sink =
@@ -159,6 +158,7 @@ class ServerResponse {
  private:
   folly::dynamic response_;
 };
+
 } // namespace
 
 PrestoQueryRunner::PrestoQueryRunner(

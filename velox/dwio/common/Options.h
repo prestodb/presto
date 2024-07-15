@@ -608,6 +608,8 @@ struct WriterOptions {
   std::optional<uint8_t> parquetWriteTimestampUnit;
   std::optional<uint8_t> zlibCompressionLevel;
   std::optional<uint8_t> zstdCompressionLevel;
+
+  virtual ~WriterOptions() = default;
 };
 
 } // namespace facebook::velox::dwio::common

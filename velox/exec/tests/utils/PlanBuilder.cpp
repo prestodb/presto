@@ -383,7 +383,8 @@ PlanBuilder& PlanBuilder::tableWrite(
     const dwio::common::FileFormat fileFormat,
     const std::vector<std::string>& aggregates,
     const std::string& connectorId,
-    const std::unordered_map<std::string, std::string>& serdeParameters) {
+    const std::unordered_map<std::string, std::string>& serdeParameters,
+    const std::shared_ptr<dwio::common::WriterOptions>& writerOptions) {
   VELOX_CHECK_NOT_NULL(planNode_, "TableWrite cannot be the source node");
   auto rowType = planNode_->outputType();
 
@@ -418,7 +419,8 @@ PlanBuilder& PlanBuilder::tableWrite(
       fileFormat,
       bucketProperty,
       common::CompressionKind_NONE,
-      serdeParameters);
+      serdeParameters,
+      writerOptions);
 
   auto insertHandle =
       std::make_shared<core::InsertTableHandle>(connectorId, hiveHandle);

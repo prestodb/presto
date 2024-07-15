@@ -677,57 +677,107 @@ uint32_t HiveDataSink::appendWriter(const HiveWriterId& id) {
   ioStats_.emplace_back(std::make_shared<io::IoStatistics>());
   setMemoryReclaimers(writerInfo_.back().get(), ioStats_.back().get());
 
-  dwio::common::WriterOptions options;
+  // Take the one provided by the user as a starting point, or allocate a new
+  // one.
+  const auto& writerOptions = insertTableHandle_->writerOptions();
+  std::shared_ptr<dwio::common::WriterOptions> options = writerOptions
+      ? writerOptions
+      : std::make_shared<dwio::common::WriterOptions>();
+
   const auto* connectorSessionProperties =
       connectorQueryCtx_->sessionProperties();
-  options.schema = getNonPartitionTypes(dataChannels_, inputType_);
 
-  options.memoryPool = writerInfo_.back()->writerPool.get();
-  options.compressionKind = insertTableHandle_->compressionKind();
-  if (canReclaim()) {
-    options.spillConfig = spillConfig_;
+  // Only overwrite options in case they were not already provided.
+  if (!options->schema) {
+    options->schema = getNonPartitionTypes(dataChannels_, inputType_);
   }
-  options.nonReclaimableSection =
-      writerInfo_.back()->nonReclaimableSectionHolder.get();
-  options.maxStripeSize = std::optional(
-      hiveConfig_->orcWriterMaxStripeSize(connectorSessionProperties));
-  options.maxDictionaryMemory = std::optional(
-      hiveConfig_->orcWriterMaxDictionaryMemory(connectorSessionProperties));
-  options.orcWriterIntegerDictionaryEncodingEnabled =
-      hiveConfig_->isOrcWriterIntegerDictionaryEncodingEnabled(
-          connectorSessionProperties);
-  options.orcWriterStringDictionaryEncodingEnabled =
-      hiveConfig_->isOrcWriterStringDictionaryEncodingEnabled(
-          connectorSessionProperties);
-  options.parquetWriteTimestampUnit =
-      hiveConfig_->parquetWriteTimestampUnit(connectorSessionProperties);
-  options.orcMinCompressionSize = std::optional(
-      hiveConfig_->orcWriterMinCompressionSize(connectorSessionProperties));
-  options.orcLinearStripeSizeHeuristics =
-      std::optional(hiveConfig_->orcWriterLinearStripeSizeHeuristics(
-          connectorSessionProperties));
-  options.serdeParameters = std::map<std::string, std::string>(
-      insertTableHandle_->serdeParameters().begin(),
-      insertTableHandle_->serdeParameters().end());
+
+  if (!options->memoryPool) {
+    options->memoryPool = writerInfo_.back()->writerPool.get();
+  }
+
+  if (!options->compressionKind) {
+    options->compressionKind = insertTableHandle_->compressionKind();
+  }
+
+  if (!options->spillConfig && canReclaim()) {
+    options->spillConfig = spillConfig_;
+  }
+
+  if (!options->nonReclaimableSection) {
+    options->nonReclaimableSection =
+        writerInfo_.back()->nonReclaimableSectionHolder.get();
+  }
+
+  if (!options->maxStripeSize) {
+    options->maxStripeSize = std::optional(
+        hiveConfig_->orcWriterMaxStripeSize(connectorSessionProperties));
+  }
+
+  if (!options->maxDictionaryMemory) {
+    options->maxDictionaryMemory = std::optional(
+        hiveConfig_->orcWriterMaxDictionaryMemory(connectorSessionProperties));
+  }
+
+  if (!options->orcWriterIntegerDictionaryEncodingEnabled) {
+    options->orcWriterIntegerDictionaryEncodingEnabled =
+        hiveConfig_->isOrcWriterIntegerDictionaryEncodingEnabled(
+            connectorSessionProperties);
+  }
+
+  if (!options->orcWriterStringDictionaryEncodingEnabled) {
+    options->orcWriterStringDictionaryEncodingEnabled =
+        hiveConfig_->isOrcWriterStringDictionaryEncodingEnabled(
+            connectorSessionProperties);
+  }
+
+  if (!options->parquetWriteTimestampUnit) {
+    options->parquetWriteTimestampUnit =
+        hiveConfig_->parquetWriteTimestampUnit(connectorSessionProperties);
+  }
+
+  if (!options->orcMinCompressionSize) {
+    options->orcMinCompressionSize = std::optional(
+        hiveConfig_->orcWriterMinCompressionSize(connectorSessionProperties));
+  }
+
+  if (!options->orcLinearStripeSizeHeuristics) {
+    options->orcLinearStripeSizeHeuristics =
+        std::optional(hiveConfig_->orcWriterLinearStripeSizeHeuristics(
+            connectorSessionProperties));
+  }
+
+  if (options->serdeParameters.empty()) {
+    options->serdeParameters = std::map<std::string, std::string>(
+        insertTableHandle_->serdeParameters().begin(),
+        insertTableHandle_->serdeParameters().end());
+  }
 
   auto compressionLevel =
       hiveConfig_->orcWriterCompressionLevel(connectorSessionProperties);
-  options.zlibCompressionLevel =
-      compressionLevel.value_or(kDefaultZlibCompressionLevel);
-  options.zstdCompressionLevel =
-      compressionLevel.value_or(kDefaultZstdCompressionLevel);
+
+  if (!options->zlibCompressionLevel) {
+    options->zlibCompressionLevel =
+        compressionLevel.value_or(kDefaultZlibCompressionLevel);
+  }
+  if (!options->zstdCompressionLevel) {
+    options->zstdCompressionLevel =
+        compressionLevel.value_or(kDefaultZstdCompressionLevel);
+  }
 
   // Prevents the memory allocation during the writer creation.
   WRITER_NON_RECLAIMABLE_SECTION_GUARD(writerInfo_.size() - 1);
   auto writer = writerFactory_->createWriter(
       dwio::common::FileSink::create(
           writePath,
-          {.bufferWrite = false,
-           .connectorProperties = hiveConfig_->config(),
-           .fileCreateConfig = hiveConfig_->writeFileCreateConfig(),
-           .pool = writerInfo_.back()->sinkPool.get(),
-           .metricLogger = dwio::common::MetricsLog::voidLog(),
-           .stats = ioStats_.back().get()}),
+          {
+              .bufferWrite = false,
+              .connectorProperties = hiveConfig_->config(),
+              .fileCreateConfig = hiveConfig_->writeFileCreateConfig(),
+              .pool = writerInfo_.back()->sinkPool.get(),
+              .metricLogger = dwio::common::MetricsLog::voidLog(),
+              .stats = ioStats_.back().get(),
+          }),
       options);
   writer = maybeCreateBucketSortWriter(std::move(writer));
   writers_.emplace_back(std::move(writer));

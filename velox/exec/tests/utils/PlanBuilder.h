@@ -435,6 +435,9 @@ class PlanBuilder {
   /// @param fileFormat File format to use for the written data.
   /// @param aggregates Aggregations for column statistics collection during
   /// write.
+  /// @param connectorId Name used to register the connector.
+  /// @param serdeParameters Additional parameters passed to the writer.
+  /// @param Option objects passed to the writer.
   PlanBuilder& tableWrite(
       const std::string& outputDirectoryPath,
       const std::vector<std::string>& partitionBy,
@@ -446,7 +449,9 @@ class PlanBuilder {
           dwio::common::FileFormat::DWRF,
       const std::vector<std::string>& aggregates = {},
       const std::string& connectorId = "test-hive",
-      const std::unordered_map<std::string, std::string>& serdeParameters = {});
+      const std::unordered_map<std::string, std::string>& serdeParameters = {},
+      const std::shared_ptr<dwio::common::WriterOptions>& writerOptions =
+          nullptr);
 
   /// Add a TableWriteMergeNode.
   PlanBuilder& tableWriteMerge(

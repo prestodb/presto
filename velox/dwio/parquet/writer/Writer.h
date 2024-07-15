@@ -171,7 +171,7 @@ class ParquetWriterFactory : public dwio::common::WriterFactory {
 
   std::unique_ptr<dwio::common::Writer> createWriter(
       std::unique_ptr<dwio::common::FileSink> sink,
-      const dwio::common::WriterOptions& options) override;
+      const std::shared_ptr<dwio::common::WriterOptions>& options) override;
 };
 
 } // namespace facebook::velox::parquet
