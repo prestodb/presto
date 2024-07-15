@@ -70,7 +70,7 @@ executors:
       MAVEN_TEST: "-B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --fail-at-end"
   check:
     docker:
-      - image: prestocpp/velox-check:mikesh-20210609
+      - image: public.ecr.aws/oss-presto/velox-dev:check
   macos-intel:
     macos:
       xcode: "14.3.0"
@@ -281,11 +281,6 @@ jobs:
     steps:
       - checkout
       - run:
-          name: "Update velox"
-          command: |
-            cd presto-native-execution
-            make velox-submodule
-      - run:
           name: Check formatting
           command: |
             cd presto-native-execution
@@ -295,11 +290,6 @@ jobs:
     executor: check
     steps:
       - checkout
-      - run:
-          name: "Update velox"
-          command: |
-            cd presto-native-execution
-            make velox-submodule
       - run:
           name: "Check license headers"
           command: |
