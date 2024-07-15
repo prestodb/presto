@@ -27,6 +27,7 @@ import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
+import com.facebook.presto.sql.expressions.ExpressionManager;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
@@ -179,6 +180,12 @@ public final class StandaloneQueryRunner
     public TestingAccessControlManager getAccessControl()
     {
         return server.getAccessControl();
+    }
+
+    @Override
+    public ExpressionManager getExpressionManager()
+    {
+        return server.getExpressionManager();
     }
 
     public TestingPrestoServer getServer()

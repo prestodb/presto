@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule.test;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.sql.expressions.ExpressionManager;
 import com.facebook.presto.sql.planner.Plan;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterClass;
@@ -83,5 +84,10 @@ public abstract class BaseRuleTest
                         .where(isInstanceOfAny(nodeClass))
                         .matches(),
                 "Expected " + nodeClass.toString() + " in plan after optimization. ");
+    }
+
+    protected ExpressionManager getExpressionManager()
+    {
+        return tester.getExpressionManager();
     }
 }

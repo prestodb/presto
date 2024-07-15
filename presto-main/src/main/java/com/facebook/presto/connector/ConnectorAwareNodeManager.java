@@ -59,6 +59,13 @@ public class ConnectorAwareNodeManager
     }
 
     @Override
+    public Node getSidecarNode()
+    {
+        // TODO: @tdm
+        return nodeManager.getCoordinatorSidecars().iterator().next();
+    }
+
+    @Override
     public String getEnvironment()
     {
         return environment;

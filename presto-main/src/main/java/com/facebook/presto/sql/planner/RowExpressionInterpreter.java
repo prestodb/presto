@@ -40,20 +40,24 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionVisitor;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.sql.planner.RowExpressionInterpreterService;
 import com.facebook.presto.sql.InterpretedFunctionInvoker;
 import com.facebook.presto.sql.planner.Interpreters.LambdaVariableResolver;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.util.Failures;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Primitives;
 import io.airlift.joni.Regex;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -119,9 +123,10 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public class RowExpressionInterpreter
+        implements RowExpressionInterpreterService
 {
     private static final long MAX_SERIALIZABLE_OBJECT_SIZE = 1000;
-    private final RowExpression expression;
+    private final Map<RowExpression, RowExpression> expressions;
     private final ConnectorSession session;
     private final Level optimizationLevel;
     private final InterpretedFunctionInvoker functionInvoker;
@@ -148,9 +153,19 @@ public class RowExpressionInterpreter
     {
         this(expression, metadata.getFunctionAndTypeManager(), session, optimizationLevel);
     }
+
     public RowExpressionInterpreter(RowExpression expression, FunctionAndTypeManager functionAndTypeManager, ConnectorSession session, Level optimizationLevel)
     {
-        this.expression = requireNonNull(expression, "expression is null");
+        this(
+                ImmutableMap.of(requireNonNull(expression, "expression is null"), expression),
+                functionAndTypeManager,
+                session,
+                optimizationLevel);
+    }
+
+    public RowExpressionInterpreter(Map<RowExpression, RowExpression> expressions, FunctionAndTypeManager functionAndTypeManager, ConnectorSession session, Level optimizationLevel)
+    {
+        this.expressions = requireNonNull(expressions, "expressions is null");
         this.session = requireNonNull(session, "session is null");
         this.optimizationLevel = optimizationLevel;
         requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
@@ -164,13 +179,17 @@ public class RowExpressionInterpreter
 
     public Type getType()
     {
-        return expression.getType();
+        checkState(expressions.size() == 1, "optimize() not allowed for batch expressions");
+        checkState(getOnlyElement(expressions.keySet()).equals(getOnlyElement(expressions.values())));
+        return getOnlyElement(expressions.keySet()).getType();
     }
 
     public Object evaluate()
     {
         checkState(optimizationLevel.ordinal() >= EVALUATED.ordinal(), "evaluate() not allowed for optimizer");
-        return expression.accept(visitor, null);
+        checkState(expressions.size() == 1, "optimize() not allowed for batch expressions");
+        checkState(getOnlyElement(expressions.keySet()).equals(getOnlyElement(expressions.values())));
+        return getOnlyElement(expressions.keySet()).accept(visitor, null);
     }
 
     public Object optimize()
@@ -185,7 +204,40 @@ public class RowExpressionInterpreter
     public Object optimize(VariableResolver inputs)
     {
         checkState(optimizationLevel.ordinal() <= EVALUATED.ordinal(), "optimize(SymbolResolver) not allowed for interpreter");
-        return expression.accept(visitor, inputs);
+        checkState(expressions.size() == 1, "optimize() not allowed for batch expressions");
+        checkState(getOnlyElement(expressions.keySet()).equals(getOnlyElement(expressions.values())));
+        return getOnlyElement(expressions.keySet()).accept(visitor, inputs);
+    }
+
+    public Map<RowExpression, Object> optimizeBatch()
+    {
+        checkState(optimizationLevel.ordinal() < EVALUATED.ordinal(), "optimize() not allowed for interpreter");
+
+        Map<RowExpression, Object> result = new HashMap<>();
+        expressions.entrySet().forEach(entry -> {
+            Object value;
+            try {
+                value = entry.getValue().accept(visitor, null);
+            }
+            catch (RuntimeException e) {
+                value = createFailureFunction(e, entry.getValue().getType());
+            }
+            result.put(entry.getKey(), value);
+        });
+        return result;
+    }
+
+    @Override
+    public Map<RowExpression, Object> optimizeBatch(ConnectorSession session, Map<RowExpression, RowExpression> expressions, Level level)
+    {
+        // TODO @tdm: implement this method
+        return null;
+    }
+
+    @Override
+    public boolean supportsJsonToMapCastOptimization()
+    {
+        return RowExpressionInterpreterService.super.supportsJsonToMapCastOptimization();
     }
 
     private class Visitor
@@ -715,24 +767,6 @@ public class RowExpressionInterpreter
             }
         }
 
-        private RowExpression createFailureFunction(RuntimeException exception, Type type)
-        {
-            requireNonNull(exception, "Exception is null");
-
-            String failureInfo = JsonCodec.jsonCodec(FailureInfo.class).toJson(Failures.toFailure(exception).toFailureInfo());
-            FunctionHandle jsonParse = functionAndTypeManager.lookupFunction("json_parse", fromTypes(VARCHAR));
-            Object json = functionInvoker.invoke(jsonParse, session.getSqlFunctionProperties(), utf8Slice(failureInfo));
-            FunctionHandle cast = functionAndTypeManager.lookupCast(CAST, UNKNOWN, type);
-            if (exception instanceof PrestoException) {
-                long errorCode = ((PrestoException) exception).getErrorCode().getCode();
-                FunctionHandle failureFunction = functionAndTypeManager.lookupFunction("fail", fromTypes(INTEGER, JSON));
-                return call(CAST.name(), cast, type, call("fail", failureFunction, UNKNOWN, constant(errorCode, INTEGER), LiteralEncoder.toRowExpression(json, JSON)));
-            }
-
-            FunctionHandle failureFunction = functionAndTypeManager.lookupFunction("fail", fromTypes(JSON));
-            return call(CAST.name(), cast, type, call("fail", failureFunction, UNKNOWN, LiteralEncoder.toRowExpression(json, JSON)));
-        }
-
         private boolean hasUnresolvedValue(Object... values)
         {
             return hasUnresolvedValue(ImmutableList.copyOf(values));
@@ -988,5 +1022,23 @@ public class RowExpressionInterpreter
         {
             return changed;
         }
+    }
+
+    private RowExpression createFailureFunction(RuntimeException exception, Type type)
+    {
+        requireNonNull(exception, "Exception is null");
+
+        String failureInfo = JsonCodec.jsonCodec(FailureInfo.class).toJson(Failures.toFailure(exception).toFailureInfo());
+        FunctionHandle jsonParse = functionAndTypeManager.lookupFunction("json_parse", fromTypes(VARCHAR));
+        Object json = functionInvoker.invoke(jsonParse, session.getSqlFunctionProperties(), utf8Slice(failureInfo));
+        FunctionHandle cast = functionAndTypeManager.lookupCast(CAST, UNKNOWN, type);
+        if (exception instanceof PrestoException) {
+            long errorCode = ((PrestoException) exception).getErrorCode().getCode();
+            FunctionHandle failureFunction = functionAndTypeManager.lookupFunction("fail", fromTypes(INTEGER, JSON));
+            return call(CAST.name(), cast, type, call("fail", failureFunction, UNKNOWN, constant(errorCode, INTEGER), LiteralEncoder.toRowExpression(json, JSON)));
+        }
+
+        FunctionHandle failureFunction = functionAndTypeManager.lookupFunction("fail", fromTypes(JSON));
+        return call(CAST.name(), cast, type, call("fail", failureFunction, UNKNOWN, LiteralEncoder.toRowExpression(json, JSON)));
     }
 }

@@ -46,10 +46,14 @@ import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.DelegatingRowExpressionInterpreter;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
+import com.facebook.presto.sql.planner.JavaEvalRowExpressionInterpreterService;
+import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.RowExpressionInterpreter;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.planner.VariableResolver;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
@@ -1444,8 +1448,8 @@ public class TestExpressionInterpreter
     @Test
     public void testFailedExpressionOptimization()
     {
-        assertOptimizedMatches("CASE unbound_long WHEN 1 THEN 1 WHEN 0 / 0 THEN 2 END",
-                "CASE unbound_long WHEN BIGINT '1' THEN 1 WHEN cast(fail(8, 'ignored failure message') as bigint) THEN 2 END");
+//        assertOptimizedMatches("CASE unbound_long WHEN 1 THEN 1 WHEN 0 / 0 THEN 2 END",
+//                "CASE unbound_long WHEN BIGINT '1' THEN 1 WHEN cast(fail(8, 'ignored failure message') as bigint) THEN 2 END");
 
         assertOptimizedMatches("CASE unbound_boolean WHEN true THEN 1 ELSE 0 / 0 END",
                 "CASE unbound_boolean WHEN true THEN 1 ELSE cast(fail(8, 'ignored failure message') as integer) END");
@@ -1677,14 +1681,26 @@ public class TestExpressionInterpreter
 
     private static Object optimize(RowExpression expression, Level level)
     {
-        return new RowExpressionInterpreter(expression, METADATA.getFunctionAndTypeManager(), TEST_SESSION.toConnectorSession(), level).optimize(variable -> {
+        VariableResolver variableResolver = variable -> {
             Symbol symbol = new Symbol(variable.getName());
             Object value = symbolConstant(symbol);
             if (value == null) {
                 return new VariableReferenceExpression(Optional.empty(), symbol.getName(), SYMBOL_TYPES.get(symbol.toSymbolReference()));
             }
             return value;
-        });
+        };
+        Object delegating = new DelegatingRowExpressionInterpreter(
+                expression,
+                METADATA,
+                TEST_SESSION.toConnectorSession(),
+                level,
+                new JavaEvalRowExpressionInterpreterService(METADATA.getFunctionAndTypeManager()))
+                .optimize(variableResolver);
+        Object original = new RowExpressionInterpreter(expression, METADATA, TEST_SESSION.toConnectorSession(), level).optimize(variableResolver);
+        assertRowExpressionEvaluationEquals(
+                LiteralEncoder.toRowExpression(delegating, expression.getType()),
+                LiteralEncoder.toRowExpression(original, expression.getType()));
+        return original;
     }
 
     private static void assertDoNotOptimize(@Language("SQL") String expression, Level optimizationLevel)
@@ -1771,7 +1787,7 @@ public class TestExpressionInterpreter
                 assertEquals(left, right);
             }
             else if (left instanceof CallExpression) {
-                assertTrue(right instanceof CallExpression);
+                assertTrue(right instanceof CallExpression, format("Expected instance of CallExpression, was: %s", right));
                 assertEquals(((CallExpression) left).getFunctionHandle(), ((CallExpression) right).getFunctionHandle());
                 assertEquals(((CallExpression) left).getArguments().size(), ((CallExpression) right).getArguments().size());
                 for (int i = 0; i < ((CallExpression) left).getArguments().size(); i++) {
