@@ -22,19 +22,45 @@ How to use HBO
 --------------
 
 Presto supports using historical statistics in query optimization. In HBO, statistics of the current query are stored and can be used to optimize future queries.
-The Redis HBO Provider can be used as storage for the historical statistics. HBO is controlled by the following session properties:
+The Redis HBO Provider can be used as storage for the historical statistics. HBO is controlled by the following configuration properties and session properties:
 
-=========================================================== =========================================================================================================================================================================================================== ===================================
-Session property                                            Description                                                                                                                                                                                                 Default value
-=========================================================== =========================================================================================================================================================================================================== ===================================
-use_history_based_plan_statistics                           Enable using historical statistics for query optimization.                                                                                                                                                  False
-track_history_based_plan_statistics                         Enable recording the statistics of the current query as history statistics so as to be used by future queries.                                                                                              False
-track_history_stats_from_failed_queries                     Track history based plan statistics from complete plan fragments in failed queries.                                                                                                                         True
-history_based_optimizer_timeout_limit                       Timeout for history based optimizer.                                                                                                                                                                        10 seconds
-restrict_history_based_optimization_to_complex_query        Enable history based optimization only for complex queries, i.e. queries with join and aggregation.                                                                                                         True
-history_input_table_statistics_matching_threshold           When the size difference between current table and history table exceed this threshold, do not match history statistics. When value is 0.0, only match history statistics when the size of the two          ``hbo.history-matching-threshold``
-                                                            are exactly the same.
-=========================================================== =========================================================================================================================================================================================================== ===================================
+Configuration Properties
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+The following configuration properties are available for HBO:
+
+=========================================================== =========================================================================================================================== ===================================
+Configuration Property Name                                 Description                                                                                                                 Default value
+=========================================================== =========================================================================================================================== ===================================
+``optimizer.use-history-based-plan-statistics``             Enable using historical statistics for query optimization.                                                                  ``False``
+``optimizer.track-history-based-plan-statistics``           Enable recording the statistics of the current query as history statistics so as to be used by future queries.              ``False``
+``optimizer.track-history-stats-from-failed-queries``       Track history based plan statistics from complete plan fragments in failed queries.                                         ``True``
+``optimizer.history-based-optimizer-timeout``               Timeout for history based optimizer.                                                                                        ``10 seconds``
+``hbo.history-matching-threshold``                          When the size difference between current table and history table exceed this threshold, do not match history statistics.    ``0.1``
+                                                            When value is 0.0, only match history statistics when the size of the two are exactly the same.
+``hbo.max-last-runs-history``                               Number of last runs for which historical stats are stored.                                                                  ``10``
+=========================================================== =========================================================================================================================== ===================================
+
+Session Properties
+^^^^^^^^^^^^^^^^^^
+
+Session properties set behavior changes for queries executed within the given session. When setting, they will overwrite the value of corresponding configuration properties (if any) in the current session.
+
+=========================================================== ==================================================================================================== ======================================================
+Session property Name                                       Description                                                                                          Default value
+=========================================================== ==================================================================================================== ======================================================
+``use_history_based_plan_statistics``                       Overrides the behavior of the configuration property                                                 ``optimizer.use-history-based-plan-statistics``
+                                                            ``optimizer.use-history-based-plan-statistics`` in the current session.
+``track_history_based_plan_statistics``                     Overrides the behavior of the configuration property                                                 ``optimizer.track-history-based-plan-statistics``
+                                                            ``optimizer.track-history-based-plan-statistics`` in the current session.
+``track_history_stats_from_failed_queries``                 Overrides the behavior of the configuration property                                                 ``optimizer.track-history-stats-from-failed-queries``
+                                                            ``optimizer.track-history-stats-from-failed-queries`` in the current session.
+``history_based_optimizer_timeout_limit``                   Overrides the behavior of the configuration property                                                 ``optimizer.history-based-optimizer-timeout``
+                                                            ``optimizer.history-based-optimizer-timeout`` in the current session.
+``restrict_history_based_optimization_to_complex_query``    Enable history based optimization only for complex queries, i.e. queries with join and aggregation.  ``True``
+``history_input_table_statistics_matching_threshold``       Overrides the behavior of the configuration property                                                 ``hbo.history-matching-threshold``
+                                                            ``hbo.history-matching-threshold`` in the current session.
+=========================================================== ==================================================================================================== ======================================================
 
 Example
 -------
