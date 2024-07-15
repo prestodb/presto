@@ -189,9 +189,9 @@ JavaClasses:
   - presto-main/src/main/java/com/facebook/presto/metadata/BuiltInFunctionHandle.java
   - presto-spi/src/main/java/com/facebook/presto/spi/function/SqlFunctionHandle.java
   - presto-hive-metastore/src/main/java/com/facebook/presto/hive/BucketFunctionType.java
-  - presto-hive-common/src/main/java/com/facebook/presto/hive/CacheQuotaRequirement.java
-  - presto-hive-common/src/main/java/com/facebook/presto/hive/CacheQuotaScope.java
   - presto-hive-common/src/main/java/com/facebook/presto/hive/BaseHiveColumnHandle.java
+  - presto-hdfs-core/src/main/java/com/facebook/presto/hive/CacheQuotaRequirement.java
+  - presto-hdfs-core/src/main/java/com/facebook/presto/hive/CacheQuotaScope.java
   - presto-spi/src/main/java/com/facebook/presto/spi/relation/CallExpression.java
   - presto-hive-metastore/src/main/java/com/facebook/presto/hive/metastore/Column.java
   - presto-verifier/src/main/java/com/facebook/presto/verifier/framework/Column.java
