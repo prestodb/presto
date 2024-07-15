@@ -14,11 +14,14 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.transaction.TransactionId;
+import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
+import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -195,6 +198,35 @@ public class TestIcebergSystemTables
                         "('split_offsets', 'array(bigint)', '', '')," +
                         "('equality_ids', 'array(integer)', '', '')");
         assertQuerySucceeds("SELECT * FROM test_schema.\"test_table$files\"");
+    }
+
+    @Test
+    public void testSessionPropertiesInManuallyStartedTransaction()
+    {
+        try {
+            assertUpdate("create table test_schema.test_session_properties_table(a int, b varchar)");
+            // The default value of table property `delete_mode` is `merge-on-read`
+            MaterializedResult materializedRows = getQueryRunner().execute("select * from  test_schema.\"test_session_properties_table$properties\"");
+            assertThat(materializedRows)
+                    .anySatisfy(row -> assertThat(row)
+                            .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "write.delete.mode", "merge-on-read")));
+
+            // Simulate `set session iceberg.merge_on_read_enabled=false` to disable merge on read mode for iceberg tables in session level
+            Session session = Session.builder(getQueryRunner().getDefaultSession())
+                    .setCatalogSessionProperty(ICEBERG_CATALOG, "merge_on_read_enabled", "false")
+                    .build();
+
+            // Simulate `start transaction` to begin a transaction
+            TransactionManager transactionManager = getQueryRunner().getTransactionManager();
+            TransactionId txnId = transactionManager.beginTransaction(false);
+            Session txnSession = session.beginTransactionId(txnId, transactionManager, new AllowAllAccessControl());
+
+            // Query should fail because of the conflicts between session property and table property in table mode validation
+            assertQueryFails(txnSession, "select * from test_schema.test_session_properties_table", "merge-on-read table mode not supported yet");
+        }
+        finally {
+            assertUpdate("drop table if exists test_schema.test_session_properties_table");
+        }
     }
 
     protected void checkTableProperties(String tableName, String deleteMode)
