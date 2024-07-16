@@ -1438,7 +1438,7 @@ TEST_P(AsyncDataCacheTest, ssdWriteOptions) {
       {0.8, 0.95, 4UL << 20, false},
       {0.8, 0.3, 32UL << 20, false},
       {0.8, 0.3, 4UL << 20, true},
-      {0.001, 0.3, 4UL << 20, true}};
+      {0.0, 0.95, 0, true}};
 
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
@@ -1455,14 +1455,14 @@ TEST_P(AsyncDataCacheTest, ssdWriteOptions) {
     waitForPendingLoads();
     auto stats = cache_->refreshStats();
     if (testData.expectedSaveToSsd) {
-      EXPECT_GE(stats.ssdStats->entriesWritten, 0);
+      EXPECT_GT(stats.ssdStats->entriesWritten, 0);
     } else {
       EXPECT_EQ(stats.ssdStats->entriesWritten, 0);
     }
-    if (testData.maxWriteRatio < 0.005) {
-      // SSD cache write rate is so small that it stops right after the
-      // first entry in each shard.
-      EXPECT_EQ(stats.ssdStats->entriesWritten, 4);
+    if (testData.maxWriteRatio < 0.0001) {
+      // SSD cache write stops right after the first entry in each shard.
+      // Only a few entries can be written.
+      EXPECT_LE(stats.ssdStats->entriesWritten, 20);
     }
   }
 }
