@@ -109,7 +109,14 @@ if(PRESTO_ENABLE_TESTING)
   add_subdirectory(tests)
 endif()
 
-if(PRESTO_ENABLE_PROMETHEUS_REPORTER)
-  add_subdirectory(runtime-metrics)
-  target_link_libraries(presto_server prometheus_reporter)
+if(PRESTO_STATS_REPORTER_TYPE)
+  add_compile_definitions(PRESTO_STATS_REPORTER_TYPE)
+  if(PRESTO_STATS_REPORTER_TYPE STREQUAL "PROMETHEUS")
+    add_subdirectory(runtime-metrics)
+    target_link_libraries(presto_server prometheus_reporter)
+  else()
+    message(
+      FATAL_ERROR
+        "${PRESTO_STATS_REPORTER_TYPE} is not a valid stats reporter name")
+  endif()
 endif()
