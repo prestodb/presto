@@ -27,7 +27,7 @@ jobs:
   check-matrix:
     name: ${{ matrix.config.name }}
     runs-on: ubuntu-latest
-    container: ghcr.io/facebookincubator/velox-dev:check-avx
+    container: ghcr.io/facebookincubator/velox-dev:check
     strategy:
       fail-fast: false
       matrix:
