@@ -434,7 +434,7 @@ public final class SystemSessionProperties
                 booleanProperty(
                         TREAT_LOW_CONFIDENCE_ZERO_ESTIMATION_AS_UNKNOWN_ENABLED,
                         "Treat low confidence zero estimations as unknowns during joins when enabled",
-                        false,
+                        featuresConfig.isTreatLowConfidenceZeroEstimationAsUnknownEnabled(),
                         false),
                 booleanProperty(
                         DISTRIBUTED_INDEX_JOIN,
