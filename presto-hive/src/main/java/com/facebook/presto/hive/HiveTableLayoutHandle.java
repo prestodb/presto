@@ -312,7 +312,7 @@ public class HiveTableLayoutHandle
     }
 
     @VisibleForTesting
-    public static TupleDomain<Subfield> canonicalizeDomainPredicate(TupleDomain<Subfield> domainPredicate, Map<String, HiveColumnHandle> predicateColumns, PlanCanonicalizationStrategy strategy)
+    static TupleDomain<Subfield> canonicalizeDomainPredicate(TupleDomain<Subfield> domainPredicate, Map<String, HiveColumnHandle> predicateColumns, PlanCanonicalizationStrategy strategy)
     {
         if (strategy == PlanCanonicalizationStrategy.DEFAULT) {
             return domainPredicate.canonicalize(ignored -> false);
