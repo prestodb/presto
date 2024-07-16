@@ -192,16 +192,17 @@ class BaseHashTable {
   /// decode grouping keys from 'input'. If 'ignoreNullKeys' is true, updates
   /// 'rows' to remove entries with null grouping keys. After this call, 'rows'
   /// may have no entries selected.
-  void prepareForGroupProbe(
+  virtual void prepareForGroupProbe(
       HashLookup& lookup,
       const RowVectorPtr& input,
       SelectivityVector& rows,
-      bool ignoreNullKeys,
-      int8_t spillInputStartPartitionBit);
+      int8_t spillInputStartPartitionBit) = 0;
 
   /// Finds or creates a group for each key in 'lookup'. The keys are
   /// returned in 'lookup.hits'.
-  virtual void groupProbe(HashLookup& lookup) = 0;
+  virtual void groupProbe(
+      HashLookup& lookup,
+      int8_t spillInputStartPartitionBit) = 0;
 
   /// Returns the first hit for each key in 'lookup'. The keys are in
   /// 'lookup.hits' with a nullptr representing a miss. This is for use in hash
@@ -216,11 +217,11 @@ class BaseHashTable {
   /// to remove entries with null grouping keys. Otherwise, assumes the caller
   /// has done that already. After this call, 'rows' may have no entries
   /// selected.
-  void prepareForJoinProbe(
+  virtual void prepareForJoinProbe(
       HashLookup& lookup,
       const RowVectorPtr& input,
       SelectivityVector& rows,
-      bool decodeAndRemoveNulls);
+      bool decodeAndRemoveNulls) = 0;
 
   /// Fills 'hits' with consecutive hash join results. The corresponding element
   /// of 'inputRows' is set to the corresponding row number in probe keys.
@@ -264,8 +265,8 @@ class BaseHashTable {
 
   virtual void prepareJoinTable(
       std::vector<std::unique_ptr<BaseHashTable>> tables,
-      folly::Executor* executor = nullptr,
-      int8_t spillInputStartPartitionBit = kNoSpillInputStartPartitionBit) = 0;
+      int8_t spillInputStartPartitionBit,
+      folly::Executor* executor = nullptr) = 0;
 
   /// Returns the memory footprint in bytes for any data structures
   /// owned by 'this'.
@@ -304,8 +305,8 @@ class BaseHashTable {
   virtual HashMode hashMode() const = 0;
 
   /// Disables use of array or normalized key hash modes.
-  void forceGenericHashMode() {
-    setHashMode(HashMode::kHash, 0);
+  void forceGenericHashMode(int8_t spillInputStartPartitionBit) {
+    setHashMode(HashMode::kHash, 0, spillInputStartPartitionBit);
   }
 
   /// Decides the hash table representation based on the statistics in
@@ -323,6 +324,7 @@ class BaseHashTable {
   /// lifetime of 'this'.
   virtual void decideHashMode(
       int32_t numNew,
+      int8_t spillInputStartPartitionBit,
       bool disableRangeArrayHash = false) = 0;
 
   // Removes 'rows' from the hash table and its RowContainer. 'rows' must exist
@@ -389,21 +391,10 @@ class BaseHashTable {
     return sizeof(void*);
   }
 
-  virtual void setHashMode(HashMode mode, int32_t numNew) = 0;
-
-  virtual int sizeBits() const = 0;
-
-  // We don't want any overlap in the bit ranges used by bucket index and those
-  // used by spill partitioning; otherwise because we receive data from only one
-  // partition, the overlapped bits would be the same and only a fraction of the
-  // buckets would be used.  This would cause the insertion taking very long
-  // time and block driver threads.
-  void checkHashBitsOverlap(int8_t spillInputStartPartitionBit) {
-    if (spillInputStartPartitionBit != kNoSpillInputStartPartitionBit &&
-        hashMode() != HashMode::kArray) {
-      VELOX_CHECK_LE(sizeBits(), spillInputStartPartitionBit);
-    }
-  }
+  virtual void setHashMode(
+      HashMode mode,
+      int32_t numNew,
+      int8_t spillInputStartPartitionBit) = 0;
 
   std::vector<std::unique_ptr<VectorHasher>> hashers_;
   std::unique_ptr<RowContainer> rows_;
@@ -491,7 +482,8 @@ class HashTable : public BaseHashTable {
         pool);
   }
 
-  void groupProbe(HashLookup& lookup) override;
+  void groupProbe(HashLookup& lookup, int8_t spillInputStartPartitionBit)
+      override;
 
   void joinProbe(HashLookup& lookup) override;
 
@@ -557,26 +549,39 @@ class HashTable : public BaseHashTable {
     return hashMode_;
   }
 
-  void decideHashMode(int32_t numNew, bool disableRangeArrayHash = false)
-      override;
+  void decideHashMode(
+      int32_t numNew,
+      int8_t spillInputStartPartitionBit,
+      bool disableRangeArrayHash = false) override;
 
   void erase(folly::Range<char**> rows) override;
 
-  // Moves the contents of 'tables' into 'this' and prepares 'this'
-  // for use in hash join probe. A hash join build side is prepared as
-  // follows: 1. Each build side thread gets a random selection of the
-  // build stream. Each accumulates rows into its own
-  // HashTable'sRowContainer and updates the VectorHashers of the
-  // table to reflect the data as long as the data shows promise for
-  // kArray or kNormalizedKey representation. After all the build
-  // tables are filled, they are combined into one top level table
-  // with prepareJoinTable. This then takes ownership of all the data
-  // and VectorHashers and decides the hash mode and representation.
+  /// Moves the contents of 'tables' into 'this' and prepares 'this'
+  /// for use in hash join probe. A hash join build side is prepared as
+  /// follows: 1. Each build side thread gets a random selection of the
+  /// build stream. Each accumulates rows into its own
+  /// HashTable'sRowContainer and updates the VectorHashers of the
+  /// table to reflect the data as long as the data shows promise for
+  /// kArray or kNormalizedKey representation. After all the build
+  /// tables are filled, they are combined into one top level table
+  /// with prepareJoinTable. This then takes ownership of all the data
+  /// and VectorHashers and decides the hash mode and representation.
   void prepareJoinTable(
       std::vector<std::unique_ptr<BaseHashTable>> tables,
-      folly::Executor* executor = nullptr,
-      int8_t spillInputStartPartitionBit =
-          kNoSpillInputStartPartitionBit) override;
+      int8_t spillInputStartPartitionBit,
+      folly::Executor* executor = nullptr) override;
+
+  void prepareForJoinProbe(
+      HashLookup& lookup,
+      const RowVectorPtr& input,
+      SelectivityVector& rows,
+      bool decodeAndRemoveNulls) override;
+
+  void prepareForGroupProbe(
+      HashLookup& lookup,
+      const RowVectorPtr& input,
+      SelectivityVector& rows,
+      int8_t spillInputStartPartitionBit) override;
 
   uint64_t hashTableSizeIncrease(int32_t numNewDistinct) const override {
     if (numDistinct_ + numNewDistinct > rehashSize()) {
@@ -599,10 +604,6 @@ class HashTable : public BaseHashTable {
         memory::AllocationTraits::kPageSize);
   }
 
-  uint64_t rehashSize() const {
-    return rehashSize(capacity_ - numTombstones_);
-  }
-
   std::vector<RowContainer*> allRows() const override;
 
   std::string toString() override;
@@ -623,6 +624,10 @@ class HashTable : public BaseHashTable {
 
   auto& testingOtherTables() const {
     return otherTables_;
+  }
+
+  uint64_t testingRehashSize() const {
+    return rehashSize();
   }
 
  private:
@@ -706,7 +711,10 @@ class HashTable : public BaseHashTable {
 
   void arrayGroupProbe(HashLookup& lookup);
 
-  void setHashMode(HashMode mode, int32_t numNew) override;
+  void setHashMode(
+      HashMode mode,
+      int32_t numNew,
+      int8_t spillInputStartPartitionBit) override;
 
   // Fast path for join results when there are no duplicates in the table.
   int32_t listJoinResultsNoDuplicates(
@@ -733,20 +741,28 @@ class HashTable : public BaseHashTable {
   // VectorHashers.
   void clearUseRange(std::vector<bool>& useRange);
 
-  void rehash(bool initNormalizedKeys);
+  void rehash(bool initNormalizedKeys, int8_t spillInputStartPartitionBit);
+
+  uint64_t rehashSize() const {
+    return rehashSize(capacity_ - numTombstones_);
+  }
+
   void storeKeys(HashLookup& lookup, vector_size_t row);
 
   void storeRowPointer(uint64_t index, uint64_t hash, char* row);
 
   // Allocates new tables for tags and payload pointers. The size must
   // a power of 2.
-  void allocateTables(uint64_t size);
+  void allocateTables(uint64_t size, int8_t spillInputStartPartitionBit);
 
   // 'initNormalizedKeys' is passed to 'rehash' --> 'rehash' --> 'insertBatch'.
   // If it's false and the table is in normalized keys mode,
   // the keys are retrieved from the row and the hash is made
   // from this, without recomputing the normalized key.
-  void checkSize(int32_t numNew, bool initNormalizedKeys);
+  void checkSize(
+      int32_t numNew,
+      bool initNormalizedKeys,
+      int8_t spillInputStartPartitionBit);
 
   // Computes hash numbers of the appropriate hash mode for 'groups',
   // stores these in 'hashes' and inserts the groups using
@@ -940,9 +956,12 @@ class HashTable : public BaseHashTable {
     }
   }
 
-  int sizeBits() const final {
-    return sizeBits_;
-  }
+  // We don't want any overlap in the bit ranges used by bucket index and those
+  // used by spill partitioning; otherwise because we receive data from only one
+  // partition, the overlapped bits would be the same and only a fraction of the
+  // buckets would be used.  This would cause the insertion taking very long
+  // time and block driver threads.
+  void checkHashBitsOverlap(int8_t spillInputStartPartitionBit);
 
   // The min table size in row to trigger parallel join table build.
   const uint32_t minTableSizeForParallelJoinBuild_;

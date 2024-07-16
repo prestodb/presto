@@ -228,7 +228,6 @@ void GroupingSet::addInputForActiveRows(
       *lookup_,
       input,
       activeRows_,
-      ignoreNullKeys_,
       BaseHashTable::kNoSpillInputStartPartitionBit);
   if (lookup_->rows.empty()) {
     // No rows to probe. Can happen when ignoreNullKeys_ is true and all rows
@@ -236,7 +235,7 @@ void GroupingSet::addInputForActiveRows(
     return;
   }
 
-  table_->groupProbe(*lookup_);
+  table_->groupProbe(*lookup_, BaseHashTable::kNoSpillInputStartPartitionBit);
   masks_.addInput(input, activeRows_);
 
   auto* groups = lookup_->hits.data();
@@ -400,7 +399,7 @@ void GroupingSet::createHashTable() {
 
   lookup_ = std::make_unique<HashLookup>(table_->hashers());
   if (!isAdaptive_ && table_->hashMode() != BaseHashTable::HashMode::kHash) {
-    table_->forceGenericHashMode();
+    table_->forceGenericHashMode(BaseHashTable::kNoSpillInputStartPartitionBit);
   }
 }
 
@@ -812,7 +811,8 @@ bool GroupingSet::isPartialFull(int64_t maxBytes) {
   // per 32 buckets.
   if (stats.capacity * sizeof(void*) > maxBytes / 16 &&
       stats.numDistinct < stats.capacity / 32) {
-    table_->decideHashMode(0, true);
+    table_->decideHashMode(
+        0, BaseHashTable::kNoSpillInputStartPartitionBit, true);
   }
   return allocatedBytes() > maxBytes;
 }
