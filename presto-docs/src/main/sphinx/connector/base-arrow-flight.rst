@@ -9,19 +9,19 @@ Getting Started with base-arrow-module: Essential Abstract Methods for Developer
 --------------
 To utilize the base-arrow-module, you need to implement certain abstract methods that are specific to your use case. Below are the required classes and their purposes:
 
-1. ``ArrowFlightClientHandler.java``
+* ``ArrowFlightClientHandler.java``
 This class is responsible for initializing the Flight client and retrieving Flight information from the Flight server. To authenticate the Flight server, you must implement the abstract method ``getCallOptions`` in ArrowFlightClientHandler, which returns the ``CredentialCallOption`` specific to your Flight server.
 
-2. ``ArrowAbstractFlightRequest.java``
+* ``ArrowAbstractFlightRequest.java``
 Implement this class to define the request data, including the data source type, connection properties, the number of partitions and other data required to interact with database.
 
-3. ``ArrowAbstractMetadata.java``
+* ``ArrowAbstractMetadata.java``
 To retrieve metadata (schema and table information), implement the abstract methods in the ArrowAbstractMetadata class.
 
-4. ``ArrowAbstractSplitManager.java``
+* ``ArrowAbstractSplitManager.java``
 Extend the ArrowAbstractSplitManager class to implement the Arrow flight request, defining the Arrow split.
 
-5. ``ArrowPlugin.java``
+* ``ArrowPlugin.java``
 Register your connector name by extending the ArrowPlugin class.
 
 Configuration
@@ -77,13 +77,13 @@ You can see the available schemas by running ``SHOW SCHEMAS``::
 
     SHOW SCHEMAS FROM arrowmariadb;
 
-If you have a MariaDB database named ``user``, you can view the tables
-in this database by running ``SHOW TABLES``::
+To view the tables in the MariaDB database named ``user``,
+run ``SHOW TABLES``::
 
     SHOW TABLES FROM arrowmariadb.user;
 
-You can see a list of the columns in the ``admin`` table in the ``user`` database
-using either of the following::
+To see a list of the columns in the ``admin`` table in the ``user`` database,
+use either of the following commands::
 
     DESCRIBE arrowmariadb.user.admin;
     SHOW COLUMNS FROM arrowmariadb.user.admin;
