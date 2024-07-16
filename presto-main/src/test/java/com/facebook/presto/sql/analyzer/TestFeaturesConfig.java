@@ -275,7 +275,9 @@ public class TestFeaturesConfig
                 .setPrintEstimatedStatsFromCache(false)
                 .setUseHistograms(false)
                 .setUseNewNanDefinition(true)
-                .setWarnOnCommonNanPatterns(false));
+                .setWarnOnCommonNanPatterns(false)
+                .setScalarFunctionStatsPropagationEnabled(false)
+                .setUseNewNanDefinition(true));
     }
 
     @Test
@@ -495,6 +497,7 @@ public class TestFeaturesConfig
                 .put("optimizer.use-histograms", "true")
                 .put("use-new-nan-definition", "false")
                 .put("warn-on-common-nan-patterns", "true")
+                .put("optimizer.scalar-function-stats-propagation-enabled", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -711,7 +714,9 @@ public class TestFeaturesConfig
                 .setPrintEstimatedStatsFromCache(true)
                 .setUseHistograms(true)
                 .setUseNewNanDefinition(false)
-                .setWarnOnCommonNanPatterns(true);
+                .setWarnOnCommonNanPatterns(true)
+                .setScalarFunctionStatsPropagationEnabled(true)
+                .setUseNewNanDefinition(false);
         assertFullMapping(properties, expected);
     }
 

@@ -19,6 +19,8 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.ScalarFunctionConstantStats;
+import com.facebook.presto.spi.function.ScalarPropagateSourceStats;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import io.airlift.slice.Slice;
@@ -27,6 +29,7 @@ import java.util.Map;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.spi.function.StatsPropagationBehavior.USE_SOURCE_STATS;
 import static com.facebook.presto.type.setdigest.SetDigest.exactIntersectionCardinality;
 
 public final class SetDigestFunctions
@@ -37,7 +40,8 @@ public final class SetDigestFunctions
 
     @ScalarFunction
     @SqlType(StandardTypes.BIGINT)
-    public static long cardinality(@SqlType(SetDigestType.NAME) Slice digest)
+    @ScalarFunctionConstantStats(minValue = 0.0)
+    public static long cardinality(@ScalarPropagateSourceStats(nullFraction = USE_SOURCE_STATS) @SqlType(SetDigestType.NAME) Slice digest)
     {
         return SetDigest.newInstance(digest).cardinality();
     }

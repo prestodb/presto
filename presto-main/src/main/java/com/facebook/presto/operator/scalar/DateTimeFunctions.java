@@ -23,6 +23,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.ScalarPropagateSourceStats;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.type.TimestampOperators;
 import io.airlift.slice.Slice;
@@ -51,6 +52,7 @@ import static com.facebook.presto.operator.scalar.QuarterOfYearDateTimeField.QUA
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
+import static com.facebook.presto.spi.function.StatsPropagationBehavior.USE_SOURCE_STATS;
 import static com.facebook.presto.type.DateTimeOperators.modulo24Hour;
 import static com.facebook.presto.util.DateTimeZoneIndex.extractZoneOffsetMinutes;
 import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
@@ -1229,7 +1231,12 @@ public final class DateTimeFunctions
     @Description("year of the given timestamp")
     @ScalarFunction("year")
     @SqlType(StandardTypes.BIGINT)
-    public static long yearFromTimestamp(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
+    public static long yearFromTimestamp(
+            SqlFunctionProperties properties,
+            @ScalarPropagateSourceStats(
+                    propagateAllStats = false,
+                    nullFraction = USE_SOURCE_STATS,
+                    distinctValuesCount = USE_SOURCE_STATS) @SqlType(StandardTypes.TIMESTAMP) long timestamp) // TODO: ndv = the year of max value of timestamp column.
     {
         if (properties.isLegacyTimestamp()) {
             return getChronology(properties.getTimeZoneKey()).year().get(timestamp);
@@ -1242,7 +1249,11 @@ public final class DateTimeFunctions
     @Description("year of the given timestamp")
     @ScalarFunction("year")
     @SqlType(StandardTypes.BIGINT)
-    public static long yearFromTimestampWithTimeZone(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
+    public static long yearFromTimestampWithTimeZone(
+            @ScalarPropagateSourceStats(
+                    propagateAllStats = false,
+                    nullFraction = USE_SOURCE_STATS,
+                    distinctValuesCount = USE_SOURCE_STATS) @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
     {
         return unpackChronology(timestampWithTimeZone).year().get(unpackMillisUtc(timestampWithTimeZone));
     }
@@ -1250,7 +1261,11 @@ public final class DateTimeFunctions
     @Description("year of the given date")
     @ScalarFunction("year")
     @SqlType(StandardTypes.BIGINT)
-    public static long yearFromDate(@SqlType(StandardTypes.DATE) long date)
+    public static long yearFromDate(
+            @ScalarPropagateSourceStats(
+                    propagateAllStats = false,
+                    nullFraction = USE_SOURCE_STATS,
+                    distinctValuesCount = USE_SOURCE_STATS) @SqlType(StandardTypes.DATE) long date)
     {
         return YEAR.get(DAYS.toMillis(date));
     }

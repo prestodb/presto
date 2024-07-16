@@ -19,6 +19,8 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.ScalarFunctionConstantStats;
+import com.facebook.presto.spi.function.ScalarPropagateSourceStats;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
@@ -28,6 +30,7 @@ import java.util.Map;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.function.StatsPropagationBehavior.USE_SOURCE_STATS;
 
 public final class KHyperLogLogFunctions
 {
@@ -37,7 +40,8 @@ public final class KHyperLogLogFunctions
 
     @ScalarFunction
     @SqlType(StandardTypes.BIGINT)
-    public static long cardinality(@SqlType(KHyperLogLogType.NAME) Slice khll)
+    @ScalarFunctionConstantStats(minValue = 0)
+    public static long cardinality(@ScalarPropagateSourceStats(nullFraction = USE_SOURCE_STATS) @SqlType(KHyperLogLogType.NAME) Slice khll)
     {
         return KHyperLogLog.newInstance(khll).cardinality();
     }

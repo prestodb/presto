@@ -19,6 +19,8 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.ScalarFunctionConstantStats;
+import com.facebook.presto.spi.function.ScalarPropagateSourceStats;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import io.airlift.slice.Slice;
@@ -27,6 +29,7 @@ import static com.facebook.presto.operator.aggregation.ApproximateSetAggregation
 import static com.facebook.presto.operator.aggregation.HyperLogLogUtils.standardErrorToBuckets;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.EXPERIMENTAL;
+import static com.facebook.presto.spi.function.StatsPropagationBehavior.USE_SOURCE_STATS;
 import static com.facebook.presto.util.Failures.checkCondition;
 
 public final class HyperLogLogFunctions
@@ -36,7 +39,9 @@ public final class HyperLogLogFunctions
     @ScalarFunction
     @Description("compute the cardinality of a HyperLogLog instance")
     @SqlType(StandardTypes.BIGINT)
-    public static long cardinality(@SqlType(StandardTypes.HYPER_LOG_LOG) Slice serializedHll)
+    @ScalarFunctionConstantStats(minValue = 0)
+    public static long cardinality(
+            @ScalarPropagateSourceStats(propagateAllStats = false, nullFraction = USE_SOURCE_STATS) @SqlType(StandardTypes.HYPER_LOG_LOG) Slice serializedHll)
     {
         return HyperLogLog.newInstance(serializedHll).cardinality();
     }

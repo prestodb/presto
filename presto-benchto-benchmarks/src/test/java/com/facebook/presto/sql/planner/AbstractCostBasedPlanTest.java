@@ -39,6 +39,7 @@ import java.nio.file.Paths;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZER_USE_HISTOGRAMS;
+import static com.facebook.presto.SystemSessionProperties.SCALAR_FUNCTION_STATS_PROPAGATION_ENABLED;
 import static com.facebook.presto.spi.plan.JoinDistributionType.REPLICATED;
 import static com.facebook.presto.spi.plan.JoinType.INNER;
 import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED;
@@ -79,6 +80,23 @@ public abstract class AbstractCostBasedPlanTest
     }
 
     @Test(dataProvider = "getQueriesDataProvider")
+    public void scalarFunctionStatsPropagatePlansMatch(String queryResourcePath)
+    {
+        String sql = read(queryResourcePath);
+        Session scalarStatsPropagateSession = Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty(SCALAR_FUNCTION_STATS_PROPAGATION_ENABLED, "true")
+                .build();
+        Session baselineSession = Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty(SCALAR_FUNCTION_STATS_PROPAGATION_ENABLED, "false")
+                .build();
+        String regularPlan = generateQueryPlan(sql, baselineSession);
+        String scalarStatsPropagatePlan = generateQueryPlan(sql, scalarStatsPropagateSession);
+        if (!regularPlan.equals(scalarStatsPropagatePlan)) {
+            assertEquals(scalarStatsPropagatePlan, read(getScalarFunctionStatsPlanResourcePath(getQueryPlanResourcePath(queryResourcePath))));
+        }
+    }
+
+    @Test(dataProvider = "getQueriesDataProvider")
     public void histogramsPlansMatch(String queryResourcePath)
     {
         String sql = read(queryResourcePath);
@@ -106,6 +124,12 @@ public abstract class AbstractCostBasedPlanTest
         return root.getParent().resolve("histogram/" + root.getFileName()).toString();
     }
 
+    private String getScalarFunctionStatsPlanResourcePath(String regularPlanResourcePath)
+    {
+        Path root = Paths.get(regularPlanResourcePath);
+        return root.getParent().resolve("scalar_func_stats_propagate/" + root.getFileName()).toString();
+    }
+
     private Path getResourceWritePath(String queryResourcePath)
     {
         return Paths.get(
@@ -127,13 +151,20 @@ public abstract class AbstractCostBasedPlanTest
                             createParentDirs(queryPlanWritePath.toFile());
                             Session histogramSession = Session.builder(getQueryRunner().getDefaultSession())
                                     .setSystemProperty(OPTIMIZER_USE_HISTOGRAMS, "true")
+                                    .setSystemProperty(SCALAR_FUNCTION_STATS_PROPAGATION_ENABLED, "false")
                                     .build();
-                            Session noHistogramSession = Session.builder(getQueryRunner().getDefaultSession())
+                            Session baselineSession = Session.builder(getQueryRunner().getDefaultSession())
+                                    .setSystemProperty(OPTIMIZER_USE_HISTOGRAMS, "false")
+                                    .setSystemProperty(SCALAR_FUNCTION_STATS_PROPAGATION_ENABLED, "false")
+                                    .build();
+                            Session scalarStatsPropagateSession = Session.builder(getQueryRunner().getDefaultSession())
+                                    .setSystemProperty(SCALAR_FUNCTION_STATS_PROPAGATION_ENABLED, "true")
                                     .setSystemProperty(OPTIMIZER_USE_HISTOGRAMS, "false")
                                     .build();
                             String sql = read(queryResourcePath);
-                            String regularPlan = generateQueryPlan(sql, noHistogramSession);
+                            String regularPlan = generateQueryPlan(sql, baselineSession);
                             String histogramPlan = generateQueryPlan(sql, histogramSession);
+                            String scalarStatsPropagatePlan = generateQueryPlan(sql, scalarStatsPropagateSession);
                             write(regularPlan.getBytes(UTF_8), queryPlanWritePath.toFile());
                             // write out the histogram plan if it differs
                             if (!regularPlan.equals(histogramPlan)) {
@@ -141,6 +172,13 @@ public abstract class AbstractCostBasedPlanTest
                                 createParentDirs(histogramPlanWritePath.toFile());
                                 write(histogramPlan.getBytes(UTF_8), histogramPlanWritePath.toFile());
                             }
+                            // write out the scalar function stats propagate plan if it differs
+                            if (!regularPlan.equals(scalarStatsPropagatePlan)) {
+                                Path writePath = getResourceWritePath(getScalarFunctionStatsPlanResourcePath(queryResourcePath));
+                                createParentDirs(writePath.toFile());
+                                write(scalarStatsPropagatePlan.getBytes(UTF_8), writePath.toFile());
+                            }
+
                             System.out.println("Generated expected plan for query: " + queryResourcePath);
                         }
                         catch (IOException e) {
