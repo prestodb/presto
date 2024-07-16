@@ -367,7 +367,12 @@ void TableScan::addDynamicFilter(
   if (dataSource_) {
     dataSource_->addDynamicFilter(outputChannel, filter);
   }
-  dynamicFilters_.emplace(outputChannel, filter);
+  auto& currentFilter = dynamicFilters_[outputChannel];
+  if (currentFilter) {
+    currentFilter = currentFilter->mergeWith(filter.get());
+  } else {
+    currentFilter = filter;
+  }
   stats_.wlock()->dynamicFilterStats.producerNodeIds.emplace(producer);
 }
 
