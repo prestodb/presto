@@ -202,26 +202,33 @@ VectorPtr WaveVector::toVelox(
     int32_t numBlocks,
     const BlockStatus* status,
     const Operand* operand) {
+  auto operandIndices = operand->indices;
+  // If there is a wrap, any row can be referenced, so the vector is
+  // with size_ of WaveVector. If there is no wrap, it is mapped to
+  // the end of the last BlockStatus. If the blocks are densely filled
+  // we have the vector at right size with no wrap on top.
+  int32_t filledSize = operandIndices
+      ? size_
+      : (kBlockSize * (numBlocks - 1)) + status[numBlocks - 1].numRows;
   auto base = VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH_ALL(
-      toVeloxTyped, type_->kind(), size_, pool, type_, values_, nulls_);
+      toVeloxTyped, type_->kind(), filledSize, pool, type_, values_, nulls_);
   if (!status || !operand) {
     return base;
   }
 
   // Translate the BlockStatus and indices in Operand to a host side dictionary
   // wrap.
-  int maxRow = std::min<int32_t>(size_, numBlocks * kBlockSize);
+  int maxRow = std::min<int32_t>(filledSize, numBlocks * kBlockSize);
   numBlocks = bits::roundUp(maxRow, kBlockSize) / kBlockSize;
   int numActive = statusNumRows(status, numBlocks);
-  auto operandIndices = operand->indices;
   if (!operandIndices) {
     // Vector sizes are >= active in status because they are allocated before
     // the row count in status becomes known.
     VELOX_CHECK_LE(
         numActive,
         size_,
-        "If there is no indirection in Operand, vector size must be <= BlockStatus");
-    // If all blocks except last are filled we return base without wrap.
+        "If there is no indirection in Operand, vector size must be >= BlockStatus");
+    // If all blocks except last are full we return base without wrap.
     if (isDenselyFilled(status, numBlocks)) {
       return base;
     }

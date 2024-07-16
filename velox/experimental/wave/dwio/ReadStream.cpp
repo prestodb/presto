@@ -61,6 +61,7 @@ ReadStream::ReadStream(
 
 void ReadStream::setBlockStatusAndTemp() {
   auto* status = control_->deviceData->as<BlockStatus>();
+  auto maxRowsPerThread = FLAGS_wave_reader_rows_per_tb / kBlockSize;
   auto tempSize = programs_.programs[0][0]->tempSize();
   auto size = programs_.programs.size() * tempSize;
   auto id = deviceStaging_.reserve(size);
@@ -69,7 +70,7 @@ void ReadStream::setBlockStatusAndTemp() {
     for (auto& op : program) {
       op->temp = reinterpret_cast<int32_t*>(blockIdx * tempSize);
       deviceStaging_.registerPointer(id, &op->temp, false);
-      op->blockStatus = status + op->numRowsPerThread * op->nthBlock;
+      op->blockStatus = status + maxRowsPerThread * op->nthBlock;
     }
   }
 }
@@ -119,21 +120,23 @@ void ReadStream::makeGrid(Stream* stream) {
 
 void ReadStream::makeCompact(bool isSerial) {
   auto rowsPerBlock = FLAGS_wave_reader_rows_per_tb;
-  auto numRowsPerThread = FLAGS_wave_reader_rows_per_tb / kBlockSize;
+  auto maxRowsPerThread = FLAGS_wave_reader_rows_per_tb / kBlockSize;
   for (int32_t i = 0; i < static_cast<int32_t>(filters_.size()) - 1; ++i) {
     if (filters_[i].waveVector) {
       int32_t numTBs =
-          bits::roundUp(numBlocks_, numRowsPerThread) / numRowsPerThread;
+          bits::roundUp(numBlocks_, maxRowsPerThread) / maxRowsPerThread;
       for (auto blockIdx = 0; blockIdx < numTBs; ++blockIdx) {
         auto step = std::make_unique<GpuDecode>();
         step->step = DecodeStep::kCompact64;
         step->nthBlock = blockIdx;
-        step->numRowsPerThread = numRowsPerThread;
+        step->numRowsPerThread = blockIdx == numTBs - 1
+            ? numBlocks_ - (numTBs - 1) * maxRowsPerThread
+            : maxRowsPerThread;
         if (filters_.back().deviceResult) {
           step->data.compact.finalRows =
               filters_.back().deviceResult + blockIdx * rowsPerBlock;
           step->data.compact.sourceNumRows =
-              filters_[i].extraRowCount + blockIdx * numRowsPerThread;
+              filters_[i].extraRowCount + blockIdx * maxRowsPerThread;
         } else {
           step->data.compact.finalRows = reinterpret_cast<int32_t*>(
               blockIdx * rowsPerBlock * sizeof(int32_t));
@@ -142,7 +145,7 @@ void ReadStream::makeCompact(bool isSerial) {
               &step->data.compact.finalRows,
               false);
           step->data.compact.sourceNumRows = reinterpret_cast<int32_t*>(
-              blockIdx * numRowsPerThread * sizeof(int32_t));
+              blockIdx * maxRowsPerThread * sizeof(int32_t));
           deviceStaging_.registerPointer(
               filters_[i].extraRowCountId,
               &step->data.compact.sourceNumRows,

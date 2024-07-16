@@ -114,6 +114,17 @@ class GpuSlab {
   GpuAllocator* const allocator_;
 };
 
+struct ArenaStatus {
+  /// Number of allocated Buffers.
+  int32_t numBuffers{0};
+
+  /// Sum of capacity of allocated buffers.
+  int64_t capacity{};
+
+  /// Currently used bytes. Larger than capacity because of padding.
+  int64_t allocatedBytes{0};
+};
+
 /// A class that manages a set of GpuSlabs. It is able to adapt itself by
 /// growing the number of its managed GpuSlab's when extreme memory
 /// fragmentation happens.
@@ -141,6 +152,10 @@ class GpuArena {
     return arenas_;
   }
 
+  /// Checks magic numbers and returns the sum of allocated capacity. Actual
+  /// sizes are padded to larger.
+  ArenaStatus checkBuffers();
+
  private:
   // A preallocated array of Buffer handles for memory of 'this'.
   struct Buffers {
@@ -149,8 +164,9 @@ class GpuArena {
   };
 
   // Returns a new reference counting pointer to a new Buffer initialized to
-  // 'ptr' and 'size'.
-  WaveBufferPtr getBuffer(void* ptr, size_t size);
+  // 'ptr' and 'size'. 'size' is the size to fre, 'capacity' is the usable size
+  // excluding magic numbers and padding.
+  WaveBufferPtr getBuffer(void* ptr, size_t capacity, size_t size);
 
   // Serializes all activity in 'this'.
   std::mutex mutex_;

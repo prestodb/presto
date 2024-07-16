@@ -26,33 +26,6 @@ DEFINE_bool(kernel_gdb, false, "Run kernels sequentially for debugging");
 
 namespace facebook::velox::wave {
 
-template <typename T>
-__device__ inline T opFunc_kPlus(T left, T right) {
-  return left + right;
-}
-
-template <typename T, typename OpFunc>
-__device__ __forceinline__ void binaryOpKernel(
-    OpFunc func,
-    IBinary& instr,
-    Operand** operands,
-    int32_t blockBase,
-    void* shared,
-    ErrorCode& laneStatus) {
-  if (!laneActive(laneStatus)) {
-    return;
-  }
-  T left;
-  T right;
-  if (operandOrNull(operands, instr.left, blockBase, shared, left) &&
-      operandOrNull(operands, instr.right, blockBase, shared, right)) {
-    flatResult<decltype(func(left, right))>(
-        operands, instr.result, blockBase, shared) = func(left, right);
-  } else {
-    resultNull(operands, instr.result, blockBase, shared);
-  }
-}
-
 #define BINARY_TYPES(opCode, TP, OP)                         \
   case opCode:                                               \
     binaryOpKernel<TP>(                                      \
@@ -72,19 +45,7 @@ __global__ void oneAggregate(KernelParams params, int32_t pc, int32_t base) {
 
 __global__ void oneReadAggregate(KernelParams params, int32_t pc, int32_t base);
 
-template <typename T>
-__global__ void onePlus(KernelParams params, int32_t pc, int32_t base) {
-  PROGRAM_PREAMBLE(base);
-  binaryOpKernel<T>(
-      [](auto left, auto right) { return left + right; },
-      instruction[pc]._.binary,
-      operands,
-      blockBase,
-      &shared->data,
-      laneStatus);
-  PROGRAM_EPILOGUE();
-}
-
+__global__ void onePlusBigint(KernelParams params, int32_t pc, int32_t base);
 template <typename T>
 __global__ void oneLt(KernelParams params, int32_t pc, int32_t base) {
   PROGRAM_PREAMBLE(base);
@@ -181,6 +142,7 @@ void WaveKernelStream::callOne(
       start = params.startPC[programIdx];
     }
     for (auto pc = start; pc < program.size(); ++pc) {
+      assert(params.programs[0]->instructions != nullptr);
       switch (program[pc]) {
         case OpCode::kFilter:
           CALL_ONE(oneFilter, params, pc, base)
@@ -193,7 +155,7 @@ void WaveKernelStream::callOne(
           CALL_ONE(oneReadAggregate, params, pc, base)
           break;
         case OpCode::kPlus_BIGINT:
-          CALL_ONE(onePlus<int64_t>, params, pc, base);
+          CALL_ONE(onePlusBigint, params, pc, base);
           break;
         case OpCode::kLT_BIGINT:
           CALL_ONE(oneLt<int64_t>, params, pc, base);

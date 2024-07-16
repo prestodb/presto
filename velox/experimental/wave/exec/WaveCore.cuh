@@ -273,4 +273,31 @@ __device__ void __forceinline__ wrapKernel(
   __syncthreads();
 }
 
+template <typename T>
+__device__ inline T opFunc_kPlus(T left, T right) {
+  return left + right;
+}
+
+template <typename T, typename OpFunc>
+__device__ __forceinline__ void binaryOpKernel(
+    OpFunc func,
+    IBinary& instr,
+    Operand** operands,
+    int32_t blockBase,
+    void* shared,
+    ErrorCode& laneStatus) {
+  if (!laneActive(laneStatus)) {
+    return;
+  }
+  T left;
+  T right;
+  if (operandOrNull(operands, instr.left, blockBase, shared, left) &&
+      operandOrNull(operands, instr.right, blockBase, shared, right)) {
+    flatResult<decltype(func(left, right))>(
+        operands, instr.result, blockBase, shared) = func(left, right);
+  } else {
+    resultNull(operands, instr.result, blockBase, shared);
+  }
+}
+
 } // namespace facebook::velox::wave

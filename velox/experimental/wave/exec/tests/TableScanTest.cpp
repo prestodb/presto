@@ -43,11 +43,10 @@ struct WaveScanTestParam {
 
 std::vector<WaveScanTestParam> waveScanTestParams() {
   return {
-      WaveScanTestParam{}, WaveScanTestParam{.numStreams = 4},
-      // *** Not all size combinations work, e.eg. :
-      // WaveScanTestParam{.numStreams = 4, .batchSize = 1111},
-      // WaveScanTestParam{ .numStreams = 9, .batchSize = 16500}
-  };
+      WaveScanTestParam{},
+      WaveScanTestParam{.numStreams = 4},
+      WaveScanTestParam{.numStreams = 4, .batchSize = 1111},
+      WaveScanTestParam{.numStreams = 9, .batchSize = 16500}};
 }
 
 class TableScanTest : public virtual HiveConnectorTestBase,
@@ -74,6 +73,7 @@ class TableScanTest : public virtual HiveConnectorTestBase,
   }
 
   void TearDown() override {
+    vectors_.clear();
     wave::test::Table::dropAll();
     HiveConnectorTestBase::TearDown();
   }
@@ -83,17 +83,20 @@ class TableScanTest : public virtual HiveConnectorTestBase,
       int32_t numVectors,
       int32_t vectorSize,
       bool notNull = true) {
-    auto vectors = makeVectors(type, numVectors, vectorSize);
+    vectors_ = makeVectors(type, numVectors, vectorSize);
     int32_t cnt = 0;
-    for (auto& vector : vectors) {
+    for (auto& vector : vectors_) {
       makeRange(vector, 1000000000, notNull);
       auto rn = vector->childAt(type->size() - 1)->as<FlatVector<int64_t>>();
       for (auto i = 0; i < rn->size(); ++i) {
         rn->set(i, cnt++);
       }
     }
-    auto splits = makeTable("test", vectors);
-    createDuckDbTable(vectors);
+    auto splits = makeTable("test", vectors_);
+    createDuckDbTable(vectors_);
+    if (dumpData_) {
+      toFile();
+    }
     return splits;
   }
 
@@ -196,10 +199,22 @@ class TableScanTest : public virtual HiveConnectorTestBase,
     ASSERT_EQ(n, task->numFinishedDrivers());
   }
 
+  FOLLY_NOINLINE void toFile() {
+    std::ofstream out("/tmp/file.txt");
+    int32_t row = 0;
+    for (auto i = 0; i < vectors_.size(); ++i) {
+      out << "\n\n*** " << row;
+      out << vectors_[i]->toString(0, vectors_[i]->size(), "\n", true);
+    }
+    out.close();
+  }
+
   VectorFuzzer::Options options_;
   std::unique_ptr<VectorFuzzer> fuzzer_;
   int32_t numBatches_ = 3;
   int32_t batchSize_ = 20'000;
+  std::vector<RowVectorPtr> vectors_;
+  bool dumpData_{false};
 };
 
 TEST_P(TableScanTest, basic) {

@@ -796,7 +796,7 @@ int32_t WaveStream::getOutput(
   VELOX_CHECK(it != launchControl_.end());
   auto* control = it->second[0].get();
   auto* status = control->params.status;
-  auto numBlocks = bits::roundUp(control->inputRows, kBlockSize) / kBlockSize;
+  auto numBlocks = bits::roundUp(numRows_, kBlockSize) / kBlockSize;
   if (operands.empty()) {
     return statusNumRows(status, numBlocks);
   }

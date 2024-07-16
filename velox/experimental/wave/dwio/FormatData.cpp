@@ -105,6 +105,7 @@ std::unique_ptr<GpuDecode> FormatData::makeStep(
     WaveTypeKind columnKind,
     int32_t blockIdx) {
   auto rowsPerBlock = FLAGS_wave_reader_rows_per_tb;
+  auto maxRowsPerThread = (rowsPerBlock / kBlockSize);
   int32_t numBlocks =
       bits::roundUp(op.rows.size(), rowsPerBlock) / rowsPerBlock;
 
@@ -116,7 +117,7 @@ std::unique_ptr<GpuDecode> FormatData::makeStep(
     step->nonNullBases = grid_.numNonNull;
     step->nulls = grid_.nulls;
   }
-  step->numRowsPerThread = rowsPerBlock / kBlockSize;
+  step->numRowsPerThread = bits::roundUp(rowsInBlock, kBlockSize) / kBlockSize;
   setFilter(step.get(), op.reader, nullptr);
   bool dense = previousFilter == nullptr &&
       simd::isDense(op.rows.data(), op.rows.size());
@@ -136,7 +137,7 @@ std::unique_ptr<GpuDecode> FormatData::makeStep(
           op.extraRowCountId, &op.extraRowCount, true);
     } else {
       step->filterRowCount = reinterpret_cast<int32_t*>(
-          blockIdx * sizeof(int32_t) * step->numRowsPerThread);
+          blockIdx * sizeof(int32_t) * maxRowsPerThread);
       deviceStaging.registerPointer(
           op.extraRowCountId, &step->filterRowCount, false);
     }

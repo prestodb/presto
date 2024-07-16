@@ -18,6 +18,7 @@
 #include <boost/intrusive_ptr.hpp>
 #include <atomic>
 #include <cstdint>
+#include <string>
 
 namespace facebook::velox::wave {
 
@@ -75,7 +76,29 @@ class Buffer {
 
   virtual void release();
 
+  const std::string& debugInfo() const {
+    return debugInfo_;
+  }
+
+  void setDebugInfo(std::string info) {
+    debugInfo_ = std::move(info);
+  }
+
+  /// Checks consistency of magic numbers. Throws on error.
+  void check() const;
+
+  std::string toString() const;
+
  protected:
+  static constexpr int64_t kMagic = 0xe0be0be0be0be0b;
+
+  int64_t* magicPtr() const {
+    return reinterpret_cast<int64_t*>(
+        reinterpret_cast<char*>(ptr_) + capacity_);
+  }
+
+  void setMagic();
+
   // Number of WaveBufferPtrs referencing 'this'.
   std::atomic<int32_t> referenceCount_{0};
 
@@ -97,6 +120,7 @@ class Buffer {
   // The containeing arena.
   GpuArena* arena_{nullptr};
 
+  std::string debugInfo_;
   friend class GpuArena;
 };
 
