@@ -688,11 +688,11 @@ uint32_t HiveDataSink::appendWriter(const HiveWriterId& id) {
       connectorQueryCtx_->sessionProperties();
 
   // Only overwrite options in case they were not already provided.
-  if (!options->schema) {
+  if (options->schema == nullptr) {
     options->schema = getNonPartitionTypes(dataChannels_, inputType_);
   }
 
-  if (!options->memoryPool) {
+  if (options->memoryPool == nullptr) {
     options->memoryPool = writerInfo_.back()->writerPool.get();
   }
 
@@ -700,13 +700,20 @@ uint32_t HiveDataSink::appendWriter(const HiveWriterId& id) {
     options->compressionKind = insertTableHandle_->compressionKind();
   }
 
-  if (!options->spillConfig && canReclaim()) {
+  if (options->spillConfig == nullptr && canReclaim()) {
     options->spillConfig = spillConfig_;
   }
 
-  if (!options->nonReclaimableSection) {
+  if (options->nonReclaimableSection == nullptr) {
     options->nonReclaimableSection =
         writerInfo_.back()->nonReclaimableSectionHolder.get();
+  }
+
+  if (options->defaultMemoryReclaimerFactory == nullptr ||
+      options->defaultMemoryReclaimerFactory() == nullptr) {
+    options->defaultMemoryReclaimerFactory = []() {
+      return exec::MemoryReclaimer::create();
+    };
   }
 
   if (!options->maxStripeSize) {

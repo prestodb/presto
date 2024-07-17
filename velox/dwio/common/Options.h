@@ -593,10 +593,17 @@ class ReaderOptions : public io::ReaderOptions {
 };
 
 struct WriterOptions {
-  TypePtr schema;
-  velox::memory::MemoryPool* memoryPool;
+  TypePtr schema{nullptr};
+  velox::memory::MemoryPool* memoryPool{nullptr};
   const velox::common::SpillConfig* spillConfig{nullptr};
   tsan_atomic<bool>* nonReclaimableSection{nullptr};
+  /// A ready-to-use default memory reclaimer factory. It shall be provided by
+  /// the system that creates writers to ensure a smooth memory system
+  /// integration (e.g. graceful suspension upon arbitration request). Writer
+  /// can choose to implement its custom memory reclaimer if needed and not use
+  /// this default one.
+  std::function<std::unique_ptr<velox::memory::MemoryReclaimer>()>
+      defaultMemoryReclaimerFactory{[]() { return nullptr; }};
   std::optional<velox::common::CompressionKind> compressionKind;
   std::optional<uint64_t> orcMinCompressionSize{std::nullopt};
   std::optional<uint64_t> maxStripeSize{std::nullopt};
