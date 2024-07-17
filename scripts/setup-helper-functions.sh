@@ -116,7 +116,32 @@ function get_cxx_flags {
     ;;
 
     "aarch64")
-      echo -n "-mcpu=neoverse-n1 -std=c++17"
+      # Read Arm MIDR_EL1 register to detect Arm cpu.
+      # https://developer.arm.com/documentation/100616/0301/register-descriptions/aarch64-system-registers/midr-el1--main-id-register--el1
+      ARM_CPU_FILE="/sys/devices/system/cpu/cpu0/regs/identification/midr_el1"
+
+      # https://gitlab.arm.com/telemetry-solution/telemetry-solution/-/blob/main/data/pmu/cpu/neoverse/neoverse-n1.json#L13
+      # N1:d0c; N2:d49; V1:d40;
+      Neoverse_N1="d0c"
+      Neoverse_N2="d49"
+      Neoverse_V1="d40"
+      if [ -f "$ARM_CPU_FILE" ]; then
+        hex_ARM_CPU_DETECT=`cat $ARM_CPU_FILE`
+        # PartNum, [15:4]: The primary part number such as Neoverse N1/N2 core.
+        ARM_CPU_PRODUCT=${hex_ARM_CPU_DETECT: -4:3}
+
+        if [ "$ARM_CPU_PRODUCT" = "$Neoverse_N1" ]; then
+          echo -n "-mcpu=neoverse-n1 -std=c++17"
+        elif [ "$ARM_CPU_PRODUCT" = "$Neoverse_N2" ]; then
+          echo -n "-mcpu=neoverse-n2 -std=c++17"
+        elif [ "$ARM_CPU_PRODUCT" = "$Neoverse_V1" ]; then
+          echo -n "-mcpu=neoverse-v1 -std=c++17"
+        else
+          echo -n "-march=armv8-a+crc+crypto -std=c++17"
+        fi
+      else
+        echo -n "-std=c++17"
+      fi
     ;;
   *)
     echo -n "Architecture not supported!"
