@@ -168,7 +168,6 @@ public class TestIPSqlFunctions
                 BOOLEAN,
                 true);
 
-
         // ::/128 RFC4291: Loopback and Unspecified address
         assertFunction(
                 "IS_PRIVATE_IP(IPADDRESS '::')",
@@ -260,7 +259,6 @@ public class TestIPSqlFunctions
                 "IS_PRIVATE_IP(IPADDRESS 'fdff:ffff:ffff:ffff:ffff:ffff:ffff:ffff')",
                 BOOLEAN,
                 true);
-
 
         // test a few IP addresses in the middle of the ranges
         assertFunction(
