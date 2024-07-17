@@ -111,10 +111,6 @@ jobs:
           )
           make release EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS[*]}"
 
-      #Temporarily rename Minio binary to include version until CI image is updated with the same.
-      - name: Rename Minio
-        run: [ -f /usr/local/bin/minio ] && mv /usr/local/bin/minio /usr/local/bin/minio-2022-05-26
-
       - name: Ccache after
         run: ccache -s
 
