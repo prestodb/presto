@@ -35,6 +35,7 @@ import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.SystemSessionProperties.enableVerboseHistoryBasedOptimizerRuntimeStats;
 import static com.facebook.presto.SystemSessionProperties.getHistoryBasedOptimizerTimeoutLimit;
 import static com.facebook.presto.SystemSessionProperties.getHistoryInputTableStatisticsMatchingThreshold;
 import static com.facebook.presto.SystemSessionProperties.isVerboseRuntimeStatsEnabled;
@@ -92,7 +93,7 @@ public class HistoryBasedPlanStatisticsCalculator
         }
         ImmutableList.Builder<PlanNodeWithHash> planNodesWithHash = ImmutableList.builder();
         Iterable<PlanNode> planNodeIterable = forTree(PlanNode::getSources).depthFirstPreOrder(root);
-        boolean enableVerboseRuntimeStats = isVerboseRuntimeStatsEnabled(session);
+        boolean enableVerboseRuntimeStats = isVerboseRuntimeStatsEnabled(session) || enableVerboseHistoryBasedOptimizerRuntimeStats(session);
         long profileStartTime = 0;
         for (PlanNode plan : planNodeIterable) {
             if (checkTimeOut(startTimeInNano, timeoutInMilliseconds)) {
