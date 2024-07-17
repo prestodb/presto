@@ -268,7 +268,12 @@ void CastExpr::applyToSelectedNoThrowLocal(
     rows.template applyToSelected([&](auto row) INLINE_LAMBDA {
       try {
         func(row);
-      } catch (...) {
+      } catch (const VeloxException& e) {
+        if (!e.isUserError()) {
+          throw;
+        }
+        result->setNull(row, true);
+      } catch (const std::exception&) {
         result->setNull(row, true);
       }
     });
