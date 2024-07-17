@@ -24,6 +24,7 @@
 #include "velox/buffer/Buffer.h"
 #include "velox/common/base/BitUtil.h"
 #include "velox/common/base/Exceptions.h"
+#include "velox/common/base/Macros.h"
 #include "velox/common/base/Range.h"
 #include "velox/vector/TypeAliases.h"
 
@@ -160,7 +161,9 @@ class SelectivityVector {
     bits::fillBits(bits_.data(), 0, size_, false);
     begin_ = 0;
     end_ = 0;
+    VELOX_SUPPRESS_STRINGOP_OVERFLOW_WARNING
     allSelected_ = false;
+    VELOX_UNSUPPRESS_STRINGOP_OVERFLOW_WARNING
   }
 
   /**
