@@ -1208,6 +1208,54 @@ TEST_F(TableScanTest, missingColumns) {
   assertQuery(op, filePaths, "SELECT * FROM tmp", 0);
 }
 
+TEST_F(TableScanTest, missingColumnsInRepeatedColumns) {
+  constexpr int kSize = 10;
+  auto bigints = makeFlatVector<int64_t>(kSize, folly::identity);
+  auto structs =
+      makeRowVector({makeFlatVector<int64_t>(kSize, folly::identity)});
+  std::vector<vector_size_t> offsets(kSize);
+  std::iota(offsets.begin(), offsets.end(), 0);
+  auto vector = makeRowVector({
+      bigints,
+      makeArrayVector(offsets, structs),
+      makeMapVector(offsets, bigints, structs),
+  });
+  auto file = TempFilePath::create();
+  writeToFile(file->getPath(), {vector});
+  auto structType = ROW({"c0", "c1"}, {BIGINT(), BIGINT()});
+  auto c1Type = ARRAY(structType);
+  auto c2Type = MAP(BIGINT(), structType);
+  auto plan = PlanBuilder()
+                  .tableScan(
+                      ROW({"c1", "c2"}, {c1Type, c2Type}),
+                      {},
+                      "c0 % 2 = 0",
+                      ROW({"c0", "c1", "c2"}, {BIGINT(), c1Type, c2Type}))
+                  .planNode();
+  auto structs2 = makeRowVector({
+      makeFlatVector<int64_t>(kSize, folly::identity),
+      makeNullConstant(TypeKind::BIGINT, kSize),
+  });
+  auto indices = makeIndices(kSize, [](auto i) {
+    auto index = 2 * i;
+    if (index >= kSize) {
+      index -= kSize;
+    }
+    return index;
+  });
+  auto expected = makeRowVector(
+      {"c1", "c2"},
+      {
+          wrapInDictionary(indices, makeArrayVector(offsets, structs2)),
+          wrapInDictionary(indices, makeMapVector(offsets, bigints, structs2)),
+      });
+  AssertQueryBuilder(plan)
+      .splits(
+          {makeHiveConnectorSplit(file->getPath()),
+           makeHiveConnectorSplit(file->getPath())})
+      .assertResults(expected);
+}
+
 // Tests queries that use Lazy vectors with multiple layers of wrapping.
 TEST_F(TableScanTest, constDictLazy) {
   vector_size_t size = 1'000;

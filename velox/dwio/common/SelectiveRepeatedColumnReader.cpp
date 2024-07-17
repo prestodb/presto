@@ -193,11 +193,8 @@ SelectiveListColumnReader::SelectiveListColumnReader(
     const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
     FormatParams& params,
     velox::common::ScanSpec& scanSpec)
-    : SelectiveRepeatedColumnReader(
-          fileType->type(),
-          params,
-          scanSpec,
-          fileType) {}
+    : SelectiveRepeatedColumnReader(requestedType, params, scanSpec, fileType) {
+}
 
 uint64_t SelectiveListColumnReader::skip(uint64_t numValues) {
   numValues = formatData_->skipNulls(numValues);
@@ -256,11 +253,8 @@ SelectiveMapColumnReader::SelectiveMapColumnReader(
     const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
     FormatParams& params,
     velox::common::ScanSpec& scanSpec)
-    : SelectiveRepeatedColumnReader(
-          fileType->type(),
-          params,
-          scanSpec,
-          fileType) {}
+    : SelectiveRepeatedColumnReader(requestedType, params, scanSpec, fileType) {
+}
 
 uint64_t SelectiveMapColumnReader::skip(uint64_t numValues) {
   numValues = formatData_->skipNulls(numValues);
