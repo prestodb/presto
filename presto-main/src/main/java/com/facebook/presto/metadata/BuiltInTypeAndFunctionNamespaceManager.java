@@ -204,6 +204,7 @@ import com.facebook.presto.operator.scalar.WilsonInterval;
 import com.facebook.presto.operator.scalar.WordStemFunction;
 import com.facebook.presto.operator.scalar.queryplan.JsonPrestoQueryPlanFunctions;
 import com.facebook.presto.operator.scalar.sql.ArraySqlFunctions;
+import com.facebook.presto.operator.scalar.sql.IPSqlFunctions;
 import com.facebook.presto.operator.scalar.sql.MapNormalizeFunction;
 import com.facebook.presto.operator.scalar.sql.MapSqlFunctions;
 import com.facebook.presto.operator.scalar.sql.SimpleSamplingPercent;
@@ -993,6 +994,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .sqlInvokedScalar(MapNormalizeFunction.class)
                 .sqlInvokedScalars(ArraySqlFunctions.class)
                 .sqlInvokedScalars(ArrayIntersectFunction.class)
+                .sqlInvokedScalars(IPSqlFunctions.class)
                 .sqlInvokedScalars(MapSqlFunctions.class)
                 .sqlInvokedScalars(SimpleSamplingPercent.class)
                 .sqlInvokedScalars(StringSqlFunctions.class)

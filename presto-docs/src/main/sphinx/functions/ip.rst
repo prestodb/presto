@@ -10,6 +10,15 @@ IP Functions
         SELECT ip_prefix(CAST('192.168.255.255' AS IPADDRESS), 9); -- {192.128.0.0/9}
         SELECT ip_prefix('2001:0db8:85a3:0001:0001:8a2e:0370:7334', 48); -- {2001:db8:85a3::/48}
 
+.. function:: is_private_ip(ip_address) -> boolean
+
+    Returns whether ``ip_address`` of type ``IPADDRESS`` is a private or reserved IP address
+    that is not considered globally reachable by IANA. ::
+        SELECT is_private_ip(IPADDRESS '10.0.0.1'); -- true
+        SELECT is_private_ip(IPADDRESS '192.168.0.1'); -- true
+        SELECT is_private_ip(IPADDRESS '157.240.200.99'); -- false
+        SELECT is_private_ip(IPADDRESS '2a03:2880:f031:12:face:b00c:0:2'); -- false
+
 .. function:: ip_subnet_min(ip_prefix) -> ip_address
 
     Returns the smallest IP address of type ``IPADDRESS`` in the subnet
