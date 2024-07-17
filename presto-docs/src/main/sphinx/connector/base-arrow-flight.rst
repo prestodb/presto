@@ -9,20 +9,20 @@ Getting Started with base-arrow-module: Essential Abstract Methods for Developer
 --------------
 To utilize the base-arrow-module, you need to implement certain abstract methods that are specific to your use case. Below are the required classes and their purposes:
 
-``* ArrowFlightClientHandler.java``
-This class is responsible for initializing the Flight client and retrieving Flight information from the Flight server. To authenticate the Flight server, you must implement the abstract method ``getCallOptions`` in ArrowFlightClientHandler, which returns the ``CredentialCallOption`` specific to your Flight server.
+* ``ArrowFlightClientHandler.java``
+  This class is responsible for initializing the Flight client and retrieving Flight information from the Flight server. To authenticate the Flight server, you must implement the abstract method ``getCallOptions`` in ArrowFlightClientHandler, which returns the ``CredentialCallOption`` specific to your Flight server.
 
-``* ArrowAbstractFlightRequest.java``
-Implement this class to define the request data, including the data source type, connection properties, the number of partitions and other data required to interact with database.
+* ``ArrowAbstractFlightRequest.java``
+  Implement this class to define the request data, including the data source type, connection properties, the number of partitions and other data required to interact with database.
 
-``* ArrowAbstractMetadata.java``
-To retrieve metadata (schema and table information), implement the abstract methods in the ArrowAbstractMetadata class.
+* ``ArrowAbstractMetadata.java``
+  To retrieve metadata (schema and table information), implement the abstract methods in the ArrowAbstractMetadata class.
 
-``* ArrowAbstractSplitManager.java``
-Extend the ArrowAbstractSplitManager class to implement the Arrow flight request, defining the Arrow split.
+* ``ArrowAbstractSplitManager.java``
+  Extend the ArrowAbstractSplitManager class to implement the Arrow flight request, defining the Arrow split.
 
-``* ArrowPlugin.java``
-Register your connector name by extending the ArrowPlugin class.
+* ``ArrowPlugin.java``
+  Register your connector name by extending the ArrowPlugin class.
 
 Configuration
 -------------
@@ -49,7 +49,7 @@ connection properties as appropriate for your setup:
         data-source.port=<PORT>
         data-source.ssl=<TRUE/FALSE>
 
-        Note : You can add other properties that are required for your Flight server to connect.
+        Add other properties that are required for your Flight server to connect.
 
 ========================================== ==============================================================
 Property Name                               Description
@@ -71,9 +71,9 @@ Property Name                               Description
 Querying Arrow-Flight
 ---------------------
 
-The Arrow-Flight connector provides schema for every supported *databases*.
+The Arrow-Flight connector provides schema for each supported *databases*.
 Example for MariaDB is shown below.
-You can see the available schemas by running ``SHOW SCHEMAS``::
+To see the available schemas, run ``SHOW SCHEMAS``::
 
     SHOW SCHEMAS FROM arrowmariadb;
 
