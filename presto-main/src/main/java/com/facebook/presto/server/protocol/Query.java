@@ -495,8 +495,8 @@ class Query
                 hasProducedResult = true;
             }
         }
-        catch (Throwable cause) {
-            queryManager.failQuery(queryId, cause);
+        catch (Exception e) {
+            queryManager.failQuery(queryId, e);
         }
 
         // get the query info before returning
