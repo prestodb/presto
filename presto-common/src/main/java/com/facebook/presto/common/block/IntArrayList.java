@@ -27,7 +27,7 @@ class IntArrayList
     private int[] array;
     private int size;
 
-    public IntArrayList(int initialCapacity)
+    IntArrayList(int initialCapacity)
     {
         if (initialCapacity < 0) {
             throw new IllegalArgumentException(format("Initial capacity '%s' is negative", initialCapacity));
@@ -35,12 +35,12 @@ class IntArrayList
         array = new int[initialCapacity];
     }
 
-    public IntArrayList()
+    IntArrayList()
     {
         this(DEFAULT_INITIAL_CAPACITY);
     }
 
-    public int[] elements()
+    int[] elements()
     {
         return array;
     }
@@ -57,18 +57,18 @@ class IntArrayList
         }
     }
 
-    public void add(int element)
+    void add(int element)
     {
         grow(size + 1);
         array[size++] = element;
     }
 
-    public int size()
+    int size()
     {
         return size;
     }
 
-    public boolean isEmpty()
+    boolean isEmpty()
     {
         return size == 0;
     }
