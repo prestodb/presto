@@ -245,7 +245,7 @@ VectorPtr applyMapComplexType(
   auto rawOffsets = baseMap->rawOffsets();
 
   // Fast path for the case of a single map. It may be constant or dictionary
-  // encoded. Sort map keys, then use binary search.
+  // encoded. Use hash table for quick search.
   if (baseMap->size() == 1) {
     folly::F14FastSet<MapKey, MapKeyHasher> set;
     auto numKeys = rawSizes[0];
