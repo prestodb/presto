@@ -102,17 +102,17 @@ TypeSignature:		#: Build the Presto TypeSignature parser
 	cd presto_cpp/main/types; $(MAKE) TypeSignature
 
 format-fix: 			#: Fix formatting issues in the presto-native-execution directory
-	velox/scripts/check.py format master --fix
+	scripts/check.py format master --fix
 
 format-check: 			#: Check for formatting issues in the presto-native-execution directory
 	clang-format --version
-	velox/scripts/check.py format master
+	scripts/check.py format master
 
 header-fix:			#: Fix license header issues in the presto-native-execution directory
-	velox/scripts/check.py header master --fix
+	scripts/check.py header master --fix
 
 header-check:			#: Check for license header issues in the presto-native-execution directory
-	velox/scripts/check.py header master
+	scripts/check.py header master
 
 help:					#: Show the help messages
 	@cat $(firstword $(MAKEFILE_LIST)) | \
