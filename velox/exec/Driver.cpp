@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "Driver.h"
+#include "velox/exec/Driver.h"
 #include <folly/ScopeGuard.h>
 #include <folly/executors/QueuedImmediateExecutor.h>
 #include <folly/executors/thread_factory/InitThreadFactory.h>
