@@ -170,7 +170,7 @@ class PrestoServer {
   virtual std::string getBaseSpillDirectory() const;
 
   /// Invoked to enable stats reporting and register counters.
-  virtual void enableRuntimeMetricReporting();
+  virtual void enableWorkerStatsReporting();
 
   /// Invoked to get the list of filters passed to the http server.
   std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>>

@@ -14,6 +14,8 @@
 #include "presto_cpp/main/PrestoServerOperations.h"
 #include <velox/common/base/Exceptions.h>
 #include <velox/common/base/VeloxException.h>
+#include <velox/common/caching/AsyncDataCache.h>
+#include <velox/common/caching/SsdCache.h>
 #include <velox/common/process/TraceContext.h>
 #include "presto_cpp/main/PrestoServer.h"
 #include "presto_cpp/main/ServerOperation.h"
@@ -250,6 +252,10 @@ std::string PrestoServerOperations::serverOperation(
       return serverOperationSetState(message);
     case ServerOperation::Action::kAnnouncer:
       return serverOperationAnnouncer(message);
+    case ServerOperation::Action::kClearCache:
+      return serverOperationClearCache(message);
+    case ServerOperation::Action::kWriteSSD:
+      return serverOperationWriteSsd(message);
     default:
       break;
   }
@@ -310,4 +316,60 @@ std::string PrestoServerOperations::serverOperationAnnouncer(
   return "No PrestoServer to change announcer of (it is nullptr).";
 }
 
+std::string PrestoServerOperations::serverOperationClearCache(
+    proxygen::HTTPMessage* message) {
+  static const std::string kMemoryCacheType = "memory";
+  static const std::string kServerCacheType = "ssd";
+
+  std::string type = message->getQueryParam("type");
+  if (type.empty()) {
+    type = kMemoryCacheType;
+  }
+  if (type != kMemoryCacheType && type != kServerCacheType) {
+    VELOX_USER_FAIL(
+        "Unknown cache type '{}' for server cache clear operation", type);
+  }
+
+  auto* cache = velox::cache::AsyncDataCache::getInstance();
+  if (cache == nullptr) {
+    return "No memory cache set on server";
+  }
+
+  cache->clear();
+  if (type == kMemoryCacheType) {
+    return "Cleared memory cache";
+  }
+
+  auto* ssdCache = cache->ssdCache();
+  if (ssdCache == nullptr) {
+    return "No ssd cache set on server";
+  }
+  ssdCache->clear();
+  return "Cleared ssd cache";
+}
+
+std::string PrestoServerOperations::serverOperationWriteSsd(
+    proxygen::HTTPMessage* message) {
+  auto* cache = velox::cache::AsyncDataCache::getInstance();
+  if (cache == nullptr) {
+    return "No memory cache set on server";
+  }
+  auto* ssdCache = cache->ssdCache();
+  if (ssdCache == nullptr) {
+    return "No ssd cache set on server";
+  }
+
+  if (!ssdCache->startWrite()) {
+    return "Failed to start write to ssd cache";
+  }
+  cache->saveToSsd(true);
+  ssdCache->waitForWriteToFinish();
+
+  if (!ssdCache->startWrite()) {
+    return "Failed to start checkpoint on ssd cache";
+  }
+  ssdCache->checkpoint();
+  ssdCache->waitForWriteToFinish();
+  return "Succeeded write ssd cache";
+}
 } // namespace facebook::presto

@@ -164,10 +164,6 @@ void PrestoServer::run() {
     baseVeloxQueryConfig->initialize(
         fmt::format("{}/velox.properties", configDirectoryPath_), true);
 
-    if (systemConfig->enableRuntimeMetricsCollection()) {
-      enableRuntimeMetricReporting();
-    }
-
     httpPort = systemConfig->httpServerHttpPort();
     if (systemConfig->httpServerHttpsEnabled()) {
       httpsPort = systemConfig->httpServerHttpsPort();
@@ -372,6 +368,21 @@ void PrestoServer::run() {
             .sendWithEOM();
       });
 
+  if (systemConfig->enableRuntimeMetricsCollection()) {
+    enableWorkerStatsReporting();
+    if (folly::Singleton<velox::BaseStatsReporter>::try_get()) {
+      httpServer_->registerGet(
+          "/v1/info/metrics",
+          [](proxygen::HTTPMessage* /*message*/,
+             const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+             proxygen::ResponseHandler* downstream) {
+            http::sendOkResponse(
+                downstream,
+                folly::Singleton<velox::BaseStatsReporter>::try_get()
+                    ->fetchMetrics());
+          });
+    }
+  }
   registerFunctions();
   registerRemoteFunctions();
   registerVectorSerdes();
@@ -787,8 +798,13 @@ void PrestoServer::initializeVeloxMemory() {
     std::unique_ptr<cache::SsdCache> ssd = setupSsdCache();
     std::string cacheStr =
         ssd == nullptr ? "AsyncDataCache" : "AsyncDataCache with SSD";
+
+    cache::AsyncDataCache::Options cacheOptions{
+        systemConfig->asyncCacheMaxSsdWriteRatio(),
+        systemConfig->asyncCacheSsdSavableRatio(),
+        systemConfig->asyncCacheMinSsdSavableBytes()};
     cache_ = cache::AsyncDataCache::create(
-        memory::memoryManager()->allocator(), std::move(ssd));
+        memory::memoryManager()->allocator(), std::move(ssd), cacheOptions);
     cache::AsyncDataCache::setInstance(cache_.get());
     PRESTO_STARTUP_LOG(INFO) << cacheStr << " has been setup";
 
@@ -1171,7 +1187,7 @@ std::string PrestoServer::getBaseSpillDirectory() const {
   return SystemConfig::instance()->spillerSpillPath().value_or("");
 }
 
-void PrestoServer::enableRuntimeMetricReporting() {
+void PrestoServer::enableWorkerStatsReporting() {
   // This flag must be set to register the counters.
   facebook::velox::BaseStatsReporter::registered = true;
   registerStatsCounters();

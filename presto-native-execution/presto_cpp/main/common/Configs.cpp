@@ -186,6 +186,9 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kAsyncCacheSsdGb, 0),
           NUM_PROP(kAsyncCacheSsdCheckpointGb, 0),
           STR_PROP(kAsyncCacheSsdPath, "/mnt/flash/async_cache."),
+          NUM_PROP(kAsyncCacheMaxSsdWriteRatio, 0.7),
+          NUM_PROP(kAsyncCacheSsdSavableRatio, 0.125),
+          NUM_PROP(kAsyncCacheMinSsdSavableBytes, 1 << 24 /*16MB*/),
           BOOL_PROP(kAsyncCacheSsdDisableFileCow, false),
           BOOL_PROP(kSsdCacheChecksumEnabled, false),
           BOOL_PROP(kSsdCacheReadVerificationEnabled, false),
@@ -216,7 +219,7 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kAnnouncementMaxFrequencyMs, 30'000), // 30s
           NUM_PROP(kHeartbeatFrequencyMs, 0),
           STR_PROP(kExchangeMaxErrorDuration, "3m"),
-          STR_PROP(kExchangeRequestTimeout, "10s"),
+          STR_PROP(kExchangeRequestTimeout, "20s"),
           STR_PROP(kExchangeConnectTimeout, "20s"),
           BOOL_PROP(kExchangeEnableConnectionPool, true),
           BOOL_PROP(kExchangeEnableBufferCopy, true),
@@ -453,6 +456,18 @@ uint64_t SystemConfig::localShuffleMaxPartitionBytes() const {
 
 std::string SystemConfig::asyncCacheSsdPath() const {
   return optionalProperty(kAsyncCacheSsdPath).value();
+}
+
+double SystemConfig::asyncCacheMaxSsdWriteRatio() const {
+  return optionalProperty<double>(kAsyncCacheMaxSsdWriteRatio).value();
+}
+
+double SystemConfig::asyncCacheSsdSavableRatio() const {
+  return optionalProperty<double>(kAsyncCacheSsdSavableRatio).value();
+}
+
+int32_t SystemConfig::asyncCacheMinSsdSavableBytes() const {
+  return optionalProperty<int32_t>(kAsyncCacheMinSsdSavableBytes).value();
 }
 
 bool SystemConfig::asyncCacheSsdDisableFileCow() const {

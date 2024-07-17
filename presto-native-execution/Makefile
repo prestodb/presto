@@ -38,6 +38,9 @@ endif
 ifeq ($(PRESTO_ENABLE_JWT), ON)
   EXTRA_CMAKE_FLAGS += -DPRESTO_ENABLE_JWT=ON
 endif
+ifeq ($(PRESTO_ENABLE_PROMETHEUS_REPORTER), ON)
+  EXTRA_CMAKE_FLAGS += -DPRESTO_ENABLE_PROMETHEUS_REPORTER=ON
+endif
 
 CMAKE_FLAGS := -DTREAT_WARNINGS_AS_ERRORS=${TREAT_WARNINGS_AS_ERRORS}
 CMAKE_FLAGS += -DENABLE_ALL_WARNINGS=${ENABLE_WALL}
@@ -98,24 +101,18 @@ presto_protocol:		#: Build the presto_protocol serde library
 TypeSignature:		#: Build the Presto TypeSignature parser
 	cd presto_cpp/main/types; $(MAKE) TypeSignature
 
-format-fix: 			#: Fix formatting issues in the master branch
-	pushd "$$(pwd)/.." && presto-native-execution/velox/scripts/check.py format master --fix && popd
+format-fix: 			#: Fix formatting issues in the presto-native-execution directory
+	velox/scripts/check.py format master --fix
 
-format-check: 			#: Check for formatting issues on the master branch
+format-check: 			#: Check for formatting issues in the presto-native-execution directory
 	clang-format --version
-	pushd "$$(pwd)/.." && presto-native-execution/velox/scripts/check.py format master && popd
+	velox/scripts/check.py format master
 
-header-fix:				#: Fix license header issues in the master branch
-	pushd "$$(pwd)/.." && presto-native-execution/velox/scripts/check.py header master --fix && popd
+header-fix:			#: Fix license header issues in the presto-native-execution directory
+	velox/scripts/check.py header master --fix
 
-header-check:			#: Check for license header issues on the man branch
-	pushd "$$(pwd)/.." && presto-native-execution/velox/scripts/check.py header master && popd
-
-tidy-fix: cmake			#: Fix clang-tidy issues in the master branch
-	pushd "$$(pwd)/.." && presto-native-execution/velox/scripts/check.py tidy master --fix && popd
-
-tidy-check: cmake		#: Check clang-tidy issues in the master branch
-	pushd "$$(pwd)/.." && presto-native-execution/velox/scripts/check.py tidy master && popd
+header-check:			#: Check for license header issues in the presto-native-execution directory
+	velox/scripts/check.py header master
 
 help:					#: Show the help messages
 	@cat $(firstword $(MAKEFILE_LIST)) | \
