@@ -78,12 +78,16 @@ FOLLY_ALWAYS_INLINE void hashFloating(
   using IntegralType =
       std::conditional_t<std::is_same_v<T, float>, int32_t, int64_t>;
   applyHashFunction(rows, vector, hashes, [&](auto row) {
-    if (std::isnan(vector.valueAt<T>(row))) {
+    auto value = vector.valueAt<T>(row);
+    if (std::isnan(value)) {
       if constexpr (std::is_same_v<T, float>) {
         return hashInteger<IntegralType>(0x7fc00000);
       } else {
         return hashInteger<IntegralType>(0x7ff8000000000000L);
       }
+    } else if (value == (T{})) {
+      // If -0.0 treat it same as 0
+      return hashInteger<IntegralType>(0);
     } else {
       return hashInteger<IntegralType>(vector.valueAt<IntegralType>(row));
     }

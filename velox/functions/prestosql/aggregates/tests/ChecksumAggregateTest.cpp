@@ -122,6 +122,7 @@ TEST_F(ChecksumAggregateTest, doubles) {
   assertSingleGroupChecksum<double>({99.9}, "iVY+6I1lKyo=");
   assertSingleGroupChecksum<double>({1, 2, 3}, "AACEg9cR14o=");
   assertSingleGroupChecksum<double>({kNaN, kNaN, kNaN}, "AACMau93L28=");
+  assertSingleGroupChecksum<double>({{-0.0}}, "AAAAAAAAAAA=");
 
   assertGroupingChecksum<int8_t, double>(
       {'a', 'b', 'a'}, {1, 2, 3}, {"AACEI6XSDyU=", "AAAAYDI/x2U="});
@@ -130,7 +131,7 @@ TEST_F(ChecksumAggregateTest, doubles) {
   assertGroupingChecksum<int8_t, double>(
       {1, 1, 2}, {kNaN, kNaN, kNaN}, {"AAAIR0qlH0o=", "AACEI6XSDyU="});
   assertGroupingChecksum<int8_t, double>(
-      {1, 2}, {0.0, -0.0}, {"AAAAAAAAAAA=", "AAAAQMzUhO4="});
+      {1, 2}, {0.0, -0.0}, {"AAAAAAAAAAA=", "AAAAAAAAAAA="});
 }
 
 TEST_F(ChecksumAggregateTest, reals) {
@@ -139,6 +140,7 @@ TEST_F(ChecksumAggregateTest, reals) {
   assertSingleGroupChecksum<float>({99.9}, "IX/UyPhj6MY=");
   assertSingleGroupChecksum<float>({1, 2, 3}, "b/j7Q4YtV+g=");
   assertSingleGroupChecksum<float>({kNaNF, kNaNF, kNaNF}, "AmWPYoutLK0=");
+  assertSingleGroupChecksum<float>({{-0.0}}, "AAAAAAAAAAA=");
 
   assertGroupingChecksum<int8_t, float>(
       {'a', 'b', 'a'}, {1, 2, 3}, {"Vswv9sY4wxY=", "GSzMTb/0k9E="});
@@ -147,7 +149,7 @@ TEST_F(ChecksumAggregateTest, reals) {
   assertGroupingChecksum<int8_t, float>(
       {1, 1, 2}, {kNaNF, kNaNF, kNaNF}, {"rJhf7Fwec3M=", "Vswvdi6PuTk="});
   assertGroupingChecksum<int8_t, float>(
-      {1, 2}, {0.0, -0.0}, {"AAAAAAAAAAA=", "bAFBcIKzvC4="});
+      {1, 2}, {0.0, -0.0}, {"AAAAAAAAAAA=", "AAAAAAAAAAA="});
 }
 
 TEST_F(ChecksumAggregateTest, dates) {
