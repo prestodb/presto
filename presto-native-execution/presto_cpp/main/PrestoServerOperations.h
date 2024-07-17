@@ -69,6 +69,9 @@ class PrestoServerOperations {
   // Writes the in-memory cache into SSD and makes checkpoints.
   std::string serverOperationWriteSsd(proxygen::HTTPMessage* message);
 
+  // Get/update the verbose log level of glog.
+  std::string serverOperationGlog(proxygen::HTTPMessage* message);
+
   TaskManager* const taskManager_;
   PrestoServer* const server_;
 };
