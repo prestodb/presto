@@ -39,24 +39,28 @@ inline uint64_t to64Bits(const int8_t* resultData) {
       "Unsupported number of scalar elements");
   uint64_t res = 0UL;
   if constexpr (numScalarElements == 64) {
-    res = simd::toBitMask(
-        xsimd::batch_bool<int8_t>(d_type::load_unaligned(resultData)));
+    res = simd::toBitMask(xsimd::batch_bool<int8_t>(
+        simd::reinterpretBatch<uint8_t>(d_type::load_unaligned(resultData))));
   } else if constexpr (numScalarElements == 32) {
     auto* addr = reinterpret_cast<uint32_t*>(&res);
-    *(addr) = simd::toBitMask(
-        xsimd::batch_bool<int8_t>(d_type::load_unaligned(resultData)));
+    *(addr) = simd::toBitMask(xsimd::batch_bool<int8_t>(
+        simd::reinterpretBatch<uint8_t>(d_type::load_unaligned(resultData))));
     *(addr + 1) = simd::toBitMask(
-        xsimd::batch_bool<int8_t>(d_type::load_unaligned(resultData + 32)));
+        xsimd::batch_bool<int8_t>(simd::reinterpretBatch<uint8_t>(
+            d_type::load_unaligned(resultData + 32))));
   } else if constexpr (numScalarElements == 16) {
     auto* addr = reinterpret_cast<uint16_t*>(&res);
-    *(addr) = simd::toBitMask(
-        xsimd::batch_bool<int8_t>(d_type::load_unaligned(resultData)));
+    *(addr) = simd::toBitMask(xsimd::batch_bool<int8_t>(
+        simd::reinterpretBatch<uint8_t>(d_type::load_unaligned(resultData))));
     *(addr + 1) = simd::toBitMask(
-        xsimd::batch_bool<int8_t>(d_type::load_unaligned(resultData + 16)));
+        xsimd::batch_bool<int8_t>(simd::reinterpretBatch<uint8_t>(
+            d_type::load_unaligned(resultData + 16))));
     *(addr + 2) = simd::toBitMask(
-        xsimd::batch_bool<int8_t>(d_type::load_unaligned(resultData + 32)));
+        xsimd::batch_bool<int8_t>(simd::reinterpretBatch<uint8_t>(
+            d_type::load_unaligned(resultData + 32))));
     *(addr + 3) = simd::toBitMask(
-        xsimd::batch_bool<int8_t>(d_type::load_unaligned(resultData + 48)));
+        xsimd::batch_bool<int8_t>(simd::reinterpretBatch<uint8_t>(
+            d_type::load_unaligned(resultData + 48))));
   }
   return res;
 }
