@@ -22,5 +22,5 @@ import java.util.Optional;
 
 public interface SessionSupplier
 {
-    Session createSession(QueryId queryId, SessionContext context, WarningCollectorFactory warningCollectorFactory, Optional<AuthorizedIdentity> authorizedIdentity);
+    Session createSession(QueryId queryId, boolean ignoreTransactionState, SessionContext context, WarningCollectorFactory warningCollectorFactory, Optional<AuthorizedIdentity> authorizedIdentity);
 }

@@ -618,7 +618,7 @@ public class PrestoSparkQueryExecutionFactory
         // get authorized identity if possible
         Optional<AuthorizedIdentity> authorizedIdentity = getAuthorizedIdentity(accessControl, securityConfig, queryId, sessionContext);
 
-        Session session = sessionSupplier.createSession(queryId, sessionContext, warningCollectorFactory, authorizedIdentity);
+        Session session = sessionSupplier.createSession(queryId, isRollBack(sql), sessionContext, warningCollectorFactory, authorizedIdentity);
         session = sessionPropertyDefaults.newSessionWithDefaultProperties(session, Optional.empty(), Optional.empty());
 
         if (!executionStrategies.isEmpty()) {
@@ -859,5 +859,10 @@ public class PrestoSparkQueryExecutionFactory
         });
 
         return session;
+    }
+
+    private boolean isRollBack(String sql)
+    {
+        return sql != null && sql.trim().equalsIgnoreCase("rollback");
     }
 }
