@@ -231,8 +231,8 @@ class ProbeState {
       return group_;
     }
     const auto kEmptyGroup = BaseHashTable::TagVector::broadcast(kEmptyTag);
-    for (int64_t numProbedBuckets = 0; numProbedBuckets < table.numBuckets();
-         ++numProbedBuckets) {
+    int64_t numProbedBuckets = 0;
+    while (numProbedBuckets < table.numBuckets()) {
       if (!hits_) {
         const uint16_t empty = simd::toBitMask(tagsInTable_ == kEmptyGroup);
         if (empty) {
@@ -248,6 +248,7 @@ class ProbeState {
         continue;
       }
       bucketOffset_ = table.nextBucketOffset(bucketOffset_);
+      ++numProbedBuckets;
       tagsInTable_ = BaseHashTable::loadTags(
           reinterpret_cast<uint8_t*>(table.table_), bucketOffset_);
       hits_ = simd::toBitMask(tagsInTable_ == wantedTags_) & kFullMask;
