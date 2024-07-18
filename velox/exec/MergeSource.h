@@ -65,7 +65,7 @@ class MergeJoinSource {
 
  private:
   struct State {
-    bool atEnd;
+    bool atEnd = false;
     RowVectorPtr data;
   };
 
