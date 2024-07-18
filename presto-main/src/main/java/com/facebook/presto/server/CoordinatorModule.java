@@ -183,6 +183,11 @@ public class CoordinatorModule
         binder.bind(QueryBlockingRateLimiter.class).in(Scopes.SINGLETON);
         newExporter(binder).export(QueryBlockingRateLimiter.class).withGeneratedName();
 
+        newOptionalBinder(binder, LocalQueryProvider.class);
+        install(installModuleIf(
+                ServerConfig.class,
+                ServerConfig::isEagerResultsFetchingFromQueuedStatementEnabled,
+                moduleBinder -> moduleBinder.bind(LocalQueryProvider.class).in(Scopes.SINGLETON)));
         binder.bind(LocalQueryProvider.class).in(Scopes.SINGLETON);
 
         jaxrsBinder(binder).bind(TaskInfoResource.class);
