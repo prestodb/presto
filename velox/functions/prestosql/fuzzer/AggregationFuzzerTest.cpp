@@ -120,6 +120,13 @@ int main(int argc, char** argv) {
       "map_union_sum",
       "approx_set",
       "any_value",
+      // Presto 0.288 makes set_agg and set_union not respect order-by on
+      // inputs. Presto 0.289
+      // re-enables the order-by for them. So skip these two functions until we
+      // compare
+      // Velox result against Presto 0.289 or later versions.
+      "set_agg",
+      "set_union",
   };
 
   using facebook::velox::exec::test::ApproxDistinctResultVerifier;
