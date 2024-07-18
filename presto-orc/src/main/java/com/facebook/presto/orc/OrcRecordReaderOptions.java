@@ -24,10 +24,12 @@ public class OrcRecordReaderOptions
     private final DataSize maxBlockSize;
     private final boolean mapNullKeysEnabled;
     private final boolean appendRowNumber;
+    private final boolean orcUseVectorFilter;
 
     public OrcRecordReaderOptions(OrcReaderOptions options)
     {
-        this(options.getMaxMergeDistance(), options.getTinyStripeThreshold(), options.getMaxBlockSize(), options.mapNullKeysEnabled(), options.appendRowNumber());
+        this(options.getMaxMergeDistance(), options.getTinyStripeThreshold(), options.getMaxBlockSize(),
+                options.mapNullKeysEnabled(), options.appendRowNumber(), options.getOrcUseVectorFilter());
     }
 
     public OrcRecordReaderOptions(
@@ -35,13 +37,15 @@ public class OrcRecordReaderOptions
             DataSize tinyStripeThreshold,
             DataSize maxBlockSize,
             boolean mapNullKeysEnabled,
-            boolean appendRowNumber)
+            boolean appendRowNumber,
+            boolean orcUseVectorFilter)
     {
         this.maxMergeDistance = requireNonNull(maxMergeDistance, "maxMergeDistance is null");
         this.maxBlockSize = requireNonNull(maxBlockSize, "maxBlockSize is null");
         this.tinyStripeThreshold = requireNonNull(tinyStripeThreshold, "tinyStripeThreshold is null");
         this.mapNullKeysEnabled = mapNullKeysEnabled;
         this.appendRowNumber = appendRowNumber;
+        this.orcUseVectorFilter = orcUseVectorFilter;
     }
 
     public DataSize getMaxMergeDistance()
@@ -67,5 +71,10 @@ public class OrcRecordReaderOptions
     public boolean appendRowNumber()
     {
         return appendRowNumber;
+    }
+
+    public boolean getOrcUseVectorFilter()
+    {
+        return orcUseVectorFilter;
     }
 }
