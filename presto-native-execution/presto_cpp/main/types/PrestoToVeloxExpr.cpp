@@ -51,6 +51,9 @@ std::string mapScalarFunction(const std::string& name) {
       {"presto.default.$operator$not_equal", "presto.default.neq"},
       {"presto.default.$operator$subtract", "presto.default.minus"},
       {"presto.default.$operator$subscript", "presto.default.subscript"},
+      {"presto.default.$operator$subscript", "presto.default.subscript"},
+      // Substring.
+      {"substring", "presto.default.substr"},
       // Special form function overrides.
       {"presto.default.in", "in"},
   };

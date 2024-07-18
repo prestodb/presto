@@ -822,9 +822,12 @@ public abstract class AbstractTestNativeGeneralQueries
     public void testStringFunctions()
     {
         // Substr, length, trim.
-        assertQuery("SELECT substr(comment, 1, 10), length(comment), trim(comment) FROM orders");
+        assertQuery("SELECT substr(comment, 5), length(comment), trim(comment) FROM orders");
         assertQuery("SELECT substr(comment, 1, 10), length(comment), ltrim(comment) FROM orders");
         assertQuery("SELECT substr(comment, 1, 10), length(comment), rtrim(comment) FROM orders");
+
+        assertQuery("SELECT substring(comment, 5), length(comment), trim(comment) FROM orders");
+        assertQuery("SELECT substring(comment, 1, 10), length(comment), ltrim(comment) FROM orders");
 
         assertQuery("SELECT trim(comment, ' ns'), ltrim(comment, 'a b c'), rtrim(comment, 'l y') FROM orders");
 
