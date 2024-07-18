@@ -320,6 +320,7 @@ public class FeaturesConfig
 
     private boolean useNewNanDefinition = true;
     private boolean warnOnPossibleNans;
+    private boolean isInlineProjectionsOnValuesEnabled;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -3238,6 +3239,19 @@ public class FeaturesConfig
     public FeaturesConfig setWarnOnCommonNanPatterns(boolean warnOnPossibleNans)
     {
         this.warnOnPossibleNans = warnOnPossibleNans;
+        return this;
+    }
+
+    public boolean getInlineProjectionsOnValues()
+    {
+        return isInlineProjectionsOnValuesEnabled;
+    }
+
+    @Config("optimizer.inline-projections-on-values")
+    @ConfigDescription("Inline deterministic projections on values input")
+    public FeaturesConfig setInlineProjectionsOnValues(boolean isInlineProjectionsOnValuesEnabled)
+    {
+        this.isInlineProjectionsOnValuesEnabled = isInlineProjectionsOnValuesEnabled;
         return this;
     }
 }
