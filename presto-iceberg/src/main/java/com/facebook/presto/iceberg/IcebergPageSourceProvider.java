@@ -521,8 +521,9 @@ public class IcebergPageSourceProvider
             Map<String, IcebergOrcColumn> fileOrcColumnsByName = uniqueIndex(fileOrcColumns, orcColumn -> orcColumn.getColumnName().toLowerCase(ENGLISH));
 
             int nextMissingColumnIndex = fileOrcColumnsByName.size();
-            List<Boolean> isRowPositionList = new ArrayList<>();
-            for (IcebergColumnHandle column : regularColumns) {
+            boolean[] isRowPositionList = new boolean[regularColumns.size()];
+            for(int i = 0; i < regularColumns.size(); i++) {
+                IcebergColumnHandle column = regularColumns.get(i);
                 IcebergOrcColumn icebergOrcColumn;
                 boolean isExcludeColumn = false;
 
@@ -569,7 +570,8 @@ public class IcebergPageSourceProvider
                             column.getRequiredSubfields(),
                             Optional.empty()));
                 }
-                isRowPositionList.add(column.isRowPositionColumn());
+
+                isRowPositionList[i] = column.isRowPositionColumn();
             }
 
             TupleDomain<HiveColumnHandle> hiveColumnHandleTupleDomain = effectivePredicate.transform(column -> {

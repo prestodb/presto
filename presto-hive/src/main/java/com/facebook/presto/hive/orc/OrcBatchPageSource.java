@@ -94,7 +94,7 @@ public class OrcBatchPageSource
             FileFormatDataSourceStats stats,
             RuntimeStats runtimeStats,
             // TODO avoid conversion; just pass a boolean array here
-            List<Boolean> isRowNumberList,
+            boolean[] isRowNumberList,
             byte[] rowIDPartitionComponent,
             String rowGroupId)
     {
@@ -106,8 +106,8 @@ public class OrcBatchPageSource
         this.stats = requireNonNull(stats, "stats is null");
         this.runtimeStats = requireNonNull(runtimeStats, "runtimeStats is null");
         requireNonNull(isRowNumberList, "isRowNumberList is null");
-        checkArgument(isRowNumberList.size() == numColumns, "row number list size %s does not match columns size %s", isRowNumberList.size(), columns.size());
-        this.isRowNumberList = Booleans.toArray(isRowNumberList);
+        checkArgument(isRowNumberList.length == numColumns, "row number list size %s does not match columns size %s", isRowNumberList.length, columns.size());
+        this.isRowNumberList = isRowNumberList;
         this.coercer = new RowIDCoercer(rowIDPartitionComponent, rowGroupId);
 
         this.constantBlocks = new Block[numColumns];

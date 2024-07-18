@@ -245,7 +245,8 @@ public class OrcBatchPageSourceFactory
             String rowGroupID = path.getName();
 
             // none of the columns are row numbers
-            List<Boolean> isRowNumberList = nCopies(physicalColumns.size(), false);
+            boolean[] isRowNumberList = new boolean[physicalColumns.size()];
+
             return new OrcBatchPageSource(
                     recordReader,
                     reader.getOrcDataSource(),
