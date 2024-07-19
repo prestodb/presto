@@ -207,6 +207,16 @@ Array Functions
         SELECT array_sort_desc(ARRAY [null, 100, null, 1, 10, 50]); -- [100, 50, 10, 1, null, null]
         SELECT array_sort_desc(ARRAY [ARRAY ["a", null], null, ARRAY ["a"]); -- [["a", null], ["a"], null]
 
+.. function:: array_split_into_chunks(array(T), int) -> array(array(T))
+
+    Returns an ``array`` of arrays splitting the input ``array`` into chunks of given length.
+    If the ``array`` is not evenly divisible it will split into as many possible chunks and return
+    the left over elements for the last ``array``. Ignores null inputs, but not elements.
+
+        SELECT array_split_into_chunks(ARRAY [1, 2, 3, 4], 3); -- [[1, 2, 3], [4]]
+        SELECT array_split_into_chunks(null, null); -- null
+        SELECT array_split_into_chunks(array[1, 2, 3, cast(null as int)], 2]); -- [[1, 2], [3, null]]
+
 .. function:: array_sum(array(T)) -> bigint/double
 
     Returns the sum of all non-null elements of the ``array``. If there is no non-null elements, returns ``0``.
