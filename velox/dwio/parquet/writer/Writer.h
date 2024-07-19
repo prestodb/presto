@@ -105,6 +105,7 @@ struct WriterOptions {
       columnCompressionsMap;
   uint8_t parquetWriteTimestampUnit =
       static_cast<uint8_t>(TimestampUnit::kNano);
+  bool writeInt96AsTimestamp = false;
 };
 
 // Writes Velox vectors into  a DataSink using Arrow Parquet writer.
@@ -163,6 +164,9 @@ class Writer : public dwio::common::Writer {
   const RowTypePtr schema_;
 
   ArrowOptions options_{.flattenDictionary = true, .flattenConstant = true};
+
+  // Whether to write Int96 timestamps in Arrow Parquet write.
+  bool writeInt96AsTimestamp_;
 };
 
 class ParquetWriterFactory : public dwio::common::WriterFactory {

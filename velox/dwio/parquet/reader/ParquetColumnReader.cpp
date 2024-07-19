@@ -27,6 +27,7 @@
 #include "velox/dwio/parquet/reader/RepeatedColumnReader.h"
 #include "velox/dwio/parquet/reader/StringColumnReader.h"
 #include "velox/dwio/parquet/reader/StructColumnReader.h"
+#include "velox/dwio/parquet/reader/TimestampColumnReader.h"
 
 namespace facebook::velox::parquet {
 
@@ -72,6 +73,10 @@ std::unique_ptr<dwio::common::SelectiveColumnReader> ParquetColumnReader::build(
 
     case TypeKind::BOOLEAN:
       return std::make_unique<BooleanColumnReader>(
+          requestedType, fileType, params, scanSpec);
+
+    case TypeKind::TIMESTAMP:
+      return std::make_unique<TimestampColumnReader>(
           requestedType, fileType, params, scanSpec);
 
     default:

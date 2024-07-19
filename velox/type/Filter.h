@@ -557,6 +557,10 @@ class IsNotNull final : public Filter {
     return true;
   }
 
+  bool testInt128(int128_t /* unused */) const final {
+    return true;
+  }
+
   bool testInt64Range(int64_t /*min*/, int64_t /*max*/, bool /*hasNull*/)
       const final {
     return true;
@@ -1814,6 +1818,11 @@ class TimestampRange final : public Filter {
         lower_.toString(),
         upper_.toString(),
         nullAllowed_ ? "with nulls" : "no nulls");
+  }
+
+  bool testInt128(int128_t value) const final {
+    const auto& ts = reinterpret_cast<const Timestamp&>(value);
+    return ts >= lower_ && ts <= upper_;
   }
 
   bool testTimestamp(Timestamp value) const override {

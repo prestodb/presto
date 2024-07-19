@@ -83,6 +83,11 @@ struct Timestamp {
   static constexpr int64_t kMicrosecondsInMillisecond = 1'000;
   static constexpr int64_t kNanosecondsInMicrosecond = 1'000;
   static constexpr int64_t kNanosecondsInMillisecond = 1'000'000;
+  static constexpr int64_t kNanosInSecond =
+      kNanosecondsInMillisecond * kMillisecondsInSecond;
+  // The number of days between the Julian epoch and the Unix epoch.
+  static constexpr int64_t kJulianToUnixEpochDays = 2440588LL;
+  static constexpr int64_t kSecondsInDay = 86400LL;
 
   // Limit the range of seconds to avoid some problems. Seconds should be
   // in the range [INT64_MIN/1000 - 1, INT64_MAX/1000].
@@ -107,6 +112,10 @@ struct Timestamp {
         seconds, kMaxSeconds, "Timestamp seconds out of range");
     VELOX_USER_DCHECK_LE(nanos, kMaxNanos, "Timestamp nanos out of range");
   }
+
+  /// Creates a timestamp from the number of days since the Julian epoch
+  /// and the number of nanoseconds.
+  static Timestamp fromDaysAndNanos(int32_t days, int64_t nanos);
 
   // Returns the current unix timestamp (ms precision).
   static Timestamp now();

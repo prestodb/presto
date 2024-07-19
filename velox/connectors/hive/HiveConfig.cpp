@@ -286,6 +286,16 @@ bool HiveConfig::s3UseProxyFromEnv() const {
   return config_->get<bool>(kS3UseProxyFromEnv, false);
 }
 
+uint8_t HiveConfig::readTimestampUnit(const Config* session) const {
+  const auto unit = session->get<uint8_t>(
+      kReadTimestampUnitSession,
+      config_->get<uint8_t>(kReadTimestampUnit, 3 /*milli*/));
+  VELOX_CHECK(
+      unit == 3 || unit == 6 /*micro*/ || unit == 9 /*nano*/,
+      "Invalid timestamp unit.");
+  return unit;
+}
+
 uint8_t HiveConfig::parquetWriteTimestampUnit(const Config* session) const {
   const auto unit = session->get<uint8_t>(
       kParquetWriteTimestampUnitSession,

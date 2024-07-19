@@ -36,17 +36,24 @@ class ParquetParams : public dwio::common::FormatParams {
       memory::MemoryPool& pool,
       dwio::common::ColumnReaderStatistics& stats,
       const FileMetaDataPtr metaData,
-      const date::time_zone* sessionTimezone)
+      const date::time_zone* sessionTimezone,
+      TimestampPrecision timestampPrecision)
       : FormatParams(pool, stats),
         metaData_(metaData),
-        sessionTimezone_(sessionTimezone) {}
+        sessionTimezone_(sessionTimezone),
+        timestampPrecision_(timestampPrecision) {}
   std::unique_ptr<dwio::common::FormatData> toFormatData(
       const std::shared_ptr<const dwio::common::TypeWithId>& type,
       const common::ScanSpec& scanSpec) override;
 
+  TimestampPrecision timestampPrecision() const {
+    return timestampPrecision_;
+  }
+
  private:
   const FileMetaDataPtr metaData_;
   const date::time_zone* sessionTimezone_;
+  const TimestampPrecision timestampPrecision_;
 };
 
 /// Format-specific data created for each leaf column of a Parquet rowgroup.
