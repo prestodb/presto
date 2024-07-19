@@ -88,6 +88,7 @@ import static com.facebook.presto.common.RuntimeMetricName.FRAGMENT_PLAN_TIME_NA
 import static com.facebook.presto.common.RuntimeMetricName.GET_CANONICAL_INFO_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.LOGICAL_PLANNER_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.OPTIMIZER_TIME_NANOS;
+import static com.facebook.presto.execution.QueryStateMachine.pruneHistogramsFromStatsAndCosts;
 import static com.facebook.presto.execution.buffer.OutputBuffers.BROADCAST_PARTITION_ID;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createSpoolingOutputBuffers;
@@ -745,9 +746,21 @@ public class SqlQueryExecution
     }
 
     @Override
-    public void pruneInfo()
+    public void pruneExpiredQueryInfo()
     {
-        stateMachine.pruneQueryInfo();
+        stateMachine.pruneQueryInfoExpired();
+    }
+
+    @Override
+    public void pruneFinishedQueryInfo()
+    {
+        queryPlan.getAndUpdate(plan -> new Plan(
+                plan.getRoot(),
+                plan.getTypes(),
+                pruneHistogramsFromStatsAndCosts(plan.getStatsAndCosts())));
+        // drop the reference to the scheduler since execution is finished
+        queryScheduler.set(null);
+        stateMachine.pruneQueryInfoFinished();
     }
 
     @Override

@@ -335,7 +335,7 @@ public class TestEventListener
         assertEquals(queryCompletedEvent.getMetadata().getGraphvizPlan().get(), getOnlyElement(expected.getOnlyColumnAsSet()));
     }
 
-    static class EventsBuilder
+    public static class EventsBuilder
     {
         private ImmutableList.Builder<QueryCreatedEvent> queryCreatedEvents;
         private ImmutableList.Builder<QueryCompletedEvent> queryCompletedEvents;
