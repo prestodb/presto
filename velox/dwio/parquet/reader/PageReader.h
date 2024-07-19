@@ -529,6 +529,13 @@ void PageReader::readWithVisitor(Visitor& visitor) {
     visitor.setNumValuesBias(numValuesBeforePage);
     visitor.setRows(pageRows);
     callDecoder(nulls, nullsFromFastPath, visitor);
+    if (encoding_ == thrift::Encoding::DELTA_BINARY_PACKED &&
+        deltaBpDecoder_->validValuesCount() == 0) {
+      VELOX_DCHECK(
+          deltaBpDecoder_->bufferStart() == pageData_ + encodedDataSize_,
+          "Once all data in the delta binary packed decoder has been read, "
+          "its buffer ptr should be moved to the end of the page.");
+    }
     if (currentVisitorRow_ < numVisitorRows_ || isMultiPage) {
       if (mayProduceNulls) {
         if (!isMultiPage) {

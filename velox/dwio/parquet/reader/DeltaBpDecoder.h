@@ -78,6 +78,14 @@ class DeltaBpDecoder {
     }
   }
 
+  const char* bufferStart() {
+    return bufferStart_;
+  }
+
+  int64_t validValuesCount() {
+    return static_cast<int64_t>(totalValuesRemaining_);
+  }
+
  private:
   bool getVlqInt(uint64_t& v) {
     uint64_t tmp = 0;
@@ -173,6 +181,7 @@ class DeltaBpDecoder {
         if (totalValueCount_ != 1) {
           initBlock();
         }
+        totalValuesRemaining_--;
         return value;
       } else {
         ++miniBlockIdx_;
@@ -201,7 +210,7 @@ class DeltaBpDecoder {
     valuesRemainingCurrentMiniBlock_--;
     totalValuesRemaining_--;
 
-    if (valuesRemainingCurrentMiniBlock_ == 0) {
+    if (valuesRemainingCurrentMiniBlock_ == 0 || totalValuesRemaining_ == 0) {
       bufferStart_ += bits::nbytes(deltaBitWidth_ * valuesPerMiniBlock_);
     }
     return value;
