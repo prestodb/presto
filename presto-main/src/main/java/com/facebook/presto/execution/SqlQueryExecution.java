@@ -20,6 +20,7 @@ import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.HistoryBasedPlanStatisticsManager;
 import com.facebook.presto.cost.StatsCalculator;
+import com.facebook.presto.execution.QueryTracker.PruneEvent;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
@@ -88,6 +89,8 @@ import static com.facebook.presto.common.RuntimeMetricName.FRAGMENT_PLAN_TIME_NA
 import static com.facebook.presto.common.RuntimeMetricName.GET_CANONICAL_INFO_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.LOGICAL_PLANNER_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.OPTIMIZER_TIME_NANOS;
+import static com.facebook.presto.execution.QueryStateMachine.pruneHistogramsFromStatsAndCosts;
+import static com.facebook.presto.execution.QueryTracker.PruneEvent.QUERY_FINISHED;
 import static com.facebook.presto.execution.buffer.OutputBuffers.BROADCAST_PARTITION_ID;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createSpoolingOutputBuffers;
@@ -745,9 +748,17 @@ public class SqlQueryExecution
     }
 
     @Override
-    public void pruneInfo()
+    public void pruneInfo(PruneEvent event)
     {
-        stateMachine.pruneQueryInfo();
+        if (event == QUERY_FINISHED) {
+            queryPlan.getAndUpdate(plan -> new Plan(
+                    plan.getRoot(),
+                    plan.getTypes(),
+                    pruneHistogramsFromStatsAndCosts(plan.getStatsAndCosts())));
+            // drop the reference to the scheduler since execution is finished
+            queryScheduler.set(null);
+        }
+        stateMachine.pruneQueryInfo(event);
     }
 
     @Override

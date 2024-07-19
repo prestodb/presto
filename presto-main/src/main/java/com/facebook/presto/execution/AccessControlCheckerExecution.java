@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.analyzer.PreparedQuery;
 import com.facebook.presto.common.resourceGroups.QueryType;
+import com.facebook.presto.execution.QueryTracker.PruneEvent;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
@@ -327,7 +328,7 @@ public class AccessControlCheckerExecution
     }
 
     @Override
-    public void pruneInfo()
+    public void pruneInfo(PruneEvent event)
     {
         // no-op
     }

@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.QueryState;
+import com.facebook.presto.execution.QueryTracker.PruneEvent;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.QueryId;
@@ -115,7 +116,7 @@ public class FailedDispatchQuery
     public void cancel() {}
 
     @Override
-    public void pruneInfo() {}
+    public void pruneInfo(PruneEvent event) {}
 
     @Override
     public QueryId getQueryId()

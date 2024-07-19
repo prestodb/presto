@@ -132,6 +132,16 @@ public final class ColumnStatistics
         return new Builder();
     }
 
+    public static Builder buildFrom(ColumnStatistics statistics)
+    {
+        return new Builder()
+                .setRange(statistics.getRange())
+                .setDataSize(statistics.getDataSize())
+                .setNullsFraction(statistics.getNullsFraction())
+                .setDistinctValuesCount(statistics.getDistinctValuesCount())
+                .setHistogram(statistics.getHistogram());
+    }
+
     /**
      * If one of the estimates below is unspecified, the default "unknown" estimate value
      * (represented by floating point NaN) may cause the resulting symbol statistics
