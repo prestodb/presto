@@ -275,7 +275,7 @@ Property Name                                           Description             
                                                         is required if the iceberg.catalog.type is ``hadoop``.
                                                         Otherwise, it will be ignored.
 
-``iceberg.file-format``                                 The storage file format for Iceberg tables. The available     ``ORC``
+``iceberg.file-format``                                 The storage file format for Iceberg tables. The available     ``PARQUET``
                                                         values are ``PARQUET`` and ``ORC``.
 
 ``iceberg.compression-codec``                           The compression codec to use when writing files. The          ``GZIP``
