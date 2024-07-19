@@ -105,7 +105,6 @@ public abstract class AbstractTestNanQueries
                 "(MAP(ARRAY[2, nan(), 1], ARRAY[200, nan(), 100]), MAP(ARRAY[REAL '2', CAST(nan() AS REAL), REAL '1'], ARRAY[REAL '200', CAST(nan() AS REAL), REAL '100'])), " +
                 "(MAP(ARRAY[2, 1, nan()], ARRAY[200, 100, nan()]), MAP(ARRAY[REAL '2', REAL '1', CAST(nan() AS REAL)], ARRAY[REAL '200', REAL '100', CAST(nan() AS REAL)]))) " +
                 "AS t(" + DOUBLE_MAP_COLUMN + ", " + REAL_MAP_COLUMN + ")";
-        System.out.println(createMapTableQuery);
         assertUpdate(createMapTableQuery, 3);
     }
 
