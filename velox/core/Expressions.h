@@ -651,7 +651,7 @@ class CastTypedExpr : public ITypedExpr {
 
 using CastTypedExprPtr = std::shared_ptr<const CastTypedExpr>;
 
-/// A collection of convenince methods for working with expressions.
+/// A collection of convenience methods for working with expressions.
 class TypedExprs {
  public:
   /// Returns true if 'expr' is a field access expression.

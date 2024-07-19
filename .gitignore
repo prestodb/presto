@@ -88,7 +88,7 @@ _build/
 *.pdf
 *.swp
 a.out
-CMake/resolve_dependency_module/boost/FindBoost.cmake
+CMake/resolve_dependency_modules/boost/FindBoost.cmake
 __cmake_systeminformation/
 
 #==============================================================================#
