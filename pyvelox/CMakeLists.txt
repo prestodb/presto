@@ -30,7 +30,6 @@ if(VELOX_BUILD_PYTHON_PACKAGE)
             velox_vector
             velox_core
             velox_exec
-            velox_functions_prestosql
             velox_parse_parser
             velox_functions_prestosql
             velox_functions_spark
