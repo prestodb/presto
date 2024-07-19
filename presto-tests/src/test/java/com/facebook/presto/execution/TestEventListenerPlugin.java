@@ -29,7 +29,7 @@ import static java.util.Objects.requireNonNull;
 
 public class TestEventListenerPlugin
 {
-    static class TestingEventListenerPlugin
+    public static class TestingEventListenerPlugin
             implements Plugin
     {
         private final EventsBuilder eventsBuilder;
@@ -46,7 +46,7 @@ public class TestEventListenerPlugin
         }
     }
 
-    private static class TestingEventListenerFactory
+    public static class TestingEventListenerFactory
             implements EventListenerFactory
     {
         private final EventsBuilder eventsBuilder;
@@ -69,7 +69,7 @@ public class TestEventListenerPlugin
         }
     }
 
-    private static class TestingEventListener
+    public static class TestingEventListener
             implements EventListener
     {
         private final EventsBuilder eventsBuilder;
