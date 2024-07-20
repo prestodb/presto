@@ -32,13 +32,16 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.Sets;
 import org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileOutputFormat;
 import org.apache.iceberg.LocationProviders;
 import org.apache.iceberg.TableMetadata;
+import org.apache.iceberg.TableMetadata.MetadataLogEntry;
 import org.apache.iceberg.TableMetadataParser;
 import org.apache.iceberg.TableOperations;
+import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.exceptions.CommitFailedException;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.io.LocationProvider;
@@ -52,6 +55,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
@@ -315,6 +319,7 @@ public class HiveTableOperations
                 // attempt to put back previous table statistics
                 metastore.updateTableStatistics(metastoreContext, database, tableName, oldStats -> tableStats);
             }
+            deleteRemovedMetadataFiles(base, metadata);
         }
         finally {
             shouldRefresh = true;
@@ -448,6 +453,41 @@ public class HiveTableOperations
         catch (NumberFormatException | IndexOutOfBoundsException e) {
             log.warn(e, "Unable to parse version from metadata location: %s", metadataLocation);
             return -1;
+        }
+    }
+
+    /**
+     * Deletes metadata files that are no longer needed, except for the most recent ones
+     * specified by `TableProperties.METADATA_PREVIOUS_VERSIONS_MAX`.
+     *
+     * @param base the base TableMetadata
+     * @param metadata the current TableMetadata
+     */
+    private void deleteRemovedMetadataFiles(TableMetadata base, TableMetadata metadata)
+    {
+        if (base == null) {
+            return;
+        }
+
+        boolean deleteAfterCommit =
+                metadata.propertyAsBoolean(
+                        TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED,
+                        TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED_DEFAULT);
+
+        if (deleteAfterCommit) {
+            Set<MetadataLogEntry> metadataFilesToRemove =
+                    Sets.newHashSet(base.previousFiles());
+            // TableMetadata#addPreviousFile builds up the metadata log and uses
+            // TableProperties.METADATA_PREVIOUS_VERSIONS_MAX to determine how many files should stay in
+            // the log, thus we don't include metadata.previousFiles() for deletion - everything else can
+            // be removed
+            metadataFilesToRemove.removeAll(metadata.previousFiles());
+            Tasks.foreach(metadataFilesToRemove)
+                    .noRetry()
+                    .suppressFailureWhenFinished()
+                    .onFailure((previousMetadataFile, exc) ->
+                            log.warn("Delete failed for previous metadata file: %s", previousMetadataFile, exc))
+                    .run(previousMetadataFile -> io().deleteFile(previousMetadataFile.file()));
         }
     }
 }
