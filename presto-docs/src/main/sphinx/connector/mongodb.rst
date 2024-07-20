@@ -268,4 +268,19 @@ SQL support
 ALTER TABLE
 ^^^^^^^^^^^
 
-The connector supports ``ALTER TABLE RENAME TO`` operation. Other uses of ``ALTER TABLE`` are not supported.
+.. code-block:: sql
+
+    ALTER TABLE mongodb.admin.sample_table ADD COLUMN new_col INT;
+    ALTER TABLE mongodb.admin.sample_table DROP COLUMN new_col;
+    ALTER TABLE mongodb.admin.sample_table RENAME COLUMN is_active TO is_enabled;
+    ALTER TABLE mongodb.admin.sample_table RENAME TO renamed_table;
+
+.. note:: Presto does not support altering the data type of a column directly with the ALTER TABLE command.
+
+ .. code-block:: sql
+
+   ALTER TABLE mongodb.admin.users ALTER COLUMN age TYPE BIGINT;
+
+ returns an error similar to the following:
+
+ ``Query 20240720_123348_00014_v7vrn failed: line 1:55: mismatched input 'int'. Expecting: 'FUNCTION', 'SCHEMA', 'TABLE'``
