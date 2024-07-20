@@ -313,7 +313,13 @@ Property Name                                           Description             
 
                                                         Set to ``0`` to disable metadata optimization.
 
-``iceberg.split-manager-threads``                       Number of threads to use for generating Iceberg splits.        ``Number of available processors``
+``iceberg.split-manager-threads``                       Number of threads to use for generating Iceberg splits.       ``Number of available processors``
+
+``iceberg.metadata-previous-versions-max``              The max number of old metadata files to keep in current       ``100``
+                                                        metadata log.
+
+``iceberg.metadata-delete-after-commit``                Set to ``true`` to delete the oldest metadata files after     ``false``
+                                                        each commit.
 ======================================================= ============================================================= ============
 
 Table Properties
@@ -355,6 +361,12 @@ Property Name                             Description                           
 ``delete_mode``                            Optionally specifies the write delete mode of the Iceberg        ``merge-on-read``
                                            specification to use for new tables, either ``copy-on-write``
                                            or ``merge-on-read``.
+
+``metadata_previous_versions_max``         Optionally specifies the max number of old metadata files to     ``100``
+                                           keep in current metadata log.
+
+``metadata_delete_after_commit``           Set to ``true`` to delete the oldest metadata file after         ``false``
+                                           each commit.
 =======================================   ===============================================================   ============
 
 The table definition below specifies format ``ORC``, partitioning by columns ``c1`` and ``c2``,
