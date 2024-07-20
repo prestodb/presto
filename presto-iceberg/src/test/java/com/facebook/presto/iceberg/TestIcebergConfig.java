@@ -33,6 +33,8 @@ import static com.facebook.presto.spi.statistics.ColumnStatisticType.TOTAL_SIZE_
 import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_EXPIRATION_INTERVAL_MS_DEFAULT;
 import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_MAX_CONTENT_LENGTH_DEFAULT;
 import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_MAX_TOTAL_BYTES_DEFAULT;
+import static org.apache.iceberg.TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED_DEFAULT;
+import static org.apache.iceberg.TableProperties.METADATA_PREVIOUS_VERSIONS_MAX_DEFAULT;
 
 public class TestIcebergConfig
 {
@@ -60,7 +62,9 @@ public class TestIcebergConfig
                 .setMaxManifestCacheSize(IO_MANIFEST_CACHE_MAX_TOTAL_BYTES_DEFAULT)
                 .setManifestCacheExpireDuration(IO_MANIFEST_CACHE_EXPIRATION_INTERVAL_MS_DEFAULT)
                 .setManifestCacheMaxContentLength(IO_MANIFEST_CACHE_MAX_CONTENT_LENGTH_DEFAULT)
-                .setSplitManagerThreads(Runtime.getRuntime().availableProcessors()));
+                .setSplitManagerThreads(Runtime.getRuntime().availableProcessors())
+                .setMetadataPreviousVersionsMax(METADATA_PREVIOUS_VERSIONS_MAX_DEFAULT)
+                .setMetadataDeleteAfterCommit(METADATA_DELETE_AFTER_COMMIT_ENABLED_DEFAULT));
     }
 
     @Test
@@ -88,6 +92,8 @@ public class TestIcebergConfig
                 .put("iceberg.io.manifest.cache.expiration-interval-ms", "600000")
                 .put("iceberg.io.manifest.cache.max-content-length", "10485760")
                 .put("iceberg.split-manager-threads", "42")
+                .put("iceberg.metadata-previous-versions-max", "1")
+                .put("iceberg.metadata-delete-after-commit", "true")
                 .build();
 
         IcebergConfig expected = new IcebergConfig()
@@ -111,7 +117,9 @@ public class TestIcebergConfig
                 .setMaxManifestCacheSize(1048576000)
                 .setManifestCacheExpireDuration(600000)
                 .setManifestCacheMaxContentLength(10485760)
-                .setSplitManagerThreads(42);
+                .setSplitManagerThreads(42)
+                .setMetadataPreviousVersionsMax(1)
+                .setMetadataDeleteAfterCommit(true);
 
         assertFullMapping(properties, expected);
     }
