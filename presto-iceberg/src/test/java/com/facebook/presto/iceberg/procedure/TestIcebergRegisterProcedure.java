@@ -47,6 +47,8 @@ import java.util.Map;
 import static com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore.memoizeMetastore;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getMetastoreHeaders;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isUserDefinedTypeEncodingEnabled;
+import static com.facebook.presto.iceberg.CatalogType.HIVE;
+import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
 import static com.facebook.presto.iceberg.procedure.RegisterTableProcedure.METADATA_FOLDER_NAME;
 import static com.facebook.presto.iceberg.procedure.RegisterTableProcedure.getFileSystem;
 import static com.facebook.presto.iceberg.procedure.RegisterTableProcedure.parseMetadataVersionFromFileName;
@@ -80,7 +82,8 @@ public class TestIcebergRegisterProcedure
 
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
 
-        File metastoreDir = queryRunner.getCoordinator().getDataDirectory().resolve(TEST_DATA_DIRECTORY).resolve(TEST_CATALOG_DIRECTORY).toFile();
+        Path dataDirectory = queryRunner.getCoordinator().getDataDirectory();
+        File metastoreDir = getIcebergDataDirectoryPath(dataDirectory, HIVE.name(), new IcebergConfig().getFileFormat(), false).toFile();
         queryRunner.installPlugin(new IcebergPlugin());
         Map<String, String> icebergProperties = ImmutableMap.<String, String>builder()
                 .put("iceberg.file-format", new IcebergConfig().getFileFormat().name())
@@ -467,8 +470,8 @@ public class TestIcebergRegisterProcedure
 
     protected Path getCatalogDirectory()
     {
-        Path dataDirectory = getDistributedQueryRunner().getCoordinator().getDataDirectory().resolve(TEST_DATA_DIRECTORY);
-        return dataDirectory.resolve(TEST_CATALOG_DIRECTORY);
+        Path dataDirectory = getDistributedQueryRunner().getCoordinator().getDataDirectory();
+        return getIcebergDataDirectoryPath(dataDirectory, HIVE.name(), new IcebergConfig().getFileFormat(), false);
     }
 
     private String getMetadataLocation(String schema, String table)

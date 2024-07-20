@@ -29,6 +29,8 @@ public class ServerConfig
     private boolean resourceManager;
     private boolean resourceManagerEnabled;
     private boolean catalogServer;
+    private boolean coordinatorSidecar;
+    private boolean coordinatorSidecarEnabled;
     private boolean catalogServerEnabled;
     private boolean coordinator = true;
     private String prestoVersion = getClass().getPackage().getImplementationVersion();
@@ -87,6 +89,18 @@ public class ServerConfig
     public ServerConfig setCatalogServerEnabled(boolean catalogServerEnabled)
     {
         this.catalogServerEnabled = catalogServerEnabled;
+        return this;
+    }
+
+    public boolean isCoordinatorSidecarEnabled()
+    {
+        return coordinatorSidecarEnabled;
+    }
+
+    @Config("coordinator-sidecar-enabled")
+    public ServerConfig setCoordinatorSidecarEnabled(boolean coordinatorSidecarEnabled)
+    {
+        this.coordinatorSidecarEnabled = coordinatorSidecarEnabled;
         return this;
     }
 

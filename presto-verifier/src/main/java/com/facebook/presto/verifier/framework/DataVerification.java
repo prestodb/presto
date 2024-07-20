@@ -108,7 +108,7 @@ public class DataVerification
             ChecksumQueryContext testChecksumQueryContext)
     {
         List<Column> testColumns = getColumns(getHelperAction(), typeManager, test.getObjectName());
-        Query testChecksumQuery = checksumValidator.generateChecksumQuery(test.getObjectName(), testColumns);
+        Query testChecksumQuery = checksumValidator.generateChecksumQuery(test.getObjectName(), testColumns, test.getPartitionsPredicate());
         testChecksumQueryContext.setChecksumQuery(formatSql(testChecksumQuery));
 
         List<Column> controlColumns = null;
@@ -116,7 +116,7 @@ public class DataVerification
 
         if (isControlEnabled()) {
             controlColumns = getColumns(getHelperAction(), typeManager, control.getObjectName());
-            Query controlChecksumQuery = checksumValidator.generateChecksumQuery(control.getObjectName(), controlColumns);
+            Query controlChecksumQuery = checksumValidator.generateChecksumQuery(control.getObjectName(), controlColumns, control.getPartitionsPredicate());
             controlChecksumQueryContext.setChecksumQuery(formatSql(controlChecksumQuery));
 
             QueryResult<ChecksumResult> controlChecksum = callAndConsume(

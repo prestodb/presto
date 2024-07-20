@@ -10,7 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ARG base=amd64/ubuntu:22.04
+ARG base=ubuntu:22.04
 FROM ${base}
 
 # Set a default timezone, can be overriden via ARG

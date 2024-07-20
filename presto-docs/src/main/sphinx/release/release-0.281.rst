@@ -12,8 +12,8 @@ _______________
 * Improve outer join where the join key is from the output of another outer join which can have many null values. The optimization is controlled by session property ``randomize_outer_join_null_key_strategy`` and the default value is ``DISABLED``
 * Add timeouts for long running optimization rules.
 * Improve performance for queries with multiple similar aggregations, with and without filters. The optimization is controlled by session parameter merge_aggs_with_and_without_filter and by default it is set to false.* Add an optimization rule to merge aggregations when there are multiple duplicate aggregations in the aggregation node. The optimization is controlled by session property ``merge_duplicate_aggregations`` and default value is ``true``.
-* Add :func:`f_cdf()` and :func:`inverse_f_cdf()` functions.
-* Add :func:`gamma_cdf()`` and :func:`inverse_gamma_cdf()` functions.
+* Add :func:`!f_cdf()` and :func:`!inverse_f_cdf()` functions.
+* Add :func:`!gamma_cdf()`` and :func:`!inverse_gamma_cdf()` functions.
 * Add groups support to :doc:`/functions/window`.
 * Add optimization for joins when build side is empty at runtime. The optimization is controlled by session parameter ``optimize_join_probe_for_empty_build_runtime`` and by default it is set to ``false``.
 * Add system config to enable access log on presto-on-spark native. This can be enabled with the system config ``http-server.enable-access-log`` and default value is ``true``.

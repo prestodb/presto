@@ -21,7 +21,21 @@ public abstract class SourceInfo
 {
     public enum ConfidenceLevel
     {
-        LOW, HIGH, FACT;
+        LOW(0),
+        HIGH(1),
+        FACT(2);
+
+        private final int confidenceOrdinal;
+
+        ConfidenceLevel(int confidenceOrdinal)
+        {
+            this.confidenceOrdinal = confidenceOrdinal;
+        }
+
+        public int getConfidenceOrdinal()
+        {
+            return confidenceOrdinal;
+        }
     }
 
     public abstract ConfidenceLevel confidenceLevel();

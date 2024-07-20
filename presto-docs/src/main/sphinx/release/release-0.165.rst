@@ -6,7 +6,7 @@ General Changes
 ---------------
 
 * Make ``AT`` a non-reserved keyword.
-* Improve performance of :func:`transform`.
+* Improve performance of :func:`!transform`.
 * Improve exchange performance by deserializing in parallel.
 * Add support for compressed exchanges. This can be enabled with the ``exchange.compression-enabled``
   config option.

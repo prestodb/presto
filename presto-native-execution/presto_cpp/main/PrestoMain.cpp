@@ -31,7 +31,9 @@ int main(int argc, char* argv[]) {
   PRESTO_SHUTDOWN_LOG(INFO) << "Exiting main()";
 }
 
+#ifndef PRESTO_STATS_REPORTER_TYPE
 // Initialize singleton for the reporter.
 folly::Singleton<facebook::velox::BaseStatsReporter> reporter([]() {
   return new facebook::velox::DummyStatsReporter();
 });
+#endif

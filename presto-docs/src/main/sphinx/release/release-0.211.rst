@@ -13,7 +13,7 @@ General Changes
   Consequently, TLS 1.0 or TLS 1.1 are no longer supported with the default configuration.
   The ``http-server.https.excluded-cipher`` config property can be set to empty string
   to restore the old behavior.
-* Add :func:`ST_GeomFromBinary` and :func:`ST_AsBinary` functions that convert
+* Add :func:`!ST_GeomFromBinary` and :func:`!ST_AsBinary` functions that convert
   geometries to and from Well-Known Binary format.
 * Remove the ``verbose_stats`` session property, and rename the ``task.verbose-stats``
   configuration property to ``task.per-operator-cpu-timer-enabled``.

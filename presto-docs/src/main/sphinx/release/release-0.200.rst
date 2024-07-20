@@ -9,15 +9,15 @@ General Changes
   has zero rows. This optimization can cause indefinite query hangs
   for queries that join against a small number of rows.
   This regression was introduced in 0.199.
-* Fix query execution failure for :func:`bing_tile_coordinates`.
+* Fix query execution failure for :func:`!bing_tile_coordinates`.
 * Remove the ``log()`` function. The arguments to the function were in the
   wrong order according to the SQL standard, resulting in incorrect results
   when queries were translated to or from other SQL implementations. The
   equivalent to ``log(x, b)`` is ``ln(x) / ln(b)``. The function can be
   restored with the ``deprecated.legacy-log-function`` config option.
 * Allow including a comment when adding a column to a table with ``ALTER TABLE``.
-* Add :func:`from_ieee754_32` and :func:`from_ieee754_64` functions.
-* Add :func:`ST_GeometryType` geospatial function.
+* Add :func:`!from_ieee754_32` and :func:`!from_ieee754_64` functions.
+* Add :func:`!ST_GeometryType` geospatial function.
 
 Hive Changes
 ------------

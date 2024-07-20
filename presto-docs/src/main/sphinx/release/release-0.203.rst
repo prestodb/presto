@@ -5,7 +5,7 @@ Release 0.203
 General Changes
 ---------------
 
-* Fix spurious duplicate key errors from :func:`map`.
+* Fix spurious duplicate key errors from :func:`!map`.
 * Fix planning failure when a correlated subquery containing a ``LIMIT``
   clause is used within ``EXISTS`` (:issue:`10696`).
 * Fix out of memory error caused by missing pushback checks in data exchanges.

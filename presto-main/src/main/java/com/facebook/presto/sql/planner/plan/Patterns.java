@@ -18,6 +18,7 @@ import com.facebook.presto.matching.Property;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.CteConsumerNode;
 import com.facebook.presto.spi.plan.CteProducerNode;
+import com.facebook.presto.spi.plan.CteReferenceNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IntersectNode;
 import com.facebook.presto.spi.plan.JoinType;
@@ -133,6 +134,11 @@ public class Patterns
     public static Pattern<CteConsumerNode> cteConsumer()
     {
         return typeOf(CteConsumerNode.class);
+    }
+
+    public static Pattern<CteReferenceNode> cteReference()
+    {
+        return typeOf(CteReferenceNode.class);
     }
 
     public static Pattern<SequenceNode> sequenceNode()

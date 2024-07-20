@@ -15,6 +15,7 @@ package com.facebook.presto;
 
 import com.facebook.presto.common.WarningHandlingLevel;
 import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
+import com.facebook.presto.cost.HistoryBasedOptimizationConfig;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy;
 import com.facebook.presto.execution.TaskManagerConfig;
@@ -23,7 +24,6 @@ import com.facebook.presto.execution.scheduler.NodeSchedulerConfig.ResourceAware
 import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.memory.NodeMemoryConfig;
-import com.facebook.presto.server.security.SecurityConfig;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.eventlistener.CTEInformation;
 import com.facebook.presto.spi.session.PropertyMetadata;
@@ -146,6 +146,8 @@ public final class SystemSessionProperties
     public static final String OPTIMIZE_METADATA_QUERIES_CALL_THRESHOLD = "optimize_metadata_queries_call_threshold";
     public static final String FAST_INEQUALITY_JOINS = "fast_inequality_joins";
     public static final String QUERY_PRIORITY = "query_priority";
+    public static final String CONFIDENCE_BASED_BROADCAST_ENABLED = "confidence_based_broadcast_enabled";
+    public static final String TREAT_LOW_CONFIDENCE_ZERO_ESTIMATION_AS_UNKNOWN_ENABLED = "treat_low_confidence_zero_estimation_unknown_enabled";
     public static final String SPILL_ENABLED = "spill_enabled";
     public static final String JOIN_SPILL_ENABLED = "join_spill_enabled";
     public static final String AGGREGATION_SPILL_ENABLED = "aggregation_spill_enabled";
@@ -324,6 +326,7 @@ public final class SystemSessionProperties
     public static final String GENERATE_DOMAIN_FILTERS = "generate_domain_filters";
     public static final String REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION = "rewrite_expression_with_constant_expression";
     public static final String PRINT_ESTIMATED_STATS_FROM_CACHE = "print_estimated_stats_from_cache";
+    public static final String REMOVE_CROSS_JOIN_WITH_CONSTANT_SINGLE_ROW_INPUT = "remove_cross_join_with_constant_single_row_input";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "native_simplified_expression_evaluation_enabled";
@@ -347,6 +350,7 @@ public final class SystemSessionProperties
     public static final String DEFAULT_VIEW_SECURITY_MODE = "default_view_security_mode";
     public static final String JOIN_PREFILTER_BUILD_SIDE = "join_prefilter_build_side";
     public static final String OPTIMIZER_USE_HISTOGRAMS = "optimizer_use_histograms";
+    public static final String WARN_ON_COMMON_NAN_PATTERNS = "warn_on_common_nan_patterns";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -363,7 +367,7 @@ public final class SystemSessionProperties
                 new NodeSpillConfig(),
                 new TracingConfig(),
                 new CompilerConfig(),
-                new SecurityConfig());
+                new HistoryBasedOptimizationConfig());
     }
 
     @Inject
@@ -378,7 +382,7 @@ public final class SystemSessionProperties
             NodeSpillConfig nodeSpillConfig,
             TracingConfig tracingConfig,
             CompilerConfig compilerConfig,
-            SecurityConfig securityConfig)
+            HistoryBasedOptimizationConfig historyBasedOptimizationConfig)
     {
         sessionProperties = ImmutableList.of(
                 stringProperty(
@@ -421,6 +425,16 @@ public final class SystemSessionProperties
                         SIZE_BASED_JOIN_DISTRIBUTION_TYPE,
                         "Consider source table size when determining join distribution type when CBO fails",
                         featuresConfig.isSizeBasedJoinDistributionTypeEnabled(),
+                        false),
+                booleanProperty(
+                        CONFIDENCE_BASED_BROADCAST_ENABLED,
+                        "Enable confidence based broadcasting when enabled",
+                        featuresConfig.isConfidenceBasedBroadcastEnabled(),
+                        false),
+                booleanProperty(
+                        TREAT_LOW_CONFIDENCE_ZERO_ESTIMATION_AS_UNKNOWN_ENABLED,
+                        "Treat low confidence zero estimations as unknowns during joins when enabled",
+                        featuresConfig.isTreatLowConfidenceZeroEstimationAsUnknownEnabled(),
                         false),
                 booleanProperty(
                         DISTRIBUTED_INDEX_JOIN,
@@ -1547,11 +1561,15 @@ public final class SystemSessionProperties
                         "Enable history based optimization only for complex queries, i.e. queries with join and aggregation",
                         true,
                         false),
-                doubleProperty(
+                new PropertyMetadata<>(
                         HISTORY_INPUT_TABLE_STATISTICS_MATCHING_THRESHOLD,
                         "When the size difference between current table and history table exceed this threshold, do not match history statistics",
-                        0.0,
-                        true),
+                        DOUBLE,
+                        Double.class,
+                        historyBasedOptimizationConfig.getHistoryMatchingThreshold(),
+                        true,
+                        value -> validateDoubleValueWithinSelectivityRange(value, HISTORY_INPUT_TABLE_STATISTICS_MATCHING_THRESHOLD),
+                        object -> object),
                 stringProperty(
                         HISTORY_BASED_OPTIMIZATION_PLAN_CANONICALIZATION_STRATEGY,
                         format("The plan canonicalization strategies used for history based optimization, the strategies will be applied based on the accuracy of the strategies, from more accurate to less accurate. Options are %s",
@@ -1917,6 +1935,11 @@ public final class SystemSessionProperties
                                 "get stats from a cache that was populated during query optimization rather than recalculating the stats on the final plan.",
                         featuresConfig.isPrintEstimatedStatsFromCache(),
                         false),
+                booleanProperty(
+                        REMOVE_CROSS_JOIN_WITH_CONSTANT_SINGLE_ROW_INPUT,
+                        "If one input of the cross join is a single row with constant value, remove this cross join and replace with a project node",
+                        featuresConfig.isRemoveCrossJoinWithSingleConstantRow(),
+                        false),
                 new PropertyMetadata<>(
                         DEFAULT_VIEW_SECURITY_MODE,
                         format("Set default view security mode. Options are: %s",
@@ -1937,6 +1960,10 @@ public final class SystemSessionProperties
                 booleanProperty(OPTIMIZER_USE_HISTOGRAMS,
                         "whether or not to use histograms in the CBO",
                         featuresConfig.isUseHistograms(),
+                        false),
+                booleanProperty(WARN_ON_COMMON_NAN_PATTERNS,
+                        "Whether to give a warning for some common issues relating to NaNs",
+                        featuresConfig.getWarnOnCommonNanPatterns(),
                         false));
     }
 
@@ -2012,6 +2039,16 @@ public final class SystemSessionProperties
     public static boolean isDistributedIndexJoinEnabled(Session session)
     {
         return session.getSystemProperty(DISTRIBUTED_INDEX_JOIN, Boolean.class);
+    }
+
+    public static boolean confidenceBasedBroadcastEnabled(Session session)
+    {
+        return session.getSystemProperty(CONFIDENCE_BASED_BROADCAST_ENABLED, Boolean.class);
+    }
+
+    public static boolean treatLowConfidenceZeroEstimationAsUnknownEnabled(Session session)
+    {
+        return session.getSystemProperty(TREAT_LOW_CONFIDENCE_ZERO_ESTIMATION_AS_UNKNOWN_ENABLED, Boolean.class);
     }
 
     public static int getHashPartitionCount(Session session)
@@ -3225,8 +3262,18 @@ public final class SystemSessionProperties
         return session.getSystemProperty(PRINT_ESTIMATED_STATS_FROM_CACHE, Boolean.class);
     }
 
+    public static boolean isRemoveCrossJoinWithConstantSingleRowInputEnabled(Session session)
+    {
+        return session.getSystemProperty(REMOVE_CROSS_JOIN_WITH_CONSTANT_SINGLE_ROW_INPUT, Boolean.class);
+    }
+
     public static boolean shouldOptimizerUseHistograms(Session session)
     {
         return session.getSystemProperty(OPTIMIZER_USE_HISTOGRAMS, Boolean.class);
+    }
+
+    public static boolean warnOnCommonNanPatterns(Session session)
+    {
+        return session.getSystemProperty(WARN_ON_COMMON_NAN_PATTERNS, Boolean.class);
     }
 }

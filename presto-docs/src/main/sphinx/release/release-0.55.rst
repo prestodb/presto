@@ -68,7 +68,7 @@ query to further limit the data scanned.
 json_array_get Function
 -----------------------
 
-The :func:`json_array_get` function makes it simple to fetch a single element from a
+The :func:`!json_array_get` function makes it simple to fetch a single element from a
 scalar json array.
 
 Non-reserved Keywords

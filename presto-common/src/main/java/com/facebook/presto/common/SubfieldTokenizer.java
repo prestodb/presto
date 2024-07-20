@@ -38,7 +38,7 @@ class SubfieldTokenizer
     private boolean firstSegment = true;
     private Subfield.PathElement next;
 
-    public SubfieldTokenizer(String path)
+    SubfieldTokenizer(String path)
     {
         this.path = requireNonNull(path, "path is null");
 

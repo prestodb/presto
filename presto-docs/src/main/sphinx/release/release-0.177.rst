@@ -24,7 +24,7 @@ General Changes
   with subqueries).
 * Add ``SHOW STATS`` to display table and query statistics.
 * Improve implicit coercion support for functions involving lambda. Specifically, this makes
-  it easier to use the :func:`reduce` function.
+  it easier to use the :func:`!reduce` function.
 * Improve plans for queries involving ``ORDER BY`` and ``LIMIT`` by avoiding unnecessary
   data exchanges.
 * Improve performance of queries containing window functions with identical ``PARTITION BY``

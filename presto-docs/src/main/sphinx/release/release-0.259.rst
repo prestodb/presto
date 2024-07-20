@@ -12,7 +12,7 @@ Release 0.259
 General Changes
 _______________
 * Fix ``ClassCastException`` that sometimes occurred for ``EXPLAIN`` queries when the query contained ``LIKE`` predicates.
-* Add Weibull distribution CDF :func:`weibull_cdf` and inverse CDF :func:`inverse_weibull_cdf` functions.
+* Add Weibull distribution CDF :func:`!weibull_cdf` and inverse CDF :func:`!inverse_weibull_cdf` functions.
 * Enable verbose error messages for ``EXCEEDED_LOCAL_MEMORY_LIMIT`` by default.  This can be disabled by setting the configuration property ``memory.verbose-exceeded-memory-limit-errors-enabled`` to ``false``.
 
 JDBC Driver Changes

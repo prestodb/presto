@@ -18,10 +18,10 @@ _______________
 * Improve performance of getting resource group metrics.
 * Add a optimizer rule ``RemoveIdentityProjectionsBelowProjection`` to remove identity projections under project node.
 * Add a session parameter ``use_broadcast_when_buildsize_small_probeside_unknown`` to choose join distribution type This session is default to false. When enabled, broadcast join will be chosen when one side of input is within broadcast limit and the other side is unknow.
-* Add function :func:`any_keys_match`.
-* Add function :func:`any_values_match`.
+* Add function :func:`!any_keys_match`.
+* Add function :func:`!any_values_match`.
 * Add option to add partial row number node for row number node with max count limit, enabled by session parameter ``add_partial_node_for_row_number_node_with_limit``.
-* Add string functions :func:`starts_with` and :func:`ends_with`.
+* Add string functions :func:`!starts_with` and :func:`!ends_with`.
 * Add support for broadcast join in Presto-on-Spark/Velox execution path.
 * Add support for internal authentication using JWT. Can be configured using configs ``internal-communication.jwt.enabled=[true/false]`` and ``internal-communication.shared-secret=<shared-secret-value>``.
 * Add support for worker isolation by configuring leaf and intermediate worker pools.

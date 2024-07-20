@@ -175,7 +175,9 @@ public class StatisticsWriterOperator
         descriptor.getTableStatistics().forEach((type, channel) ->
                 statistics.addTableStatistic(type, page.getBlock(channel).getSingleValueBlock(position)));
 
-        descriptor.getColumnStatistics().forEach((metadata, channel) -> statistics.addColumnStatistic(metadata, page.getBlock(channel).getSingleValueBlock(position)));
+        descriptor.getColumnStatistics().forEach((descriptor) ->
+                statistics.addColumnStatistic(descriptor.getMetadata(),
+                        page.getBlock(descriptor.getItem()).getSingleValueBlock(position)));
 
         return statistics.build();
     }

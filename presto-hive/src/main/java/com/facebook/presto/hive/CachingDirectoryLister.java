@@ -24,8 +24,10 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.Weigher;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.apache.hadoop.fs.Path;
+import org.openjdk.jol.info.ClassLayout;
 import org.weakref.jmx.Managed;
 
 import javax.inject.Inject;
@@ -46,12 +48,13 @@ import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class CachingDirectoryLister
         implements DirectoryLister
 {
-    private final Cache<Path, List<HiveFileInfo>> cache;
+    private final Cache<String, ValueHolder> cache;
     private final CachedTableChecker cachedTableChecker;
     private final DirectoryLister delegate;
 
@@ -61,16 +64,16 @@ public class CachingDirectoryLister
         this(
                 delegate,
                 hiveClientConfig.getFileStatusCacheExpireAfterWrite(),
-                hiveClientConfig.getFileStatusCacheMaxSize(),
+                hiveClientConfig.getFileStatusCacheMaxRetainedSize(),
                 hiveClientConfig.getFileStatusCacheTables());
     }
 
-    public CachingDirectoryLister(DirectoryLister delegate, Duration expireAfterWrite, long maxSize, List<String> tables)
+    public CachingDirectoryLister(DirectoryLister delegate, Duration expireAfterWrite, DataSize maxSize, List<String> tables)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         cache = CacheBuilder.newBuilder()
-                .maximumWeight(maxSize)
-                .weigher((Weigher<Path, List<HiveFileInfo>>) (key, value) -> value.size())
+                .maximumWeight(maxSize.toBytes())
+                .weigher((Weigher<String, ValueHolder>) (key, value) -> toIntExact(key.length() + value.getRetainedSizeInBytes()))
                 .expireAfterWrite(expireAfterWrite.toMillis(), TimeUnit.MILLISECONDS)
                 .recordStats()
                 .build();
@@ -91,8 +94,9 @@ public class CachingDirectoryLister
         if (hiveDirectoryContext.isCacheable()) {
             // DO NOT USE Caching, when cache is disabled.
             // This is useful for debugging issues, when cache is explicitly disabled via session property.
-            List<HiveFileInfo> files = cache.getIfPresent(path);
-            if (files != null) {
+            ValueHolder value = Optional.ofNullable(cache.getIfPresent(path.toString())).orElse(null);
+            if (value != null) {
+                List<HiveFileInfo> files = value.getFiles();
                 runtimeStats.addMetricValue(DIRECTORY_LISTING_CACHE_HIT, NONE, 1);
                 runtimeStats.addMetricValue(DIRECTORY_LISTING_TIME_NANOS, NANO, System.nanoTime() - startTime);
                 runtimeStats.addMetricValue(FILES_READ_COUNT, NONE, files.size());
@@ -122,7 +126,7 @@ public class CachingDirectoryLister
                 if (!hasNext) {
                     runtimeStats.addMetricValue(FILES_READ_COUNT, NONE, files.size());
                     if (enableCaching) {
-                        cache.put(path, ImmutableList.copyOf(files));
+                        cache.put(path.toString(), new ValueHolder(files));
                     }
                 }
                 return hasNext;
@@ -144,12 +148,12 @@ public class CachingDirectoryLister
             if (directoryPath.get().isEmpty()) {
                 throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, "Directory path can not be a empty string");
             }
-            Path path = new Path(directoryPath.get());
-            List<HiveFileInfo> files = cache.getIfPresent(path);
-            if (files == null) {
+
+            ValueHolder value = cache.getIfPresent(directoryPath.get());
+            if (value == null) {
                 throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, "Given directory path is not cached : " + directoryPath);
             }
-            cache.invalidate(path);
+            cache.invalidate(directoryPath.get());
         }
         else {
             flushCache();
@@ -202,6 +206,28 @@ public class CachingDirectoryLister
     public long getSize()
     {
         return cache.size();
+    }
+
+    private static class ValueHolder
+    {
+        private static final long INSTANCE_SIZE = ClassLayout.parseClass(ValueHolder.class).instanceSize();
+
+        private final List<HiveFileInfo> files;
+
+        public ValueHolder(List<HiveFileInfo> files)
+        {
+            this.files = ImmutableList.copyOf(requireNonNull(files, "files is null"));
+        }
+
+        public List<HiveFileInfo> getFiles()
+        {
+            return files;
+        }
+
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE + files.stream().map(HiveFileInfo::getRetainedSizeInBytes).reduce(0L, Long::sum);
+        }
     }
 
     private static class CachedTableChecker

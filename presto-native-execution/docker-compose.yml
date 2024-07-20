@@ -16,7 +16,7 @@ services:
     # Usage:
     #   docker-compose build ubuntu-native-dependency
     #   podman compose build ubuntu-native-dependency
-    image: presto/prestissimo-dependency:amd64-ubuntu-22.04
+    image: presto/prestissimo-dependency:ubuntu-22.04
     build:
       context: .
       dockerfile: scripts/dockerfiles/ubuntu-22.04-dependency.dockerfile
@@ -25,19 +25,20 @@ services:
     # Usage:
     #   docker-compose build ubuntu-native-runtime
     #   podman compose build ubuntu-native-runtime
-    image: presto/prestissimo-runtime:amd64-ubuntu-22.04
+    image: presto/prestissimo-runtime:ubuntu-22.04
     build:
       args:
-        - DEPENDENCY_IMAGE=presto/prestissimo-dependency:amd64-ubuntu-22.04
-        - BASE_IMAGE=amd64/ubuntu:22.04
+          # A few files in Velox require significant memory to compile and link.
+          # Build requires 18GB of memory for 2 threads.
+        - NUM_THREADS=2 # default value for NUM_THREADS.
+        - DEPENDENCY_IMAGE=presto/prestissimo-dependency:ubuntu-22.04
+        - BASE_IMAGE=ubuntu:22.04
         - OSNAME=ubuntu
-        - EXTRA_CMAKE_FLAGS=-DPRESTO_ENABLE_TESTING=OFF \
-                            -DPRESTO_ENABLE_PARQUET=ON \
+        - EXTRA_CMAKE_FLAGS=-DPRESTO_ENABLE_TESTING=OFF
+                            -DPRESTO_ENABLE_PARQUET=ON
                             -DPRESTO_ENABLE_S3=ON
       context: .
       dockerfile: scripts/dockerfiles/prestissimo-runtime.dockerfile
-    environment:
-      NUM_THREADS: 8 # default value for NUM_THREADS
 
   centos-native-dependency:
     # Usage:
@@ -55,10 +56,11 @@ services:
     image: presto/prestissimo-runtime:centos8
     build:
       args:
-        - EXTRA_CMAKE_FLAGS=-DPRESTO_ENABLE_TESTING=OFF \
-                            -DPRESTO_ENABLE_PARQUET=ON \
+          # A few files in Velox require significant memory to compile and link.
+          # Build requires 18GB of memory for 2 threads.
+        - NUM_THREADS=2 # default value for NUM_THREADS
+        - EXTRA_CMAKE_FLAGS=-DPRESTO_ENABLE_TESTING=OFF
+                            -DPRESTO_ENABLE_PARQUET=ON
                             -DPRESTO_ENABLE_S3=ON
       context: .
       dockerfile: scripts/dockerfiles/prestissimo-runtime.dockerfile
-    environment:
-      NUM_THREADS: 8 # default value for NUM_THREADS

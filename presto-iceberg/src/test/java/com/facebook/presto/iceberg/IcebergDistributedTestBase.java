@@ -105,8 +105,7 @@ import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.SYNTHESIZ
 import static com.facebook.presto.iceberg.FileContent.EQUALITY_DELETES;
 import static com.facebook.presto.iceberg.FileContent.POSITION_DELETES;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
-import static com.facebook.presto.iceberg.IcebergQueryRunner.TEST_CATALOG_DIRECTORY;
-import static com.facebook.presto.iceberg.IcebergQueryRunner.TEST_DATA_DIRECTORY;
+import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.DELETE_AS_JOIN_REWRITE_ENABLED;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.STATISTIC_SNAPSHOT_RECORD_DIFFERENCE_WEIGHT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -942,7 +941,6 @@ public abstract class IcebergDistributedTestBase
             // assert either case as we don't have good control over the timing of when statistics files are written
             ColumnStatistics col0Stats = columnStatsFor(statistics, "col0");
             ColumnStatistics col1Stats = columnStatsFor(statistics, "col1");
-            System.out.printf("distinct @ %s count col0: %s%n", snaps.get(i), col0Stats.getDistinctValuesCount());
             final int idx = i;
             assertEither(
                     () -> assertEquals(col0Stats.getDistinctValuesCount(), Estimate.of(idx)),
@@ -1595,7 +1593,8 @@ public abstract class IcebergDistributedTestBase
     private void writePositionDeleteToNationTable(Table icebergTable, String dataFilePath, long deletePos)
             throws IOException
     {
-        File metastoreDir = getDistributedQueryRunner().getCoordinator().getDataDirectory().toFile();
+        Path dataDirectory = getDistributedQueryRunner().getCoordinator().getDataDirectory();
+        File metastoreDir = getIcebergDataDirectoryPath(dataDirectory, catalogType.name(), new IcebergConfig().getFileFormat(), false).toFile();
         org.apache.hadoop.fs.Path metadataDir = new org.apache.hadoop.fs.Path(metastoreDir.toURI());
         String deleteFileName = "delete_file_" + UUID.randomUUID();
         FileSystem fs = getHdfsEnvironment().getFileSystem(new HdfsContext(SESSION), metadataDir);
@@ -1626,7 +1625,8 @@ public abstract class IcebergDistributedTestBase
     private void writeEqualityDeleteToNationTable(Table icebergTable, Map<String, Object> overwriteValues, Map<String, Object> partitionValues)
             throws Exception
     {
-        File metastoreDir = getDistributedQueryRunner().getCoordinator().getDataDirectory().toFile();
+        Path dataDirectory = getDistributedQueryRunner().getCoordinator().getDataDirectory();
+        File metastoreDir = getIcebergDataDirectoryPath(dataDirectory, catalogType.name(), new IcebergConfig().getFileFormat(), false).toFile();
         org.apache.hadoop.fs.Path metadataDir = new org.apache.hadoop.fs.Path(metastoreDir.toURI());
         String deleteFileName = "delete_file_" + UUID.randomUUID();
         FileSystem fs = getHdfsEnvironment().getFileSystem(new HdfsContext(SESSION), metadataDir);
@@ -1689,14 +1689,9 @@ public abstract class IcebergDistributedTestBase
         Path dataDirectory = getDistributedQueryRunner().getCoordinator().getDataDirectory();
         switch (catalogType) {
             case HIVE:
-                return dataDirectory
-                        .resolve(TEST_DATA_DIRECTORY)
-                        .getParent()
-                        .resolve(TEST_CATALOG_DIRECTORY)
-                        .toFile();
             case HADOOP:
             case NESSIE:
-                return dataDirectory.toFile();
+                return getIcebergDataDirectoryPath(dataDirectory, catalogType.name(), new IcebergConfig().getFileFormat(), false).toFile();
         }
 
         throw new PrestoException(NOT_SUPPORTED, "Unsupported Presto Iceberg catalog type " + catalogType);

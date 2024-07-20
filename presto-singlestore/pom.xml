@@ -14,6 +14,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <singlestore.license>${env.SINGLESTORE_LICENSE}</singlestore.license>
     </properties>
 
     <dependencies>
@@ -103,9 +104,25 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-testing-docker</artifactId>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>jdbc</artifactId>
             <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-api</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.jetbrains</groupId>
+                    <artifactId>annotations</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -163,6 +180,11 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <environmentVariables>
+                        <SINGLESTORE_LICENSE>${singlestore.license}</SINGLESTORE_LICENSE>
+                    </environmentVariables>
+                </configuration>
             </plugin>
         </plugins>
     </build>
@@ -175,6 +197,11 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <environmentVariables>
+                                <SINGLESTORE_LICENSE>${singlestore.license}</SINGLESTORE_LICENSE>
+                            </environmentVariables>
+                        </configuration>
                     </plugin>
                 </plugins>
             </build>

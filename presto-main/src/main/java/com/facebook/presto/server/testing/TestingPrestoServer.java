@@ -167,6 +167,7 @@ public class TestingPrestoServer
     private final RequestBlocker requestBlocker;
     private final boolean resourceManager;
     private final boolean catalogServer;
+    private final boolean coordinatorSidecar;
     private final boolean coordinator;
     private final boolean nodeSchedulerIncludeCoordinator;
     private final ServerInfoResource serverInfoResource;
@@ -238,6 +239,8 @@ public class TestingPrestoServer
                 false,
                 false,
                 false,
+                false,
+                false,
                 coordinator,
                 properties,
                 environment,
@@ -252,6 +255,8 @@ public class TestingPrestoServer
             boolean resourceManagerEnabled,
             boolean catalogServer,
             boolean catalogServerEnabled,
+            boolean coordinatorSidecar,
+            boolean coordinatorSidecarEnabled,
             boolean coordinator,
             Map<String, String> properties,
             String environment,
@@ -263,6 +268,7 @@ public class TestingPrestoServer
     {
         this.resourceManager = resourceManager;
         this.catalogServer = catalogServer;
+        this.coordinatorSidecar = coordinatorSidecar;
         this.coordinator = coordinator;
 
         this.dataDirectory = dataDirectory.orElseGet(TestingPrestoServer::tempDirectory);
@@ -275,7 +281,7 @@ public class TestingPrestoServer
             coordinatorPort = "0";
         }
 
-        Map<String, String> serverProperties = getServerProperties(resourceManagerEnabled, catalogServerEnabled, properties, environment, discoveryUri);
+        Map<String, String> serverProperties = getServerProperties(resourceManagerEnabled, catalogServerEnabled, coordinatorSidecarEnabled, properties, environment, discoveryUri);
 
         ImmutableList.Builder<Module> modules = ImmutableList.<Module>builder()
                 .add(new TestingNodeModule(Optional.ofNullable(environment)))
@@ -380,6 +386,17 @@ public class TestingPrestoServer
             eventListenerManager = ((TestingEventListenerManager) injector.getInstance(EventListenerManager.class));
             clusterStateProvider = injector.getInstance(ResourceManagerClusterStateProvider.class);
         }
+        else if (coordinatorSidecar) {
+            dispatchManager = null;
+            queryManager = null;
+            resourceGroupManager = Optional.empty();
+            nodePartitioningManager = null;
+            planOptimizerManager = null;
+            clusterMemoryManager = null;
+            statsCalculator = null;
+            eventListenerManager = null;
+            clusterStateProvider = null;
+        }
         else if (catalogServer) {
             dispatchManager = null;
             queryManager = null;
@@ -425,6 +442,7 @@ public class TestingPrestoServer
     private Map<String, String> getServerProperties(
             boolean resourceManagerEnabled,
             boolean catalogServerEnabled,
+            boolean coordinatorSidecarEnabled,
             Map<String, String> properties,
             String environment,
             URI discoveryUri)
@@ -435,13 +453,14 @@ public class TestingPrestoServer
         serverProperties.put("resource-manager-enabled", String.valueOf(resourceManagerEnabled));
         serverProperties.put("catalog-server", String.valueOf(catalogServer));
         serverProperties.put("catalog-server-enabled", String.valueOf(catalogServerEnabled));
+        serverProperties.put("coordinator-sidecar-enabled", String.valueOf(coordinatorSidecarEnabled));
         serverProperties.put("presto.version", "testversion");
         serverProperties.put("task.concurrency", "4");
         serverProperties.put("task.max-worker-threads", "4");
         serverProperties.put("exchange.client-threads", "4");
         serverProperties.put("optimizer.ignore-stats-calculator-failures", "false");
         serverProperties.put("internal-communication.shared-secret", "internal-shared-secret");
-        if (coordinator || resourceManager || catalogServer) {
+        if (coordinator || resourceManager || catalogServer || coordinatorSidecar) {
             // enabling failure detector in tests can make them flakey
             serverProperties.put("failure-detector.enabled", "false");
         }

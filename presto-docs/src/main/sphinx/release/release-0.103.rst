@@ -46,9 +46,9 @@ Hive Changes
 General Changes
 ---------------
 
-* Add :func:`array_remove`.
-* Fix NPE in :func:`max_by` and :func:`min_by` caused when few rows were present in the aggregation.
-* Reduce memory usage of :func:`map_agg`.
+* Add :func:`!array_remove`.
+* Fix NPE in :func:`!max_by` and :func:`!min_by` caused when few rows were present in the aggregation.
+* Reduce memory usage of :func:`!map_agg`.
 * Change HTTP client defaults: 2 second idle timeout, 10 second request
   timeout and 250 connections per host.
 * Add SQL command autocompletion to CLI.

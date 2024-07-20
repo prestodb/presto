@@ -14,10 +14,10 @@ _______________
 * Add check to disallow invoking SQL functions in SQL function body.
 * Add support for limiting the total number of buffers per optimized repartitioning operator. The limit can be set by the configuration property ``driver.max-page-partitioning-buffer-count``.
 * Add peak task total memory to query stats.
-* Add :func:`scale_qdigest` function to scale a ``qdigest`` to a new weight.
-* Add :func:`myanmar_font_encoding` and :func:`myanmar_normalize_unicode` to support working with Burmese text
-* Add support for :func:`ST_AsText` to accept Spherical Geographies.
-* Add support for :func:`ST_Centroid` to accept Spherical Geography Points and MultiPoints.
+* Add :func:`!scale_qdigest` function to scale a ``qdigest`` to a new weight.
+* Add :func:`!myanmar_font_encoding` and :func:`!myanmar_normalize_unicode` to support working with Burmese text
+* Add support for :func:`!ST_AsText` to accept Spherical Geographies.
+* Add support for :func:`!ST_Centroid` to accept Spherical Geography Points and MultiPoints.
 
 Pinot Connector Changes
 _______________________

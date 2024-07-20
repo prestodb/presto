@@ -37,5 +37,7 @@ public interface Node
 
     boolean isCatalogServer();
 
+    boolean isCoordinatorSidecar();
+
     NodePoolType getPoolType();
 }

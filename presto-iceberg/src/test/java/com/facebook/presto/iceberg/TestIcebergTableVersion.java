@@ -25,7 +25,9 @@ import org.testng.annotations.Test;
 import java.nio.file.Path;
 import java.util.Map;
 
+import static com.facebook.presto.iceberg.CatalogType.HIVE;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
+import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 
 public class TestIcebergTableVersion
@@ -72,7 +74,8 @@ public class TestIcebergTableVersion
                 .build();
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
 
-        Path catalogDirectory = queryRunner.getCoordinator().getDataDirectory().resolve("iceberg_data").resolve("catalog");
+        Path dataDirectory = queryRunner.getCoordinator().getDataDirectory();
+        Path catalogDirectory = getIcebergDataDirectoryPath(dataDirectory, HIVE.name(), new IcebergConfig().getFileFormat(), false);
 
         queryRunner.installPlugin(new IcebergPlugin());
         Map<String, String> icebergProperties = ImmutableMap.<String, String>builder()

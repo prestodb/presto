@@ -22,19 +22,19 @@ _______________
 * Fix disaggregated coordinator resource group aggregation issue related to ``WAITING_FOR_PREREQUISITE`` queries. When a query is moved to WAITING_FOR_PREREQUISITE, resource manager would end up counting them towards running queries. This gives a wrong impression to coordinator about running queries and it would end up running less queries than configured.
 * Fix a bug where ``EXPLAIN (TYPE IO)`` did not include the index source from an index join.
 * Fix a memory over-counting issue for using varchar types that could cause queries to fail with exceeded memory limit errors.
-* Fix an off-by-one error during buffer size calculation in :func:`tdigest_agg`.
+* Fix an off-by-one error during buffer size calculation in :func:`!tdigest_agg`.
 * Fix memory tagging for UnnestOperator and TableWriterMergeOperator.
-* Improve performance of :func: `zip_with` when used inside a :func:`reduce_agg`.
-* Add :func:`to_base32` and :func:`from_base32` varbinary functions.
+* Improve performance of :func: `zip_with` when used inside a :func:`!reduce_agg`.
+* Add :func:`!to_base32` and :func:`!from_base32` varbinary functions.
 * Add support for ``TRUNCATE TABLE`` statement and associated :doc:`/sql/truncate`.
 * Add support to set timeout on the query analyzer runtime to prevent long running query analysis like complex regular expressions. The timeout duration can be set by the configuration property ``planner.query-analyzer-timeout`` or session property ``query_analyzer_timeout``.
-* Add :func:`trim_array` function that can be called to delete elements from the end of an ordinary array.
+* Add :func:`!trim_array` function that can be called to delete elements from the end of an ordinary array.
 * Add a new optimization for showing results for (interactive) distinct limit N as they become available with no buffering.  This can be enabled by setting the session property ``quick_distinct_limit_enabled`` to true.
 * Add support for casting timestamp with micro/nanosecond precision.
 * Add Read support for json & jsonb data types in postgresql.
 * Add support for local round robin shuffle to reduce the partial distinct limit output size.
 * Add support for column subfield access control checks in connectors. Connectors can specify subfield access control for row-type columns through ``checkCanSelectFromColumns()`` in SPI.
-* Add warnings for :func:`approx_distinct` and :func:`approx_set` with low ``MAX_STANDARD_ERROR``.
+* Add warnings for :func:`!approx_distinct` and :func:`!approx_set` with low ``MAX_STANDARD_ERROR``.
 * Add support for retrying queries that failed with max requests queued exception.
 * Update protoc and grpc version in presto-grpc-api module to adapt to linux aarch64.
 * Upgrade zstandard compression to version 1.5.2.2. This improves the cpu used for data compressed with zstandard by about 2%.
@@ -62,7 +62,7 @@ _________________________
 
 Mongodb Connector Changes
 _________________________
-* Add :func:`CAST(ObjectId() as STRING)`.
+* Add :func:`!CAST(ObjectId() as STRING)`.
 
 Pinot Connector Changes
 _______________________

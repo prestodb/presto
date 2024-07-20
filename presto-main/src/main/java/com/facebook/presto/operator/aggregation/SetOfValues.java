@@ -19,12 +19,15 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.PrestoException;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.lang.invoke.MethodHandle;
 import java.util.Arrays;
 
+import static com.facebook.presto.common.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static com.facebook.presto.type.TypeUtils.expectedValueSize;
 import static com.facebook.presto.type.TypeUtils.hashPosition;
-import static com.facebook.presto.type.TypeUtils.positionEqualsPosition;
+import static com.facebook.presto.util.Failures.internalError;
+import static com.google.common.base.Defaults.defaultValue;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
@@ -40,15 +43,17 @@ public final class SetOfValues
 
     private final BlockBuilder valueBlockBuilder;
     private final Type valueType;
+    MethodHandle elementIsDistinctFrom;
 
     private int[] valuePositionByHash;
     private int hashCapacity;
     private int maxFill;
     private int hashMask;
 
-    public SetOfValues(Type valueType)
+    public SetOfValues(Type valueType, MethodHandle elementIsDistinctFrom)
     {
         this.valueType = requireNonNull(valueType, "valueType is null");
+        this.elementIsDistinctFrom = requireNonNull(elementIsDistinctFrom, "elementIsDistinctFrom is null");
         valueBlockBuilder = this.valueType.createBlockBuilder(null, EXPECTED_ENTRIES, expectedValueSize(valueType, EXPECTED_ENTRY_SIZE));
         hashCapacity = arraySize(EXPECTED_ENTRIES, FILL_RATIO);
         this.maxFill = calculateMaxFill(hashCapacity);
@@ -57,9 +62,9 @@ public final class SetOfValues
         Arrays.fill(valuePositionByHash, EMPTY_SLOT);
     }
 
-    public SetOfValues(Block serialized, Type elementType)
+    public SetOfValues(Block serialized, Type elementType, MethodHandle elementIsDistinctFrom)
     {
-        this(elementType);
+        this(elementType, elementIsDistinctFrom);
         deserialize(requireNonNull(serialized, "serialized is null"));
     }
 
@@ -111,10 +116,24 @@ public final class SetOfValues
             if (valuePositionByHash[hashPosition] == EMPTY_SLOT) {
                 return hashPosition;
             }
-            else if (positionEqualsPosition(valueType, valueBlockBuilder, valuePositionByHash[hashPosition], value, position)) {
+            else if (isContainedAt(valueBlockBuilder, valuePositionByHash[hashPosition], value, position)) {
                 return hashPosition;
             }
             hashPosition = getMaskedHash(hashPosition + 1);
+        }
+    }
+
+    private boolean isContainedAt(Block firstBlock, int positionWithinFirstBlock, Block secondBlock, int positionWithinSecondBlock)
+    {
+        boolean firstValueNull = firstBlock.isNull(positionWithinFirstBlock);
+        Object firstValue = firstValueNull ? defaultValue(valueType.getJavaType()) : readNativeValue(valueType, firstBlock, positionWithinFirstBlock);
+        boolean secondValueNull = secondBlock.isNull(positionWithinSecondBlock);
+        Object secondValue = secondValueNull ? defaultValue(valueType.getJavaType()) : readNativeValue(valueType, secondBlock, positionWithinSecondBlock);
+        try {
+            return !(boolean) elementIsDistinctFrom.invoke(firstValue, firstValueNull, secondValue, secondValueNull);
+        }
+        catch (Throwable t) {
+            throw internalError(t);
         }
     }
 

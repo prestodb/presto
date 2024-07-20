@@ -37,7 +37,6 @@ abstract class SimulationSplit
 
     private final AtomicInteger calls = new AtomicInteger(0);
 
-    private final long createdNanos = System.nanoTime();
     private final AtomicLong completedProcessNanos = new AtomicLong();
     private final AtomicLong startNanos = new AtomicLong(-1);
     private final AtomicLong doneNanos = new AtomicLong(-1);
@@ -53,24 +52,9 @@ abstract class SimulationSplit
         this.scheduledTimeNanos = scheduledTimeNanos;
     }
 
-    long getCreatedNanos()
-    {
-        return createdNanos;
-    }
-
     long getCompletedProcessNanos()
     {
         return completedProcessNanos.get();
-    }
-
-    long getStartNanos()
-    {
-        return startNanos.get();
-    }
-
-    long getDoneNanos()
-    {
-        return doneNanos.get();
     }
 
     long getWaitNanos()
@@ -86,21 +70,6 @@ abstract class SimulationSplit
     long getScheduledTimeNanos()
     {
         return scheduledTimeNanos;
-    }
-
-    String getTaskId()
-    {
-        return task.getTaskId().toString();
-    }
-
-    SimulationTask getTask()
-    {
-        return task;
-    }
-
-    boolean isKilled()
-    {
-        return killed.get();
     }
 
     void setKilled()
@@ -149,7 +118,7 @@ abstract class SimulationSplit
         if (done) {
             doneNanos.compareAndSet(-1, callEnd);
 
-            if (!isKilled()) {
+            if (!killed.get()) {
                 task.splitComplete(this);
             }
 
@@ -169,13 +138,13 @@ abstract class SimulationSplit
     {
         private final long perQuantaNanos;
 
-        public LeafSplit(SimulationTask task, long scheduledTimeNanos, long perQuantaNanos)
+        LeafSplit(SimulationTask task, long scheduledTimeNanos, long perQuantaNanos)
         {
             super(task, scheduledTimeNanos);
             this.perQuantaNanos = perQuantaNanos;
         }
 
-        public boolean process()
+        boolean process()
         {
             if (getCompletedProcessNanos() >= super.scheduledTimeNanos) {
                 return true;
@@ -195,7 +164,7 @@ abstract class SimulationSplit
             return false;
         }
 
-        public ListenableFuture<?> getProcessResult()
+        ListenableFuture<?> getProcessResult()
         {
             return NOT_BLOCKED;
         }
@@ -224,7 +193,7 @@ abstract class SimulationSplit
         private SettableFuture<?> future = SettableFuture.create();
         private SettableFuture<?> doneFuture = SettableFuture.create();
 
-        public IntermediateSplit(SimulationTask task, long scheduledTimeNanos, long wallTimeNanos, long numQuantas, long perQuantaNanos, long betweenQuantaNanos, ScheduledExecutorService executorService)
+        IntermediateSplit(SimulationTask task, long scheduledTimeNanos, long wallTimeNanos, long numQuantas, long perQuantaNanos, long betweenQuantaNanos, ScheduledExecutorService executorService)
         {
             super(task, scheduledTimeNanos);
             this.wallTimeNanos = wallTimeNanos;
@@ -236,7 +205,7 @@ abstract class SimulationSplit
             doneFuture.set(null);
         }
 
-        public boolean process()
+        boolean process()
         {
             try {
                 if (getCalls() < numQuantas) {
@@ -252,7 +221,7 @@ abstract class SimulationSplit
             return true;
         }
 
-        public ListenableFuture<?> getProcessResult()
+        ListenableFuture<?> getProcessResult()
         {
             future = SettableFuture.create();
             try {

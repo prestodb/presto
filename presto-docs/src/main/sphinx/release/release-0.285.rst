@@ -19,7 +19,7 @@ _______________
 * Improve performance of union when subqueries are empty.
 * Improve cost based optimizer join reordering to work with non-simple equi-join predicates. :pr:`21153`
 * Improve history based optimizer performance when nulls are present in joins. :pr:`21203`
-* Add :func:`array_least_frequent` function.
+* Add :func:`!array_least_frequent` function.
 * Add support for HANA connector. :pr:`21034`
 * Add task killer which is triggered when a worker is running out of memory and the garbage collector cannot reclaim sufficient memory. Two strategies are provided: full garbage collection, and frequent full garbage collection. :pr:`21254`
 * Add support to remove redundant `cast to varchar` expressions in a join condition. This feature is configurable by the session property ``remove_redundant_cast_to_varchar_in_join`` (enabled by default). :pr:`21050`

@@ -159,7 +159,7 @@ JSON Functions
 
 .. function:: json_extract_scalar(json, json_path) -> varchar
 
-    Like :func:`json_extract`, but returns the result value as a string (as opposed
+    Like :func:`!json_extract`, but returns the result value as a string (as opposed
     to being encoded as JSON). The value referenced by ``json_path`` must be a
     scalar (boolean, number or string)::
 
@@ -169,17 +169,17 @@ JSON Functions
 .. function:: json_format(json) -> varchar
 
     Returns the JSON text serialized from the input JSON value.
-    This is inverse function to :func:`json_parse`::
+    This is inverse function to :func:`!json_parse`::
 
         SELECT json_format(JSON '[1, 2, 3]'); -- '[1,2,3]'
         SELECT json_format(JSON '"a"'); -- '"a"'
 
 .. note::
 
-    :func:`json_format` and ``CAST(json AS VARCHAR)`` have completely
+    :func:`!json_format` and ``CAST(json AS VARCHAR)`` have completely
     different semantics.
 
-    :func:`json_format` serializes the input JSON value to JSON text conforming to
+    :func:`!json_format` serializes the input JSON value to JSON text conforming to
     :rfc:`7159`. The JSON value can be a JSON object, a JSON array, a JSON string,
     a JSON number, ``true``, ``false`` or ``null``::
 
@@ -205,17 +205,17 @@ JSON Functions
 .. function:: json_parse(string) -> json
 
     Returns the JSON value deserialized from the input JSON text.
-    This is inverse function to :func:`json_format`::
+    This is inverse function to :func:`!json_format`::
 
         SELECT json_parse('[1, 2, 3]'); -- JSON '[1,2,3]'
         SELECT json_parse('"abc"'); -- JSON '"abc"'
 
 .. note::
 
-    :func:`json_parse` and ``CAST(string AS JSON)`` have completely
+    :func:`!json_parse` and ``CAST(string AS JSON)`` have completely
     different semantics.
 
-    :func:`json_parse` expects a JSON text conforming to :rfc:`7159`, and returns
+    :func:`!json_parse` expects a JSON text conforming to :rfc:`7159`, and returns
     the JSON value deserialized from the JSON text.
     The JSON value can be a JSON object, a JSON array, a JSON string, a JSON number,
     ``true``, ``false`` or ``null``::
@@ -241,7 +241,7 @@ JSON Functions
 
 .. function:: json_size(json, json_path) -> bigint
 
-    Like :func:`json_extract`, but returns the size of the value.
+    Like :func:`!json_extract`, but returns the size of the value.
     For objects or arrays, the size is the number of members,
     and the size of a scalar value is zero::
 

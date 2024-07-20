@@ -76,6 +76,7 @@ import static com.facebook.presto.SystemSessionProperties.PUSH_REMOTE_EXCHANGE_T
 import static com.facebook.presto.SystemSessionProperties.QUICK_DISTINCT_LIMIT_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.RANDOMIZE_OUTER_JOIN_NULL_KEY;
 import static com.facebook.presto.SystemSessionProperties.RANDOMIZE_OUTER_JOIN_NULL_KEY_STRATEGY;
+import static com.facebook.presto.SystemSessionProperties.REMOVE_CROSS_JOIN_WITH_CONSTANT_SINGLE_ROW_INPUT;
 import static com.facebook.presto.SystemSessionProperties.REMOVE_MAP_CAST;
 import static com.facebook.presto.SystemSessionProperties.REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN;
 import static com.facebook.presto.SystemSessionProperties.REWRITE_CASE_TO_MAP_ENABLED;
@@ -5865,6 +5866,34 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testSetAggIndeterminateRows()
+    {
+        // union all is to force usage of the serialized state
+        assertQuery("SELECT unnested from (SELECT set_agg(x) as agg_result from (" +
+                        "SELECT ARRAY[CAST(row(null, 2) AS ROW(INTEGER, INTEGER))] x " +
+                        "UNION ALL " +
+                        "SELECT ARRAY[null, CAST(row(1, null) AS ROW(INTEGER, INTEGER))] " +
+                        "UNION ALL " +
+                        "SELECT ARRAY[CAST(row(null, 2) AS ROW(INTEGER, INTEGER))])) " +
+                        "CROSS JOIN unnest(agg_result) as r(unnested)",
+                "SELECT * FROM (VALUES (ARRAY[null, row(1,null)]), (ARRAY[row(null, 2)]))");
+    }
+
+    @Test
+    public void testSetAggIndeterminateArrays()
+    {
+        // union all is to force usage of the serialized state
+        assertQuery("SELECT unnested from (SELECT set_agg(x) as agg_result from (" +
+                        "SELECT ARRAY[ARRAY[null, 2]] x " +
+                        "UNION ALL " +
+                        "SELECT ARRAY[null, ARRAY[1, null]] " +
+                        "UNION ALL " +
+                        "SELECT ARRAY[ARRAY[null, 2]])) " +
+                        "CROSS JOIN unnest(agg_result) as r(unnested)",
+                "SELECT * FROM (VALUES (ARRAY[null, ARRAY[1,null]]), (ARRAY[ARRAY[null, 2]]))");
+    }
+
+    @Test
     public void testRedundantProjection()
     {
         assertQuery(
@@ -5920,6 +5949,34 @@ public abstract class AbstractTestQueries
         assertQuery(
                 "select set_union(x) from (values null, array[null], null) as t(x) where x != null",
                 "select null");
+    }
+
+    @Test
+    public void testSetUnionIndeterminateRows()
+    {
+        // union all is to force usage of the serialized state
+        assertQuery("SELECT c1, c2 from (SELECT set_union(x) as agg_result from (" +
+                        "SELECT ARRAY[CAST(row(null, 2) AS ROW(INTEGER, INTEGER))] x " +
+                        "UNION ALL " +
+                        "SELECT ARRAY[null, CAST(row(1, null) AS ROW(INTEGER, INTEGER))] " +
+                        "UNION ALL " +
+                        "SELECT ARRAY[CAST(row(null, 2) AS ROW(INTEGER, INTEGER))])) " +
+                        "CROSS JOIN unnest(agg_result) as r(c1, c2)",
+                "SELECT * FROM (VALUES (1,null) , (null, 2), (null, null))");
+    }
+
+    @Test
+    public void testSetUnionIndeterminateArrays()
+    {
+        // union all is to force usage of the serialized state
+        assertQuery("SELECT unnested from (SELECT set_union(x) as agg_result from (" +
+                        "SELECT ARRAY[ARRAY[null, 2]] x " +
+                        "UNION ALL " +
+                        "SELECT ARRAY[null, ARRAY[1, null]] " +
+                        "UNION ALL " +
+                        "SELECT ARRAY[ARRAY[null, 2]])) " +
+                        "CROSS JOIN unnest(agg_result) as r(unnested)",
+                "SELECT * FROM (VALUES (null), (ARRAY[1,null]), (ARRAY[null, 2]))");
     }
 
     @Test
@@ -6141,7 +6198,7 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void tesMultipleConcat()
+    public void testMultipleConcat()
     {
         assertQuery("select concat('a', '','','', 'b', '', '', 'c', 'd', '', '', '', '')", "select 'abcd'");
         assertQuery("select concat('', '','','', '', '', '', '', '', '', '')", "select ''");
@@ -6557,9 +6614,9 @@ public abstract class AbstractTestQueries
                 .build();
 
         MaterializedResult plan = computeActual(prefilter, "explain(type distributed) select count(custkey), orderstatus from orders group by orderstatus limit 1000");
-        assertTrue(((String) plan.getOnlyValue()).toUpperCase().indexOf("MAP_AGG") == -1);
+        assertEquals(((String) plan.getOnlyValue()).toUpperCase().indexOf("MAP_AGG"), -1);
         plan = computeActual(prefilter, "explain(type distributed) select count(custkey), orderkey from orders group by orderkey limit 100000");
-        assertTrue(((String) plan.getOnlyValue()).toUpperCase().indexOf("MAP_AGG") == -1);
+        assertEquals(((String) plan.getOnlyValue()).toUpperCase().indexOf("MAP_AGG"), -1);
     }
 
     @Test
@@ -6812,11 +6869,11 @@ public abstract class AbstractTestQueries
         assertTrue(actualFloat.isEmpty());
 
         actualFloat = (List<Float>) rowList.get(2).getField(0);
-        assertTrue(actualFloat == null);
+        assertNull(actualFloat);
 
         actualFloat = (List<Float>) rowList.get(3).getField(0);
         for (int i = 0; i < actualFloat.size(); ++i) {
-            assertTrue(actualFloat.get(i) == null);
+            assertNull(actualFloat.get(i));
         }
 
         actualFloat = (List<Float>) rowList.get(4).getField(0);
@@ -6825,7 +6882,7 @@ public abstract class AbstractTestQueries
             assertTrue(actualFloat.get(i) > expectedFloat.get(i) - 1e-5 && actualFloat.get(i) < expectedFloat.get(i) + 1e-5);
         }
         for (int i = 2; i < actualFloat.size(); ++i) {
-            assertTrue(actualFloat.get(i) == null);
+            assertNull(actualFloat.get(i));
         }
 
         // double
@@ -6842,11 +6899,11 @@ public abstract class AbstractTestQueries
         assertTrue(actualDouble.isEmpty());
 
         actualDouble = (List<Double>) rowList.get(2).getField(0);
-        assertTrue(actualDouble == null);
+        assertNull(actualDouble);
 
         actualDouble = (List<Double>) rowList.get(3).getField(0);
         for (int i = 0; i < actualDouble.size(); ++i) {
-            assertTrue(actualDouble.get(i) == null);
+            assertNull(actualDouble.get(i));
         }
 
         actualDouble = (List<Double>) rowList.get(4).getField(0);
@@ -6855,7 +6912,7 @@ public abstract class AbstractTestQueries
             assertTrue(actualDouble.get(i) > expectedDouble.get(i) - 1e-5 && actualDouble.get(i) < expectedDouble.get(i) + 1e-5);
         }
         for (int i = 2; i < actualDouble.size(); ++i) {
-            assertTrue(actualDouble.get(i) == null);
+            assertNull(actualDouble.get(i));
         }
 
         // decimal
@@ -7572,18 +7629,35 @@ public abstract class AbstractTestQueries
         // Orig
         String testQuery = "SELECT 1 from region join nation using(regionkey)";
         MaterializedResult result = computeActual("explain(type distributed) " + testQuery);
-        assertTrue(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("SemiJoin") == -1);
+        assertEquals(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("SemiJoin"), -1);
         result = computeActual(testQuery);
-        assertTrue(result.getRowCount() == 25);
+        assertEquals(result.getRowCount(), 25);
 
         // With feature
         Session session = Session.builder(getSession())
                 .setSystemProperty(JOIN_PREFILTER_BUILD_SIDE, String.valueOf(true))
                 .build();
         result = computeActual(session, "explain(type distributed) " + testQuery);
-        assertTrue(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("SemiJoin") != -1);
+        assertNotEquals(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("SemiJoin"), -1);
         result = computeActual(session, testQuery);
-        assertTrue(result.getRowCount() == 25);
+        assertEquals(result.getRowCount(), 25);
+    }
+
+    @Test
+    public void testRemoveCrossJoinWithSingleRowConstantInput()
+    {
+        Session enableOptimization = Session.builder(getSession())
+                .setSystemProperty(REMOVE_CROSS_JOIN_WITH_CONSTANT_SINGLE_ROW_INPUT, "true")
+                .build();
+        assertQuery(enableOptimization, "SELECT * FROM (SELECT EXTRACT(DAY FROM DATE '2017-01-01')) t CROSS JOIN (VALUES 1)",
+                "values (1, 1)");
+        assertQuery(enableOptimization, "SELECT * FROM (SELECT * FROM (VALUES 1) t(a)) t, region r WHERE r.regionkey = t.a");
+        assertQuery(enableOptimization, "WITH t(msg) AS (SELECT * FROM (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))) SELECT b.msg.x FROM t a, t b WHERE a.msg.y = b.msg.y",
+                "values 1");
+        assertQuery(enableOptimization, "WITH t(msg) AS (SELECT * FROM (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))) SELECT a.msg.y, b.msg.x from t a cross join t b where a.msg.x = 7 or is_finite(b.msg.y)",
+                "values (2.0, 1)");
+        assertQuery(enableOptimization, "WITH t(msg) AS (SELECT * FROM (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))) SELECT b.msg.x FROM t a, t b WHERE a.msg.y = b.msg.y limit 100",
+                "values 1");
     }
 
     /**

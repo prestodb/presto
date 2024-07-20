@@ -311,7 +311,7 @@ public class TableFinishOperator
         descriptor.getTableStatistics().forEach((type, channel) ->
                 statistics.addTableStatistic(type, page.getBlock(channel).getSingleValueBlock(position)));
 
-        descriptor.getColumnStatistics().forEach((metadata, channel) -> statistics.addColumnStatistic(metadata, page.getBlock(channel).getSingleValueBlock(position)));
+        descriptor.getColumnStatistics().forEach((descriptor) -> statistics.addColumnStatistic(descriptor.getMetadata(), page.getBlock(descriptor.getItem()).getSingleValueBlock(position)));
 
         return statistics.build();
     }
@@ -417,10 +417,10 @@ public class TableFinishOperator
                     return true;
                 }
                 case LIFESPAN_COMMIT: {
-                    // Case 2: Lifespan commit is required
+                    // Case 3: Lifespan commit is required
                     checkState(lifespanAndStage.lifespan != Lifespan.taskWide(), "Recoverable lifespan cannot be TASK_WIDE");
 
-                    // Case 2a: Current (stage, lifespan) combination is already committed
+                    // Case 3a: Current (stage, lifespan) combination is already committed
                     if (committedRecoverableLifespanAndStages.containsKey(lifespanAndStage)) {
                         checkState(
                                 !committedRecoverableLifespanAndStages.get(lifespanAndStage).getTaskId().equals(tableCommitContext.getTaskId()),
@@ -428,7 +428,7 @@ public class TableFinishOperator
                         return false;
                     }
 
-                    // Case 2b: Current (stage, lifespan) combination is not yet committed
+                    // Case 3b: Current (stage, lifespan) combination is not yet committed
                     Map<TaskId, LifespanAndStageState> lifespanStageStatesPerTask = uncommittedRecoverableLifespanAndStageStates.computeIfAbsent(lifespanAndStage, ignored -> new HashMap<>());
                     lifespanStageStatesPerTask.computeIfAbsent(
                             tableCommitContext.getTaskId(), ignored -> new LifespanAndStageState(

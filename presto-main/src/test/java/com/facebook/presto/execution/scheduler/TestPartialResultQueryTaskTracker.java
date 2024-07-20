@@ -72,11 +72,13 @@ public class TestPartialResultQueryTaskTracker
                 new NodeVersion("1"),
                 false,
                 false,
+                false,
                 false);
         InternalNode node2 = new InternalNode(
                 UUID.randomUUID().toString(),
                 URI.create("https://192.0.2.9"),
                 new NodeVersion("1"),
+                false,
                 false,
                 false,
                 false);

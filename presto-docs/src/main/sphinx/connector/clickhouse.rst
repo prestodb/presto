@@ -135,7 +135,7 @@ Pushdown
 
 The connector supports pushdown for a number of operations:
 
-* :ref:`limit-pushdown`
+* :ref:`!limit-pushdown`
 
 .. _clickhouse-sql-support:
 

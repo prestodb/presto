@@ -6,7 +6,7 @@ Release 0.237
 ==============
 
 * Add JSON format for ``EXPLAIN`` with type ``LOGICAL`` and ``DISTRIBUTED``.
-* Add functions :func:`array_sum`, :func:`array_average`, :func:`map_normalize`, :func:`set_agg` and :func:`flatten_geometry_collections`.
+* Add functions :func:`!array_sum`, :func:`!array_average`, :func:`!map_normalize`, :func:`!set_agg` and :func:`!flatten_geometry_collections`.
 * Support authentication for Druid connector.
 * Support for AWS IAM authorization to Elasticsearch connector.
 * Improve Elasticsearch query capabilities.
@@ -22,13 +22,13 @@ _______________
 * Fix compiler failure with function type when common sub-expression optimization is enabled.
 * Improve coordinator RPC performance by removing unused entries from ``TaskStatus``.
 * Add JSON format for ``EXPLAIN`` with type ``LOGICAL`` and ``DISTRIBUTED``.
-* Add functions :func:`array_sum`, :func:`array_average`, :func:`map_normalize` and :func:`set_agg`.
+* Add functions :func:`!array_sum`, :func:`!array_average`, :func:`!map_normalize` and :func:`!set_agg`.
 * Add session property ``warning_handling`` to control how warnings are handled. The options are ``SUPPRESS``, ``NORMAL`` and ``AS_ERROR``. The default value is ``NORMAL``.
 * Add support for defining SQL-invoked functions in plugins.
 * Add support to control which worker can receive tasks by implementing the ``NodeStatusService`` interface. See :pr:`14535`.
-* Add warning to use :func:`approx_distinct` when using ``COUNT(DISTINCT x)``.
+* Add warning to use :func:`!approx_distinct` when using ``COUNT(DISTINCT x)``.
 * Add support for listing functions whose names match a specified pattern using the ``SHOW FUNCTION LIKE`` syntax.
-* Add :func:`flatten_geometry_collections` function to recursively flatten GeometryCollections.
+* Add :func:`!flatten_geometry_collections` function to recursively flatten GeometryCollections.
 
 Cassandra Connector Changes
 ___________________________

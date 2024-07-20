@@ -88,6 +88,7 @@ import static com.facebook.presto.iceberg.IcebergSessionProperties.getStatisticS
 import static com.facebook.presto.iceberg.IcebergUtil.getIdentityPartitions;
 import static com.facebook.presto.iceberg.Partition.toMap;
 import static com.facebook.presto.iceberg.util.StatisticsUtil.calculateAndSetTableSize;
+import static com.facebook.presto.iceberg.util.StatisticsUtil.formatIdentifier;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.TOTAL_SIZE_IN_BYTES;
 import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel.HIGH;
@@ -533,7 +534,8 @@ public class TableStatisticsMaker
         if (isNumericType(type) || type.equals(DATE) || isVarcharType(type) ||
                 type.equals(TIMESTAMP) ||
                 type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
-            supportedStatistics.add(NUMBER_OF_DISTINCT_VALUES.getColumnStatisticMetadataWithCustomFunction(columnName, "sketch_theta"));
+            supportedStatistics.add(NUMBER_OF_DISTINCT_VALUES.getColumnStatisticMetadataWithCustomFunction(
+                    columnName, format("RETURN sketch_theta(%s)", formatIdentifier(columnName)), ImmutableList.of(columnName)));
         }
 
         if (!(type instanceof FixedWidthType)) {

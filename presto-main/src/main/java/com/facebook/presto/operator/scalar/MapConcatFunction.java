@@ -151,7 +151,7 @@ public final class MapConcatFunction
         Type valueType = mapType.getValueType();
 
         // We need to divide the entries by 2 because the maps array is SingleMapBlocks and it had the positionCount twice as large as a normal Block
-        OptimizedTypedSet typedSet = new OptimizedTypedSet(keyType, maps.length, entries / 2);
+        OptimizedTypedSet typedSet = new OptimizedTypedSet(keyType, Optional.empty(), maps.length, entries / 2);
         for (int i = lastMapIndex; i >= firstMapIndex; i--) {
             SingleMapBlock singleMapBlock = (SingleMapBlock) maps[i];
             Block keyBlock = singleMapBlock.getKeyBlock();

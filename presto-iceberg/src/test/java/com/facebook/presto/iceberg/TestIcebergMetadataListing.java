@@ -30,7 +30,9 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.iceberg.CatalogType.HIVE;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
+import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
 import static com.facebook.presto.spi.security.SelectedRole.Type.ROLE;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 
@@ -53,12 +55,13 @@ public class TestIcebergMetadataListing
                 .build();
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
 
-        Path catalogDirectory = queryRunner.getCoordinator().getDataDirectory().resolve("iceberg_data").resolve("catalog");
+        Path catalogDirectory = getIcebergDataDirectoryPath(queryRunner.getCoordinator().getDataDirectory(), HIVE.name(), new IcebergConfig().getFileFormat(), false);
 
         queryRunner.installPlugin(new IcebergPlugin());
         Map<String, String> icebergProperties = ImmutableMap.<String, String>builder()
                 .put("hive.metastore", "file")
                 .put("hive.metastore.catalog.dir", catalogDirectory.toFile().toURI().toString())
+                .put("iceberg.hive.table-refresh.max-retry-time", "500ms") // improves test time for testTableDropWithMissingMetadata
                 .build();
 
         queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", icebergProperties);
@@ -125,13 +128,15 @@ public class TestIcebergMetadataListing
         assertQuerySucceeds("CREATE TABLE iceberg.test_metadata_schema.iceberg_table2 (_string VARCHAR, _integer INTEGER)");
         assertQuery("SHOW TABLES FROM iceberg.test_metadata_schema", "VALUES 'iceberg_table1', 'iceberg_table2'");
 
-        File tableMetadataDir = ((DistributedQueryRunner) getQueryRunner()).getCoordinator().getDataDirectory().resolve("iceberg_data").resolve("catalog").resolve("test_metadata_schema").resolve("iceberg_table1").resolve("metadata").toFile();
+        Path dataDirectory = ((DistributedQueryRunner) getQueryRunner()).getCoordinator().getDataDirectory();
+        Path icebergDataDirectory = getIcebergDataDirectoryPath(dataDirectory, HIVE.name(), new IcebergConfig().getFileFormat(), false);
+        File tableMetadataDir = icebergDataDirectory.resolve("test_metadata_schema").resolve("iceberg_table1").resolve("metadata").toFile();
         for (File file : tableMetadataDir.listFiles()) {
             file.delete();
         }
         tableMetadataDir.delete();
 
-        assertQueryFails("SELECT * FROM iceberg.test_metadata_schema.iceberg_table1", "Could not read table schema");
+        assertQueryFails("SELECT * FROM iceberg.test_metadata_schema.iceberg_table1", "Table metadata is missing");
         assertQuerySucceeds("DROP TABLE iceberg.test_metadata_schema.iceberg_table1");
         assertQuery("SHOW TABLES FROM iceberg.test_metadata_schema", "VALUES 'iceberg_table2'");
     }

@@ -14,6 +14,8 @@
 package com.facebook.presto.verifier.framework;
 
 import com.facebook.airlift.event.client.AbstractEventClient;
+import com.facebook.presto.common.block.BlockEncodingManager;
+import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
@@ -115,7 +117,8 @@ public class TestVerificationManager
     private static final String NAME = "test-query";
     private static final QualifiedName TABLE_PREFIX = QualifiedName.of("tmp_verifier");
     private static final SqlParser SQL_PARSER = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(AT_SIGN, COLON));
-    private static final QueryConfiguration QUERY_CONFIGURATION = new QueryConfiguration("test", "di", Optional.of("user"), Optional.empty(), Optional.empty(), Optional.empty());
+    private static final BlockEncodingSerde BLOCK_ENCODING_SERDE = new BlockEncodingManager();
+    private static final QueryConfiguration QUERY_CONFIGURATION = new QueryConfiguration("test", "di", Optional.of("user"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
     private static final SourceQuery SOURCE_QUERY = new SourceQuery(
             SUITE,
             NAME,
@@ -218,7 +221,7 @@ public class TestVerificationManager
                 new VerificationFactory(
                         SQL_PARSER,
                         (sourceQuery, verificationContext) -> new QueryActions(prestoAction, prestoAction, prestoAction),
-                        presto -> new QueryRewriter(SQL_PARSER, createTypeManager(), presto, ImmutableMap.of(CONTROL, TABLE_PREFIX, TEST, TABLE_PREFIX),
+                        presto -> new QueryRewriter(SQL_PARSER, createTypeManager(), BLOCK_ENCODING_SERDE, presto, ImmutableMap.of(CONTROL, TABLE_PREFIX, TEST, TABLE_PREFIX),
                                 ImmutableMap.of(),
                                 ImmutableMap.of(CONTROL, false, TEST, false)),
                         new FailureResolverManagerFactory(ImmutableSet.of(), ImmutableSet.of()),

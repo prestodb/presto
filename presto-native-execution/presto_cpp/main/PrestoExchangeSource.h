@@ -106,6 +106,8 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
     return request(0, maxWait);
   }
 
+  void pause() override;
+
   // Create an exchange source using pooled connections.
   static std::shared_ptr<PrestoExchangeSource> create(
       const std::string& url,

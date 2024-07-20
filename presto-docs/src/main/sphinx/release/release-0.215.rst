@@ -10,7 +10,7 @@ General Changes
 * Fix reporting of the processed input data for source stages in ``EXPLAIN ANALYZE``.
 * Fail queries that use non-leaf resource groups. Previously, they would remain queued forever.
 * Improve CPU usage for specific queries (:issue:`11757`).
-* Extend stats and cost model to support :func:`row_number` window function estimates.
+* Extend stats and cost model to support :func:`!row_number` window function estimates.
 * Improve the join type selection and the reordering of join sides for cases where
   the join output size cannot be estimated.
 * Add dynamic scheduling support to grouped execution. When a stage is executed
@@ -19,13 +19,13 @@ General Changes
   grouped execution. This feature can be enabled with the
   ``dynamic_schedule_for_grouped_execution`` session property or the
   ``dynamic-schedule-for-grouped-execution`` config property.
-* Add :func:`beta_cdf` and :func:`inverse_beta_cdf` functions.
+* Add :func:`!beta_cdf` and :func:`!inverse_beta_cdf` functions.
 * Split the reporting of raw input data and processed input data for source operators.
 * Remove collection and reporting of raw input data statistics for the ``Values``,
   ``Local Exchange``, and ``Local Merge Sort`` operators.
 * Simplify ``EXPLAIN (TYPE IO)`` output when there are too many discrete components.
   This avoids large output at the cost of reduced granularity.
-* Add :func:`parse_presto_data_size` function.
+* Add :func:`!parse_presto_data_size` function.
 * Add support for ``UNION ALL`` to optimizer's cost model.
 * Add support for estimating the cost of filters by using a default filter factor.
   The default value for the filter factor can be configured with the ``default_filter_factor_enabled``
@@ -34,9 +34,9 @@ General Changes
 Geospatial Changes
 ------------------
 
-* Add input validation checks to :func:`ST_LineString` to conform with the specification.
+* Add input validation checks to :func:`!ST_LineString` to conform with the specification.
 * Improve spatial join performance.
-* Enable spatial joins for join conditions expressed with the :func:`ST_Within` function.
+* Enable spatial joins for join conditions expressed with the :func:`!ST_Within` function.
 
 Web UI Changes
 --------------

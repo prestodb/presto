@@ -147,25 +147,25 @@ We recommend you use IntelliJ as your IDE. The code style template for the proje
         }
       ```
 
-* **Ordering of class members and methods**
-    * Class members are in front of methods.
-    * Group and order the class members and methods in the order of their access levels in descending order:
+* **Ordering of class members**
+    * Fields are in front of methods.
+    * Group and order the fields and methods in the order of their access levels in descending order:
         1. public
         1. protected
         1. package private
         1. private
-    * Group and order the class members in descending order:
+    * Group and order the fields in descending order:
         1. static final
         1. final
         1. normal
     * Order the methods with the same access level in the order they’re called.
 * **Encourage proper encapsulation**
-    * Do not use public class members. Use lower access levels as much as possible. Exceptions may apply for performance critical paths, in that case discuss your design first with relevant code owners.
-    * Make a function access level as low as possible
-    * If a public class is only used by one caller and the usage is local, consider making it a nested class.
+    * Do not use public class fields for non-constants. Use less visible access levels as much as possible. Exceptions may apply for performance critical paths. In that case, discuss your design first with relevant code owners.
+    * Make a method access level as low as possible
+    * If a class is only used by one caller and the usage is local, consider making it a nested class.
 * **Immutable and thread safe classes**
-    * Whenever possible, class fields should be final
-    * When it's not possible, ensure that accesses to the non-final fields are thread safe by whatever methods are appropriate for the circumstance (Concurrent collections, synchronized access, etc.) if they are in a code path that is multi-threaded
+    * Whenever possible, class fields should be final.
+    * When it's not possible, ensure that accesses to the non-final fields are thread safe by whatever methods are appropriate for the circumstance (concurrent collections, synchronized access, etc.) if they are in a code path that is multi-threaded.
 
 * **Static imports**
   For example, in your code, do not use something like
@@ -265,9 +265,9 @@ We recommend you use IntelliJ as your IDE. The code style template for the proje
           }
       ```
 
-    * Recommend to add the “/** */” style comments to important or difficult public methods, with explanation of the parameters and returns.
+    * Add the “/** */” style comments to important or difficult public methods, with explanation of the parameters and returns.
     * Within the method body, use “//” style comments on separate lines for difficult parts.
-    * Use “//” style comments for class members if it can help understanding the code. Can be on the same line or separate lines in front.
+    * Use “//” style comments for class fields if it helps to clarify the code. Can be on the same line or separate lines in front.
 * **Code succinctness**
     * Inline function calls when appropriate. For example, if a function is only called once, we don’t need to create a variable for it.
     * Use reference operator in lambda expressions where possible. For example, instead of doing this:

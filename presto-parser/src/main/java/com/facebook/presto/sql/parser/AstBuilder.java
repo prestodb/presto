@@ -1337,9 +1337,9 @@ class AstBuilder
 
         if (warningForMixedAndOr) {
             warningConsumer.accept(new ParsingWarning(
-                    "The Query contains OR and AND operator without proper parenthesis. "
-                    + "Make sure the operators are guarded by parenthesis in order "
-                    + "to fetch logically correct results",
+                    "The query contains OR and AND operators without proper parentheses. "
+                    + "Make sure the operators are guarded by parentheses in order "
+                    + "to fetch logically correct results.",
                     context.getStart().getLine(), context.getStart().getCharPositionInLine()));
         }
 

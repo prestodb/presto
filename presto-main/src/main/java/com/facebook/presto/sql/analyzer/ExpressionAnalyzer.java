@@ -157,6 +157,7 @@ import static com.facebook.presto.spi.StandardWarningCode.SEMANTIC_WARNING;
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
 import static com.facebook.presto.sql.analyzer.Analyzer.verifyNoAggregateWindowOrGroupingFunctions;
 import static com.facebook.presto.sql.analyzer.Analyzer.verifyNoExternalFunctions;
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.isConstant;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.isNonNullConstant;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.tryResolveEnumLiteralType;
 import static com.facebook.presto.sql.analyzer.FunctionArgumentCheckerForAccessControlUtils.getResolvedLambdaArguments;
@@ -601,7 +602,16 @@ public class ExpressionAnalyzer
         protected Type visitComparisonExpression(ComparisonExpression node, StackableAstVisitorContext<Context> context)
         {
             OperatorType operatorType = OperatorType.valueOf(node.getOperator().name());
-            return getOperator(context, node, operatorType, node.getLeft(), node.getRight());
+            Type outputType = getOperator(context, node, operatorType, node.getLeft(), node.getRight());
+            // this needs to be checked after the call to getOperator(), because that's where the argument types get analyzed
+            if (sqlFunctionProperties.shouldWarnOnCommonNanPatterns() &&
+                    (TypeUtils.isApproximateNumericType(getExpressionType(node.getLeft())) || TypeUtils.isApproximateNumericType(getExpressionType(node.getRight())))) {
+                warningCollector.add(new PrestoWarning(
+                        SEMANTIC_WARNING,
+                        "Comparison operations involving DOUBLE or REAL types may include NaNs in the input. " +
+                                "Consider filtering out NaN values from your comparison input using the is_nan() function."));
+            }
+            return outputType;
         }
 
         @Override
@@ -732,7 +742,17 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitArithmeticBinary(ArithmeticBinaryExpression node, StackableAstVisitorContext<Context> context)
         {
-            return getOperator(context, node, OperatorType.valueOf(node.getOperator().name()), node.getLeft(), node.getRight());
+            Type returnType = getOperator(context, node, OperatorType.valueOf(node.getOperator().name()), node.getLeft(), node.getRight());
+            if (sqlFunctionProperties.shouldWarnOnCommonNanPatterns() &&
+                    node.getOperator() == ArithmeticBinaryExpression.Operator.DIVIDE &&
+                    TypeUtils.isApproximateNumericType(returnType) &&
+                    !isConstant(node.getLeft()) &&
+                    !isConstant(node.getRight())) {
+                warningCollector.add(new PrestoWarning(SEMANTIC_WARNING,
+                        "Division operations on DOUBLE/REAL types may produce NaNs or infinities if there are zeros in the denominator. " +
+                                "Consider checking the denominator of your division operation for zeros."));
+            }
+            return returnType;
         }
 
         @Override

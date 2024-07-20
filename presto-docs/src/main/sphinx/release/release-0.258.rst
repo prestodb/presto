@@ -8,8 +8,8 @@ Release 0.258
 General Changes
 _______________
 * Fix a bug in SQL functions where a query could fail with a compiler error if the function has a lambda variable with the same name as a column or function input.
-* Add Cauchy distribution CDF :func:`cauchy_cdf` and inverse CDF :func:`inverse_cauchy_cdf` functions.
-* Add SQL functions :func:`array_dupes` and :func:`array_as_dupes`.
+* Add Cauchy distribution CDF :func:`!cauchy_cdf` and inverse CDF :func:`!inverse_cauchy_cdf` functions.
+* Add SQL functions :func:`!array_dupes` and :func:`!array_as_dupes`.
 * Add additional details to memory exceeded error messages to simplify debugging. Disabled by default. Can be enabled by setting the ``verbose_exceeded_memory_limit_errors_enabled`` session property to ``true``.
 * Support dynamic filtering with comparison operators. Can be enabled by setting the ``enable-dynamic-filtering`` property to ``true``. Disabled by default.
 

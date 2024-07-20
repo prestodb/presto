@@ -16,7 +16,7 @@ General Changes
   When this threshold is exceeded, a ``TOO_MANY_STAGES`` warning is raised.
 * Add per-task peak user memory usage to query statistics.
 * Add CLI support for showing the amount of data spilled during query execution.
-* Add :func:`ST_Points` function.
+* Add :func:`!ST_Points` function.
 * Add :doc:`/connector/elasticsearch`.
 * Remove the system memory pool and related configuration properties (``resources.reserved-system-memory``, ``deprecated.legacy-system-pool-enabled``) entirely.
   System memory pool was deprecated in 0.201, and it was unused by default since that release. All memory allocations will now be served from the general/user memory pool.

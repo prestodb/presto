@@ -198,6 +198,8 @@ Property Name                                      Description                  
 
 ``hive.skip-empty-files``                          Enable skipping empty files. Otherwise, it will produce an   ``false``
                                                    error iterating through empty files.
+
+ ``hive.file-status-cache.max-retained-size``      Maximum size in bytes of the directory listing cache          ``0KB``
 ================================================== ============================================================ ============
 
 Metastore Configuration Properties

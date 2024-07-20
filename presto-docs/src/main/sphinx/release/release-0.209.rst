@@ -8,13 +8,13 @@ General Changes
 * Fix incorrect predicate pushdown when grouping sets contain the empty grouping set (:issue:`11296`).
 * Fix ``X-Forwarded-Proto`` header handling for requests to the ``/`` path (:issue:`11168`).
 * Fix a regression that results in execution failure when at least one
-  of the arguments to :func:`min_by` or :func:`max_by` is a constant ``NULL``.
+  of the arguments to :func:`!min_by` or :func:`!max_by` is a constant ``NULL``.
 * Fix failure when some buckets are completely filtered out during bucket-by-bucket execution.
 * Fix execution failure of queries due to a planning deficiency involving
   complex nested joins where a join that is not eligible for bucket-by-bucket
   execution feeds into the build side of a join that is eligible.
-* Improve numerical stability for :func:`corr`, :func:`covar_samp`,
-  :func:`regr_intercept`, and :func:`regr_slope`.
+* Improve numerical stability for :func:`!corr`, :func:`!covar_samp`,
+  :func:`!regr_intercept`, and :func:`!regr_slope`.
 * Do not include column aliases when checking column access permissions.
 * Eliminate unnecessary data redistribution for scalar correlated subqueries.
 * Remove table scan original constraint information from ``EXPLAIN`` output.
@@ -24,8 +24,8 @@ General Changes
 * Improve statistics estimation and fix potential negative nulls fraction
   estimates for expressions that include ``NOT`` or ``OR``.
 * Completely remove the ``SHOW PARTITIONS`` statement.
-* Add :func:`bing_tiles_around` variant that takes a radius.
-* Add the :func:`convex_hull_agg` and :func:`geometry_union_agg` geospatial aggregation functions.
+* Add :func:`!bing_tiles_around` variant that takes a radius.
+* Add the :func:`!convex_hull_agg` and :func:`!geometry_union_agg` geospatial aggregation functions.
 * Add ``(TYPE IO, FORMAT JSON)`` option for :doc:`/sql/explain` that shows
   input tables with constraints and the output table in JSON format.
 * Add :doc:`/connector/kudu`.

@@ -86,6 +86,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
@@ -284,21 +285,21 @@ public class TestBackgroundHiveSplitLoader
                 new CachingDirectoryLister(
                         new HadoopDirectoryLister(),
                         new Duration(5, TimeUnit.MINUTES),
-                        1000,
+                        new DataSize(100, KILOBYTE),
                         ImmutableList.of("test_dbname.test_table")),
                 "test_dbname.test_table");
         testCachingDirectoryLister(
                 new CachingDirectoryLister(
                         new HadoopDirectoryLister(),
                         new Duration(5, TimeUnit.MINUTES),
-                        1000,
+                        new DataSize(100, KILOBYTE),
                         ImmutableList.of("*")),
                 "*");
         testCachingDirectoryLister(
                 new CachingDirectoryLister(
                         new HadoopDirectoryLister(),
                         new Duration(5, TimeUnit.MINUTES),
-                        1000,
+                        new DataSize(100, KILOBYTE),
                         ImmutableList.of("*")),
                 "");
         assertThrows(
@@ -307,7 +308,7 @@ public class TestBackgroundHiveSplitLoader
                         new CachingDirectoryLister(
                                 new HadoopDirectoryLister(),
                                 new Duration(5, TimeUnit.MINUTES),
-                                1000,
+                                new DataSize(100, KILOBYTE),
                                 ImmutableList.of("*", "test_dbname.test_table")),
                         "*,test_dbname.test_table"));
     }

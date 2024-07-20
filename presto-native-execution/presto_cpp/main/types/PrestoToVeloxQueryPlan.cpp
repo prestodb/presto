@@ -26,7 +26,6 @@
 // clang-format on
 
 #include <folly/String.h>
-#include <folly/container/F14Set.h>
 
 #include "presto_cpp/main/operators/BroadcastWrite.h"
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
@@ -86,7 +85,7 @@ std::string toJsonString(const T& value) {
 std::shared_ptr<connector::ColumnHandle> toColumnHandle(
     const protocol::ColumnHandle* column,
     const TypeParser& typeParser) {
-  auto& connector = getPrestoToVeloxConnector(column->_type);
+  const auto& connector = getPrestoToVeloxConnector(column->_type);
   return connector.toVeloxColumnHandle(column, typeParser);
 }
 
@@ -96,7 +95,7 @@ std::shared_ptr<connector::ConnectorTableHandle> toConnectorTableHandle(
     const TypeParser& typeParser,
     std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>&
         assignments) {
-  auto& connector =
+  const auto& connector =
       getPrestoToVeloxConnector(tableHandle.connectorHandle->_type);
   return connector.toVeloxTableHandle(
       tableHandle, exprConverter, typeParser, assignments);
@@ -231,7 +230,7 @@ std::vector<core::FieldAccessTypedExprPtr> toFieldExprs(
     const VeloxExprConverter& exprConverter) {
   std::vector<core::FieldAccessTypedExprPtr> fields;
   fields.reserve(expressions.size());
-  for (auto& expr : expressions) {
+  for (const auto& expr : expressions) {
     auto field = std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(
         exprConverter.toVeloxExpr(expr));
     VELOX_CHECK_NOT_NULL(
@@ -248,7 +247,7 @@ std::vector<core::TypedExprPtr> toTypedExprs(
     const VeloxExprConverter& exprConverter) {
   std::vector<core::TypedExprPtr> typedExprs;
   typedExprs.reserve(expressions.size());
-  for (auto& expr : expressions) {
+  for (const auto& expr : expressions) {
     auto typedExpr = exprConverter.toVeloxExpr(expr);
     auto field =
         std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(typedExpr);

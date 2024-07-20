@@ -14,7 +14,7 @@ _______________
 * Fix a bug where a query with an order by clause and an unpartitioned window function sometimes returned unordered results.
 * Improve Graphviz output for JOIN nodes and estimate stats.
 * Reduce the number of hdfsConfiguration copies in the worker. This feature is enabled by default and can be controlled by setting the ``hive.copy-on-first-write-configuration`` configuration property appropriately.
-* Add support for complex JsonPath expressions in :func:`json_extract`, :func:`json_extract_scalar` and :func:`json_size` using `Jayway JsonPath <https://github.com/json-path/JsonPath>`_.
+* Add support for complex JsonPath expressions in :func:`!json_extract`, :func:`!json_extract_scalar` and :func:`!json_size` using `Jayway JsonPath <https://github.com/json-path/JsonPath>`_.
 * Add support to nested SQL functions with lambdas when ``inline_sql_functions = false``.
 * Add the GeoPlugin by default. Previously it was an optional plugin.
 * Add documentation for :doc:`/functions/tdigest`.
@@ -38,7 +38,7 @@ _____________
 * Fix an incorrect result issue caused by cross-join query pushdown by throwing errors instead of providing the wrong answer.
 * Add new config ``pinot.attempt-broker-queries`` to attempt to pushdown queries to brokers.
 * Add support for pinot controller and broker authentication with user and password.
-* Add pushdown support for :func:`coalesce` function.
+* Add pushdown support for :func:`!coalesce` function.
 
 Router Changes
 ______________

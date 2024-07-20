@@ -29,16 +29,23 @@ public class FailureResolverUtil
     public static <T> Optional<T> mapMatchingPrestoException(
             QueryException queryException,
             QueryStage queryStage,
-            Set<ErrorCodeSupplier> errorCodes,
+            Set<ErrorCodeSupplier> errorCodeSuppliers,
             Function<PrestoQueryException, Optional<T>> mapper)
     {
         if (queryException.getQueryStage() != queryStage || !(queryException instanceof PrestoQueryException)) {
             return Optional.empty();
         }
         PrestoQueryException prestoException = (PrestoQueryException) queryException;
-        if (!prestoException.getErrorCode().isPresent() || !errorCodes.contains(prestoException.getErrorCode().get())) {
+        if (!prestoException.getErrorCode().isPresent()) {
             return Optional.empty();
         }
-        return mapper.apply(prestoException);
+
+        int code = prestoException.getErrorCode().get().toErrorCode().getCode();
+        for (ErrorCodeSupplier supplier : errorCodeSuppliers) {
+            if (supplier.toErrorCode().getCode() == code) {
+                return mapper.apply(prestoException);
+            }
+        }
+        return Optional.empty();
     }
 }

@@ -31,9 +31,9 @@ configured with the ``query.low-memory-killer.delay`` option.
 General Changes
 ---------------
 
-* Add :func:`multimap_agg` function.
-* Add :func:`checksum` function.
-* Add :func:`max` and :func:`min` that takes a second argument and produces
+* Add :func:`!multimap_agg` function.
+* Add :func:`!checksum` function.
+* Add :func:`!max` and :func:`!min` that takes a second argument and produces
   ``n`` largest or ``n`` smallest values.
 * Add ``query_max_run_time`` session property and ``query.max-run-time``
   config. Queries are failed after the specified duration.

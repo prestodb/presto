@@ -107,7 +107,7 @@ html_favicon = 'images/favicon.ico'
 # doesn't seem to do anything
 # html_baseurl = 'overview.html'
 
-html_static_path = ['static']
+html_static_path = ['.']
 
 templates_path = ['_templates']
 

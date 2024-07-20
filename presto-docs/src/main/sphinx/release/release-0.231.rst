@@ -15,11 +15,11 @@ _______________
 * Fix SQL function compilation error when input parameters contain lambda.
 * Fix ``IS DISTINCT FROM`` for long decimals.
 * Improve error handling for geometry deserialization edge cases.
-* Improve performance of :func:`array_join`.
-* Improve efficiency of :func:`ST_Buffer`. The new implementation produces fewer buffer points on rounded corners, which will produce very similar but different results. It also better handles buffering with small (<1e-9) distances.
+* Improve performance of :func:`!array_join`.
+* Improve efficiency of :func:`!ST_Buffer`. The new implementation produces fewer buffer points on rounded corners, which will produce very similar but different results. It also better handles buffering with small (<1e-9) distances.
 * Improve OOM killer log output to put memory heavy nodes and queries first.
 * Improve efficiency by using JTS instead of Esri for many geometrical operations and fix incorrect calculation of extreme points in certain cases (:issue:`14031`).
-* Add forms of :func:`approx_percentile` accepting an accuracy parameter.
+* Add forms of :func:`!approx_percentile` accepting an accuracy parameter.
 * Add a new session property ``aggregation_partitioning_merging_strategy`` to configure partition merging strategy when adding exchange around aggregation node (:pr:`11262`).
 * Add ``IGNORE NULLS`` clause to various :doc:`/functions/window`.
 

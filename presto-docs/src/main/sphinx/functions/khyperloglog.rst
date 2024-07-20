@@ -4,7 +4,7 @@ KHyperLogLog Functions
 
 Presto implements the `KHyperLogLog <https://research.google/pubs/pub47664/>`_
 algorithm and data structure. ``KHyperLogLog`` data structure can be created
-through :func:`khyperloglog_agg`.
+through :func:`!khyperloglog_agg`.
 
 
 Data Structures

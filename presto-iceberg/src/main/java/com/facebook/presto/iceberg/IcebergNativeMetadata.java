@@ -44,6 +44,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getFileFormat;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getPartitioning;
 import static com.facebook.presto.iceberg.IcebergTableType.DATA;
@@ -179,7 +180,7 @@ public class IcebergNativeMetadata
         }
 
         Table icebergTable = transaction.table();
-        return new IcebergWritableTableHandle(
+        return new IcebergOutputTableHandle(
                 schemaName,
                 new IcebergTableName(tableName, DATA, Optional.empty(), Optional.empty()),
                 SchemaParser.toJson(icebergTable.schema()),
@@ -187,6 +188,7 @@ public class IcebergNativeMetadata
                 getColumns(icebergTable.schema(), icebergTable.spec(), typeManager),
                 icebergTable.location(),
                 fileFormat,
+                getCompressionCodec(session),
                 icebergTable.properties());
     }
 

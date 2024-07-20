@@ -100,6 +100,8 @@ public class TestFeaturesConfig
                 .setOptimizeHashGeneration(true)
                 .setPushTableWriteThroughUnion(true)
                 .setDictionaryAggregation(false)
+                .setConfidenceBasedBroadcastEnabled(false)
+                .setTreatLowConfidenceZeroEstimationAsUnknownEnabled(false)
                 .setAggregationPartitioningMergingStrategy(LEGACY)
                 .setLegacyArrayAgg(false)
                 .setUseAlternativeFunctionSignatures(false)
@@ -226,6 +228,7 @@ public class TestFeaturesConfig
                 .setPushRemoteExchangeThroughGroupId(false)
                 .setOptimizeMultipleApproxPercentileOnSameFieldEnabled(true)
                 .setNativeExecutionEnabled(false)
+                .setDisableTimeStampWithTimeZoneForNative(true)
                 .setNativeExecutionExecutablePath("./presto_server")
                 .setNativeExecutionProgramArguments("")
                 .setNativeExecutionProcessReuseEnabled(true)
@@ -271,8 +274,10 @@ public class TestFeaturesConfig
                 .setCteHeuristicReplicationThreshold(4)
                 .setLegacyJsonCast(true)
                 .setPrintEstimatedStatsFromCache(false)
+                .setRemoveCrossJoinWithSingleConstantRow(true)
                 .setUseHistograms(false)
-                .setUseNewNanDefinition(true));
+                .setUseNewNanDefinition(true)
+                .setWarnOnCommonNanPatterns(false));
     }
 
     @Test
@@ -337,6 +342,8 @@ public class TestFeaturesConfig
                 .put("optimizer.optimize-mixed-distinct-aggregations", "true")
                 .put("optimizer.push-table-write-through-union", "false")
                 .put("optimizer.dictionary-aggregation", "true")
+                .put("optimizer.confidence-based-broadcast", "true")
+                .put("optimizer.treat-low-confidence-zero-estimation-as-unknown", "true")
                 .put("optimizer.push-aggregation-through-join", "false")
                 .put("optimizer.aggregation-partition-merging", "top_down")
                 .put("regex-library", "RE2J")
@@ -442,6 +449,7 @@ public class TestFeaturesConfig
                 .put("optimizer.push-remote-exchange-through-group-id", "true")
                 .put("optimizer.optimize-multiple-approx-percentile-on-same-field", "false")
                 .put("native-execution-enabled", "true")
+                .put("disable-timestamp-with-timezone-for-native-execution", "false")
                 .put("native-execution-executable-path", "/bin/echo")
                 .put("native-execution-program-arguments", "--v 1")
                 .put("native-execution-process-reuse-enabled", "false")
@@ -487,8 +495,10 @@ public class TestFeaturesConfig
                 .put("default-view-security-mode", INVOKER.name())
                 .put("cte-heuristic-replication-threshold", "2")
                 .put("optimizer.print-estimated-stats-from-cache", "true")
+                .put("optimizer.remove-cross-join-with-single-constant-row", "false")
                 .put("optimizer.use-histograms", "true")
                 .put("use-new-nan-definition", "false")
+                .put("warn-on-common-nan-patterns", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -542,6 +552,8 @@ public class TestFeaturesConfig
                 .setOptimizeMixedDistinctAggregations(true)
                 .setPushTableWriteThroughUnion(false)
                 .setDictionaryAggregation(true)
+                .setConfidenceBasedBroadcastEnabled(true)
+                .setTreatLowConfidenceZeroEstimationAsUnknownEnabled(true)
                 .setAggregationPartitioningMergingStrategy(TOP_DOWN)
                 .setPushAggregationThroughJoin(false)
                 .setLegacyArrayAgg(true)
@@ -656,6 +668,7 @@ public class TestFeaturesConfig
                 .setPushRemoteExchangeThroughGroupId(true)
                 .setOptimizeMultipleApproxPercentileOnSameFieldEnabled(false)
                 .setNativeExecutionEnabled(true)
+                .setDisableTimeStampWithTimeZoneForNative(false)
                 .setNativeExecutionExecutablePath("/bin/echo")
                 .setNativeExecutionProgramArguments("--v 1")
                 .setNativeExecutionProcessReuseEnabled(false)
@@ -701,8 +714,10 @@ public class TestFeaturesConfig
                 .setCteHeuristicReplicationThreshold(2)
                 .setLegacyJsonCast(false)
                 .setPrintEstimatedStatsFromCache(true)
+                .setRemoveCrossJoinWithSingleConstantRow(false)
                 .setUseHistograms(true)
-                .setUseNewNanDefinition(false);
+                .setUseNewNanDefinition(false)
+                .setWarnOnCommonNanPatterns(true);
         assertFullMapping(properties, expected);
     }
 

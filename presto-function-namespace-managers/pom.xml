@@ -177,7 +177,6 @@
         <dependency>
             <groupId>com.facebook.drift</groupId>
             <artifactId>drift-transport-netty</artifactId>
-            <scope>test</scope>
         </dependency>
 
         <dependency>

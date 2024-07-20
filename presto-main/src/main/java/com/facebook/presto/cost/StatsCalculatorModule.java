@@ -84,6 +84,7 @@ public class StatsCalculatorModule
         rules.add(new SequenceStatsRule());
         rules.add(new CteProducerStatsRule());
         rules.add(new CteConsumerStatsRule());
+        rules.add(new CteReferenceStatsRule());
 
         return new ComposableStatsCalculator(rules.build());
     }

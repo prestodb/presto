@@ -590,10 +590,10 @@ void PrestoTask::updateExecutionInfoLocked(
   prestoTaskStats.outputPositions = 0;
   prestoTaskStats.outputDataSizeInBytes = 0;
 
-  prestoTaskStats.totalDrivers = veloxTaskStats.numTotalSplits;
-  prestoTaskStats.queuedDrivers = veloxTaskStats.numQueuedSplits;
-  prestoTaskStats.runningDrivers = veloxTaskStats.numRunningSplits;
-  prestoTaskStats.completedDrivers = veloxTaskStats.numFinishedSplits;
+  prestoTaskStats.queuedDrivers = veloxTaskStats.numQueuedDrivers;
+  prestoTaskStats.totalDrivers = veloxTaskStats.numTotalDrivers;
+  prestoTaskStats.runningDrivers = veloxTaskStats.numRunningDrivers;
+  prestoTaskStats.completedDrivers = veloxTaskStats.numCompletedDrivers;
 
   prestoTaskStats.pipelines.resize(veloxTaskStats.pipelineStats.size());
   for (int i = 0; i < veloxTaskStats.pipelineStats.size(); ++i) {

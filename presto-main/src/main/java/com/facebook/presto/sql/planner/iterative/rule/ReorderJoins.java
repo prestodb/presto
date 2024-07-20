@@ -65,6 +65,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
+import static com.facebook.presto.SystemSessionProperties.confidenceBasedBroadcastEnabled;
 import static com.facebook.presto.SystemSessionProperties.getJoinDistributionType;
 import static com.facebook.presto.SystemSessionProperties.getJoinReorderingStrategy;
 import static com.facebook.presto.SystemSessionProperties.getMaxReorderedJoins;
@@ -81,7 +82,9 @@ import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStra
 import static com.facebook.presto.sql.planner.EqualityInference.createEqualityInference;
 import static com.facebook.presto.sql.planner.PlannerUtils.addProjections;
 import static com.facebook.presto.sql.planner.VariablesExtractor.extractUnique;
+import static com.facebook.presto.sql.planner.iterative.ConfidenceBasedBroadcastUtil.confidenceBasedBroadcast;
 import static com.facebook.presto.sql.planner.iterative.rule.DetermineJoinDistributionType.isBelowMaxBroadcastSize;
+import static com.facebook.presto.sql.planner.iterative.rule.DetermineJoinDistributionType.mustPartition;
 import static com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.JoinEnumerationResult.INFINITE_COST_RESULT;
 import static com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.JoinEnumerationResult.UNKNOWN_COST_RESULT;
 import static com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.MultiJoinNode.toMultiJoinNode;
@@ -537,6 +540,14 @@ public class ReorderJoins
             if (isAtMostScalar(joinNode.getLeft(), lookup)) {
                 return createJoinEnumerationResult(joinNode.flipChildren().withDistributionType(REPLICATED));
             }
+
+            if (isBelowMaxBroadcastSize(joinNode, context) && isBelowMaxBroadcastSize(joinNode.flipChildren(), context) && !mustPartition(joinNode) && confidenceBasedBroadcastEnabled(context.getSession())) {
+                Optional<JoinNode> result = confidenceBasedBroadcast(joinNode, context);
+                if (result.isPresent()) {
+                    return createJoinEnumerationResult(result.get());
+                }
+            }
+
             List<JoinEnumerationResult> possibleJoinNodes = getPossibleJoinNodes(joinNode, getJoinDistributionType(session));
             verify(!possibleJoinNodes.isEmpty(), "possibleJoinNodes is empty");
             if (possibleJoinNodes.stream().anyMatch(UNKNOWN_COST_RESULT::equals)) {
