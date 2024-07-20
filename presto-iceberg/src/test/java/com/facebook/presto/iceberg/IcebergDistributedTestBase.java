@@ -48,6 +48,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.CatalogUtil;
@@ -128,6 +129,7 @@ import static org.testng.Assert.assertTrue;
 public abstract class IcebergDistributedTestBase
         extends AbstractTestDistributedQueries
 {
+    private static final String METADATA_FILE_EXTENSION = ".metadata.json";
     private final CatalogType catalogType;
     private final Map<String, String> extraConnectorProperties;
 
@@ -1610,6 +1612,16 @@ public abstract class IcebergDistributedTestBase
             TableMetadata defaultTableMetadata = ((BaseTable) defaultTable).operations().current();
             // Table `test_table_with_default_setting_properties`'s current metadata record all 5 previous metadata files
             assertEquals(defaultTableMetadata.previousFiles().size(), 5);
+
+            FileSystem fileSystem = getHdfsEnvironment().getFileSystem(new HdfsContext(SESSION), new org.apache.hadoop.fs.Path(settingTable.location()));
+
+            // Table `test_table_with_setting_properties`'s all existing metadata files count is 2
+            FileStatus[] settingTableFiles = fileSystem.listStatus(new org.apache.hadoop.fs.Path(settingTable.location(), "metadata"), name -> name.getName().contains(METADATA_FILE_EXTENSION));
+            assertEquals(settingTableFiles.length, 2);
+
+            // Table `test_table_with_default_setting_properties`'s all existing metadata files count is 6
+            FileStatus[] defaultTableFiles = fileSystem.listStatus(new org.apache.hadoop.fs.Path(defaultTable.location(), "metadata"), name -> name.getName().contains(METADATA_FILE_EXTENSION));
+            assertEquals(defaultTableFiles.length, 6);
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + settingTableName);
