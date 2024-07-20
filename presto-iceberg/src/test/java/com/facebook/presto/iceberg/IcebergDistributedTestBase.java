@@ -1573,6 +1573,49 @@ public abstract class IcebergDistributedTestBase
         }
     }
 
+    @Test
+    public void testMetadataVersionsMaintainingProperties()
+            throws Exception
+    {
+        String settingTableName = "test_table_with_setting_properties";
+        String defaultTableName = "test_table_with_default_setting_properties";
+        try {
+            // Create a table with setting properties that maintain only 1 previous metadata version in current metadata,
+            //  and delete unuseful metadata files after each commit
+            assertUpdate("CREATE TABLE " + settingTableName + " (a INTEGER, b VARCHAR)" +
+                    " WITH (metadata_previous_versions_max = 1, metadata_delete_after_commit = true)");
+
+            // Create a table with default table properties that maintain 100 previous metadata versions in current metadata,
+            //  and do not automatically delete any metadata files
+            assertUpdate("CREATE TABLE " + defaultTableName + " (a INTEGER, b VARCHAR)");
+
+            assertUpdate("INSERT INTO " + settingTableName + " VALUES (1, '1001'), (2, '1002')", 2);
+            assertUpdate("INSERT INTO " + settingTableName + " VALUES (3, '1003'), (4, '1004')", 2);
+            assertUpdate("INSERT INTO " + settingTableName + " VALUES (5, '1005'), (6, '1006')", 2);
+            assertUpdate("INSERT INTO " + settingTableName + " VALUES (7, '1007'), (8, '1008')", 2);
+            assertUpdate("INSERT INTO " + settingTableName + " VALUES (9, '1009'), (10, '1010')", 2);
+
+            assertUpdate("INSERT INTO " + defaultTableName + " VALUES (1, '1001'), (2, '1002')", 2);
+            assertUpdate("INSERT INTO " + defaultTableName + " VALUES (3, '1003'), (4, '1004')", 2);
+            assertUpdate("INSERT INTO " + defaultTableName + " VALUES (5, '1005'), (6, '1006')", 2);
+            assertUpdate("INSERT INTO " + defaultTableName + " VALUES (7, '1007'), (8, '1008')", 2);
+            assertUpdate("INSERT INTO " + defaultTableName + " VALUES (9, '1009'), (10, '1010')", 2);
+
+            Table settingTable = loadTable(settingTableName);
+            TableMetadata settingTableMetadata = ((BaseTable) settingTable).operations().current();
+            // Table `test_table_with_setting_properties`'s current metadata only record 1 previous metadata file
+            assertEquals(settingTableMetadata.previousFiles().size(), 1);
+
+            Table defaultTable = loadTable(defaultTableName);
+            TableMetadata defaultTableMetadata = ((BaseTable) defaultTable).operations().current();
+            // Table `test_table_with_default_setting_properties`'s current metadata record all 5 previous metadata files
+            assertEquals(defaultTableMetadata.previousFiles().size(), 5);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + settingTableName);
+        }
+    }
+
     private void testCheckDeleteFiles(Table icebergTable, int expectedSize, List<FileContent> expectedFileContent)
     {
         // check delete file list
