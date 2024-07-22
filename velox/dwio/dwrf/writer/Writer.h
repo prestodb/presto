@@ -30,7 +30,7 @@
 
 namespace facebook::velox::dwrf {
 
-struct WriterOptions {
+struct WriterOptions : public dwio::common::WriterOptions {
   std::shared_ptr<const Config> config = std::make_shared<Config>();
   std::shared_ptr<const Type> schema;
   velox::memory::MemoryPool* memoryPool;
@@ -220,6 +220,8 @@ class DwrfWriterFactory : public dwio::common::WriterFactory {
   std::unique_ptr<dwio::common::Writer> createWriter(
       std::unique_ptr<dwio::common::FileSink> sink,
       const std::shared_ptr<dwio::common::WriterOptions>& options) override;
+
+  std::unique_ptr<dwio::common::WriterOptions> createWriterOptions() override;
 };
 
 } // namespace facebook::velox::dwrf

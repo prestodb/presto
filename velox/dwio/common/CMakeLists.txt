@@ -69,6 +69,7 @@ target_link_libraries(
   velox_caching
   velox_common_io
   velox_common_compression
+  velox_config
   velox_dwio_common_encryption
   velox_dwio_common_exception
   velox_exception

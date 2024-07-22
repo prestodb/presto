@@ -17,6 +17,7 @@
 #pragma once
 
 #include "velox/common/compression/Compression.h"
+#include "velox/core/Config.h"
 #include "velox/dwio/common/DataBuffer.h"
 #include "velox/dwio/common/FileSink.h"
 #include "velox/dwio/common/FlushPolicy.h"
@@ -86,26 +87,42 @@ class LambdaFlushPolicy : public DefaultFlushPolicy {
   std::function<bool()> lambda_;
 };
 
-struct WriterOptions {
+struct WriterOptions : public dwio::common::WriterOptions {
   bool enableDictionary = true;
   int64_t dataPageSize = 1'024 * 1'024;
   int64_t dictionaryPageSizeLimit = 1'024 * 1'024;
+
   // Growth ratio passed to ArrowDataBufferSink. The default value is a
   // heuristic borrowed from
   // folly/FBVector(https://github.com/facebook/folly/blob/main/folly/docs/FBVector.md#memory-handling).
   double bufferGrowRatio = 1.5;
-  common::CompressionKind compression = common::CompressionKind_NONE;
+
   arrow::Encoding::type encoding = arrow::Encoding::PLAIN;
-  velox::memory::MemoryPool* memoryPool;
+
   // The default factory allows the writer to construct the default flush
   // policy with the configs in its ctor.
   std::function<std::unique_ptr<DefaultFlushPolicy>()> flushPolicyFactory;
   std::shared_ptr<CodecOptions> codecOptions;
   std::unordered_map<std::string, common::CompressionKind>
       columnCompressionsMap;
-  uint8_t parquetWriteTimestampUnit =
-      static_cast<uint8_t>(TimestampUnit::kNano);
+
+  /// Timestamp unit for Parquet write through Arrow bridge.
+  /// Default if not specified: TimestampUnit::kNano (9).
+  std::optional<TimestampUnit> parquetWriteTimestampUnit;
   bool writeInt96AsTimestamp = false;
+
+  // Parsing session and hive configs.
+
+  // This isn't a typo; session and hive connector config names are different
+  // ('_' vs '-').
+  static constexpr const char* kParquetSessionWriteTimestampUnit =
+      "hive.parquet.writer.timestamp_unit";
+  static constexpr const char* kParquetHiveConnectorWriteTimestampUnit =
+      "hive.parquet.writer.timestamp-unit";
+
+  // Process hive connector and session configs.
+  void processSessionConfigs(const Config& config) override;
+  void processHiveConnectorConfigs(const Config& config) override;
 };
 
 // Writes Velox vectors into  a DataSink using Arrow Parquet writer.
@@ -176,6 +193,8 @@ class ParquetWriterFactory : public dwio::common::WriterFactory {
   std::unique_ptr<dwio::common::Writer> createWriter(
       std::unique_ptr<dwio::common::FileSink> sink,
       const std::shared_ptr<dwio::common::WriterOptions>& options) override;
+
+  std::unique_ptr<dwio::common::WriterOptions> createWriterOptions() override;
 };
 
 } // namespace facebook::velox::parquet

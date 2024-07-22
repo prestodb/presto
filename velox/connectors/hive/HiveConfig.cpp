@@ -296,17 +296,6 @@ uint8_t HiveConfig::readTimestampUnit(const Config* session) const {
   return unit;
 }
 
-uint8_t HiveConfig::parquetWriteTimestampUnit(const Config* session) const {
-  const auto unit = session->get<uint8_t>(
-      kParquetWriteTimestampUnitSession,
-      config_->get<uint8_t>(kParquetWriteTimestampUnit, 9 /*nano*/));
-  VELOX_CHECK(
-      unit == 0 /*second*/ || unit == 3 /*milli*/ || unit == 6 /*micro*/ ||
-          unit == 9,
-      "Invalid timestamp unit.");
-  return unit;
-}
-
 bool HiveConfig::cacheNoRetention(const Config* session) const {
   return session->get<bool>(
       kCacheNoRetentionSession,

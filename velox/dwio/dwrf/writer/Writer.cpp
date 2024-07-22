@@ -32,8 +32,8 @@
 using facebook::velox::common::testutil::TestValue;
 
 namespace facebook::velox::dwrf {
-
 namespace {
+
 dwio::common::StripeProgress getStripeProgress(const WriterContext& context) {
   return dwio::common::StripeProgress{
       .stripeIndex = context.stripeIndex(),
@@ -858,6 +858,11 @@ std::unique_ptr<dwio::common::Writer> DwrfWriterFactory::createWriter(
     const std::shared_ptr<dwio::common::WriterOptions>& options) {
   auto dwrfOptions = getDwrfOptions(*options);
   return std::make_unique<Writer>(std::move(sink), dwrfOptions);
+}
+
+std::unique_ptr<dwio::common::WriterOptions>
+DwrfWriterFactory::createWriterOptions() {
+  return std::make_unique<dwrf::WriterOptions>();
 }
 
 void registerDwrfWriterFactory() {

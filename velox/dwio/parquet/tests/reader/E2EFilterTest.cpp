@@ -159,7 +159,7 @@ TEST_F(E2EFilterTest, compression) {
     }
 
     options_.dataPageSize = 4 * 1024;
-    options_.compression = compression;
+    options_.compressionKind = compression;
 
     testWithTypes(
         "tinyint_val:tinyint,"

@@ -64,6 +64,10 @@ class WriterFactory {
   }
 #endif
 
+  /// Creates a polymorphic writer options object.
+  virtual std::unique_ptr<dwio::common::WriterOptions>
+  createWriterOptions() = 0;
+
  private:
   const FileFormat format_;
 };

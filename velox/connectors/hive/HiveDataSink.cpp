@@ -677,15 +677,24 @@ uint32_t HiveDataSink::appendWriter(const HiveWriterId& id) {
   ioStats_.emplace_back(std::make_shared<io::IoStatistics>());
   setMemoryReclaimers(writerInfo_.back().get(), ioStats_.back().get());
 
-  // Take the one provided by the user as a starting point, or allocate a new
-  // one.
-  const auto& writerOptions = insertTableHandle_->writerOptions();
-  std::shared_ptr<dwio::common::WriterOptions> options = writerOptions
-      ? writerOptions
-      : std::make_shared<dwio::common::WriterOptions>();
+  // Take the writer options provided by the user as a starting point, or
+  // allocate a new one.
+  auto options = insertTableHandle_->writerOptions();
+  if (!options) {
+    options = writerFactory_->createWriterOptions();
+  }
 
   const auto* connectorSessionProperties =
       connectorQueryCtx_->sessionProperties();
+
+  // Acquire file format specifc configs. The precedence order is:
+  //
+  // 1. First respect any options specified as part of the query plan (accessed
+  //    through insertTableHandle)
+  // 2. Otherwise, acquire user defined session properties.
+  // 3. Lastly, acquire general hive connector configs.
+  options->processSessionConfigs(*connectorSessionProperties);
+  options->processHiveConnectorConfigs(*hiveConfig_->config());
 
   // Only overwrite options in case they were not already provided.
   if (options->schema == nullptr) {
@@ -736,11 +745,6 @@ uint32_t HiveDataSink::appendWriter(const HiveWriterId& id) {
     options->orcWriterStringDictionaryEncodingEnabled =
         hiveConfig_->isOrcWriterStringDictionaryEncodingEnabled(
             connectorSessionProperties);
-  }
-
-  if (!options->parquetWriteTimestampUnit) {
-    options->parquetWriteTimestampUnit =
-        hiveConfig_->parquetWriteTimestampUnit(connectorSessionProperties);
   }
 
   if (!options->orcMinCompressionSize) {

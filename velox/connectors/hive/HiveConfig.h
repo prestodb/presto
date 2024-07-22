@@ -237,12 +237,6 @@ class HiveConfig {
   static constexpr const char* kReadTimestampUnitSession =
       "hive.reader.timestamp_unit";
 
-  /// Timestamp unit for Parquet write through Arrow bridge.
-  static constexpr const char* kParquetWriteTimestampUnit =
-      "hive.parquet.writer.timestamp-unit";
-  static constexpr const char* kParquetWriteTimestampUnitSession =
-      "hive.parquet.writer.timestamp_unit";
-
   static constexpr const char* kCacheNoRetention = "cache.no_retention";
   static constexpr const char* kCacheNoRetentionSession = "cache.no_retention";
 
@@ -341,10 +335,6 @@ class HiveConfig {
 
   // Returns the timestamp unit used when reading timestamps from files.
   uint8_t readTimestampUnit(const Config* session) const;
-
-  /// Returns the timestamp unit used when writing timestamps into Parquet
-  /// through Arrow bridge. 0: second, 3: milli, 6: micro, 9: nano.
-  uint8_t parquetWriteTimestampUnit(const Config* session) const;
 
   /// Returns true to evict out a query scanned data out of in-memory cache
   /// right after the access, and also skip staging to the ssd cache. This helps

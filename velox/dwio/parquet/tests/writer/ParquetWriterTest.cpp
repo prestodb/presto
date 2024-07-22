@@ -106,7 +106,7 @@ TEST_F(ParquetWriterTest, compression) {
   auto sinkPtr = sink.get();
   facebook::velox::parquet::WriterOptions writerOptions;
   writerOptions.memoryPool = leafPool_.get();
-  writerOptions.compression = CompressionKind::CompressionKind_SNAPPY;
+  writerOptions.compressionKind = CompressionKind::CompressionKind_SNAPPY;
 
   const auto& fieldNames = schema->names();
 
@@ -151,8 +151,7 @@ DEBUG_ONLY_TEST_F(ParquetWriterTest, unitFromWriterOptions) {
       10'000, [](auto row) { return Timestamp(row, row); })});
   parquet::WriterOptions writerOptions;
   writerOptions.memoryPool = leafPool_.get();
-  writerOptions.parquetWriteTimestampUnit =
-      static_cast<uint8_t>(TimestampUnit::kMicro);
+  writerOptions.parquetWriteTimestampUnit = TimestampUnit::kMicro;
 
   // Create an in-memory writer.
   auto sink = std::make_unique<MemorySink>(
