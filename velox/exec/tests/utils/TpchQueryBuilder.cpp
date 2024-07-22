@@ -146,6 +146,8 @@ TpchPlan TpchQueryBuilder::getQueryPlan(int queryId) const {
       return getQ2Plan();
     case 3:
       return getQ3Plan();
+    case 4:
+      return getQ4Plan();
     case 5:
       return getQ5Plan();
     case 6:
@@ -525,6 +527,65 @@ TpchPlan TpchQueryBuilder::getQ3Plan() const {
   context.dataFiles[lineitemPlanNodeId] = getTableFilePaths(kLineitem);
   context.dataFiles[ordersPlanNodeId] = getTableFilePaths(kOrders);
   context.dataFiles[customerPlanNodeId] = getTableFilePaths(kCustomer);
+  context.dataFileFormat = format_;
+  return context;
+}
+
+TpchPlan TpchQueryBuilder::getQ4Plan() const {
+  std::vector<std::string> ordersColumns = {
+      "o_orderdate", "o_orderpriority", "o_orderkey"};
+  std::vector<std::string> lineitemColumns = {
+      "l_orderkey", "l_commitdate", "l_receiptdate"};
+
+  auto ordersSelectedRowType = getRowType(kOrders, ordersColumns);
+  const auto& ordersFileColumns = getFileColumnNames(kOrders);
+  auto lineitemSelectedRowType = getRowType(kLineitem, lineitemColumns);
+  const auto& lineitemFileColumns = getFileColumnNames(kLineitem);
+
+  std::string orderDateFilter = formatDateFilter(
+      "o_orderdate", ordersSelectedRowType, "'1993-07-01'", "'1993-09-30'");
+
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  core::PlanNodeId lineitemPlanNodeId;
+  core::PlanNodeId ordersPlanNodeId;
+
+  auto orders = PlanBuilder(planNodeIdGenerator, pool_.get())
+                    .tableScan(
+                        kOrders,
+                        ordersSelectedRowType,
+                        ordersFileColumns,
+                        {orderDateFilter})
+                    .capturePlanNodeId(ordersPlanNodeId)
+                    .planNode();
+
+  auto plan =
+      PlanBuilder(planNodeIdGenerator, pool_.get())
+          .tableScan(
+              kLineitem,
+              lineitemSelectedRowType,
+              lineitemFileColumns,
+              {},
+              "l_commitdate < l_receiptdate")
+          .capturePlanNodeId(lineitemPlanNodeId)
+          .partialAggregation({"l_orderkey"}, {}, {})
+          .localPartition({"l_orderkey"})
+          .finalAggregation()
+          .hashJoin(
+              {"l_orderkey"},
+              {"o_orderkey"},
+              orders,
+              "",
+              {"o_orderpriority"},
+              core::JoinType::kRightSemiFilter)
+          .partialAggregation({"o_orderpriority"}, {"count(0) AS order_count"})
+          .finalAggregation()
+          .orderBy({"o_orderpriority"}, false)
+          .planNode();
+
+  TpchPlan context;
+  context.plan = std::move(plan);
+  context.dataFiles[lineitemPlanNodeId] = getTableFilePaths(kLineitem);
+  context.dataFiles[ordersPlanNodeId] = getTableFilePaths(kOrders);
   context.dataFileFormat = format_;
   return context;
 }
