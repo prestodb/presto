@@ -718,10 +718,11 @@ TEST_P(MemoryPoolTest, memoryCapExceptions) {
         ASSERT_EQ(error_code::kMemCapExceeded.c_str(), ex.errorCode());
         ASSERT_TRUE(ex.isRetriable());
         ASSERT_EQ(
-            "Exceeded memory pool cap of 128.00MB with max 128.00MB when "
-            "requesting 136.00MB, memory manager cap is 128.00MB, requestor "
-            "'static_quota' with current usage 0B\nMemoryCapExceptions usage "
-            "0B reserved 0B peak 0B\n",
+            "Exceeded memory pool capacity after attempt to grow capacity "
+            "through arbitration. Requestor pool name 'static_quota', request "
+            "size 136.00MB, memory pool capacity 128.00MB, memory pool max "
+            "capacity 128.00MB, memory manager capacity 128.00MB, current "
+            "usage 0B\nMemoryCapExceptions usage 0B reserved 0B peak 0B\n",
             ex.message());
       }
     }

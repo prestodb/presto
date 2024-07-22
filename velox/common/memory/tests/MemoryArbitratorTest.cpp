@@ -148,7 +148,9 @@ TEST_F(MemoryArbitrationTest, queryMemoryCapacity) {
     void* buffer;
     VELOX_ASSERT_THROW(
         buffer = leafPool->allocate(7L << 20),
-        "Exceeded memory pool cap of 4.00MB");
+        "Exceeded memory pool capacity after attempt to grow capacity through "
+        "arbitration. Requestor pool name 'leaf-1.0', request size 7.00MB, "
+        "memory pool capacity 4.00MB, memory pool max capacity 8.00MB");
     ASSERT_NO_THROW(buffer = leafPool->allocate(4L << 20));
     ASSERT_EQ(manager.arbitrator()->shrinkCapacity(rootPool.get(), 0), 0);
     ASSERT_EQ(manager.arbitrator()->shrinkCapacity(leafPool.get(), 0), 0);

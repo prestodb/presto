@@ -2021,7 +2021,7 @@ TEST_F(MockSharedArbitrationTest, ensureMemoryPoolMaxCapacity) {
     } else {
       VELOX_ASSERT_THROW(
           requestorOp->allocate(testData.requestBytes),
-          "Exceeded memory pool cap of");
+          "Exceeded memory pool capacity");
     }
     if (testData.expectedReclaimFromOther) {
       ASSERT_GT(otherOp->reclaimer()->stats().numReclaims, 0);
@@ -2052,7 +2052,9 @@ TEST_F(MockSharedArbitrationTest, ensureNodeMaxCapacity) {
 
     std::string debugString() const {
       return fmt::format(
-          "nodeCapacity {} poolMaxCapacity {} isReclaimable {} allocatedBytes {} requestBytes {} expectedSuccess {} expectedReclaimedBytes {}",
+          "nodeCapacity {} poolMaxCapacity {} isReclaimable {} "
+          "allocatedBytes {} requestBytes {} expectedSuccess {} "
+          "expectedReclaimedBytes {}",
           succinctBytes(nodeCapacity),
           succinctBytes(poolMaxCapacity),
           isReclaimable,
