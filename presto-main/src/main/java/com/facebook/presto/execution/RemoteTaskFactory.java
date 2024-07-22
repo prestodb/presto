@@ -34,5 +34,6 @@ public interface RemoteTaskFactory
             OutputBuffers outputBuffers,
             NodeStatsTracker nodeStatsTracker,
             boolean summarizeTaskInfo,
-            TableWriteInfo tableWriteInfo);
+            TableWriteInfo tableWriteInfo,
+            SchedulerStatsTracker schedulerStatsTracker);
 }

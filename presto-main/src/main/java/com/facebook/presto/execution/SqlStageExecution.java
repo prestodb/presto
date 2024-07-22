@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.OutputBuffers;
+import com.facebook.presto.execution.scheduler.ScheduleResult;
 import com.facebook.presto.execution.scheduler.SplitSchedulerStats;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.failureDetector.FailureDetector;
@@ -535,7 +536,8 @@ public final class SqlStageExecution
                 outputBuffers,
                 nodeTaskMap.createTaskStatsTracker(node, taskId),
                 summarizeTaskInfo,
-                tableWriteInfo);
+                tableWriteInfo,
+                stateMachine);
 
         completeSources.forEach(task::noMoreSplits);
 
@@ -567,6 +569,16 @@ public final class SqlStageExecution
     public void recordGetSplitTime(long start)
     {
         stateMachine.recordGetSplitTime(start);
+    }
+
+    public void recordSchedulerRunningTime(long cpuTimeNanos, long wallTimeNanos)
+    {
+        stateMachine.recordSchedulerRunningTime(cpuTimeNanos, wallTimeNanos);
+    }
+
+    public void recordSchedulerBlockedTime(ScheduleResult.BlockedReason reason, long nanos)
+    {
+        stateMachine.recordSchedulerBlockedTime(reason, nanos);
     }
 
     private static Split createRemoteSplitFor(TaskId taskId, URI remoteSourceTaskLocation, TaskId remoteSourceTaskId)

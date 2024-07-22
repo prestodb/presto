@@ -147,7 +147,8 @@ public class MockRemoteTaskFactory
                 createInitialEmptyOutputBuffers(BROADCAST),
                 nodeStatsTracker,
                 true,
-                new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()));
+                new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()),
+                SchedulerStatsTracker.NOOP);
     }
 
     @Override
@@ -160,7 +161,8 @@ public class MockRemoteTaskFactory
             OutputBuffers outputBuffers,
             NodeTaskMap.NodeStatsTracker nodeStatsTracker,
             boolean summarizeTaskInfo,
-            TableWriteInfo tableWriteInfo)
+            TableWriteInfo tableWriteInfo,
+            SchedulerStatsTracker schedulerStatsTracker)
     {
         return new MockRemoteTask(taskId, fragment, node.getNodeIdentifier(), executor, scheduledExecutor, initialSplits, nodeStatsTracker);
     }

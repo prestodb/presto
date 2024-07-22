@@ -31,6 +31,7 @@ import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.RemoteTaskFactory;
+import com.facebook.presto.execution.SchedulerStatsTracker;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManagerConfig;
@@ -216,7 +217,8 @@ public class HttpRemoteTaskFactory
             OutputBuffers outputBuffers,
             NodeTaskMap.NodeStatsTracker nodeStatsTracker,
             boolean summarizeTaskInfo,
-            TableWriteInfo tableWriteInfo)
+            TableWriteInfo tableWriteInfo,
+            SchedulerStatsTracker schedulerStatsTracker)
     {
         return new HttpRemoteTask(
                 session,
@@ -254,6 +256,7 @@ public class HttpRemoteTaskFactory
                 queryManager,
                 taskUpdateRequestSize,
                 handleResolver,
-                connectorTypeSerdeManager);
+                connectorTypeSerdeManager,
+                schedulerStatsTracker);
     }
 }
