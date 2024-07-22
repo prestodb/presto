@@ -30,6 +30,12 @@ public final class TimestampWithTimeZoneType
     }
 
     @Override
+    public boolean isOrderable()
+    {
+        return false;
+    }
+
+    @Override
     public Object getObjectValue(SqlFunctionProperties properties, Block block, int position)
     {
         if (block.isNull(position)) {
