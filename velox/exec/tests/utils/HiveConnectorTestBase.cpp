@@ -68,15 +68,24 @@ void HiveConnectorTestBase::writeToFile(
 void HiveConnectorTestBase::writeToFile(
     const std::string& filePath,
     const std::vector<RowVectorPtr>& vectors,
-    std::shared_ptr<dwrf::Config> config) {
-  writeToFile(filePath, vectors, std::move(config), vectors[0]->type());
+    std::shared_ptr<dwrf::Config> config,
+    const std::function<std::unique_ptr<dwrf::DWRFFlushPolicy>()>&
+        flushPolicyFactory) {
+  writeToFile(
+      filePath,
+      vectors,
+      std::move(config),
+      vectors[0]->type(),
+      flushPolicyFactory);
 }
 
 void HiveConnectorTestBase::writeToFile(
     const std::string& filePath,
     const std::vector<RowVectorPtr>& vectors,
     std::shared_ptr<dwrf::Config> config,
-    const TypePtr& schema) {
+    const TypePtr& schema,
+    const std::function<std::unique_ptr<dwrf::DWRFFlushPolicy>()>&
+        flushPolicyFactory) {
   velox::dwrf::WriterOptions options;
   options.config = config;
   options.schema = schema;
@@ -85,6 +94,8 @@ void HiveConnectorTestBase::writeToFile(
       std::move(localWriteFile), filePath);
   auto childPool = rootPool_->addAggregateChild("HiveConnectorTestBase.Writer");
   options.memoryPool = childPool.get();
+  options.flushPolicyFactory = flushPolicyFactory;
+
   facebook::velox::dwrf::Writer writer{std::move(sink), options};
   for (size_t i = 0; i < vectors.size(); ++i) {
     writer.write(vectors[i]);

@@ -48,7 +48,9 @@ IcebergSplitReader::IcebergSplitReader(
           executor,
           scanSpec),
       baseReadOffset_(0),
-      splitOffset_(0) {}
+      splitOffset_(0),
+      deleteBitmap_(nullptr),
+      deleteBitmapBitOffset_(0) {}
 
 void IcebergSplitReader::prepareSplit(
     std::shared_ptr<common::MetadataFilter> metadataFilter,
@@ -97,29 +99,55 @@ uint64_t IcebergSplitReader::next(uint64_t size, VectorPtr& output) {
   mutation.randomSkip = baseReaderOpts_.randomSkip().get();
   mutation.deletedRows = nullptr;
 
+  if (deleteBitmap_ && deleteBitmapBitOffset_ > 0) {
+    // There are unconsumed bits from last batch
+    if (deleteBitmapBitOffset_ < deleteBitmap_->size() * 8) {
+      bits::copyBits(
+          deleteBitmap_->as<uint64_t>(),
+          deleteBitmapBitOffset_,
+          deleteBitmap_->asMutable<uint64_t>(),
+          0,
+          deleteBitmap_->size() * 8 - deleteBitmapBitOffset_);
+
+      uint64_t newBitMapSizeInBytes =
+          deleteBitmap_->size() - deleteBitmapBitOffset_ / 8;
+      if (deleteBitmapBitOffset_ % 8 != 0) {
+        newBitMapSizeInBytes--;
+      }
+      deleteBitmap_->setSize(newBitMapSizeInBytes);
+    } else {
+      // All bits were consumed, reset to 0 for all bits
+      std::memset(
+          (void*)(deleteBitmap_->asMutable<int8_t>()),
+          0L,
+          deleteBitmap_->size());
+    }
+  }
+
   if (!positionalDeleteFileReaders_.empty()) {
     auto numBytes = bits::nbytes(size);
     dwio::common::ensureCapacity<int8_t>(
-        deleteBitmap_, numBytes, connectorQueryCtx_->memoryPool());
-    std::memset((void*)deleteBitmap_->as<int8_t>(), 0L, numBytes);
+        deleteBitmap_, numBytes, connectorQueryCtx_->memoryPool(), true, true);
 
     for (auto iter = positionalDeleteFileReaders_.begin();
          iter != positionalDeleteFileReaders_.end();) {
-      (*iter)->readDeletePositions(
-          baseReadOffset_, size, deleteBitmap_->asMutable<int8_t>());
-      if ((*iter)->endOfFile()) {
+      (*iter)->readDeletePositions(baseReadOffset_, size, deleteBitmap_);
+
+      if ((*iter)->noMoreData()) {
         iter = positionalDeleteFileReaders_.erase(iter);
       } else {
         ++iter;
       }
     }
-
-    deleteBitmap_->setSize(numBytes);
-    mutation.deletedRows = deleteBitmap_->as<uint64_t>();
   }
+
+  mutation.deletedRows = deleteBitmap_ && deleteBitmap_->size() > 0
+      ? deleteBitmap_->as<uint64_t>()
+      : nullptr;
 
   auto rowsScanned = baseRowReader_->next(size, output, &mutation);
   baseReadOffset_ += rowsScanned;
+  deleteBitmapBitOffset_ = rowsScanned;
 
   return rowsScanned;
 }
