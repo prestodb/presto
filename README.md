@@ -82,6 +82,16 @@ Details on the dependencies and how Velox manages some of them for you
 Velox also provides the following scripts to help developers setup and install Velox
 dependencies for a given platform.
 
+### Setting up dependencies
+
+The following setup scripts use the `DEPENDENCY_DIR` environment variable to set the
+location of the build packages. If you do not set this variable, it will default to
+the current working directory.
+
+```shell
+$ export DEPENDENCY_DIR=/path/to/your/dependencies
+```
+
 ### Setting up on macOS
 
 On a MacOS machine (either Intel or Apple silicon) you can setup and then build like so:
