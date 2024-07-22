@@ -506,10 +506,7 @@ void registerHistogramAggregate(
           const core::QueryConfig& /*config*/)
           -> std::unique_ptr<exec::Aggregate> {
         VELOX_CHECK_EQ(
-            argTypes.size(),
-            1,
-            "{} ({}): unexpected number of arguments",
-            name);
+            argTypes.size(), 1, "{}: unexpected number of arguments", name);
 
         auto inputType = argTypes[0];
         switch (exec::isRawInput(step) ? inputType->kind()

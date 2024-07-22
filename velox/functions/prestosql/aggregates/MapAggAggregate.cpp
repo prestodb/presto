@@ -175,7 +175,7 @@ void registerMapAggAggregate(
         VELOX_CHECK_EQ(
             argTypes.size(),
             rawInput ? 2 : 1,
-            "{} ({}): unexpected number of arguments",
+            "{}: unexpected number of arguments",
             name);
         const bool throwOnNestedNulls = rawInput;
         const auto typeKind = resultType->childAt(0)->kind();
