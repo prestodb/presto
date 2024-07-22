@@ -178,10 +178,10 @@ public abstract class AbstractTestType
         assertEquals(block.isNull(position), expectedStackValue == null);
 
         if (type.isOrderable()) {
-            assertTrue(ASC_NULLS_FIRST.compareBlockValue(type, block, position, expectedBlock, 0) == 0);
-            assertTrue(ASC_NULLS_LAST.compareBlockValue(type, block, position, expectedBlock, 0) == 0);
-            assertTrue(DESC_NULLS_FIRST.compareBlockValue(type, block, position, expectedBlock, 0) == 0);
-            assertTrue(DESC_NULLS_LAST.compareBlockValue(type, block, position, expectedBlock, 0) == 0);
+            assertEquals(ASC_NULLS_FIRST.compareBlockValue(type, block, position, expectedBlock, 0), 0);
+            assertEquals(ASC_NULLS_LAST.compareBlockValue(type, block, position, expectedBlock, 0), 0);
+            assertEquals(DESC_NULLS_FIRST.compareBlockValue(type, block, position, expectedBlock, 0), 0);
+            assertEquals(DESC_NULLS_LAST.compareBlockValue(type, block, position, expectedBlock, 0), 0);
         }
         else {
             try {
