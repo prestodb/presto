@@ -22,6 +22,7 @@ import com.facebook.presto.client.Column;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.StatementStats;
 import com.facebook.presto.common.ErrorCode;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.common.transaction.TransactionId;
@@ -423,6 +424,7 @@ public class PrestoSparkQueryExecutionFactory
                 taskInfos,
                 DateTime.now(),
                 new Distribution().snapshot(),
+                new RuntimeStats(),
                 succinctBytes(peakUserMemoryReservationInBytes),
                 succinctBytes(peakNodeTotalMemoryReservationInBytes),
                 1,
