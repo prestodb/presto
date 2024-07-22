@@ -2927,7 +2927,7 @@ public class TestHiveIntegrationSmokeTest
             int bucket = (int) row.getField(2);
 
             assertEquals(col1, col0 + 11);
-            assertTrue(col1 % 2 == 0);
+            assertEquals(col1 % 2, 0);
 
             // Because Hive's hash function for integer n is h(n) = n.
             assertEquals(bucket, col0 % 2);
