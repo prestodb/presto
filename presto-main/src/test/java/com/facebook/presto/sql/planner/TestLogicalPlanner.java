@@ -14,10 +14,18 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.CatalogSchemaName;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.SortOrder;
+import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.functionNamespace.FunctionNamespaceManagerPlugin;
 import com.facebook.presto.functionNamespace.json.JsonFileBasedFunctionNamespaceManagerFactory;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.AggregationFunctionMetadata;
+import com.facebook.presto.spi.function.FunctionKind;
+import com.facebook.presto.spi.function.Parameter;
+import com.facebook.presto.spi.function.RoutineCharacteristics;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.FilterNode;
@@ -75,8 +83,12 @@ import static com.facebook.presto.SystemSessionProperties.getMaxLeafNodesInPlan;
 import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_LAST;
 import static com.facebook.presto.common.predicate.Domain.singleValue;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_LIMIT_CLAUSE;
+import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
+import static com.facebook.presto.spi.function.RoutineCharacteristics.Determinism.DETERMINISTIC;
+import static com.facebook.presto.spi.function.RoutineCharacteristics.Language.CPP;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
@@ -87,8 +99,6 @@ import static com.facebook.presto.spi.plan.JoinType.LEFT;
 import static com.facebook.presto.spi.plan.JoinType.RIGHT;
 import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED;
 import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED;
-import static com.facebook.presto.sql.TestExpressionInterpreter.AVG_UDAF_CPP;
-import static com.facebook.presto.sql.TestExpressionInterpreter.SQUARE_UDF_CPP;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.any;
@@ -143,6 +153,26 @@ import static org.testng.Assert.fail;
 public class TestLogicalPlanner
         extends BasePlanTest
 {
+    public static final SqlInvokedFunction SQUARE_UDF_CPP = new SqlInvokedFunction(
+            QualifiedObjectName.valueOf(new CatalogSchemaName("json", "test_schema"), "square"),
+            ImmutableList.of(new Parameter("x", parseTypeSignature(StandardTypes.BIGINT))),
+            parseTypeSignature(StandardTypes.BIGINT),
+            "Integer square",
+            RoutineCharacteristics.builder().setDeterminism(DETERMINISTIC).setLanguage(CPP).build(),
+            "",
+            notVersioned());
+
+    public static final SqlInvokedFunction AVG_UDAF_CPP = new SqlInvokedFunction(
+            QualifiedObjectName.valueOf(new CatalogSchemaName("json", "test_schema"), "avg"),
+            ImmutableList.of(new Parameter("x", parseTypeSignature(StandardTypes.DOUBLE))),
+            parseTypeSignature(StandardTypes.DOUBLE),
+            "Returns mean of doubles",
+            RoutineCharacteristics.builder().setDeterminism(DETERMINISTIC).setLanguage(CPP).build(),
+            "",
+            notVersioned(),
+            FunctionKind.AGGREGATE,
+            Optional.of(new AggregationFunctionMetadata(parseTypeSignature("ROW(double, int)"), false)));
+
     // TODO: Use com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder#tableScan with required node/stream
     // partitioning to properly test aggregation, window function and join.
 

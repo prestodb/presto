@@ -23,6 +23,7 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
+import com.facebook.presto.sql.expressions.ExpressionManager;
 import com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.Plan;
@@ -58,6 +59,8 @@ public interface QueryRunner
     Optional<EventListener> getEventListener();
 
     TestingAccessControlManager getAccessControl();
+
+    ExpressionManager getExpressionManager();
 
     MaterializedResult execute(@Language("SQL") String sql);
 

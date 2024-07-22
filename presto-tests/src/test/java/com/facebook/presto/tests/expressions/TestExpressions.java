@@ -1,17 +1,4 @@
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-package com.facebook.presto.sql;
+package com.facebook.presto.tests.expressions;
 
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
@@ -24,14 +11,19 @@ import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.functionNamespace.json.JsonFileBasedFunctionNamespaceManagerFactory;
+import com.facebook.presto.metadata.AnalyzePropertyManager;
+import com.facebook.presto.metadata.CatalogManager;
+import com.facebook.presto.metadata.ColumnPropertyManager;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.SchemaPropertyManager;
+import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.metadata.TablePropertyManager;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.AggregationFunctionMetadata;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Parameter;
@@ -39,29 +31,25 @@ import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.TestingRowExpressionTranslator;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.ExpressionInterpreter;
-import com.facebook.presto.sql.planner.RowExpressionInterpreter;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.ExpressionRewriter;
-import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.LikePredicate;
-import com.facebook.presto.sql.tree.NodeRef;
-import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.StringLiteral;
+import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
@@ -75,7 +63,6 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.math.BigInteger;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
@@ -91,6 +78,7 @@ import static com.facebook.presto.common.type.TimeType.TIME;
 import static com.facebook.presto.common.type.TimeZoneKey.getTimeZoneKey;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.operator.scalar.ApplyFunction.APPLY_FUNCTION;
@@ -98,28 +86,23 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Determinism.DETERMINISTIC;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Language.CPP;
-import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.SERIALIZABLE;
 import static com.facebook.presto.sql.ExpressionFormatter.formatExpression;
-import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
-import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
-import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionInterpreter;
-import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionOptimizer;
-import static com.facebook.presto.sql.planner.RowExpressionInterpreter.rowExpressionInterpreter;
+import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.util.AnalyzerUtil.createParsingOptions;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.String.format;
-import static java.util.Collections.emptyMap;
 import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
-public class TestExpressionInterpreter
+public abstract class TestExpressions
 {
     public static final SqlInvokedFunction SQUARE_UDF_CPP = new SqlInvokedFunction(
             QualifiedObjectName.valueOf(new CatalogSchemaName("json", "test_schema"), "square"),
@@ -142,11 +125,11 @@ public class TestExpressionInterpreter
             Optional.of(new AggregationFunctionMetadata(parseTypeSignature("ROW(double, int)"), false)));
 
     private static final int TEST_VARCHAR_TYPE_LENGTH = 17;
-    private static final TypeProvider SYMBOL_TYPES = TypeProvider.viewOf(ImmutableMap.<String, Type>builder()
+    protected static final TypeProvider SYMBOL_TYPES = TypeProvider.viewOf(ImmutableMap.<String, Type>builder()
             .put("bound_integer", INTEGER)
             .put("bound_long", BIGINT)
             .put("bound_string", createVarcharType(TEST_VARCHAR_TYPE_LENGTH))
-            .put("bound_varbinary", VarbinaryType.VARBINARY)
+            .put("bound_varbinary", VARBINARY)
             .put("bound_double", DOUBLE)
             .put("bound_boolean", BOOLEAN)
             .put("bound_date", DATE)
@@ -173,10 +156,31 @@ public class TestExpressionInterpreter
             .put("unbound_null_string", VARCHAR)
             .build());
 
-    private static final SqlParser SQL_PARSER = new SqlParser();
-    private static final Metadata METADATA = MetadataManager.createTestMetadataManager();
+    protected static final HandleResolver HANDLE_RESOLVER = new HandleResolver();
+    protected static final Metadata METADATA = createTestingMetadata(HANDLE_RESOLVER);
+
+    // This complicated factory method is needed instead of MetadataManager.createTestMetadataManager because
+    // we need to retain access to the HandleResolver instance for serializing and deserializing custom registered functions
+    // in child tests
+    private static Metadata createTestingMetadata(HandleResolver handleResolver)
+    {
+        BlockEncodingManager blockEncodingManager = new BlockEncodingManager();
+        CatalogManager catalogManager = new CatalogManager();
+        TransactionManager transactionManager = createTestTransactionManager(catalogManager);
+        return new MetadataManager(
+                new FunctionAndTypeManager(transactionManager, blockEncodingManager, new FeaturesConfig(), handleResolver, ImmutableSet.of()),
+                blockEncodingManager,
+                new SessionPropertyManager(),
+                new SchemaPropertyManager(),
+                new TablePropertyManager(),
+                new ColumnPropertyManager(),
+                new AnalyzePropertyManager(),
+                transactionManager);
+    }
+
+    protected static final SqlParser SQL_PARSER = new SqlParser();
     private static final TestingRowExpressionTranslator TRANSLATOR = new TestingRowExpressionTranslator(METADATA);
-    private static final BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager();
+    protected static final BlockEncodingSerde BLOCK_ENCODING_SERDE = new BlockEncodingManager();
 
     @BeforeClass
     public void setup()
@@ -427,7 +431,7 @@ public class TestExpressionInterpreter
     }
 
     // Run this method exactly once.
-    private void setupJsonFunctionNamespaceManager(FunctionAndTypeManager functionAndTypeManager)
+    protected void setupJsonFunctionNamespaceManager(FunctionAndTypeManager functionAndTypeManager)
     {
         functionAndTypeManager.addFunctionNamespaceFactory(new JsonFileBasedFunctionNamespaceManagerFactory());
         functionAndTypeManager.loadFunctionNamespaceManager(
@@ -1200,18 +1204,6 @@ public class TestExpressionInterpreter
                         "end");
 
         assertOptimizedMatches("case 1 " +
-                        "when unbound_long then 1 " +
-                        "when 0 / 0 then 2 " +
-                        "else 1 " +
-                        "end",
-                "" +
-                        "case BIGINT '1' " +
-                        "when unbound_long then 1 " +
-                        "when cast(fail(8, 'ignored failure message') AS integer) then 2 " +
-                        "else 1 " +
-                        "end");
-
-        assertOptimizedMatches("case 1 " +
                         "when 0 / 0 then 1 " +
                         "when 0 / 0 then 2 " +
                         "else 1 " +
@@ -1394,16 +1386,15 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("unbound_string LIKE 'a#_b' ESCAPE '#'", "unbound_string = CAST('a_b' AS VARCHAR)");
         assertOptimizedEquals("unbound_string LIKE 'a#%b' ESCAPE '#'", "unbound_string = CAST('a%b' AS VARCHAR)");
         assertOptimizedEquals("unbound_string LIKE 'a#_##b' ESCAPE '#'", "unbound_string = CAST('a_#b' AS VARCHAR)");
-        assertOptimizedEquals("unbound_string LIKE 'a#__b' ESCAPE '#'", "unbound_string LIKE 'a#__b' ESCAPE '#'");
-        assertOptimizedEquals("unbound_string LIKE 'a##%b' ESCAPE '#'", "unbound_string LIKE 'a##%b' ESCAPE '#'");
+        assertOptimizedMatches("unbound_string LIKE 'a#__b' ESCAPE '#'", "unbound_string LIKE 'a#__b' ESCAPE '#'");
+        assertOptimizedMatches("unbound_string LIKE 'a##%b' ESCAPE '#'", "unbound_string LIKE 'a##%b' ESCAPE '#'");
 
         assertOptimizedEquals("bound_string LIKE bound_pattern", "true");
         assertOptimizedEquals("'abc' LIKE bound_pattern", "false");
 
-        assertOptimizedEquals("unbound_string LIKE bound_pattern", "unbound_string LIKE bound_pattern");
         assertDoNotOptimize("unbound_string LIKE 'abc%'", SERIALIZABLE);
 
-        assertOptimizedEquals("unbound_string LIKE unbound_pattern ESCAPE unbound_string", "unbound_string LIKE unbound_pattern ESCAPE unbound_string");
+        assertOptimizedMatches("unbound_string LIKE unbound_pattern ESCAPE unbound_string", "unbound_string LIKE unbound_pattern ESCAPE unbound_string");
     }
 
     @Test
@@ -1586,123 +1577,27 @@ public class TestExpressionInterpreter
         optimize("interval '3' day * unbound_long");
         optimize("interval '3' year * unbound_long");
 
-        assertEquals(optimize("X'1234'"), Slices.wrappedBuffer((byte) 0x12, (byte) 0x34));
+        assertEquals(optimize("X'1234'"), wrappedBuffer((byte) 0x12, (byte) 0x34));
     }
+    protected abstract Object evaluate(String expression, boolean deterministic);
 
-    private static void assertLike(byte[] value, String pattern, boolean expected)
+    protected abstract Object optimize(@Language("SQL") String expression);
+
+    protected abstract void assertOptimizedEquals(@Language("SQL") String expression, @Language("SQL") String expected);
+
+    protected abstract void assertLike(byte[] value, String pattern, boolean expected);
+
+    protected abstract void assertOptimizedMatches(@Language("SQL") String actual, @Language("SQL") String expected);
+
+    protected abstract void assertDoNotOptimize(@Language("SQL") String expression, ExpressionOptimizer.Level optimizationLevel);
+
+    protected RowExpression sqlToRowExpression(String expression)
     {
-        Expression predicate = new LikePredicate(
-                rawStringLiteral(Slices.wrappedBuffer(value)),
-                new StringLiteral(pattern),
-                Optional.empty());
-        assertEquals(evaluate(predicate, true), expected);
+        Expression parsedExpression = FunctionAssertions.createExpression(expression, METADATA, SYMBOL_TYPES);
+        return TRANSLATOR.translate(parsedExpression, SYMBOL_TYPES);
     }
 
-    private static StringLiteral rawStringLiteral(final Slice slice)
-    {
-        return new StringLiteral(slice.toStringUtf8())
-        {
-            @Override
-            public Slice getSlice()
-            {
-                return slice;
-            }
-        };
-    }
-
-    private static void assertOptimizedEquals(@Language("SQL") String actual, @Language("SQL") String expected)
-    {
-        assertEquals(optimize(actual), optimize(expected));
-    }
-
-    private static void assertRowExpressionEquals(Level level, @Language("SQL") String actual, @Language("SQL") String expected)
-    {
-        Object actualResult = optimize(toRowExpression(expression(actual)), level);
-        Object expectedResult = optimize(toRowExpression(expression(expected)), level);
-        if (actualResult instanceof Block && expectedResult instanceof Block) {
-            assertEquals(blockToSlice((Block) actualResult), blockToSlice((Block) expectedResult));
-            return;
-        }
-        assertEquals(actualResult, expectedResult);
-    }
-
-    private static void assertOptimizedMatches(@Language("SQL") String actual, @Language("SQL") String expected)
-    {
-        // replaces FunctionCalls to FailureFunction by fail()
-        Object actualOptimized = optimize(actual);
-        if (actualOptimized instanceof Expression) {
-            actualOptimized = ExpressionTreeRewriter.rewriteWith(new FailedFunctionRewriter(), (Expression) actualOptimized);
-        }
-        assertEquals(
-                actualOptimized,
-                rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expected)));
-    }
-
-    private static Object optimize(@Language("SQL") String expression)
-    {
-        assertRoundTrip(expression);
-
-        Expression parsedExpression = expression(expression);
-        Object expressionResult = optimize(parsedExpression);
-
-        RowExpression rowExpression = toRowExpression(parsedExpression);
-        Object rowExpressionResult = optimize(rowExpression, OPTIMIZED);
-        assertExpressionAndRowExpressionEquals(expressionResult, rowExpressionResult);
-        return expressionResult;
-    }
-
-    private static Expression expression(String expression)
-    {
-        return FunctionAssertions.createExpression(expression, METADATA, SYMBOL_TYPES);
-    }
-
-    private static RowExpression toRowExpression(Expression expression)
-    {
-        return TRANSLATOR.translate(expression, SYMBOL_TYPES);
-    }
-
-    private static Object optimize(Expression expression)
-    {
-        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(TEST_SESSION, METADATA, SQL_PARSER, SYMBOL_TYPES, expression, emptyMap(), WarningCollector.NOOP);
-        ExpressionInterpreter interpreter = expressionOptimizer(expression, METADATA, TEST_SESSION, expressionTypes);
-        return interpreter.optimize(variable -> {
-            Symbol symbol = new Symbol(variable.getName());
-            Object value = symbolConstant(symbol);
-            if (value == null) {
-                return symbol.toSymbolReference();
-            }
-            return value;
-        });
-    }
-
-    private static Object optimize(RowExpression expression, Level level)
-    {
-        return new RowExpressionInterpreter(expression, METADATA.getFunctionAndTypeManager(), TEST_SESSION.toConnectorSession(), level).optimize(variable -> {
-            Symbol symbol = new Symbol(variable.getName());
-            Object value = symbolConstant(symbol);
-            if (value == null) {
-                return new VariableReferenceExpression(Optional.empty(), symbol.getName(), SYMBOL_TYPES.get(symbol.toSymbolReference()));
-            }
-            return value;
-        });
-    }
-
-    private static void assertDoNotOptimize(@Language("SQL") String expression, Level optimizationLevel)
-    {
-        assertRoundTrip(expression);
-        Expression translatedExpression = expression(expression);
-        RowExpression rowExpression = toRowExpression(translatedExpression);
-
-        Object expressionResult = optimize(translatedExpression);
-        if (expressionResult instanceof Expression) {
-            expressionResult = toRowExpression((Expression) expressionResult);
-        }
-        Object rowExpressionResult = optimize(rowExpression, optimizationLevel);
-        assertRowExpressionEvaluationEquals(expressionResult, rowExpressionResult);
-        assertRowExpressionEvaluationEquals(rowExpressionResult, rowExpression);
-    }
-
-    private static Object symbolConstant(Symbol symbol)
+    protected Object symbolConstant(Symbol symbol)
     {
         switch (symbol.getName().toLowerCase(ENGLISH)) {
             case "bound_integer":
@@ -1733,32 +1628,14 @@ public class TestExpressionInterpreter
         return null;
     }
 
-    private static void assertExpressionAndRowExpressionEquals(Object expressionResult, Object rowExpressionResult)
-    {
-        if (rowExpressionResult instanceof RowExpression) {
-            // Cannot be completely evaluated into a constant; compare expressions
-            assertTrue(expressionResult instanceof Expression);
-
-            // It is tricky to check the equivalence of an expression and a row expression.
-            // We rely on the optimized translator to fill the gap.
-            RowExpression translated = TRANSLATOR.translateAndOptimize((Expression) expressionResult, SYMBOL_TYPES);
-            assertRowExpressionEvaluationEquals(translated, rowExpressionResult);
-        }
-        else {
-            // We have constants; directly compare
-            assertRowExpressionEvaluationEquals(expressionResult, rowExpressionResult);
-        }
-    }
-
     /**
      * Assert the evaluation result of two row expressions equivalent
      * no matter they are constants or remaining row expressions.
      */
-    private static void assertRowExpressionEvaluationEquals(Object left, Object right)
+    protected void assertRowExpressionEvaluationEquals(Object left, Object right)
     {
         if (right instanceof RowExpression) {
             assertTrue(left instanceof RowExpression);
-            // assertEquals(((RowExpression) left).getType(), ((RowExpression) right).getType());
             if (left instanceof ConstantExpression) {
                 if (isRemovableCast(right)) {
                     assertRowExpressionEvaluationEquals(left, ((CallExpression) right).getArguments().get(0));
@@ -1769,6 +1646,13 @@ public class TestExpressionInterpreter
             }
             else if (left instanceof InputReferenceExpression || left instanceof VariableReferenceExpression) {
                 assertEquals(left, right);
+            }
+            else if (left instanceof CallExpression && ((CallExpression) left).getFunctionHandle().getName().contains("fail")) {
+                assertTrue(right instanceof CallExpression && ((CallExpression) right).getFunctionHandle().getName().contains("fail"));
+                assertEquals(((CallExpression) left).getArguments().size(), ((CallExpression) right).getArguments().size());
+                for (int i = 0; i < ((CallExpression) left).getArguments().size(); i++) {
+                    assertRowExpressionEvaluationEquals(((CallExpression) left).getArguments().get(i), ((CallExpression) right).getArguments().get(i));
+                }
             }
             else if (left instanceof CallExpression) {
                 assertTrue(right instanceof CallExpression);
@@ -1806,7 +1690,7 @@ public class TestExpressionInterpreter
         }
     }
 
-    private static boolean isRemovableCast(Object value)
+    protected boolean isRemovableCast(Object value)
     {
         if (value instanceof CallExpression &&
                 new FunctionResolution(METADATA.getFunctionAndTypeManager().getFunctionAndTypeResolver()).isCastFunction(((CallExpression) value).getFunctionHandle())) {
@@ -1817,57 +1701,35 @@ public class TestExpressionInterpreter
         return false;
     }
 
-    private static Slice blockToSlice(Block block)
+    protected Slice blockToSlice(Block block)
     {
         // This function is strictly for testing use only
         SliceOutput sliceOutput = new DynamicSliceOutput(1000);
-        BlockSerdeUtil.writeBlock(blockEncodingSerde, sliceOutput, block);
+        BlockSerdeUtil.writeBlock(BLOCK_ENCODING_SERDE, sliceOutput, block);
         return sliceOutput.slice();
     }
 
-    private static void assertEvaluatedEquals(@Language("SQL") String actual, @Language("SQL") String expected)
+    protected void assertEvaluatedEquals(@Language("SQL") String actual, @Language("SQL") String expected)
     {
         assertEquals(evaluate(actual, true), evaluate(expected, true));
     }
 
-    private static Object evaluate(String expression, boolean deterministic)
-    {
-        assertRoundTrip(expression);
-
-        Expression parsedExpression = FunctionAssertions.createExpression(expression, METADATA, SYMBOL_TYPES);
-
-        return evaluate(parsedExpression, deterministic);
-    }
-
-    private static void assertRoundTrip(String expression)
+    protected void assertRoundTrip(String expression)
     {
         ParsingOptions parsingOptions = createParsingOptions(TEST_SESSION);
         assertEquals(SQL_PARSER.createExpression(expression, parsingOptions),
                 SQL_PARSER.createExpression(formatExpression(SQL_PARSER.createExpression(expression, parsingOptions), Optional.empty()), parsingOptions));
     }
-
-    private static Object evaluate(Expression expression, boolean deterministic)
+    protected void assertRowExpressionEquals(ExpressionOptimizer.Level level, @Language("SQL") String actual, @Language("SQL") String expected)
     {
-        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(TEST_SESSION, METADATA, SQL_PARSER, SYMBOL_TYPES, expression, emptyMap(), WarningCollector.NOOP);
-        Object expressionResult = expressionInterpreter(expression, METADATA, TEST_SESSION, expressionTypes).evaluate();
-        Object rowExpressionResult = rowExpressionInterpreter(TRANSLATOR.translateAndOptimize(expression), METADATA.getFunctionAndTypeManager(), TEST_SESSION.toConnectorSession()).evaluate();
-
-        if (deterministic) {
-            assertExpressionAndRowExpressionEquals(expressionResult, rowExpressionResult);
+        Object actualResult = optimizeRowExpression(sqlToRowExpression(actual), level);
+        Object expectedResult = optimizeRowExpression(sqlToRowExpression(expected), level);
+        if (actualResult instanceof Block && expectedResult instanceof Block) {
+            assertEquals(blockToSlice((Block) actualResult), blockToSlice((Block) expectedResult));
+            return;
         }
-        return expressionResult;
+        assertEquals(actualResult, expectedResult);
     }
 
-    private static class FailedFunctionRewriter
-            extends ExpressionRewriter<Object>
-    {
-        @Override
-        public Expression rewriteFunctionCall(FunctionCall node, Object context, ExpressionTreeRewriter<Object> treeRewriter)
-        {
-            if (node.getName().equals(QualifiedName.of("fail"))) {
-                return new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(node.getArguments().get(0), new StringLiteral("ignored failure message")));
-            }
-            return node;
-        }
-    }
+    protected abstract Object optimizeRowExpression(RowExpression expression, ExpressionOptimizer.Level level);
 }

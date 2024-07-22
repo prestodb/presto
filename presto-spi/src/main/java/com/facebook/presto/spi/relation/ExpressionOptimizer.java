@@ -29,6 +29,10 @@ public interface ExpressionOptimizer
     enum Level
     {
         /**
+         * todo @tdm
+         */
+        DO_NOT_EVALUATE,
+        /**
          * SERIALIZABLE guarantees the optimized RowExpression can be serialized and deserialized.
          */
         SERIALIZABLE,

@@ -26,6 +26,7 @@ import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.expressions.ExpressionManager;
 import com.facebook.presto.sql.planner.PlannerUtils;
 import com.facebook.presto.sql.planner.RowExpressionVariableInliner;
 import com.facebook.presto.sql.planner.SimplePlanVisitor;
@@ -87,10 +88,12 @@ public class CteProjectionAndPredicatePushDown
         implements PlanOptimizer
 {
     private final Metadata metadata;
+    private final ExpressionManager expressionManager;
 
-    public CteProjectionAndPredicatePushDown(Metadata metadata)
+    public CteProjectionAndPredicatePushDown(Metadata metadata, ExpressionManager expressionManager)
     {
-        this.metadata = metadata;
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.expressionManager = requireNonNull(expressionManager, "expressionManager is null");
     }
 
     @Override
@@ -383,7 +386,7 @@ public class CteProjectionAndPredicatePushDown
                             resultPredicate, predicates.get(i));
                 }
             }
-            resultPredicate = SimplifyRowExpressions.rewrite(resultPredicate, metadata, session.toConnectorSession());
+            resultPredicate = SimplifyRowExpressions.rewrite(resultPredicate, metadata, session, expressionManager);
             return new FilterNode(node.getSourceLocation(), idAllocator.getNextId(), node, resultPredicate);
         }
 
