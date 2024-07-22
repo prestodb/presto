@@ -19,6 +19,7 @@
 #include <string>
 #include "velox/common/base/CheckedArithmetic.h"
 #include "velox/common/base/CountBits.h"
+#include "velox/common/base/Doubles.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/Nulls.h"
 #include "velox/common/base/Status.h"
@@ -217,8 +218,15 @@ class DecimalUtil {
     if (!std::isfinite(value)) {
       return Status::UserError("The input value should be finite.");
     }
-    if (value <= std::numeric_limits<TOutput>::min() ||
-        value >= std::numeric_limits<TOutput>::max()) {
+
+    TInput maxValue;
+    if constexpr (std::is_same_v<TOutput, int64_t>) {
+      maxValue = kMaxDoubleBelowInt64Max;
+    } else {
+      maxValue = kMaxDoubleBelowInt128Max;
+    }
+
+    if (value <= std::numeric_limits<TOutput>::min() || value > maxValue) {
       return Status::UserError("Result overflows.");
     }
 

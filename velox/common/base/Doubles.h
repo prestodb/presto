@@ -35,7 +35,12 @@ namespace facebook::velox {
 /// [1].https://en.wikipedia.org/wiki/Double-precision_floating-point_format#Precision_limitations_on_integer_values
 
 /// 2 ^ 63 - 1024
-static constexpr double kMaxDoubleBelowInt64Max = 9223372036854774784.0;
+constexpr double kMaxDoubleBelowInt64Max = 9223372036854774784.0;
 /// 2 ^ 63
-static constexpr double kMinDoubleAboveInt64Max = 9223372036854775808.0;
+constexpr double kMinDoubleAboveInt64Max = 9223372036854775808.0;
+
+/// For int128::max()
+///  2 ^ 127 - 2 ^ 74
+constexpr double kMaxDoubleBelowInt128Max =
+    170141183460469212842221372237303250944.0;
 } // namespace facebook::velox
