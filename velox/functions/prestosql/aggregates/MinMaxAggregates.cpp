@@ -1046,8 +1046,6 @@ exec::AggregateRegistrationResult registerMinMax(
               return std::make_unique<TNonNumeric>(inputType, false);
             case TypeKind::ARRAY:
               [[fallthrough]];
-            case TypeKind::MAP:
-              [[fallthrough]];
             case TypeKind::ROW:
               return std::make_unique<TNonNumeric>(
                   inputType, throwOnNestedNulls);
