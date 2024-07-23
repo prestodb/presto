@@ -335,78 +335,52 @@ TEST_F(DateTimeFunctionsTest, fromUnixtimeRountTrip) {
 }
 
 TEST_F(DateTimeFunctionsTest, fromUnixtimeWithTimeZone) {
-  static const double kNan = std::numeric_limits<double>::quiet_NaN();
-
-  vector_size_t size = 37;
-
-  auto unixtimeAt = [](vector_size_t row) -> double {
-    return 1631800000.12345 + row * 11;
+  const auto fromUnixtime = [&](std::optional<double> timestamp,
+                                std::optional<std::string> timezoneName) {
+    return TimestampWithTimezone::unpack(evaluateOnce<int64_t>(
+        "from_unixtime(c0, c1)", timestamp, timezoneName));
   };
 
-  auto unixtimes = makeFlatVector<double>(size, unixtimeAt);
+  // Check null behavior.
+  EXPECT_EQ(fromUnixtime(std::nullopt, std::nullopt), std::nullopt);
+  EXPECT_EQ(fromUnixtime(std::nullopt, "UTC"), std::nullopt);
+  EXPECT_EQ(fromUnixtime(0, std::nullopt), std::nullopt);
 
-  // Constant timezone parameter.
-  {
-    auto result =
-        evaluate("from_unixtime(c0, '+01:00')", makeRowVector({unixtimes}));
+  EXPECT_EQ(
+      fromUnixtime(1631800000.12345, "-01:00"),
+      TimestampWithTimezone(1631800000123, "-01:00"));
+  EXPECT_EQ(
+      fromUnixtime(123.99, "America/Los_Angeles"),
+      TimestampWithTimezone(123990, "America/Los_Angeles"));
+  EXPECT_EQ(
+      fromUnixtime(1667721600.1, "UTC"),
+      TimestampWithTimezone(1667721600100, "UTC"));
 
-    auto expected = makeTimestampWithTimeZoneVector(
-        size,
-        [&](auto row) { return unixtimeAt(row) * 1'000; },
-        [](auto /*row*/) { return 900; });
-    assertEqualVectors(expected, result);
+  // Nan.
+  static const double kNan = std::numeric_limits<double>::quiet_NaN();
+  EXPECT_EQ(fromUnixtime(kNan, "-04:36"), TimestampWithTimezone(0, "-04:36"));
 
-    // NaN timestamp.
-    result = evaluate(
-        "from_unixtime(c0, '+01:00')",
-        makeRowVector({makeFlatVector<double>({kNan, kNan})}));
-    expected = makeTimestampWithTimeZoneVector(
-        2, [](auto /*row*/) { return 0; }, [](auto /*row*/) { return 900; });
-    assertEqualVectors(expected, result);
+  // Test some hard coded pairs of timezone names and internal ids.
+  std::vector<TimeZoneKey> timezoneIds = {900, 960, 1020, 1080, 1140};
+  std::vector<std::string> timezoneNames = {
+      "+01:00", "+02:00", "+03:00", "+04:00", "+05:00"};
+
+  for (size_t i = 0; i < timezoneIds.size(); ++i) {
+    EXPECT_EQ(
+        fromUnixtime(1'000, timezoneNames[i]),
+        TimestampWithTimezone(1'000'000, timezoneIds[i]));
   }
+}
 
-  // Variable timezone parameter.
-  {
-    std::vector<TimeZoneKey> timezoneIds = {900, 960, 1020, 1080, 1140};
-    std::vector<std::string> timezoneNames = {
-        "+01:00", "+02:00", "+03:00", "+04:00", "+05:00"};
-
-    auto timezones = makeFlatVector<StringView>(
-        size, [&](auto row) { return StringView(timezoneNames[row % 5]); });
-
-    auto result = evaluate(
-        "from_unixtime(c0, c1)", makeRowVector({unixtimes, timezones}));
-    auto expected = makeTimestampWithTimeZoneVector(
-        size,
-        [&](auto row) { return unixtimeAt(row) * 1'000; },
-        [&](auto row) { return timezoneIds[row % 5]; });
-    assertEqualVectors(expected, result);
-
-    // NaN timestamp.
-    result = evaluate(
-        "from_unixtime(c0, c1)",
-        makeRowVector({
-            makeFlatVector<double>({kNan, kNan}),
-            makeNullableFlatVector<StringView>({"+01:00", "+02:00"}),
-        }));
-    auto timezonesVector = std::vector<TimeZoneKey>{900, 960};
-    expected = makeTimestampWithTimeZoneVector(
-        timezonesVector.size(),
-        [](auto /*row*/) { return 0; },
-        [&](auto row) { return timezonesVector[row]; });
-    assertEqualVectors(expected, result);
-  }
-
-  auto fromOffset = [&](double epoch, int64_t hours, int64_t minutes) {
+TEST_F(DateTimeFunctionsTest, fromUnixtimeTzOffset) {
+  auto fromOffset = [&](std::optional<double> epoch,
+                        std::optional<int64_t> hours,
+                        std::optional<int64_t> minutes) {
     auto result = evaluateOnce<int64_t>(
-        "from_unixtime(c0, c1, c2)",
-        std::optional(epoch),
-        std::optional(hours),
-        std::optional(minutes));
+        "from_unixtime(c0, c1, c2)", epoch, hours, minutes);
 
     auto otherResult = evaluateOnce<int64_t>(
-        fmt::format("from_unixtime(c0, {}, {})", hours, minutes),
-        std::optional(epoch));
+        fmt::format("from_unixtime(c0, {}, {})", *hours, *minutes), epoch);
 
     VELOX_CHECK_EQ(result.value(), otherResult.value());
     return TimestampWithTimezone::unpack(result.value());
