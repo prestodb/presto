@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-add_library(
+velox_add_library(
   velox_vector
   BaseVector.cpp
   ComplexVector.cpp
@@ -30,8 +30,13 @@ add_library(
   VectorSaver.cpp
   VectorStream.cpp)
 
-target_link_libraries(velox_vector velox_encode velox_memory velox_time
-                      velox_type velox_buffer)
+velox_link_libraries(
+  velox_vector
+  velox_encode
+  velox_memory
+  velox_time
+  velox_type
+  velox_buffer)
 
 add_subdirectory(arrow)
 add_subdirectory(fuzzer)

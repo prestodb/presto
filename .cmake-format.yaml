@@ -1,0 +1,84 @@
+# Copyright (c) Facebook, Inc. and its affiliates.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Currently this config mostly mirrors the default with the addition of custom functions
+format:
+  line_width: 80
+  tab_size: 2
+  use_tabchars: false
+  max_pargs_hwrap: 4
+  max_subgroups_hwrap: 2
+  min_prefix_chars: 4
+  max_prefix_chars: 6
+  separate_ctrl_name_with_space: false
+  separate_fn_name_with_space: false
+  dangle_parens: false
+  command_case: "canonical"
+  keyword_case: "unchanged"
+  always_wrap:
+    - set_target_properties
+    - target_sources
+    - target_link_libraries
+
+parse:
+  # We define these for our custom 
+  # functions so they get formatted correctly
+  additional_commands:
+    velox_add_library:
+      pargs:
+        nargs: 1+
+        flags:
+        - OBJECT
+        - STATIC
+        - SHARED
+        - INTERFACE
+      kwargs: {}
+
+    velox_base_add_library:
+      pargs:
+        nargs: 1+
+        flags:
+        - OBJECT
+        - STATIC
+        - SHARED
+        - INTERFACE
+      kwargs: {}
+
+    velox_compile_definitions:
+      pargs: 1 
+      kwargs:
+        PRIVATE: '*'
+        PUBLIC: '*'
+        INTERFACE: '*'
+
+    velox_include_directories:
+      pargs: '1+'
+      flags:
+        - SYSTEM
+        - BEFORE
+        - AFTER
+      kwargs:
+        PRIVATE: '*'
+        PUBLIC: '*'
+        INTERFACE: '*'
+
+    velox_link_libraries:
+      pargs: '1+'
+      kwargs:
+        PRIVATE: '*'
+        PUBLIC: '*'
+        INTERFACE: '*'
+        
+markup:
+  first_comment_is_literal: true

@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_library(velox_row_fast CompactRow.cpp UnsafeRowFast.cpp)
+velox_add_library(velox_row_fast CompactRow.cpp UnsafeRowFast.cpp)
 
-target_link_libraries(velox_row_fast PUBLIC velox_vector)
+velox_link_libraries(velox_row_fast PUBLIC velox_vector)
 
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)

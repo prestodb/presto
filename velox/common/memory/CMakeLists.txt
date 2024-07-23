@@ -15,7 +15,7 @@ if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)
 endif()
 
-add_library(
+velox_add_library(
   velox_memory
   Allocation.cpp
   AllocationPool.cpp
@@ -31,7 +31,7 @@ add_library(
   SharedArbitrator.cpp
   StreamArena.cpp)
 
-target_link_libraries(
+velox_link_libraries(
   velox_memory
   PUBLIC velox_common_base
          velox_exception

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_library(
+velox_add_library(
   velox_dwio_arrow_parquet_writer_util_lib
   Compression.cpp
   CompressionSnappy.cpp
@@ -22,5 +22,10 @@ add_library(
   Hashing.cpp
   Crc32.cpp)
 
-target_link_libraries(velox_dwio_arrow_parquet_writer_util_lib arrow
-                      Snappy::snappy zstd::zstd ZLIB::ZLIB lz4::lz4)
+velox_link_libraries(
+  velox_dwio_arrow_parquet_writer_util_lib
+  arrow
+  Snappy::snappy
+  zstd::zstd
+  ZLIB::ZLIB
+  lz4::lz4)

@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-add_library(
+velox_add_library(
   velox_functions_spark_aggregates
   AverageAggregate.cpp
   BitwiseXorAggregate.cpp
@@ -24,8 +24,13 @@ add_library(
   RegrReplacementAggregate.cpp
   SumAggregate.cpp)
 
-target_link_libraries(velox_functions_spark_aggregates fmt::fmt velox_exec
-                      velox_expression_functions velox_aggregates velox_vector)
+velox_link_libraries(
+  velox_functions_spark_aggregates
+  fmt::fmt
+  velox_exec
+  velox_expression_functions
+  velox_aggregates
+  velox_vector)
 
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)

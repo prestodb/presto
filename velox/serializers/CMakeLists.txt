@@ -11,11 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-add_library(
-  velox_presto_serializer CompactRowSerializer.cpp PrestoSerializer.cpp
-                          UnsafeRowSerializer.cpp)
+velox_add_library(velox_presto_serializer CompactRowSerializer.cpp
+                  PrestoSerializer.cpp UnsafeRowSerializer.cpp)
 
-target_link_libraries(velox_presto_serializer velox_vector velox_row_fast)
+velox_link_libraries(velox_presto_serializer velox_vector velox_row_fast)
 
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)

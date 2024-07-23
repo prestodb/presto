@@ -44,10 +44,13 @@ add_custom_command(
   VERBATIM)
 add_custom_target(dwio_proto ALL DEPENDS ${PROTO_OUTPUT_FILES})
 
-add_library(velox_dwio_dwrf_proto ${PROTO_HDRS} ${PROTO_SRCS})
+if(VELOX_MONO_LIBRARY)
+  add_dependencies(velox dwio_proto)
+endif()
+velox_add_library(velox_dwio_dwrf_proto ${PROTO_HDRS} ${PROTO_SRCS})
 
 # Access generated proto file with.
 #
 # #include "velox/dwio/dwrf/proto/dwrf_proto.pb.h"
-target_link_libraries(velox_dwio_dwrf_proto protobuf::libprotobuf)
-target_include_directories(velox_dwio_dwrf_proto PUBLIC ${PROJECT_BINARY_DIR})
+velox_link_libraries(velox_dwio_dwrf_proto protobuf::libprotobuf)
+velox_include_directories(velox_dwio_dwrf_proto PUBLIC ${PROJECT_BINARY_DIR})

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_library(velox_dwio_arrow_parquet_writer_thrift_lib parquet_types.cpp)
+velox_add_library(velox_dwio_arrow_parquet_writer_thrift_lib parquet_types.cpp)
 
-target_link_libraries(velox_dwio_arrow_parquet_writer_thrift_lib arrow
-                      Boost::headers)
+velox_link_libraries(velox_dwio_arrow_parquet_writer_thrift_lib arrow
+                     Boost::headers)

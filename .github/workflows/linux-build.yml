@@ -108,6 +108,7 @@ jobs:
             "-DVELOX_ENABLE_ABFS=ON"
             "-DVELOX_ENABLE_REMOTE_FUNCTIONS=ON"
             "-DVELOX_ENABLE_GPU=ON"
+            "-DVELOX_MONO_LIBRARY=ON"
           )
           make release EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS[*]}"
 

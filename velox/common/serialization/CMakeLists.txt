@@ -12,10 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_library(velox_serialization DeserializationRegistry.cpp)
+velox_add_library(velox_serialization DeserializationRegistry.cpp)
 
-target_link_libraries(velox_serialization PUBLIC velox_exception Folly::folly
-                                                 glog::glog)
+velox_link_libraries(velox_serialization PUBLIC velox_exception Folly::folly
+                                                glog::glog)
 
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)

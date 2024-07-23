@@ -14,9 +14,9 @@
 
 add_subdirectory(arrow)
 
-add_library(velox_dwio_arrow_parquet_writer Writer.cpp)
+velox_add_library(velox_dwio_arrow_parquet_writer Writer.cpp)
 
-target_link_libraries(
+velox_link_libraries(
   velox_dwio_arrow_parquet_writer
   velox_dwio_arrow_parquet_writer_lib
   velox_dwio_arrow_parquet_writer_util_lib

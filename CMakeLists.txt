@@ -50,6 +50,7 @@ list(PREPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/CMake"
 
 # Include our ThirdPartyToolchain dependencies macros
 include(ResolveDependency)
+include(VeloxUtils)
 
 set_with_default(VELOX_DEPENDENCY_SOURCE_DEFAULT VELOX_DEPENDENCY_SOURCE AUTO)
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
@@ -68,6 +69,7 @@ option(
   "Build a minimal set of components, including DWIO (file format readers/writers).
    This will override other build options."
   OFF)
+option(VELOX_MONO_LIBRARY "Build single unified library." OFF)
 
 # option() always creates a BOOL variable so we have to use a normal cache
 # variable with STRING type for this option.
@@ -94,9 +96,9 @@ option(VELOX_ENABLE_TPCH_CONNECTOR "Build TPC-H connector." ON)
 option(VELOX_ENABLE_PRESTO_FUNCTIONS "Build Presto SQL functions." ON)
 option(VELOX_ENABLE_SPARK_FUNCTIONS "Build Spark SQL functions." ON)
 option(VELOX_ENABLE_EXPRESSION "Build expression." ON)
-option(VELOX_ENABLE_EXAMPLES
-       "Build examples. This will enable VELOX_ENABLE_EXPRESSION automatically."
-       OFF)
+option(
+  VELOX_ENABLE_EXAMPLES
+  "Build examples. This will enable VELOX_ENABLE_EXPRESSION automatically." OFF)
 option(VELOX_ENABLE_SUBSTRAIT "Build Substrait-to-Velox converter." OFF)
 option(VELOX_ENABLE_BENCHMARKS "Enable Velox top level benchmarks." OFF)
 option(VELOX_ENABLE_BENCHMARKS_BASIC "Enable Velox basic benchmarks." OFF)

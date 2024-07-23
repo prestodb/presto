@@ -11,10 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-add_library(velox_common_hyperloglog BiasCorrection.cpp DenseHll.cpp
-                                     SparseHll.cpp)
+velox_add_library(velox_common_hyperloglog BiasCorrection.cpp DenseHll.cpp
+                  SparseHll.cpp)
 
-target_link_libraries(
+velox_link_libraries(
   velox_common_hyperloglog
   PUBLIC velox_memory
   PRIVATE velox_exception)

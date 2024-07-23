@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-add_library(
+velox_add_library(
   velox_exec
   AddressableNonNullValueList.cpp
   Aggregate.cpp
@@ -87,7 +87,7 @@ add_library(
   WindowFunction.cpp
   WindowPartition.cpp)
 
-target_link_libraries(
+velox_link_libraries(
   velox_exec
   velox_file
   velox_core

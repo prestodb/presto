@@ -12,6 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_library(velox_dwio_common_encryption Encryption.cpp)
+velox_add_library(velox_dwio_common_encryption Encryption.cpp)
 
-target_link_libraries(velox_dwio_common_encryption Folly::folly)
+velox_link_libraries(velox_dwio_common_encryption Folly::folly)

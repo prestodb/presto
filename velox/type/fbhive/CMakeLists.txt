@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_library(velox_type_fbhive HiveTypeParser.cpp HiveTypeSerializer.cpp)
+velox_add_library(velox_type_fbhive HiveTypeParser.cpp HiveTypeSerializer.cpp)
 
-target_link_libraries(velox_type_fbhive velox_type)
+velox_link_libraries(velox_type_fbhive velox_type)
 
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)

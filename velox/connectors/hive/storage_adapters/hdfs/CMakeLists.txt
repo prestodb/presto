@@ -14,12 +14,16 @@
 
 # for generated headers
 
-add_library(velox_hdfs RegisterHdfsFileSystem.cpp)
+velox_add_library(velox_hdfs RegisterHdfsFileSystem.cpp)
 
 if(VELOX_ENABLE_HDFS)
-  target_sources(velox_hdfs PRIVATE HdfsFileSystem.cpp HdfsReadFile.cpp
-                                    HdfsWriteFile.cpp)
-  target_link_libraries(velox_hdfs Folly::folly ${LIBHDFS3} xsimd)
+  velox_sources(
+    velox_hdfs
+    PRIVATE
+    HdfsFileSystem.cpp
+    HdfsReadFile.cpp
+    HdfsWriteFile.cpp)
+  velox_link_libraries(velox_hdfs Folly::folly ${LIBHDFS3} xsimd)
 
   if(${VELOX_BUILD_TESTING})
     add_subdirectory(tests)

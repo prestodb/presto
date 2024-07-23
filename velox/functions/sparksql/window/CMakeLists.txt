@@ -11,10 +11,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-add_library(velox_functions_spark_window WindowFunctionsRegistration.cpp)
+velox_add_library(velox_functions_spark_window WindowFunctionsRegistration.cpp)
 
-target_link_libraries(velox_functions_spark_window velox_buffer velox_exec
-                      velox_functions_window Folly::folly)
+velox_link_libraries(
+  velox_functions_spark_window
+  velox_buffer
+  velox_exec
+  velox_functions_window
+  Folly::folly)
 
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)

@@ -14,11 +14,11 @@
 
 add_subdirectory(dbgen)
 
-add_library(velox_tpch_gen DBGenIterator.cpp TpchGen.cpp)
+velox_add_library(velox_tpch_gen DBGenIterator.cpp TpchGen.cpp)
 
-target_include_directories(velox_tpch_gen PRIVATE dbgen/include)
+velox_include_directories(velox_tpch_gen PRIVATE dbgen/include)
 
-target_link_libraries(velox_tpch_gen velox_memory velox_vector velox_dbgen)
+velox_link_libraries(velox_tpch_gen velox_memory velox_vector dbgen)
 
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)

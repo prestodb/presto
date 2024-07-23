@@ -11,17 +11,25 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-add_library(velox_parse_expression Expressions.cpp)
-target_link_libraries(velox_parse_expression velox_type velox_parse_utils
-                      velox_expression velox_exec)
+velox_add_library(velox_parse_expression Expressions.cpp)
+velox_link_libraries(
+  velox_parse_expression
+  velox_type
+  velox_parse_utils
+  velox_expression
+  velox_exec)
 
-add_library(velox_parse_parser ExpressionsParser.cpp QueryPlanner.cpp)
-target_link_libraries(velox_parse_parser velox_parse_expression velox_type
-                      velox_duckdb_parser)
+velox_add_library(velox_parse_parser ExpressionsParser.cpp QueryPlanner.cpp)
+velox_link_libraries(velox_parse_parser velox_parse_expression velox_type
+                     velox_duckdb_parser)
 
-add_library(velox_parse_utils TypeResolver.cpp)
-target_link_libraries(velox_parse_utils velox_buffer velox_type velox_vector
-                      velox_function_registry)
+velox_add_library(velox_parse_utils TypeResolver.cpp)
+velox_link_libraries(
+  velox_parse_utils
+  velox_buffer
+  velox_type
+  velox_vector
+  velox_function_registry)
 
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)

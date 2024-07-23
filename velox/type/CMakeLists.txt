@@ -19,7 +19,7 @@ add_subdirectory(parser)
 add_subdirectory(tz)
 add_subdirectory(fbhive)
 
-add_library(
+velox_add_library(
   velox_type
   Conversions.cpp
   DecimalUtil.cpp
@@ -35,7 +35,7 @@ add_library(
   Type.cpp
   Variant.cpp)
 
-target_link_libraries(
+velox_link_libraries(
   velox_type
   velox_type_tz
   velox_common_base

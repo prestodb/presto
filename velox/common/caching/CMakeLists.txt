@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_library(
+velox_add_library(
   velox_caching
   AsyncDataCache.cpp
   CacheTTLController.cpp
@@ -22,7 +22,7 @@ add_library(
   SsdFile.cpp
   SsdFileTracker.cpp
   StringIdMap.cpp)
-target_link_libraries(
+velox_link_libraries(
   velox_caching
   PUBLIC velox_common_base
          velox_exception

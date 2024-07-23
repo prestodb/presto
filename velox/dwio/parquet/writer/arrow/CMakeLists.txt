@@ -19,7 +19,7 @@ if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)
 endif()
 
-add_library(
+velox_add_library(
   velox_dwio_arrow_parquet_writer_lib
   ArrowSchema.cpp
   ArrowSchemaInternal.cpp
@@ -44,7 +44,7 @@ add_library(
   Types.cpp
   Writer.cpp)
 
-target_link_libraries(
+velox_link_libraries(
   velox_dwio_arrow_parquet_writer_lib
   velox_dwio_arrow_parquet_writer_util_lib
   velox_dwio_arrow_parquet_writer_thrift_lib

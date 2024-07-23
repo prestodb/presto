@@ -14,12 +14,12 @@
 
 # for generated headers
 
-add_library(velox_gcs RegisterGCSFileSystem.cpp)
+velox_add_library(velox_gcs RegisterGCSFileSystem.cpp)
 
 if(VELOX_ENABLE_GCS)
-  target_sources(velox_gcs PRIVATE GCSFileSystem.cpp GCSUtil.cpp)
-  target_link_libraries(velox_gcs velox_exception Folly::folly
-                        google-cloud-cpp::storage)
+  velox_sources(velox_gcs PRIVATE GCSFileSystem.cpp GCSUtil.cpp)
+  velox_link_libraries(velox_gcs velox_exception Folly::folly
+                       google-cloud-cpp::storage)
 
   if(${VELOX_BUILD_TESTING})
     add_subdirectory(tests)

@@ -12,11 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_library(velox_wave_stream OperandSet.cpp Wave.cpp)
+velox_add_library(velox_wave_stream OperandSet.cpp Wave.cpp)
 
-target_link_libraries(velox_wave_stream Folly::folly fmt::fmt xsimd)
+velox_link_libraries(velox_wave_stream Folly::folly fmt::fmt xsimd)
 
-add_library(
+velox_add_library(
   velox_wave_exec
   Aggregation.cpp
   AggregationInstructions.cu
@@ -34,7 +34,7 @@ add_library(
   WaveHiveDataSource.cpp
   WaveSplitReader.cpp)
 
-target_link_libraries(
+velox_link_libraries(
   velox_wave_exec
   velox_wave_vector
   velox_wave_common

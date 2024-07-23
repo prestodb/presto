@@ -12,12 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_library(velox_exception Exceptions.cpp VeloxException.cpp Exceptions.h)
-target_link_libraries(
-  velox_exception PUBLIC velox_flag_definitions velox_process Folly::folly
-                         fmt::fmt gflags::gflags glog::glog)
+velox_add_library(velox_exception Exceptions.cpp VeloxException.cpp
+                  Exceptions.h)
+velox_link_libraries(
+  velox_exception
+  PUBLIC velox_flag_definitions
+         velox_process
+         Folly::folly
+         fmt::fmt
+         gflags::gflags
+         glog::glog)
 
-add_library(
+velox_add_library(
   velox_common_base
   BitUtil.cpp
   Counters.cpp
@@ -32,7 +38,7 @@ add_library(
   StatsReporter.cpp
   SuccinctPrinter.cpp)
 
-target_link_libraries(
+velox_link_libraries(
   velox_common_base
   PUBLIC velox_exception Folly::folly fmt::fmt xsimd
   PRIVATE velox_common_compression velox_process velox_test_util glog::glog)
@@ -45,8 +51,8 @@ if(${VELOX_ENABLE_BENCHMARKS})
   add_subdirectory(benchmarks)
 endif()
 
-add_library(velox_id_map BigintIdMap.cpp)
-target_link_libraries(
+velox_add_library(velox_id_map BigintIdMap.cpp)
+velox_link_libraries(
   velox_id_map
   velox_memory
   velox_flag_definitions
@@ -56,8 +62,8 @@ target_link_libraries(
   fmt::fmt
   gflags::gflags)
 
-add_library(velox_status Status.cpp)
-target_link_libraries(
+velox_add_library(velox_status Status.cpp)
+velox_link_libraries(
   velox_status
   PUBLIC fmt::fmt Folly::folly
   PRIVATE glog::glog)

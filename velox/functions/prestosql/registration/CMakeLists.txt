@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_library(
+velox_add_library(
   velox_functions_prestosql
   ArrayConcatRegistration.cpp
   ArrayFunctionsRegistration.cpp
@@ -36,13 +36,15 @@ add_library(
 # GCC 12 has a bug where it does not respect "pragma ignore" directives and ends
 # up failing compilation in an openssl header included by a hash-related
 # function.
-if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND NOT VELOX_MONO_LIBRARY)
   target_compile_options(velox_functions_prestosql
                          PRIVATE -Wno-deprecated-declarations)
 endif()
 
-target_link_libraries(velox_functions_prestosql velox_functions_prestosql_impl
-                      velox_is_null_functions simdjson::simdjson)
+velox_link_libraries(velox_functions_prestosql velox_functions_prestosql_impl
+                     velox_is_null_functions simdjson::simdjson)
 
-set_property(TARGET velox_functions_prestosql PROPERTY JOB_POOL_COMPILE
-                                                       high_memory_pool)
+if(NOT VELOX_MONO_LIBRARY)
+  set_property(TARGET velox_functions_prestosql PROPERTY JOB_POOL_COMPILE
+                                                         high_memory_pool)
+endif()
