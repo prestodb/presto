@@ -131,6 +131,7 @@ public class ContainerQueryRunnerUtils
         properties.setProperty("node.environment", "testing");
         properties.setProperty("node.location", "testing-location");
         properties.setProperty("node.id", nodeId);
+        properties.setProperty("node.internal-address", nodeId);
         createPropertiesFile("testcontainers/" + nodeId + "/etc/node.properties", properties);
     }
 
