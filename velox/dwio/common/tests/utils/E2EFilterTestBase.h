@@ -105,7 +105,8 @@ class E2EFilterTestBase : public testing::Test {
 
   std::vector<RowVectorPtr> makeDataset(
       std::function<void()> customize,
-      bool forRowGroupSkip);
+      bool forRowGroupSkip,
+      bool withRecursiveNulls);
 
   void makeAllNulls(const std::string& fieldName);
 
@@ -297,7 +298,8 @@ class E2EFilterTestBase : public testing::Test {
       std::function<void()> customize,
       bool wrapInStruct,
       const std::vector<std::string>& filterable,
-      int32_t numCombinations);
+      int32_t numCombinations,
+      bool withRecursiveNulls = true);
 
  private:
   void testMetadataFilterImpl(

@@ -46,12 +46,14 @@ using velox::common::Subfield;
 
 std::vector<RowVectorPtr> E2EFilterTestBase::makeDataset(
     std::function<void()> customize,
-    bool forRowGroupSkip) {
+    bool forRowGroupSkip,
+    bool withRecursiveNulls) {
   if (!dataSetBuilder_) {
     dataSetBuilder_ = std::make_unique<DataSetBuilder>(*leafPool_, 0);
   }
 
-  dataSetBuilder_->makeDataset(rowType_, batchCount_, batchSize_);
+  dataSetBuilder_->makeDataset(
+      rowType_, batchCount_, batchSize_, withRecursiveNulls);
 
   if (forRowGroupSkip) {
     dataSetBuilder_->withRowGroupSpecificData(kRowsInGroup);
@@ -408,17 +410,18 @@ void E2EFilterTestBase::testScenario(
     std::function<void()> customize,
     bool wrapInStruct,
     const std::vector<std::string>& filterable,
-    int32_t numCombinations) {
+    int32_t numCombinations,
+    bool withRecursiveNulls) {
   rowType_ = DataSetBuilder::makeRowType(columns, wrapInStruct);
   filterGenerator_ = std::make_unique<FilterGenerator>(rowType_, seed_);
 
-  auto batches = makeDataset(customize, false);
+  auto batches = makeDataset(customize, false, withRecursiveNulls);
   writeToMemory(rowType_, batches, false);
   testNoRowGroupSkip(batches, filterable, numCombinations);
   testPruningWithFilter(batches, filterable);
 
   if (testRowGroupSkip_) {
-    batches = makeDataset(customize, true);
+    batches = makeDataset(customize, true, withRecursiveNulls);
     writeToMemory(rowType_, batches, true);
     testRowGroupSkip(batches, filterable);
   }

@@ -43,7 +43,8 @@ class DataSetBuilder {
   DataSetBuilder& makeDataset(
       RowTypePtr rowType,
       const size_t batchCount,
-      const size_t numRows);
+      const size_t numRows,
+      const bool withRecursiveNulls = true);
 
   // Adds high values to 'batches_' so that these values occur only in some row
   // groups. Tests skipping row groups based on row group stats.
