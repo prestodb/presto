@@ -95,6 +95,9 @@ class PlanBuilder {
   explicit PlanBuilder(memory::MemoryPool* pool = nullptr)
       : PlanBuilder(std::make_shared<core::PlanNodeIdGenerator>(), pool) {}
 
+  static constexpr const std::string_view kHiveDefaultConnectorId{"test-hive"};
+  static constexpr const std::string_view kTpchDefaultConnectorId{"test-tpch"};
+
   /// Add a TableScanNode to scan a Hive table.
   ///
   /// @param outputType List of column names and types to read from the table.
@@ -272,7 +275,7 @@ class PlanBuilder {
 
     PlanBuilder& planBuilder_;
     std::string tableName_{"hive_table"};
-    std::string connectorId_{"test-hive"};
+    std::string connectorId_{kHiveDefaultConnectorId};
     RowTypePtr outputType_;
     std::vector<std::string> subfieldFilters_;
     std::string remainingFilter_;
@@ -378,6 +381,7 @@ class PlanBuilder {
   /// @param outputDirectoryPath Path to a directory to write data to.
   /// @param fileFormat File format to use for the written data.
   /// @param aggregates Aggregations for column statistics collection during
+  /// @param polymorphic options object to be passed to the writer.
   /// write, supported aggregation types vary for different column types.
   /// For example:
   /// Boolean: count, countIf.
@@ -388,7 +392,8 @@ class PlanBuilder {
       const std::string& outputDirectoryPath,
       const dwio::common::FileFormat fileFormat =
           dwio::common::FileFormat::DWRF,
-      const std::vector<std::string>& aggregates = {});
+      const std::vector<std::string>& aggregates = {},
+      const std::shared_ptr<dwio::common::WriterOptions>& options = nullptr);
 
   /// Adds a TableWriteNode to write all input columns into a partitioned Hive
   /// table without compression.
@@ -398,12 +403,14 @@ class PlanBuilder {
   /// @param fileFormat File format to use for the written data.
   /// @param aggregates Aggregations for column statistics collection during
   /// write.
+  /// @param polymorphic options object to be passed to the writer.
   PlanBuilder& tableWrite(
       const std::string& outputDirectoryPath,
       const std::vector<std::string>& partitionBy,
       const dwio::common::FileFormat fileFormat =
           dwio::common::FileFormat::DWRF,
-      const std::vector<std::string>& aggregates = {});
+      const std::vector<std::string>& aggregates = {},
+      const std::shared_ptr<dwio::common::WriterOptions>& options = nullptr);
 
   /// Adds a TableWriteNode to write all input columns into a non-sorted
   /// bucketed Hive table without compression.
@@ -415,6 +422,7 @@ class PlanBuilder {
   /// @param fileFormat File format to use for the written data.
   /// @param aggregates Aggregations for column statistics collection during
   /// write.
+  /// @param polymorphic options object to be passed to the writer.
   PlanBuilder& tableWrite(
       const std::string& outputDirectoryPath,
       const std::vector<std::string>& partitionBy,
@@ -422,7 +430,8 @@ class PlanBuilder {
       const std::vector<std::string>& bucketedBy,
       const dwio::common::FileFormat fileFormat =
           dwio::common::FileFormat::DWRF,
-      const std::vector<std::string>& aggregates = {});
+      const std::vector<std::string>& aggregates = {},
+      const std::shared_ptr<dwio::common::WriterOptions>& options = nullptr);
 
   /// Adds a TableWriteNode to write all input columns into a sorted bucket Hive
   /// table without compression.
@@ -448,10 +457,9 @@ class PlanBuilder {
       const dwio::common::FileFormat fileFormat =
           dwio::common::FileFormat::DWRF,
       const std::vector<std::string>& aggregates = {},
-      const std::string& connectorId = "test-hive",
+      const std::string_view& connectorId = kHiveDefaultConnectorId,
       const std::unordered_map<std::string, std::string>& serdeParameters = {},
-      const std::shared_ptr<dwio::common::WriterOptions>& writerOptions =
-          nullptr);
+      const std::shared_ptr<dwio::common::WriterOptions>& options = nullptr);
 
   /// Add a TableWriteMergeNode.
   PlanBuilder& tableWriteMerge(

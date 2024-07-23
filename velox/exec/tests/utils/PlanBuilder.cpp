@@ -40,10 +40,6 @@ namespace facebook::velox::exec::test {
 
 namespace {
 
-// TODO Avoid duplication.
-static const std::string kHiveConnectorId = "test-hive";
-static const std::string kTpchConnectorId = "test-tpch";
-
 core::TypedExprPtr parseExpr(
     const std::string& text,
     const RowTypePtr& rowType,
@@ -132,7 +128,7 @@ PlanBuilder& PlanBuilder::tpchTableScan(
   return TableScanBuilder(*this)
       .outputType(rowType)
       .tableHandle(std::make_shared<connector::tpch::TpchTableHandle>(
-          kTpchConnectorId, table, scaleFactor))
+          std::string(kTpchDefaultConnectorId), table, scaleFactor))
       .assignments(assignmentsMap)
       .endTableScan();
 }
@@ -344,17 +340,38 @@ PlanBuilder& PlanBuilder::filter(const std::string& filter) {
 PlanBuilder& PlanBuilder::tableWrite(
     const std::string& outputDirectoryPath,
     const dwio::common::FileFormat fileFormat,
-    const std::vector<std::string>& aggregates) {
-  return tableWrite(outputDirectoryPath, {}, 0, {}, {}, fileFormat, aggregates);
+    const std::vector<std::string>& aggregates,
+    const std::shared_ptr<dwio::common::WriterOptions>& options) {
+  return tableWrite(
+      outputDirectoryPath,
+      {},
+      0,
+      {},
+      {},
+      fileFormat,
+      aggregates,
+      kHiveDefaultConnectorId,
+      {},
+      options);
 }
 
 PlanBuilder& PlanBuilder::tableWrite(
     const std::string& outputDirectoryPath,
     const std::vector<std::string>& partitionBy,
     const dwio::common::FileFormat fileFormat,
-    const std::vector<std::string>& aggregates) {
+    const std::vector<std::string>& aggregates,
+    const std::shared_ptr<dwio::common::WriterOptions>& options) {
   return tableWrite(
-      outputDirectoryPath, partitionBy, 0, {}, {}, fileFormat, aggregates);
+      outputDirectoryPath,
+      partitionBy,
+      0,
+      {},
+      {},
+      fileFormat,
+      aggregates,
+      kHiveDefaultConnectorId,
+      {},
+      options);
 }
 
 PlanBuilder& PlanBuilder::tableWrite(
@@ -363,7 +380,8 @@ PlanBuilder& PlanBuilder::tableWrite(
     int32_t bucketCount,
     const std::vector<std::string>& bucketedBy,
     const dwio::common::FileFormat fileFormat,
-    const std::vector<std::string>& aggregates) {
+    const std::vector<std::string>& aggregates,
+    const std::shared_ptr<dwio::common::WriterOptions>& options) {
   return tableWrite(
       outputDirectoryPath,
       partitionBy,
@@ -371,7 +389,10 @@ PlanBuilder& PlanBuilder::tableWrite(
       bucketedBy,
       {},
       fileFormat,
-      aggregates);
+      aggregates,
+      kHiveDefaultConnectorId,
+      {},
+      options);
 }
 
 PlanBuilder& PlanBuilder::tableWrite(
@@ -382,9 +403,9 @@ PlanBuilder& PlanBuilder::tableWrite(
     const std::vector<std::shared_ptr<const HiveSortingColumn>>& sortBy,
     const dwio::common::FileFormat fileFormat,
     const std::vector<std::string>& aggregates,
-    const std::string& connectorId,
+    const std::string_view& connectorId,
     const std::unordered_map<std::string, std::string>& serdeParameters,
-    const std::shared_ptr<dwio::common::WriterOptions>& writerOptions) {
+    const std::shared_ptr<dwio::common::WriterOptions>& options) {
   VELOX_CHECK_NOT_NULL(planNode_, "TableWrite cannot be the source node");
   auto rowType = planNode_->outputType();
 
@@ -420,10 +441,10 @@ PlanBuilder& PlanBuilder::tableWrite(
       bucketProperty,
       common::CompressionKind_NONE,
       serdeParameters,
-      writerOptions);
+      options);
 
-  auto insertHandle =
-      std::make_shared<core::InsertTableHandle>(connectorId, hiveHandle);
+  auto insertHandle = std::make_shared<core::InsertTableHandle>(
+      std::string(connectorId), hiveHandle);
 
   std::shared_ptr<core::AggregationNode> aggregationNode;
   if (!aggregates.empty()) {
