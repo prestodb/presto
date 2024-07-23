@@ -44,6 +44,7 @@ public class QueryContext
     private final String serverAddress;
     private final String serverVersion;
     private final String environment;
+    private final String workerType;
 
     public QueryContext(
             String user,
@@ -60,7 +61,8 @@ public class QueryContext
             ResourceEstimates resourceEstimates,
             String serverAddress,
             String serverVersion,
-            String environment)
+            String environment,
+            String workerType)
     {
         this.user = requireNonNull(user, "user is null");
         this.principal = requireNonNull(principal, "principal is null");
@@ -77,6 +79,7 @@ public class QueryContext
         this.serverAddress = requireNonNull(serverAddress, "serverAddress is null");
         this.serverVersion = requireNonNull(serverVersion, "serverVersion is null");
         this.environment = requireNonNull(environment, "environment is null");
+        this.workerType = requireNonNull(workerType, "workerType is null");
     }
 
     @JsonProperty
@@ -167,5 +170,11 @@ public class QueryContext
     public String getEnvironment()
     {
         return environment;
+    }
+
+    @JsonProperty
+    public String getWorkerType()
+    {
+        return workerType;
     }
 }
