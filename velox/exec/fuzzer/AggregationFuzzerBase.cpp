@@ -481,57 +481,6 @@ velox::fuzzer::ResultOrError AggregationFuzzerBase::execute(
   return resultOrError;
 }
 
-std::pair<
-    std::optional<MaterializedRowMultiset>,
-    AggregationFuzzerBase::ReferenceQueryErrorCode>
-AggregationFuzzerBase::computeReferenceResults(
-    const core::PlanNodePtr& plan,
-    const std::vector<RowVectorPtr>& input) {
-  if (auto sql = referenceQueryRunner_->toSql(plan)) {
-    try {
-      return std::make_pair(
-          referenceQueryRunner_->execute(
-              sql.value(), input, plan->outputType()),
-          ReferenceQueryErrorCode::kSuccess);
-    } catch (...) {
-      LOG(WARNING) << "Query failed in the reference DB";
-      return std::make_pair(
-          std::nullopt, ReferenceQueryErrorCode::kReferenceQueryFail);
-    }
-  }
-
-  LOG(INFO) << "Query not supported by the reference DB";
-  return std::make_pair(
-      std::nullopt, ReferenceQueryErrorCode::kReferenceQueryUnsupported);
-}
-
-std::pair<
-    std::optional<std::vector<RowVectorPtr>>,
-    AggregationFuzzerBase::ReferenceQueryErrorCode>
-AggregationFuzzerBase::computeReferenceResultsAsVector(
-    const core::PlanNodePtr& plan,
-    const std::vector<RowVectorPtr>& input) {
-  VELOX_CHECK(referenceQueryRunner_->supportsVeloxVectorResults());
-
-  if (auto sql = referenceQueryRunner_->toSql(plan)) {
-    try {
-      return std::make_pair(
-          referenceQueryRunner_->executeVector(
-              sql.value(), input, plan->outputType()),
-          ReferenceQueryErrorCode::kSuccess);
-    } catch (...) {
-      LOG(WARNING) << "Query failed in the reference DB";
-      return std::make_pair(
-          std::nullopt, ReferenceQueryErrorCode::kReferenceQueryFail);
-    }
-  } else {
-    LOG(INFO) << "Query not supported by the reference DB";
-  }
-
-  return std::make_pair(
-      std::nullopt, ReferenceQueryErrorCode::kReferenceQueryUnsupported);
-}
-
 void AggregationFuzzerBase::testPlan(
     const PlanWithSplits& planWithSplits,
     bool injectSpill,
@@ -622,7 +571,7 @@ void writeToFile(
 } // namespace
 
 void AggregationFuzzerBase::Stats::updateReferenceQueryStats(
-    AggregationFuzzerBase::ReferenceQueryErrorCode errorCode) {
+    ReferenceQueryErrorCode errorCode) {
   if (errorCode == ReferenceQueryErrorCode::kReferenceQueryFail) {
     ++numReferenceQueryFailed;
   } else if (errorCode == ReferenceQueryErrorCode::kReferenceQueryUnsupported) {

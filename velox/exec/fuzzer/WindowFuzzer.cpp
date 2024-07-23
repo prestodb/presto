@@ -406,7 +406,8 @@ bool WindowFuzzer::verifyWindow(
 
     if (!customVerification) {
       if (resultOrError.result && enableWindowVerification) {
-        auto referenceResult = computeReferenceResults(plan, input);
+        auto referenceResult =
+            computeReferenceResults(plan, input, referenceQueryRunner_.get());
         stats_.updateReferenceQueryStats(referenceResult.second);
         if (auto expectedResult = referenceResult.first) {
           ++stats_.numVerified;

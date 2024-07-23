@@ -17,6 +17,8 @@
 
 #include "velox/core/PlanNode.h"
 #include "velox/exec/Split.h"
+#include "velox/exec/fuzzer/ReferenceQueryRunner.h"
+#include "velox/exec/tests/utils/QueryAssertions.h"
 
 namespace facebook::velox::exec::test {
 const std::string kHiveConnectorId = "test-hive";
@@ -81,4 +83,30 @@ bool containsUnsupportedTypes(const TypePtr& type);
 
 // Invoked to set up memory system with arbitration.
 void setupMemory(int64_t allocatorCapacity, int64_t arbitratorCapacity);
+
+enum ReferenceQueryErrorCode {
+  kSuccess,
+  kReferenceQueryFail,
+  kReferenceQueryUnsupported
+};
+
+// Converts 'plan' into an SQL query and runs it on 'input' in the reference DB.
+// Result is returned as a MaterializedRowMultiset with the
+// ReferenceQueryErrorCode::kSuccess if successful, or an std::nullopt with a
+// ReferenceQueryErrorCode if the query fails.
+std::pair<std::optional<MaterializedRowMultiset>, ReferenceQueryErrorCode>
+computeReferenceResults(
+    const core::PlanNodePtr& plan,
+    const std::vector<RowVectorPtr>& input,
+    ReferenceQueryRunner* referenceQueryRunner);
+
+// Similar to computeReferenceResults(), but returns the result as a
+// std::vector<RowVectorPtr>. This API throws if referenceQueryRunner doesn't
+// support returning results as a vector.
+std::pair<std::optional<std::vector<RowVectorPtr>>, ReferenceQueryErrorCode>
+computeReferenceResultsAsVector(
+    const core::PlanNodePtr& plan,
+    const std::vector<RowVectorPtr>& input,
+    ReferenceQueryRunner* referenceQueryRunner);
+
 } // namespace facebook::velox::exec::test

@@ -26,6 +26,7 @@
 
 #include "velox/exec/PartitionFunction.h"
 #include "velox/exec/fuzzer/AggregationFuzzerBase.h"
+#include "velox/exec/fuzzer/FuzzerUtil.h"
 #include "velox/expression/fuzzer/FuzzerToolkit.h"
 #include "velox/vector/VectorSaver.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
@@ -699,7 +700,8 @@ bool AggregationFuzzer::verifyWindow(
 
     if (!customVerification && enableWindowVerification) {
       if (resultOrError.result) {
-        auto referenceResult = computeReferenceResults(plan, input);
+        auto referenceResult =
+            computeReferenceResults(plan, input, referenceQueryRunner_.get());
         stats_.updateReferenceQueryStats(referenceResult.second);
         if (auto expectedResult = referenceResult.first) {
           ++stats_.numVerified;
@@ -994,7 +996,8 @@ void AggregationFuzzer::verifyAggregation(
 
   std::optional<MaterializedRowMultiset> expectedResult;
   if (!customVerification) {
-    auto referenceResult = computeReferenceResults(plan, input);
+    auto referenceResult =
+        computeReferenceResults(plan, input, referenceQueryRunner_.get());
     stats_.updateReferenceQueryStats(referenceResult.second);
     expectedResult = referenceResult.first;
   }
@@ -1075,7 +1078,8 @@ bool AggregationFuzzer::compareEquivalentPlanResults(
 
     if (resultOrError.result != nullptr) {
       if (!customVerification) {
-        auto referenceResult = computeReferenceResults(firstPlan, input);
+        auto referenceResult = computeReferenceResults(
+            firstPlan, input, referenceQueryRunner_.get());
         stats_.updateReferenceQueryStats(referenceResult.second);
         auto expectedResult = referenceResult.first;
 
@@ -1092,8 +1096,8 @@ bool AggregationFuzzer::compareEquivalentPlanResults(
       } else if (referenceQueryRunner_->supportsVeloxVectorResults()) {
         if (isSupportedType(firstPlan->outputType()) &&
             isSupportedType(input.front()->type())) {
-          auto referenceResult =
-              computeReferenceResultsAsVector(firstPlan, input);
+          auto referenceResult = computeReferenceResultsAsVector(
+              firstPlan, input, referenceQueryRunner_.get());
           stats_.updateReferenceQueryStats(referenceResult.second);
 
           if (referenceResult.first) {
