@@ -20,7 +20,9 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.common.block.TestVariableWidthBlockEncoding.PROPERTIES;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 public class TestDictionaryBlockEncoding
 {
@@ -29,8 +31,6 @@ public class TestDictionaryBlockEncoding
     @Test
     public void testRoundTrip()
     {
-        int positionCount = 40;
-
         // build dictionary
         BlockBuilder dictionaryBuilder = VARCHAR.createBlockBuilder(null, 4);
         VARCHAR.writeString(dictionaryBuilder, "alice");
@@ -40,12 +40,14 @@ public class TestDictionaryBlockEncoding
         Block dictionary = dictionaryBuilder.build();
 
         // build ids
+        int positionCount = 40;
         int[] ids = new int[positionCount];
-        for (int i = 0; i < 40; i++) {
+        for (int i = 0; i < positionCount; i++) {
             ids[i] = i % 4;
         }
 
         DictionaryBlock dictionaryBlock = new DictionaryBlock(dictionary, ids);
+        assertEquals(positionCount, dictionaryBlock.getPositionCount());
 
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
         blockEncodingSerde.writeBlock(sliceOutput, dictionaryBlock);
@@ -64,6 +66,26 @@ public class TestDictionaryBlockEncoding
     {
         for (int position = 0; position < actual.getPositionCount(); position++) {
             assertEquals(type.getObjectValue(PROPERTIES, actual, position), type.getObjectValue(PROPERTIES, expected, position));
+        }
+    }
+
+    @Test
+    public void testTooFewPositions()
+    {
+        // build dictionary
+        BlockBuilder dictionaryBuilder = VARCHAR.createBlockBuilder(null, 1);
+        VARCHAR.writeString(dictionaryBuilder, "alice");
+        Block dictionary = dictionaryBuilder.build();
+
+        int positionCount = 40;
+        int[] ids = new int[positionCount];
+
+        try {
+            new DictionaryBlock(ids.length - 1, dictionary, ids);
+            fail("Expected IllegalArgumentException");
+        }
+        catch (IllegalArgumentException expected) {
+            assertNotNull(expected.getMessage());
         }
     }
 }
