@@ -205,3 +205,116 @@ peer row with a NULL and the frame_end index is the last peer row with a NULL va
 
 Rows with NULL values do not participate in the frames of the other rows.
 
+
+Empty frames
+------------
+Window frames can be valid, partial or empty during window function processing.
+
+Valid frames are the default case when all the rows in the window frame in order
+from frame_start to frame_end are within the partition boundaries. However, it is
+possible that window frames of certain rows are only partially filled or are empty.
+While partial frames don't need any special treatment from the function author,
+empty frames need some consideration.
+
+Empty frames occur when :
+
+* Both frame_start and frame_end fall before the first partition row.
+
+  E.g. in frame *ROWS BETWEEN 5 PRECEDING and 2 PRECEDING* the first 2 rows
+  have both frame bounds before the first partition row.
+
+* Both frame_start and frame_end fall after the partition end row.
+
+  E.g. in frame *ROWS BETWEEN 2 FOLLOWING and 5 FOLLOWING* the last 2 rows
+  have both frame bounds beyond the last partition row.
+
+* frame_start > frame_end row (as frame range is defined from frame_start to
+  frame_end).
+
+  E.g. In frame *ROWS BETWEEN UNBOUNDED PRECEDING AND 2 PRECEDING* the intent
+  is to compute aggregation from the partition start row to 2 rows prior
+  the current one. However, for the first 2 rows the frameStart
+  (frame index 0 for unbounded preceding) is ahead of 2 preceding
+  (indices -2 and -1).
+
+* For frames like *ROWS BETWEEN 2 PRECEDING AND 5 PRECEDING* or
+  *ROWS BETWEEN 5 FOLLOWING AND 2 FOLLOWING*, frame_start > frame_end for
+  all rows. So all frames are empty.
+
+**Partial frames**
+
+Like illustrated in the examples above, rows could have partial window frames.
+
+A partial frame occurs when:
+
+- frame_start < frame_end (so it's not an empty frame)
+- One frame end is within partition bounds and the other end outside of it.
+
+  This means either :
+
+  - frame_start is before the first partition row while frame_end is within
+    the partition. In this case, frame_start is clamped to the first partition
+    row.
+  - frame_start is within the partition while frame_end is beyond the partition.
+    In this case, the frame_end is clamped to the last partition row.
+
+Partial frames usually follow empty frames in a sliding window.
+
+E.g. In frame *ROWS BETWEEN 5 PRECEDING AND 2 PRECEDING*, the first 2 rows have
+frame_start and frame_end before the first partition row, so they are empty.
+But from 3rd - 5th row, the 5 preceding frame_start bound is outside the
+partition, but 2 preceding frame_end is within the partition. So for these
+3 rows frame_start is clamped to the first partition row.
+
+Similarly for frame *ROWS BETWEEN 2 FOLLOWING AND 5 FOLLOWING*, the last 3-5th rows
+have frame_start within the partition, but frame_end beyond. So they are partial
+frames. The last 2 rows have both bounds outside the partition and are empty frames..
+
+Empty, partial and valid window frames can be visualized as below
+
+.. image:: images/empty_frames.png
+    :width: 600
+    :align: center
+
+Frames with constant frame bounds (like 2 preceding) have strict sliding behavior.
+So the empty frames, partial frames and valid frames cluster together and follow
+(or precede) each other.
+
+Adhoc frames that use column values for bounds (like c1 preceding) can have
+empty, partial or valid frames at any points in the partition rows.
+
+**Handling empty frames in window functions**
+
+As mentioned before, only value and aggregate window functions use frames in
+their evaluation. Value functions return null values for empty frames.
+Aggregate functions return the default aggregate value for empty frames.
+Rank functions are not affected by empty frames.
+
+The most naive approach to handle empty frames is to check in the window
+function logic if the frame indices are an empty frame (based on the
+conditions previously described) and return the null output. However,
+this could be repetitive to implement in all functions.
+
+To aid the calculations, the Window operator computes a
+*SelectivityVector* for the rows with valid frames in each
+WindowFunction::apply(..) call. The function logic can
+iterate over the rows with set bits in this SelectivityVector
+for evaluations.
+
+This SelectivityVector is passed in the validFrames argument in
+the WindowFunction::apply() signature
+
+.. code-block::
+
+    virtual void apply(
+       const BufferPtr& peerGroupStarts,
+       const BufferPtr& peerGroupEnds,
+       const BufferPtr& frameStarts,
+       const BufferPtr& frameEnds,
+       const SelectivityVector& validFrames,
+       vector_size_t resultOffset,
+       const VectorPtr& result) = 0;
+
+The Window operator also clamps *partial* window frame indices to
+the first or final partition row before passing them to the function.
+So the Window function doesn't need any special logic for partial frames.
