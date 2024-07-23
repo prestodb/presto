@@ -341,6 +341,11 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kAsyncCacheMinSsdSavableBytes{
       "async-cache-min-ssd-savable-bytes"};
 
+  /// The interval for persisting full memory cache to SSD. Setting this config
+  /// to a non-zero value will activate periodic cache persistence.
+  static constexpr std::string_view kAsyncCacheFullPersistenceInterval{
+      "async-cache-full-persistence-interval"};
+
   /// In file systems, such as btrfs, supporting cow (copy on write), the ssd
   /// cache can use all ssd space and stop working. To prevent that, use this
   /// option to disable cow for cache files.
@@ -694,6 +699,8 @@ class SystemConfig : public ConfigBase {
   double asyncCacheSsdSavableRatio() const;
 
   int32_t asyncCacheMinSsdSavableBytes() const;
+
+  std::chrono::duration<double> asyncCacheFullPersistenceInterval() const;
 
   bool asyncCacheSsdDisableFileCow() const;
 
