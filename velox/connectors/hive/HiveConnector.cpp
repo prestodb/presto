@@ -24,27 +24,15 @@
 #include "velox/dwio/dwrf/RegisterDwrfReader.h"
 #include "velox/dwio/dwrf/RegisterDwrfWriter.h"
 
-// Meta's buck build system needs this check.
-#ifdef VELOX_ENABLE_GCS
-#include "velox/connectors/hive/storage_adapters/gcs/RegisterGCSFileSystem.h" // @manual
-#endif
-#ifdef VELOX_ENABLE_HDFS3
-#include "velox/connectors/hive/storage_adapters/hdfs/RegisterHdfsFileSystem.h" // @manual
-#endif
-#ifdef VELOX_ENABLE_S3
-#include "velox/connectors/hive/storage_adapters/s3fs/RegisterS3FileSystem.h" // @manual
-#endif
-#ifdef VELOX_ENABLE_ABFS
 #include "velox/connectors/hive/storage_adapters/abfs/RegisterAbfsFileSystem.h" // @manual
-#endif
+#include "velox/connectors/hive/storage_adapters/gcs/RegisterGCSFileSystem.h" // @manual
+#include "velox/connectors/hive/storage_adapters/hdfs/RegisterHdfsFileSystem.h" // @manual
+#include "velox/connectors/hive/storage_adapters/s3fs/RegisterS3FileSystem.h" // @manual
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/dwio/orc/reader/OrcReader.h"
-// Meta's buck build system needs this check.
-#ifdef VELOX_ENABLE_PARQUET
 #include "velox/dwio/parquet/RegisterParquetReader.h" // @manual
 #include "velox/dwio/parquet/RegisterParquetWriter.h" // @manual
-#endif
 #include "velox/expression/FieldReference.h"
 
 #include <boost/lexical_cast.hpp>
@@ -138,24 +126,14 @@ void HiveConnectorFactory::initialize() {
     dwrf::registerDwrfReaderFactory();
     dwrf::registerDwrfWriterFactory();
     orc::registerOrcReaderFactory();
-// Meta's buck build system needs this check.
-#ifdef VELOX_ENABLE_PARQUET
+
     parquet::registerParquetReaderFactory();
     parquet::registerParquetWriterFactory();
-#endif
-// Meta's buck build system needs this check.
-#ifdef VELOX_ENABLE_S3
+
     filesystems::registerS3FileSystem();
-#endif
-#ifdef VELOX_ENABLE_HDFS3
     filesystems::registerHdfsFileSystem();
-#endif
-#ifdef VELOX_ENABLE_GCS
     filesystems::registerGCSFileSystem();
-#endif
-#ifdef VELOX_ENABLE_ABFS
     filesystems::abfs::registerAbfsFileSystem();
-#endif
     return true;
   }();
 }
