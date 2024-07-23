@@ -198,7 +198,7 @@ struct BitwiseShiftLeftFunction {
     // Presto defines this only for bigint, thus we will define this only for
     // int64_t.
     if (bits == 64) {
-      result = number >> shift;
+      result = number << shift;
       return true;
     }
 

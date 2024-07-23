@@ -385,12 +385,18 @@ TEST_F(BitwiseTest, shiftLeft) {
         "bitwise_shift_left(c0, c1, c2)", number, shift, bits);
   };
 
-  EXPECT_EQ(evalFunc(1, 1, 64), 0);
+  EXPECT_EQ(evalFunc(1, 1, 64), 2);
+  EXPECT_EQ(evalFunc(1, 5, 64), 32);
+  EXPECT_EQ(evalFunc(32, 60, 64), 0);
+  EXPECT_EQ(evalFunc(48, 60, 64), 0);
+  EXPECT_EQ(evalFunc(56, 60, 64), 1L << 63);
+  EXPECT_EQ(evalFunc(-1, 1, 64), -2); // -1 << 1
+  EXPECT_EQ(evalFunc(-1, 32, 64), -4294967296); // -1 << 32
   EXPECT_EQ(evalFunc(-1, 1, 2), 2);
   EXPECT_EQ(evalFunc(-1, 32, 32), 0);
   EXPECT_EQ(evalFunc(-1, 31, 32), 2147483648);
   EXPECT_EQ(evalFunc(kMin64, 10, 32), 0);
-  EXPECT_EQ(evalFunc(kMin64, kMax64, 64), -1);
+  EXPECT_EQ(evalFunc(kMin64, kMax64, 64), 0);
   EXPECT_EQ(evalFunc(kMax64, kMin64, 64), kMax64);
   EXPECT_EQ(evalFunc(7, 0, 64), 7);
 
