@@ -72,7 +72,7 @@ velox-submodule:		#: Check out code for velox submodule
 	git submodule sync --recursive
 	git submodule update --init --recursive
 
-submodules: velox-submodule
+# submodules: velox-submodule
 
 cmake: submodules		#: Use CMake to create a Makefile build system
 	cmake -B "$(BUILD_BASE_DIR)/$(BUILD_DIR)" $(FORCE_COLOR) $(CMAKE_FLAGS) $(EXTRA_CMAKE_FLAGS)
