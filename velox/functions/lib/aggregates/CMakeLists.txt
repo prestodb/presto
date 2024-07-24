@@ -16,6 +16,8 @@ velox_add_library(
   velox_functions_aggregates
   AverageAggregateBase.cpp
   CentralMomentsAggregatesBase.cpp
+  Compare.cpp
+  MinMaxAggregateBase.cpp
   SingleValueAccumulator.cpp
   ValueList.cpp
   ValueSet.cpp)

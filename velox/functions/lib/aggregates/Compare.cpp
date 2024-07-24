@@ -14,21 +14,20 @@
  * limitations under the License.
  */
 
-#include "velox/functions/prestosql/aggregates/Compare.h"
+#include "velox/functions/lib/aggregates/Compare.h"
 
-using namespace facebook::velox::functions::aggregate;
-
-namespace facebook::velox::aggregate::prestosql {
+namespace facebook::velox::functions::aggregate {
 
 int32_t compare(
     const SingleValueAccumulator* accumulator,
     const DecodedVector& decoded,
-    vector_size_t index) {
+    vector_size_t index,
+    CompareFlags::NullHandlingMode nullHandlingMode) {
   static const CompareFlags kCompareFlags{
       true, // nullsFirst
       true, // ascending
       false, // equalsOnly
-      CompareFlags::NullHandlingMode::kNullAsIndeterminate};
+      nullHandlingMode};
 
   auto result = accumulator->compare(decoded, index, kCompareFlags);
   VELOX_USER_CHECK(
@@ -38,4 +37,4 @@ int32_t compare(
           mapTypeKindToName(decoded.base()->typeKind())));
   return result.value();
 }
-} // namespace facebook::velox::aggregate::prestosql
+} // namespace facebook::velox::functions::aggregate

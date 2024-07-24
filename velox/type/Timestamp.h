@@ -299,6 +299,20 @@ struct Timestamp {
   /// successful.
   static int64_t calendarUtcToEpoch(const std::tm& tm);
 
+  /// Truncates a Timestamp value to the specified precision.
+  static Timestamp truncate(Timestamp ts, TimestampPrecision precision) {
+    switch (precision) {
+      case TimestampPrecision::kMilliseconds:
+        return Timestamp::fromMillis(ts.toMillis());
+      case TimestampPrecision::kMicroseconds:
+        return Timestamp::fromMicros(ts.toMicros());
+      case TimestampPrecision::kNanoseconds:
+        return ts;
+      default:
+        VELOX_UNREACHABLE();
+    }
+  }
+
   /// Converts a std::tm to a time/date/timestamp string in ISO 8601 format
   /// according to TimestampToStringOptions.
   /// @param startPosition the start position of pre-allocated memory to write

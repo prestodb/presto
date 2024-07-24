@@ -30,6 +30,10 @@ extern void registerFirstLastAggregates(
     const std::string& prefix,
     bool withCompanionFunctions,
     bool overwrite);
+extern void registerMinMaxAggregates(
+    const std::string& prefix,
+    bool withCompanionFunctions,
+    bool overwrite);
 extern void registerMinMaxByAggregates(
     const std::string& prefix,
     bool withCompanionFunctions,
@@ -40,6 +44,7 @@ void registerAggregateFunctions(
     bool withCompanionFunctions,
     bool overwrite) {
   registerFirstLastAggregates(prefix, withCompanionFunctions, overwrite);
+  registerMinMaxAggregates(prefix, withCompanionFunctions, overwrite);
   registerMinMaxByAggregates(prefix, withCompanionFunctions, overwrite);
   registerBitwiseXorAggregate(prefix, withCompanionFunctions, overwrite);
   registerBloomFilterAggAggregate(

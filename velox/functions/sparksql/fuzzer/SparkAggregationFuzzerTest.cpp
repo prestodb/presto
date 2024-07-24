@@ -82,6 +82,10 @@ int main(int argc, char** argv) {
           {"skewness", nullptr},
           {"kurtosis", nullptr},
           {"collect_list", makeArrayVerifier()},
+          // Nested nulls are handled as values in Spark. But nested nulls
+          // comparison always generates null in DuckDB.
+          {"min", nullptr},
+          {"max", nullptr},
       };
 
   size_t initialSeed = FLAGS_seed == 0 ? std::time(nullptr) : FLAGS_seed;

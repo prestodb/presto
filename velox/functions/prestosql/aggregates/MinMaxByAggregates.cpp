@@ -15,10 +15,10 @@
  */
 
 #include <algorithm>
+#include "velox/functions/lib/aggregates/Compare.h"
 #include "velox/functions/lib/aggregates/MinMaxByAggregatesBase.h"
 #include "velox/functions/lib/aggregates/ValueSet.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
-#include "velox/functions/prestosql/aggregates/Compare.h"
 
 using namespace facebook::velox::functions::aggregate;
 
@@ -49,10 +49,18 @@ struct Comparator {
       // is less than vector value.
       if constexpr (greaterThan) {
         return !accumulator->hasValue() ||
-            prestosql::compare(accumulator, newComparisons, index) < 0;
+            functions::aggregate::compare(
+                accumulator,
+                newComparisons,
+                index,
+                CompareFlags::NullHandlingMode::kNullAsIndeterminate) < 0;
       } else {
         return !accumulator->hasValue() ||
-            prestosql::compare(accumulator, newComparisons, index) > 0;
+            functions::aggregate::compare(
+                accumulator,
+                newComparisons,
+                index,
+                CompareFlags::NullHandlingMode::kNullAsIndeterminate) > 0;
       }
     }
   }

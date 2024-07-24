@@ -22,6 +22,7 @@ add_executable(
   FirstAggregateTest.cpp
   LastAggregateTest.cpp
   Main.cpp
+  MinMaxAggregationTest.cpp
   MinMaxByAggregationTest.cpp
   RegrReplacementAggregationTest.cpp
   SumAggregationTest.cpp)
@@ -36,6 +37,7 @@ target_link_libraries(
   velox_functions_aggregates_test_lib
   velox_functions_spark_aggregates
   velox_hive_connector
+  velox_vector_fuzzer
   gflags::gflags
   gtest
   gtest_main)

@@ -19,6 +19,7 @@ velox_add_library(
   CentralMomentsAggregate.cpp
   CollectListAggregate.cpp
   FirstLastAggregate.cpp
+  MinMaxAggregate.cpp
   MinMaxByAggregate.cpp
   Register.cpp
   RegrReplacementAggregate.cpp
