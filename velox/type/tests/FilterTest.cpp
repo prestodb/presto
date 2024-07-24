@@ -1050,7 +1050,7 @@ TEST(FilterTest, multiRange) {
   EXPECT_TRUE(filter->testDouble(1.3));
 
   EXPECT_FALSE(filter->testNull());
-  EXPECT_FALSE(filter->testDouble(std::nan("nan")));
+  EXPECT_TRUE(filter->testDouble(std::nan("nan")));
   EXPECT_FALSE(filter->testDouble(1.2));
 
   filter = orFilter(lessThanFloat(1.2), greaterThanFloat(1.2));
@@ -1059,7 +1059,7 @@ TEST(FilterTest, multiRange) {
   EXPECT_TRUE(filter->testFloat(1.1f));
   EXPECT_FALSE(filter->testFloat(1.2f));
   EXPECT_TRUE(filter->testFloat(1.3f));
-  EXPECT_FALSE(filter->testFloat(std::nanf("nan")));
+  EXPECT_TRUE(filter->testFloat(std::nanf("nan")));
 
   // != ''
   filter = orFilter(lessThan(""), greaterThan(""));
@@ -1069,51 +1069,39 @@ TEST(FilterTest, multiRange) {
 
 TEST(FilterTest, multiRangeWithNaNs) {
   // x <> 1.2 with nanAllowed true
-  auto filter =
-      orFilter(lessThanFloat(1.2), greaterThanFloat(1.2), false, true);
+  auto filter = orFilter(lessThanFloat(1.2), greaterThanFloat(1.2), false);
   EXPECT_TRUE(filter->testFloat(std::nanf("nan")));
   EXPECT_FALSE(filter->testFloat(1.2f));
   EXPECT_TRUE(filter->testFloat(1.1f));
 
-  filter = orFilter(lessThanDouble(1.2), greaterThanDouble(1.2), false, true);
+  filter = orFilter(lessThanDouble(1.2), greaterThanDouble(1.2), false);
   EXPECT_TRUE(filter->testDouble(std::nan("nan")));
   EXPECT_FALSE(filter->testDouble(1.2));
   EXPECT_TRUE(filter->testDouble(1.1));
 
   // x <> 1.2 with nanAllowed false
   filter = orFilter(lessThanFloat(1.2), greaterThanFloat(1.2));
-  EXPECT_FALSE(filter->testFloat(std::nanf("nan")));
+  EXPECT_TRUE(filter->testFloat(std::nanf("nan")));
   EXPECT_TRUE(filter->testFloat(1.0f));
 
   filter = orFilter(lessThanDouble(1.2), greaterThanDouble(1.2));
-  EXPECT_FALSE(filter->testDouble(std::nan("nan")));
+  EXPECT_TRUE(filter->testDouble(std::nan("nan")));
   EXPECT_TRUE(filter->testDouble(1.4));
 
   // x NOT IN (1.2, 1.3) with nanAllowed true
-  filter = orFilter(lessThanFloat(1.2), greaterThanFloat(1.3), false, true);
+  filter = orFilter(lessThanFloat(1.2), greaterThanFloat(1.3), false);
   EXPECT_TRUE(filter->testFloat(std::nanf("nan")));
   EXPECT_FALSE(filter->testFloat(1.2f));
   EXPECT_FALSE(filter->testFloat(1.3f));
   EXPECT_TRUE(filter->testFloat(1.4f));
   EXPECT_TRUE(filter->testFloat(1.1f));
 
-  filter = orFilter(lessThanDouble(1.2), greaterThanDouble(1.3), false, true);
+  filter = orFilter(lessThanDouble(1.2), greaterThanDouble(1.3), false);
   EXPECT_TRUE(filter->testDouble(std::nan("nan")));
   EXPECT_FALSE(filter->testDouble(1.2));
   EXPECT_FALSE(filter->testDouble(1.3));
   EXPECT_TRUE(filter->testDouble(1.4));
   EXPECT_TRUE(filter->testDouble(1.1));
-
-  // x NOT IN (1.2) with nanAllowed false
-  filter = orFilter(lessThanFloat(1.2), greaterThanFloat(1.2));
-  EXPECT_FALSE(filter->testFloat(std::nanf("nan")));
-  EXPECT_FALSE(filter->testFloat(1.2f));
-  EXPECT_TRUE(filter->testFloat(1.3f));
-
-  filter = orFilter(lessThanDouble(1.2), greaterThanDouble(1.2));
-  EXPECT_FALSE(filter->testDouble(std::nan("nan")));
-  EXPECT_FALSE(filter->testDouble(1.2));
-  EXPECT_TRUE(filter->testDouble(1.3));
 }
 
 TEST(FilterTest, createBigintValues) {

@@ -336,8 +336,7 @@ std::unique_ptr<common::Filter> makeNotEqualFilter(
     std::vector<std::unique_ptr<common::Filter>> filters;
     filters.emplace_back(std::move(lessThanFilter));
     filters.emplace_back(std::move(greaterThanFilter));
-    return std::make_unique<common::MultiRange>(
-        std::move(filters), false, false);
+    return std::make_unique<common::MultiRange>(std::move(filters), false);
   }
 }
 

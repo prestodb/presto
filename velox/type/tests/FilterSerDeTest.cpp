@@ -152,7 +152,7 @@ TEST_F(FilterSerDeTest, multiFilter) {
   filters.emplace_back(std::make_unique<BytesRange>(
       "ABCD", true, true, "FFFF", false, true, false));
 
-  MultiRange multiRange(std::move(filters), true, true);
+  MultiRange multiRange(std::move(filters), true);
   testSerde(multiRange);
 }
 

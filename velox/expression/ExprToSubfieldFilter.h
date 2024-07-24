@@ -320,16 +320,12 @@ inline std::unique_ptr<common::IsNotNull> isNotNull() {
 }
 
 template <typename T>
-std::unique_ptr<common::MultiRange> orFilter(
-    std::unique_ptr<T> a,
-    std::unique_ptr<T> b,
-    bool nullAllowed = false,
-    bool nanAllowed = false) {
+std::unique_ptr<common::MultiRange>
+orFilter(std::unique_ptr<T> a, std::unique_ptr<T> b, bool nullAllowed = false) {
   std::vector<std::unique_ptr<common::Filter>> filters;
   filters.emplace_back(std::move(a));
   filters.emplace_back(std::move(b));
-  return std::make_unique<common::MultiRange>(
-      std::move(filters), nullAllowed, nanAllowed);
+  return std::make_unique<common::MultiRange>(std::move(filters), nullAllowed);
 }
 
 inline std::unique_ptr<common::HugeintRange> lessThanHugeint(

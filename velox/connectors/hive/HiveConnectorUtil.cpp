@@ -91,7 +91,7 @@ std::unique_ptr<common::Filter> makeFloatingPointMapKeyFilter(
   if (filters.size() == 1) {
     return std::move(filters[0]);
   }
-  return std::make_unique<common::MultiRange>(std::move(filters), false, false);
+  return std::make_unique<common::MultiRange>(std::move(filters), false);
 }
 
 // Recursively add subfields to scan spec.

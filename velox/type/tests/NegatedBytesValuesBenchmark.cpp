@@ -178,7 +178,7 @@ int32_t main(int32_t argc, char* argv[]) {
       range_filters.emplace_back(std::make_unique<common::BytesRange>(
           *back, false, true, "", true, true, false));
       multi_ranges.emplace_back(std::make_unique<common::MultiRange>(
-          std::move(range_filters), false, false));
+          std::move(range_filters), false));
 
       LOG(INFO) << "Generated filter for length " << len << " with size "
                 << size;

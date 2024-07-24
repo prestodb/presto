@@ -169,8 +169,8 @@ int32_t main(int32_t argc, char** argv) {
           "", true, false, lo, false, true, false));
       rangeFilters.emplace_back(std::make_unique<common::BytesRange>(
           hi, false, false, "", true, false, false));
-      multiRanges.emplace_back(std::make_unique<common::MultiRange>(
-          std::move(rangeFilters), false, false));
+      multiRanges.emplace_back(
+          std::make_unique<common::MultiRange>(std::move(rangeFilters), false));
 
       LOG(INFO) << "Generated filter for length " << len << " with percentage "
                 << pct;
