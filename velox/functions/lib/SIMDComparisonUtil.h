@@ -130,6 +130,10 @@ void applyAutoSimdComparisonInternal(
         });
   }
 }
+
+inline bool isDictEncoding(const VectorPtr& arg) {
+  return arg->encoding() == VectorEncoding::Simple::DICTIONARY;
+}
 } // namespace detail
 
 template <
@@ -228,6 +232,7 @@ template <typename A, typename B, typename Compare, typename... Args>
 void applyAutoSimdComparison(
     const SelectivityVector& rows,
     std::vector<VectorPtr>& args,
+    exec::EvalCtx& context,
     VectorPtr& result,
     Args... cmpArgs) {
   const Compare cmp;
@@ -299,8 +304,61 @@ void applyAutoSimdComparison(
           }
         },
         result);
+  } else if (args[0]->isFlatEncoding() && detail::isDictEncoding(args[1])) {
+    const A* __restrict rawA =
+        args[0]->asUnchecked<FlatVector<A>>()->rawValues();
+    exec::LocalDecodedVector localBDecoded(context, *args[1], rows);
+    const B* __restrict rawB = localBDecoded.get()->data<B>();
+    const vector_size_t* __restrict indexB = localBDecoded.get()->indices();
+    detail::applyAutoSimdComparisonInternal(
+        rows,
+        rawA,
+        rawB,
+        [&](const A* __restrict rawA, const B* __restrict rawB, int i) {
+          if constexpr (sizeof...(cmpArgs) > 0) {
+            return Compare::apply(rawA[i], rawB[indexB[i]], cmpArgs...);
+          } else {
+            return cmp(rawA[i], rawB[indexB[i]]);
+          }
+        },
+        result);
+  } else if (detail::isDictEncoding(args[0]) && args[1]->isFlatEncoding()) {
+    exec::LocalDecodedVector localADecoded(context, *args[0], rows);
+    const A* __restrict rawA = localADecoded.get()->data<A>();
+    const vector_size_t* __restrict indexA = localADecoded.get()->indices();
+    const B* __restrict rawB =
+        args[1]->asUnchecked<FlatVector<B>>()->rawValues();
+    detail::applyAutoSimdComparisonInternal(
+        rows,
+        rawA,
+        rawB,
+        [&](const A* __restrict rawA, const B* __restrict rawB, int i) {
+          if constexpr (sizeof...(cmpArgs) > 0) {
+            return Compare::apply(rawA[indexA[i]], rawB[i], cmpArgs...);
+          } else {
+            return cmp(rawA[indexA[i]], rawB[i]);
+          }
+        },
+        result);
   } else {
     VELOX_UNREACHABLE();
   }
+}
+
+template <typename A, typename B>
+bool shouldApplyAutoSimdComparison(
+    const SelectivityVector& rows,
+    std::vector<VectorPtr>& args) {
+  if (rows.end() - rows.begin() > 64) {
+    if ((args[0]->isFlatEncoding() || args[0]->isConstantEncoding()) &&
+        (args[1]->isFlatEncoding() || args[1]->isConstantEncoding())) {
+      return true;
+    } else if (args[0]->isFlatEncoding() && detail::isDictEncoding(args[1])) {
+      return true;
+    } else if (detail::isDictEncoding(args[0]) && args[1]->isFlatEncoding()) {
+      return true;
+    }
+  }
+  return false;
 }
 } // namespace facebook::velox::functions

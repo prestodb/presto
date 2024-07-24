@@ -41,20 +41,19 @@ class ComparisonFunction final : public exec::VectorFunction {
     const Cmp cmp;
     context.ensureWritable(rows, BOOLEAN(), result);
     result->clearNulls(rows);
-    if ((args[0]->isFlatEncoding() || args[0]->isConstantEncoding()) &&
-        (args[1]->isFlatEncoding() || args[1]->isConstantEncoding())) {
-      if constexpr (
-          kind == TypeKind::TINYINT || kind == TypeKind::SMALLINT ||
-          kind == TypeKind::INTEGER || kind == TypeKind::BIGINT) {
-        if (rows.isAllSelected()) {
-          applySimdComparison<T, Cmp>(rows, args, result);
-          return;
-        }
-      }
-      if (rows.end() - rows.begin() > 64) {
-        applyAutoSimdComparison<T, T, Cmp>(rows, args, result);
+    if constexpr (
+        kind == TypeKind::TINYINT || kind == TypeKind::SMALLINT ||
+        kind == TypeKind::INTEGER || kind == TypeKind::BIGINT) {
+      if ((args[0]->isFlatEncoding() || args[0]->isConstantEncoding()) &&
+          (args[1]->isFlatEncoding() || args[1]->isConstantEncoding()) &&
+          rows.isAllSelected()) {
+        applySimdComparison<T, Cmp>(rows, args, result);
         return;
       }
+    }
+    if (shouldApplyAutoSimdComparison<T, T>(rows, args)) {
+      applyAutoSimdComparison<T, T, Cmp>(rows, args, context, result);
+      return;
     }
 
     auto* flatResult = result->asUnchecked<FlatVector<bool>>();

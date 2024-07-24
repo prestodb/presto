@@ -170,6 +170,25 @@ TEST_F(DecimalCompareTest, gt) {
       makeFlatVector<bool>(
           130, [](auto row) { return row % 2 == 0 ? false : true; }),
       row);
+
+  testCompareExpr(
+      "decimal_greaterthan(c0, c1)",
+      {
+          wrapInDictionary(
+              makeIndices(140, [](auto row) { return row % 2; }),
+              makeFlatVector<int64_t>(
+                  2,
+                  [](auto row) { return row % 2 == 0 ? 1000 : 3000; },
+                  nullptr,
+                  DECIMAL(6, 2))),
+          makeFlatVector<int64_t>(
+              140,
+              [](auto row) { return row % 2 == 0 ? 100 : 130; },
+              nullptr,
+              DECIMAL(5, 1)),
+      },
+      makeFlatVector<bool>(
+          140, [](auto row) { return row % 2 == 0 ? false : true; }));
 }
 
 TEST_F(DecimalCompareTest, gte) {
@@ -305,6 +324,24 @@ TEST_F(DecimalCompareTest, gte) {
       },
       makeFlatVector<bool>(130, [](auto /*row*/) { return true; }),
       row);
+
+  testCompareExpr(
+      "decimal_greaterthanorequal(c0, c1)",
+      {
+          wrapInDictionary(
+              makeIndices(140, [](auto row) { return row % 2; }),
+              makeFlatVector<int64_t>(
+                  2,
+                  [](auto row) { return row % 2 == 0 ? 1000 : 3000; },
+                  nullptr,
+                  DECIMAL(6, 2))),
+          makeFlatVector<int64_t>(
+              140,
+              [](auto row) { return row % 2 == 0 ? 100 : 130; },
+              nullptr,
+              DECIMAL(5, 1)),
+      },
+      makeFlatVector<bool>(140, [](auto /*row*/) { return true; }));
 }
 
 TEST_F(DecimalCompareTest, eq) {
@@ -442,6 +479,25 @@ TEST_F(DecimalCompareTest, eq) {
       makeFlatVector<bool>(
           130, [](auto row) { return row % 2 == 0 ? true : false; }),
       row);
+
+  testCompareExpr(
+      "decimal_equalto(c0, c1)",
+      {
+          makeFlatVector<int64_t>(
+              140,
+              [](auto row) { return row % 2 == 0 ? 100 : 130; },
+              nullptr,
+              DECIMAL(5, 1)),
+          wrapInDictionary(
+              makeIndices(140, [](auto row) { return row % 2; }),
+              makeFlatVector<int64_t>(
+                  2,
+                  [](auto row) { return row % 2 == 0 ? 1000 : 3000; },
+                  nullptr,
+                  DECIMAL(6, 2))),
+      },
+      makeFlatVector<bool>(
+          140, [](auto row) { return row % 2 == 0 ? true : false; }));
 }
 
 TEST_F(DecimalCompareTest, neq) {
@@ -579,6 +635,25 @@ TEST_F(DecimalCompareTest, neq) {
       makeFlatVector<bool>(
           130, [](auto row) { return row % 2 == 0 ? false : true; }),
       row);
+
+  testCompareExpr(
+      "decimal_notequalto(c0, c1)",
+      {
+          wrapInDictionary(
+              makeIndices(140, [](auto row) { return row % 2; }),
+              makeFlatVector<int64_t>(
+                  2,
+                  [](auto row) { return row % 2 == 0 ? 1000 : 3000; },
+                  nullptr,
+                  DECIMAL(6, 2))),
+          makeFlatVector<int64_t>(
+              140,
+              [](auto row) { return row % 2 == 0 ? 100 : 130; },
+              nullptr,
+              DECIMAL(5, 1)),
+      },
+      makeFlatVector<bool>(
+          140, [](auto row) { return row % 2 == 0 ? false : true; }));
 }
 
 TEST_F(DecimalCompareTest, lt) {
@@ -714,6 +789,24 @@ TEST_F(DecimalCompareTest, lt) {
       },
       makeFlatVector<bool>(130, [](auto /*row*/) { return false; }),
       row);
+
+  testCompareExpr(
+      "decimal_lessthan(c0, c1)",
+      {
+          wrapInDictionary(
+              makeIndices(140, [](auto row) { return row % 2; }),
+              makeFlatVector<int64_t>(
+                  2,
+                  [](auto row) { return row % 2 == 0 ? 1000 : 3000; },
+                  nullptr,
+                  DECIMAL(6, 2))),
+          makeFlatVector<int64_t>(
+              140,
+              [](auto row) { return row % 2 == 0 ? 100 : 130; },
+              nullptr,
+              DECIMAL(5, 1)),
+      },
+      makeFlatVector<bool>(140, [](auto /*row*/) { return false; }));
 }
 
 TEST_F(DecimalCompareTest, lte) {
@@ -851,6 +944,25 @@ TEST_F(DecimalCompareTest, lte) {
       makeFlatVector<bool>(
           130, [](auto row) { return row % 2 == 0 ? true : false; }),
       row);
+
+  testCompareExpr(
+      "decimal_lessthanorequal(c0, c1)",
+      {
+          wrapInDictionary(
+              makeIndices(140, [](auto row) { return row % 2; }),
+              makeFlatVector<int64_t>(
+                  2,
+                  [](auto row) { return row % 2 == 0 ? 1000 : 3000; },
+                  nullptr,
+                  DECIMAL(6, 2))),
+          makeFlatVector<int64_t>(
+              140,
+              [](auto row) { return row % 2 == 0 ? 100 : 130; },
+              nullptr,
+              DECIMAL(5, 1)),
+      },
+      makeFlatVector<bool>(
+          140, [](auto row) { return row % 2 == 0 ? true : false; }));
 }
 
 } // namespace

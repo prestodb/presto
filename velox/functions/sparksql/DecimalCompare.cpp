@@ -116,11 +116,10 @@ class DecimalCompareFunction : public exec::VectorFunction {
       exec::EvalCtx& context,
       VectorPtr& result) const override {
     prepareResults(rows, resultType, context, result);
-    if ((args[0]->isFlatEncoding() || args[0]->isConstantEncoding()) &&
-        (args[1]->isFlatEncoding() || args[1]->isConstantEncoding()) &&
-        rows.end() - rows.begin() > 64) {
+
+    if (shouldApplyAutoSimdComparison<A, B>(rows, args)) {
       applyAutoSimdComparison<A, B, Operation, int8_t, bool>(
-          rows, args, result, deltaScale_, need256_);
+          rows, args, context, result, deltaScale_, need256_);
       return;
     }
 

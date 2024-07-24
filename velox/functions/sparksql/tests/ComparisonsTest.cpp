@@ -81,6 +81,9 @@ class ComparisonsTest : public SparkFunctionBaseTest {
     auto right = rVector->template as<FlatVector<T>>()->rawValues();
     auto constVector = fuzzer.fuzzConstant(type);
     auto constant = constVector->template as<ConstantVector<T>>()->value();
+    auto lDictVector = fuzzer.fuzzDictionary(lVector);
+    auto rDictVector = fuzzer.fuzzDictionary(rVector);
+    auto lDictDictVector = fuzzer.fuzzDictionary(lDictVector);
     SelectivityVector rows(size);
     rows.setValidRange(0, unSelectedRows, false);
 
@@ -99,10 +102,9 @@ class ComparisonsTest : public SparkFunctionBaseTest {
     // Flat, Const
     std::vector<VectorPtr> rConstVectors = {lVector, constVector};
     rowVector = fuzzer.fuzzRow(std::move(rConstVectors), {"c0", "c1"}, size);
-    result =
-        evaluate<SimpleVector<bool>>("greaterthanorequal(c0, c1)", rowVector);
+    result = evaluate<SimpleVector<bool>>("equalto(c0, c1)", rowVector);
     for (auto i = unSelectedRows; i < size; i++) {
-      expectedResult[i] = left[i] >= constant;
+      expectedResult[i] = left[i] == constant;
     }
     velox::test::assertEqualVectors(
         makeFlatVector<bool>(expectedResult), result, rows);
@@ -110,10 +112,42 @@ class ComparisonsTest : public SparkFunctionBaseTest {
     // Const, Flat
     std::vector<VectorPtr> lConstVectors = {constVector, rVector};
     rowVector = fuzzer.fuzzRow(std::move(lConstVectors), {"c0", "c1"}, size);
-    result =
-        evaluate<SimpleVector<bool>>("greaterthanorequal(c0, c1)", rowVector);
+    result = evaluate<SimpleVector<bool>>("lessthan(c0, c1)", rowVector);
     for (auto i = unSelectedRows; i < size; i++) {
-      expectedResult[i] = constant >= right[i];
+      expectedResult[i] = constant < right[i];
+    }
+    velox::test::assertEqualVectors(
+        makeFlatVector<bool>(expectedResult), result, rows);
+
+    // Dict(Flat), Flat
+    childrenVectors = {lDictVector, rVector};
+    rowVector = fuzzer.fuzzRow(std::move(childrenVectors), {"c0", "c1"}, size);
+    result = evaluate<SimpleVector<bool>>("lessthanorequal(c0, c1)", rowVector);
+    DecodedVector lDecodedVector(*lDictVector);
+    for (auto i = unSelectedRows; i < size; i++) {
+      expectedResult[i] = lDecodedVector.valueAt<T>(i) <= right[i];
+    }
+    velox::test::assertEqualVectors(
+        makeFlatVector<bool>(expectedResult), result, rows);
+
+    // Flat, Dict(Flat)
+    childrenVectors = {lVector, rDictVector};
+    rowVector = fuzzer.fuzzRow(std::move(childrenVectors), {"c0", "c1"}, size);
+    result = evaluate<SimpleVector<bool>>("greaterthan(c0, c1)", rowVector);
+    DecodedVector rDecodedVector(*rDictVector);
+    for (auto i = unSelectedRows; i < size; i++) {
+      expectedResult[i] = left[i] > rDecodedVector.valueAt<T>(i);
+    }
+    velox::test::assertEqualVectors(
+        makeFlatVector<bool>(expectedResult), result, rows);
+
+    // Dict(Dict(Flat)), Flat
+    childrenVectors = {lDictDictVector, rVector};
+    rowVector = fuzzer.fuzzRow(std::move(childrenVectors), {"c0", "c1"}, size);
+    result = evaluate<SimpleVector<bool>>("lessthanorequal(c0, c1)", rowVector);
+    DecodedVector decodedVector(*lDictDictVector);
+    for (auto i = unSelectedRows; i < size; i++) {
+      expectedResult[i] = decodedVector.valueAt<T>(i) <= right[i];
     }
     velox::test::assertEqualVectors(
         makeFlatVector<bool>(expectedResult), result, rows);
