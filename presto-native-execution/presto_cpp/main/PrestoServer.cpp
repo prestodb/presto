@@ -616,18 +616,18 @@ void PrestoServer::run() {
   }
 
   PRESTO_SHUTDOWN_LOG(INFO)
-      << "Joining Exchange Http IO executor '"
-      << exchangeHttpIoExecutor_->getName()
-      << "': threads: " << exchangeHttpIoExecutor_->numActiveThreads() << "/"
-      << exchangeHttpIoExecutor_->numThreads();
-  exchangeHttpIoExecutor_->join();
-
-  PRESTO_SHUTDOWN_LOG(INFO)
       << "Joining Exchange Http CPU executor '"
       << exchangeHttpCpuExecutor_->getName()
       << "': threads: " << exchangeHttpCpuExecutor_->numActiveThreads() << "/"
       << exchangeHttpCpuExecutor_->numThreads();
   exchangeHttpCpuExecutor_->join();
+
+  PRESTO_SHUTDOWN_LOG(INFO)
+      << "Joining Exchange Http IO executor '"
+      << exchangeHttpIoExecutor_->getName()
+      << "': threads: " << exchangeHttpIoExecutor_->numActiveThreads() << "/"
+      << exchangeHttpIoExecutor_->numThreads();
+  exchangeHttpIoExecutor_->join();
 
   PRESTO_SHUTDOWN_LOG(INFO) << "Done joining our executors.";
 
