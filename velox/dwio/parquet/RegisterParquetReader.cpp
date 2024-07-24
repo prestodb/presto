@@ -15,7 +15,7 @@
  */
 
 #ifdef VELOX_ENABLE_PARQUET
-#include "velox/dwio/parquet/reader/ParquetReader.h" // @manual
+#include "velox/dwio/parquet/reader/ParquetReader.h"
 #endif
 
 namespace facebook::velox::parquet {

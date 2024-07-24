@@ -15,7 +15,7 @@
  */
 
 #ifdef VELOX_ENABLE_PARQUET
-#include "velox/dwio/parquet/writer/Writer.h" // @manual
+#include "velox/dwio/parquet/writer/Writer.h"
 #endif
 
 namespace facebook::velox::parquet {
