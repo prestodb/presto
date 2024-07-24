@@ -20,7 +20,7 @@
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/type/tz/TimeZoneMap.h"
 
-namespace facebook::velox::util {
+namespace facebook::velox::tz {
 namespace {
 
 TEST(TimeZoneMapTest, getTimeZoneName) {
@@ -94,4 +94,4 @@ TEST(TimeZoneMapTest, invalid) {
 }
 
 } // namespace
-} // namespace facebook::velox::util
+} // namespace facebook::velox::tz

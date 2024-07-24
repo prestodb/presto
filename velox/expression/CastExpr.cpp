@@ -24,9 +24,9 @@
 #include "velox/expression/PeeledEncoding.h"
 #include "velox/expression/PrestoCastHooks.h"
 #include "velox/expression/ScopedVarSetter.h"
-#include "velox/external/date/tz.h"
 #include "velox/functions/lib/RowsTranslationUtil.h"
 #include "velox/type/Type.h"
+#include "velox/type/tz/TimeZoneMap.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/FunctionVector.h"
 #include "velox/vector/SelectivityVector.h"
@@ -145,15 +145,17 @@ Status detail::parseHugeInt(
 }
 
 namespace {
-const date::time_zone* getTimeZoneFromConfig(const core::QueryConfig& config) {
+
+const tz::TimeZone* getTimeZoneFromConfig(const core::QueryConfig& config) {
   if (config.adjustTimestampToTimezone()) {
     const auto sessionTzName = config.sessionTimezone();
     if (!sessionTzName.empty()) {
-      return date::locate_zone(sessionTzName);
+      return tz::locateZone(sessionTzName);
     }
   }
   return nullptr;
 }
+
 } // namespace
 
 VectorPtr CastExpr::castFromDate(

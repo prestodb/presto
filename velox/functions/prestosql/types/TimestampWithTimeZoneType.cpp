@@ -27,7 +27,7 @@ int64_t getTimeZoneIDFromConfig(const core::QueryConfig& config) {
   const auto sessionTzName = config.sessionTimezone();
 
   if (!sessionTzName.empty()) {
-    return util::getTimeZoneID(sessionTzName);
+    return tz::getTimeZoneID(sessionTzName);
   }
 
   return 0;
@@ -117,8 +117,7 @@ void castToString(
 
     const auto timestamp = unpackTimestampUtc(timestampWithTimezone);
     const auto timeZoneId = unpackZoneKeyId(timestampWithTimezone);
-    const auto* timezonePtr =
-        date::locate_zone(util::getTimeZoneName(timeZoneId));
+    const auto* timezonePtr = tz::locateZone(tz::getTimeZoneName(timeZoneId));
 
     exec::StringWriter<false> result(flatResult, row);
 

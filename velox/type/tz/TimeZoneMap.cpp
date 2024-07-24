@@ -21,8 +21,9 @@
 #include <folly/container/F14Map.h>
 #include <folly/container/F14Set.h>
 #include "velox/common/base/Exceptions.h"
+#include "velox/external/date/tz.h"
 
-namespace facebook::velox::util {
+namespace facebook::velox::tz {
 
 // Defined in TimeZoneDatabase.cpp
 extern const std::unordered_map<int64_t, std::string>& getTimeZoneDB();
@@ -166,4 +167,8 @@ int16_t getTimeZoneID(int32_t offsetMinutes) {
   }
 }
 
-} // namespace facebook::velox::util
+const TimeZone* locateZone(std::string_view timeZone) {
+  return date::locate_zone(timeZone);
+}
+
+} // namespace facebook::velox::tz

@@ -18,8 +18,8 @@
 #include <random>
 
 #include "velox/common/base/tests/GTestUtils.h"
-#include "velox/external/date/tz.h"
 #include "velox/type/Timestamp.h"
+#include "velox/type/tz/TimeZoneMap.h"
 
 namespace facebook::velox {
 namespace {
@@ -394,7 +394,7 @@ TEST(TimestampTest, outOfRange) {
   //
   // #1. external/date cannot handle years larger than 32k (date::year::max()).
   // Any conversions exceeding that threshold will fail right away.
-  auto* timezone = date::locate_zone("GMT");
+  auto* timezone = tz::locateZone("GMT");
   Timestamp t1(-3217830796800, 0);
 
   VELOX_ASSERT_THROW(
@@ -407,7 +407,7 @@ TEST(TimestampTest, outOfRange) {
   // example, it will throw for anything larger than 2037 (which is what is
   // currently materialized in OS_TZDBs). America/Los_Angeles is an example of
   // such timezone.
-  timezone = date::locate_zone("America/Los_Angeles");
+  timezone = tz::locateZone("America/Los_Angeles");
   Timestamp t2(32517359891, 0);
   VELOX_ASSERT_THROW(
       t2.toTimezone(*timezone),

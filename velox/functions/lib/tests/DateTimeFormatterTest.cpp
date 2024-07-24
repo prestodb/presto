@@ -15,7 +15,6 @@
  */
 #include "velox/functions/lib/DateTimeFormatter.h"
 #include "velox/common/base/tests/GTestUtils.h"
-#include "velox/external/date/tz.h"
 #include "velox/functions/lib/DateTimeFormatterBuilder.h"
 #include "velox/type/TimestampConversion.h"
 #include "velox/type/tz/TimeZoneMap.h"
@@ -113,13 +112,13 @@ class DateTimeFormatterTest : public testing::Test {
     if (result.timezoneId == 0) {
       return "+00:00";
     }
-    return util::getTimeZoneName(result.timezoneId);
+    return tz::getTimeZoneName(result.timezoneId);
   }
 
   std::string formatMysqlDateTime(
       const std::string& format,
       const Timestamp& timestamp,
-      const date::time_zone* timezone) const {
+      const tz::TimeZone* timezone) const {
     auto formatter = buildMysqlDateTimeFormatter(format);
     const auto maxSize = formatter->maxResultSize(timezone);
     std::string result(maxSize, '\0');
@@ -1083,17 +1082,17 @@ TEST_F(JodaDateTimeFormatterTest, parseMixedYMDFormat) {
   // Include timezone.
   auto result = parseJoda("2021-11-05+01:00+09:00", "YYYY-MM-dd+HH:mmZZ");
   EXPECT_EQ(fromTimestampString("2021-11-05 01:00:00"), result.timestamp);
-  EXPECT_EQ("+09:00", util::getTimeZoneName(result.timezoneId));
+  EXPECT_EQ("+09:00", tz::getTimeZoneName(result.timezoneId));
 
   // Timezone offset in -hh:mm format.
   result = parseJoda("-07:232021-11-05+01:00", "ZZYYYY-MM-dd+HH:mm");
   EXPECT_EQ(fromTimestampString("2021-11-05 01:00:00"), result.timestamp);
-  EXPECT_EQ("-07:23", util::getTimeZoneName(result.timezoneId));
+  EXPECT_EQ("-07:23", tz::getTimeZoneName(result.timezoneId));
 
   // Timezone offset in +hhmm format.
   result = parseJoda("+01332022-03-08+13:00", "ZZYYYY-MM-dd+HH:mm");
   EXPECT_EQ(fromTimestampString("2022-03-08 13:00:00"), result.timestamp);
-  EXPECT_EQ("+01:33", util::getTimeZoneName(result.timezoneId));
+  EXPECT_EQ("+01:33", tz::getTimeZoneName(result.timezoneId));
 
   // Z in the input means GMT in Joda.
   EXPECT_EQ(
@@ -1104,7 +1103,7 @@ TEST_F(JodaDateTimeFormatterTest, parseMixedYMDFormat) {
   // Timezone in string format.
   result = parseJoda("2021-11-05+01:00 PST", "YYYY-MM-dd+HH:mm zz");
   EXPECT_EQ(fromTimestampString("2021-11-05 01:00:00"), result.timestamp);
-  EXPECT_EQ("America/Los_Angeles", util::getTimeZoneName(result.timezoneId));
+  EXPECT_EQ("America/Los_Angeles", tz::getTimeZoneName(result.timezoneId));
 }
 
 TEST_F(JodaDateTimeFormatterTest, parseMixedWeekFormat) {
@@ -1226,17 +1225,17 @@ TEST_F(JodaDateTimeFormatterTest, parseMixedWeekFormat) {
   auto result =
       parseJoda("2021 22 1 13:29:21.213+09:00", "x w e HH:mm:ss.SSSZZ");
   EXPECT_EQ(fromTimestampString("2021-05-31 13:29:21.213"), result.timestamp);
-  EXPECT_EQ("+09:00", util::getTimeZoneName(result.timezoneId));
+  EXPECT_EQ("+09:00", tz::getTimeZoneName(result.timezoneId));
 
   // Timezone offset in -hh:mm format.
   result = parseJoda("-07:232021 22 1 13:29:21.213", "ZZx w e HH:mm:ss.SSS");
   EXPECT_EQ(fromTimestampString("2021-05-31 13:29:21.213"), result.timestamp);
-  EXPECT_EQ("-07:23", util::getTimeZoneName(result.timezoneId));
+  EXPECT_EQ("-07:23", tz::getTimeZoneName(result.timezoneId));
 
   // Timezone offset in +hhmm format.
   result = parseJoda("+01332021 22 1 13:29:21.213", "ZZx w e HH:mm:ss.SSS");
   EXPECT_EQ(fromTimestampString("2021-05-31 13:29:21.213"), result.timestamp);
-  EXPECT_EQ("+01:33", util::getTimeZoneName(result.timezoneId));
+  EXPECT_EQ("+01:33", tz::getTimeZoneName(result.timezoneId));
 }
 
 TEST_F(JodaDateTimeFormatterTest, parseFractionOfSecond) {
@@ -1244,13 +1243,13 @@ TEST_F(JodaDateTimeFormatterTest, parseFractionOfSecond) {
   auto result =
       parseJoda("2022-02-23T12:15:00.364+04:00", "yyyy-MM-dd'T'HH:mm:ss.SSSZ");
   EXPECT_EQ(fromTimestampString("2022-02-23 12:15:00.364"), result.timestamp);
-  EXPECT_EQ("+04:00", util::getTimeZoneName(result.timezoneId));
+  EXPECT_EQ("+04:00", tz::getTimeZoneName(result.timezoneId));
 
   // Valid milliseconds and timezone with negative offset.
   result =
       parseJoda("2022-02-23T12:15:00.776-14:00", "yyyy-MM-dd'T'HH:mm:ss.SSSZ");
   EXPECT_EQ(fromTimestampString("2022-02-23 12:15:00.776"), result.timestamp);
-  EXPECT_EQ("-14:00", util::getTimeZoneName(result.timezoneId));
+  EXPECT_EQ("-14:00", tz::getTimeZoneName(result.timezoneId));
 
   // Valid milliseconds.
   EXPECT_EQ(
@@ -1315,7 +1314,7 @@ TEST_F(JodaDateTimeFormatterTest, parseConsecutiveSpecifiers) {
 }
 
 TEST_F(JodaDateTimeFormatterTest, formatResultSize) {
-  auto* timezone = date::locate_zone("GMT");
+  auto* timezone = tz::locateZone("GMT");
 
   EXPECT_EQ(
       buildJodaDateTimeFormatter("yyyy-MM-dd")->maxResultSize(timezone), 12);
@@ -1421,7 +1420,7 @@ TEST_F(MysqlDateTimeTest, invalidBuild) {
 }
 
 TEST_F(MysqlDateTimeTest, formatYear) {
-  auto* timezone = date::locate_zone("GMT");
+  auto* timezone = tz::locateZone("GMT");
   EXPECT_EQ(
       formatMysqlDateTime("%Y", fromTimestampString("0-01-01"), timezone),
       "0000");
@@ -1455,7 +1454,7 @@ TEST_F(MysqlDateTimeTest, formatYear) {
 }
 
 TEST_F(MysqlDateTimeTest, formatMonthDay) {
-  auto* timezone = date::locate_zone("GMT");
+  auto* timezone = tz::locateZone("GMT");
 
   EXPECT_EQ(
       formatMysqlDateTime("%m~%d", fromTimestampString("0-01-01"), timezone),
@@ -1498,7 +1497,7 @@ TEST_F(MysqlDateTimeTest, formatMonthDay) {
 }
 
 TEST_F(MysqlDateTimeTest, formatWeekday) {
-  auto* timezone = date::locate_zone("GMT");
+  auto* timezone = tz::locateZone("GMT");
 
   EXPECT_EQ(
       formatMysqlDateTime(
@@ -1531,7 +1530,7 @@ TEST_F(MysqlDateTimeTest, formatWeekday) {
 }
 
 TEST_F(MysqlDateTimeTest, formatMonth) {
-  auto* timezone = date::locate_zone("GMT");
+  auto* timezone = tz::locateZone("GMT");
 
   EXPECT_EQ(
       formatMysqlDateTime(
@@ -1584,7 +1583,7 @@ TEST_F(MysqlDateTimeTest, formatMonth) {
 }
 
 TEST_F(MysqlDateTimeTest, formatDayOfMonth) {
-  auto* timezone = date::locate_zone("GMT");
+  auto* timezone = tz::locateZone("GMT");
 
   EXPECT_EQ(
       formatMysqlDateTime("%d-%e", fromTimestampString("2000-02-01"), timezone),
@@ -1598,7 +1597,7 @@ TEST_F(MysqlDateTimeTest, formatDayOfMonth) {
 }
 
 TEST_F(MysqlDateTimeTest, formatFractionOfSecond) {
-  auto* timezone = date::locate_zone("GMT");
+  auto* timezone = tz::locateZone("GMT");
 
   EXPECT_EQ(
       formatMysqlDateTime(
@@ -1633,7 +1632,7 @@ TEST_F(MysqlDateTimeTest, formatFractionOfSecond) {
 }
 
 TEST_F(MysqlDateTimeTest, formatHour) {
-  auto* timezone = date::locate_zone("GMT");
+  auto* timezone = tz::locateZone("GMT");
 
   EXPECT_EQ(
       formatMysqlDateTime(
@@ -1656,7 +1655,7 @@ TEST_F(MysqlDateTimeTest, formatHour) {
 }
 
 TEST_F(MysqlDateTimeTest, formatMinute) {
-  auto* timezone = date::locate_zone("GMT");
+  auto* timezone = tz::locateZone("GMT");
 
   EXPECT_EQ(
       formatMysqlDateTime(
@@ -1677,7 +1676,7 @@ TEST_F(MysqlDateTimeTest, formatMinute) {
 }
 
 TEST_F(MysqlDateTimeTest, formatDayOfYear) {
-  auto* timezone = date::locate_zone("GMT");
+  auto* timezone = tz::locateZone("GMT");
 
   EXPECT_EQ(
       formatMysqlDateTime(
@@ -1694,7 +1693,7 @@ TEST_F(MysqlDateTimeTest, formatDayOfYear) {
 }
 
 TEST_F(MysqlDateTimeTest, formatAmPm) {
-  auto* timezone = date::locate_zone("GMT");
+  auto* timezone = tz::locateZone("GMT");
 
   EXPECT_EQ(
       formatMysqlDateTime(
@@ -1715,7 +1714,7 @@ TEST_F(MysqlDateTimeTest, formatAmPm) {
 }
 
 TEST_F(MysqlDateTimeTest, formatSecond) {
-  auto* timezone = date::locate_zone("GMT");
+  auto* timezone = tz::locateZone("GMT");
 
   EXPECT_EQ(
       formatMysqlDateTime(
@@ -1732,7 +1731,7 @@ TEST_F(MysqlDateTimeTest, formatSecond) {
 }
 
 TEST_F(MysqlDateTimeTest, formatCompositeTime) {
-  auto* timezone = date::locate_zone("GMT");
+  auto* timezone = tz::locateZone("GMT");
 
   // 12 hour %r
   EXPECT_EQ(

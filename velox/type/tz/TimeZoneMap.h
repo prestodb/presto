@@ -18,7 +18,34 @@
 
 #include <string>
 
-namespace facebook::velox::util {
+namespace facebook::velox::date {
+class time_zone;
+}
+
+namespace facebook::velox::tz {
+
+/// This library provides time zone lookup and mapping utilities, in addition to
+/// functions to enable timestamp conversions across time zones. It leverages
+/// the velox/external/date underneath to perform conversions.
+///
+/// This library provides a thin layer of functionality on top of
+/// velox/external/date for timezone lookup and conversions, so don't use the
+/// external library directly.
+
+/// TimeZone is the object that allows conversions across timezones using the
+/// .to_sys() and .to_local() methods, as documented in:
+///
+///   https://howardhinnant.github.io/date/tz.html
+///
+using TimeZone = date::time_zone;
+
+/// TimeZone pointers can be found using `locateZone()`.
+///
+/// This function in mostly implemented by velox/external/date, and performs a
+/// binary search in the internal time zone database. On the first call,
+/// velox/external/date will initialize a static list of timezone, read from the
+/// local tzdata database.
+const TimeZone* locateZone(std::string_view timeZone);
 
 /// Returns the timezone name associated with timeZoneID.
 std::string getTimeZoneName(int64_t timeZoneID);
@@ -32,4 +59,14 @@ int16_t getTimeZoneID(std::string_view timeZone, bool failOnError = true);
 /// [-14:00, +14:00] range.
 int16_t getTimeZoneID(int32_t offsetMinutes);
 
+} // namespace facebook::velox::tz
+
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
+namespace facebook::velox::util {
+
+inline std::string getTimeZoneName(int64_t timeZoneID) {
+  return tz::getTimeZoneName(timeZoneID);
+}
+
 } // namespace facebook::velox::util
+#endif

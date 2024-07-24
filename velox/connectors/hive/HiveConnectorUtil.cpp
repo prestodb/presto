@@ -27,9 +27,9 @@
 #include "velox/expression/Expr.h"
 #include "velox/expression/ExprToSubfieldFilter.h"
 #include "velox/type/TimestampConversion.h"
+#include "velox/type/tz/TimeZoneMap.h"
 
 namespace facebook::velox::connector::hive {
-
 namespace {
 
 struct SubfieldSpec {
@@ -545,7 +545,7 @@ void configureReaderOptions(
       hiveConfig->cacheNoRetention(sessionProperties));
   const auto& sessionTzName = connectorQueryCtx->sessionTimezone();
   if (!sessionTzName.empty()) {
-    const auto timezone = date::locate_zone(sessionTzName);
+    const auto timezone = tz::locateZone(sessionTzName);
     readerOptions.setSessionTimezone(timezone);
   }
 

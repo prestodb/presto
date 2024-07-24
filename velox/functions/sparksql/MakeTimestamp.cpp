@@ -73,7 +73,7 @@ void setTimestampOrNull(
     DecodedVector* timeZoneVector,
     FlatVector<Timestamp>* result) {
   const auto timeZone = timeZoneVector->valueAt<StringView>(row);
-  const auto tzID = util::getTimeZoneID(std::string_view(timeZone));
+  const auto tzID = tz::getTimeZoneID(std::string_view(timeZone));
   if (timestamp.has_value()) {
     (*timestamp).toGMT(tzID);
     result->set(row, *timestamp);
@@ -124,7 +124,7 @@ class MakeTimestampFunction : public exec::VectorFunction {
             args[6]->asUnchecked<ConstantVector<StringView>>()->valueAt(0);
         int64_t constantTzID;
         try {
-          constantTzID = util::getTimeZoneID(std::string_view(tz));
+          constantTzID = tz::getTimeZoneID(std::string_view(tz));
         } catch (const VeloxException&) {
           context.setErrors(rows, std::current_exception());
           return;
@@ -190,7 +190,7 @@ std::shared_ptr<exec::VectorFunction> createMakeTimestampFunction(
   VELOX_USER_CHECK(
       !sessionTzName.empty(),
       "make_timestamp requires session time zone to be set.")
-  const auto sessionTzID = util::getTimeZoneID(sessionTzName);
+  const auto sessionTzID = tz::getTimeZoneID(sessionTzName);
 
   const auto& secondsType = inputArgs[5].type;
   VELOX_USER_CHECK(

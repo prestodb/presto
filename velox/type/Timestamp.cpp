@@ -57,7 +57,7 @@ Timestamp Timestamp::now() {
   return fromMillis(epochMs);
 }
 
-void Timestamp::toGMT(const date::time_zone& zone) {
+void Timestamp::toGMT(const tz::TimeZone& zone) {
   // Magic number -2^39 + 24*3600. This number and any number lower than that
   // will cause time_zone::to_sys() to SIGABRT. We don't want that to happen.
   VELOX_USER_CHECK_GT(
@@ -94,7 +94,7 @@ void Timestamp::toGMT(int16_t tzID) {
     seconds_ -= getPrestoTZOffsetInSeconds(tzID);
   } else {
     // Other ids go this path.
-    toGMT(*date::locate_zone(util::getTimeZoneName(tzID)));
+    toGMT(*tz::locateZone(tz::getTimeZoneName(tzID)));
   }
 }
 
@@ -130,7 +130,7 @@ Timestamp::toTimePoint(bool allowOverflow) const {
   return tp;
 }
 
-void Timestamp::toTimezone(const date::time_zone& zone, bool allowOverflow) {
+void Timestamp::toTimezone(const tz::TimeZone& zone, bool allowOverflow) {
   auto tp = toTimePoint(allowOverflow);
 
   try {
@@ -153,18 +153,18 @@ void Timestamp::toTimezone(int16_t tzID) {
     seconds_ += getPrestoTZOffsetInSeconds(tzID);
   } else {
     // Other ids go this path.
-    toTimezone(*date::locate_zone(util::getTimeZoneName(tzID)));
+    toTimezone(*tz::locateZone(tz::getTimeZoneName(tzID)));
   }
 }
 
-const date::time_zone& Timestamp::defaultTimezone() {
-  static const date::time_zone* kDefault = ({
+const tz::TimeZone& Timestamp::defaultTimezone() {
+  static const tz::TimeZone* kDefault = ({
     // TODO: We are hard-coding PST/PDT here to be aligned with the current
     // behavior in DWRF reader/writer.  Once they are fixed, we can use
     // date::current_zone() here.
     //
     // See https://github.com/facebookincubator/velox/issues/8127
-    auto* tz = date::locate_zone("America/Los_Angeles");
+    auto* tz = tz::locateZone("America/Los_Angeles");
     VELOX_CHECK_NOT_NULL(tz);
     tz;
   });

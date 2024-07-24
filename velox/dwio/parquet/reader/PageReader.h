@@ -42,7 +42,7 @@ class PageReader {
       ParquetTypeWithIdPtr fileType,
       common::CompressionKind codec,
       int64_t chunkSize,
-      const date::time_zone* sessionTimezone)
+      const tz::TimeZone* sessionTimezone)
       : pool_(pool),
         inputStream_(std::move(stream)),
         type_(std::move(fileType)),
@@ -62,7 +62,7 @@ class PageReader {
       memory::MemoryPool& pool,
       common::CompressionKind codec,
       int64_t chunkSize,
-      const date::time_zone* sessionTimezone = nullptr)
+      const tz::TimeZone* sessionTimezone = nullptr)
       : pool_(pool),
         inputStream_(std::move(stream)),
         maxRepeat_(0),
@@ -141,7 +141,7 @@ class PageReader {
   // bufferEnd_ to the corresponding positions.
   thrift::PageHeader readPageHeader();
 
-  const date::time_zone* sessionTimezone() const {
+  const tz::TimeZone* sessionTimezone() const {
     return sessionTimezone_;
   }
 
@@ -481,7 +481,7 @@ class PageReader {
   // Base values of dictionary when reading a string dictionary.
   VectorPtr dictionaryValues_;
 
-  const date::time_zone* sessionTimezone_{nullptr};
+  const tz::TimeZone* sessionTimezone_{nullptr};
 
   // Decoders. Only one will be set at a time.
   std::unique_ptr<dwio::common::DirectDecoder<true>> directDecoder_;

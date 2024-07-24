@@ -220,6 +220,6 @@ Timestamp fromDatetime(int64_t daysSinceEpoch, int64_t microsSinceMidnight);
 
 /// Returns the number of days since epoch for a given timestamp and optional
 /// time zone.
-int32_t toDate(const Timestamp& timestamp, const date::time_zone* timeZone_);
+int32_t toDate(const Timestamp& timestamp, const tz::TimeZone* timeZone_);
 
 } // namespace facebook::velox::util

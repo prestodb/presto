@@ -134,7 +134,7 @@ On Linux, you can check the tzdata installed in your system by:
 
 Timezone conversions are done using special methods in the Timestamp class:
 ``Timestamp::toGMT()`` and ``Timestamp::toTimezone()``. They can take either a
-timezone ID or a date::time_zone pointer. Providing a date::time_zone is
+timezone ID or a tz::TimeZone pointer. Providing a tz::TimeZone is
 generally more efficient, but std::chrono does not handle time zone offsets
 such as ``+09:00``.  Timezone offsets are only supported in the API version
 that takes a timezone ID.

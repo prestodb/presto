@@ -754,7 +754,7 @@ Expected<std::pair<Timestamp, int16_t>> fromTimestampWithTimezoneString(
 
     std::string_view timezone(str + pos, timezonePos - pos);
 
-    if ((timezoneID = util::getTimeZoneID(timezone, false)) == -1) {
+    if ((timezoneID = tz::getTimeZoneID(timezone, false)) == -1) {
       return folly::makeUnexpected(
           Status::UserError("Unknown timezone value: \"{}\"", timezone));
     }
@@ -772,7 +772,7 @@ Expected<std::pair<Timestamp, int16_t>> fromTimestampWithTimezoneString(
   return std::make_pair(resultTimestamp, timezoneID);
 }
 
-int32_t toDate(const Timestamp& timestamp, const date::time_zone* timeZone_) {
+int32_t toDate(const Timestamp& timestamp, const tz::TimeZone* timeZone_) {
   auto convertToDate = [](const Timestamp& t) -> int32_t {
     static const int32_t kSecsPerDay{86'400};
     auto seconds = t.getSeconds();

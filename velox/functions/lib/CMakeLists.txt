@@ -43,6 +43,7 @@ velox_link_libraries(
   velox_functions_lib
   velox_functions_util
   velox_vector
+  velox_type_tz
   re2::re2
   Folly::folly)
 

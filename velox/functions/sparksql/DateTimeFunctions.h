@@ -178,7 +178,7 @@ struct UnixTimestampParseFunction {
   void setTimezone(const core::QueryConfig& config) {
     auto sessionTzName = config.sessionTimezone();
     if (!sessionTzName.empty()) {
-      sessionTzID_ = util::getTimeZoneID(sessionTzName);
+      sessionTzID_ = tz::getTimeZoneID(sessionTzName);
     }
   }
 
@@ -291,7 +291,7 @@ struct FromUnixtimeFunction {
     maxResultSize_ = formatter_->maxResultSize(sessionTimeZone_);
   }
 
-  const date::time_zone* sessionTimeZone_{nullptr};
+  const tz::TimeZone* sessionTimeZone_{nullptr};
   std::shared_ptr<DateTimeFormatter> formatter_;
   uint32_t maxResultSize_;
   bool isConstantTimeFormat_{false};
@@ -307,7 +307,7 @@ struct ToUtcTimestampFunction {
       const arg_type<Varchar>* /*input*/,
       const arg_type<Varchar>* timezone) {
     if (timezone) {
-      tzID_ = util::getTimeZoneID(
+      tzID_ = tz::getTimeZoneID(
           std::string_view((*timezone).data(), (*timezone).size()), false);
     }
   }
@@ -319,7 +319,7 @@ struct ToUtcTimestampFunction {
     result = timestamp;
     auto fromTimezoneID = tzID_
         ? tzID_.value()
-        : util::getTimeZoneID(
+        : tz::getTimeZoneID(
               std::string_view(timezone.data(), timezone.size()), false);
     VELOX_USER_CHECK_NE(
         fromTimezoneID, -1, "Unknown time zone: '{}'", timezone);
@@ -340,7 +340,7 @@ struct FromUtcTimestampFunction {
       const arg_type<Varchar>* /*input*/,
       const arg_type<Varchar>* timezone) {
     if (timezone) {
-      tzID_ = util::getTimeZoneID(
+      tzID_ = tz::getTimeZoneID(
           std::string_view((*timezone).data(), (*timezone).size()), false);
     }
   }
@@ -352,7 +352,7 @@ struct FromUtcTimestampFunction {
     result = timestamp;
     auto toTimezoneID = tzID_
         ? tzID_.value()
-        : util::getTimeZoneID(
+        : tz::getTimeZoneID(
               std::string_view(timezone.data(), timezone.size()), false);
     VELOX_USER_CHECK_NE(toTimezoneID, -1, "Unknown time zone: '{}'", timezone);
     result.toTimezone(toTimezoneID);
@@ -374,7 +374,7 @@ struct GetTimestampFunction {
       const arg_type<Varchar>* format) {
     auto sessionTimezoneName = config.sessionTimezone();
     if (!sessionTimezoneName.empty()) {
-      sessionTimezoneId_ = util::getTimeZoneID(sessionTimezoneName);
+      sessionTimezoneId_ = tz::getTimeZoneID(sessionTimezoneName);
     }
     if (format != nullptr) {
       formatter_ = buildJodaDateTimeFormatter(

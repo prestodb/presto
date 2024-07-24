@@ -23,12 +23,9 @@
 
 #include "velox/common/base/CheckedArithmetic.h"
 #include "velox/type/StringView.h"
+#include "velox/type/tz/TimeZoneMap.h"
 
 namespace facebook::velox {
-
-namespace date {
-class time_zone;
-}
 
 enum class TimestampPrecision : int8_t {
   kMilliseconds = 3, // 10^3 milliseconds are equal to one second.
@@ -70,7 +67,7 @@ struct TimestampToStringOptions {
 
   Mode mode = Mode::kFull;
 
-  const date::time_zone* timeZone = nullptr;
+  const tz::TimeZone* timeZone = nullptr;
 };
 
 /// Returns the max length of a converted string from timestamp.
@@ -337,7 +334,7 @@ struct Timestamp {
   // Example: Timestamp ts{0, 0};
   // ts.Timezone("America/Los_Angeles");
   // ts.toString() returns January 1, 1970 08:00:00
-  void toGMT(const date::time_zone& zone);
+  void toGMT(const tz::TimeZone& zone);
 
   // Same as above, but accepts PrestoDB time zone ID.
   void toGMT(int16_t tzID);
@@ -349,13 +346,13 @@ struct Timestamp {
   /// Example: Timestamp ts{0, 0};
   /// ts.Timezone("America/Los_Angeles");
   /// ts.toString() returns December 31, 1969 16:00:00
-  void toTimezone(const date::time_zone& zone, bool allowOverflow = false);
+  void toTimezone(const tz::TimeZone& zone, bool allowOverflow = false);
 
   // Same as above, but accepts PrestoDB time zone ID.
   void toTimezone(int16_t tzID);
 
   /// A default time zone that is same across the process.
-  static const date::time_zone& defaultTimezone();
+  static const tz::TimeZone& defaultTimezone();
 
   bool operator==(const Timestamp& b) const {
     return seconds_ == b.seconds_ && nanos_ == b.nanos_;

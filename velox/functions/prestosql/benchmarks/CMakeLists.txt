@@ -69,7 +69,7 @@ target_link_libraries(velox_functions_prestosql_benchmarks_not
 add_executable(velox_functions_prestosql_benchmarks_date_time
                DateTimeBenchmark.cpp)
 target_link_libraries(velox_functions_prestosql_benchmarks_date_time
-                      ${BENCHMARK_DEPENDENCIES})
+                      velox_type_tz ${BENCHMARK_DEPENDENCIES})
 
 add_executable(velox_functions_prestosql_benchmarks_bitwise
                BitwiseBenchmark.cpp)

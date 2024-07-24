@@ -20,6 +20,7 @@ velox_add_library(velox_type_tz TimeZoneMap.h TimeZoneDatabase.cpp
 velox_link_libraries(
   velox_type_tz
   velox_exception
+  velox_external_date
   Boost::regex
   fmt::fmt
   Folly::folly)

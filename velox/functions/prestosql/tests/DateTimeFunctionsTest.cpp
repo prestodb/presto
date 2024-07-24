@@ -89,9 +89,8 @@ class DateTimeFunctionsTest : public functions::test::FunctionBaseTest {
         : milliSeconds_(milliSeconds), timezoneId_(timezoneId) {}
 
     TimestampWithTimezone(int64_t milliSeconds, std::string_view timezoneName)
-        : TimestampWithTimezone{
-              milliSeconds,
-              util::getTimeZoneID(timezoneName)} {}
+        : TimestampWithTimezone{milliSeconds, tz::getTimeZoneID(timezoneName)} {
+    }
 
     int64_t milliSeconds_{0};
     int16_t timezoneId_{0};
@@ -196,7 +195,7 @@ class DateTimeFunctionsTest : public functions::test::FunctionBaseTest {
   }
 
   VectorPtr makeTimestampWithTimeZoneVector(int64_t timestamp, const char* tz) {
-    auto tzid = util::getTimeZoneID(tz);
+    auto tzid = tz::getTimeZoneID(tz);
 
     return makeNullableFlatVector<int64_t>(
         {pack(timestamp, tzid)}, TIMESTAMP_WITH_TIME_ZONE());
@@ -3633,7 +3632,7 @@ TEST_F(DateTimeFunctionsTest, fromIso8601Timestamp) {
   for (const auto& timezone : timezones) {
     setQueryTimeZone(timezone.name);
 
-    const auto timezoneId = util::getTimeZoneID(timezone.name);
+    const auto timezoneId = tz::getTimeZoneID(timezone.name);
 
     EXPECT_EQ(
         TimestampWithTimezone(
@@ -4444,7 +4443,7 @@ TEST_F(DateTimeFunctionsTest, toISO8601Timestamp) {
 
 TEST_F(DateTimeFunctionsTest, toISO8601TimestampWithTimezone) {
   const auto toIso = [&](const char* timestamp, const char* timezone) {
-    const auto tzId = util::getTimeZoneID(timezone);
+    const auto tzId = tz::getTimeZoneID(timezone);
     auto ts = parseTimestamp(timestamp);
     ts.toGMT(tzId);
 
@@ -4484,31 +4483,31 @@ TEST_F(DateTimeFunctionsTest, atTimezoneTest) {
 
   EXPECT_EQ(
       at_timezone(
-          pack(1500101514, util::getTimeZoneID("Asia/Kathmandu")),
+          pack(1500101514, tz::getTimeZoneID("Asia/Kathmandu")),
           "America/Boise"),
-      pack(1500101514, util::getTimeZoneID("America/Boise")));
+      pack(1500101514, tz::getTimeZoneID("America/Boise")));
 
   EXPECT_EQ(
       at_timezone(
-          pack(1500101514, util::getTimeZoneID("America/Boise")),
+          pack(1500101514, tz::getTimeZoneID("America/Boise")),
           "Europe/London"),
-      pack(1500101514, util::getTimeZoneID("Europe/London")));
+      pack(1500101514, tz::getTimeZoneID("Europe/London")));
 
   EXPECT_EQ(
       at_timezone(
-          pack(1500321297, util::getTimeZoneID("Canada/Yukon")),
+          pack(1500321297, tz::getTimeZoneID("Canada/Yukon")),
           "Australia/Melbourne"),
-      pack(1500321297, util::getTimeZoneID("Australia/Melbourne")));
+      pack(1500321297, tz::getTimeZoneID("Australia/Melbourne")));
 
   EXPECT_EQ(
       at_timezone(
-          pack(1500321297, util::getTimeZoneID("Atlantic/Bermuda")),
+          pack(1500321297, tz::getTimeZoneID("Atlantic/Bermuda")),
           "Pacific/Fiji"),
-      pack(1500321297, util::getTimeZoneID("Pacific/Fiji")));
+      pack(1500321297, tz::getTimeZoneID("Pacific/Fiji")));
 
   EXPECT_EQ(
       at_timezone(
-          pack(1500321297, util::getTimeZoneID("Atlantic/Bermuda")),
+          pack(1500321297, tz::getTimeZoneID("Atlantic/Bermuda")),
           std::nullopt),
       std::nullopt);
 

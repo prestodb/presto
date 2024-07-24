@@ -320,14 +320,14 @@ int64_t parseTimezone(const char* cur, const char* end, Date& date) {
       static std::unordered_map<std::string_view, int64_t> defaultTzNames{
           {"UTC", 0},
           {"GMT", 0},
-          {"EST", util::getTimeZoneID("America/New_York")},
-          {"EDT", util::getTimeZoneID("America/New_York")},
-          {"CST", util::getTimeZoneID("America/Chicago")},
-          {"CDT", util::getTimeZoneID("America/Chicago")},
-          {"MST", util::getTimeZoneID("America/Denver")},
-          {"MDT", util::getTimeZoneID("America/Denver")},
-          {"PST", util::getTimeZoneID("America/Los_Angeles")},
-          {"PDT", util::getTimeZoneID("America/Los_Angeles")},
+          {"EST", tz::getTimeZoneID("America/New_York")},
+          {"EDT", tz::getTimeZoneID("America/New_York")},
+          {"CST", tz::getTimeZoneID("America/Chicago")},
+          {"CDT", tz::getTimeZoneID("America/Chicago")},
+          {"MST", tz::getTimeZoneID("America/Denver")},
+          {"MDT", tz::getTimeZoneID("America/Denver")},
+          {"PST", tz::getTimeZoneID("America/Los_Angeles")},
+          {"PDT", tz::getTimeZoneID("America/Los_Angeles")},
       };
 
       auto it = defaultTzNames.find(std::string_view(cur, 3));
@@ -362,8 +362,7 @@ int64_t parseTimezoneOffset(const char* cur, const char* end, Date& date) {
         if (std::strncmp(cur + 1, "00:00", 5) == 0) {
           date.timezoneId = 0;
         } else {
-          date.timezoneId =
-              util::getTimeZoneID(std::string_view(cur, 6), false);
+          date.timezoneId = tz::getTimeZoneID(std::string_view(cur, 6), false);
           if (date.timezoneId == -1) {
             return -1;
           }
@@ -381,7 +380,7 @@ int64_t parseTimezoneOffset(const char* cur, const char* end, Date& date) {
           // thread_local buffer to prevent extra allocations.
           std::memcpy(&timezoneBuffer[0], cur, 3);
           std::memcpy(&timezoneBuffer[4], cur + 3, 2);
-          date.timezoneId = util::getTimeZoneID(timezoneBuffer, false);
+          date.timezoneId = tz::getTimeZoneID(timezoneBuffer, false);
           if (date.timezoneId == -1) {
             return -1;
           }
@@ -399,7 +398,7 @@ int64_t parseTimezoneOffset(const char* cur, const char* end, Date& date) {
           // buffer to prevent extra allocations.
           std::memcpy(&timezoneBuffer[0], cur, 3);
           std::memcpy(&timezoneBuffer[4], defaultTrailingOffset, 2);
-          date.timezoneId = util::getTimeZoneID(timezoneBuffer, false);
+          date.timezoneId = tz::getTimeZoneID(timezoneBuffer, false);
           if (date.timezoneId == -1) {
             return -1;
           }
@@ -999,8 +998,7 @@ int32_t parseFromPattern(
 
 } // namespace
 
-uint32_t DateTimeFormatter::maxResultSize(
-    const date::time_zone* timezone) const {
+uint32_t DateTimeFormatter::maxResultSize(const tz::TimeZone* timezone) const {
   uint32_t size = 0;
   for (const auto& token : tokens_) {
     if (token.type == DateTimeToken::Type::kLiteral) {
@@ -1080,7 +1078,7 @@ uint32_t DateTimeFormatter::maxResultSize(
 
 int32_t DateTimeFormatter::format(
     const Timestamp& timestamp,
-    const date::time_zone* timezone,
+    const tz::TimeZone* timezone,
     const uint32_t maxResultSize,
     char* result,
     bool allowOverflow) const {

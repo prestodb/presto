@@ -16,9 +16,9 @@
 #include <folly/Benchmark.h>
 #include <folly/init/Init.h>
 #include "velox/expression/VectorFunction.h"
-#include "velox/external/date/tz.h"
 #include "velox/functions/lib/benchmarks/FunctionBenchmarkBase.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
+#include "velox/type/tz/TimeZoneMap.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
 using namespace facebook::velox;
@@ -28,13 +28,13 @@ namespace {
 
 class HourFunction : public exec::VectorFunction {
  public:
-  const date::time_zone* FOLLY_NULLABLE
+  const tz::TimeZone* FOLLY_NULLABLE
   getTimeZoneIfNeeded(const core::QueryConfig& config) const {
-    const date::time_zone* timeZone = nullptr;
+    const tz::TimeZone* timeZone = nullptr;
     if (config.adjustTimestampToTimezone()) {
       auto sessionTzName = config.sessionTimezone();
       if (!sessionTzName.empty()) {
-        timeZone = date::locate_zone(sessionTzName);
+        timeZone = tz::locateZone(sessionTzName);
       }
     }
     return timeZone;

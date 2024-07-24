@@ -51,7 +51,7 @@ bool MemConfigMutable::isValueExists(const std::string& key) const {
 void MemConfig::validateConfig() {
   // Validate if timezone name can be recognized.
   if (isValueExists(QueryConfig::kSessionTimezone)) {
-    util::getTimeZoneID(values_[QueryConfig::kSessionTimezone]);
+    tz::getTimeZoneID(values_[QueryConfig::kSessionTimezone]);
   }
 }
 

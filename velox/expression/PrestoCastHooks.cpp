@@ -20,9 +20,9 @@
 #include <folly/Expected.h>
 
 #include "velox/expression/PrestoCastHooks.h"
-#include "velox/external/date/tz.h"
 #include "velox/functions/lib/string/StringImpl.h"
 #include "velox/type/TimestampConversion.h"
+#include "velox/type/tz/TimeZoneMap.h"
 
 namespace facebook::velox::exec {
 
@@ -33,7 +33,7 @@ PrestoCastHooks::PrestoCastHooks(const core::QueryConfig& config)
     options_.dateTimeSeparator = ' ';
     const auto sessionTzName = config.sessionTimezone();
     if (config.adjustTimestampToTimezone() && !sessionTzName.empty()) {
-      options_.timeZone = date::locate_zone(sessionTzName);
+      options_.timeZone = tz::locateZone(sessionTzName);
     }
   }
 }

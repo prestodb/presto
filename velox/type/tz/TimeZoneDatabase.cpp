@@ -28,7 +28,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace facebook::velox::util {
+namespace facebook::velox::tz {
 
 const std::unordered_map<int64_t, std::string>& getTimeZoneDB() {
   static auto* tzDB = new std::unordered_map<int64_t, std::string>([] {
@@ -2272,4 +2272,4 @@ const std::unordered_map<int64_t, std::string>& getTimeZoneDB() {
   return *tzDB;
 }
 
-} // namespace facebook::velox::util
+} // namespace facebook::velox::tz

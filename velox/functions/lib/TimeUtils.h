@@ -17,8 +17,8 @@
 
 #include <velox/type/Timestamp.h>
 #include "velox/core/QueryConfig.h"
-#include "velox/external/date/tz.h"
 #include "velox/functions/Macros.h"
+#include "velox/type/tz/TimeZoneMap.h"
 
 namespace facebook::velox::functions {
 
@@ -26,19 +26,19 @@ inline constexpr int64_t kSecondsInDay = 86'400;
 inline constexpr int64_t kDaysInWeek = 7;
 extern const folly::F14FastMap<std::string, int8_t> kDayOfWeekNames;
 
-FOLLY_ALWAYS_INLINE const date::time_zone* getTimeZoneFromConfig(
+FOLLY_ALWAYS_INLINE const tz::TimeZone* getTimeZoneFromConfig(
     const core::QueryConfig& config) {
   if (config.adjustTimestampToTimezone()) {
     auto sessionTzName = config.sessionTimezone();
     if (!sessionTzName.empty()) {
-      return date::locate_zone(sessionTzName);
+      return tz::locateZone(sessionTzName);
     }
   }
   return nullptr;
 }
 
 FOLLY_ALWAYS_INLINE int64_t
-getSeconds(Timestamp timestamp, const date::time_zone* timeZone) {
+getSeconds(Timestamp timestamp, const tz::TimeZone* timeZone) {
   if (timeZone != nullptr) {
     timestamp.toTimezone(*timeZone);
     return timestamp.getSeconds();
@@ -48,7 +48,7 @@ getSeconds(Timestamp timestamp, const date::time_zone* timeZone) {
 }
 
 FOLLY_ALWAYS_INLINE
-std::tm getDateTime(Timestamp timestamp, const date::time_zone* timeZone) {
+std::tm getDateTime(Timestamp timestamp, const tz::TimeZone* timeZone) {
   int64_t seconds = getSeconds(timestamp, timeZone);
   std::tm dateTime;
   VELOX_USER_CHECK(
@@ -95,7 +95,7 @@ FOLLY_ALWAYS_INLINE int32_t getDayOfYear(const std::tm& time) {
 template <typename T>
 struct InitSessionTimezone {
   VELOX_DEFINE_FUNCTION_TYPES(T);
-  const date::time_zone* timeZone_{nullptr};
+  const tz::TimeZone* timeZone_{nullptr};
 
   FOLLY_ALWAYS_INLINE void initialize(
       const std::vector<TypePtr>& /*inputTypes*/,

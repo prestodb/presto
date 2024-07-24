@@ -406,7 +406,7 @@ TEST_F(PrestoHasherTest, timestampWithTimezone) {
           if (timestampWithTimeZone.has_value()) {
             auto timestamp = timestampWithTimeZone.value().first;
             auto tz = timestampWithTimeZone.value().second;
-            const int16_t tzid = util::getTimeZoneID(tz);
+            const int16_t tzid = tz::getTimeZoneID(tz);
             auto timestampWithTimezone = pack(timestamp, tzid);
             timestampWithTimeZoneVector.push_back(timestampWithTimezone);
             bits::clearNull(rawNulls, i);

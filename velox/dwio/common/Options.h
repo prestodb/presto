@@ -34,8 +34,8 @@
 #include "velox/dwio/common/ScanSpec.h"
 #include "velox/dwio/common/UnitLoader.h"
 #include "velox/dwio/common/encryption/Encryption.h"
-#include "velox/external/date/tz.h"
 #include "velox/type/Timestamp.h"
+#include "velox/type/tz/TimeZoneMap.h"
 
 namespace facebook::velox::dwio::common {
 
@@ -497,7 +497,7 @@ class ReaderOptions : public io::ReaderOptions {
     return *this;
   }
 
-  ReaderOptions& setSessionTimezone(const date::time_zone* sessionTimezone) {
+  ReaderOptions& setSessionTimezone(const tz::TimeZone* sessionTimezone) {
     sessionTimezone_ = sessionTimezone;
     return *this;
   }
@@ -541,7 +541,7 @@ class ReaderOptions : public io::ReaderOptions {
     return ioExecutor_;
   }
 
-  const date::time_zone* getSessionTimezone() const {
+  const tz::TimeZone* getSessionTimezone() const {
     return sessionTimezone_;
   }
 
@@ -590,7 +590,7 @@ class ReaderOptions : public io::ReaderOptions {
   std::shared_ptr<folly::Executor> ioExecutor_;
   std::shared_ptr<random::RandomSkipTracker> randomSkip_;
   std::shared_ptr<velox::common::ScanSpec> scanSpec_;
-  const date::time_zone* sessionTimezone_{nullptr};
+  const tz::TimeZone* sessionTimezone_{nullptr};
 };
 
 struct WriterOptions {

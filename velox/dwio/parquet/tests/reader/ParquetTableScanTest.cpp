@@ -17,17 +17,18 @@
 #include <folly/init/Init.h>
 
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/connectors/hive/HiveConfig.h"
 #include "velox/dwio/common/tests/utils/DataFiles.h"
 #include "velox/dwio/parquet/RegisterParquetReader.h"
 #include "velox/dwio/parquet/reader/PageReader.h"
 #include "velox/dwio/parquet/reader/ParquetReader.h"
+#include "velox/dwio/parquet/writer/Writer.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
+#include "velox/external/date/tz.h"
 #include "velox/type/tests/SubfieldFiltersBuilder.h"
-
-#include "velox/connectors/hive/HiveConfig.h"
-#include "velox/dwio/parquet/writer/Writer.h"
+#include "velox/type/tz/TimeZoneMap.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;

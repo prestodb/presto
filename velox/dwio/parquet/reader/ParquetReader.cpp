@@ -66,7 +66,7 @@ class ReaderBase {
     return options_.fileColumnNamesReadAsLowerCase();
   }
 
-  const date::time_zone* sessionTimezone() const {
+  const tz::TimeZone* sessionTimezone() const {
     return options_.getSessionTimezone();
   }
 

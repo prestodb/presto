@@ -149,4 +149,5 @@ inline int64_t pack(const Timestamp& timestamp, int16_t timeZoneKey) {
 inline Timestamp unpackTimestampUtc(int64_t dateTimeWithTimeZone) {
   return Timestamp::fromMillis(unpackMillisUtc(dateTimeWithTimeZone));
 }
+
 } // namespace facebook::velox

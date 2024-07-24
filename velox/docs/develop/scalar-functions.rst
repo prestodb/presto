@@ -332,7 +332,7 @@ properties and using it when processing inputs.
   struct HourFunction {
     VELOX_DEFINE_FUNCTION_TYPES(TExec);
 
-    const date::time_zone* timeZone_ = nullptr;
+    const tz::TimeZone* timeZone_ = nullptr;
 
     FOLLY_ALWAYS_INLINE void initialize(
         const std::vector<TypePtr>& inputTypes,
@@ -362,7 +362,7 @@ individual rows.
   struct DateTruncFunction {
     VELOX_DEFINE_FUNCTION_TYPES(TExec);
 
-    const date::time_zone* timeZone_ = nullptr;
+    const tz::TimeZone* timeZone_ = nullptr;
     std::optional<DateTimeUnit> unit_;
 
     FOLLY_ALWAYS_INLINE void initialize(
