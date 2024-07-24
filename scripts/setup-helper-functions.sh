@@ -82,15 +82,19 @@ function get_cxx_flags {
    if [ "$OS" = "Darwin" ]; then
      if [ "$MACHINE" = "arm64" ]; then
        CPU_ARCH="arm64"
-     else
-       CPU_ARCH="avx"
+     else # x86_64
+       local CPU_CAPABILITIES=$(sysctl -a | grep machdep.cpu.features | awk '{print tolower($0)}')
+       if [[ $CPU_CAPABILITIES =~ "avx" ]]; then
+         CPU_ARCH="avx"
+       else
+         CPU_ARCH="sse"
+       fi
      fi
    elif [ "$OS" = "Linux" ]; then
      if [ "$MACHINE" = "aarch64" ]; then
-           CPU_ARCH="aarch64"
-     else
+       CPU_ARCH="aarch64"
+     else # x86_64
        local CPU_CAPABILITIES=$(cat /proc/cpuinfo | grep flags | head -n 1| awk '{print tolower($0)}')
-       # Even though the default is avx, we need this check since avx machines support sse as well.
        if [[ $CPU_CAPABILITIES =~ "avx" ]]; then
            CPU_ARCH="avx"
        elif [[ $CPU_CAPABILITIES =~ "sse" ]]; then
