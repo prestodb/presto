@@ -294,7 +294,9 @@ class SelectivityVector {
     if (begin_ == -1) {
       begin_ = 0;
       end_ = 0;
+      VELOX_SUPPRESS_STRINGOP_OVERFLOW_WARNING
       allSelected_ = false;
+      VELOX_UNSUPPRESS_STRINGOP_OVERFLOW_WARNING
       return;
     }
     end_ = bits::findLastBit(bits_.data(), begin_, size_) + 1;
