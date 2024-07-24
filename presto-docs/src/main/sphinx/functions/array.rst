@@ -210,8 +210,8 @@ Array Functions
 .. function:: array_split_into_chunks(array(T), int) -> array(array(T))
 
     Returns an ``array`` of arrays splitting the input ``array`` into chunks of given length.
-    If the ``array`` is not evenly divisible it will split into as many possible chunks and return
-    the left over elements for the last ``array``. Ignores null inputs, but not elements.
+    The last chunk will be shorter than the chunk length if the array's length is not an integer multiple of
+    the chunk length. Ignores null inputs, but not elements.
 
         SELECT array_split_into_chunks(ARRAY [1, 2, 3, 4], 3); -- [[1, 2, 3], [4]]
         SELECT array_split_into_chunks(null, null); -- null
