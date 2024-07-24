@@ -158,19 +158,38 @@ class PeeledEncoding {
   /// Takes a set of outer rows (rows defined over the peel) and a functor that
   /// is executed for each outer row which does not map to a null row.
   /// The outer and its corresponding inner row is passed to the functor.
-  void applyToNonNullInnerRows(
-      const SelectivityVector& outerRows,
-      std::function<void(vector_size_t, vector_size_t)> func) const {
-    auto indices = wrap_ ? wrap_->as<vector_size_t>() : nullptr;
-    auto wrapNulls = wrapNulls_ ? wrapNulls_->as<uint64_t>() : nullptr;
-    outerRows.applyToSelected([&](auto outerRow) {
-      // A known null in the outer row masks an error.
-      if (wrapNulls && bits::isBitNull(wrapNulls, outerRow)) {
-        return;
+  template <typename F>
+  void applyToNonNullInnerRows(const SelectivityVector& outerRows, F&& func)
+      const {
+    auto* wrapNulls = wrapNulls_ ? wrapNulls_->as<uint64_t>() : nullptr;
+    switch (wrapEncoding_) {
+      case VectorEncoding::Simple::FLAT:
+        outerRows.applyToSelected([&](auto outerRow) {
+          if (wrapNulls && bits::isBitNull(wrapNulls, outerRow)) {
+            return;
+          }
+          func(outerRow, outerRow);
+        });
+        break;
+      case VectorEncoding::Simple::CONSTANT:
+        VELOX_CHECK_NULL(wrapNulls);
+        outerRows.applyToSelected(
+            [&](auto outerRow) { func(outerRow, constantWrapIndex_); });
+        break;
+      case VectorEncoding::Simple::DICTIONARY: {
+        auto indices = wrap_->as<vector_size_t>();
+        outerRows.applyToSelected([&](auto outerRow) {
+          // A known null in the outer row masks an error.
+          if (wrapNulls && bits::isBitNull(wrapNulls, outerRow)) {
+            return;
+          }
+          func(outerRow, indices[outerRow]);
+        });
+        break;
       }
-      vector_size_t innerRow = indices ? indices[outerRow] : constantWrapIndex_;
-      func(outerRow, innerRow);
-    });
+      default:
+        VELOX_UNREACHABLE();
+    }
   }
 
  private:
@@ -190,22 +209,32 @@ class PeeledEncoding {
       const SelectivityVector& rows,
       BaseVector& firstWrapper);
 
-  /// The encoding of the peel. Set after getPeeledVectors() is called. Is equal
-  /// to Flat if getPeeledVectors() has not been called or peeling was not
-  /// successful.
+  void flattenPeeledVectors(
+      const SelectivityVector& rows,
+      const std::vector<bool>& constantFields,
+      std::vector<VectorPtr>& peeledVectors);
+
+  // The encoding of the peel. Set after getPeeledVectors() is called. Is equal
+  // to Flat if getPeeledVectors() has not been called or peeling was not
+  // successful.
   VectorEncoding::Simple wrapEncoding_ = VectorEncoding::Simple::FLAT;
 
-  /// The dictionary indices. Only valid if wrapEncoding_ = DICTIONARY.
+  // The dictionary indices. Only valid if wrapEncoding_ = DICTIONARY.
   BufferPtr wrap_;
 
-  /// The dictionary nulls. Only valid if wrapEncoding_ = DICTIONARY.
+  // The dictionary nulls. Only valid if wrapEncoding_ = DICTIONARY.
   BufferPtr wrapNulls_;
 
-  /// The size of one of the peeled vectors. Only valid if wrapEncoding_ =
-  /// DICTIONARY.
+  // The size of one of the peeled vectors. Only valid if wrapEncoding_ =
+  // DICTIONARY.
   vector_size_t baseSize_ = 0;
 
-  /// The constant index. Only valid if wrapEncoding_ = CONSTANT.
+  // The constant index. Only valid if wrapEncoding_ = CONSTANT.
   vector_size_t constantWrapIndex_ = 0;
+
+  // Deep copies of peeled vectors with low selectivity to avoid cost on unused
+  // rows.  Stored here to bring their lifecycles no shorter than PeeledEncoding
+  // object.
+  std::vector<VectorPtr> flattenPeeled_;
 };
 } // namespace facebook::velox::exec
