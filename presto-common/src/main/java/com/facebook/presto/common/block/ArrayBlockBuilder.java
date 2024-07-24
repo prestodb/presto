@@ -207,6 +207,24 @@ public class ArrayBlockBuilder
         return this;
     }
 
+    public BlockBuilder appendStructureInternalNew(Block block, int position)
+    {
+        if (!(block instanceof AbstractArrayBlock)) {
+            throw new IllegalArgumentException();
+        }
+
+        beginDirectEntry();
+
+        AbstractArrayBlock arrayBlock = (AbstractArrayBlock) block;
+        int startValueOffset = arrayBlock.getOffset(position);
+        int endValueOffset = arrayBlock.getOffset(position + 1);
+        arrayBlock.getRawElementBlock().writePositionsTo(startValueOffset, endValueOffset, values);
+
+        closeEntry();
+        return this;
+    }
+
+
     public BlockBuilder getElementBlockBuilder()
     {
         return values;
