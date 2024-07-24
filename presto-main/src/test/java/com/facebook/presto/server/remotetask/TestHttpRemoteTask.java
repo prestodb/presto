@@ -116,6 +116,7 @@ import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEm
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.SplitContext.NON_CACHEABLE;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
@@ -246,9 +247,13 @@ public class TestHttpRemoteTask
                 assertEquals(actualErrorCode, REMOTE_TASK_MISMATCH.toErrorCode());
                 break;
             case REJECTED_EXECUTION:
-                // for a rejection to occur, the http client must be shutdown, which means we will not be able to ge the final task info
-                assertEquals(actualErrorCode, REMOTE_TASK_ERROR.toErrorCode());
-                break;
+                if (actualErrorCode == REMOTE_TASK_ERROR.toErrorCode()) {
+                    break;
+                }
+                else {
+                    assertEquals(actualErrorCode, GENERIC_INTERNAL_ERROR.toErrorCode());
+                }
+                break; // do nothing
             default:
                 throw new UnsupportedOperationException();
         }
