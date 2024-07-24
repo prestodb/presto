@@ -25,6 +25,7 @@
 #include "velox/connectors/hive/TableHandle.h"
 #include "velox/core/Expressions.h"
 #include "velox/dwio/common/WriterFactory.h"
+#include "velox/exec/fuzzer/ToSQLUtil.h"
 #include "velox/exec/tests/utils/QueryAssertions.h"
 #include "velox/serializers/PrestoSerializer.h"
 #include "velox/type/parser/TypeParser.h"
@@ -213,12 +214,6 @@ std::optional<std::string> PrestoQueryRunner::toSql(
 
 namespace {
 
-void appendComma(int32_t i, std::stringstream& sql) {
-  if (i > 0) {
-    sql << ", ";
-  }
-}
-
 std::string toTypeSql(const TypePtr& type) {
   switch (type->kind()) {
     case TypeKind::ARRAY:
@@ -246,80 +241,6 @@ std::string toTypeSql(const TypePtr& type) {
       }
       VELOX_UNSUPPORTED("Type is not supported: {}", type->toString());
   }
-}
-
-std::string toCallSql(const core::CallTypedExprPtr& call);
-
-void toCallInputsSql(
-    const std::vector<core::TypedExprPtr>& inputs,
-    std::stringstream& sql) {
-  for (auto i = 0; i < inputs.size(); ++i) {
-    appendComma(i, sql);
-
-    const auto& input = inputs.at(i);
-    if (auto field =
-            std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(
-                input)) {
-      sql << field->name();
-    } else if (
-        auto call =
-            std::dynamic_pointer_cast<const core::CallTypedExpr>(input)) {
-      sql << toCallSql(call);
-    } else if (
-        auto lambda =
-            std::dynamic_pointer_cast<const core::LambdaTypedExpr>(input)) {
-      const auto& signature = lambda->signature();
-      const auto& body =
-          std::dynamic_pointer_cast<const core::CallTypedExpr>(lambda->body());
-      VELOX_CHECK_NOT_NULL(body);
-
-      sql << "(";
-      for (auto j = 0; j < signature->size(); ++j) {
-        appendComma(j, sql);
-        sql << signature->nameOf(j);
-      }
-
-      sql << ") -> " << toCallSql(body);
-    } else {
-      VELOX_NYI();
-    }
-  }
-}
-
-std::string toCallSql(const core::CallTypedExprPtr& call) {
-  std::stringstream sql;
-  sql << call->name() << "(";
-  toCallInputsSql(call->inputs(), sql);
-  sql << ")";
-  return sql.str();
-}
-
-std::string toAggregateCallSql(
-    const core::CallTypedExprPtr& call,
-    const std::vector<core::FieldAccessTypedExprPtr>& sortingKeys,
-    const std::vector<core::SortOrder>& sortingOrders,
-    bool distinct) {
-  VELOX_CHECK_EQ(sortingKeys.size(), sortingOrders.size());
-  std::stringstream sql;
-  sql << call->name() << "(";
-
-  if (distinct) {
-    sql << "distinct ";
-  }
-
-  toCallInputsSql(call->inputs(), sql);
-
-  if (!sortingKeys.empty()) {
-    sql << " ORDER BY ";
-
-    for (int i = 0; i < sortingKeys.size(); i++) {
-      appendComma(i, sql);
-      sql << sortingKeys[i]->name() << " " << sortingOrders[i].toString();
-    }
-  }
-
-  sql << ")";
-  return sql.str();
 }
 
 std::string toWindowCallSql(

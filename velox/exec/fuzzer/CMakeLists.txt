@@ -13,7 +13,7 @@
 # limitations under the License.
 
 add_library(velox_fuzzer_util DuckQueryRunner.cpp PrestoQueryRunner.cpp
-                              FuzzerUtil.cpp)
+                              FuzzerUtil.cpp ToSQLUtil.cpp)
 
 target_link_libraries(
   velox_fuzzer_util
