@@ -3521,13 +3521,13 @@ public class HiveMetadata
                     if (!(columnType instanceof RowType)) {
                         throw new PrestoException(
                                 INVALID_TABLE_PROPERTY,
-                                format("In %s subfields declared in %s, but %s has type %s", ENCRYPT_COLUMNS, columnWithSubfield.toString(), column.getName(), column.getType().getDisplayName()));
+                                format("In %s subfields declared in %s, but %s has type %s", ENCRYPT_COLUMNS, columnWithSubfield, column.getName(), column.getType().getDisplayName()));
                     }
 
                     if (seenColumns.contains(parentPath)) {
                         throw new PrestoException(
                                 INVALID_TABLE_PROPERTY,
-                                format("For (%s) found a keyReference at a higher level field (%s)", columnWithSubfield.toString(), parentPath));
+                                format("For (%s) found a keyReference at a higher level field (%s)", columnWithSubfield, parentPath));
                     }
 
                     RowType row = (RowType) columnType;
@@ -3537,7 +3537,7 @@ public class HiveMetadata
                             .map(RowType.Field::getType)
                             .orElseThrow(() -> new PrestoException(
                                     INVALID_TABLE_PROPERTY,
-                                    format("In %s subfields declared in %s, but %s has type %s", ENCRYPT_COLUMNS, columnWithSubfield.toString(), column.getName(), column.getType().getDisplayName())));
+                                    format("In %s subfields declared in %s, but %s has type %s", ENCRYPT_COLUMNS, columnWithSubfield, column.getName(), column.getType().getDisplayName())));
 
                     parentPath = format("%s.%s", parentPath, pathFragment);
                 }
