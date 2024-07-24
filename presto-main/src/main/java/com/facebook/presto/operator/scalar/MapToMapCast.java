@@ -36,7 +36,10 @@ import static com.facebook.presto.common.block.MethodHandleUtil.compose;
 import static com.facebook.presto.common.block.MethodHandleUtil.nativeValueGetter;
 import static com.facebook.presto.common.block.MethodHandleUtil.nativeValueWriter;
 import static com.facebook.presto.common.function.OperatorType.CAST;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
@@ -58,6 +61,7 @@ public final class MapToMapCast
             "mapCast",
             MethodHandle.class,
             MethodHandle.class,
+            Type.class,
             Type.class,
             SqlFunctionProperties.class,
             Block.class);
@@ -93,7 +97,7 @@ public final class MapToMapCast
 
         MethodHandle keyProcessor = (fromKeyType == toKeyType) ? null : buildProcessor(functionAndTypeManager, fromKeyType, toKeyType, true);
         MethodHandle valueProcessor = (fromValueType == toValueType) ? null : buildProcessor(functionAndTypeManager, fromValueType, toValueType, false);
-        MethodHandle target = MethodHandles.insertArguments(METHOD_HANDLE, 0, keyProcessor, valueProcessor, toMapType);
+        MethodHandle target = MethodHandles.insertArguments(METHOD_HANDLE, 0, keyProcessor, valueProcessor, toMapType, fromKeyType);
         return new BuiltInScalarFunctionImplementation(true, ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)), target);
     }
 
@@ -209,6 +213,7 @@ public final class MapToMapCast
             MethodHandle keyProcessFunction,
             MethodHandle valueProcessFunction,
             Type toMapType,
+            Type fromKeyType,
             SqlFunctionProperties properties,
             Block fromMap)
     {
@@ -239,7 +244,11 @@ public final class MapToMapCast
             }
         }
         else {
-            TypedSet typedSet = new TypedSet(toKeyType, fromMap.getPositionCount() / 2, "map-to-map cast");
+            boolean requireDuplicateKeyCheck = !canSkipDuplicateKeysCheck(fromKeyType, toKeyType);
+            TypedSet typedSet = null;
+            if (requireDuplicateKeyCheck) {
+                typedSet = new TypedSet(toKeyType, fromMap.getPositionCount() / 2, "map-to-map cast");
+            }
             for (int i = 0; i < fromMap.getPositionCount(); i += 2) {
                 try {
                     keyProcessFunction.invokeExact(fromMap, i, properties, blockBuilder);
@@ -248,7 +257,7 @@ public final class MapToMapCast
                     throw internalError(t);
                 }
 
-                if (!typedSet.add(blockBuilder, i)) {
+                if (requireDuplicateKeyCheck && !typedSet.add(blockBuilder, i)) {
                     throw new PrestoException(INVALID_CAST_ARGUMENT, "duplicate keys");
                 }
 
@@ -273,5 +282,16 @@ public final class MapToMapCast
 
         mapBlockBuilder.closeEntry();
         return (Block) toMapType.getObject(mapBlockBuilder, mapBlockBuilder.getPositionCount() - 1);
+    }
+
+    public static boolean canSkipDuplicateKeysCheck(Type fromType, Type toType)
+    {
+        if (fromType.equals(INTEGER)) {
+            return toType.equals(BIGINT) || toType.equals(VARCHAR);
+        }
+        else if (fromType.equals(BIGINT)) {
+            return toType.equals(VARCHAR);
+        }
+        return false;
     }
 }
