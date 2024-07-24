@@ -64,6 +64,13 @@ class MergeJoinSource {
   void close();
 
  private:
+  // Wait consumer to fetch next batch of data.
+  BlockingReason waitForConsumer(ContinueFuture* future) {
+    producerPromise_ = ContinuePromise("MergeJoinSource::waitForConsumer");
+    *future = producerPromise_->getSemiFuture();
+    return BlockingReason::kWaitForConsumer;
+  }
+
   struct State {
     bool atEnd = false;
     RowVectorPtr data;

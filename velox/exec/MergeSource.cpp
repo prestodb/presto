@@ -275,13 +275,14 @@ BlockingReason MergeJoinSource::enqueue(
       return BlockingReason::kNotBlocked;
     }
 
-    VELOX_CHECK_NULL(state.data);
+    if (state.data != nullptr) {
+      return waitForConsumer(future);
+    }
+
     state.data = std::move(data);
     notify(consumerPromise_);
 
-    producerPromise_ = ContinuePromise("MergeJoinSource::enqueue");
-    *future = producerPromise_->getSemiFuture();
-    return BlockingReason::kWaitForConsumer;
+    return waitForConsumer(future);
   });
 }
 
