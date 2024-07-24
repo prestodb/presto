@@ -1783,7 +1783,9 @@ PlanNodePtr LocalMergeNode::create(const folly::dynamic& obj, void* context) {
       std::move(sources));
 }
 
-void TableWriteNode::addDetails(std::stringstream& /*unused*/) const {}
+void TableWriteNode::addDetails(std::stringstream& stream) const {
+  stream << insertTableHandle_->connectorInsertTableHandle()->toString();
+}
 
 folly::dynamic TableWriteNode::serialize() const {
   auto obj = PlanNode::serialize();

@@ -258,7 +258,7 @@ class HiveInsertTableHandle : public ConnectorInsertTableHandle {
 
   static void registerSerDe();
 
-  std::string toString() const;
+  std::string toString() const override;
 
  private:
   const std::vector<std::shared_ptr<const HiveColumnHandle>> inputColumns_;

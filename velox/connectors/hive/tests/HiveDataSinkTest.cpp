@@ -968,6 +968,27 @@ DEBUG_ONLY_TEST_F(HiveDataSinkTest, sortWriterFailureTest) {
 
   VELOX_ASSERT_THROW(dataSink->close(), "inject failure");
 }
+
+TEST_F(HiveDataSinkTest, insertTableHandleToString) {
+  const int32_t numBuckets = 4;
+  auto bucketProperty = std::make_shared<HiveBucketProperty>(
+      HiveBucketProperty::Kind::kHiveCompatible,
+      numBuckets,
+      std::vector<std::string>{"c5"},
+      std::vector<TypePtr>{VARCHAR()},
+      std::vector<std::shared_ptr<const HiveSortingColumn>>{
+          std::make_shared<HiveSortingColumn>(
+              "c5", core::SortOrder{false, false})});
+  auto insertTableHandle = createHiveInsertTableHandle(
+      rowType_,
+      "/path/to/test",
+      dwio::common::FileFormat::DWRF,
+      {"c5", "c6"},
+      bucketProperty);
+  ASSERT_EQ(
+      insertTableHandle->toString(),
+      "HiveInsertTableHandle [dwrf zstd], [inputColumns: [ HiveColumnHandle [name: c0, columnType: Regular, dataType: BIGINT, requiredSubfields: [ ]] HiveColumnHandle [name: c1, columnType: Regular, dataType: INTEGER, requiredSubfields: [ ]] HiveColumnHandle [name: c2, columnType: Regular, dataType: SMALLINT, requiredSubfields: [ ]] HiveColumnHandle [name: c3, columnType: Regular, dataType: REAL, requiredSubfields: [ ]] HiveColumnHandle [name: c4, columnType: Regular, dataType: DOUBLE, requiredSubfields: [ ]] HiveColumnHandle [name: c5, columnType: PartitionKey, dataType: VARCHAR, requiredSubfields: [ ]] HiveColumnHandle [name: c6, columnType: PartitionKey, dataType: BOOLEAN, requiredSubfields: [ ]] ], locationHandle: LocationHandle [targetPath: /path/to/test, writePath: /path/to/test, tableType: kNew,, bucketProperty: \nHiveBucketProperty[<HIVE_COMPATIBLE 4>\n\tBucket Columns:\n\t\tc5\n\tBucket Types:\n\t\tVARCHAR\n\tSortedBy Columns:\n\t\t[COLUMN[c5] ORDER[DESC NULLS LAST]]\n]\n]");
+}
 } // namespace
 } // namespace facebook::velox::connector::hive
 

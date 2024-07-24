@@ -1001,11 +1001,22 @@ void HiveInsertTableHandle::registerSerDe() {
 
 std::string HiveInsertTableHandle::toString() const {
   std::ostringstream out;
-  out << "HiveInsertTableHandle [inputColumns: [";
+  out << "HiveInsertTableHandle ["
+      << dwio::common::toString(tableStorageFormat_);
+  if (compressionKind_.has_value()) {
+    out << " " << common::compressionKindToString(compressionKind_.value());
+  } else {
+    out << " none";
+  }
+  out << "], [inputColumns: [";
   for (const auto& i : inputColumns_) {
     out << " " << i->toString();
   }
-  out << " ], locationHandle: " << locationHandle_->toString() << "]";
+  out << " ], locationHandle: " << locationHandle_->toString();
+  if (bucketProperty_) {
+    out << ", bucketProperty: " << bucketProperty_->toString();
+  }
+  out << "]";
   return out.str();
 }
 
