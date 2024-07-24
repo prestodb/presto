@@ -644,6 +644,8 @@ TEST(FilterTest, doubleRange) {
   EXPECT_FALSE(filter->testNull());
   EXPECT_FALSE(filter->testDouble(1.2));
   EXPECT_FALSE(filter->testDouble(-19.267));
+  EXPECT_TRUE(filter->testDouble(std::nanf("nan1")));
+  EXPECT_TRUE(filter->testDouble(std::nanf("nan2")));
   {
     double n4[] = {-1e100, std::nan("nan"), 1.3, 1e200};
     checkSimd(filter.get(), n4, verify);
@@ -702,6 +704,19 @@ TEST(FilterTest, floatRange) {
   EXPECT_FALSE(filter->testFloat(std::nanf("NAN")));
   {
     float n8[] = {1.0, std::nanf("nan"), 3.4, 3.1, -1e20, 0, 1.1, 1.2};
+    checkSimd(filter.get(), n8, verify);
+  }
+
+  filter = greaterThanFloat(1.2);
+  EXPECT_FALSE(filter->testFloat(1.1f));
+
+  EXPECT_FALSE(filter->testNull());
+  EXPECT_FALSE(filter->testFloat(1.2f));
+  EXPECT_TRUE(filter->testFloat(15.632f));
+  EXPECT_TRUE(filter->testFloat(std::nanf("nan1")));
+  EXPECT_TRUE(filter->testFloat(std::nanf("nan2")));
+  {
+    float n8[] = {1.0, std::nanf("nan"), 1.3, 1e20, -1e20, 0, 1.1, 1.2};
     checkSimd(filter.get(), n8, verify);
   }
 

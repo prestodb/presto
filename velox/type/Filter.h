@@ -1443,14 +1443,14 @@ class FloatingPointRange final : public AbstractRange {
         name,
         (lowerExclusive_ || lowerUnbounded_) ? "(" : "[",
         lowerUnbounded_ ? "-inf" : std::to_string(lower_),
-        upperUnbounded_ ? "+inf" : std::to_string(upper_),
-        (upperExclusive_ || upperUnbounded_) ? ")" : "]",
+        upperUnbounded_ ? "nan" : std::to_string(upper_),
+        (upperExclusive_ && !upperUnbounded_) ? ")" : "]",
         nullAllowed_ ? "with nulls" : "no nulls");
   }
 
   bool testFloatingPoint(T value) const {
     if (std::isnan(value)) {
-      return false;
+      return upperUnbounded_;
     }
     if (!lowerUnbounded_) {
       if (value < lower_) {
@@ -1495,6 +1495,10 @@ class FloatingPointRange final : public AbstractRange {
       } else {
         result = values <= allUpper;
       }
+    }
+    if (upperUnbounded_) {
+      auto nanResult = xsimd::isnan(values);
+      result = xsimd::bitwise_or(nanResult, result);
     }
     return result;
   }
