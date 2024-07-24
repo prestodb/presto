@@ -1,4 +1,19 @@
 /*
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+/*
  * Copyright owned by the Transaction Processing Performance Council.
  *
  * A copy of the license is included under extension/tpch/dbgen/LICENSE
@@ -13,7 +28,6 @@
  * Various routines that handle distributions, value selections and
  * seed value management for the DSS benchmark. Current functions:
  * tpch_env_config -- set config vars with optional environment override
- * yes_no -- ask simple yes/no question and return boolean result
  * tpch_a_rnd(min, max) -- random alphanumeric within length range
  * pick_str(size, set) -- select a string from the set of size
  * read_dist(file, name, distribution *) -- read named dist from file
@@ -103,36 +117,6 @@ const char* tpch_env_config(const char* var, const char* dflt) {
     return (evar);
   else
     return (dflt);
-}
-
-/*
- * return the answer to a yes/no question as a boolean
- */
-long yes_no(char* prompt) {
-  char reply[128];
-  (void)prompt;
-#ifdef WIN32
-/* Disable warning about conditional expression is constant */
-#pragma warning(disable : 4127)
-#endif
-
-  while (1) {
-#ifdef WIN32
-#pragma warning(default : 4127)
-#endif
-    printf("%s [Y/N]: ", prompt);
-    fgets(reply, 128, stdin);
-    switch (*reply) {
-      case 'y':
-      case 'Y':
-        return (1);
-      case 'n':
-      case 'N':
-        return (0);
-      default:
-        printf("Please answer 'yes' or 'no'.\n");
-    }
-  }
 }
 
 /*
