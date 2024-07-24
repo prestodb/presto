@@ -6989,6 +6989,91 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringTableBuild) {
       .run();
 }
 
+DEBUG_ONLY_TEST_F(HashJoinTest, exceptionDuringFinishJoinBuild) {
+  // This test is to make sure there is no memory leak when exceptions are
+  // thrown while parallelly preparing join table.
+  auto memoryManager = memory::memoryManager();
+  const auto& arbitrator = memoryManager->arbitrator();
+  const uint64_t numDrivers = 2;
+  const auto expectedFreeCapacityBytes = arbitrator->stats().freeCapacityBytes;
+
+  const uint64_t numBuildSideRows = 500;
+  auto buildKeyVector = makeFlatVector<int64_t>(
+      numBuildSideRows,
+      [](vector_size_t row) { return folly::Random::rand64(); });
+  auto buildSideVector =
+      makeRowVector({"b0", "b1"}, {buildKeyVector, buildKeyVector});
+  std::vector<RowVectorPtr> buildSideVectors;
+  for (int i = 0; i < numDrivers; ++i) {
+    buildSideVectors.push_back(buildSideVector);
+  }
+  createDuckDbTable("build", buildSideVectors);
+
+  const uint64_t numProbeSideRows = 10;
+  auto probeKeyVector = makeFlatVector<int64_t>(
+      numProbeSideRows,
+      [&](vector_size_t row) { return buildKeyVector->valueAt(row); });
+  auto probeSideVector =
+      makeRowVector({"p0", "p1"}, {probeKeyVector, probeKeyVector});
+  std::vector<RowVectorPtr> probeSideVectors;
+  for (int i = 0; i < numDrivers; ++i) {
+    probeSideVectors.push_back(probeSideVector);
+  }
+  createDuckDbTable("probe", probeSideVectors);
+
+  ASSERT_EQ(arbitrator->stats().freeCapacityBytes, expectedFreeCapacityBytes);
+
+  // We set the task to fail right before we reserve memory for other operators.
+  // We rely on the driver suspension before parallel join build to throw
+  // exceptions (suspension on an already terminated task throws).
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::HashBuild::ensureNextRowVectorFits",
+      std::function<void(HashBuild*)>([&](HashBuild* buildOp) {
+        try {
+          VELOX_FAIL("Simulated failure");
+        } catch (VeloxException& e) {
+          buildOp->testingOperatorCtx()->task()->setError(
+              std::current_exception());
+        }
+      }));
+
+  std::vector<RowVectorPtr> probeInput = {probeSideVector};
+  std::vector<RowVectorPtr> buildInput = {buildSideVector};
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  const auto spillDirectory = exec::test::TempDirectoryPath::create();
+
+  ASSERT_EQ(arbitrator->stats().freeCapacityBytes, expectedFreeCapacityBytes);
+  VELOX_ASSERT_THROW(
+      AssertQueryBuilder(duckDbQueryRunner_)
+          .spillDirectory(spillDirectory->getPath())
+          .config(core::QueryConfig::kSpillEnabled, true)
+          .config(core::QueryConfig::kJoinSpillEnabled, true)
+          .queryCtx(
+              newQueryCtx(memoryManager, executor_.get(), kMemoryCapacity))
+          .maxDrivers(numDrivers)
+          .plan(PlanBuilder(planNodeIdGenerator)
+                    .values(probeInput, true)
+                    .hashJoin(
+                        {"p0"},
+                        {"b0"},
+                        PlanBuilder(planNodeIdGenerator)
+                            .values(buildInput, true)
+                            .planNode(),
+                        "",
+                        {"p0", "p1", "b0", "b1"},
+                        core::JoinType::kInner)
+                    .planNode())
+          .assertResults(
+              "SELECT probe.p0, probe.p1, build.b0, build.b1 FROM probe "
+              "INNER JOIN build ON probe.p0 = build.b0"),
+      "Simulated failure");
+  // This test uses on-demand created memory manager instead of the global
+  // one. We need to make sure any used memory got cleaned up before exiting
+  // the scope
+  waitForAllTasksToBeDeleted();
+  ASSERT_EQ(arbitrator->stats().freeCapacityBytes, expectedFreeCapacityBytes);
+}
+
 DEBUG_ONLY_TEST_F(HashJoinTest, arbitrationTriggeredDuringParallelJoinBuild) {
   std::unique_ptr<memory::MemoryManager> memoryManager = createMemoryManager();
   const auto& arbitrator = memoryManager->arbitrator();
