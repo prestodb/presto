@@ -17,7 +17,9 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.relation.Predicate;
+import com.facebook.presto.common.type.UnknownType;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
 import com.facebook.presto.spi.relation.PredicateCompiler;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -48,6 +50,24 @@ public class TestRowExpressionPredicateCompiler
 {
     private Metadata metadata = createTestMetadataManager();
     private FunctionResolution functionResolution = new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver());
+
+    @Test
+    public void testNullIf()
+    {
+        FunctionHandle handle = functionResolution.nullIfFunction(UnknownType.UNKNOWN, UnknownType.UNKNOWN);
+
+        // NULLIF(34, 45)
+        RowExpression result = call("NULLIF", handle, UnknownType.UNKNOWN, constant(34L, BIGINT), constant(45L, BIGINT));
+        PredicateCompiler compiler = new RowExpressionPredicateCompiler(metadata, 10_000);
+        Predicate compiledResult = compiler.compilePredicate(SESSION.getSqlFunctionProperties(), SESSION.getSessionFunctions(), result).get();
+        InputReferenceExpression a = new InputReferenceExpression(Optional.empty(), 34, BIGINT);
+        InputReferenceExpression b = new InputReferenceExpression(Optional.empty(), 45, BIGINT);
+
+        Block aBlock = createLongBlock(5, 5, 5, 5, 5);
+        Block bBlock = createLongBlock(1, 3, 5, 7, 0);
+        Page page = new Page(bBlock, aBlock);
+        assertEquals(compiledResult.evaluate(SESSION.getSqlFunctionProperties(), page, 0), 34L);
+    }
 
     @Test
     public void test()
