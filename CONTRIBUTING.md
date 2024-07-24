@@ -173,7 +173,8 @@ Velox and the code review process. In addition to the general contribution
 guidelines presented above, here are specific guidelines for contributing
 functions:
 
-1. Read [How to add a scalar function?](https://facebookincubator.github.io/velox/develop/scalar-functions.html) guide.
+1. Read [How to add a scalar function?](https://facebookincubator.github.io/velox/develop/scalar-functions.html) guide. When implementing a function, simple function is preferred unless the implementation of vector function provides a significant performance gain which can be demonstrated
+with a benchmark.
 
 2. Use the following template for the PR title: Add xxx [Presto|Spark] function (replace xxx with the function name).
    * Ensure the PR description contains a link to the function documentation

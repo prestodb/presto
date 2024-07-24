@@ -543,7 +543,10 @@ Vector Functions
 
 Simple functions process a single row and produce a single value as a result.
 Vector functions process a batch or rows and produce a vector of results.
-Some of the defining features of these functions are:
+When implementing a function, simple function is preferred unless the implementation
+of vector function provides a significant performance gain which can be demonstrated
+with a benchmark.
+Some of the defining features of vector functions are:
 
 - take vectors as inputs and produce vectors as a result;
 - have access to vector encodings and metadata;
