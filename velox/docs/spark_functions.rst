@@ -20,6 +20,7 @@ Spark Functions
     functions/spark/window
     functions/spark/conversion
     functions/spark/url
+    functions/spark/json
 
 Here is a list of all scalar and aggregate Spark functions available in Velox.
 Function names link to function descriptions. Check out coverage maps

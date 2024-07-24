@@ -50,7 +50,8 @@ velox_link_libraries(
   velox_functions_spark_specialforms
   velox_is_null_functions
   velox_functions_util
-  Folly::folly)
+  Folly::folly
+  simdjson::simdjson)
 
 if(NOT VELOX_MONO_LIBRARY)
   set_property(TARGET velox_functions_spark PROPERTY JOB_POOL_COMPILE
