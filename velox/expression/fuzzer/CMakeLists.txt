@@ -15,13 +15,16 @@
 add_library(velox_expression_test_utility ArgumentTypeFuzzer.cpp
                                           FuzzerToolkit.cpp)
 
-target_link_libraries(velox_expression_test_utility velox_type
-                      velox_expression_functions gtest)
+target_link_libraries(
+  velox_expression_test_utility velox_type velox_expression_functions gtest)
 
 add_library(
   velox_expression_fuzzer
-  ArgumentTypeFuzzer.cpp DecimalArgGeneratorBase.cpp ExpressionFuzzer.cpp
-  FuzzerRunner.cpp ExpressionFuzzerVerifier.cpp)
+  ArgumentTypeFuzzer.cpp
+  DecimalArgGeneratorBase.cpp
+  ExpressionFuzzer.cpp
+  FuzzerRunner.cpp
+  ExpressionFuzzerVerifier.cpp)
 
 target_link_libraries(
   velox_expression_fuzzer
@@ -34,13 +37,21 @@ target_link_libraries(
 
 add_executable(velox_expression_fuzzer_test ExpressionFuzzerTest.cpp)
 
-target_link_libraries(velox_expression_fuzzer_test velox_expression_fuzzer
-                      velox_functions_prestosql gtest gtest_main)
+target_link_libraries(
+  velox_expression_fuzzer_test
+  velox_expression_fuzzer
+  velox_functions_prestosql
+  gtest
+  gtest_main)
 
 add_executable(spark_expression_fuzzer_test SparkExpressionFuzzerTest.cpp)
 
-target_link_libraries(spark_expression_fuzzer_test velox_expression_fuzzer
-                      velox_functions_spark gtest gtest_main)
+target_link_libraries(
+  spark_expression_fuzzer_test
+  velox_expression_fuzzer
+  velox_functions_spark
+  gtest
+  gtest_main)
 
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)

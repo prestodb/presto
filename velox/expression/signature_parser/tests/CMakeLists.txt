@@ -16,5 +16,10 @@ add_executable(velox_signature_parser_test ParseTypeSignatureTest.cpp)
 
 add_test(NAME velox_signature_parser_test COMMAND velox_signature_parser_test)
 
-target_link_libraries(velox_signature_parser_test velox_signature_parser
-                      velox_type_signature gtest gtest_main gmock)
+target_link_libraries(
+  velox_signature_parser_test
+  velox_signature_parser
+  velox_type_signature
+  gtest
+  gtest_main
+  gmock)

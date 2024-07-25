@@ -17,16 +17,17 @@ add_executable(velox_abfs_test AbfsFileSystemTest.cpp AbfsUtilTest.cpp
 add_test(velox_abfs_test velox_abfs_test)
 target_link_libraries(
   velox_abfs_test
-  PRIVATE velox_file
-          velox_abfs
-          velox_core
-          velox_exec_test_lib
-          velox_hive_connector
-          velox_dwio_common_exception
-          velox_exec
-          gtest
-          gtest_main
-          Azure::azure-storage-blobs
-          Azure::azure-storage-files-datalake)
+  PRIVATE
+    velox_file
+    velox_abfs
+    velox_core
+    velox_exec_test_lib
+    velox_hive_connector
+    velox_dwio_common_exception
+    velox_exec
+    gtest
+    gtest_main
+    Azure::azure-storage-blobs
+    Azure::azure-storage-files-datalake)
 
 target_compile_options(velox_abfs_test PRIVATE -Wno-deprecated-declarations)

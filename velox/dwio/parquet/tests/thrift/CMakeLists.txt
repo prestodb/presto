@@ -15,5 +15,10 @@
 add_executable(velox_dwio_parquet_thrift_test ThriftTransportTest.cpp)
 
 add_test(velox_dwio_parquet_thrift_test velox_dwio_parquet_thrift_test)
-target_link_libraries(velox_dwio_parquet_thrift_test arrow thrift
-                      velox_link_libs gtest gtest_main)
+target_link_libraries(
+  velox_dwio_parquet_thrift_test
+  arrow
+  thrift
+  velox_link_libs
+  gtest
+  gtest_main)

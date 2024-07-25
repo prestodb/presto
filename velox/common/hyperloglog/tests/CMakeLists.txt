@@ -18,5 +18,5 @@ add_test(NAME velox_common_hyperloglog_test
          COMMAND velox_common_hyperloglog_test)
 
 target_link_libraries(
-  velox_common_hyperloglog_test PRIVATE velox_common_hyperloglog velox_encode
-                                        gtest gtest_main)
+  velox_common_hyperloglog_test
+  PRIVATE velox_common_hyperloglog velox_encode gtest gtest_main)

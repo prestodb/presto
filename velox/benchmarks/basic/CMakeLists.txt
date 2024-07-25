@@ -29,58 +29,74 @@ set(velox_benchmark_deps
     glog::glog)
 
 add_executable(velox_benchmark_basic_simple_arithmetic SimpleArithmetic.cpp)
-target_link_libraries(velox_benchmark_basic_simple_arithmetic
-                      ${velox_benchmark_deps})
+target_link_libraries(
+  velox_benchmark_basic_simple_arithmetic ${velox_benchmark_deps})
 
 add_executable(velox_benchmark_basic_comparison_conjunct ComparisonConjunct.cpp)
-target_link_libraries(velox_benchmark_basic_comparison_conjunct
-                      ${velox_benchmark_deps})
+target_link_libraries(
+  velox_benchmark_basic_comparison_conjunct ${velox_benchmark_deps})
 
 add_executable(velox_benchmark_basic_simple_cast SimpleCastExpr.cpp)
-target_link_libraries(velox_benchmark_basic_simple_cast ${velox_benchmark_deps})
+target_link_libraries(
+  velox_benchmark_basic_simple_cast ${velox_benchmark_deps})
 
 add_executable(velox_benchmark_basic_decoded_vector DecodedVector.cpp)
-target_link_libraries(velox_benchmark_basic_decoded_vector
-                      ${velox_benchmark_deps})
+target_link_libraries(
+  velox_benchmark_basic_decoded_vector ${velox_benchmark_deps})
 
 add_executable(velox_benchmark_basic_selectivity_vector SelectivityVector.cpp)
-target_link_libraries(velox_benchmark_basic_selectivity_vector
-                      ${velox_benchmark_deps})
+target_link_libraries(
+  velox_benchmark_basic_selectivity_vector ${velox_benchmark_deps})
 
 add_executable(velox_benchmark_basic_vector_compare VectorCompare.cpp)
-target_link_libraries(velox_benchmark_basic_vector_compare
-                      ${velox_benchmark_deps} velox_vector_test_lib)
+target_link_libraries(
+  velox_benchmark_basic_vector_compare ${velox_benchmark_deps}
+  velox_vector_test_lib)
 
 add_executable(velox_benchmark_basic_vector_slice VectorSlice.cpp)
-target_link_libraries(velox_benchmark_basic_vector_slice
-                      ${velox_benchmark_deps} velox_vector_test_lib)
+target_link_libraries(
+  velox_benchmark_basic_vector_slice ${velox_benchmark_deps}
+  velox_vector_test_lib)
 
 add_executable(velox_benchmark_feature_normalization FeatureNormalization.cpp)
-target_link_libraries(velox_benchmark_feature_normalization
-                      ${velox_benchmark_deps} velox_functions_prestosql)
+target_link_libraries(
+  velox_benchmark_feature_normalization ${velox_benchmark_deps}
+  velox_functions_prestosql)
 
 add_executable(velox_benchmark_basic_preproc Preproc.cpp)
-target_link_libraries(velox_benchmark_basic_preproc ${velox_benchmark_deps}
-                      velox_functions_prestosql velox_vector_test_lib)
+target_link_libraries(
+  velox_benchmark_basic_preproc ${velox_benchmark_deps}
+  velox_functions_prestosql velox_vector_test_lib)
 
 add_executable(velox_like_tpch_benchmark LikeTpchBenchmark.cpp)
-target_link_libraries(velox_like_tpch_benchmark ${velox_benchmark_deps}
-                      velox_functions_lib velox_tpch_gen velox_vector_test_lib)
+target_link_libraries(
+  velox_like_tpch_benchmark
+  ${velox_benchmark_deps}
+  velox_functions_lib
+  velox_tpch_gen
+  velox_vector_test_lib)
 
 add_executable(velox_like_benchmark LikeBenchmark.cpp)
 target_link_libraries(
-  velox_like_benchmark ${velox_benchmark_deps} velox_functions_lib
-  velox_functions_prestosql velox_vector_test_lib)
+  velox_like_benchmark
+  ${velox_benchmark_deps}
+  velox_functions_lib
+  velox_functions_prestosql
+  velox_vector_test_lib)
 
 add_executable(velox_benchmark_basic_vector_fuzzer VectorFuzzer.cpp)
-target_link_libraries(velox_benchmark_basic_vector_fuzzer
-                      ${velox_benchmark_deps} velox_vector_test_lib)
+target_link_libraries(
+  velox_benchmark_basic_vector_fuzzer ${velox_benchmark_deps}
+  velox_vector_test_lib)
 
 add_executable(velox_cast_benchmark CastBenchmark.cpp)
-target_link_libraries(velox_cast_benchmark ${velox_benchmark_deps}
-                      velox_vector_test_lib)
+target_link_libraries(
+  velox_cast_benchmark ${velox_benchmark_deps} velox_vector_test_lib)
 
 add_executable(velox_format_datetime_benchmark FormatDateTimeBenchmark.cpp)
 target_link_libraries(
-  velox_format_datetime_benchmark ${velox_benchmark_deps} velox_vector_test_lib
-  velox_functions_spark velox_functions_prestosql)
+  velox_format_datetime_benchmark
+  ${velox_benchmark_deps}
+  velox_vector_test_lib
+  velox_functions_spark
+  velox_functions_prestosql)

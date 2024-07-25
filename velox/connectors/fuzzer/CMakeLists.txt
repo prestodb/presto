@@ -14,8 +14,8 @@
 
 add_library(velox_fuzzer_connector OBJECT FuzzerConnector.cpp)
 
-target_link_libraries(velox_fuzzer_connector velox_connector
-                      velox_vector_fuzzer)
+target_link_libraries(
+  velox_fuzzer_connector velox_connector velox_vector_fuzzer)
 
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)

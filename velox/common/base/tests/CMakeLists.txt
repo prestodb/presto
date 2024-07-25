@@ -38,21 +38,22 @@ add_test(velox_base_test velox_base_test)
 
 target_link_libraries(
   velox_base_test
-  PRIVATE velox_caching
-          velox_common_base
-          velox_memory
-          velox_time
-          velox_status
-          velox_exception
-          velox_temp_path
-          Boost::filesystem
-          Boost::headers
-          Folly::folly
-          fmt::fmt
-          gflags::gflags
-          gtest
-          gmock
-          gtest_main)
+  PRIVATE
+    velox_caching
+    velox_common_base
+    velox_memory
+    velox_time
+    velox_status
+    velox_exception
+    velox_temp_path
+    Boost::filesystem
+    Boost::headers
+    Folly::folly
+    fmt::fmt
+    gflags::gflags
+    gtest
+    gmock
+    gtest_main)
 
 add_executable(velox_id_map_test IdMapTest.cpp)
 
@@ -72,5 +73,10 @@ target_link_libraries(
 
 add_executable(velox_memcpy_meter Memcpy.cpp)
 target_link_libraries(
-  velox_memcpy_meter PRIVATE velox_common_base velox_exception velox_time
-                             Folly::folly gflags::gflags)
+  velox_memcpy_meter
+  PRIVATE
+    velox_common_base
+    velox_exception
+    velox_time
+    Folly::folly
+    gflags::gflags)

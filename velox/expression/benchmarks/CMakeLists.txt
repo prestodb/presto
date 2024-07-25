@@ -13,29 +13,33 @@
 # limitations under the License.
 
 set(BENCHMARK_DEPENDENCIES
-    velox_functions_test_lib velox_exec velox_exec_test_lib gflags::gflags
-    Folly::folly ${FOLLY_BENCHMARK})
+    velox_functions_test_lib
+    velox_exec
+    velox_exec_test_lib
+    gflags::gflags
+    Folly::folly
+    ${FOLLY_BENCHMARK})
 
 add_executable(velox_benchmark_call_null_free_no_nulls
                CallNullFreeBenchmark.cpp)
-target_link_libraries(velox_benchmark_call_null_free_no_nulls
-                      ${BENCHMARK_DEPENDENCIES})
+target_link_libraries(
+  velox_benchmark_call_null_free_no_nulls ${BENCHMARK_DEPENDENCIES})
 target_compile_definitions(
   velox_benchmark_call_null_free_no_nulls PUBLIC WITH_NULL_ARRAYS=false
                                                  WITH_NULL_ELEMENTS=false)
 
 add_executable(velox_benchmark_call_null_free_null_arrays
                CallNullFreeBenchmark.cpp)
-target_link_libraries(velox_benchmark_call_null_free_null_arrays
-                      ${BENCHMARK_DEPENDENCIES})
+target_link_libraries(
+  velox_benchmark_call_null_free_null_arrays ${BENCHMARK_DEPENDENCIES})
 target_compile_definitions(
   velox_benchmark_call_null_free_null_arrays PUBLIC WITH_NULL_ARRAYS=true
                                                     WITH_NULL_ELEMENTS=false)
 
 add_executable(velox_benchmark_call_null_free_null_elements
                CallNullFreeBenchmark.cpp)
-target_link_libraries(velox_benchmark_call_null_free_null_elements
-                      ${BENCHMARK_DEPENDENCIES})
+target_link_libraries(
+  velox_benchmark_call_null_free_null_elements ${BENCHMARK_DEPENDENCIES})
 target_compile_definitions(
   velox_benchmark_call_null_free_null_elements PUBLIC WITH_NULL_ARRAYS=false
                                                       WITH_NULL_ELEMENTS=true)
@@ -50,4 +54,5 @@ target_compile_definitions(
   PUBLIC WITH_NULL_ARRAYS=true WITH_NULL_ELEMENTS=true)
 
 add_executable(velox_benchmark_variadic VariadicBenchmark.cpp)
-target_link_libraries(velox_benchmark_variadic ${BENCHMARK_DEPENDENCIES})
+target_link_libraries(
+  velox_benchmark_variadic ${BENCHMARK_DEPENDENCIES})

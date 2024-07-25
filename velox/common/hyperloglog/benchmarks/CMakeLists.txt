@@ -14,5 +14,6 @@
 
 add_executable(velox_common_hyperloglog_dense_hll_bm DenseHll.cpp)
 
-target_link_libraries(velox_common_hyperloglog_dense_hll_bm
-                      velox_common_hyperloglog ${FOLLY_BENCHMARK})
+target_link_libraries(
+  velox_common_hyperloglog_dense_hll_bm velox_common_hyperloglog
+  ${FOLLY_BENCHMARK})

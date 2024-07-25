@@ -60,13 +60,21 @@ target_link_libraries(
 add_executable(velox_dwio_common_data_buffer_benchmark DataBufferBenchmark.cpp)
 
 target_link_libraries(
-  velox_dwio_common_data_buffer_benchmark velox_dwio_common velox_memory
-  velox_dwio_common_exception Folly::folly ${FOLLY_BENCHMARK})
+  velox_dwio_common_data_buffer_benchmark
+  velox_dwio_common
+  velox_memory
+  velox_dwio_common_exception
+  Folly::folly
+  ${FOLLY_BENCHMARK})
 
 add_executable(velox_dwio_common_int_decoder_benchmark IntDecoderBenchmark.cpp)
 target_link_libraries(
-  velox_dwio_common_int_decoder_benchmark velox_dwio_common_exception
-  velox_exception velox_dwio_dwrf_common Folly::folly ${FOLLY_BENCHMARK})
+  velox_dwio_common_int_decoder_benchmark
+  velox_dwio_common_exception
+  velox_exception
+  velox_dwio_dwrf_common
+  Folly::folly
+  ${FOLLY_BENCHMARK})
 
 if(VELOX_ENABLE_ARROW AND VELOX_ENABLE_BENCHMARKS)
   add_subdirectory(Lemire/FastPFor)

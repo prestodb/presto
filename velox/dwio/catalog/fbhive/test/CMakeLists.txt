@@ -14,5 +14,10 @@
 
 add_executable(file_utils_test FileUtilsTests.cpp)
 add_test(file_utils_test file_utils_test)
-target_link_libraries(file_utils_test velox_dwio_catalog_fbhive
-                      velox_dwio_common_exception gtest gtest_main gmock)
+target_link_libraries(
+  file_utils_test
+  velox_dwio_catalog_fbhive
+  velox_dwio_common_exception
+  gtest
+  gtest_main
+  gmock)

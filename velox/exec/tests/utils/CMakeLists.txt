@@ -14,7 +14,8 @@
 
 add_library(velox_temp_path TempFilePath.cpp TempDirectoryPath.cpp)
 
-target_link_libraries(velox_temp_path velox_exception)
+target_link_libraries(
+  velox_temp_path velox_exception)
 
 add_library(
   velox_exec_test_lib

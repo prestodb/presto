@@ -15,5 +15,10 @@ add_executable(velox_vector_fuzzer_test VectorFuzzerTest.cpp)
 
 add_test(velox_vector_fuzzer_test velox_vector_fuzzer_test)
 
-target_link_libraries(velox_vector_fuzzer_test velox_vector_fuzzer velox_memory
-                      gtest gtest_main gmock)
+target_link_libraries(
+  velox_vector_fuzzer_test
+  velox_vector_fuzzer
+  velox_memory
+  gtest
+  gtest_main
+  gmock)

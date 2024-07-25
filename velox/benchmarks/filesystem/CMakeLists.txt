@@ -14,9 +14,18 @@
 
 add_library(velox_read_benchmark_lib ReadBenchmark.cpp)
 
-target_link_libraries(velox_read_benchmark_lib
-                      PUBLIC velox_file velox_time Folly::folly gflags::gflags)
+target_link_libraries(
+  velox_read_benchmark_lib
+  PUBLIC velox_file velox_time Folly::folly gflags::gflags)
 
 add_executable(velox_read_benchmark ReadBenchmarkMain.cpp)
 
-target_link_libraries(velox_read_benchmark PRIVATE velox_read_benchmark_lib velox_hive_config velox_s3fs velox_hdfs velox_abfs velox_gcs)
+target_link_libraries(
+  velox_read_benchmark
+  PRIVATE
+    velox_read_benchmark_lib
+    velox_hive_config
+    velox_s3fs
+    velox_hdfs
+    velox_abfs
+    velox_gcs)

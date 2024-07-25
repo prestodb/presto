@@ -13,43 +13,66 @@
 # limitations under the License.
 add_executable(velox_exec_vector_hasher_benchmark VectorHasherBenchmark.cpp)
 
-target_link_libraries(velox_exec_vector_hasher_benchmark velox_exec
-                      velox_vector_test_lib ${FOLLY_BENCHMARK})
+target_link_libraries(
+  velox_exec_vector_hasher_benchmark velox_exec velox_vector_test_lib
+  ${FOLLY_BENCHMARK})
 
 add_executable(velox_filter_project_benchmark FilterProjectBenchmark.cpp)
 
 target_link_libraries(
-  velox_filter_project_benchmark velox_exec velox_vector_test_lib
-  velox_exec_test_lib ${FOLLY_BENCHMARK})
+  velox_filter_project_benchmark
+  velox_exec
+  velox_vector_test_lib
+  velox_exec_test_lib
+  ${FOLLY_BENCHMARK})
 
 add_executable(velox_exchange_benchmark ExchangeBenchmark.cpp)
 
-target_link_libraries(velox_exchange_benchmark velox_exec velox_exec_test_lib
-                      velox_vector_test_lib ${FOLLY_BENCHMARK})
+target_link_libraries(
+  velox_exchange_benchmark
+  velox_exec
+  velox_exec_test_lib
+  velox_vector_test_lib
+  ${FOLLY_BENCHMARK})
 
 add_executable(velox_merge_benchmark MergeBenchmark.cpp)
 
-target_link_libraries(velox_merge_benchmark velox_exec velox_vector_test_lib
-                      ${FOLLY_BENCHMARK} gtest gtest_main)
+target_link_libraries(
+  velox_merge_benchmark
+  velox_exec
+  velox_vector_test_lib
+  ${FOLLY_BENCHMARK}
+  gtest
+  gtest_main)
 
 add_executable(velox_hash_benchmark HashTableBenchmark.cpp)
 
-target_link_libraries(velox_hash_benchmark velox_exec velox_exec_test_lib
-                      velox_vector_test_lib ${FOLLY_BENCHMARK})
+target_link_libraries(
+  velox_hash_benchmark
+  velox_exec
+  velox_exec_test_lib
+  velox_vector_test_lib
+  ${FOLLY_BENCHMARK})
 
 add_executable(velox_hash_join_list_result_benchmark
                HashJoinListResultBenchmark.cpp)
 
 target_link_libraries(
-  velox_hash_join_list_result_benchmark velox_exec velox_exec_test_lib
-  velox_vector_test_lib ${FOLLY_BENCHMARK})
+  velox_hash_join_list_result_benchmark
+  velox_exec
+  velox_exec_test_lib
+  velox_vector_test_lib
+  ${FOLLY_BENCHMARK})
 
 add_executable(velox_hash_join_prepare_join_table_benchmark
                HashJoinPrepareJoinTableBenchmark.cpp)
 
 target_link_libraries(
-  velox_hash_join_prepare_join_table_benchmark velox_exec velox_exec_test_lib
-  velox_vector_test_lib ${FOLLY_BENCHMARK})
+  velox_hash_join_prepare_join_table_benchmark
+  velox_exec
+  velox_exec_test_lib
+  velox_vector_test_lib
+  ${FOLLY_BENCHMARK})
 
 if(${VELOX_ENABLE_PARQUET})
   add_executable(velox_sort_benchmark RowContainerSortBenchmark.cpp)
@@ -66,5 +89,9 @@ endif()
 
 add_executable(velox_prefixsort_benchmark PrefixSortBenchmark.cpp)
 
-target_link_libraries(velox_prefixsort_benchmark velox_exec velox_vector_fuzzer
-                      velox_vector_test_lib ${FOLLY_BENCHMARK})
+target_link_libraries(
+  velox_prefixsort_benchmark
+  velox_exec
+  velox_vector_fuzzer
+  velox_vector_test_lib
+  ${FOLLY_BENCHMARK})

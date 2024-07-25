@@ -15,10 +15,18 @@
 add_library(velox_file_test_utils TestUtils.cpp FaultyFile.cpp
                                   FaultyFileSystem.cpp)
 
-target_link_libraries(velox_file_test_utils PUBLIC velox_file)
+target_link_libraries(
+  velox_file_test_utils
+  PUBLIC velox_file)
 
 add_executable(velox_file_test FileTest.cpp UtilsTest.cpp)
 add_test(velox_file_test velox_file_test)
 target_link_libraries(
-  velox_file_test PRIVATE velox_file velox_file_test_utils velox_temp_path
-                          gmock gtest gtest_main)
+  velox_file_test
+  PRIVATE
+    velox_file
+    velox_file_test_utils
+    velox_temp_path
+    gmock
+    gtest
+    gtest_main)

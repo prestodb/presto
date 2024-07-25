@@ -16,5 +16,11 @@ add_executable(velox_test_util_test TestScopedTestTime.cpp TestValueTest.cpp)
 gtest_add_tests(velox_test_util_test "" AUTO)
 
 target_link_libraries(
-  velox_test_util_test PRIVATE velox_test_util velox_exception velox_exec
-                               velox_time gtest gtest_main)
+  velox_test_util_test
+  PRIVATE
+    velox_test_util
+    velox_exception
+    velox_exec
+    velox_time
+    gtest
+    gtest_main)

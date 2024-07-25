@@ -14,5 +14,9 @@
 
 add_library(velox_functions_test_lib FunctionBaseTest.cpp)
 
-target_link_libraries(velox_functions_test_lib velox_exec velox_exec_test_lib
-                      velox_vector_test_lib velox_parse_parser)
+target_link_libraries(
+  velox_functions_test_lib
+  velox_exec
+  velox_exec_test_lib
+  velox_vector_test_lib
+  velox_parse_parser)

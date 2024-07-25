@@ -15,5 +15,10 @@ add_executable(velox_tpch_gen_test TpchGenTest.cpp)
 
 add_test(velox_tpch_gen_test velox_tpch_gen_test)
 
-target_link_libraries(velox_tpch_gen_test velox_tpch_gen velox_type
-                      velox_vector gtest gtest_main)
+target_link_libraries(
+  velox_tpch_gen_test
+  velox_tpch_gen
+  velox_type
+  velox_vector
+  gtest
+  gtest_main)

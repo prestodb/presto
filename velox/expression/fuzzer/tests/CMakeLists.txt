@@ -13,8 +13,9 @@
 # limitations under the License.
 
 add_library(velox_expression_fuzzer_test_utility ArgGeneratorTestUtils.cpp)
-target_link_libraries(velox_expression_fuzzer_test_utility
-                      velox_expression_functions velox_function_registry gtest)
+target_link_libraries(
+  velox_expression_fuzzer_test_utility velox_expression_functions
+  velox_function_registry gtest)
 
 add_executable(
   velox_expression_fuzzer_unit_test

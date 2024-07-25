@@ -23,8 +23,12 @@ add_test(
   COMMAND aggregate_companion_functions_test
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
-target_link_libraries(aggregate_companion_functions_test velox_exec
-                      velox_function_registry gtest gtest_main)
+target_link_libraries(
+  aggregate_companion_functions_test
+  velox_exec
+  velox_function_registry
+  gtest
+  gtest_main)
 
 add_executable(
   velox_exec_test
@@ -207,26 +211,32 @@ target_link_libraries(
 # RowNumber Fuzzer.
 add_executable(velox_row_number_fuzzer_test RowNumberFuzzerTest.cpp)
 
-target_link_libraries(velox_row_number_fuzzer_test velox_row_number_fuzzer
-                      gtest gtest_main)
+target_link_libraries(
+  velox_row_number_fuzzer_test velox_row_number_fuzzer gtest gtest_main)
 
 # Join Fuzzer.
 add_executable(velox_join_fuzzer_test JoinFuzzerTest.cpp)
 
-target_link_libraries(velox_join_fuzzer_test velox_join_fuzzer gtest gtest_main)
+target_link_libraries(
+  velox_join_fuzzer_test velox_join_fuzzer gtest gtest_main)
 
 # Arbitration Fuzzer.
 add_executable(velox_memory_arbitration_fuzzer_test
                MemoryArbitrationFuzzerTest.cpp)
 
-target_link_libraries(velox_memory_arbitration_fuzzer_test
-                      velox_memory_arbitration_fuzzer gtest gtest_main)
+target_link_libraries(
+  velox_memory_arbitration_fuzzer_test velox_memory_arbitration_fuzzer gtest
+  gtest_main)
 
 # Cache Fuzzer
 add_executable(velox_cache_fuzzer_test CacheFuzzerTest.cpp)
 
-target_link_libraries(velox_cache_fuzzer_test velox_cache_fuzzer
-                      velox_fuzzer_util gtest gtest_main)
+target_link_libraries(
+  velox_cache_fuzzer_test
+  velox_cache_fuzzer
+  velox_fuzzer_util
+  gtest
+  gtest_main)
 
 add_executable(velox_exchange_fuzzer_test ExchangeFuzzer.cpp)
 
@@ -254,15 +264,23 @@ target_link_libraries(
 add_library(velox_simple_aggregate SimpleAverageAggregate.cpp
                                    SimpleArrayAggAggregate.cpp)
 
-target_link_libraries(velox_simple_aggregate velox_exec velox_expression
-                      velox_expression_functions velox_aggregates)
+target_link_libraries(
+  velox_simple_aggregate
+  velox_exec
+  velox_expression
+  velox_expression_functions
+  velox_aggregates)
 
 add_executable(velox_simple_aggregate_test SimpleAggregateAdapterTest.cpp
                                            Main.cpp)
 
 target_link_libraries(
-  velox_simple_aggregate_test velox_simple_aggregate velox_exec
-  velox_functions_aggregates_test_lib gtest gtest_main)
+  velox_simple_aggregate_test
+  velox_simple_aggregate
+  velox_exec
+  velox_functions_aggregates_test_lib
+  gtest
+  gtest_main)
 
 add_library(velox_spiller_join_benchmark_base JoinSpillInputBenchmarkBase.cpp
                                               SpillerBenchmarkBase.cpp)
@@ -278,8 +296,9 @@ target_link_libraries(
   pthread)
 
 add_executable(velox_spiller_join_benchmark SpillerJoinInputBenchmarkTest.cpp)
-target_link_libraries(velox_spiller_join_benchmark velox_exec
-                      velox_exec_test_lib velox_spiller_join_benchmark_base)
+target_link_libraries(
+  velox_spiller_join_benchmark velox_exec velox_exec_test_lib
+  velox_spiller_join_benchmark_base)
 
 add_library(velox_spiller_aggregate_benchmark_base
             AggregateSpillBenchmarkBase.cpp SpillerBenchmarkBase.cpp)
@@ -305,4 +324,5 @@ add_test(
   NAME cpr_http_client_test
   COMMAND cpr_http_client_test
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(cpr_http_client_test cpr::cpr gtest gtest_main)
+target_link_libraries(
+  cpr_http_client_test cpr::cpr gtest gtest_main)

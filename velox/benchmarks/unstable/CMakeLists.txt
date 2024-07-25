@@ -27,5 +27,5 @@ set(velox_benchmark_deps
     glog::glog)
 
 add_executable(velox_memory_alloc_benchmark MemoryAllocationBenchmark.cpp)
-target_link_libraries(velox_memory_alloc_benchmark ${velox_benchmark_deps}
-                      velox_memory pthread)
+target_link_libraries(
+  velox_memory_alloc_benchmark ${velox_benchmark_deps} velox_memory pthread)

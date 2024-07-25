@@ -18,5 +18,10 @@ add_test(
   COMMAND velox_dwio_orc_reader_test
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
-target_link_libraries(velox_dwio_orc_reader_test velox_dwrf_test_utils
-                      velox_dwio_common_test_utils gtest gtest_main gmock)
+target_link_libraries(
+  velox_dwio_orc_reader_test
+  velox_dwrf_test_utils
+  velox_dwio_common_test_utils
+  gtest
+  gtest_main
+  gmock)

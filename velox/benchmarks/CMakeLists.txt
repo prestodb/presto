@@ -29,9 +29,11 @@ set(velox_benchmark_deps
     glog::glog)
 
 add_library(velox_benchmark_builder ExpressionBenchmarkBuilder.cpp)
-target_link_libraries(velox_benchmark_builder ${velox_benchmark_deps})
+target_link_libraries(
+  velox_benchmark_builder ${velox_benchmark_deps})
 # This is a workaround for the use of VectorTestBase.h which includes gtest.h
-target_link_libraries(velox_benchmark_builder gtest)
+target_link_libraries(
+  velox_benchmark_builder gtest)
 
 if(${VELOX_ENABLE_BENCHMARKS})
   add_subdirectory(tpch)

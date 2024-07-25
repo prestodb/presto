@@ -26,5 +26,10 @@ target_link_libraries(
 
 add_executable(velox_tpch_speed_test SpeedTest.cpp)
 
-target_link_libraries(velox_tpch_speed_test velox_tpch_connector velox_exec
-                      velox_exec_test_lib velox_memory fmt::fmt)
+target_link_libraries(
+  velox_tpch_speed_test
+  velox_tpch_connector
+  velox_exec
+  velox_exec_test_lib
+  velox_memory
+  fmt::fmt)

@@ -16,5 +16,11 @@ add_executable(velox_serialization_test TestRegistry.cpp SerializableTest.cpp)
 add_test(velox_serialization_test velox_serialization_test)
 
 target_link_libraries(
-  velox_serialization_test PRIVATE velox_exception velox_serialization
-                                   Folly::folly glog::glog gtest gtest_main)
+  velox_serialization_test
+  PRIVATE
+    velox_exception
+    velox_serialization
+    Folly::folly
+    glog::glog
+    gtest
+    gtest_main)
