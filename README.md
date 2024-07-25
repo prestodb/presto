@@ -159,6 +159,8 @@ Note that,
     * Neon
     * Neon64
 
+Build metrics for Velox are published at <https://facebookincubator.github.io/velox/bm-report/>
+
 ### Building Velox with docker-compose
 
 If you don't want to install the system dependencies required to build Velox,
