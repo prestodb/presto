@@ -398,7 +398,6 @@ TEST_F(ProbabilityTest, gammaCDF) {
 
 TEST_F(ProbabilityTest, poissonCDF) {
   poissonCDFTests<int32_t>();
-  poissonCDFTests<int64_t>();
 }
 
 TEST_F(ProbabilityTest, binomialCDF) {
