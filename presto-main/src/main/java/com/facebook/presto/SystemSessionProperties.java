@@ -275,6 +275,7 @@ public final class SystemSessionProperties
     public static final String RESTRICT_HISTORY_BASED_OPTIMIZATION_TO_COMPLEX_QUERY = "restrict_history_based_optimization_to_complex_query";
     public static final String HISTORY_INPUT_TABLE_STATISTICS_MATCHING_THRESHOLD = "history_input_table_statistics_matching_threshold";
     public static final String HISTORY_BASED_OPTIMIZATION_PLAN_CANONICALIZATION_STRATEGY = "history_based_optimization_plan_canonicalization_strategy";
+    public static final String ENABLE_VERBOSE_HISTORY_BASED_OPTIMIZER_RUNTIME_STATS = "enable_verbose_history_based_optimizer_runtime_stats";
     public static final String LOG_QUERY_PLANS_USED_IN_HISTORY_BASED_OPTIMIZER = "log_query_plans_used_in_history_based_optimizer";
     public static final String MAX_LEAF_NODES_IN_PLAN = "max_leaf_nodes_in_plan";
     public static final String LEAF_NODE_LIMIT_ENABLED = "leaf_node_limit_enabled";
@@ -434,7 +435,7 @@ public final class SystemSessionProperties
                 booleanProperty(
                         TREAT_LOW_CONFIDENCE_ZERO_ESTIMATION_AS_UNKNOWN_ENABLED,
                         "Treat low confidence zero estimations as unknowns during joins when enabled",
-                        false,
+                        featuresConfig.isTreatLowConfidenceZeroEstimationAsUnknownEnabled(),
                         false),
                 booleanProperty(
                         DISTRIBUTED_INDEX_JOIN,
@@ -1577,6 +1578,11 @@ public final class SystemSessionProperties
                                         .map(PlanCanonicalizationStrategy::name)
                                         .collect(joining(","))),
                         featuresConfig.getHistoryBasedOptimizerPlanCanonicalizationStrategies(),
+                        false),
+                booleanProperty(
+                        ENABLE_VERBOSE_HISTORY_BASED_OPTIMIZER_RUNTIME_STATS,
+                        "Enable recording of verbose runtime stats for history based optimizer",
+                        false,
                         false),
                 booleanProperty(
                         LOG_QUERY_PLANS_USED_IN_HISTORY_BASED_OPTIMIZER,
@@ -3046,6 +3052,11 @@ public final class SystemSessionProperties
         }
 
         return strategyList;
+    }
+
+    public static boolean enableVerboseHistoryBasedOptimizerRuntimeStats(Session session)
+    {
+        return session.getSystemProperty(ENABLE_VERBOSE_HISTORY_BASED_OPTIMIZER_RUNTIME_STATS, Boolean.class);
     }
 
     public static boolean logQueryPlansUsedInHistoryBasedOptimizer(Session session)

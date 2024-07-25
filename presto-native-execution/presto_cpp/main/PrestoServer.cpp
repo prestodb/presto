@@ -119,6 +119,14 @@ bool isCacheTtlEnabled() {
   return false;
 }
 
+bool isCachePeriodicFullPersistenceEnabled() {
+  const auto* systemConfig = SystemConfig::instance();
+  return systemConfig->asyncDataCacheEnabled() &&
+      systemConfig->asyncCacheSsdGb() > 0 &&
+      systemConfig->asyncCacheFullPersistenceInterval() >
+      std::chrono::seconds::zero();
+}
+
 } // namespace
 
 std::string nodeState2String(NodeState nodeState) {
@@ -608,18 +616,18 @@ void PrestoServer::run() {
   }
 
   PRESTO_SHUTDOWN_LOG(INFO)
-      << "Joining Exchange Http IO executor '"
-      << exchangeHttpIoExecutor_->getName()
-      << "': threads: " << exchangeHttpIoExecutor_->numActiveThreads() << "/"
-      << exchangeHttpIoExecutor_->numThreads();
-  exchangeHttpIoExecutor_->join();
-
-  PRESTO_SHUTDOWN_LOG(INFO)
       << "Joining Exchange Http CPU executor '"
       << exchangeHttpCpuExecutor_->getName()
       << "': threads: " << exchangeHttpCpuExecutor_->numActiveThreads() << "/"
       << exchangeHttpCpuExecutor_->numThreads();
   exchangeHttpCpuExecutor_->join();
+
+  PRESTO_SHUTDOWN_LOG(INFO)
+      << "Joining Exchange Http IO executor '"
+      << exchangeHttpIoExecutor_->getName()
+      << "': threads: " << exchangeHttpIoExecutor_->numActiveThreads() << "/"
+      << exchangeHttpIoExecutor_->numThreads();
+  exchangeHttpIoExecutor_->join();
 
   PRESTO_SHUTDOWN_LOG(INFO) << "Done joining our executors.";
 
@@ -944,6 +952,49 @@ void PrestoServer::addServerPeriodicTasks() {
         },
         ttlCheckInterval,
         "cache_ttl");
+  }
+
+  if (isCachePeriodicFullPersistenceEnabled()) {
+    PRESTO_STARTUP_LOG(INFO)
+        << "Initializing cache periodic full persistence task...";
+    auto* cache = velox::cache::AsyncDataCache::getInstance();
+    VELOX_CHECK_NOT_NULL(cache);
+    auto* ssdCache = cache->ssdCache();
+    VELOX_CHECK_NOT_NULL(ssdCache);
+    const auto* systemConfig = SystemConfig::instance();
+    const int64_t cacheFullPersistenceIntervalUs =
+        std::chrono::duration_cast<std::chrono::microseconds>(
+            systemConfig->asyncCacheFullPersistenceInterval())
+            .count();
+    const auto asyncCacheSsdCheckpointGb =
+        systemConfig->asyncCacheSsdCheckpointGb();
+    periodicTaskManager_->addTask(
+        [asyncCacheSsdCheckpointGb, cache, ssdCache]() {
+          try {
+            if (!ssdCache->startWrite()) {
+              return;
+            }
+            LOG(INFO) << "Persisting full cache to SSD...";
+            cache->saveToSsd(true);
+            ssdCache->waitForWriteToFinish();
+            LOG(INFO) << "Cache full persistence completed.";
+
+            if (asyncCacheSsdCheckpointGb == 0) {
+              return;
+            }
+
+            if (!ssdCache->startWrite()) {
+              return;
+            }
+
+            ssdCache->checkpoint();
+            ssdCache->waitForWriteToFinish();
+          } catch (const std::exception& e) {
+            LOG(ERROR) << "Failed to persistent cache to SSD: " << e.what();
+          }
+        },
+        cacheFullPersistenceIntervalUs,
+        "cache_full_persistence");
   }
 }
 

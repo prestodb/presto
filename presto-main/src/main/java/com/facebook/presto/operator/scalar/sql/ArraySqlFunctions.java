@@ -37,6 +37,24 @@ public class ArraySqlFunctions
                 "s -> if(s[2] = 0, cast(null as double), s[1] / cast(s[2] as double)))";
     }
 
+    @SqlInvokedScalarFunction(value = "array_split_into_chunks", deterministic = true, calledOnNullInput = false)
+    @Description("Returns an array of arrays splitting input array into chunks of given length. " +
+            "If array is not evenly divisible it will split into as many possible chunks and " +
+            "return the left over elements for the last array. Returns null for null inputs, but not elements.")
+    @TypeParameter("T")
+    @SqlParameters({@SqlParameter(name = "input", type = "array(T)"), @SqlParameter(name = "sz", type = "int")})
+    @SqlType("array(array(T))")
+    public static String arraySplitIntoChunks()
+    {
+        return "RETURN IF(sz <= 0, " +
+                "fail('Invalid slice size: ' || cast(sz as varchar) || '. Size must be greater than zero.'), " +
+                "IF(cardinality(input) / sz > 10000, " +
+                "fail('Cannot split array of size: ' || cast(cardinality(input) as varchar) || ' into more than 10000 parts.'), " +
+                "transform(" +
+                "sequence(1, cardinality(input), sz), " +
+                "x -> slice(input, x, sz))))";
+    }
+
     @SqlInvokedScalarFunction(value = "array_frequency", deterministic = true, calledOnNullInput = false)
     @Description("Returns the frequency of all array elements as a map.")
     @TypeParameter("T")

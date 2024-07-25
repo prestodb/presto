@@ -38,8 +38,8 @@ endif
 ifeq ($(PRESTO_ENABLE_JWT), ON)
   EXTRA_CMAKE_FLAGS += -DPRESTO_ENABLE_JWT=ON
 endif
-ifeq ($(PRESTO_ENABLE_PROMETHEUS_REPORTER), ON)
-  EXTRA_CMAKE_FLAGS += -DPRESTO_ENABLE_PROMETHEUS_REPORTER=ON
+ifneq ($(PRESTO_STATS_REPORTER_TYPE),)
+  EXTRA_CMAKE_FLAGS += -DPRESTO_STATS_REPORTER_TYPE=$(PRESTO_STATS_REPORTER_TYPE)
 endif
 
 CMAKE_FLAGS := -DTREAT_WARNINGS_AS_ERRORS=${TREAT_WARNINGS_AS_ERRORS}
@@ -102,17 +102,17 @@ TypeSignature:		#: Build the Presto TypeSignature parser
 	cd presto_cpp/main/types; $(MAKE) TypeSignature
 
 format-fix: 			#: Fix formatting issues in the presto-native-execution directory
-	velox/scripts/check.py format master --fix
+	scripts/check.py format master --fix
 
 format-check: 			#: Check for formatting issues in the presto-native-execution directory
 	clang-format --version
-	velox/scripts/check.py format master
+	scripts/check.py format master
 
 header-fix:			#: Fix license header issues in the presto-native-execution directory
-	velox/scripts/check.py header master --fix
+	scripts/check.py header master --fix
 
 header-check:			#: Check for license header issues in the presto-native-execution directory
-	velox/scripts/check.py header master
+	scripts/check.py header master
 
 help:					#: Show the help messages
 	@cat $(firstword $(MAKEFILE_LIST)) | \

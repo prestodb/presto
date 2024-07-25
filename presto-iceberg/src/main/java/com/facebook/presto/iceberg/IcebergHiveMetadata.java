@@ -109,6 +109,7 @@ import static com.facebook.presto.hive.metastore.Statistics.createComputedStatis
 import static com.facebook.presto.iceberg.HiveTableOperations.STORAGE_FORMAT;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static com.facebook.presto.iceberg.IcebergSchemaProperties.getSchemaLocation;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getHiveStatisticsMergeStrategy;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getFileFormat;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getPartitioning;
@@ -311,7 +312,7 @@ public class IcebergHiveMetadata
         TableMetadata metadata = newTableMetadata(schema, partitionSpec, targetPath, populateTableProperties(tableMetadata, fileFormat, session));
         transaction = createTableTransaction(tableName, operations, metadata);
 
-        return new IcebergWritableTableHandle(
+        return new IcebergOutputTableHandle(
                 schemaName,
                 new IcebergTableName(tableName, DATA, Optional.empty(), Optional.empty()),
                 SchemaParser.toJson(metadata.schema()),
@@ -319,6 +320,7 @@ public class IcebergHiveMetadata
                 getColumns(metadata.schema(), metadata.spec(), typeManager),
                 targetPath,
                 fileFormat,
+                getCompressionCodec(session),
                 metadata.properties());
     }
 
