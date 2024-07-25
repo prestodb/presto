@@ -122,7 +122,7 @@ void validateTimePoint(const std::chrono::time_point<
 } // namespace
 
 std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>
-Timestamp::toTimePoint(bool allowOverflow) const {
+Timestamp::toTimePointMs(bool allowOverflow) const {
   using namespace std::chrono;
   auto tp = time_point<system_clock, milliseconds>(
       milliseconds(allowOverflow ? toMillisAllowOverflow() : toMillis()));
@@ -130,14 +130,19 @@ Timestamp::toTimePoint(bool allowOverflow) const {
   return tp;
 }
 
-void Timestamp::toTimezone(const tz::TimeZone& zone, bool allowOverflow) {
-  auto tp = toTimePoint(allowOverflow);
+std::chrono::time_point<std::chrono::system_clock, std::chrono::seconds>
+Timestamp::toTimePointSec() const {
+  using namespace std::chrono;
+  auto tp = time_point<system_clock, seconds>(seconds(seconds_));
+  validateTimePoint(tp);
+  return tp;
+}
+
+void Timestamp::toTimezone(const tz::TimeZone& zone) {
+  auto tp = toTimePointSec();
 
   try {
-    auto epoch = zone.to_local(tp).time_since_epoch();
-
-    // NOTE: Round down to get the seconds of the current time point.
-    seconds_ = std::chrono::floor<std::chrono::seconds>(epoch).count();
+    seconds_ = zone.to_local(tp).time_since_epoch().count();
   } catch (const std::invalid_argument& e) {
     // Invalid argument means we hit a conversion not supported by
     // external/date. Need to throw a RuntimeError so that try() statements do

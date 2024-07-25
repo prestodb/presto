@@ -1086,11 +1086,11 @@ int32_t DateTimeFormatter::format(
   Timestamp t = timestamp;
   if (timezone != nullptr) {
     const auto utcSeconds = timestamp.getSeconds();
-    t.toTimezone(*timezone, allowOverflow);
+    t.toTimezone(*timezone);
 
     offset = t.getSeconds() - utcSeconds;
   }
-  const auto timePoint = t.toTimePoint(allowOverflow);
+  const auto timePoint = t.toTimePointMs(allowOverflow);
   const auto daysTimePoint = date::floor<date::days>(timePoint);
 
   const auto durationInTheDay = date::make_time(timePoint - daysTimePoint);

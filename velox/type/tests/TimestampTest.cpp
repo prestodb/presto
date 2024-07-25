@@ -398,16 +398,22 @@ TEST(TimestampTest, outOfRange) {
   Timestamp t1(-3217830796800, 0);
 
   VELOX_ASSERT_THROW(
-      t1.toTimePoint(), "Timestamp is outside of supported range");
+      t1.toTimePointMs(), "Timestamp is outside of supported range");
+  VELOX_ASSERT_THROW(
+      t1.toTimePointSec(), "Timestamp is outside of supported range");
   VELOX_ASSERT_THROW(
       t1.toTimezone(*timezone), "Timestamp is outside of supported range");
+
+  timezone = tz::locateZone("America/Los_Angeles");
+  VELOX_ASSERT_THROW(
+      t1.toGMT(*timezone),
+      "Timestamp seconds out of range for time zone adjustment");
 
   // #2. external/date doesn't understand OS_TZDB repetition rules. Therefore,
   // for timezones with pre-defined repetition rules for daylight savings, for
   // example, it will throw for anything larger than 2037 (which is what is
   // currently materialized in OS_TZDBs). America/Los_Angeles is an example of
   // such timezone.
-  timezone = tz::locateZone("America/Los_Angeles");
   Timestamp t2(32517359891, 0);
   VELOX_ASSERT_THROW(
       t2.toTimezone(*timezone),
@@ -420,12 +426,12 @@ TEST(TimestampTest, outOfRange) {
 TEST(TimestampTest, overflow) {
   Timestamp t(std::numeric_limits<int64_t>::max(), 0);
   VELOX_ASSERT_THROW(
-      t.toTimePoint(false),
+      t.toTimePointMs(false),
       fmt::format(
           "Could not convert Timestamp({}, {}) to milliseconds",
           std::numeric_limits<int64_t>::max(),
           0));
-  ASSERT_NO_THROW(t.toTimePoint(true));
+  ASSERT_NO_THROW(t.toTimePointMs(true));
 }
 #endif
 

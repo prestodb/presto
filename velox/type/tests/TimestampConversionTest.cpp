@@ -282,22 +282,22 @@ TEST(DateTimeUtilTest, toGMT) {
   EXPECT_EQ(ts, parseTimestamp("1970-01-01 08:00:00"));
 
   // Set on a random date/time and try some variations.
-  ts = parseTimestamp("2020-04-23 04:23:37");
+  ts = parseTimestamp("2020-04-23 04:23:37.926");
 
   // To LA:
   auto tsCopy = ts;
   tsCopy.toGMT(*laZone);
-  EXPECT_EQ(tsCopy, parseTimestamp("2020-04-23 11:23:37"));
+  EXPECT_EQ(tsCopy, parseTimestamp("2020-04-23 11:23:37.926"));
 
   // To Sao Paulo:
   tsCopy = ts;
   tsCopy.toGMT(*tz::locateZone("America/Sao_Paulo"));
-  EXPECT_EQ(tsCopy, parseTimestamp("2020-04-23 07:23:37"));
+  EXPECT_EQ(tsCopy, parseTimestamp("2020-04-23 07:23:37.926"));
 
   // Moscow:
   tsCopy = ts;
   tsCopy.toGMT(*tz::locateZone("Europe/Moscow"));
-  EXPECT_EQ(tsCopy, parseTimestamp("2020-04-23 01:23:37"));
+  EXPECT_EQ(tsCopy, parseTimestamp("2020-04-23 01:23:37.926"));
 
   // Probe LA's daylight savings boundary (starts at 2021-13-14 02:00am).
   // Before it starts, 8h offset:

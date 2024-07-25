@@ -192,12 +192,25 @@ struct Timestamp {
     }
   }
 
-  /// Due to the limit of std::chrono, throws if timestamp is outside of
+  /// Exports the current timestamp as a std::chrono::time_point of millisecond
+  /// precision. Note that the conversion may overflow since the internal
+  /// `seconds_` value will need to be multiplied by 1000.
+  ///
+  /// If `allowOverflow` is true, integer overflow is allowed in converting
+  /// to milliseconds.
+  ///
+  /// Due to the limit of velox/external/date, throws if timestamp is outside of
   /// [-32767-01-01, 32767-12-31] range.
-  /// If allowOverflow is true, integer overflow is allowed in converting
-  /// timestamp to milliseconds.
   std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>
-  toTimePoint(bool allowOverflow = false) const;
+  toTimePointMs(bool allowOverflow = false) const;
+
+  /// Exports the current timestamp as a std::chrono::time_point of second
+  /// precision.
+  ///
+  /// Due to the limit of velox/external/date, throws if timestamp is outside of
+  /// [-32767-01-01, 32767-12-31] range.
+  std::chrono::time_point<std::chrono::system_clock, std::chrono::seconds>
+  toTimePointSec() const;
 
   static Timestamp fromMillis(int64_t millis) {
     if (millis >= 0 || millis % 1'000 == 0) {
@@ -330,23 +343,23 @@ struct Timestamp {
       char* const startPosition);
 
   // Assuming the timestamp represents a time at zone, converts it to the GMT
-  // time at the same moment.
-  // Example: Timestamp ts{0, 0};
-  // ts.Timezone("America/Los_Angeles");
-  // ts.toString() returns January 1, 1970 08:00:00
+  // time at the same moment. For example:
+  //
+  //  Timestamp ts{0, 0};
+  //  ts.Timezone("America/Los_Angeles");
+  //  ts.toString(); // returns January 1, 1970 08:00:00
   void toGMT(const tz::TimeZone& zone);
 
   // Same as above, but accepts PrestoDB time zone ID.
   void toGMT(int16_t tzID);
 
   /// Assuming the timestamp represents a GMT time, converts it to the time at
-  /// the same moment at zone.
-  /// @param allowOverflow If true, integer overflow is allowed when converting
-  /// timestamp to TimePoint. Otherwise, user exception is thrown for overflow.
-  /// Example: Timestamp ts{0, 0};
-  /// ts.Timezone("America/Los_Angeles");
-  /// ts.toString() returns December 31, 1969 16:00:00
-  void toTimezone(const tz::TimeZone& zone, bool allowOverflow = false);
+  /// the same moment at zone. For example:
+  ///
+  ///  Timestamp ts{0, 0};
+  ///  ts.Timezone("America/Los_Angeles");
+  ///  ts.toString(); // returns December 31, 1969 16:00:00
+  void toTimezone(const tz::TimeZone& zone);
 
   // Same as above, but accepts PrestoDB time zone ID.
   void toTimezone(int16_t tzID);
