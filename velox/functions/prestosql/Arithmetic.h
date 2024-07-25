@@ -451,7 +451,7 @@ struct InfinityFunction {
 template <typename T>
 struct IsFiniteFunction {
   FOLLY_ALWAYS_INLINE void call(bool& result, double a) {
-    result = !std::isinf(a);
+    result = std::isfinite(a);
   }
 };
 

@@ -599,6 +599,7 @@ TEST_F(ArithmeticTest, isFinite) {
   EXPECT_EQ(false, isFinite(-kInf));
   EXPECT_EQ(false, isFinite(1.0 / 0.0));
   EXPECT_EQ(false, isFinite(-1.0 / 0.0));
+  EXPECT_EQ(false, isFinite(kNan));
 }
 
 TEST_F(ArithmeticTest, isInfinite) {
@@ -607,6 +608,7 @@ TEST_F(ArithmeticTest, isInfinite) {
   };
 
   EXPECT_EQ(false, isInfinite(0.0));
+  EXPECT_EQ(false, isInfinite(kNan));
   EXPECT_EQ(true, isInfinite(kInf));
   EXPECT_EQ(true, isInfinite(-kInf));
   EXPECT_EQ(true, isInfinite(1.0 / 0.0));
