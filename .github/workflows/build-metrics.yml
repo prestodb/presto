@@ -58,7 +58,7 @@ jobs:
       - name: Fix git permissions
         # Usually actions/checkout does this but as we run in a container
         # it doesn't work
-        run: git config --global --add safe.directory /__w/velox/velox
+        run: git config --global --add safe.directory ${GITHUB_WORKSPACE}
 
       - name: Make ${{ matrix.type }} Build
         env:

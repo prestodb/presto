@@ -103,13 +103,12 @@ jobs:
           name: join
           path: velox/_build/debug/velox/exec/tests/velox_join_fuzzer_test
 
-
   presto-java-aggregation-fuzzer-run:
     runs-on: 8-core-ubuntu
     container: ghcr.io/facebookincubator/velox-dev:presto-java
     timeout-minutes: 120
     env:
-      CCACHE_DIR: "/__w/velox/velox/.ccache/"
+      CCACHE_DIR: "${{ github.workspace }}/.ccache/"
       LINUX_DISTRO: "centos"
     steps:
 
