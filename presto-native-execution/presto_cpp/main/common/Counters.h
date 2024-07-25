@@ -56,6 +56,8 @@ constexpr folly::StringPiece kCounterNumQueryContexts{
     "presto_cpp.num_query_contexts"};
 
 constexpr folly::StringPiece kCounterNumTasks{"presto_cpp.num_tasks"};
+constexpr folly::StringPiece kCounterNumTasksBytesProcessed{
+    "presto_cpp.num_tasks_bytes_processed"};
 constexpr folly::StringPiece kCounterNumTasksRunning{
     "presto_cpp.num_tasks_running"};
 constexpr folly::StringPiece kCounterNumTasksFinished{

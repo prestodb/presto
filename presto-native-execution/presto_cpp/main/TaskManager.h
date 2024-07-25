@@ -134,6 +134,9 @@ class TaskManager {
     return taskMap_.rlock()->size();
   }
 
+  /// Returns the processed input data size in bytes for tasks.
+  int64_t getBytesProcessed() const;
+
   /// Stores the number of drivers in various states of execution.
   velox::exec::Task::DriverCounts getDriverCounts() const;
 
