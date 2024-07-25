@@ -210,6 +210,8 @@ void PeriodicTaskManager::updateTaskStats() {
   auto taskNumbers = taskManager_->getTaskNumbers(numTasks);
   RECORD_METRIC_VALUE(kCounterNumTasks, taskManager_->getNumTasks());
   RECORD_METRIC_VALUE(
+      kCounterNumTasksBytesProcessed, taskManager_->getBytesProcessed());
+  RECORD_METRIC_VALUE(
       kCounterNumTasksRunning, taskNumbers[velox::exec::TaskState::kRunning]);
   RECORD_METRIC_VALUE(
       kCounterNumTasksFinished, taskNumbers[velox::exec::TaskState::kFinished]);

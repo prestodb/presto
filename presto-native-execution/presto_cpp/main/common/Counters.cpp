@@ -47,6 +47,7 @@ void registerPrestoMetrics() {
       kCounterHttpClientNumConnectionsCreated, facebook::velox::StatType::SUM);
   DEFINE_METRIC(kCounterNumQueryContexts, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterNumTasks, facebook::velox::StatType::AVG);
+  DEFINE_METRIC(kCounterNumTasksBytesProcessed, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterNumTasksRunning, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterNumTasksFinished, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterNumTasksCancelled, facebook::velox::StatType::AVG);
