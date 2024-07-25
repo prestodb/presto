@@ -1116,7 +1116,7 @@ std::unique_ptr<DwrfRowReader> DwrfReader::createDwrfRowReader(
     // background have a reader tree and can preload the first
     // stripe. Also the reader tree needs to exist in order to receive
     // adaptation from a previous reader.
-    rowReader->loadCurrentStripe();
+    rowReader->nextRowNumber();
   }
   return rowReader;
 }

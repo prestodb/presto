@@ -285,7 +285,6 @@ bool SplitReader::checkIfSplitIsEmpty(
     return true;
   }
 
-  // Note that this doesn't apply to Hudi tables.
   if (!baseReader_ || baseReader_->numberOfRows() == 0) {
     emptySplit_ = true;
   } else {
