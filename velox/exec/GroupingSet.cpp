@@ -994,7 +994,8 @@ void GroupingSet::spill() {
          ++partition) {
       numDistinctSpillFilesPerPartition_[partition] =
           spiller_->state().numFinishedFiles(partition);
-      totalNumDistinctSpilledFiles += numDistinctSpillFilesPerPartition_.back();
+      totalNumDistinctSpilledFiles +=
+          numDistinctSpillFilesPerPartition_[partition];
     }
     VELOX_CHECK_GT(totalNumDistinctSpilledFiles, 0);
   }

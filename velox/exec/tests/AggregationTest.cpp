@@ -1811,26 +1811,45 @@ DEBUG_ONLY_TEST_F(AggregationTest, minSpillableMemoryReservation) {
 }
 
 TEST_F(AggregationTest, distinctWithSpilling) {
-  auto vectors = makeVectors(rowType_, 10, 100);
-  createDuckDbTable(vectors);
-  auto spillDirectory = exec::test::TempDirectoryPath::create();
-  core::PlanNodeId aggrNodeId;
-  TestScopedSpillInjection scopedSpillInjection(100);
-  auto task = AssertQueryBuilder(duckDbQueryRunner_)
-                  .spillDirectory(spillDirectory->getPath())
-                  .config(QueryConfig::kSpillEnabled, true)
-                  .config(QueryConfig::kAggregationSpillEnabled, true)
-                  .plan(PlanBuilder()
-                            .values(vectors)
-                            .singleAggregation({"c0"}, {}, {})
-                            .capturePlanNodeId(aggrNodeId)
-                            .planNode())
-                  .assertResults("SELECT distinct c0 FROM tmp");
-  // Verify that spilling is not triggered.
-  ASSERT_GT(toPlanStats(task->taskStats()).at(aggrNodeId).spilledInputBytes, 0);
-  ASSERT_EQ(toPlanStats(task->taskStats()).at(aggrNodeId).spilledPartitions, 8);
-  ASSERT_GT(toPlanStats(task->taskStats()).at(aggrNodeId).spilledBytes, 0);
-  OperatorTestBase::deleteTaskAndCheckSpillDirectory(task);
+  struct TestParam {
+    std::vector<RowVectorPtr> inputs;
+    std::function<void(uint32_t)> expectedSpillFilesCheck{nullptr};
+  };
+
+  std::vector<TestParam> testParams{
+      {makeVectors(rowType_, 10, 100),
+       [](uint32_t spilledFiles) { ASSERT_GE(spilledFiles, 100); }},
+      {{makeRowVector(
+           {"c0"},
+           {makeFlatVector<int64_t>(
+               2'000, [](vector_size_t /* unused */) { return 100; })})},
+       [](uint32_t spilledFiles) { ASSERT_EQ(spilledFiles, 1); }}};
+
+  for (const auto& testParam : testParams) {
+    createDuckDbTable(testParam.inputs);
+    auto spillDirectory = exec::test::TempDirectoryPath::create();
+    core::PlanNodeId aggrNodeId;
+    TestScopedSpillInjection scopedSpillInjection(100);
+    auto task = AssertQueryBuilder(duckDbQueryRunner_)
+                    .spillDirectory(spillDirectory->getPath())
+                    .config(QueryConfig::kSpillEnabled, true)
+                    .config(QueryConfig::kAggregationSpillEnabled, true)
+                    .plan(PlanBuilder()
+                              .values(testParam.inputs)
+                              .singleAggregation({"c0"}, {}, {})
+                              .capturePlanNodeId(aggrNodeId)
+                              .planNode())
+                    .assertResults("SELECT distinct c0 FROM tmp");
+
+    // Verify that spilling is not triggered.
+    const auto planNodeStatsMap = toPlanStats(task->taskStats());
+    const auto& aggrNodeStats = planNodeStatsMap.at(aggrNodeId);
+    ASSERT_GT(aggrNodeStats.spilledInputBytes, 0);
+    ASSERT_EQ(aggrNodeStats.spilledPartitions, 8);
+    ASSERT_GT(aggrNodeStats.spilledBytes, 0);
+    testParam.expectedSpillFilesCheck(aggrNodeStats.spilledFiles);
+    OperatorTestBase::deleteTaskAndCheckSpillDirectory(task);
+  }
 }
 
 TEST_F(AggregationTest, spillingForAggrsWithDistinct) {
@@ -3706,5 +3725,4 @@ TEST_F(AggregationTest, nanKeys) {
       {makeRowVector({c0, c1}), c1},
       {makeRowVector({e0, e1}), e1});
 }
-
 } // namespace facebook::velox::exec::test
