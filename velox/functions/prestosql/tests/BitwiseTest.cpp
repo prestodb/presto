@@ -369,9 +369,10 @@ TEST_F(BitwiseTest, logicalShiftRight) {
   EXPECT_EQ(evalFunc(-1, 32, 32), 0);
   EXPECT_EQ(evalFunc(-1, 30, 32), 3);
   EXPECT_EQ(evalFunc(kMin64, 10, 32), 0);
-  EXPECT_EQ(evalFunc(kMin64, kMax64, 64), -1);
+  EXPECT_EQ(evalFunc(kMin64, kMax64, 64), 1);
   EXPECT_EQ(evalFunc(kMax64, kMin64, 64), kMax64);
   EXPECT_EQ(evalFunc(7, 0, 64), 7);
+  EXPECT_EQ(evalFunc(-8, 2, 64), 4611686018427387902);
 
   VELOX_ASSERT_THROW(evalFunc(3, -1, 3), "Shift must be non-negative");
   VELOX_ASSERT_THROW(evalFunc(3, 1, 1), "Bits must be between 2 and 64");

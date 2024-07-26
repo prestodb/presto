@@ -167,7 +167,7 @@ struct BitwiseRightShiftArithmeticFunction {
 
 template <typename T>
 struct BitwiseLogicalShiftRightFunction {
-  FOLLY_ALWAYS_INLINE bool
+  FOLLY_ALWAYS_INLINE void
 #if defined(__clang__)
       __attribute__((no_sanitize("integer")))
 #endif
@@ -175,8 +175,17 @@ struct BitwiseLogicalShiftRightFunction {
     // Presto defines this only for bigint, thus we will define this only for
     // int64_t.
     if (bits == 64) {
+      if (number < 0) {
+        // >> operator may perform an arithmetic shift right for signed
+        // integers, depending on the compiler, which gives wrong result when
+        // the input is negative. To ensure a logical shift, we cast it to
+        // uint64_t.
+        uint64_t unsignedNumber = static_cast<uint64_t>(number) >> shift;
+        result = static_cast<int64_t>(unsignedNumber);
+        return;
+      }
       result = number >> shift;
-      return true;
+      return;
     }
 
     VELOX_USER_CHECK(
@@ -184,7 +193,7 @@ struct BitwiseLogicalShiftRightFunction {
     VELOX_USER_CHECK_GE(shift, 0, "Shift must be non-negative");
 
     result = (number & ((1LL << bits) - 1)) >> shift;
-    return true;
+    return;
   }
 };
 
