@@ -4426,19 +4426,27 @@ TEST_F(DateTimeFunctionsTest, toISO8601Timestamp) {
     return evaluateOnce<std::string>(
         "to_iso8601(c0)", std::make_optional(parseTimestamp(timestamp)));
   };
+  disableAdjustTimestampToTimezone();
+  EXPECT_EQ("2024-11-01T10:00:00.000+00:00", toIso("2024-11-01 10:00"));
+  EXPECT_EQ("2024-11-04T10:00:00.000+00:00", toIso("2024-11-04 10:00"));
+  EXPECT_EQ("2024-11-04T15:05:34.100+00:00", toIso("2024-11-04 15:05:34.1"));
+  EXPECT_EQ("2024-11-04T15:05:34.123+00:00", toIso("2024-11-04 15:05:34.123"));
+  EXPECT_EQ("0022-11-01T10:00:00.000+00:00", toIso("22-11-01 10:00"));
+
+  setQueryTimeZone("America/Los_Angeles");
+  EXPECT_EQ("2024-11-01T03:00:00.000-07:00", toIso("2024-11-01 10:00"));
 
   setQueryTimeZone("America/New_York");
-
-  EXPECT_EQ("2024-11-01T10:00:00.000-04:00", toIso("2024-11-01 10:00"));
-  EXPECT_EQ("2024-11-04T10:00:00.000-05:00", toIso("2024-11-04 10:00"));
-  EXPECT_EQ("2024-11-04T15:05:34.100-05:00", toIso("2024-11-04 15:05:34.1"));
-  EXPECT_EQ("2024-11-04T15:05:34.123-05:00", toIso("2024-11-04 15:05:34.123"));
-  EXPECT_EQ("0022-11-01T10:00:00.000-04:56:02", toIso("22-11-01 10:00"));
+  EXPECT_EQ("2024-11-01T06:00:00.000-04:00", toIso("2024-11-01 10:00"));
+  EXPECT_EQ("2024-11-04T05:00:00.000-05:00", toIso("2024-11-04 10:00"));
+  EXPECT_EQ("2024-11-04T10:05:34.100-05:00", toIso("2024-11-04 15:05:34.1"));
+  EXPECT_EQ("2024-11-04T10:05:34.123-05:00", toIso("2024-11-04 15:05:34.123"));
+  EXPECT_EQ("0022-11-01T05:03:58.000-04:56:02", toIso("22-11-01 10:00"));
 
   setQueryTimeZone("Asia/Kathmandu");
-
-  EXPECT_EQ("2024-11-01T10:00:00.000+05:45", toIso("2024-11-01 10:00"));
-  EXPECT_EQ("0022-11-01T10:00:00.000+05:41:16", toIso("22-11-01 10:00"));
+  EXPECT_EQ("2024-11-01T15:45:00.000+05:45", toIso("2024-11-01 10:00"));
+  EXPECT_EQ("0022-11-01T15:41:16.000+05:41:16", toIso("22-11-01 10:00"));
+  EXPECT_EQ("0022-11-01T15:41:16.000+05:41:16", toIso("22-11-01 10:00"));
 }
 
 TEST_F(DateTimeFunctionsTest, toISO8601TimestampWithTimezone) {

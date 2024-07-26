@@ -1726,12 +1726,7 @@ struct ToISO8601Function {
       const core::QueryConfig& config,
       const arg_type<Timestamp>* /*input*/) {
     if (inputTypes[0]->isTimestamp()) {
-      auto sessionTzName = config.sessionTimezone();
-      if (!sessionTzName.empty()) {
-        timeZone_ = tz::locateZone(sessionTzName);
-      } else {
-        timeZone_ = tz::locateZone("UTC");
-      }
+      timeZone_ = getTimeZoneFromConfig(config);
     }
   }
 
@@ -1744,13 +1739,7 @@ struct ToISO8601Function {
   FOLLY_ALWAYS_INLINE void call(
       out_type<Varchar>& result,
       const arg_type<Timestamp>& timestamp) {
-    // TODO DateTimeFormatter requires timestamp in UTC. It then converts it to
-    // the specified timezone. We can avoid extra conversion if we change
-    // DateTimeFormatter to accept non-UTC timestamps.
-    auto utcTimestamp = timestamp;
-    utcTimestamp.toGMT(*timeZone_);
-
-    toIso8601(utcTimestamp, timeZone_, result);
+    toIso8601(timestamp, timeZone_, result);
   }
 
   FOLLY_ALWAYS_INLINE void call(
