@@ -51,6 +51,7 @@ public class ResourceGroupSpec
     private final Optional<Duration> softCpuLimit;
     private final Optional<Duration> hardCpuLimit;
     private final Optional<Integer> workersPerQueryLimit;
+    private final Optional<List<String>> tags;
     private final ResourceGroupQueryLimits perQueryLimits;
 
     @JsonCreator
@@ -68,12 +69,14 @@ public class ResourceGroupSpec
             @JsonProperty("softCpuLimit") Optional<Duration> softCpuLimit,
             @JsonProperty("hardCpuLimit") Optional<Duration> hardCpuLimit,
             @JsonProperty("perQueryLimits") Optional<ResourceGroupQueryLimits> perQueryLimits,
-            @JsonProperty("workersPerQueryLimit") Optional<Integer> workersPerQueryLimit)
+            @JsonProperty("workersPerQueryLimit") Optional<Integer> workersPerQueryLimit,
+            @JsonProperty("tags") Optional<List<String>> tags)
     {
         this.softCpuLimit = requireNonNull(softCpuLimit, "softCpuLimit is null");
         this.hardCpuLimit = requireNonNull(hardCpuLimit, "hardCpuLimit is null");
         this.jmxExport = requireNonNull(jmxExport, "jmxExport is null");
         this.name = requireNonNull(name, "name is null");
+        this.tags = requireNonNull(tags, "tags is null");
         checkArgument(maxQueued >= 0, "maxQueued is negative");
         this.maxQueued = maxQueued;
         this.softConcurrencyLimit = softConcurrencyLimit;
@@ -178,6 +181,8 @@ public class ResourceGroupSpec
         return hardCpuLimit;
     }
 
+    public Optional<List<String>> getTags() { return tags; };
+
     public ResourceGroupQueryLimits getPerQueryLimits()
     {
         return perQueryLimits;
@@ -205,7 +210,8 @@ public class ResourceGroupSpec
                 jmxExport.equals(that.jmxExport) &&
                 softCpuLimit.equals(that.softCpuLimit) &&
                 hardCpuLimit.equals(that.hardCpuLimit) &&
-                perQueryLimits.equals(that.perQueryLimits));
+                perQueryLimits.equals(that.perQueryLimits) &&
+                tags.equals(that.tags));
     }
 
     // Subgroups not included, used to determine whether a group needs to be reconfigured
@@ -225,7 +231,8 @@ public class ResourceGroupSpec
                 jmxExport.equals(other.jmxExport) &&
                 softCpuLimit.equals(other.softCpuLimit) &&
                 hardCpuLimit.equals(other.hardCpuLimit) &&
-                perQueryLimits.equals(other.perQueryLimits));
+                perQueryLimits.equals(other.perQueryLimits) &&
+                tags.equals(other.tags));
     }
 
     @Override
@@ -244,7 +251,8 @@ public class ResourceGroupSpec
                 jmxExport,
                 softCpuLimit,
                 hardCpuLimit,
-                perQueryLimits);
+                perQueryLimits,
+                tags);
     }
 
     @Override
@@ -263,6 +271,7 @@ public class ResourceGroupSpec
                 .add("hardCpuLimit", hardCpuLimit)
                 .add("perQueryLimits", perQueryLimits)
                 .add("workersPerQueryLimit", workersPerQueryLimit)
+                .add("tags", tags)
                 .toString();
     }
 }
