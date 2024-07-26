@@ -73,7 +73,6 @@ import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.FileMetadata;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
-import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.RowDelta;
 import org.apache.iceberg.RowLevelOperationMode;
 import org.apache.iceberg.Schema;
@@ -145,6 +144,8 @@ import static com.facebook.presto.iceberg.IcebergUtil.verifyTypeSupported;
 import static com.facebook.presto.iceberg.PartitionFields.getPartitionColumnName;
 import static com.facebook.presto.iceberg.PartitionFields.getTransformTerm;
 import static com.facebook.presto.iceberg.PartitionFields.toPartitionFields;
+import static com.facebook.presto.iceberg.PartitionSpecConverter.toPrestoPartitionSpec;
+import static com.facebook.presto.iceberg.SchemaConverter.toPrestoSchema;
 import static com.facebook.presto.iceberg.TableStatisticsMaker.getSupportedColumnStatistics;
 import static com.facebook.presto.iceberg.TypeConverter.toIcebergType;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
@@ -441,8 +442,8 @@ public abstract class IcebergAbstractMetadata
         return new IcebergInsertTableHandle(
                 table.getSchemaName(),
                 table.getIcebergTableName(),
-                SchemaParser.toJson(icebergTable.schema()),
-                PartitionSpecParser.toJson(icebergTable.spec()),
+                toPrestoSchema(icebergTable.schema(), typeManager),
+                toPrestoPartitionSpec(icebergTable.spec(), typeManager),
                 getColumns(icebergTable.schema(), icebergTable.spec(), typeManager),
                 icebergTable.location(),
                 getFileFormat(icebergTable),
