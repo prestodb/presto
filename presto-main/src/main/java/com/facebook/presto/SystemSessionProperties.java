@@ -1938,7 +1938,7 @@ public final class SystemSessionProperties
                 booleanProperty(
                         REMOVE_CROSS_JOIN_WITH_CONSTANT_SINGLE_ROW_INPUT,
                         "If one input of the cross join is a single row with constant value, remove this cross join and replace with a project node",
-                        featuresConfig.isRemoveCrossJoinWithSingleConstantRow(),
+                        false,
                         false),
                 new PropertyMetadata<>(
                         DEFAULT_VIEW_SECURITY_MODE,
