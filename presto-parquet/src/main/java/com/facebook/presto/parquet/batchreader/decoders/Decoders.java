@@ -43,6 +43,7 @@ import com.facebook.presto.parquet.batchreader.decoders.plain.TimestampPlainValu
 import com.facebook.presto.parquet.batchreader.decoders.rle.BinaryRLEDictionaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.BooleanRLEValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.Int32RLEDictionaryValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.rle.Int32ShortDecimalRLEDictionaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.Int64RLEDictionaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.Int64TimestampMicrosRLEDictionaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.LongDecimalRLEDictionaryValuesDecoder;
@@ -168,6 +169,9 @@ public class Decoders
             switch (type) {
                 case INT32:
                 case FLOAT: {
+                    if (isDecimalType(columnDescriptor) && isShortDecimalType(columnDescriptor)) {
+                        return new Int32ShortDecimalRLEDictionaryValuesDecoder(bitWidth, inputStream, (IntegerDictionary) dictionary);
+                    }
                     return new Int32RLEDictionaryValuesDecoder(bitWidth, inputStream, (IntegerDictionary) dictionary);
                 }
                 case INT64: {

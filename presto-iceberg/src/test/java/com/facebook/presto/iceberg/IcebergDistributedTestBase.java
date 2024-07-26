@@ -103,6 +103,7 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.SYNTHESIZED;
+import static com.facebook.presto.hive.HiveCommonSessionProperties.PARQUET_BATCH_READ_OPTIMIZATION_ENABLED;
 import static com.facebook.presto.iceberg.FileContent.EQUALITY_DELETES;
 import static com.facebook.presto.iceberg.FileContent.POSITION_DELETES;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
@@ -1625,6 +1626,83 @@ public abstract class IcebergDistributedTestBase
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + settingTableName);
+        }
+    }
+
+    @DataProvider(name = "decimalVectorReader")
+    public Object[] decimalVectorReader()
+    {
+        return new Object[] {true, false};
+    }
+
+    private Session decimalVectorReaderEnabledSession(boolean decimalVectorReaderEnabled)
+    {
+        return Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty(ICEBERG_CATALOG, PARQUET_BATCH_READ_OPTIMIZATION_ENABLED, String.valueOf(decimalVectorReaderEnabled))
+                .build();
+    }
+
+    @Test(dataProvider = "decimalVectorReader")
+    public void testDecimal(boolean decimalVectorReaderEnabled)
+    {
+        String tableName = "test_decimal_vector_reader";
+        try {
+            // Create a table with decimal column
+            assertUpdate("CREATE TABLE " + tableName + " (short_decimal_column_int32 decimal(5,2), short_decimal_column_int64 decimal(16, 4), long_decimal_column decimal(19, 5))");
+
+            String values = " VALUES (cast(-1.00 as decimal(5,2)), null, cast(9999999999.123 as decimal(19, 5)))," +
+                    "(cast(1.00 as decimal(5,2)), cast(121321 as decimal(16, 4)), null)," +
+                    "(cast(-1.00 as decimal(5,2)), cast(-1215789.45 as decimal(16, 4)), cast(1234584.21 as decimal(19, 5)))," +
+                    "(cast(1.00 as decimal(5,2)), cast(-67867878.12 as decimal(16, 4)), cast(-9999999999.123 as decimal(19, 5)))";
+
+            // Insert data to table
+            assertUpdate("INSERT INTO " + tableName + values, 4);
+
+            Session session = decimalVectorReaderEnabledSession(decimalVectorReaderEnabled);
+            assertQuery(session, "SELECT * FROM " + tableName, values);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testAllIcebergType()
+    {
+        String tmpTableName = "test_vector_reader_all_type";
+        try {
+            assertUpdate(format("" +
+                    "CREATE TABLE %s ( " +
+                    "   c_boolean BOOLEAN, " +
+                    "   c_int INT," +
+                    "   c_bigint BIGINT, " +
+                    "   c_double DOUBLE, " +
+                    "   c_real REAL, " +
+                    "   c_date DATE, " +
+                    "   c_timestamp TIMESTAMP, " +
+                    "   c_varchar VARCHAR, " +
+                    "   c_varbinary VARBINARY, " +
+                    "   c_array ARRAY(BIGINT), " +
+                    "   c_map MAP(VARCHAR, INT), " +
+                    "   c_row ROW(a INT, b VARCHAR) " +
+                    ") WITH (format = 'PARQUET')", tmpTableName));
+
+            assertUpdate(format("" +
+                    "INSERT INTO %s " +
+                    "SELECT c_boolean, c_int, c_bigint, c_double, c_real, c_date, c_timestamp, c_varchar, c_varbinary, c_array, c_map, c_row " +
+                    "FROM ( " +
+                    "  VALUES " +
+                    "    (null, null, null, null, null, null, null, null, null, null, null, null), " +
+                    "    (true, INT '1245', BIGINT '1', DOUBLE '2.2', REAL '-24.124', DATE '2024-07-29', TIMESTAMP '2012-08-08 01:00', CAST('abc1' AS VARCHAR), to_ieee754_64(1), sequence(0, 10), MAP(ARRAY['aaa', 'bbbb'], ARRAY[1, 2]), CAST(ROW(1, 'AAA') AS ROW(a INT, b VARCHAR)))," +
+                    "    (false, INT '-1245', BIGINT '-1', DOUBLE '2.3', REAL '243215.435', DATE '2024-07-29', TIMESTAMP '2012-09-09 00:00', CAST('cba2' AS VARCHAR), to_ieee754_64(4), sequence(30, 35), MAP(ARRAY['ccc', 'bbbb'], ARRAY[-1, -2]), CAST(ROW(-1, 'AAA') AS ROW(a INT, b VARCHAR))) " +
+                    ") AS x (c_boolean, c_int, c_bigint, c_double, c_real, c_date, c_timestamp, c_varchar, c_varbinary, c_array, c_map, c_row)", tmpTableName), 3);
+
+            Session decimalVectorReaderEnabled = decimalVectorReaderEnabledSession(true);
+            Session decimalVectorReaderDisable = decimalVectorReaderEnabledSession(false);
+            assertQueryWithSameQueryRunner(decimalVectorReaderEnabled, "SELECT * FROM " + tmpTableName, decimalVectorReaderDisable);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tmpTableName);
         }
     }
 
