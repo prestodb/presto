@@ -237,7 +237,7 @@ public class TestArraySqlFunctions
     }
 
     @Test
-    public void testArrayLeastFrequent()
+    public void testArrayLeastFrequentBaseCase()
     {
         // Base Case
         assertFunction("ARRAY_LEAST_FREQUENT(ARRAY [1, 2, 2, 3, 3, 3])", new ArrayType(INTEGER), ImmutableList.of(1));
@@ -246,6 +246,11 @@ public class TestArraySqlFunctions
         assertFunction("ARRAY_LEAST_FREQUENT(ARRAY [DOUBLE '1.0', DOUBLE '2.0', DOUBLE '3.0'])", new ArrayType(DOUBLE), asList(1.0d));
         assertFunction("ARRAY_LEAST_FREQUENT(ARRAY ['abc', 'bc', 'aaa'])", new ArrayType(createVarcharType(3)), ImmutableList.of("aaa"));
         assertFunction("ARRAY_LEAST_FREQUENT(ARRAY ['', '', ' '])", new ArrayType(createVarcharType(1)), ImmutableList.of(" "));
+    }
+
+    @Test
+    public void testArrayLeastFrequentComplexAndEdgeCase()
+    {
         // Empty Case
         assertFunction("ARRAY_LEAST_FREQUENT(ARRAY [])", new ArrayType(UNKNOWN), null);
         // Null Case
@@ -259,7 +264,7 @@ public class TestArraySqlFunctions
     }
 
     @Test
-    public void testArrayNLeastFrequent()
+    public void testArrayNLeastFrequentBaseCase()
     {
         // Base Case
         assertFunction("ARRAY_LEAST_FREQUENT(ARRAY [1, 2, 2, 3, 3, 3], 2)", new ArrayType(INTEGER), ImmutableList.of(1, 2));
@@ -268,12 +273,22 @@ public class TestArraySqlFunctions
         assertFunction("ARRAY_LEAST_FREQUENT(ARRAY [DOUBLE '1.0', DOUBLE '2.0', DOUBLE '3.0'], 2)", new ArrayType(DOUBLE), asList(1.0d, 2.0d));
         assertFunction("ARRAY_LEAST_FREQUENT(ARRAY ['abc', 'bc', 'aaa'], 3)", new ArrayType(createVarcharType(3)), ImmutableList.of("aaa", "abc", "bc"));
         assertFunction("ARRAY_LEAST_FREQUENT(ARRAY ['', '', ' '], 1)", new ArrayType(createVarcharType(1)), ImmutableList.of(" "));
+    }
+
+    @Test
+    public void testArrayNLeastFrequentEmptyAndNullCase()
+    {
         // Empty Case
         assertFunction("ARRAY_LEAST_FREQUENT(ARRAY [], 2)", new ArrayType(UNKNOWN), null);
         // Null Case
         assertFunction("ARRAY_LEAST_FREQUENT(null, 3)", new ArrayType(UNKNOWN), null);
         assertFunction("ARRAY_LEAST_FREQUENT(ARRAY [NULL], 0)", new ArrayType(UNKNOWN), null);
         assertFunction("ARRAY_LEAST_FREQUENT(ARRAY [NULL, NULL, NULL], 1)", new ArrayType(UNKNOWN), null);
+    }
+
+    @Test
+    public void testArrayNLeastFrequentZeroAndComplexCase()
+    {
         // N = 0
         assertFunction("ARRAY_LEAST_FREQUENT(ARRAY [1, 2, 2, NULL], 0)", new ArrayType(INTEGER), emptyList());
         // N < 0
@@ -316,12 +331,17 @@ public class TestArraySqlFunctions
     }
 
     @Test
-    public void testArraySortDesc()
+    public void testArraySortDescNumeric()
     {
         assertFunction("ARRAY_SORT_DESC(ARRAY [100, 1, 10, 50])", new ArrayType(INTEGER), ImmutableList.of(100, 50, 10, 1));
         assertFunction("ARRAY_SORT_DESC(ARRAY [null, null, 100, 1, 10, 50])", new ArrayType(INTEGER), asList(100, 50, 10, 1, null, null));
         assertFunction("ARRAY_SORT_DESC(ARRAY [double'1.0', double'2.0'])", new ArrayType(DOUBLE), ImmutableList.of(2.0d, 1.0d));
         assertFunction("ARRAY_SORT_DESC(ARRAY [double'1.0', double'2.0'])", new ArrayType(DOUBLE), ImmutableList.of(2.0d, 1.0d));
+    }
+
+    @Test
+    public void testArraySortDescVarcharTypes()
+    {
         assertFunction("ARRAY_SORT_DESC(ARRAY [null, double'-3.0', double'2.0', null])", new ArrayType(DOUBLE), asList(2.0d, -3.0d, null, null));
         assertFunction("ARRAY_SORT_DESC(ARRAY ['a', 'bb', 'c'])", new ArrayType(createVarcharType(2)), ImmutableList.of("c", "bb", "a"));
         assertFunction("ARRAY_SORT_DESC(ARRAY ['a', 'bb', 'c', null])", new ArrayType(createVarcharType(2)), asList("c", "bb", "a", null));
@@ -341,7 +361,7 @@ public class TestArraySqlFunctions
     }
 
     @Test
-    public void testArrayTopN()
+    public void testArrayTopNNumeric()
     {
         // Test INT, DOUBLE, and mixed
         assertFunction("ARRAY_TOP_N(ARRAY [1, 1, 1, 1], 3)", new ArrayType(INTEGER), ImmutableList.of(1, 1, 1));
@@ -349,13 +369,20 @@ public class TestArraySqlFunctions
         assertFunction("ARRAY_TOP_N(ARRAY [DOUBLE '1.0', DOUBLE '100.0', DOUBLE '2.0', DOUBLE '5.0', DOUBLE '3.0'], 3)", new ArrayType(DOUBLE), ImmutableList.of(100.0d, 5.0d, 3.0d));
         assertFunction("ARRAY_TOP_N(ARRAY [DOUBLE '1.0', 100, 2, DOUBLE '5.0', DOUBLE '3.0'], 3)", new ArrayType(DOUBLE), ImmutableList.of(100d, 5.0d, 3.0d));
         assertFunction("ARRAY_TOP_N(ARRAY [1, 4, null], 3)", new ArrayType(INTEGER), asList(4, 1, null));
+    }
 
-        // Test VARCHAR
+    @Test
+    public void testArrayTopNVarchar()
+    {
         assertFunction("ARRAY_TOP_N(ARRAY ['a', 'z', 'd', 'f', 'g', 'b'], 4)", new ArrayType(createVarcharType(1)), ImmutableList.of("z", "g", "f", "d"));
         assertFunction("ARRAY_TOP_N(ARRAY ['foo', 'bar', 'lorem', 'ipsum', 'lorem2'], 3)", new ArrayType(createVarcharType(6)), ImmutableList.of("lorem2", "lorem", "ipsum"));
         assertFunction("ARRAY_TOP_N(ARRAY ['a', 'zzz', 'zz', 'b', 'g', 'f'], 3)", new ArrayType(createVarcharType(3)), ImmutableList.of("zzz", "zz", "g"));
         assertFunction("ARRAY_TOP_N(ARRAY ['a', 'a', 'd', 'a', 'a', 'a'], 3)", new ArrayType(createVarcharType(1)), ImmutableList.of("d", "a", "a"));
+    }
 
+    @Test
+    public void testArrayTopNBooleanAndComparatorTypes()
+    {
         // Test BOOLEAN
         assertFunction("ARRAY_TOP_N(ARRAY [true, true, false, true, false], 4)", new ArrayType(BOOLEAN), ImmutableList.of(true, true, true, false));
 
@@ -364,7 +391,11 @@ public class TestArraySqlFunctions
 
         RowType rowType = RowType.from(ImmutableList.of(RowType.field("x", INTEGER), RowType.field("y", INTEGER)));
         assertFunction("ARRAY_TOP_N(ARRAY [CAST(ROW(1, 2) AS ROW(x INT, y INT)), CAST(ROW(0, 11) AS ROW(x INT, y INT)), CAST(ROW(5, 10) AS ROW(x INT, y INT))], 2, (a, b) -> IF(a.x*a.y < b.x*b.y, -1, IF(a.x*a.y = b.x*b.y, 0, 1)))", new ArrayType(rowType), ImmutableList.of(ImmutableList.of(5, 10), ImmutableList.of(1, 2)));
+    }
 
+    @Test
+    public void testArrayTopNEdgeAndErrorCase()
+    {
         // Test exceptions
         assertInvalidFunction("ARRAY_TOP_N(ARRAY [ROW('a', 1), ROW('a', null), null, ROW('a', 0)], 2)", StandardErrorCode.INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("ARRAY_TOP_N(ARRAY [MAP(ARRAY['foo', 'bar'], ARRAY[1, 2]), MAP(ARRAY['foo', 'bar'], ARRAY[0, 3])], 2)", SemanticErrorCode.FUNCTION_NOT_FOUND);
