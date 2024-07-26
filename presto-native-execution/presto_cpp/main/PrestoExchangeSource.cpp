@@ -114,8 +114,8 @@ PrestoExchangeSource::PrestoExchangeSource(
       sslContext_,
       [](size_t bufferBytes) {
         RECORD_METRIC_VALUE(kCounterHttpClientPrestoExchangeNumOnBody);
-        RECORD_HISTOGRAM_METRIC_VALUE(
-            kCounterHttpClientPrestoExchangeOnBodyBytes, bufferBytes);
+        //RECORD_HISTOGRAM_METRIC_VALUE(
+        //    kCounterHttpClientPrestoExchangeOnBodyBytes, bufferBytes);
       });
 }
 
