@@ -39,6 +39,11 @@ BUILD_DUCKDB="${BUILD_DUCKDB:-true}"
 export CC=/opt/rh/gcc-toolset-12/root/bin/gcc
 export CXX=/opt/rh/gcc-toolset-12/root/bin/g++
 
+FB_OS_VERSION="v2024.05.20.00"
+FMT_VERSION="10.1.1"
+BOOST_VERSION="boost-1.84.0"
+ARROW_VERSION="15.0.0"
+
 function dnf_install {
   dnf install -y -q --setopt=install_weak_deps=False "$@"
 }
@@ -73,18 +78,12 @@ function install_gflags {
   # Remove an older version if present.
   dnf remove -y gflags
   wget_and_untar https://github.com/gflags/gflags/archive/v2.2.2.tar.gz gflags
-  (
-    cd gflags
-    cmake_install -DBUILD_SHARED_LIBS=ON -DBUILD_STATIC_LIBS=ON -DBUILD_gflags_LIB=ON -DLIB_SUFFIX=64
-  )
+  cmake_install gflags -DBUILD_SHARED_LIBS=ON -DBUILD_STATIC_LIBS=ON -DBUILD_gflags_LIB=ON -DLIB_SUFFIX=64
 }
 
 function install_glog {
   wget_and_untar https://github.com/google/glog/archive/v0.6.0.tar.gz glog
-  (
-    cd glog
-    cmake_install -DBUILD_SHARED_LIBS=ON
-  )
+  cmake_install glog -DBUILD_SHARED_LIBS=ON
 }
 
 function install_lzo {
@@ -98,7 +97,7 @@ function install_lzo {
 }
 
 function install_boost {
-  wget_and_untar https://github.com/boostorg/boost/releases/download/boost-1.84.0/boost-1.84.0.tar.gz boost
+  wget_and_untar https://github.com/boostorg/boost/releases/download/${BOOST_VERSION}/${BOOST_VERSION}.tar.gz boost
   (
    cd boost
    ./bootstrap.sh --prefix=/usr/local
@@ -108,18 +107,12 @@ function install_boost {
 
 function install_snappy {
   wget_and_untar https://github.com/google/snappy/archive/1.1.8.tar.gz snappy
-  (
-    cd snappy
-    cmake_install -DSNAPPY_BUILD_TESTS=OFF
-  )
+  cmake_install snappy -DSNAPPY_BUILD_TESTS=OFF
 }
 
 function install_fmt {
-  wget_and_untar https://github.com/fmtlib/fmt/archive/10.1.1.tar.gz fmt
-  (
-    cd fmt
-    cmake_install -DFMT_TEST=OFF
-  )
+  wget_and_untar https://github.com/fmtlib/fmt/archive/${FMT_VERSION}.tar.gz fmt
+  cmake_install fmt -DFMT_TEST=OFF
 }
 
 function install_protobuf {
@@ -133,60 +126,38 @@ function install_protobuf {
   )
 }
 
-FB_OS_VERSION="v2024.05.20.00"
-
 function install_fizz {
   wget_and_untar https://github.com/facebookincubator/fizz/archive/refs/tags/${FB_OS_VERSION}.tar.gz fizz
-  (
-    cd fizz/fizz
-    cmake_install -DBUILD_TESTS=OFF
-  )
+  cmake_install fizz/fizz -DBUILD_TESTS=OFF
 }
 
 function install_folly {
   wget_and_untar https://github.com/facebook/folly/archive/refs/tags/${FB_OS_VERSION}.tar.gz folly
-  (
-    cd folly
-    cmake_install -DFOLLY_HAVE_INT128_T=ON
-  )
+  cmake_install folly -DBUILD_TESTS=OFF -DFOLLY_HAVE_INT128_T=ON
 }
 
 function install_wangle {
   wget_and_untar https://github.com/facebook/wangle/archive/refs/tags/${FB_OS_VERSION}.tar.gz wangle
-  (
-    cd wangle/wangle
-    cmake_install -DBUILD_TESTS=OFF
-  )
+  cmake_install wangle/wangle -DBUILD_TESTS=OFF
 }
 
 function install_fbthrift {
   wget_and_untar https://github.com/facebook/fbthrift/archive/refs/tags/${FB_OS_VERSION}.tar.gz fbthrift
-  (
-    cd fbthrift
-    cmake_install -Denable_tests=OFF -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=OFF
-  )
+  cmake_install fbthrift -Denable_tests=OFF -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=OFF
 }
 
 function install_mvfst {
   wget_and_untar https://github.com/facebook/mvfst/archive/refs/tags/${FB_OS_VERSION}.tar.gz mvfst
-  (
-   cd mvfst
-   cmake_install -DBUILD_TESTS=OFF
-  )
+  cmake_install mvfst -DBUILD_TESTS=OFF
 }
 
 function install_duckdb {
   if $BUILD_DUCKDB ; then
     echo 'Building DuckDB'
     wget_and_untar https://github.com/duckdb/duckdb/archive/refs/tags/v0.8.1.tar.gz duckdb
-    (
-      cd duckdb
-      cmake_install -DBUILD_UNITTESTS=OFF -DENABLE_SANITIZER=OFF -DENABLE_UBSAN=OFF -DBUILD_SHELL=OFF -DEXPORT_DLL_SYMBOLS=OFF -DCMAKE_BUILD_TYPE=Release
-    )
+    cmake_install duckdb -DBUILD_UNITTESTS=OFF -DENABLE_SANITIZER=OFF -DENABLE_UBSAN=OFF -DBUILD_SHELL=OFF -DEXPORT_DLL_SYMBOLS=OFF -DCMAKE_BUILD_TYPE=Release
   fi
 }
-
-ARROW_VERSION=15.0.0
 
 function install_arrow {
   wget_and_untar https://archive.apache.org/dist/arrow/arrow-${ARROW_VERSION}/apache-arrow-${ARROW_VERSION}.tar.gz arrow

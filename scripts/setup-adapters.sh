@@ -107,50 +107,44 @@ function install_azure-storage-sdk-cpp {
   github_checkout azure/azure-sdk-for-cpp azure-storage-files-datalake_12.8.0
   sed -i "s/set(VCPKG_COMMIT_STRING .*)/set(VCPKG_COMMIT_STRING $vcpkg_commit_id)/" cmake-modules/AzureVcpkg.cmake
 
-  cd sdk/core/azure-core
-  if ! grep -q "baseline" vcpkg.json; then
+  azure_core_dir="sdk/core/azure-core"
+  if ! grep -q "baseline" $azure_core_dir/vcpkg.json; then
     # build and install azure-core with the version compatible with system pre-installed openssl
     openssl_version=$(openssl version -v | awk '{print $2}')
     if [[ "$openssl_version" == 1.1.1* ]]; then
       openssl_version="1.1.1n"
     fi
-    sed -i "s/\"version-string\"/\"builtin-baseline\": \"$vcpkg_commit_id\",\"version-string\"/" vcpkg.json
-    sed -i "s/\"version-string\"/\"overrides\": [{ \"name\": \"openssl\", \"version-string\": \"$openssl_version\" }],\"version-string\"/" vcpkg.json
+    sed -i "s/\"version-string\"/\"builtin-baseline\": \"$vcpkg_commit_id\",\"version-string\"/" $azure_core_dir/vcpkg.json
+    sed -i "s/\"version-string\"/\"overrides\": [{ \"name\": \"openssl\", \"version-string\": \"$openssl_version\" }],\"version-string\"/" $azure_core_dir/vcpkg.json
   fi
-  cmake_install -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DBUILD_SHARED_LIBS=OFF
+  cmake_install $azure_core_dir -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DBUILD_SHARED_LIBS=OFF
 
-  cd -
   # install azure-storage-common
-  cd sdk/storage/azure-storage-common
-  cmake_install -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DBUILD_SHARED_LIBS=OFF
+  cmake_install sdk/storage/azure-storage-common -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DBUILD_SHARED_LIBS=OFF
 
-  cd -
   # install azure-storage-blobs
-  cd sdk/storage/azure-storage-blobs
-  cmake_install -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DBUILD_SHARED_LIBS=OFF
+  cmake_install sdk/storage/azure-storage-blobs -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DBUILD_SHARED_LIBS=OFF
 
-  cd -
   # install azure-storage-files-datalake
-  cd sdk/storage/azure-storage-files-datalake
-  cmake_install -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DBUILD_SHARED_LIBS=OFF
+  cmake_install sdk/storage/azure-storage-files-datalake -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DBUILD_SHARED_LIBS=OFF
 }
 
 function install_hdfs_deps {
   github_checkout apache/hawq master
-  cd $DEPENDENCY_DIR/hawq/depends/libhdfs3
+  libhdfs3_dir=$DEPENDENCY_DIR/hawq/depends/libhdfs3
   if [[ "$OSTYPE" == darwin* ]]; then
-     sed -i '' -e "/FIND_PACKAGE(GoogleTest REQUIRED)/d" ./CMakeLists.txt
-     sed -i '' -e "s/dumpversion/dumpfullversion/" ./CMakeLists.txt
+     sed -i '' -e "/FIND_PACKAGE(GoogleTest REQUIRED)/d" $libhdfs3_dir/CMakeLists.txt
+     sed -i '' -e "s/dumpversion/dumpfullversion/" $libhdfs3_dir/CMakeLists.txt
   fi
 
   if [[ "$OSTYPE" == linux-gnu* ]]; then
-    sed -i "/FIND_PACKAGE(GoogleTest REQUIRED)/d" ./CMakeLists.txt
-    sed -i "s/dumpversion/dumpfullversion/" ./CMake/Platform.cmake
+    sed -i "/FIND_PACKAGE(GoogleTest REQUIRED)/d" $libhdfs3_dir/CMakeLists.txt
+    sed -i "s/dumpversion/dumpfullversion/" $libhdfs3_dir/CMake/Platform.cmake
     # Dependencies for Hadoop testing
     wget_and_untar https://archive.apache.org/dist/hadoop/common/hadoop-2.10.1/hadoop-2.10.1.tar.gz hadoop
     cp -a hadoop /usr/local/
   fi
-  cmake_install
+  cmake_install $libhdfs3_dir
 }
 
 cd "${DEPENDENCY_DIR}" || exit

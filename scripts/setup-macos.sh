@@ -37,6 +37,7 @@ DEPENDENCY_DIR=${DEPENDENCY_DIR:-$(pwd)}
 MACOS_VELOX_DEPS="flex bison protobuf@21 icu4c boost gflags glog libevent lz4 lzo snappy xz zstd openssl libsodium"
 MACOS_BUILD_DEPS="ninja cmake ccache"
 FB_OS_VERSION="v2024.05.20.00"
+FMT_VERSION="10.1.1"
 
 function update_brew {
   DEFAULT_BREW_PATH=/usr/local/bin/brew
@@ -81,49 +82,48 @@ function install_velox_deps_from_brew {
 }
 
 function install_fmt {
-  github_checkout fmtlib/fmt 10.1.1
-  cmake_install -DFMT_TEST=OFF
+  wget_and_untar https://github.com/fmtlib/fmt/archive/${FMT_VERSION}.tar.gz fmt
+  cmake_install fmt -DFMT_TEST=OFF
 }
 
 function install_folly {
-  github_checkout facebook/folly "${FB_OS_VERSION}"
-  cmake_install -DBUILD_TESTS=OFF -DFOLLY_HAVE_INT128_T=ON
+  wget_and_untar https://github.com/facebook/folly/archive/refs/tags/${FB_OS_VERSION}.tar.gz folly
+  cmake_install folly -DBUILD_TESTS=OFF -DFOLLY_HAVE_INT128_T=ON
 }
 
 function install_fizz {
-  github_checkout facebookincubator/fizz "${FB_OS_VERSION}"
-  cmake_install -DBUILD_TESTS=OFF -S fizz
+  wget_and_untar https://github.com/facebookincubator/fizz/archive/refs/tags/${FB_OS_VERSION}.tar.gz fizz
+  cmake_install fizz/fizz -DBUILD_TESTS=OFF
 }
 
 function install_wangle {
-  github_checkout facebook/wangle "${FB_OS_VERSION}"
-  cmake_install -DBUILD_TESTS=OFF -S wangle
+  wget_and_untar https://github.com/facebook/wangle/archive/refs/tags/${FB_OS_VERSION}.tar.gz wangle
+  cmake_install wangle/wangle -DBUILD_TESTS=OFF
 }
 
 function install_mvfst {
-    github_checkout facebook/mvfst "${FB_OS_VERSION}"
-    cmake_install -DBUILD_TESTS=OFF
+  wget_and_untar https://github.com/facebook/mvfst/archive/refs/tags/${FB_OS_VERSION}.tar.gz mvfst
+  cmake_install mvfst -DBUILD_TESTS=OFF
 }
 
-
 function install_fbthrift {
-  github_checkout facebook/fbthrift "${FB_OS_VERSION}"
-  cmake_install -Denable_tests=OFF -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=OFF
+  wget_and_untar https://github.com/facebook/fbthrift/archive/refs/tags/${FB_OS_VERSION}.tar.gz fbthrift
+  cmake_install fbthrift -Denable_tests=OFF -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=OFF
 }
 
 function install_double_conversion {
-  github_checkout google/double-conversion v3.1.5
-  cmake_install -DBUILD_TESTING=OFF
+  wget_and_untar https://github.com/google/double-conversion/archive/refs/tags/v3.1.5.tar.gz double-conversion
+  cmake_install double-conversion -DBUILD_TESTING=OFF
 }
 
 function install_ranges_v3 {
-  github_checkout ericniebler/range-v3 0.12.0
-  cmake_install -DRANGES_ENABLE_WERROR=OFF -DRANGE_V3_TESTS=OFF -DRANGE_V3_EXAMPLES=OFF
+  wget_and_untar https://github.com/ericniebler/range-v3/archive/refs/tags/0.12.0.tar.gz ranges_v3
+  cmake_install ranges_v3 -DRANGES_ENABLE_WERROR=OFF -DRANGE_V3_TESTS=OFF -DRANGE_V3_EXAMPLES=OFF
 }
 
 function install_re2 {
-  github_checkout google/re2 2022-02-01
-  cmake_install -DRE2_BUILD_TESTING=OFF
+  wget_and_untar https://github.com/google/re2/archive/refs/tags/2022-02-01.tar.gz re2
+  cmake_install re2 -DRE2_BUILD_TESTING=OFF
 }
 
 function install_velox_deps {
