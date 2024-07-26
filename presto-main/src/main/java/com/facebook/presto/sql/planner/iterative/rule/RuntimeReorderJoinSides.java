@@ -46,11 +46,20 @@ public class RuntimeReorderJoinSides
 
     private final Metadata metadata;
     private final SqlParser parser;
+    private final boolean nativeExecution;
 
     public RuntimeReorderJoinSides(Metadata metadata, SqlParser parser)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.parser = requireNonNull(parser, "parser is null");
+        this.nativeExecution = false;
+    }
+
+    public RuntimeReorderJoinSides(Metadata metadata, SqlParser parser, boolean nativeExecution)
+    {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.parser = requireNonNull(parser, "parser is null");
+        this.nativeExecution = nativeExecution;
     }
 
     @Override
@@ -100,7 +109,7 @@ public class RuntimeReorderJoinSides
             return Result.empty();
         }
 
-        Optional<JoinNode> rewrittenNode = createRuntimeSwappedJoinNode(joinNode, metadata, parser, context.getLookup(), context.getSession(), context.getVariableAllocator(), context.getIdAllocator());
+        Optional<JoinNode> rewrittenNode = createRuntimeSwappedJoinNode(joinNode, metadata, parser, context.getLookup(), context.getSession(), context.getVariableAllocator(), context.getIdAllocator(), nativeExecution);
         if (rewrittenNode.isPresent()) {
             log.debug(format("Probe size: %.2f is smaller than Build size: %.2f => invoke runtime join swapping on JoinNode ID: %s.", leftOutputSizeInBytes, rightOutputSizeInBytes, joinNode.getId()));
             return Result.ofPlanNode(rewrittenNode.get());

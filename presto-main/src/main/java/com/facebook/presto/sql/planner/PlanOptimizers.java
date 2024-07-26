@@ -872,7 +872,7 @@ public class PlanOptimizers
         // MergeJoinForSortedInputOptimizer can avoid the local exchange for a join operation
         // Should be placed after AddExchanges, but before AddLocalExchange
         // To replace the JoinNode to MergeJoin ahead of AddLocalExchange to avoid adding extra local exchange
-        builder.add(new MergeJoinForSortedInputOptimizer(metadata, sqlParser));
+        builder.add(new MergeJoinForSortedInputOptimizer(metadata, sqlParser, featuresConfig.isNativeExecutionEnabled()));
 
         // Optimizers above this don't understand local exchanges, so be careful moving this.
         builder.add(new AddLocalExchanges(metadata, sqlParser, featuresConfig.isNativeExecutionEnabled()));
@@ -934,7 +934,7 @@ public class PlanOptimizers
                 statsCalculator,
                 costCalculator,
                 ImmutableList.of(),
-                ImmutableSet.of(new RuntimeReorderJoinSides(metadata, sqlParser))));
+                ImmutableSet.of(new RuntimeReorderJoinSides(metadata, sqlParser, featuresConfig.isNativeExecutionEnabled()))));
         this.runtimeOptimizers = runtimeBuilder.build();
     }
 

@@ -42,11 +42,13 @@ public class MergeJoinForSortedInputOptimizer
     private final Metadata metadata;
     private final SqlParser parser;
     private boolean isEnabledForTesting;
+    private final boolean nativeExecution;
 
-    public MergeJoinForSortedInputOptimizer(Metadata metadata, SqlParser parser)
+    public MergeJoinForSortedInputOptimizer(Metadata metadata, SqlParser parser, boolean nativeExecution)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.parser = requireNonNull(parser, "parser is null");
+        this.nativeExecution = nativeExecution;
     }
 
     @Override
@@ -141,8 +143,8 @@ public class MergeJoinForSortedInputOptimizer
         private boolean meetsDataRequirement(PlanNode left, PlanNode right, JoinNode node)
         {
             // Acquire data properties for both left and right side
-            StreamPropertyDerivations.StreamProperties leftProperties = StreamPropertyDerivations.derivePropertiesRecursively(left, metadata, session, types, parser);
-            StreamPropertyDerivations.StreamProperties rightProperties = StreamPropertyDerivations.derivePropertiesRecursively(right, metadata, session, types, parser);
+            StreamPropertyDerivations.StreamProperties leftProperties = StreamPropertyDerivations.derivePropertiesRecursively(left, metadata, session, types, parser, nativeExecution);
+            StreamPropertyDerivations.StreamProperties rightProperties = StreamPropertyDerivations.derivePropertiesRecursively(right, metadata, session, types, parser, nativeExecution);
 
             List<VariableReferenceExpression> leftJoinColumns = node.getCriteria().stream().map(EquiJoinClause::getLeft).collect(toImmutableList());
             List<VariableReferenceExpression> rightJoinColumns = node.getCriteria().stream()

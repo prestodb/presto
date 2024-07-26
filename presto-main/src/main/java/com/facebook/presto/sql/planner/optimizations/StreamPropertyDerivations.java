@@ -98,20 +98,20 @@ public final class StreamPropertyDerivations
 {
     private StreamPropertyDerivations() {}
 
-    public static StreamProperties derivePropertiesRecursively(PlanNode node, Metadata metadata, Session session, TypeProvider types, SqlParser parser)
+    public static StreamProperties derivePropertiesRecursively(PlanNode node, Metadata metadata, Session session, TypeProvider types, SqlParser parser, boolean nativeExecution)
     {
         List<StreamProperties> inputProperties = node.getSources().stream()
-                .map(source -> derivePropertiesRecursively(source, metadata, session, types, parser))
+                .map(source -> derivePropertiesRecursively(source, metadata, session, types, parser, nativeExecution))
                 .collect(toImmutableList());
-        return StreamPropertyDerivations.deriveProperties(node, inputProperties, metadata, session, types, parser);
+        return StreamPropertyDerivations.deriveProperties(node, inputProperties, metadata, session, types, parser, nativeExecution);
     }
 
-    public static StreamProperties deriveProperties(PlanNode node, StreamProperties inputProperties, Metadata metadata, Session session, TypeProvider types, SqlParser parser)
+    public static StreamProperties deriveProperties(PlanNode node, StreamProperties inputProperties, Metadata metadata, Session session, TypeProvider types, SqlParser parser, boolean nativeExecution)
     {
-        return deriveProperties(node, ImmutableList.of(inputProperties), metadata, session, types, parser);
+        return deriveProperties(node, ImmutableList.of(inputProperties), metadata, session, types, parser, nativeExecution);
     }
 
-    public static StreamProperties deriveProperties(PlanNode node, List<StreamProperties> inputProperties, Metadata metadata, Session session, TypeProvider types, SqlParser parser)
+    public static StreamProperties deriveProperties(PlanNode node, List<StreamProperties> inputProperties, Metadata metadata, Session session, TypeProvider types, SqlParser parser, boolean nativeExecution)
     {
         requireNonNull(node, "node is null");
         requireNonNull(inputProperties, "inputProperties is null");
@@ -133,7 +133,7 @@ public final class StreamPropertyDerivations
                 types,
                 parser);
 
-        StreamProperties result = node.accept(new Visitor(metadata, session, types), inputProperties)
+        StreamProperties result = node.accept(new Visitor(metadata, session, types, nativeExecution), inputProperties)
                 .withOtherActualProperties(otherProperties);
 
         result.getPartitioningColumns().ifPresent(columns ->
@@ -154,12 +154,14 @@ public final class StreamPropertyDerivations
         private final Metadata metadata;
         private final Session session;
         private final TypeProvider types;
+        private final boolean nativeExecution;
 
-        private Visitor(Metadata metadata, Session session, TypeProvider types)
+        private Visitor(Metadata metadata, Session session, TypeProvider types, boolean nativeExecution)
         {
             this.metadata = metadata;
             this.session = session;
             this.types = types;
+            this.nativeExecution = nativeExecution;
         }
 
         @Override
@@ -185,9 +187,16 @@ public final class StreamPropertyDerivations
                             .translate(column -> PropertyDerivations.filterOrRewrite(outputs, node.getCriteria(), column))
                             .unordered(unordered);
                 case LEFT:
-                    return leftProperties
-                            .translate(column -> PropertyDerivations.filterIfMissing(outputs, column))
-                            .unordered(unordered);
+                    if (nativeExecution && node.getCriteria().isEmpty()) {
+                        // This maps to a NestedLoopJoin in Native engine. The NestedLoopJoin output is not
+                        // partitioned or ordered.
+                        return new StreamProperties(MULTIPLE, Optional.empty(), false);
+                    }
+                    else {
+                        return leftProperties
+                                .translate(column -> PropertyDerivations.filterIfMissing(outputs, column))
+                                .unordered(unordered);
+                    }
                 case RIGHT:
                     // since this is a right join, none of the matched output rows will contain nulls
                     // in the left partitioning columns, and all of the unmatched rows will have

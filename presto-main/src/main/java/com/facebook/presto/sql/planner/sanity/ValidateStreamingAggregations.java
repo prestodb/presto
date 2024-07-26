@@ -43,10 +43,22 @@ import static com.facebook.presto.util.Failures.checkArgument;
 public class ValidateStreamingAggregations
         implements Checker
 {
+    private final boolean nativeExecution;
+
+    public ValidateStreamingAggregations()
+    {
+        this.nativeExecution = false;
+    }
+
+    public ValidateStreamingAggregations(boolean nativeExecution)
+    {
+        this.nativeExecution = nativeExecution;
+    }
+
     @Override
     public void validate(PlanNode planNode, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
     {
-        planNode.accept(new Visitor(session, metadata, sqlParser, types, warningCollector), null);
+        planNode.accept(new Visitor(session, metadata, sqlParser, types, warningCollector, nativeExecution), null);
     }
 
     private static final class Visitor
@@ -57,14 +69,16 @@ public class ValidateStreamingAggregations
         private final SqlParser sqlParser;
         private final TypeProvider types;
         private final WarningCollector warningCollector;
+        private final boolean nativeExecution;
 
-        private Visitor(Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
+        private Visitor(Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector, boolean nativeExecution)
         {
             this.session = session;
             this.metadata = metadata;
             this.sqlParser = sqlParser;
             this.types = types;
             this.warningCollector = warningCollector;
+            this.nativeExecution = nativeExecution;
         }
 
         @Override
@@ -81,7 +95,7 @@ public class ValidateStreamingAggregations
                 return null;
             }
 
-            StreamProperties properties = derivePropertiesRecursively(node.getSource(), metadata, session, types, sqlParser);
+            StreamProperties properties = derivePropertiesRecursively(node.getSource(), metadata, session, types, sqlParser, false);
 
             List<LocalProperty<VariableReferenceExpression>> desiredProperties = ImmutableList.of(new GroupingProperty<>(node.getPreGroupedVariables()));
             Iterator<Optional<LocalProperty<VariableReferenceExpression>>> matchIterator = LocalProperties.match(properties.getLocalProperties(), desiredProperties).iterator();

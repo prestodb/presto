@@ -104,7 +104,8 @@ public class PickJoinSides
         // if we don't have exact costs for the join, but based on source tables we think the left side
         // is very small or much smaller than the right, then flip the join.
         if (rightSize > leftSize || (isSizeBasedJoinDistributionTypeEnabled(context.getSession()) && (Double.isNaN(leftSize) || Double.isNaN(rightSize)) && isLeftSideSmall(joinNode, context))) {
-            rewrittenNode = createRuntimeSwappedJoinNode(joinNode, metadata, sqlParser, context.getLookup(), context.getSession(), context.getVariableAllocator(), context.getIdAllocator());
+            // This is never used for Prestissimo.
+            rewrittenNode = createRuntimeSwappedJoinNode(joinNode, metadata, sqlParser, context.getLookup(), context.getSession(), context.getVariableAllocator(), context.getIdAllocator(), false);
         }
 
         return rewrittenNode.map(Result::ofPlanNode).orElseGet(Result::empty);

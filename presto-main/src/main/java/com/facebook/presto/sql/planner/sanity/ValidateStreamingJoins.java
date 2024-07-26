@@ -45,10 +45,22 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 public class ValidateStreamingJoins
         implements Checker
 {
+    private final boolean nativeExecution;
+
+    public ValidateStreamingJoins()
+    {
+        this.nativeExecution = false;
+    }
+
+    public ValidateStreamingJoins(boolean nativeExecution)
+    {
+        this.nativeExecution = nativeExecution;
+    }
+
     @Override
     public void validate(PlanNode planNode, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
     {
-        planNode.accept(new Visitor(session, metadata, sqlParser, types, warningCollector), null);
+        planNode.accept(new Visitor(session, metadata, sqlParser, types, warningCollector, nativeExecution), null);
     }
 
     private static final class Visitor
@@ -59,14 +71,16 @@ public class ValidateStreamingJoins
         private final SqlParser sqlParser;
         private final TypeProvider types;
         private final WarningCollector warningCollector;
+        private final boolean nativeExecution;
 
-        private Visitor(Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
+        private Visitor(Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector, boolean nativeExecution)
         {
             this.session = session;
             this.metadata = metadata;
             this.sqlParser = sqlParser;
             this.types = types;
             this.warningCollector = warningCollector;
+            this.nativeExecution = nativeExecution;
         }
 
         @Override
@@ -91,7 +105,7 @@ public class ValidateStreamingJoins
                 else {
                     requiredBuildProperty = singleStream();
                 }
-                StreamProperties buildProperties = derivePropertiesRecursively(node.getRight(), metadata, session, types, sqlParser);
+                StreamProperties buildProperties = derivePropertiesRecursively(node.getRight(), metadata, session, types, sqlParser, nativeExecution);
                 checkArgument(requiredBuildProperty.isSatisfiedBy(buildProperties), "Build side needs an additional local exchange for join: %s", node.getId());
 
                 StreamPreferredProperties requiredProbeProperty;
@@ -101,7 +115,7 @@ public class ValidateStreamingJoins
                 else {
                     requiredProbeProperty = defaultParallelism(session);
                 }
-                StreamProperties probeProperties = derivePropertiesRecursively(node.getLeft(), metadata, session, types, sqlParser);
+                StreamProperties probeProperties = derivePropertiesRecursively(node.getLeft(), metadata, session, types, sqlParser, false);
                 checkArgument(requiredProbeProperty.isSatisfiedBy(probeProperties), "Probe side needs an additional local exchange for join: %s", node.getId());
             }
             return null;

@@ -55,7 +55,7 @@ public final class PlanChecker
                         new TypeValidator(),
                         new VerifyNoFilteredAggregations(),
                         new VerifyNoIntermediateFormExpression(),
-                        new ValidateStreamingJoins())
+                        new ValidateStreamingJoins(featuresConfig.isNativeExecutionEnabled()))
                 .putAll(
                         Stage.FINAL,
                         new CheckUnsupportedExternalFunctions(),
@@ -64,8 +64,8 @@ public final class PlanChecker
                         new TypeValidator(),
                         new VerifyOnlyOneOutputNode(),
                         new VerifyNoFilteredAggregations(),
-                        new ValidateAggregationsWithDefaultValues(forceSingleNode),
-                        new ValidateStreamingAggregations(),
+                        new ValidateAggregationsWithDefaultValues(forceSingleNode, featuresConfig.isNativeExecutionEnabled()),
+                        new ValidateStreamingAggregations(featuresConfig.isNativeExecutionEnabled()),
                         new VerifyNoIntermediateFormExpression(),
                         new VerifyProjectionLocality(),
                         new DynamicFiltersChecker(),
