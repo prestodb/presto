@@ -593,6 +593,8 @@ FOLLY_ALWAYS_INLINE void pad(
       "pad size must be in the range [0..{})",
       padMaxSize);
   VELOX_USER_CHECK(padString.size() > 0, "padString must not be empty");
+  int64_t padStringCharLength = length<isAscii>(padString);
+  VELOX_USER_CHECK(padStringCharLength > 0, "padString must be a valid string");
 
   int64_t stringCharLength = length<isAscii>(string);
   // If string has at most size characters, truncate it if necessary
@@ -608,7 +610,6 @@ FOLLY_ALWAYS_INLINE void pad(
     return;
   }
 
-  int64_t padStringCharLength = length<isAscii>(padString);
   // How many characters do we need to add to string.
   int64_t fullPaddingCharLength = size - stringCharLength;
   // How many full copies of padString need to be added.

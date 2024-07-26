@@ -652,10 +652,18 @@ TEST_F(StringImplTest, pad) {
                              const std::string& padString) {
     core::StringWriter output;
 
-    EXPECT_THROW(
-        (facebook::velox::functions::stringImpl::pad<true, true>(
-            output, StringView(string), size, StringView(padString))),
-        VeloxUserError);
+    bool padStringIsAscii = isAscii(padString.c_str(), padString.size());
+    if (padStringIsAscii) {
+      EXPECT_THROW(
+          (facebook::velox::functions::stringImpl::pad<true, true>(
+              output, StringView(string), size, StringView(padString))),
+          VeloxUserError);
+    } else {
+      EXPECT_THROW(
+          (facebook::velox::functions::stringImpl::pad<true, false>(
+              output, StringView(string), size, StringView(padString))),
+          VeloxUserError);
+    }
   };
 
   // ASCII string with various values for size and padString
@@ -712,6 +720,9 @@ TEST_F(StringImplTest, pad) {
   runTest(
       "abcd\xff \xff ef", 11, "0", "0abcd\xff \xff ef", "abcd\xff \xff ef0");
   runTest("abcd\xff ef", 6, "0", "abcd\xff ", "abcd\xff ");
+  // Testcase for when padString is a sequence of unicode continuation bytes
+  // for which effective length is 0.
+  runTestUserError(/*string=*/"\u4FE1", /*size=*/6, /*padString=*/"\xBF\xBF");
 }
 
 // Make sure that utf8proc_codepoint returns invalid codepoint (-1) for
