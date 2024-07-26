@@ -91,6 +91,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -121,6 +122,7 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.apache.iceberg.SnapshotSummary.TOTAL_DATA_FILES_PROP;
 import static org.apache.iceberg.SnapshotSummary.TOTAL_DELETE_FILES_PROP;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -1725,5 +1727,143 @@ public abstract class IcebergDistributedTestBase
         Map<String, String> map = snapshot.summary();
         int totalDeleteFiles = Integer.valueOf(map.get(TOTAL_DELETE_FILES_PROP));
         assertEquals(totalDeleteFiles, deleteFilesCount);
+    }
+    @Test
+    public void testSortByAllTypes()
+    {
+        String tableName = "test_sort_by_all_types_" + randomTableSuffix();
+        assertUpdate("" +
+                "CREATE TABLE " + tableName + " (" +
+                "  a_boolean boolean, " +
+                "  an_integer integer, " +
+                "  a_bigint bigint, " +
+                "  a_real real, " +
+                "  a_double double, " +
+                "  a_short_decimal decimal(5,2), " +
+                "  a_long_decimal decimal(38,20), " +
+                "  a_varchar varchar, " +
+                "  a_varbinary varbinary, " +
+                "  a_date date, " +
+                "  a_timestamp timestamp, " +
+                "  an_array array(varchar), " +
+                "  a_map map(integer, varchar) " +
+                ") " +
+                "WITH (" +
+                "sorted_by = ARRAY[" +
+                "  'a_boolean', " +
+                "  'an_integer', " +
+                "  'a_bigint', " +
+                "  'a_real', " +
+                "  'a_double', " +
+                "  'a_short_decimal', " +
+                "  'a_long_decimal', " +
+                "  'a_varchar', " +
+                "  'a_varbinary', " +
+                "  'a_date', " +
+                "  'a_timestamp' " +
+                "  ]" +
+                ")");
+        String values = "(" +
+                "true, " +
+                "1, " +
+                "BIGINT '2', " +
+                "REAL '3.0', " +
+                "DOUBLE '4.0', " +
+                "DECIMAL '5.00', " +
+                "CAST(DECIMAL '6.00' AS decimal(38,20)), " +
+                "VARCHAR 'seven', " +
+                "X'88888888', " +
+                "DATE '2022-09-09', " +
+                "TIMESTAMP '2022-11-11 11:11:11.000000', " +
+                "ARRAY[VARCHAR 'four', 'teen'], " +
+                "MAP(ARRAY[15], ARRAY[VARCHAR 'fifteen']))";
+        String highValues = "(" +
+                "true, " +
+                "999999999, " +
+                "BIGINT '999999999', " +
+                "REAL '999.999', " +
+                "DOUBLE '999.999', " +
+                "DECIMAL '999.99', " +
+                "DECIMAL '6.00', " +
+                "'zzzzzzzzzzzzzz', " +
+                "X'FFFFFFFF', " +
+                "DATE '2099-12-31', " +
+                "TIMESTAMP '2099-12-31 23:59:59.000000', " +
+                "ARRAY['zzzz', 'zzzz'], " +
+                "MAP(ARRAY[999], ARRAY['zzzz']))";
+        String lowValues = "(" +
+                "false, " +
+                "0, " +
+                "BIGINT '0', " +
+                "REAL '0', " +
+                "DOUBLE '0', " +
+                "DECIMAL '0', " +
+                "DECIMAL '0', " +
+                "'', " +
+                "X'00000000', " +
+                "DATE '2000-01-01', " +
+                "TIMESTAMP '2000-01-01 00:00:00.000000', " +
+                "ARRAY['', ''], " +
+                "MAP(ARRAY[0], ARRAY['']))";
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES " + values + ", " + highValues + ", " + lowValues, 3);
+        dropTable(getSession(), tableName);
+    }
+
+    @Test
+    public void testEmptySortedByList()
+    {
+        String tableName = "test_empty_sorted_by_list_" + randomTableSuffix();
+        assertUpdate("" +
+                "CREATE TABLE " + tableName + " (a_boolean boolean, an_integer integer) " +
+                "  WITH (partitioning = ARRAY['an_integer'], sorted_by = ARRAY[])");
+        dropTable(getSession(), tableName);
+    }
+
+    @Test(dataProvider = "sortedTableWithQuotedIdentifierCasing")
+    public void testCreateSortedTableWithQuotedIdentifierCasing(String columnName, String sortField)
+    {
+        String tableName = "test_create_sorted_table_with_quotes_" + randomTableSuffix();
+        assertUpdate(format("CREATE TABLE %s (%s bigint) WITH (sorted_by = ARRAY['%s'])", tableName, columnName, sortField));
+        dropTable(getSession(), tableName);
+    }
+
+    @DataProvider(name = "sortedTableWithQuotedIdentifierCasing")
+    public static Object[][] sortedTableWithQuotedIdentifierCasing()
+    {
+        return new Object[][] {
+                {"col", "col"},
+                {"\"col\"", "col"},
+                {"col", "\"col\""},
+                {"\"col\"", "\"col\""},
+        };
+    }
+
+    @Test(dataProvider = "sortedTableWithSortTransform")
+    public void testCreateSortedTableWithSortTransform(String columnName, String sortField)
+    {
+        String tableName = "test_sort_with_transform_" + randomTableSuffix();
+        String query = format("CREATE TABLE %s (%s TIMESTAMP) WITH (sorted_by = ARRAY['%s'])", tableName, columnName, sortField);
+        assertQueryFails(query, Pattern.quote(format("Unable to parse sort field: [%s]", sortField)));
+    }
+
+    @DataProvider(name = "sortedTableWithSortTransform")
+    public static Object[][] sortedTableWithSortTransform()
+    {
+        return new Object[][] {
+                {"col", "bucket(col, 3)"},
+                {"col", "bucket(\"col\", 3)"},
+                {"col", "truncate(col, 3)"},
+                {"col", "year(col)"},
+                {"col", "month(col)"},
+                {"col", "date(col)"},
+                {"col", "hour(col)"},
+        };
+    }
+
+    protected void dropTable(Session session, String table)
+    {
+        assertUpdate(session, "DROP TABLE " + table);
+        assertFalse(getQueryRunner().tableExists(session, table));
     }
 }
