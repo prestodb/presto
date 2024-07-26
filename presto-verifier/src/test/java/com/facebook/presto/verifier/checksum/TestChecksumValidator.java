@@ -66,10 +66,12 @@ public class TestChecksumValidator
     private static final Column DOUBLE_ARRAY_COLUMN = createColumn("double_array", new ArrayType(DOUBLE));
     private static final Column REAL_ARRAY_COLUMN = createColumn("real_array", new ArrayType(REAL));
     private static final Column INT_ARRAY_COLUMN = createColumn("int_array", new ArrayType(INTEGER));
+    private static final Column VARCHAR_ARRAY_COLUMN = createColumn("varchar_array", new ArrayType(VARCHAR));
     private static final Column ROW_ARRAY_COLUMN = createColumn("row_array", FUNCTION_AND_TYPE_MANAGER.getType(parseTypeSignature("array(row(a int,b varchar))")));
     private static final Column MAP_ARRAY_COLUMN = createColumn("map_array", FUNCTION_AND_TYPE_MANAGER.getType(parseTypeSignature("array(map(int,varchar))")));
     private static final Column MAP_COLUMN = createColumn("map", FUNCTION_AND_TYPE_MANAGER.getType(parseTypeSignature("map(int,array(varchar))")));
     private static final Column MAP_FLOAT_NON_FLOAT_COLUMN = createColumn("map_float_non_float", FUNCTION_AND_TYPE_MANAGER.getType(parseTypeSignature("map(real,int)")));
+    private static final Column MAP_VARCHAR_VARCHAR_COLUMN = createColumn("map_varchar_varchar", FUNCTION_AND_TYPE_MANAGER.getType(parseTypeSignature("map(varchar,varchar)")));
     private static final Column MAP_NON_ORDERABLE_COLUMN = createColumn("map_non_orderable", FUNCTION_AND_TYPE_MANAGER.getType(parseTypeSignature("map(map(int,varchar),map(int,varchar))")));
     private static final Column ROW_COLUMN = createColumn("row", FUNCTION_AND_TYPE_MANAGER.getType(parseTypeSignature("row(i int, varchar, d double, a array(int), r row(double, b bigint))")));
 
@@ -102,6 +104,11 @@ public class TestChecksumValidator
     private static final SqlParser sqlParser = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(COLON, AT_SIGN));
 
     private final ChecksumValidator checksumValidator = createChecksumValidator(new VerifierConfig()
+            .setRelativeErrorMargin(RELATIVE_ERROR_MARGIN)
+            .setAbsoluteErrorMargin(ABSOLUTE_ERROR_MARGIN));
+
+    private final ChecksumValidator stringAsDoubleValidator = createChecksumValidator(new VerifierConfig()
+            .setValidateStringAsDouble(true)
             .setRelativeErrorMargin(RELATIVE_ERROR_MARGIN)
             .setAbsoluteErrorMargin(ABSOLUTE_ERROR_MARGIN));
 
@@ -148,8 +155,8 @@ public class TestChecksumValidator
                         ", \"sum\"(\"cardinality\"(\"filter\"(CAST(\"real_array\" AS array(double)), (x) -> \"is_nan\"(x)))) \"real_array$nan_count\"\n" +
                         ", \"sum\"(\"cardinality\"(\"filter\"(CAST(\"real_array\" AS array(double)), (x) -> (x = +\"infinity\"())))) \"real_array$pos_inf_count\"\n" +
                         ", \"sum\"(\"cardinality\"(\"filter\"(CAST(\"real_array\" AS array(double)), (x) -> (x = -\"infinity\"())))) \"real_array$neg_inf_count\"\n" +
-                        ", \"checksum\"(\"cardinality\"(CAST(\"real_array\" AS array(double)))) \"real_array$cardinality_checksum\"\n" +
-                        ", COALESCE(\"sum\"(\"cardinality\"(CAST(\"real_array\" AS array(double)))), 0) \"real_array$cardinality_sum\"\n" +
+                        ", \"checksum\"(\"cardinality\"(\"real_array\")) \"real_array$cardinality_checksum\"\n" +
+                        ", COALESCE(\"sum\"(\"cardinality\"(\"real_array\")), 0) \"real_array$cardinality_sum\"\n" +
                         ", \"checksum\"(\"array_sort\"(\"int_array\")) \"int_array$checksum\"\n" +
                         ", \"checksum\"(\"cardinality\"(\"int_array\")) \"int_array$cardinality_checksum\"\n" +
                         ", COALESCE(\"sum\"(\"cardinality\"(\"int_array\")), 0) \"int_array$cardinality_sum\"\n" +
@@ -198,6 +205,61 @@ public class TestChecksumValidator
     }
 
     @Test
+    public void testValidateStringAsDoubleChecksumQuery()
+    {
+        Query checksumQuery = stringAsDoubleValidator.generateChecksumQuery(
+                QualifiedName.of("test:di"),
+                ImmutableList.of(
+                        VARCHAR_COLUMN, VARCHAR_ARRAY_COLUMN, MAP_VARCHAR_VARCHAR_COLUMN),
+                Optional.empty());
+        Statement expectedChecksumQuery = sqlParser.createStatement(
+                "SELECT\n" +
+                        "  \"count\"(*)\n" +
+                        ", \"checksum\"(\"varchar\") \"varchar$checksum\"\n" +
+                        ", \"sum\"(TRY_CAST(\"varchar\" AS double)) FILTER (WHERE \"is_finite\"(TRY_CAST(\"varchar\" AS double))) \"varchar_as_double$sum\"\n" +
+                        ", \"count\"(TRY_CAST(\"varchar\" AS double)) FILTER (WHERE \"is_nan\"(TRY_CAST(\"varchar\" AS double))) \"varchar_as_double$nan_count\"\n" +
+                        ", \"count\"(TRY_CAST(\"varchar\" AS double)) FILTER (WHERE (TRY_CAST(\"varchar\" AS double) = \"infinity\"())) \"varchar_as_double$pos_inf_count\"\n" +
+                        ", \"count\"(TRY_CAST(\"varchar\" AS double)) FILTER (WHERE (TRY_CAST(\"varchar\" AS double) = -\"infinity\"())) \"varchar_as_double$neg_inf_count\"\n" +
+                        ", \"count_if\"(\"varchar\" is null) \"varchar$null_count\"\n" +
+                        ", \"count_If\"(TRY_CAST(\"varchar\" AS double) is null) \"varchar_as_double$null_count\"\n" +
+                        ", \"checksum\"(\"array_sort\"(\"varchar_array\")) \"varchar_array$checksum\"\n" +
+                        ", \"sum\"(\"array_sum\"(\"filter\"(\"transform\"(\"varchar_array\", (x) -> TRY_CAST(x AS double)), (x) -> \"is_finite\"(x)))) \"varchar_array_as_double$sum\"\n" +
+                        ", \"sum\"(\"cardinality\"(\"filter\"(\"transform\"(\"varchar_array\", (x) -> TRY_CAST(x AS double)), (x) -> \"is_nan\"(x)))) \"varchar_array_as_double$nan_count\"\n" +
+                        ", \"sum\"(\"cardinality\"(\"filter\"(\"transform\"(\"varchar_array\", (x) -> TRY_CAST(x AS double)), (x) -> (x = +\"infinity\"())))) \"varchar_array_as_double$pos_inf_count\"\n" +
+                        ", \"sum\"(\"cardinality\"(\"filter\"(\"transform\"(\"varchar_array\", (x) -> TRY_CAST(x AS double)), (x) -> (x = -\"infinity\"())))) \"varchar_array_as_double$neg_inf_count\"\n" +
+                        ", \"sum\"(\"cardinality\"(\"filter\"(\"varchar_array\", (x) -> x is null))) \"varchar_array$null_count\"\n" +
+                        ", \"sum\"(\"cardinality\"(\"filter\"(\"transform\"(\"varchar_array\", (x) -> TRY_CAST(x AS double)), (x) -> x is null))) \"varchar_array_as_double$null_count\"\n" +
+                        ", \"checksum\"(\"cardinality\"(\"varchar_array\")) \"varchar_array$cardinality_checksum\"\n" +
+                        ", COALESCE(\"sum\"(\"cardinality\"(\"varchar_array\")), 0) \"varchar_array$cardinality_sum\"\n" +
+                        ", \"checksum\"(\"map_varchar_varchar\") \"map_varchar_varchar$checksum\"\n" +
+                        ", \"checksum\"(\"array_sort\"(\"map_keys\"(\"map_varchar_varchar\"))) \"map_varchar_varchar$keys_checksum\"\n" +
+                        ", \"checksum\"(\"array_sort\"(\"map_values\"(\"map_varchar_varchar\"))) \"map_varchar_varchar$values_checksum\"\n" +
+                        ", \"sum\"(\"array_sum\"(\"filter\"(\"transform\"(\"map_keys\"(\"map_varchar_varchar\"), (x) -> TRY_CAST(x AS double)), (x) -> \"is_finite\"(x)))) \"map_varchar_varchar_key_array_as_double$sum\"\n" +
+                        ", \"sum\"(\"cardinality\"(\"filter\"(\"transform\"(\"map_keys\"(\"map_varchar_varchar\"), (x) -> TRY_CAST(x AS double)), (x) -> \"is_nan\"(x)))) \"map_varchar_varchar_key_array_as_double$nan_count\"\n" +
+                        ", \"sum\"(\"cardinality\"(\"filter\"(\"transform\"(\"map_keys\"(\"map_varchar_varchar\"), (x) -> TRY_CAST(x AS double)), (x) -> (x = +\"infinity\"())))) \"map_varchar_varchar_key_array_as_double$pos_inf_count\"\n" +
+                        ", \"sum\"(\"cardinality\"(\"filter\"(\"transform\"(\"map_keys\"(\"map_varchar_varchar\"), (x) -> TRY_CAST(x AS double)), (x) -> (x = -\"infinity\"())))) \"map_varchar_varchar_key_array_as_double$neg_inf_count\"\n" +
+                        ", \"sum\"(\"cardinality\"(\"filter\"(\"map_keys\"(\"map_varchar_varchar\"), (x) -> x is null))) \"map_varchar_varchar_key_array$null_count\"\n" +
+                        ", \"sum\"(\"cardinality\"(\"filter\"(\"transform\"(\"map_keys\"(\"map_varchar_varchar\"), (x) -> TRY_CAST(x AS double)), (x) -> x is null))) \"map_varchar_varchar_key_array_as_double$null_count\"\n" +
+                        ", \"sum\"(\"array_sum\"(\"filter\"(\"transform\"(\"map_values\"(\"map_varchar_varchar\"), (x) -> TRY_CAST(x AS double)), (x) -> \"is_finite\"(x)))) \"map_varchar_varchar_value_array_as_double$sum\"\n" +
+                        ", \"sum\"(\"cardinality\"(\"filter\"(\"transform\"(\"map_values\"(\"map_varchar_varchar\"), (x) -> TRY_CAST(x AS double)), (x) -> \"is_nan\"(x)))) \"map_varchar_varchar_value_array_as_double$nan_count\"\n" +
+                        ", \"sum\"(\"cardinality\"(\"filter\"(\"transform\"(\"map_values\"(\"map_varchar_varchar\"), (x) -> TRY_CAST(x AS double)), (x) -> (x = +\"infinity\"())))) \"map_varchar_varchar_value_array_as_double$pos_inf_count\"\n" +
+                        ", \"sum\"(\"cardinality\"(\"filter\"(\"transform\"(\"map_values\"(\"map_varchar_varchar\"), (x) -> TRY_CAST(x AS double)), (x) -> (x = -\"infinity\"())))) \"map_varchar_varchar_value_array_as_double$neg_inf_count\"\n" +
+                        ", \"sum\"(\"cardinality\"(\"filter\"(\"map_values\"(\"map_varchar_varchar\"), (x) -> x is null))) \"map_varchar_varchar_value_array$null_count\"\n" +
+                        ", \"sum\"(\"cardinality\"(\"filter\"(\"transform\"(\"map_values\"(\"map_varchar_varchar\"), (x) -> TRY_CAST(x AS double)), (x) -> x is null))) \"map_varchar_varchar_value_array_as_double$null_count\"\n" +
+                        ", \"checksum\"(\"cardinality\"(\"map_varchar_varchar\")) \"map_varchar_varchar$cardinality_checksum\"\n" +
+                        ", COALESCE(\"sum\"(\"cardinality\"(\"map_varchar_varchar\")), 0) \"map_varchar_varchar$cardinality_sum\"\n" +
+                        "FROM\n" +
+                        "  test:di\n",
+                PARSING_OPTIONS);
+
+        String[] arrayExpected = formatSql(expectedChecksumQuery, Optional.empty()).split("\n");
+        String[] arrayActual = formatSql(checksumQuery, Optional.empty()).split("\n");
+        Arrays.sort(arrayExpected);
+        Arrays.sort(arrayActual);
+        assertEquals(arrayActual, arrayExpected);
+    }
+
+    @Test
     public void testSimple()
     {
         List<Column> columns = ImmutableList.of(BIGINT_COLUMN, VARCHAR_COLUMN);
@@ -219,6 +281,335 @@ public class TestChecksumValidator
                         .put("varchar$checksum", new SqlVarbinary(new byte[] {0x1b}))
                         .build());
         assertMismatchedColumns(columns, controlChecksum, testChecksum, BIGINT_COLUMN, VARCHAR_COLUMN);
+    }
+
+    @Test
+    public void testValidateVarcharAsDouble()
+    {
+        Map<String, Object> equalNullCount = ImmutableMap.<String, Object>builder()
+                .put("varchar$null_count", 1L)
+                .put("varchar_as_double$null_count", 1L)
+                .build();
+        Map<String, Object> unequalNullCount = ImmutableMap.<String, Object>builder()
+                .put("varchar$null_count", 1L)
+                .put("varchar_as_double$null_count", 2L)
+                .build();
+        Map<String, Object> asDoubleCounts = ImmutableMap.<String, Object>builder()
+                .put("varchar_as_double$nan_count", 2L)
+                .put("varchar_as_double$pos_inf_count", 3L)
+                .put("varchar_as_double$neg_inf_count", 4L)
+                .build();
+
+        List<Column> columns = ImmutableList.of(VARCHAR_COLUMN);
+        ChecksumResult controlChecksum = new ChecksumResult(
+                10,
+                ImmutableMap.<String, Object>builder()
+                        .put("varchar$checksum", new SqlVarbinary(new byte[] {0xb}))
+                        .putAll(equalNullCount)
+                        .putAll(asDoubleCounts)
+                        .put("varchar_as_double$sum", 1.0)
+                        .build());
+
+        // Matched.
+        ChecksumResult testChecksum = new ChecksumResult(
+                10,
+                ImmutableMap.<String, Object>builder()
+                        .put("varchar$checksum", new SqlVarbinary(new byte[] {0x1b}))
+                        .putAll(equalNullCount)
+                        .putAll(asDoubleCounts)
+                        .put("varchar_as_double$sum", 1 + RELATIVE_ERROR_MARGIN)
+                        .build());
+        assertTrue(stringAsDoubleValidator.getMismatchedColumns(columns, controlChecksum, testChecksum).isEmpty());
+
+        // Mismatched due to failing to casting all rows to double.
+        testChecksum = new ChecksumResult(
+                10,
+                ImmutableMap.<String, Object>builder()
+                        .put("varchar$checksum", new SqlVarbinary(new byte[] {0x1b}))
+                        .putAll(unequalNullCount)
+                        .putAll(asDoubleCounts)
+                        .put("varchar_as_double$sum", 1.0)
+                        .build());
+        assertMismatchedColumns(columns, controlChecksum, testChecksum, stringAsDoubleValidator, VARCHAR_COLUMN);
+
+        // Mismatched due to the varchar as double column exceeding the relative error margin.
+        testChecksum = new ChecksumResult(
+                10,
+                ImmutableMap.<String, Object>builder()
+                        .put("varchar$checksum", new SqlVarbinary(new byte[] {0x1b}))
+                        .putAll(equalNullCount)
+                        .putAll(asDoubleCounts)
+                        .put("varchar_as_double$sum", 1 - RELATIVE_ERROR_MARGIN * 10)
+                        .build());
+        assertMismatchedColumns(columns, controlChecksum, testChecksum, stringAsDoubleValidator, VARCHAR_COLUMN);
+    }
+
+    @Test
+    public void testValidateVarcharArrayAsDoubleArray()
+    {
+        Map<String, Object> equalNullCount = ImmutableMap.<String, Object>builder()
+                .put("varchar_array$null_count", 1L)
+                .put("varchar_array_as_double$null_count", 1L)
+                .build();
+        Map<String, Object> unequalNullCount = ImmutableMap.<String, Object>builder()
+                .put("varchar_array$null_count", 1L)
+                .put("varchar_array_as_double$null_count", 2L)
+                .build();
+        Map<String, Object> asDoubleArrayCounts = ImmutableMap.<String, Object>builder()
+                .put("varchar_array_as_double$nan_count", 2L)
+                .put("varchar_array_as_double$pos_inf_count", 3L)
+                .put("varchar_array_as_double$neg_inf_count", 4L)
+                .build();
+
+        List<Column> columns = ImmutableList.of(VARCHAR_ARRAY_COLUMN);
+        ChecksumResult controlChecksum = new ChecksumResult(
+                10,
+                ImmutableMap.<String, Object>builder()
+                        .put("varchar_array$checksum", new SqlVarbinary(new byte[] {0xb}))
+                        .putAll(equalNullCount)
+                        .put("varchar_array_as_double$sum", 1.0)
+                        .putAll(asDoubleArrayCounts)
+
+                        .put("varchar_array$cardinality_checksum", new SqlVarbinary(new byte[] {0xd}))
+                        .put("varchar_array$cardinality_sum", 10L)
+                        .build());
+
+        // Matched as double.
+        ChecksumResult testChecksum = new ChecksumResult(
+                10,
+                ImmutableMap.<String, Object>builder()
+                        .put("varchar_array$checksum", new SqlVarbinary(new byte[] {0x1b}))
+                        .putAll(equalNullCount)
+                        .put("varchar_array_as_double$sum", 1 + RELATIVE_ERROR_MARGIN)
+                        .putAll(asDoubleArrayCounts)
+
+                        .put("varchar_array$cardinality_checksum", new SqlVarbinary(new byte[] {0xd}))
+                        .put("varchar_array$cardinality_sum", 10L)
+                        .build());
+        assertTrue(stringAsDoubleValidator.getMismatchedColumns(columns, controlChecksum, testChecksum).isEmpty());
+
+        // Mismatched as varchar.
+        testChecksum = new ChecksumResult(
+                10,
+                ImmutableMap.<String, Object>builder()
+                        .put("varchar_array$checksum", new SqlVarbinary(new byte[] {0xb}))
+                        .putAll(equalNullCount)
+                        .put("varchar_array_as_double$sum", 1.0)
+                        .putAll(asDoubleArrayCounts)
+
+                        .put("varchar_array$cardinality_checksum", new SqlVarbinary(new byte[] {0x1d}))
+                        .put("varchar_array$cardinality_sum", 10L)
+                        .build());
+        assertMismatchedColumns(columns, controlChecksum, testChecksum, stringAsDoubleValidator, VARCHAR_ARRAY_COLUMN);
+
+        // Mismatched as varchar.
+        testChecksum = new ChecksumResult(
+                10,
+                ImmutableMap.<String, Object>builder()
+                        .put("varchar_array$checksum", new SqlVarbinary(new byte[] {0x1b}))
+                        .putAll(unequalNullCount)
+                        .put("varchar_array_as_double$sum", 1.0)
+                        .putAll(asDoubleArrayCounts)
+
+                        .put("varchar_array$cardinality_checksum", new SqlVarbinary(new byte[] {0xd}))
+                        .put("varchar_array$cardinality_sum", 10L)
+                        .build());
+        assertMismatchedColumns(columns, controlChecksum, testChecksum, stringAsDoubleValidator, VARCHAR_ARRAY_COLUMN);
+
+        // Mismatched as either double or varchar.
+        testChecksum = new ChecksumResult(
+                10,
+                ImmutableMap.<String, Object>builder()
+                        .put("varchar_array$checksum", new SqlVarbinary(new byte[] {0x1b}))
+                        .putAll(equalNullCount)
+                        .put("varchar_array_as_double$sum", 1 - RELATIVE_ERROR_MARGIN * 10)
+                        .putAll(asDoubleArrayCounts)
+
+                        .put("varchar_array$cardinality_checksum", new SqlVarbinary(new byte[] {0xd}))
+                        .put("varchar_array$cardinality_sum", 10L)
+                        .build());
+        assertMismatchedColumns(columns, controlChecksum, testChecksum, stringAsDoubleValidator, VARCHAR_ARRAY_COLUMN);
+    }
+
+    @Test
+    public void testValidateVarcharMapAsDouble()
+    {
+        Map<String, Object> keyEqualNullCount = ImmutableMap.<String, Object>builder()
+                .put("map_varchar_varchar_key_array$null_count", 1L)
+                .put("map_varchar_varchar_key_array_as_double$null_count", 1L)
+                .build();
+        Map<String, Object> keyUnequalNullCount = ImmutableMap.<String, Object>builder()
+                .put("map_varchar_varchar_key_array$null_count", 1L)
+                .put("map_varchar_varchar_key_array_as_double$null_count", 2L)
+                .build();
+        Map<String, Object> keyAsDoubleArrayCounts = ImmutableMap.<String, Object>builder()
+                .put("map_varchar_varchar_key_array_as_double$nan_count", 2L)
+                .put("map_varchar_varchar_key_array_as_double$pos_inf_count", 3L)
+                .put("map_varchar_varchar_key_array_as_double$neg_inf_count", 4L)
+                .build();
+        Map<String, Object> valueEqualNullCount = ImmutableMap.<String, Object>builder()
+                .put("map_varchar_varchar_value_array$null_count", 1L)
+                .put("map_varchar_varchar_value_array_as_double$null_count", 1L)
+                .build();
+        Map<String, Object> valueUnequalNullCount = ImmutableMap.<String, Object>builder()
+                .put("map_varchar_varchar_value_array$null_count", 1L)
+                .put("map_varchar_varchar_value_array_as_double$null_count", 2L)
+                .build();
+        Map<String, Object> valueAsDoubleArrayCounts = ImmutableMap.<String, Object>builder()
+                .put("map_varchar_varchar_value_array_as_double$nan_count", 2L)
+                .put("map_varchar_varchar_value_array_as_double$pos_inf_count", 3L)
+                .put("map_varchar_varchar_value_array_as_double$neg_inf_count", 4L)
+                .build();
+
+        List<Column> columns = ImmutableList.of(MAP_VARCHAR_VARCHAR_COLUMN);
+
+        // Matched, by keys as double and values as varchar.
+        ChecksumResult controlChecksum = new ChecksumResult(
+                10,
+                ImmutableMap.<String, Object>builder()
+                        .put("map_varchar_varchar$checksum", new SqlVarbinary(new byte[] {0xb}))
+                        .put("map_varchar_varchar$cardinality_checksum", new SqlVarbinary(new byte[] {0xd}))
+                        .put("map_varchar_varchar$cardinality_sum", 10L)
+
+                        .put("map_varchar_varchar$keys_checksum", new SqlVarbinary(new byte[] {0xa}))
+                        .putAll(keyEqualNullCount)
+                        .put("map_varchar_varchar_key_array_as_double$sum", 1.0)
+                        .putAll(keyAsDoubleArrayCounts)
+
+                        .put("map_varchar_varchar$values_checksum", new SqlVarbinary(new byte[] {0xa}))
+                        .putAll(valueUnequalNullCount)
+                        .put("map_varchar_varchar_value_array_as_double$sum", 1.0)
+                        .putAll(valueAsDoubleArrayCounts)
+                        .build());
+        ChecksumResult testChecksum = new ChecksumResult(
+                10,
+                ImmutableMap.<String, Object>builder()
+                        .put("map_varchar_varchar$checksum", new SqlVarbinary(new byte[] {0xb}))
+                        .put("map_varchar_varchar$cardinality_checksum", new SqlVarbinary(new byte[] {0xd}))
+                        .put("map_varchar_varchar$cardinality_sum", 10L)
+
+                        .put("map_varchar_varchar$keys_checksum", new SqlVarbinary(new byte[] {0x1a}))
+                        .putAll(keyEqualNullCount)
+                        .put("map_varchar_varchar_key_array_as_double$sum", 1.0 + RELATIVE_ERROR_MARGIN)
+                        .putAll(keyAsDoubleArrayCounts)
+
+                        .put("map_varchar_varchar$values_checksum", new SqlVarbinary(new byte[] {0xa}))
+                        .putAll(valueUnequalNullCount)
+                        .put("map_varchar_varchar_value_array_as_double$sum", 1.0 - RELATIVE_ERROR_MARGIN * 10)
+                        .putAll(valueAsDoubleArrayCounts)
+                        .build());
+        assertTrue(stringAsDoubleValidator.getMismatchedColumns(columns, controlChecksum, testChecksum).isEmpty());
+
+        // Matched, by keys as varchar and values as double.
+        controlChecksum = new ChecksumResult(
+                10,
+                ImmutableMap.<String, Object>builder()
+                        .put("map_varchar_varchar$checksum", new SqlVarbinary(new byte[] {0xb}))
+                        .put("map_varchar_varchar$cardinality_checksum", new SqlVarbinary(new byte[] {0xd}))
+                        .put("map_varchar_varchar$cardinality_sum", 10L)
+
+                        .put("map_varchar_varchar$keys_checksum", new SqlVarbinary(new byte[] {0xa}))
+                        .putAll(keyUnequalNullCount)
+                        .put("map_varchar_varchar_key_array_as_double$sum", 1.0)
+                        .putAll(keyAsDoubleArrayCounts)
+
+                        .put("map_varchar_varchar$values_checksum", new SqlVarbinary(new byte[] {0xa}))
+                        .putAll(valueEqualNullCount)
+                        .put("map_varchar_varchar_value_array_as_double$sum", 1.0)
+                        .putAll(valueAsDoubleArrayCounts)
+                        .build());
+        testChecksum = new ChecksumResult(
+                10,
+                ImmutableMap.<String, Object>builder()
+                        .put("map_varchar_varchar$checksum", new SqlVarbinary(new byte[] {0xb}))
+                        .put("map_varchar_varchar$cardinality_checksum", new SqlVarbinary(new byte[] {0xd}))
+                        .put("map_varchar_varchar$cardinality_sum", 10L)
+
+                        .put("map_varchar_varchar$keys_checksum", new SqlVarbinary(new byte[] {0xa}))
+                        .putAll(keyUnequalNullCount)
+                        .put("map_varchar_varchar_key_array_as_double$sum", 1.0 - RELATIVE_ERROR_MARGIN * 10)
+                        .putAll(keyAsDoubleArrayCounts)
+
+                        .put("map_varchar_varchar$values_checksum", new SqlVarbinary(new byte[] {0x1a}))
+                        .putAll(valueEqualNullCount)
+                        .put("map_varchar_varchar_value_array_as_double$sum", 1.0 + RELATIVE_ERROR_MARGIN)
+                        .putAll(valueAsDoubleArrayCounts)
+                        .build());
+        assertTrue(stringAsDoubleValidator.getMismatchedColumns(columns, controlChecksum, testChecksum).isEmpty());
+
+        // Unmatched, due to matched keys as double and unmatched values as varchar.
+        controlChecksum = new ChecksumResult(
+                10,
+                ImmutableMap.<String, Object>builder()
+                        .put("map_varchar_varchar$checksum", new SqlVarbinary(new byte[] {0xb}))
+                        .put("map_varchar_varchar$cardinality_checksum", new SqlVarbinary(new byte[] {0xd}))
+                        .put("map_varchar_varchar$cardinality_sum", 10L)
+
+                        .put("map_varchar_varchar$keys_checksum", new SqlVarbinary(new byte[] {0xa}))
+                        .putAll(keyEqualNullCount)
+                        .put("map_varchar_varchar_key_array_as_double$sum", 1.0)
+                        .putAll(keyAsDoubleArrayCounts)
+
+                        .put("map_varchar_varchar$values_checksum", new SqlVarbinary(new byte[] {0xa}))
+                        .putAll(valueUnequalNullCount)
+                        .put("map_varchar_varchar_value_array_as_double$sum", 1.0)
+                        .putAll(valueAsDoubleArrayCounts)
+                        .build());
+        testChecksum = new ChecksumResult(
+                10,
+                ImmutableMap.<String, Object>builder()
+                        .put("map_varchar_varchar$checksum", new SqlVarbinary(new byte[] {0xb}))
+                        .put("map_varchar_varchar$cardinality_checksum", new SqlVarbinary(new byte[] {0xd}))
+                        .put("map_varchar_varchar$cardinality_sum", 10L)
+
+                        .put("map_varchar_varchar$keys_checksum", new SqlVarbinary(new byte[] {0x1a}))
+                        .putAll(keyEqualNullCount)
+                        .put("map_varchar_varchar_key_array_as_double$sum", 1.0 + RELATIVE_ERROR_MARGIN)
+                        .putAll(keyAsDoubleArrayCounts)
+
+                        .put("map_varchar_varchar$values_checksum", new SqlVarbinary(new byte[] {0x1a}))
+                        .putAll(valueUnequalNullCount)
+                        .put("map_varchar_varchar_value_array_as_double$sum", 1.0)
+                        .putAll(valueAsDoubleArrayCounts)
+                        .build());
+        assertMismatchedColumns(columns, controlChecksum, testChecksum, stringAsDoubleValidator, MAP_VARCHAR_VARCHAR_COLUMN);
+
+        // Unmatched, due to unmatched keys as double and matched values as double.
+        controlChecksum = new ChecksumResult(
+                10,
+                ImmutableMap.<String, Object>builder()
+                        .put("map_varchar_varchar$checksum", new SqlVarbinary(new byte[] {0xb}))
+                        .put("map_varchar_varchar$cardinality_checksum", new SqlVarbinary(new byte[] {0xd}))
+                        .put("map_varchar_varchar$cardinality_sum", 10L)
+
+                        .put("map_varchar_varchar$keys_checksum", new SqlVarbinary(new byte[] {0xa}))
+                        .putAll(keyEqualNullCount)
+                        .put("map_varchar_varchar_key_array_as_double$sum", 1.0)
+                        .putAll(keyAsDoubleArrayCounts)
+
+                        .put("map_varchar_varchar$values_checksum", new SqlVarbinary(new byte[] {0xa}))
+                        .putAll(valueEqualNullCount)
+                        .put("map_varchar_varchar_value_array_as_double$sum", 1.0)
+                        .putAll(valueAsDoubleArrayCounts)
+                        .build());
+        testChecksum = new ChecksumResult(
+                10,
+                ImmutableMap.<String, Object>builder()
+                        .put("map_varchar_varchar$checksum", new SqlVarbinary(new byte[] {0xb}))
+                        .put("map_varchar_varchar$cardinality_checksum", new SqlVarbinary(new byte[] {0xd}))
+                        .put("map_varchar_varchar$cardinality_sum", 10L)
+
+                        .put("map_varchar_varchar$keys_checksum", new SqlVarbinary(new byte[] {0x1a}))
+                        .putAll(keyEqualNullCount)
+                        .put("map_varchar_varchar_key_array_as_double$sum", 1.0 - RELATIVE_ERROR_MARGIN * 10)
+                        .putAll(keyAsDoubleArrayCounts)
+
+                        .put("map_varchar_varchar$values_checksum", new SqlVarbinary(new byte[] {0x1a}))
+                        .putAll(valueEqualNullCount)
+                        .put("map_varchar_varchar_value_array_as_double$sum", 1.0 + RELATIVE_ERROR_MARGIN)
+                        .putAll(valueAsDoubleArrayCounts)
+                        .build());
+        assertMismatchedColumns(columns, controlChecksum, testChecksum, stringAsDoubleValidator, MAP_VARCHAR_VARCHAR_COLUMN);
     }
 
     @Test
@@ -582,18 +973,6 @@ public class TestChecksumValidator
                         .build());
         assertMismatchedColumns(columns, controlChecksum, testChecksum, MAP_COLUMN);
 
-        // Mismatched values checksum
-        testChecksum = new ChecksumResult(
-                5,
-                ImmutableMap.<String, Object>builder()
-                        .put("map$checksum", new SqlVarbinary(new byte[] {0xa}))
-                        .put("map$keys_checksum", new SqlVarbinary(new byte[] {0xb}))
-                        .put("map$values_checksum", new SqlVarbinary(new byte[] {0x1c}))
-                        .put("map$cardinality_checksum", new SqlVarbinary(new byte[] {0xd}))
-                        .put("map$cardinality_sum", 3L)
-                        .build());
-        assertMismatchedColumns(columns, controlChecksum, testChecksum, MAP_COLUMN);
-
         // Mismatched cardinality checksum
         testChecksum = new ChecksumResult(
                 5,
@@ -617,11 +996,40 @@ public class TestChecksumValidator
                         .put("map$cardinality_sum", 4L)
                         .build());
         assertMismatchedColumns(columns, controlChecksum, testChecksum, MAP_COLUMN);
+
+        columns = ImmutableList.of(MAP_FLOAT_NON_FLOAT_COLUMN);
+        controlChecksum = new ChecksumResult(
+                5,
+                ImmutableMap.<String, Object>builder()
+                        .put("map_float_non_float$checksum", new SqlVarbinary(new byte[] {0xa}))
+                        .put("map_float_non_float$keys_checksum", new SqlVarbinary(new byte[] {0xb}))
+                        .put("map_float_non_float$values_checksum", new SqlVarbinary(new byte[] {0xc}))
+                        .put("map_float_non_float$cardinality_sum", 3L)
+                        .put("map_float_non_float$cardinality_checksum", new SqlVarbinary(new byte[] {0xd}))
+                        .build());
+
+        // Mismatched values checksum
+        testChecksum = new ChecksumResult(
+                5,
+                ImmutableMap.<String, Object>builder()
+                        .put("map_float_non_float$checksum", new SqlVarbinary(new byte[] {0xa}))
+                        .put("map_float_non_float$keys_checksum", new SqlVarbinary(new byte[] {0xb}))
+                        .put("map_float_non_float$values_checksum", new SqlVarbinary(new byte[] {0x1c}))
+                        .put("map_float_non_float$cardinality_checksum", new SqlVarbinary(new byte[] {0xd}))
+                        .put("map_float_non_float$cardinality_sum", 3L)
+                        .build());
+        assertMismatchedColumns(columns, controlChecksum, testChecksum, MAP_FLOAT_NON_FLOAT_COLUMN);
     }
 
     private List<ColumnMatchResult<?>> assertMismatchedColumns(List<Column> columns, ChecksumResult controlChecksum, ChecksumResult testChecksum, Column... expected)
     {
-        List<ColumnMatchResult<?>> mismatchedColumns = ImmutableList.copyOf(checksumValidator.getMismatchedColumns(columns, controlChecksum, testChecksum));
+        return assertMismatchedColumns(columns, controlChecksum, testChecksum, checksumValidator, expected);
+    }
+
+    private List<ColumnMatchResult<?>> assertMismatchedColumns(List<Column> columns, ChecksumResult controlChecksum, ChecksumResult testChecksum, ChecksumValidator validator,
+            Column... expected)
+    {
+        List<ColumnMatchResult<?>> mismatchedColumns = ImmutableList.copyOf(validator.getMismatchedColumns(columns, controlChecksum, testChecksum));
         List<Column> actual = mismatchedColumns.stream()
                 .map(ColumnMatchResult::getColumn)
                 .collect(toImmutableList());

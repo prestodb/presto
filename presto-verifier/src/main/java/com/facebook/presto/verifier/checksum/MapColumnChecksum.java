@@ -16,7 +16,9 @@ package com.facebook.presto.verifier.checksum;
 import javax.annotation.Nullable;
 
 import java.util.Objects;
+import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 
 public class MapColumnChecksum
@@ -25,6 +27,8 @@ public class MapColumnChecksum
     private final Object checksum;
     private final Object keysChecksum;
     private final Object valuesChecksum;
+    private final Optional<FloatingPointColumnChecksum> keysFloatingPointChecksum;
+    private final Optional<FloatingPointColumnChecksum> valuesFloatingPointChecksum;
     private final Object cardinalityChecksum;
     private final long cardinalitySum;
 
@@ -32,12 +36,16 @@ public class MapColumnChecksum
             @Nullable Object checksum,
             @Nullable Object keysChecksum,
             @Nullable Object valuesChecksum,
+            Optional<FloatingPointColumnChecksum> keysFloatingPointChecksum,
+            Optional<FloatingPointColumnChecksum> valuesFloatingPointChecksum,
             @Nullable Object cardinalityChecksum,
             long cardinalitySum)
     {
         this.checksum = checksum;
         this.keysChecksum = keysChecksum;
         this.valuesChecksum = valuesChecksum;
+        this.keysFloatingPointChecksum = keysFloatingPointChecksum;
+        this.valuesFloatingPointChecksum = valuesFloatingPointChecksum;
         this.cardinalityChecksum = cardinalityChecksum;
         this.cardinalitySum = cardinalitySum;
     }
@@ -58,6 +66,18 @@ public class MapColumnChecksum
     public Object getValuesChecksum()
     {
         return valuesChecksum;
+    }
+
+    public FloatingPointColumnChecksum getKeysFloatingPointChecksum()
+    {
+        checkArgument(keysFloatingPointChecksum.isPresent(), "Expect Floating Point Checksum to be present, but it is not");
+        return keysFloatingPointChecksum.get();
+    }
+
+    public FloatingPointColumnChecksum getValuesFloatingPointChecksum()
+    {
+        checkArgument(valuesFloatingPointChecksum.isPresent(), "Expect Floating Point Checksum to be present, but it is not");
+        return valuesFloatingPointChecksum.get();
     }
 
     @Override
@@ -86,6 +106,8 @@ public class MapColumnChecksum
         return Objects.equals(checksum, o.checksum) &&
                 Objects.equals(keysChecksum, o.keysChecksum) &&
                 Objects.equals(valuesChecksum, o.valuesChecksum) &&
+                Objects.equals(keysFloatingPointChecksum, o.keysFloatingPointChecksum) &&
+                Objects.equals(valuesFloatingPointChecksum, o.valuesFloatingPointChecksum) &&
                 Objects.equals(cardinalityChecksum, o.cardinalityChecksum) &&
                 Objects.equals(cardinalitySum, o.cardinalitySum);
     }
@@ -93,12 +115,17 @@ public class MapColumnChecksum
     @Override
     public int hashCode()
     {
-        return Objects.hash(checksum, keysChecksum, valuesChecksum, cardinalityChecksum, cardinalitySum);
+        return Objects.hash(checksum, keysChecksum, valuesChecksum, keysFloatingPointChecksum, valuesFloatingPointChecksum, cardinalityChecksum, cardinalitySum);
     }
 
     @Override
     public String toString()
     {
-        return format("checksum: %s, keys_checksum: %s, values_checksum: %s, cardinality_checksum: %s, cardinality_sum: %s", checksum, keysChecksum, valuesChecksum, cardinalityChecksum, cardinalitySum);
+        String result = format("checksum: %s, cardinality_checksum: %s, cardinality_sum: %s", checksum, cardinalityChecksum, cardinalitySum);
+        result += keysFloatingPointChecksum.isPresent() ? "" : format(", keys_checksum: %s", keysChecksum);
+        result += valuesFloatingPointChecksum.isPresent() ? "" : format(", values_checksum: %s", valuesChecksum);
+        result += keysFloatingPointChecksum.isPresent() ? format(". [keys] %s", keysFloatingPointChecksum.get()) : "";
+        result += valuesFloatingPointChecksum.isPresent() ? format(". [values] %s", valuesFloatingPointChecksum.get()) : "";
+        return result;
     }
 }
