@@ -23,9 +23,12 @@
 
 #include "velox/common/base/CheckedArithmetic.h"
 #include "velox/type/StringView.h"
-#include "velox/type/tz/TimeZoneMap.h"
 
 namespace facebook::velox {
+
+namespace tz {
+class TimeZone;
+}
 
 enum class TimestampPrecision : int8_t {
   kMilliseconds = 3, // 10^3 milliseconds are equal to one second.

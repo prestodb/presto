@@ -23,6 +23,98 @@
 namespace facebook::velox::tz {
 namespace {
 
+using namespace std::chrono;
+
+TEST(TimeZoneMapTest, locateZoneID) {
+  auto locateZoneID = [&](std::string_view name) {
+    const auto* tz = locateZone(name);
+    EXPECT_NE(tz, nullptr);
+    return tz->id();
+  };
+
+  EXPECT_EQ(0, locateZoneID("UTC"));
+  EXPECT_EQ(0, locateZoneID("+00:00"));
+  EXPECT_EQ(0, locateZoneID("-00:00"));
+  EXPECT_EQ(831, locateZoneID("-00:10"));
+  EXPECT_EQ(462, locateZoneID("-06:19"));
+  EXPECT_EQ(1315, locateZoneID("+07:55"));
+  EXPECT_EQ(1680, locateZoneID("+14:00"));
+  EXPECT_EQ(1720, locateZoneID("Africa/Maseru"));
+  EXPECT_EQ(2141, locateZoneID("Pacific/Marquesas"));
+  EXPECT_EQ(2215, locateZoneID("Asia/Chita"));
+  EXPECT_EQ(2233, locateZoneID("America/Ciudad_Juarez"));
+}
+
+TEST(TimeZoneMapTest, locateZoneUTCAlias) {
+  auto locateZoneID = [&](std::string_view name) {
+    const auto* tz = locateZone(name);
+    EXPECT_NE(tz, nullptr);
+    return tz->name();
+  };
+
+  // Ensure all of these aliases resolve to a time zone called "UTC".
+  EXPECT_EQ("UTC", locateZoneID("UTC"));
+  EXPECT_EQ("UTC", locateZoneID("gmt"));
+  EXPECT_EQ("UTC", locateZoneID("Z"));
+  EXPECT_EQ("UTC", locateZoneID("zulu"));
+  EXPECT_EQ("UTC", locateZoneID("Greenwich"));
+  EXPECT_EQ("UTC", locateZoneID("gmt0"));
+  EXPECT_EQ("UTC", locateZoneID("GMT"));
+  EXPECT_EQ("UTC", locateZoneID("uct"));
+  EXPECT_EQ("UTC", locateZoneID("+00:00"));
+  EXPECT_EQ("UTC", locateZoneID("-00:00"));
+}
+
+TEST(TimeZoneMapTest, offsetToLocal) {
+  auto toLocalTime = [&](std::string_view name, size_t ts) {
+    const auto* tz = locateZone(name);
+    EXPECT_NE(tz, nullptr);
+    return tz->to_local(seconds{ts}).count();
+  };
+
+  // Ensure all of these aliases resolve to a time zone called "UTC".
+  EXPECT_EQ(0, toLocalTime("+00:00", 0));
+  EXPECT_EQ(60, toLocalTime("+00:01", 0));
+  EXPECT_EQ(-60, toLocalTime("-00:01", 0));
+  EXPECT_EQ(3600, toLocalTime("+01:00", 0));
+  EXPECT_EQ(-3660, toLocalTime("-01:01", 0));
+
+  // In "2024-07-25", America/Los_Angeles was in daylight savings time (UTC-07).
+  size_t ts = 1721890800;
+  EXPECT_EQ(toLocalTime("-07:00", ts), toLocalTime("America/Los_Angeles", ts));
+  EXPECT_NE(toLocalTime("-08:00", ts), toLocalTime("America/Los_Angeles", ts));
+
+  // In "2024-01-01", it was not (UTC-08).
+  ts = 1704096000;
+  EXPECT_EQ(toLocalTime("-08:00", ts), toLocalTime("America/Los_Angeles", ts));
+  EXPECT_NE(toLocalTime("-07:00", ts), toLocalTime("America/Los_Angeles", ts));
+}
+
+TEST(TimeZoneMapTest, offsetToSys) {
+  auto toSysTime = [&](std::string_view name, size_t ts) {
+    const auto* tz = locateZone(name);
+    EXPECT_NE(tz, nullptr);
+    return tz->to_sys(seconds{ts}).count();
+  };
+
+  // Ensure all of these aliases resolve to a time zone called "UTC".
+  EXPECT_EQ(0, toSysTime("+00:00", 0));
+  EXPECT_EQ(-60, toSysTime("+00:01", 0));
+  EXPECT_EQ(+60, toSysTime("-00:01", 0));
+  EXPECT_EQ(-3600, toSysTime("+01:00", 0));
+  EXPECT_EQ(+3660, toSysTime("-01:01", 0));
+
+  // In "2024-07-25", America/Los_Angeles was in daylight savings time (UTC-07).
+  size_t ts = 1721890800;
+  EXPECT_EQ(toSysTime("-07:00", ts), toSysTime("America/Los_Angeles", ts));
+  EXPECT_NE(toSysTime("-08:00", ts), toSysTime("America/Los_Angeles", ts));
+
+  // In "2024-01-01", it was not (UTC-08).
+  ts = 1704096000;
+  EXPECT_EQ(toSysTime("-08:00", ts), toSysTime("America/Los_Angeles", ts));
+  EXPECT_NE(toSysTime("-07:00", ts), toSysTime("America/Los_Angeles", ts));
+}
+
 TEST(TimeZoneMapTest, getTimeZoneName) {
   EXPECT_EQ("America/Los_Angeles", getTimeZoneName(1825));
   EXPECT_EQ("Europe/Moscow", getTimeZoneName(2079));
@@ -30,6 +122,7 @@ TEST(TimeZoneMapTest, getTimeZoneName) {
   EXPECT_EQ("Europe/Kyiv", getTimeZoneName(2232));
   EXPECT_EQ("America/Ciudad_Juarez", getTimeZoneName(2233));
   EXPECT_EQ("-00:01", getTimeZoneName(840));
+  EXPECT_EQ("UTC", getTimeZoneName(0));
 }
 
 TEST(TimeZoneMapTest, getTimeZoneID) {
@@ -73,7 +166,8 @@ TEST(TimeZoneMapTest, getTimeZoneIDFromOffset) {
     return getTimeZoneName(getTimeZoneID(offset));
   };
 
-  EXPECT_EQ("+00:00", nameFromOffset(0));
+  // "+00:00" is an alias to UTC.
+  EXPECT_EQ("UTC", nameFromOffset(0));
   EXPECT_EQ("+05:30", nameFromOffset(5 * 60 + 30));
   EXPECT_EQ("-08:00", nameFromOffset(-8 * 60));
   EXPECT_EQ("+02:17", nameFromOffset(2 * 60 + 17));

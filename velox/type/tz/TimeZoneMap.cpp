@@ -25,14 +25,19 @@
 
 namespace facebook::velox::tz {
 
+using TTimeZoneDatabase = std::vector<std::unique_ptr<TimeZone>>;
+using TTimeZoneIndex = folly::F14FastMap<std::string, const TimeZone*>;
+
 // Defined in TimeZoneDatabase.cpp
 extern const std::vector<std::pair<int16_t, std::string>>& getTimeZoneEntries();
 
-// TODO: The string will be moved to TimeZone in the next PR.
-using TTimeZoneDatabase = std::vector<std::unique_ptr<std::string>>;
-using TTimeZoneIndex = folly::F14FastMap<std::string, int16_t>;
-
 namespace {
+
+// Returns the offset in minutes for a specific time zone offset in the
+// database. Do not call for tzID 0 (UTC / "+00:00").
+inline std::chrono::minutes getTimeZoneOffset(int16_t tzID) {
+  return std::chrono::minutes{(tzID <= 840) ? (tzID - 841) : (tzID - 840)};
+}
 
 // Flattens the input vector of pairs into a vector, assuming that the
 // timezoneIDs are (mostly) sequential. Note that since they are "mostly"
@@ -44,7 +49,23 @@ TTimeZoneDatabase buildTimeZoneDatabase(
   tzDatabase.resize(dbInput.back().first + 1);
 
   for (const auto& entry : dbInput) {
-    tzDatabase[entry.first] = std::make_unique<std::string>(entry.second);
+    std::unique_ptr<TimeZone> timeZonePtr;
+
+    if (entry.first == 0) {
+      timeZonePtr = std::make_unique<TimeZone>(
+          "UTC", entry.first, date::locate_zone("UTC"));
+    } else if (entry.first <= 1680) {
+      std::chrono::minutes offset = getTimeZoneOffset(entry.first);
+      timeZonePtr =
+          std::make_unique<TimeZone>(entry.second, entry.first, offset);
+    }
+    // Every single other time zone entry (outside of offsets) needs to be
+    // available in external/date or this will throw.
+    else {
+      timeZonePtr = std::make_unique<TimeZone>(
+          entry.second, entry.first, date::locate_zone(entry.second));
+    }
+    tzDatabase[entry.first] = std::move(timeZonePtr);
   }
   return tzDatabase;
 }
@@ -59,14 +80,19 @@ const TTimeZoneDatabase& getTimeZoneDatabase() {
 // reverse look ups.
 TTimeZoneIndex buildTimeZoneIndex(const TTimeZoneDatabase& tzDatabase) {
   TTimeZoneIndex reversed;
-  reversed.reserve(tzDatabase.size() + 1);
+  reversed.reserve(tzDatabase.size() + 2);
 
   for (int16_t i = 0; i < tzDatabase.size(); ++i) {
     if (tzDatabase[i] != nullptr) {
-      reversed.emplace(boost::algorithm::to_lower_copy(*tzDatabase[i]), i);
+      reversed.emplace(
+          boost::algorithm::to_lower_copy(tzDatabase[i]->name()),
+          tzDatabase[i].get());
     }
   }
-  reversed.emplace("utc", 0);
+
+  // Add aliases to UTC.
+  reversed.emplace("+00:00", tzDatabase.front().get());
+  reversed.emplace("-00:00", tzDatabase.front().get());
   return reversed;
 }
 
@@ -157,10 +183,10 @@ std::string getTimeZoneName(int64_t timeZoneID) {
       timeZoneDatabase[timeZoneID],
       "Unable to resolve timeZoneID '{}'",
       timeZoneID);
-  return *timeZoneDatabase[timeZoneID];
+  return timeZoneDatabase[timeZoneID]->name();
 }
 
-int16_t getTimeZoneID(std::string_view timeZone, bool failOnError) {
+const TimeZone* locateZone(std::string_view timeZone, bool failOnError) {
   const auto& timeZoneIndex = getTimeZoneIndex();
 
   std::string timeZoneLowered;
@@ -177,10 +203,16 @@ int16_t getTimeZoneID(std::string_view timeZone, bool failOnError) {
   if (it != timeZoneIndex.end()) {
     return it->second;
   }
+
   if (failOnError) {
     VELOX_USER_FAIL("Unknown time zone: '{}'", timeZone);
   }
-  return -1;
+  return nullptr;
+}
+
+int16_t getTimeZoneID(std::string_view timeZone, bool failOnError) {
+  const TimeZone* tz = locateZone(timeZone, failOnError);
+  return tz == nullptr ? -1 : tz->id();
 }
 
 int16_t getTimeZoneID(int32_t offsetMinutes) {
@@ -209,8 +241,37 @@ int16_t getTimeZoneID(int32_t offsetMinutes) {
   }
 }
 
-const TimeZone* locateZone(std::string_view timeZone) {
-  return date::locate_zone(timeZone);
+TimeZone::seconds TimeZone::to_sys(
+    TimeZone::seconds timestamp,
+    TimeZone::TChoose choose) const {
+  date::local_seconds timePoint{timestamp};
+
+  if (tz_ == nullptr) {
+    // We can ignore `choose` as time offset conversions are always linear.
+    return (timePoint - offset_).time_since_epoch();
+  }
+
+  if (choose == TimeZone::TChoose::kFail) {
+    // By default, throws.
+    return date::zoned_time{tz_, timePoint}.get_sys_time().time_since_epoch();
+  }
+
+  auto dateChoose = (choose == TimeZone::TChoose::kEarliest)
+      ? date::choose::earliest
+      : date::choose::latest;
+  return date::zoned_time{tz_, timePoint, dateChoose}
+      .get_sys_time()
+      .time_since_epoch();
+}
+
+TimeZone::seconds TimeZone::to_local(TimeZone::seconds timestamp) const {
+  date::sys_seconds timePoint{timestamp};
+
+  // If this is an offset time zone.
+  if (tz_ == nullptr) {
+    return (timePoint + offset_).time_since_epoch();
+  }
+  return date::zoned_time{tz_, timePoint}.get_local_time().time_since_epoch();
 }
 
 } // namespace facebook::velox::tz

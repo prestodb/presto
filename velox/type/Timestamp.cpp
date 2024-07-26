@@ -70,21 +70,19 @@ void Timestamp::toGMT(const tz::TimeZone& zone) {
       kMaxSeconds,
       "Timestamp seconds out of range for time zone adjustment");
 
-  date::local_time<std::chrono::seconds> localTime{
-      std::chrono::seconds(seconds_)};
-  std::chrono::time_point<std::chrono::system_clock, std::chrono::seconds>
-      sysTime;
+  std::chrono::seconds sysSeconds;
   try {
-    sysTime = zone.to_sys(localTime);
+    sysSeconds = zone.to_sys(std::chrono::seconds(seconds_));
   } catch (const date::ambiguous_local_time&) {
     // If the time is ambiguous, pick the earlier possibility to be consistent
     // with Presto.
-    sysTime = zone.to_sys(localTime, date::choose::earliest);
+    sysSeconds = zone.to_sys(
+        std::chrono::seconds(seconds_), tz::TimeZone::TChoose::kEarliest);
   } catch (const date::nonexistent_local_time& error) {
     // If the time does not exist, fail the conversion.
     VELOX_USER_FAIL(error.what());
   }
-  seconds_ = sysTime.time_since_epoch().count();
+  seconds_ = sysSeconds.count();
 }
 
 void Timestamp::toGMT(int16_t tzID) {
@@ -142,7 +140,7 @@ void Timestamp::toTimezone(const tz::TimeZone& zone) {
   auto tp = toTimePointSec();
 
   try {
-    seconds_ = zone.to_local(tp).time_since_epoch().count();
+    seconds_ = zone.to_local(std::chrono::seconds(seconds_)).count();
   } catch (const std::invalid_argument& e) {
     // Invalid argument means we hit a conversion not supported by
     // external/date. Need to throw a RuntimeError so that try() statements do
