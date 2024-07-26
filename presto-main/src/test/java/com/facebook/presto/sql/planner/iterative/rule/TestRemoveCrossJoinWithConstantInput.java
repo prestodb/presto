@@ -37,7 +37,11 @@ import static com.facebook.presto.common.block.MapBlock.fromKeyValueBlock;
 import static com.facebook.presto.common.block.MethodHandleUtil.compose;
 import static com.facebook.presto.common.block.MethodHandleUtil.nativeValueGetter;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.assignment;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.testing.TestingEnvironment.getOperatorMethodHandle;
@@ -275,5 +279,27 @@ public class TestRemoveCrossJoinWithConstantInput
                 .matches(
                         node(ProjectNode.class,
                                 node(TableScanNode.class)));
+    }
+
+    @Test
+    public void testOneColumnValuesNodeExpression()
+    {
+        tester().assertThat(new RemoveCrossJoinWithConstantInput(getMetadata().getFunctionAndTypeManager()))
+                .setSystemProperty(REMOVE_CROSS_JOIN_WITH_CONSTANT_SINGLE_ROW_INPUT, "true")
+                .on(p ->
+                {
+                    VariableReferenceExpression leftKey = p.variable("left_k1", new ArrayType(BIGINT));
+                    VariableReferenceExpression rightKey1 = p.variable("right_k1", BIGINT);
+                    VariableReferenceExpression rightKey2 = p.variable("right_k2", VARCHAR);
+                    p.variable("right_k1", BIGINT);
+                    return p.join(JoinType.INNER,
+                            p.values(ImmutableList.of(leftKey), ImmutableList.of(ImmutableList.of(constant(1L, BIGINT)), ImmutableList.of(constant(2L, BIGINT)))),
+                            p.project(
+                                    assignment(rightKey2, p.rowExpression("cast(right_k1 as varchar)")),
+                            p.values(ImmutableList.of(rightKey1), ImmutableList.of(ImmutableList.of(constant(1L, BIGINT))))));
+                })
+                .matches(
+                        project(ImmutableMap.of("left_k1", expression("left_k1"), "right_k2", expression("cast(1 as varchar)")),
+                                values("left_k1")));
     }
 }
