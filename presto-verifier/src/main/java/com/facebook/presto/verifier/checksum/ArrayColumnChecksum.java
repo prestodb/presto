@@ -27,7 +27,7 @@ public class ArrayColumnChecksum
     private final Object checksum;
     private final Object cardinalityChecksum;
     private final long cardinalitySum;
-    // For array(floating point) we have extra aggregations collected.
+    // For array(floating point) or array(varchar) we have extra aggregations collected.
     private final Optional<FloatingPointColumnChecksum> floatingPointChecksum;
 
     public ArrayColumnChecksum(
