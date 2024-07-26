@@ -19,6 +19,7 @@
 
 #include "velox/common/base/CheckedArithmetic.h"
 #include "velox/common/base/Range.h"
+#include "velox/type/FloatingPointUtil.h"
 #include "velox/vector/LazyVector.h"
 
 namespace facebook::velox::aggregate {
@@ -231,11 +232,18 @@ class MinMaxHook final : public AggregationHook {
 
   void addValue(vector_size_t row, const void* value) override {
     auto group = findGroup(row);
-    if (clearNull(group) ||
-        (*reinterpret_cast<T*>(group + offset_) >
-         *reinterpret_cast<const T*>(value)) == isMin) {
-      *reinterpret_cast<T*>(group + offset_) =
-          *reinterpret_cast<const T*>(value);
+    T* currPtr = reinterpret_cast<T*>(group + offset_);
+    const T* valPtr = reinterpret_cast<const T*>(value);
+    if constexpr (std::is_floating_point_v<T>) {
+      static const auto isGreater =
+          util::floating_point::NaNAwareGreaterThan<T>{};
+      if (clearNull(group) || isGreater(*currPtr, *valPtr) == isMin) {
+        *currPtr = *valPtr;
+      }
+    } else {
+      if (clearNull(group) || (*currPtr > *valPtr) == isMin) {
+        *currPtr = *valPtr;
+      }
     }
   }
 };

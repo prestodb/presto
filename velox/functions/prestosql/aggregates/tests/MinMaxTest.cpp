@@ -111,7 +111,10 @@ class MinMaxTest : public functions::aggregate::test::AggregationTestBase {
     // including, INF, -INF, NaN. This validates that the groups have initial
     // value set correctly, (-INF for max() and NaN for min()) and NaN is
     // considered greater than INF. Also tests for when floating points are
-    // nested inside complex types.
+    // nested inside complex types. Finally, this also tests for when
+    // aggregation is pushed down to the scan operator which can only happen if
+    // the column is a primitive type and not used anywhere execpt a single
+    // aggregate.
     static const T kNaN = std::numeric_limits<T>::quiet_NaN();
     static const T kSNaN = std::numeric_limits<T>::signaling_NaN();
     static const T kInf = std::numeric_limits<T>::infinity();
@@ -134,63 +137,110 @@ class MinMaxTest : public functions::aggregate::test::AggregationTestBase {
 
     // Global aggregation.
     {
-      auto expected = makeRowVector(
-          {makeFlatVector<T>(std::vector<T>({-1.1})),
-           makeFlatVector<T>(std::vector<T>({kNaN})),
-           makeFlatVector<T>(std::vector<T>({-1.1})),
-           makeFlatVector<T>(std::vector<T>({kNaN})),
-           makeFlatVector<T>(std::vector<T>({kNaN})),
-           makeFlatVector<T>(std::vector<T>({kNaN})),
-           makeFlatVector<T>(std::vector<T>({kInf})),
-           makeFlatVector<T>(std::vector<T>({kInf})),
-           makeFlatVector<T>(std::vector<T>({-kInf})),
-           makeFlatVector<T>(std::vector<T>({-kInf}))});
+      // Verify max pushed down to scan operator.
+      std::vector<VectorPtr> expectedMaxValues = {
+          makeFlatVector<T>(std::vector<T>({kNaN})),
+          makeFlatVector<T>(std::vector<T>({kNaN})),
+          makeFlatVector<T>(std::vector<T>({kNaN})),
+          makeFlatVector<T>(std::vector<T>({kInf})),
+          makeFlatVector<T>(std::vector<T>({-kInf}))};
 
       testAggregations(
           {data},
           {},
-          {"min(c0)",
-           "max(c0)",
-           "min(c1)",
+          {"max(c0)", "max(c1)", "max(c2)", "max(c3)", "max(c4)"},
+          {makeRowVector(expectedMaxValues)});
+
+      // Verify max pushed down to scan operator.
+      std::vector<VectorPtr> expectedMinValues = {
+          makeFlatVector<T>(std::vector<T>({-1.1})),
+          makeFlatVector<T>(std::vector<T>({-1.1})),
+          makeFlatVector<T>(std::vector<T>({kNaN})),
+          makeFlatVector<T>(std::vector<T>({kInf})),
+          makeFlatVector<T>(std::vector<T>({-kInf})),
+      };
+      testAggregations(
+          {data},
+          {},
+          {"min(c0)", "min(c1)", "min(c2)", "min(c3)", "min(c4)"},
+          {makeRowVector(expectedMinValues)});
+
+      // Verify max and min evaluated in aggregation operator.
+      std::vector<VectorPtr> allExpectedValues = expectedMaxValues;
+      allExpectedValues.insert(
+          allExpectedValues.end(),
+          expectedMinValues.begin(),
+          expectedMinValues.end());
+
+      testAggregations(
+          {data},
+          {},
+          {"max(c0)",
            "max(c1)",
-           "min(c2)",
            "max(c2)",
-           "min(c3)",
            "max(c3)",
-           "min(c4)",
-           "max(c4)"},
-          {expected});
+           "max(c4)",
+           "min(c0)",
+           "min(c1)",
+           "min(c2)",
+           "min(c3)",
+           "min(c4)"},
+          {makeRowVector(allExpectedValues)});
     }
 
     // group-by aggregation.
     {
-      auto expected = makeRowVector(
-          {makeFlatVector<int32_t>({1, 2}),
-           makeFlatVector<T>({1.1, -1.1}),
-           makeFlatVector<T>({kNaN, kInf}),
-           makeFlatVector<T>({2.0, -1.1}),
-           makeFlatVector<T>({kNaN, 1.1}),
-           makeFlatVector<T>({kNaN, kNaN}),
-           makeFlatVector<T>({kNaN, kNaN}),
-           makeFlatVector<T>({kInf, kInf}),
-           makeFlatVector<T>({kInf, kInf}),
-           makeFlatVector<T>({-kInf, -kInf}),
-           makeFlatVector<T>({-kInf, -kInf})});
+      // Verify max pushed down to scan operator.
+      std::vector<VectorPtr> expectedMaxValues = {
+          makeFlatVector<int32_t>({1, 2}), // grouping key
+          makeFlatVector<T>({kNaN, kInf}),
+          makeFlatVector<T>({kNaN, 1.1}),
+          makeFlatVector<T>({kNaN, kNaN}),
+          makeFlatVector<T>({kInf, kInf}),
+          makeFlatVector<T>({-kInf, -kInf})};
 
       testAggregations(
           {data},
           {"c5"},
-          {"min(c0)",
-           "max(c0)",
-           "min(c1)",
+          {"max(c0)", "max(c1)", "max(c2)", "max(c3)", "max(c4)"},
+          {makeRowVector(expectedMaxValues)});
+
+      // Verify min pushed down to scan operator.
+      std::vector<VectorPtr> expectedMinValues = {
+          makeFlatVector<int32_t>({1, 2}), // grouping key
+          makeFlatVector<T>({1.1, -1.1}),
+          makeFlatVector<T>({2.0, -1.1}),
+          makeFlatVector<T>({kNaN, kNaN}),
+          makeFlatVector<T>({kInf, kInf}),
+          makeFlatVector<T>({-kInf, -kInf})};
+
+      testAggregations(
+          {data},
+          {"c5"},
+          {"min(c0)", "min(c1)", "min(c2)", "min(c3)", "min(c4)"},
+          {makeRowVector(expectedMinValues)});
+
+      // Verify max and min evaluated in aggregation operator.
+      std::vector<VectorPtr> allExpectedValues = expectedMaxValues;
+      allExpectedValues.insert(
+          allExpectedValues.end(),
+          expectedMinValues.begin() + 1, // skip the grouping key column
+          expectedMinValues.end());
+
+      testAggregations(
+          {data},
+          {"c5"},
+          {"max(c0)",
            "max(c1)",
-           "min(c2)",
            "max(c2)",
-           "min(c3)",
            "max(c3)",
-           "min(c4)",
-           "max(c4)"},
-          {expected});
+           "max(c4)",
+           "min(c0)",
+           "min(c1)",
+           "min(c2)",
+           "min(c3)",
+           "min(c4)"},
+          {makeRowVector(allExpectedValues)});
     }
 
     // Test for float point values nested inside complex type.
