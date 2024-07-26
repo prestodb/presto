@@ -6,6 +6,7 @@ target/
 /*/var/
 /presto-product-tests/**/var/
 pom.xml.versionsBackup
+dependency-reduced-pom.xml
 test-output/
 test-reports/
 /atlassian-ide-plugin.xml
