@@ -678,7 +678,6 @@ bool HashBuild::finishHashBuild() {
 
   std::vector<HashBuild*> otherBuilds;
   otherBuilds.reserve(peers.size());
-  uint64_t numRows = table_->rows()->numRows();
   for (auto& peer : peers) {
     auto op = peer->findOperator(planNodeId());
     HashBuild* build = dynamic_cast<HashBuild*>(op);
@@ -696,12 +695,9 @@ bool HashBuild::finishHashBuild() {
           !build->stateCleared_,
           "Internal state for a peer is empty. It might have already"
           " been closed.");
-      numRows += build->table_->rows()->numRows();
     }
     otherBuilds.push_back(build);
   }
-
-  ensureTableFits(numRows);
 
   std::vector<std::unique_ptr<BaseHashTable>> otherTables;
   otherTables.reserve(peers.size());
@@ -723,10 +719,18 @@ bool HashBuild::finishHashBuild() {
       spiller->finishSpill(spillPartitions);
     }
   }
-  bool allowDuplicateRows = table_->rows()->nextOffset() != 0;
-  if (allowDuplicateRows) {
-    ensureNextRowVectorFits(numRows, otherBuilds);
+
+  if (spiller_ != nullptr) {
+    spiller_->finishSpill(spillPartitions);
+    removeEmptyPartitions(spillPartitions);
   }
+
+  // TODO: Get accurate signal if parallel join build is going to be applied
+  //  from hash table. Currently there is still a chance inside hash table that
+  //  it might decide it is not going to trigger parallel join build.
+  const bool allowParallelJoinBuild =
+      !otherTables.empty() && spillPartitions.empty();
+  ensureTableFits(otherBuilds, otherTables, allowParallelJoinBuild);
 
   SCOPE_EXIT {
     // Make a guard to release the unused memory reservation since we have
@@ -736,22 +740,13 @@ bool HashBuild::finishHashBuild() {
     // because when exceptions are thrown, other operator's cleanup mechanism
     // might already have finished.
     pool()->release();
-    if (allowDuplicateRows) {
-      for (auto* build : otherBuilds) {
-        build->pool()->release();
-      }
+    for (auto* build : otherBuilds) {
+      build->pool()->release();
     }
   };
 
-  if (spiller_ != nullptr) {
-    spiller_->finishSpill(spillPartitions);
-    removeEmptyPartitions(spillPartitions);
-  }
-
-  // TODO: re-enable parallel join build with spilling triggered after
-  // https://github.com/facebookincubator/velox/issues/3567 is fixed.
-  const bool allowParallelJoinBuild =
-      !otherTables.empty() && spillPartitions.empty();
+  // TODO: Re-enable parallel join build with spilling triggered after
+  //  https://github.com/facebookincubator/velox/issues/3567 is fixed.
   CpuWallTiming timing;
   {
     // If there is a chance the join build is parallel, we suspend the driver
@@ -785,13 +780,16 @@ bool HashBuild::finishHashBuild() {
   return true;
 }
 
-void HashBuild::ensureTableFits(uint64_t numRows) {
+void HashBuild::ensureTableFits(
+    const std::vector<HashBuild*>& otherBuilds,
+    const std::vector<std::unique_ptr<BaseHashTable>>& otherTables,
+    bool isParallelJoin) {
   // NOTE: we don't need memory reservation if all the partitions have been
   // spilled as nothing need to be built.
-  if (!spillEnabled() || spiller_ == nullptr || spiller_->isAllSpilled() ||
-      numRows == 0) {
+  if (!spillEnabled() || spiller_ == nullptr || spiller_->isAllSpilled()) {
     return;
   }
+  VELOX_CHECK_EQ(otherBuilds.size(), otherTables.size());
 
   // Test-only spill path.
   if (testingTriggerSpill(pool()->name())) {
@@ -800,58 +798,82 @@ void HashBuild::ensureTableFits(uint64_t numRows) {
     return;
   }
 
+  TestValue::adjust("facebook::velox::exec::HashBuild::ensureTableFits", this);
+
+  const auto dupRowOverheadBytes = sizeof(char*) + sizeof(NextRowVector);
+
+  uint64_t totalNumRows{0};
+  uint64_t lastBuildBytesToReserve{0};
+  bool allowDuplicateRows{false};
+  {
+    std::lock_guard<std::mutex> l(mutex_);
+    const auto numRows = table_->rows()->numRows();
+    totalNumRows += numRows;
+    allowDuplicateRows = table_->rows()->nextOffset() != 0;
+    if (allowDuplicateRows) {
+      lastBuildBytesToReserve += numRows * dupRowOverheadBytes;
+    }
+  }
+
+  for (auto i = 0; i < otherTables.size(); i++) {
+    auto& otherTable = otherTables[i];
+    VELOX_CHECK_NOT_NULL(otherTable);
+    auto& otherBuild = otherBuilds[i];
+    const auto& rowContainer = otherTable->rows();
+    int64_t numRows{0};
+    {
+      std::lock_guard<std::mutex> l(otherBuild->mutex_);
+      numRows = rowContainer->numRows();
+    }
+    if (numRows == 0) {
+      continue;
+    }
+
+    totalNumRows += numRows;
+    if (!allowDuplicateRows) {
+      continue;
+    }
+
+    const auto dupRowBytesToReserve = numRows * dupRowOverheadBytes;
+    if (!isParallelJoin) {
+      lastBuildBytesToReserve += dupRowBytesToReserve;
+      continue;
+    }
+
+    Operator::ReclaimableSectionGuard guard(otherBuild);
+    auto* otherPool = otherBuild->pool();
+
+    // Reserve memory for memory allocations for next-row-vectors in
+    // otherBuild operators if it is parallel join build. Otherwise all
+    // next-row-vectors shall be allocated from the last build operator.
+    if (!otherPool->maybeReserve(dupRowBytesToReserve)) {
+      LOG(WARNING)
+          << "Failed to reserve " << succinctBytes(dupRowBytesToReserve)
+          << " for for duplicate row memory allocation from non-last memory pool "
+          << otherPool->name()
+          << ", usage: " << succinctBytes(otherPool->usedBytes())
+          << ", reservation: " << succinctBytes(otherPool->reservedBytes());
+    }
+  }
+
+  if (totalNumRows == 0) {
+    return;
+  }
+
   // NOTE: reserve a bit more memory to consider the extra memory used for
   // parallel table build operation.
-  const uint64_t bytesToReserve = table_->estimateHashTableSize(numRows) * 1.1;
+  lastBuildBytesToReserve += table_->estimateHashTableSize(totalNumRows) * 1.1;
   {
     Operator::ReclaimableSectionGuard guard(this);
-    TestValue::adjust(
-        "facebook::velox::exec::HashBuild::ensureTableFits", this);
-    if (pool()->maybeReserve(bytesToReserve)) {
+    if (pool()->maybeReserve(lastBuildBytesToReserve)) {
       return;
     }
   }
 
-  LOG(WARNING) << "Failed to reserve " << succinctBytes(bytesToReserve)
-               << " for memory pool " << pool()->name()
+  LOG(WARNING) << "Failed to reserve " << succinctBytes(lastBuildBytesToReserve)
+               << " for last build memory pool " << pool()->name()
                << ", usage: " << succinctBytes(pool()->usedBytes())
                << ", reservation: " << succinctBytes(pool()->reservedBytes());
-}
-
-void HashBuild::ensureNextRowVectorFits(
-    uint64_t numRows,
-    const std::vector<HashBuild*>& otherBuilds) {
-  if (!spillEnabled()) {
-    return;
-  }
-
-  TestValue::adjust(
-      "facebook::velox::exec::HashBuild::ensureNextRowVectorFits", this);
-
-  // The memory allocation for next-row-vectors may stuck in
-  // 'SharedArbitrator::growCapacity' when memory arbitrating is also
-  // triggered. Reserve memory for next-row-vectors to prevent this issue.
-  auto bytesToReserve = numRows * (sizeof(char*) + sizeof(NextRowVector));
-  {
-    Operator::ReclaimableSectionGuard guard(this);
-    if (!pool()->maybeReserve(bytesToReserve)) {
-      LOG(WARNING) << "Failed to reserve " << succinctBytes(bytesToReserve)
-                   << " for memory pool " << pool()->name()
-                   << ", usage: " << succinctBytes(pool()->usedBytes())
-                   << ", reservation: "
-                   << succinctBytes(pool()->reservedBytes());
-    }
-  }
-  for (auto* build : otherBuilds) {
-    Operator::ReclaimableSectionGuard guard(build);
-    if (!build->pool()->maybeReserve(bytesToReserve)) {
-      LOG(WARNING) << "Failed to reserve " << succinctBytes(bytesToReserve)
-                   << " for memory pool " << build->pool()->name()
-                   << ", usage: " << succinctBytes(build->pool()->usedBytes())
-                   << ", reservation: "
-                   << succinctBytes(build->pool()->reservedBytes());
-    }
-  }
 }
 
 void HashBuild::postHashBuildProcess() {

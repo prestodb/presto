@@ -7027,7 +7027,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, exceptionDuringFinishJoinBuild) {
   // We rely on the driver suspension before parallel join build to throw
   // exceptions (suspension on an already terminated task throws).
   SCOPED_TESTVALUE_SET(
-      "facebook::velox::exec::HashBuild::ensureNextRowVectorFits",
+      "facebook::velox::exec::HashBuild::ensureTableFits",
       std::function<void(HashBuild*)>([&](HashBuild* buildOp) {
         try {
           VELOX_FAIL("Simulated failure");
@@ -7222,8 +7222,11 @@ DEBUG_ONLY_TEST_F(HashJoinTest, arbitrationTriggeredByEnsureJoinTableFit) {
       .injectSpill(false)
       .verifier([&](const std::shared_ptr<Task>& task, bool /*unused*/) {
         auto opStats = toOperatorStats(task->taskStats());
-        ASSERT_GT(opStats.at("HashProbe").spilledBytes, 0);
-        ASSERT_GT(opStats.at("HashBuild").spilledBytes, 0);
+        ASSERT_GT(
+            opStats.at("HashBuild")
+                .runtimeStats["memoryArbitrationWallNanos"]
+                .count,
+            0);
       })
       .run();
 }
