@@ -20,6 +20,7 @@
 #include <string_view>
 #include "folly/CPortability.h"
 #include "velox/common/base/Exceptions.h"
+#include "velox/common/base/SimdUtil.h"
 #include "velox/external/utf8proc/utf8procImpl.h"
 
 #if (ENABLE_VECTORIZATION > 0) && !defined(_DEBUG) && !defined(DEBUG)
@@ -48,7 +49,21 @@ namespace stringCore {
 static bool isAscii(const char* str, size_t length);
 
 FOLLY_ALWAYS_INLINE bool isAscii(const char* str, size_t length) {
-  for (auto i = 0; i < length; i++) {
+  const auto mask = xsimd::broadcast<uint8_t>(0x80);
+  size_t i = 0;
+  for (; i + mask.size <= length; i += mask.size) {
+    auto batch =
+        xsimd::load_unaligned(reinterpret_cast<const uint8_t*>(str) + i);
+#if XSIMD_WITH_AVX
+    // 1 instruction instead of 2 on AVX.
+    if (!_mm256_testz_si256(batch, mask)) {
+#else
+    if (xsimd::any(batch >= mask)) {
+#endif
+      return false;
+    }
+  }
+  for (; i < length; ++i) {
     if (str[i] & 0x80) {
       return false;
     }

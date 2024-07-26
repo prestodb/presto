@@ -769,3 +769,13 @@ TEST_F(StringImplTest, utf8proc_codepoint) {
 TEST_F(StringImplTest, isUnicodeWhiteSpace) {
   EXPECT_FALSE(isUnicodeWhiteSpace(-1));
 }
+
+TEST_F(StringImplTest, isAscii) {
+  std::string s(101, 'a');
+  ASSERT_TRUE(isAscii(s.data(), 1));
+  ASSERT_TRUE(isAscii(s.data(), s.size()));
+  const char* alpha = "\u03b1";
+  memcpy(&s[0], alpha, strlen(alpha));
+  ASSERT_FALSE(isAscii(s.data(), strlen(alpha)));
+  ASSERT_FALSE(isAscii(s.data(), s.size()));
+}
