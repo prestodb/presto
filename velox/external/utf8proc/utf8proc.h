@@ -229,16 +229,16 @@ typedef enum {
  */
 /** @{ */
 /** Memory could not be allocated. */
-#define UTF8PROC_ERROR_NOMEM -1
+#define UTF8PROC_ERROR_NOMEM (-1)
 /** The given string is too long to be processed. */
-#define UTF8PROC_ERROR_OVERFLOW -2
+#define UTF8PROC_ERROR_OVERFLOW (-2)
 /** The given string is not a legal UTF-8 string. */
-#define UTF8PROC_ERROR_INVALIDUTF8 -3
+#define UTF8PROC_ERROR_INVALIDUTF8 (-3)
 /** The @ref UTF8PROC_REJECTNA flag was set and an unassigned codepoint was
  * found. */
-#define UTF8PROC_ERROR_NOTASSIGNED -4
+#define UTF8PROC_ERROR_NOTASSIGNED (-4)
 /** Invalid options have been used. */
-#define UTF8PROC_ERROR_INVALIDOPTS -5
+#define UTF8PROC_ERROR_INVALIDOPTS (-5)
 /** @} */
 
 /* @name Types */

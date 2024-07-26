@@ -14,7 +14,7 @@ export default function VeloxConBanner() {
             <h2>See the VeloxCon 2024 Recordings</h2>
           </div>
           <div className="col col--3">
-            <a className="button button--info button--lg" href="https://www.youtube.com/playlist?list=PLJvBe8nQAEsEBSoUY0lRFVZr2_YeHYkUR" target="_blank">Watch</a>
+            <a className="button button--info button--lg" href="https://www.youtube.com/playlist?list=PLJvBe8nQAEsEBSoUY0lRFVZr2_YeHYkUR" target="_blank" rel="noopener noreferrer">Watch</a>
           </div>
         </div>
       </div>
