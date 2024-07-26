@@ -24,6 +24,7 @@ import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.RowExpressionVariableInliner;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
@@ -146,6 +147,6 @@ public class RemoveCrossJoinWithConstantInput
 
     private static Map<VariableReferenceExpression, RowExpression> updateAssignments(Map<VariableReferenceExpression, RowExpression> mapping, Map<VariableReferenceExpression, RowExpression> newAssignments)
     {
-        return mapping.entrySet().stream().collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue() instanceof VariableReferenceExpression ? newAssignments.get(entry.getValue()) : entry.getValue()));
+        return mapping.entrySet().stream().collect(toImmutableMap(Map.Entry::getKey, entry -> RowExpressionVariableInliner.inlineVariables(newAssignments, entry.getValue())));
     }
 }
