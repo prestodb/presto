@@ -30,12 +30,12 @@
 
 namespace facebook::velox::tz {
 
-const std::unordered_map<int64_t, std::string>& getTimeZoneDB() {
-  static auto* tzDB = new std::unordered_map<int64_t, std::string>([] {
+const std::vector<std::pair<int16_t, std::string>>& getTimeZoneEntries() {
+  static auto* tzDB = new std::vector<std::pair<int16_t, std::string>>([] {
     // Work around clang compiler bug causing multi-hour compilation
     // with -fsanitize=fuzzer
     // https://github.com/llvm/llvm-project/issues/75666
-    std::vector<std::pair<int64_t, std::string>> entries = {
+    return std::vector<std::pair<int16_t, std::string>>{
         {0, "+00:00"},
         {1, "-14:00"},
         {2, "-13:59"},
@@ -2266,8 +2266,6 @@ const std::unordered_map<int64_t, std::string>& getTimeZoneDB() {
         {2232, "Europe/Kyiv"},
         {2233, "America/Ciudad_Juarez"},
     };
-    return std::unordered_map<int64_t, std::string>(
-        entries.begin(), entries.end());
   }());
   return *tzDB;
 }

@@ -26,21 +26,54 @@
 namespace facebook::velox::tz {
 
 // Defined in TimeZoneDatabase.cpp
-extern const std::unordered_map<int64_t, std::string>& getTimeZoneDB();
+extern const std::vector<std::pair<int16_t, std::string>>& getTimeZoneEntries();
+
+// TODO: The string will be moved to TimeZone in the next PR.
+using TTimeZoneDatabase = std::vector<std::unique_ptr<std::string>>;
+using TTimeZoneIndex = folly::F14FastMap<std::string, int16_t>;
 
 namespace {
 
-folly::F14FastMap<std::string, int64_t> makeReverseMap(
-    const std::unordered_map<int64_t, std::string>& map) {
-  folly::F14FastMap<std::string, int64_t> reversed;
-  reversed.reserve(map.size() + 1);
+// Flattens the input vector of pairs into a vector, assuming that the
+// timezoneIDs are (mostly) sequential. Note that since they are "mostly"
+// senquential, the vector can have holes. But it is still more efficient than
+// looking up on a map.
+TTimeZoneDatabase buildTimeZoneDatabase(
+    const std::vector<std::pair<int16_t, std::string>>& dbInput) {
+  TTimeZoneDatabase tzDatabase;
+  tzDatabase.resize(dbInput.back().first + 1);
 
-  for (const auto& entry : map) {
-    reversed.emplace(
-        boost::algorithm::to_lower_copy(entry.second), entry.first);
+  for (const auto& entry : dbInput) {
+    tzDatabase[entry.first] = std::make_unique<std::string>(entry.second);
+  }
+  return tzDatabase;
+}
+
+const TTimeZoneDatabase& getTimeZoneDatabase() {
+  static TTimeZoneDatabase timeZoneDatabase =
+      buildTimeZoneDatabase(getTimeZoneEntries());
+  return timeZoneDatabase;
+}
+
+// Reverses the vector of pairs into a map key'ed by the timezone name for
+// reverse look ups.
+TTimeZoneIndex buildTimeZoneIndex(const TTimeZoneDatabase& tzDatabase) {
+  TTimeZoneIndex reversed;
+  reversed.reserve(tzDatabase.size() + 1);
+
+  for (int16_t i = 0; i < tzDatabase.size(); ++i) {
+    if (tzDatabase[i] != nullptr) {
+      reversed.emplace(boost::algorithm::to_lower_copy(*tzDatabase[i]), i);
+    }
   }
   reversed.emplace("utc", 0);
   return reversed;
+}
+
+const TTimeZoneIndex& getTimeZoneIndex() {
+  static TTimeZoneIndex timeZoneIndex =
+      buildTimeZoneIndex(getTimeZoneDatabase());
+  return timeZoneIndex;
 }
 
 inline bool isDigit(char c) {
@@ -111,28 +144,37 @@ std::string normalizeTimeZone(const std::string& originalZoneId) {
 } // namespace
 
 std::string getTimeZoneName(int64_t timeZoneID) {
-  const auto& tzDB = getTimeZoneDB();
-  auto it = tzDB.find(timeZoneID);
-  VELOX_CHECK(
-      it != tzDB.end(), "Unable to resolve timeZoneID '{}'", timeZoneID);
-  return it->second;
+  const auto& timeZoneDatabase = getTimeZoneDatabase();
+
+  VELOX_CHECK_LT(
+      timeZoneID,
+      timeZoneDatabase.size(),
+      "Unable to resolve timeZoneID '{}'",
+      timeZoneID);
+
+  // Check if timeZoneID is not one of the "holes".
+  VELOX_CHECK_NOT_NULL(
+      timeZoneDatabase[timeZoneID],
+      "Unable to resolve timeZoneID '{}'",
+      timeZoneID);
+  return *timeZoneDatabase[timeZoneID];
 }
 
 int16_t getTimeZoneID(std::string_view timeZone, bool failOnError) {
-  static folly::F14FastMap<std::string, int64_t> nameToIdMap =
-      makeReverseMap(getTimeZoneDB());
+  const auto& timeZoneIndex = getTimeZoneIndex();
+
   std::string timeZoneLowered;
   boost::algorithm::to_lower_copy(
       std::back_inserter(timeZoneLowered), timeZone);
 
-  auto it = nameToIdMap.find(timeZoneLowered);
-  if (it != nameToIdMap.end()) {
+  auto it = timeZoneIndex.find(timeZoneLowered);
+  if (it != timeZoneIndex.end()) {
     return it->second;
   }
 
   // If an exact match wasn't found, try to normalize the timezone name.
-  it = nameToIdMap.find(normalizeTimeZone(timeZoneLowered));
-  if (it != nameToIdMap.end()) {
+  it = timeZoneIndex.find(normalizeTimeZone(timeZoneLowered));
+  if (it != timeZoneIndex.end()) {
     return it->second;
   }
   if (failOnError) {

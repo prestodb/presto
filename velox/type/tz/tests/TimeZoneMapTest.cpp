@@ -41,6 +41,7 @@ TEST(TimeZoneMapTest, getTimeZoneID) {
   EXPECT_EQ(0, getTimeZoneID("UTC"));
   EXPECT_EQ(0, getTimeZoneID("GMT"));
   EXPECT_EQ(0, getTimeZoneID("Z"));
+  EXPECT_EQ(0, getTimeZoneID("z"));
   EXPECT_EQ(0, getTimeZoneID("greenwich"));
   EXPECT_EQ(0, getTimeZoneID("ETC/GMT"));
   EXPECT_EQ(0, getTimeZoneID("ETC/GMT0"));
