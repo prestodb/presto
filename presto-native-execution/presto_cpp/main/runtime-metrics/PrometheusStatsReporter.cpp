@@ -13,7 +13,6 @@
  */
 
 #include "presto_cpp/main/runtime-metrics/PrometheusStatsReporter.h"
-
 #include <prometheus/collectable.h>
 #include <prometheus/counter.h>
 #include <prometheus/gauge.h>
@@ -21,6 +20,7 @@
 #include <prometheus/registry.h>
 #include <prometheus/summary.h>
 #include <prometheus/text_serializer.h>
+#include "folly/futures/Future.h"
 
 namespace facebook::presto::prometheus {
 
@@ -49,6 +49,8 @@ struct PrometheusStatsReporter::PrometheusImpl {
 PrometheusStatsReporter::PrometheusStatsReporter(
     const std::map<std::string, std::string>& labels) {
   impl_ = std::make_shared<PrometheusImpl>(labels);
+  histogramExecutor_ = std::make_unique<folly::CPUThreadPoolExecutor>(
+      1, std::make_shared<folly::NamedThreadFactory>("prometheus"));
 }
 
 void PrometheusStatsReporter::registerMetricExportType(
@@ -152,9 +154,9 @@ void PrometheusStatsReporter::registerHistogramMetricExportType(
   // TODO: Registering histogram metrics appears to be causing a slowdown:
   // https://github.ibm.com/lakehouse/velox/issues/232. They are disabled
   // till further investigation into this issue.
-  return;
-//  registerHistogramMetricExportType(
-//      key.toString().c_str(), bucketWidth, min, max, pcts);
+  // return;
+  registerHistogramMetricExportType(
+      key.toString().c_str(), bucketWidth, min, max, pcts);
 }
 
 void PrometheusStatsReporter::addMetricValue(
@@ -203,29 +205,38 @@ void PrometheusStatsReporter::addHistogramMetricValue(
   addHistogramMetricValue(key.c_str(), value);
 }
 
+void PrometheusStatsReporter::updateHistogramSummaryAsync(
+    const std::string& key,
+    size_t value) const {
+  auto metricIterator = registeredMetricsMap_.find(key);
+  auto histogram = reinterpret_cast<::prometheus::Histogram*>(
+      metricIterator->second.metricPtr);
+  histogram->Observe(value);
+
+  std::string summaryKey = std::string(key).append(kSummarySuffix);
+  metricIterator = registeredMetricsMap_.find(summaryKey);
+  if (metricIterator != registeredMetricsMap_.end()) {
+    auto summary = reinterpret_cast<::prometheus::Summary*>(
+        metricIterator->second.metricPtr);
+    summary->Observe(value);
+  }
+}
+
 void PrometheusStatsReporter::addHistogramMetricValue(
     const char* key,
     size_t value) const {
   // TODO: Registering histogram metrics appears to be causing a slowdown:
   // https://github.ibm.com/lakehouse/velox/issues/232. They are disabled
   // till further investigation into this issue.
-  return;
-//  auto metricIterator = registeredMetricsMap_.find(key);
-//  if (metricIterator == registeredMetricsMap_.end()) {
-//    VLOG(1) << "addMetricValue for unregistered metric " << key;
-//    return;
-//  }
-//  auto histogram = reinterpret_cast<::prometheus::Histogram*>(
-//      metricIterator->second.metricPtr);
-//  histogram->Observe(value);
-//
-//  std::string summaryKey = std::string(key).append(kSummarySuffix);
-//  metricIterator = registeredMetricsMap_.find(summaryKey);
-//  if (metricIterator != registeredMetricsMap_.end()) {
-//    auto summary = reinterpret_cast<::prometheus::Summary*>(
-//        metricIterator->second.metricPtr);
-//    summary->Observe(value);
-//  }
+  // return;
+  auto metricIterator = registeredMetricsMap_.find(key);
+  if (metricIterator == registeredMetricsMap_.end()) {
+    VLOG(1) << "addMetricValue for unregistered metric " << key;
+    return;
+  }
+  histogramExecutor_->add([this, keyStr = std::string(key), value]() {
+    updateHistogramSummaryAsync(keyStr, value);
+  });
 }
 
 void PrometheusStatsReporter::addHistogramMetricValue(

@@ -12,6 +12,7 @@
  * limitations under the License.
  */
 
+#include "folly/executors/CPUThreadPoolExecutor.h"
 #include "presto_cpp/main/common/Configs.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/GTestMacros.h"
@@ -88,10 +89,12 @@ class PrometheusStatsReporter : public facebook::velox::BaseStatsReporter {
   }
 
  private:
+  void updateHistogramSummaryAsync(const std::string& key, size_t value) const;
   std::shared_ptr<PrometheusImpl> impl_;
   // A map of labels assigned to each metric which helps in filtering at client
   // end.
   mutable std::unordered_map<std::string, StatsInfo> registeredMetricsMap_;
+  std::unique_ptr<folly::CPUThreadPoolExecutor> histogramExecutor_;
   VELOX_FRIEND_TEST(PrometheusReporterTest, testCountAndGauge);
   VELOX_FRIEND_TEST(PrometheusReporterTest, testHistogramSummary);
 }; // class PrometheusReporter
