@@ -19,6 +19,7 @@
 #include "velox/functions/lib/aggregates/MinMaxByAggregatesBase.h"
 #include "velox/functions/lib/aggregates/ValueSet.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
+#include "velox/type/FloatingPointUtil.h"
 
 using namespace facebook::velox::functions::aggregate;
 
@@ -40,8 +41,16 @@ struct Comparator {
         return true;
       }
       if constexpr (greaterThan) {
+        if constexpr (std::is_floating_point_v<T>) {
+          return util::floating_point::NaNAwareGreaterThan<T>{}(
+              newComparisons.valueAt<T>(index), *accumulator);
+        }
         return newComparisons.valueAt<T>(index) > *accumulator;
       } else {
+        if constexpr (std::is_floating_point_v<T>) {
+          return util::floating_point::NaNAwareLessThan<T>{}(
+              newComparisons.valueAt<T>(index), *accumulator);
+        }
         return newComparisons.valueAt<T>(index) < *accumulator;
       }
     } else {
@@ -560,10 +569,16 @@ template <typename V, typename C>
 struct Less {
   using Pair = std::pair<C, std::optional<V>>;
   bool operator()(const Pair& lhs, const Pair& rhs) {
+    if constexpr (std::is_floating_point_v<C>) {
+      return util::floating_point::NaNAwareLessThan<C>{}(lhs.first, rhs.first);
+    }
     return lhs.first < rhs.first;
   }
 
   bool compare(C lhs, const Pair& rhs) {
+    if constexpr (std::is_floating_point_v<C>) {
+      return util::floating_point::NaNAwareLessThan<C>{}(lhs, rhs.first);
+    }
     return lhs < rhs.first;
   }
 };
@@ -572,10 +587,17 @@ template <typename V, typename C>
 struct Greater {
   using Pair = std::pair<C, std::optional<V>>;
   bool operator()(const Pair& lhs, const Pair& rhs) {
+    if constexpr (std::is_floating_point_v<C>) {
+      return util::floating_point::NaNAwareGreaterThan<C>{}(
+          lhs.first, rhs.first);
+    }
     return lhs.first > rhs.first;
   }
 
   bool compare(C lhs, const Pair& rhs) {
+    if constexpr (std::is_floating_point_v<C>) {
+      return util::floating_point::NaNAwareGreaterThan<C>{}(lhs, rhs.first);
+    }
     return lhs > rhs.first;
   }
 };

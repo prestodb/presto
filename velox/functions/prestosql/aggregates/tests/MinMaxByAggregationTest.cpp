@@ -1444,7 +1444,75 @@ class MinMaxByNTest : public AggregationTestBase {
     AggregationTestBase::SetUp();
     AggregationTestBase::enableTestStreaming();
   }
+
+  template <typename T>
+  void testNanFloatValues() {
+    // Verify that NaN values are handeled correctly as being greater than
+    // infinity.
+    static const T kNaN = std::numeric_limits<T>::quiet_NaN();
+    static const T kSNaN = std::numeric_limits<T>::signaling_NaN();
+    static const T kInf = std::numeric_limits<T>::infinity();
+
+    auto data = makeRowVector({
+        // output column for min_by/max_by
+        makeFlatVector<int32_t>({1, 2, 3, 4, 5}),
+        // group by column
+        makeFlatVector<int32_t>({1, 1, 2, 2, 2}),
+        // regular ordering
+        makeFlatVector<T>({2.0, kNaN, 1.1, kInf, -1.1}),
+        // with nulls
+        makeNullableFlatVector<T>({2.0, 1.1, std::nullopt, kSNaN, -1.1}),
+    });
+
+    // Global aggregation.
+    {
+      auto expected = makeRowVector({
+          makeArrayVectorFromJson<int32_t>({"[2, 4]"}),
+          makeArrayVectorFromJson<int32_t>({"[4, 1]"}),
+          makeArrayVectorFromJson<int32_t>({"[5, 3]"}),
+          makeArrayVectorFromJson<int32_t>({"[5, 2]"}),
+      });
+
+      testAggregations(
+          {data},
+          {},
+          {
+              "max_by(c0, c2, 2)",
+              "max_by(c0, c3, 2)",
+              "min_by(c0, c2, 2)",
+              "min_by(c0, c3, 2)",
+          },
+          {expected});
+    }
+
+    // group-by aggregation.
+    {
+      auto expected = makeRowVector({
+          makeFlatVector<int32_t>({1, 2}), // grouping key
+          makeArrayVectorFromJson<int32_t>({"[2, 1]", "[4, 3]"}),
+          makeArrayVectorFromJson<int32_t>({"[1, 2]", "[4, 5]"}),
+          makeArrayVectorFromJson<int32_t>({"[1, 2]", "[5, 3]"}),
+          makeArrayVectorFromJson<int32_t>({"[2, 1]", "[5, 4]"}),
+      });
+
+      testAggregations(
+          {data},
+          {"c1"},
+          {
+              "max_by(c0, c2, 2)",
+              "max_by(c0, c3, 2)",
+              "min_by(c0, c2, 2)",
+              "min_by(c0, c3, 2)",
+          },
+          {expected});
+    }
+  }
 };
+
+TEST_F(MinMaxByNTest, nans) {
+  testNanFloatValues<float>();
+  testNanFloatValues<double>();
+}
 
 TEST_F(MinMaxByNTest, global) {
   // DuckDB doesn't support 3-argument versions of min_by and max_by.
@@ -2331,5 +2399,110 @@ TEST_F(MinMaxByNTest, peakMemory) {
   EXPECT_LT(maxByPeak, 190000);
 }
 
+class MinMaxByTest : public AggregationTestBase {
+ public:
+  template <typename T>
+  void testNanFloatValues() {
+    // Verify that NaN values are handeled correctly as being greater than
+    // infinity.
+    static const T kNaN = std::numeric_limits<T>::quiet_NaN();
+    static const T kSNaN = std::numeric_limits<T>::signaling_NaN();
+    static const T kInf = std::numeric_limits<T>::infinity();
+
+    auto data = makeRowVector({
+        // output column for min_by/max_by
+        makeFlatVector<int32_t>({1, 2, 3, 4, 5}),
+        // group by column
+        makeFlatVector<int32_t>({1, 1, 2, 2, 2}),
+        // regular ordering
+        makeFlatVector<T>({2.0, kNaN, 1.1, kInf, -1.1}),
+        // with nulls
+        makeNullableFlatVector<T>({2.0, 1.1, std::nullopt, kSNaN, -1.1}),
+    });
+
+    // Global aggregation.
+    {
+      auto expected = makeRowVector({
+          makeFlatVector<int32_t>(std::vector<int32_t>({2})),
+          makeFlatVector<int32_t>(std::vector<int32_t>({4})),
+          makeFlatVector<int32_t>(std::vector<int32_t>({5})),
+          makeFlatVector<int32_t>(std::vector<int32_t>({5})),
+      });
+
+      testAggregations(
+          {data},
+          {},
+          {
+              "max_by(c0, c2)",
+              "max_by(c0, c3)",
+              "min_by(c0, c2)",
+              "min_by(c0, c3)",
+          },
+          {expected});
+    }
+
+    // group-by aggregation.
+    {
+      auto expected = makeRowVector({
+          makeFlatVector<int32_t>({1, 2}), // grouping key
+          makeFlatVector<int32_t>({2, 4}),
+          makeFlatVector<int32_t>({1, 4}),
+          makeFlatVector<int32_t>({1, 5}),
+          makeFlatVector<int32_t>({2, 5}),
+      });
+
+      testAggregations(
+          {data},
+          {"c1"},
+          {
+              "max_by(c0, c2)",
+              "max_by(c0, c3)",
+              "min_by(c0, c2)",
+              "min_by(c0, c3)",
+          },
+          {expected});
+    }
+
+    // Test for float point values nested inside complex type.
+    data = makeRowVector({
+        // output column for min_by/max_by
+        makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6}),
+        // group by column
+        makeFlatVector<int32_t>({1, 1, 2, 2, 2, 2}),
+        makeRowVector({
+            makeFlatVector<T>({2, kNaN, 1, kInf, -1, kNaN}),
+            makeFlatVector<int32_t>({1, 1, 1, 2, 2, 2}),
+        }),
+    });
+
+    // Global aggregation.
+    {
+      auto expected = makeRowVector({
+          makeFlatVector<int32_t>(std::vector<int32_t>({6})),
+          makeFlatVector<int32_t>(std::vector<int32_t>({5})),
+      });
+
+      testAggregations(
+          {data}, {}, {"max_by(c0, c2)", "min_by(c0, c2)"}, {expected});
+    }
+
+    // group-by aggregation.
+    {
+      auto expected = makeRowVector({
+          makeFlatVector<int32_t>({1, 2}), // grouping key
+          makeFlatVector<int32_t>({2, 6}),
+          makeFlatVector<int32_t>({1, 5}),
+      });
+
+      testAggregations(
+          {data}, {"c1"}, {"max_by(c0, c2)", "min_by(c0, c2)"}, {expected});
+    }
+  }
+};
+
+TEST_F(MinMaxByTest, nans) {
+  testNanFloatValues<float>();
+  testNanFloatValues<double>();
+}
 } // namespace
 } // namespace facebook::velox::aggregate::test
