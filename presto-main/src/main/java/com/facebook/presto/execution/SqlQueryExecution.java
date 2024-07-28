@@ -96,7 +96,7 @@ import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED_AND_VALIDATE
 import static com.facebook.presto.sql.planner.PlanNodeCanonicalInfo.getCanonicalInfo;
 import static com.facebook.presto.util.AnalyzerUtil.checkAccessPermissions;
 import static com.facebook.presto.util.AnalyzerUtil.getAnalyzerContext;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
@@ -913,7 +913,7 @@ public class SqlQueryExecution
         {
             String executionPolicyName = getExecutionPolicy(stateMachine.getSession());
             ExecutionPolicy executionPolicy = executionPolicies.get(executionPolicyName);
-            checkArgument(executionPolicy != null, "No execution policy %s", executionPolicy);
+            checkNotNull(executionPolicy, "No execution policy %s", executionPolicy);
 
             return new SqlQueryExecution(
                     analyzerProvider.getQueryAnalyzer(),

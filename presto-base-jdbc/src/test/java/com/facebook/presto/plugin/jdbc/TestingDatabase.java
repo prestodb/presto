@@ -33,7 +33,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -113,7 +113,7 @@ final class TestingDatabase
     {
         JdbcTableHandle tableHandle = jdbcClient.getTableHandle(session, JdbcIdentity.from(session), new SchemaTableName(schemaName, tableName));
         List<JdbcColumnHandle> columns = jdbcClient.getColumns(session, tableHandle);
-        checkArgument(columns != null, "table not found: %s.%s", schemaName, tableName);
+        checkNotNull(columns, "table not found: %s.%s", schemaName, tableName);
 
         ImmutableMap.Builder<String, JdbcColumnHandle> columnHandles = ImmutableMap.builder();
         for (JdbcColumnHandle column : columns) {
