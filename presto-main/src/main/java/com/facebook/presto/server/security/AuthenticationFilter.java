@@ -106,11 +106,14 @@ public class AuthenticationFilter
             // authentication succeeded
             CustomHttpServletRequestWrapper wrappedRequest = withPrincipal(request, principal);
             Map<String, String> extraHeadersMap = new HashMap<>();
+
             for (RequestModifier modifier : requestModifierManager.getRequestModifiers()) {
                 boolean headersPresent = modifier.getHeaderNames().stream()
                         .allMatch(headerName -> request.getHeaders(headerName) != null);
+
                 if (!headersPresent) {
                     Optional<Map<String, String>> extraHeaderValueMap = modifier.getExtraHeaders(principal);
+
                     extraHeaderValueMap.ifPresent(map -> {
                         for (Map.Entry<String, String> extraHeaderEntry : map.entrySet()) {
                             if (request.getHeaders(extraHeaderEntry.getKey()) == null) {
@@ -191,11 +194,6 @@ public class AuthenticationFilter
             customHeaders.put(name, value);
         }
 
-        public void setHeaders(Map<String, String> headers)
-        {
-            this.customHeaders.putAll(headers);
-        }
-
         @Override
         public String getHeader(String name)
         {
@@ -230,6 +228,11 @@ public class AuthenticationFilter
         public Principal getUserPrincipal()
         {
             return principal;
+        }
+
+        public void setHeaders(Map<String, String> headers)
+        {
+            this.customHeaders.putAll(headers);
         }
     }
 }
