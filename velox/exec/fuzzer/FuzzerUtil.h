@@ -67,6 +67,15 @@ std::shared_ptr<connector::ConnectorSplit> makeConnectorSplit(
 /// Create column names with the pattern '${prefix}${i}'.
 std::vector<std::string> makeNames(const std::string& prefix, size_t n);
 
+/// Create a batch consists of single all-null BIGINT column with as many rows
+/// as original input. Used when the query doesn't need to read any columns, but
+/// it needs to see a specific number of rows. This way we will be able to
+/// create a temporary test table with the necessary number of rows.
+RowVectorPtr makeNullRows(
+    const std::vector<velox::RowVectorPtr>& input,
+    const std::string& colName,
+    memory::MemoryPool* pool);
+
 /// Returns whether type is supported in TableScan. Empty Row type and Unknown
 /// type are not supported.
 bool isTableScanSupported(const TypePtr& type);

@@ -144,6 +144,24 @@ std::vector<std::string> makeNames(const std::string& prefix, size_t n) {
   return names;
 }
 
+RowVectorPtr makeNullRows(
+    const std::vector<velox::RowVectorPtr>& input,
+    const std::string& colName,
+    memory::MemoryPool* pool) {
+  vector_size_t numInput = 0;
+  for (const auto& v : input) {
+    numInput += v->size();
+  }
+
+  auto column = BaseVector::createNullConstant(BIGINT(), numInput, pool);
+  return std::make_shared<RowVector>(
+      pool,
+      ROW({colName}, {BIGINT()}),
+      nullptr,
+      numInput,
+      std::vector<VectorPtr>{column});
+}
+
 RowTypePtr concat(const RowTypePtr& a, const RowTypePtr& b) {
   std::vector<std::string> names = a->names();
   std::vector<TypePtr> types = a->children();

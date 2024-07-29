@@ -25,6 +25,7 @@
 #include "velox/connectors/hive/TableHandle.h"
 #include "velox/core/Expressions.h"
 #include "velox/dwio/common/WriterFactory.h"
+#include "velox/exec/fuzzer/FuzzerUtil.h"
 #include "velox/exec/fuzzer/ToSQLUtil.h"
 #include "velox/exec/tests/utils/QueryAssertions.h"
 #include "velox/serializers/PrestoSerializer.h"
@@ -76,28 +77,6 @@ RowVectorPtr deserialize(
   RowVectorPtr result;
   serde->deserialize(&byteStream, pool, rowType, &result, nullptr);
   return result;
-}
-
-RowVectorPtr makeNullRows(
-    const std::vector<velox::RowVectorPtr>& input,
-    const std::string& colName,
-    memory::MemoryPool* pool) {
-  // The query doesn't need to read any columns, but it needs to see a
-  // specific number of rows. Make new 'input' as single all-null BIGINT
-  // column with as many rows as original input. This way we'll be able to
-  // create a temporary test table with the necessary number of rows.
-  vector_size_t numInput = 0;
-  for (const auto& v : input) {
-    numInput += v->size();
-  }
-
-  auto column = BaseVector::createNullConstant(BIGINT(), numInput, pool);
-  return std::make_shared<RowVector>(
-      pool,
-      ROW({colName}, {BIGINT()}),
-      nullptr,
-      numInput,
-      std::vector<VectorPtr>{column});
 }
 
 class ServerResponse {
