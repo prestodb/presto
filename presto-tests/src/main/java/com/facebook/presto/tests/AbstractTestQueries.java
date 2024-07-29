@@ -120,6 +120,7 @@ import static com.facebook.presto.tests.QueryTemplate.parameter;
 import static com.facebook.presto.tests.QueryTemplate.queryTemplate;
 import static com.facebook.presto.tests.StatefulSleepingSum.STATEFUL_SLEEPING_SUM;
 import static com.facebook.presto.tests.StructuralTestUtil.mapType;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.transform;
 import static java.lang.String.format;
@@ -7450,6 +7451,30 @@ public abstract class AbstractTestQueries
         assertQuery(session, "select r.custkey, r.orderkey, r.name, n.nationkey from (select o.custkey, o.orderkey, c.name from orders o join customer c on cast(o.custkey as varchar) = cast(c.custkey as varchar)) r, nation n");
         // Do not trigger optimization
         assertQuery(session, "select * from customer c join orders o on cast(acctbal as varchar) = cast(totalprice as varchar)");
+    }
+
+    @Test
+    public void testPreserveAssignmentsInJoin()
+    {
+        // The following two timestamps represent the same point in time but with different time zones
+        String timestampLosAngeles = "2001-08-22 03:04:05.321 America/Los_Angeles";
+        String timestampNewYork = "2001-08-22 06:04:05.321 America/New_York";
+        Set<List<Object>> rows = computeActual("WITH source AS (" +
+                "SELECT * FROM (" +
+                "    VALUES" +
+                "        (TIMESTAMP '" + timestampLosAngeles + "')," +
+                "        (TIMESTAMP '" + timestampNewYork + "')" +
+                ") AS tbl (tstz)" +
+                ")" +
+                "SELECT * FROM source a JOIN source b ON a.tstz = b.tstz").getMaterializedRows().stream()
+                .map(MaterializedRow::getFields)
+                .collect(toImmutableSet());
+        assertEquals(rows,
+                ImmutableSet.of(
+                        ImmutableList.of(zonedDateTime(timestampLosAngeles), zonedDateTime(timestampLosAngeles)),
+                        ImmutableList.of(zonedDateTime(timestampLosAngeles), zonedDateTime(timestampNewYork)),
+                        ImmutableList.of(zonedDateTime(timestampNewYork), zonedDateTime(timestampLosAngeles)),
+                        ImmutableList.of(zonedDateTime(timestampNewYork), zonedDateTime(timestampNewYork))));
     }
 
     @Test
