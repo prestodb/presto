@@ -15,12 +15,16 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.plan.JoinType.INNER;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 
 public class TestUnaliasSymbolReferences
@@ -67,5 +71,20 @@ public class TestUnaliasSymbolReferences
                                 anyTree(values("RIGHT_BAR")))
                                 .withNumberOfOutputColumns(1)
                                 .withExactOutputs("LEFT_BAR")));
+    }
+
+    @Test
+    public void testNonDeterministicFunctionArgumentsAreNotCanonicalized()
+    {
+        // Because we compute the non-deterministic 'random(partkey)' function,
+        // We do not perform the canonicalization of partkey -> orderkey
+        assertPlan("select random(o.orderkey), random(l.partkey) from orders o, lineitem l where o.orderkey = l.partkey",
+                anyTree(
+                        project(ImmutableMap.of("random", expression("random(orderkey)"), "random_4", expression("random(partkey)")),
+                                join(INNER, ImmutableList.of(equiJoinClause("partkey", "orderkey")),
+                                        anyTree(tableScan("lineitem", ImmutableMap.of("partkey", "partkey"))),
+                                        anyTree(tableScan("orders", ImmutableMap.of("orderkey", "orderkey"))))
+                                        .withNumberOfOutputColumns(2)
+                                        .withExactOutputs("partkey", "orderkey"))));
     }
 }

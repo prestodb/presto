@@ -47,7 +47,9 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.RowExpressionVariableInliner;
+import com.facebook.presto.sql.planner.SimplePlanVisitor;
 import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
@@ -79,6 +81,7 @@ import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
@@ -131,33 +134,76 @@ public class UnaliasSymbolReferences
         requireNonNull(types, "types is null");
         requireNonNull(variableAllocator, "variableAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
-        PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(new Rewriter(types, functionAndTypeManager, warningCollector), plan);
+
+        NonDeterministicSymbolsExtractor nonDeterministicSymbolsExtractor = new NonDeterministicSymbolsExtractor(new RowExpressionDeterminismEvaluator(functionAndTypeManager));
+        ImmutableSet.Builder<VariableReferenceExpression> builder = ImmutableSet.builder();
+        plan.accept(nonDeterministicSymbolsExtractor, builder);
+        ImmutableSet<VariableReferenceExpression> doNotCanonicalize = builder.build();
+
+        PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(new Rewriter(types, functionAndTypeManager, warningCollector, doNotCanonicalize), plan);
         return PlanOptimizerResult.optimizerResult(rewrittenPlan, !rewrittenPlan.equals(plan));
+    }
+
+    private static class NonDeterministicSymbolsExtractor
+            extends SimplePlanVisitor<ImmutableSet.Builder<VariableReferenceExpression>>
+    {
+        private final RowExpressionDeterminismEvaluator determinismEvaluator;
+
+        public NonDeterministicSymbolsExtractor(RowExpressionDeterminismEvaluator determinismEvaluator)
+        {
+            this.determinismEvaluator = determinismEvaluator;
+        }
+
+        @Override
+        public Void visitProject(ProjectNode node, ImmutableSet.Builder<VariableReferenceExpression> context)
+        {
+            recordArgumentsOfNonDeterministicExpressions(node.getAssignments(), context);
+            return null;
+        }
+
+        @Override
+        public Void visitApply(ApplyNode node, ImmutableSet.Builder<VariableReferenceExpression> context)
+        {
+            recordArgumentsOfNonDeterministicExpressions(node.getSubqueryAssignments(), context);
+            return null;
+        }
+
+        private void recordArgumentsOfNonDeterministicExpressions(Assignments assignments, ImmutableSet.Builder<VariableReferenceExpression> context)
+        {
+            assignments.getExpressions().forEach(e ->
+            {
+                if (!determinismEvaluator.isDeterministic(e)) {
+                    context.addAll(VariablesExtractor.extractUnique(e));
+                }
+            });
+        }
     }
 
     private static class Rewriter
             extends SimplePlanRewriter<Void>
     {
         private final Map<String, String> mapping = new HashMap<>();
+        private final Set<VariableReferenceExpression> doNotCanonicalize;
         private final TypeProvider types;
         private final RowExpressionDeterminismEvaluator determinismEvaluator;
 
         private final FunctionAndTypeManager functionAndTypeManager;
         private final WarningCollector warningCollector;
 
-        private Rewriter(TypeProvider types, FunctionAndTypeManager functionAndTypeManager, WarningCollector warningCollector)
+        private Rewriter(TypeProvider types, FunctionAndTypeManager functionAndTypeManager, WarningCollector warningCollector, Set<VariableReferenceExpression> doNotCanonicalize)
         {
             this.types = types;
             this.functionAndTypeManager = functionAndTypeManager;
             this.determinismEvaluator = new RowExpressionDeterminismEvaluator(functionAndTypeManager);
             this.warningCollector = warningCollector;
+            this.doNotCanonicalize = doNotCanonicalize;
         }
 
         @Override
         public PlanNode visitAggregation(AggregationNode node, RewriteContext<Void> context)
         {
             PlanNode source = context.rewrite(node.getSource());
-            //TODO: use mapper in other methods
+            // TODO: use mapper in other methods
             SymbolMapper mapper = new SymbolMapper(mapping, types, warningCollector);
             return mapper.map(node, source);
         }
@@ -185,7 +231,7 @@ public class UnaliasSymbolReferences
         public PlanNode visitSequence(SequenceNode node, RewriteContext<Void> context)
         {
             List<PlanNode> cteProducers = node.getCteProducers().stream().map(c ->
-                            SimplePlanRewriter.rewriteWith(new Rewriter(types, functionAndTypeManager, warningCollector), c))
+                            SimplePlanRewriter.rewriteWith(new Rewriter(types, functionAndTypeManager, warningCollector, doNotCanonicalize), c))
                     .collect(Collectors.toList());
             PlanNode primarySource = context.rewrite(node.getPrimarySource());
             return new SequenceNode(node.getSourceLocation(), node.getId(), cteProducers, primarySource, node.getCteDependencyGraph());
@@ -694,6 +740,10 @@ public class UnaliasSymbolReferences
         private void map(VariableReferenceExpression variable, VariableReferenceExpression canonical)
         {
             Preconditions.checkArgument(!variable.equals(canonical), "Can't map variable to itself: %s", variable);
+            if (doNotCanonicalize.contains(variable)) {
+                return;
+            }
+
             mapping.put(variable.getName(), canonical.getName());
         }
 
