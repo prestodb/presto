@@ -37,6 +37,7 @@
 #include "velox/functions/sparksql/In.h"
 #include "velox/functions/sparksql/JsonObjectKeys.h"
 #include "velox/functions/sparksql/LeastGreatest.h"
+#include "velox/functions/sparksql/MaskFunction.h"
 #include "velox/functions/sparksql/MightContain.h"
 #include "velox/functions/sparksql/MonotonicallyIncreasingId.h"
 #include "velox/functions/sparksql/RaiseError.h"
@@ -481,6 +482,21 @@ void registerFunctions(const std::string& prefix) {
       int32_t>({prefix + "levenshtein"});
   registerFunction<LevenshteinDistanceFunction, int32_t, Varchar, Varchar>(
       {prefix + "levenshtein"});
+
+  registerFunction<MaskFunction, Varchar, Varchar>({prefix + "mask"});
+  registerFunction<MaskFunction, Varchar, Varchar, Varchar>({prefix + "mask"});
+  registerFunction<MaskFunction, Varchar, Varchar, Varchar, Varchar>(
+      {prefix + "mask"});
+  registerFunction<MaskFunction, Varchar, Varchar, Varchar, Varchar, Varchar>(
+      {prefix + "mask"});
+  registerFunction<
+      MaskFunction,
+      Varchar,
+      Varchar,
+      Varchar,
+      Varchar,
+      Varchar,
+      Varchar>({prefix + "mask"});
 }
 
 } // namespace sparksql
