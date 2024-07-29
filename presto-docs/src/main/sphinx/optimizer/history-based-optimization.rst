@@ -31,7 +31,7 @@ The following configuration properties are available for HBO:
 
 ============================================================= =========================================================================================================================== ===================================
 Configuration Property Name                                   Description                                                                                                                 Default value
-===========================================================   =========================================================================================================================== ===================================
+============================================================= =========================================================================================================================== ===================================
 ``optimizer.use-history-based-plan-statistics``               Use historical statistics for query optimization.                                                                           ``False``
 ``optimizer.track-history-based-plan-statistics``             Recording the statistics of the current query as history statistics so as to be used by future queries.                     ``False``
 ``optimizer.track-history-stats-from-failed-queries``         Track history based plan statistics from complete plan fragments in failed queries.                                         ``True``
