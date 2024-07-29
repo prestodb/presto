@@ -582,7 +582,7 @@ void PrestoServer::run() {
       << driverExecutor_->numThreads()
       << ", task queue: " << driverExecutor_->getTaskQueueSize();
   // Schedule release of SessionPools held by HttpClients before the exchange
-  // HTTP executor threads are joined.
+  // HTTP IO executor threads are joined.
   driverExecutor_.reset();
 
   if (connectorIoExecutor_) {
@@ -591,11 +591,6 @@ void PrestoServer::run() {
         << "': threads: " << connectorIoExecutor_->numActiveThreads() << "/"
         << connectorIoExecutor_->numThreads();
     connectorIoExecutor_->join();
-  }
-
-  if (exchangeSourceConnectionPool_) {
-    PRESTO_SHUTDOWN_LOG(INFO) << "Releasing exchange HTTP connection pools";
-    exchangeSourceConnectionPool_->destroy();
   }
 
   if (httpSrvCpuExecutor_ != nullptr) {
@@ -621,6 +616,16 @@ void PrestoServer::run() {
       << "': threads: " << exchangeHttpCpuExecutor_->numActiveThreads() << "/"
       << exchangeHttpCpuExecutor_->numThreads();
   exchangeHttpCpuExecutor_->join();
+  // Schedule release of SessionPools held by HttpClients before the exchange
+  // HTTP IO executor threads are joined.
+  exchangeHttpCpuExecutor_.reset();
+
+  if (exchangeSourceConnectionPool_) {
+    // Connection pool needs to be destroyed after CPU threads are joined but
+    // before IO threads are joined.
+    PRESTO_SHUTDOWN_LOG(INFO) << "Releasing exchange HTTP connection pools";
+    exchangeSourceConnectionPool_->destroy();
+  }
 
   PRESTO_SHUTDOWN_LOG(INFO)
       << "Joining Exchange Http IO executor '"
