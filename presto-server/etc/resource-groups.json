@@ -7,14 +7,15 @@
       "maxQueued": 1000,
       "schedulingPolicy": "weighted",
       "jmxExport": true,
-      "tags": ["test"],
+      "tags": ["test", "test1"],
       "subGroups": [
         {
           "name": "data_definition",
           "softMemoryLimit": "10%",
           "hardConcurrencyLimit": 5,
           "maxQueued": 100,
-          "schedulingWeight": 1
+          "schedulingWeight": 1,
+          "tags": ["test1"]
         },
         {
           "name": "pipeline",
@@ -23,6 +24,7 @@
           "maxQueued": 100,
           "schedulingWeight": 1,
           "jmxExport": true,
+          "tags1":["problem"],
           "subGroups": [
             {
               "name": "pipeline_${USER}",
