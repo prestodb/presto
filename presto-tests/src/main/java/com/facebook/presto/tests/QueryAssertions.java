@@ -394,7 +394,6 @@ public final class QueryAssertions
         }
     }
 
-
     public static void copyTpchTables(
             QueryRunner queryRunner,
             String sourceCatalog,
