@@ -22,9 +22,9 @@
 DEFINE_string(etc_dir, ".", "etc directory for presto configuration");
 
 int main(int argc, char* argv[]) {
+  facebook::presto::util::installSignalHandler();
   folly::Init init{&argc, &argv};
 
-  google::InstallFailureSignalHandler();
   PRESTO_STARTUP_LOG(INFO) << "Entering main()";
   facebook::presto::PrestoServer presto(FLAGS_etc_dir);
   presto.run();
