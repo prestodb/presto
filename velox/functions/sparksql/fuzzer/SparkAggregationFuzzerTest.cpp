@@ -82,6 +82,7 @@ int main(int argc, char** argv) {
           {"skewness", nullptr},
           {"kurtosis", nullptr},
           {"collect_list", makeArrayVerifier()},
+          {"collect_set", makeArrayVerifier()},
           // Nested nulls are handled as values in Spark. But nested nulls
           // comparison always generates null in DuckDB.
           {"min", nullptr},
