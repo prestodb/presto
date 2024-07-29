@@ -697,6 +697,30 @@ public class TestArrayOperators
     }
 
     @Test
+    public void testArrayMinWithNullsInBothArraysNotComparedFirstIsMin()
+    {
+        assertFunction("ARRAY_MIN(ARRAY [ARRAY[1, NULL], ARRAY[2, NULL]])", new ArrayType(INTEGER), Lists.newArrayList(1, null));
+    }
+
+    @Test
+    public void testArrayMinWithNullsInBothArraysNotComparedSecondIsMin()
+    {
+        assertFunction("ARRAY_MIN(ARRAY [ARRAY[2, NULL], ARRAY[1, NULL]])", new ArrayType(INTEGER), Lists.newArrayList(1, null));
+    }
+
+    @Test
+    public void testArrayMinWithNullInFirstArrayIsCompared()
+    {
+        assertInvalidFunction("ARRAY_MIN(ARRAY [ARRAY[1, NULL], ARRAY[1, 2]])", NOT_SUPPORTED);
+    }
+
+    @Test
+    public void testArrayMinWithNullInSecondArrayIsCompared()
+    {
+        assertInvalidFunction("ARRAY_MIN(ARRAY [ARRAY[1, 2], ARRAY[1, NULL]])", NOT_SUPPORTED);
+    }
+
+    @Test
     public void testArrayMax()
     {
         assertFunction("ARRAY_MAX(ARRAY [])", UNKNOWN, null);
@@ -724,6 +748,30 @@ public class TestArrayOperators
         assertDecimalFunction("ARRAY_MAX(ARRAY [2.111111222111111114111, 2.22222222222222222, 2.222222222222223])", decimal("2.222222222222223000000"));
         assertDecimalFunction("ARRAY_MAX(ARRAY [1.9, 2, 2.3])", decimal("0000000002.3"));
         assertDecimalFunction("ARRAY_MAX(ARRAY [2.22222222222222222, 2.3])", decimal("2.30000000000000000"));
+    }
+
+    @Test
+    public void testArrayMaxWithNullsInBothArraysNotComparedSecondIsMax()
+    {
+        assertFunction("ARRAY_MAX(ARRAY [ARRAY[1, NULL], ARRAY[2, NULL]])", new ArrayType(INTEGER), Lists.newArrayList(2, null));
+    }
+
+    @Test
+    public void testArrayMaxWithNullsInBothArraysNotComparedFirstIsMax()
+    {
+        assertFunction("ARRAY_MAX(ARRAY [ARRAY[2, NULL], ARRAY[1, NULL]])", new ArrayType(INTEGER), Lists.newArrayList(2, null));
+    }
+
+    @Test
+    public void testArrayMaxWithNullInFirstArrayIsCompared()
+    {
+        assertInvalidFunction("ARRAY_MAX(ARRAY [ARRAY[1, NULL], ARRAY[1, 2]])", NOT_SUPPORTED);
+    }
+
+    @Test
+    public void testArrayMaxWithNullInSecondArrayIsCompared()
+    {
+        assertInvalidFunction("ARRAY_MAX(ARRAY [ARRAY[1, 2], ARRAY[1, NULL]])", NOT_SUPPORTED);
     }
 
     @Test
