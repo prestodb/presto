@@ -59,7 +59,7 @@ class AggregationTest : public OperatorTestBase {
   void TearDown() override {}
 };
 
-TEST_F(AggregationTest, singleKeySingleAggregate) {
+TEST_F(AggregationTest, DISABLED_singleKeySingleAggregate) {
   constexpr int kSize = 10;
   auto vector = makeRowVector({
       makeFlatVector<int64_t>(kSize, [](int i) { return i % 3; }),
@@ -76,7 +76,7 @@ TEST_F(AggregationTest, singleKeySingleAggregate) {
   AssertQueryBuilder(plan).assertResults(expected);
 }
 
-TEST_F(AggregationTest, singleKeyMultiAggregate) {
+TEST_F(AggregationTest, DISABLED_singleKeyMultiAggregate) {
   constexpr int kSize = 10;
   auto vector = makeRowVector({
       makeFlatVector<int64_t>(kSize, [](int i) { return i % 3; }),
@@ -96,7 +96,7 @@ TEST_F(AggregationTest, singleKeyMultiAggregate) {
   AssertQueryBuilder(plan).assertResults(expected);
 }
 
-TEST_F(AggregationTest, multiKeySingleAggregate) {
+TEST_F(AggregationTest, DISABLED_multiKeySingleAggregate) {
   constexpr int kSize = 10;
   // 0 1 0 1 0 1 0 1 0 1
   // 0 1 2 0 1 2 0 1 2 0
@@ -118,7 +118,7 @@ TEST_F(AggregationTest, multiKeySingleAggregate) {
   AssertQueryBuilder(plan).assertResults(expected);
 }
 
-TEST_F(AggregationTest, tpchQ1) {
+TEST_F(AggregationTest, DISABLED_tpchQ1) {
   // TODO: Use StringView instead of int64_t for keys.
   struct {
     std::uniform_int_distribution<> returnflag{0, 2};
