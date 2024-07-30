@@ -85,7 +85,7 @@ public final class MetadataUtils
             StandardFunctionResolution functionResolution,
             RowExpressionService rowExpressionService)
     {
-        SubfieldExtractor subfieldExtractor = new SubfieldExtractor(functionResolution, rowExpressionService.getExpressionOptimizer(), session);
+        SubfieldExtractor subfieldExtractor = new SubfieldExtractor(functionResolution, rowExpressionService.getExpressionOptimizer(session), session);
 
         return rowExpressionService.getDomainTranslator().toPredicate(
                 layoutHandle.getDomainPredicate()

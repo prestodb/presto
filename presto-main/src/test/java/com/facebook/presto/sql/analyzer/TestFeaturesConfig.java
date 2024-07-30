@@ -250,7 +250,9 @@ public class TestFeaturesConfig
                 .setEagerPlanValidationThreadPoolSize(20)
                 .setPrestoSparkExecutionEnvironment(false)
                 .setSingleNodeExecutionEnabled(false)
-                .setNativeExecutionScaleWritersThreadsEnabled(false));
+                .setNativeExecutionScaleWritersThreadsEnabled(false)
+                .setDelegatingRowExpressionOptimizerEnabled(false)
+                .setDelegatingRowExpressionOptimizerMaxIterations(10));
     }
 
     @Test
@@ -450,6 +452,8 @@ public class TestFeaturesConfig
                 .put("presto-spark-execution-environment", "true")
                 .put("single-node-execution-enabled", "true")
                 .put("native-execution-scale-writer-threads-enabled", "true")
+                .put("optimizer.delegating-row-expression-optimizer-enabled", "true")
+                .put("optimizer.delegating-row-expression-optimizer-max-iterations", "5")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -646,7 +650,9 @@ public class TestFeaturesConfig
                 .setEagerPlanValidationThreadPoolSize(2)
                 .setPrestoSparkExecutionEnvironment(true)
                 .setSingleNodeExecutionEnabled(true)
-                .setNativeExecutionScaleWritersThreadsEnabled(true);
+                .setNativeExecutionScaleWritersThreadsEnabled(true)
+                .setDelegatingRowExpressionOptimizerEnabled(true)
+                .setDelegatingRowExpressionOptimizerMaxIterations(5);
         assertFullMapping(properties, expected);
     }
 
