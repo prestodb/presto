@@ -17,11 +17,14 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.expressions.RowExpressionRewriter;
 import com.facebook.presto.expressions.RowExpressionTreeRewriter;
+import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.nodeManager.PluginNodeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
+import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.tree.Expression;
@@ -181,9 +184,12 @@ public class TestSimplifyRowExpressions
     {
         Expression actualExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expression));
 
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager();
+        ExpressionOptimizerManager expressionOptimizerManager = new ExpressionOptimizerManager(new PluginNodeManager(nodeManager), METADATA.getFunctionAndTypeManager());
+
         TestingRowExpressionTranslator translator = new TestingRowExpressionTranslator(METADATA);
         RowExpression actualRowExpression = translator.translate(actualExpression, TypeProvider.viewOf(TYPES));
-        RowExpression simplifiedRowExpression = SimplifyRowExpressions.rewrite(actualRowExpression, METADATA, TEST_SESSION.toConnectorSession());
+        RowExpression simplifiedRowExpression = SimplifyRowExpressions.rewrite(actualRowExpression, METADATA, TEST_SESSION, expressionOptimizerManager);
         Expression expectedByRowExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(rowExpressionExpected));
         RowExpression simplifiedByExpression = translator.translate(expectedByRowExpression, TypeProvider.viewOf(TYPES));
         assertEquals(normalize(simplifiedRowExpression), normalize(simplifiedByExpression));
