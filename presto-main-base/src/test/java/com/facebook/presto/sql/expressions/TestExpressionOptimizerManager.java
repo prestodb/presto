@@ -34,6 +34,7 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.Properties;
 
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -65,6 +66,7 @@ public class TestExpressionOptimizerManager
         manager = new ExpressionOptimizerManager(
                 pluginNodeManager,
                 METADATA.getFunctionAndTypeManager(),
+                new JsonCodecRowExpressionSerde(jsonCodec(RowExpression.class)),
                 directory);
     }
 
