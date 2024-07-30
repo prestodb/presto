@@ -148,17 +148,6 @@ class DateTimeFunctionsTest : public functions::test::FunctionBaseTest {
     return resultVector->as<SimpleVector<StringView>>()->valueAt(0);
   }
 
-  std::optional<std::string> formatDatetime(
-      std::optional<Timestamp> timestamp,
-      const std::string& format) {
-    auto resultVector = evaluate(
-        "format_datetime(c0, c1)",
-        makeRowVector(
-            {makeNullableFlatVector<Timestamp>({timestamp}),
-             makeNullableFlatVector<std::string>({format})}));
-    return resultVector->as<SimpleVector<StringView>>()->valueAt(0);
-  }
-
   template <typename T>
   std::optional<T> evaluateWithTimestampWithTimezone(
       const std::string& expression,
@@ -2994,6 +2983,12 @@ TEST_F(DateTimeFunctionsTest, parseDatetime) {
 }
 
 TEST_F(DateTimeFunctionsTest, formatDateTime) {
+  const auto formatDatetime = [&](std::optional<Timestamp> timestamp,
+                                  std::optional<std::string> format) {
+    return evaluateOnce<std::string>(
+        "format_datetime(c0, c1)", timestamp, format);
+  };
+
   // era test cases - 'G'
   EXPECT_EQ("AD", formatDatetime(parseTimestamp("1970-01-01"), "G"));
   EXPECT_EQ("BC", formatDatetime(parseTimestamp("-100-01-01"), "G"));
@@ -3248,6 +3243,12 @@ TEST_F(DateTimeFunctionsTest, formatDateTime) {
           parseTimestamp("1970-01-01 02:33:11.5"),
           "G C Y e 'asdfghjklzxcvbnmqwertyuiop' E '' y D M d a K h H k m s S 1234567890\\\"!@#$%^&*()-+`~{}[];:,./ zzzz"));
 
+  disableAdjustTimestampToTimezone();
+  EXPECT_EQ(
+      "1970-01-01 00:00:00",
+      formatDatetime(
+          parseTimestamp("1970-01-01 00:00:00"), "YYYY-MM-dd HH:mm:ss"));
+
   // User format errors or unsupported errors
   EXPECT_THROW(
       formatDatetime(parseTimestamp("1970-01-01"), "x"), VeloxUserError);
@@ -3276,24 +3277,37 @@ TEST_F(DateTimeFunctionsTest, formatDateTimeTimezone) {
             format);
       };
 
-  const auto zeroTs = parseTimestamp("1970-01-01");
-
-  // No timezone set; default to GMT.
+  // UTC explicitly set.
   EXPECT_EQ(
-      "1970-01-01 00:00:00", formatDatetime(zeroTs, "YYYY-MM-dd HH:mm:ss"));
+      "1970-01-01 00:00:00",
+      formatDatetimeWithTimezone(
+          TimestampWithTimezone(0, "UTC"), "YYYY-MM-dd HH:mm:ss"));
 
   // Check that string is adjusted to the timezone set.
   EXPECT_EQ(
       "1970-01-01 05:30:00",
       formatDatetimeWithTimezone(
-          TimestampWithTimezone(zeroTs.toMillis(), "Asia/Kolkata"),
-          "YYYY-MM-dd HH:mm:ss"));
+          TimestampWithTimezone(0, "Asia/Kolkata"), "YYYY-MM-dd HH:mm:ss"));
 
   EXPECT_EQ(
       "1969-12-31 16:00:00",
       formatDatetimeWithTimezone(
-          TimestampWithTimezone(zeroTs.toMillis(), "America/Los_Angeles"),
+          TimestampWithTimezone(0, "America/Los_Angeles"),
           "YYYY-MM-dd HH:mm:ss"));
+
+  // Make sure format_datetime() works with timezone offsets.
+  EXPECT_EQ(
+      "1969-12-31 16:00:00",
+      formatDatetimeWithTimezone(
+          TimestampWithTimezone(0, "-08:00"), "YYYY-MM-dd HH:mm:ss"));
+  EXPECT_EQ(
+      "1969-12-31 23:45:00",
+      formatDatetimeWithTimezone(
+          TimestampWithTimezone(0, "-00:15"), "YYYY-MM-dd HH:mm:ss"));
+  EXPECT_EQ(
+      "1970-01-01 00:07:00",
+      formatDatetimeWithTimezone(
+          TimestampWithTimezone(0, "+00:07"), "YYYY-MM-dd HH:mm:ss"));
 }
 
 TEST_F(DateTimeFunctionsTest, dateFormat) {
