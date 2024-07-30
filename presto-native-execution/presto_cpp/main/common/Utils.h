@@ -40,6 +40,8 @@ long getProcessCpuTimeNs();
 /// The reason is that the Folly based implementation relies
 /// on libunwind to perform the symbolization which doesn't
 /// exist for MacOS.
+/// In addition, the Velox based implementation provides additonal
+/// context such as the queryId.
 void installSignalHandler();
 
 } // namespace facebook::presto::util
