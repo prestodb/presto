@@ -11,11 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.functionNamespace.json;
+package com.facebook.presto.functionNamespace.rest;
 
-import com.facebook.presto.functionNamespace.UdfFunctionSignatureMap;
+import com.facebook.presto.functionNamespace.ForRestServer;
+import com.google.inject.Binder;
+import com.google.inject.Module;
 
-public interface FunctionDefinitionProvider
+import static com.facebook.airlift.http.client.HttpClientBinder.httpClientBinder;
+
+public class RestBasedCommunicationModule
+        implements Module
 {
-    UdfFunctionSignatureMap getUdfDefinition(String filePath);
+    @Override
+    public void configure(Binder binder)
+    {
+        httpClientBinder(binder).bindHttpClient("restServer", ForRestServer.class);
+    }
 }
