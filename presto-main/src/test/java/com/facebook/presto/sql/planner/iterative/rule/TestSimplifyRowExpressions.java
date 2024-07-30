@@ -27,6 +27,7 @@ import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
+import com.facebook.presto.sql.expressions.JsonCodecRowExpressionSerde;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.tree.Expression;
@@ -40,6 +41,7 @@ import java.util.function.Function;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.SystemSessionProperties.DELEGATING_ROW_EXPRESSION_OPTIMIZER_ENABLED;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -190,7 +192,7 @@ public class TestSimplifyRowExpressions
         Expression actualExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expression));
 
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
-        ExpressionOptimizerManager expressionOptimizerManager = new ExpressionOptimizerManager(new PluginNodeManager(nodeManager), METADATA.getFunctionAndTypeManager());
+        ExpressionOptimizerManager expressionOptimizerManager = new ExpressionOptimizerManager(new PluginNodeManager(nodeManager), METADATA.getFunctionAndTypeManager(), new JsonCodecRowExpressionSerde(jsonCodec(RowExpression.class)));
         expressionOptimizerManager.loadExpressionOptimizerFactory();
 
         TestingRowExpressionTranslator translator = new TestingRowExpressionTranslator(METADATA);
