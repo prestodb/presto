@@ -379,16 +379,18 @@ void PrestoServer::run() {
   if (systemConfig->enableRuntimeMetricsCollection()) {
     enableWorkerStatsReporting();
     if (folly::Singleton<velox::BaseStatsReporter>::try_get()) {
-      httpServer_->registerGet(
-          "/v1/info/metrics",
-          [](proxygen::HTTPMessage* /*message*/,
-             const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
-             proxygen::ResponseHandler* downstream) {
-            http::sendOkResponse(
-                downstream,
-                folly::Singleton<velox::BaseStatsReporter>::try_get()
-                    ->fetchMetrics());
-          });
+      /* httpServer_->registerGet(
+           "/v1/info/metrics",
+           [](proxygen::HTTPMessage* */
+      /*message*/ /*,
+const std::vector<std::unique_ptr<folly::IOBuf>>& */
+      /*body*/ /*,
+proxygen::ResponseHandler* downstream) {
+http::sendOkResponse(
+downstream,
+folly::Singleton<velox::BaseStatsReporter>::try_get()
+->fetchMetrics());
+});*/
     }
   }
   registerFunctions();
