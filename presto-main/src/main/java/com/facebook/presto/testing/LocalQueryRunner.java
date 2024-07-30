@@ -105,6 +105,7 @@ import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.metadata.SchemaPropertyManager;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.metadata.TablePropertyManager;
+import com.facebook.presto.nodeManager.PluginNodeManager;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.DriverFactory;
@@ -167,6 +168,7 @@ import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.analyzer.JavaFeaturesConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.analyzer.QueryPreparerProviderManager;
+import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
@@ -351,6 +353,7 @@ public class LocalQueryRunner
     private static ExecutorService metadataExtractorExecutor = newCachedThreadPool(threadsNamed("query-execution-%s"));
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
+    private ExpressionOptimizerManager expressionOptimizerManager;
 
     public LocalQueryRunner(Session defaultSession)
     {
@@ -446,8 +449,12 @@ public class LocalQueryRunner
         this.planFragmenter = new PlanFragmenter(this.metadata, this.nodePartitioningManager, new QueryManagerConfig(), featuresConfig, planCheckerProviderManager);
         this.joinCompiler = new JoinCompiler(metadata);
         this.pageIndexerFactory = new GroupByHashPageIndexerFactory(joinCompiler);
+
+        NodeInfo nodeInfo = new NodeInfo("test");
+        expressionOptimizerManager = new ExpressionOptimizerManager(new PluginNodeManager(nodeManager, nodeInfo.getEnvironment()), getFunctionAndTypeManager());
+
         this.statsNormalizer = new StatsNormalizer();
-        this.scalarStatsCalculator = new ScalarStatsCalculator(metadata);
+        this.scalarStatsCalculator = new ScalarStatsCalculator(metadata, expressionOptimizerManager);
         this.filterStatsCalculator = new FilterStatsCalculator(metadata, scalarStatsCalculator, statsNormalizer);
         this.historyBasedPlanStatisticsManager = new HistoryBasedPlanStatisticsManager(objectMapper, createTestingSessionPropertyManager(), metadata, new HistoryBasedOptimizationConfig(), featuresConfig, new NodeVersion("1"));
         this.fragmentStatsProvider = new FragmentStatsProvider();
@@ -462,7 +469,6 @@ public class LocalQueryRunner
         this.expressionCompiler = new ExpressionCompiler(metadata, pageFunctionCompiler);
         this.joinFilterFunctionCompiler = new JoinFilterFunctionCompiler(metadata);
 
-        NodeInfo nodeInfo = new NodeInfo("test");
         NodeVersion nodeVersion = new NodeVersion("testversion");
         this.connectorManager = new ConnectorManager(
                 metadata,
@@ -525,7 +531,8 @@ public class LocalQueryRunner
                 historyBasedPlanStatisticsManager,
                 new TracerProviderManager(new TracingConfig()),
                 new NodeStatusNotificationManager(),
-                planCheckerProviderManager);
+                planCheckerProviderManager,
+                expressionOptimizerManager);
 
         connectorManager.addConnectorFactory(globalSystemConnectorFactory);
         connectorManager.createConnection(GlobalSystemConnector.NAME, GlobalSystemConnector.NAME, ImmutableMap.of());
@@ -700,6 +707,12 @@ public class LocalQueryRunner
     public TestingAccessControlManager getAccessControl()
     {
         return accessControl;
+    }
+
+    @Override
+    public ExpressionOptimizerManager getExpressionManager()
+    {
+        return expressionOptimizerManager;
     }
 
     public ExecutorService getExecutor()
@@ -1113,7 +1126,8 @@ public class LocalQueryRunner
                 new CostComparator(featuresConfig),
                 taskCountEstimator,
                 partitioningProviderManager,
-                featuresConfig).getPlanningTimeOptimizers();
+                featuresConfig,
+                expressionOptimizerManager).getPlanningTimeOptimizers();
     }
 
     public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers, WarningCollector warningCollector)
