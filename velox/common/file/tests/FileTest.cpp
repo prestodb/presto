@@ -419,6 +419,13 @@ class FaultyFsTest : public ::testing::Test {
   std::exception_ptr fileError_;
 };
 
+TEST_F(FaultyFsTest, schemCheck) {
+  ASSERT_TRUE(
+      filesystems::isPathSupportedByRegisteredFileSystems("faulty:/test"));
+  ASSERT_FALSE(
+      filesystems::isPathSupportedByRegisteredFileSystems("other:/test"));
+}
+
 TEST_F(FaultyFsTest, fileReadErrorInjection) {
   // Set read error.
   fs_->setFileInjectionError(fileError_, {FaultFileOperation::Type::kRead});

@@ -61,6 +61,16 @@ std::shared_ptr<FileSystem> getFileSystem(
   VELOX_FAIL("No registered file system matched with file path '{}'", filePath);
 }
 
+bool isPathSupportedByRegisteredFileSystems(const std::string_view& filePath) {
+  const auto& filesystems = registeredFileSystems();
+  for (const auto& p : filesystems) {
+    if (p.first(filePath)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 namespace {
 
 folly::once_flag localFSInstantiationFlag;

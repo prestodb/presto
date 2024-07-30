@@ -108,6 +108,10 @@ std::shared_ptr<FileSystem> getFileSystem(
     std::string_view filename,
     std::shared_ptr<const Config> config);
 
+/// Returns true if filePath is supported by any registered file system,
+/// otherwise false.
+bool isPathSupportedByRegisteredFileSystems(const std::string_view& filePath);
+
 /// FileSystems must be registered explicitly.
 /// The registration function takes two parameters:
 /// a std::function<bool(std::string_view)> that says whether the registered
