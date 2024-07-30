@@ -5849,6 +5849,20 @@ void to_json(json& j, const JsonBasedUdfFunctionMetadata& p) {
       "JsonBasedUdfFunctionMetadata",
       "AggregationFunctionMetadata",
       "aggregateMetadata");
+  to_json_key(
+      j,
+      "functionId",
+      p.functionId,
+      "JsonBasedUdfFunctionMetadata",
+      "SqlFunctionId",
+      "functionId");
+  to_json_key(
+      j,
+      "version",
+      p.version,
+      "JsonBasedUdfFunctionMetadata",
+      "String",
+      "version");
 }
 
 void from_json(const json& j, JsonBasedUdfFunctionMetadata& p) {
@@ -5901,6 +5915,20 @@ void from_json(const json& j, JsonBasedUdfFunctionMetadata& p) {
       "JsonBasedUdfFunctionMetadata",
       "AggregationFunctionMetadata",
       "aggregateMetadata");
+  from_json_key(
+      j,
+      "functionId",
+      p.functionId,
+      "JsonBasedUdfFunctionMetadata",
+      "SqlFunctionId",
+      "functionId");
+  from_json_key(
+      j,
+      "version",
+      p.version,
+      "JsonBasedUdfFunctionMetadata",
+      "String",
+      "version");
 }
 } // namespace facebook::presto::protocol
 /*
@@ -8690,6 +8718,13 @@ void to_json(json& j, const SortNode& p) {
       "OrderingScheme",
       "orderingScheme");
   to_json_key(j, "isPartial", p.isPartial, "SortNode", "bool", "isPartial");
+  to_json_key(
+      j,
+      "partitionBy",
+      p.partitionBy,
+      "SortNode",
+      "List<VariableReferenceExpression>",
+      "partitionBy");
 }
 
 void from_json(const json& j, SortNode& p) {
@@ -8704,6 +8739,13 @@ void from_json(const json& j, SortNode& p) {
       "OrderingScheme",
       "orderingScheme");
   from_json_key(j, "isPartial", p.isPartial, "SortNode", "bool", "isPartial");
+  from_json_key(
+      j,
+      "partitionBy",
+      p.partitionBy,
+      "SortNode",
+      "List<VariableReferenceExpression>",
+      "partitionBy");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
