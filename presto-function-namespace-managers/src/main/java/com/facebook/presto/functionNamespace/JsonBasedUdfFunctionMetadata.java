@@ -11,13 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.functionNamespace.json;
+package com.facebook.presto.functionNamespace;
 
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.function.AggregationFunctionMetadata;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
@@ -30,9 +31,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
-/**
- * The function metadata provided by the Json file to the {@link JsonFileBasedFunctionNamespaceManager}.
- */
 public class JsonBasedUdfFunctionMetadata
 {
     /**
@@ -102,6 +100,7 @@ public class JsonBasedUdfFunctionMetadata
         return outputType;
     }
 
+    @JsonIgnore
     public List<String> getParamNames()
     {
         return IntStream.range(0, paramTypes.size()).boxed().map(idx -> "input" + idx).collect(toImmutableList());

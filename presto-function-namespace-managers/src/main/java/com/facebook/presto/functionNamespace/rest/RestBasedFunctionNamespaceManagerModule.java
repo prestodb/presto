@@ -11,26 +11,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.functionNamespace.json;
+package com.facebook.presto.functionNamespace.rest;
 
+import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.json.JsonCodecFactory;
 import com.facebook.presto.functionNamespace.FunctionDefinitionProvider;
+import com.facebook.presto.functionNamespace.JsonBasedUdfFunctionMetadata;
 import com.facebook.presto.functionNamespace.ServingCatalog;
-import com.facebook.presto.functionNamespace.SqlInvokedFunctionNamespaceManagerConfig;
 import com.facebook.presto.functionNamespace.execution.SqlFunctionLanguageConfig;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.TypeLiteral;
 
+import java.util.List;
+import java.util.Map;
+
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
 import static com.google.inject.Scopes.SINGLETON;
 import static java.util.Objects.requireNonNull;
 
-public class JsonFileBasedFunctionNamespaceManagerModule
+public class RestBasedFunctionNamespaceManagerModule
         implements Module
 {
     private final String catalogName;
 
-    public JsonFileBasedFunctionNamespaceManagerModule(String catalogName)
+    public RestBasedFunctionNamespaceManagerModule(String catalogName)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
     }
@@ -40,10 +46,11 @@ public class JsonFileBasedFunctionNamespaceManagerModule
     {
         binder.bind(new TypeLiteral<String>() {}).annotatedWith(ServingCatalog.class).toInstance(catalogName);
 
-        configBinder(binder).bindConfig(JsonFileBasedFunctionNamespaceManagerConfig.class);
-        configBinder(binder).bindConfig(SqlInvokedFunctionNamespaceManagerConfig.class);
+        configBinder(binder).bindConfig(RestBasedFunctionNamespaceManagerConfig.class);
         configBinder(binder).bindConfig(SqlFunctionLanguageConfig.class);
-        binder.bind(FunctionDefinitionProvider.class).to(JsonFileBasedFunctionDefinitionProvider.class).in(SINGLETON);
-        binder.bind(JsonFileBasedFunctionNamespaceManager.class).in(SINGLETON);
+        binder.bind(FunctionDefinitionProvider.class).to(RestBasedFunctionDefinitionProvider.class).in(SINGLETON);
+        binder.bind(RestBasedFunctionNamespaceManager.class).in(SINGLETON);
+        binder.bind(new TypeLiteral<JsonCodec<Map<String, List<JsonBasedUdfFunctionMetadata>>>>() {})
+                .toInstance(new JsonCodecFactory().mapJsonCodec(String.class, listJsonCodec(JsonBasedUdfFunctionMetadata.class)));
     }
 }

@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.functionNamespace.json;
+package com.facebook.presto.functionNamespace.rest;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.CatalogSchemaName;
@@ -49,7 +49,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
-import static com.facebook.presto.spi.function.RoutineCharacteristics.Language.CPP;
+import static com.facebook.presto.spi.function.RoutineCharacteristics.Language.REST;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -58,29 +58,29 @@ import static java.lang.Long.parseLong;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class JsonFileBasedFunctionNamespaceManager
+public class RestBasedFunctionNamespaceManager
         extends AbstractSqlInvokedFunctionNamespaceManager
 {
-    private static final Logger log = Logger.get(JsonFileBasedFunctionNamespaceManager.class);
+    private static final Logger log = Logger.get(RestBasedFunctionNamespaceManager.class);
 
     private final Map<SqlFunctionId, SqlInvokedFunction> latestFunctions = new ConcurrentHashMap<>();
     private final Map<QualifiedObjectName, UserDefinedType> userDefinedTypes = new ConcurrentHashMap<>();
-    private final JsonFileBasedFunctionNamespaceManagerConfig managerConfig;
+    private final RestBasedFunctionNamespaceManagerConfig managerConfig;
     private final FunctionDefinitionProvider functionDefinitionProvider;
     private final Map<SqlFunctionHandle, AggregationFunctionImplementation> aggregationImplementationByHandle = new ConcurrentHashMap<>();
 
     @Inject
-    public JsonFileBasedFunctionNamespaceManager(
+    public RestBasedFunctionNamespaceManager(
             @ServingCatalog String catalogName,
             SqlFunctionExecutors sqlFunctionExecutors,
             SqlInvokedFunctionNamespaceManagerConfig config,
-            JsonFileBasedFunctionNamespaceManagerConfig managerConfig,
+            RestBasedFunctionNamespaceManagerConfig managerConfig,
             FunctionDefinitionProvider functionDefinitionProvider)
     {
         super(catalogName, sqlFunctionExecutors, config);
         this.managerConfig = requireNonNull(managerConfig, "managerConfig is null");
         this.functionDefinitionProvider = requireNonNull(functionDefinitionProvider, "functionDefinitionProvider is null");
-        bootstrapNamespaceFromFile();
+        retrieveFunctionSignatures();
     }
 
     @Override
@@ -120,9 +120,9 @@ public class JsonFileBasedFunctionNamespaceManager
                 function.getAggregationMetadata());
     }
 
-    private void bootstrapNamespaceFromFile()
+    private void retrieveFunctionSignatures()
     {
-        UdfFunctionSignatureMap udfFunctionSignatureMap = functionDefinitionProvider.getUdfDefinition(managerConfig.getFunctionDefinitionPath());
+        UdfFunctionSignatureMap udfFunctionSignatureMap = functionDefinitionProvider.getUdfDefinition(managerConfig.getRestUrl());
         if (udfFunctionSignatureMap == null || udfFunctionSignatureMap.isEmpty()) {
             return;
         }
@@ -140,7 +140,7 @@ public class JsonFileBasedFunctionNamespaceManager
 
     private SqlInvokedFunction createSqlInvokedFunction(String functionName, JsonBasedUdfFunctionMetadata jsonBasedUdfFunctionMetaData)
     {
-        checkState(jsonBasedUdfFunctionMetaData.getRoutineCharacteristics().getLanguage().equals(CPP), "JsonFileBasedFunctionNamespaceManager only supports CPP UDF");
+        checkState(jsonBasedUdfFunctionMetaData.getRoutineCharacteristics().getLanguage().equals(REST), "RestBasedFunctionNamespaceManager only supports REST UDF");
         QualifiedObjectName qualifiedFunctionName = QualifiedObjectName.valueOf(new CatalogSchemaName(getCatalogName(), jsonBasedUdfFunctionMetaData.getSchema()), functionName);
         List<String> parameterNameList = jsonBasedUdfFunctionMetaData.getParamNames();
         List<TypeSignature> parameterTypeList = jsonBasedUdfFunctionMetaData.getParamTypes();
@@ -167,7 +167,7 @@ public class JsonFileBasedFunctionNamespaceManager
     {
         return latestFunctions.values().stream()
                 .filter(function -> function.getSignature().getName().equals(functionName))
-                .map(JsonFileBasedFunctionNamespaceManager::copyFunction)
+                .map(RestBasedFunctionNamespaceManager::copyFunction)
                 .collect(toImmutableList());
     }
 
@@ -215,13 +215,13 @@ public class JsonFileBasedFunctionNamespaceManager
     @Override
     public void alterFunction(QualifiedObjectName functionName, Optional<List<TypeSignature>> parameterTypes, AlterRoutineCharacteristics alterRoutineCharacteristics)
     {
-        throw new PrestoException(NOT_SUPPORTED, "Alter Function is not supported in JsonFileBasedFunctionNamespaceManager");
+        throw new PrestoException(NOT_SUPPORTED, "Alter Function is not supported in RestBasedFunctionNamespaceManager");
     }
 
     @Override
     public void dropFunction(QualifiedObjectName functionName, Optional<List<TypeSignature>> parameterTypes, boolean exists)
     {
-        throw new PrestoException(NOT_SUPPORTED, "Drop Function is not supported in JsonFileBasedFunctionNamespaceManager");
+        throw new PrestoException(NOT_SUPPORTED, "Drop Function is not supported in RestBasedFunctionNamespaceManager");
     }
 
     @Override
