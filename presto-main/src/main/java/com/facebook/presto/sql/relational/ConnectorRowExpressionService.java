@@ -54,7 +54,7 @@ public final class ConnectorRowExpressionService
     }
 
     @Override
-    public ExpressionOptimizer getExpressionOptimizer()
+    public ExpressionOptimizer getExpressionOptimizer(ConnectorSession session)
     {
         return expressionOptimizer;
     }
