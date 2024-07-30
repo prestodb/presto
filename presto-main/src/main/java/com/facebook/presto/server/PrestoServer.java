@@ -54,6 +54,7 @@ import com.facebook.presto.server.security.PasswordAuthenticatorManager;
 import com.facebook.presto.server.security.PrestoAuthenticatorManager;
 import com.facebook.presto.server.security.ServerSecurityModule;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManager;
 import com.facebook.presto.storage.TempStorageManager;
@@ -196,6 +197,8 @@ public class PrestoServer
             planCheckerProviderManager.loadPlanCheckerProviders(pluginNodeManager);
 
             injector.getInstance(ClientRequestFilterManager.class).loadClientRequestFilters();
+            injector.getInstance(ExpressionOptimizerManager.class).loadExpressionOptimizerFactories();
+
             startAssociatedProcesses(injector);
 
             injector.getInstance(Announcer.class).start();

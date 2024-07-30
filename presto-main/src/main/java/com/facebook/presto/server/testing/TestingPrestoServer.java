@@ -74,6 +74,7 @@ import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager;
@@ -171,6 +172,7 @@ public class TestingPrestoServer
     private final TaskManager taskManager;
     private final GracefulShutdownHandler gracefulShutdownHandler;
     private final ShutdownAction shutdownAction;
+    private final ExpressionOptimizerManager expressionManager;
     private final RequestBlocker requestBlocker;
     private final boolean resourceManager;
     private final boolean catalogServer;
@@ -373,6 +375,7 @@ public class TestingPrestoServer
         procedureTester = injector.getInstance(ProcedureTester.class);
         splitManager = injector.getInstance(SplitManager.class);
         pageSourceManager = injector.getInstance(PageSourceManager.class);
+        expressionManager = injector.getInstance(ExpressionOptimizerManager.class);
         if (coordinator) {
             dispatchManager = injector.getInstance(DispatchManager.class);
             queryManager = injector.getInstance(QueryManager.class);
@@ -390,6 +393,7 @@ public class TestingPrestoServer
             eventListenerManager = ((TestingEventListenerManager) injector.getInstance(EventListenerManager.class));
             clusterStateProvider = null;
             planCheckerProviderManager = injector.getInstance(PlanCheckerProviderManager.class);
+            expressionManager.loadExpressionOptimizerFactories();
         }
         else if (resourceManager) {
             dispatchManager = null;
@@ -708,6 +712,11 @@ public class TestingPrestoServer
     public ShutdownAction getShutdownAction()
     {
         return shutdownAction;
+    }
+
+    public ExpressionOptimizerManager getExpressionManager()
+    {
+        return expressionManager;
     }
 
     public boolean isCoordinator()

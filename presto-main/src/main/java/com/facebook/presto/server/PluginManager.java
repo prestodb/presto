@@ -47,6 +47,7 @@ import com.facebook.presto.spi.security.PrestoAuthenticatorFactory;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactory;
 import com.facebook.presto.spi.session.WorkerSessionPropertyProviderFactory;
+import com.facebook.presto.spi.sql.planner.ExpressionOptimizerFactory;
 import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.spi.storage.TempStorageFactory;
 import com.facebook.presto.spi.tracing.TracerProvider;
@@ -54,6 +55,7 @@ import com.facebook.presto.spi.ttl.ClusterTtlProviderFactory;
 import com.facebook.presto.spi.ttl.NodeTtlFetcherFactory;
 import com.facebook.presto.sql.analyzer.AnalyzerProviderManager;
 import com.facebook.presto.sql.analyzer.QueryPreparerProviderManager;
+import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
 import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManager;
 import com.facebook.presto.storage.TempStorageManager;
 import com.facebook.presto.tracing.TracerProviderManager;
@@ -141,6 +143,7 @@ public class PluginManager
     private final NodeStatusNotificationManager nodeStatusNotificationManager;
     private final ClientRequestFilterManager clientRequestFilterManager;
     private final PlanCheckerProviderManager planCheckerProviderManager;
+    private final ExpressionOptimizerManager expressionOptimizerManager;
 
     @Inject
     public PluginManager(
@@ -165,7 +168,8 @@ public class PluginManager
             TracerProviderManager tracerProviderManager,
             NodeStatusNotificationManager nodeStatusNotificationManager,
             ClientRequestFilterManager clientRequestFilterManager,
-            PlanCheckerProviderManager planCheckerProviderManager)
+            PlanCheckerProviderManager planCheckerProviderManager,
+            ExpressionOptimizerManager expressionOptimizerManager)
     {
         requireNonNull(nodeInfo, "nodeInfo is null");
         requireNonNull(config, "config is null");
@@ -200,6 +204,7 @@ public class PluginManager
         this.nodeStatusNotificationManager = requireNonNull(nodeStatusNotificationManager, "nodeStatusNotificationManager is null");
         this.clientRequestFilterManager = requireNonNull(clientRequestFilterManager, "clientRequestFilterManager is null");
         this.planCheckerProviderManager = requireNonNull(planCheckerProviderManager, "planCheckerProviderManager is null");
+        this.expressionOptimizerManager = requireNonNull(expressionOptimizerManager, "expressionManager is null");
     }
 
     public void loadPlugins()
@@ -391,6 +396,11 @@ public class PluginManager
         for (PlanCheckerProviderFactory planCheckerProviderFactory : plugin.getPlanCheckerProviderFactories()) {
             log.info("Registering plan checker provider factory %s", planCheckerProviderFactory.getName());
             planCheckerProviderManager.addPlanCheckerProviderFactory(planCheckerProviderFactory);
+        }
+
+        for (ExpressionOptimizerFactory expressionOptimizerFactory : plugin.getExpressionOptimizerFactories()) {
+            log.info("Registering expression optimizer factory %s", expressionOptimizerFactory.getName());
+            expressionOptimizerManager.addExpressionOptimizerFactory(expressionOptimizerFactory);
         }
     }
 

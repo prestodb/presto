@@ -81,6 +81,7 @@ import com.facebook.presto.metadata.StaticCatalogStoreConfig;
 import com.facebook.presto.metadata.StaticFunctionNamespaceStore;
 import com.facebook.presto.metadata.StaticFunctionNamespaceStoreConfig;
 import com.facebook.presto.metadata.TablePropertyManager;
+import com.facebook.presto.nodeManager.PluginNodeManager;
 import com.facebook.presto.operator.FileFragmentResultCacheConfig;
 import com.facebook.presto.operator.FileFragmentResultCacheManager;
 import com.facebook.presto.operator.FragmentCacheStats;
@@ -174,6 +175,7 @@ import com.facebook.presto.sql.analyzer.MetadataExtractor;
 import com.facebook.presto.sql.analyzer.MetadataExtractorMBean;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.analyzer.QueryPreparerProviderManager;
+import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
@@ -347,6 +349,9 @@ public class PrestoSparkModule
         binder.bind(AnalyzePropertyManager.class).in(Scopes.SINGLETON);
         binder.bind(QuerySessionSupplier.class).in(Scopes.SINGLETON);
 
+        // expression manager
+        binder.bind(ExpressionOptimizerManager.class).in(Scopes.SINGLETON);
+
         // tracer provider managers
         binder.bind(TracerProviderManager.class).in(Scopes.SINGLETON);
 
@@ -509,6 +514,7 @@ public class PrestoSparkModule
 
         // TODO: Decouple and remove: required by ConnectorManager
         binder.bind(InternalNodeManager.class).toInstance(new PrestoSparkInternalNodeManager());
+        binder.bind(PluginNodeManager.class);
 
         // TODO: Decouple and remove: required by PluginManager
         binder.bind(InternalResourceGroupManager.class).in(Scopes.SINGLETON);
