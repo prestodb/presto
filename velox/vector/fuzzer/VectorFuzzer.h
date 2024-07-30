@@ -256,11 +256,16 @@ class VectorFuzzer {
   // the future.
   TypePtr randType(int maxDepth = 5);
 
+  TypePtr randType(const std::vector<TypePtr>& scalarTypes, int maxDepth = 5);
+
   /// Same as the function above, but only generate orderable types.
   /// MAP types are not generated as they are not orderable.
   TypePtr randOrderableType(int maxDepth = 5);
 
-  TypePtr randType(const std::vector<TypePtr>& scalarTypes, int maxDepth = 5);
+  TypePtr randOrderableType(
+      const std::vector<TypePtr>& scalarTypes,
+      int maxDepth = 5);
+
   RowTypePtr randRowType(int maxDepth = 5);
   RowTypePtr randRowType(
       const std::vector<TypePtr>& scalarTypes,
@@ -362,11 +367,16 @@ class VectorFuzzer {
 /// no complex types are allowed.
 TypePtr randType(FuzzerGenerator& rng, int maxDepth = 5);
 
+TypePtr randType(
+    FuzzerGenerator& rng,
+    const std::vector<TypePtr>& scalarTypes,
+    int maxDepth = 5);
+
 /// Same as the function above, but only generate orderable types.
 /// MAP types are not generated as they are not orderable.
 TypePtr randOrderableType(FuzzerGenerator& rng, int maxDepth = 5);
 
-TypePtr randType(
+TypePtr randOrderableType(
     FuzzerGenerator& rng,
     const std::vector<TypePtr>& scalarTypes,
     int maxDepth = 5);

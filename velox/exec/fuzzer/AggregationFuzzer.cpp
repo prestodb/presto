@@ -61,6 +61,7 @@ class AggregationFuzzer : public AggregationFuzzerBase {
           customInputGenerators,
       VectorFuzzer::Options::TimestampPrecision timestampPrecision,
       const std::unordered_map<std::string, std::string>& queryConfigs,
+      bool orderableGroupKeys,
       std::unique_ptr<ReferenceQueryRunner> referenceQueryRunner);
 
   void go();
@@ -211,6 +212,7 @@ void aggregateFuzzer(
         customInputGenerators,
     VectorFuzzer::Options::TimestampPrecision timestampPrecision,
     const std::unordered_map<std::string, std::string>& queryConfigs,
+    bool orderableGroupKeys,
     const std::optional<std::string>& planPath,
     std::unique_ptr<ReferenceQueryRunner> referenceQueryRunner) {
   auto aggregationFuzzer = AggregationFuzzer(
@@ -220,6 +222,7 @@ void aggregateFuzzer(
       customInputGenerators,
       timestampPrecision,
       queryConfigs,
+      orderableGroupKeys,
       std::move(referenceQueryRunner));
   planPath.has_value() ? aggregationFuzzer.go(planPath.value())
                        : aggregationFuzzer.go();
@@ -236,6 +239,7 @@ AggregationFuzzer::AggregationFuzzer(
         customInputGenerators,
     VectorFuzzer::Options::TimestampPrecision timestampPrecision,
     const std::unordered_map<std::string, std::string>& queryConfigs,
+    bool orderableGroupKeys,
     std::unique_ptr<ReferenceQueryRunner> referenceQueryRunner)
     : AggregationFuzzerBase{
           seed,
@@ -243,6 +247,7 @@ AggregationFuzzer::AggregationFuzzer(
           customInputGenerators,
           timestampPrecision,
           queryConfigs,
+          orderableGroupKeys,
           std::move(referenceQueryRunner)} {
   VELOX_CHECK(!signatureMap.empty(), "No function signatures available.");
 
@@ -303,18 +308,20 @@ bool canSortInputs(const CallableSignature& signature) {
 }
 
 // Returns true if specified aggregate function can be applied to distinct
-// inputs.
-bool supportsDistinctInputs(const CallableSignature& signature) {
+// inputs. If 'orderableGroupKeys' is true the argument type must be orderable,
+// otherwise it must be comparable.
+bool supportsDistinctInputs(
+    const CallableSignature& signature,
+    bool orderableGroupKeys) {
   if (signature.args.empty()) {
     return false;
   }
 
   const auto& arg = signature.args.at(0);
-  if (!arg->isComparable()) {
-    return false;
+  if (orderableGroupKeys) {
+    return arg->isOrderable();
   }
-
-  return true;
+  return arg->isComparable();
 }
 
 void AggregationFuzzer::go() {
@@ -391,7 +398,8 @@ void AggregationFuzzer::go() {
         // x).
         const bool distinctInputs = !sortedInputs &&
             (signature.name.find("approx_") == std::string::npos) &&
-            supportsDistinctInputs(signature) && vectorFuzzer_.coinToss(0.2);
+            supportsDistinctInputs(signature, orderableGroupKeys_) &&
+            vectorFuzzer_.coinToss(0.2);
 
         auto call = makeFunctionCall(
             signature.name, argNames, sortedInputs, distinctInputs);

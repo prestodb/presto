@@ -471,6 +471,7 @@ void windowFuzzer(
     const std::unordered_set<std::string>& orderDependentFunctions,
     VectorFuzzer::Options::TimestampPrecision timestampPrecision,
     const std::unordered_map<std::string, std::string>& queryConfigs,
+    bool orderableGroupKeys,
     const std::optional<std::string>& planPath,
     std::unique_ptr<ReferenceQueryRunner> referenceQueryRunner) {
   auto windowFuzzer = WindowFuzzer(
@@ -482,6 +483,7 @@ void windowFuzzer(
       orderDependentFunctions,
       timestampPrecision,
       queryConfigs,
+      orderableGroupKeys,
       std::move(referenceQueryRunner));
   planPath.has_value() ? windowFuzzer.go(planPath.value()) : windowFuzzer.go();
 }

@@ -58,6 +58,9 @@ struct AggregationFuzzerOptions {
   /// Could be used to specify timezone or enable/disable settings that
   /// affect semantics of individual aggregate functions.
   std::unordered_map<std::string, std::string> queryConfigs;
+
+  // Whether group keys must be orderable or be just comparable.
+  bool orderableGroupKeys = false;
 };
 
 } // namespace facebook::velox::exec::test

@@ -227,7 +227,12 @@ std::vector<std::string> AggregationFuzzerBase::generateKeys(
     keys.push_back(fmt::format("{}{}", prefix, i));
 
     // Pick random, possibly complex, type.
-    types.push_back(vectorFuzzer_.randType(kNonFloatingPointTypes, 2));
+    if (orderableGroupKeys_) {
+      types.push_back(
+          vectorFuzzer_.randOrderableType(kNonFloatingPointTypes, 2));
+    } else {
+      types.push_back(vectorFuzzer_.randType(kNonFloatingPointTypes, 2));
+    }
     names.push_back(keys.back());
   }
   return keys;
