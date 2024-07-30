@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.nodeManager.PluginNodeManager;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.spi.RowExpressionSerde;
 import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.facebook.presto.spi.relation.ExpressionOptimizerProvider;
 import com.facebook.presto.spi.sql.planner.ExpressionOptimizerContext;
@@ -54,15 +55,17 @@ public class ExpressionOptimizerManager
     private final AtomicBoolean expressionManagerLoaded = new AtomicBoolean();
     private final NodeManager nodeManager;
     private final FunctionAndTypeManager functionAndTypeManager;
+    private final RowExpressionSerde rowExpressionSerde;
     private final FunctionResolution functionResolution;
     private final ExpressionOptimizer defaultExpressionOptimizer;
 
     @Inject
-    public ExpressionOptimizerManager(PluginNodeManager nodeManager, FunctionAndTypeManager functionAndTypeManager)
+    public ExpressionOptimizerManager(PluginNodeManager nodeManager, FunctionAndTypeManager functionAndTypeManager, RowExpressionSerde rowExpressionSerde)
     {
         requireNonNull(nodeManager, "nodeManager is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
+        this.rowExpressionSerde = requireNonNull(rowExpressionSerde, "rowExpressionSerde is null");
         this.functionResolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
         this.defaultExpressionOptimizer = new RowExpressionOptimizer(functionAndTypeManager);
         rowExpressionInterpreter.set(defaultExpressionOptimizer);
@@ -81,7 +84,7 @@ public class ExpressionOptimizerManager
         }
     }
 
-    private void loadExpressionOptimizerFactory(Map<String, String> properties)
+    public void loadExpressionOptimizerFactory(Map<String, String> properties)
     {
         properties = new HashMap<>(properties);
         String factoryName = properties.remove(EXPRESSION_MANAGER_FACTORY_NAME);
