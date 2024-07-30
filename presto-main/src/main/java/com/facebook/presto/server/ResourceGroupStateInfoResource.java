@@ -188,6 +188,15 @@ public class ResourceGroupStateInfoResource
         }
     }
 
+    @GET
+    @Produces(MediaType.APPLICATION_JSON)
+    @Encoded
+    @Path("{resourceGroupId: .*}")
+    public void getResourceGroupTagInfo()
+    {
+
+    }
+
     private ResourceGroupInfo getResourceGroupInfo(ResourceGroupId resourceGroupId, boolean includeQueryInfo, boolean summarizeSubgroups, boolean includeStaticSubgroupsOnly)
     {
         return resourceGroupManager.getResourceGroupInfo(
