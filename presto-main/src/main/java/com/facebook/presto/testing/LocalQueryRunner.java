@@ -163,6 +163,7 @@ import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer;
 import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer.BuiltInPreparedQuery;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
+import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
@@ -342,6 +343,7 @@ public class LocalQueryRunner
     private static ExecutorService metadataExtractorExecutor = newCachedThreadPool(threadsNamed("query-execution-%s"));
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
+    private ExpressionOptimizerManager expressionOptimizerManager;
 
     public LocalQueryRunner(Session defaultSession)
     {
@@ -477,6 +479,8 @@ public class LocalQueryRunner
                 blockEncodingManager,
                 featuresConfig);
 
+        expressionOptimizerManager = new ExpressionOptimizerManager(nodeManager, getFunctionAndTypeManager(), nodeInfo);
+
         GlobalSystemConnectorFactory globalSystemConnectorFactory = new GlobalSystemConnectorFactory(ImmutableSet.of(
                 new NodeSystemTable(nodeManager),
                 new CatalogSystemTable(metadata, accessControl),
@@ -508,7 +512,8 @@ public class LocalQueryRunner
                 new ThrowingClusterTtlProviderManager(),
                 historyBasedPlanStatisticsManager,
                 new TracerProviderManager(new TracingConfig()),
-                new NodeStatusNotificationManager());
+                new NodeStatusNotificationManager(),
+                expressionOptimizerManager);
 
         connectorManager.addConnectorFactory(globalSystemConnectorFactory);
         connectorManager.createConnection(GlobalSystemConnector.NAME, GlobalSystemConnector.NAME, ImmutableMap.of());
@@ -676,6 +681,12 @@ public class LocalQueryRunner
     public TestingAccessControlManager getAccessControl()
     {
         return accessControl;
+    }
+
+    @Override
+    public ExpressionOptimizerManager getExpressionManager()
+    {
+        return expressionOptimizerManager;
     }
 
     public ExecutorService getExecutor()
@@ -1089,7 +1100,8 @@ public class LocalQueryRunner
                 new CostComparator(featuresConfig),
                 taskCountEstimator,
                 partitioningProviderManager,
-                featuresConfig).getPlanningTimeOptimizers();
+                featuresConfig,
+                expressionOptimizerManager).getPlanningTimeOptimizers();
     }
 
     public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers, WarningCollector warningCollector)

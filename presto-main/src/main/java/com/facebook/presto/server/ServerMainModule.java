@@ -183,6 +183,7 @@ import com.facebook.presto.sql.analyzer.ForMetadataExtractor;
 import com.facebook.presto.sql.analyzer.MetadataExtractor;
 import com.facebook.presto.sql.analyzer.MetadataExtractorMBean;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
+import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
@@ -339,6 +340,9 @@ public class ServerMainModule
         binder.bind(SessionPropertyManager.class).in(Scopes.SINGLETON);
         binder.bind(SystemSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(SessionPropertyDefaults.class).in(Scopes.SINGLETON);
+
+        // expression manager
+        binder.bind(ExpressionOptimizerManager.class).in(Scopes.SINGLETON);
 
         // schema properties
         binder.bind(SchemaPropertyManager.class).in(Scopes.SINGLETON);
