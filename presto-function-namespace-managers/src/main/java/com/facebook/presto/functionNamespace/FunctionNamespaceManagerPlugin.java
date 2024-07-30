@@ -15,6 +15,7 @@ package com.facebook.presto.functionNamespace;
 
 import com.facebook.presto.functionNamespace.json.JsonFileBasedFunctionNamespaceManagerFactory;
 import com.facebook.presto.functionNamespace.mysql.MySqlFunctionNamespaceManagerFactory;
+import com.facebook.presto.functionNamespace.rest.RestBasedFunctionNamespaceManagerFactory;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.function.FunctionNamespaceManagerFactory;
 import com.google.common.collect.ImmutableList;
@@ -25,6 +26,8 @@ public class FunctionNamespaceManagerPlugin
     @Override
     public Iterable<FunctionNamespaceManagerFactory> getFunctionNamespaceManagerFactories()
     {
-        return ImmutableList.of(new MySqlFunctionNamespaceManagerFactory(), new JsonFileBasedFunctionNamespaceManagerFactory());
+        return ImmutableList.of(new MySqlFunctionNamespaceManagerFactory(),
+                new JsonFileBasedFunctionNamespaceManagerFactory(),
+                new RestBasedFunctionNamespaceManagerFactory());
     }
 }

@@ -136,7 +136,39 @@ public class SqlInvokedFunction
             throw new IllegalArgumentException("aggregationMetadata must be present for aggregation functions and absent otherwise");
         }
     }
+    public SqlInvokedFunction(
+            QualifiedObjectName functionName,
+            List<Parameter> parameters,
+            List<TypeVariableConstraint> typeVariableConstraints,
+            TypeSignature returnType,
+            String description,
+            RoutineCharacteristics routineCharacteristics,
+            String body,
+            FunctionVersion version,
+            FunctionKind kind,
+            SqlFunctionId functionId,
+            Optional<AggregationFunctionMetadata> aggregationMetadata,
+            Optional<SqlFunctionHandle> functionHandle)
+    {
+        this.parameters = requireNonNull(parameters, "parameters is null");
+        this.description = requireNonNull(description, "description is null");
+        this.routineCharacteristics = requireNonNull(routineCharacteristics, "routineCharacteristics is null");
+        this.body = requireNonNull(body, "body is null");
 
+        List<TypeSignature> argumentTypes = parameters.stream()
+                .map(Parameter::getType)
+                .collect(collectingAndThen(toList(), Collections::unmodifiableList));
+
+        this.signature = new Signature(functionName, kind, typeVariableConstraints, emptyList(), returnType, argumentTypes, false);
+        this.functionId = requireNonNull(functionId, "functionId is null");
+        this.functionVersion = requireNonNull(version, "version is null");
+        this.functionHandle = requireNonNull(functionHandle, "functionHandle is null");
+        this.aggregationMetadata = requireNonNull(aggregationMetadata, "aggregationMetadata is null");
+
+        if ((kind == AGGREGATE && !aggregationMetadata.isPresent()) || (kind != AGGREGATE && aggregationMetadata.isPresent())) {
+            throw new IllegalArgumentException("aggregationMetadata must be present for aggregation functions and absent otherwise");
+        }
+    }
     public SqlInvokedFunction withVersion(String version)
     {
         if (hasVersion()) {
