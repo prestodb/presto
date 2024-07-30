@@ -31,7 +31,7 @@ The following configuration properties are available for HBO:
 
 ============================================================= =========================================================================================================================== ===================================
 Configuration Property Name                                   Description                                                                                                                 Default value
-===========================================================   =========================================================================================================================== ===================================
+============================================================= =========================================================================================================================== ===================================
 ``optimizer.use-history-based-plan-statistics``               Use historical statistics for query optimization.                                                                           ``False``
 ``optimizer.track-history-based-plan-statistics``             Recording the statistics of the current query as history statistics so as to be used by future queries.                     ``False``
 ``optimizer.track-history-stats-from-failed-queries``         Track history based plan statistics from complete plan fragments in failed queries.                                         ``True``
@@ -39,6 +39,7 @@ Configuration Property Name                                   Description       
 ``optimizer.treat-low-confidence-zero-estimation-as-unknown`` Treat ``LOW`` confidence, zero estimations as ``UNKNOWN`` during joins.                                                     ``False``
 ``optimizer.confidence-based-broadcast``                      Broadcast based on the confidence of the statistics that are being used, by broadcasting the side of a joinNode which       ``False``
                                                               has the highest confidence statistics. If confidence is the same, then the original behavior will be followed.
+``optimizer.retry-query-with-history-based-optimization``     Retry a failed query automatically if HBO can help change the existing query plan                                           ``False``
 ``hbo.history-matching-threshold``                            When the size difference between current table and history table exceeds this threshold, do not match history statistics.   ``0.1``
                                                               When value is 0.0, only match history statistics when the size of the two are exactly the same.
 ``hbo.max-last-runs-history``                                 Number of last runs for which historical stats are stored.                                                                  ``10``
@@ -67,6 +68,8 @@ Session property Name                                       Description         
                                                             ``optimizer.treat-low-confidence-zero-estimation-as-unknown`` in the current session.                ``optimizer.treat-low-confidence-zero-estimation-as-unknown``
 ``confidence-based-broadcast``                              Overrides the behavior of the configuration property
                                                             ``optimizer.confidence-based-broadcast`` in the current session.                                     ``optimizer.confidence-based-broadcast``
+``retry-query-with-history-based-optimization``             Overrides the behavior of the configuration property
+                                                            ``optimizer.retry-query-with-history-based-optimization`` in the current session.                    ``optimizer.retry-query-with-history-based-optimization``
 =========================================================== ==================================================================================================== ==============================================================
 
 Example
