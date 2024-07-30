@@ -124,6 +124,8 @@ public class InternalResourceGroup
     private boolean jmxExport;
     @GuardedBy("root")
     private ResourceGroupQueryLimits perQueryLimits = NO_LIMITS;
+    @GuardedBy("root")
+    private List<String> tags;
 
     // Live data structures
     // ====================
