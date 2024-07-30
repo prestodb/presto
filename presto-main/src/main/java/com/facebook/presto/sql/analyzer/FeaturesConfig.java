@@ -279,6 +279,8 @@ public class FeaturesConfig
     private boolean generateDomainFilters;
     private boolean printEstimatedStatsFromCache;
     private boolean removeCrossJoinWithSingleConstantRow = true;
+    private boolean delegatingRowOptimizerEnabled;
+    private int delegatingRowOptimizerMaxIterations = 10;
     private CreateView.Security defaultViewSecurityMode = DEFINER;
     private boolean useHistograms;
 
@@ -2873,6 +2875,33 @@ public class FeaturesConfig
     public FeaturesConfig setSingleNodeExecutionEnabled(boolean singleNodeExecutionEnabled)
     {
         this.singleNodeExecutionEnabled = singleNodeExecutionEnabled;
+        return this;
+    }
+
+    public boolean isDelegatingRowExpressionOptimizerEnabled()
+    {
+        return delegatingRowOptimizerEnabled;
+    }
+
+    @Config("optimizer.delegating-row-expression-optimizer-enabled")
+    @ConfigDescription("Enable delegating row optimizer")
+    public FeaturesConfig setDelegatingRowExpressionOptimizerEnabled(boolean delegatingRowOptimizerEnabled)
+    {
+        this.delegatingRowOptimizerEnabled = delegatingRowOptimizerEnabled;
+        return this;
+    }
+
+    @Min(1)
+    public int getDelegatingRowExpressionOptimizerMaxIterations()
+    {
+        return delegatingRowOptimizerMaxIterations;
+    }
+
+    @Config("optimizer.delegating-row-expression-optimizer-max-iterations")
+    @ConfigDescription("Maximum number of iterations for delegating row optimizer")
+    public FeaturesConfig setDelegatingRowExpressionOptimizerMaxIterations(int delegatingRowOptimizerMaxIterations)
+    {
+        this.delegatingRowOptimizerMaxIterations = delegatingRowOptimizerMaxIterations;
         return this;
     }
 }
