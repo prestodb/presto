@@ -23,6 +23,7 @@ import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
+import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
 import com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManager;
@@ -229,6 +230,12 @@ public class ContainerQueryRunner
 
     @Override
     public TestingAccessControlManager getAccessControl()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public ExpressionOptimizerManager getExpressionManager()
     {
         throw new UnsupportedOperationException();
     }

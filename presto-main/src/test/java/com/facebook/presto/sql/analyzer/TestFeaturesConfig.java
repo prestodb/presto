@@ -251,7 +251,8 @@ public class TestFeaturesConfig
                 .setPrestoSparkExecutionEnvironment(false)
                 .setSingleNodeExecutionEnabled(false)
                 .setNativeExecutionScaleWritersThreadsEnabled(false)
-                .setEnhancedCTESchedulingEnabled(true));
+                .setEnhancedCTESchedulingEnabled(true)
+                .setExpressionOptimizerName("default"));
     }
 
     @Test
@@ -452,6 +453,7 @@ public class TestFeaturesConfig
                 .put("single-node-execution-enabled", "true")
                 .put("native-execution-scale-writer-threads-enabled", "true")
                 .put("enhanced-cte-scheduling-enabled", "false")
+                .put("expression-optimizer-name", "custom")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -649,7 +651,8 @@ public class TestFeaturesConfig
                 .setPrestoSparkExecutionEnvironment(true)
                 .setSingleNodeExecutionEnabled(true)
                 .setNativeExecutionScaleWritersThreadsEnabled(true)
-                .setEnhancedCTESchedulingEnabled(false);
+                .setEnhancedCTESchedulingEnabled(false)
+                .setExpressionOptimizerName("custom");
         assertFullMapping(properties, expected);
     }
 
