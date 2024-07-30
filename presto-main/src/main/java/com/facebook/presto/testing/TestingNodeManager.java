@@ -93,6 +93,12 @@ public class TestingNodeManager
     }
 
     @Override
+    public Node getSidecarNode()
+    {
+        return localNode;
+    }
+
+    @Override
     public String getEnvironment()
     {
         return environment;
