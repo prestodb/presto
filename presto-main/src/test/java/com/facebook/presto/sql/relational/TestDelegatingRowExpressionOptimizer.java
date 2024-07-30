@@ -27,6 +27,7 @@ import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
+import com.facebook.presto.sql.expressions.JsonCodecRowExpressionSerde;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -34,6 +35,7 @@ import org.testng.annotations.Test;
 
 import java.net.URI;
 
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.airlift.testing.Assertions.assertInstanceOf;
 import static com.facebook.presto.block.BlockAssertions.toValues;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
@@ -63,7 +65,7 @@ public class TestDelegatingRowExpressionOptimizer
     {
         InMemoryNodeManager inMemoryNodeManager = new InMemoryNodeManager();
         inMemoryNodeManager.addNode(new ConnectorId("test"), new InternalNode("id", URI.create("id"), new NodeVersion("test"), false));
-        ExpressionOptimizerManager expressionOptimizerManager = new ExpressionOptimizerManager(inMemoryNodeManager, METADATA.getFunctionAndTypeManager(), new NodeInfo("env"));
+        ExpressionOptimizerManager expressionOptimizerManager = new ExpressionOptimizerManager(inMemoryNodeManager, METADATA.getFunctionAndTypeManager(), new NodeInfo("env"), new JsonCodecRowExpressionSerde(jsonCodec(RowExpression.class)));
         optimizer = new DelegatingRowExpressionOptimizer(METADATA, expressionOptimizerManager);
     }
 

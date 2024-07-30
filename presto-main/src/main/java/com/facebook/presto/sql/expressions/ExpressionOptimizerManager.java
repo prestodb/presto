@@ -18,6 +18,7 @@ import com.facebook.presto.connector.ConnectorAwareNodeManager;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.RowExpressionSerde;
 import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.facebook.presto.spi.sql.planner.ExpressionOptimizerContext;
 import com.facebook.presto.spi.sql.planner.ExpressionOptimizerFactory;
@@ -48,15 +49,17 @@ public class ExpressionOptimizerManager
     private final AtomicReference<ExpressionOptimizer> rowExpressionInterpreter = new AtomicReference<>();
     private final ConnectorAwareNodeManager nodeManager;
     private final FunctionAndTypeManager functionAndTypeManager;
+    private final RowExpressionSerde rowExpressionSerde;
     private final FunctionResolution functionResolution;
     private final ExpressionOptimizer defaultExpressionOptimizer;
 
     @Inject
-    public ExpressionOptimizerManager(InternalNodeManager nodeManager, FunctionAndTypeManager functionAndTypeManager, NodeInfo nodeInfo)
+    public ExpressionOptimizerManager(InternalNodeManager nodeManager, FunctionAndTypeManager functionAndTypeManager, NodeInfo nodeInfo, RowExpressionSerde rowExpressionSerde)
     {
         requireNonNull(nodeManager, "nodeManager is null");
         this.nodeManager = new ConnectorAwareNodeManager(nodeManager, nodeInfo.getEnvironment(), new ConnectorId("dummy")); // TODO
         this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
+        this.rowExpressionSerde = requireNonNull(rowExpressionSerde, "rowExpressionSerde is null");
         this.functionResolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
         this.defaultExpressionOptimizer = new RowExpressionOptimizer(functionAndTypeManager);
         rowExpressionInterpreter.set(defaultExpressionOptimizer);
@@ -72,7 +75,7 @@ public class ExpressionOptimizerManager
                 checkArgument(
                         rowExpressionInterpreter.compareAndSet(
                                 defaultExpressionOptimizer,
-                                expressionOptimizerFactories.get(factoryName).createOptimizer(properties, new ExpressionOptimizerContext(nodeManager, functionAndTypeManager, functionResolution))),
+                                expressionOptimizerFactories.get(factoryName).createOptimizer(properties, new ExpressionOptimizerContext(nodeManager, rowExpressionSerde, functionAndTypeManager, functionResolution))),
                         "ExpressionManager is already loaded");
             }
         }

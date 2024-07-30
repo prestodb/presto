@@ -142,6 +142,7 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spiller.FileSingleStreamSpillerFactory;
 import com.facebook.presto.spiller.GenericPartitioningSpillerFactory;
 import com.facebook.presto.spiller.GenericSpillerFactory;
@@ -164,6 +165,7 @@ import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer.BuiltInPreparedQuer
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
+import com.facebook.presto.sql.expressions.JsonCodecRowExpressionSerde;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
@@ -479,7 +481,8 @@ public class LocalQueryRunner
                 blockEncodingManager,
                 featuresConfig);
 
-        expressionOptimizerManager = new ExpressionOptimizerManager(nodeManager, getFunctionAndTypeManager(), nodeInfo);
+        // TODO: @tdm wire this in
+        expressionOptimizerManager = new ExpressionOptimizerManager(nodeManager, getFunctionAndTypeManager(), nodeInfo, new JsonCodecRowExpressionSerde(jsonCodec(RowExpression.class)));
 
         GlobalSystemConnectorFactory globalSystemConnectorFactory = new GlobalSystemConnectorFactory(ImmutableSet.of(
                 new NodeSystemTable(nodeManager),
