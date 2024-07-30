@@ -101,6 +101,15 @@ TEST_F(FindFirstTest, basic) {
   expected =
       makeNullableFlatVector<int64_t>({3, std::nullopt, std::nullopt, 5});
   verify("find_first_index(c0, -2, x -> (x > 0))", data, expected);
+
+  expected = makeNullConstant(TypeKind::INTEGER, 4);
+  verify("find_first(c0, cast(null as INTEGER), x -> (x > 0))", data, expected);
+
+  expected = makeNullConstant(TypeKind::BIGINT, 4);
+  verify(
+      "find_first_index(c0, cast(null as INTEGER), x -> (x > 0))",
+      data,
+      expected);
 }
 
 TEST_F(FindFirstTest, firstMatchIsNull) {
