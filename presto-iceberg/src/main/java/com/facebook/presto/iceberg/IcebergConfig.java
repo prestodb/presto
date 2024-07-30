@@ -36,6 +36,8 @@ import static com.facebook.presto.iceberg.util.StatisticsUtil.decodeMergeFlags;
 import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_EXPIRATION_INTERVAL_MS_DEFAULT;
 import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_MAX_CONTENT_LENGTH_DEFAULT;
 import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_MAX_TOTAL_BYTES_DEFAULT;
+import static org.apache.iceberg.TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED_DEFAULT;
+import static org.apache.iceberg.TableProperties.METADATA_PREVIOUS_VERSIONS_MAX_DEFAULT;
 
 public class IcebergConfig
 {
@@ -53,6 +55,8 @@ public class IcebergConfig
     private boolean pushdownFilterEnabled;
     private boolean deleteAsJoinRewriteEnabled = true;
     private int rowsForMetadataOptimizationThreshold = 1000;
+    private int metadataPreviousVersionsMax = METADATA_PREVIOUS_VERSIONS_MAX_DEFAULT;
+    private boolean metadataDeleteAfterCommit = METADATA_DELETE_AFTER_COMMIT_ENABLED_DEFAULT;
 
     private EnumSet<ColumnStatisticType> hiveStatisticsMergeFlags = EnumSet.noneOf(ColumnStatisticType.class);
     private String fileIOImpl = HadoopFileIO.class.getName();
@@ -347,6 +351,33 @@ public class IcebergConfig
     public IcebergConfig setSplitManagerThreads(int splitManagerThreads)
     {
         this.splitManagerThreads = splitManagerThreads;
+        return this;
+    }
+
+    @Min(0)
+    public int getMetadataPreviousVersionsMax()
+    {
+        return metadataPreviousVersionsMax;
+    }
+
+    @Config("iceberg.metadata-previous-versions-max")
+    @ConfigDescription("The max number of old metadata files to keep in metadata log")
+    public IcebergConfig setMetadataPreviousVersionsMax(int metadataPreviousVersionsMax)
+    {
+        this.metadataPreviousVersionsMax = metadataPreviousVersionsMax;
+        return this;
+    }
+
+    public boolean isMetadataDeleteAfterCommit()
+    {
+        return metadataDeleteAfterCommit;
+    }
+
+    @Config("iceberg.metadata-delete-after-commit")
+    @ConfigDescription("Whether enables to delete the oldest metadata file after commit")
+    public IcebergConfig setMetadataDeleteAfterCommit(boolean metadataDeleteAfterCommit)
+    {
+        this.metadataDeleteAfterCommit = metadataDeleteAfterCommit;
         return this;
     }
 }
