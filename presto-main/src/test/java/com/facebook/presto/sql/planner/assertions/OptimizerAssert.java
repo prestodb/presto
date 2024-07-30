@@ -13,9 +13,11 @@
  */
 package com.facebook.presto.sql.planner.assertions;
 
+import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.cost.StatsCalculator;
+import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
@@ -23,6 +25,7 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.Optimizer;
+import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.TypeProvider;
@@ -170,7 +173,12 @@ public class OptimizerAssert
                         new RuleStatsRecorder(),
                         queryRunner.getStatsCalculator(),
                         queryRunner.getCostCalculator(),
-                        new SimplifyRowExpressions(metadata).rules()));
+                        new SimplifyRowExpressions(
+                                metadata,
+                                new ExpressionOptimizerManager(
+                                        new InMemoryNodeManager(),
+                                        queryRunner.getFunctionAndTypeManager(),
+                                        new NodeInfo("test"))).rules()));
     }
 
     private <T> void inTransaction(Function<Session, T> transactionSessionConsumer)

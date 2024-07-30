@@ -26,6 +26,7 @@ import com.facebook.presto.spi.plan.LogicalPropertiesProvider;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
+import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.assertions.OptimizerAssert;
@@ -60,6 +61,7 @@ public class RuleTester
     private final PageSourceManager pageSourceManager;
     private final AccessControl accessControl;
     private final SqlParser sqlParser;
+    private ExpressionOptimizerManager expressionOptimizerManager;
 
     public RuleTester()
     {
@@ -106,6 +108,8 @@ public class RuleTester
                 connectorFactory,
                 ImmutableMap.of());
         plugins.stream().forEach(queryRunner::installPlugin);
+        expressionOptimizerManager = queryRunner.getExpressionManager();
+        expressionOptimizerManager.loadExpressions();
 
         this.metadata = queryRunner.getMetadata();
         this.transactionManager = queryRunner.getTransactionManager();
@@ -195,5 +199,10 @@ public class RuleTester
             metadata.getCatalogHandle(transactionSession, session.getCatalog().get());
             return metadata.getTableMetadata(transactionSession, tableHandle).getMetadata().getTableConstraintsHolder().getTableConstraintsWithColumnHandles();
         });
+    }
+
+    public ExpressionOptimizerManager getExpressionManager()
+    {
+        return expressionOptimizerManager;
     }
 }

@@ -13,15 +13,19 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.airlift.node.NodeInfo;
+import com.facebook.presto.Session;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.expressions.RowExpressionRewriter;
 import com.facebook.presto.expressions.RowExpressionTreeRewriter;
+import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
+import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.tree.Expression;
@@ -36,6 +40,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.SystemSessionProperties.DELEGATING_ROW_EXPRESSION_OPTIMIZER_ENABLED;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
@@ -43,6 +48,8 @@ import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.OR;
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static com.facebook.presto.sql.relational.Expressions.specialForm;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
@@ -181,12 +188,24 @@ public class TestSimplifyRowExpressions
     {
         Expression actualExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expression));
 
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager();
+        ExpressionOptimizerManager expressionOptimizerManager = new ExpressionOptimizerManager(nodeManager, METADATA.getFunctionAndTypeManager(), new NodeInfo("test"));
+        expressionOptimizerManager.loadExpressions();
+
         TestingRowExpressionTranslator translator = new TestingRowExpressionTranslator(METADATA);
         RowExpression actualRowExpression = translator.translate(actualExpression, TypeProvider.viewOf(TYPES));
-        RowExpression simplifiedRowExpression = SimplifyRowExpressions.rewrite(actualRowExpression, METADATA, TEST_SESSION.toConnectorSession());
+        RowExpression simplifiedRowExpression = SimplifyRowExpressions.rewrite(actualRowExpression, METADATA, TEST_SESSION, expressionOptimizerManager);
         Expression expectedByRowExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(rowExpressionExpected));
         RowExpression simplifiedByExpression = translator.translate(expectedByRowExpression, TypeProvider.viewOf(TYPES));
         assertEquals(normalize(simplifiedRowExpression), normalize(simplifiedByExpression));
+
+        Session session = testSessionBuilder()
+                .setCatalog("tpch")
+                .setSchema(TINY_SCHEMA_NAME)
+                .setSystemProperty(DELEGATING_ROW_EXPRESSION_OPTIMIZER_ENABLED, "true")
+                .build();
+        RowExpression sidecarSimplifiedExpressions = SimplifyRowExpressions.rewrite(simplifiedRowExpression, METADATA, session, expressionOptimizerManager);
+        assertEquals(normalize(sidecarSimplifiedExpressions), normalize(simplifiedByExpression));
     }
 
     private static RowExpression normalize(RowExpression expression)

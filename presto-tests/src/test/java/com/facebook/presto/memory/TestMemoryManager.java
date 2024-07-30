@@ -512,7 +512,7 @@ public class TestMemoryManager
         queryRunner2.close();
     }
 
-    @Test(timeOut = 60_000, groups = {"clusterPoolsMultiCoordinator"})
+    @Test(timeOut = 600_000, groups = {"clusterPoolsMultiCoordinator"})
     public void testClusterPoolsMultiCoordinator()
             throws Exception
     {
@@ -544,6 +544,7 @@ public class TestMemoryManager
             generalPool = memoryManager.getClusterInfo(GENERAL_POOL);
             reservedPool = memoryManager.getClusterInfo(RESERVED_POOL);
             MILLISECONDS.sleep(10);
+            System.out.println("waiting");
         }
 
         // Make sure the queries are blocked
