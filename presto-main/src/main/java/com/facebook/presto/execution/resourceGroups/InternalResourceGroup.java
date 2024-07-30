@@ -34,6 +34,7 @@ import org.weakref.jmx.Nested;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -125,7 +126,7 @@ public class InternalResourceGroup
     @GuardedBy("root")
     private ResourceGroupQueryLimits perQueryLimits = NO_LIMITS;
     @GuardedBy("root")
-    private List<String> tags;
+    private List<String> tags = new ArrayList<String>();
 
     // Live data structures
     // ====================
