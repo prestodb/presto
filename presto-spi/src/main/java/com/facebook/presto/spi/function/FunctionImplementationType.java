@@ -19,7 +19,8 @@ public enum FunctionImplementationType
     SQL(false, true),
     THRIFT(true, false),
     GRPC(true, false),
-    CPP(false, false);
+    CPP(false, false),
+    REST(false, true);
 
     private final boolean externalExecution;
     private final boolean evaluatedInCoordinator;
