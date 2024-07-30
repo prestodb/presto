@@ -397,17 +397,12 @@ TEST(TimestampTest, outOfRange) {
   auto* timezone = tz::locateZone("GMT");
   Timestamp t1(-3217830796800, 0);
 
-  VELOX_ASSERT_THROW(
-      t1.toTimePointMs(), "Timestamp is outside of supported range");
-  VELOX_ASSERT_THROW(
-      t1.toTimePointSec(), "Timestamp is outside of supported range");
-  VELOX_ASSERT_THROW(
-      t1.toTimezone(*timezone), "Timestamp is outside of supported range");
+  std::string expected = "Timepoint is outside of supported year range";
+  VELOX_ASSERT_THROW(t1.toTimePointMs(), expected);
+  VELOX_ASSERT_THROW(t1.toTimezone(*timezone), expected);
 
   timezone = tz::locateZone("America/Los_Angeles");
-  VELOX_ASSERT_THROW(
-      t1.toGMT(*timezone),
-      "Timestamp seconds out of range for time zone adjustment");
+  VELOX_ASSERT_THROW(t1.toGMT(*timezone), expected);
 
   // #2. external/date doesn't understand OS_TZDB repetition rules. Therefore,
   // for timezones with pre-defined repetition rules for daylight savings, for

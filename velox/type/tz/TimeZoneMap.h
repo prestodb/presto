@@ -57,6 +57,14 @@ int16_t getTimeZoneID(std::string_view timeZone, bool failOnError = true);
 /// [-14:00, +14:00] range.
 int16_t getTimeZoneID(int32_t offsetMinutes);
 
+// Validates that the time point can be safely used by the external date
+// library.
+template <typename T>
+using time_point = std::chrono::time_point<std::chrono::system_clock, T>;
+
+void validateRange(time_point<std::chrono::seconds> timePoint);
+void validateRange(time_point<std::chrono::milliseconds> timePoint);
+
 /// TimeZone is the proxy object for time zone management. It provides access to
 /// time zone names, their IDs (as defined in TimeZoneDatabase.cpp and
 /// consistent with Presto), and utilities for timestamp conversion across

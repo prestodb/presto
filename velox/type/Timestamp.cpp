@@ -58,19 +58,8 @@ Timestamp Timestamp::now() {
 }
 
 void Timestamp::toGMT(const tz::TimeZone& zone) {
-  // Magic number -2^39 + 24*3600. This number and any number lower than that
-  // will cause time_zone::to_sys() to SIGABRT. We don't want that to happen.
-  VELOX_USER_CHECK_GT(
-      seconds_,
-      -1096193779200l + 86400l,
-      "Timestamp seconds out of range for time zone adjustment");
-
-  VELOX_USER_CHECK_LE(
-      seconds_,
-      kMaxSeconds,
-      "Timestamp seconds out of range for time zone adjustment");
-
   std::chrono::seconds sysSeconds;
+
   try {
     sysSeconds = zone.to_sys(std::chrono::seconds(seconds_));
   } catch (const date::ambiguous_local_time&) {
@@ -96,49 +85,16 @@ void Timestamp::toGMT(int16_t tzID) {
   }
 }
 
-namespace {
-void validateTimePoint(const std::chrono::time_point<
-                       std::chrono::system_clock,
-                       std::chrono::milliseconds>& timePoint) {
-  // Due to the limit of std::chrono we can only represent time in
-  // [-32767-01-01, 32767-12-31] date range
-  const auto minTimePoint = date::sys_days{
-      date::year_month_day(date::year::min(), date::month(1), date::day(1))};
-  const auto maxTimePoint = date::sys_days{
-      date::year_month_day(date::year::max(), date::month(12), date::day(31))};
-  if (timePoint < minTimePoint || timePoint > maxTimePoint) {
-    VELOX_USER_FAIL(
-        "Timestamp is outside of supported range of [{}-{}-{}, {}-{}-{}]",
-        (int)date::year::min(),
-        "01",
-        "01",
-        (int)date::year::max(),
-        "12",
-        "31");
-  }
-}
-} // namespace
-
 std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>
 Timestamp::toTimePointMs(bool allowOverflow) const {
   using namespace std::chrono;
   auto tp = time_point<system_clock, milliseconds>(
       milliseconds(allowOverflow ? toMillisAllowOverflow() : toMillis()));
-  validateTimePoint(tp);
-  return tp;
-}
-
-std::chrono::time_point<std::chrono::system_clock, std::chrono::seconds>
-Timestamp::toTimePointSec() const {
-  using namespace std::chrono;
-  auto tp = time_point<system_clock, seconds>(seconds(seconds_));
-  validateTimePoint(tp);
+  tz::validateRange(tp);
   return tp;
 }
 
 void Timestamp::toTimezone(const tz::TimeZone& zone) {
-  auto tp = toTimePointSec();
-
   try {
     seconds_ = zone.to_local(std::chrono::seconds(seconds_)).count();
   } catch (const std::invalid_argument& e) {

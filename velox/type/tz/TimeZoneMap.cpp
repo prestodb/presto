@@ -167,7 +167,32 @@ std::string normalizeTimeZone(const std::string& originalZoneId) {
   return originalZoneId;
 }
 
+template <typename TDuration>
+void validateRangeImpl(time_point<TDuration> timePoint) {
+  using namespace velox::date;
+  static constexpr auto kMinYear = date::year::min();
+  static constexpr auto kMaxYear = date::year::max();
+
+  auto year = year_month_day(floor<days>(timePoint)).year();
+
+  if (year < kMinYear || year > kMaxYear) {
+    VELOX_USER_FAIL(
+        "Timepoint is outside of supported year range: [{}, {}], got {}",
+        (int)kMinYear,
+        (int)kMaxYear,
+        (int)year);
+  }
+}
+
 } // namespace
+
+void validateRange(time_point<std::chrono::seconds> timePoint) {
+  validateRangeImpl(timePoint);
+}
+
+void validateRange(time_point<std::chrono::milliseconds> timePoint) {
+  validateRangeImpl(timePoint);
+}
 
 std::string getTimeZoneName(int64_t timeZoneID) {
   const auto& timeZoneDatabase = getTimeZoneDatabase();
@@ -245,6 +270,7 @@ TimeZone::seconds TimeZone::to_sys(
     TimeZone::seconds timestamp,
     TimeZone::TChoose choose) const {
   date::local_seconds timePoint{timestamp};
+  validateRange(date::sys_seconds{timestamp});
 
   if (tz_ == nullptr) {
     // We can ignore `choose` as time offset conversions are always linear.
@@ -266,6 +292,7 @@ TimeZone::seconds TimeZone::to_sys(
 
 TimeZone::seconds TimeZone::to_local(TimeZone::seconds timestamp) const {
   date::sys_seconds timePoint{timestamp};
+  validateRange(timePoint);
 
   // If this is an offset time zone.
   if (tz_ == nullptr) {

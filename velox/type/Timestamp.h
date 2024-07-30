@@ -207,14 +207,6 @@ struct Timestamp {
   std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>
   toTimePointMs(bool allowOverflow = false) const;
 
-  /// Exports the current timestamp as a std::chrono::time_point of second
-  /// precision.
-  ///
-  /// Due to the limit of velox/external/date, throws if timestamp is outside of
-  /// [-32767-01-01, 32767-12-31] range.
-  std::chrono::time_point<std::chrono::system_clock, std::chrono::seconds>
-  toTimePointSec() const;
-
   static Timestamp fromMillis(int64_t millis) {
     if (millis >= 0 || millis % 1'000 == 0) {
       return Timestamp(millis / 1'000, (millis % 1'000) * 1'000'000);
