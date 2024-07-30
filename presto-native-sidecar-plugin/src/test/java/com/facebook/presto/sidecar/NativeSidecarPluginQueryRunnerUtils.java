@@ -12,8 +12,10 @@
  * limitations under the License.
  */
 package com.facebook.presto.sidecar;
+import com.facebook.presto.session.sql.expressions.NativeExpressionOptimizerFactory;
 import com.facebook.presto.sidecar.sessionpropertyproviders.NativeSystemSessionPropertyProviderFactory;
 import com.facebook.presto.testing.QueryRunner;
+import com.google.common.collect.ImmutableMap;
 
 public class NativeSidecarPluginQueryRunnerUtils
 {
@@ -23,5 +25,7 @@ public class NativeSidecarPluginQueryRunnerUtils
     {
         queryRunner.installCoordinatorPlugin(new NativeSidecarPlugin());
         queryRunner.loadSessionPropertyProvider(NativeSystemSessionPropertyProviderFactory.NAME);
+        queryRunner.getExpressionManager().addExpressionOptimizerFactory(new NativeExpressionOptimizerFactory(ClassLoader.getSystemClassLoader()));
+        queryRunner.getExpressionManager().loadExpressionOptimizerFactory("native", "native", ImmutableMap.of());
     }
 }
