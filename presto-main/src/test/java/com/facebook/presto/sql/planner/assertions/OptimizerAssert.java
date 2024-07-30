@@ -23,10 +23,12 @@ import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.Optimizer;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
+import com.facebook.presto.sql.expressions.JsonCodecRowExpressionSerde;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.TypeProvider;
@@ -50,6 +52,7 @@ import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.sql.planner.assertions.PlanAssert.assertPlan;
 import static com.facebook.presto.sql.planner.assertions.PlanAssert.assertPlanDoesNotMatch;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
@@ -178,7 +181,8 @@ public class OptimizerAssert
                                 metadata,
                                 new ExpressionOptimizerManager(
                                         new PluginNodeManager(new InMemoryNodeManager()),
-                                        queryRunner.getFunctionAndTypeManager()),
+                                        queryRunner.getFunctionAndTypeManager(),
+                                        new JsonCodecRowExpressionSerde(jsonCodec(RowExpression.class))),
                                 new FeaturesConfig()).rules()));
     }
 
