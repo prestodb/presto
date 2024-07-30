@@ -11,35 +11,45 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.connector;
+package com.facebook.presto.nodeManager;
 
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
-import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 
 import java.util.Set;
 
 import static com.facebook.presto.spi.StandardErrorCode.NO_CPP_SIDECARS;
 import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_SIDECARS;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
-public class ConnectorAwareNodeManager
+/**
+ * This class simplifies managing Presto's cluster nodes,
+ * focusing on active workers and coordinators without tying to specific connectors.
+ */
+public class PluginNodeManager
         implements NodeManager
 {
     private final InternalNodeManager nodeManager;
     private final String environment;
-    private final ConnectorId connectorId;
 
-    public ConnectorAwareNodeManager(InternalNodeManager nodeManager, String environment, ConnectorId connectorId)
+    @Inject
+    public PluginNodeManager(InternalNodeManager nodeManager)
+    {
+        this.nodeManager = nodeManager;
+        this.environment = "test";
+    }
+
+    public PluginNodeManager(InternalNodeManager nodeManager, String environment)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.environment = requireNonNull(environment, "environment is null");
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
     }
 
     @Override
@@ -54,7 +64,10 @@ public class ConnectorAwareNodeManager
     @Override
     public Set<Node> getWorkerNodes()
     {
-        return ImmutableSet.copyOf(nodeManager.getActiveConnectorNodes(connectorId));
+        //Retrieves all active worker nodes, excluding coordinators, resource managers, and catalog servers.
+        return nodeManager.getAllNodes().getActiveNodes().stream()
+                .filter(node -> !node.isResourceManager() && !node.isCoordinator() && !node.isCatalogServer())
+                .collect(toImmutableSet());
     }
 
     @Override
