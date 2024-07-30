@@ -213,9 +213,11 @@ struct WeekFunction : public InitSessionTimezone<T>,
       auto firstMondayOfYear =
           1 + (mondayOfWeek + kDaysInWeek - 1) % kDaysInWeek;
 
+      // A long year is any year ending on Thursday and any leap year ending on
+      // Friday.
       if ((util::isLeapYear(time.tm_year + 1900 - 1) &&
-           firstMondayOfYear == 2) ||
-          firstMondayOfYear == 3 || firstMondayOfYear == 4) {
+           firstMondayOfYear == 3) ||
+          firstMondayOfYear == 4) {
         week = 53;
       } else {
         week = 52;

@@ -500,6 +500,22 @@ TEST_F(DateTimeFunctionsTest, weekDate) {
   EXPECT_EQ(1, weekDate("1970-01-01"));
   EXPECT_EQ(1, weekDate("0001-01-01"));
   EXPECT_EQ(52, weekDate("9999-12-31"));
+
+  // Test various cases where the last week of the previous year extends into
+  // the next year.
+
+  // Leap year that ends on Thursday.
+  EXPECT_EQ(53, weekDate("2021-01-01"));
+  // Leap year that ends on Friday.
+  EXPECT_EQ(53, weekDate("2005-01-01"));
+  // Leap year that ends on Saturday.
+  EXPECT_EQ(52, weekDate("2017-01-01"));
+  // Common year that ends on Thursday.
+  EXPECT_EQ(53, weekDate("2016-01-01"));
+  // Common year that ends on Friday.
+  EXPECT_EQ(52, weekDate("2022-01-01"));
+  // Common year that ends on Saturday.
+  EXPECT_EQ(52, weekDate("2023-01-01"));
 }
 
 TEST_F(DateTimeFunctionsTest, week) {
