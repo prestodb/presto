@@ -44,13 +44,15 @@ public class BenchmarkRoundFunction
     private double operand2;
     private double operand3;
     private double operand4;
+    private double operand5;
     private float floatOperand0;
     private float floatOperand1;
     private float floatOperand2;
     private float floatOperand3;
     private float floatOperand4;
+    private float floatOperand5;
 
-    @Param({"0", "1", "2", "3", "4"})
+    @Param({"0", "1", "2", "3", "4", "5"})
     private int numberOfDecimals;
 
     @Setup
@@ -61,12 +63,14 @@ public class BenchmarkRoundFunction
         operand2 = -754.2008;
         operand3 = 0x1.fffffffffffffp-2;
         operand4 = -0x1.fffffffffffffp-2;
+        operand5 = (double) Long.MAX_VALUE;
 
         floatOperand0 = 0.5f;
         floatOperand1 = 754.1985f;
         floatOperand2 = -754.2008f;
         floatOperand3 = 0x1.fffffep-2f;
         floatOperand4 = -0x1.fffffep-2f;
+        floatOperand5 = 2.0f;
     }
 
     @Benchmark
@@ -77,6 +81,7 @@ public class BenchmarkRoundFunction
         bh.consume(MathFunctions.round(operand2, numberOfDecimals));
         bh.consume(MathFunctions.round(operand3, numberOfDecimals));
         bh.consume(MathFunctions.round(operand4, numberOfDecimals));
+        bh.consume(MathFunctions.round(operand5, numberOfDecimals));
     }
 
     @Benchmark
@@ -87,6 +92,7 @@ public class BenchmarkRoundFunction
         bh.consume(roundBaseline(operand2, numberOfDecimals));
         bh.consume(roundBaseline(operand3, numberOfDecimals));
         bh.consume(roundBaseline(operand4, numberOfDecimals));
+        bh.consume(roundBaseline(operand5, numberOfDecimals));
     }
 
     @Benchmark
@@ -97,6 +103,7 @@ public class BenchmarkRoundFunction
         bh.consume(MathFunctions.round(floatOperand2, numberOfDecimals));
         bh.consume(MathFunctions.round(floatOperand3, numberOfDecimals));
         bh.consume(MathFunctions.round(floatOperand4, numberOfDecimals));
+        bh.consume(MathFunctions.round(floatOperand5, numberOfDecimals));
     }
 
     @Benchmark
@@ -107,6 +114,7 @@ public class BenchmarkRoundFunction
         bh.consume(roundBaseline(floatOperand2, numberOfDecimals));
         bh.consume(roundBaseline(floatOperand3, numberOfDecimals));
         bh.consume(roundBaseline(floatOperand4, numberOfDecimals));
+        bh.consume(roundBaseline(floatOperand5, numberOfDecimals));
     }
 
     @Description("round to given number of decimal places")
