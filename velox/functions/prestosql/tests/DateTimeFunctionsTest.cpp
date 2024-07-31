@@ -121,33 +121,6 @@ class DateTimeFunctionsTest : public functions::test::FunctionBaseTest {
     }
   };
 
-  std::optional<Timestamp> dateParse(
-      const std::optional<std::string>& input,
-      const std::optional<std::string>& format) {
-    auto resultVector = evaluate(
-        "date_parse(c0, c1)",
-        makeRowVector(
-            {makeNullableFlatVector<std::string>({input}),
-             makeNullableFlatVector<std::string>({format})}));
-    EXPECT_EQ(1, resultVector->size());
-
-    if (resultVector->isNullAt(0)) {
-      return std::nullopt;
-    }
-    return resultVector->as<SimpleVector<Timestamp>>()->valueAt(0);
-  }
-
-  std::optional<std::string> dateFormat(
-      std::optional<Timestamp> timestamp,
-      const std::string& format) {
-    auto resultVector = evaluate(
-        "date_format(c0, c1)",
-        makeRowVector(
-            {makeNullableFlatVector<Timestamp>({timestamp}),
-             makeNullableFlatVector<std::string>({format})}));
-    return resultVector->as<SimpleVector<StringView>>()->valueAt(0);
-  }
-
   template <typename T>
   std::optional<T> evaluateWithTimestampWithTimezone(
       const std::string& expression,
@@ -3311,14 +3284,14 @@ TEST_F(DateTimeFunctionsTest, formatDateTimeTimezone) {
 }
 
 TEST_F(DateTimeFunctionsTest, dateFormat) {
-  const auto dateFormatOnce = [&](std::optional<Timestamp> timestamp,
-                                  const std::string& formatString) {
-    return evaluateOnce<std::string>(
-        fmt::format("date_format(c0, '{}')", formatString), timestamp);
+  const auto dateFormat = [&](std::optional<Timestamp> timestamp,
+                              std::optional<std::string> format) {
+    return evaluateOnce<std::string>("date_format(c0, c1)", timestamp, format);
   };
 
   // Check null behaviors
-  EXPECT_EQ(std::nullopt, dateFormatOnce(std::nullopt, "%Y"));
+  EXPECT_EQ(std::nullopt, dateFormat(std::nullopt, "%Y"));
+  EXPECT_EQ(std::nullopt, dateFormat(Timestamp(0, 0), std::nullopt));
 
   // Normal cases
   EXPECT_EQ("1970-01-01", dateFormat(parseTimestamp("1970-01-01"), "%Y-%m-%d"));
@@ -3766,10 +3739,12 @@ TEST_F(DateTimeFunctionsTest, fromIso8601Timestamp) {
 }
 
 TEST_F(DateTimeFunctionsTest, dateParseMonthOfYearText) {
-  auto parseAndFormat = [&](const std::string& input) {
-    return dateFormat(dateParse(input, "%M_%Y"), "%Y-%m");
+  auto parseAndFormat = [&](std::optional<std::string> input) {
+    return evaluateOnce<std::string>(
+        "date_format(date_parse(c0, '%M_%Y'), '%Y-%m')", input);
   };
 
+  EXPECT_EQ(parseAndFormat(std::nullopt), std::nullopt);
   EXPECT_EQ(parseAndFormat("jan_2024"), "2024-01");
   EXPECT_EQ(parseAndFormat("JAN_2024"), "2024-01");
   EXPECT_EQ(parseAndFormat("january_2024"), "2024-01");
@@ -3830,6 +3805,11 @@ TEST_F(DateTimeFunctionsTest, dateParseMonthOfYearText) {
 }
 
 TEST_F(DateTimeFunctionsTest, dateParse) {
+  const auto dateParse = [&](std::optional<std::string> input,
+                             std::optional<std::string> format) {
+    return evaluateOnce<Timestamp>("date_parse(c0, c1)", input, format);
+  };
+
   // Check null behavior.
   EXPECT_EQ(std::nullopt, dateParse("1970-01-01", std::nullopt));
   EXPECT_EQ(std::nullopt, dateParse(std::nullopt, "YYYY-MM-dd"));
