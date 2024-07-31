@@ -110,6 +110,10 @@ inline bool startsWith(std::string_view str, const char* prefix) {
   return str.rfind(prefix, 0) == 0;
 }
 
+inline bool isTimeZoneOffset(std::string_view str) {
+  return str.size() >= 3 && (str[0] == '+' || str[0] == '-');
+}
+
 // The timezone parsing logic follows what is defined here:
 //   https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
 inline bool isUtcEquivalentName(std::string_view zone) {
@@ -118,7 +122,36 @@ inline bool isUtcEquivalentName(std::string_view zone) {
   return utcSet.find(zone) != utcSet.end();
 }
 
+// This function tries to apply two normalization rules to time zone offsets:
+//
+// 1. If the offset only defines the hours portion, assume minutes are zeroed
+// out (e.g. "+00" -> "+00:00")
+//
+// 2. Check if the ':' in between in missing; if so, correct the offset string
+// (e.g. "+0000" -> "+00:00").
+//
+// This function assumes the first character is either '+' or '-'.
+std::string normalizeTimeZoneOffset(const std::string& zoneOffset) {
+  if (zoneOffset.size() == 3 && isDigit(zoneOffset[1]) &&
+      isDigit(zoneOffset[2])) {
+    return zoneOffset + ":00";
+  } else if (
+      zoneOffset.size() == 5 && isDigit(zoneOffset[1]) &&
+      isDigit(zoneOffset[2]) && isDigit(zoneOffset[3]) &&
+      isDigit(zoneOffset[4])) {
+    return zoneOffset.substr(0, 3) + ':' + zoneOffset.substr(3, 2);
+  }
+  return zoneOffset;
+}
+
 std::string normalizeTimeZone(const std::string& originalZoneId) {
+  // If this is an offset that hasn't matched, check if this is an incomplete
+  // offset.
+  if (isTimeZoneOffset(originalZoneId)) {
+    return normalizeTimeZoneOffset(originalZoneId);
+  }
+
+  // Otherwise, try other time zone name normalizations.
   std::string_view zoneId = originalZoneId;
   const bool startsWithEtc = startsWith(zoneId, "etc/");
 

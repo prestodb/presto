@@ -182,9 +182,18 @@ TEST(TimeZoneMapTest, getTimeZoneID) {
   // (+/-)XX:MM format.
   EXPECT_EQ(840, getTimeZoneID("-00:01"));
   EXPECT_EQ(0, getTimeZoneID("+00:00"));
+  EXPECT_EQ(0, getTimeZoneID("-00:00"));
   EXPECT_EQ(454, getTimeZoneID("-06:27"));
   EXPECT_EQ(541, getTimeZoneID("-05:00"));
   EXPECT_EQ(1140, getTimeZoneID("+05:00"));
+
+  // Incomplete time zone offsets.
+  EXPECT_EQ(1140, getTimeZoneID("+05"));
+  EXPECT_EQ(1140, getTimeZoneID("+0500"));
+  EXPECT_EQ(1150, getTimeZoneID("+0510"));
+  EXPECT_EQ(181, getTimeZoneID("-1100"));
+  EXPECT_EQ(181, getTimeZoneID("-11"));
+  EXPECT_EQ(0, getTimeZoneID("+0000"));
 
   EXPECT_EQ(0, getTimeZoneID("etc/GMT+0"));
   EXPECT_EQ(0, getTimeZoneID("etc/GMT-0"));

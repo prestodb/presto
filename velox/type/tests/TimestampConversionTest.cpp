@@ -258,6 +258,12 @@ TEST(DateTimeUtilTest, fromTimestampWithTimezoneString) {
   EXPECT_EQ(
       parseTimestampWithTimezone("1970-01-01 00:00:00+13:36"),
       std::make_pair(Timestamp(0, 0), tz::getTimeZoneID("+13:36")));
+  EXPECT_EQ(
+      parseTimestampWithTimezone("1970-01-01 00:00:00 -11"),
+      std::make_pair(Timestamp(0, 0), tz::getTimeZoneID("-11:00")));
+  EXPECT_EQ(
+      parseTimestampWithTimezone("1970-01-01 00:00:00 +0000"),
+      std::make_pair(Timestamp(0, 0), tz::getTimeZoneID("+00:00")));
 
   EXPECT_EQ(
       parseTimestampWithTimezone("1970-01-01 00:00:00Z"),

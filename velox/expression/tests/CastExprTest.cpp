@@ -565,6 +565,8 @@ TEST_F(CastExprTest, stringToTimestamp) {
       "1970-01-01 00:00:00",
       "2000-01-01 12:21:56",
       "1970-01-01 00:00:00-02:00",
+      "1970-01-01 00:00:00 +02",
+      "1970-01-01 00:00:00 -0101",
       std::nullopt,
   };
   std::vector<std::optional<Timestamp>> expected{
@@ -574,6 +576,8 @@ TEST_F(CastExprTest, stringToTimestamp) {
       Timestamp(0, 0),
       Timestamp(946729316, 0),
       Timestamp(7200, 0),
+      Timestamp(-7200, 0),
+      Timestamp(3660, 0),
       std::nullopt,
   };
   testCast<std::string, Timestamp>("timestamp", input, expected);
