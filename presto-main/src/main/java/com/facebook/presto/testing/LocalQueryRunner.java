@@ -473,6 +473,7 @@ public class LocalQueryRunner
                 nodeManager,
                 nodeInfo,
                 metadata.getFunctionAndTypeManager(),
+                procedureRegistry,
                 pageSorter,
                 pageIndexerFactory,
                 transactionManager,
