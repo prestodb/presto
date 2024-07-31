@@ -560,7 +560,7 @@ public abstract class IcebergAbstractMetadata
         return properties.build();
     }
 
-    protected static Schema toIcebergSchema(List<ColumnMetadata> columns)
+    public static Schema toIcebergSchema(List<ColumnMetadata> columns)
     {
         List<Types.NestedField> icebergColumns = new ArrayList<>();
         for (ColumnMetadata column : columns) {
