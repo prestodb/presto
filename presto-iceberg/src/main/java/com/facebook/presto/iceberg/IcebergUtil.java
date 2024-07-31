@@ -66,6 +66,7 @@ import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableOperations;
+import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.hive.HiveSchemaUtil;
@@ -74,6 +75,7 @@ import org.apache.iceberg.io.CloseableIterator;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.types.Types.NestedField;
+import org.apache.iceberg.util.LocationUtil;
 import org.apache.iceberg.util.SnapshotUtil;
 
 import java.io.IOException;
@@ -1147,5 +1149,41 @@ public final class IcebergUtil
             partitionData = Optional.of(PartitionData.fromStructLike(partition, partitionColumnTypes));
         }
         return partitionData;
+    }
+
+    /**
+     * Get the metadata location for target {@link Table},
+     *  considering iceberg table properties {@code WRITE_METADATA_LOCATION}
+     * */
+    public static String metadataLocation(Table icebergTable)
+    {
+        String metadataLocation = icebergTable.properties().get(TableProperties.WRITE_METADATA_LOCATION);
+
+        if (metadataLocation != null) {
+            return String.format("%s", LocationUtil.stripTrailingSlash(metadataLocation));
+        }
+        else {
+            return String.format("%s/%s", icebergTable.location(), "metadata");
+        }
+    }
+
+    /**
+     * Get the data location for target {@link Table},
+     *  considering iceberg table properties {@code WRITE_DATA_LOCATION}, {@code OBJECT_STORE_PATH} and {@code WRITE_FOLDER_STORAGE_LOCATION}
+     * */
+    public static String dataLocation(Table icebergTable)
+    {
+        Map<String, String> properties = icebergTable.properties();
+        String dataLocation = properties.get(TableProperties.WRITE_DATA_LOCATION);
+        if (dataLocation == null) {
+            dataLocation = properties.get(TableProperties.OBJECT_STORE_PATH);
+            if (dataLocation == null) {
+                dataLocation = properties.get(TableProperties.WRITE_FOLDER_STORAGE_LOCATION);
+                if (dataLocation == null) {
+                    dataLocation = String.format("%s/data", icebergTable.location());
+                }
+            }
+        }
+        return dataLocation;
     }
 }
