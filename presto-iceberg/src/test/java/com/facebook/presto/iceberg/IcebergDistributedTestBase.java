@@ -44,6 +44,7 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -72,6 +73,7 @@ import org.apache.iceberg.hadoop.HadoopOutputFile;
 import org.apache.iceberg.parquet.Parquet;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.util.TableScanUtil;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -93,6 +95,7 @@ import java.util.UUID;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.SystemSessionProperties.ITERATIVE_OPTIMIZER_TIMEOUT;
@@ -109,8 +112,12 @@ import static com.facebook.presto.iceberg.FileContent.POSITION_DELETES;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.DELETE_AS_JOIN_REWRITE_ENABLED;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.PARQUET_DEREFERENCE_PUSHDOWN_ENABLED;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.STATISTIC_SNAPSHOT_RECORD_DIFFERENCE_WEIGHT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static com.facebook.presto.testing.TestingAccessControlManager.privilege;
@@ -1704,6 +1711,30 @@ public abstract class IcebergDistributedTestBase
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + tmpTableName);
         }
+    }
+
+    @Test
+    public void testFilterWithRemainingPredicate()
+    {
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", PUSHDOWN_FILTER_ENABLED, "true")
+                .setCatalogSessionProperty("iceberg", PARQUET_DEREFERENCE_PUSHDOWN_ENABLED, "true")
+                .build();
+        int rowCount = 100;
+        String pairs = Joiner.on(", ")
+                .join(IntStream.iterate(0, i -> i + 1).limit(rowCount)
+                        .map(idx -> idx * 2)
+                        .mapToObj(idx -> "(" + idx + ", " + (idx + 1) + ")")
+                        .iterator());
+
+        assertQuerySucceeds("CREATE TABLE test_filterstats_remaining_predicate(i int, j int)");
+        assertUpdate(format("INSERT INTO test_filterstats_remaining_predicate VALUES %s", pairs), rowCount);
+        assertQuerySucceeds("ANALYZE test_filterstats_remaining_predicate");
+        @Language("SQL") String query = "SELECT * FROM test_filterstats_remaining_predicate WHERE (i = 10 AND j = 11) OR (i = 20 AND j = 21)";
+        assertPlan(session, query,
+                anyTree(
+                        tableScan("test_filterstats_remaining_predicate")
+                                .withOutputRowCount(1)));
     }
 
     private void testCheckDeleteFiles(Table icebergTable, int expectedSize, List<FileContent> expectedFileContent)
