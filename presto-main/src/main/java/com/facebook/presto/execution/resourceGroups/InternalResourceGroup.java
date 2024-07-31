@@ -649,11 +649,28 @@ public class InternalResourceGroup
         }
     }
 
+
     @Override
     public ResourceGroupQueryLimits getPerQueryLimits()
     {
         synchronized (root) {
             return perQueryLimits;
+        }
+    }
+
+    @Override
+    public void setTags(List<String> tags)
+    {
+        synchronized (root) {
+            this.tags = tags;
+        }
+    }
+
+    @Override
+    public List<String> getTags()
+    {
+        synchronized (root) {
+            return tags;
         }
     }
 
