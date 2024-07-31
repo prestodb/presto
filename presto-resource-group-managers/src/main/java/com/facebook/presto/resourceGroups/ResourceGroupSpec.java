@@ -76,11 +76,11 @@ public class ResourceGroupSpec
         this.hardCpuLimit = requireNonNull(hardCpuLimit, "hardCpuLimit is null");
         this.jmxExport = requireNonNull(jmxExport, "jmxExport is null");
         this.name = requireNonNull(name, "name is null");
-        this.tags = requireNonNull(tags, "tags is null");
         checkArgument(maxQueued >= 0, "maxQueued is negative");
         this.maxQueued = maxQueued;
         this.softConcurrencyLimit = softConcurrencyLimit;
         this.workersPerQueryLimit = workersPerQueryLimit;
+        this.tags = tags;
 
         checkArgument(hardConcurrencyLimit.isPresent() || maxRunning.isPresent(), "Missing required property: hardConcurrencyLimit");
         this.hardConcurrencyLimit = hardConcurrencyLimit.orElseGet(maxRunning::get);
