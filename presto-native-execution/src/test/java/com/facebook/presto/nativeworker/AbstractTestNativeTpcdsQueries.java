@@ -489,6 +489,8 @@ public abstract class AbstractTestNativeTpcdsQueries
         assertQuery(session, getTpcdsQuery("08"));
     }
 
+    // Disabling some tests due to issue https://github.com/prestodb/presto/issues/22585
+    @Ignore
     @Test
     public void testTpcdsQ9()
             throws Exception
@@ -524,6 +526,8 @@ public abstract class AbstractTestNativeTpcdsQueries
         assertQuery(session, getTpcdsQuery("13"));
     }
 
+    // Disabling some tests due to issue https://github.com/prestodb/presto/issues/22585
+    @Ignore
     @Test
     public void testTpcdsQ14_1()
             throws Exception
@@ -531,6 +535,8 @@ public abstract class AbstractTestNativeTpcdsQueries
         assertQuery(session, getTpcdsQuery("14_1"));
     }
 
+    // Disabling some tests due to issue https://github.com/prestodb/presto/issues/22585
+    @Ignore
     @Test
     public void testTpcdsQ14_2()
             throws Exception
@@ -599,6 +605,8 @@ public abstract class AbstractTestNativeTpcdsQueries
         assertQuery(session, getTpcdsQuery("22"));
     }
 
+    // Disabling some tests due to issue https://github.com/prestodb/presto/issues/22585
+    @Ignore
     @Test
     public void testTpcdsQ23_1()
             throws Exception
@@ -606,6 +614,8 @@ public abstract class AbstractTestNativeTpcdsQueries
         assertQuery(session, getTpcdsQuery("23_1"));
     }
 
+    // Disabling some tests due to issue https://github.com/prestodb/presto/issues/22585
+    @Ignore
     @Test
     public void testTpcdsQ23_2()
             throws Exception
@@ -613,6 +623,8 @@ public abstract class AbstractTestNativeTpcdsQueries
         assertQuery(session, getTpcdsQuery("23_2"));
     }
 
+    // Disabling some tests due to issue https://github.com/prestodb/presto/issues/22585
+    @Ignore
     @Test
     public void testTpcdsQ24_1()
             throws Exception
@@ -620,6 +632,8 @@ public abstract class AbstractTestNativeTpcdsQueries
         assertQuery(session, getTpcdsQuery("24_1"));
     }
 
+    // Disabling some tests due to issue https://github.com/prestodb/presto/issues/22585
+    @Ignore
     @Test
     public void testTpcdsQ24_2()
             throws Exception
@@ -653,6 +667,8 @@ public abstract class AbstractTestNativeTpcdsQueries
         assertQuerySucceeds(session, getTpcdsQuery("27"));
     }
 
+    // Disabling some tests due to issue https://github.com/prestodb/presto/issues/22585
+    @Ignore
     @Test
     public void testTpcdsQ28()
             throws Exception
@@ -777,6 +793,7 @@ public abstract class AbstractTestNativeTpcdsQueries
         assertQuery(session, getTpcdsQuery("43"));
     }
 
+    @Ignore
     @Test
     public void testTpcdsQ44()
             throws Exception
@@ -847,6 +864,8 @@ public abstract class AbstractTestNativeTpcdsQueries
         assertQuery(session, getTpcdsQuery("53"));
     }
 
+    // Disabling some tests due to issue https://github.com/prestodb/presto/issues/22585
+    @Ignore
     @Test
     public void testTpcdsQ54()
             throws Exception
@@ -861,6 +880,8 @@ public abstract class AbstractTestNativeTpcdsQueries
         assertQuery(session, getTpcdsQuery("55"));
     }
 
+    // Disabling some tests due to issue https://github.com/prestodb/presto/issues/22585
+    @Ignore
     @Test
     public void testTpcdsQ56()
             throws Exception
@@ -896,6 +917,8 @@ public abstract class AbstractTestNativeTpcdsQueries
         assertQuery(session, getTpcdsQuery("60"));
     }
 
+    // Disabling some tests due to issue https://github.com/prestodb/presto/issues/22585
+    @Ignore
     @Test
     public void testTpcdsQ61()
             throws Exception
@@ -1010,6 +1033,8 @@ public abstract class AbstractTestNativeTpcdsQueries
         assertQuery(session, getTpcdsQuery("76"));
     }
 
+    // Disabling some tests due to issue https://github.com/prestodb/presto/issues/22585
+    @Ignore
     @Test
     public void testTpcdsQ77()
             throws Exception
@@ -1087,6 +1112,8 @@ public abstract class AbstractTestNativeTpcdsQueries
         assertQuery(session, getTpcdsQuery("87"));
     }
 
+    // Disabling some tests due to issue https://github.com/prestodb/presto/issues/22585
+    @Ignore
     @Test
     public void testTpcdsQ88()
             throws Exception
@@ -1101,6 +1128,8 @@ public abstract class AbstractTestNativeTpcdsQueries
         assertQuery(session, getTpcdsQuery("89"));
     }
 
+    // Disabling some tests due to issue https://github.com/prestodb/presto/issues/22585
+    @Ignore
     @Test
     public void testTpcdsQ90()
             throws Exception

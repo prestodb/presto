@@ -15,6 +15,7 @@
 // clang-format off
 #include "presto_cpp/main/types/PrestoToVeloxConnector.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
+#include "presto_cpp/main/common/Configs.h"
 #include <velox/type/Filter.h>
 #include "velox/core/QueryCtx.h"
 #include "velox/exec/HashPartitionFunction.h"
@@ -1123,6 +1124,17 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
         core::isLeftJoin(joinType) || core::isRightJoin(joinType) ||
         core::isFullJoin(joinType);
     if (isNestedJoinType) {
+      auto failOnNestedLoopJoin =
+          SystemConfig::instance()
+              ->optionalProperty<bool>(kFailOnNestedLoopJoin)
+              .value_or(false);
+
+      if (failOnNestedLoopJoin) {
+        // Currently disabled due to :
+        // https://github.com/prestodb/presto/issues/22585
+        VELOX_UNSUPPORTED("Nested Loop Join is not supported.");
+      }
+
       return std::make_shared<core::NestedLoopJoinNode>(
           node->id,
           joinType,
@@ -1131,6 +1143,7 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
           toVeloxQueryPlan(node->right, tableWriteInfo, taskId),
           toRowType(node->outputVariables, typeParser_));
     }
+
     VELOX_UNSUPPORTED(
         "JoinNode has empty criteria that cannot be "
         "satisfied by NestedJoinNode or HashJoinNode");

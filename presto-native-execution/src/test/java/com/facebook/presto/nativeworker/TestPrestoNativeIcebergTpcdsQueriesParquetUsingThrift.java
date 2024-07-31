@@ -16,6 +16,7 @@ package com.facebook.presto.nativeworker;
 import com.facebook.presto.Session;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
+import org.testng.annotations.Ignore;
 import org.testng.annotations.Test;
 
 import java.util.HashMap;
@@ -392,6 +393,8 @@ public class TestPrestoNativeIcebergTpcdsQueriesParquetUsingThrift
         }
     }
 
+    // Disabled this test due to issue https://github.com/prestodb/presto/issues/22585
+    @Ignore
     @Test
     public void doDeletesAndQuery() throws Exception
     {

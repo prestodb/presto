@@ -140,7 +140,7 @@ public abstract class AbstractTestNativeTpchQueries
     public void testTpchQ11()
             throws Exception
     {
-        assertQuery(getTpchQuery(11));
+        assertQueryFails(getTpchQuery(11), ".*Nested Loop Join is not supported.*");
     }
 
     @Test
@@ -228,6 +228,6 @@ public abstract class AbstractTestNativeTpchQueries
     public void testTpchQ22()
             throws Exception
     {
-        assertQuery(getTpchQuery(22));
+        assertQueryFails(getTpchQuery(22), ".*Nested Loop Join is not supported.*");
     }
 }

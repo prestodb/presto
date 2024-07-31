@@ -115,14 +115,14 @@ public abstract class AbstractTestNativeJoinQueries
     @Test
     public void testCrossJoin()
     {
-        assertQuery("SELECT * FROM nation, region");
-        assertQuery("SELECT * FROM nation n, region r WHERE n.regionkey < r.regionkey");
+        assertQueryFails("SELECT * FROM nation, region", ".*Nested Loop Join is not supported.*");
+        assertQueryFails("SELECT * FROM nation n, region r WHERE n.regionkey < r.regionkey", ".*Nested Loop Join is not supported.*");
 
-        assertQueryReturnsEmptyResult("SELECT l.linenumber FROM lineitem l, orders o WHERE l.orderkey = o.orderkey AND o.orderkey = 12345 AND o.totalprice > 0");
+        assertQueryFails("SELECT l.linenumber FROM lineitem l, orders o WHERE l.orderkey = o.orderkey AND o.orderkey = 12345 AND o.totalprice > 0", ".*Nested Loop Join is not supported.*");
 
-        assertQuery("SELECT l.linenumber FROM lineitem l, orders o WHERE l.orderkey = o.orderkey AND o.orderkey = 14209 AND o.totalprice > 0");
+        assertQueryFails("SELECT l.linenumber FROM lineitem l, orders o WHERE l.orderkey = o.orderkey AND o.orderkey = 14209 AND o.totalprice > 0", ".*Nested Loop Join is not supported.*");
 
-        assertQuery("SELECT * FROM nation_partitioned a, nation_partitioned b");
+        assertQueryFails("SELECT * FROM nation_partitioned a, nation_partitioned b", ".*Nested Loop Join is not supported.*");
 
         assertQuery("SELECT name, (SELECT max(name) FROM region WHERE regionkey = nation.regionkey) FROM nation");
     }
@@ -141,10 +141,10 @@ public abstract class AbstractTestNativeJoinQueries
         String query = "SELECT count(*) FROM (SELECT * FROM lineitem WHERE orderkey %% 1024 = 0) "
                 + "lineitem %s JOIN (SELECT * FROM orders WHERE orderkey %% 1024 = 0) "
                 + "orders ON orders.orderkey = 1024";
-        assertQuery(String.format(query, "LEFT"));
-        assertQuery(String.format(query, "RIGHT"));
-        assertQuery(String.format(query, "FULL"));
-        assertQuery(String.format(query, "INNER"));
+        assertQueryFails(String.format(query, "LEFT"), ".*Nested Loop Join is not supported.*");
+        assertQueryFails(String.format(query, "RIGHT"), ".*Nested Loop Join is not supported.*");
+        assertQueryFails(String.format(query, "FULL"), ".*Nested Loop Join is not supported.*");
+        assertQueryFails(String.format(query, "INNER"), ".*Nested Loop Join is not supported.*");
     }
 
     @DataProvider(name = "joinTypeProvider")

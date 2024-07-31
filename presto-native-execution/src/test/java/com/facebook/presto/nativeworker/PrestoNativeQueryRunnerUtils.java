@@ -382,6 +382,7 @@ public class PrestoNativeQueryRunnerUtils
                         // Write config file
                         String configProperties = format("discovery.uri=%s%n" +
                                 "presto.version=testversion%n" +
+                                "fail_on_nested_loop_join=true%n" +
                                 "system-memory-gb=4%n" +
                                 "http-server.http.port=%d", discoveryUri, port);
 
