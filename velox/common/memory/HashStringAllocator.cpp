@@ -101,7 +101,7 @@ void HashStringAllocator::clear() {
     new (&state_.freeLists()[i]) CompactDoubleList();
   }
 
-#ifdef NDEBUG
+#ifndef NDEBUG
   static const auto kHugePageSize = memory::AllocationTraits::kHugePageSize;
   for (auto i = 0; i < state_.pool().numRanges(); ++i) {
     const auto range = state_.pool().rangeAt(i);
