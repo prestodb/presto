@@ -33,6 +33,7 @@ import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.CoordinatorPlugin;
 import com.facebook.presto.spi.NodePoolType;
 import com.facebook.presto.spi.NodeState;
 import com.facebook.presto.spi.Plugin;
@@ -586,6 +587,12 @@ public class DistributedQueryRunner
         installPlugin(plugin, false);
     }
 
+    @Override
+    public void installCoordinatorPlugin(CoordinatorPlugin plugin)
+    {
+        installCoordinatorPlugin(plugin, false);
+    }
+
     public void createCatalog(String catalogName, String connectorName)
     {
         createCatalog(catalogName, connectorName, ImmutableMap.of());
@@ -848,6 +855,18 @@ public class DistributedQueryRunner
                 continue;
             }
             server.installPlugin(plugin);
+        }
+        log.info("Installed plugin %s in %s", plugin.getClass().getSimpleName(), nanosSince(start).convertToMostSuccinctTimeUnit());
+    }
+
+    private void installCoordinatorPlugin(CoordinatorPlugin plugin, boolean coordinatorOnly)
+    {
+        long start = nanoTime();
+        for (TestingPrestoServer server : servers) {
+            if (coordinatorOnly && !server.isCoordinator()) {
+                continue;
+            }
+            server.installCoordinatorPlugin(plugin);
         }
         log.info("Installed plugin %s in %s", plugin.getClass().getSimpleName(), nanosSince(start).convertToMostSuccinctTimeUnit());
     }

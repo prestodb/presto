@@ -60,6 +60,7 @@ import com.facebook.presto.server.ServerMainModule;
 import com.facebook.presto.server.ShutdownAction;
 import com.facebook.presto.server.security.ServerSecurityModule;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.CoordinatorPlugin;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.eventlistener.EventListener;
@@ -475,9 +476,18 @@ public class TestingPrestoServer
         }
     }
 
+    public PluginManager getPluginManager()
+    {
+        return pluginManager;
+    }
     public void installPlugin(Plugin plugin)
     {
         pluginManager.installPlugin(plugin);
+    }
+
+    public void installCoordinatorPlugin(CoordinatorPlugin plugin)
+    {
+        pluginManager.installCoordinatorPlugin(plugin);
     }
 
     public DispatchManager getDispatchManager()
