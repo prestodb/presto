@@ -1595,7 +1595,13 @@ void HashProbe::reclaim(
     FB_LOG_EVERY_MS(WARNING, 1'000)
         << "Can't reclaim from hash probe operator, state_["
         << ProbeOperatorState(state_) << "], nonReclaimableSection_["
-        << nonReclaimableSection_ << "], " << pool()->name()
+        << nonReclaimableSection_ << "], inputSpiller_["
+        << (inputSpiller_ == nullptr ? "nullptr" : "initialized")
+        << "], table_[" << (table_ == nullptr ? "nullptr" : "initialized")
+        << "], table_ numDistinct["
+        << (table_ == nullptr ? "nullptr"
+                              : std::to_string(table_->numDistinct()))
+        << "], " << pool()->name()
         << ", usage: " << succinctBytes(pool()->usedBytes())
         << ", node pool reservation: "
         << succinctBytes(pool()->parent()->reservedBytes());
@@ -1612,13 +1618,22 @@ void HashProbe::reclaim(
     if (probeOp->nonReclaimableState()) {
       RECORD_METRIC_VALUE(kMetricMemoryNonReclaimableCount);
       ++stats.numNonReclaimableAttempts;
+      const auto* peerPool = probeOp->pool();
       FB_LOG_EVERY_MS(WARNING, 1'000)
           << "Can't reclaim from hash probe operator, state_["
           << ProbeOperatorState(probeOp->state_) << "], nonReclaimableSection_["
-          << probeOp->nonReclaimableSection_ << "], " << probeOp->pool()->name()
-          << ", usage: " << succinctBytes(pool()->usedBytes())
+          << probeOp->nonReclaimableSection_ << "], inputSpiller_["
+          << (probeOp->inputSpiller_ == nullptr ? "nullptr" : "initialized")
+          << "], table_["
+          << (probeOp->table_ == nullptr ? "nullptr" : "initialized")
+          << "], table_ numDistinct["
+          << (probeOp->table_ == nullptr
+                  ? "nullptr"
+                  : std::to_string(probeOp->table_->numDistinct()))
+          << "], " << peerPool->name()
+          << ", usage: " << succinctBytes(peerPool->usedBytes())
           << ", node pool reservation: "
-          << succinctBytes(pool()->parent()->reservedBytes());
+          << succinctBytes(peerPool->parent()->reservedBytes());
       return;
     }
     hasMoreProbeInput |= !probeOp->noMoreSpillInput_;
