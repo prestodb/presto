@@ -111,12 +111,7 @@ PrestoExchangeSource::PrestoExchangeSource(
       requestTimeoutMs,
       connectTimeoutMs,
       immediateBufferTransfer_ ? pool_ : nullptr,
-      sslContext_,
-      [](size_t bufferBytes) {
-        RECORD_METRIC_VALUE(kCounterHttpClientPrestoExchangeNumOnBody);
-        RECORD_HISTOGRAM_METRIC_VALUE(
-            kCounterHttpClientPrestoExchangeOnBodyBytes, bufferBytes);
-      });
+      sslContext_);
 }
 
 void PrestoExchangeSource::close() {
