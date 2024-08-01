@@ -37,6 +37,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
 
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
@@ -350,6 +351,17 @@ public final class QueryAssertions
         }
     }
 
+    protected static void assertQueryFails(QueryRunner queryRunner, Session session, @Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp, Boolean usePatternMatcher)
+    {
+        try {
+            queryRunner.execute(session, sql);
+            fail(format("Expected query to fail: %s", sql));
+        }
+        catch (RuntimeException ex) {
+            assertExceptionMessage(sql, ex, expectedMessageRegExp, usePatternMatcher);
+        }
+    }
+
     protected static void assertQueryReturnsEmptyResult(QueryRunner queryRunner, Session session, @Language("SQL") String sql)
     {
         try {
@@ -366,6 +378,19 @@ public final class QueryAssertions
     {
         if (!nullToEmpty(exception.getMessage()).matches(regex)) {
             fail(format("Expected exception message '%s' to match '%s' for query: %s", exception.getMessage(), regex, sql), exception);
+        }
+    }
+
+    private static void assertExceptionMessage(String sql, Exception exception, @Language("RegExp") String regex, Boolean usePatternMatcher)
+    {
+        if (usePatternMatcher) {
+            Pattern p = Pattern.compile(regex, Pattern.MULTILINE);
+            if (!(p.matcher(exception.getMessage()).find())) {
+                fail(format("Expected exception message '%s' to match '%s' for query: %s", exception.getMessage(), regex, sql), exception);
+            }
+        }
+        else {
+            assertExceptionMessage(sql, exception, regex);
         }
     }
 
