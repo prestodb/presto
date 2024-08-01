@@ -2,7 +2,7 @@
 
 source "${BASH_SOURCE%/*}/locations.sh"
 
-# docker-compose down is not good enough because it's ignores services created with "run" command
+# docker compose down is not good enough because it's ignores services created with "run" command
 function stop_all_containers() {
   local ENVIRONMENT
   for ENVIRONMENT in $(getAvailableEnvironments)
