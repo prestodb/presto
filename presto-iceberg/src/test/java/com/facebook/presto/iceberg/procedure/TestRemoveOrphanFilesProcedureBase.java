@@ -62,6 +62,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
+@Test(singleThreaded = true)
 public abstract class TestRemoveOrphanFilesProcedureBase
         extends AbstractTestQueryFramework
 {
@@ -97,7 +98,7 @@ public abstract class TestRemoveOrphanFilesProcedureBase
     @Test
     public void testRemoveOrphanFilesInEmptyTable()
     {
-        String tableName = "test_empty_table";
+        String tableName = "test_empty_remove_orphan_files_table";
         Session session = getQueryRunner().getDefaultSession();
         try {
             assertUpdate(format("create table %s (a int, b varchar)", tableName));
@@ -121,7 +122,7 @@ public abstract class TestRemoveOrphanFilesProcedureBase
     @Test(dataProvider = "timezones")
     public void testRemoveOrphanFilesInMetadataAndDataFolder(String zoneId, boolean legacyTimestamp)
     {
-        String tableName = "test_table";
+        String tableName = "test_remove_orphan_files_table";
         Session session = sessionForTimezone(zoneId, legacyTimestamp);
         try {
             assertUpdate(session, format("create table %s (a int, b varchar)", tableName));
@@ -172,8 +173,8 @@ public abstract class TestRemoveOrphanFilesProcedureBase
     public void testRemoveOrphanFilesWithNonDefaultMetadataPath(String zoneId, boolean legacyTimestamp)
     {
         Session session = sessionForTimezone(zoneId, legacyTimestamp);
-        String tempTableName = "temp_test_table";
-        String tableName = "test_table";
+        String tempTableName = "temp_test_table_with_specified_metadata_path";
+        String tableName = "test_table_with_specified_metadata_path";
         String tableTargetPath = createTempDir().toURI().toString();
         File metadataDir = new File(createTempDir().getAbsolutePath(), "metadata");
         metadataDir.mkdir();
@@ -223,8 +224,8 @@ public abstract class TestRemoveOrphanFilesProcedureBase
     public void testRemoveOrphanFilesWithNonDefaultDataPath(String zoneId, boolean legacyTimestamp)
     {
         Session session = sessionForTimezone(zoneId, legacyTimestamp);
-        String tempTableName = "temp_test_table";
-        String tableName = "test_table";
+        String tempTableName = "temp_test_table_with_specified_data_path";
+        String tableName = "test_table_with_specified_data_path";
         String tableTargetPath = createTempDir().toURI().toString();
         File dataDir = new File(createTempDir().getAbsolutePath(), "metadata");
         dataDir.mkdir();
