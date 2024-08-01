@@ -32,7 +32,7 @@ Follow these steps to configure Superset to query Presto.
    displayed, continue. 
 
    Note: If your Presto server is running locally, ``localhost`` may not resolve 
-   DNS successfully from the Superset docker-compose launched instance to the 
+   DNS successfully from the Superset docker compose launched instance to the
    local Presto server. Replace ``<Presto-IP-address>`` with your system's actual 
    IP address. 
 

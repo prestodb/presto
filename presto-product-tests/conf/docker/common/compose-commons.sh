@@ -1,4 +1,4 @@
-# docker-compose has a limited understanding of relative paths and interprets them relative to
+# docker compose has a limited understanding of relative paths and interprets them relative to
 # compose-file location. We can't guarantee the shape of the paths coming from env variables,
 # so we canonicalize them.
 function export_canonical_path() {
