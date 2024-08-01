@@ -21,6 +21,7 @@ import org.apache.iceberg.CatalogUtil;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.catalog.TableIdentifier;
+import org.testng.annotations.Test;
 
 import java.io.File;
 import java.util.Map;
@@ -42,10 +43,10 @@ public class TestRemoveOrphanFilesProcedureHadoop
         super(HADOOP, ImmutableMap.of());
     }
 
-    @Override
+    @Test(dataProvider = "timezones")
     public void testRemoveOrphanFilesWithNonDefaultMetadataPath(String zoneId, boolean legacyTimestamp)
     {
-        String tempTableName = "temp_test_table";
+        String tempTableName = "temp_test_table_with_specified_metadata_path";
         String tableTargetPath = createTempDir().toURI().toString();
         String specifiedMetadataPath = createTempDir().getAbsolutePath();
 
