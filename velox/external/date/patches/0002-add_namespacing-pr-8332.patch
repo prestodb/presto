@@ -123,21 +123,28 @@ diff --git a/fbcode/velox/external/date/tz_private.h b/fbcode/velox/external/dat
  #if defined(_MSC_VER) && (_MSC_VER < 1900)
  #include "tz.h"
  #endif
-diff --git a/fbcode/velox/type/Timestamp.h b/fbcode/velox/type/Timestamp.h
---- a/fbcode/velox/type/Timestamp.h
-+++ b/fbcode/velox/type/Timestamp.h
-@@ -24,12 +24,12 @@
- #include "velox/common/base/CheckedArithmetic.h"
- #include "velox/type/StringView.h"
+diff --git a/fbcode/velox/external/date/iso_week.h b/fbcode/velox/external/date/iso_week.h
+--- a/fbcode/velox/external/date/iso_week.h
++++ b/fbcode/velox/external/date/iso_week.h
+@@ -27,12 +27,6 @@
  
-+namespace facebook::velox {
-+
- namespace date {
- class time_zone;
+ #include <climits>
+ 
+-namespace facebook
+-{
+-namespace velox
+-{
+-namespace date
+-{
+ namespace iso_week
+ {
+ 
+@@ -1763,8 +1757,5 @@
  }
  
--namespace facebook::velox {
--
- struct TimestampToStringOptions {
-   enum class Precision : int8_t {
-     kMilliseconds = 3, // 10^3 milliseconds are equal to one second.
+ } // namespace iso_week
+-} // namespace date
+-} // namespace velox
+-} // namespace facebook
+ 
+ #endif  // ISO_WEEK_H

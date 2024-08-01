@@ -7,3 +7,5 @@ This product includes software from the The gRPC project (Apache 2.0).
 This product includes software from the QT project (BSD, 3-clause).
 * https://github.com/qt/qtbase/blob/6.6.3/cmake/FindWrapSystemDoubleConversion.cmake
 
+This product includes software from HowardHinnant's date library (MIT License).
+* https://github.com/HowardHinnant/date/tree/master
