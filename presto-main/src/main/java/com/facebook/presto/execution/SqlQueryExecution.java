@@ -237,7 +237,7 @@ public class SqlQueryExecution
                             stateMachine.setAggregateFunctions(entry.getValue());
                             break;
                         case WINDOW:
-                            stateMachine.setWindowsFunctions(entry.getValue());
+                            stateMachine.setWindowFunctions(entry.getValue());
                             break;
                     }
                 }

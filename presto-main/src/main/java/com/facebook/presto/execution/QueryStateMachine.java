@@ -167,7 +167,7 @@ public class QueryStateMachine
     private final WarningCollector warningCollector;
     private final AtomicReference<Set<String>> scalarFunctions = new AtomicReference<>(ImmutableSet.of());
     private final AtomicReference<Set<String>> aggregateFunctions = new AtomicReference<>(ImmutableSet.of());
-    private final AtomicReference<Set<String>> windowsFunctions = new AtomicReference<>(ImmutableSet.of());
+    private final AtomicReference<Set<String>> windowFunctions = new AtomicReference<>(ImmutableSet.of());
 
     private QueryStateMachine(
             String query,
@@ -493,7 +493,7 @@ public class QueryStateMachine
                 session.getCteInformationCollector().getCTEInformationList(),
                 scalarFunctions.get(),
                 aggregateFunctions.get(),
-                windowsFunctions.get(),
+                windowFunctions.get(),
                 Optional.ofNullable(planCanonicalInfo.get()).orElseGet(ImmutableList::of),
                 Optional.ofNullable(planIdNodeMap.get()).orElseGet(ImmutableMap::of),
                 Optional.empty());
@@ -581,10 +581,10 @@ public class QueryStateMachine
         this.aggregateFunctions.set(ImmutableSet.copyOf(aggregateFunctions));
     }
 
-    public void setWindowsFunctions(Set<String> windowsFunctions)
+    public void setWindowFunctions(Set<String> windowFunctions)
     {
-        requireNonNull(windowsFunctions, "windowsFunctions is null");
-        this.windowsFunctions.set(ImmutableSet.copyOf(windowsFunctions));
+        requireNonNull(windowFunctions, "windowFunctions is null");
+        this.windowFunctions.set(ImmutableSet.copyOf(windowFunctions));
     }
 
     private void addSerializedCommitOutputToOutput(ConnectorCommitHandle commitHandle)
@@ -1103,7 +1103,7 @@ public class QueryStateMachine
                 queryInfo.getCteInformationList(),
                 queryInfo.getScalarFunctions(),
                 queryInfo.getAggregateFunctions(),
-                queryInfo.getWindowsFunctions(),
+                queryInfo.getWindowFunctions(),
                 ImmutableList.of(),
                 ImmutableMap.of(),
                 queryInfo.getPrestoSparkExecutionContext());
