@@ -9,12 +9,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-version: '3.5'
-
 services:
   ubuntu-native-dependency:
     # Usage:
-    #   docker-compose build ubuntu-native-dependency
+    #   docker compose build ubuntu-native-dependency
     #   podman compose build ubuntu-native-dependency
     image: presto/prestissimo-dependency:ubuntu-22.04
     build:
@@ -23,7 +21,7 @@ services:
 
   ubuntu-native-runtime:
     # Usage:
-    #   docker-compose build ubuntu-native-runtime
+    #   docker compose build ubuntu-native-runtime
     #   podman compose build ubuntu-native-runtime
     image: presto/prestissimo-runtime:ubuntu-22.04
     build:
@@ -42,7 +40,7 @@ services:
 
   centos-native-dependency:
     # Usage:
-    #   docker-compose build centos-native-dependency
+    #   docker compose build centos-native-dependency
     #   podman compose build centos-native-dependency
     image: presto/prestissimo-dependency:centos8
     build:
@@ -51,7 +49,7 @@ services:
 
   centos-native-runtime:
     # Usage:
-    #   docker-compose build centos-native-runtime
+    #   docker compose build centos-native-runtime
     #   podman compose build centos-native-runtime
     image: presto/prestissimo-runtime:centos8
     build:
