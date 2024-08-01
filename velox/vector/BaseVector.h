@@ -931,7 +931,7 @@ class BaseVector {
 };
 
 /// Loops over rows in 'ranges' and invokes 'func' for each row.
-/// @param TFunc A void function taking two arguments: targetIndex and
+/// @param func A void function taking two arguments: targetIndex and
 /// sourceIndex.
 template <typename TFunc>
 void applyToEachRow(
@@ -945,7 +945,7 @@ void applyToEachRow(
 }
 
 /// Loops over 'ranges' and invokes 'func' for each range.
-/// @param TFunc A void function taking 3 arguments: targetIndex, sourceIndex
+/// @param func A void function taking 3 arguments: targetIndex, sourceIndex
 /// and count.
 template <typename TFunc>
 void applyToEachRange(

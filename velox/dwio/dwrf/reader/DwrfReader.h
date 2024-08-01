@@ -48,7 +48,7 @@ class DwrfRowReader : public StrideIndexProvider,
  public:
   /**
    * Constructor that lets the user specify additional options.
-   * @param contents of the file
+   * @param reader contents of the file
    * @param options options for reading
    */
   DwrfRowReader(
@@ -328,7 +328,7 @@ class DwrfReader : public dwio::common::Reader {
 
   /**
    * Create a reader to the for the dwrf file.
-   * @param stream the stream to read
+   * @param input the stream to read
    * @param options the options for reading the file
    */
   static std::unique_ptr<DwrfReader> create(

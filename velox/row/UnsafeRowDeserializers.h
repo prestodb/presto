@@ -287,8 +287,6 @@ struct ArrayBatchIterator : UnsafeRowDataBatchIterator {
   /**
    * Constructor for UnsafeRowArray.
    * @param data A batch of unsafe row array representation data.
-   * @param isFixedLength whether the elements in the array is fixed length
-   * @param fixedDataWidth the data width if the element is fixed length
    */
   ArrayBatchIterator(
       const std::vector<std::optional<std::string_view>>& data,
@@ -556,7 +554,7 @@ struct UnsafeRowPrimitiveBatchDeserializer {
 struct UnsafeRowDeserializer {
   /**
    * Allocate and populate the metadata Vectors in ArrayVector or MapVector.
-   * @param dataIterators iterator that points to whole column batch of data.
+   * @param dataIterator iterator that points to whole column batch of data.
    * process.
    * @param pool
    * @param size
@@ -613,7 +611,7 @@ struct UnsafeRowDeserializer {
 
   /**
    * Converts a list of MapBatchIterators to Vectors.
-   * @param dataIterators iterator that points to whole column batch of data.
+   * @param dataIterator iterator that points to whole column batch of data.
    * @param pool
    * @return a MapVectorPtr
    */
@@ -789,10 +787,9 @@ struct UnsafeRowDeserializer {
 
   /**
    * Calls createFlatVector with the correct template argument.
-   * @param dataIterators iterator that points to the first dataIterator to
+   * @param dataIterator iterator that points to the first dataIterator to
    * process.
    * @param pool
-   * @param numIteratorsToProcess
    * @return A FlatVector
    */
   static VectorPtr convertPrimitiveIteratorsToVectors(
