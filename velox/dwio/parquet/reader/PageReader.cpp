@@ -666,7 +666,7 @@ void PageReader::makeDecoder() {
               pageData_, pageData_ + encodedDataSize_);
           break;
         case thrift::Type::FIXED_LEN_BYTE_ARRAY:
-          if (type_->type()->isVarbinary()) {
+          if (type_->type()->isVarbinary() || type_->type()->isVarchar()) {
             stringDecoder_ = std::make_unique<StringDecoder>(
                 pageData_, pageData_ + encodedDataSize_, type_->typeLength_);
           } else {
