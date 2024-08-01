@@ -166,6 +166,7 @@ import org.testng.annotations.Test;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.QueryUtil.identifier;
 import static com.facebook.presto.sql.QueryUtil.query;
@@ -2392,7 +2393,7 @@ public class TestSqlParser
         final String[] tableNames = {"t", "s.t", "c.s.t"};
 
         for (String fullName : tableNames) {
-            QualifiedName qualifiedName = QualifiedName.of(Arrays.asList(fullName.split("\\.")));
+            QualifiedName qualifiedName = makeQualifiedName(fullName);
             assertStatement(format("SHOW STATS FOR %s", qualifiedName), new ShowStats(new Table(qualifiedName)));
         }
     }
@@ -2403,7 +2404,7 @@ public class TestSqlParser
         final String[] tableNames = {"t", "s.t", "c.s.t"};
 
         for (String fullName : tableNames) {
-            QualifiedName qualifiedName = QualifiedName.of(Arrays.asList(fullName.split("\\.")));
+            QualifiedName qualifiedName = makeQualifiedName(fullName);
             assertStatement(format("SHOW STATS FOR (SELECT * FROM %s)", qualifiedName),
                     createShowStats(qualifiedName, ImmutableList.of(new AllColumns()), Optional.empty()));
             assertStatement(format("SHOW STATS FOR (SELECT * FROM %s WHERE field > 0)", qualifiedName),
@@ -2425,6 +2426,14 @@ public class TestSqlParser
                                                     new Identifier("field"),
                                                     new LongLiteral("0"))))));
         }
+    }
+
+    private QualifiedName makeQualifiedName(String tableName)
+    {
+        List<Identifier> parts = Arrays.stream(tableName.split("\\."))
+                .map(Identifier::new)
+                .collect(Collectors.toList());
+        return QualifiedName.of(parts);
     }
 
     private ShowStats createShowStats(QualifiedName name, List<SelectItem> selects, Optional<Expression> where)
