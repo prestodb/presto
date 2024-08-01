@@ -21,6 +21,7 @@ add_executable(
   ConcurrentCounterTest.cpp
   ExceptionTest.cpp
   FsTest.cpp
+  GenericAdmissionControllerTest.cpp
   RangeTest.cpp
   RawVectorTest.cpp
   RuntimeMetricsTest.cpp

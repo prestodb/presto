@@ -28,6 +28,7 @@ velox_add_library(
   BitUtil.cpp
   Counters.cpp
   Fs.cpp
+  GenericAdmissionController.cpp
   PeriodicStatsReporter.cpp
   RandomUtil.cpp
   RawVector.cpp
