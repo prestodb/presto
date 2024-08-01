@@ -67,13 +67,13 @@ public final class SqlFunctionUtils
     public static Expression getSqlFunctionExpression(
             FunctionMetadata functionMetadata,
             SqlInvokedScalarFunctionImplementation implementation,
-            FunctionAndTypeResolver functionAndTypeResolver,
+            FunctionAndTypeManager functionAndTypeManager,
             VariableAllocator variableAllocator,
             SqlFunctionProperties sqlFunctionProperties,
             List<Expression> arguments)
     {
-        Map<String, VariableReferenceExpression> argumentVariables = allocateFunctionArgumentVariables(functionMetadata, functionAndTypeResolver, variableAllocator);
-        Expression expression = getSqlFunctionImplementationExpression(functionMetadata, implementation, functionAndTypeResolver, variableAllocator, sqlFunctionProperties, argumentVariables);
+        Map<String, VariableReferenceExpression> argumentVariables = allocateFunctionArgumentVariables(functionMetadata, functionAndTypeManager.getFunctionAndTypeResolver(), variableAllocator);
+        Expression expression = getSqlFunctionImplementationExpression(functionMetadata, implementation, functionAndTypeManager, variableAllocator, sqlFunctionProperties, argumentVariables);
         return SqlFunctionArgumentBinder.bindFunctionArguments(
                 expression,
                 functionMetadata.getArgumentNames().get(),
@@ -91,14 +91,14 @@ public final class SqlFunctionUtils
     {
         VariableAllocator variableAllocator = new VariableAllocator();
         Map<String, VariableReferenceExpression> argumentVariables = allocateFunctionArgumentVariables(functionMetadata, functionAndTypeManager.getFunctionAndTypeResolver(), variableAllocator);
-        Expression expression = getSqlFunctionImplementationExpression(functionMetadata, implementation, functionAndTypeManager.getFunctionAndTypeResolver(), variableAllocator, sqlFunctionProperties, argumentVariables);
+        Expression expression = getSqlFunctionImplementationExpression(functionMetadata, implementation, functionAndTypeManager, variableAllocator, sqlFunctionProperties, argumentVariables);
 
         // Translate to row expression
         return SqlFunctionArgumentBinder.bindFunctionArguments(
                 SqlToRowExpressionTranslator.translate(
                         expression,
                         analyzeSqlFunctionExpression(
-                                functionAndTypeManager.getFunctionAndTypeResolver(),
+                                functionAndTypeManager,
                                 sqlFunctionProperties,
                                 expression,
                                 argumentVariables.values().stream()
@@ -126,7 +126,7 @@ public final class SqlFunctionUtils
         return SqlToRowExpressionTranslator.translate(
                 expression,
                 analyzeSqlFunctionExpression(
-                        functionAndTypeManager.getFunctionAndTypeResolver(),
+                        functionAndTypeManager,
                         session.getSqlFunctionProperties(),
                         expression,
                         variables.stream()
@@ -146,7 +146,7 @@ public final class SqlFunctionUtils
     private static Expression getSqlFunctionImplementationExpression(
             FunctionMetadata functionMetadata,
             SqlInvokedScalarFunctionImplementation implementation,
-            FunctionAndTypeResolver functionAndTypeResolver,
+            FunctionAndTypeManager functionAndTypeManager,
             VariableAllocator variableAllocator,
             SqlFunctionProperties sqlFunctionProperties,
             Map<String, VariableReferenceExpression> argumentVariables)
@@ -155,7 +155,7 @@ public final class SqlFunctionUtils
         checkArgument(functionMetadata.getArgumentNames().isPresent(), "ArgumentNames is missing");
         Expression expression = normalizeParameters(functionMetadata.getArgumentNames().get(), parseSqlFunctionExpression(implementation, sqlFunctionProperties));
         ExpressionAnalysis functionAnalysis = analyzeSqlFunctionExpression(
-                functionAndTypeResolver,
+                functionAndTypeManager,
                 sqlFunctionProperties,
                 expression,
                 argumentVariables.entrySet().stream()
