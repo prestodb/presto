@@ -291,7 +291,9 @@ class SpillTest : public ::testing::TestWithParam<common::CompressionKind>,
     ASSERT_EQ(stats.spilledFiles, expectedNumSpilledFiles);
     ASSERT_GT(stats.spilledBytes, 0);
     ASSERT_GT(stats.spillWrites, 0);
-    ASSERT_GT(stats.spillWriteTimeUs, 0);
+    // NOTE: On fast machines we might have sub-microsecond in each write,
+    // resulting in 0us total write time.
+    ASSERT_GE(stats.spillWriteTimeUs, 0);
     ASSERT_GE(stats.spillFlushTimeUs, 0);
     ASSERT_GT(stats.spilledRows, 0);
     // NOTE: the following stats are not collected by spill state.
