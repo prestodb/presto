@@ -245,6 +245,7 @@ public class TestMongoIntegrationSmokeTest
     {
         assertUpdate("CREATE TABLE tmp_objectid AS SELECT ObjectId('ffffffffffffffffffffffff') AS id", 1);
         assertOneNotNullResult("SELECT id FROM tmp_objectid WHERE id = ObjectId('ffffffffffffffffffffffff')");
+        assertOneNotNullResult("SELECT id FROM tmp_objectid JOIN tmp_objectid USING (id)");
     }
 
     private void assertOneNotNullResult(String query)
