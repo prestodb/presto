@@ -19,6 +19,7 @@ import com.facebook.presto.common.type.Type;
 import java.util.function.Predicate;
 
 import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.StandardTypes.JSON;
 import static com.facebook.presto.common.type.TimeType.TIME;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
@@ -26,6 +27,11 @@ import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAM
 public final class TypeUtils
 {
     private TypeUtils() {}
+
+    public static boolean isJsonType(Type type)
+    {
+        return type.getTypeSignature().getBase().equals(JSON);
+    }
 
     public static boolean isArrayType(Type type)
     {
