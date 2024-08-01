@@ -1431,4 +1431,26 @@ struct LevenshteinDistanceFunction {
   }
 };
 
+/// empty2null(input) -> varchar
+///
+///    Returns NULL when the input is empty,
+///    otherwise, it returns the input itself.
+template <typename T>
+struct Empty2NullFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  // Results refer to strings in the first argument.
+  static constexpr int32_t reuse_strings_from_arg = 0;
+
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<Varchar>& result,
+      const arg_type<Varchar>& input) {
+    if (input.empty()) {
+      return false;
+    }
+    result.setNoCopy(input);
+    return true;
+  }
+};
+
 } // namespace facebook::velox::functions::sparksql

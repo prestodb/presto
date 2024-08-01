@@ -242,6 +242,8 @@ void registerFunctions(const std::string& prefix) {
   registerFunction<Sha2HexStringFunction, Varchar, Varbinary, int32_t>(
       {prefix + "sha2"});
   registerFunction<CRC32Function, int64_t, Varbinary>({prefix + "crc32"});
+  registerFunction<Empty2NullFunction, Varchar, Varchar>(
+      {prefix + "empty2null"});
 
   exec::registerStatefulVectorFunction(
       prefix + "regexp_extract", re2ExtractSignatures(), makeRegexExtract);
