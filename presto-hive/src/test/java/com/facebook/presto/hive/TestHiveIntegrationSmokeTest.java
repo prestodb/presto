@@ -6134,7 +6134,7 @@ public class TestHiveIntegrationSmokeTest
         @Language("SQL") String queryWithWindowFunctions = "SELECT row_number() OVER(PARTITION BY mktsegment), nth_value(name, 5) OVER(PARTITION BY nationkey) FROM customer";
         resultWithQueryId = ((DistributedQueryRunner) queryRunner).executeWithQueryId(logFunctionNamesEnabledSession, queryWithWindowFunctions);
         queryInfo = ((DistributedQueryRunner) queryRunner).getQueryInfo(resultWithQueryId.getQueryId());
-        assertEqualsNoOrder(queryInfo.getWindowsFunctions(), ImmutableList.of("presto.default.row_number", "presto.default.nth_value"));
+        assertEqualsNoOrder(queryInfo.getWindowFunctions(), ImmutableList.of("presto.default.row_number", "presto.default.nth_value"));
 
         @Language("SQL") String queryWithNestedFunctions = "SELECT DISTINCT nationkey FROM customer WHERE mktsegment='BUILDING' AND contains(regexp_split( phone, '-' ), '11' )";
         resultWithQueryId = ((DistributedQueryRunner) queryRunner).executeWithQueryId(logFunctionNamesEnabledSession, queryWithNestedFunctions);
