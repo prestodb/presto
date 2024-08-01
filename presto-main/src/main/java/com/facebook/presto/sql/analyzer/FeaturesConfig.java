@@ -106,6 +106,7 @@ public class FeaturesConfig
     private Duration historyBasedOptimizerTimeout = new Duration(10, SECONDS);
     private String historyBasedOptimizerPlanCanonicalizationStrategies = "IGNORE_SAFE_CONSTANTS";
     private boolean logPlansUsedInHistoryBasedOptimizer;
+    private boolean enforceTimeoutForHBOQueryRegistration;
     private boolean redistributeWrites = true;
     private boolean scaleWriters;
     private DataSize writerMinSize = new DataSize(32, MEGABYTE);
@@ -1006,6 +1007,18 @@ public class FeaturesConfig
     public FeaturesConfig setLogPlansUsedInHistoryBasedOptimizer(boolean logPlansUsedInHistoryBasedOptimizer)
     {
         this.logPlansUsedInHistoryBasedOptimizer = logPlansUsedInHistoryBasedOptimizer;
+        return this;
+    }
+
+    public boolean isEnforceTimeoutForHBOQueryRegistration()
+    {
+        return enforceTimeoutForHBOQueryRegistration;
+    }
+
+    @Config("optimizer.enforce-timeout-for-hbo-query-registration")
+    public FeaturesConfig setEnforceTimeoutForHBOQueryRegistration(boolean enforceTimeoutForHBOQueryRegistration)
+    {
+        this.enforceTimeoutForHBOQueryRegistration = enforceTimeoutForHBOQueryRegistration;
         return this;
     }
 
