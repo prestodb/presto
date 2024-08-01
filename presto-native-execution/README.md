@@ -9,6 +9,7 @@ using [Velox](https://github.com/facebookincubator/velox).
 * [Development](#development)
 * [Create Pull Request](#create-pull-request)
 * [Advance Velox Version](#advance-velox-version)
+* [Functional test using containers](#functional-test-using-containers)
 * [Troubleshooting](#troubleshooting)
 
 ## Build from Source
@@ -242,6 +243,9 @@ For Prestissimo to use a newer Velox version from the Presto repository root:
 * `git add presto-native-execution/velox`
 * Build and run tests (including E2E) to ensure everything works.
 * Submit a PR, get it approved and merged.
+
+## Functional test using containers
+To build container images and do functional tests, see [Prestissimo: Functional Testing Using Containers](testcontainers/README.md).
 
 ## Troubleshooting
 For known build issues check the wiki page [Troubleshooting known build issues](https://github.com/prestodb/presto/wiki/Troubleshooting-known-build-issues).
