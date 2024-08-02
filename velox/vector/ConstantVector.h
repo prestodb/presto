@@ -356,18 +356,20 @@ class ConstantVector final : public SimpleVector<T> {
     }
   }
 
-  VectorPtr copyPreserveEncodings() const override {
+  VectorPtr copyPreserveEncodings(
+      velox::memory::MemoryPool* pool = nullptr) const override {
+    auto selfPool = pool ? pool : BaseVector::pool_;
     if (valueVector_) {
       return std::make_shared<ConstantVector<T>>(
-          BaseVector::pool_,
+          selfPool,
           BaseVector::length_,
           index_,
-          valueVector_->copyPreserveEncodings(),
+          valueVector_->copyPreserveEncodings(pool),
           SimpleVector<T>::stats_);
     }
 
     return std::make_shared<ConstantVector<T>>(
-        BaseVector::pool_,
+        selfPool,
         BaseVector::length_,
         isNull_,
         BaseVector::type_,

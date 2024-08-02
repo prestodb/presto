@@ -168,17 +168,19 @@ class RowVector : public BaseVector {
       const BaseVector* source,
       const folly::Range<const CopyRange*>& ranges) override;
 
-  VectorPtr copyPreserveEncodings() const override {
+  VectorPtr copyPreserveEncodings(
+      velox::memory::MemoryPool* pool = nullptr) const override {
     std::vector<VectorPtr> copiedChildren(children_.size());
 
     for (auto i = 0; i < children_.size(); ++i) {
-      copiedChildren[i] = children_[i]->copyPreserveEncodings();
+      copiedChildren[i] = children_[i]->copyPreserveEncodings(pool);
     }
 
+    auto selfPool = pool ? pool : pool_;
     return std::make_shared<RowVector>(
-        pool_,
+        selfPool,
         type_,
-        AlignedBuffer::copy(pool_, nulls_),
+        AlignedBuffer::copy(selfPool, nulls_),
         length_,
         copiedChildren,
         nullCount_);
@@ -466,15 +468,17 @@ class ArrayVector : public ArrayVectorBase {
       const BaseVector* source,
       const folly::Range<const CopyRange*>& ranges) override;
 
-  VectorPtr copyPreserveEncodings() const override {
+  VectorPtr copyPreserveEncodings(
+      velox::memory::MemoryPool* pool = nullptr) const override {
+    auto selfPool = pool ? pool : pool_;
     return std::make_shared<ArrayVector>(
-        pool_,
+        selfPool,
         type_,
-        AlignedBuffer::copy(pool_, nulls_),
+        AlignedBuffer::copy(selfPool, nulls_),
         length_,
-        AlignedBuffer::copy(pool_, offsets_),
-        AlignedBuffer::copy(pool_, sizes_),
-        elements_->copyPreserveEncodings(),
+        AlignedBuffer::copy(selfPool, offsets_),
+        AlignedBuffer::copy(selfPool, sizes_),
+        elements_->copyPreserveEncodings(pool),
         nullCount_);
   }
 
@@ -607,16 +611,18 @@ class MapVector : public ArrayVectorBase {
       const BaseVector* source,
       const folly::Range<const CopyRange*>& ranges) override;
 
-  VectorPtr copyPreserveEncodings() const override {
+  VectorPtr copyPreserveEncodings(
+      velox::memory::MemoryPool* pool = nullptr) const override {
+    auto selfPool = pool ? pool : pool_;
     return std::make_shared<MapVector>(
-        pool_,
+        selfPool,
         type_,
-        AlignedBuffer::copy(pool_, nulls_),
+        AlignedBuffer::copy(selfPool, nulls_),
         length_,
-        AlignedBuffer::copy(pool_, offsets_),
-        AlignedBuffer::copy(pool_, sizes_),
-        keys_->copyPreserveEncodings(),
-        values_->copyPreserveEncodings(),
+        AlignedBuffer::copy(selfPool, offsets_),
+        AlignedBuffer::copy(selfPool, sizes_),
+        keys_->copyPreserveEncodings(pool),
+        values_->copyPreserveEncodings(pool),
         nullCount_,
         sortedKeys_);
   }

@@ -349,4 +349,20 @@ TEST_F(CopyPreserveEncodingsTest, sequenceNoNulls) {
   assertEqualVectors(sequenceVector, copy);
   validateCopyPreserveEncodings(sequenceVector, copy);
 }
+
+TEST_F(CopyPreserveEncodingsTest, newMemoryPool) {
+  auto dictionaryVector = vectorMaker_.dictionaryVector(generateIntInput());
+
+  auto sourcePool = dictionaryVector->pool();
+  auto targetPool = memory::memoryManager()->addLeafPool();
+  auto preCopySrcMemory = sourcePool->usedBytes();
+  ASSERT_EQ(0, targetPool->usedBytes());
+
+  auto copy = dictionaryVector->copyPreserveEncodings(targetPool.get());
+  assertEqualVectors(dictionaryVector, copy);
+  validateCopyPreserveEncodings(dictionaryVector, copy);
+
+  EXPECT_EQ(preCopySrcMemory, sourcePool->usedBytes());
+  EXPECT_EQ(preCopySrcMemory, targetPool->usedBytes());
+}
 } // namespace facebook::velox::test

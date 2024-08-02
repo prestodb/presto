@@ -227,13 +227,15 @@ class DictionaryVector : public SimpleVector<T> {
 
   void validate(const VectorValidateOptions& options) const override;
 
-  VectorPtr copyPreserveEncodings() const override {
+  VectorPtr copyPreserveEncodings(
+      velox::memory::MemoryPool* pool = nullptr) const override {
+    auto selfPool = pool ? pool : BaseVector::pool_;
     return std::make_shared<DictionaryVector<T>>(
-        BaseVector::pool_,
-        AlignedBuffer::copy(BaseVector::pool_, BaseVector::nulls_),
+        selfPool,
+        AlignedBuffer::copy(selfPool, BaseVector::nulls_),
         BaseVector::length_,
         dictionaryValues_->copyPreserveEncodings(),
-        AlignedBuffer::copy(BaseVector::pool_, indices_),
+        AlignedBuffer::copy(selfPool, indices_),
         SimpleVector<T>::stats_,
         BaseVector::distinctValueCount_,
         BaseVector::nullCount_,

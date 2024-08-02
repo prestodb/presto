@@ -272,9 +272,10 @@ class FlatVector final : public SimpleVector<T> {
       const BaseVector* source,
       const folly::Range<const BaseVector::CopyRange*>& ranges) override;
 
-  VectorPtr copyPreserveEncodings() const override {
+  VectorPtr copyPreserveEncodings(
+      velox::memory::MemoryPool* pool = nullptr) const override {
     return std::make_shared<FlatVector<T>>(
-        BaseVector::pool_,
+        pool ? pool : BaseVector::pool_,
         BaseVector::type_,
         AlignedBuffer::copy(BaseVector::pool_, BaseVector::nulls_),
         BaseVector::length_,
