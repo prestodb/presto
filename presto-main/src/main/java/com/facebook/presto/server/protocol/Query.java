@@ -87,6 +87,7 @@ import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.WAITING_FOR_PREREQUISITES;
 import static com.facebook.presto.server.protocol.QueryResourceUtil.toStatementStats;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.RETRY_QUERY_PLAN_UNCHANGED;
 import static com.facebook.presto.spi.page.PagesSerdeUtil.writeSerializedPage;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -408,7 +409,7 @@ class Query
 
             if (previousQueryTopLevelPlanHash.isPresent() && currentTopLevelPlanHash.isPresent() && currentTopLevelPlanHash.equals(previousQueryTopLevelPlanHash)
                     || (!previousQueryTopLevelPlanHash.isPresent() && !currentTopLevelPlanHash.isPresent())) {
-                queryManager.failQuery(queryId, new PrestoException(GENERIC_INTERNAL_ERROR, "Since the plan hashes did not change, your retry query will not execute." +
+                queryManager.failQuery(queryId, new PrestoException(RETRY_QUERY_PLAN_UNCHANGED, "Since the plan hashes did not change, your retry query will not execute." +
                         "Your original error was " + previousQueryFailureError.get() + ". Original QueryId: " + originalBeforeRetryQueryId +
                         ". Retry QueryId: " + queryId));
             }
