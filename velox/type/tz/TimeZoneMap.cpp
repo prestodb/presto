@@ -228,20 +228,22 @@ void validateRange(time_point<std::chrono::milliseconds> timePoint) {
 }
 
 std::string getTimeZoneName(int64_t timeZoneID) {
+  return locateZone(timeZoneID, true)->name();
+}
+
+const TimeZone* locateZone(int16_t timeZoneID, bool failOnError) {
   const auto& timeZoneDatabase = getTimeZoneDatabase();
 
-  VELOX_CHECK_LT(
-      timeZoneID,
-      timeZoneDatabase.size(),
-      "Unable to resolve timeZoneID '{}'",
-      timeZoneID);
-
-  // Check if timeZoneID is not one of the "holes".
-  VELOX_CHECK_NOT_NULL(
-      timeZoneDatabase[timeZoneID],
-      "Unable to resolve timeZoneID '{}'",
-      timeZoneID);
-  return timeZoneDatabase[timeZoneID]->name();
+  // Check if timeZoneID does not exceed the vector size or is one of the
+  // "holes".
+  if (timeZoneID > timeZoneDatabase.size() ||
+      timeZoneDatabase[timeZoneID] == nullptr) {
+    if (failOnError) {
+      VELOX_FAIL("Unable to resolve timeZoneID '{}'", timeZoneID);
+    }
+    return nullptr;
+  }
+  return timeZoneDatabase[timeZoneID].get();
 }
 
 const TimeZone* locateZone(std::string_view timeZone, bool failOnError) {

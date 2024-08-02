@@ -4461,14 +4461,14 @@ TEST_F(DateTimeFunctionsTest, toISO8601Timestamp) {
 
 TEST_F(DateTimeFunctionsTest, toISO8601TimestampWithTimezone) {
   const auto toIso = [&](const char* timestamp, const char* timezone) {
-    const auto tzId = tz::getTimeZoneID(timezone);
+    const auto* timeZone = tz::locateZone(timezone);
     auto ts = parseTimestamp(timestamp);
-    ts.toGMT(tzId);
+    ts.toGMT(*timeZone);
 
     return evaluateOnce<std::string>(
         "to_iso8601(c0)",
         TIMESTAMP_WITH_TIME_ZONE(),
-        std::make_optional(pack(ts.toMillis(), tzId)));
+        std::make_optional(pack(ts.toMillis(), timeZone->id())));
   };
 
   EXPECT_EQ(

@@ -345,9 +345,6 @@ struct Timestamp {
   //  ts.toString(); // returns January 1, 1970 08:00:00
   void toGMT(const tz::TimeZone& zone);
 
-  // Same as above, but accepts PrestoDB time zone ID.
-  void toGMT(int16_t tzID);
-
   /// Assuming the timestamp represents a GMT time, converts it to the time at
   /// the same moment at zone. For example:
   ///
@@ -355,9 +352,6 @@ struct Timestamp {
   ///  ts.Timezone("America/Los_Angeles");
   ///  ts.toString(); // returns December 31, 1969 16:00:00
   void toTimezone(const tz::TimeZone& zone);
-
-  // Same as above, but accepts PrestoDB time zone ID.
-  void toTimezone(int16_t tzID);
 
   /// A default time zone that is same across the process.
   static const tz::TimeZone& defaultTimezone();

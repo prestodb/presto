@@ -116,7 +116,8 @@ struct TimestampWithTimezoneSupport {
       bool asGMT = false) {
     auto timestamp = unpackTimestampUtc(timestampWithTimezone);
     if (!asGMT) {
-      timestamp.toTimezone(unpackZoneKeyId(timestampWithTimezone));
+      timestamp.toTimezone(
+          *tz::locateZone(unpackZoneKeyId(timestampWithTimezone)));
     }
 
     return timestamp;
@@ -129,7 +130,7 @@ struct TimestampWithTimezoneSupport {
     Timestamp inputTimeStamp = this->toTimestamp(timestampWithTimezone);
     // Create a copy of inputTimeStamp and convert it to GMT
     auto gmtTimeStamp = inputTimeStamp;
-    gmtTimeStamp.toGMT(unpackZoneKeyId(timestampWithTimezone));
+    gmtTimeStamp.toGMT(*tz::locateZone(unpackZoneKeyId(timestampWithTimezone)));
 
     // Get offset in seconds with GMT and convert to hour
     return (inputTimeStamp.getSeconds() - gmtTimeStamp.getSeconds());
@@ -1166,7 +1167,7 @@ struct DateTruncFunction : public TimestampWithTimezoneSupport<T> {
     adjustDateTime(dateTime, unit);
     timestamp =
         Timestamp::fromMillis(Timestamp::calendarUtcToEpoch(dateTime) * 1000);
-    timestamp.toGMT(unpackZoneKeyId(timestampWithTimezone));
+    timestamp.toGMT(*tz::locateZone(unpackZoneKeyId(timestampWithTimezone)));
 
     result = pack(timestamp, unpackZoneKeyId(timestampWithTimezone));
   }
@@ -1472,7 +1473,7 @@ struct FromIso8601Timestamp {
       const arg_type<Varchar>* /*input*/) {
     auto sessionTzName = config.sessionTimezone();
     if (!sessionTzName.empty()) {
-      sessionTzID_ = tz::getTimeZoneID(sessionTzName);
+      sessionTimeZone_ = tz::locateZone(sessionTzName);
     }
   }
 
@@ -1485,19 +1486,19 @@ struct FromIso8601Timestamp {
       return castResult.error();
     }
 
-    auto [ts, tzID] = castResult.value();
+    auto [ts, timeZone] = castResult.value();
     // Input string may not contain a timezone - if so, it is interpreted in
     // session timezone.
-    if (tzID == -1) {
-      tzID = sessionTzID_;
+    if (timeZone == nullptr) {
+      timeZone = sessionTimeZone_;
     }
-    ts.toGMT(tzID);
-    result = pack(ts, tzID);
+    ts.toGMT(*timeZone);
+    result = pack(ts, timeZone->id());
     return Status::OK();
   }
 
  private:
-  int16_t sessionTzID_{0};
+  const tz::TimeZone* sessionTimeZone_{tz::locateZone(0)}; // default to GMT.
 };
 
 template <typename T>
@@ -1505,7 +1506,9 @@ struct DateParseFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
   std::shared_ptr<DateTimeFormatter> format_;
-  std::optional<int64_t> sessionTzID_;
+
+  // By default, assume 0 (GMT).
+  const tz::TimeZone* sessionTimeZone_{tz::locateZone(0)};
   bool isConstFormat_ = false;
 
   FOLLY_ALWAYS_INLINE void initialize(
@@ -1521,7 +1524,7 @@ struct DateParseFunction {
 
     auto sessionTzName = config.sessionTimezone();
     if (!sessionTzName.empty()) {
-      sessionTzID_ = tz::getTimeZoneID(sessionTzName);
+      sessionTimeZone_ = tz::locateZone(sessionTzName);
     }
   }
 
@@ -1539,10 +1542,7 @@ struct DateParseFunction {
       return dateTimeResult.error();
     }
 
-    // Since MySql format has no timezone specifier, simply check if session
-    // timezone was provided. If not, fallback to 0 (GMT).
-    int16_t timezoneId = sessionTzID_.value_or(0);
-    dateTimeResult->timestamp.toGMT(timezoneId);
+    dateTimeResult->timestamp.toGMT(*sessionTimeZone_);
     result = dateTimeResult->timestamp;
     return Status::OK();
   }
@@ -1623,7 +1623,7 @@ struct ParseDateTimeFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
   std::shared_ptr<DateTimeFormatter> format_;
-  std::optional<int64_t> sessionTzID_;
+  const tz::TimeZone* sessionTimeZone_{tz::locateZone(0)}; // GMT
   bool isConstFormat_ = false;
 
   FOLLY_ALWAYS_INLINE void initialize(
@@ -1639,7 +1639,7 @@ struct ParseDateTimeFunction {
 
     auto sessionTzName = config.sessionTimezone();
     if (!sessionTzName.empty()) {
-      sessionTzID_ = tz::getTimeZoneID(sessionTzName);
+      sessionTimeZone_ = tz::locateZone(sessionTzName);
     }
   }
 
@@ -1659,11 +1659,11 @@ struct ParseDateTimeFunction {
 
     // If timezone was not parsed, fallback to the session timezone. If there's
     // no session timezone, fallback to 0 (GMT).
-    int16_t timezoneId = dateTimeResult->timezoneId != -1
-        ? dateTimeResult->timezoneId
-        : sessionTzID_.value_or(0);
-    dateTimeResult->timestamp.toGMT(timezoneId);
-    result = pack(dateTimeResult->timestamp, timezoneId);
+    const auto* timeZone = dateTimeResult->timezoneId != -1
+        ? tz::locateZone(dateTimeResult->timezoneId)
+        : sessionTimeZone_;
+    dateTimeResult->timestamp.toGMT(*timeZone);
+    result = pack(dateTimeResult->timestamp, timeZone->id());
     return Status::OK();
   }
 };

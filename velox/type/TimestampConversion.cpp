@@ -720,7 +720,8 @@ fromTimestampString(const char* str, size_t len, TimestampParseMode parseMode) {
   return resultTimestamp;
 }
 
-Expected<std::pair<Timestamp, int16_t>> fromTimestampWithTimezoneString(
+Expected<std::pair<Timestamp, const tz::TimeZone*>>
+fromTimestampWithTimezoneString(
     const char* str,
     size_t len,
     TimestampParseMode parseMode) {
@@ -731,7 +732,7 @@ Expected<std::pair<Timestamp, int16_t>> fromTimestampWithTimezoneString(
     return folly::makeUnexpected(parserError(str, len));
   }
 
-  int16_t timezoneID = -1;
+  const tz::TimeZone* timeZone = nullptr;
 
   if (pos < len && characterIsSpace(str[pos])) {
     pos++;
@@ -752,11 +753,11 @@ Expected<std::pair<Timestamp, int16_t>> fromTimestampWithTimezoneString(
       timezonePos++;
     }
 
-    std::string_view timezone(str + pos, timezonePos - pos);
+    std::string_view timeZoneName(str + pos, timezonePos - pos);
 
-    if ((timezoneID = tz::getTimeZoneID(timezone, false)) == -1) {
+    if ((timeZone = tz::locateZone(timeZoneName, false)) == nullptr) {
       return folly::makeUnexpected(
-          Status::UserError("Unknown timezone value: \"{}\"", timezone));
+          Status::UserError("Unknown timezone value: \"{}\"", timeZoneName));
     }
 
     // Skip any spaces at the end.
@@ -769,7 +770,7 @@ Expected<std::pair<Timestamp, int16_t>> fromTimestampWithTimezoneString(
       return folly::makeUnexpected(parserError(str, len));
     }
   }
-  return std::make_pair(resultTimestamp, timezoneID);
+  return std::make_pair(resultTimestamp, timeZone);
 }
 
 int32_t toDate(const Timestamp& timestamp, const tz::TimeZone* timeZone_) {

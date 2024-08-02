@@ -39,11 +39,17 @@ namespace facebook::velox::tz {
 
 class TimeZone;
 
-/// Looks up a TimeZone pointer based on a time zone name. This makes an hash
+/// Returns a TimeZone pointer based on a time zone name. This makes an hash
 /// map access, and will construct the index on the first access. `failOnError`
 /// controls whether to throw or return nullptr in case the time zone was not
 /// found.
 const TimeZone* locateZone(std::string_view timeZone, bool failOnError = true);
+
+/// Returns a TimeZone pointer based on a time zone ID. This makes a simple
+/// vector access, and will construct the index on the first access.
+/// `failOnError` controls whether to throw or return nullptr in case the time
+/// zone ID was not valid.
+const TimeZone* locateZone(int16_t timeZoneID, bool failOnError = true);
 
 /// Returns the timezone name associated with timeZoneID.
 std::string getTimeZoneName(int64_t timeZoneID);

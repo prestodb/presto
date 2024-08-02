@@ -54,8 +54,8 @@ Expected<Timestamp> PrestoCastHooks::castStringToTimestamp(
   // If the parsed string has timezone information, convert the timestamp at
   // GMT at that time. For example, "1970-01-01 00:00:00 -00:01" is 60 seconds
   // at GMT.
-  if (result.second != -1) {
-    result.first.toGMT(result.second);
+  if (result.second != nullptr) {
+    result.first.toGMT(*result.second);
 
   }
   // If no timezone information is available in the input string, check if we

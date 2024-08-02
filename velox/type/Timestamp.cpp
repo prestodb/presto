@@ -21,20 +21,6 @@
 #include "velox/type/tz/TimeZoneMap.h"
 
 namespace facebook::velox {
-namespace {
-
-// Assuming tzID is in [1, 1680] range.
-// tzID - PrestoDB time zone ID.
-inline int64_t getPrestoTZOffsetInSeconds(int16_t tzID) {
-  // TODO(spershin): Maybe we need something better if we can (we could use
-  //  precomputed vector for PrestoDB timezones, for instance).
-
-  // PrestoDb time zone ids require some custom code.
-  // Mapping is 1-based and covers [-14:00, +14:00] range without 00:00.
-  return ((tzID <= 840) ? (tzID - 841) : (tzID - 840)) * 60;
-}
-
-} // namespace
 
 // static
 Timestamp Timestamp::fromDaysAndNanos(int32_t days, int64_t nanos) {
@@ -74,17 +60,6 @@ void Timestamp::toGMT(const tz::TimeZone& zone) {
   seconds_ = sysSeconds.count();
 }
 
-void Timestamp::toGMT(int16_t tzID) {
-  if (tzID == 0) {
-    // No conversion required for time zone id 0, as it is '+00:00'.
-  } else if (tzID <= 1680) {
-    seconds_ -= getPrestoTZOffsetInSeconds(tzID);
-  } else {
-    // Other ids go this path.
-    toGMT(*tz::locateZone(tz::getTimeZoneName(tzID)));
-  }
-}
-
 std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>
 Timestamp::toTimePointMs(bool allowOverflow) const {
   using namespace std::chrono;
@@ -102,17 +77,6 @@ void Timestamp::toTimezone(const tz::TimeZone& zone) {
     // external/date. Need to throw a RuntimeError so that try() statements do
     // not suppress it.
     VELOX_FAIL(e.what());
-  }
-}
-
-void Timestamp::toTimezone(int16_t tzID) {
-  if (tzID == 0) {
-    // No conversion required for time zone id 0, as it is '+00:00'.
-  } else if (tzID <= 1680) {
-    seconds_ += getPrestoTZOffsetInSeconds(tzID);
-  } else {
-    // Other ids go this path.
-    toTimezone(*tz::locateZone(tz::getTimeZoneName(tzID)));
   }
 }
 

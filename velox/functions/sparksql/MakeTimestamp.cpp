@@ -72,10 +72,10 @@ void setTimestampOrNull(
     std::optional<Timestamp> timestamp,
     DecodedVector* timeZoneVector,
     FlatVector<Timestamp>* result) {
-  const auto timeZone = timeZoneVector->valueAt<StringView>(row);
-  const auto tzID = tz::getTimeZoneID(std::string_view(timeZone));
+  const auto timeZoneName = timeZoneVector->valueAt<StringView>(row);
+  const auto* timeZone = tz::locateZone(std::string_view(timeZoneName));
   if (timestamp.has_value()) {
-    (*timestamp).toGMT(tzID);
+    timestamp->toGMT(*timeZone);
     result->set(row, *timestamp);
   } else {
     result->setNull(row, true);
@@ -85,10 +85,10 @@ void setTimestampOrNull(
 void setTimestampOrNull(
     int32_t row,
     std::optional<Timestamp> timestamp,
-    int64_t tzID,
+    const tz::TimeZone* timeZone,
     FlatVector<Timestamp>* result) {
   if (timestamp.has_value()) {
-    (*timestamp).toGMT(tzID);
+    timestamp->toGMT(*timeZone);
     result->set(row, *timestamp);
   } else {
     result->setNull(row, true);
@@ -97,7 +97,8 @@ void setTimestampOrNull(
 
 class MakeTimestampFunction : public exec::VectorFunction {
  public:
-  MakeTimestampFunction(int64_t sessionTzID) : sessionTzID_(sessionTzID) {}
+  MakeTimestampFunction(const tz::TimeZone* sessionTimeZone)
+      : sessionTimeZone_(sessionTimeZone) {}
 
   void apply(
       const SelectivityVector& rows,
@@ -122,9 +123,9 @@ class MakeTimestampFunction : public exec::VectorFunction {
       if (args[6]->isConstantEncoding()) {
         auto tz =
             args[6]->asUnchecked<ConstantVector<StringView>>()->valueAt(0);
-        int64_t constantTzID;
+        const tz::TimeZone* constantTimeZone = nullptr;
         try {
-          constantTzID = tz::getTimeZoneID(std::string_view(tz));
+          constantTimeZone = tz::locateZone(std::string_view(tz));
         } catch (const VeloxException&) {
           context.setErrors(rows, std::current_exception());
           return;
@@ -132,7 +133,8 @@ class MakeTimestampFunction : public exec::VectorFunction {
         rows.applyToSelected([&](vector_size_t row) {
           auto timestamp = makeTimeStampFromDecodedArgs(
               row, year, month, day, hour, minute, micros);
-          setTimestampOrNull(row, timestamp, constantTzID, resultFlatVector);
+          setTimestampOrNull(
+              row, timestamp, constantTimeZone, resultFlatVector);
         });
       } else {
         auto* timeZone = decodedArgs.at(6);
@@ -147,7 +149,7 @@ class MakeTimestampFunction : public exec::VectorFunction {
       rows.applyToSelected([&](vector_size_t row) {
         auto timestamp = makeTimeStampFromDecodedArgs(
             row, year, month, day, hour, minute, micros);
-        setTimestampOrNull(row, timestamp, sessionTzID_, resultFlatVector);
+        setTimestampOrNull(row, timestamp, sessionTimeZone_, resultFlatVector);
       });
     }
   }
@@ -179,7 +181,7 @@ class MakeTimestampFunction : public exec::VectorFunction {
   }
 
  private:
-  const int64_t sessionTzID_;
+  const tz::TimeZone* sessionTimeZone_;
 };
 
 std::shared_ptr<exec::VectorFunction> createMakeTimestampFunction(
@@ -190,7 +192,7 @@ std::shared_ptr<exec::VectorFunction> createMakeTimestampFunction(
   VELOX_USER_CHECK(
       !sessionTzName.empty(),
       "make_timestamp requires session time zone to be set.")
-  const auto sessionTzID = tz::getTimeZoneID(sessionTzName);
+  const auto* sessionTimeZone = tz::locateZone(sessionTzName);
 
   const auto& secondsType = inputArgs[5].type;
   VELOX_USER_CHECK(
@@ -204,7 +206,7 @@ std::shared_ptr<exec::VectorFunction> createMakeTimestampFunction(
       "Seconds fraction must have 6 digits for microseconds but got {}",
       secondsScale);
 
-  return std::make_shared<MakeTimestampFunction>(sessionTzID);
+  return std::make_shared<MakeTimestampFunction>(sessionTimeZone);
 }
 } // namespace
 

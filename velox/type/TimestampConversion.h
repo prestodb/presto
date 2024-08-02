@@ -20,6 +20,10 @@
 #include "velox/common/base/Status.h"
 #include "velox/type/Timestamp.h"
 
+namespace facebook::velox::tz {
+class TimeZone;
+}
+
 namespace facebook::velox::util {
 
 constexpr const int32_t kHoursPerDay{24};
@@ -195,22 +199,24 @@ inline Expected<Timestamp> fromTimestampString(
 ///
 /// This is a timezone-aware version of the function above
 /// `fromTimestampString()` which returns both the parsed timestamp and the
-/// timezone ID. It is up to the client to do the expected conversion based on
-/// these two values.
+/// TimeZone pointer. It is up to the client to do the expected conversion based
+/// on these two values.
 ///
 /// The timezone information at the end of the string may contain a timezone
 /// name (as defined in velox/type/tz/*), such as "UTC" or
 /// "America/Los_Angeles", or a timezone offset, like "+06:00" or "-09:30". The
 /// white space between the hour definition and timestamp is optional.
 ///
-/// -1 means no timezone information was found. Returns Unexpected with
+/// `nullptr` means no timezone information was found. Returns Unexpected with
 /// UserError status in case of parsing errors.
-Expected<std::pair<Timestamp, int16_t>> fromTimestampWithTimezoneString(
+Expected<std::pair<Timestamp, const tz::TimeZone*>>
+fromTimestampWithTimezoneString(
     const char* buf,
     size_t len,
     TimestampParseMode parseMode);
 
-inline Expected<std::pair<Timestamp, int16_t>> fromTimestampWithTimezoneString(
+inline Expected<std::pair<Timestamp, const tz::TimeZone*>>
+fromTimestampWithTimezoneString(
     const StringView& str,
     TimestampParseMode parseMode) {
   return fromTimestampWithTimezoneString(str.data(), str.size(), parseMode);

@@ -163,13 +163,12 @@ struct UnixTimestampParseFunction {
   FOLLY_ALWAYS_INLINE bool call(
       int64_t& result,
       const arg_type<Varchar>& input) {
-    auto dateTimeResult =
-        format_->parse(std::string_view(input.data(), input.size()));
+    auto dateTimeResult = format_->parse(std::string_view(input));
     // Return null if could not parse.
     if (dateTimeResult.hasError()) {
       return false;
     }
-    (*dateTimeResult).timestamp.toGMT(getTimezoneId(*dateTimeResult));
+    (*dateTimeResult).timestamp.toGMT(*getTimeZone(*dateTimeResult));
     result = (*dateTimeResult).timestamp.getSeconds();
     return true;
   }
@@ -178,21 +177,20 @@ struct UnixTimestampParseFunction {
   void setTimezone(const core::QueryConfig& config) {
     auto sessionTzName = config.sessionTimezone();
     if (!sessionTzName.empty()) {
-      sessionTzID_ = tz::getTimeZoneID(sessionTzName);
+      sessionTimeZone_ = tz::locateZone(sessionTzName);
     }
   }
 
-  int16_t getTimezoneId(const DateTimeResult& result) {
-    // If timezone was not parsed, fallback to the session timezone. If there's
-    // no session timezone, fallback to 0 (GMT).
-    return result.timezoneId != -1 ? result.timezoneId
-                                   : sessionTzID_.value_or(0);
+  const tz::TimeZone* getTimeZone(const DateTimeResult& result) {
+    // If timezone was not parsed, fallback to the session timezone.
+    return result.timezoneId != -1 ? tz::locateZone(result.timezoneId)
+                                   : sessionTimeZone_;
   }
 
   // Default if format is not specified, as per Spark documentation.
   constexpr static std::string_view kDefaultFormat_{"yyyy-MM-dd HH:mm:ss"};
   std::shared_ptr<DateTimeFormatter> format_;
-  std::optional<int64_t> sessionTzID_;
+  const tz::TimeZone* sessionTimeZone_{tz::locateZone(0)}; // fallback to GMT.
 };
 
 template <typename T>
@@ -242,7 +240,7 @@ struct UnixTimestampParseWithFormatFunction
     if (dateTimeResult.hasError()) {
       return false;
     }
-    (*dateTimeResult).timestamp.toGMT(this->getTimezoneId(*dateTimeResult));
+    (*dateTimeResult).timestamp.toGMT(*this->getTimeZone(*dateTimeResult));
     result = (*dateTimeResult).timestamp.getSeconds();
     return true;
   }
@@ -307,8 +305,7 @@ struct ToUtcTimestampFunction {
       const arg_type<Varchar>* /*input*/,
       const arg_type<Varchar>* timezone) {
     if (timezone) {
-      tzID_ = tz::getTimeZoneID(
-          std::string_view((*timezone).data(), (*timezone).size()), false);
+      timeZone_ = tz::locateZone(std::string_view(*timezone), false);
     }
   }
 
@@ -317,17 +314,16 @@ struct ToUtcTimestampFunction {
       const arg_type<Timestamp>& timestamp,
       const arg_type<Varchar>& timezone) {
     result = timestamp;
-    auto fromTimezoneID = tzID_
-        ? tzID_.value()
-        : tz::getTimeZoneID(
-              std::string_view(timezone.data(), timezone.size()), false);
-    VELOX_USER_CHECK_NE(
-        fromTimezoneID, -1, "Unknown time zone: '{}'", timezone);
-    result.toGMT(fromTimezoneID);
+    const auto* fromTimezone = timeZone_ != nullptr
+        ? timeZone_
+        : tz::locateZone(std::string_view(timezone), false);
+    VELOX_USER_CHECK_NOT_NULL(
+        fromTimezone, "Unknown time zone: '{}'", timezone);
+    result.toGMT(*fromTimezone);
   }
 
  private:
-  std::optional<int16_t> tzID_{std::nullopt};
+  const tz::TimeZone* timeZone_{nullptr};
 };
 
 template <typename T>
@@ -340,8 +336,7 @@ struct FromUtcTimestampFunction {
       const arg_type<Varchar>* /*input*/,
       const arg_type<Varchar>* timezone) {
     if (timezone) {
-      tzID_ = tz::getTimeZoneID(
-          std::string_view((*timezone).data(), (*timezone).size()), false);
+      timeZone_ = tz::locateZone(std::string_view(*timezone), false);
     }
   }
 
@@ -350,16 +345,15 @@ struct FromUtcTimestampFunction {
       const arg_type<Timestamp>& timestamp,
       const arg_type<Varchar>& timezone) {
     result = timestamp;
-    auto toTimezoneID = tzID_
-        ? tzID_.value()
-        : tz::getTimeZoneID(
-              std::string_view(timezone.data(), timezone.size()), false);
-    VELOX_USER_CHECK_NE(toTimezoneID, -1, "Unknown time zone: '{}'", timezone);
-    result.toTimezone(toTimezoneID);
+    const auto* toTimeZone = timeZone_ != nullptr
+        ? timeZone_
+        : tz::locateZone(std::string_view(timezone), false);
+    VELOX_USER_CHECK_NOT_NULL(toTimeZone, "Unknown time zone: '{}'", timezone);
+    result.toTimezone(*toTimeZone);
   }
 
  private:
-  std::optional<int16_t> tzID_{std::nullopt};
+  const tz::TimeZone* timeZone_{nullptr};
 };
 
 /// Converts date string to Timestmap type.
@@ -374,11 +368,10 @@ struct GetTimestampFunction {
       const arg_type<Varchar>* format) {
     auto sessionTimezoneName = config.sessionTimezone();
     if (!sessionTimezoneName.empty()) {
-      sessionTimezoneId_ = tz::getTimeZoneID(sessionTimezoneName);
+      sessionTimeZone_ = tz::locateZone(sessionTimezoneName);
     }
     if (format != nullptr) {
-      formatter_ = buildJodaDateTimeFormatter(
-          std::string_view(format->data(), format->size()));
+      formatter_ = buildJodaDateTimeFormatter(std::string_view(*format));
       isConstantTimeFormat_ = true;
     }
   }
@@ -388,31 +381,29 @@ struct GetTimestampFunction {
       const arg_type<Varchar>& input,
       const arg_type<Varchar>& format) {
     if (!isConstantTimeFormat_) {
-      formatter_ = buildJodaDateTimeFormatter(
-          std::string_view(format.data(), format.size()));
+      formatter_ = buildJodaDateTimeFormatter(std::string_view(format));
     }
-    auto dateTimeResult =
-        formatter_->parse(std::string_view(input.data(), input.size()));
+    auto dateTimeResult = formatter_->parse(std::string_view(input));
     // Null as result for parsing error.
     if (dateTimeResult.hasError()) {
       return false;
     }
-    (*dateTimeResult).timestamp.toGMT(getTimezoneId(*dateTimeResult));
+    (*dateTimeResult).timestamp.toGMT(*getTimeZone(*dateTimeResult));
     result = (*dateTimeResult).timestamp;
     return true;
   }
 
  private:
-  int16_t getTimezoneId(const DateTimeResult& result) const {
+  const tz::TimeZone* getTimeZone(const DateTimeResult& result) const {
     // If timezone was not parsed, fallback to the session timezone. If there's
     // no session timezone, fallback to 0 (GMT).
-    return result.timezoneId != -1 ? result.timezoneId
-                                   : sessionTimezoneId_.value_or(0);
+    return result.timezoneId != -1 ? tz::locateZone(result.timezoneId)
+                                   : sessionTimeZone_;
   }
 
   std::shared_ptr<DateTimeFormatter> formatter_{nullptr};
   bool isConstantTimeFormat_{false};
-  std::optional<int64_t> sessionTimezoneId_;
+  const tz::TimeZone* sessionTimeZone_{tz::locateZone(0)}; // default to GMT.
 };
 
 template <typename T>
