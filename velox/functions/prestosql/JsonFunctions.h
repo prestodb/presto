@@ -71,6 +71,9 @@ struct JsonArrayContainsFunction {
     if (simdjsonParse(paddedJson).get(jsonDoc)) {
       return false;
     }
+    if (jsonDoc.type().error()) {
+      return false;
+    }
 
     if (jsonDoc.type() != simdjson::ondemand::json_type::array) {
       return false;
@@ -132,6 +135,9 @@ struct JsonArrayLengthFunction {
     if (simdjsonParse(paddedJson).get(jsonDoc)) {
       return false;
     }
+    if (jsonDoc.type().error()) {
+      return false;
+    }
 
     if (jsonDoc.type() != simdjson::ondemand::json_type::array) {
       return false;
@@ -157,6 +163,9 @@ struct JsonArrayGetFunction {
 
     simdjson::padded_string paddedJson(jsonArray.data(), jsonArray.size());
     if (simdjsonParse(paddedJson).get(jsonDoc)) {
+      return false;
+    }
+    if (jsonDoc.type().error()) {
       return false;
     }
 

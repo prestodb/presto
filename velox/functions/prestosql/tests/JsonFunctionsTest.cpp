@@ -356,6 +356,9 @@ TEST_F(JsonFunctionsTest, jsonArrayLength) {
   EXPECT_EQ(jsonArrayLength(R"({"k1":"v1"})"), std::nullopt);
   EXPECT_EQ(jsonArrayLength(R"({"k1":[0,1,2]})"), std::nullopt);
   EXPECT_EQ(jsonArrayLength(R"({"k1":[0,1,2], "k2":"v1"})"), std::nullopt);
+
+  // Malformed Json.
+  EXPECT_EQ(jsonArrayLength(R"((})"), std::nullopt);
 }
 
 TEST_F(JsonFunctionsTest, jsonArrayGet) {
@@ -371,6 +374,9 @@ TEST_F(JsonFunctionsTest, jsonArrayGet) {
 
   EXPECT_FALSE(arrayGet("{}", 1).has_value());
   EXPECT_FALSE(arrayGet("[]", 1).has_value());
+
+  // Malformed json.
+  EXPECT_FALSE(arrayGet("([1]})", 0).has_value());
 
   EXPECT_EQ(arrayGet("[1, 2, 3]", 0), "1");
   EXPECT_EQ(arrayGet("[1, 2, 3]", 1), "2");
@@ -587,6 +593,14 @@ TEST_F(JsonFunctionsTest, jsonArrayContainsString) {
           R"(["the fox jumped over the fence", "hello presto world"])",
           "the fox jumped over the fence"),
       true);
+}
+
+TEST_F(JsonFunctionsTest, jsonArrayContainsMalformed) {
+  auto [jsonVector, _] = makeVectors(R"([]})");
+  EXPECT_EQ(
+      evaluateOnce<bool>(
+          "json_array_contains(c0, 'a')", makeRowVector({jsonVector})),
+      std::nullopt);
 }
 
 TEST_F(JsonFunctionsTest, jsonSize) {
