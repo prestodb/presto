@@ -299,7 +299,7 @@ void Expr::computeMetadata() {
   }
 
   // (5) Compute hasConditionals_.
-  hasConditionals_ = hasConditionals(this);
+  hasConditionals_ = exec::hasConditionals(this);
 
   metaDataComputed_ = true;
 }

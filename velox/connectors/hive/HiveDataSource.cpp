@@ -32,6 +32,30 @@ namespace facebook::velox::connector::hive {
 class HiveTableHandle;
 class HiveColumnHandle;
 
+namespace {
+
+bool isMember(
+    const std::vector<exec::FieldReference*>& fields,
+    const exec::FieldReference& field) {
+  return std::find(fields.begin(), fields.end(), &field) != fields.end();
+}
+
+bool shouldEagerlyMaterialize(
+    const exec::Expr& remainingFilter,
+    const exec::FieldReference& field) {
+  if (!remainingFilter.evaluatesArgumentsOnNonIncreasingSelection()) {
+    return true;
+  }
+  for (auto& input : remainingFilter.inputs()) {
+    if (isMember(input->distinctFields(), field) && input->hasConditionals()) {
+      return true;
+    }
+  }
+  return false;
+}
+
+} // namespace
+
 HiveDataSource::HiveDataSource(
     const RowTypePtr& outputType,
     const std::shared_ptr<connector::ConnectorTableHandle>& tableHandle,
@@ -126,7 +150,9 @@ HiveDataSource::HiveDataSource(
     for (auto& input : remainingFilterExpr->distinctFields()) {
       auto it = columnNames.find(input->field());
       if (it != columnNames.end()) {
-        multiReferencedFields_.push_back(it->second);
+        if (shouldEagerlyMaterialize(*remainingFilterExpr, *input)) {
+          multiReferencedFields_.push_back(it->second);
+        }
         continue;
       }
       // Remaining filter may reference columns that are not used otherwise,

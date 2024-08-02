@@ -279,6 +279,10 @@ class Expr {
     return false;
   }
 
+  bool hasConditionals() const {
+    return hasConditionals_;
+  }
+
   bool isDeterministic() const {
     return deterministic_;
   }
@@ -295,6 +299,16 @@ class Expr {
 
   void setMultiplyReferenced() {
     isMultiplyReferenced_ = true;
+  }
+
+  /// True if this is a special form where the next argument will always be
+  /// evaluated on a subset of the rows for which the previous one was
+  /// evaluated.  This is true of AND and no other at this time.  This implies
+  /// that lazies can be loaded on first use and not before starting evaluating
+  /// the form.  This is so because a subsequent use will never access rows that
+  /// were not in scope for the previous one.
+  virtual bool evaluatesArgumentsOnNonIncreasingSelection() const {
+    return false;
   }
 
   std::vector<common::Subfield> extractSubfields() const;
@@ -555,16 +569,6 @@ class Expr {
   // Computes distinctFields for this expression. Also updates any multiply
   // referenced fields.
   virtual void computeDistinctFields();
-
-  // True if this is a spcial form where the next argument will always be
-  // evaluated on a subset of the rows for which the previous one was evaluated.
-  // This is true of AND and no other at this time.  This implies that lazies
-  // can be loaded on first use and not before starting evaluating the form.
-  // This is so because a subsequent use will never access rows that were not in
-  // scope for the previous one.
-  virtual bool evaluatesArgumentsOnNonIncreasingSelection() const {
-    return false;
-  }
 
   const TypePtr type_;
   const std::vector<std::shared_ptr<Expr>> inputs_;

@@ -3277,6 +3277,49 @@ TEST_F(TableScanTest, remainingFilterLazyWithMultiReferences) {
   ASSERT_TRUE(waitForTaskCompletion(cursor->task().get()));
 }
 
+// When the multi-referenced fields are in AND clauses without any other
+// conditionals, they should not be eagerly materialized.
+TEST_F(
+    TableScanTest,
+    remainingFilterLazyWithMultiReferencesDirectlyInAndClause) {
+  constexpr int kSize = 10;
+  auto vector = makeRowVector({
+      makeFlatVector<int64_t>(kSize, folly::identity),
+      makeFlatVector<int64_t>(kSize, folly::identity),
+  });
+  auto schema = asRowType(vector->type());
+  auto file = TempFilePath::create();
+  writeToFile(file->getPath(), {vector});
+  CursorParameters params;
+  params.copyResult = false;
+  params.singleThreaded = true;
+  params.planNode = PlanBuilder()
+                        .tableScan(schema, {}, "c0 % 7 == 0 AND c1 % 2 == 0")
+                        .planNode();
+  auto cursor = TaskCursor::create(params);
+  cursor->task()->addSplit(
+      "0", exec::Split(makeHiveConnectorSplit(file->getPath())));
+  cursor->task()->noMoreSplits("0");
+  ASSERT_TRUE(cursor->moveNext());
+  auto* result = cursor->current()->asUnchecked<RowVector>();
+  ASSERT_EQ(result->size(), 1);
+  auto* c0 =
+      result->childAt(0)->loadedVector()->asUnchecked<SimpleVector<int64_t>>();
+  ASSERT_FALSE(c0->isNullAt(0));
+  ASSERT_EQ(c0->valueAt(0), 0);
+  auto* c1 = result->childAt(1)->loadedVector();
+  ASSERT_EQ(c1->encoding(), VectorEncoding::Simple::DICTIONARY);
+  auto* c1Dict = c1->asUnchecked<DictionaryVector<int64_t>>();
+  ASSERT_FALSE(c1Dict->isNullAt(0));
+  ASSERT_EQ(c1Dict->valueAt(0), 0);
+  ASSERT_EQ(
+      c1Dict->valueVector()->encoding(), VectorEncoding::Simple::DICTIONARY);
+  c1Dict = c1Dict->valueVector()->asUnchecked<DictionaryVector<int64_t>>();
+  ASSERT_EQ(c1Dict->valueVector()->size(), 2);
+  ASSERT_FALSE(cursor->moveNext());
+  ASSERT_TRUE(waitForTaskCompletion(cursor->task().get()));
+}
+
 TEST_F(TableScanTest, remainingFilterSkippedStrides) {
   auto rowType = ROW({{"c0", BIGINT()}, {"c1", BIGINT()}});
   std::vector<RowVectorPtr> vectors(3);
