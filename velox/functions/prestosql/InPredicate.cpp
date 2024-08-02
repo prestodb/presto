@@ -20,6 +20,7 @@
 namespace facebook::velox::functions {
 namespace {
 
+// TODO: Fix this class to follow the same behavior as InPredicate.h.
 // Returns NULL if
 // - input value is NULL or contains NULL;
 // - input value doesn't match any of the in-list values, but some of in-list

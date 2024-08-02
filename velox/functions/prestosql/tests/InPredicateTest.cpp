@@ -1058,6 +1058,56 @@ TEST_F(InPredicateTest, nonConstantInList) {
 
   auto result = evaluate(in, data);
   assertEqualVectors(expected, result);
+
+  // Test with NULL elements in arrays.
+  data = makeRowVector({
+      makeNullableArrayVector<int64_t>(
+          {{{1, std::nullopt}},
+           {{1, 2}},
+           {{1, 2}},
+           std::nullopt,
+           {{1, 2}},
+           {{1, 2}},
+           {{1, std::nullopt}},
+           {std::vector<std::optional<int64_t>>{std::nullopt}}}),
+      makeNullableArrayVector<int64_t>(
+          {{1, std::nullopt},
+           {1, 3},
+           {1, 2},
+           {1, 2},
+           {1, std::nullopt},
+           {1, std::nullopt},
+           {2, std::nullopt},
+           {std::nullopt, std::nullopt}}),
+      makeNullableArrayVector<int64_t>(
+          {{1, 2},
+           {1, 3},
+           {1, 2},
+           {1, 2},
+           {1, std::nullopt},
+           {1, 2},
+           {2, std::nullopt},
+           {1, 2}}),
+  });
+  in = std::make_shared<core::CallTypedExpr>(
+      BOOLEAN(),
+      std::vector<core::TypedExprPtr>{
+          field(INTEGER(), "c0"),
+          field(INTEGER(), "c1"),
+          field(INTEGER(), "c2")},
+      "in");
+  expected = makeNullableFlatVector<bool>({
+      std::nullopt, // [1, null] in ([1, null], [1, 2])
+      false, // [1, 2] in ([1, 3], [1, 3])
+      true, // [1, 2] in ([1, 2], [1, 2])
+      std::nullopt, // null in ([1, 2], [1, 2])
+      std::nullopt, // [1, 2] in ([1, null], [1, null])
+      true, // [1, 2] in ([1, null], [1, 2])
+      false, // [1, null] in ([2, null], [2, null])
+      false, // [null] in ([null, null], [1, 2])
+  });
+  result = evaluate(in, data);
+  assertEqualVectors(expected, result);
 }
 
 TEST_F(InPredicateTest, nans) {

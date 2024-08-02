@@ -15,10 +15,16 @@
  */
 #pragma once
 
+#include "velox/common/base/CompareFlags.h"
 #include "velox/functions/Macros.h"
 
 namespace facebook::velox::functions {
 
+// Returns NULL if
+// - input value is NULL
+// - in-list is NULL or empty
+// - input value doesn't have an exact match, but has an indeterminate match in
+// the in-list. E.g., array[null] in (array[1]) or array[1] in (array[null]).
 template <typename TExec>
 struct GenericInPredicateFunction {
   VELOX_DEFINE_FUNCTION_TYPES(TExec);
@@ -35,10 +41,17 @@ struct GenericInPredicateFunction {
       return false;
     }
 
+    const static auto compareFlag = CompareFlags::equality(
+        CompareFlags::NullHandlingMode::kNullAsIndeterminate);
     bool hasNull = false;
     for (const auto& v : *inList) {
       if (v.has_value()) {
-        if (*value == v) {
+        auto compareResult = value->compare(v.value(), compareFlag);
+        if UNLIKELY (!compareResult.has_value()) {
+          hasNull = true;
+          continue;
+        }
+        if (compareResult.value() == 0) {
           result = true;
           return true; // Non-NULL result.
         }
@@ -46,8 +59,12 @@ struct GenericInPredicateFunction {
         hasNull = true;
       }
     }
-
-    return !hasNull;
+    if (hasNull) {
+      return false;
+    } else {
+      result = false;
+      return true;
+    }
   }
 };
 
