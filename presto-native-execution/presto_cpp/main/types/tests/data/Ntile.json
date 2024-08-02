@@ -1,0 +1,18 @@
+{
+  "ntile": [
+    {
+      "docString": "presto.default.ntile",
+      "functionKind": "WINDOW",
+      "outputType": "bigint",
+      "paramTypes": [
+        "bigint"
+      ],
+      "routineCharacteristics": {
+        "determinism": "DETERMINISTIC",
+        "language": "CPP",
+        "nullCallClause": "CALLED_ON_NULL_INPUT"
+      },
+      "schema": "default"
+    }
+  ]
+}
