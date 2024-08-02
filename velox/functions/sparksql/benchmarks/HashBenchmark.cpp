@@ -41,6 +41,7 @@ int main(int argc, char** argv) {
       VARCHAR(),
       DECIMAL(18, 6),
       DECIMAL(38, 6),
+      UNKNOWN(),
       ARRAY(MAP(INTEGER(), VARCHAR())),
       ROW({"f_map", "f_array"}, {MAP(INTEGER(), VARCHAR()), ARRAY(INTEGER())}),
   };

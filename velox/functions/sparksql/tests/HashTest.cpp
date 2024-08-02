@@ -42,15 +42,22 @@ class HashTest : public SparkFunctionBaseTest {
       int unSelectedRows = 0) {
     // Generate 'size' flat vector to test SIMD code path.
     // We use same value in the vector to make comparing the results easier.
-    std::vector<T> inputData;
-    inputData.reserve(size);
     std::vector<int32_t> resultData;
     resultData.reserve(size);
     for (auto i = 0; i < size; ++i) {
-      inputData.emplace_back(value);
       resultData.emplace_back(expectedResult);
     }
-    auto input = makeFlatVector<T>(inputData);
+    VectorPtr input;
+    if constexpr (std::is_same_v<T, UnknownValue>) {
+      input = makeAllNullFlatVector<T>(size);
+    } else {
+      std::vector<T> inputData;
+      inputData.reserve(size);
+      for (auto i = 0; i < size; ++i) {
+        inputData.emplace_back(value);
+      }
+      input = makeFlatVector<T>(inputData);
+    }
     SelectivityVector rows(size);
     rows.setValidRange(0, unSelectedRows, false);
     auto result =
@@ -252,6 +259,33 @@ TEST_F(HashTest, row) {
   assertEqualVectors(makeFlatVector<int32_t>({42, 42}), hash(row));
 }
 
+TEST_F(HashTest, unknown) {
+  assertEqualVectors(
+      makeFlatVector<int32_t>({42, 42, 42}),
+      hash(makeAllNullFlatVector<UnknownValue>(3)));
+
+  assertEqualVectors(
+      makeFlatVector<int32_t>({42, 42}),
+      hash(makeNullableArrayVector<UnknownValue>({
+          {std::nullopt, std::nullopt},
+          {std::nullopt, std::nullopt, std::nullopt},
+      })));
+
+  auto mapVector = makeNullableMapVector<UnknownValue, UnknownValue>({
+      std::nullopt,
+      std::nullopt,
+      std::nullopt,
+  });
+  assertEqualVectors(makeFlatVector<int32_t>({42, 42, 42}), hash(mapVector));
+
+  auto row = makeRowVector({
+      makeFlatVector<int64_t>({1, 3, 4}),
+      makeAllNullFlatVector<UnknownValue>(3),
+  });
+  assertEqualVectors(
+      makeFlatVector<int32_t>({-1712319331, 519220707, 1344313940}), hash(row));
+}
+
 TEST_F(HashTest, simd) {
   runSIMDHashAndAssert<int8_t>(1, -559580957, 1024, 10);
   runSIMDHashAndAssert<int16_t>(-1, -1604776387, 4096);
@@ -266,6 +300,7 @@ TEST_F(HashTest, simd) {
   runSIMDHashAndAssert<int64_t>(-1, -939490007, 1024, 1023);
   runSIMDHashAndAssert<int64_t>(-1, -939490007, 1024, 512);
   runSIMDHashAndAssert<int64_t>(-1, -939490007, 1024, 3);
+  runSIMDHashAndAssert<UnknownValue>(UnknownValue(), 42, 10);
 }
 
 } // namespace

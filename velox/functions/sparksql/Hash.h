@@ -54,12 +54,10 @@ std::shared_ptr<exec::VectorFunction> makeHashWithSeed(
 //   - Decimal
 //   - Date
 //   - Timestamp
-//
-// Unsupported:
-//   - Structs, Arrays: hash the elements in order
-//   - Maps: iterate over map, hashing key then value. Since map ordering is
-//        unspecified, hashing logically equivalent maps may result in
-//        different hash values.
+//   - UnknownType
+//   - Struct
+//   - Array
+//   - Map
 
 std::vector<std::shared_ptr<exec::FunctionSignature>> xxhash64Signatures();
 
