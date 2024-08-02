@@ -338,11 +338,7 @@ tsan_atomic<uint32_t>& injectedSpillCount() {
 }
 
 bool testingTriggerSpill(const std::string& pool) {
-  // Do not evaluate further if trigger is not set.
-  if (!pool.empty() && !RE2::FullMatch(pool, testingSpillPoolRegExp())) {
-    return false;
-  }
-
+  // Put cheap check first to reduce CPU consumption in release code.
   if (testingSpillPct() <= 0) {
     return false;
   }
@@ -352,6 +348,10 @@ bool testingTriggerSpill(const std::string& pool) {
   }
 
   if (folly::Random::rand32() % 100 > testingSpillPct()) {
+    return false;
+  }
+
+  if (!pool.empty() && !RE2::FullMatch(pool, testingSpillPoolRegExp())) {
     return false;
   }
 
