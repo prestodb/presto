@@ -102,7 +102,7 @@ public class TestDistributedResourceGroupInfoResource
         assertTrue(subGroupResourceIdSet.contains(new ResourceGroupId(resourceGroupInfo.getId(), "user-user2")));
     }
 
-    @Test(expectedExceptions = UnexpectedResponseException.class, expectedExceptionsMessageRegExp = ".*404: Not Found")
+    @Test(expectedExceptions = UnexpectedResponseException.class, expectedExceptionsMessageRegExp = ".*404")
     public void testResourceGroup404()
     {
         getResponseEntity(client, coordinator1, "/v1/resourceGroupState/global1", JsonCodec.jsonCodec(ResourceGroupInfo.class));

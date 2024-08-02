@@ -136,7 +136,7 @@ public class RemoteNodeMemory
                             memoryInfo.set(Optional.ofNullable(result.getValue()));
                         }
                         if (result.getStatusCode() != OK.code()) {
-                            log.warn("Error fetching memory info from %s returned status %d: %s", memoryInfoUri, result.getStatusCode(), result.getStatusMessage());
+                            log.warn("Error fetching memory info from %s returned status %d", memoryInfoUri, result.getStatusCode());
                             return;
                         }
                     }
