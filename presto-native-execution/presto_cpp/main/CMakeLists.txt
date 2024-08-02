@@ -47,6 +47,7 @@ target_link_libraries(
   $<TARGET_OBJECTS:presto_protocol>
   presto_common
   presto_exception
+  presto_function_metadata
   presto_http
   presto_operators
   velox_aggregates
