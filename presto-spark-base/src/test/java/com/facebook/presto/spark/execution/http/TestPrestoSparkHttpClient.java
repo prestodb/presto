@@ -1320,12 +1320,6 @@ public class TestPrestoSparkHttpClient
         }
 
         @Override
-        public String getStatusMessage()
-        {
-            return statusMessage;
-        }
-
-        @Override
         public ListMultimap<HeaderName, String> getHeaders()
         {
             return headers;

@@ -138,7 +138,7 @@ public class TestQueryStateInfoResource
         assertNotNull(info);
     }
 
-    @Test(expectedExceptions = {UnexpectedResponseException.class}, expectedExceptionsMessageRegExp = ".*404: Not Found")
+    @Test(expectedExceptions = {UnexpectedResponseException.class}, expectedExceptionsMessageRegExp = "Expected response code .*, but was 404")
     public void testGetQueryStateInfoNo()
     {
         client.execute(

@@ -83,11 +83,10 @@ public class ThriftHttpResponseHandler<T>
 
     private String createErrorMessage(ThriftResponse<T> response)
     {
-        return format("Expected response code from %s to be %s, but was %s: %s%n%s",
+        return format("Expected response code from %s to be %s, but was %s: %n%s",
                 uri,
                 OK.code(),
                 response.getStatusCode(),
-                response.getStatusMessage(),
                 response.getValue());
     }
 
