@@ -35,7 +35,9 @@ import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.WarningCode;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.page.PagesSerde;
@@ -399,6 +401,11 @@ class Query
         boolean hasNotRetried = queryManager.getQueryRetryCount(queryId) < 1;
 
         if (historyBasedOptimizationEnabled && hasNotRetried && retryConditionsMet(queryResults) && retryQueryWithHistoryBasedOptimizationEnabled(session)) {
+            WarningCode warningFromOriginalQuery = new WarningCode(700, "Your query is being retried");
+
+            String originalQueryMessage = "This is your original query, it has failed and is being retried, which may change the query plan";
+            session.getWarningCollector().add(new PrestoWarning(warningFromOriginalQuery, originalQueryMessage));
+
             originalBeforeRetryQueryId = Optional.of(queryId);
             previousQueryTopLevelPlanHash = getCurrentTopLevelPlanHash();
             previousQueryFailureError = Optional.of(queryResults.getError());
@@ -406,12 +413,20 @@ class Query
         else if (queryManager.getQueryRetryCount(queryId) == 1 && retryQueryWithHistoryBasedOptimizationEnabled(session) && retryConditionsMet(queryResults) && historyBasedOptimizationEnabled) {
             Optional<Integer> currentTopLevelPlanHash = getCurrentTopLevelPlanHash();
 
+            WarningCode warningFromRetryQuery = new WarningCode(701, "This is your retried query");
+
             if (previousQueryTopLevelPlanHash.isPresent() && currentTopLevelPlanHash.isPresent() && currentTopLevelPlanHash.equals(previousQueryTopLevelPlanHash)
                     || (!previousQueryTopLevelPlanHash.isPresent() && !currentTopLevelPlanHash.isPresent())) {
+                String retryQuerySamePlanMessage = "Since the plan hashes did not change, your retry query will not execute";
+                session.getWarningCollector().add(new PrestoWarning(warningFromRetryQuery, retryQuerySamePlanMessage));
+
                 queryManager.failQuery(queryId, new PrestoException(GENERIC_INTERNAL_ERROR, "Since the plan hashes did not change, your retry query will not execute." +
                         "Your original error was " + previousQueryFailureError.get() + ". Original QueryId: " + originalBeforeRetryQueryId +
                         ". Retry QueryId: " + queryId));
             }
+
+            String retryQueryMessage = "This query is a retry of the failed query: " + originalBeforeRetryQueryId + ".";
+            session.getWarningCollector().add(new PrestoWarning(warningFromRetryQuery, retryQueryMessage));
 
             originalBeforeRetryQueryId = Optional.empty();
             previousQueryTopLevelPlanHash = Optional.empty();
