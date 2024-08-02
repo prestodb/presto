@@ -98,7 +98,7 @@ public class HttpRemoteNodeState
                             nodeState.set(Optional.ofNullable(result.getValue()));
                         }
                         if (result.getStatusCode() != OK.code()) {
-                            log.warn("Error fetching node state from %s returned status %d: %s", stateInfoUri, result.getStatusCode(), result.getStatusMessage());
+                            log.warn("Error fetching node state from %s returned status %d", stateInfoUri, result.getStatusCode());
                             return;
                         }
                     }
