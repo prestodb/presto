@@ -26,6 +26,10 @@ target_link_libraries(presto_types presto_type_converter velox_type_fbhive
 
 set_property(TARGET presto_types PROPERTY JOB_POOL_LINK presto_link_job_pool)
 
+add_library(presto_function_metadata OBJECT FunctionMetadata.cpp)
+
+target_link_libraries(presto_function_metadata velox_function_registry)
+
 if(PRESTO_ENABLE_TESTING)
   add_subdirectory(tests)
 endif()
