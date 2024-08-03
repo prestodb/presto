@@ -54,6 +54,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.resourcemanager.ResourceManagerClusterStateProvider;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.server.GracefulShutdownHandler;
+import com.facebook.presto.server.PeriodicTaskExecutorModule;
 import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.server.ServerInfoResource;
 import com.facebook.presto.server.ServerMainModule;
@@ -77,11 +78,13 @@ import com.facebook.presto.storage.TempStorageManager;
 import com.facebook.presto.testing.ProcedureTester;
 import com.facebook.presto.testing.TestingAccessControlManager;
 import com.facebook.presto.testing.TestingEventListenerManager;
+import com.facebook.presto.testing.TestingPeriodicTaskExecutorFactory;
 import com.facebook.presto.testing.TestingTempStorageManager;
 import com.facebook.presto.testing.TestingWarningCollectorModule;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.ttl.clusterttlprovidermanagers.ClusterTtlProviderManagerModule;
 import com.facebook.presto.ttl.nodettlfetchermanagers.NodeTtlFetcherManagerModule;
+import com.facebook.presto.util.PeriodicTaskExecutorFactory;
 import com.fasterxml.jackson.module.afterburner.AfterburnerModule;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
@@ -162,6 +165,7 @@ public class TestingPrestoServer
     private final DispatchManager dispatchManager;
     private final QueryManager queryManager;
     private final TaskManager taskManager;
+    private final PeriodicTaskExecutorFactory periodicTaskExecutorFactory;
     private final GracefulShutdownHandler gracefulShutdownHandler;
     private final ShutdownAction shutdownAction;
     private final RequestBlocker requestBlocker;
@@ -242,6 +246,7 @@ public class TestingPrestoServer
                 false,
                 false,
                 coordinator,
+                false,
                 properties,
                 environment,
                 discoveryUri,
@@ -258,6 +263,7 @@ public class TestingPrestoServer
             boolean coordinatorSidecar,
             boolean coordinatorSidecarEnabled,
             boolean coordinator,
+            boolean testingPeriodicTaskExecutor,
             Map<String, String> properties,
             String environment,
             URI discoveryUri,
@@ -318,6 +324,13 @@ public class TestingPrestoServer
                     newSetBinder(binder, Filter.class, TheServlet.class).addBinding()
                             .to(RequestBlocker.class).in(Scopes.SINGLETON);
                 });
+
+        if (testingPeriodicTaskExecutor) {
+            modules.add(binder -> binder.bind(PeriodicTaskExecutorFactory.class).to(TestingPeriodicTaskExecutorFactory.class).in(Scopes.SINGLETON));
+        }
+        else {
+            modules.add(new PeriodicTaskExecutorModule());
+        }
 
         if (discoveryUri != null) {
             requireNonNull(environment, "environment required when discoveryUri is present");
@@ -424,6 +437,7 @@ public class TestingPrestoServer
         serviceSelectorManager = injector.getInstance(ServiceSelectorManager.class);
         gracefulShutdownHandler = injector.getInstance(GracefulShutdownHandler.class);
         taskManager = injector.getInstance(TaskManager.class);
+        periodicTaskExecutorFactory = injector.getInstance(PeriodicTaskExecutorFactory.class);
         shutdownAction = injector.getInstance(ShutdownAction.class);
         announcer = injector.getInstance(Announcer.class);
         requestBlocker = injector.getInstance(RequestBlocker.class);
@@ -661,6 +675,13 @@ public class TestingPrestoServer
     public TaskManager getTaskManager()
     {
         return taskManager;
+    }
+
+    public Optional<TestingPeriodicTaskExecutorFactory> getPeriodicTaskExecutorFactory()
+    {
+        return periodicTaskExecutorFactory instanceof TestingPeriodicTaskExecutorFactory ?
+                Optional.of((TestingPeriodicTaskExecutorFactory) periodicTaskExecutorFactory) :
+                Optional.empty();
     }
 
     public ShutdownAction getShutdownAction()

@@ -32,6 +32,7 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 import com.facebook.presto.util.PeriodicTaskExecutor;
+import com.facebook.presto.util.PeriodicTaskExecutorFactory;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -121,7 +122,8 @@ public final class InternalResourceGroupManager<C>
             MBeanExporter exporter,
             ResourceGroupService resourceGroupService,
             ServerConfig serverConfig,
-            InternalNodeManager nodeManager)
+            InternalNodeManager nodeManager,
+            PeriodicTaskExecutorFactory periodicTaskExecutorFactory)
     {
         this.queryManagerConfig = requireNonNull(queryManagerConfig, "queryManagerConfig is null");
         this.exporter = requireNonNull(exporter, "exporter is null");
@@ -134,7 +136,8 @@ public final class InternalResourceGroupManager<C>
         this.concurrencyThreshold = queryManagerConfig.getConcurrencyThresholdToEnableResourceGroupRefresh();
         this.resourceGroupRuntimeInfoRefreshInterval = queryManagerConfig.getResourceGroupRunTimeInfoRefreshInterval();
         this.isResourceManagerEnabled = requireNonNull(serverConfig, "serverConfig is null").isResourceManagerEnabled();
-        this.resourceGroupRuntimeExecutor = new PeriodicTaskExecutor(resourceGroupRuntimeInfoRefreshInterval.toMillis(), refreshExecutor, this::refreshResourceGroupRuntimeInfo);
+        this.resourceGroupRuntimeExecutor = requireNonNull(periodicTaskExecutorFactory, "periodicTaskExecutorFactory is null")
+                .createPeriodicTaskExecutor(resourceGroupRuntimeInfoRefreshInterval.toMillis(), this::refreshResourceGroupRuntimeInfo);
         configurationManagerFactories.putIfAbsent(LegacyResourceGroupConfigurationManager.NAME, new LegacyResourceGroupConfigurationManager.Factory());
     }
 

@@ -13,27 +13,26 @@
  */
 package com.facebook.presto.util;
 
-import com.google.common.base.Stopwatch;
+import com.google.common.util.concurrent.MoreExecutors;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
+import java.util.Optional;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
 
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
 public class TestPeriodicTaskExecutor
 {
-    private ScheduledExecutorService executorService;
+    private ExecutorService executorService;
 
     @BeforeMethod
     public void setUp()
     {
-        executorService = Executors.newSingleThreadScheduledExecutor();
+        executorService = MoreExecutors.newDirectExecutorService();
     }
 
     @AfterMethod
@@ -42,24 +41,25 @@ public class TestPeriodicTaskExecutor
         executorService.shutdownNow();
     }
 
-    @Test(enabled = false)
+    @Test
     public void testTick()
             throws Exception
     {
-        int numberOfTicks = 2;
-        long durationBetweenTicksInSeconds = 2;
+        AtomicInteger counter = new AtomicInteger();
+        Runnable runnable = counter::incrementAndGet;
 
-        CountDownLatch latch = new CountDownLatch(3);
-        Runnable runnable = latch::countDown;
-
-        try (PeriodicTaskExecutor executor = new PeriodicTaskExecutor(SECONDS.toMillis(durationBetweenTicksInSeconds), 500, executorService, runnable, i -> i)) {
+        PeriodicTaskExecutor executor = new PeriodicTaskExecutor(0, 0, executorService, Optional.empty(), runnable, i -> i);
+        try {
             executor.start();
-            Stopwatch stopwatch = Stopwatch.createStarted();
-            latch.await(10, SECONDS);
-            stopwatch.stop();
+            executor.tick();
+            executor.tick();
 
-            assertEquals((numberOfTicks * durationBetweenTicksInSeconds), stopwatch.elapsed(SECONDS));
-            assertEquals(latch.getCount(), 0); // latch was counted down 3 times
+            assertEquals(counter.get(), 3); // counter was incremented 3 times
         }
+        finally {
+            executor.close();
+        }
+        executor.tick();
+        assertEquals(counter.get(), 3); // no-op after executor is closed
     }
 }
