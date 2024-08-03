@@ -71,7 +71,7 @@ public final class PlanChecker
                         new DynamicFiltersChecker(),
                         new WarnOnScanWithoutPartitionPredicate(featuresConfig));
         if (featuresConfig.isNativeExecutionEnabled() && featuresConfig.isDisableTimeStampWithTimeZoneForNative()) {
-            builder.put(Stage.FINAL, new CheckNoTimestampWithTimezoneType());
+            builder.put(Stage.INTERMEDIATE, new CheckNoTimestampWithTimezoneType());
         }
         checkers = builder.build();
     }

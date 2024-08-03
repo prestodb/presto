@@ -1227,6 +1227,11 @@ public abstract class AbstractTestNativeGeneralQueries
 
         assertQueryFails("SELECT timezone_hour(from_unixtime(orderkey, 'Asia/Oral')) FROM orders", ".*Timestamp with Timezone type is not supported in Prestissimo.*");
         assertQueryFails("SELECT timezone_minute(from_unixtime(orderkey, 'Asia/Kolkata')) FROM orders", ".*Timestamp with Timezone type is not supported in Prestissimo.*");
+
+        Session filterPushdown = Session.builder(getSession())
+                .setCatalogSessionProperty("hive", "pushdown_filter_enabled", "true")
+                .build();
+        assertQueryFails(filterPushdown, "select distinct custkey from orders where date_diff('day', from_unixtime(orderkey), TIMESTAMP '2023-01-01 00:00:00 UTC') = 150", ".*Timestamp with Timezone type is not supported in Prestissimo.*");
     }
 
     @Test
