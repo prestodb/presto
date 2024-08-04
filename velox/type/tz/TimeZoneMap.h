@@ -155,13 +155,3 @@ class TimeZone {
 };
 
 } // namespace facebook::velox::tz
-
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-namespace facebook::velox::util {
-
-inline std::string getTimeZoneName(int64_t timeZoneID) {
-  return tz::getTimeZoneName(timeZoneID);
-}
-
-} // namespace facebook::velox::util
-#endif
