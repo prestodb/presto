@@ -538,6 +538,9 @@ public class BuiltInTypeAndFunctionNamespaceManager
         implements FunctionNamespaceManager<SqlFunction>
 {
     public static final CatalogSchemaName DEFAULT_NAMESPACE = new CatalogSchemaName("presto", "default");
+
+    public static final CatalogSchemaName NATIVE_NAMESPACE = new CatalogSchemaName("native", "default");
+
     public static final String ID = "builtin";
 
     private final FunctionAndTypeManager functionAndTypeManager;
@@ -1343,7 +1346,12 @@ public class BuiltInTypeAndFunctionNamespaceManager
 
     private SpecializedFunctionKey doGetSpecializedFunctionKey(Signature signature)
     {
-        Iterable<SqlFunction> candidates = getFunctions(null, signature.getName());
+        Collection<SqlFunction> candidates = getFunctions(null, signature.getName());
+        return doGetSpecializedFunctionKey(signature, candidates);
+    }
+
+    public SpecializedFunctionKey doGetSpecializedFunctionKey(Signature signature, Collection<SqlFunction> candidates)
+    {
         // search for exact match
         Type returnType = functionAndTypeManager.getType(signature.getReturnType());
         List<TypeSignatureProvider> argumentTypeSignatureProviders = fromTypeSignatures(signature.getArgumentTypes());

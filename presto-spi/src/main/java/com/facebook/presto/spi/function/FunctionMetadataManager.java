@@ -16,4 +16,6 @@ package com.facebook.presto.spi.function;
 public interface FunctionMetadataManager
 {
     FunctionMetadata getFunctionMetadata(FunctionHandle functionHandle);
+
+    SqlFunctionSupplier getSpecializedFunctionKey(Signature signature);
 }

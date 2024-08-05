@@ -192,7 +192,7 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
     }
 
     @Override
-    public final FunctionHandle getFunctionHandle(Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle, Signature signature)
+    public FunctionHandle getFunctionHandle(Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle, Signature signature)
     {
         checkCatalog(signature.getName());
         // This is the only assumption in this class that we're dealing with sql-invoked regular function.
@@ -245,7 +245,7 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
                 typeManager.getType(functionMetadata.getReturnType()));
     }
 
-    private static PrestoException convertToPrestoException(UncheckedExecutionException exception, String failureMessage)
+    protected static PrestoException convertToPrestoException(UncheckedExecutionException exception, String failureMessage)
     {
         Throwable cause = exception.getCause();
         if (cause instanceof PrestoException) {
@@ -357,6 +357,7 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
                         getClass().getSimpleName(),
                         implementationType));
             case CPP:
+            case REST:
                 checkArgument(
                         function.getAggregationMetadata().isPresent(),
                         "Need aggregationMetadata to get aggregation function implementation");

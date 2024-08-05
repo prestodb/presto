@@ -11,11 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.functionNamespace.json;
+package com.facebook.presto.spi.function;
 
-import com.facebook.presto.functionNamespace.UdfFunctionSignatureMap;
-
-public interface FunctionDefinitionProvider
+public interface SqlFunctionSupplier
 {
-    UdfFunctionSignatureMap getUdfDefinition(String filePath);
+    SqlFunction getFunction();
 }

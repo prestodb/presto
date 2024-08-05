@@ -11,11 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.functionNamespace.json;
+
+package com.facebook.presto.functionNamespace.prestissimo;
 
 import com.facebook.presto.functionNamespace.UdfFunctionSignatureMap;
+import com.facebook.presto.spi.NodeManager;
 
 public interface FunctionDefinitionProvider
 {
-    UdfFunctionSignatureMap getUdfDefinition(String filePath);
+    UdfFunctionSignatureMap getUdfDefinition(NodeManager nodeManager);
 }

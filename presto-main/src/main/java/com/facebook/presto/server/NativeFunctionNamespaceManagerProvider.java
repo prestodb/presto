@@ -11,11 +11,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.functionNamespace.json;
+package com.facebook.presto.server;
 
-import com.facebook.presto.functionNamespace.UdfFunctionSignatureMap;
+import com.facebook.presto.spi.NodeManager;
+import com.google.inject.Inject;
 
-public interface FunctionDefinitionProvider
+import static java.util.Objects.requireNonNull;
+
+public class NativeFunctionNamespaceManagerProvider
 {
-    UdfFunctionSignatureMap getUdfDefinition(String filePath);
+    private final NodeManager nodeManager;
+
+    @Inject
+    public NativeFunctionNamespaceManagerProvider(
+            NodeManager nodeManager)
+    {
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+    }
+
+    public NodeManager getNodeManager()
+    {
+        return nodeManager;
+    }
 }

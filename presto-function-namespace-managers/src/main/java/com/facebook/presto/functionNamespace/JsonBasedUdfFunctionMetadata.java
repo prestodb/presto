@@ -11,12 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.functionNamespace.json;
+package com.facebook.presto.functionNamespace;
 
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.function.AggregationFunctionMetadata;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
+import com.facebook.presto.spi.function.TypeVariableConstraint;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -30,9 +31,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
-/**
- * The function metadata provided by the Json file to the {@link JsonFileBasedFunctionNamespaceManager}.
- */
 public class JsonBasedUdfFunctionMetadata
 {
     /**
@@ -64,6 +62,14 @@ public class JsonBasedUdfFunctionMetadata
      * Optional Aggregate-specific metadata (required for aggregation functions)
      */
     private final Optional<AggregationFunctionMetadata> aggregateMetadata;
+    /**
+     * Optional field: Marked to indicate the arity of the function.
+     */
+    private final Optional<Boolean> variableArity;
+    /**
+     * Optional field: List of the typeVariableConstraints.
+     */
+    private final Optional<List<TypeVariableConstraint>> typeVariableConstraints;
 
     @JsonCreator
     public JsonBasedUdfFunctionMetadata(
@@ -73,7 +79,9 @@ public class JsonBasedUdfFunctionMetadata
             @JsonProperty("paramTypes") List<TypeSignature> paramTypes,
             @JsonProperty("schema") String schema,
             @JsonProperty("routineCharacteristics") RoutineCharacteristics routineCharacteristics,
-            @JsonProperty("aggregateMetadata") Optional<AggregationFunctionMetadata> aggregateMetadata)
+            @JsonProperty("aggregateMetadata") Optional<AggregationFunctionMetadata> aggregateMetadata,
+            @JsonProperty("variableArity") Optional<Boolean> variableArity,
+            @JsonProperty("typeVariableConstraints") Optional<List<TypeVariableConstraint>> typeVariableConstraints)
     {
         this.docString = requireNonNull(docString, "docString is null");
         this.functionKind = requireNonNull(functionKind, "functionKind is null");
@@ -85,6 +93,8 @@ public class JsonBasedUdfFunctionMetadata
         checkArgument(
                 (functionKind == AGGREGATE && aggregateMetadata.isPresent()) || (functionKind != AGGREGATE && !aggregateMetadata.isPresent()),
                 "aggregateMetadata must be present for aggregation functions and absent otherwise");
+        this.variableArity = requireNonNull(variableArity, "variableArity is null");
+        this.typeVariableConstraints = requireNonNull(typeVariableConstraints, "typeVariableConstraints is null");
     }
 
     public String getDocString()
@@ -125,5 +135,15 @@ public class JsonBasedUdfFunctionMetadata
     public Optional<AggregationFunctionMetadata> getAggregateMetadata()
     {
         return aggregateMetadata;
+    }
+
+    public Optional<Boolean> getVariableArity()
+    {
+        return variableArity;
+    }
+
+    public Optional<List<TypeVariableConstraint>> getTypeVariableConstraints()
+    {
+        return typeVariableConstraints;
     }
 }
