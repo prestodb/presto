@@ -42,10 +42,16 @@ set(CMAKE_CXX_FLAGS
 # Add all Presto options below.
 
 # Forwards user input to VELOX_ENABLE_S3.
-option(PRESTO_ENABLE_S3 "Build S3 connector" OFF)
+option(PRESTO_ENABLE_S3 "Build S3 support" OFF)
 
 # Forwards user input to VELOX_ENABLE_HDFS.
-option(PRESTO_ENABLE_HDFS "Build HDFS connector" OFF)
+option(PRESTO_ENABLE_HDFS "Build HDFS support" OFF)
+
+# Forwards user input to VELOX_ENABLE_GCS.
+option(PRESTO_ENABLE_GCS "Build GCS support" OFF)
+
+# Forwards user input to VELOX_ENABLE_ABFS.
+option(PRESTO_ENABLE_ABFS "Build ABFS support" OFF)
 
 # Forwards user input to VELOX_ENABLE_PARQUET.
 option(PRESTO_ENABLE_PARQUET "Enable Parquet support" OFF)
@@ -57,22 +63,31 @@ option(PRESTO_ENABLE_TESTING "Enable tests" ON)
 
 option(PRESTO_ENABLE_JWT "Enable JWT (JSON Web Token) authentication" OFF)
 
-option(PRESTO_ENABLE_PROMETHEUS_REPORTER
-       "Enables capturing of runtime metrics using prometheus client" OFF)
-
 # Set all Velox options below
 add_compile_definitions(FOLLY_HAVE_INT128_T=1)
 
 if(PRESTO_ENABLE_S3)
   set(VELOX_ENABLE_S3
       ON
-      CACHE BOOL "Build S3 connector")
+      CACHE BOOL "Build S3 support")
 endif()
 
 if(PRESTO_ENABLE_HDFS)
   set(VELOX_ENABLE_HDFS
       ON
-      CACHE BOOL "Build HDFS Connector")
+      CACHE BOOL "Build HDFS support")
+endif()
+
+if(PRESTO_ENABLE_GCS)
+  set(VELOX_ENABLE_GCS
+      ON
+      CACHE BOOL "Build GCS support")
+endif()
+
+if(PRESTO_ENABLE_ABFS)
+  set(VELOX_ENABLE_ABFS
+      ON
+      CACHE BOOL "Build ABFS support")
 endif()
 
 if(PRESTO_ENABLE_PARQUET)

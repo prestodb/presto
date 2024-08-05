@@ -31,22 +31,10 @@ void registerPrestoMetrics() {
   DEFINE_METRIC(kCounterNumHTTPRequestError, facebook::velox::StatType::COUNT);
   DEFINE_METRIC(kCounterHTTPRequestLatencyMs, facebook::velox::StatType::AVG);
   DEFINE_METRIC(
-      kCounterHttpClientPrestoExchangeNumOnBody,
-      facebook::velox::StatType::COUNT);
-  DEFINE_HISTOGRAM_METRIC(
-      kCounterHttpClientPrestoExchangeOnBodyBytes,
-      1000,
-      0,
-      1000000,
-      50,
-      90,
-      95,
-      99,
-      100);
-  DEFINE_METRIC(
       kCounterHttpClientNumConnectionsCreated, facebook::velox::StatType::SUM);
   DEFINE_METRIC(kCounterNumQueryContexts, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterNumTasks, facebook::velox::StatType::AVG);
+  DEFINE_METRIC(kCounterNumTasksBytesProcessed, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterNumTasksRunning, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterNumTasksFinished, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterNumTasksCancelled, facebook::velox::StatType::AVG);

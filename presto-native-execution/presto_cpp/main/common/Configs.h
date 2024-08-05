@@ -322,6 +322,30 @@ class SystemConfig : public ConfigBase {
       "async-cache-ssd-checkpoint-gb"};
   static constexpr std::string_view kAsyncCacheSsdPath{"async-cache-ssd-path"};
 
+  /// The max ratio of the number of in-memory cache entries being written to
+  /// SSD cache over the total number of cache entries. This is to control SSD
+  /// cache write rate, and once the ratio exceeds this threshold, then we
+  /// stop writing to SSD cache.
+  static constexpr std::string_view kAsyncCacheMaxSsdWriteRatio{
+      "async-cache-max-ssd-write-ratio"};
+
+  /// The min ratio of SSD savable (in-memory) cache space over the total
+  /// cache space. Once the ratio exceeds this limit, we start writing SSD
+  /// savable cache entries into SSD cache.
+  static constexpr std::string_view kAsyncCacheSsdSavableRatio{
+      "async-cache-ssd-savable-ratio"};
+
+  /// Min SSD savable (in-memory) cache space to start writing SSD savable
+  /// cache entries into SSD cache.
+  /// NOTE: we only write to SSD cache when both above conditions are satisfied.
+  static constexpr std::string_view kAsyncCacheMinSsdSavableBytes{
+      "async-cache-min-ssd-savable-bytes"};
+
+  /// The interval for persisting full memory cache to SSD. Setting this config
+  /// to a non-zero value will activate periodic cache persistence.
+  static constexpr std::string_view kAsyncCacheFullPersistenceInterval{
+      "async-cache-full-persistence-interval"};
+
   /// In file systems, such as btrfs, supporting cow (copy on write), the ssd
   /// cache can use all ssd space and stop working. To prevent that, use this
   /// option to disable cow for cache files.
@@ -669,6 +693,14 @@ class SystemConfig : public ConfigBase {
   uint64_t localShuffleMaxPartitionBytes() const;
 
   std::string asyncCacheSsdPath() const;
+
+  double asyncCacheMaxSsdWriteRatio() const;
+
+  double asyncCacheSsdSavableRatio() const;
+
+  int32_t asyncCacheMinSsdSavableBytes() const;
+
+  std::chrono::duration<double> asyncCacheFullPersistenceInterval() const;
 
   bool asyncCacheSsdDisableFileCow() const;
 

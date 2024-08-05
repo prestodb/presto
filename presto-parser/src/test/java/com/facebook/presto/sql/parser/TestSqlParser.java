@@ -1956,6 +1956,18 @@ public class TestSqlParser
     }
 
     @Test
+    public void testNoWith()
+    {
+        assertStatement("SELECT * FROM t",
+                simpleQuery(
+                        selectList(new AllColumns()),
+                        table(QualifiedName.of("t"))));
+
+        assertInvalidStatement("SELECT * FROM my_table ORDER BY column1, column2 OFFSET 5 ROWS LIMIT \"\"", ".*mismatched input.*");
+        assertInvalidStatement("\"\"", ".*mismatched input.*");
+    }
+
+    @Test
     public void testImplicitJoin()
     {
         assertStatement("SELECT * FROM a, b",

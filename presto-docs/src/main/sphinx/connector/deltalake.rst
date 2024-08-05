@@ -41,6 +41,8 @@ Property Name                                   Description                     
                                                 In order for this option to work, also set
                                                 ``experimental.pushdown-dereference-enabled`` to
                                                 ``true``.
+``delta.case-sensitive-partitions-enabled``     Allows matching the names of partitioned columns in a     ``true``
+                                                case-sensitive manner.
 =============================================== ========================================================= ============
 
 Delta Lake connector reuses many of the modules existing in Hive connector.

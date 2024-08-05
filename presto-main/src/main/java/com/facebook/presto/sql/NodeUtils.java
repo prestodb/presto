@@ -13,17 +13,21 @@
  */
 package com.facebook.presto.sql;
 
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.Property;
 import com.facebook.presto.sql.tree.SortItem;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
+import static java.lang.String.format;
 
 public class NodeUtils
 {
@@ -36,8 +40,16 @@ public class NodeUtils
 
     public static Map<String, Expression> mapFromProperties(List<Property> properties)
     {
-        return properties.stream().collect(toImmutableMap(
-                property -> property.getName().getValue(),
-                Property::getValue));
+        Map<String, Expression> outputMap = new HashMap<>();
+
+        for (Property property : properties) {
+            String key = property.getName().getValue();
+            if (outputMap.containsKey(key)) {
+                throw new PrestoException(SYNTAX_ERROR, format("Duplicate property found: %s=%s and %s=%s", key, outputMap.get(key), key, property.getValue()));
+            }
+            outputMap.put(key, property.getValue());
+        }
+
+        return ImmutableMap.copyOf(outputMap);
     }
 }

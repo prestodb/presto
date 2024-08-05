@@ -48,6 +48,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.CatalogUtil;
@@ -102,6 +103,7 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.SYNTHESIZED;
+import static com.facebook.presto.hive.HiveCommonSessionProperties.PARQUET_BATCH_READ_OPTIMIZATION_ENABLED;
 import static com.facebook.presto.iceberg.FileContent.EQUALITY_DELETES;
 import static com.facebook.presto.iceberg.FileContent.POSITION_DELETES;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
@@ -128,6 +130,7 @@ import static org.testng.Assert.assertTrue;
 public abstract class IcebergDistributedTestBase
         extends AbstractTestDistributedQueries
 {
+    private static final String METADATA_FILE_EXTENSION = ".metadata.json";
     private final CatalogType catalogType;
     private final Map<String, String> extraConnectorProperties;
 
@@ -941,7 +944,6 @@ public abstract class IcebergDistributedTestBase
             // assert either case as we don't have good control over the timing of when statistics files are written
             ColumnStatistics col0Stats = columnStatsFor(statistics, "col0");
             ColumnStatistics col1Stats = columnStatsFor(statistics, "col1");
-            System.out.printf("distinct @ %s count col0: %s%n", snaps.get(i), col0Stats.getDistinctValuesCount());
             final int idx = i;
             assertEither(
                     () -> assertEquals(col0Stats.getDistinctValuesCount(), Estimate.of(idx)),
@@ -1571,6 +1573,136 @@ public abstract class IcebergDistributedTestBase
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testMetadataVersionsMaintainingProperties()
+            throws Exception
+    {
+        String settingTableName = "test_table_with_setting_properties";
+        String defaultTableName = "test_table_with_default_setting_properties";
+        try {
+            // Create a table with setting properties that maintain only 1 previous metadata version in current metadata,
+            //  and delete unuseful metadata files after each commit
+            assertUpdate("CREATE TABLE " + settingTableName + " (a INTEGER, b VARCHAR)" +
+                    " WITH (metadata_previous_versions_max = 1, metadata_delete_after_commit = true)");
+
+            // Create a table with default table properties that maintain 100 previous metadata versions in current metadata,
+            //  and do not automatically delete any metadata files
+            assertUpdate("CREATE TABLE " + defaultTableName + " (a INTEGER, b VARCHAR)");
+
+            assertUpdate("INSERT INTO " + settingTableName + " VALUES (1, '1001'), (2, '1002')", 2);
+            assertUpdate("INSERT INTO " + settingTableName + " VALUES (3, '1003'), (4, '1004')", 2);
+            assertUpdate("INSERT INTO " + settingTableName + " VALUES (5, '1005'), (6, '1006')", 2);
+            assertUpdate("INSERT INTO " + settingTableName + " VALUES (7, '1007'), (8, '1008')", 2);
+            assertUpdate("INSERT INTO " + settingTableName + " VALUES (9, '1009'), (10, '1010')", 2);
+
+            assertUpdate("INSERT INTO " + defaultTableName + " VALUES (1, '1001'), (2, '1002')", 2);
+            assertUpdate("INSERT INTO " + defaultTableName + " VALUES (3, '1003'), (4, '1004')", 2);
+            assertUpdate("INSERT INTO " + defaultTableName + " VALUES (5, '1005'), (6, '1006')", 2);
+            assertUpdate("INSERT INTO " + defaultTableName + " VALUES (7, '1007'), (8, '1008')", 2);
+            assertUpdate("INSERT INTO " + defaultTableName + " VALUES (9, '1009'), (10, '1010')", 2);
+
+            Table settingTable = loadTable(settingTableName);
+            TableMetadata settingTableMetadata = ((BaseTable) settingTable).operations().current();
+            // Table `test_table_with_setting_properties`'s current metadata only record 1 previous metadata file
+            assertEquals(settingTableMetadata.previousFiles().size(), 1);
+
+            Table defaultTable = loadTable(defaultTableName);
+            TableMetadata defaultTableMetadata = ((BaseTable) defaultTable).operations().current();
+            // Table `test_table_with_default_setting_properties`'s current metadata record all 5 previous metadata files
+            assertEquals(defaultTableMetadata.previousFiles().size(), 5);
+
+            FileSystem fileSystem = getHdfsEnvironment().getFileSystem(new HdfsContext(SESSION), new org.apache.hadoop.fs.Path(settingTable.location()));
+
+            // Table `test_table_with_setting_properties`'s all existing metadata files count is 2
+            FileStatus[] settingTableFiles = fileSystem.listStatus(new org.apache.hadoop.fs.Path(settingTable.location(), "metadata"), name -> name.getName().contains(METADATA_FILE_EXTENSION));
+            assertEquals(settingTableFiles.length, 2);
+
+            // Table `test_table_with_default_setting_properties`'s all existing metadata files count is 6
+            FileStatus[] defaultTableFiles = fileSystem.listStatus(new org.apache.hadoop.fs.Path(defaultTable.location(), "metadata"), name -> name.getName().contains(METADATA_FILE_EXTENSION));
+            assertEquals(defaultTableFiles.length, 6);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + settingTableName);
+        }
+    }
+
+    @DataProvider(name = "decimalVectorReader")
+    public Object[] decimalVectorReader()
+    {
+        return new Object[] {true, false};
+    }
+
+    private Session decimalVectorReaderEnabledSession(boolean decimalVectorReaderEnabled)
+    {
+        return Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty(ICEBERG_CATALOG, PARQUET_BATCH_READ_OPTIMIZATION_ENABLED, String.valueOf(decimalVectorReaderEnabled))
+                .build();
+    }
+
+    @Test(dataProvider = "decimalVectorReader")
+    public void testDecimal(boolean decimalVectorReaderEnabled)
+    {
+        String tableName = "test_decimal_vector_reader";
+        try {
+            // Create a table with decimal column
+            assertUpdate("CREATE TABLE " + tableName + " (short_decimal_column_int32 decimal(5,2), short_decimal_column_int64 decimal(16, 4), long_decimal_column decimal(19, 5))");
+
+            String values = " VALUES (cast(-1.00 as decimal(5,2)), null, cast(9999999999.123 as decimal(19, 5)))," +
+                    "(cast(1.00 as decimal(5,2)), cast(121321 as decimal(16, 4)), null)," +
+                    "(cast(-1.00 as decimal(5,2)), cast(-1215789.45 as decimal(16, 4)), cast(1234584.21 as decimal(19, 5)))," +
+                    "(cast(1.00 as decimal(5,2)), cast(-67867878.12 as decimal(16, 4)), cast(-9999999999.123 as decimal(19, 5)))";
+
+            // Insert data to table
+            assertUpdate("INSERT INTO " + tableName + values, 4);
+
+            Session session = decimalVectorReaderEnabledSession(decimalVectorReaderEnabled);
+            assertQuery(session, "SELECT * FROM " + tableName, values);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testAllIcebergType()
+    {
+        String tmpTableName = "test_vector_reader_all_type";
+        try {
+            assertUpdate(format("" +
+                    "CREATE TABLE %s ( " +
+                    "   c_boolean BOOLEAN, " +
+                    "   c_int INT," +
+                    "   c_bigint BIGINT, " +
+                    "   c_double DOUBLE, " +
+                    "   c_real REAL, " +
+                    "   c_date DATE, " +
+                    "   c_timestamp TIMESTAMP, " +
+                    "   c_varchar VARCHAR, " +
+                    "   c_varbinary VARBINARY, " +
+                    "   c_array ARRAY(BIGINT), " +
+                    "   c_map MAP(VARCHAR, INT), " +
+                    "   c_row ROW(a INT, b VARCHAR) " +
+                    ") WITH (format = 'PARQUET')", tmpTableName));
+
+            assertUpdate(format("" +
+                    "INSERT INTO %s " +
+                    "SELECT c_boolean, c_int, c_bigint, c_double, c_real, c_date, c_timestamp, c_varchar, c_varbinary, c_array, c_map, c_row " +
+                    "FROM ( " +
+                    "  VALUES " +
+                    "    (null, null, null, null, null, null, null, null, null, null, null, null), " +
+                    "    (true, INT '1245', BIGINT '1', DOUBLE '2.2', REAL '-24.124', DATE '2024-07-29', TIMESTAMP '2012-08-08 01:00', CAST('abc1' AS VARCHAR), to_ieee754_64(1), sequence(0, 10), MAP(ARRAY['aaa', 'bbbb'], ARRAY[1, 2]), CAST(ROW(1, 'AAA') AS ROW(a INT, b VARCHAR)))," +
+                    "    (false, INT '-1245', BIGINT '-1', DOUBLE '2.3', REAL '243215.435', DATE '2024-07-29', TIMESTAMP '2012-09-09 00:00', CAST('cba2' AS VARCHAR), to_ieee754_64(4), sequence(30, 35), MAP(ARRAY['ccc', 'bbbb'], ARRAY[-1, -2]), CAST(ROW(-1, 'AAA') AS ROW(a INT, b VARCHAR))) " +
+                    ") AS x (c_boolean, c_int, c_bigint, c_double, c_real, c_date, c_timestamp, c_varchar, c_varbinary, c_array, c_map, c_row)", tmpTableName), 3);
+
+            Session decimalVectorReaderEnabled = decimalVectorReaderEnabledSession(true);
+            Session decimalVectorReaderDisable = decimalVectorReaderEnabledSession(false);
+            assertQueryWithSameQueryRunner(decimalVectorReaderEnabled, "SELECT * FROM " + tmpTableName, decimalVectorReaderDisable);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tmpTableName);
         }
     }
 

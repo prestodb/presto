@@ -18,6 +18,7 @@ import com.facebook.presto.verifier.event.QueryInfo;
 import com.facebook.presto.verifier.event.VerifierQueryEvent;
 import com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus;
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
@@ -226,9 +227,13 @@ public class TestDataVerification
         getQueryRunner().execute(controlQuery);
         String controlQueryId = "control_query_id";
 
-        Optional<VerifierQueryEvent> event = runVerification(testQuery, controlQuery, controlQueryId, testQueryId, reuseTableSettings);
+        Optional<VerifierQueryEvent> event = runVerification(testQuery, controlQuery, controlQueryId, testQueryId,
+                new QueryConfiguration(CATALOG, SCHEMA, Optional.of("user"), Optional.empty(),
+                        Optional.empty(), true, Optional.of(ImmutableList.of("test_column=1"))),
+                new QueryConfiguration(CATALOG, SCHEMA, Optional.of("user"), Optional.empty(),
+                        Optional.empty(), true, Optional.empty()), reuseTableSettings);
         assertTrue(event.get().getControlQueryInfo().getIsReuseTable());
-        assertTrue(event.get().getTestQueryInfo().getIsReuseTable());
+        assertFalse(event.get().getTestQueryInfo().getIsReuseTable());
         assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
     }
 
@@ -377,7 +382,7 @@ public class TestDataVerification
     public void testExecutionTimeSessionProperty()
     {
         QueryConfiguration configuration = new QueryConfiguration(CATALOG, SCHEMA, Optional.of("user"), Optional.empty(), Optional.of(ImmutableMap.of(QUERY_MAX_EXECUTION_TIME,
-                "20m")), Optional.empty());
+                "20m")), Optional.empty(), Optional.empty());
         SourceQuery sourceQuery = new SourceQuery(SUITE, NAME, "SELECT 1.0", "SELECT 1.00001", Optional.empty(), Optional.empty(), configuration, configuration);
         Optional<VerifierQueryEvent> event = verify(sourceQuery, false);
         assertTrue(event.isPresent());

@@ -61,6 +61,7 @@ public class TestIcebergMetadataListing
         Map<String, String> icebergProperties = ImmutableMap.<String, String>builder()
                 .put("hive.metastore", "file")
                 .put("hive.metastore.catalog.dir", catalogDirectory.toFile().toURI().toString())
+                .put("iceberg.hive.table-refresh.max-retry-time", "500ms") // improves test time for testTableDropWithMissingMetadata
                 .build();
 
         queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", icebergProperties);
@@ -135,7 +136,7 @@ public class TestIcebergMetadataListing
         }
         tableMetadataDir.delete();
 
-        assertQueryFails("SELECT * FROM iceberg.test_metadata_schema.iceberg_table1", "Could not read table schema");
+        assertQueryFails("SELECT * FROM iceberg.test_metadata_schema.iceberg_table1", "Table metadata is missing");
         assertQuerySucceeds("DROP TABLE iceberg.test_metadata_schema.iceberg_table1");
         assertQuery("SHOW TABLES FROM iceberg.test_metadata_schema", "VALUES 'iceberg_table2'");
     }

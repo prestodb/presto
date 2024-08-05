@@ -18,7 +18,10 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 
 import java.util.Optional;
 
+import static com.facebook.presto.spi.plan.JoinDistributionType.PARTITIONED;
 import static com.facebook.presto.spi.plan.JoinDistributionType.REPLICATED;
+import static com.facebook.presto.sql.planner.iterative.rule.DetermineJoinDistributionType.isBelowMaxBroadcastSize;
+import static com.facebook.presto.sql.planner.iterative.rule.DetermineJoinDistributionType.mustPartition;
 
 public class ConfidenceBasedBroadcastUtil
 {
@@ -37,5 +40,31 @@ public class ConfidenceBasedBroadcastUtil
         }
 
         return Optional.empty();
+    }
+
+    public static Optional<JoinNode> treatLowConfidenceZeroEstimationsAsUnknown(boolean probeSideLowConfidenceZero, boolean buildSideLowConfidenceZero, JoinNode joinNode, Rule.Context context)
+    {
+        if (buildSideLowConfidenceZero && probeSideLowConfidenceZero) {
+            return Optional.of(joinNode.withDistributionType(PARTITIONED));
+        }
+        else if (buildSideLowConfidenceZero) {
+            if (isBelowMaxBroadcastSize(joinNode.flipChildren(), context) && !mustPartition(joinNode)) {
+                return Optional.of(joinNode.flipChildren().withDistributionType(REPLICATED));
+            }
+            else {
+                return Optional.of(joinNode.withDistributionType(PARTITIONED));
+            }
+        }
+        else if (probeSideLowConfidenceZero) {
+            if (isBelowMaxBroadcastSize(joinNode, context) && !mustPartition(joinNode)) {
+                return Optional.of(joinNode.withDistributionType(REPLICATED));
+            }
+            else {
+                return Optional.of(joinNode.withDistributionType(PARTITIONED));
+            }
+        }
+        else {
+            return Optional.empty();
+        }
     }
 }

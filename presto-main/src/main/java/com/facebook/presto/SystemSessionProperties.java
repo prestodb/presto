@@ -15,6 +15,7 @@ package com.facebook.presto;
 
 import com.facebook.presto.common.WarningHandlingLevel;
 import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
+import com.facebook.presto.cost.HistoryBasedOptimizationConfig;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy;
 import com.facebook.presto.execution.TaskManagerConfig;
@@ -23,7 +24,6 @@ import com.facebook.presto.execution.scheduler.NodeSchedulerConfig.ResourceAware
 import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.memory.NodeMemoryConfig;
-import com.facebook.presto.server.security.SecurityConfig;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.eventlistener.CTEInformation;
 import com.facebook.presto.spi.session.PropertyMetadata;
@@ -89,6 +89,7 @@ public final class SystemSessionProperties
     public static final String OPTIMIZE_HASH_GENERATION = "optimize_hash_generation";
     public static final String JOIN_DISTRIBUTION_TYPE = "join_distribution_type";
     public static final String JOIN_MAX_BROADCAST_TABLE_SIZE = "join_max_broadcast_table_size";
+    public static final String RETRY_QUERY_WITH_HISTORY_BASED_OPTIMIZATION = "retry_query_with_history_based_optimization";
     public static final String SIZE_BASED_JOIN_DISTRIBUTION_TYPE = "size_based_join_distribution_type";
     public static final String DISTRIBUTED_JOIN = "distributed_join";
     public static final String DISTRIBUTED_INDEX_JOIN = "distributed_index_join";
@@ -147,6 +148,7 @@ public final class SystemSessionProperties
     public static final String FAST_INEQUALITY_JOINS = "fast_inequality_joins";
     public static final String QUERY_PRIORITY = "query_priority";
     public static final String CONFIDENCE_BASED_BROADCAST_ENABLED = "confidence_based_broadcast_enabled";
+    public static final String TREAT_LOW_CONFIDENCE_ZERO_ESTIMATION_AS_UNKNOWN_ENABLED = "treat_low_confidence_zero_estimation_unknown_enabled";
     public static final String SPILL_ENABLED = "spill_enabled";
     public static final String JOIN_SPILL_ENABLED = "join_spill_enabled";
     public static final String AGGREGATION_SPILL_ENABLED = "aggregation_spill_enabled";
@@ -274,6 +276,7 @@ public final class SystemSessionProperties
     public static final String RESTRICT_HISTORY_BASED_OPTIMIZATION_TO_COMPLEX_QUERY = "restrict_history_based_optimization_to_complex_query";
     public static final String HISTORY_INPUT_TABLE_STATISTICS_MATCHING_THRESHOLD = "history_input_table_statistics_matching_threshold";
     public static final String HISTORY_BASED_OPTIMIZATION_PLAN_CANONICALIZATION_STRATEGY = "history_based_optimization_plan_canonicalization_strategy";
+    public static final String ENABLE_VERBOSE_HISTORY_BASED_OPTIMIZER_RUNTIME_STATS = "enable_verbose_history_based_optimizer_runtime_stats";
     public static final String LOG_QUERY_PLANS_USED_IN_HISTORY_BASED_OPTIMIZER = "log_query_plans_used_in_history_based_optimizer";
     public static final String MAX_LEAF_NODES_IN_PLAN = "max_leaf_nodes_in_plan";
     public static final String LEAF_NODE_LIMIT_ENABLED = "leaf_node_limit_enabled";
@@ -325,6 +328,7 @@ public final class SystemSessionProperties
     public static final String GENERATE_DOMAIN_FILTERS = "generate_domain_filters";
     public static final String REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION = "rewrite_expression_with_constant_expression";
     public static final String PRINT_ESTIMATED_STATS_FROM_CACHE = "print_estimated_stats_from_cache";
+    public static final String REMOVE_CROSS_JOIN_WITH_CONSTANT_SINGLE_ROW_INPUT = "remove_cross_join_with_constant_single_row_input";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "native_simplified_expression_evaluation_enabled";
@@ -365,7 +369,7 @@ public final class SystemSessionProperties
                 new NodeSpillConfig(),
                 new TracingConfig(),
                 new CompilerConfig(),
-                new SecurityConfig());
+                new HistoryBasedOptimizationConfig());
     }
 
     @Inject
@@ -380,7 +384,7 @@ public final class SystemSessionProperties
             NodeSpillConfig nodeSpillConfig,
             TracingConfig tracingConfig,
             CompilerConfig compilerConfig,
-            SecurityConfig securityConfig)
+            HistoryBasedOptimizationConfig historyBasedOptimizationConfig)
     {
         sessionProperties = ImmutableList.of(
                 stringProperty(
@@ -428,6 +432,15 @@ public final class SystemSessionProperties
                         CONFIDENCE_BASED_BROADCAST_ENABLED,
                         "Enable confidence based broadcasting when enabled",
                         featuresConfig.isConfidenceBasedBroadcastEnabled(),
+                        false),
+                booleanProperty(RETRY_QUERY_WITH_HISTORY_BASED_OPTIMIZATION,
+                        "Automatically retry a query if it fails and HBO can change the query plan",
+                        featuresConfig.isRetryQueryWithHistoryBasedOptimizationEnabled(),
+                        false),
+                booleanProperty(
+                        TREAT_LOW_CONFIDENCE_ZERO_ESTIMATION_AS_UNKNOWN_ENABLED,
+                        "Treat low confidence zero estimations as unknowns during joins when enabled",
+                        featuresConfig.isTreatLowConfidenceZeroEstimationAsUnknownEnabled(),
                         false),
                 booleanProperty(
                         DISTRIBUTED_INDEX_JOIN,
@@ -1554,11 +1567,15 @@ public final class SystemSessionProperties
                         "Enable history based optimization only for complex queries, i.e. queries with join and aggregation",
                         true,
                         false),
-                doubleProperty(
+                new PropertyMetadata<>(
                         HISTORY_INPUT_TABLE_STATISTICS_MATCHING_THRESHOLD,
                         "When the size difference between current table and history table exceed this threshold, do not match history statistics",
-                        0.0,
-                        true),
+                        DOUBLE,
+                        Double.class,
+                        historyBasedOptimizationConfig.getHistoryMatchingThreshold(),
+                        true,
+                        value -> validateDoubleValueWithinSelectivityRange(value, HISTORY_INPUT_TABLE_STATISTICS_MATCHING_THRESHOLD),
+                        object -> object),
                 stringProperty(
                         HISTORY_BASED_OPTIMIZATION_PLAN_CANONICALIZATION_STRATEGY,
                         format("The plan canonicalization strategies used for history based optimization, the strategies will be applied based on the accuracy of the strategies, from more accurate to less accurate. Options are %s",
@@ -1566,6 +1583,11 @@ public final class SystemSessionProperties
                                         .map(PlanCanonicalizationStrategy::name)
                                         .collect(joining(","))),
                         featuresConfig.getHistoryBasedOptimizerPlanCanonicalizationStrategies(),
+                        false),
+                booleanProperty(
+                        ENABLE_VERBOSE_HISTORY_BASED_OPTIMIZER_RUNTIME_STATS,
+                        "Enable recording of verbose runtime stats for history based optimizer",
+                        false,
                         false),
                 booleanProperty(
                         LOG_QUERY_PLANS_USED_IN_HISTORY_BASED_OPTIMIZER,
@@ -1924,6 +1946,11 @@ public final class SystemSessionProperties
                                 "get stats from a cache that was populated during query optimization rather than recalculating the stats on the final plan.",
                         featuresConfig.isPrintEstimatedStatsFromCache(),
                         false),
+                booleanProperty(
+                        REMOVE_CROSS_JOIN_WITH_CONSTANT_SINGLE_ROW_INPUT,
+                        "If one input of the cross join is a single row with constant value, remove this cross join and replace with a project node",
+                        featuresConfig.isRemoveCrossJoinWithSingleConstantRow(),
+                        false),
                 new PropertyMetadata<>(
                         DEFAULT_VIEW_SECURITY_MODE,
                         format("Set default view security mode. Options are: %s",
@@ -2028,6 +2055,16 @@ public final class SystemSessionProperties
     public static boolean confidenceBasedBroadcastEnabled(Session session)
     {
         return session.getSystemProperty(CONFIDENCE_BASED_BROADCAST_ENABLED, Boolean.class);
+    }
+
+    public static boolean treatLowConfidenceZeroEstimationAsUnknownEnabled(Session session)
+    {
+        return session.getSystemProperty(TREAT_LOW_CONFIDENCE_ZERO_ESTIMATION_AS_UNKNOWN_ENABLED, Boolean.class);
+    }
+
+    public static boolean retryQueryWithHistoryBasedOptimizationEnabled(Session session)
+    {
+        return session.getSystemProperty(RETRY_QUERY_WITH_HISTORY_BASED_OPTIMIZATION, Boolean.class);
     }
 
     public static int getHashPartitionCount(Session session)
@@ -3027,6 +3064,11 @@ public final class SystemSessionProperties
         return strategyList;
     }
 
+    public static boolean enableVerboseHistoryBasedOptimizerRuntimeStats(Session session)
+    {
+        return session.getSystemProperty(ENABLE_VERBOSE_HISTORY_BASED_OPTIMIZER_RUNTIME_STATS, Boolean.class);
+    }
+
     public static boolean logQueryPlansUsedInHistoryBasedOptimizer(Session session)
     {
         return session.getSystemProperty(LOG_QUERY_PLANS_USED_IN_HISTORY_BASED_OPTIMIZER, Boolean.class);
@@ -3239,6 +3281,11 @@ public final class SystemSessionProperties
     public static boolean isPrintEstimatedStatsFromCacheEnabled(Session session)
     {
         return session.getSystemProperty(PRINT_ESTIMATED_STATS_FROM_CACHE, Boolean.class);
+    }
+
+    public static boolean isRemoveCrossJoinWithConstantSingleRowInputEnabled(Session session)
+    {
+        return session.getSystemProperty(REMOVE_CROSS_JOIN_WITH_CONSTANT_SINGLE_ROW_INPUT, Boolean.class);
     }
 
     public static boolean shouldOptimizerUseHistograms(Session session)

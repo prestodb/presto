@@ -22,6 +22,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
 import static com.facebook.presto.block.BlockAssertions.createMapType;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -50,6 +53,82 @@ public class TestArraySqlFunctions
         assertFunction("array_average(array[null])", DOUBLE, null);
         assertFunction("array_average(array[null, null])", DOUBLE, null);
         assertFunction("array_average(null)", DOUBLE, null);
+    }
+
+    @Test
+    public void testArraySplitIntoChunksBigint()
+    {
+        assertFunction("array_split_into_chunks(array[bigint '1', bigint '2', bigint '3'], 2)", new ArrayType(new ArrayType(BIGINT)), ImmutableList.of(ImmutableList.of(1L, 2L), ImmutableList.of(3L)));
+        assertFunction("array_split_into_chunks(array[bigint '1', bigint '2', bigint '3', bigint '4' , bigint '5'], 2)", new ArrayType(new ArrayType(BIGINT)), ImmutableList.of(ImmutableList.of(1L, 2L), ImmutableList.of(3L, 4L), ImmutableList.of(5L)));
+        assertFunction("array_split_into_chunks(array[bigint '2', bigint '3', bigint '4' , bigint '5'], 4)", new ArrayType(new ArrayType(BIGINT)), ImmutableList.of(ImmutableList.of(2L, 3L, 4L, 5L)));
+        assertFunction("array_split_into_chunks(array[bigint '-66', bigint '3', bigint '-66' , bigint '5'], 1)", new ArrayType(new ArrayType(BIGINT)), ImmutableList.of(ImmutableList.of(-66L), ImmutableList.of(3L), ImmutableList.of(-66L), ImmutableList.of(5L)));
+        assertFunction("array_split_into_chunks(array[bigint '-1', bigint '2', bigint '3' , bigint '-11'], 6)", new ArrayType(new ArrayType(BIGINT)), ImmutableList.of(ImmutableList.of(-1L, 2L, 3L, -11L)));
+        assertFunction("array_split_into_chunks(array[bigint '1', bigint '2', bigint '3', bigint '4', bigint '5', bigint '6', bigint '7'], 3)", new ArrayType(new ArrayType(BIGINT)), ImmutableList.of(ImmutableList.of(1L, 2L, 3L), ImmutableList.of(4L, 5L, 6L), ImmutableList.of(7L)));
+        assertInvalidFunction("array_split_into_chunks(array[bigint '-1', bigint '2', bigint '3' , bigint '-11'], 0)", StandardErrorCode.GENERIC_USER_ERROR, "Invalid slice size: 0. Size must be greater than zero.");
+        assertInvalidFunction(
+                "array_split_into_chunks(array[" + IntStream.rangeClosed(1, 12001).mapToObj(Long::toString).collect(Collectors.joining(", ")) + "], 1)",
+                StandardErrorCode.GENERIC_USER_ERROR,
+                "Cannot split array of size: 12001 into more than 10000 parts.");
+    }
+
+    @Test
+    public void testArraySplitIntoChunksVarchar()
+    {
+        assertFunction("array_split_into_chunks(array[varchar 'a', varchar 'b', varchar 'c'], 2)", new ArrayType(new ArrayType(VARCHAR)), ImmutableList.of(ImmutableList.of("a", "b"), ImmutableList.of("c")));
+        assertFunction("array_split_into_chunks(array[varchar 'a', varchar 'b', varchar 'c', varchar 'd', varchar 'e'], 2)", new ArrayType(new ArrayType(VARCHAR)), ImmutableList.of(ImmutableList.of("a", "b"), ImmutableList.of("c", "d"), ImmutableList.of("e")));
+        assertFunction("array_split_into_chunks(array[varchar 'z', varchar 'y', varchar 'x', varchar 'w', varchar 'v', varchar 'u'], 6)", new ArrayType(new ArrayType(VARCHAR)), ImmutableList.of(ImmutableList.of("z", "y", "x", "w", "v", "u")));
+        assertFunction("array_split_into_chunks(array[varchar 'k', varchar 'l', varchar 'm'], 1)", new ArrayType(new ArrayType(VARCHAR)), ImmutableList.of(ImmutableList.of("k"), ImmutableList.of("l"), ImmutableList.of("m")));
+        assertFunction("array_split_into_chunks(array[varchar 'k', varchar 'l', varchar 'm'], 8)", new ArrayType(new ArrayType(VARCHAR)), ImmutableList.of(ImmutableList.of("k", "l", "m")));
+        assertFunction("array_split_into_chunks(array[varchar 'k', varchar 'l', varchar 'm', varchar 'n', varchar 'o', varchar 'p', varchar 'q', varchar 'r'], 3)", new ArrayType(new ArrayType(VARCHAR)), ImmutableList.of(ImmutableList.of("k", "l", "m"), ImmutableList.of("n", "o", "p"), ImmutableList.of("q", "r")));
+        assertInvalidFunction("array_split_into_chunks(array[varchar 'a', varchar 'b', varchar 'c', varchar 'd'], 0)", StandardErrorCode.GENERIC_USER_ERROR, "Invalid slice size: 0. Size must be greater than zero.");
+        assertInvalidFunction(
+                "array_split_into_chunks(array[" + IntStream.rangeClosed(1, 10002).mapToObj(s -> "'" + s + "'").collect(Collectors.joining(", ")) + "], 1)",
+                StandardErrorCode.GENERIC_USER_ERROR,
+                "Cannot split array of size: 10002 into more than 10000 parts.");
+    }
+
+    @Test
+    public void testArraySplitIntoChunksInteger()
+    {
+        assertFunction("array_split_into_chunks(array[1, 2, 3], 2)", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of(ImmutableList.of(1, 2), ImmutableList.of(3)));
+        assertFunction("array_split_into_chunks(array[1, 2, 3], 2)", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of(ImmutableList.of(1, 2), ImmutableList.of(3)));
+        assertFunction("array_split_into_chunks(array[1, 2, 5, 7, 9, 11], 4)", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of(ImmutableList.of(1, 2, 5, 7), ImmutableList.of(9, 11)));
+        assertFunction("array_split_into_chunks(array[1, 2, 5, 7, 9, 11, 22], 7)", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of(ImmutableList.of(1, 2, 5, 7, 9, 11, 22)));
+        assertFunction("array_split_into_chunks(array[9, 10, 11, 12], 1)", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of(ImmutableList.of(9), ImmutableList.of(10), ImmutableList.of(11), ImmutableList.of(12)));
+        assertFunction("array_split_into_chunks(array[9, 10, 11, 12], 20)", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of(ImmutableList.of(9, 10, 11, 12)));
+        assertFunction("array_split_into_chunks(array[9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20], 4)", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of(ImmutableList.of(9, 10, 11, 12), ImmutableList.of(13, 14, 15, 16), ImmutableList.of(17, 18, 19, 20)));
+        assertInvalidFunction("array_split_into_chunks(array[5, 6, 7, 8], 0)", StandardErrorCode.GENERIC_USER_ERROR, "Invalid slice size: 0. Size must be greater than zero.");
+        assertInvalidFunction(
+                "array_split_into_chunks(array[" + IntStream.rangeClosed(1, 10001).mapToObj(Integer::toString).collect(Collectors.joining(", ")) + "], 1)",
+                StandardErrorCode.GENERIC_USER_ERROR,
+                "Cannot split array of size: 10001 into more than 10000 parts.");
+    }
+
+    @Test
+    public void testArraySplitIntoChunksDouble()
+    {
+        assertFunction("array_split_into_chunks(array[cast(1.0 as double), cast(2.0 as double), cast(3.0 as double)], 2)", new ArrayType(new ArrayType(DOUBLE)), ImmutableList.of(ImmutableList.of(1.0, 2.0), ImmutableList.of(3.0)));
+        assertFunction("array_split_into_chunks(array[cast(1.2 as double), cast(2.3 as double), cast(3.4 as double)], 1)", new ArrayType(new ArrayType(DOUBLE)), ImmutableList.of(ImmutableList.of(1.2), ImmutableList.of(2.3), ImmutableList.of(3.4)));
+        assertFunction("array_split_into_chunks(array[cast(1.2 as double), cast(2.3 as double), cast(3.4 as double), cast(4.5 as double), cast(5.6 as double)], 5)", new ArrayType(new ArrayType(DOUBLE)), ImmutableList.of(ImmutableList.of(1.2, 2.3, 3.4, 4.5, 5.6)));
+        assertFunction("array_split_into_chunks(array[cast(1.2 as double), cast(2.3 as double), cast(3.4 as double), cast(4.5 as double), cast(5.6 as double)], 100)", new ArrayType(new ArrayType(DOUBLE)), ImmutableList.of(ImmutableList.of(1.2, 2.3, 3.4, 4.5, 5.6)));
+        assertFunction("array_split_into_chunks(array[cast(1.2 as double), cast(2.3 as double), cast(3.4 as double), cast(4.5 as double), cast(5.6 as double),  cast(6.7 as double), cast(7.8 as double), cast(8.9 as double), cast(9.1 as double)], 3)", new ArrayType(new ArrayType(DOUBLE)), ImmutableList.of(ImmutableList.of(1.2, 2.3, 3.4), ImmutableList.of(4.5, 5.6, 6.7), ImmutableList.of(7.8, 8.9, 9.1)));
+        assertInvalidFunction("array_split_into_chunks(array[cast(1.2 as double), cast(2.3 as double), cast(3.4 as double)], 0)", StandardErrorCode.GENERIC_USER_ERROR, "Invalid slice size: 0. Size must be greater than zero.");
+        assertInvalidFunction(
+                "array_split_into_chunks(array[" + IntStream.rangeClosed(1, 10001).mapToObj(Double::toString).collect(Collectors.joining(", ")) + "], 1)",
+                StandardErrorCode.GENERIC_USER_ERROR,
+                "Cannot split array of size: 10001 into more than 10000 parts.");
+    }
+
+    @Test
+    public void testArraySplitIntoChunksNulls()
+    {
+        assertFunction("array_split_into_chunks(array[cast(null as bigint), bigint '1', cast(null as bigint), bigint '2'], 2)", new ArrayType(new ArrayType(BIGINT)), ImmutableList.of(asList(null, 1L), asList(null, 2L)));
+        assertFunction("array_split_into_chunks(array[cast(null as varchar), cast(null as varchar)], 2)", new ArrayType(new ArrayType(VARCHAR)), ImmutableList.of(asList(null, null)));
+        assertFunction("array_split_into_chunks(array[cast(null as double), 1.1, 2.1, 3.1], 2)", new ArrayType(new ArrayType(DOUBLE)), ImmutableList.of(asList(null, 1.1), asList(2.1, 3.1)));
+        assertFunction("array_split_into_chunks(array[1, 2, 3, cast(null as int)], 2)", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of(ImmutableList.of(1, 2), asList(3, null)));
+        assertFunction("array_split_into_chunks(null, null)", new ArrayType(new ArrayType(UNKNOWN)), null);
+        assertFunction("array_split_into_chunks(null, 1)", new ArrayType(new ArrayType(UNKNOWN)), null);
+        assertFunction("array_split_into_chunks(array[1], null)", new ArrayType(new ArrayType(INTEGER)), null);
     }
 
     @Test
@@ -158,7 +237,7 @@ public class TestArraySqlFunctions
     }
 
     @Test
-    public void testArrayLeastFrequent()
+    public void testArrayLeastFrequentBaseCase()
     {
         // Base Case
         assertFunction("ARRAY_LEAST_FREQUENT(ARRAY [1, 2, 2, 3, 3, 3])", new ArrayType(INTEGER), ImmutableList.of(1));
@@ -167,6 +246,11 @@ public class TestArraySqlFunctions
         assertFunction("ARRAY_LEAST_FREQUENT(ARRAY [DOUBLE '1.0', DOUBLE '2.0', DOUBLE '3.0'])", new ArrayType(DOUBLE), asList(1.0d));
         assertFunction("ARRAY_LEAST_FREQUENT(ARRAY ['abc', 'bc', 'aaa'])", new ArrayType(createVarcharType(3)), ImmutableList.of("aaa"));
         assertFunction("ARRAY_LEAST_FREQUENT(ARRAY ['', '', ' '])", new ArrayType(createVarcharType(1)), ImmutableList.of(" "));
+    }
+
+    @Test
+    public void testArrayLeastFrequentComplexAndEdgeCase()
+    {
         // Empty Case
         assertFunction("ARRAY_LEAST_FREQUENT(ARRAY [])", new ArrayType(UNKNOWN), null);
         // Null Case
@@ -180,7 +264,7 @@ public class TestArraySqlFunctions
     }
 
     @Test
-    public void testArrayNLeastFrequent()
+    public void testArrayNLeastFrequentBaseCase()
     {
         // Base Case
         assertFunction("ARRAY_LEAST_FREQUENT(ARRAY [1, 2, 2, 3, 3, 3], 2)", new ArrayType(INTEGER), ImmutableList.of(1, 2));
@@ -189,12 +273,22 @@ public class TestArraySqlFunctions
         assertFunction("ARRAY_LEAST_FREQUENT(ARRAY [DOUBLE '1.0', DOUBLE '2.0', DOUBLE '3.0'], 2)", new ArrayType(DOUBLE), asList(1.0d, 2.0d));
         assertFunction("ARRAY_LEAST_FREQUENT(ARRAY ['abc', 'bc', 'aaa'], 3)", new ArrayType(createVarcharType(3)), ImmutableList.of("aaa", "abc", "bc"));
         assertFunction("ARRAY_LEAST_FREQUENT(ARRAY ['', '', ' '], 1)", new ArrayType(createVarcharType(1)), ImmutableList.of(" "));
+    }
+
+    @Test
+    public void testArrayNLeastFrequentEmptyAndNullCase()
+    {
         // Empty Case
         assertFunction("ARRAY_LEAST_FREQUENT(ARRAY [], 2)", new ArrayType(UNKNOWN), null);
         // Null Case
         assertFunction("ARRAY_LEAST_FREQUENT(null, 3)", new ArrayType(UNKNOWN), null);
         assertFunction("ARRAY_LEAST_FREQUENT(ARRAY [NULL], 0)", new ArrayType(UNKNOWN), null);
         assertFunction("ARRAY_LEAST_FREQUENT(ARRAY [NULL, NULL, NULL], 1)", new ArrayType(UNKNOWN), null);
+    }
+
+    @Test
+    public void testArrayNLeastFrequentZeroAndComplexCase()
+    {
         // N = 0
         assertFunction("ARRAY_LEAST_FREQUENT(ARRAY [1, 2, 2, NULL], 0)", new ArrayType(INTEGER), emptyList());
         // N < 0
@@ -237,12 +331,17 @@ public class TestArraySqlFunctions
     }
 
     @Test
-    public void testArraySortDesc()
+    public void testArraySortDescNumeric()
     {
         assertFunction("ARRAY_SORT_DESC(ARRAY [100, 1, 10, 50])", new ArrayType(INTEGER), ImmutableList.of(100, 50, 10, 1));
         assertFunction("ARRAY_SORT_DESC(ARRAY [null, null, 100, 1, 10, 50])", new ArrayType(INTEGER), asList(100, 50, 10, 1, null, null));
         assertFunction("ARRAY_SORT_DESC(ARRAY [double'1.0', double'2.0'])", new ArrayType(DOUBLE), ImmutableList.of(2.0d, 1.0d));
         assertFunction("ARRAY_SORT_DESC(ARRAY [double'1.0', double'2.0'])", new ArrayType(DOUBLE), ImmutableList.of(2.0d, 1.0d));
+    }
+
+    @Test
+    public void testArraySortDescVarcharTypes()
+    {
         assertFunction("ARRAY_SORT_DESC(ARRAY [null, double'-3.0', double'2.0', null])", new ArrayType(DOUBLE), asList(2.0d, -3.0d, null, null));
         assertFunction("ARRAY_SORT_DESC(ARRAY ['a', 'bb', 'c'])", new ArrayType(createVarcharType(2)), ImmutableList.of("c", "bb", "a"));
         assertFunction("ARRAY_SORT_DESC(ARRAY ['a', 'bb', 'c', null])", new ArrayType(createVarcharType(2)), asList("c", "bb", "a", null));
@@ -262,7 +361,7 @@ public class TestArraySqlFunctions
     }
 
     @Test
-    public void testArrayTopN()
+    public void testArrayTopNNumeric()
     {
         // Test INT, DOUBLE, and mixed
         assertFunction("ARRAY_TOP_N(ARRAY [1, 1, 1, 1], 3)", new ArrayType(INTEGER), ImmutableList.of(1, 1, 1));
@@ -270,13 +369,20 @@ public class TestArraySqlFunctions
         assertFunction("ARRAY_TOP_N(ARRAY [DOUBLE '1.0', DOUBLE '100.0', DOUBLE '2.0', DOUBLE '5.0', DOUBLE '3.0'], 3)", new ArrayType(DOUBLE), ImmutableList.of(100.0d, 5.0d, 3.0d));
         assertFunction("ARRAY_TOP_N(ARRAY [DOUBLE '1.0', 100, 2, DOUBLE '5.0', DOUBLE '3.0'], 3)", new ArrayType(DOUBLE), ImmutableList.of(100d, 5.0d, 3.0d));
         assertFunction("ARRAY_TOP_N(ARRAY [1, 4, null], 3)", new ArrayType(INTEGER), asList(4, 1, null));
+    }
 
-        // Test VARCHAR
+    @Test
+    public void testArrayTopNVarchar()
+    {
         assertFunction("ARRAY_TOP_N(ARRAY ['a', 'z', 'd', 'f', 'g', 'b'], 4)", new ArrayType(createVarcharType(1)), ImmutableList.of("z", "g", "f", "d"));
         assertFunction("ARRAY_TOP_N(ARRAY ['foo', 'bar', 'lorem', 'ipsum', 'lorem2'], 3)", new ArrayType(createVarcharType(6)), ImmutableList.of("lorem2", "lorem", "ipsum"));
         assertFunction("ARRAY_TOP_N(ARRAY ['a', 'zzz', 'zz', 'b', 'g', 'f'], 3)", new ArrayType(createVarcharType(3)), ImmutableList.of("zzz", "zz", "g"));
         assertFunction("ARRAY_TOP_N(ARRAY ['a', 'a', 'd', 'a', 'a', 'a'], 3)", new ArrayType(createVarcharType(1)), ImmutableList.of("d", "a", "a"));
+    }
 
+    @Test
+    public void testArrayTopNBooleanAndComparatorTypes()
+    {
         // Test BOOLEAN
         assertFunction("ARRAY_TOP_N(ARRAY [true, true, false, true, false], 4)", new ArrayType(BOOLEAN), ImmutableList.of(true, true, true, false));
 
@@ -285,7 +391,11 @@ public class TestArraySqlFunctions
 
         RowType rowType = RowType.from(ImmutableList.of(RowType.field("x", INTEGER), RowType.field("y", INTEGER)));
         assertFunction("ARRAY_TOP_N(ARRAY [CAST(ROW(1, 2) AS ROW(x INT, y INT)), CAST(ROW(0, 11) AS ROW(x INT, y INT)), CAST(ROW(5, 10) AS ROW(x INT, y INT))], 2, (a, b) -> IF(a.x*a.y < b.x*b.y, -1, IF(a.x*a.y = b.x*b.y, 0, 1)))", new ArrayType(rowType), ImmutableList.of(ImmutableList.of(5, 10), ImmutableList.of(1, 2)));
+    }
 
+    @Test
+    public void testArrayTopNEdgeAndErrorCase()
+    {
         // Test exceptions
         assertInvalidFunction("ARRAY_TOP_N(ARRAY [ROW('a', 1), ROW('a', null), null, ROW('a', 0)], 2)", StandardErrorCode.INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("ARRAY_TOP_N(ARRAY [MAP(ARRAY['foo', 'bar'], ARRAY[1, 2]), MAP(ARRAY['foo', 'bar'], ARRAY[0, 3])], 2)", SemanticErrorCode.FUNCTION_NOT_FOUND);

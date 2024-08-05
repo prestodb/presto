@@ -100,14 +100,14 @@ CODEOWNERS @prestodb/team-tsc
 # Presto core
 
 # Presto analyzer and optimizer
-/presto-main/src/*/java/com/facebook/presto/sql @jaystarshot @feilong-liu @prestodb/committers
+/presto-main/src/*/java/com/facebook/presto/sql @jaystarshot @feilong-liu @ClarenceThreepwood @prestodb/committers
 
 # Presto cost based optimizer framework
-/presto-main/src/*/java/com/facebook/presto/cost @jaystarshot @feilong-liu @prestodb/committers
+/presto-main/src/*/java/com/facebook/presto/cost @jaystarshot @feilong-liu @ClarenceThreepwood @prestodb/committers
 
 # Testing module
 # Note: all code owners in Presto core should be included here as well
-/presto-tests @jaystarshot @feilong-liu @prestodb/committers
+/presto-tests @jaystarshot @feilong-liu @elharo @ClarenceThreepwood @prestodb/committers
 
 #####################################################################
 # Prestissimo module
@@ -124,7 +124,7 @@ CODEOWNERS @prestodb/team-tsc
 /presto-hudi @vinothchandar @7c00 @prestodb/committers
 
 # Iceberg connector
-/presto-iceberg @hantangwangd @prestodb/committers
+/presto-iceberg @hantangwangd @ZacBlanco @prestodb/committers
 
 # Ranger Hive plugin
 /presto-hive/**/com/facebook/presto/hive/security/ranger @agrawalreetika @prestodb/committers
@@ -142,12 +142,15 @@ CODEOWNERS @prestodb/team-tsc
 /presto-orc @sdruzkin @prestodb/committers
 /presto-hive/src/*/java/com/facebook/presto/hive/orc @sdruzkin @prestodb/committers
 
+# Presto common module
+/presto-common @elharo @prestodb/committers
+
 #####################################################################
 # Presto Console UI
-/presto-main/src/main/resources/webapp @yhwang @prestodb/committers
+/presto-ui @yhwang @prestodb/committers
 
 #####################################################################
 # Presto documentation
-/presto-docs @steveburnett @prestodb/committers
+/presto-docs @steveburnett @elharo @prestodb/committers
 /**/*.md @steveburnett @prestodb/committers
 

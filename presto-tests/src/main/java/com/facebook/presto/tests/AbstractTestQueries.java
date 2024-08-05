@@ -76,6 +76,7 @@ import static com.facebook.presto.SystemSessionProperties.PUSH_REMOTE_EXCHANGE_T
 import static com.facebook.presto.SystemSessionProperties.QUICK_DISTINCT_LIMIT_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.RANDOMIZE_OUTER_JOIN_NULL_KEY;
 import static com.facebook.presto.SystemSessionProperties.RANDOMIZE_OUTER_JOIN_NULL_KEY_STRATEGY;
+import static com.facebook.presto.SystemSessionProperties.REMOVE_CROSS_JOIN_WITH_CONSTANT_SINGLE_ROW_INPUT;
 import static com.facebook.presto.SystemSessionProperties.REMOVE_MAP_CAST;
 import static com.facebook.presto.SystemSessionProperties.REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN;
 import static com.facebook.presto.SystemSessionProperties.REWRITE_CASE_TO_MAP_ENABLED;
@@ -6197,7 +6198,7 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void tesMultipleConcat()
+    public void testMultipleConcat()
     {
         assertQuery("select concat('a', '','','', 'b', '', '', 'c', 'd', '', '', '', '')", "select 'abcd'");
         assertQuery("select concat('', '','','', '', '', '', '', '', '', '')", "select ''");
@@ -6613,9 +6614,9 @@ public abstract class AbstractTestQueries
                 .build();
 
         MaterializedResult plan = computeActual(prefilter, "explain(type distributed) select count(custkey), orderstatus from orders group by orderstatus limit 1000");
-        assertTrue(((String) plan.getOnlyValue()).toUpperCase().indexOf("MAP_AGG") == -1);
+        assertEquals(((String) plan.getOnlyValue()).toUpperCase().indexOf("MAP_AGG"), -1);
         plan = computeActual(prefilter, "explain(type distributed) select count(custkey), orderkey from orders group by orderkey limit 100000");
-        assertTrue(((String) plan.getOnlyValue()).toUpperCase().indexOf("MAP_AGG") == -1);
+        assertEquals(((String) plan.getOnlyValue()).toUpperCase().indexOf("MAP_AGG"), -1);
     }
 
     @Test
@@ -6826,6 +6827,42 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testArraySum()
+    {
+        // bigint cases
+        String sql = "select array_sum(k) from (values " +
+                "(array[cast(10 as bigint), 20, 30]), " +
+                "(array[cast(40 as bigint), 60]), " +
+                "(array[cast(100 as bigint), 200]), " +
+                "(array[cast(1 as bigint), 2, 3, 4]), " +
+                "(array[cast(-10 as bigint), -20]), " +
+                "(array[cast(800 as bigint), 200]), " +
+                "(array[cast(300 as bigint), 700, 1000]), " +
+                "(array[cast(-500 as bigint), 500, 0]), " +
+                "(array[cast(2147483647 as bigint), 1]), " +
+                "(array[cast(-2147483648 as bigint), 0]), " +
+                "(array[cast(null as bigint), 100, 200]), " + // null case
+                "(array[cast(50 as bigint), null, 150])) t(k)"; // null case
+        assertQuery(sql, "values cast(60 as bigint), cast(100 as bigint), cast(300 as bigint), cast(10 as bigint), cast(-30 as bigint), cast(1000 as bigint), cast(2000 as bigint), cast(0 as bigint), cast(2147483648 as bigint), cast(-2147483648 as bigint), cast(300 as bigint), cast(200 as bigint)");
+
+        // double cases
+        sql = "select array_sum(k) from (values " +
+                "(array[cast(1.5 as double), 2.5]), " +
+                "(array[cast(3.5 as double), 4.5]), " +
+                "(array[cast(0.1 as double), 0.2, 0.3]), " +
+                "(array[cast(-1.5 as double), -2.5]), " +
+                "(array[cast(10.5 as double), 20.5]), " +
+                "(array[cast(3.3 as double), 6.7]), " +
+                "(array[cast(4.4 as double), 5.6, 10.0]), " +
+                "(array[cast(-2.2 as double), 2.2]), " +
+                "(array[cast(1e308 as double), -1e308]), " +
+                "(array[cast(0.0000001 as double), 0.0000002]), " +
+                "(array[cast(null as double), 1.1, 2.2]), " + // null case
+                "(array[cast(0.5 as double), null, 1.5])) t(k)"; // null case
+        assertQuery(sql, "values cast(4.0 as double), cast(8.0 as double), cast(0.6 as double), cast(-4.0 as double), cast(31.0 as double), cast(10.0 as double), cast(20.0 as double), cast(0.0 as double), cast(0.0 as double), cast(0.0000003 as double), cast(3.3 as double), cast(2.0 as double)");
+    }
+
+    @Test
     public void testArrayCumSum()
     {
         // int
@@ -6868,11 +6905,11 @@ public abstract class AbstractTestQueries
         assertTrue(actualFloat.isEmpty());
 
         actualFloat = (List<Float>) rowList.get(2).getField(0);
-        assertTrue(actualFloat == null);
+        assertNull(actualFloat);
 
         actualFloat = (List<Float>) rowList.get(3).getField(0);
         for (int i = 0; i < actualFloat.size(); ++i) {
-            assertTrue(actualFloat.get(i) == null);
+            assertNull(actualFloat.get(i));
         }
 
         actualFloat = (List<Float>) rowList.get(4).getField(0);
@@ -6881,7 +6918,7 @@ public abstract class AbstractTestQueries
             assertTrue(actualFloat.get(i) > expectedFloat.get(i) - 1e-5 && actualFloat.get(i) < expectedFloat.get(i) + 1e-5);
         }
         for (int i = 2; i < actualFloat.size(); ++i) {
-            assertTrue(actualFloat.get(i) == null);
+            assertNull(actualFloat.get(i));
         }
 
         // double
@@ -6898,11 +6935,11 @@ public abstract class AbstractTestQueries
         assertTrue(actualDouble.isEmpty());
 
         actualDouble = (List<Double>) rowList.get(2).getField(0);
-        assertTrue(actualDouble == null);
+        assertNull(actualDouble);
 
         actualDouble = (List<Double>) rowList.get(3).getField(0);
         for (int i = 0; i < actualDouble.size(); ++i) {
-            assertTrue(actualDouble.get(i) == null);
+            assertNull(actualDouble.get(i));
         }
 
         actualDouble = (List<Double>) rowList.get(4).getField(0);
@@ -6911,7 +6948,7 @@ public abstract class AbstractTestQueries
             assertTrue(actualDouble.get(i) > expectedDouble.get(i) - 1e-5 && actualDouble.get(i) < expectedDouble.get(i) + 1e-5);
         }
         for (int i = 2; i < actualDouble.size(); ++i) {
-            assertTrue(actualDouble.get(i) == null);
+            assertNull(actualDouble.get(i));
         }
 
         // decimal
@@ -7628,18 +7665,36 @@ public abstract class AbstractTestQueries
         // Orig
         String testQuery = "SELECT 1 from region join nation using(regionkey)";
         MaterializedResult result = computeActual("explain(type distributed) " + testQuery);
-        assertTrue(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("SemiJoin") == -1);
+        assertEquals(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("SemiJoin"), -1);
         result = computeActual(testQuery);
-        assertTrue(result.getRowCount() == 25);
+        assertEquals(result.getRowCount(), 25);
 
         // With feature
         Session session = Session.builder(getSession())
                 .setSystemProperty(JOIN_PREFILTER_BUILD_SIDE, String.valueOf(true))
                 .build();
         result = computeActual(session, "explain(type distributed) " + testQuery);
-        assertTrue(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("SemiJoin") != -1);
+        assertNotEquals(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("SemiJoin"), -1);
         result = computeActual(session, testQuery);
-        assertTrue(result.getRowCount() == 25);
+        assertEquals(result.getRowCount(), 25);
+    }
+
+    @Test
+    public void testRemoveCrossJoinWithSingleRowConstantInput()
+    {
+        Session enableOptimization = Session.builder(getSession())
+                .setSystemProperty(REMOVE_CROSS_JOIN_WITH_CONSTANT_SINGLE_ROW_INPUT, "true")
+                .build();
+        assertQuery(enableOptimization, "SELECT * FROM (SELECT EXTRACT(DAY FROM DATE '2017-01-01')) t CROSS JOIN (VALUES 1)",
+                "values (1, 1)");
+        assertQuery(enableOptimization, "SELECT * FROM (SELECT * FROM (VALUES 1) t(a)) t, region r WHERE r.regionkey = t.a");
+        assertQuery(enableOptimization, "WITH t(msg) AS (SELECT * FROM (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))) SELECT b.msg.x FROM t a, t b WHERE a.msg.y = b.msg.y",
+                "values 1");
+        assertQuery(enableOptimization, "WITH t(msg) AS (SELECT * FROM (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))) SELECT a.msg.y, b.msg.x from t a cross join t b where a.msg.x = 7 or is_finite(b.msg.y)",
+                "values (2.0, 1)");
+        assertQuery(enableOptimization, "WITH t(msg) AS (SELECT * FROM (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))) SELECT b.msg.x FROM t a, t b WHERE a.msg.y = b.msg.y limit 100",
+                "values 1");
+        assertQuery(enableOptimization, "select orderkey, col1 from orders cross join (select cast(col as varchar) col1 from (values 1) t(col))");
     }
 
     /**

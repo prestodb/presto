@@ -196,10 +196,10 @@ public class TestRealOperators
         assertFunction("CAST(REAL'1.98' as BIGINT)", BIGINT, 2L);
         assertFunction("CAST(REAL'-0.0' as BIGINT)", BIGINT, 0L);
 
-        assertInvalidFunction("CAST(cast(nan() AS REAL) as BIGINT)", INVALID_CAST_ARGUMENT);
-        assertInvalidFunction("CAST(cast(infinity() AS REAL) as BIGINT)", INVALID_CAST_ARGUMENT);
-        assertInvalidFunction("CAST(cast(-infinity() AS REAL) as BIGINT)", INVALID_CAST_ARGUMENT);
-        assertInvalidFunction("CAST(REAL '" + Float.MAX_VALUE + "' as BIGINT)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("CAST(cast(nan() AS REAL) as BIGINT)", INVALID_CAST_ARGUMENT, "Unable to cast NaN to bigint");
+        assertInvalidFunction("CAST(cast(infinity() AS REAL) as BIGINT)", INVALID_CAST_ARGUMENT, "Unable to cast Infinity to bigint");
+        assertInvalidFunction("CAST(cast(-infinity() AS REAL) as BIGINT)", INVALID_CAST_ARGUMENT, "Unable to cast -Infinity to bigint");
+        assertInvalidFunction("CAST(REAL '" + Float.MAX_VALUE + "' as BIGINT)", INVALID_CAST_ARGUMENT, "Unable to cast 3.4028235E38 to bigint");
     }
 
     @Test
@@ -217,12 +217,12 @@ public class TestRealOperators
         assertFunction("cast(REAL '" + -0x1.0p31 + "' as integer)", INTEGER, (int) -0x1.0p31);
         assertFunction("cast(REAL '" + Math.nextUp(-0x1.0p31f) + "' as integer)", INTEGER, (int) Math.nextUp(-0x1.0p31f));
 
-        assertInvalidFunction("cast(9.3E9 as integer)", INVALID_CAST_ARGUMENT);
-        assertInvalidFunction("cast(-9.3E9 as integer)", INVALID_CAST_ARGUMENT);
-        assertInvalidFunction("CAST(cast(nan() AS REAL) as INTEGER)", INVALID_CAST_ARGUMENT);
-        assertInvalidFunction("CAST(cast(infinity() AS REAL) as INTEGER)", INVALID_CAST_ARGUMENT);
-        assertInvalidFunction("CAST(cast(-infinity() AS REAL) as INTEGER)", INVALID_CAST_ARGUMENT);
-        assertInvalidFunction("CAST(REAL '" + (Integer.MAX_VALUE + 0.6) + "' as INTEGER)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(9.3E9 as integer)", INVALID_CAST_ARGUMENT, "Unable to cast 9.3E9 to integer");
+        assertInvalidFunction("cast(-9.3E9 as integer)", INVALID_CAST_ARGUMENT, "Unable to cast -9.3E9 to integer");
+        assertInvalidFunction("CAST(cast(nan() AS REAL) as INTEGER)", INVALID_CAST_ARGUMENT, "Unable to cast NaN to integer");
+        assertInvalidFunction("CAST(cast(infinity() AS REAL) as INTEGER)", INVALID_CAST_ARGUMENT, "Unable to cast Infinity to integer");
+        assertInvalidFunction("CAST(cast(-infinity() AS REAL) as INTEGER)", INVALID_CAST_ARGUMENT, "Unable to cast -Infinity to integer");
+        assertInvalidFunction("CAST(REAL '" + (Integer.MAX_VALUE + 0.6) + "' as INTEGER)", INVALID_CAST_ARGUMENT, "Unable to cast 2.14748365E9 to integer");
     }
 
     @Test
@@ -232,10 +232,10 @@ public class TestRealOperators
         assertFunction("CAST(REAL'-754.1985' AS SMALLINT)", SMALLINT, (short) -754);
         assertFunction("CAST(REAL'9.99' AS SMALLINT)", SMALLINT, (short) 10);
         assertFunction("CAST(REAL'-0.0' AS SMALLINT)", SMALLINT, (short) 0);
-        assertInvalidFunction("CAST(cast(nan() AS REAL) as SMALLINT)", INVALID_CAST_ARGUMENT);
-        assertInvalidFunction("CAST(cast(infinity() AS REAL) as SMALLINT)", INVALID_CAST_ARGUMENT);
-        assertInvalidFunction("CAST(cast(-infinity() AS REAL) as SMALLINT)", INVALID_CAST_ARGUMENT);
-        assertInvalidFunction("CAST(REAL '" + (Short.MAX_VALUE + 0.6) + "' as SMALLINT)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("CAST(cast(nan() AS REAL) as SMALLINT)", INVALID_CAST_ARGUMENT, "Unable to cast NaN to smallint");
+        assertInvalidFunction("CAST(cast(infinity() AS REAL) as SMALLINT)", INVALID_CAST_ARGUMENT, "Unable to cast Infinity to smallint");
+        assertInvalidFunction("CAST(cast(-infinity() AS REAL) as SMALLINT)", INVALID_CAST_ARGUMENT, "Unable to cast -Infinity to smallint");
+        assertInvalidFunction("CAST(REAL '" + (Short.MAX_VALUE + 0.6) + "' as SMALLINT)", INVALID_CAST_ARGUMENT, "Unable to cast 32767.6 to smallint");
     }
 
     @Test
@@ -245,10 +245,10 @@ public class TestRealOperators
         assertFunction("CAST(REAL'-128.234' AS TINYINT)", TINYINT, (byte) -128);
         assertFunction("CAST(REAL'9.99' AS TINYINT)", TINYINT, (byte) 10);
         assertFunction("CAST(REAL'-0.0' AS TINYINT)", TINYINT, (byte) 0);
-        assertInvalidFunction("CAST(cast(nan() AS REAL) as TINYINT)", INVALID_CAST_ARGUMENT);
-        assertInvalidFunction("CAST(cast(infinity() AS REAL) as TINYINT)", INVALID_CAST_ARGUMENT);
-        assertInvalidFunction("CAST(cast(-infinity() AS REAL) as TINYINT)", INVALID_CAST_ARGUMENT);
-        assertInvalidFunction("CAST(REAL '" + (Byte.MAX_VALUE + 0.6) + "' as TINYINT)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("CAST(cast(nan() AS REAL) as TINYINT)", INVALID_CAST_ARGUMENT, "Unable to cast NaN to tinyint");
+        assertInvalidFunction("CAST(cast(infinity() AS REAL) as TINYINT)", INVALID_CAST_ARGUMENT, "Unable to cast Infinity to tinyint");
+        assertInvalidFunction("CAST(cast(-infinity() AS REAL) as TINYINT)", INVALID_CAST_ARGUMENT, "Unable to cast -Infinity to tinyint");
+        assertInvalidFunction("CAST(REAL '" + (Byte.MAX_VALUE + 0.6) + "' as TINYINT)", INVALID_CAST_ARGUMENT, "Unable to cast 127.6 to tinyint");
     }
 
     @Test

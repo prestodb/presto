@@ -15,7 +15,9 @@ package com.facebook.presto.parquet;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.common.type.SqlDecimal;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.parquet.cache.MetadataReader;
@@ -77,7 +79,7 @@ public class BenchmarkParquetReader
 {
     public static final int ROWS = 10_000_000;
 
-    private static final boolean enableOptimizedReader = true;
+    private static final boolean enableBatchReader = true;
     private static final boolean enableVerification = false;
 
     public static void main(String[] args)
@@ -155,6 +157,34 @@ public class BenchmarkParquetReader
 
     @Benchmark
     public Object readInt96WithNull(Int96WithNullBenchmarkData data)
+            throws Throwable
+    {
+        return read(data);
+    }
+
+    @Benchmark
+    public Object readShortDecimalNoNull(ShortDecimalNoNullBenchmarkData data)
+            throws Throwable
+    {
+        return read(data);
+    }
+
+    @Benchmark
+    public Object readShortDecimalWithNull(ShortDecimalWithNullBenchmarkData data)
+            throws Throwable
+    {
+        return read(data);
+    }
+
+    @Benchmark
+    public Object readLongDecimalNoNull(LongDecimalNoNullBenchmarkData data)
+            throws Throwable
+    {
+        return read(data);
+    }
+
+    @Benchmark
+    public Object readLongDecimalWithNull(LongDecimalWithNullBenchmarkData data)
             throws Throwable
     {
         return read(data);
@@ -279,7 +309,7 @@ public class BenchmarkParquetReader
 
             this.field = ColumnIOConverter.constructField(getType(), messageColumnIO.getChild(0)).get();
 
-            return new ParquetReader(messageColumnIO, parquetMetadata.getBlocks(), Optional.empty(), dataSource, newSimpleAggregatedMemoryContext(), new DataSize(16, MEGABYTE), enableOptimizedReader, enableVerification, null, null, false, Optional.empty());
+            return new ParquetReader(messageColumnIO, parquetMetadata.getBlocks(), Optional.empty(), dataSource, newSimpleAggregatedMemoryContext(), new DataSize(16, MEGABYTE), enableBatchReader, enableVerification, null, null, false, Optional.empty());
         }
 
         protected boolean getNullability()
@@ -501,6 +531,112 @@ public class BenchmarkParquetReader
         protected Type getType()
         {
             return TIMESTAMP;
+        }
+    }
+
+    @State(Scope.Thread)
+    public static class ShortDecimalNoNullBenchmarkData
+            extends BenchmarkData
+    {
+        @Override
+        protected Type getType()
+        {
+            return DecimalType.createDecimalType(11, 10);
+        }
+
+        @Override
+        protected List<SqlDecimal> generateValues()
+        {
+            List<SqlDecimal> values = new ArrayList<>();
+            for (int i = 0; i < ROWS; ++i) {
+                values.add(SqlDecimal.of(random.nextInt(), 11, 10));
+            }
+            return values;
+        }
+
+        @Override
+        protected boolean getNullability()
+        {
+            return false;
+        }
+    }
+
+    @State(Scope.Thread)
+    public static class ShortDecimalWithNullBenchmarkData
+            extends BenchmarkData
+    {
+        @Override
+        protected List<?> generateValues()
+        {
+            List<SqlDecimal> values = new ArrayList<>();
+            for (int i = 0; i < ROWS; ++i) {
+                if (random.nextBoolean()) {
+                    values.add(SqlDecimal.of(random.nextInt(), 18, 18));
+                }
+                else {
+                    values.add(null);
+                }
+            }
+            return values;
+        }
+
+        @Override
+        protected Type getType()
+        {
+            return DecimalType.createDecimalType(18, 18);
+        }
+    }
+
+    @State(Scope.Thread)
+    public static class LongDecimalNoNullBenchmarkData
+            extends BenchmarkData
+    {
+        @Override
+        protected Type getType()
+        {
+            return DecimalType.createDecimalType(38, 18);
+        }
+
+        @Override
+        protected List<SqlDecimal> generateValues()
+        {
+            List<SqlDecimal> values = new ArrayList<>();
+            for (int i = 0; i < ROWS; ++i) {
+                values.add(SqlDecimal.of(random.nextInt(), 38, 18));
+            }
+            return values;
+        }
+
+        @Override
+        protected boolean getNullability()
+        {
+            return false;
+        }
+    }
+
+    @State(Scope.Thread)
+    public static class LongDecimalWithNullBenchmarkData
+            extends BenchmarkData
+    {
+        @Override
+        protected List<?> generateValues()
+        {
+            List<SqlDecimal> values = new ArrayList<>();
+            for (int i = 0; i < ROWS; ++i) {
+                if (random.nextBoolean()) {
+                    values.add(SqlDecimal.of(random.nextInt(), 38, 18));
+                }
+                else {
+                    values.add(null);
+                }
+            }
+            return values;
+        }
+
+        @Override
+        protected Type getType()
+        {
+            return DecimalType.createDecimalType(18, 18);
         }
     }
 
@@ -906,6 +1042,22 @@ public class BenchmarkParquetReader
             Int96WithNullBenchmarkData dataInt96WithNull = new Int96WithNullBenchmarkData();
             dataInt96WithNull.setup();
             benchmark.readInt96WithNull(dataInt96WithNull);
+
+            ShortDecimalNoNullBenchmarkData dataShortDecimalNoNull = new ShortDecimalNoNullBenchmarkData();
+            dataShortDecimalNoNull.setup();
+            benchmark.readShortDecimalNoNull(dataShortDecimalNoNull);
+
+            ShortDecimalWithNullBenchmarkData dataShortDecimalWithNull = new ShortDecimalWithNullBenchmarkData();
+            dataShortDecimalWithNull.setup();
+            benchmark.readShortDecimalWithNull(dataShortDecimalWithNull);
+
+            LongDecimalNoNullBenchmarkData dataLongDecimalNoNull = new LongDecimalNoNullBenchmarkData();
+            dataLongDecimalNoNull.setup();
+            benchmark.readLongDecimalNoNull(dataLongDecimalNoNull);
+
+            LongDecimalWithNullBenchmarkData dataLongDecimalWithNull = new LongDecimalWithNullBenchmarkData();
+            dataLongDecimalWithNull.setup();
+            benchmark.readLongDecimalWithNull(dataLongDecimalWithNull);
 
             VarcharNoNullBenchmarkData dataVarcharNoNull = new VarcharNoNullBenchmarkData();
             dataVarcharNoNull.setup();
