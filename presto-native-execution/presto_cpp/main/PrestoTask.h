@@ -82,6 +82,8 @@ struct ResultRequest {
         maxSize(_maxSize) {}
 };
 
+bool isFinalState(protocol::TaskState state);
+
 struct PrestoTask {
   const PrestoTaskId id;
   const long startProcessCpuTime;
@@ -161,9 +163,234 @@ struct PrestoTask {
     return updateStatusLocked();
   }
 
-  protocol::TaskInfo updateInfo() {
+  protocol::TaskInfo updateInfo(bool summarize = false) {
     std::lock_guard<std::mutex> l(mutex);
-    return updateInfoLocked();
+    return updateInfoLocked(summarize);
+  }
+
+  /// Summarize TaskInfo to avoid too heavy ser & de-ser on communication.
+  static protocol::TaskInfo summarize(const protocol::TaskInfo& taskInfo) {
+    return protocol::TaskInfo{
+        taskInfo.taskId,
+        taskInfo.taskStatus,
+        taskInfo.lastHeartbeat,
+        taskInfo.outputBuffers,
+        taskInfo.noMoreSplits,
+        // summarize TaskStats as needed
+        isFinalState(taskInfo.taskStatus.state) ? summarizeFinal(taskInfo.stats)
+                                                : summarize(taskInfo.stats),
+        taskInfo.needsPlan,
+        taskInfo.metadataUpdates,
+        taskInfo.nodeId};
+  }
+
+  /// summarizeFinal TaskStats to avoid too heavy ser & de-ser on communication.
+  static protocol::TaskStats summarizeFinal(
+      const protocol::TaskStats& taskStats) {
+    const protocol::List<protocol::PipelineStats>& pipelines =
+        taskStats.pipelines;
+    protocol::List<protocol::PipelineStats> new_pipelines(pipelines.size());
+    std::transform(
+        pipelines.begin(),
+        pipelines.end(),
+        new_pipelines.begin(),
+        [](const protocol::PipelineStats& p) -> protocol::PipelineStats {
+          return summarize(p);
+        });
+    return protocol::TaskStats{
+        taskStats.createTime,
+        taskStats.firstStartTime,
+        taskStats.lastStartTime,
+        taskStats.lastEndTime,
+        taskStats.endTime,
+        taskStats.elapsedTimeInNanos,
+        taskStats.queuedTimeInNanos,
+        taskStats.totalDrivers,
+        taskStats.queuedDrivers,
+        taskStats.queuedPartitionedDrivers,
+        taskStats.queuedPartitionedSplitsWeight,
+        taskStats.runningDrivers,
+        taskStats.runningPartitionedDrivers,
+        taskStats.runningPartitionedSplitsWeight,
+        taskStats.blockedDrivers,
+        taskStats.completedDrivers,
+        taskStats.cumulativeUserMemory,
+        taskStats.cumulativeTotalMemory,
+        taskStats.userMemoryReservationInBytes,
+        taskStats.revocableMemoryReservationInBytes,
+        taskStats.systemMemoryReservationInBytes,
+        taskStats.peakTotalMemoryInBytes,
+        taskStats.peakUserMemoryInBytes,
+        taskStats.peakNodeTotalMemoryInBytes,
+        taskStats.totalScheduledTimeInNanos,
+        taskStats.totalCpuTimeInNanos,
+        taskStats.totalBlockedTimeInNanos,
+        taskStats.fullyBlocked,
+        taskStats.blockedReasons,
+        taskStats.totalAllocationInBytes,
+        taskStats.rawInputDataSizeInBytes,
+        taskStats.rawInputPositions,
+        taskStats.processedInputDataSizeInBytes,
+        taskStats.processedInputPositions,
+        taskStats.outputDataSizeInBytes,
+        taskStats.outputPositions,
+        taskStats.physicalWrittenDataSizeInBytes,
+        taskStats.fullGcCount,
+        taskStats.fullGcTimeInMillis,
+        new_pipelines, // summarize PipelineStats
+        taskStats.runtimeStats // stripe runtimeStats
+    };
+  }
+
+  /// Summarize TaskStats to avoid too heavy ser & de-ser on communication.
+  static protocol::TaskStats summarize(const protocol::TaskStats& taskStats) {
+    return protocol::TaskStats{
+        taskStats.createTime,
+        taskStats.firstStartTime,
+        taskStats.lastStartTime,
+        taskStats.lastEndTime,
+        taskStats.endTime,
+        taskStats.elapsedTimeInNanos,
+        taskStats.queuedTimeInNanos,
+        taskStats.totalDrivers,
+        taskStats.queuedDrivers,
+        taskStats.queuedPartitionedDrivers,
+        taskStats.queuedPartitionedSplitsWeight,
+        taskStats.runningDrivers,
+        taskStats.runningPartitionedDrivers,
+        taskStats.runningPartitionedSplitsWeight,
+        taskStats.blockedDrivers,
+        taskStats.completedDrivers,
+        taskStats.cumulativeUserMemory,
+        taskStats.cumulativeTotalMemory,
+        taskStats.userMemoryReservationInBytes,
+        taskStats.revocableMemoryReservationInBytes,
+        taskStats.systemMemoryReservationInBytes,
+        taskStats.peakTotalMemoryInBytes,
+        taskStats.peakUserMemoryInBytes,
+        taskStats.peakNodeTotalMemoryInBytes,
+        taskStats.totalScheduledTimeInNanos,
+        taskStats.totalCpuTimeInNanos,
+        taskStats.totalBlockedTimeInNanos,
+        taskStats.fullyBlocked,
+        taskStats.blockedReasons,
+        taskStats.totalAllocationInBytes,
+        taskStats.rawInputDataSizeInBytes,
+        taskStats.rawInputPositions,
+        taskStats.processedInputDataSizeInBytes,
+        taskStats.processedInputPositions,
+        taskStats.outputDataSizeInBytes,
+        taskStats.outputPositions,
+        taskStats.physicalWrittenDataSizeInBytes,
+        taskStats.fullGcCount,
+        taskStats.fullGcTimeInMillis,
+        {}, // stripe PipelineStats
+        {} // stripe runtimeStats
+    };
+  }
+
+  /// Summarize PipelineStats to avoid too heavy ser & de-ser on communication.
+  static protocol::PipelineStats summarize(
+      const protocol::PipelineStats& pipelineStats) {
+    const protocol::List<protocol::OperatorStats>& operatorSummaries =
+        pipelineStats.operatorSummaries;
+    protocol::List<protocol::OperatorStats> new_operatorSummaries(
+        operatorSummaries.size());
+    std::transform(
+        operatorSummaries.begin(),
+        operatorSummaries.end(),
+        new_operatorSummaries.begin(),
+        [](const protocol::OperatorStats& p) -> protocol::OperatorStats {
+          return summarize(p);
+        });
+    return protocol::PipelineStats{
+        pipelineStats.pipelineId,
+        pipelineStats.firstStartTime,
+        pipelineStats.lastStartTime,
+        pipelineStats.lastEndTime,
+        pipelineStats.inputPipeline,
+        pipelineStats.outputPipeline,
+        pipelineStats.totalDrivers,
+        pipelineStats.queuedDrivers,
+        pipelineStats.queuedPartitionedDrivers,
+        pipelineStats.queuedPartitionedSplitsWeight,
+        pipelineStats.runningDrivers,
+        pipelineStats.runningPartitionedDrivers,
+        pipelineStats.runningPartitionedSplitsWeight,
+        pipelineStats.blockedDrivers,
+        pipelineStats.completedDrivers,
+        pipelineStats.userMemoryReservationInBytes,
+        pipelineStats.revocableMemoryReservationInBytes,
+        pipelineStats.systemMemoryReservationInBytes,
+        pipelineStats.queuedTime,
+        pipelineStats.elapsedTime,
+        pipelineStats.totalScheduledTimeInNanos,
+        pipelineStats.totalCpuTimeInNanos,
+        pipelineStats.totalBlockedTimeInNanos,
+        pipelineStats.fullyBlocked,
+        pipelineStats.blockedReasons,
+        pipelineStats.totalAllocationInBytes,
+        pipelineStats.rawInputDataSizeInBytes,
+        pipelineStats.rawInputPositions,
+        pipelineStats.processedInputDataSizeInBytes,
+        pipelineStats.processedInputPositions,
+        pipelineStats.outputDataSizeInBytes,
+        pipelineStats.outputPositions,
+        pipelineStats.physicalWrittenDataSizeInBytes,
+        new_operatorSummaries, // summarize operatorSummaries
+        {} // stripe drivers
+    };
+  }
+
+  /// Summarize OperatorStats to avoid too heavy ser & de-ser on communication.
+  static protocol::OperatorStats summarize(
+      const protocol::OperatorStats& operatorStats) {
+    return protocol::OperatorStats{
+        operatorStats.stageId,
+        operatorStats.stageExecutionId,
+        operatorStats.pipelineId,
+        operatorStats.operatorId,
+        operatorStats.planNodeId,
+        operatorStats.operatorType,
+        operatorStats.totalDrivers,
+        operatorStats.addInputCalls,
+        operatorStats.addInputWall,
+        operatorStats.addInputCpu,
+        operatorStats.addInputAllocation,
+        operatorStats.rawInputDataSize,
+        operatorStats.rawInputPositions,
+        operatorStats.inputDataSize,
+        operatorStats.inputPositions,
+        operatorStats.sumSquaredInputPositions,
+        operatorStats.getOutputCalls,
+        operatorStats.getOutputWall,
+        operatorStats.getOutputCpu,
+        operatorStats.getOutputAllocation,
+        operatorStats.outputDataSize,
+        operatorStats.outputPositions,
+        operatorStats.physicalWrittenDataSize,
+        operatorStats.additionalCpu,
+        operatorStats.blockedWall,
+        operatorStats.finishCalls,
+        operatorStats.finishWall,
+        operatorStats.finishCpu,
+        operatorStats.finishAllocation,
+        operatorStats.userMemoryReservation,
+        operatorStats.revocableMemoryReservation,
+        operatorStats.systemMemoryReservation,
+        operatorStats.peakUserMemoryReservation,
+        operatorStats.peakSystemMemoryReservation,
+        operatorStats.peakTotalMemoryReservation,
+        operatorStats.spilledDataSize,
+        operatorStats.blockedReason,
+        {}, // strip OperatorInfo
+        {}, // strip RuntimeStats as TaskStats already having
+        operatorStats.dynamicFilterStats,
+        operatorStats.nullJoinBuildKeyCount,
+        operatorStats.joinBuildKeyCount,
+        operatorStats.nullJoinProbeKeyCount,
+        operatorStats.joinProbeKeyCount,
+    };
   }
 
   /// Turns the task numbers (per state) into a string.
@@ -172,7 +399,7 @@ struct PrestoTask {
 
   /// Invoked to update presto task status from the updated velox task stats.
   protocol::TaskStatus updateStatusLocked();
-  protocol::TaskInfo updateInfoLocked();
+  protocol::TaskInfo updateInfoLocked(bool summarize = false);
 
   folly::dynamic toJson() const;
 
@@ -207,7 +434,5 @@ using TaskMap =
 protocol::RuntimeMetric toRuntimeMetric(
     const std::string& name,
     const facebook::velox::RuntimeMetric& metric);
-
-bool isFinalState(protocol::TaskState state);
 
 } // namespace facebook::presto

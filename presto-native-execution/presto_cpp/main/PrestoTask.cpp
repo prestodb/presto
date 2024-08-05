@@ -423,7 +423,7 @@ void PrestoTask::updateOutputBufferInfoLocked(
       outputBufferStats.numTopBuffers);
 }
 
-protocol::TaskInfo PrestoTask::updateInfoLocked() {
+protocol::TaskInfo PrestoTask::updateInfoLocked(bool summarize) {
   const protocol::TaskStatus prestoTaskStatus = updateStatusLocked();
 
   // Return limited info if there is no exec task.
@@ -493,7 +493,7 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
   }
 
   lastTaskStatsUpdateMs = currentTimeMs;
-  return info;
+  return summarize ? PrestoTask::summarize(info) : info;
 }
 
 void PrestoTask::updateTimeInfoLocked(

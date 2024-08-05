@@ -637,7 +637,7 @@ class TaskManagerTest : public testing::Test {
         taskManager_->getQueryContextManager()->findOrCreateQueryCtx(
             taskId, updateRequest.session);
     return taskManager_->createOrUpdateTask(
-        taskId, updateRequest, planFragment, std::move(queryCtx), 0);
+        taskId, updateRequest, planFragment, true, std::move(queryCtx), 0);
   }
 
   std::shared_ptr<memory::MemoryPool> rootPool_;
@@ -843,7 +843,8 @@ TEST_F(TaskManagerTest, taskCleanupWithPendingResultData) {
           .getVia(folly::EventBaseManager::get()->getEventBase());
 
   std::exception e;
-  taskManager_->createOrUpdateErrorTask(taskId, std::make_exception_ptr(e), 0);
+  taskManager_->createOrUpdateErrorTask(
+      taskId, std::make_exception_ptr(e), true, 0);
   taskManager_->deleteTask(taskId, true);
   for (int i = 0; i < 10; ++i) {
     // 'results' holds a reference on the presto task which prevents the old
@@ -891,12 +892,13 @@ TEST_F(TaskManagerTest, tableScanOneSplitAtATime) {
 
     protocol::TaskUpdateRequest updateRequest;
     updateRequest.sources.push_back(source);
-    taskManager_->createOrUpdateTask(taskId, updateRequest, {}, nullptr, 0);
+    taskManager_->createOrUpdateTask(
+        taskId, updateRequest, {}, true, nullptr, 0);
   }
 
   protocol::TaskUpdateRequest updateRequest;
   updateRequest.sources.push_back(makeSource("0", {}, true, splitSequenceId));
-  taskManager_->createOrUpdateTask(taskId, updateRequest, {}, nullptr, 0);
+  taskManager_->createOrUpdateTask(taskId, updateRequest, {}, true, nullptr, 0);
 
   assertResults(taskId, rowType_, "SELECT * FROM tmp WHERE c0 % 5 = 1");
 }
@@ -1297,7 +1299,8 @@ TEST_F(TaskManagerTest, getDataOnAbortedTask) {
 TEST_F(TaskManagerTest, getResultsFromFailedTask) {
   const protocol::TaskId taskId = "error-task.0.0.0.0";
   std::exception e;
-  taskManager_->createOrUpdateErrorTask(taskId, std::make_exception_ptr(e), 0);
+  taskManager_->createOrUpdateErrorTask(
+      taskId, std::make_exception_ptr(e), true, 0);
 
   // We expect to get empty results, rather than an exception.
   const uint64_t startTimeUs = velox::getCurrentTimeMicro();
@@ -1470,7 +1473,7 @@ TEST_F(TaskManagerTest, checkBatchSplits) {
       taskManager_->getQueryContextManager()->findOrCreateQueryCtx(taskId, {});
   VELOX_ASSERT_THROW(
       taskManager_->createOrUpdateBatchTask(
-          taskId, {}, planFragment, queryCtx, 0),
+          taskId, {}, planFragment, true, queryCtx, 0),
       "Expected all splits and no-more-splits message for all plan nodes");
 
   // Splits for scan node on the probe side.
@@ -1479,7 +1482,7 @@ TEST_F(TaskManagerTest, checkBatchSplits) {
       makeSource(probeId, {}, true));
   VELOX_ASSERT_THROW(
       taskManager_->createOrUpdateBatchTask(
-          taskId, batchRequest, planFragment, queryCtx, 0),
+          taskId, batchRequest, planFragment, true, queryCtx, 0),
       "Expected all splits and no-more-splits message for all plan nodes: " +
           buildId);
 
@@ -1489,13 +1492,13 @@ TEST_F(TaskManagerTest, checkBatchSplits) {
       makeSource(buildId, {}, false));
   VELOX_ASSERT_THROW(
       taskManager_->createOrUpdateBatchTask(
-          taskId, batchRequest, planFragment, queryCtx, 0),
+          taskId, batchRequest, planFragment, true, queryCtx, 0),
       "Expected no-more-splits message for plan node " + buildId);
 
   // All splits.
   batchRequest.taskUpdateRequest.sources.back().noMoreSplits = true;
   ASSERT_NO_THROW(taskManager_->createOrUpdateBatchTask(
-      taskId, batchRequest, planFragment, queryCtx, 0));
+      taskId, batchRequest, planFragment, true, queryCtx, 0));
   auto resultOrFailure = fetchAllResults(taskId, ROW({BIGINT()}), {});
   ASSERT_EQ(resultOrFailure.status, nullptr);
 }
