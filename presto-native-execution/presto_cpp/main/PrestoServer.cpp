@@ -665,21 +665,14 @@ void PrestoServer::run() {
 
 void PrestoServer::startLinuxMemoryChecker() {
 #ifdef PRESTO_ENABLE_LINUX_MEMORY_CHECKER
-  uint64_t systemMemLimitBytes = systemConfig->systemMemLimitGb();
-  uint64_t systemMemShrinkBytes = systemConfig->systemMemShrinkGb();
-  linuxMemoryChecker_ =
-      std::make_unique<LinuxMemoryChecker>(PeriodicMemoryChecker::Config{
-          1'000,
-          systemConfig->systemMemPushbackEnabled(),
-          systemMemLimitBytes << 30,
-          systemMemShrinkBytes << 30,
-          systemConfig->mallocMemHeapDumpEnabled(),
-          systemConfig->mallocMemMinHeapDumpInterval(),
-          "/path/to/dir",
-          "prefix",
-          systemConfig->mallocMemMaxHeapDumpFiles(),
-          20UL * 1024 * 1024 * 1024});
-
+  PeriodicMemoryChecker::Config config;
+  config.systemMemPushbackEnabled = systemConfig->systemMemPushbackEnabled();
+  config.systemMemLimitBytes = systemConfig->systemMemLimitGb() << 30;
+  config.systemMemShrinkBytes = systemConfig->systemMemShrinkGb() << 30;
+  config.mallocMemHeapDumpEnabled = systemConfig->mallocMemHeapDumpEnabled();
+  config.minHeapDumpIntervalSec = systemConfig->mallocMemMinHeapDumpInterval();
+  config.maxHeapDumpFiles = systemConfig->mallocMemMaxHeapDumpFiles();
+  linuxMemoryChecker_ = std::make_unique<LinuxMemoryChecker>(config);
   linuxMemoryChecker_->start();
 #endif // PRESTO_ENABLE_LINUX_MEMORY_CHECKER
 }
