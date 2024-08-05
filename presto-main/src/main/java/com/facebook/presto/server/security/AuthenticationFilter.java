@@ -15,6 +15,8 @@ package com.facebook.presto.server.security;
 
 import com.facebook.airlift.http.server.AuthenticationException;
 import com.facebook.airlift.http.server.Authenticator;
+import com.facebook.presto.RequestModifierManager;
+import com.facebook.presto.spi.RequestModifier;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -34,8 +36,14 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.InputStream;
 import java.security.Principal;
+import java.util.Collections;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.io.ByteStreams.copy;
@@ -50,12 +58,14 @@ public class AuthenticationFilter
     private static final String HTTPS_PROTOCOL = "https";
     private final List<Authenticator> authenticators;
     private final boolean allowForwardedHttps;
+    private final RequestModifierManager requestModifierManager;
 
     @Inject
-    public AuthenticationFilter(List<Authenticator> authenticators, SecurityConfig securityConfig)
+    public AuthenticationFilter(List<Authenticator> authenticators, SecurityConfig securityConfig, RequestModifierManager requestModifierManager)
     {
         this.authenticators = ImmutableList.copyOf(requireNonNull(authenticators, "authenticators is null"));
         this.allowForwardedHttps = requireNonNull(securityConfig, "securityConfig is null").getAllowForwardedHttps();
+        this.requestModifierManager = requireNonNull(requestModifierManager, "requestModifierManager is null");
     }
 
     @Override
@@ -93,9 +103,28 @@ public class AuthenticationFilter
                 e.getAuthenticateHeader().ifPresent(authenticateHeaders::add);
                 continue;
             }
-
             // authentication succeeded
-            nextFilter.doFilter(withPrincipal(request, principal), response);
+            CustomHttpServletRequestWrapper wrappedRequest = withPrincipal(request, principal);
+            Map<String, String> extraHeadersMap = new HashMap<>();
+
+            for (RequestModifier modifier : requestModifierManager.getRequestModifiers()) {
+                boolean headersPresent = modifier.getHeaderNames().stream()
+                        .allMatch(headerName -> request.getHeaders(headerName) != null);
+
+                if (!headersPresent) {
+                    Optional<Map<String, String>> extraHeaderValueMap = modifier.getExtraHeaders(principal);
+
+                    extraHeaderValueMap.ifPresent(map -> {
+                        for (Map.Entry<String, String> extraHeaderEntry : map.entrySet()) {
+                            if (request.getHeaders(extraHeaderEntry.getKey()) == null) {
+                                extraHeadersMap.putIfAbsent(extraHeaderEntry.getKey(), extraHeaderEntry.getValue());
+                            }
+                        }
+                    });
+                }
+            }
+            wrappedRequest.setHeaders(extraHeadersMap);
+            nextFilter.doFilter(wrappedRequest, response);
             return;
         }
 
@@ -126,17 +155,10 @@ public class AuthenticationFilter
         return false;
     }
 
-    private static ServletRequest withPrincipal(HttpServletRequest request, Principal principal)
+    private static CustomHttpServletRequestWrapper withPrincipal(HttpServletRequest request, Principal principal)
     {
         requireNonNull(principal, "principal is null");
-        return new HttpServletRequestWrapper(request)
-        {
-            @Override
-            public Principal getUserPrincipal()
-            {
-                return principal;
-            }
-        };
+        return new CustomHttpServletRequestWrapper(request, principal);
     }
 
     private static void skipRequestBody(HttpServletRequest request)
@@ -150,6 +172,67 @@ public class AuthenticationFilter
         // unauthenticated request before sending the response.
         try (InputStream inputStream = request.getInputStream()) {
             copy(inputStream, nullOutputStream());
+        }
+    }
+
+    public static class CustomHttpServletRequestWrapper
+            extends HttpServletRequestWrapper
+    {
+        private final Map<String, String> customHeaders;
+
+        private final Principal principal;
+
+        public CustomHttpServletRequestWrapper(HttpServletRequest request, Principal principal)
+        {
+            super(request);
+            this.principal = principal;
+            this.customHeaders = new HashMap<>();
+        }
+
+        public void addHeader(String name, String value)
+        {
+            customHeaders.put(name, value);
+        }
+
+        @Override
+        public String getHeader(String name)
+        {
+            String headerValue = customHeaders.get(name);
+            if (headerValue != null) {
+                return headerValue;
+            }
+            return super.getHeader(name);
+        }
+
+        @Override
+        public Enumeration<String> getHeaderNames()
+        {
+            Set<String> headerNames = new HashSet<>(customHeaders.keySet());
+            Enumeration<String> originalHeaderNames = super.getHeaderNames();
+            while (originalHeaderNames.hasMoreElements()) {
+                headerNames.add(originalHeaderNames.nextElement());
+            }
+            return Collections.enumeration(headerNames);
+        }
+
+        @Override
+        public Enumeration<String> getHeaders(String name)
+        {
+            if (customHeaders.containsKey(name)) {
+                return Collections.enumeration(Collections.singleton(customHeaders.get(name)));
+            }
+            return super.getHeaders(name);
+        }
+
+        @Override
+        public Principal getUserPrincipal()
+        {
+            return principal;
+        }
+
+        public void setHeaders(Map<String, String> headers)
+        {
+            this.customHeaders.putAll(headers);
         }
     }
 }
