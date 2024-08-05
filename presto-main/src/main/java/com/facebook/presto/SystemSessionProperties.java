@@ -352,6 +352,7 @@ public final class SystemSessionProperties
     public static final String DEFAULT_VIEW_SECURITY_MODE = "default_view_security_mode";
     public static final String JOIN_PREFILTER_BUILD_SIDE = "join_prefilter_build_side";
     public static final String OPTIMIZER_USE_HISTOGRAMS = "optimizer_use_histograms";
+    public static final String WARN_ON_COMMON_NAN_PATTERNS = "warn_on_common_nan_patterns";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1970,6 +1971,10 @@ public final class SystemSessionProperties
                 booleanProperty(OPTIMIZER_USE_HISTOGRAMS,
                         "whether or not to use histograms in the CBO",
                         featuresConfig.isUseHistograms(),
+                        false),
+                booleanProperty(WARN_ON_COMMON_NAN_PATTERNS,
+                        "Whether to give a warning for some common issues relating to NaNs",
+                        featuresConfig.getWarnOnCommonNanPatterns(),
                         false));
     }
 
@@ -3286,5 +3291,10 @@ public final class SystemSessionProperties
     public static boolean shouldOptimizerUseHistograms(Session session)
     {
         return session.getSystemProperty(OPTIMIZER_USE_HISTOGRAMS, Boolean.class);
+    }
+
+    public static boolean warnOnCommonNanPatterns(Session session)
+    {
+        return session.getSystemProperty(WARN_ON_COMMON_NAN_PATTERNS, Boolean.class);
     }
 }

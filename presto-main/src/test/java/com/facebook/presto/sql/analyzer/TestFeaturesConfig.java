@@ -277,7 +277,8 @@ public class TestFeaturesConfig
                 .setPrintEstimatedStatsFromCache(false)
                 .setRemoveCrossJoinWithSingleConstantRow(true)
                 .setUseHistograms(false)
-                .setUseNewNanDefinition(true));
+                .setUseNewNanDefinition(true)
+                .setWarnOnCommonNanPatterns(false));
     }
 
     @Test
@@ -499,6 +500,7 @@ public class TestFeaturesConfig
                 .put("optimizer.remove-cross-join-with-single-constant-row", "false")
                 .put("optimizer.use-histograms", "true")
                 .put("use-new-nan-definition", "false")
+                .put("warn-on-common-nan-patterns", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -717,7 +719,8 @@ public class TestFeaturesConfig
                 .setPrintEstimatedStatsFromCache(true)
                 .setRemoveCrossJoinWithSingleConstantRow(false)
                 .setUseHistograms(true)
-                .setUseNewNanDefinition(false);
+                .setUseNewNanDefinition(false)
+                .setWarnOnCommonNanPatterns(true);
         assertFullMapping(properties, expected);
     }
 
