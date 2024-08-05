@@ -1144,6 +1144,15 @@ std::array<size_t, 5> TaskManager::getTaskNumbers(size_t& numTasks) const {
   return res;
 }
 
+int64_t TaskManager::getBytesProcessed() const {
+  const auto taskMap = *taskMap_.rlock();
+  int64_t totalCount = 0;
+  for (const auto& pair : taskMap) {
+    totalCount += pair.second->info.stats.processedInputDataSizeInBytes;
+  }
+  return totalCount;
+}
+
 void TaskManager::shutdown() {
   size_t numTasks;
   auto taskNumbers = getTaskNumbers(numTasks);

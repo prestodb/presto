@@ -812,6 +812,32 @@ Examples:
 
     CALL iceberg.system.expire_snapshots(schema => 'schema_name', table_name => 'table_name', snapshot_ids => ARRAY[10001, 10002]);
 
+Remove Orphan Files
+^^^^^^^^^^^^^^^^^^^
+
+Use to remove files which are not referenced in any metadata files of an Iceberg table.
+
+The following arguments are available:
+
+===================== ========== =============== =======================================================================
+Argument Name         required   type            Description
+===================== ========== =============== =======================================================================
+``schema``            ✔️         string          Schema of the table to clean
+
+``table_name``        ✔️         string          Name of the table to clean
+
+``older_than``                   timestamp       Remove orphan files created before this timestamp (Default: 3 days ago)
+===================== ========== =============== =======================================================================
+
+Examples:
+
+* Remove any files which are not known to the table `db.sample` and older than specified timestamp::
+
+    CALL iceberg.system.remove_orphan_files('db', 'sample', TIMESTAMP '2023-08-31 00:00:00.000');
+
+* Remove any files which are not known to the table `db.sample` and created 3 days ago (by default)::
+
+    CALL iceberg.system.remove_orphan_files(schema => 'db', table_name => 'sample');
 
 SQL Support
 -----------

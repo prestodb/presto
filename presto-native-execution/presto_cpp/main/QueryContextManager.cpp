@@ -102,7 +102,7 @@ std::unordered_map<std::string, std::string> toVeloxConfigs(
   if (session.timeZoneKey != 0) {
     configs.emplace(
         velox::core::QueryConfig::kSessionTimezone,
-        velox::util::getTimeZoneName(session.timeZoneKey));
+        velox::tz::getTimeZoneName(session.timeZoneKey));
   }
   updateFromSystemConfigs(configs);
   return configs;
