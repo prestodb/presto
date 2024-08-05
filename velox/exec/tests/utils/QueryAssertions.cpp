@@ -879,14 +879,20 @@ std::vector<MaterializedRow> materialize(const RowVectorPtr& vector) {
   std::vector<MaterializedRow> rows;
   rows.reserve(size);
 
-  auto& rowType = vector->type()->as<TypeKind::ROW>();
+  auto numColumns = vector->childrenSize();
+  std::vector<VectorPtr> simpleVectors(numColumns);
+
+  // variantAt() assumes you can upcast to SimpleVector, so we need to take
+  // the inner vector out of lazies first.
+  for (size_t i = 0; i < numColumns; ++i) {
+    simpleVectors[i] = BaseVector::loadedVectorShared(vector->childAt(i));
+  }
 
   for (size_t i = 0; i < size; ++i) {
-    auto numColumns = rowType.size();
     MaterializedRow row;
     row.reserve(numColumns);
     for (size_t j = 0; j < numColumns; ++j) {
-      row.push_back(variantAt(vector->childAt(j), i));
+      row.push_back(variantAt(simpleVectors[j], i));
     }
     rows.push_back(row);
   }
