@@ -15,13 +15,13 @@
  */
 
 #ifdef VELOX_ENABLE_S3
-#include "velox/connectors/hive/HiveConfig.h"
-#include "velox/connectors/hive/storage_adapters/s3fs/S3FileSystem.h"
-#include "velox/connectors/hive/storage_adapters/s3fs/S3Util.h"
+#include "velox/connectors/hive/HiveConfig.h" // @manual
+#include "velox/connectors/hive/storage_adapters/s3fs/S3FileSystem.h" // @manual
+#include "velox/connectors/hive/storage_adapters/s3fs/S3Util.h" // @manual
 #include "velox/dwio/common/FileSink.h"
 #endif
 
-#include "velox/connectors/hive/storage_adapters/s3fs/RegisterS3FileSystem.h"
+#include "velox/connectors/hive/storage_adapters/s3fs/RegisterS3FileSystem.h" // @manual
 
 namespace facebook::velox::filesystems {
 

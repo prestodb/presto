@@ -15,8 +15,8 @@
  */
 
 #ifdef VELOX_ENABLE_GCS
-#include "velox/connectors/hive/storage_adapters/gcs/GCSFileSystem.h"
-#include "velox/connectors/hive/storage_adapters/gcs/GCSUtil.h"
+#include "velox/connectors/hive/storage_adapters/gcs/GCSFileSystem.h" // @manual
+#include "velox/connectors/hive/storage_adapters/gcs/GCSUtil.h" // @manual
 #include "velox/core/Config.h"
 #endif
 

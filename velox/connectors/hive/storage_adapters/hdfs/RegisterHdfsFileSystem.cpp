@@ -17,8 +17,8 @@
 #ifdef VELOX_ENABLE_HDFS3
 #include "folly/concurrency/ConcurrentHashMap.h"
 
-#include "velox/connectors/hive/storage_adapters/hdfs/HdfsFileSystem.h"
-#include "velox/connectors/hive/storage_adapters/hdfs/HdfsUtil.h"
+#include "velox/connectors/hive/storage_adapters/hdfs/HdfsFileSystem.h" // @manual
+#include "velox/connectors/hive/storage_adapters/hdfs/HdfsUtil.h" // @manual
 #include "velox/core/Config.h"
 #include "velox/dwio/common/FileSink.h"
 #endif
