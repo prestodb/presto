@@ -1,4 +1,3 @@
-version: '2'
 services:
   spark-master:
     image: spydernaz/spark-master:2.4.3

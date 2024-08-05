@@ -29,26 +29,30 @@ Configuration Properties
 
 The following configuration properties are available for HBO:
 
-=========================================================== =========================================================================================================================== ===================================
-Configuration Property Name                                 Description                                                                                                                 Default value
-=========================================================== =========================================================================================================================== ===================================
-``optimizer.use-history-based-plan-statistics``             Enable using historical statistics for query optimization.                                                                  ``False``
-``optimizer.track-history-based-plan-statistics``           Enable recording the statistics of the current query as history statistics so as to be used by future queries.              ``False``
-``optimizer.track-history-stats-from-failed-queries``       Track history based plan statistics from complete plan fragments in failed queries.                                         ``True``
-``optimizer.history-based-optimizer-timeout``               Timeout for history based optimizer.                                                                                        ``10 seconds``
-``hbo.history-matching-threshold``                          When the size difference between current table and history table exceed this threshold, do not match history statistics.    ``0.1``
-                                                            When value is 0.0, only match history statistics when the size of the two are exactly the same.
-``hbo.max-last-runs-history``                               Number of last runs for which historical stats are stored.                                                                  ``10``
-=========================================================== =========================================================================================================================== ===================================
+============================================================= =========================================================================================================================== ===================================
+Configuration Property Name                                   Description                                                                                                                 Default value
+============================================================= =========================================================================================================================== ===================================
+``optimizer.use-history-based-plan-statistics``               Use historical statistics for query optimization.                                                                           ``False``
+``optimizer.track-history-based-plan-statistics``             Recording the statistics of the current query as history statistics so as to be used by future queries.                     ``False``
+``optimizer.track-history-stats-from-failed-queries``         Track history based plan statistics from complete plan fragments in failed queries.                                         ``True``
+``optimizer.history-based-optimizer-timeout``                 Timeout for history based optimizer.                                                                                        ``10 seconds``
+``optimizer.treat-low-confidence-zero-estimation-as-unknown`` Treat ``LOW`` confidence, zero estimations as ``UNKNOWN`` during joins.                                                     ``False``
+``optimizer.confidence-based-broadcast``                      Broadcast based on the confidence of the statistics that are being used, by broadcasting the side of a joinNode which       ``False``
+                                                              has the highest confidence statistics. If confidence is the same, then the original behavior will be followed.
+``optimizer.retry-query-with-history-based-optimization``     Retry a failed query automatically if HBO can help change the existing query plan                                           ``False``
+``hbo.history-matching-threshold``                            When the size difference between current table and history table exceeds this threshold, do not match history statistics.   ``0.1``
+                                                              When value is 0.0, only match history statistics when the size of the two are exactly the same.
+``hbo.max-last-runs-history``                                 Number of last runs for which historical stats are stored.                                                                  ``10``
+============================================================= =========================================================================================================================== ===================================
 
 Session Properties
 ^^^^^^^^^^^^^^^^^^
 
 Session properties set behavior changes for queries executed within the given session. When setting, they will overwrite the value of corresponding configuration properties (if any) in the current session.
 
-=========================================================== ==================================================================================================== ======================================================
+=========================================================== ==================================================================================================== ==============================================================
 Session property Name                                       Description                                                                                          Default value
-=========================================================== ==================================================================================================== ======================================================
+=========================================================== ==================================================================================================== ==============================================================
 ``use_history_based_plan_statistics``                       Overrides the behavior of the configuration property                                                 ``optimizer.use-history-based-plan-statistics``
                                                             ``optimizer.use-history-based-plan-statistics`` in the current session.
 ``track_history_based_plan_statistics``                     Overrides the behavior of the configuration property                                                 ``optimizer.track-history-based-plan-statistics``
@@ -60,7 +64,13 @@ Session property Name                                       Description         
 ``restrict_history_based_optimization_to_complex_query``    Enable history based optimization only for complex queries, i.e. queries with join and aggregation.  ``True``
 ``history_input_table_statistics_matching_threshold``       Overrides the behavior of the configuration property                                                 ``hbo.history-matching-threshold``
                                                             ``hbo.history-matching-threshold`` in the current session.
-=========================================================== ==================================================================================================== ======================================================
+``treat-low-confidence-zero-estimation-as-unknown``         Overrides the behavior of the configuration property
+                                                            ``optimizer.treat-low-confidence-zero-estimation-as-unknown`` in the current session.                ``optimizer.treat-low-confidence-zero-estimation-as-unknown``
+``confidence-based-broadcast``                              Overrides the behavior of the configuration property
+                                                            ``optimizer.confidence-based-broadcast`` in the current session.                                     ``optimizer.confidence-based-broadcast``
+``retry-query-with-history-based-optimization``             Overrides the behavior of the configuration property
+                                                            ``optimizer.retry-query-with-history-based-optimization`` in the current session.                    ``optimizer.retry-query-with-history-based-optimization``
+=========================================================== ==================================================================================================== ==============================================================
 
 Example
 -------

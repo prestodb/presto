@@ -291,9 +291,9 @@ class TaskManagerTest : public testing::Test {
   void writeToFile(
       const std::string& filePath,
       const std::vector<RowVectorPtr>& vectors) {
-    dwio::common::WriterOptions options;
-    options.schema = rowType_;
-    options.memoryPool = rootPool_.get();
+    auto options = std::make_shared<dwio::common::WriterOptions>();
+    options->schema = rowType_;
+    options->memoryPool = rootPool_.get();
     auto sink = std::make_unique<dwio::common::LocalFileSink>(
         filePath, dwio::common::FileSink::Options{});
     auto writer = dwio::common::getWriterFactory(dwio::common::FileFormat::DWRF)

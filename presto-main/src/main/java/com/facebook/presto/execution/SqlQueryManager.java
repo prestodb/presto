@@ -139,42 +139,42 @@ public class SqlQueryManager
             try {
                 enforceMemoryLimits();
             }
-            catch (Throwable e) {
+            catch (Exception e) {
                 log.error(e, "Error enforcing memory limits");
             }
 
             try {
                 enforceCpuLimits();
             }
-            catch (Throwable e) {
+            catch (Exception e) {
                 log.error(e, "Error enforcing query CPU time limits");
             }
 
             try {
                 enforceScanLimits();
             }
-            catch (Throwable e) {
+            catch (Exception e) {
                 log.error(e, "Error enforcing query scan bytes limits");
             }
 
             try {
                 enforceOutputPositionsLimits();
             }
-            catch (Throwable e) {
+            catch (Exception e) {
                 log.error(e, "Error enforcing query output rows limits");
             }
 
             try {
                 enforceWrittenIntermediateBytesLimit();
             }
-            catch (Throwable e) {
+            catch (Exception e) {
                 log.error(e, "Error enforcing written intermediate limits");
             }
 
             try {
                 enforceOutputSizeLimits();
             }
-            catch (Throwable e) {
+            catch (Exception e) {
                 log.error(e, "Error enforcing query output size limits");
             }
         }, 1, 1, TimeUnit.SECONDS);
@@ -185,7 +185,7 @@ public class SqlQueryManager
             try {
                 checkForMemoryLeaks();
             }
-            catch (Throwable e) {
+            catch (Exception e) {
                 log.error(e, "Error checking memory leaks");
             }
         }, 1, 1, TimeUnit.MINUTES);
