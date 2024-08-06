@@ -6,6 +6,7 @@ import com.facebook.presto.hive.HdfsConfigurationInitializer;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveDwrfEncryptionProvider;
+import com.facebook.presto.hive.HiveFileWriter;
 import com.facebook.presto.hive.HiveHdfsConfiguration;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.NodeVersion;
@@ -17,6 +18,7 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import org.apache.hadoop.fs.Path;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -88,6 +90,14 @@ public class TestIcebergFileWriter
     @Test
     public void testIcebergParquetTimestampWriter()
     {
-
+        HiveFileWriter fileWriter = fileWriterFactory.createFileWriter(
+                new Path("/resources"),
+                //getQueryRunner().execute("DESCRIBE iceberg.test_schema.nation;")
+                null,
+                null,
+                getQueryRunner().getDefaultSession().toConnectorSession(),
+                null,
+                PARQUET,
+                null);
     }
 }
