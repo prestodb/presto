@@ -132,16 +132,37 @@ public class IcebergFileWriterFactory
             HdfsContext hdfsContext,
             MetricsConfig metricsConfig)
     {
+//        class Local
+//        {
+//            Types.NestedField updateAllChildren(Types.NestedField parent)
+//            {
+//                if (parent.type().isNestedType()) {
+//                    ((org.apache.iceberg.types.Type.NestedType) parent.type()).fields() {
+//
+//                    }
+//                }
+//            }
+//        }
+
         List<String> fileColumnNames = icebergSchema.columns().stream()
                 .map(Types.NestedField::name)
                 .collect(toImmutableList());
 
         List<Types.NestedField> updatedFields = icebergSchema.columns().stream()
-                .map(field -> field.type() instanceof Types.TimestampType ? Types.NestedField.of(
-                        field.fieldId(),
-                        field.isOptional(),
-                        field.name(),
-                        Types.fromPrimitiveString(Types.TimestampType.withoutZone().toString())) : field)
+                .map(field -> {
+                    if (field.type() instanceof Types.TimestampType) {
+                        return Types.NestedField.of(
+                                field.fieldId(),
+                                field.isOptional(),
+                                field.name(),
+                                Types.fromPrimitiveString(Types.TimestampType.withoutZone().toString()));
+                    }
+
+                    if (field.type().isNestedType()) {
+                        return field;
+                    }
+
+                    return field;})
                 .collect(Collectors.toList());
         icebergSchema = new Schema(updatedFields);
 
