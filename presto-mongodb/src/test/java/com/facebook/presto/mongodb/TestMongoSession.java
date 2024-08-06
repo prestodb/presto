@@ -28,8 +28,11 @@ import static com.facebook.presto.common.predicate.Range.greaterThanOrEqual;
 import static com.facebook.presto.common.predicate.Range.lessThan;
 import static com.facebook.presto.common.predicate.Range.range;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.slice.Slices.wrappedBuffer;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.asList;
 import static org.testng.Assert.assertEquals;
 
@@ -37,6 +40,7 @@ public class TestMongoSession
 {
     private static final MongoColumnHandle COL1 = new MongoColumnHandle("col1", BIGINT, false);
     private static final MongoColumnHandle COL2 = new MongoColumnHandle("col2", createUnboundedVarcharType(), false);
+    private static final MongoColumnHandle COL3 = new MongoColumnHandle("col3", VARBINARY, false);
 
     @Test
     public void testBuildQuery()
@@ -49,6 +53,18 @@ public class TestMongoSession
         Document expected = new Document()
                 .append(COL1.getName(), new Document().append("$gt", 100L).append("$lte", 200L))
                 .append(COL2.getName(), new Document("$eq", "a value"));
+        assertEquals(query, expected);
+    }
+
+    @Test
+    public void testBuildQueryBinaryType()
+    {
+        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
+                COL3, Domain.singleValue(VARBINARY, wrappedBuffer("VarBinary Value".getBytes(UTF_8)))));
+
+        Document query = MongoSession.buildQuery(tupleDomain);
+        Document expected = new Document()
+                .append(COL3.getName(), new Document().append("$eq", "VarBinary Value"));
         assertEquals(query, expected);
     }
 

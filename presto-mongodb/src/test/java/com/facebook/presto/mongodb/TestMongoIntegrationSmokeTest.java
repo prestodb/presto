@@ -247,6 +247,19 @@ public class TestMongoIntegrationSmokeTest
         assertOneNotNullResult("SELECT id FROM tmp_objectid WHERE id = ObjectId('ffffffffffffffffffffffff')");
     }
 
+    @Test
+    public void testBinarys()
+    {
+        assertUpdate("CREATE TABLE tmp_binary AS SELECT cast('value' as varbinary) AS _varbinary", 1);
+        assertOneNotNullResult("SELECT _varbinary FROM tmp_binary");
+
+        MaterializedResult results = getQueryRunner().execute(getSession(), "SELECT _varbinary FROM tmp_binary").toTestTypes();
+        assertEquals(results.getRowCount(), 1);
+
+        MaterializedRow row = results.getMaterializedRows().get(0);
+        assertEquals(row.getField(0), "value".getBytes(UTF_8));
+    }
+
     private void assertOneNotNullResult(String query)
     {
         MaterializedResult results = getQueryRunner().execute(getSession(), query).toTestTypes();
