@@ -15,7 +15,6 @@
 #include <boost/asio/io_service.hpp>
 #include <boost/asio/ip/host_name.hpp>
 #include <boost/asio/ip/tcp.hpp>
-#include <boost/lexical_cast.hpp>
 #include <glog/logging.h>
 #include "CoordinatorDiscoverer.h"
 #include "presto_cpp/main/Announcer.h"
@@ -36,7 +35,6 @@
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/UnsafeRowExchangeSource.h"
-#include "presto_cpp/main/types/PrestoToVeloxConnector.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include "velox/common/base/Counters.h"
 #include "velox/common/base/StatsReporter.h"
@@ -788,12 +786,16 @@ void PrestoServer::initializeVeloxMemory() {
         memoryGb,
         "Query memory capacity must not be larger than system memory capacity");
     options.arbitratorCapacity = queryMemoryGb << 30;
-    const uint64_t queryReservedMemoryGb =
-        systemConfig->queryReservedMemoryGb();
+    const uint64_t queryReservedMemoryGb = velox::config::toCapacity(
+        systemConfig->sharedArbitratorReservedCapacity(),
+        velox::config::CapacityUnit::GIGABYTE);
     VELOX_USER_CHECK_LE(
         queryReservedMemoryGb,
         queryMemoryGb,
         "Query reserved memory capacity must not be larger than query memory capacity");
+
+    // TODO(jtan6): [Config Refactor] Migrate these old settings to string based
+    //  extra settings + grow & shrink settings.
     options.arbitratorReservedCapacity = queryReservedMemoryGb << 30;
     options.memoryPoolInitCapacity = systemConfig->memoryPoolInitCapacity();
     options.memoryPoolReservedCapacity =
