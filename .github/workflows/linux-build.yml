@@ -168,7 +168,7 @@ jobs:
       - name: Make Debug Build
         env:
           VELOX_DEPENDENCY_SOURCE: BUNDLED
-          MAKEFLAGS: "NUM_THREADS=8 MAX_HIGH_MEM_JOBS=4 MAX_LINK_JOBS=4"
+          MAKEFLAGS: "NUM_THREADS=8 MAX_HIGH_MEM_JOBS=4 MAX_LINK_JOBS=3"
           EXTRA_CMAKE_FLAGS: "-DVELOX_ENABLE_ARROW=ON -DVELOX_ENABLE_PARQUET=ON"
         run: |
           make debug 
