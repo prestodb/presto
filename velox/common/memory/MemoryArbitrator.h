@@ -57,41 +57,19 @@ class MemoryArbitrator {
     /// manager.
     int64_t capacity;
 
-    /// The memory capacity reserved to ensure each running query has minimal
-    /// capacity of 'memoryPoolReservedCapacity' to run.
-    int64_t reservedCapacity{0};
-
-    /// The minimal amount of memory capacity reserved for each query to run.
-    uint64_t memoryPoolReservedCapacity{0};
-
-    /// The minimal memory capacity to transfer out of or into a memory pool
-    /// during the memory arbitration.
-    uint64_t memoryPoolTransferCapacity{128 << 20};
-
-    /// Specifies the max time to wait for memory reclaim by arbitration. The
-    /// memory reclaim might fail if the max time has exceeded. This prevents
-    /// the memory arbitration from getting stuck when the memory reclaim waits
-    /// for a hanging query task to pause. If it is zero, then there is no
-    /// timeout.
-    uint64_t memoryReclaimWaitMs{0};
-
-    /// If true, it allows memory arbitrator to reclaim used memory cross query
-    /// memory pools.
-    bool globalArbitrationEnabled{false};
-
-    /// Provided by the query system to validate the state after a memory pool
-    /// enters arbitration if not null. For instance, Prestissimo provides
+    /// TODO: Remove this call back from Config. It can be directly implemented
+    /// in SharedArbitrator instead of passing in as an config option. Provided
+    ///
+    /// by the query system to validate the state after a memory pool enters
+    /// arbitration if not null. For instance, Prestissimo provides
     /// callback to check if a memory arbitration request is issued from a
     /// driver thread, then the driver should be put in suspended state to avoid
     /// the potential deadlock when reclaim memory from the task of the request
     /// memory pool.
     MemoryArbitrationStateCheckCB arbitrationStateCheckCb{nullptr};
 
-    /// If true, do sanity check on the arbitrator state on destruction.
-    ///
-    /// TODO: deprecate this flag after all the existing memory leak use cases
-    /// have been fixed.
-    bool checkUsageLeak{true};
+    /// Additional configs that are arbitrator implementation specific.
+    std::unordered_map<std::string, std::string> extraConfigs;
   };
 
   using Factory = std::function<std::unique_ptr<MemoryArbitrator>(
@@ -250,23 +228,10 @@ class MemoryArbitrator {
   /// Returns the debug string of this memory arbitrator.
   virtual std::string toString() const = 0;
 
-  /// Enables/disables global arbitration accordingly.
-  void testingSetGlobalArbitration(bool enableGlobalArbitration) {
-    *const_cast<bool*>(&globalArbitrationEnabled_) = enableGlobalArbitration;
-  }
-
  protected:
   explicit MemoryArbitrator(const Config& config)
       : capacity_(config.capacity),
-        reservedCapacity_(config.reservedCapacity),
-        memoryPoolReservedCapacity_(config.memoryPoolReservedCapacity),
-        memoryPoolTransferCapacity_(config.memoryPoolTransferCapacity),
-        memoryReclaimWaitMs_(config.memoryReclaimWaitMs),
-        globalArbitrationEnabled_(config.globalArbitrationEnabled),
-        arbitrationStateCheckCb_(config.arbitrationStateCheckCb),
-        checkUsageLeak_(config.checkUsageLeak) {
-    VELOX_CHECK_LE(reservedCapacity_, capacity_);
-  }
+        arbitrationStateCheckCb_(config.arbitrationStateCheckCb) {}
 
   /// Helper utilities used by the memory arbitrator implementations to call
   /// protected methods of memory pool.
@@ -276,13 +241,7 @@ class MemoryArbitrator {
   static uint64_t shrinkPool(MemoryPool* pool, uint64_t targetBytes);
 
   const uint64_t capacity_;
-  const uint64_t reservedCapacity_;
-  const uint64_t memoryPoolReservedCapacity_;
-  const uint64_t memoryPoolTransferCapacity_;
-  const uint64_t memoryReclaimWaitMs_;
-  const bool globalArbitrationEnabled_;
   const MemoryArbitrationStateCheckCB arbitrationStateCheckCb_;
-  const bool checkUsageLeak_;
 };
 
 /// Formatter for fmt.

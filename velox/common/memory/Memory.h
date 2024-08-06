@@ -191,6 +191,12 @@ struct MemoryManagerOptions {
   /// potential deadlock when reclaim memory from the task of the request memory
   /// pool.
   MemoryArbitrationStateCheckCB arbitrationStateCheckCb{nullptr};
+
+  /// TODO(jtan6): [Config Refactor] Remove above shared arbitrator specific
+  /// configs after Prestissimo switch to use extra configs map.
+  ///
+  /// Additional configs that are arbitrator implementation specific.
+  std::unordered_map<std::string, std::string> extraArbitratorConfigs{};
 };
 
 /// 'MemoryManager' is responsible for creating allocator, arbitrator and

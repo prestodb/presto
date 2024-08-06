@@ -518,6 +518,91 @@ void verifyReclaimerStats(
   }
 }
 
+TEST_F(MockSharedArbitrationTest, extraConfigs) {
+  // Testing default values
+  std::unordered_map<std::string, std::string> emptyConfigs;
+  ASSERT_EQ(
+      SharedArbitrator::ExtraConfig::getReservedCapacity(emptyConfigs),
+      SharedArbitrator::ExtraConfig::kDefaultReservedCapacity);
+  ASSERT_EQ(
+      SharedArbitrator::ExtraConfig::getMemoryPoolReservedCapacity(
+          emptyConfigs),
+      SharedArbitrator::ExtraConfig::kDefaultMemoryPoolReservedCapacity);
+  ASSERT_EQ(
+      SharedArbitrator::ExtraConfig::getMemoryPoolTransferCapacity(
+          emptyConfigs),
+      SharedArbitrator::ExtraConfig::kDefaultMemoryPoolTransferCapacity);
+  ASSERT_EQ(
+      SharedArbitrator::ExtraConfig::getMemoryReclaimWaitMs(emptyConfigs),
+      SharedArbitrator::ExtraConfig::kDefaultMemoryReclaimWaitMs);
+  ASSERT_EQ(
+      SharedArbitrator::ExtraConfig::getGlobalArbitrationEnabled(emptyConfigs),
+      SharedArbitrator::ExtraConfig::kDefaultGlobalArbitrationEnabled);
+  ASSERT_EQ(
+      SharedArbitrator::ExtraConfig::getCheckUsageLeak(emptyConfigs),
+      SharedArbitrator::ExtraConfig::kDefaultCheckUsageLeak);
+
+  // Testing custom values
+  std::unordered_map<std::string, std::string> configs;
+  configs[std::string(SharedArbitrator::ExtraConfig::kReservedCapacity)] =
+      "100";
+  configs[std::string(
+      SharedArbitrator::ExtraConfig::kMemoryPoolReservedCapacity)] = "200";
+  configs[std::string(
+      SharedArbitrator::ExtraConfig::kMemoryPoolTransferCapacity)] =
+      "256000000";
+  configs[std::string(SharedArbitrator::ExtraConfig::kMemoryReclaimWaitMs)] =
+      "5000";
+  configs[std::string(
+      SharedArbitrator::ExtraConfig::kGlobalArbitrationEnabled)] = "true";
+  configs[std::string(SharedArbitrator::ExtraConfig::kCheckUsageLeak)] =
+      "false";
+  ASSERT_EQ(SharedArbitrator::ExtraConfig::getReservedCapacity(configs), 100);
+  ASSERT_EQ(
+      SharedArbitrator::ExtraConfig::getMemoryPoolReservedCapacity(configs),
+      200);
+  ASSERT_EQ(
+      SharedArbitrator::ExtraConfig::getMemoryPoolTransferCapacity(configs),
+      256000000);
+  ASSERT_EQ(
+      SharedArbitrator::ExtraConfig::getMemoryReclaimWaitMs(configs), 5000);
+  ASSERT_TRUE(
+      SharedArbitrator::ExtraConfig::getGlobalArbitrationEnabled(configs));
+  ASSERT_FALSE(SharedArbitrator::ExtraConfig::getCheckUsageLeak(configs));
+
+  // Testing invalid values
+  configs[std::string(SharedArbitrator::ExtraConfig::kReservedCapacity)] =
+      "invalid";
+  configs[std::string(
+      SharedArbitrator::ExtraConfig::kMemoryPoolReservedCapacity)] = "invalid";
+  configs[std::string(
+      SharedArbitrator::ExtraConfig::kMemoryPoolTransferCapacity)] = "invalid";
+  configs[std::string(SharedArbitrator::ExtraConfig::kMemoryReclaimWaitMs)] =
+      "invalid";
+  configs[std::string(
+      SharedArbitrator::ExtraConfig::kGlobalArbitrationEnabled)] = "invalid";
+  configs[std::string(SharedArbitrator::ExtraConfig::kCheckUsageLeak)] =
+      "invalid";
+  VELOX_ASSERT_THROW(
+      SharedArbitrator::ExtraConfig::getReservedCapacity(configs),
+      "Failed while parsing SharedArbitrator configs");
+  VELOX_ASSERT_THROW(
+      SharedArbitrator::ExtraConfig::getMemoryPoolReservedCapacity(configs),
+      "Failed while parsing SharedArbitrator configs");
+  VELOX_ASSERT_THROW(
+      SharedArbitrator::ExtraConfig::getMemoryPoolTransferCapacity(configs),
+      "Failed while parsing SharedArbitrator configs");
+  VELOX_ASSERT_THROW(
+      SharedArbitrator::ExtraConfig::getMemoryReclaimWaitMs(configs),
+      "Failed while parsing SharedArbitrator configs");
+  VELOX_ASSERT_THROW(
+      SharedArbitrator::ExtraConfig::getGlobalArbitrationEnabled(configs),
+      "Failed while parsing SharedArbitrator configs");
+  VELOX_ASSERT_THROW(
+      SharedArbitrator::ExtraConfig::getCheckUsageLeak(configs),
+      "Failed while parsing SharedArbitrator configs");
+}
+
 TEST_F(MockSharedArbitrationTest, constructor) {
   const int reservedCapacity = arbitrator_->stats().freeReservedCapacityBytes;
   const int nonReservedCapacity =

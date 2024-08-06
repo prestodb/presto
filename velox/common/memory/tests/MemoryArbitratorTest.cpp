@@ -85,7 +85,6 @@ TEST_F(MemoryArbitrationTest, create) {
   for (const auto& kind : kinds) {
     MemoryArbitrator::Config config;
     config.capacity = 8 * GB;
-    config.reservedCapacity = 4 * GB;
     config.kind = kind;
     if (kind.empty()) {
       auto arbitrator = MemoryArbitrator::create(config);
@@ -103,7 +102,6 @@ TEST_F(MemoryArbitrationTest, create) {
 TEST_F(MemoryArbitrationTest, createWithDefaultConf) {
   MemoryArbitrator::Config config;
   config.capacity = 8 * GB;
-  config.reservedCapacity = 4 * GB;
   const auto& arbitrator = MemoryArbitrator::create(config);
   ASSERT_EQ(arbitrator->kind(), "NOOP");
 }
@@ -358,8 +356,7 @@ class FakeTestArbitrator : public MemoryArbitrator {
       : MemoryArbitrator(
             {.kind = config.kind,
              .capacity = config.capacity,
-             .memoryPoolTransferCapacity = config.memoryPoolTransferCapacity}) {
-  }
+             .extraConfigs = config.extraConfigs}) {}
 
   std::string kind() const override {
     return "USER";

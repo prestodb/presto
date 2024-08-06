@@ -142,13 +142,75 @@ const SharedArbitrator::Candidate& findCandidateWithLargestCapacity(
   VELOX_CHECK_NE(candidateIdx, -1);
   return candidates[candidateIdx];
 }
+
+template <typename T>
+T getConfig(
+    const std::unordered_map<std::string, std::string>& configs,
+    const std::string_view& key,
+    const T& defaultValue) {
+  if (configs.count(std::string(key)) > 0) {
+    try {
+      return folly::to<T>(configs.at(std::string(key)));
+    } catch (const std::exception& e) {
+      VELOX_USER_FAIL(
+          "Failed while parsing SharedArbitrator configs: {}", e.what());
+    }
+  }
+  return defaultValue;
+}
 } // namespace
 
-SharedArbitrator::SharedArbitrator(const MemoryArbitrator::Config& config)
+int64_t SharedArbitrator::ExtraConfig::getReservedCapacity(
+    const std::unordered_map<std::string, std::string>& configs) {
+  return getConfig<int64_t>(
+      configs, kReservedCapacity, kDefaultReservedCapacity);
+}
+
+uint64_t SharedArbitrator::ExtraConfig::getMemoryPoolReservedCapacity(
+    const std::unordered_map<std::string, std::string>& configs) {
+  return getConfig<uint64_t>(
+      configs, kMemoryPoolReservedCapacity, kDefaultMemoryPoolReservedCapacity);
+}
+
+uint64_t SharedArbitrator::ExtraConfig::getMemoryPoolTransferCapacity(
+    const std::unordered_map<std::string, std::string>& configs) {
+  return getConfig<uint64_t>(
+      configs, kMemoryPoolTransferCapacity, kDefaultMemoryPoolTransferCapacity);
+}
+
+uint64_t SharedArbitrator::ExtraConfig::getMemoryReclaimWaitMs(
+    const std::unordered_map<std::string, std::string>& configs) {
+  return getConfig<uint64_t>(
+      configs, kMemoryReclaimWaitMs, kDefaultMemoryReclaimWaitMs);
+}
+
+bool SharedArbitrator::ExtraConfig::getGlobalArbitrationEnabled(
+    const std::unordered_map<std::string, std::string>& configs) {
+  return getConfig<bool>(
+      configs, kGlobalArbitrationEnabled, kDefaultGlobalArbitrationEnabled);
+}
+
+bool SharedArbitrator::ExtraConfig::getCheckUsageLeak(
+    const std::unordered_map<std::string, std::string>& configs) {
+  return getConfig<bool>(configs, kCheckUsageLeak, kDefaultCheckUsageLeak);
+}
+
+SharedArbitrator::SharedArbitrator(const Config& config)
     : MemoryArbitrator(config),
+      reservedCapacity_(ExtraConfig::getReservedCapacity(config.extraConfigs)),
+      memoryPoolReservedCapacity_(
+          ExtraConfig::getMemoryPoolReservedCapacity(config.extraConfigs)),
+      memoryPoolTransferCapacity_(
+          ExtraConfig::getMemoryPoolTransferCapacity(config.extraConfigs)),
+      memoryReclaimWaitMs_(
+          ExtraConfig::getMemoryReclaimWaitMs(config.extraConfigs)),
+      globalArbitrationEnabled_(
+          ExtraConfig::getGlobalArbitrationEnabled(config.extraConfigs)),
+      checkUsageLeak_(ExtraConfig::getCheckUsageLeak(config.extraConfigs)),
       freeReservedCapacity_(reservedCapacity_),
       freeNonReservedCapacity_(capacity_ - freeReservedCapacity_) {
   VELOX_CHECK_EQ(kind_, config.kind);
+  VELOX_CHECK_LE(reservedCapacity_, capacity_);
 }
 
 std::string SharedArbitrator::Candidate::toString() const {

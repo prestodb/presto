@@ -35,6 +35,58 @@ namespace facebook::velox::memory {
 /// partial aggregation or persistent shuffle data flushes.
 class SharedArbitrator : public memory::MemoryArbitrator {
  public:
+  struct ExtraConfig {
+    /// The memory capacity reserved to ensure each running query has minimal
+    /// capacity of 'memoryPoolReservedCapacity' to run.
+    static constexpr std::string_view kReservedCapacity{"reserved-capacity"};
+    static constexpr int64_t kDefaultReservedCapacity{0};
+    static int64_t getReservedCapacity(
+        const std::unordered_map<std::string, std::string>& configs);
+
+    /// The minimal amount of memory capacity reserved for each query to run.
+    static constexpr std::string_view kMemoryPoolReservedCapacity{
+        "memory-pool-reserved-capacity"};
+    static constexpr uint64_t kDefaultMemoryPoolReservedCapacity{0};
+    static uint64_t getMemoryPoolReservedCapacity(
+        const std::unordered_map<std::string, std::string>& configs);
+
+    /// The minimal memory capacity to transfer out of or into a memory pool
+    /// during the memory arbitration.
+    static constexpr std::string_view kMemoryPoolTransferCapacity{
+        "memory-pool-transfer-capacity"};
+    static constexpr uint64_t kDefaultMemoryPoolTransferCapacity{128 << 20};
+    static uint64_t getMemoryPoolTransferCapacity(
+        const std::unordered_map<std::string, std::string>& configs);
+
+    /// Specifies the max time to wait for memory reclaim by arbitration. The
+    /// memory reclaim might fail if the max time has exceeded. This prevents
+    /// the memory arbitration from getting stuck when the memory reclaim waits
+    /// for a hanging query task to pause. If it is zero, then there is no
+    /// timeout.
+    static constexpr std::string_view kMemoryReclaimWaitMs{
+        "memory-reclaim-wait-ms"};
+    static constexpr uint64_t kDefaultMemoryReclaimWaitMs{0};
+    static uint64_t getMemoryReclaimWaitMs(
+        const std::unordered_map<std::string, std::string>& configs);
+
+    /// If true, it allows memory arbitrator to reclaim used memory cross query
+    /// memory pools.
+    static constexpr std::string_view kGlobalArbitrationEnabled{
+        "global-arbitration-enabled"};
+    static constexpr bool kDefaultGlobalArbitrationEnabled{false};
+    static bool getGlobalArbitrationEnabled(
+        const std::unordered_map<std::string, std::string>& configs);
+
+    /// If true, do sanity check on the arbitrator state on destruction.
+    ///
+    /// TODO: deprecate this flag after all the existing memory leak use cases
+    /// have been fixed.
+    static constexpr std::string_view kCheckUsageLeak{"check-usage-leak"};
+    static constexpr bool kDefaultCheckUsageLeak{true};
+    static bool getCheckUsageLeak(
+        const std::unordered_map<std::string, std::string>& configs);
+  };
+
   explicit SharedArbitrator(const Config& config);
 
   ~SharedArbitrator() override;
@@ -353,6 +405,13 @@ class SharedArbitrator : public memory::MemoryArbitrator {
 
   void updateArbitrationRequestStats();
   void updateArbitrationFailureStats();
+
+  const uint64_t reservedCapacity_;
+  const uint64_t memoryPoolReservedCapacity_;
+  const uint64_t memoryPoolTransferCapacity_;
+  const uint64_t memoryReclaimWaitMs_;
+  const bool globalArbitrationEnabled_;
+  const bool checkUsageLeak_;
 
   // Lock used to protect the arbitrator state.
   mutable std::mutex mutex_;
