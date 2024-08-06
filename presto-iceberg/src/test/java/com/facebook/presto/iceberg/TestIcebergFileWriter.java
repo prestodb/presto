@@ -19,6 +19,7 @@ import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.fs.Path;
+import org.apache.parquet.hadoop.ParquetFileReader;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -99,5 +100,10 @@ public class TestIcebergFileWriter
                 null,
                 PARQUET,
                 null);
+
+        ParquetFileReader reader = new ParquetFileReader(
+                null,
+                null
+        );
     }
 }
