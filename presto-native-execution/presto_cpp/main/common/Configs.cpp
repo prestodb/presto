@@ -186,8 +186,12 @@ SystemConfig::SystemConfig() {
           BOOL_PROP(kUseMmapAllocator, true),
           STR_PROP(kMemoryArbitratorKind, ""),
           BOOL_PROP(kMemoryArbitratorGlobalArbitrationEnabled, false),
+          BOOL_PROP(kSharedArbitratorGlobalArbitrationEnabled, false),
           NUM_PROP(kQueryMemoryGb, 38),
           NUM_PROP(kQueryReservedMemoryGb, 4),
+          STR_PROP(kSharedArbitratorReservedCapacity, "4GB"),
+          STR_PROP(kSharedArbitratorMemoryPoolReservedCapacity, "0B"),
+          STR_PROP(kSharedArbitratorMemoryPoolTransferCapacity, "128MB"),
           NUM_PROP(kLargestSizeClassPages, 256),
           BOOL_PROP(kEnableVeloxTaskLogging, false),
           BOOL_PROP(kEnableVeloxExprSetLogging, false),
@@ -507,12 +511,21 @@ bool SystemConfig::memoryArbitratorGlobalArbitrationEnabled() const {
       .value_or(false);
 }
 
+bool SystemConfig::sharedArbitratorGlobalArbitrationEnabled() const {
+  return optionalProperty<bool>(kSharedArbitratorGlobalArbitrationEnabled)
+      .value_or(false);
+}
+
 int32_t SystemConfig::queryMemoryGb() const {
   return optionalProperty<int32_t>(kQueryMemoryGb).value();
 }
 
 int32_t SystemConfig::queryReservedMemoryGb() const {
   return optionalProperty<int32_t>(kQueryReservedMemoryGb).value();
+}
+
+int32_t SystemConfig::sharedArbitratorReservedCapacity() const {
+  return optionalProperty<int32_t>(kSharedArbitratorReservedCapacity).value();
 }
 
 uint64_t SystemConfig::memoryPoolInitCapacity() const {
@@ -527,16 +540,31 @@ uint64_t SystemConfig::memoryPoolReservedCapacity() const {
       .value_or(kMemoryPoolReservedCapacityDefault);
 }
 
+uint64_t SystemConfig::sharedArbitratorMemoryPoolReservedCapacity() const {
+  static constexpr uint64_t kSharedArbitratorMemoryPoolReservedCapacityDefault =
+      64 << 20;
+  return optionalProperty<uint64_t>(kSharedArbitratorMemoryPoolReservedCapacity)
+      .value_or(kSharedArbitratorMemoryPoolReservedCapacityDefault);
+}
+
 uint64_t SystemConfig::memoryPoolTransferCapacity() const {
   static constexpr uint64_t kMemoryPoolTransferCapacityDefault = 32 << 20;
   return optionalProperty<uint64_t>(kMemoryPoolTransferCapacity)
       .value_or(kMemoryPoolTransferCapacityDefault);
 }
 
-uint64_t SystemConfig::memoryReclaimWaitMs() const {
-  static constexpr uint64_t kMemoryReclaimWaitMsDefault = {300'000}; // 5 mins.
-  return optionalProperty<uint64_t>(kMemoryReclaimWaitMs)
-      .value_or(kMemoryReclaimWaitMsDefault);
+uint64_t SystemConfig::sharedArbitratorMemoryPoolTransferCapacity() const {
+  static constexpr uint64_t kSharedArbitratorMemoryPoolTransferCapacityDefault =
+      32 << 20;
+  return optionalProperty<uint64_t>(kSharedArbitratorMemoryPoolTransferCapacity)
+      .value_or(kSharedArbitratorMemoryPoolTransferCapacityDefault);
+}
+
+uint64_t SystemConfig::sharedArbitratorMemoryReclaimWaitMs() const {
+  static constexpr uint64_t kSharedArbitratorMemoryReclaimWaitMsDefault = {
+      300'000}; // 5 mins.
+  return optionalProperty<uint64_t>(kSharedArbitratorMemoryReclaimWaitMs)
+      .value_or(kSharedArbitratorMemoryReclaimWaitMsDefault);
 }
 
 bool SystemConfig::enableSystemMemoryPoolUsageTracking() const {
