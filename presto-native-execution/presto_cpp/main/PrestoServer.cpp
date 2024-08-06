@@ -669,9 +669,6 @@ void PrestoServer::startLinuxMemoryChecker() {
   config.systemMemPushbackEnabled = systemConfig->systemMemPushbackEnabled();
   config.systemMemLimitBytes = systemConfig->systemMemLimitGb() << 30;
   config.systemMemShrinkBytes = systemConfig->systemMemShrinkGb() << 30;
-  config.mallocMemHeapDumpEnabled = systemConfig->mallocMemHeapDumpEnabled();
-  config.minHeapDumpIntervalSec = systemConfig->mallocMemMinHeapDumpInterval();
-  config.maxHeapDumpFiles = systemConfig->mallocMemMaxHeapDumpFiles();
   linuxMemoryChecker_ = std::make_unique<LinuxMemoryChecker>(config);
   linuxMemoryChecker_->start();
 #endif // PRESTO_ENABLE_LINUX_MEMORY_CHECKER
