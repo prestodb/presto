@@ -562,7 +562,9 @@ NestedLoopJoinNode
 NestedLoopJoinNode represents an implementation that iterates through each row from
 the left side of the join and, for each row, iterates through all rows from the right
 side of the join, comparing them based on the join condition to find matching rows
-and emitting results. Nested loop join supports non-equality join.
+and emitting results. Nested loop join supports non-equality joins, and emit output
+rows in the same order as the probe input (for inner and left outer joins) for each
+thread of execution.
 
 .. list-table::
    :widths: 10 30

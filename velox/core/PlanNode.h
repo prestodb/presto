@@ -1669,7 +1669,8 @@ class MergeJoinNode : public AbstractJoinNode {
 ///
 /// Nested loop join supports both equal and non-equal joins. Expressions
 /// specified in joinCondition are evaluated on every combination of left/right
-/// tuple, to emit result.
+/// tuple, to emit result. Results are emitted following the same input order of
+/// probe rows for inner and left joins, for each thread of execution.
 ///
 /// To create Cartesian product of the left/right's output, use the constructor
 /// without `joinType` and `joinCondition` parameter.
