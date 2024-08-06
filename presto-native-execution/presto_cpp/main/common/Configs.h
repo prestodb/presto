@@ -371,8 +371,7 @@ class SystemConfig : public ConfigBase {
   /// NOTE: the query memory capacity is enforced by memory arbitrator so that
   /// this config only applies if the memory arbitration has been enabled.
   static constexpr std::string_view kQueryMemoryGb{"query-memory-gb"};
-  static constexpr std::string_view kArbitratorCapacity{
-      "arbitrator-capacity"};
+  static constexpr std::string_view kArbitratorCapacity{"arbitrator-capacity"};
 
   /// Specifies the memory arbitrator kind. If it is empty, then there is no
   /// memory arbitration.
@@ -391,6 +390,13 @@ class SystemConfig : public ConfigBase {
       "query-reserved-memory-gb"};
   static constexpr std::string_view kSharedArbitratorReservedCapacity{
       "shared-arbitrator.reserved-capacity"};
+
+  /// The initial memory pool capacity in bytes allocated on creation.
+  static constexpr std::string_view kMemoryPoolInitCapacity{
+      "memory-pool-init-capacity"};
+  static constexpr std::string_view kSharedArbitratorMemoryPoolInitialCapacity{
+      "shared-arbitrator.memory-pool-initial-capacity"
+  };
 
   /// If true, it allows memory arbitrator to reclaim used memory cross query
   /// memory pools.
@@ -424,14 +430,8 @@ class SystemConfig : public ConfigBase {
   /// NOTE: this config only applies if the memory arbitration has been enabled.
   static constexpr std::string_view kMemoryReclaimWaitMs{
       "memory-reclaim-wait-ms"};
-  static constexpr std::string_view kSharedArbitratorMemoryReclaimWaitMs{
-      "shared-arbitrator.memory-reclaim-wait-ms"};
-
-  /// The initial memory pool capacity in bytes allocated on creation.
-  ///
-  /// NOTE: this config only applies if the memory arbitration has been enabled.
-  static constexpr std::string_view kMemoryPoolInitCapacity{
-      "memory-pool-init-capacity"};
+  static constexpr std::string_view kSharedArbitratorMemoryReclaimWaitTime{
+      "shared-arbitrator.memory-reclaim-wait-time"};
 
   /// Enables the memory usage tracking for the system memory pool used for
   /// cases such as disk spilling.
@@ -615,11 +615,11 @@ class SystemConfig : public ConfigBase {
   /// A list of ciphers (comma separated) that are supported by
   /// server and client. Note Java and folly::SSLContext use different names to
   /// refer to the same cipher. For e.g. TLS_RSA_WITH_AES_256_GCM_SHA384 in Java
-  /// and AES256-GCM-SHA384 in folly::SSLContext. More details can be found here:
-  /// https://www.openssl.org/docs/manmaster/man1/openssl-ciphers.html. The
-  /// ciphers enable worker to worker, worker to coordinator and
-  /// coordinator to worker communication. At least one cipher needs to be
-  /// shared for the above 3 communication to work.
+  /// and AES256-GCM-SHA384 in folly::SSLContext. More details can be found
+  /// here: https://www.openssl.org/docs/manmaster/man1/openssl-ciphers.html.
+  /// The ciphers enable worker to worker, worker to coordinator and coordinator
+  /// to worker communication. At least one cipher needs to be shared for the
+  /// above 3 communication to work.
   std::string httpsSupportedCiphers() const;
 
   /// Note: Java packages cert and key in combined JKS file. But CPP requires
@@ -632,7 +632,8 @@ class SystemConfig : public ConfigBase {
 
   /// Http client expects the cert and key file to be packed into a single file
   /// (most commonly .pem format) The file should not be password protected. If
-  /// required, break this down to 3 configs one for cert,key and password later.
+  /// required, break this down to 3 configs one for cert,key and password
+  /// later.
   folly::Optional<std::string> httpsClientCertAndKeyPath() const;
 
   bool mutableConfig() const;
@@ -734,15 +735,17 @@ class SystemConfig : public ConfigBase {
 
   bool memoryArbitratorGlobalArbitrationEnabled() const;
 
-  bool sharedArbitratorGlobalArbitrationEnabled() const;
+  std::string sharedArbitratorGlobalArbitrationEnabled() const;
 
-  int32_t sharedArbitratorReservedCapacity() const;
+  std::string sharedArbitratorReservedCapacity() const;
 
-  uint64_t sharedArbitratorMemoryPoolReservedCapacity() const;
+  std::string sharedArbitratorMemoryPoolReservedCapacity() const;
 
-  uint64_t sharedArbitratorMemoryPoolTransferCapacity() const;
+  std::string sharedArbitratorMemoryPoolTransferCapacity() const;
 
-  uint64_t sharedArbitratorMemoryReclaimWaitMs() const;
+  std::string sharedArbitratorMemoryReclaimWaitTime() const;
+
+  std::string sharedArbitratorMemoryPoolInitialCapacity() const;
 
   int32_t queryMemoryGb() const;
 
