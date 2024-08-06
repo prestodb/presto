@@ -43,12 +43,11 @@ import org.apache.iceberg.types.Types;
 import javax.inject.Inject;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.ListIterator;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcMaxBufferSize;
@@ -137,22 +136,14 @@ public class IcebergFileWriterFactory
                 .map(Types.NestedField::name)
                 .collect(toImmutableList());
 
-        List<Types.NestedField> icebergFields = new ArrayList<>(icebergSchema.columns());
-        ListIterator<Types.NestedField> icebergFieldsIterator = icebergFields.listIterator();
-
-        while (icebergFieldsIterator.hasNext()) {
-            Types.NestedField field = icebergFieldsIterator.next();
-            if (field.type() instanceof Types.TimestampType) {
-                Types.NestedField newField = Types.NestedField.of(
+        List<Types.NestedField> updatedFields = icebergSchema.columns().stream()
+                .map(field -> field.type() instanceof Types.TimestampType ? Types.NestedField.of(
                         field.fieldId(),
                         field.isOptional(),
                         field.name(),
-                        Types.fromPrimitiveString(Types.TimestampType.withoutZone().toString()));
-                icebergFieldsIterator.set(newField);
-            }
-        }
-
-        icebergSchema = new Schema(icebergFields);
+                        Types.fromPrimitiveString(Types.TimestampType.withoutZone().toString())) : field)
+                .collect(Collectors.toList());
+        icebergSchema = new Schema(updatedFields);
 
         List<Type> fileColumnTypes = icebergSchema.columns().stream()
                 .map(column -> toPrestoType(column.type(), typeManager))
