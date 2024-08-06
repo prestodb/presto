@@ -19,6 +19,7 @@
 #include <arrow/io/interfaces.h>
 #include <arrow/table.h>
 #include "velox/common/testutil/TestValue.h"
+#include "velox/core/QueryConfig.h"
 #include "velox/dwio/parquet/writer/arrow/Properties.h"
 #include "velox/dwio/parquet/writer/arrow/Writer.h"
 #include "velox/exec/MemoryReclaimer.h"
@@ -237,6 +238,7 @@ Writer::Writer(
   }
   options_.timestampUnit =
       options.parquetWriteTimestampUnit.value_or(TimestampUnit::kNano);
+  options_.timestampTimeZone = options.parquetWriteTimestampTimeZone;
   arrowContext_->properties =
       getArrowParquetWriterOptions(options, flushPolicy_);
   setMemoryReclaimers();
@@ -421,6 +423,15 @@ std::optional<TimestampUnit> getTimestampUnit(
   return std::nullopt;
 }
 
+std::optional<std::string> getTimestampTimeZone(
+    const Config& config,
+    const char* configKey) {
+  if (const auto timezone = config.get<std::string>(configKey)) {
+    return timezone.value();
+  }
+  return std::nullopt;
+}
+
 } // namespace
 
 void WriterOptions::processSessionConfigs(const Config& config) {
@@ -428,12 +439,22 @@ void WriterOptions::processSessionConfigs(const Config& config) {
     parquetWriteTimestampUnit =
         getTimestampUnit(config, kParquetSessionWriteTimestampUnit);
   }
+
+  if (!parquetWriteTimestampTimeZone) {
+    parquetWriteTimestampTimeZone =
+        getTimestampTimeZone(config, core::QueryConfig::kSessionTimezone);
+  }
 }
 
 void WriterOptions::processHiveConnectorConfigs(const Config& config) {
   if (!parquetWriteTimestampUnit) {
     parquetWriteTimestampUnit =
         getTimestampUnit(config, kParquetHiveConnectorWriteTimestampUnit);
+  }
+
+  if (!parquetWriteTimestampTimeZone) {
+    parquetWriteTimestampTimeZone =
+        getTimestampTimeZone(config, core::QueryConfig::kSessionTimezone);
   }
 }
 
