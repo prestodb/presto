@@ -15,7 +15,6 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.presto.common.io.DataSink;
 import com.facebook.presto.common.io.OutputStreamDataSink;
-import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
@@ -50,7 +49,6 @@ import java.util.ListIterator;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcMaxBufferSize;
@@ -149,11 +147,11 @@ public class IcebergFileWriterFactory
                         field.fieldId(),
                         field.isOptional(),
                         field.name(),
-                        Types.fromPrimitiveString(Types.TimestampType.withoutZone().toString())
-                );
+                        Types.fromPrimitiveString(Types.TimestampType.withoutZone().toString()));
                 icebergFieldsIterator.set(newField);
             }
         }
+
         icebergSchema = new Schema(icebergFields);
 
         List<Type> fileColumnTypes = icebergSchema.columns().stream()
