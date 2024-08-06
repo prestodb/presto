@@ -834,6 +834,35 @@ Log the stats equivalent plan and canonicalized plans used in history based opti
 Enable analysis and propagation of logical properties like distinct keys or cardinality among the nodes of
 a query plan. The optimizer may then use these properties to perform various optimizations.
 
+``optimizer.confidence-based-broadcast``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Enable broadcasting based on the confidence of the statistics that are being used, by
+broadcasting the side of a joinNode which has the highest (``HIGH`` or ``FACT``) confidence statistics.
+If both sides have the same confidence statistics, then the original behavior will be followed.
+This can also be specified on a per-query basis using the ``confidence_based_broadcast`` session property.
+
+``optimizer.treat-low-confidence-zero-estimation-as-unknown``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Enable treating ``LOW`` confidence, zero estimations as ``UNKNOWN`` during joins. This can also be specified
+on a per-query basis using the ``treat-low-confidence-zero-estimation-as-unknown`` session property.
+
+``optimizer.retry-query-with-history-based-optimization``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Enable retry for failed queries who can potentially be helped by HBO. This can also be specified
+on a per-query basis using the ``retry-query-with-history-based-optimization`` session property.
+
 Planner Properties
 ------------------
 

@@ -15,6 +15,7 @@ package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.cost.HistoryBasedOptimizationConfig;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.execution.MockRemoteTaskFactory;
 import com.facebook.presto.execution.NodeTaskMap;
@@ -29,7 +30,6 @@ import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.operator.StageExecutionDescriptor;
-import com.facebook.presto.server.security.SecurityConfig;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.TableHandle;
@@ -103,7 +103,7 @@ public class TestAdaptivePhasedExecutionPolicy
                 new NodeSpillConfig(),
                 new TracingConfig(),
                 new CompilerConfig(),
-                new SecurityConfig()))).build();
+                new HistoryBasedOptimizationConfig()))).build();
         AdaptivePhasedExecutionPolicy policy = new AdaptivePhasedExecutionPolicy();
         Collection<StageExecutionAndScheduler> schedulers = getStageExecutionAndSchedulers(4);
         assertTrue(policy.createExecutionSchedule(session, schedulers) instanceof AllAtOnceExecutionSchedule);

@@ -65,6 +65,7 @@ import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticAggregationsDescriptor;
+import com.facebook.presto.sql.planner.plan.StatisticAggregationsDescriptor.ColumnStatisticsDescriptor;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
@@ -656,7 +657,7 @@ public final class ValidateDependenciesChecker
             StatisticAggregationsDescriptor<VariableReferenceExpression> descriptor = node.getDescriptor();
             Set<VariableReferenceExpression> dependencies = ImmutableSet.<VariableReferenceExpression>builder()
                     .addAll(descriptor.getGrouping().values())
-                    .addAll(descriptor.getColumnStatistics().values())
+                    .addAll(descriptor.getColumnStatistics().stream().map(ColumnStatisticsDescriptor::getItem).iterator())
                     .addAll(descriptor.getTableStatistics().values())
                     .build();
             List<VariableReferenceExpression> outputVariables = node.getSource().getOutputVariables();

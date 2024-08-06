@@ -40,6 +40,7 @@ public interface VerifierDao
             "  control_password varchar(256) DEFAULT NULL,\n" +
             "  control_session_properties text DEFAULT NULL,\n" +
             "  control_client_tags text DEFAULT NULL,\n" +
+            "  control_partitions text DEFAULT NULL,\n" +
             "  test_catalog varchar(256) NOT NULL,\n" +
             "  test_schema varchar(256) NOT NULL,\n" +
             "  test_query text NOT NULL,\n" +
@@ -47,7 +48,8 @@ public interface VerifierDao
             "  test_username varchar(256) DEFAULT NULL,\n" +
             "  test_password varchar(256) DEFAULT NULL,\n" +
             "  test_session_properties text DEFAULT NULL,\n" +
-            "  test_client_tags text DEFAULT NULL)")
+            "  test_client_tags text DEFAULT NULL,\n" +
+            "  test_partitions text DEFAULT NULL)")
     void createVerifierQueriesTable(@Define("table_name") String tableName);
 
     @SqlQuery("SELECT\n" +
@@ -61,6 +63,7 @@ public interface VerifierDao
             "  control_password,\n" +
             "  control_session_properties,\n" +
             "  control_client_tags,\n" +
+            "  control_partitions,\n" +
             "  test_query,\n" +
             "  test_query_id,\n" +
             "  test_catalog,\n" +
@@ -68,7 +71,8 @@ public interface VerifierDao
             "  test_username,\n" +
             "  test_password,\n" +
             "  test_session_properties,\n" +
-            "  test_client_tags\n" +
+            "  test_client_tags,\n" +
+            "  test_partitions\n" +
             "FROM\n" +
             "  <table_name>\n" +
             "WHERE\n" +

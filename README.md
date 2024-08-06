@@ -2,9 +2,9 @@
 
 Presto is a distributed SQL query engine for big data.
 
-See the [Presto installation documentation](https://prestodb.github.io/docs/current/installation) for deployment instructions.
+See the [Presto installation documentation](https://prestodb.io/docs/current/installation.html) for deployment instructions.
 
-See the [Presto documentation](https://prestodb.github.io/docs/current/) for general documentation.
+See the [Presto documentation](https://prestodb.io/docs/current/) for general documentation.
 
 
 ## Mission and Architecture
@@ -91,9 +91,10 @@ resource JAR is included on the classpath of Presto coordinator, it will be able
 resources.
 
 None of the Java code relies on the Presto UI project being compiled, so it is possible to exclude
-this UI when building Presto. It can be excluded by disabling the `ui` maven profile with `-P \!ui`:
+this UI when building Presto. Add the property `-DskipUI` to the maven command to disable building
+the `ui` maven module.
 
-    ./mvnw clean install -P \!ui
+    ./mvnw clean install -DskipUI
 
 You must have [Node.js](https://nodejs.org/en/download/) and [Yarn](https://yarnpkg.com/en/) installed to build the UI. When using  Maven to build
 the project, Node and yarn are installed in the `presto-ui/target` folder. Add the node and yarn

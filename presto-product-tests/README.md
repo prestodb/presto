@@ -29,15 +29,15 @@ broken.
     wget -qO- https://get.docker.com/ | sh
     ```
 
-* [`docker-compose >= 1.8.1`](https://docs.docker.com/compose/install/)
+* [`docker compose >= 2.3.4`](https://docs.docker.com/compose/install/)
 
     ```
-    pip install docker-compose
+    sudo apt-get install docker-compose-plugin
     ```
 
 ### OS X using Docker for Mac
 
-* Install [Docker for Mac](https://docs.docker.com/docker-for-mac/)
+* Install [Docker Desktop for Mac](https://docs.docker.com/desktop/install/mac-install/)
 
 * Add entries in `/etc/hosts` for all services running in docker containers:
 `hadoop-master`, `mysql`, `postgres`, `cassandra`, `presto-master`.
@@ -55,10 +55,10 @@ and deficiencies of `extends:` syntax (see the note
 [here](https://docs.docker.com/compose/extends/#extending-services)).
 
 
-To ease the pain of passing multiple `-f` arguments to `docker-compose`,
+To ease the pain of passing multiple `-f` arguments to `docker compose`,
 each environment has a `compose.sh` wrapper script. Thanks to it, instead of e.g.
 
-`docker-compose -f ./docker-compose.yml -f ../common/standard.yml [compose commands]`
+`docker compose -f ./docker-compose.yml -f ../common/standard.yml [compose commands]`
 
 one can simply write
 
@@ -139,7 +139,7 @@ Please keep in mind that if you run tests on Hive of version not greater than 1.
 First version of Hive capable of running tests from `post_hive_1_0_1` group is Hive 1.1.0.
 
 For more information on the various ways in which Presto can be configured to
-interact with Kerberized Hive and Hadoop, please refer to the [Hive connector documentation](https://prestodb.github.io/docs/current/connector/hive.html).
+interact with Kerberized Hive and Hadoop, please refer to the [Hive connector documentation](https://prestodb.io/docs/current/connector/hive.html).
 
 ### Running a single test
 
@@ -405,7 +405,7 @@ running the debugger.
 
 ## Troubleshooting
 
-Use the `docker-compose` (probably using a [wrapper](#use-the-docker-compose-wrappers))
+Use the `docker compose` (probably using a [wrapper](#use-the-docker-compose-wrappers))
 and `docker` utilities to control and troubleshoot containers.
 In the following examples ``<profile>`` is [profiles](#profiles).
 

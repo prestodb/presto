@@ -12,8 +12,8 @@ Metastores
 Iceberg tables store most of the metadata in the metadata files, along with the data on the
 filesystem, but it still requires a central place to find the current location of the
 current metadata pointer for a table. This central place is called the ``Iceberg Catalog``.
-The Presto Iceberg connector supports different types of Iceberg Catalogs : ``Hive Metastore``,
-``GLUE``, ``NESSIE``, ``REST`` and ``HADOOP``.
+The Presto Iceberg connector supports different types of Iceberg Catalogs : ``HIVE``,
+``NESSIE``, ``REST``, and ``HADOOP``.
 
 To configure the Iceberg connector, create a catalog properties file
 ``etc/catalog/iceberg.properties``. To define the catalog type, ``iceberg.catalog.type`` property
@@ -44,6 +44,48 @@ as a Hive connector.
     connector.name=iceberg
     hive.metastore=glue
     iceberg.catalog.type=hive
+
+There are additional configurations available when using the Iceberg connector configured with Hive
+or Glue catalogs.
+
+======================================================== ============================================================= ============
+Property Name                                            Description                                                   Default
+======================================================== ============================================================= ============
+``hive.metastore.uri``                                   The URI(s) of the Hive metastore to connect to using the
+                                                         Thrift protocol. If multiple URIs are provided, the first
+                                                         URI is used by default, and the rest of the URIs are
+                                                         fallback metastores.
+
+                                                         Example: ``thrift://192.0.2.3:9083`` or
+                                                         ``thrift://192.0.2.3:9083,thrift://192.0.2.4:9083``.
+
+                                                         This property is required if the
+                                                         ``iceberg.catalog.type`` is ``hive`` and ``hive.metastore``
+                                                         is ``thrift``.
+
+``iceberg.hive-statistics-merge-strategy``               Comma separated list of statistics to use from the
+                                                         Hive Metastore to override Iceberg table statistics.
+                                                         The available values are ``NUMBER_OF_DISTINCT_VALUES``
+                                                         and ``TOTAL_SIZE_IN_BYTES``.
+
+                                                         **Note**: Only valid when the Iceberg connector is
+                                                         configured with Hive.
+
+``iceberg.hive.table-refresh.backoff-min-sleep-time``    The minimum amount of time to sleep between retries when      100ms
+                                                         refreshing table metadata.
+
+``iceberg.hive.table-refresh.backoff-max-sleep-time``    The maximum amount of time to sleep between retries when      5s
+                                                         refreshing table metadata.
+
+``iceberg.hive.table-refresh.max-retry-time``            The maximum amount of time to take across all retries before  1min
+                                                         failing a table metadata refresh operation.
+
+``iceberg.hive.table-refresh.retries``                   The number of times to retry after errors when refreshing     20
+                                                         table metadata using the Hive metastore.
+
+``iceberg.hive.table-refresh.backoff-scale-factor``      The multiple used to scale subsequent wait time between       4.0
+                                                         retries.
+======================================================== ============================================================= ============
 
 Nessie catalog
 ^^^^^^^^^^^^^^
@@ -194,35 +236,11 @@ To use a Hadoop catalog, configure the catalog type as
     iceberg.catalog.type=hadoop
     iceberg.catalog.warehouse=hdfs://hostname:port
 
-Configuration Properties
-------------------------
-
-.. note::
-
-    The Iceberg connector supports configuration options for
-    `Amazon S3 <https://prestodb.io/docs/current/connector/hive.html##amazon-s3-configuration>`_
-    as a Hive connector.
-
-The following configuration properties are available:
+Hadoop catalog configuration properties:
 
 ======================================================= ============================================================= ============
 Property Name                                           Description                                                   Default
 ======================================================= ============================================================= ============
-``hive.metastore.uri``                                  The URI(s) of the Hive metastore to connect to using the
-                                                        Thrift protocol. If multiple URIs are provided, the first
-                                                        URI is used by default, and the rest of the URIs are
-                                                        fallback metastores.
-
-                                                        Example: ``thrift://192.0.2.3:9083`` or
-                                                        ``thrift://192.0.2.3:9083,thrift://192.0.2.4:9083``.
-
-                                                        This property is required if the
-                                                        ``iceberg.catalog.type`` is ``hive``. Otherwise, it will
-                                                        be ignored.
-
-``iceberg.catalog.type``                                The catalog type for Iceberg tables. The available values     ``hive``
-                                                        are ``hive``, ``hadoop``, and ``nessie``.
-
 ``iceberg.catalog.warehouse``                           The catalog warehouse root path for Iceberg tables.
 
                                                         Example: ``hdfs://nn:8020/warehouse/path``
@@ -232,6 +250,24 @@ Property Name                                           Description             
 ``iceberg.catalog.cached-catalog-num``                  The number of Iceberg catalogs to cache. This property is     ``10``
                                                         required if the ``iceberg.catalog.type`` is ``hadoop``.
                                                         Otherwise, it will be ignored.
+======================================================= ============================================================= ============
+
+Configuration Properties
+------------------------
+
+.. note::
+
+    The Iceberg connector supports configuration options for
+    `Amazon S3 <https://prestodb.io/docs/current/connector/hive.html##amazon-s3-configuration>`_
+    as a Hive connector.
+
+The following configuration properties are available for all catalog types:
+
+======================================================= ============================================================= ============
+Property Name                                           Description                                                   Default
+======================================================= ============================================================= ============
+``iceberg.catalog.type``                                The catalog type for Iceberg tables. The available values     ``HIVE``
+                                                        are ``HIVE``, ``HADOOP``, and ``NESSIE`` and ``REST``.
 
 ``iceberg.hadoop.config.resources``                     The path(s) for Hadoop configuration resources.
 
@@ -239,7 +275,7 @@ Property Name                                           Description             
                                                         is required if the iceberg.catalog.type is ``hadoop``.
                                                         Otherwise, it will be ignored.
 
-``iceberg.file-format``                                 The storage file format for Iceberg tables. The available     ``ORC``
+``iceberg.file-format``                                 The storage file format for Iceberg tables. The available     ``PARQUET``
                                                         values are ``PARQUET`` and ``ORC``.
 
 ``iceberg.compression-codec``                           The compression codec to use when writing files. The          ``GZIP``
@@ -262,14 +298,6 @@ Property Name                                           Description             
 
 ``iceberg.enable-parquet-dereference-pushdown``         Enable parquet dereference pushdown.                          ``true``
 
-``iceberg.hive-statistics-merge-strategy``              Comma separated list of statistics to use from the
-                                                        Hive Metastore to override Iceberg table statistics.
-                                                        The available values are ``NUMBER_OF_DISTINCT_VALUES``
-                                                        and ``TOTAL_SIZE_IN_BYTES``.
-
-                                                        **Note**: Only valid when the Iceberg connector is
-                                                        configured with Hive.
-
 ``iceberg.statistic-snapshot-record-difference-weight`` The amount that the difference in total record count matters
                                                         when calculating the closest snapshot when picking
                                                         statistics. A value of 1 means a single record is equivalent
@@ -285,7 +313,13 @@ Property Name                                           Description             
 
                                                         Set to ``0`` to disable metadata optimization.
 
-``iceberg.split-manager-threads``                       Number of threads to use for generating Iceberg splits.        ``Number of available processors``
+``iceberg.split-manager-threads``                       Number of threads to use for generating Iceberg splits.       ``Number of available processors``
+
+``iceberg.metadata-previous-versions-max``              The max number of old metadata files to keep in current       ``100``
+                                                        metadata log.
+
+``iceberg.metadata-delete-after-commit``                Set to ``true`` to delete the oldest metadata files after     ``false``
+                                                        each commit.
 ======================================================= ============================================================= ============
 
 Table Properties
@@ -327,6 +361,12 @@ Property Name                             Description                           
 ``delete_mode``                            Optionally specifies the write delete mode of the Iceberg        ``merge-on-read``
                                            specification to use for new tables, either ``copy-on-write``
                                            or ``merge-on-read``.
+
+``metadata_previous_versions_max``         Optionally specifies the max number of old metadata files to     ``100``
+                                           keep in current metadata log.
+
+``metadata_delete_after_commit``           Set to ``true`` to delete the oldest metadata file after         ``false``
+                                           each commit.
 =======================================   ===============================================================   ============
 
 The table definition below specifies format ``ORC``, partitioning by columns ``c1`` and ``c2``,
@@ -772,6 +812,32 @@ Examples:
 
     CALL iceberg.system.expire_snapshots(schema => 'schema_name', table_name => 'table_name', snapshot_ids => ARRAY[10001, 10002]);
 
+Remove Orphan Files
+^^^^^^^^^^^^^^^^^^^
+
+Use to remove files which are not referenced in any metadata files of an Iceberg table.
+
+The following arguments are available:
+
+===================== ========== =============== =======================================================================
+Argument Name         required   type            Description
+===================== ========== =============== =======================================================================
+``schema``            ✔️         string          Schema of the table to clean
+
+``table_name``        ✔️         string          Name of the table to clean
+
+``older_than``                   timestamp       Remove orphan files created before this timestamp (Default: 3 days ago)
+===================== ========== =============== =======================================================================
+
+Examples:
+
+* Remove any files which are not known to the table `db.sample` and older than specified timestamp::
+
+    CALL iceberg.system.remove_orphan_files('db', 'sample', TIMESTAMP '2023-08-31 00:00:00.000');
+
+* Remove any files which are not known to the table `db.sample` and created 3 days ago (by default)::
+
+    CALL iceberg.system.remove_orphan_files(schema => 'db', table_name => 'sample');
 
 SQL Support
 -----------

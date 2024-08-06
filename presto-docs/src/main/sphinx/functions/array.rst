@@ -78,7 +78,7 @@ Array Functions
 .. function:: array_has_duplicates(array(T)) -> boolean
 
     Returns a boolean: whether ``array`` has any elements that occur more than once.
-    Throws an exception if any of the elements are rows or arrays that contain nulls. ::
+    Throws an exception if any of the elements are rows or arrays that contain nulls. 
 
     SELECT array_has_duplicates(ARRAY[1, 2, null, 1, null, 3]) -- true
     SELECT array_has_duplicates(ARRAY[ROW(1, null), ROW(1, null)]) -- "map key cannot be null or contain nulls"
@@ -206,6 +206,16 @@ Array Functions
         SELECT array_sort_desc(ARRAY [100, 1, 10, 50]); -- [100, 50, 10, 1]
         SELECT array_sort_desc(ARRAY [null, 100, null, 1, 10, 50]); -- [100, 50, 10, 1, null, null]
         SELECT array_sort_desc(ARRAY [ARRAY ["a", null], null, ARRAY ["a"]); -- [["a", null], ["a"], null]
+
+.. function:: array_split_into_chunks(array(T), int) -> array(array(T))
+
+    Returns an ``array`` of arrays splitting the input ``array`` into chunks of given length.
+    The last chunk will be shorter than the chunk length if the array's length is not an integer multiple of
+    the chunk length. Ignores null inputs, but not elements.
+
+        SELECT array_split_into_chunks(ARRAY [1, 2, 3, 4], 3); -- [[1, 2, 3], [4]]
+        SELECT array_split_into_chunks(null, null); -- null
+        SELECT array_split_into_chunks(array[1, 2, 3, cast(null as int)], 2]); -- [[1, 2], [3, null]]
 
 .. function:: array_sum(array(T)) -> bigint/double
 

@@ -111,12 +111,7 @@ PrestoExchangeSource::PrestoExchangeSource(
       requestTimeoutMs,
       connectTimeoutMs,
       immediateBufferTransfer_ ? pool_ : nullptr,
-      sslContext_,
-      [](size_t bufferBytes) {
-        RECORD_METRIC_VALUE(kCounterHttpClientPrestoExchangeNumOnBody);
-        RECORD_HISTOGRAM_METRIC_VALUE(
-            kCounterHttpClientPrestoExchangeOnBodyBytes, bufferBytes);
-      });
+      sslContext_);
 }
 
 void PrestoExchangeSource::close() {
@@ -384,9 +379,6 @@ void PrestoExchangeSource::processDataResponse(
 
   if (complete) {
     abortResults();
-  } else if (!empty) {
-    // Acknowledge results for non-empty content.
-    acknowledgeResults(ackSequence);
   }
 }
 
@@ -420,6 +412,15 @@ void PrestoExchangeSource::processDataError(
     // The source must have been closed.
     VELOX_CHECK(closed_.load());
   }
+}
+
+void PrestoExchangeSource::pause() {
+  int64_t ackSequence;
+  {
+    std::lock_guard<std::mutex> l(queue_->mutex());
+    ackSequence = sequence_;
+  }
+  acknowledgeResults(ackSequence);
 }
 
 void PrestoExchangeSource::acknowledgeResults(int64_t ackSequence) {

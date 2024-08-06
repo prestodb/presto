@@ -41,6 +41,7 @@ import com.facebook.presto.iceberg.nessie.IcebergNessieConfig;
 import com.facebook.presto.iceberg.optimizer.IcebergPlanOptimizerProvider;
 import com.facebook.presto.iceberg.procedure.ExpireSnapshotsProcedure;
 import com.facebook.presto.iceberg.procedure.RegisterTableProcedure;
+import com.facebook.presto.iceberg.procedure.RemoveOrphanFiles;
 import com.facebook.presto.iceberg.procedure.RollbackToSnapshotProcedure;
 import com.facebook.presto.iceberg.procedure.UnregisterTableProcedure;
 import com.facebook.presto.orc.CachingStripeMetadataSource;
@@ -154,6 +155,7 @@ public class IcebergCommonModule
         procedures.addBinding().toProvider(RegisterTableProcedure.class).in(Scopes.SINGLETON);
         procedures.addBinding().toProvider(UnregisterTableProcedure.class).in(Scopes.SINGLETON);
         procedures.addBinding().toProvider(ExpireSnapshotsProcedure.class).in(Scopes.SINGLETON);
+        procedures.addBinding().toProvider(RemoveOrphanFiles.class).in(Scopes.SINGLETON);
 
         // for orc
         binder.bind(EncryptionLibrary.class).annotatedWith(HiveDwrfEncryptionProvider.ForCryptoService.class).to(UnsupportedEncryptionLibrary.class).in(Scopes.SINGLETON);

@@ -37,6 +37,7 @@ import com.facebook.presto.execution.PartitionedSplitsInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.ScheduledSplit;
+import com.facebook.presto.execution.SchedulerStatsTracker;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
@@ -73,12 +74,15 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.sun.management.ThreadMXBean;
 import io.airlift.units.Duration;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
+import java.lang.management.ManagementFactory;
 import java.net.URI;
 import java.util.Collection;
 import java.util.HashMap;
@@ -143,6 +147,7 @@ public final class HttpRemoteTask
 {
     private static final Logger log = Logger.get(HttpRemoteTask.class);
     private static final double UPDATE_WITHOUT_PLAN_STATS_SAMPLE_RATE = 0.01;
+    private static final ThreadMXBean THREAD_MX_BEAN = (ThreadMXBean) ManagementFactory.getThreadMXBean();
 
     private final TaskId taskId;
     private final URI taskLocation;
@@ -163,9 +168,13 @@ public final class HttpRemoteTask
     private final ContinuousTaskStatusFetcher taskStatusFetcher;
 
     @GuardedBy("this")
+    private final LongArrayList taskUpdateTimeline = new LongArrayList();
+    @GuardedBy("this")
     private Future<?> currentRequest;
     @GuardedBy("this")
     private long currentRequestStartNanos;
+    @GuardedBy("this")
+    private long currentRequestLastTaskUpdate;
 
     @GuardedBy("this")
     private final SetMultimap<PlanNodeId, ScheduledSplit> pendingSplits = HashMultimap.create();
@@ -221,6 +230,7 @@ public final class HttpRemoteTask
     private final TableWriteInfo tableWriteInfo;
 
     private final DecayCounter taskUpdateRequestSize;
+    private final SchedulerStatsTracker schedulerStatsTracker;
 
     public HttpRemoteTask(
             Session session,
@@ -258,7 +268,8 @@ public final class HttpRemoteTask
             QueryManager queryManager,
             DecayCounter taskUpdateRequestSize,
             HandleResolver handleResolver,
-            ConnectorTypeSerdeManager connectorTypeSerdeManager)
+            ConnectorTypeSerdeManager connectorTypeSerdeManager,
+            SchedulerStatsTracker schedulerStatsTracker)
     {
         requireNonNull(session, "session is null");
         requireNonNull(taskId, "taskId is null");
@@ -284,6 +295,7 @@ public final class HttpRemoteTask
         requireNonNull(handleResolver, "handleResolver is null");
         requireNonNull(connectorTypeSerdeManager, "connectorTypeSerdeManager is null");
         requireNonNull(taskUpdateRequestSize, "taskUpdateRequestSize cannot be null");
+        requireNonNull(schedulerStatsTracker, "schedulerStatsTracker is null");
 
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             this.taskId = taskId;
@@ -321,6 +333,7 @@ public final class HttpRemoteTask
                     .map(PlanNode::getId)
                     .collect(toImmutableSet());
             this.taskUpdateRequestSize = taskUpdateRequestSize;
+            this.schedulerStatsTracker = schedulerStatsTracker;
 
             for (Entry<PlanNodeId, Split> entry : requireNonNull(initialSplits, "initialSplits is null").entries()) {
                 ScheduledSplit scheduledSplit = new ScheduledSplit(nextSplitId.getAndIncrement(), entry.getKey(), entry.getValue());
@@ -820,8 +833,9 @@ public final class HttpRemoteTask
         }
     }
 
-    private void scheduleUpdate()
+    private synchronized void scheduleUpdate()
     {
+        taskUpdateTimeline.add(System.nanoTime());
         executor.execute(this::sendUpdate);
     }
 
@@ -847,7 +861,12 @@ public final class HttpRemoteTask
 
         List<TaskSource> sources = getSources();
 
-        Optional<byte[]> fragment = sendPlan.get() ? Optional.of(planFragment.bytesForTaskSerialization(planFragmentCodec)) : Optional.empty();
+        Optional<byte[]> fragment = Optional.empty();
+        if (sendPlan.get()) {
+            long start = THREAD_MX_BEAN.getCurrentThreadCpuTime();
+            fragment = Optional.of(planFragment.bytesForTaskSerialization(planFragmentCodec));
+            schedulerStatsTracker.recordTaskPlanSerializedCpuTime(THREAD_MX_BEAN.getCurrentThreadCpuTime() - start);
+        }
         Optional<TableWriteInfo> writeInfo = sendPlan.get() ? Optional.of(tableWriteInfo) : Optional.empty();
         TaskUpdateRequest updateRequest = new TaskUpdateRequest(
                 session.toSessionRepresentation(),
@@ -856,7 +875,10 @@ public final class HttpRemoteTask
                 sources,
                 outputBuffers.get(),
                 writeInfo);
+        long serializeStartCpuTimeNanos = THREAD_MX_BEAN.getCurrentThreadCpuTime();
         byte[] taskUpdateRequestJson = taskUpdateRequestCodec.toBytes(updateRequest);
+        schedulerStatsTracker.recordTaskUpdateSerializedCpuTime(THREAD_MX_BEAN.getCurrentThreadCpuTime() - serializeStartCpuTimeNanos);
+
         taskUpdateRequestSize.add(taskUpdateRequestJson.length);
 
         if (taskUpdateRequestJson.length > maxTaskUpdateSizeInBytes) {
@@ -892,6 +914,9 @@ public final class HttpRemoteTask
         ListenableFuture<BaseResponse<TaskInfo>> future = httpClient.executeAsync(request, responseHandler);
         currentRequest = future;
         currentRequestStartNanos = System.nanoTime();
+        if (!taskUpdateTimeline.isEmpty()) {
+            currentRequestLastTaskUpdate = taskUpdateTimeline.getLong(taskUpdateTimeline.size() - 1);
+        }
 
         // The needsUpdate flag needs to be set to false BEFORE adding the Future callback since callback might change the flag value
         // and does so without grabbing the instance lock.
@@ -1109,15 +1134,27 @@ public final class HttpRemoteTask
         {
             try (SetThreadName ignored = new SetThreadName("UpdateResponseHandler-%s", taskId)) {
                 try {
+                    long oldestTaskUpdateTime = 0;
                     long currentRequestStartNanos;
                     synchronized (HttpRemoteTask.this) {
                         currentRequest = null;
                         sendPlan.set(value.isNeedsPlan());
                         currentRequestStartNanos = HttpRemoteTask.this.currentRequestStartNanos;
+                        if (!taskUpdateTimeline.isEmpty()) {
+                            oldestTaskUpdateTime = taskUpdateTimeline.getLong(0);
+                        }
+                        int deliveredUpdates = taskUpdateTimeline.size();
+                        while (deliveredUpdates > 0 && taskUpdateTimeline.getLong(deliveredUpdates - 1) > currentRequestLastTaskUpdate) {
+                            deliveredUpdates--;
+                        }
+                        taskUpdateTimeline.removeElements(0, deliveredUpdates);
                     }
                     updateStats(currentRequestStartNanos);
                     processTaskUpdate(value, sources);
                     updateErrorTracker.requestSucceeded();
+                    if (oldestTaskUpdateTime != 0) {
+                        schedulerStatsTracker.recordTaskUpdateDeliveredTime(System.nanoTime() - oldestTaskUpdateTime);
+                    }
                 }
                 finally {
                     sendUpdate();

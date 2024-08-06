@@ -124,7 +124,7 @@ export class PageTitle extends React.Component<Props, State> {
                                 <li>
                                     <span className="navbar-cluster-info">
                                         <span className="uppercase">Environment</span><br/>
-                                        <span className="text uppercase" id="environment">{info.environment}</span>
+                                        <span className="text" id="environment">{info.environment}</span>
                                     </span>
                                 </li>
                             </ul>

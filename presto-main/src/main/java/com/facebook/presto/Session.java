@@ -61,6 +61,7 @@ import static com.facebook.presto.SystemSessionProperties.isLegacyMapSubscript;
 import static com.facebook.presto.SystemSessionProperties.isLegacyRowFieldOrdinalAccessEnabled;
 import static com.facebook.presto.SystemSessionProperties.isLegacyTimestamp;
 import static com.facebook.presto.SystemSessionProperties.isParseDecimalLiteralsAsDouble;
+import static com.facebook.presto.SystemSessionProperties.warnOnCommonNanPatterns;
 import static com.facebook.presto.spi.ConnectorId.createInformationSchemaConnectorId;
 import static com.facebook.presto.spi.ConnectorId.createSystemTablesConnectorId;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
@@ -525,6 +526,7 @@ public final class Session
                 .setFieldNamesInJsonCastEnabled(isFieldNameInJsonCastEnabled(this))
                 .setLegacyJsonCast(legacyJsonCast)
                 .setExtraCredentials(identity.getExtraCredentials())
+                .setWarnOnCommonNanPatterns(warnOnCommonNanPatterns(this))
                 .build();
     }
 

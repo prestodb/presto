@@ -39,8 +39,7 @@ import static com.facebook.presto.SystemSessionProperties.LEGACY_TIMESTAMP;
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
-import static com.facebook.presto.iceberg.IcebergQueryRunner.TEST_CATALOG_DIRECTORY;
-import static com.facebook.presto.iceberg.IcebergQueryRunner.TEST_DATA_DIRECTORY;
+import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
 import static com.facebook.presto.iceberg.IcebergUtil.MIN_FORMAT_VERSION_FOR_DELETE;
 import static com.facebook.presto.iceberg.procedure.RegisterTableProcedure.METADATA_FOLDER_NAME;
 import static com.facebook.presto.iceberg.procedure.TestIcebergRegisterProcedure.getMetadataFileLocation;
@@ -141,7 +140,9 @@ public class IcebergDistributedSmokeTestBase
                         "   delete_mode = 'merge-on-read',\n" +
                         "   format = 'PARQUET',\n" +
                         "   format_version = '2',\n" +
-                        "   location = '%s'\n" +
+                        "   location = '%s',\n" +
+                        "   metadata_delete_after_commit = false,\n" +
+                        "   metadata_previous_versions_max = 100\n" +
                         ")", getLocation("tpch", "orders")));
     }
 
@@ -419,6 +420,8 @@ public class IcebergDistributedSmokeTestBase
                         "   format = '" + fileFormat + "',\n" +
                         "   format_version = '2',\n" +
                         "   location = '%s',\n" +
+                        "   metadata_delete_after_commit = false,\n" +
+                        "   metadata_previous_versions_max = 100,\n" +
                         "   partitioning = ARRAY['order_status','ship_priority','bucket(order_key, 9)']\n" +
                         ")",
                 getSession().getCatalog().get(),
@@ -618,7 +621,9 @@ public class IcebergDistributedSmokeTestBase
                 "   delete_mode = 'merge-on-read',\n" +
                 "   format = 'ORC',\n" +
                 "   format_version = '2',\n" +
-                "   location = '%s'\n" +
+                "   location = '%s',\n" +
+                "   metadata_delete_after_commit = false,\n" +
+                "   metadata_previous_versions_max = 100\n" +
                 ")";
         String createTableSql = format(createTableTemplate, "test table comment", getLocation("tpch", "test_table_comments"));
 
@@ -707,6 +712,8 @@ public class IcebergDistributedSmokeTestBase
                 "   format = 'PARQUET',\n" +
                 "   format_version = '2',\n" +
                 "   location = '%s',\n" +
+                "   metadata_delete_after_commit = false,\n" +
+                "   metadata_previous_versions_max = 100,\n" +
                 "   partitioning = ARRAY['adate']\n" +
                 ")", getLocation("tpch", "test_create_table_like_original")));
 
@@ -720,7 +727,9 @@ public class IcebergDistributedSmokeTestBase
                 "   delete_mode = 'merge-on-read',\n" +
                 "   format = 'PARQUET',\n" +
                 "   format_version = '2',\n" +
-                "   location = '%s'\n" +
+                "   location = '%s',\n" +
+                "   metadata_delete_after_commit = false,\n" +
+                "   metadata_previous_versions_max = 100\n" +
                 ")", getLocation("tpch", "test_create_table_like_copy1")));
         dropTable(session, "test_create_table_like_copy1");
 
@@ -729,7 +738,9 @@ public class IcebergDistributedSmokeTestBase
                 "   delete_mode = 'merge-on-read',\n" +
                 "   format = 'PARQUET',\n" +
                 "   format_version = '2',\n" +
-                "   location = '%s'\n" +
+                "   location = '%s',\n" +
+                "   metadata_delete_after_commit = false,\n" +
+                "   metadata_previous_versions_max = 100\n" +
                 ")", getLocation("tpch", "test_create_table_like_copy2")));
         dropTable(session, "test_create_table_like_copy2");
 
@@ -739,6 +750,8 @@ public class IcebergDistributedSmokeTestBase
                 "   format = 'PARQUET',\n" +
                 "   format_version = '2',\n" +
                 "   location = '%s',\n" +
+                "   metadata_delete_after_commit = false,\n" +
+                "   metadata_previous_versions_max = 100,\n" +
                 "   partitioning = ARRAY['adate']\n" +
                 ")", catalogType.equals(CatalogType.HIVE) ?
                 getLocation("tpch", "test_create_table_like_original") :
@@ -751,6 +764,8 @@ public class IcebergDistributedSmokeTestBase
                 "   format = 'ORC',\n" +
                 "   format_version = '2',\n" +
                 "   location = '%s',\n" +
+                "   metadata_delete_after_commit = false,\n" +
+                "   metadata_previous_versions_max = 100,\n" +
                 "   partitioning = ARRAY['adate']\n" +
                 ")", catalogType.equals(CatalogType.HIVE) ?
                 getLocation("tpch", "test_create_table_like_original") :
@@ -792,7 +807,9 @@ public class IcebergDistributedSmokeTestBase
                         "   delete_mode = '%s',\n" +
                         "   format = 'PARQUET',\n" +
                         "   format_version = '%s',\n" +
-                        "   location = '%s'\n" +
+                        "   location = '%s',\n" +
+                        "   metadata_delete_after_commit = false,\n" +
+                        "   metadata_previous_versions_max = 100\n" +
                         ")",
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
@@ -1110,8 +1127,8 @@ public class IcebergDistributedSmokeTestBase
 
     protected Path getCatalogDirectory()
     {
-        Path dataDirectory = getDistributedQueryRunner().getCoordinator().getDataDirectory().resolve(TEST_DATA_DIRECTORY);
-        return dataDirectory.getParent().resolve(TEST_CATALOG_DIRECTORY);
+        Path dataDirectory = getDistributedQueryRunner().getCoordinator().getDataDirectory();
+        return getIcebergDataDirectoryPath(dataDirectory, catalogType.name(), new IcebergConfig().getFileFormat(), false);
     }
 
     protected Table getIcebergTable(ConnectorSession session, String namespace, String tableName)

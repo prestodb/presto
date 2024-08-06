@@ -66,6 +66,7 @@ import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableOperations;
+import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.hive.HiveSchemaUtil;
@@ -74,6 +75,7 @@ import org.apache.iceberg.io.CloseableIterator;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.types.Types.NestedField;
+import org.apache.iceberg.util.LocationUtil;
 import org.apache.iceberg.util.SnapshotUtil;
 
 import java.io.IOException;
@@ -179,6 +181,10 @@ import static org.apache.iceberg.TableProperties.DELETE_MODE;
 import static org.apache.iceberg.TableProperties.DELETE_MODE_DEFAULT;
 import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
 import static org.apache.iceberg.TableProperties.MERGE_MODE;
+import static org.apache.iceberg.TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED;
+import static org.apache.iceberg.TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED_DEFAULT;
+import static org.apache.iceberg.TableProperties.METADATA_PREVIOUS_VERSIONS_MAX;
+import static org.apache.iceberg.TableProperties.METADATA_PREVIOUS_VERSIONS_MAX_DEFAULT;
 import static org.apache.iceberg.TableProperties.ORC_COMPRESSION;
 import static org.apache.iceberg.TableProperties.PARQUET_COMPRESSION;
 import static org.apache.iceberg.TableProperties.UPDATE_MODE;
@@ -216,7 +222,7 @@ public final class IcebergUtil
         return icebergMetadata.getIcebergTable(session, table);
     }
 
-    public static Table getHiveIcebergTable(ExtendedHiveMetastore metastore, HdfsEnvironment hdfsEnvironment, ConnectorSession session, SchemaTableName table)
+    public static Table getHiveIcebergTable(ExtendedHiveMetastore metastore, HdfsEnvironment hdfsEnvironment, IcebergHiveTableOperationsConfig config, ConnectorSession session, SchemaTableName table)
     {
         HdfsContext hdfsContext = new HdfsContext(session, table.getSchemaName(), table.getTableName());
         TableOperations operations = new HiveTableOperations(
@@ -224,6 +230,7 @@ public final class IcebergUtil
                 new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getClientTags(), session.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, session.getWarningCollector(), session.getRuntimeStats()),
                 hdfsEnvironment,
                 hdfsContext,
+                config,
                 table.getSchemaName(),
                 table.getTableName());
         return new BaseTable(operations, quotedTableName(table));
@@ -1078,6 +1085,11 @@ public final class IcebergUtil
             propertiesBuilder.put(DELETE_MODE, deleteMode.modeName());
         }
 
+        Integer metadataPreviousVersionsMax = IcebergTableProperties.getMetadataPreviousVersionsMax(tableMetadata.getProperties());
+        propertiesBuilder.put(METADATA_PREVIOUS_VERSIONS_MAX, String.valueOf(metadataPreviousVersionsMax));
+
+        Boolean metadataDeleteAfterCommit = IcebergTableProperties.isMetadataDeleteAfterCommit(tableMetadata.getProperties());
+        propertiesBuilder.put(METADATA_DELETE_AFTER_COMMIT_ENABLED, String.valueOf(metadataDeleteAfterCommit));
         return propertiesBuilder.build();
     }
 
@@ -1096,6 +1108,20 @@ public final class IcebergUtil
         return RowLevelOperationMode.fromName(table.properties()
                 .getOrDefault(DELETE_MODE, DELETE_MODE_DEFAULT)
                 .toUpperCase(Locale.ENGLISH));
+    }
+
+    public static int getMetadataPreviousVersionsMax(Table table)
+    {
+        return Integer.parseInt(table.properties()
+                .getOrDefault(METADATA_PREVIOUS_VERSIONS_MAX,
+                        String.valueOf(METADATA_PREVIOUS_VERSIONS_MAX_DEFAULT)));
+    }
+
+    public static boolean isMetadataDeleteAfterCommit(Table table)
+    {
+        return Boolean.valueOf(table.properties()
+                .getOrDefault(METADATA_DELETE_AFTER_COMMIT_ENABLED,
+                        String.valueOf(METADATA_DELETE_AFTER_COMMIT_ENABLED_DEFAULT)));
     }
 
     public static Optional<PartitionData> partitionDataFromJson(PartitionSpec spec, Optional<String> partitionDataAsJson)
@@ -1123,5 +1149,41 @@ public final class IcebergUtil
             partitionData = Optional.of(PartitionData.fromStructLike(partition, partitionColumnTypes));
         }
         return partitionData;
+    }
+
+    /**
+     * Get the metadata location for target {@link Table},
+     *  considering iceberg table properties {@code WRITE_METADATA_LOCATION}
+     * */
+    public static String metadataLocation(Table icebergTable)
+    {
+        String metadataLocation = icebergTable.properties().get(TableProperties.WRITE_METADATA_LOCATION);
+
+        if (metadataLocation != null) {
+            return String.format("%s", LocationUtil.stripTrailingSlash(metadataLocation));
+        }
+        else {
+            return String.format("%s/%s", icebergTable.location(), "metadata");
+        }
+    }
+
+    /**
+     * Get the data location for target {@link Table},
+     *  considering iceberg table properties {@code WRITE_DATA_LOCATION}, {@code OBJECT_STORE_PATH} and {@code WRITE_FOLDER_STORAGE_LOCATION}
+     * */
+    public static String dataLocation(Table icebergTable)
+    {
+        Map<String, String> properties = icebergTable.properties();
+        String dataLocation = properties.get(TableProperties.WRITE_DATA_LOCATION);
+        if (dataLocation == null) {
+            dataLocation = properties.get(TableProperties.OBJECT_STORE_PATH);
+            if (dataLocation == null) {
+                dataLocation = properties.get(TableProperties.WRITE_FOLDER_STORAGE_LOCATION);
+                if (dataLocation == null) {
+                    dataLocation = String.format("%s/data", icebergTable.location());
+                }
+            }
+        }
+        return dataLocation;
     }
 }

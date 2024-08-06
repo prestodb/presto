@@ -310,7 +310,7 @@ HyperLogLog
 -----------
 
 Calculating the approximate distinct count can be done much more cheaply than an exact count using the
-`HyperLogLog <https://en.wikipedia.org/wiki/HyperLogLog>`_ data sketch. See :doc:`/functions/hyperloglog`.
+`HyperLogLog <https://en.wikipedia.org/wiki/HyperLogLog>`__ data sketch. See :doc:`/functions/hyperloglog`.
 
 .. _hyperloglog_type:
 
@@ -430,3 +430,21 @@ supports int, bigint, double, varchar, and boolean types. See
 ``kllsketch`` type stored by Presto can be read directly by any other
 application which utilizes the Apache DataSketches library to read KLL
 sketches.
+
+Geospatial
+----------
+
+.. _geospatial_type:
+
+``Geospatial``
+^^^^^^^^^^^^^^
+
+Geospatial types in Presto are designed to handle and analyze spatial data efficiently,
+adhering to the SQL/MM specification and the Open Geospatial Consortium standards.
+These types include ``POINT``, ``LINESTRING``, ``POLYGON``, ``MULTIPOINT``, ``MULTILINESTRING``, ``MULTIPOLYGON``,
+and ``GEOMETRYCOLLECTION``, which can be expressed in Well-Known Text (WKT) and Well-Known Binary (WKB) formats.
+The types support operations such as spatial measurements and relationship checks,
+crucial for geographic information systems (GIS) and other applications requiring spatial data manipulation.
+The geospatial types ensure data integrity and provide robust tools for complex spatial querying and analysis.
+
+See :doc:`/functions/geospatial`.

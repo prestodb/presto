@@ -72,6 +72,7 @@ public class VerifierTestUtil
             ImmutableList.of(),
             CONTROL,
             Optional.empty(),
+            Optional.empty(),
             false);
 
     private static final MySqlOptions MY_SQL_OPTIONS = MySqlOptions.builder()
