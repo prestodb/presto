@@ -15,6 +15,7 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.presto.common.io.DataSink;
 import com.facebook.presto.common.io.OutputStreamDataSink;
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
@@ -43,10 +44,13 @@ import org.apache.iceberg.types.Types;
 import javax.inject.Inject;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcMaxBufferSize;
@@ -134,6 +138,24 @@ public class IcebergFileWriterFactory
         List<String> fileColumnNames = icebergSchema.columns().stream()
                 .map(Types.NestedField::name)
                 .collect(toImmutableList());
+
+        List<Types.NestedField> icebergFields = new ArrayList<>(icebergSchema.columns());
+        ListIterator<Types.NestedField> icebergFieldsIterator = icebergFields.listIterator();
+
+        while (icebergFieldsIterator.hasNext()) {
+            Types.NestedField field = icebergFieldsIterator.next();
+            if (field.type() instanceof Types.TimestampType) {
+                Types.NestedField newField = Types.NestedField.of(
+                        field.fieldId(),
+                        field.isOptional(),
+                        field.name(),
+                        Types.fromPrimitiveString(Types.TimestampType.withoutZone().toString())
+                );
+                icebergFieldsIterator.set(newField);
+            }
+        }
+        icebergSchema = new Schema(icebergFields);
+
         List<Type> fileColumnTypes = icebergSchema.columns().stream()
                 .map(column -> toPrestoType(column.type(), typeManager))
                 .collect(toImmutableList());
