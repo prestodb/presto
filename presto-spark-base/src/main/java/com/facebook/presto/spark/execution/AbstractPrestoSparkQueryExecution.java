@@ -29,7 +29,7 @@ import com.facebook.presto.execution.QueryStateTimer;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget;
-import com.facebook.presto.execution.scheduler.StreamingPlanSection;
+import com.facebook.presto.execution.scheduler.RootPlanSection;
 import com.facebook.presto.execution.scheduler.StreamingSubPlan;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.memory.NodeMemoryConfig;
@@ -124,7 +124,7 @@ import static com.facebook.presto.SystemSessionProperties.getQueryMaxTotalMemory
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.FINISHED;
-import static com.facebook.presto.execution.scheduler.StreamingPlanSection.extractStreamingSections;
+import static com.facebook.presto.execution.scheduler.RootPlanSection.extractStreamingSections;
 import static com.facebook.presto.execution.scheduler.TableWriteInfo.createTableWriteInfo;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getSparkBroadcastJoinMaxMemoryOverride;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.isStorageBasedBroadcastJoinEnabled;
@@ -745,8 +745,8 @@ public abstract class AbstractPrestoSparkQueryExecution
     @VisibleForTesting
     public TableWriteInfo getTableWriteInfo(Session session, SubPlan plan)
     {
-        StreamingPlanSection streamingPlanSection = extractStreamingSections(plan);
-        StreamingSubPlan streamingSubPlan = streamingPlanSection.getPlan();
+        RootPlanSection rootPlanSection = extractStreamingSections(plan);
+        StreamingSubPlan streamingSubPlan = rootPlanSection.getPlan();
         TableWriteInfo tableWriteInfo = createTableWriteInfo(streamingSubPlan, metadata, session);
         if (tableWriteInfo.getWriterTarget().isPresent()) {
             checkPageSinkCommitIsSupported(session, tableWriteInfo.getWriterTarget().get());

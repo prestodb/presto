@@ -47,7 +47,6 @@ import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 
@@ -56,6 +55,7 @@ import javax.inject.Inject;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -71,6 +71,7 @@ import static com.facebook.presto.SystemSessionProperties.getMaxTasksPerStage;
 import static com.facebook.presto.SystemSessionProperties.getWriterMinSize;
 import static com.facebook.presto.SystemSessionProperties.isOptimizedScaleWriterProducerBuffer;
 import static com.facebook.presto.execution.SqlStageExecution.createSqlStageExecution;
+import static com.facebook.presto.execution.buffer.OutputBuffers.createDiscardingOutputBuffers;
 import static com.facebook.presto.execution.scheduler.SourcePartitionedScheduler.newSourcePartitionedSchedulerAsStageScheduler;
 import static com.facebook.presto.execution.scheduler.TableWriteInfo.createTableWriteInfo;
 import static com.facebook.presto.spi.ConnectorId.isInternalSystemConnector;
@@ -161,7 +162,7 @@ public class SectionExecutionFactory
      */
     public SectionExecution createSectionExecutions(
             Session session,
-            StreamingPlanSection section,
+            RootPlanSection section,
             ExchangeLocationsConsumer locationsConsumer,
             Optional<int[]> bucketToPartition,
             OutputBuffers outputBuffers,
@@ -226,7 +227,8 @@ public class SectionExecutionFactory
         Optional<int[]> bucketToPartition = getBucketToPartition(partitioningHandle, partitioningCache, plan.getFragment().getRoot(), remoteSourceNodes);
 
         // create child stages
-        ImmutableSet.Builder<SqlStageExecution> childStagesBuilder = ImmutableSet.builder();
+        Set<SqlStageExecution> childStageExecutions = new HashSet<>();
+        Set<SqlStageExecution> sectionedChildStages = new HashSet<>();
         for (StreamingSubPlan stagePlan : plan.getChildren()) {
             List<StageExecutionAndScheduler> subTree = createStreamingLinkedStageExecutions(
                     session,
@@ -240,16 +242,36 @@ public class SectionExecutionFactory
                     splitSourceFactory,
                     attemptId);
             stageExecutionAndSchedulers.addAll(subTree);
-            childStagesBuilder.add(getLast(subTree).getStageExecution());
+            childStageExecutions.add(getLast(subTree).getStageExecution());
         }
-        Set<SqlStageExecution> childStageExecutions = childStagesBuilder.build();
+
+        for (StreamingSubPlan stagePlan : plan.getSectionChildren()) {
+            ExchangeLocationsConsumer childLocationsConsumer = (fragmentId1, tasks, noMoreExchangeLocations) -> {};
+            List<StageExecutionAndScheduler> subTree = createStreamingLinkedStageExecutions(
+                    session,
+                    childLocationsConsumer,
+                    stagePlan.withBucketToPartition(bucketToPartition),
+                    partitioningCache,
+                    tableWriteInfo,
+                    Optional.of(stageExecution),
+                    summarizeTaskInfo,
+                    remoteTaskFactory,
+                    splitSourceFactory,
+                    attemptId);
+            getLast(subTree).getStageExecution().setOutputBuffers(createDiscardingOutputBuffers());
+            stageExecutionAndSchedulers.addAll(subTree);
+            sectionedChildStages.add(getLast(subTree).getStageExecution());
+        }
+
         stageExecution.addStateChangeListener(newState -> {
             if (newState.isDone()) {
                 childStageExecutions.forEach(SqlStageExecution::cancel);
+                sectionedChildStages.forEach(SqlStageExecution::cancel);
             }
         });
 
         StageLinkage stageLinkage = new StageLinkage(fragmentId, parent, childStageExecutions);
+        childStageExecutions.addAll(sectionedChildStages);
         StageScheduler stageScheduler = createStageScheduler(
                 splitSourceFactory,
                 session,

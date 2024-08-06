@@ -18,23 +18,21 @@ import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.google.common.collect.ImmutableList;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
-public class StreamingPlanSection
+public class RootPlanSection
 {
     private final StreamingSubPlan plan;
-    // materialized exchange children
-    private final List<StreamingPlanSection> children;
 
-    public StreamingPlanSection(StreamingSubPlan plan, List<StreamingPlanSection> children)
+    public RootPlanSection(StreamingSubPlan plan)
     {
         this.plan = requireNonNull(plan, "plan is null");
-        this.children = ImmutableList.copyOf(requireNonNull(children, "children is null"));
     }
 
     public StreamingSubPlan getPlan()
@@ -42,24 +40,15 @@ public class StreamingPlanSection
         return plan;
     }
 
-    public List<StreamingPlanSection> getChildren()
+    public static RootPlanSection extractStreamingSections(SubPlan subPlan)
     {
-        return children;
+        StreamingSubPlan streamingSection = extractStreamingSection(subPlan, new HashMap<>());
+        return new RootPlanSection(streamingSection);
     }
 
-    public static StreamingPlanSection extractStreamingSections(SubPlan subPlan)
+    private static StreamingSubPlan extractStreamingSection(SubPlan subPlan, Map<PlanFragmentId, StreamingSubPlan> fragmentIdStreamingSubPlanMap)
     {
-        ImmutableList.Builder<SubPlan> materializedExchangeChildren = ImmutableList.builder();
-        StreamingSubPlan streamingSection = extractStreamingSection(subPlan, materializedExchangeChildren);
-        return new StreamingPlanSection(
-                streamingSection,
-                materializedExchangeChildren.build().stream()
-                        .map(StreamingPlanSection::extractStreamingSections)
-                        .collect(toImmutableList()));
-    }
-
-    private static StreamingSubPlan extractStreamingSection(SubPlan subPlan, ImmutableList.Builder<SubPlan> materializedExchangeChildren)
-    {
+        ImmutableList.Builder<StreamingSubPlan> materializedExchangeSources = ImmutableList.builder();
         ImmutableList.Builder<StreamingSubPlan> streamingSources = ImmutableList.builder();
         Set<PlanFragmentId> streamingFragmentIds = subPlan.getFragment().getRemoteSourceNodes().stream()
                 .map(RemoteSourceNode::getSourceFragmentIds)
@@ -67,12 +56,16 @@ public class StreamingPlanSection
                 .collect(toImmutableSet());
         for (SubPlan child : subPlan.getChildren()) {
             if (streamingFragmentIds.contains(child.getFragment().getId())) {
-                streamingSources.add(extractStreamingSection(child, materializedExchangeChildren));
+                streamingSources.add(extractStreamingSection(child, fragmentIdStreamingSubPlanMap));
             }
             else {
-                materializedExchangeChildren.add(child);
+                materializedExchangeSources.add(extractStreamingSection(child, fragmentIdStreamingSubPlanMap));
             }
         }
-        return new StreamingSubPlan(subPlan.getFragment(), streamingSources.build());
+        if (!fragmentIdStreamingSubPlanMap.containsKey(subPlan.getFragment().getId())) {
+            fragmentIdStreamingSubPlanMap.put(subPlan.getFragment().getId(),
+                    new StreamingSubPlan(subPlan.getFragment(), streamingSources.build(), materializedExchangeSources.build()));
+        }
+        return fragmentIdStreamingSubPlanMap.get(subPlan.getFragment().getId());
     }
 }

@@ -31,10 +31,12 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.plan.TemporaryTableInfo;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.MetadataDeleteNode;
@@ -101,7 +103,7 @@ public abstract class BasePlanFragmenter
     private final Set<PlanNodeId> outputTableWriterNodeIds;
     private final StatisticsAggregationPlanner statisticsAggregationPlanner;
 
-    private Map<String, TableScanNode> cteNameToTableScanMap = new HashMap<>();
+    private Map<String, SubPlan> cteProducerSubPlanMap = new HashMap<>();
 
     public BasePlanFragmenter(
             Session session,
@@ -210,28 +212,28 @@ public abstract class BasePlanFragmenter
         //    This approach sounds good on paper may not be ideal as it can block the entire query, leading to resource wastage since no progress can be made until the writing operations are complete.
         // 2. ToDo: Another improvement will be to schedule the execution of subgraphs based on their order in the overall execution plan instead of a topological sorting done here
         //  but that needs change to plan section framework for it to be able to handle the same child planSection.
-        List<List<PlanNode>> independentCteProducerSubgraphs = node.getIndependentCteProducers();
-        for (List<PlanNode> cteProducerSubgraph : independentCteProducerSubgraphs) {
-            int cteProducerCount = cteProducerSubgraph.size();
-            checkArgument(cteProducerCount >= 1, "CteProducer subgraph has 0 CTE producers");
-            PlanNode source = cteProducerSubgraph.get(cteProducerCount - 1);
-            FragmentProperties childProperties = new FragmentProperties(new PartitioningScheme(
+        List<PlanNode> cteProducers = node.getCteProducers();
+        for (int i = cteProducers.size() - 1; i >= 0; i--) {
+            PlanNode write = cteProducers.get(i);
+            FragmentProperties writeProperties = new FragmentProperties(new PartitioningScheme(
                     Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()),
-                    source.getOutputVariables()));
-            SubPlan lastSubPlan = buildSubPlan(source, childProperties, context);
-            for (int sourceIndex = cteProducerCount - 2; sourceIndex >= 0; sourceIndex--) {
-                source = cteProducerSubgraph.get(sourceIndex);
-                childProperties = new FragmentProperties(new PartitioningScheme(
-                        Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()),
-                        source.getOutputVariables()));
-                childProperties.addChildren(ImmutableList.of(lastSubPlan));
-                lastSubPlan = buildSubPlan(source, childProperties, context);
-            }
-            // This makes sure that the sectionedPlans generated in com.facebook.presto.execution.scheduler.StreamingPlanSection
-            // are independent and thus could be scheduled concurrently
-            context.get().addChildren(ImmutableList.of(lastSubPlan));
+                    write.getOutputVariables()));
+//            writeProperties.setCoordinatorOnlyDistribution(write);
+            String cteId = getCteIdFromSource(write);
+            cteProducerSubPlanMap.put(cteId, buildSubPlan(write, writeProperties, context));
         }
         return node.getPrimarySource().accept(this, context);
+    }
+
+    private String getCteIdFromSource(PlanNode source)
+    {
+        return PlanNodeSearcher.searchFrom(source)
+                .where(planNode -> planNode instanceof TableWriterNode)
+                .findFirst()
+                .map(planNode -> ((TableWriterNode) planNode).getTemporaryTableInfo().orElseThrow(
+                        () -> new IllegalStateException("TableWriterNode has no TemporaryTableInfo")))
+                .map(TemporaryTableInfo::getCteId)
+                .orElseThrow(() -> new IllegalStateException("TemporaryTableInfo has no CTE ID"));
     }
 
     @Override
@@ -244,6 +246,13 @@ public abstract class BasePlanFragmenter
     @Override
     public PlanNode visitTableScan(TableScanNode node, RewriteContext<FragmentProperties> context)
     {
+        if (node.getTemporaryTableInfo().isPresent()) {
+            String cteId = node.getTemporaryTableInfo().get().getCteId();
+            SubPlan producerSubplan = cteProducerSubPlanMap.get(cteId);
+            // Link the producer as a child node to the subplan of the current tableScan,
+            // (which will be created by an exchange above since only exchange and Sequence nodes create Subplans in this visitor)
+            context.get().addChildren(ImmutableList.of(producerSubplan));
+        }
         PartitioningHandle partitioning = metadata.getLayout(session, node.getTable())
                 .getTablePartitioning()
                 .map(TableLayout.TablePartitioning::getPartitioningHandle)

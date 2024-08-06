@@ -29,14 +29,7 @@ import static com.facebook.presto.SystemSessionProperties.CTE_MATERIALIZATION_ST
 import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_WRITTEN_INTERMEDIATE_BYTES;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
-import static io.airlift.tpch.TpchTable.CUSTOMER;
-import static io.airlift.tpch.TpchTable.LINE_ITEM;
-import static io.airlift.tpch.TpchTable.NATION;
 import static io.airlift.tpch.TpchTable.ORDERS;
-import static io.airlift.tpch.TpchTable.PART;
-import static io.airlift.tpch.TpchTable.PART_SUPPLIER;
-import static io.airlift.tpch.TpchTable.REGION;
-import static io.airlift.tpch.TpchTable.SUPPLIER;
 
 @Test(singleThreaded = true)
 public class TestCteExecution
@@ -47,7 +40,8 @@ public class TestCteExecution
             throws Exception
     {
         return HiveQueryRunner.createQueryRunner(
-                ImmutableList.of(ORDERS, CUSTOMER, LINE_ITEM, PART_SUPPLIER, NATION, REGION, PART, SUPPLIER),
+                ImmutableList.of(ORDERS),
+//                        CUSTOMER, LINE_ITEM, PART_SUPPLIER, NATION, REGION, PART, SUPPLIER),
                 ImmutableMap.of(
                         "query.cte-partitioning-provider-catalog", "hive"),
                 "sql-standard",

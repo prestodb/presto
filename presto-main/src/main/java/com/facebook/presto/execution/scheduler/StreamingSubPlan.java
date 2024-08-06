@@ -30,10 +30,13 @@ public class StreamingSubPlan
     // streaming children
     private final List<StreamingSubPlan> children;
 
-    public StreamingSubPlan(PlanFragment fragment, List<StreamingSubPlan> children)
+    private final List<StreamingSubPlan> sectionChildren;
+
+    public StreamingSubPlan(PlanFragment fragment, List<StreamingSubPlan> children, List<StreamingSubPlan> sectionChildren)
     {
         this.fragment = requireNonNull(fragment, "fragment is null");
         this.children = ImmutableList.copyOf(requireNonNull(children, "children is null"));
+        this.sectionChildren = sectionChildren;
     }
 
     public PlanFragment getFragment()
@@ -46,8 +49,19 @@ public class StreamingSubPlan
         return children;
     }
 
+    public List<StreamingSubPlan> getSectionChildren() {return sectionChildren;}
+
+    public List<StreamingSubPlan> getAllChildren()
+    {
+        // Combine the two lists into an immutable list using Guava's ImmutableList
+        return ImmutableList.<StreamingSubPlan>builder()
+                .addAll(children)
+                .addAll(sectionChildren)
+                .build();
+    }
+
     public StreamingSubPlan withBucketToPartition(Optional<int[]> bucketToPartition)
     {
-        return new StreamingSubPlan(fragment.withBucketToPartition(bucketToPartition), children);
+        return new StreamingSubPlan(fragment.withBucketToPartition(bucketToPartition), children, sectionChildren);
     }
 }

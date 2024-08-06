@@ -82,7 +82,7 @@ import com.facebook.presto.execution.resourceGroups.NoOpResourceGroupManager;
 import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
-import com.facebook.presto.execution.scheduler.StreamingPlanSection;
+import com.facebook.presto.execution.scheduler.RootPlanSection;
 import com.facebook.presto.execution.scheduler.StreamingSubPlan;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionStats;
 import com.facebook.presto.execution.scheduler.nodeSelection.SimpleTtlNodeSelectorConfig;
@@ -257,7 +257,7 @@ import static com.facebook.presto.SystemSessionProperties.isVerboseOptimizerInfo
 import static com.facebook.presto.common.RuntimeMetricName.LOGICAL_PLANNER_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.OPTIMIZER_TIME_NANOS;
 import static com.facebook.presto.cost.StatsCalculatorModule.createNewStatsCalculator;
-import static com.facebook.presto.execution.scheduler.StreamingPlanSection.extractStreamingSections;
+import static com.facebook.presto.execution.scheduler.RootPlanSection.extractStreamingSections;
 import static com.facebook.presto.execution.scheduler.TableWriteInfo.createTableWriteInfo;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.REWINDABLE_GROUPED_SCHEDULING;
@@ -952,9 +952,9 @@ public class LocalQueryRunner
 
         // plan query
         StageExecutionDescriptor stageExecutionDescriptor = subplan.getFragment().getStageExecutionDescriptor();
-        StreamingPlanSection streamingPlanSection = extractStreamingSections(subplan);
-        checkState(streamingPlanSection.getChildren().isEmpty(), "expected no materialized exchanges");
-        StreamingSubPlan streamingSubPlan = streamingPlanSection.getPlan();
+        RootPlanSection rootPlanSection = extractStreamingSections(subplan);
+//        checkState(rootPlanSection.getChildren().isEmpty(), "expected no materialized exchanges");
+        StreamingSubPlan streamingSubPlan = rootPlanSection.getPlan();
         LocalExecutionPlan localExecutionPlan = executionPlanner.plan(
                 taskContext,
                 subplan.getFragment(),

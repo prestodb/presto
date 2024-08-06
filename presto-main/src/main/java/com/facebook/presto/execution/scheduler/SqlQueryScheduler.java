@@ -51,6 +51,7 @@ import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.sun.management.ThreadMXBean;
 import io.airlift.units.DataSize;
@@ -59,8 +60,8 @@ import io.airlift.units.Duration;
 import java.lang.management.ManagementFactory;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -71,7 +72,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
 
 import static com.facebook.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static com.facebook.airlift.concurrent.MoreFutures.whenAnyComplete;
@@ -80,7 +80,6 @@ import static com.facebook.presto.SystemSessionProperties.getMaxConcurrentMateri
 import static com.facebook.presto.SystemSessionProperties.getPartialResultsCompletionRatioThreshold;
 import static com.facebook.presto.SystemSessionProperties.getPartialResultsMaxExecutionTimeMultiplier;
 import static com.facebook.presto.SystemSessionProperties.isPartialResultsEnabled;
-import static com.facebook.presto.SystemSessionProperties.isRuntimeOptimizerEnabled;
 import static com.facebook.presto.execution.BasicStageExecutionStats.aggregateBasicStageStats;
 import static com.facebook.presto.execution.StageExecutionState.ABORTED;
 import static com.facebook.presto.execution.StageExecutionState.CANCELED;
@@ -89,10 +88,7 @@ import static com.facebook.presto.execution.StageExecutionState.FINISHED;
 import static com.facebook.presto.execution.StageExecutionState.PLANNED;
 import static com.facebook.presto.execution.StageExecutionState.RUNNING;
 import static com.facebook.presto.execution.StageExecutionState.SCHEDULED;
-import static com.facebook.presto.execution.buffer.OutputBuffers.BROADCAST_PARTITION_ID;
-import static com.facebook.presto.execution.buffer.OutputBuffers.createDiscardingOutputBuffers;
-import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
-import static com.facebook.presto.execution.scheduler.StreamingPlanSection.extractStreamingSections;
+import static com.facebook.presto.execution.scheduler.RootPlanSection.extractStreamingSections;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.sql.planner.PlanFragmenterUtils.ROOT_FRAGMENT_ID;
 import static com.facebook.presto.sql.planner.SchedulingOrderVisitor.scheduleOrder;
@@ -101,14 +97,12 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.collect.Streams.stream;
 import static com.google.common.graph.Traverser.forTree;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static java.util.function.Function.identity;
 
 public class SqlQueryScheduler
         implements SqlQuerySchedulerInterface
@@ -124,7 +118,8 @@ public class SqlQueryScheduler
 
     private final QueryStateMachine queryStateMachine;
     private final AtomicReference<SubPlan> plan = new AtomicReference<>();
-    private final StreamingPlanSection sectionedPlan;
+
+    private final RootPlanSection rootPlanSection;
     private final StageId rootStageId;
     private final boolean summarizeTaskInfo;
     private final int maxConcurrentMaterializations;
@@ -241,14 +236,14 @@ public class SqlQueryScheduler
         this.sectionExecutionFactory = requireNonNull(sectionExecutionFactory, "sectionExecutionFactory is null");
         this.remoteTaskFactory = requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
         this.splitSourceFactory = requireNonNull(splitSourceFactory, "splitSourceFactory is null");
-        this.sectionedPlan = extractStreamingSections(plan);
+        this.rootPlanSection = extractStreamingSections(plan);
         this.summarizeTaskInfo = summarizeTaskInfo;
 
         OutputBufferId rootBufferId = getOnlyElement(rootOutputBuffers.getBuffers().keySet());
         List<StageExecutionAndScheduler> stageExecutions = createStageExecutions(
                 sectionExecutionFactory,
                 (fragmentId, tasks, noMoreExchangeLocations) -> updateQueryOutputLocations(queryStateMachine, rootBufferId, tasks, noMoreExchangeLocations),
-                sectionedPlan,
+                rootPlanSection,
                 Optional.of(new int[1]),
                 rootOutputBuffers,
                 remoteTaskFactory,
@@ -334,7 +329,7 @@ public class SqlQueryScheduler
     private List<StageExecutionAndScheduler> createStageExecutions(
             SectionExecutionFactory sectionExecutionFactory,
             ExchangeLocationsConsumer locationsConsumer,
-            StreamingPlanSection section,
+            RootPlanSection section,
             Optional<int[]> bucketToPartition,
             OutputBuffers outputBuffers,
             RemoteTaskFactory remoteTaskFactory,
@@ -343,18 +338,6 @@ public class SqlQueryScheduler
     {
         ImmutableList.Builder<StageExecutionAndScheduler> stages = ImmutableList.builder();
 
-        for (StreamingPlanSection childSection : section.getChildren()) {
-            ExchangeLocationsConsumer childLocationsConsumer = (fragmentId, tasks, noMoreExchangeLocations) -> {};
-            stages.addAll(createStageExecutions(
-                    sectionExecutionFactory,
-                    childLocationsConsumer,
-                    childSection,
-                    Optional.empty(),
-                    createDiscardingOutputBuffers(),
-                    remoteTaskFactory,
-                    splitSourceFactory,
-                    session));
-        }
         List<StageExecutionAndScheduler> sectionStages =
                 sectionExecutionFactory.createSectionExecutions(
                         session,
@@ -407,14 +390,14 @@ public class SqlQueryScheduler
                 sectionExecutionSchedules.removeIf(ExecutionSchedule::isFinished);
 
                 // try to pull more section that are ready to be run
-                List<StreamingPlanSection> sectionsReadyForExecution = getSectionsReadyForExecution();
+                List<RootPlanSection> sectionsReadyForExecution = Arrays.asList(rootPlanSection);
 
                 // all finished
                 if (sectionsReadyForExecution.isEmpty() && sectionExecutionSchedules.isEmpty()) {
                     break;
                 }
 
-                List<List<StageExecutionAndScheduler>> sectionStageExecutions = getStageExecutions(sectionsReadyForExecution);
+                List<List<StageExecutionAndScheduler>> sectionStageExecutions = getStageExecutions(Arrays.asList(rootPlanSection));
                 sectionStageExecutions.forEach(scheduledStageExecutions::addAll);
                 sectionStageExecutions.stream()
                         .map(executionInfos -> executionInfos.stream()
@@ -534,9 +517,9 @@ public class SqlQueryScheduler
             // Inform the tracker that task scheduling has completed
             partialResultQueryTaskTracker.completeTaskScheduling();
 
-            if (!getSectionsReadyForExecution().isEmpty()) {
-                startScheduling();
-            }
+//            if (!getSectionsReadyForExecution().isEmpty()) {
+//                startScheduling();
+//            }
         }
         catch (Throwable t) {
             scheduling.set(false);
@@ -563,62 +546,62 @@ public class SqlQueryScheduler
         }
     }
 
-    private List<StreamingPlanSection> getSectionsReadyForExecution()
-    {
-        long runningPlanSections =
-                stream(forTree(StreamingPlanSection::getChildren).depthFirstPreOrder(sectionedPlan))
-                        .map(section -> getStageExecution(section.getPlan().getFragment().getId()).getState())
-                        .filter(state -> !state.isDone() && state != PLANNED)
-                        .count();
-        return stream(forTree(StreamingPlanSection::getChildren).depthFirstPreOrder(sectionedPlan))
-                // get all sections ready for execution
-                .filter(this::isReadyForExecution)
-                .limit(maxConcurrentMaterializations - runningPlanSections)
-                .map(this::tryCostBasedOptimize)
-                .collect(toImmutableList());
-    }
+//    private List<StreamingPlanSection> getSectionsReadyForExecution()
+//    {
+//        long runningPlanSections =
+//                stream(forTree(StreamingPlanSection::getChildren).depthFirstPreOrder(sectionedPlan))
+//                        .map(section -> getStageExecution(section.getPlan().getFragment().getId()).getState())
+//                        .filter(state -> !state.isDone() && state != PLANNED)
+//                        .count();
+//        return stream(forTree(StreamingPlanSection::getChildren).depthFirstPreOrder(sectionedPlan))
+//                // get all sections ready for execution
+//                .filter(this::isReadyForExecution)
+//                .limit(maxConcurrentMaterializations - runningPlanSections)
+//                .map(this::tryCostBasedOptimize)
+//                .collect(toImmutableList());
+//    }
 
-    /**
-     * A general purpose utility function to invoke runtime cost-based optimizer.
-     * (right now there is only one plan optimizer which determines if the probe and build side of a JoinNode should be swapped
-     * based on the statistics of the temporary table holding materialized exchange outputs from finished children sections)
-     */
-    private StreamingPlanSection tryCostBasedOptimize(StreamingPlanSection section)
-    {
-        // no need to do runtime optimization if no materialized exchange data is utilized by the section.
-        if (!isRuntimeOptimizerEnabled(session) || section.getChildren().isEmpty()) {
-            return section;
-        }
-
-        // Apply runtime optimization on each StreamingSubPlan and generate optimized new fragments
-        Map<PlanFragment, PlanFragment> oldToNewFragment = new HashMap<>();
-        stream(forTree(StreamingSubPlan::getChildren).depthFirstPreOrder(section.getPlan()))
-                .forEach(currentSubPlan -> {
-                    Optional<PlanFragment> newPlanFragment = performRuntimeOptimizations(currentSubPlan);
-                    if (newPlanFragment.isPresent()) {
-                        planChecker.validatePlanFragment(newPlanFragment.get().getRoot(), session, metadata, sqlParser, TypeProvider.viewOf(variableAllocator.getVariables()), warningCollector);
-                        oldToNewFragment.put(currentSubPlan.getFragment(), newPlanFragment.get());
-                    }
-                });
-
-        // Early exit when no stage's fragment is changed
-        if (oldToNewFragment.isEmpty()) {
-            return section;
-        }
-
-        oldToNewFragment.forEach((oldFragment, newFragment) -> runtimeOptimizedStages.add(getStageId(oldFragment.getId())));
-
-        // Update SubPlan so that getStageInfo will reflect the latest optimized plan when query is finished.
-        updatePlan(oldToNewFragment);
-
-        // Rebuild and update entries of the stageExecutions map.
-        updateStageExecutions(section, oldToNewFragment);
-        log.debug("Invoked CBO during runtime, optimized stage IDs: " + oldToNewFragment.keySet().stream()
-                .map(PlanFragment::getId)
-                .map(PlanFragmentId::toString)
-                .collect(Collectors.joining(", ")));
-        return section;
-    }
+//    /**
+//     * A general purpose utility function to invoke runtime cost-based optimizer.
+//     * (right now there is only one plan optimizer which determines if the probe and build side of a JoinNode should be swapped
+//     * based on the statistics of the temporary table holding materialized exchange outputs from finished children sections)
+//     */
+//    private StreamingPlanSection tryCostBasedOptimize(StreamingPlanSection section)
+//    {
+//        // no need to do runtime optimization if no materialized exchange data is utilized by the section.
+//        if (!isRuntimeOptimizerEnabled(session) || section.getChildren().isEmpty()) {
+//            return section;
+//        }
+//
+//        // Apply runtime optimization on each StreamingSubPlan and generate optimized new fragments
+//        Map<PlanFragment, PlanFragment> oldToNewFragment = new HashMap<>();
+//        stream(forTree(StreamingSubPlan::getChildren).depthFirstPreOrder(section.getPlan()))
+//                .forEach(currentSubPlan -> {
+//                    Optional<PlanFragment> newPlanFragment = performRuntimeOptimizations(currentSubPlan);
+//                    if (newPlanFragment.isPresent()) {
+//                        planChecker.validatePlanFragment(newPlanFragment.get().getRoot(), session, metadata, sqlParser, TypeProvider.viewOf(variableAllocator.getVariables()), warningCollector);
+//                        oldToNewFragment.put(currentSubPlan.getFragment(), newPlanFragment.get());
+//                    }
+//                });
+//
+//        // Early exit when no stage's fragment is changed
+//        if (oldToNewFragment.isEmpty()) {
+//            return section;
+//        }
+//
+//        oldToNewFragment.forEach((oldFragment, newFragment) -> runtimeOptimizedStages.add(getStageId(oldFragment.getId())));
+//
+//        // Update SubPlan so that getStageInfo will reflect the latest optimized plan when query is finished.
+//        updatePlan(oldToNewFragment);
+//
+//        // Rebuild and update entries of the stageExecutions map.
+//        updateStageExecutions(section, oldToNewFragment);
+//        log.debug("Invoked CBO during runtime, optimized stage IDs: " + oldToNewFragment.keySet().stream()
+//                .map(PlanFragment::getId)
+//                .map(PlanFragmentId::toString)
+//                .collect(Collectors.joining(", ")));
+//        return section;
+//    }
 
     private Optional<PlanFragment> performRuntimeOptimizations(StreamingSubPlan subPlan)
     {
@@ -647,47 +630,47 @@ public class SqlQueryScheduler
         return Optional.empty();
     }
 
-    /**
-     * Utility function that rebuild a StreamingPlanSection, re-create stageExecutionAndScheduler for each of its stage, and finally update the stageExecutions map.
-     */
-    private void updateStageExecutions(StreamingPlanSection section, Map<PlanFragment, PlanFragment> oldToNewFragment)
-    {
-        StreamingPlanSection newSection = new StreamingPlanSection(rewriteStreamingSubPlan(section.getPlan(), oldToNewFragment), section.getChildren());
-        PlanFragment sectionRootFragment = newSection.getPlan().getFragment();
-        Optional<int[]> bucketToPartition;
-        OutputBuffers outputBuffers;
-        ExchangeLocationsConsumer locationsConsumer;
-        if (isRootFragment(sectionRootFragment)) {
-            bucketToPartition = Optional.of(new int[1]);
-            outputBuffers = createInitialEmptyOutputBuffers(sectionRootFragment.getPartitioningScheme().getPartitioning().getHandle())
-                    .withBuffer(new OutputBufferId(0), BROADCAST_PARTITION_ID)
-                    .withNoMoreBufferIds();
-            OutputBufferId rootBufferId = getOnlyElement(outputBuffers.getBuffers().keySet());
-            locationsConsumer = (fragmentId, tasks, noMoreExchangeLocations) ->
-                    updateQueryOutputLocations(queryStateMachine, rootBufferId, tasks, noMoreExchangeLocations);
-        }
-        else {
-            bucketToPartition = Optional.empty();
-            outputBuffers = createDiscardingOutputBuffers();
-            locationsConsumer = (fragmentId, tasks, noMoreExchangeLocations) -> {};
-        }
-        SectionExecution sectionExecution = sectionExecutionFactory.createSectionExecutions(
-                session,
-                newSection,
-                locationsConsumer,
-                bucketToPartition,
-                outputBuffers,
-                summarizeTaskInfo,
-                remoteTaskFactory,
-                splitSourceFactory,
-                0);
-        addStateChangeListeners(sectionExecution);
-        Map<StageId, StageExecutionAndScheduler> updatedStageExecutions = sectionExecution.getSectionStages().stream()
-                .collect(toImmutableMap(execution -> execution.getStageExecution().getStageExecutionId().getStageId(), identity()));
-        synchronized (this) {
-            stageExecutions.putAll(updatedStageExecutions);
-        }
-    }
+//    /**
+//     * Utility function that rebuild a StreamingPlanSection, re-create stageExecutionAndScheduler for each of its stage, and finally update the stageExecutions map.
+//     */
+//    private void updateStageExecutions(StreamingPlanSection section, Map<PlanFragment, PlanFragment> oldToNewFragment)
+//    {
+//        StreamingPlanSection newSection = new StreamingPlanSection(rewriteStreamingSubPlan(section.getPlan(), oldToNewFragment), section.getChildren());
+//        PlanFragment sectionRootFragment = newSection.getPlan().getFragment();
+//        Optional<int[]> bucketToPartition;
+//        OutputBuffers outputBuffers;
+//        ExchangeLocationsConsumer locationsConsumer;
+//        if (isRootFragment(sectionRootFragment)) {
+//            bucketToPartition = Optional.of(new int[1]);
+//            outputBuffers = createInitialEmptyOutputBuffers(sectionRootFragment.getPartitioningScheme().getPartitioning().getHandle())
+//                    .withBuffer(new OutputBufferId(0), BROADCAST_PARTITION_ID)
+//                    .withNoMoreBufferIds();
+//            OutputBufferId rootBufferId = getOnlyElement(outputBuffers.getBuffers().keySet());
+//            locationsConsumer = (fragmentId, tasks, noMoreExchangeLocations) ->
+//                    updateQueryOutputLocations(queryStateMachine, rootBufferId, tasks, noMoreExchangeLocations);
+//        }
+//        else {
+//            bucketToPartition = Optional.empty();
+//            outputBuffers = createDiscardingOutputBuffers();
+//            locationsConsumer = (fragmentId, tasks, noMoreExchangeLocations) -> {};
+//        }
+//        SectionExecution sectionExecution = sectionExecutionFactory.createSectionExecutions(
+//                session,
+//                newSection,
+//                locationsConsumer,
+//                bucketToPartition,
+//                outputBuffers,
+//                summarizeTaskInfo,
+//                remoteTaskFactory,
+//                splitSourceFactory,
+//                0);
+//        addStateChangeListeners(sectionExecution);
+//        Map<StageId, StageExecutionAndScheduler> updatedStageExecutions = sectionExecution.getSectionStages().stream()
+//                .collect(toImmutableMap(execution -> execution.getStageExecution().getStageExecutionId().getStageId(), identity()));
+//        synchronized (this) {
+//            stageExecutions.putAll(updatedStageExecutions);
+//        }
+//    }
 
     private void updatePlan(Map<PlanFragment, PlanFragment> oldToNewFragments)
     {
@@ -750,45 +733,45 @@ public class SqlQueryScheduler
         }
     }
 
-    private StreamingSubPlan rewriteStreamingSubPlan(StreamingSubPlan root, Map<PlanFragment, PlanFragment> oldToNewFragment)
-    {
-        ImmutableList.Builder<StreamingSubPlan> childrenPlans = ImmutableList.builder();
-        for (StreamingSubPlan child : root.getChildren()) {
-            childrenPlans.add(rewriteStreamingSubPlan(child, oldToNewFragment));
-        }
-        if (oldToNewFragment.containsKey(root.getFragment())) {
-            return new StreamingSubPlan(oldToNewFragment.get(root.getFragment()), childrenPlans.build());
-        }
-        else {
-            return new StreamingSubPlan(root.getFragment(), childrenPlans.build());
-        }
-    }
+//    private StreamingSubPlan rewriteStreamingSubPlan(StreamingSubPlan root, Map<PlanFragment, PlanFragment> oldToNewFragment)
+//    {
+//        ImmutableList.Builder<StreamingSubPlan> childrenPlans = ImmutableList.builder();
+//        for (StreamingSubPlan child : root.getChildren()) {
+//            childrenPlans.add(rewriteStreamingSubPlan(child, oldToNewFragment));
+//        }
+//        if (oldToNewFragment.containsKey(root.getFragment())) {
+//            return new StreamingSubPlan(oldToNewFragment.get(root.getFragment()), childrenPlans.build());
+//        }
+//        else {
+//            return new StreamingSubPlan(root.getFragment(), childrenPlans.build());
+//        }
+//    }
 
     private static boolean isRootFragment(PlanFragment fragment)
     {
         return fragment.getId().getId() == ROOT_FRAGMENT_ID;
     }
 
-    private boolean isReadyForExecution(StreamingPlanSection section)
+    private boolean isReadyForExecution(RootPlanSection section)
     {
         SqlStageExecution stageExecution = getStageExecution(section.getPlan().getFragment().getId());
         if (stageExecution.getState() != PLANNED) {
             // already scheduled
             return false;
         }
-        for (StreamingPlanSection child : section.getChildren()) {
-            SqlStageExecution rootStageExecution = getStageExecution(child.getPlan().getFragment().getId());
-            if (rootStageExecution.getState() != FINISHED) {
-                return false;
-            }
-        }
+//        for (StreamingPlanSection child : section.getChildren()) {
+//            SqlStageExecution rootStageExecution = getStageExecution(child.getPlan().getFragment().getId());
+//            if (rootStageExecution.getState() != FINISHED) {
+//                return false;
+//            }
+//        }
         return true;
     }
 
-    private List<List<StageExecutionAndScheduler>> getStageExecutions(List<StreamingPlanSection> sections)
+    private List<List<StageExecutionAndScheduler>> getStageExecutions(List<RootPlanSection> sections)
     {
         return sections.stream()
-                .map(section -> stream(forTree(StreamingSubPlan::getChildren).depthFirstPreOrder(section.getPlan())).collect(toImmutableList()))
+                .map(section -> Streams.stream(forTree(StreamingSubPlan::getAllChildren).depthFirstPreOrder(section.getPlan())).collect(toImmutableList()))
                 .map(plans -> plans.stream()
                         .map(StreamingSubPlan::getFragment)
                         .map(PlanFragment::getId)
