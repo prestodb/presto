@@ -20,6 +20,7 @@ import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeUtils;
+import com.facebook.presto.iceberg.TypeConverter.PrestoTypeWithOriginalComment;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
@@ -39,6 +40,7 @@ import org.apache.iceberg.TableScan;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
+import org.apache.iceberg.types.Types.NestedField;
 import org.apache.iceberg.util.StructLikeWrapper;
 
 import java.io.IOException;
@@ -54,7 +56,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.iceberg.IcebergUtil.getIdentityPartitions;
-import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
+import static com.facebook.presto.iceberg.TypeConverter.toPrestoTypeWithComment;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
@@ -132,20 +134,26 @@ public class PartitionTable
     private List<ColumnMetadata> getPartitionColumnsMetadata(List<PartitionField> fields, Schema schema)
     {
         return fields.stream()
-                .map(field -> new ColumnMetadata(
-                        field.name(),
-                        toPrestoType(field.transform().getResultType(schema.findType(field.sourceId())), typeManager)))
+                .map(field -> {
+                    NestedField sourceField = schema.findField(field.sourceId());
+                    PrestoTypeWithOriginalComment prestoTypeWithOriginalComment = toPrestoTypeWithComment(field.transform().getResultType(sourceField.type()), Optional.ofNullable(sourceField.doc()), typeManager);
+                    return new ColumnMetadata(
+                            field.name(),
+                            prestoTypeWithOriginalComment.getType(), prestoTypeWithOriginalComment.getComment().orElse(null), false);
+                })
                 .collect(toImmutableList());
     }
 
     private List<ColumnMetadata> getColumnMetadata(List<Types.NestedField> columns)
     {
-        return columns.stream().map(column -> new ColumnMetadata(column.name(),
-                RowType.from(ImmutableList.of(
-                        new RowType.Field(Optional.of("min"), toPrestoType(column.type(), typeManager)),
-                        new RowType.Field(Optional.of("max"), toPrestoType(column.type(), typeManager)),
-                        new RowType.Field(Optional.of("null_count"), BIGINT)))))
-                .collect(toImmutableList());
+        return columns.stream().map(column -> {
+            PrestoTypeWithOriginalComment prestoTypeWithOriginalComment = toPrestoTypeWithComment(column.type(), Optional.ofNullable(column.doc()), typeManager);
+            return new ColumnMetadata(column.name(),
+                    RowType.from(ImmutableList.of(
+                            new RowType.Field(Optional.of("min"), prestoTypeWithOriginalComment.getType()),
+                            new RowType.Field(Optional.of("max"), prestoTypeWithOriginalComment.getType()),
+                            new RowType.Field(Optional.of("null_count"), BIGINT))));
+        }).collect(toImmutableList());
     }
 
     @Override
@@ -291,7 +299,7 @@ public class PartitionTable
             return Float.floatToIntBits((Float) value);
         }
         if (type instanceof Types.TimestampType) {
-            com.facebook.presto.common.type.Type prestoType = toPrestoType(type, typeManager);
+            com.facebook.presto.common.type.Type prestoType = toPrestoTypeWithComment(type, Optional.empty(), typeManager).getType();
             if (prestoType instanceof TimestampType && ((TimestampType) prestoType).getPrecision() == MILLISECONDS) {
                 return MICROSECONDS.toMillis((long) value);
             }

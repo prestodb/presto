@@ -27,6 +27,7 @@ import com.facebook.presto.iceberg.IcebergTableLayoutHandle;
 import com.facebook.presto.iceberg.IcebergTableName;
 import com.facebook.presto.iceberg.IcebergTableType;
 import com.facebook.presto.iceberg.IcebergTransactionManager;
+import com.facebook.presto.iceberg.TypeConverter.PrestoTypeWithOriginalComment;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
 import com.facebook.presto.spi.ConnectorPlanRewriter;
@@ -88,7 +89,7 @@ import static com.facebook.presto.iceberg.IcebergMetadataColumn.DATA_SEQUENCE_NU
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isDeleteToJoinPushdownEnabled;
 import static com.facebook.presto.iceberg.IcebergUtil.getDeleteFiles;
 import static com.facebook.presto.iceberg.IcebergUtil.getIcebergTable;
-import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
+import static com.facebook.presto.iceberg.TypeConverter.toPrestoTypeWithComment;
 import static com.facebook.presto.spi.ConnectorPlanRewriter.rewriteWith;
 import static java.util.Objects.requireNonNull;
 
@@ -399,24 +400,25 @@ public class IcebergEqualityDeleteAsJoin
                             Types.NestedField sourceField = icebergTable.schema().findField(partitionField.sourceId());
                             if (!partitionField.transform().isIdentity()) {
                                 Type partitionFieldType = partitionField.transform().getResultType(sourceField.type());
-                                VariableReferenceExpression variableReference = variableAllocator.newVariable(partitionField.name(), toPrestoType(partitionFieldType, typeManager));
+                                PrestoTypeWithOriginalComment prestoTypeWithOriginalComment = toPrestoTypeWithComment(partitionFieldType, Optional.ofNullable(sourceField.doc()), typeManager);
+                                VariableReferenceExpression variableReference = variableAllocator.newVariable(partitionField.name(), prestoTypeWithOriginalComment.getType());
                                 IcebergColumnHandle columnHandle = new IcebergColumnHandle(
                                         ColumnIdentity.createColumnIdentity(partitionField.name(), partitionField.fieldId(), partitionFieldType),
-                                        toPrestoType(partitionFieldType, typeManager),
-                                        Optional.empty(),
+                                        prestoTypeWithOriginalComment.getType(),
+                                        prestoTypeWithOriginalComment.getComment(),
                                         PARTITION_KEY);
                                 unselectedAssignmentsBuilder.put(variableReference, columnHandle);
                             }
                             else if (!selectedFields.contains(sourceField.fieldId())) {
                                 unselectedAssignmentsBuilder.put(
-                                        variableAllocator.newVariable(sourceField.name(), toPrestoType(sourceField.type(), typeManager)),
+                                        variableAllocator.newVariable(sourceField.name(), toPrestoTypeWithComment(sourceField.type(), Optional.ofNullable(sourceField.doc()), typeManager).getType()),
                                         IcebergColumnHandle.create(sourceField, typeManager, REGULAR));
                             }
                         }
                         else {
                             Types.NestedField schemaField = icebergTable.schema().findField(fieldId);
                             unselectedAssignmentsBuilder.put(
-                                    variableAllocator.newVariable(schemaField.name(), toPrestoType(schemaField.type(), typeManager)),
+                                    variableAllocator.newVariable(schemaField.name(), toPrestoTypeWithComment(schemaField.type(), Optional.ofNullable(schemaField.doc()), typeManager).getType()),
                                     IcebergColumnHandle.create(schemaField, typeManager, REGULAR));
                         }
                     });
@@ -430,13 +432,14 @@ public class IcebergEqualityDeleteAsJoin
 
         private IcebergColumnHandle toIcebergColumnHandle(Types.NestedField field)
         {
+            PrestoTypeWithOriginalComment prestoTypeWithOriginalComment = toPrestoTypeWithComment(field.type(), Optional.ofNullable(field.doc()), typeManager);
             ColumnIdentity columnIdentity = new ColumnIdentity(field.fieldId(), field.name(), ColumnIdentity.TypeCategory.PRIMITIVE, Collections.emptyList());
-            return new IcebergColumnHandle(columnIdentity, toPrestoType(field.type(), typeManager), Optional.empty(), REGULAR);
+            return new IcebergColumnHandle(columnIdentity, prestoTypeWithOriginalComment.getType(), prestoTypeWithOriginalComment.getComment(), REGULAR);
         }
 
         private VariableReferenceExpression toVariableReference(Types.NestedField field)
         {
-            return variableAllocator.newVariable(field.name(), toPrestoType(field.type(), typeManager));
+            return variableAllocator.newVariable(field.name(), toPrestoTypeWithComment(field.type(), Optional.ofNullable(field.doc()), typeManager).getType());
         }
 
         private static class PartitionFieldInfo

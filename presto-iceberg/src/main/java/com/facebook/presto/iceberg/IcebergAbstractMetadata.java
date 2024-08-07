@@ -24,6 +24,8 @@ import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.HivePartition;
 import com.facebook.presto.hive.HiveWrittenPartitions;
 import com.facebook.presto.hive.NodeVersion;
+import com.facebook.presto.iceberg.TypeConverter.IcebergTypeWithExtraInfo;
+import com.facebook.presto.iceberg.TypeConverter.PrestoTypeWithOriginalComment;
 import com.facebook.presto.iceberg.changelog.ChangelogUtil;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -146,8 +148,8 @@ import static com.facebook.presto.iceberg.PartitionFields.getPartitionColumnName
 import static com.facebook.presto.iceberg.PartitionFields.getTransformTerm;
 import static com.facebook.presto.iceberg.PartitionFields.toPartitionFields;
 import static com.facebook.presto.iceberg.TableStatisticsMaker.getSupportedColumnStatistics;
-import static com.facebook.presto.iceberg.TypeConverter.toIcebergType;
-import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
+import static com.facebook.presto.iceberg.TypeConverter.toIcebergTypeWithComment;
+import static com.facebook.presto.iceberg.TypeConverter.toPrestoTypeWithComment;
 import static com.facebook.presto.iceberg.changelog.ChangelogUtil.getRowTypeFromColumnMeta;
 import static com.facebook.presto.iceberg.optimizer.IcebergPlanOptimizer.getEnforcedColumns;
 import static com.facebook.presto.iceberg.util.StatisticsUtil.combineSelectedAndPredicateColumns;
@@ -515,16 +517,19 @@ public abstract class IcebergAbstractMetadata
     {
         Map<String, List<String>> partitionFields = getPartitionFields(table.spec(), ALL);
         return table.schema().columns().stream()
-                .map(column -> ColumnMetadata.builder()
-                        .setName(column.name())
-                        .setType(toPrestoType(column.type(), typeManager))
-                        .setComment(Optional.ofNullable(column.doc()))
-                        .setHidden(false)
-                        .setExtraInfo(Optional.ofNullable(
-                                partitionFields.containsKey(column.name()) ?
-                                        columnExtraInfo(partitionFields.get(column.name())) :
-                                        null))
-                        .build())
+                .map(column -> {
+                    PrestoTypeWithOriginalComment prestoTypeWithOriginalComment = toPrestoTypeWithComment(column.type(), Optional.ofNullable(column.doc()), typeManager);
+                    return ColumnMetadata.builder()
+                            .setName(column.name())
+                            .setType(prestoTypeWithOriginalComment.getType())
+                            .setComment(prestoTypeWithOriginalComment.getComment())
+                            .setHidden(false)
+                            .setExtraInfo(Optional.ofNullable(
+                                    partitionFields.containsKey(column.name()) ?
+                                            columnExtraInfo(partitionFields.get(column.name())) :
+                                            null))
+                            .build();
+                })
                 .collect(toImmutableList());
     }
 
@@ -566,10 +571,12 @@ public abstract class IcebergAbstractMetadata
         for (ColumnMetadata column : columns) {
             if (!column.isHidden()) {
                 int index = icebergColumns.size();
-                Type type = toIcebergType(column.getType());
+                IcebergTypeWithExtraInfo icebergTypeWithExtraInfo = toIcebergTypeWithComment(column.getType(), column.getComment());
+                Type type = icebergTypeWithExtraInfo.getType();
+                String comment = icebergTypeWithExtraInfo.getComment().orElse(null);
                 Types.NestedField field = column.isNullable()
-                        ? Types.NestedField.optional(index, column.getName(), type, column.getComment())
-                        : Types.NestedField.required(index, column.getName(), type, column.getComment());
+                        ? Types.NestedField.optional(index, column.getName(), type, comment)
+                        : Types.NestedField.required(index, column.getName(), type, comment);
                 icebergColumns.add(field);
             }
         }
@@ -623,7 +630,9 @@ public abstract class IcebergAbstractMetadata
             throw new PrestoException(NOT_SUPPORTED, "This connector does not support add column with non null");
         }
 
-        Type columnType = toIcebergType(column.getType());
+        IcebergTypeWithExtraInfo icebergTypeWithExtraInfo = toIcebergTypeWithComment(column.getType(), column.getComment());
+        Type columnType = icebergTypeWithExtraInfo.getType();
+        String comment = icebergTypeWithExtraInfo.getComment().orElse(null);
 
         if (columnType.equals(Types.TimestampType.withZone())) {
             throw new PrestoException(NOT_SUPPORTED, format("Iceberg column type %s is not supported", columnType));
@@ -633,7 +642,7 @@ public abstract class IcebergAbstractMetadata
         verify(handle.getIcebergTableName().getTableType() == DATA, "only the data table can have columns added");
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
         Transaction transaction = icebergTable.newTransaction();
-        transaction.updateSchema().addColumn(column.getName(), columnType, column.getComment()).commit();
+        transaction.updateSchema().addColumn(column.getName(), columnType, comment).commit();
         if (column.getProperties().containsKey(PARTITIONING_PROPERTY)) {
             String transform = (String) column.getProperties().get(PARTITIONING_PROPERTY);
             transaction.updateSpec().addField(getPartitionColumnName(column.getName(), transform),

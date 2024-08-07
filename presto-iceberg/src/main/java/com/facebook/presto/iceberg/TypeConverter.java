@@ -46,11 +46,14 @@ import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.types.Types;
+import org.apache.iceberg.types.Types.NestedField;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -76,6 +79,8 @@ import static com.facebook.presto.hive.HiveType.HIVE_TIMESTAMP;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isArrayType;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isMapType;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isRowType;
+import static com.facebook.presto.iceberg.ExtraTypeSupporter.getIcebergTypeWithExtraInfo;
+import static com.facebook.presto.iceberg.ExtraTypeSupporter.getPrestoTypeWithExtraInfo;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
@@ -90,10 +95,39 @@ public final class TypeConverter
 {
     public static final String ORC_ICEBERG_ID_KEY = "iceberg.id";
     public static final String ORC_ICEBERG_REQUIRED_KEY = "iceberg.required";
+    private static final Pattern TYPE_EXTRA_INFO_PATTERN = Pattern.compile("^(.*)--\\[TYPE_EXTRA_INFO\\((.*)\\)\\]$");
 
     private TypeConverter() {}
 
-    public static Type toPrestoType(org.apache.iceberg.types.Type type, TypeManager typeManager)
+    public static PrestoTypeWithOriginalComment toPrestoTypeWithComment(org.apache.iceberg.types.Type type, Optional<String> typeComment, TypeManager typeManager)
+    {
+        Optional<PrestoTypeWithOriginalComment> prestoTypeWithOriginalComment = typeComment.map(comment -> {
+            Matcher matcher = TYPE_EXTRA_INFO_PATTERN.matcher(comment);
+            if (matcher.matches()) {
+                String commentWithoutTypeExtraInfo = matcher.group(1);
+                String typeExtraInfo = matcher.group(2);
+                Optional<Type> typeWithExtraInfo = getPrestoTypeWithExtraInfo(type, typeExtraInfo);
+                return typeWithExtraInfo.map(exType -> new PrestoTypeWithOriginalComment(exType, commentWithoutTypeExtraInfo))
+                        .orElse(new PrestoTypeWithOriginalComment(toPrestoType(type, typeManager), commentWithoutTypeExtraInfo));
+            }
+            return new PrestoTypeWithOriginalComment(toPrestoType(type, typeManager), comment);
+        });
+        return prestoTypeWithOriginalComment.isPresent() ?
+                prestoTypeWithOriginalComment.get() : new PrestoTypeWithOriginalComment(toPrestoType(type, typeManager), null);
+    }
+
+    public static IcebergTypeWithExtraInfo toIcebergTypeWithComment(Type type, String originalComment)
+    {
+        Optional<IcebergTypeWithExtraInfo> icebergTypeWithExtraInfo = getIcebergTypeWithExtraInfo(type).map(pair -> {
+            String typeExtraInfo = "--[TYPE_EXTRA_INFO(" + pair.second() + ")]";
+            String comment = originalComment == null ? typeExtraInfo : originalComment + typeExtraInfo;
+            return new IcebergTypeWithExtraInfo(pair.first(), comment);
+        });
+        return icebergTypeWithExtraInfo.isPresent() ?
+                icebergTypeWithExtraInfo.get() : new IcebergTypeWithExtraInfo(toIcebergType(type), originalComment);
+    }
+
+    private static Type toPrestoType(org.apache.iceberg.types.Type type, TypeManager typeManager)
     {
         switch (type.typeId()) {
             case BOOLEAN:
@@ -122,23 +156,26 @@ public final class TypeConverter
                 return VarcharType.createUnboundedVarcharType();
             case LIST:
                 Types.ListType listType = (Types.ListType) type;
-                return new ArrayType(toPrestoType(listType.elementType(), typeManager));
+                NestedField elementField = listType.field(listType.elementId());
+                return new ArrayType(toPrestoTypeWithComment(listType.elementType(), Optional.ofNullable(elementField.doc()), typeManager).getType());
             case MAP:
                 Types.MapType mapType = (Types.MapType) type;
-                TypeSignature keyType = toPrestoType(mapType.keyType(), typeManager).getTypeSignature();
-                TypeSignature valueType = toPrestoType(mapType.valueType(), typeManager).getTypeSignature();
+                NestedField keyField = mapType.field(mapType.keyId());
+                TypeSignature keyType = toPrestoTypeWithComment(mapType.keyType(), Optional.ofNullable(keyField.doc()), typeManager).getType().getTypeSignature();
+                NestedField valueField = mapType.field(mapType.valueId());
+                TypeSignature valueType = toPrestoTypeWithComment(mapType.valueType(), Optional.ofNullable(valueField.doc()), typeManager).getType().getTypeSignature();
                 return typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(TypeSignatureParameter.of(keyType), TypeSignatureParameter.of(valueType)));
             case STRUCT:
                 List<Types.NestedField> fields = ((Types.StructType) type).fields();
                 return RowType.from(fields.stream()
-                        .map(field -> new RowType.Field(Optional.of(field.name()), toPrestoType(field.type(), typeManager)))
+                        .map(field -> new RowType.Field(Optional.of(field.name()), toPrestoTypeWithComment(field.type(), Optional.ofNullable(field.doc()), typeManager).getType()))
                         .collect(toImmutableList()));
             default:
                 throw new UnsupportedOperationException(format("Cannot convert from Iceberg type '%s' (%s) to Presto type", type, type.typeId()));
         }
     }
 
-    public static org.apache.iceberg.types.Type toIcebergType(Type type)
+    private static org.apache.iceberg.types.Type toIcebergType(Type type)
     {
         if (type instanceof BooleanType) {
             return Types.BooleanType.get();
@@ -204,7 +241,8 @@ public final class TypeConverter
         for (RowType.Field field : type.getFields()) {
             String name = field.getName().orElseThrow(() ->
                     new PrestoException(NOT_SUPPORTED, "Row type field does not have a name: " + type.getDisplayName()));
-            fields.add(Types.NestedField.optional(startId + fields.size() + 1, name, toIcebergType(field.getType())));
+            IcebergTypeWithExtraInfo icebergTypeWithExtraInfo = toIcebergTypeWithComment(field.getType(), null);
+            fields.add(Types.NestedField.optional(startId + fields.size() + 1, name, icebergTypeWithExtraInfo.getType(), icebergTypeWithExtraInfo.getComment().orElse(null)));
         }
         return Types.StructType.of(fields);
     }
@@ -434,5 +472,49 @@ public final class TypeConverter
         orcTypes.addAll(keyTypes);
         orcTypes.addAll(valueTypes);
         return orcTypes;
+    }
+
+    public static class PrestoTypeWithOriginalComment
+    {
+        private final Type type;
+        private final Optional<String> comment;
+
+        public PrestoTypeWithOriginalComment(Type type, String comment)
+        {
+            this.type = type;
+            this.comment = Optional.ofNullable(comment);
+        }
+
+        public Type getType()
+        {
+            return type;
+        }
+
+        public Optional<String> getComment()
+        {
+            return comment;
+        }
+    }
+
+    public static class IcebergTypeWithExtraInfo
+    {
+        private final org.apache.iceberg.types.Type type;
+        private final Optional<String> commentWithExtraInfo;
+
+        public IcebergTypeWithExtraInfo(org.apache.iceberg.types.Type type, String commentWithExtraInfo)
+        {
+            this.type = type;
+            this.commentWithExtraInfo = Optional.ofNullable(commentWithExtraInfo);
+        }
+
+        public org.apache.iceberg.types.Type getType()
+        {
+            return type;
+        }
+
+        public Optional<String> getComment()
+        {
+            return commentWithExtraInfo;
+        }
     }
 }
