@@ -20,6 +20,7 @@ import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.eventlistener.EventListenerModule;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.execution.warnings.WarningCollectorModule;
+import com.facebook.presto.features.config.FeatureToggleConfigurationManager;
 import com.facebook.presto.metadata.StaticCatalogStore;
 import com.facebook.presto.metadata.StaticFunctionNamespaceStore;
 import com.facebook.presto.security.AccessControlManager;
@@ -222,6 +223,7 @@ public class PrestoSparkInjectorFactory
                     injector.getInstance(StaticFunctionNamespaceStore.class).loadFunctionNamespaceManagers();
                 }
             }
+            injector.getInstance(FeatureToggleConfigurationManager.class).loadConfigurationSources();
             bootstrapTimer.endDriverModulesLoading();
         }
         catch (Exception e) {

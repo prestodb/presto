@@ -61,6 +61,8 @@ import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.execution.scheduler.nodeSelection.SimpleTtlNodeSelectorConfig;
 import com.facebook.presto.execution.warnings.WarningCollectorConfig;
+import com.facebook.presto.features.config.FeatureToggleConfig;
+import com.facebook.presto.features.config.FeatureToggleModule;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.memory.NodeMemoryConfig;
@@ -532,6 +534,10 @@ public class PrestoSparkModule
         binder.bind(PrestoSparkBroadcastTableCacheManager.class).in(Scopes.SINGLETON);
         newSetBinder(binder, PrestoSparkServiceWaitTimeMetrics.class);
         newOptionalBinder(binder, ErrorClassifier.class);
+
+        // Feature Toggle
+        configBinder(binder).bindConfig(FeatureToggleConfig.class);
+        binder.install(new FeatureToggleModule());
 
         // extra credentials and authenticator for Presto-on-Spark
         newSetBinder(binder, PrestoSparkCredentialsProvider.class);

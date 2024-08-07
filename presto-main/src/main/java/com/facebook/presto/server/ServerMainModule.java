@@ -77,6 +77,8 @@ import com.facebook.presto.execution.scheduler.NodeSchedulerExporter;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionStats;
 import com.facebook.presto.execution.scheduler.nodeSelection.SimpleTtlNodeSelectorConfig;
+import com.facebook.presto.features.config.FeatureToggleConfig;
+import com.facebook.presto.features.config.FeatureToggleModule;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.memory.LocalMemoryManager;
 import com.facebook.presto.memory.LocalMemoryManagerExporter;
@@ -753,6 +755,10 @@ public class ServerMainModule
                         .bind(SingleStreamSpillerFactory.class)
                         .to(TempStorageSingleStreamSpillerFactory.class)
                         .in(Scopes.SINGLETON)));
+
+        // Feature Toggle
+        configBinder(binder).bindConfig(FeatureToggleConfig.class);
+        install(new FeatureToggleModule());
 
         // Thrift RPC
         binder.install(new DriftNettyServerModule());
