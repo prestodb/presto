@@ -19,7 +19,6 @@
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/connectors/hive/PartitionIdGenerator.h"
-#include "velox/exec/MergeJoin.h"
 #include "velox/exec/OperatorUtils.h"
 #include "velox/exec/fuzzer/FuzzerUtil.h"
 #include "velox/exec/fuzzer/ReferenceQueryRunner.h"
@@ -148,7 +147,7 @@ class JoinFuzzer {
       const std::vector<std::string>& outputColumns);
 
   // Returns a PlanWithSplits for NestedLoopJoin with inputs from Values nodes.
-  // If withFilter is true, uses the equiality filter between probeKeys and
+  // If withFilter is true, uses the equality filter between probeKeys and
   // buildKeys as the join filter. Uses empty join filter otherwise.
   JoinFuzzer::PlanWithSplits makeNestedLoopJoinPlan(
       core::JoinType joinType,
@@ -860,7 +859,7 @@ void JoinFuzzer::makeAlternativePlans(
           .planNode()});
 
   // Use OrderBy + MergeJoin
-  if (exec::MergeJoin::isSupported(joinNode->joinType())) {
+  if (core::MergeJoinNode::isSupported(joinNode->joinType())) {
     auto planWithSplits = makeMergeJoinPlan(
         joinType, probeKeys, buildKeys, probeInput, buildInput, outputColumns);
     plans.push_back(planWithSplits);
@@ -869,8 +868,7 @@ void JoinFuzzer::makeAlternativePlans(
   }
 
   // Use NestedLoopJoin.
-  if (joinNode->isInnerJoin() || joinNode->isLeftJoin() ||
-      joinNode->isFullJoin()) {
+  if (core::NestedLoopJoinNode::isSupported(joinNode->joinType())) {
     auto planWithSplits = makeNestedLoopJoinPlan(
         joinType, probeKeys, buildKeys, probeInput, buildInput, outputColumns);
     plans.push_back(planWithSplits);
@@ -1285,7 +1283,7 @@ void JoinFuzzer::addPlansWithTableScan(
   }
 
   // Add ungrouped MergeJoin with TableScan.
-  if (joinNode->isInnerJoin() || joinNode->isLeftJoin()) {
+  if (core::MergeJoinNode::isSupported(joinNode->joinType())) {
     auto planWithSplits = makeMergeJoinPlanWithTableScan(
         joinType,
         probeType,
@@ -1307,8 +1305,7 @@ void JoinFuzzer::addPlansWithTableScan(
   }
 
   // Add ungrouped NestedLoopJoin with TableScan.
-  if (joinNode->isInnerJoin() || joinNode->isLeftJoin() ||
-      joinNode->isFullJoin()) {
+  if (core::NestedLoopJoinNode::isSupported(joinNode->joinType())) {
     auto planWithSplits = makeNestedLoopJoinPlanWithTableScan(
         joinType,
         probeType,

@@ -27,9 +27,7 @@ namespace facebook::velox::core {
 
 typedef std::string PlanNodeId;
 
-/**
- * Generic representation of InsertTable
- */
+/// Generic representation of InsertTable
 struct InsertTableHandle {
  public:
   InsertTableHandle(
@@ -1643,22 +1641,16 @@ class MergeJoinNode : public AbstractJoinNode {
       TypedExprPtr filter,
       PlanNodePtr left,
       PlanNodePtr right,
-      RowTypePtr outputType)
-      : AbstractJoinNode(
-            id,
-            joinType,
-            leftKeys,
-            rightKeys,
-            std::move(filter),
-            std::move(left),
-            std::move(right),
-            std::move(outputType)) {}
+      RowTypePtr outputType);
 
   std::string_view name() const override {
     return "MergeJoin";
   }
 
   folly::dynamic serialize() const override;
+
+  /// If merge join supports this join type.
+  static bool isSupported(core::JoinType joinType);
 
   static PlanNodePtr create(const folly::dynamic& obj, void* context);
 };
@@ -1667,7 +1659,7 @@ class MergeJoinNode : public AbstractJoinNode {
 /// exec::NestedLoopJoinProbe and exec::NestedLoopJoinBuild. A separate pipeline
 /// is produced for the build side when generating exec::Operators.
 ///
-/// Nested loop join supports both equal and non-equal joins. Expressions
+/// Nested loop join (NLJ) supports both equal and non-equal joins. Expressions
 /// specified in joinCondition are evaluated on every combination of left/right
 /// tuple, to emit result. Results are emitted following the same input order of
 /// probe rows for inner and left joins, for each thread of execution.
@@ -1711,6 +1703,9 @@ class NestedLoopJoinNode : public PlanNode {
   }
 
   folly::dynamic serialize() const override;
+
+  /// If nested loop join supports this join type.
+  static bool isSupported(core::JoinType joinType);
 
   static PlanNodePtr create(const folly::dynamic& obj, void* context);
 
