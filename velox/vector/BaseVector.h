@@ -127,14 +127,22 @@ class BaseVector {
   template <typename T>
   T* asUnchecked() {
     static_assert(std::is_base_of_v<BaseVector, T>);
-    DCHECK(dynamic_cast<const T*>(this) != nullptr);
+    VELOX_DCHECK_NOT_NULL(
+        dynamic_cast<const T*>(this),
+        "Wrong type cast expected {}, but got {}",
+        typeid(T).name(),
+        typeid(*this).name());
     return static_cast<T*>(this);
   }
 
   template <typename T>
   const T* asUnchecked() const {
     static_assert(std::is_base_of_v<BaseVector, T>);
-    DCHECK(dynamic_cast<const T*>(this) != nullptr);
+    VELOX_DCHECK_NOT_NULL(
+        dynamic_cast<const T*>(this),
+        "Wrong type cast expected {}, but got {}",
+        typeid(T).name(),
+        typeid(*this).name());
     return static_cast<const T*>(this);
   }
 
