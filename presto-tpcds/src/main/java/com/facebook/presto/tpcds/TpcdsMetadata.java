@@ -55,6 +55,8 @@ import static java.util.Objects.requireNonNull;
 public class TpcdsMetadata
         implements ConnectorMetadata
 {
+    private final boolean isNativeExecution;
+
     public static final String TINY_SCHEMA_NAME = "tiny";
     public static final double TINY_SCALE_FACTOR = 0.01;
 
@@ -64,8 +66,9 @@ public class TpcdsMetadata
     private final Set<String> tableNames;
     private final TpcdsTableStatisticsFactory tpcdsTableStatisticsFactory = new TpcdsTableStatisticsFactory();
 
-    public TpcdsMetadata()
+    public TpcdsMetadata(boolean isNativeExecution)
     {
+        this.isNativeExecution = isNativeExecution;
         ImmutableSet.Builder<String> tableNames = ImmutableSet.builder();
         for (Table tpcdsTable : Table.getBaseTables()) {
             tableNames.add(tpcdsTable.getName().toLowerCase(ENGLISH));
@@ -134,14 +137,14 @@ public class TpcdsMetadata
         Table table = Table.getTable(tpcdsTableHandle.getTableName());
         String schemaName = scaleFactorSchemaName(tpcdsTableHandle.getScaleFactor());
 
-        return getTableMetadata(schemaName, table);
+        return getTableMetadata(schemaName, table, isNativeExecution);
     }
 
-    private static ConnectorTableMetadata getTableMetadata(String schemaName, Table tpcdsTable)
+    private static ConnectorTableMetadata getTableMetadata(String schemaName, Table tpcdsTable, boolean isNativeExecution)
     {
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
         for (Column column : tpcdsTable.getColumns()) {
-            columns.add(new ColumnMetadata(column.getName(), getPrestoType(column.getType())));
+            columns.add(new ColumnMetadata(column.getName(), getPrestoType(column.getType(), isNativeExecution)));
         }
         SchemaTableName tableName = new SchemaTableName(schemaName, tpcdsTable.getName());
         return new ConnectorTableMetadata(tableName, columns.build());
@@ -189,7 +192,7 @@ public class TpcdsMetadata
         for (String schemaName : getSchemaNames(session, Optional.ofNullable(prefix.getSchemaName()))) {
             for (Table tpcdsTable : Table.getBaseTables()) {
                 if (prefix.getTableName() == null || tpcdsTable.getName().equals(prefix.getTableName())) {
-                    ConnectorTableMetadata tableMetadata = getTableMetadata(schemaName, tpcdsTable);
+                    ConnectorTableMetadata tableMetadata = getTableMetadata(schemaName, tpcdsTable, isNativeExecution);
                     tableColumns.put(new SchemaTableName(schemaName, tpcdsTable.getName()), tableMetadata.getColumns());
                 }
             }
@@ -243,19 +246,33 @@ public class TpcdsMetadata
         }
     }
 
-    public static Type getPrestoType(ColumnType tpcdsType)
+    public static Type getPrestoType(ColumnType tpcdsType, boolean isNativeExecution)
     {
         switch (tpcdsType.getBase()) {
-            case IDENTIFIER:
-                return BigintType.BIGINT;
+            case IDENTIFIER: {
+                if (isNativeExecution) {
+                    // Identifier columns are of INTEGER type in dsdgen-c.
+                    return IntegerType.INTEGER;
+                }
+                else {
+                    return BigintType.BIGINT;
+                }
+            }
             case INTEGER:
                 return IntegerType.INTEGER;
             case DATE:
                 return DateType.DATE;
             case DECIMAL:
                 return createDecimalType(tpcdsType.getPrecision().get(), tpcdsType.getScale().get());
-            case CHAR:
-                return createCharType(tpcdsType.getPrecision().get());
+            case CHAR: {
+                if (isNativeExecution) {
+                    // Presto native does not support CHAR type yet.
+                    return createVarcharType(tpcdsType.getPrecision().get());
+                }
+                else {
+                    return createCharType(tpcdsType.getPrecision().get());
+                }
+            }
             case VARCHAR:
                 return createVarcharType(tpcdsType.getPrecision().get());
             case TIME:
