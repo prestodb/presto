@@ -91,19 +91,18 @@ class NoopArbitrator : public MemoryArbitrator {
     return "NOOP";
   }
 
-  // Noop arbitrator has no memory capacity limit so no operation needed for
-  // memory pool capacity reserve.
-  uint64_t growCapacity(MemoryPool* pool, uint64_t /*unused*/) override {
-    growPool(pool, pool->maxCapacity(), 0);
-    return pool->capacity();
+  void addPool(const std::shared_ptr<MemoryPool>& pool) override {
+    VELOX_CHECK_EQ(pool->capacity(), 0);
+    growPool(pool.get(), pool->maxCapacity(), 0);
+  }
+
+  void removePool(MemoryPool* pool) override {
+    VELOX_CHECK_EQ(pool->reservedBytes(), 0);
   }
 
   // Noop arbitrator has no memory capacity limit so no operation needed for
   // memory pool capacity grow.
-  bool growCapacity(
-      MemoryPool* /*unused*/,
-      const std::vector<std::shared_ptr<MemoryPool>>& /*unused*/,
-      uint64_t /*unused*/) override {
+  bool growCapacity(MemoryPool* /*unused*/, uint64_t /*unused*/) override {
     return false;
   }
 
@@ -117,7 +116,6 @@ class NoopArbitrator : public MemoryArbitrator {
   // Noop arbitrator has no memory capacity limit so no operation needed for
   // memory pool capacity shrink.
   uint64_t shrinkCapacity(
-      const std::vector<std::shared_ptr<MemoryPool>>& /* unused */,
       uint64_t /* unused */,
       bool /* unused */,
       bool /* unused */) override {
@@ -336,8 +334,7 @@ MemoryArbitrator::Stats::Stats(
     uint64_t _freeReservedCapacityBytes,
     uint64_t _reclaimTimeUs,
     uint64_t _numNonReclaimableAttempts,
-    uint64_t _numReserves,
-    uint64_t _numReleases)
+    uint64_t _numShrinks)
     : numRequests(_numRequests),
       numSucceeded(_numSucceeded),
       numAborted(_numAborted),
@@ -351,21 +348,19 @@ MemoryArbitrator::Stats::Stats(
       freeReservedCapacityBytes(_freeReservedCapacityBytes),
       reclaimTimeUs(_reclaimTimeUs),
       numNonReclaimableAttempts(_numNonReclaimableAttempts),
-      numReserves(_numReserves),
-      numReleases(_numReleases) {}
+      numShrinks(_numShrinks) {}
 
 std::string MemoryArbitrator::Stats::toString() const {
   return fmt::format(
       "STATS[numRequests {} numAborted {} numFailures {} "
-      "numNonReclaimableAttempts {} numReserves {} numReleases {} "
+      "numNonReclaimableAttempts {} numShrinks {} "
       "queueTime {} arbitrationTime {} reclaimTime {} shrunkMemory {} "
       "reclaimedMemory {} maxCapacity {} freeCapacity {} freeReservedCapacity {}]",
       numRequests,
       numAborted,
       numFailures,
       numNonReclaimableAttempts,
-      numReserves,
-      numReleases,
+      numShrinks,
       succinctMicros(queueTimeUs),
       succinctMicros(arbitrationTimeUs),
       succinctMicros(reclaimTimeUs),
@@ -393,8 +388,7 @@ MemoryArbitrator::Stats MemoryArbitrator::Stats::operator-(
   result.reclaimTimeUs = reclaimTimeUs - other.reclaimTimeUs;
   result.numNonReclaimableAttempts =
       numNonReclaimableAttempts - other.numNonReclaimableAttempts;
-  result.numReserves = numReserves - other.numReserves;
-  result.numReleases = numReleases - other.numReleases;
+  result.numShrinks = numShrinks - other.numShrinks;
   return result;
 }
 
@@ -413,8 +407,7 @@ bool MemoryArbitrator::Stats::operator==(const Stats& other) const {
              freeReservedCapacityBytes,
              reclaimTimeUs,
              numNonReclaimableAttempts,
-             numReserves,
-             numReleases) ==
+             numShrinks) ==
       std::tie(
              other.numRequests,
              other.numSucceeded,
@@ -429,8 +422,7 @@ bool MemoryArbitrator::Stats::operator==(const Stats& other) const {
              other.freeReservedCapacityBytes,
              other.reclaimTimeUs,
              other.numNonReclaimableAttempts,
-             other.numReserves,
-             other.numReleases);
+             other.numShrinks);
 }
 
 bool MemoryArbitrator::Stats::operator!=(const Stats& other) const {
@@ -459,8 +451,7 @@ bool MemoryArbitrator::Stats::operator<(const Stats& other) const {
   UPDATE_COUNTER(numReclaimedBytes);
   UPDATE_COUNTER(reclaimTimeUs);
   UPDATE_COUNTER(numNonReclaimableAttempts);
-  UPDATE_COUNTER(numReserves);
-  UPDATE_COUNTER(numReleases);
+  UPDATE_COUNTER(numShrinks);
 #undef UPDATE_COUNTER
   VELOX_CHECK(
       !((gtCount > 0) && (ltCount > 0)),

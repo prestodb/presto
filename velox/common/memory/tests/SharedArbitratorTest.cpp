@@ -526,7 +526,6 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimToOrderBy) {
     const auto newStats = arbitrator_->stats();
     ASSERT_GT(newStats.numReclaimedBytes, oldStats.numReclaimedBytes);
     ASSERT_GT(newStats.reclaimTimeUs, oldStats.reclaimTimeUs);
-    ASSERT_EQ(arbitrator_->stats().numReserves, numAddedPools_);
     ASSERT_GT(orderByQueryCtx->pool()->stats().numCapacityGrowths, 0);
   }
 }
@@ -629,7 +628,6 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimToAggregation) {
     const auto newStats = arbitrator_->stats();
     ASSERT_GT(newStats.numReclaimedBytes, oldStats.numReclaimedBytes);
     ASSERT_GT(newStats.reclaimTimeUs, oldStats.reclaimTimeUs);
-    ASSERT_EQ(newStats.numReserves, numAddedPools_);
   }
 }
 
@@ -742,7 +740,6 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimToJoinBuilder) {
     const auto newStats = arbitrator_->stats();
     ASSERT_GT(newStats.numReclaimedBytes, oldStats.numReclaimedBytes);
     ASSERT_GT(newStats.reclaimTimeUs, oldStats.reclaimTimeUs);
-    ASSERT_EQ(arbitrator_->stats().numReserves, numAddedPools_);
   }
 }
 
@@ -1289,10 +1286,8 @@ TEST_F(SharedArbitrationTest, reserveReleaseCounters) {
         threads.emplace_back([&]() {
           {
             std::lock_guard<std::mutex> l(mutex);
-            auto oldNum = arbitrator_->stats().numReserves;
             queries.emplace_back(
                 newQueryCtx(memoryManager_.get(), executor_.get()));
-            ASSERT_EQ(arbitrator_->stats().numReserves, oldNum + 1);
           }
         });
       }
@@ -1300,11 +1295,9 @@ TEST_F(SharedArbitrationTest, reserveReleaseCounters) {
       for (auto& queryThread : threads) {
         queryThread.join();
       }
-      ASSERT_EQ(arbitrator_->stats().numReserves, numRootPools);
-      ASSERT_EQ(arbitrator_->stats().numReleases, 0);
+      ASSERT_EQ(arbitrator_->stats().numShrinks, 0);
     }
-    ASSERT_EQ(arbitrator_->stats().numReserves, numRootPools);
-    ASSERT_EQ(arbitrator_->stats().numReleases, numRootPools);
+    ASSERT_EQ(arbitrator_->stats().numShrinks, numRootPools);
   }
 }
 } // namespace facebook::velox::memory

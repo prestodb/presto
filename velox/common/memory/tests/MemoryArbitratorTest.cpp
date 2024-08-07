@@ -63,14 +63,14 @@ TEST_F(MemoryArbitrationTest, stats) {
   ASSERT_EQ(
       stats.toString(),
       "STATS[numRequests 2 numAborted 3 numFailures 100 "
-      "numNonReclaimableAttempts 5 numReserves 0 numReleases 0 "
+      "numNonReclaimableAttempts 5 numShrinks 0 "
       "queueTime 230.00ms arbitrationTime 1.02ms reclaimTime 1.00ms "
       "shrunkMemory 95.37MB reclaimedMemory 9.77KB "
       "maxCapacity 0B freeCapacity 1.95KB freeReservedCapacity 1000B]");
   ASSERT_EQ(
       fmt::format("{}", stats),
       "STATS[numRequests 2 numAborted 3 numFailures 100 "
-      "numNonReclaimableAttempts 5 numReserves 0 numReleases 0 "
+      "numNonReclaimableAttempts 5 numShrinks 0 "
       "queueTime 230.00ms arbitrationTime 1.02ms reclaimTime 1.00ms "
       "shrunkMemory 95.37MB reclaimedMemory 9.77KB "
       "maxCapacity 0B freeCapacity 1.95KB freeReservedCapacity 1000B]");
@@ -135,33 +135,34 @@ TEST_F(MemoryArbitrationTest, queryMemoryCapacity) {
     auto rootPool =
         manager.addRootPool("root-1", 8L << 20, MemoryReclaimer::create());
     ASSERT_EQ(rootPool->capacity(), 1 << 20);
-    ASSERT_EQ(
-        manager.arbitrator()->growCapacity(rootPool.get(), 1 << 20), 1 << 20);
-    ASSERT_EQ(
-        manager.arbitrator()->growCapacity(rootPool.get(), 6 << 20), 2 << 20);
+    ASSERT_TRUE(manager.arbitrator()->growCapacity(rootPool.get(), 1 << 20));
+    ASSERT_EQ(rootPool->capacity(), 1 << 20);
+    ASSERT_FALSE(manager.arbitrator()->growCapacity(rootPool.get(), 6 << 20));
+    ASSERT_EQ(rootPool->capacity(), 1 << 20);
+    ASSERT_TRUE(manager.arbitrator()->growCapacity(rootPool.get(), 2 << 20));
+    ASSERT_EQ(rootPool->capacity(), 4 << 20);
     ASSERT_EQ(manager.arbitrator()->stats().freeCapacityBytes, 2 << 20);
     ASSERT_EQ(manager.arbitrator()->stats().freeReservedCapacityBytes, 2 << 20);
 
     auto leafPool = rootPool->addLeafChild("leaf-1.0");
-    void* buffer;
     VELOX_ASSERT_THROW(
-        buffer = leafPool->allocate(7L << 20),
+        leafPool->allocate(7L << 20),
         "Exceeded memory pool capacity after attempt to grow capacity through "
         "arbitration. Requestor pool name 'leaf-1.0', request size 7.00MB, "
         "memory pool capacity 4.00MB, memory pool max capacity 8.00MB");
-    ASSERT_NO_THROW(buffer = leafPool->allocate(4L << 20));
-    ASSERT_EQ(manager.arbitrator()->shrinkCapacity(rootPool.get(), 0), 0);
+    ASSERT_EQ(manager.arbitrator()->shrinkCapacity(rootPool.get(), 0), 1 << 20);
     ASSERT_EQ(manager.arbitrator()->shrinkCapacity(leafPool.get(), 0), 0);
     ASSERT_EQ(manager.arbitrator()->shrinkCapacity(leafPool.get(), 1), 0);
     ASSERT_EQ(manager.arbitrator()->shrinkCapacity(rootPool.get(), 1), 0);
-    leafPool->free(buffer, 4L << 20);
+    ASSERT_EQ(rootPool->capacity(), 3 << 20);
+    static_cast<MemoryPoolImpl*>(rootPool.get())->testingSetReservation(0);
     ASSERT_EQ(
         manager.arbitrator()->shrinkCapacity(leafPool.get(), 1 << 20), 1 << 20);
     ASSERT_EQ(
         manager.arbitrator()->shrinkCapacity(rootPool.get(), 1 << 20), 1 << 20);
-    ASSERT_EQ(rootPool->capacity(), 2 << 20);
-    ASSERT_EQ(leafPool->capacity(), 2 << 20);
-    ASSERT_EQ(manager.arbitrator()->shrinkCapacity(leafPool.get(), 0), 2 << 20);
+    ASSERT_EQ(rootPool->capacity(), 1 << 20);
+    ASSERT_EQ(leafPool->capacity(), 1 << 20);
+    ASSERT_EQ(manager.arbitrator()->shrinkCapacity(leafPool.get(), 0), 1 << 20);
     ASSERT_EQ(rootPool->capacity(), 0);
     ASSERT_EQ(leafPool->capacity(), 0);
   }
@@ -305,19 +306,17 @@ TEST_F(MemoryArbitrationTest, reservedCapacityFreeByPoolShrink) {
   pools.push_back(manager.addRootPool("", kMaxMemory));
 
   ASSERT_GE(pools.back()->capacity(), 0);
-  ASSERT_EQ(arbitrator->shrinkCapacity(pools, 1 << 20), 2 << 20);
-  ASSERT_EQ(arbitrator->growCapacity(pools[numPools - 1].get(), 1 << 20), 0);
-  ASSERT_EQ(arbitrator->growCapacity(pools.back().get(), 2 << 20), 1 << 20);
+  ASSERT_EQ(arbitrator->shrinkCapacity(1 << 20), 2 << 20);
 }
 
 TEST_F(MemoryArbitrationTest, arbitratorStats) {
   const MemoryArbitrator::Stats emptyStats;
   ASSERT_TRUE(emptyStats.empty());
   const MemoryArbitrator::Stats anchorStats(
-      5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5);
+      5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5);
   ASSERT_FALSE(anchorStats.empty());
   const MemoryArbitrator::Stats largeStats(
-      8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8);
+      8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8);
   ASSERT_FALSE(largeStats.empty());
   ASSERT_TRUE(!(anchorStats == largeStats));
   ASSERT_TRUE(anchorStats != largeStats);
@@ -327,11 +326,10 @@ TEST_F(MemoryArbitrationTest, arbitratorStats) {
   ASSERT_TRUE(!(anchorStats >= largeStats));
   const auto delta = largeStats - anchorStats;
   ASSERT_EQ(
-      delta,
-      MemoryArbitrator::Stats(3, 3, 3, 3, 3, 3, 3, 3, 8, 8, 8, 3, 3, 3, 3));
+      delta, MemoryArbitrator::Stats(3, 3, 3, 3, 3, 3, 3, 3, 8, 8, 8, 3, 3, 3));
 
   const MemoryArbitrator::Stats smallStats(
-      2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2);
+      2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2);
   ASSERT_TRUE(!(anchorStats == smallStats));
   ASSERT_TRUE(anchorStats != smallStats);
   ASSERT_TRUE(!(anchorStats < smallStats));
@@ -340,7 +338,7 @@ TEST_F(MemoryArbitrationTest, arbitratorStats) {
   ASSERT_TRUE(anchorStats >= smallStats);
 
   const MemoryArbitrator::Stats invalidStats(
-      2, 2, 2, 2, 2, 2, 8, 8, 8, 8, 8, 8, 2, 8, 2);
+      2, 2, 2, 2, 2, 2, 8, 8, 8, 8, 8, 2, 8, 2);
   ASSERT_TRUE(!(anchorStats == invalidStats));
   ASSERT_TRUE(anchorStats != invalidStats);
   VELOX_ASSERT_THROW(anchorStats < invalidStats, "");
@@ -362,23 +360,16 @@ class FakeTestArbitrator : public MemoryArbitrator {
     return "USER";
   }
 
-  uint64_t growCapacity(MemoryPool* /*unused*/, uint64_t /*unused*/) override {
-    VELOX_NYI();
-    return 0;
-  }
+  void addPool(const std::shared_ptr<MemoryPool>& /*unused*/) override {}
 
-  bool growCapacity(
-      MemoryPool* /*unused*/,
-      const std::vector<std::shared_ptr<MemoryPool>>& /*unused*/,
-      uint64_t /*unused*/) override {
+  void removePool(MemoryPool* /*unused*/) override {}
+
+  bool growCapacity(MemoryPool* /*unused*/, uint64_t /*unused*/) override {
     VELOX_NYI();
   }
 
-  uint64_t shrinkCapacity(
-      const std::vector<std::shared_ptr<MemoryPool>>& /*unused*/,
-      uint64_t /*unused*/,
-      bool /*unused*/,
-      bool /*unused*/) override {
+  uint64_t shrinkCapacity(uint64_t /*unused*/, bool /*unused*/, bool /*unused*/)
+      override {
     VELOX_NYI();
   }
 

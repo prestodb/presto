@@ -7287,7 +7287,6 @@ DEBUG_ONLY_TEST_F(HashJoinTest, joinBuildSpillError) {
 
   waitForAllTasksToBeDeleted();
   ASSERT_EQ(arbitrator->stats().numFailures, 1);
-  ASSERT_EQ(arbitrator->stats().numReserves, 1);
 
   // Wait again here as this test uses on-demand created memory manager instead
   // of the global one. We need to make sure any used memory got cleaned up

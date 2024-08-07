@@ -26,7 +26,6 @@
 #include <folly/Random.h>
 #include <folly/Range.h>
 #include <gflags/gflags.h>
-#include <glog/logging.h>
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 

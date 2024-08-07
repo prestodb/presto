@@ -108,7 +108,7 @@ TEST_F(MemoryManagerTest, ctor) {
         "allocated pages 0 mapped pages 0]\n"
         "ARBITRATOR[SHARED CAPACITY[4.00GB] PENDING[0] "
         "STATS[numRequests 0 numAborted 0 numFailures 0 "
-        "numNonReclaimableAttempts 0 numReserves 0 numReleases 0 queueTime 0us "
+        "numNonReclaimableAttempts 0 numShrinks 0 queueTime 0us "
         "arbitrationTime 0us reclaimTime 0us shrunkMemory 0B "
         "reclaimedMemory 0B maxCapacity 4.00GB freeCapacity 4.00GB freeReservedCapacity 0B]]]");
   }
@@ -123,22 +123,16 @@ class FakeTestArbitrator : public MemoryArbitrator {
              .capacity = config.capacity,
              .extraConfigs = config.extraConfigs}) {}
 
-  uint64_t growCapacity(MemoryPool* /*unused*/, uint64_t /*unused*/) override {
+  void addPool(const std::shared_ptr<MemoryPool>& /*unused*/) override {}
+
+  void removePool(MemoryPool* /*unused*/) override {}
+
+  bool growCapacity(MemoryPool* /*unused*/, uint64_t /*unused*/) override {
     VELOX_NYI();
   }
 
-  bool growCapacity(
-      MemoryPool* /*unused*/,
-      const std::vector<std::shared_ptr<MemoryPool>>& /*unused*/,
-      uint64_t /*unused*/) override {
-    VELOX_NYI();
-  }
-
-  uint64_t shrinkCapacity(
-      const std::vector<std::shared_ptr<MemoryPool>>& /*unused*/,
-      uint64_t /*unused*/,
-      bool /*unused*/,
-      bool /*unused*/) override {
+  uint64_t shrinkCapacity(uint64_t /*unused*/, bool /*unused*/, bool /*unused*/)
+      override {
     VELOX_NYI();
   }
 

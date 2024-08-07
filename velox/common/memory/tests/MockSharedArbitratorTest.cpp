@@ -2446,6 +2446,7 @@ DEBUG_ONLY_TEST_F(MockSharedArbitrationTest, orderedArbitration) {
                   (*candidates)[i - 1].reclaimableBytes);
             }
           })));
+
   folly::Random::DefaultGenerator rng;
   rng.seed(512);
   const uint64_t memCapacity = 512 * MB;
