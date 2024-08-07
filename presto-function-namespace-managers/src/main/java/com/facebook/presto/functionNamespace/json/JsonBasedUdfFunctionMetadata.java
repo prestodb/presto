@@ -17,6 +17,8 @@ import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.function.AggregationFunctionMetadata;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
+import com.facebook.presto.spi.function.SqlFunctionVisibility;
+import com.facebook.presto.spi.function.TypeVariableConstraint;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -30,9 +32,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
-/**
- * The function metadata provided by the Json file to the {@link JsonFileBasedFunctionNamespaceManager}.
- */
 public class JsonBasedUdfFunctionMetadata
 {
     /**
@@ -56,6 +55,10 @@ public class JsonBasedUdfFunctionMetadata
      */
     private final String schema;
     /**
+     * Optional field: Marked to indicate that the function is hidden. They are visible by default.
+     */
+    private final Optional<SqlFunctionVisibility> functionVisibility;
+    /**
      * Implement language of the function.
      */
     private final RoutineCharacteristics routineCharacteristics;
@@ -64,6 +67,14 @@ public class JsonBasedUdfFunctionMetadata
      * Optional Aggregate-specific metadata (required for aggregation functions)
      */
     private final Optional<AggregationFunctionMetadata> aggregateMetadata;
+    /**
+     * Optional field: Marked to indicate the arity of the function.
+     */
+    private final Optional<Boolean> variableArity;
+    /**
+     * Optional field: List of the typeVariableConstraints.
+     */
+    private final Optional<List<TypeVariableConstraint>> typeVariableConstraints;
 
     @JsonCreator
     public JsonBasedUdfFunctionMetadata(
@@ -72,19 +83,25 @@ public class JsonBasedUdfFunctionMetadata
             @JsonProperty("outputType") TypeSignature outputType,
             @JsonProperty("paramTypes") List<TypeSignature> paramTypes,
             @JsonProperty("schema") String schema,
+            @JsonProperty("functionVisibility") Optional<SqlFunctionVisibility> functionVisibility,
+            @JsonProperty("variableArity") Optional<Boolean> variableArity,
             @JsonProperty("routineCharacteristics") RoutineCharacteristics routineCharacteristics,
-            @JsonProperty("aggregateMetadata") Optional<AggregationFunctionMetadata> aggregateMetadata)
+            @JsonProperty("aggregateMetadata") Optional<AggregationFunctionMetadata> aggregateMetadata,
+            @JsonProperty("typeVariableConstraints") Optional<List<TypeVariableConstraint>> typeVariableConstraints)
     {
         this.docString = requireNonNull(docString, "docString is null");
         this.functionKind = requireNonNull(functionKind, "functionKind is null");
         this.outputType = requireNonNull(outputType, "outputType is null");
         this.paramTypes = ImmutableList.copyOf(requireNonNull(paramTypes, "paramTypes is null"));
         this.schema = requireNonNull(schema, "schema is null");
+        this.functionVisibility = requireNonNull(functionVisibility, "functionVisibility is null");
+        this.variableArity = requireNonNull(variableArity, "variableArity is null");
         this.routineCharacteristics = requireNonNull(routineCharacteristics, "routineCharacteristics is null");
         this.aggregateMetadata = requireNonNull(aggregateMetadata, "aggregateMetadata is null");
         checkArgument(
                 (functionKind == AGGREGATE && aggregateMetadata.isPresent()) || (functionKind != AGGREGATE && !aggregateMetadata.isPresent()),
                 "aggregateMetadata must be present for aggregation functions and absent otherwise");
+        this.typeVariableConstraints = requireNonNull(typeVariableConstraints, "typeVariableConstraints is null");
     }
 
     public String getDocString()
@@ -117,6 +134,16 @@ public class JsonBasedUdfFunctionMetadata
         return schema;
     }
 
+    public Optional<SqlFunctionVisibility> getFunctionVisibility()
+    {
+        return functionVisibility;
+    }
+
+    public Optional<Boolean> getVariableArity()
+    {
+        return variableArity;
+    }
+
     public RoutineCharacteristics getRoutineCharacteristics()
     {
         return routineCharacteristics;
@@ -125,5 +152,10 @@ public class JsonBasedUdfFunctionMetadata
     public Optional<AggregationFunctionMetadata> getAggregateMetadata()
     {
         return aggregateMetadata;
+    }
+
+    public Optional<List<TypeVariableConstraint>> getTypeVariableConstraints()
+    {
+        return typeVariableConstraints;
     }
 }
