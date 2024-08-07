@@ -136,24 +136,6 @@ public class IcebergFileWriterFactory
                 .map(Types.NestedField::name)
                 .collect(toImmutableList());
 
-        List<Types.NestedField> updatedFields = icebergSchema.columns().stream()
-                .map(field -> {
-                    if (field.type() instanceof Types.TimestampType) {
-                        return Types.NestedField.of(
-                                field.fieldId(),
-                                field.isOptional(),
-                                field.name(),
-                                Types.fromPrimitiveString(Types.TimestampType.withoutZone().toString()));
-                    }
-
-                    if (field.type().isNestedType()) {
-                        return field;
-                    }
-
-                    return field;})
-                .collect(Collectors.toList());
-        icebergSchema = new Schema(updatedFields);
-
         List<Type> fileColumnTypes = icebergSchema.columns().stream()
                 .map(column -> toPrestoType(column.type(), typeManager))
                 .collect(toImmutableList());
