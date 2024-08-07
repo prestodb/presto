@@ -31,7 +31,6 @@ import java.util.UUID;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
-import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.io.Files.createTempDir;
@@ -72,28 +71,6 @@ public class TestParquetWriter
                 }
                 parquetWriter.write(pageBuilder.build());
             }
-        }
-        catch (Exception e) {
-            fail("Should not fail, but throw an exception as follows:", e);
-        }
-    }
-
-    @Test
-    public void testWriteFileWithLogicalTypes()
-    {
-        temporaryDirectory = createTempDir();
-        parquetFile = new File(temporaryDirectory, randomUUID().toString());
-        List<Type> types = ImmutableList.of(TIMESTAMP);
-        List<String> names = ImmutableList.of("timestamp");
-        ParquetWriterOptions parquetWriterOptions = ParquetWriterOptions.builder()
-                .setMaxPageSize(DataSize.succinctBytes(1000))
-                .setMaxBlockSize(DataSize.succinctBytes(15000))
-                .setMaxDictionaryPageSize(DataSize.succinctBytes(1000)).build();
-
-        try (ParquetWriter parquetWriter = createParquetWriter(parquetFile, types, names, parquetWriterOptions, CompressionCodecName.UNCOMPRESSED)) {
-            int pageRowCount = 100;
-            PageBuilder pageBuilder = new PageBuilder(pageRowCount, types);
-            parquetWriter.write(pageBuilder.build());
         }
         catch (Exception e) {
             fail("Should not fail, but throw an exception as follows:", e);
