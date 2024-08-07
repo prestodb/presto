@@ -267,6 +267,7 @@ public class ParquetWriter
         fileMetaData.setNum_rows(totalRows);
         fileMetaData.setRow_groups(ImmutableList.copyOf(rowGroups));
 
+        // use parquet metadata converter to get schema with proper logical type info
         org.apache.parquet.hadoop.metadata.FileMetaData parquetMetaDataInput = new org.apache.parquet.hadoop.metadata.FileMetaData(
                 messageType,
                 ImmutableMap.of(),
