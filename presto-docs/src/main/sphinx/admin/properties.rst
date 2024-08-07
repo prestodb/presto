@@ -999,3 +999,15 @@ Legacy Compatible Properties
 
 When casting from ``JSON`` to ``ROW``, ignore the case of field names in ``RowType`` for legacy support so that the matching is case-insensitive.
 Set ``legacy_json_cast`` to ``false`` to strictly enforce the case-sensitivity of double quoted field names in ``RowType`` when matching. Matching for unquoted field names remains case-insensitive.
+
+
+Event Listener Properties
+-------------------------
+
+``event.query-progress-publish-interval``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``duration``
+* **Default value:** ``0m``
+
+Controls query progress event publish frequency. By default, set to ``0m`` which disables the publication of these events. 
