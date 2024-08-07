@@ -22,6 +22,7 @@ import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
@@ -42,6 +43,7 @@ import java.util.Map;
 import static com.facebook.presto.SystemSessionProperties.CTE_MATERIALIZATION_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.CTE_PARTITIONING_PROVIDER_CATALOG;
 import static com.facebook.presto.SystemSessionProperties.HISTORY_BASED_OPTIMIZATION_PLAN_CANONICALIZATION_STRATEGY;
+import static com.facebook.presto.SystemSessionProperties.HISTORY_BASED_OPTIMIZER_INPUT_STATISTICS_CHECK_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.HISTORY_INPUT_TABLE_STATISTICS_MATCHING_THRESHOLD;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.PARTIAL_AGGREGATION_STRATEGY;
@@ -155,10 +157,51 @@ public class TestHiveHistoryBasedStatsTracking
         }
     }
 
+    @Test
+    public void testHistoryMatchingSkipInputCheckThreshold()
+    {
+        String tableName = "test_history_matching_threshold";
+        try {
+            assertUpdate("create table " + tableName + "(a int, b varchar)");
+            String query = "select * from " + tableName + " where a <= 2 order by b desc";
+
+            // insert 12 rows into table `test_history_matching_threshold`
+            executeAndTrackHistory("insert into " + tableName + " values(1, '1001'), (2, '1002'), (2, '1003'), (2, '1002'), (2, '1003'), (2, '1002'), (2, '1003'), (2, '1002'), (2, '1003'), (2, '1002'), (2, '1003'), (3, '1004')", defaultSession());
+
+            // cost based statistics
+            assertPlan(query, anyTree(node(TableScanNode.class).withOutputRowCount(false, "CBO")));
+            assertPlan(query, node(OutputNode.class, anyTree(any())).withOutputRowCount(false, "CBO"));
+
+            executeAndTrackHistory(query, defaultSession());
+
+            // insert 1 more row into table `test_history_matching_threshold`,
+            //  so that the change of input table size is less than `0.1`
+            executeAndTrackHistory("insert into " + tableName + " values(1, '1005')", defaultSession());
+
+            // set history threshold less than the ratio of real data changes explicitly,
+            //  then the historical statistics couldn't be used anymore unless we explicitly skip the input match threshold check
+            assertPlan(createSessionWithHistoryThreshold(0.01), query, node(OutputNode.class, anyTree(any())).withOutputRowCount(false, "CBO"));
+            assertPlan(createSessionWithHistoryThreshold(0.0), query, node(OutputNode.class, anyTree(any())).withOutputRowCount(false, "CBO"));
+            assertPlan(createSessionWithHistoryThresholdAndSkipInputCheck(0.01), query, node(OutputNode.class, anyTree(any())).withOutputRowCount(11, "HBO"));
+            assertPlan(createSessionWithHistoryThresholdAndSkipInputCheck(0.0), query, node(OutputNode.class, anyTree(any())).withOutputRowCount(11, "HBO"));
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
     private Session createSessionWithHistoryThreshold(double threshold)
     {
         return Session.builder(defaultSession())
                 .setSystemProperty(HISTORY_INPUT_TABLE_STATISTICS_MATCHING_THRESHOLD, String.valueOf(threshold))
+                .build();
+    }
+
+    private Session createSessionWithHistoryThresholdAndSkipInputCheck(double threshold)
+    {
+        return Session.builder(defaultSession())
+                .setSystemProperty(HISTORY_INPUT_TABLE_STATISTICS_MATCHING_THRESHOLD, String.valueOf(threshold))
+                .setSystemProperty(HISTORY_BASED_OPTIMIZER_INPUT_STATISTICS_CHECK_STRATEGY, FeaturesConfig.HistoryBasedOptimizerInputStatisticsCheckStrategy.NEVER.name())
                 .build();
     }
 

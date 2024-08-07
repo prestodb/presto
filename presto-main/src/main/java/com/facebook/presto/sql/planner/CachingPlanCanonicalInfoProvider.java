@@ -17,7 +17,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.cost.HistoryBasedStatisticsCacheManager;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -37,10 +36,14 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.enableVerboseHistoryBasedOptimizerRuntimeStats;
+import static com.facebook.presto.SystemSessionProperties.getHistoryBasedOptimizerInputStatisticsCheckStrategy;
 import static com.facebook.presto.SystemSessionProperties.getHistoryBasedOptimizerTimeoutLimit;
 import static com.facebook.presto.SystemSessionProperties.isVerboseRuntimeStatsEnabled;
 import static com.facebook.presto.SystemSessionProperties.logQueryPlansUsedInHistoryBasedOptimizer;
 import static com.facebook.presto.common.RuntimeUnit.NANO;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.HistoryBasedOptimizerInputStatisticsCheckStrategy.ALWAYS;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.hash.Hashing.sha256;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -68,10 +71,31 @@ public class CachingPlanCanonicalInfoProvider
     }
 
     @Override
-    public Optional<List<PlanStatistics>> getInputTableStatistics(Session session, PlanNode planNode, PlanCanonicalizationStrategy strategy, boolean cacheOnly)
+    public Optional<List<PlanStatistics>> getInputTableStatistics(Session session, PlanNode planNode, PlanCanonicalizationStrategy strategy, boolean callMetaData, boolean cacheOnly)
     {
         CacheKey key = new CacheKey(planNode, strategy);
-        return loadValue(session, key, cacheOnly).map(PlanNodeCanonicalInfo::getInputTableStatistics);
+        Optional<PlanNodeCanonicalInfo> planNodeCanonicalInfo = loadValue(session, key, cacheOnly);
+        if (planNodeCanonicalInfo.isPresent()) {
+            if (planNodeCanonicalInfo.get().getInputTableStatistics().isPresent()) {
+                return planNodeCanonicalInfo.get().getInputTableStatistics();
+            }
+            else if (callMetaData) {
+                checkState(planNodeCanonicalInfo.get().getInputTableCacheKeys().isPresent());
+                return planNodeCanonicalInfo.get().getInputTableCacheKeys().map(x -> x.stream().map(cacheKey -> getPlanStatisticsForTable(session, cacheKey, false)).collect(toImmutableList()));
+            }
+        }
+        return Optional.empty();
+    }
+
+    @Override
+    public Optional<List<PlanNodeCanonicalInfo.InputTableCacheKey>> getInputTableCacheKey(Session session, PlanNode planNode, PlanCanonicalizationStrategy strategy, boolean cacheOnly)
+    {
+        CacheKey key = new CacheKey(planNode, strategy);
+        Optional<PlanNodeCanonicalInfo> planNodeCanonicalInfo = loadValue(session, key, cacheOnly);
+        if (planNodeCanonicalInfo.isPresent()) {
+            return planNodeCanonicalInfo.get().getInputTableCacheKeys();
+        }
+        return Optional.empty();
     }
 
     private Optional<PlanNodeCanonicalInfo> loadValue(Session session, CacheKey key, boolean cacheOnly)
@@ -120,6 +144,7 @@ public class CachingPlanCanonicalInfoProvider
             }
             // Compute input table statistics for the plan node. This is useful in history based optimizations,
             // where historical plan statistics are reused if input tables are similar in size across runs.
+            ImmutableList.Builder<PlanNodeCanonicalInfo.InputTableCacheKey> inputTableCacheKeyBuilder = ImmutableList.builder();
             ImmutableList.Builder<PlanStatistics> inputTableStatisticsBuilder = ImmutableList.builder();
             if (enableVerboseRuntimeStats) {
                 profileStartTime = System.nanoTime();
@@ -128,12 +153,20 @@ public class CachingPlanCanonicalInfoProvider
                 if (loadValueTimeout(startTimeInNano, timeoutInMilliseconds)) {
                     return Optional.empty();
                 }
-                inputTableStatisticsBuilder.add(getPlanStatisticsForTable(session, scanNode, enableVerboseRuntimeStats));
+                PlanNodeCanonicalInfo.InputTableCacheKey inputTableCacheKey = getInputTableCacheKey(scanNode);
+                if (getHistoryBasedOptimizerInputStatisticsCheckStrategy(session).equals(ALWAYS)) {
+                    inputTableStatisticsBuilder.add(getPlanStatisticsForTable(session, inputTableCacheKey, enableVerboseRuntimeStats));
+                }
+                else {
+                    inputTableCacheKeyBuilder.add(inputTableCacheKey);
+                }
             }
             if (enableVerboseRuntimeStats) {
                 profileTime("GetPlanStatisticsForTable", profileStartTime, session);
             }
-            cache.put(new CacheKey(plan, key.getStrategy()), new PlanNodeCanonicalInfo(hashValue, inputTableStatisticsBuilder.build()));
+            cache.put(new CacheKey(plan, key.getStrategy()), new PlanNodeCanonicalInfo(hashValue,
+                    getHistoryBasedOptimizerInputStatisticsCheckStrategy(session).equals(ALWAYS) ? Optional.of(inputTableStatisticsBuilder.build()) : Optional.empty(),
+                    getHistoryBasedOptimizerInputStatisticsCheckStrategy(session).equals(ALWAYS) ? Optional.empty() : Optional.of(inputTableCacheKeyBuilder.build())));
         }
         return Optional.ofNullable(cache.get(key));
     }
@@ -151,14 +184,18 @@ public class CachingPlanCanonicalInfoProvider
         session.getRuntimeStats().addMetricValue(String.format("CachingPlanCanonicalInfoProvider:%s", name), NANO, System.nanoTime() - startProfileTime);
     }
 
-    private PlanStatistics getPlanStatisticsForTable(Session session, TableScanNode table, boolean profileRuntime)
+    private PlanNodeCanonicalInfo.InputTableCacheKey getInputTableCacheKey(TableScanNode table)
     {
-        InputTableCacheKey key = new InputTableCacheKey(new TableHandle(
+        return new PlanNodeCanonicalInfo.InputTableCacheKey(new TableHandle(
                 table.getTable().getConnectorId(),
                 table.getTable().getConnectorHandle(),
                 table.getTable().getTransaction(),
                 Optional.empty()), ImmutableList.copyOf(table.getAssignments().values()), new Constraint<>(table.getCurrentConstraint()));
-        Map<InputTableCacheKey, PlanStatistics> cache = historyBasedStatisticsCacheManager.getInputTableStatistics(session.getQueryId());
+    }
+
+    private PlanStatistics getPlanStatisticsForTable(Session session, PlanNodeCanonicalInfo.InputTableCacheKey key, boolean profileRuntime)
+    {
+        Map<PlanNodeCanonicalInfo.InputTableCacheKey, PlanStatistics> cache = historyBasedStatisticsCacheManager.getInputTableStatistics(session.getQueryId());
         PlanStatistics planStatistics = cache.get(key);
         if (planStatistics != null) {
             return planStatistics;
@@ -231,55 +268,6 @@ public class CachingPlanCanonicalInfoProvider
         public int hashCode()
         {
             return Objects.hash(System.identityHashCode(node), strategy);
-        }
-    }
-
-    public static class InputTableCacheKey
-    {
-        private final TableHandle tableHandle;
-        private final List<ColumnHandle> columnHandles;
-        private final Constraint<ColumnHandle> constraint;
-
-        public InputTableCacheKey(TableHandle tableHandle, List<ColumnHandle> columnHandles, Constraint<ColumnHandle> constraint)
-        {
-            this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
-            this.columnHandles = ImmutableList.copyOf(columnHandles);
-            this.constraint = requireNonNull(constraint, "constraint is null");
-        }
-
-        public TableHandle getTableHandle()
-        {
-            return tableHandle;
-        }
-
-        public List<ColumnHandle> getColumnHandles()
-        {
-            return columnHandles;
-        }
-
-        public Constraint<ColumnHandle> getConstraint()
-        {
-            return constraint;
-        }
-
-        @Override
-        public boolean equals(Object obj)
-        {
-            if (this == obj) {
-                return true;
-            }
-            if (!(obj instanceof InputTableCacheKey)) {
-                return false;
-            }
-
-            InputTableCacheKey other = (InputTableCacheKey) obj;
-            return this.tableHandle.equals(other.tableHandle) && this.columnHandles.equals(other.columnHandles) && this.constraint.equals(other.constraint);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(tableHandle, columnHandles, constraint);
         }
     }
 }

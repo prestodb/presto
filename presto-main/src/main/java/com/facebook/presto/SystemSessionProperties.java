@@ -273,6 +273,7 @@ public final class SystemSessionProperties
     public static final String USE_PERFECTLY_CONSISTENT_HISTORIES = "use_perfectly_consistent_histories";
     public static final String HISTORY_CANONICAL_PLAN_NODE_LIMIT = "history_canonical_plan_node_limit";
     public static final String HISTORY_BASED_OPTIMIZER_TIMEOUT_LIMIT = "history_based_optimizer_timeout_limit";
+    public static final String HISTORY_BASED_OPTIMIZER_INPUT_STATISTICS_CHECK_STRATEGY = "history_based_optimizer_input_statistics_check_strategy";
     public static final String RESTRICT_HISTORY_BASED_OPTIMIZATION_TO_COMPLEX_QUERY = "restrict_history_based_optimization_to_complex_query";
     public static final String HISTORY_INPUT_TABLE_STATISTICS_MATCHING_THRESHOLD = "history_input_table_statistics_matching_threshold";
     public static final String HISTORY_BASED_OPTIMIZATION_PLAN_CANONICALIZATION_STRATEGY = "history_based_optimization_plan_canonicalization_strategy";
@@ -1568,6 +1569,18 @@ public final class SystemSessionProperties
                         "Enable history based optimization only for complex queries, i.e. queries with join and aggregation",
                         true,
                         false),
+                new PropertyMetadata<>(
+                        HISTORY_BASED_OPTIMIZER_INPUT_STATISTICS_CHECK_STRATEGY,
+                        format("The input table statistics check strategy for history based optimizer. Options are %s",
+                                Stream.of(FeaturesConfig.HistoryBasedOptimizerInputStatisticsCheckStrategy.values())
+                                        .map(FeaturesConfig.HistoryBasedOptimizerInputStatisticsCheckStrategy::name)
+                                        .collect(joining(","))),
+                        VARCHAR,
+                        FeaturesConfig.HistoryBasedOptimizerInputStatisticsCheckStrategy.class,
+                        featuresConfig.getHistoryBasedOptimizerInputStatisticsCheckStrategy(),
+                        false,
+                        value -> FeaturesConfig.HistoryBasedOptimizerInputStatisticsCheckStrategy.valueOf(((String) value).toUpperCase()),
+                        FeaturesConfig.HistoryBasedOptimizerInputStatisticsCheckStrategy::name),
                 new PropertyMetadata<>(
                         HISTORY_INPUT_TABLE_STATISTICS_MATCHING_THRESHOLD,
                         "When the size difference between current table and history table exceed this threshold, do not match history statistics",
@@ -3044,6 +3057,11 @@ public final class SystemSessionProperties
     public static Duration getHistoryBasedOptimizerTimeoutLimit(Session session)
     {
         return session.getSystemProperty(HISTORY_BASED_OPTIMIZER_TIMEOUT_LIMIT, Duration.class);
+    }
+
+    public static FeaturesConfig.HistoryBasedOptimizerInputStatisticsCheckStrategy getHistoryBasedOptimizerInputStatisticsCheckStrategy(Session session)
+    {
+        return session.getSystemProperty(HISTORY_BASED_OPTIMIZER_INPUT_STATISTICS_CHECK_STRATEGY, FeaturesConfig.HistoryBasedOptimizerInputStatisticsCheckStrategy.class);
     }
 
     public static boolean restrictHistoryBasedOptimizationToComplexQuery(Session session)
