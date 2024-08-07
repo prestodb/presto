@@ -315,6 +315,17 @@ public abstract class AbstractTestQueryFramework
         QueryAssertions.assertQueryFails(queryRunner, session, sql, expectedMessageRegExp);
     }
 
+    protected void assertQueryFails(@Language("SQL") String sql)
+    {
+        try {
+            queryRunner.execute(getSession(), sql);
+            fail(format("Expected query to fail: %s", sql));
+        }
+        catch (RuntimeException ex) {
+
+        }
+    }
+
     protected void assertQueryError(QueryRunner queryRunner, Session session, @Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
     {
         try {

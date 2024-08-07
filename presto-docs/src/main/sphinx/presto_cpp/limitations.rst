@@ -20,7 +20,7 @@ The C++ evaluation engine has a number of limitations:
 
   * Presto C++ only supports unlimited length ``VARCHAR``, and does not honor the length ``n`` in ``varchar[n]``.
 
-  * The following types are not supported: ``IPADDRESS``, ``IPPREFIX``, ``UUID``, ``KHYPERLOGLOG``, ``P4HYPERLOGLOG``, ``QDIGEST``, ``TDIGEST``, ``GEOMETRY``, ``BINGTILE``.
+  * The following types are not supported: ``IPADDRESS``, ``IPPREFIX``, ``KHYPERLOGLOG``, ``P4HYPERLOGLOG``, ``QDIGEST``, ``TDIGEST``, ``GEOMETRY``, ``BINGTILE``.
 
 * Certain parts of the plugin SPI are not used by the C++ evaluation engine. In particular, C++ workers will not load any plugin in the plugins directory, and certain plugin types are either partially or completely unsupported.
 

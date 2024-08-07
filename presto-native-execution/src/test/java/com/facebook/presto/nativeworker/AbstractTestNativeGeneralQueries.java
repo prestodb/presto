@@ -1640,6 +1640,98 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery(session, format("SELECT c_boolean, c_bigint, c_double, c_varchar, c_varbinary FROM %s WHERE c_varbinary = to_ieee754_64(1)", tmpTableName));
     }
 
+    @Test
+    public void testUuid()
+    {
+
+        // Valid UUIDs. Note: These evaluate on the coordinator. They are used in subsequent SQL.
+        assertQuery("SELECT cast('33355449-2c7d-43d7-967a-f53cd23215ad' AS uuid)");
+        assertQuery("SELECT cast('eed9f812-4b0c-472f-8a10-4ae7bff79a47' AS uuid)");
+        assertQuery("SELECT cast('f768f36d-4f09-4da7-a298-3564d8f3c986' AS uuid)");
+        String tmpTableName = generateRandomTableName();
+        getQueryRunner().execute(format("CREATE TABLE %s " +
+                "AS " +
+                "SELECT c_uuid  " +
+                "FROM ( " +
+                "  VALUES " +
+                "    (null), " +
+                "    ('33355449-2c7d-43d7-967a-f53cd23215ad')," +
+                "    ('eed9f812-4b0c-472f-8a10-4ae7bff79a47')," +
+                "    ('f768f36d-4f09-4da7-a298-3564d8f3c986')," +
+                "    (cast(uuid() AS VARCHAR))" +
+                ") AS x (c_uuid)", tmpTableName));
+        // Intermediate values for UUID are different between Native engine and Java (uses java.util.UUID), so these results do not match.
+        // Hence, using assertQuerySucceeds instead of assertQuery.
+        assertQuerySucceeds(format("SELECT CAST(c_uuid AS uuid) FROM %s", tmpTableName));
+        // Cast from varchar->UUID->varchar gives back the original values, so the results are same for Native engine and Java.
+        assertQuery(format("SELECT CAST(CAST(c_uuid AS uuid) AS VARCHAR) FROM %s", tmpTableName));
+
+        // Invalid cast on both Presto Java and Native.
+        assertQueryFails(format("SELECT CAST(CAST(c_uuid as uuid) AS INTEGER) FROM %s", tmpTableName), ".*Cannot cast uuid to integer.*");
+        // Cast from UUID->VARBINARY not supported on Velox.
+        assertQueryFails(format("SELECT CAST(CAST(c_uuid AS uuid) AS VARBINARY) FROM %s", tmpTableName), ".*Cannot cast UUID to VARBINARY.*");
+
+        assertQuery(format("SELECT CAST(a AS VARCHAR), CAST(b AS VARCHAR) FROM " +
+                        "(SELECT CAST(c_uuid AS uuid) as a FROM %s) AS A, " +
+                        "(SELECT CAST(c_uuid AS uuid) as b FROM %s) AS B " +
+                        "WHERE a = b", tmpTableName, tmpTableName));
+
+        // Velox missing lt for UUID.
+        assertQueryFails(format("SELECT CAST(a AS VARCHAR), CAST(b AS VARCHAR) FROM " +
+                "(SELECT CAST(c_uuid AS uuid) as a FROM %s) AS A, " +
+                "(SELECT CAST(c_uuid AS uuid) as b FROM %s) AS B " +
+                "WHERE a < b", tmpTableName, tmpTableName));
+
+        // Velox missing lte for UUID.
+        assertQueryFails(format("SELECT CAST(a AS VARCHAR), CAST(b AS VARCHAR) FROM " +
+                        "(SELECT CAST(c_uuid AS uuid) as a FROM %s) AS A, " +
+                        "(SELECT CAST(c_uuid AS uuid) as b FROM %s) AS B " +
+                        "WHERE a <= b", tmpTableName, tmpTableName));
+
+        // Velox missing gt for UUID.
+        assertQueryFails(format("SELECT CAST(a AS VARCHAR), CAST(b AS VARCHAR) FROM " +
+                        "(SELECT CAST(c_uuid AS uuid) as a FROM %s) AS A, " +
+                        "(SELECT CAST(c_uuid AS uuid) as b FROM %s) AS B " +
+                        "WHERE a > b", tmpTableName, tmpTableName));
+
+        // Velox missing gte for UUID.
+        assertQueryFails(format("SELECT CAST(a AS VARCHAR), CAST(b AS VARCHAR) FROM " +
+                        "(SELECT CAST(c_uuid AS uuid) as a FROM %s) AS A, " +
+                        "(SELECT CAST(c_uuid AS uuid) as b FROM %s) AS B " +
+                        "WHERE a >= b", tmpTableName, tmpTableName));
+
+        // Velox missing between for UUID.
+        assertQueryFails(format("SELECT CAST(a AS VARCHAR), CAST(b AS VARCHAR) FROM " +
+                "(SELECT CAST(c_uuid AS uuid) as a FROM %s) AS A, " +
+                "(SELECT CAST(c_uuid AS uuid) as b FROM %s) AS B, " +
+                "(SELECT CAST(c_uuid AS uuid) as c FROM %s) AS C " +
+                "WHERE a BETWEEN b AND c", tmpTableName, tmpTableName, tmpTableName));
+
+        getQueryRunner().execute(format("DROP TABLE %s", tmpTableName));
+    }
+
+    public void testInvalidUuid()
+    {
+        // Invalid UUID. Note: This evaluates on the co-ordinator. This is used in subsequent SQL.
+        assertQueryFails("SELECT cast('0E984725-C51C-4BF4-9960-H1C80E27ABA0' AS uuid)",
+                "Cannot cast value to UUID: 0E984725-C51C-4BF4-9960-H1C80E27ABA0");
+        assertQuery("SELECT try_cast('0E984725-C51C-4BF4-9960-H1C80E27ABA0' AS uuid)");
+
+        String tmpTableName = generateRandomTableName();
+        // The Invalid UUID from above is rejected on the native engine as well.
+        getQueryRunner().execute(format("CREATE TABLE %s " +
+                "AS " +
+                "SELECT c_uuid  " +
+                "FROM ( " +
+                "  VALUES " +
+                "    ('0E984725-C51C-4BF4-9960-H1C80E27ABA0')" +
+                ") AS x (c_uuid)", tmpTableName));
+        assertQueryFails(format("SELECT CAST(c_uuid AS uuid) FROM %s", tmpTableName),
+                ".*bad lexical cast: source type value could not be interpreted as target.*");
+        assertQuery(format("SELECT try_cast(c_uuid AS uuid) FROM %s", tmpTableName));
+        getQueryRunner().execute(format("DROP TABLE %s", tmpTableName));
+    }
+
     private void assertQueryResultCount(String sql, int expectedResultCount)
     {
         assertEquals(getQueryRunner().execute(sql).getRowCount(), expectedResultCount);
