@@ -14,6 +14,7 @@
 
 #include "presto_cpp/main/types/PrestoToVeloxExpr.h"
 #include <boost/algorithm/string/case_conv.hpp>
+#include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/presto_protocol/Base64Util.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/functions/prestosql/types/JsonType.h"
@@ -33,26 +34,45 @@ std::string toJsonString(const T& value) {
 }
 
 std::string mapScalarFunction(const std::string& name) {
+  static const std::string prestoDefaultNamespacePrefix =
+      SystemConfig::instance()->prestoDefaultNamespacePrefix();
   static const std::unordered_map<std::string, std::string> kFunctionNames = {
       // Operator overrides: com.facebook.presto.common.function.OperatorType
-      {"presto.default.$operator$add", "presto.default.plus"},
-      {"presto.default.$operator$between", "presto.default.between"},
-      {"presto.default.$operator$divide", "presto.default.divide"},
-      {"presto.default.$operator$equal", "presto.default.eq"},
-      {"presto.default.$operator$greater_than", "presto.default.gt"},
-      {"presto.default.$operator$greater_than_or_equal", "presto.default.gte"},
-      {"presto.default.$operator$is_distinct_from",
-       "presto.default.distinct_from"},
-      {"presto.default.$operator$less_than", "presto.default.lt"},
-      {"presto.default.$operator$less_than_or_equal", "presto.default.lte"},
-      {"presto.default.$operator$modulus", "presto.default.mod"},
-      {"presto.default.$operator$multiply", "presto.default.multiply"},
-      {"presto.default.$operator$negation", "presto.default.negate"},
-      {"presto.default.$operator$not_equal", "presto.default.neq"},
-      {"presto.default.$operator$subtract", "presto.default.minus"},
-      {"presto.default.$operator$subscript", "presto.default.subscript"},
+      {fmt::format("{}$operator$add", prestoDefaultNamespacePrefix),
+       fmt::format("{}plus", prestoDefaultNamespacePrefix)},
+      {fmt::format("{}$operator$between", prestoDefaultNamespacePrefix),
+       fmt::format("{}between", prestoDefaultNamespacePrefix)},
+      {fmt::format("{}$operator$divide", prestoDefaultNamespacePrefix),
+       fmt::format("{}divide", prestoDefaultNamespacePrefix)},
+      {fmt::format("{}$operator$equal", prestoDefaultNamespacePrefix),
+       fmt::format("{}eq", prestoDefaultNamespacePrefix)},
+      {fmt::format("{}$operator$greater_than", prestoDefaultNamespacePrefix),
+       fmt::format("{}gt", prestoDefaultNamespacePrefix)},
+      {fmt::format(
+           "{}$operator$greater_than_or_equal", prestoDefaultNamespacePrefix),
+       fmt::format("{}gte", prestoDefaultNamespacePrefix)},
+      {fmt::format(
+           "{}$operator$is_distinct_from", prestoDefaultNamespacePrefix),
+       fmt::format("{}distinct_from", prestoDefaultNamespacePrefix)},
+      {fmt::format("{}$operator$less_than", prestoDefaultNamespacePrefix),
+       fmt::format("{}lt", prestoDefaultNamespacePrefix)},
+      {fmt::format(
+           "{}$operator$less_than_or_equal", prestoDefaultNamespacePrefix),
+       fmt::format("{}lte", prestoDefaultNamespacePrefix)},
+      {fmt::format("{}$operator$modulus", prestoDefaultNamespacePrefix),
+       fmt::format("{}mod", prestoDefaultNamespacePrefix)},
+      {fmt::format("{}$operator$multiply", prestoDefaultNamespacePrefix),
+       fmt::format("{}multiply", prestoDefaultNamespacePrefix)},
+      {fmt::format("{}$operator$negation", prestoDefaultNamespacePrefix),
+       fmt::format("{}negate", prestoDefaultNamespacePrefix)},
+      {fmt::format("{}$operator$not_equal", prestoDefaultNamespacePrefix),
+       fmt::format("{}neq", prestoDefaultNamespacePrefix)},
+      {fmt::format("{}$operator$subtract", prestoDefaultNamespacePrefix),
+       fmt::format("{}minus", prestoDefaultNamespacePrefix)},
+      {fmt::format("{}$operator$subscript", prestoDefaultNamespacePrefix),
+       fmt::format("{}subscript", prestoDefaultNamespacePrefix)},
       // Special form function overrides.
-      {"presto.default.in", "in"},
+      {fmt::format("{}in", prestoDefaultNamespacePrefix), "in"},
   };
 
   std::string lowerCaseName = boost::to_lower_copy(name);
@@ -66,11 +86,15 @@ std::string mapScalarFunction(const std::string& name) {
 }
 
 std::string mapAggregateOrWindowFunction(const std::string& name) {
+  static const std::string prestoDefaultNamespacePrefix =
+      SystemConfig::instance()->prestoDefaultNamespacePrefix();
   static const std::unordered_map<std::string, std::string> kFunctionNames = {
-      {"presto.default.$internal$max_data_size_for_stats",
-       "presto.default.max_data_size_for_stats"},
-      {"presto.default.$internal$sum_data_size_for_stats",
-       "presto.default.sum_data_size_for_stats"},
+      {fmt::format(
+           "{}$internal$max_data_size_for_stats", prestoDefaultNamespacePrefix),
+       fmt::format("{}max_data_size_for_stats", prestoDefaultNamespacePrefix)},
+      {fmt::format(
+           "{}$internal$sum_data_size_for_stats", prestoDefaultNamespacePrefix),
+       fmt::format("{}sum_data_size_for_stats", prestoDefaultNamespacePrefix)},
   };
   std::string lowerCaseName = boost::to_lower_copy(name);
   auto it = kFunctionNames.find(name);
@@ -160,6 +184,8 @@ std::vector<TypedExprPtr> VeloxExprConverter::toVeloxExpr(
 
 namespace {
 static const char* kVarchar = "varchar";
+static const std::string prestoDefaultNamespacePrefix =
+    SystemConfig::instance()->prestoDefaultNamespacePrefix();
 
 /// Convert cast of varchar to substr if target type is varchar with max length.
 /// Throw an exception for cast of varchar to varchar with max length.
@@ -190,7 +216,7 @@ std::optional<TypedExprPtr> convertCastToVarcharWithMaxLength(
           std::make_shared<ConstantTypedExpr>(velox::BIGINT(), 1LL),
           std::make_shared<ConstantTypedExpr>(velox::BIGINT(), (int64_t)length),
       },
-      "presto.default.substr");
+      fmt::format("{}substr", prestoDefaultNamespacePrefix));
 }
 
 /// Converts cast and try_cast functions to CastTypedExpr with nullOnFailure
@@ -207,14 +233,18 @@ std::optional<TypedExprPtr> tryConvertCast(
     const std::string& returnType,
     const std::vector<TypedExprPtr>& args,
     const TypeParser* typeParser) {
-  static const char* kCast = "presto.default.$operator$cast";
-  static const char* kTryCast = "presto.default.try_cast";
-  static const char* kJsonToArrayCast =
-      "presto.default.$internal$json_string_to_array_cast";
-  static const char* kJsonToMapCast =
-      "presto.default.$internal$json_string_to_map_cast";
-  static const char* kJsonToRowCast =
-      "presto.default.$internal$json_string_to_row_cast";
+  static const std::string prestoDefaultNamespacePrefix =
+      SystemConfig::instance()->prestoDefaultNamespacePrefix();
+  static const std::string kCast =
+      fmt::format("{}$operator$cast", prestoDefaultNamespacePrefix);
+  static const std::string kTryCast =
+      fmt::format("{}try_cast", prestoDefaultNamespacePrefix);
+  static const std::string kJsonToArrayCast = fmt::format(
+      "{}$internal$json_string_to_array_cast", prestoDefaultNamespacePrefix);
+  static const std::string kJsonToMapCast = fmt::format(
+      "{}$internal$json_string_to_map_cast", prestoDefaultNamespacePrefix);
+  static const std::string kJsonToRowCast = fmt::format(
+      "{}$internal$json_string_to_row_cast", prestoDefaultNamespacePrefix);
 
   static const char* kRe2JRegExp = "Re2JRegExp";
   static const char* kJsonPath = "JsonPath";
@@ -237,7 +267,9 @@ std::optional<TypedExprPtr> tryConvertCast(
     return std::make_shared<CastTypedExpr>(
         type,
         std::vector<TypedExprPtr>{std::make_shared<CallTypedExpr>(
-            velox::JSON(), args, "presto.default.json_parse")},
+            velox::JSON(),
+            args,
+            fmt::format("{}json_parse", prestoDefaultNamespacePrefix))},
         false);
   } else {
     return std::nullopt;
@@ -273,7 +305,10 @@ std::optional<TypedExprPtr> tryConvertTry(
     const std::string& returnType,
     const std::vector<TypedExprPtr>& args,
     const TypeParser* typeParser) {
-  static const char* kTry = "presto.default.$internal$try";
+  static const std::string prestoDefaultNamespacePrefix =
+      SystemConfig::instance()->prestoDefaultNamespacePrefix();
+  static const std::string kTry =
+      fmt::format("{}$internal$try", prestoDefaultNamespacePrefix);
 
   if (signature.kind != protocol::FunctionKind::SCALAR) {
     return std::nullopt;
@@ -300,14 +335,18 @@ std::optional<TypedExprPtr> tryConvertLiteralArray(
     const std::vector<TypedExprPtr>& args,
     velox::memory::MemoryPool* pool,
     const TypeParser* typeParser) {
-  static const char* kLiteralArray = "presto.default.$literal$array";
-  static const char* kFromBase64 = "presto.default.from_base64";
+  static const std::string prestoDefaultNamespacePrefix =
+      SystemConfig::instance()->prestoDefaultNamespacePrefix();
+  static const std::string kLiteralArray =
+      fmt::format("{}$literal$array", prestoDefaultNamespacePrefix);
+  static const std::string kFromBase64 =
+      fmt::format("{}from_base64", prestoDefaultNamespacePrefix);
 
   if (signature.kind != protocol::FunctionKind::SCALAR) {
     return std::nullopt;
   }
 
-  if (signature.name.compare(0, strlen(kLiteralArray), kLiteralArray) != 0) {
+  if (signature.name.compare(0, kLiteralArray.length(), kLiteralArray) != 0) {
     return std::nullopt;
   }
 
@@ -342,7 +381,10 @@ std::optional<TypedExprPtr> tryConvertLiteralArray(
 
 std::optional<TypedExprPtr> VeloxExprConverter::tryConvertDate(
     const protocol::CallExpression& pexpr) const {
-  static const char* kDate = "presto.default.date";
+  static const std::string prestoDefaultNamespacePrefix =
+      SystemConfig::instance()->prestoDefaultNamespacePrefix();
+  static const std::string kDate =
+      fmt::format("{}date", prestoDefaultNamespacePrefix);
 
   auto builtin = std::static_pointer_cast<protocol::BuiltInFunctionHandle>(
       pexpr.functionHandle);
@@ -363,10 +405,15 @@ std::optional<TypedExprPtr> VeloxExprConverter::tryConvertDate(
 
 std::optional<TypedExprPtr> VeloxExprConverter::tryConvertLike(
     const protocol::CallExpression& pexpr) const {
-  static const char* kLike = "presto.default.like";
-  static const char* kLikePatternType = "presto.default.like_pattern";
-  static const char* kLikeReturnType = "LikePattern";
-  static const char* kCast = "presto.default.$operator$cast";
+  static const std::string prestoDefaultNamespacePrefix =
+      SystemConfig::instance()->prestoDefaultNamespacePrefix();
+  static const std::string kLike =
+      fmt::format("{}like", prestoDefaultNamespacePrefix);
+  static const std::string kLikePatternType =
+      fmt::format("{}like_pattern", prestoDefaultNamespacePrefix);
+  static const std::string kLikeReturnType = "LikePattern";
+  static const std::string kCast =
+      fmt::format("{}$operator$cast", prestoDefaultNamespacePrefix);
 
   auto builtin = std::static_pointer_cast<protocol::BuiltInFunctionHandle>(
       pexpr.functionHandle);
@@ -500,9 +547,13 @@ bool isTrueConstant(const TypedExprPtr& expression) {
 std::shared_ptr<const CallTypedExpr> makeEqualsExpr(
     const TypedExprPtr& a,
     const TypedExprPtr& b) {
+  static const std::string prestoDefaultNamespacePrefix =
+      SystemConfig::instance()->prestoDefaultNamespacePrefix();
   std::vector<TypedExprPtr> inputs{a, b};
   return std::make_shared<CallTypedExpr>(
-      velox::BOOLEAN(), std::move(inputs), "presto.default.eq");
+      velox::BOOLEAN(),
+      std::move(inputs),
+      fmt::format("{}eq", prestoDefaultNamespacePrefix));
 }
 
 std::shared_ptr<const CastTypedExpr> makeCastExpr(
