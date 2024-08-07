@@ -182,7 +182,7 @@ public class FilterStatsCalculator
     private Map<NodeRef<Expression>, Type> getExpressionTypes(Session session, Expression expression, TypeProvider types)
     {
         ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
-                metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(),
+                metadata.getFunctionAndTypeManager(),
                 session,
                 types,
                 emptyMap(),
@@ -468,7 +468,7 @@ public class FilterStatsCalculator
             }
 
             ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
-                    metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(),
+                    metadata.getFunctionAndTypeManager(),
                     session,
                     types,
                     ImmutableMap.of(),

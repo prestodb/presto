@@ -279,7 +279,7 @@ public class TestRowExpressionSerde
     private Map<NodeRef<Expression>, Type> getExpressionTypes(Expression expression)
     {
         ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
-                metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(),
+                metadata.getFunctionAndTypeManager(),
                 TEST_SESSION,
                 TypeProvider.empty(),
                 emptyMap(),

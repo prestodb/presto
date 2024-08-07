@@ -33,6 +33,7 @@ import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.TypeUtils;
 import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
 import com.facebook.presto.spi.PrestoException;
@@ -151,7 +152,6 @@ import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
-import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
 import static com.facebook.presto.spi.StandardErrorCode.OPERATOR_NOT_FOUND;
 import static com.facebook.presto.spi.StandardWarningCode.SEMANTIC_WARNING;
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
@@ -207,6 +207,7 @@ public class ExpressionAnalyzer
 {
     private static final int MAX_NUMBER_GROUPING_ARGUMENTS_BIGINT = 63;
     private static final int MAX_NUMBER_GROUPING_ARGUMENTS_INTEGER = 31;
+    private final FunctionAndTypeManager functionAndTypeManager;
 
     private final FunctionAndTypeResolver functionAndTypeResolver;
     private final Function<Node, StatementAnalyzer> statementAnalyzerFactory;
@@ -249,7 +250,7 @@ public class ExpressionAnalyzer
     private final Map<NodeRef<Expression>, Type> outerScopeSymbolTypes;
 
     private ExpressionAnalyzer(
-            FunctionAndTypeResolver functionAndTypeResolver,
+            FunctionAndTypeManager functionAndTypeManager,
             Function<Node, StatementAnalyzer> statementAnalyzerFactory,
             Optional<Map<SqlFunctionId, SqlInvokedFunction>> sessionFunctions,
             Optional<TransactionId> transactionId,
@@ -260,7 +261,8 @@ public class ExpressionAnalyzer
             boolean isDescribe,
             Map<NodeRef<Expression>, Type> outerScopeSymbolTypes)
     {
-        this.functionAndTypeResolver = requireNonNull(functionAndTypeResolver, "functionAndTypeResolver is null");
+        this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeResolver is null");
+        this.functionAndTypeResolver = requireNonNull(functionAndTypeManager, "functionAndTypeResolver is null").getFunctionAndTypeResolver();
         this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
         this.sessionFunctions = requireNonNull(sessionFunctions, "sessionFunctions is null");
@@ -1067,7 +1069,7 @@ public class ExpressionAnalyzer
                     argumentTypesBuilder.add(new TypeSignatureProvider(
                             types -> {
                                 ExpressionAnalyzer innerExpressionAnalyzer = new ExpressionAnalyzer(
-                                        functionAndTypeResolver,
+                                        functionAndTypeManager,
                                         statementAnalyzerFactory,
                                         sessionFunctions,
                                         transactionId,
@@ -1104,7 +1106,7 @@ public class ExpressionAnalyzer
             }
 
             ImmutableList<TypeSignatureProvider> argumentTypes = argumentTypesBuilder.build();
-            FunctionHandle function = resolveFunction(sessionFunctions, transactionId, node, argumentTypes, functionAndTypeResolver);
+            FunctionHandle function = resolveFunction(sessionFunctions, transactionId, node, argumentTypes, functionAndTypeManager);
             FunctionMetadata functionMetadata = functionAndTypeResolver.getFunctionMetadata(function);
 
             if (node.getOrderBy().isPresent()) {
@@ -1813,10 +1815,10 @@ public class ExpressionAnalyzer
             Optional<TransactionId> transactionId,
             FunctionCall node,
             List<TypeSignatureProvider> argumentTypes,
-            FunctionAndTypeResolver functionAndTypeResolver)
+            FunctionAndTypeManager functionAndTypeManager)
     {
         try {
-            return functionAndTypeResolver.resolveFunction(sessionFunctions, transactionId, qualifyObjectName(node.getName()), argumentTypes);
+            return functionAndTypeManager.getFunctionAndTypeResolver().resolveFunction(sessionFunctions, transactionId, functionAndTypeManager.qualifyObjectName(node.getName()), argumentTypes);
         }
         catch (PrestoException e) {
             if (e.getErrorCode().getCode() == StandardErrorCode.FUNCTION_NOT_FOUND.toErrorCode().getCode()) {
@@ -1962,13 +1964,13 @@ public class ExpressionAnalyzer
     }
 
     public static ExpressionAnalysis analyzeSqlFunctionExpression(
-            FunctionAndTypeResolver functionAndTypeResolver,
+            FunctionAndTypeManager functionAndTypeManager,
             SqlFunctionProperties sqlFunctionProperties,
             Expression expression,
             Map<String, Type> argumentTypes)
     {
         ExpressionAnalyzer analyzer = ExpressionAnalyzer.createWithoutSubqueries(
-                functionAndTypeResolver,
+                functionAndTypeManager,
                 Optional.empty(), // SQL function expression cannot contain session functions
                 Optional.empty(),
                 sqlFunctionProperties,
@@ -2009,7 +2011,7 @@ public class ExpressionAnalyzer
             WarningCollector warningCollector)
     {
         return new ExpressionAnalyzer(
-                metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(),
+                metadata.getFunctionAndTypeManager(),
                 node -> new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector),
                 Optional.of(session.getSessionFunctions()),
                 session.getTransactionId(),
@@ -2032,7 +2034,7 @@ public class ExpressionAnalyzer
             Map<NodeRef<Expression>, Type> outerScopeSymbolTypes)
     {
         return new ExpressionAnalyzer(
-                metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(),
+                metadata.getFunctionAndTypeManager(),
                 node -> new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector),
                 Optional.of(session.getSessionFunctions()),
                 session.getTransactionId(),
@@ -2044,10 +2046,10 @@ public class ExpressionAnalyzer
                 outerScopeSymbolTypes);
     }
 
-    public static ExpressionAnalyzer createConstantAnalyzer(FunctionAndTypeResolver functionAndTypeResolver, Session session, Map<NodeRef<Parameter>, Expression> parameters, WarningCollector warningCollector)
+    public static ExpressionAnalyzer createConstantAnalyzer(FunctionAndTypeManager functionAndTypeManager, Session session, Map<NodeRef<Parameter>, Expression> parameters, WarningCollector warningCollector)
     {
         return createWithoutSubqueries(
-                functionAndTypeResolver,
+                functionAndTypeManager,
                 session,
                 parameters,
                 EXPRESSION_NOT_CONSTANT,
@@ -2059,7 +2061,7 @@ public class ExpressionAnalyzer
     public static ExpressionAnalyzer createConstantAnalyzer(Metadata metadata, Session session, Map<NodeRef<Parameter>, Expression> parameters, WarningCollector warningCollector, boolean isDescribe)
     {
         return createWithoutSubqueries(
-                metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(),
+                metadata.getFunctionAndTypeManager(),
                 session,
                 parameters,
                 EXPRESSION_NOT_CONSTANT,
@@ -2069,7 +2071,7 @@ public class ExpressionAnalyzer
     }
 
     public static ExpressionAnalyzer createWithoutSubqueries(
-            FunctionAndTypeResolver functionAndTypeResolver,
+            FunctionAndTypeManager functionAndTypeManager,
             Session session,
             Map<NodeRef<Parameter>, Expression> parameters,
             SemanticErrorCode errorCode,
@@ -2078,7 +2080,7 @@ public class ExpressionAnalyzer
             boolean isDescribe)
     {
         return createWithoutSubqueries(
-                functionAndTypeResolver,
+                functionAndTypeManager,
                 session,
                 TypeProvider.empty(),
                 parameters,
@@ -2088,7 +2090,7 @@ public class ExpressionAnalyzer
     }
 
     public static ExpressionAnalyzer createWithoutSubqueries(
-            FunctionAndTypeResolver functionAndTypeResolver,
+            FunctionAndTypeManager functionAndTypeManager,
             Session session,
             TypeProvider symbolTypes,
             Map<NodeRef<Parameter>, Expression> parameters,
@@ -2097,7 +2099,7 @@ public class ExpressionAnalyzer
             boolean isDescribe)
     {
         return createWithoutSubqueries(
-                functionAndTypeResolver,
+                functionAndTypeManager,
                 Optional.of(session.getSessionFunctions()),
                 session.getTransactionId(),
                 session.getSqlFunctionProperties(),
@@ -2109,7 +2111,7 @@ public class ExpressionAnalyzer
     }
 
     public static ExpressionAnalyzer createWithoutSubqueries(
-            FunctionAndTypeResolver functionAndTypeResolver,
+            FunctionAndTypeManager functionAndTypeManager,
             Optional<Map<SqlFunctionId, SqlInvokedFunction>> sessionFunctions,
             Optional<TransactionId> transactionId,
             SqlFunctionProperties sqlFunctionProperties,
@@ -2120,7 +2122,7 @@ public class ExpressionAnalyzer
             boolean isDescribe)
     {
         return new ExpressionAnalyzer(
-                functionAndTypeResolver,
+                functionAndTypeManager,
                 node -> {
                     throw statementAnalyzerRejection.apply(node);
                 },

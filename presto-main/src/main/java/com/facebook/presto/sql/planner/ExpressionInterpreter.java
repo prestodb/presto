@@ -123,7 +123,6 @@ import static com.facebook.presto.common.type.TypeUtils.isEnumType;
 import static com.facebook.presto.common.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.metadata.CastType.CAST;
-import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.function.FunctionImplementationType.JAVA;
 import static com.facebook.presto.spi.function.FunctionImplementationType.SQL;
@@ -195,7 +194,7 @@ public class ExpressionInterpreter
 
     public static Object evaluateConstantExpression(Expression expression, Type expectedType, Metadata metadata, Session session, Map<NodeRef<Parameter>, Expression> parameters)
     {
-        ExpressionAnalyzer analyzer = createConstantAnalyzer(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(), session, parameters, WarningCollector.NOOP);
+        ExpressionAnalyzer analyzer = createConstantAnalyzer(metadata.getFunctionAndTypeManager(), session, parameters, WarningCollector.NOOP);
         analyzer.analyze(expression, Scope.create());
 
         Type actualType = analyzer.getExpressionTypes().get(NodeRef.of(expression));
@@ -229,7 +228,7 @@ public class ExpressionInterpreter
         Expression rewrite = Coercer.addCoercions(expression, coercions, typeOnlyCoercions);
 
         // redo the analysis since above expression rewriter might create new expressions which do not have entries in the type map
-        ExpressionAnalyzer analyzer = createConstantAnalyzer(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(), session, parameters, WarningCollector.NOOP);
+        ExpressionAnalyzer analyzer = createConstantAnalyzer(metadata.getFunctionAndTypeManager(), session, parameters, WarningCollector.NOOP);
         analyzer.analyze(rewrite, Scope.create());
 
         // remove syntax sugar
@@ -241,7 +240,7 @@ public class ExpressionInterpreter
 
         // The optimization above may have rewritten the expression tree which breaks all the identity maps, so redo the analysis
         // to re-analyze coercions that might be necessary
-        analyzer = createConstantAnalyzer(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(), session, parameters, WarningCollector.NOOP);
+        analyzer = createConstantAnalyzer(metadata.getFunctionAndTypeManager(), session, parameters, WarningCollector.NOOP);
         analyzer.analyze(canonicalized, Scope.create());
 
         // evaluate the expression
@@ -919,7 +918,7 @@ public class ExpressionInterpreter
             FunctionHandle functionHandle = metadata.getFunctionAndTypeManager().resolveFunction(
                     Optional.of(session.getSessionFunctions()),
                     session.getTransactionId(),
-                    qualifyObjectName(node.getName()),
+                    metadata.getFunctionAndTypeManager().qualifyObjectName(node.getName()),
                     fromTypes(argumentTypes));
             FunctionMetadata functionMetadata = metadata.getFunctionAndTypeManager().getFunctionMetadata(functionHandle);
             if (!functionMetadata.isCalledOnNullInput()) {
@@ -955,7 +954,7 @@ public class ExpressionInterpreter
                 Expression function = getSqlFunctionExpression(
                         functionMetadata,
                         (SqlInvokedScalarFunctionImplementation) metadata.getFunctionAndTypeManager().getScalarFunctionImplementation(functionHandle),
-                        metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(),
+                        metadata.getFunctionAndTypeManager(),
                         new VariableAllocator(),
                         session.getSqlFunctionProperties(),
                         node.getArguments());
