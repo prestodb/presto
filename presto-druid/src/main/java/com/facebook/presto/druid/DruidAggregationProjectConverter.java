@@ -26,7 +26,6 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
-import org.joda.time.DateTimeZone;
 
 import java.util.List;
 import java.util.Map;
@@ -111,7 +110,7 @@ public class DruidAggregationProjectConverter
         }
 
         inputColumn = timeConversion.getArguments().get(0).accept(this, context).getDefinition();
-        inputTimeZone = timeConversion.getArguments().size() > 1 ? getStringFromConstant(timeConversion.getArguments().get(1)) : DateTimeZone.UTC.getID();
+        inputTimeZone = timeConversion.getArguments().size() > 1 ? getStringFromConstant(timeConversion.getArguments().get(1)) : "UTC";
         inputFormat = "seconds";
         RowExpression intervalParameter = function.getArguments().get(0);
         if (!(intervalParameter instanceof ConstantExpression)) {
