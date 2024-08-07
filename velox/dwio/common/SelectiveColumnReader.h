@@ -477,11 +477,15 @@ class SelectiveColumnReader {
   template <typename T>
   void filterNulls(RowSet rows, bool isNull, bool extractValues);
 
-  // Temporary method for estimate in-memory row size (number of bits) of this
-  // column for Nimble.  Will be removed once column statistics are added for
-  // Nimble.
-  virtual std::optional<size_t> estimatedRowBitSize() const {
-    return std::nullopt;
+  // Temporary method for estimate total in-memory byte size and row count of
+  // current encoding chunk on this column for Nimble.  Will be removed once
+  // column statistics are added for Nimble.  Note that the estimations are
+  // based on current encoding chunk, so in multi-chunk stripe this is not
+  // accurate.  Other formats should not use this.
+  virtual bool estimateMaterializedSize(
+      size_t& /*byteSize*/,
+      size_t& /*rowCount*/) const {
+    return false;
   }
 
   StringView copyStringValueIfNeed(folly::StringPiece value) {
