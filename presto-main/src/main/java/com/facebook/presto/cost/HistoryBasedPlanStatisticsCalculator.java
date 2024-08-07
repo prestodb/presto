@@ -36,6 +36,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.SystemSessionProperties.enableVerboseHistoryBasedOptimizerRuntimeStats;
+import static com.facebook.presto.SystemSessionProperties.getHistoryBasedOptimizerInputStatisticsCheckStrategy;
 import static com.facebook.presto.SystemSessionProperties.getHistoryBasedOptimizerTimeoutLimit;
 import static com.facebook.presto.SystemSessionProperties.getHistoryInputTableStatisticsMatchingThreshold;
 import static com.facebook.presto.SystemSessionProperties.isVerboseRuntimeStatsEnabled;
@@ -43,9 +44,13 @@ import static com.facebook.presto.SystemSessionProperties.useHistoryBasedPlanSta
 import static com.facebook.presto.common.RuntimeMetricName.HISTORY_OPTIMIZER_QUERY_REGISTRATION_GET_PLAN_NODE_HASHES;
 import static com.facebook.presto.common.RuntimeMetricName.HISTORY_OPTIMIZER_QUERY_REGISTRATION_GET_STATISTICS;
 import static com.facebook.presto.common.RuntimeUnit.NANO;
+import static com.facebook.presto.common.RuntimeUnit.NONE;
+import static com.facebook.presto.cost.HistoricalPlanStatisticsUtil.canSkipInputTableStatisticsCheck;
 import static com.facebook.presto.cost.HistoricalPlanStatisticsUtil.getSelectedHistoricalPlanStatisticsEntry;
 import static com.facebook.presto.cost.HistoryBasedPlanStatisticsManager.historyBasedPlanCanonicalizationStrategyList;
 import static com.facebook.presto.spi.statistics.PlanStatistics.toConfidenceLevel;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.HistoryBasedOptimizerInputStatisticsCheckStrategy.HISTORY;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.HistoryBasedOptimizerInputStatisticsCheckStrategy.NEVER;
 import static com.facebook.presto.sql.planner.iterative.Plans.resolveGroupReferences;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.graph.Traverser.forTree;
@@ -195,16 +200,29 @@ public class HistoryBasedPlanStatisticsCalculator
         for (PlanCanonicalizationStrategy strategy : historyBasedPlanCanonicalizationStrategyList(session)) {
             for (Map.Entry<PlanNodeWithHash, HistoricalPlanStatistics> entry : statistics.entrySet()) {
                 if (allHashes.containsKey(strategy) && entry.getKey().getHash().isPresent() && allHashes.get(strategy).equals(entry.getKey())) {
-                    Optional<List<PlanStatistics>> inputTableStatistics = getPlanNodeInputTableStatistics(plan, session, strategy, true);
-                    if (inputTableStatistics.isPresent()) {
-                        Optional<HistoricalPlanStatisticsEntry> historicalPlanStatisticsEntry = getSelectedHistoricalPlanStatisticsEntry(entry.getValue(), inputTableStatistics.get(), historyMatchingThreshold);
-                        if (historicalPlanStatisticsEntry.isPresent()) {
-                            PlanStatistics predictedPlanStatistics = historicalPlanStatisticsEntry.get().getPlanStatistics();
-                            if ((toConfidenceLevel(predictedPlanStatistics.getConfidence()).getConfidenceOrdinal() >= delegateStats.confidenceLevel().getConfidenceOrdinal())) {
-                                return delegateStats.combineStats(
-                                        predictedPlanStatistics,
-                                        new HistoryBasedSourceInfo(entry.getKey().getHash(), inputTableStatistics, Optional.ofNullable(historicalPlanStatisticsEntry.get().getHistoricalPlanStatisticsEntryInfo())));
+                    PlanStatistics predictedPlanStatistics = null;
+                    Optional<HistoricalPlanStatisticsEntry> historicalPlanStatisticsEntry = Optional.empty();
+                    if (getHistoryBasedOptimizerInputStatisticsCheckStrategy(session).equals(NEVER) ||
+                            (getHistoryBasedOptimizerInputStatisticsCheckStrategy(session).equals(HISTORY) && canSkipInputTableStatisticsCheck(entry.getValue(), historyMatchingThreshold))) {
+                        predictedPlanStatistics = entry.getValue().getLastRunsStatistics().get(0).getPlanStatistics();
+                        historicalPlanStatisticsEntry = Optional.of(entry.getValue().getLastRunsStatistics().get(0));
+                        session.getRuntimeStats().addMetricValue("SkipGetTableInputStatistics", NONE, 1);
+                    }
+                    else {
+                        session.getRuntimeStats().addMetricValue("DoGetTableInputStatistics", NONE, 1);
+                        Optional<List<PlanStatistics>> inputTableStatistics = getPlanNodeInputTableStatistics(plan, session, strategy, true);
+                        if (inputTableStatistics.isPresent()) {
+                            historicalPlanStatisticsEntry = getSelectedHistoricalPlanStatisticsEntry(entry.getValue(), inputTableStatistics.get(), historyMatchingThreshold);
+                            if (historicalPlanStatisticsEntry.isPresent()) {
+                                predictedPlanStatistics = historicalPlanStatisticsEntry.get().getPlanStatistics();
                             }
+                        }
+                    }
+                    if (predictedPlanStatistics != null) {
+                        if ((toConfidenceLevel(predictedPlanStatistics.getConfidence()).getConfidenceOrdinal() >= delegateStats.confidenceLevel().getConfidenceOrdinal())) {
+                            return delegateStats.combineStats(
+                                    predictedPlanStatistics,
+                                    new HistoryBasedSourceInfo(entry.getKey().getHash(), Optional.empty(), Optional.ofNullable(historicalPlanStatisticsEntry.get().getHistoricalPlanStatisticsEntryInfo())));
                         }
                     }
                 }
@@ -221,6 +239,6 @@ public class HistoryBasedPlanStatisticsCalculator
         }
 
         PlanNode statsEquivalentPlanNode = plan.getStatsEquivalentPlanNode().get();
-        return planCanonicalInfoProvider.getInputTableStatistics(session, statsEquivalentPlanNode, strategy, cacheOnly);
+        return planCanonicalInfoProvider.getInputTableStatistics(session, statsEquivalentPlanNode, strategy, true, cacheOnly);
     }
 }
