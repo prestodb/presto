@@ -97,9 +97,29 @@ public class TestLikeFunctions
     }
 
     @Test
+    public void testLikeNewlineNoWildcard()
+    {
+        Regex regex = likePattern(utf8Slice("foo\nbar"));
+        assertTrue(likeVarchar(utf8Slice("foo\nbar"), regex));
+    }
+
+    @Test
+    public void testLikeNoMatchAfterNewline()
+    {
+        Regex regex = likePattern(utf8Slice("foo"));
+        assertFalse(likeVarchar(utf8Slice("foo\nbar"), regex));
+    }
+
+    @Test
     public void testLikeNewlineInMatch()
     {
         Regex regex = likePattern(utf8Slice("f%b%"));
+        assertTrue(likeVarchar(utf8Slice("foo\nbar"), regex));
+    }
+    @Test
+    public void testLikeNewlineInSingleWildcardMatch()
+    {
+        Regex regex = likePattern(utf8Slice("foo_bar"));
         assertTrue(likeVarchar(utf8Slice("foo\nbar"), regex));
     }
 
