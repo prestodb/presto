@@ -274,8 +274,7 @@ public class ParquetWriter
                 fileMetaData.getCreated_by());
 
         ParquetMetadataConverter metadataConverter = new ParquetMetadataConverter();
-        List<BlockMetaData> blocks = ImmutableList.of();
-        FileMetaData parquetMetaData = metadataConverter.toParquetMetadata(1, new ParquetMetadata(parquetMetaDataInput, blocks));
+        FileMetaData parquetMetaData = metadataConverter.toParquetMetadata(1, new ParquetMetadata(parquetMetaDataInput, ImmutableList.of()));
 
         fileMetaData.setSchema(parquetMetaData.getSchema());
 
