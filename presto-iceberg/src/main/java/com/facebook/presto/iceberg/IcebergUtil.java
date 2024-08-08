@@ -35,6 +35,7 @@ import com.facebook.presto.hive.PartitionNameWithVersion;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
+import com.facebook.presto.iceberg.TypeConverter.IcebergTypeWithExtraInfo;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
@@ -136,8 +137,8 @@ import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressio
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isMergeOnReadModeEnabled;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getCommitRetries;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getFormatVersion;
-import static com.facebook.presto.iceberg.TypeConverter.toIcebergType;
-import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
+import static com.facebook.presto.iceberg.TypeConverter.toIcebergTypeWithComment;
+import static com.facebook.presto.iceberg.TypeConverter.toPrestoTypeWithComment;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -549,7 +550,9 @@ public final class IcebergUtil
 
                 fieldToIndex.forEach((field, index) -> {
                     int id = field.sourceId();
-                    org.apache.iceberg.types.Type type = spec.schema().findType(id);
+                    NestedField nestedField = spec.schema().findField(id);
+                    org.apache.iceberg.types.Type type = nestedField.type();
+                    String fieldDoc = nestedField.doc();
                     Class<?> javaClass = type.typeId().javaClass();
                     Object value = partition.get(index, javaClass);
                     String partitionStringValue;
@@ -566,7 +569,7 @@ public final class IcebergUtil
                         }
                     }
 
-                    NullableValue partitionValue = parsePartitionValue(fileFormat, partitionStringValue, toPrestoType(type, typeManager), partition.toString());
+                    NullableValue partitionValue = parsePartitionValue(fileFormat, partitionStringValue, toPrestoTypeWithComment(type, Optional.ofNullable(fieldDoc), typeManager).getType(), partition.toString());
                     Optional<IcebergColumnHandle> column = partitionColumns.stream()
                             .filter(icebergColumnHandle -> Objects.equals(icebergColumnHandle.getId(), field.sourceId()))
                             .findAny();
@@ -623,7 +626,10 @@ public final class IcebergUtil
     public static Schema schemaFromHandles(List<IcebergColumnHandle> columns)
     {
         List<NestedField> icebergColumns = columns.stream()
-                .map(column -> NestedField.optional(column.getId(), column.getName(), toIcebergType(column.getType())))
+                .map(column -> {
+                    IcebergTypeWithExtraInfo icebergTypeWithExtraInfo = toIcebergTypeWithComment(column.getType(), column.getComment().orElse(null));
+                    return NestedField.optional(column.getId(), column.getName(), icebergTypeWithExtraInfo.getType(), icebergTypeWithExtraInfo.getComment().orElse(null));
+                })
                 .collect(toImmutableList());
         return new Schema(Types.StructType.of(icebergColumns).asStructType().fields());
     }

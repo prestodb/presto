@@ -68,7 +68,7 @@ import static com.facebook.presto.iceberg.IcebergSessionProperties.getParquetWri
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getParquetWriterPageSize;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getParquetWriterVersion;
 import static com.facebook.presto.iceberg.TypeConverter.toOrcType;
-import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
+import static com.facebook.presto.iceberg.TypeConverter.toPrestoTypeWithComment;
 import static com.facebook.presto.iceberg.util.PrimitiveTypeMapBuilder.makeTypeMap;
 import static com.facebook.presto.orc.NoOpOrcWriterStats.NOOP_WRITER_STATS;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
@@ -135,7 +135,7 @@ public class IcebergFileWriterFactory
                 .map(Types.NestedField::name)
                 .collect(toImmutableList());
         List<Type> fileColumnTypes = icebergSchema.columns().stream()
-                .map(column -> toPrestoType(column.type(), typeManager))
+                .map(column -> toPrestoTypeWithComment(column.type(), Optional.ofNullable(column.doc()), typeManager).getType())
                 .collect(toImmutableList());
 
         try {
@@ -191,8 +191,7 @@ public class IcebergFileWriterFactory
                     .map(Types.NestedField::name)
                     .collect(toImmutableList());
             List<Type> fileColumnTypes = columnFields.stream()
-                    .map(Types.NestedField::type)
-                    .map(type -> toPrestoType(type, typeManager))
+                    .map(nestedField -> toPrestoTypeWithComment(nestedField.type(), Optional.ofNullable(nestedField.doc()), typeManager).getType())
                     .collect(toImmutableList());
 
             Optional<Supplier<OrcDataSource>> validationInputFactory = Optional.empty();

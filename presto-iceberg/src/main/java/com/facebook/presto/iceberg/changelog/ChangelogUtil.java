@@ -16,6 +16,7 @@ package com.facebook.presto.iceberg.changelog;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.iceberg.TypeConverter;
+import com.facebook.presto.iceberg.TypeConverter.PrestoTypeWithOriginalComment;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
@@ -23,8 +24,9 @@ import org.apache.iceberg.Schema;
 import org.apache.iceberg.types.Types;
 
 import java.util.List;
+import java.util.Optional;
 
-import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
+import static com.facebook.presto.iceberg.TypeConverter.toPrestoTypeWithComment;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class ChangelogUtil
@@ -61,7 +63,10 @@ public class ChangelogUtil
     public static List<ColumnMetadata> getColumnMetadata(TypeManager typeManager, List<ColumnMetadata> columns)
     {
         return changelogTableSchema(getRowTypeFromColumnMeta(columns)).columns().stream()
-                .map(column -> new ColumnMetadata(column.name(), toPrestoType(column.type(), typeManager)))
+                .map(column -> {
+                    PrestoTypeWithOriginalComment prestoTypeWithOriginalComment = toPrestoTypeWithComment(column.type(), Optional.ofNullable(column.doc()), typeManager);
+                    return new ColumnMetadata(column.name(), prestoTypeWithOriginalComment.getType(), prestoTypeWithOriginalComment.getComment().orElse(null), false);
+                })
                 .collect(toImmutableList());
     }
 }

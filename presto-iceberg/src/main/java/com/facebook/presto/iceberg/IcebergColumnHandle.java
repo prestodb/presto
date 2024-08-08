@@ -17,6 +17,7 @@ import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.BaseHiveColumnHandle;
+import com.facebook.presto.iceberg.TypeConverter.PrestoTypeWithOriginalComment;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -35,7 +36,7 @@ import static com.facebook.presto.iceberg.ColumnIdentity.createColumnIdentity;
 import static com.facebook.presto.iceberg.ColumnIdentity.primitiveColumnIdentity;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.DATA_SEQUENCE_NUMBER;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.FILE_PATH;
-import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
+import static com.facebook.presto.iceberg.TypeConverter.toPrestoTypeWithComment;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
@@ -180,10 +181,11 @@ public class IcebergColumnHandle
 
     public static IcebergColumnHandle create(Types.NestedField column, TypeManager typeManager, ColumnType columnType)
     {
+        PrestoTypeWithOriginalComment prestoTypeWithOriginalComment = toPrestoTypeWithComment(column.type(), Optional.ofNullable(column.doc()), typeManager);
         return new IcebergColumnHandle(
                 createColumnIdentity(column),
-                toPrestoType(column.type(), typeManager),
-                Optional.ofNullable(column.doc()),
+                prestoTypeWithOriginalComment.getType(),
+                prestoTypeWithOriginalComment.getComment(),
                 columnType);
     }
 
