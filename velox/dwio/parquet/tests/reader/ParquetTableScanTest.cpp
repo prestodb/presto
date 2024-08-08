@@ -384,6 +384,19 @@ TEST_F(ParquetTableScanTest, map) {
   assertSelectWithFilter({"map"}, {}, "", "SELECT map FROM tmp");
 }
 
+TEST_F(ParquetTableScanTest, nullMap) {
+  auto path = getExampleFilePath("null_map.parquet");
+  loadData(
+      path,
+      ROW({"i", "c"}, {VARCHAR(), MAP(VARCHAR(), VARCHAR())}),
+      makeRowVector(
+          {"i", "c"},
+          {makeConstant<std::string>("1", 1),
+           makeNullableMapVector<std::string, std::string>({std::nullopt})}));
+
+  assertSelectWithFilter({"i", "c"}, {}, "", "SELECT i, c FROM tmp");
+}
+
 // Core dump is fixed.
 TEST_F(ParquetTableScanTest, singleRowStruct) {
   auto vector = makeArrayVector<int32_t>({{}});
