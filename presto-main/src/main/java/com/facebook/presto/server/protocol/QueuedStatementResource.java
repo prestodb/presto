@@ -48,6 +48,7 @@ import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
+import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
@@ -99,6 +100,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 import static javax.ws.rs.core.MediaType.TEXT_PLAIN_TYPE;
 import static javax.ws.rs.core.Response.Status.BAD_REQUEST;
+import static javax.ws.rs.core.Response.Status.CONFLICT;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 
 @Path("/")
@@ -218,6 +220,58 @@ public class QueuedStatementResource
                 Optional.of(sessionPropertyManager));
         Query query = new Query(statement, sessionContext, dispatchManager, executingQueryResponseProvider, 0);
         queries.put(query.getQueryId(), query);
+
+        return withCompressionConfiguration(Response.ok(query.getInitialQueryResults(uriInfo, xForwardedProto, xPrestoPrefixUrl, binaryResults)), compressionEnabled).build();
+    }
+
+    /**
+     * HTTP endpoint for submitting queries to the Presto Coordinator.
+     * Presto performs lazy execution. The submission of a query returns
+     * a placeholder for the result set, but the query gets
+     * scheduled/dispatched only when the client polls for results.
+     * This endpoint accepts a pre-minted queryId and slug, instead of
+     * generating it.
+     *
+     * @param statement The statement or sql query string submitted
+     * @param queryId Pre-minted query ID to associate with this query
+     * @param slug Pre-minted slug to protect this query
+     * @param xForwardedProto Forwarded protocol (http or https)
+     * @param servletRequest The http request
+     * @param uriInfo {@link javax.ws.rs.core.UriInfo}
+     * @return {@link javax.ws.rs.core.Response} HTTP response code
+     */
+    @PUT
+    @Path("/v1/statement/{queryId}")
+    @Produces(APPLICATION_JSON)
+    public Response putStatement(
+            String statement,
+            @PathParam("queryId") QueryId queryId,
+            @QueryParam("slug") String slug,
+            @DefaultValue("false") @QueryParam("binaryResults") boolean binaryResults,
+            @HeaderParam(X_FORWARDED_PROTO) String xForwardedProto,
+            @HeaderParam(PRESTO_PREFIX_URL) String xPrestoPrefixUrl,
+            @Context HttpServletRequest servletRequest,
+            @Context UriInfo uriInfo)
+    {
+        if (isNullOrEmpty(statement)) {
+            throw badRequest(BAD_REQUEST, "SQL statement is empty");
+        }
+
+        abortIfPrefixUrlInvalid(xPrestoPrefixUrl);
+
+        // TODO: For future cases we may want to start tracing from client. Then continuation of tracing
+        //       will be needed instead of creating a new trace here.
+        SessionContext sessionContext = new HttpRequestSessionContext(
+                servletRequest,
+                sqlParserOptions,
+                tracerProviderManager.getTracerProvider(),
+                Optional.of(sessionPropertyManager));
+        Query attemptedQuery = new Query(statement, sessionContext, dispatchManager, executingQueryResponseProvider, 0, queryId, slug);
+        Query query = queries.computeIfAbsent(queryId, unused -> attemptedQuery);
+
+        if (attemptedQuery != query && !attemptedQuery.getSlug().equals(query.getSlug()) || query.getLastToken() != 0) {
+            throw badRequest(CONFLICT, "Query already exists");
+        }
 
         return withCompressionConfiguration(Response.ok(query.getInitialQueryResults(uriInfo, xForwardedProto, xPrestoPrefixUrl, binaryResults)), compressionEnabled).build();
     }
@@ -386,7 +440,7 @@ public class QueuedStatementResource
         private final DispatchManager dispatchManager;
         private final ExecutingQueryResponseProvider executingQueryResponseProvider;
         private final QueryId queryId;
-        private final String slug = "x" + randomUUID().toString().toLowerCase(ENGLISH).replace("-", "");
+        private final String slug;
         private final AtomicLong lastToken = new AtomicLong();
         private final int retryCount;
 
@@ -395,12 +449,25 @@ public class QueuedStatementResource
 
         public Query(String query, SessionContext sessionContext, DispatchManager dispatchManager, ExecutingQueryResponseProvider executingQueryResponseProvider, int retryCount)
         {
+            this(query, sessionContext, dispatchManager, executingQueryResponseProvider, retryCount, dispatchManager.createQueryId(), createSlug());
+        }
+
+        public Query(
+                String query,
+                SessionContext sessionContext,
+                DispatchManager dispatchManager,
+                ExecutingQueryResponseProvider executingQueryResponseProvider,
+                int retryCount,
+                QueryId queryId,
+                String slug)
+        {
             this.query = requireNonNull(query, "query is null");
             this.sessionContext = requireNonNull(sessionContext, "sessionContext is null");
             this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
             this.executingQueryResponseProvider = requireNonNull(executingQueryResponseProvider, "executingQueryResponseProvider is null");
-            this.queryId = dispatchManager.createQueryId();
             this.retryCount = retryCount;
+            this.queryId = requireNonNull(queryId, "queryId is null");
+            this.slug = requireNonNull(slug, "slug is null");
         }
 
         /**
@@ -582,6 +649,11 @@ public class QueuedStatementResource
                     dispatchInfo.getElapsedTime(),
                     dispatchInfo.getQueuedTime(),
                     dispatchInfo.getWaitingForPrerequisitesTime());
+        }
+
+        private static String createSlug()
+        {
+            return "x" + randomUUID().toString().toLowerCase(ENGLISH).replace("-", "");
         }
 
         private URI getNextUri(long token, UriInfo uriInfo, String xForwardedProto, String xPrestoPrefixUrl, DispatchInfo dispatchInfo, boolean binaryResults)
