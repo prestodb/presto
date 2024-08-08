@@ -14,7 +14,6 @@
 
 #include "presto_cpp/main/LinuxMemoryChecker.h"
 #ifdef __linux__
-#include <boost/regex.hpp>
 #include <folly/File.h>
 #include <folly/FileUtil.h>
 #include <folly/gen/Base.h>
@@ -89,19 +88,11 @@ int64_t LinuxMemoryChecker::systemUsedMemoryBytes() {
   if (statFile != "None") {
     folly::gen::byLine(statFile.c_str()) |
         [&](folly::StringPiece line) -> void {
-      if (boost::regex_match(
-              line.begin(), line.end(), match, inactiveAnonRegex)) {
-        folly::StringPiece numStr(
-            line.begin() + match.position(1), size_t(match.length(1)));
-        inactiveAnon = folly::to<size_t>(numStr);
-      }
-      if (boost::regex_match(
-              line.begin(), line.end(), match, activeAnonRegex)) {
-        folly::StringPiece numStr(
-            line.begin() + match.position(1), size_t(match.length(1)));
-        activeAnon = folly::to<size_t>(numStr);
-      }
+      inactiveAnon = matchLineWithRegex(line, match, inactiveAnonRegex);
+      activeAnon = matchLineWithRegex(line, match, activeAnonRegex);
     };
+
+    // Unit is in bytes.
     return inactiveAnon + activeAnon;
   }
 
@@ -111,22 +102,26 @@ int64_t LinuxMemoryChecker::systemUsedMemoryBytes() {
   static const boost::regex memTotalRegex(R"!(MemTotal:\s*(\d+)\s*kB)!");
   // Last resort use host machine info.
   folly::gen::byLine("/proc/meminfo") | [&](folly::StringPiece line) -> void {
-    if (boost::regex_match(
-            line.begin(), line.end(), match, memAvailableRegex)) {
-      folly::StringPiece numStr(
-          line.begin() + match.position(1), size_t(match.length(1)));
-      memAvailable = folly::to<size_t>(numStr) * 1024;
-    }
-    if (boost::regex_match(line.begin(), line.end(), match, memTotalRegex)) {
-      folly::StringPiece numStr(
-          line.begin() + match.position(1), size_t(match.length(1)));
-      memTotal = folly::to<size_t>(numStr) * 1024;
-    }
+    memAvailable = matchLineWithRegex(line, match, memAvailableRegex) * 1024;
+    memTotal = matchLineWithRegex(line, match, memTotalRegex) * 1024;
   };
+  // Unit is in bytes.
   return (memAvailable && memTotal) ? memTotal - memAvailable : 0;
 
 #else
   return 0;
 #endif
+}
+
+size_t LinuxMemoryChecker::matchLineWithRegex(
+    folly::StringPiece& line,
+    boost::smatch& match,
+    const boost::regex& regex) {
+  if (boost::regex_match(line.begin(), line.end(), match, regex)) {
+    folly::StringPiece numStr(
+        line.begin() + match.position(1), size_t(match.length(1)));
+    return folly::to<size_t>(numStr);
+  }
+  return 0;
 }
 } // namespace facebook::presto

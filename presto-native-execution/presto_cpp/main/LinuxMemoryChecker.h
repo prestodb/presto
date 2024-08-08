@@ -13,13 +13,14 @@
  */
 #pragma once
 
+#include <boost/regex.hpp>
 #include "presto_cpp/main/PeriodicMemoryChecker.h"
 
 namespace facebook::presto {
 class LinuxMemoryChecker : public PeriodicMemoryChecker {
  public:
   explicit LinuxMemoryChecker(
-      PeriodicMemoryChecker::Config config,
+      const PeriodicMemoryChecker::Config& config,
       int64_t mallocBytes = 0,
       std::function<void()>&& periodicCb = nullptr,
       std::function<bool(const std::string&)>&& heapDumpCb = nullptr)
@@ -36,6 +37,11 @@ class LinuxMemoryChecker : public PeriodicMemoryChecker {
 
  protected:
   int64_t systemUsedMemoryBytes() override;
+
+  size_t matchLineWithRegex(
+      folly::StringPiece& line,
+      boost::smatch& match,
+      const boost::regex& regex);
 
   int64_t mallocBytes() const override {
     return mallocBytes_;
