@@ -117,6 +117,21 @@ Statement Resource
         }
       }
 
+.. function:: PUT /v1/statement/{queryId}?slug={slug}
+
+   :query query: SQL Query to execute
+   :query queryId: Query identifier to associate with this query
+   :query slug: Nonce to associate with this query, that will be required for subsequent requests
+   :reqheader X-Presto-User: User to execute statement on behalf of (optional)
+   :reqheader X-Presto-Source: Source of query
+   :reqheader X-Presto-Catalog: Catalog to execute query against
+   :reqheader X-Presto-Schema: Schema to execute query against
+
+   Submits a statement to Presto for execution. This function is
+   the analogue of the POST, and behaves exactly the same. The
+   difference is that a query id and slug can be explicitly provided,
+   instead of Presto generating it.
+
 .. function:: GET /v1/statement/{queryId}/{token}
 
    :query queryId: The query identifier returned from the initial POST to /v1/statement
