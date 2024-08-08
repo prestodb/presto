@@ -182,8 +182,68 @@ public class NativeFunctionDefinitionProvider
                     "      \"typeVariableConstraints\": [],\n" +
                     "      \"variableArity\": false\n" +
                     "    }\n" +
-                    " ]\n, " +
-                    "\"lower\":[{\"docString\":\"native.default.lower\",\"functionKind\":\"SCALAR\",\"functionVisibility\":\"PUBLIC\",\"outputType\":\"varchar\",\"paramTypes\":[\"varchar\"],\"routineCharacteristics\":{\"determinism\":\"DETERMINISTIC\",\"language\":\"CPP\",\"nullCallClause\":\"CALLED_ON_NULL_INPUT\"},\"schema\":\"default\",\"typeVariableConstraints\":[],\"variableArity\":false}]" +
+                    " ],\n " +
+                    "  \"array_constructor\": [\n" +
+                    "    {\n" +
+                    "      \"docString\": \"native.default.array_constructor\",\n" +
+                    "      \"functionKind\": \"SCALAR\",\n" +
+                    "      \"functionVisibility\": \"PUBLIC\",\n" +
+                    "      \"outputType\": \"array(unknown)\",\n" +
+                    "      \"paramTypes\": [],\n" +
+                    "      \"routineCharacteristics\": {\n" +
+                    "        \"determinism\": \"DETERMINISTIC\",\n" +
+                    "        \"language\": \"CPP\",\n" +
+                    "        \"nullCallClause\": \"CALLED_ON_NULL_INPUT\"\n" +
+                    "      },\n" +
+                    "      \"schema\": \"default\",\n" +
+                    "      \"typeVariableConstraints\": [],\n" +
+                    "      \"variableArity\": false\n" +
+                    "    },\n" +
+                    "    {\n" +
+                    "      \"docString\": \"native.default.array_constructor\",\n" +
+                    "      \"functionKind\": \"SCALAR\",\n" +
+                    "      \"functionVisibility\": \"PUBLIC\",\n" +
+                    "      \"outputType\": \"array(T)\",\n" +
+                    "      \"paramTypes\": [\n" +
+                    "        \"T\"\n" +
+                    "      ],\n" +
+                    "      \"routineCharacteristics\": {\n" +
+                    "        \"determinism\": \"DETERMINISTIC\",\n" +
+                    "        \"language\": \"CPP\",\n" +
+                    "        \"nullCallClause\": \"CALLED_ON_NULL_INPUT\"\n" +
+                    "      },\n" +
+                    "      \"schema\": \"default\",\n" +
+                    "      \"typeVariableConstraints\": [\n" +
+                    "        {\n" +
+                    "          \"comparableRequired\": false,\n" +
+                    "          \"name\": \"T\",\n" +
+                    "          \"nonDecimalNumericRequired\": false,\n" +
+                    "          \"orderableRequired\": false,\n" +
+                    "          \"variadicBound\": \"\"\n" +
+                    "        }\n" +
+                    "      ],\n" +
+                    "      \"variableArity\": true\n" +
+                    "    }\n" +
+                    "  ],\n" +
+                    "  \"lower\": [\n" +
+                    "    {\n" +
+                    "      \"docString\": \"native.default.lower\",\n" +
+                    "      \"functionKind\": \"SCALAR\",\n" +
+                    "      \"functionVisibility\": \"PUBLIC\",\n" +
+                    "      \"outputType\": \"varchar\",\n" +
+                    "      \"paramTypes\": [\n" +
+                    "        \"varchar\"\n" +
+                    "      ],\n" +
+                    "      \"routineCharacteristics\": {\n" +
+                    "        \"determinism\": \"DETERMINISTIC\",\n" +
+                    "        \"language\": \"CPP\",\n" +
+                    "        \"nullCallClause\": \"CALLED_ON_NULL_INPUT\"\n" +
+                    "      },\n" +
+                    "      \"schema\": \"default\",\n" +
+                    "      \"typeVariableConstraints\": [],\n" +
+                    "      \"variableArity\": false\n" +
+                    "    }\n" +
+                    "  ]\n" +
                     "}";
             Map<String, List<JsonBasedUdfFunctionMetadata>> nativeFunctionSignatureMap = nativeFunctionSignatureMapJsonCodec.fromJson(responseBody);
             return new UdfFunctionSignatureMap(ImmutableMap.copyOf(nativeFunctionSignatureMap));

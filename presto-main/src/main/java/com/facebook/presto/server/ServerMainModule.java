@@ -782,8 +782,8 @@ public class ServerMainModule
         newOptionalBinder(binder, NodeStatusService.class);
         binder.bind(NodeStatusNotificationManager.class).in(Scopes.SINGLETON);
         //native-function-namespace-manager binder
-        binder.bind(NativeFunctionNamespaceManagerProvider.class);
         binder.bind(NodeManager.class).to(PluginNodeManager.class).in(Scopes.SINGLETON);
+        binder.bind(NativeFunctionNamespaceManagerProvider.class).in(Scopes.SINGLETON);
     }
 
     @Provides

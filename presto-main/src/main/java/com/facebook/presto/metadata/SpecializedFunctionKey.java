@@ -15,6 +15,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
+import com.facebook.presto.spi.function.SqlFunctionSupplier;
 
 import java.util.Objects;
 
@@ -22,6 +23,7 @@ import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
 import static java.util.Objects.requireNonNull;
 
 public class SpecializedFunctionKey
+        implements SqlFunctionSupplier
 {
     private final SqlFunction function;
     private final BoundVariables boundVariables;

@@ -11,26 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.server;
+package com.facebook.presto.spi.function;
 
-import com.facebook.presto.spi.NodeManager;
-import com.google.inject.Inject;
-
-import static java.util.Objects.requireNonNull;
-
-public class NativeFunctionNamespaceManagerProvider
+public interface SqlFunctionSupplier
 {
-    private final NodeManager nodeManager;
-
-    @Inject
-    public NativeFunctionNamespaceManagerProvider(
-            NodeManager nodeManager)
-    {
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
-    }
-
-    public NodeManager getNodeManager()
-    {
-        return nodeManager;
-    }
+    SqlFunction getFunction();
 }
