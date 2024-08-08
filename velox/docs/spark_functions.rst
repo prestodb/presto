@@ -2,6 +2,8 @@
 Spark Functions
 ***********************
 
+The semantics of Spark functions match Spark 3.5 with ANSI OFF.
+
 .. toctree::
     :maxdepth: 1
 

@@ -182,6 +182,7 @@ with a benchmark.
    * Describe the function semantics and edge cases clearly.
 
 3. Use Presto or Spark to check the function semantics. 
+   * When implementing a Spark function, check the function semantics using Spark 3.5 with ANSI OFF.
    * Try different edge cases to check whether the function returns null, or
    throws, etc. 
    * Make sure to replicate the exact semantics.
