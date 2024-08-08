@@ -38,41 +38,39 @@ std::string mapScalarFunction(const std::string& name) {
       SystemConfig::instance()->prestoDefaultNamespacePrefix();
   static const std::unordered_map<std::string, std::string> kFunctionNames = {
       // Operator overrides: com.facebook.presto.common.function.OperatorType
-      {fmt::format("{}$operator$add", prestoDefaultNamespacePrefix),
+      {"presto.default.$operator$add",
        fmt::format("{}plus", prestoDefaultNamespacePrefix)},
-      {fmt::format("{}$operator$between", prestoDefaultNamespacePrefix),
+      {"presto.default.$operator$between",
        fmt::format("{}between", prestoDefaultNamespacePrefix)},
-      {fmt::format("{}$operator$divide", prestoDefaultNamespacePrefix),
+      {"presto.default.$operator$divide",
        fmt::format("{}divide", prestoDefaultNamespacePrefix)},
-      {fmt::format("{}$operator$equal", prestoDefaultNamespacePrefix),
+      {"presto.default.$operator$equal",
        fmt::format("{}eq", prestoDefaultNamespacePrefix)},
-      {fmt::format("{}$operator$greater_than", prestoDefaultNamespacePrefix),
+      {"presto.default.$operator$greater_than",
        fmt::format("{}gt", prestoDefaultNamespacePrefix)},
-      {fmt::format(
-           "{}$operator$greater_than_or_equal", prestoDefaultNamespacePrefix),
+      {"presto.default.$operator$greater_than_or_equal",
        fmt::format("{}gte", prestoDefaultNamespacePrefix)},
-      {fmt::format(
-           "{}$operator$is_distinct_from", prestoDefaultNamespacePrefix),
+      {"presto.default.$operator$is_distinct_from",
        fmt::format("{}distinct_from", prestoDefaultNamespacePrefix)},
-      {fmt::format("{}$operator$less_than", prestoDefaultNamespacePrefix),
+      {"presto.default.$operator$less_than",
        fmt::format("{}lt", prestoDefaultNamespacePrefix)},
       {fmt::format(
-           "{}$operator$less_than_or_equal", prestoDefaultNamespacePrefix),
+           "{}$operator$less_than_or_equal"),
        fmt::format("{}lte", prestoDefaultNamespacePrefix)},
-      {fmt::format("{}$operator$modulus", prestoDefaultNamespacePrefix),
+      {"presto.default.$operator$modulus",
        fmt::format("{}mod", prestoDefaultNamespacePrefix)},
-      {fmt::format("{}$operator$multiply", prestoDefaultNamespacePrefix),
+      {"presto.default.$operator$multiply",
        fmt::format("{}multiply", prestoDefaultNamespacePrefix)},
-      {fmt::format("{}$operator$negation", prestoDefaultNamespacePrefix),
+      {"presto.default.$operator$negation",
        fmt::format("{}negate", prestoDefaultNamespacePrefix)},
-      {fmt::format("{}$operator$not_equal", prestoDefaultNamespacePrefix),
+      {"presto.default.$operator$not_equal",
        fmt::format("{}neq", prestoDefaultNamespacePrefix)},
-      {fmt::format("{}$operator$subtract", prestoDefaultNamespacePrefix),
+      {"presto.default.$operator$subtract",
        fmt::format("{}minus", prestoDefaultNamespacePrefix)},
-      {fmt::format("{}$operator$subscript", prestoDefaultNamespacePrefix),
+      {"presto.default.$operator$subscript",
        fmt::format("{}subscript", prestoDefaultNamespacePrefix)},
       // Special form function overrides.
-      {fmt::format("{}in", prestoDefaultNamespacePrefix), "in"},
+      {"presto.default.in", "in"},
   };
 
   std::string lowerCaseName = boost::to_lower_copy(name);
@@ -89,11 +87,9 @@ std::string mapAggregateOrWindowFunction(const std::string& name) {
   static const std::string prestoDefaultNamespacePrefix =
       SystemConfig::instance()->prestoDefaultNamespacePrefix();
   static const std::unordered_map<std::string, std::string> kFunctionNames = {
-      {fmt::format(
-           "{}$internal$max_data_size_for_stats", prestoDefaultNamespacePrefix),
+      {"presto.default.$internal$max_data_size_for_stats",
        fmt::format("{}max_data_size_for_stats", prestoDefaultNamespacePrefix)},
-      {fmt::format(
-           "{}$internal$sum_data_size_for_stats", prestoDefaultNamespacePrefix),
+      {"presto.default.$internal$sum_data_size_for_stats",
        fmt::format("{}sum_data_size_for_stats", prestoDefaultNamespacePrefix)},
   };
   std::string lowerCaseName = boost::to_lower_copy(name);
@@ -236,15 +232,15 @@ std::optional<TypedExprPtr> tryConvertCast(
   static const std::string prestoDefaultNamespacePrefix =
       SystemConfig::instance()->prestoDefaultNamespacePrefix();
   static const std::string kCast =
-      fmt::format("{}$operator$cast", prestoDefaultNamespacePrefix);
+      fmt::format("presto.default.$operator$cast", prestoDefaultNamespacePrefix);
   static const std::string kTryCast =
       fmt::format("{}try_cast", prestoDefaultNamespacePrefix);
-  static const std::string kJsonToArrayCast = fmt::format(
-      "{}$internal$json_string_to_array_cast", prestoDefaultNamespacePrefix);
-  static const std::string kJsonToMapCast = fmt::format(
-      "{}$internal$json_string_to_map_cast", prestoDefaultNamespacePrefix);
-  static const std::string kJsonToRowCast = fmt::format(
-      "{}$internal$json_string_to_row_cast", prestoDefaultNamespacePrefix);
+  static const std::string kJsonToArrayCast =
+      "presto.default.$internal$json_string_to_array_cast";
+  static const std::string kJsonToMapCast = 
+      "presto.default$internal$json_string_to_map_cast";
+  static const std::string kJsonToRowCast =
+      "presto.default$internal$json_string_to_row_cast";
 
   static const char* kRe2JRegExp = "Re2JRegExp";
   static const char* kJsonPath = "JsonPath";
@@ -307,9 +303,7 @@ std::optional<TypedExprPtr> tryConvertTry(
     const TypeParser* typeParser) {
   static const std::string prestoDefaultNamespacePrefix =
       SystemConfig::instance()->prestoDefaultNamespacePrefix();
-  static const std::string kTry =
-      fmt::format("{}$internal$try", prestoDefaultNamespacePrefix);
-
+  static const std::string kTry = "presto.default.$internal$try";
   if (signature.kind != protocol::FunctionKind::SCALAR) {
     return std::nullopt;
   }
@@ -337,8 +331,7 @@ std::optional<TypedExprPtr> tryConvertLiteralArray(
     const TypeParser* typeParser) {
   static const std::string prestoDefaultNamespacePrefix =
       SystemConfig::instance()->prestoDefaultNamespacePrefix();
-  static const std::string kLiteralArray =
-      fmt::format("{}$literal$array", prestoDefaultNamespacePrefix);
+  static const std::string kLiteralArray = "presto.default.$literal.$array";
   static const std::string kFromBase64 =
       fmt::format("{}from_base64", prestoDefaultNamespacePrefix);
 
@@ -412,8 +405,7 @@ std::optional<TypedExprPtr> VeloxExprConverter::tryConvertLike(
   static const std::string kLikePatternType =
       fmt::format("{}like_pattern", prestoDefaultNamespacePrefix);
   static const std::string kLikeReturnType = "LikePattern";
-  static const std::string kCast =
-      fmt::format("{}$operator$cast", prestoDefaultNamespacePrefix);
+  static const std::string kCast = "presto.default.$operator$cast";
 
   auto builtin = std::static_pointer_cast<protocol::BuiltInFunctionHandle>(
       pexpr.functionHandle);
