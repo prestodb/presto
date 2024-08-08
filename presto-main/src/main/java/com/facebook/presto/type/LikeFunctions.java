@@ -212,7 +212,10 @@ public final class LikeFunctions
         regex.append('$');
 
         byte[] bytes = regex.toString().getBytes(UTF_8);
-        return new Regex(bytes, 0, bytes.length, Option.MULTILINE, NonStrictUTF8Encoding.INSTANCE, SYNTAX);
+        // Option.MULTILINE specifies that wildcard characters (. and *) should match newlines
+        // Option.SINGLELINE specifies that anchors (^ and $) should match the beginning and end of
+        // input rather than the beginning and end of the line
+        return new Regex(bytes, 0, bytes.length, Option.MULTILINE | Option.SINGLELINE, NonStrictUTF8Encoding.INSTANCE, SYNTAX);
     }
 
     @SuppressWarnings("NumericCastThatLosesPrecision")
