@@ -539,8 +539,6 @@ public class BuiltInTypeAndFunctionNamespaceManager
 {
     public static final CatalogSchemaName DEFAULT_NAMESPACE = new CatalogSchemaName("presto", "default");
 
-    public static final CatalogSchemaName NATIVE_NAMESPACE = new CatalogSchemaName("native", "default");
-
     public static final String ID = "builtin";
 
     private final FunctionAndTypeManager functionAndTypeManager;

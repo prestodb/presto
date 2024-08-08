@@ -85,7 +85,6 @@ import static com.facebook.presto.SystemSessionProperties.isExperimentalFunction
 import static com.facebook.presto.SystemSessionProperties.isListBuiltInFunctionsOnly;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
-import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.NATIVE_NAMESPACE;
 import static com.facebook.presto.metadata.CastType.toOperatorType;
 import static com.facebook.presto.metadata.FunctionSignatureMatcher.constructFunctionNotFoundErrorMessage;
 import static com.facebook.presto.metadata.SessionFunctionHandle.SESSION_NAMESPACE;
@@ -462,7 +461,7 @@ public class FunctionAndTypeManager
             QualifiedObjectName functionName,
             List<TypeSignatureProvider> parameterTypes)
     {
-        if (functionName.getCatalogSchemaName().equals(DEFAULT_NAMESPACE) || functionName.getCatalogSchemaName().equals(NATIVE_NAMESPACE)) {
+        if (functionName.getCatalogSchemaName().equals(currentDefaultNamespace)) {
             if (sessionFunctions.isPresent()) {
                 Collection<SqlFunction> candidates = SessionFunctionUtils.getFunctions(sessionFunctions.get(), functionName);
                 Optional<Signature> match = functionSignatureMatcher.match(candidates, parameterTypes, true);
@@ -720,7 +719,7 @@ public class FunctionAndTypeManager
 
     private FunctionHandle resolveBuiltInFunction(QualifiedObjectName functionName, List<TypeSignatureProvider> parameterTypes)
     {
-        checkArgument(functionName.getCatalogSchemaName().equals(DEFAULT_NAMESPACE) || functionName.getCatalogSchemaName().equals(NATIVE_NAMESPACE), "Expect built-in functions");
+        checkArgument(functionName.getCatalogSchemaName().equals(currentDefaultNamespace), "Expect functions from current namespace");
         checkArgument(parameterTypes.stream().noneMatch(TypeSignatureProvider::hasDependency), "Expect parameter types not to have dependency");
         return resolveFunctionInternal(Optional.empty(), functionName, parameterTypes);
     }
