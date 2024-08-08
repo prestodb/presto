@@ -17,13 +17,11 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.TimeStat;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
-import com.facebook.presto.client.StatementStats;
 import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.dispatcher.DispatchExecutor;
 import com.facebook.presto.dispatcher.DispatchInfo;
 import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.execution.ExecutionFailureInfo;
-import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.server.HttpRequestSessionContext;
 import com.facebook.presto.server.ServerConfig;
@@ -32,7 +30,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.tracing.TracerProviderManager;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -61,7 +58,6 @@ import javax.ws.rs.container.Suspended;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
-import javax.ws.rs.core.UriBuilder;
 import javax.ws.rs.core.UriInfo;
 
 import java.net.URI;
@@ -77,10 +73,11 @@ import static com.facebook.airlift.concurrent.MoreFutures.addTimeout;
 import static com.facebook.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.airlift.http.server.AsyncResponseHandler.bindAsyncResponse;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREFIX_URL;
-import static com.facebook.presto.execution.QueryState.FAILED;
-import static com.facebook.presto.execution.QueryState.QUEUED;
-import static com.facebook.presto.execution.QueryState.WAITING_FOR_PREREQUISITES;
+import static com.facebook.presto.server.protocol.QueryResourceUtil.NO_DURATION;
 import static com.facebook.presto.server.protocol.QueryResourceUtil.abortIfPrefixUrlInvalid;
+import static com.facebook.presto.server.protocol.QueryResourceUtil.createQueuedQueryResults;
+import static com.facebook.presto.server.protocol.QueryResourceUtil.getQueuedUri;
+import static com.facebook.presto.server.protocol.QueryResourceUtil.getScheme;
 import static com.facebook.presto.server.security.RoleType.USER;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.RETRY_QUERY_NOT_FOUND;
@@ -112,7 +109,6 @@ public class QueuedStatementResource
     private static final Duration MAX_WAIT_TIME = new Duration(1, SECONDS);
     private static final DataSize TARGET_RESULT_SIZE = new DataSize(1, MEGABYTE);
     private static final Ordering<Comparable<Duration>> WAIT_ORDERING = Ordering.natural().nullsLast();
-    private static final Duration NO_DURATION = new Duration(0, MILLISECONDS);
 
     private final DispatchManager dispatchManager;
     private final ExecutingQueryResponseProvider executingQueryResponseProvider;
@@ -366,70 +362,6 @@ public class QueuedStatementResource
         }
     }
 
-    private static URI getQueryHtmlUri(QueryId queryId, UriInfo uriInfo, String xForwardedProto, String xPrestoPrefixUrl)
-    {
-        URI uri = uriInfo.getRequestUriBuilder()
-                .scheme(getScheme(xForwardedProto, uriInfo))
-                .replacePath("ui/query.html")
-                .replaceQuery(queryId.toString())
-                .build();
-        return QueryResourceUtil.prependUri(uri, xPrestoPrefixUrl);
-    }
-
-    private static URI getQueuedUri(QueryId queryId, String slug, long token, UriInfo uriInfo, String xForwardedProto, String xPrestoPrefixUrl, boolean binaryResults)
-    {
-        UriBuilder uriBuilder = uriInfo.getBaseUriBuilder()
-                .scheme(getScheme(xForwardedProto, uriInfo))
-                .replacePath("/v1/statement/queued")
-                .path(queryId.toString())
-                .path(String.valueOf(token))
-                .replaceQuery("")
-                .queryParam("slug", slug);
-        if (binaryResults) {
-            uriBuilder.queryParam("binaryResults", "true");
-        }
-        URI uri = uriBuilder.build();
-        return QueryResourceUtil.prependUri(uri, xPrestoPrefixUrl);
-    }
-
-    private static String getScheme(String xForwardedProto, @Context UriInfo uriInfo)
-    {
-        return isNullOrEmpty(xForwardedProto) ? uriInfo.getRequestUri().getScheme() : xForwardedProto;
-    }
-
-    private static QueryResults createQueryResults(
-            QueryId queryId,
-            URI nextUri,
-            Optional<QueryError> queryError,
-            UriInfo uriInfo,
-            String xForwardedProto,
-            String xPrestoPrefixUrl,
-            Duration elapsedTime,
-            Optional<Duration> queuedTime,
-            Duration waitingForPrerequisitesTime)
-    {
-        QueryState state = queryError.map(error -> FAILED).orElse(queuedTime.isPresent() ? QUEUED : WAITING_FOR_PREREQUISITES);
-        return new QueryResults(
-                queryId.toString(),
-                getQueryHtmlUri(queryId, uriInfo, xForwardedProto, xPrestoPrefixUrl),
-                null,
-                nextUri,
-                null,
-                null,
-                null,
-                StatementStats.builder()
-                        .setState(state.toString())
-                        .setWaitingForPrerequisites(state == WAITING_FOR_PREREQUISITES)
-                        .setElapsedTimeMillis(elapsedTime.toMillis())
-                        .setQueuedTimeMillis(queuedTime.orElse(NO_DURATION).toMillis())
-                        .setWaitingForPrerequisitesTimeMillis(waitingForPrerequisitesTime.toMillis())
-                        .build(),
-                queryError.orElse(null),
-                ImmutableList.of(),
-                null,
-                null);
-    }
-
     private static WebApplicationException badRequest(Status status, String message)
     {
         throw new WebApplicationException(
@@ -640,7 +572,7 @@ public class QueuedStatementResource
             Optional<QueryError> queryError = dispatchInfo.getFailureInfo()
                     .map(this::toQueryError);
 
-            return QueuedStatementResource.createQueryResults(
+            return createQueuedQueryResults(
                     queryId,
                     nextUri,
                     queryError,
