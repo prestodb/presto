@@ -72,6 +72,10 @@ void to_json(json& j, const std::shared_ptr<FunctionHandle>& p) {
     j = *std::static_pointer_cast<SqlFunctionHandle>(p);
     return;
   }
+  if (type == "native") {
+    j = *std::static_pointer_cast<SqlFunctionHandle>(p);
+    return;
+  }
 
   throw TypeError(type + " no abstract type FunctionHandle ");
 }
@@ -92,6 +96,13 @@ void from_json(const json& j, std::shared_ptr<FunctionHandle>& p) {
     return;
   }
   if (type == "json_file") {
+    std::shared_ptr<SqlFunctionHandle> k =
+        std::make_shared<SqlFunctionHandle>();
+    j.get_to(*k);
+    p = std::static_pointer_cast<FunctionHandle>(k);
+    return;
+  }
+  if (type == "native") {
     std::shared_ptr<SqlFunctionHandle> k =
         std::make_shared<SqlFunctionHandle>();
     j.get_to(*k);
@@ -1772,6 +1783,46 @@ void from_json(const json& j, Signature& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+
+// NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
+static const std::pair<SqlFunctionVisibility, json>
+    SqlFunctionVisibility_enum_table[] = { // NOLINT: cert-err58-cpp
+        {SqlFunctionVisibility::PUBLIC, "PUBLIC"},
+        {SqlFunctionVisibility::HIDDEN, "HIDDEN"},
+        {SqlFunctionVisibility::EXPERIMENTAL, "EXPERIMENTAL"}};
+void to_json(json& j, const SqlFunctionVisibility& e) {
+  static_assert(
+      std::is_enum<SqlFunctionVisibility>::value,
+      "SqlFunctionVisibility must be an enum!");
+  const auto* it = std::find_if(
+      std::begin(SqlFunctionVisibility_enum_table),
+      std::end(SqlFunctionVisibility_enum_table),
+      [e](const std::pair<SqlFunctionVisibility, json>& ej_pair) -> bool {
+        return ej_pair.first == e;
+      });
+  j = ((it != std::end(SqlFunctionVisibility_enum_table))
+           ? it
+           : std::begin(SqlFunctionVisibility_enum_table))
+          ->second;
+}
+void from_json(const json& j, SqlFunctionVisibility& e) {
+  static_assert(
+      std::is_enum<SqlFunctionVisibility>::value,
+      "SqlFunctionVisibility must be an enum!");
+  const auto* it = std::find_if(
+      std::begin(SqlFunctionVisibility_enum_table),
+      std::end(SqlFunctionVisibility_enum_table),
+      [&j](const std::pair<SqlFunctionVisibility, json>& ej_pair) -> bool {
+        return ej_pair.second == j;
+      });
+  e = ((it != std::end(SqlFunctionVisibility_enum_table))
+           ? it
+           : std::begin(SqlFunctionVisibility_enum_table))
+          ->first;
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 
 void to_json(json& j, const SqlInvokedFunction& p) {
   j = json::object();
@@ -1797,6 +1848,20 @@ void to_json(json& j, const SqlInvokedFunction& p) {
       "RoutineCharacteristics",
       "routineCharacteristics");
   to_json_key(j, "body", p.body, "SqlInvokedFunction", "String", "body");
+  to_json_key(
+      j,
+      "functionVisibility",
+      p.functionVisibility,
+      "SqlInvokedFunction",
+      "SqlFunctionVisibility",
+      "functionVisibility");
+  to_json_key(
+      j,
+      "variableArity",
+      p.variableArity,
+      "SqlInvokedFunction",
+      "bool",
+      "variableArity");
   to_json_key(
       j,
       "signature",
@@ -1836,6 +1901,20 @@ void from_json(const json& j, SqlInvokedFunction& p) {
       "RoutineCharacteristics",
       "routineCharacteristics");
   from_json_key(j, "body", p.body, "SqlInvokedFunction", "String", "body");
+  from_json_key(
+      j,
+      "functionVisibility",
+      p.functionVisibility,
+      "SqlInvokedFunction",
+      "SqlFunctionVisibility",
+      "functionVisibility");
+  from_json_key(
+      j,
+      "variableArity",
+      p.variableArity,
+      "SqlInvokedFunction",
+      "bool",
+      "variableArity");
   from_json_key(
       j,
       "signature",
@@ -11622,12 +11701,12 @@ void from_json(const json& j, Specification& p) {
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 SqlFunctionHandle::SqlFunctionHandle() noexcept {
-  _type = "json_file";
+  _type = "native";
 }
 
 void to_json(json& j, const SqlFunctionHandle& p) {
   j = json::object();
-  j["@type"] = "json_file";
+  j["@type"] = "native";
   to_json_key(
       j,
       "functionId",

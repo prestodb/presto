@@ -94,6 +94,8 @@ public interface QueryRunner
 
     void loadFunctionNamespaceManager(String functionNamespaceManagerName, String catalogName, Map<String, String> properties);
 
+    void loadNativeFunctionNamespaceManager(String functionNamespaceManagerName, String catalogName, Map<String, String> properties);
+
     Lock getExclusiveLock();
 
     class MaterializedResultWithPlan

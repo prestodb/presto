@@ -52,6 +52,10 @@ public class NativeQueryRunnerUtils
                 .put("inline-sql-functions", "false")
                 .put("use-alternative-function-signatures", "true")
                 .put("experimental.table-writer-merge-operator-enabled", "false")
+//                 Set As 0 for now
+                .put("coordinator-sidecar-enabled", "true")
+                .put("list-built-in-functions-only", "false")
+                .put("presto.default-namespace", "native.default")
                 .build();
     }
 

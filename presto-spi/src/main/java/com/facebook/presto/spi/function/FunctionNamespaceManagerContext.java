@@ -14,20 +14,30 @@
 package com.facebook.presto.spi.function;
 
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.spi.NodeManager;
+
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
 public class FunctionNamespaceManagerContext
 {
     private final TypeManager typeManager;
+    private final Optional<NodeManager> nodeManager;
 
-    public FunctionNamespaceManagerContext(TypeManager typeManager)
+    public FunctionNamespaceManagerContext(TypeManager typeManager, Optional<NodeManager> nodeManager)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
     }
 
     public TypeManager getTypeManager()
     {
         return typeManager;
+    }
+
+    public NodeManager getNodeManager()
+    {
+        return nodeManager.orElseThrow(() -> new IllegalArgumentException("nodeManager is not present"));
     }
 }

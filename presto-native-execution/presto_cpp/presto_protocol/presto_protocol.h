@@ -711,11 +711,18 @@ void to_json(json& j, const Signature& p);
 void from_json(const json& j, Signature& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+enum class SqlFunctionVisibility { PUBLIC, HIDDEN, EXPERIMENTAL };
+extern void to_json(json& j, const SqlFunctionVisibility& e);
+extern void from_json(const json& j, SqlFunctionVisibility& e);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 struct SqlInvokedFunction {
   List<Parameter> parameters = {};
   String description = {};
   RoutineCharacteristics routineCharacteristics = {};
   String body = {};
+  SqlFunctionVisibility functionVisibility = {};
+  bool variableArity = {};
   Signature signature = {};
   SqlFunctionId functionId = {};
 };

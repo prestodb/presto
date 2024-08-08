@@ -32,7 +32,8 @@ public class TestPluginManagerConfig
                 .setPlugins((String) null)
                 .setDisabledConnectors("")
                 .setMavenLocalRepository(ArtifactResolver.USER_LOCAL_REPO)
-                .setMavenRemoteRepository(ArtifactResolver.MAVEN_CENTRAL_URI));
+                .setMavenRemoteRepository(ArtifactResolver.MAVEN_CENTRAL_URI)
+                .setDefaultNamespacePrefix("presto.default."));
     }
 
     @Test
@@ -44,6 +45,7 @@ public class TestPluginManagerConfig
                 .put("plugin.disabled-connectors", "scuba,prism")
                 .put("maven.repo.local", "local-repo")
                 .put("maven.repo.remote", "remote-a,remote-b")
+                .put("presto.default-namespace", "native.default.")
                 .build();
 
         PluginManagerConfig expected = new PluginManagerConfig()
@@ -51,7 +53,8 @@ public class TestPluginManagerConfig
                 .setPlugins(ImmutableList.of("a", "b", "c"))
                 .setDisabledConnectors("scuba,prism")
                 .setMavenLocalRepository("local-repo")
-                .setMavenRemoteRepository(ImmutableList.of("remote-a", "remote-b"));
+                .setMavenRemoteRepository(ImmutableList.of("remote-a", "remote-b"))
+                .setDefaultNamespacePrefix("native.default.");
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

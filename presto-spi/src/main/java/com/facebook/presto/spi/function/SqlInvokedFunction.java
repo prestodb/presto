@@ -47,7 +47,8 @@ public class SqlInvokedFunction
     private final String description;
     private final RoutineCharacteristics routineCharacteristics;
     private final String body;
-
+    private final SqlFunctionVisibility functionVisibility;
+    private final boolean variableArity;
     private final Signature signature;
     private final SqlFunctionId functionId;
     private final FunctionVersion functionVersion;
@@ -65,6 +66,8 @@ public class SqlInvokedFunction
             @JsonProperty("description") String description,
             @JsonProperty("routineCharacteristics") RoutineCharacteristics routineCharacteristics,
             @JsonProperty("body") String body,
+            @JsonProperty("functionVisibility") SqlFunctionVisibility functionVisibility,
+            @JsonProperty("variableArity") boolean variableArity,
             @JsonProperty("signature") Signature signature,
             @JsonProperty("functionId") SqlFunctionId functionId)
     {
@@ -72,7 +75,9 @@ public class SqlInvokedFunction
         this.description = description;
         this.routineCharacteristics = routineCharacteristics;
         this.body = body;
+        this.functionVisibility = functionVisibility;
         this.signature = signature;
+        this.variableArity = variableArity;
         this.functionId = functionId;
         this.functionVersion = notVersioned();
         this.functionHandle = Optional.empty();
@@ -89,7 +94,7 @@ public class SqlInvokedFunction
             String body,
             FunctionVersion version)
     {
-        this(functionName, parameters, emptyList(), returnType, description, routineCharacteristics, body, version, SCALAR, Optional.empty());
+        this(functionName, parameters, emptyList(), returnType, description, routineCharacteristics, body, PUBLIC, false, version, SCALAR, Optional.empty());
     }
 
     public SqlInvokedFunction(
@@ -103,8 +108,9 @@ public class SqlInvokedFunction
             FunctionKind kind,
             Optional<AggregationFunctionMetadata> aggregationMetadata)
     {
-        this(functionName, parameters, emptyList(), returnType, description, routineCharacteristics, body, version, kind, aggregationMetadata);
+        this(functionName, parameters, emptyList(), returnType, description, routineCharacteristics, body, PUBLIC, false, version, kind, aggregationMetadata);
     }
+
     public SqlInvokedFunction(
             QualifiedObjectName functionName,
             List<Parameter> parameters,
@@ -113,6 +119,8 @@ public class SqlInvokedFunction
             String description,
             RoutineCharacteristics routineCharacteristics,
             String body,
+            SqlFunctionVisibility functionVisibility,
+            boolean variableArity,
             FunctionVersion version,
             FunctionKind kind,
             Optional<AggregationFunctionMetadata> aggregationMetadata)
@@ -121,12 +129,14 @@ public class SqlInvokedFunction
         this.description = requireNonNull(description, "description is null");
         this.routineCharacteristics = requireNonNull(routineCharacteristics, "routineCharacteristics is null");
         this.body = requireNonNull(body, "body is null");
+        this.functionVisibility = requireNonNull(functionVisibility, "functionVisibility is null");
+        this.variableArity = requireNonNull(variableArity, "variableArity is null");
 
         List<TypeSignature> argumentTypes = parameters.stream()
                 .map(Parameter::getType)
                 .collect(collectingAndThen(toList(), Collections::unmodifiableList));
 
-        this.signature = new Signature(functionName, kind, typeVariableConstraints, emptyList(), returnType, argumentTypes, false);
+        this.signature = new Signature(functionName, kind, typeVariableConstraints, emptyList(), returnType, argumentTypes, variableArity);
         this.functionId = new SqlFunctionId(functionName, argumentTypes);
         this.functionVersion = requireNonNull(version, "version is null");
         this.functionHandle = version.hasVersion() ? Optional.of(new SqlFunctionHandle(this.functionId, version.toString())) : Optional.empty();
@@ -145,10 +155,13 @@ public class SqlInvokedFunction
         return new SqlInvokedFunction(
                 signature.getName(),
                 parameters,
+                signature.getTypeVariableConstraints(),
                 signature.getReturnType(),
                 description,
                 routineCharacteristics,
                 body,
+                functionVisibility,
+                variableArity,
                 FunctionVersion.withVersion(version),
                 signature.getKind(),
                 aggregationMetadata);
@@ -165,7 +178,7 @@ public class SqlInvokedFunction
     @Override
     public SqlFunctionVisibility getVisibility()
     {
-        return PUBLIC;
+        return functionVisibility;
     }
 
     @Override
@@ -231,6 +244,11 @@ public class SqlInvokedFunction
         return functionVersion;
     }
 
+    public boolean getVariableArity()
+    {
+        return variableArity;
+    }
+
     public Optional<AggregationFunctionMetadata> getAggregationMetadata()
     {
         return aggregationMetadata;
@@ -261,6 +279,8 @@ public class SqlInvokedFunction
                 && Objects.equals(description, function.description)
                 && Objects.equals(routineCharacteristics, function.routineCharacteristics)
                 && Objects.equals(body, function.body)
+                && Objects.equals(functionVisibility, function.functionVisibility)
+                && Objects.equals(variableArity, function.variableArity)
                 && Objects.equals(signature, function.signature)
                 && Objects.equals(aggregationMetadata, function.aggregationMetadata);
     }
@@ -279,6 +299,8 @@ public class SqlInvokedFunction
                 && Objects.equals(description, o.description)
                 && Objects.equals(routineCharacteristics, o.routineCharacteristics)
                 && Objects.equals(body, o.body)
+                && Objects.equals(functionVisibility, o.functionVisibility)
+                && Objects.equals(variableArity, o.variableArity)
                 && Objects.equals(signature, o.signature)
                 && Objects.equals(functionId, o.functionId)
                 && Objects.equals(functionHandle, o.functionHandle)
@@ -288,7 +310,7 @@ public class SqlInvokedFunction
     @Override
     public int hashCode()
     {
-        return Objects.hash(parameters, description, routineCharacteristics, body, signature, functionId, functionHandle);
+        return Objects.hash(parameters, description, routineCharacteristics, body, functionVisibility, variableArity, signature, functionId, functionHandle);
     }
 
     @Override
@@ -305,6 +327,8 @@ public class SqlInvokedFunction
                 signature.getKind(),
                 signature.getKind() == AGGREGATE ? ", " + getAggregationMetadata().get() : "",
                 body,
+                functionVisibility,
+                variableArity,
                 routineCharacteristics);
     }
 }

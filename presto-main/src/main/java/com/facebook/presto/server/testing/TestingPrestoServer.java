@@ -54,6 +54,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.resourcemanager.ResourceManagerClusterStateProvider;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.server.GracefulShutdownHandler;
+import com.facebook.presto.server.NativeFunctionNamespaceManagerProvider;
 import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.server.ServerInfoResource;
 import com.facebook.presto.server.ServerMainModule;
@@ -61,6 +62,7 @@ import com.facebook.presto.server.ShutdownAction;
 import com.facebook.presto.server.security.ServerSecurityModule;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.CoordinatorPlugin;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.eventlistener.EventListener;
@@ -172,6 +174,8 @@ public class TestingPrestoServer
     private final boolean coordinator;
     private final boolean nodeSchedulerIncludeCoordinator;
     private final ServerInfoResource serverInfoResource;
+
+    private final NativeFunctionNamespaceManagerProvider nativeFunctionNamespaceManagerProvider;
     private final ResourceManagerClusterStateProvider clusterStateProvider;
 
     public static class TestShutdownAction
@@ -429,6 +433,7 @@ public class TestingPrestoServer
         announcer = injector.getInstance(Announcer.class);
         requestBlocker = injector.getInstance(RequestBlocker.class);
         serverInfoResource = injector.getInstance(ServerInfoResource.class);
+        nativeFunctionNamespaceManagerProvider = injector.getInstance(NativeFunctionNamespaceManagerProvider.class);
 
         // Announce Thrift server address
         DriftServer driftServer = injector.getInstance(DriftServer.class);
@@ -546,6 +551,11 @@ public class TestingPrestoServer
         }
         updateConnectorIdAnnouncement(announcer, connectorId, nodeManager);
         return connectorId;
+    }
+
+    public NodeManager getConnectorAwareNodeManager()
+    {
+        return nativeFunctionNamespaceManagerProvider.getNodeManager();
     }
 
     public Path getDataDirectory()

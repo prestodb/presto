@@ -11,11 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.functionNamespace.json;
+package com.facebook.presto.functionNamespace.prestissimo;
 
-import com.facebook.presto.functionNamespace.UdfFunctionSignatureMap;
+import com.facebook.presto.spi.CoordinatorPlugin;
+import com.facebook.presto.spi.function.FunctionNamespaceManagerFactory;
+import com.google.common.collect.ImmutableList;
 
-public interface FunctionDefinitionProvider
+public class NativeFunctionNamespaceManagerPlugin
+        implements CoordinatorPlugin
 {
-    UdfFunctionSignatureMap getUdfDefinition(String filePath);
+    @Override
+    public Iterable<FunctionNamespaceManagerFactory> getFunctionNamespaceManagerFactories()
+    {
+        return ImmutableList.of(new NativeFunctionNamespaceManagerFactory());
+    }
 }

@@ -181,6 +181,12 @@ public final class StandaloneQueryRunner
         return server.getAccessControl();
     }
 
+    @Override
+    public void loadNativeFunctionNamespaceManager(String functionNamespaceManagerName, String catalogName, Map<String, String> properties)
+    {
+        throw new UnsupportedOperationException();
+    }
+
     public TestingPrestoServer getServer()
     {
         return server;
@@ -240,7 +246,7 @@ public final class StandaloneQueryRunner
     @Override
     public void loadFunctionNamespaceManager(String functionNamespaceManagerName, String catalogName, Map<String, String> properties)
     {
-        server.getMetadata().getFunctionAndTypeManager().loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties);
+        server.getMetadata().getFunctionAndTypeManager().loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties, Optional.empty());
     }
 
     @Override

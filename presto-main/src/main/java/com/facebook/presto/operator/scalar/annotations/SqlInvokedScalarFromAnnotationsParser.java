@@ -22,6 +22,7 @@ import com.facebook.presto.spi.function.Parameter;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
+import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.function.SqlInvokedScalarFunction;
 import com.facebook.presto.spi.function.SqlParameter;
@@ -173,6 +174,8 @@ public final class SqlInvokedScalarFromAnnotationsParser
                         functionDescription,
                         routineCharacteristics,
                         body,
+                        SqlFunctionVisibility.PUBLIC,
+                        false,
                         notVersioned(),
                         SCALAR,
                         Optional.empty()))
