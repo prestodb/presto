@@ -28,15 +28,19 @@ public class TestIcebergFileWriter {
     @Inject
     IcebergFileWriterFactory icebergFileWriterFactory;
 
+    @Inject
+    public TestIcebergFileWriter(IcebergFileWriterFactory icebergFileWriterFactory)
+    {
+        this.icebergFileWriterFactory = icebergFileWriterFactory;
+    }
+
     @Test
     public void testWriteParquetFileWithLogicalTypes()
     {
         File temporaryDirectory = createTempDir();
         File parquetFile = new File(temporaryDirectory, randomUUID().toString());
 
-        Schema icebergSchema = new Schema(
-                Types.NestedField.optional(0, "timestamp_micros", Types.TimestampType.withoutZone())
-        );
+        Schema icebergSchema = new Schema(Types.NestedField.optional(0, "timestamp_micros", Types.TimestampType.withoutZone()));
 
         HiveFileWriter writer = icebergFileWriterFactory.createFileWriter(
                 new Path(parquetFile.getPath()),
@@ -46,8 +50,6 @@ public class TestIcebergFileWriter {
                 new HdfsContext(SESSION),
                 FileFormat.PARQUET,
                 MetricsConfig.getDefault());
-
-        writer.commit();
 
         try {
             FileParquetDataSource dataSource = new FileParquetDataSource(parquetFile);
