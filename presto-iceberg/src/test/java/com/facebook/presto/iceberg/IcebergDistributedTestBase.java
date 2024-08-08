@@ -753,7 +753,17 @@ public abstract class IcebergDistributedTestBase
     @Test
     public void testStringFilters()
     {
-        // Type not supported for Iceberg: CHAR(10). Only test VARCHAR(10).
+        assertUpdate("CREATE TABLE test_charn_filter (shipmode CHAR(10))");
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_charn_filter"));
+        assertTableColumnNames("test_charn_filter", "shipmode");
+        assertUpdate("INSERT INTO test_charn_filter SELECT cast (shipmode as char(10)) FROM lineitem", 60175);
+
+        assertQuery("SELECT count(*) FROM test_charn_filter WHERE shipmode = 'AIR'", "VALUES (8491)");
+        assertQuery("SELECT count(*) FROM test_charn_filter WHERE shipmode = 'AIR    '", "VALUES (8491)");
+        assertQuery("SELECT count(*) FROM test_charn_filter WHERE shipmode = 'AIR       '", "VALUES (8491)");
+        assertQuery("SELECT count(*) FROM test_charn_filter WHERE shipmode = 'AIR            '", "VALUES (8491)");
+        assertQuery("SELECT count(*) FROM test_charn_filter WHERE shipmode = 'NONEXIST'", "VALUES (0)");
+
         assertUpdate("CREATE TABLE test_varcharn_filter (shipmode VARCHAR(10))");
         assertTrue(getQueryRunner().tableExists(getSession(), "test_varcharn_filter"));
         assertTableColumnNames("test_varcharn_filter", "shipmode");
@@ -764,6 +774,38 @@ public abstract class IcebergDistributedTestBase
         assertQuery("SELECT count(*) FROM test_varcharn_filter WHERE shipmode = 'AIR       '", "VALUES (0)");
         assertQuery("SELECT count(*) FROM test_varcharn_filter WHERE shipmode = 'AIR            '", "VALUES (0)");
         assertQuery("SELECT count(*) FROM test_varcharn_filter WHERE shipmode = 'NONEXIST'", "VALUES (0)");
+    }
+
+    @Test
+    public void testStringFiltersInRowType()
+    {
+        try {
+            assertUpdate("CREATE TABLE test_charn_filter_rowtype (shipmode ROW(a CHAR(10)))");
+            assertTrue(getQueryRunner().tableExists(getSession(), "test_charn_filter_rowtype"));
+            assertTableColumnNames("test_charn_filter_rowtype", "shipmode");
+            assertUpdate("INSERT INTO test_charn_filter_rowtype SELECT row(cast (shipmode as char(10))) FROM lineitem", 60175);
+
+            assertQuery("SELECT count(*) FROM test_charn_filter_rowtype WHERE shipmode.a = 'AIR'", "VALUES (8491)");
+            assertQuery("SELECT count(*) FROM test_charn_filter_rowtype WHERE shipmode.a = 'AIR    '", "VALUES (8491)");
+            assertQuery("SELECT count(*) FROM test_charn_filter_rowtype WHERE shipmode.a = 'AIR       '", "VALUES (8491)");
+            assertQuery("SELECT count(*) FROM test_charn_filter_rowtype WHERE shipmode.a = 'AIR            '", "VALUES (8491)");
+            assertQuery("SELECT count(*) FROM test_charn_filter_rowtype WHERE shipmode.a = 'NONEXIST'", "VALUES (0)");
+
+            assertUpdate("CREATE TABLE test_varcharn_filter_rowtype (shipmode ROW(a VARCHAR(10)))");
+            assertTrue(getQueryRunner().tableExists(getSession(), "test_varcharn_filter_rowtype"));
+            assertTableColumnNames("test_varcharn_filter_rowtype", "shipmode");
+            assertUpdate("INSERT INTO test_varcharn_filter_rowtype SELECT row(shipmode) FROM lineitem", 60175);
+
+            assertQuery("SELECT count(*) FROM test_varcharn_filter_rowtype WHERE shipmode.a = 'AIR'", "VALUES (8491)");
+            assertQuery("SELECT count(*) FROM test_varcharn_filter_rowtype WHERE shipmode.a = 'AIR    '", "VALUES (0)");
+            assertQuery("SELECT count(*) FROM test_varcharn_filter_rowtype WHERE shipmode.a = 'AIR       '", "VALUES (0)");
+            assertQuery("SELECT count(*) FROM test_varcharn_filter_rowtype WHERE shipmode.a = 'AIR            '", "VALUES (0)");
+            assertQuery("SELECT count(*) FROM test_varcharn_filter_rowtype WHERE shipmode.a = 'NONEXIST'", "VALUES (0)");
+        }
+        finally {
+            assertUpdate("drop table if exists test_charn_filter_rowtype");
+            assertUpdate("drop table if exists test_varcharn_filter_rowtype");
+        }
     }
 
     @Test

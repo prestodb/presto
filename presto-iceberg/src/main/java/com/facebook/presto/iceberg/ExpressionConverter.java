@@ -21,6 +21,7 @@ import com.facebook.presto.common.predicate.SortedRangeSet;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.predicate.ValueSet;
 import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DateType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Decimals;
@@ -117,6 +118,10 @@ public final class ExpressionConverter
             return alwaysTrue();
         }
 
+        if (type instanceof CharType) {
+            return alwaysTrue();
+        }
+
         ValueSet domainValues = domain.getValues();
         Expression expression = null;
         if (domain.isNullAllowed()) {
@@ -201,7 +206,7 @@ public final class ExpressionConverter
             return MILLISECONDS.toMicros((Long) marker.getValue());
         }
 
-        if (type instanceof VarcharType) {
+        if (type instanceof VarcharType || type instanceof CharType) {
             return ((Slice) marker.getValue()).toStringUtf8();
         }
 

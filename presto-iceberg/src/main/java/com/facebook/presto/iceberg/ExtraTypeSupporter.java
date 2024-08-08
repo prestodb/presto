@@ -13,16 +13,21 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.Type;
 import com.google.common.collect.ImmutableSet;
+import org.apache.iceberg.types.Types;
 import org.apache.iceberg.util.Pair;
 
 import java.util.Optional;
 import java.util.Set;
 
+import static org.apache.iceberg.types.Type.TypeID.STRING;
+
 public class ExtraTypeSupporter
 {
-    private static Set<ExtraTypeSupportRule> extraTypeSupportRules = ImmutableSet.of();
+    private static Set<ExtraTypeSupportRule> extraTypeSupportRules = ImmutableSet.of(
+            new CharTypeSupportRule());
 
     private ExtraTypeSupporter()
     {}
@@ -54,5 +59,36 @@ public class ExtraTypeSupporter
         Optional<Type> getPrestoTypeWithExtraInfo(org.apache.iceberg.types.Type type, String typeExtraInfo);
 
         Optional<Pair<org.apache.iceberg.types.Type, String>> getIcebergTypeWithExtraInfo(Type type);
+    }
+
+    static class CharTypeSupportRule
+            implements ExtraTypeSupportRule
+    {
+        @Override
+        public Optional<Type> getPrestoTypeWithExtraInfo(org.apache.iceberg.types.Type type, String typeExtraInfo)
+        {
+            if (type.typeId() == STRING) {
+                try {
+                    int length = Integer.valueOf(typeExtraInfo);
+                    if (length > 0) {
+                        return Optional.of(CharType.createCharType(length));
+                    }
+                }
+                catch (NumberFormatException e) {
+                    return Optional.empty();
+                }
+            }
+            return Optional.empty();
+        }
+
+        @Override
+        public Optional<Pair<org.apache.iceberg.types.Type, String>> getIcebergTypeWithExtraInfo(Type type)
+        {
+            if (type instanceof CharType) {
+                int length = ((CharType) type).getLength();
+                return Optional.of(Pair.of(Types.StringType.get(), String.valueOf(length)));
+            }
+            return Optional.empty();
+        }
     }
 }

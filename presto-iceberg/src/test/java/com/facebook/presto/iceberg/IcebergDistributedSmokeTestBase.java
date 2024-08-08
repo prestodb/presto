@@ -104,6 +104,48 @@ public class IcebergDistributedSmokeTestBase
     }
 
     @Test
+    public void testChar()
+    {
+        try {
+            assertUpdate("CREATE TABLE test_insert_char (x bigint comment 'comment for x', y char(10) comment 'comment for y')");
+            assertUpdate("INSERT INTO test_insert_char VALUES (1, 'a'), (2, 'db'), (3, 'test111111')", 3);
+            assertQueryFails("INSERT INTO test_insert_char VALUES (4, 'test11111122')", ".*Mismatch at column 2: 'y' is of type char\\(10\\) but expression is of type varchar\\(12\\)");
+            assertQuery("SELECT * FROM test_insert_char",
+                    "VALUES" +
+                            "(1, 'a         ')," +
+                            "(2, 'db        ')," +
+                            "(3, 'test111111')");
+            assertQuery("SELECT length(y) from test_insert_char", "VALUES 10, 10, 10");
+            assertQuery("show columns in test_insert_char",
+                    "VALUES" +
+                            "('x', 'bigint', '', 'comment for x')," +
+                            "('y', 'char(10)', '', 'comment for y')");
+        }
+        finally {
+            assertUpdate("DROP TABLE if exists test_insert_char");
+        }
+    }
+
+    @Test
+    public void testCharInRowType()
+    {
+        try {
+            assertUpdate("CREATE TABLE test_insert_char_in_row (x bigint, y row(c char(10), r row(d char(10))))");
+            assertUpdate("INSERT INTO test_insert_char_in_row VALUES (1, row('a', row('hello'))), (2, row('db', row('hello11111'))), (3, row('cdef123456', row('hello22222')))", 3);
+            assertQueryFails("INSERT INTO test_insert_char_in_row VALUES (4, row('cdef12345678', row('hello2222222')))", ".*Mismatch at column 2: 'y\\.c' is of type char\\(10\\) but expression is of type varchar\\(12\\)");
+            assertQuery("SELECT * FROM test_insert_char_in_row",
+                    "VALUES" +
+                            "(1, row('a         ', row('hello     ')))," +
+                            "(2, row('db        ', row('hello11111')))," +
+                            "(3, row('cdef123456', row('hello22222')))");
+            assertQuery("SELECT length(y.c), length(y.r.d) from test_insert_char_in_row", "VALUES (10, 10), (10, 10), (10, 10)");
+        }
+        finally {
+            assertUpdate("DROP TABLE if exists test_insert_char_in_row");
+        }
+    }
+
+    @Test
     @Override
     public void testDescribeTable()
     {
