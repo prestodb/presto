@@ -243,6 +243,102 @@ public class NativeFunctionDefinitionProvider
                     "      \"typeVariableConstraints\": [],\n" +
                     "      \"variableArity\": false\n" +
                     "    }\n" +
+                    "  ],\n" +
+                    "  \"count\": [\n" +
+                    "    {\n" +
+                    "      \"aggregateMetadata\": {\n" +
+                    "        \"intermediateType\": \"bigint\",\n" +
+                    "        \"isOrderSensitive\": true\n" +
+                    "      },\n" +
+                    "      \"docString\": \"native.default.count\",\n" +
+                    "      \"functionKind\": \"AGGREGATE\",\n" +
+                    "      \"functionVisibility\": \"PUBLIC\",\n" +
+                    "      \"outputType\": \"bigint\",\n" +
+                    "      \"paramTypes\": [],\n" +
+                    "      \"routineCharacteristics\": {\n" +
+                    "        \"determinism\": \"DETERMINISTIC\",\n" +
+                    "        \"language\": \"CPP\",\n" +
+                    "        \"nullCallClause\": \"CALLED_ON_NULL_INPUT\"\n" +
+                    "      },\n" +
+                    "      \"schema\": \"default\",\n" +
+                    "      \"typeVariableConstraints\": [],\n" +
+                    "      \"variableArity\": false\n" +
+                    "    },\n" +
+                    "    {\n" +
+                    "      \"aggregateMetadata\": {\n" +
+                    "        \"intermediateType\": \"bigint\",\n" +
+                    "        \"isOrderSensitive\": true\n" +
+                    "      },\n" +
+                    "      \"docString\": \"native.default.count\",\n" +
+                    "      \"functionKind\": \"AGGREGATE\",\n" +
+                    "      \"functionVisibility\": \"PUBLIC\",\n" +
+                    "      \"outputType\": \"bigint\",\n" +
+                    "      \"paramTypes\": [\n" +
+                    "        \"T\"\n" +
+                    "      ],\n" +
+                    "      \"routineCharacteristics\": {\n" +
+                    "        \"determinism\": \"DETERMINISTIC\",\n" +
+                    "        \"language\": \"CPP\",\n" +
+                    "        \"nullCallClause\": \"CALLED_ON_NULL_INPUT\"\n" +
+                    "      },\n" +
+                    "      \"schema\": \"default\",\n" +
+                    "      \"typeVariableConstraints\": [\n" +
+                    "        {\n" +
+                    "          \"comparableRequired\": false,\n" +
+                    "          \"name\": \"T\",\n" +
+                    "          \"nonDecimalNumericRequired\": false,\n" +
+                    "          \"orderableRequired\": false,\n" +
+                    "          \"variadicBound\": \"\"\n" +
+                    "        }\n" +
+                    "      ],\n" +
+                    "      \"variableArity\": false\n" +
+                    "    }\n" +
+                    "  ],\n" +
+                    "  \"corr\": [\n" +
+                    "    {\n" +
+                    "      \"aggregateMetadata\": {\n" +
+                    "        \"intermediateType\": \"row(double,bigint,double,double,double,double)\",\n" +
+                    "        \"isOrderSensitive\": true\n" +
+                    "      },\n" +
+                    "      \"docString\": \"native.default.corr\",\n" +
+                    "      \"functionKind\": \"AGGREGATE\",\n" +
+                    "      \"functionVisibility\": \"PUBLIC\",\n" +
+                    "      \"outputType\": \"double\",\n" +
+                    "      \"paramTypes\": [\n" +
+                    "        \"double\",\n" +
+                    "        \"double\"\n" +
+                    "      ],\n" +
+                    "      \"routineCharacteristics\": {\n" +
+                    "        \"determinism\": \"DETERMINISTIC\",\n" +
+                    "        \"language\": \"CPP\",\n" +
+                    "        \"nullCallClause\": \"CALLED_ON_NULL_INPUT\"\n" +
+                    "      },\n" +
+                    "      \"schema\": \"default\",\n" +
+                    "      \"typeVariableConstraints\": [],\n" +
+                    "      \"variableArity\": false\n" +
+                    "    },\n" +
+                    "    {\n" +
+                    "      \"aggregateMetadata\": {\n" +
+                    "        \"intermediateType\": \"row(double,bigint,double,double,double,double)\",\n" +
+                    "        \"isOrderSensitive\": true\n" +
+                    "      },\n" +
+                    "      \"docString\": \"native.default.corr\",\n" +
+                    "      \"functionKind\": \"AGGREGATE\",\n" +
+                    "      \"functionVisibility\": \"PUBLIC\",\n" +
+                    "      \"outputType\": \"real\",\n" +
+                    "      \"paramTypes\": [\n" +
+                    "        \"real\",\n" +
+                    "        \"real\"\n" +
+                    "      ],\n" +
+                    "      \"routineCharacteristics\": {\n" +
+                    "        \"determinism\": \"DETERMINISTIC\",\n" +
+                    "        \"language\": \"CPP\",\n" +
+                    "        \"nullCallClause\": \"CALLED_ON_NULL_INPUT\"\n" +
+                    "      },\n" +
+                    "      \"schema\": \"default\",\n" +
+                    "      \"typeVariableConstraints\": [],\n" +
+                    "      \"variableArity\": false\n" +
+                    "    }\n" +
                     "  ]\n" +
                     "}";
             Map<String, List<JsonBasedUdfFunctionMetadata>> nativeFunctionSignatureMap = nativeFunctionSignatureMapJsonCodec.fromJson(responseBody);
