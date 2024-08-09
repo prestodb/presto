@@ -26,6 +26,7 @@ import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.type.TimeZoneNotSupportedException;
+import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.QueryId;
@@ -263,6 +264,40 @@ public class TestServer
     }
 
     @Test
+    public void testQueryWithPreMintedQueryIdAndSlug()
+    {
+        QueryId queryId = new QueryIdGenerator().createNextQueryId();
+        String slug = "xxx";
+        Request request = preparePost()
+                .setUri(uriFor("/v1/statement/queued/", queryId, slug))
+                .setBodyGenerator(createStaticBodyGenerator("show catalogs", UTF_8))
+                .setHeader(PRESTO_USER, "user")
+                .setHeader(PRESTO_SOURCE, "source")
+                .setHeader(PRESTO_CATALOG, "catalog")
+                .setHeader(PRESTO_SCHEMA, "schema")
+                .build();
+
+        QueryResults queryResults = client.execute(request, createJsonResponseHandler(QUERY_RESULTS_CODEC));
+
+        // verify slug in nextUri is same as requested
+        assertEquals(queryResults.getNextUri().getQuery(), "slug=xxx");
+
+        // verify nextUri points to requested query id
+        assertEquals(queryResults.getNextUri().getPath(), format("/v1/statement/queued/%s/1", queryId));
+
+        while (queryResults.getNextUri() != null) {
+            queryResults = client.execute(prepareGet().setUri(queryResults.getNextUri()).build(), createJsonResponseHandler(QUERY_RESULTS_CODEC));
+        }
+
+        if (queryResults.getError() != null) {
+            fail(queryResults.getError().toString());
+        }
+
+        // verify query id was passed down properly
+        assertEquals(server.getDispatchManager().getQueryInfo(queryId).getQueryId(), queryId);
+    }
+
+    @Test
     public void testTransactionSupport()
     {
         Request request = preparePost()
@@ -326,5 +361,14 @@ public class TestServer
     public URI uriFor(String path)
     {
         return HttpUriBuilder.uriBuilderFrom(server.getBaseUrl()).replacePath(path).build();
+    }
+
+    public URI uriFor(String path, QueryId queryId, String slug)
+    {
+        return HttpUriBuilder.uriBuilderFrom(server.getBaseUrl())
+                .replacePath(path)
+                .appendPath(queryId.getId())
+                .addParameter("slug", slug)
+                .build();
     }
 }

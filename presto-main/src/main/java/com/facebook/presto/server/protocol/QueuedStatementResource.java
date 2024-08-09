@@ -228,6 +228,53 @@ public class QueuedStatementResource
     }
 
     /**
+     * HTTP endpoint for submitting queries to the Presto Coordinator.
+     * Presto performs lazy execution. The submission of a query returns
+     * a placeholder for the result set, but the query gets
+     * scheduled/dispatched only when the client polls for results.
+     * This endpoint accepts a pre-minted queryId and slug, instead of
+     * generating it.
+     * @param statement The statement or sql query string submitted
+     * @param queryId Pre-minted query ID to associate with this query
+     * @param slug Pre-minted slug to protect this query
+     * @param xForwardedProto Forwarded protocol (http or https)
+     * @param servletRequest The http request
+     * @param uriInfo {@link javax.ws.rs.core.UriInfo}
+     * @return {@link javax.ws.rs.core.Response} HTTP response code
+     */
+    @POST
+    @Path("/v1/statement/queued/{queryId}")
+    @Produces(APPLICATION_JSON)
+    public Response postStatement(
+            String statement,
+            @PathParam("queryId") QueryId queryId,
+            @QueryParam("slug") String slug,
+            @DefaultValue("false") @QueryParam("binaryResults") boolean binaryResults,
+            @HeaderParam(X_FORWARDED_PROTO) String xForwardedProto,
+            @HeaderParam(PRESTO_PREFIX_URL) String xPrestoPrefixUrl,
+            @Context HttpServletRequest servletRequest,
+            @Context UriInfo uriInfo)
+    {
+        if (isNullOrEmpty(statement)) {
+            throw badRequest(BAD_REQUEST, "SQL statement is empty");
+        }
+
+        abortIfPrefixUrlInvalid(xPrestoPrefixUrl);
+
+        // TODO: For future cases we may want to start tracing from client. Then continuation of tracing
+        //       will be needed instead of creating a new trace here.
+        SessionContext sessionContext = new HttpRequestSessionContext(
+                servletRequest,
+                sqlParserOptions,
+                tracerProviderManager.getTracerProvider(),
+                Optional.of(sessionPropertyManager));
+        Query query = new Query(statement, sessionContext, dispatchManager, queryResultsProvider, 0, queryId, slug);
+        queries.put(query.getQueryId(), query);
+
+        return withCompressionConfiguration(Response.ok(query.getInitialQueryResults(uriInfo, xForwardedProto, xPrestoPrefixUrl, binaryResults)), compressionEnabled).build();
+    }
+
+    /**
      * HTTP endpoint for re-processing a failed query
      * @param queryId Query Identifier of the query to be retried
      * @param xForwardedProto Forwarded protocol (http or https)
@@ -455,7 +502,7 @@ public class QueuedStatementResource
         private final DispatchManager dispatchManager;
         private final LocalQueryProvider queryProvider;
         private final QueryId queryId;
-        private final String slug = "x" + randomUUID().toString().toLowerCase(ENGLISH).replace("-", "");
+        private final String slug;
         private final AtomicLong lastToken = new AtomicLong();
         private final int retryCount;
 
@@ -464,12 +511,25 @@ public class QueuedStatementResource
 
         public Query(String query, SessionContext sessionContext, DispatchManager dispatchManager, LocalQueryProvider queryResultsProvider, int retryCount)
         {
+            this(query, sessionContext, dispatchManager, queryResultsProvider, retryCount, dispatchManager.createQueryId(), createSlug());
+        }
+
+        public Query(
+                String query,
+                SessionContext sessionContext,
+                DispatchManager dispatchManager,
+                LocalQueryProvider queryResultsProvider,
+                int retryCount,
+                QueryId queryId,
+                String slug)
+        {
             this.query = requireNonNull(query, "query is null");
             this.sessionContext = requireNonNull(sessionContext, "sessionContext is null");
             this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
             this.queryProvider = requireNonNull(queryResultsProvider, "queryExecutor is null");
-            this.queryId = dispatchManager.createQueryId();
             this.retryCount = retryCount;
+            this.queryId = requireNonNull(queryId, "queryId is null");
+            this.slug = requireNonNull(slug, "slug is null");
         }
 
         /**
@@ -638,6 +698,11 @@ public class QueuedStatementResource
                     dispatchInfo.getElapsedTime(),
                     dispatchInfo.getQueuedTime(),
                     dispatchInfo.getWaitingForPrerequisitesTime());
+        }
+
+        private static String createSlug()
+        {
+            return "x" + randomUUID().toString().toLowerCase(ENGLISH).replace("-", "");
         }
 
         private URI getNextUri(long token, UriInfo uriInfo, String xForwardedProto, String xPrestoPrefixUrl, DispatchInfo dispatchInfo, boolean binaryResults)
