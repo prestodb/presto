@@ -34,6 +34,7 @@ import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.facebook.presto.hive.metastore.PrestoTableType;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
 import com.facebook.presto.hive.metastore.Table;
+import com.facebook.presto.iceberg.statistics.StatisticsFileCache;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
@@ -164,9 +165,10 @@ public class IcebergHiveMetadata
             JsonCodec<CommitTaskData> commitTaskCodec,
             NodeVersion nodeVersion,
             FilterStatsCalculatorService filterStatsCalculatorService,
-            IcebergHiveTableOperationsConfig hiveTableOeprationsConfig)
+            IcebergHiveTableOperationsConfig hiveTableOeprationsConfig,
+            StatisticsFileCache statisticsFileCache)
     {
-        super(typeManager, functionResolution, rowExpressionService, commitTaskCodec, nodeVersion);
+        super(typeManager, functionResolution, rowExpressionService, commitTaskCodec, nodeVersion, statisticsFileCache);
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.filterStatsCalculatorService = requireNonNull(filterStatsCalculatorService, "filterStatsCalculatorService is null");

@@ -254,6 +254,12 @@ public class TestDisjointRangeDomainHistogram
             }
             return Estimate.of(distribution.inverseCumulativeProbability(percentile));
         }
+
+        @Override
+        public long getMemoryUtilization()
+        {
+            return 0;
+        }
     }
 
     @Override
