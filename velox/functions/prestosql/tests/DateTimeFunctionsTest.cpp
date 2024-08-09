@@ -2558,6 +2558,23 @@ TEST_F(DateTimeFunctionsTest, dateDiffTimestamp) {
       dateDiff("invalid_unit", Timestamp(1, 0), Timestamp(0, 0)),
       "Unsupported datetime unit: invalid_unit");
 
+  // Check for integer overflow when result unit is month or larger.
+  EXPECT_EQ(
+      -622191233,
+      dateDiff("day", Timestamp(0, 0), Timestamp(9223372036854775, 0)));
+  EXPECT_EQ(
+      -88884461,
+      dateDiff("week", Timestamp(0, 0), Timestamp(9223372036854775, 0)));
+  VELOX_ASSERT_THROW(
+      dateDiff("month", Timestamp(0, 0), Timestamp(9223372036854775, 0)),
+      "Causes arithmetic overflow:");
+  VELOX_ASSERT_THROW(
+      dateDiff("quarter", Timestamp(0, 0), Timestamp(9223372036854775, 0)),
+      "Causes arithmetic overflow:");
+  VELOX_ASSERT_THROW(
+      dateDiff("year", Timestamp(0, 0), Timestamp(9223372036854775, 0)),
+      "Causes arithmetic overflow:");
+
   // Simple tests
   EXPECT_EQ(
       60 * 1000 + 500,
