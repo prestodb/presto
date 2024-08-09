@@ -376,6 +376,18 @@ void PrestoServer::run() {
             .sendWithEOM();
       });
 
+  if (systemConfig->prestoNativeSidecar()) {
+    sessionPropertyReporter_ = std::make_unique<SessionPropertyReporter>();
+    httpServer_->registerGet(
+        "/v1/properties/session",
+        [server = this](
+            proxygen::HTTPMessage* /*message*/,
+            const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+            proxygen::ResponseHandler* downstream) {
+          server->reportSessionProperties(downstream);
+        });
+  }
+
   if (systemConfig->enableRuntimeMetricsCollection()) {
     enableWorkerStatsReporting();
     if (folly::Singleton<velox::BaseStatsReporter>::try_get()) {
@@ -1311,6 +1323,12 @@ void PrestoServer::reportServerInfo(proxygen::ResponseHandler* downstream) {
       false,
       std::make_shared<protocol::Duration>(getUptime(start_))};
   http::sendOkResponse(downstream, json(serverInfo));
+}
+
+void PrestoServer::reportSessionProperties(
+    proxygen::ResponseHandler* downstream) {
+  http::sendOkResponse(
+      downstream, sessionPropertyReporter_->getSessionPropertiesMetadata());
 }
 
 void PrestoServer::reportNodeStatus(proxygen::ResponseHandler* downstream) {

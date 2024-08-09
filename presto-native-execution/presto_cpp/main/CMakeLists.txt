@@ -30,6 +30,7 @@ add_library(
   ServerOperation.cpp
   SignalHandler.cpp
   SystemConnector.cpp
+  SessionProperties.cpp
   TaskManager.cpp
   TaskResource.cpp
   PeriodicHeartbeatManager.cpp

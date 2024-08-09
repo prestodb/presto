@@ -25,6 +25,7 @@
 #include "presto_cpp/main/PeriodicHeartbeatManager.h"
 #include "presto_cpp/main/PrestoExchangeSource.h"
 #include "presto_cpp/main/PrestoServerOperations.h"
+#include "presto_cpp/main/SessionProperties.h"
 #include "velox/common/caching/AsyncDataCache.h"
 #include "velox/common/memory/MemoryAllocator.h"
 #if __has_include("filesystem")
@@ -191,6 +192,8 @@ class PrestoServer {
 
   void reportServerInfo(proxygen::ResponseHandler* downstream);
 
+  void reportSessionProperties(proxygen::ResponseHandler* downstream);
+
   void reportNodeStatus(proxygen::ResponseHandler* downstream);
 
   protocol::NodeStatus fetchNodeStatus();
@@ -249,6 +252,7 @@ class PrestoServer {
   std::chrono::steady_clock::time_point start_;
   std::unique_ptr<PeriodicTaskManager> periodicTaskManager_;
   std::unique_ptr<PrestoServerOperations> prestoServerOperations_;
+  std::unique_ptr<SessionPropertyReporter> sessionPropertyReporter_;
 
   // We update these members asynchronously and return in http requests w/o
   // delay.
