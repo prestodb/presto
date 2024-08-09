@@ -13,6 +13,7 @@
  */
 
 #include "presto_cpp/main/runtime-metrics/PrometheusStatsReporter.h"
+#include "velox/connectors/hive/storage_adapters/s3fs/S3Metrics.h"
 
 #include <prometheus/collectable.h>
 #include <prometheus/counter.h>
@@ -49,6 +50,24 @@ struct PrometheusStatsReporter::PrometheusImpl {
 PrometheusStatsReporter::PrometheusStatsReporter(
     const std::map<std::string, std::string>& labels) {
   impl_ = std::make_shared<PrometheusImpl>(labels);
+
+  // Register S3 metrics
+    registerMetricExportType(facebook::velox::filesystems::kMetricS3ActiveConnections, facebook::velox::StatType::COUNT);
+    registerMetricExportType(facebook::velox::filesystems::kMetricS3StartedUploads, facebook::velox::StatType::COUNT);
+    registerMetricExportType(facebook::velox::filesystems::kMetricS3FailedUploads, facebook::velox::StatType::COUNT);
+    registerMetricExportType(facebook::velox::filesystems::kMetricS3SuccessfulUploads, facebook::velox::StatType::COUNT);
+    registerMetricExportType(facebook::velox::filesystems::kMetricS3MetadataCalls, facebook::velox::StatType::COUNT);
+    registerMetricExportType(facebook::velox::filesystems::kMetricS3ListStatusCalls, facebook::velox::StatType::COUNT);
+    registerMetricExportType(facebook::velox::filesystems::kMetricS3ListLocatedStatusCalls, facebook::velox::StatType::COUNT);
+    registerMetricExportType(facebook::velox::filesystems::kMetricS3ListObjectsCalls, facebook::velox::StatType::COUNT);
+    registerMetricExportType(facebook::velox::filesystems::kMetricS3OtherReadErrors, facebook::velox::StatType::COUNT);
+    registerMetricExportType(facebook::velox::filesystems::kMetricS3AwsAbortedExceptions, facebook::velox::StatType::COUNT);
+    registerMetricExportType(facebook::velox::filesystems::kMetricS3SocketExceptions, facebook::velox::StatType::COUNT);
+    registerMetricExportType(facebook::velox::filesystems::kMetricS3GetObjectErrors, facebook::velox::StatType::COUNT);
+    registerMetricExportType(facebook::velox::filesystems::kMetricS3GetMetadataErrors, facebook::velox::StatType::COUNT);
+    registerMetricExportType(facebook::velox::filesystems::kMetricS3GetObjectRetries, facebook::velox::StatType::COUNT);
+    registerMetricExportType(facebook::velox::filesystems::kMetricS3GetMetadataRetries, facebook::velox::StatType::COUNT);
+    registerMetricExportType(facebook::velox::filesystems::kMetricS3ReadRetries, facebook::velox::StatType::COUNT);
 }
 
 void PrometheusStatsReporter::registerMetricExportType(

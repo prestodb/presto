@@ -18,6 +18,10 @@
 #include "velox/common/memory/Memory.h"
 #include "velox/exec/Task.h"
 
+// Include S3 metrics headers
+#include "velox/connectors/hive/storage_adapters/s3fs/S3Metrics.h"
+#include "velox/connectors/hive/storage_adapters/s3fs/S3MetricsAggregator.h"
+
 namespace folly {
 class CPUThreadPoolExecutor;
 class IOThreadPoolExecutor;
@@ -93,6 +97,9 @@ class PeriodicTaskManager {
 
   /// Stops all periodic tasks. Returns only when everything is stopped.
   void stop();
+
+  /// Add S3 metrics reporting task
+  void addS3MetricsTask();
 
  private:
   void addExecutorStatsTask();

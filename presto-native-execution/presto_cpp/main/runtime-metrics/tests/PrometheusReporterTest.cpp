@@ -13,6 +13,7 @@
  */
 
 #include "presto_cpp/main/runtime-metrics/PrometheusStatsReporter.h"
+#include "velox/connectors/hive/storage_adapters/s3fs/S3Metrics.h"
 
 #include <gtest/gtest.h>
 
@@ -150,5 +151,82 @@ TEST_F(PrometheusReporterTest, testHistogramSummary) {
           ",quantile=\"0.99\"} 85",
       histSummaryKey + "_summary{" + labelsSerialized + ",quantile=\"1\"} 85"};
   verifySerializedResult(fullSerializedResult, histogramMetricsFormatted);
+}
+
+TEST_F(PrometheusReporterTest, testS3Metrics) {
+  // Register S3 metrics
+  reporter->registerMetricExportType(facebook::velox::filesystems::kMetricS3ActiveConnections, facebook::velox::StatType::COUNT);
+  reporter->registerMetricExportType(facebook::velox::filesystems::kMetricS3StartedUploads, facebook::velox::StatType::COUNT);
+  reporter->registerMetricExportType(facebook::velox::filesystems::kMetricS3FailedUploads, facebook::velox::StatType::COUNT);
+  reporter->registerMetricExportType(facebook::velox::filesystems::kMetricS3SuccessfulUploads, facebook::velox::StatType::COUNT);
+  reporter->registerMetricExportType(facebook::velox::filesystems::kMetricS3MetadataCalls, facebook::velox::StatType::COUNT);
+  reporter->registerMetricExportType(facebook::velox::filesystems::kMetricS3ListStatusCalls, facebook::velox::StatType::COUNT);
+  reporter->registerMetricExportType(facebook::velox::filesystems::kMetricS3ListLocatedStatusCalls, facebook::velox::StatType::COUNT);
+  reporter->registerMetricExportType(facebook::velox::filesystems::kMetricS3ListObjectsCalls, facebook::velox::StatType::COUNT);
+  reporter->registerMetricExportType(facebook::velox::filesystems::kMetricS3OtherReadErrors, facebook::velox::StatType::COUNT);
+  reporter->registerMetricExportType(facebook::velox::filesystems::kMetricS3AwsAbortedExceptions, facebook::velox::StatType::COUNT);
+  reporter->registerMetricExportType(facebook::velox::filesystems::kMetricS3SocketExceptions, facebook::velox::StatType::COUNT);
+  reporter->registerMetricExportType(facebook::velox::filesystems::kMetricS3GetObjectErrors, facebook::velox::StatType::COUNT);
+  reporter->registerMetricExportType(facebook::velox::filesystems::kMetricS3GetMetadataErrors, facebook::velox::StatType::COUNT);
+  reporter->registerMetricExportType(facebook::velox::filesystems::kMetricS3GetObjectRetries, facebook::velox::StatType::COUNT);
+  reporter->registerMetricExportType(facebook::velox::filesystems::kMetricS3GetMetadataRetries, facebook::velox::StatType::COUNT);
+  reporter->registerMetricExportType(facebook::velox::filesystems::kMetricS3ReadRetries, facebook::velox::StatType::COUNT);
+
+  // Add metric values
+  reporter->addMetricValue(facebook::velox::filesystems::kMetricS3ActiveConnections, 5);
+  reporter->addMetricValue(facebook::velox::filesystems::kMetricS3StartedUploads, 3);
+  reporter->addMetricValue(facebook::velox::filesystems::kMetricS3FailedUploads, 2);
+  reporter->addMetricValue(facebook::velox::filesystems::kMetricS3SuccessfulUploads, 4);
+  reporter->addMetricValue(facebook::velox::filesystems::kMetricS3MetadataCalls, 7);
+  reporter->addMetricValue(facebook::velox::filesystems::kMetricS3ListStatusCalls, 1);
+  reporter->addMetricValue(facebook::velox::filesystems::kMetricS3ListLocatedStatusCalls, 2);
+  reporter->addMetricValue(facebook::velox::filesystems::kMetricS3ListObjectsCalls, 6);
+  reporter->addMetricValue(facebook::velox::filesystems::kMetricS3OtherReadErrors, 1);
+  reporter->addMetricValue(facebook::velox::filesystems::kMetricS3AwsAbortedExceptions, 2);
+  reporter->addMetricValue(facebook::velox::filesystems::kMetricS3SocketExceptions, 3);
+  reporter->addMetricValue(facebook::velox::filesystems::kMetricS3GetObjectErrors, 4);
+  reporter->addMetricValue(facebook::velox::filesystems::kMetricS3GetMetadataErrors, 5);
+  reporter->addMetricValue(facebook::velox::filesystems::kMetricS3GetObjectRetries, 2);
+  reporter->addMetricValue(facebook::velox::filesystems::kMetricS3GetMetadataRetries, 1);
+  reporter->addMetricValue(facebook::velox::filesystems::kMetricS3ReadRetries, 3);
+
+  // Verify metrics are correctly registered and serialized
+  auto fullSerializedResult = reporter->fetchMetrics();
+  std::vector<std::string> expected = {
+      "# TYPE presto_hive_s3_presto_s3_file_system_active_connections_total_count counter",
+      "presto_hive_s3_presto_s3_file_system_active_connections_total_count{" + labelsSerialized + "} 5",
+      "# TYPE presto_hive_s3_presto_s3_file_system_started_uploads_one_minute_count counter",
+      "presto_hive_s3_presto_s3_file_system_started_uploads_one_minute_count{" + labelsSerialized + "} 3",
+      "# TYPE presto_hive_s3_presto_s3_file_system_failed_uploads_one_minute_count counter",
+      "presto_hive_s3_presto_s3_file_system_failed_uploads_one_minute_count{" + labelsSerialized + "} 2",
+      "# TYPE presto_hive_s3_presto_s3_file_system_successful_uploads_one_minute_count counter",
+      "presto_hive_s3_presto_s3_file_system_successful_uploads_one_minute_count{" + labelsSerialized + "} 4",
+      "# TYPE presto_hive_s3_presto_s3_file_system_metadata_calls_one_minute_count counter",
+      "presto_hive_s3_presto_s3_file_system_metadata_calls_one_minute_count{" + labelsSerialized + "} 7",
+      "# TYPE presto_hive_s3_presto_s3_file_system_list_status_calls_one_minute_count counter",
+      "presto_hive_s3_presto_s3_file_system_list_status_calls_one_minute_count{" + labelsSerialized + "} 1",
+      "# TYPE presto_hive_s3_presto_s3_file_system_list_located_status_calls_one_minute_count counter",
+      "presto_hive_s3_presto_s3_file_system_list_located_status_calls_one_minute_count{" + labelsSerialized + "} 2",
+      "# TYPE presto_hive_s3_presto_s3_file_system_list_objects_calls_one_minute_count counter",
+      "presto_hive_s3_presto_s3_file_system_list_objects_calls_one_minute_count{" + labelsSerialized + "} 6",
+      "# TYPE presto_hive_s3_presto_s3_file_system_other_read_errors_one_minute_count counter",
+      "presto_hive_s3_presto_s3_file_system_other_read_errors_one_minute_count{" + labelsSerialized + "} 1",
+      "# TYPE presto_hive_s3_presto_s3_file_system_aws_aborted_exceptions_one_minute_count counter",
+      "presto_hive_s3_presto_s3_file_system_aws_aborted_exceptions_one_minute_count{" + labelsSerialized + "} 2",
+      "# TYPE presto_hive_s3_presto_s3_file_system_socket_exceptions_one_minute_count counter",
+      "presto_hive_s3_presto_s3_file_system_socket_exceptions_one_minute_count{" + labelsSerialized + "} 3",
+      "# TYPE presto_hive_s3_presto_s3_file_system_get_object_errors_one_minute_count counter",
+      "presto_hive_s3_presto_s3_file_system_get_object_errors_one_minute_count{" + labelsSerialized + "} 4",
+      "# TYPE presto_hive_s3_presto_s3_file_system_get_metadata_errors_one_minute_count counter",
+      "presto_hive_s3_presto_s3_file_system_get_metadata_errors_one_minute_count{" + labelsSerialized + "} 5",
+      "# TYPE presto_hive_s3_presto_s3_file_system_get_object_retries_one_minute_count counter",
+      "presto_hive_s3_presto_s3_file_system_get_object_retries_one_minute_count{" + labelsSerialized + "} 2",
+      "# TYPE presto_hive_s3_presto_s3_file_system_get_metadata_retries_one_minute_count counter",
+      "presto_hive_s3_presto_s3_file_system_get_metadata_retries_one_minute_count{" + labelsSerialized + "} 1",
+      "# TYPE presto_hive_s3_presto_s3_file_system_read_retries_one_minute_count counter",
+      "presto_hive_s3_presto_s3_file_system_read_retries_one_minute_count{" + labelsSerialized + "} 3"
+  };
+
+  verifySerializedResult(fullSerializedResult, expected);
 }
 } // namespace facebook::presto::prometheus
