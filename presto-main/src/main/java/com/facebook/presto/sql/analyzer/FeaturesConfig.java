@@ -319,6 +319,7 @@ public class FeaturesConfig
 
     private boolean useNewNanDefinition = true;
     private boolean warnOnPossibleNans;
+    private boolean transformInValuesToInFilterEnabled;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -3224,6 +3225,19 @@ public class FeaturesConfig
     public FeaturesConfig setWarnOnCommonNanPatterns(boolean warnOnPossibleNans)
     {
         this.warnOnPossibleNans = warnOnPossibleNans;
+        return this;
+    }
+
+    public boolean getTransformInValuesToInFilter()
+    {
+        return transformInValuesToInFilterEnabled;
+    }
+
+    @Config("transform_in_values_to_in_filter")
+    @ConfigDescription("Transform the in values form to in filter instead of semijoin whenever possible")
+    public FeaturesConfig setTransformInValuesToInFilter(boolean transformInValuesToInFilterEnabled)
+    {
+        this.transformInValuesToInFilterEnabled = transformInValuesToInFilterEnabled;
         return this;
     }
 }
