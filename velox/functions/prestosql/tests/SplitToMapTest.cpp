@@ -88,7 +88,8 @@ TEST_F(SplitToMapTest, invalidInput) {
   });
 
   auto splitToMap = [&](const std::string& entryDelimiter,
-                        const std::string& keyValueDelimiter) {
+                        const std::string& keyValueDelimiter,
+                        RowVectorPtr data) {
     evaluate(
         fmt::format(
             "split_to_map(c0, '{}', '{}')", entryDelimiter, keyValueDelimiter),
@@ -96,7 +97,8 @@ TEST_F(SplitToMapTest, invalidInput) {
   };
 
   auto trySplitToMap = [&](const std::string& entryDelimiter,
-                           const std::string& keyValueDelimiter) {
+                           const std::string& keyValueDelimiter,
+                           const RowVectorPtr& data) {
     SCOPED_TRACE(fmt::format("{} {}", entryDelimiter, keyValueDelimiter));
     auto result = evaluate(
         fmt::format(
@@ -109,24 +111,34 @@ TEST_F(SplitToMapTest, invalidInput) {
   };
 
   VELOX_ASSERT_THROW(
-      splitToMap(".", "."),
+      splitToMap(".", ".", data),
       "entryDelimiter and keyValueDelimiter must not be the same");
-  trySplitToMap(".", ".");
+  trySplitToMap(".", ".", data);
 
-  VELOX_ASSERT_THROW(splitToMap(".", ""), "keyValueDelimiter is empty");
-  trySplitToMap(".", "");
+  VELOX_ASSERT_THROW(splitToMap(".", "", data), "keyValueDelimiter is empty");
+  trySplitToMap(".", "", data);
 
-  VELOX_ASSERT_THROW(splitToMap("", "."), "entryDelimiter is empty");
-  trySplitToMap("", ".");
-
-  VELOX_ASSERT_THROW(
-      splitToMap(":", ","),
-      "Key-value delimiter must appear exactly once in each entry. Bad input: '1'");
-  trySplitToMap(":", ",");
+  VELOX_ASSERT_THROW(splitToMap("", ".", data), "entryDelimiter is empty");
+  trySplitToMap("", ".", data);
 
   VELOX_ASSERT_THROW(
-      splitToMap(",", ":"), "Duplicate keys (1) are not allowed.");
-  trySplitToMap(",", ":");
+      splitToMap(":", ",", data),
+      "No delimiter found. Key-value delimiter must appear exactly once in each entry. Bad input: '1'");
+  trySplitToMap(":", ",", data);
+
+  VELOX_ASSERT_THROW(
+      splitToMap(",", ":", data), "Duplicate keys (1) are not allowed.");
+  trySplitToMap(",", ":", data);
+
+  data = makeRowVector({
+      makeFlatVector<std::string>({
+          "1::10,2:20,1:30",
+      }),
+  });
+  VELOX_ASSERT_THROW(
+      splitToMap(",", ":", data),
+      "More than one delimiter found. Key-value delimiter must appear exactly once in each entry");
+  trySplitToMap(",", ":", data);
 }
 
 TEST_F(SplitToMapTest, lambda) {

@@ -140,7 +140,12 @@ struct SplitToMapFunction {
     VELOX_RETURN_IF(
         delimiterPos == std::string::npos,
         Status::UserError(
-            "Key-value delimiter must appear exactly once in each entry. Bad input: '{}'",
+            "No delimiter found. Key-value delimiter must appear exactly once in each entry. Bad input: '{}'",
+            entry));
+    VELOX_RETURN_IF(
+        entry.find(keyValueDelimiter, delimiterPos + 1) != std::string::npos,
+        Status::UserError(
+            "More than one delimiter found. Key-value delimiter must appear exactly once in each entry. Bad input: '{}'",
             entry));
 
     const auto key = std::string_view(entry.data(), delimiterPos);
