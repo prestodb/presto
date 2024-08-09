@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.CteConsumerNode;
 import com.facebook.presto.spi.plan.CteProducerNode;
@@ -737,14 +738,18 @@ public class TestLogicalCteOptimizer
     private void assertUnitPlan(Session session, String sql, PlanMatchPattern pattern)
     {
         List<PlanOptimizer> optimizers = ImmutableList.of(
-                new LogicalCteOptimizer(getQueryRunner().getMetadata()));
+                new LogicalCteOptimizer(getQueryRunner().getMetadata(), new CostComparator(1, 1, 1),
+                        getQueryRunner().getCostCalculator(),
+                        getQueryRunner().getStatsCalculator()));
         assertPlan(sql, session, Optimizer.PlanStage.OPTIMIZED, pattern, optimizers);
     }
 
     private void assertUnitPlanWithValidator(Session session, String sql, PlanMatchPattern pattern, Consumer<Plan> planValidator)
     {
         List<PlanOptimizer> optimizers = ImmutableList.of(
-                new LogicalCteOptimizer(getQueryRunner().getMetadata()));
+                new LogicalCteOptimizer(getQueryRunner().getMetadata(), new CostComparator(1, 1, 1),
+                        getQueryRunner().getCostCalculator(),
+                        getQueryRunner().getStatsCalculator()));
         getQueryRunner().inTransaction(session, transactionSession -> {
             Plan actualPlan = getQueryRunner().createPlan(
                     transactionSession,
