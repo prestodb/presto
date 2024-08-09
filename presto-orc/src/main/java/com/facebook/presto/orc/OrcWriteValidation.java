@@ -54,6 +54,7 @@ import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -106,6 +107,7 @@ public class OrcWriteValidation
 
     private final List<Integer> version;
     private final CompressionKind compression;
+    private final ZoneId timeZone;
     private final int rowGroupMaxRowCount;
     private final List<String> columnNames;
     private final Map<String, Slice> metadata;
@@ -128,6 +130,7 @@ public class OrcWriteValidation
     private OrcWriteValidation(
             List<Integer> version,
             CompressionKind compression,
+            ZoneId timeZone,
             int rowGroupMaxRowCount,
             List<String> columnNames,
             Map<String, Slice> metadata,
@@ -141,6 +144,7 @@ public class OrcWriteValidation
     {
         this.version = version;
         this.compression = compression;
+        this.timeZone = timeZone;
         this.rowGroupMaxRowCount = rowGroupMaxRowCount;
         this.columnNames = columnNames;
         this.metadata = metadata;
@@ -162,6 +166,19 @@ public class OrcWriteValidation
     public CompressionKind getCompression()
     {
         return compression;
+    }
+
+    public ZoneId getTimeZone()
+    {
+        return timeZone;
+    }
+
+    public void validateTimeZone(OrcDataSourceId orcDataSourceId, ZoneId actualTimeZone)
+            throws OrcCorruptionException
+    {
+        if (!timeZone.equals(actualTimeZone)) {
+            throw new OrcCorruptionException(orcDataSourceId, "Unexpected time zone");
+        }
     }
 
     public int getRowGroupMaxRowCount()
@@ -960,6 +977,7 @@ public class OrcWriteValidation
 
         private List<Integer> version;
         private CompressionKind compression;
+        private ZoneId timeZone;
         private int rowGroupMaxRowCount;
         private int stringStatisticsLimitInBytes;
         private List<String> columnNames;
@@ -993,6 +1011,11 @@ public class OrcWriteValidation
         public void setCompression(CompressionKind compression)
         {
             this.compression = compression;
+        }
+
+        public void setTimeZone(ZoneId timeZone)
+        {
+            this.timeZone = timeZone;
         }
 
         public void setRowGroupMaxRowCount(int rowGroupMaxRowCount)
@@ -1070,6 +1093,7 @@ public class OrcWriteValidation
             return new OrcWriteValidation(
                     version,
                     compression,
+                    timeZone,
                     rowGroupMaxRowCount,
                     columnNames,
                     metadata,
