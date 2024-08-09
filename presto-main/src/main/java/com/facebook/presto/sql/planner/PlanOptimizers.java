@@ -45,6 +45,7 @@ import com.facebook.presto.sql.planner.iterative.rule.ImplementBernoulliSampleAs
 import com.facebook.presto.sql.planner.iterative.rule.ImplementFilteredAggregations;
 import com.facebook.presto.sql.planner.iterative.rule.ImplementOffset;
 import com.facebook.presto.sql.planner.iterative.rule.InlineProjections;
+import com.facebook.presto.sql.planner.iterative.rule.InlineProjectionsOnValues;
 import com.facebook.presto.sql.planner.iterative.rule.InlineSqlFunctions;
 import com.facebook.presto.sql.planner.iterative.rule.LeftJoinNullFilterToSemiJoin;
 import com.facebook.presto.sql.planner.iterative.rule.LeftJoinWithArrayContainsToEquiJoinCondition;
@@ -477,6 +478,15 @@ public class PlanOptimizers
                                 new TransformUncorrelatedInPredicateSubqueryToSemiJoin(),
                                 new TransformCorrelatedScalarAggregationToJoin(metadata.getFunctionAndTypeManager()),
                                 new TransformCorrelatedLateralJoinToJoin(metadata.getFunctionAndTypeManager()))),
+                new IterativeOptimizer(
+                        metadata,
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        ImmutableSet.<Rule<?>>builder()
+                                .add(new InlineProjectionsOnValues(metadata.getFunctionAndTypeManager()))
+                                .addAll(new SimplifyRowExpressions(metadata).rules())
+                                .build()),
                 new IterativeOptimizer(
                         metadata,
                         ruleStats,
