@@ -135,7 +135,13 @@ class PrestoServer {
 
   /// Invoked to register the required dwio data sinks which are used by
   /// connectors.
-  virtual void registerFileSinks() {}
+  virtual void registerFileSinks();
+
+  virtual void registerFileReadersAndWriters();
+
+  virtual void unregisterFileReadersAndWriters();
+
+  virtual void registerConnectorFactories();
 
   /// Invoked by presto shutdown procedure to unregister connectors.
   virtual void unregisterConnectors();
@@ -151,6 +157,8 @@ class PrestoServer {
   virtual void registerVectorSerdes();
 
   virtual void registerFileSystems();
+
+  virtual void unregisterFileSystems();
 
   virtual void registerMemoryArbitrators();
 
