@@ -134,6 +134,7 @@ public class IcebergFileWriterFactory
         List<String> fileColumnNames = icebergSchema.columns().stream()
                 .map(Types.NestedField::name)
                 .collect(toImmutableList());
+
         List<Type> fileColumnTypes = icebergSchema.columns().stream()
                 .map(column -> toPrestoType(column.type(), typeManager))
                 .collect(toImmutableList());
