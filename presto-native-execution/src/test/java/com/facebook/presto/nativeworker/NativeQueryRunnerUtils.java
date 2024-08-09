@@ -17,6 +17,7 @@ import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.ICEBERG_DEFAULT_STORAGE_FORMAT;
 
@@ -73,6 +74,7 @@ public class NativeQueryRunnerUtils
         createPart(queryRunner);
         createPartSupp(queryRunner);
         createRegion(queryRunner);
+        createTableToTestHiddenColumns(queryRunner);
         createSupplier(queryRunner);
         createEmptyTable(queryRunner);
         createBucketedLineitemAndOrders(queryRunner);
@@ -357,6 +359,21 @@ public class NativeQueryRunnerUtils
     {
         if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "region")) {
             queryRunner.execute("CREATE TABLE region AS SELECT * FROM tpch.tiny.region");
+        }
+    }
+
+    public static void createTableToTestHiddenColumns(QueryRunner queryRunner)
+    {
+        if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "test_hidden_columns")) {
+            queryRunner.execute("CREATE TABLE test_hidden_columns (regionkey bigint, name varchar(25), comment varchar(152))");
+
+            // Inserting two rows with 2 seconds delay to have a different modified timestamp for each file.
+            queryRunner.execute("INSERT INTO test_hidden_columns SELECT * FROM region where regionkey = 0");
+            try {
+                TimeUnit.SECONDS.sleep(2);
+            }
+            catch (InterruptedException e) { }
+            queryRunner.execute("INSERT INTO test_hidden_columns SELECT * FROM region where regionkey = 1");
         }
     }
 

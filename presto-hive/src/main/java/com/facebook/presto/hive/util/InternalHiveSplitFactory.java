@@ -39,6 +39,9 @@ import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.facebook.presto.hive.BlockLocation.fromHiveBlockLocations;
+import static com.facebook.presto.hive.HiveColumnHandle.FILE_MODIFIED_TIME_COLUMN_INDEX;
+import static com.facebook.presto.hive.HiveColumnHandle.FILE_SIZE_COLUMN_INDEX;
+import static com.facebook.presto.hive.HiveColumnHandle.PATH_COLUMN_INDEX;
 import static com.facebook.presto.hive.HiveUtil.isSelectSplittable;
 import static com.facebook.presto.hive.HiveUtil.isSplittable;
 import static com.facebook.presto.hive.util.CustomSplitConversionUtils.extractCustomSplitInfo;
@@ -52,7 +55,7 @@ public class InternalHiveSplitFactory
 {
     private final FileSystem fileSystem;
     private final InputFormat<?, ?> inputFormat;
-    private final Optional<Domain> pathDomain;
+    private final Map<Integer, Domain> infoColumnConstraints;
     private final NodeSelectionStrategy nodeSelectionStrategy;
     private final boolean s3SelectPushdownEnabled;
     private final HiveSplitPartitionInfo partitionInfo;
@@ -63,7 +66,7 @@ public class InternalHiveSplitFactory
     public InternalHiveSplitFactory(
             FileSystem fileSystem,
             InputFormat<?, ?> inputFormat,
-            Optional<Domain> pathDomain,
+            Map<Integer, Domain> infoColumnConstraints,
             NodeSelectionStrategy nodeSelectionStrategy,
             DataSize minimumTargetSplitSize,
             boolean s3SelectPushdownEnabled,
@@ -73,7 +76,7 @@ public class InternalHiveSplitFactory
     {
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
         this.inputFormat = requireNonNull(inputFormat, "inputFormat is null");
-        this.pathDomain = requireNonNull(pathDomain, "pathDomain is null");
+        this.infoColumnConstraints = requireNonNull(infoColumnConstraints, "infoColumnConstraints is null");
         this.nodeSelectionStrategy = requireNonNull(nodeSelectionStrategy, "nodeSelectionStrategy is null");
         this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
         this.partitionInfo = partitionInfo;
@@ -147,7 +150,8 @@ public class InternalHiveSplitFactory
             Map<String, String> customSplitInfo)
     {
         String pathString = path.toString();
-        if (!pathMatchesPredicate(pathDomain, pathString)) {
+
+        if (!infoColumnsMatchPredicates(infoColumnConstraints, pathString, fileSize, fileModificationTime)) {
             return Optional.empty();
         }
 
@@ -251,5 +255,33 @@ public class InternalHiveSplitFactory
         }
 
         return pathDomain.get().includesNullableValue(utf8Slice(path));
+    }
+
+    private static boolean infoColumnsMatchPredicates(Map<Integer, Domain> constraints,
+                                                      String path,
+                                                      long fileSize,
+                                                      long fileModificationTime)
+    {
+        if (constraints.isEmpty()) {
+            return true;
+        }
+
+        boolean matches = true;
+
+        for (Map.Entry<Integer, Domain> constraint : constraints.entrySet()) {
+            switch (constraint.getKey()) {
+                case PATH_COLUMN_INDEX:
+                    matches &= constraint.getValue().includesNullableValue(utf8Slice(path));
+                    break;
+                case FILE_SIZE_COLUMN_INDEX:
+                    matches &= constraint.getValue().includesNullableValue(fileSize);
+                    break;
+                case FILE_MODIFIED_TIME_COLUMN_INDEX:
+                    matches &= constraint.getValue().includesNullableValue(fileModificationTime);
+                    break;
+            }
+        }
+
+        return matches;
     }
 }
