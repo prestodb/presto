@@ -75,7 +75,7 @@ public class HistoryBasedPlanStatisticsManager
 
     public HistoryBasedPlanStatisticsTracker getHistoryBasedPlanStatisticsTracker()
     {
-        return new HistoryBasedPlanStatisticsTracker(() -> historyBasedPlanStatisticsProvider, historyBasedStatisticsCacheManager, sessionPropertyManager, config, isNativeExecution, serverVersion);
+        return new HistoryBasedPlanStatisticsTracker(() -> historyBasedPlanStatisticsProvider, historyBasedStatisticsCacheManager, planCanonicalInfoProvider, sessionPropertyManager, config, isNativeExecution, serverVersion);
     }
 
     public PlanCanonicalInfoProvider getPlanCanonicalInfoProvider()

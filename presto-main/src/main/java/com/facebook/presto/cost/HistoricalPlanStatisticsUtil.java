@@ -80,6 +80,21 @@ public class HistoricalPlanStatisticsUtil
         return new HistoricalPlanStatistics(newLastRunsStatistics);
     }
 
+    // When all historical input table statistics are similar, we consider it as stable and eligible to skip input table statistics check for current run
+    public static boolean canSkipInputTableStatisticsCheck(HistoricalPlanStatistics historicalPlanStatistics, double threshold)
+    {
+        List<HistoricalPlanStatisticsEntry> lastRunsStatistics = historicalPlanStatistics.getLastRunsStatistics();
+        if (lastRunsStatistics.size() < 2) {
+            return false;
+        }
+        for (int i = 1; i < lastRunsStatistics.size(); ++i) {
+            if (!similarInputTableStatistics(lastRunsStatistics.get(0).getInputTableStatistics(), lastRunsStatistics.get(i).getInputTableStatistics(), threshold)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     private static Optional<Integer> getSimilarStatsIndex(
             HistoricalPlanStatistics historicalPlanStatistics,
             List<PlanStatistics> inputTableStatistics,
@@ -90,29 +105,36 @@ public class HistoricalPlanStatisticsUtil
         if (lastRunsStatistics.isEmpty()) {
             return Optional.empty();
         }
-
         for (int lastRunsIndex = 0; lastRunsIndex < lastRunsStatistics.size(); ++lastRunsIndex) {
-            if (inputTableStatistics.size() != lastRunsStatistics.get(lastRunsIndex).getInputTableStatistics().size()) {
-                // This is not expected, but may happen when changing thrift definitions.
-                continue;
-            }
-            boolean rowSimilarity = true;
-            boolean outputSizeSimilarity = true;
-
-            // Match to historical stats only when size of input tables are similar to those of historical runs.
-            for (int inputTablesIndex = 0; inputTablesIndex < inputTableStatistics.size(); ++inputTablesIndex) {
-                PlanStatistics currentInputStatistics = inputTableStatistics.get(inputTablesIndex);
-                PlanStatistics historicalInputStatistics = lastRunsStatistics.get(lastRunsIndex).getInputTableStatistics().get(inputTablesIndex);
-
-                rowSimilarity = rowSimilarity && similarStats(currentInputStatistics.getRowCount().getValue(), historicalInputStatistics.getRowCount().getValue(), threshold);
-                outputSizeSimilarity = outputSizeSimilarity && similarStats(currentInputStatistics.getOutputSize().getValue(), historicalInputStatistics.getOutputSize().getValue(), threshold);
-            }
-            // Write information if both rows and output size are similar.
-            if (rowSimilarity && outputSizeSimilarity) {
+            if (similarInputTableStatistics(inputTableStatistics, lastRunsStatistics.get(lastRunsIndex).getInputTableStatistics(), threshold)) {
                 return Optional.of(lastRunsIndex);
             }
         }
         return Optional.empty();
+    }
+
+    public static boolean similarInputTableStatistics(List<PlanStatistics> currentInputTableStatistics, List<PlanStatistics> historicalInputTableStatistics, double threshold)
+    {
+        if (currentInputTableStatistics.size() != historicalInputTableStatistics.size()) {
+            // This is not expected, but may happen when changing thrift definitions.
+            return false;
+        }
+        boolean rowSimilarity = true;
+        boolean outputSizeSimilarity = true;
+
+        // Match to historical stats only when size of input tables are similar to those of historical runs.
+        for (int inputTablesIndex = 0; inputTablesIndex < currentInputTableStatistics.size(); ++inputTablesIndex) {
+            PlanStatistics currentInputStatistics = currentInputTableStatistics.get(inputTablesIndex);
+            PlanStatistics historicalInputStatistics = historicalInputTableStatistics.get(inputTablesIndex);
+
+            rowSimilarity = rowSimilarity && similarStats(currentInputStatistics.getRowCount().getValue(), historicalInputStatistics.getRowCount().getValue(), threshold);
+            outputSizeSimilarity = outputSizeSimilarity && similarStats(currentInputStatistics.getOutputSize().getValue(), historicalInputStatistics.getOutputSize().getValue(), threshold);
+        }
+        // Write information if both rows and output size are similar.
+        if (rowSimilarity && outputSizeSimilarity) {
+            return true;
+        }
+        return false;
     }
 
     public static boolean similarStats(double stats1, double stats2, double threshold)

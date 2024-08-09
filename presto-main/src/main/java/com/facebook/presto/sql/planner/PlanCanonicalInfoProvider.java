@@ -43,8 +43,11 @@ public interface PlanCanonicalInfoProvider
      * @param session Session for query being run
      * @param planNode Plan node to hash
      * @param strategy Strategy to canonicalize the plan node
+     * @param callMetaData Call metadata to get input table statistics when it's not available
      * @param cacheOnly Only fetch from cache, and return Optional.empty() if set to true and no entry found in cache
      * @return Statistics of leaf input tables to plan node, ordered by a consistent canonicalization strategy.
      */
-    Optional<List<PlanStatistics>> getInputTableStatistics(Session session, PlanNode planNode, PlanCanonicalizationStrategy strategy, boolean cacheOnly);
+    Optional<List<PlanStatistics>> getInputTableStatistics(Session session, PlanNode planNode, PlanCanonicalizationStrategy strategy, boolean callMetaData, boolean cacheOnly);
+
+    Optional<List<PlanNodeCanonicalInfo.InputTableCacheKey>> getInputTableCacheKey(Session session, PlanNode planNode, PlanCanonicalizationStrategy strategy, boolean cacheOnly);
 }
