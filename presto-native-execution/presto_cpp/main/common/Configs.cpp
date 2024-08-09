@@ -78,7 +78,7 @@ void ConfigBase::initialize(const std::string& filePath, bool optionalConfig) {
 std::string ConfigBase::capacityPropertyAsBytesString(
     std::string_view propertyName) const {
   return folly::to<std::string>(toCapacity(
-      optionalProperty(propertyName).value(), velox::core::CapacityUnit::BYTE));
+      optionalProperty(propertyName).value(), velox::config::CapacityUnit::BYTE));
 }
 
 bool ConfigBase::registerProperty(
@@ -199,6 +199,12 @@ SystemConfig::SystemConfig() {
           BOOL_PROP(kMemoryArbitratorGlobalArbitrationEnabled, false),
           NUM_PROP(kQueryMemoryGb, 38),
           NUM_PROP(kQueryReservedMemoryGb, 4),
+          STR_PROP(kSharedArbitratorReservedCapacity, "4GB"),
+          STR_PROP(kSharedArbitratorMemoryPoolInitialCapacity, "128MB"),
+          STR_PROP(kSharedArbitratorMemoryPoolReservedCapacity, "64MB"),
+          STR_PROP(kSharedArbitratorMemoryPoolTransferCapacity, "32MB"),
+          STR_PROP(kSharedArbitratorMemoryReclaimWaitTime, "5m"),
+          STR_PROP(kSharedArbitratorGlobalArbitrationEnabled, "false"),
           NUM_PROP(kLargestSizeClassPages, 256),
           BOOL_PROP(kEnableVeloxTaskLogging, false),
           BOOL_PROP(kEnableVeloxExprSetLogging, false),
@@ -473,7 +479,7 @@ int32_t SystemConfig::asyncCacheMinSsdSavableBytes() const {
 
 std::chrono::duration<double> SystemConfig::asyncCacheFullPersistenceInterval()
     const {
-  return velox::core::toDuration(
+  return velox::config::toDuration(
       optionalProperty(kAsyncCacheFullPersistenceInterval).value());
 }
 
@@ -518,6 +524,12 @@ bool SystemConfig::memoryArbitratorGlobalArbitrationEnabled() const {
       .value_or(false);
 }
 
+std::string SystemConfig::sharedArbitratorGlobalArbitrationEnabled() const {
+  return optionalProperty<std::string>(
+             kSharedArbitratorGlobalArbitrationEnabled)
+      .value_or("false");
+}
+
 int32_t SystemConfig::queryMemoryGb() const {
   return optionalProperty<int32_t>(kQueryMemoryGb).value();
 }
@@ -526,10 +538,23 @@ int32_t SystemConfig::queryReservedMemoryGb() const {
   return optionalProperty<int32_t>(kQueryReservedMemoryGb).value();
 }
 
+std::string SystemConfig::sharedArbitratorReservedCapacity() const {
+  return optionalProperty<std::string>(kSharedArbitratorReservedCapacity)
+      .value();
+}
+
 uint64_t SystemConfig::memoryPoolInitCapacity() const {
   static constexpr uint64_t kMemoryPoolInitCapacityDefault = 128 << 20;
   return optionalProperty<uint64_t>(kMemoryPoolInitCapacity)
       .value_or(kMemoryPoolInitCapacityDefault);
+}
+
+std::string SystemConfig::sharedArbitratorMemoryPoolInitialCapacity() const {
+  static constexpr std::string_view
+      kSharedArbitratorMemoryPoolInitialCapacityDefault = "128MB";
+  return optionalProperty<std::string>(
+             kSharedArbitratorMemoryPoolInitialCapacity)
+      .value_or(std::string(kSharedArbitratorMemoryPoolInitialCapacityDefault));
 }
 
 uint64_t SystemConfig::memoryPoolReservedCapacity() const {
@@ -538,16 +563,41 @@ uint64_t SystemConfig::memoryPoolReservedCapacity() const {
       .value_or(kMemoryPoolReservedCapacityDefault);
 }
 
+std::string SystemConfig::sharedArbitratorMemoryPoolReservedCapacity() const {
+  static constexpr std::string_view
+      kSharedArbitratorMemoryPoolReservedCapacityDefault = "64MB";
+  return optionalProperty<std::string>(
+             kSharedArbitratorMemoryPoolReservedCapacity)
+      .value_or(
+          std::string(kSharedArbitratorMemoryPoolReservedCapacityDefault));
+}
+
 uint64_t SystemConfig::memoryPoolTransferCapacity() const {
   static constexpr uint64_t kMemoryPoolTransferCapacityDefault = 32 << 20;
   return optionalProperty<uint64_t>(kMemoryPoolTransferCapacity)
       .value_or(kMemoryPoolTransferCapacityDefault);
 }
 
+std::string SystemConfig::sharedArbitratorMemoryPoolTransferCapacity() const {
+  static constexpr std::string_view
+      kSharedArbitratorMemoryPoolTransferCapacityDefault = "32MB";
+  return optionalProperty<std::string>(
+             kSharedArbitratorMemoryPoolTransferCapacity)
+      .value_or(
+          std::string(kSharedArbitratorMemoryPoolTransferCapacityDefault));
+}
+
 uint64_t SystemConfig::memoryReclaimWaitMs() const {
   static constexpr uint64_t kMemoryReclaimWaitMsDefault = {300'000}; // 5 mins.
   return optionalProperty<uint64_t>(kMemoryReclaimWaitMs)
       .value_or(kMemoryReclaimWaitMsDefault);
+}
+
+std::string SystemConfig::sharedArbitratorMemoryReclaimWaitTime() const {
+  static constexpr std::string_view
+      kSharedArbitratorMemoryReclaimWaitTimeDefault = "5m";
+  return optionalProperty<std::string>(kSharedArbitratorMemoryReclaimWaitTime)
+      .value_or(std::string(kSharedArbitratorMemoryReclaimWaitTimeDefault));
 }
 
 bool SystemConfig::enableSystemMemoryPoolUsageTracking() const {
@@ -578,7 +628,7 @@ uint64_t SystemConfig::httpMaxAllocateBytes() const {
 uint64_t SystemConfig::queryMaxMemoryPerNode() const {
   return toCapacity(
       optionalProperty(kQueryMaxMemoryPerNode).value(),
-      velox::core::CapacityUnit::BYTE);
+      velox::config::CapacityUnit::BYTE);
 }
 
 bool SystemConfig::enableMemoryLeakCheck() const {
@@ -611,17 +661,17 @@ uint64_t SystemConfig::heartbeatFrequencyMs() const {
 }
 
 std::chrono::duration<double> SystemConfig::exchangeMaxErrorDuration() const {
-  return velox::core::toDuration(
+  return velox::config::toDuration(
       optionalProperty(kExchangeMaxErrorDuration).value());
 }
 
 std::chrono::duration<double> SystemConfig::exchangeRequestTimeoutMs() const {
-  return velox::core::toDuration(
+  return velox::config::toDuration(
       optionalProperty(kExchangeRequestTimeout).value());
 }
 
 std::chrono::duration<double> SystemConfig::exchangeConnectTimeoutMs() const {
-  return velox::core::toDuration(
+  return velox::config::toDuration(
       optionalProperty(kExchangeConnectTimeout).value());
 }
 
@@ -677,12 +727,12 @@ bool SystemConfig::cacheVeloxTtlEnabled() const {
 }
 
 std::chrono::duration<double> SystemConfig::cacheVeloxTtlThreshold() const {
-  return velox::core::toDuration(
+  return velox::config::toDuration(
       optionalProperty(kCacheVeloxTtlThreshold).value());
 }
 
 std::chrono::duration<double> SystemConfig::cacheVeloxTtlCheckInterval() const {
-  return velox::core::toDuration(
+  return velox::config::toDuration(
       optionalProperty(kCacheVeloxTtlCheckInterval).value());
 }
 
