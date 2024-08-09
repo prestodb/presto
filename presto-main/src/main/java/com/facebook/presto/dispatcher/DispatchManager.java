@@ -282,7 +282,7 @@ public class DispatchManager
             Optional<AuthorizedIdentity> authorizedIdentity = getAuthorizedIdentity(accessControl, securityConfig, queryId, sessionContext);
 
             // decode session
-            session = sessionSupplier.createSession(queryId, sessionContext, warningCollectorFactory, authorizedIdentity);
+            session = sessionSupplier.createSession(queryId, isRollBack(query), sessionContext, warningCollectorFactory, authorizedIdentity);
 
             // prepare query
             AnalyzerOptions analyzerOptions = createAnalyzerOptions(session, session.getWarningCollector());
@@ -451,6 +451,11 @@ public class DispatchManager
     {
         queryTracker.tryGetQuery(queryId)
                 .ifPresent(DispatchQuery::cancel);
+    }
+
+    private boolean isRollBack(String sql)
+    {
+        return sql != null && sql.trim().equalsIgnoreCase("rollback");
     }
 
     private static class DispatchQueryCreationFuture

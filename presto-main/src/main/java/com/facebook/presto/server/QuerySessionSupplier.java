@@ -68,7 +68,7 @@ public class QuerySessionSupplier
     }
 
     @Override
-    public Session createSession(QueryId queryId, SessionContext context, WarningCollectorFactory warningCollectorFactory, Optional<AuthorizedIdentity> authorizedIdentity)
+    public Session createSession(QueryId queryId, boolean ignoreTransactionState, SessionContext context, WarningCollectorFactory warningCollectorFactory, Optional<AuthorizedIdentity> authorizedIdentity)
     {
         Identity identity = context.getIdentity();
         if (authorizedIdentity.isPresent()) {
@@ -141,7 +141,7 @@ public class QuerySessionSupplier
 
         Session session = sessionBuilder.build();
         if (context.getTransactionId().isPresent()) {
-            session = session.beginTransactionId(context.getTransactionId().get(), transactionManager, accessControl);
+            session = session.beginTransactionId(context.getTransactionId().get(), ignoreTransactionState, transactionManager, accessControl);
         }
         return session;
     }
