@@ -132,6 +132,10 @@ class Writer : public dwio::common::Writer {
     return writerBase_->getContext();
   }
 
+  const proto::Footer& getFooter() const {
+    return writerBase_->getFooter();
+  }
+
   WriterSink& getSink() {
     return writerBase_->getSink();
   }
