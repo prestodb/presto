@@ -176,7 +176,8 @@ public class TemporaryTableUtil
             TableHandle tableHandle,
             List<VariableReferenceExpression> outputs,
             Map<VariableReferenceExpression, ColumnMetadata> variableToColumnMap,
-            VariableReferenceExpression outputVar)
+            VariableReferenceExpression outputVar,
+            Optional<PlanNode> statsEquivalentPlanNode)
     {
         SchemaTableName schemaTableName = metadata.getTableMetadata(session, tableHandle).getTable();
         TableWriterNode.InsertReference insertReference = new TableWriterNode.InsertReference(tableHandle, schemaTableName);
@@ -195,6 +196,7 @@ public class TemporaryTableUtil
                 new TableWriterNode(
                         source.getSourceLocation(),
                         idAllocator.getNextId(),
+                        statsEquivalentPlanNode,
                         source,
                         Optional.of(insertReference),
                         variableAllocator.newVariable("rows", BIGINT),
