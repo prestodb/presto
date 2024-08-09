@@ -1,0 +1,19 @@
+{
+  "transform_keys": [
+    {
+      "docString": "presto.default.transform_keys",
+      "functionKind": "SCALAR",
+      "outputType": "map(K2,V)",
+      "paramTypes": [
+        "map(K1,V)",
+        "function(K1,V,K2)"
+      ],
+      "routineCharacteristics": {
+        "determinism": "DETERMINISTIC",
+        "language": "CPP",
+        "nullCallClause": "CALLED_ON_NULL_INPUT"
+      },
+      "schema": "default"
+    }
+  ]
+}

@@ -89,3 +89,20 @@ target_link_libraries(
   velox_tpch_connector
   gtest
   gtest_main)
+
+add_executable(presto_function_metadata_test FunctionMetadataTest.cpp)
+
+add_test(
+  NAME presto_function_metadata_test
+  COMMAND presto_function_metadata_test
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+target_link_libraries(
+  presto_function_metadata_test
+  presto_function_metadata
+  presto_protocol
+  velox_aggregates
+  velox_functions_prestosql
+  velox_window
+  gtest
+  gtest_main)

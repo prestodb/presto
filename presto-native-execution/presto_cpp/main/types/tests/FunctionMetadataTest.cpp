@@ -1,0 +1,121 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+#include "presto_cpp/main/types/FunctionMetadata.h"
+#include <boost/filesystem.hpp>
+#include <gtest/gtest.h>
+#include "presto_cpp/main/common/tests/test_json.h"
+#include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
+#include "velox/functions/prestosql/registration/RegistrationFunctions.h"
+#include "velox/functions/prestosql/window/WindowFunctionsRegistration.h"
+
+namespace fs = boost::filesystem;
+
+using namespace facebook::velox;
+using namespace facebook::presto;
+
+using json = nlohmann::json;
+
+static const std::string kPrestoDefaultPrefix = "presto.default.";
+static const std::string kDefaultSchema = "default";
+
+namespace {
+std::string getDataPath(const std::string& fileName) {
+  std::string currentPath = fs::current_path().c_str();
+
+  if (boost::algorithm::ends_with(currentPath, "fbcode")) {
+    return currentPath +
+        "/github/presto-trunk/presto-native-execution/presto_cpp/main/types/tests/data/" +
+        fileName;
+  }
+
+  if (boost::algorithm::ends_with(currentPath, "fbsource")) {
+    return currentPath + "/third-party/presto_cpp/main/types/tests/data/" +
+        fileName;
+  }
+
+  // CLion runs the tests from cmake-build-release/ or cmake-build-debug/
+  // directory. Hard-coded json files are not copied there and test fails with
+  // file not found. Fixing the path so that we can trigger these tests from
+  // CLion.
+  boost::algorithm::replace_all(currentPath, "cmake-build-release/", "");
+  boost::algorithm::replace_all(currentPath, "cmake-build-debug/", "");
+
+  return currentPath + "/data/" + fileName;
+}
+} // namespace
+
+class FunctionMetadataTest : public ::testing::Test {
+ protected:
+  static void SetUpTestSuite() {
+    aggregate::prestosql::registerAllAggregateFunctions(kPrestoDefaultPrefix);
+    window::prestosql::registerAllWindowFunctions(kPrestoDefaultPrefix);
+    functions::prestosql::registerAllScalarFunctions(kPrestoDefaultPrefix);
+  }
+
+  void testFunction(
+      const std::string& name,
+      const std::string& expectedFile,
+      const size_t expectedSize) {
+    json metadataList = getMetadataForFunction(
+        fmt::format("{}{}", kPrestoDefaultPrefix, name), kDefaultSchema);
+    EXPECT_EQ(metadataList.size(), expectedSize);
+    std::string expectedStr = slurp(getDataPath(expectedFile));
+    auto expected = json::parse(expectedStr);
+    EXPECT_EQ(expected.at(name), metadataList);
+  }
+};
+
+TEST_F(FunctionMetadataTest, approxMostFrequent) {
+  testFunction("approx_most_frequent", "ApproxMostFrequent.json", 12);
+}
+
+TEST_F(FunctionMetadataTest, arrayFrequency) {
+  testFunction("array_frequency", "ArrayFrequency.json", 11);
+}
+
+TEST_F(FunctionMetadataTest, combinations) {
+  testFunction("combinations", "Combinations.json", 11);
+}
+
+TEST_F(FunctionMetadataTest, covarSamp) {
+  testFunction("covar_samp", "CovarSamp.json", 4);
+}
+
+TEST_F(FunctionMetadataTest, elementAt) {
+  testFunction("element_at", "ElementAt.json", 3);
+}
+
+TEST_F(FunctionMetadataTest, lead) {
+  testFunction("lead", "Lead.json", 3);
+}
+
+TEST_F(FunctionMetadataTest, ntile) {
+  testFunction("ntile", "Ntile.json", 1);
+}
+
+TEST_F(FunctionMetadataTest, setAgg) {
+  testFunction("set_agg", "SetAgg.json", 2);
+}
+
+TEST_F(FunctionMetadataTest, stddevSamp) {
+  testFunction("stddev_samp", "StddevSamp.json", 10);
+}
+
+TEST_F(FunctionMetadataTest, transformKeys) {
+  testFunction("transform_keys", "TransformKeys.json", 1);
+}
+
+TEST_F(FunctionMetadataTest, variance) {
+  testFunction("variance", "Variance.json", 10);
+}
