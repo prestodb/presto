@@ -156,7 +156,7 @@ void updateVeloxConnectorConfigs(
     // Do not retain cache if `node_selection_strategy` is explicitly set to
     // `NO_PREFERENCE`.
     auto it = connectorConfig.find("node_selection_strategy");
-    if (it == connectorConfig.end() || it->second == "NO_PREFERENCE") {
+    if (it != connectorConfig.end() && it->second == "NO_PREFERENCE") {
       connectorConfig.emplace(
           connector::hive::HiveConfig::kCacheNoRetentionSession, "true");
     }
