@@ -1,0 +1,2 @@
+com.facebook.presto.session.sql.expressions.NativeExpressionsPlugin
+

@@ -29,6 +29,10 @@ public interface ExpressionOptimizer
     enum Level
     {
         /**
+         * DO_NOT_EVALUATE does not evaluate functions, but will simplify expressions where logical equivalents can be made
+         */
+        DO_NOT_EVALUATE,
+        /**
          * SERIALIZABLE guarantees the optimized RowExpression can be serialized and deserialized.
          */
         SERIALIZABLE,

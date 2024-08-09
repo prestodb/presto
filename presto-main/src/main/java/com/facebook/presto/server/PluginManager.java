@@ -40,12 +40,14 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerF
 import com.facebook.presto.spi.security.PasswordAuthenticatorFactory;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactory;
+import com.facebook.presto.spi.sql.planner.ExpressionOptimizerFactory;
 import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.spi.storage.TempStorageFactory;
 import com.facebook.presto.spi.tracing.TracerProvider;
 import com.facebook.presto.spi.ttl.ClusterTtlProviderFactory;
 import com.facebook.presto.spi.ttl.NodeTtlFetcherFactory;
 import com.facebook.presto.sql.analyzer.AnalyzerProviderManager;
+import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
 import com.facebook.presto.storage.TempStorageManager;
 import com.facebook.presto.tracing.TracerProviderManager;
 import com.facebook.presto.ttl.clusterttlprovidermanagers.ClusterTtlProviderManager;
@@ -128,6 +130,7 @@ public class PluginManager
     private final TracerProviderManager tracerProviderManager;
     private final AnalyzerProviderManager analyzerProviderManager;
     private final NodeStatusNotificationManager nodeStatusNotificationManager;
+    private final ExpressionOptimizerManager expressionOptimizerManager;
 
     @Inject
     public PluginManager(
@@ -148,7 +151,8 @@ public class PluginManager
             ClusterTtlProviderManager clusterTtlProviderManager,
             HistoryBasedPlanStatisticsManager historyBasedPlanStatisticsManager,
             TracerProviderManager tracerProviderManager,
-            NodeStatusNotificationManager nodeStatusNotificationManager)
+            NodeStatusNotificationManager nodeStatusNotificationManager,
+            ExpressionOptimizerManager expressionOptimizerManager)
     {
         requireNonNull(nodeInfo, "nodeInfo is null");
         requireNonNull(config, "config is null");
@@ -179,6 +183,7 @@ public class PluginManager
         this.tracerProviderManager = requireNonNull(tracerProviderManager, "tracerProviderManager is null");
         this.analyzerProviderManager = requireNonNull(analyzerProviderManager, "analyzerProviderManager is null");
         this.nodeStatusNotificationManager = requireNonNull(nodeStatusNotificationManager, "nodeStatusNotificationManager is null");
+        this.expressionOptimizerManager = requireNonNull(expressionOptimizerManager, "expressionManager is null");
     }
 
     public void loadPlugins()
@@ -345,6 +350,11 @@ public class PluginManager
         for (FunctionNamespaceManagerFactory functionNamespaceManagerFactory : plugin.getFunctionNamespaceManagerFactories()) {
             log.info("Registering function namespace manager %s", functionNamespaceManagerFactory.getName());
             metadata.getFunctionAndTypeManager().addFunctionNamespaceFactory(functionNamespaceManagerFactory);
+        }
+
+        for (ExpressionOptimizerFactory batchRowExpressionInterpreterProvider : plugin.getRowExpressionInterpreterServiceFactories()) {
+            log.info("Registering batch row expression interpreter provider %s", batchRowExpressionInterpreterProvider.getName());
+            expressionOptimizerManager.addExpressionOptimizerFactory(batchRowExpressionInterpreterProvider);
         }
     }
 
