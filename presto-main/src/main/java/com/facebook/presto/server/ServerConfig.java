@@ -43,6 +43,7 @@ public class ServerConfig
     private Duration clusterStatsExpirationDuration = new Duration(0, MILLISECONDS);
     private boolean nestedDataSerializationEnabled = true;
     private Duration clusterResourceGroupStateInfoExpirationDuration = new Duration(0, MILLISECONDS);
+    private boolean eagerResultsFetchingFromQueuedStatementEnabled = true;
 
     public boolean isResourceManager()
     {
@@ -239,6 +240,18 @@ public class ServerConfig
     public ServerConfig setClusterResourceGroupStateInfoExpirationDuration(Duration clusterResourceGroupStateInfoExpirationDuration)
     {
         this.clusterResourceGroupStateInfoExpirationDuration = clusterResourceGroupStateInfoExpirationDuration;
+        return this;
+    }
+
+    public boolean isEagerResultsFetchingFromQueuedStatementEnabled()
+    {
+        return eagerResultsFetchingFromQueuedStatementEnabled;
+    }
+
+    @Config("eager-results-fetching-from-queued-statement")
+    public ServerConfig setEagerResultsFetchingFromQueuedStatementEnabled(boolean eagerResultsFetchingFromQueuedStatementEnabled)
+    {
+        this.eagerResultsFetchingFromQueuedStatementEnabled = eagerResultsFetchingFromQueuedStatementEnabled;
         return this;
     }
 }

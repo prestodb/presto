@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.spi.analyzer;
 
-public interface AnalyzerProvider
+public interface QueryPreparerProvider
 {
     String getType();
 
-    QueryAnalyzer getQueryAnalyzer();
+    QueryPreparer getQueryPreparer();
 }

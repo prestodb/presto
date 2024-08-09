@@ -19,6 +19,7 @@ import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementStats;
 import com.facebook.presto.common.ErrorCode;
+import com.facebook.presto.dispatcher.CoordinatorLocation;
 import com.facebook.presto.dispatcher.DispatchExecutor;
 import com.facebook.presto.dispatcher.DispatchInfo;
 import com.facebook.presto.dispatcher.DispatchManager;
@@ -75,6 +76,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.airlift.concurrent.MoreFutures.addTimeout;
 import static com.facebook.airlift.concurrent.Threads.threadsNamed;
+import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static com.facebook.airlift.http.server.AsyncResponseHandler.bindAsyncResponse;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREFIX_URL;
 import static com.facebook.presto.execution.QueryState.FAILED;
@@ -116,7 +118,7 @@ public class QueuedStatementResource
     private static final Duration NO_DURATION = new Duration(0, MILLISECONDS);
 
     private final DispatchManager dispatchManager;
-    private final LocalQueryProvider queryResultsProvider;
+    private final Optional<LocalQueryProvider> queryResultsProvider;
 
     private final Executor responseExecutor;
     private final ScheduledExecutorService timeoutExecutor;
@@ -137,7 +139,7 @@ public class QueuedStatementResource
     public QueuedStatementResource(
             DispatchManager dispatchManager,
             DispatchExecutor executor,
-            LocalQueryProvider queryResultsProvider,
+            Optional<LocalQueryProvider> queryResultsProvider,
             SqlParserOptions sqlParserOptions,
             ServerConfig serverConfig,
             TracerProviderManager tracerProviderManager,
@@ -145,7 +147,7 @@ public class QueuedStatementResource
             QueryBlockingRateLimiter queryRateLimiter)
     {
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
-        this.queryResultsProvider = queryResultsProvider;
+        this.queryResultsProvider = requireNonNull(queryResultsProvider, "queryResultsProvider is null");
         this.sqlParserOptions = requireNonNull(sqlParserOptions, "sqlParserOptions is null");
         this.compressionEnabled = requireNonNull(serverConfig, "serverConfig is null").isQueryResultsCompressionEnabled();
         this.nestedDataSerializationEnabled = requireNonNull(serverConfig, "serverConfig is null").isNestedDataSerializationEnabled();
@@ -453,7 +455,7 @@ public class QueuedStatementResource
         private final String query;
         private final SessionContext sessionContext;
         private final DispatchManager dispatchManager;
-        private final LocalQueryProvider queryProvider;
+        private final Optional<LocalQueryProvider> queryProvider;
         private final QueryId queryId;
         private final String slug = "x" + randomUUID().toString().toLowerCase(ENGLISH).replace("-", "");
         private final AtomicLong lastToken = new AtomicLong();
@@ -462,12 +464,12 @@ public class QueuedStatementResource
         @GuardedBy("this")
         private ListenableFuture<?> querySubmissionFuture;
 
-        public Query(String query, SessionContext sessionContext, DispatchManager dispatchManager, LocalQueryProvider queryResultsProvider, int retryCount)
+        public Query(String query, SessionContext sessionContext, DispatchManager dispatchManager, Optional<LocalQueryProvider> queryResultsProvider, int retryCount)
         {
             this.query = requireNonNull(query, "query is null");
             this.sessionContext = requireNonNull(sessionContext, "sessionContext is null");
             this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
-            this.queryProvider = requireNonNull(queryResultsProvider, "queryExecutor is null");
+            this.queryProvider = requireNonNull(queryResultsProvider, "queryProvider is null");
             this.queryId = dispatchManager.createQueryId();
             this.retryCount = retryCount;
         }
@@ -597,13 +599,13 @@ public class QueuedStatementResource
                         .build()));
             }
 
-            if (!waitForDispatched().isDone()) {
+            if (!waitForDispatched().isDone() || !queryProvider.isPresent()) {
                 return immediateFuture(withCompressionConfiguration(Response.ok(createQueryResults(token + 1, uriInfo, xForwardedProto, xPrestoPrefixUrl, dispatchInfo.get(), binaryResults)), compressionEnabled).build());
             }
 
             com.facebook.presto.server.protocol.Query query;
             try {
-                query = queryProvider.getQuery(queryId, slug);
+                query = queryProvider.get().getQuery(queryId, slug);
             }
             catch (WebApplicationException e) {
                 return immediateFuture(withCompressionConfiguration(Response.ok(createQueryResults(token + 1, uriInfo, xForwardedProto, xPrestoPrefixUrl, dispatchInfo.get(), binaryResults)), compressionEnabled).build());
@@ -646,7 +648,21 @@ public class QueuedStatementResource
             if (dispatchInfo.getFailureInfo().isPresent()) {
                 return null;
             }
-            return getQueuedUri(queryId, slug, token, uriInfo, xForwardedProto, xPrestoPrefixUrl, binaryResults);
+            // if dispatched, redirect to new uri
+            return dispatchInfo.getCoordinatorLocation()
+                    .map(coordinatorLocation -> getRedirectUri(coordinatorLocation, uriInfo, xForwardedProto))
+                    .orElseGet(() -> getQueuedUri(queryId, slug, token, uriInfo, xForwardedProto, xPrestoPrefixUrl, binaryResults));
+        }
+
+        private URI getRedirectUri(CoordinatorLocation coordinatorLocation, UriInfo uriInfo, String xForwardedProto)
+        {
+            URI coordinatorUri = coordinatorLocation.getUri(uriInfo, xForwardedProto);
+            return uriBuilderFrom(coordinatorUri)
+                    .appendPath("/v1/statement/executing")
+                    .appendPath(queryId.toString())
+                    .appendPath("0")
+                    .addParameter("slug", slug)
+                    .build();
         }
 
         private QueryError toQueryError(ExecutionFailureInfo executionFailureInfo)
