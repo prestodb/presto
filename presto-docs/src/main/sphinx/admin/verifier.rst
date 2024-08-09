@@ -226,6 +226,7 @@ queries.
         * Count of the negative infinity elements of all value sets
 * **Row Columns**
     * Checksums row fields recursively according to the type of the fields.
+    
 For all other column types, generates a simple checksum using the :func:`!checksum` function.
 
 Determinism
