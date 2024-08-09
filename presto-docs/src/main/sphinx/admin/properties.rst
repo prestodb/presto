@@ -1002,12 +1002,12 @@ Set ``legacy_json_cast`` to ``false`` to strictly enforce the case-sensitivity o
 
 
 Event Listener Properties
-------------------------------
+-------------------------
 
 ``event.query-progress-publish-interval``
-^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``duration``
 * **Default value:** ``0m``
 
-Controls query progress event publish frequency. By default, set to 0m which disables the publication of these events. 
+Controls query progress event publish frequency. By default, set to ``0m`` which disables the publication of these events. 
