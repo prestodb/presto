@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.QueryTracker.PruneEvent;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.metadata.Metadata;
@@ -290,7 +291,7 @@ public abstract class DataDefinitionExecution<T extends Statement>
     }
 
     @Override
-    public void pruneInfo()
+    public void pruneInfo(PruneEvent event)
     {
         // no-op
     }

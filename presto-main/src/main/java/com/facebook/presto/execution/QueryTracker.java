@@ -48,6 +48,8 @@ import static com.facebook.presto.execution.QueryLimit.Source.QUERY;
 import static com.facebook.presto.execution.QueryLimit.Source.RESOURCE_GROUP;
 import static com.facebook.presto.execution.QueryLimit.createDurationLimit;
 import static com.facebook.presto.execution.QueryLimit.getMinimum;
+import static com.facebook.presto.execution.QueryTracker.PruneEvent.QUERY_EXPIRED;
+import static com.facebook.presto.execution.QueryTracker.PruneEvent.QUERY_FINISHED;
 import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_QUERY;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_HAS_TOO_MANY_STAGES;
@@ -197,7 +199,10 @@ public class QueryTracker<T extends TrackedQuery>
     public void expireQuery(QueryId queryId)
     {
         tryGetQuery(queryId)
-                .ifPresent(expirationQueue::add);
+                .ifPresent(query -> {
+                    query.pruneInfo(QUERY_FINISHED);
+                    expirationQueue.add(query);
+                });
     }
 
     public long getRunningTaskCount()
@@ -264,8 +269,8 @@ public class QueryTracker<T extends TrackedQuery>
     }
 
     /**
-     *  When cluster reaches max tasks limit and also a single query
-     *  exceeds a threshold,  kill this query
+     * When cluster reaches max tasks limit and also a single query
+     * exceeds a threshold,  kill this query
      */
     @VisibleForTesting
     void enforceTaskLimits()
@@ -316,7 +321,7 @@ public class QueryTracker<T extends TrackedQuery>
             if (expirationQueue.size() - count <= maxQueryHistory) {
                 break;
             }
-            query.pruneInfo();
+            query.pruneInfo(QUERY_EXPIRED);
             count++;
         }
     }
@@ -409,6 +414,20 @@ public class QueryTracker<T extends TrackedQuery>
         void fail(Throwable cause);
 
         // XXX: This should be removed when the client protocol is improved, so that we don't need to hold onto so much query history
-        void pruneInfo();
+        void pruneInfo(PruneEvent event);
+    }
+
+    public enum PruneEvent
+    {
+        /**
+         * Prune info from finished queries which should not be kept around at all after the query
+         * state machine has transitioned into a finished state
+         */
+        QUERY_FINISHED,
+        /**
+         * Prune info from finished queries which are in the expiry queue and the queue length is
+         * greater than {@code query.max-history}
+         */
+        QUERY_EXPIRED
     }
 }

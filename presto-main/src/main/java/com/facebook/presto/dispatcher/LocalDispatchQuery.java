@@ -23,6 +23,7 @@ import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.QueryStateMachine;
+import com.facebook.presto.execution.QueryTracker.PruneEvent;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.PrestoException;
@@ -357,9 +358,9 @@ public class LocalDispatchQuery
     }
 
     @Override
-    public void pruneInfo()
+    public void pruneInfo(PruneEvent event)
     {
-        stateMachine.pruneQueryInfo();
+        stateMachine.pruneQueryInfo(event);
     }
 
     @Override

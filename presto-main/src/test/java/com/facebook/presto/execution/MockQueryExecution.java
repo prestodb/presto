@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.QueryTracker.PruneEvent;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.QueryId;
@@ -217,7 +218,7 @@ public class MockQueryExecution
     }
 
     @Override
-    public void pruneInfo()
+    public void pruneInfo(PruneEvent event)
     { }
 
     @Override
