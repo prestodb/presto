@@ -304,6 +304,8 @@ TEST_F(ParquetReaderTest, parseReadAsLowerCase) {
   const std::string upper(getExampleFilePath("upper.parquet"));
 
   dwio::common::ReaderOptions readerOptions{leafPool_.get()};
+  auto outputRowType = ROW({"a", "b"}, {BIGINT(), BIGINT()});
+  readerOptions.setFileSchema(outputRowType);
   readerOptions.setFileColumnNamesReadAsLowerCase(true);
   auto reader = createReader(upper, readerOptions);
   EXPECT_EQ(reader->numberOfRows(), 2ULL);

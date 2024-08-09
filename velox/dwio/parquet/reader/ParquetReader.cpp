@@ -280,7 +280,10 @@ std::unique_ptr<ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
     auto curSchemaIdx = schemaIdx;
     for (int32_t i = 0; i < schemaElement.num_children; i++) {
       ++schemaIdx;
-      auto& childName = schema[schemaIdx].name;
+      auto childName = schema[schemaIdx].name;
+      if (isFileColumnNamesReadAsLowerCase()) {
+        folly::toLowerAscii(childName);
+      }
       auto childRequestedType =
           requestedType ? requestedType->asRow().findChild(childName) : nullptr;
       auto child = getParquetColumnInfo(
