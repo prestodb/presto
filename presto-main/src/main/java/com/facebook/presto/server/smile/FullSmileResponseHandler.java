@@ -61,9 +61,9 @@ public class FullSmileResponseHandler<T>
         byte[] bytes = readResponseBytes(response);
         String contentType = response.getHeader(CONTENT_TYPE);
         if ((contentType == null) || !MediaType.parse(contentType).is(MEDIA_TYPE_SMILE)) {
-            return new SmileResponse<>(response.getStatusCode(), response.getStatusMessage(), response.getHeaders(), bytes);
+            return new SmileResponse<>(response.getStatusCode(), response.getHeaders(), bytes);
         }
-        return new SmileResponse<>(response.getStatusCode(), response.getStatusMessage(), response.getHeaders(), smileCodec, bytes);
+        return new SmileResponse<>(response.getStatusCode(), response.getHeaders(), smileCodec, bytes);
     }
 
     private static byte[] readResponseBytes(Response response)
@@ -80,7 +80,6 @@ public class FullSmileResponseHandler<T>
             implements BaseResponse<T>
     {
         private final int statusCode;
-        private final String statusMessage;
         private final ListMultimap<HeaderName, String> headers;
         private final boolean hasValue;
         private final byte[] smileBytes;
@@ -88,10 +87,9 @@ public class FullSmileResponseHandler<T>
         private final T value;
         private final IllegalArgumentException exception;
 
-        public SmileResponse(int statusCode, String statusMessage, ListMultimap<HeaderName, String> headers, byte[] responseBytes)
+        public SmileResponse(int statusCode, ListMultimap<HeaderName, String> headers, byte[] responseBytes)
         {
             this.statusCode = statusCode;
-            this.statusMessage = statusMessage;
             this.headers = ImmutableListMultimap.copyOf(headers);
 
             this.hasValue = false;
@@ -102,10 +100,9 @@ public class FullSmileResponseHandler<T>
         }
 
         @SuppressWarnings("ThrowableInstanceNeverThrown")
-        public SmileResponse(int statusCode, String statusMessage, ListMultimap<HeaderName, String> headers, SmileCodec<T> smileCodec, byte[] smileBytes)
+        public SmileResponse(int statusCode, ListMultimap<HeaderName, String> headers, SmileCodec<T> smileCodec, byte[] smileBytes)
         {
             this.statusCode = statusCode;
-            this.statusMessage = statusMessage;
             this.headers = ImmutableListMultimap.copyOf(headers);
 
             this.smileBytes = requireNonNull(smileBytes, "smileBytes is null");
@@ -129,12 +126,6 @@ public class FullSmileResponseHandler<T>
         public int getStatusCode()
         {
             return statusCode;
-        }
-
-        @Override
-        public String getStatusMessage()
-        {
-            return statusMessage;
         }
 
         @Override
@@ -201,7 +192,6 @@ public class FullSmileResponseHandler<T>
         {
             return toStringHelper(this)
                     .add("statusCode", statusCode)
-                    .add("statusMessage", statusMessage)
                     .add("headers", headers)
                     .add("hasValue", hasValue)
                     .add("value", value)

@@ -73,9 +73,8 @@ public class ClusterSizeFetcher
         StringResponse response = httpClient.execute(request, createStringResponseHandler());
         checkState(
                 response.getStatusCode() == OK.getStatusCode(),
-                "Invalid response: %s %s",
-                response.getStatusCode(),
-                response.getStatusMessage());
+                "Invalid response: %s",
+                response.getStatusCode());
 
         List<Map<String, Object>> values;
         try {
