@@ -87,14 +87,6 @@ public final class LikeFunctions
     @ScalarOperator(OperatorType.CAST)
     @LiteralParameters("x")
     @SqlType(LikePatternType.NAME)
-    public static Regex castVarcharToLikePattern(@SqlType("varchar(x)") Slice pattern)
-    {
-        return likePattern(pattern);
-    }
-
-    @ScalarOperator(OperatorType.CAST)
-    @LiteralParameters("x")
-    @SqlType(LikePatternType.NAME)
     public static Regex castCharToLikePattern(@LiteralParameter("x") Long charLength, @SqlType("char(x)") Slice pattern)
     {
         return likePattern(padSpaces(pattern, charLength.intValue()));
