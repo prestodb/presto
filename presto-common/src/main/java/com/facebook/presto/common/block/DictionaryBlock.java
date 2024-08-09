@@ -36,6 +36,14 @@ import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * A dictionary block packs positionCount values into a chunk of memory. The raw values
+ * are kept in a Block called the dictionary with generally fewer than positionCount values.
+ * The ids array contains positionCount indexes into the underlying delegate block.
+ * When value N is requested from this block, instead of returning the value directly
+ * we look up the index of value N at ids[N]. Then return that value from doctionary[ids[N]].
+ * This compresses data when the same value repeats at multiple locations.
+ */
 public class DictionaryBlock
         implements Block
 {
@@ -53,6 +61,11 @@ public class DictionaryBlock
     private volatile long logicalSizeInBytes = -1;
     private volatile int uniqueIds = -1;
 
+    /**
+     *
+     * @param dictionary the raw values in the block
+     * @param ids the indexes of the values in the block
+     */
     public DictionaryBlock(Block dictionary, int[] ids)
     {
         this(requireNonNull(ids, "ids is null").length, dictionary, ids);
@@ -86,12 +99,12 @@ public class DictionaryBlock
         if (positionCount < 0) {
             throw new IllegalArgumentException("positionCount is negative");
         }
-
-        this.idsOffset = idsOffset;
-        if (ids.length - idsOffset < positionCount) {
-            throw new IllegalArgumentException("ids length is less than positionCount");
+        int numIDs = ids.length - idsOffset;
+        if (numIDs != positionCount) {
+            throw new IllegalArgumentException("number of ids " + numIDs + " is not same as positionCount " + positionCount);
         }
 
+        this.idsOffset = idsOffset;
         this.positionCount = positionCount;
         this.dictionary = dictionary;
         this.ids = ids;
@@ -425,7 +438,8 @@ public class DictionaryBlock
     public Block getRegion(int positionOffset, int length)
     {
         checkValidRegion(positionCount, positionOffset, length);
-        return new DictionaryBlock(idsOffset + positionOffset, length, dictionary, ids, false, dictionarySourceId);
+        int[] regionIds = Arrays.copyOfRange(ids, idsOffset + positionOffset, idsOffset + positionOffset + length);
+        return new DictionaryBlock(idsOffset + positionOffset, length, dictionary, regionIds, false, dictionarySourceId);
     }
 
     @Override
