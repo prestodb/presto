@@ -11,9 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.functionNamespace.json;
+package com.facebook.presto.functionNamespace;
 
-public interface FunctionDefinitionProvider
+import com.google.inject.BindingAnnotation;
+
+import java.lang.annotation.Retention;
+
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
+
+@Retention(RUNTIME)
+@BindingAnnotation
+public @interface ForRestServer
 {
-    UdfFunctionSignatureMap getUdfDefinition(String filePath);
 }
