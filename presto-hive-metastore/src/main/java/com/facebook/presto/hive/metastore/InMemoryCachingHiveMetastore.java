@@ -31,6 +31,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.SetMultimap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.units.Duration;
+import org.apache.hadoop.hive.common.FileUtils;
 import org.weakref.jmx.Managed;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -49,6 +50,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CORRUPTED_PARTITION_CACHE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
@@ -798,6 +800,176 @@ public class InMemoryCachingHiveMetastore
         return delegate.listTablePrivileges(loadTablePrivilegesKey.getContext(), loadTablePrivilegesKey.getKey().getDatabase(), loadTablePrivilegesKey.getKey().getTable(), loadTablePrivilegesKey.getKey().getPrincipal());
     }
 
+    public void invalidateCache(MetastoreContext metastoreContext, String databaseName)
+    {
+        MetastoreContext newMetastoreContext = applyImpersonationToMetastoreContext(metastoreContext);
+
+        // Invalidate Database Cache
+        invalidateCacheForKey(
+                databaseCache,
+                newMetastoreContext,
+                databaseKey -> databaseKey.getKey().equals(databaseName));
+
+        // Invalidate Database Names Cache
+        invalidateCacheForKey(databaseNamesCache, newMetastoreContext, databaseNamesKey -> true);
+
+        // Invalidate table specific caches for all the tables in this database
+        invalidateCacheForKey(
+                tableCache,
+                newMetastoreContext,
+                hiveTableHandleKeyAndContext -> hiveTableHandleKeyAndContext.getKey().getSchemaName().equals(databaseName));
+
+        invalidateCacheForKey(
+                tableNamesCache,
+                newMetastoreContext,
+                databaseNameKey -> databaseNameKey.getKey().equals(databaseName));
+
+        invalidateCacheForKey(
+                tableConstraintsCache,
+                newMetastoreContext,
+                hiveTableNameKeyAndContext -> hiveTableNameKeyAndContext.getKey().getDatabaseName().equals(databaseName));
+
+        invalidateCacheForKey(
+                tablePrivilegesCache,
+                newMetastoreContext,
+                userTableKeyKeyAndContext -> userTableKeyKeyAndContext.getKey().getDatabase().equals(databaseName));
+
+        invalidateCacheForKey(
+                tableStatisticsCache,
+                newMetastoreContext,
+                hiveTableNameKeyAndContext -> hiveTableNameKeyAndContext.getKey().getDatabaseName().equals(databaseName));
+
+        invalidateCacheForKey(
+                viewNamesCache,
+                newMetastoreContext,
+                databaseNameKey -> databaseNameKey.getKey().equals(databaseName));
+
+        // Invalidate partition cache for partitions in all the tables in the given database
+        invalidateCacheForKey(
+                partitionNamesCache,
+                newMetastoreContext,
+                hiveTableNameKeyAndContext -> hiveTableNameKeyAndContext.getKey().getDatabaseName().equals(databaseName));
+
+        invalidateCacheForKey(
+                partitionCache,
+                newMetastoreContext,
+                hivePartitionNameKeyAndContext -> hivePartitionNameKeyAndContext.getKey().getHiveTableName().getDatabaseName().equals(databaseName));
+
+        invalidateCacheForKey(
+                partitionFilterCache,
+                newMetastoreContext,
+                partitionFilterKeyAndContext -> partitionFilterKeyAndContext.getKey().getHiveTableName().getDatabaseName().equals(databaseName));
+
+        invalidateCacheForKey(
+                partitionStatisticsCache,
+                newMetastoreContext,
+                hivePartitionNameKeyAndContext -> hivePartitionNameKeyAndContext.getKey().getHiveTableName().getDatabaseName().equals(databaseName));
+    }
+
+    public void invalidateCache(MetastoreContext metastoreContext, String databaseName, String tableName)
+    {
+        MetastoreContext newMetastoreContext = applyImpersonationToMetastoreContext(metastoreContext);
+        HiveTableName hiveTableName = hiveTableName(databaseName, tableName);
+
+        // Invalidate Table Cache
+        invalidateCacheForKey(
+                tableCache,
+                newMetastoreContext,
+                hiveTableHandleKeyAndContext -> isSameTable(hiveTableHandleKeyAndContext.getKey(), hiveTableName));
+
+        // Invalidate Table Names Cache
+        invalidateCacheForKey(
+                tableNamesCache,
+                newMetastoreContext,
+                databaseNameKey -> databaseNameKey.getKey().equals(databaseName));
+
+        // Invalidate Table Constraints Cache
+        invalidateCacheForKey(
+                tableConstraintsCache,
+                newMetastoreContext,
+                hiveTableNameKeyAndContext -> hiveTableNameKeyAndContext.getKey().equals(hiveTableName));
+
+        // Invalidate Table Privileges Cache
+        invalidateCacheForKey(
+                tablePrivilegesCache,
+                newMetastoreContext,
+                userTableKeyKeyAndContext -> userTableKeyKeyAndContext.getKey().matches(databaseName, tableName));
+
+        // Invalidate Table Statistics Cache
+        invalidateCacheForKey(
+                tableStatisticsCache,
+                newMetastoreContext,
+                hiveTableNameKeyAndContext -> hiveTableNameKeyAndContext.getKey().equals(hiveTableName));
+
+        // Invalidate View Names Cache
+        invalidateCacheForKey(
+                viewNamesCache,
+                newMetastoreContext,
+                databaseNameKey -> databaseNameKey.getKey().equals(databaseName));
+
+        // Invalidate partition cache for all partitions in the given table
+        invalidateCacheForKey(
+                partitionNamesCache,
+                newMetastoreContext,
+                hiveTableNameKeyAndContext -> hiveTableNameKeyAndContext.getKey().equals(hiveTableName));
+
+        invalidateCacheForKey(
+                partitionCache,
+                newMetastoreContext,
+                hivePartitionNameKeyAndContext -> hivePartitionNameKeyAndContext.getKey().getHiveTableName().equals(hiveTableName));
+
+        invalidateCacheForKey(
+                partitionFilterCache,
+                newMetastoreContext,
+                partitionFilterKeyAndContext -> partitionFilterKeyAndContext.getKey().getHiveTableName().equals(hiveTableName));
+
+        invalidateCacheForKey(
+                partitionStatisticsCache,
+                newMetastoreContext,
+                hivePartitionNameKeyAndContext -> hivePartitionNameKeyAndContext.getKey().getHiveTableName().equals(hiveTableName));
+    }
+
+    public void invalidateCache(
+            MetastoreContext metastoreContext,
+            String databaseName,
+            String tableName,
+            List<String> partitionColumnNames,
+            List<String> partitionValues)
+    {
+        MetastoreContext newMetastoreContext = applyImpersonationToMetastoreContext(metastoreContext);
+        String partitionName = FileUtils.makePartName(partitionColumnNames, partitionValues);
+        HiveTableName hiveTableName = hiveTableName(databaseName, tableName);
+
+        Predicate<KeyAndContext<HivePartitionName>> hivePartitionNamePredicate = hivePartitionNameKeyAndContext ->
+                hivePartitionNameKeyAndContext.getKey().getHiveTableName().equals(hiveTableName) &&
+                        hivePartitionNameKeyAndContext.getKey().getPartitionNameWithVersion().map(value -> value.getPartitionName().equals(partitionName)).orElse(false);
+
+        // Invalidate Partition Names Cache
+        invalidateCacheForKey(
+                partitionNamesCache,
+                newMetastoreContext,
+                hiveTableNameKeyAndContext -> hiveTableNameKeyAndContext.getKey().equals(hiveTableName));
+
+        // Invalidate Partition Cache
+        invalidateCacheForKey(partitionCache, newMetastoreContext, hivePartitionNamePredicate);
+
+        // Invalidate Partition Filter Cache
+        invalidateCacheForKey(
+                partitionFilterCache,
+                newMetastoreContext,
+                partitionFilterKeyAndContext -> partitionFilterKeyAndContext.getKey().getHiveTableName().equals(hiveTableName));
+
+        // Invalidate Partition Statistics Cache
+        invalidateCacheForKey(partitionStatisticsCache, newMetastoreContext, hivePartitionNamePredicate);
+    }
+
+    private <K> void invalidateCacheForKey(LoadingCache<KeyAndContext<K>, ?> cache, MetastoreContext newMetastoreContext, Predicate<KeyAndContext<K>> keyPredicate)
+    {
+        cache.asMap().keySet().stream()
+                .filter(key -> (!newMetastoreContext.isImpersonationEnabled() || key.getContext().equals(newMetastoreContext)) && keyPredicate.test(key))
+                .forEach(cache::invalidate);
+    }
+
     private static class KeyAndContext<T>
     {
         private final MetastoreContext context;
@@ -858,7 +1030,7 @@ public class InMemoryCachingHiveMetastore
         }
     }
 
-    private <T> KeyAndContext<T> getCachingKey(MetastoreContext context, T key)
+    private MetastoreContext applyImpersonationToMetastoreContext(MetastoreContext context)
     {
         if (metastoreImpersonationEnabled) {
             context = new MetastoreContext(
@@ -874,7 +1046,12 @@ public class InMemoryCachingHiveMetastore
                     context.getWarningCollector(),
                     context.getRuntimeStats());
         }
-        return new KeyAndContext<>(context, key);
+        return context;
+    }
+
+    private <T> KeyAndContext<T> getCachingKey(MetastoreContext context, T key)
+    {
+        return new KeyAndContext<>(applyImpersonationToMetastoreContext(context), key);
     }
 
     private static CacheBuilder<Object, Object> newCacheBuilder(OptionalLong expiresAfterWriteMillis, OptionalLong refreshMillis, long maximumSize)
