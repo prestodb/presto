@@ -16,6 +16,8 @@ package com.facebook.presto.spi.resourceGroups;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
+import java.util.List;
+
 public interface ResourceGroup
 {
     ResourceGroupId getId();
@@ -112,4 +114,8 @@ public interface ResourceGroup
     public int getWorkersPerQueryLimit();
 
     public void setWorkersPerQueryLimit(int workersPerQueryLimit);
+
+    public List<String> getTags();
+
+    public void setTags(List<String> tags);
 }
