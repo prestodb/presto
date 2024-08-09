@@ -20,6 +20,7 @@ target_link_libraries(
   gtest_main
   presto_operators
   presto_protocol
+  presto_tpcds_connector
   velox_hive_connector
   velox_tpch_connector
   velox_exec
@@ -48,6 +49,7 @@ target_link_libraries(
   $<TARGET_OBJECTS:presto_type_converter>
   $<TARGET_OBJECTS:presto_types>
   presto_operators
+  presto_tpcds_connector
   velox_core
   velox_dwio_common_exception
   velox_encode
@@ -83,6 +85,7 @@ target_link_libraries(
   presto_to_velox_connector_test
   presto_protocol
   presto_operators
+  presto_tpcds_connector
   presto_type_converter
   presto_types
   velox_hive_connector

@@ -65,6 +65,7 @@ public class TpcdsConnectorFactory
     {
         int splitsPerNode = getSplitsPerNode(config);
         NodeManager nodeManager = context.getNodeManager();
+        Boolean isNativeExecution = context.getConnectorSystemConfig().isNativeExecution();
         return new Connector()
         {
             @Override
@@ -76,7 +77,7 @@ public class TpcdsConnectorFactory
             @Override
             public ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
             {
-                return new TpcdsMetadata();
+                return new TpcdsMetadata(isNativeExecution);
             }
 
             @Override
