@@ -697,6 +697,15 @@ public class TestArrayOperators
     }
 
     @Test
+    public void testArrayMinWithNulls()
+    {
+        assertFunction("ARRAY_MIN(ARRAY [ARRAY[1, NULL], ARRAY[2, NULL]])", new ArrayType(INTEGER), Lists.newArrayList(1, null));
+        assertFunction("ARRAY_MIN(ARRAY [ARRAY[2, NULL], ARRAY[1, NULL]])", new ArrayType(INTEGER), Lists.newArrayList(1, null));
+        assertInvalidFunction("ARRAY_MIN(ARRAY [ARRAY[1, NULL], ARRAY[1, 2]])", NOT_SUPPORTED);
+        assertInvalidFunction("ARRAY_MIN(ARRAY [ARRAY[1, 2], ARRAY[1, NULL]])", NOT_SUPPORTED);
+    }
+
+    @Test
     public void testArrayMax()
     {
         assertFunction("ARRAY_MAX(ARRAY [])", UNKNOWN, null);
@@ -724,6 +733,15 @@ public class TestArrayOperators
         assertDecimalFunction("ARRAY_MAX(ARRAY [2.111111222111111114111, 2.22222222222222222, 2.222222222222223])", decimal("2.222222222222223000000"));
         assertDecimalFunction("ARRAY_MAX(ARRAY [1.9, 2, 2.3])", decimal("0000000002.3"));
         assertDecimalFunction("ARRAY_MAX(ARRAY [2.22222222222222222, 2.3])", decimal("2.30000000000000000"));
+    }
+
+    @Test
+    public void testArrayMaxWithNulls()
+    {
+        assertFunction("ARRAY_MAX(ARRAY [ARRAY[1, NULL], ARRAY[2, NULL]])", new ArrayType(INTEGER), Lists.newArrayList(2, null));
+        assertFunction("ARRAY_MAX(ARRAY [ARRAY[2, NULL], ARRAY[1, NULL]])", new ArrayType(INTEGER), Lists.newArrayList(2, null));
+        assertInvalidFunction("ARRAY_MAX(ARRAY [ARRAY[1, NULL], ARRAY[1, 2]])", NOT_SUPPORTED);
+        assertInvalidFunction("ARRAY_MAX(ARRAY [ARRAY[1, 2], ARRAY[1, NULL]])", NOT_SUPPORTED);
     }
 
     @Test
