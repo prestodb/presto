@@ -1310,7 +1310,7 @@ public final class SqlFormatter
         public Void visitSetSession(SetSession node, Integer context)
         {
             builder.append("SET SESSION ")
-                    .append(node.getName())
+                    .append(formatName(node.getName()))
                     .append(" = ")
                     .append(formatExpression(node.getValue(), parameters));
 
@@ -1321,7 +1321,7 @@ public final class SqlFormatter
         public Void visitResetSession(ResetSession node, Integer context)
         {
             builder.append("RESET SESSION ")
-                    .append(node.getName());
+                    .append(formatName(node.getName()));
 
             return null;
         }
