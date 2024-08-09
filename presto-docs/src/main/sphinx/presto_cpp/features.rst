@@ -132,6 +132,16 @@ is valid.
 If the time period exceeds the parameter value, the request is rejected as
 authentication failure (HTTP 401).
 
+LinuxMemoryChecker
+--------------------
+
+The LinuxMemoryChecker can be enabled by turning the option `PRESTO_ENABLE_LINUX_MEMORY_CHECKER` 
+to ON in presto-native-execution/CMakeLists.txt.
+
+The LinuxMemoryChecker extends from PeriodicMemoryChecker and is used to periodically check 
+memory usage using memory calculation from inactive_anon + active_anon in the memory stat 
+file from Linux cgroups V1 or V2.
+
 Async Data Cache and Prefetching
 --------------------------------
 
