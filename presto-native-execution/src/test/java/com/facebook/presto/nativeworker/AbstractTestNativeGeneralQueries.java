@@ -315,6 +315,74 @@ public abstract class AbstractTestNativeGeneralQueries
     }
 
     @Test
+    public void testIPAddressIPPrefix() throws InterruptedException
+    {
+        String tmpTableName = generateRandomTableName();
+        try {
+            getQueryRunner().execute(String.format("CREATE TABLE %s (ip VARCHAR, prefixSize  BIGINT, ippre VARCHAR)", tmpTableName));
+            getQueryRunner().execute(String.format("INSERT INTO %s VALUES " +
+                    "(VARCHAR '255.255.255.255', BIGINT '8', VARCHAR '255.0.0.0/8'), " +
+                    "(VARCHAR '2001:0db8:85a3:0001:0001:8a2e:0370:7334', BIGINT '48', VARCHAR '2001:db8:85a3::/48')", tmpTableName));
+
+            assertQuery(String.format("SELECT ip_prefix(CAST('192.168.255.255' AS IPADDRESS), NULL) IS NULL", tmpTableName),
+                    "SELECT * FROM (VALUES" +
+                            "(true))");
+            assertQuery(String.format("SELECT CAST(NULL AS IPADDRESS) IS NULL", tmpTableName),
+                    "SELECT * FROM (VALUES" +
+                            "(true))");
+            assertQuery(String.format("SELECT CAST(NULL AS IPPREFIX) IS NULL", tmpTableName),
+                    "SELECT * FROM (VALUES" +
+                            "(true))");
+
+            assertQuery("SELECT * FROM (VALUES (IPADDRESS '192.1.1.10'), (IPADDRESS '192.1.1.1'), (IPADDRESS '192.1.1.11')) as t (ip) ORDER BY ip LIMIT 1",
+                    "SELECT * FROM (VALUES" +
+                            "(IPADDRESS '192.1.1.1'))");
+
+            assertQuery("SELECT CAST(ip AS VARCHAR) FROM (VALUES (IPPREFIX '192.0.1.10/8'), (IPPREFIX '192.0.1.10/9'), (IPPREFIX '192.0.1.10/10')) as t (ip) ORDER BY ip LIMIT 1",
+                    "SELECT * FROM (VALUES" +
+                            "('192.0.0.0/8'))");
+
+            assertQuery(String.format("SELECT CAST(ip_subnet_min(CAST(ippre AS IPPREFIX)) AS VARCHAR) FROM %s", tmpTableName),
+                    "SELECT * FROM (VALUES" +
+                            "('255.0.0.0')," +
+                            "('2001:db8:85a3::'))");
+
+            assertQuery(String.format("SELECT CAST(ip_subnet_max(CAST(ippre AS IPPREFIX)) AS VARCHAR) FROM %s", tmpTableName),
+                    "SELECT * FROM (VALUES" +
+                            "('255.255.255.255')," +
+                            "('2001:db8:85a3:ffff:ffff:ffff:ffff:ffff'))");
+
+            assertQuery(String.format("SELECT CAST(ip_subnet_range(CAST(ippre AS IPPREFIX))[1] AS VARCHAR) FROM %s", tmpTableName),
+                    "SELECT * FROM (VALUES" +
+                            "('255.0.0.0')," +
+                            "('2001:db8:85a3::'))");
+
+            assertQuery(String.format("SELECT CAST(ip_subnet_range(CAST(ippre AS IPPREFIX))[2] AS VARCHAR) FROM %s", tmpTableName),
+                    "SELECT * FROM (VALUES" +
+                            "('255.255.255.255')," +
+                            "('2001:db8:85a3:ffff:ffff:ffff:ffff:ffff'))");
+
+            assertQuery(String.format("SELECT is_subnet_of(CAST(ippre AS IPPREFIX), CAST(ip AS IPADDRESS)) FROM %s", tmpTableName),
+                    "SELECT * FROM (VALUES" +
+                            "(true)," +
+                            "(true))");
+
+            assertQuery(String.format("SELECT is_subnet_of(CAST(ippre AS IPPREFIX), CAST(ippre AS IPPREFIX)) FROM %s", tmpTableName),
+                    "SELECT * FROM (VALUES" +
+                            "(true)," +
+                            "(true))");
+
+            assertQueryFails("SELECT CAST('192.168.255.256' AS IPADDRESS)",
+                    "Cannot cast value to IPADDRESS: 192.168.255.256");
+            assertQueryFails("SELECT ip_prefix(CAST('192.168.255.255' AS IPADDRESS), 99)",
+                    "IPv4 subnet size must be in range \\[0, 32\\]");
+        }
+        finally {
+            dropTableIfExists(tmpTableName);
+        }
+    }
+
+    @Test
     public void testTableSample()
     {
         // At best we can check for query success for the TABLESAMPLE based queries as the number of rows returned
