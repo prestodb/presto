@@ -71,6 +71,7 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.hive.BucketFunctionType.HIVE_COMPATIBLE;
 import static com.facebook.presto.hive.CacheQuotaScope.GLOBAL;
+import static com.facebook.presto.hive.HiveColumnHandle.PATH_COLUMN_INDEX;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxInitialSplitSize;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
@@ -106,6 +107,7 @@ public class TestBackgroundHiveSplitLoader
     private static final ExecutorService EXECUTOR = newCachedThreadPool(daemonThreadsNamed("test-%s"));
 
     private static final Domain RETURNED_PATH_DOMAIN = Domain.singleValue(VARCHAR, utf8Slice(RETURNED_PATH.toString()));
+    private static final Map<Integer, Domain> RETURNED_PATH_CONSTRAINT = ImmutableMap.of(PATH_COLUMN_INDEX, RETURNED_PATH_DOMAIN);
 
     private static final List<LocatedFileStatus> TEST_FILES = ImmutableList.of(
             locatedFileStatus(RETURNED_PATH, 0L),
@@ -129,7 +131,7 @@ public class TestBackgroundHiveSplitLoader
     {
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
                 TEST_FILES,
-                Optional.empty());
+                ImmutableMap.of());
 
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
@@ -143,7 +145,7 @@ public class TestBackgroundHiveSplitLoader
     {
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
                 TEST_FILES,
-                Optional.of(RETURNED_PATH_DOMAIN));
+                RETURNED_PATH_CONSTRAINT);
 
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
@@ -158,7 +160,7 @@ public class TestBackgroundHiveSplitLoader
     {
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
                 TEST_FILES,
-                Optional.of(RETURNED_PATH_DOMAIN),
+                RETURNED_PATH_CONSTRAINT,
                 Optional.of(new HiveBucketFilter(ImmutableSet.of(0, 1))),
                 PARTITIONED_TABLE,
                 Optional.of(new HiveBucketHandle(BUCKET_COLUMN_HANDLES, BUCKET_COUNT, BUCKET_COUNT)));
@@ -176,7 +178,7 @@ public class TestBackgroundHiveSplitLoader
     {
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
                 TEST_FILES,
-                Optional.of(RETURNED_PATH_DOMAIN),
+                RETURNED_PATH_CONSTRAINT,
                 Optional.empty(),
                 PARTITIONED_TABLE,
                 Optional.of(
@@ -198,7 +200,7 @@ public class TestBackgroundHiveSplitLoader
     {
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
                 ImmutableList.of(locatedFileStatusWithNoBlocks(RETURNED_PATH)),
-                Optional.empty());
+                ImmutableMap.of());
 
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
@@ -241,7 +243,7 @@ public class TestBackgroundHiveSplitLoader
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
                 SESSION,
                 ImmutableList.of(locatedFileStatus(new Path(SAMPLE_PATH), getMaxInitialSplitSize(SESSION).toBytes())),
-                Optional.empty(),
+                ImmutableMap.of(),
                 Optional.empty(),
                 unsupportedTable,
                 Optional.empty(),
@@ -328,7 +330,7 @@ public class TestBackgroundHiveSplitLoader
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
                 SESSION,
                 ImmutableList.of(locatedFileStatus(new Path(SAMPLE_PATH), initialSplitSize.toBytes())),
-                Optional.empty(),
+                ImmutableMap.of(),
                 Optional.empty(),
                 table,
                 Optional.empty(),
@@ -343,7 +345,7 @@ public class TestBackgroundHiveSplitLoader
         backgroundHiveSplitLoader = backgroundHiveSplitLoader(
                 SESSION,
                 ImmutableList.of(locatedFileStatus(new Path(SAMPLE_PATH), initialSplitSize.toBytes() + 1)),
-                Optional.empty(),
+                ImmutableMap.of(),
                 Optional.empty(),
                 table,
                 Optional.empty(),
@@ -402,7 +404,7 @@ public class TestBackgroundHiveSplitLoader
 
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
                 ImmutableList.of(locatedFileStatus(new Path(SAMPLE_PATH), fileSize.toBytes())),
-                Optional.empty(),
+                ImmutableMap.of(),
                 Optional.empty(),
                 table,
                 Optional.empty());
@@ -490,7 +492,7 @@ public class TestBackgroundHiveSplitLoader
 
     private static BackgroundHiveSplitLoader backgroundHiveSplitLoader(
             List<LocatedFileStatus> files,
-            Optional<Domain> pathDomain)
+            Map<Integer, Domain> pathDomain)
     {
         return backgroundHiveSplitLoader(
                 files,
@@ -502,7 +504,7 @@ public class TestBackgroundHiveSplitLoader
 
     private static BackgroundHiveSplitLoader backgroundHiveSplitLoader(
             List<LocatedFileStatus> files,
-            Optional<Domain> pathDomain,
+            Map<Integer, Domain> constraints,
             Optional<HiveBucketFilter> hiveBucketFilter,
             Table table,
             Optional<HiveBucketHandle> bucketHandle)
@@ -510,13 +512,13 @@ public class TestBackgroundHiveSplitLoader
         ConnectorSession connectorSession = new TestingConnectorSession(getAllSessionProperties(
                         new HiveClientConfig().setMaxSplitSize(new DataSize(1.0, GIGABYTE)),
                         new HiveCommonClientConfig()));
-        return backgroundHiveSplitLoader(connectorSession, files, pathDomain, hiveBucketFilter, table, bucketHandle, samplePartitionMetadatas());
+        return backgroundHiveSplitLoader(connectorSession, files, constraints, hiveBucketFilter, table, bucketHandle, samplePartitionMetadatas());
     }
 
     private static BackgroundHiveSplitLoader backgroundHiveSplitLoader(
             ConnectorSession connectorSession,
             List<LocatedFileStatus> files,
-            Optional<Domain> pathDomain,
+            Map<Integer, Domain> constraints,
             Optional<HiveBucketFilter> hiveBucketFilter,
             Table table,
             Optional<HiveBucketHandle> bucketHandle,
@@ -525,7 +527,7 @@ public class TestBackgroundHiveSplitLoader
         return new BackgroundHiveSplitLoader(
                 table,
                 hivePartitionMetadatas,
-                pathDomain,
+                constraints,
                 createBucketSplitInfo(bucketHandle, hiveBucketFilter),
                 connectorSession,
                 new TestingHdfsEnvironment(files),
@@ -560,7 +562,7 @@ public class TestBackgroundHiveSplitLoader
         return new BackgroundHiveSplitLoader(
                 SIMPLE_TABLE,
                 samplePartitionMetadatas(),
-                Optional.empty(),
+                ImmutableMap.of(),
                 createBucketSplitInfo(Optional.empty(), Optional.empty()),
                 connectorSession,
                 new TestingHdfsEnvironment(files),
@@ -582,7 +584,7 @@ public class TestBackgroundHiveSplitLoader
         return new BackgroundHiveSplitLoader(
                 SIMPLE_TABLE,
                 createPartitionMetadataWithOfflinePartitions(),
-                Optional.empty(),
+                ImmutableMap.of(),
                 createBucketSplitInfo(Optional.empty(), Optional.empty()),
                 connectorSession,
                 new TestingHdfsEnvironment(TEST_FILES),
