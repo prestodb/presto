@@ -144,7 +144,7 @@ public final class GroupByHashYieldAssertion
                 assertTrue(operator.getOperatorContext().isWaitingForMemory().isDone());
 
                 // assert the hash capacity is not changed; otherwise, we should have yielded
-                assertTrue(oldCapacity == getHashCapacity.apply(operator));
+                assertEquals(oldCapacity, getHashCapacity.apply(operator));
 
                 // We are not going to rehash; therefore, assert the memory increase only comes from the aggregator
                 assertLessThan(actualIncreasedMemory, additionalMemoryInBytes);

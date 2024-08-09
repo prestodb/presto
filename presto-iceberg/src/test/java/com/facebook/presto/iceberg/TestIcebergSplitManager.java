@@ -180,7 +180,7 @@ public class TestIcebergSplitManager
     {
         Session session = sessionWithFilterPushdown(filterPushdown);
         List<TableScanNode> tableScanNodes = getTableScanFromOptimizedPlanOfSql(sql, session);
-        assertTrue(tableScanNodes != null && tableScanNodes.size() == 1);
+        assertEquals(tableScanNodes.size(), 1);
 
         TransactionId transactionId = transactionManager.beginTransaction(false);
         session = session.beginTransactionId(transactionId, transactionManager, new AllowAllAccessControl());

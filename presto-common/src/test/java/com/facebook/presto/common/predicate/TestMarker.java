@@ -101,7 +101,7 @@ public class TestMarker
         // of their indexes.
         for (int i = 0; i < markers.size(); i++) {
             for (int j = 0; j < markers.size(); j++) {
-                assertTrue(markers.get(i).compareTo(markers.get(j)) == Integer.compare(i, j));
+                assertEquals(markers.get(i).compareTo(markers.get(j)), Integer.compare(i, j));
             }
         }
     }

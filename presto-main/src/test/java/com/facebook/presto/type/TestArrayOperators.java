@@ -94,7 +94,6 @@ import static java.util.Collections.emptyList;
 import static java.util.Collections.nCopies;
 import static java.util.Collections.singletonList;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 public class TestArrayOperators
@@ -852,7 +851,7 @@ public class TestArrayOperators
             fail("Access to array with double subscript should fail");
         }
         catch (SemanticException e) {
-            assertTrue(e.getCode() == TYPE_MISMATCH);
+            assertEquals(e.getCode(), TYPE_MISMATCH);
         }
 
         assertFunction("ARRAY[NULL][1]", UNKNOWN, null);
