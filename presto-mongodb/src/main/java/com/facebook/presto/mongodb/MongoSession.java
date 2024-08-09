@@ -559,4 +559,17 @@ public class MongoSession
 
         return Optional.ofNullable(typeSignature);
     }
+
+    public long deleteDocuments(SchemaTableName schemaTableName, Optional<TupleDomain<ColumnHandle>> constraint)
+    {
+        Document filter = new Document();
+        if (constraint != null) {
+            filter = buildQuery(constraint.get());
+        }
+        log.debug("Delete documents: collection: %s, filter: %s", schemaTableName, filter);
+
+        DeleteResult result = getCollection(schemaTableName).deleteMany(filter);
+
+        return result.getDeletedCount();
+    }
 }
