@@ -1485,6 +1485,36 @@ public class TestArrayOperators
     }
 
     @Test
+    public void testArrayContainsArray()
+    {
+        // Test Overlapping Arrays
+        assertFunction("CONTAINS_ALL(ARRAY [1, 2, 3], ARRAY [2])", BooleanType.BOOLEAN, true);
+        assertFunction("CONTAINS_ALL(ARRAY [1, 2, 3], ARRAY [2, 3])", BooleanType.BOOLEAN, true);
+        assertFunction("CONTAINS_ALL(ARRAY [1, 2, 3], ARRAY [1, 2, 3])", BooleanType.BOOLEAN, true);
+
+        // Test Disjoint Arrays
+        assertFunction("CONTAINS_ALL(ARRAY [1, 2, 3], ARRAY [4])", BooleanType.BOOLEAN, false);
+        assertFunction("CONTAINS_ALL(ARRAY [1, 2, 3], ARRAY [4, 5])", BooleanType.BOOLEAN, false);
+
+        // Test Empty Arrays
+        assertFunction("CONTAINS_ALL(ARRAY [], ARRAY [])", BooleanType.BOOLEAN, true);
+        assertFunction("CONTAINS_ALL(ARRAY [1, 2, 3], ARRAY [])", BooleanType.BOOLEAN, true);
+        assertFunction("CONTAINS_ALL(ARRAY [], ARRAY [1, 2, 3])", BooleanType.BOOLEAN, false);
+
+        // Test Arrays with Different Data Types
+        assertFunction("CONTAINS_ALL(ARRAY [1.0, 2.0, 3.0], ARRAY [2.0])", BooleanType.BOOLEAN, true);
+        assertFunction("CONTAINS_ALL(ARRAY [1.0, 2.0, 3.0], ARRAY [4.0])", BooleanType.BOOLEAN, false);
+        assertFunction("CONTAINS_ALL(ARRAY ['a', 'b', 'c'], ARRAY ['b'])", BooleanType.BOOLEAN, true);
+        assertFunction("CONTAINS_ALL(ARRAY ['a', 'b', 'c'], ARRAY ['d'])", BooleanType.BOOLEAN, false);
+
+        // Test Edge Cases
+        assertFunction("CONTAINS_ALL(ARRAY [NULL, 2, 3], ARRAY [2])", BooleanType.BOOLEAN, true);
+        assertFunction("CONTAINS_ALL(ARRAY [1, NULL, 3], ARRAY [NULL])", BooleanType.BOOLEAN, true);
+        assertFunction("CONTAINS_ALL(ARRAY [1, 2, 3], ARRAY [NULL])", BooleanType.BOOLEAN, false);
+        assertFunction("CONTAINS_ALL(ARRAY [NULL, NULL], ARRAY [NULL])", BooleanType.BOOLEAN, true);
+    }
+
+    @Test
     public void testDistinctFrom()
     {
         assertFunction("CAST(NULL AS ARRAY(UNKNOWN)) IS DISTINCT FROM CAST(NULL AS ARRAY(UNKNOWN))", BOOLEAN, false);

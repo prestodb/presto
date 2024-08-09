@@ -113,6 +113,7 @@ import com.facebook.presto.operator.scalar.ArrayAnyMatchFunction;
 import com.facebook.presto.operator.scalar.ArrayCardinalityFunction;
 import com.facebook.presto.operator.scalar.ArrayCombinationsFunction;
 import com.facebook.presto.operator.scalar.ArrayContains;
+import com.facebook.presto.operator.scalar.ArrayContainsAllFunction;
 import com.facebook.presto.operator.scalar.ArrayCumSum;
 import com.facebook.presto.operator.scalar.ArrayDistinctFromOperator;
 import com.facebook.presto.operator.scalar.ArrayDistinctFunction;
@@ -854,6 +855,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalars(DataSizeFunctions.class)
                 .scalar(ArrayCardinalityFunction.class)
                 .scalar(ArrayContains.class)
+                .scalar(ArrayContainsAllFunction.class)
                 .scalar(ArrayFilterFunction.class)
                 .scalar(ArrayPositionFunction.class)
                 .scalar(ArrayPositionWithIndexFunction.class)
