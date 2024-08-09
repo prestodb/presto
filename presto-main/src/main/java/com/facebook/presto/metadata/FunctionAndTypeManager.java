@@ -409,7 +409,7 @@ public class FunctionAndTypeManager
         }
     }
 
-    public static QualifiedObjectName qualifyObjectName(QualifiedName name)
+    public QualifiedObjectName qualifyObjectName(QualifiedName name)
     {
         if (!name.getPrefix().isPresent()) {
             return QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, name.getSuffix());
