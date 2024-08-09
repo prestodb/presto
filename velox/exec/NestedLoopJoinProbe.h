@@ -27,7 +27,8 @@ namespace facebook::velox::exec {
 ///
 /// This class is generally useful to evaluate non-equi-joins (e.g. "k1 >= k2"),
 /// when join conditions may need to be evaluated against a full cross product
-/// of the input.
+/// of the input. It can also implement cross-join semantics if joinCondition is
+/// nullptr.
 ///
 /// The output follows the order of the probe side rows (for inner and left
 /// joins). All build vectors are materialized upfront (check buildVectors_),
@@ -49,10 +50,14 @@ namespace facebook::velox::exec {
 ///    been matched by any of the peers.
 ///
 /// The output always contains dictionaries wrapped around probe columns, and
-/// copies for build columns. The buid-side copies are done lazily; it first
-/// accumulates the ranges to be copied, then performs the copies in batch,
-/// column-by-column. It produces at most `outputBatchSize_` records, but it may
-/// produce fewer since the output needs to follow the probe vector boundaries.
+/// copies for build columns. The only exception are cases when the build side
+/// contains a single record. In that case, each probe batch will be wrapped
+/// with the single build record (as a constant).
+///
+/// The buid-side copies are done lazily; it first accumulates the ranges to be
+/// copied, then performs the copies in batch, column-by-column. It produces at
+/// most `outputBatchSize_` records, but it may produce fewer since the output
+/// needs to follow the probe vector boundaries.
 class NestedLoopJoinProbe : public Operator {
  public:
   NestedLoopJoinProbe(
@@ -116,7 +121,7 @@ class NestedLoopJoinProbe : public Operator {
   // Advances 'probeRow_' and resets required state information. Returns true
   // if there is not more probe data to be processed in the current `input_`
   // (and hence a new probe input is required). False otherwise.
-  bool advanceProbeRow();
+  bool advanceProbe();
 
   // Ensures a new batch of records is available at `output_` and ready to
   // receive rows. Batches have space for `outputBatchSize_`.
@@ -135,9 +140,14 @@ class NestedLoopJoinProbe : public Operator {
   }
 
   // Generates the next batch of a cross product between probe and build. It
-  // uses the current probe record being processed (`probeRow_` from `intput_`)
-  // for probe projections, and the columns from buildVector for build
+  // handles two cases:
+  //
+  // #1. Use the current probe record being processed (`probeRow_` from
+  // `input_`) for probe projections, and the columns from buildVector for build
   // projections.
+  // #2. For cross joins, if there is a single build record, it uses the columns
+  // from the current probe batch (`input_`), and the single build record
+  // wrapped as a constant.
   //
   // Output projections can be specified so that this function can be used to
   // generate both filter input and actual output (in case there is no join
@@ -192,6 +202,11 @@ class NestedLoopJoinProbe : public Operator {
   // on buildIndex_'s value).
   bool hasProbedAllBuildData() const {
     return (buildIndex_ >= buildVectors_.value().size());
+  }
+
+  /// Cross joins are translated into NLJ's without a join conditition.
+  bool isCrossJoin() const {
+    return joinCondition_ == nullptr;
   }
 
   // Wraps rows of 'data' that are not selected in 'matched' and projects
@@ -273,6 +288,9 @@ class NestedLoopJoinProbe : public Operator {
   // Stores the data for build vectors (right side of the join).
   std::optional<std::vector<RowVectorPtr>> buildVectors_;
   bool buildSideEmpty_{false};
+
+  // Total number of records from the build side (across all vectors).
+  vector_size_t buildRowCount_{0};
 
   // Index into `buildVectors_` for the build vector being currently processed.
   size_t buildIndex_{0};
