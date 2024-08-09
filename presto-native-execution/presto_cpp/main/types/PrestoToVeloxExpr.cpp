@@ -54,8 +54,7 @@ std::string mapScalarFunction(const std::string& name) {
        fmt::format("{}distinct_from", prestoDefaultNamespacePrefix)},
       {"presto.default.$operator$less_than",
        fmt::format("{}lt", prestoDefaultNamespacePrefix)},
-      {fmt::format(
-           "{}$operator$less_than_or_equal"),
+      {"presto.default.$operator$less_than_or_equal",
        fmt::format("{}lte", prestoDefaultNamespacePrefix)},
       {"presto.default.$operator$modulus",
        fmt::format("{}mod", prestoDefaultNamespacePrefix)},
