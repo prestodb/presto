@@ -49,7 +49,7 @@ public class TestFailureFunction
             }
             catch (PrestoException e) {
                 assertEquals(e.getErrorCode(), DIVISION_BY_ZERO.toErrorCode());
-                assertTrue(e.getMessage().contains("/ by zero"));
+                assertTrue(e.getMessage().contains("Division by zero"));
             }
         }
     }
