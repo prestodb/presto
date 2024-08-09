@@ -18,28 +18,27 @@ import com.facebook.presto.metadata.AllNodes;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.spi.PrestoException;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.Duration;
+import org.apache.ratis.client.RaftClient;
+import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.grpc.GrpcConfigKeys;
+import org.apache.ratis.grpc.GrpcFactory;
+import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.server.RaftServer;
-import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.statemachine.impl.BaseStateMachine;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ScheduledExecutorService;
@@ -56,34 +55,30 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-public class RatisServer
+public class RatisClient
 {
     private final InternalNodeManager internalNodeManager;
     private final String id;
     private final String groupId;
-    private final int port;
-    private final String storageDir;
-    private final int peerMinCountActive;
+    private RaftClient client;
     private int currentPeerCount;
+    private int currentRMCount;
+    private final int peerMinCountActive;
     private final Duration timeoutForPeers;
-    private RaftServer raftServer;
-    private static final Logger log = Logger.get(RatisServer.class);
+    private static final Logger log = Logger.get(RatisClient.class);
     private final ScheduledExecutorService executor;
-    private final Consumer<AllNodes> listener = this::updatePeers;
+    private final Consumer<AllNodes> peerListener = this::updatePeers;
+    private final Consumer<AllNodes> groupListener = this::updateRaftGroup;
 
     @GuardedBy("this")
     private final List<SettableFuture<?>> peerSizeFutures = new ArrayList<>();
 
     @Inject
-    public RatisServer(InternalNodeManager internalNodeManager, RaftConfig raftConfig)
+    public RatisClient(InternalNodeManager internalNodeManager, RaftConfig raftConfig)
     {
-        requireNonNull(internalNodeManager, "internalNodeManager is null");
-        this.internalNodeManager = internalNodeManager;
+        this.internalNodeManager = requireNonNull(internalNodeManager, "internalNodeManager is null");
         this.id = internalNodeManager.getCurrentNode().getNodeIdentifier();
-        requireNonNull(raftConfig, "raftConfig is null");
-        this.groupId = raftConfig.getGroupId();
-        this.port = raftConfig.getPort();
-        this.storageDir = raftConfig.getStorageDir();
+        this.groupId = requireNonNull(raftConfig, "raftConfig is null").getGroupId();
         this.peerMinCountActive = raftConfig.getRequiredPeersActive();
         this.timeoutForPeers = raftConfig.getTimeoutForPeers();
         this.executor = newSingleThreadScheduledExecutor(threadsNamed("raft-monitor-%s"));
@@ -97,6 +92,13 @@ public class RatisServer
         return builder.build();
     }
 
+    public RaftPeer[] getPeers()
+    {
+        return internalNodeManager.getResourceManagers().stream()
+                .map(this::getRaftPeer)
+                .toArray(RaftPeer[]::new);
+    }
+
     private synchronized void updatePeers(AllNodes allNodes)
     {
         currentPeerCount = allNodes.getActiveResourceManagers().size();
@@ -107,53 +109,75 @@ public class RatisServer
         }
     }
 
-    public RaftPeer[] getPeers()
+    private synchronized void updateRaftGroup(AllNodes allNodes)
     {
-        return internalNodeManager.getResourceManagers().stream()
-                .map(this::getRaftPeer)
-                .toArray(RaftPeer[]::new);
+        log.info("Updating Raft Group");
+        if (currentRMCount != allNodes.getActiveResourceManagers().size() && internalNodeManager.getCurrentNode().isResourceManager()) {
+            log.info("Found a different RM Count");
+            currentRMCount = allNodes.getActiveResourceManagers().size();
+            try {
+                client.admin().setConfiguration(getPeers());
+            }
+            catch (IOException e) {
+                log.error("Error in updating raft group " + e.getMessage());
+            }
+        }
     }
 
     @PostConstruct
     public void start()
-            throws Exception
     {
-        internalNodeManager.addNodeChangeListener(listener);
+        internalNodeManager.addNodeChangeListener(peerListener);
+        internalNodeManager.addNodeChangeListener(groupListener);
         updatePeers(internalNodeManager.getAllNodes());
         run();
     }
 
     public void run()
     {
-        RaftProperties properties = new RaftProperties();
-        GrpcConfigKeys.Server.setPort(properties, port);
-        File storage = new File(storageDir + "/" + id);
-        RaftServerConfigKeys.setStorageDir(properties, Collections.singletonList(storage));
+        ClientId clientId = ClientId.valueOf(UUID.nameUUIDFromBytes(id.getBytes()));
+        RaftProperties raftProperties = new RaftProperties();
 
         ListenableFuture<?> minPeerFuture = waitForMinimumPeers();
         addExceptionCallback(minPeerFuture,
-                throwable -> log.error("Exception in waiting for minimum peers for raft server " + throwable.getMessage()));
+                throwable -> log.error("Exception in waiting for minimum peers for raft client " + throwable.getMessage()));
         addSuccessCallback(minPeerFuture, () -> {
             final RaftGroup raftGroup = RaftGroup.valueOf(RaftGroupId.valueOf(UUID.nameUUIDFromBytes(groupId.getBytes())), getPeers());
-            try {
-                raftServer = RaftServer.newBuilder()
-                            .setServerId(RaftPeerId.valueOf(id))
-                            .setProperties(properties)
-                            .setGroup(raftGroup)
-                            .setStateMachine(new BaseStateMachine())
-                            .build();
-                raftServer.start();
-            }
-            catch (IOException e) {
-                log.error("Error starting raft server " + e.getMessage());
-            }
+
+            client = RaftClient.newBuilder()
+                    .setClientId(clientId)
+                    .setProperties(raftProperties)
+                    .setRaftGroup(raftGroup)
+                    .setClientRpc(new GrpcFactory(new Parameters()).newRaftClientRpc(clientId, raftProperties))
+                    .build();
         });
     }
 
-    public void stop() throws IOException
+    public String getLeader()
     {
-        raftServer.close();
-        internalNodeManager.removeNodeChangeListener(listener);
+        return client.getLeaderId().toString();
+    }
+
+    @VisibleForTesting
+    protected void setClientWithLeader(String leaderId)
+    {
+        ClientId clientId = ClientId.valueOf(UUID.nameUUIDFromBytes(id.getBytes()));
+        RaftProperties raftProperties = new RaftProperties();
+
+        final RaftGroup raftGroup = RaftGroup.valueOf(RaftGroupId.valueOf(UUID.nameUUIDFromBytes(groupId.getBytes())), getPeers());
+
+        client = RaftClient.newBuilder()
+                .setClientId(clientId)
+                .setProperties(raftProperties)
+                .setRaftGroup(raftGroup)
+                .setClientRpc(new GrpcFactory(new Parameters()).newRaftClientRpc(clientId, raftProperties))
+                .setLeaderId(RaftPeerId.valueOf(leaderId))
+                .build();
+    }
+
+    public void sendMessage()
+    {
+        client.async().send(() -> null);
     }
 
     public synchronized ListenableFuture<?> waitForMinimumPeers()
@@ -170,7 +194,7 @@ public class RatisServer
                     synchronized (this) {
                         future.setException(new PrestoException(
                                 GENERIC_INSUFFICIENT_RESOURCES,
-                                format("Timeout: Insufficient active peer nodes")));
+                                format("Insufficient active peer nodes")));
                     }
                 },
                 timeoutForPeers.toMillis(),
