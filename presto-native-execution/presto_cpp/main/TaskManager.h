@@ -58,12 +58,14 @@ class TaskManager {
   std::unique_ptr<protocol::TaskInfo> createOrUpdateErrorTask(
       const protocol::TaskId& taskId,
       const std::exception_ptr& exception,
+      bool summarize,
       long startProcessCpuTime);
 
   std::unique_ptr<protocol::TaskInfo> createOrUpdateTask(
       const protocol::TaskId& taskId,
       const protocol::TaskUpdateRequest& updateRequest,
       const velox::core::PlanFragment& planFragment,
+      bool summarize,
       std::shared_ptr<velox::core::QueryCtx> queryCtx,
       long startProcessCpuTime);
 
@@ -71,6 +73,7 @@ class TaskManager {
       const protocol::TaskId& taskId,
       const protocol::BatchTaskUpdateRequest& batchUpdateRequest,
       const velox::core::PlanFragment& planFragment,
+      bool summarize,
       std::shared_ptr<velox::core::QueryCtx> queryCtx,
       long startProcessCpuTime);
 
@@ -179,6 +182,7 @@ class TaskManager {
       const velox::core::PlanFragment& planFragment,
       const std::vector<protocol::TaskSource>& sources,
       const protocol::OutputBuffers& outputBuffers,
+      bool summarize,
       std::shared_ptr<velox::core::QueryCtx> queryCtx,
       long startProcessCpuTime);
 

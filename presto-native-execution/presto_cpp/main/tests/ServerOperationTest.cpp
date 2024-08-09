@@ -163,6 +163,7 @@ TEST_F(ServerOperationTest, taskEndpoint) {
             taskId,
             {},
             planFragment,
+            true,
             taskManager->getQueryContextManager()->findOrCreateQueryCtx(
                 taskId, updateRequest.session),
             0);
