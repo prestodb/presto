@@ -1,0 +1,106 @@
+openapi: 3.0.0
+info:
+  title: Presto FunctionNameSpace Rest API
+  description: API for retrieving functions in Presto.
+  version: "1"
+servers:
+  - url: http://localhost:8080
+    description: Presto endpoint when running locally
+# http://127.0.0.1:7777/v1/function/array_constructor?returnType=array(unknown)&numArgs=0
+paths:
+  /v1/function/{functionName}:
+    post:
+      summary: Retrieve value from function
+      parameters:
+        - in: path
+          name: functionName
+          schema:
+            $ref: '#/components/schemas/QualifiedObjectName/properties/objectName'
+          required: true
+          description: The return type of the function of the user to get
+        - in: query
+          name: returnType
+          schema:
+            $ref: '#/components/schemas/TypeSignature'
+          required: true
+          description: The return type of the function
+        - in: query
+          name: numArgs
+          schema:
+            $ref: '#/components/schemas/SqlFunctionId/properties/size'
+          required: true
+          description: The numbers of arguments passed in
+        - in: query
+          name: argType
+          schema:
+            type: object
+            # $ref: '#/components/schemas/TypeSignature/parameters'
+            additionalProperties:
+              type: string
+              pattern: '^[A-Za-z][A-Za-z0-9]*$'
+            example:
+              argType1: string
+              argType2: double
+          description: The type for each argument passed in
+      requestBody:
+        required: true
+        content:
+          text/plain; charset=utf-8:
+            schema:
+              $ref: '#/components/schemas/SerializedPageBinary'
+              type: object
+              properties:
+                username:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: function value output
+          content:
+            text/plain; charset=utf-8:
+              schema:
+                $ref: '#/components/schemas/SerializedPageBinary'
+components:
+  schemas:
+    QualifiedObjectName:
+      type: object
+      properties:
+        catalogName:
+          type: string
+          description: The name of the catalog
+        schemaName:
+          type: string
+          description: The name of the Schema
+        objectName:
+          type: string
+          description: The name of the function
+    TypeSignature:
+      type: string
+      description: Serialized in function parseTypeSignature from TypeSignature.java
+    SqlFunctionId:
+      type: object
+      properties:
+        functionName:
+          $ref: '#/components/schemas/QualifiedObjectName'
+        argumentTypes:
+          type: array
+          items:
+            $ref: '#/components/schemas/TypeSignature'
+        size:
+          type: integer
+    SqlFunctionResult:
+      type: object
+      properties:
+        result:
+          type: object
+          description: the Block type result
+        cpuTimeMs:
+          type: number
+          description: time it took on the cpu
+    SerializedPageBinary:
+      type: string
+      format: binary
+      description: Match this format https://prestodb.io/docs/current/develop/serialized-page.html
+    Page:
+      type: string
+      format: binary

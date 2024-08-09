@@ -39,11 +39,14 @@ public class SqlFunctionId
     private final QualifiedObjectName functionName;
     private final List<TypeSignature> argumentTypes;
 
+    private int size;
+
     @ThriftConstructor
     public SqlFunctionId(QualifiedObjectName functionName, List<TypeSignature> argumentTypes)
     {
         this.functionName = requireNonNull(functionName, "functionName is null");
         this.argumentTypes = requireNonNull(argumentTypes, "argumentTypes is null");
+        this.size = argumentTypes.size();
     }
 
     @ThriftField(1)
@@ -115,5 +118,11 @@ public class SqlFunctionId
         else {
             throw new AssertionError(format("Invalid serialization: %s", signature));
         }
+    }
+
+    public int getSize()
+    {
+        size = argumentTypes.size();
+        return size;
     }
 }

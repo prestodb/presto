@@ -76,6 +76,7 @@ import static com.facebook.presto.metadata.CastType.JSON_TO_ARRAY_CAST;
 import static com.facebook.presto.metadata.CastType.JSON_TO_MAP_CAST;
 import static com.facebook.presto.metadata.CastType.JSON_TO_ROW_CAST;
 import static com.facebook.presto.spi.function.FunctionImplementationType.JAVA;
+import static com.facebook.presto.spi.function.FunctionImplementationType.REST;
 import static com.facebook.presto.spi.function.FunctionImplementationType.SQL;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level;
@@ -217,6 +218,7 @@ public class RowExpressionInterpreter
         {
             List<Type> argumentTypes = new ArrayList<>();
             List<Object> argumentValues = new ArrayList<>();
+            List<Integer> channels = new ArrayList<>();
             for (RowExpression expression : node.getArguments()) {
                 Object value = expression.accept(this, context);
                 argumentValues.add(value);
@@ -279,6 +281,14 @@ public class RowExpressionInterpreter
             if (!implementationType.canBeEvaluatedInCoordinator()) {
                 // do not interpret remote functions or cpp UDF on coordinator
                 return call(node.getDisplayName(), functionHandle, node.getType(), toRowExpressions(argumentValues, node.getArguments()));
+            }
+            else if (implementationType.equals(REST)) {
+                value = functionInvoker.invoke(
+                        functionHandle,
+                        argumentValues,
+                        argumentTypes,
+                        channels,
+                        node.getType());
             }
             else if (implementationType.equals(JAVA)) {
                 value = functionInvoker.invoke(functionHandle, session.getSqlFunctionProperties(), argumentValues);
