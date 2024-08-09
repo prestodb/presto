@@ -13,18 +13,23 @@
  */
 package com.facebook.presto.functionNamespace.rest;
 
+import com.facebook.airlift.http.client.HttpClient;
+import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.functionNamespace.ForRestServer;
 import com.facebook.presto.functionNamespace.FunctionDefinitionProvider;
 import com.facebook.presto.functionNamespace.JsonBasedUdfFunctionMetadata;
 import com.facebook.presto.functionNamespace.UdfFunctionSignatureMap;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
 
+import java.net.URI;
 import java.util.List;
 import java.util.Map;
+
+import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static com.facebook.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
 
 public class RestBasedFunctionDefinitionProvider
         implements FunctionDefinitionProvider
@@ -33,14 +38,15 @@ public class RestBasedFunctionDefinitionProvider
 
     public static final String FUNCTION_SIGNATURES_ENDPOINT = "/v1/info/functionSignatures";
 
-    private final OkHttpClient httpClient = new OkHttpClient().newBuilder().build();
+    private final HttpClient httpClient;
 
     private final JsonCodec<Map<String, List<JsonBasedUdfFunctionMetadata>>> functionSignatureMapJsonCodec;
 
     @Inject
-    public RestBasedFunctionDefinitionProvider(JsonCodec<Map<String, List<JsonBasedUdfFunctionMetadata>>> nativeFunctionSignatureMapJsonCodec)
+    public RestBasedFunctionDefinitionProvider(JsonCodec<Map<String, List<JsonBasedUdfFunctionMetadata>>> nativeFunctionSignatureMapJsonCodec, @ForRestServer HttpClient httpClient)
     {
         this.functionSignatureMapJsonCodec = nativeFunctionSignatureMapJsonCodec;
+        this.httpClient = httpClient;
     }
 
     @Override
@@ -48,11 +54,15 @@ public class RestBasedFunctionDefinitionProvider
             throws IllegalStateException
     {
         try {
-            Request request = new Request.Builder()
-                    .url(restURL + FUNCTION_SIGNATURES_ENDPOINT)
+            URI uri = uriBuilderFrom(URI.create(restURL))
+                    .appendPath(FUNCTION_SIGNATURES_ENDPOINT)
                     .build();
-            String responseBody = httpClient.newCall(request).execute().body().string();
-            Map<String, List<JsonBasedUdfFunctionMetadata>> nativeFunctionSignatureMap = functionSignatureMapJsonCodec.fromJson(responseBody);
+            Request request = Request.builder()
+                    .prepareGet()
+                    .setUri(uri)
+                    .build();
+
+            Map<String, List<JsonBasedUdfFunctionMetadata>> nativeFunctionSignatureMap = httpClient.execute(request, createJsonResponseHandler(functionSignatureMapJsonCodec));
             return new UdfFunctionSignatureMap(ImmutableMap.copyOf(nativeFunctionSignatureMap));
         }
         catch (Exception e) {

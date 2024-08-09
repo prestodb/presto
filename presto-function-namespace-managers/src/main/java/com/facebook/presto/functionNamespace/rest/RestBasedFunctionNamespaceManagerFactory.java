@@ -55,6 +55,7 @@ public class RestBasedFunctionNamespaceManagerFactory
     {
         try {
             Bootstrap app = new Bootstrap(
+                    new RestBasedCommunicationModule(),
                     new RestBasedFunctionNamespaceManagerModule(catalogName),
                     new NoopSqlFunctionExecutorsModule());
 
