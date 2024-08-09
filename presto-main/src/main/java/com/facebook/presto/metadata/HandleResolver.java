@@ -16,6 +16,7 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.connector.informationSchema.InformationSchemaHandleResolver;
 import com.facebook.presto.connector.system.SystemHandleResolver;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorDistributedProcedureHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorIndexHandle;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
@@ -114,6 +115,11 @@ public class HandleResolver
         return getId(insertHandle, MaterializedHandleResolver::getInsertTableHandleClass);
     }
 
+    public String getId(ConnectorDistributedProcedureHandle distributedProcedureHandle)
+    {
+        return getId(distributedProcedureHandle, MaterializedHandleResolver::getDistributedProcedureHandleClass);
+    }
+
     public String getId(ConnectorPartitioningHandle partitioningHandle)
     {
         return getId(partitioningHandle, MaterializedHandleResolver::getPartitioningHandleClass);
@@ -167,6 +173,11 @@ public class HandleResolver
     public Class<? extends ConnectorInsertTableHandle> getInsertTableHandleClass(String id)
     {
         return resolverFor(id).getInsertTableHandleClass().orElseThrow(() -> new IllegalArgumentException("No resolver for " + id));
+    }
+
+    public Class<? extends ConnectorDistributedProcedureHandle> getDistributedProcedureHandleClass(String id)
+    {
+        return resolverFor(id).getDistributedProcedureHandleClass().orElseThrow(() -> new IllegalArgumentException("No resolver for " + id));
     }
 
     public Class<? extends ConnectorPartitioningHandle> getPartitioningHandleClass(String id)
@@ -240,6 +251,7 @@ public class HandleResolver
         private final Optional<Class<? extends ConnectorIndexHandle>> indexHandle;
         private final Optional<Class<? extends ConnectorOutputTableHandle>> outputTableHandle;
         private final Optional<Class<? extends ConnectorInsertTableHandle>> insertTableHandle;
+        private final Optional<Class<? extends ConnectorDistributedProcedureHandle>> distributedProcedureHandle;
         private final Optional<Class<? extends ConnectorPartitioningHandle>> partitioningHandle;
         private final Optional<Class<? extends ConnectorTransactionHandle>> transactionHandle;
         private final Optional<Class<? extends ConnectorMetadataUpdateHandle>> metadataUpdateHandle;
@@ -256,6 +268,7 @@ public class HandleResolver
             partitioningHandle = getHandleClass(resolver::getPartitioningHandleClass);
             transactionHandle = getHandleClass(resolver::getTransactionHandleClass);
             metadataUpdateHandle = getHandleClass(resolver::getMetadataUpdateHandleClass);
+            distributedProcedureHandle = getHandleClass(resolver::getDistributedProcedureHandleClass);
         }
 
         private static <T> Optional<Class<? extends T>> getHandleClass(Supplier<Class<? extends T>> callable)
@@ -301,6 +314,11 @@ public class HandleResolver
         public Optional<Class<? extends ConnectorInsertTableHandle>> getInsertTableHandleClass()
         {
             return insertTableHandle;
+        }
+
+        public Optional<Class<? extends ConnectorDistributedProcedureHandle>> getDistributedProcedureHandleClass()
+        {
+            return distributedProcedureHandle;
         }
 
         public Optional<Class<? extends ConnectorPartitioningHandle>> getPartitioningHandleClass()

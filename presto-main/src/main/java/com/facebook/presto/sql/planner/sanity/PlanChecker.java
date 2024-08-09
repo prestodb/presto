@@ -69,7 +69,8 @@ public final class PlanChecker
                         new VerifyNoIntermediateFormExpression(),
                         new VerifyProjectionLocality(),
                         new DynamicFiltersChecker(),
-                        new WarnOnScanWithoutPartitionPredicate(featuresConfig));
+                        new WarnOnScanWithoutPartitionPredicate(featuresConfig),
+                        new CallDistributedProcedureValidator());
         if (featuresConfig.isNativeExecutionEnabled() && featuresConfig.isDisableTimeStampWithTimeZoneForNative()) {
             builder.put(Stage.INTERMEDIATE, new CheckNoTimestampWithTimezoneType());
         }

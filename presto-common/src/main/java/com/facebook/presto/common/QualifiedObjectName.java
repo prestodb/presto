@@ -17,6 +17,7 @@ import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 import javax.annotation.concurrent.Immutable;
@@ -58,8 +59,12 @@ public class QualifiedObjectName
         return new QualifiedObjectName(catalogName, schemaName, objectName.toLowerCase(ENGLISH));
     }
 
+    @JsonCreator
     @ThriftConstructor
-    public QualifiedObjectName(String catalogName, String schemaName, String objectName)
+    public QualifiedObjectName(
+            @JsonProperty("catalogName") String catalogName,
+            @JsonProperty("schemaName") String schemaName,
+            @JsonProperty("objectName") String objectName)
     {
         checkLowerCase(catalogName, "catalogName");
         checkLowerCase(schemaName, "schemaName");
@@ -75,18 +80,21 @@ public class QualifiedObjectName
     }
 
     @ThriftField(1)
+    @JsonProperty("catalogName")
     public String getCatalogName()
     {
         return catalogName;
     }
 
     @ThriftField(2)
+    @JsonProperty("schemaName")
     public String getSchemaName()
     {
         return schemaName;
     }
 
     @ThriftField(3)
+    @JsonProperty("objectName")
     public String getObjectName()
     {
         return objectName;

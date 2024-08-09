@@ -22,6 +22,7 @@ import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
+import com.facebook.presto.spi.procedure.IProcedureRegistry;
 import com.facebook.presto.spi.relation.RowExpressionService;
 
 public interface ConnectorContext
@@ -32,6 +33,11 @@ public interface ConnectorContext
     }
 
     default TypeManager getTypeManager()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default IProcedureRegistry getProcedureRegistry()
     {
         throw new UnsupportedOperationException();
     }
