@@ -136,4 +136,9 @@ public interface Plugin
     {
         return emptyList();
     }
+
+    default Iterable<RequestModifier> getRequestModifiers()
+    {
+        return emptyList();
+    }
 }
