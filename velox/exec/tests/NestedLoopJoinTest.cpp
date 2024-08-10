@@ -339,7 +339,8 @@ TEST_F(NestedLoopJoinTest, basicCrossJoin) {
 
   OperatorTestBase::assertQuery(
       params,
-      "SELECT * FROM t, (SELECT * FROM UNNEST (ARRAY[10, 17, 10, 17, 10, 17, 10, 17])) u");
+      "SELECT * FROM t, "
+      "(SELECT * FROM UNNEST (ARRAY[10, 17, 10, 17, 10, 17, 10, 17])) u");
 }
 
 TEST_F(NestedLoopJoinTest, outerJoinWithoutCondition) {
