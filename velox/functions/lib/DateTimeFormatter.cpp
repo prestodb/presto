@@ -21,6 +21,7 @@
 #include <stdexcept>
 #include "velox/common/base/CountBits.h"
 #include "velox/external/date/date.h"
+#include "velox/external/date/iso_week.h"
 #include "velox/external/date/tz.h"
 #include "velox/functions/lib/DateTimeFormatterBuilder.h"
 #include "velox/type/TimestampConversion.h"
@@ -576,7 +577,7 @@ int32_t appendTimezoneOffset(int64_t offset, char* result) {
 }
 
 // According to DateTimeFormatSpecifier enum class
-std::string getSpecifierName(DateTimeFormatSpecifier specifier) {
+std::string_view getSpecifierName(DateTimeFormatSpecifier specifier) {
   switch (specifier) {
     case DateTimeFormatSpecifier::ERA:
       return "ERA";
@@ -989,8 +990,8 @@ int32_t parseFromPattern(
 
       default:
         VELOX_NYI(
-            "Numeric Joda specifier DateTimeFormatSpecifier::" +
-            getSpecifierName(curPattern.specifier) + " not implemented yet.");
+            "Numeric Joda specifier DateTimeFormatSpecifier::{} not implemented yet.",
+            getSpecifierName(curPattern.specifier));
     }
   }
   return 0;
@@ -1038,6 +1039,7 @@ uint32_t DateTimeFormatter::maxResultSize(const tz::TimeZone* timezone) const {
       case DateTimeFormatSpecifier::DAY_OF_MONTH:
       case DateTimeFormatSpecifier::HOUR_OF_HALFDAY:
       case DateTimeFormatSpecifier::CLOCK_HOUR_OF_HALFDAY:
+      case DateTimeFormatSpecifier::WEEK_OF_WEEK_YEAR:
       case DateTimeFormatSpecifier::HOUR_OF_DAY:
       case DateTimeFormatSpecifier::CLOCK_HOUR_OF_DAY:
       case DateTimeFormatSpecifier::MINUTE_OF_HOUR:
@@ -1066,7 +1068,6 @@ uint32_t DateTimeFormatter::maxResultSize(const tz::TimeZone* timezone) const {
         break;
       // Not supported.
       case DateTimeFormatSpecifier::WEEK_YEAR:
-      case DateTimeFormatSpecifier::WEEK_OF_WEEK_YEAR:
       default:
         VELOX_UNSUPPORTED(
             "Date format specifier is not supported: {}",
@@ -1317,8 +1318,17 @@ int32_t DateTimeFormatter::format(
           result += appendTimezoneOffset(offset, result);
           break;
         }
+        case DateTimeFormatSpecifier::WEEK_OF_WEEK_YEAR: {
+          auto isoWeek = date::iso_week::year_weeknum_weekday{calDate};
+          result += padContent(
+              unsigned(isoWeek.weeknum()),
+              '0',
+              token.pattern.minRepresentDigits,
+              maxResultEnd,
+              result);
+          break;
+        }
         case DateTimeFormatSpecifier::WEEK_YEAR:
-        case DateTimeFormatSpecifier::WEEK_OF_WEEK_YEAR:
         default:
           VELOX_UNSUPPORTED(
               "format is not supported for specifier {}",

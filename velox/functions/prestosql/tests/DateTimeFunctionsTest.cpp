@@ -2979,14 +2979,14 @@ TEST_F(DateTimeFunctionsTest, formatDateTime) {
         "format_datetime(c0, c1)", timestamp, format);
   };
 
-  // era test cases - 'G'
+  // Era test cases - 'G'
   EXPECT_EQ("AD", formatDatetime(parseTimestamp("1970-01-01"), "G"));
   EXPECT_EQ("BC", formatDatetime(parseTimestamp("-100-01-01"), "G"));
   EXPECT_EQ("BC", formatDatetime(parseTimestamp("0-01-01"), "G"));
   EXPECT_EQ("AD", formatDatetime(parseTimestamp("01-01-01"), "G"));
   EXPECT_EQ("AD", formatDatetime(parseTimestamp("01-01-01"), "GGGGGGG"));
 
-  // century of era test cases - 'C'
+  // Century of era test cases - 'C'
   EXPECT_EQ("19", formatDatetime(parseTimestamp("1900-01-01"), "C"));
   EXPECT_EQ("19", formatDatetime(parseTimestamp("1955-01-01"), "C"));
   EXPECT_EQ("20", formatDatetime(parseTimestamp("2000-01-01"), "C"));
@@ -2996,7 +2996,7 @@ TEST_F(DateTimeFunctionsTest, formatDateTime) {
   EXPECT_EQ("19", formatDatetime(parseTimestamp("-1900-01-01"), "C"));
   EXPECT_EQ("000019", formatDatetime(parseTimestamp("1955-01-01"), "CCCCCC"));
 
-  // year of era test cases - 'Y'
+  // Year of era test cases - 'Y'
   EXPECT_EQ("1970", formatDatetime(parseTimestamp("1970-01-01"), "Y"));
   EXPECT_EQ("2020", formatDatetime(parseTimestamp("2020-01-01"), "Y"));
   EXPECT_EQ("1", formatDatetime(parseTimestamp("0-01-01"), "Y"));
@@ -3008,7 +3008,7 @@ TEST_F(DateTimeFunctionsTest, formatDateTime) {
   EXPECT_EQ(
       "0000000001", formatDatetime(parseTimestamp("01-01-01"), "YYYYYYYYYY"));
 
-  // day of week number - 'e'
+  // Day of week number - 'e'
   for (int i = 0; i < 31; i++) {
     std::string date("2022-08-" + std::to_string(i + 1));
     EXPECT_EQ(
@@ -3017,7 +3017,7 @@ TEST_F(DateTimeFunctionsTest, formatDateTime) {
   }
   EXPECT_EQ("000001", formatDatetime(parseTimestamp("2022-08-01"), "eeeeee"));
 
-  // day of week text - 'E'
+  // Day of week text - 'E'
   for (int i = 0; i < 31; i++) {
     std::string date("2022-08-" + std::to_string(i + 1));
     EXPECT_EQ(
@@ -3037,7 +3037,7 @@ TEST_F(DateTimeFunctionsTest, formatDateTime) {
         formatDatetime(parseTimestamp(StringView{date}), "EEEEEEEE"));
   }
 
-  // year test cases - 'y'
+  // Year test cases - 'y'
   EXPECT_EQ("2022", formatDatetime(parseTimestamp("2022-06-20"), "y"));
   EXPECT_EQ("22", formatDatetime(parseTimestamp("2022-06-20"), "yy"));
   EXPECT_EQ("2022", formatDatetime(parseTimestamp("2022-06-20"), "yyy"));
@@ -3057,18 +3057,18 @@ TEST_F(DateTimeFunctionsTest, formatDateTime) {
   EXPECT_EQ("01", formatDatetime(parseTimestamp("-1601-06-20"), "yy"));
   EXPECT_EQ("10", formatDatetime(parseTimestamp("-1610-06-20"), "yy"));
 
-  // day of year test cases - 'D'
+  // Day of year test cases - 'D'
   EXPECT_EQ("1", formatDatetime(parseTimestamp("2022-01-01"), "D"));
   EXPECT_EQ("10", formatDatetime(parseTimestamp("2022-01-10"), "D"));
   EXPECT_EQ("100", formatDatetime(parseTimestamp("2022-04-10"), "D"));
   EXPECT_EQ("365", formatDatetime(parseTimestamp("2022-12-31"), "D"));
   EXPECT_EQ("00100", formatDatetime(parseTimestamp("2022-04-10"), "DDDDD"));
 
-  // leap year case
+  // Leap year case
   EXPECT_EQ("60", formatDatetime(parseTimestamp("2020-02-29"), "D"));
   EXPECT_EQ("366", formatDatetime(parseTimestamp("2020-12-31"), "D"));
 
-  // month of year test cases - 'M'
+  // Month of year test cases - 'M'
   for (int i = 0; i < 12; i++) {
     auto month = i + 1;
     std::string date("2022-" + std::to_string(month) + "-01");
@@ -3089,7 +3089,7 @@ TEST_F(DateTimeFunctionsTest, formatDateTime) {
         formatDatetime(parseTimestamp(StringView{date}), "MMMMMMMM"));
   }
 
-  // day of month test cases - 'd'
+  // Day of month test cases - 'd'
   EXPECT_EQ("1", formatDatetime(parseTimestamp("2022-01-01"), "d"));
   EXPECT_EQ("10", formatDatetime(parseTimestamp("2022-01-10"), "d"));
   EXPECT_EQ("28", formatDatetime(parseTimestamp("2022-01-28"), "d"));
@@ -3097,10 +3097,10 @@ TEST_F(DateTimeFunctionsTest, formatDateTime) {
   EXPECT_EQ(
       "00000031", formatDatetime(parseTimestamp("2022-01-31"), "dddddddd"));
 
-  // leap year case
+  // Leap year case
   EXPECT_EQ("29", formatDatetime(parseTimestamp("2020-02-29"), "d"));
 
-  // halfday of day test cases - 'a'
+  // Halfday of day test cases - 'a'
   EXPECT_EQ("AM", formatDatetime(parseTimestamp("2022-01-01 00:00:00"), "a"));
   EXPECT_EQ("AM", formatDatetime(parseTimestamp("2022-01-01 11:59:59"), "a"));
   EXPECT_EQ("PM", formatDatetime(parseTimestamp("2022-01-01 12:00:00"), "a"));
@@ -3110,7 +3110,7 @@ TEST_F(DateTimeFunctionsTest, formatDateTime) {
   EXPECT_EQ(
       "PM", formatDatetime(parseTimestamp("2022-01-01 12:00:00"), "aaaaaaaa"));
 
-  // hour of halfday test cases - 'K'
+  // Hour of halfday test cases - 'K'
   for (int i = 0; i < 24; i++) {
     std::string buildString = "2022-01-01 " + padNumber(i) + ":00:00";
     StringView date(buildString);
@@ -3121,7 +3121,7 @@ TEST_F(DateTimeFunctionsTest, formatDateTime) {
       "00000011",
       formatDatetime(parseTimestamp("2022-01-01 11:00:00"), "KKKKKKKK"));
 
-  // clockhour of halfday test cases - 'h'
+  // Clockhour of halfday test cases - 'h'
   for (int i = 0; i < 24; i++) {
     std::string buildString = "2022-01-01 " + padNumber(i) + ":00:00";
     StringView date(buildString);
@@ -3133,7 +3133,7 @@ TEST_F(DateTimeFunctionsTest, formatDateTime) {
       "00000011",
       formatDatetime(parseTimestamp("2022-01-01 11:00:00"), "hhhhhhhh"));
 
-  // hour of day test cases - 'H'
+  // Hour of day test cases - 'H'
   for (int i = 0; i < 24; i++) {
     std::string buildString = "2022-01-01 " + padNumber(i) + ":00:00";
     StringView date(buildString);
@@ -3143,7 +3143,7 @@ TEST_F(DateTimeFunctionsTest, formatDateTime) {
       "00000011",
       formatDatetime(parseTimestamp("2022-01-01 11:00:00"), "HHHHHHHH"));
 
-  // clockhour of day test cases - 'k'
+  // Clockhour of day test cases - 'k'
   for (int i = 0; i < 24; i++) {
     std::string buildString = "2022-01-01 " + padNumber(i) + ":00:00";
     StringView date(buildString);
@@ -3155,7 +3155,7 @@ TEST_F(DateTimeFunctionsTest, formatDateTime) {
       "00000011",
       formatDatetime(parseTimestamp("2022-01-01 11:00:00"), "kkkkkkkk"));
 
-  // minute of hour test cases - 'm'
+  // Minute of hour test cases - 'm'
   EXPECT_EQ("0", formatDatetime(parseTimestamp("2022-01-01 00:00:00"), "m"));
   EXPECT_EQ("1", formatDatetime(parseTimestamp("2022-01-01 01:01:00"), "m"));
   EXPECT_EQ("10", formatDatetime(parseTimestamp("2022-01-01 02:10:00"), "m"));
@@ -3165,7 +3165,14 @@ TEST_F(DateTimeFunctionsTest, formatDateTime) {
       "00000042",
       formatDatetime(parseTimestamp("2022-01-01 00:42:42"), "mmmmmmmm"));
 
-  // second of minute test cases - 's'
+  // Week of the year test cases - 'w'
+  EXPECT_EQ("52", formatDatetime(parseTimestamp("2022-01-01 04:59:00"), "w"));
+  EXPECT_EQ("52", formatDatetime(parseTimestamp("2022-01-02"), "w"));
+  EXPECT_EQ("1", formatDatetime(parseTimestamp("2022-01-03"), "w"));
+  EXPECT_EQ("1", formatDatetime(parseTimestamp("2024-01-01"), "w"));
+  EXPECT_EQ("22", formatDatetime(parseTimestamp("1970-05-30"), "w"));
+
+  // Second of minute test cases - 's'
   EXPECT_EQ("0", formatDatetime(parseTimestamp("2022-01-01 00:00:00"), "s"));
   EXPECT_EQ("1", formatDatetime(parseTimestamp("2022-01-01 01:01:01"), "s"));
   EXPECT_EQ("10", formatDatetime(parseTimestamp("2022-01-01 02:10:10"), "s"));
@@ -3175,7 +3182,7 @@ TEST_F(DateTimeFunctionsTest, formatDateTime) {
       "00000042",
       formatDatetime(parseTimestamp("2022-01-01 00:42:42"), "ssssssss"));
 
-  // fraction of second test cases - 'S'
+  // Fraction of second test cases - 'S'
   EXPECT_EQ("0", formatDatetime(parseTimestamp("2022-01-01 00:00:00.0"), "S"));
   EXPECT_EQ("1", formatDatetime(parseTimestamp("2022-01-01 00:00:00.1"), "S"));
   EXPECT_EQ("1", formatDatetime(parseTimestamp("2022-01-01 01:01:01.11"), "S"));
@@ -3197,13 +3204,13 @@ TEST_F(DateTimeFunctionsTest, formatDateTime) {
       "0010",
       formatDatetime(parseTimestamp("2022-01-01 03:30:30.001"), "SSSS"));
 
-  // time zone test cases - 'z'
+  // Time zone test cases - 'z'
   setQueryTimeZone("Asia/Kolkata");
   EXPECT_EQ(
       "Asia/Kolkata", formatDatetime(parseTimestamp("1970-01-01"), "zzzz"));
   EXPECT_EQ("+05:30", formatDatetime(parseTimestamp("1970-01-01"), "ZZ"));
 
-  // literal test cases
+  // Literal test cases.
   EXPECT_EQ("hello", formatDatetime(parseTimestamp("1970-01-01"), "'hello'"));
   EXPECT_EQ("'", formatDatetime(parseTimestamp("1970-01-01"), "''"));
   EXPECT_EQ(
@@ -3221,7 +3228,7 @@ TEST_F(DateTimeFunctionsTest, formatDateTime) {
           parseTimestamp("1970-01-01"),
           "\\\"!@#$%^&*()-+[]{}||`~<>.,?/;:1234567890"));
 
-  // Multi-specifier and literal formats
+  // Multi-specifier and literal formats.
   EXPECT_EQ(
       "AD 19 1970 4 Thu 1970 1 1 1 AM 8 8 8 8 3 11 5 Asia/Kolkata",
       formatDatetime(
@@ -3239,11 +3246,9 @@ TEST_F(DateTimeFunctionsTest, formatDateTime) {
       formatDatetime(
           parseTimestamp("1970-01-01 00:00:00"), "YYYY-MM-dd HH:mm:ss"));
 
-  // User format errors or unsupported errors
+  // User format errors or unsupported errors.
   EXPECT_THROW(
       formatDatetime(parseTimestamp("1970-01-01"), "x"), VeloxUserError);
-  EXPECT_THROW(
-      formatDatetime(parseTimestamp("1970-01-01"), "w"), VeloxUserError);
   EXPECT_THROW(
       formatDatetime(parseTimestamp("1970-01-01"), "z"), VeloxUserError);
   EXPECT_THROW(
@@ -3306,11 +3311,11 @@ TEST_F(DateTimeFunctionsTest, dateFormat) {
     return evaluateOnce<std::string>("date_format(c0, c1)", timestamp, format);
   };
 
-  // Check null behaviors
+  // Check null behaviors.
   EXPECT_EQ(std::nullopt, dateFormat(std::nullopt, "%Y"));
   EXPECT_EQ(std::nullopt, dateFormat(Timestamp(0, 0), std::nullopt));
 
-  // Normal cases
+  // Normal cases.
   EXPECT_EQ("1970-01-01", dateFormat(parseTimestamp("1970-01-01"), "%Y-%m-%d"));
   EXPECT_EQ(
       "2000-02-29 12:00:00 AM",
@@ -3324,7 +3329,7 @@ TEST_F(DateTimeFunctionsTest, dateFormat) {
       dateFormat(
           parseTimestamp("-2000-02-29 00:00:00.987"), "%Y-%m-%d %H:%i:%s.%f"));
 
-  // Varying digit year cases
+  // Varying digit year cases.
   EXPECT_EQ("06", dateFormat(parseTimestamp("-6-06-20"), "%y"));
   EXPECT_EQ("-0006", dateFormat(parseTimestamp("-6-06-20"), "%Y"));
   EXPECT_EQ("16", dateFormat(parseTimestamp("-16-06-20"), "%y"));
@@ -3340,31 +3345,35 @@ TEST_F(DateTimeFunctionsTest, dateFormat) {
   EXPECT_EQ("01", dateFormat(parseTimestamp("1901-06-20"), "%y"));
   EXPECT_EQ("10", dateFormat(parseTimestamp("1910-06-20"), "%y"));
 
-  // Day of week cases
+  // Day of week cases.
   for (int i = 0; i < 8; i++) {
     std::string date("1996-01-0" + std::to_string(i + 1));
-    // Full length name
+    // Full length name.
     EXPECT_EQ(
         daysLong[i % 7], dateFormat(parseTimestamp(StringView{date}), "%W"));
-    // Abbreviated name
+    // Abbreviated name.
     EXPECT_EQ(
         daysShort[i % 7], dateFormat(parseTimestamp(StringView{date}), "%a"));
   }
 
-  // Month cases
+  // Month cases.
   for (int i = 0; i < 12; i++) {
     std::string date("1996-" + std::to_string(i + 1) + "-01");
     std::string monthNum = std::to_string(i + 1);
-    // Full length name
+
+    // Full length name.
     EXPECT_EQ(
         monthsLong[i % 12], dateFormat(parseTimestamp(StringView{date}), "%M"));
-    // Abbreviated name
+
+    // Abbreviated name.
     EXPECT_EQ(
         monthsShort[i % 12],
         dateFormat(parseTimestamp(StringView{date}), "%b"));
-    // Numeric
+
+    // Numeric.
     EXPECT_EQ(monthNum, dateFormat(parseTimestamp(StringView{date}), "%c"));
-    // Numeric 0-padded
+
+    // Numeric 0-padded.
     if (i + 1 < 10) {
       EXPECT_EQ(
           "0" + monthNum, dateFormat(parseTimestamp(StringView{date}), "%m"));
@@ -3373,7 +3382,7 @@ TEST_F(DateTimeFunctionsTest, dateFormat) {
     }
   }
 
-  // Day of month cases
+  // Day of month cases.
   for (int i = 1; i <= 31; i++) {
     std::string dayOfMonth = std::to_string(i);
     std::string date("1970-01-" + dayOfMonth);
@@ -3386,7 +3395,20 @@ TEST_F(DateTimeFunctionsTest, dateFormat) {
     }
   }
 
-  // Fraction of second cases
+  // Week of the year cases. Follows ISO week date format.
+  //   https://en.wikipedia.org/wiki/ISO_week_date
+  EXPECT_EQ("01", dateFormat(parseTimestamp("2024-01-01"), "%v"));
+  EXPECT_EQ("01", dateFormat(parseTimestamp("2024-01-07"), "%v"));
+  EXPECT_EQ("02", dateFormat(parseTimestamp("2024-01-08"), "%v"));
+  EXPECT_EQ("52", dateFormat(parseTimestamp("2024-12-29"), "%v"));
+  EXPECT_EQ("01", dateFormat(parseTimestamp("2024-12-30"), "%v"));
+  EXPECT_EQ("01", dateFormat(parseTimestamp("2024-12-31"), "%v"));
+  EXPECT_EQ("01", dateFormat(parseTimestamp("2025-01-01"), "%v"));
+  EXPECT_EQ("53", dateFormat(parseTimestamp("2021-01-01"), "%v"));
+  EXPECT_EQ("53", dateFormat(parseTimestamp("2021-01-03"), "%v"));
+  EXPECT_EQ("01", dateFormat(parseTimestamp("2021-01-04"), "%v"));
+
+  // Fraction of second cases.
   EXPECT_EQ(
       "000000", dateFormat(parseTimestamp("2022-01-01 00:00:00.0"), "%f"));
   EXPECT_EQ(
@@ -3408,7 +3430,7 @@ TEST_F(DateTimeFunctionsTest, dateFormat) {
   EXPECT_EQ(
       "001000", dateFormat(parseTimestamp("2022-01-01 03:30:30.001234"), "%f"));
 
-  // Hour cases
+  // Hour cases.
   for (int i = 0; i < 24; i++) {
     std::string hour = std::to_string(i);
     int clockHour = (i + 11) % 12 + 1;
@@ -3432,7 +3454,7 @@ TEST_F(DateTimeFunctionsTest, dateFormat) {
     }
   }
 
-  // Minute cases
+  // Minute cases.
   for (int i = 0; i < 60; i++) {
     std::string minute = std::to_string(i);
     std::string toBuild = "1996-01-01 00:" + minute + ":00";
@@ -3444,7 +3466,7 @@ TEST_F(DateTimeFunctionsTest, dateFormat) {
     }
   }
 
-  // Second cases
+  // Second cases.
   for (int i = 0; i < 60; i++) {
     std::string second = std::to_string(i);
     std::string toBuild = "1996-01-01 00:00:" + second;
@@ -3458,19 +3480,19 @@ TEST_F(DateTimeFunctionsTest, dateFormat) {
     }
   }
 
-  // Day of year cases
+  // Day of year cases.
   EXPECT_EQ("001", dateFormat(parseTimestamp("2022-01-01"), "%j"));
   EXPECT_EQ("010", dateFormat(parseTimestamp("2022-01-10"), "%j"));
   EXPECT_EQ("100", dateFormat(parseTimestamp("2022-04-10"), "%j"));
   EXPECT_EQ("365", dateFormat(parseTimestamp("2022-12-31"), "%j"));
 
-  // Halfday of day cases
+  // Halfday of day cases.
   EXPECT_EQ("AM", dateFormat(parseTimestamp("2022-01-01 00:00:00"), "%p"));
   EXPECT_EQ("AM", dateFormat(parseTimestamp("2022-01-01 11:59:59"), "%p"));
   EXPECT_EQ("PM", dateFormat(parseTimestamp("2022-01-01 12:00:00"), "%p"));
   EXPECT_EQ("PM", dateFormat(parseTimestamp("2022-01-01 23:59:59"), "%p"));
 
-  // 12-hour time cases
+  // 12-hour time cases.
   EXPECT_EQ(
       "12:00:00 AM", dateFormat(parseTimestamp("2022-01-01 00:00:00"), "%r"));
   EXPECT_EQ(
@@ -3480,7 +3502,7 @@ TEST_F(DateTimeFunctionsTest, dateFormat) {
   EXPECT_EQ(
       "11:59:59 PM", dateFormat(parseTimestamp("2022-01-01 23:59:59"), "%r"));
 
-  // 24-hour time cases
+  // 24-hour time cases.
   EXPECT_EQ(
       "00:00:00", dateFormat(parseTimestamp("2022-01-01 00:00:00"), "%T"));
   EXPECT_EQ(
@@ -3490,7 +3512,7 @@ TEST_F(DateTimeFunctionsTest, dateFormat) {
   EXPECT_EQ(
       "23:59:59", dateFormat(parseTimestamp("2022-01-01 23:59:59"), "%T"));
 
-  // Percent followed by non-existent specifier case
+  // Percent followed by non-existent specifier case.
   EXPECT_EQ("q", dateFormat(parseTimestamp("1970-01-01"), "%q"));
   EXPECT_EQ("z", dateFormat(parseTimestamp("1970-01-01"), "%z"));
   EXPECT_EQ("g", dateFormat(parseTimestamp("1970-01-01"), "%g"));
@@ -3548,9 +3570,6 @@ TEST_F(DateTimeFunctionsTest, dateFormat) {
   VELOX_ASSERT_THROW(
       dateFormat(timestamp, "%X"),
       "Date format specifier is not supported: %X");
-  VELOX_ASSERT_THROW(
-      dateFormat(timestamp, "%v"),
-      "Date format specifier is not supported: WEEK_OF_WEEK_YEAR");
   VELOX_ASSERT_THROW(
       dateFormat(timestamp, "%x"),
       "Date format specifier is not supported: WEEK_YEAR");
