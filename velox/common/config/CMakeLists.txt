@@ -12,34 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-velox_add_library(
-  velox_dwio_dwrf_common
-  ByteRLE.cpp
-  Common.cpp
-  Config.cpp
-  Decryption.cpp
-  Encryption.cpp
-  EncryptionSpecification.cpp
-  FileMetadata.cpp
-  IntEncoder.cpp
-  RLEv1.cpp
-  RLEv2.cpp
-  Statistics.cpp
-  wrap/dwrf-proto-wrapper.cpp
-  wrap/orc-proto-wrapper.cpp)
+if (${VELOX_BUILD_TESTING})
+  add_subdirectory(tests)
+endif ()
 
-if(NOT VELOX_MONO_LIBRARY)
-  add_dependencies(velox_dwio_dwrf_common velox_dwio_dwrf_proto)
-endif()
-
+velox_add_library(velox_common_config Config.cpp)
 velox_link_libraries(
-  velox_dwio_dwrf_common
-  velox_common_base
-  velox_common_compression
   velox_common_config
-  velox_dwio_common
-  velox_dwio_common_compression
-  velox_dwio_dwrf_proto
-  velox_caching
-  Snappy::snappy
-  zstd::zstd)
+  PUBLIC velox_common_base
+         velox_exception
+  PRIVATE re2::re2)

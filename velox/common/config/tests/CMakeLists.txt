@@ -11,16 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-add_subdirectory(base)
-add_subdirectory(caching)
-add_subdirectory(compression)
-add_subdirectory(config)
-add_subdirectory(encode)
-add_subdirectory(file)
-add_subdirectory(hyperloglog)
-add_subdirectory(io)
-add_subdirectory(memory)
-add_subdirectory(process)
-add_subdirectory(serialization)
-add_subdirectory(time)
-add_subdirectory(testutil)
+
+add_executable(velox_config_test ConfigTest.cpp)
+add_test(velox_config_test velox_config_test)
+target_link_libraries(
+  velox_config_test
+  PUBLIC Folly::folly
+  PRIVATE velox_common_config gtest gtest_main)

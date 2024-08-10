@@ -24,10 +24,10 @@
 
 namespace facebook::velox::dwrf {
 
-class Config : public common::ConfigBase<Config> {
+class Config : public config::ConfigBase {
  public:
   template <typename T>
-  using Entry = common::ConfigBase<Config>::Entry<T>;
+  using Entry = config::ConfigBase::Entry<T>;
 
   static Entry<WriterVersion> WRITER_VERSION;
   static Entry<common::CompressionKind> COMPRESSION;
@@ -80,9 +80,17 @@ class Config : public common::ConfigBase<Config> {
 
   static std::shared_ptr<Config> fromMap(
       const std::map<std::string, std::string>& map) {
-    auto ret = std::make_shared<Config>();
-    ret->configs_.insert(map.cbegin(), map.cend());
-    return ret;
+    auto config = std::make_shared<Config>();
+    for (const auto& pair : map) {
+      config->set(pair.first, pair.second);
+    }
+    return config;
+  }
+
+  Config() : ConfigBase({}, true) {}
+
+  std::map<std::string, std::string> toSerdeParams() {
+    return std::map{configs_.cbegin(), configs_.cend()};
   }
 };
 

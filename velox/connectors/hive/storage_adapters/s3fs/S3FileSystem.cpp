@@ -546,7 +546,7 @@ class S3FileSystem::Impl {
     if (hiveConfig_->s3ConnectTimeout().has_value()) {
       clientConfig.connectTimeoutMs =
           std::chrono::duration_cast<std::chrono::milliseconds>(
-              facebook::velox::core::toDuration(
+              facebook::velox::config::toDuration(
                   hiveConfig_->s3ConnectTimeout().value()))
               .count();
     }
@@ -554,7 +554,7 @@ class S3FileSystem::Impl {
     if (hiveConfig_->s3SocketTimeout().has_value()) {
       clientConfig.requestTimeoutMs =
           std::chrono::duration_cast<std::chrono::milliseconds>(
-              facebook::velox::core::toDuration(
+              facebook::velox::config::toDuration(
                   hiveConfig_->s3SocketTimeout().value()))
               .count();
     }

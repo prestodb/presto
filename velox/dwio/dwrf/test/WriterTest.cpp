@@ -134,7 +134,7 @@ class AllWriterCompressionTest
 TEST_P(AllWriterCompressionTest, compression) {
   std::map<std::string, std::string> overrideConfigs;
   overrideConfigs.emplace(
-      Config::COMPRESSION.configKey(), std::to_string(compressionKind_));
+      Config::COMPRESSION.key, std::to_string(compressionKind_));
   auto config = Config::fromMap(overrideConfigs);
   auto& writer = createWriter(config);
   auto& context = getContext();

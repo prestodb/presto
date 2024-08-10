@@ -285,7 +285,7 @@ class GCSFileSystem::Impl {
     auto max_retry_time = hiveConfig_->gcsMaxRetryTime();
     if (max_retry_time) {
       auto retry_time = std::chrono::duration_cast<std::chrono::milliseconds>(
-          facebook::velox::core::toDuration(max_retry_time.value()));
+          facebook::velox::config::toDuration(max_retry_time.value()));
       options.set<gcs::RetryPolicyOption>(
           gcs::LimitedTimeRetryPolicy(retry_time).clone());
     }
