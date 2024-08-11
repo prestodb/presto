@@ -47,9 +47,6 @@ std::string bool2String(bool value) {
   { std::string(_key_), folly::none }
 } // namespace
 
-ConfigBase::ConfigBase()
-    : config_(std::make_unique<velox::core::MemConfig>()) {}
-
 void ConfigBase::initialize(const std::string& filePath, bool optionalConfig) {
   auto path = fs::path(filePath);
   std::unordered_map<std::string, std::string> values;
@@ -68,17 +65,15 @@ void ConfigBase::initialize(const std::string& filePath, bool optionalConfig) {
     mutableConfig = folly::to<bool>(it->second);
   }
 
-  if (mutableConfig) {
-    config_ = std::make_unique<velox::core::MemConfigMutable>(values);
-  } else {
-    config_ = std::make_unique<velox::core::MemConfig>(values);
-  };
+  config_ = std::make_unique<velox::config::ConfigBase>(
+      std::move(values), mutableConfig);
 }
 
 std::string ConfigBase::capacityPropertyAsBytesString(
     std::string_view propertyName) const {
-  return folly::to<std::string>(toCapacity(
-      optionalProperty(propertyName).value(), velox::core::CapacityUnit::BYTE));
+  return folly::to<std::string>(velox::config::toCapacity(
+      optionalProperty(propertyName).value(),
+      velox::config::CapacityUnit::BYTE));
 }
 
 bool ConfigBase::registerProperty(
@@ -104,18 +99,12 @@ folly::Optional<std::string> ConfigBase::setValue(
       registeredProps_.count(propertyName),
       "Property '{}' is not registered in the config.",
       propertyName);
-  if (auto* memConfig =
-          dynamic_cast<velox::core::MemConfigMutable*>(config_.get())) {
-    auto oldValue = config_->get(propertyName);
-    memConfig->setValue(propertyName, value);
-    if (oldValue.hasValue()) {
-      return oldValue;
-    }
-    return registeredProps_[propertyName];
+  auto oldValue = config_->get<std::string>(propertyName);
+  config_->set(propertyName, value);
+  if (oldValue.hasValue()) {
+    return oldValue;
   }
-  VELOX_USER_FAIL(
-      "Config is not mutable. Consider setting '{}' to 'true'.",
-      kMutableConfig);
+  return registeredProps_[propertyName];
 }
 
 void ConfigBase::checkRegisteredProperties(
@@ -473,7 +462,7 @@ int32_t SystemConfig::asyncCacheMinSsdSavableBytes() const {
 
 std::chrono::duration<double> SystemConfig::asyncCacheFullPersistenceInterval()
     const {
-  return velox::core::toDuration(
+  return velox::config::toDuration(
       optionalProperty(kAsyncCacheFullPersistenceInterval).value());
 }
 
@@ -576,9 +565,9 @@ uint64_t SystemConfig::httpMaxAllocateBytes() const {
 }
 
 uint64_t SystemConfig::queryMaxMemoryPerNode() const {
-  return toCapacity(
+  return velox::config::toCapacity(
       optionalProperty(kQueryMaxMemoryPerNode).value(),
-      velox::core::CapacityUnit::BYTE);
+      velox::config::CapacityUnit::BYTE);
 }
 
 bool SystemConfig::enableMemoryLeakCheck() const {
@@ -611,17 +600,17 @@ uint64_t SystemConfig::heartbeatFrequencyMs() const {
 }
 
 std::chrono::duration<double> SystemConfig::exchangeMaxErrorDuration() const {
-  return velox::core::toDuration(
+  return velox::config::toDuration(
       optionalProperty(kExchangeMaxErrorDuration).value());
 }
 
 std::chrono::duration<double> SystemConfig::exchangeRequestTimeoutMs() const {
-  return velox::core::toDuration(
+  return velox::config::toDuration(
       optionalProperty(kExchangeRequestTimeout).value());
 }
 
 std::chrono::duration<double> SystemConfig::exchangeConnectTimeoutMs() const {
-  return velox::core::toDuration(
+  return velox::config::toDuration(
       optionalProperty(kExchangeConnectTimeout).value());
 }
 
@@ -677,12 +666,12 @@ bool SystemConfig::cacheVeloxTtlEnabled() const {
 }
 
 std::chrono::duration<double> SystemConfig::cacheVeloxTtlThreshold() const {
-  return velox::core::toDuration(
+  return velox::config::toDuration(
       optionalProperty(kCacheVeloxTtlThreshold).value());
 }
 
 std::chrono::duration<double> SystemConfig::cacheVeloxTtlCheckInterval() const {
-  return velox::core::toDuration(
+  return velox::config::toDuration(
       optionalProperty(kCacheVeloxTtlCheckInterval).value());
 }
 
