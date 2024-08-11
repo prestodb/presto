@@ -258,13 +258,14 @@ public class OrcBatchPageSourceFactory
                     partitionID,
                     rowGroupID);
         }
-        catch (Exception e) {
+        catch (IOException | RuntimeException exception) {
             try {
+                //in case the OrcReader did not close the OrcDataSource
                 orcDataSource.close();
             }
             catch (IOException ignored) {
             }
-            throw mapToPrestoException(e, path, fileSplit);
+            throw mapToPrestoException(exception, path, fileSplit);
         }
     }
 }
