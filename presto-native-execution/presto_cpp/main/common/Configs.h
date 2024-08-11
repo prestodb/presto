@@ -17,7 +17,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
-#include "velox/core/Config.h"
+#include "velox/common/config/Config.h"
 
 namespace facebook::presto {
 
@@ -38,7 +38,7 @@ class ConfigBase {
       std::unordered_map<std::string, std::string>& values) const {}
 
   /// Uses a config object already materialized.
-  void initialize(std::unique_ptr<velox::Config>&& config) {
+  void initialize(std::unique_ptr<velox::config::ConfigBase>&& config) {
     config_ = std::move(config);
   }
 
@@ -76,7 +76,7 @@ class ConfigBase {
 
   /// Returns a required value of the string type. Fails if no value found.
   std::string requiredProperty(const std::string& propertyName) const {
-    auto propertyValue = config_->get(propertyName);
+    auto propertyValue = config_->get<std::string>(propertyName);
     if (propertyValue.has_value()) {
       return propertyValue.value();
     } else {
@@ -93,15 +93,13 @@ class ConfigBase {
   /// Returns optional value of the requested type. Can return folly::none.
   template <typename T>
   folly::Optional<T> optionalProperty(const std::string& propertyName) const {
-    auto val = config_->get(propertyName);
-    if (!val.hasValue()) {
-      const auto it = registeredProps_.find(propertyName);
-      if (it != registeredProps_.end()) {
-        val = it->second;
-      }
+    auto valOpt = config_->get<T>(propertyName);
+    if (valOpt.hasValue()) {
+      return valOpt.value();
     }
-    if (val.hasValue()) {
-      return folly::to<T>(val.value());
+    const auto it = registeredProps_.find(propertyName);
+    if (it != registeredProps_.end() && it->second.has_value()) {
+      return folly::Optional<T>(folly::to<T>(it->second.value()));
     }
     return folly::none;
   }
@@ -115,14 +113,15 @@ class ConfigBase {
   /// Returns optional value of the string type. Can return folly::none.
   folly::Optional<std::string> optionalProperty(
       const std::string& propertyName) const {
-    auto val = config_->get(propertyName);
-    if (!val.hasValue()) {
-      const auto it = registeredProps_.find(propertyName);
-      if (it != registeredProps_.end()) {
-        return it->second;
-      }
+    auto val = config_->get<std::string>(propertyName);
+    if (val.hasValue()) {
+      return val;
     }
-    return val;
+    const auto it = registeredProps_.find(propertyName);
+    if (it != registeredProps_.end()) {
+      return it->second;
+    }
+    return folly::none;
   }
 
   /// Returns optional value of the string type. Can return folly::none.
@@ -137,19 +136,21 @@ class ConfigBase {
 
   /// Returns copy of the config values map.
   std::unordered_map<std::string, std::string> values() const {
-    return config_->valuesCopy();
+    return config_->rawConfigsCopy();
   }
 
   virtual ~ConfigBase() = default;
 
  protected:
-  ConfigBase();
+  ConfigBase()
+      : config_(std::make_unique<velox::config::ConfigBase>(
+            std::unordered_map<std::string, std::string>())){};
 
   // Check if all properties are registered.
   void checkRegisteredProperties(
       const std::unordered_map<std::string, std::string>& values);
 
-  std::unique_ptr<velox::Config> config_;
+  std::unique_ptr<velox::config::ConfigBase> config_;
   std::string filePath_;
   // Map of registered properties with their default values.
   std::unordered_map<std::string, folly::Optional<std::string>>
