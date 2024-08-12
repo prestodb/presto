@@ -194,10 +194,12 @@ std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtx(
   updateVeloxConfigs(configStrings);
   updateVeloxConnectorConfigs(connectorConfigStrings);
 
-  std::unordered_map<std::string, std::shared_ptr<Config>> connectorConfigs;
+  std::unordered_map<std::string, std::shared_ptr<config::ConfigBase>>
+      connectorConfigs;
   for (auto& entry : connectorConfigStrings) {
     connectorConfigs.insert(
-        {entry.first, std::make_shared<core::MemConfig>(entry.second)});
+        {entry.first,
+         std::make_shared<config::ConfigBase>(std::move(entry.second))});
   }
 
   velox::core::QueryConfig queryConfig{std::move(configStrings)};
