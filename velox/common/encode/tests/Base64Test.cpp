@@ -15,10 +15,13 @@
  */
 
 #include "velox/common/encode/Base64.h"
+
 #include <gtest/gtest.h>
+#include "velox/common/base/Exceptions.h"
 #include "velox/common/base/tests/GTestUtils.h"
 
 namespace facebook::velox::encoding {
+
 class Base64Test : public ::testing::Test {};
 
 TEST_F(Base64Test, fromBase64) {
@@ -59,9 +62,9 @@ TEST_F(Base64Test, calculateDecodedSizeProperSize) {
   EXPECT_EQ(18, encoded_size);
 
   encoded_size = 21;
-  EXPECT_THROW(
+  VELOX_ASSERT_THROW(
       Base64::calculateDecodedSize("SGVsbG8sIFdvcmxkIQ==", encoded_size),
-      facebook::velox::encoding::Base64Exception);
+      "Base64::decode() - invalid input string: string length cannot be 1 more than a multiple of 4.");
 
   encoded_size = 32;
   EXPECT_EQ(
@@ -86,4 +89,14 @@ TEST_F(Base64Test, calculateDecodedSizeProperSize) {
   EXPECT_EQ(14, encoded_size);
 }
 
+TEST_F(Base64Test, checksPadding) {
+  EXPECT_TRUE(Base64::isPadded("ABC=", 4));
+  EXPECT_FALSE(Base64::isPadded("ABC", 3));
+}
+
+TEST_F(Base64Test, countsPaddingCorrectly) {
+  EXPECT_EQ(0, Base64::numPadding("ABC", 3));
+  EXPECT_EQ(1, Base64::numPadding("ABC=", 4));
+  EXPECT_EQ(2, Base64::numPadding("AB==", 4));
+}
 } // namespace facebook::velox::encoding
