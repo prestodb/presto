@@ -523,9 +523,7 @@ void registerApproxDistinctAggregates(
     const std::string& prefix,
     bool withCompanionFunctions,
     bool overwrite) {
-  registerCustomType(
-      prefix + "hyperloglog",
-      std::make_unique<const HyperLogLogTypeFactories>());
+  registerHyperLogLogType();
   registerApproxDistinct(
       prefix + kApproxDistinct,
       false,
