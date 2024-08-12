@@ -413,13 +413,12 @@ MemoryPoolImpl::MemoryPoolImpl(
     Kind kind,
     std::shared_ptr<MemoryPool> parent,
     std::unique_ptr<MemoryReclaimer> reclaimer,
-    GrowCapacityCallback growCapacityCb,
     DestructionCallback destructionCb,
     const Options& options)
     : MemoryPool{name, kind, parent, options},
       manager_{memoryManager},
       allocator_{manager_->allocator()},
-      growCapacityCb_(std::move(growCapacityCb)),
+      arbitrator_{manager_->arbitrator()},
       destructionCb_(std::move(destructionCb)),
       debugPoolNameRegex_(debugEnabled_ ? *(debugPoolNameRegex().rlock()) : ""),
       reclaimer_(std::move(reclaimer)),
@@ -428,8 +427,8 @@ MemoryPoolImpl::MemoryPoolImpl(
       capacity_(parent_ != nullptr ? kMaxMemory : 0) {
   VELOX_CHECK(options.threadSafe || isLeaf());
   VELOX_CHECK(
-      isRoot() || (destructionCb_ == nullptr && growCapacityCb_ == nullptr),
-      "Only root memory pool allows to set destruction and capacity grow callbacks: {}",
+      isRoot() || destructionCb_ == nullptr,
+      "Only root memory pool allows to set destruction callbacks: {}",
       name_);
 }
 
@@ -733,7 +732,6 @@ std::shared_ptr<MemoryPool> MemoryPoolImpl::genChild(
       parent,
       std::move(reclaimer),
       nullptr,
-      nullptr,
       Options{
           .alignment = alignment_,
           .trackUsage = trackUsage_,
@@ -842,8 +840,7 @@ bool MemoryPoolImpl::incrementReservationThreadSafe(
 
   VELOX_CHECK_NULL(parent_);
 
-  ++numCapacityGrowths_;
-  if (growCapacityCb_(requestor, size)) {
+  if (growCapacity(requestor, size)) {
     TestValue::adjust(
         "facebook::velox::memory::MemoryPoolImpl::incrementReservationThreadSafe::AfterGrowCallback",
         this);
@@ -863,6 +860,14 @@ bool MemoryPoolImpl::incrementReservationThreadSafe(
       capacityToString(manager_->capacity()),
       succinctBytes(requestor->usedBytes()),
       treeMemoryUsage()));
+}
+
+bool MemoryPoolImpl::growCapacity(MemoryPool* requestor, uint64_t size) {
+  VELOX_CHECK(requestor->isLeaf());
+  ++numCapacityGrowths_;
+
+  ScopedMemoryPoolArbitrationCtx arbitrationCtx(requestor);
+  return arbitrator_->growCapacity(this, size);
 }
 
 bool MemoryPoolImpl::maybeIncrementReservation(uint64_t size) {

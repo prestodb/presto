@@ -131,14 +131,10 @@ MemoryManager::MemoryManager(const MemoryManagerOptions& options)
       debugEnabled_(options.debugEnabled),
       coreOnAllocationFailureEnabled_(options.coreOnAllocationFailureEnabled),
       poolDestructionCb_([&](MemoryPool* pool) { dropPool(pool); }),
-      poolGrowCb_([&](MemoryPool* pool, uint64_t targetBytes) {
-        return growPool(pool, targetBytes);
-      }),
       sysRoot_{std::make_shared<MemoryPoolImpl>(
           this,
           std::string(kSysRootName),
           MemoryPool::Kind::kAggregate,
-          nullptr,
           nullptr,
           nullptr,
           nullptr,
@@ -268,7 +264,6 @@ std::shared_ptr<MemoryPool> MemoryManager::addRootPool(
       MemoryPool::Kind::kAggregate,
       nullptr,
       std::move(reclaimer),
-      poolGrowCb_,
       poolDestructionCb_,
       options);
   pools_.emplace(poolName, pool);
@@ -288,12 +283,6 @@ std::shared_ptr<MemoryPool> MemoryManager::addLeafPool(
     poolName = fmt::format("default_leaf_{}", poolId++);
   }
   return sysRoot_->addLeafChild(poolName, threadSafe, nullptr);
-}
-
-bool MemoryManager::growPool(MemoryPool* pool, uint64_t incrementBytes) {
-  VELOX_CHECK_NOT_NULL(pool);
-  VELOX_CHECK_NE(pool->capacity(), kMaxMemory);
-  return arbitrator_->growCapacity(pool, incrementBytes);
 }
 
 uint64_t MemoryManager::shrinkPools(

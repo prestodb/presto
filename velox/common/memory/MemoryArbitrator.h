@@ -411,10 +411,10 @@ class ScopedMemoryArbitrationContext {
  public:
   explicit ScopedMemoryArbitrationContext(const MemoryPool* requestor);
 
-  // Can be used to restore a previously captured MemoryArbitrationContext.
-  // contextToRestore can be nullptr if there was no context at the time it was
-  // captured, in which case arbitrationCtx is unchanged upon
-  // contruction/destruction of this object.
+  /// Can be used to restore a previously captured MemoryArbitrationContext.
+  /// contextToRestore can be nullptr if there was no context at the time it was
+  /// captured, in which case arbitrationCtx is unchanged upon
+  /// contruction/destruction of this object.
   explicit ScopedMemoryArbitrationContext(
       const MemoryArbitrationContext* contextToRestore);
 
@@ -423,6 +423,17 @@ class ScopedMemoryArbitrationContext {
  private:
   MemoryArbitrationContext* const savedArbitrationCtx_{nullptr};
   MemoryArbitrationContext currentArbitrationCtx_;
+};
+
+/// Object used to setup arbitration context for a memory pool.
+class ScopedMemoryPoolArbitrationCtx {
+ public:
+  explicit ScopedMemoryPoolArbitrationCtx(MemoryPool* pool);
+
+  ~ScopedMemoryPoolArbitrationCtx();
+
+ private:
+  MemoryPool* const pool_;
 };
 
 /// Returns the memory arbitration context set by a per-thread local variable if

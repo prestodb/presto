@@ -165,7 +165,6 @@ class SharedArbitrator : public memory::MemoryArbitrator {
   // Contains the execution state of an arbitration operation.
   struct ArbitrationOperation {
     MemoryPool* const requestPool;
-    MemoryPool* const requestRoot;
     const uint64_t requestBytes;
     // The start time of this arbitration operation.
     const std::chrono::steady_clock::time_point startTime;
@@ -187,17 +186,15 @@ class SharedArbitrator : public memory::MemoryArbitrator {
 
     ArbitrationOperation(MemoryPool* _requestor, uint64_t _requestBytes)
         : requestPool(_requestor),
-          requestRoot(_requestor == nullptr ? nullptr : _requestor->root()),
           requestBytes(_requestBytes),
-          startTime(std::chrono::steady_clock::now()) {}
+          startTime(std::chrono::steady_clock::now()) {
+      VELOX_CHECK(requestPool == nullptr || requestPool->isRoot());
+    }
 
     uint64_t waitTimeUs() const {
       return localArbitrationQueueTimeUs + localArbitrationLockWaitTimeUs +
           globalArbitrationLockWaitTimeUs;
     }
-
-    void enterArbitration();
-    void leaveArbitration();
   };
 
   // Used to start and finish an arbitration operation initiated from a memory

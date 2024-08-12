@@ -526,11 +526,26 @@ class MockLeafMemoryReclaimer : public MemoryReclaimer {
  public:
   explicit MockLeafMemoryReclaimer(
       std::atomic<uint64_t>& totalUsedBytes,
-      bool reclaimable = true)
-      : reclaimable_(reclaimable), totalUsedBytes_(totalUsedBytes) {}
+      bool reclaimable = true,
+      bool* underArbitration = nullptr)
+      : reclaimable_(reclaimable),
+        underArbitration_(underArbitration),
+        totalUsedBytes_(totalUsedBytes) {}
 
   ~MockLeafMemoryReclaimer() override {
     VELOX_CHECK(allocations_.empty());
+  }
+
+  virtual void enterArbitration() override {
+    if (underArbitration_ != nullptr) {
+      *underArbitration_ = true;
+    }
+  }
+
+  virtual void leaveArbitration() noexcept override {
+    if (underArbitration_ != nullptr) {
+      *underArbitration_ = false;
+    }
   }
 
   bool reclaimableBytes(const MemoryPool& pool, uint64_t& bytes)
@@ -612,6 +627,7 @@ class MockLeafMemoryReclaimer : public MemoryReclaimer {
   }
 
   const bool reclaimable_{true};
+  bool* const underArbitration_{nullptr};
   std::atomic_uint64_t& totalUsedBytes_;
   std::atomic_int reclaimCount_{0};
   mutable std::mutex mu_;
@@ -1024,6 +1040,42 @@ TEST_F(MemoryReclaimerTest, arbitrationContext) {
     ASSERT_TRUE(memoryArbitrationContext() == nullptr);
   });
   nonAbitrationThread.join();
+  ASSERT_TRUE(memoryArbitrationContext() == nullptr);
+}
+
+TEST_F(MemoryReclaimerTest, scopedMemoryPoolArbitrationCtx) {
+  auto root = memory::memoryManager()->addRootPool(
+      "scopedArbitration", kMaxMemory, MemoryReclaimer::create());
+  std::atomic<uint64_t> totalUsedBytes{0};
+  bool underArbitration{false};
+  auto leafChild = root->addLeafChild(
+      "scopedArbitration",
+      true,
+      std::make_unique<MockLeafMemoryReclaimer>(
+          totalUsedBytes, true, &underArbitration));
+  ASSERT_FALSE(underArbitration);
+  {
+    ScopedMemoryPoolArbitrationCtx arbitrationCtx(leafChild.get());
+    ASSERT_TRUE(memoryArbitrationContext() == nullptr);
+    ASSERT_TRUE(underArbitration);
+  }
+  ASSERT_FALSE(underArbitration);
+  ASSERT_TRUE(memoryArbitrationContext() == nullptr);
+
+  std::thread abitrationThread([&]() {
+    ASSERT_TRUE(memoryArbitrationContext() == nullptr);
+    {
+      ScopedMemoryPoolArbitrationCtx arbitrationCtx(leafChild.get());
+      ASSERT_TRUE(memoryArbitrationContext() == nullptr);
+      ASSERT_TRUE(underArbitration);
+    }
+    ASSERT_FALSE(underArbitration);
+    ASSERT_TRUE(memoryArbitrationContext() == nullptr);
+  });
+  abitrationThread.join();
+
+  ASSERT_FALSE(underArbitration);
+
   ASSERT_TRUE(memoryArbitrationContext() == nullptr);
 }
 

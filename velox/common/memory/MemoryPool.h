@@ -372,16 +372,6 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   /// Returns the memory reclaimer of this memory pool if not null.
   virtual MemoryReclaimer* reclaimer() const = 0;
 
-  /// Invoked by the memory arbitrator to enter memory arbitration processing.
-  /// It is a noop if 'reclaimer' is not set, otherwise invoke the reclaimer's
-  /// corresponding method.
-  virtual void enterArbitration() = 0;
-
-  /// Invoked by the memory arbitrator to leave memory arbitration processing.
-  /// It is a noop if 'reclaimer' is not set, otherwise invoke the reclaimer's
-  /// corresponding method.
-  virtual void leaveArbitration() noexcept = 0;
-
   /// Function estimates the number of reclaimable bytes and returns in
   /// 'reclaimableBytes'. If the 'reclaimer' is not set, the function returns
   /// std::nullopt. Otherwise, it will invoke the corresponding method of the
@@ -499,6 +489,16 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
  protected:
   static constexpr uint64_t kMB = 1 << 20;
 
+  /// Invoked by the memory arbitrator to enter memory arbitration processing.
+  /// It is a noop if 'reclaimer' is not set, otherwise invoke the reclaimer's
+  /// corresponding method.
+  virtual void enterArbitration() = 0;
+
+  /// Invoked by the memory arbitrator to leave memory arbitration processing.
+  /// It is a noop if 'reclaimer' is not set, otherwise invoke the reclaimer's
+  /// corresponding method.
+  virtual void leaveArbitration() noexcept = 0;
+
   /// Invoked to free up to the specified amount of free memory by reducing
   /// this memory pool's capacity without actually freeing any used memory. The
   /// function returns the actually freed memory capacity in bytes. If
@@ -557,6 +557,7 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   friend class velox::exec::ParallelMemoryReclaimer;
   friend class MemoryManager;
   friend class MemoryArbitrator;
+  friend class ScopedMemoryPoolArbitrationCtx;
 
   VELOX_FRIEND_TEST(MemoryPoolTest, shrinkAndGrowAPIs);
   VELOX_FRIEND_TEST(MemoryPoolTest, grow);
@@ -573,11 +574,6 @@ class MemoryPoolImpl : public MemoryPool {
   /// The callback invoked on the root memory pool destruction. It is set by
   /// memory manager to removes the pool from 'MemoryManager::pools_'.
   using DestructionCallback = std::function<void(MemoryPool*)>;
-  /// The callback invoked when the used memory reservation of the root memory
-  /// pool exceed its capacity. It is set by memory manager to grow the memory
-  /// pool capacity. The callback returns true if the capacity growth succeeds,
-  /// otherwise false.
-  using GrowCapacityCallback = std::function<bool(MemoryPool*, uint64_t)>;
 
   MemoryPoolImpl(
       MemoryManager* manager,
@@ -585,7 +581,6 @@ class MemoryPoolImpl : public MemoryPool {
       Kind kind,
       std::shared_ptr<MemoryPool> parent,
       std::unique_ptr<MemoryReclaimer> reclaimer,
-      GrowCapacityCallback growCapacityCb,
       DestructionCallback destructionCb,
       const Options& options = Options{});
 
@@ -650,10 +645,6 @@ class MemoryPoolImpl : public MemoryPool {
   void setReclaimer(std::unique_ptr<MemoryReclaimer> reclaimer) override;
 
   MemoryReclaimer* reclaimer() const override;
-
-  void enterArbitration() override;
-
-  void leaveArbitration() noexcept override;
 
   std::optional<uint64_t> reclaimableBytes() const override;
 
@@ -731,6 +722,10 @@ class MemoryPoolImpl : public MemoryPool {
   }
 
  private:
+  void enterArbitration() override;
+
+  void leaveArbitration() noexcept override;
+
   uint64_t shrink(uint64_t targetBytes = 0) override;
 
   bool grow(uint64_t growBytes, uint64_t reservationBytes = 0) override;
@@ -872,6 +867,11 @@ class MemoryPoolImpl : public MemoryPool {
 
   void releaseThreadSafe(uint64_t size, bool releaseOnly);
 
+  // Invoked to grow capacity of the root memory pool from the memory
+  // arbitrator. 'requestor' is the leaf memory pool that triggers the memory
+  // capacity growth. 'size' is the memory capacity growth in bytes.
+  bool growCapacity(MemoryPool* requestor, uint64_t size);
+
   FOLLY_ALWAYS_INLINE void releaseNonThreadSafe(
       uint64_t size,
       bool releaseOnly) {
@@ -999,7 +999,7 @@ class MemoryPoolImpl : public MemoryPool {
 
   MemoryManager* const manager_;
   MemoryAllocator* const allocator_;
-  const GrowCapacityCallback growCapacityCb_;
+  MemoryArbitrator* const arbitrator_;
   const DestructionCallback destructionCb_;
 
   // Regex for filtering on 'name_' when debug mode is enabled. This allows us

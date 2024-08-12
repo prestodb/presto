@@ -307,10 +307,6 @@ class MemoryManager {
  private:
   void dropPool(MemoryPool* pool);
 
-  // Invoked to grow a memory pool's free capacity with at least
-  // 'incrementBytes'. The function returns true on success, otherwise false.
-  bool growPool(MemoryPool* pool, uint64_t incrementBytes);
-
   //  Returns the shared references to all the alive memory pools in 'pools_'.
   std::vector<std::shared_ptr<MemoryPool>> getAlivePools() const;
 
@@ -328,8 +324,6 @@ class MemoryManager {
   // tracked by 'pools_'. It is invoked on the root pool destruction and removes
   // the pool from 'pools_'.
   const MemoryPoolImpl::DestructionCallback poolDestructionCb_;
-  // Callback invoked by the root memory pool to request memory capacity growth.
-  const MemoryPoolImpl::GrowCapacityCallback poolGrowCb_;
 
   const std::shared_ptr<MemoryPool> sysRoot_;
   const std::shared_ptr<MemoryPool> spillPool_;

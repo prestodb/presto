@@ -636,8 +636,8 @@ TEST_F(MockSharedArbitrationTest, arbitrationStateCheck) {
   const int minPoolCapacity = 32 * MB;
   std::atomic<int> checkCount{0};
   MemoryArbitrationStateCheckCB checkCountCb = [&](MemoryPool& pool) {
-    const std::string re("MockTask.*");
-    ASSERT_TRUE(RE2::FullMatch(pool.name(), re));
+    const std::string re("RootPool.*");
+    ASSERT_TRUE(RE2::FullMatch(pool.name(), re)) << pool.name();
     ++checkCount;
   };
   setupMemory(memCapacity, 0, 0, 0, 0, checkCountCb);
