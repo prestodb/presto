@@ -35,6 +35,7 @@ import java.nio.file.Paths;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 
 import static com.facebook.presto.hive.HiveTestUtils.getProperty;
@@ -57,6 +58,7 @@ public class PrestoNativeQueryRunnerUtils
 
     private static final Logger log = Logger.get(PrestoNativeQueryRunnerUtils.class);
     private static final String DEFAULT_STORAGE_FORMAT = "DWRF";
+
     private PrestoNativeQueryRunnerUtils() {}
 
     public static QueryRunner createQueryRunner(boolean addStorageFormatToPath)
@@ -90,7 +92,7 @@ public class PrestoNativeQueryRunnerUtils
 
         defaultQueryRunner.close();
 
-        return createNativeQueryRunner(dataDirectory.get().toString(), prestoServerPath.get(), workerCount, cacheMaxSize, true, Optional.empty(), storageFormat, addStorageFormatToPath);
+        return createNativeQueryRunner(dataDirectory.get().toString(), prestoServerPath.get(), workerCount, cacheMaxSize, true, Optional.empty(), storageFormat, addStorageFormatToPath, false);
     }
 
     public static QueryRunner createJavaQueryRunner()
@@ -222,7 +224,8 @@ public class PrestoNativeQueryRunnerUtils
                 useThrift,
                 remoteFunctionServerUds,
                 storageFormat,
-                addStorageFormatToPath);
+                addStorageFormatToPath,
+                false);
     }
 
     public static QueryRunner createNativeIcebergQueryRunner(
@@ -233,7 +236,8 @@ public class PrestoNativeQueryRunnerUtils
             boolean useThrift,
             Optional<String> remoteFunctionServerUds,
             String storageFormat,
-            boolean addStorageFormatToPath)
+            boolean addStorageFormatToPath,
+            boolean isSidecarEnabled)
             throws Exception
     {
         ImmutableMap<String, String> icebergProperties = ImmutableMap.<String, String>builder()
@@ -253,9 +257,8 @@ public class PrestoNativeQueryRunnerUtils
                 false,
                 false,
                 OptionalInt.of(workerCount.orElse(4)),
-                getExternalWorkerLauncher("iceberg", prestoServerPath, cacheMaxSize, remoteFunctionServerUds),
-                dataDirectory,
-                addStorageFormatToPath);
+                getExternalWorkerLauncher("iceberg", prestoServerPath, cacheMaxSize, remoteFunctionServerUds, new AtomicBoolean(isSidecarEnabled)),
+                addStorageFormatToPath ? dataDirectory.map(path -> Paths.get(path.toString() + '/' + storageFormat)) : dataDirectory);
     }
 
     public static QueryRunner createNativeQueryRunner(
@@ -266,7 +269,8 @@ public class PrestoNativeQueryRunnerUtils
             boolean useThrift,
             Optional<String> remoteFunctionServerUds,
             String storageFormat,
-            boolean addStorageFormatToPath)
+            boolean addStorageFormatToPath,
+            boolean isSidecarEnabled)
             throws Exception
     {
         // The property "hive.allow-drop-table" needs to be set to true because security is always "legacy" in NativeQueryRunner.
@@ -289,7 +293,7 @@ public class PrestoNativeQueryRunnerUtils
                 hiveProperties,
                 workerCount,
                 Optional.of(Paths.get(addStorageFormatToPath ? dataDirectory + "/" + storageFormat : dataDirectory)),
-                getExternalWorkerLauncher("hive", prestoServerPath, cacheMaxSize, remoteFunctionServerUds));
+                getExternalWorkerLauncher("hive", prestoServerPath, cacheMaxSize, remoteFunctionServerUds, new AtomicBoolean(isSidecarEnabled)));
     }
 
     public static QueryRunner createNativeCteQueryRunner(boolean useThrift, String storageFormat)
@@ -332,7 +336,7 @@ public class PrestoNativeQueryRunnerUtils
                 hiveProperties,
                 workerCount,
                 Optional.of(Paths.get(addStorageFormatToPath ? dataDirectory + "/" + storageFormat : dataDirectory)),
-                getExternalWorkerLauncher("hive", prestoServerPath, cacheMaxSize, Optional.empty()));
+                getExternalWorkerLauncher("hive", prestoServerPath, cacheMaxSize, Optional.empty(), new AtomicBoolean(false)));
     }
 
     public static QueryRunner createNativeQueryRunner(String remoteFunctionServerUds)
@@ -366,7 +370,8 @@ public class PrestoNativeQueryRunnerUtils
                 useThrift,
                 remoteFunctionServerUds,
                 storageFormat,
-                true);
+                true,
+                false);
     }
 
     // Start the remote function server. Return the UDS path used to communicate with it.
@@ -393,10 +398,10 @@ public class PrestoNativeQueryRunnerUtils
     public static NativeQueryRunnerParameters getNativeQueryRunnerParameters()
     {
         Path prestoServerPath = Paths.get(getProperty("PRESTO_SERVER")
-                .orElse("_build/debug/presto_cpp/main/presto_server"))
+                        .orElse("_build/debug/presto_cpp/main/presto_server"))
                 .toAbsolutePath();
         Path dataDirectory = Paths.get(getProperty("DATA_DIR")
-                .orElse("target/velox_data"))
+                        .orElse("target/velox_data"))
                 .toAbsolutePath();
         Optional<Integer> workerCount = getProperty("WORKER_COUNT").map(Integer::parseInt);
 
@@ -413,7 +418,7 @@ public class PrestoNativeQueryRunnerUtils
         return new NativeQueryRunnerParameters(prestoServerPath, dataDirectory, workerCount);
     }
 
-    public static Optional<BiFunction<Integer, URI, Process>> getExternalWorkerLauncher(String catalogName, String prestoServerPath, int cacheMaxSize, Optional<String> remoteFunctionServerUds)
+    public static Optional<BiFunction<Integer, URI, Process>> getExternalWorkerLauncher(String catalogName, String prestoServerPath, int cacheMaxSize, Optional<String> remoteFunctionServerUds, AtomicBoolean isSidecarEnabled)
     {
         return
                 Optional.of((workerIndex, discoveryUri) -> {
@@ -429,6 +434,16 @@ public class PrestoNativeQueryRunnerUtils
                                 "presto.version=testversion%n" +
                                 "system-memory-gb=4%n" +
                                 "http-server.http.port=%d", discoveryUri, port);
+
+                        // todo: "presto.default-namespace" config property needs to be present on all the workers,
+                        //  make that change when support for  "presto.default-namespace" config property is added.
+
+                        if (isSidecarEnabled.get()) {
+                            configProperties = format("%s%n" +
+                                    "native.sidecar=true%n" +
+                                    "presto.default-namespace=native.default%n", configProperties);
+                            isSidecarEnabled.compareAndSet(true, false);
+                        }
 
                         if (remoteFunctionServerUds.isPresent()) {
                             String jsonSignaturesPath = Resources.getResource(REMOTE_FUNCTION_JSON_SIGNATURES).getFile();
