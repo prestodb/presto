@@ -491,14 +491,16 @@ JMX queries to get the metrics and verify the cache usage::
 
     SELECT * FROM jmx.current."com.facebook.presto.hive:name=iceberg_parquetmetadata,type=cachestatsmbean";
 
-Metastore Versioned Cache
-^^^^^^^^^^^^^^^^^^^^^^^^^
+Metastore Cache
+^^^^^^^^^^^^^^^
 
-Metastore cache only caches schema and table names. Other metadata would be fetched from the filesystem.
+Metastore Cache only caches the schema, table, and table statistics. The table object cached in the `tableCache`
+is only used for reading the table metadata location and table properties and, the rest of the table metadata
+is fetched from the filesystem/object storage metadata location.
 
 .. note::
 
-    Metastore Versioned Cache would be applicable only for Hive Catalog in the Presto Iceberg connector.
+    Metastore Cache would be applicable only for Hive Catalog in the Presto Iceberg connector.
 
 .. code-block:: none
 
