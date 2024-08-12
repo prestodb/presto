@@ -44,9 +44,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - run: |
-          apt -y install python3-pip
-          pip3 install --break-system-packages pyyaml
+
       - name: Fix git permissions
         # Usually actions/checkout does this but as we run in a container
         # it doesn't work
