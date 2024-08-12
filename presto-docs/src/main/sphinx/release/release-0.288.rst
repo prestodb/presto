@@ -2,6 +2,10 @@
 Release 0.288
 =============
 
+.. warning::
+
+   Package presto-server-0.288.tar.gz does not have presto-ui module, Presto Console does not work.
+
 **Highlights**
 ==============
 * Improve handling of floating point numbers in Presto to consistently treat NaNs as larger than any other number and equal to itself. It also changes the handling of positive and negative zero to always be considered equal to each other. For more information, see `RFC-0001-nan-definition.md <https://github.com/prestodb/rfcs/blob/main/RFC-0001-nan-definition.md>`_. The new nan behavior can be disabled by setting the configuration property use-new-nan-definition to false. This configuration property is intended to be temporary to ease migration in the short term, and will be removed in a future release. :pr:`22386`
