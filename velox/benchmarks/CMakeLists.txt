@@ -33,7 +33,7 @@ target_link_libraries(
   velox_benchmark_builder ${velox_benchmark_deps})
 # This is a workaround for the use of VectorTestBase.h which includes gtest.h
 target_link_libraries(
-  velox_benchmark_builder gtest)
+  velox_benchmark_builder GTest::gtest)
 
 if(${VELOX_ENABLE_BENCHMARKS})
   add_subdirectory(tpch)

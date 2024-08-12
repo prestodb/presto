@@ -14,4 +14,4 @@
 add_library(velox_vector_test_lib VectorMaker.cpp VectorTestBase.cpp)
 
 target_link_libraries(
-  velox_vector_test_lib velox_vector gtest gtest_main)
+  velox_vector_test_lib velox_vector GTest::gtest GTest::gtest_main)

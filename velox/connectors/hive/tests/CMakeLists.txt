@@ -34,5 +34,5 @@ target_link_libraries(
   velox_vector_test_lib
   velox_exec
   velox_exec_test_lib
-  gtest
-  gtest_main)
+  GTest::gtest
+  GTest::gtest_main)

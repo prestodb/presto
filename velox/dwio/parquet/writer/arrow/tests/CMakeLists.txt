@@ -34,9 +34,9 @@ add_test(velox_dwio_arrow_parquet_writer_test
 target_link_libraries(
   velox_dwio_arrow_parquet_writer_test
   velox_dwio_arrow_parquet_writer_test_lib
-  gmock
-  gtest
-  gtest_main
+  GTest::gmock
+  GTest::gtest
+  GTest::gtest_main
   arrow
   arrow_testing)
 
@@ -52,4 +52,4 @@ add_library(
 
 target_link_libraries(
   velox_dwio_arrow_parquet_writer_test_lib arrow
-  velox_dwio_arrow_parquet_writer_lib gtest)
+  velox_dwio_arrow_parquet_writer_lib GTest::gtest)

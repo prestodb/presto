@@ -23,6 +23,6 @@ target_link_libraries(
   velox_type_fbhive_test
   velox_type_fbhive
   velox_type
-  gtest
-  gtest_main
-  gmock)
+  GTest::gtest
+  GTest::gtest_main
+  GTest::gmock)

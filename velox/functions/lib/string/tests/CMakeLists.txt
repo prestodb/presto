@@ -19,7 +19,7 @@ target_link_libraries(
   velox_functions_string_test
   velox_functions_string
   Folly::folly
-  gtest
-  gtest_main
+  GTest::gtest
+  GTest::gtest_main
   gflags::gflags
   glog::glog)

@@ -26,9 +26,9 @@ target_link_libraries(
   velox_hive_connector
   velox_dwio_common_exception
   velox_exec
-  gtest
-  gtest_main
-  gmock)
+  GTest::gtest
+  GTest::gtest_main
+  GTest::gmock)
 
 target_compile_options(velox_hdfs_file_test
                        PRIVATE -Wno-deprecated-declarations)

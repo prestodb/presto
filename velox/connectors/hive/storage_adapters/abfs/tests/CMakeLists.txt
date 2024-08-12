@@ -25,8 +25,8 @@ target_link_libraries(
     velox_hive_connector
     velox_dwio_common_exception
     velox_exec
-    gtest
-    gtest_main
+    GTest::gtest
+    GTest::gtest_main
     Azure::azure-storage-blobs
     Azure::azure-storage-files-datalake)
 

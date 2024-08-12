@@ -22,5 +22,5 @@ target_link_libraries(
   velox_fuzzer_util
   velox_window
   velox_vector_test_lib
-  gtest
-  gtest_main)
+  GTest::gtest
+  GTest::gtest_main)

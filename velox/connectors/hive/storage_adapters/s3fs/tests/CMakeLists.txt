@@ -23,8 +23,8 @@ target_link_libraries(
   velox_exec_test_lib
   velox_dwio_common_exception
   velox_exec
-  gtest
-  gtest_main)
+  GTest::gtest
+  GTest::gtest_main)
 
 add_executable(velox_s3registration_test S3FileSystemRegistrationTest.cpp)
 add_test(velox_s3registration_test velox_s3registration_test)
@@ -37,8 +37,8 @@ target_link_libraries(
   velox_exec_test_lib
   velox_dwio_common_exception
   velox_exec
-  gtest
-  gtest_main)
+  GTest::gtest
+  GTest::gtest_main)
 
 add_executable(velox_s3finalize_test S3FileSystemFinalizeTest.cpp)
 add_test(velox_s3finalize_test velox_s3finalize_test)
@@ -48,8 +48,8 @@ target_link_libraries(
   velox_hive_config
   velox_file
   velox_core
-  gtest
-  gtest_main)
+  GTest::gtest
+  GTest::gtest_main)
 
 add_executable(velox_s3insert_test S3InsertTest.cpp)
 add_test(velox_s3insert_test velox_s3insert_test)
@@ -62,8 +62,8 @@ target_link_libraries(
   velox_exec_test_lib
   velox_dwio_common_exception
   velox_exec
-  gtest
-  gtest_main)
+  GTest::gtest
+  GTest::gtest_main)
 
 add_executable(velox_s3read_test S3ReadTest.cpp)
 add_test(
@@ -79,8 +79,8 @@ target_link_libraries(
   velox_exec_test_lib
   velox_dwio_common_exception
   velox_exec
-  gtest
-  gtest_main)
+  GTest::gtest
+  GTest::gtest_main)
 
 add_executable(velox_s3multiendpoints_test S3MultipleEndpointsTest.cpp)
 add_test(velox_s3multiendpoints_test velox_s3multiendpoints_test)
@@ -93,5 +93,5 @@ target_link_libraries(
   velox_exec_test_lib
   velox_dwio_common_exception
   velox_exec
-  gtest
-  gtest_main)
+  GTest::gtest
+  GTest::gtest_main)

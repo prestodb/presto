@@ -55,7 +55,7 @@ if(NOT VELOX_DISABLE_GOOGLETEST)
     velox_exec_test_lib
     Folly::folly
     ${FOLLY_BENCHMARK}
-    gtest
-    gtest_main)
+    GTest::gtest
+    GTest::gtest_main)
 
 endif()

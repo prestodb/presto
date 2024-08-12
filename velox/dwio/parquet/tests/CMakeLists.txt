@@ -17,9 +17,9 @@ set(TEST_LINK_LIBS
     velox_vector_test_lib
     velox_exec_test_lib
     velox_temp_path
-    gtest
-    gtest_main
-    gmock
+    GTest::gtest
+    GTest::gtest_main
+    GTest::gmock
     gflags::gflags
     ${GLOG}
     ${FILESYSTEM})

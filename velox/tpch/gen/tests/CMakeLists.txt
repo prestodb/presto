@@ -20,5 +20,5 @@ target_link_libraries(
   velox_tpch_gen
   velox_type
   velox_vector
-  gtest
-  gtest_main)
+  GTest::gtest
+  GTest::gtest_main)

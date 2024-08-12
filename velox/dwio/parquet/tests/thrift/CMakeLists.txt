@@ -20,5 +20,5 @@ target_link_libraries(
   arrow
   thrift
   velox_link_libs
-  gtest
-  gtest_main)
+  GTest::gtest
+  GTest::gtest_main)

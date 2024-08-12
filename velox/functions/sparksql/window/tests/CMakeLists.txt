@@ -21,8 +21,8 @@ set(CMAKE_WINDOW_TEST_LINK_LIBRARIES
     velox_vector_fuzzer
     velox_vector_test_lib
     gflags::gflags
-    gtest
-    gtest_main)
+    GTest::gtest
+    GTest::gtest_main)
 
 set(CMAKE_WINDOW_TEST_MAIN_FILES Main.cpp)
 

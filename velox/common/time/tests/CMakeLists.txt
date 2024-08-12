@@ -17,6 +17,6 @@ add_executable(velox_time_test CpuWallTimerTest.cpp)
 
 target_link_libraries(
   velox_time_test
-  PRIVATE velox_time glog::glog gtest gtest_main)
+  PRIVATE velox_time glog::glog GTest::gtest GTest::gtest_main)
 
 gtest_add_tests(velox_time_test "" AUTO)

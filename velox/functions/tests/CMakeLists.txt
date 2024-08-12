@@ -19,6 +19,6 @@ target_link_libraries(
   velox_function_registry_test
   velox_function_registry
   velox_functions_test_lib
-  gmock
-  gtest
-  gtest_main)
+  GTest::gmock
+  GTest::gtest
+  GTest::gtest_main)

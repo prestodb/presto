@@ -29,9 +29,9 @@ target_link_libraries(
   Boost::regex
   Boost::thread
   Boost::system
-  gtest
-  gtest_main
-  gmock
+  GTest::gtest
+  GTest::gtest_main
+  GTest::gmock
   Folly::folly
   gflags::gflags
   glog::glog

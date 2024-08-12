@@ -50,9 +50,9 @@ target_link_libraries(
   Folly::folly
   ${TEST_LINK_LIBS}
   gflags::gflags
-  gtest
-  gtest_main
-  gmock
+  GTest::gtest
+  GTest::gtest_main
+  GTest::gmock
   glog::glog
   fmt::fmt
   protobuf::libprotobuf)

@@ -71,9 +71,9 @@ target_link_libraries(
   velox_presto_serializer
   velox_vector_test_lib
   velox_vector_fuzzer
-  gtest
-  gtest_main
-  gmock
+  GTest::gtest
+  GTest::gtest_main
+  GTest::gmock
   Folly::folly
   gflags::gflags
   glog::glog
@@ -95,7 +95,7 @@ target_link_libraries(
   velox_functions_prestosql
   velox_functions_spark
   velox_parse_parser
-  gtest)
+  GTest::gtest)
 
 add_executable(velox_expression_runner_test ExpressionRunnerTest.cpp)
 target_link_libraries(
@@ -103,8 +103,8 @@ target_link_libraries(
   velox_expression_runner
   velox_exec_test_lib
   velox_function_registry
-  gtest
-  gtest_main)
+  GTest::gtest
+  GTest::gtest_main)
 
 add_executable(velox_expression_verifier_unit_test
                ExpressionVerifierUnitTest.cpp)
@@ -118,8 +118,8 @@ target_link_libraries(
   velox_parse_utils
   velox_type
   velox_vector_test_lib
-  gtest
-  gtest_main)
+  GTest::gtest
+  GTest::gtest_main)
 
 add_executable(velox_expression_runner_unit_test ExpressionRunnerUnitTest.cpp)
 target_link_libraries(
@@ -133,5 +133,5 @@ target_link_libraries(
   velox_temp_path
   velox_exec_test_lib
   velox_vector_test_lib
-  gtest
-  gtest_main)
+  GTest::gtest
+  GTest::gtest_main)

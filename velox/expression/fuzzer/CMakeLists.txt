@@ -16,7 +16,8 @@ add_library(velox_expression_test_utility ArgumentTypeFuzzer.cpp
                                           FuzzerToolkit.cpp)
 
 target_link_libraries(
-  velox_expression_test_utility velox_type velox_expression_functions gtest)
+  velox_expression_test_utility velox_type velox_expression_functions
+  GTest::gtest)
 
 add_library(
   velox_expression_fuzzer
@@ -41,8 +42,8 @@ target_link_libraries(
   velox_expression_fuzzer_test
   velox_expression_fuzzer
   velox_functions_prestosql
-  gtest
-  gtest_main)
+  GTest::gtest
+  GTest::gtest_main)
 
 add_executable(spark_expression_fuzzer_test SparkExpressionFuzzerTest.cpp)
 
@@ -50,8 +51,8 @@ target_link_libraries(
   spark_expression_fuzzer_test
   velox_expression_fuzzer
   velox_functions_spark
-  gtest
-  gtest_main)
+  GTest::gtest
+  GTest::gtest_main)
 
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)

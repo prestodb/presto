@@ -22,9 +22,9 @@ target_link_libraries(
   velox_dwio_orc_reader_test
   velox_dwrf_test_utils
   velox_dwio_common_test_utils
-  gtest
-  gtest_main
-  gmock)
+  GTest::gtest
+  GTest::gtest_main
+  GTest::gmock)
 
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/examples
      DESTINATION ${CMAKE_CURRENT_BINARY_DIR})

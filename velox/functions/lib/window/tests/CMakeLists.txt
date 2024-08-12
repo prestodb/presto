@@ -20,4 +20,4 @@ target_link_libraries(
   velox_vector_fuzzer
   velox_vector_test_lib
   gflags::gflags
-  gtest)
+  GTest::gtest)

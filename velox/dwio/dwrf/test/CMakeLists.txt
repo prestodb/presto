@@ -20,9 +20,9 @@ set(TEST_LINK_LIBS
     velox_dwio_dwrf_reader
     velox_dwio_dwrf_writer
     gflags::gflags
-    gtest
-    gtest_main
-    gmock
+    GTest::gtest
+    GTest::gtest_main
+    GTest::gmock
     glog::glog
     ${FILESYSTEM})
 

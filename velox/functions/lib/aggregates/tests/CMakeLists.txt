@@ -24,6 +24,6 @@ target_link_libraries(
   velox_functions_aggregates
   velox_functions_test_lib
   Folly::folly
-  gtest
-  gtest_main
+  GTest::gtest
+  GTest::gtest_main
   glog::glog)

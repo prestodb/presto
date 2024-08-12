@@ -18,6 +18,6 @@ target_link_libraries(
   file_utils_test
   velox_dwio_catalog_fbhive
   velox_dwio_common_exception
-  gtest
-  gtest_main
-  gmock)
+  GTest::gtest
+  GTest::gtest_main
+  GTest::gmock)

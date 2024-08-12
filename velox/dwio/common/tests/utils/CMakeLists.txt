@@ -27,7 +27,7 @@ target_link_libraries(
   fmt::fmt
   glog::glog
   gflags::gflags
-  gtest
+  GTest::gtest
   velox_dwio_common
   velox_dwio_common_exception
   velox_exception

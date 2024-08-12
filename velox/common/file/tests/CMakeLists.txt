@@ -27,6 +27,6 @@ target_link_libraries(
     velox_file
     velox_file_test_utils
     velox_temp_path
-    gmock
-    gtest
-    gtest_main)
+    GTest::gmock
+    GTest::gtest
+    GTest::gtest_main)

@@ -19,6 +19,6 @@ target_link_libraries(
   velox_vector_fuzzer_test
   velox_vector_fuzzer
   velox_memory
-  gtest
-  gtest_main
-  gmock)
+  GTest::gtest
+  GTest::gtest_main
+  GTest::gmock)

@@ -20,6 +20,6 @@ target_link_libraries(
   velox_signature_parser_test
   velox_signature_parser
   velox_type_signature
-  gtest
-  gtest_main
-  gmock)
+  GTest::gtest
+  GTest::gtest_main
+  GTest::gmock)

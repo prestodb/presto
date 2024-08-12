@@ -42,8 +42,8 @@ target_link_libraries(
   velox_exec
   velox_vector_test_lib
   ${FOLLY_BENCHMARK}
-  gtest
-  gtest_main)
+  GTest::gtest
+  GTest::gtest_main)
 
 add_executable(velox_hash_benchmark HashTableBenchmark.cpp)
 

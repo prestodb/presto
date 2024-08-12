@@ -45,9 +45,9 @@ target_link_libraries(
     fmt::fmt
     gflags::gflags
     glog::glog
-    gmock
-    gtest
-    gtest_main
+    GTest::gmock
+    GTest::gtest
+    GTest::gtest_main
     re2::re2)
 
 gtest_add_tests(velox_memory_test "" AUTO)

@@ -30,8 +30,8 @@ target_link_libraries(
   velox_memory
   velox_time
   velox_exception
-  gtest
-  gtest_main
+  GTest::gtest
+  GTest::gtest_main
   gflags::gflags
   glog::glog
   Folly::folly)
