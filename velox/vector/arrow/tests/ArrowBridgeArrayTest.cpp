@@ -651,6 +651,45 @@ TEST_F(ArrowBridgeArrayExportTest, rowVectorEmpty) {
   arrowArray.release(&arrowArray);
 }
 
+// Generates row vector with children longer than its size to ensure it doesn't
+// break export.
+TEST_F(ArrowBridgeArrayExportTest, rowVectorLongerChildren) {
+  auto identity = [](auto row) { return row; };
+
+  // VectorMaker sets the RowVector size to the size of the first vector in the
+  // list.
+  const size_t rowVectorSize = 2;
+
+  auto vector = vectorMaker_.rowVector({
+      vectorMaker_.flatVector<int64_t>(rowVectorSize),
+      vectorMaker_.flatVector<double>(1024),
+      vectorMaker_.arrayVector<int64_t>(128, identity, identity),
+      vectorMaker_.mapVector<int64_t, int64_t>(
+          64, identity, identity, identity),
+  });
+
+  ArrowArray arrowArray;
+  velox::exportToArrow(vector, arrowArray, pool_.get(), options_);
+
+  EXPECT_EQ(vector->size(), arrowArray.length);
+  EXPECT_EQ(0, arrowArray.null_count);
+  EXPECT_EQ(0, arrowArray.offset);
+  EXPECT_EQ(1, arrowArray.n_buffers);
+  EXPECT_EQ(nullptr, arrowArray.dictionary);
+
+  EXPECT_EQ(vector->childrenSize(), arrowArray.n_children);
+  EXPECT_NE(nullptr, arrowArray.children);
+
+  EXPECT_EQ(2, arrowArray.children[0]->length);
+  EXPECT_EQ(2, arrowArray.children[1]->length);
+  EXPECT_EQ(2, arrowArray.children[2]->length);
+  EXPECT_EQ(2, arrowArray.children[3]->length);
+
+  arrowArray.release(&arrowArray);
+  EXPECT_EQ(nullptr, arrowArray.release);
+  EXPECT_EQ(nullptr, arrowArray.private_data);
+}
+
 std::shared_ptr<arrow::Array> toArrow(
     const VectorPtr& vec,
     const ArrowOptions& options,

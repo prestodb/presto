@@ -769,14 +769,18 @@ void exportOffsets(
     memory::MemoryPool* pool,
     VeloxToArrowBridgeHolder& holder,
     Selection& childRows) {
+  VELOX_CHECK_GE(vec.size(), rows.count());
+
   auto offsets = AlignedBuffer::allocate<vector_size_t>(
       checkedPlus<size_t>(out.length, 1), pool);
   auto rawOffsets = offsets->asMutable<vector_size_t>();
+
   if (!rows.changed() && isCompact(vec)) {
-    memcpy(rawOffsets, vec.rawOffsets(), sizeof(vector_size_t) * vec.size());
-    rawOffsets[vec.size()] = vec.size() == 0
+    vector_size_t rowCount = rows.count();
+    memcpy(rawOffsets, vec.rawOffsets(), sizeof(vector_size_t) * rowCount);
+    rawOffsets[rowCount] = rowCount == 0
         ? 0
-        : vec.offsetAt(vec.size() - 1) + vec.sizeAt(vec.size() - 1);
+        : vec.offsetAt(rowCount - 1) + vec.sizeAt(rowCount - 1);
   } else {
     childRows.clearAll();
     // j: Index of element we are writing.
