@@ -20,11 +20,12 @@
 namespace facebook::velox::functions {
 namespace {
 
-// TODO: Fix this class to follow the same behavior as InPredicate.h.
 // Returns NULL if
-// - input value is NULL or contains NULL;
-// - input value doesn't match any of the in-list values, but some of in-list
-// values are NULL or contain NULL.
+// - input value is NULL
+// - in-list is NULL or empty
+// - input value doesn't have an exact match, but has an indeterminate match in
+// the in-list. E.g., 'array[null] in (array[1])' or 'array[1] in
+// (array[null])'.
 class ComplexTypeInPredicate : public exec::VectorFunction {
  public:
   struct ComplexValue {
@@ -63,9 +64,8 @@ class ComplexTypeInPredicate : public exec::VectorFunction {
     for (auto i = offset; i < offset + size; i++) {
       if (values->containsNullAt(i)) {
         hasNull = true;
-      } else {
-        uniqueValues.insert({values.get(), i});
       }
+      uniqueValues.insert({values.get(), i});
     }
 
     return std::make_shared<ComplexTypeInPredicate>(
@@ -85,20 +85,45 @@ class ComplexTypeInPredicate : public exec::VectorFunction {
     auto* boolResult = result->asUnchecked<FlatVector<bool>>();
 
     rows.applyToSelected([&](vector_size_t row) {
-      if (arg->containsNullAt(row)) {
+      if (arg->isNullAt(row)) {
         boolResult->setNull(row, true);
       } else {
         const bool found = uniqueValues_.contains({arg.get(), row});
-        if (!found && hasNull_) {
-          boolResult->setNull(row, true);
+        if (found) {
+          if (arg->containsNullAt(row)) {
+            boolResult->setNull(row, true);
+          } else {
+            boolResult->set(row, true);
+          }
         } else {
-          boolResult->set(row, found);
+          if ((arg->containsNullAt(row) || hasNull_) &&
+              hasIndeterminateMatch(arg, row)) {
+            boolResult->setNull(row, true);
+          } else {
+            boolResult->set(row, false);
+          }
         }
       }
     });
   }
 
  private:
+  bool hasIndeterminateMatch(const VectorPtr& vector, vector_size_t index)
+      const {
+    for (const auto& value : uniqueValues_) {
+      if (!vector
+               ->equalValueAt(
+                   value.vector,
+                   index,
+                   value.index,
+                   CompareFlags::NullHandlingMode::kNullAsIndeterminate)
+               .has_value()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   // Set of unique values to check against. This set doesn't include any value
   // that is null or contains null.
   const ComplexSet uniqueValues_;
@@ -282,11 +307,10 @@ class InPredicate : public exec::VectorFunction {
       const std::string& /*name*/,
       const std::vector<exec::VectorFunctionArg>& inputArgs,
       const core::QueryConfig& /*config*/) {
-    VELOX_CHECK_GE(inputArgs.size(), 2);
+    VELOX_CHECK_EQ(inputArgs.size(), 2);
     auto inListType = inputArgs[1].type;
 
     VELOX_CHECK_EQ(inListType->kind(), TypeKind::ARRAY);
-    VELOX_CHECK_EQ(2, inputArgs.size());
 
     const auto& values = inputArgs[1].constantValue;
     VELOX_USER_CHECK_NOT_NULL(

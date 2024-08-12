@@ -950,6 +950,7 @@ TEST_F(InPredicateTest, arrays) {
           std::nullopt,
           {{2, 4, 5, 6}},
           {{1, std::nullopt, 2}},
+          {{1, std::nullopt}},
           {{1, 2, 3, 4}},
       }),
   });
@@ -959,6 +960,7 @@ TEST_F(InPredicateTest, arrays) {
       true,
       false,
       std::nullopt,
+      false,
       false,
       std::nullopt,
       false,
@@ -971,6 +973,7 @@ TEST_F(InPredicateTest, arrays) {
       {1, std::nullopt, 2},
       {1, 2, 3},
       {},
+      {1, std::nullopt},
   });
 
   expected = makeNullableFlatVector<bool>(
@@ -978,9 +981,10 @@ TEST_F(InPredicateTest, arrays) {
        true,
        std::nullopt,
        std::nullopt,
+       false,
        std::nullopt,
        std::nullopt,
-       std::nullopt});
+       false});
   result = evaluate(makeInExpression(inValuesWithNulls), {data});
   assertEqualVectors(expected, result);
 }

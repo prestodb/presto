@@ -24,7 +24,8 @@ namespace facebook::velox::functions {
 // - input value is NULL
 // - in-list is NULL or empty
 // - input value doesn't have an exact match, but has an indeterminate match in
-// the in-list. E.g., array[null] in (array[1]) or array[1] in (array[null]).
+// the in-list. E.g., 'array[null] in (array[1])', 'array[1] in (array[null])',
+// or '1 in (null)'.
 template <typename TExec>
 struct GenericInPredicateFunction {
   VELOX_DEFINE_FUNCTION_TYPES(TExec);
