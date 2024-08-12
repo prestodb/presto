@@ -47,7 +47,6 @@
 #include "velox/common/memory/SharedArbitrator.h"
 #include "velox/connectors/Connector.h"
 #include "velox/connectors/hive/HiveConnector.h"
-#include "velox/core/Config.h"
 #include "velox/exec/OutputBufferManager.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
@@ -1084,8 +1083,8 @@ std::vector<std::string> PrestoServer::registerConnectors(
           << "Registered properties from " << entry.path() << ":\n"
           << stringifyConnectorConfig(connectorConf);
 
-      std::shared_ptr<const velox::Config> properties =
-          std::make_shared<const velox::core::MemConfig>(
+      std::shared_ptr<const velox::config::ConfigBase> properties =
+          std::make_shared<const velox::config::ConfigBase>(
               std::move(connectorConf));
 
       auto connectorName = util::requiredProperty(*properties, kConnectorName);
