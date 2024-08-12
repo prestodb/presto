@@ -4,7 +4,7 @@ Release 0.288
 
 .. warning::
 
-   Package presto-server-0.288.tar.gz does not have presto-ui module, Presto Console does not work.
+   The tarball package ``presto-server-0.288.tar.gz`` does not include the Presto Console.  This has been fixed in the patch version ``0.288.1``. :issue:`23327`
 
 **Highlights**
 ==============
