@@ -29,7 +29,29 @@ namespace facebook::velox::aggregate::prestosql {
 namespace {
 
 template <typename T>
-using KllSketch = functions::kll::KllSketch<T, StlAllocator<T>>;
+struct KllSketchTypeTraits {
+  using KllSketchType =
+      functions::kll::KllSketch<T, StlAllocator<T>, std::less<T>>;
+};
+
+template <>
+struct KllSketchTypeTraits<float> {
+  using KllSketchType = functions::kll::KllSketch<
+      float,
+      StlAllocator<float>,
+      util::floating_point::NaNAwareLessThan<float>>;
+};
+
+template <>
+struct KllSketchTypeTraits<double> {
+  using KllSketchType = functions::kll::KllSketch<
+      double,
+      StlAllocator<double>,
+      util::floating_point::NaNAwareLessThan<double>>;
+};
+
+template <typename T>
+using KllSketch = typename KllSketchTypeTraits<T>::KllSketchType;
 template <typename T>
 using KllView = functions::kll::detail::View<T>;
 
@@ -109,16 +131,16 @@ struct KllSketchAccumulator {
   }
 
  private:
-  template <typename Allocator>
+  template <typename Allocator, typename Compare>
   void mergeLargeCountValuesIntoSketch(
       const Allocator& allocator,
-      functions::kll::KllSketch<T, Allocator>& sketch) const {
+      functions::kll::KllSketch<T, Allocator, Compare>& sketch) const {
     if (!largeCountValues_.empty()) {
-      std::vector<functions::kll::KllSketch<T, Allocator>> sketches;
+      std::vector<functions::kll::KllSketch<T, Allocator, Compare>> sketches;
       sketches.reserve(largeCountValues_.size());
       for (auto [x, n] : largeCountValues_) {
         sketches.push_back(
-            functions::kll::KllSketch<T, Allocator>::fromRepeatedValue(
+            functions::kll::KllSketch<T, Allocator, Compare>::fromRepeatedValue(
                 x, n, k_, allocator, random::getSeed()));
       }
       sketch.merge(folly::Range(sketches.begin(), sketches.end()));

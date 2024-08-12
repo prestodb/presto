@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include <algorithm>
+#include "math.h"
 
 #include "velox/common/base/RandomUtil.h"
 #include "velox/common/base/tests/GTestUtils.h"
@@ -106,12 +107,36 @@ class ApproxPercentileTest : public AggregationTestBase {
     auto rows =
         weights ? makeRowVector({values, weights}) : makeRowVector({values});
 
-    auto expected = expectedResult.has_value()
-        ? fmt::format("SELECT {}", expectedResult.value())
-        : "SELECT NULL";
-    auto expectedArray = expectedResult.has_value()
-        ? fmt::format("SELECT ARRAY[{0},{0},{0}]", expectedResult.value())
-        : "SELECT NULL";
+    std::string expected;
+    std::string expectedArray;
+    if (!expectedResult.has_value()) {
+      expected = "SELECT NULL";
+      expectedArray = "SELECT NULL";
+    } else if (
+        (std::is_same<T, float>::value && isnan(expectedResult.value())) ||
+        (std::is_same<T, double>::value && isnan(expectedResult.value()))) {
+      expected = "SELECT 'NaN'";
+      expectedArray = fmt::format("SELECT ARRAY[{0},{0},{0}]", "'NaN'");
+    } else if (
+        (std::is_same<T, float>::value &&
+         expectedResult.value() == std::numeric_limits<float>::infinity()) ||
+        (std::is_same<T, double>::value &&
+         expectedResult.value() == std::numeric_limits<double>::infinity())) {
+      expected = "SELECT 'INFINITY'";
+      expectedArray = fmt::format("SELECT ARRAY[{0},{0},{0}]", "'INFINITY'");
+    } else if (
+        (std::is_same<T, float>::value &&
+         expectedResult.value() == -std::numeric_limits<float>::infinity()) ||
+        (std::is_same<T, double>::value &&
+         expectedResult.value() == -std::numeric_limits<double>::infinity())) {
+      expected = "SELECT '-INFINITY'";
+      expectedArray = fmt::format("SELECT ARRAY[{0},{0},{0}]", "'-INFINITY'");
+    } else {
+      expected = fmt::format("SELECT {}", expectedResult.value());
+      expectedArray =
+          fmt::format("SELECT ARRAY[{0},{0},{0}]", expectedResult.value());
+    }
+
     enableTestStreaming();
     testAggregations(
         {rows},
@@ -143,6 +168,30 @@ class ApproxPercentileTest : public AggregationTestBase {
         {getArgTypes(values->type(), weights.get(), accuracy, 3)},
         {},
         expectedArray);
+  }
+
+  template <typename T>
+  void testNaN() {
+    const T nan = std::is_same_v<T, float> ? std::nanf("") : std::nan("");
+    vector_size_t size = 10;
+    auto values = makeFlatVector<T>(size, [nan](auto row) {
+      if (row > 8)
+        return -std::numeric_limits<T>::infinity();
+      else if (row > 7)
+        return std::numeric_limits<T>::infinity();
+      else if (row > 6)
+        return nan;
+      else
+        return (T)row;
+    });
+
+    testGlobalAgg<T>(
+        values, nullptr, 0.05, 0.005, -std::numeric_limits<T>::infinity());
+    testGlobalAgg<T>(values, nullptr, 0.11, 0.005, 0.0);
+    testGlobalAgg<T>(values, nullptr, 0.55, 0.005, 4.0);
+    testGlobalAgg<T>(
+        values, nullptr, 0.85, 0.005, std::numeric_limits<T>::infinity());
+    testGlobalAgg<T>(values, nullptr, 0.95, 0.005, nan);
   }
 
   void testGroupByAgg(
@@ -565,6 +614,11 @@ TEST_F(ApproxPercentileTest, nullPercentile) {
       testAggregations(
           {rows}, {}, {"approx_percentile(c0, c1)"}, "SELECT NULL"),
       "Percentile cannot be null");
+}
+
+TEST_F(ApproxPercentileTest, nanPercentile) {
+  testNaN<float>();
+  testNaN<double>();
 }
 
 class ApproxPercentileWindowTest : public WindowTestBase {
