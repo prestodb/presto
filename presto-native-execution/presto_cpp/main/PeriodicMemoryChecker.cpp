@@ -14,9 +14,12 @@
 
 #include "presto_cpp/main/PeriodicMemoryChecker.h"
 #include "presto_cpp/main/common/Configs.h"
+#include "presto_cpp/main/common/Counters.h"
 #include "presto_cpp/main/common/Utils.h"
+#include "velox/common/base/StatsReporter.h"
 #include "velox/common/caching/AsyncDataCache.h"
 #include "velox/common/memory/Memory.h"
+#include "velox/common/time/Timer.h"
 
 namespace facebook::presto {
 PeriodicMemoryChecker::PeriodicMemoryChecker(Config config)
@@ -154,6 +157,7 @@ void PeriodicMemoryChecker::maybeDumpHeap() {
 }
 
 void PeriodicMemoryChecker::pushbackMemory() {
+  RECORD_METRIC_VALUE(kCounterMemoryPushbackCount);
   const uint64_t currentMemBytes = systemUsedMemoryBytes();
   VELOX_CHECK(config_.systemMemPushbackEnabled);
   LOG(WARNING) << "System used memory " << velox::succinctBytes(currentMemBytes)
@@ -165,40 +169,46 @@ void PeriodicMemoryChecker::pushbackMemory() {
   const uint64_t bytesToShrink = currentMemBytes - targetMemBytes;
   VELOX_CHECK_GT(bytesToShrink, 0);
 
-  auto* cache = velox::cache::AsyncDataCache::getInstance();
-  auto systemConfig = SystemConfig::instance();
-  auto freedBytes = cache != nullptr ? cache->shrink(bytesToShrink) : 0;
-  if (freedBytes < bytesToShrink) {
-    try {
-      auto* memoryManager = velox::memory::memoryManager();
-      freedBytes += velox::memory::AllocationTraits::pageBytes(
-          memoryManager->allocator()->unmap(
-              velox::memory::AllocationTraits::numPages(
-                  bytesToShrink - freedBytes)));
-      if (freedBytes < bytesToShrink &&
-          systemConfig->systemMemPushBackAbortEnabled()) {
-        memoryManager->shrinkPools(
-            bytesToShrink - freedBytes,
-            /*allowSpill=*/false,
-            /*allowAbort=*/true);
+  uint64_t latencyMs{0};
+  uint64_t freedBytes{0};
+  {
+    velox::MicrosecondTimer timer(&latencyMs);
+    auto* cache = velox::cache::AsyncDataCache::getInstance();
+    auto systemConfig = SystemConfig::instance();
+    freedBytes = cache != nullptr ? cache->shrink(bytesToShrink) : 0;
+    if (freedBytes < bytesToShrink) {
+      try {
+        auto* memoryManager = velox::memory::memoryManager();
+        freedBytes += velox::memory::AllocationTraits::pageBytes(
+            memoryManager->allocator()->unmap(
+                velox::memory::AllocationTraits::numPages(
+                    bytesToShrink - freedBytes)));
+        if (freedBytes < bytesToShrink &&
+            systemConfig->systemMemPushBackAbortEnabled()) {
+          memoryManager->shrinkPools(
+              bytesToShrink - freedBytes,
+              /*allowSpill=*/false,
+              /*allowAbort=*/true);
 
-        // Try to shrink from cache again as aborted query might hold cache
-        // reference.
-        if (cache != nullptr) {
-          freedBytes += cache->shrink(bytesToShrink - freedBytes);
+          // Try to shrink from cache again as aborted query might hold cache
+          // reference.
+          if (cache != nullptr) {
+            freedBytes += cache->shrink(bytesToShrink - freedBytes);
+          }
+          if (freedBytes < bytesToShrink) {
+            freedBytes += velox::memory::AllocationTraits::pageBytes(
+                memoryManager->allocator()->unmap(
+                    velox::memory::AllocationTraits::numPages(
+                        bytesToShrink - freedBytes)));
+          }
         }
-        if (freedBytes < bytesToShrink) {
-          freedBytes += velox::memory::AllocationTraits::pageBytes(
-              memoryManager->allocator()->unmap(
-                  velox::memory::AllocationTraits::numPages(
-                      bytesToShrink - freedBytes)));
-        }
+      } catch (const velox::VeloxException& ex) {
+        LOG(ERROR) << ex.what();
       }
-    } catch (const velox::VeloxException& ex) {
-      LOG(ERROR) << ex.what();
     }
   }
-
+  RECORD_HISTOGRAM_METRIC_VALUE(
+      kCounterMemoryPushbackLatencyMs, latencyMs * 1000);
   LOG(INFO) << "Shrunk " << velox::succinctBytes(freedBytes);
 }
 } // namespace facebook::presto
