@@ -118,4 +118,102 @@ public class TestIpPrefixFunctions
         assertFunction("IS_SUBNET_OF(IPPREFIX '170.0.52.0/22', IPPREFIX '170.0.52.0/24')", BOOLEAN, true);
         assertFunction("IS_SUBNET_OF(IPPREFIX '170.0.52.0/24', IPPREFIX '170.0.52.0/22')", BOOLEAN, false);
     }
+
+    @Test
+    public void testIpv4PrefixCollapse()
+    {
+        // simple
+        assertFunction("IP_PREFIX_COLLAPSE(ARRAY[IPPREFIX '192.168.0.0/24', IPPREFIX '192.168.1.0/24'])",
+                new ArrayType(IPPREFIX),
+                ImmutableList.of("192.168.0.0/23"));
+
+        // unsorted input, 1 adjacent prefix that cannot be aggregated, and one disjoint.
+        assertFunction("IP_PREFIX_COLLAPSE(ARRAY[IPPREFIX '192.168.1.0/24', IPPREFIX '192.168.0.0/24', IPPREFIX '192.168.2.0/24', IPPREFIX '192.168.9.0/24'])",
+                new ArrayType(IPPREFIX),
+                ImmutableList.of("192.168.0.0/23", "192.168.2.0/24", "192.168.9.0/24"));
+    }
+
+    @Test
+    public void testIpv6PrefixCollapse()
+    {
+        // simple
+        assertFunction("IP_PREFIX_COLLAPSE(ARRAY[IPPREFIX '2620:10d:c090::/48', IPPREFIX '2620:10d:c091::/48'])",
+                new ArrayType(IPPREFIX),
+                ImmutableList.of("2620:10d:c090::/47"));
+
+        // unsorted input, 1 adjacent prefix that cannot be aggregated, and one disjoint.
+        assertFunction("IP_PREFIX_COLLAPSE(ARRAY[IPPREFIX '2804:13c:4d6:e200::/56', IPPREFIX '2804:13c:4d6:dd00::/56', IPPREFIX '2804:13c:4d6:dc00::/56', IPPREFIX '2804:13c:4d6:de00::/56'])",
+                new ArrayType(IPPREFIX),
+                ImmutableList.of("2804:13c:4d6:dc00::/55", "2804:13c:4d6:de00::/56", "2804:13c:4d6:e200::/56"));
+    }
+
+    @Test
+    public void testIpPrefixCollapseIpv4SingleIPs()
+    {
+        assertFunction("IP_PREFIX_COLLAPSE(ARRAY[IPPREFIX '192.168.0.1/32', IPPREFIX '192.168.33.1/32'])",
+                new ArrayType(IPPREFIX),
+                ImmutableList.of("192.168.0.1/32", "192.168.33.1/32"));
+    }
+
+    @Test
+    public void testIpPrefixCollapseIpv6SingleIPs()
+    {
+        assertFunction("IP_PREFIX_COLLAPSE(ARRAY[IPPREFIX '2620:10d:c090:400::5:a869/128', IPPREFIX '2620:10d:c091:400::5:a869/128'])",
+                new ArrayType(IPPREFIX),
+                ImmutableList.of("2620:10d:c090:400::5:a869/128", "2620:10d:c091:400::5:a869/128"));
+    }
+
+    @Test
+    public void testIpPrefixCollapseSinglePrefixReturnsSamePrefix()
+    {
+        assertFunction("IP_PREFIX_COLLAPSE(ARRAY[IPPREFIX '192.168.0.0/22'])",
+                new ArrayType(IPPREFIX),
+                ImmutableList.of("192.168.0.0/22"));
+    }
+
+    @Test
+    public void testIpPrefixCollapseOverlappingPrefixes()
+    {
+        assertFunction("IP_PREFIX_COLLAPSE(ARRAY[IPPREFIX '192.168.0.0/22', IPPREFIX '192.168.0.0/24'])",
+                new ArrayType(IPPREFIX),
+                ImmutableList.of("192.168.0.0/22"));
+        assertFunction("IP_PREFIX_COLLAPSE(ARRAY[IPPREFIX '192.168.0.0/22', IPPREFIX '192.168.2.0/24'])",
+                new ArrayType(IPPREFIX),
+                ImmutableList.of("192.168.0.0/22"));
+        assertFunction("IP_PREFIX_COLLAPSE(ARRAY[IPPREFIX '192.168.0.0/22', IPPREFIX '192.168.3.0/24'])",
+                new ArrayType(IPPREFIX),
+                ImmutableList.of("192.168.0.0/22"));
+        assertFunction("IP_PREFIX_COLLAPSE(ARRAY[IPPREFIX '10.0.64.0/18', IPPREFIX '10.2.0.0/15', IPPREFIX '10.0.0.0/8', IPPREFIX '11.0.0.0/8', IPPREFIX '172.168.32.0/20', IPPREFIX '172.168.0.0/18'])",
+                new ArrayType(IPPREFIX),
+                ImmutableList.of("10.0.0.0/7", "172.168.0.0/18"));
+        assertFunction("IP_PREFIX_COLLAPSE(ARRAY[IPPREFIX '10.0.0.0/8', IPPREFIX '10.0.0.0/7'])",
+                new ArrayType(IPPREFIX),
+                ImmutableList.of("10.0.0.0/7"));
+    }
+
+    @Test
+    public void testIpPrefixCollapseEmptyArrayInput()
+    {
+        assertFunction("IP_PREFIX_COLLAPSE(CAST(ARRAY[] AS ARRAY(IPPREFIX)))", new ArrayType(IPPREFIX), ImmutableList.of());
+    }
+
+    @Test
+    public void testIpPrefixCollapseNullInput()
+    {
+        assertFunction("IP_PREFIX_COLLAPSE(CAST(NULL AS ARRAY(IPPREFIX)))", new ArrayType(IPPREFIX), null);
+    }
+
+    @Test
+    public void testIpPrefixCollapseNoNullPrefixesError()
+    {
+        assertInvalidFunction("IP_PREFIX_COLLAPSE(ARRAY[IPPREFIX '192.168.0.0/22', CAST(NULL AS IPPREFIX)])",
+                "ip_prefix_collapse does not support null elements");
+    }
+
+    @Test
+    public void testIpPrefixCollapseMixedIpVersionError()
+    {
+        assertInvalidFunction("IP_PREFIX_COLLAPSE(ARRAY[IPPREFIX '192.168.0.0/22', IPPREFIX '2409:4043:251a:d200::/56'])",
+                "All IPPREFIX elements must be the same IP version.");
+    }
 }

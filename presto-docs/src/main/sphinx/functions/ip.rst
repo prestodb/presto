@@ -49,3 +49,14 @@ IP Functions
         SELECT is_subnet_of(IPPREFIX '192.168.3.131/26', IPPREFIX '192.168.3.144/30'); -- true
         SELECT is_subnet_of(IPPREFIX '64:ff9b::17/64', IPPREFIX '64:ffff::17/64'); -- false
         SELECT is_subnet_of(IPPREFIX '192.168.3.131/26', IPPREFIX '192.168.3.131/26'); -- true
+
+.. function:: ip_prefix_collapse(array(ip_prefix)) -> array(ip_prefix)
+
+    Returns the minimal CIDR representation of the input ``IPPREFIX`` array.
+    Every ``IPPREFIX`` in the input array must be the same IP version (that is, only IPv4 or only IPv6)
+    or the query will fail and raise an error. ::
+
+        SELECT IP_PREFIX_COLLAPSE(ARRAY[IPPREFIX '192.168.0.0/24', IPPREFIX '192.168.1.0/24']); -- [{192.168.0.0/23}]
+        SELECT IP_PREFIX_COLLAPSE(ARRAY[IPPREFIX '2620:10d:c090::/48', IPPREFIX '2620:10d:c091::/48']); -- [{2620:10d:c090::/47}]
+        SELECT IP_PREFIX_COLLAPSE(ARRAY[IPPREFIX '192.168.1.0/24', IPPREFIX '192.168.0.0/24', IPPREFIX '192.168.2.0/24', IPPREFIX '192.168.9.0/24']); -- [{192.168.0.0/23}, {192.168.2.0/24}, {192.168.9.0/24}]
+
