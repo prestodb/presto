@@ -99,7 +99,6 @@ add_executable(
   TrimFunctionsTest.cpp
   TypeOfTest.cpp
   URLFunctionsTest.cpp
-  Utf8Test.cpp
   UuidFunctionsTest.cpp
   WidthBucketArrayTest.cpp
   WordStemTest.cpp

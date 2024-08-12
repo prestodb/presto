@@ -37,7 +37,8 @@ velox_add_library(
   Repeat.cpp
   StringEncodingUtils.cpp
   SubscriptUtil.cpp
-  TimeUtils.cpp)
+  TimeUtils.cpp
+  Utf8Utils.cpp)
 
 velox_link_libraries(
   velox_functions_lib

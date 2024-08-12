@@ -23,6 +23,7 @@ add_executable(
   MapConcatTest.cpp
   Re2FunctionsTest.cpp
   RepeatTest.cpp
+  Utf8Test.cpp
   ZetaDistributionTest.cpp)
 
 add_test(

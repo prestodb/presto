@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include "velox/functions/prestosql/Utf8Utils.h"
+#include "velox/functions/lib/Utf8Utils.h"
 
 namespace facebook::velox::functions::sparksql {
 

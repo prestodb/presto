@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/functions/prestosql/Utf8Utils.h"
+#include "velox/functions/lib/Utf8Utils.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/external/utf8proc/utf8procImpl.h"
 

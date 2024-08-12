@@ -250,22 +250,26 @@ String Functions
 
         SELECT soundex('Miller'); -- "M460"
 
-.. spark:function:: split(string, delimiter) -> array(string)
+.. spark:function:: split(string, delimiter[, limit]) -> array(string)
 
-    Splits ``string`` on ``delimiter`` and returns an array. ::
+    Splits ``string`` around occurrences that match ``delimiter`` and returns an array with a length of
+    at most ``limit``. ``delimiter`` is a string representing regular expression. ``limit`` is an integer
+    which controls the number of times the regex is applied. By default, ``limit`` is -1. When ``limit`` > 0,
+    the resulting array's length will not be more than ``limit``, and the resulting array's last entry will
+    contain all input beyond the last matched regex. When ``limit`` <= 0, ``regex`` will be applied as many
+    times as possible, and the resulting array can be of any size. When ``delimiter`` is empty, if ``limit``
+    is smaller than the size of ``string``, the resulting array only contains ``limit`` number of single characters
+    splitting from ``string``, if ``limit`` is not provided or is larger than the size of ``string``, the resulting 
+    array contains all the single characters of ``string`` and does not include an empty tail character.
+    The split function align with vanilla spark 3.4+ split function. ::
 
         SELECT split('oneAtwoBthreeC', '[ABC]'); -- ["one","two","three",""]
-        SELECT split('one', ''); -- ["o", "n", "e", ""]
-        SELECT split('one', '1'); -- ["one"]
-
-.. spark:function:: split(string, delimiter, limit) -> array(string)
-   :noindex:
-
-    Splits ``string`` on ``delimiter`` and returns an array of size at most ``limit``. ::
-
-        SELECT split('oneAtwoBthreeC', '[ABC]', -1); -- ["one","two","three",""]
-        SELECT split('oneAtwoBthreeC', '[ABC]', 0); -- ["one", "two", "three", ""]
         SELECT split('oneAtwoBthreeC', '[ABC]', 2); -- ["one","twoBthreeC"]
+        SELECT split('oneAtwoBthreeC', '[ABC]', 5); -- ["one","two","three",""]
+        SELECT split('one', '1'); -- ["one"]
+        SELECT split('abcd', ''); -- ["a","b","c","d"]
+        SELECT split('abcd', '', 3); -- ["a","b","c"]
+        SELECT split('abcd', '', 5); -- ["a","b","c","d"]
 
 .. spark:function:: startswith(left, right) -> boolean
 

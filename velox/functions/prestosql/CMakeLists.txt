@@ -56,7 +56,6 @@ velox_add_library(
   TransformValues.cpp
   TypeOf.cpp
   URLFunctions.cpp
-  Utf8Utils.cpp
   VectorArithmetic.cpp
   WidthBucketArray.cpp
   Zip.cpp

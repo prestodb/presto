@@ -46,6 +46,7 @@
 #include "velox/functions/sparksql/RegisterCompare.h"
 #include "velox/functions/sparksql/Size.h"
 #include "velox/functions/sparksql/SparkPartitionId.h"
+#include "velox/functions/sparksql/Split.h"
 #include "velox/functions/sparksql/String.h"
 #include "velox/functions/sparksql/StringToMap.h"
 #include "velox/functions/sparksql/UnscaledValueFunction.h"
@@ -255,7 +256,6 @@ void registerFunctions(const std::string& prefix) {
       prefix + "rlike", re2SearchSignatures(), makeRLike);
   exec::registerStatefulVectorFunction(
       prefix + "like", likeSignatures(), makeLike);
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_regexp_split, prefix + "split");
 
   exec::registerStatefulVectorFunction(
       prefix + "least",
@@ -484,6 +484,10 @@ void registerFunctions(const std::string& prefix) {
       int32_t>({prefix + "levenshtein"});
   registerFunction<LevenshteinDistanceFunction, int32_t, Varchar, Varchar>(
       {prefix + "levenshtein"});
+
+  registerFunction<Split, Array<Varchar>, Varchar, Varchar>({prefix + "split"});
+  registerFunction<Split, Array<Varchar>, Varchar, Varchar, int32_t>(
+      {prefix + "split"});
 
   registerFunction<MaskFunction, Varchar, Varchar>({prefix + "mask"});
   registerFunction<MaskFunction, Varchar, Varchar, Varchar>({prefix + "mask"});

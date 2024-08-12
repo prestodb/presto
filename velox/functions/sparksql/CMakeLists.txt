@@ -31,7 +31,6 @@ velox_add_library(
   RegisterArithmetic.cpp
   RegisterCompare.cpp
   Size.cpp
-  SplitFunctions.cpp
   String.cpp
   UnscaledValueFunction.cpp)
 
