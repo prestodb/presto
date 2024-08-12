@@ -211,6 +211,11 @@ if(${VELOX_FORCE_COLORED_OUTPUT})
   endif()
 endif()
 
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang"
+   AND "${CMAKE_CXX_COMPILER_VERSION}" VERSION_GREATER_EQUAL 15)
+  set(CMAKE_EXE_LINKER_FLAGS "-latomic")
+endif()
+
 # At the moment we prefer static linking but by default cmake looks for shared
 # libs first. This will still fallback to shared libs when static ones are not
 # found

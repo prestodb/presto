@@ -31,13 +31,11 @@ set -efx -o pipefail
 SCRIPTDIR=$(dirname "${BASH_SOURCE[0]}")
 source $SCRIPTDIR/setup-helper-functions.sh
 NPROC=$(getconf _NPROCESSORS_ONLN)
-export CFLAGS=$(get_cxx_flags)  # Used by LZO.
-export CXXFLAGS=$CFLAGS  # Used by boost.
-export CPPFLAGS=$CFLAGS  # Used by LZO.
+export CXXFLAGS=$(get_cxx_flags) # Used by boost. 
+export CFLAGS=${CXXFLAGS//"-std=c++17"/} # Used by LZO.
 CMAKE_BUILD_TYPE="${BUILD_TYPE:-Release}"
 BUILD_DUCKDB="${BUILD_DUCKDB:-true}"
-export CC=/opt/rh/gcc-toolset-12/root/bin/gcc
-export CXX=/opt/rh/gcc-toolset-12/root/bin/g++
+USE_CLANG="${USE_CLANG:-false}"
 
 FB_OS_VERSION="v2024.05.20.00"
 FMT_VERSION="10.1.1"
@@ -48,6 +46,10 @@ function dnf_install {
   dnf install -y -q --setopt=install_weak_deps=False "$@"
 }
 
+function install_clang15 {
+  dnf_install clang15 gcc-toolset-13-libatomic-devel
+}
+
 # Install packages required for build.
 function install_build_prerequisites {
   dnf update -y
@@ -56,7 +58,12 @@ function install_build_prerequisites {
   dnf update -y
   dnf_install ninja-build cmake ccache gcc-toolset-12 git wget which
   dnf_install autoconf automake python3-devel pip libtool
+
   pip install cmake==3.28.3
+
+  if [[ ${USE_CLANG} != "false" ]]; then
+    install_clang15
+  fi
 }
 
 # Install dependencies from the package managers.
@@ -99,9 +106,18 @@ function install_lzo {
 function install_boost {
   wget_and_untar https://github.com/boostorg/boost/releases/download/${BOOST_VERSION}/${BOOST_VERSION}.tar.gz boost
   (
-   cd boost
-   ./bootstrap.sh --prefix=/usr/local
-   ./b2 "-j$(nproc)" -d0 install threading=multi --without-python
+    cd boost
+    if [[ ${USE_CLANG} != "false" ]]; then
+      ./bootstrap.sh --prefix=/usr/local --with-toolset="clang-15"
+      # Switch the compiler from the clang-15 toolset which doesn't exist (clang-15.jam) to
+      # clang of version 15 when toolset clang-15 is used.
+      # This reconciles the project-config.jam generation with what the b2 build system allows for customization.
+      sed -i 's/using clang-15/using clang : 15/g' project-config.jam
+      ${SUDO} ./b2 "-j$(nproc)" -d0 install threading=multi toolset=clang-15 --without-python
+    else
+      ./bootstrap.sh --prefix=/usr/local
+      ${SUDO} ./b2 "-j$(nproc)" -d0 install threading=multi --without-python
+    fi
   )
 }
 
@@ -215,9 +231,15 @@ function install_velox_deps {
 
 (
   if [[ $# -ne 0 ]]; then
-    # Activate gcc12; enable errors on unset variables afterwards.
-    source /opt/rh/gcc-toolset-12/enable || exit 1
-    set -u
+    if [[ ${USE_CLANG} != "false" ]]; then
+      export CC=/usr/bin/clang-15
+      export CXX=/usr/bin/clang++-15
+    else
+      # Activate gcc12; enable errors on unset variables afterwards.
+      source /opt/rh/gcc-toolset-12/enable || exit 1
+      set -u
+    fi
+
     for cmd in "$@"; do
       run_and_time "${cmd}"
     done
@@ -229,11 +251,21 @@ function install_velox_deps {
     else
       echo "Skipping installation of build dependencies since INSTALL_PREREQUISITES is not set"
     fi
-    # Activate gcc12; enable errors on unset variables afterwards.
-    source /opt/rh/gcc-toolset-12/enable || exit 1
-    set -u
+    if [[ ${USE_CLANG} != "false" ]]; then
+      export CC=/usr/bin/clang-15
+      export CXX=/usr/bin/clang++-15
+    else
+      # Activate gcc12; enable errors on unset variables afterwards.
+      source /opt/rh/gcc-toolset-12/enable || exit 1
+      set -u
+    fi
     install_velox_deps
     echo "All dependencies for Velox installed!"
+    if [[ ${USE_CLANG} != "false" ]]; then
+      echo "To use clang for the Velox build set the CC and CXX environment variables in your session."
+      echo "  export CC=/usr/bin/clang-15"
+      echo "  export CXX=/usr/bin/clang++-15"
+    fi
     dnf clean all
   fi
 )

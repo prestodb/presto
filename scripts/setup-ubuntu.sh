@@ -25,7 +25,7 @@
 # $ scripts/setup-ubuntu.sh install_googletest install_fmt
 #
 
-# Minimal setup for Ubuntu 20.04.
+# Minimal setup for Ubuntu 22.04.
 set -eufx -o pipefail
 SCRIPTDIR=$(dirname "${BASH_SOURCE[0]}")
 source $SCRIPTDIR/setup-helper-functions.sh
@@ -39,6 +39,19 @@ DEPENDENCY_DIR=${DEPENDENCY_DIR:-$(pwd)}
 BUILD_DUCKDB="${BUILD_DUCKDB:-true}"
 export CMAKE_BUILD_TYPE=Release
 SUDO="${SUDO:-"sudo --preserve-env"}"
+USE_CLANG="${USE_CLANG:-false}"
+
+function install_clang15 {
+  VERSION=`cat /etc/os-release | grep VERSION_ID`
+  if [[ ! ${VERSION} =~ "22.04" && ! ${VERSION} =~ "24.04" ]]; then
+    echo "Warning: using the Clang configuration is for Ubuntu 22.04 and 24.04. Errors might occur."
+  fi
+  CLANG_PACKAGE_LIST=clang-15
+  if [[ ${VERSION} =~ "22.04" ]]; then
+    CLANG_PACKAGE_LIST=${CLANG_PACKAGE_LIST} gcc-12 g++-12 libc++-12-dev
+  fi
+  ${SUDO} apt install ${CLANG_PACKAGE_LIST} -y
+}
 
 FB_OS_VERSION="v2024.05.20.00"
 FMT_VERSION="10.1.1"
@@ -61,8 +74,12 @@ function install_build_prerequisites {
     git \
     wget
 
-    # Install to /usr/local to make it available to all users.
-    ${SUDO} pip3 install cmake==3.28.3
+  # Install to /usr/local to make it available to all users.
+  ${SUDO} pip3 install cmake==3.28.3
+
+  if [[ ${USE_CLANG} != "false" ]]; then
+    install_clang15
+  fi
 }
 
 # Install packages required for build.
@@ -101,9 +118,18 @@ function install_fmt {
 function install_boost {
   wget_and_untar https://github.com/boostorg/boost/releases/download/${BOOST_VERSION}/${BOOST_VERSION}.tar.gz boost
   (
-   cd boost
-   ./bootstrap.sh --prefix=/usr/local
-   ${SUDO} ./b2 "-j$(nproc)" -d0 install threading=multi --without-python
+    cd boost
+    if [[ ${USE_CLANG} != "false" ]]; then
+      ./bootstrap.sh --prefix=/usr/local --with-toolset="clang-15"
+      # Switch the compiler from the clang-15 toolset which doesn't exist (clang-15.jam) to
+      # clang of version 15 when toolset clang-15 is used.
+      # This reconciles the project-config.jam generation with what the b2 build system allows for customization.
+      sed -i 's/using clang-15/using clang : 15/g' project-config.jam
+      ${SUDO} ./b2 "-j$(nproc)" -d0 install threading=multi toolset=clang-15 --without-python
+    else
+      ./bootstrap.sh --prefix=/usr/local
+      ${SUDO} ./b2 "-j$(nproc)" -d0 install threading=multi --without-python
+    fi
   )
 }
 
@@ -218,6 +244,10 @@ function install_apt_deps {
 (return 2> /dev/null) && return # If script was sourced, don't run commands.
 
 (
+  if [[ ${USE_CLANG} != "false" ]]; then
+    export CC=/usr/bin/clang-15
+    export CXX=/usr/bin/clang++-15
+  fi
   if [[ $# -ne 0 ]]; then
     for cmd in "$@"; do
       run_and_time "${cmd}"
@@ -232,6 +262,11 @@ function install_apt_deps {
     fi
     install_velox_deps
     echo "All dependencies for Velox installed!"
+    if [[ ${USE_CLANG} != "false" ]]; then
+      echo "To use clang for the Velox build set the CC and CXX environment variables in your session."
+      echo "  export CC=/usr/bin/clang-15"
+      echo "  export CXX=/usr/bin/clang++-15"
+    fi
   fi
 )
 

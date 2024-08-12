@@ -138,6 +138,22 @@ $ make
 
 Note that `setup-adapters.sh` supports MacOS and Ubuntu 20.04 or later.
 
+### Using Clang on Linux
+
+Clang 15 can be additionally installed during the setup step for Ubuntu 22.04/24.04
+and CentOS 9 by setting the `USE_CLANG` environment variable prior to running the platform specific setup script.
+```shell
+$ export USE_CLANG=true
+```
+This will install and use Clang 15 to build the dependencies instead of using the default GCC compiler.
+
+Once completed, and before running any `make` command, set the compiler to be used:
+```shell
+$ export CC=/usr/bin/clang-15
+$ export CXX=/usr/bin/clang++-15
+$ make
+```
+
 ### Building Velox
 
 Run `make` in the root directory to compile the sources. For development, use
