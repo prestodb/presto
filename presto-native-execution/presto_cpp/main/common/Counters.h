@@ -136,21 +136,33 @@ constexpr folly::StringPiece kCounterOsNumForcedContextSwitches{
     "presto_cpp.os_num_forced_context_switches"};
 
 /// ================== HiveConnector Counters ==================
+
 /// Format template strings use 'constexpr std::string_view' to be 'fmt::format'
 /// compatible.
-constexpr std::string_view kCounterHiveFileHandleCacheNumElementsFormat{
+constexpr folly::StringPiece kCounterHiveFileHandleCacheNumElementsFormat{
     "presto_cpp.{}.hive_file_handle_cache_num_elements"};
-constexpr std::string_view kCounterHiveFileHandleCachePinnedSizeFormat{
+constexpr folly::StringPiece kCounterHiveFileHandleCachePinnedSizeFormat{
     "presto_cpp.{}.hive_file_handle_cache_pinned_size"};
-constexpr std::string_view kCounterHiveFileHandleCacheCurSizeFormat{
+constexpr folly::StringPiece kCounterHiveFileHandleCacheCurSizeFormat{
     "presto_cpp.{}.hive_file_handle_cache_cur_size"};
-constexpr std::string_view kCounterHiveFileHandleCacheNumAccumulativeHitsFormat{
-    "presto_cpp.{}.hive_file_handle_cache_num_accumulative_hits"};
-constexpr std::string_view
+constexpr folly::StringPiece
+    kCounterHiveFileHandleCacheNumAccumulativeHitsFormat{
+        "presto_cpp.{}.hive_file_handle_cache_num_accumulative_hits"};
+constexpr folly::StringPiece
     kCounterHiveFileHandleCacheNumAccumulativeLookupsFormat{
         "presto_cpp.{}.hive_file_handle_cache_num_accumulative_lookups"};
-constexpr std::string_view kCounterHiveFileHandleCacheNumHitsFormat{
+constexpr folly::StringPiece kCounterHiveFileHandleCacheNumHitsFormat{
     "presto_cpp.{}.hive_file_handle_cache_num_hits"};
-constexpr std::string_view kCounterHiveFileHandleCacheNumLookupsFormat{
+constexpr folly::StringPiece kCounterHiveFileHandleCacheNumLookupsFormat{
     "presto_cpp.{}.hive_file_handle_cache_num_lookups"};
+
+/// ================== Memory Pushback Counters =================
+
+/// Number of times memory pushback mechanism is triggered.
+constexpr folly::StringPiece kCounterMemoryPushbackCount{
+    "presto_cpp.memory_pushback_count"};
+/// Latency distribution of each memory pushback run in range of [0, 100s] and
+/// reports P50, P90, P99, and P100.
+constexpr folly::StringPiece kCounterMemoryPushbackLatencyMs{
+    "presto_cpp.memory_pushback_latency_ms"};
 } // namespace facebook::presto
