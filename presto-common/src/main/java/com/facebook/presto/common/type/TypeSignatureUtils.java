@@ -78,8 +78,9 @@ public final class TypeSignatureUtils
         for (int i = 0; i < argumentTypes.size(); i++) {
             TypeSignature parameter = parameters.get(i);
             TypeSignature argumentType = argumentTypes.get(i);
-            if (argumentTypes.get(i).getParameters().isEmpty()) {
-                typeSignatureMap.put(parameter, argumentType);
+            // Todo: hack for varchar
+            if (argumentTypes.get(i).getParameters().isEmpty() || argumentType.getBase().equals("varchar")) {
+                typeSignatureMap.put(parameter, new TypeSignature(argumentType.getTypeSignatureBase(), Collections.emptyList()));
             }
             else {
                 typeSignatureMap.putAll(getTypeSignatureMap(parameter.getTypeParametersAsTypeSignatures(), argumentType.getTypeParametersAsTypeSignatures()));
