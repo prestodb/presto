@@ -48,7 +48,7 @@ autoconf/autom4te.cache
 projects/*
 !projects/*.*
 !projects/Makefile
-
+.venv
 
 #==============================================================================#
 # Autotools artifacts
