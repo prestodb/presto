@@ -2,7 +2,12 @@
 String Functions
 ====================================
 
-Unless specified otherwise, all functions return NULL if at least one of the arguments is NULL.
+.. note::
+    
+    Unless specified otherwise, all functions return NULL if at least one of the arguments is NULL.
+    
+    These functions assume that input strings contain valid UTF-8 encoded Unicode code points.
+    The behavior is undefined if they are not.
 
 .. spark:function:: ascii(string) -> integer
 
