@@ -22,6 +22,7 @@ velox_add_library(
   FirstLastAggregate.cpp
   MinMaxAggregate.cpp
   MinMaxByAggregate.cpp
+  ModeAggregate.cpp
   Register.cpp
   RegrReplacementAggregate.cpp
   SumAggregate.cpp)

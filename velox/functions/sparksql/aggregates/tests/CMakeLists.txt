@@ -25,6 +25,7 @@ add_executable(
   Main.cpp
   MinMaxAggregationTest.cpp
   MinMaxByAggregationTest.cpp
+  ModeAggregateTest.cpp
   RegrReplacementAggregationTest.cpp
   SumAggregationTest.cpp)
 

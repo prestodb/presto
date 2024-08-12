@@ -79,6 +79,9 @@ int main(int argc, char** argv) {
           {"first_ignore_null", nullptr},
           {"max_by", nullptr},
           {"min_by", nullptr},
+          // If multiple values have the same greatest frequency, the return
+          // value is indeterminate.
+          {"mode", nullptr},
           {"skewness", nullptr},
           {"kurtosis", nullptr},
           {"collect_list", makeArrayVerifier()},
@@ -92,19 +95,18 @@ int main(int argc, char** argv) {
   size_t initialSeed = FLAGS_seed == 0 ? std::time(nullptr) : FLAGS_seed;
   auto duckQueryRunner =
       std::make_unique<facebook::velox::exec::test::DuckQueryRunner>();
-  duckQueryRunner->disableAggregateFunctions({
-      // https://github.com/facebookincubator/velox/issues/7677
-      "max_by",
-      "min_by",
-      // The skewness functions of Velox and DuckDB use different
-      // algorithms.
-      // https://github.com/facebookincubator/velox/issues/4845
-      "skewness",
-      // Spark's kurtosis uses Pearson's formula for calculating the kurtosis
-      // coefficient. Meanwhile, DuckDB employs the sample kurtosis calculation
-      // formula. The results from the two methods are completely different.
-      "kurtosis",
-  });
+  duckQueryRunner->disableAggregateFunctions(
+      {// https://github.com/facebookincubator/velox/issues/7677
+       "max_by",
+       "min_by",
+       // The skewness functions of Velox and DuckDB use different
+       // algorithms.
+       // https://github.com/facebookincubator/velox/issues/4845
+       "skewness",
+       // Spark's kurtosis uses Pearson's formula for calculating the kurtosis
+       // coefficient. Meanwhile, DuckDB employs the sample kurtosis calculation
+       // formula. The results from the two methods are completely different.
+       "kurtosis"});
 
   using Runner = facebook::velox::exec::test::AggregationFuzzerRunner;
   using Options = facebook::velox::exec::test::AggregationFuzzerOptions;
