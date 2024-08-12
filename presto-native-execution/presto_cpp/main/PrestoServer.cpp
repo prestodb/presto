@@ -476,8 +476,12 @@ void PrestoServer::run() {
         << "Spilling root directory: " << baseSpillDirectory;
   }
 
+  initPrestoToVeloxPlanValidator();
   taskResource_ = std::make_unique<TaskResource>(
-      *taskManager_, pool_.get(), httpSrvCpuExecutor_.get());
+      pool_.get(),
+      httpSrvCpuExecutor_.get(),
+      getPlanValidator(),
+      *taskManager_);
   taskResource_->registerUris(*httpServer_);
   if (systemConfig->enableSerializedPageChecksum()) {
     enableChecksum();
@@ -1247,6 +1251,15 @@ void PrestoServer::enableWorkerStatsReporting() {
   // This flag must be set to register the counters.
   facebook::velox::BaseStatsReporter::registered = true;
   registerStatsCounters();
+}
+
+void PrestoServer::initPrestoToVeloxPlanValidator() {
+  VELOX_CHECK_NULL(planValidator_);
+  planValidator_ = std::make_shared<PrestoToVeloxPlanValidator>();
+}
+
+PrestoToVeloxPlanValidator* PrestoServer::getPlanValidator() {
+  return planValidator_.get();
 }
 
 void PrestoServer::populateMemAndCPUInfo() {
