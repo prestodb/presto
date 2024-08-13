@@ -268,7 +268,9 @@ TEST_F(ExprCompilerTest, functionSignatureNotRegistered) {
 
   VELOX_ASSERT_THROW(
       compile(expression),
-      "Scalar function concat not registered with arguments: (BIGINT, BIGINT)");
+      "Scalar function concat not registered with arguments: (BIGINT, BIGINT). "
+      "Found function registered with the following signatures:\n"
+      "((varchar,varchar...) -> varchar)");
 }
 
 TEST_F(ExprCompilerTest, constantFromFlatVector) {
