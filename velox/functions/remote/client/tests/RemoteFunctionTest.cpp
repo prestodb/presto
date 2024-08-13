@@ -18,7 +18,7 @@
 #include <folly/init/Init.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include <cstdio>
+#include <stdlib.h>
 
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/tests/GTestUtils.h"
@@ -125,8 +125,18 @@ class RemoteFunctionTest
 
   // Creates a random temporary file name to use to communicate as a unix domain
   // socket.
-  folly::SocketAddress location_{
-      folly::SocketAddress::makeFromPath(std::tmpnam(nullptr))};
+  folly::SocketAddress location_ = []() {
+    char name[] = "/tmp/socketXXXXXX";
+    int fd = mkstemp(name);
+    if (fd < 0) {
+      throw std::runtime_error("Failed to create temporary file for socket");
+    }
+    close(fd);
+    std::string socketPath(name);
+    // Cleanup existing socket file if it exists.
+    unlink(socketPath.c_str());
+    return folly::SocketAddress::makeFromPath(socketPath);
+  }();
 
   const std::string remotePrefix_{"remote"};
 };
