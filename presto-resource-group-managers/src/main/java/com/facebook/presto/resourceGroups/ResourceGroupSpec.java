@@ -181,7 +181,10 @@ public class ResourceGroupSpec
         return hardCpuLimit;
     }
 
-    public Optional<List<String>> getTags() { return tags; };
+    public Optional<List<String>> getTags()
+    {
+        return tags;
+    }
 
     public ResourceGroupQueryLimits getPerQueryLimits()
     {
