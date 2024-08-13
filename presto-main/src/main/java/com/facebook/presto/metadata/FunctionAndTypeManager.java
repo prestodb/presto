@@ -359,10 +359,10 @@ public class FunctionAndTypeManager
         ImmutableList.Builder<SqlFunction> functions = new ImmutableList.Builder<>();
         if (!isListBuiltInFunctionsOnly(session)) {
             functions.addAll(SessionFunctionUtils.listFunctions(session.getSessionFunctions()));
-            //filter out presto default namespace if native execution is enabled
+            //filter out native default namespace if native execution is enabled
             if (nativeExecution) {
                 functions.addAll(functionNamespaceManagers.entrySet().stream()
-                        .filter(namespace -> !namespace.getKey().equals("presto"))
+                        .filter(namespace -> namespace.getKey().equals("native"))
                         .flatMap(manager -> manager.getValue().listFunctions(likePattern, escape).stream())
                         .collect(toImmutableList()));
             }
