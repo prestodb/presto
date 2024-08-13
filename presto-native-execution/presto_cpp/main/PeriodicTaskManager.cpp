@@ -285,25 +285,25 @@ class HiveConnectorStatsReporter {
       std::shared_ptr<velox::connector::hive::HiveConnector> connector)
       : connector_(std::move(connector)),
         numElementsMetricName_(fmt::format(
-            kCounterHiveFileHandleCacheNumElementsFormat.toString(),
+            kCounterHiveFileHandleCacheNumElementsFormat,
             connector_->connectorId())),
         pinnedSizeMetricName_(fmt::format(
-            kCounterHiveFileHandleCachePinnedSizeFormat.toString(),
+            kCounterHiveFileHandleCachePinnedSizeFormat,
             connector_->connectorId())),
         curSizeMetricName_(fmt::format(
-            kCounterHiveFileHandleCacheCurSizeFormat.toString(),
+            kCounterHiveFileHandleCacheCurSizeFormat,
             connector_->connectorId())),
         numAccumulativeHitsMetricName_(fmt::format(
-            kCounterHiveFileHandleCacheNumAccumulativeHitsFormat.toString(),
+            kCounterHiveFileHandleCacheNumAccumulativeHitsFormat,
             connector_->connectorId())),
         numAccumulativeLookupsMetricName_(fmt::format(
-            kCounterHiveFileHandleCacheNumAccumulativeLookupsFormat.toString(),
+            kCounterHiveFileHandleCacheNumAccumulativeLookupsFormat,
             connector_->connectorId())),
         numHitsMetricName_(fmt::format(
-            kCounterHiveFileHandleCacheNumHitsFormat.toString(),
+            kCounterHiveFileHandleCacheNumHitsFormat,
             connector_->connectorId())),
         numLookupsMetricName_(fmt::format(
-            kCounterHiveFileHandleCacheNumLookupsFormat.toString(),
+            kCounterHiveFileHandleCacheNumLookupsFormat,
             connector_->connectorId())) {
     DEFINE_METRIC(numElementsMetricName_, velox::StatType::AVG);
     DEFINE_METRIC(pinnedSizeMetricName_, velox::StatType::AVG);
