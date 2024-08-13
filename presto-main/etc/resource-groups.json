@@ -24,7 +24,7 @@
           "maxQueued": 100,
           "schedulingWeight": 1,
           "jmxExport": true,
-          "tags1":["problem"],
+          "tags": ["problem"],
           "subGroups": [
             {
               "name": "pipeline_${USER}",
@@ -39,10 +39,6 @@
   ],
   "selectors": [
     {
-      "user": "bob",
-      "group": "admin"
-    },
-    {
       "source": ".*pipeline.*",
       "queryType": "DATA_DEFINITION",
       "group": "global.data_definition"
@@ -50,14 +46,6 @@
     {
       "source": ".*pipeline.*",
       "group": "global.pipeline.pipeline_${USER}"
-    },
-    {
-      "source": "jdbc#(?<toolname>.*)",
-      "clientTags": ["hipri"],
-      "group": "global.adhoc.bi-${toolname}.${USER}"
-    },
-    {
-      "group": "global.adhoc.other.${USER}"
     }
   ],
   "cpuQuotaPeriod": "1h"
