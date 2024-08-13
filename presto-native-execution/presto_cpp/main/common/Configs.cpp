@@ -234,6 +234,7 @@ SystemConfig::SystemConfig() {
           STR_PROP(kCacheVeloxTtlThreshold, "2d"),
           STR_PROP(kCacheVeloxTtlCheckInterval, "1h"),
           BOOL_PROP(kEnableRuntimeMetricsCollection, false),
+          BOOL_PROP(kPlanValidatorFailOnNestedLoopJoin, false),
       };
 }
 

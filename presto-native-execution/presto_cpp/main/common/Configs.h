@@ -639,6 +639,8 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kSinkMaxBufferSize{"sink.max-buffer-size"};
   static constexpr std::string_view kDriverMaxPagePartitioningBufferSize{
       "driver.max-page-partitioning-buffer-size"};
+  static constexpr std::string_view kPlanValidatorFailOnNestedLoopJoin{
+      "velox-plan-validator-fail-on-nested-loop-join"};
 
   SystemConfig();
 

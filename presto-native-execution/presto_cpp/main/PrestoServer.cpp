@@ -1326,10 +1326,10 @@ void PrestoServer::enableWorkerStatsReporting() {
 
 void PrestoServer::initPrestoToVeloxPlanValidator() {
   VELOX_CHECK_NULL(planValidator_);
-  planValidator_ = std::make_shared<PrestoToVeloxPlanValidator>();
+  planValidator_ = std::make_shared<VeloxPlanValidator>();
 }
 
-PrestoToVeloxPlanValidator* PrestoServer::getPlanValidator() {
+VeloxPlanValidator* PrestoServer::getPlanValidator() {
   return planValidator_.get();
 }
 

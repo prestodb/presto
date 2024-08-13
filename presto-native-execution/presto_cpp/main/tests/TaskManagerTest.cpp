@@ -247,8 +247,7 @@ class TaskManagerTest : public testing::Test {
     taskManager_ = std::make_unique<TaskManager>(
         driverExecutor_.get(), httpSrvCpuExecutor_.get(), nullptr);
 
-    auto validator =
-        std::make_shared<facebook::presto::PrestoToVeloxPlanValidator>();
+    auto validator = std::make_shared<facebook::presto::VeloxPlanValidator>();
     taskResource_ = std::make_unique<TaskResource>(
         leafPool_.get(),
         httpSrvCpuExecutor_.get(),
