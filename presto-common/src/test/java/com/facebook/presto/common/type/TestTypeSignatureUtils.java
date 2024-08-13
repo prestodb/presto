@@ -62,15 +62,12 @@ public class TestTypeSignatureUtils
                                 parseTypeSignature("T"),
                                 parseTypeSignature("E"),
                                 parseTypeSignature("boolean"),
-                                parseTypeSignature("integer")
-                        ),
+                                parseTypeSignature("integer")),
                         ImmutableList.of(
                                 parseTypeSignature("bigint"),
                                 parseTypeSignature("varchar(100)"),
                                 parseTypeSignature("boolean"),
-                                parseTypeSignature("integer")
-                        )
-                );
+                                parseTypeSignature("integer")));
 
         assertEquals(resolvedIntermediateType.getTypeSignatureBase(), expectedIntermediateType.getTypeSignatureBase());
         assertTrue(verifyMatchingIntermediateTypes(
