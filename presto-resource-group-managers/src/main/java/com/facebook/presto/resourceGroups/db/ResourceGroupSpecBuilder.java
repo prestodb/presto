@@ -24,6 +24,7 @@ import org.jdbi.v3.core.statement.StatementContext;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -44,6 +45,7 @@ public class ResourceGroupSpecBuilder
     private final Optional<Duration> hardCpuLimit;
     private final Optional<ResourceGroupQueryLimits> perQueryLimits;
     private final Optional<Long> parentId;
+    private final Optional<List<String>> tags;
     private final ImmutableList.Builder<ResourceGroupSpec> subGroups = ImmutableList.builder();
 
     ResourceGroupSpecBuilder(
@@ -62,7 +64,8 @@ public class ResourceGroupSpecBuilder
             Optional<String> perQueryTotalMemoryLimit,
             Optional<String> perQueryCpuTimeLimit,
             Optional<Integer> workersPerQueryLimit,
-            Optional<Long> parentId)
+            Optional<Long> parentId,
+            Optional<List<String>> tags)
     {
         this.id = id;
         this.nameTemplate = nameTemplate;
@@ -76,6 +79,7 @@ public class ResourceGroupSpecBuilder
         this.jmxExport = requireNonNull(jmxExport, "jmxExport is null");
         this.softCpuLimit = requireNonNull(softCpuLimit, "softCpuLimit is null").map(Duration::valueOf);
         this.hardCpuLimit = requireNonNull(hardCpuLimit, "hardCpuLimit is null").map(Duration::valueOf);
+        this.tags = tags;
         Optional<Duration> executionTimeLimit = requireNonNull(perQueryExecutionTimeLimit, "perQueryExecutionTimeLimit is null").map(Duration::valueOf);
         Optional<DataSize> totalMemoryLimit = requireNonNull(perQueryTotalMemoryLimit, "perQueryTotalMemoryLimit is null").map(DataSize::valueOf);
         Optional<Duration> cpuTimeLimit = requireNonNull(perQueryCpuTimeLimit, "perQueryCpuTimeLimit is null").map(Duration::valueOf);
@@ -129,7 +133,8 @@ public class ResourceGroupSpecBuilder
                 softCpuLimit,
                 hardCpuLimit,
                 perQueryLimits,
-                workersPerQueryLimit);
+                workersPerQueryLimit,
+                tags);
     }
 
     public static class Mapper
@@ -168,6 +173,7 @@ public class ResourceGroupSpecBuilder
             Optional<String> perQueryTotalMemoryLimit = Optional.ofNullable(resultSet.getString("per_query_total_memory_limit"));
             Optional<String> perQueryCpuTimeLimit = Optional.ofNullable(resultSet.getString("per_query_cpu_time_limit"));
             Optional<Long> parentId = Optional.of(resultSet.getLong("parent"));
+            Optional<List<String>> tags = Optional.empty();
             if (resultSet.wasNull()) {
                 parentId = Optional.empty();
             }
@@ -187,7 +193,8 @@ public class ResourceGroupSpecBuilder
                     perQueryTotalMemoryLimit,
                     perQueryCpuTimeLimit,
                     workersPerQueryLimit,
-                    parentId);
+                    parentId,
+                    tags);
         }
     }
 }
