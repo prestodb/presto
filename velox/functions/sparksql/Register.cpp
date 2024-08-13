@@ -23,6 +23,7 @@
 #include "velox/functions/lib/Re2Functions.h"
 #include "velox/functions/lib/RegistrationHelpers.h"
 #include "velox/functions/lib/Repeat.h"
+#include "velox/functions/lib/Slice.h"
 #include "velox/functions/prestosql/ArrayFunctions.h"
 #include "velox/functions/prestosql/BinaryFunctions.h"
 #include "velox/functions/prestosql/DateTimeFunctions.h"
@@ -344,6 +345,8 @@ void registerFunctions(const std::string& prefix) {
       repeatSignatures(),
       makeRepeatAllowNegativeCount,
       repeatMetadata());
+
+  registerIntegerSliceFunction(prefix);
 
   exec::registerStatefulVectorFunction(
       prefix + "shuffle",

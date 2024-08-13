@@ -45,7 +45,6 @@ velox_add_library(
   RowFunction.cpp
   Sequence.cpp
   SimpleComparisonMatcher.cpp
-  Slice.cpp
   Split.cpp
   SplitToMap.cpp
   StringFunctions.cpp

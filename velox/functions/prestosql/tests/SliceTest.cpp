@@ -13,117 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/common/base/tests/GTestUtils.h"
-#include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
+#include "velox/functions/lib/tests/SliceTestBase.h"
+#include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 
-using namespace facebook::velox;
-using namespace facebook::velox::test;
-using namespace facebook::velox::functions::test;
-
+namespace facebook::velox::functions::prestosql {
 namespace {
 
-class SliceTest : public FunctionBaseTest {
+class SliceTest : public test::SliceTestBase {
  protected:
   static const vector_size_t kVectorSize{1000};
-
-  void testSlice(
-      const std::string& expression,
-      const std::vector<VectorPtr>& parameters,
-      const ArrayVectorPtr& expectedArrayVector) {
-    auto result = evaluate<ArrayVector>(expression, makeRowVector(parameters));
-    assertEqualVectors(expectedArrayVector, result);
-    EXPECT_NO_THROW(expectedArrayVector->checkRanges());
+  static void SetUpTestCase() {
+    SliceTestBase::SetUpTestCase();
+    registerAllScalarFunctions();
   }
 };
 
-TEST_F(SliceTest, prestoTestCases) {
-  {
-    auto arrayVector = makeArrayVector<int64_t>({{1, 2, 3, 4, 5}});
-    auto expectedArrayVector = makeArrayVector<int64_t>({{1, 2, 3, 4}});
-    testSlice("slice(C0, 1, 4)", {arrayVector}, expectedArrayVector);
-  }
-  {
-    auto arrayVector = makeArrayVector<int64_t>({{1, 2}});
-    auto expectedArrayVector = makeArrayVector<int64_t>({{1, 2}});
-    testSlice("slice(C0, 1, 4)", {arrayVector}, expectedArrayVector);
-  }
-  {
-    auto arrayVector = makeArrayVector<int64_t>({{1, 2, 3, 4, 5}});
-    auto expectedArrayVector = makeArrayVector<int64_t>({{3, 4}});
-    testSlice("slice(C0, 3, 2)", {arrayVector}, expectedArrayVector);
-  }
-  {
-    auto arrayVector = makeArrayVector<int64_t>({{1, 2, 3, 4}});
-    auto expectedArrayVector = makeArrayVector<int64_t>({{3, 4}});
-    testSlice("slice(C0, 3, 3)", {arrayVector}, expectedArrayVector);
-  }
-  {
-    auto arrayVector = makeArrayVector<int64_t>({{1, 2, 3, 4}});
-    auto expectedArrayVector = makeArrayVector<int64_t>({{2, 3, 4}});
-    testSlice("slice(C0, -3, 3)", {arrayVector}, expectedArrayVector);
-  }
-  {
-    auto arrayVector = makeArrayVector<int64_t>({{1, 2, 3, 4}});
-    auto expectedArrayVector = makeArrayVector<int64_t>({{2, 3, 4}});
-    testSlice("slice(C0, -3, 5)", {arrayVector}, expectedArrayVector);
-  }
-  {
-    auto arrayVector = makeArrayVector<int64_t>({{1, 2, 3, 4}});
-    auto expectedArrayVector = makeArrayVector<int64_t>({{}});
-    testSlice("slice(C0, 1, 0)", {arrayVector}, expectedArrayVector);
-  }
-  {
-    auto arrayVector = makeArrayVector<int64_t>({{1, 2, 3, 4}});
-    auto expectedArrayVector = makeArrayVector<int64_t>({{}});
-    testSlice("slice(C0, -2, 0)", {arrayVector}, expectedArrayVector);
-  }
-  {
-    auto arrayVector = makeArrayVector<int64_t>({{1, 2, 3, 4}});
-    auto expectedArrayVector = makeArrayVector<int64_t>({{}});
-    testSlice("slice(C0, -2, 0)", {arrayVector}, expectedArrayVector);
-  }
-  {
-    auto arrayVector = makeArrayVector<int64_t>({{1, 2, 3, 4}});
-    auto expectedArrayVector = makeArrayVector<int64_t>({{}});
-    testSlice("slice(C0, -5, 5)", {arrayVector}, expectedArrayVector);
-  }
-  {
-    auto arrayVector = makeArrayVector<int64_t>({{1, 2, 3, 4}});
-    auto expectedArrayVector = makeArrayVector<int64_t>({{}});
-    testSlice("slice(C0, -6, 5)", {arrayVector}, expectedArrayVector);
-  }
-  {
-    auto arrayVector = makeArrayVector<int64_t>({{1, 2, 3, 4}});
-    auto expectedArrayVector = makeArrayVector<int64_t>({{}});
-    testSlice("slice(C0, -6, 5)", {arrayVector}, expectedArrayVector);
-  }
-  {
-    // The implementation is zero-copy, so floating point number comparison
-    // won't have issue here since numerical representation remains the same.
-    auto arrayVector = makeArrayVector<double>({{2.3, 2.3, 2.2}});
-    auto expectedArrayVector = makeArrayVector<double>({{2.3, 2.2}});
-    testSlice("slice(C0, 2, 3)", {arrayVector}, expectedArrayVector);
-  }
-  {
-    auto arrayVector = makeArrayVector<int64_t>({{1, 2, 3, 4}});
-    auto expectedArrayVector = makeArrayVector<int64_t>({{}});
-    VELOX_ASSERT_THROW(
-        testSlice(
-            "slice(C0, 1, -1)",
-            {arrayVector, arrayVector, expectedArrayVector},
-            expectedArrayVector),
-        "The value of length argument of slice() function should not be negative");
-  }
-  {
-    auto arrayVector = makeArrayVector<int64_t>({{1, 2, 3, 4}});
-    auto expectedArrayVector = makeArrayVector<int64_t>({{}});
-    VELOX_ASSERT_THROW(
-        testSlice(
-            "slice(C0, 0, 1)",
-            {arrayVector, arrayVector, expectedArrayVector},
-            expectedArrayVector),
-        "SQL array indices start at 1");
-  }
+TEST_F(SliceTest, basic) {
+  basicTestCases();
 }
 
 TEST_F(SliceTest, constantInputArray) {
@@ -398,3 +304,4 @@ TEST_F(SliceTest, constantArrayNonConstantLength) {
 }
 
 } // namespace
+} // namespace facebook::velox::functions::prestosql

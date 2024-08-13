@@ -196,6 +196,21 @@ Array Functions
         SELECT size(NULL, true); -- -1
         SELECT size(NULL, false); -- NULL
 
+.. spark:function:: slice(array(E), start, length) -> array(E)
+
+    Returns a subarray starting at 1-based index ``start`` or from end if negative, with ``length`` elements.
+    Returns elements between ``start`` and the end of the array if ``start + length`` is outside of the array.
+    Returns empty array if ``start`` point outside of the array or ``length`` is 0.
+    Throws exception if ``start`` is 0 or ``length`` is negative. ::
+
+        SELECT slice(array(1, 2, 3, 4), 2, 2); -- [2, 3]
+        SELECT slice(array(1, 2, 3, 4), -2, 2); -- [3, 4]
+        SELECT slice(array(1, 2, 3, 4), 5, 1); -- []
+        SELECT slice(array(1, 2, 3, 4), 2, 5); -- [2, 3, 4]
+        SELECT slice(array(1, 2, 3, 4), 2, 0); -- []
+        SELECT slice(array(1, 2, 3, 4), 1, -1); -- error: The value of length argument of slice() function should not be negative
+        SELECT slice(array(1, 2, 3, 4), 0, 1); -- error: SQL array indices start at 1
+
 .. spark:function:: sort_array(array(E)) -> array(E)
 
     Returns an array which has the sorted order of the input array. The elements of array must
