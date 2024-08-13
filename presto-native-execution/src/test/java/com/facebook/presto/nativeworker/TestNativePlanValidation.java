@@ -11,13 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#pragma once
-#include "velox/core/PlanFragment.h"
+package com.facebook.presto.nativeworker;
+import com.facebook.presto.testing.QueryRunner;
 
-namespace facebook::presto {
-class PrestoToVeloxPlanValidator {
- public:
-  virtual bool validatePlanFragment(const velox::core::PlanFragment& fragment);
-  virtual ~PrestoToVeloxPlanValidator() = default;
-};
-} // namespace facebook::presto
+public class TestNativePlanValidation
+        extends AbstractTestNativePlanValidation
+{
+    protected QueryRunner createQueryRunner() throws Exception
+    {
+        return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(false, true);
+    }
+}
