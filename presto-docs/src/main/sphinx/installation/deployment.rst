@@ -10,6 +10,7 @@ Deploying Presto
 Installing Presto
 -----------------
 
+pseudo change
 Download the Presto server tarball, :maven_download:`server`, and unpack it.
 The tarball will contain a single top-level directory,
 |presto_server_release|, which we will call the *installation* directory.
