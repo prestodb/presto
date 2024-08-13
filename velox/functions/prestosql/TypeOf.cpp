@@ -15,6 +15,7 @@
  */
 #include "velox/expression/VectorFunction.h"
 #include "velox/functions/prestosql/types/HyperLogLogType.h"
+#include "velox/functions/prestosql/types/IPAddressType.h"
 #include "velox/functions/prestosql/types/JsonType.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/functions/prestosql/types/UuidType.h"
@@ -54,6 +55,8 @@ std::string typeName(const TypePtr& type) {
     case TypeKind::HUGEINT: {
       if (isUuidType(type)) {
         return "uuid";
+      } else if (isIPAddressType(type)) {
+        return "ipaddress";
       }
       VELOX_USER_CHECK(
           type->isDecimal(),

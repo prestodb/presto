@@ -216,6 +216,7 @@ TEST_F(CustomTypeTest, getCustomTypeNames) {
           "HYPERLOGLOG",
           "TIMESTAMP WITH TIME ZONE",
           "UUID",
+          "IPADDRESS",
       }),
       names);
 
@@ -229,6 +230,7 @@ TEST_F(CustomTypeTest, getCustomTypeNames) {
           "HYPERLOGLOG",
           "TIMESTAMP WITH TIME ZONE",
           "UUID",
+          "IPADDRESS",
           "FANCY_INT",
       }),
       names);

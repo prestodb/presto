@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include <string>
+#include "velox/functions/prestosql/IPAddressFunctions.h"
 #include "velox/functions/prestosql/UuidFunctions.h"
 
 namespace facebook::velox::functions {
@@ -108,6 +109,7 @@ void registerAllScalarFunctions(const std::string& prefix) {
   registerBinaryFunctions(prefix);
   registerBitwiseFunctions(prefix);
   registerUuidFunctions(prefix);
+  registerIPAddressFunctions(prefix);
 }
 
 void registerMapAllowingDuplicates(

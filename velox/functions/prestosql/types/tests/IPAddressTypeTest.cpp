@@ -13,29 +13,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/functions/prestosql/types/UuidType.h"
+#include "velox/functions/prestosql/types/IPAddressType.h"
 #include "velox/functions/prestosql/types/tests/TypeTestBase.h"
 
 namespace facebook::velox::test {
 
-class UuidTypeTest : public testing::Test, public TypeTestBase {
+class IPAddressTypeTest : public testing::Test, public TypeTestBase {
  public:
-  UuidTypeTest() {
-    registerUuidType();
+  IPAddressTypeTest() {
+    registerIPAddressType();
   }
 };
 
-TEST_F(UuidTypeTest, basic) {
-  ASSERT_EQ(UUID()->name(), "UUID");
-  ASSERT_EQ(std::string(UUID()->kindName()), "HUGEINT");
-  ASSERT_TRUE(UUID()->parameters().empty());
-  ASSERT_EQ(UUID()->toString(), "UUID");
+TEST_F(IPAddressTypeTest, basic) {
+  ASSERT_EQ(IPADDRESS()->name(), "IPADDRESS");
+  ASSERT_EQ(IPADDRESS()->kindName(), "HUGEINT");
+  ASSERT_TRUE(IPADDRESS()->parameters().empty());
+  ASSERT_EQ(IPADDRESS()->toString(), "IPADDRESS");
 
-  ASSERT_TRUE(hasType("UUID"));
-  ASSERT_EQ(*getType("UUID", {}), *UUID());
+  ASSERT_TRUE(hasType("IPADDRESS"));
+  ASSERT_EQ(*getType("IPADDRESS", {}), *IPADDRESS());
 }
 
-TEST_F(UuidTypeTest, serde) {
-  testTypeSerde(UUID());
+TEST_F(IPAddressTypeTest, serde) {
+  testTypeSerde(IPADDRESS());
 }
 } // namespace facebook::velox::test
