@@ -433,15 +433,15 @@ public class PrestoNativeQueryRunnerUtils
                         String configProperties = format("discovery.uri=%s%n" +
                                 "presto.version=testversion%n" +
                                 "system-memory-gb=4%n" +
-                                "http-server.http.port=%d", discoveryUri, port);
+                                "http-server.http.port=%d%n" +
+                                "presto.default-namespace=native.default%n", discoveryUri, port);
 
                         // todo: "presto.default-namespace" config property needs to be present on all the workers,
                         //  make that change when support for  "presto.default-namespace" config property is added.
 
                         if (isSidecarEnabled.get()) {
-                            configProperties = format("%s%n" +
-                                    "native.sidecar=true%n" +
-                                    "presto.default-namespace=native.default%n", configProperties);
+                            configProperties = format("%s" +
+                                    "native-sidecar=true%n", configProperties);
                             isSidecarEnabled.compareAndSet(true, false);
                         }
 
@@ -494,6 +494,22 @@ public class PrestoNativeQueryRunnerUtils
                         throw new UncheckedIOException(e);
                     }
                 });
+    }
+
+    public static QueryRunner createQueryRunnerWithSidecar()
+            throws Exception
+    {
+        NativeQueryRunnerParameters nativeQueryRunnerParameters = getNativeQueryRunnerParameters();
+        return createNativeQueryRunner(
+                nativeQueryRunnerParameters.dataDirectory.toString(),
+                nativeQueryRunnerParameters.serverBinary.toString(),
+                Optional.of(nativeQueryRunnerParameters.workerCount.orElse(4)),
+                0,
+                false,
+                Optional.empty(),
+                "DWRF",
+                true,
+                true);
     }
 
     public static class NativeQueryRunnerParameters
