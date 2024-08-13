@@ -136,11 +136,16 @@ class BaseHashTable {
   /// Returns the string of the given 'mode'.
   static std::string modeString(HashMode mode);
 
-  // Keeps track of results returned from a join table. One batch of
-  // keys can produce multiple batches of results. This is initialized
-  // from HashLookup, which is expected to stay constant while 'this'
-  // is being used.
+  /// Keeps track of results returned from a join table. One batch of keys can
+  /// produce multiple batches of results. This is initialized from HashLookup,
+  /// which is expected to stay constant while 'this' is being used.
   struct JoinResultIterator {
+    JoinResultIterator(
+        std::vector<vector_size_t>&& _varSizeListColumns,
+        uint64_t _fixedSizeListColumnsSizeSum)
+        : varSizeListColumns(std::move(_varSizeListColumns)),
+          fixedSizeListColumnsSizeSum(_fixedSizeListColumnsSizeSum) {}
+
     void reset(const HashLookup& lookup) {
       rows = &lookup.rows;
       hits = &lookup.hits;
@@ -152,8 +157,15 @@ class BaseHashTable {
       return !rows || lastRowIndex == rows->size();
     }
 
+    /// The indexes of the build side projected columns that are variable sized.
+    const std::vector<vector_size_t> varSizeListColumns;
+    /// The per row total bytes of the build side projected columns that are
+    /// fixed sized.
+    const uint64_t fixedSizeListColumnsSizeSum{0};
+
     const raw_vector<vector_size_t>* rows{nullptr};
     const raw_vector<char*>* hits{nullptr};
+
     vector_size_t lastRowIndex{0};
     vector_size_t lastDuplicateRowIndex{0};
   };
@@ -231,11 +243,14 @@ class BaseHashTable {
   /// set to nullptr if 'includeMisses' is true. Otherwise, skips input rows
   /// without a match. 'includeMisses' is set to true when listing results for
   /// the LEFT join.
+  /// The filling stops when the total size of currently listed rows exceeds
+  /// 'maxBytes'.
   virtual int32_t listJoinResults(
       JoinResultIterator& iter,
       bool includeMisses,
       folly::Range<vector_size_t*> inputRows,
-      folly::Range<char**> hits) = 0;
+      folly::Range<char**> hits,
+      uint64_t maxBytes) = 0;
 
   /// Returns rows with 'probed' flag unset. Used by the right/full join.
   virtual int32_t listNotProbedRows(
@@ -491,7 +506,8 @@ class HashTable : public BaseHashTable {
       JoinResultIterator& iter,
       bool includeMisses,
       folly::Range<vector_size_t*> inputRows,
-      folly::Range<char**> hits) override;
+      folly::Range<char**> hits,
+      uint64_t maxBytes) override;
 
   int32_t listNotProbedRows(
       RowsIterator* iter,
@@ -716,12 +732,14 @@ class HashTable : public BaseHashTable {
       int32_t numNew,
       int8_t spillInputStartPartitionBit) override;
 
-  // Fast path for join results when there are no duplicates in the table.
-  int32_t listJoinResultsNoDuplicates(
+  // Fast path for join results when there are no duplicates in the table and
+  // only fixed size rows are to be extract.
+  int32_t listJoinResultsFastPath(
       JoinResultIterator& iter,
       bool includeMisses,
       folly::Range<vector_size_t*> inputRows,
-      folly::Range<char**> hits);
+      folly::Range<char**> hits,
+      uint64_t maxBytes);
 
   // Tries to use as many range hashers as can in a normalized key situation.
   void enableRangeWhereCan(
@@ -773,14 +791,14 @@ class HashTable : public BaseHashTable {
       raw_vector<uint64_t>& hashes,
       bool initNormalizedKeys);
 
-  /// Inserts 'numGroups' entries into 'this'. 'groups' point to contents in a
-  /// RowContainer owned by 'this'. 'hashes' are the hash numbers or array
-  /// indices (if kArray mode) for each group. Duplicate key rows are chained
-  /// via their next link. If not null, 'partitionInfo' provides the table
-  /// partition info for parallel join table build. It specifies the first and
-  /// (exclusive) last indexes of the insert entries in the table. If a row
-  /// can't be inserted within this range, it is not inserted but rather added
-  /// to the end of 'overflows' in 'partitionInfo'.
+  // Inserts 'numGroups' entries into 'this'. 'groups' point to contents in a
+  // RowContainer owned by 'this'. 'hashes' are the hash numbers or array
+  // indices (if kArray mode) for each group. Duplicate key rows are chained
+  // via their next link. If not null, 'partitionInfo' provides the table
+  // partition info for parallel join table build. It specifies the first and
+  // (exclusive) last indexes of the insert entries in the table. If a row
+  // can't be inserted within this range, it is not inserted but rather added
+  // to the end of 'overflows' in 'partitionInfo'.
   void insertForJoin(
       RowContainer* rows,
       char** groups,
@@ -857,6 +875,14 @@ class HashTable : public BaseHashTable {
   // Shortcut for probe with normalized keys.
   void joinNormalizedKeyProbe(HashLookup& lookup);
 
+  // Returns the total size of the variable size 'columns' in 'row'.
+  // NOTE: No checks are done in the method for performance considerations.
+  // Caller needs to make sure only variable size columns are inside of
+  // 'columns'.
+  inline uint64_t joinProjectedVarColumnsSize(
+      const std::vector<vector_size_t>& columns,
+      const char* row) const;
+
   // Adds a row to a hash join table in kArray hash mode. Returns true
   // if a new entry was made and false if the row was added to an
   // existing set of rows with the same key.
@@ -892,6 +918,7 @@ class HashTable : public BaseHashTable {
   // content. Returns true if all hashers offer a mapping to value ids
   // for array or normalized key.
   bool analyze();
+
   // Erases the entries of rows from the hash table and its RowContainer.
   // 'hashes' must be computed according to 'hashMode_'.
   void eraseWithHashes(folly::Range<char**> rows, uint64_t* hashes);

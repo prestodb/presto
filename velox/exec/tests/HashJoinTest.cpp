@@ -5433,6 +5433,87 @@ TEST_F(HashJoinTest, dynamicFilterOnPartitionKey) {
       .run();
 }
 
+TEST_F(HashJoinTest, probeMemoryLimitOnBuildProjection) {
+  std::vector<RowVectorPtr> probeVectors =
+      makeBatches(10, [&](int32_t /*unused*/) {
+        return makeRowVector(
+            {makeFlatVector<int32_t>(1'000, [](auto row) { return row % 5; })});
+      });
+
+  // Build side has 4KB + 4B per row.
+  std::vector<RowVectorPtr> buildVectors =
+      makeBatches(1, [&](int32_t /*unused*/) {
+        return makeRowVector(
+            {"u_c0", "u_c1", {"u_c2"}},
+            {makeFlatVector<int32_t>({0, 1, 2}),
+             makeFlatVector<std::string>({
+                 std::string(4096, 'a'),
+                 std::string(4096, 'b'),
+                 std::string(4096, 'c'),
+             }),
+             makeFlatVector<std::string>({
+                 std::string(4096, 'd'),
+                 std::string(4096, 'e'),
+                 std::string(4096, 'f'),
+             })});
+      });
+
+  createDuckDbTable("t", {probeVectors});
+  createDuckDbTable("u", {buildVectors});
+
+  struct TestParam {
+    int32_t numVarSizeColumn;
+    int32_t numExpectedBatches;
+    std::string referenceQuery;
+    std::string debugString() const {
+      return fmt::format(
+          "numVarSizeColumn {}, numExpectedBatches {}, referenceQuery '{}'",
+          numVarSizeColumn,
+          numExpectedBatches,
+          referenceQuery);
+    }
+  };
+
+  std::vector<TestParam> testParams{
+      {0, 10, "SELECT t.c0 FROM t JOIN u ON t.c0 = u.u_c0"},
+      {1, 3000, "SELECT t.c0, u.u_c1 FROM t JOIN u ON t.c0 = u.u_c0"},
+      {2, 6000, "SELECT t.c0, u.u_c1, u.u_c2 FROM t JOIN u ON t.c0 = u.u_c0"}};
+  for (const auto& testParam : testParams) {
+    SCOPED_TRACE(testParam.debugString());
+    core::PlanNodeId joinNodeId;
+    std::vector<std::string> outputLayout;
+    outputLayout.push_back("c0");
+    for (int32_t i = 0; i < testParam.numVarSizeColumn; i++) {
+      outputLayout.push_back(fmt::format("u_c{}", i + 1));
+    }
+    auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+    auto plan = PlanBuilder(planNodeIdGenerator)
+                    .values(probeVectors)
+                    .hashJoin(
+                        {"c0"},
+                        {"u_c0"},
+                        PlanBuilder(planNodeIdGenerator)
+                            .values({buildVectors})
+                            .planNode(),
+                        "",
+                        outputLayout)
+                    .capturePlanNodeId(joinNodeId)
+                    .planNode();
+
+    HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
+        .planNode(std::move(plan))
+        .config(core::QueryConfig::kPreferredOutputBatchBytes, "8192")
+        .injectSpill(false)
+        .referenceQuery(testParam.referenceQuery)
+        .verifier([&](const std::shared_ptr<Task>& task, bool /* unused */) {
+          auto planStats = toPlanStats(task->taskStats());
+          auto outputBatches = planStats.at(joinNodeId).outputVectors;
+          ASSERT_EQ(outputBatches, testParam.numExpectedBatches);
+        })
+        .run();
+  }
+}
+
 DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringInputProcessing) {
   constexpr int64_t kMaxBytes = 1LL << 30; // 1GB
   VectorFuzzer fuzzer({.vectorSize = 1000}, pool());
@@ -7486,7 +7567,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, hashProbeSpill) {
 DEBUG_ONLY_TEST_F(HashJoinTest, hashProbeSpillInMiddeOfLastOutputProcessing) {
   std::atomic_int outputCountAfterNoMoreInout{0};
   std::atomic_bool injectOnce{true};
-  SCOPED_TESTVALUE_SET(
+  ::facebook::velox::common::testutil::ScopedTestValue abc(
       "facebook::velox::exec::Driver::runInternal::getOutput",
       std::function<void(Operator*)>([&](Operator* op) {
         if (!isHashProbeMemoryPool(*op->pool())) {

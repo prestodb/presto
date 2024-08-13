@@ -93,11 +93,14 @@ class HashProbe : public Operator {
   // the hash table.
   void asyncWaitForHashTable();
 
-  // Sets up 'filter_' and related members.p
+  // Sets up 'filter_' and related members.
   void initializeFilter(
       const core::TypedExprPtr& filter,
       const RowTypePtr& probeType,
       const RowTypePtr& tableType);
+
+  // Setup 'resultIter_'.
+  void initializeResultIter();
 
   // If 'toSpillOutput', the produced output is spilled to disk for memory
   // arbitration.
@@ -611,21 +614,21 @@ class HashProbe : public Operator {
 
   BaseHashTable::RowsIterator lastProbeIterator_;
 
-  /// For left and anti join with filter, tracks the probe side rows which had
-  /// matches on the build side but didn't pass the filter.
+  // For left and anti join with filter, tracks the probe side rows which had
+  // matches on the build side but didn't pass the filter.
   NoMatchDetector noMatchDetector_;
 
-  /// For left semi join filter with extra filter, de-duplicates probe side rows
-  /// with multiple matches.
+  // For left semi join filter with extra filter, de-duplicates probe side rows
+  // with multiple matches.
   LeftSemiFilterJoinTracker leftSemiFilterJoinTracker_;
 
-  /// For left semi join project with filter, de-duplicates probe side rows with
-  /// multiple matches.
+  // For left semi join project with filter, de-duplicates probe side rows with
+  // multiple matches.
   LeftSemiProjectJoinTracker leftSemiProjectJoinTracker_;
 
   // Keeps track of returned results between successive batches of
   // output for a batch of input.
-  BaseHashTable::JoinResultIterator results_;
+  std::unique_ptr<BaseHashTable::JoinResultIterator> resultIter_;
 
   RowVectorPtr output_;
 

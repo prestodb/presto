@@ -1230,6 +1230,53 @@ TEST_F(RowContainerTest, rowSize) {
   EXPECT_EQ(rows, rowsFromContainer);
 }
 
+TEST_F(RowContainerTest, columnSize) {
+  const uint64_t kNumRows = 1000;
+  auto rowContainer =
+      makeRowContainer({BIGINT(), VARCHAR()}, {BIGINT(), VARCHAR()});
+
+  VectorFuzzer fuzzer(
+      {
+          .vectorSize = kNumRows,
+          .stringLength = 100,
+          .stringVariableLength = true,
+      },
+      pool());
+
+  auto rowVector =
+      fuzzer.fuzzInputFlatRow(ROW({BIGINT(), VARCHAR(), BIGINT(), VARCHAR()}));
+
+  std::vector<char*> rows;
+  rows.reserve(kNumRows);
+
+  ASSERT_EQ(rowContainer->numRows(), 0);
+  SelectivityVector allRows(kNumRows);
+  DecodedVector decodedKey1(*rowVector->childAt(0), allRows);
+  DecodedVector decodedKey2(*rowVector->childAt(1), allRows);
+  DecodedVector decodedDep1(*rowVector->childAt(2), allRows);
+  DecodedVector decodedDep2(*rowVector->childAt(3), allRows);
+  for (size_t i = 0; i < kNumRows; i++) {
+    auto row = rowContainer->newRow();
+    rowContainer->store(decodedKey1, i, row, 0);
+    rowContainer->store(decodedKey2, i, row, 1);
+    rowContainer->store(decodedDep1, i, row, 2);
+    rowContainer->store(decodedDep2, i, row, 3);
+    rows.push_back(row);
+  }
+  ASSERT_EQ(rowContainer->fixedSizeAt(0), 8);
+  ASSERT_EQ(rowContainer->fixedSizeAt(2), 8);
+  const auto key2Vector = rowVector->childAt(1)->asFlatVector<StringView>();
+  const auto dep2Vector = rowVector->childAt(3)->asFlatVector<StringView>();
+  for (size_t i = 0; i < kNumRows; i++) {
+    ASSERT_EQ(
+        rowContainer->variableSizeAt(rows[i], 1),
+        key2Vector->valueAt(i).size());
+    ASSERT_EQ(
+        rowContainer->variableSizeAt(rows[i], 3),
+        dep2Vector->valueAt(i).size());
+  }
+}
+
 TEST_F(RowContainerTest, rowSizeWithNormalizedKey) {
   auto data = makeRowContainer({SMALLINT()}, {VARCHAR()});
   data->newRow();

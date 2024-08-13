@@ -562,6 +562,10 @@ int32_t RowContainer::variableSizeAt(const char* row, column_index_t column) {
   }
 }
 
+int32_t RowContainer::fixedSizeAt(column_index_t column) {
+  return typeKindSize(typeKinds_[column]);
+}
+
 int32_t RowContainer::extractVariableSizeAt(
     const char* row,
     column_index_t column,
