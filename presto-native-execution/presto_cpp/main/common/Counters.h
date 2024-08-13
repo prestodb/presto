@@ -139,21 +139,20 @@ constexpr folly::StringPiece kCounterOsNumForcedContextSwitches{
 
 /// Format template strings use 'constexpr std::string_view' to be 'fmt::format'
 /// compatible.
-constexpr folly::StringPiece kCounterHiveFileHandleCacheNumElementsFormat{
+constexpr std::string_view kCounterHiveFileHandleCacheNumElementsFormat{
     "presto_cpp.{}.hive_file_handle_cache_num_elements"};
-constexpr folly::StringPiece kCounterHiveFileHandleCachePinnedSizeFormat{
+constexpr std::string_view kCounterHiveFileHandleCachePinnedSizeFormat{
     "presto_cpp.{}.hive_file_handle_cache_pinned_size"};
-constexpr folly::StringPiece kCounterHiveFileHandleCacheCurSizeFormat{
+constexpr std::string_view kCounterHiveFileHandleCacheCurSizeFormat{
     "presto_cpp.{}.hive_file_handle_cache_cur_size"};
-constexpr folly::StringPiece
-    kCounterHiveFileHandleCacheNumAccumulativeHitsFormat{
-        "presto_cpp.{}.hive_file_handle_cache_num_accumulative_hits"};
-constexpr folly::StringPiece
+constexpr std::string_view kCounterHiveFileHandleCacheNumAccumulativeHitsFormat{
+    "presto_cpp.{}.hive_file_handle_cache_num_accumulative_hits"};
+constexpr std::string_view
     kCounterHiveFileHandleCacheNumAccumulativeLookupsFormat{
         "presto_cpp.{}.hive_file_handle_cache_num_accumulative_lookups"};
-constexpr folly::StringPiece kCounterHiveFileHandleCacheNumHitsFormat{
+constexpr std::string_view kCounterHiveFileHandleCacheNumHitsFormat{
     "presto_cpp.{}.hive_file_handle_cache_num_hits"};
-constexpr folly::StringPiece kCounterHiveFileHandleCacheNumLookupsFormat{
+constexpr std::string_view kCounterHiveFileHandleCacheNumLookupsFormat{
     "presto_cpp.{}.hive_file_handle_cache_num_lookups"};
 
 /// ================== Memory Pushback Counters =================
