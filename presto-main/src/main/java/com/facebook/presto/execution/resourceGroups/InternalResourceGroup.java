@@ -649,7 +649,6 @@ public class InternalResourceGroup
         }
     }
 
-
     @Override
     public ResourceGroupQueryLimits getPerQueryLimits()
     {

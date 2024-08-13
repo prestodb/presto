@@ -1,0 +1,29 @@
+---
+servers:
+- url: "http://localhost:8080"
+openapi: "3.0.0"
+paths:
+  /v1/statement:
+    $ref: "./queued_statement.yaml#/paths/~1v1~1statement"
+  /v1/query/{queryId}/killed:
+    $ref: "./query.yaml#/paths/~1v1~1query~1{queryId}~1killed"
+  /v1/cluster:
+    $ref: "./cluster.yaml#/paths/~1v1~1cluster"
+  /v1/query/{queryId}:
+    $ref: "./query.yaml#/paths/~1v1~1query~1{queryId}"
+  /v1/cluster/workerMemory:
+    $ref: "./cluster.yaml#/paths/~1v1~1cluster~1workerMemory"
+  /v1/cluster/ttl:
+    $ref: "./cluster.yaml#/paths/~1v1~1cluster~1ttl"
+  /v1/query:
+    $ref: "./query.yaml#/paths/~1v1~1query"
+  /v1/statement/queued/retry/{queryId}:
+    $ref: "./queued_statement.yaml#/paths/~1v1~1statement~1queued~1retry~1{queryId}"
+  /v1/statement/queued/{queryId}/{token}:
+    $ref: "./queued_statement.yaml#/paths/~1v1~1statement~1queued~1{queryId}~1{token}"
+  /v1/cluster/memory:
+    $ref: "./cluster.yaml#/paths/~1v1~1cluster~1memory"
+info:
+  title: "merged spec"
+  description: "merged spec"
+  version: "1.0.0"
