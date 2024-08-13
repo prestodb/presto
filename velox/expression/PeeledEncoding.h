@@ -32,6 +32,11 @@ class LocalSelectivityVector;
 /// translate top level rows into inner rows and wrap a vector (typically
 /// generated as a result of applying an expression on the peeled vectors).
 ///
+/// When the base vector size is larger than 8 times of the selected rows, we do
+/// not save the dictionary wrapping.  Instead, we store a flattened version of
+/// the selected rows and return them when needed.  The wrapping in this case is
+/// kept as FLAT, and the inner/outer rows translation will be identical.
+///
 /// Typical usage pattern for peeling includes:
 /// (See Expr::applyFunctionWithPeeling() for example usage)
 /// 1. peeling a set of input vectors
