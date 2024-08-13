@@ -2338,7 +2338,6 @@ folly::dynamic Task::toJson() const {
   obj["groupedPartitionedOutput"] = groupedPartitionedOutput_;
   obj["concurrentSplitGroups"] = concurrentSplitGroups_;
   obj["numRunningSplitGroups"] = numRunningSplitGroups_;
-  obj["numDriversUngrouped"] = numDriversUngrouped_;
   obj["partitionedOutputConsumed"] = partitionedOutputConsumed_;
   obj["noMoreOutputBuffers"] = noMoreOutputBuffers_;
   obj["onThreadSince"] = std::to_string(onThreadSince_);
