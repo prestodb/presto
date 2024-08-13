@@ -24,7 +24,6 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.regex.Pattern;
 
-import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createLineitem;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createNation;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrders;
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.setupNativeFunctionNamespaceManager;
@@ -51,7 +50,8 @@ public class TestPrestoNativeSidecar
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = (DistributedQueryRunner) PrestoNativeQueryRunnerUtils.createQueryRunnerWithSidecar();
+        String prestoDefaultNamespacePrefix = "native.default";
+        DistributedQueryRunner queryRunner = (DistributedQueryRunner) PrestoNativeQueryRunnerUtils.createNativeQueryRunnerWithSidecar(prestoDefaultNamespacePrefix);
         setupNativeFunctionNamespaceManager(queryRunner, "native");
         return queryRunner;
     }

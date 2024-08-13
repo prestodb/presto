@@ -92,7 +92,9 @@ public class PrestoNativeQueryRunnerUtils
 
         defaultQueryRunner.close();
 
-        return createNativeQueryRunner(dataDirectory.get().toString(), prestoServerPath.get(), workerCount, cacheMaxSize, true, Optional.empty(), storageFormat, addStorageFormatToPath, false);
+        return createNativeQueryRunner(
+                dataDirectory.get().toString(), prestoServerPath.get(), workerCount, cacheMaxSize, true, Optional.empty(), storageFormat, addStorageFormatToPath, false,
+                "presto.default");
     }
 
     public static QueryRunner createJavaQueryRunner()
@@ -225,7 +227,8 @@ public class PrestoNativeQueryRunnerUtils
                 remoteFunctionServerUds,
                 storageFormat,
                 addStorageFormatToPath,
-                false);
+                false,
+                "presto.default");
     }
 
     public static QueryRunner createNativeIcebergQueryRunner(
@@ -237,7 +240,8 @@ public class PrestoNativeQueryRunnerUtils
             Optional<String> remoteFunctionServerUds,
             String storageFormat,
             boolean addStorageFormatToPath,
-            boolean isSidecarEnabled)
+            boolean isSidecarEnabled,
+            String prestoDefaultNamespacePrefix)
             throws Exception
     {
         ImmutableMap<String, String> icebergProperties = ImmutableMap.<String, String>builder()
@@ -257,7 +261,7 @@ public class PrestoNativeQueryRunnerUtils
                 false,
                 false,
                 OptionalInt.of(workerCount.orElse(4)),
-                getExternalWorkerLauncher("iceberg", prestoServerPath, cacheMaxSize, remoteFunctionServerUds, new AtomicBoolean(isSidecarEnabled)),
+                getExternalWorkerLauncher("iceberg", prestoServerPath, cacheMaxSize, remoteFunctionServerUds, new AtomicBoolean(isSidecarEnabled), prestoDefaultNamespacePrefix),
                 addStorageFormatToPath ? dataDirectory.map(path -> Paths.get(path.toString() + '/' + storageFormat)) : dataDirectory);
     }
 
@@ -270,7 +274,8 @@ public class PrestoNativeQueryRunnerUtils
             Optional<String> remoteFunctionServerUds,
             String storageFormat,
             boolean addStorageFormatToPath,
-            boolean isSidecarEnabled)
+            boolean isSidecarEnabled,
+            String prestoDefaultNamespacePrefix)
             throws Exception
     {
         // The property "hive.allow-drop-table" needs to be set to true because security is always "legacy" in NativeQueryRunner.
@@ -293,7 +298,7 @@ public class PrestoNativeQueryRunnerUtils
                 hiveProperties,
                 workerCount,
                 Optional.of(Paths.get(addStorageFormatToPath ? dataDirectory + "/" + storageFormat : dataDirectory)),
-                getExternalWorkerLauncher("hive", prestoServerPath, cacheMaxSize, remoteFunctionServerUds, new AtomicBoolean(isSidecarEnabled)));
+                getExternalWorkerLauncher("hive", prestoServerPath, cacheMaxSize, remoteFunctionServerUds, new AtomicBoolean(isSidecarEnabled), prestoDefaultNamespacePrefix));
     }
 
     public static QueryRunner createNativeCteQueryRunner(boolean useThrift, String storageFormat)
@@ -336,7 +341,7 @@ public class PrestoNativeQueryRunnerUtils
                 hiveProperties,
                 workerCount,
                 Optional.of(Paths.get(addStorageFormatToPath ? dataDirectory + "/" + storageFormat : dataDirectory)),
-                getExternalWorkerLauncher("hive", prestoServerPath, cacheMaxSize, Optional.empty(), new AtomicBoolean(false)));
+                getExternalWorkerLauncher("hive", prestoServerPath, cacheMaxSize, Optional.empty(), new AtomicBoolean(false), "presto.default"));
     }
 
     public static QueryRunner createNativeQueryRunner(String remoteFunctionServerUds)
@@ -371,7 +376,8 @@ public class PrestoNativeQueryRunnerUtils
                 remoteFunctionServerUds,
                 storageFormat,
                 true,
-                false);
+                false,
+                "presto.default");
     }
 
     // Start the remote function server. Return the UDS path used to communicate with it.
@@ -418,7 +424,8 @@ public class PrestoNativeQueryRunnerUtils
         return new NativeQueryRunnerParameters(prestoServerPath, dataDirectory, workerCount);
     }
 
-    public static Optional<BiFunction<Integer, URI, Process>> getExternalWorkerLauncher(String catalogName, String prestoServerPath, int cacheMaxSize, Optional<String> remoteFunctionServerUds, AtomicBoolean isSidecarEnabled)
+    public static Optional<BiFunction<Integer, URI, Process>> getExternalWorkerLauncher(
+            String catalogName, String prestoServerPath, int cacheMaxSize, Optional<String> remoteFunctionServerUds, AtomicBoolean isSidecarEnabled, String prestoDefaultNamespacePrefix)
     {
         return
                 Optional.of((workerIndex, discoveryUri) -> {
@@ -434,10 +441,7 @@ public class PrestoNativeQueryRunnerUtils
                                 "presto.version=testversion%n" +
                                 "system-memory-gb=4%n" +
                                 "http-server.http.port=%d%n" +
-                                "presto.default-namespace=native.default%n", discoveryUri, port);
-
-                        // todo: "presto.default-namespace" config property needs to be present on all the workers,
-                        //  make that change when support for  "presto.default-namespace" config property is added.
+                                "presto.default-namespace=%s%n", discoveryUri, port, prestoDefaultNamespacePrefix);
 
                         if (isSidecarEnabled.get()) {
                             configProperties = format("%s" +
@@ -496,20 +500,23 @@ public class PrestoNativeQueryRunnerUtils
                 });
     }
 
-    public static QueryRunner createQueryRunnerWithSidecar()
+    // Todo:  remove this method when the createNativeQueryRunner methods allow the C++ sidecar to be enabled
+    public static QueryRunner createNativeQueryRunnerWithSidecar(String prestoDefaultNamespacePrefix)
             throws Exception
     {
+        int cacheMaxSize = 4096; // 4GB size cache
         NativeQueryRunnerParameters nativeQueryRunnerParameters = getNativeQueryRunnerParameters();
         return createNativeQueryRunner(
                 nativeQueryRunnerParameters.dataDirectory.toString(),
                 nativeQueryRunnerParameters.serverBinary.toString(),
-                Optional.of(nativeQueryRunnerParameters.workerCount.orElse(4)),
-                0,
+                nativeQueryRunnerParameters.workerCount,
+                cacheMaxSize,
                 false,
                 Optional.empty(),
-                "DWRF",
+                DEFAULT_STORAGE_FORMAT,
                 true,
-                true);
+                true,
+                prestoDefaultNamespacePrefix);
     }
 
     public static class NativeQueryRunnerParameters
