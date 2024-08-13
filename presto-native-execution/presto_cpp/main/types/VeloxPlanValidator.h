@@ -11,12 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-#include "presto_cpp/main/types/PrestoToVeloxPlanValidator.h"
+#pragma once
+#include "velox/core/PlanFragment.h"
 
 namespace facebook::presto {
-bool PrestoToVeloxPlanValidator::validatePlanFragment(
-    const velox::core::PlanFragment& fragment) {
-  return true;
-}
+class VeloxPlanValidator {
+ public:
+  virtual void validatePlanFragment(const velox::core::PlanFragment& fragment);
+  virtual ~VeloxPlanValidator() = default;
+};
 } // namespace facebook::presto
