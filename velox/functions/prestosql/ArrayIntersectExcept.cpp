@@ -111,11 +111,6 @@ class ArrayIntersectExceptFunction : public exec::VectorFunction {
   /// If the rhs values passed to either array_intersect() or array_except()
   /// are constant (array literals) we create a set before instantiating the
   /// object and pass as a constructor parameter (constantSet).
-  ///
-  /// Smallest array optimization:
-  ///
-  /// If the rhs values passed to array_intersect() are not constant we create
-  /// sets from whichever side has the smallest sum of lengths in the batch.
 
   ArrayIntersectExceptFunction() = default;
 
@@ -133,30 +128,6 @@ class ArrayIntersectExceptFunction : public exec::VectorFunction {
     BaseVector* right = args[1].get();
 
     exec::LocalDecodedVector leftHolder(context, *left, rows);
-    exec::LocalDecodedVector rightHolder(context, *right, rows);
-
-    if (isIntersect && !constantSet_.has_value()) {
-      // Swap left and right if needed so that the right array has the smaller
-      // number of elements since the right will be made into a hash set.
-      vector_size_t leftSize = 0;
-      vector_size_t rightSize = 0;
-      const ArrayVector* leftArrayVector =
-          leftHolder.get()->base()->as<ArrayVector>();
-      const ArrayVector* rightArrayVector =
-          rightHolder.get()->base()->as<ArrayVector>();
-      rows.applyToSelected([&](vector_size_t row) {
-        vector_size_t leftidx = leftHolder.get()->index(row);
-        leftSize += leftArrayVector->sizeAt(leftidx);
-
-        vector_size_t rightidx = rightHolder.get()->index(row);
-        rightSize += rightArrayVector->sizeAt(rightidx);
-      });
-      if (leftSize < rightSize) {
-        std::swap(left, right);
-        std::swap(leftHolder, rightHolder);
-      }
-    }
-
     auto decodedLeftArray = leftHolder.get();
     auto baseLeftArray = decodedLeftArray->base()->as<ArrayVector>();
 
@@ -221,9 +192,9 @@ class ArrayIntersectExceptFunction : public exec::VectorFunction {
           // (check outputSet).
           bool addValue = false;
           if constexpr (isIntersect) {
-            addValue = rightSet.set.contains(val);
+            addValue = rightSet.set.count(val) > 0;
           } else {
-            addValue = !rightSet.set.contains(val);
+            addValue = rightSet.set.count(val) == 0;
           }
           if (addValue) {
             auto it = outputSet.set.insert(val);

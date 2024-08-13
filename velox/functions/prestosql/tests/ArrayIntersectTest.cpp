@@ -271,12 +271,7 @@ TEST_F(ArrayIntersectTest, constant) {
       {},
       {1, -2, 4},
   });
-  // Test wiith right hand side being constant and larger than left hand side.
-  testExpr(
-      expected,
-      "array_intersect(C0, ARRAY[1,4,-2,10,11,12,13,14,15])",
-      {array1});
-
+  testExpr(expected, "array_intersect(C0, ARRAY[1,4,-2])", {array1});
   testExpr(expected, "array_intersect(ARRAY[1,-2,4], C0)", {array1});
   testExpr(
       expected, "array_intersect(ARRAY[1,1,-2,1,-2,4,1,4,4], C0)", {array1});
@@ -313,10 +308,10 @@ TEST_F(ArrayIntersectTest, deterministic) {
   testExpr(expectedC0C1, "array_intersect(C0, C1)", {c0, c1});
 
   // C1 then C0.
-  // Since C1 has more elements, it should be swapped with C0 and
-  // the order of the result should be based on C1.
-  auto expectedC1C0 = expectedC0C1;
-
+  auto expectedC1C0 = makeNullableArrayVector<int32_t>({
+      {1, 4, -2},
+      {1, 4, -2},
+  });
   testExpr(expectedC1C0, "array_intersect(C1, C0)", {c0, c1});
   testExpr(expectedC1C0, "array_intersect(ARRAY[1,4,-2], C0)", {c0});
 }
@@ -331,6 +326,6 @@ TEST_F(ArrayIntersectTest, dictionaryEncodedElementsInConstant) {
   auto expected = makeArrayVector<int32_t>({{1, 3}, {2}, {}});
   testExpr(
       expected,
-      "array_intersect(testing_dictionary_array_elements(ARRAY [2, 2, 3, 1, 2, 2]), c0)",
+      "array_intersect(c0, testing_dictionary_array_elements(ARRAY [2, 2, 3, 1, 2, 2]))",
       {array});
 }
