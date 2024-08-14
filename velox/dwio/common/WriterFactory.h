@@ -52,18 +52,6 @@ class WriterFactory {
       std::unique_ptr<dwio::common::FileSink> sink,
       const std::shared_ptr<dwio::common::WriterOptions>& options) = 0;
 
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  // TODO: for backward compatibility with old clients. Remove once Prestissimo
-  // code is moved to the new API above.
-  std::unique_ptr<Writer> createWriter(
-      std::unique_ptr<dwio::common::FileSink> sink,
-      const dwio::common::WriterOptions& options) {
-    return createWriter(
-        std::move(sink),
-        std::make_shared<dwio::common::WriterOptions>(options));
-  }
-#endif
-
   /// Creates a polymorphic writer options object.
   virtual std::unique_ptr<dwio::common::WriterOptions>
   createWriterOptions() = 0;
