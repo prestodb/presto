@@ -24,7 +24,7 @@
           "maxQueued": 100,
           "schedulingWeight": 1,
           "jmxExport": true,
-          "tags": ["problem"],
+          "tags": ["test"],
           "subGroups": [
             {
               "name": "pipeline_${USER}",
@@ -39,8 +39,7 @@
   ],
   "selectors": [
     {
-      "source": ".*pipeline.*",
-      "queryType": "DATA_DEFINITION",
+      "source": ".*",
       "group": "global.data_definition"
     },
     {

@@ -212,7 +212,8 @@ public class InternalResourceGroup
                             .map(group -> summarizeSubgroups ? group.getSummaryInfo() : group.getResourceGroupInfo(includeQueryInfo, false, includeStaticSubgroupsOnly))
                             .collect(toImmutableList()),
                     includeQueryInfo ? getAggregatedRunningQueriesInfo() : null,
-                    workersPerQueryLimit);
+                    workersPerQueryLimit,
+                    tags);
         }
     }
 
@@ -237,7 +238,8 @@ public class InternalResourceGroup
                             .map(InternalResourceGroup::getSummaryInfo)
                             .collect(toImmutableList()),
                     null,
-                    workersPerQueryLimit);
+                    workersPerQueryLimit,
+                    tags);
         }
     }
 
@@ -259,7 +261,8 @@ public class InternalResourceGroup
                     eligibleSubGroups.size(),
                     null,
                     null,
-                    workersPerQueryLimit);
+                    workersPerQueryLimit,
+                    tags);
         }
     }
 

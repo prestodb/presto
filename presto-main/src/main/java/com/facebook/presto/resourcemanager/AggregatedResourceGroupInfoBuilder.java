@@ -40,6 +40,7 @@ public class AggregatedResourceGroupInfoBuilder
     private SchedulingPolicy schedulingPolicy;
     private int schedulingWeight;
     private Map<ResourceGroupId, AggregatedResourceGroupInfoBuilder> subGroupsMap;
+    private List<String> tags;
     private ImmutableList.Builder<QueryStateInfo> runningQueriesBuilder;
     private static final Map<ResourceGroupState, Integer> resourceGroupStatePreference
             = ImmutableMap.of(FULL, 1, CAN_QUEUE, 2, CAN_RUN, 3);
@@ -69,6 +70,7 @@ public class AggregatedResourceGroupInfoBuilder
         this.workersPerQueryLimit = resourceGroupInfo.getWorkersPerQueryLimit();
         this.subGroupsMap = new HashMap<>();
         this.runningQueriesBuilder = ImmutableList.builder();
+        this.tags = resourceGroupInfo.getTags();
         addRunningQueries(resourceGroupInfo.getRunningQueries());
         addSubgroups(resourceGroupInfo.getSubGroups());
     }
@@ -133,6 +135,7 @@ public class AggregatedResourceGroupInfoBuilder
                 0,
                 subGroupsMap.values().stream().map(AggregatedResourceGroupInfoBuilder::build).collect(toImmutableList()),
                 runningQueries,
-                workersPerQueryLimit);
+                workersPerQueryLimit,
+                tags);
     }
 }

@@ -136,7 +136,6 @@ public final class InternalResourceGroupManager<C>
         this.isResourceManagerEnabled = requireNonNull(serverConfig, "serverConfig is null").isResourceManagerEnabled();
         this.resourceGroupRuntimeExecutor = new PeriodicTaskExecutor(resourceGroupRuntimeInfoRefreshInterval.toMillis(), refreshExecutor, this::refreshResourceGroupRuntimeInfo);
         configurationManagerFactories.putIfAbsent(LegacyResourceGroupConfigurationManager.NAME, new LegacyResourceGroupConfigurationManager.Factory());
-        //configurationManagerFactories.putIfAbsent(FileResourceGroupConfigurationManager.NAME, new FileResourceGroupConfigurationManagerFactory());
     }
 
     @Override

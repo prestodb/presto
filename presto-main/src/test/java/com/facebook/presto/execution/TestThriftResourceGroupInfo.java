@@ -386,6 +386,7 @@ public class TestThriftResourceGroupInfo
                 FAKE_ELIGIBLE_SUB_GROUPS,
                 subGroups,
                 runningQueries,
-                0);
+                0,
+                ImmutableList.of());
     }
 }
