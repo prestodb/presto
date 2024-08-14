@@ -359,7 +359,7 @@ class Driver : public std::enable_shared_from_this<Driver> {
 
   /// Run the pipeline until it produces a batch of data or gets blocked.
   /// Return the data produced or nullptr if pipeline finished processing and
-  /// will not produce more data. Return nullptr and set 'blockingState' if
+  /// will not produce more data. Return nullptr and set 'future' if
   /// pipeline got blocked.
   ///
   /// This API supports execution of a Task synchronously in the caller's
@@ -367,7 +367,7 @@ class Driver : public std::enable_shared_from_this<Driver> {
   /// When using 'enqueue', the last operator in the pipeline (sink) must not
   /// return any data from Operator::getOutput(). When using 'next', the last
   /// operator must produce data that will be returned to caller.
-  RowVectorPtr next(std::shared_ptr<BlockingState>& blockingState);
+  RowVectorPtr next(ContinueFuture* future);
 
   /// Invoked to initialize the operators from this driver once on its first
   /// execution.

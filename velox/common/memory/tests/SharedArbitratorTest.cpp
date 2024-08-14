@@ -329,7 +329,7 @@ class SharedArbitrationTestWithThreadingModes
       public SharedArbitrationTestBase {
  public:
   static std::vector<TestParam> getTestParams() {
-    return std::vector<TestParam>({{false}});
+    return std::vector<TestParam>({{false}, {true}});
   }
 
  protected:
