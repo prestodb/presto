@@ -596,27 +596,26 @@ vector_size_t firstNonNull(
 } // namespace
 
 RowVectorPtr MergeJoin::filterOutputForAntiJoin(const RowVectorPtr& output) {
-  auto numRows = output->size();
+  const auto numRows = output->size();
   const auto& filterRows = joinTracker_->matchingRows(numRows);
-  auto numPassed = 0;
-
-  BufferPtr indices = allocateIndices(numRows, pool());
-  auto rawIndices = indices->asMutable<vector_size_t>();
-  for (auto i = 0; i < numRows; i++) {
-    if (!filterRows.isValid(i)) {
-      rawIndices[numPassed++] = i;
-    }
-  }
-
+  const auto numPassed = numRows - filterRows.countSelected();
   if (numPassed == 0) {
-    // No rows passed.
     return nullptr;
   }
-
   if (numPassed == numRows) {
     // All rows passed.
     return output;
   }
+
+  BufferPtr indices = allocateIndices(numPassed, pool());
+  auto* rawIndices = indices->asMutable<vector_size_t>();
+  size_t index{0};
+  for (auto i = 0; i < numRows; ++i) {
+    if (!filterRows.isValid(i)) {
+      rawIndices[index++] = i;
+    }
+  }
+  VELOX_CHECK_EQ(index, numPassed);
 
   // Some, but not all rows passed.
   return wrap(numPassed, indices, output);
