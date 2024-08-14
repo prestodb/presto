@@ -1238,6 +1238,30 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testZeroVarianceSamp()
+    {
+        assertQuery("SELECT VAR_SAMP(6523763181031200) FROM LINEITEM");
+    }
+
+    @Test
+    public void testZeroVariancePop()
+    {
+        assertQuery("SELECT VAR_POP(6523763181031200) FROM LINEITEM");
+    }
+
+    @Test
+    public void testZeroStddevSamp()
+    {
+        assertQuery("SELECT STDDEV_SAMP(6523763181031200) FROM LINEITEM");
+    }
+
+    @Test
+    public void testZeroStddevPop()
+    {
+        assertQuery("SELECT STDDEV_POP(6523763181031200) FROM LINEITEM");
+    }
+
+    @Test
     public void testVariancePop()
     {
         // int64
