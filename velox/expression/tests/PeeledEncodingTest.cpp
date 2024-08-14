@@ -72,13 +72,6 @@ class PeeledEncodingTest : public testing::Test, public VectorTestBase {
     }
   }
 
-  VectorPtr wrap(
-      const PeeledEncoding& peeledEncoding,
-      const VectorPtr& vector,
-      const SelectivityVector& rows) {
-    return peeledEncoding.wrap(vector->type(), pool(), vector, rows);
-  }
-
   void SetUp() override {
     VectorFuzzer::Options options;
     options.nullRatio = 0.3;
@@ -182,22 +175,12 @@ TEST_P(PeeledEncodingBasicTests, allCommonDictionaryLayers) {
   auto peeledEncoding = PeeledEncoding::peel(
       {input1, input2, input3}, rows, localDecodedVector, true, peeledVectors);
   ASSERT_EQ(peeledVectors.size(), 3);
-  if (rows.countSelected() > 1) {
-    ASSERT_EQ(
-        peeledEncoding->wrapEncoding(), VectorEncoding::Simple::DICTIONARY);
-    ASSERT_EQ(peeledVectors[0].get(), flat1.get());
-    ASSERT_EQ(peeledVectors[1].get(), const1.get());
-    ASSERT_EQ(peeledVectors[2].get(), peelWrappings(2, input3).get());
-  } else {
-    ASSERT_EQ(peeledEncoding->wrapEncoding(), VectorEncoding::Simple::FLAT);
-    ASSERT_EQ(peeledVectors[0]->encoding(), VectorEncoding::Simple::FLAT);
-  }
+  ASSERT_EQ(peeledEncoding->wrapEncoding(), VectorEncoding::Simple::DICTIONARY);
+  ASSERT_EQ(peeledVectors[0].get(), flat1.get());
+  ASSERT_EQ(peeledVectors[1].get(), const1.get());
+  ASSERT_EQ(peeledVectors[2].get(), peelWrappings(2, input3).get());
   assertEqualVectors(
-      input1, wrap(*peeledEncoding, peeledVectors[0], rows), rows);
-  assertEqualVectors(
-      input2, wrap(*peeledEncoding, peeledVectors[1], rows), rows);
-  assertEqualVectors(
-      input3, wrap(*peeledEncoding, peeledVectors[2], rows), rows);
+      input1, peeledEncoding->wrap(flat1->type(), pool(), flat1, rows), rows);
 }
 
 TEST_P(PeeledEncodingBasicTests, someCommonDictionaryLayers) {
@@ -217,25 +200,14 @@ TEST_P(PeeledEncodingBasicTests, someCommonDictionaryLayers) {
   auto peeledEncoding = PeeledEncoding::peel(
       {input1, input2, input3}, rows, localDecodedVector, true, peeledVectors);
   ASSERT_EQ(peeledVectors.size(), 3);
-  if (rows.countSelected() > 1) {
-    ASSERT_EQ(
-        peeledEncoding->wrapEncoding(), VectorEncoding::Simple::DICTIONARY);
-    ASSERT_EQ(peeledVectors[0].get(), peelWrappings(1, input1).get());
-    ASSERT_EQ(peeledVectors[1].get(), peelWrappings(1, input2).get());
-    ASSERT_EQ(peeledVectors[2].get(), peelWrappings(1, input3).get());
-    assertEqualVectors(
-        wrapInDictionaryLayers(flat1, {&dictWrap1}),
-        peeledEncoding->wrap(flat1->type(), pool(), flat1, rows),
-        rows);
-  } else {
-    ASSERT_EQ(peeledEncoding->wrapEncoding(), VectorEncoding::Simple::FLAT);
-  }
+  ASSERT_EQ(peeledEncoding->wrapEncoding(), VectorEncoding::Simple::DICTIONARY);
+  ASSERT_EQ(peeledVectors[0].get(), peelWrappings(1, input1).get());
+  ASSERT_EQ(peeledVectors[1].get(), peelWrappings(1, input2).get());
+  ASSERT_EQ(peeledVectors[2].get(), peelWrappings(1, input3).get());
   assertEqualVectors(
-      input1, wrap(*peeledEncoding, peeledVectors[0], rows), rows);
-  assertEqualVectors(
-      input2, wrap(*peeledEncoding, peeledVectors[1], rows), rows);
-  assertEqualVectors(
-      input3, wrap(*peeledEncoding, peeledVectors[2], rows), rows);
+      wrapInDictionaryLayers(flat1, {&dictWrap1}),
+      peeledEncoding->wrap(flat1->type(), pool(), flat1, rows),
+      rows);
 }
 
 TEST_P(PeeledEncodingBasicTests, commonDictionaryLayersAndAConstant) {
@@ -256,23 +228,15 @@ TEST_P(PeeledEncodingBasicTests, commonDictionaryLayersAndAConstant) {
   auto peeledEncoding = PeeledEncoding::peel(
       {input1, input2, input3}, rows, localDecodedVector, true, peeledVectors);
   ASSERT_EQ(peeledVectors.size(), 3);
-  if (rows.countSelected() > 1) {
-    ASSERT_EQ(
-        peeledEncoding->wrapEncoding(), VectorEncoding::Simple::DICTIONARY);
-    ASSERT_EQ(peeledVectors[0].get(), flat1.get());
-    ASSERT_EQ(peeledVectors[2].get(), peelWrappings(2, input3).get());
-    if (peeledVectors[1].get() != const1.get()) {
-      // In case the constant is resized to match other peeledVector's size.
-      assertEqualVectors(peeledVectors[1], const1, rows);
-    }
-  } else {
-    ASSERT_EQ(peeledEncoding->wrapEncoding(), VectorEncoding::Simple::FLAT);
-    ASSERT_EQ(peeledVectors[1].get(), const1.get());
+  ASSERT_EQ(peeledEncoding->wrapEncoding(), VectorEncoding::Simple::DICTIONARY);
+  ASSERT_EQ(peeledVectors[0].get(), flat1.get());
+  if (peeledVectors[1].get() != const1.get()) {
+    // In case the constant is resized to match other peeledVector's size.
+    assertEqualVectors(peeledVectors[1], const1, rows);
   }
+  ASSERT_EQ(peeledVectors[2].get(), peelWrappings(2, input3).get());
   assertEqualVectors(
-      input1, wrap(*peeledEncoding, peeledVectors[0], rows), rows);
-  assertEqualVectors(
-      input3, wrap(*peeledEncoding, peeledVectors[2], rows), rows);
+      input1, peeledEncoding->wrap(flat1->type(), pool(), flat1, rows), rows);
 }
 
 TEST_P(PeeledEncodingBasicTests, singleConstantEncodedVector) {
@@ -415,27 +379,17 @@ TEST_P(PeeledEncodingBasicTests, dictionaryLayersHavingNulls) {
   auto peeledEncoding = PeeledEncoding::peel(
       {input1, input2, input3}, rows, localDecodedVector, false, peeledVectors);
   ASSERT_EQ(peeledVectors.size(), 3);
-  if (rows.countSelected() > 1) {
-    ASSERT_EQ(
-        peeledEncoding->wrapEncoding(), VectorEncoding::Simple::DICTIONARY);
-    ASSERT_EQ(peeledVectors[0].get(), peelWrappings(1, input1).get());
-    if (peeledVectors[1].get() != const1.get()) {
-      // In case the constant is resized to match other peeledVector's size.
-      assertEqualVectors(peeledVectors[1], const1, rows);
-    }
-    ASSERT_EQ(peeledVectors[2].get(), peelWrappings(1, input3).get());
-    assertEqualVectors(
-        wrapInDictionaryLayers(flat1, {&dictNoNulls}),
-        peeledEncoding->wrap(flat1->type(), pool(), flat1, rows),
-        rows);
-  } else {
-    ASSERT_EQ(peeledEncoding->wrapEncoding(), VectorEncoding::Simple::FLAT);
-    ASSERT_EQ(peeledVectors[1].get(), const1.get());
+  ASSERT_EQ(peeledEncoding->wrapEncoding(), VectorEncoding::Simple::DICTIONARY);
+  ASSERT_EQ(peeledVectors[0].get(), peelWrappings(1, input1).get());
+  if (peeledVectors[1].get() != const1.get()) {
+    // In case the constant is resized to match other peeledVector's size.
+    assertEqualVectors(peeledVectors[1], const1, rows);
   }
+  ASSERT_EQ(peeledVectors[2].get(), peelWrappings(1, input3).get());
   assertEqualVectors(
-      input1, wrap(*peeledEncoding, peeledVectors[0], rows), rows);
-  assertEqualVectors(
-      input3, wrap(*peeledEncoding, peeledVectors[2], rows), rows);
+      wrapInDictionaryLayers(flat1, {&dictNoNulls}),
+      peeledEncoding->wrap(flat1->type(), pool(), flat1, rows),
+      rows);
 }
 
 TEST_P(PeeledEncodingBasicTests, constantResize) {
@@ -453,19 +407,15 @@ TEST_P(PeeledEncodingBasicTests, constantResize) {
   auto peeledEncoding = PeeledEncoding::peel(
       {input1, input2}, rows, localDecodedVector, true, peeledVectors);
   ASSERT_EQ(peeledVectors.size(), 2);
-  if (rows.countSelected() > 1) {
-    ASSERT_EQ(
-        peeledEncoding->wrapEncoding(), VectorEncoding::Simple::DICTIONARY);
-    ASSERT_EQ(peeledVectors[0].get(), flatLarge.get());
-    ASSERT_NE(peeledVectors[1].get(), const1.get());
-    ASSERT_EQ(peeledVectors[1]->encoding(), VectorEncoding::Simple::CONSTANT);
-    ASSERT_EQ(peeledVectors[1]->size(), 2 * vectorSize_);
-  } else {
-    ASSERT_EQ(peeledEncoding->wrapEncoding(), VectorEncoding::Simple::FLAT);
-    ASSERT_EQ(peeledVectors[1].get(), const1.get());
-  }
+  ASSERT_EQ(peeledEncoding->wrapEncoding(), VectorEncoding::Simple::DICTIONARY);
+  ASSERT_EQ(peeledVectors[0].get(), flatLarge.get());
+  ASSERT_NE(peeledVectors[1].get(), const1.get());
+  ASSERT_EQ(peeledVectors[1]->encoding(), VectorEncoding::Simple::CONSTANT);
+  ASSERT_EQ(peeledVectors[1]->size(), 2 * vectorSize_);
   assertEqualVectors(
-      input1, wrap(*peeledEncoding, peeledVectors[0], rows), rows);
+      input1,
+      peeledEncoding->wrap(flatLarge->type(), pool(), flatLarge, rows),
+      rows);
 }
 
 TEST_P(PeeledEncodingBasicTests, intermidiateLazyLayer) {
@@ -484,21 +434,13 @@ TEST_P(PeeledEncodingBasicTests, intermidiateLazyLayer) {
   auto peeledEncoding = PeeledEncoding::peel(
       {input1}, rows, localDecodedVector, true, peeledVectors);
   ASSERT_EQ(peeledVectors.size(), 1);
+  ASSERT_EQ(peeledEncoding->wrapEncoding(), VectorEncoding::Simple::DICTIONARY);
   ASSERT_TRUE(peeledVectors[0]->isFlatEncoding());
   // Loading generates a new vector so we compare their contents instead.
   LocalSelectivityVector traslatedRowsHolder(execCtx_);
   auto translatedRows =
       peeledEncoding->translateToInnerRows(rows, traslatedRowsHolder);
-  if (rows.countSelected() > 1) {
-    ASSERT_EQ(
-        peeledEncoding->wrapEncoding(), VectorEncoding::Simple::DICTIONARY);
-    assertEqualVectors(peeledVectors[0], flat1, *translatedRows);
-  } else {
-    ASSERT_EQ(peeledEncoding->wrapEncoding(), VectorEncoding::Simple::FLAT);
-    assertEqualVectors(
-        input1, wrap(*peeledEncoding, peeledVectors[0], rows), rows);
-    ASSERT_EQ(*translatedRows, rows);
-  }
+  assertEqualVectors(peeledVectors[0], flat1, *translatedRows);
 }
 
 TEST_F(PeeledEncodingTest, peelingFails) {
