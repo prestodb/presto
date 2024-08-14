@@ -683,7 +683,7 @@ class QueryConfig {
   }
 
   bool hashProbeFinishEarlyOnEmptyBuild() const {
-    return get<bool>(kHashProbeFinishEarlyOnEmptyBuild, true);
+    return get<bool>(kHashProbeFinishEarlyOnEmptyBuild, false);
   }
 
   uint32_t minTableRowsForParallelJoinBuild() const {
