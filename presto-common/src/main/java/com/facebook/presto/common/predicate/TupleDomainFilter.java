@@ -1435,7 +1435,7 @@ public interface TupleDomainFilter
         @Override
         public int hashCode()
         {
-            return Objects.hash(Arrays.hashCode(values), nullAllowed);
+            return Objects.hash(Arrays.deepHashCode(values), nullAllowed);
         }
 
         @Override
