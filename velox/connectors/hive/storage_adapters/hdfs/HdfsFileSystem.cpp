@@ -16,9 +16,9 @@
 #include "velox/connectors/hive/storage_adapters/hdfs/HdfsFileSystem.h"
 #include <hdfs/hdfs.h>
 #include <mutex>
+#include "velox/common/config/Config.h"
 #include "velox/connectors/hive/storage_adapters/hdfs/HdfsReadFile.h"
 #include "velox/connectors/hive/storage_adapters/hdfs/HdfsWriteFile.h"
-#include "velox/core/Config.h"
 
 namespace facebook::velox::filesystems {
 std::string_view HdfsFileSystem::kScheme("hdfs://");
@@ -26,7 +26,9 @@ std::string_view HdfsFileSystem::kScheme("hdfs://");
 class HdfsFileSystem::Impl {
  public:
   // Keep config here for possible use in the future.
-  explicit Impl(const Config* config, const HdfsServiceEndpoint& endpoint) {
+  explicit Impl(
+      const config::ConfigBase* config,
+      const HdfsServiceEndpoint& endpoint) {
     auto builder = hdfsNewBuilder();
     hdfsBuilderSetNameNode(builder, endpoint.host.c_str());
     hdfsBuilderSetNameNodePort(builder, atoi(endpoint.port.data()));
@@ -57,7 +59,7 @@ class HdfsFileSystem::Impl {
 };
 
 HdfsFileSystem::HdfsFileSystem(
-    const std::shared_ptr<const Config>& config,
+    const std::shared_ptr<const config::ConfigBase>& config,
     const HdfsServiceEndpoint& endpoint)
     : FileSystem(config) {
   impl_ = std::make_shared<Impl>(config.get(), endpoint);
@@ -94,17 +96,17 @@ bool HdfsFileSystem::isHdfsFile(const std::string_view filePath) {
 /// fixed one from configuration.
 HdfsServiceEndpoint HdfsFileSystem::getServiceEndpoint(
     const std::string_view filePath,
-    const Config* config) {
+    const config::ConfigBase* config) {
   auto endOfIdentityInfo = filePath.find('/', kScheme.size());
   std::string hdfsIdentity{
       filePath.data(), kScheme.size(), endOfIdentityInfo - kScheme.size()};
   if (hdfsIdentity.empty()) {
     // Fall back to get a fixed endpoint from config.
-    auto hdfsHost = config->get("hive.hdfs.host");
+    auto hdfsHost = config->get<std::string>("hive.hdfs.host");
     VELOX_CHECK(
         hdfsHost.hasValue(),
         "hdfsHost is empty, configuration missing for hdfs host");
-    auto hdfsPort = config->get("hive.hdfs.port");
+    auto hdfsPort = config->get<std::string>("hive.hdfs.port");
     VELOX_CHECK(
         hdfsPort.hasValue(),
         "hdfsPort is empty, configuration missing for hdfs port");

@@ -83,7 +83,7 @@ void configureRowReaderOptions(
     const RowTypePtr& rowType,
     const std::shared_ptr<const HiveConnectorSplit>& hiveSplit,
     const std::shared_ptr<const HiveConfig>& hiveConfig = nullptr,
-    const Config* sessionProperties = nullptr);
+    const config::ConfigBase* sessionProperties = nullptr);
 
 bool testFilters(
     const common::ScanSpec* scanSpec,

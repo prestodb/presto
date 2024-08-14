@@ -2387,8 +2387,8 @@ TEST_P(UnpartitionedTableWriterTest, immutableSettings) {
     std::unordered_map<std::string, std::string> propFromFile{
         {"hive.immutable-partitions",
          testData.immutablePartitionsEnabled ? "true" : "false"}};
-    std::shared_ptr<const Config> config{
-        std::make_shared<core::MemConfig>(propFromFile)};
+    std::shared_ptr<const config::ConfigBase> config{
+        std::make_shared<config::ConfigBase>(std::move(propFromFile))};
     resetHiveConnector(config);
 
     auto input = makeVectors(10, 10);

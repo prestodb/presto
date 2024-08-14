@@ -24,6 +24,10 @@
 #include "velox/vector/DecodedVector.h"
 #include "velox/vector/VectorPool.h"
 
+namespace facebook::velox {
+class Config;
+};
+
 namespace facebook::velox::core {
 
 class QueryCtx : public std::enable_shared_from_this<QueryCtx> {
@@ -42,8 +46,19 @@ class QueryCtx : public std::enable_shared_from_this<QueryCtx> {
   static std::shared_ptr<QueryCtx> create(
       folly::Executor* executor = nullptr,
       QueryConfig&& queryConfig = QueryConfig{{}},
-      std::unordered_map<std::string, std::shared_ptr<Config>>
+      std::unordered_map<std::string, std::shared_ptr<config::ConfigBase>>
           connectorConfigs = {},
+      cache::AsyncDataCache* cache = cache::AsyncDataCache::getInstance(),
+      std::shared_ptr<memory::MemoryPool> pool = nullptr,
+      folly::Executor* spillExecutor = nullptr,
+      const std::string& queryId = "");
+
+  // TODO(jtan6): [Config Refactor] Remove this old API after refactoring is
+  //  done.
+  static std::shared_ptr<QueryCtx> create(
+      folly::Executor* executor,
+      QueryConfig&& queryConfig,
+      std::unordered_map<std::string, std::shared_ptr<Config>> connectorConfigs,
       cache::AsyncDataCache* cache = cache::AsyncDataCache::getInstance(),
       std::shared_ptr<memory::MemoryPool> pool = nullptr,
       folly::Executor* spillExecutor = nullptr,
@@ -72,7 +87,8 @@ class QueryCtx : public std::enable_shared_from_this<QueryCtx> {
     return queryConfig_;
   }
 
-  Config* connectorSessionProperties(const std::string& connectorId) const {
+  config::ConfigBase* connectorSessionProperties(
+      const std::string& connectorId) const {
     auto it = connectorSessionProperties_.find(connectorId);
     if (it == connectorSessionProperties_.end()) {
       return getEmptyConfig();
@@ -93,7 +109,7 @@ class QueryCtx : public std::enable_shared_from_this<QueryCtx> {
       const std::string& connectorId,
       std::unordered_map<std::string, std::string>&& configOverrides) {
     connectorSessionProperties_[connectorId] =
-        std::make_shared<MemConfig>(std::move(configOverrides));
+        std::make_shared<config::ConfigBase>(std::move(configOverrides));
   }
 
   folly::Executor* spillExecutor() const {
@@ -135,7 +151,7 @@ class QueryCtx : public std::enable_shared_from_this<QueryCtx> {
   QueryCtx(
       folly::Executor* executor = nullptr,
       QueryConfig&& queryConfig = QueryConfig{{}},
-      std::unordered_map<std::string, std::shared_ptr<Config>>
+      std::unordered_map<std::string, std::shared_ptr<config::ConfigBase>>
           connectorConfigs = {},
       cache::AsyncDataCache* cache = cache::AsyncDataCache::getInstance(),
       std::shared_ptr<memory::MemoryPool> pool = nullptr,
@@ -174,9 +190,10 @@ class QueryCtx : public std::enable_shared_from_this<QueryCtx> {
     memory::MemoryPool* const pool_;
   };
 
-  static Config* getEmptyConfig() {
-    static const std::unique_ptr<Config> kEmptyConfig =
-        std::make_unique<MemConfig>();
+  static config::ConfigBase* getEmptyConfig() {
+    static const std::unique_ptr<config::ConfigBase> kEmptyConfig =
+        std::make_unique<config::ConfigBase>(
+            std::unordered_map<std::string, std::string>());
     return kEmptyConfig.get();
   }
 
@@ -201,7 +218,7 @@ class QueryCtx : public std::enable_shared_from_this<QueryCtx> {
   folly::Executor* const spillExecutor_{nullptr};
   cache::AsyncDataCache* const cache_;
 
-  std::unordered_map<std::string, std::shared_ptr<Config>>
+  std::unordered_map<std::string, std::shared_ptr<config::ConfigBase>>
       connectorSessionProperties_;
   std::shared_ptr<memory::MemoryPool> pool_;
   QueryConfig queryConfig_;

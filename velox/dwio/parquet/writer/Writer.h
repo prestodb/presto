@@ -17,7 +17,7 @@
 #pragma once
 
 #include "velox/common/compression/Compression.h"
-#include "velox/core/Config.h"
+#include "velox/common/config/Config.h"
 #include "velox/dwio/common/DataBuffer.h"
 #include "velox/dwio/common/FileSink.h"
 #include "velox/dwio/common/FlushPolicy.h"
@@ -123,8 +123,8 @@ struct WriterOptions : public dwio::common::WriterOptions {
       "hive.parquet.writer.timestamp-unit";
 
   // Process hive connector and session configs.
-  void processSessionConfigs(const Config& config) override;
-  void processHiveConnectorConfigs(const Config& config) override;
+  void processSessionConfigs(const config::ConfigBase& config) override;
+  void processHiveConnectorConfigs(const config::ConfigBase& config) override;
 };
 
 // Writes Velox vectors into  a DataSink using Arrow Parquet writer.

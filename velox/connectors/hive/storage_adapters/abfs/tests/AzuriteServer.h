@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include "velox/core/Config.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 
 #include <azure/storage/blobs/blob_container_client.hpp>

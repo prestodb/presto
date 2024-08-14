@@ -16,15 +16,17 @@
 
 #include "velox/connectors/hive/HiveConfig.h"
 #include "gtest/gtest.h"
-#include "velox/core/Config.h"
+#include "velox/common/config/Config.h"
 
+using namespace facebook::velox;
 using namespace facebook::velox::connector::hive;
-using namespace facebook::velox::core;
 using facebook::velox::connector::hive::HiveConfig;
 
 TEST(HiveConfigTest, defaultConfig) {
-  HiveConfig hiveConfig(std::make_shared<MemConfig>());
-  const auto emptySession = std::make_unique<MemConfig>();
+  HiveConfig hiveConfig(std::make_shared<config::ConfigBase>(
+      std::unordered_map<std::string, std::string>()));
+  const auto emptySession = std::make_unique<config::ConfigBase>(
+      std::unordered_map<std::string, std::string>());
   ASSERT_EQ(
       hiveConfig.insertExistingPartitionsBehavior(emptySession.get()),
       facebook::velox::connector::hive::HiveConfig::
@@ -77,7 +79,7 @@ TEST(HiveConfigTest, defaultConfig) {
 }
 
 TEST(HiveConfigTest, overrideConfig) {
-  const std::unordered_map<std::string, std::string> configFromFile = {
+  std::unordered_map<std::string, std::string> configFromFile = {
       {HiveConfig::kInsertExistingPartitionsBehavior, "OVERWRITE"},
       {HiveConfig::kMaxPartitionsPerWriters, "120"},
       {HiveConfig::kImmutablePartitions, "true"},
@@ -109,8 +111,10 @@ TEST(HiveConfigTest, overrideConfig) {
       {HiveConfig::kOrcWriterMinCompressionSize, "512"},
       {HiveConfig::kOrcWriterCompressionLevel, "1"},
       {HiveConfig::kCacheNoRetention, "true"}};
-  HiveConfig hiveConfig(std::make_shared<MemConfig>(configFromFile));
-  auto emptySession = std::make_unique<MemConfig>();
+  HiveConfig hiveConfig(
+      std::make_shared<config::ConfigBase>(std::move(configFromFile)));
+  auto emptySession = std::make_shared<config::ConfigBase>(
+      std::unordered_map<std::string, std::string>());
   ASSERT_EQ(
       hiveConfig.insertExistingPartitionsBehavior(emptySession.get()),
       facebook::velox::connector::hive::HiveConfig::
@@ -161,8 +165,9 @@ TEST(HiveConfigTest, overrideConfig) {
 }
 
 TEST(HiveConfigTest, overrideSession) {
-  HiveConfig hiveConfig(std::make_shared<MemConfig>());
-  const std::unordered_map<std::string, std::string> sessionOverride = {
+  HiveConfig hiveConfig(std::make_shared<config::ConfigBase>(
+      std::unordered_map<std::string, std::string>()));
+  std::unordered_map<std::string, std::string> sessionOverride = {
       {HiveConfig::kInsertExistingPartitionsBehaviorSession, "OVERWRITE"},
       {HiveConfig::kOrcUseColumnNamesSession, "true"},
       {HiveConfig::kFileColumnNamesReadAsLowerCaseSession, "true"},
@@ -178,7 +183,8 @@ TEST(HiveConfigTest, overrideSession) {
       {HiveConfig::kOrcWriterCompressionLevelSession, "1"},
       {HiveConfig::kOrcWriterLinearStripeSizeHeuristicsSession, "false"},
       {HiveConfig::kCacheNoRetentionSession, "true"}};
-  const auto session = std::make_unique<MemConfig>(sessionOverride);
+  const auto session =
+      std::make_unique<config::ConfigBase>(std::move(sessionOverride));
   ASSERT_EQ(
       hiveConfig.insertExistingPartitionsBehavior(session.get()),
       facebook::velox::connector::hive::HiveConfig::

@@ -16,10 +16,10 @@
 
 #include "velox/connectors/hive/storage_adapters/gcs/GCSFileSystem.h"
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/config/Config.h"
 #include "velox/common/file/File.h"
 #include "velox/connectors/hive/FileHandle.h"
 #include "velox/connectors/hive/storage_adapters/gcs/GCSUtil.h"
-#include "velox/core/Config.h"
 #include "velox/exec/tests/utils/TempFilePath.h"
 
 #include <boost/process.hpp>
@@ -139,12 +139,13 @@ class GCSFileSystemTest : public testing::Test {
                              << ">, status=" << object.status();
   }
 
-  std::shared_ptr<const Config> testGcsOptions() const {
+  std::shared_ptr<const config::ConfigBase> testGcsOptions() const {
     std::unordered_map<std::string, std::string> configOverride = {};
 
     configOverride["hive.gcs.scheme"] = "http";
     configOverride["hive.gcs.endpoint"] = "localhost:" + testbench_->port();
-    return std::make_shared<const core::MemConfig>(std::move(configOverride));
+    return std::make_shared<const config::ConfigBase>(
+        std::move(configOverride));
   }
 
   std::string preexistingBucketName() {
@@ -345,8 +346,8 @@ TEST_F(GCSFileSystemTest, credentialsConfig) {
   })""";
   configOverride["hive.gcs.scheme"] = "http";
   configOverride["hive.gcs.endpoint"] = "localhost:" + testbench_->port();
-  std::shared_ptr<const Config> conf =
-      std::make_shared<const core::MemConfig>(std::move(configOverride));
+  std::shared_ptr<const config::ConfigBase> conf =
+      std::make_shared<const config::ConfigBase>(std::move(configOverride));
 
   filesystems::GCSFileSystem gcfs(conf);
 

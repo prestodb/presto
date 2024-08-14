@@ -16,11 +16,11 @@
 
 #include "velox/benchmarks/filesystem/ReadBenchmark.h"
 
+#include "velox/common/config/Config.h"
 #include "velox/connectors/hive/storage_adapters/abfs/RegisterAbfsFileSystem.h"
 #include "velox/connectors/hive/storage_adapters/gcs/RegisterGCSFileSystem.h"
 #include "velox/connectors/hive/storage_adapters/hdfs/RegisterHdfsFileSystem.h"
 #include "velox/connectors/hive/storage_adapters/s3fs/RegisterS3FileSystem.h"
-#include "velox/core/Config.h"
 
 DEFINE_string(path, "", "Path of the input file");
 DEFINE_int64(
@@ -60,7 +60,7 @@ DEFINE_validator(path, &notEmpty);
 
 namespace facebook::velox {
 
-std::shared_ptr<Config> readConfig(const std::string& filePath) {
+std::shared_ptr<config::ConfigBase> readConfig(const std::string& filePath) {
   std::ifstream configFile(filePath);
   if (!configFile.is_open()) {
     throw std::runtime_error(
@@ -80,7 +80,7 @@ std::shared_ptr<Config> readConfig(const std::string& filePath) {
     properties.emplace(name, value);
   }
 
-  return std::make_shared<facebook::velox::core::MemConfig>(properties);
+  return std::make_shared<config::ConfigBase>(std::move(properties));
 }
 
 // Initialize a LocalReadFile instance for the specified 'path'.
@@ -108,7 +108,7 @@ void ReadBenchmark::initialize() {
     filesystems::registerGCSFileSystem();
     filesystems::registerHdfsFileSystem();
     filesystems::abfs::registerAbfsFileSystem();
-    std::shared_ptr<Config> config;
+    std::shared_ptr<config::ConfigBase> config;
     if (!FLAGS_config.empty()) {
       config = readConfig(FLAGS_config);
     }

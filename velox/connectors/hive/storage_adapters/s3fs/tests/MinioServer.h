@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "velox/core/Config.h"
+#include "velox/common/config/Config.h"
 #include "velox/exec/tests/utils/PortUtil.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 
@@ -54,7 +54,7 @@ class MinioServer {
     return tempPath_->getPath();
   }
 
-  std::shared_ptr<const Config> hiveConfig(
+  std::shared_ptr<const config::ConfigBase> hiveConfig(
       const std::unordered_map<std::string, std::string> configOverride = {})
       const {
     std::unordered_map<std::string, std::string> config({
@@ -70,7 +70,7 @@ class MinioServer {
       config[configName] = configValue;
     }
 
-    return std::make_shared<const core::MemConfig>(std::move(config));
+    return std::make_shared<const config::ConfigBase>(std::move(config));
   }
 
  private:

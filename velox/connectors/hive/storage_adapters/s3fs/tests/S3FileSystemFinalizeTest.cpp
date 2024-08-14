@@ -15,8 +15,8 @@
  */
 
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/config/Config.h"
 #include "velox/connectors/hive/storage_adapters/s3fs/S3FileSystem.h"
-#include "velox/core/Config.h"
 
 #include "gtest/gtest.h"
 
@@ -24,7 +24,8 @@ namespace facebook::velox {
 namespace {
 
 TEST(S3FileSystemFinalizeTest, finalize) {
-  auto s3Config = std::make_shared<core::MemConfig>();
+  auto s3Config = std::make_shared<config::ConfigBase>(
+      std::unordered_map<std::string, std::string>());
   ASSERT_TRUE(filesystems::initializeS3(s3Config.get()));
   ASSERT_FALSE(filesystems::initializeS3(s3Config.get()));
   {

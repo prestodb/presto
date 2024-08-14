@@ -23,9 +23,9 @@
 #include "velox/common/base/RandomUtil.h"
 #include "velox/common/base/SpillConfig.h"
 #include "velox/common/compression/Compression.h"
+#include "velox/common/config/Config.h"
 #include "velox/common/io/Options.h"
 #include "velox/common/memory/Memory.h"
-#include "velox/core/Config.h"
 #include "velox/dwio/common/ColumnSelector.h"
 #include "velox/dwio/common/ErrorTolerance.h"
 #include "velox/dwio/common/FlatMapHelper.h"
@@ -620,8 +620,8 @@ struct WriterOptions {
 
   // WriterOption implementations should provide this function to specify how to
   // process format-specific session and connector configs.
-  virtual void processSessionConfigs(const Config&) {}
-  virtual void processHiveConnectorConfigs(const Config&) {}
+  virtual void processSessionConfigs(const config::ConfigBase&) {}
+  virtual void processHiveConnectorConfigs(const config::ConfigBase&) {}
 
   virtual ~WriterOptions() = default;
 };

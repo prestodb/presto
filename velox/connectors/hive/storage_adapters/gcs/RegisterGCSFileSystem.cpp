@@ -15,9 +15,9 @@
  */
 
 #ifdef VELOX_ENABLE_GCS
+#include "velox/common/config/Config.h"
 #include "velox/connectors/hive/storage_adapters/gcs/GCSFileSystem.h" // @manual
 #include "velox/connectors/hive/storage_adapters/gcs/GCSUtil.h" // @manual
-#include "velox/core/Config.h"
 #endif
 
 namespace facebook::velox::filesystems {
@@ -26,28 +26,30 @@ namespace facebook::velox::filesystems {
 folly::once_flag GCSInstantiationFlag;
 
 std::function<std::shared_ptr<
-    FileSystem>(std::shared_ptr<const Config>, std::string_view)>
+    FileSystem>(std::shared_ptr<const config::ConfigBase>, std::string_view)>
 gcsFileSystemGenerator() {
-  static auto filesystemGenerator = [](std::shared_ptr<const Config> properties,
-                                       std::string_view filePath) {
-    // Only one instance of GCSFileSystem is supported for now (follow S3 for
-    // now).
-    // TODO: Support multiple GCSFileSystem instances using a cache
-    // Initialize on first access and reuse after that.
-    static std::shared_ptr<FileSystem> gcsfs;
-    folly::call_once(GCSInstantiationFlag, [&properties]() {
-      std::shared_ptr<GCSFileSystem> fs;
-      if (properties != nullptr) {
-        fs = std::make_shared<GCSFileSystem>(properties);
-      } else {
-        fs = std::make_shared<GCSFileSystem>(
-            std::make_shared<core::MemConfig>());
-      }
-      fs->initializeClient();
-      gcsfs = fs;
-    });
-    return gcsfs;
-  };
+  static auto filesystemGenerator =
+      [](std::shared_ptr<const config::ConfigBase> properties,
+         std::string_view filePath) {
+        // Only one instance of GCSFileSystem is supported for now (follow S3
+        // for now).
+        // TODO: Support multiple GCSFileSystem instances using a cache
+        // Initialize on first access and reuse after that.
+        static std::shared_ptr<FileSystem> gcsfs;
+        folly::call_once(GCSInstantiationFlag, [&properties]() {
+          std::shared_ptr<GCSFileSystem> fs;
+          if (properties != nullptr) {
+            fs = std::make_shared<GCSFileSystem>(properties);
+          } else {
+            fs = std::make_shared<GCSFileSystem>(
+                std::make_shared<config::ConfigBase>(
+                    std::unordered_map<std::string, std::string>()));
+          }
+          fs->initializeClient();
+          gcsfs = fs;
+        });
+        return gcsfs;
+      };
   return filesystemGenerator;
 }
 #endif

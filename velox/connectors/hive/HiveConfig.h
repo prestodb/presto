@@ -17,10 +17,10 @@
 
 #include <optional>
 #include <string>
-#include "velox/core/Config.h"
+#include "velox/common/base/Exceptions.h"
 
-namespace facebook::velox {
-class Config;
+namespace facebook::velox::config {
+class ConfigBase;
 }
 
 namespace facebook::velox::connector::hive {
@@ -241,9 +241,9 @@ class HiveConfig {
   static constexpr const char* kCacheNoRetentionSession = "cache.no_retention";
 
   InsertExistingPartitionsBehavior insertExistingPartitionsBehavior(
-      const Config* session) const;
+      const config::ConfigBase* session) const;
 
-  uint32_t maxPartitionsPerWriters(const Config* session) const;
+  uint32_t maxPartitionsPerWriters(const config::ConfigBase* session) const;
 
   bool immutablePartitions() const;
 
@@ -285,13 +285,14 @@ class HiveConfig {
 
   std::optional<std::string> gcsMaxRetryTime() const;
 
-  bool isOrcUseColumnNames(const Config* session) const;
+  bool isOrcUseColumnNames(const config::ConfigBase* session) const;
 
-  bool isFileColumnNamesReadAsLowerCase(const Config* session) const;
+  bool isFileColumnNamesReadAsLowerCase(
+      const config::ConfigBase* session) const;
 
-  bool isPartitionPathAsLowerCase(const Config* session) const;
+  bool isPartitionPathAsLowerCase(const config::ConfigBase* session) const;
 
-  bool ignoreMissingFiles(const Config* session) const;
+  bool ignoreMissingFiles(const config::ConfigBase* session) const;
 
   int64_t maxCoalescedBytes() const;
 
@@ -307,25 +308,30 @@ class HiveConfig {
 
   uint64_t fileWriterFlushThresholdBytes() const;
 
-  uint64_t orcWriterMaxStripeSize(const Config* session) const;
+  uint64_t orcWriterMaxStripeSize(const config::ConfigBase* session) const;
 
-  uint64_t orcWriterMaxDictionaryMemory(const Config* session) const;
+  uint64_t orcWriterMaxDictionaryMemory(
+      const config::ConfigBase* session) const;
 
-  bool isOrcWriterIntegerDictionaryEncodingEnabled(const Config* session) const;
+  bool isOrcWriterIntegerDictionaryEncodingEnabled(
+      const config::ConfigBase* session) const;
 
-  bool isOrcWriterStringDictionaryEncodingEnabled(const Config* session) const;
+  bool isOrcWriterStringDictionaryEncodingEnabled(
+      const config::ConfigBase* session) const;
 
-  bool orcWriterLinearStripeSizeHeuristics(const Config* session) const;
+  bool orcWriterLinearStripeSizeHeuristics(
+      const config::ConfigBase* session) const;
 
-  uint64_t orcWriterMinCompressionSize(const Config* session) const;
+  uint64_t orcWriterMinCompressionSize(const config::ConfigBase* session) const;
 
-  std::optional<uint8_t> orcWriterCompressionLevel(const Config* session) const;
+  std::optional<uint8_t> orcWriterCompressionLevel(
+      const config::ConfigBase* session) const;
 
   std::string writeFileCreateConfig() const;
 
-  uint32_t sortWriterMaxOutputRows(const Config* session) const;
+  uint32_t sortWriterMaxOutputRows(const config::ConfigBase* session) const;
 
-  uint64_t sortWriterMaxOutputBytes(const Config* session) const;
+  uint64_t sortWriterMaxOutputBytes(const config::ConfigBase* session) const;
 
   uint64_t footerEstimatedSize() const;
 
@@ -334,28 +340,28 @@ class HiveConfig {
   bool s3UseProxyFromEnv() const;
 
   // Returns the timestamp unit used when reading timestamps from files.
-  uint8_t readTimestampUnit(const Config* session) const;
+  uint8_t readTimestampUnit(const config::ConfigBase* session) const;
 
   /// Returns true to evict out a query scanned data out of in-memory cache
   /// right after the access, and also skip staging to the ssd cache. This helps
   /// to prevent the cache space pollution from the one-time table scan by large
   /// batch query when mixed running with interactive query which has high data
   /// locality.
-  bool cacheNoRetention(const Config* session) const;
+  bool cacheNoRetention(const config::ConfigBase* session) const;
 
-  HiveConfig(std::shared_ptr<const Config> config) {
+  HiveConfig(std::shared_ptr<const config::ConfigBase> config) {
     VELOX_CHECK_NOT_NULL(
         config, "Config is null for HiveConfig initialization");
     config_ = std::move(config);
     // TODO: add sanity check
   }
 
-  const std::shared_ptr<const Config>& config() const {
+  const std::shared_ptr<const config::ConfigBase>& config() const {
     return config_;
   }
 
  private:
-  std::shared_ptr<const Config> config_;
+  std::shared_ptr<const config::ConfigBase> config_;
 };
 
 } // namespace facebook::velox::connector::hive

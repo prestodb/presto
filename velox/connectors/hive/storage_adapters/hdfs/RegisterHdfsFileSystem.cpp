@@ -17,9 +17,9 @@
 #ifdef VELOX_ENABLE_HDFS3
 #include "folly/concurrency/ConcurrentHashMap.h"
 
+#include "velox/common/config/Config.h"
 #include "velox/connectors/hive/storage_adapters/hdfs/HdfsFileSystem.h" // @manual
 #include "velox/connectors/hive/storage_adapters/hdfs/HdfsUtil.h" // @manual
-#include "velox/core/Config.h"
 #include "velox/dwio/common/FileSink.h"
 #endif
 
@@ -29,9 +29,10 @@ namespace facebook::velox::filesystems {
 std::mutex mtx;
 
 std::function<std::shared_ptr<
-    FileSystem>(std::shared_ptr<const Config>, std::string_view)>
+    FileSystem>(std::shared_ptr<const config::ConfigBase>, std::string_view)>
 hdfsFileSystemGenerator() {
-  static auto filesystemGenerator = [](std::shared_ptr<const Config> properties,
+  static auto filesystemGenerator = [](std::shared_ptr<const config::ConfigBase>
+                                           properties,
                                        std::string_view filePath) {
     static folly::ConcurrentHashMap<std::string, std::shared_ptr<FileSystem>>
         filesystems;

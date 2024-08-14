@@ -18,15 +18,12 @@
 
 #include <chrono>
 
+#include "velox/common/config/Config.h"
 #include "velox/common/file/File.h"
 #include "velox/common/io/IoStatistics.h"
 #include "velox/dwio/common/Closeable.h"
 #include "velox/dwio/common/DataBuffer.h"
 #include "velox/dwio/common/MetricsLog.h"
-
-namespace facebook::velox {
-class Config;
-}
 
 namespace facebook::velox::dwio::common {
 using namespace facebook::velox::io;
@@ -40,7 +37,8 @@ class FileSink : public Closeable {
     bool bufferWrite{true};
     /// Connector properties are required to create a FileSink on FileSystems
     /// such as S3.
-    const std::shared_ptr<const Config>& connectorProperties{nullptr};
+    const std::shared_ptr<const config::ConfigBase>& connectorProperties{
+        nullptr};
     /// Config used to create sink files. This config is provided to underlying
     /// file system and the config is free form. The form should be defined by
     /// the underlying file system.
@@ -111,7 +109,7 @@ class FileSink : public Closeable {
       const std::function<uint64_t(const DataBuffer<char>&)>& callback);
 
   const std::string name_;
-  const std::shared_ptr<const Config> connectorProperties_;
+  const std::shared_ptr<const config::ConfigBase> connectorProperties_;
   memory::MemoryPool* const pool_;
   const MetricsLogPtr metricLogger_;
   IoStatistics* const stats_;

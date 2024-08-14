@@ -29,15 +29,17 @@
 
 #include <folly/Synchronized.h>
 
+namespace facebook::velox {
+class Config;
+}
 namespace facebook::velox::wave {
 class WaveDataSource;
 }
 namespace facebook::velox::common {
 class Filter;
 }
-
-namespace facebook::velox {
-class Config;
+namespace facebook::velox::config {
+class ConfigBase;
 }
 
 namespace facebook::velox::connector {
@@ -256,7 +258,7 @@ class ConnectorQueryCtx {
   ConnectorQueryCtx(
       memory::MemoryPool* operatorPool,
       memory::MemoryPool* connectorPool,
-      const Config* sessionProperties,
+      const config::ConfigBase* sessionProperties,
       const common::SpillConfig* spillConfig,
       common::PrefixSortConfig prefixSortConfig,
       std::unique_ptr<core::ExpressionEvaluator> expressionEvaluator,
@@ -297,7 +299,7 @@ class ConnectorQueryCtx {
     return connectorPool_;
   }
 
-  const Config* sessionProperties() const {
+  const config::ConfigBase* sessionProperties() const {
     return sessionProperties_;
   }
 
@@ -356,7 +358,7 @@ class ConnectorQueryCtx {
  private:
   memory::MemoryPool* const operatorPool_;
   memory::MemoryPool* const connectorPool_;
-  const Config* const sessionProperties_;
+  const config::ConfigBase* const sessionProperties_;
   const common::SpillConfig* const spillConfig_;
   const common::PrefixSortConfig prefixSortConfig_;
   std::unique_ptr<core::ExpressionEvaluator> expressionEvaluator_;
@@ -380,7 +382,8 @@ class Connector {
     return id_;
   }
 
-  virtual const std::shared_ptr<const Config>& connectorConfig() const {
+  virtual const std::shared_ptr<const config::ConfigBase>& connectorConfig()
+      const {
     VELOX_NYI("connectorConfig is not supported yet");
   }
 
@@ -447,6 +450,12 @@ class ConnectorFactory {
     return name_;
   }
 
+  virtual std::shared_ptr<Connector> newConnector(
+      const std::string& id,
+      std::shared_ptr<const config::ConfigBase> config,
+      folly::Executor* executor = nullptr) = 0;
+
+  // TODO(jtan6): [Config Refactor] Remove this old API when refactor is done.
   virtual std::shared_ptr<Connector> newConnector(
       const std::string& id,
       std::shared_ptr<const Config> config,

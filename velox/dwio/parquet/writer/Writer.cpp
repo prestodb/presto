@@ -18,6 +18,7 @@
 #include <arrow/c/bridge.h>
 #include <arrow/io/interfaces.h>
 #include <arrow/table.h>
+#include "velox/common/config/Config.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/core/QueryConfig.h"
 #include "velox/dwio/parquet/writer/arrow/Properties.h"
@@ -410,7 +411,7 @@ void Writer::setMemoryReclaimers() {
 namespace {
 
 std::optional<TimestampUnit> getTimestampUnit(
-    const Config& config,
+    const config::ConfigBase& config,
     const char* configKey) {
   if (const auto unit = config.get<uint8_t>(configKey)) {
     VELOX_CHECK(
@@ -424,7 +425,7 @@ std::optional<TimestampUnit> getTimestampUnit(
 }
 
 std::optional<std::string> getTimestampTimeZone(
-    const Config& config,
+    const config::ConfigBase& config,
     const char* configKey) {
   if (const auto timezone = config.get<std::string>(configKey)) {
     return timezone.value();
@@ -434,7 +435,7 @@ std::optional<std::string> getTimestampTimeZone(
 
 } // namespace
 
-void WriterOptions::processSessionConfigs(const Config& config) {
+void WriterOptions::processSessionConfigs(const config::ConfigBase& config) {
   if (!parquetWriteTimestampUnit) {
     parquetWriteTimestampUnit =
         getTimestampUnit(config, kParquetSessionWriteTimestampUnit);
@@ -446,7 +447,8 @@ void WriterOptions::processSessionConfigs(const Config& config) {
   }
 }
 
-void WriterOptions::processHiveConnectorConfigs(const Config& config) {
+void WriterOptions::processHiveConnectorConfigs(
+    const config::ConfigBase& config) {
   if (!parquetWriteTimestampUnit) {
     parquetWriteTimestampUnit =
         getTimestampUnit(config, kParquetHiveConnectorWriteTimestampUnit);

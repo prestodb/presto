@@ -34,7 +34,8 @@ namespace facebook::velox::filesystems::abfs {
 /// https://learn.microsoft.com/en-us/azure/databricks/storage/azure-storage.
 class AbfsFileSystem : public FileSystem {
  public:
-  explicit AbfsFileSystem(const std::shared_ptr<const Config>& config);
+  explicit AbfsFileSystem(
+      const std::shared_ptr<const config::ConfigBase>& config);
 
   std::string name() const override;
 

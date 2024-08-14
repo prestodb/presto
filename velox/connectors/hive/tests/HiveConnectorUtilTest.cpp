@@ -19,7 +19,6 @@
 #include "velox/connectors/hive/HiveConfig.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/connectors/hive/TableHandle.h"
-#include "velox/core/Config.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PrefixSortUtils.h"
 
@@ -42,7 +41,7 @@ class HiveConnectorUtilTest : public exec::test::HiveConnectorTestBase {
 };
 
 TEST_F(HiveConnectorUtilTest, configureReaderOptions) {
-  core::MemConfig sessionProperties;
+  config::ConfigBase sessionProperties({});
   auto connectorQueryCtx = std::make_unique<connector::ConnectorQueryCtx>(
       pool_.get(),
       pool_.get(),
@@ -57,7 +56,8 @@ TEST_F(HiveConnectorUtilTest, configureReaderOptions) {
       0,
       "");
   auto hiveConfig =
-      std::make_shared<hive::HiveConfig>(std::make_shared<core::MemConfig>());
+      std::make_shared<hive::HiveConfig>(std::make_shared<config::ConfigBase>(
+          std::unordered_map<std::string, std::string>()));
   const std::unordered_map<std::string, std::optional<std::string>>
       partitionKeys;
   const std::unordered_map<std::string, std::string> customSplitInfo;
@@ -188,7 +188,7 @@ TEST_F(HiveConnectorUtilTest, configureReaderOptions) {
   customHiveConfigProps[hive::HiveConfig::kFilePreloadThreshold] = "9999";
   customHiveConfigProps[hive::HiveConfig::kPrefetchRowGroups] = "10";
   hiveConfig = std::make_shared<hive::HiveConfig>(
-      std::make_shared<core::MemConfig>(customHiveConfigProps));
+      std::make_shared<config::ConfigBase>(std::move(customHiveConfigProps)));
   performConfigure();
   EXPECT_EQ(readerOptions.loadQuantum(), hiveConfig->loadQuantum());
   EXPECT_EQ(readerOptions.maxCoalesceBytes(), hiveConfig->maxCoalescedBytes());

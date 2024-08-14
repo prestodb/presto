@@ -16,6 +16,7 @@
 
 #include "velox/connectors/Connector.h"
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/config/Config.h"
 
 #include <gtest/gtest.h>
 
@@ -61,6 +62,13 @@ class TestConnectorFactory : public connector::ConnectorFactory {
       folly::Executor* /*executor*/ = nullptr) override {
     return std::make_shared<TestConnector>(id);
   }
+
+  std::shared_ptr<Connector> newConnector(
+      const std::string& id,
+      std::shared_ptr<const config::ConfigBase> /*config*/,
+      folly::Executor* /*executor*/ = nullptr) override {
+    return std::make_shared<TestConnector>(id);
+  }
 };
 
 } // namespace
@@ -75,7 +83,10 @@ TEST_F(ConnectorTest, getAllConnectors) {
   for (int32_t i = 0; i < numConnectors; i++) {
     registerConnector(
         getConnectorFactory(TestConnectorFactory::kConnectorFactoryName)
-            ->newConnector(fmt::format("connector-{}", i), {}));
+            ->newConnector(
+                fmt::format("connector-{}", i),
+                std::make_shared<config::ConfigBase>(
+                    std::unordered_map<std::string, std::string>())));
   }
   const auto& connectors = getAllConnectors();
   EXPECT_EQ(connectors.size(), numConnectors);

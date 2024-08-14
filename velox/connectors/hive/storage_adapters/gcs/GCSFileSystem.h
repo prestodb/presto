@@ -26,7 +26,7 @@ namespace facebook::velox::filesystems {
 /// (register|generate)ReadFile and (register|generate)WriteFile functions.
 class GCSFileSystem : public FileSystem {
  public:
-  explicit GCSFileSystem(std::shared_ptr<const Config> config);
+  explicit GCSFileSystem(std::shared_ptr<const config::ConfigBase> config);
 
   /// Initialize the google::cloud::storage::Client from the input Config
   /// parameters.

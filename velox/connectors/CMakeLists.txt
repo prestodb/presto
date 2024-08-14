@@ -13,7 +13,7 @@
 # limitations under the License.
 velox_add_library(velox_connector Connector.cpp)
 
-velox_link_libraries(velox_connector velox_config velox_vector)
+velox_link_libraries(velox_connector velox_common_config velox_vector)
 
 add_subdirectory(fuzzer)
 

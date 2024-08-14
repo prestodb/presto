@@ -44,7 +44,7 @@ static const std::string fullFilePath =
 
 class AbfsFileSystemTest : public testing::Test {
  public:
-  static std::shared_ptr<const Config> hiveConfig(
+  static std::shared_ptr<const config::ConfigBase> hiveConfig(
       const std::unordered_map<std::string, std::string> configOverride = {}) {
     std::unordered_map<std::string, std::string> config({});
 
@@ -55,7 +55,7 @@ class AbfsFileSystemTest : public testing::Test {
                 << std::endl;
     }
 
-    return std::make_shared<const core::MemConfig>(std::move(config));
+    return std::make_shared<const config::ConfigBase>(std::move(config));
   }
 
  public:

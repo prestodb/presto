@@ -844,10 +844,6 @@ TEST_F(CastExprTest, timestampAdjustToTimezone) {
       });
 }
 
-TEST_F(CastExprTest, timestampAdjustToTimezoneInvalid) {
-  VELOX_ASSERT_USER_THROW(setTimezone("bla"), "Unknown time zone: 'bla'");
-}
-
 TEST_F(CastExprTest, date) {
   testCast<std::string, int32_t>(
       "date",

@@ -22,7 +22,7 @@
 namespace facebook::velox::filesystems {
 using namespace facebook::velox::connector::hive;
 
-bool initializeS3(const Config* config);
+bool initializeS3(const config::ConfigBase* config);
 
 void finalizeS3();
 
@@ -31,7 +31,7 @@ void finalizeS3();
 /// type of file can be constructed based on a filename.
 class S3FileSystem : public FileSystem {
  public:
-  explicit S3FileSystem(std::shared_ptr<const Config> config);
+  explicit S3FileSystem(std::shared_ptr<const config::ConfigBase> config);
 
   std::string name() const override;
 

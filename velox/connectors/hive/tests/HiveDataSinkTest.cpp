@@ -22,7 +22,6 @@
 #include "velox/common/base/Fs.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/testutil/TestValue.h"
-#include "velox/core/Config.h"
 #include "velox/dwio/common/Options.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -204,11 +203,13 @@ class HiveDataSinkTest : public exec::test::HiveConnectorTestBase {
   std::shared_ptr<memory::MemoryPool> opPool_;
   std::shared_ptr<memory::MemoryPool> connectorPool_;
   RowTypePtr rowType_;
-  std::shared_ptr<core::MemConfig> connectorSessionProperties_ =
-      std::make_shared<core::MemConfig>();
+  std::shared_ptr<config::ConfigBase> connectorSessionProperties_ =
+      std::make_shared<config::ConfigBase>(
+          std::unordered_map<std::string, std::string>());
   std::unique_ptr<ConnectorQueryCtx> connectorQueryCtx_;
   std::shared_ptr<HiveConfig> connectorConfig_ =
-      std::make_shared<HiveConfig>(std::make_shared<core::MemConfig>());
+      std::make_shared<HiveConfig>(std::make_shared<config::ConfigBase>(
+          std::unordered_map<std::string, std::string>()));
   std::unique_ptr<folly::IOThreadPoolExecutor> spillExecutor_;
 };
 
@@ -820,7 +821,7 @@ TEST_F(HiveDataSinkTest, memoryReclaimAfterClose) {
     connectorConfig.emplace("hive.orc.writer.dictionary-max-memory", "1GB");
 
     connectorConfig_ = std::make_shared<HiveConfig>(
-        std::make_shared<core::MemConfig>(std::move(connectorConfig)));
+        std::make_shared<config::ConfigBase>(std::move(connectorConfig)));
     const auto outputDirectory = TempDirectoryPath::create();
     std::shared_ptr<HiveBucketProperty> bucketProperty;
     std::vector<std::string> partitionBy;

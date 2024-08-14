@@ -15,7 +15,7 @@
  */
 
 #include "velox/connectors/hive/HiveConfig.h"
-#include "velox/core/Config.h"
+#include "velox/common/config/Config.h"
 #include "velox/core/QueryConfig.h"
 
 #include <boost/algorithm/string.hpp>
@@ -53,13 +53,15 @@ std::string HiveConfig::insertExistingPartitionsBehaviorString(
 }
 
 HiveConfig::InsertExistingPartitionsBehavior
-HiveConfig::insertExistingPartitionsBehavior(const Config* session) const {
+HiveConfig::insertExistingPartitionsBehavior(
+    const config::ConfigBase* session) const {
   return stringToInsertExistingPartitionsBehavior(session->get<std::string>(
       kInsertExistingPartitionsBehaviorSession,
       config_->get<std::string>(kInsertExistingPartitionsBehavior, "ERROR")));
 }
 
-uint32_t HiveConfig::maxPartitionsPerWriters(const Config* session) const {
+uint32_t HiveConfig::maxPartitionsPerWriters(
+    const config::ConfigBase* session) const {
   return session->get<uint32_t>(
       kMaxPartitionsPerWritersSession,
       config_->get<uint32_t>(kMaxPartitionsPerWriters, 100));
@@ -90,15 +92,18 @@ std::string HiveConfig::s3Endpoint() const {
 }
 
 std::optional<std::string> HiveConfig::s3AccessKey() const {
-  return static_cast<std::optional<std::string>>(config_->get(kS3AwsAccessKey));
+  return static_cast<std::optional<std::string>>(
+      config_->get<std::string>(kS3AwsAccessKey));
 }
 
 std::optional<std::string> HiveConfig::s3SecretKey() const {
-  return static_cast<std::optional<std::string>>(config_->get(kS3AwsSecretKey));
+  return static_cast<std::optional<std::string>>(
+      config_->get<std::string>(kS3AwsSecretKey));
 }
 
 std::optional<std::string> HiveConfig::s3IAMRole() const {
-  return static_cast<std::optional<std::string>>(config_->get(kS3IamRole));
+  return static_cast<std::optional<std::string>>(
+      config_->get<std::string>(kS3IamRole));
 }
 
 std::string HiveConfig::s3IAMRoleSessionName() const {
@@ -151,22 +156,24 @@ std::optional<std::string> HiveConfig::gcsMaxRetryTime() const {
       config_->get<std::string>(kGCSMaxRetryTime));
 }
 
-bool HiveConfig::isOrcUseColumnNames(const Config* session) const {
+bool HiveConfig::isOrcUseColumnNames(const config::ConfigBase* session) const {
   return session->get<bool>(
       kOrcUseColumnNamesSession, config_->get<bool>(kOrcUseColumnNames, false));
 }
 
-bool HiveConfig::isFileColumnNamesReadAsLowerCase(const Config* session) const {
+bool HiveConfig::isFileColumnNamesReadAsLowerCase(
+    const config::ConfigBase* session) const {
   return session->get<bool>(
       kFileColumnNamesReadAsLowerCaseSession,
       config_->get<bool>(kFileColumnNamesReadAsLowerCase, false));
 }
 
-bool HiveConfig::isPartitionPathAsLowerCase(const Config* session) const {
+bool HiveConfig::isPartitionPathAsLowerCase(
+    const config::ConfigBase* session) const {
   return session->get<bool>(kPartitionPathAsLowerCaseSession, true);
 }
 
-bool HiveConfig::ignoreMissingFiles(const Config* session) const {
+bool HiveConfig::ignoreMissingFiles(const config::ConfigBase* session) const {
   return session->get<bool>(kIgnoreMissingFilesSession, false);
 }
 
@@ -194,7 +201,8 @@ bool HiveConfig::isFileHandleCacheEnabled() const {
   return config_->get<bool>(kEnableFileHandleCache, true);
 }
 
-uint64_t HiveConfig::orcWriterMaxStripeSize(const Config* session) const {
+uint64_t HiveConfig::orcWriterMaxStripeSize(
+    const config::ConfigBase* session) const {
   return config::toCapacity(
       session->get<std::string>(
           kOrcWriterMaxStripeSizeSession,
@@ -202,7 +210,8 @@ uint64_t HiveConfig::orcWriterMaxStripeSize(const Config* session) const {
       config::CapacityUnit::BYTE);
 }
 
-uint64_t HiveConfig::orcWriterMaxDictionaryMemory(const Config* session) const {
+uint64_t HiveConfig::orcWriterMaxDictionaryMemory(
+    const config::ConfigBase* session) const {
   return config::toCapacity(
       session->get<std::string>(
           kOrcWriterMaxDictionaryMemorySession,
@@ -211,34 +220,35 @@ uint64_t HiveConfig::orcWriterMaxDictionaryMemory(const Config* session) const {
 }
 
 bool HiveConfig::isOrcWriterIntegerDictionaryEncodingEnabled(
-    const Config* session) const {
+    const config::ConfigBase* session) const {
   return session->get<bool>(
       kOrcWriterIntegerDictionaryEncodingEnabledSession,
       config_->get<bool>(kOrcWriterIntegerDictionaryEncodingEnabled, true));
 }
 
 bool HiveConfig::isOrcWriterStringDictionaryEncodingEnabled(
-    const Config* session) const {
+    const config::ConfigBase* session) const {
   return session->get<bool>(
       kOrcWriterStringDictionaryEncodingEnabledSession,
       config_->get<bool>(kOrcWriterStringDictionaryEncodingEnabled, true));
 }
 
 bool HiveConfig::orcWriterLinearStripeSizeHeuristics(
-    const Config* session) const {
+    const config::ConfigBase* session) const {
   return session->get<bool>(
       kOrcWriterLinearStripeSizeHeuristicsSession,
       config_->get<bool>(kOrcWriterLinearStripeSizeHeuristics, true));
 }
 
-uint64_t HiveConfig::orcWriterMinCompressionSize(const Config* session) const {
+uint64_t HiveConfig::orcWriterMinCompressionSize(
+    const config::ConfigBase* session) const {
   return session->get<uint64_t>(
       kOrcWriterMinCompressionSizeSession,
       config_->get<uint64_t>(kOrcWriterMinCompressionSize, 1024));
 }
 
 std::optional<uint8_t> HiveConfig::orcWriterCompressionLevel(
-    const Config* session) const {
+    const config::ConfigBase* session) const {
   auto sessionProp = session->get<uint8_t>(kOrcWriterCompressionLevelSession);
 
   if (sessionProp.has_value()) {
@@ -260,13 +270,15 @@ std::string HiveConfig::writeFileCreateConfig() const {
   return config_->get<std::string>(kWriteFileCreateConfig, "");
 }
 
-uint32_t HiveConfig::sortWriterMaxOutputRows(const Config* session) const {
+uint32_t HiveConfig::sortWriterMaxOutputRows(
+    const config::ConfigBase* session) const {
   return session->get<uint32_t>(
       kSortWriterMaxOutputRowsSession,
       config_->get<uint32_t>(kSortWriterMaxOutputRows, 1024));
 }
 
-uint64_t HiveConfig::sortWriterMaxOutputBytes(const Config* session) const {
+uint64_t HiveConfig::sortWriterMaxOutputBytes(
+    const config::ConfigBase* session) const {
   return config::toCapacity(
       session->get<std::string>(
           kSortWriterMaxOutputBytesSession,
@@ -286,7 +298,7 @@ bool HiveConfig::s3UseProxyFromEnv() const {
   return config_->get<bool>(kS3UseProxyFromEnv, false);
 }
 
-uint8_t HiveConfig::readTimestampUnit(const Config* session) const {
+uint8_t HiveConfig::readTimestampUnit(const config::ConfigBase* session) const {
   const auto unit = session->get<uint8_t>(
       kReadTimestampUnitSession,
       config_->get<uint8_t>(kReadTimestampUnit, 3 /*milli*/));
@@ -296,7 +308,7 @@ uint8_t HiveConfig::readTimestampUnit(const Config* session) const {
   return unit;
 }
 
-bool HiveConfig::cacheNoRetention(const Config* session) const {
+bool HiveConfig::cacheNoRetention(const config::ConfigBase* session) const {
   return session->get<bool>(
       kCacheNoRetentionSession,
       config_->get<bool>(kCacheNoRetention, /*defaultValue=*/false));

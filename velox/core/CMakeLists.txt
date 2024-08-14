@@ -35,6 +35,7 @@ velox_link_libraries(
   PUBLIC velox_arrow_bridge
          velox_caching
          velox_config
+         velox_common_config
          velox_connector
          velox_exception
          velox_expression_functions

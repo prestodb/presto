@@ -47,53 +47,10 @@ TEST_F(QueryConfigTest, setConfig) {
 
 TEST_F(QueryConfigTest, invalidConfig) {
   std::unordered_map<std::string, std::string> configData(
-      {{QueryConfig::kSessionTimezone, "Invalid"}});
+      {{QueryConfig::kSessionTimezone, "invalid"}});
   VELOX_ASSERT_USER_THROW(
       QueryCtx::create(nullptr, QueryConfig{std::move(configData)}),
-      "Unknown time zone: 'Invalid'");
-
-  auto queryCtx = QueryCtx::create(nullptr);
-  VELOX_ASSERT_USER_THROW(
-      queryCtx->testingOverrideConfigUnsafe({
-          {core::QueryConfig::kSessionTimezone, ""},
-      }),
-      "Unknown time zone: ''");
-}
-
-TEST_F(QueryConfigTest, memConfig) {
-  const std::string tz = "UTC";
-  const std::unordered_map<std::string, std::string> configData(
-      {{QueryConfig::kSessionTimezone, tz}});
-
-  {
-    MemConfig cfg{configData};
-    MemConfig cfg2{};
-    auto configDataCopy = configData;
-    ASSERT_EQ(
-        tz,
-        cfg.Config::get<std::string>(QueryConfig::kSessionTimezone).value());
-    ASSERT_FALSE(cfg.Config::get<std::string>("missing-entry").has_value());
-    ASSERT_EQ(configData, cfg.values());
-    ASSERT_EQ(configData, cfg.valuesCopy());
-  }
-
-  {
-    MemConfigMutable cfg{configData};
-    MemConfigMutable cfg2{};
-    auto configDataCopy = configData;
-    MemConfigMutable cfg3{std::move(configDataCopy)};
-    ASSERT_EQ(
-        tz,
-        cfg.Config::get<std::string>(QueryConfig::kSessionTimezone).value());
-    ASSERT_FALSE(cfg.Config::get<std::string>("missing-entry").has_value());
-    const std::string tz2 = "PST";
-    ASSERT_NO_THROW(cfg.setValue(QueryConfig::kSessionTimezone, tz2));
-    ASSERT_EQ(
-        tz2,
-        cfg.Config::get<std::string>(QueryConfig::kSessionTimezone).value());
-    ASSERT_THROW(cfg.values(), VeloxException);
-    ASSERT_EQ(configData, cfg3.valuesCopy());
-  }
+      "session 'session_timezone' set with invalid value 'invalid'");
 }
 
 TEST_F(QueryConfigTest, taskWriterCountConfig) {
@@ -185,65 +142,6 @@ TEST_F(QueryConfigTest, enableExpressionEvaluationCacheConfig) {
 
   testConfig(true);
   testConfig(false);
-}
-
-TEST_F(QueryConfigTest, capacityConversion) {
-  folly::Random::DefaultGenerator rng;
-  rng.seed(1);
-
-  std::unordered_map<CapacityUnit, std::string> unitStrLookup{
-      {CapacityUnit::BYTE, "B"},
-      {CapacityUnit::KILOBYTE, "kB"},
-      {CapacityUnit::MEGABYTE, "MB"},
-      {CapacityUnit::GIGABYTE, "GB"},
-      {CapacityUnit::TERABYTE, "TB"},
-      {CapacityUnit::PETABYTE, "PB"}};
-
-  std::vector<std::pair<CapacityUnit, double>> units{
-      {CapacityUnit::BYTE, 1},
-      {CapacityUnit::KILOBYTE, 1024},
-      {CapacityUnit::MEGABYTE, 1024 * 1024},
-      {CapacityUnit::GIGABYTE, 1024 * 1024 * 1024},
-      {CapacityUnit::TERABYTE, 1024ll * 1024 * 1024 * 1024},
-      {CapacityUnit::PETABYTE, 1024ll * 1024 * 1024 * 1024 * 1024}};
-  for (int32_t i = 0; i < units.size(); i++) {
-    for (int32_t j = 0; j < units.size(); j++) {
-      // We use this diffRatio to prevent float conversion overflow when
-      // converting from one unit to another.
-      uint64_t diffRatio = i < j ? units[j].second / units[i].second
-                                 : units[i].second / units[j].second;
-      uint64_t randNumber = folly::Random::rand64(rng);
-      uint64_t testNumber = i > j ? randNumber / diffRatio : randNumber;
-      ASSERT_EQ(
-          toCapacity(
-              std::string(
-                  std::to_string(testNumber) + unitStrLookup[units[i].first]),
-              units[j].first),
-          (uint64_t)(testNumber * (units[i].second / units[j].second)));
-    }
-  }
-}
-
-TEST_F(QueryConfigTest, durationConversion) {
-  folly::Random::DefaultGenerator rng;
-  rng.seed(1);
-
-  std::vector<std::pair<std::string, uint64_t>> units{
-      {"ns", 1},
-      {"us", 1000},
-      {"ms", 1000 * 1000},
-      {"s", 1000ll * 1000 * 1000},
-      {"m", 1000ll * 1000 * 1000 * 60},
-      {"h", 1000ll * 1000 * 1000 * 60 * 60},
-      {"d", 1000ll * 1000 * 1000 * 60 * 60 * 24}};
-  for (uint32_t i = 0; i < units.size(); i++) {
-    auto testNumber = folly::Random::rand32(rng) % 10000;
-    auto duration =
-        toDuration(std::string(std::to_string(testNumber) + units[i].first));
-    ASSERT_EQ(
-        testNumber * units[i].second,
-        std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count());
-  }
 }
 
 } // namespace facebook::velox::core::test

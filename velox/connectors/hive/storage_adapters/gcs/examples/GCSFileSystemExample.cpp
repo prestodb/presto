@@ -13,14 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "velox/common/config/Config.h"
 #include "velox/common/file/File.h"
 #include "velox/connectors/hive/storage_adapters/gcs/GCSFileSystem.h"
-#include "velox/core/Config.h"
 
 #include <folly/init/Init.h>
-
 #include <gflags/gflags.h>
-
 #include <iostream>
 
 DEFINE_string(gcs_path, "", "Path of GCS bucket");
@@ -37,7 +35,7 @@ auto newConfiguration() {
   if (!FLAGS_gcs_max_retry_time.empty()) {
     configOverride.emplace("hive.gcs.max-retry-time", FLAGS_gcs_max_retry_time);
   }
-  return std::make_shared<const core::MemConfig>(std::move(configOverride));
+  return std::make_shared<const config::ConfigBase>(std::move(configOverride));
 }
 
 int main(int argc, char** argv) {

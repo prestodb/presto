@@ -15,8 +15,10 @@
  */
 #pragma once
 
+#include "velox/common/config/Config.h"
 #include "velox/connectors/Connector.h"
 #include "velox/connectors/fuzzer/FuzzerConnectorSplit.h"
+#include "velox/core/Config.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
 namespace facebook::velox::connector::fuzzer {
@@ -103,7 +105,7 @@ class FuzzerConnector final : public Connector {
  public:
   FuzzerConnector(
       const std::string& id,
-      std::shared_ptr<const Config> config,
+      std::shared_ptr<const config::ConfigBase> config,
       folly::Executor* /*executor*/)
       : Connector(id) {}
 
@@ -139,9 +141,20 @@ class FuzzerConnectorFactory : public ConnectorFactory {
 
   std::shared_ptr<Connector> newConnector(
       const std::string& id,
-      std::shared_ptr<const Config> config,
+      std::shared_ptr<const config::ConfigBase> config,
       folly::Executor* executor = nullptr) override {
     return std::make_shared<FuzzerConnector>(id, config, executor);
+  }
+
+  std::shared_ptr<Connector> newConnector(
+      const std::string& id,
+      std::shared_ptr<const Config> config,
+      folly::Executor* executor = nullptr) override {
+    std::shared_ptr<const config::ConfigBase> convertedConfig;
+    convertedConfig = config == nullptr
+        ? nullptr
+        : std::make_shared<config::ConfigBase>(config->valuesCopy());
+    return newConnector(id, convertedConfig, executor);
   }
 };
 

@@ -100,10 +100,11 @@ void readData(ReadFile* readFile) {
 }
 
 std::unique_ptr<WriteFile> openFileForWrite(std::string_view path) {
-  auto memConfig = std::make_shared<const core::MemConfig>(configurationValues);
+  auto config = std::make_shared<const config::ConfigBase>(
+      std::unordered_map<std::string, std::string>(configurationValues));
   std::string hdfsFilePath =
       "hdfs://" + localhost + ":" + hdfsPort + std::string(path);
-  auto hdfsFileSystem = filesystems::getFileSystem(hdfsFilePath, memConfig);
+  auto hdfsFileSystem = filesystems::getFileSystem(hdfsFilePath, config);
   return hdfsFileSystem->openFileForWrite(path);
 }
 
@@ -156,12 +157,12 @@ void verifyFailures(hdfsFS hdfs) {
   HdfsFileSystemTest::miniCluster->stop();
   checkReadErrorMessages(&readFile2, readFailErrorMessage, 1);
   try {
-    auto memConfig =
-        std::make_shared<const core::MemConfig>(configurationValues);
+    auto config = std::make_shared<const config::ConfigBase>(
+        std::unordered_map<std::string, std::string>(configurationValues));
     filesystems::HdfsFileSystem hdfsFileSystem(
-        memConfig,
+        config,
         filesystems::HdfsFileSystem::getServiceEndpoint(
-            simpleDestinationPath, memConfig.get()));
+            simpleDestinationPath, config.get()));
     FAIL() << "expected VeloxException";
   } catch (VeloxException const& error) {
     EXPECT_THAT(error.message(), testing::HasSubstr(builderErrorMessage));
@@ -178,18 +179,18 @@ TEST_F(HdfsFileSystemTest, read) {
 }
 
 TEST_F(HdfsFileSystemTest, viaFileSystem) {
-  auto memConfig = std::make_shared<const core::MemConfig>(configurationValues);
-  auto hdfsFileSystem =
-      filesystems::getFileSystem(fullDestinationPath, memConfig);
+  auto config = std::make_shared<const config::ConfigBase>(
+      std::unordered_map<std::string, std::string>(configurationValues));
+  auto hdfsFileSystem = filesystems::getFileSystem(fullDestinationPath, config);
   auto readFile = hdfsFileSystem->openFileForRead(fullDestinationPath);
   readData(readFile.get());
 }
 
 TEST_F(HdfsFileSystemTest, initializeFsWithEndpointInfoInFilePath) {
   // Without host/port configured.
-  auto memConfig = std::make_shared<const core::MemConfig>();
-  auto hdfsFileSystem =
-      filesystems::getFileSystem(fullDestinationPath, memConfig);
+  auto config = std::make_shared<config::ConfigBase>(
+      std::unordered_map<std::string, std::string>());
+  auto hdfsFileSystem = filesystems::getFileSystem(fullDestinationPath, config);
   auto readFile = hdfsFileSystem->openFileForRead(fullDestinationPath);
   readData(readFile.get());
 
@@ -197,14 +198,15 @@ TEST_F(HdfsFileSystemTest, initializeFsWithEndpointInfoInFilePath) {
   const std::string wrongFullDestinationPath =
       "hdfs://not_exist_host:" + hdfsPort + destinationPath;
   VELOX_ASSERT_THROW(
-      filesystems::getFileSystem(wrongFullDestinationPath, memConfig),
+      filesystems::getFileSystem(wrongFullDestinationPath, config),
       "Unable to connect to HDFS");
 }
 
 TEST_F(HdfsFileSystemTest, fallbackToUseConfig) {
-  auto memConfig = std::make_shared<const core::MemConfig>(configurationValues);
+  auto config = std::make_shared<const config::ConfigBase>(
+      std::unordered_map<std::string, std::string>(configurationValues));
   auto hdfsFileSystem =
-      filesystems::getFileSystem(simpleDestinationPath, memConfig);
+      filesystems::getFileSystem(simpleDestinationPath, config);
   auto readFile = hdfsFileSystem->openFileForRead(simpleDestinationPath);
   readData(readFile.get());
 }
@@ -218,9 +220,9 @@ TEST_F(HdfsFileSystemTest, oneFsInstanceForOneEndpoint) {
 }
 
 TEST_F(HdfsFileSystemTest, missingFileViaFileSystem) {
-  auto memConfig = std::make_shared<const core::MemConfig>(configurationValues);
-  auto hdfsFileSystem =
-      filesystems::getFileSystem(fullDestinationPath, memConfig);
+  auto config = std::make_shared<const config::ConfigBase>(
+      std::unordered_map<std::string, std::string>(configurationValues));
+  auto hdfsFileSystem = filesystems::getFileSystem(fullDestinationPath, config);
   VELOX_ASSERT_RUNTIME_THROW_CODE(
       hdfsFileSystem->openFileForRead(
           "hdfs://localhost:7777/path/that/does/not/exist"),
@@ -232,12 +234,12 @@ TEST_F(HdfsFileSystemTest, missingHost) {
   try {
     std::unordered_map<std::string, std::string> missingHostConfiguration(
         {{"hive.hdfs.port", hdfsPort}});
-    auto memConfig =
-        std::make_shared<const core::MemConfig>(missingHostConfiguration);
+    auto config = std::make_shared<const config::ConfigBase>(
+        std::move(missingHostConfiguration));
     filesystems::HdfsFileSystem hdfsFileSystem(
-        memConfig,
+        config,
         filesystems::HdfsFileSystem::getServiceEndpoint(
-            simpleDestinationPath, memConfig.get()));
+            simpleDestinationPath, config.get()));
     FAIL() << "expected VeloxException";
   } catch (VeloxException const& error) {
     EXPECT_THAT(
@@ -251,12 +253,12 @@ TEST_F(HdfsFileSystemTest, missingPort) {
   try {
     std::unordered_map<std::string, std::string> missingPortConfiguration(
         {{"hive.hdfs.host", localhost}});
-    auto memConfig =
-        std::make_shared<const core::MemConfig>(missingPortConfiguration);
+    auto config = std::make_shared<const config::ConfigBase>(
+        std::move(missingPortConfiguration));
     filesystems::HdfsFileSystem hdfsFileSystem(
-        memConfig,
+        config,
         filesystems::HdfsFileSystem::getServiceEndpoint(
-            simpleDestinationPath, memConfig.get()));
+            simpleDestinationPath, config.get()));
     FAIL() << "expected VeloxException";
   } catch (VeloxException const& error) {
     EXPECT_THAT(
@@ -300,10 +302,10 @@ TEST_F(HdfsFileSystemTest, schemeMatching) {
 
 TEST_F(HdfsFileSystemTest, writeNotSupported) {
   try {
-    auto memConfig =
-        std::make_shared<const core::MemConfig>(configurationValues);
+    auto config = std::make_shared<const config::ConfigBase>(
+        std::unordered_map<std::string, std::string>(configurationValues));
     auto hdfsFileSystem =
-        filesystems::getFileSystem(fullDestinationPath, memConfig);
+        filesystems::getFileSystem(fullDestinationPath, config);
     hdfsFileSystem->openFileForWrite("/path");
   } catch (VeloxException const& error) {
     EXPECT_EQ(error.message(), "Write to HDFS is unsupported");
@@ -312,10 +314,10 @@ TEST_F(HdfsFileSystemTest, writeNotSupported) {
 
 TEST_F(HdfsFileSystemTest, removeNotSupported) {
   try {
-    auto memConfig =
-        std::make_shared<const core::MemConfig>(configurationValues);
+    auto config = std::make_shared<const config::ConfigBase>(
+        std::unordered_map<std::string, std::string>(configurationValues));
     auto hdfsFileSystem =
-        filesystems::getFileSystem(fullDestinationPath, memConfig);
+        filesystems::getFileSystem(fullDestinationPath, config);
     hdfsFileSystem->remove("/path");
   } catch (VeloxException const& error) {
     EXPECT_EQ(error.message(), "Does not support removing files from hdfs");
@@ -355,9 +357,9 @@ TEST_F(HdfsFileSystemTest, multipleThreadsWithReadFile) {
 
 TEST_F(HdfsFileSystemTest, multipleThreadsWithFileSystem) {
   startThreads = false;
-  auto memConfig = std::make_shared<const core::MemConfig>(configurationValues);
-  auto hdfsFileSystem =
-      filesystems::getFileSystem(fullDestinationPath, memConfig);
+  auto config = std::make_shared<const config::ConfigBase>(
+      std::unordered_map<std::string, std::string>(configurationValues));
+  auto hdfsFileSystem = filesystems::getFileSystem(fullDestinationPath, config);
 
   std::vector<std::thread> threads;
   std::mt19937 generator(std::random_device{}());

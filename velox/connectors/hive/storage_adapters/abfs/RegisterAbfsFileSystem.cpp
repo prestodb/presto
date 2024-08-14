@@ -15,9 +15,9 @@
  */
 
 #ifdef VELOX_ENABLE_ABFS
+#include "velox/common/config/Config.h"
 #include "velox/connectors/hive/storage_adapters/abfs/AbfsFileSystem.h" // @manual
 #include "velox/connectors/hive/storage_adapters/abfs/AbfsUtil.h" // @manual
-#include "velox/core/Config.h"
 #endif
 
 namespace facebook::velox::filesystems::abfs {
@@ -26,7 +26,7 @@ namespace facebook::velox::filesystems::abfs {
 folly::once_flag abfsInitiationFlag;
 
 std::shared_ptr<FileSystem> abfsFileSystemGenerator(
-    std::shared_ptr<const Config> properties,
+    std::shared_ptr<const config::ConfigBase> properties,
     std::string_view filePath) {
   static std::shared_ptr<FileSystem> filesystem;
   folly::call_once(abfsInitiationFlag, [&properties]() {

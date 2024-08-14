@@ -15,11 +15,11 @@
  */
 
 #include "velox/connectors/hive/storage_adapters/s3fs/S3FileSystem.h"
+#include "velox/common/config/Config.h"
 #include "velox/common/file/File.h"
 #include "velox/connectors/hive/HiveConfig.h"
 #include "velox/connectors/hive/storage_adapters/s3fs/S3Util.h"
 #include "velox/connectors/hive/storage_adapters/s3fs/S3WriteFile.h"
-#include "velox/core/Config.h"
 #include "velox/core/QueryConfig.h"
 #include "velox/dwio/common/DataBuffer.h"
 
@@ -438,7 +438,7 @@ struct AwsInstance {
   }
 
   // Returns true iff the instance was newly initialized with config.
-  bool initialize(const Config* config) {
+  bool initialize(const config::ConfigBase* config) {
     if (isFinalized_.load()) {
       VELOX_FAIL("Attempt to initialize S3 after it has been finalized.");
     }
@@ -476,9 +476,9 @@ struct AwsInstance {
   }
 
  private:
-  void doInitialize(const Config* config) {
+  void doInitialize(const config::ConfigBase* config) {
     std::shared_ptr<HiveConfig> hiveConfig = std::make_shared<HiveConfig>(
-        std::make_shared<core::MemConfig>(config->values()));
+        std::make_shared<config::ConfigBase>(config->rawConfigsCopy()));
     awsOptions_.loggingOptions.logLevel =
         inferS3LogLevel(hiveConfig->s3GetLogLevel());
     // In some situations, curl triggers a SIGPIPE signal causing the entire
@@ -503,7 +503,7 @@ AwsInstance* getAwsInstance() {
   return instance.get();
 }
 
-bool initializeS3(const Config* config) {
+bool initializeS3(const config::ConfigBase* config) {
   return getAwsInstance()->initialize(config);
 }
 
@@ -516,9 +516,9 @@ void finalizeS3() {
 
 class S3FileSystem::Impl {
  public:
-  Impl(const Config* config) {
+  Impl(const config::ConfigBase* config) {
     hiveConfig_ = std::make_shared<HiveConfig>(
-        std::make_shared<core::MemConfig>(config->values()));
+        std::make_shared<config::ConfigBase>(config->rawConfigsCopy()));
     VELOX_CHECK(getAwsInstance()->isInitialized(), "S3 is not initialized");
     Aws::Client::ClientConfiguration clientConfig;
     clientConfig.endpointOverride = hiveConfig_->s3Endpoint();
@@ -714,7 +714,7 @@ class S3FileSystem::Impl {
   std::shared_ptr<Aws::S3::S3Client> client_;
 };
 
-S3FileSystem::S3FileSystem(std::shared_ptr<const Config> config)
+S3FileSystem::S3FileSystem(std::shared_ptr<const config::ConfigBase> config)
     : FileSystem(config) {
   impl_ = std::make_shared<Impl>(config.get());
 }

@@ -36,7 +36,8 @@ void HiveConnectorTestBase::SetUp() {
           connector::hive::HiveConnectorFactory::kHiveConnectorName)
           ->newConnector(
               kHiveConnectorId,
-              std::make_shared<core::MemConfig>(),
+              std::make_shared<config::ConfigBase>(
+                  std::unordered_map<std::string, std::string>()),
               ioExecutor_.get());
   connector::registerConnector(hiveConnector);
 }
@@ -50,7 +51,7 @@ void HiveConnectorTestBase::TearDown() {
 }
 
 void HiveConnectorTestBase::resetHiveConnector(
-    const std::shared_ptr<const Config>& config) {
+    const std::shared_ptr<const config::ConfigBase>& config) {
   connector::unregisterConnector(kHiveConnectorId);
   auto hiveConnector =
       connector::getConnectorFactory(

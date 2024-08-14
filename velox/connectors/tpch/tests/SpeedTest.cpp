@@ -60,7 +60,9 @@ class TpchSpeedTest {
         connector::getConnectorFactory(
             connector::tpch::TpchConnectorFactory::kTpchConnectorName)
             ->newConnector(
-                kTpchConnectorId_, std::make_shared<core::MemConfig>());
+                kTpchConnectorId_,
+                std::make_shared<config::ConfigBase>(
+                    std::unordered_map<std::string, std::string>()));
     connector::registerConnector(tpchConnector);
   }
 

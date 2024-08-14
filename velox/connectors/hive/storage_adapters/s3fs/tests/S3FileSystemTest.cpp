@@ -62,11 +62,11 @@ TEST_F(S3FileSystemTest, writeAndRead) {
 
 TEST_F(S3FileSystemTest, invalidCredentialsConfig) {
   {
-    const std::unordered_map<std::string, std::string> config(
+    std::unordered_map<std::string, std::string> config(
         {{"hive.s3.use-instance-credentials", "true"},
          {"hive.s3.iam-role", "dummy-iam-role"}});
     auto hiveConfig =
-        std::make_shared<const core::MemConfig>(std::move(config));
+        std::make_shared<const config::ConfigBase>(std::move(config));
 
     // Both instance credentials and iam-role cannot be specified
     VELOX_ASSERT_THROW(
@@ -74,34 +74,34 @@ TEST_F(S3FileSystemTest, invalidCredentialsConfig) {
         "Invalid configuration: specify only one among 'access/secret keys', 'use instance credentials', 'IAM role'");
   }
   {
-    const std::unordered_map<std::string, std::string> config(
+    std::unordered_map<std::string, std::string> config(
         {{"hive.s3.aws-secret-key", "dummy-key"},
          {"hive.s3.aws-access-key", "dummy-key"},
          {"hive.s3.iam-role", "dummy-iam-role"}});
     auto hiveConfig =
-        std::make_shared<const core::MemConfig>(std::move(config));
+        std::make_shared<const config::ConfigBase>(std::move(config));
     // Both access/secret keys and iam-role cannot be specified
     VELOX_ASSERT_THROW(
         filesystems::S3FileSystem(hiveConfig),
         "Invalid configuration: specify only one among 'access/secret keys', 'use instance credentials', 'IAM role'");
   }
   {
-    const std::unordered_map<std::string, std::string> config(
+    std::unordered_map<std::string, std::string> config(
         {{"hive.s3.aws-secret-key", "dummy"},
          {"hive.s3.aws-access-key", "dummy"},
          {"hive.s3.use-instance-credentials", "true"}});
     auto hiveConfig =
-        std::make_shared<const core::MemConfig>(std::move(config));
+        std::make_shared<const config::ConfigBase>(std::move(config));
     // Both access/secret keys and instance credentials cannot be specified
     VELOX_ASSERT_THROW(
         filesystems::S3FileSystem(hiveConfig),
         "Invalid configuration: specify only one among 'access/secret keys', 'use instance credentials', 'IAM role'");
   }
   {
-    const std::unordered_map<std::string, std::string> config(
+    std::unordered_map<std::string, std::string> config(
         {{"hive.s3.aws-secret-key", "dummy"}});
     auto hiveConfig =
-        std::make_shared<const core::MemConfig>(std::move(config));
+        std::make_shared<const config::ConfigBase>(std::move(config));
     // Both access key and secret key must be specified
     VELOX_ASSERT_THROW(
         filesystems::S3FileSystem(hiveConfig),
@@ -167,7 +167,8 @@ TEST_F(S3FileSystemTest, noBackendServer) {
 TEST_F(S3FileSystemTest, logLevel) {
   std::unordered_map<std::string, std::string> config;
   auto checkLogLevelName = [&config](std::string_view expected) {
-    auto s3Config = std::make_shared<const core::MemConfig>(config);
+    auto s3Config =
+        std::make_shared<const config::ConfigBase>(std::move(config));
     filesystems::S3FileSystem s3fs(s3Config);
     EXPECT_EQ(s3fs.getLogLevelName(), expected);
   };

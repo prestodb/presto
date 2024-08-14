@@ -80,6 +80,8 @@ class ConfigBase {
       bool _mutable = false)
       : configs_(std::move(configs)), mutable_(_mutable) {}
 
+  virtual ~ConfigBase() {}
+
   template <typename T>
   ConfigBase& set(const Entry<T>& entry, const T& val) {
     VELOX_CHECK(mutable_, "Cannot set in immutable config");
