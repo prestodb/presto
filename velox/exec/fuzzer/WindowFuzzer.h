@@ -82,7 +82,10 @@ class WindowFuzzer : public AggregationFuzzerBase {
 
   // Return a randomly generated frame clause string together with a boolean
   // flag indicating whether it is a ROWS frame.
-  std::tuple<std::string, bool> generateFrameClause();
+  std::string generateFrameClause(
+      std::vector<std::string>& argNames,
+      std::vector<TypePtr>& argTypes,
+      bool& isRowsFrame);
 
   std::string generateOrderByClause(
       const std::vector<SortingKeyAndOrder>& sortingKeysAndOrders);

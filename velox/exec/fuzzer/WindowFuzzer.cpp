@@ -60,7 +60,10 @@ void WindowFuzzer::addWindowFunctionSignatures(
   }
 }
 
-std::tuple<std::string, bool> WindowFuzzer::generateFrameClause() {
+std::string WindowFuzzer::generateFrameClause(
+    std::vector<std::string>& argNames,
+    std::vector<TypePtr>& argTypes,
+    bool& isRowsFrame) {
   auto frameType = [](int value) -> const std::string {
     switch (value) {
       case 0:
@@ -71,8 +74,7 @@ std::tuple<std::string, bool> WindowFuzzer::generateFrameClause() {
         VELOX_UNREACHABLE("Unknown value for frame type generation");
     }
   };
-  auto isRowsFrame =
-      boost::random::uniform_int_distribution<uint32_t>(0, 1)(rng_);
+  isRowsFrame = boost::random::uniform_int_distribution<uint32_t>(0, 1)(rng_);
   auto frameTypeString = frameType(isRowsFrame);
 
   constexpr int64_t kMax = std::numeric_limits<int64_t>::max();
@@ -88,20 +90,33 @@ std::tuple<std::string, bool> WindowFuzzer::generateFrameClause() {
     maxKValue = kMax;
   }
 
-  auto frameBound =
-      [minKValue, maxKValue, this](
-          core::WindowNode::BoundType boundType) -> const std::string {
-    // Generating only constant bounded k PRECEDING/FOLLOWING frames for now.
+  // Generating column bounded frames 50% of the time and constant
+  // bounded the rest of the times. The column bounded frames are of
+  // type INTEGER and only have positive values as Window functions
+  // reject negative values for them.
+  auto frameBound = [this, minKValue, maxKValue, &argNames, &argTypes](
+                        core::WindowNode::BoundType boundType,
+                        const std::string& colName) -> const std::string {
     auto kValue = boost::random::uniform_int_distribution<int64_t>(
         minKValue, maxKValue)(rng_);
     switch (boundType) {
       case core::WindowNode::BoundType::kUnboundedPreceding:
         return "UNBOUNDED PRECEDING";
       case core::WindowNode::BoundType::kPreceding:
+        if (vectorFuzzer_.coinToss(0.5)) {
+          argTypes.push_back(INTEGER());
+          argNames.push_back(colName);
+          return fmt::format("{} PRECEDING", colName);
+        }
         return fmt::format("{} PRECEDING", kValue);
       case core::WindowNode::BoundType::kCurrentRow:
         return "CURRENT ROW";
       case core::WindowNode::BoundType::kFollowing:
+        if (vectorFuzzer_.coinToss(0.5)) {
+          argTypes.push_back(INTEGER());
+          argNames.push_back(colName);
+          return fmt::format("{} FOLLOWING", colName);
+        }
         return fmt::format("{} FOLLOWING", kValue);
       case core::WindowNode::BoundType::kUnboundedFollowing:
         return "UNBOUNDED FOLLOWING";
@@ -141,12 +156,11 @@ std::tuple<std::string, bool> WindowFuzzer::generateFrameClause() {
   auto endBoundMinIdx = std::max(0, static_cast<int>(startBoundIndex) - 1);
   auto endBoundIndex = boost::random::uniform_int_distribution<uint32_t>(
       endBoundMinIdx, endBoundOptions.size() - 1)(rng_);
-  auto frameStart = frameBound(startBoundOptions[startBoundIndex]);
-  auto frameEnd = frameBound(endBoundOptions[endBoundIndex]);
+  auto frameStartBound = frameBound(startBoundOptions[startBoundIndex], "k0");
+  auto frameEndBound = frameBound(endBoundOptions[endBoundIndex], "k1");
 
-  return std::make_tuple(
-      frameTypeString + " BETWEEN " + frameStart + " AND " + frameEnd,
-      isRowsFrame);
+  return frameTypeString + " BETWEEN " + frameStartBound + " AND " +
+      frameEndBound;
 }
 
 std::string WindowFuzzer::generateOrderByClause(
@@ -233,7 +247,9 @@ void WindowFuzzer::go() {
           generateSortingKeysAndOrders("s", argNames, argTypes);
     }
     const auto partitionKeys = generateSortingKeys("p", argNames, argTypes);
-    const auto [frameClause, isRowsFrame] = generateFrameClause();
+    bool isRowsFrame = false;
+    const auto frameClause =
+        generateFrameClause(argNames, argTypes, isRowsFrame);
     const auto input = generateInputDataWithRowNumber(
         argNames, argTypes, partitionKeys, signature);
     // If the function is order-dependent or uses "rows" frame, sort all input
