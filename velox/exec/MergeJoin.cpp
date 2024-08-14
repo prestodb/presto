@@ -646,7 +646,13 @@ RowVectorPtr MergeJoin::getOutput() {
         // No rows survived the filter. Get more rows.
         continue;
       } else if (isAntiJoin(joinType_)) {
-        return filterOutputForAntiJoin(output);
+        output = filterOutputForAntiJoin(output);
+        if (output) {
+          return output;
+        }
+
+        // No rows survived the filter for anti join. Get more rows.
+        continue;
       } else {
         return output;
       }

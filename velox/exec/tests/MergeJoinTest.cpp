@@ -770,6 +770,38 @@ TEST_F(MergeJoinTest, antiJoinWithFilter) {
           "SELECT t0 FROM t WHERE NOT exists (select 1 from u where t0 = u0 AND t.t0 > 2 ) ");
 }
 
+TEST_F(MergeJoinTest, antiJoinFailed) {
+  auto size = 1'00;
+  auto left = makeRowVector(
+      {"t0"}, {makeFlatVector<int64_t>(size, [](auto row) { return row; })});
+
+  auto right = makeRowVector(
+      {"u0"}, {makeFlatVector<int64_t>(size, [](auto row) { return row; })});
+
+  createDuckDbTable("t", {left});
+  createDuckDbTable("u", {right});
+
+  // Anti join.
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  auto plan =
+      PlanBuilder(planNodeIdGenerator)
+          .values(split(left, 10))
+          .orderBy({"t0"}, false)
+          .mergeJoin(
+              {"t0"},
+              {"u0"},
+              PlanBuilder(planNodeIdGenerator).values({right}).planNode(),
+              "",
+              {"t0"},
+              core::JoinType::kAnti)
+          .planNode();
+
+  AssertQueryBuilder(plan, duckDbQueryRunner_)
+      .config(core::QueryConfig::kMaxOutputBatchRows, "10")
+      .assertResults(
+          "SELECT t0 FROM t WHERE NOT exists (select 1 from u where t0 = u0) ");
+}
+
 TEST_F(MergeJoinTest, antiJoinWithTwoJoinKeys) {
   auto left = makeRowVector(
       {"a", "b"},
