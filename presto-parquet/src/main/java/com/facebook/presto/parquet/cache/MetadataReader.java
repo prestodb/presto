@@ -32,14 +32,20 @@ import org.apache.parquet.format.ColumnChunk;
 import org.apache.parquet.format.ColumnCryptoMetaData;
 import org.apache.parquet.format.ColumnMetaData;
 import org.apache.parquet.format.ConvertedType;
+import org.apache.parquet.format.DecimalType;
 import org.apache.parquet.format.Encoding;
 import org.apache.parquet.format.EncryptionWithColumnKey;
 import org.apache.parquet.format.FileCryptoMetaData;
 import org.apache.parquet.format.FileMetaData;
+import org.apache.parquet.format.IntType;
 import org.apache.parquet.format.KeyValue;
+import org.apache.parquet.format.LogicalType;
 import org.apache.parquet.format.RowGroup;
 import org.apache.parquet.format.SchemaElement;
 import org.apache.parquet.format.Statistics;
+import org.apache.parquet.format.TimeType;
+import org.apache.parquet.format.TimeUnit;
+import org.apache.parquet.format.TimestampType;
 import org.apache.parquet.format.Type;
 import org.apache.parquet.format.Util;
 import org.apache.parquet.format.converter.ParquetMetadataConverter;
@@ -49,6 +55,7 @@ import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.internal.hadoop.metadata.IndexReference;
+import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.OriginalType;
 import org.apache.parquet.schema.PrimitiveType;
@@ -366,15 +373,44 @@ public final class MetadataReader
                 }
                 typeBuilder = primitiveBuilder;
             }
-
             if (element.isSetConverted_type()) {
                 typeBuilder.as(getOriginalType(element.converted_type));
+            }
+            if (element.isSetLogicalType()) {
+                LogicalType type = element.getLogicalType();
+                if (element.getLogicalType().isSetTIME()) {
+                    TimeType time = type.getTIME();
+                    typeBuilder.as(LogicalTypeAnnotation.timeType(time.isAdjustedToUTC, convertTimeUnit(time.unit)));
+                }
+                if (element.getLogicalType().isSetDECIMAL()) {
+                    DecimalType decimal = type.getDECIMAL();
+                    typeBuilder.as(LogicalTypeAnnotation.decimalType(decimal.scale, decimal.precision));
+                }
+                if (element.getLogicalType().isSetINTEGER()) {
+                    IntType integer = type.getINTEGER();
+                    typeBuilder.as(LogicalTypeAnnotation.intType(integer.bitWidth, integer.isSigned));
+                }
+                if (element.getLogicalType().isSetTIMESTAMP()) {
+                    TimestampType timestamp = type.getTIMESTAMP();
+                    typeBuilder.as(LogicalTypeAnnotation.timestampType(timestamp.isAdjustedToUTC, convertTimeUnit(timestamp.unit)));
+                }
             }
             if (element.isSetField_id()) {
                 typeBuilder.id(element.field_id);
             }
             typeBuilder.named(element.name.toLowerCase(Locale.ENGLISH));
         }
+    }
+
+    private static LogicalTypeAnnotation.TimeUnit convertTimeUnit(TimeUnit unit)
+    {
+        if (unit.isSetMILLIS()) {
+            return LogicalTypeAnnotation.TimeUnit.MILLIS;
+        }
+        else if (unit.isSetNANOS()) {
+            return LogicalTypeAnnotation.TimeUnit.NANOS;
+        }
+        return LogicalTypeAnnotation.TimeUnit.MICROS;
     }
 
     public static org.apache.parquet.column.statistics.Statistics<?> readStats(Statistics statistics, PrimitiveTypeName type)
