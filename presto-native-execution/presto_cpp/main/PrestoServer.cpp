@@ -35,6 +35,8 @@
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/UnsafeRowExchangeSource.h"
+#include "presto_cpp/main/types/HivePrestoToVeloxConnector.h"
+#include "presto_cpp/main/types/IcebergPrestoToVeloxConnector.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include "velox/common/base/Counters.h"
 #include "velox/common/base/StatsReporter.h"
@@ -82,6 +84,7 @@ constexpr char const* kTaskUriFormat =
     "{}://{}:{}"; // protocol, address and port
 constexpr char const* kConnectorName = "connector.name";
 constexpr char const* kHiveHadoop2ConnectorName = "hive-hadoop2";
+constexpr char const* kHiveConnectorName = "hive";
 
 protocol::NodeState convertNodeState(presto::NodeState nodeState) {
   switch (nodeState) {
@@ -250,10 +253,38 @@ void PrestoServer::run() {
   connector::registerConnectorFactory(
       std::make_shared<connector::hive::HiveConnectorFactory>("iceberg"));
 
-  registerPrestoToVeloxConnector(
-      std::make_unique<HivePrestoToVeloxConnector>("hive"));
-  registerPrestoToVeloxConnector(
-      std::make_unique<HivePrestoToVeloxConnector>("hive-hadoop2"));
+  // Update connectorToCatalogInfo_ so the connector configs can be validated
+  // when the connectors are registered.
+  loadCatalogConfigs();
+
+  // Load hive connector configs into a map for validation when hive connector
+  // is registered.
+  std::vector<std::unordered_map<std::string, std::string>> hiveConfigs;
+  std::vector<std::unordered_map<std::string, std::string>> hiveHadoop2Configs;
+  auto loadHiveConfigs =
+      [&](std::vector<CatalogInfo>& catalogInfoList,
+          std::vector<std::unordered_map<std::string, std::string>>&
+              hiveConfigs) {
+        for (const auto& entry : catalogInfoList) {
+          hiveConfigs.push_back(entry.configs->rawConfigsCopy());
+        }
+      };
+  if (connectorToCatalogInfo_.find(kHiveConnectorName) !=
+      connectorToCatalogInfo_.end()) {
+    loadHiveConfigs(
+        connectorToCatalogInfo_.at(kHiveConnectorName), hiveConfigs);
+  }
+  if (connectorToCatalogInfo_.find(kHiveHadoop2ConnectorName) !=
+      connectorToCatalogInfo_.end()) {
+    loadHiveConfigs(
+        connectorToCatalogInfo_.at(kHiveHadoop2ConnectorName),
+        hiveHadoop2Configs);
+  }
+
+  registerPrestoToVeloxConnector(std::make_unique<HivePrestoToVeloxConnector>(
+      kHiveConnectorName, hiveConfigs));
+  registerPrestoToVeloxConnector(std::make_unique<HivePrestoToVeloxConnector>(
+      kHiveHadoop2ConnectorName, hiveHadoop2Configs));
   registerPrestoToVeloxConnector(
       std::make_unique<IcebergPrestoToVeloxConnector>("iceberg"));
   registerPrestoToVeloxConnector(
@@ -273,7 +304,7 @@ void PrestoServer::run() {
   initializeVeloxMemory();
   initializeThreadPools();
 
-  auto catalogNames = registerConnectors(fs::path(configDirectoryPath_));
+  auto catalogNames = registerConnectors();
 
   const bool bindToNodeInternalAddressOnly =
       systemConfig->httpServerBindToNodeInternalAddressOnlyEnabled();
@@ -1103,32 +1134,16 @@ void PrestoServer::registerConnectorFactories() {
   }
 }
 
-std::vector<std::string> PrestoServer::registerConnectors(
-    const fs::path& configDirectoryPath) {
+void PrestoServer::loadCatalogConfigs() {
   static const std::string kPropertiesExtension = ".properties";
+  auto configDirectoryPath = fs::path(configDirectoryPath_);
 
-  const auto numConnectorIoThreads = std::max<size_t>(
-      SystemConfig::instance()->connectorNumIoThreadsHwMultiplier() *
-          std::thread::hardware_concurrency(),
-      0);
-  if (numConnectorIoThreads > 0) {
-    connectorIoExecutor_ = std::make_unique<folly::IOThreadPoolExecutor>(
-        numConnectorIoThreads,
-        std::make_shared<folly::NamedThreadFactory>("Connector"));
-
-    PRESTO_STARTUP_LOG(INFO)
-        << "Connector IO executor has " << connectorIoExecutor_->numThreads()
-        << " threads.";
-  }
-
-  std::vector<std::string> catalogNames;
   for (const auto& entry :
        fs::directory_iterator(configDirectoryPath / "catalog")) {
+    auto fileName = entry.path().filename().string();
     if (entry.path().extension() == kPropertiesExtension) {
-      auto fileName = entry.path().filename().string();
       auto catalogName =
           fileName.substr(0, fileName.size() - kPropertiesExtension.size());
-
       auto connectorConf = util::readConfig(entry.path());
       PRESTO_STARTUP_LOG(INFO)
           << "Registered properties from " << entry.path() << ":\n"
@@ -1137,22 +1152,48 @@ std::vector<std::string> PrestoServer::registerConnectors(
       std::shared_ptr<const velox::config::ConfigBase> properties =
           std::make_shared<const velox::config::ConfigBase>(
               std::move(connectorConf));
-
       auto connectorName = util::requiredProperty(*properties, kConnectorName);
 
-      catalogNames.emplace_back(catalogName);
+      connectorToCatalogInfo_[connectorName].push_back(
+          {catalogName, properties});
+    } else {
+      PRESTO_STARTUP_LOG(INFO)
+          << fileName << " should have extension: " << kPropertiesExtension;
+    }
+  }
+}
 
+std::vector<std::string> PrestoServer::registerConnectors() {
+  const auto numConnectorIoThreads = std::max<size_t>(
+      SystemConfig::instance()->connectorNumIoThreadsHwMultiplier() *
+          std::thread::hardware_concurrency(),
+      0);
+  if (numConnectorIoThreads > 0) {
+    connectorIoExecutor_ = std::make_unique<folly::IOThreadPoolExecutor>(
+        numConnectorIoThreads,
+        std::make_shared<folly::NamedThreadFactory>("Connector"));
+    PRESTO_STARTUP_LOG(INFO)
+        << "Connector IO executor has " << connectorIoExecutor_->numThreads()
+        << " threads.";
+  }
+
+  std::vector<std::string> catalogNames;
+  for (const auto& entry : connectorToCatalogInfo_) {
+    auto connectorName = entry.first;
+    // make sure connector type is supported
+    getPrestoToVeloxConnector(connectorName);
+
+    for (const auto& catalogInfo : entry.second) {
+      auto catalogName = catalogInfo.name;
+      catalogNames.emplace_back(catalogName);
       PRESTO_STARTUP_LOG(INFO) << "Registering catalog " << catalogName
                                << " using connector " << connectorName;
-
-      // make sure connector type is supported
-      getPrestoToVeloxConnector(connectorName);
 
       std::shared_ptr<velox::connector::Connector> connector =
           facebook::velox::connector::getConnectorFactory(connectorName)
               ->newConnector(
                   catalogName,
-                  std::move(properties),
+                  std::move(catalogInfo.configs),
                   connectorIoExecutor_.get());
       velox::connector::registerConnector(connector);
     }

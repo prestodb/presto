@@ -21,7 +21,7 @@
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/ShuffleWrite.h"
-#include "presto_cpp/main/types/PrestoToVeloxConnector.h"
+#include "presto_cpp/main/types/HivePrestoToVeloxConnector.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include "velox/connectors/hive/TableHandle.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
@@ -111,9 +111,9 @@ class PlanConverterTest : public ::testing::Test {
 
   void SetUp() override {
     registerPrestoToVeloxConnector(
-        std::make_unique<HivePrestoToVeloxConnector>("hive"));
-    registerPrestoToVeloxConnector(
-        std::make_unique<HivePrestoToVeloxConnector>("hive-plus"));
+        std::make_unique<HivePrestoToVeloxConnector>("hive", std::nullopt));
+    registerPrestoToVeloxConnector(std::make_unique<HivePrestoToVeloxConnector>(
+        "hive-plus", std::nullopt));
   }
 
   void TearDown() override {
