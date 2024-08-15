@@ -14,11 +14,20 @@
 #pragma once
 
 #include <stdexcept>
+#include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/types/TypeParser.h"
 #include "presto_cpp/presto_protocol/presto_protocol.h"
 #include "velox/core/Expressions.h"
 
 namespace facebook::presto {
+
+namespace {
+inline std::string formatDefaultNamespacePrefix(
+    const std::string& functionName,
+    const std::string& prestoDefaultNamespacePrefix) {
+  return fmt::format("{}{}", prestoDefaultNamespacePrefix, functionName);
+}
+} // namespace
 
 class VeloxExprConverter {
  public:

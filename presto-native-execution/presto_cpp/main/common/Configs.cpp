@@ -228,7 +228,7 @@ SystemConfig::SystemConfig() {
           STR_PROP(kCacheVeloxTtlThreshold, "2d"),
           STR_PROP(kCacheVeloxTtlCheckInterval, "1h"),
           BOOL_PROP(kEnableRuntimeMetricsCollection, false),
-      };
+          STR_PROP(kPrestoDefaultNamespacePrefix, "presto.default")};
 }
 
 SystemConfig* SystemConfig::instance() {
@@ -681,6 +681,10 @@ int32_t SystemConfig::largestSizeClassPages() const {
 
 bool SystemConfig::enableRuntimeMetricsCollection() const {
   return optionalProperty<bool>(kEnableRuntimeMetricsCollection).value();
+}
+
+std::string SystemConfig::prestoDefaultNamespacePrefix() const {
+  return optionalProperty(kPrestoDefaultNamespacePrefix).value().append(".");
 }
 
 NodeConfig::NodeConfig() {

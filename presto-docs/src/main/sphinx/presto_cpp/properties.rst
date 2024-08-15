@@ -95,6 +95,14 @@ The configuration properties of Presto C++ workers are described here, in alphab
 
   In-memory cache.
 
+``presto.default-namespace``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Default value:** ``presto.default``
+
+  Specifies the namespace prefix for native C++ functions.
+
 ``query.max-memory-per-node``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
