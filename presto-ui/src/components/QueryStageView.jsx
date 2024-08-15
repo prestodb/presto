@@ -16,7 +16,7 @@ import { clsx } from 'clsx';
 import React from "react";
 import { createRoot } from 'react-dom/client';
 import ReactDOMServer from "react-dom/server";
-import * as dagreD3 from "dagre-d3";
+import * as dagreD3 from "dagre-d3-es";
 import * as d3 from "d3";
 
 
