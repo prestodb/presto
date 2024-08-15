@@ -16,7 +16,7 @@ import React from "react";
 import ReactDOM from "react-dom";
 import { createRoot } from 'react-dom/client';
 import ReactDOMServer from "react-dom/server";
-import * as dagreD3 from "dagre-d3";
+import * as dagreD3 from "dagre-d3-es";
 import * as d3 from "d3";
 
 import {
