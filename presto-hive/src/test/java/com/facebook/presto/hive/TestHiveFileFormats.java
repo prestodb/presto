@@ -548,11 +548,8 @@ public class TestHiveFileFormats
                 assertFalse(annotation.isAdjustedToUTC());
             }
             else {
-                fail("logical type annotation was not timestamp");
+                fail("the logical type annotation saved was not of type TimestampLogicalTypeAnnotation");
             }
-        }
-        catch (Exception e) {
-            fail("failed: ", e);
         }
         finally {
             file.delete();
