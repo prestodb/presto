@@ -65,7 +65,7 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.QueryAssertions.copyTables;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static java.util.Locale.ENGLISH;
-import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
 
 public final class HiveQueryRunner
 {
@@ -83,7 +83,6 @@ public final class HiveQueryRunner
     public static final String TPCDS_BUCKETED_SCHEMA = "tpcds_bucketed";
     public static final MetastoreContext METASTORE_CONTEXT = new MetastoreContext("test_user", "test_queryId", Optional.empty(), Collections.emptySet(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, WarningCollector.NOOP, new RuntimeStats());
     private static final String TEMPORARY_TABLE_SCHEMA = "__temporary_tables__";
-    private static final DateTimeZone TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
 
     public static DistributedQueryRunner createQueryRunner(TpchTable<?>... tables)
             throws Exception
@@ -186,7 +185,9 @@ public final class HiveQueryRunner
             boolean addJmxPlugin)
             throws Exception
     {
-        assertEquals(DateTimeZone.getDefault(), TIME_ZONE, "Timezone not configured correctly. Add -Duser.timezone=America/Bahia_Banderas to your JVM arguments");
+        DateTimeZone timeZone = DateTimeZone.getDefault();
+        assertNotNull(timeZone, "Timezone not configured correctly. Add -Duser.timezone=America/Bahia_Banderas to your JVM arguments");
+
         setupLogging();
 
         Map<String, String> systemProperties = ImmutableMap.<String, String>builder()
@@ -228,7 +229,7 @@ public final class HiveQueryRunner
 
             Map<String, String> hiveProperties = ImmutableMap.<String, String>builder()
                     .putAll(extraHiveProperties)
-                    .put("hive.time-zone", TIME_ZONE.getID())
+                    .put("hive.time-zone", timeZone.getID())
                     .put("hive.security", security)
                     .put("hive.max-partitions-per-scan", "1000")
                     .put("hive.assume-canonical-partition-keys", "true")
