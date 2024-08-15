@@ -922,7 +922,8 @@ public class RowExpressionInterpreter
                 // this corresponds to ExpressionInterpreter::getConstantPattern
                 if (hasEscape) {
                     // like_pattern(pattern, escape)
-                    possibleCompiledPattern = functionInvoker.invoke(((CallExpression) possibleCompiledPattern).getFunctionHandle(), session.getSqlFunctionProperties(), nonCompiledPattern, escape);
+                    Slice unescapedPattern = unescapeLiteralLikePattern((Slice) nonCompiledPattern, (Slice) escape);
+                    possibleCompiledPattern = functionInvoker.invoke(((CallExpression) possibleCompiledPattern).getFunctionHandle(), session.getSqlFunctionProperties(), unescapedPattern, escape);
                 }
                 else {
                     // like_pattern(pattern)
