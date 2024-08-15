@@ -15,9 +15,6 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.airlift.configuration.ConfigurationFactory;
 import com.facebook.airlift.configuration.testing.ConfigAssertions;
-import com.facebook.presto.operator.aggregation.arrayagg.ArrayAggGroupImplementation;
-import com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation;
-import com.facebook.presto.operator.aggregation.multimapagg.MultimapAggGroupImplementation;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationIfToFilterRewriteStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.CteMaterializationStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
@@ -47,8 +44,6 @@ import static com.facebook.presto.sql.analyzer.FeaturesConfig.SPILLER_SPILL_PATH
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.SPILL_ENABLED;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.TaskSpillingStrategy.ORDER_BY_CREATE_TIME;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.TaskSpillingStrategy.PER_TASK_MEMORY_THRESHOLD;
-import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
-import static com.facebook.presto.sql.analyzer.RegexLibrary.RE2J;
 import static com.facebook.presto.sql.tree.CreateView.Security.DEFINER;
 import static com.facebook.presto.sql.tree.CreateView.Security.INVOKER;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
@@ -105,13 +100,6 @@ public class TestFeaturesConfig
                 .setRetryQueryWithHistoryBasedOptimizationEnabled(false)
                 .setTreatLowConfidenceZeroEstimationAsUnknownEnabled(false)
                 .setAggregationPartitioningMergingStrategy(LEGACY)
-                .setLegacyArrayAgg(false)
-                .setUseAlternativeFunctionSignatures(false)
-                .setLegacyMapSubscript(false)
-                .setReduceAggForComplexTypesEnabled(true)
-                .setRegexLibrary(JONI)
-                .setRe2JDfaStatesLimit(Integer.MAX_VALUE)
-                .setRe2JDfaRetries(5)
                 .setSpillEnabled(false)
                 .setJoinSpillingEnabled(true)
                 .setAggregationSpillEnabled(true)
@@ -136,7 +124,6 @@ public class TestFeaturesConfig
                 .setSpillerTempStorage("local")
                 .setMaxRevocableMemoryPerTask(new DataSize(500, MEGABYTE))
                 .setOptimizeMixedDistinctAggregations(false)
-                .setLegacyLogFunction(false)
                 .setIterativeOptimizerEnabled(true)
                 .setIterativeOptimizerTimeout(new Duration(3, MINUTES))
                 .setRuntimeOptimizerEnabled(false)
@@ -152,12 +139,8 @@ public class TestFeaturesConfig
                 .setDefaultFilterFactorEnabled(false)
                 .setExchangeCompressionEnabled(false)
                 .setExchangeChecksumEnabled(false)
-                .setLegacyTimestamp(true)
-                .setLegacyRowFieldOrdinalAccess(false)
-                .setLegacyCharToVarcharCoercion(false)
                 .setEnableIntermediateAggregations(false)
                 .setPushAggregationThroughJoin(true)
-                .setParseDecimalLiteralsAsDouble(false)
                 .setForceSingleNodeOutput(true)
                 .setPagesIndexEagerCompactionEnabled(false)
                 .setFilterAndProjectMinOutputPageSize(new DataSize(500, KILOBYTE))
@@ -171,9 +154,6 @@ public class TestFeaturesConfig
                 .setAdaptivePartialAggregationRowsReductionRatioThreshold(0.8)
                 .setOptimizeTopNRowNumber(true)
                 .setOptimizeCaseExpressionPredicate(false)
-                .setHistogramGroupImplementation(HistogramGroupImplementation.NEW)
-                .setArrayAggGroupImplementation(ArrayAggGroupImplementation.NEW)
-                .setMultimapAggGroupImplementation(MultimapAggGroupImplementation.NEW)
                 .setDistributedSortEnabled(true)
                 .setMaxGroupingSets(2048)
                 .setLegacyUnnestArrayRows(false)
@@ -231,6 +211,7 @@ public class TestFeaturesConfig
                 .setOptimizeMultipleApproxPercentileOnSameFieldEnabled(true)
                 .setNativeExecutionEnabled(false)
                 .setDisableTimeStampWithTimeZoneForNative(true)
+                .setDisableIPAddressForNative(true)
                 .setNativeExecutionExecutablePath("./presto_server")
                 .setNativeExecutionProgramArguments("")
                 .setNativeExecutionProcessReuseEnabled(true)
@@ -243,7 +224,6 @@ public class TestFeaturesConfig
                 .setInPredicatesAsInnerJoinsEnabled(false)
                 .setPushAggregationBelowJoinByteReductionThreshold(1)
                 .setPrefilterForGroupbyLimit(false)
-                .setFieldNamesInJsonCastEnabled(false)
                 .setOptimizeJoinProbeForEmptyBuildRuntimeEnabled(false)
                 .setUseDefaultsForCorrelatedAggregationPushdownThroughOuterJoins(true)
                 .setMergeDuplicateAggregationsEnabled(true)
@@ -267,19 +247,15 @@ public class TestFeaturesConfig
                 .setSkipHashGenerationForJoinWithTableScanInput(false)
                 .setCteMaterializationStrategy(CteMaterializationStrategy.NONE)
                 .setCteFilterAndProjectionPushdownEnabled(true)
-                .setKHyperLogLogAggregationGroupNumberLimit(0)
-                .setLimitNumberOfGroupsForKHyperLogLogAggregations(true)
                 .setGenerateDomainFilters(false)
                 .setRewriteExpressionWithConstantVariable(true)
                 .setDefaultWriterReplicationCoefficient(3.0)
                 .setDefaultViewSecurityMode(DEFINER)
                 .setCteHeuristicReplicationThreshold(4)
-                .setLegacyJsonCast(true)
                 .setPrintEstimatedStatsFromCache(false)
                 .setRemoveCrossJoinWithSingleConstantRow(true)
                 .setUseHistograms(false)
-                .setUseNewNanDefinition(true)
-                .setWarnOnCommonNanPatterns(false));
+                .setInlineProjectionsOnValues(false));
     }
 
     @Test
@@ -302,13 +278,6 @@ public class TestFeaturesConfig
                 .put("optimizer.ignore-stats-calculator-failures", "false")
                 .put("print-stats-for-non-join-query", "true")
                 .put("optimizer.default-filter-factor-enabled", "true")
-                .put("deprecated.legacy-array-agg", "true")
-                .put("deprecated.legacy-log-function", "true")
-                .put("use-alternative-function-signatures", "true")
-                .put("deprecated.legacy-map-subscript", "true")
-                .put("reduce-agg-for-complex-types-enabled", "false")
-                .put("deprecated.legacy-row-field-ordinal-access", "true")
-                .put("deprecated.legacy-char-to-varchar-coercion", "true")
                 .put("distributed-index-joins-enabled", "true")
                 .put("join-distribution-type", "BROADCAST")
                 .put("join-max-broadcast-table-size", "42GB")
@@ -350,9 +319,6 @@ public class TestFeaturesConfig
                 .put("optimizer.treat-low-confidence-zero-estimation-as-unknown", "true")
                 .put("optimizer.push-aggregation-through-join", "false")
                 .put("optimizer.aggregation-partition-merging", "top_down")
-                .put("regex-library", "RE2J")
-                .put("re2j.dfa-states-limit", "42")
-                .put("re2j.dfa-retries", "42")
                 .put("experimental.spill-enabled", "true")
                 .put("experimental.join-spill-enabled", "false")
                 .put("experimental.aggregation-spill-enabled", "false")
@@ -378,16 +344,11 @@ public class TestFeaturesConfig
                 .put("experimental.spiller.max-revocable-task-memory", "1GB")
                 .put("exchange.compression-enabled", "true")
                 .put("exchange.checksum-enabled", "true")
-                .put("deprecated.legacy-timestamp", "false")
                 .put("optimizer.enable-intermediate-aggregations", "true")
-                .put("parse-decimal-literals-as-double", "true")
                 .put("optimizer.force-single-node-output", "false")
                 .put("pages-index.eager-compaction-enabled", "true")
                 .put("experimental.filter-and-project-min-output-page-size", "1MB")
                 .put("experimental.filter-and-project-min-output-page-row-count", "2048")
-                .put("histogram.implementation", "LEGACY")
-                .put("arrayagg.implementation", "LEGACY")
-                .put("multimapagg.implementation", "LEGACY")
                 .put("optimizer.use-mark-distinct", "false")
                 .put("optimizer.exploit-constraints", "false")
                 .put("optimizer.prefer-partial-aggregation", "false")
@@ -454,6 +415,7 @@ public class TestFeaturesConfig
                 .put("optimizer.optimize-multiple-approx-percentile-on-same-field", "false")
                 .put("native-execution-enabled", "true")
                 .put("disable-timestamp-with-timezone-for-native-execution", "false")
+                .put("disable-ipaddress-for-native-execution", "false")
                 .put("native-execution-executable-path", "/bin/echo")
                 .put("native-execution-program-arguments", "--v 1")
                 .put("native-execution-process-reuse-enabled", "false")
@@ -466,8 +428,6 @@ public class TestFeaturesConfig
                 .put("optimizer.in-predicates-as-inner-joins-enabled", "true")
                 .put("optimizer.push-aggregation-below-join-byte-reduction-threshold", "0.9")
                 .put("optimizer.prefilter-for-groupby-limit", "true")
-                .put("field-names-in-json-cast-enabled", "true")
-                .put("legacy-json-cast", "false")
                 .put("optimizer.optimize-probe-for-empty-build-runtime", "true")
                 .put("optimizer.use-defaults-for-correlated-aggregation-pushdown-through-outer-joins", "false")
                 .put("optimizer.merge-duplicate-aggregations", "false")
@@ -491,8 +451,6 @@ public class TestFeaturesConfig
                 .put("cte-filter-and-projection-pushdown-enabled", "false")
                 .put("optimizer.handle-complex-equi-joins", "true")
                 .put("optimizer.skip-hash-generation-for-join-with-table-scan-input", "true")
-                .put("khyperloglog-agg-group-limit", "1000")
-                .put("limit-khyperloglog-agg-group-number-enabled", "false")
                 .put("optimizer.generate-domain-filters", "true")
                 .put("optimizer.rewrite-expression-with-constant-variable", "false")
                 .put("optimizer.default-writer-replication-coefficient", "5.0")
@@ -501,8 +459,7 @@ public class TestFeaturesConfig
                 .put("optimizer.print-estimated-stats-from-cache", "true")
                 .put("optimizer.remove-cross-join-with-single-constant-row", "false")
                 .put("optimizer.use-histograms", "true")
-                .put("use-new-nan-definition", "false")
-                .put("warn-on-common-nan-patterns", "true")
+                .put("optimizer.inline-projections-on-values", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -562,13 +519,6 @@ public class TestFeaturesConfig
                 .setTreatLowConfidenceZeroEstimationAsUnknownEnabled(true)
                 .setAggregationPartitioningMergingStrategy(TOP_DOWN)
                 .setPushAggregationThroughJoin(false)
-                .setLegacyArrayAgg(true)
-                .setUseAlternativeFunctionSignatures(true)
-                .setLegacyMapSubscript(true)
-                .setReduceAggForComplexTypesEnabled(false)
-                .setRegexLibrary(RE2J)
-                .setRe2JDfaStatesLimit(42)
-                .setRe2JDfaRetries(42)
                 .setSpillEnabled(true)
                 .setJoinSpillingEnabled(false)
                 .setAggregationSpillEnabled(false)
@@ -592,14 +542,9 @@ public class TestFeaturesConfig
                 .setSingleStreamSpillerChoice(SingleStreamSpillerChoice.TEMP_STORAGE)
                 .setSpillerTempStorage("crail")
                 .setMaxRevocableMemoryPerTask(new DataSize(1, GIGABYTE))
-                .setLegacyLogFunction(true)
                 .setExchangeCompressionEnabled(true)
                 .setExchangeChecksumEnabled(true)
-                .setLegacyTimestamp(false)
-                .setLegacyRowFieldOrdinalAccess(true)
-                .setLegacyCharToVarcharCoercion(true)
                 .setEnableIntermediateAggregations(true)
-                .setParseDecimalLiteralsAsDouble(true)
                 .setForceSingleNodeOutput(false)
                 .setPagesIndexEagerCompactionEnabled(true)
                 .setFilterAndProjectMinOutputPageSize(new DataSize(1, MEGABYTE))
@@ -613,9 +558,6 @@ public class TestFeaturesConfig
                 .setAdaptivePartialAggregationRowsReductionRatioThreshold(0.9)
                 .setOptimizeTopNRowNumber(false)
                 .setOptimizeCaseExpressionPredicate(true)
-                .setHistogramGroupImplementation(HistogramGroupImplementation.LEGACY)
-                .setArrayAggGroupImplementation(ArrayAggGroupImplementation.LEGACY)
-                .setMultimapAggGroupImplementation(MultimapAggGroupImplementation.LEGACY)
                 .setDistributedSortEnabled(false)
                 .setMaxGroupingSets(2047)
                 .setLegacyUnnestArrayRows(true)
@@ -675,6 +617,7 @@ public class TestFeaturesConfig
                 .setOptimizeMultipleApproxPercentileOnSameFieldEnabled(false)
                 .setNativeExecutionEnabled(true)
                 .setDisableTimeStampWithTimeZoneForNative(false)
+                .setDisableIPAddressForNative(false)
                 .setNativeExecutionExecutablePath("/bin/echo")
                 .setNativeExecutionProgramArguments("--v 1")
                 .setNativeExecutionProcessReuseEnabled(false)
@@ -688,7 +631,6 @@ public class TestFeaturesConfig
                 .setPushAggregationBelowJoinByteReductionThreshold(0.9)
                 .setPrefilterForGroupbyLimit(true)
                 .setOptimizeJoinProbeForEmptyBuildRuntimeEnabled(true)
-                .setFieldNamesInJsonCastEnabled(true)
                 .setUseDefaultsForCorrelatedAggregationPushdownThroughOuterJoins(false)
                 .setMergeDuplicateAggregationsEnabled(false)
                 .setMergeAggregationsWithAndWithoutFilter(true)
@@ -711,19 +653,15 @@ public class TestFeaturesConfig
                 .setSkipHashGenerationForJoinWithTableScanInput(true)
                 .setCteMaterializationStrategy(CteMaterializationStrategy.ALL)
                 .setCteFilterAndProjectionPushdownEnabled(false)
-                .setKHyperLogLogAggregationGroupNumberLimit(1000)
-                .setLimitNumberOfGroupsForKHyperLogLogAggregations(false)
                 .setGenerateDomainFilters(true)
                 .setRewriteExpressionWithConstantVariable(false)
                 .setDefaultWriterReplicationCoefficient(5.0)
                 .setDefaultViewSecurityMode(INVOKER)
                 .setCteHeuristicReplicationThreshold(2)
-                .setLegacyJsonCast(false)
                 .setPrintEstimatedStatsFromCache(true)
                 .setRemoveCrossJoinWithSingleConstantRow(false)
                 .setUseHistograms(true)
-                .setUseNewNanDefinition(false)
-                .setWarnOnCommonNanPatterns(true);
+                .setInlineProjectionsOnValues(true);
         assertFullMapping(properties, expected);
     }
 

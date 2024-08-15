@@ -101,7 +101,7 @@ public class TestChecksumValidator
             .put("row.r._col1$sum", 0.0)
             .put("row.r.b$checksum", new SqlVarbinary(new byte[] {0xe}))
             .build();
-    private static final SqlParser sqlParser = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(COLON, AT_SIGN));
+    private static final SqlParser SQL_PARSER = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(COLON, AT_SIGN));
 
     private final ChecksumValidator checksumValidator = createChecksumValidator(new VerifierConfig()
             .setRelativeErrorMargin(RELATIVE_ERROR_MARGIN)
@@ -132,7 +132,7 @@ public class TestChecksumValidator
                         MAP_NON_ORDERABLE_COLUMN,
                         ROW_COLUMN),
                 Optional.empty());
-        Statement expectedChecksumQuery = sqlParser.createStatement(
+        Statement expectedChecksumQuery = SQL_PARSER.createStatement(
                 "SELECT\n" +
                         "  \"count\"(*)\n" +
                         ", \"checksum\"(\"bigint\") \"bigint$checksum\"\n" +
@@ -212,7 +212,7 @@ public class TestChecksumValidator
                 ImmutableList.of(
                         VARCHAR_COLUMN, VARCHAR_ARRAY_COLUMN, MAP_VARCHAR_VARCHAR_COLUMN),
                 Optional.empty());
-        Statement expectedChecksumQuery = sqlParser.createStatement(
+        Statement expectedChecksumQuery = SQL_PARSER.createStatement(
                 "SELECT\n" +
                         "  \"count\"(*)\n" +
                         ", \"checksum\"(\"varchar\") \"varchar$checksum\"\n" +

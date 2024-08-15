@@ -53,6 +53,7 @@ import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createPart
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createPrestoBenchTables;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createRegion;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createSupplier;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createTableToTestHiddenColumns;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -71,6 +72,7 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestNativeGeneralQueries
         extends AbstractTestQueryFramework
@@ -89,6 +91,7 @@ public abstract class AbstractTestNativeGeneralQueries
         createBucketedCustomer(queryRunner);
         createPart(queryRunner);
         createRegion(queryRunner);
+        createTableToTestHiddenColumns(queryRunner);
         createEmptyTable(queryRunner);
         createBucketedLineitemAndOrders(queryRunner);
 
@@ -314,6 +317,33 @@ public abstract class AbstractTestNativeGeneralQueries
         }
     }
 
+    @Test
+    public void testIPAddressIPPrefix() throws InterruptedException
+    {
+        String tmpTableName = generateRandomTableName();
+        try {
+            getQueryRunner().execute(String.format("CREATE TABLE %s (ip VARCHAR, prefixSize  BIGINT, ippre VARCHAR)", tmpTableName));
+            getQueryRunner().execute(String.format("INSERT INTO %s VALUES " +
+                    "(VARCHAR '255.255.255.255', BIGINT '8', VARCHAR '255.0.0.0/8'), " +
+                    "(VARCHAR '2001:0db8:85a3:0001:0001:8a2e:0370:7334', BIGINT '48', VARCHAR '2001:db8:85a3::/48')", tmpTableName));
+
+            assertQueryFails(String.format("SELECT ip_prefix(CAST('192.168.255.255' AS IPADDRESS), NULL) IS NULL", tmpTableName),
+                    ".*IPAddress type is not supported in Prestissimo.*");
+            assertQueryFails(String.format("SELECT CAST(NULL AS IPADDRESS) IS NULL", tmpTableName),
+                    ".*IPAddress type is not supported in Prestissimo.*");
+
+            assertQueryFails("SELECT * FROM (VALUES (IPADDRESS '192.1.1.10'), (IPADDRESS '192.1.1.1'), (IPADDRESS '192.1.1.11')) as t (ip) ORDER BY ip LIMIT 1",
+                    ".*IPAddress type is not supported in Prestissimo.*");
+
+            assertQueryFails("SELECT CAST('192.168.255.256' AS IPADDRESS)",
+                    ".*IPAddress type is not supported in Prestissimo.*");
+            assertQueryFails("SELECT ip_prefix(CAST('192.168.255.255' AS IPADDRESS), 99)",
+                    ".*IPAddress type is not supported in Prestissimo.*");
+        }
+        finally {
+            dropTableIfExists(tmpTableName);
+        }
+    }
     @Test
     public void testTableSample()
     {
@@ -1024,31 +1054,49 @@ public abstract class AbstractTestNativeGeneralQueries
     @Test
     public void testPathHiddenColumn()
     {
-        assertQuery("SELECT \"$path\", * from orders");
+        assertQuery("SELECT \"$path\", * from test_hidden_columns");
 
         // Fetch one of the file paths and use it in a filter
-        String path = (String) computeActual("SELECT \"$path\" from orders LIMIT 1").getOnlyValue();
-        assertQuery(format("SELECT * from orders WHERE \"$path\"='%s'", path));
+        String path = (String) computeActual("SELECT \"$path\" from test_hidden_columns LIMIT 1").getOnlyValue();
+        assertQuery(format("SELECT * from test_hidden_columns WHERE \"$path\"='%s'", path));
+
+        assertEquals(
+                (Long) computeActual(format("SELECT count(*) from test_hidden_columns WHERE \"$path\"='%s'", path))
+                        .getOnlyValue(),
+                1L);
     }
 
     @Test
     public void testFileSizeHiddenColumn()
     {
-        assertQuery("SELECT \"$file_size\", * from orders");
+        assertQuery("SELECT \"$file_size\", * from test_hidden_columns");
 
         // Fetch one of the file sizes and use it in a filter
-        Long fileSize = (Long) computeActual("SELECT \"$file_size\" from orders LIMIT 1").getOnlyValue();
-        assertQuery(format("SELECT * from orders WHERE \"$file_size\"=%d", fileSize));
+        Long fileSize = (Long) computeActual("SELECT \"$file_size\" from test_hidden_columns LIMIT 1").getOnlyValue();
+        assertQuery(format("SELECT * from test_hidden_columns WHERE \"$file_size\"=%d", fileSize));
+
+        // A bug used to return all rows even though filters on hidden column were present in the query.
+        // So checking the count here to verify the number of rows returned is correct. Since the bug was present
+        // for both Java and Native Presto for non-$path columns, the assertQuery test above used to pass.
+        assertEquals(
+                (Long) computeActual(format("SELECT count(*) from test_hidden_columns WHERE \"$file_size\"=%d", fileSize))
+                        .getOnlyValue(),
+                1L);
     }
 
     @Test
     public void testFileModifiedTimeHiddenColumn()
     {
-        assertQuery("SELECT \"$file_modified_time\", * from orders");
+        assertQuery("SELECT \"$file_modified_time\", * from test_hidden_columns");
 
         // Fetch one of the file modified times and use it as a filter.
-        Long fileModifiedTime = (Long) computeActual("SELECT \"$file_modified_time\" from orders LIMIT 1").getOnlyValue();
-        assertQuery(format("SELECT *, \"$file_modified_time\" from orders WHERE \"$file_modified_time\"=%d", fileModifiedTime));
+        Long fileModifiedTime = (Long) computeActual("SELECT \"$file_modified_time\" from test_hidden_columns LIMIT 1").getOnlyValue();
+        assertQuery(format("SELECT * from test_hidden_columns WHERE \"$file_modified_time\"=%d", fileModifiedTime));
+        assertEquals(
+                (Long) computeActual(
+                        format("SELECT count(*) from " +
+                                "test_hidden_columns WHERE \"$file_modified_time\"=%d", fileModifiedTime)).getOnlyValue(),
+                1L);
     }
 
     @Test
@@ -1060,6 +1108,11 @@ public abstract class AbstractTestNativeGeneralQueries
         Integer bucket = (Integer) computeActual("SELECT \"$bucket\" from customer_bucketed LIMIT 1").getOnlyValue();
 
         assertQuery(format("SELECT * from customer_bucketed WHERE \"$bucket\"=%d", bucket));
+
+        long bucketRowCount = (long) computeActual(format("SELECT count(*) from customer_bucketed WHERE \"$bucket\"=%d", bucket)).getOnlyValue();
+        long tableRowCount = (long) computeActual("SELECT count(*) from customer_bucketed").getOnlyValue();
+
+        assertTrue(bucketRowCount != tableRowCount);
     }
 
     @Test

@@ -23,7 +23,6 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.spi.security.SelectedRole;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.SetRole;
 import com.facebook.presto.transaction.TransactionManager;
@@ -63,7 +62,7 @@ public class TestSetRoleTask
         transactionManager = createTestTransactionManager(catalogManager);
         accessControl = new AllowAllAccessControl();
 
-        metadata = MetadataManager.createTestMetadataManager(transactionManager, new FeaturesConfig());
+        metadata = MetadataManager.createTestMetadataManager(transactionManager);
 
         catalogManager.registerCatalog(createBogusTestingCatalog(CATALOG_NAME));
         executor = newCachedThreadPool(daemonThreadsNamed("test-set-role-task-executor-%s"));

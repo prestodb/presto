@@ -29,6 +29,7 @@
 #include "velox/dwio/common/FileSink.h"
 #include "velox/dwio/common/WriterFactory.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
+#include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/exec/Exchange.h"
 #include "velox/exec/Values.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -153,12 +154,12 @@ class Cursor {
           const_cast<uint8_t*>(range.data()), (int32_t)range.size(), 0});
     }
 
-    ByteInputStream input(std::move(byteRanges));
+    auto input = std::make_unique<BufferInputStream>(std::move(byteRanges));
 
     std::vector<RowVectorPtr> vectors;
-    while (!input.atEnd()) {
+    while (!input->atEnd()) {
       RowVectorPtr vector;
-      VectorStreamGroup::read(&input, pool_, rowType_, &vector);
+      VectorStreamGroup::read(input.get(), pool_, rowType_, &vector);
       vectors.emplace_back(vector);
     }
     return vectors;
@@ -234,7 +235,9 @@ class TaskManagerTest : public testing::Test {
         connector::getConnectorFactory(
             connector::hive::HiveConnectorFactory::kHiveConnectorName)
             ->newConnector(
-                kHiveConnectorId, std::make_shared<core::MemConfig>());
+                kHiveConnectorId,
+                std::make_shared<config::ConfigBase>(
+                    std::unordered_map<std::string, std::string>()));
     connector::registerConnector(hiveConnector);
 
     rootPool_ = memory::memoryManager()->addRootPool("TaskManagerTest.root");
@@ -244,8 +247,13 @@ class TaskManagerTest : public testing::Test {
 
     taskManager_ = std::make_unique<TaskManager>(
         driverExecutor_.get(), httpSrvCpuExecutor_.get(), nullptr);
+
+    auto validator = std::make_shared<facebook::presto::VeloxPlanValidator>();
     taskResource_ = std::make_unique<TaskResource>(
-        *taskManager_.get(), leafPool_.get(), httpSrvCpuExecutor_.get());
+        leafPool_.get(),
+        httpSrvCpuExecutor_.get(),
+        validator.get(),
+        *taskManager_.get());
 
     auto httpServer = std::make_unique<http::HttpServer>(
         httpSrvIOExecutor_,
@@ -262,6 +270,8 @@ class TaskManagerTest : public testing::Test {
         "http://{}:{}",
         serverAddress.getAddressStr(),
         serverAddress.getPort()));
+    writerFactory_ =
+        dwio::common::getWriterFactory(dwio::common::FileFormat::DWRF);
   }
 
   void TearDown() override {
@@ -291,13 +301,13 @@ class TaskManagerTest : public testing::Test {
   void writeToFile(
       const std::string& filePath,
       const std::vector<RowVectorPtr>& vectors) {
-    auto options = std::make_shared<dwio::common::WriterOptions>();
+    auto options = writerFactory_->createWriterOptions();
     options->schema = rowType_;
     options->memoryPool = rootPool_.get();
     auto sink = std::make_unique<dwio::common::LocalFileSink>(
         filePath, dwio::common::FileSink::Options{});
-    auto writer = dwio::common::getWriterFactory(dwio::common::FileFormat::DWRF)
-                      ->createWriter(std::move(sink), options);
+    auto writer =
+        writerFactory_->createWriter(std::move(sink), std::move(options));
 
     for (size_t i = 0; i < vectors.size(); ++i) {
       writer->write(vectors[i]);
@@ -666,6 +676,7 @@ class TaskManagerTest : public testing::Test {
   long splitSequenceId_{0};
   std::shared_ptr<http::HttpClientConnectionPool> connPool_ =
       std::make_shared<http::HttpClientConnectionPool>();
+  std::shared_ptr<dwio::common::WriterFactory> writerFactory_;
 };
 
 // Runs "select * from t where c0 % 5 = 0" query.
@@ -967,7 +978,6 @@ TEST_F(TaskManagerTest, emptyFile) {
       EXPECT_EQ(1, taskStatus->failures.size());
       const auto& failure = taskStatus->failures.front();
       EXPECT_THAT(failure.message, testing::ContainsRegex("ORC file is empty"));
-      EXPECT_EQ("VeloxException", failure.type);
       break;
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(100));

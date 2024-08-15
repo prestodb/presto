@@ -122,7 +122,7 @@ resources will be hot-reloaded and changes are reflected on browser refresh.
 
 [Velox](https://github.com/facebookincubator/velox) is a C++ database library which provides reusable, extensible, and high-performance data processing components.
 
-Check out [building instructions](https://github.com/prestodb/presto/tree/master/presto-native-execution#building) to get started.
+Check out [building instructions](https://github.com/prestodb/presto/tree/master/presto-native-execution#build-from-source) to get started.
 
 
 <hr>

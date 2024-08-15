@@ -19,7 +19,6 @@ import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.PartitioningMetadata;
 import com.facebook.presto.metadata.TableLayout;
-import com.facebook.presto.operator.StageExecutionDescriptor;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
@@ -27,18 +26,21 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.OutputNode;
+import com.facebook.presto.spi.plan.Partitioning;
+import com.facebook.presto.spi.plan.PartitioningHandle;
+import com.facebook.presto.spi.plan.PartitioningScheme;
+import com.facebook.presto.spi.plan.PlanFragmentId;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.plan.StageExecutionDescriptor;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.MetadataDeleteNode;
-import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
@@ -52,7 +54,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -73,6 +74,7 @@ import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DI
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.isCompatibleSystemPartitioning;
 import static com.facebook.presto.sql.planner.VariablesExtractor.extractOutputVariables;
+import static com.facebook.presto.sql.planner.optimizations.PartitioningUtils.translateOutputLayout;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_MATERIALIZED;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
@@ -97,11 +99,8 @@ public abstract class BasePlanFragmenter
     private final StatsAndCosts statsAndCosts;
     private final PlanChecker planChecker;
     private final WarningCollector warningCollector;
-    private final SqlParser sqlParser;
     private final Set<PlanNodeId> outputTableWriterNodeIds;
     private final StatisticsAggregationPlanner statisticsAggregationPlanner;
-
-    private Map<String, TableScanNode> cteNameToTableScanMap = new HashMap<>();
 
     public BasePlanFragmenter(
             Session session,
@@ -109,7 +108,6 @@ public abstract class BasePlanFragmenter
             StatsAndCosts statsAndCosts,
             PlanChecker planChecker,
             WarningCollector warningCollector,
-            SqlParser sqlParser,
             PlanNodeIdAllocator idAllocator,
             VariableAllocator variableAllocator,
             Set<PlanNodeId> outputTableWriterNodeIds)
@@ -119,7 +117,6 @@ public abstract class BasePlanFragmenter
         this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts is null");
         this.planChecker = requireNonNull(planChecker, "planChecker is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
-        this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
         this.outputTableWriterNodeIds = ImmutableSet.copyOf(requireNonNull(outputTableWriterNodeIds, "outputTableWriterNodeIds is null"));
@@ -143,7 +140,7 @@ public abstract class BasePlanFragmenter
                 properties.getPartitionedSources());
 
         Set<VariableReferenceExpression> fragmentVariableTypes = extractOutputVariables(root);
-        planChecker.validatePlanFragment(root, session, metadata, sqlParser, TypeProvider.fromVariables(fragmentVariableTypes), warningCollector);
+        planChecker.validatePlanFragment(root, session, metadata, warningCollector);
 
         Set<PlanNodeId> tableWriterNodeIds = PlanFragmenterUtils.getTableWriterNodeIds(root);
         boolean outputTableWriterFragment = tableWriterNodeIds.stream().anyMatch(outputTableWriterNodeIds::contains);
@@ -296,7 +293,7 @@ public abstract class BasePlanFragmenter
 
         ImmutableList.Builder<SubPlan> builder = ImmutableList.builder();
         for (int sourceIndex = 0; sourceIndex < exchange.getSources().size(); sourceIndex++) {
-            FragmentProperties childProperties = new FragmentProperties(partitioningScheme.translateOutputLayout(exchange.getInputs().get(sourceIndex)));
+            FragmentProperties childProperties = new FragmentProperties(translateOutputLayout(partitioningScheme, exchange.getInputs().get(sourceIndex)));
             builder.add(buildSubPlan(exchange.getSources().get(sourceIndex), childProperties, context));
         }
 

@@ -153,4 +153,5 @@ CODEOWNERS @prestodb/team-tsc
 # Presto documentation
 /presto-docs @steveburnett @elharo @prestodb/committers
 /**/*.md @steveburnett @prestodb/committers
+/presto-docs/src/**/connector/iceberg.rst @steveburnett @elharo @hantangwangd @ZacBlanco @prestodb/committers
 

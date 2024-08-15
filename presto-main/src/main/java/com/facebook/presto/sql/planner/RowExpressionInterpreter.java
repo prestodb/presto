@@ -148,6 +148,7 @@ public class RowExpressionInterpreter
     {
         this(expression, metadata.getFunctionAndTypeManager(), session, optimizationLevel);
     }
+
     public RowExpressionInterpreter(RowExpression expression, FunctionAndTypeManager functionAndTypeManager, ConnectorSession session, Level optimizationLevel)
     {
         this.expression = requireNonNull(expression, "expression is null");

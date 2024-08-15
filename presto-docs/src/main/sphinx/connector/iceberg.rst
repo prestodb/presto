@@ -320,6 +320,11 @@ Property Name                                           Description             
 
 ``iceberg.metadata-delete-after-commit``                Set to ``true`` to delete the oldest metadata files after     ``false``
                                                         each commit.
+
+``iceberg.metrics-max-inferred-column``                 The maximum number of columns for which metrics               ``100``
+                                                        are collected.
+``iceberg.max-statistics-file-cache-size``              Maximum size in bytes that should be consumed by the          ``256MB``
+                                                        statistics file cache.
 ======================================================= ============================================================= ============
 
 Table Properties
@@ -367,6 +372,9 @@ Property Name                             Description                           
 
 ``metadata_delete_after_commit``           Set to ``true`` to delete the oldest metadata file after         ``false``
                                            each commit.
+
+``metrics_max_inferred_column``            Optionally specifies the maximum number of columns for which     ``100``
+                                           metrics are collected.
 =======================================   ===============================================================   ============
 
 The table definition below specifies format ``ORC``, partitioning by columns ``c1`` and ``c2``,
@@ -491,14 +499,16 @@ JMX queries to get the metrics and verify the cache usage::
 
     SELECT * FROM jmx.current."com.facebook.presto.hive:name=iceberg_parquetmetadata,type=cachestatsmbean";
 
-Metastore Versioned Cache
-^^^^^^^^^^^^^^^^^^^^^^^^^
+Metastore Cache
+^^^^^^^^^^^^^^^
 
-Metastore cache only caches schema and table names. Other metadata would be fetched from the filesystem.
+Metastore Cache only caches the schema, table, and table statistics. The table object cached in the `tableCache`
+is only used for reading the table metadata location and table properties and, the rest of the table metadata
+is fetched from the filesystem/object storage metadata location.
 
 .. note::
 
-    Metastore Versioned Cache would be applicable only for Hive Catalog in the Presto Iceberg connector.
+    Metastore Cache would be applicable only for Hive Catalog in the Presto Iceberg connector.
 
 .. code-block:: none
 
@@ -704,6 +714,23 @@ example uses the earliest snapshot ID: ``2423571386296047175``
      INSERT    |       2 |  677209275408372885 | {orderkey=18016, custkey=403, orderstatus=O, totalprice=174070.99, orderdate=1996-03-19, orderpriority=1-URGENT, clerk=Clerk#000000629, shippriority=0, comment=ly. quickly ironic excuses are furiously. carefully ironic pack}
      INSERT    |       2 |  677209275408372885 | {orderkey=18017, custkey=958, orderstatus=F, totalprice=203091.02, orderdate=1993-03-26, orderpriority=1-URGENT, clerk=Clerk#000000830, shippriority=0, comment=sleep quickly bold requests. slyly pending pinto beans haggle in pla}
 
+``$refs`` Table
+^^^^^^^^^^^^^^^^^^^^
+* ``$refs`` : Details about Iceberg references including branches and tags. For more information see `Branching and Tagging <https://iceberg.apache.org/docs/nightly/branching/>`_.
+
+.. code-block:: sql
+
+    SELECT * FROM "ctas_nation$refs";
+
+.. code-block:: text
+
+        name     |  type  |     snapshot_id     | max_reference_age_in_ms | min_snapshots_to_keep | max_snapshot_age_in_ms
+     ------------+--------+---------------------+-------------------------+-----------------------+------------------------
+      main       | BRANCH | 3074797416068623476 | NULL                    | NULL                  | NULL
+      testBranch | BRANCH | 3374797416068698476 | NULL                    | NULL                  | NULL
+      testTag    | TAG    | 4686954189838128572 | 10                      | NULL                  | NULL
+
+
 Procedures
 ----------
 
@@ -764,19 +791,72 @@ procedure on the catalog's ``system`` schema::
 Rollback to Snapshot
 ^^^^^^^^^^^^^^^^^^^^
 
-Roll back a table to a specific snapshot ID. Iceberg can roll back to a specific snapshot ID by using the ``rollback_to_snapshot`` procedure on Iceberg`s ``system`` schema::
+Rollback a table to a specific snapshot ID. Iceberg can rollback to a specific snapshot ID by using the ``rollback_to_snapshot`` procedure on Iceberg's ``system`` schema::
 
-    CALL iceberg.system.rollback_to_snapshot('table_name', 'snapshot_id');
+    CALL iceberg.system.rollback_to_snapshot('schema_name', 'table_name', snapshot_id);
 
 The following arguments are available:
 
 ===================== ========== =============== =======================================================================
 Argument Name         required   type            Description
 ===================== ========== =============== =======================================================================
-``table``             ✔️          string          Name of the table to update
+``schema``            ✔️          string          Schema of the table to update
+
+``table_name``        ✔️          string          Name of the table to update
 
 ``snapshot_id``       ✔️          long            Snapshot ID to rollback to
 ===================== ========== =============== =======================================================================
+
+Rollback to Timestamp
+^^^^^^^^^^^^^^^^^^^^^
+
+Rollback a table to a given point in time. Iceberg can rollback to a specific point in time by using the ``rollback_to_timestamp`` procedure on Iceberg's ``system`` schema.
+
+The following arguments are available:
+
+===================== ========== =============== =======================================================================
+Argument Name         required   type            Description
+===================== ========== =============== =======================================================================
+``schema``            ✔️          string          Schema of the table to update
+
+``table_name``        ✔️          string          Name of the table to update
+
+``timestamp``         ✔️          timestamp       Timestamp to rollback to
+===================== ========== =============== =======================================================================
+
+Example::
+
+    CALL iceberg.system.rollback_to_timestamp('schema_name', 'table_name', TIMESTAMP '1995-04-26 00:00:00.000');
+
+Set Current Snapshot
+^^^^^^^^^^^^^^^^^^^^
+
+This procedure sets a current snapshot ID for a table by using ``snapshot_id`` or ``ref``.
+Use either ``snapshot_id`` or ``ref``, but do not use both in the same procedure.
+
+The following arguments are available:
+
+===================== ========== =============== =======================================================================
+Argument Name         required   type            Description
+===================== ========== =============== =======================================================================
+``schema``            ✔️         string          Schema of the table to update
+
+``table_name``        ✔️         string          Name of the table to update
+
+``snapshot_id``                  long            Snapshot ID to set as current
+
+``ref``                          string          Snapshot Reference (branch or tag) to set as current
+===================== ========== =============== =======================================================================
+
+Examples:
+
+* Set current table snapshot ID for the given table to 10000 ::
+
+    CALL iceberg.system.set_current_snapshot('schema_name', 'table_name', 10000);
+
+* Set current table snapshot ID for the given table to snapshot ID of branch1 ::
+
+    CALL iceberg.system.set_current_snapshot(schema => 'schema_name', table_name => 'table_name', ref => 'branch1');
 
 Expire Snapshots
 ^^^^^^^^^^^^^^^^
@@ -838,6 +918,36 @@ Examples:
 * Remove any files which are not known to the table `db.sample` and created 3 days ago (by default)::
 
     CALL iceberg.system.remove_orphan_files(schema => 'db', table_name => 'sample');
+
+Fast Forward Branch
+^^^^^^^^^^^^^^^^^^^
+
+This procedure advances the current snapshot of the specified branch to a more recent snapshot from another branch without replaying any intermediate snapshots.
+``branch`` can be fast-forwarded up to the ``to`` snapshot if ``branch`` is an ancestor of ``to``.
+
+The following arguments are available:
+
+===================== ========== =============== =======================================================================
+Argument Name         required   type            Description
+===================== ========== =============== =======================================================================
+``schema``            ✔️         string          Schema of the table to update
+
+``table_name``        ✔️         string          Name of the table to update
+
+``branch``            ✔️         string          The branch you want to fast-forward
+
+``to``                ✔️         string          The branch you want to fast-forward to
+===================== ========== =============== =======================================================================
+
+Examples:
+
+* Fast-forward the ``dev`` branch to the latest snapshot of the ``main`` branch ::
+
+    CALL iceberg.system.fast_forward('schema_name', 'table_name', 'dev', 'main');
+
+* Given the branch named ``branch1`` does not exist yet, create a new branch named ``branch1``  and set it's current snapshot equal to the latest snapshot of the ``main`` branch ::
+
+    CALL iceberg.system.fast_forward('schema_name', 'table_name', 'branch1', 'main');
 
 SQL Support
 -----------
@@ -1321,14 +1431,13 @@ Time Travel
 Iceberg and Presto Iceberg connector support time travel via table snapshots
 identified by unique snapshot IDs. The snapshot IDs are stored in the ``$snapshots``
 metadata table. You can rollback the state of a table to a previous snapshot ID.
-It also supports time travel query using VERSION (SYSTEM_VERSION) and TIMESTAMP (SYSTEM_TIME) options.
+It also supports time travel query using SYSTEM_VERSION (VERSION) and SYSTEM_TIME (TIMESTAMP) options.
 
 Example Queries
 ^^^^^^^^^^^^^^^
 
 Similar to the example queries in `SCHEMA EVOLUTION`_, create an Iceberg
-table named `ctas_nation` from the TPCH `nation` table::
-
+table named `ctas_nation` from the TPCH `nation` table:
 
 .. code-block:: sql
 
@@ -1503,6 +1612,40 @@ In the following query, the expression CURRENT_TIMESTAMP returns the current tim
     -----------+---------------+-----------+---------
             10 | united states |         1 | comment
     (1 row)
+
+Querying branches and tags
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Iceberg supports branches and tags which are named references to snapshots.
+
+Query Iceberg table by specifying the branch name:
+
+.. code-block:: sql
+
+    SELECT * FROM nation FOR SYSTEM_VERSION AS OF 'testBranch';
+
+.. code-block:: text
+
+     nationkey |      name     | regionkey | comment
+    -----------+---------------+-----------+---------
+            10 | united states |         1 | comment
+            20 | canada        |         2 | comment
+            30 | mexico        |         3 | comment
+    (3 rows)
+
+Query Iceberg table by specifying the tag name:
+
+.. code-block:: sql
+
+    SELECT * FROM nation FOR SYSTEM_VERSION AS OF 'testTag';
+
+.. code-block:: text
+
+     nationkey |      name     | regionkey | comment
+    -----------+---------------+-----------+---------
+            10 | united states |         1 | comment
+            20 | canada        |         2 | comment
+    (3 rows)
 
 Type mapping
 ------------

@@ -17,6 +17,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.NodeVersion;
+import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.SessionPropertyConfigurationManagerContext;
 import com.facebook.presto.spi.session.SessionConfigurationContext;
@@ -35,6 +36,7 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.Session.SessionBuilder;
 import static com.facebook.presto.util.PropertiesUtil.loadProperties;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -108,25 +110,28 @@ public class SessionPropertyDefaults
 
     public Session newSessionWithDefaultProperties(
             Session session,
-            Optional<String> queryType,
+            Optional<QueryType> queryType,
             Optional<ResourceGroupId> resourceGroupId)
     {
         SessionPropertyConfigurationManager configurationManager = delegate.get();
+        SessionBuilder sessionBuilder = Session.builder(session);
+        sessionBuilder.setQueryType(queryType);
+
         if (configurationManager == null) {
-            return session;
+            return sessionBuilder.build();
         }
 
         SessionConfigurationContext context = new SessionConfigurationContext(
                 session.getIdentity().getUser(),
                 session.getSource(),
                 session.getClientTags(),
-                queryType,
+                queryType.map(Enum::name),
                 resourceGroupId,
                 session.getClientInfo(),
                 prestoServerVersion);
 
         SystemSessionPropertyConfiguration systemPropertyConfiguration = configurationManager.getSystemSessionProperties(context);
         Map<String, Map<String, String>> catalogPropertyOverrides = configurationManager.getCatalogSessionProperties(context);
-        return session.withDefaultProperties(systemPropertyConfiguration, catalogPropertyOverrides);
+        return sessionBuilder.withDefaultProperties(systemPropertyConfiguration, catalogPropertyOverrides).build();
     }
 }

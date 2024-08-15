@@ -217,9 +217,15 @@ public final class AggregationUtils
         if (count == 0) {
             return;
         }
+        if (state.getCount() == 0) {
+            state.setCount(count);
+            state.setMean(mean);
+            state.setM2(m2);
+            return;
+        }
         long newCount = count + state.getCount();
-        double newMean = ((count * mean) + (state.getCount() * state.getMean())) / (double) newCount;
         double delta = mean - state.getMean();
+        double newMean = state.getMean() + delta / newCount * count;
         state.setM2(state.getM2() + m2 + delta * delta * count * state.getCount() / (double) newCount);
         state.setCount(newCount);
         state.setMean(newMean);

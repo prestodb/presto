@@ -18,6 +18,7 @@ import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.iceberg.statistics.StatisticsFileCache;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
@@ -39,6 +40,7 @@ public class IcebergHiveMetadataFactory
     final NodeVersion nodeVersion;
     final FilterStatsCalculatorService filterStatsCalculatorService;
     final IcebergHiveTableOperationsConfig operationsConfig;
+    final StatisticsFileCache statisticsFileCache;
 
     @Inject
     public IcebergHiveMetadataFactory(
@@ -50,7 +52,8 @@ public class IcebergHiveMetadataFactory
             JsonCodec<CommitTaskData> commitTaskCodec,
             NodeVersion nodeVersion,
             FilterStatsCalculatorService filterStatsCalculatorService,
-            IcebergHiveTableOperationsConfig operationsConfig)
+            IcebergHiveTableOperationsConfig operationsConfig,
+            StatisticsFileCache statisticsFileCache)
     {
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -61,6 +64,7 @@ public class IcebergHiveMetadataFactory
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.filterStatsCalculatorService = requireNonNull(filterStatsCalculatorService, "filterStatsCalculatorService is null");
         this.operationsConfig = requireNonNull(operationsConfig, "operationsConfig is null");
+        this.statisticsFileCache = requireNonNull(statisticsFileCache, "statisticsFileCache is null");
     }
 
     public ConnectorMetadata create()
@@ -74,6 +78,7 @@ public class IcebergHiveMetadataFactory
                 commitTaskCodec,
                 nodeVersion,
                 filterStatsCalculatorService,
-                operationsConfig);
+                operationsConfig,
+                statisticsFileCache);
     }
 }

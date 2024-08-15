@@ -14,11 +14,14 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.RuntimeUnit;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.FixedWidthType;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.NodeVersion;
+import com.facebook.presto.iceberg.statistics.StatisticsFileCache;
+import com.facebook.presto.iceberg.statistics.StatisticsFileCacheKey;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
@@ -31,6 +34,7 @@ import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import org.apache.datasketches.memory.Memory;
 import org.apache.datasketches.theta.CompactSketch;
 import org.apache.iceberg.ContentFile;
@@ -93,6 +97,8 @@ import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_D
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.TOTAL_SIZE_IN_BYTES;
 import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel.HIGH;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.Long.parseLong;
 import static java.lang.Math.abs;
@@ -112,6 +118,10 @@ public class TableStatisticsMaker
     private final ConnectorSession session;
     private final TypeManager typeManager;
 
+    private static final String STATISITCS_CACHE_METRIC_FILE_SIZE_FORMAT = "StatisticsFileCache/PuffinFileSize/%s/%s";
+    private static final String STATISITCS_CACHE_METRIC_FILE_COLUMN_COUNT_FORMAT = "StatisticsFileCache/ColumnCount/%s/%s";
+    private static final String STATISITCS_CACHE_METRIC_PARTIAL_MISS_FORMAT = "StatisticsFileCache/PartialMiss/%s/%s";
+
     private TableStatisticsMaker(Table icebergTable, ConnectorSession session, TypeManager typeManager)
     {
         this.icebergTable = icebergTable;
@@ -129,12 +139,24 @@ public class TableStatisticsMaker
             .put(ICEBERG_DATA_SIZE_BLOB_TYPE_ID, TableStatisticsMaker::readDataSizeBlob)
             .build();
 
-    public static TableStatistics getTableStatistics(ConnectorSession session, TypeManager typeManager, Optional<TupleDomain<IcebergColumnHandle>> currentPredicate, Constraint constraint, IcebergTableHandle tableHandle, Table icebergTable, List<IcebergColumnHandle> columns)
+    public static TableStatistics getTableStatistics(
+            ConnectorSession session,
+            TypeManager typeManager,
+            StatisticsFileCache statisticsFileCache,
+            Optional<TupleDomain<IcebergColumnHandle>> currentPredicate,
+            Constraint constraint,
+            IcebergTableHandle tableHandle,
+            Table icebergTable,
+            List<IcebergColumnHandle> columns)
     {
-        return new TableStatisticsMaker(icebergTable, session, typeManager).makeTableStatistics(tableHandle, currentPredicate, constraint, columns);
+        return new TableStatisticsMaker(icebergTable, session, typeManager).makeTableStatistics(statisticsFileCache, tableHandle, currentPredicate, constraint, columns);
     }
 
-    private TableStatistics makeTableStatistics(IcebergTableHandle tableHandle, Optional<TupleDomain<IcebergColumnHandle>> currentPredicate, Constraint constraint, List<IcebergColumnHandle> selectedColumns)
+    private TableStatistics makeTableStatistics(StatisticsFileCache statisticsFileCache,
+            IcebergTableHandle tableHandle,
+            Optional<TupleDomain<IcebergColumnHandle>> currentPredicate,
+            Constraint constraint,
+            List<IcebergColumnHandle> selectedColumns)
     {
         if (!tableHandle.getIcebergTableName().getSnapshotId().isPresent() || constraint.getSummary().isNone()) {
             return TableStatistics.builder()
@@ -192,8 +214,14 @@ public class TableStatisticsMaker
         TableStatistics.Builder result = TableStatistics.builder();
         result.setRowCount(Estimate.of(recordCount));
 
-        Map<Integer, ColumnStatistics.Builder> tableStats = getClosestStatisticsFileForSnapshot(tableHandle)
-                .map(this::loadStatisticsFile).orElseGet(Collections::emptyMap);
+        // transformValues returns a view. We need to make a copy of the map in order to update
+        Map<Integer, ColumnStatistics.Builder> tableStats = ImmutableMap.copyOf(
+                Maps.transformValues(getClosestStatisticsFileForSnapshot(tableHandle)
+                                .map(file -> loadStatisticsFile(tableHandle, file, statisticsFileCache, selectedColumns.stream()
+                                        .map(IcebergColumnHandle::getId)
+                                        .collect(Collectors.toList())))
+                                .orElseGet(Collections::emptyMap),
+                        ColumnStatistics::buildFrom));
         // scale all NDV values loaded from puffin files based on row count
         totalRecordCount.ifPresent(fullTableRecordCount -> tableStats.forEach((id, stat) ->
                 stat.setDistinctValuesCount(stat.getDistinctValuesCount().map(value -> value * recordCount / fullTableRecordCount))));
@@ -497,8 +525,42 @@ public class TableStatisticsMaker
     /**
      * Builds a map of field ID to ColumnStatistics for a particular {@link StatisticsFile}.
      */
-    private Map<Integer, ColumnStatistics.Builder> loadStatisticsFile(StatisticsFile file)
+    private Map<Integer, ColumnStatistics> loadStatisticsFile(IcebergTableHandle tableHandle, StatisticsFile file, StatisticsFileCache statisticsFileCache, List<Integer> columnIds)
     {
+        // first, try to load all stats from the cache. If the map doesn't contain all keys, load the missing
+        // stats into the cache.
+        Map<Integer, ColumnStatistics> cachedStats = columnIds.stream()
+                .map(id -> Pair.of(id, statisticsFileCache.getIfPresent(new StatisticsFileCacheKey(file, id))))
+                .filter(pair -> pair.second() != null)
+                .collect(toImmutableMap(Pair::first, Pair::second));
+        Set<Integer> missingStats = columnIds.stream().filter(id -> !cachedStats.containsKey(id)).collect(toImmutableSet());
+        if (missingStats.isEmpty()) {
+            return cachedStats;
+        }
+        if (!cachedStats.isEmpty()) {
+            session.getRuntimeStats().addMetricValue(
+                    String.format(STATISITCS_CACHE_METRIC_PARTIAL_MISS_FORMAT,
+                            tableHandle.getSchemaTableName(),
+                            file.path()),
+                    RuntimeUnit.NONE, 1);
+        }
+
+        String fileSizeMetricName = String.format(STATISITCS_CACHE_METRIC_FILE_SIZE_FORMAT,
+                tableHandle.getSchemaTableName(),
+                file.path());
+        if (session.getRuntimeStats().getMetric(fileSizeMetricName) == null) {
+            long fileSize = file.fileFooterSizeInBytes();
+            session.getRuntimeStats().addMetricValue(fileSizeMetricName, RuntimeUnit.NONE, fileSize);
+            statisticsFileCache.recordFileSize(fileSize);
+        }
+        String columnCountMetricName = String.format(STATISITCS_CACHE_METRIC_FILE_COLUMN_COUNT_FORMAT,
+                tableHandle.getSchemaTableName(),
+                file.path());
+        if (session.getRuntimeStats().getMetric(columnCountMetricName) == null) {
+            long columnCount = file.blobMetadata().size();
+            session.getRuntimeStats().addMetricValue(columnCountMetricName, RuntimeUnit.NONE, columnCount);
+            statisticsFileCache.recordColumnCount(columnCount);
+        }
         Map<Integer, ColumnStatistics.Builder> result = new HashMap<>();
         try (FileIO io = icebergTable.io()) {
             InputFile inputFile = io.newInputFile(file.path());
@@ -507,6 +569,10 @@ public class TableStatisticsMaker
                     BlobMetadata metadata = data.first();
                     ByteBuffer blob = data.second();
                     Integer field = getOnlyElement(metadata.inputFields());
+                    if (!missingStats.contains(field)) {
+                        continue;
+                    }
+
                     Optional.ofNullable(puffinStatReaders.get(metadata.type()))
                             .ifPresent(statReader -> {
                                 result.compute(field, (key, value) -> {
@@ -523,8 +589,19 @@ public class TableStatisticsMaker
                 throw new PrestoException(ICEBERG_FILESYSTEM_ERROR, "failed to read statistics file at " + file.path(), e);
             }
         }
-
-        return ImmutableMap.copyOf(result);
+        Map<Integer, ColumnStatistics> computedResults = new HashMap<>(Maps.transformValues(result, ColumnStatistics.Builder::build));
+        missingStats.stream()
+                .filter(id -> !computedResults.containsKey(id))
+                .forEach(id -> computedResults.put(id, ColumnStatistics.empty()));
+        ImmutableMap.Builder<Integer, ColumnStatistics> finalResult = ImmutableMap.builder();
+        computedResults.forEach((key, value) -> {
+            // stats for a particular column may not appear in a file. Add a cache entry to
+            // denote that this file has been read for a particular column to avoid reading the
+            // file again
+            statisticsFileCache.put(new StatisticsFileCacheKey(file, key), value);
+            finalResult.put(key, value);
+        });
+        return finalResult.build();
     }
 
     public static List<ColumnStatisticMetadata> getSupportedColumnStatistics(String columnName, com.facebook.presto.common.type.Type type)

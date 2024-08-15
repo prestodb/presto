@@ -19,6 +19,7 @@ import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
 import java.util.function.Function;
@@ -31,6 +32,8 @@ import static java.lang.Double.isNaN;
 @ThriftStruct
 public final class Estimate
 {
+    static final long ESTIMATE_SIZE = ClassLayout.parseClass(Estimate.class).instanceSize();
+
     // todo eventually add some notion of statistic reliability
     //      Skipping for now as there hard to compute it properly and so far we do not have
     //      usecase for that.

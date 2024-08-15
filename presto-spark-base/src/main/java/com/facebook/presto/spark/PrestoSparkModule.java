@@ -162,11 +162,14 @@ import com.facebook.presto.sql.analyzer.AnalyzerProviderManager;
 import com.facebook.presto.sql.analyzer.BuiltInAnalyzerProvider;
 import com.facebook.presto.sql.analyzer.BuiltInQueryAnalyzer;
 import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer;
+import com.facebook.presto.sql.analyzer.BuiltInQueryPreparerProvider;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.ForMetadataExtractor;
+import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.analyzer.MetadataExtractor;
 import com.facebook.presto.sql.analyzer.MetadataExtractorMBean;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
+import com.facebook.presto.sql.analyzer.QueryPreparerProviderManager;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
@@ -250,6 +253,7 @@ public class PrestoSparkModule
         configBinder(binder).bindConfig(QueryManagerConfig.class);
         configBinder(binder).bindConfigGlobalDefaults(QueryManagerConfig.class, PrestoSparkSettingsRequirements::setDefaults);
         configBinder(binder).bindConfig(FeaturesConfig.class);
+        configBinder(binder).bindConfig(FunctionsConfig.class);
         configBinder(binder).bindConfigGlobalDefaults(FeaturesConfig.class, PrestoSparkSettingsRequirements::setDefaults);
         configBinder(binder).bindConfig(MemoryManagerConfig.class);
         configBinder(binder).bindConfig(TaskManagerConfig.class);
@@ -428,6 +432,8 @@ public class PrestoSparkModule
 
         // analyzer
         binder.bind(BuiltInQueryPreparer.class).in(Scopes.SINGLETON);
+        binder.bind(BuiltInQueryPreparerProvider.class).in(Scopes.SINGLETON);
+        binder.bind(QueryPreparerProviderManager.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, QueryExplainer.class);
         binder.bind(BuiltInQueryAnalyzer.class).in(Scopes.SINGLETON);
         binder.bind(BuiltInAnalyzerProvider.class).in(Scopes.SINGLETON);

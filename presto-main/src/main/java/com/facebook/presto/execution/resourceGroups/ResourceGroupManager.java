@@ -49,4 +49,6 @@ public interface ResourceGroupManager<C>
             throws Exception;
 
     List<ResourceGroupRuntimeInfo> getResourceGroupRuntimeInfos();
+
+    boolean isConfigurationManagerLoaded();
 }

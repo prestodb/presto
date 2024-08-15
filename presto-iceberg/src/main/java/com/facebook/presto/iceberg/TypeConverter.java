@@ -138,6 +138,24 @@ public final class TypeConverter
         }
     }
 
+    public static org.apache.iceberg.types.Type toIcebergType(
+            Type type,
+            String columnName,
+            Map<String, Integer> columnNameToIdMapping)
+    {
+        if (type instanceof RowType) {
+            return fromRow((RowType) type, columnName, columnNameToIdMapping);
+        }
+        if (type instanceof ArrayType) {
+            return fromArray((ArrayType) type, columnName, columnNameToIdMapping);
+        }
+        if (type instanceof MapType) {
+            return fromMap((MapType) type, columnName, columnNameToIdMapping);
+        }
+
+        return toIcebergType(type);
+    }
+
     public static org.apache.iceberg.types.Type toIcebergType(Type type)
     {
         if (type instanceof BooleanType) {
@@ -209,14 +227,53 @@ public final class TypeConverter
         return Types.StructType.of(fields);
     }
 
+    public static org.apache.iceberg.types.Type fromRow(
+            RowType type,
+            String columnName,
+            Map<String, Integer> columnNameToIdMapping)
+    {
+        List<Types.NestedField> fields = new ArrayList<>();
+        for (RowType.Field field : type.getFields()) {
+            String name = field.getName().orElseThrow(() ->
+                    new PrestoException(NOT_SUPPORTED, "Cannot convert Row type field " + type.getDisplayName() + " to Iceberg"));
+            fields.add(Types.NestedField.optional(
+                    columnNameToIdMapping.get(columnName + "." + name),
+                    name,
+                    toIcebergType(field.getType(), columnName + "." + name, columnNameToIdMapping)));
+        }
+        return Types.StructType.of(fields);
+    }
+
     public static org.apache.iceberg.types.Type fromRow(RowType type)
     {
         return fromRow(type, 0);
     }
 
+    private static org.apache.iceberg.types.Type fromArray(
+            ArrayType type,
+            String columnName,
+            Map<String, Integer> columnNameToIdMapping)
+    {
+        return Types.ListType.ofOptional(
+                columnNameToIdMapping.get(columnName + ".element"),
+                toIcebergType(type.getElementType(), columnName + ".element", columnNameToIdMapping));
+    }
+
     private static org.apache.iceberg.types.Type fromArray(ArrayType type)
     {
         return Types.ListType.ofOptional(1, toIcebergType(type.getElementType()));
+    }
+
+    private static org.apache.iceberg.types.Type fromMap(
+            MapType type,
+            String columnName,
+            Map<String, Integer> columnNameToIdMapping)
+    {
+        return Types.MapType.ofOptional(
+                columnNameToIdMapping.get(columnName + ".key"),
+                columnNameToIdMapping.get(columnName + ".value"),
+                toIcebergType(type.getKeyType(), columnName + ".key", columnNameToIdMapping),
+                toIcebergType(type.getValueType(), columnName + ".value", columnNameToIdMapping));
     }
 
     private static org.apache.iceberg.types.Type fromMap(MapType type)

@@ -13,6 +13,9 @@
  */
 #include "presto_cpp/main/http/tests/HttpTestBase.h"
 
+using namespace facebook::presto;
+using namespace facebook::velox;
+
 int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);
   folly::Init init{&argc, &argv};

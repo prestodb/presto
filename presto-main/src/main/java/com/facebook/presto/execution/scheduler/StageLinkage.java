@@ -17,8 +17,8 @@ import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.SqlStageExecution;
 import com.facebook.presto.execution.StageExecutionState;
 import com.facebook.presto.execution.buffer.OutputBuffers;
-import com.facebook.presto.sql.planner.PartitioningHandle;
-import com.facebook.presto.sql.planner.plan.PlanFragmentId;
+import com.facebook.presto.spi.plan.PartitioningHandle;
+import com.facebook.presto.spi.plan.PlanFragmentId;
 import com.google.common.primitives.Ints;
 
 import java.util.List;

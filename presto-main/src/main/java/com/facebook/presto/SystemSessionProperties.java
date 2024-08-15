@@ -43,6 +43,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig.PushDownFilterThroughCros
 import com.facebook.presto.sql.analyzer.FeaturesConfig.RandomizeOuterJoinNullKeyStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.ShardedJoinStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.SingleStreamSpillerChoice;
+import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.tracing.TracingConfig;
@@ -350,10 +351,15 @@ public final class SystemSessionProperties
     private static final String NATIVE_EXECUTION_PROGRAM_ARGUMENTS = "native_execution_program_arguments";
     public static final String NATIVE_EXECUTION_PROCESS_REUSE_ENABLED = "native_execution_process_reuse_enabled";
     public static final String NATIVE_DEBUG_VALIDATE_OUTPUT_FROM_OPERATORS = "native_debug_validate_output_from_operators";
+
+    public static final String NATIVE_MAX_PARTIAL_AGGREGATION_MEMORY = "native_max_partial_aggregation_memory";
+    public static final String NATIVE_MAX_EXTENDED_PARTIAL_AGGREGATION_MEMORY = "native_max_extended_partial_aggregation_memory";
+    public static final String NATIVE_MAX_SPILL_BYTES = "native_max_spill_bytes";
     public static final String DEFAULT_VIEW_SECURITY_MODE = "default_view_security_mode";
     public static final String JOIN_PREFILTER_BUILD_SIDE = "join_prefilter_build_side";
     public static final String OPTIMIZER_USE_HISTOGRAMS = "optimizer_use_histograms";
     public static final String WARN_ON_COMMON_NAN_PATTERNS = "warn_on_common_nan_patterns";
+    public static final String INLINE_PROJECTIONS_ON_VALUES = "inline_projections_on_values";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -364,6 +370,7 @@ public final class SystemSessionProperties
                 new TaskManagerConfig(),
                 new MemoryManagerConfig(),
                 new FeaturesConfig(),
+                new FunctionsConfig(),
                 new NodeMemoryConfig(),
                 new WarningCollectorConfig(),
                 new NodeSchedulerConfig(),
@@ -379,6 +386,7 @@ public final class SystemSessionProperties
             TaskManagerConfig taskManagerConfig,
             MemoryManagerConfig memoryManagerConfig,
             FeaturesConfig featuresConfig,
+            FunctionsConfig functionsConfig,
             NodeMemoryConfig nodeMemoryConfig,
             WarningCollectorConfig warningCollectorConfig,
             NodeSchedulerConfig nodeSchedulerConfig,
@@ -893,12 +901,12 @@ public final class SystemSessionProperties
                 booleanProperty(
                         LEGACY_ROW_FIELD_ORDINAL_ACCESS,
                         "Allow accessing anonymous row field with .field0, .field1, ...",
-                        featuresConfig.isLegacyRowFieldOrdinalAccess(),
+                        functionsConfig.isLegacyRowFieldOrdinalAccess(),
                         false),
                 booleanProperty(
                         LEGACY_MAP_SUBSCRIPT,
                         "Do not fail the query if map key is missing",
-                        featuresConfig.isLegacyMapSubscript(),
+                        functionsConfig.isLegacyMapSubscript(),
                         true),
                 booleanProperty(
                         ITERATIVE_OPTIMIZER,
@@ -941,7 +949,7 @@ public final class SystemSessionProperties
                 booleanProperty(
                         LEGACY_TIMESTAMP,
                         "Use legacy TIME & TIMESTAMP semantics (warning: this will be removed)",
-                        featuresConfig.isLegacyTimestamp(),
+                        functionsConfig.isLegacyTimestamp(),
                         true),
                 booleanProperty(
                         ENABLE_INTERMEDIATE_AGGREGATIONS,
@@ -961,7 +969,7 @@ public final class SystemSessionProperties
                 booleanProperty(
                         PARSE_DECIMAL_LITERALS_AS_DOUBLE,
                         "Parse decimal literals as DOUBLE instead of DECIMAL",
-                        featuresConfig.isParseDecimalLiteralsAsDouble(),
+                        functionsConfig.isParseDecimalLiteralsAsDouble(),
                         false),
                 booleanProperty(
                         FORCE_SINGLE_NODE_OUTPUT,
@@ -1712,6 +1720,21 @@ public final class SystemSessionProperties
                                 "operator is generating them.",
                         false,
                         true),
+                longProperty(
+                        NATIVE_MAX_PARTIAL_AGGREGATION_MEMORY,
+                        "The max partial aggregation memory when data reduction is not optimal.",
+                        1L << 24,
+                        false),
+                longProperty(
+                        NATIVE_MAX_EXTENDED_PARTIAL_AGGREGATION_MEMORY,
+                        "The max partial aggregation memory when data reduction is optimal.",
+                        1L << 26,
+                        false),
+                longProperty(
+                        NATIVE_MAX_SPILL_BYTES,
+                        "The max allowed spill bytes",
+                        100L << 30,
+                        false),
                 booleanProperty(
                         RANDOMIZE_OUTER_JOIN_NULL_KEY,
                         "(Deprecated) Randomize null join key for outer join",
@@ -1783,13 +1806,13 @@ public final class SystemSessionProperties
                 booleanProperty(
                         FIELD_NAMES_IN_JSON_CAST_ENABLED,
                         "Include field names in json output when casting rows",
-                        featuresConfig.isFieldNamesInJsonCastEnabled(),
+                        functionsConfig.isFieldNamesInJsonCastEnabled(),
                         false),
                 booleanProperty(
                         LEGACY_JSON_CAST,
                         "Keep the legacy json cast behavior, do not reserve the case for field names when casting to row type",
-                        featuresConfig.isLegacyJsonCast(),
-                        false),
+                        functionsConfig.isLegacyJsonCast(),
+                        true),
                 booleanProperty(
                         OPTIMIZE_JOIN_PROBE_FOR_EMPTY_BUILD_RUNTIME,
                         "Optimize join probe at runtime if build side is empty",
@@ -1980,7 +2003,11 @@ public final class SystemSessionProperties
                         false),
                 booleanProperty(WARN_ON_COMMON_NAN_PATTERNS,
                         "Whether to give a warning for some common issues relating to NaNs",
-                        featuresConfig.getWarnOnCommonNanPatterns(),
+                        functionsConfig.getWarnOnCommonNanPatterns(),
+                        false),
+                booleanProperty(INLINE_PROJECTIONS_ON_VALUES,
+                        "Whether to evaluate project node on values node",
+                        featuresConfig.getInlineProjectionsOnValues(),
                         false));
     }
 
@@ -3307,5 +3334,10 @@ public final class SystemSessionProperties
     public static boolean warnOnCommonNanPatterns(Session session)
     {
         return session.getSystemProperty(WARN_ON_COMMON_NAN_PATTERNS, Boolean.class);
+    }
+
+    public static boolean isInlineProjectionsOnValues(Session session)
+    {
+        return session.getSystemProperty(INLINE_PROJECTIONS_ON_VALUES, Boolean.class);
     }
 }

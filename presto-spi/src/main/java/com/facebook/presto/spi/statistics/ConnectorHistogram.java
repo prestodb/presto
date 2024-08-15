@@ -61,4 +61,9 @@ public interface ConnectorHistogram
      * @return the value in the distribution corresponding to the percentile
      */
     Estimate inverseCumulativeProbability(double percentile);
+
+    /**
+     * @return an approximation of the memory utilization of this histogram.
+     */
+    long getEstimatedSize();
 }

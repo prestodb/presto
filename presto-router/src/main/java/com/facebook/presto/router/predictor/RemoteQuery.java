@@ -78,8 +78,8 @@ public abstract class RemoteQuery
         if (result != null) {
             if (result.getStatusCode() != OK.code()) {
                 log.error(
-                        "Error fetching info from %s returned status %d: %s",
-                        remoteUri, result.getStatusCode(), result.getStatusMessage());
+                        "Error fetching info from %s returned status %d",
+                        remoteUri, result.getStatusCode());
             }
             if (result.hasValue()) {
                 handleResponse(result.getValue());

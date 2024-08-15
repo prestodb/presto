@@ -26,8 +26,8 @@ public class IcebergWritableTableHandle
 {
     private final String schemaName;
     private final IcebergTableName tableName;
-    private final String schemaAsJson;
-    private final String partitionSpecAsJson;
+    private final PrestoIcebergSchema schema;
+    private final PrestoIcebergPartitionSpec partitionSpec;
     private final List<IcebergColumnHandle> inputColumns;
     private final String outputPath;
     private final FileFormat fileFormat;
@@ -37,8 +37,8 @@ public class IcebergWritableTableHandle
     public IcebergWritableTableHandle(
             String schemaName,
             IcebergTableName tableName,
-            String schemaAsJson,
-            String partitionSpecAsJson,
+            PrestoIcebergSchema schema,
+            PrestoIcebergPartitionSpec partitionSpec,
             List<IcebergColumnHandle> inputColumns,
             String outputPath,
             FileFormat fileFormat,
@@ -47,8 +47,8 @@ public class IcebergWritableTableHandle
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
-        this.schemaAsJson = requireNonNull(schemaAsJson, "schemaAsJson is null");
-        this.partitionSpecAsJson = requireNonNull(partitionSpecAsJson, "partitionSpecAsJson is null");
+        this.schema = requireNonNull(schema, "schema is null");
+        this.partitionSpec = requireNonNull(partitionSpec, "partitionSpec is null");
         this.inputColumns = ImmutableList.copyOf(requireNonNull(inputColumns, "inputColumns is null"));
         this.outputPath = requireNonNull(outputPath, "filePrefix is null");
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
@@ -69,15 +69,15 @@ public class IcebergWritableTableHandle
     }
 
     @JsonProperty
-    public String getSchemaAsJson()
+    public PrestoIcebergSchema getSchema()
     {
-        return schemaAsJson;
+        return schema;
     }
 
     @JsonProperty
-    public String getPartitionSpecAsJson()
+    public PrestoIcebergPartitionSpec getPartitionSpec()
     {
-        return partitionSpecAsJson;
+        return partitionSpec;
     }
 
     @JsonProperty

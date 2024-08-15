@@ -56,17 +56,17 @@ public class AggregationNodeUtils
                 Optional.empty());
     }
 
-    public static Set<VariableReferenceExpression> extractAggregationUniqueVariables(AggregationNode.Aggregation aggregation, TypeProvider types)
+    public static Set<VariableReferenceExpression> extractAggregationUniqueVariables(AggregationNode.Aggregation aggregation)
     {
         // types will be no longer needed once everything is RowExpression.
         ImmutableSet.Builder<VariableReferenceExpression> builder = ImmutableSet.builder();
-        aggregation.getArguments().forEach(argument -> builder.addAll(extractAll(argument, types)));
-        aggregation.getFilter().ifPresent(filter -> builder.addAll(extractAll(filter, types)));
+        aggregation.getArguments().forEach(argument -> builder.addAll(extractAll(argument)));
+        aggregation.getFilter().ifPresent(filter -> builder.addAll(extractAll(filter)));
         aggregation.getOrderBy().ifPresent(orderingScheme -> builder.addAll(orderingScheme.getOrderByVariables()));
         return builder.build();
     }
 
-    private static List<VariableReferenceExpression> extractAll(RowExpression expression, TypeProvider types)
+    private static List<VariableReferenceExpression> extractAll(RowExpression expression)
     {
         return VariablesExtractor.extractAll(expression)
                 .stream()

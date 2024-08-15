@@ -17,7 +17,7 @@ parameters:
     default: false
   run_linux_tests:
     type: boolean
-    default: true
+    default: false
 
 workflows:
   version: 2
@@ -82,7 +82,7 @@ jobs:
     parameters:
       run_linux_tests:
         type: boolean
-        default: true
+        default: false
     steps:
       - run: echo "Run Linux tests is << parameters.run_linux_tests >>"
       - when:
@@ -146,7 +146,7 @@ jobs:
     parameters:
       run_linux_tests:
         type: boolean
-        default: true
+        default: false
     parallelism: 5
     steps:
       - run: echo "Run Linux tests is << parameters.run_linux_tests >>"
@@ -198,7 +198,7 @@ jobs:
     parameters:
       run_linux_tests:
         type: boolean
-        default: true
+        default: false
     parallelism: 5
     steps:
       - run: echo "Run Linux tests is << parameters.run_linux_tests >>"
