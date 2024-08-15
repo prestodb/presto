@@ -149,6 +149,7 @@ public final class LikeFunctions
         }
 
         String stringEscape = escape.toStringUtf8();
+        checkCondition(stringEscape.length() == 1, INVALID_FUNCTION_ARGUMENT, "Escape string must be a single character");
         char escapeChar = stringEscape.charAt(0);
         String stringPattern = pattern.toStringUtf8();
         StringBuilder unescapedPattern = new StringBuilder(stringPattern.length());
