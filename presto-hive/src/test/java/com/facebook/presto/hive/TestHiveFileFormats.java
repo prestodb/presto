@@ -128,6 +128,7 @@ import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveO
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaStringObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaTimestampObjectInspector;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
@@ -530,7 +531,7 @@ public class TestHiveFileFormats
                     HiveCompressionCodec.NONE,
                     ImmutableList.of(new TestColumn("t_timestamp", javaTimestampObjectInspector, new Timestamp(timestamp), timestamp)),
                     session,
-                    10,
+                    3,
                     parquetFileWriterFactory);
 
             FileParquetDataSource dataSource = new FileParquetDataSource(file);
@@ -544,7 +545,7 @@ public class TestHiveFileFormats
             Type timestampType = writtenSchema.getType("t_timestamp");
             if (timestampType.getLogicalTypeAnnotation() instanceof LogicalTypeAnnotation.TimestampLogicalTypeAnnotation) {
                 LogicalTypeAnnotation.TimestampLogicalTypeAnnotation annotation = (LogicalTypeAnnotation.TimestampLogicalTypeAnnotation) timestampType.getLogicalTypeAnnotation();
-                assertEquals(annotation.isAdjustedToUTC(), false);
+                assertFalse(annotation.isAdjustedToUTC());
             }
             else {
                 fail("logical type annotation was not timestamp");
