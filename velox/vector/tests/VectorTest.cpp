@@ -3805,5 +3805,15 @@ TEST_F(VectorTest, arrayCopyTargetNullOffsets) {
   test::assertEqualVectors(source, target);
 }
 
+TEST_F(VectorTest, testOverSizedArray) {
+  // Verify that flattening an array/map cannot result in a values vector
+  // greater than vector_size_t
+  auto flat = makeFlatVector<int32_t>(1000, [](auto /*row*/) { return 1; });
+  std::vector<vector_size_t> offsets(1, 0);
+  auto array = makeArrayVector(offsets, flat);
+  auto constArray = BaseVector::wrapInConstant(21474830, 0, array);
+  EXPECT_THROW(BaseVector::flattenVector(constArray), VeloxUserError);
+}
+
 } // namespace
 } // namespace facebook::velox

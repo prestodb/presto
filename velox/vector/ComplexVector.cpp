@@ -17,6 +17,7 @@
 #include <optional>
 #include <sstream>
 
+#include "velox/common/base/CheckedArithmetic.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/vector/BaseVector.h"
 #include "velox/vector/ComplexVector.h"
@@ -613,7 +614,7 @@ void ArrayVectorBase::copyRangesImpl(
 
         mutableOffsets[targetIndex] = childSize;
         mutableSizes[targetIndex] = copySize;
-        childSize += copySize;
+        childSize = checkedPlus<vector_size_t>(childSize, copySize);
       }
     });
 
