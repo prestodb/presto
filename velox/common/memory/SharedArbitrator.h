@@ -40,7 +40,7 @@ class SharedArbitrator : public memory::MemoryArbitrator {
     /// The memory capacity reserved to ensure each running query has minimal
     /// capacity of 'memoryPoolReservedCapacity' to run.
     static constexpr std::string_view kReservedCapacity{"reserved-capacity"};
-    static constexpr int64_t kDefaultReservedCapacity{0};
+    static constexpr std::string_view kDefaultReservedCapacity{"0B"};
     static int64_t getReservedCapacity(
         const std::unordered_map<std::string, std::string>& configs);
 
@@ -48,14 +48,15 @@ class SharedArbitrator : public memory::MemoryArbitrator {
     /// pool.
     static constexpr std::string_view kMemoryPoolInitialCapacity{
         "memory-pool-initial-capacity"};
-    static constexpr uint64_t kDefaultMemoryPoolInitialCapacity{256 << 20};
+    static constexpr std::string_view kDefaultMemoryPoolInitialCapacity{
+        "256MB"};
     static uint64_t getMemoryPoolInitialCapacity(
         const std::unordered_map<std::string, std::string>& configs);
 
     /// The minimal amount of memory capacity reserved for each query to run.
     static constexpr std::string_view kMemoryPoolReservedCapacity{
         "memory-pool-reserved-capacity"};
-    static constexpr uint64_t kDefaultMemoryPoolReservedCapacity{0};
+    static constexpr std::string_view kDefaultMemoryPoolReservedCapacity{"0B"};
     static uint64_t getMemoryPoolReservedCapacity(
         const std::unordered_map<std::string, std::string>& configs);
 
@@ -63,7 +64,8 @@ class SharedArbitrator : public memory::MemoryArbitrator {
     /// during the memory arbitration.
     static constexpr std::string_view kMemoryPoolTransferCapacity{
         "memory-pool-transfer-capacity"};
-    static constexpr uint64_t kDefaultMemoryPoolTransferCapacity{128 << 20};
+    static constexpr std::string_view kDefaultMemoryPoolTransferCapacity{
+        "128MB"};
     static uint64_t getMemoryPoolTransferCapacity(
         const std::unordered_map<std::string, std::string>& configs);
 
@@ -72,10 +74,10 @@ class SharedArbitrator : public memory::MemoryArbitrator {
     /// the memory arbitration from getting stuck when the memory reclaim waits
     /// for a hanging query task to pause. If it is zero, then there is no
     /// timeout.
-    static constexpr std::string_view kMemoryReclaimWaitMs{
-        "memory-reclaim-wait-ms"};
-    static constexpr uint64_t kDefaultMemoryReclaimWaitMs{0};
-    static uint64_t getMemoryReclaimWaitMs(
+    static constexpr std::string_view kMemoryReclaimMaxWaitTime{
+        "memory-reclaim-max-wait-time"};
+    static constexpr std::string_view kDefaultMemoryReclaimMaxWaitTime{"0ms"};
+    static uint64_t getMemoryReclaimMaxWaitTimeMs(
         const std::unordered_map<std::string, std::string>& configs);
 
     /// If true, it allows memory arbitrator to reclaim used memory cross query

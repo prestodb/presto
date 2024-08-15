@@ -75,15 +75,15 @@ std::unique_ptr<MemoryArbitrator> createArbitrator(
       // SharedArbitrator class. After Prestissimo switches, this part of the
       // code will be removed.
       extraArbitratorConfigs["reserved-capacity"] =
-          folly::to<std::string>(options.arbitratorReservedCapacity);
+          folly::to<std::string>(options.arbitratorReservedCapacity) + "B";
       extraArbitratorConfigs["memory-pool-initial-capacity"] =
-          folly::to<std::string>(options.memoryPoolInitCapacity);
+          folly::to<std::string>(options.memoryPoolInitCapacity) + "B";
       extraArbitratorConfigs["memory-pool-reserved-capacity"] =
-          folly::to<std::string>(options.memoryPoolReservedCapacity);
+          folly::to<std::string>(options.memoryPoolReservedCapacity) + "B";
       extraArbitratorConfigs["memory-pool-transfer-capacity"] =
-          folly::to<std::string>(options.memoryPoolTransferCapacity);
-      extraArbitratorConfigs["memory-reclaim-wait-ms"] =
-          folly::to<std::string>(options.memoryReclaimWaitMs);
+          folly::to<std::string>(options.memoryPoolTransferCapacity) + "B";
+      extraArbitratorConfigs["memory-reclaim-max-wait-time"] =
+          folly::to<std::string>(options.memoryReclaimWaitMs) + "ms";
       extraArbitratorConfigs["global-arbitration-enabled"] =
           folly::to<std::string>(options.globalArbitrationEnabled);
       extraArbitratorConfigs["check-usage-leak"] =

@@ -34,6 +34,7 @@ velox_add_library(
 velox_link_libraries(
   velox_memory
   PUBLIC velox_common_base
+         velox_common_config
          velox_exception
          velox_flag_definitions
          velox_time

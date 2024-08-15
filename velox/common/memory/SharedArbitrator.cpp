@@ -19,6 +19,7 @@
 
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/RuntimeMetrics.h"
+#include "velox/common/config/Config.h"
 #include "velox/common/memory/Memory.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/common/time/Timer.h"
@@ -82,32 +83,50 @@ T getConfig(
 
 int64_t SharedArbitrator::ExtraConfig::getReservedCapacity(
     const std::unordered_map<std::string, std::string>& configs) {
-  return getConfig<int64_t>(
-      configs, kReservedCapacity, kDefaultReservedCapacity);
+  return config::toCapacity(
+      getConfig<std::string>(
+          configs, kReservedCapacity, std::string(kDefaultReservedCapacity)),
+      config::CapacityUnit::BYTE);
 }
 
 uint64_t SharedArbitrator::ExtraConfig::getMemoryPoolInitialCapacity(
     const std::unordered_map<std::string, std::string>& configs) {
-  return getConfig<uint64_t>(
-      configs, kMemoryPoolInitialCapacity, kDefaultMemoryPoolInitialCapacity);
+  return config::toCapacity(
+      getConfig<std::string>(
+          configs,
+          kMemoryPoolInitialCapacity,
+          std::string(kDefaultMemoryPoolInitialCapacity)),
+      config::CapacityUnit::BYTE);
 }
 
 uint64_t SharedArbitrator::ExtraConfig::getMemoryPoolReservedCapacity(
     const std::unordered_map<std::string, std::string>& configs) {
-  return getConfig<uint64_t>(
-      configs, kMemoryPoolReservedCapacity, kDefaultMemoryPoolReservedCapacity);
+  return config::toCapacity(
+      getConfig<std::string>(
+          configs,
+          kMemoryPoolReservedCapacity,
+          std::string(kDefaultMemoryPoolReservedCapacity)),
+      config::CapacityUnit::BYTE);
 }
 
 uint64_t SharedArbitrator::ExtraConfig::getMemoryPoolTransferCapacity(
     const std::unordered_map<std::string, std::string>& configs) {
-  return getConfig<uint64_t>(
-      configs, kMemoryPoolTransferCapacity, kDefaultMemoryPoolTransferCapacity);
+  return config::toCapacity(
+      getConfig<std::string>(
+          configs,
+          kMemoryPoolTransferCapacity,
+          std::string(kDefaultMemoryPoolTransferCapacity)),
+      config::CapacityUnit::BYTE);
 }
 
-uint64_t SharedArbitrator::ExtraConfig::getMemoryReclaimWaitMs(
+uint64_t SharedArbitrator::ExtraConfig::getMemoryReclaimMaxWaitTimeMs(
     const std::unordered_map<std::string, std::string>& configs) {
-  return getConfig<uint64_t>(
-      configs, kMemoryReclaimWaitMs, kDefaultMemoryReclaimWaitMs);
+  return std::chrono::duration_cast<std::chrono::milliseconds>(
+             config::toDuration(getConfig<std::string>(
+                 configs,
+                 kMemoryReclaimMaxWaitTime,
+                 std::string(kDefaultMemoryReclaimMaxWaitTime))))
+      .count();
 }
 
 bool SharedArbitrator::ExtraConfig::getGlobalArbitrationEnabled(
@@ -131,7 +150,7 @@ SharedArbitrator::SharedArbitrator(const Config& config)
       memoryPoolTransferCapacity_(
           ExtraConfig::getMemoryPoolTransferCapacity(config.extraConfigs)),
       memoryReclaimWaitMs_(
-          ExtraConfig::getMemoryReclaimWaitMs(config.extraConfigs)),
+          ExtraConfig::getMemoryReclaimMaxWaitTimeMs(config.extraConfigs)),
       globalArbitrationEnabled_(
           ExtraConfig::getGlobalArbitrationEnabled(config.extraConfigs)),
       checkUsageLeak_(ExtraConfig::getCheckUsageLeak(config.extraConfigs)),
