@@ -58,13 +58,6 @@ class TestConnectorFactory : public connector::ConnectorFactory {
 
   std::shared_ptr<Connector> newConnector(
       const std::string& id,
-      std::shared_ptr<const Config> /*config*/,
-      folly::Executor* /*executor*/ = nullptr) override {
-    return std::make_shared<TestConnector>(id);
-  }
-
-  std::shared_ptr<Connector> newConnector(
-      const std::string& id,
       std::shared_ptr<const config::ConfigBase> /*config*/,
       folly::Executor* /*executor*/ = nullptr) override {
     return std::make_shared<TestConnector>(id);

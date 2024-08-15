@@ -17,7 +17,6 @@
 #include "velox/core/QueryCtx.h"
 #include "velox/common/base/SpillConfig.h"
 #include "velox/common/config/Config.h"
-#include "velox/core/Config.h"
 
 namespace facebook::velox::core {
 
@@ -35,34 +34,6 @@ std::shared_ptr<QueryCtx> QueryCtx::create(
       executor,
       std::move(queryConfig),
       std::move(connectorConfigs),
-      cache,
-      std::move(pool),
-      spillExecutor,
-      queryId));
-  queryCtx->maybeSetReclaimer();
-  return queryCtx;
-}
-
-// static
-std::shared_ptr<QueryCtx> QueryCtx::create(
-    folly::Executor* executor,
-    QueryConfig&& queryConfig,
-    std::unordered_map<std::string, std::shared_ptr<Config>> connectorConfigs,
-    cache::AsyncDataCache* cache,
-    std::shared_ptr<memory::MemoryPool> pool,
-    folly::Executor* spillExecutor,
-    const std::string& queryId) {
-  std::unordered_map<std::string, std::shared_ptr<config::ConfigBase>>
-      convertedConfigs;
-  for (const auto& pair : connectorConfigs) {
-    convertedConfigs.insert(
-        {pair.first,
-         std::make_shared<config::ConfigBase>(pair.second->valuesCopy())});
-  }
-  std::shared_ptr<QueryCtx> queryCtx(new QueryCtx(
-      executor,
-      std::move(queryConfig),
-      std::move(convertedConfigs),
       cache,
       std::move(pool),
       spillExecutor,

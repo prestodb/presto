@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include <set>
 #include "velox/core/PlanNode.h"
 
 namespace facebook::velox::exec::test {

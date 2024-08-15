@@ -15,12 +15,6 @@ if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)
 endif()
 
-velox_add_library(velox_config Config.cpp)
-velox_link_libraries(
-  velox_config
-  PUBLIC velox_exception Folly::folly
-  PRIVATE velox_type_tz)
-
 velox_add_library(
   velox_core
   Expressions.cpp
@@ -34,7 +28,6 @@ velox_link_libraries(
   velox_core
   PUBLIC velox_arrow_bridge
          velox_caching
-         velox_config
          velox_common_config
          velox_connector
          velox_exception

@@ -16,11 +16,10 @@
 #pragma once
 
 #include "velox/common/config/Config.h"
-#include "velox/core/Config.h"
 
 namespace facebook::velox::core {
 
-/// A simple wrapper around velox::Config. Defines constants for query
+/// A simple wrapper around velox::ConfigBase. Defines constants for query
 /// config properties and accessor methods.
 /// Create per query context. Does not have a singleton instance.
 /// Does not allow altering properties on the fly. Only at creation time.

@@ -167,17 +167,6 @@ class TestConnectorFactory : public connector::ConnectorFactory {
       folly::Executor* /* executor */) override {
     return std::make_shared<TestConnector>(id);
   }
-
-  std::shared_ptr<Connector> newConnector(
-      const std::string& id,
-      std::shared_ptr<const Config> config,
-      folly::Executor* executor = nullptr) override {
-    std::shared_ptr<const config::ConfigBase> convertedConfig;
-    convertedConfig = config == nullptr
-        ? nullptr
-        : std::make_shared<config::ConfigBase>(config->valuesCopy());
-    return newConnector(id, convertedConfig, executor);
-  }
 };
 } // namespace
 

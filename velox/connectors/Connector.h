@@ -455,12 +455,6 @@ class ConnectorFactory {
       std::shared_ptr<const config::ConfigBase> config,
       folly::Executor* executor = nullptr) = 0;
 
-  // TODO(jtan6): [Config Refactor] Remove this old API when refactor is done.
-  virtual std::shared_ptr<Connector> newConnector(
-      const std::string& id,
-      std::shared_ptr<const Config> config,
-      folly::Executor* executor = nullptr) = 0;
-
  private:
   const std::string name_;
 };

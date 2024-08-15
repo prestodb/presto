@@ -53,17 +53,6 @@ class QueryCtx : public std::enable_shared_from_this<QueryCtx> {
       folly::Executor* spillExecutor = nullptr,
       const std::string& queryId = "");
 
-  // TODO(jtan6): [Config Refactor] Remove this old API after refactoring is
-  //  done.
-  static std::shared_ptr<QueryCtx> create(
-      folly::Executor* executor,
-      QueryConfig&& queryConfig,
-      std::unordered_map<std::string, std::shared_ptr<Config>> connectorConfigs,
-      cache::AsyncDataCache* cache = cache::AsyncDataCache::getInstance(),
-      std::shared_ptr<memory::MemoryPool> pool = nullptr,
-      folly::Executor* spillExecutor = nullptr,
-      const std::string& queryId = "");
-
   static std::string generatePoolName(const std::string& queryId);
 
   memory::MemoryPool* pool() const {
