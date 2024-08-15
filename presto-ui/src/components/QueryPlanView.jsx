@@ -18,7 +18,7 @@ import { clsx } from 'clsx';
 import type { StageNodeInfo } from './LivePlan';
 import { StageStatistics, PlanNode } from './LivePlan';
 import ReactDOMServer from "react-dom/server";
-import * as dagreD3 from "dagre-d3";
+import * as dagreD3 from "dagre-d3-es";
 import * as d3 from "d3";
 import { formatRows, getStageStateColor } from "../utils";
 import { initializeGraph } from "../d3utils";
