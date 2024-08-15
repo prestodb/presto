@@ -19,11 +19,11 @@
 
 namespace facebook::velox::exec {
 
-// Corresponds to Presto SerializedPage, i.e. a container for
-// serialize vectors in Presto wire format.
+/// Corresponds to Presto SerializedPage, i.e. a container for serialize vectors
+/// in Presto wire format.
 class SerializedPage {
  public:
-  // Construct from IOBuf chain.
+  /// Construct from IOBuf chain.
   explicit SerializedPage(
       std::unique_ptr<folly::IOBuf> iobuf,
       std::function<void(folly::IOBuf&)> onDestructionCb = nullptr,
@@ -31,7 +31,7 @@ class SerializedPage {
 
   ~SerializedPage();
 
-  // Returns the size of the serialized data in bytes.
+  /// Returns the size of the serialized data in bytes.
   uint64_t size() const {
     return iobufBytes_;
   }
@@ -40,9 +40,13 @@ class SerializedPage {
     return numRows_;
   }
 
-  // Makes 'input' ready for deserializing 'this' with
-  // VectorStreamGroup::read().
+#ifndef VELOX_ENABLE_BACKWARD_COMPATIBILITY
+  /// Makes 'input' ready for deserializing 'this' with
+  /// VectorStreamGroup::read().
+  std::unique_ptr<ByteInputStream> prepareStreamForDeserialize();
+#else
   ByteInputStream prepareStreamForDeserialize();
+#endif
 
   std::unique_ptr<folly::IOBuf> getIOBuf() const {
     return iobuf_->clone();

@@ -142,6 +142,7 @@ void updateGlobalSpillWriteStats(
 /// Updates the stats for disk read including the number of disk reads, the
 /// amount of data read in bytes, and the time it takes to read from the disk.
 void updateGlobalSpillReadStats(
+    uint64_t spillReads,
     uint64_t spillReadBytes,
     uint64_t spillRadTimeUs);
 

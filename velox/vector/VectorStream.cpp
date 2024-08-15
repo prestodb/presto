@@ -242,14 +242,15 @@ RowVectorPtr IOBufToRowVector(
         const_cast<uint8_t*>(range.data()), (int32_t)range.size(), 0});
   }
 
-  ByteInputStream byteStream(std::move(ranges));
+  auto byteStream = std::make_unique<BufferInputStream>(std::move(ranges));
   RowVectorPtr outputVector;
 
   // If not supplied, use the default one.
   if (serde == nullptr) {
     serde = getVectorSerde();
   }
-  serde->deserialize(&byteStream, &pool, outputType, &outputVector, nullptr);
+  serde->deserialize(
+      byteStream.get(), &pool, outputType, &outputVector, nullptr);
   return outputVector;
 }
 

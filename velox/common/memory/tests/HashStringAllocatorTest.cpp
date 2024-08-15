@@ -258,11 +258,11 @@ TEST_F(HashStringAllocatorTest, finishWrite) {
 
   std::string copy;
   copy.resize(longString.size());
-  inputStream.readBytes(copy.data(), copy.size());
+  inputStream->readBytes(copy.data(), copy.size());
   ASSERT_EQ(copy, longString);
 
   copy.resize(4);
-  inputStream.readBytes(copy.data(), 4);
+  inputStream->readBytes(copy.data(), 4);
   ASSERT_EQ(copy, "abcd");
 
   auto allocatedBytes = allocator_->checkConsistency();
@@ -280,7 +280,7 @@ TEST_F(HashStringAllocatorTest, finishWrite) {
     auto inStream = HSA::prepareRead(start.header);
     std::string copy;
     copy.resize(largeString.size());
-    inStream.readBytes(copy.data(), copy.size());
+    inStream->readBytes(copy.data(), copy.size());
     ASSERT_EQ(copy, largeString);
     allocatedBytes = allocator_->checkConsistency();
     ASSERT_EQ(allocatedBytes, allocator_->currentBytes());
@@ -397,9 +397,9 @@ TEST_F(HashStringAllocatorTest, rewrite) {
     position = allocator_->finishWrite(stream, 0).second;
     EXPECT_EQ(3 * sizeof(int64_t), HSA::offset(header, position));
     auto inStream = HSA::prepareRead(header);
-    EXPECT_EQ(123456789012345LL, inStream.read<int64_t>());
-    EXPECT_EQ(12345LL, inStream.read<int64_t>());
-    EXPECT_EQ(67890LL, inStream.read<int64_t>());
+    EXPECT_EQ(123456789012345LL, inStream->read<int64_t>());
+    EXPECT_EQ(12345LL, inStream->read<int64_t>());
+    EXPECT_EQ(67890LL, inStream->read<int64_t>());
   }
   // The stream contains 3 int64_t's.
   auto end = HSA::seek(header, 3 * sizeof(int64_t));
@@ -694,20 +694,20 @@ TEST_F(HashStringAllocatorTest, sizeAndPosition) {
     stream.seekp(start);
     EXPECT_EQ(start, stream.tellp());
     EXPECT_EQ(kUnitSize * 10, stream.size());
-    ByteInputStream input = stream.inputStream();
-    input.seekp(start);
-    EXPECT_EQ(kUnitSize * 10 - start, input.remainingSize());
+    auto input = stream.inputStream();
+    input->seekp(start);
+    EXPECT_EQ(kUnitSize * 10 - start, input->remainingSize());
     for (auto c = 0; c < 10; ++c) {
-      uint8_t byte = input.readByte();
+      uint8_t byte = input->readByte();
       EXPECT_EQ(byte, (start + c) % kUnitSize);
     }
     // Overwrite the bytes just read.
     stream.seekp(start);
     stream.appendStringView(std::string_view(allChars.data(), 100));
     input = stream.inputStream();
-    input.seekp(start);
+    input->seekp(start);
     for (auto c = 0; c < 100; ++c) {
-      uint8_t byte = input.readByte();
+      uint8_t byte = input->readByte();
       EXPECT_EQ(byte, c % kUnitSize);
     }
   }

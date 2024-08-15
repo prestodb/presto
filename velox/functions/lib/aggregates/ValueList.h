@@ -127,8 +127,8 @@ class ValueListReader {
   const vector_size_t size_;
   const vector_size_t lastNullsStart_;
   const uint64_t lastNulls_;
-  ByteInputStream dataStream_;
-  ByteInputStream nullsStream_;
+  std::unique_ptr<ByteInputStream> dataStream_;
+  std::unique_ptr<ByteInputStream> nullsStream_;
   uint64_t nulls_;
   vector_size_t pos_{0};
 };

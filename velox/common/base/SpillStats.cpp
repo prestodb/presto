@@ -299,10 +299,11 @@ void updateGlobalSpillWriteStats(
 }
 
 void updateGlobalSpillReadStats(
+    uint64_t spillReads,
     uint64_t spillReadBytes,
     uint64_t spillRadTimeUs) {
   auto statsLocked = localSpillStats().wlock();
-  ++statsLocked->spillReads;
+  statsLocked->spillReads += spillReads;
   statsLocked->spillReadBytes += spillReadBytes;
   statsLocked->spillReadTimeUs += spillRadTimeUs;
 }

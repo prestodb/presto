@@ -121,9 +121,14 @@ RowVectorPtr Exchange::getOutput() {
 
     auto inputStream = page->prepareStreamForDeserialize();
 
-    while (!inputStream.atEnd()) {
+    while (!inputStream->atEnd()) {
       getSerde()->deserialize(
-          &inputStream, pool(), outputType_, &result_, resultOffset, &options_);
+          inputStream.get(),
+          pool(),
+          outputType_,
+          &result_,
+          resultOffset,
+          &options_);
       resultOffset = result_->size();
     }
   }

@@ -986,7 +986,9 @@ class RowContainer {
     }
   }
 
-  static ByteInputStream prepareRead(const char* row, int32_t offset);
+  static std::unique_ptr<ByteInputStream> prepareRead(
+      const char* row,
+      int32_t offset);
 
   template <TypeKind Kind>
   void hashTyped(
@@ -1153,7 +1155,7 @@ class RowContainer {
         result->setNull(resultIndex, true);
       } else {
         auto stream = prepareRead(row, offset);
-        ContainerRowSerde::deserialize(stream, resultIndex, result.get());
+        ContainerRowSerde::deserialize(*stream, resultIndex, result.get());
       }
     }
   }

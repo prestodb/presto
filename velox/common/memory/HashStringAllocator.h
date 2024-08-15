@@ -237,7 +237,7 @@ class HashStringAllocator : public StreamArena {
   /// possible continuation ranges.
   /// @param maxBytes If provided, the returned stream will cover at most that
   /// many bytes.
-  static ByteInputStream prepareRead(
+  static std::unique_ptr<ByteInputStream> prepareRead(
       const Header* header,
       size_t maxBytes = std::numeric_limits<size_t>::max());
 

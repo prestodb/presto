@@ -28,6 +28,7 @@ namespace {
 static const bool kDefaultUseLosslessTimestamp = true;
 } // namespace
 
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
 SpillInputStream::SpillInputStream(
     std::unique_ptr<ReadFile>&& file,
     uint64_t bufferSize,
@@ -117,6 +118,7 @@ void SpillInputStream::updateSpillStats(uint64_t readBytes, uint64_t readTimeUs)
   ++(lockedStats->spillReads);
   common::updateGlobalSpillReadStats(readBytes, readTimeUs);
 }
+#endif
 
 std::unique_ptr<SpillWriteFile> SpillWriteFile::create(
     uint32_t id,
@@ -393,12 +395,20 @@ SpillReadFile::SpillReadFile(
       stats_(stats) {
   auto fs = filesystems::getFileSystem(path_, nullptr);
   auto file = fs->openFileForRead(path_);
+#ifndef VELOX_ENABLE_BACKWARD_COMPATIBILITY
+  input_ = std::make_unique<common::FileInputStream>(
+      std::move(file), bufferSize, pool_);
+#else
   input_ = std::make_unique<SpillInputStream>(
       std::move(file), bufferSize, pool_, stats_);
+#endif
 }
 
 bool SpillReadFile::nextBatch(RowVectorPtr& rowVector) {
   if (input_->atEnd()) {
+#ifndef VELOX_ENABLE_BACKWARD_COMPATIBILITY
+    recordSpillStats();
+#endif
     return false;
   }
 
@@ -410,7 +420,19 @@ bool SpillReadFile::nextBatch(RowVectorPtr& rowVector) {
   }
   stats_->wlock()->spillDeserializationTimeUs += timeUs;
   common::updateGlobalSpillDeserializationTimeUs(timeUs);
-
   return true;
 }
+
+#ifndef VELOX_ENABLE_BACKWARD_COMPATIBILITY
+void SpillReadFile::recordSpillStats() {
+  VELOX_CHECK(input_->atEnd());
+  const auto readStats = input_->stats();
+  common::updateGlobalSpillReadStats(
+      readStats.numReads, readStats.readBytes, readStats.readTimeUs);
+  auto lockedSpillStats = stats_->wlock();
+  lockedSpillStats->spillReads += readStats.numReads;
+  lockedSpillStats->spillReadTimeUs += readStats.readTimeUs;
+  lockedSpillStats->spillReadBytes += readStats.readBytes;
+}
+#endif
 } // namespace facebook::velox::exec

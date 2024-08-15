@@ -54,7 +54,7 @@ class CompactRowSerializerTest : public ::testing::Test,
     ASSERT_EQ(size, output->tellp());
   }
 
-  ByteInputStream toByteStream(
+  std::unique_ptr<ByteInputStream> toByteStream(
       const std::string_view& input,
       size_t pageSize = 32) {
     auto rawBytes = reinterpret_cast<uint8_t*>(const_cast<char*>(input.data()));
@@ -71,7 +71,7 @@ class CompactRowSerializerTest : public ::testing::Test,
       offset += pageSize;
     }
 
-    return ByteInputStream(std::move(ranges));
+    return std::make_unique<BufferInputStream>(std::move(ranges));
   }
 
   RowVectorPtr deserialize(
@@ -80,7 +80,7 @@ class CompactRowSerializerTest : public ::testing::Test,
     auto byteStream = toByteStream(input);
 
     RowVectorPtr result;
-    serde_->deserialize(&byteStream, pool_.get(), rowType, &result);
+    serde_->deserialize(byteStream.get(), pool_.get(), rowType, &result);
     return result;
   }
 

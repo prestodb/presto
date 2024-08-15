@@ -165,5 +165,4 @@ class ReadToIOBufs {
   OutputIter output_;
   Reader reader_;
 };
-
 } // namespace facebook::velox::file::utils

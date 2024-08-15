@@ -34,5 +34,4 @@ bool CoalesceIfDistanceLE::operator()(
   }
   return shouldCoalesce;
 }
-
 } // namespace facebook::velox::file::utils

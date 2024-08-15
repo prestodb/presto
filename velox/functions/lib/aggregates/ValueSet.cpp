@@ -55,7 +55,7 @@ void ValueSet::read(
   VELOX_CHECK_NOT_NULL(header);
 
   auto stream = HashStringAllocator::prepareRead(header);
-  exec::ContainerRowSerde::deserialize(stream, index, vector);
+  exec::ContainerRowSerde::deserialize(*stream, index, vector);
 }
 
 void ValueSet::free(HashStringAllocator::Header* header) const {

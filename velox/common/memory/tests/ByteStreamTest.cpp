@@ -14,8 +14,12 @@
  * limitations under the License.
  */
 #include "velox/common/memory/ByteStream.h"
-#include "velox/common/memory/MemoryAllocator.h"
+
+#include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/file/FileInputStream.h"
+#include "velox/common/file/FileSystems.h"
 #include "velox/common/memory/MmapAllocator.h"
+#include "velox/exec/tests/utils/TempDirectoryPath.h"
 
 #include <gflags/gflags.h>
 #include <gtest/gtest.h>
@@ -95,73 +99,6 @@ TEST_F(ByteStreamTest, outputStream) {
   iobuf = nullptr;
   // We expect dropping the stream and the iobuf frees the backing memory.
   EXPECT_EQ(0, mmapAllocator_->numAllocated());
-}
-
-TEST_F(ByteStreamTest, inputStream) {
-  uint8_t* const kFakeBuffer = reinterpret_cast<uint8_t*>(this);
-  std::vector<ByteRange> byteRanges;
-  size_t totalBytes{0};
-  for (int32_t i = 0; i < 32; ++i) {
-    byteRanges.push_back(ByteRange{kFakeBuffer, 4096 + i, 0});
-    totalBytes += 4096 + i;
-  }
-  ByteInputStream byteStream(std::move(byteRanges));
-  ASSERT_EQ(byteStream.size(), totalBytes);
-}
-
-TEST_F(ByteStreamTest, remainingSize) {
-  const int32_t kSize = 100;
-  const int32_t kBufferSize = 4096;
-  std::vector<void*> buffers;
-  std::vector<ByteRange> byteRanges;
-  for (int32_t i = 0; i < kSize; i++) {
-    buffers.push_back(pool_->allocate(kBufferSize));
-    byteRanges.push_back(
-        ByteRange{reinterpret_cast<uint8_t*>(buffers.back()), kBufferSize, 0});
-  }
-  ByteInputStream byteStream(std::move(byteRanges));
-  const int32_t kReadBytes = 2048;
-  int32_t remainingSize = kSize * kBufferSize;
-  uint8_t* tempBuffer = reinterpret_cast<uint8_t*>(pool_->allocate(kReadBytes));
-  while (byteStream.remainingSize() > 0) {
-    byteStream.readBytes(tempBuffer, kReadBytes);
-    remainingSize -= kReadBytes;
-    ASSERT_EQ(remainingSize, byteStream.remainingSize());
-  }
-  ASSERT_EQ(0, byteStream.remainingSize());
-  for (int32_t i = 0; i < kSize; i++) {
-    pool_->free(buffers[i], kBufferSize);
-  }
-  pool_->free(tempBuffer, kReadBytes);
-}
-
-TEST_F(ByteStreamTest, toString) {
-  const int32_t kSize = 10;
-  const int32_t kBufferSize = 4096;
-  std::vector<void*> buffers;
-  std::vector<ByteRange> byteRanges;
-  for (int32_t i = 0; i < kSize; i++) {
-    buffers.push_back(pool_->allocate(kBufferSize));
-    byteRanges.push_back(
-        ByteRange{reinterpret_cast<uint8_t*>(buffers.back()), kBufferSize, 0});
-  }
-  ByteInputStream byteStream(std::move(byteRanges));
-  const int32_t kReadBytes = 2048;
-  uint8_t* tempBuffer = reinterpret_cast<uint8_t*>(pool_->allocate(kReadBytes));
-  for (int32_t i = 0; i < kSize / 2; i++) {
-    byteStream.readBytes(tempBuffer, kReadBytes);
-  }
-
-  EXPECT_EQ(
-      byteStream.toString(),
-      "10 ranges "
-      "(position/size) [(4096/4096),(4096/4096),(2048/4096 current),"
-      "(0/4096),(0/4096),(0/4096),(0/4096),(0/4096),(0/4096),(0/4096)]");
-
-  for (int32_t i = 0; i < kSize; i++) {
-    pool_->free(buffers[i], kBufferSize);
-  }
-  pool_->free(tempBuffer, kReadBytes);
 }
 
 TEST_F(ByteStreamTest, newRangeAllocation) {
@@ -360,26 +297,15 @@ TEST_F(ByteStreamTest, appendWindow) {
   EXPECT_EQ(0, memcmp(stringStream.str().data(), words.data(), words.size()));
 }
 
-TEST_F(ByteStreamTest, readBytesNegativeSize) {
-  constexpr int32_t kBufferSize = 4096;
-  uint8_t buffer[kBufferSize];
-  ByteInputStream byteStream({ByteRange{buffer, kBufferSize, 0}});
-  std::string output;
-  EXPECT_THROW(byteStream.readBytes(output.data(), -100), VeloxRuntimeError);
-}
-
-TEST_F(ByteStreamTest, skipNegativeSize) {
-  constexpr int32_t kBufferSize = 4096;
-  uint8_t buffer[kBufferSize];
-  ByteInputStream byteStream({ByteRange{buffer, kBufferSize, 0}});
-  EXPECT_THROW(byteStream.skip(-100), VeloxRuntimeError);
-}
-
-TEST_F(ByteStreamTest, nextViewNegativeSize) {
-  constexpr int32_t kBufferSize = 4096;
-  uint8_t buffer[kBufferSize];
-  ByteInputStream byteStream({ByteRange{buffer, kBufferSize, 0}});
-  EXPECT_THROW(byteStream.nextView(-100), VeloxRuntimeError);
+TEST_F(ByteStreamTest, byteRange) {
+  ByteRange range;
+  range.size = 0;
+  range.position = 1;
+  ASSERT_EQ(range.availableBytes(), 0);
+  range.size = 1;
+  ASSERT_EQ(range.availableBytes(), 0);
+  range.size = 2;
+  ASSERT_EQ(range.availableBytes(), 1);
 }
 
 TEST_F(ByteStreamTest, reuse) {
@@ -393,3 +319,257 @@ TEST_F(ByteStreamTest, reuse) {
     EXPECT_EQ(sizeof(bytes), stream.size());
   }
 }
+
+class InputByteStreamTest : public ByteStreamTest,
+                            public testing::WithParamInterface<bool> {
+ protected:
+  static void SetUpTestCase() {
+    filesystems::registerLocalFileSystem();
+  }
+
+  void SetUp() override {
+    ByteStreamTest::SetUp();
+    tempDirPath_ = exec::test::TempDirectoryPath::create();
+    fs_ = filesystems::getFileSystem(tempDirPath_->getPath(), nullptr);
+  }
+
+  std::unique_ptr<ByteInputStream> createStream(
+      const std::vector<ByteRange>& byteRanges,
+      uint32_t bufferSize = 1024) {
+    if (GetParam()) {
+      return std::make_unique<BufferInputStream>(std::move(byteRanges));
+    } else {
+      const auto filePath =
+          fmt::format("{}/{}", tempDirPath_->getPath(), fileId_++);
+      auto writeFile = fs_->openFileForWrite(filePath);
+      for (auto& byteRange : byteRanges) {
+        writeFile->append(std::string_view(
+            reinterpret_cast<char*>(byteRange.buffer), byteRange.size));
+      }
+      writeFile->close();
+      return std::make_unique<common::FileInputStream>(
+          fs_->openFileForRead(filePath), bufferSize, pool_.get());
+    }
+  }
+
+  std::atomic_uint64_t fileId_{0};
+  std::shared_ptr<exec::test::TempDirectoryPath> tempDirPath_;
+  std::shared_ptr<filesystems::FileSystem> fs_;
+};
+
+TEST_P(InputByteStreamTest, inputStream) {
+  uint8_t kFakeBuffer[8192];
+  std::vector<ByteRange> byteRanges;
+  size_t totalBytes{0};
+  for (int32_t i = 0; i < 32; ++i) {
+    byteRanges.push_back(ByteRange{kFakeBuffer, 4096 + i, 0});
+    totalBytes += 4096 + i;
+  }
+  auto byteStream = createStream(byteRanges);
+  ASSERT_EQ(byteStream->size(), totalBytes);
+  ASSERT_FALSE(byteStream->atEnd());
+  byteStream->skip(totalBytes);
+  ASSERT_TRUE(byteStream->atEnd());
+  if (GetParam()) {
+    VELOX_ASSERT_THROW(
+        byteStream->skip(1),
+        "(32 vs. 32) Reading past end of BufferInputStream");
+  } else {
+    VELOX_ASSERT_THROW(
+        byteStream->skip(1),
+        "(1 vs. 0) Skip past the end of FileInputStream: 131568");
+  }
+  ASSERT_TRUE(byteStream->atEnd());
+}
+
+TEST_P(InputByteStreamTest, emptyInputStreamError) {
+  if (GetParam()) {
+    VELOX_ASSERT_THROW(createStream({}), "Empty BufferInputStream");
+  } else {
+    VELOX_ASSERT_THROW(createStream({}), "(0 vs. 0) Empty FileInputStream");
+  }
+}
+
+TEST_P(InputByteStreamTest, remainingSize) {
+  const int32_t kSize = 100;
+  const int32_t kBufferSize = 4096;
+  std::vector<void*> buffers;
+  std::vector<ByteRange> byteRanges;
+  for (int32_t i = 0; i < kSize; i++) {
+    buffers.push_back(pool_->allocate(kBufferSize));
+    byteRanges.push_back(
+        ByteRange{reinterpret_cast<uint8_t*>(buffers.back()), kBufferSize, 0});
+  }
+  auto byteStream = createStream(byteRanges);
+  const int32_t kReadBytes = 2048;
+  int32_t remainingSize = kSize * kBufferSize;
+  ASSERT_EQ(byteStream->remainingSize(), remainingSize);
+  uint8_t* tempBuffer = reinterpret_cast<uint8_t*>(pool_->allocate(kReadBytes));
+  while (byteStream->remainingSize() > 0) {
+    byteStream->readBytes(tempBuffer, kReadBytes);
+    remainingSize -= kReadBytes;
+    ASSERT_EQ(remainingSize, byteStream->remainingSize());
+  }
+  ASSERT_EQ(byteStream->remainingSize(), 0);
+  for (int32_t i = 0; i < kSize; i++) {
+    pool_->free(buffers[i], kBufferSize);
+  }
+  pool_->free(tempBuffer, kReadBytes);
+}
+
+TEST_P(InputByteStreamTest, toString) {
+  const int32_t kSize = 10;
+  const int32_t kBufferSize = 4096;
+  std::vector<void*> buffers;
+  std::vector<ByteRange> byteRanges;
+  for (int32_t i = 0; i < kSize; i++) {
+    buffers.push_back(pool_->allocate(kBufferSize));
+    byteRanges.push_back(
+        ByteRange{reinterpret_cast<uint8_t*>(buffers.back()), kBufferSize, 0});
+  }
+  auto byteStream = createStream(std::move(byteRanges));
+  const int32_t kReadBytes = 2048;
+  uint8_t* tempBuffer = reinterpret_cast<uint8_t*>(pool_->allocate(kReadBytes));
+  for (int32_t i = 0; i < kSize / 2; i++) {
+    byteStream->readBytes(tempBuffer, kReadBytes);
+  }
+
+  if (GetParam()) {
+    ASSERT_EQ(
+        byteStream->toString(),
+        "10 ranges "
+        "(position/size) [(4096/4096),(4096/4096),(2048/4096 current),"
+        "(0/4096),(0/4096),(0/4096),(0/4096),(0/4096),(0/4096),(0/4096)]");
+  } else {
+    ASSERT_EQ(
+        byteStream->toString(),
+        "file (offset 10.00KB/size 40.00KB) current (position 1.00KB/ size 1.00KB)");
+  }
+
+  for (int32_t i = 0; i < kSize; i++) {
+    pool_->free(buffers[i], kBufferSize);
+  }
+  pool_->free(tempBuffer, kReadBytes);
+}
+
+TEST_P(InputByteStreamTest, readBytesNegativeSize) {
+  constexpr int32_t kBufferSize = 4096;
+  uint8_t buffer[kBufferSize];
+  auto byteStream =
+      createStream(std::vector<ByteRange>{ByteRange{buffer, kBufferSize, 0}});
+  ASSERT_EQ(byteStream->remainingSize(), kBufferSize);
+  uint8_t outputBuffer[kBufferSize];
+  VELOX_ASSERT_THROW(
+      byteStream->readBytes(outputBuffer, -100),
+      "(-100 vs. 0) Attempting to read negative number of byte");
+  ASSERT_EQ(byteStream->remainingSize(), kBufferSize);
+}
+
+TEST_P(InputByteStreamTest, skipNegativeSize) {
+  constexpr int32_t kBufferSize = 4096;
+  uint8_t buffer[kBufferSize];
+  auto byteStream = std::make_unique<BufferInputStream>(
+      std::vector<ByteRange>{ByteRange{buffer, kBufferSize, 0}});
+  ASSERT_EQ(byteStream->remainingSize(), kBufferSize);
+  VELOX_ASSERT_THROW(
+      byteStream->skip(-100),
+      "(-100 vs. 0) Attempting to skip negative number of bytes");
+  ASSERT_EQ(byteStream->remainingSize(), kBufferSize);
+}
+
+TEST_P(InputByteStreamTest, nextViewNegativeSize) {
+  constexpr int32_t kBufferSize = 4096;
+  uint8_t buffer[kBufferSize];
+  auto byteStream =
+      createStream(std::vector<ByteRange>{ByteRange{buffer, kBufferSize, 0}});
+  ASSERT_EQ(byteStream->remainingSize(), kBufferSize);
+  VELOX_ASSERT_THROW(
+      byteStream->nextView(-100),
+      "(-100 vs. 0) Attempting to view negative number of bytes");
+  ASSERT_EQ(byteStream->remainingSize(), kBufferSize);
+}
+
+TEST_P(InputByteStreamTest, view) {
+  SCOPED_TRACE(fmt::format("BufferInputStream: {}", GetParam()));
+  constexpr int32_t kBufferSize = 1024;
+  uint8_t buffer[kBufferSize];
+  constexpr int32_t kNumRanges = 10;
+  std::vector<ByteRange> fakeRanges;
+  fakeRanges.reserve(kNumRanges);
+  for (int i = 0; i < kNumRanges; ++i) {
+    fakeRanges.push_back(ByteRange{buffer, kBufferSize, 0});
+  }
+  auto byteStream = createStream(fakeRanges);
+  ASSERT_EQ(byteStream->remainingSize(), kBufferSize * kNumRanges);
+  ASSERT_EQ(byteStream->nextView(kBufferSize / 2).size(), kBufferSize / 2);
+  ASSERT_EQ(byteStream->nextView(kBufferSize).size(), kBufferSize / 2);
+  ASSERT_EQ(byteStream->remainingSize(), kBufferSize * (kNumRanges - 1));
+  byteStream->skip(byteStream->remainingSize());
+  ASSERT_EQ(byteStream->remainingSize(), 0);
+  ASSERT_TRUE(byteStream->atEnd());
+  ASSERT_EQ(byteStream->nextView(100).size(), 0);
+}
+
+TEST_P(InputByteStreamTest, tellP) {
+  constexpr int32_t kBufferSize = 4096;
+  uint8_t buffer[kBufferSize];
+  auto byteStream =
+      createStream(std::vector<ByteRange>{ByteRange{buffer, kBufferSize, 0}});
+  ASSERT_EQ(byteStream->remainingSize(), kBufferSize);
+  byteStream->readBytes(buffer, kBufferSize / 2);
+  ASSERT_EQ(byteStream->remainingSize(), kBufferSize / 2);
+  ASSERT_EQ(byteStream->tellp(), kBufferSize / 2);
+  byteStream->skip(kBufferSize / 2);
+  ASSERT_EQ(byteStream->remainingSize(), 0);
+  ASSERT_EQ(byteStream->tellp(), kBufferSize);
+}
+
+TEST_P(InputByteStreamTest, skip) {
+  constexpr int32_t kBufferSize = 4096;
+  uint8_t buffer[kBufferSize];
+  auto byteStream =
+      createStream(std::vector<ByteRange>{ByteRange{buffer, kBufferSize, 0}});
+  ASSERT_EQ(byteStream->remainingSize(), kBufferSize);
+  byteStream->skip(0);
+  ASSERT_EQ(byteStream->remainingSize(), kBufferSize);
+  byteStream->skip(1);
+  ASSERT_EQ(byteStream->remainingSize(), kBufferSize - 1);
+  if (GetParam()) {
+    VELOX_ASSERT_THROW(
+        byteStream->skip(kBufferSize),
+        "(1 vs. 1) Reading past end of BufferInputStream");
+    ASSERT_EQ(byteStream->remainingSize(), 0);
+    ASSERT_TRUE(byteStream->atEnd());
+  } else {
+    VELOX_ASSERT_THROW(
+        byteStream->skip(kBufferSize),
+        "(4096 vs. 4095) Skip past the end of FileInputStream: 4096");
+    ASSERT_EQ(byteStream->remainingSize(), kBufferSize - 1);
+    ASSERT_FALSE(byteStream->atEnd());
+  }
+}
+
+TEST_P(InputByteStreamTest, seekp) {
+  constexpr int32_t kBufferSize = 4096;
+  uint8_t buffer[kBufferSize];
+  auto byteStream =
+      createStream(std::vector<ByteRange>{ByteRange{buffer, kBufferSize, 0}});
+  ASSERT_EQ(byteStream->remainingSize(), kBufferSize);
+  byteStream->seekp(kBufferSize / 2);
+  ASSERT_EQ(byteStream->remainingSize(), kBufferSize / 2);
+  byteStream->seekp(kBufferSize / 2);
+  ASSERT_EQ(byteStream->remainingSize(), kBufferSize / 2);
+  if (GetParam()) {
+    byteStream->seekp(kBufferSize / 4);
+    ASSERT_EQ(byteStream->remainingSize(), kBufferSize / 2 + kBufferSize / 4);
+  } else {
+    VELOX_ASSERT_THROW(
+        byteStream->seekp(kBufferSize / 4),
+        "(1024 vs. 2048) Backward seek is not supported by FileInputStream");
+  }
+}
+
+VELOX_INSTANTIATE_TEST_SUITE_P(
+    InputByteStreamTest,
+    InputByteStreamTest,
+    testing::ValuesIn({false, true}));

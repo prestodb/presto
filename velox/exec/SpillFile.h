@@ -22,6 +22,7 @@
 #include "velox/common/base/SpillStats.h"
 #include "velox/common/compression/Compression.h"
 #include "velox/common/file/File.h"
+#include "velox/common/file/FileInputStream.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/exec/TreeOfLosers.h"
 #include "velox/exec/UnorderedStreamReader.h"
@@ -199,6 +200,7 @@ class SpillWriter {
   SpillFiles finishedFiles_;
 };
 
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
 /// Input stream backed by spill file.
 ///
 /// TODO Usage of ByteInputStream as base class is hacky and just happens to
@@ -270,6 +272,7 @@ class SpillInputStream : public ByteInputStream {
   // Offset of first byte not in 'buffer()'.
   uint64_t offset_ = 0;
 };
+#endif
 
 /// Represents a spill file for read which turns the serialized spilled data on
 /// disk back into a sequence of spilled row vectors.
@@ -322,6 +325,11 @@ class SpillReadFile {
       memory::MemoryPool* pool,
       folly::Synchronized<common::SpillStats>* stats);
 
+#ifndef VELOX_ENABLE_BACKWARD_COMPATIBILITY
+  // Invoked to record spill read stats at the end of read input.
+  void recordSpillStats();
+#endif
+
   // The spill file id which is monotonically increasing and unique for each
   // associated spill partition.
   const uint32_t id_;
@@ -337,6 +345,10 @@ class SpillReadFile {
   memory::MemoryPool* const pool_;
   folly::Synchronized<common::SpillStats>* const stats_;
 
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
   std::unique_ptr<SpillInputStream> input_;
+#else
+  std::unique_ptr<common::FileInputStream> input_;
+#endif
 };
 } // namespace facebook::velox::exec

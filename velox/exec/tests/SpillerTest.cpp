@@ -287,6 +287,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
     ASSERT_EQ(stats.spilledFiles, spilledFileSet.size());
     ASSERT_EQ(stats.spilledPartitions, numPartitions_);
     ASSERT_EQ(stats.spilledRows, kNumRows);
+
     ASSERT_EQ(stats.spilledBytes, totalSpilledBytes);
     ASSERT_EQ(stats.spillReadBytes, totalSpilledBytes);
     ASSERT_GT(stats.spillWriteTimeUs, 0);
@@ -912,7 +913,9 @@ class SpillerTest : public exec::test::RowContainerTestBase {
         std::move(spillers), spillPartitionNumSet, inputsByPartition);
 
     // Spilled file stats should be updated after finalizing spiller.
-    ASSERT_GT(common::globalSpillStats().spilledFiles, 0);
+    if (numAppendBatches > 0) {
+      ASSERT_GT(common::globalSpillStats().spilledFiles, 0);
+    }
   }
 
   void verifyNonSortedSpillData(
@@ -1190,13 +1193,8 @@ TEST_P(AllTypes, readaheadTest) {
   if (type_ == Spiller::Type::kOrderByInput ||
       type_ == Spiller::Type::kAggregateInput) {
     testSortedSpill(10, 10, false, false, 512);
-    VELOX_ASSERT_THROW(
-        testSortedSpill(10, 1, false, false, 1), "Buffer size is too small");
     return;
   }
-  VELOX_ASSERT_THROW(
-      testNonSortedSpill(1, 100, 3, 1'000'000'000, maxSpillRunRows_, 1),
-      "Buffer size is too small");
   testNonSortedSpill(1, 5'000, 0, 1'000'000'000, maxSpillRunRows_, 512);
 }
 

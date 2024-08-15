@@ -35,6 +35,9 @@ struct ByteRange {
   /// Index of next byte/bit to be read/written in 'buffer'.
   int32_t position;
 
+  /// Returns the available bytes left in this range.
+  uint32_t availableBytes() const;
+
   std::string toString() const;
 };
 
@@ -91,6 +94,7 @@ class OStreamOutputStream : public OutputStream {
   std::ostream* out_;
 };
 
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
 /// Read-only stream over one or more byte buffers.
 class ByteInputStream {
  protected:
@@ -128,27 +132,118 @@ class ByteInputStream {
   virtual ~ByteInputStream() = default;
 
   /// Returns total number of bytes available in the stream.
-  size_t size() const;
+  size_t size() const {
+    size_t total = 0;
+    for (const auto& range : ranges_) {
+      total += range.size;
+    }
+    return total;
+  }
 
   /// Returns true if all input has been read.
   ///
   /// TODO: Remove 'virtual' after refactoring SpillInput.
-  virtual bool atEnd() const;
+  virtual bool atEnd() const {
+    if (!current_) {
+      return false;
+    }
+    if (current_->position < current_->size) {
+      return false;
+    }
+
+    VELOX_CHECK(current_ >= ranges_.data() && current_ <= &ranges_.back());
+    return current_ == &ranges_.back();
+  }
 
   /// Returns current position (number of bytes from the start) in the stream.
-  std::streampos tellp() const;
+  std::streampos tellp() const {
+    if (ranges_.empty()) {
+      return 0;
+    }
+    VELOX_DCHECK_NOT_NULL(current_);
+    int64_t size = 0;
+    for (auto& range : ranges_) {
+      if (&range == current_) {
+        return current_->position + size;
+      }
+      size += range.size;
+    }
+    VELOX_FAIL("ByteInputStream 'current_' is not in 'ranges_'.");
+  }
 
   /// Moves current position to specified one.
-  void seekp(std::streampos pos);
+  void seekp(std::streampos position) {
+    if (ranges_.empty() && position == 0) {
+      return;
+    }
+    int64_t toSkip = position;
+    for (auto& range : ranges_) {
+      if (toSkip <= range.size) {
+        current_ = &range;
+        current_->position = toSkip;
+        return;
+      }
+      toSkip -= range.size;
+    }
+    static_assert(sizeof(std::streamsize) <= sizeof(long long));
+    VELOX_FAIL(
+        "Seeking past end of ByteInputStream: {}",
+        static_cast<long long>(position));
+  }
 
   /// Returns the remaining size left from current reading position.
-  size_t remainingSize() const;
+  size_t remainingSize() const {
+    if (ranges_.empty()) {
+      return 0;
+    }
+    const auto* lastRange = &ranges_[ranges_.size() - 1];
+    auto cur = current_;
+    size_t total = cur->size - cur->position;
+    while (++cur <= lastRange) {
+      total += cur->size;
+    }
+    return total;
+  }
 
-  std::string toString() const;
+  std::string toString() const {
+    std::stringstream oss;
+    oss << ranges_.size() << " ranges (position/size) [";
+    for (const auto& range : ranges_) {
+      oss << "(" << range.position << "/" << range.size
+          << (&range == current_ ? " current" : "") << ")";
+      if (&range != &ranges_.back()) {
+        oss << ",";
+      }
+    }
+    oss << "]";
+    return oss.str();
+  }
 
-  uint8_t readByte();
+  uint8_t readByte() {
+    if (current_->position < current_->size) {
+      return current_->buffer[current_->position++];
+    }
+    next();
+    return readByte();
+  }
 
-  void readBytes(uint8_t* bytes, int32_t size);
+  void readBytes(uint8_t* bytes, int32_t size) {
+    VELOX_CHECK_GE(size, 0, "Attempting to read negative number of bytes");
+    int32_t offset = 0;
+    for (;;) {
+      int32_t available = current_->size - current_->position;
+      int32_t numUsed = std::min(available, size);
+      simd::memcpy(
+          bytes + offset, current_->buffer + current_->position, numUsed);
+      offset += numUsed;
+      size -= numUsed;
+      current_->position += numUsed;
+      if (!size) {
+        return;
+      }
+      next();
+    }
+  }
 
   template <typename T>
   T read() {
@@ -177,9 +272,35 @@ class ByteInputStream {
   /// bytes. The size of the value may be less if the current byte
   /// range ends within 'size' bytes from the current position.  The
   /// size will be 0 if at end.
-  std::string_view nextView(int32_t size);
+  std::string_view nextView(int32_t size) {
+    VELOX_CHECK_GE(size, 0, "Attempting to view negative number of bytes");
+    if (current_->position == current_->size) {
+      if (current_ == &ranges_.back()) {
+        return std::string_view(nullptr, 0);
+      }
+      next();
+    }
+    VELOX_CHECK(current_->size);
+    auto position = current_->position;
+    auto viewSize = std::min(current_->size - current_->position, size);
+    current_->position += viewSize;
+    return std::string_view(
+        reinterpret_cast<char*>(current_->buffer) + position, viewSize);
+  }
 
-  void skip(int32_t size);
+  void skip(int32_t size) {
+    VELOX_CHECK_GE(size, 0, "Attempting to skip negative number of bytes");
+    for (;;) {
+      int32_t available = current_->size - current_->position;
+      int32_t numUsed = std::min(available, size);
+      size -= numUsed;
+      current_->position += numUsed;
+      if (!size) {
+        return;
+      }
+      next();
+    }
+  }
 
  protected:
   /// Sets 'current_' to point to the next range of input.  // The
@@ -187,7 +308,19 @@ class ByteInputStream {
   /// but any view over external buffers can be made by specialization.
   ///
   /// TODO: Remove 'virtual' after refactoring SpillInput.
-  virtual void next(bool throwIfPastEnd = true);
+  virtual void next(bool throwIfPastEnd = true) {
+    VELOX_CHECK(current_ >= &ranges_[0]);
+    size_t position = current_ - &ranges_[0];
+    VELOX_CHECK_LT(position, ranges_.size());
+    if (position == ranges_.size() - 1) {
+      if (throwIfPastEnd) {
+        VELOX_FAIL("Reading past end of ByteInputStream");
+      }
+      return;
+    }
+    ++current_;
+    current_->position = 0;
+  }
 
   // TODO: Remove  after refactoring SpillInput.
   const std::vector<ByteRange>& ranges() const {
@@ -207,6 +340,142 @@ class ByteInputStream {
   // Pointer to the current element of 'ranges_'.
   ByteRange* current_{nullptr};
 };
+
+template <>
+inline Timestamp ByteInputStream::read<Timestamp>() {
+  Timestamp value;
+  readBytes(reinterpret_cast<uint8_t*>(&value), sizeof(value));
+  return value;
+}
+
+template <>
+inline int128_t ByteInputStream::read<int128_t>() {
+  int128_t value;
+  readBytes(reinterpret_cast<uint8_t*>(&value), sizeof(value));
+  return value;
+}
+#else
+/// Read-only byte input stream interface.
+class ByteInputStream {
+ public:
+  virtual ~ByteInputStream() = default;
+
+  /// Returns total number of bytes available in the stream.
+  virtual size_t size() const = 0;
+
+  /// Returns true if all input has been read.
+  virtual bool atEnd() const = 0;
+
+  /// Returns current position (number of bytes from the start) in the stream.
+  virtual std::streampos tellp() const = 0;
+
+  /// Moves current position to specified one.
+  virtual void seekp(std::streampos pos) = 0;
+
+  /// Returns the remaining size left from current reading position.
+  virtual size_t remainingSize() const = 0;
+
+  virtual uint8_t readByte() = 0;
+
+  virtual void readBytes(uint8_t* bytes, int32_t size) = 0;
+
+  template <typename T>
+  T read() {
+    if (current_->position + sizeof(T) <= current_->size) {
+      current_->position += sizeof(T);
+      return *reinterpret_cast<const T*>(
+          current_->buffer + current_->position - sizeof(T));
+    }
+    // The number straddles two buffers. We read byte by byte and make a
+    // little-endian uint64_t. The bytes can be cast to any integer or floating
+    // point type since the wire format has the machine byte order.
+    static_assert(sizeof(T) <= sizeof(uint64_t));
+    uint64_t value = 0;
+    for (int32_t i = 0; i < sizeof(T); ++i) {
+      value |= static_cast<uint64_t>(readByte()) << (i * 8);
+    }
+    return *reinterpret_cast<const T*>(&value);
+  }
+
+  template <typename Char>
+  void readBytes(Char* data, int32_t size) {
+    readBytes(reinterpret_cast<uint8_t*>(data), size);
+  }
+
+  /// Returns a view over the read buffer for up to 'size' next bytes. The size
+  /// of the value may be less if the current byte range ends within 'size'
+  /// bytes from the current position.  The size will be 0 if at end.
+  virtual std::string_view nextView(int32_t size) = 0;
+
+  virtual void skip(int32_t size) = 0;
+
+  virtual std::string toString() const = 0;
+
+ protected:
+  // Points to the current buffered byte range.
+  ByteRange* current_{nullptr};
+  std::vector<ByteRange> ranges_;
+};
+
+/// Read-only input stream backed by a set of buffers.
+class BufferInputStream : public ByteInputStream {
+ public:
+  explicit BufferInputStream(std::vector<ByteRange> ranges) {
+    VELOX_CHECK(!ranges.empty(), "Empty BufferInputStream");
+    ranges_ = std::move(ranges);
+    current_ = &ranges_[0];
+  }
+
+  BufferInputStream(const BufferInputStream&) = delete;
+  BufferInputStream& operator=(const BufferInputStream& other) = delete;
+  BufferInputStream(BufferInputStream&& other) noexcept = delete;
+  BufferInputStream& operator=(BufferInputStream&& other) noexcept = delete;
+
+  size_t size() const override;
+
+  bool atEnd() const override;
+
+  std::streampos tellp() const override;
+
+  void seekp(std::streampos pos) override;
+
+  size_t remainingSize() const override;
+
+  uint8_t readByte() override;
+
+  void readBytes(uint8_t* bytes, int32_t size) override;
+
+  std::string_view nextView(int32_t size) override;
+
+  void skip(int32_t size) override;
+
+  std::string toString() const override;
+
+ private:
+  // Sets 'current_' to the next range of input. The input is consecutive
+  // ByteRanges in 'ranges_' for the base class but any view over external
+  // buffers can be made by specialization.
+  void nextRange();
+
+  const std::vector<ByteRange>& ranges() const {
+    return ranges_;
+  }
+};
+
+template <>
+inline Timestamp ByteInputStream::read<Timestamp>() {
+  Timestamp value;
+  readBytes(reinterpret_cast<uint8_t*>(&value), sizeof(value));
+  return value;
+}
+
+template <>
+inline int128_t ByteInputStream::read<int128_t>() {
+  int128_t value;
+  readBytes(reinterpret_cast<uint8_t*>(&value), sizeof(value));
+  return value;
+}
+#endif
 
 /// Stream over a chain of ByteRanges. Provides read, write and
 /// comparison for equality between stream contents and memory. Used
@@ -268,9 +537,8 @@ class ByteOutputStream {
 
   void seekp(std::streampos position);
 
-  /// Returns the size written into ranges_. This is the sum of the
-  /// capacities of non-last ranges + the greatest write position of
-  /// the last range.
+  /// Returns the size written into ranges_. This is the sum of the capacities
+  /// of non-last ranges + the greatest write position of the last range.
   size_t size() const;
 
   int32_t lastRangeEnd() const {
@@ -346,7 +614,7 @@ class ByteOutputStream {
 
   /// Returns a ByteInputStream to range over the current content of 'this'. The
   /// result is valid as long as 'this' is live and not changed.
-  ByteInputStream inputStream() const;
+  std::unique_ptr<ByteInputStream> inputStream() const;
 
   std::string toString() const;
 
@@ -448,20 +716,6 @@ class AppendWindow {
   ByteOutputStream& stream_;
   ScratchPtr<T> scratchPtr_;
 };
-
-template <>
-inline Timestamp ByteInputStream::read<Timestamp>() {
-  Timestamp value;
-  readBytes(reinterpret_cast<uint8_t*>(&value), sizeof(value));
-  return value;
-}
-
-template <>
-inline int128_t ByteInputStream::read<int128_t>() {
-  int128_t value;
-  readBytes(reinterpret_cast<uint8_t*>(&value), sizeof(value));
-  return value;
-}
 
 class IOBufOutputStream : public OutputStream {
  public:

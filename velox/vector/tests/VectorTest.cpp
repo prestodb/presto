@@ -754,7 +754,7 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
     }
   }
 
-  ByteInputStream prepareInput(std::string& string) {
+  std::unique_ptr<ByteInputStream> prepareInput(std::string& string) {
     // Put 'string' in 'input' in many pieces.
     const int32_t size = string.size();
     std::vector<ByteRange> ranges;
@@ -767,7 +767,7 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
       ranges.back().position = 0;
     }
 
-    return ByteInputStream(std::move(ranges));
+    return std::make_unique<BufferInputStream>(std::move(ranges));
   }
 
   void checkSizes(
@@ -874,7 +874,7 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
     auto evenInput = prepareInput(evenString);
 
     RowVectorPtr resultRow;
-    VectorStreamGroup::read(&evenInput, pool(), sourceRowType, &resultRow);
+    VectorStreamGroup::read(evenInput.get(), pool(), sourceRowType, &resultRow);
     VectorPtr result = resultRow->childAt(0);
     switch (source->encoding()) {
       case VectorEncoding::Simple::FLAT:
@@ -903,7 +903,7 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
     auto oddString = oddStream.str();
     auto oddInput = prepareInput(oddString);
 
-    VectorStreamGroup::read(&oddInput, pool(), sourceRowType, &resultRow);
+    VectorStreamGroup::read(oddInput.get(), pool(), sourceRowType, &resultRow);
     result = resultRow->childAt(0);
     for (int32_t i = 0; i < oddIndices.size(); ++i) {
       EXPECT_TRUE(result->equalValueAt(source.get(), i, oddIndices[i].begin))

@@ -59,13 +59,13 @@ void writeToFile(
   writer->close();
 }
 
-ByteInputStream toByteStream(const std::string& input) {
+std::unique_ptr<ByteInputStream> toByteStream(const std::string& input) {
   std::vector<ByteRange> ranges;
   ranges.push_back(
       {reinterpret_cast<uint8_t*>(const_cast<char*>(input.data())),
        (int32_t)input.length(),
        0});
-  return ByteInputStream(std::move(ranges));
+  return std::make_unique<BufferInputStream>(std::move(ranges));
 }
 
 RowVectorPtr deserialize(
@@ -75,7 +75,7 @@ RowVectorPtr deserialize(
   auto byteStream = toByteStream(input);
   auto serde = std::make_unique<serializer::presto::PrestoVectorSerde>();
   RowVectorPtr result;
-  serde->deserialize(&byteStream, pool, rowType, &result, nullptr);
+  serde->deserialize(byteStream.get(), pool, rowType, &result, nullptr);
   return result;
 }
 

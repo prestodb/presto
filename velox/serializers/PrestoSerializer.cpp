@@ -4224,10 +4224,10 @@ void PrestoVectorSerde::deserialize(
         codec->uncompress(compressBuf.get(), header.uncompressedSize);
     ByteRange byteRange{
         uncompress->writableData(), (int32_t)uncompress->length(), 0};
-    ByteInputStream uncompressedSource({byteRange});
-
+    auto uncompressedSource =
+        std::make_unique<BufferInputStream>(std::vector<ByteRange>{byteRange});
     readTopColumns(
-        uncompressedSource, type, pool, *result, resultOffset, prestoOptions);
+        *uncompressedSource, type, pool, *result, resultOffset, prestoOptions);
   }
 }
 

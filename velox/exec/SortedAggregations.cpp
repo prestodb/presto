@@ -54,7 +54,7 @@ struct RowPointers {
     auto stream = HashStringAllocator::prepareRead(firstBlock);
 
     for (auto i = 0; i < size; ++i) {
-      rows[i] = reinterpret_cast<char*>(stream.read<uintptr_t>());
+      rows[i] = reinterpret_cast<char*>(stream->read<uintptr_t>());
     }
   }
 };
