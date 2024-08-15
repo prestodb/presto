@@ -506,33 +506,40 @@ public class TestHiveFileFormats
                 .isReadableByPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER));
     }
 
-
     @Test
-    public void testParquetLogicalTypes() throws IOException {
+    public void testParquetLogicalTypes() throws IOException
+    {
         HiveFileWriterFactory parquetFileWriterFactory = new ParquetFileWriterFactory(HDFS_ENVIRONMENT, FUNCTION_AND_TYPE_MANAGER, new NodeVersion("test"), HIVE_STORAGE_TIME_ZONE);
+
         List<PropertyMetadata<?>> allSessionProperties = getAllSessionProperties(
                 new HiveClientConfig(),
                 new ParquetFileWriterConfig().setParquetOptimizedWriterEnabled(true),
                 createOrcHiveCommonClientConfig(true, 100.0));
+
         TestingConnectorSession session = new TestingConnectorSession(allSessionProperties);
         File file = createTempFile("logicaltest", ".parquet");
+
         file.delete();
-        long TIMESTAMP = new DateTime(2011, 5, 6, 7, 8, 9, 123).getMillis();
+
+        long timestamp = new DateTime(2011, 5, 6, 7, 8, 9, 123).getMillis();
+
         try {
-            FileSplit split = createTestFile(
+            createTestFile(
                     file.getAbsolutePath(),
                     PARQUET,
                     HiveCompressionCodec.NONE,
-                    ImmutableList.of(new TestColumn("t_timestamp", javaTimestampObjectInspector, new Timestamp(TIMESTAMP), TIMESTAMP)),
+                    ImmutableList.of(new TestColumn("t_timestamp", javaTimestampObjectInspector, new Timestamp(timestamp), timestamp)),
                     session,
                     10,
                     parquetFileWriterFactory);
+
             FileParquetDataSource dataSource = new FileParquetDataSource(file);
             ParquetMetadata parquetMetadata = MetadataReader.readFooter(
                     dataSource,
                     file.length(),
                     Optional.empty(),
                     false).getParquetMetadata();
+
             MessageType writtenSchema = parquetMetadata.getFileMetaData().getSchema();
             Type timestampType = writtenSchema.getType("t_timestamp");
             if (timestampType.getLogicalTypeAnnotation() instanceof LogicalTypeAnnotation.TimestampLogicalTypeAnnotation) {
