@@ -632,12 +632,13 @@ class TaskManagerTest : public testing::Test {
   std::unique_ptr<protocol::TaskInfo> createOrUpdateTask(
       const protocol::TaskId& taskId,
       const protocol::TaskUpdateRequest& updateRequest,
-      const core::PlanFragment& planFragment) {
+      const core::PlanFragment& planFragment,
+      bool summarize = true) {
     auto queryCtx =
         taskManager_->getQueryContextManager()->findOrCreateQueryCtx(
             taskId, updateRequest.session);
     return taskManager_->createOrUpdateTask(
-        taskId, updateRequest, planFragment, true, std::move(queryCtx), 0);
+        taskId, updateRequest, planFragment, summarize, std::move(queryCtx), 0);
   }
 
   std::shared_ptr<memory::MemoryPool> rootPool_;
@@ -1558,6 +1559,72 @@ TEST_F(TaskManagerTest, buildSpillDirectoryFailure) {
     velox::exec::test::waitForAllTasksToBeDeleted(3'000'000);
     ASSERT_TRUE(taskManager_->tasks().empty());
   }
+}
+
+// Runs "select * from t where c0 % 5 = 0" query.
+// Creates one task with summarize.
+TEST_F(TaskManagerTest, createOrUpdateTaskWithSummarize) {
+  auto filePaths = makeFilePaths(5);
+  auto vectors = makeVectors(filePaths.size(), 1'000);
+  for (int i = 0; i < filePaths.size(); i++) {
+    writeToFile(filePaths[i]->getPath(), vectors[i]);
+  }
+  duckDbQueryRunner_.createTable("tmp", vectors);
+
+  auto planFragment = exec::test::PlanBuilder()
+                          .tableScan(rowType_)
+                          .filter("c0 % 5 = 0")
+                          .partitionedOutput({}, 1, {"c0", "c1"})
+                          .planFragment();
+
+  long splitSequenceId{0};
+
+  protocol::TaskId taskId = "scan.0.0.1.0";
+
+  protocol::TaskUpdateRequest updateRequest;
+  updateRequest.sources.push_back(
+      makeSource("0", filePaths, true, splitSequenceId));
+  auto taskInfo = createOrUpdateTask(taskId, updateRequest, planFragment);
+
+  ASSERT_TRUE(taskInfo->stats.pipelines.empty());
+  ASSERT_TRUE(taskInfo->stats.runtimeStats.empty());
+}
+
+// Runs "select * from t where c0 % 5 = 0" query.
+// Creates one task and getTaskInfo with summarize.
+TEST_F(TaskManagerTest, getTaskInfoWithSummarize) {
+  auto filePaths = makeFilePaths(5);
+  auto vectors = makeVectors(filePaths.size(), 1'000);
+  for (int i = 0; i < filePaths.size(); i++) {
+    writeToFile(filePaths[i]->getPath(), vectors[i]);
+  }
+  duckDbQueryRunner_.createTable("tmp", vectors);
+
+  auto planFragment = exec::test::PlanBuilder()
+                          .tableScan(rowType_)
+                          .filter("c0 % 5 = 0")
+                          .partitionedOutput({}, 1, {"c0", "c1"})
+                          .planFragment();
+
+  long splitSequenceId{0};
+
+  protocol::TaskId taskId = "scan.0.0.1.0";
+
+  protocol::TaskUpdateRequest updateRequest;
+  updateRequest.sources.push_back(
+      makeSource("0", filePaths, true, splitSequenceId));
+  auto taskInfo = createOrUpdateTask(taskId, updateRequest, planFragment);
+
+  auto infoRequestState = http::CallbackRequestHandlerState::create();
+
+  const auto finalTaskInfo =
+      taskManager_
+          ->getTaskInfo(
+              taskId, true, std::nullopt, std::nullopt, infoRequestState)
+          .get();
+
+  ASSERT_TRUE(finalTaskInfo->stats.pipelines.empty());
+  ASSERT_TRUE(finalTaskInfo->stats.runtimeStats.empty());
 }
 
 // TODO: add disk spilling test for order by and hash join later.
