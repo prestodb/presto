@@ -51,7 +51,7 @@ class StreamingWindowBuild : public WindowBuild {
   bool needsInput() override {
     // No partitions are available or the currentPartition is the last available
     // one, so can consume input rows.
-    return partitionStartRows_.size() == 0 ||
+    return partitionStartRows_.empty() ||
         currentPartition_ == partitionStartRows_.size() - 2;
   }
 

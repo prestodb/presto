@@ -137,25 +137,24 @@ std::pair<vector_size_t, vector_size_t> WindowPartition::computePeerBuffers(
     vector_size_t prevPeerEnd,
     vector_size_t* rawPeerStarts,
     vector_size_t* rawPeerEnds) const {
-  auto peerCompare = [&](const char* lhs, const char* rhs) -> bool {
+  const auto peerCompare = [&](const char* lhs, const char* rhs) -> bool {
     return compareRowsWithSortKeys(lhs, rhs);
   };
 
   VELOX_CHECK_LE(end, numRows());
 
-  auto lastPartitionRow = numRows() - 1;
+  const auto lastPartitionRow = numRows() - 1;
   auto peerStart = prevPeerStart;
   auto peerEnd = prevPeerEnd;
-  for (auto i = start, j = 0; i < end; i++, j++) {
-    // When traversing input partition rows, the peers are the rows
-    // with the same values for the ORDER BY clause. These rows
-    // are equal in some ways and affect the results of ranking functions.
-    // This logic exploits the fact that all rows between the peerStart
-    // and peerEnd have the same values for rawPeerStarts and rawPeerEnds.
-    // So we can compute them just once and reuse across the rows in that peer
-    // interval. Note: peerStart and peerEnd can be maintained across
-    // getOutput calls. Hence, they are returned to the caller.
-
+  for (auto i = start, j = 0; i < end; ++i, ++j) {
+    // When traversing input partition rows, the peers are the rows with the
+    // same values for the ORDER BY clause. These rows are equal in some ways
+    // and affect the results of ranking functions. This logic exploits the fact
+    // that all rows between the peerStart and peerEnd have the same values for
+    // rawPeerStarts and rawPeerEnds. So we can compute them just once and reuse
+    // across the rows in that peer interval. Note: peerStart and peerEnd can be
+    // maintained across getOutput calls. Hence, they are returned to the
+    // caller.
     if (i == 0 || i >= peerEnd) {
       // Compute peerStart and peerEnd rows for the first row of the partition
       // or when past the previous peerGroup.
@@ -165,7 +164,7 @@ std::pair<vector_size_t, vector_size_t> WindowPartition::computePeerBuffers(
         if (peerCompare(partition_[peerStart], partition_[peerEnd])) {
           break;
         }
-        peerEnd++;
+        ++peerEnd;
       }
     }
 

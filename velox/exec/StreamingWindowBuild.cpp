@@ -64,7 +64,7 @@ std::unique_ptr<WindowPartition> StreamingWindowBuild::nextPartition() {
   VELOX_CHECK_GT(
       partitionStartRows_.size(), 0, "No window partitions available")
 
-  currentPartition_++;
+  ++currentPartition_;
   VELOX_CHECK_LE(
       currentPartition_,
       partitionStartRows_.size() - 2,
@@ -72,20 +72,22 @@ std::unique_ptr<WindowPartition> StreamingWindowBuild::nextPartition() {
 
   // Erase previous partition.
   if (currentPartition_ > 0) {
-    auto numPreviousPartitionRows = partitionStartRows_[currentPartition_];
+    const auto numPreviousPartitionRows =
+        partitionStartRows_[currentPartition_];
     data_->eraseRows(
         folly::Range<char**>(sortedRows_.data(), numPreviousPartitionRows));
     sortedRows_.erase(
         sortedRows_.begin(), sortedRows_.begin() + numPreviousPartitionRows);
-    for (int i = currentPartition_; i < partitionStartRows_.size(); i++) {
+    sortedRows_.shrink_to_fit();
+    for (int i = currentPartition_; i < partitionStartRows_.size(); ++i) {
       partitionStartRows_[i] =
           partitionStartRows_[i] - numPreviousPartitionRows;
     }
   }
 
-  auto partitionSize = partitionStartRows_[currentPartition_ + 1] -
+  const auto partitionSize = partitionStartRows_[currentPartition_ + 1] -
       partitionStartRows_[currentPartition_];
-  auto partition = folly::Range(
+  const auto partition = folly::Range(
       sortedRows_.data() + partitionStartRows_[currentPartition_],
       partitionSize);
 

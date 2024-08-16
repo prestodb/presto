@@ -180,27 +180,25 @@ class Window : public Operator {
   // It represents the frame spec for the function computation.
   std::vector<WindowFrame> windowFrames_;
 
-  // The following 4 Buffers are used to pass peer and frame start and
-  // end values to the WindowFunction::apply method. These
-  // buffers can be allocated once and reused across all the getOutput
-  // calls.
+  // The following 4 Buffers are used to pass peer and frame start and end
+  // values to the WindowFunction::apply method. These buffers can be allocated
+  // once and reused across all the getOutput calls.
   // Only a single peer start and peer end buffer is needed across all
   // functions (as the peer values are based on the ORDER BY clause).
   BufferPtr peerStartBuffer_;
   BufferPtr peerEndBuffer_;
-  // A separate BufferPtr is required for the frame indexes of each
-  // function. Each function has its own frame clause and style. So we
-  // have as many buffers as the number of functions.
+  // A separate BufferPtr is required for the frame indexes of each function.
+  // Each function has its own frame clause and style. So we have as many
+  // buffers as the number of functions.
   std::vector<BufferPtr> frameStartBuffers_;
   std::vector<BufferPtr> frameEndBuffers_;
 
-  // Frame types for kPreceding or kFollowing could result in empty
-  // frames if the frameStart > frameEnds, or frameEnds < firstPartitionRow
-  // or frameStarts > lastPartitionRow. Such frames usually evaluate to NULL
-  // in the window function.
-  // This SelectivityVector captures the valid (non-empty) frames in the
-  // buffer being worked on. The window function can use this to compute
-  // output values.
+  // Frame types for kPreceding or kFollowing could result in empty frames if
+  // the frameStart > frameEnds, or frameEnds < firstPartitionRow or frameStarts
+  // > lastPartitionRow. Such frames usually evaluate to NULL in the window
+  // function.
+  // This SelectivityVector captures the valid (non-empty) frames in the buffer
+  // being worked on. The window function can use this to compute output values.
   // There is one SelectivityVector per window function.
   std::vector<SelectivityVector> validFrames_;
 
@@ -219,14 +217,13 @@ class Window : public Operator {
   // Tracks how far along the partition rows have been output.
   vector_size_t partitionOffset_ = 0;
 
-  // When traversing input partition rows, the peers are the rows
-  // with the same values for the ORDER BY clause. These rows
-  // are equal in some ways and affect the results of ranking functions.
-  // Since all rows between the peerStartRow_ and peerEndRow_ have the same
-  // values for peerStartRow_ and peerEndRow_, we needn't compute
-  // them for each row independently. Since these rows might
-  // cross getOutput boundaries and be called in subsequent calls to
-  // computePeerBuffers they are saved here.
+  // When traversing input partition rows, the peers are the rows with the same
+  // values for the ORDER BY clause. These rows are equal in some ways and
+  // affect the results of ranking functions. Since all rows between the
+  // peerStartRow_ and peerEndRow_ have the same values for peerStartRow_ and
+  // peerEndRow_, we needn't compute them for each row independently. Since
+  // these rows might cross getOutput boundaries and be called in subsequent
+  // calls to computePeerBuffers they are saved here.
   vector_size_t peerStartRow_ = 0;
   vector_size_t peerEndRow_ = 0;
 };
