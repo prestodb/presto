@@ -146,13 +146,13 @@ The configuration properties of Presto C++ workers are described here, in alphab
 
 Build-enabled Properties
 ----------------
-The following properties are available only if certain properties are enabled at build time via CMakeLists.txt.
+The following properties are available only if certain properties are enabled at build time by using CMakeLists.txt.
 
 LinuxMemoryChecker
 ^^^^^^^^^^^^^^^^^^
 
 Enabling the LinuxMemoryChecker by setting ``PRESTO_ENABLE_LINUX_MEMORY_CHECKER`` 
-to ON in presto-native-execution/CMakeLists.txt will make the following properties available:
+to ``ON`` in presto-native-execution/CMakeLists.txt will make the following properties from PeriodicMemoryChecker available:
 
 ``systemMemPushbackEnabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -160,7 +160,7 @@ to ON in presto-native-execution/CMakeLists.txt will make the following properti
 * **Type:** ``boolean``
 * **Default value:** ``false``
 
-If true, starts memory limit checker to trigger memory pushback when
+If set to ``true``, starts memory limit checker to trigger memory pushback when
 server is under low memory pressure.
 
 ``systemMemLimitBytes``
@@ -171,7 +171,7 @@ server is under low memory pressure.
 
 Specifies the system memory limit that triggers the memory pushback if
 the server memory usage is beyond this limit. This only applies if
-``systemMemPushbackEnabled`` is true.
+``systemMemPushbackEnabled`` is ``true``.
 
 ``systemMemShrinkBytes``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -180,5 +180,5 @@ the server memory usage is beyond this limit. This only applies if
 * **Default value:** ``0``
 
 Specifies the amount of memory to shrink when the memory pushback is
-triggered. This only applies if ``systemMemPushbackEnabled`` is true.
+triggered. This only applies if ``systemMemPushbackEnabled`` is ``true``.
 
