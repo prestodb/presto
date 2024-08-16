@@ -15,6 +15,12 @@ package com.facebook.presto.resourcemanager;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.presto.spi.function.Description;
+import io.airlift.units.Duration;
+import io.airlift.units.MinDuration;
+
+import javax.annotation.Nullable;
+
+import java.util.concurrent.TimeUnit;
 
 public class RaftConfig
 {
@@ -22,7 +28,10 @@ public class RaftConfig
     private String groupId;
     private String storageDir;
     private int port;
+    private int requiredPeersActive = 1;
+    private Duration timeoutForPeers = new Duration(2, TimeUnit.SECONDS);
 
+    @Nullable
     public String getStorageDir()
     {
         return storageDir;
@@ -49,6 +58,7 @@ public class RaftConfig
         return this;
     }
 
+    @Nullable
     public int getPort()
     {
         return port;
@@ -72,6 +82,33 @@ public class RaftConfig
     public RaftConfig setEnabled(boolean enabled)
     {
         this.enabled = enabled;
+        return this;
+    }
+
+    public int getRequiredPeersActive()
+    {
+        return requiredPeersActive;
+    }
+
+    @Config("raft.required-peers-active")
+    @Description("Minimum number of active peers that must be available before the raft server can start")
+    public RaftConfig setRequiredPeersActive(int requiredPeersActive)
+    {
+        this.requiredPeersActive = requiredPeersActive;
+        return this;
+    }
+
+    @MinDuration("2ms")
+    public Duration getTimeoutForPeers()
+    {
+        return timeoutForPeers;
+    }
+
+    @Config("raft.peers-timeout")
+    @Description("Timeout to wait for the minimum amount of peers needed to start the raft server and client")
+    public RaftConfig setTimeoutForPeers(Duration timeoutForPeers)
+    {
+        this.timeoutForPeers = timeoutForPeers;
         return this;
     }
 }

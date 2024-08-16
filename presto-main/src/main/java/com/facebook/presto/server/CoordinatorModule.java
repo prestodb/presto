@@ -71,6 +71,8 @@ import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.operator.OperatorInfo;
 import com.facebook.presto.resourcemanager.ForResourceManager;
+import com.facebook.presto.resourcemanager.RaftConfig;
+import com.facebook.presto.resourcemanager.RatisClient;
 import com.facebook.presto.resourcemanager.ResourceManagerProxy;
 import com.facebook.presto.server.protocol.ExecutingQueryResponseProvider;
 import com.facebook.presto.server.protocol.ExecutingStatementResource;
@@ -299,6 +301,11 @@ public class CoordinatorModule
 
         // cleanup
         binder.bind(ExecutorCleanup.class).in(Scopes.SINGLETON);
+
+        RaftConfig raftConfig = buildConfigObject(RaftConfig.class);
+        if (raftConfig.isEnabled()) {
+            binder.bind(RatisClient.class).in(Scopes.SINGLETON);
+        }
     }
 
     @Provides
