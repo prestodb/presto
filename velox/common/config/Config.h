@@ -18,6 +18,7 @@
 
 #include <functional>
 #include <map>
+#include <shared_mutex>
 #include <unordered_map>
 
 #include "folly/Conv.h"

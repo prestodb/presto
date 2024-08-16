@@ -16,11 +16,12 @@
 
 #pragma once
 
+#include <gflags/gflags.h>
+#include <shared_mutex>
+
 #include "velox/common/caching/AsyncDataCache.h"
 #include "velox/common/caching/SsdFileTracker.h"
 #include "velox/common/file/File.h"
-
-#include <gflags/gflags.h>
 
 DECLARE_bool(ssd_odirect);
 DECLARE_bool(ssd_verify_write);
