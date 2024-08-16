@@ -41,15 +41,9 @@ SerializedPage::~SerializedPage() {
   }
 }
 
-#ifndef VELOX_ENABLE_BACKWARD_COMPATIBILITY
 std::unique_ptr<ByteInputStream> SerializedPage::prepareStreamForDeserialize() {
   return std::make_unique<BufferInputStream>(std::move(ranges_));
 }
-#else
-ByteInputStream SerializedPage::prepareStreamForDeserialize() {
-  return ByteInputStream(std::move(ranges_));
-}
-#endif
 
 void ExchangeQueue::noMoreSources() {
   std::vector<ContinuePromise> promises;

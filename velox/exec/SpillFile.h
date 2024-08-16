@@ -200,80 +200,6 @@ class SpillWriter {
   SpillFiles finishedFiles_;
 };
 
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-/// Input stream backed by spill file.
-///
-/// TODO Usage of ByteInputStream as base class is hacky and just happens to
-/// work. For example, ByteInputStream::size(), seekp(), tellp(),
-/// remainingSize() APIs do not work properly.
-class SpillInputStream : public ByteInputStream {
- public:
-  /// Reads from 'input' using 'buffer' for buffering reads.
-  SpillInputStream(
-      std::unique_ptr<ReadFile>&& file,
-      uint64_t bufferSize,
-      memory::MemoryPool* pool,
-      folly::Synchronized<common::SpillStats>* stats);
-
-  ~SpillInputStream() override;
-
-  /// True if all of the file has been read into vectors.
-  bool atEnd() const override {
-    return offset_ >= fileSize_ && ranges()[0].position >= ranges()[0].size;
-  }
-
- private:
-  void updateSpillStats(uint64_t readBytes, uint64_t readTimeUs) const;
-
-  void next(bool throwIfPastEnd) override;
-
-  // Issues readahead if underlying fs supports async mode read.
-  //
-  // TODO: we might consider to use AsyncSource to support read-ahead on
-  // filesystem which doesn't support async mode read.
-  void maybeIssueReadahead();
-
-  inline uint32_t bufferIndex() const {
-    return bufferIndex_;
-  }
-
-  inline uint32_t nextBufferIndex() const {
-    return (bufferIndex_ + 1) % buffers_.size();
-  }
-
-  // Advances buffer index to point to the next buffer for read.
-  inline void advanceBuffer() {
-    bufferIndex_ = nextBufferIndex();
-  }
-
-  inline Buffer* buffer() const {
-    return buffers_[bufferIndex()].get();
-  }
-
-  inline Buffer* nextBuffer() const {
-    return buffers_[nextBufferIndex()].get();
-  }
-
-  // Returns the next read size in bytes.
-  inline uint64_t readSize() const;
-
-  const std::unique_ptr<ReadFile> file_;
-  const uint64_t fileSize_;
-  const uint64_t bufferSize_;
-  memory::MemoryPool* const pool_;
-  const bool readaEnabled_;
-  folly::Synchronized<common::SpillStats>* const stats_;
-
-  std::vector<BufferPtr> buffers_;
-  uint32_t bufferIndex_{0};
-  // Sets to read-ahead future if valid.
-  folly::SemiFuture<uint64_t> readaWait_{
-      folly::SemiFuture<uint64_t>::makeEmpty()};
-  // Offset of first byte not in 'buffer()'.
-  uint64_t offset_ = 0;
-};
-#endif
-
 /// Represents a spill file for read which turns the serialized spilled data on
 /// disk back into a sequence of spilled row vectors.
 ///
@@ -345,10 +271,6 @@ class SpillReadFile {
   memory::MemoryPool* const pool_;
   folly::Synchronized<common::SpillStats>* const stats_;
 
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  std::unique_ptr<SpillInputStream> input_;
-#else
   std::unique_ptr<common::FileInputStream> input_;
-#endif
 };
 } // namespace facebook::velox::exec

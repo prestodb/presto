@@ -26,7 +26,6 @@ std::string ByteRange::toString() const {
   return fmt::format("[{} starting at {}]", succinctBytes(size), position);
 }
 
-#ifndef VELOX_ENABLE_BACKWARD_COMPATIBILITY
 std::string BufferInputStream::toString() const {
   std::stringstream oss;
   oss << ranges_.size() << " ranges (position/size) [";
@@ -172,7 +171,6 @@ void BufferInputStream::skip(int32_t size) {
     nextRange();
   }
 }
-#endif
 
 size_t ByteOutputStream::size() const {
   if (ranges_.empty()) {

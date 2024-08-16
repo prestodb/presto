@@ -24,7 +24,6 @@
 
 namespace facebook::velox::common {
 
-#ifndef VELOX_ENABLE_BACKWARD_COMPATIBILITY
 /// Readonly byte input stream backed by file.
 class FileInputStream : public ByteInputStream {
  public:
@@ -126,5 +125,4 @@ class FileInputStream : public ByteInputStream {
 
   Stats stats_;
 };
-#endif
 } // namespace facebook::velox::common
