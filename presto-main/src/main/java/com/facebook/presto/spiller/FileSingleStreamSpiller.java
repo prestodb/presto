@@ -104,7 +104,7 @@ public class FileSingleStreamSpiller
         // This means we start accounting for the memory before the spiller thread allocates it, and we release the memory reservation
         // before/after the spiller thread allocates that memory -- -- whether before or after depends on whether writePages() is in the
         // middle of execution when close() is called (note that this applies to both readPages() and writePages() methods).
-        this.memoryContext.setBytes(BUFFER_SIZE);
+        this.memoryContext.setBytes(BUFFER_SIZE + serde.getRetainedSizeInBytes());
         try {
             this.targetFile = closer.register(new FileHolder(Files.createTempFile(spillPath, SPILL_FILE_PREFIX, SPILL_FILE_SUFFIX)));
         }
