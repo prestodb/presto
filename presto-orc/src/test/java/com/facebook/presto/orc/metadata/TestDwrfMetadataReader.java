@@ -53,10 +53,12 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.expectThrows;
 
 public class TestDwrfMetadataReader
 {
+    private final OrcDataSourceId orcDataSourceId = new OrcDataSourceId("testOrcDataSource");
     private final long footerLength = 10;
     private final long compressionBlockSize = 8192;
     private final OrcReaderOptions orcReaderOptions = OrcReaderOptions.builder()
@@ -82,7 +84,7 @@ public class TestDwrfMetadataReader
     {
         byte[] data = baseProtoPostScript.toByteArray();
 
-        PostScript postScript = dwrfMetadataReader.readPostScript(data, 0, data.length);
+        PostScript postScript = dwrfMetadataReader.readPostScript(orcDataSourceId, data, 0, data.length);
         assertEquals(postScript.getHiveWriterVersion(), HiveWriterVersion.ORC_HIVE_8732);
         assertEquals(postScript.getFooterLength(), footerLength);
         assertEquals(postScript.getCompression(), CompressionKind.ZSTD);
@@ -101,7 +103,7 @@ public class TestDwrfMetadataReader
                 .build();
         byte[] data = protoPostScript.toByteArray();
 
-        PostScript postScript = dwrfMetadataReader.readPostScript(data, 0, data.length);
+        PostScript postScript = dwrfMetadataReader.readPostScript(orcDataSourceId, data, 0, data.length);
         assertFalse(postScript.getDwrfStripeCacheLength().isPresent());
         assertFalse(postScript.getDwrfStripeCacheMode().isPresent());
     }
@@ -115,7 +117,7 @@ public class TestDwrfMetadataReader
                 .build();
         byte[] data = protoPostScript.toByteArray();
 
-        PostScript postScript = dwrfMetadataReader.readPostScript(data, 0, data.length);
+        PostScript postScript = dwrfMetadataReader.readPostScript(orcDataSourceId, data, 0, data.length);
         assertFalse(postScript.getDwrfStripeCacheLength().isPresent());
         assertFalse(postScript.getDwrfStripeCacheMode().isPresent());
     }
@@ -129,9 +131,35 @@ public class TestDwrfMetadataReader
                 .build();
         byte[] data = protoPostScript.toByteArray();
 
-        PostScript postScript = dwrfMetadataReader.readPostScript(data, 0, data.length);
+        PostScript postScript = dwrfMetadataReader.readPostScript(orcDataSourceId, data, 0, data.length);
         assertFalse(postScript.getDwrfStripeCacheLength().isPresent());
         assertFalse(postScript.getDwrfStripeCacheMode().isPresent());
+    }
+
+    @Test
+    public void testReadMissingPostScript()
+            throws IOException
+    {
+        byte[] data = new byte[0];
+        assertThrows(OrcCorruptionException.class, () -> dwrfMetadataReader.readPostScript(orcDataSourceId, data, 0, data.length));
+    }
+
+    @Test
+    public void testReadPostScriptMissingFooterLength()
+            throws IOException
+    {
+        DwrfProto.PostScript protoPostScript = DwrfProto.PostScript.newBuilder().build();
+        byte[] data = protoPostScript.toByteArray();
+        assertThrows(OrcCorruptionException.class, () -> dwrfMetadataReader.readPostScript(orcDataSourceId, data, 0, data.length));
+    }
+
+    @Test
+    public void testReadPostScriptInvalidFooterLength()
+            throws IOException
+    {
+        DwrfProto.PostScript protoPostScript = DwrfProto.PostScript.newBuilder().setFooterLength(0).build();
+        byte[] data = protoPostScript.toByteArray();
+        assertThrows(OrcCorruptionException.class, () -> dwrfMetadataReader.readPostScript(orcDataSourceId, data, 0, data.length));
     }
 
     @Test
