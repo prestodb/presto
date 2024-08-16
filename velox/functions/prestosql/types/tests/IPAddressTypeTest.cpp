@@ -26,8 +26,8 @@ class IPAddressTypeTest : public testing::Test, public TypeTestBase {
 };
 
 TEST_F(IPAddressTypeTest, basic) {
-  ASSERT_EQ(IPADDRESS()->name(), "IPADDRESS");
-  ASSERT_EQ(IPADDRESS()->kindName(), "HUGEINT");
+  ASSERT_STREQ(IPADDRESS()->name(), "IPADDRESS");
+  ASSERT_STREQ(IPADDRESS()->kindName(), "HUGEINT");
   ASSERT_TRUE(IPADDRESS()->parameters().empty());
   ASSERT_EQ(IPADDRESS()->toString(), "IPADDRESS");
 

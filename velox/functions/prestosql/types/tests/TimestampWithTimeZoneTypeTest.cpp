@@ -27,8 +27,8 @@ class TimestampWithTimeZoneTypeTest : public testing::Test,
 };
 
 TEST_F(TimestampWithTimeZoneTypeTest, basic) {
-  ASSERT_EQ(TIMESTAMP_WITH_TIME_ZONE()->name(), "TIMESTAMP WITH TIME ZONE");
-  ASSERT_EQ(TIMESTAMP_WITH_TIME_ZONE()->kindName(), "BIGINT");
+  ASSERT_STREQ(TIMESTAMP_WITH_TIME_ZONE()->name(), "TIMESTAMP WITH TIME ZONE");
+  ASSERT_STREQ(TIMESTAMP_WITH_TIME_ZONE()->kindName(), "BIGINT");
   ASSERT_TRUE(TIMESTAMP_WITH_TIME_ZONE()->parameters().empty());
   ASSERT_EQ(TIMESTAMP_WITH_TIME_ZONE()->toString(), "TIMESTAMP WITH TIME ZONE");
 

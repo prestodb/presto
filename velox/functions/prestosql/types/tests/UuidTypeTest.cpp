@@ -26,8 +26,8 @@ class UuidTypeTest : public testing::Test, public TypeTestBase {
 };
 
 TEST_F(UuidTypeTest, basic) {
-  ASSERT_EQ(UUID()->name(), "UUID");
-  ASSERT_EQ(std::string(UUID()->kindName()), "HUGEINT");
+  ASSERT_STREQ(UUID()->name(), "UUID");
+  ASSERT_STREQ(UUID()->kindName(), "HUGEINT");
   ASSERT_TRUE(UUID()->parameters().empty());
   ASSERT_EQ(UUID()->toString(), "UUID");
 

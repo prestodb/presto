@@ -26,8 +26,8 @@ class HyperLogLogTypeTest : public testing::Test, public TypeTestBase {
 };
 
 TEST_F(HyperLogLogTypeTest, basic) {
-  ASSERT_EQ(HYPERLOGLOG()->name(), "HYPERLOGLOG");
-  ASSERT_EQ(HYPERLOGLOG()->kindName(), "VARBINARY");
+  ASSERT_STREQ(HYPERLOGLOG()->name(), "HYPERLOGLOG");
+  ASSERT_STREQ(HYPERLOGLOG()->kindName(), "VARBINARY");
   ASSERT_TRUE(HYPERLOGLOG()->parameters().empty());
   ASSERT_EQ(HYPERLOGLOG()->toString(), "HYPERLOGLOG");
 
