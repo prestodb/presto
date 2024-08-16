@@ -17,8 +17,9 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.facebook.presto.cassandra</groupId>
-            <artifactId>cassandra-driver</artifactId>
+            <groupId>com.datastax.cassandra</groupId>
+            <artifactId>cassandra-driver-core</artifactId>
+            <version>3.11.5</version>
         </dependency>
 
         <dependency>
@@ -184,6 +185,16 @@
             <artifactId>security</artifactId>
         </dependency>
     </dependencies>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-handler</artifactId>
+                <version>4.1.107.Final</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <build>
         <plugins>
