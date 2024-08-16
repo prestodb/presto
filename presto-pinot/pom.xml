@@ -185,6 +185,22 @@
                                 <groupId>org.slf4j</groupId>
                                 <artifactId>slf4j-jdk14</artifactId>
                             </dependency>
+                            <dependency>
+                                <groupId>commons-logging</groupId>
+                                <artifactId>commons-logging</artifactId>
+                            </dependency>
+                            <dependency>
+                                <groupId>org.slf4j</groupId>
+                                <artifactId>jcl-over-slf4j</artifactId>
+                            </dependency>
+                            <dependency>
+                                <groupId>org.apache.logging.log4j</groupId>
+                                <artifactId>log4j-1.2-api</artifactId>
+                            </dependency>
+                            <dependency>
+                                <groupId>org.slf4j</groupId>
+                                <artifactId>log4j-over-slf4j</artifactId>
+                            </dependency>
                         </ignoredDependencies>
                     </configuration>
                 </plugin>
