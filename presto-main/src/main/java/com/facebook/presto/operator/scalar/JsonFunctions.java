@@ -58,6 +58,7 @@ import static com.fasterxml.jackson.core.JsonToken.VALUE_NUMBER_INT;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_STRING;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_TRUE;
 import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
 
@@ -145,9 +146,11 @@ public final class JsonFunctions
         try (JsonParser parser = createJsonParser(JSON_FACTORY, slice)) {
             SliceOutput dynamicSliceOutput = new DynamicSliceOutput(slice.length());
             SORTED_MAPPER.writeValue((OutputStream) dynamicSliceOutput, SORTED_MAPPER.readValue(parser, Object.class));
-            // nextToken() returns null if the input is parsed correctly,
-            // but will throw an exception if there are trailing characters.
-            parser.nextToken();
+            // At this point, the end of input should be reached. nextToken() has three possible results:
+            // - null, if the end of the input was reached
+            // - token, if a correct JSON token is found (e.g. '{', 'null', '1')
+            // - exception, if there are characters which do not form a valid JSON token (e.g. 'abc')
+            checkState(parser.nextToken() == null, "Found characters after the expected end of input");
             return dynamicSliceOutput.slice();
         }
         catch (Exception e) {

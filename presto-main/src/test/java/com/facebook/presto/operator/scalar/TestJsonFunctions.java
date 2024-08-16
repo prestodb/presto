@@ -278,6 +278,11 @@ public class TestJsonFunctions
         assertInvalidFunction("JSON 'INVALID'", INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("JSON_PARSE('INVALID')", INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("JSON_PARSE('\"x\": 1')", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("JSON_PARSE('{}{')", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("JSON_PARSE('{} \"a\"')", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("JSON_PARSE('{}{abc')", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("JSON_PARSE('{}abc')", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("JSON_PARSE('')", INVALID_FUNCTION_ARGUMENT);
     }
 
     @Test
