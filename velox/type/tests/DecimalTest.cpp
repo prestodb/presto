@@ -106,6 +106,28 @@ void testToByteArray(int128_t value, int8_t* expected, int32_t size) {
   EXPECT_EQ(std::memcmp(expected, out, length), 0);
 }
 
+template <typename T>
+void testcastToString(
+    T unscaleValue,
+    int precision,
+    int scale,
+    int maxStringSize,
+    const std::string& expected) {
+  char out[maxStringSize];
+  auto actualSize =
+      DecimalUtil::castToString<T>(unscaleValue, scale, maxStringSize, out);
+  EXPECT_EQ(expected.size(), actualSize);
+  EXPECT_EQ(std::memcmp(expected.data(), out, expected.size()), 0);
+}
+
+void testMaxStringViewSize(
+    int precision,
+    int scale,
+    int expectedMaxStringSize) {
+  EXPECT_EQ(
+      DecimalUtil::maxStringViewSize(precision, scale), expectedMaxStringSize);
+}
+
 std::string zeros(uint32_t numZeros) {
   return std::string(numZeros, '0');
 }
@@ -489,6 +511,51 @@ TEST(DecimalTest, rescaleReal) {
       NAN, DECIMAL(10, 2), "The input value should be finite.");
   assertRescaleRealFail(
       INFINITY, DECIMAL(10, 2), "The input value should be finite.");
+}
+
+TEST(DecimalTest, maxStringViewSize) {
+  testMaxStringViewSize(10, 0, 11);
+  testMaxStringViewSize(10, 1, 12);
+  testMaxStringViewSize(10, 10, 13);
+}
+
+TEST(DecimalTest, castToString) {
+  testcastToString<int64_t>(12, 10, 0, 11, "12");
+  testcastToString<int64_t>(12, 10, 1, 12, "1.2");
+  testcastToString<int64_t>(12, 10, 3, 12, "0.012");
+  testcastToString<int64_t>(-12, 10, 3, 12, "-0.012");
+  testcastToString<int64_t>(12, 5, 5, 8, "0.00012");
+  testcastToString<int64_t>(-12, 5, 5, 8, "-0.00012");
+  testcastToString<int64_t>(-12, 5, 5, 8, "-0.00012");
+  testcastToString<int64_t>(
+      DecimalUtil::kShortDecimalMax, 18, 0, 19, std::string(18, '9'));
+  testcastToString<int64_t>(
+      DecimalUtil::kShortDecimalMin, 18, 0, 19, "-" + std::string(18, '9'));
+
+  testcastToString<int128_t>(
+      HugeInt::parse("-18446744073709551616"),
+      20,
+      0,
+      21,
+      "-18446744073709551616");
+
+  testcastToString<int128_t>(
+      HugeInt::parse("-18446744073709551616"),
+      20,
+      3,
+      22,
+      "-18446744073709551.616");
+
+  testcastToString<int128_t>(
+      HugeInt::parse("-12345678901234567890"),
+      20,
+      20,
+      23,
+      "-0.12345678901234567890");
+  testcastToString<int128_t>(
+      DecimalUtil::kLongDecimalMax, 38, 0, 39, std::string(38, '9'));
+  testcastToString<int128_t>(
+      DecimalUtil::kLongDecimalMin, 38, 0, 39, "-" + std::string(38, '9'));
 }
 } // namespace
 } // namespace facebook::velox

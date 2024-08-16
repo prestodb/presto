@@ -114,4 +114,15 @@ void DecimalUtil::computeAverage(
   }
 }
 
+int32_t DecimalUtil::maxStringViewSize(int precision, int scale) {
+  int32_t rowSize = precision + 1; // Number and symbol.
+  if (scale > 0) {
+    ++rowSize; // A dot.
+  }
+  if (precision == scale) {
+    ++rowSize; // Leading zero.
+  }
+  return rowSize;
+}
+
 } // namespace facebook::velox
