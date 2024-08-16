@@ -144,3 +144,41 @@ The configuration properties of Presto C++ workers are described here, in alphab
 
   Number of drivers to use per task. Defaults to hardware CPUs.
 
+Build-enabled Properties
+----------------
+The following properties are available only if certain properties are enabled at build time via CMakeLists.txt.
+
+LinuxMemoryChecker
+^^^^^^^^^^^^^^^^^^
+
+Enabling the LinuxMemoryChecker by setting ``PRESTO_ENABLE_LINUX_MEMORY_CHECKER`` 
+to ON in presto-native-execution/CMakeLists.txt will make the following properties available:
+
+``systemMemPushbackEnabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+If true, starts memory limit checker to trigger memory pushback when
+server is under low memory pressure.
+
+``systemMemLimitBytes``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``0``
+
+Specifies the system memory limit that triggers the memory pushback if
+the server memory usage is beyond this limit. This only applies if
+``systemMemPushbackEnabled`` is true.
+
+``systemMemShrinkBytes``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``0``
+
+Specifies the amount of memory to shrink when the memory pushback is
+triggered. This only applies if ``systemMemPushbackEnabled`` is true.
+
