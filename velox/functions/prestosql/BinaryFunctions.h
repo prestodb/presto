@@ -159,6 +159,7 @@ struct HmacSha1Function {
   template <typename TOutput, typename TInput>
   FOLLY_ALWAYS_INLINE void
   call(TOutput& result, const TInput& data, const TInput& key) {
+    VELOX_USER_CHECK_GT(key.size(), 0, "Empty key is not allowed");
     result.resize(20);
     folly::ssl::OpenSSLHash::hmac_sha1(
         folly::MutableByteRange((uint8_t*)result.data(), result.size()),
@@ -175,6 +176,7 @@ struct HmacSha256Function {
   template <typename TTo, typename TFrom>
   FOLLY_ALWAYS_INLINE void
   call(TTo& result, const TFrom& data, const TFrom& key) {
+    VELOX_USER_CHECK_GT(key.size(), 0, "Empty key is not allowed");
     result.resize(32);
     folly::ssl::OpenSSLHash::hmac_sha256(
         folly::MutableByteRange((uint8_t*)result.data(), result.size()),
@@ -191,6 +193,7 @@ struct HmacSha512Function {
   template <typename TTo, typename TFrom>
   FOLLY_ALWAYS_INLINE void
   call(TTo& result, const TFrom& data, const TFrom& key) {
+    VELOX_USER_CHECK_GT(key.size(), 0, "Empty key is not allowed");
     result.resize(64);
     folly::ssl::OpenSSLHash::hmac_sha512(
         folly::MutableByteRange((uint8_t*)result.data(), result.size()),
@@ -208,6 +211,7 @@ struct HmacMd5Function {
       out_type<Varbinary>& result,
       const arg_type<Varbinary>& data,
       const arg_type<Varbinary>& key) {
+    VELOX_USER_CHECK_GT(key.size(), 0, "Empty key is not allowed");
     result.resize(16);
     folly::ssl::OpenSSLHash::hmac(
         folly::MutableByteRange((uint8_t*)result.data(), result.size()),

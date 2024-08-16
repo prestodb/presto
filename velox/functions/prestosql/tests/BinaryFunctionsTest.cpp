@@ -63,7 +63,6 @@ TEST_F(BinaryFunctionsTest, sha1) {
 
   EXPECT_EQ(hexToDec("DA39A3EE5E6B4B0D3255BFEF95601890AFD80709"), sha1(""));
   EXPECT_EQ(std::nullopt, sha1(std::nullopt));
-
   EXPECT_EQ(hexToDec("86F7E437FAA5A7FCE15D1DDCB9EAEAEA377667B8"), sha1("a"));
   EXPECT_EQ(hexToDec("382758154F5D9F9775B6A9F28B6EDD55773C87E3"), sha1("AB "));
   EXPECT_EQ(hexToDec("B858CB282617FB0956D960215C8E84D1CCF909C6"), sha1(" "));
@@ -174,6 +173,8 @@ TEST_F(BinaryFunctionsTest, HmacSha1) {
     return evaluateOnce<std::string>(
         "hmac_sha1(c0, c1)", {VARBINARY(), VARBINARY()}, arg, key);
   };
+
+  VELOX_ASSERT_THROW(hmacSha1("velox", ""), "Empty key is not allowed");
   // Use python hmac lib results as the expected value.
   // >>> import hmac
   // >>> def sha1(data, key):
@@ -201,9 +202,6 @@ TEST_F(BinaryFunctionsTest, HmacSha1) {
   EXPECT_EQ(
       hexToDec("183054bdaf8c83320fee4376e76ffd7e773a650f"),
       hmacSha1("12345abcde54321", "velox"));
-  EXPECT_EQ(
-      hexToDec("3ec5ea98df0f5ddb139231ecee2c8a9810a82e08"),
-      hmacSha1("velox", ""));
   EXPECT_EQ(std::nullopt, hmacSha1("velox", std::nullopt));
 }
 
@@ -213,6 +211,7 @@ TEST_F(BinaryFunctionsTest, HmacSha256) {
     return evaluateOnce<std::string>(
         "hmac_sha256(c0, c1)", {VARBINARY(), VARBINARY()}, arg, key);
   };
+  VELOX_ASSERT_THROW(hmacSha256("velox", ""), "Empty key is not allowed");
   // Use python hmac lib results as the expected value.
   // >>> import hmac
   // >>> def sha256(data, key):
@@ -244,7 +243,9 @@ TEST_F(BinaryFunctionsTest, HmacSha512) {
     return evaluateOnce<std::string>(
         "hmac_sha512(c0, c1)", {VARBINARY(), VARBINARY()}, arg, key);
   };
+
   // Use the same expected value from TestVarbinaryFunctions of presto java
+  VELOX_ASSERT_THROW(hmacSha512("velox", ""), "Empty key is not allowed");
   EXPECT_EQ(
       hexToDec(
           "84FA5AA0279BBC473267D05A53EA03310A987CECC4C1535FF29B6D76B8F1444A728DF3AADB89D4A9A6709E1998F373566E8F824A8CA93B1821F0B69BC2A2F65E"),
@@ -262,13 +263,16 @@ TEST_F(BinaryFunctionsTest, HmacMd5) {
     return evaluateOnce<std::string>(
         "hmac_md5(c0, c1)", {VARBINARY(), VARBINARY()}, arg, key);
   };
+
   // The result values were obtained from Presto Java hmac_md5 function.
+  VELOX_ASSERT_THROW(hmacMd5("velox", ""), "Empty key is not allowed");
   EXPECT_EQ(
       hexToDec("ff66d72875f01e26fcbe71d973eaf524"), hmacMd5("hashme", "velox"));
   EXPECT_EQ(
       hexToDec("ed706a89f46773b7a478ee5d8f83db86"),
       hmacMd5("Infinity", "velox"));
   EXPECT_EQ(hexToDec("f05e7a0086c6633b496ee411646da51c"), hmacMd5("", "velox"));
+
   EXPECT_EQ(std::nullopt, hmacMd5(std::nullopt, "velox"));
 }
 
