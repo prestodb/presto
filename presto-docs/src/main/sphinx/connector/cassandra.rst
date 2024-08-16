@@ -225,6 +225,7 @@ VARINT            VARCHAR
 SMALLINT          INTEGER
 TINYINT           INTEGER
 DATE              DATE
+DURATION          VARBINARY
 ================  ======
 
 Any collection (LIST/MAP/SET) can be designated as FROZEN, and the value is

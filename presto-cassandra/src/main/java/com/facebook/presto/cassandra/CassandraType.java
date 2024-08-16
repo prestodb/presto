@@ -81,6 +81,7 @@ public enum CassandraType
     VARINT(createUnboundedVarcharType(), BigInteger.class),
     LIST(createUnboundedVarcharType(), null),
     MAP(createUnboundedVarcharType(), null),
+    DURATION(createUnboundedVarcharType(), null),
     SET(createUnboundedVarcharType(), null);
 
     private static class Constants
@@ -150,6 +151,8 @@ public enum CassandraType
                 return LIST;
             case MAP:
                 return MAP;
+            case DURATION:
+                return DURATION;
             case SET:
                 return SET;
             case SMALLINT:
@@ -220,6 +223,7 @@ public enum CassandraType
                 case VARINT:
                     return NullableValue.of(nativeType, utf8Slice(row.getVarint(position).toString()));
                 case BLOB:
+                case DURATION:
                 case CUSTOM:
                     return NullableValue.of(nativeType, wrappedBuffer(row.getBytesUnsafe(position)));
                 case SET:
@@ -346,6 +350,7 @@ public enum CassandraType
                 case VARINT:
                     return row.getVarint(position).toString();
                 case BLOB:
+                case DURATION:
                 case CUSTOM:
                     return Bytes.toHexString(row.getBytesUnsafe(position));
                 default:
@@ -370,6 +375,7 @@ public enum CassandraType
                 return CassandraCqlUtils.quoteStringLiteralForJson(object.toString());
 
             case BLOB:
+            case DURATION:
             case CUSTOM:
                 return CassandraCqlUtils.quoteStringLiteralForJson(Bytes.toHexString((ByteBuffer) object));
             case SMALLINT:
@@ -452,6 +458,7 @@ public enum CassandraType
             case SET:
             case LIST:
             case MAP:
+            case DURATION:
             default:
                 throw new IllegalStateException("Back conversion not implemented for " + this);
         }
@@ -481,6 +488,7 @@ public enum CassandraType
             case SET:
             case LIST:
             case MAP:
+            case DURATION:
             default:
                 return false;
         }
