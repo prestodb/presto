@@ -24,6 +24,7 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 import java.util.Deque;
 import java.util.LinkedList;
@@ -117,7 +118,7 @@ public class StreamingAggregationOperator
         pagesHashStrategy = joinCompiler.compilePagesHashStrategyFactory(sourceTypes, groupByChannels, Optional.empty())
                 .createPagesHashStrategy(
                         sourceTypes.stream()
-                                .map(type -> ImmutableList.<Block>of())
+                                .map(type -> new ObjectArrayList<Block>())
                                 .collect(toImmutableList()), OptionalInt.empty());
     }
 

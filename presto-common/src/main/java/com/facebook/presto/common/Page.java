@@ -28,7 +28,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.common.block.DictionaryId.randomDictionaryId;
-import static io.airlift.slice.SizeOf.sizeOf;
+import static io.airlift.slice.SizeOf.sizeOfObjectArray;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Collections.newSetFromMap;
@@ -47,6 +47,10 @@ public final class Page
     public static final int INSTANCE_SIZE = ClassLayout.parseClass(Page.class).instanceSize();
     private static final Block[] EMPTY_BLOCKS = new Block[0];
 
+    public static long getInstanceSizeInBytes(int blockCount)
+    {
+        return INSTANCE_SIZE + sizeOfObjectArray(blockCount);
+    }
     /**
      * Visible to give trusted classes like {@link PageBuilder} access to a constructor that doesn't
      * defensively copy the blocks
@@ -443,7 +447,7 @@ public final class Page
 
     private long updateRetainedSize()
     {
-        AtomicLong retainedSizeInBytes = new AtomicLong(INSTANCE_SIZE + sizeOf(blocks));
+        AtomicLong retainedSizeInBytes = new AtomicLong(getInstanceSizeInBytes(blocks.length));
         Set<Object> referenceSet = newSetFromMap(new IdentityHashMap<>());
         for (Block block : blocks) {
             block.retainedBytesForEachPart((object, size) -> {

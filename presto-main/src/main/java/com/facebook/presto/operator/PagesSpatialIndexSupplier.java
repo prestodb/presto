@@ -58,7 +58,7 @@ public class PagesSpatialIndexSupplier
     private final AdaptiveLongBigArray addresses;
     private final List<Type> types;
     private final List<Integer> outputChannels;
-    private final List<List<Block>> channels;
+    private final List<ObjectArrayList<Block>> channels;
     private final Optional<Integer> radiusChannel;
     private final SpatialPredicate spatialRelationshipTest;
     private final Optional<JoinFilterFunctionCompiler.JoinFilterFunctionFactory> filterFunctionFactory;
@@ -72,7 +72,7 @@ public class PagesSpatialIndexSupplier
             int positionCount,
             List<Type> types,
             List<Integer> outputChannels,
-            List<List<Block>> channels,
+            List<ObjectArrayList<Block>> channels,
             int geometryChannel,
             Optional<Integer> radiusChannel,
             Optional<Integer> partitionChannel,
@@ -99,7 +99,7 @@ public class PagesSpatialIndexSupplier
     private static Flatbush<GeometryWithPosition> buildRTree(
             AdaptiveLongBigArray addresses,
             int positionCount,
-            List<List<Block>> channels,
+            List<ObjectArrayList<Block>> channels,
             int geometryChannel,
             Optional<Integer> radiusChannel,
             Optional<Integer> partitionChannel,
