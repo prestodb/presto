@@ -119,25 +119,17 @@ public class DictionaryAwarePageFilter
 
     private static SelectedPositions selectDictionaryPositions(DictionaryBlock dictionaryBlock, boolean[] selectedDictionaryPositions)
     {
+        int[] positions = new int[dictionaryBlock.getPositionCount()];
         int selectedCount = 0;
         for (int position = 0; position < dictionaryBlock.getPositionCount(); position++) {
-            if (selectedDictionaryPositions[dictionaryBlock.getId(position)]) {
-                selectedCount++;
-            }
+            positions[selectedCount] = position;
+            selectedCount += selectedDictionaryPositions[dictionaryBlock.getId(position)] ? 1 : 0;
         }
 
         if (selectedCount == 0 || selectedCount == dictionaryBlock.getPositionCount()) {
             return SelectedPositions.positionsRange(0, selectedCount);
         }
 
-        int[] positions = new int[selectedCount];
-        int index = 0;
-        for (int position = 0; position < dictionaryBlock.getPositionCount(); position++) {
-            if (selectedDictionaryPositions[dictionaryBlock.getId(position)]) {
-                positions[index] = position;
-                index++;
-            }
-        }
         return SelectedPositions.positionsList(positions, 0, selectedCount);
     }
 
