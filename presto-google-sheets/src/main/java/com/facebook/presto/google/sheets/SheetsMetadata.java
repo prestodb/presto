@@ -15,6 +15,9 @@ package com.facebook.presto.google.sheets;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorInsertTableHandle;
+import com.facebook.presto.spi.ConnectorNewTableLayout;
+import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayout;
@@ -27,20 +30,27 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
+import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slice;
 
 import javax.inject.Inject;
 
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.google.sheets.SheetsErrorCode.SHEETS_UNKNOWN_TABLE_ERROR;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 public class SheetsMetadata
         implements ConnectorMetadata
@@ -72,13 +82,16 @@ public class SheetsMetadata
         if (!listSchemaNames(session).contains(tableName.getSchemaName())) {
             return null;
         }
-
-        Optional<SheetsTable> table = sheetsClient.getTable(tableName.getTableName());
-        if (!table.isPresent()) {
+        try {
+            Optional<SheetsTable> table = sheetsClient.getTable(tableName.getTableName());
+            if (!table.isPresent()) {
+                return null;
+            }
+            return new SheetsTableHandle(tableName.getSchemaName(), tableName.getTableName());
+        }
+        catch (PrestoException e) {
             return null;
         }
-
-        return new SheetsTableHandle(tableName.getSchemaName(), tableName.getTableName());
     }
 
     @Override
@@ -169,5 +182,74 @@ public class SheetsMetadata
                     .collect(toImmutableList());
         }
         return ImmutableList.of();
+    }
+
+    @Override
+    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        SheetsTableHandle sheetsTableHandle = (SheetsTableHandle) tableHandle;
+        return new SheetsInsertTableHandle(sheetsTableHandle.getSchemaName(),
+                sheetsTableHandle.getTableName(), buildColumnHandles(sheetsTableHandle));
+    }
+
+    @Override
+    public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    {
+        return Optional.empty();
+    }
+
+    @Override
+    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
+    {
+        List<SheetsColumnHandle> columns = buildColumnHandles(tableMetadata);
+        sheetsClient.createSheet(tableMetadata.getTable().getTableName(), columns);
+    }
+
+    @Override
+    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
+    {
+        List<SheetsColumnHandle> columns = buildColumnHandles(tableMetadata);
+        sheetsClient.createSheet(tableMetadata.getTable().getTableName(), columns);
+        return new SheetsOutputTableHandle(tableMetadata.getTable(), columns);
+    }
+
+    @Override
+    public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    {
+        return Optional.empty();
+    }
+
+    @Override
+    public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        SheetsTableHandle table = (SheetsTableHandle) tableHandle;
+        sheetsClient.dropSheet(table.getTableName());
+    }
+
+    @Override
+    public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
+    {
+        SheetsTableHandle handle = (SheetsTableHandle) tableHandle;
+        sheetsClient.addColumn(handle.getTableName(), Arrays.asList(Arrays.asList(column.getName())), column.getType());
+    }
+
+    private static List<SheetsColumnHandle> buildColumnHandles(ConnectorTableMetadata tableMetadata)
+    {
+        AtomicInteger counter = new AtomicInteger(0);
+        return tableMetadata.getColumns().stream()
+                .map(m -> new SheetsColumnHandle(m.getName(), m.getType(), counter.getAndIncrement()))
+                .collect(toList());
+    }
+
+    private List<SheetsColumnHandle> buildColumnHandles(SheetsTableHandle sheetsTableHandle)
+    {
+        AtomicInteger counter = new AtomicInteger(0);
+        Optional<SheetsTable> table = sheetsClient.getTable(sheetsTableHandle.getTableName());
+        if (!table.isPresent()) {
+            throw new TableNotFoundException(sheetsTableHandle.toSchemaTableName());
+        }
+        return table.get().getColumnsMetadata().stream()
+                .map(m -> new SheetsColumnHandle(m.getName(), m.getType(), counter.getAndIncrement()))
+                .collect(toList());
     }
 }
