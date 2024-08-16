@@ -389,4 +389,7 @@ RowTypePtr randRowType(
     const std::vector<TypePtr>& scalarTypes,
     int maxDepth = 5);
 
+/// Default set of scalar types to be chosen from when generating random types.
+const std::vector<TypePtr>& defaultScalarTypes();
+
 } // namespace facebook::velox

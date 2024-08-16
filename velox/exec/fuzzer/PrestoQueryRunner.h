@@ -41,6 +41,12 @@ class PrestoQueryRunner : public velox::exec::test::ReferenceQueryRunner {
       std::string user,
       std::chrono::milliseconds timeout);
 
+  RunnerType runnerType() const override {
+    return RunnerType::kPrestoQueryRunner;
+  }
+
+  const std::vector<TypePtr>& supportedScalarTypes() const override;
+
   /// Converts Velox query plan to Presto SQL. Supports Values -> Aggregation or
   /// Window with an optional Project on top.
   ///

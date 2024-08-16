@@ -251,6 +251,22 @@ bool isSupportedDwrfType(const TypePtr& type) {
 
 } // namespace
 
+const std::vector<TypePtr>& PrestoQueryRunner::supportedScalarTypes() const {
+  static const std::vector<TypePtr> kScalarTypes{
+      BOOLEAN(),
+      TINYINT(),
+      SMALLINT(),
+      INTEGER(),
+      BIGINT(),
+      REAL(),
+      DOUBLE(),
+      VARCHAR(),
+      VARBINARY(),
+      TIMESTAMP(),
+  };
+  return kScalarTypes;
+}
+
 std::optional<std::string> PrestoQueryRunner::toSql(
     const std::shared_ptr<const core::AggregationNode>& aggregationNode) {
   // Assume plan is Aggregation over Values.

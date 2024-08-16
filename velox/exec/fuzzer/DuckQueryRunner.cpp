@@ -63,6 +63,21 @@ void DuckQueryRunner::disableAggregateFunctions(
   }
 }
 
+const std::vector<TypePtr>& DuckQueryRunner::supportedScalarTypes() const {
+  static const std::vector<TypePtr> kScalarTypes{
+      BOOLEAN(),
+      TINYINT(),
+      SMALLINT(),
+      INTEGER(),
+      BIGINT(),
+      REAL(),
+      DOUBLE(),
+      VARCHAR(),
+      DATE(),
+  };
+  return kScalarTypes;
+}
+
 std::multiset<std::vector<velox::variant>> DuckQueryRunner::execute(
     const std::string& sql,
     const std::vector<RowVectorPtr>& input,

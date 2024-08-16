@@ -1025,9 +1025,7 @@ VectorPtr VectorLoaderWrap::makeEncodingPreservedCopy(
       std::move(nulls), std::move(indices), vectorSize, baseResult);
 }
 
-namespace {
-
-const std::vector<TypePtr> defaultScalarTypes() {
+const std::vector<TypePtr>& defaultScalarTypes() {
   // @TODO Add decimal TypeKinds to randType.
   // Refer https://github.com/facebookincubator/velox/issues/3942
   static std::vector<TypePtr> kScalarTypes{
@@ -1046,7 +1044,6 @@ const std::vector<TypePtr> defaultScalarTypes() {
   };
   return kScalarTypes;
 }
-} // namespace
 
 TypePtr randType(FuzzerGenerator& rng, int maxDepth) {
   return randType(rng, defaultScalarTypes(), maxDepth);

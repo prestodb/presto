@@ -17,6 +17,7 @@ add_library(velox_fuzzer_util DuckQueryRunner.cpp PrestoQueryRunner.cpp
 
 target_link_libraries(
   velox_fuzzer_util
+  velox_vector_fuzzer
   velox_core
   velox_exec_test_lib
   cpr::cpr
