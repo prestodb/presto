@@ -88,6 +88,37 @@ class SharedArbitrator : public memory::MemoryArbitrator {
     static bool getGlobalArbitrationEnabled(
         const std::unordered_map<std::string, std::string>& configs);
 
+    /// When growing capacity, the growth bytes will be adjusted in the
+    /// following way:
+    ///  - If 2 * current capacity is less than or equal to
+    ///    'fastExponentialGrowthCapacityLimit', grow through fast path by at
+    ///    least doubling the current capacity, when conditions allow (see below
+    ///    NOTE section).
+    ///  - If 2 * current capacity is greater than
+    ///    'fastExponentialGrowthCapacityLimit', grow through slow path by
+    ///    growing capacity by at least 'slowCapacityGrowPct' * current capacity
+    ///    if allowed (see below NOTE section).
+    ///
+    /// NOTE: If original requested growth bytes is larger than the adjusted
+    /// growth bytes or adjusted growth bytes reaches max capacity limit, the
+    /// adjusted growth bytes will not be respected.
+    ///
+    /// NOTE: Capacity growth adjust is only enabled if both
+    /// 'fastExponentialGrowthCapacityLimit' and 'slowCapacityGrowPct' are set,
+    /// otherwise it is disabled.
+    static constexpr std::string_view kFastExponentialGrowthCapacityLimit{
+        "fast-exponential-growth-capacity-limit"};
+    static constexpr std::string_view
+        kDefaultFastExponentialGrowthCapacityLimit{"512MB"};
+    static uint64_t getFastExponentialGrowthCapacityLimitBytes(
+        const std::unordered_map<std::string, std::string>& configs);
+
+    static constexpr std::string_view kSlowCapacityGrowPct{
+        "slow-capacity-grow-pct"};
+    static constexpr double kDefaultSlowCapacityGrowPct{0.25};
+    static double getSlowCapacityGrowPct(
+        const std::unordered_map<std::string, std::string>& configs);
+
     /// If true, do sanity check on the arbitrator state on destruction.
     ///
     /// TODO: deprecate this flag after all the existing memory leak use cases
@@ -168,6 +199,17 @@ class SharedArbitrator : public memory::MemoryArbitrator {
   struct ArbitrationOperation {
     MemoryPool* const requestPool;
     const uint64_t requestBytes;
+
+    // The adjusted grow bytes based on 'requestBytes'. This 'targetBytes' is a
+    // best effort target, and hence will not be guaranteed. The adjustment is
+    // based on 'SharedArbitrator::fastExponentialGrowthCapacityLimit_'
+    // 'SharedArbitrator::slowCapacityGrowPct_' and
+    // 'MemoryArbitrator::memoryPoolTransferCapacity_'.
+    //
+    // TODO: deprecate 'MemoryArbitrator::memoryPoolTransferCapacity_' once
+    // exponential growth works well in production.
+    const std::optional<uint64_t> targetBytes;
+
     // The start time of this arbitration operation.
     const std::chrono::steady_clock::time_point startTime;
 
@@ -184,11 +226,15 @@ class SharedArbitrator : public memory::MemoryArbitrator {
     uint64_t globalArbitrationLockWaitTimeUs{0};
 
     explicit ArbitrationOperation(uint64_t requestBytes)
-        : ArbitrationOperation(nullptr, requestBytes) {}
+        : ArbitrationOperation(nullptr, requestBytes, std::nullopt) {}
 
-    ArbitrationOperation(MemoryPool* _requestor, uint64_t _requestBytes)
+    ArbitrationOperation(
+        MemoryPool* _requestor,
+        uint64_t _requestBytes,
+        std::optional<uint64_t> _targetBytes)
         : requestPool(_requestor),
           requestBytes(_requestBytes),
+          targetBytes(_targetBytes),
           startTime(std::chrono::steady_clock::now()) {
       VELOX_CHECK(requestPool == nullptr || requestPool->isRoot());
     }
@@ -256,10 +302,10 @@ class SharedArbitrator : public memory::MemoryArbitrator {
   // Invoked to run local arbitration on the request memory pool. It first
   // ensures the memory growth is within both memory pool and arbitrator
   // capacity limits. This step might reclaim the used memory from the request
-  // memory pool itself. Then it tries to allocate free capacity from the
-  // arbitrator. At last, it tries to reclaim free memory from the other queries
-  // before it falls back to the global arbitration. The local arbitration run
-  // is protected by shared lock of 'arbitrationLock_' which can run in parallel
+  // memory pool itself. Then it tries to obtain free capacity from the
+  // arbitrator. At last, it tries to reclaim free memory from itself before it
+  // falls back to the global arbitration. The local arbitration run is
+  // protected by shared lock of 'arbitrationLock_' which can run in parallel
   // for different query pools. The free memory reclamation is protected by
   // arbitrator 'mutex_' which is an in-memory fast operation. The function
   // returns false on failure. Otherwise, it needs to further check if
@@ -275,7 +321,9 @@ class SharedArbitrator : public memory::MemoryArbitrator {
   // on success, false on failure.
   bool runGlobalArbitration(ArbitrationOperation* op);
 
-  // Gets the mim/max memory capacity growth targets for 'op'.
+  // Gets the mim/max memory capacity growth targets for 'op'. The min and max
+  // targets are calculated based on memoryPoolReservedCapacity_ requirements
+  // and the pool's max capacity.
   void getGrowTargets(
       ArbitrationOperation* op,
       uint64_t& maxGrowTarget,
@@ -415,6 +463,13 @@ class SharedArbitrator : public memory::MemoryArbitrator {
   // the reserved capacity as specified by 'memoryPoolReservedCapacity_'.
   int64_t minGrowCapacity(const MemoryPool& pool) const;
 
+  // The capacity growth target is set to have a coarser granularity. It can
+  // help to reduce the number of future grow calls, and hence reducing the
+  // number of unnecessary memory arbitration requests.
+  uint64_t getCapacityGrowthTarget(
+      const MemoryPool& pool,
+      uint64_t requestBytes) const;
+
   // Returns true if 'pool' is under memory arbitration.
   bool isUnderArbitrationLocked(MemoryPool* pool) const;
 
@@ -429,6 +484,9 @@ class SharedArbitrator : public memory::MemoryArbitrator {
   const uint64_t memoryReclaimWaitMs_;
   const bool globalArbitrationEnabled_;
   const bool checkUsageLeak_;
+
+  const uint64_t fastExponentialGrowthCapacityLimit_;
+  const double slowCapacityGrowPct_;
 
   mutable folly::SharedMutex poolLock_;
   std::unordered_map<MemoryPool*, std::weak_ptr<MemoryPool>> candidates_;

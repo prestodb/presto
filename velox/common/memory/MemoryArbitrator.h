@@ -57,7 +57,7 @@ class MemoryArbitrator {
     /// manager.
     int64_t capacity;
 
-    /// callback to check if a memory arbitration request is issued from a
+    /// Callback to check if a memory arbitration request is issued from a
     /// driver thread, then the driver should be put in suspended state to avoid
     /// the potential deadlock when reclaim memory from the task of the request
     /// memory pool.
@@ -118,7 +118,7 @@ class MemoryArbitrator {
   /// up a number of pools to either shrink its memory capacity without actually
   /// freeing memory or reclaim its used memory to free up enough memory for
   /// 'requestor' to grow.
-  virtual bool growCapacity(MemoryPool* pool, uint64_t targetBytes) = 0;
+  virtual bool growCapacity(MemoryPool* pool, uint64_t requestBytes) = 0;
 
   /// Invoked by the memory manager to shrink up to 'targetBytes' free capacity
   /// from a memory 'pool', and returns them back to the arbitrator. If

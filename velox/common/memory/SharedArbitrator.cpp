@@ -140,6 +140,23 @@ bool SharedArbitrator::ExtraConfig::getCheckUsageLeak(
   return getConfig<bool>(configs, kCheckUsageLeak, kDefaultCheckUsageLeak);
 }
 
+uint64_t
+SharedArbitrator::ExtraConfig::getFastExponentialGrowthCapacityLimitBytes(
+    const std::unordered_map<std::string, std::string>& configs) {
+  return config::toCapacity(
+      getConfig<std::string>(
+          configs,
+          kFastExponentialGrowthCapacityLimit,
+          std::string(kDefaultFastExponentialGrowthCapacityLimit)),
+      config::CapacityUnit::BYTE);
+}
+
+double SharedArbitrator::ExtraConfig::getSlowCapacityGrowPct(
+    const std::unordered_map<std::string, std::string>& configs) {
+  return getConfig<double>(
+      configs, kSlowCapacityGrowPct, kDefaultSlowCapacityGrowPct);
+}
+
 SharedArbitrator::SharedArbitrator(const Config& config)
     : MemoryArbitrator(config),
       reservedCapacity_(ExtraConfig::getReservedCapacity(config.extraConfigs)),
@@ -154,10 +171,23 @@ SharedArbitrator::SharedArbitrator(const Config& config)
       globalArbitrationEnabled_(
           ExtraConfig::getGlobalArbitrationEnabled(config.extraConfigs)),
       checkUsageLeak_(ExtraConfig::getCheckUsageLeak(config.extraConfigs)),
+      fastExponentialGrowthCapacityLimit_(
+          ExtraConfig::getFastExponentialGrowthCapacityLimitBytes(
+              config.extraConfigs)),
+      slowCapacityGrowPct_(
+          ExtraConfig::getSlowCapacityGrowPct(config.extraConfigs)),
       freeReservedCapacity_(reservedCapacity_),
       freeNonReservedCapacity_(capacity_ - freeReservedCapacity_) {
   VELOX_CHECK_EQ(kind_, config.kind);
   VELOX_CHECK_LE(reservedCapacity_, capacity_);
+  VELOX_CHECK_EQ(
+      fastExponentialGrowthCapacityLimit_ == 0,
+      slowCapacityGrowPct_ == 0,
+      "fastExponentialGrowthCapacityLimit_ {} and slowCapacityGrowPct_ {} "
+      "both need to be set at the same time to enable growth capacity "
+      "adjustment.",
+      fastExponentialGrowthCapacityLimit_,
+      slowCapacityGrowPct_);
 }
 
 std::string SharedArbitrator::Candidate::toString() const {
@@ -450,8 +480,26 @@ uint64_t SharedArbitrator::testingNumRequests() const {
   return numRequests_;
 }
 
+uint64_t SharedArbitrator::getCapacityGrowthTarget(
+    const MemoryPool& pool,
+    uint64_t requestBytes) const {
+  if (fastExponentialGrowthCapacityLimit_ == 0 && slowCapacityGrowPct_ == 0) {
+    return std::max(requestBytes, memoryPoolTransferCapacity_);
+  }
+  uint64_t targetBytes{0};
+  const auto capacity = pool.capacity();
+  if (capacity * 2 <= fastExponentialGrowthCapacityLimit_) {
+    targetBytes = capacity;
+  } else {
+    targetBytes = capacity * slowCapacityGrowPct_;
+  }
+  return std::max(
+      std::max(requestBytes, targetBytes), memoryPoolTransferCapacity_);
+}
+
 bool SharedArbitrator::growCapacity(MemoryPool* pool, uint64_t requestBytes) {
-  ArbitrationOperation op(pool, requestBytes);
+  ArbitrationOperation op(
+      pool, requestBytes, getCapacityGrowthTarget(*pool, requestBytes));
   ScopedArbitration scopedArbitration(this, &op);
 
   bool needGlobalArbitration{false};
@@ -594,9 +642,9 @@ void SharedArbitrator::getGrowTargets(
     ArbitrationOperation* op,
     uint64_t& maxGrowTarget,
     uint64_t& minGrowTarget) {
-  maxGrowTarget = std::min(
-      maxGrowCapacity(*op->requestPool),
-      std::max(memoryPoolTransferCapacity_, op->requestBytes));
+  VELOX_CHECK(op->targetBytes.has_value());
+  maxGrowTarget =
+      std::min(maxGrowCapacity(*op->requestPool), op->targetBytes.value());
   minGrowTarget = minGrowCapacity(*op->requestPool);
 }
 

@@ -45,7 +45,9 @@ std::unique_ptr<memory::MemoryManager> createMemoryManager(
     int64_t arbitratorCapacity,
     uint64_t memoryPoolInitCapacity,
     uint64_t memoryPoolTransferCapacity,
-    uint64_t maxReclaimWaitMs) {
+    uint64_t maxReclaimWaitMs,
+    uint64_t fastExponentialGrowthCapacityLimit,
+    double slowCapacityGrowPct) {
   memory::MemoryManagerOptions options;
   options.arbitratorCapacity = arbitratorCapacity;
   options.arbitratorReservedCapacity = 0;
@@ -58,6 +60,9 @@ std::unique_ptr<memory::MemoryManager> createMemoryManager(
   options.memoryReclaimWaitMs = maxReclaimWaitMs;
   options.globalArbitrationEnabled = true;
   options.checkUsageLeak = true;
+  options.fastExponentialGrowthCapacityLimit =
+      fastExponentialGrowthCapacityLimit;
+  options.slowCapacityGrowPct = slowCapacityGrowPct;
   options.arbitrationStateCheckCb = memoryArbitrationStateCheck;
   return std::make_unique<memory::MemoryManager>(options);
 }
