@@ -47,7 +47,6 @@
 #include "velox/common/memory/SharedArbitrator.h"
 #include "velox/connectors/Connector.h"
 #include "velox/connectors/hive/HiveConnector.h"
-#include "velox/core/Config.h"
 #include "velox/exec/OutputBufferManager.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
@@ -476,8 +475,12 @@ void PrestoServer::run() {
         << "Spilling root directory: " << baseSpillDirectory;
   }
 
+  initPrestoToVeloxPlanValidator();
   taskResource_ = std::make_unique<TaskResource>(
-      *taskManager_, pool_.get(), httpSrvCpuExecutor_.get());
+      pool_.get(),
+      httpSrvCpuExecutor_.get(),
+      getPlanValidator(),
+      *taskManager_);
   taskResource_->registerUris(*httpServer_);
   if (systemConfig->enableSerializedPageChecksum()) {
     enableChecksum();
@@ -1080,8 +1083,8 @@ std::vector<std::string> PrestoServer::registerConnectors(
           << "Registered properties from " << entry.path() << ":\n"
           << stringifyConnectorConfig(connectorConf);
 
-      std::shared_ptr<const velox::Config> properties =
-          std::make_shared<const velox::core::MemConfig>(
+      std::shared_ptr<const velox::config::ConfigBase> properties =
+          std::make_shared<const velox::config::ConfigBase>(
               std::move(connectorConf));
 
       auto connectorName = util::requiredProperty(*properties, kConnectorName);
@@ -1247,6 +1250,15 @@ void PrestoServer::enableWorkerStatsReporting() {
   // This flag must be set to register the counters.
   facebook::velox::BaseStatsReporter::registered = true;
   registerStatsCounters();
+}
+
+void PrestoServer::initPrestoToVeloxPlanValidator() {
+  VELOX_CHECK_NULL(planValidator_);
+  planValidator_ = std::make_shared<PrestoToVeloxPlanValidator>();
+}
+
+PrestoToVeloxPlanValidator* PrestoServer::getPlanValidator() {
+  return planValidator_.get();
 }
 
 void PrestoServer::populateMemAndCPUInfo() {

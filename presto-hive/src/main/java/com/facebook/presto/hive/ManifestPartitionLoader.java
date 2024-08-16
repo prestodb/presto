@@ -67,7 +67,7 @@ public class ManifestPartitionLoader
     private static final String[] BLOCK_LOCATION_HOSTS = {"localhost"};
 
     private final Table table;
-    private final Optional<Domain> pathDomain;
+    Map<Integer, Domain> infoColumnConstraints;
     private final ConnectorSession session;
     private final HdfsEnvironment hdfsEnvironment;
     private final HdfsContext hdfsContext;
@@ -78,7 +78,7 @@ public class ManifestPartitionLoader
 
     public ManifestPartitionLoader(
             Table table,
-            Optional<Domain> pathDomain,
+            Map<Integer, Domain> infoColumnConstraints,
             ConnectorSession session,
             HdfsEnvironment hdfsEnvironment,
             NamenodeStats namenodeStats,
@@ -87,7 +87,7 @@ public class ManifestPartitionLoader
             boolean schedulerUsesHostAddresses)
     {
         this.table = requireNonNull(table, "table is null");
-        this.pathDomain = requireNonNull(pathDomain, "pathDomain is null");
+        this.infoColumnConstraints = requireNonNull(infoColumnConstraints, "pathDomain is null");
         this.session = requireNonNull(session, "session is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.hdfsContext = new HdfsContext(session, table.getDatabaseName(), table.getTableName(), table.getStorage().getLocation(), false);
@@ -133,7 +133,7 @@ public class ManifestPartitionLoader
             }
         }
 
-        InternalHiveSplitFactory splitFactory = createInternalHiveSplitFactory(table, partition, session, pathDomain, hdfsEnvironment, hdfsContext, schedulerUsesHostAddresses);
+        InternalHiveSplitFactory splitFactory = createInternalHiveSplitFactory(table, partition, session, infoColumnConstraints, hdfsEnvironment, hdfsContext, schedulerUsesHostAddresses);
 
         return hiveSplitSource.addToQueue(fileListBuilder.build().stream()
                 .map(status -> splitFactory.createInternalHiveSplit(status, true))
@@ -146,7 +146,7 @@ public class ManifestPartitionLoader
             Table table,
             HivePartitionMetadata partition,
             ConnectorSession session,
-            Optional<Domain> pathDomain,
+            Map<Integer, Domain> infoColumnConstraints,
             HdfsEnvironment hdfsEnvironment,
             HdfsContext hdfsContext,
             boolean schedulerUsesHostAddresses)
@@ -167,7 +167,7 @@ public class ManifestPartitionLoader
         return new InternalHiveSplitFactory(
                 fileSystem,
                 inputFormat,
-                pathDomain,
+                infoColumnConstraints,
                 getNodeSelectionStrategy(session),
                 getMaxInitialSplitSize(session),
                 false,

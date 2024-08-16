@@ -106,6 +106,7 @@ public class FeaturesConfig
     private Duration historyBasedOptimizerTimeout = new Duration(10, SECONDS);
     private String historyBasedOptimizerPlanCanonicalizationStrategies = "IGNORE_SAFE_CONSTANTS";
     private boolean logPlansUsedInHistoryBasedOptimizer;
+    private boolean enforceTimeoutForHBOQueryRegistration;
     private boolean redistributeWrites = true;
     private boolean scaleWriters;
     private DataSize writerMinSize = new DataSize(32, MEGABYTE);
@@ -218,6 +219,7 @@ public class FeaturesConfig
     private boolean optimizeNullsInJoin;
     private boolean optimizePayloadJoins;
     private boolean confidenceBasedBroadcastEnabled;
+    private boolean retryQueryWithHistoryBasedOptimizationEnabled;
     private boolean treatLowConfidenceZeroEstimationAsUnknownEnabled;
     private boolean pushdownDereferenceEnabled;
     private boolean inlineSqlFunctions = true;
@@ -1009,6 +1011,18 @@ public class FeaturesConfig
         return this;
     }
 
+    public boolean isEnforceTimeoutForHBOQueryRegistration()
+    {
+        return enforceTimeoutForHBOQueryRegistration;
+    }
+
+    @Config("optimizer.enforce-timeout-for-hbo-query-registration")
+    public FeaturesConfig setEnforceTimeoutForHBOQueryRegistration(boolean enforceTimeoutForHBOQueryRegistration)
+    {
+        this.enforceTimeoutForHBOQueryRegistration = enforceTimeoutForHBOQueryRegistration;
+        return this;
+    }
+
     public AggregationPartitioningMergingStrategy getAggregationPartitioningMergingStrategy()
     {
         return aggregationPartitioningMergingStrategy;
@@ -1263,6 +1277,18 @@ public class FeaturesConfig
     public FeaturesConfig setConfidenceBasedBroadcastEnabled(boolean confidenceBasedBroadcastEnabled)
     {
         this.confidenceBasedBroadcastEnabled = confidenceBasedBroadcastEnabled;
+        return this;
+    }
+
+    public boolean isRetryQueryWithHistoryBasedOptimizationEnabled()
+    {
+        return retryQueryWithHistoryBasedOptimizationEnabled;
+    }
+
+    @Config("optimizer.retry-query-with-history-based-optimization")
+    public FeaturesConfig setRetryQueryWithHistoryBasedOptimizationEnabled(boolean retryQueryWithHistoryBasedOptimizationEnabled)
+    {
+        this.retryQueryWithHistoryBasedOptimizationEnabled = retryQueryWithHistoryBasedOptimizationEnabled;
         return this;
     }
 

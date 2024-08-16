@@ -101,7 +101,7 @@ Map Functions
 
 .. function:: map_key_exists(x(K, V), k) -> boolean
 
-    Returns whether the given key exists in the map. Returns ``true`` if key is present in the input map, returns ``false`` if not present.
+    Returns whether the given key exists in the map. Returns ``true`` if key is present in the input map, returns ``false`` if not present.::
 
         SELECT map_key_exists(MAP(ARRAY['x','y'], ARRAY[100,200]), 'x'); -- TRUE
 

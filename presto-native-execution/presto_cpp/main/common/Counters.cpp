@@ -31,19 +31,6 @@ void registerPrestoMetrics() {
   DEFINE_METRIC(kCounterNumHTTPRequestError, facebook::velox::StatType::COUNT);
   DEFINE_METRIC(kCounterHTTPRequestLatencyMs, facebook::velox::StatType::AVG);
   DEFINE_METRIC(
-      kCounterHttpClientPrestoExchangeNumOnBody,
-      facebook::velox::StatType::COUNT);
-  DEFINE_HISTOGRAM_METRIC(
-      kCounterHttpClientPrestoExchangeOnBodyBytes,
-      1000,
-      0,
-      1000000,
-      50,
-      90,
-      95,
-      99,
-      100);
-  DEFINE_METRIC(
       kCounterHttpClientNumConnectionsCreated, facebook::velox::StatType::SUM);
   DEFINE_METRIC(kCounterNumQueryContexts, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterNumTasks, facebook::velox::StatType::AVG);
@@ -110,6 +97,9 @@ void registerPrestoMetrics() {
       95,
       99,
       100);
+  DEFINE_METRIC(kCounterMemoryPushbackCount, facebook::velox::StatType::COUNT);
+  DEFINE_HISTOGRAM_METRIC(
+      kCounterMemoryPushbackLatencyMs, 10'000, 0, 100'000, 50, 90, 99, 100);
 
   // NOTE: Metrics type exporting for file handle cache counters are in
   // PeriodicTaskManager because they have dynamic names. The following counters

@@ -14,16 +14,21 @@
 package com.facebook.presto.event;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.ConfigDescription;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
+import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
 
 import javax.validation.constraints.NotNull;
 
+import static java.util.concurrent.TimeUnit.MINUTES;
+
 public class QueryMonitorConfig
 {
     private DataSize maxOutputStageJsonSize = new DataSize(16, Unit.MEGABYTE);
+    private Duration queryProgressPublishInterval = new Duration(0, MINUTES);
 
     @MinDataSize("1kB")
     @MaxDataSize("1GB")
@@ -37,6 +42,19 @@ public class QueryMonitorConfig
     public QueryMonitorConfig setMaxOutputStageJsonSize(DataSize maxOutputStageJsonSize)
     {
         this.maxOutputStageJsonSize = maxOutputStageJsonSize;
+        return this;
+    }
+
+    public Duration getQueryProgressPublishInterval()
+    {
+        return queryProgressPublishInterval;
+    }
+
+    @Config("event.query-progress-publish-interval")
+    @ConfigDescription("How frequently to publish query progress events. 0 duration disables the publication of these events.")
+    public QueryMonitorConfig setQueryProgressPublishInterval(Duration queryProgressPublishInterval)
+    {
+        this.queryProgressPublishInterval = queryProgressPublishInterval;
         return this;
     }
 }

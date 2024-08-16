@@ -30,11 +30,12 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.stream.Collectors;
+
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class ContainerQueryRunnerUtils
 {
@@ -131,6 +132,7 @@ public class ContainerQueryRunnerUtils
         properties.setProperty("node.environment", "testing");
         properties.setProperty("node.location", "testing-location");
         properties.setProperty("node.id", nodeId);
+        properties.setProperty("node.internal-address", nodeId);
         createPropertiesFile("testcontainers/" + nodeId + "/etc/node.properties", properties);
     }
 
@@ -225,19 +227,18 @@ public class ContainerQueryRunnerUtils
     public static MaterializedResult toMaterializedResult(String csvData)
             throws IOException
     {
-        List<Type> columnTypes = new ArrayList<>();
-
-        // Parse CSV data using OpenCSV
-        ImmutableList<List<String>> allRows = getLists(csvData);
+        List<List<String>> allRows = parseCsvData(csvData);
 
         // Infer column types based on the maximum columns found
-        int maxColumns = allRows.stream().mapToInt(List::size).max().orElse(0);
+        int maxColumns = allRows.stream().mapToInt(row -> row.size()).max().orElse(0);
+        ImmutableList.Builder<Type> columnTypesBuilder = ImmutableList.builder();
         for (int i = 0; i < maxColumns; i++) {
             final int columnIndex = i;
-            columnTypes.add(inferType(allRows.stream()
+            columnTypesBuilder.add(inferType(allRows.stream()
                     .map(row -> columnIndex < row.size() ? row.get(columnIndex) : "")
                     .collect(Collectors.toList())));
         }
+        List<Type> columnTypes = columnTypesBuilder.build();
 
         // Convert all rows to MaterializedRow
         ImmutableList.Builder<MaterializedRow> rowsBuilder = ImmutableList.builder();
@@ -248,26 +249,17 @@ public class ContainerQueryRunnerUtils
             }
             rowsBuilder.add(new MaterializedRow(5, valuesBuilder.build()));
         }
-
-        ImmutableList<MaterializedRow> materializedRows = rowsBuilder.build();
+        List<MaterializedRow> rows = rowsBuilder.build();
 
         // Create and return the MaterializedResult
-        return new MaterializedResult(materializedRows, columnTypes);
+        return new MaterializedResult(rows, columnTypes);
     }
 
-    private static ImmutableList<List<String>> getLists(String csvData)
+    private static List<List<String>> parseCsvData(String csvData)
             throws IOException
     {
         CSVReader reader = new CSVReader(new StringReader(csvData));
-        List<String[]> records = reader.readAll();
-
-        // Collect all rows as lists of strings
-        ImmutableList.Builder<List<String>> allRowsBuilder = ImmutableList.builder();
-        for (String[] record : records) {
-            allRowsBuilder.add(ImmutableList.copyOf(record));
-        }
-        ImmutableList<List<String>> allRows = allRowsBuilder.build();
-        return allRows;
+        return reader.readAll().stream().map(ImmutableList::copyOf).collect(toImmutableList());
     }
 
     private static Type inferType(List<String> values)
@@ -304,9 +296,6 @@ public class ContainerQueryRunnerUtils
 
     private static Object convertToType(String value, Type type)
     {
-        if (value.isEmpty()) {
-            return null;
-        }
         if (type.equals(VarcharType.VARCHAR)) {
             return value;
         }

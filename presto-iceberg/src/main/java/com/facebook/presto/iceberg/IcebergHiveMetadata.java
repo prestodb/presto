@@ -69,9 +69,7 @@ import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.BaseMetastoreTableOperations;
 import org.apache.iceberg.PartitionSpec;
-import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
-import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
 import org.apache.iceberg.TableOperations;
@@ -124,6 +122,8 @@ import static com.facebook.presto.iceberg.IcebergUtil.toHiveColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.tryGetProperties;
 import static com.facebook.presto.iceberg.IcebergUtil.verifyTypeSupported;
 import static com.facebook.presto.iceberg.PartitionFields.parsePartitionFields;
+import static com.facebook.presto.iceberg.PartitionSpecConverter.toPrestoPartitionSpec;
+import static com.facebook.presto.iceberg.SchemaConverter.toPrestoSchema;
 import static com.facebook.presto.iceberg.util.StatisticsUtil.calculateAndSetTableSize;
 import static com.facebook.presto.iceberg.util.StatisticsUtil.mergeHiveStatistics;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
@@ -315,8 +315,8 @@ public class IcebergHiveMetadata
         return new IcebergOutputTableHandle(
                 schemaName,
                 new IcebergTableName(tableName, DATA, Optional.empty(), Optional.empty()),
-                SchemaParser.toJson(metadata.schema()),
-                PartitionSpecParser.toJson(metadata.spec()),
+                toPrestoSchema(metadata.schema(), typeManager),
+                toPrestoPartitionSpec(metadata.spec(), typeManager),
                 getColumns(metadata.schema(), metadata.spec(), typeManager),
                 targetPath,
                 fileFormat,

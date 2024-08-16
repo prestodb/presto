@@ -155,7 +155,6 @@ public class TestServerInfoResource
             return client.execute(request, new ThriftResponseHandler<>(thriftCodeManager.getCodec(NodeState.class))).getValue();
         }
         else {
-            requestBuilder = getJsonTransportBuilder(prepareGet());
             return client.execute(request, createJsonResponseHandler(jsonCodec(NodeState.class)));
         }
     }

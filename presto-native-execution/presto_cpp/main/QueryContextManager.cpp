@@ -17,6 +17,7 @@
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Counters.h"
 #include "velox/common/base/StatsReporter.h"
+#include "velox/connectors/hive/HiveConfig.h"
 #include "velox/core/QueryConfig.h"
 #include "velox/type/tz/TimeZoneMap.h"
 
@@ -142,6 +143,25 @@ void updateVeloxConfigs(
         core::QueryConfig::kDriverCpuTimeSliceLimitMs, "1000");
   }
 }
+
+void updateVeloxConnectorConfigs(
+    std::unordered_map<
+        std::string,
+        std::unordered_map<std::string, std::string>>& connectorConfigStrings) {
+  const auto& systemConfig = SystemConfig::instance();
+
+  for (auto& entry : connectorConfigStrings) {
+    auto connectorConfig = entry.second;
+
+    // Do not retain cache if `node_selection_strategy` is explicitly set to
+    // `NO_PREFERENCE`.
+    auto it = connectorConfig.find("node_selection_strategy");
+    if (it != connectorConfig.end() && it->second == "NO_PREFERENCE") {
+      connectorConfig.emplace(
+          connector::hive::HiveConfig::kCacheNoRetentionSession, "true");
+    }
+  }
+}
 } // namespace
 
 QueryContextManager::QueryContextManager(
@@ -172,11 +192,14 @@ std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtx(
   }
 
   updateVeloxConfigs(configStrings);
+  updateVeloxConnectorConfigs(connectorConfigStrings);
 
-  std::unordered_map<std::string, std::shared_ptr<Config>> connectorConfigs;
+  std::unordered_map<std::string, std::shared_ptr<config::ConfigBase>>
+      connectorConfigs;
   for (auto& entry : connectorConfigStrings) {
     connectorConfigs.insert(
-        {entry.first, std::make_shared<core::MemConfig>(entry.second)});
+        {entry.first,
+         std::make_shared<config::ConfigBase>(std::move(entry.second))});
   }
 
   velox::core::QueryConfig queryConfig{std::move(configStrings)};

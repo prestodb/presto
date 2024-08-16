@@ -344,6 +344,7 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTask(
           VeloxInteractiveQueryPlanConverter converter(queryCtx.get(), pool_);
           planFragment = converter.toVeloxQueryPlan(
               prestoPlan, updateRequest.tableWriteInfo, taskId);
+          planValidator_->validatePlanFragment(planFragment);
         }
 
         return taskManager_.createOrUpdateTask(

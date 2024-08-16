@@ -153,12 +153,12 @@ class Cursor {
           const_cast<uint8_t*>(range.data()), (int32_t)range.size(), 0});
     }
 
-    ByteInputStream input(std::move(byteRanges));
+    auto input = std::make_unique<BufferInputStream>(std::move(byteRanges));
 
     std::vector<RowVectorPtr> vectors;
-    while (!input.atEnd()) {
+    while (!input->atEnd()) {
       RowVectorPtr vector;
-      VectorStreamGroup::read(&input, pool_, rowType_, &vector);
+      VectorStreamGroup::read(input.get(), pool_, rowType_, &vector);
       vectors.emplace_back(vector);
     }
     return vectors;
@@ -234,7 +234,9 @@ class TaskManagerTest : public testing::Test {
         connector::getConnectorFactory(
             connector::hive::HiveConnectorFactory::kHiveConnectorName)
             ->newConnector(
-                kHiveConnectorId, std::make_shared<core::MemConfig>());
+                kHiveConnectorId,
+                std::make_shared<config::ConfigBase>(
+                    std::unordered_map<std::string, std::string>()));
     connector::registerConnector(hiveConnector);
 
     rootPool_ = memory::memoryManager()->addRootPool("TaskManagerTest.root");
@@ -244,8 +246,14 @@ class TaskManagerTest : public testing::Test {
 
     taskManager_ = std::make_unique<TaskManager>(
         driverExecutor_.get(), httpSrvCpuExecutor_.get(), nullptr);
+
+    auto validator =
+        std::make_shared<facebook::presto::PrestoToVeloxPlanValidator>();
     taskResource_ = std::make_unique<TaskResource>(
-        *taskManager_.get(), leafPool_.get(), httpSrvCpuExecutor_.get());
+        leafPool_.get(),
+        httpSrvCpuExecutor_.get(),
+        validator.get(),
+        *taskManager_.get());
 
     auto httpServer = std::make_unique<http::HttpServer>(
         httpSrvIOExecutor_,

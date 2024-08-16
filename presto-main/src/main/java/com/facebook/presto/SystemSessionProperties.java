@@ -89,6 +89,7 @@ public final class SystemSessionProperties
     public static final String OPTIMIZE_HASH_GENERATION = "optimize_hash_generation";
     public static final String JOIN_DISTRIBUTION_TYPE = "join_distribution_type";
     public static final String JOIN_MAX_BROADCAST_TABLE_SIZE = "join_max_broadcast_table_size";
+    public static final String RETRY_QUERY_WITH_HISTORY_BASED_OPTIMIZATION = "retry_query_with_history_based_optimization";
     public static final String SIZE_BASED_JOIN_DISTRIBUTION_TYPE = "size_based_join_distribution_type";
     public static final String DISTRIBUTED_JOIN = "distributed_join";
     public static final String DISTRIBUTED_INDEX_JOIN = "distributed_index_join";
@@ -277,6 +278,7 @@ public final class SystemSessionProperties
     public static final String HISTORY_BASED_OPTIMIZATION_PLAN_CANONICALIZATION_STRATEGY = "history_based_optimization_plan_canonicalization_strategy";
     public static final String ENABLE_VERBOSE_HISTORY_BASED_OPTIMIZER_RUNTIME_STATS = "enable_verbose_history_based_optimizer_runtime_stats";
     public static final String LOG_QUERY_PLANS_USED_IN_HISTORY_BASED_OPTIMIZER = "log_query_plans_used_in_history_based_optimizer";
+    public static final String ENFORCE_HISTORY_BASED_OPTIMIZER_REGISTRATION_TIMEOUT = "enforce_history_based_optimizer_register_timeout";
     public static final String MAX_LEAF_NODES_IN_PLAN = "max_leaf_nodes_in_plan";
     public static final String LEAF_NODE_LIMIT_ENABLED = "leaf_node_limit_enabled";
     public static final String PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID = "push_remote_exchange_through_group_id";
@@ -431,6 +433,10 @@ public final class SystemSessionProperties
                         CONFIDENCE_BASED_BROADCAST_ENABLED,
                         "Enable confidence based broadcasting when enabled",
                         featuresConfig.isConfidenceBasedBroadcastEnabled(),
+                        false),
+                booleanProperty(RETRY_QUERY_WITH_HISTORY_BASED_OPTIMIZATION,
+                        "Automatically retry a query if it fails and HBO can change the query plan",
+                        featuresConfig.isRetryQueryWithHistoryBasedOptimizationEnabled(),
                         false),
                 booleanProperty(
                         TREAT_LOW_CONFIDENCE_ZERO_ESTIMATION_AS_UNKNOWN_ENABLED,
@@ -1589,6 +1595,11 @@ public final class SystemSessionProperties
                         "Enable logging of query plans generated and used in history based optimizer",
                         featuresConfig.isLogPlansUsedInHistoryBasedOptimizer(),
                         false),
+                booleanProperty(
+                        ENFORCE_HISTORY_BASED_OPTIMIZER_REGISTRATION_TIMEOUT,
+                        "Enforce timeout for query registration in HBO optimizer",
+                        featuresConfig.isEnforceTimeoutForHBOQueryRegistration(),
+                        false),
                 new PropertyMetadata<>(
                         MAX_LEAF_NODES_IN_PLAN,
                         "Maximum number of leaf nodes in the logical plan of SQL statement",
@@ -2055,6 +2066,11 @@ public final class SystemSessionProperties
     public static boolean treatLowConfidenceZeroEstimationAsUnknownEnabled(Session session)
     {
         return session.getSystemProperty(TREAT_LOW_CONFIDENCE_ZERO_ESTIMATION_AS_UNKNOWN_ENABLED, Boolean.class);
+    }
+
+    public static boolean retryQueryWithHistoryBasedOptimizationEnabled(Session session)
+    {
+        return session.getSystemProperty(RETRY_QUERY_WITH_HISTORY_BASED_OPTIMIZATION, Boolean.class);
     }
 
     public static int getHashPartitionCount(Session session)
@@ -3062,6 +3078,11 @@ public final class SystemSessionProperties
     public static boolean logQueryPlansUsedInHistoryBasedOptimizer(Session session)
     {
         return session.getSystemProperty(LOG_QUERY_PLANS_USED_IN_HISTORY_BASED_OPTIMIZER, Boolean.class);
+    }
+
+    public static boolean enforceHistoryBasedOptimizerRegistrationTimeout(Session session)
+    {
+        return session.getSystemProperty(ENFORCE_HISTORY_BASED_OPTIMIZER_REGISTRATION_TIMEOUT, Boolean.class);
     }
 
     public static boolean shouldPushRemoteExchangeThroughGroupId(Session session)
