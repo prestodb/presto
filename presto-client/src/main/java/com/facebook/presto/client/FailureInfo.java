@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.client;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -24,9 +27,12 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.facebook.drift.annotations.ThriftField.Recursiveness.TRUE;
+import static com.facebook.drift.annotations.ThriftField.Requiredness.OPTIONAL;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
+@ThriftStruct
 public class FailureInfo
 {
     private static final Pattern STACK_TRACE_PATTERN = Pattern.compile("(.*)\\.(.*)\\(([^:]*)(?::(.*))?\\)");
@@ -39,6 +45,7 @@ public class FailureInfo
     private final ErrorLocation errorLocation;
 
     @JsonCreator
+    @ThriftConstructor
     public FailureInfo(
             @JsonProperty("type") String type,
             @JsonProperty("message") String message,
@@ -60,6 +67,7 @@ public class FailureInfo
     }
 
     @JsonProperty
+    @ThriftField(1)
     public String getType()
     {
         return type;
@@ -67,6 +75,7 @@ public class FailureInfo
 
     @Nullable
     @JsonProperty
+    @ThriftField(2)
     public String getMessage()
     {
         return message;
@@ -74,18 +83,21 @@ public class FailureInfo
 
     @Nullable
     @JsonProperty
+    @ThriftField(value = 3, isRecursive = TRUE, requiredness = OPTIONAL)
     public FailureInfo getCause()
     {
         return cause;
     }
 
     @JsonProperty
+    @ThriftField(4)
     public List<FailureInfo> getSuppressed()
     {
         return suppressed;
     }
 
     @JsonProperty
+    @ThriftField(5)
     public List<String> getStack()
     {
         return stack;
@@ -93,6 +105,7 @@ public class FailureInfo
 
     @Nullable
     @JsonProperty
+    @ThriftField(6)
     public ErrorLocation getErrorLocation()
     {
         return errorLocation;

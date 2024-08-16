@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.client;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.spi.PrestoWarning;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -32,6 +35,7 @@ import static com.google.common.collect.Iterables.unmodifiableIterable;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
+@ThriftStruct
 public class QueryResults
         implements QueryStatusInfo, QueryData
 {
@@ -49,6 +53,7 @@ public class QueryResults
     private final Long updateCount;
 
     @JsonCreator
+    @ThriftConstructor
     public QueryResults(
             @JsonProperty("id") String id,
             @JsonProperty("infoUri") URI infoUri,
@@ -111,6 +116,7 @@ public class QueryResults
      * Returns identifier of query that produces this result set
      */
     @JsonProperty
+    @ThriftField(1)
     @Override
     public String getId()
     {
@@ -122,6 +128,7 @@ public class QueryResults
      * @return {@link java.net.URI}
      */
     @JsonProperty
+    @ThriftField(2)
     @Override
     public URI getInfoUri()
     {
@@ -134,6 +141,7 @@ public class QueryResults
      */
     @Nullable
     @JsonProperty
+    @ThriftField(3)
     @Override
     public URI getPartialCancelUri()
     {
@@ -146,6 +154,7 @@ public class QueryResults
      */
     @Nullable
     @JsonProperty
+    @ThriftField(4)
     @Override
     public URI getNextUri()
     {
@@ -157,6 +166,7 @@ public class QueryResults
      */
     @Nullable
     @JsonProperty
+    @ThriftField(5)
     @Override
     public List<Column> getColumns()
     {
@@ -168,6 +178,7 @@ public class QueryResults
      */
     @Nullable
     @JsonProperty
+    @ThriftField(6)
     @Override
     public Iterable<List<Object>> getData()
     {
@@ -189,6 +200,7 @@ public class QueryResults
      * @return {@link com.facebook.presto.client.StatementStats}
      */
     @JsonProperty
+    @ThriftField(7)
     @Override
     public StatementStats getStats()
     {
@@ -202,6 +214,7 @@ public class QueryResults
      */
     @Nullable
     @JsonProperty
+    @ThriftField(8)
     @Override
     public QueryError getError()
     {
@@ -213,6 +226,7 @@ public class QueryResults
      * @return {@link com.facebook.presto.spi.PrestoWarning}
      */
     @JsonProperty
+    @ThriftField(9)
     @Override
     public List<PrestoWarning> getWarnings()
     {
@@ -225,6 +239,7 @@ public class QueryResults
      */
     @Nullable
     @JsonProperty
+    @ThriftField(10)
     @Override
     public String getUpdateType()
     {
@@ -236,6 +251,7 @@ public class QueryResults
      */
     @Nullable
     @JsonProperty
+    @ThriftField(11)
     @Override
     public Long getUpdateCount()
     {
