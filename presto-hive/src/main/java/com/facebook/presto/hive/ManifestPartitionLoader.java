@@ -67,7 +67,7 @@ public class ManifestPartitionLoader
     private static final String[] BLOCK_LOCATION_HOSTS = {"localhost"};
 
     private final Table table;
-    Map<Integer, Domain> infoColumnConstraints;
+    private final Map<Integer, Domain> infoColumnConstraints;
     private final ConnectorSession session;
     private final HdfsEnvironment hdfsEnvironment;
     private final HdfsContext hdfsContext;
@@ -87,7 +87,7 @@ public class ManifestPartitionLoader
             boolean schedulerUsesHostAddresses)
     {
         this.table = requireNonNull(table, "table is null");
-        this.infoColumnConstraints = requireNonNull(infoColumnConstraints, "pathDomain is null");
+        this.infoColumnConstraints = requireNonNull(infoColumnConstraints, "infoColumnConstraints is null");
         this.session = requireNonNull(session, "session is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.hdfsContext = new HdfsContext(session, table.getDatabaseName(), table.getTableName(), table.getStorage().getLocation(), false);
