@@ -27,6 +27,8 @@ import org.apache.http.entity.ContentType;
 import org.apache.http.nio.entity.NStringEntity;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.support.WriteRequest;
+import org.elasticsearch.client.Request;
+import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.intellij.lang.annotations.Language;
@@ -39,6 +41,7 @@ import java.util.Map;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.elasticsearch.ElasticsearchClientUtil.buildRequest;
 import static com.facebook.presto.elasticsearch.ElasticsearchQueryRunner.createElasticsearchQueryRunner;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
@@ -50,7 +53,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestElasticsearchIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    private final String elasticsearchServer = "docker.elastic.co/elasticsearch/elasticsearch-oss:6.0.0";
+    private final String elasticsearchServer = "docker.elastic.co/elasticsearch/elasticsearch:7.13.4";
     private ElasticsearchServer elasticsearch;
     private RestHighLevelClient client;
 
@@ -163,80 +166,78 @@ public class TestElasticsearchIntegrationSmokeTest
         String mapping = "" +
                 "{" +
                 "  \"mappings\": {" +
-                "    \"doc\": {" +
-                "      \"_meta\": {" +
-                "        \"presto\": {" +
-                "          \"a\": {" +
-                "            \"b\": {" +
-                "              \"y\": {" +
-                "                \"isArray\": true" +
-                "              }" +
-                "            }" +
-                "          }," +
-                "          \"c\": {" +
-                "            \"f\": {" +
-                "              \"g\": {" +
-                "                \"isArray\": true" +
-                "              }," +
-                "              \"isArray\": true" +
-                "            }" +
-                "          }," +
-                "          \"j\": {" +
-                "            \"isArray\": true" +
-                "          }," +
-                "          \"k\": {" +
-                "            \"isArray\": true" +
-                "          }" +
-                "        }" +
-                "      }," +
-                "      \"properties\":{" +
+                "    \"_meta\": {" +
+                "      \"presto\": {" +
                 "        \"a\": {" +
-                "          \"type\": \"object\"," +
-                "          \"properties\": {" +
-                "            \"b\": {" +
-                "              \"type\": \"object\"," +
-                "              \"properties\": {" +
-                "                \"x\": {" +
-                "                  \"type\": \"integer\"" +
-                "                }," +
-                "                \"y\": {" +
-                "                  \"type\": \"keyword\"" +
-                "                }" +
-                "              } " +
+                "          \"b\": {" +
+                "            \"y\": {" +
+                "              \"isArray\": true" +
                 "            }" +
                 "          }" +
                 "        }," +
                 "        \"c\": {" +
-                "          \"type\": \"object\"," +
-                "          \"properties\": {" +
-                "            \"d\": {" +
-                "              \"type\": \"keyword\"" +
+                "          \"f\": {" +
+                "            \"g\": {" +
+                "              \"isArray\": true" +
                 "            }," +
-                "            \"e\": {" +
-                "              \"type\": \"keyword\"" +
-                "            }," +
-                "            \"f\": {" +
-                "              \"type\": \"object\"," +
-                "              \"properties\": {" +
-                "                \"g\": {" +
-                "                  \"type\": \"integer\"" +
-                "                }," +
-                "                \"h\": {" +
-                "                  \"type\": \"integer\"" +
-                "                }" +
-                "              } " +
-                "            }" +
+                "            \"isArray\": true" +
                 "          }" +
                 "        }," +
-                "        \"i\": {" +
-                "          \"type\": \"long\"" +
-                "        }," +
                 "        \"j\": {" +
-                "          \"type\": \"long\"" +
+                "          \"isArray\": true" +
                 "        }," +
                 "        \"k\": {" +
-                "          \"type\": \"long\"" +
+                "          \"isArray\": true" +
                 "        }" +
+                "      }" +
+                "    }," +
+                "    \"properties\":{" +
+                "      \"a\": {" +
+                "        \"type\": \"object\"," +
+                "        \"properties\": {" +
+                "          \"b\": {" +
+                "            \"type\": \"object\"," +
+                "            \"properties\": {" +
+                "              \"x\": {" +
+                "                \"type\": \"integer\"" +
+                "              }," +
+                "              \"y\": {" +
+                "                \"type\": \"keyword\"" +
+                "              }" +
+                "            } " +
+                "          }" +
+                "        }" +
+                "      }," +
+                "      \"c\": {" +
+                "        \"type\": \"object\"," +
+                "        \"properties\": {" +
+                "          \"d\": {" +
+                "            \"type\": \"keyword\"" +
+                "          }," +
+                "          \"e\": {" +
+                "            \"type\": \"keyword\"" +
+                "          }," +
+                "          \"f\": {" +
+                "            \"type\": \"object\"," +
+                "            \"properties\": {" +
+                "              \"g\": {" +
+                "                \"type\": \"integer\"" +
+                "              }," +
+                "              \"h\": {" +
+                "                \"type\": \"integer\"" +
+                "              }" +
+                "            } " +
+                "          }" +
+                "        }" +
+                "      }," +
+                "      \"i\": {" +
+                "        \"type\": \"long\"" +
+                "      }," +
+                "      \"j\": {" +
+                "        \"type\": \"long\"" +
+                "      }," +
+                "      \"k\": {" +
+                "        \"type\": \"long\"" +
                 "      }" +
                 "    }" +
                 "  }" +
@@ -357,20 +358,18 @@ public class TestElasticsearchIntegrationSmokeTest
         String mapping = "" +
                 "{" +
                 "  \"mappings\": {" +
-                "    \"doc\": {" +
-                "      \"properties\": {" +
-                "        \"boolean_column\":   { \"type\": \"boolean\" }," +
-                "        \"float_column\":     { \"type\": \"float\" }," +
-                "        \"double_column\":    { \"type\": \"double\" }," +
-                "        \"integer_column\":   { \"type\": \"integer\" }," +
-                "        \"long_column\":      { \"type\": \"long\" }," +
-                "        \"keyword_column\":   { \"type\": \"keyword\" }," +
-                "        \"text_column\":      { \"type\": \"text\" }," +
-                "        \"binary_column\":    { \"type\": \"binary\" }," +
-                "        \"timestamp_column\": { \"type\": \"date\" }" +
-                "      }" +
-                "    }" +
-                "  }" +
+                "    \"properties\": {" +
+                "      \"boolean_column\":   { \"type\": \"boolean\" }," +
+                "      \"float_column\":     { \"type\": \"float\" }," +
+                "      \"double_column\":    { \"type\": \"double\" }," +
+                "      \"integer_column\":   { \"type\": \"integer\" }," +
+                "      \"long_column\":      { \"type\": \"long\" }," +
+                "      \"keyword_column\":   { \"type\": \"keyword\" }," +
+                "      \"text_column\":      { \"type\": \"text\" }," +
+                "      \"binary_column\":    { \"type\": \"binary\" }," +
+                "      \"timestamp_column\": { \"type\": \"date\" }" +
+                "     }" +
+                "   }" +
                 "}";
 
         createIndex(indexName, mapping);
@@ -421,18 +420,16 @@ public class TestElasticsearchIntegrationSmokeTest
         String mapping = "" +
                 "{" +
                 "  \"mappings\": {" +
-                "    \"doc\": {" +
-                "      \"properties\": {" +
-                "        \"boolean_column\":   { \"type\": \"boolean\" }," +
-                "        \"float_column\":     { \"type\": \"float\" }," +
-                "        \"double_column\":    { \"type\": \"double\" }," +
-                "        \"integer_column\":   { \"type\": \"integer\" }," +
-                "        \"long_column\":      { \"type\": \"long\" }," +
-                "        \"keyword_column\":   { \"type\": \"keyword\" }," +
-                "        \"text_column\":      { \"type\": \"text\" }," +
-                "        \"binary_column\":    { \"type\": \"binary\" }," +
-                "        \"timestamp_column\": { \"type\": \"date\" }" +
-                "      }" +
+                "    \"properties\": {" +
+                "      \"boolean_column\":   { \"type\": \"boolean\" }," +
+                "      \"float_column\":     { \"type\": \"float\" }," +
+                "      \"double_column\":    { \"type\": \"double\" }," +
+                "      \"integer_column\":   { \"type\": \"integer\" }," +
+                "      \"long_column\":      { \"type\": \"long\" }," +
+                "      \"keyword_column\":   { \"type\": \"keyword\" }," +
+                "      \"text_column\":      { \"type\": \"text\" }," +
+                "      \"binary_column\":    { \"type\": \"binary\" }," +
+                "      \"timestamp_column\": { \"type\": \"date\" }" +
                 "    }" +
                 "  }" +
                 "}";
@@ -534,20 +531,18 @@ public class TestElasticsearchIntegrationSmokeTest
         String mapping = "" +
                 "{" +
                 "  \"mappings\": {" +
-                "    \"doc\": {" +
-                "      \"properties\": {" +
-                "        \"field\": {" +
-                "          \"properties\": {" +
-                "            \"boolean_column\":   { \"type\": \"boolean\" }," +
-                "            \"float_column\":     { \"type\": \"float\" }," +
-                "            \"double_column\":    { \"type\": \"double\" }," +
-                "            \"integer_column\":   { \"type\": \"integer\" }," +
-                "            \"long_column\":      { \"type\": \"long\" }," +
-                "            \"keyword_column\":   { \"type\": \"keyword\" }," +
-                "            \"text_column\":      { \"type\": \"text\" }," +
-                "            \"binary_column\":    { \"type\": \"binary\" }," +
-                "            \"timestamp_column\": { \"type\": \"date\" }" +
-                "          }" +
+                "    \"properties\": {" +
+                "      \"field\": {" +
+                "        \"properties\": {" +
+                "          \"boolean_column\":   { \"type\": \"boolean\" }," +
+                "          \"float_column\":     { \"type\": \"float\" }," +
+                "          \"double_column\":    { \"type\": \"double\" }," +
+                "          \"integer_column\":   { \"type\": \"integer\" }," +
+                "          \"long_column\":      { \"type\": \"long\" }," +
+                "          \"keyword_column\":   { \"type\": \"keyword\" }," +
+                "          \"text_column\":      { \"type\": \"text\" }," +
+                "          \"binary_column\":    { \"type\": \"binary\" }," +
+                "          \"timestamp_column\": { \"type\": \"date\" }" +
                 "        }" +
                 "      }" +
                 "    }" +
@@ -604,23 +599,21 @@ public class TestElasticsearchIntegrationSmokeTest
         String mapping = "" +
                 "{" +
                 "  \"mappings\": {" +
-                "    \"doc\": {" +
-                "      \"properties\": {" +
-                "        \"nested_field\": {" +
-                "          \"type\":\"nested\"," +
-                "          \"properties\": {" +
-                "            \"boolean_column\":   { \"type\": \"boolean\" }," +
-                "            \"float_column\":     { \"type\": \"float\" }," +
-                "            \"double_column\":    { \"type\": \"double\" }," +
-                "            \"integer_column\":   { \"type\": \"integer\" }," +
-                "            \"long_column\":      { \"type\": \"long\" }," +
-                "            \"keyword_column\":   { \"type\": \"keyword\" }," +
-                "            \"text_column\":      { \"type\": \"text\" }," +
-                "            \"binary_column\":    { \"type\": \"binary\" }," +
-                "            \"timestamp_column\": { \"type\": \"date\" }," +
-                "            \"ipv4_column\":      { \"type\": \"ip\" }," +
-                "            \"ipv6_column\":      { \"type\": \"ip\" }" +
-                "          }" +
+                "    \"properties\": {" +
+                "      \"nested_field\": {" +
+                "        \"type\":\"nested\"," +
+                "        \"properties\": {" +
+                "          \"boolean_column\":   { \"type\": \"boolean\" }," +
+                "          \"float_column\":     { \"type\": \"float\" }," +
+                "          \"double_column\":    { \"type\": \"double\" }," +
+                "          \"integer_column\":   { \"type\": \"integer\" }," +
+                "          \"long_column\":      { \"type\": \"long\" }," +
+                "          \"keyword_column\":   { \"type\": \"keyword\" }," +
+                "          \"text_column\":      { \"type\": \"text\" }," +
+                "          \"binary_column\":    { \"type\": \"binary\" }," +
+                "          \"timestamp_column\": { \"type\": \"date\" }," +
+                "          \"ipv4_column\":      { \"type\": \"ip\" }," +
+                "          \"ipv6_column\":      { \"type\": \"ip\" }" +
                 "        }" +
                 "      }" +
                 "    }" +
@@ -752,9 +745,9 @@ public class TestElasticsearchIntegrationSmokeTest
     private void index(String index, Map<String, Object> document)
             throws IOException
     {
-        client.index(new IndexRequest(index, "doc")
+        client.index(new IndexRequest(index)
                 .source(document)
-                .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE));
+                .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE), RequestOptions.DEFAULT);
     }
 
     @Test
@@ -789,20 +782,21 @@ public class TestElasticsearchIntegrationSmokeTest
             throws IOException
     {
         client.getLowLevelClient()
-                .performRequest("PUT", format("/%s/_alias/%s", index, alias));
+                .performRequest(new Request("PUT", format("/%s/_alias/%s", index, alias)));
     }
 
     private void removeAlias(String index, String alias)
             throws IOException
     {
         client.getLowLevelClient()
-                .performRequest("DELETE", format("/%s/_alias/%s", index, alias));
+                .performRequest(new Request("DELETE", format("/%s/_alias/%s", index, alias)));
     }
 
     private void createIndex(String indexName, @Language("JSON") String mapping)
             throws IOException
     {
         client.getLowLevelClient()
-                .performRequest("PUT", "/" + indexName, ImmutableMap.of(), new NStringEntity(mapping, ContentType.APPLICATION_JSON));
+                .performRequest(buildRequest("PUT", "/" + indexName, ImmutableMap.of(),
+                        new NStringEntity(mapping, ContentType.APPLICATION_JSON), ImmutableList.of()));
     }
 }
