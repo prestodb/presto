@@ -620,8 +620,9 @@ struct WriterOptions {
 
   // WriterOption implementations should provide this function to specify how to
   // process format-specific session and connector configs.
-  virtual void processSessionConfigs(const config::ConfigBase&) {}
-  virtual void processHiveConnectorConfigs(const config::ConfigBase&) {}
+  virtual void processConfigs(
+      const config::ConfigBase& connectorConfig,
+      const config::ConfigBase& session) {};
 
   virtual ~WriterOptions() = default;
 };

@@ -51,6 +51,10 @@ struct WriterOptions : public dwio::common::WriterOptions {
       WriterContext& context,
       const velox::dwio::common::TypeWithId& type)>
       columnWriterFactory;
+
+  void processConfigs(
+      const config::ConfigBase& connectorConfig,
+      const config::ConfigBase& session) override;
 };
 
 class Writer : public dwio::common::Writer {

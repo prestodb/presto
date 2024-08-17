@@ -17,6 +17,7 @@
 #include "velox/exec/fuzzer/PrestoQueryRunner.h"
 #include <cpr/cpr.h> // @manual
 #include <folly/json.h>
+#include <velox/dwio/dwrf/writer/Writer.h>
 #include <iostream>
 #include "velox/common/base/Fs.h"
 #include "velox/common/encode/Base64.h"
@@ -44,7 +45,8 @@ void writeToFile(
     memory::MemoryPool* pool) {
   VELOX_CHECK_GT(data.size(), 0);
 
-  auto options = std::make_shared<dwio::common::WriterOptions>();
+  std::shared_ptr<dwio::common::WriterOptions> options =
+      std::make_shared<dwrf::WriterOptions>();
   options->schema = data[0]->type();
   options->memoryPool = pool;
 

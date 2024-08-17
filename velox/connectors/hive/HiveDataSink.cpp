@@ -693,8 +693,7 @@ uint32_t HiveDataSink::appendWriter(const HiveWriterId& id) {
   //    through insertTableHandle)
   // 2. Otherwise, acquire user defined session properties.
   // 3. Lastly, acquire general hive connector configs.
-  options->processSessionConfigs(*connectorSessionProperties);
-  options->processHiveConnectorConfigs(*hiveConfig_->config());
+  options->processConfigs(*hiveConfig_->config(), *connectorSessionProperties);
 
   // Only overwrite options in case they were not already provided.
   if (options->schema == nullptr) {

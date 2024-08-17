@@ -32,6 +32,11 @@
 using facebook::velox::common::testutil::TestValue;
 
 namespace facebook::velox::dwrf {
+
+void WriterOptions::processConfigs(
+    const config::ConfigBase& connectorConfig,
+    const config::ConfigBase& session) {};
+
 namespace {
 
 dwio::common::StripeProgress getStripeProgress(const WriterContext& context) {

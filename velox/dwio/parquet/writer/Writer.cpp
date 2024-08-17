@@ -435,28 +435,22 @@ std::optional<std::string> getTimestampTimeZone(
 
 } // namespace
 
-void WriterOptions::processSessionConfigs(const config::ConfigBase& config) {
+void WriterOptions::processConfigs(
+    const config::ConfigBase& connectorConfig,
+    const config::ConfigBase& session) {
   if (!parquetWriteTimestampUnit) {
     parquetWriteTimestampUnit =
-        getTimestampUnit(config, kParquetSessionWriteTimestampUnit);
+        getTimestampUnit(session, kParquetSessionWriteTimestampUnit).has_value()
+        ? getTimestampUnit(session, kParquetSessionWriteTimestampUnit)
+        : getTimestampUnit(connectorConfig, kParquetSessionWriteTimestampUnit);
   }
-
   if (!parquetWriteTimestampTimeZone) {
     parquetWriteTimestampTimeZone =
-        getTimestampTimeZone(config, core::QueryConfig::kSessionTimezone);
-  }
-}
-
-void WriterOptions::processHiveConnectorConfigs(
-    const config::ConfigBase& config) {
-  if (!parquetWriteTimestampUnit) {
-    parquetWriteTimestampUnit =
-        getTimestampUnit(config, kParquetHiveConnectorWriteTimestampUnit);
-  }
-
-  if (!parquetWriteTimestampTimeZone) {
-    parquetWriteTimestampTimeZone =
-        getTimestampTimeZone(config, core::QueryConfig::kSessionTimezone);
+        getTimestampTimeZone(session, core::QueryConfig::kSessionTimezone)
+            .has_value()
+        ? getTimestampTimeZone(session, core::QueryConfig::kSessionTimezone)
+        : getTimestampTimeZone(
+              connectorConfig, core::QueryConfig::kSessionTimezone);
   }
 }
 

@@ -123,8 +123,9 @@ struct WriterOptions : public dwio::common::WriterOptions {
       "hive.parquet.writer.timestamp-unit";
 
   // Process hive connector and session configs.
-  void processSessionConfigs(const config::ConfigBase& config) override;
-  void processHiveConnectorConfigs(const config::ConfigBase& config) override;
+  void processConfigs(
+      const config::ConfigBase& connectorConfig,
+      const config::ConfigBase& session) override;
 };
 
 // Writes Velox vectors into  a DataSink using Arrow Parquet writer.
