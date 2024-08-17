@@ -100,7 +100,7 @@ public class StoragePartitionLoader
     private static final ListenableFuture<?> COMPLETED_FUTURE = immediateFuture(null);
 
     private final Table table;
-    Map<Integer, Domain> infoColumnConstraints;
+    private final Map<Integer, Domain> infoColumnConstraints;
     private final Optional<BucketSplitInfo> tableBucketInfo;
     private final HdfsEnvironment hdfsEnvironment;
     private final HdfsContext hdfsContext;

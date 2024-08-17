@@ -248,15 +248,6 @@ public class InternalHiveSplitFactory
                 .collect(toImmutableList());
     }
 
-    private static boolean pathMatchesPredicate(Optional<Domain> pathDomain, String path)
-    {
-        if (!pathDomain.isPresent()) {
-            return true;
-        }
-
-        return pathDomain.get().includesNullableValue(utf8Slice(path));
-    }
-
     private static boolean infoColumnsMatchPredicates(Map<Integer, Domain> constraints,
                                                       String path,
                                                       long fileSize,
