@@ -118,11 +118,27 @@ public final class SqlFunctionUtils
     public static RowExpression sqlFunctionToRowExpression(String functionBody,
             Set<VariableReferenceExpression> variables,
             FunctionAndTypeManager functionAndTypeManager,
-            Session session)
+            Session session,
+            Map<String, String> columnNameToInputVariableNameMap)
     {
         Expression expression = parseSqlFunctionExpression(
                 new SqlInvokedScalarFunctionImplementation(functionBody),
                 session.getSqlFunctionProperties());
+
+        // Translate the parameter name in functionBody to input variable name
+        expression = ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Map<String, String>>()
+        {
+            @Override
+            public Expression rewriteIdentifier(Identifier node, Map<String, String> context, ExpressionTreeRewriter<Map<String, String>> treeRewriter)
+            {
+                String name = node.getValueLowerCase();
+                if (context.containsKey(name)) {
+                    return new Identifier(context.get(name));
+                }
+                return node;
+            }
+        }, expression, columnNameToInputVariableNameMap);
+
         return SqlToRowExpressionTranslator.translate(
                 expression,
                 analyzeSqlFunctionExpression(

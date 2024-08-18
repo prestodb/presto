@@ -769,9 +769,9 @@ public abstract class IcebergDistributedTestBase
     @Test
     public void testReadWriteStats()
     {
-        assertUpdate("CREATE TABLE test_stats (col0 int, col1 varchar)");
+        assertUpdate("CREATE TABLE test_stats (col0 int, col_1 varchar)");
         assertTrue(getQueryRunner().tableExists(getSession(), "test_stats"));
-        assertTableColumnNames("test_stats", "col0", "col1");
+        assertTableColumnNames("test_stats", "col0", "col_1");
 
         // test that stats don't exist before analyze
         Function<Map<ColumnHandle, ColumnStatistics>, Map<String, ColumnStatistics>> remapper = (input) -> input.entrySet().stream().collect(Collectors.toMap(e -> ((IcebergColumnHandle) e.getKey()).getName(), Map.Entry::getValue));
@@ -788,9 +788,9 @@ public abstract class IcebergDistributedTestBase
         ColumnStatistics columnStat = columnStats.get("col0");
         assertEquals(columnStat.getDistinctValuesCount(), Estimate.of(3.0));
         assertEquals(columnStat.getDataSize(), Estimate.unknown());
-        columnStat = columnStats.get("col1");
+        columnStat = columnStats.get("col_1");
         assertEquals(columnStat.getDistinctValuesCount(), Estimate.of(3.0));
-        double dataSize = (double) (long) getQueryRunner().execute("SELECT sum_data_size_for_stats(col1) FROM test_stats").getOnlyValue();
+        double dataSize = (double) (long) getQueryRunner().execute("SELECT sum_data_size_for_stats(col_1) FROM test_stats").getOnlyValue();
         assertEquals(columnStat.getDataSize().getValue(), dataSize);
 
         // test after inserting the same values, we still get the same estimate
@@ -800,7 +800,7 @@ public abstract class IcebergDistributedTestBase
         columnStat = columnStats.get("col0");
         assertEquals(columnStat.getDistinctValuesCount(), Estimate.of(3.0));
         assertEquals(columnStat.getDataSize(), Estimate.unknown());
-        columnStat = columnStats.get("col1");
+        columnStat = columnStats.get("col_1");
         assertEquals(columnStat.getDistinctValuesCount(), Estimate.of(3.0));
         assertEquals(columnStat.getDataSize().getValue(), dataSize);
 
@@ -811,9 +811,9 @@ public abstract class IcebergDistributedTestBase
         columnStat = columnStats.get("col0");
         assertEquals(columnStat.getDistinctValuesCount(), Estimate.of(3.0));
         assertEquals(columnStat.getDataSize(), Estimate.unknown());
-        columnStat = columnStats.get("col1");
+        columnStat = columnStats.get("col_1");
         assertEquals(columnStat.getDistinctValuesCount(), Estimate.of(3.0));
-        dataSize = (double) (long) getQueryRunner().execute("SELECT sum_data_size_for_stats(col1) FROM test_stats").getOnlyValue();
+        dataSize = (double) (long) getQueryRunner().execute("SELECT sum_data_size_for_stats(col_1) FROM test_stats").getOnlyValue();
         assertEquals(columnStat.getDataSize().getValue(), dataSize);
 
         // test after inserting a new value, but not analyzing, the estimate is the same.
@@ -823,7 +823,7 @@ public abstract class IcebergDistributedTestBase
         columnStat = columnStats.get("col0");
         assertEquals(columnStat.getDistinctValuesCount(), Estimate.of(3.0));
         assertEquals(columnStat.getDataSize(), Estimate.unknown());
-        columnStat = columnStats.get("col1");
+        columnStat = columnStats.get("col_1");
         assertEquals(columnStat.getDistinctValuesCount(), Estimate.of(3.0));
         assertEquals(columnStat.getDataSize().getValue(), dataSize);
 
@@ -834,9 +834,9 @@ public abstract class IcebergDistributedTestBase
         columnStat = columnStats.get("col0");
         assertEquals(columnStat.getDistinctValuesCount(), Estimate.of(4.0));
         assertEquals(columnStat.getDataSize(), Estimate.unknown());
-        columnStat = columnStats.get("col1");
+        columnStat = columnStats.get("col_1");
         assertEquals(columnStat.getDistinctValuesCount(), Estimate.of(4.0));
-        dataSize = (double) (long) getQueryRunner().execute("SELECT sum_data_size_for_stats(col1) FROM test_stats").getOnlyValue();
+        dataSize = (double) (long) getQueryRunner().execute("SELECT sum_data_size_for_stats(col_1) FROM test_stats").getOnlyValue();
         assertEquals(columnStat.getDataSize().getValue(), dataSize);
 
         // test adding a null value is successful, and analyze still runs successfully
@@ -847,9 +847,9 @@ public abstract class IcebergDistributedTestBase
         columnStat = columnStats.get("col0");
         assertEquals(columnStat.getDistinctValuesCount(), Estimate.of(4.0));
         assertEquals(columnStat.getDataSize(), Estimate.unknown());
-        columnStat = columnStats.get("col1");
+        columnStat = columnStats.get("col_1");
         assertEquals(columnStat.getDistinctValuesCount(), Estimate.of(4.0));
-        dataSize = (double) (long) getQueryRunner().execute("SELECT sum_data_size_for_stats(col1) FROM test_stats").getOnlyValue();
+        dataSize = (double) (long) getQueryRunner().execute("SELECT sum_data_size_for_stats(col_1) FROM test_stats").getOnlyValue();
         assertEquals(columnStat.getDataSize().getValue(), dataSize);
 
         assertUpdate("DROP TABLE test_stats");
