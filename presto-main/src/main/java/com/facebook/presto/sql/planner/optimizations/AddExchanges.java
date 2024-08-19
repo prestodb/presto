@@ -487,18 +487,20 @@ public class AddExchanges
             PlanWithProperties child = planChild(node, preferredChildProperties);
             if (!isStreamPartitionedOn(child.getProperties(), node.getPartitionBy())
                     && !isNodePartitionedOn(child.getProperties(), node.getPartitionBy())) {
-                // add exchange + push function to child
-                child = withDerivedProperties(
-                        new TopNRowNumberNode(
-                                node.getSourceLocation(),
-                                idAllocator.getNextId(),
-                                child.getNode(),
-                                node.getSpecification(),
-                                node.getRowNumberVariable(),
-                                node.getMaxRowCountPerPartition(),
-                                true,
-                                node.getHashVariable()),
-                        child.getProperties());
+                if (isAddPartialNodeForRowNumberWithLimit(session)) {
+                    // add exchange + push function to child
+                    child = withDerivedProperties(
+                            new TopNRowNumberNode(
+                                    node.getSourceLocation(),
+                                    idAllocator.getNextId(),
+                                    child.getNode(),
+                                    node.getSpecification(),
+                                    node.getRowNumberVariable(),
+                                    node.getMaxRowCountPerPartition(),
+                                    true,
+                                    node.getHashVariable()),
+                            child.getProperties());
+                }
 
                 child = withDerivedProperties(addExchange.apply(child.getNode()), child.getProperties());
             }
