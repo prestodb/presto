@@ -40,9 +40,7 @@ constexpr int64_t KB = 1024L;
 constexpr int64_t MB = 1024L * KB;
 constexpr int64_t GB = 1024L * MB;
 
-namespace facebook {
-namespace velox {
-namespace memory {
+namespace facebook::velox::memory {
 
 struct TestParam {
   bool useMmap;
@@ -98,6 +96,7 @@ class MemoryPoolTest : public testing::TestWithParam<TestParam> {
 
   void setupMemory(
       MemoryManagerOptions options = {
+          .debugEnabled = true,
           .allocatorCapacity = kDefaultCapacity,
           .arbitratorCapacity = kDefaultCapacity,
           .arbitratorReservedCapacity = 1LL << 30}) {
@@ -433,7 +432,6 @@ TEST_P(MemoryPoolTest, DISABLED_memoryLeakCheck) {
   auto child = root->addLeafChild("elastic_quota", isLeafThreadSafe_);
   const int64_t kChunkSize{32L * MB};
   void* oneChunk = child->allocate(kChunkSize);
-  FLAGS_velox_memory_leak_check_enabled = true;
   ASSERT_DEATH(child.reset(), "");
   child->free(oneChunk, kChunkSize);
 }
@@ -3884,6 +3882,4 @@ VELOX_INSTANTIATE_TEST_SUITE_P(
     MemoryPoolTest,
     testing::ValuesIn(MemoryPoolTest::getTestParams()));
 
-} // namespace memory
-} // namespace velox
-} // namespace facebook
+} // namespace facebook::velox::memory
