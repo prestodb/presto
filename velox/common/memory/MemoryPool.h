@@ -33,6 +33,7 @@
 
 DECLARE_bool(velox_memory_leak_check_enabled);
 DECLARE_bool(velox_memory_pool_debug_enabled);
+DECLARE_bool(velox_memory_pool_capacity_transfer_across_tasks);
 
 namespace facebook::velox::exec {
 class ParallelMemoryReclaimer;
