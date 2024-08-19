@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "velox/common/io/IoStatistics.h"
 #include "velox/dwio/common/TypeWithId.h"
 #include "velox/experimental/wave/dwio/FormatData.h"
 #include "velox/experimental/wave/exec/Wave.h"
@@ -113,6 +114,8 @@ class ReadStream : public Executable {
   ReadStream(
       StructColumnReader* columnReader,
       WaveStream& waveStream,
+      velox::io::IoStatistics* ioStats,
+      FileInfo& fileInfo,
       const OperandSet* firstColumns = nullptr);
 
   void setNullable(const AbstractOperand& op, bool nullable) {
@@ -151,8 +154,9 @@ class ReadStream : public Executable {
   // needed than is good per TB.
   void makeGrid(Stream* stream);
 
-  // Sets consistent blockStatus and temp across 'programs_'
-  void setBlockStatusAndTemp();
+  // Sets consistent blockStatus and temp across 'programs_'. If 'stream is
+  // given, prefetches BlockStatus on device on 'stream'.
+  void setBlockStatusAndTemp(Stream* stream = nullptr);
 
   /// Makes column dependencies.
   void makeOps();
@@ -160,9 +164,19 @@ class ReadStream : public Executable {
   void prepareRead();
   void makeControl();
 
+  // Enqueues waits on stream for the transfers the 'currentStaging_'
+  // depends on. Fist batch on stripe enqueues transfer, next batches
+  // are enqueued on a different stream but still depend on the first
+  // transfers completing on the first stream.
+  void syncStaging(Stream& stream);
+
+  io::IoStatistics* const ioStats_;
+
   // Makes steps to align values from non-last filters to the selection of the
   // last filter.
   void makeCompact(bool isSerial);
+
+  void prefetchStatus(Stream* stream);
 
   // True if non-filter columns will be done sequentially in the
   // filters kernel. This will never loose if there is an always read
@@ -198,7 +212,7 @@ class ReadStream : public Executable {
   // Intermediate data to stay on device, e.g. selected rows.
   ResultStaging deviceStaging_;
   // Owning references to decode programs. Must be live for duration of kernels.
-  std::vector<WaveBufferPtr> commands_;
+  std::vector<LaunchParams> commands_;
   // Reusable control block for launching decode kernels.
   DecodePrograms programs_;
   // If no filters, the starting RowSet directly initializes the BlockStatus'es
@@ -207,10 +221,15 @@ class ReadStream : public Executable {
   bool filtersDone_{false};
   //  Sequence number of kernel launch.
   int32_t nthWave_{0};
+
+  // Leading bytes in control_->deviceData used for BlockStatus. Cleared on
+  // device. The bytes after that are set on host and then prefetched to device.
+  int32_t statusBytes_{0};
   LaunchControl* control_{nullptr};
 
   // Set to true when after first griddize() and akeOps().
   bool inited_{false};
+  FileInfo fileInfo_;
 };
 
 } // namespace facebook::velox::wave

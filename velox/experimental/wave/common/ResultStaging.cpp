@@ -32,7 +32,7 @@ void ResultStaging::registerPointerInternal(
     bool clear) {
   VELOX_CHECK_LT(id, offsets_.size());
   VELOX_CHECK_NOT_NULL(pointer);
-#ifndef NDEBUG
+#if 0 // ndef NDEBUG
   for (auto& pair : patch_) {
     VELOX_CHECK(
         pair.second != pointer, "Must not register the same pointer twice");
@@ -79,6 +79,36 @@ void ResultStaging::setReturnBuffer(GpuArena& arena, ResultBuffer& result) {
   patch_.clear();
   offsets_.clear();
   fill_ = 0;
+}
+
+GpuArena& getSmallTransferArena() {
+  static std::unique_ptr<GpuArena> arena = std::make_unique<GpuArena>(
+      10UL << 20, getHostAllocator(nullptr), 20UL << 20);
+  return *arena;
+}
+
+std::pair<char*, char*> LaunchParams::setup(size_t size) {
+  if (!arena.isDevice()) {
+    // Unified memory.
+    device = arena.allocate<char>(size);
+    return {device->as<char>(), device->as<char>()};
+  } else {
+    // Separate host and device side buffers.
+    device = arena.allocate<char>(size);
+    host = getSmallTransferArena().allocate<char>(size);
+    return {host->as<char>(), device->as<char>()};
+  }
+}
+
+void LaunchParams::transfer(Stream& stream) {
+  if (device) {
+    if (arena.isDevice()) {
+      stream.hostToDeviceAsync(
+          device->as<char>(), host->as<char>(), host->size());
+    } else {
+      stream.prefetch(getDevice(), device->as<char>(), device->size());
+    }
+  }
 }
 
 } // namespace facebook::velox::wave

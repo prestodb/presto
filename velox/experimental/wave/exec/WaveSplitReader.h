@@ -60,8 +60,6 @@ class WaveSplitReader {
 
   virtual void schedule(WaveStream& stream, int32_t maxRows) = 0;
 
-  virtual vector_size_t outputSize(WaveStream& stream) const = 0;
-
   virtual bool isFinished() const = 0;
 
   virtual uint64_t getCompletedBytes() = 0;

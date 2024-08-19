@@ -354,8 +354,4 @@ void Aggregation::schedule(WaveStream& waveStream, int32_t maxRows) {
           << stats_.ingestedRowCount / stats_.gpuTimeMs * 1000 << " rows/s";
 }
 
-vector_size_t Aggregation::outputSize(WaveStream&) const {
-  return container_->actualNumGroups;
-}
-
 } // namespace facebook::velox::wave

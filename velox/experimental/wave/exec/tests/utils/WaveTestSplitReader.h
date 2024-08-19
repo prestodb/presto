@@ -31,7 +31,7 @@ class WaveTestSplitReader : public WaveSplitReader {
       const DefinesMap* defines);
 
   bool emptySplit() override {
-    return !stripe_ || stripe_->columns[0]->numValues == 0;
+    return !stripe_ || stripe_->columns[0]->numValues == 0 || emptySplit_;
   }
 
   int32_t canAdvance(WaveStream& stream) override;
@@ -43,11 +43,11 @@ class WaveTestSplitReader : public WaveSplitReader {
   bool isFinished() const override;
 
   uint64_t getCompletedBytes() override {
-    return 0;
+    return params_.ioStats->rawBytesRead();
   }
 
   uint64_t getCompletedRows() override {
-    return 0;
+    return nextRow_;
   }
 
   std::unordered_map<std::string, RuntimeCounter> runtimeStats() override {
@@ -63,6 +63,8 @@ class WaveTestSplitReader : public WaveSplitReader {
 
   std::shared_ptr<connector::ConnectorSplit> split_;
   SplitReaderParams params_;
+  FileHandleCachedPtr fileHandleCachePtr;
+  cache::AsyncDataCache* cache_{nullptr};
   test::Stripe* stripe_{nullptr};
   std::unique_ptr<ColumnReader> columnReader_;
   // First unscheduled row.
@@ -70,6 +72,9 @@ class WaveTestSplitReader : public WaveSplitReader {
   int32_t scheduledRows_{0};
   dwio::common::ColumnReaderStatistics readerStats_;
   raw_vector<int32_t> rows_;
+  FileHandleCachedPtr fileHandle_;
+  FileInfo fileInfo_;
+  bool emptySplit_{false};
 };
 
 } // namespace facebook::velox::wave::test

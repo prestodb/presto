@@ -112,10 +112,6 @@ void WaveHiveDataSource::schedule(WaveStream& stream, int32_t maxRows) {
   stream.setSplitReader(splitReader_);
 }
 
-vector_size_t WaveHiveDataSource::outputSize(WaveStream& stream) const {
-  return splitReader_->outputSize(stream);
-}
-
 bool WaveHiveDataSource::isFinished() {
   if (!splitReader_) {
     return false;

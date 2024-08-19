@@ -127,13 +127,6 @@ class WaveOperator {
     driver_ = driver;
   }
 
-  // Returns the number of non-filtered out result rows in the invocation inside
-  // 'stream'. 'this' must have had schedule() called with the same stream and
-  // the stream must have arrived. The actual result rows may be non-contiguous
-  // in the result vectors and may need indirection to access, as seen in output
-  // operands of the corresponding executables.
-  virtual vector_size_t outputSize(WaveStream& stream) const = 0;
-
   const OperandSet& outputIds() const {
     return outputIds_;
   }
@@ -171,7 +164,7 @@ class WaveOperator {
  protected:
   folly::Synchronized<exec::OperatorStats>& stats();
 
-  // Sequence number in WaveOperator sequence inside WaveDriver. IUsed to label
+  // Sequence number in WaveOperator sequence inside WaveDriver. Used to label
   // states of different oprators in WaveStream.
   int32_t id_;
 

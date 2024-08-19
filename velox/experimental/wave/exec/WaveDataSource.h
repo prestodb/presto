@@ -48,8 +48,6 @@ class WaveDataSource : public std::enable_shared_from_this<WaveDataSource> {
 
   virtual void schedule(WaveStream& stream, int32_t maxRows = 0) = 0;
 
-  virtual vector_size_t outputSize(WaveStream& stream) const = 0;
-
   virtual bool isFinished() = 0;
 
   virtual std::shared_ptr<WaveSplitReader> splitReader() = 0;

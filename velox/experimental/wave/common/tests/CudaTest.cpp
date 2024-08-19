@@ -1464,7 +1464,7 @@ TEST_F(CudaTest, reduceMatrix) {
     return;
   }
 
-  std::vector<std::string> modes = {/*"unified", "device",*/ "devicecoalesced"};
+  std::vector<std::string> modes = {"unified", "device", "devicecoalesced"};
   std::vector<int32_t> batchMBValues = {30, 100};
   std::vector<int32_t> numThreadsValues = {1, 2, 3};
   std::vector<int32_t> workPerThreadValues = {2, 4};

@@ -15,9 +15,26 @@
  */
 
 #include "velox/experimental/wave/exec/Wave.h"
+#include <iostream>
 #include "velox/experimental/wave/exec/Vectors.h"
 
+DEFINE_bool(wave_timing, true, "Enable Wave perf timers");
+DEFINE_bool(
+    wave_print_time,
+    false,
+    "Enables printing times inside PrinTime guard.");
+
 namespace facebook::velox::wave {
+
+PrintTime::PrintTime(const char* title)
+    : title_(title),
+      start_(FLAGS_wave_print_time ? getCurrentTimeMicro() : 0) {}
+
+PrintTime::~PrintTime() {
+  if (FLAGS_wave_print_time) {
+    std::cout << title_ << "=" << getCurrentTimeMicro() - start_ << std::endl;
+  }
+}
 
 std::string WaveTime::toString() const {
   if (micros < 20) {
@@ -38,6 +55,7 @@ void WaveStats::add(const WaveStats& other) {
   hostOnlyTime += other.hostOnlyTime;
   hostParallelTime += other.hostParallelTime;
   waitTime += other.waitTime;
+  stagingTime += other.stagingTime;
 }
 
 void WaveStats::clear() {
@@ -178,6 +196,28 @@ std::mutex WaveStream::reserveMutex_;
 std::vector<std::unique_ptr<Stream>> WaveStream::streamsForReuse_;
 std::vector<std::unique_ptr<Event>> WaveStream::eventsForReuse_;
 bool WaveStream::exitInited_{false};
+std::unique_ptr<folly::CPUThreadPoolExecutor> WaveStream::copyExecutor_;
+std::unique_ptr<folly::CPUThreadPoolExecutor> WaveStream::syncExecutor_;
+
+folly::CPUThreadPoolExecutor* WaveStream::copyExecutor() {
+  return getExecutor(copyExecutor_);
+}
+
+folly::CPUThreadPoolExecutor* WaveStream::syncExecutor() {
+  return getExecutor(syncExecutor_);
+}
+
+folly::CPUThreadPoolExecutor* WaveStream::getExecutor(
+    std::unique_ptr<folly::CPUThreadPoolExecutor>& ptr) {
+  if (ptr) {
+    return ptr.get();
+  }
+  std::lock_guard<std::mutex> l(reserveMutex_);
+  if (!ptr) {
+    ptr = std::make_unique<folly::CPUThreadPoolExecutor>(32);
+  }
+  return ptr.get();
+}
 
 Stream* WaveStream::newStream() {
   auto stream = streamFromReserve();
@@ -707,6 +747,9 @@ LaunchControl* WaveStream::prepareProgramLaunch(
   int32_t operatorStateOffset = size;
   size += exes.size() * sizeof(void*) + operatorStateBytes;
   auto buffer = arena_.allocate<char>(size);
+  if (stream) {
+    stream->prefetch(nullptr, buffer->as<char>(), buffer->size());
+  }
   // Zero initialization is expected, for example for operands and arrays in
   // Operand::indices.
   memset(buffer->as<char>(), 0, size);
@@ -892,6 +935,9 @@ AdvanceResult Program::canAdvance(
   auto stateId = source->stateId();
   if (stateId.has_value()) {
     state = stream.operatorState(stateId.value());
+  }
+  if (state == nullptr) {
+    return {};
   }
   return source->canAdvance(stream, control, state, programIdx);
 }

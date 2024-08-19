@@ -464,6 +464,7 @@ void CompileState::makeAggregateAccumulate(const core::AggregationNode* node) {
   folly::F14FastSet<Program*> programs;
   std::vector<AbstractOperand*> allArgs;
   std::vector<AbstractAggInstruction> aggregates;
+  int numPrograms = allPrograms_.size();
   for (auto& key : node->groupingKeys()) {
     auto arg = findCurrentValue(key);
     allArgs.push_back(arg);
@@ -520,7 +521,6 @@ void CompileState::makeAggregateAccumulate(const core::AggregationNode* node) {
       sourceList.push_back(s);
     }
   }
-  int numPrograms = allPrograms_.size();
   auto aggInstruction = instruction.get();
   addInstruction(std::move(instruction), nullptr, sourceList);
   if (allPrograms_.size() > numPrograms) {

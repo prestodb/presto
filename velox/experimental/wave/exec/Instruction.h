@@ -96,13 +96,13 @@ struct AdvanceResult {
     return numRows == 0 && !isRetry;
   }
 
-  ///  Max umber of result rows.
+  ///  Max number of result rows.
   int32_t numRows{0};
 
   /// The sequence number of kernel launch that needs continue.
   int32_t nthLaunch{0};
 
-  /// The ordinal of the program i the launch.
+  /// The ordinal of the program in the launch.
   int32_t programIdx{0};
 
   /// The instruction where to pick up. If not 0, must have 'isRetry' true.

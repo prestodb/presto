@@ -16,6 +16,9 @@
 
 #include "velox/experimental/wave/exec/tests/utils/FileFormat.h"
 #include <iostream>
+#include "velox/common/config/Config.h"
+#include "velox/common/file/FileSystems.h"
+#include "velox/vector/VectorSaver.h"
 
 namespace facebook::velox::wave::test {
 
@@ -364,8 +367,9 @@ void Writer::finishStripe() {
   for (auto& encoder : encoders_) {
     columns.push_back(encoder->toColumn());
   }
+  int32_t numRows = columns[0]->numValues;
   stripes_.push_back(std::make_unique<Stripe>(
-      std::move(columns), dwio::common::TypeWithId::create(type_)));
+      std::move(columns), dwio::common::TypeWithId::create(type_), numRows));
   encoders_.clear();
   rowsInStripe_ = 0;
 }
@@ -377,6 +381,234 @@ Table* Writer::finalize(std::string tableName) {
   return table;
 }
 
+template <typename T>
+void writeNumber(std::ostream& stream, const T& n) {
+  stream.write(reinterpret_cast<const char*>(&n), sizeof(T));
+}
+
+void Column::load(
+    std::unique_ptr<ReadFile>& file,
+    const std::string& path,
+    memory::MemoryPool* pool) {
+  VELOX_CHECK(region.length > 0 || nulls || !children.empty());
+  if (nulls) {
+    nulls->load(file, path, pool);
+  }
+  if (alphabet) {
+    alphabet->load(file, path, pool);
+  }
+  if (region.length > 0) {
+    values = AlignedBuffer::allocate<char>(region.length, pool);
+    if (!file) {
+      auto fileSystem = filesystems::getFileSystem(path, nullptr);
+      file = fileSystem->openFileForRead(path);
+    }
+    file->pread(region.offset, region.length, values->asMutable<char>());
+  }
+  for (auto& child : children) {
+    child->load(file, path, pool);
+  }
+}
+
+template <typename T>
+void readNumber(std::istream& stream, T& n) {
+  stream.read(reinterpret_cast<char*>(&n), sizeof(n));
+}
+
+template <typename T>
+void appendNumber(WriteFile& file, T n) {
+  file.append(std::string_view(reinterpret_cast<const char*>(&n), sizeof(n)));
+}
+
+void writeColumn(Column& column, WriteFile& file, std::stringstream& footer) {
+  writeNumber(footer, column.encoding);
+  writeNumber(footer, column.kind);
+  if (column.nulls) {
+    writeColumn(*column.nulls, file, footer);
+  } else {
+    writeNumber(footer, Encoding::kNone);
+  }
+  writeNumber(footer, column.numValues);
+  if (Encoding::kStruct == column.encoding) {
+    VELOX_NYI();
+    return;
+  }
+  if (Encoding::kDict == column.encoding) {
+    writeColumn(*column.alphabet, file, footer);
+  }
+  writeNumber(footer, column.bitWidth);
+  writeNumber(footer, column.baseline);
+  int64_t offset = file.size();
+  writeNumber(footer, offset);
+  int64_t size = column.values->size();
+  writeNumber(footer, size);
+  file.append(std::string_view(column.values->as<char>(), size));
+}
+
+void writeColumns(
+    std::vector<std::unique_ptr<Column>>& columns,
+    Column* nulls,
+    WriteFile& file,
+    std::stringstream& footer) {
+  writeNumber(footer, Encoding::kStruct);
+  writeNumber(footer, TypeKind::ROW);
+  if (nulls) {
+    writeColumn(*nulls, file, footer);
+  } else {
+    writeNumber(footer, Encoding::kNone);
+  }
+  writeNumber(footer, columns[0]->numValues);
+  int32_t numColumns = columns.size();
+  writeNumber(footer, numColumns);
+  std::vector<std::string> columnFooters;
+  int32_t columnStart = 0;
+  for (auto columnIdx = 0; columnIdx < columns.size(); ++columnIdx) {
+    std::stringstream columnFooter;
+    writeColumn(*columns[columnIdx], file, columnFooter);
+    auto footerString = columnFooter.str();
+    writeNumber(footer, columnStart);
+    columnStart += footerString.size();
+    columnFooters.push_back(std::move(footerString));
+  }
+  for (auto columnFooter : columnFooters) {
+    footer.write(columnFooter.data(), columnFooter.size());
+  }
+}
+
+std::vector<std::unique_ptr<Column>> readColumns(std::stringstream& in);
+
+std::unique_ptr<Column> readColumn(std::stringstream& in) {
+  Encoding encoding;
+  readNumber(in, encoding);
+  if (encoding == Encoding::kNone) {
+    return nullptr;
+  }
+  auto column = std::make_unique<Column>();
+  column->encoding = encoding;
+  readNumber(in, column->kind);
+  column->nulls = readColumn(in);
+  readNumber(in, column->numValues);
+  if (encoding == Encoding::kStruct) {
+    column->children = readColumns(in);
+    return column;
+  }
+  if (encoding == Encoding::kDict) {
+    column->alphabet = readColumn(in);
+  }
+  readNumber(in, column->bitWidth);
+  readNumber(in, column->baseline);
+  readNumber(in, column->region.offset);
+  readNumber(in, column->region.length);
+  return column;
+}
+
+std::vector<std::unique_ptr<Column>> readColumns(std::stringstream& in) {
+  int32_t numColumns;
+  readNumber(in, numColumns);
+  std::vector<int32_t> starts(numColumns);
+  in.read(reinterpret_cast<char*>(starts.data()), numColumns * sizeof(int32_t));
+  std::vector<std::unique_ptr<Column>> children(numColumns);
+  for (auto i = 0; i < numColumns; ++i) {
+    children[i] = readColumn(in);
+  }
+  return children;
+}
+
+void Table::toFile(const std::string& path) {
+  std::vector<std::string> stripeFooters;
+  std::vector<int64_t> stripeStart;
+  auto type = stripes_.front()->typeWithId->type();
+  auto fileSystem = filesystems::getFileSystem(path, nullptr);
+  try {
+    fileSystem->remove(path);
+  } catch (const std::exception& e) {
+  }
+  auto file = fileSystem->openFileForWrite(path);
+  std::vector<std::string> footers;
+  for (auto stripeIdx = 0; stripeIdx < stripes_.size(); ++stripeIdx) {
+    auto stripe = stripes_[stripeIdx].get();
+    stripeStart.push_back(file->size());
+    std::stringstream footer;
+    writeColumns(stripe->columns, nullptr, *file, footer);
+    footers.push_back(footer.str());
+  }
+  int64_t footerStart = file->size();
+  std::vector<int64_t> footerStarts;
+  for (auto& footer : footers) {
+    footerStarts.push_back(file->size());
+    file->append(std::string_view(footer.data(), footer.size()));
+  }
+  int64_t typeStart = file->size();
+  std::stringstream typeStream;
+  saveType(type, typeStream);
+  auto typeString = typeStream.str();
+  file->append(std::string_view(typeString.data(), typeString.size()));
+  int64_t offsetStart = file->size();
+  for (auto i = 0; i < stripeStart.size(); ++i) {
+    appendNumber(*file, stripeStart[i]);
+    appendNumber(*file, footerStarts[i]);
+  }
+  int32_t numStripes = stripes_.size();
+  appendNumber(*file, numStripes);
+  appendNumber(*file, offsetStart);
+  appendNumber(*file, typeStart);
+  appendNumber(*file, footerStart);
+  file->close();
+}
+
+void Table::fromFile(
+    const std::string& path,
+    int64_t splitStart,
+    int64_t splitSize) {
+  auto fileSystem = filesystems::getFileSystem(path, nullptr);
+  auto file = fileSystem->openFileForRead(path);
+  int64_t size = file->size();
+  std::string tail;
+  tail.resize(std::min<int64_t>(size, 100000));
+  file->pread(size - tail.size(), tail.size(), tail.data());
+  char* end = tail.data() + tail.size();
+  auto numStripes = *reinterpret_cast<int32_t*>(end - 28);
+  auto offsetStart = size - *reinterpret_cast<int64_t*>(end - 24);
+  auto typeStart = size - *reinterpret_cast<int64_t*>(end - 16);
+  auto footerStart = size - *reinterpret_cast<int64_t*>(end - 8);
+  int64_t tailSize = footerStart;
+  if (tailSize > tail.size()) {
+    std::string moreTail;
+    moreTail.resize(tailSize - tail.size());
+    file->pread(size - footerStart, moreTail.size(), moreTail.data());
+    moreTail += tail;
+    tail = std::move(moreTail);
+  }
+  // Read the type.
+  std::stringstream typeStream(tail);
+  typeStream.seekg(tail.size() - typeStart);
+  auto type = restoreType(typeStream);
+  auto typeWithIdUnique = dwio::common::TypeWithId::create(
+      std::static_pointer_cast<const RowType>(type));
+  std::shared_ptr<const dwio::common::TypeWithId> typeWithId(
+      typeWithIdUnique.release());
+  // Loop over offsets and make stripes for the ones in range.
+  auto offset = tail.size() - offsetStart;
+  std::vector<std::unique_ptr<Stripe>> stripes;
+  for (auto i = 0; i < numStripes; ++i) {
+    auto dataStart = *reinterpret_cast<int64_t*>(tail.data() + offset + i * 16);
+    if (dataStart >= splitStart && dataStart < splitStart + splitSize) {
+      auto footerStart =
+          size - *reinterpret_cast<int64_t*>(tail.data() + offset + 8 + i * 16);
+      auto footerOff = tail.size() - footerStart;
+      std::stringstream footerStream(tail);
+      // skip 3 first,i.e. kStruct, TypeKind::ROW, kNone.
+      footerStream.seekg(footerOff + 3);
+      int32_t numRows;
+      readNumber(footerStream, numRows);
+      auto columns = readColumns(footerStream);
+      stripes.push_back(std::make_unique<Stripe>(
+          std::move(columns), typeWithId, numRows, path));
+    }
+  }
+  addStripes(std::move(stripes), nullptr);
+}
+
 void Table::addStripes(
     std::vector<std::unique_ptr<Stripe>>&& stripes,
     std::shared_ptr<memory::MemoryPool> pool) {
@@ -385,6 +617,19 @@ void Table::addStripes(
     s->name = fmt::format("wavemock://{}/{}", name_, stripes_.size());
     allStripes_[s->name] = s.get();
     stripes_.push_back(std::move(s));
+  }
+  if (pool) {
+    pools_.push_back(pool);
+  }
+}
+
+void Table::loadData(std::shared_ptr<memory::MemoryPool> pool) {
+  std::unique_ptr<ReadFile> file;
+  VELOX_CHECK(pools_.empty());
+  for (auto& stripe : stripes_) {
+    for (auto& column : stripe->columns) {
+      column->load(file, stripe->path, pool.get());
+    }
   }
   pools_.push_back(pool);
 }

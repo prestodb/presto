@@ -35,18 +35,23 @@ std::unique_ptr<FormatData> TestFormatParams::toFormatData(
 int TestFormatData::stageNulls(
     ResultStaging& deviceStaging,
     SplitStaging& splitStaging) {
+  if (!column_->nulls) {
+    nullsStaged_ = true;
+    return kNotRegistered;
+  }
+
   if (nullsStaged_) {
+    splitStaging.addDependency(nullsStagingId_);
     return kNotRegistered;
   }
   nullsStaged_ = true;
   auto* nulls = column_->nulls.get();
-  if (!nulls) {
-    return kNotRegistered;
-  }
   Staging staging(
       nulls->values->as<char>(),
-      bits::nwords(column_->numValues) * sizeof(uint64_t));
+      bits::nwords(column_->numValues) * sizeof(uint64_t),
+      column_->region);
   auto id = splitStaging.add(staging);
+  nullsStagingId_ = splitStaging.id();
   splitStaging.registerPointer(id, &grid_.nulls, true);
   return id;
 }
@@ -90,8 +95,12 @@ void TestFormatData::startOp(
   stageNulls(deviceStaging, splitStaging);
   if (!staged_) {
     staged_ = true;
-    Staging staging(column_->values->as<char>(), column_->values->size());
+    Staging staging(
+        column_->values->as<char>(), column_->values->size(), column_->region);
     id = splitStaging.add(staging);
+    lastStagingId_ = splitStaging.id();
+  } else {
+    splitStaging.addDependency(lastStagingId_);
   }
   auto rowsPerBlock = FLAGS_wave_reader_rows_per_tb;
   int32_t numBlocks =

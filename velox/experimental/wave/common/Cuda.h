@@ -48,6 +48,9 @@ class Stream {
   /// Waits  until the stream is completed.
   void wait();
 
+  /// Enqueus a memset on 'device'.
+  void memset(void* address, int32_t value, size_t size);
+
   /// Enqueus a prefetch. Prefetches to host if 'device' is nullptr, otherwise
   /// to 'device'.
   void prefetch(Device* device, void* address, size_t size);
@@ -127,6 +130,16 @@ class GpuAllocator {
   /// Frees a pointer from allocate(). 'size' must correspond to the size given
   /// to allocate(). A Memory must be freed to the same allocator it came from.
   virtual void free(void* ptr, size_t bytes) = 0;
+
+  /// True if allocates host pinned memory.
+  virtual bool isHost() const {
+    return false;
+  }
+
+  /// True if allocates device side memory.
+  virtual bool isDevice() const {
+    return false;
+  }
 
   class Deleter;
 

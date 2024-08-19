@@ -26,7 +26,22 @@
 #include "velox/experimental/wave/exec/ExprKernel.h"
 #include "velox/experimental/wave/vector/WaveVector.h"
 
+#include <folly/executors/CPUThreadPoolExecutor.h>
+
+DECLARE_bool(wave_timing);
+
 namespace facebook::velox::wave {
+
+/// Scoped guard, prints the time spent inside if
+class PrintTime {
+ public:
+  PrintTime(const char* title);
+  ~PrintTime();
+
+ private:
+  const char* title_;
+  uint64_t start_;
+};
 
 /// A host side time point for measuring wait and launch prepare latency. Counts
 /// both wall microseconds and clocks.
@@ -34,12 +49,19 @@ struct WaveTime {
   size_t micros{0};
   uint64_t clocks{0};
 
+  static uint64_t getMicro() {
+    return FLAGS_wave_timing ? getCurrentTimeMicro() : 0;
+  }
+
   static WaveTime now() {
+    if (!FLAGS_wave_timing) {
+      return {0, 0};
+    }
     return {getCurrentTimeMicro(), folly::hardware_timestamp()};
   }
 
   WaveTime operator-(const WaveTime right) const {
-    return {right.micros - micros, right.clocks - clocks};
+    return {micros - right.micros, clocks - right.clocks};
   }
 
   WaveTime operator+(const WaveTime right) const {
@@ -98,6 +120,12 @@ struct WaveStats {
   WaveTime hostParallelTime;
   /// Time a host thread waits for device.
   WaveTime waitTime;
+
+  /// Time a host thread is synchronously staging data to device. This is either
+  /// the wall time of multithreaded memcpy to pinned host or the wall time of
+  /// multithreaded GPU Direct NVME read. This does not include the time of
+  /// hostToDeviceAsync.
+  WaveTime stagingTime;
 
   void clear();
   void add(const WaveStats& other);
@@ -557,11 +585,11 @@ class WaveStream {
 
   WaveStream(
       GpuArena& arena,
-      GpuArena& hostArena,
+      GpuArena& deviceArena,
       const std::vector<std::unique_ptr<AbstractOperand>>* operands,
       OperatorStateMap* stateMap)
       : arena_(arena),
-        hostArena_(hostArena),
+        deviceArena_(deviceArena),
         operands_(operands),
         taskStateMap_(stateMap) {
     operandNullable_.resize(operands_->size(), true);
@@ -578,6 +606,10 @@ class WaveStream {
 
   GpuArena& arena() {
     return arena_;
+  }
+
+  GpuArena& deviceArena() {
+    return deviceArena_;
   }
 
   /// Sets nullability of a source column. This is runtime, since may depend on
@@ -805,6 +837,9 @@ class WaveStream {
     hasError_ = true;
   }
 
+  static folly::CPUThreadPoolExecutor* copyExecutor();
+  static folly::CPUThreadPoolExecutor* syncExecutor();
+
   std::string toString() const;
 
  private:
@@ -821,11 +856,20 @@ class WaveStream {
   static std::vector<std::unique_ptr<Event>> eventsForReuse_;
   static std::vector<std::unique_ptr<Stream>> streamsForReuse_;
   static bool exitInited_;
+  static std::unique_ptr<folly::CPUThreadPoolExecutor> copyExecutor_;
+  static std::unique_ptr<folly::CPUThreadPoolExecutor> syncExecutor_;
 
   static void clearReusable();
 
+  static folly::CPUThreadPoolExecutor* getExecutor(
+      std::unique_ptr<folly::CPUThreadPoolExecutor>& ptr);
+
+  // Unified memory.
   GpuArena& arena_;
-  GpuArena& hostArena_;
+
+  // Device memory.
+  GpuArena& deviceArena_;
+
   const std::vector<std::unique_ptr<AbstractOperand>>* const operands_;
   // True at '[i]' if in this stream 'operands_[i]' should have null flags.
   std::vector<bool> operandNullable_;

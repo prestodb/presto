@@ -68,6 +68,9 @@ class CudaDeviceAllocator : public GpuAllocator {
   void free(void* ptr, size_t /*size*/) override {
     cudaFree(ptr);
   }
+  bool isDevice() const override {
+    return true;
+  }
 };
 
 class CudaHostAllocator : public GpuAllocator {
@@ -81,6 +84,10 @@ class CudaHostAllocator : public GpuAllocator {
   void free(void* ptr, size_t /*size*/) override {
     cudaFreeHost(ptr);
   };
+
+  bool isHost() const override {
+    return true;
+  }
 };
 
 } // namespace
@@ -125,6 +132,10 @@ void Stream::wait() {
 void Stream::prefetch(Device* device, void* ptr, size_t size) {
   CUDA_CHECK(cudaMemPrefetchAsync(
       ptr, size, device ? device->deviceId : cudaCpuDeviceId, stream_->stream));
+}
+
+void Stream::memset(void* ptr, int32_t value, size_t size) {
+  CUDA_CHECK(cudaMemsetAsync(ptr, value, size, stream_->stream));
 }
 
 void Stream::hostToDeviceAsync(

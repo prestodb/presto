@@ -18,6 +18,7 @@
 #include "velox/common/time/Timer.h"
 #include "velox/exec/Task.h"
 #include "velox/experimental/wave/exec/WaveDriver.h"
+#include "velox/experimental/wave/exec/WaveSplitReader.h"
 #include "velox/expression/Expr.h"
 
 namespace facebook::velox::wave {
@@ -53,7 +54,33 @@ void TableScan::schedule(WaveStream& stream, int32_t maxRows) {
   waveDataSource_->schedule(stream, maxRows);
   nextAvailableRows_ = waveDataSource_->canAdvance(stream);
   if (nextAvailableRows_ == 0) {
+    updateStats(
+        waveDataSource_->splitReader()->runtimeStats(),
+        waveDataSource_->splitReader().get());
     needNewSplit_ = true;
+  }
+}
+
+void TableScan::updateStats(
+    std::unordered_map<std::string, RuntimeCounter> connectorStats,
+    WaveSplitReader* splitReader) {
+  auto lockedStats = stats().wlock();
+  if (splitReader) {
+    lockedStats->rawInputPositions = splitReader->getCompletedRows();
+    lockedStats->rawInputBytes = splitReader->getCompletedBytes();
+  }
+  for (const auto& [name, counter] : connectorStats) {
+    if (name == "ioWaitNanos") {
+      ioWaitNanos_ += counter.value - lastIoWaitNanos_;
+      lastIoWaitNanos_ = counter.value;
+    }
+    if (UNLIKELY(lockedStats->runtimeStats.count(name) == 0)) {
+      lockedStats->runtimeStats.insert(
+          std::make_pair(name, RuntimeMetric(counter.unit)));
+    } else {
+      VELOX_CHECK_EQ(lockedStats->runtimeStats.at(name).unit, counter.unit);
+    }
+    lockedStats->runtimeStats.at(name).addValue(counter.value);
   }
 }
 
@@ -73,21 +100,7 @@ BlockingReason TableScan::nextSplit(ContinueFuture* future) {
   if (!split.hasConnectorSplit()) {
     noMoreSplits_ = true;
     if (dataSource_) {
-      auto connectorStats = dataSource_->runtimeStats();
-      auto lockedStats = stats().wlock();
-      for (const auto& [name, counter] : connectorStats) {
-        if (name == "ioWaitNanos") {
-          ioWaitNanos_ += counter.value - lastIoWaitNanos_;
-          lastIoWaitNanos_ = counter.value;
-        }
-        if (UNLIKELY(lockedStats->runtimeStats.count(name) == 0)) {
-          lockedStats->runtimeStats.insert(
-              std::make_pair(name, RuntimeMetric(counter.unit)));
-        } else {
-          VELOX_CHECK_EQ(lockedStats->runtimeStats.at(name).unit, counter.unit);
-        }
-        lockedStats->runtimeStats.at(name).addValue(counter.value);
-      }
+      updateStats(dataSource_->runtimeStats());
     }
     return BlockingReason::kNotBlocked;
   }
@@ -129,6 +142,8 @@ BlockingReason TableScan::nextSplit(ContinueFuture* future) {
       waveDataSource_->addSplit(connectorSplit);
     }
   }
+  ++stats().wlock()->numSplits;
+
   for (const auto& entry : pendingDynamicFilters_) {
     waveDataSource_->addDynamicFilter(entry.first, entry.second);
   }

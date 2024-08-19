@@ -59,10 +59,6 @@ class WaveDriver : public exec::SourceOperator {
     return *arena_;
   }
 
-  GpuArena& hostArena() const {
-    return *hostArena_;
-  }
-
   const std::vector<std::unique_ptr<AbstractOperand>>& operands() {
     return operands_;
   }
@@ -160,7 +156,6 @@ class WaveDriver : public exec::SourceOperator {
 
   std::unique_ptr<GpuArena> arena_;
   std::unique_ptr<GpuArena> deviceArena_;
-  std::unique_ptr<GpuArena> hostArena_;
 
   ContinueFuture blockingFuture_{ContinueFuture::makeEmpty()};
   exec::BlockingReason blockingReason_;

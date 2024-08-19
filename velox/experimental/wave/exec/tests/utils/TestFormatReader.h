@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "velox/connectors/hive/FileHandle.h"
 #include "velox/experimental/wave/dwio/ColumnReader.h"
 #include "velox/experimental/wave/exec/tests/utils/FileFormat.h"
 #include "velox/type/Subfield.h"
@@ -69,6 +70,7 @@ class TestFormatData : public wave::FormatData {
   int32_t stageNulls(ResultStaging& deviceStaging, SplitStaging& splitStaging);
 
   const OperandId operand_;
+
   int32_t totalRows_{0};
 
   const test::Column* column_;

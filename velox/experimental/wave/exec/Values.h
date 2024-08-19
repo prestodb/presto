@@ -36,12 +36,6 @@ class Values : public WaveSourceOperator {
     return roundsLeft_ == (current_ == values_.size());
   }
 
-  vector_size_t outputSize(WaveStream& stream) const override {
-    // Must not be called before schedule().
-    VELOX_CHECK_LT(0, current_);
-    return values_[current_ - 1]->size();
-  }
-
   std::string toString() const override;
 
  private:

@@ -15,6 +15,7 @@
  */
 
 #include "velox/experimental/wave/exec/Project.h"
+#include "velox/common/process/TraceContext.h"
 #include "velox/experimental/wave/exec/ToWave.h"
 #include "velox/experimental/wave/exec/Wave.h"
 #include "velox/experimental/wave/exec/WaveDriver.h"
@@ -117,12 +118,19 @@ void Project::schedule(WaveStream& stream, int32_t maxRows) {
               blocksPerExe,
               inputControl,
               out);
+          out->prefetch(
+              getDevice(),
+              control->deviceData->as<char>(),
+              control->deviceData->size());
           stream.setState(WaveStream::State::kParallel);
-          reinterpret_cast<WaveKernelStream*>(out)->call(
-              out,
-              exes.size() * blocksPerExe,
-              control->sharedMemorySize,
-              control->params);
+          {
+            PrintTime c("expr");
+            reinterpret_cast<WaveKernelStream*>(out)->call(
+                out,
+                exes.size() * blocksPerExe,
+                control->sharedMemorySize,
+                control->params);
+          }
           // A sink at the end has no output params but need to wait for host
           // return event before reusing the stream.
           if (exes.size() == 1 && exes[0]->programShared->isSink()) {
@@ -144,12 +152,6 @@ void Project::finalize(CompileState& state) {
       }
     }
   }
-}
-
-vector_size_t Project::outputSize(WaveStream& stream) const {
-  auto& control = stream.launchControls(id_);
-  VELOX_CHECK(!control.empty());
-  return control[0]->inputRows;
 }
 
 } // namespace facebook::velox::wave

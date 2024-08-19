@@ -50,8 +50,6 @@ class WaveHiveDataSource : public WaveDataSource {
 
   void schedule(WaveStream& stream, int32_t maxRows) override;
 
-  vector_size_t outputSize(WaveStream& stream) const override;
-
   bool isFinished() override;
 
   std::shared_ptr<WaveSplitReader> splitReader() override {

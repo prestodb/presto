@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include "velox/common/file/Region.h"
 #include "velox/connectors/Connector.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/dwio/common/TypeWithId.h"
@@ -26,12 +27,17 @@ namespace facebook::velox::wave::test {
 
 class Table;
 
-enum Encoding { kFlat, kDict };
+enum Encoding : uint8_t { kFlat, kDict, kStruct, kNone };
 
 struct Column {
-  TypeKind kind;
+  void load(
+      std::unique_ptr<ReadFile>& file,
+      const std::string& path,
+      memory::MemoryPool* pool);
+
   Encoding encoding;
-  // Number of encoded values.
+  TypeKind kind;
+  // Number of encoded values including nulls.
   int32_t numValues{0};
 
   // Distinct values in kDict.
@@ -52,23 +58,48 @@ struct Column {
   /// Encoded column with 'numValues' null bits, nullptr if no nulls. If set,
   /// 'values' has an entry for each non-null.
   std::unique_ptr<Column> nulls;
+
+  /// Location of raw data in the backing file, or 0,0 if no backing file.
+  common::Region region;
+
+  std::vector<std::unique_ptr<Column>> children;
 };
 
 struct Stripe {
   Stripe(
       std::vector<std::unique_ptr<Column>>&& in,
-      const std::shared_ptr<const dwio::common::TypeWithId>& type)
-      : typeWithId(type), columns(std::move(in)) {}
+      const std::shared_ptr<const dwio::common::TypeWithId>& type,
+      int32_t numRows,
+      std::string path = "")
+      : typeWithId(type),
+        numRows(numRows),
+        columns(std::move(in)),
+        path(std::move(path)) {}
 
   const Column* findColumn(const dwio::common::TypeWithId& child) const;
+
+  bool isLoaded() const {
+    for (auto i = 0; i < columns.size(); ++i) {
+      if (!columns[i]->values) {
+        return false;
+      }
+    }
+    return true;
+  }
 
   // Unique name assigned when associating with a Table.
   std::string name;
 
   std::shared_ptr<const dwio::common::TypeWithId> typeWithId;
 
+  /// Number of rows. Needed for counting if no columns.
+  int32_t numRows{0};
+
   // Top level columns.
   std::vector<std::unique_ptr<Column>> columns;
+
+  /// Path of file referenced by Region in Columns.
+  std::string path;
 };
 
 class StringSet {
@@ -211,6 +242,19 @@ class Table {
     }
     return it->second.get();
   }
+
+  void toFile(const std::string& path);
+
+  /// Initializes from 'path' for stripes whose start falls between 'start' and
+  /// 'start + size'.
+  void fromFile(
+      const std::string& path,
+      int64_t start = 0,
+      int64_t size = std::numeric_limits<int64_t>::max());
+
+  /// Reads the encoded data for all columns in column->buffer, allocating from
+  /// 'pool'.
+  void loadData(std::shared_ptr<memory::MemoryPool> pool);
 
   static void dropTable(const std::string& name);
 

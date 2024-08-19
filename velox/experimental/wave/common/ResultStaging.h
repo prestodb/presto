@@ -90,4 +90,24 @@ class ResultStaging {
   std::vector<WaveBufferPtr> buffers_;
 };
 
+/// Manages parameters of kernel launch. Provides pinned host buffer and a
+/// device side copy destination.
+struct LaunchParams {
+  LaunchParams(GpuArena& arena) : arena(arena) {}
+
+  /// Returns a host, device address pair of 'size' bytes.
+  std::pair<char*, char*> setup(size_t size);
+
+  void transfer(Stream& stream);
+
+  GpuArena& arena;
+  WaveBufferPtr host;
+  WaveBufferPtr device;
+};
+
+// Arena for decode and program launch param blocks. Lifetime of allocations is
+// a wave in WaveStream, typical size under 1MB, e.g. 1K blocks with 1K of
+// params.
+GpuArena& getSmallTransferArena();
+
 } // namespace facebook::velox::wave

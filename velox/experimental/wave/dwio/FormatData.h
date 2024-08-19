@@ -16,24 +16,32 @@
 
 #pragma once
 
+#include <folly/Range.h>
+#include "velox/common/base/Semaphore.h"
+#include "velox/common/caching/AsyncDataCache.h"
+#include "velox/common/file/Region.h"
 #include "velox/dwio/common/ScanSpec.h"
 #include "velox/dwio/common/Statistics.h"
 #include "velox/dwio/common/TypeWithId.h"
 #include "velox/experimental/wave/dwio/decode/DecodeStep.h"
+#include "velox/experimental/wave/exec/OperandSet.h"
 #include "velox/experimental/wave/vector/WaveVector.h"
-
-#include <folly/Range.h>
 
 namespace facebook::velox::wave {
 
 class ReadStream;
 class WaveStream;
 
+/// Use generic bit set to track depemdemce pon staging.
+using StagingSet = OperandSet;
+
 // Describes how a column is staged on GPU, for example, copy from host RAM,
 // direct read, already on device etc.
 struct Staging {
-  Staging(const void* hostData, int32_t size)
-      : hostData(hostData), size(size) {}
+  Staging(const void* hostData, int32_t size, const common::Region& region)
+      : hostData(hostData),
+        size(hostData ? size : region.length),
+        fileOffset(region.offset) {}
 
   // Pointer to data in pageable host memory, if applicable.
   const void* hostData{nullptr};
@@ -41,7 +49,15 @@ struct Staging {
   //  Size in bytes.
   size_t size;
 
-  // Add members here to describe locations in storage for GPU direct transfer.
+  /// If 'hostData' is nullptr, this is the start offset for 'size'
+  /// bytes in 'fileInfo_' of containing SplitStaging.
+  int64_t fileOffset{0};
+};
+
+struct FileInfo {
+  ReadFile* file{nullptr};
+  StringIdLease* fileId{nullptr};
+  cache::AsyncDataCache* cache{nullptr};
 };
 
 /// Describes how columns to be read together are staged on device. This is
@@ -49,6 +65,11 @@ struct Staging {
 /// data already on device.
 class SplitStaging {
  public:
+  /// id indicating no dependence on other staging.
+  static constexpr int32_t kNoStaging = ~0;
+
+  SplitStaging(FileInfo& fileInfo, int32_t id) : id_(id), fileInfo_(fileInfo) {}
+
   /// Adds a transfer described by 'staging'. Returns an id of the
   /// device side buffer. The id will be mapped to an actual buffer
   /// when the transfers are queud. At this time, pointers that
@@ -72,19 +93,43 @@ class SplitStaging {
   int64_t bytesToDevice() const {
     return fill_;
   }
-  // Starts the transfers registered with add( on 'stream'). Does nothing after
-  // first call or if no pointers are registered. If 'recordEvent' is true,
-  // records an event that is completed after the transfer arrives. Use event()
-  // to access the event.
-  void
-  transfer(WaveStream& waveStream, Stream& stream, bool recordEvent = false);
+  // Starts the transfers registered with add( on 'stream'). Does
+  // nothing after first call or if no pointers are registered. If
+  // 'recordEvent' is true, records an event that is completed after
+  // the transfer arrives. Use event() to access the event. If
+  // 'asyncTail' is non-nullptr, it is called after the data transfer
+  // is enqueued. The call is on an executor and transfer() returns as
+  // soon as the work is enqueud. If asyncTail is not given,
+  // transfer() returns after the transfer is enqueued on
+  // 'stream'. event() is not set until the transfer is enqueued.
+  void transfer(
+      WaveStream& waveStream,
+      Stream& stream,
+      bool recordEvent = false,
+      std::function<void(WaveStream&, Stream&)> asyncTail = nullptr);
 
   Event* event() const {
     return event_.get();
   }
 
+  int32_t id() const {
+    return id_;
+  }
+
+  void addDependency(int32_t id) {
+    dependsOn_.add(id);
+  }
+
+  const StagingSet& dependsOn() {
+    return dependsOn_;
+  }
+
  private:
   void registerPointerInternal(BufferId id, void** ptr, bool clear);
+
+  void copyColumns(int32_t begin, int32_t end, char* destination, bool release);
+
+  const int32_t id_;
 
   // Pinned host memory for transfer to device. May be nullptr if using unified
   // memory.
@@ -107,6 +152,16 @@ class SplitStaging {
   // Optional event recorded after end of transfer. Use to sync dependent
   // kernels on other streams.
   std::unique_ptr<Event> event_;
+
+  // Synchronizes arrival of multithreaded memcpy
+  Semaphore sem_{0};
+
+  FileInfo& fileInfo_;
+
+  // Set of other SplitStaging ids of which 'this' is a
+  // duplicate. These need to be complete efore dependents of 'this'
+  // can run. A staging can both have transfers and dependencies.
+  StagingSet dependsOn_;
 };
 
 using RowSet = folly::Range<const int32_t*>;
@@ -264,6 +319,11 @@ class FormatData {
       ReadStream& stream,
       WaveTypeKind columnKind,
       int32_t blockIdx);
+
+  // Staging id for nulls.
+  int32_t nullsStagingId_{SplitStaging::kNoStaging};
+  // id of last splitStaging 'this' depends on.
+  int32_t lastStagingId_{SplitStaging::kNoStaging};
 
   // First unaccessed row number relative to start of 'this'.
   int32_t currentRow_{0};

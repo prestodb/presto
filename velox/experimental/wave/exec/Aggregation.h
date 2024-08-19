@@ -51,8 +51,6 @@ class Aggregation : public WaveOperator {
     return finished_;
   }
 
-  vector_size_t outputSize(WaveStream&) const override;
-
   std::string toString() const override {
     return "Aggregation";
   }

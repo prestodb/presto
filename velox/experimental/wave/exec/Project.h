@@ -60,8 +60,6 @@ class Project : public WaveOperator {
 
   void schedule(WaveStream& stream, int32_t maxRows = 0) override;
 
-  vector_size_t outputSize(WaveStream& stream) const override;
-
   void finalize(CompileState& state) override;
 
   std::string toString() const override {
