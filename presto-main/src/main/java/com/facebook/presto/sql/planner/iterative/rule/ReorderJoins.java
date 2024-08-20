@@ -61,6 +61,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -69,6 +70,7 @@ import static com.facebook.presto.SystemSessionProperties.confidenceBasedBroadca
 import static com.facebook.presto.SystemSessionProperties.getJoinDistributionType;
 import static com.facebook.presto.SystemSessionProperties.getJoinReorderingStrategy;
 import static com.facebook.presto.SystemSessionProperties.getMaxReorderedJoins;
+import static com.facebook.presto.SystemSessionProperties.isPreferBroadcastJoinOverPartitionedJoinEnabled;
 import static com.facebook.presto.SystemSessionProperties.shouldHandleComplexEquiJoins;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.and;
@@ -553,6 +555,9 @@ public class ReorderJoins
             if (possibleJoinNodes.stream().anyMatch(UNKNOWN_COST_RESULT::equals)) {
                 return UNKNOWN_COST_RESULT;
             }
+            if (isPreferBroadcastJoinOverPartitionedJoinEnabled(session) && possibleJoinNodes.stream().anyMatch(JoinEnumerationResult::isBroadcastJoinNode)) {
+                possibleJoinNodes = possibleJoinNodes.stream().filter(JoinEnumerationResult::isBroadcastJoinNode).collect(toImmutableList());
+            }
             return resultComparator.min(possibleJoinNodes);
         }
 
@@ -902,6 +907,11 @@ public class ReorderJoins
                 return INFINITE_COST_RESULT;
             }
             return new JoinEnumerationResult(planNode, cost);
+        }
+
+        public boolean isBroadcastJoinNode()
+        {
+            return planNode.isPresent() && planNode.get() instanceof JoinNode && ((JoinNode) planNode.get()).getDistributionType().isPresent() && ((JoinNode) planNode.get()).getDistributionType().get().equals(REPLICATED);
         }
     }
 }

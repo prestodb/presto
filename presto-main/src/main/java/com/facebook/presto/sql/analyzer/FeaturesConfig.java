@@ -294,6 +294,7 @@ public class FeaturesConfig
     private JoinNotNullInferenceStrategy joinNotNullInferenceStrategy = NONE;
     private boolean leftJoinNullFilterToSemiJoin = true;
     private boolean broadcastJoinWithSmallBuildUnknownProbe;
+    private boolean preferBroadcastJoinOverPartitionedJoin;
     private boolean addPartialNodeForRowNumberWithLimit = true;
     private boolean inferInequalityPredicates;
     private boolean pullUpExpressionFromLambda;
@@ -2978,6 +2979,19 @@ public class FeaturesConfig
     public FeaturesConfig setBroadcastJoinWithSmallBuildUnknownProbe(boolean broadcastJoinWithSmallBuildUnknownProbe)
     {
         this.broadcastJoinWithSmallBuildUnknownProbe = broadcastJoinWithSmallBuildUnknownProbe;
+        return this;
+    }
+
+    public boolean isPreferBroadcastJoinOverPartitionedJoin()
+    {
+        return this.preferBroadcastJoinOverPartitionedJoin;
+    }
+
+    @Config("experimental.optimizer.prefer-broadcast-join-over-partitioned-join")
+    @ConfigDescription("When both partitioned join and broadcast join is available, choose broadcast join during query planning")
+    public FeaturesConfig setPreferBroadcastJoinOverPartitionedJoin(boolean preferBroadcastJoinOverPartitionedJoin)
+    {
+        this.preferBroadcastJoinOverPartitionedJoin = preferBroadcastJoinOverPartitionedJoin;
         return this;
     }
 

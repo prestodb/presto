@@ -312,6 +312,7 @@ public final class SystemSessionProperties
     public static final String REWRITE_LEFT_JOIN_ARRAY_CONTAINS_TO_EQUI_JOIN = "rewrite_left_join_array_contains_to_equi_join";
     public static final String REWRITE_LEFT_JOIN_NULL_FILTER_TO_SEMI_JOIN = "rewrite_left_join_null_filter_to_semi_join";
     public static final String USE_BROADCAST_WHEN_BUILDSIZE_SMALL_PROBESIDE_UNKNOWN = "use_broadcast_when_buildsize_small_probeside_unknown";
+    public static final String PREFER_BROADCAST_JOIN_OVER_PARTITIONED_JOIN = "prefer_broadcast_join_over_partitioned_join";
     public static final String ADD_PARTIAL_NODE_FOR_ROW_NUMBER_WITH_LIMIT = "add_partial_node_for_row_number_with_limit";
     public static final String REWRITE_CASE_TO_MAP_ENABLED = "rewrite_case_to_map_enabled";
     public static final String FIELD_NAMES_IN_JSON_CAST_ENABLED = "field_names_in_json_cast_enabled";
@@ -1877,6 +1878,11 @@ public final class SystemSessionProperties
                         featuresConfig.isBroadcastJoinWithSmallBuildUnknownProbe(),
                         false),
                 booleanProperty(
+                        PREFER_BROADCAST_JOIN_OVER_PARTITIONED_JOIN,
+                        "When broadcast join is available, choose broadcast join",
+                        featuresConfig.isPreferBroadcastJoinOverPartitionedJoin(),
+                        false),
+                booleanProperty(
                         ADD_PARTIAL_NODE_FOR_ROW_NUMBER_WITH_LIMIT,
                         "Add partial row number node for row number node with limit",
                         featuresConfig.isAddPartialNodeForRowNumberWithLimitEnabled(),
@@ -3207,6 +3213,11 @@ public final class SystemSessionProperties
     public static boolean isUseBroadcastJoinWhenBuildSizeSmallProbeSizeUnknownEnabled(Session session)
     {
         return session.getSystemProperty(USE_BROADCAST_WHEN_BUILDSIZE_SMALL_PROBESIDE_UNKNOWN, Boolean.class);
+    }
+
+    public static boolean isPreferBroadcastJoinOverPartitionedJoinEnabled(Session session)
+    {
+        return session.getSystemProperty(PREFER_BROADCAST_JOIN_OVER_PARTITIONED_JOIN, Boolean.class);
     }
 
     public static boolean isAddPartialNodeForRowNumberWithLimit(Session session)
