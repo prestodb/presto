@@ -1,0 +1,73 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 364b6c7c..c96a5b6c 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -333,6 +333,8 @@ SET (CMAKE_EXTRA_INCLUDE_FILES)
+ SET (CMAKE_REQUIRED_DEFINITIONS)
+ SET (CMAKE_REQUIRED_LIBRARIES)
+ 
++find_file(CARES_RANDOM_FILE urandom /dev)
++mark_as_advanced(CARES_RANDOM_FILE)
+ 
+ ################################################################################
+ # recv, recvfrom, send, getnameinfo, gethostname
+diff --git a/ares_config.h.cmake b/ares_config.h.cmake
+index 0cb2f6ae..b5da36d3 100644
+--- a/ares_config.h.cmake
++++ b/ares_config.h.cmake
+@@ -338,7 +338,7 @@
+ #cmakedefine NEED_MEMORY_H
+ 
+ /* a suitable file/device to read random data from */
+-#cmakedefine RANDOM_FILE
++#cmakedefine CARES_RANDOM_FILE "@CARES_RANDOM_FILE@"
+ 
+ /* Define to the type qualifier pointed by arg 5 for recvfrom. */
+ #define RECVFROM_QUAL_ARG5 @RECVFROM_QUAL_ARG5@
+diff --git a/ares_init.c b/ares_init.c
+index f7b700bf..29bb9784 100644
+--- a/ares_init.c
++++ b/ares_init.c
+@@ -2376,8 +2376,8 @@ static void randomize_key(unsigned char* key,int key_data_len)
+         randomized = 1;
+     }
+ #else /* !WIN32 */
+-#ifdef RANDOM_FILE
+-  FILE *f = fopen(RANDOM_FILE, "rb");
++#ifdef CARES_RANDOM_FILE
++  FILE *f = fopen(CARES_RANDOM_FILE, "rb");
+   if(f) {
+     counter = aresx_uztosi(fread(key, 1, key_data_len, f));
+     fclose(f);
+diff --git a/configure.ac b/configure.ac
+index 7e86ad67..ffdcfdf7 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -829,22 +829,22 @@ dnl Check for user-specified random device
+ AC_ARG_WITH(random,
+ AC_HELP_STRING([--with-random=FILE],
+                [read randomness from FILE (default=/dev/urandom)]),
+-    [ RANDOM_FILE="$withval" ],
++    [ CARES_RANDOM_FILE="$withval" ],
+     [
+         dnl Check for random device.  If we're cross compiling, we can't
+         dnl check, and it's better to assume it doesn't exist than it is
+         dnl to fail on AC_CHECK_FILE or later.
+         if test "$cross_compiling" = "no"; then
+-          AC_CHECK_FILE("/dev/urandom", [ RANDOM_FILE="/dev/urandom"] )
++          AC_CHECK_FILE("/dev/urandom", [ CARES_RANDOM_FILE="/dev/urandom"] )
+         else
+           AC_MSG_WARN([cannot check for /dev/urandom while cross compiling; assuming none])
+         fi
+         
+     ]
+ )
+-if test -n "$RANDOM_FILE" && test X"$RANDOM_FILE" != Xno ; then
+-        AC_SUBST(RANDOM_FILE)
+-        AC_DEFINE_UNQUOTED(RANDOM_FILE, "$RANDOM_FILE",
++if test -n "$CARES_RANDOM_FILE" && test X"$CARES_RANDOM_FILE" != Xno ; then
++        AC_SUBST(CARES_RANDOM_FILE)
++        AC_DEFINE_UNQUOTED(CARES_RANDOM_FILE, "$CARES_RANDOM_FILE",
+         [a suitable file/device to read random data from])
+ fi
+ 

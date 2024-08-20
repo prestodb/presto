@@ -59,6 +59,11 @@ struct AggregationFuzzerOptions {
   /// affect semantics of individual aggregate functions.
   std::unordered_map<std::string, std::string> queryConfigs;
 
+  /// A set of hive configuration properties to use when running query plans.
+  /// Could be used to specify different timestamp units for Presto and Spark
+  /// fuzzer test.
+  std::unordered_map<std::string, std::string> hiveConfigs;
+
   // Whether group keys must be orderable or be just comparable.
   bool orderableGroupKeys = false;
 };

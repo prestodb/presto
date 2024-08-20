@@ -88,6 +88,7 @@ class WindowFuzzerRunner {
         options.orderDependentFunctions,
         options.timestampPrecision,
         options.queryConfigs,
+        options.hiveConfigs,
         options.orderableGroupKeys,
         planPath,
         std::move(referenceQueryRunner));

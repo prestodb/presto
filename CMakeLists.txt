@@ -152,6 +152,7 @@ if(${VELOX_BUILD_TESTING})
   set(VELOX_ENABLE_TPCH_CONNECTOR ON)
   set(VELOX_ENABLE_SPARK_FUNCTIONS ON)
   set(VELOX_ENABLE_EXAMPLES ON)
+  set(VELOX_ENABLE_PARQUET ON)
 endif()
 
 if(${VELOX_ENABLE_BENCHMARKS})
@@ -344,7 +345,6 @@ if("${ENABLE_ALL_WARNINGS}")
        -Wno-unused-parameter \
        -Wno-sign-compare \
        -Wno-ignored-qualifiers \
-       -Wnon-virtual-dtor \
        ${KNOWN_COMPILER_SPECIFIC_WARNINGS}")
 
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra ${KNOWN_WARNINGS}")
@@ -460,6 +460,20 @@ resolve_dependency(simdjson 3.9.3)
 add_compile_definitions(FOLLY_HAVE_INT128_T=1)
 set_source(folly)
 resolve_dependency(folly)
+
+if(${VELOX_BUILD_TESTING})
+  # Spark qury runner depends on absl, gRPC.
+  set_source(absl)
+  resolve_dependency(absl)
+
+  # 'gRPC_CARES_PROVIDER' is set as 'package', which means c-ares library needs
+  # to be installed on the system, instead of being built by gRPC.
+  set_source(c-ares)
+  resolve_dependency(c-ares)
+
+  set_source(gRPC)
+  resolve_dependency(gRPC)
+endif()
 
 if(VELOX_ENABLE_REMOTE_FUNCTIONS)
   # TODO: Move this to use resolve_dependency(). For some reason, FBThrift

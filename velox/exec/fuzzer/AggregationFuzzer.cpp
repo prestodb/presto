@@ -61,6 +61,7 @@ class AggregationFuzzer : public AggregationFuzzerBase {
           customInputGenerators,
       VectorFuzzer::Options::TimestampPrecision timestampPrecision,
       const std::unordered_map<std::string, std::string>& queryConfigs,
+      const std::unordered_map<std::string, std::string>& hiveConfigs,
       bool orderableGroupKeys,
       std::unique_ptr<ReferenceQueryRunner> referenceQueryRunner);
 
@@ -212,6 +213,7 @@ void aggregateFuzzer(
         customInputGenerators,
     VectorFuzzer::Options::TimestampPrecision timestampPrecision,
     const std::unordered_map<std::string, std::string>& queryConfigs,
+    const std::unordered_map<std::string, std::string>& hiveConfigs,
     bool orderableGroupKeys,
     const std::optional<std::string>& planPath,
     std::unique_ptr<ReferenceQueryRunner> referenceQueryRunner) {
@@ -222,6 +224,7 @@ void aggregateFuzzer(
       customInputGenerators,
       timestampPrecision,
       queryConfigs,
+      hiveConfigs,
       orderableGroupKeys,
       std::move(referenceQueryRunner));
   planPath.has_value() ? aggregationFuzzer.go(planPath.value())
@@ -239,6 +242,7 @@ AggregationFuzzer::AggregationFuzzer(
         customInputGenerators,
     VectorFuzzer::Options::TimestampPrecision timestampPrecision,
     const std::unordered_map<std::string, std::string>& queryConfigs,
+    const std::unordered_map<std::string, std::string>& hiveConfigs,
     bool orderableGroupKeys,
     std::unique_ptr<ReferenceQueryRunner> referenceQueryRunner)
     : AggregationFuzzerBase{
@@ -247,6 +251,7 @@ AggregationFuzzer::AggregationFuzzer(
           customInputGenerators,
           timestampPrecision,
           queryConfigs,
+          hiveConfigs,
           orderableGroupKeys,
           std::move(referenceQueryRunner)} {
   VELOX_CHECK(!signatureMap.empty(), "No function signatures available.");
