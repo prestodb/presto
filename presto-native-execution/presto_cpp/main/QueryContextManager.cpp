@@ -28,36 +28,6 @@ using facebook::presto::protocol::TaskId;
 
 namespace facebook::presto {
 namespace {
-// Utility function to translate a config name in Presto to its equivalent in
-// Velox. Returns 'name' as is if there is no mapping.
-std::string toVeloxConfig(const std::string& name) {
-  using velox::core::QueryConfig;
-  static const folly::F14FastMap<std::string, std::string>
-      kPrestoToVeloxMapping = {
-          {"native_simplified_expression_evaluation_enabled",
-           QueryConfig::kExprEvalSimplified},
-          {"native_max_spill_level", QueryConfig::kMaxSpillLevel},
-          {"native_max_spill_file_size", QueryConfig::kMaxSpillFileSize},
-          {"native_spill_compression_codec",
-           QueryConfig::kSpillCompressionKind},
-          {"native_spill_write_buffer_size",
-           QueryConfig::kSpillWriteBufferSize},
-          {"native_spill_file_create_config",
-           QueryConfig::kSpillFileCreateConfig},
-          {"native_join_spill_enabled", QueryConfig::kJoinSpillEnabled},
-          {"native_window_spill_enabled", QueryConfig::kWindowSpillEnabled},
-          {"native_writer_spill_enabled", QueryConfig::kWriterSpillEnabled},
-          {"native_row_number_spill_enabled",
-           QueryConfig::kRowNumberSpillEnabled},
-          {"native_spiller_num_partition_bits",
-           QueryConfig::kSpillNumPartitionBits},
-          {"native_topn_row_number_spill_enabled",
-           QueryConfig::kTopNRowNumberSpillEnabled},
-          {"native_debug_validate_output_from_operators",
-           QueryConfig::kValidateOutputFromOperators}};
-  auto it = kPrestoToVeloxMapping.find(name);
-  return it == kPrestoToVeloxMapping.end() ? name : it->second;
-}
 
 // Update passed in query session configs with system configs. For any pairing
 // system/session configs if session config is present, it overrides system
@@ -87,26 +57,6 @@ void updateFromSystemConfigs(
       }
     }
   }
-}
-
-std::unordered_map<std::string, std::string> toVeloxConfigs(
-    const protocol::SessionRepresentation& session) {
-  // Use base velox query config as the starting point and add Presto session
-  // properties on top of it.
-  auto configs = BaseVeloxQueryConfig::instance()->values();
-  for (const auto& it : session.systemProperties) {
-    configs[toVeloxConfig(it.first)] = it.second;
-  }
-
-  // If there's a timeZoneKey, convert to timezone name and add to the
-  // configs. Throws if timeZoneKey can't be resolved.
-  if (session.timeZoneKey != 0) {
-    configs.emplace(
-        velox::core::QueryConfig::kSessionTimezone,
-        velox::tz::getTimeZoneName(session.timeZoneKey));
-  }
-  updateFromSystemConfigs(configs);
-  return configs;
 }
 
 std::unordered_map<std::string, std::unordered_map<std::string, std::string>>
@@ -167,7 +117,9 @@ void updateVeloxConnectorConfigs(
 QueryContextManager::QueryContextManager(
     folly::Executor* driverExecutor,
     folly::Executor* spillerExecutor)
-    : driverExecutor_(driverExecutor), spillerExecutor_(spillerExecutor) {}
+    : driverExecutor_(driverExecutor),
+      spillerExecutor_(spillerExecutor),
+      sessionProperties_(SessionProperties()) {}
 
 std::shared_ptr<velox::core::QueryCtx>
 QueryContextManager::findOrCreateQueryCtx(
@@ -244,6 +196,28 @@ void QueryContextManager::testingClearCache() {
 void QueryContextCache::testingClear() {
   queryCtxs_.clear();
   queryIds_.clear();
+}
+
+std::unordered_map<std::string, std::string>
+QueryContextManager::toVeloxConfigs(
+    const protocol::SessionRepresentation& session) {
+  // Use base velox query config as the starting point and add Presto session
+  // properties on top of it.
+  auto configs = BaseVeloxQueryConfig::instance()->values();
+  for (const auto& it : session.systemProperties) {
+    configs[sessionProperties_.toVeloxConfig(it.first)] = it.second;
+    sessionProperties_.updateVeloxConfig(it.first, it.second);
+  }
+
+  // If there's a timeZoneKey, convert to timezone name and add to the
+  // configs. Throws if timeZoneKey can't be resolved.
+  if (session.timeZoneKey != 0) {
+    configs.emplace(
+        velox::core::QueryConfig::kSessionTimezone,
+        velox::tz::getTimeZoneName(session.timeZoneKey));
+  }
+  updateFromSystemConfigs(configs);
+  return configs;
 }
 
 } // namespace facebook::presto

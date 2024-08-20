@@ -283,6 +283,11 @@ public class StateMachine<T>
         return terminalStates.contains(state);
     }
 
+    public void clearEventListeners()
+    {
+        stateChangeListeners.clear();
+    }
+
     @VisibleForTesting
     List<StateChangeListener<T>> getStateChangeListeners()
     {
