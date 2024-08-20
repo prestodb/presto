@@ -255,6 +255,12 @@ class ScanSpec {
   // This may change as a result of runtime adaptation.
   bool hasFilter() const;
 
+  /// Assume this field is read as null constant vector (usually due to missing
+  /// field), check if any filter in the struct subtree would make the whole
+  /// vector to be filtered out.  Return false when the whole vector should be
+  /// filtered out.
+  bool testNull() const;
+
   // Resets cached values after this or children were updated, e.g. a new filter
   // was added or existing filter was modified.
   void resetCachedValues(bool doReorder) {

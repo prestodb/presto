@@ -129,6 +129,18 @@ bool ScanSpec::hasFilter() const {
   return false;
 }
 
+bool ScanSpec::testNull() const {
+  if (filter_ && !filter_->testNull()) {
+    return false;
+  }
+  for (auto& child : children_) {
+    if (!child->isArrayElementOrMapEntry_ && !child->testNull()) {
+      return false;
+    }
+  }
+  return true;
+}
+
 void ScanSpec::moveAdaptationFrom(ScanSpec& other) {
   // moves the filters and filter order from 'other'.
   for (auto& child : children_) {

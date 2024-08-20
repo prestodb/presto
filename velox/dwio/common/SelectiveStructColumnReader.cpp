@@ -78,6 +78,20 @@ void SelectiveStructColumnReaderBase::fillOutputRowsFromMutation(
   }
 }
 
+namespace {
+
+bool testFilterOnConstant(const velox::common::ScanSpec& spec) {
+  if (spec.isConstant() && !spec.constantValue()->isNullAt(0)) {
+    // Non-null constant is known value during split scheduling and filters on
+    // them should not be handled at execution level.
+    return true;
+  }
+  // Check filter on missing field.
+  return !spec.hasFilter() || spec.testNull();
+}
+
+} // namespace
+
 void SelectiveStructColumnReaderBase::next(
     uint64_t numValues,
     VectorPtr& result,
@@ -99,6 +113,12 @@ void SelectiveStructColumnReaderBase::next(
         }
       }
     }
+    for (auto& childSpec : scanSpec_->children()) {
+      if (isChildConstant(*childSpec) && !testFilterOnConstant(*childSpec)) {
+        numValues = 0;
+        break;
+      }
+    }
 
     // no readers
     // This can be either count(*) query or a query that select only
@@ -107,8 +127,7 @@ void SelectiveStructColumnReaderBase::next(
     auto resultRowVector = std::dynamic_pointer_cast<RowVector>(result);
     resultRowVector->unsafeResize(numValues);
 
-    auto& childSpecs = scanSpec_->children();
-    for (auto& childSpec : childSpecs) {
+    for (auto& childSpec : scanSpec_->children()) {
       VELOX_CHECK(childSpec->isConstant());
       if (childSpec->projectOut()) {
         auto channel = childSpec->channel();
@@ -172,6 +191,10 @@ void SelectiveStructColumnReaderBase::read(
     auto& childSpec = childSpecs[i];
     VELOX_TRACE_HISTORY_PUSH("read %s", childSpec->fieldName().c_str());
     if (isChildConstant(*childSpec)) {
+      if (!testFilterOnConstant(*childSpec)) {
+        activeRows = {};
+        break;
+      }
       continue;
     }
     auto fieldIndex = childSpec->subscript();
