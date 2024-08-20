@@ -18,8 +18,13 @@ target_link_libraries(
   presto_common_test
   presto_common
   presto_exception
+  velox_aggregates
   velox_exception
   velox_file
+  velox_functions_prestosql
+  velox_function_registry
+  velox_presto_types
+  velox_window
   ${RE2}
   GTest::gtest
   GTest::gtest_main)
