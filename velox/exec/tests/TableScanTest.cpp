@@ -3621,6 +3621,65 @@ TEST_F(TableScanTest, bitwiseAggregationPushdown) {
       "SELECT c5, bit_or(c0), bit_or(c1), bit_or(c2), bit_or(c6) FROM tmp group by c5");
 }
 
+TEST_F(TableScanTest, aggregationPushdownSchemaEvolution) {
+  const std::unordered_map<std::string, const char*> duckDbAgg = {
+      {"bitwise_and_agg", "bit_and"},
+      {"bitwise_or_agg", "bit_or"},
+  };
+  auto test = [&](const TypePtr& dataType,
+                  const TypePtr& schemaType,
+                  const std::vector<const char*>& aggs) {
+    SCOPED_TRACE(
+        fmt::format("{} to {}", dataType->toString(), schemaType->toString()));
+    constexpr int kSize = 1000;
+    auto vectors =
+        makeVectors(1, kSize, ROW({"c0", "c1"}, {TINYINT(), dataType}));
+    auto filePath = TempFilePath::create();
+    createDuckDbTable(vectors);
+    writeToFile(filePath->getPath(), vectors);
+    for (const char* agg : aggs) {
+      SCOPED_TRACE(agg);
+      auto plan = PlanBuilder()
+                      .tableScan(ROW({"c0", "c1"}, {TINYINT(), schemaType}))
+                      .singleAggregation({"c0"}, {fmt::format("{}(c1)", agg)})
+                      .planNode();
+      auto it = duckDbAgg.find(agg);
+      auto task = assertQuery(
+          plan,
+          {filePath},
+          fmt::format(
+              "SELECT c0, {}(c1) FROM tmp GROUP BY 1",
+              it == duckDbAgg.end() ? agg : it->second));
+      auto stats = task->taskStats();
+      ASSERT_EQ(
+          stats.pipelineStats[0]
+              .operatorStats[1]
+              .runtimeStats.at("loadedToValueHook")
+              .sum,
+          kSize);
+    }
+  };
+  test(BOOLEAN(), TINYINT(), {"min", "max"});
+  test(BOOLEAN(), BIGINT(), {"min", "max"});
+  test(
+      TINYINT(),
+      INTEGER(),
+      {"min", "max", "sum", "bitwise_and_agg", "bitwise_or_agg"});
+  test(
+      TINYINT(),
+      BIGINT(),
+      {"min", "max", "sum", "bitwise_and_agg", "bitwise_or_agg"});
+  test(
+      SMALLINT(),
+      INTEGER(),
+      {"min", "max", "sum", "bitwise_and_agg", "bitwise_or_agg"});
+  test(
+      INTEGER(),
+      BIGINT(),
+      {"min", "max", "sum", "bitwise_and_agg", "bitwise_or_agg"});
+  test(REAL(), DOUBLE(), {"min", "max", "sum"});
+}
+
 TEST_F(TableScanTest, structLazy) {
   vector_size_t size = 1'000;
   auto rowVector = makeRowVector(

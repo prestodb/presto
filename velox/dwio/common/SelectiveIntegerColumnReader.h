@@ -53,7 +53,7 @@ class SelectiveIntegerColumnReader : public SelectiveColumnReader {
 
   // Switches based on the type of ValueHook between different readWithVisitor
   // instantiations.
-  template <typename Reader, bool isDence>
+  template <typename Reader, bool isDense>
   void processValueHook(RowSet rows, ValueHook* hook);
 
   // Instantiates a Visitor based on type, isDense, value processing.
@@ -196,17 +196,17 @@ void SelectiveIntegerColumnReader::processValueHook(
     RowSet rows,
     ValueHook* hook) {
   switch (hook->kind()) {
-    case aggregate::AggregationHook::kSumBigintToBigint:
+    case aggregate::AggregationHook::kBigintSum:
       readHelper<Reader, velox::common::AlwaysTrue, isDense>(
           &alwaysTrue(),
           rows,
-          ExtractToHook<aggregate::SumHook<int64_t, int64_t, false>>(hook));
+          ExtractToHook<aggregate::SumHook<int64_t, false>>(hook));
       break;
-    case aggregate::AggregationHook::kSumBigintToBigintOverflow:
+    case aggregate::AggregationHook::kBigintSumOverflow:
       readHelper<Reader, velox::common::AlwaysTrue, isDense>(
           &alwaysTrue(),
           rows,
-          ExtractToHook<aggregate::SumHook<int64_t, int64_t, true>>(hook));
+          ExtractToHook<aggregate::SumHook<int64_t, true>>(hook));
       break;
     case aggregate::AggregationHook::kBigintMax:
       readHelper<Reader, velox::common::AlwaysTrue, isDense>(

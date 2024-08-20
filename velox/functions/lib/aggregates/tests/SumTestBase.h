@@ -46,7 +46,7 @@ void testHookLimits(bool expectOverflow = false) {
     ResultType expected = 0;
     char* row = reinterpret_cast<char*>(&sumRow);
     uint64_t numNulls = 0;
-    facebook::velox::aggregate::SumHook<InputType, ResultType, Overflow> hook(
+    facebook::velox::aggregate::SumHook<ResultType, Overflow> hook(
         offsetof(SumRow<ResultType>, sum),
         offsetof(SumRow<ResultType>, nulls),
         0,
@@ -54,14 +54,14 @@ void testHookLimits(bool expectOverflow = false) {
         &numNulls);
 
     // Adding limit should not overflow.
-    ASSERT_NO_THROW(hook.addValue(0, &limit));
+    ASSERT_NO_THROW(hook.addValueTyped(0, limit));
     expected += limit;
     EXPECT_EQ(expected, sumRow.sum);
     // Adding overflow based on the ResultType should throw.
     if (expectOverflow) {
-      VELOX_ASSERT_THROW(hook.addValue(0, &overflow), "overflow");
+      VELOX_ASSERT_THROW(hook.addValueTyped(0, overflow), "overflow");
     } else {
-      ASSERT_NO_THROW(hook.addValue(0, &overflow));
+      ASSERT_NO_THROW(hook.addValueTyped(0, overflow));
       expected += overflow;
       EXPECT_EQ(expected, sumRow.sum);
     }

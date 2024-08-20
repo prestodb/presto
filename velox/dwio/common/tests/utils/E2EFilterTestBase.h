@@ -39,21 +39,41 @@ class TestingHook : public ValueHook {
  public:
   explicit TestingHook(FlatVector<T>* result) : result_(result) {}
 
-  void addValue(vector_size_t row, const void* value) override {
-    result_->set(row, *reinterpret_cast<const T*>(value));
+  void addValue(vector_size_t row, int64_t value) override {
+    if constexpr (std::is_integral_v<T>) {
+      result_->set(row, value);
+    } else {
+      VELOX_FAIL();
+    }
+  }
+
+  void addValue(vector_size_t row, float value) override {
+    if constexpr (std::is_same_v<T, float>) {
+      result_->set(row, value);
+    } else {
+      VELOX_FAIL();
+    }
+  }
+
+  void addValue(vector_size_t row, double value) override {
+    if constexpr (std::is_same_v<T, double>) {
+      result_->set(row, value);
+    } else {
+      VELOX_FAIL();
+    }
+  }
+
+  void addValue(vector_size_t row, folly::StringPiece value) override {
+    if constexpr (std::is_same_v<T, StringView>) {
+      result_->set(row, StringView(value));
+    } else {
+      VELOX_FAIL();
+    }
   }
 
  private:
   FlatVector<T>* result_;
 };
-
-template <>
-inline void TestingHook<StringView>::addValue(
-    vector_size_t row,
-    const void* value) {
-  result_->set(
-      row, StringView(*reinterpret_cast<const folly::StringPiece*>(value)));
-}
 
 // Utility for checking that a subsequent batch of output does not
 // overwrite internals of a possibly retained previous batch.

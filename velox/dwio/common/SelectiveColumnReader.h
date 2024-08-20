@@ -734,10 +734,19 @@ velox::common::AlwaysTrue& alwaysTrue();
 } // namespace facebook::velox::dwio::common
 
 namespace facebook::velox::dwio::common {
+
 // Template parameter to indicate no hook in fast scan path. This is
 // referenced in decoders, thus needs to be declared in a header.
-struct NoHook : public ValueHook {
-  void addValue(vector_size_t /*row*/, const void* /*value*/) override {}
+struct NoHook final : public ValueHook {
+  void addValue(vector_size_t /*row*/, int64_t /*value*/) final {}
+
+  void addValue(vector_size_t /*row*/, int128_t /*value*/) final {}
+
+  void addValue(vector_size_t /*row*/, float /*value*/) final {}
+
+  void addValue(vector_size_t /*row*/, double /*value*/) final {}
+
+  void addValue(vector_size_t /*row*/, folly::StringPiece /*value*/) final {}
 };
 
 } // namespace facebook::velox::dwio::common

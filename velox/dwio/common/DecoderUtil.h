@@ -180,7 +180,7 @@ void fixedWidthScan(
       [&](T value, int32_t rowIndex) {
         if (!hasFilter) {
           if (hasHook) {
-            hook.addValue(scatterRows[rowIndex], &value);
+            hook.addValueTyped(scatterRows[rowIndex], value);
           } else {
             auto targetRow = scatter ? scatterRows[rowIndex] : rowIndex;
             rawValues[targetRow] = value;
@@ -214,8 +214,7 @@ void fixedWidthScan(
                   hook.addValues(
                       scatterRows + rowIndex,
                       buffer + firstRow - rowOffset,
-                      kStep,
-                      sizeof(T));
+                      kStep);
                 } else {
                   if (scatter) {
                     scatterDense(
@@ -266,7 +265,9 @@ void fixedWidthScan(
                 if (!hasFilter) {
                   if (hasHook) {
                     hook.addValues(
-                        scatterRows + rowIndex, &values, kWidth, sizeof(T));
+                        scatterRows + rowIndex,
+                        reinterpret_cast<T*>(&values),
+                        kWidth);
                   } else {
                     if (scatter) {
                       scatterDense<T>(
@@ -322,7 +323,9 @@ void fixedWidthScan(
                 if (!hasFilter) {
                   if (hasHook) {
                     hook.addValues(
-                        scatterRows + rowIndex, &values, width, sizeof(T));
+                        scatterRows + rowIndex,
+                        reinterpret_cast<T*>(&values),
+                        width);
                   } else {
                     if (scatter) {
                       scatterDense<T>(
@@ -473,7 +476,7 @@ void processFixedWidthRun(
   constexpr bool hasHook = !std::is_same_v<THook, NoHook>;
   if (!hasFilter) {
     if (hasHook) {
-      hook.addValues(scatterRows + rowIndex, values, rows.size(), sizeof(T));
+      hook.addValues(scatterRows + rowIndex, values, rows.size());
     } else if (scatter) {
       scatterNonNulls(rowIndex, numInput, numValues, scatterRows, values);
       numValues = scatterRows[rowIndex + numInput - 1] + 1;

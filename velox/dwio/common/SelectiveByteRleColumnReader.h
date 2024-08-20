@@ -149,17 +149,13 @@ void SelectiveByteRleColumnReader::processValueHook(
     ValueHook* hook) {
   using namespace facebook::velox::aggregate;
   switch (hook->kind()) {
-    case aggregate::AggregationHook::kSumBigintToBigint:
+    case aggregate::AggregationHook::kBigintSum:
       readHelper<Reader, velox::common::AlwaysTrue, isDense>(
-          &dwio::common::alwaysTrue(),
-          rows,
-          dwio::common::ExtractToHook<SumHook<int64_t, int64_t>>(hook));
+          &alwaysTrue(), rows, ExtractToHook<SumHook<int64_t>>(hook));
       break;
     default:
       readHelper<Reader, velox::common::AlwaysTrue, isDense>(
-          &dwio::common::alwaysTrue(),
-          rows,
-          dwio::common::ExtractToGenericHook(hook));
+          &alwaysTrue(), rows, ExtractToGenericHook(hook));
   }
 }
 

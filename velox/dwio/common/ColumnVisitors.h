@@ -97,7 +97,7 @@ class ExtractToHook {
 
   template <typename V>
   void addValue(vector_size_t rowIndex, V value) {
-    hook_.addValue(rowIndex, &value);
+    hook_.addValueTyped(rowIndex, value);
   }
 
   auto& hook() {
@@ -126,7 +126,7 @@ class ExtractToGenericHook {
 
   template <typename V>
   void addValue(vector_size_t rowIndex, V value) {
-    hook_->addValue(rowIndex, &value);
+    hook_->addValueTyped(rowIndex, value);
   }
 
   ValueHook& hook() {
@@ -819,8 +819,7 @@ class DictionaryColumnVisitor
                     : velox::iota(super::numRows_, super::innerNonNullRows()) +
                     super::rowIndex_,
             values,
-            numInput,
-            sizeof(T));
+            numInput);
         super::rowIndex_ += numInput;
         return;
       }
@@ -1389,14 +1388,14 @@ class ExtractStringDictionaryToGenericHook {
     // according to the index. Stride dictionary indices are offset up
     // by the stripe dict size.
     if (value < dictionarySize()) {
-      auto view = folly::StringPiece(
-          reinterpret_cast<const StringView*>(state_.dictionary.values)[value]);
-      hook_->addValue(rowIndex, &view);
+      auto* strings =
+          reinterpret_cast<const StringView*>(state_.dictionary.values);
+      hook_->addValue(rowIndex, strings[value]);
     } else {
       VELOX_DCHECK(state_.inDictionary);
-      auto view = folly::StringPiece(reinterpret_cast<const StringView*>(
-          state_.dictionary2.values)[value - dictionarySize()]);
-      hook_->addValue(rowIndex, &view);
+      auto* strings =
+          reinterpret_cast<const StringView*>(state_.dictionary2.values);
+      hook_->addValue(rowIndex, strings[value - dictionarySize()]);
     }
   }
 

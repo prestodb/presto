@@ -78,7 +78,11 @@ class TestingLoader : public VectorLoader {
         }
       } else {
         T value = values->valueAt(row);
-        hook->addValue(i, &value);
+        if constexpr (std::is_same_v<T, Timestamp>) {
+          VELOX_FAIL();
+        } else {
+          hook->addValueTyped(i, value);
+        }
       }
     }
   }
@@ -2016,12 +2020,12 @@ class TestingHook : public ValueHook {
     return false;
   }
 
-  void addValue(vector_size_t row, const void* value) override {
+  void addValue(vector_size_t row, int64_t value) override {
     if (values_->isNullAt(rows_[row])) {
       ++errors_;
     } else {
       auto original = values_->valueAt(rows_[row]);
-      if (original != *reinterpret_cast<const int64_t*>(value)) {
+      if (original != value) {
         ++errors_;
       }
     }

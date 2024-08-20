@@ -166,9 +166,8 @@ namespace facebook::velox::dwio::common {
 struct NoHook {
   void addValues(
       const int32_t* /*rows*/,
-      const void* /*values*/,
-      int32_t /*size*/,
-      uint8_t /*valueWidth*/) {}
+      const int32_t* /*values*/,
+      int32_t /*size*/) {}
 };
 
 } // namespace facebook::velox::dwio::common

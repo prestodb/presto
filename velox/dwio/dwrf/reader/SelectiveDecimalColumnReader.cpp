@@ -112,6 +112,7 @@ void SelectiveDecimalColumnReader<DataT>::read(
     RowSet rows,
     const uint64_t* incomingNulls) {
   VELOX_CHECK(!scanSpec_->filter());
+  VELOX_CHECK(!scanSpec_->valueHook());
   prepareRead<int64_t>(offset, rows, incomingNulls);
   bool isDense = rows.back() == rows.size() - 1;
   if (isDense) {

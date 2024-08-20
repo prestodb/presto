@@ -35,12 +35,19 @@ using RowSet = folly::Range<const vector_size_t*>;
 // way one can bypass copying data into a vector before use.
 class ValueHook {
  public:
-  // Type and constants for identifying specific hooks. Loaders may
-  // have hook-specialized template instantiations for some
-  // operations. We do not make a complete enumeration of all hooks in
-  // the base class.
-  using Kind = int32_t;
-  static constexpr Kind kGeneric = 0;
+  // Type and constants for identifying specific hooks.  Loaders may have
+  // hook-specialized template instantiations for some operations.
+  enum Kind {
+    kGeneric,
+    kBigintSum,
+    kBigintSumOverflow,
+    kDoubleSum,
+    kBigintMax,
+    kBigintMin,
+    kFloatingPointMax,
+    kFloatingPointMin,
+  };
+
   static constexpr bool kSkipNulls = true;
 
   virtual ~ValueHook() = default;
@@ -55,18 +62,113 @@ class ValueHook {
 
   virtual void addNull(vector_size_t /*index*/) {}
 
-  virtual void addValue(vector_size_t row, const void* value) = 0;
+  virtual void addValue(vector_size_t /*row*/, int64_t /*value*/) {
+    VELOX_UNSUPPORTED();
+  }
 
-  // Fallback implementation of bulk path for addValues. Actual
-  // hooks are expected o override tis.
+  virtual void addValue(vector_size_t /*row*/, int128_t /*value*/) {
+    VELOX_UNSUPPORTED();
+  }
+
+  virtual void addValue(vector_size_t /*row*/, float /*value*/) {
+    VELOX_UNSUPPORTED();
+  }
+
+  virtual void addValue(vector_size_t /*row*/, double /*value*/) {
+    VELOX_UNSUPPORTED();
+  }
+
+  virtual void addValue(vector_size_t /*row*/, folly::StringPiece /*value*/) {
+    VELOX_UNSUPPORTED();
+  }
+
+  // Fallback implementation of bulk path for addValues.  Actual hooks are
+  // expected to override these if they are not inlined in reader.
+  virtual void
+  addValues(const vector_size_t* rows, const bool* values, vector_size_t size) {
+    for (auto i = 0; i < size; ++i) {
+      addValueTyped(rows[i], values[i]);
+    }
+  }
+
   virtual void addValues(
       const vector_size_t* rows,
-      const void* values,
-      vector_size_t size,
-      uint8_t valueWidth) {
-    auto valuesAsChar = reinterpret_cast<const char*>(values);
+      const int8_t* values,
+      vector_size_t size) {
     for (auto i = 0; i < size; ++i) {
-      addValue(rows[i], valuesAsChar + valueWidth * i);
+      addValueTyped(rows[i], values[i]);
+    }
+  }
+
+  virtual void addValues(
+      const vector_size_t* rows,
+      const int16_t* values,
+      vector_size_t size) {
+    for (auto i = 0; i < size; ++i) {
+      addValueTyped(rows[i], values[i]);
+    }
+  }
+
+  virtual void addValues(
+      const vector_size_t* rows,
+      const int32_t* values,
+      vector_size_t size) {
+    for (auto i = 0; i < size; ++i) {
+      addValueTyped(rows[i], values[i]);
+    }
+  }
+
+  virtual void addValues(
+      const vector_size_t* rows,
+      const int64_t* values,
+      vector_size_t size) {
+    for (auto i = 0; i < size; ++i) {
+      addValue(rows[i], values[i]);
+    }
+  }
+
+  virtual void addValues(
+      const vector_size_t* rows,
+      const int128_t* values,
+      vector_size_t size) {
+    for (auto i = 0; i < size; ++i) {
+      addValue(rows[i], values[i]);
+    }
+  }
+
+  virtual void addValues(
+      const vector_size_t* rows,
+      const float* values,
+      vector_size_t size) {
+    for (auto i = 0; i < size; ++i) {
+      addValue(rows[i], values[i]);
+    }
+  }
+
+  virtual void addValues(
+      const vector_size_t* rows,
+      const double* values,
+      vector_size_t size) {
+    for (auto i = 0; i < size; ++i) {
+      addValue(rows[i], values[i]);
+    }
+  }
+
+  virtual void addValues(
+      const vector_size_t* rows,
+      const StringView* values,
+      vector_size_t size) {
+    for (auto i = 0; i < size; ++i) {
+      addValue(rows[i], values[i]);
+    }
+  }
+
+  template <typename T>
+  void addValueTyped(vector_size_t row, T value) {
+    if constexpr (std::is_integral_v<T> && sizeof(T) < sizeof(int64_t)) {
+      addValue(row, static_cast<int64_t>(value));
+    } else {
+      addValue(row, value);
     }
   }
 };
