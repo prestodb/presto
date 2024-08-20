@@ -1587,7 +1587,6 @@ TEST_F(TaskManagerTest, createOrUpdateTaskWithSummarize) {
   auto taskInfo = createOrUpdateTask(taskId, updateRequest, planFragment);
 
   ASSERT_TRUE(taskInfo->stats.pipelines.empty());
-  ASSERT_TRUE(taskInfo->stats.runtimeStats.empty());
 }
 
 // Runs "select * from t where c0 % 5 = 0" query.
@@ -1624,7 +1623,6 @@ TEST_F(TaskManagerTest, getTaskInfoWithSummarize) {
           .get();
 
   ASSERT_TRUE(finalTaskInfo->stats.pipelines.empty());
-  ASSERT_TRUE(finalTaskInfo->stats.runtimeStats.empty());
 }
 
 // TODO: add disk spilling test for order by and hash join later.

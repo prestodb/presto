@@ -238,8 +238,7 @@ struct PrestoTask {
         taskStats.fullGcCount,
         taskStats.fullGcTimeInMillis,
         new_pipelines, // summarize PipelineStats
-        taskStats.runtimeStats // stripe runtimeStats
-    };
+        taskStats.runtimeStats};
   }
 
   /// Summarize TaskStats to avoid too heavy ser & de-ser on communication.
@@ -284,9 +283,8 @@ struct PrestoTask {
         taskStats.physicalWrittenDataSizeInBytes,
         taskStats.fullGcCount,
         taskStats.fullGcTimeInMillis,
-        {}, // stripe PipelineStats
-        {} // stripe runtimeStats
-    };
+        {}, // strip PipelineStats
+        taskStats.runtimeStats};
   }
 
   /// Summarize PipelineStats to avoid too heavy ser & de-ser on communication.
@@ -338,7 +336,7 @@ struct PrestoTask {
         pipelineStats.outputPositions,
         pipelineStats.physicalWrittenDataSizeInBytes,
         new_operatorSummaries, // summarize operatorSummaries
-        {} // stripe drivers
+        {} // strip drivers
     };
   }
 
