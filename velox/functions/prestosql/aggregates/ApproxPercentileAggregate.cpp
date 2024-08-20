@@ -28,14 +28,13 @@ namespace facebook::velox::aggregate::prestosql {
 
 namespace {
 
-template <typename T>
+template <typename T, typename Allocator>
 struct KllSketchTypeTraits {
-  using KllSketchType =
-      functions::kll::KllSketch<T, StlAllocator<T>, std::less<T>>;
+  using KllSketchType = functions::kll::KllSketch<T, Allocator, std::less<T>>;
 };
 
 template <>
-struct KllSketchTypeTraits<float> {
+struct KllSketchTypeTraits<float, StlAllocator<float>> {
   using KllSketchType = functions::kll::KllSketch<
       float,
       StlAllocator<float>,
@@ -43,15 +42,31 @@ struct KllSketchTypeTraits<float> {
 };
 
 template <>
-struct KllSketchTypeTraits<double> {
+struct KllSketchTypeTraits<double, StlAllocator<double>> {
   using KllSketchType = functions::kll::KllSketch<
       double,
       StlAllocator<double>,
       util::floating_point::NaNAwareLessThan<double>>;
 };
 
-template <typename T>
-using KllSketch = typename KllSketchTypeTraits<T>::KllSketchType;
+template <>
+struct KllSketchTypeTraits<float, std::allocator<float>> {
+  using KllSketchType = functions::kll::KllSketch<
+      float,
+      std::allocator<float>,
+      util::floating_point::NaNAwareLessThan<float>>;
+};
+
+template <>
+struct KllSketchTypeTraits<double, std::allocator<double>> {
+  using KllSketchType = functions::kll::KllSketch<
+      double,
+      std::allocator<double>,
+      util::floating_point::NaNAwareLessThan<double>>;
+};
+
+template <typename T, typename Allocator = StlAllocator<T>>
+using KllSketch = typename KllSketchTypeTraits<T, Allocator>::KllSketchType;
 template <typename T>
 using KllView = functions::kll::detail::View<T>;
 
@@ -105,9 +120,9 @@ struct KllSketchAccumulator {
   // during spilling which may run in parallel.  HashStringAllocator is not
   // thread safe, so merging into/compacting the original KllSketch which
   // depends on it can lead to concurrency bugs.
-  functions::kll::KllSketch<T> compact() const {
-    functions::kll::KllSketch<T> newSketch =
-        functions::kll::KllSketch<T>::fromView(
+  KllSketch<T, std::allocator<T>> compact() const {
+    KllSketch<T, std::allocator<T>> newSketch =
+        KllSketch<T, std::allocator<T>>::fromView(
             sketch_.toView(), std::allocator<T>(), random::getSeed());
 
     mergeLargeCountValuesIntoSketch(std::allocator<T>(), newSketch);
@@ -255,7 +270,7 @@ class ApproxPercentileAggregate : public exec::Aggregate {
 
   void extractAccumulators(char** groups, int32_t numGroups, VectorPtr* result)
       override {
-    std::vector<functions::kll::KllSketch<T>> sketches;
+    std::vector<KllSketch<T, std::allocator<T>>> sketches;
     sketches.reserve(numGroups);
     for (auto i = 0; i < numGroups; ++i) {
       sketches.push_back(value<KllSketchAccumulator<T>>(groups[i])->compact());
