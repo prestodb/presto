@@ -5925,22 +5925,29 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringAllocation) {
     ASSERT_EQ(reclaimable, enableSpilling);
     if (enableSpilling) {
       ASSERT_GE(reclaimableBytes, 0);
+      op->reclaim(
+          folly::Random::oneIn(2) ? 0 : folly::Random::rand32(),
+          reclaimerStats_);
     } else {
       ASSERT_EQ(reclaimableBytes, 0);
+      VELOX_ASSERT_THROW(
+          op->reclaim(
+              folly::Random::oneIn(2) ? 0 : folly::Random::rand32(),
+              reclaimerStats_),
+          "");
     }
-    VELOX_ASSERT_THROW(
-        op->reclaim(
-            folly::Random::oneIn(2) ? 0 : folly::Random::rand32(),
-            reclaimerStats_),
-        "");
 
     driverWait.notify();
     Task::resume(task);
     task.reset();
 
     taskThread.join();
+    if (enableSpilling) {
+      ASSERT_GT(reclaimerStats_.reclaimedBytes, 0);
+    } else {
+      ASSERT_EQ(reclaimerStats_, memory::MemoryReclaimer::Stats{0});
+    }
   }
-  ASSERT_EQ(reclaimerStats_, memory::MemoryReclaimer::Stats{0});
 }
 
 DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringOutputProcessing) {

@@ -1094,9 +1094,23 @@ void HashBuild::reclaim(
   VELOX_CHECK(canReclaim());
   auto* driver = operatorCtx_->driver();
   VELOX_CHECK_NOT_NULL(driver);
-  VELOX_CHECK(!nonReclaimableSection_);
 
   TestValue::adjust("facebook::velox::exec::HashBuild::reclaim", this);
+
+  const auto& task = driver->task();
+  const std::vector<Operator*> operators =
+      task->findPeerOperators(operatorCtx_->driverCtx()->pipelineId, this);
+  // Worst case scenario reservation was performed in ensureTableFits() when
+  // accounting for NextRowVector for duplicated rows, i.e. we assume every
+  // single row has duplicates. That is normally not the case. So when the
+  // query is under memory pressure, the excessive (in most cases) reservations
+  // can be returned.
+  for (auto i = 0; i <= operators.size(); i++) {
+    auto* memoryPool = i == 0 ? pool() : operators[i - 1]->pool();
+    const auto oldReservedBytes = memoryPool->reservedBytes();
+    memoryPool->release();
+    stats.reclaimedBytes += (oldReservedBytes - memoryPool->reservedBytes());
+  }
 
   if (exceededMaxSpillLevelLimit_) {
     return;
@@ -1120,10 +1134,7 @@ void HashBuild::reclaim(
     return;
   }
 
-  const auto& task = driver->task();
   VELOX_CHECK(task->pauseRequested());
-  const std::vector<Operator*> operators =
-      task->findPeerOperators(operatorCtx_->driverCtx()->pipelineId, this);
   for (auto* op : operators) {
     HashBuild* buildOp = dynamic_cast<HashBuild*>(op);
     VELOX_CHECK_NOT_NULL(buildOp);
