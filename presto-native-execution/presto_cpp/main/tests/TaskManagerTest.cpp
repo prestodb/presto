@@ -29,6 +29,7 @@
 #include "velox/dwio/common/FileSink.h"
 #include "velox/dwio/common/WriterFactory.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
+#include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/exec/Exchange.h"
 #include "velox/exec/Values.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -270,6 +271,8 @@ class TaskManagerTest : public testing::Test {
         "http://{}:{}",
         serverAddress.getAddressStr(),
         serverAddress.getPort()));
+    writerFactory_ =
+        dwio::common::getWriterFactory(dwio::common::FileFormat::DWRF);
   }
 
   void TearDown() override {
@@ -299,13 +302,13 @@ class TaskManagerTest : public testing::Test {
   void writeToFile(
       const std::string& filePath,
       const std::vector<RowVectorPtr>& vectors) {
-    auto options = std::make_shared<dwio::common::WriterOptions>();
+    auto options = writerFactory_->createWriterOptions();
     options->schema = rowType_;
     options->memoryPool = rootPool_.get();
     auto sink = std::make_unique<dwio::common::LocalFileSink>(
         filePath, dwio::common::FileSink::Options{});
-    auto writer = dwio::common::getWriterFactory(dwio::common::FileFormat::DWRF)
-                      ->createWriter(std::move(sink), options);
+    auto writer =
+        writerFactory_->createWriter(std::move(sink), std::move(options));
 
     for (size_t i = 0; i < vectors.size(); ++i) {
       writer->write(vectors[i]);
@@ -674,6 +677,7 @@ class TaskManagerTest : public testing::Test {
   long splitSequenceId_{0};
   std::shared_ptr<http::HttpClientConnectionPool> connPool_ =
       std::make_shared<http::HttpClientConnectionPool>();
+  std::shared_ptr<dwio::common::WriterFactory> writerFactory_;
 };
 
 // Runs "select * from t where c0 % 5 = 0" query.
