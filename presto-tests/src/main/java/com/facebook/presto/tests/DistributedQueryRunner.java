@@ -154,7 +154,8 @@ public class DistributedQueryRunner
                 ENVIRONMENT,
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableList.of());
+                ImmutableList.of(),
+                false);
     }
 
     public static Builder builder(Session defaultSession)
@@ -179,7 +180,8 @@ public class DistributedQueryRunner
             String environment,
             Optional<Path> dataDirectory,
             Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher,
-            List<Module> extraModules)
+            List<Module> extraModules,
+            boolean testingPeriodicTaskExecutor)
             throws Exception
     {
         requireNonNull(defaultSession, "defaultSession is null");
@@ -232,6 +234,7 @@ public class DistributedQueryRunner
                             false,
                             coordinatorSidecarEnabled,
                             false,
+                            testingPeriodicTaskExecutor,
                             workerProperties,
                             parserOptions,
                             environment,
@@ -261,6 +264,7 @@ public class DistributedQueryRunner
                             false,
                             false,
                             false,
+                            testingPeriodicTaskExecutor,
                             rmProperties,
                             parserOptions,
                             environment,
@@ -281,6 +285,7 @@ public class DistributedQueryRunner
                         false,
                         false,
                         false,
+                        testingPeriodicTaskExecutor,
                         catalogServerProperties,
                         parserOptions,
                         environment,
@@ -299,6 +304,7 @@ public class DistributedQueryRunner
                         true,
                         true,
                         false,
+                        testingPeriodicTaskExecutor,
                         coordinatorSidecarProperties,
                         parserOptions,
                         environment,
@@ -317,6 +323,7 @@ public class DistributedQueryRunner
                         false,
                         false,
                         true,
+                        testingPeriodicTaskExecutor,
                         extraCoordinatorProperties,
                         parserOptions,
                         environment,
@@ -414,6 +421,7 @@ public class DistributedQueryRunner
             boolean coordinatorSidecar,
             boolean coordinatorSidecarEnabled,
             boolean coordinator,
+            boolean testingPeriodicTaskExecutor,
             Map<String, String> extraProperties,
             SqlParserOptions parserOptions,
             String environment,
@@ -444,6 +452,7 @@ public class DistributedQueryRunner
                 coordinatorSidecar,
                 coordinatorSidecarEnabled,
                 coordinator,
+                testingPeriodicTaskExecutor,
                 properties,
                 environment,
                 discoveryUri,
@@ -945,6 +954,7 @@ public class DistributedQueryRunner
         private boolean coordinatorSidecarEnabled;
         private List<Module> extraModules = ImmutableList.of();
         private int resourceManagerCount = 1;
+        private boolean testingPeriodicTaskExecutor;
 
         protected Builder(Session defaultSession)
         {
@@ -1074,6 +1084,12 @@ public class DistributedQueryRunner
             return this;
         }
 
+        public Builder setTestingPeriodicTaskExecutor(boolean testingPeriodicTaskExecutor)
+        {
+            this.testingPeriodicTaskExecutor = testingPeriodicTaskExecutor;
+            return this;
+        }
+
         public DistributedQueryRunner build()
                 throws Exception
         {
@@ -1094,7 +1110,8 @@ public class DistributedQueryRunner
                     environment,
                     dataDirectory,
                     externalWorkerLauncher,
-                    extraModules);
+                    extraModules,
+                    testingPeriodicTaskExecutor);
         }
     }
 }

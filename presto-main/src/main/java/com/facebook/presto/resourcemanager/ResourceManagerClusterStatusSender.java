@@ -24,6 +24,7 @@ import com.facebook.presto.server.StatusResource;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.util.PeriodicTaskExecutor;
+import com.facebook.presto.util.PeriodicTaskExecutorFactory;
 import io.airlift.units.Duration;
 
 import javax.annotation.PostConstruct;
@@ -34,7 +35,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
@@ -48,7 +48,7 @@ public class ResourceManagerClusterStatusSender
     private final InternalNodeManager internalNodeManager;
     private final ResourceGroupManager<?> resourceGroupManager;
     private final Supplier<NodeStatus> statusSupplier;
-    private final ScheduledExecutorService executor;
+    private final PeriodicTaskExecutorFactory periodicTaskExecutorFactory;
     private final Duration queryHeartbeatInterval;
 
     private final Map<QueryId, PeriodicTaskExecutor> queries = new ConcurrentHashMap<>();
@@ -61,7 +61,7 @@ public class ResourceManagerClusterStatusSender
             @ForResourceManager DriftClient<ResourceManagerClient> resourceManagerClient,
             InternalNodeManager internalNodeManager,
             StatusResource statusResource,
-            @ForResourceManager ScheduledExecutorService executor,
+            PeriodicTaskExecutorFactory periodicTaskExecutorFactory,
             ResourceManagerConfig resourceManagerConfig,
             ServerConfig serverConfig,
             ResourceGroupManager<?> resourceGroupManager)
@@ -70,7 +70,7 @@ public class ResourceManagerClusterStatusSender
                 resourceManagerClient,
                 internalNodeManager,
                 requireNonNull(statusResource, "statusResource is null")::getStatus,
-                executor,
+                periodicTaskExecutorFactory,
                 resourceManagerConfig,
                 serverConfig,
                 resourceGroupManager);
@@ -80,7 +80,7 @@ public class ResourceManagerClusterStatusSender
             DriftClient<ResourceManagerClient> resourceManagerClient,
             InternalNodeManager internalNodeManager,
             Supplier<NodeStatus> statusResource,
-            ScheduledExecutorService executor,
+            PeriodicTaskExecutorFactory periodicTaskExecutorFactory,
             ResourceManagerConfig resourceManagerConfig,
             ServerConfig serverConfig,
             ResourceGroupManager<?> resourceGroupManager)
@@ -88,11 +88,14 @@ public class ResourceManagerClusterStatusSender
         this.resourceManagerClient = requireNonNull(resourceManagerClient, "resourceManagerService is null");
         this.internalNodeManager = requireNonNull(internalNodeManager, "internalNodeManager is null");
         this.statusSupplier = requireNonNull(statusResource, "statusResource is null");
-        this.executor = requireNonNull(executor, "executor is null");
+        this.periodicTaskExecutorFactory = requireNonNull(periodicTaskExecutorFactory, "periodicTaskExecutorFactory is null");
         this.queryHeartbeatInterval = requireNonNull(resourceManagerConfig, "resourceManagerConfig is null").getQueryHeartbeatInterval();
-        this.nodeHeartbeatSender = new PeriodicTaskExecutor(resourceManagerConfig.getNodeHeartbeatInterval().toMillis(), executor, this::sendNodeHeartbeat);
+        this.nodeHeartbeatSender = periodicTaskExecutorFactory.createPeriodicTaskExecutor(resourceManagerConfig.getNodeHeartbeatInterval().toMillis(), this::sendNodeHeartbeat);
         this.resourceRuntimeHeartbeatSender = serverConfig.isCoordinator() ? Optional.of(
-                new PeriodicTaskExecutor(resourceManagerConfig.getResourceGroupRuntimeHeartbeatInterval().toMillis(), executor, this::sendResourceGroupRuntimeHeartbeat)) : Optional.empty();
+                periodicTaskExecutorFactory.createPeriodicTaskExecutor(
+                        resourceManagerConfig.getResourceGroupRuntimeHeartbeatInterval().toMillis(),
+                        this::sendResourceGroupRuntimeHeartbeat))
+                : Optional.empty();
         this.resourceGroupManager = requireNonNull(resourceGroupManager, "resourceGroupManager is null");
     }
 
@@ -123,9 +126,8 @@ public class ResourceManagerClusterStatusSender
         QueryId queryId = queryExecution.getBasicQueryInfo().getQueryId();
         queries.computeIfAbsent(queryId, unused -> {
             AtomicLong sequenceId = new AtomicLong();
-            PeriodicTaskExecutor taskExecutor = new PeriodicTaskExecutor(
+            PeriodicTaskExecutor taskExecutor = periodicTaskExecutorFactory.createPeriodicTaskExecutor(
                     queryHeartbeatInterval.toMillis(),
-                    executor,
                     () -> sendQueryHeartbeat(queryExecution, sequenceId.incrementAndGet()));
             taskExecutor.start();
             return taskExecutor;

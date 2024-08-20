@@ -16,20 +16,21 @@ package com.facebook.presto.resourcemanager;
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.http.client.jetty.JettyHttpClient;
-import com.facebook.presto.execution.QueryState;
-import com.facebook.presto.execution.resourceGroups.ResourceGroupRuntimeInfo;
 import com.facebook.presto.metadata.AllNodes;
 import com.facebook.presto.resourceGroups.FileResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.server.ClusterStatsResource;
 import com.facebook.presto.server.testing.TestingPrestoServer;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.testing.TestingPeriodicTaskExecutorFactory;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.Closer;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.util.Map;
+import java.io.IOException;
 import java.util.Optional;
 import java.util.concurrent.TimeoutException;
 
@@ -39,21 +40,21 @@ import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.airlift.testing.Closeables.closeQuietly;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
-import static com.facebook.presto.execution.QueryState.QUEUED;
-import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunner;
-import static com.facebook.presto.utils.QueryExecutionClientUtil.runToFirstResult;
 import static com.facebook.presto.utils.QueryExecutionClientUtil.runToQueued;
+import static com.facebook.presto.utils.QueryExecutionClientUtil.runToRunning;
 import static com.facebook.presto.utils.ResourceUtils.getResourceFilePath;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.lang.Thread.sleep;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
+@Test(singleThreaded = true)
 public class TestDistributedClusterStatsResource
 {
     private static final String RESOURCE_GROUPS_CONFIG_FILE = "resource_groups_config_simple.json";
@@ -64,6 +65,7 @@ public class TestDistributedClusterStatsResource
     private TestingPrestoServer resourceManager;
     private TestingPrestoServer coordinator2;
     private DistributedQueryRunner runner;
+    private Closer closer;
 
     @BeforeClass
     public void setup()
@@ -77,12 +79,15 @@ public class TestDistributedClusterStatsResource
                 ImmutableMap.of(),
                 ImmutableMap.of(),
                 ImmutableMap.of(
-                        "query.client.timeout", "20s",
+                        "query.client.timeout", "2m",
                         "resource-manager.query-heartbeat-interval", "100ms",
                         "resource-group-runtimeinfo-refresh-interval", "100ms",
-                        "concurrency-threshold-to-enable-resource-group-refresh", "0.1"),
+                        "concurrency-threshold-to-enable-resource-group-refresh", "1"),
                 ImmutableMap.of(),
-                COORDINATOR_COUNT);
+                COORDINATOR_COUNT,
+                false,
+                1,
+                true);
         coordinator1 = runner.getCoordinator(0);
         coordinator2 = runner.getCoordinator(1);
         Optional<TestingPrestoServer> resourceManager = runner.getResourceManager();
@@ -108,17 +113,33 @@ public class TestDistributedClusterStatsResource
         client = null;
     }
 
-    @Test(timeOut = 60_000, enabled = false)
-    public void testClusterStatsRedirectToResourceManager()
-            throws Exception
+    @BeforeMethod
+    public void prepareToRunQueries() throws Exception
     {
+        assertNull(closer);
+        closer = Closer.create();
+
         waitUntilCoordinatorsDiscoveredHealthyInRM(SECONDS.toMillis(15));
-        runToFirstResult(client, coordinator2, "SELECT * from tpch.sf102.orders");
-        runToFirstResult(client, coordinator2, "SELECT * from tpch.sf100.orders");
-        runToFirstResult(client, coordinator2, "SELECT * from tpch.sf101.orders");
-        waitForGlobalQueryViewInCoordinator(3, RUNNING, SECONDS.toMillis(20));
+        coordinator1.getPeriodicTaskExecutorFactory().get().tick();
+        coordinator2.getPeriodicTaskExecutorFactory().get().tick();
+    }
+
+    @AfterMethod
+    public void cancelRunningQueries() throws IOException
+    {
+        closer.close();
+        closer = null;
+    }
+
+    @Test(timeOut = 120_000)
+    public void testClusterStatsRedirectToResourceManager()
+    {
+        closer.register(runToRunning(client, coordinator2, "SELECT * from tpch.sf102.orders"));
+        closer.register(runToRunning(client, coordinator2, "SELECT * from tpch.sf100.orders"));
+        closer.register(runToRunning(client, coordinator2, "SELECT * from tpch.sf101.orders"));
+        tick(coordinator1, coordinator2);
         runToQueued(client, coordinator2, "SELECT * from tpch.sf100.orders");
-        waitForGlobalQueryViewInCoordinator(1, QUEUED, SECONDS.toMillis(20));
+        tick(coordinator1, coordinator2);
         ClusterStatsResource.ClusterStats clusterStats = getClusterStats(true, coordinator1, false);
         assertNotNull(clusterStats);
         assertTrue(clusterStats.getActiveWorkers() > 0);
@@ -127,52 +148,6 @@ public class TestDistributedClusterStatsResource
         assertEquals(clusterStats.getQueuedQueries(), 1);
         assertEquals(clusterStats.getAdjustedQueueSize(), 0);
         assertEquals(clusterStats.getRunningTasks(), 12);
-    }
-
-    private void waitForGlobalQueryViewInCoordinator(int queryCount, QueryState state, long timeoutInMillis)
-            throws InterruptedException, TimeoutException
-    {
-        long deadline = System.currentTimeMillis() + timeoutInMillis;
-        int finalGlobalQueryCount = 0;
-        while (System.currentTimeMillis() < deadline) {
-            int globalQueryCount = 0;
-            for (int i = 0; i < COORDINATOR_COUNT; i++) {
-                TestingPrestoServer currCoordinator = runner.getCoordinator(i);
-                Optional<Integer> globalQueryCountFromCoordinator = getGlobalQueryCountIfAvailable(state, currCoordinator);
-                if (!globalQueryCountFromCoordinator.isPresent()) {
-                    continue;
-                }
-                globalQueryCount += globalQueryCountFromCoordinator.get();
-            }
-            finalGlobalQueryCount = globalQueryCount;
-
-            if (globalQueryCount == queryCount) {
-                return;
-            }
-            sleep(100);
-        }
-        throw new TimeoutException(format("Global Query Count: %s after %s ms", finalGlobalQueryCount, timeoutInMillis));
-    }
-
-    private Optional<Integer> getGlobalQueryCountIfAvailable(QueryState state, TestingPrestoServer coordinator)
-    {
-        Map<ResourceGroupId, ResourceGroupRuntimeInfo> resourceGroupRuntimeInfoSnapshot = coordinator.getResourceGroupManager().get().getResourceGroupRuntimeInfosSnapshot();
-        ResourceGroupRuntimeInfo resourceGroupRuntimeInfo = resourceGroupRuntimeInfoSnapshot.get(new ResourceGroupId(RESOURCE_GROUP_GLOBAL));
-        if (resourceGroupRuntimeInfo == null) {
-            return Optional.empty();
-        }
-        int queryCount = 0;
-        switch (state) {
-            case RUNNING:
-                queryCount = resourceGroupRuntimeInfo.getDescendantRunningQueries();
-                break;
-            case QUEUED:
-                queryCount = resourceGroupRuntimeInfo.getDescendantQueuedQueries();
-                break;
-            default:
-                fail(format("Unexpected query state %s", state));
-        }
-        return Optional.of(queryCount);
     }
 
     private void waitUntilCoordinatorsDiscoveredHealthyInRM(long timeoutInMillis)
@@ -204,18 +179,26 @@ public class TestDistributedClusterStatsResource
         return client.execute(request, createJsonResponseHandler(jsonCodec(ClusterStatsResource.ClusterStats.class)));
     }
 
-    @Test(timeOut = 120_000, enabled = false)
+    private void tick(TestingPrestoServer... coordinators)
+    {
+        requireNonNull(coordinators, "coordinators is null");
+        for (TestingPrestoServer coordinator : coordinators) {
+            coordinator.getPeriodicTaskExecutorFactory().ifPresent(TestingPeriodicTaskExecutorFactory::tick);
+        }
+    }
+
+    @Test(timeOut = 120_000)
     public void testClusterStatsLocalInfoReturn()
             throws Exception
     {
-        waitUntilCoordinatorsDiscoveredHealthyInRM(SECONDS.toMillis(15));
-        runToFirstResult(client, coordinator2, "SELECT * from tpch.sf100.orders");
-        runToFirstResult(client, coordinator2, "SELECT * from tpch.sf101.orders");
-        waitForGlobalQueryViewInCoordinator(2, RUNNING, SECONDS.toMillis(30));
-        runToFirstResult(client, coordinator1, "SELECT * from tpch.sf101.orders");
-        waitForGlobalQueryViewInCoordinator(3, RUNNING, SECONDS.toMillis(20));
-        runToQueued(client, coordinator2, "SELECT * from tpch.sf101.orders");
-        waitForGlobalQueryViewInCoordinator(1, QUEUED, SECONDS.toMillis(20));
+        closer.register(runToRunning(client, coordinator2, "SELECT * from tpch.sf100.orders"));
+        tick(coordinator1, coordinator2);
+        closer.register(runToRunning(client, coordinator2, "SELECT * from tpch.sf101.orders"));
+        tick(coordinator2, coordinator1);
+        closer.register(runToRunning(client, coordinator1, "SELECT * from tpch.sf101.orders"));
+        tick(coordinator1, coordinator2);
+        closer.register(runToQueued(client, coordinator2, "SELECT * from tpch.sf101.orders"));
+        tick(coordinator1, coordinator2);
 
         ClusterStatsResource.ClusterStats clusterLocalStatsCoord1 = getClusterStats(false, coordinator1, true);
         assertNotNull(clusterLocalStatsCoord1);
