@@ -144,13 +144,16 @@ class ServerResponse {
 } // namespace
 
 PrestoQueryRunner::PrestoQueryRunner(
+    memory::MemoryPool* pool,
     std::string coordinatorUri,
     std::string user,
     std::chrono::milliseconds timeout)
-    : coordinatorUri_{std::move(coordinatorUri)},
+    : ReferenceQueryRunner(pool),
+      coordinatorUri_{std::move(coordinatorUri)},
       user_{std::move(user)},
       timeout_(timeout) {
   eventBaseThread_.start("PrestoQueryRunner");
+  pool_ = aggregatePool()->addLeafChild("leaf");
 }
 
 std::optional<std::string> PrestoQueryRunner::toSql(
@@ -751,7 +754,7 @@ std::vector<velox::RowVectorPtr> PrestoQueryRunner::executeVector(
                            .string()
                            .substr(strlen("file:"));
 
-  auto writerPool = rootPool()->addAggregateChild("writer");
+  auto writerPool = aggregatePool()->addAggregateChild("writer");
   writeToFile(probeFilePath, probeInput, writerPool.get());
   writeToFile(buildFilePath, buildInput, writerPool.get());
 
@@ -777,7 +780,7 @@ std::vector<velox::RowVectorPtr> PrestoQueryRunner::executeVector(
                          .string()
                          .substr(strlen("file:"));
 
-  auto writerPool = rootPool()->addAggregateChild("writer");
+  auto writerPool = aggregatePool()->addAggregateChild("writer");
   writeToFile(newFilePath, input, writerPool.get());
 
   // Run the query.

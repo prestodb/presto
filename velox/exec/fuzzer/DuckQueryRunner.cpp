@@ -53,8 +53,9 @@ std::unordered_set<std::string> getAggregateFunctions() {
 }
 } // namespace
 
-DuckQueryRunner::DuckQueryRunner()
-    : aggregateFunctionNames_{getAggregateFunctions()} {}
+DuckQueryRunner::DuckQueryRunner(memory::MemoryPool* aggregatePool)
+    : ReferenceQueryRunner(aggregatePool),
+      aggregateFunctionNames_{getAggregateFunctions()} {}
 
 void DuckQueryRunner::disableAggregateFunctions(
     const std::vector<std::string>& names) {

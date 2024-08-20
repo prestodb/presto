@@ -26,6 +26,11 @@ class ReferenceQueryRunner {
  public:
   enum class RunnerType { kPrestoQueryRunner, kDuckQueryRunner };
 
+  // @param aggregatePool Used to allocate memory needed for vectors produced by
+  // 'execute' methods.
+  explicit ReferenceQueryRunner(memory::MemoryPool* aggregatePool)
+      : aggregatePool_(aggregatePool) {}
+
   virtual ~ReferenceQueryRunner() = default;
 
   virtual RunnerType runnerType() const = 0;
@@ -90,6 +95,14 @@ class ReferenceQueryRunner {
       const std::string& sessionProperty) {
     VELOX_UNSUPPORTED();
   }
+
+ protected:
+  memory::MemoryPool* aggregatePool() {
+    return aggregatePool_;
+  }
+
+ private:
+  memory::MemoryPool* aggregatePool_;
 };
 
 } // namespace facebook::velox::exec::test

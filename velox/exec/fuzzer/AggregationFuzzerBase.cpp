@@ -731,11 +731,12 @@ void persistReproInfo(
 }
 
 std::unique_ptr<ReferenceQueryRunner> setupReferenceQueryRunner(
+    memory::MemoryPool* aggregatePool,
     const std::string& prestoUrl,
     const std::string& runnerName,
     const uint32_t& reqTimeoutMs) {
   if (prestoUrl.empty()) {
-    auto duckQueryRunner = std::make_unique<DuckQueryRunner>();
+    auto duckQueryRunner = std::make_unique<DuckQueryRunner>(aggregatePool);
     duckQueryRunner->disableAggregateFunctions({
         "skewness",
         // DuckDB results on constant inputs are incorrect. Should be NaN,
@@ -749,6 +750,7 @@ std::unique_ptr<ReferenceQueryRunner> setupReferenceQueryRunner(
     return duckQueryRunner;
   } else {
     return std::make_unique<PrestoQueryRunner>(
+        aggregatePool,
         prestoUrl,
         runnerName,
         static_cast<std::chrono::milliseconds>(reqTimeoutMs));

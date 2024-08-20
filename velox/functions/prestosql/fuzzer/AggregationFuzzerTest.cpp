@@ -194,9 +194,14 @@ int main(int argc, char** argv) {
       facebook::velox::exec::test::getCustomInputGenerators();
   options.timestampPrecision =
       facebook::velox::VectorFuzzer::Options::TimestampPrecision::kMilliSeconds;
+  std::shared_ptr<facebook::velox::memory::MemoryPool> rootPool{
+      facebook::velox::memory::memoryManager()->addRootPool()};
   return Runner::run(
       initialSeed,
       setupReferenceQueryRunner(
-          FLAGS_presto_url, "aggregation_fuzzer", FLAGS_req_timeout_ms),
+          rootPool.get(),
+          FLAGS_presto_url,
+          "aggregation_fuzzer",
+          FLAGS_req_timeout_ms),
       options);
 }

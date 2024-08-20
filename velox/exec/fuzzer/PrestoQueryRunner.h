@@ -37,6 +37,7 @@ class PrestoQueryRunner : public velox::exec::test::ReferenceQueryRunner {
   /// @param user Username to use in X-Presto-User header.
   /// @param timeout Timeout in milliseconds of an HTTP request.
   PrestoQueryRunner(
+      memory::MemoryPool* aggregatePool,
       std::string coordinatorUri,
       std::string user,
       std::chrono::milliseconds timeout);
@@ -99,11 +100,7 @@ class PrestoQueryRunner : public velox::exec::test::ReferenceQueryRunner {
       const RowTypePtr& resultType) override;
 
  private:
-  velox::memory::MemoryPool* rootPool() {
-    return rootPool_.get();
-  }
-
-  velox::memory::MemoryPool* pool() {
+  memory::MemoryPool* pool() {
     return pool_.get();
   }
 
@@ -143,10 +140,7 @@ class PrestoQueryRunner : public velox::exec::test::ReferenceQueryRunner {
   const std::string user_;
   const std::chrono::milliseconds timeout_;
   folly::EventBaseThread eventBaseThread_{false};
-  std::shared_ptr<velox::memory::MemoryPool> rootPool_{
-      velox::memory::memoryManager()->addRootPool()};
-  std::shared_ptr<velox::memory::MemoryPool> pool_{
-      rootPool_->addLeafChild("leaf")};
+  std::shared_ptr<memory::MemoryPool> pool_;
 };
 
 } // namespace facebook::velox::exec::test

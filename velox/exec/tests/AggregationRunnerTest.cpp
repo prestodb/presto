@@ -89,8 +89,13 @@ int main(int argc, char** argv) {
   facebook::velox::aggregate::prestosql::registerAllAggregateFunctions();
   facebook::velox::functions::prestosql::registerAllScalarFunctions();
 
+  std::shared_ptr<memory::MemoryPool> rootPool{
+      memory::memoryManager()->addRootPool()};
   auto queryRunner = facebook::velox::exec::test::setupReferenceQueryRunner(
-      FLAGS_presto_url, "aggregation_fuzzer", FLAGS_req_timeout_ms);
+      rootPool.get(),
+      FLAGS_presto_url,
+      "aggregation_fuzzer",
+      FLAGS_req_timeout_ms);
   return exec::test::AggregationFuzzerRunner::runRepro(
       FLAGS_plan_nodes_path, std::move(queryRunner));
 }

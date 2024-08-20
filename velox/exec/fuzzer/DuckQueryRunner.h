@@ -21,7 +21,7 @@ namespace facebook::velox::exec::test {
 
 class DuckQueryRunner : public ReferenceQueryRunner {
  public:
-  DuckQueryRunner();
+  explicit DuckQueryRunner(memory::MemoryPool* aggregatePool);
 
   RunnerType runnerType() const override {
     return RunnerType::kDuckQueryRunner;

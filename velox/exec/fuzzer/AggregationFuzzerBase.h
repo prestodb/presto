@@ -314,6 +314,7 @@ void persistReproInfo(
 // returns a DuckQueryRunner instance and set disabled aggregation functions
 // properly.
 std::unique_ptr<ReferenceQueryRunner> setupReferenceQueryRunner(
+    memory::MemoryPool* aggregatePool,
     const std::string& prestoUrl,
     const std::string& runnerName,
     const uint32_t& reqTimeoutMs);

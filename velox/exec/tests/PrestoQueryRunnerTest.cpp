@@ -49,7 +49,9 @@ class PrestoQueryRunnerTest : public ::testing::Test,
 // This test requires a Presto Coordinator running at localhost, so disable it
 // by default.
 TEST_F(PrestoQueryRunnerTest, DISABLED_basic) {
+  auto aggregatePool = rootPool_->addAggregateChild("basic");
   auto queryRunner = std::make_unique<PrestoQueryRunner>(
+      aggregatePool.get(),
       "http://127.0.0.1:8080",
       "hive",
       static_cast<std::chrono::milliseconds>(1000));
@@ -89,7 +91,9 @@ TEST_F(PrestoQueryRunnerTest, DISABLED_fuzzer) {
                   .project({"a0", "a1", "array_sort(a2)"})
                   .planNode();
 
+  auto aggregatePool = rootPool_->addAggregateChild("fuzzer");
   auto queryRunner = std::make_unique<PrestoQueryRunner>(
+      aggregatePool.get(),
       "http://127.0.0.1:8080",
       "hive",
       static_cast<std::chrono::milliseconds>(1000));
@@ -108,8 +112,12 @@ TEST_F(PrestoQueryRunnerTest, DISABLED_fuzzer) {
 }
 
 TEST_F(PrestoQueryRunnerTest, sortedAggregation) {
+  auto aggregatePool = rootPool_->addAggregateChild("sortedAggregation");
   auto queryRunner = std::make_unique<PrestoQueryRunner>(
-      "http://unused", "hive", static_cast<std::chrono::milliseconds>(1000));
+      aggregatePool.get(),
+      "http://unused",
+      "hive",
+      static_cast<std::chrono::milliseconds>(1000));
 
   auto data = makeRowVector({
       makeFlatVector<int64_t>({1, 2, 1, 2, 1}),
@@ -148,8 +156,12 @@ TEST_F(PrestoQueryRunnerTest, sortedAggregation) {
 }
 
 TEST_F(PrestoQueryRunnerTest, distinctAggregation) {
+  auto aggregatePool = rootPool_->addAggregateChild("distinctAggregation");
   auto queryRunner = std::make_unique<PrestoQueryRunner>(
-      "http://unused", "hive", static_cast<std::chrono::milliseconds>(1000));
+      aggregatePool.get(),
+      "http://unused",
+      "hive",
+      static_cast<std::chrono::milliseconds>(1000));
 
   auto data =
       makeRowVector({makeFlatVector<int64_t>({}), makeFlatVector<int64_t>({})});
@@ -165,8 +177,12 @@ TEST_F(PrestoQueryRunnerTest, distinctAggregation) {
 }
 
 TEST_F(PrestoQueryRunnerTest, toSql) {
+  auto aggregatePool = rootPool_->addAggregateChild("toSql");
   auto queryRunner = std::make_unique<PrestoQueryRunner>(
-      "http://unused", "hive", static_cast<std::chrono::milliseconds>(1000));
+      aggregatePool.get(),
+      "http://unused",
+      "hive",
+      static_cast<std::chrono::milliseconds>(1000));
   auto dataType = ROW({"c0", "c1", "c2"}, {BIGINT(), BIGINT(), BOOLEAN()});
 
   // Test window queries.

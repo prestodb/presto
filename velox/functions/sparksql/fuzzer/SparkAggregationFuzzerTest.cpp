@@ -93,8 +93,11 @@ int main(int argc, char** argv) {
       };
 
   size_t initialSeed = FLAGS_seed == 0 ? std::time(nullptr) : FLAGS_seed;
+  std::shared_ptr<facebook::velox::memory::MemoryPool> rootPool{
+      facebook::velox::memory::memoryManager()->addRootPool()};
   auto duckQueryRunner =
-      std::make_unique<facebook::velox::exec::test::DuckQueryRunner>();
+      std::make_unique<facebook::velox::exec::test::DuckQueryRunner>(
+          rootPool.get());
   duckQueryRunner->disableAggregateFunctions(
       {// https://github.com/facebookincubator/velox/issues/7677
        "max_by",

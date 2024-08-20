@@ -180,9 +180,14 @@ int main(int argc, char** argv) {
   options.orderDependentFunctions = orderDependentFunctions;
   options.timestampPrecision =
       facebook::velox::VectorFuzzer::Options::TimestampPrecision::kMilliSeconds;
+  std::shared_ptr<facebook::velox::memory::MemoryPool> rootPool{
+      facebook::velox::memory::memoryManager()->addRootPool()};
   return Runner::run(
       initialSeed,
       setupReferenceQueryRunner(
-          FLAGS_presto_url, "window_fuzzer", FLAGS_req_timeout_ms),
+          rootPool.get(),
+          FLAGS_presto_url,
+          "window_fuzzer",
+          FLAGS_req_timeout_ms),
       options);
 }
