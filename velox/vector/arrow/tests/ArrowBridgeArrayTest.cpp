@@ -1511,15 +1511,18 @@ class ArrowBridgeArrayImportTest : public ArrowBridgeArrayExportTest {
   }
 
   template <typename F>
-  void testArrowRoundTrip(const arrow::Array& array, F validateVector) {
+  void testArrowRoundTrip(
+      const arrow::Array& array,
+      F validateVector,
+      const ArrowOptions& options = ArrowOptions{}) {
     VectorPtr vec;
     toVeloxVector(array, vec);
     validateVector(*vec);
 
     ArrowSchema schema;
     ArrowArray data;
-    velox::exportToArrow(vec, schema, options_);
-    velox::exportToArrow(vec, data, pool_.get(), options_);
+    velox::exportToArrow(vec, schema, options);
+    velox::exportToArrow(vec, data, pool_.get(), options);
     ASSERT_OK_AND_ASSIGN(auto arrowType, arrow::ImportType(&schema));
     ASSERT_OK_AND_ASSIGN(auto array2, arrow::ImportArray(&data, arrowType));
     ASSERT_OK(array2->ValidateFull());
@@ -1580,6 +1583,42 @@ class ArrowBridgeArrayImportTest : public ArrowBridgeArrayExportTest {
       EXPECT_EQ(vec.encoding(), VectorEncoding::Simple::DICTIONARY);
       EXPECT_EQ(vec.size(), 60);
     });
+  }
+
+  void testImportStringView() {
+    arrow::StringViewBuilder sb(arrow::default_memory_pool());
+    ASSERT_OK(sb.Append("hello world", 11));
+    ASSERT_OK(sb.Append("larger string which should not be inlined...", 44));
+    ASSERT_OK(sb.AppendNull());
+    ASSERT_OK(sb.Append("hello", 5));
+    ASSERT_OK(sb.Append("", 0));
+    ASSERT_OK(sb.Append("my string", 9));
+    ASSERT_OK(sb.Append("another slightly longer string", 30));
+    ASSERT_OK(sb.AppendNull());
+    ASSERT_OK(sb.Append("a", 1));
+    ASSERT_OK(sb.Append(
+        "another even longer string to ensure it's for sure not stored inline!!!",
+        71));
+    ASSERT_OK(sb.AppendNull());
+    ASSERT_OK(sb.AppendNull());
+    ASSERT_OK_AND_ASSIGN(auto array, sb.Finish());
+    const void* stringBuffers = array->data()->buffers[2]->data();
+
+    testArrowRoundTrip(
+        *array,
+        [stringBuffers](const BaseVector& vec) {
+          // assert zero-copy import to velox for stringBuffers
+          ASSERT_EQ(
+              vec.asFlatVector<StringView>()
+                  ->stringBuffers()
+                  .data()
+                  ->get()
+                  ->as<void*>(),
+              stringBuffers);
+          ASSERT_EQ(*vec.type(), *VARCHAR());
+          EXPECT_EQ(vec.size(), 12);
+        },
+        ArrowOptions{.exportToStringView = true});
   }
 
   void testImportREE() {
@@ -1758,7 +1797,6 @@ class ArrowBridgeArrayImportTest : public ArrowBridgeArrayExportTest {
     EXPECT_NO_THROW(importFromArrow(arrowSchema, arrowArray, pool_.get()));
   }
 
-  ArrowOptions options_;
   std::shared_ptr<memory::MemoryPool> pool_{
       memory::memoryManager()->addLeafPool()};
 };
@@ -1789,6 +1827,10 @@ TEST_F(ArrowBridgeArrayImportAsViewerTest, without_nulls_buffer) {
 
 TEST_F(ArrowBridgeArrayImportAsViewerTest, string) {
   testImportString();
+}
+
+TEST_F(ArrowBridgeArrayImportAsViewerTest, stringview) {
+  testImportStringView();
 }
 
 TEST_F(ArrowBridgeArrayImportAsViewerTest, row) {
@@ -1842,6 +1884,10 @@ TEST_F(ArrowBridgeArrayImportAsOwnerTest, without_nulls_buffer) {
 
 TEST_F(ArrowBridgeArrayImportAsOwnerTest, string) {
   testImportString();
+}
+
+TEST_F(ArrowBridgeArrayImportAsOwnerTest, stringview) {
+  testImportStringView();
 }
 
 TEST_F(ArrowBridgeArrayImportAsOwnerTest, row) {
