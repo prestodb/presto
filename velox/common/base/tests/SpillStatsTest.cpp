@@ -29,18 +29,18 @@ TEST(SpillStatsTest, spillStats) {
   stats1.spilledBytes = 1024;
   stats1.spilledPartitions = 1024;
   stats1.spilledFiles = 1023;
-  stats1.spillWriteTimeUs = 1023;
-  stats1.spillFlushTimeUs = 1023;
+  stats1.spillWriteTimeNanos = 1023;
+  stats1.spillFlushTimeNanos = 1023;
   stats1.spillWrites = 1023;
-  stats1.spillSortTimeUs = 1023;
-  stats1.spillFillTimeUs = 1023;
+  stats1.spillSortTimeNanos = 1023;
+  stats1.spillFillTimeNanos = 1023;
   stats1.spilledRows = 1023;
-  stats1.spillSerializationTimeUs = 1023;
+  stats1.spillSerializationTimeNanos = 1023;
   stats1.spillMaxLevelExceededCount = 3;
   stats1.spillReadBytes = 1024;
   stats1.spillReads = 10;
-  stats1.spillReadTimeUs = 100;
-  stats1.spillDeserializationTimeUs = 100;
+  stats1.spillReadTimeNanos = 100;
+  stats1.spillDeserializationTimeNanos = 100;
   ASSERT_FALSE(stats1.empty());
   SpillStats stats2;
   stats2.spillRuns = 100;
@@ -48,18 +48,18 @@ TEST(SpillStatsTest, spillStats) {
   stats2.spilledBytes = 1024;
   stats2.spilledPartitions = 1025;
   stats2.spilledFiles = 1026;
-  stats2.spillWriteTimeUs = 1026;
-  stats2.spillFlushTimeUs = 1027;
+  stats2.spillWriteTimeNanos = 1026;
+  stats2.spillFlushTimeNanos = 1027;
   stats2.spillWrites = 1028;
-  stats2.spillSortTimeUs = 1029;
-  stats2.spillFillTimeUs = 1030;
+  stats2.spillSortTimeNanos = 1029;
+  stats2.spillFillTimeNanos = 1030;
   stats2.spilledRows = 1031;
-  stats2.spillSerializationTimeUs = 1032;
+  stats2.spillSerializationTimeNanos = 1032;
   stats2.spillMaxLevelExceededCount = 4;
   stats2.spillReadBytes = 2048;
   stats2.spillReads = 10;
-  stats2.spillReadTimeUs = 100;
-  stats2.spillDeserializationTimeUs = 100;
+  stats2.spillReadTimeNanos = 100;
+  stats2.spillDeserializationTimeNanos = 100;
   ASSERT_TRUE(stats1 < stats2);
   ASSERT_TRUE(stats1 <= stats2);
   ASSERT_FALSE(stats1 > stats2);
@@ -79,34 +79,34 @@ TEST(SpillStatsTest, spillStats) {
   ASSERT_EQ(delta.spilledBytes, 0);
   ASSERT_EQ(delta.spilledPartitions, 1);
   ASSERT_EQ(delta.spilledFiles, 3);
-  ASSERT_EQ(delta.spillWriteTimeUs, 3);
-  ASSERT_EQ(delta.spillFlushTimeUs, 4);
+  ASSERT_EQ(delta.spillWriteTimeNanos, 3);
+  ASSERT_EQ(delta.spillFlushTimeNanos, 4);
   ASSERT_EQ(delta.spillWrites, 5);
-  ASSERT_EQ(delta.spillSortTimeUs, 6);
-  ASSERT_EQ(delta.spillFillTimeUs, 7);
+  ASSERT_EQ(delta.spillSortTimeNanos, 6);
+  ASSERT_EQ(delta.spillFillTimeNanos, 7);
   ASSERT_EQ(delta.spilledRows, 8);
-  ASSERT_EQ(delta.spillSerializationTimeUs, 9);
+  ASSERT_EQ(delta.spillSerializationTimeNanos, 9);
   ASSERT_EQ(delta.spillReadBytes, 1024);
   ASSERT_EQ(delta.spillReads, 0);
-  ASSERT_EQ(delta.spillReadTimeUs, 0);
-  ASSERT_EQ(delta.spillDeserializationTimeUs, 0);
+  ASSERT_EQ(delta.spillReadTimeNanos, 0);
+  ASSERT_EQ(delta.spillDeserializationTimeNanos, 0);
   delta = stats1 - stats2;
   ASSERT_EQ(delta.spilledInputBytes, 0);
   ASSERT_EQ(delta.spilledBytes, 0);
   ASSERT_EQ(delta.spilledPartitions, -1);
   ASSERT_EQ(delta.spilledFiles, -3);
-  ASSERT_EQ(delta.spillWriteTimeUs, -3);
-  ASSERT_EQ(delta.spillFlushTimeUs, -4);
+  ASSERT_EQ(delta.spillWriteTimeNanos, -3);
+  ASSERT_EQ(delta.spillFlushTimeNanos, -4);
   ASSERT_EQ(delta.spillWrites, -5);
-  ASSERT_EQ(delta.spillSortTimeUs, -6);
-  ASSERT_EQ(delta.spillFillTimeUs, -7);
+  ASSERT_EQ(delta.spillSortTimeNanos, -6);
+  ASSERT_EQ(delta.spillFillTimeNanos, -7);
   ASSERT_EQ(delta.spilledRows, -8);
-  ASSERT_EQ(delta.spillSerializationTimeUs, -9);
+  ASSERT_EQ(delta.spillSerializationTimeNanos, -9);
   ASSERT_EQ(delta.spillMaxLevelExceededCount, -1);
   ASSERT_EQ(delta.spillReadBytes, -1024);
   ASSERT_EQ(delta.spillReads, 0);
-  ASSERT_EQ(delta.spillReadTimeUs, 0);
-  ASSERT_EQ(delta.spillDeserializationTimeUs, 0);
+  ASSERT_EQ(delta.spillReadTimeNanos, 0);
+  ASSERT_EQ(delta.spillDeserializationTimeNanos, 0);
   stats1.spilledInputBytes = 2060;
   stats1.spilledBytes = 1030;
   stats1.spillReadBytes = 4096;
@@ -123,19 +123,19 @@ TEST(SpillStatsTest, spillStats) {
       stats2.toString(),
       "spillRuns[100] spilledInputBytes[2.00KB] spilledBytes[1.00KB] "
       "spilledRows[1031] spilledPartitions[1025] spilledFiles[1026] "
-      "spillFillTimeUs[1.03ms] spillSortTime[1.03ms] "
-      "spillSerializationTime[1.03ms] spillWrites[1028] spillFlushTime[1.03ms] "
-      "spillWriteTime[1.03ms] maxSpillExceededLimitCount[4] "
-      "spillReadBytes[2.00KB] spillReads[10] spillReadTime[100us] "
-      "spillReadDeserializationTime[100us]");
+      "spillFillTimeNanos[1.03us] spillSortTimeNanos[1.03us] "
+      "spillSerializationTimeNanos[1.03us] spillWrites[1028] spillFlushTimeNanos[1.03us] "
+      "spillWriteTimeNanos[1.03us] maxSpillExceededLimitCount[4] "
+      "spillReadBytes[2.00KB] spillReads[10] spillReadTimeNanos[100ns] "
+      "spillReadDeserializationTimeNanos[100ns]");
   ASSERT_EQ(
       fmt::format("{}", stats2),
       "spillRuns[100] spilledInputBytes[2.00KB] spilledBytes[1.00KB] "
       "spilledRows[1031] spilledPartitions[1025] spilledFiles[1026] "
-      "spillFillTimeUs[1.03ms] spillSortTime[1.03ms] "
-      "spillSerializationTime[1.03ms] spillWrites[1028] "
-      "spillFlushTime[1.03ms] spillWriteTime[1.03ms] "
+      "spillFillTimeNanos[1.03us] spillSortTimeNanos[1.03us] "
+      "spillSerializationTimeNanos[1.03us] spillWrites[1028] "
+      "spillFlushTimeNanos[1.03us] spillWriteTimeNanos[1.03us] "
       "maxSpillExceededLimitCount[4] "
-      "spillReadBytes[2.00KB] spillReads[10] spillReadTime[100us] "
-      "spillReadDeserializationTime[100us]");
+      "spillReadBytes[2.00KB] spillReads[10] spillReadTimeNanos[100ns] "
+      "spillReadDeserializationTimeNanos[100ns]");
 }

@@ -44,6 +44,24 @@ class MicrosecondTimer {
   uint64_t* timer_;
 };
 
+class NanosecondTimer {
+ public:
+  explicit NanosecondTimer(uint64_t* timer) : timer_(timer) {
+    start_ = std::chrono::steady_clock::now();
+  }
+
+  ~NanosecondTimer() {
+    auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::steady_clock::now() - start_);
+
+    (*timer_) += duration.count();
+  }
+
+ private:
+  std::chrono::steady_clock::time_point start_;
+  uint64_t* timer_;
+};
+
 /// Measures the time between construction and destruction with CPU clock
 /// counter (rdtsc on X86) and increments a user-supplied counter with the cycle
 /// count.

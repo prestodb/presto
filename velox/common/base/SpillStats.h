@@ -39,19 +39,19 @@ struct SpillStats {
   /// The number of spilled files.
   uint64_t spilledFiles{0};
   /// The time spent on filling rows for spilling.
-  uint64_t spillFillTimeUs{0};
+  uint64_t spillFillTimeNanos{0};
   /// The time spent on sorting rows for spilling.
-  uint64_t spillSortTimeUs{0};
+  uint64_t spillSortTimeNanos{0};
   /// The time spent on serializing rows for spilling.
-  uint64_t spillSerializationTimeUs{0};
+  uint64_t spillSerializationTimeNanos{0};
   /// The number of spill writer flushes, equivalent to number of write calls to
   /// underlying filesystem.
   uint64_t spillWrites{0};
   /// The time spent on copy out serialized rows for disk write. If compression
   /// is enabled, this includes the compression time.
-  uint64_t spillFlushTimeUs{0};
+  uint64_t spillFlushTimeNanos{0};
   /// The time spent on writing spilled rows to disk.
-  uint64_t spillWriteTimeUs{0};
+  uint64_t spillWriteTimeNanos{0};
   /// The number of times that an hash build operator exceeds the max spill
   /// limit.
   uint64_t spillMaxLevelExceededCount{0};
@@ -61,9 +61,9 @@ struct SpillStats {
   /// to the underlying filesystem.
   uint64_t spillReads{0};
   /// The time spent on read data from spilled files.
-  uint64_t spillReadTimeUs{0};
+  uint64_t spillReadTimeNanos{0};
   /// The time spent on deserializing rows read from spilled files.
-  uint64_t spillDeserializationTimeUs{0};
+  uint64_t spillDeserializationTimeNanos{0};
 
   SpillStats(
       uint64_t _spillRuns,
@@ -72,17 +72,17 @@ struct SpillStats {
       uint64_t _spilledRows,
       uint32_t _spilledPartitions,
       uint64_t _spilledFiles,
-      uint64_t _spillFillTimeUs,
-      uint64_t _spillSortTimeUs,
-      uint64_t _spillSerializationTimeUs,
+      uint64_t _spillFillTimeNanos,
+      uint64_t _spillSortTimeNanos,
+      uint64_t _spillSerializationTimeNanos,
       uint64_t _spillWrites,
-      uint64_t _spillFlushTimeUs,
-      uint64_t _spillWriteTimeUs,
+      uint64_t _spillFlushTimeNanos,
+      uint64_t _spillWriteTimeNanos,
       uint64_t _spillMaxLevelExceededCount,
       uint64_t _spillReadBytes,
       uint64_t _spillReads,
-      uint64_t _spillReadTimeUs,
-      uint64_t _spillDeserializationTimeUs);
+      uint64_t _spillReadTimeNanos,
+      uint64_t _spillDeserializationTimeNanos);
 
   SpillStats() = default;
 
@@ -157,7 +157,7 @@ void updateGlobalMaxSpillLevelExceededCount(
     uint64_t maxSpillLevelExceededCount);
 
 /// Increments the spill read deserialization time.
-void updateGlobalSpillDeserializationTimeUs(uint64_t timeUs);
+void updateGlobalSpillDeserializationTimeNs(uint64_t timeUs);
 
 /// Gets the cumulative global spill stats.
 SpillStats globalSpillStats();

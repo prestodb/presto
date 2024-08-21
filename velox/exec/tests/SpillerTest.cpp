@@ -290,15 +290,15 @@ class SpillerTest : public exec::test::RowContainerTestBase {
 
     ASSERT_EQ(stats.spilledBytes, totalSpilledBytes);
     ASSERT_EQ(stats.spillReadBytes, totalSpilledBytes);
-    ASSERT_GT(stats.spillWriteTimeUs, 0);
+    ASSERT_GT(stats.spillWriteTimeNanos, 0);
     if (type_ == Spiller::Type::kAggregateOutput) {
-      ASSERT_EQ(stats.spillSortTimeUs, 0);
+      ASSERT_EQ(stats.spillSortTimeNanos, 0);
     } else {
-      ASSERT_GT(stats.spillSortTimeUs, 0);
+      ASSERT_GT(stats.spillSortTimeNanos, 0);
     }
-    ASSERT_GT(stats.spillFlushTimeUs, 0);
-    ASSERT_GT(stats.spillFillTimeUs, 0);
-    ASSERT_GT(stats.spillSerializationTimeUs, 0);
+    ASSERT_GT(stats.spillFlushTimeNanos, 0);
+    ASSERT_GT(stats.spillFillTimeNanos, 0);
+    ASSERT_GT(stats.spillSerializationTimeNanos, 0);
     ASSERT_GT(stats.spillWrites, 0);
 
     const auto newGStats = common::globalSpillStats();
@@ -316,29 +316,30 @@ class SpillerTest : public exec::test::RowContainerTestBase {
         newGStats.spillReadBytes);
     ASSERT_EQ(prevGStats.spillReads + stats.spillReads, newGStats.spillReads);
     ASSERT_EQ(
-        prevGStats.spillReadTimeUs + stats.spillReadTimeUs,
-        newGStats.spillReadTimeUs);
+        prevGStats.spillReadTimeNanos + stats.spillReadTimeNanos,
+        newGStats.spillReadTimeNanos);
     ASSERT_EQ(
-        prevGStats.spillDeserializationTimeUs +
-            stats.spillDeserializationTimeUs,
-        newGStats.spillDeserializationTimeUs);
+        prevGStats.spillDeserializationTimeNanos +
+            stats.spillDeserializationTimeNanos,
+        newGStats.spillDeserializationTimeNanos);
     ASSERT_EQ(
-        prevGStats.spillWriteTimeUs + stats.spillWriteTimeUs,
-        newGStats.spillWriteTimeUs);
+        prevGStats.spillWriteTimeNanos + stats.spillWriteTimeNanos,
+        newGStats.spillWriteTimeNanos);
     ASSERT_EQ(
-        prevGStats.spillSortTimeUs + stats.spillSortTimeUs,
-        newGStats.spillSortTimeUs);
+        prevGStats.spillSortTimeNanos + stats.spillSortTimeNanos,
+        newGStats.spillSortTimeNanos);
     ASSERT_EQ(
-        prevGStats.spillFlushTimeUs + stats.spillFlushTimeUs,
-        newGStats.spillFlushTimeUs)
-        << prevGStats.spillFlushTimeUs << " " << stats.spillFlushTimeUs << " "
-        << newGStats.spillFlushTimeUs;
+        prevGStats.spillFlushTimeNanos + stats.spillFlushTimeNanos,
+        newGStats.spillFlushTimeNanos)
+        << prevGStats.spillFlushTimeNanos << " " << stats.spillFlushTimeNanos
+        << " " << newGStats.spillFlushTimeNanos;
     ASSERT_EQ(
-        prevGStats.spillFillTimeUs + stats.spillFillTimeUs,
-        newGStats.spillFillTimeUs);
+        prevGStats.spillFillTimeNanos + stats.spillFillTimeNanos,
+        newGStats.spillFillTimeNanos);
     ASSERT_EQ(
-        prevGStats.spillSerializationTimeUs + stats.spillSerializationTimeUs,
-        newGStats.spillSerializationTimeUs);
+        prevGStats.spillSerializationTimeNanos +
+            stats.spillSerializationTimeNanos,
+        newGStats.spillSerializationTimeNanos);
     ASSERT_EQ(
         prevGStats.spillWrites + stats.spillWrites, newGStats.spillWrites);
 
@@ -846,33 +847,33 @@ class SpillerTest : public exec::test::RowContainerTestBase {
         if (numAppendBatches == 0) {
           ASSERT_EQ(stats.spilledRows, 0);
           ASSERT_EQ(stats.spilledBytes, 0);
-          ASSERT_EQ(stats.spillWriteTimeUs, 0);
-          ASSERT_EQ(stats.spillFlushTimeUs, 0);
-          ASSERT_EQ(stats.spillSerializationTimeUs, 0);
+          ASSERT_EQ(stats.spillWriteTimeNanos, 0);
+          ASSERT_EQ(stats.spillFlushTimeNanos, 0);
+          ASSERT_EQ(stats.spillSerializationTimeNanos, 0);
           ASSERT_EQ(stats.spillWrites, 0);
         } else {
           ASSERT_GT(stats.spilledRows, 0);
           ASSERT_GT(stats.spilledBytes, 0);
-          ASSERT_GT(stats.spillWriteTimeUs, 0);
-          ASSERT_GT(stats.spillFlushTimeUs, 0);
-          ASSERT_GT(stats.spillSerializationTimeUs, 0);
+          ASSERT_GT(stats.spillWriteTimeNanos, 0);
+          ASSERT_GT(stats.spillFlushTimeNanos, 0);
+          ASSERT_GT(stats.spillSerializationTimeNanos, 0);
           ASSERT_GT(stats.spillWrites, 0);
         }
       } else {
         ASSERT_GT(stats.spilledRows, 0);
         ASSERT_GT(stats.spilledBytes, 0);
-        ASSERT_GT(stats.spillWriteTimeUs, 0);
-        ASSERT_GT(stats.spillFlushTimeUs, 0);
-        ASSERT_GT(stats.spillSerializationTimeUs, 0);
+        ASSERT_GT(stats.spillWriteTimeNanos, 0);
+        ASSERT_GT(stats.spillFlushTimeNanos, 0);
+        ASSERT_GT(stats.spillSerializationTimeNanos, 0);
         ASSERT_GT(stats.spillWrites, 0);
       }
       ASSERT_GT(stats.spilledPartitions, 0);
-      ASSERT_EQ(stats.spillSortTimeUs, 0);
+      ASSERT_EQ(stats.spillSortTimeNanos, 0);
       if (type_ == Spiller::Type::kHashJoinBuild ||
           type_ == Spiller::Type::kRowNumber) {
-        ASSERT_GT(stats.spillFillTimeUs, 0);
+        ASSERT_GT(stats.spillFillTimeNanos, 0);
       } else {
-        ASSERT_EQ(stats.spillFillTimeUs, 0);
+        ASSERT_EQ(stats.spillFillTimeNanos, 0);
       }
 
       const auto newGStats = common::globalSpillStats();
@@ -886,22 +887,23 @@ class SpillerTest : public exec::test::RowContainerTestBase {
       ASSERT_EQ(
           prevGStats.spilledBytes + stats.spilledBytes, newGStats.spilledBytes);
       ASSERT_EQ(
-          prevGStats.spillWriteTimeUs + stats.spillWriteTimeUs,
-          newGStats.spillWriteTimeUs);
+          prevGStats.spillWriteTimeNanos + stats.spillWriteTimeNanos,
+          newGStats.spillWriteTimeNanos);
       ASSERT_EQ(
-          prevGStats.spillSortTimeUs + stats.spillSortTimeUs,
-          newGStats.spillSortTimeUs);
+          prevGStats.spillSortTimeNanos + stats.spillSortTimeNanos,
+          newGStats.spillSortTimeNanos);
       ASSERT_EQ(
-          prevGStats.spillFlushTimeUs + stats.spillFlushTimeUs,
-          newGStats.spillFlushTimeUs)
-          << prevGStats.spillFlushTimeUs << " " << stats.spillFlushTimeUs << " "
-          << newGStats.spillFlushTimeUs;
+          prevGStats.spillFlushTimeNanos + stats.spillFlushTimeNanos,
+          newGStats.spillFlushTimeNanos)
+          << prevGStats.spillFlushTimeNanos << " " << stats.spillFlushTimeNanos
+          << " " << newGStats.spillFlushTimeNanos;
       ASSERT_EQ(
-          prevGStats.spillFillTimeUs + stats.spillFillTimeUs,
-          newGStats.spillFillTimeUs);
+          prevGStats.spillFillTimeNanos + stats.spillFillTimeNanos,
+          newGStats.spillFillTimeNanos);
       ASSERT_EQ(
-          prevGStats.spillSerializationTimeUs + stats.spillSerializationTimeUs,
-          newGStats.spillSerializationTimeUs);
+          prevGStats.spillSerializationTimeNanos +
+              stats.spillSerializationTimeNanos,
+          newGStats.spillSerializationTimeNanos);
       ASSERT_EQ(
           prevGStats.spillWrites + stats.spillWrites, newGStats.spillWrites);
 
@@ -1464,7 +1466,7 @@ TEST_P(AggregationOutputOnly, basic) {
       ASSERT_EQ(stats.spilledFiles, 1) << stats.toString();
       ASSERT_EQ(stats.spilledRows, expectedNumSpilledRows) << stats.toString();
     }
-    ASSERT_EQ(stats.spillSortTimeUs, 0);
+    ASSERT_EQ(stats.spillSortTimeNanos, 0);
   }
 }
 
@@ -1571,7 +1573,7 @@ TEST_P(OrderByOutputOnly, basic) {
       ASSERT_EQ(stats.spilledFiles, 1) << stats.toString();
       ASSERT_EQ(stats.spilledRows, expectedNumSpilledRows) << stats.toString();
     }
-    ASSERT_EQ(stats.spillSortTimeUs, 0);
+    ASSERT_EQ(stats.spillSortTimeNanos, 0);
   }
 }
 

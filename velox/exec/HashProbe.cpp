@@ -1512,7 +1512,7 @@ void HashProbe::noMoreInputInternal() {
         spillInputPartitionIds_.size(),
         inputSpiller_->spilledPartitionSet().size());
     inputSpiller_->finishSpill(spillPartitionSet_);
-    VELOX_CHECK_EQ(spillStats_.rlock()->spillSortTimeUs, 0);
+    VELOX_CHECK_EQ(spillStats_.rlock()->spillSortTimeNanos, 0);
   }
 
   const bool hasSpillEnabled = spillEnabled();

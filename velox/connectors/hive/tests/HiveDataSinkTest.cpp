@@ -492,10 +492,10 @@ TEST_F(HiveDataSinkTest, basic) {
       stats.toString(),
       "numWrittenBytes 0B numWrittenFiles 0 spillRuns[0] spilledInputBytes[0B] "
       "spilledBytes[0B] spilledRows[0] spilledPartitions[0] spilledFiles[0] "
-      "spillFillTimeUs[0us] spillSortTime[0us] spillSerializationTime[0us] "
-      "spillWrites[0] spillFlushTime[0us] spillWriteTime[0us] "
+      "spillFillTimeNanos[0ns] spillSortTimeNanos[0ns] spillSerializationTimeNanos[0ns] "
+      "spillWrites[0] spillFlushTimeNanos[0ns] spillWriteTimeNanos[0ns] "
       "maxSpillExceededLimitCount[0] spillReadBytes[0B] spillReads[0] "
-      "spillReadTime[0us] spillReadDeserializationTime[0us]");
+      "spillReadTimeNanos[0ns] spillReadDeserializationTimeNanos[0ns]");
 
   const int numBatches = 10;
   const auto vectors = createVectors(500, numBatches);
@@ -540,10 +540,10 @@ TEST_F(HiveDataSinkTest, basicBucket) {
       stats.toString(),
       "numWrittenBytes 0B numWrittenFiles 0 spillRuns[0] spilledInputBytes[0B] "
       "spilledBytes[0B] spilledRows[0] spilledPartitions[0] spilledFiles[0] "
-      "spillFillTimeUs[0us] spillSortTime[0us] spillSerializationTime[0us] "
-      "spillWrites[0] spillFlushTime[0us] spillWriteTime[0us] "
+      "spillFillTimeNanos[0ns] spillSortTimeNanos[0ns] spillSerializationTimeNanos[0ns] "
+      "spillWrites[0] spillFlushTimeNanos[0ns] spillWriteTimeNanos[0ns] "
       "maxSpillExceededLimitCount[0] spillReadBytes[0B] spillReads[0] "
-      "spillReadTime[0us] spillReadDeserializationTime[0us]");
+      "spillReadTimeNanos[0ns] spillReadDeserializationTimeNanos[0ns]");
 
   const int numBatches = 10;
   const auto vectors = createVectors(500, numBatches);
