@@ -50,7 +50,7 @@ class SparkQueryRunnerTest : public ::testing::Test,
 // by default.
 TEST_F(SparkQueryRunnerTest, DISABLED_basic) {
   auto queryRunner = std::make_unique<fuzzer::SparkQueryRunner>(
-      "localhost:15002", "test", "basic");
+      pool(), "localhost:15002", "test", "basic");
 
   auto input = makeRowVector({
       makeConstant<int64_t>(1, 25),
@@ -94,7 +94,7 @@ TEST_F(SparkQueryRunnerTest, DISABLED_fuzzer) {
                   .planNode();
 
   auto queryRunner = std::make_unique<fuzzer::SparkQueryRunner>(
-      "localhost:15002", "test", "fuzzer");
+      pool(), "localhost:15002", "test", "fuzzer");
   auto sql = queryRunner->toSql(plan);
   ASSERT_TRUE(sql.has_value());
 
@@ -107,8 +107,8 @@ TEST_F(SparkQueryRunnerTest, DISABLED_fuzzer) {
 }
 
 TEST_F(SparkQueryRunnerTest, toSql) {
-  auto queryRunner =
-      std::make_unique<fuzzer::SparkQueryRunner>("unused", "unused", "unused");
+  auto queryRunner = std::make_unique<fuzzer::SparkQueryRunner>(
+      pool(), "unused", "unused", "unused");
 
   auto dataType = ROW({"c0", "c1", "c2"}, {DOUBLE(), DOUBLE(), BOOLEAN()});
   auto plan = exec::test::PlanBuilder()

@@ -33,10 +33,12 @@ class SparkQueryRunner : public velox::exec::test::ReferenceQueryRunner {
  public:
   /// @param coordinatorUri Spark connect server endpoint, e.g. localhost:15002.
   SparkQueryRunner(
+      memory::MemoryPool* aggregatePool,
       const std::string& coordinatorUri,
       const std::string& userId,
       const std::string& userName)
-      : userId_(userId),
+      : ReferenceQueryRunner(aggregatePool),
+        userId_(userId),
         userName_(userName),
         sessionId_(generateUUID()),
         stub_(spark::connect::SparkConnectService::NewStub(grpc::CreateChannel(
@@ -61,6 +63,12 @@ class SparkQueryRunner : public velox::exec::test::ReferenceQueryRunner {
       const RowTypePtr& resultType) override {
     VELOX_NYI("SparkQueryRunner does not support join node.");
   }
+
+  RunnerType runnerType() const override {
+    return RunnerType::kSparkQueryRunner;
+  }
+
+  const std::vector<TypePtr>& supportedScalarTypes() const override;
 
   bool supportsVeloxVectorResults() const override {
     return true;

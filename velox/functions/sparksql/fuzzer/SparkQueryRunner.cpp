@@ -73,6 +73,23 @@ void writeToFile(
 
 } // namespace
 
+const std::vector<TypePtr>& SparkQueryRunner::supportedScalarTypes() const {
+  static const std::vector<TypePtr> kScalarTypes{
+      BOOLEAN(),
+      TINYINT(),
+      SMALLINT(),
+      INTEGER(),
+      BIGINT(),
+      REAL(),
+      DOUBLE(),
+      VARCHAR(),
+      VARBINARY(),
+      TIMESTAMP(),
+      DATE(),
+  };
+  return kScalarTypes;
+}
+
 std::optional<std::string> SparkQueryRunner::toSql(
     const velox::core::PlanNodePtr& plan) {
   if (const auto aggregationNode =
