@@ -216,4 +216,56 @@ public class TestIpPrefixFunctions
         assertInvalidFunction("IP_PREFIX_COLLAPSE(ARRAY[IPPREFIX '192.168.0.0/22', IPPREFIX '2409:4043:251a:d200::/56'])",
                 "All IPPREFIX elements must be the same IP version.");
     }
+
+    @Test
+    public void testIpPrefixSubnets()
+    {
+        assertFunction("IP_PREFIX_SUBNETS(IPPREFIX '192.168.1.0/24', 25)", new ArrayType(IPPREFIX), ImmutableList.of("192.168.1.0/25", "192.168.1.128/25"));
+        assertFunction("IP_PREFIX_SUBNETS(IPPREFIX '192.168.0.0/24', 26)", new ArrayType(IPPREFIX), ImmutableList.of("192.168.0.0/26", "192.168.0.64/26", "192.168.0.128/26", "192.168.0.192/26"));
+        assertFunction("IP_PREFIX_SUBNETS(IPPREFIX '2A03:2880:C000::/34', 37)",
+                new ArrayType(IPPREFIX),
+                ImmutableList.of("2a03:2880:c000::/37", "2a03:2880:c800::/37", "2a03:2880:d000::/37", "2a03:2880:d800::/37", "2a03:2880:e000::/37", "2a03:2880:e800::/37", "2a03:2880:f000::/37", "2a03:2880:f800::/37"));
+    }
+
+    @Test
+    public void testIpPrefixSubnetsReturnSelf()
+    {
+        assertFunction("IP_PREFIX_SUBNETS(IPPREFIX '192.168.1.0/24', 24)", new ArrayType(IPPREFIX), ImmutableList.of("192.168.1.0/24"));
+        assertFunction("IP_PREFIX_SUBNETS(IPPREFIX '2804:431:b000::/38', 38)", new ArrayType(IPPREFIX), ImmutableList.of("2804:431:b000::/38"));
+    }
+
+    @Test
+    public void testIpPrefixSubnetsNewPrefixLengthLongerReturnsEmpty()
+    {
+        assertFunction("IP_PREFIX_SUBNETS(IPPREFIX '192.168.0.0/24', 23)", new ArrayType(IPPREFIX), ImmutableList.of());
+        assertFunction("IP_PREFIX_SUBNETS(IPPREFIX '64:ff9b::17/64', 48)", new ArrayType(IPPREFIX), ImmutableList.of());
+    }
+
+    @Test
+    public void testIpPrefixSubnetsInvalidPrefixLengths()
+    {
+        assertInvalidFunction("IP_PREFIX_SUBNETS(IPPREFIX '192.168.0.0/24', -1)", "Invalid prefix length for IPv4: -1");
+        assertInvalidFunction("IP_PREFIX_SUBNETS(IPPREFIX '192.168.0.0/24', 33)", "Invalid prefix length for IPv4: 33");
+        assertInvalidFunction("IP_PREFIX_SUBNETS(IPPREFIX '64:ff9b::17/64', -1)", "Invalid prefix length for IPv6: -1");
+        assertInvalidFunction("IP_PREFIX_SUBNETS(IPPREFIX '64:ff9b::17/64', 129)", "Invalid prefix length for IPv6: 129");
+    }
+
+    @Test(dataProvider = "private-ip-provider")
+    public void testIsPrivateTrue(String ipAddress)
+    {
+        assertFunction("IS_PRIVATE_IP(IPADDRESS '" + ipAddress + "')", BOOLEAN, true);
+    }
+
+    @Test(dataProvider = "public-ip-provider")
+    public void testIsPrivateIpFalse(String ipAddress)
+    {
+        assertFunction("IS_PRIVATE_IP(IPADDRESS '" + ipAddress + "')", BOOLEAN, false);
+    }
+
+    @Test
+    public void testIsPrivateIpNull()
+    {
+        assertFunction("IS_PRIVATE_IP(NULL)", BOOLEAN, null);
+    }
+>>>>>>> d73d51d481 (removing whitespace)
 }

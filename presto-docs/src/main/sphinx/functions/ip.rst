@@ -60,3 +60,12 @@ IP Functions
         SELECT IP_PREFIX_COLLAPSE(ARRAY[IPPREFIX '2620:10d:c090::/48', IPPREFIX '2620:10d:c091::/48']); -- [{2620:10d:c090::/47}]
         SELECT IP_PREFIX_COLLAPSE(ARRAY[IPPREFIX '192.168.1.0/24', IPPREFIX '192.168.0.0/24', IPPREFIX '192.168.2.0/24', IPPREFIX '192.168.9.0/24']); -- [{192.168.0.0/23}, {192.168.2.0/24}, {192.168.9.0/24}]
 
+.. function:: ip_prefix_subnets(ip_prefix, prefix_length) -> array(ip_prefix)
+
+    Returns the subnets of ``ip_prefix`` of size ``prefix_length``. ``prefix_length`` must be valid ([0, 32] for IPv4
+    and [0, 128] for IPv6) or the query will fail and raise an error. An empty array is returned if ``prefix_length``
+    is shorter (that is, less specific) than ``ip_prefix``. ::
+
+        SELECT IP_PREFIX_SUBNETS(IPPREFIX '192.168.1.0/24', 25); -- [{192.168.1.0/25}, {192.168.1.128/25}]
+        SELECT IP_PREFIX_SUBNETS(IPPREFIX '2a03:2880:c000::/34', 36); -- [{2a03:2880:c000::/36}, {2a03:2880:d000::/36}, {2a03:2880:e000::/36}, {2a03:2880:f000::/36}]
+
