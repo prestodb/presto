@@ -30,28 +30,64 @@
 
 namespace facebook::velox::functions {
 
+namespace detail {
 // Below functions return a stock instance of each of the possible errors in
 // SubscriptImpl
 const std::exception_ptr& zeroSubscriptError();
 const std::exception_ptr& badSubscriptError();
 const std::exception_ptr& negativeSubscriptError();
 
-template <TypeKind kind>
+// A flat vector of map keys, an index into that vector and an index into
+// the original map keys vector that may have encodings.
+struct MapKey {
+  const BaseVector* baseVector;
+  const vector_size_t baseIndex;
+  const vector_size_t index;
+
+  size_t hash() const {
+    return baseVector->hashValueAt(baseIndex);
+  }
+
+  bool operator==(const MapKey& other) const {
+    return baseVector->equalValueAt(
+        other.baseVector, baseIndex, other.baseIndex);
+  }
+
+  bool operator<(const MapKey& other) const {
+    return baseVector->compare(other.baseVector, baseIndex, other.baseIndex) <
+        0;
+  }
+};
+
+struct MapKeyHasher {
+  size_t operator()(const MapKey& key) const {
+    return key.hash();
+  }
+};
+
+using MapKeyAllocator = memory::StlAllocator<detail::MapKey>;
+
+using ComplexKeyHashMap = folly::F14FastSet<
+    detail::MapKey,
+    detail::MapKeyHasher,
+    folly::f14::DefaultKeyEqual<detail::MapKey>,
+    MapKeyAllocator>;
+
+template <typename NativeType>
 class LookupTable;
 
 class LookupTableBase {
  public:
-  template <TypeKind kind>
-  LookupTable<kind>* typedTable() {
-    return static_cast<LookupTable<kind>*>(this);
+  template <typename NativeType>
+  LookupTable<NativeType>* typedTable() {
+    return static_cast<LookupTable<NativeType>*>(this);
   }
   virtual ~LookupTableBase() {}
 };
 
-template <TypeKind kind>
+// NativeType should by TypeTraits<TypeKind>::NativeType for the key's TypeKind.
+template <typename NativeType>
 class LookupTable : public LookupTableBase {
-  using key_t = typename TypeTraits<kind>::NativeType;
-
  public:
   LookupTable(memory::MemoryPool& pool)
       : pool_(pool),
@@ -75,11 +111,22 @@ class LookupTable : public LookupTableBase {
   }
 
  private:
-  using inner_allocator_t =
-      memory::StlAllocator<std::pair<key_t const, vector_size_t>>;
+  // If the NativeType is not void, we can materialize the key in memory
+  // directly, so we can use a HashMap keyed on the native value.  If it is void
+  // then we have to use MapKey as the key to wrap the Vector and avoid
+  // materializing the key in memory.
+  using inner_allocator_t = std::conditional_t<
+      std::is_same_v<NativeType, void>,
+      MapKeyAllocator,
+      memory::StlAllocator<std::pair<NativeType const, vector_size_t>>>;
 
-  using inner_map_t = typename util::floating_point::
-      HashMapNaNAwareTypeTraits<key_t, vector_size_t, inner_allocator_t>::Type;
+  using inner_map_t = std::conditional_t<
+      std::is_same_v<NativeType, void>,
+      ComplexKeyHashMap,
+      typename util::floating_point::HashMapNaNAwareTypeTraits<
+          NativeType,
+          vector_size_t,
+          inner_allocator_t>::Type>;
 
   using outer_allocator_t =
       memory::StlAllocator<std::pair<vector_size_t const, inner_map_t>>;
@@ -123,9 +170,8 @@ class MapSubscript {
       return false;
     }
 
-    if (!mapArg->type()->childAt(0)->isPrimitiveType() &&
-        !!mapArg->type()->childAt(0)->isBoolean()) {
-      // Disable caching if the key type is not primitive or is boolean.
+    if (mapArg->type()->childAt(0)->isBoolean()) {
+      // Disable caching if the key type is boolean.
       allowCaching_ = false;
       return false;
     }
@@ -158,6 +204,7 @@ class MapSubscript {
   // Materialized cached version of firstSeenMap_ used to optimize the lookup.
   mutable std::shared_ptr<LookupTableBase> lookupTable_;
 };
+} // namespace detail
 
 /// Generic subscript/element_at implementation for both array and map data
 /// types.
@@ -179,7 +226,7 @@ template <
 class SubscriptImpl : public exec::Subscript {
  public:
   explicit SubscriptImpl(bool allowCaching)
-      : mapSubscript_(MapSubscript(allowCaching)) {}
+      : mapSubscript_(detail::MapSubscript(allowCaching)) {}
 
   void apply(
       const SelectivityVector& rows,
@@ -286,7 +333,7 @@ class SubscriptImpl : public exec::Subscript {
       const auto adjustedIndex =
           adjustIndex(decodedIndices->valueAt<I>(0), isZeroSubscriptError);
       if (isZeroSubscriptError) {
-        context.setErrors(rows, zeroSubscriptError());
+        context.setErrors(rows, detail::zeroSubscriptError());
         allFailed = true;
       }
 
@@ -307,7 +354,7 @@ class SubscriptImpl : public exec::Subscript {
         const auto adjustedIndex =
             adjustIndex(originalIndex, isZeroSubscriptError);
         if (isZeroSubscriptError) {
-          context.setVeloxExceptionError(row, zeroSubscriptError());
+          context.setVeloxExceptionError(row, detail::zeroSubscriptError());
           return;
         }
         const auto elementIndex = getIndex(
@@ -372,7 +419,7 @@ class SubscriptImpl : public exec::Subscript {
           index += arraySize;
         }
       } else {
-        context.setVeloxExceptionError(row, negativeSubscriptError());
+        context.setVeloxExceptionError(row, detail::negativeSubscriptError());
         return -1;
       }
     }
@@ -383,7 +430,7 @@ class SubscriptImpl : public exec::Subscript {
       if constexpr (allowOutOfBound) {
         return -1;
       } else {
-        context.setVeloxExceptionError(row, badSubscriptError());
+        context.setVeloxExceptionError(row, detail::badSubscriptError());
         return -1;
       }
     }
@@ -394,7 +441,7 @@ class SubscriptImpl : public exec::Subscript {
   }
 
  private:
-  MapSubscript mapSubscript_;
+  detail::MapSubscript mapSubscript_;
 };
 
 } // namespace facebook::velox::functions

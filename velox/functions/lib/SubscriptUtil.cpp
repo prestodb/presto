@@ -58,7 +58,7 @@ struct SimpleType<TypeKind::VARCHAR> {
 template <TypeKind kind>
 VectorPtr applyMapTyped(
     bool triggerCaching,
-    std::shared_ptr<LookupTableBase>& cachedLookupTablePtr,
+    std::shared_ptr<detail::LookupTableBase>& cachedLookupTablePtr,
     const SelectivityVector& rows,
     const VectorPtr& mapArg,
     const VectorPtr& indexArg,
@@ -66,14 +66,14 @@ VectorPtr applyMapTyped(
   static constexpr vector_size_t kMinCachedMapSize = 100;
   using TKey = typename TypeTraits<kind>::NativeType;
 
-  LookupTable<kind>* typedLookupTable = nullptr;
+  detail::LookupTable<TKey>* typedLookupTable = nullptr;
   if (triggerCaching) {
     if (!cachedLookupTablePtr) {
       cachedLookupTablePtr =
-          std::make_shared<LookupTable<kind>>(*context.pool());
+          std::make_shared<detail::LookupTable<TKey>>(*context.pool());
     }
 
-    typedLookupTable = cachedLookupTablePtr->typedTable<kind>();
+    typedLookupTable = cachedLookupTablePtr->typedTable<TKey>();
   }
 
   auto* pool = context.pool();
@@ -178,39 +178,13 @@ VectorPtr applyMapTyped(
       nullsBuilder.build(), indices, rows.end(), baseMap->mapValues());
 }
 
-// A flat vector of map keys, an index into that vector and an index into
-// the original map keys vector that may have encodings.
-struct MapKey {
-  const BaseVector* baseVector;
-  const vector_size_t baseIndex;
-  const vector_size_t index;
-
-  size_t hash() const {
-    return baseVector->hashValueAt(baseIndex);
-  }
-
-  bool operator==(const MapKey& other) const {
-    return baseVector->equalValueAt(
-        other.baseVector, baseIndex, other.baseIndex);
-  }
-
-  bool operator<(const MapKey& other) const {
-    return baseVector->compare(other.baseVector, baseIndex, other.baseIndex) <
-        0;
-  }
-};
-
-struct MapKeyHasher {
-  size_t operator()(const MapKey& key) const {
-    return key.hash();
-  }
-};
-
 VectorPtr applyMapComplexType(
     const SelectivityVector& rows,
     const VectorPtr& mapArg,
     const VectorPtr& indexArg,
-    exec::EvalCtx& context) {
+    exec::EvalCtx& context,
+    bool triggerCaching,
+    std::shared_ptr<detail::LookupTableBase>& cachedLookupTablePtr) {
   auto* pool = context.pool();
 
   // Use indices with the mapValues wrapped in a dictionary vector.
@@ -247,18 +221,42 @@ VectorPtr applyMapComplexType(
   // Fast path for the case of a single map. It may be constant or dictionary
   // encoded. Use hash table for quick search.
   if (baseMap->size() == 1) {
-    folly::F14FastSet<MapKey, MapKeyHasher> set;
-    auto numKeys = rawSizes[0];
-    set.reserve(numKeys * 1.3);
-    for (auto i = 0; i < numKeys; ++i) {
-      set.insert(MapKey{mapKeysBase, mapKeysIndices[i], i});
+    detail::ComplexKeyHashMap hashMap{detail::MapKeyAllocator(*pool)};
+    detail::ComplexKeyHashMap* hashMapPtr = &hashMap;
+
+    if (triggerCaching) {
+      if (!cachedLookupTablePtr) {
+        cachedLookupTablePtr =
+            std::make_shared<detail::LookupTable<void>>(*context.pool());
+      }
+
+      detail::LookupTable<void>* typedLookupTable =
+          cachedLookupTablePtr->typedTable<void>();
+
+      static constexpr vector_size_t kMapIndex = 0;
+
+      if (!typedLookupTable->containsMapAtIndex(kMapIndex)) {
+        typedLookupTable->ensureMapAtIndex(kMapIndex);
+      }
+
+      auto& map = typedLookupTable->getMapAtIndex(kMapIndex);
+      hashMapPtr = &map;
     }
+
+    if (hashMapPtr->empty()) {
+      auto numKeys = rawSizes[0];
+      hashMapPtr->reserve(numKeys * 1.3);
+      for (auto i = 0; i < numKeys; ++i) {
+        hashMapPtr->insert(detail::MapKey{mapKeysBase, mapKeysIndices[i], i});
+      }
+    }
+
     rows.applyToSelected([&](vector_size_t row) {
       VELOX_CHECK_EQ(0, mapIndices[row]);
 
       auto searchIndex = searchIndices[row];
-      auto it = set.find(MapKey{searchBase, searchIndex, row});
-      if (it != set.end()) {
+      auto it = hashMapPtr->find(detail::MapKey{searchBase, searchIndex, row});
+      if (it != hashMapPtr->end()) {
         rawIndices[row] = it->index;
       } else {
         nullsBuilder.setNull(row);
@@ -302,6 +300,8 @@ VectorPtr applyMapComplexType(
 
 } // namespace
 
+namespace detail {
+
 VectorPtr MapSubscript::applyMap(
     const SelectivityVector& rows,
     std::vector<VectorPtr>& args,
@@ -312,20 +312,20 @@ VectorPtr MapSubscript::applyMap(
   // Ensure map key type and second argument are the same.
   VELOX_CHECK(mapArg->type()->childAt(0)->equivalent(*indexArg->type()));
 
+  bool triggerCaching = shouldTriggerCaching(mapArg);
   if (indexArg->type()->isPrimitiveType()) {
-    bool triggerCaching = shouldTriggerCaching(mapArg);
-
     return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
         applyMapTyped,
         indexArg->typeKind(),
         triggerCaching,
-        const_cast<std::shared_ptr<LookupTableBase>&>(lookupTable_),
+        lookupTable_,
         rows,
         mapArg,
         indexArg,
         context);
   } else {
-    return applyMapComplexType(rows, mapArg, indexArg, context);
+    return applyMapComplexType(
+        rows, mapArg, indexArg, context, triggerCaching, lookupTable_);
   }
 }
 
@@ -369,5 +369,6 @@ const std::exception_ptr& negativeSubscriptError() {
   static std::exception_ptr error = makeNegativeSubscriptError();
   return error;
 }
+} // namespace detail
 
 } // namespace facebook::velox::functions

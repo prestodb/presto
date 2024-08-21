@@ -135,9 +135,10 @@ Timestamp randTimestamp(FuzzerGenerator& rng, VectorFuzzer::Options opts) {
 size_t getElementsVectorLength(
     const VectorFuzzer::Options& opts,
     vector_size_t size) {
-  if (opts.containerVariableLength == false &&
-      size * opts.containerLength > opts.complexElementsMaxSize) {
-    VELOX_USER_FAIL(
+  if (!opts.containerVariableLength) {
+    VELOX_USER_CHECK_LE(
+        size * opts.containerLength,
+        opts.complexElementsMaxSize,
         "Requested fixed opts.containerVariableLength can't be satisfied: "
         "increase opts.complexElementsMaxSize, reduce opts.containerLength"
         " or make opts.containerVariableLength=true");

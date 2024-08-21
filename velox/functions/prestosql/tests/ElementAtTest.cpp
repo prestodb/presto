@@ -143,7 +143,8 @@ class ElementAtTest : public FunctionBaseTest {
     auto keys = makeFlatVector<T>(std::vector<T>({kSNaN}));
     std::vector<VectorPtr> args = {inputMap, keys};
 
-    facebook::velox::functions::MapSubscript mapSubscriptWithCaching(true);
+    facebook::velox::functions::detail::MapSubscript mapSubscriptWithCaching(
+        true);
 
     auto checkStatus = [&](bool cachingEnabled,
                            bool materializedMapIsNull,
@@ -1030,7 +1031,7 @@ TEST_F(ElementAtTest, errorStatesArray) {
       [](auto row) { return row == 40; });
 }
 
-TEST_F(ElementAtTest, testCachingOptimzation) {
+TEST_F(ElementAtTest, testCachingOptimization) {
   std::vector<std::vector<std::pair<int64_t, std::optional<int64_t>>>>
       inputMapVectorData;
   inputMapVectorData.push_back({});
@@ -1068,7 +1069,8 @@ TEST_F(ElementAtTest, testCachingOptimzation) {
   auto keys = makeFlatVector<int64_t>({0, 0, 0});
   std::vector<VectorPtr> args = {inputMap, keys};
 
-  facebook::velox::functions::MapSubscript mapSubscriptWithCaching(true);
+  facebook::velox::functions::detail::MapSubscript mapSubscriptWithCaching(
+      true);
 
   auto checkStatus = [&](bool cachingEnabled,
                          bool materializedMapIsNull,
@@ -1100,8 +1102,7 @@ TEST_F(ElementAtTest, testCachingOptimzation) {
   // Test the cached map content.
   auto verfyCachedContent = [&]() {
     auto& cachedMapTyped =
-        *static_cast<
-             facebook::velox::functions::LookupTable<TypeKind::BIGINT>*>(
+        *static_cast<facebook::velox::functions::detail::LookupTable<int64_t>*>(
              mapSubscriptWithCaching.lookupTable().get())
              ->map();
 
@@ -1181,4 +1182,150 @@ TEST_F(ElementAtTest, floatingPointCornerCases) {
   // considered equal.
   testFloatingPointCornerCases<float>();
   testFloatingPointCornerCases<double>();
+}
+
+TEST_F(ElementAtTest, testCachingOptimizationComplexKey) {
+  std::vector<std::vector<int64_t>> keys;
+  std::vector<int64_t> values;
+  for (int i = 0; i < 999; i += 3) {
+    // [0, 1, 2] -> 1000
+    // [3, 4, 5] -> 1003
+    // ...
+    keys.push_back({i, i + 1, i + 2});
+    values.push_back(i + 1000);
+  }
+
+  // Make a dummy eval context.
+  exec::ExprSet exprSet({}, &execCtx_);
+  auto inputs = makeRowVector({});
+  exec::EvalCtx evalCtx(&execCtx_, &exprSet, inputs.get());
+
+  SelectivityVector rows(1);
+  auto keysVector = makeArrayVector<int64_t>(keys);
+  auto valuesVector = makeFlatVector<int64_t>(values);
+  auto inputMap = makeMapVector({0}, keysVector, valuesVector);
+
+  auto inputKeys = makeArrayVector<int64_t>({{0, 1, 2}});
+  std::vector<VectorPtr> args{inputMap, inputKeys};
+
+  facebook::velox::functions::detail::MapSubscript mapSubscriptWithCaching(
+      true);
+
+  auto checkStatus = [&](bool cachingEnabled,
+                         bool materializedMapIsNull,
+                         const VectorPtr& firtSeen) {
+    EXPECT_EQ(cachingEnabled, mapSubscriptWithCaching.cachingEnabled());
+    EXPECT_EQ(firtSeen, mapSubscriptWithCaching.firstSeenMap());
+    EXPECT_EQ(
+        materializedMapIsNull,
+        nullptr == mapSubscriptWithCaching.lookupTable());
+  };
+
+  // Initial state.
+  checkStatus(true, true, nullptr);
+
+  auto result1 = mapSubscriptWithCaching.applyMap(rows, args, evalCtx);
+  // Nothing has been materialized yet since the input is seen only once.
+  checkStatus(true, true, args[0]);
+
+  auto result2 = mapSubscriptWithCaching.applyMap(rows, args, evalCtx);
+  checkStatus(true, false, args[0]);
+
+  auto result3 = mapSubscriptWithCaching.applyMap(rows, args, evalCtx);
+  checkStatus(true, false, args[0]);
+
+  // all the result should be the same.
+  test::assertEqualVectors(result1, result2);
+  test::assertEqualVectors(result2, result3);
+
+  // Test the cached map content.
+  auto verfyCachedContent = [&]() {
+    auto& cachedMap = mapSubscriptWithCaching.lookupTable()
+                          ->typedTable<void>()
+                          ->getMapAtIndex(0);
+
+    for (int i = 0; i < keysVector->size(); i += 3) {
+      EXPECT_NE(
+          cachedMap.end(),
+          cachedMap.find(facebook::velox::functions::detail::MapKey{
+              keysVector.get(), 0, 0}));
+    }
+  };
+
+  verfyCachedContent();
+  // Pass different map with same base.
+  {
+    auto dictInput = BaseVector::wrapInDictionary(
+        nullptr, makeIndices({0, 0, 0}), 1, inputMap);
+
+    SelectivityVector rows(3);
+    std::vector<VectorPtr> args{
+        dictInput, makeArrayVector<int64_t>({{0, 1, 2}, {0, 1, 2}, {0, 1, 2}})};
+    auto result = mapSubscriptWithCaching.applyMap(rows, args, evalCtx);
+    // Last seen map will keep pointing to the original map since both have
+    // the same base.
+    checkStatus(true, false, inputMap);
+
+    auto expectedResult = makeFlatVector<int64_t>({1000, 1000, 1000});
+    test::assertEqualVectors(expectedResult, result);
+    verfyCachedContent();
+  }
+
+  {
+    auto constantInput = BaseVector::wrapInConstant(3, 0, inputMap);
+
+    SelectivityVector rows(3);
+    std::vector<VectorPtr> args{
+        constantInput,
+        makeArrayVector<int64_t>({{0, 1, 2}, {0, 1, 2}, {0, 1, 2}})};
+    auto result = mapSubscriptWithCaching.applyMap(rows, args, evalCtx);
+    // Last seen map will keep pointing to the original map since both have
+    // the same base.
+    checkStatus(true, false, inputMap);
+
+    auto expectedResult = makeFlatVector<int64_t>({1000, 1000, 1000});
+    test::assertEqualVectors(expectedResult, result);
+    verfyCachedContent();
+  }
+
+  // Pass a different map, caching will be disabled.
+  {
+    args[0] = makeMapVector({0}, keysVector, valuesVector);
+    auto result = mapSubscriptWithCaching.applyMap(rows, args, evalCtx);
+    checkStatus(false, true, nullptr);
+    test::assertEqualVectors(result, result1);
+  }
+
+  {
+    args[0] = makeMapVector({0}, keysVector, valuesVector);
+    auto result = mapSubscriptWithCaching.applyMap(rows, args, evalCtx);
+    checkStatus(false, true, nullptr);
+    test::assertEqualVectors(result, result1);
+  }
+
+  for (int i = 0; i < 999; i += 3) {
+    // [0, 1, 2] -> 0
+    // [2, 3, 4] -> 1
+    // ...
+    keys.push_back({i * 2, i * 2 + 1, i * 2 + 2});
+    values.push_back(i);
+  }
+
+  for (int i = 0; i < 30; i += 3) {
+    // [0, 1, 2] -> 0
+    // [3, 4, 5] -> 3
+    // ...
+    keys.push_back({i, i + 1, i + 2});
+    values.push_back(i);
+  }
+
+  args[0] = makeMapVector({0, 333, 666}, keysVector, valuesVector);
+  auto resultWithMoreVectors =
+      mapSubscriptWithCaching.applyMap(rows, args, evalCtx);
+  checkStatus(false, true, nullptr);
+
+  auto resultWithMoreVectors1 =
+      mapSubscriptWithCaching.applyMap(rows, args, evalCtx);
+  checkStatus(false, true, nullptr);
+  test::assertEqualVectors(resultWithMoreVectors, resultWithMoreVectors1);
 }

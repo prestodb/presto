@@ -37,6 +37,7 @@ extern void registerSubscriptFunction(
 
 int main(int argc, char** argv) {
   folly::Init init(&argc, &argv);
+  memory::MemoryManager::testingSetInstance({});
 
   ExpressionBenchmarkBuilder benchmarkBuilder;
   facebook::velox::functions::prestosql::registerAllScalarFunctions();
@@ -53,7 +54,8 @@ int main(int argc, char** argv) {
     VectorFuzzer::Options options;
     options.vectorSize = 1000;
     options.containerLength = mapLength;
-    options.complexElementsMaxSize = 10000000000;
+    // Make sure it's big enough for nested complex types.
+    options.complexElementsMaxSize = baseVectorSize * mapLength * mapLength;
     options.containerVariableLength = false;
 
     VectorFuzzer fuzzer(options, pool);
@@ -111,6 +113,23 @@ int main(int argc, char** argv) {
 
   createSetsForType(INTEGER());
   createSetsForType(VARCHAR());
+
+  // For complex types, caching only applies if the Vector has a single constant
+  // value, so we only run with a baseVectorSize of 1.  Also, due to the
+  // cost of the cardinality explosion from having nested complex types, we
+  // limit the number of iterations to 100.
+  auto createSetsForComplexType = [&](const auto& keyType) {
+    createSet(MAP(keyType, INTEGER()), 10, 1, 100);
+
+    createSet(MAP(keyType, INTEGER()), 100, 1, 100);
+
+    createSet(MAP(keyType, INTEGER()), 1000, 1, 100);
+
+    createSet(MAP(keyType, INTEGER()), 10000, 1, 100);
+  };
+
+  createSetsForComplexType(ARRAY(BIGINT()));
+  createSetsForComplexType(MAP(INTEGER(), VARCHAR()));
 
   benchmarkBuilder.registerBenchmarks();
   benchmarkBuilder.testBenchmarks();
