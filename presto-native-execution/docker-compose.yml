@@ -42,16 +42,16 @@ services:
     # Usage:
     #   docker compose build centos-native-dependency
     #   podman compose build centos-native-dependency
-    image: presto/prestissimo-dependency:centos8
+    image: presto/prestissimo-dependency:centos9
     build:
       context: .
-      dockerfile: scripts/dockerfiles/centos-8-stream-dependency.dockerfile
+      dockerfile: scripts/dockerfiles/centos-dependency.dockerfile
 
   centos-native-runtime:
     # Usage:
     #   docker compose build centos-native-runtime
     #   podman compose build centos-native-runtime
-    image: presto/prestissimo-runtime:centos8
+    image: presto/prestissimo-runtime:centos9
     build:
       args:
           # A few files in Velox require significant memory to compile and link.
