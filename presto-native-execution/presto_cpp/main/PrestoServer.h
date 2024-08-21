@@ -182,9 +182,9 @@ class PrestoServer {
   virtual void enableWorkerStatsReporting();
 
   /// Invoked to initialize Presto to Velox plan validator.
-  virtual void initPrestoToVeloxPlanValidator();
+  virtual void initVeloxPlanValidator();
 
-  VeloxPlanValidator* getPlanValidator();
+  VeloxPlanValidator* getVeloxPlanValidator();
 
   /// Invoked to get the list of filters passed to the http server.
   std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>>
