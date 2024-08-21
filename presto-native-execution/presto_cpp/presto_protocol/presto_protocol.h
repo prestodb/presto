@@ -57,21 +57,21 @@ extern const char* const PRESTO_ABORT_TASK_URL_PARAM;
 class Exception : public std::runtime_error {
  public:
   explicit Exception(const std::string& message)
-      : std::runtime_error(message){};
+      : std::runtime_error(message) {};
 };
 
 class TypeError : public Exception {
  public:
-  explicit TypeError(const std::string& message) : Exception(message){};
+  explicit TypeError(const std::string& message) : Exception(message) {};
 };
 
 class OutOfRange : public Exception {
  public:
-  explicit OutOfRange(const std::string& message) : Exception(message){};
+  explicit OutOfRange(const std::string& message) : Exception(message) {};
 };
 class ParseError : public Exception {
  public:
-  explicit ParseError(const std::string& message) : Exception(message){};
+  explicit ParseError(const std::string& message) : Exception(message) {};
 };
 
 using String = std::string;
@@ -437,14 +437,6 @@ struct Aggregation {
 };
 void to_json(json& j, const Aggregation& p);
 void from_json(const json& j, Aggregation& p);
-} // namespace facebook::presto::protocol
-namespace facebook::presto::protocol {
-struct AggregationFunctionMetadata {
-  TypeSignature intermediateType = {};
-  bool isOrderSensitive = {};
-};
-void to_json(json& j, const AggregationFunctionMetadata& p);
-void from_json(const json& j, AggregationFunctionMetadata& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 enum class AggregationNodeStep { PARTIAL, FINAL, INTERMEDIATE, SINGLE };
@@ -1265,10 +1257,6 @@ struct OperatorStats {
   PlanNodeId planNodeId = {};
   String operatorType = {};
   int64_t totalDrivers = {};
-  int64_t isBlockedCalls = {};
-  Duration isBlockedWall = {};
-  Duration isBlockedCpu = {};
-  DataSize isBlockedAllocation = {};
   int64_t addInputCalls = {};
   Duration addInputWall = {};
   Duration addInputCpu = {};
@@ -2336,19 +2324,6 @@ void to_json(json& j, const JoinNodeStatsEstimate& p);
 void from_json(const json& j, JoinNodeStatsEstimate& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-struct JsonBasedUdfFunctionMetadata {
-  String docString = {};
-  FunctionKind functionKind = {};
-  TypeSignature outputType = {};
-  List<TypeSignature> paramTypes = {};
-  String schema = {};
-  RoutineCharacteristics routineCharacteristics = {};
-  std::shared_ptr<AggregationFunctionMetadata> aggregateMetadata = {};
-};
-void to_json(json& j, const JsonBasedUdfFunctionMetadata& p);
-void from_json(const json& j, JsonBasedUdfFunctionMetadata& p);
-} // namespace facebook::presto::protocol
-namespace facebook::presto::protocol {
 struct LambdaDefinitionExpression : public RowExpression {
   List<Type> argumentTypes = {};
   List<String> arguments = {};
@@ -2755,6 +2730,17 @@ struct RemoteTransactionHandle : public ConnectorTransactionHandle {
 };
 void to_json(json& j, const RemoteTransactionHandle& p);
 void from_json(const json& j, RemoteTransactionHandle& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct RestFunctionHandle : public FunctionHandle {
+  SqlFunctionId functionId = {};
+  String version = {};
+  Signature signature = {};
+
+  RestFunctionHandle() noexcept;
+};
+void to_json(json& j, const RestFunctionHandle& p);
+void from_json(const json& j, RestFunctionHandle& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 struct RowNumberNode : public PlanNode {
