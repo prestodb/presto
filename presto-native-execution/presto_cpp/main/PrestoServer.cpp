@@ -497,11 +497,11 @@ void PrestoServer::run() {
         << "Spilling root directory: " << baseSpillDirectory;
   }
 
-  initPrestoToVeloxPlanValidator();
+  initVeloxPlanValidator();
   taskResource_ = std::make_unique<TaskResource>(
       pool_.get(),
       httpSrvCpuExecutor_.get(),
-      getPlanValidator(),
+      getVeloxPlanValidator(),
       *taskManager_);
   taskResource_->registerUris(*httpServer_);
   if (systemConfig->enableSerializedPageChecksum()) {
@@ -1324,12 +1324,12 @@ void PrestoServer::enableWorkerStatsReporting() {
   registerStatsCounters();
 }
 
-void PrestoServer::initPrestoToVeloxPlanValidator() {
+void PrestoServer::initVeloxPlanValidator() {
   VELOX_CHECK_NULL(planValidator_);
   planValidator_ = std::make_shared<VeloxPlanValidator>();
 }
 
-VeloxPlanValidator* PrestoServer::getPlanValidator() {
+VeloxPlanValidator* PrestoServer::getVeloxPlanValidator() {
   return planValidator_.get();
 }
 

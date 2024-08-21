@@ -29,7 +29,7 @@ import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.star
 public abstract class AbstractTestNativeRemoteFunctions
         extends AbstractTestQueryFramework
 {
-    // The unix domain socket (UDS) path to communicate with the remote fuction server.
+    // The unix domain socket (UDS) path to communicate with the remote function server.
     protected String remoteFunctionServerUds;
 
     // The path to the compiled remote function server binary.
