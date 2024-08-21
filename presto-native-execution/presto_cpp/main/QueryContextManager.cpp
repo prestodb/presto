@@ -101,7 +101,7 @@ void updateVeloxConnectorConfigs(
   const auto& systemConfig = SystemConfig::instance();
 
   for (auto& entry : connectorConfigStrings) {
-    auto connectorConfig = entry.second;
+    auto& connectorConfig = entry.second;
 
     // Do not retain cache if `node_selection_strategy` is explicitly set to
     // `NO_PREFERENCE`.
