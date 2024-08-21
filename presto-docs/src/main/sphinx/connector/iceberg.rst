@@ -1329,8 +1329,7 @@ Example Queries
 ^^^^^^^^^^^^^^^
 
 Similar to the example queries in `SCHEMA EVOLUTION`_, create an Iceberg
-table named `ctas_nation` from the TPCH `nation` table::
-
+table named `ctas_nation` from the TPCH `nation` table:
 
 .. code-block:: sql
 
