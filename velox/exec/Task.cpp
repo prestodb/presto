@@ -1098,6 +1098,9 @@ std::vector<std::shared_ptr<Driver>> Task::createDriversLocked(
   for (auto& bridgeEntry : splitGroupState.bridges) {
     bridgeEntry.second->start();
   }
+  for (auto& bridgeEntry : splitGroupState.custom_bridges) {
+    bridgeEntry.second->start();
+  }
 
   return drivers;
 }
@@ -1753,8 +1756,12 @@ void Task::addHashJoinBridgesLocked(
     const std::vector<core::PlanNodeId>& planNodeIds) {
   auto& splitGroupState = splitGroupStates_[splitGroupId];
   for (const auto& planNodeId : planNodeIds) {
-    splitGroupState.bridges.emplace(
-        planNodeId, std::make_shared<HashJoinBridge>());
+    auto const inserted =
+        splitGroupState.bridges
+            .emplace(planNodeId, std::make_shared<HashJoinBridge>())
+            .second;
+    VELOX_CHECK(
+        inserted, "Join bridge for node {} is already present", planNodeId);
   }
 }
 
@@ -1764,7 +1771,13 @@ void Task::addCustomJoinBridgesLocked(
   auto& splitGroupState = splitGroupStates_[splitGroupId];
   for (const auto& planNode : planNodes) {
     if (auto joinBridge = Operator::joinBridgeFromPlanNode(planNode)) {
-      splitGroupState.bridges.emplace(planNode->id(), std::move(joinBridge));
+      auto const inserted = splitGroupState.custom_bridges
+                                .emplace(planNode->id(), std::move(joinBridge))
+                                .second;
+      VELOX_CHECK(
+          inserted,
+          "Join bridge for node {} is already present",
+          planNode->id());
       return;
     }
   }
@@ -1773,7 +1786,7 @@ void Task::addCustomJoinBridgesLocked(
 std::shared_ptr<JoinBridge> Task::getCustomJoinBridge(
     uint32_t splitGroupId,
     const core::PlanNodeId& planNodeId) {
-  return getJoinBridgeInternal<JoinBridge>(splitGroupId, planNodeId);
+  return getCustomJoinBridgeInternal(splitGroupId, planNodeId);
 }
 
 void Task::addNestedLoopJoinBridgesLocked(
@@ -1781,8 +1794,12 @@ void Task::addNestedLoopJoinBridgesLocked(
     const std::vector<core::PlanNodeId>& planNodeIds) {
   auto& splitGroupState = splitGroupStates_[splitGroupId];
   for (const auto& planNodeId : planNodeIds) {
-    splitGroupState.bridges.emplace(
-        planNodeId, std::make_shared<NestedLoopJoinBridge>());
+    auto const inserted =
+        splitGroupState.bridges
+            .emplace(planNodeId, std::make_shared<NestedLoopJoinBridge>())
+            .second;
+    VELOX_CHECK(
+        inserted, "Join bridge for node {} is already present", planNodeId);
   }
 }
 
@@ -1795,7 +1812,8 @@ std::shared_ptr<HashJoinBridge> Task::getHashJoinBridge(
 std::shared_ptr<HashJoinBridge> Task::getHashJoinBridgeLocked(
     uint32_t splitGroupId,
     const core::PlanNodeId& planNodeId) {
-  return getJoinBridgeInternalLocked<HashJoinBridge>(splitGroupId, planNodeId);
+  return getJoinBridgeInternalLocked<HashJoinBridge>(
+      splitGroupId, planNodeId, &SplitGroupState::bridges);
 }
 
 std::shared_ptr<NestedLoopJoinBridge> Task::getNestedLoopJoinBridge(
@@ -1809,26 +1827,28 @@ std::shared_ptr<TBridgeType> Task::getJoinBridgeInternal(
     uint32_t splitGroupId,
     const core::PlanNodeId& planNodeId) {
   std::lock_guard<std::timed_mutex> l(mutex_);
-  return getJoinBridgeInternalLocked<TBridgeType>(splitGroupId, planNodeId);
+  return getJoinBridgeInternalLocked<TBridgeType>(
+      splitGroupId, planNodeId, &SplitGroupState::bridges);
 }
 
-template <class TBridgeType>
+template <class TBridgeType, typename MemberType>
 std::shared_ptr<TBridgeType> Task::getJoinBridgeInternalLocked(
     uint32_t splitGroupId,
-    const core::PlanNodeId& planNodeId) {
+    const core::PlanNodeId& planNodeId,
+    MemberType SplitGroupState::*bridges_member) {
   const auto& splitGroupState = splitGroupStates_[splitGroupId];
 
-  auto it = splitGroupState.bridges.find(planNodeId);
-  if (it == splitGroupState.bridges.end()) {
+  auto it = (splitGroupState.*bridges_member).find(planNodeId);
+  if (it == (splitGroupState.*bridges_member).end()) {
     // We might be looking for a bridge between grouped and ungrouped execution.
     // It will belong to the 'ungrouped' state.
     if (isGroupedExecution() && splitGroupId != kUngroupedGroupId) {
       return getJoinBridgeInternalLocked<TBridgeType>(
-          kUngroupedGroupId, planNodeId);
+          kUngroupedGroupId, planNodeId, bridges_member);
     }
   }
   VELOX_CHECK(
-      it != splitGroupState.bridges.end(),
+      it != (splitGroupState.*bridges_member).end(),
       "Join bridge for plan node ID {} not found for group {}, task {}",
       planNodeId,
       splitGroupId,
@@ -1840,6 +1860,14 @@ std::shared_ptr<TBridgeType> Task::getJoinBridgeInternalLocked(
       "Join bridge for plan node ID is of the wrong type: {}",
       planNodeId);
   return bridge;
+}
+
+std::shared_ptr<JoinBridge> Task::getCustomJoinBridgeInternal(
+    uint32_t splitGroupId,
+    const core::PlanNodeId& planNodeId) {
+  std::lock_guard<std::timed_mutex> l(mutex_);
+  return getJoinBridgeInternalLocked<JoinBridge>(
+      splitGroupId, planNodeId, &SplitGroupState::custom_bridges);
 }
 
 //  static
@@ -1956,6 +1984,9 @@ ContinueFuture Task::terminate(TaskState terminalState) {
     // Collect all the join bridges to clear them.
     for (auto& splitGroupState : splitGroupStates_) {
       for (auto& pair : splitGroupState.second.bridges) {
+        oldBridges.emplace_back(std::move(pair.second));
+      }
+      for (auto& pair : splitGroupState.second.custom_bridges) {
         oldBridges.emplace_back(std::move(pair.second));
       }
       splitGroupStates.push_back(std::move(splitGroupState.second));
