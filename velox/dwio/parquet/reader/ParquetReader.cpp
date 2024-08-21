@@ -300,6 +300,33 @@ std::unique_ptr<ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
 
     if (schemaElement.__isset.converted_type) {
       switch (schemaElement.converted_type) {
+        case thrift::ConvertedType::LIST: {
+          VELOX_CHECK_EQ(children.size(), 1);
+          const auto& child = children[0];
+          isRepeated = true;
+          // In case the child is a MAP or current element is repeated then
+          // wrap child around additional ARRAY
+          if (child->type()->kind() == TypeKind::MAP ||
+              schemaElement.repetition_type ==
+                  thrift::FieldRepetitionType::REPEATED) {
+            return std::make_unique<ParquetTypeWithId>(
+                TypeFactory<TypeKind::ARRAY>::create(child->type()),
+                std::move(children),
+                curSchemaIdx,
+                maxSchemaElementIdx,
+                ParquetTypeWithId::kNonLeaf,
+                std::move(name),
+                std::nullopt,
+                std::nullopt,
+                maxRepeat + 1,
+                maxDefine,
+                isOptional,
+                isRepeated);
+          }
+          // Only special case list of map and list of list is handled here,
+          // other generic case is handled with case MAP
+          [[fallthrough]];
+        }
         case thrift::ConvertedType::MAP_KEY_VALUE:
           // If the MAP_KEY_VALUE annotated group's parent is a MAP, it should
           // be the repeated key_value group that directly contains the key and
@@ -337,7 +364,6 @@ std::unique_ptr<ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
           // a MAP-annotated group.
           [[fallthrough]];
 
-        case thrift::ConvertedType::LIST:
         case thrift::ConvertedType::MAP: {
           VELOX_CHECK_EQ(children.size(), 1);
           const auto& child = children[0];

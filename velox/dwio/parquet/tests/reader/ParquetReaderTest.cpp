@@ -1235,6 +1235,155 @@ TEST_F(ParquetReaderTest, testV2PageWithZeroMaxDefRep) {
       outputRowType, *rowReader, expected, *leafPool_);
 }
 
+TEST_F(ParquetReaderTest, arrayOfMapOfIntKeyArrayValue) {
+  //  The Schema is of type
+  //  message hive_schema {
+  //    optional group test (LIST) {
+  //      repeated group array (MAP) {
+  //        repeated group key_value (MAP_KEY_VALUE) {
+  //          required binary key (UTF8);
+  //          optional group value (LIST) {
+  //            repeated int32 array;
+  //          }
+  //        }
+  //      }
+  //    }
+  //  }
+  const std::string expectedVeloxType =
+      "ROW<test:ARRAY<MAP<VARCHAR,ARRAY<INTEGER>>>>";
+  const std::string sample(
+      getExampleFilePath("array_of_map_of_int_key_array_value.parquet"));
+  facebook::velox::dwio::common::ReaderOptions readerOptions{leafPool_.get()};
+  auto reader = createReader(sample, readerOptions);
+  EXPECT_EQ(reader->rowType()->toString(), expectedVeloxType);
+  auto numRows = reader->numberOfRows();
+  auto type = reader->typeWithId();
+  RowReaderOptions rowReaderOpts;
+  auto rowType = ROW({"test"}, {ARRAY(MAP(VARCHAR(), ARRAY(INTEGER())))});
+  rowReaderOpts.setScanSpec(makeScanSpec(rowType));
+  auto rowReader = reader->createRowReader(rowReaderOpts);
+  auto result = BaseVector::create(rowType, 10, leafPool_.get());
+  constexpr int kBatchSize = 1000;
+  while (rowReader->next(kBatchSize, result)) {
+  }
+}
+
+TEST_F(ParquetReaderTest, arrayOfMapOfIntKeyStructValue) {
+  //  The Schema is of type
+  //   message hive_schema {
+  //    optional group test (LIST) {
+  //      repeated group array (MAP) {
+  //        repeated group key_value (MAP_KEY_VALUE) {
+  //          required int32 key;
+  //          optional group value {
+  //            optional binary stringfield (UTF8);
+  //            optional int64 longfield;
+  //          }
+  //        }
+  //      }
+  //    }
+  //  }
+  const std::string expectedVeloxType =
+      "ROW<test:ARRAY<MAP<INTEGER,ROW<stringfield:VARCHAR,longfield:BIGINT>>>>";
+  const std::string sample(
+      getExampleFilePath("array_of_map_of_int_key_struct_value.parquet"));
+  facebook::velox::dwio::common::ReaderOptions readerOptions{leafPool_.get()};
+  auto reader = createReader(sample, readerOptions);
+  EXPECT_EQ(reader->rowType()->toString(), expectedVeloxType);
+  auto numRows = reader->numberOfRows();
+  auto type = reader->typeWithId();
+  RowReaderOptions rowReaderOpts;
+  auto rowType = reader->rowType();
+  rowReaderOpts.setScanSpec(makeScanSpec(rowType));
+  auto rowReader = reader->createRowReader(rowReaderOpts);
+  auto result = BaseVector::create(rowType, 10, leafPool_.get());
+  constexpr int kBatchSize = 1000;
+  while (rowReader->next(kBatchSize, result)) {
+  }
+}
+
+TEST_F(ParquetReaderTest, struct_of_array_of_array) {
+  //  The Schema is of type
+  //  message hive_schema {
+  //    optional group test {
+  //      optional group stringarrayfield (LIST) {
+  //        repeated group array (LIST) {
+  //          repeated binary array (UTF8);
+  //        }
+  //      }
+  //      optional group intarrayfield (LIST) {
+  //        repeated group array (LIST) {
+  //          repeated int32 array;
+  //        }
+  //      }
+  //    }
+  //  }
+  const std::string expectedVeloxType =
+      "ROW<test:ROW<stringarrayfield:ARRAY<ARRAY<VARCHAR>>,intarrayfield:ARRAY<ARRAY<INTEGER>>>>";
+  const std::string sample(
+      getExampleFilePath("struct_of_array_of_array.parquet"));
+  facebook::velox::dwio::common::ReaderOptions readerOptions{leafPool_.get()};
+  auto reader = createReader(sample, readerOptions);
+  auto numRows = reader->numberOfRows();
+  auto type = reader->typeWithId();
+  EXPECT_EQ(type->size(), 1ULL);
+  EXPECT_EQ(reader->rowType()->toString(), expectedVeloxType);
+
+  auto test_column = type->childAt(0);
+  EXPECT_EQ(test_column->type()->kind(), TypeKind::ROW);
+  EXPECT_EQ(type->childByName("test"), test_column);
+
+  // test_column has 2 children
+  EXPECT_EQ(test_column->size(), 2ULL);
+  // explore 1st child of test_column
+  auto stringarrayfield_column = test_column->childAt(0);
+  EXPECT_EQ(stringarrayfield_column->type()->kind(), TypeKind::ARRAY);
+
+  // stringarrayfield_column column has 1 child
+  EXPECT_EQ(stringarrayfield_column->size(), 1ULL);
+  // explore 1st child of stringarrayfield_column
+  auto array_column = stringarrayfield_column->childAt(0);
+  EXPECT_EQ(array_column->type()->kind(), TypeKind::ARRAY);
+
+  // array_column column has 1 child
+  EXPECT_EQ(array_column->size(), 1ULL);
+  // explore 1st child of array_column
+  auto array_leaf_column = array_column->childAt(0);
+  EXPECT_EQ(array_leaf_column->type()->kind(), TypeKind::VARCHAR);
+
+  // explore 2nd child of test_column
+  auto intarrayfield_column = test_column->childAt(1);
+  EXPECT_EQ(intarrayfield_column->type()->kind(), TypeKind::ARRAY);
+  EXPECT_EQ(test_column->childByName("intarrayfield"), intarrayfield_column);
+
+  // intarrayfield_column column has 1 child
+  EXPECT_EQ(intarrayfield_column->size(), 1ULL);
+  // explore 1st child of intarrayfield_column
+  auto array_column_for_intarrayfield = intarrayfield_column->childAt(0);
+  EXPECT_EQ(array_column_for_intarrayfield->type()->kind(), TypeKind::ARRAY);
+
+  // array_column_for_intarrayfield column has 1 child
+  EXPECT_EQ(array_column_for_intarrayfield->size(), 1ULL);
+  // explore 1st child
+  auto array_leaf_column_for_intarrayfield =
+      array_column_for_intarrayfield->childAt(0);
+  EXPECT_EQ(
+      array_leaf_column_for_intarrayfield->type()->kind(), TypeKind::INTEGER);
+
+  RowReaderOptions rowReaderOpts;
+  auto rowType =
+      ROW({"test"},
+          {ROW(
+              {"stringarrayfield", "intarrayfield"},
+              {ARRAY(ARRAY(VARCHAR())), ARRAY(ARRAY(INTEGER()))})});
+  rowReaderOpts.setScanSpec(makeScanSpec(rowType));
+  auto rowReader = reader->createRowReader(rowReaderOpts);
+  auto result = BaseVector::create(rowType, 10, leafPool_.get());
+  constexpr int kBatchSize = 1000;
+  while (rowReader->next(kBatchSize, result)) {
+  }
+}
+
 TEST_F(ParquetReaderTest, testLzoDataPage) {
   const std::string sample(getExampleFilePath("lzo.parquet"));
 
