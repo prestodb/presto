@@ -53,4 +53,9 @@ void QueryConfig::testingOverrideConfigUnsafe(
   config_ = std::make_unique<config::ConfigBase>(std::move(values));
 }
 
+std::unordered_map<std::string, std::string> QueryConfig::rawConfigsCopy()
+    const {
+  return config_->rawConfigsCopy();
+}
+
 } // namespace facebook::velox::core

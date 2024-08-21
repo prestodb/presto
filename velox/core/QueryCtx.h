@@ -85,6 +85,11 @@ class QueryCtx : public std::enable_shared_from_this<QueryCtx> {
     return it->second.get();
   }
 
+  const std::unordered_map<std::string, std::shared_ptr<config::ConfigBase>>&
+  connectorSessionProperties() const {
+    return connectorSessionProperties_;
+  }
+
   /// Overrides the previous configuration. Note that this function is NOT
   /// thread-safe and should probably only be used in tests.
   void testingOverrideConfigUnsafe(

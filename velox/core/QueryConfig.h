@@ -725,6 +725,8 @@ class QueryConfig {
   void testingOverrideConfigUnsafe(
       std::unordered_map<std::string, std::string>&& values);
 
+  std::unordered_map<std::string, std::string> rawConfigsCopy() const;
+
  private:
   void validateConfig();
 
