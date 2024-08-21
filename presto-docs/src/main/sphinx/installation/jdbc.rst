@@ -50,6 +50,8 @@ The above URL can be used as follows to create a connection:
     String url = "jdbc:presto://example.net:8080/hive/sales";
     Connection connection = DriverManager.getConnection(url, "test", null);
 
+.. _jdbc-java-connection:
+
 Connection Parameters
 ---------------------
 
@@ -74,6 +76,8 @@ examples are equivalent:
 These methods may be mixed; some parameters may be specified in the URL
 while others are specified using properties. However, the same parameter
 may not be specified using both methods.
+
+.. _jdbc-parameter-reference:
 
 Parameter Reference
 -------------------
