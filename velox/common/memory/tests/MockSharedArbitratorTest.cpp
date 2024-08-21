@@ -427,6 +427,8 @@ class MockSharedArbitrationTest : public testing::Test {
       uint64_t memoryPoolTransferCapacity = kMemoryPoolTransferCapacity,
       uint64_t fastExponentialGrowthCapacityLimit = 0,
       double slowCapacityGrowPct = 0,
+      uint64_t memoryPoolMinFreeCapacity = 0,
+      double memoryPoolMinFreeCapacityPct = 0,
       std::function<void(MemoryPool&)> arbitrationStateCheckCb = nullptr,
       bool globalArtbitrationEnabled = true) {
     MemoryManagerOptions options;
@@ -440,6 +442,8 @@ class MockSharedArbitrationTest : public testing::Test {
     options.fastExponentialGrowthCapacityLimit =
         fastExponentialGrowthCapacityLimit;
     options.slowCapacityGrowPct = slowCapacityGrowPct;
+    options.memoryPoolMinFreeCapacity = memoryPoolMinFreeCapacity;
+    options.memoryPoolMinFreeCapacityPct = memoryPoolMinFreeCapacityPct;
     options.globalArbitrationEnabled = globalArtbitrationEnabled;
     options.arbitrationStateCheckCb = std::move(arbitrationStateCheckCb);
     options.checkUsageLeak = true;
@@ -656,7 +660,7 @@ TEST_F(MockSharedArbitrationTest, arbitrationStateCheck) {
     ASSERT_TRUE(RE2::FullMatch(pool.name(), re)) << pool.name();
     ++checkCount;
   };
-  setupMemory(memCapacity, 0, 0, 0, 0, 0, 0, checkCountCb);
+  setupMemory(memCapacity, 0, 0, 0, 0, 0, 0, 0, 0, checkCountCb);
 
   const int numTasks{5};
   std::vector<std::shared_ptr<MockTask>> tasks;
@@ -681,7 +685,7 @@ TEST_F(MockSharedArbitrationTest, arbitrationStateCheck) {
   MemoryArbitrationStateCheckCB badCheckCb = [&](MemoryPool& /*unused*/) {
     VELOX_FAIL("bad check");
   };
-  setupMemory(memCapacity, 0, 0, 0, 0, 0, 0, badCheckCb);
+  setupMemory(memCapacity, 0, 0, 0, 0, 0, 0, 0, 0, badCheckCb);
   std::shared_ptr<MockTask> task = addTask(kMemoryCapacity);
   ASSERT_EQ(task->capacity(), 0);
   MockMemoryOperator* memOp = task->addMemoryOp();
@@ -1698,6 +1702,8 @@ DEBUG_ONLY_TEST_F(MockSharedArbitrationTest, globalArbitrationEnableCheck) {
         memoryPoolTransferCapacity,
         0,
         0,
+        0,
+        0,
         nullptr,
         globalArbitrationEnabled);
 
@@ -1904,9 +1910,79 @@ DEBUG_ONLY_TEST_F(
   ASSERT_EQ(waitTask->capacity(), memoryCapacity / 2);
 }
 
+TEST_F(MockSharedArbitrationTest, singlePoolShrinkWithoutArbitration) {
+  const int64_t memoryCapacity = 512 * MB;
+  struct TestParam {
+    uint64_t memoryPoolReservedBytes;
+    uint64_t memoryPoolMinFreeCapacity;
+    double memoryPoolMinFreeCapacityPct;
+    uint64_t requestBytes;
+    bool expectThrow;
+    uint64_t expectedCapacity;
+    std::string debugString() const {
+      return fmt::format(
+          "memoryPoolReservedBytes {}, "
+          "memoryPoolMinFreeCapacity {}, "
+          "memoryPoolMinFreeCapacityPct {}, "
+          "requestBytes {}, ",
+          succinctBytes(memoryPoolReservedBytes),
+          succinctBytes(memoryPoolMinFreeCapacity),
+          memoryPoolMinFreeCapacityPct,
+          succinctBytes(requestBytes));
+    }
+  } testParams[] = {
+      {0, 128 * MB, 0, 256 * MB, true, 0},
+      {0, 0, 0.1, 256 * MB, true, 0},
+      {256 * MB, 128 * MB, 0.5, 256 * MB, false, 384 * MB},
+      {256 * MB, 128 * MB, 0.125, 256 * MB, false, 320 * MB},
+      {0, 128 * MB, 0.25, 0 * MB, false, 0},
+      {256 * MB, 128 * MB, 0.125, 0 * MB, false, 256 * MB},
+      {256 * MB, 128 * MB, 0.125, 512 * MB, false, 320 * MB}};
+
+  for (const auto& testParam : testParams) {
+    SCOPED_TRACE(testParam.debugString());
+    if (testParam.expectThrow) {
+      VELOX_ASSERT_THROW(
+          setupMemory(
+              memoryCapacity,
+              0,
+              memoryCapacity,
+              0,
+              0,
+              0,
+              0,
+              testParam.memoryPoolMinFreeCapacity,
+              testParam.memoryPoolMinFreeCapacityPct),
+          "both need to be set (non-zero) at the same time to enable shrink "
+          "capacity adjustment.");
+      continue;
+    } else {
+      setupMemory(
+          memoryCapacity,
+          0,
+          memoryCapacity,
+          0,
+          0,
+          0,
+          0,
+          testParam.memoryPoolMinFreeCapacity,
+          testParam.memoryPoolMinFreeCapacityPct);
+    }
+
+    auto* memOp = addMemoryOp();
+    memOp->allocate(testParam.memoryPoolReservedBytes);
+
+    ASSERT_EQ(
+        memOp->pool()->reservedBytes(), testParam.memoryPoolReservedBytes);
+    arbitrator_->shrinkCapacity(memOp->pool(), testParam.requestBytes);
+    ASSERT_EQ(memOp->pool()->capacity(), testParam.expectedCapacity);
+    clearTasks();
+  }
+}
+
 TEST_F(MockSharedArbitrationTest, singlePoolGrowWithoutArbitration) {
-  int64_t memoryCapacity = 512 << 20;
-  uint64_t memoryPoolInitCapacity = 32 << 20;
+  const int64_t memoryCapacity = 512 << 20;
+  const uint64_t memoryPoolInitCapacity = 32 << 20;
   struct TestParam {
     uint64_t memoryPoolTransferCapacity;
     uint64_t fastExponentialGrowthCapacityLimit;

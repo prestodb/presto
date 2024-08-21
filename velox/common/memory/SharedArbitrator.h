@@ -81,6 +81,33 @@ class SharedArbitrator : public memory::MemoryArbitrator {
     static uint64_t getMemoryReclaimMaxWaitTimeMs(
         const std::unordered_map<std::string, std::string>& configs);
 
+    /// When shrinking capacity, the shrink bytes will be adjusted in a way such
+    /// that AFTER shrink, the stricter (whichever is smaller) of the following
+    /// conditions is met, in order to better fit the pool's current memory
+    /// usage:
+    /// - Free capacity is greater or equal to capacity *
+    /// 'memoryPoolMinFreeCapacityPct'
+    /// - Free capacity is greater or equal to 'memoryPoolMinFreeCapacity'
+    ///
+    /// NOTE: In the conditions when original requested shrink bytes ends up
+    /// with more free capacity than above 2 conditions, the adjusted shrink
+    /// bytes is not respected.
+    ///
+    /// NOTE: Capacity shrink adjustment is enabled when both
+    /// 'memoryPoolMinFreeCapacityPct' and 'memoryPoolMinFreeCapacity' are set.
+    static constexpr std::string_view kMemoryPoolMinFreeCapacity{
+        "memory-pool-min-free-capacity"};
+    static constexpr std::string_view kDefaultMemoryPoolMinFreeCapacity{
+        "128MB"};
+    static uint64_t getMemoryPoolMinFreeCapacity(
+        const std::unordered_map<std::string, std::string>& configs);
+
+    static constexpr std::string_view kMemoryPoolMinFreeCapacityPct{
+        "memory-pool-min-free-capacity-pct"};
+    static constexpr double kDefaultMemoryPoolMinFreeCapacityPct{0.25};
+    static double getMemoryPoolMinFreeCapacityPct(
+        const std::unordered_map<std::string, std::string>& configs);
+
     /// If true, it allows memory arbitrator to reclaim used memory cross query
     /// memory pools.
     static constexpr std::string_view kGlobalArbitrationEnabled{
@@ -144,7 +171,7 @@ class SharedArbitrator : public memory::MemoryArbitrator {
 
   bool growCapacity(MemoryPool* pool, uint64_t requestBytes) final;
 
-  uint64_t shrinkCapacity(MemoryPool* pool, uint64_t requestBytes) final;
+  uint64_t shrinkCapacity(MemoryPool* pool, uint64_t requestBytes = 0) final;
 
   uint64_t shrinkCapacity(
       uint64_t requestBytes,
@@ -471,6 +498,14 @@ class SharedArbitrator : public memory::MemoryArbitrator {
       const MemoryPool& pool,
       uint64_t requestBytes) const;
 
+  // The capacity shrink target is adjusted from request shrink bytes to give
+  // the memory pool more headroom free capacity after shrink. It can help to
+  // reduce the number of future grow calls, and hence reducing the number of
+  // unnecessary memory arbitration requests.
+  uint64_t getCapacityShrinkTarget(
+      const MemoryPool& pool,
+      uint64_t requestBytes) const;
+
   // Returns true if 'pool' is under memory arbitration.
   bool isUnderArbitrationLocked(MemoryPool* pool) const;
 
@@ -488,6 +523,8 @@ class SharedArbitrator : public memory::MemoryArbitrator {
 
   const uint64_t fastExponentialGrowthCapacityLimit_;
   const double slowCapacityGrowPct_;
+  const uint64_t memoryPoolMinFreeCapacity_;
+  const double memoryPoolMinFreeCapacityPct_;
 
   mutable folly::SharedMutex poolLock_;
   std::unordered_map<MemoryPool*, std::weak_ptr<MemoryPool>> candidates_;

@@ -82,6 +82,7 @@ struct MemoryManagerOptions {
   bool coreOnAllocationFailureEnabled{false};
 
   /// ================== 'MemoryAllocator' settings ==================
+
   /// Specifies the max memory allocation capacity in bytes enforced by
   /// MemoryAllocator, default unlimited.
   int64_t allocatorCapacity{kMaxMemory};
@@ -195,6 +196,23 @@ struct MemoryManagerOptions {
   /// otherwise it is disabled.
   uint64_t fastExponentialGrowthCapacityLimit{512 << 20};
   double slowCapacityGrowPct{0.25};
+
+  /// When shrinking capacity, the shrink bytes will be adjusted in a way such
+  /// that AFTER shrink, the stricter (whichever is smaller) of the following
+  /// conditions is met, in order to better fit the pool's current memory
+  /// usage:
+  /// - Free capacity is greater or equal to capacity *
+  /// 'memoryPoolMinFreeCapacityPct'
+  /// - Free capacity is greater or equal to 'memoryPoolMinFreeCapacity'
+  ///
+  /// NOTE: In the conditions when original requested shrink bytes ends up
+  /// with more free capacity than above 2 conditions, the adjusted shrink
+  /// bytes is not respected.
+  ///
+  /// NOTE: Capacity shrink adjustment is enabled when both
+  /// 'memoryPoolMinFreeCapacityPct' and 'memoryPoolMinFreeCapacity' are set.
+  uint64_t memoryPoolMinFreeCapacity{128 << 20};
+  double memoryPoolMinFreeCapacityPct{0.25};
 
   /// Specifies the max time to wait for memory reclaim by arbitration. The
   /// memory reclaim might fail if the max wait time has exceeded. If it is

@@ -278,7 +278,7 @@ class SharedArbitrationTestBase : public exec::test::HiveConnectorTestBase {
       VELOX_CHECK_EQ(
           stats.customStats.count(SharedArbitrator::kGlobalArbitrationCount),
           1);
-      VELOX_CHECK_EQ(
+      VELOX_CHECK_GE(
           stats.customStats.at(SharedArbitrator::kGlobalArbitrationCount).sum,
           1);
       VELOX_CHECK_EQ(

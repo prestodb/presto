@@ -87,6 +87,10 @@ std::unique_ptr<MemoryArbitrator> createArbitrator(
           "B";
       extraArbitratorConfigs["slow-capacity-grow-pct"] =
           folly::to<std::string>(options.slowCapacityGrowPct);
+      extraArbitratorConfigs["memory-pool-min-free-capacity"] =
+          folly::to<std::string>(options.memoryPoolMinFreeCapacity) + "B";
+      extraArbitratorConfigs["memory-pool-min-free-capacity-pct"] =
+          folly::to<std::string>(options.memoryPoolMinFreeCapacityPct);
       extraArbitratorConfigs["memory-reclaim-max-wait-time"] =
           folly::to<std::string>(options.memoryReclaimWaitMs) + "ms";
       extraArbitratorConfigs["global-arbitration-enabled"] =

@@ -129,6 +129,24 @@ uint64_t SharedArbitrator::ExtraConfig::getMemoryReclaimMaxWaitTimeMs(
       .count();
 }
 
+uint64_t SharedArbitrator::ExtraConfig::getMemoryPoolMinFreeCapacity(
+    const std::unordered_map<std::string, std::string>& configs) {
+  return config::toCapacity(
+      getConfig<std::string>(
+          configs,
+          kMemoryPoolMinFreeCapacity,
+          std::string(kDefaultMemoryPoolMinFreeCapacity)),
+      config::CapacityUnit::BYTE);
+}
+
+double SharedArbitrator::ExtraConfig::getMemoryPoolMinFreeCapacityPct(
+    const std::unordered_map<std::string, std::string>& configs) {
+  return getConfig<double>(
+      configs,
+      kMemoryPoolMinFreeCapacityPct,
+      kDefaultMemoryPoolMinFreeCapacityPct);
+}
+
 bool SharedArbitrator::ExtraConfig::getGlobalArbitrationEnabled(
     const std::unordered_map<std::string, std::string>& configs) {
   return getConfig<bool>(
@@ -176,18 +194,33 @@ SharedArbitrator::SharedArbitrator(const Config& config)
               config.extraConfigs)),
       slowCapacityGrowPct_(
           ExtraConfig::getSlowCapacityGrowPct(config.extraConfigs)),
+      memoryPoolMinFreeCapacity_(
+          ExtraConfig::getMemoryPoolMinFreeCapacity(config.extraConfigs)),
+      memoryPoolMinFreeCapacityPct_(
+          ExtraConfig::getMemoryPoolMinFreeCapacityPct(config.extraConfigs)),
       freeReservedCapacity_(reservedCapacity_),
       freeNonReservedCapacity_(capacity_ - freeReservedCapacity_) {
   VELOX_CHECK_EQ(kind_, config.kind);
   VELOX_CHECK_LE(reservedCapacity_, capacity_);
+  VELOX_CHECK_GE(slowCapacityGrowPct_, 0);
+  VELOX_CHECK_GE(memoryPoolMinFreeCapacityPct_, 0);
+  VELOX_CHECK_LE(memoryPoolMinFreeCapacityPct_, 1);
   VELOX_CHECK_EQ(
       fastExponentialGrowthCapacityLimit_ == 0,
       slowCapacityGrowPct_ == 0,
       "fastExponentialGrowthCapacityLimit_ {} and slowCapacityGrowPct_ {} "
-      "both need to be set at the same time to enable growth capacity "
+      "both need to be set (non-zero) at the same time to enable growth capacity "
       "adjustment.",
       fastExponentialGrowthCapacityLimit_,
       slowCapacityGrowPct_);
+  VELOX_CHECK_EQ(
+      memoryPoolMinFreeCapacity_ == 0,
+      memoryPoolMinFreeCapacityPct_ == 0,
+      "memoryPoolMinFreeCapacity_ {} and memoryPoolMinFreeCapacityPct_ {} both "
+      "need to be set (non-zero) at the same time to enable shrink capacity "
+      "adjustment.",
+      memoryPoolMinFreeCapacity_,
+      memoryPoolMinFreeCapacityPct_);
 }
 
 std::string SharedArbitrator::Candidate::toString() const {
@@ -238,7 +271,7 @@ void SharedArbitrator::addPool(const std::shared_ptr<MemoryPool>& pool) {
 
 void SharedArbitrator::removePool(MemoryPool* pool) {
   VELOX_CHECK_EQ(pool->reservedBytes(), 0);
-  shrinkCapacity(pool, pool->capacity());
+  shrinkCapacity(pool);
 
   std::unique_lock guard{poolLock_};
   const auto ret = candidates_.erase(pool);
@@ -359,11 +392,13 @@ void SharedArbitrator::updateArbitrationFailureStats() {
 int64_t SharedArbitrator::maxReclaimableCapacity(
     const MemoryPool& pool,
     bool isSelfReclaim) const {
-  // Checks if a query memory pool has finished processing or not. If it has
-  // finished, then we don't have to respect the memory pool reserved capacity
-  // limit check.
-  // NOTE: for query system like Prestissimo, it holds a finished query
-  // state in minutes for query stats fetch request from the Presto coordinator.
+  // Checks if a query memory pool has likely finished processing. It is likely
+  // this pool has finished when it has 0 current usage and non-0 past usage. If
+  // there is a high chance this pool finished, then we don't have to respect
+  // the memory pool reserved capacity limit check.
+  //
+  // NOTE: for query system like Prestissimo, it holds a finished query state in
+  // minutes for query stats fetch request from the Presto coordinator.
   if (isSelfReclaim || (pool.reservedBytes() == 0 && pool.peakBytes() != 0)) {
     return pool.capacity();
   }
@@ -373,8 +408,13 @@ int64_t SharedArbitrator::maxReclaimableCapacity(
 int64_t SharedArbitrator::reclaimableFreeCapacity(
     const MemoryPool& pool,
     bool isSelfReclaim) const {
+  const auto freeBytes = pool.freeBytes();
+  if (freeBytes == 0) {
+    return 0;
+  }
   return std::min<int64_t>(
-      pool.freeBytes(), maxReclaimableCapacity(pool, isSelfReclaim));
+      isSelfReclaim ? freeBytes : getCapacityShrinkTarget(pool, freeBytes),
+      maxReclaimableCapacity(pool, isSelfReclaim));
 }
 
 int64_t SharedArbitrator::reclaimableUsedCapacity(
@@ -419,12 +459,30 @@ uint64_t SharedArbitrator::decrementFreeCapacityLocked(
   return allocatedBytes;
 }
 
+uint64_t SharedArbitrator::getCapacityShrinkTarget(
+    const MemoryPool& pool,
+    uint64_t requestBytes) const {
+  VELOX_CHECK_NE(requestBytes, 0);
+  auto targetBytes = requestBytes;
+  if (memoryPoolMinFreeCapacity_ != 0) {
+    const auto minFreeBytes = std::min(
+        static_cast<uint64_t>(pool.capacity() * memoryPoolMinFreeCapacityPct_),
+        memoryPoolMinFreeCapacity_);
+    const auto maxShrinkBytes = std::max<int64_t>(
+        0LL, pool.freeBytes() - static_cast<int64_t>(minFreeBytes));
+    targetBytes = std::min(targetBytes, static_cast<uint64_t>(maxShrinkBytes));
+  }
+  return targetBytes;
+}
+
 uint64_t SharedArbitrator::shrinkCapacity(
     MemoryPool* pool,
     uint64_t requestBytes) {
   std::lock_guard<std::mutex> l(stateLock_);
   ++numShrinks_;
-  const uint64_t freedBytes = shrinkPool(pool, requestBytes);
+  const uint64_t freedBytes = shrinkPool(
+      pool,
+      requestBytes == 0 ? 0 : getCapacityShrinkTarget(*pool, requestBytes));
   incrementFreeCapacityLocked(freedBytes);
   return freedBytes;
 }
