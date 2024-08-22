@@ -45,6 +45,8 @@ import static com.facebook.presto.iceberg.IcebergSessionProperties.getMinimumAss
 import static com.facebook.presto.iceberg.IcebergTableType.CHANGELOG;
 import static com.facebook.presto.iceberg.IcebergTableType.EQUALITY_DELETES;
 import static com.facebook.presto.iceberg.IcebergUtil.getIcebergTable;
+import static com.facebook.presto.iceberg.IcebergUtil.getMetadataColumnConstraints;
+import static com.facebook.presto.iceberg.IcebergUtil.getNonMetadataColumnConstraints;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergSplitManager
@@ -81,7 +83,8 @@ public class IcebergSplitManager
             return new FixedSplitSource(ImmutableList.of());
         }
 
-        TupleDomain<IcebergColumnHandle> predicate = layoutHandle.getValidPredicate();
+        TupleDomain<IcebergColumnHandle> predicate = getNonMetadataColumnConstraints(layoutHandle
+                .getValidPredicate());
         Table icebergTable = getIcebergTable(transactionManager.get(transaction), session, table.getSchemaTableName());
 
         if (table.getIcebergTableName().getTableType() == CHANGELOG) {
@@ -114,7 +117,8 @@ public class IcebergSplitManager
                     session,
                     tableScan,
                     TableScanUtil.splitFiles(tableScan.planFiles(), tableScan.targetSplitSize()),
-                    getMinimumAssignedSplitWeight(session));
+                    getMinimumAssignedSplitWeight(session),
+                    getMetadataColumnConstraints(layoutHandle.getValidPredicate()));
             return splitSource;
         }
     }

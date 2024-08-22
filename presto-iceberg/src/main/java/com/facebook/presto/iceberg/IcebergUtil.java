@@ -127,10 +127,13 @@ import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpressio
 import static com.facebook.presto.iceberg.FileContent.POSITION_DELETES;
 import static com.facebook.presto.iceberg.FileContent.fromIcebergFileContent;
 import static com.facebook.presto.iceberg.FileFormat.PARQUET;
+import static com.facebook.presto.iceberg.IcebergColumnHandle.DATA_SEQUENCE_NUMBER_COLUMN_HANDLE;
+import static com.facebook.presto.iceberg.IcebergColumnHandle.PATH_COLUMN_HANDLE;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_FORMAT_VERSION;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_TABLE_TIMESTAMP;
+import static com.facebook.presto.iceberg.IcebergMetadataColumn.isMetadataColumnId;
 import static com.facebook.presto.iceberg.IcebergPartitionType.IDENTITY;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isMergeOnReadModeEnabled;
@@ -515,6 +518,38 @@ public final class IcebergUtil
         return partitionValue == null ? NullableValue.asNull(prestoType) : NullableValue.of(prestoType, partitionValue);
     }
 
+    // Strip the constraints on metadata columns like "$path", "$data_sequence_number" from the list.
+    public static <U> TupleDomain<IcebergColumnHandle> getNonMetadataColumnConstraints(TupleDomain<U> allConstraints)
+    {
+        return allConstraints.transform(c -> isMetadataColumnId(((IcebergColumnHandle) c).getId()) ? null : (IcebergColumnHandle) c);
+    }
+
+    public static <U> TupleDomain<IcebergColumnHandle> getMetadataColumnConstraints(TupleDomain<U> allConstraints)
+    {
+        return allConstraints.transform(c -> isMetadataColumnId(((IcebergColumnHandle) c).getId()) ? (IcebergColumnHandle) c : null);
+    }
+
+    public static boolean metadataColumnsMatchPredicates(TupleDomain<IcebergColumnHandle> constraints, String path, long dataSequenceNumber)
+    {
+        if (constraints.isAll()) {
+            return true;
+        }
+
+        boolean matches = true;
+        if (constraints.getDomains().isPresent()) {
+            for (Map.Entry<IcebergColumnHandle, Domain> constraint : constraints.getDomains().get().entrySet()) {
+                if (constraint.getKey() == PATH_COLUMN_HANDLE) {
+                    matches &= constraint.getValue().includesNullableValue(utf8Slice(path));
+                }
+                else if (constraint.getKey() == DATA_SEQUENCE_NUMBER_COLUMN_HANDLE) {
+                    matches &= constraint.getValue().includesNullableValue(dataSequenceNumber);
+                }
+            }
+        }
+
+        return matches;
+    }
+
     public static List<HivePartition> getPartitions(
             TypeManager typeManager,
             ConnectorTableHandle tableHandle,
@@ -531,7 +566,9 @@ public final class IcebergUtil
         }
 
         TableScan tableScan = icebergTable.newScan()
-                .filter(toIcebergExpression(constraint.getSummary().simplify().transform(IcebergColumnHandle.class::cast)))
+                .filter(toIcebergExpression(getNonMetadataColumnConstraints(constraint
+                        .getSummary()
+                        .simplify())))
                 .useSnapshot(snapshotId.get());
 
         Set<HivePartition> partitions = new HashSet<>();
