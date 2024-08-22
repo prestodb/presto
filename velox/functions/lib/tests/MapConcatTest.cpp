@@ -283,3 +283,14 @@ TEST_F(MapConcatTest, nullEntry) {
   ASSERT_EQ(result->size(), 1);
   EXPECT_EQ(result->sizeAt(0), 0);
 }
+
+TEST_F(MapConcatTest, unknownType) {
+  // MAP_CONCAT(MAP[], MAP[])
+  auto emptyMapVector =
+      VectorTestBase::makeMapVector<UnknownValue, UnknownValue>({{}});
+  auto expectedMap =
+      VectorTestBase::makeMapVector<UnknownValue, UnknownValue>({{}});
+  auto result = evaluate(
+      "map_concat(c0, c1)", makeRowVector({emptyMapVector, emptyMapVector}));
+  facebook::velox::test::assertEqualVectors(expectedMap, result);
+}
