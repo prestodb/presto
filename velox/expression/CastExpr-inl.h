@@ -303,6 +303,18 @@ void CastExpr::applyCastKernel(
         setResultOrError(castResult, row);
         return;
       }
+
+      if constexpr (
+          ToKind == TypeKind::TINYINT || ToKind == TypeKind::SMALLINT ||
+          ToKind == TypeKind::INTEGER || ToKind == TypeKind::BIGINT ||
+          ToKind == TypeKind::HUGEINT) {
+        if constexpr (TPolicy::throwOnUnicode) {
+          VELOX_CHECK(
+              functions::stringCore::isAscii(
+                  inputRowValue.data(), inputRowValue.size()),
+              "Unicode characters are not supported for conversion to integer types");
+        }
+      }
     }
 
     const auto castResult =

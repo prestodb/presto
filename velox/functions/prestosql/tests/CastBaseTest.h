@@ -186,12 +186,21 @@ class CastBaseTest : public FunctionBaseTest {
       const std::string& typeString,
       const std::vector<std::optional<TFrom>>& input,
       const std::string& expectedErrorMessage,
-      const TypePtr& fromType = CppToType<TFrom>::create()) {
-    VELOX_ASSERT_THROW(
-        evaluate(
-            fmt::format("cast(c0 as {})", typeString),
-            makeRowVector({makeNullableFlatVector(input, fromType)})),
-        expectedErrorMessage);
+      const TypePtr& fromType = CppToType<TFrom>::create(),
+      const bool isRunTimeThrow = false) {
+    if (!isRunTimeThrow) {
+      VELOX_ASSERT_USER_THROW(
+          evaluate(
+              fmt::format("cast(c0 as {})", typeString),
+              makeRowVector({makeNullableFlatVector(input, fromType)})),
+          expectedErrorMessage);
+    } else {
+      VELOX_ASSERT_RUNTIME_THROW(
+          evaluate(
+              fmt::format("cast(c0 as {})", typeString),
+              makeRowVector({makeNullableFlatVector(input, fromType)})),
+          expectedErrorMessage);
+    }
   }
 
   void testCast(

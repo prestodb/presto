@@ -1022,6 +1022,12 @@ TEST_F(CastExprTest, primitiveInvalidCornerCases) {
         "bigint", {"infinity"}, "Invalid leading character");
     testInvalidCast<std::string>(
         "bigint", {"nan"}, "Invalid leading character");
+    testInvalidCast<std::string>(
+        "bigint",
+        {"٣"},
+        "Unicode characters are not supported for conversion to integer types",
+        VARCHAR(),
+        true);
   }
 
   // To floating-point.
