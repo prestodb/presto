@@ -21,6 +21,7 @@ import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.common.type.TimestampWithTimeZoneType;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.hive.HivePartition;
 import com.facebook.presto.hive.HiveWrittenPartitions;
 import com.facebook.presto.hive.NodeVersion;
@@ -978,8 +979,9 @@ public abstract class IcebergAbstractMetadata
             throw new PrestoException(NOT_SUPPORTED, "Unsupported table version expression type: " + tableVersion.getVersionExpressionType());
         }
         if (tableVersion.getVersionType() == VersionType.VERSION) {
+            long snapshotId;
             if (tableVersion.getVersionExpressionType() instanceof BigintType) {
-                long snapshotId = (long) tableVersion.getTableVersion();
+                snapshotId = (long) tableVersion.getTableVersion();
                 if (table.snapshot(snapshotId) == null) {
                     throw new PrestoException(ICEBERG_INVALID_SNAPSHOT_ID, "Iceberg snapshot ID does not exists: " + snapshotId);
                 }
@@ -989,6 +991,13 @@ public abstract class IcebergAbstractMetadata
                 else { // BEFORE Case
                     return getSnapshotIdTimeOperator(table, table.snapshot(snapshotId).timestampMillis(), VersionOperator.LESS_THAN);
                 }
+            }
+            else if (tableVersion.getVersionExpressionType() instanceof VarcharType) {
+                String branchOrTagName = ((Slice) tableVersion.getTableVersion()).toStringUtf8();
+                if (!table.refs().containsKey(branchOrTagName)) {
+                    throw new PrestoException(ICEBERG_INVALID_SNAPSHOT_ID, "Could not find Iceberg table branch or tag: " + branchOrTagName);
+                }
+                return table.refs().get(branchOrTagName).snapshotId();
             }
             throw new PrestoException(NOT_SUPPORTED, "Unsupported table version expression type: " + tableVersion.getVersionExpressionType());
         }

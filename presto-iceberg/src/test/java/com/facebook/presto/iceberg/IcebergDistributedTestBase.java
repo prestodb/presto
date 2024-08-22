@@ -1539,19 +1539,24 @@ public abstract class IcebergDistributedTestBase
     @Test
     public void testRefsTable()
     {
-        assertUpdate("CREATE TABLE test_table_references (id BIGINT)");
-        assertUpdate("INSERT INTO test_table_references VALUES (0), (1), (2)", 3);
+        assertUpdate("CREATE TABLE test_table_references (id1 BIGINT, id2 BIGINT)");
+        assertUpdate("INSERT INTO test_table_references VALUES (0, 00), (1, 10), (2, 20)", 3);
 
         Table icebergTable = loadTable("test_table_references");
         icebergTable.manageSnapshots().createBranch("testBranch").commit();
 
-        assertUpdate("INSERT INTO test_table_references VALUES (0), (1), (2)", 3);
+        assertUpdate("INSERT INTO test_table_references VALUES (3, 30), (4, 40), (5, 50)", 3);
 
         assertEquals(icebergTable.refs().size(), 2);
         icebergTable.manageSnapshots().createTag("testTag", icebergTable.currentSnapshot().snapshotId()).commit();
 
         assertEquals(icebergTable.refs().size(), 3);
+        assertUpdate("INSERT INTO test_table_references VALUES (6, 60), (7, 70), (8, 80)", 3);
         assertQuery("SELECT count(*) FROM \"test_table_references$refs\"", "VALUES 3");
+
+        assertQuery("SELECT count(*) FROM test_table_references FOR SYSTEM_VERSION AS OF 'testBranch'", "VALUES 3");
+        assertQuery("SELECT count(*) FROM test_table_references FOR SYSTEM_VERSION AS OF 'testTag'", "VALUES 6");
+        assertQuery("SELECT count(*) FROM test_table_references FOR SYSTEM_VERSION AS OF 'main'", "VALUES 9");
 
         assertQuery("SELECT * from \"test_table_references$refs\" where name = 'testBranch' and type = 'BRANCH'",
                 format("VALUES('%s', '%s', %s, %s, %s, %s)",
@@ -1570,6 +1575,17 @@ public abstract class IcebergDistributedTestBase
                         icebergTable.refs().get("testTag").maxRefAgeMs(),
                         icebergTable.refs().get("testTag").minSnapshotsToKeep(),
                         icebergTable.refs().get("testTag").maxSnapshotAgeMs()));
+
+        // test branch & tag access when schema is changed
+        assertUpdate("ALTER TABLE test_table_references DROP COLUMN id2");
+        assertUpdate("ALTER TABLE test_table_references ADD COLUMN id2_new BIGINT");
+
+        // since current table schema is changed from col id2 to id2_new
+        assertQuery("SELECT * FROM test_table_references where id1=1", "VALUES(1, NULL)");
+        assertQuery("SELECT * FROM test_table_references FOR SYSTEM_VERSION AS OF 'testBranch' where id1=1", "VALUES(1, NULL)");
+        // Currently Presto returns current table schema for any previous snapshot access https://github.com/prestodb/presto/issues/23553
+        // otherwise querying a tag uses the snapshot's schema https://iceberg.apache.org/docs/nightly/branching/#schema-selection-with-branches-and-tags
+        assertQuery("SELECT * FROM test_table_references FOR SYSTEM_VERSION AS OF 'testTag' where id1=1", "VALUES(1, NULL)");
     }
 
     @Test
