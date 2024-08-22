@@ -126,15 +126,23 @@ class MemoryArbitrator {
   /// pool. The function returns the actual freed capacity from 'pool'.
   virtual uint64_t shrinkCapacity(MemoryPool* pool, uint64_t targetBytes) = 0;
 
-  /// Invoked by the memory manager to shrink memory capacity from memory pools
-  /// by reclaiming free and used memory. The freed memory capacity is given
-  /// back to the arbitrator.  If 'targetBytes' is zero, then try to reclaim all
-  /// the memory from 'pools'. The function returns the actual freed memory
-  /// capacity in bytes. If 'allowSpill' is true, it reclaims the used memory by
-  /// spilling. If 'allowAbort' is true, it reclaims the used memory by aborting
-  /// the queries with the most memory usage. If both are true, it first
-  /// reclaims the used memory by spilling and then abort queries to reach the
-  /// reclaim target.
+  /// Invoked by the memory manager to globally shrink memory from
+  /// memory pools by reclaiming only used memory, to reduce system memory
+  /// pressure. The freed memory capacity is given back to the arbitrator.  If
+  /// 'targetBytes' is zero, then try to reclaim all the memory from 'pools'.
+  /// The function returns the actual freed memory capacity in bytes. If
+  /// 'allowSpill' is true, it reclaims the used memory by spilling. If
+  /// 'allowAbort' is true, it reclaims the used memory by aborting the queries
+  /// with the most memory usage. If both are true, it first reclaims the used
+  /// memory by spilling and then abort queries to reach the reclaim target.
+  ///
+  /// NOTE: The actual reclaimed used memory (hence system memory) may be less
+  /// than 'targetBytes' due to the accounting of free capacity reclaimed. This
+  /// is okay because when this method is called, system is normally under
+  /// memory pressure, and there normally isn't much free capacity to reclaim.
+  /// So the reclaimed used memory in this case should be very close to
+  /// 'targetBytes' if enough used memory is reclaimable. We should improve this
+  /// in the future.
   virtual uint64_t shrinkCapacity(
       uint64_t targetBytes,
       bool allowSpill = true,

@@ -285,30 +285,6 @@ TEST_F(MemoryArbitrationTest, reservedCapacityFreeByPoolRelease) {
   ASSERT_EQ(arbitrator->stats().freeCapacityBytes, 6 << 20);
 }
 
-TEST_F(MemoryArbitrationTest, reservedCapacityFreeByPoolShrink) {
-  MemoryManagerOptions options;
-  options.arbitratorKind = "SHARED";
-  options.arbitratorReservedCapacity = 4 << 20;
-  options.arbitratorCapacity = 8 << 20;
-  options.allocatorCapacity = options.arbitratorCapacity;
-  options.memoryPoolInitCapacity = 2 << 20;
-  options.memoryPoolReservedCapacity = 1 << 20;
-
-  MemoryManager manager(options);
-  auto* arbitrator = manager.arbitrator();
-  const int numPools = 6;
-  std::vector<std::shared_ptr<MemoryPool>> pools;
-  for (int i = 0; i < numPools; ++i) {
-    pools.push_back(manager.addRootPool("", kMaxMemory));
-    ASSERT_GE(pools.back()->capacity(), 1 << 20);
-  }
-  ASSERT_EQ(arbitrator->stats().freeCapacityBytes, 0);
-  pools.push_back(manager.addRootPool("", kMaxMemory));
-
-  ASSERT_GE(pools.back()->capacity(), 0);
-  ASSERT_EQ(arbitrator->shrinkCapacity(1 << 20), 2 << 20);
-}
-
 TEST_F(MemoryArbitrationTest, arbitratorStats) {
   const MemoryArbitrator::Stats emptyStats;
   ASSERT_TRUE(emptyStats.empty());
