@@ -204,6 +204,25 @@ public class TestIcebergSystemTables
     }
 
     @Test
+    public void testRefsTable()
+    {
+        assertQuery("SHOW COLUMNS FROM test_schema.\"test_table$refs\"",
+                "VALUES ('name', 'varchar', '', '')," +
+                        "('type', 'varchar', '', '')," +
+                        "('snapshot_id', 'bigint', '', '')," +
+                        "('max_reference_age_in_ms', 'bigint', '', '')," +
+                        "('min_snapshots_to_keep', 'bigint', '', '')," +
+                        "('max_snapshot_age_in_ms', 'bigint', '', '')");
+        assertQuerySucceeds("SELECT * FROM test_schema.\"test_table$refs\"");
+
+        // Check main branch entry
+        assertQuery("SELECT count(*) FROM test_schema.\"test_table$refs\"", "VALUES 1");
+        assertQuery("SELECT name FROM test_schema.\"test_table$refs\"", "VALUES 'main'");
+
+        assertQuerySucceeds("SELECT * FROM test_schema.\"test_table_multilevel_partitions$refs\"");
+    }
+
+    @Test
     public void testSessionPropertiesInManuallyStartedTransaction()
     {
         try {
