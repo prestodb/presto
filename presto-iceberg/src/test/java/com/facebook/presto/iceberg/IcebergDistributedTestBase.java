@@ -1609,6 +1609,61 @@ public abstract class IcebergDistributedTestBase
         }
     }
 
+    private void testPathHiddenColumn()
+    {
+        assertEquals(computeActual("SELECT \"$path\", * FROM test_hidden_columns").getRowCount(), 2);
+
+        // Fetch one of the file paths and use it in a filter
+        String filePath = (String) computeActual("SELECT \"$path\" from test_hidden_columns LIMIT 1").getOnlyValue();
+        assertEquals(
+                computeActual(format("SELECT * from test_hidden_columns WHERE \"$path\"='%s'", filePath)).getRowCount(),
+                1);
+
+        assertEquals(
+                (Long) computeActual(format("SELECT count(*) from test_hidden_columns WHERE \"$path\"='%s'", filePath))
+                        .getOnlyValue(),
+                1L);
+
+        // Filter for $path that doesn't exist.
+        assertEquals(
+                (Long) computeActual(format("SELECT count(*) from test_hidden_columns WHERE \"$path\"='%s'", "non-existent-path"))
+                        .getOnlyValue(),
+                0L);
+    }
+
+    private void testDataSequenceNumberHiddenColumn()
+    {
+        assertEquals(computeActual("SELECT \"$data_sequence_number\", * FROM test_hidden_columns").getRowCount(), 2);
+
+        // Fetch one of the data sequence numbers and use it in a filter
+        Long dataSequenceNumber = (Long) computeActual("SELECT \"$data_sequence_number\" from test_hidden_columns LIMIT 1").getOnlyValue();
+        assertEquals(
+                computeActual(format("SELECT * from test_hidden_columns WHERE \"$data_sequence_number\"=%d", dataSequenceNumber)).getRowCount(),
+                1);
+
+        assertEquals(
+                (Long) computeActual(format("SELECT count(*) from test_hidden_columns WHERE \"$data_sequence_number\"=%d", dataSequenceNumber))
+                        .getOnlyValue(),
+                1L);
+
+        // Filter for $data_sequence_number that doesn't exist.
+        assertEquals(
+                (Long) computeActual(format("SELECT count(*) from test_hidden_columns WHERE \"$data_sequence_number\"=%d", 1000))
+                        .getOnlyValue(),
+                0L);
+    }
+
+    @Test
+    public void testHiddenColumns()
+    {
+        assertUpdate("DROP TABLE IF EXISTS test_hidden_columns");
+        assertUpdate("CREATE TABLE test_hidden_columns AS SELECT * FROM tpch.tiny.region WHERE regionkey=0", 1);
+        assertUpdate("INSERT INTO test_hidden_columns SELECT * FROM tpch.tiny.region WHERE regionkey=1", 1);
+
+        testPathHiddenColumn();
+        testDataSequenceNumberHiddenColumn();
+    }
+
     private void testCheckDeleteFiles(Table icebergTable, int expectedSize, List<FileContent> expectedFileContent)
     {
         // check delete file list
