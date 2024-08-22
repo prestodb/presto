@@ -27,6 +27,7 @@ import java.util.Map;
 
 import static com.facebook.presto.iceberg.CatalogType.NESSIE;
 import static com.facebook.presto.iceberg.nessie.NessieTestUtil.nessieConnectorProperties;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Test
 public class TestIcebergDistributedNessie
@@ -75,5 +76,14 @@ public class TestIcebergDistributedNessie
             throws Exception
     {
         return IcebergQueryRunner.createIcebergQueryRunner(ImmutableMap.of(), nessieConnectorProperties(nessieContainer.getRestApiUri()));
+    }
+
+    @Override
+    public void testExpireSnapshotWithDeletedEntries()
+    {
+        // Nessie do not support expire snapshots as it set table property `gc.enabled` to `false` by default
+        assertThatThrownBy(() -> super.testExpireSnapshotWithDeletedEntries())
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageMatching("Cannot expire snapshots: GC is disabled .*");
     }
 }
