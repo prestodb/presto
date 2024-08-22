@@ -153,9 +153,6 @@ void SelectiveRepeatedColumnReader::makeOffsetsAndSizes(
     rawOffsets[i] = nestedRowIndex;
     if (nulls && bits::isBitNull(nulls, row)) {
       rawSizes[i] = 0;
-      if (!returnReaderNulls_) {
-        bits::setNull(rawResultNulls_, i);
-      }
       anyNulls_ = true;
     } else {
       currentOffset += allLengths_[row];
@@ -240,7 +237,7 @@ void SelectiveListColumnReader::getValues(RowSet rows, VectorPtr* result) {
   prepareResult(*result, requestedType_, rows.size(), &memoryPool_);
   auto* resultArray = result->get()->asUnchecked<ArrayVector>();
   makeOffsetsAndSizes(rows, *resultArray);
-  result->get()->setNulls(resultNulls());
+  setComplexNulls(rows, *result);
   if (child_ && !nestedRows_.empty()) {
     auto& elements = resultArray->elements();
     prepareStructResult(requestedType_->childAt(0), &elements);
@@ -321,7 +318,7 @@ void SelectiveMapColumnReader::getValues(RowSet rows, VectorPtr* result) {
   prepareResult(*result, requestedType_, rows.size(), &memoryPool_);
   auto* resultMap = result->get()->asUnchecked<MapVector>();
   makeOffsetsAndSizes(rows, *resultMap);
-  result->get()->setNulls(resultNulls());
+  setComplexNulls(rows, *result);
   VELOX_CHECK(
       keyReader_ && elementReader_,
       "keyReader_ and elementReaer_ must exist in "

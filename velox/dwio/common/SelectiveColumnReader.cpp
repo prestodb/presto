@@ -151,6 +151,31 @@ const uint64_t* SelectiveColumnReader::shouldMoveNulls(RowSet rows) {
   return moveFrom;
 }
 
+void SelectiveColumnReader::setComplexNulls(RowSet rows, VectorPtr& result)
+    const {
+  if (!nullsInReadRange_) {
+    result->clearNulls(0, rows.size());
+    return;
+  }
+  const bool dense = 1 + rows.back() == rows.size();
+  auto& nulls = result->nulls();
+  if (dense &&
+      !(nulls && nulls->isMutable() &&
+        nulls->capacity() >= bits::nbytes(rows.size()))) {
+    result->setNulls(nullsInReadRange_);
+    return;
+  }
+  auto* readerNulls = nullsInReadRange_->as<uint64_t>();
+  auto* resultNulls = result->mutableNulls(rows.size())->asMutable<uint64_t>();
+  if (dense) {
+    bits::copyBits(readerNulls, 0, resultNulls, 0, rows.size());
+    return;
+  }
+  for (vector_size_t i = 0; i < rows.size(); ++i) {
+    bits::setBit(resultNulls, i, bits::isBitSet(readerNulls, rows[i]));
+  }
+}
+
 void SelectiveColumnReader::getIntValues(
     RowSet rows,
     const TypePtr& requestedType,

@@ -386,15 +386,7 @@ void SelectiveStructColumnReaderBase::getValues(
   if (!rows.size()) {
     return;
   }
-  if (nullsInReadRange_) {
-    auto readerNulls = nullsInReadRange_->as<uint64_t>();
-    auto* nulls = resultRow->mutableNulls(rows.size())->asMutable<uint64_t>();
-    for (size_t i = 0; i < rows.size(); ++i) {
-      bits::setBit(nulls, i, bits::isBitSet(readerNulls, rows[i]));
-    }
-  } else {
-    resultRow->clearNulls(0, rows.size());
-  }
+  setComplexNulls(rows, *result);
   bool lazyPrepared = false;
   for (auto& childSpec : scanSpec_->children()) {
     VELOX_TRACE_HISTORY_PUSH("getValues %s", childSpec->fieldName().c_str());

@@ -390,7 +390,6 @@ SelectiveFlatMapColumnReaderHelper<T, KeyNode, FormatData>::calculateOffsets(
   for (vector_size_t i = 0; i < rows.size(); ++i) {
     if (!reader_.returnReaderNulls_ && nulls &&
         bits::isBitNull(nulls, rows[i])) {
-      bits::setNull(reader_.rawResultNulls_, i);
       reader_.anyNulls_ = true;
     }
     offsets[i] = numNestedRows;
@@ -546,7 +545,7 @@ void SelectiveFlatMapColumnReaderHelper<T, KeyNode, FormatData>::getValues(
   std::copy_backward(
       rawOffsets, rawOffsets + rows.size() - 1, rawOffsets + rows.size());
   rawOffsets[0] = 0;
-  result->get()->setNulls(reader_.resultNulls());
+  reader_.setComplexNulls(rows, *result);
 }
 
 } // namespace facebook::velox::dwio::common

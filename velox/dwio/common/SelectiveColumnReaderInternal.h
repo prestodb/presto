@@ -306,58 +306,6 @@ inline int32_t sizeOfIntKind(TypeKind kind) {
   }
 }
 
-template <typename Move>
-void SelectiveColumnReader::compactComplexValues(
-    RowSet rows,
-    Move move,
-    bool isFinal) {
-  VELOX_CHECK_LE(rows.size(), outputRows_.size());
-  VELOX_CHECK(!rows.empty());
-  if (rows.size() == outputRows_.size()) {
-    return;
-  }
-  RowSet sourceRows;
-  // The row numbers corresponding to elements in 'values_' are in
-  // 'valueRows_' if values have been accessed before. Otherwise
-  // they are in 'outputRows_' if these are non-empty (there is a
-  // filter) and in 'inputRows_' otherwise.
-  if (!valueRows_.empty()) {
-    sourceRows = valueRows_;
-  } else if (!outputRows_.empty()) {
-    sourceRows = outputRows_;
-  } else {
-    sourceRows = inputRows_;
-  }
-  if (valueRows_.empty()) {
-    valueRows_.resize(rows.size());
-  }
-  vector_size_t rowIndex = 0;
-  auto nextRow = rows[rowIndex];
-  auto* moveNullsFrom = shouldMoveNulls(rows);
-  for (size_t i = 0; i < numValues_; i++) {
-    if (sourceRows[i] < nextRow) {
-      continue;
-    }
-
-    VELOX_DCHECK(sourceRows[i] == nextRow);
-    // The value at i is moved to be the value at 'rowIndex'.
-    move(i, rowIndex);
-    if (moveNullsFrom && rowIndex != i) {
-      bits::setBit(rawResultNulls_, rowIndex, bits::isBitSet(moveNullsFrom, i));
-    }
-    if (!isFinal) {
-      valueRows_[rowIndex] = nextRow;
-    }
-    rowIndex++;
-    if (rowIndex >= rows.size()) {
-      break;
-    }
-    nextRow = rows[rowIndex];
-  }
-  numValues_ = rows.size();
-  valueRows_.resize(numValues_);
-}
-
 template <typename T>
 void SelectiveColumnReader::filterNulls(
     RowSet rows,

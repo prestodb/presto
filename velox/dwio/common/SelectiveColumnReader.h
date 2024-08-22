@@ -548,16 +548,13 @@ class SelectiveColumnReader {
   template <typename T, typename TVector>
   void compactScalarValues(RowSet rows, bool isFinal);
 
-  // Compacts values extracted for a complex type column with
-  // filter. The values for 'rows' are shifted to be consecutive at
-  // indices [0..rows.size() - 1]'. 'move' is a function that takes
-  // two indices source and target and moves the value at source to
-  // target. target is <= source for all calls.
-  template <typename Move>
-  void compactComplexValues(RowSet rows, Move move, bool isFinal);
-
   template <typename T, typename TVector>
   void upcastScalarValues(RowSet rows);
+
+  // For complex type column, we need to compact only nulls if the rows are
+  // shrinked.  Child fields are handled recursively in their own column
+  // readers.
+  void setComplexNulls(RowSet rows, VectorPtr& result) const;
 
   // Return the source null bits if compactScalarValues and upcastScalarValues
   // should move null flags.  Return nullptr if nulls does not need to be moved.
