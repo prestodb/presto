@@ -95,13 +95,42 @@ The configuration properties of Presto C++ workers are described here, in alphab
 
   In-memory cache.
 
-``query.max-memory-per-node``
+``runtime-metrics-collection-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+  Enables collection of worker level metrics.
+
+``task.max-drivers-per-task``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``integer``
+* **Default value:** ``number of hardware CPUs``
+
+  Number of drivers to use per task. Defaults to hardware CPUs.
+
+``query.max-memory-per-node``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
 * **Default value:** ``4GB``
 
   Max memory usage for each query.
+
+
+``system-memory-gb``
+^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``40``
+
+  Memory allocation limit enforced by an internal memory allocator. It consists of two parts:
+  1) Memory used by the queries as specified in ``query-memory-gb``; 2) Memory used by the
+  system, such as disk spilling and cache prefetch.
+
+  Set ``system-memory-gb`` to the available machine memory of the deployment.
+
 
 ``query-memory-gb``
 ^^^^^^^^^^^^^^^^^^^
@@ -113,41 +142,128 @@ The configuration properties of Presto C++ workers are described here, in alphab
   worker node. Memory for system usage such as disk spilling and cache prefetch are
   not counted in it.
 
-``query-reserved-memory-gb``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``shared-arbitrator.reserved-capacity``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``integer``
-* **Default value:** ``4``
+* **Type:** ``string``
+* **Default value:** ``4GB``
 
   Specifies the total amount of memory in GB reserved for the queries on
   a worker node. A query can only allocate from this reserved space if
   1) the non-reserved space in ``query-memory-gb`` is used up; and 2) the amount
-  it tries to get is less than ``memory-pool-reserved-capacity``.
+  it tries to get is less than ``shared-arbitrator.memory-pool-reserved-capacity``.
 
-``runtime-metrics-collection-enabled``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-* **Type:** ``boolean``
+``shared-arbitrator.memory-pool-initial-capacity``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Default value:** ``128MB``
+
+  The initial memory pool capacity in bytes allocated on creation.
+
+``shared-arbitrator.global-arbitration-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
 * **Default value:** ``false``
 
-  Enables collection of worker level metrics.
+  If true, it allows shared arbitrator to reclaim used memory across query
+  memory pools.
 
-``system-memory-gb``
-^^^^^^^^^^^^^^^^^^^^
+``shared-arbitrator.memory-pool-reserved-capacity``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``integer``
-* **Default value:** ``40``
+* **Type:** ``string``
+* **Default value:** ``64MB``
 
-  Memory allocation limit enforced via internal memory allocator. It consists of two parts:
-  1) Memory used by the queries as specified in ``query-memory-gb``; 2) Memory used by the
-  system, such as disk spilling and cache prefetch.
+  The amount of memory in bytes reserved for each query memory pool. When
+  a query tries to allocate memory from the reserved space whose size is
+  specified by ``shared-arbitrator.reserved-capacity``, it cannot allocate
+  more than the value specified in ``shared-arbitrator.memory-pool-reserved-capacity``.
 
-  Set ``system-memory-gb`` to the available machine memory of the deployment.
+``shared-arbitrator.memory-pool-transfer-capacity``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-``task.max-drivers-per-task``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+* **Type:** ``string``
+* **Default value:** ``32MB``
 
-* **Type:** ``integer``
-* **Default value:** ``number of hardware CPUs``
+  The minimal memory capacity in bytes transferred between memory pools
+  during memory arbitration.
 
-  Number of drivers to use per task. Defaults to hardware CPUs.
+``shared-arbitrator.memory-reclaim-max-wait-time``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+* **Type:** ``string``
+* **Default value:** ``5m``
+
+  Specifies the max time to wait for memory reclaim by arbitration. The
+  memory reclaim might fail if the max wait time has exceeded. If it is
+  zero, then there is no timeout.
+
+``shared-arbitrator.fast-exponential-growth-capacity-limit``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Default value:** ``512MB``
+
+  When shared arbitrator grows memory pool's capacity, the growth bytes will
+  be adjusted in the following way:
+
+  * If 2 * current capacity is less than or equal to
+    ``shared-arbitrator.fast-exponential-growth-capacity-limit``, grow
+    through fast path by at least doubling the current capacity, when
+    conditions allow (see below NOTE section).
+  * If 2 * current capacity is greater than
+    ``shared-arbitrator.fast-exponential-growth-capacity-limit``, grow
+    through slow path by growing capacity by at least
+    ``shared-arbitrator.slow-capacity-grow-pct`` * current capacity if
+    allowed (see below NOTE section).
+
+  NOTE: If original requested growth bytes is larger than the adjusted
+  growth bytes or adjusted growth bytes reaches max capacity limit, the
+  adjusted growth bytes will not be respected.
+
+  NOTE: Capacity growth adjust is only enabled if both
+  ``shared-arbitrator.fast-exponential-growth-capacity-limit`` and
+  ``shared-arbitrator.slow-capacity-grow-pct`` are set, otherwise it is
+  disabled.
+
+``shared-arbitrator.slow-capacity-grow-pct``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Default value:** ``0.25``
+
+  See description for ``shared-arbitrator.fast-exponential-growth-capacity-limit``
+
+``shared-arbitrator.memory-pool-min-free-capacity``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Default value:** ``128MB``
+
+  When shared arbitrator shrinks memory pool's capacity, the shrink bytes
+  will be adjusted in a way such that AFTER shrink, the stricter (whichever
+  is smaller) of the following conditions is met, in order to better fit the
+  pool's current memory usage:
+
+  * Free capacity is greater or equal to capacity *
+    ``shared-arbitrator.memory-pool-min-free-capacity-pct``
+  * Free capacity is greater or equal to
+    ``shared-arbitrator.memory-pool-min-free-capacity``
+
+  NOTE: In the conditions when original requested shrink bytes ends up
+  with more free capacity than above two conditions, the adjusted shrink
+  bytes is not respected.
+
+  NOTE: Capacity shrink adjustment is enabled when both
+  ``shared-arbitrator.memory-pool-min-free-capacity-pct`` and
+  ``shared-arbitrator.memory-pool-min-free-capacity`` are set.
+
+``shared-arbitrator.memory-pool-min-free-capacity-pct``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Default value:** ``0.25``
+
+  See description for ``shared-arbitrator.memory-pool-min-free-capacity``

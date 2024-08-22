@@ -812,27 +812,43 @@ void PrestoServer::initializeVeloxMemory() {
         memoryGb,
         "Query memory capacity must not be larger than system memory capacity");
     options.arbitratorCapacity = queryMemoryGb << 30;
-    const uint64_t queryReservedMemoryGb = velox::config::toCapacity(
+    const uint64_t sharedArbitratorReservedMemoryGb = velox::config::toCapacity(
         systemConfig->sharedArbitratorReservedCapacity(),
         velox::config::CapacityUnit::GIGABYTE);
     VELOX_USER_CHECK_LE(
-        queryReservedMemoryGb,
+        sharedArbitratorReservedMemoryGb,
         queryMemoryGb,
-        "Query reserved memory capacity must not be larger than query memory capacity");
+        "Shared arbitrator reserved memory capacity must not be larger than "
+        "query memory capacity");
 
-    // TODO(jtan6): [Config Refactor] Migrate these old settings to string based
-    //  extra settings + grow & shrink settings.
-    options.arbitratorReservedCapacity = queryReservedMemoryGb << 30;
-    options.memoryPoolInitCapacity = systemConfig->memoryPoolInitCapacity();
-    options.memoryPoolReservedCapacity =
-        systemConfig->memoryPoolReservedCapacity();
-    options.memoryPoolTransferCapacity =
-        systemConfig->memoryPoolTransferCapacity();
-    options.memoryReclaimWaitMs = systemConfig->memoryReclaimWaitMs();
-    options.globalArbitrationEnabled =
-        systemConfig->memoryArbitratorGlobalArbitrationEnabled();
     options.largestSizeClassPages = systemConfig->largestSizeClassPages();
     options.arbitrationStateCheckCb = velox::exec::memoryArbitrationStateCheck;
+
+    using SharedArbitratorConfig = velox::memory::SharedArbitrator::ExtraConfig;
+    options.extraArbitratorConfigs = {
+        {std::string(SharedArbitratorConfig::kReservedCapacity),
+         systemConfig->sharedArbitratorReservedCapacity()},
+        {std::string(SharedArbitratorConfig::kMemoryPoolInitialCapacity),
+         systemConfig->sharedArbitratorMemoryPoolInitialCapacity()},
+        {std::string(SharedArbitratorConfig::kMemoryPoolReservedCapacity),
+         systemConfig->sharedArbitratorMemoryPoolReservedCapacity()},
+        {std::string(SharedArbitratorConfig::kMemoryPoolTransferCapacity),
+         systemConfig->sharedArbitratorMemoryPoolTransferCapacity()},
+        {std::string(SharedArbitratorConfig::kMemoryReclaimMaxWaitTime),
+         systemConfig->sharedArbitratorMemoryReclaimWaitTime()},
+        {std::string(SharedArbitratorConfig::kMemoryPoolMinFreeCapacity),
+         systemConfig->sharedArbitratorMemoryPoolMinFreeCapacity()},
+        {std::string(SharedArbitratorConfig::kMemoryPoolMinFreeCapacityPct),
+         systemConfig->sharedArbitratorMemoryPoolMinFreeCapacityPct()},
+        {std::string(SharedArbitratorConfig::kGlobalArbitrationEnabled),
+         systemConfig->sharedArbitratorGlobalArbitrationEnabled()},
+        {std::string(
+             SharedArbitratorConfig::kFastExponentialGrowthCapacityLimit),
+         systemConfig->sharedArbitratorFastExponentialGrowthCapacityLimit()},
+        {std::string(SharedArbitratorConfig::kSlowCapacityGrowPct),
+         systemConfig->sharedArbitratorSlowCapacityGrowPct()},
+        {std::string(SharedArbitratorConfig::kCheckUsageLeak),
+         folly::to<std::string>(systemConfig->enableMemoryLeakCheck())}};
   }
   memory::initializeMemoryManager(options);
   PRESTO_STARTUP_LOG(INFO) << "Memory manager has been setup: "

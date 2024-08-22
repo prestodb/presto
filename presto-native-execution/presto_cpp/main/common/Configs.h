@@ -372,76 +372,61 @@ class SystemConfig : public ConfigBase {
   /// NOTE: the query memory capacity is enforced by memory arbitrator so that
   /// this config only applies if the memory arbitration has been enabled.
   static constexpr std::string_view kQueryMemoryGb{"query-memory-gb"};
-  static constexpr std::string_view kArbitratorCapacity{"arbitrator-capacity"};
 
   /// Specifies the memory arbitrator kind. If it is empty, then there is no
   /// memory arbitration.
   static constexpr std::string_view kMemoryArbitratorKind{
       "memory-arbitrator-kind"};
 
-  /// Specifies the total amount of memory in GB reserved for the queries on
-  /// a single worker node. A query can only allocate from this reserved space
-  /// if 1) the non-reserved space in "query-memory-gb" is used up; and 2) the
-  /// amount it tries to get is less than 'memory-pool-reserved-capacity'.
+  /// Specifies the total amount of memory reserved for the queries on a single
+  /// worker node. A query can only allocate from this reserved space if 1) the
+  /// non-reserved space in "query-memory-gb" is used up; and 2) the amount it
+  /// tries to get is less than
+  /// 'shared-arbitrator.memory-pool-reserved-capacity'.
   ///
-  /// NOTE: the reserved query memory capacity is enforced by memory arbitrator
-  /// so that this config only applies if the memory arbitration has been
-  /// enabled.
-  static constexpr std::string_view kQueryReservedMemoryGb{
-      "query-reserved-memory-gb"};
+  /// NOTE: the reserved query memory capacity is enforced by shared arbitrator
+  /// so that this config only applies if memory arbitration is enabled.
   static constexpr std::string_view kSharedArbitratorReservedCapacity{
       "shared-arbitrator.reserved-capacity"};
 
   /// The initial memory pool capacity in bytes allocated on creation.
-  static constexpr std::string_view kMemoryPoolInitCapacity{
-      "memory-pool-init-capacity"};
   static constexpr std::string_view kSharedArbitratorMemoryPoolInitialCapacity{
       "shared-arbitrator.memory-pool-initial-capacity"};
 
-  /// If true, it allows memory arbitrator to reclaim used memory cross query
+  /// If true, it allows shared arbitrator to reclaim used memory across query
   /// memory pools.
-  static constexpr std::string_view kMemoryArbitratorGlobalArbitrationEnabled{
-      "memory-arbitrator-global-arbitration-enabled"};
   static constexpr std::string_view kSharedArbitratorGlobalArbitrationEnabled{
       "shared-arbitrator.global-arbitration-enabled"};
 
   /// The amount of memory in bytes reserved for each query memory pool. When
   /// a query tries to allocate memory from the reserved space whose size is
-  /// specified by 'query-reserved-memory-gb', it cannot allocate more than the
-  /// value specified in 'memory-pool-reserved-capacity'.
-  static constexpr std::string_view kMemoryPoolReservedCapacity{
-      "memory-pool-reserved-capacity"};
+  /// specified by 'shared-arbitrator.reserved-capacity', it cannot allocate
+  /// more than the value specified in
+  /// 'shared-arbitrator.memory-pool-reserved-capacity'.
   static constexpr std::string_view kSharedArbitratorMemoryPoolReservedCapacity{
       "shared-arbitrator.memory-pool-reserved-capacity"};
 
   /// The minimal memory capacity in bytes transferred between memory pools
   /// during memory arbitration.
-  ///
-  /// NOTE: this config only applies if the memory arbitration has been enabled.
-  static constexpr std::string_view kMemoryPoolTransferCapacity{
-      "memory-pool-transfer-capacity"};
   static constexpr std::string_view kSharedArbitratorMemoryPoolTransferCapacity{
       "shared-arbitrator.memory-pool-transfer-capacity"};
 
   /// Specifies the max time to wait for memory reclaim by arbitration. The
   /// memory reclaim might fail if the max wait time has exceeded. If it is
   /// zero, then there is no timeout.
-  ///
-  /// NOTE: this config only applies if the memory arbitration has been enabled.
-  static constexpr std::string_view kMemoryReclaimWaitMs{
-      "memory-reclaim-wait-ms"};
   static constexpr std::string_view kSharedArbitratorMemoryReclaimMaxWaitTime{
       "shared-arbitrator.memory-reclaim-max-wait-time"};
 
   /// When shared arbitrator grows memory pool's capacity, the growth bytes will
   /// be adjusted in the following way:
   ///  - If 2 * current capacity is less than or equal to
-  ///    'fastExponentialGrowthCapacityLimit', grow through fast path by at
-  ///    least doubling the current capacity, when conditions allow (see below
-  ///    NOTE section).
+  ///    'shared-arbitrator.fast-exponential-growth-capacity-limit', grow
+  ///    through fast path by at least doubling the current capacity, when
+  ///    conditions allow (see below NOTE section).
   ///  - If 2 * current capacity is greater than
-  ///    'fastExponentialGrowthCapacityLimit', grow through slow path by growing
-  ///    capacity by at least 'slowCapacityGrowPct' * current capacity if
+  ///    'shared-arbitrator.fast-exponential-growth-capacity-limit', grow
+  ///    through slow path by growing capacity by at least
+  ///    'shared-arbitrator.slow-capacity-grow-pct' * current capacity if
   ///    allowed (see below NOTE section).
   ///
   /// NOTE: If original requested growth bytes is larger than the adjusted
@@ -449,8 +434,9 @@ class SystemConfig : public ConfigBase {
   /// adjusted growth bytes will not be respected.
   ///
   /// NOTE: Capacity growth adjust is only enabled if both
-  /// 'fastExponentialGrowthCapacityLimit' and 'slowCapacityGrowPct' are set,
-  /// otherwise it is disabled.
+  /// 'shared-arbitrator.fast-exponential-growth-capacity-limit' and
+  /// 'shared-arbitrator.slow-capacity-grow-pct' are set, otherwise it is
+  /// disabled.
   static constexpr std::string_view
       kSharedArbitratorFastExponentialGrowthCapacityLimit{
           "shared-arbitrator.fast-exponential-growth-capacity-limit"};
@@ -462,15 +448,17 @@ class SystemConfig : public ConfigBase {
   /// is smaller) of the following conditions is met, in order to better fit the
   /// pool's current memory usage:
   /// - Free capacity is greater or equal to capacity *
-  /// 'memoryPoolMinFreeCapacityPct'
-  /// - Free capacity is greater or equal to 'memoryPoolMinFreeCapacity'
+  /// 'shared-arbitrator.memory-pool-min-free-capacity-pct'
+  /// - Free capacity is greater or equal to
+  /// 'shared-arbitrator.memory-pool-min-free-capacity'
   ///
   /// NOTE: In the conditions when original requested shrink bytes ends up
   /// with more free capacity than above 2 conditions, the adjusted shrink
   /// bytes is not respected.
   ///
   /// NOTE: Capacity shrink adjustment is enabled when both
-  /// 'memoryPoolMinFreeCapacityPct' and 'memoryPoolMinFreeCapacity' are set.
+  /// 'shared-arbitrator.memory-pool-min-free-capacity-pct' and
+  /// 'shared-arbitrator.memory-pool-min-free-capacity' are set.
   static constexpr std::string_view kSharedArbitratorMemoryPoolMinFreeCapacity{
       "shared-arbitrator.memory-pool-min-free-capacity"};
   static constexpr std::string_view
@@ -779,8 +767,6 @@ class SystemConfig : public ConfigBase {
 
   std::string memoryArbitratorKind() const;
 
-  bool memoryArbitratorGlobalArbitrationEnabled() const;
-
   std::string sharedArbitratorGlobalArbitrationEnabled() const;
 
   std::string sharedArbitratorReservedCapacity() const;
@@ -802,16 +788,6 @@ class SystemConfig : public ConfigBase {
   std::string sharedArbitratorMemoryPoolMinFreeCapacityPct() const;
 
   int32_t queryMemoryGb() const;
-
-  int32_t queryReservedMemoryGb() const;
-
-  uint64_t memoryPoolInitCapacity() const;
-
-  uint64_t memoryPoolReservedCapacity() const;
-
-  uint64_t memoryPoolTransferCapacity() const;
-
-  uint64_t memoryReclaimWaitMs() const;
 
   bool enableSystemMemoryPoolUsageTracking() const;
 
