@@ -1667,6 +1667,42 @@ public abstract class IcebergDistributedTestBase
     }
 
     @Test
+    public void testRefsTable()
+    {
+        assertUpdate("CREATE TABLE test_table_references (id BIGINT)");
+        assertUpdate("INSERT INTO test_table_references VALUES (0), (1), (2)", 3);
+
+        Table icebergTable = loadTable("test_table_references");
+        icebergTable.manageSnapshots().createBranch("testBranch").commit();
+
+        assertUpdate("INSERT INTO test_table_references VALUES (0), (1), (2)", 3);
+
+        assertEquals(icebergTable.refs().size(), 2);
+        icebergTable.manageSnapshots().createTag("testTag", icebergTable.currentSnapshot().snapshotId()).commit();
+
+        assertEquals(icebergTable.refs().size(), 3);
+        assertQuery("SELECT count(*) FROM \"test_table_references$refs\"", "VALUES 3");
+
+        assertQuery("SELECT * from \"test_table_references$refs\" where name = 'testBranch' and type = 'BRANCH'",
+                format("VALUES('%s', '%s', %s, %s, %s, %s)",
+                        "testBranch",
+                        "BRANCH",
+                        icebergTable.refs().get("testBranch").snapshotId(),
+                        icebergTable.refs().get("testBranch").maxRefAgeMs(),
+                        icebergTable.refs().get("testBranch").minSnapshotsToKeep(),
+                        icebergTable.refs().get("testBranch").maxSnapshotAgeMs()));
+
+        assertQuery("SELECT * from \"test_table_references$refs\" where type = 'TAG'",
+                format("VALUES('%s', '%s', %s, %s, %s, %s)",
+                        "testTag",
+                        "TAG",
+                        icebergTable.refs().get("testTag").snapshotId(),
+                        icebergTable.refs().get("testTag").maxRefAgeMs(),
+                        icebergTable.refs().get("testTag").minSnapshotsToKeep(),
+                        icebergTable.refs().get("testTag").maxSnapshotAgeMs()));
+    }
+
+    @Test
     public void testAllIcebergType()
     {
         String tmpTableName = "test_vector_reader_all_type";
