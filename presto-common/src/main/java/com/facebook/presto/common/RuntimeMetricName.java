@@ -41,9 +41,15 @@ public class RuntimeMetricName
     public static final String GET_PARTITIONS_BY_NAMES_TIME_NANOS = "getPartitionsByNamesTimeNanos";
     public static final String GET_TABLE_TIME_NANOS = "getTableTimeNanos";
     public static final String GET_SPLITS_TIME_NANOS = "getSplitsTimeNanos";
+    // CPU time taken to schedule a given stage
     public static final String SCHEDULER_CPU_TIME_NANOS = "schedulerCpuTimeNanos";
+    // Wall time taken to schedule a given stage
     public static final String SCHEDULER_WALL_TIME_NANOS = "schedulerWallTimeNanos";
+    // Blocked time of the scheduler during scheduling a given stage
     public static final String SCHEDULER_BLOCKED_TIME_NANOS = "schedulerBlockedTimeNanos";
+    public static final String SCAN_STAGE_SCHEDULER_CPU_TIME_NANOS = "scanStageSchedulerCpuTimeNanos";
+    public static final String SCAN_STAGE_SCHEDULER_WALL_TIME_NANOS = "scanStageSchedulerWallTimeNanos";
+    public static final String SCAN_STAGE_SCHEDULER_BLOCKED_TIME_NANOS = "scanStageSchedulerBlockedTimeNanos";
     public static final String LOGICAL_PLANNER_TIME_NANOS = "logicalPlannerTimeNanos";
     public static final String OPTIMIZER_TIME_NANOS = "optimizerTimeNanos";
     public static final String GET_CANONICAL_INFO_TIME_NANOS = "getCanonicalInfoTimeNanos";

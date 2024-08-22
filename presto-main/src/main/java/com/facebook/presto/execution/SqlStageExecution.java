@@ -26,6 +26,7 @@ import com.facebook.presto.metadata.RemoteTransactionHandle;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.server.remotetask.HttpRemoteTask;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -573,12 +574,27 @@ public final class SqlStageExecution
 
     public void recordSchedulerRunningTime(long cpuTimeNanos, long wallTimeNanos)
     {
+        if (isLeafStage(planFragment.getRoot())) {
+            stateMachine.recordLeafStageSchedulerRunningTime(cpuTimeNanos, wallTimeNanos);
+        }
         stateMachine.recordSchedulerRunningTime(cpuTimeNanos, wallTimeNanos);
     }
 
     public void recordSchedulerBlockedTime(ScheduleResult.BlockedReason reason, long nanos)
     {
+        if (isLeafStage(planFragment.getRoot())) {
+            stateMachine.recordLeafStageSchedulerBlockedTime(reason, nanos);
+        }
         stateMachine.recordSchedulerBlockedTime(reason, nanos);
+    }
+
+    private boolean isLeafStage(PlanNode root)
+    {
+        PlanNode leafNode = root;
+        while (!leafNode.getSources().isEmpty()) {
+            leafNode = leafNode.getSources().get(0);
+        }
+        return leafNode.getSources().isEmpty();
     }
 
     private static Split createRemoteSplitFor(TaskId taskId, URI remoteSourceTaskLocation, TaskId remoteSourceTaskId)
