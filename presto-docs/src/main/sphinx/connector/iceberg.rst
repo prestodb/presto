@@ -1348,7 +1348,7 @@ Time Travel
 Iceberg and Presto Iceberg connector support time travel via table snapshots
 identified by unique snapshot IDs. The snapshot IDs are stored in the ``$snapshots``
 metadata table. You can rollback the state of a table to a previous snapshot ID.
-It also supports time travel query using VERSION (SYSTEM_VERSION) and TIMESTAMP (SYSTEM_TIME) options.
+It also supports time travel query using SYSTEM_VERSION (VERSION) and SYSTEM_TIME (TIMESTAMP) options.
 
 Example Queries
 ^^^^^^^^^^^^^^^
@@ -1529,6 +1529,40 @@ In the following query, the expression CURRENT_TIMESTAMP returns the current tim
     -----------+---------------+-----------+---------
             10 | united states |         1 | comment
     (1 row)
+
+Querying branches and tags
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Iceberg supports branches and tags which are named references to snapshots.
+
+Query Iceberg table by specifying the branch name:
+
+.. code-block:: sql
+
+    SELECT * FROM nation FOR SYSTEM_VERSION AS OF 'testBranch';
+
+.. code-block:: text
+
+     nationkey |      name     | regionkey | comment
+    -----------+---------------+-----------+---------
+            10 | united states |         1 | comment
+            20 | canada        |         2 | comment
+            30 | mexico        |         3 | comment
+    (3 rows)
+
+Query Iceberg table by specifying the tag name:
+
+.. code-block:: sql
+
+    SELECT * FROM nation FOR SYSTEM_VERSION AS OF 'testTag';
+
+.. code-block:: text
+
+     nationkey |      name     | regionkey | comment
+    -----------+---------------+-----------+---------
+            10 | united states |         1 | comment
+            20 | canada        |         2 | comment
+    (3 rows)
 
 Type mapping
 ------------
