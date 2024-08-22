@@ -1706,6 +1706,39 @@ public abstract class IcebergDistributedTestBase
         }
     }
 
+    @Test
+    public void testExpireSnapshotWithDeletedEntries()
+    {
+        try {
+            assertUpdate("create table test_expire_snapshot_with_deleted_entry (a int, b varchar) with (partitioning = ARRAY['a'])");
+            assertUpdate("insert into test_expire_snapshot_with_deleted_entry values(1, '1001'), (1, '1002'), (2, '2001'), (2, '2002')", 4);
+            Table table = loadTable("test_expire_snapshot_with_deleted_entry");
+            long snapshotId1 = table.currentSnapshot().snapshotId();
+
+            // Execute metadata deletion which delete whole files from table metadata
+            assertUpdate("delete from test_expire_snapshot_with_deleted_entry where a = 1", 2);
+            table = loadTable("test_expire_snapshot_with_deleted_entry");
+            long snapshotId2 = table.currentSnapshot().snapshotId();
+
+            assertUpdate("insert into test_expire_snapshot_with_deleted_entry values(1, '1003'), (2, '2003'), (3, '3003')", 3);
+            table = loadTable("test_expire_snapshot_with_deleted_entry");
+            long snapshotId3 = table.currentSnapshot().snapshotId();
+
+            assertQuery("select snapshot_id from \"test_expire_snapshot_with_deleted_entry$snapshots\"", "values " + snapshotId1 + ", " + snapshotId2 + ", " + snapshotId3);
+
+            // Expire `snapshotId2` which contains a DELETED entry to delete a data file which is still referenced by `snapshotId1`
+            assertUpdate(format("call iceberg.system.expire_snapshots(schema => '%s', table_name => '%s', snapshot_ids => ARRAY[%d])", "tpch", "test_expire_snapshot_with_deleted_entry", snapshotId2));
+            assertQuery("select snapshot_id from \"test_expire_snapshot_with_deleted_entry$snapshots\"", "values " + snapshotId1 + ", " + snapshotId3);
+
+            // Execute time travel query successfully
+            assertQuery("select * from test_expire_snapshot_with_deleted_entry for version as of " + snapshotId1, "values(1, '1001'), (1, '1002'), (2, '2001'), (2, '2002')");
+            assertQuery("select * from test_expire_snapshot_with_deleted_entry for version as of " + snapshotId3, "values(1, '1003'), (2, '2001'), (2, '2002'), (2, '2003'), (3, '3003')");
+        }
+        finally {
+            assertUpdate("drop table if exists test_expire_snapshot_with_deleted_entry");
+        }
+    }
+
     private void testCheckDeleteFiles(Table icebergTable, int expectedSize, List<FileContent> expectedFileContent)
     {
         // check delete file list
