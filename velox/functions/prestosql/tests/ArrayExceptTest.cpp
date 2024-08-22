@@ -24,6 +24,9 @@ using namespace facebook::velox::functions::test;
 
 namespace {
 
+template <typename TKey, typename TValue>
+using Pair = std::pair<TKey, std::optional<TValue>>;
+
 class ArrayExceptTest : public FunctionBaseTest {
  protected:
   void testExpr(
@@ -276,6 +279,67 @@ TEST_F(ArrayExceptTest, varbinary) {
   expected =
       makeNullableArrayVector<StringView>({{"d"_sv}}, ARRAY(VARBINARY()));
   testExpr(expected, "array_except(c0, c1)", {right, left});
+}
+
+TEST_F(ArrayExceptTest, complexTypeArray) {
+  auto left = makeNestedArrayVectorFromJson<int32_t>({
+      "[null, [1, 2, 3], [null, null]]",
+      "[[1], [2], []]",
+      "[[1, null, 3]]",
+      "[[1, null, 3]]",
+  });
+
+  auto right = makeNestedArrayVectorFromJson<int32_t>({
+      "[[1, 2, 3]]",
+      "[[1]]",
+      "[[1, null, 3], [1, 2]]",
+      "[[1, null, 3, null]]",
+  });
+
+  auto expected = makeNestedArrayVectorFromJson<int32_t>({
+      "[null, [null, null]]",
+      "[[2], []]",
+      "[]",
+      "[[1, null, 3]]",
+  });
+  testExpr(expected, "array_except(c0, c1)", {left, right});
+}
+
+TEST_F(ArrayExceptTest, complexTypeMap) {
+  std::vector<Pair<StringView, int64_t>> a{{"blue", 1}, {"red", 2}};
+  std::vector<Pair<StringView, int64_t>> b{{"blue", 2}, {"red", 2}};
+  std::vector<Pair<StringView, int64_t>> c{{"green", std::nullopt}};
+  std::vector<Pair<StringView, int64_t>> d{{"yellow", 4}, {"purple", 5}};
+  std::vector<std::vector<std::vector<Pair<StringView, int64_t>>>> leftData{
+      {b, a}, {b}, {c, a}};
+  std::vector<std::vector<std::vector<Pair<StringView, int64_t>>>> rightData{
+      {a, b}, {}, {a}};
+  std::vector<std::vector<std::vector<Pair<StringView, int64_t>>>> expectedData{
+      {}, {b}, {c}};
+
+  auto left = makeArrayOfMapVector<StringView, int64_t>(leftData);
+  auto right = makeArrayOfMapVector<StringView, int64_t>(rightData);
+  auto expected = makeArrayOfMapVector<StringView, int64_t>(expectedData);
+
+  testExpr(expected, "array_except(c0, c1)", {left, right});
+}
+
+TEST_F(ArrayExceptTest, complexTypeRow) {
+  RowTypePtr rowType = ROW({INTEGER(), VARCHAR()});
+
+  using ArrayOfRow = std::vector<std::optional<std::tuple<int, std::string>>>;
+  std::vector<ArrayOfRow> leftData = {
+      {{{1, "red"}}, {{2, "blue"}}, {{3, "green"}}},
+      {{{1, "red"}}, {{2, "blue"}}, {}},
+      {{{1, "red"}}, std::nullopt, std::nullopt}};
+  std::vector<ArrayOfRow> rightData = {
+      {{{2, "blue"}}, {{1, "red"}}}, {{}, {{1, "green"}}}, {{{1, "red"}}}};
+  std::vector<ArrayOfRow> expectedData = {
+      {{{3, "green"}}}, {{{1, "red"}}, {{2, "blue"}}}, {std::nullopt}};
+  auto left = makeArrayOfRowVector(leftData, rowType);
+  auto right = makeArrayOfRowVector(rightData, rowType);
+  auto expected = makeArrayOfRowVector(expectedData, rowType);
+  testExpr(expected, "array_except(c0, c1)", {left, right});
 }
 
 // When one of the arrays is constant.

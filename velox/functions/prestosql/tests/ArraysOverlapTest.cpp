@@ -23,6 +23,9 @@ using namespace facebook::velox::test;
 using namespace facebook::velox::functions::test;
 
 namespace {
+template <typename TKey, typename TValue>
+using Pair = std::pair<TKey, std::optional<TValue>>;
+
 class ArraysOverlapTest : public FunctionBaseTest {
  protected:
   void testExpr(
@@ -208,6 +211,68 @@ TEST_F(ArraysOverlapTest, longStrings) {
       makeNullableFlatVector<bool>({true, std::nullopt, false, true});
   testExpr(expected, "arrays_overlap(C0, C1)", {array1, array2});
   testExpr(expected, "arrays_overlap(C1, C0)", {array1, array2});
+}
+
+TEST_F(ArraysOverlapTest, complexTypeArray) {
+  auto left = makeNestedArrayVectorFromJson<int32_t>({
+      "[null, [1, 2, 3], [null, null]]",
+      "[[1], [2], []]",
+      "[[1, null, 3]]",
+      "[[1, null, 3]]",
+      "[null]",
+  });
+
+  auto right = makeNestedArrayVectorFromJson<int32_t>({
+      "[[1, 2, 3]]",
+      "[[1]]",
+      "[[1, 2]]",
+      "[[1, null, 3]]",
+      "[[]]",
+  });
+
+  auto expected =
+      makeNullableFlatVector<bool>({true, true, false, true, std::nullopt});
+  testExpr(expected, "arrays_overlap(c0, c1)", {left, right});
+}
+
+TEST_F(ArraysOverlapTest, complexTypeMap) {
+  std::vector<Pair<StringView, int64_t>> a{{"blue", 1}, {"red", 2}};
+  std::vector<Pair<StringView, int64_t>> b{{"green", std::nullopt}};
+  std::vector<Pair<StringView, int64_t>> c{{"yellow", 4}, {"purple", 5}};
+
+  std::vector<std::vector<std::vector<Pair<StringView, int64_t>>>> leftData{
+      {b, a}, {b}, {c, a}};
+  std::vector<std::vector<std::vector<Pair<StringView, int64_t>>>> rightData{
+      {a, b}, {}, {b}};
+
+  auto left = makeArrayOfMapVector<StringView, int64_t>(leftData);
+  auto right = makeArrayOfMapVector<StringView, int64_t>(rightData);
+  auto expected = makeNullableFlatVector<bool>({true, false, false});
+
+  testExpr(expected, "arrays_overlap(c0, c1)", {left, right});
+}
+
+TEST_F(ArraysOverlapTest, complexTypeRow) {
+  RowTypePtr rowType = ROW({INTEGER(), VARCHAR()});
+
+  using ArrayOfRow = std::vector<std::optional<std::tuple<int, std::string>>>;
+  std::vector<ArrayOfRow> leftData = {
+      {{{1, "red"}}, {{2, "blue"}}, {{3, "green"}}},
+      {{{1, "red"}}, {{2, "blue"}}, std::nullopt},
+      {{{1, "red"}}, std::nullopt, std::nullopt},
+      {{{1, "red"}}, {{}}, {{}}}};
+  std::vector<ArrayOfRow> rightData = {
+      {{{2, "blue"}}, {{1, "red"}}},
+      {{{1, "green"}}},
+      {{{1, "red"}}},
+      {{{2, "red"}}}};
+
+  auto left = makeArrayOfRowVector(leftData, rowType);
+  auto right = makeArrayOfRowVector(rightData, rowType);
+  auto expected =
+      makeNullableFlatVector<bool>({true, std::nullopt, true, false});
+
+  testExpr(expected, "arrays_overlap(c0, c1)", {left, right});
 }
 
 //// When one of the arrays is constant.
