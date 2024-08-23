@@ -19,6 +19,7 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
@@ -35,14 +36,16 @@ import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAM
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.assignment;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.type.IpAddressType.IPADDRESS;
 
-public class TestCheckNoTimestampWithTimezoneType
+public class TestCheckUnsupportedPrestissimoTypes
         extends BasePlanTest
 {
     private Session testSession;
     private Metadata metadata;
     private SqlParser sqlParser;
     private PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
+    private FeaturesConfig featuresConfig = new FeaturesConfig();
 
     @BeforeClass
     public void setup()
@@ -65,7 +68,7 @@ public class TestCheckNoTimestampWithTimezoneType
     }
 
     @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "Timestamp with Timezone type is not supported in Prestissimo")
-    public void testValidateProjectFail()
+    public void testValidateTimestampTZProjectFail()
     {
         validatePlan(
                 p -> {
@@ -78,7 +81,7 @@ public class TestCheckNoTimestampWithTimezoneType
     }
 
     @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "Timestamp with Timezone type is not supported in Prestissimo")
-    public void testValidateProjectAssignmentFail()
+    public void testValidateTimestampTZProjectAssignmentFail()
     {
         validatePlan(
                 p -> {
@@ -92,11 +95,51 @@ public class TestCheckNoTimestampWithTimezoneType
     }
 
     @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "Timestamp with Timezone type is not supported in Prestissimo")
-    public void testValidateValueFail()
+    public void testValidateTimestampTZValueFail()
     {
         validatePlan(
                 p -> {
                     VariableReferenceExpression col = p.variable("col", TIMESTAMP_WITH_TIME_ZONE);
+                    VariableReferenceExpression col2 = p.variable("col2", VARCHAR);
+                    return p.project(
+                            assignment(col2, p.rowExpression("cast(col as varchar)")),
+                            p.values(col));
+                });
+    }
+
+    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "IPAddress type is not supported in Prestissimo")
+    public void testValidateIPAddressProjectFail()
+    {
+        validatePlan(
+                p -> {
+                    VariableReferenceExpression col = p.variable("col", VARCHAR);
+                    VariableReferenceExpression col2 = p.variable("col2", IPADDRESS);
+                    return p.project(
+                            assignment(col2, p.rowExpression("cast(col as ipaddress)")),
+                            p.values(col));
+                });
+    }
+
+    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "IPAddress type is not supported in Prestissimo")
+    public void testValidateIPAddressProjectAssignmentFail()
+    {
+        validatePlan(
+                p -> {
+                    VariableReferenceExpression col = p.variable("col", VARCHAR);
+                    VariableReferenceExpression col1 = p.variable("col1", VARCHAR);
+                    VariableReferenceExpression col2 = p.variable("col2", BOOLEAN);
+                    return p.project(
+                            assignment(col2, p.rowExpression("cast(col as ipaddress) > cast(col1 as ipaddress)")),
+                            p.values(col, col1));
+                });
+    }
+
+    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "IPAddress type is not supported in Prestissimo")
+    public void testValidateIPAddressValueFail()
+    {
+        validatePlan(
+                p -> {
+                    VariableReferenceExpression col = p.variable("col", IPADDRESS);
                     VariableReferenceExpression col2 = p.variable("col2", VARCHAR);
                     return p.project(
                             assignment(col2, p.rowExpression("cast(col as varchar)")),
@@ -111,7 +154,7 @@ public class TestCheckNoTimestampWithTimezoneType
         TypeProvider types = builder.getTypes();
         getQueryRunner().inTransaction(testSession, session -> {
             session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
-            new CheckNoTimestampWithTimezoneType().validate(planNode, session, metadata, sqlParser, types, WarningCollector.NOOP);
+            new CheckUnsupportedPrestissimoTypes(featuresConfig).validate(planNode, session, metadata, sqlParser, types, WarningCollector.NOOP);
             return null;
         });
     }
