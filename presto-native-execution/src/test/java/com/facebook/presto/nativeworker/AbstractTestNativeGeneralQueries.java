@@ -315,6 +315,33 @@ public abstract class AbstractTestNativeGeneralQueries
     }
 
     @Test
+    public void testIPAddressIPPrefix() throws InterruptedException
+    {
+        String tmpTableName = generateRandomTableName();
+        try {
+            getQueryRunner().execute(String.format("CREATE TABLE %s (ip VARCHAR, prefixSize  BIGINT, ippre VARCHAR)", tmpTableName));
+            getQueryRunner().execute(String.format("INSERT INTO %s VALUES " +
+                    "(VARCHAR '255.255.255.255', BIGINT '8', VARCHAR '255.0.0.0/8'), " +
+                    "(VARCHAR '2001:0db8:85a3:0001:0001:8a2e:0370:7334', BIGINT '48', VARCHAR '2001:db8:85a3::/48')", tmpTableName));
+
+            assertQueryFails(String.format("SELECT ip_prefix(CAST('192.168.255.255' AS IPADDRESS), NULL) IS NULL", tmpTableName),
+                    ".*IPAddress type is not supported in Prestissimo.*");
+            assertQueryFails(String.format("SELECT CAST(NULL AS IPADDRESS) IS NULL", tmpTableName),
+                    ".*IPAddress type is not supported in Prestissimo.*");
+
+            assertQueryFails("SELECT * FROM (VALUES (IPADDRESS '192.1.1.10'), (IPADDRESS '192.1.1.1'), (IPADDRESS '192.1.1.11')) as t (ip) ORDER BY ip LIMIT 1",
+                    ".*IPAddress type is not supported in Prestissimo.*");
+
+            assertQueryFails("SELECT CAST('192.168.255.256' AS IPADDRESS)",
+                    ".*IPAddress type is not supported in Prestissimo.*");
+            assertQueryFails("SELECT ip_prefix(CAST('192.168.255.255' AS IPADDRESS), 99)",
+                    ".*IPAddress type is not supported in Prestissimo.*");
+        }
+        finally {
+            dropTableIfExists(tmpTableName);
+        }
+    }
+    @Test
     public void testTableSample()
     {
         // At best we can check for query success for the TABLESAMPLE based queries as the number of rows returned
