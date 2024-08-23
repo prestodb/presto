@@ -620,4 +620,57 @@ TEST_F(MemoryManagerTest, quotaEnforcement) {
     }
   }
 }
+
+TEST_F(MemoryManagerTest, disableMemoryPoolTracking) {
+  const std::string kSharedKind{"SHARED"};
+  const std::string kNoopKind{""};
+  MemoryManagerOptions options;
+  options.disableMemoryPoolTracking = true;
+  options.allocatorCapacity = 64LL << 20;
+  options.arbitratorCapacity = 64LL << 20;
+  std::vector<std::string> arbitratorKinds{kNoopKind, kSharedKind};
+  for (auto arbitratorKind : arbitratorKinds) {
+    options.arbitratorKind = arbitratorKind;
+    MemoryManager manager{options};
+    auto root0 = manager.addRootPool("root_0", 35LL << 20);
+    auto leaf0 = root0->addLeafChild("leaf_0");
+
+    // Not throwing since there is no duplicate check.
+    auto root0Dup = manager.addRootPool("root_0", 35LL << 20);
+
+    // 1TB capacity is allowed since there is no capacity check.
+    auto root1 = manager.addRootPool("root_1", 1LL << 40);
+    auto leaf1 = root1->addLeafChild("leaf_1");
+
+    ASSERT_EQ(root0->capacity(), 35LL << 20);
+    if (arbitratorKind == kSharedKind) {
+      ASSERT_EQ(root0Dup->capacity(), 29LL << 20);
+      ASSERT_EQ(root1->capacity(), 0);
+    } else {
+      ASSERT_EQ(root0Dup->capacity(), 35LL << 20);
+      ASSERT_EQ(root1->capacity(), 1LL << 40);
+    }
+
+    ASSERT_EQ(manager.capacity(), 64LL << 20);
+    ASSERT_EQ(manager.shrinkPools(), 0);
+    // Default 1 system pool with 1 leaf child
+    ASSERT_EQ(manager.numPools(), 1);
+
+    VELOX_ASSERT_THROW(
+        leaf0->allocate(38LL << 20), "Exceeded memory pool capacity");
+    if (arbitratorKind == kSharedKind) {
+      VELOX_ASSERT_THROW(
+          leaf1->allocate(256LL << 20), "Exceeded memory pool capacity");
+    } else {
+      VELOX_ASSERT_THROW(
+          leaf1->allocate(256LL << 20), "Exceeded memory allocator limit");
+    }
+
+    ASSERT_NO_THROW(leaf0.reset());
+    ASSERT_NO_THROW(leaf1.reset());
+    ASSERT_NO_THROW(root0.reset());
+    ASSERT_NO_THROW(root0Dup.reset());
+    ASSERT_NO_THROW(root1.reset());
+  }
+}
 } // namespace facebook::velox::memory

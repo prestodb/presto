@@ -81,6 +81,9 @@ struct MemoryManagerOptions {
   /// Terminates the process and generates a core file on an allocation failure
   bool coreOnAllocationFailureEnabled{false};
 
+  /// Disables the memory manager's tracking on memory pools.
+  bool disableMemoryPoolTracking{false};
+
   /// ================== 'MemoryAllocator' settings ==================
 
   /// Specifies the max memory allocation capacity in bytes enforced by
@@ -344,21 +347,26 @@ class MemoryManager {
   }
 
  private:
+  std::shared_ptr<MemoryPool> createRootPool(
+      std::string poolName,
+      std::unique_ptr<MemoryReclaimer>& reclaimer,
+      MemoryPool::Options& options);
+
   void dropPool(MemoryPool* pool);
 
   //  Returns the shared references to all the alive memory pools in 'pools_'.
   std::vector<std::shared_ptr<MemoryPool>> getAlivePools() const;
 
   const std::shared_ptr<MemoryAllocator> allocator_;
-  // Specifies the capacity to allocate from 'arbitrator_' for a newly created
-  // root memory pool.
-  const uint64_t poolInitCapacity_;
+
   // If not null, used to arbitrate the memory capacity among 'pools_'.
   const std::unique_ptr<MemoryArbitrator> arbitrator_;
   const uint16_t alignment_;
   const bool checkUsageLeak_;
   const bool debugEnabled_;
   const bool coreOnAllocationFailureEnabled_;
+  const bool disableMemoryPoolTracking_;
+
   // The destruction callback set for the allocated root memory pools which are
   // tracked by 'pools_'. It is invoked on the root pool destruction and removes
   // the pool from 'pools_'.

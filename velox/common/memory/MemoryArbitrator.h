@@ -64,7 +64,7 @@ class MemoryArbitrator {
     MemoryArbitrationStateCheckCB arbitrationStateCheckCb{nullptr};
 
     /// Additional configs that are arbitrator implementation specific.
-    std::unordered_map<std::string, std::string> extraConfigs;
+    std::unordered_map<std::string, std::string> extraConfigs{};
   };
 
   using Factory = std::function<std::unique_ptr<MemoryArbitrator>(

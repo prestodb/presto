@@ -133,12 +133,12 @@ std::vector<std::shared_ptr<MemoryPool>> createSharedLeafMemoryPools(
 
 MemoryManager::MemoryManager(const MemoryManagerOptions& options)
     : allocator_{createAllocator(options)},
-      poolInitCapacity_(options.memoryPoolInitCapacity),
       arbitrator_(createArbitrator(options)),
       alignment_(std::max(MemoryAllocator::kMinAlignment, options.alignment)),
       checkUsageLeak_(options.checkUsageLeak),
       debugEnabled_(options.debugEnabled),
       coreOnAllocationFailureEnabled_(options.coreOnAllocationFailureEnabled),
+      disableMemoryPoolTracking_(options.disableMemoryPoolTracking),
       poolDestructionCb_([&](MemoryPool* pool) { dropPool(pool); }),
       sysRoot_{std::make_shared<MemoryPoolImpl>(
           this,
@@ -246,6 +246,25 @@ uint16_t MemoryManager::alignment() const {
   return alignment_;
 }
 
+std::shared_ptr<MemoryPool> MemoryManager::createRootPool(
+    std::string poolName,
+    std::unique_ptr<MemoryReclaimer>& reclaimer,
+    MemoryPool::Options& options) {
+  auto pool = std::make_shared<MemoryPoolImpl>(
+      this,
+      poolName,
+      MemoryPool::Kind::kAggregate,
+      nullptr,
+      std::move(reclaimer),
+      poolDestructionCb_,
+      options);
+  VELOX_CHECK_EQ(pool->capacity(), 0);
+  arbitrator_->addPool(pool);
+  RECORD_HISTOGRAM_METRIC_VALUE(
+      kMetricMemoryPoolInitialCapacityBytes, pool->capacity());
+  return pool;
+}
+
 std::shared_ptr<MemoryPool> MemoryManager::addRootPool(
     const std::string& name,
     int64_t maxCapacity,
@@ -263,23 +282,16 @@ std::shared_ptr<MemoryPool> MemoryManager::addRootPool(
   options.debugEnabled = debugEnabled_;
   options.coreOnAllocationFailureEnabled = coreOnAllocationFailureEnabled_;
 
+  if (disableMemoryPoolTracking_) {
+    return createRootPool(poolName, reclaimer, options);
+  }
+
   std::unique_lock guard{mutex_};
   if (pools_.find(poolName) != pools_.end()) {
     VELOX_FAIL("Duplicate root pool name found: {}", poolName);
   }
-  auto pool = std::make_shared<MemoryPoolImpl>(
-      this,
-      poolName,
-      MemoryPool::Kind::kAggregate,
-      nullptr,
-      std::move(reclaimer),
-      poolDestructionCb_,
-      options);
+  auto pool = createRootPool(poolName, reclaimer, options);
   pools_.emplace(poolName, pool);
-  VELOX_CHECK_EQ(pool->capacity(), 0);
-  arbitrator_->addPool(pool);
-  RECORD_HISTOGRAM_METRIC_VALUE(
-      kMetricMemoryPoolInitialCapacityBytes, pool->capacity());
   return pool;
 }
 
@@ -302,6 +314,11 @@ uint64_t MemoryManager::shrinkPools(
 }
 
 void MemoryManager::dropPool(MemoryPool* pool) {
+  VELOX_DCHECK_EQ(pool->reservedBytes(), 0);
+  arbitrator_->removePool(pool);
+  if (disableMemoryPoolTracking_) {
+    return;
+  }
   VELOX_CHECK_NOT_NULL(pool);
   std::unique_lock guard{mutex_};
   auto it = pools_.find(pool->name());
@@ -309,8 +326,6 @@ void MemoryManager::dropPool(MemoryPool* pool) {
     VELOX_FAIL("The dropped memory pool {} not found", pool->name());
   }
   pools_.erase(it);
-  VELOX_DCHECK_EQ(pool->reservedBytes(), 0);
-  arbitrator_->removePool(pool);
 }
 
 MemoryPool& MemoryManager::deprecatedSharedLeafPool() {
