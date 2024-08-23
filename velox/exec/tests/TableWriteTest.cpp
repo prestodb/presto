@@ -2360,6 +2360,8 @@ TEST_P(UnpartitionedTableWriterTest, runtimeStatsCheck) {
         stats[1].runtimeStats["stripeSize"].count, testData.expectedNumStripes);
     ASSERT_EQ(stats[1].runtimeStats["numWrittenFiles"].sum, 1);
     ASSERT_EQ(stats[1].runtimeStats["numWrittenFiles"].count, 1);
+    ASSERT_GE(stats[1].runtimeStats["writeIOTime"].sum, 0);
+    ASSERT_EQ(stats[1].runtimeStats["writeIOTime"].count, 1);
   }
 }
 
@@ -3132,6 +3134,9 @@ TEST_P(AllTableWriterTest, tableWriterStats) {
           ->customStats.at("numWrittenFiles")
           .sum,
       numWrittenFiles);
+  ASSERT_GE(
+      stats.operatorStats.at("TableWrite")->customStats.at("writeIOTime").sum,
+      0);
 }
 
 DEBUG_ONLY_TEST_P(

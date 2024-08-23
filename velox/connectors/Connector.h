@@ -151,6 +151,7 @@ class DataSink {
   struct Stats {
     uint64_t numWrittenBytes{0};
     uint32_t numWrittenFiles{0};
+    uint64_t writeIOTimeUs{0};
     common::SpillStats spillStats;
 
     bool empty() const;
