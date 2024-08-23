@@ -57,6 +57,9 @@ void testColumnName(
 }
 
 TEST(SubfieldTest, columnNamesWithSpecialCharacters) {
+  testColumnName("two words");
+  testColumnName("two  words");
+  testColumnName("one two three");
   testColumnName("$bucket");
   testColumnName("apollo-11");
   testColumnName("a/b/c:12");

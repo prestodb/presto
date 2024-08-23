@@ -157,7 +157,7 @@ bool Tokenizer::isUnquotedPathCharacter(char c) {
 }
 
 bool Tokenizer::isUnquotedSubscriptCharacter(char c) {
-  return c == '-' || c == '_' || isalnum(c);
+  return c == '-' || c == '_' || c == ' ' || isalnum(c);
 }
 
 std::unique_ptr<Subfield::PathElement> Tokenizer::matchQuotedSubscript() {
