@@ -266,6 +266,7 @@ public class FeaturesConfig
     private boolean isOptimizeMultipleApproxPercentileOnSameFieldEnabled = true;
     private boolean nativeExecutionEnabled;
     private boolean disableTimeStampWithTimeZoneForNative = true;
+    private boolean disableIPAddressForNative = true;
     private String nativeExecutionExecutablePath = "./presto_server";
     private String nativeExecutionProgramArguments = "";
     private boolean nativeExecutionProcessReuseEnabled = true;
@@ -2653,6 +2654,19 @@ public class FeaturesConfig
     public boolean isDisableTimeStampWithTimeZoneForNative()
     {
         return this.disableTimeStampWithTimeZoneForNative;
+    }
+
+    @Config("disable-ipaddress-for-native-execution")
+    @ConfigDescription("Disable ipaddress type on native engine")
+    public FeaturesConfig setDisableIPAddressForNative(boolean disableIPAddressForNative)
+    {
+        this.disableIPAddressForNative = disableIPAddressForNative;
+        return this;
+    }
+
+    public boolean isDisableIPAddressForNative()
+    {
+        return this.disableIPAddressForNative;
     }
 
     @Config("native-execution-executable-path")
