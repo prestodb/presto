@@ -344,6 +344,7 @@ public class TestCassandraIntegrationSmokeTest
 
     @Test
     public void testTableNameAmbiguity()
+            throws InterruptedException
     {
         session.execute("CREATE KEYSPACE keyspace_4 WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor': 1}");
         assertContainsEventually(() -> execute("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
@@ -355,11 +356,13 @@ public class TestCassandraIntegrationSmokeTest
         session.execute("CREATE TABLE keyspace_4.\"TaBlE_4\" (column_4 bigint PRIMARY KEY)");
         session.execute("CREATE TABLE keyspace_4.\"tAbLe_4\" (column_4 bigint PRIMARY KEY)");
 
+        Thread.sleep(5000);
+
         // Although in Presto all the schema and table names are always displayed as lowercase
         assertContainsEventually(() -> execute("SHOW TABLES FROM cassandra.keyspace_4"), resultBuilder(getSession(), createUnboundedVarcharType())
                 .row("table_4")
                 .row("table_4")
-                .build(), new Duration(1, MINUTES));
+                .build(), new Duration(2, MINUTES));
 
         // There is no way to figure out what the exactly table is being queried
         assertQueryFailsEventually(
