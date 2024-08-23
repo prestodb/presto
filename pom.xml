@@ -166,6 +166,7 @@
         <module>presto-proxy</module>
         <module>presto-kudu</module>
         <module>presto-elasticsearch</module>
+        <module>presto-elasticsearch-6</module>
         <module>presto-function-namespace-managers</module>
         <module>presto-expressions</module>
         <module>presto-benchmark-runner</module>
@@ -663,6 +664,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-elasticsearch</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-elasticsearch-6</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

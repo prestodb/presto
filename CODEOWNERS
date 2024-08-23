@@ -29,6 +29,7 @@
 /presto-delta @prestodb/committers
 /presto-druid @prestodb/committers
 /presto-elasticsearch @prestodb/committers
+/presto-elasticsearch-6 @prestodb/committers
 /presto-example-http @prestodb/committers
 /presto-expressions @prestodb/committers
 /presto-function-namespace-managers @prestodb/committers

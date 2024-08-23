@@ -78,6 +78,7 @@ jobs:
             !presto-spark-base,
             !presto-redis,
             !presto-elasticsearch,
+            !presto-elasticsearch-6,
             !presto-orc,
             !presto-thrift-connector,
             !presto-native-execution,

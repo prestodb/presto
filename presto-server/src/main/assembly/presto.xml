@@ -189,6 +189,10 @@
             <outputDirectory>plugin/presto-elasticsearch</outputDirectory>
         </fileSet>
         <fileSet>
+            <directory>${project.build.directory}/dependency/presto-elasticsearch-6-${project.version}</directory>
+            <outputDirectory>plugin/presto-elasticsearch-6</outputDirectory>
+        </fileSet>
+        <fileSet>
             <directory>${project.build.directory}/dependency/presto-druid-${project.version}</directory>
             <outputDirectory>plugin/presto-druid</outputDirectory>
         </fileSet>
