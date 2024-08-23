@@ -1,0 +1,78 @@
+---
+slug: ci-migration
+title: "Optimizing and Migrating Velox CI Workloads to Github Actions"
+authors: [jwujciak, kgpai]
+tags: [tech-blog, packaging]
+---
+
+<figure>
+ <img src="/img/abstract-white-background.jpg" height= "100%" width="100%"/>
+</figure>
+
+## TL;DR
+
+In late 2023, the Meta OSS (Open Source Software) Team requested all Meta teams to move the CI deployments from CircleCI to Github Actions. [Voltron Data](http://voltrondata.com) and Meta in collaboration migrated all the deployed Velox CI jobs. For the year 2024, Velox CI spend was on track to overshoot the allocated resources by a considerable amount of money. As part of this migration effort, the CI workloads were consolidated and optimized by Q2 2024, bringing down the projected 2024 CI spend by 51%.
+
+## Velox’s Continuous Integration Workload
+
+Continuous Integration (CI) is crucial for Velox’s success as an open source project as it helps protect from bugs and errors, reduces likelihood of conflicts and leads to increased community trust in the project. This is to ensure the Velox builds works well on a myriad of system architectures, operating systems and compilers - along with the ones used internally at Meta. The OSS build version of Velox also supports additional features that aren't used internally in Meta (for example, support for Cloud blob stores, etc.).
+
+When a pull request is submitted to Velox, the following jobs are executed:
+
+1. Linting and Formatting workflows:
+    1. Header checks
+    2. License checks
+    3. Basic Linters 
+2. Ensure Velox builds on various platforms
+    1. MacOS (Intel, M1)
+    2. Linux (Ubuntu/Centos)
+3. Ensure Velox builds under its various configurations
+    1. Debug / Release builds
+    2. Build default Velox build
+    3. Build Velox with support for Parquet, Arrow and External Adapters (S3/HDFS/GCS etc.)
+    4. PyVelox builds
+4. Run prerequisite tests 
+    1. Unit Tests
+    2. Benchmarking Tests
+        1. [Conbench](https://velox-conbench.voltrondata.run/runs/5bd139fffa9b4e0eb020da4d63211121/) is used to store and compare results, and also alert users on regressions
+    3. Various Fuzzer Tests (Expression / Aggregation/ Exchange / Join etc) 
+    4. Signature Check and Biased Fuzzer Tests ( Expression / Aggregation)
+    5. Fuzzer Tests using Presto as source of truth
+5. Docker Image build jobs
+    1. If an underlying dependency is changed, a new Docker CI image is built for
+        1. Ubuntu Linux
+        2. Centos
+        3. Presto Linux image
+6. Documentation build and publish Job
+    1. If underlying documentation is changed, Velox documentation pages are rebuilt and published
+    2. Netlify is used for publishing Velox web pages
+
+## Velox CI Optimization
+
+Previous implementation of CI in CircleCI grew organically and was unoptimized, resulting in long build times, and also significantly costlier. This opportunity to migrate to Github Actions helped to take a holistic view of CI deployments and actively optimized to reduce build times and CI spend. Note however, that there has been continued investment in reducing test times to further improve Velox reliability, stability and developer experience. Some of the optimizations completed are:  
+
+1. **Persisting build artifacts across builds**: During every build, the object files and binaries produced are cached. In addition to this, artifacts such as scalar function signatures and aggregate function signatures are produced. These signatures are used to compare with the baseline version, by comparing against the changes in the current PR to determine if the current changes are backwards incompatible or bias the newly added changes. Using a stash to persist these artifacts helps save one build cycle.
+
+2. **Optimizing our Instances**: Building Velox is Memory and CPU intensive job. Some beefy instances (16-core machines) are used to build Velox. After the build, the build artifacts are copied to smaller instances (4 core machines) to run fuzzer tests and other jobs. Since these fuzzers often run for an hour and are less intensive than the build process, it resulted in significant CI savings while increasing the test coverage.
+
+## Instrumenting Velox CI Builds
+
+Velox CI builds were instrumented in Conbench so that it can capture various metrics about the builds: 
+1. Build times at translation unit / library/ project level.
+2. Binary sizes produced at TLU/ .a,.so / executable level.
+3. Memory pressure 
+4. Measure across time how our changes affect binary sizes 
+
+A nightly job is run to capture these build metrics and it is uploaded to Conbench. Velox build metrics report is available here: [Velox Build Metrics Report](https://facebookincubator.github.io/velox/bm-report/)
+
+<a href="https://facebookincubator.github.io/velox/bm-report/"> <img src="/img/velox-build-metrics.png" height= "100%" width="100%"/> </a>
+
+## Acknowledgements
+
+A large part of the credit goes to Jacob Wujciak and the team at Voltron Data. We would also like to thank other collaborators in the Open Source Community and at Meta, including but not limited to: 
+
+**Meta**: Sridhar Anumandla, Pedro Eugenio Rocha Pedreira, Deepak Majeti, Meta OSS Team, and others
+
+**Voltron Data**: Jacob Wujciak, Austin Dickey, Marcus Hanwell, Sri Nadukudy, and others
+
+
