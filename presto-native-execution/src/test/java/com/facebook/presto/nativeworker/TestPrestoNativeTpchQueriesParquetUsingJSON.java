@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.nativeworker;
 
+import com.facebook.airlift.log.Logger;
+import com.facebook.presto.Session;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 import org.testng.annotations.Test;
@@ -21,15 +23,22 @@ import org.testng.annotations.Test;
 public class TestPrestoNativeTpchQueriesParquetUsingJSON
         extends AbstractTestNativeTpchQueries
 {
+    private static final Logger log = Logger.get(TestPrestoNativeTpchQueriesParquetUsingJSON.class);
     @Override
     protected QueryRunner createQueryRunner() throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(false, "PARQUET");
+        QueryRunner queryRunner = PrestoNativeQueryRunnerUtils.createNativeQueryRunner(false, "PARQUET");
+        Session session = queryRunner.getDefaultSession();
+        log.info("--Default session from actual query runner: default catalog[%s], default schema[%s]", session.getCatalog(), session.getSchema());
+        return queryRunner;
     }
 
     @Override
     protected ExpectedQueryRunner createExpectedQueryRunner() throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createJavaQueryRunner("PARQUET");
+        QueryRunner queryRunner = PrestoNativeQueryRunnerUtils.createJavaQueryRunner("PARQUET");
+        Session session = queryRunner.getDefaultSession();
+        log.info("--Default session from expected query runner: default catalog[%s], default schema[%s]", session.getCatalog(), session.getSchema());
+        return queryRunner;
     }
 }
