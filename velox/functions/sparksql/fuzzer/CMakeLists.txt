@@ -68,7 +68,7 @@ endforeach()
 # Generate Spark connect hearders and sources.
 add_custom_command(
   OUTPUT ${PROTO_OUTPUT_FILES}
-  COMMAND protobuf::protoc ${PROTO_PATH_ARGS} --cpp_out ${CMAKE_BINARY_DIR}
+  COMMAND protobuf::protoc ${PROTO_PATH_ARGS} --cpp_out ${PROJECT_BINARY_DIR}
           ${PROTO_FILES_FULL}
   DEPENDS protobuf::protoc
   COMMENT "Running PROTO compiler"
@@ -78,7 +78,7 @@ add_custom_command(
 add_custom_command(
   OUTPUT ${GRPC_OUTPUT_FILES}
   COMMAND
-    protobuf::protoc ${PROTO_PATH_ARGS} --grpc_out=${CMAKE_BINARY_DIR}
+    protobuf::protoc ${PROTO_PATH_ARGS} --grpc_out=${PROJECT_BINARY_DIR}
     --plugin=protoc-gen-grpc=$<TARGET_FILE:gRPC::grpc_cpp_plugin>
     ${PROTO_FILES_FULL}
   DEPENDS protobuf::protoc
