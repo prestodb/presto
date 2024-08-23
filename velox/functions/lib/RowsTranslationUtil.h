@@ -22,26 +22,40 @@
 
 namespace facebook::velox::functions {
 
-/// Returns SelectivityVector for the nested vector with all rows corresponding
-/// to specified top-level rows selected. The optional topLevelRowMapping is
-/// used to pass the dictionary indices if the topLevelVector is dictionary
-/// encoded.
+/// This function returns a SelectivityVector for ARRAY/MAP vectors that selects
+/// all rows corresponding to the specified rows. If the base vector was
+/// dictionary encoded, an optional rowMapping parameter can be used to pass
+/// the dictionary indices. In this case, it is important to ensure that the
+/// topLevelRows parameter has already filtered out any null rows added by the
+/// dictionary encoding.
 template <typename T>
 SelectivityVector toElementRows(
     vector_size_t size,
-    const SelectivityVector& topLevelRows,
-    const T* topLevelVector,
-    const vector_size_t* topLevelRowMapping = nullptr) {
-  auto rawNulls = topLevelVector->rawNulls();
-  auto rawSizes = topLevelVector->rawSizes();
-  auto rawOffsets = topLevelVector->rawOffsets();
+    const SelectivityVector& topLevelNonNullRows,
+    const T* arrayBaseVector,
+    const vector_size_t* rowMapping = nullptr) {
+  VELOX_CHECK(
+      arrayBaseVector->encoding() == VectorEncoding::Simple::MAP ||
+      arrayBaseVector->encoding() == VectorEncoding::Simple::ARRAY);
+
+  auto rawNulls = arrayBaseVector->rawNulls();
+  auto rawSizes = arrayBaseVector->rawSizes();
+  auto rawOffsets = arrayBaseVector->rawOffsets();
+  const auto sizeRange =
+      arrayBaseVector->sizes()->template asRange<vector_size_t>().end();
+  const auto offsetRange =
+      arrayBaseVector->offsets()->template asRange<vector_size_t>().end();
 
   SelectivityVector elementRows(size, false);
-  topLevelRows.applyToSelected([&](vector_size_t row) {
-    auto index = topLevelRowMapping ? topLevelRowMapping[row] : row;
+  topLevelNonNullRows.applyToSelected([&](vector_size_t row) {
+    auto index = rowMapping ? rowMapping[row] : row;
     if (rawNulls && bits::isBitNull(rawNulls, index)) {
       return;
     }
+
+    VELOX_DCHECK_LE(index, sizeRange);
+    VELOX_DCHECK_LE(index, offsetRange);
+
     auto size = rawSizes[index];
     auto offset = rawOffsets[index];
     elementRows.setValidRange(offset, offset + size, true);
