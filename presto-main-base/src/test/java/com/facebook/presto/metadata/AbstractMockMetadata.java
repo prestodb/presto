@@ -728,6 +728,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public void dropBranch(Session session, TableHandle tableHandle, String branchName, boolean branchExists)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void dropConstraint(Session session, TableHandle tableHandle, Optional<String> constraintName, Optional<String> columnName)
     {
         throw new UnsupportedOperationException();

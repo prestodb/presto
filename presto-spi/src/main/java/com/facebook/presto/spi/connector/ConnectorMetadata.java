@@ -938,6 +938,14 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Drop the specified branch
+     */
+    default void dropBranch(ConnectorSession session, ConnectorTableHandle tableHandle, String branchName, boolean branchExists)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping table branches");
+    }
+
+    /**
      * Drop the specified constraint
      */
     default void dropConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<String> constraintName, Optional<String> columnName)

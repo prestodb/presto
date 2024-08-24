@@ -857,6 +857,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public void dropBranch(ConnectorSession session, ConnectorTableHandle tableHandle, String branchName, boolean branchExists)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.dropBranch(session, tableHandle, branchName, branchExists);
+        }
+    }
+
+    @Override
     public void dropConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<String> constraintName, Optional<String> columnName)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {

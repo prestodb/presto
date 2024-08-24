@@ -681,6 +681,12 @@ public abstract class DelegatingMetadataManager
     }
 
     @Override
+    public void dropBranch(Session session, TableHandle tableHandle, String branchName, boolean branchExists)
+    {
+        delegate.dropBranch(session, tableHandle, branchName, branchExists);
+    }
+
+    @Override
     public void dropConstraint(Session session, TableHandle tableHandle, Optional<String> constraintName, Optional<String> columnName)
     {
         delegate.dropConstraint(session, tableHandle, constraintName, columnName);
