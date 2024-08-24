@@ -33,6 +33,28 @@ struct WindowFunctionArg {
 
 class WindowFunction {
  public:
+  /// The data process mode for calculating the window function.
+  enum class ProcessMode {
+    /// Process can only start after all the rows from a partition become
+    /// available.
+    kPartition,
+    /// Process can start as soon as rows are available within a partition,
+    /// without waiting for all the rows in the partition to be ready.
+    kRows,
+  };
+
+  /// Indicates whether this is an aggregate window function and its process
+  /// unit.
+  struct Metadata {
+    ProcessMode processMode;
+    bool isAggregate;
+
+    static Metadata defaultMetadata() {
+      static Metadata defaultValue{ProcessMode::kPartition, false};
+      return defaultValue;
+    }
+  };
+
   explicit WindowFunction(
       TypePtr resultType,
       memory::MemoryPool* pool,
@@ -149,6 +171,7 @@ using WindowFunctionFactory = std::function<std::unique_ptr<WindowFunction>(
 bool registerWindowFunction(
     const std::string& name,
     std::vector<FunctionSignaturePtr> signatures,
+    WindowFunction::Metadata metadata,
     WindowFunctionFactory factory);
 
 /// Returns signatures of the window function with the specified name.
@@ -159,7 +182,11 @@ std::optional<std::vector<FunctionSignaturePtr>> getWindowFunctionSignatures(
 struct WindowFunctionEntry {
   std::vector<FunctionSignaturePtr> signatures;
   WindowFunctionFactory factory;
+  WindowFunction::Metadata metadata;
 };
+
+/// Returns window function metadata.
+WindowFunction::Metadata getWindowFunctionMetadata(const std::string& name);
 
 using WindowFunctionMap = std::unordered_map<std::string, WindowFunctionEntry>;
 

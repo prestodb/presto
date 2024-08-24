@@ -98,7 +98,11 @@ void registerWindowFunction() {
           .returnType("BIGINT")
           .build(),
   };
-  exec::registerWindowFunction("window1", std::move(signatures), nullptr);
+  exec::registerWindowFunction(
+      "window1",
+      std::move(signatures),
+      exec::WindowFunction::Metadata::defaultMetadata(),
+      nullptr);
 }
 } // namespace
 

@@ -175,6 +175,7 @@ void registerFirstLastInternal(const std::string& name) {
   exec::registerWindowFunction(
       name,
       std::move(signatures),
+      exec::WindowFunction::Metadata::defaultMetadata(),
       [](const std::vector<exec::WindowFunctionArg>& args,
          const TypePtr& resultType,
          bool ignoreNulls,

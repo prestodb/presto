@@ -241,6 +241,7 @@ void registerNtile(const std::string& name, const std::string& type) {
   exec::registerWindowFunction(
       name,
       std::move(signatures),
+      exec::WindowFunction::Metadata::defaultMetadata(),
       [name](
           const std::vector<exec::WindowFunctionArg>& args,
           const TypePtr& resultType,

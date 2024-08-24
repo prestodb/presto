@@ -21,13 +21,70 @@ WindowPartition::WindowPartition(
     RowContainer* data,
     const folly::Range<char**>& rows,
     const std::vector<column_index_t>& inputMapping,
-    const std::vector<std::pair<column_index_t, core::SortOrder>>& sortKeyInfo)
-    : data_(data),
+    const std::vector<std::pair<column_index_t, core::SortOrder>>& sortKeyInfo,
+    bool partial,
+    bool complete)
+    : partial_(partial),
+      data_(data),
       partition_(rows),
+      complete_(complete),
       inputMapping_(inputMapping),
       sortKeyInfo_(sortKeyInfo) {
-  for (int i = 0; i < inputMapping_.size(); i++) {
-    columns_.emplace_back(data_->columnAt(inputMapping_[i]));
+  VELOX_CHECK_NE(partial_, complete_);
+  VELOX_CHECK_NE(complete_, partition_.empty());
+
+  for (auto index : inputMapping_) {
+    columns_.emplace_back(data_->columnAt(index));
+  }
+}
+
+WindowPartition::WindowPartition(
+    RowContainer* data,
+    const folly::Range<char**>& rows,
+    const std::vector<column_index_t>& inputMapping,
+    const std::vector<std::pair<column_index_t, core::SortOrder>>& sortKeyInfo)
+    : WindowPartition(data, rows, inputMapping, sortKeyInfo, false, true) {}
+
+WindowPartition::WindowPartition(
+    RowContainer* data,
+    const std::vector<column_index_t>& inputMapping,
+    const std::vector<std::pair<column_index_t, core::SortOrder>>& sortKeyInfo)
+    : WindowPartition(data, {}, inputMapping, sortKeyInfo, true, false) {}
+
+void WindowPartition::addRows(const std::vector<char*>& rows) {
+  checkPartial();
+  rows_.insert(rows_.end(), rows.begin(), rows.end());
+  partition_ = folly::Range(rows_.data(), rows_.size());
+}
+
+void WindowPartition::eraseRows(vector_size_t numRows) {
+  checkPartial();
+  VELOX_CHECK_GE(data_->numRows(), numRows);
+  data_->eraseRows(folly::Range<char**>(rows_.data(), numRows));
+}
+
+void WindowPartition::removeProcessedRows(vector_size_t numRows) {
+  checkPartial();
+
+  VELOX_CHECK_NULL(previousRow_);
+  if (complete_ && rows_.size() == numRows) {
+    eraseRows(numRows);
+  } else {
+    eraseRows(numRows - 1);
+    previousRow_ = rows_[numRows - 1];
+  }
+
+  rows_.erase(rows_.begin(), rows_.begin() + numRows);
+  partition_ = folly::Range(rows_.data(), rows_.size());
+  startRow_ += numRows;
+}
+
+vector_size_t WindowPartition::numRowsForProcessing(
+    vector_size_t partitionOffset) const {
+  if (partial_) {
+    return partition_.size();
+  } else {
+    return partition_.size() - partitionOffset;
   }
 }
 
@@ -50,8 +107,9 @@ void WindowPartition::extractColumn(
     vector_size_t numRows,
     vector_size_t resultOffset,
     const VectorPtr& result) const {
+  VELOX_CHECK_GE(partitionOffset, startRow_);
   RowContainer::extractColumn(
-      partition_.data() + partitionOffset,
+      partition_.data() + partitionOffset - startRow_,
       numRows,
       columns_[columnIndex],
       resultOffset,
@@ -130,23 +188,65 @@ bool WindowPartition::compareRowsWithSortKeys(const char* lhs, const char* rhs)
   return false;
 }
 
+vector_size_t WindowPartition::findPeerRowEndIndex(
+    vector_size_t startRow,
+    vector_size_t lastRow,
+    const std::function<bool(const char*, const char*)>& peerCompare) {
+  auto peerEnd = startRow;
+  while (peerEnd <= lastRow) {
+    if (peerCompare(
+            partition_[startRow - startRow_],
+            partition_[peerEnd - startRow_])) {
+      break;
+    }
+    ++peerEnd;
+  }
+  return peerEnd;
+}
+
+void WindowPartition::removePreviousRow() {
+  VELOX_CHECK_NOT_NULL(previousRow_);
+  data_->eraseRows(folly::Range<char**>(&previousRow_, 1));
+  previousRow_ = nullptr;
+}
+
 std::pair<vector_size_t, vector_size_t> WindowPartition::computePeerBuffers(
     vector_size_t start,
     vector_size_t end,
     vector_size_t prevPeerStart,
     vector_size_t prevPeerEnd,
     vector_size_t* rawPeerStarts,
-    vector_size_t* rawPeerEnds) const {
+    vector_size_t* rawPeerEnds) {
   const auto peerCompare = [&](const char* lhs, const char* rhs) -> bool {
     return compareRowsWithSortKeys(lhs, rhs);
   };
 
-  VELOX_CHECK_LE(end, numRows());
+  VELOX_CHECK_LE(end, numRows() + startRow_);
 
-  const auto lastPartitionRow = numRows() - 1;
+  auto lastPartitionRow = numRows() + startRow_ - 1;
   auto peerStart = prevPeerStart;
   auto peerEnd = prevPeerEnd;
-  for (auto i = start, j = 0; i < end; ++i, ++j) {
+
+  size_t next = start;
+  size_t index{0};
+  if (partial_ && start > 0) {
+    const auto peerGroup = peerCompare(previousRow_, partition_[0]);
+
+    // The first row is the last row in previous batch so delete it after used
+    // for the first peer group detection.
+    removePreviousRow();
+
+    if (!peerGroup) {
+      peerEnd = findPeerRowEndIndex(start, lastPartitionRow, peerCompare);
+
+      for (; next < std::min(end, peerEnd); ++next, ++index) {
+        rawPeerStarts[index] = peerStart;
+        rawPeerEnds[index] = peerEnd - 1;
+      }
+    }
+  }
+
+  for (; next < end; ++next, ++index) {
     // When traversing input partition rows, the peers are the rows with the
     // same values for the ORDER BY clause. These rows are equal in some ways
     // and affect the results of ranking functions. This logic exploits the fact
@@ -155,22 +255,17 @@ std::pair<vector_size_t, vector_size_t> WindowPartition::computePeerBuffers(
     // across the rows in that peer interval. Note: peerStart and peerEnd can be
     // maintained across getOutput calls. Hence, they are returned to the
     // caller.
-    if (i == 0 || i >= peerEnd) {
+    if (next == 0 || next >= peerEnd) {
       // Compute peerStart and peerEnd rows for the first row of the partition
       // or when past the previous peerGroup.
-      peerStart = i;
-      peerEnd = i;
-      while (peerEnd <= lastPartitionRow) {
-        if (peerCompare(partition_[peerStart], partition_[peerEnd])) {
-          break;
-        }
-        ++peerEnd;
-      }
+      peerStart = next;
+      peerEnd = findPeerRowEndIndex(peerStart, lastPartitionRow, peerCompare);
     }
 
-    rawPeerStarts[j] = peerStart;
-    rawPeerEnds[j] = peerEnd - 1;
+    rawPeerStarts[index] = peerStart;
+    rawPeerEnds[index] = peerEnd - 1;
   }
+  VELOX_CHECK_EQ(index, end - start);
   return {peerStart, peerEnd};
 }
 

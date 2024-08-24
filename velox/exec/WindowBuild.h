@@ -66,12 +66,16 @@ class WindowBuild {
   /// access the underlying columns of Window partition data. Check
   /// hasNextPartition() before invoking this function. This function fails if
   /// called when no partition is available.
-  virtual std::unique_ptr<WindowPartition> nextPartition() = 0;
+  virtual std::shared_ptr<WindowPartition> nextPartition() = 0;
 
   /// Returns the average size of input rows in bytes stored in the data
   /// container of the WindowBuild.
   std::optional<int64_t> estimateRowSize() {
     return data_->estimateRowSize();
+  }
+
+  void setNumRowsPerOutput(vector_size_t numRowsPerOutput) {
+    numRowsPerOutput_ = numRowsPerOutput;
   }
 
  protected:
@@ -111,6 +115,9 @@ class WindowBuild {
 
   /// Number of input rows.
   vector_size_t numRows_ = 0;
+
+  // The maximum number of rows that can fit into an output block.
+  vector_size_t numRowsPerOutput_;
 };
 
 } // namespace facebook::velox::exec

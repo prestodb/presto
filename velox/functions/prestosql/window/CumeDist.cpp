@@ -74,6 +74,7 @@ void registerCumeDist(const std::string& name) {
   exec::registerWindowFunction(
       name,
       std::move(signatures),
+      exec::WindowFunction::Metadata::defaultMetadata(),
       [name](
           const std::vector<exec::WindowFunctionArg>& /*args*/,
           const TypePtr& /*resultType*/,

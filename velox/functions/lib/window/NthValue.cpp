@@ -319,6 +319,7 @@ void registerNthValue(const std::string& name, TypeKind offsetTypeKind) {
   exec::registerWindowFunction(
       name,
       std::move(signatures),
+      exec::WindowFunction::Metadata::defaultMetadata(),
       [name](
           const std::vector<exec::WindowFunctionArg>& args,
           const TypePtr& resultType,

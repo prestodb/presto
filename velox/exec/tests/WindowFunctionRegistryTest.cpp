@@ -37,7 +37,11 @@ void registerWindowFunction(const std::string& name) {
           .build(),
       exec::FunctionSignatureBuilder().returnType("date").build(),
   };
-  exec::registerWindowFunction(name, std::move(signatures), nullptr);
+  exec::registerWindowFunction(
+      name,
+      std::move(signatures),
+      exec::WindowFunction::Metadata::defaultMetadata(),
+      nullptr);
 }
 } // namespace
 

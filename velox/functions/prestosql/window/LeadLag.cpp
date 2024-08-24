@@ -424,6 +424,7 @@ void registerLag(const std::string& name) {
   exec::registerWindowFunction(
       name,
       signatures(),
+      exec::WindowFunction::Metadata::defaultMetadata(),
       [name](
           const std::vector<exec::WindowFunctionArg>& args,
           const TypePtr& resultType,
@@ -441,6 +442,7 @@ void registerLead(const std::string& name) {
   exec::registerWindowFunction(
       name,
       signatures(),
+      exec::WindowFunction::Metadata::defaultMetadata(),
       [name](
           const std::vector<exec::WindowFunctionArg>& args,
           const TypePtr& resultType,
