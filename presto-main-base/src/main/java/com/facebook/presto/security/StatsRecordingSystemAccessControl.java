@@ -693,6 +693,24 @@ public final class StatsRecordingSystemAccessControl
     }
 
     @Override
+    public void checkCanDropBranch(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+    {
+        long start = System.nanoTime();
+        try {
+            delegate.get().checkCanDropBranch(identity, context, table);
+        }
+        catch (RuntimeException e) {
+            stats.checkCanDropBranch.recordFailure();
+            throw e;
+        }
+        finally {
+            long duration = System.nanoTime() - start;
+            context.getRuntimeStats().addMetricValue("systemAccessControl.checkCanDropBranch", RuntimeUnit.NANO, duration);
+            stats.checkCanDropBranch.record(duration);
+        }
+    }
+
+    @Override
     public void checkCanDropConstraint(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
     {
         long start = System.nanoTime();
@@ -801,6 +819,7 @@ public final class StatsRecordingSystemAccessControl
         final SystemAccessControlStats checkCanSetCatalogSessionProperty = new SystemAccessControlStats();
         final SystemAccessControlStats checkCanGrantTablePrivilege = new SystemAccessControlStats();
         final SystemAccessControlStats checkCanRevokeTablePrivilege = new SystemAccessControlStats();
+        final SystemAccessControlStats checkCanDropBranch = new SystemAccessControlStats();
         final SystemAccessControlStats checkCanDropConstraint = new SystemAccessControlStats();
         final SystemAccessControlStats checkCanAddConstraint = new SystemAccessControlStats();
         final SystemAccessControlStats getRowFilters = new SystemAccessControlStats();

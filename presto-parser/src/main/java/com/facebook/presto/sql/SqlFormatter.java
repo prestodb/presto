@@ -38,6 +38,7 @@ import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DescribeInput;
 import com.facebook.presto.sql.tree.DescribeOutput;
+import com.facebook.presto.sql.tree.DropBranch;
 import com.facebook.presto.sql.tree.DropColumn;
 import com.facebook.presto.sql.tree.DropConstraint;
 import com.facebook.presto.sql.tree.DropFunction;
@@ -1824,6 +1825,23 @@ public final class SqlFormatter
                 builder.append(" FROM ")
                         .append(node.getCatalog().get());
             }
+
+            return null;
+        }
+
+        @Override
+        protected Void visitDropBranch(DropBranch node, Integer indent)
+        {
+            builder.append("ALTER TABLE ");
+            if (node.isTableExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(formatName(node.getTableName()))
+                    .append(" DROP BRANCH ");
+            if (node.isBranchExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(formatStringLiteral(node.getBranchName()));
 
             return null;
         }
