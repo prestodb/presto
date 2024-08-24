@@ -206,6 +206,7 @@ import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewSta
 import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.NOT_MATERIALIZED;
 import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.PARTIALLY_MATERIALIZED;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.google.common.base.Preconditions.checkState;
@@ -906,6 +907,22 @@ public abstract class IcebergAbstractMetadata
     public void rollback()
     {
         // TODO: cleanup open transaction
+    }
+
+    @Override
+    public void dropBranch(ConnectorSession session, ConnectorTableHandle tableHandle, String branchName, boolean branchExists)
+    {
+        IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
+        verify(icebergTableHandle.getIcebergTableName().getTableType() == DATA, "only the data table can have branch dropped");
+        Table icebergTable = getIcebergTable(session, icebergTableHandle.getSchemaTableName());
+        if (icebergTable.refs().containsKey(branchName) && icebergTable.refs().get(branchName).isBranch()) {
+            icebergTable.manageSnapshots().removeBranch(branchName).commit();
+        }
+        else {
+            if (!branchExists) {
+                throw new PrestoException(NOT_FOUND, format("Branch %s doesn't exist in table %s", branchName, icebergTableHandle.getSchemaTableName().getTableName()));
+            }
+        }
     }
 
     @Override
