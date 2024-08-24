@@ -622,7 +622,7 @@ struct WriterOptions {
   // process format-specific session and connector configs.
   virtual void processConfigs(
       const config::ConfigBase& connectorConfig,
-      const config::ConfigBase& session) {};
+      const config::ConfigBase& session) = 0;
 
   virtual ~WriterOptions() = default;
 };
