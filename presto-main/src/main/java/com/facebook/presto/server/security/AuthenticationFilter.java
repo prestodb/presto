@@ -155,7 +155,7 @@ public class AuthenticationFilter
         return false;
     }
 
-    private static CustomHttpServletRequestWrapper withPrincipal(HttpServletRequest request, Principal principal)
+    public CustomHttpServletRequestWrapper withPrincipal(HttpServletRequest request, Principal principal)
     {
         requireNonNull(principal, "principal is null");
         return new CustomHttpServletRequestWrapper(request, principal);
