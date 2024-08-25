@@ -29,6 +29,7 @@
 #include "presto_cpp/main/http/filters/HttpEndpointLatencyFilter.h"
 #include "presto_cpp/main/http/filters/InternalAuthenticationFilter.h"
 #include "presto_cpp/main/http/filters/StatsFilter.h"
+#include "presto_cpp/main/http/HttpConstants.h"
 #include "presto_cpp/main/operators/BroadcastExchangeSource.h"
 #include "presto_cpp/main/operators/BroadcastWrite.h"
 #include "presto_cpp/main/operators/LocalPersistentShuffle.h"
@@ -365,6 +366,14 @@ void PrestoServer::run() {
         json infoStateJson = convertNodeState(server->nodeState());
         http::sendOkResponse(downstream, infoStateJson);
       });
+  httpServer_->registerPut(
+     "/v1/info/state",
+     [server = this](
+         proxygen::HTTPMessage* /*message*/,
+         const std::vector<std::unique_ptr<folly::IOBuf>>& body ,
+         proxygen::ResponseHandler* downstream) {
+         server->handleGracefulShutdown(body, downstream);
+ });
   httpServer_->registerGet(
       "/v1/status",
       [server = this](
@@ -1402,6 +1411,28 @@ void PrestoServer::reportServerInfo(proxygen::ResponseHandler* downstream) {
 
 void PrestoServer::reportNodeStatus(proxygen::ResponseHandler* downstream) {
   http::sendOkResponse(downstream, json(fetchNodeStatus()));
+}
+
+void PrestoServer::handleGracefulShutdown(const std::vector<std::unique_ptr<folly::IOBuf>>& body, proxygen::ResponseHandler* downstream){
+    if (body.size()==1 && body[0]->moveToFbString() == "\"SHUTTING_DOWN\"") {
+         // Print message and initiate shutdown
+         LOG(INFO) << "Shutdown requested";
+         if (nodeState() == NodeState::kActive) {
+             // Call stop() to handle the shutdown process
+             std::thread([this]() {
+                     this->stop();
+                 }).detach();
+         } else {
+             // Print message and indicate that node is inactive or shutdown is already requested
+             LOG(INFO) << "Node is inactive or shutdown is already requested";
+         }
+        http::sendOkResponse(downstream);
+    } else {
+         // Throw a 400 Bad Request error if the body has some other value
+         http::sendErrorResponse(
+             downstream,
+             "Bad Request", http::kHttpBadRequest);
+    }
 }
 
 protocol::NodeStatus PrestoServer::fetchNodeStatus() {
