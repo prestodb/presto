@@ -51,6 +51,36 @@ target_link_libraries(
 set_property(TARGET presto_server_test PROPERTY JOB_POOL_LINK
                                                 presto_link_job_pool)
 
+add_executable(graceful_shutdown_test GracefulShutdownTest.cpp
+                                      PrestoServerWrapper.cpp)
+
+add_test(
+  NAME graceful_shutdown_test
+  COMMAND graceful_shutdown_test
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+target_link_libraries(
+  graceful_shutdown_test
+  velox_caching
+  velox_exec_test_lib
+  presto_server_lib
+  velox_dwio_common_test_utils
+  $<TARGET_OBJECTS:presto_type_converter>
+  $<TARGET_OBJECTS:presto_types>
+  velox_hive_connector
+  velox_tpch_connector
+  velox_presto_serializer
+  velox_functions_prestosql
+  velox_aggregates
+  velox_hive_partition_function
+  ${RE2}
+  GTest::gmock
+  GTest::gtest
+  GTest::gtest_main)
+
+set_property(TARGET graceful_shutdown_test PROPERTY JOB_POOL_LINK
+                                                    presto_link_job_pool)
+
 if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
   add_executable(presto_server_remote_function_test
                  JsonSignatureParserTest.cpp RemoteFunctionRegistererTest.cpp)
