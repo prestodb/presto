@@ -430,11 +430,19 @@ class HashProbe : public Operator {
   // Row number in 'input_' for each output row.
   BufferPtr outputRowMapping_;
 
+  // For left join with filter, we could overwrite the row which we have not
+  // checked if there is a carryover.  Use a temporary buffer in this case.
+  BufferPtr tempOutputRowMapping_;
+
   // maps from column index in 'table_' to channel in 'output_'.
   std::vector<IdentityProjection> tableOutputProjections_;
 
   // Rows of table found by join probe, later filtered by 'filter_'.
   std::vector<char*> outputTableRows_;
+
+  // For left join with filter, we could overwrite the row which we have not
+  // checked if there is a carryover.  Use a temporary buffer in this case.
+  BufferPtr tempOutputTableRows_;
 
   // Indicates probe-side rows which should produce a NULL in left semi project
   // with filter.
@@ -447,89 +455,40 @@ class HashProbe : public Operator {
     // Called for each row that the filter was evaluated on. Expects that probe
     // side rows with multiple matches on the build side are next to each other.
     template <typename TOnMiss>
-    void advance(vector_size_t row, bool passed, TOnMiss onMiss) {
-      if (currentRow != row) {
-        // Check if 'currentRow' is the same input row as the last missed row
-        // from a previous output batch.  If so finishIteration will call
-        // onMiss.
-        if (currentRow != -1 && !currentRowPassed &&
-            (!lastMissedRow || currentRow != lastMissedRow)) {
-          onMiss(currentRow);
+    void advance(vector_size_t row, bool passed, TOnMiss&& onMiss) {
+      if (currentRow_ != row) {
+        if (hasLastMissedRow()) {
+          onMiss(currentRow_);
         }
-        currentRow = row;
-        currentRowPassed = false;
+        currentRow_ = row;
+        currentRowPassed_ = false;
       }
-
       if (passed) {
-        // lastMissedRow can only be a row that has never passed the filter.  If
-        // it passes there's no need to continue carrying it forward.
-        if (lastMissedRow && currentRow == lastMissedRow) {
-          lastMissedRow.reset();
-        }
-
-        currentRowPassed = true;
+        currentRowPassed_ = true;
       }
     }
 
-    // Invoked at the end of one output batch processing. 'end' is set to true
-    // at the end of processing an input batch. 'freeOutputRows' is the number
-    // of rows that can still be written to the output batch.
+    // Invoked at the end of all output batches.
     template <typename TOnMiss>
-    void
-    finishIteration(TOnMiss onMiss, bool endOfData, size_t freeOutputRows) {
-      if (endOfData) {
-        if (!currentRowPassed && currentRow != -1) {
-          // If we're at the end of the input batch and the current row hasn't
-          // passed the filter, it never will, process it as a miss.
-          // We're guaranteed to have space, at least the last row was never
-          // written out since it was a miss.
-          onMiss(currentRow);
-          freeOutputRows--;
-        }
-
-        // We no longer need to carry the current row since we already called
-        // onMiss on it.
-        if (lastMissedRow && currentRow == lastMissedRow) {
-          lastMissedRow.reset();
-        }
-
-        currentRow = -1;
-        currentRowPassed = false;
+    void finish(TOnMiss&& onMiss) {
+      if (hasLastMissedRow()) {
+        onMiss(currentRow_);
       }
-
-      // If there's space left in the output batch, write out the last missed
-      // row.
-      if (lastMissedRow && currentRow != lastMissedRow && freeOutputRows > 0) {
-        onMiss(*lastMissedRow);
-        lastMissedRow.reset();
-      }
-
-      // If the current row hasn't passed the filter, we need to carry it
-      // forward in case it never passes the filter.
-      if (!currentRowPassed && currentRow != -1) {
-        lastMissedRow = currentRow;
-      }
+      currentRow_ = -1;
     }
 
     // Returns if we're carrying forward a missed input row. Notably, if this is
     // true, we're not yet done processing the input batch.
-    bool hasLastMissedRow() {
-      return lastMissedRow.has_value();
+    bool hasLastMissedRow() const {
+      return currentRow_ != -1 && !currentRowPassed_;
     }
 
    private:
     // Row number being processed.
-    vector_size_t currentRow{-1};
+    vector_size_t currentRow_{-1};
 
-    // True if currentRow has a match.
-    bool currentRowPassed{false};
-
-    // If set, it points to the last missed (input) row carried over from
-    // previous output batch processing. The last missed row is either written
-    // as a passed row if the same input row has a hit in the next output batch
-    // processed or written to the first output batch which has space at
-    // the end if it never has a hit.
-    std::optional<vector_size_t> lastMissedRow;
+    // True if currentRow_ has a match.
+    bool currentRowPassed_{false};
   };
 
   // For left semi join filter with extra filter, de-duplicates probe side rows

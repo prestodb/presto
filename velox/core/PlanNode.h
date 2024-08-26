@@ -1526,6 +1526,10 @@ class AbstractJoinNode : public PlanNode {
     return joinType_ == JoinType::kAnti;
   }
 
+  bool isPreservingProbeOrder() const {
+    return isInnerJoin() || isLeftJoin() || isAntiJoin();
+  }
+
   const std::vector<FieldAccessTypedExprPtr>& leftKeys() const {
     return leftKeys_;
   }
