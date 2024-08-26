@@ -29,6 +29,7 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 
 import static com.facebook.presto.operator.scalar.ArraySortFunction.sort;
@@ -50,6 +51,69 @@ import static java.lang.System.arraycopy;
 public final class IpPrefixFunctions
 {
     private static final BigInteger TWO = BigInteger.valueOf(2);
+
+    /**
+     * Our definitions for what IANA considers not "globally reachable" are taken from the docs at
+     * https://www.iana.org/assignments/iana-ipv4-special-registry/iana-ipv4-special-registry.xhtml and
+     * https://www.iana.org/assignments/iana-ipv6-special-registry/iana-ipv6-special-registry.xhtml.
+     * Java's InetAddress.isSiteLocalAddress only covers three of these: 10.0.0.0/8, 172.16.0.0/12, and 192.168.0.0/16,
+     * so we operate over the complete list below.
+     */
+    private static final String[] privatePrefixes = new String[] {
+            // IPv4 private ranges
+            "0.0.0.0/8",        // RFC1122: "This host on this network"
+            "10.0.0.0/8",       // RFC1918: Private-Use
+            "100.64.0.0/10",    // RFC6598: Shared Address Space
+            "127.0.0.0/8",      // RFC1122: Loopback
+            "169.254.0.0/16",   // RFC3927: Link Local
+            "172.16.0.0/12",    // RFC1918: Private-Use
+            "192.0.0.0/24",     // RFC6890: IETF Protocol Assignments
+            "192.0.2.0/24",     // RFC5737: Documentation (TEST-NET-1)
+            "192.88.99.0/24",   // RFC3068: 6to4 Relay anycast
+            "192.168.0.0/16",   // RFC1918: Private-Use
+            "198.18.0.0/15",    // RFC2544: Benchmarking
+            "198.51.100.0/24",  // RFC5737: Documentation (TEST-NET-2)
+            "203.0.113.0/24",   // RFC5737: Documentation (TEST-NET-3)
+            "240.0.0.0/4",      // RFC1112: Reserved
+            // IPv6 private ranges
+            "::/127",           // RFC4291: Unspecified address and Loopback address
+            "64:ff9b:1::/48",   // RFC8215: IPv4-IPv6 Translation
+            "100::/64",         // RFC6666: Discard-Only Address Block
+            "2001:2::/48",      // RFC5180, RFC Errata 1752: Benchmarking
+            "2001:db8::/32",    // RFC3849: Documentation
+            "2001::/23",        // RFC2928: IETF Protocol Assignments
+            "5f00::/16",        // RFC-ietf-6man-sids-06: Segment Routing (SRv6)
+            "fe80::/10",        // RFC4291: Link-Local Unicast
+            "fc00::/7",         // RFC4193, RFC8190: Unique Local
+    };
+
+    private static final List<BigInteger[]> privateIPv4AddressRanges;
+    private static final List<BigInteger[]> privateIPv6AddressRanges;
+
+    static {
+        privateIPv4AddressRanges = new ArrayList<>();
+        privateIPv6AddressRanges = new ArrayList<>();
+        // convert the private prefixes into the first and last BigInteger ranges
+        for (String privatePrefix : privatePrefixes) {
+            Slice ipPrefixSlice = castFromVarcharToIpPrefix(utf8Slice(privatePrefix));
+            Slice startingIpAddress = ipSubnetMin(ipPrefixSlice);
+            Slice endingIpAddress = ipSubnetMax(ipPrefixSlice);
+
+            BigInteger startingIpAsBigInt = toBigInteger(startingIpAddress);
+            BigInteger endingIpAsBigInt = toBigInteger(endingIpAddress);
+
+            BigInteger[] privateRange = new BigInteger[]{startingIpAsBigInt, endingIpAsBigInt};
+
+            if (isIpv4(ipPrefixSlice)) {
+                privateIPv4AddressRanges.add(privateRange);
+            }
+            else {
+                privateIPv6AddressRanges.add(privateRange);
+            }
+        }
+        privateIPv4AddressRanges.sort(Comparator.comparing(e -> e[0]));
+        privateIPv6AddressRanges.sort(Comparator.comparing(e -> e[0]));
+    }
 
     private IpPrefixFunctions() {}
 
@@ -195,6 +259,35 @@ public final class IpPrefixFunctions
         }
 
         return blockBuilder.build();
+    }
+
+    @Description("Returns whether ipAddress is a private or reserved IP address that is not globally reachable.")
+    @ScalarFunction("is_private_ip")
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean isPrivateIpAddress(@SqlType(StandardTypes.IPADDRESS) Slice ipAddress)
+    {
+        BigInteger ipAsBigInt = toBigInteger(ipAddress);
+        boolean isIPv4 = isIpv4(ipAddress);
+
+        List<BigInteger[]> rangesToCheck = isIPv4 ? privateIPv4AddressRanges : privateIPv6AddressRanges;
+
+        // rangesToCheck is sorted
+        for (BigInteger[] privateAddressRange : rangesToCheck) {
+            BigInteger startIp = privateAddressRange[0];
+            BigInteger endIp = privateAddressRange[1];
+
+            if (ipAsBigInt.compareTo(startIp) < 0) {
+                return false;  // current and subsequent ranges are all higher values, so we can fail fast here.
+            }
+
+            // ipAddress at least >= to startIp
+
+            if (ipAsBigInt.compareTo(endIp) <= 0) {
+                return true;  // if ipAsBigInt is in between startIp and endIp of private range then return true
+            }
+        }
+
+        return false;
     }
 
     private static List<Slice> generateMinIpPrefixes(BigInteger firstIpAddress, BigInteger lastIpAddress, int ipVersionMaxBits)
