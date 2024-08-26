@@ -56,19 +56,28 @@ std::string getDataPath(const std::string& fileName) {
   return currentPath + "/data/" + fileName;
 }
 
-std::shared_ptr<const core::PlanNode> assertToVeloxQueryPlan(
-    const std::string& fileName) {
+core::PlanFragment assertToVeloxFragment(
+    const std::string& fileName,
+    memory::MemoryPool* pool = nullptr) {
   std::string fragment = slurp(getDataPath(fileName));
 
   protocol::PlanFragment prestoPlan = json::parse(fragment);
-  auto pool = memory::deprecatedAddDefaultLeafMemoryPool();
+  std::shared_ptr<memory::MemoryPool> poolPtr;
+  if (pool == nullptr) {
+    poolPtr = memory::deprecatedAddDefaultLeafMemoryPool();
+    pool = poolPtr.get();
+  }
 
   auto queryCtx = core::QueryCtx::create();
-  VeloxInteractiveQueryPlanConverter converter(queryCtx.get(), pool.get());
-  return converter
-      .toVeloxQueryPlan(
-          prestoPlan, nullptr, "20201107_130540_00011_wrpkw.1.2.3")
-      .planNode;
+  VeloxInteractiveQueryPlanConverter converter(queryCtx.get(), pool);
+  return converter.toVeloxQueryPlan(
+      prestoPlan, nullptr, "20201107_130540_00011_wrpkw.1.2.3");
+}
+
+std::shared_ptr<const core::PlanNode> assertToVeloxQueryPlan(
+    const std::string& fileName,
+    memory::MemoryPool* pool = nullptr) {
+  return assertToVeloxFragment(fileName, pool).planNode;
 }
 
 std::shared_ptr<const core::PlanNode> assertToBatchVeloxQueryPlan(
@@ -143,6 +152,25 @@ TEST_F(PlanConverterTest, scanAgg) {
   ASSERT_EQ(tableParameters.find("foobar"), tableParameters.end());
 
   assertToVeloxQueryPlan("ScanAggCustomConnectorId.json");
+}
+
+// Partitioned output with partitioned scheme over const key and a variable.
+TEST_F(PlanConverterTest, partitionedOutput) {
+  std::shared_ptr<memory::MemoryPool> poolPtr =
+      memory::deprecatedAddDefaultLeafMemoryPool();
+  core::PlanFragment fragment =
+      assertToVeloxFragment("PartitionedOutput.json", poolPtr.get());
+  auto partitionedOutput =
+      dynamic_cast<const core::PartitionedOutputNode*>(fragment.planNode.get());
+
+  // Test fragment's partitioning scheme.
+  ASSERT_EQ(
+      partitionedOutput->partitionFunctionSpec().toString(),
+      "HASH(\"1 elements starting at 0 {cluster_label_v2}\", expr_181)");
+  auto keys = partitionedOutput->keys();
+  ASSERT_EQ(keys.size(), 2);
+  ASSERT_EQ(keys[0]->toString(), "1 elements starting at 0 {cluster_label_v2}");
+  ASSERT_EQ(keys[1]->toString(), "\"expr_181\"");
 }
 
 // Final Agg stage plan for select regionkey, sum(1) from nation group by 1
