@@ -14,16 +14,14 @@
 package com.facebook.presto.iceberg.rest;
 
 import com.facebook.airlift.http.server.testing.TestingHttpServer;
-import com.facebook.presto.iceberg.IcebergDistributedTestBase;
+import com.facebook.presto.iceberg.TestIcebergDistributedQueries;
 import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableMap;
 import org.assertj.core.util.Files;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
 
 import java.io.File;
-import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 
@@ -34,25 +32,17 @@ import static com.facebook.presto.iceberg.rest.IcebergRestTestUtil.getRestServer
 import static com.facebook.presto.iceberg.rest.IcebergRestTestUtil.restConnectorProperties;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@Test
-public class TestIcebergDistributedRest
-        extends IcebergDistributedTestBase
+public class TestIcebergRestCatalogDistributedQueries
+        extends TestIcebergDistributedQueries
 {
     private TestingHttpServer restServer;
     private String serverUri;
     private File warehouseLocation;
 
-    protected TestIcebergDistributedRest()
+    protected TestIcebergRestCatalogDistributedQueries()
     {
         super(REST);
-    }
-
-    @Override
-    protected Map<String, String> getProperties()
-    {
-        return ImmutableMap.of("uri", serverUri);
     }
 
     @BeforeClass
@@ -93,12 +83,9 @@ public class TestIcebergDistributedRest
                 Optional.of(warehouseLocation.toPath()));
     }
 
-    @Test
-    public void testDeleteOnV1Table()
+    @Override
+    protected boolean supportsViews()
     {
-        // v1 table create fails due to Iceberg REST catalog bug (see: https://github.com/apache/iceberg/issues/8756)
-        assertThatThrownBy(super::testDeleteOnV1Table)
-                .isInstanceOf(RuntimeException.class)
-                .hasMessageMatching("Cannot downgrade v2 table to v1");
+        return false;
     }
 }
