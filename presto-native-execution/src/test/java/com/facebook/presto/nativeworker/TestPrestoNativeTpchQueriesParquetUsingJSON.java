@@ -13,23 +13,29 @@
  */
 package com.facebook.presto.nativeworker;
 
-import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
+import com.facebook.presto.iceberg.FileFormat;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
+import com.facebook.presto.tests.DistributedQueryRunner;
 import org.testng.annotations.Test;
+
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 @Test(groups = {"parquet"})
 public class TestPrestoNativeTpchQueriesParquetUsingJSON
         extends AbstractTestNativeTpchQueries
 {
-    private static final Logger log = Logger.get(TestPrestoNativeTpchQueriesParquetUsingJSON.class);
     @Override
     protected QueryRunner createQueryRunner() throws Exception
     {
         QueryRunner queryRunner = PrestoNativeQueryRunnerUtils.createNativeQueryRunner(false, "PARQUET");
         Session session = queryRunner.getDefaultSession();
-        log.info("--Default session from actual query runner: default catalog[%s], default schema[%s]", session.getCatalog(), session.getSchema());
+        System.out.println("--[TestPrestoNativeTpchQueriesParquetUsingJSON]-Default session from actual query runner: " + session.getCatalog() + "--" + session.getSchema());
+        // default addStorageFormatToPath is true
+        Path hiveDataDirectory = Paths.get(((DistributedQueryRunner) queryRunner).getCoordinator().getDataDirectory() + "/" + FileFormat.PARQUET.name());
+        System.out.println("--[TestPrestoNativeTpchQueriesParquetUsingJSON]--actual query runner data directory: " + hiveDataDirectory.toString());
         return queryRunner;
     }
 
@@ -38,7 +44,10 @@ public class TestPrestoNativeTpchQueriesParquetUsingJSON
     {
         QueryRunner queryRunner = PrestoNativeQueryRunnerUtils.createJavaQueryRunner("PARQUET");
         Session session = queryRunner.getDefaultSession();
-        log.info("--Default session from expected query runner: default catalog[%s], default schema[%s]", session.getCatalog(), session.getSchema());
+        System.out.println("--[TestPrestoNativeTpchQueriesParquetUsingJSON]-Default session from expected query runner: " + session.getCatalog() + "--" + session.getSchema());
+        // default addStorageFormatToPath is true
+        Path hiveDataDirectory = Paths.get(((DistributedQueryRunner) queryRunner).getCoordinator().getDataDirectory() + "/" + FileFormat.PARQUET.name());
+        System.out.println("--[TestPrestoNativeTpchQueriesParquetUsingJSON]--expected query runner data directory: " + hiveDataDirectory.toString());
         return queryRunner;
     }
 }

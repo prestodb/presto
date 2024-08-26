@@ -14,8 +14,13 @@
 package com.facebook.presto.nativeworker;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.iceberg.FileFormat;
 import com.facebook.presto.testing.QueryRunner;
+import com.facebook.presto.tests.DistributedQueryRunner;
 import org.testng.annotations.Test;
+
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 import static com.facebook.presto.SystemSessionProperties.CTE_FILTER_AND_PROJECTION_PUSHDOWN_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.CTE_MATERIALIZATION_STRATEGY;
@@ -31,14 +36,26 @@ public class TestPrestoNativeCteExecutionParquet
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createNativeCteQueryRunner(true, "PARQUET");
+        QueryRunner queryRunner = PrestoNativeQueryRunnerUtils.createNativeCteQueryRunner(true, "PARQUET");
+        Session session = queryRunner.getDefaultSession();
+        System.out.println("--[TestPrestoNativeCteExecutionParquet]-Default session from actual query runner: " + session.getCatalog() + "--" + session.getSchema());
+        // default addStorageFormatToPath is true
+        Path hiveDataDirectory = Paths.get(((DistributedQueryRunner) queryRunner).getCoordinator().getDataDirectory() + "/" + FileFormat.PARQUET.name());
+        System.out.println("--[TestPrestoNativeCteExecutionParquet]--actual query runner data directory: " + hiveDataDirectory.toString());
+        return queryRunner;
     }
 
     @Override
     protected QueryRunner createExpectedQueryRunner()
             throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createJavaQueryRunner("PARQUET");
+        QueryRunner queryRunner = PrestoNativeQueryRunnerUtils.createJavaQueryRunner("PARQUET");
+        Session session = queryRunner.getDefaultSession();
+        System.out.println("--[TestPrestoNativeCteExecutionParquet]-Default session from expected query runner: " + session.getCatalog() + "--" + session.getSchema());
+        // default addStorageFormatToPath is true
+        Path icebergDataDirectory = Paths.get(((DistributedQueryRunner) queryRunner).getCoordinator().getDataDirectory() + "/" + FileFormat.PARQUET.name());
+        System.out.println("--[TestPrestoNativeCteExecutionParquet]--expected query runner data directory: " + icebergDataDirectory.toString());
+        return queryRunner;
     }
 
     @Override
