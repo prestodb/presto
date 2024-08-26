@@ -60,3 +60,13 @@ IP Functions
         SELECT IP_PREFIX_COLLAPSE(ARRAY[IPPREFIX '2620:10d:c090::/48', IPPREFIX '2620:10d:c091::/48']); -- [{2620:10d:c090::/47}]
         SELECT IP_PREFIX_COLLAPSE(ARRAY[IPPREFIX '192.168.1.0/24', IPPREFIX '192.168.0.0/24', IPPREFIX '192.168.2.0/24', IPPREFIX '192.168.9.0/24']); -- [{192.168.0.0/23}, {192.168.2.0/24}, {192.168.9.0/24}]
 
+.. function:: is_private_ip(ip_address) -> boolean
+
+    Returns whether ``ip_address`` of type ``IPADDRESS`` is a private or reserved IP address
+    that is not considered globally reachable by IANA. For more information, see `IANA IPv4 Special-Purpose Address Registry <https://www.iana.org/assignments/iana-ipv4-special-registry/iana-ipv4-special-registry.xhtml>`_ and `IANA IPv6 Special-Purpose Address Registry <https://www.iana.org/assignments/iana-ipv6-special-registry/iana-ipv6-special-registry.xhtml>`_. `Null` inputs return `null`. ::
+
+        SELECT is_private_ip(IPADDRESS '10.0.0.1'); -- true
+        SELECT is_private_ip(IPADDRESS '192.168.0.1'); -- true
+        SELECT is_private_ip(IPADDRESS '157.240.200.99'); -- false
+        SELECT is_private_ip(IPADDRESS '2a03:2880:f031:12:face:b00c:0:2'); -- false
+
