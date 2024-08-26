@@ -109,20 +109,19 @@ public class NativeQueryRunnerUtils
 
     public static void createLineitem(QueryRunner queryRunner, boolean castDateToVarchar)
     {
-        if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "lineitem")) {
-            String shipDate = castDateToVarchar ? "cast(shipdate as varchar) as shipdate" : "shipdate";
-            String commitDate = castDateToVarchar ? "cast(commitdate as varchar) as commitdate" : "commitdate";
-            String receiptDate = castDateToVarchar ? "cast(receiptdate as varchar) as receiptdate" : "receiptdate";
-            queryRunner.execute("CREATE TABLE lineitem AS " +
-                    "SELECT orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax, " +
-                    "   returnflag, linestatus, " + shipDate + ", " + commitDate + ", " + receiptDate + ", " +
-                    "   shipinstruct, shipmode, comment, " +
-                    "   linestatus = 'O' as is_open, returnflag = 'R' as is_returned, " +
-                    "   cast(tax as real) as tax_as_real, cast(discount as real) as discount_as_real, " +
-                    "   cast(linenumber as smallint) as linenumber_as_smallint, " +
-                    "   cast(linenumber as tinyint) as linenumber_as_tinyint " +
-                    "FROM tpch.tiny.lineitem");
-        }
+        queryRunner.execute("DROP TABLE IF EXISTS lineitem");
+        String shipDate = castDateToVarchar ? "cast(shipdate as varchar) as shipdate" : "shipdate";
+        String commitDate = castDateToVarchar ? "cast(commitdate as varchar) as commitdate" : "commitdate";
+        String receiptDate = castDateToVarchar ? "cast(receiptdate as varchar) as receiptdate" : "receiptdate";
+        queryRunner.execute("CREATE TABLE lineitem AS " +
+                "SELECT orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax, " +
+                "   returnflag, linestatus, " + shipDate + ", " + commitDate + ", " + receiptDate + ", " +
+                "   shipinstruct, shipmode, comment, " +
+                "   linestatus = 'O' as is_open, returnflag = 'R' as is_returned, " +
+                "   cast(tax as real) as tax_as_real, cast(discount as real) as discount_as_real, " +
+                "   cast(linenumber as smallint) as linenumber_as_smallint, " +
+                "   cast(linenumber as tinyint) as linenumber_as_tinyint " +
+                "FROM tpch.tiny.lineitem");
     }
 
     public static void createLineitemForIceberg(QueryRunner queryRunner)
@@ -143,13 +142,12 @@ public class NativeQueryRunnerUtils
 
     public static void createOrders(QueryRunner queryRunner, boolean castDateToVarchar)
     {
-        if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "orders")) {
-            String orderDate = castDateToVarchar ? "cast(orderdate as varchar) as orderdate" : "orderdate";
-            queryRunner.execute("CREATE TABLE orders AS " +
-                    "SELECT orderkey, custkey, orderstatus, totalprice, " + orderDate + ", " +
-                    "   orderpriority, clerk, shippriority, comment " +
-                    "FROM tpch.tiny.orders");
-        }
+        queryRunner.execute("DROP TABLE IF EXISTS orders");
+        String orderDate = castDateToVarchar ? "cast(orderdate as varchar) as orderdate" : "orderdate";
+        queryRunner.execute("CREATE TABLE orders AS " +
+                "SELECT orderkey, custkey, orderstatus, totalprice, " + orderDate + ", " +
+                "   orderpriority, clerk, shippriority, comment " +
+                "FROM tpch.tiny.orders");
     }
 
     public static void createOrdersEx(QueryRunner queryRunner)
