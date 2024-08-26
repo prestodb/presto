@@ -320,6 +320,9 @@ Property Name                                           Description             
 
 ``iceberg.metadata-delete-after-commit``                Set to ``true`` to delete the oldest metadata files after     ``false``
                                                         each commit.
+
+``iceberg.metrics-max-inferred-column``                 The maximum number of columns for which metrics               ``100``
+                                                        are collected.
 ======================================================= ============================================================= ============
 
 Table Properties
@@ -367,6 +370,9 @@ Property Name                             Description                           
 
 ``metadata_delete_after_commit``           Set to ``true`` to delete the oldest metadata file after         ``false``
                                            each commit.
+
+``metrics_max_inferred_column``            Optionally specifies the maximum number of columns for which     ``100``
+                                           metrics are collected.
 =======================================   ===============================================================   ============
 
 The table definition below specifies format ``ORC``, partitioning by columns ``c1`` and ``c2``,
