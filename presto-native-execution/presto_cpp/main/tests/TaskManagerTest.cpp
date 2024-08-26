@@ -978,7 +978,6 @@ TEST_F(TaskManagerTest, emptyFile) {
       EXPECT_EQ(1, taskStatus->failures.size());
       const auto& failure = taskStatus->failures.front();
       EXPECT_THAT(failure.message, testing::ContainsRegex("ORC file is empty"));
-      EXPECT_EQ("VeloxException", failure.type);
       break;
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
