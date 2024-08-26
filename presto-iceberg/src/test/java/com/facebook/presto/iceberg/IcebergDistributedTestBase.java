@@ -45,6 +45,7 @@ import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.base.Joiner;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -638,17 +639,24 @@ public abstract class IcebergDistributedTestBase
         assertQuerySucceeds("drop table test_partition_columns_varbinary");
     }
 
-    @Test
-    public void testReadWriteStatsWithColumnLimits()
+    @DataProvider(name = "columnCount")
+    public Object[][] getColumnCount()
     {
-        // The columns number of an Iceberg table for which metrics are collected is 100 by default
-        int columnCount = 100;
+        return new Object[][] {{2}, {16}, {100}};
+    }
+
+    @Test(dataProvider = "columnCount")
+    public void testReadWriteStatsWithColumnLimits(int columnCount)
+    {
         try {
             String columns = Joiner.on(", ")
                     .join(IntStream.iterate(2, i -> i + 1).limit(columnCount - 2)
                             .mapToObj(idx -> "column_" + idx + " int")
                             .iterator());
-            assertUpdate("CREATE TABLE test_stats_with_column_limits (column_0 int, column_1 varchar, " + columns + ", column_10001 varchar)");
+            String comma = Strings.isNullOrEmpty(columns.trim()) ? "" : ", ";
+
+            // The columns number of `test_stats_with_column_limits` for which metrics are collected is set to `columnCount`
+            assertUpdate("CREATE TABLE test_stats_with_column_limits (column_0 int, column_1 varchar, " + columns + comma + "column_10001 varchar) with(metrics_max_inferred_column = " + columnCount + ")");
             assertTrue(getQueryRunner().tableExists(getSession(), "test_stats_with_column_limits"));
             List<String> columnNames = IntStream.iterate(0, i -> i + 1).limit(columnCount)
                     .mapToObj(idx -> "column_" + idx).collect(Collectors.toList());
@@ -675,7 +683,10 @@ public abstract class IcebergDistributedTestBase
                             .mapToObj(idx -> "300" + idx)
                             .iterator());
             // test after simple insert we get a good estimate
-            assertUpdate("INSERT INTO test_stats_with_column_limits VALUES (1, '1001', " + values1 + ", 'abc'), (2, '2001', " + values2 + ", 'xyz'), (3, '3001', " + values3 + ", 'lmnopqrst')", 3);
+            assertUpdate("INSERT INTO test_stats_with_column_limits VALUES " +
+                    "(1, '1001', " + values1 + comma + "'abc'), " +
+                    "(2, '2001', " + values2 + comma + "'xyz'), " +
+                    "(3, '3001', " + values3 + comma + "'lmnopqrst')", 3);
             getQueryRunner().execute("ANALYZE test_stats_with_column_limits");
             stats = getTableStats("test_stats_with_column_limits");
             columnStats = remapper.apply(stats.getColumnStatistics());
