@@ -13,17 +13,20 @@
  */
 package com.facebook.presto.iceberg.hadoop;
 
-import com.facebook.presto.iceberg.IcebergDistributedTestBase;
-import org.testng.annotations.Test;
+import com.facebook.presto.iceberg.TestIcebergDistributedQueries;
 
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 
-@Test
-public class TestIcebergDistributedHadoop
-        extends IcebergDistributedTestBase
+public class TestIcebergHadoopCatalogDistributedQueries
+        extends TestIcebergDistributedQueries
 {
-    public TestIcebergDistributedHadoop()
+    public TestIcebergHadoopCatalogDistributedQueries()
     {
         super(HADOOP);
+    }
+
+    protected boolean supportsViews()
+    {
+        return false;
     }
 }
