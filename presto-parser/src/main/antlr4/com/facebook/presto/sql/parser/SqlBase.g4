@@ -594,12 +594,13 @@ namedConstraintSpecification
     ;
 
 unnamedConstraintSpecification
-    : constraintType columnAliases constraintQualifiers?
+    : constraintType constraintQualifiers?
     ;
 
 constraintType
-    : UNIQUE
-    | PRIMARY KEY
+    : UNIQUE columnAliases
+    | PRIMARY KEY columnAliases
+    | FOREIGN KEY columnAliases REFERENCES qualifiedName columnAliases
     ;
 
 constraintQualifiers
@@ -719,6 +720,7 @@ FETCH: 'FETCH';
 FILTER: 'FILTER';
 FIRST: 'FIRST';
 FOLLOWING: 'FOLLOWING';
+FOREIGN: 'FOREIGN';
 FOR: 'FOR';
 FORMAT: 'FORMAT';
 FROM: 'FROM';
@@ -800,6 +802,7 @@ PROPERTIES: 'PROPERTIES';
 RANGE: 'RANGE';
 READ: 'READ';
 RECURSIVE: 'RECURSIVE';
+REFERENCES : 'REFERENCES';
 REFRESH: 'REFRESH';
 RELY: 'RELY';
 RENAME: 'RENAME';

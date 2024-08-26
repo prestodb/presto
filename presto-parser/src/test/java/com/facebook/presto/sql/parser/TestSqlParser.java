@@ -186,6 +186,7 @@ import static com.facebook.presto.sql.tree.ArithmeticUnaryExpression.positive;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_THAN;
+import static com.facebook.presto.sql.tree.ConstraintSpecification.ConstraintType.FOREIGN_KEY;
 import static com.facebook.presto.sql.tree.ConstraintSpecification.ConstraintType.PRIMARY_KEY;
 import static com.facebook.presto.sql.tree.ConstraintSpecification.ConstraintType.UNIQUE;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.Determinism.DETERMINISTIC;
@@ -2817,6 +2818,22 @@ public class TestSqlParser
         assertInvalidStatement("ALTER TABLE foo.t ADD CONSTRAINT pk PRIMARY KEY (c1, c2), ADD CONSTRAINT uq UNIQUE (c3)", ".*mismatched input.*");
         assertInvalidStatement("ALTER TABLE foo.t ADD PRIMARY KEY (c1) NOT ENFORCED ENFORCED RELY", ".*Invalid.*constraint specification.*");
         assertInvalidStatement("ALTER TABLE foo.t ADD PRIMARY KEY (c1) RELY ENABLED NOT ENFORCED NOT RELY", ".*Invalid.*constraint specification.*");
+    }
+
+    @Test
+    public void testCreateTableWithFKConstraints()
+    {
+        assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT fk FOREIGN KEY (a) REFERENCES baz(bar) )",
+                new CreateTable(QualifiedName.of("foo"),
+                        ImmutableList.of(
+                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ConstraintSpecification(Optional.of("fk"), ImmutableList.of("a"), FOREIGN_KEY, true, true, true,
+                                        Optional.of(new ConstraintSpecification.ForeignKeyReferenceKey(QualifiedName.of("baz"), ImmutableList.of("bar"))))),
+                        false,
+                        ImmutableList.of(),
+                        Optional.empty()));
     }
 
     @Test

@@ -25,34 +25,35 @@ import static java.util.Objects.requireNonNull;
 public final class ConstraintSpecification
         extends TableElement
 {
-    public enum ConstraintType
-    {
-        UNIQUE,
-        PRIMARY_KEY
-    }
-
     private final Optional<String> constraintName;
-    private final List<String> columns;
+    private final List<String> constrainedColumns;
+    private final Optional<ForeignKeyReferenceKey> foreignKeyReferenceKey;
     private final ConstraintType constraintType;
     private final boolean enabled;
     private final boolean rely;
     private final boolean enforced;
 
-    public ConstraintSpecification(Optional<String> constraintName, List<String> columns, ConstraintType constraintType, boolean enabled, boolean rely, boolean enforced)
+    public ConstraintSpecification(Optional<String> constraintName, List<String> constrainedColumns, ConstraintType constraintType, boolean enabled, boolean rely, boolean enforced)
     {
-        this(Optional.empty(), constraintName, columns, constraintType, enabled, rely, enforced);
+        this(constraintName, constrainedColumns, constraintType, enabled, rely, enforced, Optional.empty());
+    }
+    public ConstraintSpecification(Optional<String> constraintName, List<String> constrainedColumns, ConstraintType constraintType, boolean enabled, boolean rely, boolean enforced, Optional<ForeignKeyReferenceKey> foreignKeyReferenceKey)
+    {
+        this(Optional.empty(), constraintName, constrainedColumns, foreignKeyReferenceKey, constraintType, enabled, rely, enforced);
     }
 
-    public ConstraintSpecification(NodeLocation location, Optional<String> constraintName, List<String> columns, ConstraintType constraintType, boolean enabled, boolean rely, boolean enforced)
+    public ConstraintSpecification(NodeLocation location, Optional<String> constraintName, List<String> constrainedColumns, ConstraintType constraintType, boolean enabled, boolean rely, boolean enforced, Optional<ForeignKeyReferenceKey> foreignKeyReferenceKey)
     {
-        this(Optional.of(location), constraintName, columns, constraintType, enabled, rely, enforced);
+        this(Optional.of(location), constraintName, constrainedColumns, foreignKeyReferenceKey, constraintType, enabled, rely, enforced);
     }
 
-    private ConstraintSpecification(Optional<NodeLocation> location, Optional<String> constraintName, List<String> columns, ConstraintType constraintType, boolean enabled, boolean rely, boolean enforced)
+    private ConstraintSpecification(Optional<NodeLocation> location, Optional<String> constraintName, List<String> constrainedColumns, Optional<ForeignKeyReferenceKey> foreignKeyReferenceKey, ConstraintType constraintType, boolean enabled, boolean rely, boolean enforced)
     {
         super(location);
         this.constraintName = requireNonNull(constraintName, "constraint name is null");
-        this.columns = requireNonNull(columns, "constraint columns is null");
+        this.constrainedColumns = requireNonNull(constrainedColumns, "constraint columns is null");
+        // TODO : Add a check that referredColumns is not null for a foreign key constraint only
+        this.foreignKeyReferenceKey = foreignKeyReferenceKey;
         this.constraintType = constraintType;
         this.enabled = enabled;
         this.rely = rely;
@@ -64,9 +65,14 @@ public final class ConstraintSpecification
         return constraintName;
     }
 
-    public List<String> getColumns()
+    public List<String> getConstrainedColumns()
     {
-        return columns;
+        return constrainedColumns;
+    }
+
+    public Optional<ForeignKeyReferenceKey> getForeignKeyReferenceKey()
+    {
+        return foreignKeyReferenceKey;
     }
 
     public ConstraintType getConstraintType()
@@ -112,7 +118,8 @@ public final class ConstraintSpecification
         }
         ConstraintSpecification o = (ConstraintSpecification) obj;
         return Objects.equals(constraintName, o.constraintName) &&
-                Objects.equals(columns, o.columns) &&
+                Objects.equals(constrainedColumns, o.constrainedColumns) &&
+                Objects.equals(foreignKeyReferenceKey, o.foreignKeyReferenceKey) &&
                 Objects.equals(constraintType, o.constraintType) &&
                 Objects.equals(rely, o.rely) &&
                 Objects.equals(enabled, o.enabled) &&
@@ -122,7 +129,7 @@ public final class ConstraintSpecification
     @Override
     public int hashCode()
     {
-        return Objects.hash(constraintName, columns, constraintType, rely, enabled, enforced);
+        return Objects.hash(constraintName, constrainedColumns, foreignKeyReferenceKey, constraintType, rely, enabled, enforced);
     }
 
     @Override
@@ -130,11 +137,69 @@ public final class ConstraintSpecification
     {
         return toStringHelper(this)
                 .add("constraintName", constraintName)
-                .add("columns", columns)
+                .add("constrainedColumns", constrainedColumns)
+                .add("foreignKeyReferenceKey", foreignKeyReferenceKey)
                 .add("constraintType", constraintType)
                 .add("rely", rely)
                 .add("enabled", enabled)
                 .add("enforced", enforced)
                 .toString();
+    }
+
+    public enum ConstraintType
+    {
+        UNIQUE,
+        PRIMARY_KEY,
+        FOREIGN_KEY
+    }
+
+    public static class ForeignKeyReferenceKey
+    {
+        QualifiedName tableName;
+        List<String> columns;
+
+        public ForeignKeyReferenceKey(QualifiedName tableName, List<String> columns)
+        {
+            this.tableName = tableName;
+            this.columns = columns;
+        }
+
+        public QualifiedName getTableName()
+        {
+            return tableName;
+        }
+
+        public List<String> getColumns()
+        {
+            return columns;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof ForeignKeyReferenceKey)) {
+                return false;
+            }
+            ForeignKeyReferenceKey that = (ForeignKeyReferenceKey) o;
+            return Objects.equals(tableName, that.tableName) && Objects.equals(columns, that.columns);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(tableName, columns);
+        }
+
+        @Override
+        public String toString()
+        {
+            return "ForeignKeyReferenceKey{" +
+                    "tableName=" + tableName +
+                    ", columns=" + columns +
+                    '}';
+        }
     }
 }

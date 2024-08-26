@@ -55,7 +55,7 @@ public class AddConstraintTask
     public static TableConstraint<String> convertToTableConstraint(Metadata metadata, Session session, ConnectorId connectorId, ConstraintSpecification node, WarningCollector warningCollector)
     {
         TableConstraint<String> tableConstraint;
-        LinkedHashSet<String> constraintColumns = node.getColumns().stream().collect(toCollection(LinkedHashSet::new));
+        LinkedHashSet<String> constraintColumns = node.getConstrainedColumns().stream().collect(toCollection(LinkedHashSet::new));
         switch (node.getConstraintType()) {
             case UNIQUE:
                 if (!metadata.getConnectorCapabilities(session, connectorId).contains(UNIQUE_CONSTRAINT)) {

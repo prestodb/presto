@@ -201,6 +201,7 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.tree.ConstraintSpecification.ConstraintType;
+import static com.facebook.presto.sql.tree.ConstraintSpecification.ConstraintType.FOREIGN_KEY;
 import static com.facebook.presto.sql.tree.ConstraintSpecification.ConstraintType.PRIMARY_KEY;
 import static com.facebook.presto.sql.tree.ConstraintSpecification.ConstraintType.UNIQUE;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.Determinism;
@@ -535,20 +536,40 @@ class AstBuilder
         ConstraintSpecification unnamedConstraint = (ConstraintSpecification) visit(context.unnamedConstraintSpecification());
         return new ConstraintSpecification(getLocation(context),
                 Optional.of(visit(context.name).toString()),
-                unnamedConstraint.getColumns(),
+                unnamedConstraint.getConstrainedColumns(),
                 unnamedConstraint.getConstraintType(),
                 unnamedConstraint.isEnabled(),
                 unnamedConstraint.isRely(),
-                unnamedConstraint.isEnforced());
+                unnamedConstraint.isEnforced(),
+                unnamedConstraint.getForeignKeyReferenceKey());
     }
 
     @Override
     public Node visitUnnamedConstraintSpecification(SqlBaseParser.UnnamedConstraintSpecificationContext context)
     {
-        List<Identifier> columnAliases = visit(context.columnAliases().identifier(), Identifier.class);
         ConstraintType constraintType = getConstraintType((Token) context.constraintType().getChild(0).getPayload());
-        String constraintTypeString = constraintTypeToString(constraintType);
 
+        Optional<ConstraintSpecification.ForeignKeyReferenceKey> referredForeignKeyReference = Optional.empty();
+        List<String> constrainedColumnAliases;
+        if (constraintType.equals(FOREIGN_KEY)) {
+            // Parse the multiple columnAliases in the foreign key reference
+            List<SqlBaseParser.ColumnAliasesContext> columnAliasesContexts = context.constraintType().columnAliases();
+            check(columnAliasesContexts.size() == 2, "Invalid FOREIGN KEY constraint specification", context.constraintType());
+
+            constrainedColumnAliases = visit(columnAliasesContexts.get(0).identifier(), Identifier.class).stream().map(Identifier::toString).collect(toImmutableList());
+            List<String> referredColumnAliases = visit(columnAliasesContexts.get(1).identifier(), Identifier.class).stream().map(Identifier::toString).collect(toImmutableList());
+            check(constrainedColumnAliases.size() == referredColumnAliases.size(),
+                    "Number of referred columns in FOREIGN KEY constraint REFERENCES does not match number of source columns", context.constraintType());
+
+            referredForeignKeyReference = Optional.of(new ConstraintSpecification.ForeignKeyReferenceKey(
+                    getQualifiedName(context.constraintType().qualifiedName()),
+                    referredColumnAliases));
+        }
+        else {
+            constrainedColumnAliases = visit(context.constraintType().columnAliases(0).identifier(), Identifier.class).stream().map(Identifier::toString).collect(toImmutableList());
+        }
+
+        String constraintTypeString = constraintTypeToString(constraintType);
         List<SqlBaseParser.ConstraintQualifierContext> constraintQualifierContext = context.constraintQualifiers().constraintQualifier();
         check(constraintQualifierContext.stream().filter(p -> p.constraintEnabled() != null).count() <= 1,
                 "Invalid " + constraintTypeString + " constraint specification ENABLED",
@@ -580,11 +601,12 @@ class AstBuilder
 
         return new ConstraintSpecification(getLocation(context),
                 Optional.empty(),
-                columnAliases.stream().map(Identifier::toString).collect(toImmutableList()),
+                constrainedColumnAliases,
                 constraintType,
                 enabled,
                 rely,
-                enforced);
+                enforced,
+                referredForeignKeyReference);
     }
 
     @Override
@@ -2333,6 +2355,8 @@ class AstBuilder
                 return "UNIQUE";
             case PRIMARY_KEY:
                 return "PRIMARY KEY";
+            case FOREIGN_KEY:
+                return "FOREIGN KEY";
             default:
                 return "";
         }
@@ -2345,6 +2369,8 @@ class AstBuilder
                 return UNIQUE;
             case SqlBaseLexer.PRIMARY:
                 return PRIMARY_KEY;
+            case SqlBaseLexer.FOREIGN:
+                return FOREIGN_KEY;
         }
 
         throw new IllegalArgumentException("Unsupported constraint type: " + token.getText());

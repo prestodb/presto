@@ -137,7 +137,6 @@ import static com.facebook.presto.sql.ExpressionFormatter.formatExpression;
 import static com.facebook.presto.sql.ExpressionFormatter.formatGroupBy;
 import static com.facebook.presto.sql.ExpressionFormatter.formatOrderBy;
 import static com.facebook.presto.sql.ExpressionFormatter.formatStringLiteral;
-import static com.facebook.presto.sql.tree.ConstraintSpecification.ConstraintType.UNIQUE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
@@ -1648,6 +1647,20 @@ public final class SqlFormatter
             return null;
         }
 
+        static String constraintTypeToString(ConstraintSpecification.ConstraintType constraintType)
+        {
+            switch (constraintType) {
+                case UNIQUE:
+                    return "UNIQUE";
+                case PRIMARY_KEY:
+                    return "PRIMARY KEY";
+                case FOREIGN_KEY:
+                    return "FOREIGN KEY";
+                default:
+                    return "";
+            }
+        }
+
         private String processConstraintDefinition(ConstraintSpecification node)
         {
             StringBuilder sb = new StringBuilder();
@@ -1656,9 +1669,9 @@ public final class SqlFormatter
                 sb.append(node.getConstraintName().get());
                 sb.append(" ");
             }
-            sb.append(node.getConstraintType() == UNIQUE ? "UNIQUE " : "PRIMARY KEY ");
+            sb.append(constraintTypeToString(node.getConstraintType()));
             sb.append("(");
-            Iterator<String> columns = node.getColumns().iterator();
+            Iterator<String> columns = node.getConstrainedColumns().iterator();
             while (columns.hasNext()) {
                 sb.append(columns.next());
                 if (columns.hasNext()) {
@@ -1666,6 +1679,21 @@ public final class SqlFormatter
                 }
             }
             sb.append(")");
+
+            if (node.getForeignKeyReferenceKey().isPresent()) {
+                sb.append(" REFERENCES ");
+                sb.append(formatName(node.getForeignKeyReferenceKey().get().getTableName()));
+                sb.append(" (");
+                Iterator<String> referredColumns = node.getForeignKeyReferenceKey().get().getColumns().iterator();
+                while (referredColumns.hasNext()) {
+                    sb.append(referredColumns.next());
+                    if (referredColumns.hasNext()) {
+                        sb.append(", ");
+                    }
+                }
+                sb.append(")");
+            }
+
             if (!node.isEnabled()) {
                 sb.append(" DISABLED");
             }
