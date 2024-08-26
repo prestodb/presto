@@ -25,6 +25,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -1765,6 +1767,54 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery(
                 "SELECT count(*) FROM orders o " +
                         "WHERE (SELECT * FROM (SELECT EXISTS(SELECT 1 WHERE o.orderkey > 10 OR o.orderkey != 3)))");
+    }
+
+    @Test
+    public void testUnicodeInJson()
+    {
+        // Test casting to JSON returning the same results for all unicode characters in the entire range.
+        List<int[]> unicodeRanges = new ArrayList<int[]>()
+        {{
+                add(new int[] {0, 0x7F});
+                add(new int[] {0x80, 0xD7FF});
+                add(new int[] {0xE000, 0xFFFF});
+            }};
+        for (int start = 0x10000; start < 0x110000; ) {
+            int end = start + 0x10000;
+            unicodeRanges.add(new int[] {start, end - 1});
+            start = end;
+        }
+        List<String> unicodeStrings = unicodeRanges.stream().map(range -> {
+            StringBuilder unicodeString = new StringBuilder();
+            for (int u = range[0]; u <= range[1]; u++) {
+                String hex = Integer.toHexString(u);
+                switch (hex.length()) {
+                    case 1:
+                        unicodeString.append("\\000");
+                        break;
+                    case 2:
+                        unicodeString.append("\\00");
+                        break;
+                    case 3:
+                        unicodeString.append("\\0");
+                        break;
+                    case 4:
+                        unicodeString.append("\\");
+                        break;
+                    case 5:
+                        unicodeString.append("\\+0");
+                        break;
+                    default:
+                        unicodeString.append("\\+");
+                }
+                unicodeString.append(hex);
+            }
+            return unicodeString.toString();
+        }).collect(ImmutableList.toImmutableList());
+
+        for (String unicodeString : unicodeStrings) {
+            assertQuery(String.format("SELECT CAST(a as JSON) FROM ( VALUES(U&'%s') ) t(a)", unicodeString));
+        }
     }
 
     private void assertQueryResultCount(String sql, int expectedResultCount)
