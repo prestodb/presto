@@ -189,6 +189,8 @@ import static org.apache.iceberg.TableProperties.METADATA_DELETE_AFTER_COMMIT_EN
 import static org.apache.iceberg.TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED_DEFAULT;
 import static org.apache.iceberg.TableProperties.METADATA_PREVIOUS_VERSIONS_MAX;
 import static org.apache.iceberg.TableProperties.METADATA_PREVIOUS_VERSIONS_MAX_DEFAULT;
+import static org.apache.iceberg.TableProperties.METRICS_MAX_INFERRED_COLUMN_DEFAULTS;
+import static org.apache.iceberg.TableProperties.METRICS_MAX_INFERRED_COLUMN_DEFAULTS_DEFAULT;
 import static org.apache.iceberg.TableProperties.ORC_COMPRESSION;
 import static org.apache.iceberg.TableProperties.PARQUET_COMPRESSION;
 import static org.apache.iceberg.TableProperties.UPDATE_MODE;
@@ -1133,6 +1135,9 @@ public final class IcebergUtil
 
         Boolean metadataDeleteAfterCommit = IcebergTableProperties.isMetadataDeleteAfterCommit(tableMetadata.getProperties());
         propertiesBuilder.put(METADATA_DELETE_AFTER_COMMIT_ENABLED, String.valueOf(metadataDeleteAfterCommit));
+
+        Integer metricsMaxInferredColumn = IcebergTableProperties.getMetricsMaxInferredColumn(tableMetadata.getProperties());
+        propertiesBuilder.put(METRICS_MAX_INFERRED_COLUMN_DEFAULTS, String.valueOf(metricsMaxInferredColumn));
         return propertiesBuilder.build();
     }
 
@@ -1165,6 +1170,13 @@ public final class IcebergUtil
         return Boolean.valueOf(table.properties()
                 .getOrDefault(METADATA_DELETE_AFTER_COMMIT_ENABLED,
                         String.valueOf(METADATA_DELETE_AFTER_COMMIT_ENABLED_DEFAULT)));
+    }
+
+    public static int getMetricsMaxInferredColumn(Table table)
+    {
+        return Integer.parseInt(table.properties()
+                .getOrDefault(METRICS_MAX_INFERRED_COLUMN_DEFAULTS,
+                        String.valueOf(METRICS_MAX_INFERRED_COLUMN_DEFAULTS_DEFAULT)));
     }
 
     public static Optional<PartitionData> partitionDataFromJson(PartitionSpec spec, Optional<String> partitionDataAsJson)
