@@ -14,24 +14,25 @@
  * limitations under the License.
  */
 
-#pragma once
-
-#include <string>
-#include <unordered_set>
+#include "velox/exec/trace/QueryTraceUtil.h"
+#include "velox/common/base/Exceptions.h"
+#include "velox/common/file/FileSystems.h"
 
 namespace facebook::velox::exec::trace {
-struct QueryTraceConfig {
-  /// Target query trace nodes.
-  std::unordered_set<std::string> queryNodes;
-  /// Base dir of query trace.
-  std::string queryTraceDir;
 
-  QueryTraceConfig(
-      std::unordered_set<std::string> _queryNodeIds,
-      std::string _queryTraceDir);
+void createTraceDirectory(const std::string& traceDir) {
+  try {
+    const auto fs = filesystems::getFileSystem(traceDir, nullptr);
+    if (fs->exists(traceDir)) {
+      fs->rmdir(traceDir);
+    }
+    fs->mkdir(traceDir);
+  } catch (const std::exception& e) {
+    VELOX_FAIL(
+        "Failed to create trace directory '{}' with error: {}",
+        traceDir,
+        e.what());
+  }
+}
 
-  QueryTraceConfig(std::string _queryTraceDir);
-
-  QueryTraceConfig() = default;
-};
 } // namespace facebook::velox::exec::trace

@@ -17,21 +17,10 @@
 #pragma once
 
 #include <string>
-#include <unordered_set>
 
 namespace facebook::velox::exec::trace {
-struct QueryTraceConfig {
-  /// Target query trace nodes.
-  std::unordered_set<std::string> queryNodes;
-  /// Base dir of query trace.
-  std::string queryTraceDir;
 
-  QueryTraceConfig(
-      std::unordered_set<std::string> _queryNodeIds,
-      std::string _queryTraceDir);
+/// Creates a directory to store the query trace metdata and data.
+void createTraceDirectory(const std::string& traceDir);
 
-  QueryTraceConfig(std::string _queryTraceDir);
-
-  QueryTraceConfig() = default;
-};
 } // namespace facebook::velox::exec::trace

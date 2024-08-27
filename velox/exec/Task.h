@@ -23,6 +23,8 @@
 #include "velox/exec/Split.h"
 #include "velox/exec/TaskStats.h"
 #include "velox/exec/TaskStructs.h"
+#include "velox/exec/trace/QueryMetadataWriter.h"
+#include "velox/exec/trace/QueryTraceConfig.h"
 #include "velox/vector/ComplexVector.h"
 
 namespace facebook::velox::exec {
@@ -969,6 +971,13 @@ class Task : public std::enable_shared_from_this<Task> {
   std::shared_ptr<ExchangeClient> getExchangeClientLocked(
       int32_t pipelineId) const;
 
+  // Builds the query trace config.
+  std::optional<trace::QueryTraceConfig> maybeMakeTraceConfig() const;
+
+  // Create a 'QueryMetadtaWriter' to trace the query metadata if the query
+  // trace enabled.
+  void maybeInitQueryTrace();
+
   // The helper class used to maintain 'numCreatedTasks_' and 'numDeletedTasks_'
   // on task construction and destruction.
   class TaskCounter {
@@ -999,6 +1008,7 @@ class Task : public std::enable_shared_from_this<Task> {
   core::PlanFragment planFragment_;
   const int destination_;
   const std::shared_ptr<core::QueryCtx> queryCtx_;
+  const std::optional<trace::QueryTraceConfig> traceConfig_;
 
   // The execution mode of the task. It is enforced that a task can only be
   // executed in a single mode throughout its lifetime

@@ -12,10 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_library(velox_query_trace_exec QueryMetadataWriter.cpp QueryTraceConfig.cpp
-                                   QueryDataWriter.cpp)
+velox_add_library(
+  velox_query_trace_exec
+  QueryMetadataWriter.cpp
+  QueryTraceConfig.cpp
+  QueryDataWriter.cpp
+  QueryTraceUtil.cpp)
 
-target_link_libraries(
+velox_link_libraries(
   velox_query_trace_exec
   PRIVATE
     velox_common_io
@@ -26,10 +30,10 @@ target_link_libraries(
     velox_common_base
     velox_presto_serializer)
 
-add_library(velox_query_trace_retrieve QueryDataReader.cpp
-                                       QueryMetadataReader.cpp)
+velox_add_library(velox_query_trace_retrieve QueryDataReader.cpp
+                  QueryMetadataReader.cpp)
 
-target_link_libraries(
+velox_link_libraries(
   velox_query_trace_retrieve
   velox_common_io
   velox_file

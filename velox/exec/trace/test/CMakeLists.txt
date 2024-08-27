@@ -28,4 +28,11 @@ target_link_libraries(
   velox_memory
   velox_query_trace_exec
   velox_query_trace_retrieve
-  velox_vector_fuzzer)
+  velox_vector_fuzzer
+  GTest::gtest_main
+  GTest::gmock
+  Folly::folly
+  gflags::gflags
+  glog::glog
+  fmt::fmt
+  ${FILESYSTEM})

@@ -18,11 +18,7 @@
 
 #include "velox/common/file/File.h"
 #include "velox/common/file/FileSystems.h"
-#include "velox/connectors/hive/HiveDataSink.h"
-#include "velox/connectors/hive/TableHandle.h"
 #include "velox/core/PlanNode.h"
-#include "velox/exec/PartitionFunction.h"
-#include "velox/exec/TableWriter.h"
 #include "velox/exec/trace/QueryTraceTraits.h"
 
 namespace facebook::velox::exec::trace {

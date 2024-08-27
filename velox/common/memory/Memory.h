@@ -342,6 +342,11 @@ class MemoryManager {
     return spillPool_.get();
   }
 
+  /// Returns the process wide leaf memory pool used for query tracing.
+  MemoryPool* tracePool() const {
+    return tracePool_.get();
+  }
+
   const std::vector<std::shared_ptr<MemoryPool>>& testingSharedLeafPools() {
     return sharedLeafPools_;
   }
@@ -374,6 +379,7 @@ class MemoryManager {
 
   const std::shared_ptr<MemoryPool> sysRoot_;
   const std::shared_ptr<MemoryPool> spillPool_;
+  const std::shared_ptr<MemoryPool> tracePool_;
   const std::vector<std::shared_ptr<MemoryPool>> sharedLeafPools_;
 
   mutable folly::SharedMutex mutex_;
@@ -419,6 +425,9 @@ memory::MemoryPool* spillMemoryPool();
 
 /// Returns true if the provided 'pool' is the spilling memory pool.
 bool isSpillMemoryPool(memory::MemoryPool* pool);
+
+/// Returns the system-wide memory pool for tracing memory usage.
+memory::MemoryPool* traceMemoryPool();
 
 FOLLY_ALWAYS_INLINE int32_t alignmentPadding(void* address, int32_t alignment) {
   auto extra = reinterpret_cast<uintptr_t>(address) % alignment;

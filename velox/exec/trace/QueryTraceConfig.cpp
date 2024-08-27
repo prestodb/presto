@@ -24,4 +24,9 @@ QueryTraceConfig::QueryTraceConfig(
     : queryNodes(std::move(_queryNodeIds)),
       queryTraceDir(std::move(_queryTraceDir)) {}
 
+QueryTraceConfig::QueryTraceConfig(std::string _queryTraceDir)
+    : QueryTraceConfig(
+          std::unordered_set<std::string>{},
+          std::move(_queryTraceDir)) {}
+
 } // namespace facebook::velox::exec::trace

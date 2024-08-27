@@ -27,11 +27,11 @@
 #include "velox/exec/HashBuild.h"
 #include "velox/exec/LocalPlanner.h"
 #include "velox/exec/MemoryReclaimer.h"
-#include "velox/exec/Merge.h"
 #include "velox/exec/NestedLoopJoinBuild.h"
 #include "velox/exec/OperatorUtils.h"
 #include "velox/exec/OutputBufferManager.h"
 #include "velox/exec/Task.h"
+#include "velox/exec/trace/QueryTraceUtil.h"
 
 using facebook::velox::common::testutil::TestValue;
 
@@ -293,6 +293,7 @@ Task::Task(
       planFragment_(std::move(planFragment)),
       destination_(destination),
       queryCtx_(std::move(queryCtx)),
+      traceConfig_(maybeMakeTraceConfig()),
       mode_(mode),
       consumerSupplier_(std::move(consumerSupplier)),
       onError_(std::move(onError)),
@@ -304,6 +305,8 @@ Task::Task(
     VELOX_CHECK_NULL(
         dynamic_cast<const folly::InlineLikeExecutor*>(queryCtx_->executor()));
   }
+
+  maybeInitQueryTrace();
 }
 
 Task::~Task() {
@@ -2831,6 +2834,43 @@ std::shared_ptr<ExchangeClient> Task::getExchangeClientLocked(
     int32_t pipelineId) const {
   VELOX_CHECK_LT(pipelineId, exchangeClients_.size());
   return exchangeClients_[pipelineId];
+}
+
+std::optional<trace::QueryTraceConfig> Task::maybeMakeTraceConfig() const {
+  const auto& queryConfig = queryCtx_->queryConfig();
+  if (!queryConfig.queryTraceEnabled()) {
+    return std::nullopt;
+  }
+
+  VELOX_USER_CHECK(
+      !queryConfig.queryTraceDir().empty(),
+      "Query trace enabled but the trace dir is not set");
+
+  const auto queryTraceNodes = queryConfig.queryTraceNodeIds();
+  if (queryTraceNodes.empty()) {
+    return trace::QueryTraceConfig(queryConfig.queryTraceDir());
+  }
+
+  std::vector<std::string> nodes;
+  folly::split(',', queryTraceNodes, nodes);
+  std::unordered_set<std::string> nodeSet(nodes.begin(), nodes.end());
+  VELOX_CHECK_EQ(nodeSet.size(), nodes.size());
+  LOG(INFO) << "Query trace plan node ids: " << queryTraceNodes;
+  return trace::QueryTraceConfig(
+      std::move(nodeSet), queryConfig.queryTraceDir());
+}
+
+void Task::maybeInitQueryTrace() {
+  if (!traceConfig_) {
+    return;
+  }
+
+  const auto traceTaskDir =
+      fmt::format("{}/{}", traceConfig_->queryTraceDir, taskId_);
+  trace::createTraceDirectory(traceTaskDir);
+  const auto queryMetadatWriter = std::make_unique<trace::QueryMetadataWriter>(
+      traceTaskDir, memory::traceMemoryPool());
+  queryMetadatWriter->write(queryCtx_, planFragment_.planNode);
 }
 
 void Task::testingVisitDrivers(const std::function<void(Driver*)>& callback) {

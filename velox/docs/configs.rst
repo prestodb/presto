@@ -686,4 +686,29 @@ Spark-specific Configuration
        the value of this config can not exceed the default value.
    * - spark.partition_id
      - integer
+     -
      - The current task's Spark partition ID. It's set by the query engine (Spark) prior to task execution.
+
+Tracing
+--------
+.. list-table::
+   :widths: 30 10 10 70
+   :header-rows: 1
+
+   * - Property Name
+     - Type
+     - Default Value
+     - Description
+   * - query_trace_enabled
+     - bool
+     - true
+     - If true, enable query tracing.
+   * - query_trace_dir
+     - string
+     -
+     - The root directory to store the tracing data and metadata for a query.
+   * - query_trace_node_ids
+     - string
+     -
+     - A comma-separated list of plan node ids whose input data will be trace. If it is empty, then we only trace the
+       query metadata which includes the query plan and configs etc.

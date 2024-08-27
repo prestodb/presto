@@ -17,9 +17,6 @@
 #include "velox/exec/trace/QueryDataReader.h"
 
 #include "velox/common/file/File.h"
-#include "velox/connectors/hive/HiveDataSink.h"
-#include "velox/connectors/hive/TableHandle.h"
-#include "velox/exec/TableWriter.h"
 #include "velox/exec/trace/QueryTraceTraits.h"
 
 namespace facebook::velox::exec::trace {

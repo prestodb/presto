@@ -18,8 +18,6 @@
 #include "velox/common/base/SpillStats.h"
 #include "velox/common/file/File.h"
 #include "velox/common/file/FileSystems.h"
-#include "velox/exec/TreeOfLosers.h"
-#include "velox/exec/UnorderedStreamReader.h"
 #include "velox/exec/trace/QueryTraceTraits.h"
 #include "velox/serializers/PrestoSerializer.h"
 
