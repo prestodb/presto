@@ -142,6 +142,16 @@ The configuration properties of Presto C++ workers are described here, in alphab
   worker node. Memory for system usage such as disk spilling and cache prefetch are
   not counted in it.
 
+``max_spill_bytes``
+^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``100UL << 30``
+
+  Specifies the max spill bytes limit set for each query. This is used to cap the
+  storage used for spilling. If it is zero, then there is no limit and spilling
+  might exhaust the storage or takes too long to run.
+
 ``shared-arbitrator.reserved-capacity``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

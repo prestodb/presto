@@ -77,6 +77,18 @@ class SessionProperties {
   static constexpr const char* kExprEvalSimplified =
       "native_simplified_expression_evaluation_enabled";
 
+  /// The maximum memory used by partial aggregation when data reduction is not
+  /// optimal.
+  static constexpr const char* kMaxPartialAggregationMemory =
+      "native_max_partial_aggregation_memory";
+
+  /// The max partial aggregation memory when data reduction is optimal.
+  /// When good data reduction is achieved through partial aggregation, more
+  /// memory would be given even when we reach limit of
+  /// kMaxPartialAggregationMemory.
+  static constexpr const char* kMaxExtendedPartialAggregationMemory =
+      "native_max_extended_partial_aggregation_memory";
+
   /// Enable join spilling on native engine.
   static constexpr const char* kJoinSpillEnabled = "native_join_spill_enabled";
 
@@ -85,6 +97,8 @@ class SessionProperties {
 
   /// The maximum allowed spill file size.
   static constexpr const char* kMaxSpillFileSize = "native_max_spill_file_size";
+
+  static constexpr const char* kMaxSpillBytes = "native_max_spill_bytes";
 
   /// Enable row number spilling on native engine.
   static constexpr const char* kRowNumberSpillEnabled =

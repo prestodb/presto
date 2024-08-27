@@ -65,6 +65,22 @@ SessionProperties::SessionProperties() {
       boolToString(c.exprEvalSimplified()));
 
   addSessionProperty(
+      kMaxPartialAggregationMemory,
+      "The max partial aggregation memory when data reduction is not optimal.",
+      BIGINT(),
+      false,
+      QueryConfig::kMaxPartialAggregationMemory,
+      std::to_string(c.maxPartialAggregationMemoryUsage()));
+
+  addSessionProperty(
+      kMaxExtendedPartialAggregationMemory,
+      "The max partial aggregation memory when data reduction is optimal.",
+      BIGINT(),
+      false,
+      QueryConfig::kMaxExtendedPartialAggregationMemory,
+      std::to_string(c.maxExtendedPartialAggregationMemoryUsage()));
+
+  addSessionProperty(
       kMaxSpillLevel,
       "Native Execution only. The maximum allowed spilling level for hash join "
       "build. 0 is the initial spilling level, -1 means unlimited.",
@@ -80,6 +96,14 @@ SessionProperties::SessionProperties() {
       false,
       QueryConfig::kMaxSpillFileSize,
       std::to_string(c.maxSpillFileSize()));
+
+  addSessionProperty(
+      kMaxSpillBytes,
+      "The max allowed spill bytes.",
+      BIGINT(),
+      false,
+      QueryConfig::kMaxSpillBytes,
+      std::to_string(c.maxSpillBytes()));
 
   addSessionProperty(
       kSpillCompressionCodec,
