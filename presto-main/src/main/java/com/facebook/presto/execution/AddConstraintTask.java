@@ -16,12 +16,15 @@ package com.facebook.presto.execution;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.constraints.ForeignKeyConstraint;
 import com.facebook.presto.spi.constraints.PrimaryKeyConstraint;
 import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.constraints.UniqueConstraint;
@@ -29,22 +32,29 @@ import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.AddConstraint;
 import com.facebook.presto.sql.tree.ConstraintSpecification;
+import com.facebook.presto.sql.tree.ConstraintSpecification.ForeignKeyReferenceKey;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardWarningCode.SEMANTIC_WARNING;
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.ENFORCE_CONSTRAINTS;
+import static com.facebook.presto.spi.connector.ConnectorCapabilities.FOREIGN_KEY_CONSTRAINT;
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.PRIMARY_KEY_CONSTRAINT;
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.UNIQUE_CONSTRAINT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toCollection;
@@ -68,6 +78,32 @@ public class AddConstraintTask
                     throw new SemanticException(NOT_SUPPORTED, node, "Catalog %s does not support Primary Key constraints", connectorId.getCatalogName());
                 }
                 tableConstraint = new PrimaryKeyConstraint<>(node.getConstraintName(), constraintColumns, node.isEnabled(), node.isRely(), node.isEnforced());
+                break;
+            case FOREIGN_KEY:
+                if (!metadata.getConnectorCapabilities(session, connectorId).contains(FOREIGN_KEY_CONSTRAINT)) {
+                    throw new SemanticException(NOT_SUPPORTED, node, "Catalog %s does not support Foreign Key constraints", connectorId.getCatalogName());
+                }
+                checkState(node.getForeignKeyReferenceKey().isPresent(), "Foreign key reference key is missing");
+
+                ForeignKeyReferenceKey foreignKeyReferenceKey = node.getForeignKeyReferenceKey().get();
+                QualifiedObjectName referencedTableName = createQualifiedObjectName(session, node, foreignKeyReferenceKey.getTableName());
+                Optional<TableHandle> referencedTableHandle = metadata.getMetadataResolver(session).getTableHandle(referencedTableName);
+                if (!referencedTableHandle.isPresent()) {
+                    throw new SemanticException(MISSING_TABLE, node, "Referenced table '%s' does not exist", referencedTableName);
+                }
+                TableMetadata referencedTableMetadata = metadata.getTableMetadata(session, referencedTableHandle.get());
+                Set<String> validReferencedColumns = referencedTableMetadata.getColumns().stream().filter(x -> !x.isHidden()).map(ColumnMetadata::getName).collect(Collectors.toSet());
+                foreignKeyReferenceKey.getColumns().forEach(column -> {
+                    // TODO : Do we need to check column name casing ?
+                    if (!validReferencedColumns.contains(column)) {
+                        throw new SemanticException(NOT_SUPPORTED, node, "Column '%s' does not exist in referenced table '%s'", column, referencedTableName);
+                    }
+                });
+                tableConstraint = new ForeignKeyConstraint<>(node.getConstraintName(),
+                        node.getConstrainedColumns(),
+                        referencedTableName,
+                        foreignKeyReferenceKey.getColumns(),
+                        node.isEnabled(), node.isRely(), node.isEnforced());
                 break;
             default:
                 throw new SemanticException(NOT_SUPPORTED, node, "Given constraint type %s is not supported", node.getConstraintType().toString());

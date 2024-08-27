@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.metastore.thrift;
 
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.MapType;
@@ -43,6 +44,7 @@ import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableConstraintNotFoundException;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.constraints.ForeignKeyConstraint;
 import com.facebook.presto.spi.constraints.NotNullConstraint;
 import com.facebook.presto.spi.constraints.PrimaryKeyConstraint;
 import com.facebook.presto.spi.constraints.TableConstraint;
@@ -81,6 +83,7 @@ import org.apache.hadoop.hive.metastore.api.PrimaryKeysResponse;
 import org.apache.hadoop.hive.metastore.api.PrincipalType;
 import org.apache.hadoop.hive.metastore.api.PrivilegeBag;
 import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
+import org.apache.hadoop.hive.metastore.api.SQLForeignKey;
 import org.apache.hadoop.hive.metastore.api.SQLNotNullConstraint;
 import org.apache.hadoop.hive.metastore.api.SQLPrimaryKey;
 import org.apache.hadoop.hive.metastore.api.SQLUniqueConstraint;
@@ -158,6 +161,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Sets.difference;
 import static java.lang.String.format;
+import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toCollection;
@@ -991,6 +995,7 @@ public class ThriftHiveMetastore
         List<SQLPrimaryKey> primaryKeys = new ArrayList<>();
         List<SQLUniqueConstraint> uniqueConstraints = new ArrayList<>();
         List<SQLNotNullConstraint> notNullConstraints = new ArrayList<>();
+        List<SQLForeignKey> foreignKeyConstraints = new ArrayList<>();
         String callableName = "createTable";
         HiveMetastoreApiStats apiStats = stats.getCreateTable();
         Callable callableClient = apiStats.wrap(() ->
@@ -1044,6 +1049,35 @@ public class ThriftHiveMetastore
                                     constraint.isEnforced(),
                                     constraint.isRely()));
                 }
+                else if (constraint instanceof ForeignKeyConstraint) {
+                    ForeignKeyConstraint<String> fkConstraint = (ForeignKeyConstraint<String>) constraint;
+                    QualifiedObjectName referencedTableName = fkConstraint.getReferencedTableName();
+                    List<String> referredTableColumnNames = fkConstraint.getReferencedColumnNames();
+                    List<String> sourceColumnNames = fkConstraint.getSourceColumnNames();
+                    for (int i = 0; i < sourceColumnNames.size(); i++) {
+                        String sourceColumn = sourceColumnNames.get(i);
+                        String fkColumn = referredTableColumnNames.get(i);
+                        SQLForeignKey sqlForeignKey = new SQLForeignKey();
+                        // Using pattern from : https://github.com/apache/hive/blame/04bb92ae6174d2953f42801593b1b709bcf1154c/ql/src/java/org/apache/hadoop/hive/ql/ddl/table/constraint/ConstraintsUtils.java#L413-L429
+
+                        fkConstraint.getName().ifPresent(sqlForeignKey::setFk_name);
+                        sqlForeignKey.setKey_seq(i + 1);
+
+                        sqlForeignKey.setFktable_db(table.getDbName());
+                        sqlForeignKey.setFktable_name(table.getTableName());
+                        sqlForeignKey.setFkcolumn_name(sourceColumn);
+
+                        sqlForeignKey.setPktable_db(referencedTableName.getSchemaName());
+                        sqlForeignKey.setPktable_name(referencedTableName.getObjectName());
+                        sqlForeignKey.setPkcolumn_name(fkColumn);
+
+                        sqlForeignKey.setEnable_cstr(constraint.isEnabled());
+                        sqlForeignKey.setValidate_cstr(constraint.isEnforced());
+                        sqlForeignKey.setRely_cstr(constraint.isRely());
+
+                        foreignKeyConstraints.add(sqlForeignKey);
+                    }
+                }
                 else {
                     throw new PrestoException(NOT_SUPPORTED, format("Constraint %s of unknown type is not supported", constraint.getName().orElse("")));
                 }
@@ -1053,7 +1087,7 @@ public class ThriftHiveMetastore
             apiStats = stats.getCreateTableWithConstraints();
             callableClient = apiStats.wrap(() ->
                     getMetastoreClientThenCall(metastoreContext, client -> {
-                        client.createTableWithConstraints(table, primaryKeys, uniqueConstraints, notNullConstraints);
+                        client.createTableWithConstraints(table, primaryKeys, foreignKeyConstraints, uniqueConstraints, notNullConstraints);
                         return null;
                     }));
         }
@@ -1597,6 +1631,7 @@ public class ThriftHiveMetastore
         Set<String> constraintColumns = tableConstraint.getColumns();
         int keySequence = 1;
         List<SQLPrimaryKey> primaryKeyConstraint = new ArrayList<>();
+        List<SQLForeignKey> foreignKeysConstraint = new ArrayList<>();
         List<SQLUniqueConstraint> uniqueConstraint = new ArrayList<>();
         List<SQLNotNullConstraint> notNullConstraint = new ArrayList<>();
         String callableName;
@@ -1662,8 +1697,46 @@ public class ThriftHiveMetastore
                         return null;
                     }));
         }
+        else if (tableConstraint instanceof ForeignKeyConstraint) {
+
+                ForeignKeyConstraint<String> fkConstraint = (ForeignKeyConstraint<String>) tableConstraint;
+                QualifiedObjectName referencedTableName = fkConstraint.getReferencedTableName();
+                List<String> referredTableColumnNames = fkConstraint.getReferencedColumnNames();
+                List<String> sourceColumnNames = fkConstraint.getSourceColumnNames();
+                for (int i = 0; i < sourceColumnNames.size(); i++) {
+                    String sourceColumn = sourceColumnNames.get(i);
+                    String fkColumn = referredTableColumnNames.get(i);
+                    SQLForeignKey sqlForeignKey = new SQLForeignKey();
+                    // Using pattern from : https://github.com/apache/hive/blame/04bb92ae6174d2953f42801593b1b709bcf1154c/ql/src/java/org/apache/hadoop/hive/ql/ddl/table/constraint/ConstraintsUtils.java#L413-L429
+
+                    fkConstraint.getName().ifPresent(sqlForeignKey::setFk_name);
+                    sqlForeignKey.setKey_seq(i + 1);
+
+                    sqlForeignKey.setFktable_db(table.getDbName());
+                    sqlForeignKey.setFktable_name(table.getTableName());
+                    sqlForeignKey.setFkcolumn_name(sourceColumn);
+
+                    sqlForeignKey.setPktable_db(referencedTableName.getSchemaName());
+                    sqlForeignKey.setPktable_name(referencedTableName.getObjectName());
+                    sqlForeignKey.setPkcolumn_name(fkColumn);
+
+                    sqlForeignKey.setEnable_cstr(tableConstraint.isEnabled());
+                    sqlForeignKey.setValidate_cstr(tableConstraint.isEnforced());
+                    sqlForeignKey.setRely_cstr(tableConstraint.isRely());
+
+                    foreignKeysConstraint.add(sqlForeignKey);
+                }
+
+            callableName = "addForeignKeyConstraint";
+            apiStats = stats.getAddForeignKeyConstraint();
+            callableClient = apiStats.wrap(() ->
+                    getMetastoreClientThenCall(metastoreContext, client -> {
+                        client.addForeignKeyConstraint(foreignKeysConstraint);
+                        return null;
+                    }));
+        }
         else {
-            throw new PrestoException(NOT_SUPPORTED, "This connector can only handle Unique/Primary Key/Not Null constraints at this time");
+            throw new PrestoException(NOT_SUPPORTED, "This connector can only handle Unique/Primary Key/Not Null/Foreign Key constraints at this time");
         }
 
         try {

@@ -37,6 +37,7 @@ public final class ConstraintSpecification
     {
         this(constraintName, constrainedColumns, constraintType, enabled, rely, enforced, Optional.empty());
     }
+
     public ConstraintSpecification(Optional<String> constraintName, List<String> constrainedColumns, ConstraintType constraintType, boolean enabled, boolean rely, boolean enforced, Optional<ForeignKeyReferenceKey> foreignKeyReferenceKey)
     {
         this(Optional.empty(), constraintName, constrainedColumns, foreignKeyReferenceKey, constraintType, enabled, rely, enforced);

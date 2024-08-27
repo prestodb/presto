@@ -14,6 +14,7 @@
 package com.facebook.presto.hive.metastore.thrift;
 
 import com.google.common.collect.ImmutableList;
+import org.apache.hadoop.hive.metastore.api.AddForeignKeyRequest;
 import org.apache.hadoop.hive.metastore.api.AddNotNullConstraintRequest;
 import org.apache.hadoop.hive.metastore.api.AddPrimaryKeyRequest;
 import org.apache.hadoop.hive.metastore.api.AddUniqueConstraintRequest;
@@ -24,6 +25,7 @@ import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.DropConstraintRequest;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
+import org.apache.hadoop.hive.metastore.api.ForeignKeysRequest;
 import org.apache.hadoop.hive.metastore.api.GetRoleGrantsForPrincipalRequest;
 import org.apache.hadoop.hive.metastore.api.GetRoleGrantsForPrincipalResponse;
 import org.apache.hadoop.hive.metastore.api.GrantRevokeRoleRequest;
@@ -44,6 +46,7 @@ import org.apache.hadoop.hive.metastore.api.PrincipalType;
 import org.apache.hadoop.hive.metastore.api.PrivilegeBag;
 import org.apache.hadoop.hive.metastore.api.Role;
 import org.apache.hadoop.hive.metastore.api.RolePrincipalGrant;
+import org.apache.hadoop.hive.metastore.api.SQLForeignKey;
 import org.apache.hadoop.hive.metastore.api.SQLNotNullConstraint;
 import org.apache.hadoop.hive.metastore.api.SQLPrimaryKey;
 import org.apache.hadoop.hive.metastore.api.SQLUniqueConstraint;
@@ -156,10 +159,10 @@ public class ThriftHiveMetastoreClient
     }
 
     @Override
-    public void createTableWithConstraints(Table table, List<SQLPrimaryKey> primaryKeys, List<SQLUniqueConstraint> uniqueConstraints, List<SQLNotNullConstraint> notNullConstraints)
+    public void createTableWithConstraints(Table table, List<SQLPrimaryKey> primaryKeys, List<SQLForeignKey> foreignKeys, List<SQLUniqueConstraint> uniqueConstraints, List<SQLNotNullConstraint> notNullConstraints)
             throws TException
     {
-        client.create_table_with_constraints(table, primaryKeys, emptyList(), uniqueConstraints, notNullConstraints, emptyList(), emptyList());
+        client.create_table_with_constraints(table, primaryKeys, foreignKeys, uniqueConstraints, notNullConstraints, emptyList(), emptyList());
     }
 
     @Override
@@ -535,5 +538,13 @@ public class ThriftHiveMetastoreClient
     {
         AddNotNullConstraintRequest addNotNullConstraintRequest = new AddNotNullConstraintRequest(constraint);
         client.add_not_null_constraint(addNotNullConstraintRequest);
+    }
+
+    @Override
+    public void addForeignKeyConstraint(List<SQLForeignKey> constraint)
+            throws TException
+    {
+        AddForeignKeyRequest foreignKeysRequest = new AddForeignKeyRequest(constraint);
+        client.add_foreign_key(foreignKeysRequest);
     }
 }

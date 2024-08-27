@@ -28,6 +28,7 @@ import org.apache.hadoop.hive.metastore.api.PrincipalType;
 import org.apache.hadoop.hive.metastore.api.PrivilegeBag;
 import org.apache.hadoop.hive.metastore.api.Role;
 import org.apache.hadoop.hive.metastore.api.RolePrincipalGrant;
+import org.apache.hadoop.hive.metastore.api.SQLForeignKey;
 import org.apache.hadoop.hive.metastore.api.SQLNotNullConstraint;
 import org.apache.hadoop.hive.metastore.api.SQLPrimaryKey;
 import org.apache.hadoop.hive.metastore.api.SQLUniqueConstraint;
@@ -74,7 +75,7 @@ public interface HiveMetastoreClient
     void createTable(Table table)
             throws TException;
 
-    void createTableWithConstraints(Table table, List<SQLPrimaryKey> primaryKeys, List<SQLUniqueConstraint> uniqueConstraints, List<SQLNotNullConstraint> notNullConstraints)
+    void createTableWithConstraints(Table table, List<SQLPrimaryKey> primaryKeys, List<SQLForeignKey> foreignKeys, List<SQLUniqueConstraint> uniqueConstraints, List<SQLNotNullConstraint> notNullConstraints)
             throws TException;
 
     void dropTable(String databaseName, String name, boolean deleteData)
@@ -189,5 +190,8 @@ public interface HiveMetastoreClient
             throws TException;
 
     void addNotNullConstraint(List<SQLNotNullConstraint> constraint)
+            throws TException;
+
+    void addForeignKeyConstraint(List<SQLForeignKey> constraint)
             throws TException;
 }

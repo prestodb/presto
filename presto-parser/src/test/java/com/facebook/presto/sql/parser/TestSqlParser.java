@@ -36,6 +36,7 @@ import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ConstraintSpecification;
+import com.facebook.presto.sql.tree.ConstraintSpecification.ForeignKeyReferenceKey;
 import com.facebook.presto.sql.tree.CreateFunction;
 import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.CreateRole;
@@ -2830,7 +2831,7 @@ public class TestSqlParser
                                 new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
                                 new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
                                 new ConstraintSpecification(Optional.of("fk"), ImmutableList.of("a"), FOREIGN_KEY, true, true, true,
-                                        Optional.of(new ConstraintSpecification.ForeignKeyReferenceKey(QualifiedName.of("baz"), ImmutableList.of("bar"))))),
+                                        Optional.of(new ForeignKeyReferenceKey(QualifiedName.of("baz"), ImmutableList.of("bar"))))),
                         false,
                         ImmutableList.of(),
                         Optional.empty()));
