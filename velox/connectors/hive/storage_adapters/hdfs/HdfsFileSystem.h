@@ -61,7 +61,7 @@ class HdfsFileSystem : public FileSystem {
   virtual void rename(
       std::string_view path,
       std::string_view newPath,
-      bool overWrite = false) {
+      bool overWrite = false) override {
     VELOX_UNSUPPORTED("rename for HDFs not implemented");
   }
 

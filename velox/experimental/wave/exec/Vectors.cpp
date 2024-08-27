@@ -74,7 +74,7 @@ void transferVector(
     std::vector<WaveVectorPtr>& waveVectors,
     std::vector<Operand>& operands,
     GpuArena& arena,
-    int64_t totalBytes) {
+    int64_t& totalBytes) {
   if (waveVectors.size() <= index) {
     waveVectors.resize(index + 1);
   }
