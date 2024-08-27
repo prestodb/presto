@@ -118,6 +118,10 @@ public final class TypeConverter
             case TIME:
                 return TimeType.TIME;
             case TIMESTAMP:
+                Types.TimestampType timestampType = (Types.TimestampType) type.asPrimitiveType();
+                if (timestampType.shouldAdjustToUTC()) {
+                    return TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+                }
                 return TimestampType.TIMESTAMP;
             case STRING:
                 return VarcharType.createUnboundedVarcharType();

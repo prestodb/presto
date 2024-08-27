@@ -38,6 +38,8 @@ import static com.facebook.presto.common.type.DecimalType.createDecimalType;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.iceberg.NestedFieldConverter.toIcebergNestedField;
@@ -176,6 +178,12 @@ public class TestNestedFieldConverter
             case "date":
                 prestoType = DATE;
                 break;
+            case "timestamp":
+                prestoType = TIMESTAMP;
+                break;
+            case "timestamptz":
+                prestoType = TIMESTAMP_WITH_TIME_ZONE;
+                break;
             case "nested":
                 prestoType = RowType.from(ImmutableList.of(
                         RowType.field("int", INTEGER),
@@ -238,6 +246,12 @@ public class TestNestedFieldConverter
                 break;
             case "date":
                 icebergType = Types.DateType.get();
+                break;
+            case "timestamp":
+                icebergType = Types.TimestampType.withoutZone();
+                break;
+            case "timestamptz":
+                icebergType = Types.TimestampType.withZone();
                 break;
             case "nested":
                 icebergType = nested();
