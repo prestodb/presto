@@ -87,7 +87,7 @@ format_tags <- function(x) {
 ```{r total-graphs}
 # Filter the data and layout the overview plots
 times_plot <- results |>
-  filter(tags.suite == "total", endsWith(tags.source, "time")) |>
+  filter(tags.suite == "total", endsWith(tags.source, "time"), tags.name != "wall_time") |>
   mutate(
     stats.data = lubridate::dseconds(stats.data),
     tags.name = format_tags(tags.name)

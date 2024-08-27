@@ -18,6 +18,7 @@ on:
   pull_request:
       paths:
         - ".github/workflows/build-metrics.yml"
+        - "script/bm-report/**"
 
   workflow_dispatch:
     inputs:

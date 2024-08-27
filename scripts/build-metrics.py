@@ -95,7 +95,7 @@ class BinarySizeAdapter(BenchmarkAdapter):
 class NinjaLogAdapter(BenchmarkAdapter):
     """
     Adapter to extract compile and link times from a .ninja_log.
-    Will calculate aggregates for total, compile, link and wall time.
+    Will calculate aggregates for total, compile and link time.
     Suite metadata will be set based on binary ending to object, library or executable.
 
     Only files in paths beginning with velox/ will be tracked to avoid dependencies.
@@ -135,7 +135,6 @@ class NinjaLogAdapter(BenchmarkAdapter):
             "link_time": 0,
             "compile_time": 0,
             "total_time": 0,
-            "wall_time": get_epoch(log_lines[-1]) - get_epoch(log_lines[0]),
         }
 
         for line in log_lines:
