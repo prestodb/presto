@@ -23,11 +23,13 @@ Dependency installation scripts based on the operating system are
 available inside `presto/presto-native-execution/scripts`.
 
 * MacOS: `setup-macos.sh`
-* CentOS Stream 8: `setup-centos.sh`
+* CentOS Stream 9: `setup-centos.sh`
 * Ubuntu: `setup-ubuntu.sh`
 
 Create a directory say `dependencies` and invoke one of these scripts from
 this folder. All the dependencies are installed in the system default location eg: `/usr/local`.
+To change the installation location specify a path using the `INSTALL_PREFIX` environment variable.
+For example, change the location if the default location cannot be written to by the user running the setup script.
 
 The following libraries are installed by the above setup scripts.
 The Velox library installs other
@@ -41,6 +43,12 @@ not listed below.
 | [gperf](https://www.gnu.org/software/gperf) |`v3.1`|
 | [proxygen](https://github.com/facebook/proxygen) |`v2024.04.01.00`|
 
+Prestissimo sources the Velox scripts and the configuration for the installation
+location and other configuration applies to Prestissimo. Please make sure to also
+review the [Velox README](https://github.com/facebookincubator/velox/tree/main/README.md).
+
+For build issues refer to the troubleshooting section in this document.
+
 ### Supported architectures, operating systems, and compilers
 
 The supported architectures are `x86_64 (avx, sse)`, and `AArch64 (apple-m1+crc, neoverse-n1)`.
@@ -51,7 +59,7 @@ Compilers (and versions) not mentioned are known to not work or have not been tr
 #### Recommended
 | OS | compiler |
 | -- | -------- |
-| CentOS 8/RHEL 8 | `gcc9` |
+| CentOS 9/RHEL 9 | `gcc12` |
 | Ubuntu 22.04 | `gcc11` |
 | MacOS | `clang15` |
 
@@ -60,11 +68,6 @@ Compilers (and versions) not mentioned are known to not work or have not been tr
 | -- | -------- |
 | Ubuntu 20.04 | `gcc9` |
 | MacOS | `clang14` |
-
-#### Experimental
-| OS | compiler |
-| -- | -------- |
-| CentOS 9/RHEL 9 | `gcc12` |
 
 ### Build Prestissimo
 #### Parquet and S3 Supprt
@@ -155,9 +158,9 @@ Run IcebergExternalWorkerQueryRunner,
   * Working directory: `$MODULE_DIR$`
   * Environment variables: `PRESTO_SERVER=/Users/<user>/git/presto/presto-native-execution/cmake-build-debug/presto_cpp/main/presto_server;DATA_DIR=/Users/<user>/Desktop/data;WORKER_COUNT=0`
     * When `addStorageFormatToPath = false` **(Default)**,
-    
+
       `$DATA_DIR/iceberg_data/<catalog_type>`. Here `catalog_type` could be `HIVE | HADOOP | NESSIE | REST`.
-    
+
       `addStorageFormatToPath` is `false` by default because Java `HiveQueryRunner` and `IcebergQueryRunner` do not add the file format to the path.
     * When `addStorageFormatToPath = true`,
 
