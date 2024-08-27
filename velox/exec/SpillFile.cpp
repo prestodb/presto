@@ -328,13 +328,10 @@ void SpillReadFile::recordSpillStats() {
   VELOX_CHECK(input_->atEnd());
   const auto readStats = input_->stats();
   common::updateGlobalSpillReadStats(
-      readStats.numReads,
-      readStats.readBytes,
-      readStats.readTimeUs * Timestamp::kNanosecondsInMicrosecond);
+      readStats.numReads, readStats.readBytes, readStats.readTimeNs);
   auto lockedSpillStats = stats_->wlock();
   lockedSpillStats->spillReads += readStats.numReads;
-  lockedSpillStats->spillReadTimeNanos +=
-      readStats.readTimeUs * Timestamp::kNanosecondsInMicrosecond;
+  lockedSpillStats->spillReadTimeNanos += readStats.readTimeNs;
   lockedSpillStats->spillReadBytes += readStats.readBytes;
 }
 } // namespace facebook::velox::exec

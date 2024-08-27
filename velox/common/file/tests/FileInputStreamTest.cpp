@@ -96,7 +96,7 @@ TEST_F(FileInputStreamTest, stats) {
     ASSERT_EQ(
         byteStream->stats().readBytes,
         std::min(testData.streamSize, testData.bufferSize));
-    ASSERT_GE(byteStream->stats().readTimeUs, 0);
+    ASSERT_GT(byteStream->stats().readTimeNs, 0);
     uint8_t buffer[testData.streamSize / 8];
     for (int offset = 0; offset < testData.streamSize;) {
       byteStream->readBytes(buffer, testData.streamSize / 8);
@@ -110,6 +110,6 @@ TEST_F(FileInputStreamTest, stats) {
         bits::roundUp(testData.streamSize, testData.bufferSize) /
             testData.bufferSize);
     ASSERT_EQ(byteStream->stats().readBytes, testData.streamSize);
-    ASSERT_GE(byteStream->stats().readTimeUs, 0);
+    ASSERT_GT(byteStream->stats().readTimeNs, 0);
   }
 }

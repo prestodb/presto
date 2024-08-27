@@ -56,9 +56,9 @@ void FileInputStream::readNextRange() {
   current_ = nullptr;
 
   int32_t readBytes{0};
-  uint64_t readTimeUs{0};
+  uint64_t readTimeNs{0};
   {
-    MicrosecondTimer timer{&readTimeUs};
+    NanosecondTimer timer{&readTimeNs};
     if (readAheadWait_.valid()) {
       readBytes = std::move(readAheadWait_)
                       .via(&folly::QueuedImmediateExecutor::instance())
@@ -72,7 +72,7 @@ void FileInputStream::readNextRange() {
       readBytes = readSize();
       VELOX_CHECK_LT(
           0, readBytes, "Read past end of FileInputStream {}", fileSize_);
-      MicrosecondTimer timer{&readTimeUs};
+      NanosecondTimer timer{&readTimeNs};
       file_->pread(fileOffset_, readBytes, buffer()->asMutable<char>());
     }
   }
@@ -82,7 +82,7 @@ void FileInputStream::readNextRange() {
   current_ = ranges_.data();
   fileOffset_ += readBytes;
 
-  updateStats(readBytes, readTimeUs);
+  updateStats(readBytes, readTimeNs);
 
   maybeIssueReadahead();
 }
@@ -222,9 +222,9 @@ void FileInputStream::maybeIssueReadahead() {
   VELOX_CHECK(readAheadWait_.valid());
 }
 
-void FileInputStream::updateStats(uint64_t readBytes, uint64_t readTimeUs) {
+void FileInputStream::updateStats(uint64_t readBytes, uint64_t readTimeNs) {
   stats_.readBytes += readBytes;
-  stats_.readTimeUs += readTimeUs;
+  stats_.readTimeNs += readTimeNs;
   ++stats_.numReads;
 }
 
@@ -243,15 +243,15 @@ FileInputStream::Stats FileInputStream::stats() const {
 
 bool FileInputStream::Stats::operator==(
     const FileInputStream::Stats& other) const {
-  return std::tie(numReads, readBytes, readTimeUs) ==
-      std::tie(other.numReads, other.readBytes, other.readTimeUs);
+  return std::tie(numReads, readBytes, readTimeNs) ==
+      std::tie(other.numReads, other.readBytes, other.readTimeNs);
 }
 
 std::string FileInputStream::Stats::toString() const {
   return fmt::format(
-      "numReads: {}, readBytes: {}, readTimeUs: {}",
+      "numReads: {}, readBytes: {}, readTimeNs: {}",
       numReads,
       succinctBytes(readBytes),
-      succinctMicros(readTimeUs));
+      succinctMicros(readTimeNs));
 }
 } // namespace facebook::velox::common

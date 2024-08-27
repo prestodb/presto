@@ -63,7 +63,7 @@ class FileInputStream : public ByteInputStream {
   struct Stats {
     uint32_t numReads{0};
     uint64_t readBytes{0};
-    uint64_t readTimeUs{0};
+    uint64_t readTimeNs{0};
 
     bool operator==(const Stats& other) const;
 
@@ -106,7 +106,7 @@ class FileInputStream : public ByteInputStream {
     return buffers_[nextBufferIndex()].get();
   }
 
-  void updateStats(uint64_t readBytes, uint64_t readTimeUs);
+  void updateStats(uint64_t readBytes, uint64_t readTimeNs);
 
   const std::unique_ptr<ReadFile> file_;
   const uint64_t fileSize_;
