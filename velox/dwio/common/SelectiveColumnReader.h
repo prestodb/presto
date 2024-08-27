@@ -105,14 +105,14 @@ struct ScanState {
   DictionaryValues dictionary;
 
   // If the format, like ORC/DWRF has a base dictionary completed by
-  // local delta dictionaries over the furst one, this represents the
+  // local delta dictionaries over the first one, this represents the
   // local values, e.g. row group dictionary in ORC. TBD: If there is
   // a pattern of dictionaries completed by more dictionaries in other
   // formats, this will be modeled as an vector of n DictionaryValues.
   DictionaryValues dictionary2;
 
   // Bits selecting between dictionary and dictionary2 or dictionary and
-  // literal. OR/DWRFC only.
+  // literal. ORC/DWRF only.
   BufferPtr inDictionary;
 
   // Copy of Visitor::rows_ adjusted to start at the current encoding
