@@ -711,6 +711,56 @@ TEST_F(ParquetReaderTest, parseMapKeyValueAsMap) {
   assertReadWithReaderAndExpected(fileSchema, *rowReader, expected, *leafPool_);
 }
 
+TEST_F(ParquetReaderTest, parseRowArrayTest) {
+  // schema:
+  //   optionalPrimitive:int
+  //   requiredPrimitive:int
+  //   repeatedPrimitive:array<int>
+  //   optionalMessage:struct<someId:int>
+  //   requiredMessage:struct<someId:int>
+  //   repeatedMessage:array<struct<someId:int>>
+  const std::string sample(
+      getExampleFilePath("proto-struct-with-array.parquet"));
+
+  dwio::common::ReaderOptions readerOptions{leafPool_.get()};
+  auto reader = createReader(sample, readerOptions);
+  EXPECT_EQ(reader->numberOfRows(), 1ULL);
+  auto type = reader->typeWithId();
+  EXPECT_EQ(type->size(), 6ULL);
+  auto col6_type = type->childAt(5);
+  EXPECT_EQ(col6_type->type()->kind(), TypeKind::ARRAY);
+  auto col6_1_type = col6_type->childAt(0);
+  EXPECT_EQ(col6_1_type->type()->kind(), TypeKind::ROW);
+
+  auto outputRowType =
+      ROW({"optionalPrimitive",
+           "requiredPrimitive",
+           "repeatedPrimitive",
+           "optionalMessage",
+           "requiredMessage",
+           "repeatedMessage"},
+          {INTEGER(),
+           INTEGER(),
+           ARRAY(INTEGER()),
+           ROW({"someId"}, {INTEGER()}),
+           ROW({"someId"}, {INTEGER()}),
+           ARRAY(ROW({"someId"}, {INTEGER()}))});
+  auto rowReaderOpts = getReaderOpts(outputRowType);
+  rowReaderOpts.setScanSpec(makeScanSpec(outputRowType));
+  auto rowReader = reader->createRowReader(rowReaderOpts);
+  VectorPtr result = BaseVector::create(outputRowType, 0, &*leafPool_);
+
+  ASSERT_TRUE(rowReader->next(1, result));
+  // data: 10, 9, <empty>, null, {9}, 2 elements starting at 0 {{9}, {10}}}
+  auto structArray = result->as<RowVector>()->childAt(5)->as<ArrayVector>();
+  auto structEle = structArray->elements()
+                       ->as<RowVector>()
+                       ->childAt(0)
+                       ->asFlatVector<int32_t>()
+                       ->valueAt(0);
+  EXPECT_EQ(structEle, 9);
+}
+
 TEST_F(ParquetReaderTest, readSampleBigintRangeFilter) {
   // Read sample.parquet with the int filter "a BETWEEN 16 AND 20".
   FilterMap filters;

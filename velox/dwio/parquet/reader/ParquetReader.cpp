@@ -490,6 +490,43 @@ std::unique_ptr<ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
               maxDefine,
               isOptional,
               isRepeated);
+        } else {
+          // Row type
+          // To support list backward compatibility, need create a new row type
+          // instance and set all the fields as its children.
+          auto childrenRowType =
+              createRowType(children, isFileColumnNamesReadAsLowerCase());
+          std::vector<std::unique_ptr<ParquetTypeWithId::TypeWithId>>
+              rowChildren;
+          // In this legacy case, there is no middle layer between "array"
+          // node and the children nodes. Below creates this dummy middle
+          // layer to mimic the non-legacy case and fill the gap.
+          rowChildren.emplace_back(std::make_unique<ParquetTypeWithId>(
+              childrenRowType,
+              std::move(children),
+              curSchemaIdx,
+              maxSchemaElementIdx,
+              ParquetTypeWithId::kNonLeaf,
+              "dummy",
+              std::nullopt,
+              std::nullopt,
+              maxRepeat,
+              maxDefine,
+              isOptional,
+              isRepeated));
+          return std::make_unique<ParquetTypeWithId>(
+              TypeFactory<TypeKind::ARRAY>::create(childrenRowType),
+              std::move(rowChildren),
+              curSchemaIdx,
+              maxSchemaElementIdx,
+              ParquetTypeWithId::kNonLeaf, // columnIdx,
+              std::move(name),
+              std::nullopt,
+              std::nullopt,
+              maxRepeat,
+              maxDefine,
+              isOptional,
+              isRepeated);
         }
       } else {
         // Row type
