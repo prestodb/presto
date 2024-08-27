@@ -765,7 +765,7 @@ FOLLY_ALWAYS_INLINE bool isDecimalName(const std::string& name) {
   return (name == "DECIMAL");
 }
 
-std::pair<int, int> getDecimalPrecisionScale(const Type& type);
+std::pair<uint8_t, uint8_t> getDecimalPrecisionScale(const Type& type);
 
 class UnknownType : public TypeBase<TypeKind::UNKNOWN> {
  public:

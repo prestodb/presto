@@ -119,7 +119,7 @@ std::string mapTypeKindToName(const TypeKind& typeKind) {
   return found->second;
 }
 
-std::pair<int, int> getDecimalPrecisionScale(const Type& type) {
+std::pair<uint8_t, uint8_t> getDecimalPrecisionScale(const Type& type) {
   if (type.isShortDecimal()) {
     const auto& decimalType = static_cast<const ShortDecimalType&>(type);
     return {decimalType.precision(), decimalType.scale()};
