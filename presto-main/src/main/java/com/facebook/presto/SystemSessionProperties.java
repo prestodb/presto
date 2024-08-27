@@ -350,6 +350,10 @@ public final class SystemSessionProperties
     private static final String NATIVE_EXECUTION_PROGRAM_ARGUMENTS = "native_execution_program_arguments";
     public static final String NATIVE_EXECUTION_PROCESS_REUSE_ENABLED = "native_execution_process_reuse_enabled";
     public static final String NATIVE_DEBUG_VALIDATE_OUTPUT_FROM_OPERATORS = "native_debug_validate_output_from_operators";
+
+    public static final String NATIVE_MAX_PARTIAL_AGGREGATION_MEMORY = "native_max_partial_aggregation_memory";
+    public static final String NATIVE_MAX_EXTENDED_PARTIAL_AGGREGATION_MEMORY = "native_max_extended_partial_aggregation_memory";
+    public static final String NATIVE_MAX_SPILL_BYTES = "native_max_spill_bytes";
     public static final String DEFAULT_VIEW_SECURITY_MODE = "default_view_security_mode";
     public static final String JOIN_PREFILTER_BUILD_SIDE = "join_prefilter_build_side";
     public static final String OPTIMIZER_USE_HISTOGRAMS = "optimizer_use_histograms";
@@ -1712,6 +1716,21 @@ public final class SystemSessionProperties
                                 "operator is generating them.",
                         false,
                         true),
+                longProperty(
+                        NATIVE_MAX_PARTIAL_AGGREGATION_MEMORY,
+                        "The max partial aggregation memory when data reduction is not optimal.",
+                        1L << 24,
+                        false),
+                longProperty(
+                        NATIVE_MAX_EXTENDED_PARTIAL_AGGREGATION_MEMORY,
+                        "The max partial aggregation memory when data reduction is optimal.",
+                        1L << 26,
+                        false),
+                longProperty(
+                        NATIVE_MAX_SPILL_BYTES,
+                        "The max allowed spill bytes",
+                        100L << 30,
+                        false),
                 booleanProperty(
                         RANDOMIZE_OUTER_JOIN_NULL_KEY,
                         "(Deprecated) Randomize null join key for outer join",
