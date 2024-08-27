@@ -480,15 +480,6 @@ ScopedMemoryArbitrationContext::ScopedMemoryArbitrationContext(
   arbitrationCtx = &currentArbitrationCtx_;
 }
 
-ScopedMemoryArbitrationContext::ScopedMemoryArbitrationContext(
-    const MemoryArbitrationContext* contextToRestore)
-    : savedArbitrationCtx_(arbitrationCtx) {
-  if (contextToRestore != nullptr) {
-    currentArbitrationCtx_ = *contextToRestore;
-    arbitrationCtx = &currentArbitrationCtx_;
-  }
-}
-
 ScopedMemoryArbitrationContext::~ScopedMemoryArbitrationContext() {
   arbitrationCtx = savedArbitrationCtx_;
 }

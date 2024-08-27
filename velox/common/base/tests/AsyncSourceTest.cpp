@@ -20,10 +20,8 @@
 #include <folly/Synchronized.h>
 #include <folly/synchronization/Baton.h>
 #include <gtest/gtest.h>
-#include <chrono>
 #include <thread>
 #include "velox/common/base/Exceptions.h"
-#include "velox/common/memory/Memory.h"
 
 using namespace facebook::velox;
 using namespace std::chrono_literals;
@@ -249,15 +247,10 @@ TEST(AsyncSourceTest, close) {
 void verifyContexts(
     const std::string& expectedPoolName,
     const std::string& expectedTaskId) {
-  EXPECT_EQ(
-      memory::memoryArbitrationContext()->requestor->name(), expectedPoolName);
   EXPECT_EQ(process::GetThreadDebugInfo()->taskId_, expectedTaskId);
 }
 
 TEST(AsyncSourceTest, emptyContexts) {
-  memory::MemoryManager::testingSetInstance({});
-
-  EXPECT_EQ(memory::memoryArbitrationContext(), nullptr);
   EXPECT_EQ(process::GetThreadDebugInfo(), nullptr);
 
   AsyncSource<bool> src([]() {
@@ -268,9 +261,6 @@ TEST(AsyncSourceTest, emptyContexts) {
     return std::make_unique<bool>(true);
   });
 
-  auto pool = memory::MemoryManager::getInstance()->addRootPool("test");
-  memory::ScopedMemoryArbitrationContext scopedMemoryArbitrationContext(
-      pool.get());
   process::ThreadDebugInfo debugInfo{"query_id", "task_id", nullptr};
   process::ScopedThreadDebugInfo scopedDebugInfo(debugInfo);
 
@@ -282,14 +272,9 @@ TEST(AsyncSourceTest, emptyContexts) {
 }
 
 TEST(AsyncSourceTest, setContexts) {
-  memory::MemoryManager::testingSetInstance({});
-
-  auto pool1 = memory::MemoryManager::getInstance()->addRootPool("test1");
   process::ThreadDebugInfo debugInfo1{"query_id1", "task_id1", nullptr};
 
   std::unique_ptr<AsyncSource<bool>> src;
-  memory::ScopedMemoryArbitrationContext scopedMemoryArbitrationContext1(
-      pool1.get());
   process::ScopedThreadDebugInfo scopedDebugInfo1(debugInfo1);
 
   verifyContexts("test1", "task_id1");
@@ -302,9 +287,6 @@ TEST(AsyncSourceTest, setContexts) {
     return std::make_unique<bool>(true);
   }));
 
-  auto pool2 = memory::MemoryManager::getInstance()->addRootPool("test2");
-  memory::ScopedMemoryArbitrationContext scopedMemoryArbitrationContext2(
-      pool2.get());
   process::ThreadDebugInfo debugInfo2{"query_id2", "task_id2", nullptr};
   process::ScopedThreadDebugInfo scopedDebugInfo2(debugInfo2);
 

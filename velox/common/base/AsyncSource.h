@@ -26,7 +26,6 @@
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/Portability.h"
 #include "velox/common/future/VeloxPromise.h"
-#include "velox/common/memory/MemoryArbitrator.h"
 #include "velox/common/process/ThreadDebugInfo.h"
 #include "velox/common/testutil/TestValue.h"
 
@@ -43,10 +42,6 @@ class AsyncSource {
  public:
   explicit AsyncSource(std::function<std::unique_ptr<Item>()> make)
       : make_(std::move(make)) {
-    if (memory::memoryArbitrationContext() != nullptr) {
-      memoryArbitrationContext_ = *memory::memoryArbitrationContext();
-    }
-
     if (process::GetThreadDebugInfo() != nullptr) {
       auto* currentThreadDebugInfo = process::GetThreadDebugInfo();
       // We explicitly leave out the callback when copying the ThreadDebugInfo
@@ -203,18 +198,13 @@ class AsyncSource {
 
  private:
   std::unique_ptr<Item> runMake(std::function<std::unique_ptr<Item>()>& make) {
-    memory::ScopedMemoryArbitrationContext memoryArbitrationContext(
-        memoryArbitrationContext_.has_value()
-            ? &memoryArbitrationContext_.value()
-            : nullptr);
     process::ScopedThreadDebugInfo threadDebugInfo(
         threadDebugInfo_.has_value() ? &threadDebugInfo_.value() : nullptr);
     return make();
   }
 
-  // Stored contexts (if present upon construction) so they can be restored when
+  // Stored context (if present upon construction) so they can be restored when
   // make_ is invoked.
-  std::optional<memory::MemoryArbitrationContext> memoryArbitrationContext_;
   std::optional<process::ThreadDebugInfo> threadDebugInfo_;
 
   mutable std::mutex mutex_;
