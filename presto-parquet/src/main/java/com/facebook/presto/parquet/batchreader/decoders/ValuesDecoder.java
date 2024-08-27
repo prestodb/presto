@@ -64,6 +64,11 @@ public interface ValuesDecoder
                 throws IOException;
     }
 
+    interface PackFunction
+    {
+        long pack(long millis);
+    }
+
     interface TimestampValuesDecoder
             extends ValuesDecoder
     {

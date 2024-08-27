@@ -43,9 +43,10 @@ import org.apache.hadoop.hive.serde2.objectinspector.primitive.JavaHiveDecimalOb
 import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
 import org.apache.parquet.format.Statistics;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
+import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
-import org.apache.parquet.schema.MessageTypeParser;
 import org.apache.parquet.schema.PrimitiveType;
+import org.apache.parquet.schema.Types;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -999,8 +1000,12 @@ public abstract class AbstractTestParquetReader
     public void testTimestampMicrosBackedByINT64()
             throws Exception
     {
-        org.apache.parquet.schema.MessageType parquetSchema =
-                MessageTypeParser.parseMessageType("message ts_micros { optional INT64 test (TIMESTAMP_MICROS); }");
+        LogicalTypeAnnotation annotation = LogicalTypeAnnotation.timestampType(false, LogicalTypeAnnotation.TimeUnit.MICROS);
+        MessageType parquetSchema = Types.buildMessage()
+                .primitive(PrimitiveType.PrimitiveTypeName.INT64, OPTIONAL)
+                .as(annotation)
+                .named("test")
+                .named("ts_micros");
         ContiguousSet<Long> longValues = longsBetween(1_000_000, 1_001_000);
         ImmutableList.Builder<SqlTimestamp> expectedValues = new ImmutableList.Builder<>();
         for (Long value : longValues) {
