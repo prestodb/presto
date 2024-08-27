@@ -391,8 +391,9 @@ int32_t RowContainer::findRows(folly::Range<char**> rows, char** result) {
 }
 
 void RowContainer::appendNextRow(char* current, char* nextRow) {
+  VELOX_CHECK(getNextRowVector(nextRow) == nullptr);
   NextRowVector*& nextRowArrayPtr = getNextRowVector(current);
-  if (!nextRowArrayPtr) {
+  if (nextRowArrayPtr == nullptr) {
     nextRowArrayPtr =
         new (stringAllocator_->allocate(kNextRowVectorSize)->begin())
             NextRowVector(StlAllocator<char*>(stringAllocator_.get()));

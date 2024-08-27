@@ -1052,7 +1052,7 @@ void HashTable<ignoreNullKeys>::buildJoinPartition(
       buildPartitionBounds_[partition],
       buildPartitionBounds_[partition + 1],
       overflow};
-  auto rowContainer =
+  auto* rowContainer =
       (partition == 0 ? this : otherTables_[partition - 1].get())->rows();
   for (auto i = 0; i < numPartitions; ++i) {
     auto* table = i == 0 ? this : otherTables_[i - 1].get();
@@ -1138,16 +1138,16 @@ void HashTable<ignoreNullKeys>::insertForGroupBy(
 
 template <bool ignoreNullKeys>
 bool HashTable<ignoreNullKeys>::arrayPushRow(char* row, int32_t index) {
-  auto existing = table_[index];
-  if (existing) {
-    if (nextOffset_) {
+  auto* existingRow = table_[index];
+  if (existingRow != nullptr) {
+    if (nextOffset_ > 0) {
       hasDuplicates_ = true;
-      rows_->appendNextRow(existing, row);
+      rows_->appendNextRow(existingRow, row);
     }
     return false;
   }
   table_[index] = row;
-  return !existing;
+  return existingRow == nullptr;
 }
 
 template <bool ignoreNullKeys>
@@ -1155,10 +1155,9 @@ void HashTable<ignoreNullKeys>::pushNext(
     RowContainer* rows,
     char* row,
     char* next) {
-  if (nextOffset_ > 0) {
-    hasDuplicates_ = true;
-    rows->appendNextRow(row, next);
-  }
+  VELOX_CHECK_GT(nextOffset_, 0);
+  hasDuplicates_ = true;
+  rows->appendNextRow(row, next);
 }
 
 template <bool ignoreNullKeys>
@@ -1187,7 +1186,7 @@ FOLLY_ALWAYS_INLINE void HashTable<ignoreNullKeys>::buildFullProbe(
         [&](char* group, int32_t /*row*/) {
           if (RowContainer::normalizedKey(group) ==
               RowContainer::normalizedKey(inserted)) {
-            if (nextOffset_) {
+            if (nextOffset_ > 0) {
               pushNext(rows, group, inserted);
             }
             return true;
@@ -1809,7 +1808,7 @@ int32_t HashTable<ignoreNullKeys>::listJoinResults(
           (joinProjectedVarColumnsSize(iter.varSizeListColumns, hit) +
            iter.fixedSizeListColumnsSizeSum);
     } else {
-      auto numRows = rows->size();
+      const auto numRows = rows->size();
       auto num =
           std::min(numRows - iter.lastDuplicateRowIndex, maxOut - numOut);
       std::fill_n(inputRows.begin() + numOut, num, row);

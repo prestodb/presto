@@ -1002,7 +1002,7 @@ class HashTable : public BaseHashTable {
   std::atomic<bool> hasDuplicates_{false};
 
   // Offset of next row link for join build side set from 'rows_'.
-  int32_t nextOffset_;
+  int32_t nextOffset_{0};
   char** table_ = nullptr;
   memory::ContiguousAllocation tableAllocation_;
 
