@@ -805,6 +805,27 @@ Argument Name         required   type            Description
 ``snapshot_id``       ✔️          long            Snapshot ID to rollback to
 ===================== ========== =============== =======================================================================
 
+Rollback to Timestamp
+^^^^^^^^^^^^^^^^^^^^^
+
+Rollback a table to a given point in time. Iceberg can rollback to a specific point in time by using the ``rollback_to_timestamp`` procedure on Iceberg's ``system`` schema.
+
+The following arguments are available:
+
+===================== ========== =============== =======================================================================
+Argument Name         required   type            Description
+===================== ========== =============== =======================================================================
+``schema``            ✔️          string          Schema of the table to update
+
+``table_name``        ✔️          string          Name of the table to update
+
+``timestamp``         ✔️          timestamp       Timestamp to rollback to
+===================== ========== =============== =======================================================================
+
+Example::
+
+    CALL iceberg.system.rollback_to_timestamp('schema_name', 'table_name', TIMESTAMP '1995-04-26 00:00:00.000');
+
 Expire Snapshots
 ^^^^^^^^^^^^^^^^
 

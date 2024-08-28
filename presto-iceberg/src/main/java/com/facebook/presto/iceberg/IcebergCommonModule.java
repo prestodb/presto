@@ -43,6 +43,7 @@ import com.facebook.presto.iceberg.procedure.ExpireSnapshotsProcedure;
 import com.facebook.presto.iceberg.procedure.RegisterTableProcedure;
 import com.facebook.presto.iceberg.procedure.RemoveOrphanFiles;
 import com.facebook.presto.iceberg.procedure.RollbackToSnapshotProcedure;
+import com.facebook.presto.iceberg.procedure.RollbackToTimestampProcedure;
 import com.facebook.presto.iceberg.procedure.UnregisterTableProcedure;
 import com.facebook.presto.orc.CachingStripeMetadataSource;
 import com.facebook.presto.orc.DwrfAwareStripeMetadataSourceFactory;
@@ -152,6 +153,7 @@ public class IcebergCommonModule
 
         Multibinder<Procedure> procedures = newSetBinder(binder, Procedure.class);
         procedures.addBinding().toProvider(RollbackToSnapshotProcedure.class).in(Scopes.SINGLETON);
+        procedures.addBinding().toProvider(RollbackToTimestampProcedure.class).in(Scopes.SINGLETON);
         procedures.addBinding().toProvider(RegisterTableProcedure.class).in(Scopes.SINGLETON);
         procedures.addBinding().toProvider(UnregisterTableProcedure.class).in(Scopes.SINGLETON);
         procedures.addBinding().toProvider(ExpireSnapshotsProcedure.class).in(Scopes.SINGLETON);
