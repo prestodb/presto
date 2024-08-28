@@ -608,6 +608,37 @@ class Expr {
 
   std::vector<VectorPtr> inputValues_;
 
+  /// Represents a set of inputs referenced by 'distinctFields_' that are
+  /// captured when the 'evaluateSharedSubexpr()' method is called on a shared
+  /// sub-expression. The purpose of this class is to ensure that cached
+  /// results are re-used for the correct set of live input vectors.
+  class InputForSharedResults {
+   public:
+    void addInput(const std::shared_ptr<BaseVector>& input) {
+      inputVectors_.push_back(input.get());
+      inputWeakVectors_.push_back(input);
+    }
+
+    bool operator<(const InputForSharedResults& other) const {
+      return inputVectors_ < other.inputVectors_;
+    }
+
+    bool isExpired() const {
+      for (const auto& input : inputWeakVectors_) {
+        if (input.expired()) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+   private:
+    // Used as a key in a map that keeps track of cached results.
+    std::vector<const BaseVector*> inputVectors_;
+    // Used to check if inputs have expired.
+    std::vector<std::weak_ptr<BaseVector>> inputWeakVectors_;
+  };
+
   struct SharedResults {
     // The rows for which 'sharedSubexprValues_' has a value.
     std::unique_ptr<SelectivityVector> sharedSubexprRows_ = nullptr;
@@ -617,7 +648,7 @@ class Expr {
 
   // Maps the inputs referenced by distinctFields_ captuered when
   // evaluateSharedSubexpr() is called to the cached shared results.
-  std::map<std::vector<const BaseVector*>, SharedResults> sharedSubexprResults_;
+  std::map<InputForSharedResults, SharedResults> sharedSubexprResults_;
 
   // Pointers to the last base vector of cachable dictionary input. Used to
   // check if the current input's base vector is the same as the last. If it's

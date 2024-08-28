@@ -852,16 +852,27 @@ void Expr::evaluateSharedSubexpr(
     VectorPtr& result,
     TEval eval) {
   // Captures the inputs referenced by distinctFields_.
-  std::vector<const BaseVector*> expressionInputFields;
+  InputForSharedResults expressionInputFields;
   for (auto* field : distinctFields_) {
-    expressionInputFields.push_back(
-        context.getField(field->index(context)).get());
+    expressionInputFields.addInput(context.getField(field->index(context)));
   }
 
   // Find the cached results for the same inputs, or create an entry if one
   // doesn't exist.
   auto sharedSubexprResultsIter =
       sharedSubexprResults_.find(expressionInputFields);
+
+  // If any of the input vector is freed/expired, remove the entry from the
+  // results cache.
+  if (sharedSubexprResultsIter != sharedSubexprResults_.end() &&
+      sharedSubexprResultsIter->first.isExpired()) {
+    sharedSubexprResults_.erase(sharedSubexprResultsIter);
+    VELOX_DCHECK(
+        sharedSubexprResults_.find(expressionInputFields) ==
+        sharedSubexprResults_.end());
+    sharedSubexprResultsIter = sharedSubexprResults_.end();
+  }
+
   if (sharedSubexprResultsIter == sharedSubexprResults_.end()) {
     auto maxSharedSubexprResultsCached = context.execCtx()
                                              ->queryCtx()
