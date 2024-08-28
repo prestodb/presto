@@ -644,10 +644,6 @@ public abstract class IcebergAbstractMetadata
 
         Type columnType = toIcebergType(column.getType());
 
-        if (columnType.equals(Types.TimestampType.withZone())) {
-            throw new PrestoException(NOT_SUPPORTED, format("Iceberg column type %s is not supported", columnType));
-        }
-
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         verify(handle.getIcebergTableName().getTableType() == DATA, "only the data table can have columns added");
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
