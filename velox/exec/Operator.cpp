@@ -679,13 +679,12 @@ void Operator::MemoryReclaimer::abort(
       !driver->state().isOnThread() || driver->state().suspended() ||
       driver->state().isTerminated);
   VELOX_CHECK(driver->task()->isCancelled());
-  if (driver->state().isOnThread() && driver->state().suspended()) {
-    // We can't abort an operator if it is running on a driver thread and
-    // suspended for memory arbitration. Otherwise, it might cause random crash
-    // when the driver thread throws after detects the aborted query.
+  if (driver->state().isOnThread()) {
+    // We can't abort an operator if it is running on a driver thread for memory
+    // arbitration. Otherwise, it might cause random crash when the driver
+    // thread throws after detects the aborted query.
     return;
   }
-
   // Calls operator close to free up major memory usage.
   op_->close();
 }

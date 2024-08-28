@@ -280,7 +280,7 @@ class MultiThreadedTaskCursor : public TaskCursorBase {
       // Wait for the task to finish (there's' a small period of time between
       // when the error is set on the Task and terminate is called).
       task_->taskCompletionFuture()
-          .within(std::chrono::microseconds(1'000'000))
+          .within(std::chrono::microseconds(5'000'000))
           .wait();
 
       // Wait for all task drivers to finish to avoid destroying the executor_

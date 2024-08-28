@@ -492,26 +492,25 @@ uint64_t SharedArbitrator::shrinkCapacity(
     bool allowSpill,
     bool allowAbort) {
   incrementGlobalArbitrationCount();
-  requestBytes = requestBytes == 0 ? capacity_ : requestBytes;
-  ArbitrationOperation op(requestBytes);
+  const uint64_t targetBytes = requestBytes == 0 ? capacity_ : requestBytes;
+  ArbitrationOperation op(targetBytes);
   ScopedArbitration scopedArbitration(this, &op);
 
   std::lock_guard<std::shared_mutex> exclusiveLock(arbitrationLock_);
   getCandidates(&op);
-  uint64_t unreturnedFreedBytes{0};
-  uint64_t totalFreedBytes{0};
 
+  uint64_t reclaimedBytes{0};
   RECORD_METRIC_VALUE(kMetricArbitratorSlowGlobalArbitrationCount);
 
   if (allowSpill) {
-    reclaimUsedMemoryFromCandidatesBySpill(&op, unreturnedFreedBytes);
-    totalFreedBytes += unreturnedFreedBytes;
-    if (unreturnedFreedBytes > 0) {
-      incrementFreeCapacity(unreturnedFreedBytes);
-      unreturnedFreedBytes = 0;
+    uint64_t freedBytes{0};
+    reclaimUsedMemoryFromCandidatesBySpill(&op, freedBytes);
+    reclaimedBytes += freedBytes;
+    if (freedBytes > 0) {
+      incrementFreeCapacity(freedBytes);
     }
-    if (totalFreedBytes >= op.requestBytes) {
-      return totalFreedBytes;
+    if (reclaimedBytes >= op.requestBytes) {
+      return reclaimedBytes;
     }
     if (allowAbort) {
       // Candidate stats may change after spilling.
@@ -520,14 +519,14 @@ uint64_t SharedArbitrator::shrinkCapacity(
   }
 
   if (allowAbort) {
-    reclaimUsedMemoryFromCandidatesByAbort(&op, unreturnedFreedBytes);
-    totalFreedBytes += unreturnedFreedBytes;
-    if (unreturnedFreedBytes > 0) {
-      incrementFreeCapacity(unreturnedFreedBytes);
-      unreturnedFreedBytes = 0;
+    uint64_t freedBytes{0};
+    reclaimUsedMemoryFromCandidatesByAbort(&op, freedBytes);
+    reclaimedBytes += freedBytes;
+    if (freedBytes > 0) {
+      incrementFreeCapacity(freedBytes);
     }
   }
-  return totalFreedBytes;
+  return reclaimedBytes;
 }
 
 void SharedArbitrator::testingFreeCapacity(uint64_t capacity) {

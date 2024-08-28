@@ -380,6 +380,60 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, queryArbitrationStateCheck) {
   ASSERT_FALSE(queryCtx->testingUnderArbitration());
 }
 
+DEBUG_ONLY_TEST_F(SharedArbitrationTest, raceBetweenAbortAndArbitrationLeave) {
+  const std::vector<RowVectorPtr> vectors =
+      createVectors(rowType_, 32, 32 << 20);
+  setupMemory(kMemoryCapacity, /*memoryPoolInitCapacity=*/0);
+  std::shared_ptr<core::QueryCtx> queryCtx =
+      newQueryCtx(memoryManager_.get(), executor_.get(), 32 << 20);
+
+  folly::EventCount abortWait;
+  std::atomic_bool abortWaitFlag{true};
+  std::atomic<Task*> task{nullptr};
+  const std::string errorMsg{"injected abort error"};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Task::leaveSuspended",
+      std::function<void(exec::Task*)>(([&](exec::Task* _task) {
+        if (task.exchange(_task) != nullptr) {
+          return;
+        }
+        abortWaitFlag = false;
+        abortWait.notifyAll();
+        // Let memory pool abort thread to run first. We inject a randomized
+        // delay here to trigger all the potential timing race conditions but
+        // the test result should be the same.
+        std::this_thread::sleep_for(
+            std::chrono::milliseconds(folly::Random::rand32() % 1'000));
+      })));
+
+  std::thread queryThread([&] {
+    const auto spillDirectory = exec::test::TempDirectoryPath::create();
+    core::PlanNodeId aggregationNodeId;
+    auto plan = PlanBuilder()
+                    .values(vectors)
+                    .singleAggregation({"c0", "c1"}, {"array_agg(c2)"})
+                    .capturePlanNodeId(aggregationNodeId)
+                    .planNode();
+    VELOX_ASSERT_THROW(
+        AssertQueryBuilder(plan)
+            .queryCtx(queryCtx)
+            .spillDirectory(spillDirectory->getPath())
+            .config(core::QueryConfig::kSpillEnabled, "true")
+            .copyResults(pool()),
+        errorMsg);
+  });
+
+  abortWait.await([&] { return !abortWaitFlag.load(); });
+
+  try {
+    VELOX_FAIL(errorMsg);
+  } catch (...) {
+    task.load()->pool()->abort(std::current_exception());
+  }
+  queryThread.join();
+  waitForAllTasksToBeDeleted();
+}
+
 DEBUG_ONLY_TEST_F(SharedArbitrationTest, skipNonReclaimableTaskTest) {
   const std::vector<RowVectorPtr> vectors =
       createVectors(rowType_, 32, 32 << 20);

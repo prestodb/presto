@@ -2690,6 +2690,7 @@ StopReason Task::leaveSuspended(ThreadState& state) {
   VELOX_CHECK(!state.hasBlockingFuture);
   VELOX_CHECK(state.isOnThread());
 
+  TestValue::adjust("facebook::velox::exec::Task::leaveSuspended", this);
   for (;;) {
     {
       std::lock_guard<std::timed_mutex> l(mutex_);
@@ -2984,6 +2985,7 @@ void Task::MemoryReclaimer::abort(
   VELOX_CHECK_EQ(task->pool()->name(), pool->name());
 
   task->setError(error);
+  // TODO: respect the memory arbitration request timeout later.
   const static uint32_t maxTaskAbortWaitUs = 6'000'000; // 60s
   if (task->taskCompletionFuture().wait(
           std::chrono::microseconds(maxTaskAbortWaitUs))) {

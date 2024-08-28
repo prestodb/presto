@@ -871,8 +871,22 @@ bool MemoryPoolImpl::growCapacity(MemoryPool* requestor, uint64_t size) {
   VELOX_CHECK(requestor->isLeaf());
   ++numCapacityGrowths_;
 
-  ScopedMemoryPoolArbitrationCtx arbitrationCtx(requestor);
-  return arbitrator_->growCapacity(this, size);
+  bool success{false};
+  {
+    ScopedMemoryPoolArbitrationCtx arbitrationCtx(requestor);
+    success = arbitrator_->growCapacity(this, size);
+  }
+  // The memory pool might have been aborted during the time it leaves the
+  // arbitration no matter the arbitration succeed or not.
+  if (FOLLY_UNLIKELY(aborted())) {
+    if (success) {
+      // Release the reservation committed by the memory arbitration on success.
+      decrementReservation(size);
+    }
+    VELOX_CHECK_NOT_NULL(abortError());
+    std::rethrow_exception(abortError());
+  }
+  return success;
 }
 
 bool MemoryPoolImpl::maybeIncrementReservation(uint64_t size) {

@@ -516,9 +516,12 @@ void testingRunArbitration(
     MemoryPool* pool,
     uint64_t targetBytes,
     bool allowSpill) {
-  ScopedMemoryPoolArbitrationCtx arbitrationCtx{pool};
-  static_cast<MemoryPoolImpl*>(pool)->testingManager()->shrinkPools(
-      targetBytes, allowSpill);
+  {
+    ScopedMemoryPoolArbitrationCtx arbitrationCtx{pool};
+    static_cast<MemoryPoolImpl*>(pool)->testingManager()->shrinkPools(
+        targetBytes, allowSpill);
+  }
+  static_cast<MemoryPoolImpl*>(pool)->testingCheckIfAborted();
 }
 
 ScopedReclaimedBytesRecorder::ScopedReclaimedBytesRecorder(
