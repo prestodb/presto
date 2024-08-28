@@ -16,6 +16,16 @@
 #include "velox/functions/lib/aggregates/SetBaseAggregate.h"
 
 namespace facebook::velox::functions::aggregate::sparksql {
+namespace {
+
+// Null inputs are excluded by setting 'ignoreNulls' as true.
+// Empty arrays are returned for empty groups by setting 'nullForEmpty'
+// as false.
+template <typename T>
+using SparkSetAggAggregate = SetAggAggregate<T, true, false>;
+
+} // namespace
+
 void registerCollectSetAggAggregate(
     const std::string& prefix,
     bool withCompanionFunctions,
@@ -44,42 +54,41 @@ void registerCollectSetAggAggregate(
         const TypePtr& inputType =
             isRawInput ? argTypes[0] : argTypes[0]->childAt(0);
         const TypeKind typeKind = inputType->kind();
-        // Null inputs are excluded by setting 'ignoreNulls' as true.
+
         switch (typeKind) {
           case TypeKind::BOOLEAN:
-            return std::make_unique<SetAggAggregate<bool, true>>(resultType);
+            return std::make_unique<SparkSetAggAggregate<bool>>(resultType);
           case TypeKind::TINYINT:
-            return std::make_unique<SetAggAggregate<int8_t, true>>(resultType);
+            return std::make_unique<SparkSetAggAggregate<int8_t>>(resultType);
           case TypeKind::SMALLINT:
-            return std::make_unique<SetAggAggregate<int16_t, true>>(resultType);
+            return std::make_unique<SparkSetAggAggregate<int16_t>>(resultType);
           case TypeKind::INTEGER:
-            return std::make_unique<SetAggAggregate<int32_t, true>>(resultType);
+            return std::make_unique<SparkSetAggAggregate<int32_t>>(resultType);
           case TypeKind::BIGINT:
-            return std::make_unique<SetAggAggregate<int64_t, true>>(resultType);
+            return std::make_unique<SparkSetAggAggregate<int64_t>>(resultType);
           case TypeKind::HUGEINT:
             VELOX_CHECK(
                 inputType->isLongDecimal(),
                 "Non-decimal use of HUGEINT is not supported");
-            return std::make_unique<SetAggAggregate<int128_t, true>>(
-                resultType);
+            return std::make_unique<SparkSetAggAggregate<int128_t>>(resultType);
           case TypeKind::REAL:
-            return std::make_unique<SetAggAggregate<float, true>>(resultType);
+            return std::make_unique<SparkSetAggAggregate<float>>(resultType);
           case TypeKind::DOUBLE:
-            return std::make_unique<SetAggAggregate<double, true>>(resultType);
+            return std::make_unique<SparkSetAggAggregate<double>>(resultType);
           case TypeKind::TIMESTAMP:
-            return std::make_unique<SetAggAggregate<Timestamp, true>>(
+            return std::make_unique<SparkSetAggAggregate<Timestamp>>(
                 resultType);
           case TypeKind::VARBINARY:
             [[fallthrough]];
           case TypeKind::VARCHAR:
-            return std::make_unique<SetAggAggregate<StringView, true>>(
+            return std::make_unique<SparkSetAggAggregate<StringView>>(
                 resultType);
           case TypeKind::ARRAY:
             [[fallthrough]];
           case TypeKind::ROW:
             // Nested nulls are allowed by setting 'throwOnNestedNulls' as
             // false.
-            return std::make_unique<SetAggAggregate<ComplexType, true>>(
+            return std::make_unique<SparkSetAggAggregate<ComplexType>>(
                 resultType, false);
           default:
             VELOX_UNSUPPORTED(

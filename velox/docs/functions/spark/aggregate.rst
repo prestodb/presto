@@ -60,8 +60,8 @@ General Aggregate Functions
 
 .. spark:function:: collect_set(x) -> array<[same as x]>
 
-    Returns an array consisting of all unique values from the input ``x`` elements. 
-    Null values are excluded, and returns an empty array when all inputs are null.
+    Returns an array consisting of all unique values from the input ``x`` elements excluding NULLs.
+    Returns empty array if input is empty or all NULL.
 
     Example::
 

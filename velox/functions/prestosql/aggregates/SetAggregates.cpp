@@ -103,14 +103,15 @@ class SetUnionAggregate : public SetBaseAggregate<T> {
 /// Returns the number of distinct non-null values in a group. This is an
 /// internal function only used for testing.
 template <typename T>
-class CountDistinctAggregate : public SetAggAggregate<T, true> {
+class CountDistinctAggregate : public SetAggAggregate<T, true, false> {
  public:
   explicit CountDistinctAggregate(
       const TypePtr& resultType,
       const TypePtr& inputType)
-      : SetAggAggregate<T, true>(resultType, false), inputType_{inputType} {}
+      : SetAggAggregate<T, true, false>(resultType, false),
+        inputType_{inputType} {}
 
-  using Base = SetAggAggregate<T, true>;
+  using Base = SetAggAggregate<T, true, false>;
 
   bool supportsToIntermediate() const override {
     return false;

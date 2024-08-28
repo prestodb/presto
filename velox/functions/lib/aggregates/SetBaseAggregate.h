@@ -21,7 +21,10 @@
 
 namespace facebook::velox::functions::aggregate {
 
-template <typename T, bool ignoreNulls = false>
+/// @tparam ignoreNulls Whether null inputs are ignored.
+/// @tparam nullForEmpty When true, nulls are returned for empty groups.
+/// Otherwise, empty arrays.
+template <typename T, bool ignoreNulls = false, bool nullForEmpty = true>
 class SetBaseAggregate : public exec::Aggregate {
  public:
   explicit SetBaseAggregate(const TypePtr& resultType)
@@ -50,7 +53,15 @@ class SetBaseAggregate : public exec::Aggregate {
     for (auto i = 0; i < numGroups; ++i) {
       auto* group = groups[i];
       if (isNull(group)) {
-        arrayVector->setNull(i, true);
+        if constexpr (nullForEmpty) {
+          arrayVector->setNull(i, true);
+        } else {
+          // If the group's accumulator is null, the corresponding result is an
+          // empty array.
+          clearNull(rawNulls, i);
+          rawOffsets[i] = 0;
+          rawSizes[i] = 0;
+        }
       } else {
         clearNull(rawNulls, i);
 
@@ -205,16 +216,16 @@ class SetBaseAggregate : public exec::Aggregate {
   DecodedVector decodedElements_;
 };
 
-template <typename T, bool ignoreNulls = false>
-class SetAggAggregate : public SetBaseAggregate<T, ignoreNulls> {
+template <typename T, bool ignoreNulls = false, bool nullForEmpty = true>
+class SetAggAggregate : public SetBaseAggregate<T, ignoreNulls, nullForEmpty> {
  public:
   explicit SetAggAggregate(
       const TypePtr& resultType,
       const bool throwOnNestedNulls = false)
-      : SetBaseAggregate<T, ignoreNulls>(resultType),
+      : SetBaseAggregate<T, ignoreNulls, nullForEmpty>(resultType),
         throwOnNestedNulls_(throwOnNestedNulls) {}
 
-  using Base = SetBaseAggregate<T, ignoreNulls>;
+  using Base = SetBaseAggregate<T, ignoreNulls, nullForEmpty>;
 
   bool supportsToIntermediate() const override {
     return true;
