@@ -71,6 +71,8 @@ import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.DeleteFiles;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.FileMetadata;
+import org.apache.iceberg.MetricsConfig;
+import org.apache.iceberg.MetricsModes.None;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.RowDelta;
@@ -589,8 +591,10 @@ public abstract class IcebergAbstractMetadata
     @Override
     public TableStatisticsMetadata getStatisticsCollectionMetadata(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
+        Table table = getIcebergTable(session, tableMetadata.getTable());
+        MetricsConfig metricsConfig = MetricsConfig.forTable(table);
         Set<ColumnStatisticMetadata> columnStatistics = tableMetadata.getColumns().stream()
-                .filter(column -> !column.isHidden())
+                .filter(column -> !column.isHidden() && metricsConfig.columnMode(column.getName()) != None.get())
                 .flatMap(meta -> getSupportedColumnStatistics(meta.getName(), meta.getType()).stream())
                 .collect(toImmutableSet());
 

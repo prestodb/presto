@@ -68,6 +68,8 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.BaseMetastoreTableOperations;
+import org.apache.iceberg.MetricsConfig;
+import org.apache.iceberg.MetricsModes.None;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.TableMetadata;
@@ -506,8 +508,10 @@ public class IcebergHiveMetadata
     @Override
     public TableStatisticsMetadata getStatisticsCollectionMetadata(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
+        org.apache.iceberg.Table table = getIcebergTable(session, tableMetadata.getTable());
+        MetricsConfig metricsConfig = MetricsConfig.forTable(table);
         Set<ColumnStatisticMetadata> columnStatistics = tableMetadata.getColumns().stream()
-                .filter(column -> !column.isHidden())
+                .filter(column -> !column.isHidden() && metricsConfig.columnMode(column.getName()) != None.get())
                 .flatMap(meta -> {
                     try {
                         return metastore.getSupportedColumnStatistics(getMetastoreContext(session), meta.getType())
