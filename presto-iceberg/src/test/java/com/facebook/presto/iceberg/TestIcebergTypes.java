@@ -24,7 +24,7 @@ public class TestIcebergTypes
     @Test
     public void testTimestampWithTimezone()
     {
-        getQueryRunner().execute("CREATE TABLE test_timestamptz(a TIMESTAMP WITH TIME ZONE, b TIMESTAMP WITH TIME ZONE, c TIMESTAMP WITH TIME ZONE)");
+        getQueryRunner().execute("CREATE TABLE test_timestamptz(a TIMESTAMP WITH TIME ZONE, b TIMESTAMP, c TIMESTAMP WITH TIME ZONE)");
 
         String timestamptz = "TIMESTAMP '1984-12-08 00:10:00 America/Los_Angeles'";
         String timestamp = "TIMESTAMP '1984-12-08 00:10:00'";
@@ -33,14 +33,20 @@ public class TestIcebergTypes
             getQueryRunner().execute("INSERT INTO test_timestamptz values " + row);
         }
 
-        MaterializedResult res = getQueryRunner().execute("SELECT * FROM test_timestamptz");
-        List<Type> types = res.getTypes();
-        System.out.println(res.toString());
+        MaterializedResult initialRows = getQueryRunner().execute("SELECT * FROM test_timestamptz");
+        List<Type> types = initialRows.getTypes();
 
         assertTrue(types.get(0) instanceof TimestampWithTimeZoneType);
         assertTrue(types.get(1) instanceof TimestampType);
 
-        //"alter table add_partition_column add column c varchar with(partitioning = 'truncate(2)')"
+        getQueryRunner().execute("CREATE TABLE test_timestamptz_partition(a TIMESTAMP WITH TIME ZONE, b TIMESTAMP, c TIMESTAMP WITH TIME ZONE) " +
+                "WITH (PARTITIONING = ARRAY['b'])");
+        getQueryRunner().execute("INSERT INTO test_timestamptz_partition (a, b, c) SELECT a, b, c FROM test_timestamptz");
 
+        MaterializedResult partitionRows = getQueryRunner().execute("SELECT * FROM test_timestamptz");
+        List<Type> partitionTypes = partitionRows.getTypes();
+
+        assertTrue(partitionTypes.get(0) instanceof TimestampWithTimeZoneType);
+        assertTrue(partitionTypes.get(1) instanceof TimestampType);
     }
 }
