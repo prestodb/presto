@@ -51,7 +51,6 @@ import static com.facebook.presto.iceberg.IcebergTableType.DATA;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getNativeIcebergTable;
 import static com.facebook.presto.iceberg.IcebergUtil.populateTableProperties;
-import static com.facebook.presto.iceberg.IcebergUtil.verifyTypeSupported;
 import static com.facebook.presto.iceberg.PartitionFields.parsePartitionFields;
 import static com.facebook.presto.iceberg.PartitionSpecConverter.toPrestoPartitionSpec;
 import static com.facebook.presto.iceberg.SchemaConverter.toPrestoSchema;
@@ -169,8 +168,6 @@ public class IcebergNativeMetadata
         String tableName = schemaTableName.getTableName();
 
         Schema schema = toIcebergSchema(tableMetadata.getColumns());
-
-        verifyTypeSupported(schema);
 
         PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(tableMetadata.getProperties()));
         FileFormat fileFormat = getFileFormat(tableMetadata.getProperties());
