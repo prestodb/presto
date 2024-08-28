@@ -86,10 +86,9 @@ std::vector<KeyNode<T>> getKeyNodes(
   std::unordered_map<KeyValue<T>, common::ScanSpec*, KeyValueHash<T>>
       childSpecs;
   if (!asStruct) {
-    keysSpec = scanSpec.getOrCreateChild(
-        common::Subfield(common::ScanSpec::kMapKeysFieldName));
-    valuesSpec = scanSpec.getOrCreateChild(
-        common::Subfield(common::ScanSpec::kMapValuesFieldName));
+    keysSpec = scanSpec.getOrCreateChild(common::ScanSpec::kMapKeysFieldName);
+    valuesSpec =
+        scanSpec.getOrCreateChild(common::ScanSpec::kMapValuesFieldName);
     VELOX_CHECK(!valuesSpec->hasFilter());
     keysSpec->setProjectOut(true);
     keysSpec->setExtractValues(true);

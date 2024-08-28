@@ -61,8 +61,7 @@ SelectiveListColumnReader::SelectiveListColumnReader(
   // count the number of selected sub-columns
   auto& childType = requestedType_->childAt(0);
   if (scanSpec_->children().empty()) {
-    scanSpec.getOrCreateChild(
-        common::Subfield(common::ScanSpec::kArrayElementsFieldName));
+    scanSpec.getOrCreateChild(common::ScanSpec::kArrayElementsFieldName);
   }
   scanSpec_->children()[0]->setProjectOut(true);
   scanSpec_->children()[0]->setExtractValues(true);
@@ -92,10 +91,8 @@ SelectiveMapColumnReader::SelectiveMapColumnReader(
   EncodingKey encodingKey{fileType_->id(), params.flatMapContext().sequence};
   auto& stripe = params.stripeStreams();
   if (scanSpec_->children().empty()) {
-    scanSpec_->getOrCreateChild(
-        common::Subfield(common::ScanSpec::kMapKeysFieldName));
-    scanSpec_->getOrCreateChild(
-        common::Subfield(common::ScanSpec::kMapValuesFieldName));
+    scanSpec_->getOrCreateChild(common::ScanSpec::kMapKeysFieldName);
+    scanSpec_->getOrCreateChild(common::ScanSpec::kMapValuesFieldName);
   }
   scanSpec_->children()[0]->setProjectOut(true);
   scanSpec_->children()[0]->setExtractValues(true);

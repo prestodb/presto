@@ -19,6 +19,17 @@
 
 namespace facebook::velox::common {
 
+ScanSpec* ScanSpec::getOrCreateChild(const std::string& name) {
+  if (auto it = this->childByFieldName_.find(name);
+      it != this->childByFieldName_.end()) {
+    return it->second;
+  }
+  this->children_.push_back(std::make_unique<ScanSpec>(name));
+  auto* child = this->children_.back().get();
+  this->childByFieldName_[child->fieldName()] = child;
+  return child;
+}
+
 ScanSpec* ScanSpec::getOrCreateChild(const Subfield& subfield) {
   auto container = this;
   auto& path = subfield.path();
@@ -26,15 +37,7 @@ ScanSpec* ScanSpec::getOrCreateChild(const Subfield& subfield) {
     auto element = path[depth].get();
     VELOX_CHECK_EQ(element->kind(), kNestedField);
     auto* nestedField = static_cast<const Subfield::NestedField*>(element);
-    auto it = container->childByFieldName_.find(nestedField->name());
-    if (it != container->childByFieldName_.end()) {
-      container = it->second;
-    } else {
-      container->children_.push_back(std::make_unique<ScanSpec>(*element));
-      auto* child = container->children_.back().get();
-      container->childByFieldName_[child->fieldName()] = child;
-      container = child;
-    }
+    container = container->getOrCreateChild(nestedField->name());
   }
   return container;
 }
@@ -381,7 +384,7 @@ void ScanSpec::addFilter(const Filter& filter) {
 }
 
 ScanSpec* ScanSpec::addField(const std::string& name, column_index_t channel) {
-  auto child = getOrCreateChild(Subfield(name));
+  auto child = getOrCreateChild(name);
   child->setProjectOut(true);
   child->setChannel(channel);
   return child;

@@ -44,16 +44,6 @@ class ScanSpec {
   static constexpr const char* kMapValuesFieldName = "values";
   static constexpr const char* kArrayElementsFieldName = "elements";
 
-  explicit ScanSpec(const Subfield::PathElement& element) {
-    if (element.kind() == kNestedField) {
-      auto field = reinterpret_cast<const Subfield::NestedField*>(&element);
-      fieldName_ = field->name();
-
-    } else {
-      VELOX_CHECK(false, "Only nested fields are supported");
-    }
-  }
-
   explicit ScanSpec(const std::string& name) : fieldName_(name) {}
 
   // Filter to apply. If 'this' corresponds to a struct/list/map, this
@@ -195,6 +185,10 @@ class ScanSpec {
   // will initialize the read order on first call and calling this at
   // each level of struct is mandatory.
   uint64_t newRead();
+
+  /// Returns the ScanSpec corresponding to 'name'. Creates it if needed without
+  /// any intermediate level.
+  ScanSpec* getOrCreateChild(const std::string& name);
 
   // Returns the ScanSpec corresponding to 'subfield'. Creates it if
   // needed, including any intermediate levels. This is used at

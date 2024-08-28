@@ -416,7 +416,7 @@ std::shared_ptr<common::ScanSpec> makeScanSpec(
         subfieldSpecs.push_back({subfield, true});
       }
       auto& type = dataColumns->findChild(fieldName);
-      auto* fieldSpec = spec->getOrCreateChild(common::Subfield(fieldName));
+      auto* fieldSpec = spec->getOrCreateChild(fieldName);
       addSubfields(*type, subfieldSpecs, 1, pool, *fieldSpec);
       processFieldSpec(dataColumns, type, *fieldSpec);
       subfieldSpecs.clear();
