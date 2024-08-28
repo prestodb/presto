@@ -768,14 +768,16 @@ Rollback to Snapshot
 
 Roll back a table to a specific snapshot ID. Iceberg can roll back to a specific snapshot ID by using the ``rollback_to_snapshot`` procedure on Iceberg`s ``system`` schema::
 
-    CALL iceberg.system.rollback_to_snapshot('table_name', 'snapshot_id');
+    CALL iceberg.system.rollback_to_snapshot('schema_name', 'table_name', snapshot_id);
 
 The following arguments are available:
 
 ===================== ========== =============== =======================================================================
 Argument Name         required   type            Description
 ===================== ========== =============== =======================================================================
-``table``             ✔️          string          Name of the table to update
+``schema_name``       ✔️          string          Schema of the table to update
+
+``table_name``        ✔️          string          Name of the table to update
 
 ``snapshot_id``       ✔️          long            Snapshot ID to rollback to
 ===================== ========== =============== =======================================================================
