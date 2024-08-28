@@ -27,19 +27,16 @@ FetchContent_Declare(
   URL_HASH ${SPARK_SHA256_CHECKSUM})
 FetchContent_MakeAvailable(Spark)
 
-set(SPARK_CONNECT_DEST_DIR "${CMAKE_CURRENT_SOURCE_DIR}/proto/spark")
-file(MAKE_DIRECTORY ${SPARK_CONNECT_DEST_DIR})
-file(
-  COPY "${spark_SOURCE_DIR}/connector/connect/common/src/main/protobuf/spark/connect"
-  DESTINATION ${SPARK_CONNECT_DEST_DIR})
+set(SPARK_CONNECT_PROTO_BASE_DIR
+    "${spark_SOURCE_DIR}/connector/connect/common/src/main/protobuf")
+set(SPARK_CONNECT_PROTO_DIR "${SPARK_CONNECT_PROTO_BASE_DIR}/spark/connect")
 
 # Set up Spark connect.
 file(
   GLOB PROTO_FILES
   RELATIVE ${PROJECT_SOURCE_DIR}
-  CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/proto/spark/connect/*.proto)
+  CONFIGURE_DEPENDS ${SPARK_CONNECT_PROTO_DIR}/*.proto)
 foreach(PROTO ${PROTO_FILES})
-  get_filename_component(PROTO_DIR ${PROTO} DIRECTORY)
   get_filename_component(PROTO_NAME ${PROTO} NAME_WE)
   list(APPEND PROTO_SRCS
        "${PROJECT_BINARY_DIR}/spark/connect/${PROTO_NAME}.pb.cc")
@@ -49,8 +46,7 @@ foreach(PROTO ${PROTO_FILES})
        "${PROJECT_BINARY_DIR}/spark/connect/${PROTO_NAME}.grpc.pb.cc")
   list(APPEND GRPC_HDRS
        "${PROJECT_BINARY_DIR}/spark/connect/${PROTO_NAME}.grpc.pb.h")
-  list(APPEND PROTO_FILES_FULL
-       "${PROJECT_SOURCE_DIR}/${PROTO_DIR}/${PROTO_NAME}.proto")
+  list(APPEND PROTO_FILES_FULL "${SPARK_CONNECT_PROTO_DIR}/${PROTO_NAME}.proto")
 endforeach()
 
 set(PROTO_OUTPUT_FILES ${PROTO_HDRS} ${PROTO_SRCS})
@@ -60,8 +56,7 @@ set(GRPC_OUTPUT_FILES ${GRPC_HDRS} ${GRPC_SRCS})
 set_source_files_properties(${GRPC_OUTPUT_FILES} PROPERTIES GENERATED TRUE)
 
 # Ensure that the option --proto_path is not given an empty argument.
-foreach(PROTO_PATH "${PROJECT_SOURCE_DIR}/velox/functions/sparksql/fuzzer/proto"
-                   ${Protobuf_INCLUDE_DIRS})
+foreach(PROTO_PATH ${SPARK_CONNECT_PROTO_BASE_DIR} ${Protobuf_INCLUDE_DIRS})
   list(APPEND PROTO_PATH_ARGS --proto_path=${PROTO_PATH})
 endforeach()
 
