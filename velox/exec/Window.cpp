@@ -153,12 +153,14 @@ Window::WindowFrame Window::createWindowFrame(
     }
   };
 
+  auto startFrameArg = createFrameChannelArg(frame.startValue);
+  auto endFrameArg = createFrameChannelArg(frame.endValue);
   return WindowFrame(
       {frame.type,
        frame.startType,
        frame.endType,
-       createFrameChannelArg(frame.startValue),
-       createFrameChannelArg(frame.endValue)});
+       std::move(startFrameArg),
+       std::move(endFrameArg)});
 }
 
 void Window::createWindowFunctions() {

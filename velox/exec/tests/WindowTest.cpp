@@ -439,5 +439,69 @@ TEST_F(WindowTest, duplicateOrOverlappingKeys) {
       "Sorting keys must be unique and not overlap with partitioning keys. Found duplicate key: b");
 }
 
+TEST_F(WindowTest, nagativeFrameArg) {
+  const vector_size_t size = 1'000;
+
+  auto sizeAt = [](vector_size_t row) { return row % 5; };
+  auto keyAt = [](vector_size_t row) { return row % 11; };
+  auto valueAt = [](vector_size_t row) { return row % 13; };
+  auto keys = makeArrayVector<float>(size, sizeAt, keyAt);
+  auto data = makeRowVector(
+      {"c0", "c1", "p0", "p1", "k0", "row_number"},
+      {
+          // Payload.
+          makeFlatVector<float>(size, [](auto row) { return row; }),
+          makeFlatVector<float>(size, [](auto row) { return row; }),
+          // Partition key.
+          keys,
+          makeFlatVector<std::string>(
+              size, [](auto row) { return fmt::format("{}", row + 20); }),
+          makeFlatVector<int32_t>(size, [](auto row) { return row; }),
+          // Sorting key.
+          makeFlatVector<int64_t>(size, [](auto row) { return row; }),
+      });
+
+  createDuckDbTable({data});
+
+  struct {
+    std::string fragmentStart;
+    std::string fragmentEnd;
+
+    std::string debugString() const {
+      if (fragmentStart[0] == '-') {
+        return fmt::format(
+            "Window frame {} offset must not be negative", fragmentStart);
+      } else {
+        return fmt::format(
+            "Window frame {} offset must not be negative", fragmentEnd);
+      }
+    }
+  } testSettings[] = {
+      {"k0", "-1"}, // Negative end
+      {"-1", "k0"}, // Negative start
+      {"-1", "-3"} // Negative start, negative end
+  };
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+    const auto& startOffset = testData.fragmentStart;
+    const auto& endOffset = testData.fragmentEnd;
+    auto plan =
+        PlanBuilder()
+            .values(split(data, 10))
+            .window({fmt::format(
+                "regr_count(c0, c1) over (partition by p0, p1 order by row_number ROWS between {} PRECEDING and {} FOLLOWING)",
+                startOffset,
+                endOffset)})
+            .planNode();
+    VELOX_ASSERT_USER_THROW(
+        AssertQueryBuilder(plan, duckDbQueryRunner_)
+            .assertResults(fmt::format(
+                "SELECT *, regr_count(c0, c1) over (partition by p0, p1 order by row_number  ROWS between {} PRECEDING and {} FOLLOWING) from tmp",
+                startOffset,
+                endOffset)),
+        testData.debugString());
+  }
+}
+
 } // namespace
 } // namespace facebook::velox::exec
