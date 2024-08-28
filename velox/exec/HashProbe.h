@@ -438,7 +438,8 @@ class HashProbe : public Operator {
   std::vector<IdentityProjection> tableOutputProjections_;
 
   // Rows of table found by join probe, later filtered by 'filter_'.
-  std::vector<char*> outputTableRows_;
+  BufferPtr outputTableRows_;
+  vector_size_t outputTableRowsCapacity_;
 
   // For left join with filter, we could overwrite the row which we have not
   // checked if there is a carryover.  Use a temporary buffer in this case.
