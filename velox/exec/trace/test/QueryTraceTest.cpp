@@ -337,19 +337,21 @@ TEST_F(QueryTracerTest, traceDir) {
   fs->mkdir(parentDir);
 
   constexpr auto numThreads = 5;
-  std::vector<std::thread> queryThreads;
-  queryThreads.reserve(numThreads);
+  std::vector<std::thread> traceThreads;
+  traceThreads.reserve(numThreads);
+  std::mutex mutex;
   std::set<std::string> expectedDirs;
   for (int i = 0; i < numThreads; ++i) {
-    queryThreads.emplace_back([&, i]() {
+    traceThreads.emplace_back([&, i]() {
       const auto dir = fmt::format("{}/s{}", parentDir, i);
       trace::createTraceDirectory(dir);
+      std::lock_guard<std::mutex> l(mutex);
       expectedDirs.insert(dir);
     });
   }
 
-  for (auto& queryThread : queryThreads) {
-    queryThread.join();
+  for (auto& traceThread : traceThreads) {
+    traceThread.join();
   }
 
   const auto actualDirs = fs->list(parentDir);
