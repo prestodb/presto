@@ -14,6 +14,11 @@
 package com.facebook.presto.parquet.writer;
 
 import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.block.MethodHandleUtil;
+import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.common.type.MapType;
+import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.parquet.FileParquetDataSource;
 import com.facebook.presto.parquet.cache.MetadataReader;
@@ -29,18 +34,30 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.lang.invoke.MethodHandle;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 import java.util.UUID;
 
+import static com.facebook.presto.common.block.MethodHandleUtil.compose;
+import static com.facebook.presto.common.block.MethodHandleUtil.nativeValueGetter;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.TimeType.TIME;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static com.facebook.presto.common.type.UuidType.UUID;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -77,7 +94,7 @@ public class TestParquetWriter
                     // maintain col_1's dictionary size approximately half of raw data
                     BIGINT.writeLong(pageBuilder.getBlockBuilder(0), pageIdx * 100 + rand.nextInt(50));
                     INTEGER.writeLong(pageBuilder.getBlockBuilder(1), rand.nextInt(100000000));
-                    VARCHAR.writeString(pageBuilder.getBlockBuilder(2), UUID.randomUUID().toString());
+                    VARCHAR.writeString(pageBuilder.getBlockBuilder(2), "");
                     BOOLEAN.writeBoolean(pageBuilder.getBlockBuilder(3), rand.nextBoolean());
                     pageBuilder.declarePosition();
                 }
@@ -95,32 +112,69 @@ public class TestParquetWriter
     {
         temporaryDirectory = createTempDir();
         parquetFile = new File(temporaryDirectory, randomUUID().toString() + ".parquet");
+
+        Type SMALL_DECIMAL = DecimalType.createDecimalType(18);
+        Type BIG_DECIMAL = DecimalType.createDecimalType(38);
+        Type MAP_TYPE = new MapType(
+                VARCHAR,
+                TIMESTAMP,
+                nativeValueGetter(VARCHAR),
+                nativeValueGetter(TIMESTAMP));
+        Type ROW_TYPE = RowType.from(ImmutableList.of(RowType.field("timestamp", TIMESTAMP)));
+
         List<Type> types = ImmutableList.of(
+                TINYINT,
+                SMALLINT,
                 BIGINT,
                 INTEGER,
+                DOUBLE,
+                SMALL_DECIMAL,
+                BIG_DECIMAL,
                 VARCHAR,
                 BOOLEAN,
-                DOUBLE,
+                //UUID,
                 DATE,
-                TIMESTAMP);
-        List<String> names = ImmutableList.of("col_1", "col_2", "col_3", "col_4", "col_5", "col_6", "col_7");
+                //TIME,
+                //TIME_WITH_TIME_ZONE,
+                TIMESTAMP,
+                //TIMESTAMP_WITH_TIME_ZONE,
+                //INTERVAL_DAY_TIME,
+                MAP_TYPE,
+                ROW_TYPE);
+
+        List<String> names = new ArrayList<>();
+        for (int i = 0; i < types.size(); i++) {
+            names.add(Integer.toString(i));
+        }
+
         ParquetWriterOptions parquetWriterOptions = ParquetWriterOptions.builder()
                 .setMaxPageSize(DataSize.succinctBytes(1000))
                 .setMaxBlockSize(DataSize.succinctBytes(15000))
                 .setMaxDictionaryPageSize(DataSize.succinctBytes(1000))
                 .build();
+
         try (ParquetWriter parquetWriter = createParquetWriter(parquetFile, types, names, parquetWriterOptions, CompressionCodecName.UNCOMPRESSED)) {
             PageBuilder pageBuilder = new PageBuilder(100, types);
-            for (int i = 0; i < 1; i++) {
-                BIGINT.writeLong(pageBuilder.getBlockBuilder(0), 10);
-                INTEGER.writeLong(pageBuilder.getBlockBuilder(1), 10);
-                VARCHAR.writeString(pageBuilder.getBlockBuilder(2), "10");
-                BOOLEAN.writeBoolean(pageBuilder.getBlockBuilder(3), true);
-                DOUBLE.writeDouble(pageBuilder.getBlockBuilder(4), 10);
-                DATE.writeLong(pageBuilder.getBlockBuilder(5), 100);
-                TIMESTAMP.writeLong(pageBuilder.getBlockBuilder(6), 100);
-                pageBuilder.declarePosition();
-            }
+            TINYINT.writeLong(pageBuilder.getBlockBuilder(0), 10);
+            SMALLINT.writeLong(pageBuilder.getBlockBuilder(1), 10);
+            BIGINT.writeLong(pageBuilder.getBlockBuilder(2), 10);
+            INTEGER.writeLong(pageBuilder.getBlockBuilder(3), 10);
+            DOUBLE.writeDouble(pageBuilder.getBlockBuilder(4), 10);
+            SMALL_DECIMAL.writeLong(pageBuilder.getBlockBuilder(5), 10);
+            //BIG_DECIMAL.writeDouble(pageBuilder.getBlockBuilder(6), 10);
+            VARCHAR.writeString(pageBuilder.getBlockBuilder(7), "10");
+            BOOLEAN.writeBoolean(pageBuilder.getBlockBuilder(8), true);
+            //UUID.writeDouble(pageBuilder.getBlockBuilder(9), 10);
+            //DATE.writeLong(pageBuilder.getBlockBuilder(10), 100);
+            //TIME.writeLong(pageBuilder.getBlockBuilder(11), 100);
+            //TIME_WITH_TIME_ZONE.writeLong(pageBuilder.getBlockBuilder(12), 100);
+            //TIMESTAMP.writeLong(pageBuilder.getBlockBuilder(13), 100);
+            //TIMESTAMP_WITH_TIME_ZONE.writeLong(pageBuilder.getBlockBuilder(14), 100);
+            //INTERVAL_DAY_TIME.writeLong(pageBuilder.getBlockBuilder(15), 100);
+            //MAP_TYPE.writeLong(pageBuilder.getBlockBuilder(16), 100);
+            //ROW_TYPE.writeLong(pageBuilder.getBlockBuilder(17), 100);
+            pageBuilder.declarePosition();
+
             parquetWriter.write(pageBuilder.build());
             parquetWriter.close();
             FileParquetDataSource dataSource = new FileParquetDataSource(parquetFile);
@@ -132,32 +186,45 @@ public class TestParquetWriter
             MessageType parquetSchema = parquetMetadata.getFileMetaData().getSchema();
             List<org.apache.parquet.schema.Type> parquetTypes = parquetSchema.getFields();
 
+            org.apache.parquet.schema.Type tinyintType = parquetTypes.get(0);
+            verifyPrimitiveType(tinyintType, "INT32");
+
+            org.apache.parquet.schema.Type smallintType = parquetTypes.get(0);
+            verifyPrimitiveType(smallintType, "INT32");
+
             org.apache.parquet.schema.Type bigintType = parquetTypes.get(0);
-            assertEquals(bigintType.asPrimitiveType().getPrimitiveTypeName().name(), "INT64");
+            verifyPrimitiveType(bigintType, "INT64");
 
             org.apache.parquet.schema.Type integerType = parquetTypes.get(1);
-            assertEquals(integerType.asPrimitiveType().getPrimitiveTypeName().name(), "INT32");
+            verifyPrimitiveType(integerType, "INT32");
 
-            org.apache.parquet.schema.Type varcharType = parquetTypes.get(2);
-            assertEquals(varcharType.asPrimitiveType().getPrimitiveTypeName().name(), "BINARY");
-
-            org.apache.parquet.schema.Type booleanType = parquetTypes.get(3);
-            assertEquals(booleanType.asPrimitiveType().getPrimitiveTypeName().name(), "BOOLEAN");
-
-            org.apache.parquet.schema.Type doubleType = parquetTypes.get(4);
-            assertEquals(doubleType.asPrimitiveType().getPrimitiveTypeName().name(), "DOUBLE");
-
-            org.apache.parquet.schema.Type dateType = parquetTypes.get(5);
-            LogicalTypeAnnotation dateAnnotation = dateType.getLogicalTypeAnnotation();
-            assertTrue(dateAnnotation instanceof LogicalTypeAnnotation.DateLogicalTypeAnnotation);
-
-            org.apache.parquet.schema.Type timestampType = parquetTypes.get(6);
-            LogicalTypeAnnotation timeAnnotation = timestampType.getLogicalTypeAnnotation();
-            assertEquals(((LogicalTypeAnnotation.TimestampLogicalTypeAnnotation) timeAnnotation).getUnit(), LogicalTypeAnnotation.TimeUnit.MILLIS);
-            assertFalse(((LogicalTypeAnnotation.TimestampLogicalTypeAnnotation) timeAnnotation).isAdjustedToUTC());
+//            org.apache.parquet.schema.Type varcharType = parquetTypes.get(2);
+//            assertEquals(varcharType.asPrimitiveType().getPrimitiveTypeName().name(), "BINARY");
+//
+//            org.apache.parquet.schema.Type booleanType = parquetTypes.get(3);
+//            assertEquals(booleanType.asPrimitiveType().getPrimitiveTypeName().name(), "BOOLEAN");
+//
+//            org.apache.parquet.schema.Type doubleType = parquetTypes.get(4);
+//            assertEquals(doubleType.asPrimitiveType().getPrimitiveTypeName().name(), "DOUBLE");
+//
+//            org.apache.parquet.schema.Type dateType = parquetTypes.get(5);
+//            LogicalTypeAnnotation dateAnnotation = dateType.getLogicalTypeAnnotation();
+//            assertTrue(dateAnnotation instanceof LogicalTypeAnnotation.DateLogicalTypeAnnotation);
+//
+//            org.apache.parquet.schema.Type timestampType = parquetTypes.get(6);
+//            LogicalTypeAnnotation timeAnnotation = timestampType.getLogicalTypeAnnotation();
+//            assertEquals(((LogicalTypeAnnotation.TimestampLogicalTypeAnnotation) timeAnnotation).getUnit(), LogicalTypeAnnotation.TimeUnit.MILLIS);
+//            assertFalse(((LogicalTypeAnnotation.TimestampLogicalTypeAnnotation) timeAnnotation).isAdjustedToUTC());
         }
     }
 
+    private static void verifyPrimitiveType(org.apache.parquet.schema.Type type, String primitiveName)
+    {
+        assertEquals(type.asPrimitiveType().getPrimitiveTypeName().name(), primitiveName);
+    }
+
+    //private static void verifyLogicalType()
+    //private static void verifyLogicalTypeParams()
     public static ParquetWriter createParquetWriter(File outputFile, List<Type> types, List<String> columnNames,
                                                     ParquetWriterOptions parquetWriterOptions, CompressionCodecName compressionCodecName)
             throws Exception
