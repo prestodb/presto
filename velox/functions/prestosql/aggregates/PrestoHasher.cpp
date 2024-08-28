@@ -233,8 +233,14 @@ void PrestoHasher::hash<TypeKind::ARRAY>(
     BufferPtr& hashes) {
   auto baseArray = vector_->base()->as<ArrayVector>();
   auto indices = vector_->indices();
+
+  auto nonNullRows = SelectivityVector(rows);
+  if (vector_->nulls(&nonNullRows)) {
+    nonNullRows.deselectNulls(vector_->nulls(), 0, nonNullRows.end());
+  }
+
   auto elementRows = functions::toElementRows(
-      baseArray->elements()->size(), rows, baseArray, indices);
+      baseArray->elements()->size(), nonNullRows, baseArray, indices);
 
   BufferPtr elementHashes =
       AlignedBuffer::allocate<int64_t>(elementRows.end(), baseArray->pool());
@@ -243,13 +249,13 @@ void PrestoHasher::hash<TypeKind::ARRAY>(
 
   auto rawSizes = baseArray->rawSizes();
   auto rawOffsets = baseArray->rawOffsets();
-  auto rawNulls = baseArray->rawNulls();
   auto rawElementHashes = elementHashes->as<int64_t>();
   auto rawHashes = hashes->asMutable<int64_t>();
+  auto decodedNulls = vector_->nulls();
 
   rows.applyToSelected([&](auto row) {
     int64_t hash = 0;
-    if (!(rawNulls && bits::isBitNull(rawNulls, indices[row]))) {
+    if (!((decodedNulls && bits::isBitNull(decodedNulls, row)))) {
       auto size = rawSizes[indices[row]];
       auto offset = rawOffsets[indices[row]];
 
@@ -269,8 +275,13 @@ void PrestoHasher::hash<TypeKind::MAP>(
   auto indices = vector_->indices();
   VELOX_CHECK_EQ(children_.size(), 2)
 
+  auto nonNullRows = SelectivityVector(rows);
+  if (vector_->nulls(&nonNullRows)) {
+    nonNullRows.deselectNulls(vector_->nulls(), 0, nonNullRows.end());
+  }
+
   auto elementRows = functions::toElementRows(
-      baseMap->mapKeys()->size(), rows, baseMap, indices);
+      baseMap->mapKeys()->size(), nonNullRows, baseMap, indices);
   BufferPtr keyHashes =
       AlignedBuffer::allocate<int64_t>(elementRows.end(), baseMap->pool());
 
@@ -286,11 +297,11 @@ void PrestoHasher::hash<TypeKind::MAP>(
 
   auto rawSizes = baseMap->rawSizes();
   auto rawOffsets = baseMap->rawOffsets();
-  auto rawNulls = baseMap->rawNulls();
+  auto decodedNulls = vector_->nulls();
 
   rows.applyToSelected([&](auto row) {
     int64_t hash = 0;
-    if (!(rawNulls && bits::isBitNull(rawNulls, indices[row]))) {
+    if (!((decodedNulls && bits::isBitNull(decodedNulls, row)))) {
       auto size = rawSizes[indices[row]];
       auto offset = rawOffsets[indices[row]];
 

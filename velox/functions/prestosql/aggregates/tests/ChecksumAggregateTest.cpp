@@ -384,4 +384,42 @@ TEST_F(ChecksumAggregateTest, unknown) {
   assertChecksum(data, "vBwbUFiJq80=");
 }
 
+TEST_F(ChecksumAggregateTest, complexVectorWithNulls) {
+  // Create a dictionary on a map vector with null rows.
+  auto baseMap = makeMapVectorFromJson<int32_t, int64_t>({
+      "{1: 10, 2: null, 3: 30}",
+  });
+
+  auto dictionarySize = baseMap->size() * 3;
+  // Set bad index for null value.
+  auto indexBuffer = makeIndices(dictionarySize, [baseMap](auto row) {
+    return row % 7 == 0 ? -1000 : row % baseMap->size();
+  });
+  auto nulls = makeNulls(dictionarySize, [](auto row) { return row % 7 == 0; });
+  auto dictionary =
+      BaseVector::wrapInDictionary(nulls, indexBuffer, dictionarySize, baseMap);
+
+  auto row = makeRowVector({dictionary});
+
+  assertChecksum(row, "r4PlPOShD0w=");
+
+  // Create a dictionary on a array vector with null rows.
+  auto baseArray = makeArrayVectorFromJson<int64_t>({
+      "[1, 2, null, 3, 4]",
+  });
+
+  dictionarySize = baseArray->size() * 3;
+  // Set bad index for null value.
+  indexBuffer = makeIndices(dictionarySize, [baseArray](auto row) {
+    return row % 7 == 0 ? -1000 : row % baseArray->size();
+  });
+  nulls = makeNulls(dictionarySize, [](auto row) { return row % 7 == 0; });
+  dictionary = BaseVector::wrapInDictionary(
+      nulls, indexBuffer, dictionarySize, baseArray);
+
+  row = makeRowVector({dictionary});
+
+  assertChecksum(row, "i5mk/hSs+AQ=");
+}
+
 } // namespace facebook::velox::aggregate::test
