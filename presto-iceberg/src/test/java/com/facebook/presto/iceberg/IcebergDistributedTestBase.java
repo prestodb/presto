@@ -44,6 +44,7 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -93,6 +94,7 @@ import java.util.UUID;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.SystemSessionProperties.LEGACY_TIMESTAMP;
@@ -634,6 +636,72 @@ public abstract class IcebergDistributedTestBase
         assertEquals(getQueryRunner().execute("select row_count from \"test_partition_columns_varbinary$partitions\" where b = X'e3bcd1'").getOnlyValue(), 1L);
 
         assertQuerySucceeds("drop table test_partition_columns_varbinary");
+    }
+
+    @Test
+    public void testReadWriteStatsWithColumnLimits()
+    {
+        // The columns number of an Iceberg table for which metrics are collected is 100 by default
+        int columnCount = 100;
+        try {
+            String columns = Joiner.on(", ")
+                    .join(IntStream.iterate(2, i -> i + 1).limit(columnCount - 2)
+                            .mapToObj(idx -> "column_" + idx + " int")
+                            .iterator());
+            assertUpdate("CREATE TABLE test_stats_with_column_limits (column_0 int, column_1 varchar, " + columns + ", column_10001 varchar)");
+            assertTrue(getQueryRunner().tableExists(getSession(), "test_stats_with_column_limits"));
+            List<String> columnNames = IntStream.iterate(0, i -> i + 1).limit(columnCount)
+                    .mapToObj(idx -> "column_" + idx).collect(Collectors.toList());
+            columnNames.add("column_10001");
+            assertTableColumnNames("test_stats_with_column_limits", columnNames.toArray(new String[0]));
+
+            // test that stats don't exist before analyze
+            Function<Map<ColumnHandle, ColumnStatistics>, Map<String, ColumnStatistics>> remapper = (input) -> input.entrySet().stream().collect(Collectors.toMap(e -> ((IcebergColumnHandle) e.getKey()).getName(), Map.Entry::getValue));
+            Map<String, ColumnStatistics> columnStats;
+            TableStatistics stats = getTableStats("test_stats_with_column_limits");
+            columnStats = remapper.apply(stats.getColumnStatistics());
+            assertTrue(columnStats.isEmpty());
+
+            String values1 = Joiner.on(", ")
+                    .join(IntStream.iterate(2, i -> i + 1).limit(columnCount - 2)
+                            .mapToObj(idx -> "100" + idx)
+                            .iterator());
+            String values2 = Joiner.on(", ")
+                    .join(IntStream.iterate(2, i -> i + 1).limit(columnCount - 2)
+                            .mapToObj(idx -> "200" + idx)
+                            .iterator());
+            String values3 = Joiner.on(", ")
+                    .join(IntStream.iterate(2, i -> i + 1).limit(columnCount - 2)
+                            .mapToObj(idx -> "300" + idx)
+                            .iterator());
+            // test after simple insert we get a good estimate
+            assertUpdate("INSERT INTO test_stats_with_column_limits VALUES (1, '1001', " + values1 + ", 'abc'), (2, '2001', " + values2 + ", 'xyz'), (3, '3001', " + values3 + ", 'lmnopqrst')", 3);
+            getQueryRunner().execute("ANALYZE test_stats_with_column_limits");
+            stats = getTableStats("test_stats_with_column_limits");
+            columnStats = remapper.apply(stats.getColumnStatistics());
+
+            // `column_0` has columns statistics
+            ColumnStatistics columnStat = columnStats.get("column_0");
+            assertEquals(columnStat.getDistinctValuesCount(), Estimate.of(3.0));
+            assertEquals(columnStat.getNullsFraction(), Estimate.of(0.0));
+            assertEquals(columnStat.getDataSize(), Estimate.unknown());
+
+            // `column_1` has columns statistics
+            columnStat = columnStats.get("column_1");
+            assertEquals(columnStat.getDistinctValuesCount(), Estimate.of(3.0));
+            assertEquals(columnStat.getNullsFraction(), Estimate.of(0.0));
+            assertEquals(columnStat.getDataSize(), Estimate.of(12.0));
+
+            // `column_10001` do not have column statistics as its column index is
+            //  larger than the max number for which metrics are collected
+            columnStat = columnStats.get("column_10001");
+            assertEquals(columnStat.getDistinctValuesCount(), Estimate.unknown());
+            assertEquals(columnStat.getNullsFraction(), Estimate.unknown());
+            assertEquals(columnStat.getDataSize(), Estimate.unknown());
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS test_stats_with_column_limits");
+        }
     }
 
     @Test

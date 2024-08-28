@@ -63,6 +63,7 @@ import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.RowLevelOperationMode;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Snapshot;
+import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableOperations;
@@ -223,6 +224,11 @@ public final class IcebergUtil
         checkArgument(metadata instanceof IcebergAbstractMetadata, "metadata must be instance of IcebergAbstractMetadata!");
         IcebergAbstractMetadata icebergMetadata = (IcebergAbstractMetadata) metadata;
         return icebergMetadata.getIcebergTable(session, table);
+    }
+
+    public static Table getShallowWrappedIcebergTable(Schema schema, PartitionSpec spec, Map<String, String> properties, Optional<SortOrder> sortOrder)
+    {
+        return new PrestoIcebergTableForMetricsConfig(schema, spec, properties, sortOrder);
     }
 
     public static Table getHiveIcebergTable(ExtendedHiveMetastore metastore, HdfsEnvironment hdfsEnvironment, IcebergHiveTableOperationsConfig config, ConnectorSession session, SchemaTableName table)

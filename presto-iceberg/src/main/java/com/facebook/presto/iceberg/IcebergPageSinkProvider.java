@@ -27,11 +27,15 @@ import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.Table;
 import org.apache.iceberg.io.LocationProvider;
 
 import javax.inject.Inject;
 
+import java.util.Optional;
+
 import static com.facebook.presto.iceberg.IcebergUtil.getLocationProvider;
+import static com.facebook.presto.iceberg.IcebergUtil.getShallowWrappedIcebergTable;
 import static com.facebook.presto.iceberg.PartitionSpecConverter.toIcebergPartitionSpec;
 import static com.facebook.presto.iceberg.SchemaConverter.toIcebergSchema;
 import static java.util.Objects.requireNonNull;
@@ -80,9 +84,9 @@ public class IcebergPageSinkProvider
         PartitionSpec partitionSpec = toIcebergPartitionSpec(tableHandle.getPartitionSpec()).toUnbound().bind(schema);
         LocationProvider locationProvider = getLocationProvider(new SchemaTableName(tableHandle.getSchemaName(), tableHandle.getTableName().getTableName()),
                 tableHandle.getOutputPath(), tableHandle.getStorageProperties());
+        Table table = getShallowWrappedIcebergTable(schema, partitionSpec, tableHandle.getStorageProperties(), Optional.empty());
         return new IcebergPageSink(
-                schema,
-                partitionSpec,
+                table,
                 locationProvider,
                 fileWriterFactory,
                 pageIndexerFactory,
