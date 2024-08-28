@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.parquet.batchreader.decoders.rle;
 
-import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.Int64TimestampMicrosValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.Int64TimeAndTimestampMicrosValuesDecoder;
 import com.facebook.presto.parquet.dictionary.LongDictionary;
 import org.apache.parquet.io.ParquetDecodingException;
 import org.openjdk.jol.info.ClassLayout;
@@ -26,15 +26,15 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 
-public class Int64TimestampMicrosRLEDictionaryValuesDecoder
+public class Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder
         extends BaseRLEBitPackedDecoder
-        implements Int64TimestampMicrosValuesDecoder
+        implements Int64TimeAndTimestampMicrosValuesDecoder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(Int64TimestampMicrosRLEDictionaryValuesDecoder.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder.class).instanceSize();
 
     private final LongDictionary dictionary;
 
-    public Int64TimestampMicrosRLEDictionaryValuesDecoder(int bitWidth, InputStream inputStream, LongDictionary dictionary)
+    public Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder(int bitWidth, InputStream inputStream, LongDictionary dictionary)
     {
         super(Integer.MAX_VALUE, bitWidth, inputStream);
         this.dictionary = dictionary;

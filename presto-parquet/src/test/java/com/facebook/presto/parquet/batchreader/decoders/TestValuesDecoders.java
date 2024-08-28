@@ -17,20 +17,20 @@ import com.facebook.presto.parquet.DictionaryPage;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.BinaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.BooleanValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.Int32ValuesDecoder;
-import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.Int64TimestampMicrosValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.Int64TimeAndTimestampMicrosValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.Int64ValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.TimestampValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.BinaryPlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.BooleanPlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.Int32PlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.Int64PlainValuesDecoder;
-import com.facebook.presto.parquet.batchreader.decoders.plain.Int64TimestampMicrosPlainValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.plain.Int64TimeAndTimestampMicrosPlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.TimestampPlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.BinaryRLEDictionaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.BooleanRLEValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.Int32RLEDictionaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.Int64RLEDictionaryValuesDecoder;
-import com.facebook.presto.parquet.batchreader.decoders.rle.Int64TimestampMicrosRLEDictionaryValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.rle.Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.TimestampRLEDictionaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.dictionary.BinaryBatchDictionary;
 import com.facebook.presto.parquet.batchreader.dictionary.TimestampDictionary;
@@ -83,9 +83,9 @@ public class TestValuesDecoders
         return new Int64PlainValuesDecoder(pageBytes, 0, pageBytes.length);
     }
 
-    private static Int64TimestampMicrosValuesDecoder int64TimestampMicrosPlain(byte[] pageBytes)
+    private static Int64TimeAndTimestampMicrosValuesDecoder int64TimestampMicrosPlain(byte[] pageBytes)
     {
-        return new Int64TimestampMicrosPlainValuesDecoder(pageBytes, 0, pageBytes.length);
+        return new Int64TimeAndTimestampMicrosPlainValuesDecoder(pageBytes, 0, pageBytes.length);
     }
 
     private static Int64ValuesDecoder int64Dictionary(byte[] pageBytes, int dictionarySize, LongDictionary dictionary)
@@ -93,9 +93,9 @@ public class TestValuesDecoders
         return new Int64RLEDictionaryValuesDecoder(getWidthFromMaxInt(dictionarySize), new ByteArrayInputStream(pageBytes), dictionary);
     }
 
-    private static Int64TimestampMicrosValuesDecoder int64TimestampMicrosDictionary(byte[] pageBytes, int dictionarySize, LongDictionary dictionary)
+    private static Int64TimeAndTimestampMicrosValuesDecoder int64TimestampMicrosDictionary(byte[] pageBytes, int dictionarySize, LongDictionary dictionary)
     {
-        return new Int64TimestampMicrosRLEDictionaryValuesDecoder(getWidthFromMaxInt(dictionarySize), new ByteArrayInputStream(pageBytes), dictionary);
+        return new Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder(getWidthFromMaxInt(dictionarySize), new ByteArrayInputStream(pageBytes), dictionary);
     }
 
     private static TimestampValuesDecoder timestampPlain(byte[] pageBytes)
@@ -167,7 +167,7 @@ public class TestValuesDecoders
         }
     }
 
-    private static void int64BatchReadWithSkipHelper(int batchSize, int skipSize, int valueCount, Int64TimestampMicrosValuesDecoder decoder, List<Object> expectedValues)
+    private static void int64BatchReadWithSkipHelper(int batchSize, int skipSize, int valueCount, Int64TimeAndTimestampMicrosValuesDecoder decoder, List<Object> expectedValues)
             throws IOException
     {
         long[] actualValues = new long[valueCount];
