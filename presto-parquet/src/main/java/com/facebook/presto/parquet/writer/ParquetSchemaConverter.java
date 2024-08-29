@@ -47,6 +47,7 @@ import static com.facebook.presto.common.type.StandardTypes.MAP;
 import static com.facebook.presto.common.type.StandardTypes.ROW;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static com.facebook.presto.common.type.UuidType.UUID;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -135,6 +136,12 @@ public class ParquetSchemaConverter
             LogicalTypeAnnotation annotation = LogicalTypeAnnotation.timestampType(false, LogicalTypeAnnotation.TimeUnit.MILLIS);
             parquetTypeBuilder.as(annotation);
             return parquetTypeBuilder.named(name);
+        }
+        if (UUID.equals(type)) {
+            return Types.primitive(PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY, repetition)
+                    .length(16)
+                    .as(LogicalTypeAnnotation.uuidType())
+                    .named(name);
         }
         if (DOUBLE.equals(type)) {
             return Types.primitive(PrimitiveType.PrimitiveTypeName.DOUBLE, repetition).named(name);

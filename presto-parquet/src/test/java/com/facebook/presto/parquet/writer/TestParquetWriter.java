@@ -132,7 +132,7 @@ public class TestParquetWriter
                 BIG_DECIMAL,
                 VARCHAR,
                 BOOLEAN,
-                //UUID,
+                UUID,
                 DATE,
                 //TIME,
                 //TIME_WITH_TIME_ZONE,
@@ -164,7 +164,7 @@ public class TestParquetWriter
             //BIG_DECIMAL.writeDouble(pageBuilder.getBlockBuilder(6), 10);
             VARCHAR.writeString(pageBuilder.getBlockBuilder(7), "10");
             BOOLEAN.writeBoolean(pageBuilder.getBlockBuilder(8), true);
-            //UUID.writeDouble(pageBuilder.getBlockBuilder(9), 10);
+            UUID.writeDouble(pageBuilder.getBlockBuilder(9), 10);
             //DATE.writeLong(pageBuilder.getBlockBuilder(10), 100);
             //TIME.writeLong(pageBuilder.getBlockBuilder(11), 100);
             //TIME_WITH_TIME_ZONE.writeLong(pageBuilder.getBlockBuilder(12), 100);
