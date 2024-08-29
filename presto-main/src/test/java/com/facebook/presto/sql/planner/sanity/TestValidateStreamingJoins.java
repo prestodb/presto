@@ -23,7 +23,6 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
-import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
@@ -51,7 +50,6 @@ public class TestValidateStreamingJoins
 {
     private Session testSession;
     private Metadata metadata;
-    private SqlParser sqlParser;
     private PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
     private TableHandle nationTableHandle;
     private TableHandle supplierTableHandle;
@@ -66,7 +64,6 @@ public class TestValidateStreamingJoins
                 .setSchema("tiny");
         testSession = sessionBuilder.build();
         metadata = getQueryRunner().getMetadata();
-        sqlParser = getQueryRunner().getSqlParser();
 
         TpchTableHandle nationTpchTableHandle = new TpchTableHandle("nation", 1.0);
         TpchTableHandle supplierTpchTableHandle = new TpchTableHandle("supplier", 1.0);
@@ -90,7 +87,6 @@ public class TestValidateStreamingJoins
     {
         testSession = null;
         metadata = null;
-        sqlParser = null;
         idAllocator = null;
         nationTableHandle = null;
         supplierTableHandle = null;
@@ -134,7 +130,7 @@ public class TestValidateStreamingJoins
         TypeProvider types = builder.getTypes();
         getQueryRunner().inTransaction(testSession, session -> {
             session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
-            new ValidateStreamingJoins().validate(planNode, session, metadata, sqlParser, types, WarningCollector.NOOP);
+            new ValidateStreamingJoins().validate(planNode, session, metadata, WarningCollector.NOOP);
             return null;
         });
     }

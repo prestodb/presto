@@ -22,7 +22,6 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningHandle;
-import com.facebook.presto.sql.planner.TypeProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -203,7 +202,7 @@ public class ActualProperties
                 .build();
     }
 
-    public ActualProperties translateRowExpression(Map<VariableReferenceExpression, RowExpression> assignments, TypeProvider types)
+    public ActualProperties translateRowExpression(Map<VariableReferenceExpression, RowExpression> assignments)
     {
         Map<VariableReferenceExpression, VariableReferenceExpression> inputToOutputVariables = new HashMap<>();
         for (Map.Entry<VariableReferenceExpression, RowExpression> assignment : assignments.entrySet()) {
@@ -226,7 +225,7 @@ public class ActualProperties
                 .filter(entry -> !inputToOutputVariables.containsKey(entry.getKey()))
                 .forEach(inputToOutputMappings::put);
         return builder()
-                .global(global.translateRowExpression(inputToOutputMappings.build(), assignments, types))
+                .global(global.translateRowExpression(inputToOutputMappings.build(), assignments))
                 .local(LocalProperties.translate(localProperties, variable -> Optional.ofNullable(inputToOutputVariables.get(variable))))
                 .constants(translatedConstants)
                 .build();
@@ -568,11 +567,11 @@ public class ActualProperties
                     nullsAndAnyReplicated);
         }
 
-        private Global translateRowExpression(Map<VariableReferenceExpression, RowExpression> inputToOutputMappings, Map<VariableReferenceExpression, RowExpression> assignments, TypeProvider types)
+        private Global translateRowExpression(Map<VariableReferenceExpression, RowExpression> inputToOutputMappings, Map<VariableReferenceExpression, RowExpression> assignments)
         {
             return new Global(
-                    nodePartitioning.flatMap(partitioning -> partitioning.translateRowExpression(inputToOutputMappings, assignments, types)),
-                    streamPartitioning.flatMap(partitioning -> partitioning.translateRowExpression(inputToOutputMappings, assignments, types)),
+                    nodePartitioning.flatMap(partitioning -> partitioning.translateRowExpression(inputToOutputMappings, assignments)),
+                    streamPartitioning.flatMap(partitioning -> partitioning.translateRowExpression(inputToOutputMappings, assignments)),
                     nullsAndAnyReplicated);
         }
 

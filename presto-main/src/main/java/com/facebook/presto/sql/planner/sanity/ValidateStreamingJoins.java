@@ -19,8 +19,6 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties;
 import com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
@@ -46,9 +44,9 @@ public class ValidateStreamingJoins
         implements Checker
 {
     @Override
-    public void validate(PlanNode planNode, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
+    public void validate(PlanNode planNode, Session session, Metadata metadata, WarningCollector warningCollector)
     {
-        planNode.accept(new Visitor(session, metadata, sqlParser, types, warningCollector), null);
+        planNode.accept(new Visitor(session, metadata), null);
     }
 
     private static final class Visitor
@@ -56,17 +54,11 @@ public class ValidateStreamingJoins
     {
         private final Session session;
         private final Metadata metadata;
-        private final SqlParser sqlParser;
-        private final TypeProvider types;
-        private final WarningCollector warningCollector;
 
-        private Visitor(Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
+        private Visitor(Session session, Metadata metadata)
         {
             this.session = session;
             this.metadata = metadata;
-            this.sqlParser = sqlParser;
-            this.types = types;
-            this.warningCollector = warningCollector;
         }
 
         @Override
@@ -91,7 +83,7 @@ public class ValidateStreamingJoins
                 else {
                     requiredBuildProperty = singleStream();
                 }
-                StreamProperties buildProperties = derivePropertiesRecursively(node.getRight(), metadata, session, types, sqlParser);
+                StreamProperties buildProperties = derivePropertiesRecursively(node.getRight(), metadata, session);
                 checkArgument(requiredBuildProperty.isSatisfiedBy(buildProperties), "Build side needs an additional local exchange for join: %s", node.getId());
 
                 StreamPreferredProperties requiredProbeProperty;
@@ -101,7 +93,7 @@ public class ValidateStreamingJoins
                 else {
                     requiredProbeProperty = defaultParallelism(session);
                 }
-                StreamProperties probeProperties = derivePropertiesRecursively(node.getLeft(), metadata, session, types, sqlParser);
+                StreamProperties probeProperties = derivePropertiesRecursively(node.getLeft(), metadata, session);
                 checkArgument(requiredProbeProperty.isSatisfiedBy(probeProperties), "Probe side needs an additional local exchange for join: %s", node.getId());
             }
             return null;

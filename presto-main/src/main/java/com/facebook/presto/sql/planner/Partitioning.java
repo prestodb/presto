@@ -340,7 +340,7 @@ public final class Partitioning
         return Optional.of(new Partitioning(metadata.isRefinedPartitioningOver(session, other.handle, this.handle) ? this.handle : other.handle, arguments.build()));
     }
 
-    public Optional<Partitioning> translateRowExpression(Map<VariableReferenceExpression, RowExpression> inputToOutputMappings, Map<VariableReferenceExpression, RowExpression> assignments, TypeProvider types)
+    public Optional<Partitioning> translateRowExpression(Map<VariableReferenceExpression, RowExpression> inputToOutputMappings, Map<VariableReferenceExpression, RowExpression> assignments)
     {
         ImmutableList.Builder<RowExpression> newArguments = ImmutableList.builder();
         for (RowExpression argument : arguments) {

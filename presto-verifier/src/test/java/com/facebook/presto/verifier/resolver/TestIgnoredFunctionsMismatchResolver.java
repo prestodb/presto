@@ -35,7 +35,7 @@ import static com.facebook.presto.verifier.resolver.FailureResolverTestUtil.crea
 public class TestIgnoredFunctionsMismatchResolver
         extends AbstractTestResultMismatchResolver
 {
-    private static final SqlParser sqlParser = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(AT_SIGN, COLON));
+    private static final SqlParser SQL_PARSER = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(AT_SIGN, COLON));
 
     public TestIgnoredFunctionsMismatchResolver()
     {
@@ -68,7 +68,7 @@ public class TestIgnoredFunctionsMismatchResolver
         return new QueryObjectBundle(
                 QualifiedName.of("test"),
                 ImmutableList.of(),
-                sqlParser.createStatement(query, PARSING_OPTIONS),
+                SQL_PARSER.createStatement(query, PARSING_OPTIONS),
                 ImmutableList.of(),
                 CONTROL,
                 Optional.empty(),
