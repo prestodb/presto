@@ -25,6 +25,7 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.FixedPageSource;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
@@ -32,14 +33,17 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import org.apache.iceberg.DataFile;
+import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
+import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.transforms.Transforms;
 import org.apache.iceberg.types.Conversions;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
@@ -49,6 +53,7 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static com.facebook.presto.iceberg.IcebergUtil.getTableScan;
 import static com.facebook.presto.iceberg.util.PageListBuilder.forTable;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -121,53 +126,58 @@ public class FilesTable
         TableScan tableScan = getTableScan(TupleDomain.all(), snapshotId, icebergTable).includeColumnStats();
         Map<Integer, Type> idToTypeMap = getIdToTypeMap(icebergTable.schema());
 
-        tableScan.planFiles().forEach(fileScanTask -> {
-            DataFile dataFile = fileScanTask.file();
-            pagesBuilder.beginRow();
-            pagesBuilder.appendInteger(dataFile.content().id());
-            pagesBuilder.appendVarchar(dataFile.path().toString());
-            pagesBuilder.appendVarchar(dataFile.format().name());
-            pagesBuilder.appendBigint(dataFile.recordCount());
-            pagesBuilder.appendBigint(dataFile.fileSizeInBytes());
-            if (checkNonNull(dataFile.columnSizes(), pagesBuilder)) {
-                pagesBuilder.appendIntegerBigintMap(dataFile.columnSizes());
+        try (CloseableIterable<FileScanTask> fileScanTasks = tableScan.planFiles()) {
+            for (FileScanTask fileScanTask : fileScanTasks) {
+                DataFile dataFile = fileScanTask.file();
+                pagesBuilder.beginRow();
+                pagesBuilder.appendInteger(dataFile.content().id());
+                pagesBuilder.appendVarchar(dataFile.path().toString());
+                pagesBuilder.appendVarchar(dataFile.format().name());
+                pagesBuilder.appendBigint(dataFile.recordCount());
+                pagesBuilder.appendBigint(dataFile.fileSizeInBytes());
+                if (checkNonNull(dataFile.columnSizes(), pagesBuilder)) {
+                    pagesBuilder.appendIntegerBigintMap(dataFile.columnSizes());
+                }
+                if (checkNonNull(dataFile.valueCounts(), pagesBuilder)) {
+                    pagesBuilder.appendIntegerBigintMap(dataFile.valueCounts());
+                }
+                if (checkNonNull(dataFile.nullValueCounts(), pagesBuilder)) {
+                    pagesBuilder.appendIntegerBigintMap(dataFile.nullValueCounts());
+                }
+                if (checkNonNull(dataFile.nanValueCounts(), pagesBuilder)) {
+                    pagesBuilder.appendIntegerBigintMap(dataFile.nanValueCounts());
+                }
+                if (checkNonNull(dataFile.lowerBounds(), pagesBuilder)) {
+                    pagesBuilder.appendIntegerVarcharMap(dataFile.lowerBounds().entrySet().stream()
+                            .filter(entry -> idToTypeMap.containsKey(entry.getKey()))
+                            .collect(toImmutableMap(
+                                    Map.Entry<Integer, ByteBuffer>::getKey,
+                                    entry -> Transforms.identity().toHumanString(idToTypeMap.get(entry.getKey()),
+                                            Conversions.fromByteBuffer(idToTypeMap.get(entry.getKey()), entry.getValue())))));
+                }
+                if (checkNonNull(dataFile.upperBounds(), pagesBuilder)) {
+                    pagesBuilder.appendIntegerVarcharMap(dataFile.upperBounds().entrySet().stream()
+                            .filter(entry -> idToTypeMap.containsKey(entry.getKey()))
+                            .collect(toImmutableMap(
+                                    Map.Entry<Integer, ByteBuffer>::getKey,
+                                    entry -> Transforms.identity().toHumanString(idToTypeMap.get(entry.getKey()),
+                                            Conversions.fromByteBuffer(idToTypeMap.get(entry.getKey()), entry.getValue())))));
+                }
+                if (checkNonNull(dataFile.keyMetadata(), pagesBuilder)) {
+                    pagesBuilder.appendVarbinary(Slices.wrappedBuffer(dataFile.keyMetadata()));
+                }
+                if (checkNonNull(dataFile.splitOffsets(), pagesBuilder)) {
+                    pagesBuilder.appendBigintArray(dataFile.splitOffsets());
+                }
+                if (checkNonNull(dataFile.equalityFieldIds(), pagesBuilder)) {
+                    pagesBuilder.appendIntegerArray(dataFile.equalityFieldIds());
+                }
+                pagesBuilder.endRow();
             }
-            if (checkNonNull(dataFile.valueCounts(), pagesBuilder)) {
-                pagesBuilder.appendIntegerBigintMap(dataFile.valueCounts());
-            }
-            if (checkNonNull(dataFile.nullValueCounts(), pagesBuilder)) {
-                pagesBuilder.appendIntegerBigintMap(dataFile.nullValueCounts());
-            }
-            if (checkNonNull(dataFile.nanValueCounts(), pagesBuilder)) {
-                pagesBuilder.appendIntegerBigintMap(dataFile.nanValueCounts());
-            }
-            if (checkNonNull(dataFile.lowerBounds(), pagesBuilder)) {
-                pagesBuilder.appendIntegerVarcharMap(dataFile.lowerBounds().entrySet().stream()
-                        .filter(entry -> idToTypeMap.containsKey(entry.getKey()))
-                        .collect(toImmutableMap(
-                                Map.Entry<Integer, ByteBuffer>::getKey,
-                                entry -> Transforms.identity().toHumanString(idToTypeMap.get(entry.getKey()),
-                                        Conversions.fromByteBuffer(idToTypeMap.get(entry.getKey()), entry.getValue())))));
-            }
-            if (checkNonNull(dataFile.upperBounds(), pagesBuilder)) {
-                pagesBuilder.appendIntegerVarcharMap(dataFile.upperBounds().entrySet().stream()
-                        .filter(entry -> idToTypeMap.containsKey(entry.getKey()))
-                        .collect(toImmutableMap(
-                                Map.Entry<Integer, ByteBuffer>::getKey,
-                                entry -> Transforms.identity().toHumanString(idToTypeMap.get(entry.getKey()),
-                                        Conversions.fromByteBuffer(idToTypeMap.get(entry.getKey()), entry.getValue())))));
-            }
-            if (checkNonNull(dataFile.keyMetadata(), pagesBuilder)) {
-                pagesBuilder.appendVarbinary(Slices.wrappedBuffer(dataFile.keyMetadata()));
-            }
-            if (checkNonNull(dataFile.splitOffsets(), pagesBuilder)) {
-                pagesBuilder.appendBigintArray(dataFile.splitOffsets());
-            }
-            if (checkNonNull(dataFile.equalityFieldIds(), pagesBuilder)) {
-                pagesBuilder.appendIntegerArray(dataFile.equalityFieldIds());
-            }
-            pagesBuilder.endRow();
-        });
+        }
+        catch (IOException e) {
+            throw new PrestoException(ICEBERG_FILESYSTEM_ERROR, "failed to read table files", e);
+        }
 
         return pagesBuilder.build();
     }
