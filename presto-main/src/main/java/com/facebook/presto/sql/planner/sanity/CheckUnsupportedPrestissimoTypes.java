@@ -34,9 +34,7 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.SimplePlanVisitor;
-import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 
 import java.util.List;
@@ -61,7 +59,7 @@ public class CheckUnsupportedPrestissimoTypes
     }
 
     @Override
-    public void validate(PlanNode planNode, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
+    public void validate(PlanNode planNode, Session session, Metadata metadata, WarningCollector warningCollector)
     {
         planNode.accept(new Visitor(), null);
     }

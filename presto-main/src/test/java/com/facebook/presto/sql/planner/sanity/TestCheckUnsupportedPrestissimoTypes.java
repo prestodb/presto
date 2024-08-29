@@ -20,7 +20,6 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
@@ -43,7 +42,6 @@ public class TestCheckUnsupportedPrestissimoTypes
 {
     private Session testSession;
     private Metadata metadata;
-    private SqlParser sqlParser;
     private PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
     private FeaturesConfig featuresConfig = new FeaturesConfig();
 
@@ -55,7 +53,6 @@ public class TestCheckUnsupportedPrestissimoTypes
                 .setSchema("tiny");
         testSession = sessionBuilder.build();
         metadata = getQueryRunner().getMetadata();
-        sqlParser = getQueryRunner().getSqlParser();
     }
 
     @AfterClass(alwaysRun = true)
@@ -63,7 +60,6 @@ public class TestCheckUnsupportedPrestissimoTypes
     {
         testSession = null;
         metadata = null;
-        sqlParser = null;
         idAllocator = null;
     }
 
@@ -154,7 +150,7 @@ public class TestCheckUnsupportedPrestissimoTypes
         TypeProvider types = builder.getTypes();
         getQueryRunner().inTransaction(testSession, session -> {
             session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
-            new CheckUnsupportedPrestissimoTypes(featuresConfig).validate(planNode, session, metadata, sqlParser, types, WarningCollector.NOOP);
+            new CheckUnsupportedPrestissimoTypes(featuresConfig).validate(planNode, session, metadata, WarningCollector.NOOP);
             return null;
         });
     }

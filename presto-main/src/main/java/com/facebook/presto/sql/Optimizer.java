@@ -29,7 +29,6 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.eventlistener.PlanOptimizerInformation;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
-import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlannerUtils;
 import com.facebook.presto.sql.planner.TypeProvider;
@@ -69,7 +68,6 @@ public class Optimizer
     private final PlanChecker planChecker;
     private final Session session;
     private final Metadata metadata;
-    private final SqlParser sqlParser;
     private final VariableAllocator variableAllocator;
     private final PlanNodeIdAllocator idAllocator;
     private final WarningCollector warningCollector;
@@ -82,7 +80,6 @@ public class Optimizer
             Metadata metadata,
             List<PlanOptimizer> planOptimizers,
             PlanChecker planChecker,
-            SqlParser sqlParser,
             VariableAllocator variableAllocator,
             PlanNodeIdAllocator idAllocator,
             WarningCollector warningCollector,
@@ -94,7 +91,6 @@ public class Optimizer
         this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null");
         this.planChecker = requireNonNull(planChecker, "planChecker is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
@@ -105,7 +101,7 @@ public class Optimizer
 
     public Plan validateAndOptimizePlan(PlanNode root, PlanStage stage)
     {
-        planChecker.validateIntermediatePlan(root, session, metadata, sqlParser, TypeProvider.viewOf(variableAllocator.getVariables()), warningCollector);
+        planChecker.validateIntermediatePlan(root, session, metadata, warningCollector);
 
         boolean enableVerboseRuntimeStats = SystemSessionProperties.isVerboseRuntimeStatsEnabled(session);
         if (stage.ordinal() >= OPTIMIZED.ordinal()) {
@@ -128,7 +124,7 @@ public class Optimizer
 
         if (stage.ordinal() >= OPTIMIZED_AND_VALIDATED.ordinal()) {
             // make sure we produce a valid plan after optimizations run. This is mainly to catch programming errors
-            planChecker.validateFinalPlan(root, session, metadata, sqlParser, TypeProvider.viewOf(variableAllocator.getVariables()), warningCollector);
+            planChecker.validateFinalPlan(root, session, metadata, warningCollector);
         }
 
         TypeProvider types = TypeProvider.viewOf(variableAllocator.getVariables());
@@ -168,8 +164,8 @@ public class Optimizer
         boolean isTriggered = planOptimizerResult.isOptimizerTriggered();
         boolean isApplicable =
                 isTriggered ||
-                !optimizer.isEnabled(session) && isVerboseOptimizerInfoEnabled(session) &&
-                        optimizer.isApplicable(oldNode, session, TypeProvider.viewOf(variableAllocator.getVariables()), variableAllocator, idAllocator, warningCollector);
+                        !optimizer.isEnabled(session) && isVerboseOptimizerInfoEnabled(session) &&
+                                optimizer.isApplicable(oldNode, session, TypeProvider.viewOf(variableAllocator.getVariables()), variableAllocator, idAllocator, warningCollector);
         boolean isCostBased = isTriggered && optimizer.isCostBased(session);
         String statsSource = optimizer.getStatsSource();
 

@@ -20,7 +20,6 @@ import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.plan.TableScanNode;
-import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -45,12 +44,10 @@ public class RuntimeReorderJoinSides
     private static final Pattern<JoinNode> PATTERN = join();
 
     private final Metadata metadata;
-    private final SqlParser parser;
 
-    public RuntimeReorderJoinSides(Metadata metadata, SqlParser parser)
+    public RuntimeReorderJoinSides(Metadata metadata)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.parser = requireNonNull(parser, "parser is null");
     }
 
     @Override
@@ -100,7 +97,7 @@ public class RuntimeReorderJoinSides
             return Result.empty();
         }
 
-        Optional<JoinNode> rewrittenNode = createRuntimeSwappedJoinNode(joinNode, metadata, parser, context.getLookup(), context.getSession(), context.getVariableAllocator(), context.getIdAllocator());
+        Optional<JoinNode> rewrittenNode = createRuntimeSwappedJoinNode(joinNode, metadata, context.getLookup(), context.getSession(), context.getIdAllocator());
         if (rewrittenNode.isPresent()) {
             log.debug(format("Probe size: %.2f is smaller than Build size: %.2f => invoke runtime join swapping on JoinNode ID: %s.", leftOutputSizeInBytes, rightOutputSizeInBytes, joinNode.getId()));
             return Result.ofPlanNode(rewrittenNode.get());

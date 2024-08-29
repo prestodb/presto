@@ -142,7 +142,6 @@ public class SqlQueryScheduler
     private final Set<StageId> runtimeOptimizedStages = Collections.synchronizedSet(new HashSet<>());
     private final PlanChecker planChecker;
     private final Metadata metadata;
-    private final SqlParser sqlParser;
 
     private final Map<StageId, StageExecutionAndScheduler> stageExecutions = new ConcurrentHashMap<>();
     private final ExecutorService executor;
@@ -237,7 +236,6 @@ public class SqlQueryScheduler
         this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
         this.planChecker = requireNonNull(planChecker, "planChecker is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.sectionExecutionFactory = requireNonNull(sectionExecutionFactory, "sectionExecutionFactory is null");
         this.remoteTaskFactory = requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
         this.splitSourceFactory = requireNonNull(splitSourceFactory, "splitSourceFactory is null");
@@ -596,7 +594,7 @@ public class SqlQueryScheduler
                 .forEach(currentSubPlan -> {
                     Optional<PlanFragment> newPlanFragment = performRuntimeOptimizations(currentSubPlan);
                     if (newPlanFragment.isPresent()) {
-                        planChecker.validatePlanFragment(newPlanFragment.get().getRoot(), session, metadata, sqlParser, TypeProvider.viewOf(variableAllocator.getVariables()), warningCollector);
+                        planChecker.validatePlanFragment(newPlanFragment.get().getRoot(), session, metadata, warningCollector);
                         oldToNewFragment.put(currentSubPlan.getFragment(), newPlanFragment.get());
                     }
                 });

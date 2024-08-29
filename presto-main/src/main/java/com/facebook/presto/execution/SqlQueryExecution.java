@@ -545,7 +545,6 @@ public class SqlQueryExecution
                     metadata,
                     planOptimizers,
                     planChecker,
-                    sqlParser,
                     analyzerContext.getVariableAllocator(),
                     idAllocator,
                     stateMachine.getWarningCollector(),

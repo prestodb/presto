@@ -23,7 +23,6 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.BasePlanFragmenter.FragmentProperties;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
@@ -49,17 +48,15 @@ public class PlanFragmenter
     private final Metadata metadata;
     private final NodePartitioningManager nodePartitioningManager;
     private final QueryManagerConfig config;
-    private final SqlParser sqlParser;
     private final PlanChecker distributedPlanChecker;
     private final PlanChecker singleNodePlanChecker;
 
     @Inject
-    public PlanFragmenter(Metadata metadata, NodePartitioningManager nodePartitioningManager, QueryManagerConfig queryManagerConfig, SqlParser sqlParser, FeaturesConfig featuresConfig)
+    public PlanFragmenter(Metadata metadata, NodePartitioningManager nodePartitioningManager, QueryManagerConfig queryManagerConfig, FeaturesConfig featuresConfig)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
         this.config = requireNonNull(queryManagerConfig, "queryManagerConfig is null");
-        this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.distributedPlanChecker = new PlanChecker(requireNonNull(featuresConfig, "featuresConfig is null"), false);
         this.singleNodePlanChecker = new PlanChecker(requireNonNull(featuresConfig, "featuresConfig is null"), true);
     }
@@ -78,7 +75,6 @@ public class PlanFragmenter
                 plan.getStatsAndCosts(),
                 forceSingleNode ? singleNodePlanChecker : distributedPlanChecker,
                 warningCollector,
-                sqlParser,
                 idAllocator,
                 variableAllocator,
                 getOutputTableWriterNodeIds(plan.getRoot()));
@@ -100,9 +96,9 @@ public class PlanFragmenter
     {
         private int nextFragmentId = ROOT_FRAGMENT_ID + 1;
 
-        public Fragmenter(Session session, Metadata metadata, StatsAndCosts statsAndCosts, PlanChecker planChecker, WarningCollector warningCollector, SqlParser sqlParser, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, Set<PlanNodeId> outputTableWriterNodeIds)
+        public Fragmenter(Session session, Metadata metadata, StatsAndCosts statsAndCosts, PlanChecker planChecker, WarningCollector warningCollector, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, Set<PlanNodeId> outputTableWriterNodeIds)
         {
-            super(session, metadata, statsAndCosts, planChecker, warningCollector, sqlParser, idAllocator, variableAllocator, outputTableWriterNodeIds);
+            super(session, metadata, statsAndCosts, planChecker, warningCollector, idAllocator, variableAllocator, outputTableWriterNodeIds);
         }
 
         @Override

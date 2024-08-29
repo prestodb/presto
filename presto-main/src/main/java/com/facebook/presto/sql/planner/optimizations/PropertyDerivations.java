@@ -41,10 +41,8 @@ import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.sql.planner.RowExpressionInterpreter;
-import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.ActualProperties.Global;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
@@ -112,17 +110,17 @@ public class PropertyDerivations
 {
     private PropertyDerivations() {}
 
-    public static ActualProperties derivePropertiesRecursively(PlanNode node, Metadata metadata, Session session, TypeProvider types, SqlParser parser)
+    public static ActualProperties derivePropertiesRecursively(PlanNode node, Metadata metadata, Session session)
     {
         List<ActualProperties> inputProperties = node.getSources().stream()
-                .map(source -> derivePropertiesRecursively(source, metadata, session, types, parser))
+                .map(source -> derivePropertiesRecursively(source, metadata, session))
                 .collect(toImmutableList());
-        return deriveProperties(node, inputProperties, metadata, session, types, parser);
+        return deriveProperties(node, inputProperties, metadata, session);
     }
 
-    public static ActualProperties deriveProperties(PlanNode node, List<ActualProperties> inputProperties, Metadata metadata, Session session, TypeProvider types, SqlParser parser)
+    public static ActualProperties deriveProperties(PlanNode node, List<ActualProperties> inputProperties, Metadata metadata, Session session)
     {
-        ActualProperties output = node.accept(new Visitor(metadata, session, types, parser), inputProperties);
+        ActualProperties output = node.accept(new Visitor(metadata, session), inputProperties);
 
         output.getNodePartitioning().ifPresent(partitioning ->
                 verify(node.getOutputVariables().containsAll(partitioning.getVariableReferences()), "Node-level partitioning properties contain columns not present in node's output"));
@@ -137,9 +135,9 @@ public class PropertyDerivations
         return output;
     }
 
-    public static ActualProperties streamBackdoorDeriveProperties(PlanNode node, List<ActualProperties> inputProperties, Metadata metadata, Session session, TypeProvider types, SqlParser parser)
+    public static ActualProperties streamBackdoorDeriveProperties(PlanNode node, List<ActualProperties> inputProperties, Metadata metadata, Session session)
     {
-        return node.accept(new Visitor(metadata, session, types, parser), inputProperties);
+        return node.accept(new Visitor(metadata, session), inputProperties);
     }
 
     private static class Visitor
@@ -147,15 +145,11 @@ public class PropertyDerivations
     {
         private final Metadata metadata;
         private final Session session;
-        private final TypeProvider types;
-        private final SqlParser parser;
 
-        public Visitor(Metadata metadata, Session session, TypeProvider types, SqlParser parser)
+        public Visitor(Metadata metadata, Session session)
         {
             this.metadata = metadata;
             this.session = session;
-            this.types = types;
-            this.parser = parser;
         }
 
         @Override
@@ -679,7 +673,7 @@ public class PropertyDerivations
         {
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
 
-            ActualProperties translatedProperties = properties.translateRowExpression(node.getAssignments().getMap(), types);
+            ActualProperties translatedProperties = properties.translateRowExpression(node.getAssignments().getMap());
 
             // Extract additional constants
             Map<VariableReferenceExpression, ConstantExpression> constants = new HashMap<>();

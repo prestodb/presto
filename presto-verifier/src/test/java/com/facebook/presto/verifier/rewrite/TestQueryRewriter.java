@@ -85,7 +85,7 @@ public class TestQueryRewriter
             .setTablePrefix("local.tmp")
             .setTableProperties("{\"p_int\": 30, \"p_long\": 4294967297, \"p_double\": 1.5, \"p_varchar\": \"test\", \"p_bool\": true}");
     private static final VerifierConfig VERIFIER_CONFIG = new VerifierConfig();
-    private static final SqlParser sqlParser = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(COLON, AT_SIGN));
+    private static final SqlParser SQL_PARSER = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(COLON, AT_SIGN));
     private static final BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager();
 
     private static StandaloneQueryRunner queryRunner;
@@ -646,14 +646,14 @@ public class TestQueryRewriter
     {
         assertTrue(statement instanceof CreateTableAsSelect);
         Query query = ((CreateTableAsSelect) statement).getQuery();
-        assertEquals(formatSql(query, Optional.empty()), formatSql(sqlParser.createStatement(selectQuery, PARSING_OPTIONS), Optional.empty()));
+        assertEquals(formatSql(query, Optional.empty()), formatSql(SQL_PARSER.createStatement(selectQuery, PARSING_OPTIONS), Optional.empty()));
     }
 
     private static List<Statement> templateToStatements(List<String> templates, String tableName)
     {
         return templates.stream()
                 .map(template -> format(template, tableName))
-                .map(query -> sqlParser.createStatement(query, PARSING_OPTIONS))
+                .map(query -> SQL_PARSER.createStatement(query, PARSING_OPTIONS))
                 .collect(toImmutableList());
     }
 
@@ -675,6 +675,6 @@ public class TestQueryRewriter
 
     private QueryRewriter getQueryRewriter(QueryRewriteConfig rewriteConfig, VerifierConfig verifierConfig)
     {
-        return new VerificationQueryRewriterFactory(sqlParser, createTypeManager(), blockEncodingSerde, rewriteConfig, rewriteConfig, verifierConfig).create(prestoAction);
+        return new VerificationQueryRewriterFactory(SQL_PARSER, createTypeManager(), blockEncodingSerde, rewriteConfig, rewriteConfig, verifierConfig).create(prestoAction);
     }
 }
