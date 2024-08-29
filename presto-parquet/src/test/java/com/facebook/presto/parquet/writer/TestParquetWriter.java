@@ -14,12 +14,6 @@
 package com.facebook.presto.parquet.writer;
 
 import com.facebook.presto.common.PageBuilder;
-import com.facebook.presto.common.block.Block;
-import com.facebook.presto.common.block.BlockBuilder;
-import com.facebook.presto.common.block.MapBlockBuilder;
-import com.facebook.presto.common.block.MethodHandleUtil;
-import com.facebook.presto.common.block.SingleMapBlock;
-import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RowType;
@@ -27,7 +21,6 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.parquet.FileParquetDataSource;
 import com.facebook.presto.parquet.cache.MetadataReader;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
@@ -41,14 +34,11 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
-import java.util.UUID;
 
-import static com.facebook.presto.common.block.MethodHandleUtil.compose;
 import static com.facebook.presto.common.block.MethodHandleUtil.nativeValueGetter;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -56,17 +46,11 @@ import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
-import static com.facebook.presto.common.type.TimeType.TIME;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
-import static com.facebook.presto.common.type.UuidType.UUID;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.tests.StructuralTestUtil.mapBlockOf;
 import static com.facebook.presto.tests.StructuralTestUtil.rowBlockOf;
-import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -233,7 +217,7 @@ public class TestParquetWriter
         }
     }
 
-    private static void checkTypes(org.apache.parquet.schema.Type type, Class<?> expectedLogicalTypeAnnotation, String expectedPrimitiveTypeName)
+    private static void checkTypes(org.apache.parquet.schema.Type type, Class<?> expectedLogicalTypeAnnotationType, String expectedPrimitiveTypeName)
     {
         try {
             PrimitiveType primitiveType = type.asPrimitiveType();
@@ -245,10 +229,10 @@ public class TestParquetWriter
 
         LogicalTypeAnnotation annotation = type.getLogicalTypeAnnotation();
         if (annotation != null) {
-            assertTrue(expectedLogicalTypeAnnotation.isInstance(annotation));
+            assertTrue(expectedLogicalTypeAnnotationType.isInstance(annotation));
         }
         else {
-            assertNull(expectedLogicalTypeAnnotation);
+            assertNull(expectedLogicalTypeAnnotationType);
         }
     }
 
