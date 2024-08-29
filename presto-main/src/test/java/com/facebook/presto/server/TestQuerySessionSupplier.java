@@ -24,6 +24,7 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
+import com.facebook.presto.spi.security.AuthorizedIdentity;
 import com.facebook.presto.sql.SqlEnvironmentConfig;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.google.common.collect.ImmutableListMultimap;
@@ -54,6 +55,7 @@ import static com.facebook.presto.common.type.TimeZoneKey.getTimeZoneKey;
 import static com.facebook.presto.server.TestHttpRequestSessionContext.createFunctionAdd;
 import static com.facebook.presto.server.TestHttpRequestSessionContext.createSqlFunctionIdAdd;
 import static com.facebook.presto.server.TestHttpRequestSessionContext.urlEncode;
+import static com.facebook.presto.server.security.ServletSecurityUtils.AUTHORIZED_IDENTITY_ATTRIBUTE;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
@@ -64,6 +66,7 @@ public class TestQuerySessionSupplier
     private static final SqlInvokedFunction SQL_FUNCTION_ADD = createFunctionAdd();
     private static final String SERIALIZED_SQL_FUNCTION_ID_ADD = jsonCodec(SqlFunctionId.class).toJson(SQL_FUNCTION_ID_ADD);
     private static final String SERIALIZED_SQL_FUNCTION_ADD = jsonCodec(SqlInvokedFunction.class).toJson(SQL_FUNCTION_ADD);
+    private static final AuthorizedIdentity AUTHORIZED_IDENTITY = new AuthorizedIdentity("userName", "reasonForSelect", false);
 
     private static final HttpServletRequest TEST_REQUEST = new MockHttpServletRequest(
             ImmutableListMultimap.<String, String>builder()
@@ -81,7 +84,7 @@ public class TestQuerySessionSupplier
                     .put(PRESTO_SESSION_FUNCTION, format("%s=%s", urlEncode(SERIALIZED_SQL_FUNCTION_ID_ADD), urlEncode(SERIALIZED_SQL_FUNCTION_ADD)))
                     .build(),
             "testRemote",
-            ImmutableMap.of());
+            ImmutableMap.of(AUTHORIZED_IDENTITY_ATTRIBUTE, AUTHORIZED_IDENTITY));
 
     @Test
     public void testCreateSession()
@@ -123,6 +126,8 @@ public class TestQuerySessionSupplier
                 .put("query2", "select * from bar")
                 .build());
         assertEquals(session.getSessionFunctions(), ImmutableMap.of(SQL_FUNCTION_ID_ADD, SQL_FUNCTION_ADD));
+        assertEquals(session.getIdentity().getSelectedUser().get(), AUTHORIZED_IDENTITY.getUserName());
+        assertEquals(session.getIdentity().getReasonForSelect(), AUTHORIZED_IDENTITY.getReasonForSelect());
     }
 
     @Test

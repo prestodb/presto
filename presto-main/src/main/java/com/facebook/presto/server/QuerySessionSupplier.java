@@ -138,7 +138,8 @@ public class QuerySessionSupplier
     private Identity authenticateIdentity(QueryId queryId, SessionContext context)
     {
         checkPermissions(accessControl, securityConfig, queryId, context);
-        Optional<AuthorizedIdentity> authorizedIdentity = getAuthorizedIdentity(accessControl, securityConfig, queryId, context);
+        Optional<AuthorizedIdentity> authorizedIdentity = context.getAuthorizedIdentity();
+        authorizedIdentity = authorizedIdentity.isPresent() ? authorizedIdentity : getAuthorizedIdentity(accessControl, securityConfig, queryId, context);
 
         return authorizedIdentity.map(identity -> new Identity(
                 context.getIdentity().getUser(),
