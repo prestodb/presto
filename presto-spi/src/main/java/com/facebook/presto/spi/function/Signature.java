@@ -23,6 +23,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -166,6 +167,15 @@ public final class Signature
 
         return name + (allConstraints.isEmpty() ? "" : "<" + String.join(",", allConstraints) + ">") +
                 "(" + String.join(",", argumentTypes.stream().map(TypeSignature::toString).collect(toList())) + "):" + returnType;
+    }
+
+    /*
+     * Canonical (normalized i.e. erased type size bounds) form of signature instance.
+     */
+    public Signature canonicalization()
+    {
+        return new Signature(this.name, this.kind, new TypeSignature(this.returnType.getBase(), Collections.emptyList()),
+                argumentTypes.stream().map(x -> new TypeSignature(x.getBase(), Collections.emptyList())).collect(toList()));
     }
 
     /*

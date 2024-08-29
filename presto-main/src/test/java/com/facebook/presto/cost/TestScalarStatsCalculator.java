@@ -14,8 +14,18 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.spi.function.LiteralParameters;
+import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.ScalarFunctionConstantStats;
+import com.facebook.presto.spi.function.ScalarPropagateSourceStats;
+import com.facebook.presto.spi.function.SqlFunction;
+import com.facebook.presto.spi.function.SqlNullable;
+import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.function.StatsPropagationBehavior;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
@@ -34,13 +44,18 @@ import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.SCALAR_FUNCTION_STATS_PROPAGATION_ENABLED;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
@@ -49,6 +64,7 @@ import static com.facebook.presto.metadata.MetadataManager.createTestMetadataMan
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.lang.Double.NEGATIVE_INFINITY;
+import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
 import static org.testng.Assert.assertEquals;
 
@@ -71,6 +87,128 @@ public class TestScalarStatsCalculator
         calculator = new ScalarStatsCalculator(MetadataManager.createTestMetadataManager());
         session = testSessionBuilder().build();
         translator = new TestingRowExpressionTranslator(MetadataManager.createTestMetadataManager());
+    }
+
+    public static final class CustomFunctions
+    {
+        private CustomFunctions() {}
+
+        @ScalarFunction(value = "custom_add", calledOnNullInput = false)
+        @ScalarFunctionConstantStats(avgRowSize = 8.0)
+        @SqlType(StandardTypes.BIGINT)
+        public static long customAdd(
+                @ScalarPropagateSourceStats(
+                        propagateAllStats = false,
+                        nullFraction = StatsPropagationBehavior.SUM_ARGUMENTS,
+                        distinctValuesCount = StatsPropagationBehavior.SUM_ARGUMENTS,
+                        minValue = StatsPropagationBehavior.SUM_ARGUMENTS,
+                        maxValue = StatsPropagationBehavior.SUM_ARGUMENTS) @SqlType(StandardTypes.BIGINT) long x,
+                @SqlType(StandardTypes.BIGINT) long y)
+        {
+            return x + y;
+        }
+
+        @ScalarFunction(value = "custom_is_null", calledOnNullInput = true)
+        @LiteralParameters("x")
+        @SqlType(StandardTypes.BOOLEAN)
+        @ScalarFunctionConstantStats(distinctValuesCount = 2.0, nullFraction = 0.0)
+        public static boolean customIsNullVarchar(@SqlNullable @SqlType("varchar(x)") Slice slice)
+        {
+            return slice == null;
+        }
+
+        @ScalarFunction(value = "custom_is_null", calledOnNullInput = true)
+        @SqlType(StandardTypes.BOOLEAN)
+        @ScalarFunctionConstantStats(distinctValuesCount = 2.0, nullFraction = 0.0)
+        public static boolean customIsNullBigint(@SqlNullable @SqlType(StandardTypes.BIGINT) Long value)
+        {
+            return value == null;
+        }
+
+        @ScalarFunction(value = "custom_str_len")
+        @SqlType(StandardTypes.BIGINT)
+        @LiteralParameters("x")
+        @ScalarFunctionConstantStats(minValue = 0)
+        public static long customStrLength(
+                @ScalarPropagateSourceStats(
+                        propagateAllStats = false,
+                        nullFraction = StatsPropagationBehavior.USE_SOURCE_STATS,
+                        distinctValuesCount = StatsPropagationBehavior.USE_TYPE_WIDTH_VARCHAR,
+                        maxValue = StatsPropagationBehavior.USE_TYPE_WIDTH_VARCHAR) @SqlType("varchar(x)") Slice value)
+        {
+            return value.length() + 102938L;
+        }
+    }
+
+    @Test
+    public void testFunctionCallStatsPropagation()
+    {
+        Map<String, String> sessionConfig = Collections.singletonMap(SCALAR_FUNCTION_STATS_PROPAGATION_ENABLED, "true");
+
+        PlanNodeStatsEstimate relationStats = PlanNodeStatsEstimate.builder()
+                .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "x", BIGINT), VariableStatsEstimate.builder()
+                        .setLowValue(-1)
+                        .setHighValue(10)
+                        .setDistinctValuesCount(4)
+                        .setNullsFraction(0.1)
+                        .build())
+                .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "y", BIGINT), VariableStatsEstimate.builder()
+                        .setLowValue(-2)
+                        .setHighValue(5)
+                        .setDistinctValuesCount(3)
+                        .setNullsFraction(0.2)
+                        .build())
+                .setOutputRowCount(10)
+                .build();
+
+        PlanNodeStatsEstimate varcharStats = PlanNodeStatsEstimate.builder()
+                .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "x", createVarcharType(20)), VariableStatsEstimate.builder()
+                        .setDistinctValuesCount(4)
+                        .setNullsFraction(0.1)
+                        .setAverageRowSize(14)
+                        .build())
+                .setOutputRowCount(10)
+                .build();
+
+        Map<String, Type> types = new HashMap<>();
+        types.put("x", BIGINT);
+        types.put("y", BIGINT);
+        assertCalculate(sessionConfig,
+                expression("custom_add(x, y)"),
+                relationStats,
+                TypeProvider.viewOf(types))
+                .distinctValuesCount(7)
+                .lowValue(-3)
+                .highValue(15)
+                .nullsFraction(0.3)
+                .averageRowSize(8.0);
+        assertCalculate(sessionConfig,
+                expression("custom_is_null(x)"),
+                relationStats,
+                TypeProvider.viewOf(Collections.singletonMap("x", BIGINT)))
+                .distinctValuesCount(2.0)
+                .lowValue(NaN)
+                .highValue(NaN)
+                .nullsFraction(1.0)
+                .averageRowSize(1.0);
+        assertCalculate(sessionConfig,
+                expression("custom_is_null(x)"),
+                relationStats,
+                TypeProvider.viewOf(Collections.singletonMap("x", createVarcharType(10))))
+                .distinctValuesCount(2.0)
+                .lowValue(NaN)
+                .highValue(NaN)
+                .nullsFraction(1.0)
+                .averageRowSize(1.0);
+        assertCalculate(sessionConfig,
+                expression("custom_str_len(x)"),
+                varcharStats,
+                TypeProvider.viewOf(Collections.singletonMap("x", createVarcharType(20))))
+                .distinctValuesCount(20.0)
+                .lowValue(0.0)
+                .highValue(20.0)
+                .nullsFraction(0.1)
+                .averageRowSize(8.0);
     }
 
     @Test
@@ -293,6 +431,29 @@ public class TestScalarStatsCalculator
         VariableStatsEstimate rowExpressionVariableStatsEstimate = calculator.calculate(scalarRowExpression, inputStatistics, session);
         assertEquals(expressionVariableStatsEstimate, rowExpressionVariableStatsEstimate);
         return VariableStatsAssertion.assertThat(expressionVariableStatsEstimate);
+    }
+
+    private VariableStatsAssertion assertCalculate(
+            Map<String, String> sessionConfig,
+            Expression scalarExpression,
+            PlanNodeStatsEstimate inputStatistics,
+            TypeProvider types)
+    {
+        MetadataManager metadata = createTestMetadataManager();
+        List<SqlFunction> functions = new FunctionListBuilder()
+                .scalars(CustomFunctions.class)
+                .getFunctions();
+        Session.SessionBuilder sessionBuilder = testSessionBuilder();
+        for (Map.Entry<String, String> entry : sessionConfig.entrySet()) {
+            sessionBuilder.setSystemProperty(entry.getKey(), entry.getValue());
+        }
+        Session session1 = sessionBuilder.build();
+        metadata.getFunctionAndTypeManager().registerBuiltInFunctions(functions);
+        ScalarStatsCalculator statsCalculator = new ScalarStatsCalculator(metadata);
+        TestingRowExpressionTranslator translator = new TestingRowExpressionTranslator(metadata);
+        RowExpression scalarRowExpression = translator.translate(scalarExpression, types);
+        VariableStatsEstimate rowExpressionVariableStatsEstimate = statsCalculator.calculate(scalarRowExpression, inputStatistics, session1);
+        return VariableStatsAssertion.assertThat(rowExpressionVariableStatsEstimate);
     }
 
     @Test

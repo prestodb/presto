@@ -360,6 +360,7 @@ public final class SystemSessionProperties
     public static final String OPTIMIZER_USE_HISTOGRAMS = "optimizer_use_histograms";
     public static final String WARN_ON_COMMON_NAN_PATTERNS = "warn_on_common_nan_patterns";
     public static final String INLINE_PROJECTIONS_ON_VALUES = "inline_projections_on_values";
+    public static final String SCALAR_FUNCTION_STATS_PROPAGATION_ENABLED = "scalar_function_stats_propagation_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -2008,6 +2009,10 @@ public final class SystemSessionProperties
                 booleanProperty(INLINE_PROJECTIONS_ON_VALUES,
                         "Whether to evaluate project node on values node",
                         featuresConfig.getInlineProjectionsOnValues(),
+                        false),
+                booleanProperty(SCALAR_FUNCTION_STATS_PROPAGATION_ENABLED,
+                        "whether or not to respect stats propagation annotation for scalar functions (or UDF)",
+                        featuresConfig.isScalarFunctionStatsPropagationEnabled(),
                         false));
     }
 
@@ -3331,13 +3336,15 @@ public final class SystemSessionProperties
         return session.getSystemProperty(OPTIMIZER_USE_HISTOGRAMS, Boolean.class);
     }
 
-    public static boolean warnOnCommonNanPatterns(Session session)
-    {
+    public static boolean warnOnCommonNanPatterns(Session session) {
         return session.getSystemProperty(WARN_ON_COMMON_NAN_PATTERNS, Boolean.class);
     }
 
-    public static boolean isInlineProjectionsOnValues(Session session)
-    {
+    public static boolean isInlineProjectionsOnValues(Session session) {
         return session.getSystemProperty(INLINE_PROJECTIONS_ON_VALUES, Boolean.class);
+    }
+
+    public static boolean shouldEnableScalarFunctionStatsPropagation(Session session) {
+        return session.getSystemProperty(SCALAR_FUNCTION_STATS_PROPAGATION_ENABLED, Boolean.class);
     }
 }
