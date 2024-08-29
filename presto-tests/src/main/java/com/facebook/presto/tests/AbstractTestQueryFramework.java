@@ -21,6 +21,7 @@ import com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges;
 import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.cost.TaskCountEstimator;
 import com.facebook.presto.execution.QueryManagerConfig;
+import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.security.AccessDeniedException;
@@ -568,7 +569,8 @@ public abstract class AbstractTestQueryFramework
                 new CostComparator(featuresConfig),
                 taskCountEstimator,
                 new PartitioningProviderManager(),
-                featuresConfig)
+                featuresConfig,
+                new TaskManagerConfig())
                 .getPlanningTimeOptimizers();
         return new QueryExplainer(
                 optimizers,
