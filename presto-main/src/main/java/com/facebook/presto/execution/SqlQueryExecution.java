@@ -753,10 +753,12 @@ public class SqlQueryExecution
     @Override
     public void pruneFinishedQueryInfo()
     {
-        queryPlan.getAndUpdate(plan -> new Plan(
-                plan.getRoot(),
-                plan.getTypes(),
-                pruneHistogramsFromStatsAndCosts(plan.getStatsAndCosts())));
+        queryPlan.getAndUpdate(nullablePlan -> Optional.ofNullable(nullablePlan)
+                .map(plan -> new Plan(
+                        plan.getRoot(),
+                        plan.getTypes(),
+                        pruneHistogramsFromStatsAndCosts(plan.getStatsAndCosts())))
+                .orElse(null));
         // drop the reference to the scheduler since execution is finished
         queryScheduler.set(null);
         stateMachine.pruneQueryInfoFinished();
