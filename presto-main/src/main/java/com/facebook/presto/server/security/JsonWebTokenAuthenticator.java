@@ -17,7 +17,9 @@ import com.facebook.airlift.http.server.AuthenticationException;
 import com.facebook.airlift.http.server.Authenticator;
 import com.facebook.airlift.http.server.BasicPrincipal;
 import com.facebook.airlift.security.pem.PemReader;
+import com.facebook.presto.spi.security.AuthorizedIdentity;
 import com.google.common.base.CharMatcher;
+import com.google.common.collect.ImmutableMap;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.JwsHeader;
@@ -28,6 +30,7 @@ import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.SignatureException;
 import io.jsonwebtoken.SigningKeyResolver;
 import io.jsonwebtoken.UnsupportedJwtException;
+import io.jsonwebtoken.jackson.io.JacksonDeserializer;
 
 import javax.crypto.spec.SecretKeySpec;
 import javax.inject.Inject;
@@ -41,6 +44,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Function;
 
+import static com.facebook.presto.server.security.ServletSecurityUtils.AUTHORIZED_IDENTITY_ATTRIBUTE;
+import static com.facebook.presto.server.security.ServletSecurityUtils.setAuthorizedIdentity;
 import static com.google.common.base.CharMatcher.inRange;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
@@ -73,7 +78,8 @@ public class JsonWebTokenAuthenticator
             keyLoader = new StaticKeyLoader(config.getKeyFile());
         }
 
-        JwtParser jwtParser = Jwts.parser()
+        JwtParser jwtParser = Jwts.parserBuilder()
+                .deserializeJsonWith(new JacksonDeserializer<>(ImmutableMap.of(AUTHORIZED_IDENTITY_ATTRIBUTE, AuthorizedIdentity.class)))
                 .setSigningKeyResolver(new SigningKeyResolver()
                 {
                     // interface uses raw types and this can not be fixed here
@@ -90,7 +96,8 @@ public class JsonWebTokenAuthenticator
                     {
                         return keyLoader.apply(header);
                     }
-                });
+                })
+                .build();
 
         if (config.getRequiredIssuer() != null) {
             jwtParser.requireIssuer(config.getRequiredIssuer());
@@ -118,6 +125,12 @@ public class JsonWebTokenAuthenticator
 
         try {
             Jws<Claims> claimsJws = jwtParser.parseClaimsJws(token);
+
+            AuthorizedIdentity authorizedIdentity = claimsJws.getBody().get(AUTHORIZED_IDENTITY_ATTRIBUTE, AuthorizedIdentity.class);
+            if (authorizedIdentity != null) {
+                setAuthorizedIdentity(request, authorizedIdentity);
+            }
+
             String subject = claimsJws.getBody().getSubject();
             return new BasicPrincipal(subject);
         }
