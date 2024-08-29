@@ -137,12 +137,6 @@ public class ParquetSchemaConverter
             parquetTypeBuilder.as(annotation);
             return parquetTypeBuilder.named(name);
         }
-        if (UUID.equals(type)) {
-            return Types.primitive(PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY, repetition)
-                    .length(16)
-                    .as(LogicalTypeAnnotation.uuidType())
-                    .named(name);
-        }
         if (DOUBLE.equals(type)) {
             return Types.primitive(PrimitiveType.PrimitiveTypeName.DOUBLE, repetition).named(name);
         }
