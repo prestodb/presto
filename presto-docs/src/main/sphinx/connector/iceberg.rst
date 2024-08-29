@@ -789,7 +789,7 @@ procedure on the catalog's ``system`` schema::
 Rollback to Snapshot
 ^^^^^^^^^^^^^^^^^^^^
 
-Roll back a table to a specific snapshot ID. Iceberg can roll back to a specific snapshot ID by using the ``rollback_to_snapshot`` procedure on Iceberg`s ``system`` schema::
+Rollback a table to a specific snapshot ID. Iceberg can rollback to a specific snapshot ID by using the ``rollback_to_snapshot`` procedure on Iceberg's ``system`` schema::
 
     CALL iceberg.system.rollback_to_snapshot('schema_name', 'table_name', snapshot_id);
 
@@ -798,7 +798,7 @@ The following arguments are available:
 ===================== ========== =============== =======================================================================
 Argument Name         required   type            Description
 ===================== ========== =============== =======================================================================
-``schema_name``       ✔️          string          Schema of the table to update
+``schema``            ✔️          string          Schema of the table to update
 
 ``table_name``        ✔️          string          Name of the table to update
 
