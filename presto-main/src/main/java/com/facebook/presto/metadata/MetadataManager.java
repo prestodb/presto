@@ -70,6 +70,7 @@ import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.transaction.TransactionManager;
@@ -210,24 +211,34 @@ public class MetadataManager
 
     public static MetadataManager createTestMetadataManager(FeaturesConfig featuresConfig)
     {
-        return createTestMetadataManager(new CatalogManager(), featuresConfig);
+        return createTestMetadataManager(new CatalogManager(), featuresConfig, new FunctionsConfig());
+    }
+
+    public static MetadataManager createTestMetadataManager(FunctionsConfig functionsConfig)
+    {
+        return createTestMetadataManager(new CatalogManager(), new FeaturesConfig(), functionsConfig);
     }
 
     public static MetadataManager createTestMetadataManager(CatalogManager catalogManager)
     {
-        return createTestMetadataManager(catalogManager, new FeaturesConfig());
+        return createTestMetadataManager(catalogManager, new FeaturesConfig(), new FunctionsConfig());
     }
 
-    public static MetadataManager createTestMetadataManager(CatalogManager catalogManager, FeaturesConfig featuresConfig)
+    public static MetadataManager createTestMetadataManager(CatalogManager catalogManager, FeaturesConfig featuresConfig, FunctionsConfig functionsConfig)
     {
-        return createTestMetadataManager(createTestTransactionManager(catalogManager), featuresConfig);
+        return createTestMetadataManager(createTestTransactionManager(catalogManager), featuresConfig, functionsConfig);
     }
 
-    public static MetadataManager createTestMetadataManager(TransactionManager transactionManager, FeaturesConfig featuresConfig)
+    public static MetadataManager createTestMetadataManager(TransactionManager transactionManager)
+    {
+        return createTestMetadataManager(transactionManager, new FeaturesConfig(), new FunctionsConfig());
+    }
+
+    public static MetadataManager createTestMetadataManager(TransactionManager transactionManager, FeaturesConfig featuresConfig, FunctionsConfig functionsConfig)
     {
         BlockEncodingManager blockEncodingManager = new BlockEncodingManager();
         return new MetadataManager(
-                new FunctionAndTypeManager(transactionManager, blockEncodingManager, featuresConfig, new HandleResolver(), ImmutableSet.of()),
+                new FunctionAndTypeManager(transactionManager, blockEncodingManager, featuresConfig, functionsConfig, new HandleResolver(), ImmutableSet.of()),
                 blockEncodingManager,
                 new SessionPropertyManager(),
                 new SchemaPropertyManager(),
