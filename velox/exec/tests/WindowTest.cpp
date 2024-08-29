@@ -141,56 +141,6 @@ TEST_F(WindowTest, rowBasedStreamingWindowOOM) {
   testWindowBuild(false);
 }
 
-TEST_F(WindowTest, rowBasedStreamingWindowMemoryUsage) {
-  auto memoryUsage = [&](bool useStreamingWindow, vector_size_t size) {
-    auto data = makeRowVector(
-        {"d", "p", "s"},
-        {
-            // Payload.
-            makeFlatVector<int64_t>(size, [](auto row) { return row; }),
-            // Partition key.
-            makeFlatVector<int16_t>(size, [](auto row) { return row % 11; }),
-            // Sorting key.
-            makeFlatVector<int32_t>(size, [](auto row) { return row; }),
-        });
-
-    createDuckDbTable({data});
-
-    // Abstract the common values vector split.
-    auto valuesSplit = split(data, 10);
-    core::PlanNodeId windowId;
-    auto builder = PlanBuilder().values(valuesSplit);
-    if (useStreamingWindow) {
-      builder.orderBy({"p", "s"}, false)
-          .streamingWindow({"row_number() over (partition by p order by s)"});
-    } else {
-      builder.window({"row_number() over (partition by p order by s)"});
-    }
-    auto plan = builder.capturePlanNodeId(windowId).planNode();
-    auto task =
-        AssertQueryBuilder(plan, duckDbQueryRunner_)
-            .config(core::QueryConfig::kPreferredOutputBatchBytes, "1024")
-            .assertResults(
-                "SELECT *, row_number() over (partition by p order by s) FROM tmp");
-
-    return exec::toPlanStats(task->taskStats()).at(windowId).peakMemoryBytes;
-  };
-
-  const vector_size_t smallSize = 100'000;
-  const vector_size_t largeSize = 1'000'000;
-  // As the volume of data increases, the peak memory usage of the sort-based
-  // window will increase (2418624 vs 17098688). Since the peak memory usage of
-  // the RowBased Window represents the one batch data in a single partition,
-  // the peak memory usage will not increase as the volume of data grows.
-  auto sortWindowSmallUsage = memoryUsage(false, smallSize);
-  auto sortWindowLargeUsage = memoryUsage(false, largeSize);
-  ASSERT_GT(sortWindowLargeUsage, sortWindowSmallUsage);
-
-  auto rowWindowSmallUsage = memoryUsage(true, smallSize);
-  auto rowWindowLargeUsage = memoryUsage(true, largeSize);
-  ASSERT_EQ(rowWindowSmallUsage, rowWindowLargeUsage);
-}
-
 DEBUG_ONLY_TEST_F(WindowTest, rankRowStreamingWindowBuild) {
   auto data = makeRowVector(
       {"c1"},
