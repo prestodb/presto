@@ -507,7 +507,7 @@ public class TestTypeValidator
 
     private void assertTypesValid(PlanNode node)
     {
-        TYPE_VALIDATOR.validate(node, TEST_SESSION, createTestMetadataManager(), SQL_PARSER, TypeProvider.viewOf(variableAllocator.getVariables()), WarningCollector.NOOP);
+        TYPE_VALIDATOR.validate(node, TEST_SESSION, createTestMetadataManager(), WarningCollector.NOOP);
     }
 
     private static PlanNodeId newId()

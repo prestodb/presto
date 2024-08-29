@@ -23,8 +23,6 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.relational.FunctionResolution;
@@ -174,7 +172,7 @@ public class TestDynamicFiltersChecker
         getQueryRunner().inTransaction(session -> {
             // metadata.getCatalogHandle() registers the catalog for the transaction
             session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
-            new DynamicFiltersChecker().validate(root, session, metadata, new SqlParser(), TypeProvider.empty(), WarningCollector.NOOP);
+            new DynamicFiltersChecker().validate(root, session, metadata, WarningCollector.NOOP);
             return null;
         });
     }

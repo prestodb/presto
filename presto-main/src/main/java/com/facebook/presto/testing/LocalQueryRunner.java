@@ -432,7 +432,7 @@ public class LocalQueryRunner
         this.splitManager = new SplitManager(metadata, new QueryManagerConfig(), nodeSchedulerConfig);
         this.distributedPlanChecker = new PlanChecker(featuresConfig, false);
         this.singleNodePlanChecker = new PlanChecker(featuresConfig, true);
-        this.planFragmenter = new PlanFragmenter(this.metadata, this.nodePartitioningManager, new QueryManagerConfig(), sqlParser, featuresConfig);
+        this.planFragmenter = new PlanFragmenter(this.metadata, this.nodePartitioningManager, new QueryManagerConfig(), featuresConfig);
         this.joinCompiler = new JoinCompiler(metadata);
         this.pageIndexerFactory = new GroupByHashPageIndexerFactory(joinCompiler);
         this.statsNormalizer = new StatsNormalizer();
@@ -1137,7 +1137,6 @@ public class LocalQueryRunner
                 metadata,
                 optimizers,
                 singleNodePlanChecker,
-                sqlParser,
                 analyzerContext.getVariableAllocator(),
                 idAllocator,
                 warningCollector,

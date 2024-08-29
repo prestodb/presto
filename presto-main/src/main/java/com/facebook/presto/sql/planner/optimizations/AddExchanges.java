@@ -47,7 +47,6 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationPartitioningMergingStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialMergePushdownStrategy;
-import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
@@ -157,15 +156,13 @@ import static java.util.stream.Collectors.toList;
 public class AddExchanges
         implements PlanOptimizer
 {
-    private final SqlParser parser;
     private final Metadata metadata;
     private final PartitioningProviderManager partitioningProviderManager;
     private final boolean nativeExecution;
 
-    public AddExchanges(Metadata metadata, SqlParser parser, PartitioningProviderManager partitioningProviderManager, boolean nativeExecution)
+    public AddExchanges(Metadata metadata, PartitioningProviderManager partitioningProviderManager, boolean nativeExecution)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.parser = requireNonNull(parser, "parser is null");
         this.partitioningProviderManager = requireNonNull(partitioningProviderManager, "partitioningProviderManager is null");
         this.nativeExecution = nativeExecution;
     }
@@ -1449,7 +1446,7 @@ public class AddExchanges
         private ActualProperties deriveProperties(PlanNode result, List<ActualProperties> inputProperties)
         {
             // TODO: move this logic to PlanChecker once PropertyDerivations.deriveProperties fully supports local exchanges
-            ActualProperties outputProperties = PropertyDerivations.deriveProperties(result, inputProperties, metadata, session, types, parser);
+            ActualProperties outputProperties = PropertyDerivations.deriveProperties(result, inputProperties, metadata, session);
             verify(result instanceof SemiJoinNode || inputProperties.stream().noneMatch(ActualProperties::isNullsAndAnyReplicated) || outputProperties.isNullsAndAnyReplicated(),
                     "SemiJoinNode is the only node that can strip null replication");
             return outputProperties;
@@ -1457,7 +1454,7 @@ public class AddExchanges
 
         private ActualProperties derivePropertiesRecursively(PlanNode result)
         {
-            return PropertyDerivations.derivePropertiesRecursively(result, metadata, session, types, parser);
+            return PropertyDerivations.derivePropertiesRecursively(result, metadata, session);
         }
 
         private PlanWithProperties accept(PlanNode plan, PreferredProperties context)

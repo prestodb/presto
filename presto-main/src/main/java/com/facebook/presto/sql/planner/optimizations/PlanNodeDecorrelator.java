@@ -30,7 +30,6 @@ import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
@@ -549,7 +548,7 @@ public class PlanNodeDecorrelator
 
     private boolean containsCorrelation(PlanNode node, List<VariableReferenceExpression> correlation)
     {
-        return Sets.union(VariablesExtractor.extractUnique(node, lookup, TypeProvider.viewOf(variableAllocator.getVariables())), VariablesExtractor.extractOutputVariables(node, lookup)).stream().anyMatch(correlation::contains);
+        return Sets.union(VariablesExtractor.extractUnique(node, lookup), VariablesExtractor.extractOutputVariables(node, lookup)).stream().anyMatch(correlation::contains);
     }
 
     public static class DecorrelatedNode

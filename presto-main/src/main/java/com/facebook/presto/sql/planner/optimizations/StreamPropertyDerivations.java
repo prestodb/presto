@@ -33,8 +33,6 @@ import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
@@ -98,27 +96,25 @@ public final class StreamPropertyDerivations
 {
     private StreamPropertyDerivations() {}
 
-    public static StreamProperties derivePropertiesRecursively(PlanNode node, Metadata metadata, Session session, TypeProvider types, SqlParser parser)
+    public static StreamProperties derivePropertiesRecursively(PlanNode node, Metadata metadata, Session session)
     {
         List<StreamProperties> inputProperties = node.getSources().stream()
-                .map(source -> derivePropertiesRecursively(source, metadata, session, types, parser))
+                .map(source -> derivePropertiesRecursively(source, metadata, session))
                 .collect(toImmutableList());
-        return StreamPropertyDerivations.deriveProperties(node, inputProperties, metadata, session, types, parser);
+        return StreamPropertyDerivations.deriveProperties(node, inputProperties, metadata, session);
     }
 
-    public static StreamProperties deriveProperties(PlanNode node, StreamProperties inputProperties, Metadata metadata, Session session, TypeProvider types, SqlParser parser)
+    public static StreamProperties deriveProperties(PlanNode node, StreamProperties inputProperties, Metadata metadata, Session session)
     {
-        return deriveProperties(node, ImmutableList.of(inputProperties), metadata, session, types, parser);
+        return deriveProperties(node, ImmutableList.of(inputProperties), metadata, session);
     }
 
-    public static StreamProperties deriveProperties(PlanNode node, List<StreamProperties> inputProperties, Metadata metadata, Session session, TypeProvider types, SqlParser parser)
+    public static StreamProperties deriveProperties(PlanNode node, List<StreamProperties> inputProperties, Metadata metadata, Session session)
     {
         requireNonNull(node, "node is null");
         requireNonNull(inputProperties, "inputProperties is null");
         requireNonNull(metadata, "metadata is null");
         requireNonNull(session, "session is null");
-        requireNonNull(types, "types is null");
-        requireNonNull(parser, "parser is null");
 
         // properties.otherActualProperties will never be null here because the only way
         // an external caller should obtain StreamProperties is from this method, and the
@@ -129,11 +125,9 @@ public final class StreamPropertyDerivations
                         .map(properties -> properties.otherActualProperties)
                         .collect(toImmutableList()),
                 metadata,
-                session,
-                types,
-                parser);
+                session);
 
-        StreamProperties result = node.accept(new Visitor(metadata, session, types), inputProperties)
+        StreamProperties result = node.accept(new Visitor(metadata, session), inputProperties)
                 .withOtherActualProperties(otherProperties);
 
         result.getPartitioningColumns().ifPresent(columns ->
@@ -153,13 +147,11 @@ public final class StreamPropertyDerivations
     {
         private final Metadata metadata;
         private final Session session;
-        private final TypeProvider types;
 
-        private Visitor(Metadata metadata, Session session, TypeProvider types)
+        private Visitor(Metadata metadata, Session session)
         {
             this.metadata = metadata;
             this.session = session;
-            this.types = types;
         }
 
         @Override
@@ -377,12 +369,12 @@ public final class StreamPropertyDerivations
             StreamProperties properties = Iterables.getOnlyElement(inputProperties);
 
             // We can describe properties in terms of inputs that are projected unmodified (i.e., identity projections)
-            Map<VariableReferenceExpression, VariableReferenceExpression> identities = computeIdentityTranslations(node.getAssignments().getMap(), types);
+            Map<VariableReferenceExpression, VariableReferenceExpression> identities = computeIdentityTranslations(node.getAssignments().getMap());
 
             return properties.translate(column -> Optional.ofNullable(identities.get(column)));
         }
 
-        private static Map<VariableReferenceExpression, VariableReferenceExpression> computeIdentityTranslations(Map<VariableReferenceExpression, RowExpression> assignments, TypeProvider types)
+        private static Map<VariableReferenceExpression, VariableReferenceExpression> computeIdentityTranslations(Map<VariableReferenceExpression, RowExpression> assignments)
         {
             Map<VariableReferenceExpression, VariableReferenceExpression> inputToOutput = new HashMap<>();
             for (Map.Entry<VariableReferenceExpression, RowExpression> assignment : assignments.entrySet()) {
