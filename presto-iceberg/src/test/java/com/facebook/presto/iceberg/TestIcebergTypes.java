@@ -25,7 +25,7 @@ public class TestIcebergTypes
     @Test
     public void testTimestampWithTimezone()
     {
-        String timestamptz = "TIMESTAMP '1984-12-08 00:10:00 America/Los_Angeles'";
+        String timestamptz = "TIMESTAMP '1984-12-08 00:10:00 UTC'";
         String timestamp = "TIMESTAMP '1984-12-08 00:10:00'";
 
         getQueryRunner().execute("CREATE TABLE test_timestamptz(a TIMESTAMP WITH TIME ZONE, b TIMESTAMP, c TIMESTAMP WITH TIME ZONE)");
@@ -52,6 +52,7 @@ public class TestIcebergTypes
 
         String early_timestamptz = "TIMESTAMP '1980-12-08 00:10:00 America/Los_Angeles'";
         getQueryRunner().execute("CREATE TABLE test_timestamptz_filter(a TIMESTAMP WITH TIME ZONE)");
+
         for (int i = 0; i < 5; i++) {
             getQueryRunner().execute("INSERT INTO test_timestamptz_filter VALUES (" + early_timestamptz + ")");
         }
