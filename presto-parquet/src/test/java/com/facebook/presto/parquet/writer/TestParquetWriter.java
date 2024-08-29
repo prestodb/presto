@@ -196,7 +196,7 @@ public class TestParquetWriter
             expectedLogicalTypeAnnotationTypes.add(LogicalTypeAnnotation.MapLogicalTypeAnnotation.class);
             expectedLogicalTypeAnnotationTypes.add(null);
 
-            for (int i = 0; i< parquetTypes.size(); i++) {
+            for (int i = 0; i < parquetTypes.size(); i++) {
                 checkTypes(parquetTypes.get(i), expectedLogicalTypeAnnotationTypes.get(i), expectedPrimitiveTypeNames.get(i));
             }
 
