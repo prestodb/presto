@@ -347,6 +347,7 @@ public class LocalQueryRunner
     private final NodeSpillConfig nodeSpillConfig;
     private final NodeSchedulerConfig nodeSchedulerConfig;
     private final FragmentStatsProvider fragmentStatsProvider;
+    private final TaskManagerConfig taskManagerConfig;
     private boolean printPlan;
 
     private final PlanChecker distributedPlanChecker;
@@ -383,6 +384,7 @@ public class LocalQueryRunner
         requireNonNull(defaultSession, "defaultSession is null");
         checkArgument(!defaultSession.getTransactionId().isPresent() || !withInitialTransaction, "Already in transaction");
 
+        this.taskManagerConfig = new TaskManagerConfig().setTaskConcurrency(4);
         this.nodeSpillConfig = requireNonNull(nodeSpillConfig, "nodeSpillConfig is null");
         this.alwaysRevokeMemory = alwaysRevokeMemory;
         this.notificationExecutor = newCachedThreadPool(daemonThreadsNamed("local-query-runner-executor-%s"));
@@ -965,7 +967,7 @@ public class LocalQueryRunner
                 pageFunctionCompiler,
                 joinFilterFunctionCompiler,
                 new IndexJoinLookupStats(),
-                new TaskManagerConfig().setTaskConcurrency(4),
+                taskManagerConfig,
                 new MemoryManagerConfig(),
                 new FunctionsConfig(),
                 spillerFactory,
@@ -1130,7 +1132,8 @@ public class LocalQueryRunner
                 new CostComparator(featuresConfig),
                 taskCountEstimator,
                 partitioningProviderManager,
-                featuresConfig).getPlanningTimeOptimizers());
+                featuresConfig,
+                taskManagerConfig).getPlanningTimeOptimizers());
         return planOptimizers.build();
     }
 

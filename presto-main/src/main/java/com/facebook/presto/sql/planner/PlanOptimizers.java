@@ -18,6 +18,7 @@ import com.facebook.presto.cost.CostCalculator.EstimatedExchanges;
 import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.cost.TaskCountEstimator;
+import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
@@ -26,6 +27,7 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.properties.LogicalPropertiesProviderImpl;
+import com.facebook.presto.sql.planner.iterative.rule.AddExchangesBelowPartialAggregationOverGroupIdRuleSet;
 import com.facebook.presto.sql.planner.iterative.rule.AddIntermediateAggregations;
 import com.facebook.presto.sql.planner.iterative.rule.AddNotNullFiltersToJoinNode;
 import com.facebook.presto.sql.planner.iterative.rule.CombineApproxPercentileFunctions;
@@ -220,7 +222,8 @@ public class PlanOptimizers
             CostComparator costComparator,
             TaskCountEstimator taskCountEstimator,
             PartitioningProviderManager partitioningProviderManager,
-            FeaturesConfig featuresConfig)
+            FeaturesConfig featuresConfig,
+            TaskManagerConfig taskManagerConfig)
     {
         this(metadata,
                 sqlParser,
@@ -235,7 +238,8 @@ public class PlanOptimizers
                 costComparator,
                 taskCountEstimator,
                 partitioningProviderManager,
-                featuresConfig);
+                featuresConfig,
+                taskManagerConfig);
     }
 
     @PostConstruct
@@ -266,7 +270,8 @@ public class PlanOptimizers
             CostComparator costComparator,
             TaskCountEstimator taskCountEstimator,
             PartitioningProviderManager partitioningProviderManager,
-            FeaturesConfig featuresConfig)
+            FeaturesConfig featuresConfig,
+            TaskManagerConfig taskManagerConfig)
     {
         this.exporter = exporter;
         ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
@@ -909,6 +914,13 @@ public class PlanOptimizers
                         costCalculator,
                         ImmutableSet.of(
                                 new PruneJoinColumns())));
+
+        builder.add(new IterativeOptimizer(
+                metadata,
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                new AddExchangesBelowPartialAggregationOverGroupIdRuleSet(taskCountEstimator, taskManagerConfig, metadata, sqlParser).rules()));
 
         builder.add(new IterativeOptimizer(
                 metadata,
