@@ -42,6 +42,7 @@ import com.facebook.presto.sql.planner.optimizations.JoinNodeUtils;
 import com.facebook.presto.sql.planner.plan.AbstractJoinNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
+import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
@@ -114,6 +115,7 @@ public final class GraphvizPrinter
         SINK,
         WINDOW,
         UNION,
+        DELETE,
 
         SEQUENCE,
         SORT,
@@ -145,6 +147,7 @@ public final class GraphvizPrinter
             .put(NodeType.SINK, "indianred1")
             .put(NodeType.WINDOW, "darkolivegreen4")
             .put(NodeType.UNION, "turquoise4")
+            .put(NodeType.DELETE, "tomato")
             .put(NodeType.SEQUENCE, "turquoise4")
             .put(NodeType.MARK_DISTINCT, "violet")
             .put(NodeType.TABLE_WRITER, "cyan")
@@ -680,6 +683,16 @@ public final class GraphvizPrinter
             node.getProbeSource().accept(this, context);
             node.getIndexSource().accept(this, context);
 
+            return null;
+        }
+
+        @Override
+        public Void visitDelete(DeleteNode node, Void context)
+        {
+            String deleteLabel = format("Delete[%s]", Joiner.on(",").join(node.getOutputVariables()));
+            printNode(node, deleteLabel, NODE_COLORS.get(NodeType.DELETE));
+
+            node.getSource().accept(this, context);
             return null;
         }
 
