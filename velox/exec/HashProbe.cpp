@@ -1090,6 +1090,8 @@ RowVectorPtr HashProbe::getOutputInternal(bool toSpillOutput) {
 }
 
 bool HashProbe::maybeReadSpillOutput() {
+  maybeSetupSpillOutputReader();
+
   if (spillOutputReader_ == nullptr) {
     return false;
   }
@@ -1734,6 +1736,7 @@ void HashProbe::reclaim(
 
   for (auto* probeOp : probeOps) {
     VELOX_CHECK_NOT_NULL(probeOp);
+    probeOp->clearBuffers();
     // Setup all the probe operators to spill the rest of probe inputs if the
     // table has been spilled.
     if (!spillPartitionSet.empty()) {
@@ -1837,16 +1840,24 @@ void HashProbe::spillOutput() {
   }
   VELOX_CHECK_LE(outputSpiller->spilledPartitionSet().size(), 1);
 
-  SpillPartitionSet outputSpillSet;
-  outputSpiller->finishSpill(outputSpillSet);
-  VELOX_CHECK_EQ(outputSpillSet.size(), 1);
+  VELOX_CHECK(spillOutputPartitionSet_.empty());
+  outputSpiller->finishSpill(spillOutputPartitionSet_);
+  VELOX_CHECK_EQ(spillOutputPartitionSet_.size(), 1);
 
-  removeEmptyPartitions(outputSpillSet);
-  if (outputSpillSet.empty()) {
+  removeEmptyPartitions(spillOutputPartitionSet_);
+}
+
+void HashProbe::maybeSetupSpillOutputReader() {
+  if (spillOutputPartitionSet_.empty()) {
     return;
   }
-  spillOutputReader_ = outputSpillSet.begin()->second->createUnorderedReader(
-      spillConfig_->readBufferSize, pool(), &spillStats_);
+  VELOX_CHECK_EQ(spillOutputPartitionSet_.size(), 1);
+  VELOX_CHECK_NULL(spillOutputReader_);
+
+  spillOutputReader_ =
+      spillOutputPartitionSet_.begin()->second->createUnorderedReader(
+          spillConfig_->readBufferSize, pool(), &spillStats_);
+  spillOutputPartitionSet_.clear();
 }
 
 SpillPartitionSet HashProbe::spillTable() {
@@ -1991,6 +2002,13 @@ void HashProbe::close() {
   joinBridge_.reset();
   inputSpiller_.reset();
   table_.reset();
+  spillInputReader_.reset();
+  spillOutputPartitionSet_.clear();
+  spillOutputReader_.reset();
+  clearBuffers();
+}
+
+void HashProbe::clearBuffers() {
   outputRowMapping_.reset();
   tempOutputRowMapping_.reset();
   outputTableRows_.reset();
@@ -1998,8 +2016,6 @@ void HashProbe::close() {
   output_.reset();
   nonSpillInputIndicesBuffer_.reset();
   spillInputIndicesBuffers_.clear();
-  spillInputReader_.reset();
-  spillOutputReader_.reset();
 }
 
 } // namespace facebook::velox::exec

@@ -221,6 +221,9 @@ class HashProbe : public Operator {
   // operator is set to reclaimable at this stage.
   void ensureOutputFits();
 
+  // Setups spilled output reader if 'spillOutputPartitionSet_' is not empty.
+  void maybeSetupSpillOutputReader();
+
   // Reads from the spilled output if the spilling has been triggered during the
   // middle of an input processing. The latter produces all the outputs and
   // spill them on to disk in case the output is too large to fit in memory in
@@ -303,7 +306,9 @@ class HashProbe : public Operator {
   // Wake up the peer hash probe operators when last probe operator finishes.
   void wakeupPeerOperators();
 
-  //  std::vector<Operator*> findPeerOperators();
+  // Invoked to release internal buffers to free up memory resources after
+  // memory reclamation or operator close.
+  void clearBuffers();
 
   // TODO: Define batch size as bytes based on RowContainer row sizes.
   const uint32_t outputBatchSize_;
@@ -617,6 +622,10 @@ class HashProbe : public Operator {
   HashBitRange tableSpillHashBits_;
   // The row type used to spill hash table on disk.
   RowTypePtr tableSpillType_;
+
+  // The spilled output partition set which is cleared after setup
+  // 'spillOutputReader_'.
+  SpillPartitionSet spillOutputPartitionSet_;
 
   // The reader used to read the spilled output produced by pending input during
   // the spill processing.
