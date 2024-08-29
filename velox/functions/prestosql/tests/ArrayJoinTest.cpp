@@ -101,4 +101,40 @@ TEST_F(ArrayJoinTest, boolTest) {
       {true, std::nullopt, false}, ","_sv, "apple"_sv, "true,apple,false"_sv);
 }
 
+TEST_F(ArrayJoinTest, timestampTest) {
+  setLegacyCast(false);
+  testArrayJoinNoReplacement<Timestamp>(
+      {Timestamp{333183, 0}, std::nullopt, Timestamp{2925183, 0}},
+      "~"_sv,
+      "1970-01-04 20:33:03.000~1970-02-03 20:33:03.000"_sv);
+  testArrayJoinReplacement<Timestamp>(
+      {Timestamp{333183, 0}, std::nullopt, Timestamp{2925183, 0}},
+      "~"_sv,
+      "<n/a>"_sv,
+      "1970-01-04 20:33:03.000~<n/a>~1970-02-03 20:33:03.000"_sv);
+
+  setLegacyCast(true);
+  testArrayJoinNoReplacement<Timestamp>(
+      {Timestamp{333183, 0}, std::nullopt, Timestamp{2925183, 0}},
+      "~"_sv,
+      "1970-01-04T20:33:03.000~1970-02-03T20:33:03.000"_sv);
+  testArrayJoinReplacement<Timestamp>(
+      {Timestamp{333183, 0}, std::nullopt, Timestamp{2925183, 0}},
+      "~"_sv,
+      "<missing>"_sv,
+      "1970-01-04T20:33:03.000~<missing>~1970-02-03T20:33:03.000"_sv);
+
+  setLegacyCast(false);
+  setTimezone("America/Los_Angeles");
+  testArrayJoinNoReplacement<Timestamp>(
+      {Timestamp{333183, 0}, std::nullopt, Timestamp{2925183, 0}},
+      "~"_sv,
+      "1970-01-04 12:33:03.000~1970-02-03 12:33:03.000"_sv);
+  testArrayJoinReplacement<Timestamp>(
+      {Timestamp{333183, 0}, std::nullopt, Timestamp{2925183, 0}},
+      "~"_sv,
+      "<absent>"_sv,
+      "1970-01-04 12:33:03.000~<absent>~1970-02-03 12:33:03.000"_sv);
+}
+
 } // namespace

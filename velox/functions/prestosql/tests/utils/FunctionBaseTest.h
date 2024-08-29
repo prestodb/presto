@@ -42,6 +42,25 @@ class FunctionBaseTest : public testing::Test,
       DoubleType,
       RealType>;
 
+  void setLegacyCast(bool value) {
+    queryCtx_->testingOverrideConfigUnsafe({
+        {core::QueryConfig::kLegacyCast, std::to_string(value)},
+    });
+  }
+
+  void setCastMatchStructByName(bool value) {
+    queryCtx_->testingOverrideConfigUnsafe({
+        {core::QueryConfig::kCastMatchStructByName, std::to_string(value)},
+    });
+  }
+
+  void setTimezone(const std::string& value) {
+    queryCtx_->testingOverrideConfigUnsafe({
+        {core::QueryConfig::kSessionTimezone, value},
+        {core::QueryConfig::kAdjustTimestampToTimezone, "true"},
+    });
+  }
+
  protected:
   static void SetUpTestCase();
 
