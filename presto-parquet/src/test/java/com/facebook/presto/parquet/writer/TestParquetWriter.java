@@ -34,6 +34,7 @@ import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
+import org.apache.parquet.schema.PrimitiveType;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -73,6 +74,7 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static java.util.UUID.randomUUID;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -185,17 +187,16 @@ public class TestParquetWriter
             List<org.apache.parquet.schema.Type> parquetTypes = parquetSchema.getFields();
 
             org.apache.parquet.schema.Type tinyintType = parquetTypes.get(0);
-            verifyPrimitiveType(tinyintType, "INT32");
+            checkTypes(tinyintType, null, "INT32");
 
             org.apache.parquet.schema.Type smallintType = parquetTypes.get(1);
-            verifyPrimitiveType(smallintType, "INT32");
+            checkTypes(smallintType, null, "INT32");
 
             org.apache.parquet.schema.Type bigintType = parquetTypes.get(2);
-            verifyPrimitiveType(bigintType, "INT64");
+            checkTypes(bigintType, null, "INT64");
 
             org.apache.parquet.schema.Type integerType = parquetTypes.get(3);
-            verifyPrimitiveType(integerType, "INT32");
-            verifyLogicalType(tinyintType, LogicalTypeAnnotation.TimestampLogicalTypeAnnotation.class);
+            checkTypes(integerType, null, "INT32");
 
 //            org.apache.parquet.schema.Type varcharType = parquetTypes.get(2);
 //            assertEquals(varcharType.asPrimitiveType().getPrimitiveTypeName().name(), "BINARY");
@@ -217,19 +218,22 @@ public class TestParquetWriter
         }
     }
 
-    private static void verifyPrimitiveType(org.apache.parquet.schema.Type type, String expectedPrimitiveName)
+    private static void checkTypes(org.apache.parquet.schema.Type type, Class<?> expectedLogicalTypeAnnotation, String expectedPrimitiveTypeName)
     {
-        assertEquals(type.asPrimitiveType().getPrimitiveTypeName().name(), expectedPrimitiveName);
-    }
+        try {
+            PrimitiveType primitiveType = type.asPrimitiveType();
+            assertEquals(primitiveType.getPrimitiveTypeName().name(), expectedPrimitiveTypeName);
+        }
+        catch (ClassCastException e) {
+            assertNull(expectedPrimitiveTypeName);
+        }
 
-    private static void verifyLogicalType(org.apache.parquet.schema.Type type, Class<?> expectedLogicalTypeAnnotation)
-    {
         LogicalTypeAnnotation annotation = type.getLogicalTypeAnnotation();
         if (annotation != null) {
             assertTrue(expectedLogicalTypeAnnotation.isInstance(annotation));
         }
         else {
-            assertEquals(expectedLogicalTypeAnnotation, null);
+            assertNull(expectedLogicalTypeAnnotation);
         }
     }
 
