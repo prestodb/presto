@@ -34,19 +34,21 @@ using namespace facebook::velox;
 using namespace facebook::velox::memory;
 
 struct Block {
-  explicit Block(MemoryAllocator& _allocator) : allocator(_allocator) {}
+  explicit Block(MemoryAllocator* _allocator) : allocator(_allocator) {}
 
   ~Block() {
     if (data != nullptr) {
       free(data);
     }
-    if (allocation != nullptr) {
-      allocator.freeNonContiguous(*allocation);
+    if (allocator != nullptr) {
+      if (allocation != nullptr) {
+        allocator->freeNonContiguous(*allocation);
+      }
+      allocator->freeContiguous(contiguous);
     }
-    allocator.freeContiguous(contiguous);
   }
 
-  MemoryAllocator& allocator;
+  MemoryAllocator* allocator;
   size_t size = 0;
   char* data = nullptr;
   std::shared_ptr<Allocation> allocation;
@@ -91,7 +93,7 @@ class FragmentationTest {
   }
 
   void allocate(size_t size) {
-    auto block = std::make_unique<Block>(*memory_);
+    auto block = std::make_unique<Block>(memory_.get());
     block->size = size;
     if (memory_) {
       if (size <= 8 << 20) {
