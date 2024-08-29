@@ -373,6 +373,7 @@ public final class MetadataReader
                 }
                 typeBuilder = primitiveBuilder;
             }
+
             if (element.isSetConverted_type()) {
                 typeBuilder.as(getOriginalType(element.converted_type));
             }

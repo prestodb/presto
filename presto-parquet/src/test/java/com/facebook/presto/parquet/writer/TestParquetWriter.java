@@ -67,6 +67,15 @@ public class TestParquetWriter
     private File temporaryDirectory;
     private File parquetFile;
 
+    private static final DecimalType SHORT_DECIMAL = DecimalType.createDecimalType(18);
+    private static final DecimalType LONG_DECIMAL = DecimalType.createDecimalType(38);
+    private static final Type MAP = new MapType(
+            VARCHAR,
+            VARCHAR,
+            nativeValueGetter(VARCHAR),
+            nativeValueGetter(VARCHAR));
+    private static final Type ROW = RowType.from(ImmutableList.of(RowType.field("varchar", VARCHAR)));
+
     @Test
     public void testRowGroupFlushInterleavedColumnWriterFallbacks()
     {
@@ -88,7 +97,7 @@ public class TestParquetWriter
                     // maintain col_1's dictionary size approximately half of raw data
                     BIGINT.writeLong(pageBuilder.getBlockBuilder(0), pageIdx * 100 + rand.nextInt(50));
                     INTEGER.writeLong(pageBuilder.getBlockBuilder(1), rand.nextInt(100000000));
-                    VARCHAR.writeString(pageBuilder.getBlockBuilder(2), "");
+                    VARCHAR.writeString(pageBuilder.getBlockBuilder(2), randomUUID().toString());
                     BOOLEAN.writeBoolean(pageBuilder.getBlockBuilder(3), rand.nextBoolean());
                     pageBuilder.declarePosition();
                 }
@@ -107,15 +116,6 @@ public class TestParquetWriter
         temporaryDirectory = createTempDir();
         parquetFile = new File(temporaryDirectory, randomUUID().toString() + ".parquet");
 
-        DecimalType SMALL_DECIMAL = DecimalType.createDecimalType(18);
-        DecimalType BIG_DECIMAL = DecimalType.createDecimalType(38);
-        Type MAP_TYPE = new MapType(
-                VARCHAR,
-                VARCHAR,
-                nativeValueGetter(VARCHAR),
-                nativeValueGetter(VARCHAR));
-        Type ROW_TYPE = RowType.from(ImmutableList.of(RowType.field("varchar", VARCHAR)));
-
         List<Type> types = ImmutableList.of(
                 TINYINT,
                 SMALLINT,
@@ -124,12 +124,12 @@ public class TestParquetWriter
                 DOUBLE,
                 VARCHAR,
                 BOOLEAN,
-                SMALL_DECIMAL,
-                BIG_DECIMAL,
+                SHORT_DECIMAL,
+                LONG_DECIMAL,
                 DATE,
                 TIMESTAMP,
-                MAP_TYPE,
-                ROW_TYPE);
+                MAP,
+                ROW);
 
         List<String> names = new ArrayList<>();
         for (int i = 0; i < types.size(); i++) {
@@ -151,12 +151,12 @@ public class TestParquetWriter
             DOUBLE.writeDouble(pageBuilder.getBlockBuilder(4), 10);
             VARCHAR.writeString(pageBuilder.getBlockBuilder(5), "10");
             BOOLEAN.writeBoolean(pageBuilder.getBlockBuilder(6), true);
-            SMALL_DECIMAL.writeLong(pageBuilder.getBlockBuilder(7), 10);
-            BIG_DECIMAL.writeSlice(pageBuilder.getBlockBuilder(8), Slices.utf8Slice("0000000000000000"));
+            SHORT_DECIMAL.writeLong(pageBuilder.getBlockBuilder(7), 10);
+            LONG_DECIMAL.writeSlice(pageBuilder.getBlockBuilder(8), Slices.utf8Slice("0000000000000000"));
             DATE.writeLong(pageBuilder.getBlockBuilder(9), 100);
             TIMESTAMP.writeLong(pageBuilder.getBlockBuilder(10), 100);
-            MAP_TYPE.writeObject(pageBuilder.getBlockBuilder(11), mapBlockOf(VARCHAR, VARCHAR, "1", "1"));
-            ROW_TYPE.writeObject(pageBuilder.getBlockBuilder(12), rowBlockOf(ImmutableList.of(VARCHAR), "1"));
+            MAP.writeObject(pageBuilder.getBlockBuilder(11), mapBlockOf(VARCHAR, VARCHAR, "1", "1"));
+            ROW.writeObject(pageBuilder.getBlockBuilder(12), rowBlockOf(ImmutableList.of(VARCHAR), "1"));
             pageBuilder.declarePosition();
 
             parquetWriter.write(pageBuilder.build());
@@ -200,15 +200,16 @@ public class TestParquetWriter
                 checkTypes(parquetTypes.get(i), expectedLogicalTypeAnnotationTypes.get(i), expectedPrimitiveTypeNames.get(i));
             }
 
-            org.apache.parquet.schema.Type smallDecimalType = parquetTypes.get(7);
-            LogicalTypeAnnotation.DecimalLogicalTypeAnnotation smallDecimalTypeAnnotation = (LogicalTypeAnnotation.DecimalLogicalTypeAnnotation) smallDecimalType.getLogicalTypeAnnotation();
-            assertEquals(smallDecimalTypeAnnotation.getScale(), SMALL_DECIMAL.getScale());
-            assertEquals(smallDecimalTypeAnnotation.getPrecision(), SMALL_DECIMAL.getPrecision());
+            // check logical type parameters
+            org.apache.parquet.schema.Type shortDecimalType = parquetTypes.get(7);
+            LogicalTypeAnnotation.DecimalLogicalTypeAnnotation shortDecimalTypeAnnotation = (LogicalTypeAnnotation.DecimalLogicalTypeAnnotation) shortDecimalType.getLogicalTypeAnnotation();
+            assertEquals(shortDecimalTypeAnnotation.getScale(), SHORT_DECIMAL.getScale());
+            assertEquals(shortDecimalTypeAnnotation.getPrecision(), SHORT_DECIMAL.getPrecision());
 
-            org.apache.parquet.schema.Type bigDecimalType = parquetTypes.get(8);
-            LogicalTypeAnnotation.DecimalLogicalTypeAnnotation bigDecimalTypeAnnotation = (LogicalTypeAnnotation.DecimalLogicalTypeAnnotation) bigDecimalType.getLogicalTypeAnnotation();
-            assertEquals(bigDecimalTypeAnnotation.getScale(), BIG_DECIMAL.getScale());
-            assertEquals(bigDecimalTypeAnnotation.getPrecision(), BIG_DECIMAL.getPrecision());
+            org.apache.parquet.schema.Type longDecimalType = parquetTypes.get(8);
+            LogicalTypeAnnotation.DecimalLogicalTypeAnnotation longDecimalTypeAnnotation = (LogicalTypeAnnotation.DecimalLogicalTypeAnnotation) longDecimalType.getLogicalTypeAnnotation();
+            assertEquals(longDecimalTypeAnnotation.getScale(), LONG_DECIMAL.getScale());
+            assertEquals(longDecimalTypeAnnotation.getPrecision(), LONG_DECIMAL.getPrecision());
 
             org.apache.parquet.schema.Type timestampType = parquetTypes.get(10);
             LogicalTypeAnnotation.TimestampLogicalTypeAnnotation timeAnnotation = (LogicalTypeAnnotation.TimestampLogicalTypeAnnotation) timestampType.getLogicalTypeAnnotation();
