@@ -14,7 +14,7 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
@@ -24,7 +24,7 @@ public class TestLegacyMapSubscript
 {
     private TestLegacyMapSubscript()
     {
-        super(new FeaturesConfig().setLegacyMapSubscript(true));
+        super(new FunctionsConfig().setLegacyMapSubscript(true));
     }
 
     @Test

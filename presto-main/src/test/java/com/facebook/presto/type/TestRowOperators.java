@@ -27,6 +27,7 @@ import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.analyzer.SemanticErrorCode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -93,12 +94,12 @@ public class TestRowOperators
                         .build(),
                 new FeaturesConfig());
 
-        FeaturesConfig featuresConfigWithLegacyJsonCastEnabled = new FeaturesConfig()
+        FunctionsConfig featuresConfigWithLegacyJsonCastEnabled = new FunctionsConfig()
                 .setLegacyJsonCast(true);
-        legacyJsonCastEnabled = new FunctionAssertions(session, featuresConfigWithLegacyJsonCastEnabled, true);
-        FeaturesConfig featuresConfigWithLegacyJsonCastDisabled = new FeaturesConfig()
+        legacyJsonCastEnabled = new FunctionAssertions(session, new FeaturesConfig(), featuresConfigWithLegacyJsonCastEnabled, true);
+        FunctionsConfig featuresConfigWithLegacyJsonCastDisabled = new FunctionsConfig()
                 .setLegacyJsonCast(false);
-        legacyJsonCastDisabled = new FunctionAssertions(session, featuresConfigWithLegacyJsonCastDisabled, true);
+        legacyJsonCastDisabled = new FunctionAssertions(session, new FeaturesConfig(), featuresConfigWithLegacyJsonCastDisabled, true);
     }
 
     @AfterClass(alwaysRun = true)
