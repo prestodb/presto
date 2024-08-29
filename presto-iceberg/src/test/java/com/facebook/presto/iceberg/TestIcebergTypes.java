@@ -11,6 +11,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public class TestIcebergTypes
@@ -24,10 +25,10 @@ public class TestIcebergTypes
     @Test
     public void testTimestampWithTimezone()
     {
-        getQueryRunner().execute("CREATE TABLE test_timestamptz(a TIMESTAMP WITH TIME ZONE, b TIMESTAMP, c TIMESTAMP WITH TIME ZONE)");
-
         String timestamptz = "TIMESTAMP '1984-12-08 00:10:00 America/Los_Angeles'";
         String timestamp = "TIMESTAMP '1984-12-08 00:10:00'";
+
+        getQueryRunner().execute("CREATE TABLE test_timestamptz(a TIMESTAMP WITH TIME ZONE, b TIMESTAMP, c TIMESTAMP WITH TIME ZONE)");
         String row = "(" + timestamptz + ", " + timestamp + ", " + timestamptz + ")";
         for (int i = 0; i < 10; i++) {
             getQueryRunner().execute("INSERT INTO test_timestamptz values " + row);
@@ -48,5 +49,17 @@ public class TestIcebergTypes
 
         assertTrue(partitionTypes.get(0) instanceof TimestampWithTimeZoneType);
         assertTrue(partitionTypes.get(1) instanceof TimestampType);
+
+        String early_timestamptz = "TIMESTAMP '1980-12-08 00:10:00 America/Los_Angeles'";
+        getQueryRunner().execute("CREATE TABLE test_timestamptz_filter(a TIMESTAMP WITH TIME ZONE)");
+        for (int i = 0; i < 5; i++) {
+            getQueryRunner().execute("INSERT INTO test_timestamptz_filter VALUES (" + early_timestamptz + ")");
+        }
+        for (int i = 0; i < 5; i++) {
+            getQueryRunner().execute("INSERT INTO test_timestamptz_filter VALUES (" + timestamptz + ")");
+        }
+
+        MaterializedResult earlyRows = getQueryRunner().execute("SELECT a FROM test_timestamptz_filter WHERE a =" + timestamptz);
+        assertEquals(earlyRows.getMaterializedRows().size(), 5);
     }
 }
