@@ -123,8 +123,8 @@ public class TestParquetWriter
         temporaryDirectory = createTempDir();
         parquetFile = new File(temporaryDirectory, randomUUID().toString() + ".parquet");
 
-        Type SMALL_DECIMAL = DecimalType.createDecimalType(18);
-        Type BIG_DECIMAL = DecimalType.createDecimalType(38);
+        DecimalType SMALL_DECIMAL = DecimalType.createDecimalType(18);
+        DecimalType BIG_DECIMAL = DecimalType.createDecimalType(38);
         Type MAP_TYPE = new MapType(
                 VARCHAR,
                 VARCHAR,
@@ -215,14 +215,21 @@ public class TestParquetWriter
             for (int i = 0; i< parquetTypes.size(); i++) {
                 checkTypes(parquetTypes.get(i), expectedLogicalTypeAnnotationTypes.get(i), expectedPrimitiveTypeNames.get(i));
             }
-//            org.apache.parquet.schema.Type dateType = parquetTypes.get(5);
-//            LogicalTypeAnnotation dateAnnotation = dateType.getLogicalTypeAnnotation();
-//            assertTrue(dateAnnotation instanceof LogicalTypeAnnotation.DateLogicalTypeAnnotation);
-//
-//            org.apache.parquet.schema.Type timestampType = parquetTypes.get(6);
-//            LogicalTypeAnnotation timeAnnotation = timestampType.getLogicalTypeAnnotation();
-//            assertEquals(((LogicalTypeAnnotation.TimestampLogicalTypeAnnotation) timeAnnotation).getUnit(), LogicalTypeAnnotation.TimeUnit.MILLIS);
-//            assertFalse(((LogicalTypeAnnotation.TimestampLogicalTypeAnnotation) timeAnnotation).isAdjustedToUTC());
+
+            org.apache.parquet.schema.Type smallDecimalType = parquetTypes.get(7);
+            LogicalTypeAnnotation.DecimalLogicalTypeAnnotation smallDecimalTypeAnnotation = (LogicalTypeAnnotation.DecimalLogicalTypeAnnotation) smallDecimalType.getLogicalTypeAnnotation();
+            assertEquals(smallDecimalTypeAnnotation.getScale(), SMALL_DECIMAL.getScale());
+            assertEquals(smallDecimalTypeAnnotation.getPrecision(), SMALL_DECIMAL.getPrecision());
+
+            org.apache.parquet.schema.Type bigDecimalType = parquetTypes.get(8);
+            LogicalTypeAnnotation.DecimalLogicalTypeAnnotation bigDecimalTypeAnnotation = (LogicalTypeAnnotation.DecimalLogicalTypeAnnotation) bigDecimalType.getLogicalTypeAnnotation();
+            assertEquals(bigDecimalTypeAnnotation.getScale(), BIG_DECIMAL.getScale());
+            assertEquals(bigDecimalTypeAnnotation.getPrecision(), BIG_DECIMAL.getPrecision());
+
+            org.apache.parquet.schema.Type timestampType = parquetTypes.get(10);
+            LogicalTypeAnnotation.TimestampLogicalTypeAnnotation timeAnnotation = (LogicalTypeAnnotation.TimestampLogicalTypeAnnotation) timestampType.getLogicalTypeAnnotation();
+            assertEquals(timeAnnotation.getUnit(), LogicalTypeAnnotation.TimeUnit.MILLIS);
+            assertFalse(timeAnnotation.isAdjustedToUTC());
         }
     }
 
