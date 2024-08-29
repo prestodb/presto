@@ -138,10 +138,10 @@ public class TestParquetWriter
                 BIGINT,
                 INTEGER,
                 DOUBLE,
-                SMALL_DECIMAL,
-                BIG_DECIMAL,
                 VARCHAR,
                 BOOLEAN,
+                SMALL_DECIMAL,
+                BIG_DECIMAL,
                 DATE,
                 TIMESTAMP,
                 MAP_TYPE,
@@ -165,10 +165,10 @@ public class TestParquetWriter
             BIGINT.writeLong(pageBuilder.getBlockBuilder(2), 10);
             INTEGER.writeLong(pageBuilder.getBlockBuilder(3), 10);
             DOUBLE.writeDouble(pageBuilder.getBlockBuilder(4), 10);
-            SMALL_DECIMAL.writeLong(pageBuilder.getBlockBuilder(5), 10);
-            BIG_DECIMAL.writeSlice(pageBuilder.getBlockBuilder(6), Slices.utf8Slice("0000000000000000"));
-            VARCHAR.writeString(pageBuilder.getBlockBuilder(7), "10");
-            BOOLEAN.writeBoolean(pageBuilder.getBlockBuilder(8), true);
+            VARCHAR.writeString(pageBuilder.getBlockBuilder(5), "10");
+            BOOLEAN.writeBoolean(pageBuilder.getBlockBuilder(6), true);
+            SMALL_DECIMAL.writeLong(pageBuilder.getBlockBuilder(7), 10);
+            BIG_DECIMAL.writeSlice(pageBuilder.getBlockBuilder(8), Slices.utf8Slice("0000000000000000"));
             DATE.writeLong(pageBuilder.getBlockBuilder(9), 100);
             TIMESTAMP.writeLong(pageBuilder.getBlockBuilder(10), 100);
             MAP_TYPE.writeObject(pageBuilder.getBlockBuilder(11), mapBlockOf(VARCHAR, VARCHAR, "1", "1"));
@@ -186,27 +186,35 @@ public class TestParquetWriter
             MessageType parquetSchema = parquetMetadata.getFileMetaData().getSchema();
             List<org.apache.parquet.schema.Type> parquetTypes = parquetSchema.getFields();
 
-            org.apache.parquet.schema.Type tinyintType = parquetTypes.get(0);
-            checkTypes(tinyintType, null, "INT32");
+            List<String> expectedPrimitiveTypeNames = ImmutableList.of(
+                    "INT32",
+                    "INT32",
+                    "INT64",
+                    "INT32",
+                    "DOUBLE",
+                    "BINARY",
+                    "BOOLEAN",
+                    "INT64",
+                    "FIXED_LEN_BYTE_ARRAY",
+                    "INT32",
+                    "INT64",
+                    "",
+                    "");
 
-            org.apache.parquet.schema.Type smallintType = parquetTypes.get(1);
-            checkTypes(smallintType, null, "INT32");
+            List<Class<?>> expectedLogicalTypeAnnotationTypes = new ArrayList<>();
+            for (int i = 0; i < 7; i++) {
+                expectedLogicalTypeAnnotationTypes.add(null);
+            }
+            expectedLogicalTypeAnnotationTypes.add(LogicalTypeAnnotation.DecimalLogicalTypeAnnotation.class);
+            expectedLogicalTypeAnnotationTypes.add(LogicalTypeAnnotation.DecimalLogicalTypeAnnotation.class);
+            expectedLogicalTypeAnnotationTypes.add(LogicalTypeAnnotation.DateLogicalTypeAnnotation.class);
+            expectedLogicalTypeAnnotationTypes.add(LogicalTypeAnnotation.TimestampLogicalTypeAnnotation.class);
+            expectedLogicalTypeAnnotationTypes.add(LogicalTypeAnnotation.MapLogicalTypeAnnotation.class);
+            expectedLogicalTypeAnnotationTypes.add(null);
 
-            org.apache.parquet.schema.Type bigintType = parquetTypes.get(2);
-            checkTypes(bigintType, null, "INT64");
-
-            org.apache.parquet.schema.Type integerType = parquetTypes.get(3);
-            checkTypes(integerType, null, "INT32");
-
-//            org.apache.parquet.schema.Type varcharType = parquetTypes.get(2);
-//            assertEquals(varcharType.asPrimitiveType().getPrimitiveTypeName().name(), "BINARY");
-//
-//            org.apache.parquet.schema.Type booleanType = parquetTypes.get(3);
-//            assertEquals(booleanType.asPrimitiveType().getPrimitiveTypeName().name(), "BOOLEAN");
-//
-//            org.apache.parquet.schema.Type doubleType = parquetTypes.get(4);
-//            assertEquals(doubleType.asPrimitiveType().getPrimitiveTypeName().name(), "DOUBLE");
-//
+            for (int i = 0; i< parquetTypes.size(); i++) {
+                checkTypes(parquetTypes.get(i), expectedLogicalTypeAnnotationTypes.get(i), expectedPrimitiveTypeNames.get(i));
+            }
 //            org.apache.parquet.schema.Type dateType = parquetTypes.get(5);
 //            LogicalTypeAnnotation dateAnnotation = dateType.getLogicalTypeAnnotation();
 //            assertTrue(dateAnnotation instanceof LogicalTypeAnnotation.DateLogicalTypeAnnotation);
@@ -225,7 +233,7 @@ public class TestParquetWriter
             assertEquals(primitiveType.getPrimitiveTypeName().name(), expectedPrimitiveTypeName);
         }
         catch (ClassCastException e) {
-            assertNull(expectedPrimitiveTypeName);
+            assertEquals(expectedPrimitiveTypeName, "");
         }
 
         LogicalTypeAnnotation annotation = type.getLogicalTypeAnnotation();
