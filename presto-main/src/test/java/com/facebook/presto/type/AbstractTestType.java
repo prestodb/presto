@@ -25,6 +25,7 @@ import com.facebook.presto.common.type.UnknownType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.DynamicSliceOutput;
@@ -64,7 +65,13 @@ import static org.testng.Assert.fail;
 public abstract class AbstractTestType
 {
     private static final BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager();
-    protected static final FunctionAndTypeManager functionAndTypeManager = new FunctionAndTypeManager(createTestTransactionManager(), blockEncodingSerde, new FeaturesConfig(), new HandleResolver(), ImmutableSet.of());
+    protected static final FunctionAndTypeManager functionAndTypeManager = new FunctionAndTypeManager(
+            createTestTransactionManager(),
+            blockEncodingSerde,
+            new FeaturesConfig(),
+            new FunctionsConfig(),
+            new HandleResolver(),
+            ImmutableSet.of());
 
     private final Class<?> objectValueType;
     private final Block testBlock;

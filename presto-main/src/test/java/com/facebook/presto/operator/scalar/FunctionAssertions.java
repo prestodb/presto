@@ -65,6 +65,7 @@ import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.facebook.presto.split.PageSourceProvider;
 import com.facebook.presto.sql.analyzer.ExpressionAnalysis;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.analyzer.SemanticErrorCode;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
@@ -220,18 +221,23 @@ public final class FunctionAssertions
 
     public FunctionAssertions(Session session)
     {
-        this(session, new FeaturesConfig());
+        this(session, new FeaturesConfig(), new FunctionsConfig(), false);
     }
 
     public FunctionAssertions(Session session, FeaturesConfig featuresConfig)
     {
-        this(session, featuresConfig, false);
+        this(session, featuresConfig, new FunctionsConfig(), false);
     }
 
-    public FunctionAssertions(Session session, FeaturesConfig featuresConfig, boolean refreshSession)
+    public FunctionAssertions(Session session, FunctionsConfig functionsConfig)
+    {
+        this(session, new FeaturesConfig(), functionsConfig, false);
+    }
+
+    public FunctionAssertions(Session session, FeaturesConfig featuresConfig, FunctionsConfig functionsConfig, boolean refreshSession)
     {
         requireNonNull(session, "session is null");
-        runner = new LocalQueryRunner(session, featuresConfig);
+        runner = new LocalQueryRunner(session, featuresConfig, functionsConfig);
         if (refreshSession) {
             this.session = runner.getDefaultSession();
         }
